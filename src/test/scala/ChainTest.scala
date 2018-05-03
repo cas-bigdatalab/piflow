@@ -13,8 +13,9 @@ class ChainTest {
     val id2 = chain.addProcess("CountWords", new CountWords());
     val id3 = chain.addProcess("PrintCount", new PrintCount());
 
-    chain.link(id1, id2);
-    chain.link(id2, id3);
+    chain.scheduleAfter( id2,id1);
+    chain.scheduleAfter(id3,id2);
+    chain.scheduleAt(1000);
 
     val runner = new RunnerImpl();
     val exe = runner.run(chain, id1);
