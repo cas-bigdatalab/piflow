@@ -1,6 +1,7 @@
 import java.io.{File, FileInputStream, FileOutputStream}
+import java.util.Date
 
-import cn.piflow.{ChainImpl, Process, ProcessContext, RunnerImpl}
+import cn.piflow._
 import org.apache.commons.io.{FileUtils, IOUtils}
 import org.apache.spark.sql.SparkSession
 import org.junit.Test
@@ -9,20 +10,27 @@ class ChainTest {
   @Test
   def test1() {
     val chain = new ChainImpl();
-    val id1 = chain.addProcess("CopyTextFile", new CopyTextFile(), "comment");
-    val id2 = chain.addProcess("CountWords", new CountWords());
-    val id3 = chain.addProcess("PrintCount", new PrintCount());
+    chain.addProcess("CopyTextFile", new CopyTextFile());
+    chain.addProcess("CountWords", new CountWords());
+    chain.addProcess("PrintCount", new PrintCount());
+    chain.addProcess("PrintMessage", new PrintMessage());
 
-    chain.scheduleAfter( id2,id1);
-    chain.scheduleAfter(id3,id2);
-    chain.scheduleAt(1000);
+    chain.trigger("CountWords", SequenceTriggerBuilder.after("CopyTextFile"));
+    chain.trigger("PrintCount", SequenceTriggerBuilder.after("CountWords"));
+    chain.trigger("PrintMessage", TimerTriggerBuilder.cron("* * * * * ?"));
 
     val runner = new RunnerImpl();
-    val exe = runner.run(chain, id1);
+    val exe = runner.run(chain, "CopyTextFile");
 
     FileUtils.deleteDirectory(new File("./out/wordcount"));
     FileUtils.deleteQuietly(new File("./out/honglou.txt"));
     exe.awaitComplete();
+  }
+}
+
+class PrintMessage extends Process {
+  def run(pc: ProcessContext): Unit = {
+    println("*****hello******" + new Date());
   }
 }
 

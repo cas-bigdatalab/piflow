@@ -1,9 +1,8 @@
 package cn.piflow
 
-import java.util.Date
-import java.util.concurrent.atomic.AtomicInteger
-
-import cn.piflow.util.FormatUtils
+import cn.piflow.util.Logging
+import org.quartz._
+import org.quartz.impl.StdSchedulerFactory
 
 import scala.collection.mutable.{ArrayBuffer, Map => MMap}
 
@@ -12,11 +11,75 @@ import scala.collection.mutable.{ArrayBuffer, Map => MMap}
   */
 
 trait Chain {
-  def addProcess(name: String, process: Process, comment: String = null): String;
+  def addProcess(name: String, process: Process): Chain;
 
-  def scheduleAt(time: Date);
+  def trigger(name: String, trigger: Trigger): Chain;
 
-  def scheduleAfter(processId: String, predecessors: String*);
+  def getProcess(name: String): Process;
+
+  def getTriggers(): Seq[BoundTrigger];
+
+  def getTrigger(name: String): BoundTrigger;
+}
+
+trait Trigger {
+  def bind(name: String, process: Process): BoundTrigger;
+}
+
+trait BoundTrigger {
+  def start(context: ExecutionContext);
+
+  def getProcessName(): String;
+
+  def getProcess(): Process;
+
+  def satisfied(context: ExecutionContext): Boolean;
+
+  def stop(context: ExecutionContext);
+}
+
+abstract class AbstractBoundTrigger(name: String, process: Process) extends BoundTrigger {
+  def start(context: ExecutionContext) {}
+
+  def getProcessName() = name;
+
+  def getProcess() = process;
+
+  def satisfied(context: ExecutionContext): Boolean;
+
+  def stop(context: ExecutionContext) {}
+}
+
+object SequenceTriggerBuilder {
+
+  class SequenceTrigger(predecessors: Seq[String]) extends Trigger {
+    val dps = predecessors.distinct;
+
+    override def bind(name: String, process: Process): BoundTrigger = new AbstractBoundTrigger(name, process) {
+      override def satisfied(context: ExecutionContext): Boolean = {
+        val completed = context.getCompletedProcesses();
+        //all predecessors are completed?
+        predecessors.filter(completed.contains(_)).distinct.size == dps.size
+      };
+    }
+  }
+
+  def after(predecessors: String*): Trigger = new SequenceTrigger(predecessors);
+}
+
+object TimerTriggerBuilder {
+
+  class TimerTrigger(cronExpr: String) extends Trigger {
+    override def bind(name: String, process: Process): BoundTrigger = new AbstractBoundTrigger(name, process) {
+      override def start(context: ExecutionContext): Unit = {
+        context.scheduleProcess(name, process, cronExpr);
+      }
+
+      override def satisfied(context: ExecutionContext): Boolean = false;
+    }
+  }
+
+  def cron(expr: String): Trigger = new TimerTrigger(expr);
 }
 
 trait Execution {
@@ -37,33 +100,25 @@ trait Process {
   def run(pc: ProcessContext);
 }
 
-
 class ChainImpl extends Chain {
-  val graph = new FlowGraph[ProcessInfo, String]();
+  val triggers = MMap[String, BoundTrigger]();
+  val processes = MMap[String, Process]();
 
-  case class ProcessInfo(name: String, process: Process, comment: String) {
+  def addProcess(name: String, process: Process) = {
+    processes(name) = process;
+    this;
+  };
+
+  def trigger(name: String, trigger: Trigger) = {
+    triggers(name) = trigger.bind(name, processes(name));
+    this;
   }
 
-  def getProcessInfo(id: String): ProcessInfo = graph.getNodeValue(id.toInt).asInstanceOf[ProcessInfo];
+  def getProcess(name: String) = processes(name);
 
-  def addProcess(name: String, process: Process, comment: String = null) = {
-    val id = graph.createNode(new ProcessInfo(name, process, comment));
-    "" + id;
-  }
+  def getTriggers() = triggers.values.toSeq;
 
-  def scheduleAfter(processId: String, predecessors: String*) = {
-    predecessors.foreach { (predecessor) =>
-      graph.link(predecessor.toInt, processId.toInt, "run after");
-    }
-  }
-
-  def getSuccessorNodes(nodeId: String): Seq[String] = {
-    graph.getSuccessorEdges(nodeId.toInt).map("" + _.to);
-  }
-
-  def getPredecessorNodes(nodeId: String): Seq[String] = {
-    graph.getPredecessorEdges(nodeId.toInt).map("" + _.from);
-  }
+  def getTrigger(name: String) = triggers(name);
 }
 
 class RunnerImpl extends Runner {
@@ -76,76 +131,71 @@ class RunnerImpl extends Runner {
   }
 }
 
-class ExecutionImpl(chain: ChainImpl, starts: Seq[String]) extends Execution {
-  def awaitComplete() = {
-    if (!starts.isEmpty) {
-      val todo = ArrayBuffer[String]();
-      val completed = ArrayBuffer[String]();
-      todo ++= starts;
-      while (!todo.isEmpty) {
-        val one = todo.head;
-        //are all predecessor processes done?
-        val pns = chain.getPredecessorNodes(one);
-        val readyToRun = pns.filter(!completed.contains(_)).isEmpty;
-        if (readyToRun) {
-          val pi = chain.getProcessInfo(one);
-          pi.process.run(null);
+trait ExecutionContext {
+  def scheduleProcess(name: String, process: Process, cronExpr: String);
 
-          completed += one;
-          todo.remove(0);
-          todo ++= chain.getSuccessorNodes(one);
-        }
-      }
+  def getCompletedProcesses(): Seq[String];
+}
+
+class ExecutionImpl(chain: Chain, starts: Seq[String]) extends Execution with Logging {
+  def awaitComplete() = {
+    val triggers = ArrayBuffer[BoundTrigger]();
+    triggers ++= starts.map(name => new InstantTrigger(name, chain.getProcess(name)));
+    triggers ++= chain.getTriggers();
+    val scheduler = StdSchedulerFactory.getDefaultScheduler();
+    scheduler.start();
+
+    val completed = ArrayBuffer[String]();
+
+    val ec = new ExecutionContext() {
+      override def scheduleProcess(name: String, process: Process, cronExpr: String): Unit = {
+        val quartzTrigger = TriggerBuilder.newTrigger()
+          .startNow()
+          .withSchedule(CronScheduleBuilder.cronSchedule(cronExpr)
+          ).build();
+
+        val quartzJob = JobBuilder.newJob(classOf[ProcessAsQuartzJob])
+          .usingJobData("processName", name)
+          .build();
+        quartzJob.getJobDataMap.put("process", process);
+        scheduler.scheduleJob(quartzJob, quartzTrigger);
+      };
+
+      override def getCompletedProcesses(): Seq[String] = completed.toSeq;
+    };
+
+    triggers.foreach(_.start(ec));
+
+    var head = triggers.filter(_.satisfied(ec)).headOption;
+    while (!head.isEmpty) {
+      val trigger = head.get;
+      val processName = trigger.getProcessName();
+      logger.info(s"started process: $processName");
+      trigger.getProcess().run(null);
+      logger.info(s"finished process: $processName");
+      completed += processName;
+
+      head = triggers.filter { trigger =>
+        !completed.contains(trigger.getProcessName()) && trigger.satisfied(ec)
+      }.headOption;
     }
-    //TODO: timer triggers
+
+    triggers.foreach(_.stop(ec));
+    scheduler.shutdown();
   }
 }
 
-class FlowGraph[NodeValue, EdgeValue] {
-  private val nodeMap = MMap[Int, NodeValue]();
-  private val edges = ArrayBuffer[GraphEdge]();
-  private val nodeIdSerial = new AtomicInteger(0);
+class InstantTrigger(name: String, process: Process) extends AbstractBoundTrigger(name, process) {
+  override def satisfied(context: ExecutionContext): Boolean = true;
+}
 
-  class GraphEdge(val from: Int, val to: Int, val label: EdgeValue) {
-    def valueFrom() = nodeMap(from);
+class ProcessAsQuartzJob extends Job with Logging {
+  override def execute(context: JobExecutionContext): Unit = {
+    val map = context.getJobDetail.getJobDataMap;
+    val processName = map.get("processName");
 
-    def valueTo() = nodeMap(to);
-  }
-
-  def createNode(value: NodeValue): Int = {
-    val nid = nodeIdSerial.incrementAndGet();
-    nodeMap(nid) = value;
-    nid;
-  }
-
-  def getNodeValue(nodeId: Int) = nodeMap(nodeId);
-
-  def getSuccessorEdges(nodeId: Int): Seq[GraphEdge] = {
-    edges.filter(_.from == nodeId);
-  }
-
-  def getPredecessorEdges(nodeId: Int): Seq[GraphEdge] = {
-    edges.filter(_.to == nodeId);
-  }
-
-  def link(from: Int, to: Int,
-           label: EdgeValue): FlowGraph[NodeValue, EdgeValue] = {
-    edges += new GraphEdge(from, to, label);
-    this;
-  }
-
-  def show() {
-    val data = edges
-      .map { edge: GraphEdge ⇒
-        val startNodeId = edge.from;
-        val endNodeId = edge.to;
-        Seq[Any](edge.from -> edge.to,
-          s"$startNodeId->$endNodeId",
-          edge.valueFrom(),
-          edge.valueTo(),
-          edge.label)
-      }.sortBy(_.apply(0).asInstanceOf[(Int, Int)]).map(_.drop(1));
-
-    FormatUtils.printTable(Seq("", "from", "to", "label"), data);
+    logger.info(s"started process: $processName");
+    map.get("process").asInstanceOf[Process].run(null);
+    logger.info(s"finished process: $processName");
   }
 }
