@@ -6,31 +6,39 @@ import org.apache.commons.io.{FileUtils, IOUtils}
 import org.apache.spark.sql.SparkSession
 import org.junit.Test
 
-class ChainTest {
+class FlowTest {
   @Test
   def test1() {
-    val chain = new ChainImpl();
+    val chain = new FlowImpl();
+    chain.addProcess("CleanHouse", new CleanHouse());
     chain.addProcess("CopyTextFile", new CopyTextFile());
     chain.addProcess("CountWords", new CountWords());
     chain.addProcess("PrintCount", new PrintCount());
     chain.addProcess("PrintMessage", new PrintMessage());
 
+    chain.trigger("CopyTextFile", SequenceTriggerBuilder.after("CleanHouse"));
     chain.trigger("CountWords", SequenceTriggerBuilder.after("CopyTextFile"));
     chain.trigger("PrintCount", SequenceTriggerBuilder.after("CountWords"));
     chain.trigger("PrintMessage", TimerTriggerBuilder.cron("* * * * * ?"));
 
     val runner = new RunnerImpl();
-    val exe = runner.run(chain, "CopyTextFile");
+    val exe = runner.run(chain, "CleanHouse");
 
-    FileUtils.deleteDirectory(new File("./out/wordcount"));
-    FileUtils.deleteQuietly(new File("./out/honglou.txt"));
-    exe.awaitComplete();
+    Thread.sleep(10000);
+    exe.stop();
   }
 }
 
 class PrintMessage extends Process {
   def run(pc: ProcessContext): Unit = {
     println("*****hello******" + new Date());
+  }
+}
+
+class CleanHouse extends Process {
+  def run(pc: ProcessContext): Unit = {
+    FileUtils.deleteDirectory(new File("./out/wordcount"));
+    FileUtils.deleteQuietly(new File("./out/honglou.txt"));
   }
 }
 
