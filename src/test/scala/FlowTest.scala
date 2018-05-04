@@ -9,22 +9,22 @@ import org.junit.Test
 class FlowTest {
   @Test
   def test1() {
-    val chain = new FlowImpl();
-    chain.addProcess("CleanHouse", new CleanHouse());
-    chain.addProcess("CopyTextFile", new CopyTextFile());
-    chain.addProcess("CountWords", new CountWords());
-    chain.addProcess("PrintCount", new PrintCount());
-    chain.addProcess("PrintMessage", new PrintMessage());
+    val flow = new FlowImpl();
+    flow.addProcess("CleanHouse", new CleanHouse());
+    flow.addProcess("CopyTextFile", new CopyTextFile());
+    flow.addProcess("CountWords", new CountWords());
+    flow.addProcess("PrintCount", new PrintCount());
+    flow.addProcess("PrintMessage", new PrintMessage());
 
-    chain.trigger("CopyTextFile", SequenceTriggerBuilder.after("CleanHouse"));
-    chain.trigger("CountWords", SequenceTriggerBuilder.after("CopyTextFile"));
-    chain.trigger("PrintCount", SequenceTriggerBuilder.after("CountWords"));
-    chain.trigger("PrintMessage", TimerTriggerBuilder.cron("* * * * * ?"));
+    flow.schedule("CopyTextFile", SequenceTriggerBuilder.after("CleanHouse"));
+    flow.schedule("CountWords", SequenceTriggerBuilder.after("CopyTextFile"));
+    flow.schedule("PrintCount", SequenceTriggerBuilder.after("CountWords"));
+    flow.schedule("PrintMessage", TimerTriggerBuilder.cron("0/30 * * * * ? "));
 
     val runner = new RunnerImpl();
-    val exe = runner.run(chain, "CleanHouse");
+    val exe = runner.run(flow, "CleanHouse");
 
-    Thread.sleep(10000);
+    Thread.sleep(20000);
     exe.stop();
   }
 }
