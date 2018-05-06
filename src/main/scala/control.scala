@@ -14,41 +14,21 @@ import scala.collection.mutable.{ArrayBuffer, Map => MMap}
 trait Flow {
   def addProcess(name: String, process: Process): Flow;
 
-  def schedule(name: String, trigger: Trigger): Flow;
+  def addTrigger(trigger: Trigger): Flow;
 
   def getProcess(name: String): Process;
 
-  def getTriggers(): Seq[BoundTrigger];
-
-  def getTrigger(name: String): BoundTrigger;
+  def getTriggers(): Seq[Trigger];
 }
 
 trait Trigger {
-  def bind(name: String, process: Process): BoundTrigger;
-}
+  def activate(context: ExecutionContext): Unit;
 
-trait BoundTrigger {
-  def getProcessName(): String;
-
-  def getProcess(): Process;
-
-  def onStart(context: ExecutionContext);
-
-  def onStop(context: ExecutionContext);
+  def getTriggeredProcesses(): Seq[String];
 }
 
 trait Event {
 
-}
-
-abstract class AbstractBoundTrigger(name: String, process: Process) extends BoundTrigger {
-  def onStart(context: ExecutionContext) {}
-
-  def getProcessName() = name;
-
-  def getProcess() = process;
-
-  def onStop(context: ExecutionContext) {}
 }
 
 case class ProcessCompletedListener(boundProcessName: String, executionContext: ExecutionContext, predecessors: String*) extends EventListener {
@@ -70,26 +50,27 @@ case class ProcessCompletedListener(boundProcessName: String, executionContext: 
 }
 
 object DependencyTrigger {
-  def dependOn(dependencies: String*): Trigger = new Trigger() {
-    override def bind(boundProcessName: String, process: Process): BoundTrigger =
-      new AbstractBoundTrigger(boundProcessName, process) {
-        override def onStart(context: ExecutionContext): Unit = {
-          val listener = new ProcessCompletedListener(boundProcessName, context, dependencies: _*);
-          dependencies.foreach { dependency =>
-            context.on(ProcessCompleted(dependency), listener);
-          }
-        }
+  def dependOn(triggeredProcessName: String, dependencies: String*): Trigger = new Trigger() {
+    override def activate(context: ExecutionContext): Unit = {
+      val listener = new ProcessCompletedListener(triggeredProcessName, context, dependencies: _*);
+      dependencies.foreach { dependency =>
+        context.on(ProcessCompleted(dependency), listener);
       }
+    }
+
+    override def getTriggeredProcesses(): Seq[String] = Seq(triggeredProcessName);
   }
 }
 
 object CronTrigger {
-  def cron(cronExpr: String): Trigger = new Trigger() {
-    override def bind(name: String, process: Process): BoundTrigger = new AbstractBoundTrigger(name, process) {
-      override def onStart(context: ExecutionContext): Unit = {
-        context.cronProcess(name, cronExpr);
+  def cron(cronExpr: String, processNames: String*): Trigger = new Trigger() {
+    override def activate(context: ExecutionContext): Unit = {
+      processNames.foreach { processName =>
+        context.cronProcess(processName, cronExpr);
       }
     }
+
+    override def getTriggeredProcesses(): Seq[String] = processNames;
   }
 }
 
@@ -112,7 +93,7 @@ trait Process {
 }
 
 class FlowImpl extends Flow {
-  val triggers = MMap[String, BoundTrigger]();
+  val triggers = ArrayBuffer[Trigger]();
   val processes = MMap[String, Process]();
 
   def addProcess(name: String, process: Process) = {
@@ -120,16 +101,14 @@ class FlowImpl extends Flow {
     this;
   };
 
-  def schedule(name: String, trigger: Trigger) = {
-    triggers(name) = trigger.bind(name, processes(name));
+  def addTrigger(trigger: Trigger) = {
+    triggers += trigger;
     this;
   }
 
   def getProcess(name: String) = processes(name);
 
-  def getTriggers() = triggers.values.toSeq;
-
-  def getTrigger(name: String) = triggers(name);
+  def getTriggers() = triggers.toSeq;
 }
 
 class RunnerImpl extends Runner {
@@ -220,7 +199,7 @@ class ExecutionImpl(flow: Flow, starts: Seq[String]) extends Execution with Logg
   };
 
   def start(): Unit = {
-    triggers.foreach(_.onStart(executionContext));
+    triggers.foreach(_.activate(executionContext));
     quartzScheduler.start();
     starts.foreach { processName =>
       executionContext.fire(LaunchProcess(), processName);
@@ -228,7 +207,6 @@ class ExecutionImpl(flow: Flow, starts: Seq[String]) extends Execution with Logg
   }
 
   def stop() = {
-    triggers.foreach(_.onStop(executionContext));
     quartzScheduler.shutdown();
   }
 

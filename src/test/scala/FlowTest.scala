@@ -16,11 +16,10 @@ class FlowTest {
     flow.addProcess("PrintCount", new PrintCount());
     flow.addProcess("PrintMessage", new PrintMessage());
 
-    flow.schedule("CopyTextFile", DependencyTrigger.dependOn("CleanHouse"));
-    flow.schedule("CountWords", DependencyTrigger.dependOn("CopyTextFile"));
-    flow.schedule("PrintCount", DependencyTrigger.dependOn("CountWords"));
-
-    flow.schedule("PrintMessage", CronTrigger.cron("0/5 * * * * ? "));
+    flow.addTrigger(DependencyTrigger.dependOn("CopyTextFile", "CleanHouse"));
+    flow.addTrigger(DependencyTrigger.dependOn("CountWords", "CopyTextFile"));
+    flow.addTrigger(DependencyTrigger.dependOn("PrintCount", "CountWords"));
+    flow.addTrigger(CronTrigger.cron("0/5 * * * * ? ", "PrintMessage"));
 
     val runner = new RunnerImpl();
     val exe = runner.run(flow, "CleanHouse");
