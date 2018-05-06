@@ -50,21 +50,20 @@ class FlowTest {
   @Test
   def test2() {
     val fg = new SparkETLProcess();
-    val node1 = fg.createNode(DoLoad(TextFile("./out/honglou.txt")));
-    val node2 = fg.createNode(DoMap(
+    val s1 = fg.loadStream(TextFile("./out/honglou.txt", "text"));
+    val s2 = fg.transform(s1, DoMap(
       """
       function(s){
         return s.replaceAll("[\\x00-\\xff]|，|。|：|．|“|”|？|！|　", "");
       }"""));
 
-    val node3 = fg.createNode(DoFlatMap(
+    val s3 = fg.transform(s2, DoFlatMap(
       """
       function(s){
         return s.zip(s.drop(1)).map(t => "" + t._1 + t._2);
       }"""));
 
-    val node4 = fg.createNode(DoWrite(JsonFile("./out/wordcount")));
-    fg.pipe(node1, node2, node3, node4);
+    fg.writeStream(s3, TextFile("./out/wordcount", "json"));
 
     _testFlow1(fg);
   }
