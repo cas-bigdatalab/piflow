@@ -55,13 +55,13 @@ class FlowTest {
       """
       function(s){
         return s.replaceAll("[\\x00-\\xff]|，|。|：|．|“|”|？|！|　", "");
-      }"""));
+      }""", classOf[String]));
 
     val s3 = fg.transform(s2, DoFlatMap(
       """
       function(s){
         return s.zip(s.drop(1)).map(t => "" + t._1 + t._2);
-      }"""));
+      }""", classOf[String]));
 
     fg.writeStream(s3, TextFile("./out/wordcount", "json"));
 

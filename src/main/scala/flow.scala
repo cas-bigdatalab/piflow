@@ -113,8 +113,12 @@ trait Runner {
   def run(flow: Flow, starts: String*): Execution;
 }
 
-trait ProcessContext {
+class ProcessContext {
+  val context = MMap[String, Any]();
 
+  def get(key: String): Any = context(key);
+
+  def put(key: String, value: Any) = context(key) = value;
 }
 
 trait Process {

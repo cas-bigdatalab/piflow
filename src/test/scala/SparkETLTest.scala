@@ -2,7 +2,10 @@
   * Created by bluejoe on 2018/5/6.
   */
 
+import java.io.File
+
 import cn.piflow._
+import org.apache.commons.io.FileUtils
 import org.junit.Test
 
 class SparkETLTest {
@@ -14,16 +17,24 @@ class SparkETLTest {
       """
       function(s){
         return s.replaceAll("[\\x00-\\xff]|，|。|：|．|“|”|？|！|　", "");
-      }"""));
+      }""", classOf[String]));
 
     val s3 = fg.transform(s2, DoFlatMap(
       """
-      function(s){
-        return s.zip(s.drop(1)).map(t => "" + t._1 + t._2);
-      }"""));
+	function (s) {
+		var arr = Array();
+		var len = s.length;
+		for (var i = 0; i < s.length - 1; i++) {
+			arr.push(s.substring(i, i + 2));
+		}
+
+		return arr;
+	}
+      """, classOf[String]));
 
     fg.writeStream(s3, TextFile("./out/wordcount", "json"));
 
-    fg.run(null);
+    FileUtils.deleteDirectory(new File("./out/wordcount"));
+    fg.run(new SparkProcessContext());
   }
 }
