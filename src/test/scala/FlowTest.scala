@@ -52,16 +52,10 @@ class FlowTest {
     val fg = new SparkETLProcess();
     val s1 = fg.loadStream(TextFile("./out/honglou.txt", "text"));
     val s2 = fg.transform(s1, DoMap(
-      """
-      function(s){
-        return s.replaceAll("[\\x00-\\xff]|，|。|：|．|“|”|？|！|　", "");
-      }""", classOf[String]));
+      SparkETLTest.SCRIPT_1, classOf[String]));
 
     val s3 = fg.transform(s2, DoFlatMap(
-      """
-      function(s){
-        return s.zip(s.drop(1)).map(t => "" + t._1 + t._2);
-      }""", classOf[String]));
+      SparkETLTest.SCRIPT_2, classOf[String]));
 
     fg.writeStream(s3, TextFile("./out/wordcount", "json"));
 

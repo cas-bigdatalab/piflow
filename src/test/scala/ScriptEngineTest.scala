@@ -17,14 +17,8 @@ class ScriptEngineTest {
     Assert.assertEquals("BLUEJOE", s);
     Assert.assertEquals(classOf[String], s.getClass);
 
-    engine.eval("function arr(){return [1,2,3];}");
-
-    val s2 = engine.asInstanceOf[Invocable].invokeFunction("arr");
-    val som = s2.asInstanceOf[ScriptObjectMirror];
-    Assert.assertEquals(true, som.isArray);
-    println(som.values());
-    println(som.values().getClass);
-    println(som.values().asInstanceOf[util.Collection[_]].iterator());
+    val s2 = engine.eval("(function (){return java.util.Arrays.asList([1,2,3]);})();");
+    println(s2);
 
     println(engine.eval("1;").getClass);
     println(engine.eval("'abc';").getClass);
@@ -36,6 +30,15 @@ class ScriptEngineTest {
   @Test
   def testJs2(): Unit = {
     val engine = new ScriptEngineManager().getEngineByName("javascript");
+    val s = engine.eval("""["1","2","3"]""");
+    println(s);
+    val m = ScriptUtils.convert(s, classOf[Array[String]]);
+    println(m);
+  }
+
+  @Test
+  def testTs(): Unit = {
+    val engine = new ScriptEngineManager().getEngineByName("typescript");
     val s = engine.eval("""["1","2","3"]""");
     println(s);
     val m = ScriptUtils.convert(s, classOf[Array[String]]);

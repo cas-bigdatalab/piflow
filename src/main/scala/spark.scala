@@ -7,7 +7,6 @@ import java.util.concurrent.atomic.AtomicInteger
 import java.util.{Map => JMap}
 import javax.script.{Compilable, CompiledScript => JCompiledScript, ScriptEngineManager}
 
-import jdk.nashorn.api.scripting.ScriptObjectMirror
 import org.apache.spark.api.java.function.{FlatMapFunction, MapFunction}
 import org.apache.spark.sql.{Dataset, Encoder, Encoders, SparkSession}
 
@@ -217,30 +216,10 @@ class JavaScriptEngine extends ScriptEngine {
         bindings.asInstanceOf[JMap[String, Any]].putAll(args);
 
         val value = compiled.eval(bindings);
-        if (value.isInstanceOf[java.lang.Integer]
-          || value.isInstanceOf[java.lang.String]
-          || value.isInstanceOf[java.lang.Double]
-          || value.isInstanceOf[java.lang.Boolean]) {
-          value;
-        }
-
-        else if (value.isInstanceOf[ScriptObjectMirror]) {
-          if (value.asInstanceOf[ScriptObjectMirror].isArray) {
-            value.asInstanceOf[ScriptObjectMirror].values().asInstanceOf[java.util.Collection[_]]
-          }
-        }
-
-        else {
-          throw new UnrecognizedValueException(value);
-        }
+        value;
       }
     }
   }
-}
-
-class UnrecognizedValueException(value: Any)
-  extends RuntimeException(s"unrecognized value: $value") {
-
 }
 
 object Tool {
