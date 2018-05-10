@@ -212,21 +212,10 @@ class FlowExecutionImpl(id: String, flow: Flow, args: Map[String, Any])
 
   override def getId(): String = id;
 
-  override def addListener(listener: FlowExecutionListener): Unit = listeners += listener;
+  override def addListener(listener: FlowExecutionListener): Unit =
+    listeners += listener;
 
   override def getFlow(): Flow = flow;
-}
-
-case class LaunchProcess() extends Event {
-}
-
-case class ProcessStarted(processName: String) extends Event {
-}
-
-case class ProcessFailed(processName: String) extends Event {
-}
-
-case class ProcessCompleted(processName: String) extends Event {
 }
 
 class ProcessAsQuartzJob extends Job with Logging {

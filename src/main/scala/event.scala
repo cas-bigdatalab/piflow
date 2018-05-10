@@ -7,6 +7,18 @@ trait Event {
 
 }
 
+case class LaunchProcess() extends Event {
+}
+
+case class ProcessStarted(processName: String) extends Event {
+}
+
+case class ProcessFailed(processName: String) extends Event {
+}
+
+case class ProcessCompleted(processName: String) extends Event {
+}
+
 trait EventHandler {
   def handle(event: Event, args: Any): Unit;
 }
