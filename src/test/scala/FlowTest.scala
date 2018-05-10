@@ -8,7 +8,7 @@ import org.junit.Test
 
 class FlowTest {
   private def runFlow(processes: Map[String, Process]) {
-    val flow = new FlowImpl();
+    val flow = new Flow();
     processes.foreach(en => flow.addProcess(en._1, en._2));
 
     flow.addProcess("PrintMessage", new PrintMessage());
@@ -18,7 +18,7 @@ class FlowTest {
     flow.addTrigger(DependencyTrigger.isDependentOn("PrintCount", "CountWords"));
     flow.addTrigger(TimerTrigger.cron("0/5 * * * * ? ", "PrintMessage"));
 
-    val runner = new RunnerImpl();
+    val runner = new Runner();
     val exe = runner.run(flow, "CleanHouse");
 
     val spark = SparkSession.builder.master("local[4]")

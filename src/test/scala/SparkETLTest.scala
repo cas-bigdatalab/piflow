@@ -5,6 +5,7 @@
 import java.io.File
 
 import cn.piflow._
+import cn.piflow.io.{Console, FileFormat, TextFile}
 import org.apache.commons.io.FileUtils
 import org.apache.spark.sql.SparkSession
 import org.junit.Test
@@ -26,29 +27,29 @@ object SparkETLTest {
 				arr.add($.Row(str.substring(i, i + 2)));
 			}
 
-			return arr.iterator();
+			return arr;
 		}
     """;
 
   def createProcessCountWords() = {
     val processCountWords = new SparkETLProcess();
     val s1 = processCountWords.loadStream(TextFile("./out/honglou.txt", FileFormat.TEXT));
-    val s2 = processCountWords.transform(s1, DoMap(ScriptEngine.logic(SCRIPT_1)));
-    val s3 = processCountWords.transform(s2, DoFlatMap(ScriptEngine.logic(SCRIPT_2)));
-    val s4 = processCountWords.transform(s3, ExecuteSQL(
-      "select value, count(*) count from table0 group by value order by count desc"));
+    val s2 = processCountWords.transform(DoMap(ScriptEngine.logic(SCRIPT_1)), s1);
+    val s3 = processCountWords.transform(DoFlatMap(ScriptEngine.logic(SCRIPT_2)), s2);
+    val s4 = processCountWords.transform(ExecuteSQL(
+      "select value, count(*) count from table_0 group by value order by count desc"), s3);
 
-    processCountWords.writeStream(s4, TextFile("./out/wordcount", FileFormat.JSON));
+    processCountWords.writeStream(TextFile("./out/wordcount", FileFormat.JSON), s4);
     processCountWords;
   }
 
   def createProcessPrintCount() = {
     val processPrintCount = new SparkETLProcess();
     val s1 = processPrintCount.loadStream(TextFile("./out/wordcount", FileFormat.JSON));
-    val s2 = processPrintCount.transform(s1, ExecuteSQL(
-      "select value from table0 order by count desc"));
+    val s2 = processPrintCount.transform(ExecuteSQL(
+      "select value from table_0 order by count desc"), s1);
 
-    processPrintCount.writeStream(s2, Console(40));
+    processPrintCount.writeStream(Console(40), s2);
     processPrintCount;
   }
 }

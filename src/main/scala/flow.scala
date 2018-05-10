@@ -13,16 +13,6 @@ import scala.collection.mutable.{ArrayBuffer, Map => MMap}
   * Created by bluejoe on 2018/5/2.
   */
 
-trait Flow {
-  def addProcess(name: String, process: Process): Flow;
-
-  def addTrigger(trigger: Trigger): Flow;
-
-  def getProcess(name: String): Process;
-
-  def getTriggers(): Seq[Trigger];
-}
-
 trait Trigger {
   def activate(context: ExecutionContext): Unit;
 
@@ -112,15 +102,11 @@ trait Execution {
 
 }
 
-trait Runner {
-  def run(flow: Flow, starts: String*): Execution;
-}
-
 trait Process {
   def run(pc: ProcessContext);
 }
 
-class FlowImpl extends Flow {
+class Flow {
   val triggers = ArrayBuffer[Trigger]();
   val processes = MMap[String, Process]();
 
@@ -139,7 +125,7 @@ class FlowImpl extends Flow {
   def getTriggers() = triggers.toSeq;
 }
 
-class RunnerImpl extends Runner {
+class Runner {
   def run(flow: Flow, starts: String*): Execution = {
     new ExecutionImpl(flow, starts);
   }
