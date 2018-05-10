@@ -37,7 +37,7 @@ trait Event {
   * start process while dependent processes completed
   */
 object DependencyTrigger {
-  def dependency(processName: String, dependentProcesses: String*): Trigger = new Trigger() {
+  def isDependentOn(processName: String, dependentProcesses: String*): Trigger = new Trigger() {
     override def activate(executionContext: ExecutionContext): Unit = {
       val listener = new EventListener {
         var fired = false;
@@ -100,6 +100,9 @@ object EventTrigger {
 }
 
 trait Execution {
+  def start(args: Map[String, Any] = Map());
+
+  def getContext(): ExecutionContext;
 
   def stop();
 
@@ -111,14 +114,6 @@ trait Execution {
 
 trait Runner {
   def run(flow: Flow, starts: String*): Execution;
-}
-
-class ProcessContext {
-  val context = MMap[String, Any]();
-
-  def get(key: String): Any = context(key);
-
-  def put(key: String, value: Any) = context(key) = value;
 }
 
 trait Process {
@@ -146,9 +141,7 @@ class FlowImpl extends Flow {
 
 class RunnerImpl extends Runner {
   def run(flow: Flow, starts: String*): Execution = {
-    val execution = new ExecutionImpl(flow, starts);
-    execution.start();
-    execution;
+    new ExecutionImpl(flow, starts);
   }
 }
 
@@ -162,12 +155,43 @@ trait EventEmiter {
   def on(event: Event, listener: EventListener): Unit;
 }
 
-trait ExecutionContext extends EventEmiter {
+trait Context {
+  def get(key: String): Any;
+
+  def get[T]()(implicit m: Manifest[T]): T = {
+    get(m.runtimeClass.getName).asInstanceOf[T];
+  }
+
+  def put(key: String, value: Any): this.type;
+
+  def put[T](value: T)(implicit m: Manifest[T]): this.type =
+    put(m.runtimeClass.getName, value);
+}
+
+trait ExecutionContext extends Context with EventEmiter {
   def getFlow(): Flow;
 
   def scheduleProcess(name: String): Unit;
 
   def scheduleProcessCronly(cronExpr: String, processName: String): Unit;
+}
+
+class ProcessContext(executionContext: ExecutionContext) extends Context {
+  val context = MMap[String, Any]();
+
+  override def get(key: String): Any = {
+    if (context.contains(key))
+      context(key);
+    else
+      executionContext.get(key);
+  };
+
+  override def put(key: String, value: Any): this.type = {
+    context(key) = value;
+    this;
+  };
+
+  def getExecutionContext(): ExecutionContext = executionContext;
 }
 
 class EventEmiterImpl extends EventEmiter with Logging {
@@ -194,7 +218,10 @@ class EventEmiterImpl extends EventEmiter with Logging {
 }
 
 class ExecutionImpl(flow: Flow, starts: Seq[String]) extends Execution with Logging {
-  def start(): Unit = {
+  def start(args: Map[String, Any]): Unit = {
+    args.foreach { (en) =>
+      executionContext.put(en._1, en._2);
+    };
     triggers.foreach(_.activate(executionContext));
     quartzScheduler.start();
     starts.foreach { processName =>
@@ -222,6 +249,15 @@ class ExecutionImpl(flow: Flow, starts: Seq[String]) extends Execution with Logg
   }
 
   val executionContext = new EventEmiterImpl() with ExecutionContext {
+    val context = MMap[String, Any]();
+
+    def get(key: String): Any = context(key);
+
+    def put(key: String, value: Any) = {
+      context(key) = value;
+      this;
+    }
+
     //listens on LaunchProcess
     this.on(LaunchProcess(), new EventListener() {
       override def handle(event: Event, args: Any): Unit = {
@@ -281,9 +317,13 @@ class ExecutionImpl(flow: Flow, starts: Seq[String]) extends Execution with Logg
       logger.debug(s"process completed: $processName");
 
       //notify all triggers
+      //TODO: ProcessCompleted is not true when job running is failed
+      //this makes flow continue to run next process when current job fails
       executionContext.fire(ProcessCompleted(processName));
     }
   });
+
+  override def getContext() = executionContext;
 }
 
 case class LaunchProcess() extends Event {
@@ -300,6 +340,18 @@ class ProcessAsQuartzJob extends Job with Logging {
     val map = context.getJobDetail.getJobDataMap;
     val processName = map.get("processName").asInstanceOf[String];
     val executionContext = context.getScheduler.getContext.get("executionContext").asInstanceOf[ExecutionContext];
-    executionContext.getFlow().getProcess(processName).run(null);
+    try {
+      executionContext.getFlow().getProcess(processName)
+        .run(new ProcessContext(executionContext));
+    }
+    catch {
+      case e: Throwable =>
+        throw new ProcessExecutionException(processName, e);
+    }
   }
+}
+
+class ProcessExecutionException(processName: String, cause: Throwable)
+  extends RuntimeException(s"failed to execute process: $processName", cause) {
+
 }

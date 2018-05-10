@@ -25,6 +25,8 @@ class ScriptEngineTest {
     println(engine.eval("true;").getClass);
     println(engine.eval("1.1;").getClass);
     println(engine.eval("var x = {'a':1}; x;").getClass);
+    println(engine.eval("new java.lang.Object()").getClass);
+    println(engine.eval("java").getClass);
   }
 
   @Test

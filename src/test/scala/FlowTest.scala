@@ -7,21 +7,23 @@ import org.apache.spark.sql.SparkSession
 import org.junit.Test
 
 class FlowTest {
-  private def _testFlow1(processCountWords: Process) {
+  private def runFlow(processes: Map[String, Process]) {
     val flow = new FlowImpl();
-    flow.addProcess("CleanHouse", new CleanHouse());
-    flow.addProcess("CopyTextFile", new CopyTextFile());
-    flow.addProcess("CountWords", processCountWords);
-    flow.addProcess("PrintCount", new PrintCount());
+    processes.foreach(en => flow.addProcess(en._1, en._2));
+
     flow.addProcess("PrintMessage", new PrintMessage());
 
-    flow.addTrigger(DependencyTrigger.dependency("CopyTextFile", "CleanHouse"));
-    flow.addTrigger(DependencyTrigger.dependency("CountWords", "CopyTextFile"));
-    flow.addTrigger(DependencyTrigger.dependency("PrintCount", "CountWords"));
+    flow.addTrigger(DependencyTrigger.isDependentOn("CopyTextFile", "CleanHouse"));
+    flow.addTrigger(DependencyTrigger.isDependentOn("CountWords", "CopyTextFile"));
+    flow.addTrigger(DependencyTrigger.isDependentOn("PrintCount", "CountWords"));
     flow.addTrigger(TimerTrigger.cron("0/5 * * * * ? ", "PrintMessage"));
 
     val runner = new RunnerImpl();
     val exe = runner.run(flow, "CleanHouse");
+
+    val spark = SparkSession.builder.master("local[4]")
+      .getOrCreate();
+    exe.start(Map(classOf[SparkSession].getName -> spark));
 
     Thread.sleep(20000);
     exe.stop();
@@ -29,37 +31,48 @@ class FlowTest {
 
   @Test
   def test1() {
-    _testFlow1(new CountWords());
+    runFlow(Map(
+      "CleanHouse" -> new CleanHouse(),
+      "CopyTextFile" -> new CopyTextFile(),
+      "CountWords" -> new CountWords(),
+      "PrintCount" -> new PrintCount()));
+  }
 
-    class CountWords extends Process {
-      def run(pc: ProcessContext): Unit = {
-        val spark = SparkSession.builder.master("local[4]")
-          .getOrCreate();
-        import spark.implicits._
-        val count = spark.read.textFile("./out/honglou.txt")
-          .map(_.replaceAll("[\\x00-\\xff]|，|。|：|．|“|”|？|！|　", ""))
-          .flatMap(s => s.zip(s.drop(1)).map(t => "" + t._1 + t._2))
-          .groupBy("value").count.sort($"count".desc);
-
-        count.write.json("./out/wordcount");
-        spark.close();
-      }
-    }
+  @Test
+  def testProcessError() {
+    runFlow(Map(
+      "CleanHouse" -> new CleanHouse(),
+      "CopyTextFile" -> new Process() {
+        def run(pc: ProcessContext): Unit = {
+          throw new RuntimeException("this is a bad process!");
+        }
+      },
+      "CountWords" -> new CountWords(),
+      "PrintCount" -> new PrintCount()));
   }
 
   @Test
   def test2() {
-    val fg = new SparkETLProcess();
-    val s1 = fg.loadStream(TextFile("./out/honglou.txt", "text"));
-    val s2 = fg.transform(s1, DoMap(
-      SparkETLTest.SCRIPT_1, classOf[String]));
+    runFlow(Map(
+      "CleanHouse" -> new CleanHouse(),
+      "CopyTextFile" -> new CopyTextFile(),
+      "CountWords" -> SparkETLTest.createProcessCountWords(),
+      "PrintCount" -> SparkETLTest.createProcessPrintCount()));
+  }
+}
 
-    val s3 = fg.transform(s2, DoFlatMap(
-      SparkETLTest.SCRIPT_2, classOf[String]));
+class CountWords extends Process {
+  def run(pc: ProcessContext): Unit = {
+    val spark = SparkSession.builder.master("local[4]")
+      .getOrCreate();
+    import spark.implicits._
+    val count = spark.read.textFile("./out/honglou.txt")
+      .map(_.replaceAll("[\\x00-\\xff]|，|。|：|．|“|”|？|！|　", ""))
+      .flatMap(s => s.zip(s.drop(1)).map(t => "" + t._1 + t._2))
+      .groupBy("value").count.sort($"count".desc);
 
-    fg.writeStream(s3, TextFile("./out/wordcount", "json"));
-
-    _testFlow1(fg);
+    count.write.json("./out/wordcount");
+    spark.close();
   }
 }
 
