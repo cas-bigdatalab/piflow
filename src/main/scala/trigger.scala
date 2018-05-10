@@ -8,17 +8,13 @@ trait Trigger {
   def getTriggeredProcesses(): Seq[String];
 }
 
-trait Event {
-
-}
-
 /**
   * start process while dependent processes completed
   */
 object DependencyTrigger {
   def declareDependency(processName: String, dependentProcesses: String*): Trigger = new Trigger() {
     override def activate(executionContext: ExecutionContext): Unit = {
-      val listener = new EventListener {
+      val listener = new EventHandler {
         val completed = MMap[String, Boolean]();
         dependentProcesses.foreach { processName =>
           completed(processName) = false;
@@ -65,7 +61,7 @@ object EventTrigger {
   def listen(event: Event, processNames: String*): Trigger = new Trigger() {
     override def activate(executionContext: ExecutionContext): Unit = {
       processNames.foreach { processName =>
-        executionContext.on(event, new EventListener() {
+        executionContext.on(event, new EventHandler() {
           override def handle(event: Event, args: Any): Unit = {
             executionContext.fire(LaunchProcess(), processName);
           }

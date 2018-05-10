@@ -18,13 +18,11 @@ class FlowTest {
     flow.addTrigger(DependencyTrigger.declareDependency("PrintCount", "CountWords"));
     flow.addTrigger(TimerTrigger.cron("0/5 * * * * ? ", "PrintMessage"));
 
-    val runner = new Runner();
-    val exe = runner.run(flow, "CleanHouse");
-
     val spark = SparkSession.builder.master("local[4]")
       .getOrCreate();
-    exe.start(Map(classOf[SparkSession].getName -> spark));
+    val exe = Runner.run(flow, Map(classOf[SparkSession].getName -> spark));
 
+    exe.start("CleanHouse");
     Thread.sleep(20000);
     exe.stop();
   }
