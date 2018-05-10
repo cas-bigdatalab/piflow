@@ -13,9 +13,9 @@ class FlowTest {
 
     flow.addProcess("PrintMessage", new PrintMessage());
 
-    flow.addTrigger(DependencyTrigger.isDependentOn("CopyTextFile", "CleanHouse"));
-    flow.addTrigger(DependencyTrigger.isDependentOn("CountWords", "CopyTextFile"));
-    flow.addTrigger(DependencyTrigger.isDependentOn("PrintCount", "CountWords"));
+    flow.addTrigger(DependencyTrigger.declareDependency("CopyTextFile", "CleanHouse"));
+    flow.addTrigger(DependencyTrigger.declareDependency("CountWords", "CopyTextFile"));
+    flow.addTrigger(DependencyTrigger.declareDependency("PrintCount", "CountWords"));
     flow.addTrigger(TimerTrigger.cron("0/5 * * * * ? ", "PrintMessage"));
 
     val runner = new Runner();

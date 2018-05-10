@@ -12,100 +12,6 @@ import scala.collection.mutable.{ArrayBuffer, Map => MMap}
 /**
   * Created by bluejoe on 2018/5/2.
   */
-
-trait Trigger {
-  def activate(context: ExecutionContext): Unit;
-
-  def getTriggeredProcesses(): Seq[String];
-}
-
-trait Event {
-
-}
-
-/**
-  * start process while dependent processes completed
-  */
-object DependencyTrigger {
-  def isDependentOn(processName: String, dependentProcesses: String*): Trigger = new Trigger() {
-    override def activate(executionContext: ExecutionContext): Unit = {
-      val listener = new EventListener {
-        var fired = false;
-        val completed = MMap[String, Boolean]();
-        dependentProcesses.foreach { processName =>
-          completed(processName) = false;
-        };
-
-        def handle(event: Event, args: Any) {
-          completed(event.asInstanceOf[ProcessCompleted].processName) = true;
-
-          if (completed.values.filter(!_).isEmpty) {
-            fired = true;
-            executionContext.fire(LaunchProcess(), processName);
-          }
-        }
-      };
-
-      dependentProcesses.foreach { dependency =>
-        executionContext.on(ProcessCompleted(dependency), listener);
-      }
-    }
-
-    override def getTriggeredProcesses(): Seq[String] = Seq(processName);
-  }
-}
-
-/**
-  * start processes repeatedly
-  */
-object TimerTrigger {
-  def cron(cronExpr: String, processNames: String*): Trigger = new Trigger() {
-    override def activate(context: ExecutionContext): Unit = {
-      processNames.foreach { processName =>
-        context.scheduleProcessCronly(processName, cronExpr);
-      }
-    }
-
-    override def getTriggeredProcesses(): Seq[String] = processNames;
-  }
-}
-
-/**
-  * start processes while Events happen
-  */
-object EventTrigger {
-  def listen(event: Event, processNames: String*): Trigger = new Trigger() {
-    override def activate(context: ExecutionContext): Unit = {
-      processNames.foreach { processName =>
-        context.on(event, new EventListener() {
-          override def handle(event: Event, args: Any): Unit = {
-            context.scheduleProcess(processName);
-          }
-        });
-      }
-    }
-
-    override def getTriggeredProcesses(): Seq[String] = processNames;
-  }
-}
-
-trait Execution {
-  def start(args: Map[String, Any] = Map());
-
-  def getContext(): ExecutionContext;
-
-  def stop();
-
-  def getRunningProcesses(): Seq[(String, String)];
-
-  def getScheduledProcesses(): Seq[String];
-
-}
-
-trait Process {
-  def run(pc: ProcessContext);
-}
-
 class Flow {
   val triggers = ArrayBuffer[Trigger]();
   val processes = MMap[String, Process]();
@@ -126,9 +32,26 @@ class Flow {
 }
 
 class Runner {
-  def run(flow: Flow, starts: String*): Execution = {
-    new ExecutionImpl(flow, starts);
+  def run(flow: Flow, starts: String*): FlowExecution = {
+    new FlowExecutionImpl(flow, starts);
   }
+}
+
+trait FlowExecution {
+  def start(args: Map[String, Any] = Map());
+
+  def getContext(): ExecutionContext;
+
+  def stop();
+
+  def getRunningProcesses(): Seq[(String, String)];
+
+  def getScheduledProcesses(): Seq[String];
+
+}
+
+trait Process {
+  def run(pc: ProcessContext);
 }
 
 trait EventListener {
@@ -157,9 +80,7 @@ trait Context {
 trait ExecutionContext extends Context with EventEmiter {
   def getFlow(): Flow;
 
-  def scheduleProcess(name: String): Unit;
-
-  def scheduleProcessCronly(cronExpr: String, processName: String): Unit;
+  def scheduleProcessRepeatly(cronExpr: String, processName: String): Unit;
 }
 
 class ProcessContext(executionContext: ExecutionContext) extends Context {
@@ -203,13 +124,19 @@ class EventEmiterImpl extends EventEmiter with Logging {
   }
 }
 
-class ExecutionImpl(flow: Flow, starts: Seq[String]) extends Execution with Logging {
+class FlowExecutionImpl(flow: Flow, starts: Seq[String]) extends FlowExecution with Logging {
   def start(args: Map[String, Any]): Unit = {
+    //set context
     args.foreach { (en) =>
       executionContext.put(en._1, en._2);
     };
+
+    //activates all triggers
     triggers.foreach(_.activate(executionContext));
+
     quartzScheduler.start();
+
+    //runs start processes
     starts.foreach { processName =>
       executionContext.fire(LaunchProcess(), processName);
     }
@@ -235,6 +162,13 @@ class ExecutionImpl(flow: Flow, starts: Seq[String]) extends Execution with Logg
   }
 
   val executionContext = new EventEmiterImpl() with ExecutionContext {
+    //listens on LaunchProcess
+    this.on(LaunchProcess(), new EventListener() {
+      override def handle(event: Event, args: Any): Unit = {
+        scheduleProcess(args.asInstanceOf[String]);
+      }
+    });
+
     val context = MMap[String, Any]();
 
     def get(key: String): Any = context(key);
@@ -243,13 +177,6 @@ class ExecutionImpl(flow: Flow, starts: Seq[String]) extends Execution with Logg
       context(key) = value;
       this;
     }
-
-    //listens on LaunchProcess
-    this.on(LaunchProcess(), new EventListener() {
-      override def handle(event: Event, args: Any): Unit = {
-        scheduleProcess(args.asInstanceOf[String]);
-      }
-    });
 
     private def _scheduleProcess(processName: String, scheduleBuilder: Option[ScheduleBuilder[_]] = None): Unit = {
       val quartzTriggerBuilder = TriggerBuilder.newTrigger().startNow();
@@ -267,11 +194,11 @@ class ExecutionImpl(flow: Flow, starts: Seq[String]) extends Execution with Logg
       quartzScheduler.scheduleJob(quartzJob, quartzTrigger);
     }
 
-    override def scheduleProcess(processName: String): Unit = {
+    def scheduleProcess(processName: String): Unit = {
       _scheduleProcess(processName);
     }
 
-    override def scheduleProcessCronly(processName: String, cronExpr: String): Unit = {
+    override def scheduleProcessRepeatly(processName: String, cronExpr: String): Unit = {
       _scheduleProcess(processName, Some(CronScheduleBuilder.cronSchedule(cronExpr)));
     }
 
@@ -300,12 +227,12 @@ class ExecutionImpl(flow: Flow, starts: Seq[String]) extends Execution with Logg
     override def triggerComplete(trigger: QuartzTrigger, context: JobExecutionContext, triggerInstructionCode: CompletedExecutionInstruction): Unit = {
       val map = context.getJobDetail.getJobDataMap;
       val processName = map.get("processName").asInstanceOf[String];
-      logger.debug(s"process completed: $processName");
 
-      //notify all triggers
-      //TODO: ProcessCompleted is not true when job running is failed
-      //this makes flow continue to run next process when current job fails
-      executionContext.fire(ProcessCompleted(processName));
+      val result = context.getResult;
+      if (true == result) {
+        logger.debug(s"process completed: $processName");
+        executionContext.fire(ProcessCompleted(processName));
+      }
     }
   });
 
@@ -329,15 +256,13 @@ class ProcessAsQuartzJob extends Job with Logging {
     try {
       executionContext.getFlow().getProcess(processName)
         .run(new ProcessContext(executionContext));
+      context.setResult(true);
     }
     catch {
       case e: Throwable =>
-        throw new ProcessExecutionException(processName, e);
+        logger.warn(s"failed to execute process: $processName, cause: $e");
+        e.printStackTrace();
+        throw new JobExecutionException(s"failed to execute process: $processName", e);
     }
   }
-}
-
-class ProcessExecutionException(processName: String, cause: Throwable)
-  extends RuntimeException(s"failed to execute process: $processName", cause) {
-
 }
