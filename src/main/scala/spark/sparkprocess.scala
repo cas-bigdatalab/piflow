@@ -1,11 +1,9 @@
 /**
   * Created by bluejoe on 2018/5/6.
   */
-package cn.piflow
+package cn.piflow.spark
 
-import java.io.File
-
-import cn.piflow.io.{Console, FileFormat, TextFile}
+import cn.piflow._
 import cn.piflow.util.{IdGenerator, Logging}
 import org.apache.spark.sql._
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
@@ -16,92 +14,40 @@ import scala.collection.mutable.{ArrayBuffer, Map => MMap}
 
 class SparkProcess extends Process with Logging {
 
-  trait Ops {
-    def perform(ctx: ProcessExecutionContext): Unit;
-  }
-
   val ends = ArrayBuffer[Ops]();
 
-  trait Backup {
-    def replica(): Sink;
-
-    def restore(): Unit;
-
-    def clean(): Unit;
-  }
-
-  def createBackup(originalSink: Sink, ctx: ProcessExecutionContext): Backup = {
-    if (originalSink.isInstanceOf[Console]) {
-      new Backup() {
-        override def replica(): Sink = originalSink;
-
-        override def clean(): Unit = {}
-
-        override def restore(): Unit = {}
-      }
-    }
-    else {
-      new Backup() {
-        val backupFile = File.createTempFile(classOf[SparkProcess].getName, ".bak",
-          new File(ctx.get("localBackupDir").asInstanceOf[String]));
-        backupFile.delete();
-
-        def replica(): Sink = {
-          //TODO: hdfs
-          TextFile(backupFile.getAbsolutePath, FileFormat.PARQUET)
-        }
-
-        def restore(): Unit = {
-          originalSink.save(TextFile(backupFile.getAbsolutePath, FileFormat.PARQUET).load(ctx), ctx);
-        }
-
-        def clean(): Unit = {
-          backupFile.delete();
-        }
-      }
-    }
-  }
-
   def onPrepare(pec: ProcessExecutionContext) = {
-    val backup = ArrayBuffer[Backup]();
+    val backups = ArrayBuffer[Backup]();
     val ne = ends.map { x =>
       val so = x.asInstanceOf[SaveOps];
-      val bu = createBackup(so.streamSink, pec);
-      backup += bu;
-      SaveOps(bu.replica(), so.stream);
+      val sink = so.streamSink;
+      val backup = sink match {
+        case swb: SinkWithBackup =>
+          swb.backup(pec);
+        case _ =>
+          new Backup() {
+            override def getSink(): Sink = sink;
+
+            override def rollback(): Unit = {}
+
+            override def commit(): Unit = {}
+          }
+      }
+
+      backups += backup;
+      SaveOps(backup.getSink(), so.stream);
     }
 
-    pec.put("backup", backup);
+    pec.put("backups", backups);
     ne.foreach(_.perform(pec));
   }
 
   override def onCommit(pec: ProcessExecutionContext): Unit = {
-    pec.get("backup").asInstanceOf[ArrayBuffer[Backup]].foreach(_.restore());
+    pec.get("backups").asInstanceOf[ArrayBuffer[Backup]].foreach(_.commit());
   }
 
   override def onRollback(pec: ProcessExecutionContext): Unit = {
-    pec.get("backup").asInstanceOf[ArrayBuffer[Backup]].foreach(_.clean());
-  }
-
-  abstract class CachedStream extends Stream {
-    val id = "" + IdGenerator.getNextId[Stream];
-    val context = MMap[String, Any]();
-    var cache: Option[DataFrame] = None;
-
-    override def getId(): String = id;
-
-    def put(key: String, value: Any) = context(key) = value;
-
-    override def get(key: String): Any = context.get(key);
-
-    def produce(ctx: ProcessExecutionContext): DataFrame;
-
-    override def feed(ctx: ProcessExecutionContext): DataFrame = {
-      if (!cache.isDefined) {
-        cache = Some(produce(ctx));
-      }
-      cache.get;
-    }
+    pec.get("backups").asInstanceOf[ArrayBuffer[Backup]].foreach(_.rollback());
   }
 
   def loadStream(streamSource: Source): Stream = {
@@ -114,21 +60,6 @@ class SparkProcess extends Process with Logging {
 
         streamSource.load(ctx);
       }
-    }
-  }
-
-
-  case class SaveOps(streamSink: Sink, stream: Stream)
-    extends Ops {
-    def perform(ctx: ProcessExecutionContext): Unit = {
-      val input = stream.feed(ctx);
-      logger.debug {
-        val schema = input.schema;
-        val iid = stream.getId();
-        s"saving stream[$iid->_], schema: $schema, sink: $streamSink";
-      };
-
-      streamSink.save(input, ctx);
     }
   }
 
@@ -153,6 +84,45 @@ class SparkProcess extends Process with Logging {
 
         transformer.transform(inputs, ctx);
       }
+    }
+  }
+
+  trait Ops {
+    def perform(ctx: ProcessExecutionContext): Unit;
+  }
+
+  abstract class CachedStream extends Stream {
+    val id = "" + IdGenerator.nextId[Stream];
+    val context = MMap[String, Any]();
+    var cache: Option[DataFrame] = None;
+
+    override def getId(): String = id;
+
+    def put(key: String, value: Any) = context(key) = value;
+
+    override def get(key: String): Any = context.get(key);
+
+    def produce(ctx: ProcessExecutionContext): DataFrame;
+
+    override def feed(ctx: ProcessExecutionContext): DataFrame = {
+      if (!cache.isDefined) {
+        cache = Some(produce(ctx));
+      }
+      cache.get;
+    }
+  }
+
+  case class SaveOps(streamSink: Sink, stream: Stream)
+    extends Ops {
+    def perform(ctx: ProcessExecutionContext): Unit = {
+      val input = stream.feed(ctx);
+      logger.debug {
+        val schema = input.schema;
+        val iid = stream.getId();
+        s"saving stream[$iid->_], schema: $schema, sink: $streamSink";
+      };
+
+      streamSink.save(input, ctx);
     }
   }
 }
@@ -187,8 +157,20 @@ trait Sink {
   def save(data: DataFrame, ctx: ProcessExecutionContext): Unit;
 }
 
+trait SinkWithBackup extends Sink {
+  def backup(ctx: ProcessExecutionContext): Backup;
+}
+
+trait Backup {
+  def getSink(): Sink;
+
+  def commit();
+
+  def rollback();
+}
+
 trait FunctionLogic {
-  def call(value: Any): Any;
+  def perform(value: Any): Any;
 }
 
 case class DoMap(func: FunctionLogic, targetSchema: StructType = null) extends Transformer1N1 {
@@ -202,7 +184,7 @@ case class DoMap(func: FunctionLogic, targetSchema: StructType = null) extends T
       }
     };
 
-    data.map(func.call(_).asInstanceOf[Row])(encoder);
+    data.map(func.perform(_).asInstanceOf[Row])(encoder);
   }
 }
 
@@ -218,7 +200,7 @@ case class DoFlatMap(func: FunctionLogic, targetSchema: StructType = null) exten
     };
 
     data.flatMap(x =>
-      JavaConversions.iterableAsScalaIterable(func.call(x).asInstanceOf[java.util.ArrayList[Row]]))(encoder);
+      JavaConversions.iterableAsScalaIterable(func.perform(x).asInstanceOf[java.util.ArrayList[Row]]))(encoder);
   }
 }
 

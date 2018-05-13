@@ -4,17 +4,10 @@ import java.util.concurrent.atomic.AtomicInteger
 
 import scala.collection.mutable.{Map => MMap}
 
-trait IdGenerator {
-  def generateId(): Int;
-}
-
 object IdGenerator {
-  val map = MMap[String, IdGenerator]();
+  val map = MMap[String, AtomicInteger]();
 
-  def getNextId[T](implicit manifest: Manifest[T]) = map.getOrElseUpdate(manifest.runtimeClass.getName,
-    new IdGenerator() {
-      val ai = new AtomicInteger();
-
-      def generateId(): Int = ai.incrementAndGet();
-    })
+  def nextId[T](implicit manifest: Manifest[T]): Int =
+    map.getOrElseUpdate(manifest.runtimeClass.getName,
+      new AtomicInteger()).incrementAndGet();
 }

@@ -1,4 +1,6 @@
 import cn.piflow._
+import cn.piflow.spark._
+import cn.piflow.element._
 import org.junit.{Assert, Test}
 
 class FlowElementManagerTest {

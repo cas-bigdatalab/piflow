@@ -91,10 +91,12 @@ trait FlowExecutionContext extends Context with EventEmiter {
 
 class FlowExecutionImpl(flow: Flow, args: Map[String, Any])
   extends FlowExecution with Logging {
-  val id = "flow_excution_" + IdGenerator.getNextId[FlowExecution];
+  val id = "flow_excution_" + IdGenerator.nextId[FlowExecution];
 
   val execution = this;
   val executionContext = createContext();
+  val quartzScheduler = StdSchedulerFactory.getDefaultScheduler();
+  val listeners = ArrayBuffer[FlowExecutionListener]();
 
   def start(starts: String*): Unit = {
     //set context
@@ -128,6 +130,45 @@ class FlowExecutionImpl(flow: Flow, args: Map[String, Any])
           jec.getJobDetail.getJobDataMap.get("processName").asInstanceOf[String])
       };
   }
+  quartzScheduler.getContext.put("executionContext", executionContext);
+
+  override def getId(): String = id;
+
+  quartzScheduler.getListenerManager.addTriggerListener(new TriggerListener {
+    override def vetoJobExecution(trigger: QuartzTrigger, context: JobExecutionContext): Boolean = false;
+
+    override def triggerFired(trigger: QuartzTrigger, context: JobExecutionContext): Unit = {
+      val map = context.getJobDetail.getJobDataMap;
+      val processName = map.get("processName").asInstanceOf[String];
+      logger.debug(s"process started: $processName");
+
+      executionContext.fire(ProcessStarted(processName));
+    }
+
+    override def getName: String = this.getClass.getName;
+
+    override def triggerMisfired(trigger: QuartzTrigger): Unit = {}
+
+    override def triggerComplete(trigger: QuartzTrigger, context: JobExecutionContext, triggerInstructionCode: CompletedExecutionInstruction): Unit = {
+      val map = context.getJobDetail.getJobDataMap;
+      val processName = map.get("processName").asInstanceOf[String];
+
+      val result = context.getResult;
+      if (true == result) {
+        logger.debug(s"process completed: $processName");
+        executionContext.fire(ProcessCompleted(processName));
+      }
+      else {
+        logger.debug(s"process failed: $processName");
+        executionContext.fire(ProcessFailed(processName));
+      }
+    }
+  });
+
+  override def addListener(listener: FlowExecutionListener): Unit =
+    listeners += listener;
+
+  override def getFlow(): Flow = flow;
 
   private def createContext(): FlowExecutionContext = {
     new EventEmiterImpl() with FlowExecutionContext {
@@ -180,46 +221,4 @@ class FlowExecutionImpl(flow: Flow, args: Map[String, Any])
       override def getFlowExecution(): FlowExecution = execution;
     };
   }
-
-  val quartzScheduler = StdSchedulerFactory.getDefaultScheduler();
-  quartzScheduler.getContext.put("executionContext", executionContext);
-  val listeners = ArrayBuffer[FlowExecutionListener]();
-
-  quartzScheduler.getListenerManager.addTriggerListener(new TriggerListener {
-    override def vetoJobExecution(trigger: QuartzTrigger, context: JobExecutionContext): Boolean = false;
-
-    override def triggerFired(trigger: QuartzTrigger, context: JobExecutionContext): Unit = {
-      val map = context.getJobDetail.getJobDataMap;
-      val processName = map.get("processName").asInstanceOf[String];
-      logger.debug(s"process started: $processName");
-
-      executionContext.fire(ProcessStarted(processName));
-    }
-
-    override def getName: String = this.getClass.getName;
-
-    override def triggerMisfired(trigger: QuartzTrigger): Unit = {}
-
-    override def triggerComplete(trigger: QuartzTrigger, context: JobExecutionContext, triggerInstructionCode: CompletedExecutionInstruction): Unit = {
-      val map = context.getJobDetail.getJobDataMap;
-      val processName = map.get("processName").asInstanceOf[String];
-
-      val result = context.getResult;
-      if (true == result) {
-        logger.debug(s"process completed: $processName");
-        executionContext.fire(ProcessCompleted(processName));
-      }
-      else {
-        logger.debug(s"process failed: $processName");
-        executionContext.fire(ProcessFailed(processName));
-      }
-    }
-  });
-
-  override def getId(): String = id;
-
-  override def addListener(listener: FlowExecutionListener): Unit =
-    listeners += listener;
-
-  override def getFlow(): Flow = flow;
 }

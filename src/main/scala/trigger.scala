@@ -5,7 +5,7 @@ import scala.collection.mutable.{Map => MMap}
 trait Trigger {
   /**
     * start current trigger on given process
- *
+    *
     * @param processName
     * @param context
     */

@@ -1,6 +1,9 @@
-package cn.piflow
+package cn.piflow.element
 
 import java.io.File
+
+import cn.piflow._
+import cn.piflow.spark._
 
 import scala.collection.mutable.{Map => MMap}
 

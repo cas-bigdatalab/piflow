@@ -2,7 +2,8 @@ import java.io.{File, FileInputStream, FileOutputStream}
 import java.util.Date
 
 import cn.piflow._
-import cn.piflow.io.{Console, FileFormat, TextFile}
+import cn.piflow.spark._
+import cn.piflow.spark.io._
 import org.apache.commons.io.{FileUtils, IOUtils}
 import org.apache.spark.sql.SparkSession
 import org.junit.Test
