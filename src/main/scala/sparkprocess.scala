@@ -3,9 +3,7 @@
   */
 package cn.piflow
 
-import java.util.concurrent.atomic.AtomicInteger
-
-import cn.piflow.util.Logging
+import cn.piflow.util.{IdGenerator, Logging}
 import org.apache.spark.sql._
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.types.StructType
@@ -13,28 +11,39 @@ import org.apache.spark.sql.types.StructType
 import scala.collection.JavaConversions
 import scala.collection.mutable.{ArrayBuffer, Map => MMap}
 
-class SparkETLProcess extends Process with Logging {
-  val ends = ArrayBuffer[(ProcessContext) => Unit]();
-  val idgen = new AtomicInteger();
+class SparkProcess extends Process with Logging {
+  val ends = ArrayBuffer[(ProcessExecutionContext) => Unit]();
 
-  override def run(pc: ProcessContext): Unit = {
-    ends.foreach(_.apply(pc));
+  def onPrepare(pec: ProcessExecutionContext) = {
+    ends.foreach(_.apply(pec));
+  }
+
+  override def onCommit(pec: ProcessExecutionContext): Unit = {
+
+  }
+
+  override def onRollback(pec: ProcessExecutionContext): Unit = {
+
+  }
+
+  override def onFail(errorStage: ProcessStage, cause: Throwable, pec: ProcessExecutionContext): Unit = {
+
   }
 
   abstract class CachedStream extends Stream {
-    val id = idgen.incrementAndGet();
+    val id = "" + IdGenerator.getNextId[Stream];
     val context = MMap[String, Any]();
     var cache: Option[DataFrame] = None;
 
-    override def getId(): Int = id;
+    override def getId(): String = id;
 
     def put(key: String, value: Any) = context(key) = value;
 
     override def get(key: String): Any = context.get(key);
 
-    def produce(ctx: ProcessContext): DataFrame;
+    def produce(ctx: ProcessExecutionContext): DataFrame;
 
-    override def feed(ctx: ProcessContext): DataFrame = {
+    override def feed(ctx: ProcessExecutionContext): DataFrame = {
       if (!cache.isDefined) {
         cache = Some(produce(ctx));
       }
@@ -44,7 +53,7 @@ class SparkETLProcess extends Process with Logging {
 
   def loadStream(streamSource: DataSource): Stream = {
     return new CachedStream() {
-      override def produce(ctx: ProcessContext): DataFrame = {
+      override def produce(ctx: ProcessExecutionContext): DataFrame = {
         logger.debug {
           val oid = this.getId();
           s"loading stream[_->$oid], source: $streamSource";
@@ -57,7 +66,7 @@ class SparkETLProcess extends Process with Logging {
 
   def writeStream(streamSink: DataSink, stream: Stream): Unit = {
     ends += {
-      (ctx: ProcessContext) => {
+      (ctx: ProcessExecutionContext) => {
         val input = stream.feed(ctx);
         logger.debug {
           val schema = input.schema;
@@ -76,7 +85,7 @@ class SparkETLProcess extends Process with Logging {
 
   def transform(transformer: DataTransformer, streams: Map[String, Stream]): Stream = {
     return new CachedStream() {
-      override def produce(ctx: ProcessContext): DataFrame = {
+      override def produce(ctx: ProcessExecutionContext): DataFrame = {
         val inputs = streams.map(x => (x._1, x._2.feed(ctx)));
         logger.debug {
           val schemas = inputs.map(_._2.schema);
@@ -92,33 +101,33 @@ class SparkETLProcess extends Process with Logging {
 }
 
 trait Stream {
-  def getId(): Int;
+  def getId(): String;
 
-  def feed(ctx: ProcessContext): DataFrame;
+  def feed(ctx: ProcessExecutionContext): DataFrame;
 
   def get(key: String): Any;
 }
 
 
 trait DataSource {
-  def load(ctx: ProcessContext): DataFrame;
+  def load(ctx: ProcessExecutionContext): DataFrame;
 }
 
 trait DataTransformer {
-  def transform(data: Map[String, DataFrame], ctx: ProcessContext): DataFrame;
+  def transform(data: Map[String, DataFrame], ctx: ProcessExecutionContext): DataFrame;
 }
 
 trait DataTransformer1N1 extends DataTransformer {
-  def transform(data: DataFrame, ctx: ProcessContext): DataFrame;
+  def transform(data: DataFrame, ctx: ProcessExecutionContext): DataFrame;
 
-  def transform(dataset: Map[String, DataFrame], ctx: ProcessContext): DataFrame = {
+  def transform(dataset: Map[String, DataFrame], ctx: ProcessExecutionContext): DataFrame = {
     val first = dataset.head;
     transform(first._2, ctx);
   }
 }
 
 trait DataSink {
-  def save(data: DataFrame, ctx: ProcessContext): Unit;
+  def save(data: DataFrame, ctx: ProcessExecutionContext): Unit;
 }
 
 trait FunctionLogic {
@@ -126,7 +135,7 @@ trait FunctionLogic {
 }
 
 case class DoMap(func: FunctionLogic, targetSchema: StructType = null) extends DataTransformer1N1 {
-  def transform(data: DataFrame, ctx: ProcessContext): DataFrame = {
+  def transform(data: DataFrame, ctx: ProcessExecutionContext): DataFrame = {
     val encoder = RowEncoder {
       if (targetSchema == null) {
         data.schema;
@@ -141,7 +150,7 @@ case class DoMap(func: FunctionLogic, targetSchema: StructType = null) extends D
 }
 
 case class DoFlatMap(func: FunctionLogic, targetSchema: StructType = null) extends DataTransformer1N1 {
-  def transform(data: DataFrame, ctx: ProcessContext): DataFrame = {
+  def transform(data: DataFrame, ctx: ProcessExecutionContext): DataFrame = {
     val encoder = RowEncoder {
       if (targetSchema == null) {
         data.schema;
@@ -157,7 +166,7 @@ case class DoFlatMap(func: FunctionLogic, targetSchema: StructType = null) exten
 }
 
 case class ExecuteSQL(sql: String) extends DataTransformer with Logging {
-  def transform(dataset: Map[String, DataFrame], ctx: ProcessContext): DataFrame = {
+  def transform(dataset: Map[String, DataFrame], ctx: ProcessExecutionContext): DataFrame = {
 
     dataset.foreach { x =>
       val tableName = "table_" + x._1;
@@ -171,11 +180,11 @@ case class ExecuteSQL(sql: String) extends DataTransformer with Logging {
     }
     catch {
       case e: Throwable =>
-        throw new SqlExecutionErrorException(e, sql);
+        throw new SqlExecutionErrorException(sql, e);
     }
   }
 }
 
-class SqlExecutionErrorException(cause: Throwable, sql: String)
+class SqlExecutionErrorException(sql: String, cause: Throwable)
   extends RuntimeException(s"sql execution error, sql: $sql", cause) {
 }

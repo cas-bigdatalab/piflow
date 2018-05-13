@@ -1,6 +1,7 @@
 package cn.piflow
 
 import cn.piflow.util.Logging
+
 import scala.collection.mutable.{ArrayBuffer, Map => MMap}
 
 trait Event {
@@ -24,7 +25,7 @@ trait EventHandler {
 }
 
 trait EventEmiter {
-  def fire(event: Event, args: Any): Unit;
+  def fire(event: Event, args: Any = None): Unit;
 
   def on(event: Event, handler: EventHandler): Unit;
 }
@@ -40,7 +41,7 @@ class EventEmiterImpl extends EventEmiter with Logging {
     logger.debug(s"listening on $event, listener: $handler");
   }
 
-  def fire(event: Event, args: Any = None): Unit = {
+  def fire(event: Event, args: Any): Unit = {
     logger.debug(s"fired event: $event, args: $args");
     if (listeners.contains(event)) {
       for (listener <- listeners(event)) {

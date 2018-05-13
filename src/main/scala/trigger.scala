@@ -3,72 +3,64 @@ package cn.piflow
 import scala.collection.mutable.{Map => MMap}
 
 trait Trigger {
-  def activate(context: ExecutionContext): Unit;
-
-  def getTriggeredProcesses(): Seq[String];
+  /**
+    * start current trigger on given process
+ *
+    * @param processName
+    * @param context
+    */
+  def activate(processName: String, context: FlowExecutionContext): Unit;
 }
 
 /**
   * start process while dependent processes completed
   */
-object DependencyTrigger {
-  def declareDependency(processName: String, dependentProcesses: String*): Trigger = new Trigger() {
-    override def activate(executionContext: ExecutionContext): Unit = {
-      val listener = new EventHandler {
-        val completed = MMap[String, Boolean]();
-        dependentProcesses.foreach { processName =>
-          completed(processName) = false;
-        };
-
-        def handle(event: Event, args: Any) {
-          completed(event.asInstanceOf[ProcessCompleted].processName) = true;
-
-          if (completed.values.filter(!_).isEmpty) {
-            completed.clear();
-            executionContext.fire(LaunchProcess(), processName);
-          }
-        }
+class DependencyTrigger(dependentProcesses: String*) extends Trigger {
+  override def activate(processName: String, executionContext: FlowExecutionContext): Unit = {
+    val listener = new EventHandler {
+      val completed = MMap[String, Boolean]();
+      dependentProcesses.foreach { processName =>
+        completed(processName) = false;
       };
 
-      dependentProcesses.foreach { dependency =>
-        executionContext.on(ProcessCompleted(dependency), listener);
-      }
-    }
+      def handle(event: Event, args: Any) {
+        completed(event.asInstanceOf[ProcessCompleted].processName) = true;
 
-    override def getTriggeredProcesses(): Seq[String] = Seq(processName);
+        if (completed.values.filter(!_).isEmpty) {
+          completed.clear();
+          executionContext.fire(LaunchProcess(), processName);
+        }
+      }
+    };
+
+    dependentProcesses.foreach { dependency =>
+      executionContext.on(ProcessCompleted(dependency), listener);
+    }
   }
 }
 
 /**
   * start processes repeatedly
   */
-object TimerTrigger {
-  def cron(cronExpr: String, processNames: String*): Trigger = new Trigger() {
-    override def activate(executionContext: ExecutionContext): Unit = {
-      processNames.foreach { processName =>
-        executionContext.scheduleProcessRepeatly(processName, cronExpr);
-      }
+class TimerTrigger(cronExpr: String, processNames: String*) extends Trigger {
+  override def activate(processName: String, executionContext: FlowExecutionContext): Unit = {
+    processNames.foreach { processName =>
+      executionContext.scheduleProcessRepeatly(processName, cronExpr);
     }
-
-    override def getTriggeredProcesses(): Seq[String] = processNames;
   }
 }
 
 /**
   * start processes while Events happen
   */
-object EventTrigger {
-  def listen(event: Event, processNames: String*): Trigger = new Trigger() {
-    override def activate(executionContext: ExecutionContext): Unit = {
-      processNames.foreach { processName =>
-        executionContext.on(event, new EventHandler() {
-          override def handle(event: Event, args: Any): Unit = {
-            executionContext.fire(LaunchProcess(), processName);
-          }
-        });
-      }
+class EventTrigger(event: Event, processNames: String*) extends Trigger {
+  override def activate(processName: String, executionContext: FlowExecutionContext): Unit = {
+    processNames.foreach { processName =>
+      executionContext.on(event, new EventHandler() {
+        override def handle(event: Event, args: Any): Unit = {
+          executionContext.fire(LaunchProcess(), processName);
+        }
+      });
     }
-
-    override def getTriggeredProcesses(): Seq[String] = processNames;
   }
 }
