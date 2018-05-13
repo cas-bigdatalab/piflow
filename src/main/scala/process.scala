@@ -11,8 +11,6 @@ trait Process {
   def onCommit(pec: ProcessExecutionContext): Unit;
 
   def onRollback(pec: ProcessExecutionContext): Unit;
-
-  def onFail(errorStage: ProcessStage, cause: Throwable, pec: ProcessExecutionContext): Unit;
 }
 
 abstract class LazyProcess extends Process with Logging {
@@ -25,8 +23,6 @@ abstract class LazyProcess extends Process with Logging {
   def onRollback(pec: ProcessExecutionContext): Unit = {
     logger.warn(s"onRollback={}, process: $this");
   }
-
-  def onFail(errorStage: ProcessStage, cause: Throwable, pec: ProcessExecutionContext): Unit = {}
 }
 
 //TODO: one ProcessExecution with multiple RUNs
@@ -38,10 +34,6 @@ trait ProcessExecution {
   def getProcessName(): String;
 
   def getProcess(): Process;
-
-  def getStage(): ProcessStage;
-
-  def handleError(jee: JobExecutionException): Unit;
 }
 
 trait ProcessExecutionContext extends Context {
@@ -49,23 +41,37 @@ trait ProcessExecutionContext extends Context {
 
   def setStage(stage: ProcessStage): Unit;
 
-  def getStage(): ProcessStage;
+  def sendError(stage: ProcessStage, cause: Throwable): Unit;
 
-  def setErrorHandler(handler: ErrorHandler): Unit;
+  def getStage(): ProcessStage;
 }
 
 class ProcessExecutionContextImpl(processExecution: ProcessExecution, executionContext: FlowExecutionContext)
-  extends ProcessExecutionContext {
+  extends ProcessExecutionContext with Logging {
   val stages = ArrayBuffer[ProcessStage]();
   var errorHandler: ErrorHandler = Noop();
 
-  def setStage(stage: ProcessStage) = stages += stage;
+  def setStage(stage: ProcessStage) = {
+    val processName = processExecution.getProcessName();
+    logger.debug(s"stage changed: $stage, process: $processName");
+    stages += stage
+  };
 
   val context = MMap[String, Any]();
 
   def getProcessExecution() = processExecution;
 
   def getStage(): ProcessStage = stages.last;
+
+  def sendError(stage: ProcessStage, cause: Throwable) {
+    val processName = processExecution.getProcessName();
+    val jee = new JobExecutionException(s"failed to execute process: $processName", cause);
+    logger.error {
+      s"failed to execute process: $processName, stage: $stage, cause: $cause"
+    };
+    errorHandler.handle(jee);
+    throw jee;
+  }
 
   override def get(key: String): Any = {
     if (context.contains(key))
@@ -78,8 +84,6 @@ class ProcessExecutionContextImpl(processExecution: ProcessExecution, executionC
     context(key) = value;
     this;
   };
-
-  override def setErrorHandler(handler: ErrorHandler): Unit = errorHandler = handler;
 }
 
 class ProcessAsQuartzJob extends Job with Logging {
@@ -89,21 +93,9 @@ class ProcessAsQuartzJob extends Job with Logging {
     val executionContext = context.getScheduler.getContext.get("executionContext").asInstanceOf[FlowExecutionContext];
 
     val pe = executionContext.runProcess(processName);
-    try {
-      pe.start();
-      context.setResult(true);
-    }
-    catch {
-      case e => {
-        val jee = new JobExecutionException(s"failed to execute process: $processName", e);
-        logger.error {
-          val stage = pe.getStage();
-          s"failed to execute process: $processName, stage: $stage, cause: $e"
-        };
-        pe.handleError(jee);
-        throw jee;
-      };
-    }
+
+    pe.start();
+    context.setResult(true);
   }
 }
 
@@ -116,6 +108,7 @@ class ProcessExecutionImpl(processName: String, process: Process, executionConte
 
   override def start(): Unit = {
     try {
+      //prepare()
       processExecutionContext.setStage(PrepareStart());
       process.onPrepare(processExecutionContext);
       processExecutionContext.setStage(PrepareComplete());
@@ -123,22 +116,23 @@ class ProcessExecutionImpl(processName: String, process: Process, executionConte
     catch {
       case e =>
         try {
+          //rollback()
           logger.warn(s"onPrepare() failed: $e");
           processExecutionContext.setStage(RollbackStart());
           process.onRollback(processExecutionContext);
           processExecutionContext.setStage(RollbackComplete());
-
-          throw e;
         }
         catch {
           case e =>
             logger.warn(s"onRollback() failed: $e");
-            process.onFail(RollbackStart(), e, processExecutionContext);
+            processExecutionContext.sendError(RollbackStart(), e);
+            e.printStackTrace();
             throw e;
         }
     }
 
     try {
+      //commit()
       processExecutionContext.setStage(CommitStart());
       process.onCommit(processExecutionContext);
       processExecutionContext.setStage(CommitComplete());
@@ -146,7 +140,8 @@ class ProcessExecutionImpl(processName: String, process: Process, executionConte
     catch {
       case e =>
         logger.warn(s"onCommit() failed: $e");
-        process.onFail(CommitStart(), e, processExecutionContext);
+        processExecutionContext.sendError(CommitStart(), e);
+        e.printStackTrace();
         throw e;
     }
   }
@@ -157,10 +152,6 @@ class ProcessExecutionImpl(processName: String, process: Process, executionConte
   override def getProcessName(): String = processName;
 
   override def getProcess(): Process = process;
-
-  override def handleError(jee: JobExecutionException): Unit = processExecutionContext.errorHandler.handle(jee);
-
-  override def getStage(): ProcessStage = processExecutionContext.getStage();
 }
 
 trait ErrorHandler {

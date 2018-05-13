@@ -13,7 +13,6 @@ class FlowTest {
     processes.foreach(en => flow.addProcess(en._1, en._2));
 
     flow.addProcess("PrintMessage", new PrintMessage());
-
     flow.addTrigger("CopyTextFile", new DependencyTrigger("CleanHouse"));
     flow.addTrigger("CountWords", new DependencyTrigger("CopyTextFile"));
     flow.addTrigger("PrintCount", new DependencyTrigger("CountWords"));
@@ -21,10 +20,14 @@ class FlowTest {
 
     val spark = SparkSession.builder.master("local[4]")
       .getOrCreate();
-    val exe = Runner.run(flow, Map(classOf[SparkSession].getName -> spark));
+
+    val exe = Runner.run(flow, Map(
+      "localBackupDir" -> "/tmp/",
+      classOf[SparkSession].getName -> spark
+    ));
 
     exe.start("CleanHouse");
-    Thread.sleep(20000);
+    Thread.sleep(30000);
     exe.stop();
   }
 
@@ -46,8 +49,6 @@ class FlowTest {
           throw new RuntimeException("this is a bad process!");
 
         override def onRollback(pec: ProcessExecutionContext): Unit = ???
-
-        override def onFail(errorStage: ProcessStage, cause: Throwable, pec: ProcessExecutionContext): Unit = ???
 
         override def onCommit(pec: ProcessExecutionContext): Unit = ???
       },
@@ -117,7 +118,8 @@ class CountWords extends LazyProcess {
       .flatMap(s => s.zip(s.drop(1)).map(t => "" + t._1 + t._2))
       .groupBy("value").count.sort($"count".desc);
 
-    val tmpfile = File.createTempFile(this.getClass.getSimpleName, "");
+    val tmpfile = File.createTempFile(this.getClass.getName + "-", "");
+    tmpfile.delete();
     pec.put("tmpfile", tmpfile);
 
     count.write.json(tmpfile.getAbsolutePath);
