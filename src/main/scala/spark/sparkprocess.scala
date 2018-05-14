@@ -17,37 +17,37 @@ class SparkProcess extends Process with Logging {
   val ends = ArrayBuffer[Ops]();
 
   def onPrepare(pec: ProcessExecutionContext) = {
-    val backups = ArrayBuffer[Backup]();
+    val shadows = ArrayBuffer[SinkShadow]();
     val ne = ends.map { x =>
       val so = x.asInstanceOf[SaveOps];
       val sink = so.streamSink;
-      val backup = sink match {
-        case swb: SinkWithBackup =>
-          swb.backup(pec);
+      val shadow = sink match {
+        case sws: SinkWithShadow =>
+          sws.createShadow(pec);
         case _ =>
-          new Backup() {
+          new SinkShadow() {
             override def getSink(): Sink = sink;
 
-            override def rollback(): Unit = {}
+            override def discard(): Unit = {}
 
             override def commit(): Unit = {}
           }
       }
 
-      backups += backup;
-      SaveOps(backup.getSink(), so.stream);
+      shadows += shadow;
+      SaveOps(shadow.getSink(), so.stream);
     }
 
-    pec.put("backups", backups);
+    pec.put("shadows", shadows);
     ne.foreach(_.perform(pec));
   }
 
   override def onCommit(pec: ProcessExecutionContext): Unit = {
-    pec.get("backups").asInstanceOf[ArrayBuffer[Backup]].foreach(_.commit());
+    pec.get("shadows").asInstanceOf[ArrayBuffer[SinkShadow]].foreach(_.commit());
   }
 
   override def onRollback(pec: ProcessExecutionContext): Unit = {
-    pec.get("backups").asInstanceOf[ArrayBuffer[Backup]].foreach(_.rollback());
+    pec.get("shadows").asInstanceOf[ArrayBuffer[SinkShadow]].foreach(_.discard());
   }
 
   def loadStream(streamSource: Source): Stream = {
@@ -157,16 +157,16 @@ trait Sink {
   def save(data: DataFrame, ctx: ProcessExecutionContext): Unit;
 }
 
-trait SinkWithBackup extends Sink {
-  def backup(ctx: ProcessExecutionContext): Backup;
+trait SinkWithShadow extends Sink {
+  def createShadow(ctx: ProcessExecutionContext): SinkShadow;
 }
 
-trait Backup {
+trait SinkShadow {
   def getSink(): Sink;
 
   def commit();
 
-  def rollback();
+  def discard();
 }
 
 trait FunctionLogic {

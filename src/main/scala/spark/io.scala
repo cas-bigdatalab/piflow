@@ -10,7 +10,7 @@ import org.apache.spark.sql._
 /**
   * Created by bluejoe on 2018/5/13.
   */
-case class TextFile(path: String, format: String = FileFormat.TEXT) extends Source with SinkWithBackup {
+case class TextFile(path: String, format: String = FileFormat.TEXT) extends Source with SinkWithShadow {
   override def load(ctx: ProcessExecutionContext): DataFrame = {
     ctx.get[SparkSession].read.format(format).load(path).asInstanceOf[DataFrame];
   }
@@ -19,7 +19,7 @@ case class TextFile(path: String, format: String = FileFormat.TEXT) extends Sour
     data.write.format(format).save(path);
   }
 
-  def backup(ctx: ProcessExecutionContext): Backup = new Backup() with Logging {
+  def createShadow(ctx: ProcessExecutionContext): SinkShadow = new SinkShadow() with Logging {
     val backupFile = File.createTempFile(classOf[TextFile].getName.toLowerCase + "_", ".tmp",
       new File(ctx.get("localBackupDir").asInstanceOf[String]));
     backupFile.delete();
@@ -34,7 +34,7 @@ case class TextFile(path: String, format: String = FileFormat.TEXT) extends Sour
       backupFile.renameTo(new File(path));
     };
 
-    override def rollback(): Unit = {
+    override def discard(): Unit = {
       backupFile.delete();
     }
   }
