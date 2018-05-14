@@ -86,7 +86,7 @@ trait FlowExecutionContext extends Context with EventEmiter {
 
   def getFlowExecution(): FlowExecution;
 
-  def scheduleProcessRepeatly(cronExpr: String, processName: String): Unit;
+  def scheduleProcessRepeatly( processName: String,cronExpr: String): Unit;
 }
 
 class FlowExecutionImpl(flow: Flow, args: Map[String, Any])
