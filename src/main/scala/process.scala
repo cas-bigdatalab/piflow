@@ -11,18 +11,18 @@ trait Process {
     * @param pec
     * @return
     */
-  def prepare(pec: ProcessExecutionContext): Shadow;
+  def shadow(pec: ProcessExecutionContext): Shadow;
 
   /**
-    * snapshot is used to perform undo()
+    * Backup is used to perform undo()
     *
     * @param pec
     * @return
     */
-  def backup(pec: ProcessExecutionContext): Snapshot;
+  def backup(pec: ProcessExecutionContext): Backup;
 }
 
-trait Snapshot extends Serializable {
+trait Backup extends Serializable {
   def undo(pec: ProcessExecutionContext): Unit;
 }
 
@@ -70,7 +70,7 @@ trait PartialProcess extends Process {
   def perform(pec: ProcessExecutionContext);
   val process = this;
 
-  def prepare(pec: ProcessExecutionContext): Shadow = new Shadow {
+  def shadow(pec: ProcessExecutionContext): Shadow = new Shadow {
     override def discard(pec: ProcessExecutionContext): Unit = {}
 
     override def perform(pec: ProcessExecutionContext): Unit = {}
@@ -78,7 +78,7 @@ trait PartialProcess extends Process {
     override def commit(pec: ProcessExecutionContext): Unit = process.perform(pec);
   }
 
-  def backup(pec: ProcessExecutionContext): Snapshot = {
+  def backup(pec: ProcessExecutionContext): Backup = {
     null;
   }
 }

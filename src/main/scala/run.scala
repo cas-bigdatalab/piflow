@@ -274,7 +274,7 @@ class ProcessExecutionImpl(processName: String, process: Process, executionConte
     var shadow: Shadow = null;
     try {
       pec.setStage(ProcessStages.PREPARING);
-      shadow = process.prepare(pec);
+      shadow = process.shadow(pec);
       pec.setStage(ProcessStages.PREPARED);
       pec.setStage(ProcessStages.PERFORMING);
       shadow.perform(pec);

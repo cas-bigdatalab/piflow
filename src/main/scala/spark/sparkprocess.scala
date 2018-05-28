@@ -16,7 +16,7 @@ class SparkProcess extends Process with Logging {
 
   val ends = ArrayBuffer[Ops]();
 
-  def prepare(pec: ProcessExecutionContext): Shadow = {
+  def shadow(pec: ProcessExecutionContext): Shadow = {
     val shadows = ArrayBuffer[SinkShadow]();
     val nends: Seq[SaveOps] = ends.map { x =>
       val so = x.asInstanceOf[SaveOps];
@@ -48,7 +48,7 @@ class SparkProcess extends Process with Logging {
     }
   }
 
-  def backup(pec: ProcessExecutionContext): Snapshot = {
+  def backup(pec: ProcessExecutionContext): Backup = {
     //TODO: undo()
     null;
   }

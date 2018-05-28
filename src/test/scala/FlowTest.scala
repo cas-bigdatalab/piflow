@@ -140,7 +140,7 @@ class FlowTest {
 }
 
 class CountWords extends Process {
-  override def prepare(pec: ProcessExecutionContext) = {
+  override def shadow(pec: ProcessExecutionContext) = {
     val spark = SparkSession.builder.master("local[4]")
       .getOrCreate();
     import spark.implicits._
@@ -169,8 +169,8 @@ class CountWords extends Process {
 
   }
 
-  def backup(pec: ProcessExecutionContext): Snapshot = {
-    new Snapshot() {
+  def backup(pec: ProcessExecutionContext): Backup = {
+    new Backup() {
       def undo(pec: ProcessExecutionContext) =
         FileUtils.deleteDirectory(new File("./out/wordcount"));
     };
@@ -191,7 +191,7 @@ class CleanHouse extends PartialProcess {
 }
 
 class CopyTextFile extends Process {
-  override def prepare(pec: ProcessExecutionContext) = {
+  override def shadow(pec: ProcessExecutionContext) = {
     val is = new FileInputStream(new File("/Users/bluejoe/testdata/honglou.txt"));
     val tmpfile = File.createTempFile(this.getClass.getSimpleName, "");
 
@@ -212,7 +212,7 @@ class CopyTextFile extends Process {
   }
 
   def backup(pec: ProcessExecutionContext) = {
-    new Snapshot() {
+    new Backup() {
       def undo(pec: ProcessExecutionContext) =
         new File("./out/honglou.txt").delete();
     };
