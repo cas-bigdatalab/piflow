@@ -26,10 +26,9 @@ class FlowTest {
     val spark = SparkSession.builder.master("local[4]")
       .getOrCreate();
 
-    val exe = Runner.run(flow, Map(
-      "localBackupDir" -> "/tmp/",
-      classOf[SparkSession].getName -> spark
-    ));
+    val exe = Runner.bind("localBackupDir", "/tmp/")
+      .bind(classOf[SparkSession].getName, spark)
+      .run(flow);
 
     exe.start("CleanHouse");
     Thread.sleep(30000);
@@ -56,10 +55,9 @@ class FlowTest {
     val spark = SparkSession.builder.master("local[4]")
       .getOrCreate();
 
-    val exe = Runner.run(flow, Map(
-      "localBackupDir" -> "/tmp/",
-      classOf[SparkSession].getName -> spark
-    ));
+    val exe = Runner.bind("localBackupDir", "/tmp/")
+      .bind(classOf[SparkSession].getName, spark)
+      .run(flow);
 
     exe.start("CleanHouse");
     Thread.sleep(30000);
@@ -86,10 +84,9 @@ class FlowTest {
     val spark = SparkSession.builder.master("local[4]")
       .getOrCreate();
 
-    val exe = Runner.run(flow, Map(
-      "localBackupDir" -> "/tmp/",
-      classOf[SparkSession].getName -> spark
-    ));
+    val exe = Runner.bind("localBackupDir", "/tmp/")
+      .bind(classOf[SparkSession].getName, spark)
+      .run(flow);
 
     exe.start("CleanHouse");
     Thread.sleep(30000);

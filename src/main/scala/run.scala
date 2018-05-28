@@ -13,8 +13,15 @@ import scala.collection.JavaConversions._
 import scala.collection.mutable.{ArrayBuffer, Map => MMap}
 
 object Runner {
-  def run(flow: Flow, args: Map[String, Any] = Map()): FlowExecution = {
-    new FlowExecutionImpl(flow, args);
+  val ctx = new CascadeContext();
+
+  def bind(key: String, value: Any): this.type = {
+    ctx.put(key, value);
+    this;
+  }
+
+  def run(flow: Flow): FlowExecution = {
+    new FlowExecutionImpl(flow, ctx);
   }
 }
 
@@ -32,19 +39,6 @@ trait FlowExecution {
   def getRunningProcesses(): Seq[(String, String)];
 }
 
-trait Context {
-  def get(key: String): Any;
-
-  def get[T]()(implicit m: Manifest[T]): T = {
-    get(m.runtimeClass.getName).asInstanceOf[T];
-  }
-
-  def put(key: String, value: Any): this.type;
-
-  def put[T](value: T)(implicit m: Manifest[T]): this.type =
-    put(m.runtimeClass.getName, value);
-}
-
 trait FlowExecutionContext extends Context with EventEmiter {
   def getFlow(): Flow;
 
@@ -55,21 +49,16 @@ trait FlowExecutionContext extends Context with EventEmiter {
   def scheduleProcessRepeatly(processName: String, cronExpr: String): Unit;
 }
 
-class FlowExecutionImpl(flow: Flow, args: Map[String, Any])
+class FlowExecutionImpl(flow: Flow, runnerContext: Context)
   extends FlowExecution with Logging {
   val id = "flow_excution_" + IdGenerator.nextId[FlowExecution];
 
   val execution = this;
-  val executionContext = createContext();
+  val executionContext = createContext(runnerContext);
   val quartzScheduler = StdSchedulerFactory.getDefaultScheduler();
   val listeners = ArrayBuffer[FlowExecutionListener]();
 
   def start(starts: String*): Unit = {
-    //set context
-    args.foreach { (en) =>
-      executionContext.put(en._1, en._2);
-    };
-
     //activates all triggers
     flow.getProcessNames().foreach { name =>
       flow.getTriggers(name).foreach { trigger =>
@@ -137,8 +126,10 @@ class FlowExecutionImpl(flow: Flow, args: Map[String, Any])
 
   override def getFlow(): Flow = flow;
 
-  private def createContext(): FlowExecutionContext = {
-    new EventEmiterImpl() with FlowExecutionContext {
+  private def createContext(runnerContext: Context): FlowExecutionContext = {
+    new CascadeContext(runnerContext)
+      with EventEmiter
+      with FlowExecutionContext {
       //listens on LaunchProcess
       this.on(LaunchProcess(), new EventHandler() {
         override def handle(event: Event, args: Any): Unit = {
@@ -146,17 +137,8 @@ class FlowExecutionImpl(flow: Flow, args: Map[String, Any])
         }
       });
 
-      val context = MMap[String, Any]();
-
-      def get(key: String): Any = context(key);
-
       def runProcess(processName: String): ProcessExecution = {
         new ProcessExecutionImpl(processName, flow.getProcess(processName), executionContext);
-      }
-
-      def put(key: String, value: Any) = {
-        context(key) = value;
-        this;
       }
 
       private def _scheduleProcess(processName: String, scheduleBuilder: Option[ScheduleBuilder[_]] = None): Unit = {
@@ -211,10 +193,11 @@ trait ProcessExecutionContext extends Context {
   def getStage(): ProcessStage;
 }
 
-class ProcessExecutionContextImpl(processExecution: ProcessExecution, executionContext: FlowExecutionContext)
-  extends ProcessExecutionContext with Logging {
+class ProcessExecutionContextImpl(processExecution: ProcessExecution, flowExecutionContext: FlowExecutionContext)
+  extends CascadeContext(flowExecutionContext)
+    with ProcessExecutionContext
+    with Logging {
   val stages = ArrayBuffer[ProcessStage]();
-  val context = MMap[String, Any]();
   var errorHandler: ErrorHandler = ErrorHandler.Noop;
 
   def getProcessExecution() = processExecution;
@@ -236,18 +219,6 @@ class ProcessExecutionContextImpl(processExecution: ProcessExecution, executionC
     errorHandler.handle(jee);
     throw jee;
   }
-
-  override def get(key: String): Any = {
-    if (context.contains(key))
-      context(key);
-    else
-      executionContext.get(key);
-  };
-
-  override def put(key: String, value: Any): this.type = {
-    context(key) = value;
-    this;
-  };
 }
 
 class ProcessAsQuartzJob extends Job with Logging {
@@ -263,7 +234,7 @@ class ProcessAsQuartzJob extends Job with Logging {
   }
 }
 
-class ProcessExecutionImpl(processName: String, process: Process, executionContext: FlowExecutionContext)
+class ProcessExecutionImpl(processName: String, process: Process, flowExecutionContext: FlowExecutionContext)
   extends ProcessExecution with Logging {
   val id = "process_excution_" + IdGenerator.nextId[ProcessExecution];
   val pec = createContext();
@@ -307,7 +278,7 @@ class ProcessExecutionImpl(processName: String, process: Process, executionConte
   override def getProcess(): Process = process;
 
   private def createContext() =
-    new ProcessExecutionContextImpl(this, executionContext);
+    new ProcessExecutionContextImpl(this, flowExecutionContext);
 }
 
 object ProcessStages extends Enumeration {
