@@ -9,10 +9,14 @@ import org.apache.spark.sql.SparkSession
 import org.junit.Test
 
 class FlowTest {
-  private def runFlow(processes: Map[String, Process]) {
+  @Test
+  def test1() {
     val flow: Flow = new FlowImpl();
-    processes.foreach(en => flow.addProcess(en._1, en._2));
 
+    flow.addProcess("CleanHouse", new CleanHouse());
+    flow.addProcess("CopyTextFile", new CopyTextFile());
+    flow.addProcess("CountWords", new CountWords());
+    flow.addProcess("PrintCount", new PrintCount());
     flow.addProcess("PrintMessage", new PrintMessage());
     flow.addTrigger("CopyTextFile", new DependencyTrigger("CleanHouse"));
     flow.addTrigger("CountWords", new DependencyTrigger("CopyTextFile"));
@@ -33,37 +37,63 @@ class FlowTest {
   }
 
   @Test
-  def test1() {
-    runFlow(Map(
-      "CleanHouse" -> new CleanHouse(),
-      "CopyTextFile" -> new CopyTextFile(),
-      "CountWords" -> new CountWords(),
-      "PrintCount" -> new PrintCount()));
-  }
-
-  @Test
   def testProcessError() {
-    runFlow(Map(
-      "CleanHouse" -> new CleanHouse(),
-      "CopyTextFile" -> new Process() {
-        override def onPrepare(pec: ProcessExecutionContext): Unit =
-          throw new RuntimeException("this is a bad process!");
+    val flow: Flow = new FlowImpl();
 
-        override def onRollback(pec: ProcessExecutionContext): Unit = ???
+    flow.addProcess("CleanHouse", new CleanHouse());
+    flow.addProcess("CopyTextFile", new PartialProcess() {
+      override def perform(pec: ProcessExecutionContext): Unit =
+        throw new RuntimeException("this is a bad process!");
+    });
+    flow.addProcess("CountWords", new CountWords());
+    flow.addProcess("PrintCount", new PrintCount());
+    flow.addProcess("PrintMessage", new PrintMessage());
+    flow.addTrigger("CopyTextFile", new DependencyTrigger("CleanHouse"));
+    flow.addTrigger("CountWords", new DependencyTrigger("CopyTextFile"));
+    flow.addTrigger("PrintCount", new DependencyTrigger("CountWords"));
+    flow.addTrigger("PrintMessage", new TimerTrigger("0/5 * * * * ? "));
 
-        override def onCommit(pec: ProcessExecutionContext): Unit = ???
-      },
-      "CountWords" -> new CountWords(),
-      "PrintCount" -> new PrintCount()));
+    val spark = SparkSession.builder.master("local[4]")
+      .getOrCreate();
+
+    val exe = Runner.run(flow, Map(
+      "localBackupDir" -> "/tmp/",
+      classOf[SparkSession].getName -> spark
+    ));
+
+    exe.start("CleanHouse");
+    Thread.sleep(30000);
+    exe.stop();
   }
 
   @Test
   def testSparkProcess() {
-    runFlow(Map(
-      "CleanHouse" -> new CleanHouse(),
-      "CopyTextFile" -> new CopyTextFile(),
-      "CountWords" -> createProcessCountWords(),
-      "PrintCount" -> createProcessPrintCount()));
+    val flow: Flow = new FlowImpl();
+
+    flow.addProcess("CleanHouse", new CleanHouse());
+    flow.addProcess("CopyTextFile", new PartialProcess() {
+      override def perform(pec: ProcessExecutionContext): Unit =
+        throw new RuntimeException("this is a bad process!");
+    });
+    flow.addProcess("CountWords", createProcessCountWords());
+    flow.addProcess("PrintCount", createProcessPrintCount());
+    flow.addProcess("PrintMessage", new PrintMessage());
+    flow.addTrigger("CopyTextFile", new DependencyTrigger("CleanHouse"));
+    flow.addTrigger("CountWords", new DependencyTrigger("CopyTextFile"));
+    flow.addTrigger("PrintCount", new DependencyTrigger("CountWords"));
+    flow.addTrigger("PrintMessage", new TimerTrigger("0/5 * * * * ? "));
+
+    val spark = SparkSession.builder.master("local[4]")
+      .getOrCreate();
+
+    val exe = Runner.run(flow, Map(
+      "localBackupDir" -> "/tmp/",
+      classOf[SparkSession].getName -> spark
+    ));
+
+    exe.start("CleanHouse");
+    Thread.sleep(30000);
+    exe.stop();
   }
 
   val SCRIPT_1 =
@@ -109,8 +139,8 @@ class FlowTest {
   }
 }
 
-class CountWords extends LazyProcess {
-  override def onPrepare(pec: ProcessExecutionContext): Unit = {
+class CountWords extends Process {
+  override def prepare(pec: ProcessExecutionContext) = {
     val spark = SparkSession.builder.master("local[4]")
       .getOrCreate();
     import spark.implicits._
@@ -121,54 +151,76 @@ class CountWords extends LazyProcess {
 
     val tmpfile = File.createTempFile(this.getClass.getName + "-", "");
     tmpfile.delete();
-    pec.put("tmpfile", tmpfile);
 
-    count.write.json(tmpfile.getAbsolutePath);
-    spark.close();
+    new Shadow {
+      override def discard(pec: ProcessExecutionContext): Unit = {
+        tmpfile.delete();
+      }
+
+      override def perform(pec: ProcessExecutionContext): Unit = {
+        count.write.json(tmpfile.getAbsolutePath);
+        spark.close();
+      }
+
+      override def commit(pec: ProcessExecutionContext): Unit = {
+        tmpfile.renameTo(new File("./out/wordcount"));
+      }
+    };
+
   }
 
-  override def onCommit(pec: ProcessExecutionContext): Unit = {
-    pec.get("tmpfile").asInstanceOf[File].renameTo(new File("./out/wordcount"));
-  }
-
-  override def onRollback(pec: ProcessExecutionContext): Unit = {
-    pec.get("tmpfile").asInstanceOf[File].delete();
+  def backup(pec: ProcessExecutionContext): Snapshot = {
+    new Snapshot() {
+      def undo(pec: ProcessExecutionContext) =
+        FileUtils.deleteDirectory(new File("./out/wordcount"));
+    };
   }
 }
 
-class PrintMessage extends LazyProcess {
-  def onCommit(pc: ProcessExecutionContext): Unit = {
+class PrintMessage extends PartialProcess {
+  def perform(pc: ProcessExecutionContext): Unit = {
     println("*****hello******" + new Date());
   }
 }
 
-class CleanHouse extends LazyProcess {
-  def onCommit(pc: ProcessExecutionContext): Unit = {
+class CleanHouse extends PartialProcess {
+  def perform(pc: ProcessExecutionContext): Unit = {
     FileUtils.deleteDirectory(new File("./out/wordcount"));
     FileUtils.deleteQuietly(new File("./out/honglou.txt"));
   }
 }
 
-class CopyTextFile extends LazyProcess {
-  override def onPrepare(pec: ProcessExecutionContext): Unit = {
+class CopyTextFile extends Process {
+  override def prepare(pec: ProcessExecutionContext) = {
     val is = new FileInputStream(new File("/Users/bluejoe/testdata/honglou.txt"));
     val tmpfile = File.createTempFile(this.getClass.getSimpleName, "");
-    pec.put("tmpfile", tmpfile);
-    val os = new FileOutputStream(tmpfile);
-    IOUtils.copy(is, os);
+
+    new Shadow {
+      override def discard(pec: ProcessExecutionContext): Unit = {
+        tmpfile.delete();
+      }
+
+      override def perform(pec: ProcessExecutionContext): Unit = {
+        val os = new FileOutputStream(tmpfile);
+        IOUtils.copy(is, os);
+      }
+
+      override def commit(pec: ProcessExecutionContext): Unit = {
+        tmpfile.renameTo(new File("./out/honglou.txt"));
+      }
+    };
   }
 
-  override def onCommit(pec: ProcessExecutionContext): Unit = {
-    pec.get("tmpfile").asInstanceOf[File].renameTo(new File("./out/honglou.txt"));
-  }
-
-  override def onRollback(pec: ProcessExecutionContext): Unit = {
-    pec.get("tmpfile").asInstanceOf[File].delete();
+  def backup(pec: ProcessExecutionContext) = {
+    new Snapshot() {
+      def undo(pec: ProcessExecutionContext) =
+        new File("./out/honglou.txt").delete();
+    };
   }
 }
 
-class PrintCount extends LazyProcess {
-  def onCommit(pc: ProcessExecutionContext): Unit = {
+class PrintCount extends PartialProcess {
+  def perform(pc: ProcessExecutionContext): Unit = {
     val spark = SparkSession.builder.master("local[4]")
       .getOrCreate();
     import spark.implicits._
