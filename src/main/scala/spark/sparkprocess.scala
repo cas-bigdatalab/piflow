@@ -16,43 +16,6 @@ class SparkProcess extends Process with Logging {
 
   val ends = ArrayBuffer[Ops]();
 
-  def shadow(pec: ProcessExecutionContext): Shadow = {
-    val shadows = ArrayBuffer[SinkShadow]();
-    val nends: Seq[SaveOps] = ends.map { x =>
-      val so = x.asInstanceOf[SaveOps];
-      val sink = so.streamSink;
-      val shadow = sink match {
-        case sws: SinkWithShadow =>
-          sws.createShadow(pec);
-        case _ =>
-          new SinkShadow() {
-            override def getSink(): Sink = sink;
-
-            override def discard(): Unit = {}
-
-            override def commit(): Unit = {}
-          }
-      }
-
-      shadows += shadow;
-      SaveOps(shadow.getSink(), so.stream);
-    };
-
-    new Shadow() {
-      override def discard(pec: ProcessExecutionContext): Unit = shadows.foreach(_.discard());
-
-      override def perform(pec: ProcessExecutionContext): Unit = nends.foreach(_.perform(pec));
-
-      override def commit(pec: ProcessExecutionContext): Unit = shadows.foreach(_.commit());
-
-    }
-  }
-
-  def backup(pec: ProcessExecutionContext): Backup = {
-    //TODO: undo()
-    null;
-  }
-
   def loadStream(streamSource: Source): Stream = {
     return new CachedStream() {
       override def produce(ctx: ProcessExecutionContext): DataFrame = {
@@ -129,6 +92,42 @@ class SparkProcess extends Process with Logging {
     }
   }
 
+  def shadow(pec: ProcessExecutionContext): Shadow = {
+    val shadows = ArrayBuffer[SinkShadow]();
+    val nends: Seq[SaveOps] = ends.map { x =>
+      val so = x.asInstanceOf[SaveOps];
+      val sink = so.streamSink;
+      val shadow = sink match {
+        case sws: SinkWithShadow =>
+          sws.createShadow(pec);
+        case _ =>
+          new SinkShadow() {
+            override def getSink(): Sink = sink;
+
+            override def discard(): Unit = {}
+
+            override def commit(): Unit = {}
+          }
+      }
+
+      shadows += shadow;
+      SaveOps(shadow.getSink(), so.stream);
+    };
+
+    new Shadow() {
+      override def discard(pec: ProcessExecutionContext): Unit = shadows.foreach(_.discard());
+
+      override def perform(pec: ProcessExecutionContext): Unit = nends.foreach(_.perform(pec));
+
+      override def commit(pec: ProcessExecutionContext): Unit = shadows.foreach(_.commit());
+
+    }
+  }
+
+  def backup(pec: ProcessExecutionContext): Backup = {
+    //TODO: undo()
+    null;
+  }
 }
 
 trait Stream {

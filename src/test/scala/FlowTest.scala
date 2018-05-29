@@ -10,40 +10,11 @@ import org.junit.Test
 
 class FlowTest {
   @Test
-  def test1() {
+  def testProcess() {
     val flow: Flow = new FlowImpl();
 
     flow.addProcess("CleanHouse", new CleanHouse());
     flow.addProcess("CopyTextFile", new CopyTextFile());
-    flow.addProcess("CountWords", new CountWords());
-    flow.addProcess("PrintCount", new PrintCount());
-    flow.addProcess("PrintMessage", new PrintMessage());
-    flow.addTrigger("CopyTextFile", new DependencyTrigger("CleanHouse"));
-    flow.addTrigger("CountWords", new DependencyTrigger("CopyTextFile"));
-    flow.addTrigger("PrintCount", new DependencyTrigger("CountWords"));
-    flow.addTrigger("PrintMessage", new TimerTrigger("0/5 * * * * ? "));
-
-    val spark = SparkSession.builder.master("local[4]")
-      .getOrCreate();
-
-    val exe = Runner.bind("localBackupDir", "/tmp/")
-      .bind(classOf[SparkSession].getName, spark)
-      .run(flow);
-
-    exe.start("CleanHouse");
-    Thread.sleep(30000);
-    exe.stop();
-  }
-
-  @Test
-  def testProcessError() {
-    val flow: Flow = new FlowImpl();
-
-    flow.addProcess("CleanHouse", new CleanHouse());
-    flow.addProcess("CopyTextFile", new PartialProcess() {
-      override def perform(pec: ProcessExecutionContext): Unit =
-        throw new RuntimeException("this is a bad process!");
-    });
     flow.addProcess("CountWords", new CountWords());
     flow.addProcess("PrintCount", new PrintCount());
     flow.addProcess("PrintMessage", new PrintMessage());
@@ -70,8 +41,41 @@ class FlowTest {
 
     flow.addProcess("CleanHouse", new CleanHouse());
     flow.addProcess("CopyTextFile", new CopyTextFile());
+    //CountWords process is a SparkProcess
     flow.addProcess("CountWords", createProcessCountWords());
+    //PrintCount process is a SparkProcess
     flow.addProcess("PrintCount", createProcessPrintCount());
+    flow.addProcess("PrintMessage", new PrintMessage());
+    flow.addTrigger("CopyTextFile", new DependencyTrigger("CleanHouse"));
+    flow.addTrigger("CountWords", new DependencyTrigger("CopyTextFile"));
+    flow.addTrigger("PrintCount", new DependencyTrigger("CountWords"));
+    flow.addTrigger("PrintMessage", new TimerTrigger("0/5 * * * * ? "));
+
+    val spark = SparkSession.builder.master("local[4]")
+      .getOrCreate();
+
+    val exe = Runner.bind("localBackupDir", "/tmp/")
+      .bind(classOf[SparkSession].getName, spark)
+      .run(flow);
+
+    exe.start("CleanHouse");
+    Thread.sleep(30000);
+    exe.stop();
+  }
+
+  @Test
+  def testProcessError() {
+    val flow: Flow = new FlowImpl();
+
+    flow.addProcess("CleanHouse", new CleanHouse());
+    //CopyTextFile process will throw an error
+    flow.addProcess("CopyTextFile", new PartialProcess() {
+      override def perform(pec: ProcessExecutionContext): Unit =
+        throw new RuntimeException("this is a bad process!");
+    });
+    //CountWords should not be executed because CopyTextFile is failed
+    flow.addProcess("CountWords", new CountWords());
+    flow.addProcess("PrintCount", new PrintCount());
     flow.addProcess("PrintMessage", new PrintMessage());
     flow.addTrigger("CopyTextFile", new DependencyTrigger("CleanHouse"));
     flow.addTrigger("CountWords", new DependencyTrigger("CopyTextFile"));
@@ -112,9 +116,13 @@ class FlowTest {
 
   def createProcessCountWords() = {
     val processCountWords = new SparkProcess();
+    //SparkProcess = loadStream + transform... + writeStream
     val s1 = processCountWords.loadStream(TextFile("./out/honglou.txt", FileFormat.TEXT));
+    //transform s1 using an map() operation
     val s2 = processCountWords.transform(DoMap(ScriptEngine.logic(SCRIPT_1)), s1);
+    //transform s2 using a flatMap() operation
     val s3 = processCountWords.transform(DoFlatMap(ScriptEngine.logic(SCRIPT_2)), s2);
+    //transform s3 using a SQL operation
     val s4 = processCountWords.transform(ExecuteSQL(
       "select value, count(*) count from table_0 group by value order by count desc"), s3);
 
