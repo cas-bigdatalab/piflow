@@ -42,17 +42,17 @@ trait FlowExecution {
 trait FlowExecutionContext extends Context with EventEmiter {
   def getFlow(): Flow;
 
-  def runProcess(processName: String): ProcessExecution;
-
   def getFlowExecution(): FlowExecution;
+}
 
-  def scheduleProcessRepeatly(processName: String, cronExpr: String): Unit;
+class FlowExecutionGraph {
+
 }
 
 class FlowExecutionImpl(flow: Flow, runnerContext: Context)
   extends FlowExecution with Logging {
   val id = "flow_excution_" + IdGenerator.nextId[FlowExecution];
-
+  val graph = new FlowExecutionGraph();
   val execution = this;
   val executionContext = createContext(runnerContext);
   val quartzScheduler = StdSchedulerFactory.getDefaultScheduler();
@@ -70,7 +70,7 @@ class FlowExecutionImpl(flow: Flow, runnerContext: Context)
 
     //runs start processes
     starts.foreach { processName =>
-      executionContext.fire(LaunchProcess(), processName);
+      executionContext.fire(LaunchProcess(processName));
     }
   }
 
@@ -130,16 +130,21 @@ class FlowExecutionImpl(flow: Flow, runnerContext: Context)
     new CascadeContext(runnerContext)
       with EventEmiter
       with FlowExecutionContext {
+
       //listens on LaunchProcess
-      this.on(LaunchProcess(), new EventHandler() {
-        override def handle(event: Event, args: Any): Unit = {
-          scheduleProcess(args.asInstanceOf[String]);
+      this.on(classOf[LaunchProcess], new EventHandler() {
+        override def handle(event: Event): Unit = {
+          _scheduleProcess(event.asInstanceOf[LaunchProcess].processName);
         }
       });
 
-      def runProcess(processName: String): ProcessExecution = {
-        new ProcessExecutionImpl(processName, flow.getProcess(processName), executionContext);
-      }
+      //listens on CronProcess
+      this.on(classOf[CronProcess], new EventHandler() {
+        override def handle(event: Event): Unit = {
+          _scheduleProcess(event.asInstanceOf[CronProcess].processName,
+            Some(CronScheduleBuilder.cronSchedule(event.asInstanceOf[CronProcess].cronExpr)));
+        }
+      });
 
       private def _scheduleProcess(processName: String, scheduleBuilder: Option[ScheduleBuilder[_]] = None): Unit = {
         val quartzTriggerBuilder = TriggerBuilder.newTrigger().startNow();
@@ -155,14 +160,6 @@ class FlowExecutionImpl(flow: Flow, runnerContext: Context)
 
         logger.debug(s"scheduled process: $processName");
         quartzScheduler.scheduleJob(quartzJob, quartzTrigger);
-      }
-
-      def scheduleProcess(processName: String): Unit = {
-        _scheduleProcess(processName);
-      }
-
-      override def scheduleProcessRepeatly(processName: String, cronExpr: String): Unit = {
-        _scheduleProcess(processName, Some(CronScheduleBuilder.cronSchedule(cronExpr)));
       }
 
       override def getFlow(): Flow = flow;
@@ -206,7 +203,7 @@ class ProcessExecutionContextImpl(processExecution: ProcessExecution, flowExecut
 
   def setStage(stage: ProcessStage) = {
     val processName = processExecution.getProcessName();
-    logger.debug(s"stage changed: $stage, process: $processName");
+    logger.debug(s"----$stage($processName)----");
     stages += stage
   };
 
@@ -226,10 +223,7 @@ class ProcessAsQuartzJob extends Job with Logging {
     val map = context.getJobDetail.getJobDataMap;
     val processName = map.get("processName").asInstanceOf[String];
     val executionContext = context.getScheduler.getContext.get("executionContext").asInstanceOf[FlowExecutionContext];
-
-    val pe = executionContext.runProcess(processName);
-
-    pe.start();
+    new ProcessExecutionImpl(processName, executionContext.getFlow().getProcess(processName), executionContext).start();
     context.setResult(true);
   }
 }

@@ -23,12 +23,12 @@ class DependencyTrigger(dependentProcesses: String*) extends Trigger {
         completed(processName) = false;
       };
 
-      def handle(event: Event, args: Any) {
+      def handle(event: Event) {
         completed(event.asInstanceOf[ProcessCompleted].processName) = true;
 
         if (completed.values.filter(!_).isEmpty) {
           completed.clear();
-          executionContext.fire(LaunchProcess(), processName);
+          executionContext.fire(LaunchProcess(processName));
         }
       }
     };
@@ -45,7 +45,8 @@ class DependencyTrigger(dependentProcesses: String*) extends Trigger {
 class TimerTrigger(cronExpr: String, processNames: String*) extends Trigger {
   override def activate(processName: String, executionContext: FlowExecutionContext): Unit = {
     processNames.foreach { processName =>
-      executionContext.scheduleProcessRepeatly(processName, cronExpr);
+      //executionContext.scheduleProcessRepeatly(processName, cronExpr);
+      executionContext.fire(CronProcess(processName, cronExpr));
     }
   }
 }
@@ -57,8 +58,8 @@ class EventTrigger(event: Event, processNames: String*) extends Trigger {
   override def activate(processName: String, executionContext: FlowExecutionContext): Unit = {
     processNames.foreach { processName =>
       executionContext.on(event, new EventHandler() {
-        override def handle(event: Event, args: Any): Unit = {
-          executionContext.fire(LaunchProcess(), processName);
+        override def handle(event: Event): Unit = {
+          executionContext.fire(LaunchProcess(processName));
         }
       });
     }

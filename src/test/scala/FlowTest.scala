@@ -69,10 +69,7 @@ class FlowTest {
     val flow: Flow = new FlowImpl();
 
     flow.addProcess("CleanHouse", new CleanHouse());
-    flow.addProcess("CopyTextFile", new PartialProcess() {
-      override def perform(pec: ProcessExecutionContext): Unit =
-        throw new RuntimeException("this is a bad process!");
-    });
+    flow.addProcess("CopyTextFile", new CopyTextFile());
     flow.addProcess("CountWords", createProcessCountWords());
     flow.addProcess("PrintCount", createProcessPrintCount());
     flow.addProcess("PrintMessage", new PrintMessage());
@@ -189,7 +186,7 @@ class CleanHouse extends PartialProcess {
 
 class CopyTextFile extends Process {
   override def shadow(pec: ProcessExecutionContext) = {
-    val is = new FileInputStream(new File("/Users/bluejoe/testdata/honglou.txt"));
+    val is = new FileInputStream(new File("./testdata/honglou.txt"));
     val tmpfile = File.createTempFile(this.getClass.getSimpleName, "");
 
     new Shadow {
