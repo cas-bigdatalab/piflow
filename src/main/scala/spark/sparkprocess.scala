@@ -92,42 +92,14 @@ class SparkProcess extends Process with Logging {
     }
   }
 
-  def shadow(pec: ProcessExecutionContext): Shadow = {
-    val shadows = ArrayBuffer[SinkShadow]();
-    val nends: Seq[SaveOps] = ends.map { x =>
-      val so = x.asInstanceOf[SaveOps];
-      val sink = so.streamSink;
-      val shadow = sink match {
-        case sws: SinkWithShadow =>
-          sws.createShadow(pec);
-        case _ =>
-          new SinkShadow() {
-            override def getSink(): Sink = sink;
+  override def initialize(ctx: FlowExecutionContext): Unit = {
 
-            override def discard(): Unit = {}
-
-            override def commit(): Unit = {}
-          }
-      }
-
-      shadows += shadow;
-      SaveOps(shadow.getSink(), so.stream);
-    };
-
-    new Shadow() {
-      override def discard(pec: ProcessExecutionContext): Unit = shadows.foreach(_.discard());
-
-      override def perform(pec: ProcessExecutionContext): Unit = nends.foreach(_.perform(pec));
-
-      override def commit(pec: ProcessExecutionContext): Unit = shadows.foreach(_.commit());
-
-    }
   }
 
-  def backup(pec: ProcessExecutionContext): Backup = {
-    //TODO: undo()
-    null;
+  override def perform(in: ProcessInputStream, out: ProcessOutputStream, pec: ProcessExecutionContext): Unit = {
+    ends.foreach(_.perform(pec));
   }
+
 }
 
 trait Stream {

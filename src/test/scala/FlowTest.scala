@@ -11,17 +11,17 @@ import org.junit.Test
 class FlowTest {
   @Test
   def testProcess() {
-    val flow: Flow = new FlowImpl();
+    val flow = new FlowImpl();
 
     flow.addProcess("CleanHouse", new CleanHouse());
     flow.addProcess("CopyTextFile", new CopyTextFile());
     flow.addProcess("CountWords", new CountWords());
     flow.addProcess("PrintCount", new PrintCount());
     flow.addProcess("PrintMessage", new PrintMessage());
-    flow.addTrigger("CopyTextFile", new DependencyTrigger("CleanHouse"));
-    flow.addTrigger("CountWords", new DependencyTrigger("CopyTextFile"));
-    flow.addTrigger("PrintCount", new DependencyTrigger("CountWords"));
-    flow.addTrigger("PrintMessage", new TimerTrigger("0/5 * * * * ? "));
+
+    flow.addPath(Path.from("CleanHouse").to("CopyTextFile"));
+    flow.addPath(Path.from("CopyTextFile").to("CountWords"));
+    flow.addPath(Path.from("CountWords").to("PrintCount"));
 
     val spark = SparkSession.builder.master("local[4]")
       .getOrCreate();
@@ -30,14 +30,13 @@ class FlowTest {
       .bind(classOf[SparkSession].getName, spark)
       .run(flow);
 
-    exe.start("CleanHouse");
-    Thread.sleep(30000);
-    exe.stop();
+    flow.print();
+    exe.start();
   }
 
   @Test
   def testSparkProcess() {
-    val flow: Flow = new FlowImpl();
+    val flow = new FlowImpl();
 
     flow.addProcess("CleanHouse", new CleanHouse());
     flow.addProcess("CopyTextFile", new CopyTextFile());
@@ -46,10 +45,10 @@ class FlowTest {
     //PrintCount process is a SparkProcess
     flow.addProcess("PrintCount", createProcessPrintCount());
     flow.addProcess("PrintMessage", new PrintMessage());
-    flow.addTrigger("CopyTextFile", new DependencyTrigger("CleanHouse"));
-    flow.addTrigger("CountWords", new DependencyTrigger("CopyTextFile"));
-    flow.addTrigger("PrintCount", new DependencyTrigger("CountWords"));
-    flow.addTrigger("PrintMessage", new TimerTrigger("0/5 * * * * ? "));
+
+    flow.addPath(Path.from("CleanHouse").to("CopyTextFile"));
+    flow.addPath(Path.from("CopyTextFile").to("CountWords"));
+    flow.addPath(Path.from("CountWords").to("PrintCount"));
 
     val spark = SparkSession.builder.master("local[4]")
       .getOrCreate();
@@ -58,29 +57,35 @@ class FlowTest {
       .bind(classOf[SparkSession].getName, spark)
       .run(flow);
 
-    exe.start("CleanHouse");
-    Thread.sleep(30000);
-    exe.stop();
+    flow.print();
+    exe.start();
   }
 
   @Test
   def testProcessError() {
-    val flow: Flow = new FlowImpl();
+    val flow = new FlowImpl();
 
     flow.addProcess("CleanHouse", new CleanHouse());
     //CopyTextFile process will throw an error
-    flow.addProcess("CopyTextFile", new PartialProcess() {
-      override def perform(pec: ProcessExecutionContext): Unit =
+    flow.addProcess("CopyTextFile", new Process() {
+      def initialize(ctx: FlowExecutionContext): Unit = {
+
+      }
+
+      def perform(in: ProcessInputStream, out: ProcessOutputStream, pec: ProcessExecutionContext): Unit = {
         throw new RuntimeException("this is a bad process!");
+      }
     });
     //CountWords should not be executed because CopyTextFile is failed
     flow.addProcess("CountWords", new CountWords());
     flow.addProcess("PrintCount", new PrintCount());
     flow.addProcess("PrintMessage", new PrintMessage());
-    flow.addTrigger("CopyTextFile", new DependencyTrigger("CleanHouse"));
-    flow.addTrigger("CountWords", new DependencyTrigger("CopyTextFile"));
-    flow.addTrigger("PrintCount", new DependencyTrigger("CountWords"));
-    flow.addTrigger("PrintMessage", new TimerTrigger("0/5 * * * * ? "));
+
+    flow.addPath(Path.from("CleanHouse").to("CopyTextFile"));
+    flow.addPath(Path.from("CopyTextFile").to("CountWords"));
+    flow.addPath(Path.from("CountWords").to("PrintCount"));
+
+    //flow.addTrigger("PrintMessage", new TimerTrigger("0/5 * * * * ? "));
 
     val spark = SparkSession.builder.master("local[4]")
       .getOrCreate();
@@ -89,9 +94,8 @@ class FlowTest {
       .bind(classOf[SparkSession].getName, spark)
       .run(flow);
 
-    exe.start("CleanHouse");
-    Thread.sleep(30000);
-    exe.stop();
+    flow.print();
+    exe.start();
   }
 
   val SCRIPT_1 =
@@ -142,7 +146,7 @@ class FlowTest {
 }
 
 class CountWords extends Process {
-  override def shadow(pec: ProcessExecutionContext) = {
+  def perform(in: ProcessInputStream, out: ProcessOutputStream, pec: ProcessExecutionContext): Unit = {
     val spark = SparkSession.builder.master("local[4]")
       .getOrCreate();
     import spark.implicits._
@@ -153,81 +157,62 @@ class CountWords extends Process {
 
     val tmpfile = File.createTempFile(this.getClass.getName + "-", "");
     tmpfile.delete();
-
-    new Shadow {
-      override def discard(pec: ProcessExecutionContext): Unit = {
-        tmpfile.delete();
-      }
-
-      override def perform(pec: ProcessExecutionContext): Unit = {
-        count.write.json(tmpfile.getAbsolutePath);
-        spark.close();
-      }
-
-      override def commit(pec: ProcessExecutionContext): Unit = {
-        tmpfile.renameTo(new File("./out/wordcount"));
-      }
-    };
-
+    count.write.json(tmpfile.getAbsolutePath);
+    spark.close();
+    tmpfile.renameTo(new File("./out/wordcount"));
   }
 
-  def backup(pec: ProcessExecutionContext): Backup = {
-    new Backup() {
-      def undo(pec: ProcessExecutionContext) =
-        FileUtils.deleteDirectory(new File("./out/wordcount"));
-    };
+  def initialize(ctx: FlowExecutionContext): Unit = {
+
   }
 }
 
-class PrintMessage extends PartialProcess {
-  def perform(pc: ProcessExecutionContext): Unit = {
+class PrintMessage extends Process {
+  def perform(in: ProcessInputStream, out: ProcessOutputStream, pec: ProcessExecutionContext): Unit = {
     println("*****hello******" + new Date());
   }
+
+  def initialize(ctx: FlowExecutionContext): Unit = {
+
+  }
 }
 
-class CleanHouse extends PartialProcess {
-  def perform(pc: ProcessExecutionContext): Unit = {
+class CleanHouse extends Process {
+  def perform(in: ProcessInputStream, out: ProcessOutputStream, pec: ProcessExecutionContext): Unit = {
     FileUtils.deleteDirectory(new File("./out/wordcount"));
     FileUtils.deleteQuietly(new File("./out/honglou.txt"));
+  }
+
+  def initialize(ctx: FlowExecutionContext): Unit = {
+
   }
 }
 
 class CopyTextFile extends Process {
-  override def shadow(pec: ProcessExecutionContext) = {
+  def perform(in: ProcessInputStream, out: ProcessOutputStream, pec: ProcessExecutionContext): Unit = {
     val is = new FileInputStream(new File("./testdata/honglou.txt"));
     val tmpfile = File.createTempFile(this.getClass.getSimpleName, "");
-
-    new Shadow {
-      override def discard(pec: ProcessExecutionContext): Unit = {
-        tmpfile.delete();
-      }
-
-      override def perform(pec: ProcessExecutionContext): Unit = {
-        val os = new FileOutputStream(tmpfile);
-        IOUtils.copy(is, os);
-      }
-
-      override def commit(pec: ProcessExecutionContext): Unit = {
-        tmpfile.renameTo(new File("./out/honglou.txt"));
-      }
-    };
+    val os = new FileOutputStream(tmpfile);
+    IOUtils.copy(is, os);
+    tmpfile.renameTo(new File("./out/honglou.txt"));
   }
 
-  def backup(pec: ProcessExecutionContext) = {
-    new Backup() {
-      def undo(pec: ProcessExecutionContext) =
-        new File("./out/honglou.txt").delete();
-    };
+  def initialize(ctx: FlowExecutionContext): Unit = {
+
   }
 }
 
-class PrintCount extends PartialProcess {
-  def perform(pc: ProcessExecutionContext): Unit = {
+class PrintCount extends Process {
+  def perform(in: ProcessInputStream, out: ProcessOutputStream, pec: ProcessExecutionContext): Unit = {
     val spark = SparkSession.builder.master("local[4]")
       .getOrCreate();
     import spark.implicits._
     val count = spark.read.json("./out/wordcount").sort($"count".desc);
     count.show(40);
     spark.close();
+  }
+
+  def initialize(ctx: FlowExecutionContext): Unit = {
+
   }
 }
