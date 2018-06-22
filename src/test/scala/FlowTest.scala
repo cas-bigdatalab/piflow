@@ -19,9 +19,75 @@ class FlowTest {
     flow.addProcess("PrintCount", new PrintCount());
     flow.addProcess("PrintMessage", new PrintMessage());
 
-    flow.addPath(Path.from("CleanHouse").to("CopyTextFile"));
-    flow.addPath(Path.from("CopyTextFile").to("CountWords"));
-    flow.addPath(Path.from("CountWords").to("PrintCount"));
+    flow.addPath(Path.from("CleanHouse").to("CopyTextFile").to("CountWords").to("PrintCount"));
+
+    val spark = SparkSession.builder.master("local[4]")
+      .getOrCreate();
+
+    val exe = Runner.bind("localBackupDir", "/tmp/")
+      .bind(classOf[SparkSession].getName, spark)
+      .run(flow);
+
+    flow.print();
+    exe.start();
+  }
+
+  @Test
+  def testPipedProcess() {
+    val flow = new FlowImpl();
+
+    flow.addProcess("CleanHouse", new CleanHouse());
+    flow.addProcess("PipedReadTextFile", new PipedReadTextFile());
+    flow.addProcess("PipedCountWords", new PipedCountWords());
+    flow.addProcess("PipedPrintCount", new PipedPrintCount());
+
+    flow.addPath(Path.from("CleanHouse").to("PipedReadTextFile").to("PipedCountWords").to("PipedPrintCount"));
+
+    val spark = SparkSession.builder.master("local[4]")
+      .getOrCreate();
+
+    val exe = Runner.bind("localBackupDir", "/tmp/")
+      .bind(classOf[SparkSession].getName, spark)
+      .run(flow);
+
+    flow.print();
+    exe.start();
+  }
+
+  @Test
+  def testMergeProcess() {
+    val flow = new FlowImpl();
+
+    flow.addProcess("flow1", new TestDataGeneratorProcess(Seq("a", "b", "c")));
+    flow.addProcess("flow2", new TestDataGeneratorProcess(Seq("1", "2", "3")));
+    flow.addProcess("zip", new ZipProcess());
+    flow.addProcess("print", new PrintDataFrameProcess());
+
+    flow.addPath(Path.from("flow1").to("zip", "", "data1").to("print"));
+    flow.addPath(Path.from("flow2").to("zip", "", "data2"));
+
+    val spark = SparkSession.builder.master("local[4]")
+      .getOrCreate();
+
+    val exe = Runner.bind("localBackupDir", "/tmp/")
+      .bind(classOf[SparkSession].getName, spark)
+      .run(flow);
+
+    flow.print();
+    exe.start();
+  }
+
+  @Test
+  def testForkProcess() {
+    val flow = new FlowImpl();
+
+    flow.addProcess("flow", new TestDataGeneratorProcess(Seq("a", "b", "c", "d")));
+    flow.addProcess("fork", new ForkProcess());
+    flow.addProcess("print1", new PrintDataFrameProcess());
+    flow.addProcess("print2", new PrintDataFrameProcess());
+
+    flow.addPath(Path.from("flow").to("fork").to("print1", "data1", ""));
+    flow.addPath(Path.from("fork").to("print2", "data2", ""));
 
     val spark = SparkSession.builder.master("local[4]")
       .getOrCreate();
@@ -145,28 +211,6 @@ class FlowTest {
   }
 }
 
-class CountWords extends Process {
-  def perform(in: ProcessInputStream, out: ProcessOutputStream, pec: ProcessExecutionContext): Unit = {
-    val spark = SparkSession.builder.master("local[4]")
-      .getOrCreate();
-    import spark.implicits._
-    val count = spark.read.textFile("./out/honglou.txt")
-      .map(_.replaceAll("[\\x00-\\xff]|，|。|：|．|“|”|？|！|　", ""))
-      .flatMap(s => s.zip(s.drop(1)).map(t => "" + t._1 + t._2))
-      .groupBy("value").count.sort($"count".desc);
-
-    val tmpfile = File.createTempFile(this.getClass.getName + "-", "");
-    tmpfile.delete();
-    count.write.json(tmpfile.getAbsolutePath);
-    spark.close();
-    tmpfile.renameTo(new File("./out/wordcount"));
-  }
-
-  def initialize(ctx: FlowExecutionContext): Unit = {
-
-  }
-}
-
 class PrintMessage extends Process {
   def perform(in: ProcessInputStream, out: ProcessOutputStream, pec: ProcessExecutionContext): Unit = {
     println("*****hello******" + new Date());
@@ -214,5 +258,116 @@ class PrintCount extends Process {
 
   def initialize(ctx: FlowExecutionContext): Unit = {
 
+  }
+}
+
+class CountWords extends Process {
+  def perform(in: ProcessInputStream, out: ProcessOutputStream, pec: ProcessExecutionContext): Unit = {
+    val spark = pec.get[SparkSession]();
+    import spark.implicits._
+    val count = spark.read.textFile("./out/honglou.txt")
+      .map(_.replaceAll("[\\x00-\\xff]|，|。|：|．|“|”|？|！|　", ""))
+      .flatMap(s => s.zip(s.drop(1)).map(t => "" + t._1 + t._2))
+      .groupBy("value").count.sort($"count".desc);
+
+    val tmpfile = File.createTempFile(this.getClass.getName + "-", "");
+    tmpfile.delete();
+    count.write.json(tmpfile.getAbsolutePath);
+    spark.close();
+    tmpfile.renameTo(new File("./out/wordcount"));
+  }
+
+  def initialize(ctx: FlowExecutionContext): Unit = {
+
+  }
+}
+
+class PipedReadTextFile extends Process {
+  def perform(in: ProcessInputStream, out: ProcessOutputStream, pec: ProcessExecutionContext): Unit = {
+    val spark = pec.get[SparkSession]();
+    val df = spark.read.json("./testdata/honglou.txt");
+    out.write(df);
+  }
+
+  def initialize(ctx: FlowExecutionContext): Unit = {
+
+  }
+}
+
+class PipedCountWords extends Process {
+  def perform(in: ProcessInputStream, out: ProcessOutputStream, pec: ProcessExecutionContext): Unit = {
+    val spark = pec.get[SparkSession]();
+    import spark.implicits._
+    val df = in.read();
+    val count = df.as[String]
+      .map(_.replaceAll("[\\x00-\\xff]|，|。|：|．|“|”|？|！|　", ""))
+      .flatMap(s => s.zip(s.drop(1)).map(t => "" + t._1 + t._2))
+      .groupBy("value").count.sort($"count".desc);
+
+    out.write(count);
+  }
+
+  def initialize(ctx: FlowExecutionContext): Unit = {
+
+  }
+}
+
+
+class PipedPrintCount extends Process {
+  def perform(in: ProcessInputStream, out: ProcessOutputStream, pec: ProcessExecutionContext): Unit = {
+    val spark = pec.get[SparkSession]();
+    import spark.implicits._
+
+    val df = in.read();
+    val count = df.sort($"count".desc);
+    count.show(40);
+    out.write(df);
+  }
+
+  def initialize(ctx: FlowExecutionContext): Unit = {
+
+  }
+}
+
+class PrintDataFrameProcess extends Process {
+  def perform(in: ProcessInputStream, out: ProcessOutputStream, pec: ProcessExecutionContext): Unit = {
+    val spark = pec.get[SparkSession]();
+
+    val df = in.read();
+    df.show(40);
+  }
+
+  def initialize(ctx: FlowExecutionContext): Unit = {
+
+  }
+}
+
+class TestDataGeneratorProcess(seq: Seq[String]) extends Process {
+  override def initialize(ctx: FlowExecutionContext): Unit = {}
+
+  override def perform(in: ProcessInputStream, out: ProcessOutputStream, pec: ProcessExecutionContext): Unit = {
+    val spark = pec.get[SparkSession]();
+    import spark.implicits._
+    out.write(seq.toDF());
+  }
+}
+
+class ZipProcess extends Process {
+  override def initialize(ctx: FlowExecutionContext): Unit = {}
+
+  override def perform(in: ProcessInputStream, out: ProcessOutputStream, pec: ProcessExecutionContext): Unit = {
+    out.write(in.read("data1").union(in.read("data2")));
+  }
+}
+
+class ForkProcess extends Process {
+  override def initialize(ctx: FlowExecutionContext): Unit = {}
+
+  override def perform(in: ProcessInputStream, out: ProcessOutputStream, pec: ProcessExecutionContext): Unit = {
+    val ds = in.read();
+    val spark = pec.get[SparkSession]();
+    import spark.implicits._
+    out.write("data1", ds.as[String].filter(_.head % 2 == 0).toDF());
+    out.write("data2", ds.as[String].filter(_.head % 2 == 1).toDF());
   }
 }

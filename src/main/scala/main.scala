@@ -2,7 +2,6 @@ package cn.piflow
 
 import cn.piflow.util.{IdGenerator, Logging}
 import org.apache.spark.sql._
-import org.quartz.{Trigger => QuartzTrigger}
 
 import scala.collection.mutable.{ArrayBuffer, Map => MMap}
 
@@ -53,42 +52,54 @@ trait Flow {
 }
 
 trait Path {
-  def toArrowSeq(): Seq[Arrow];
+  def toEdges(): Seq[Edge];
 
-  def to(processTo: String): Path;
+  def addEdge(edge: Edge): Path;
+
+  def to(processTo: String, bundleOut: String = "", bundleIn: String = ""): Path;
 }
 
-class PathImpl extends Path {
-  val arrows = ArrayBuffer[Arrow]();
+class PathImpl() extends Path {
+  val edges = ArrayBuffer[Edge]();
 
-  override def toArrowSeq(): Seq[Arrow] = arrows.toSeq;
+  override def toEdges(): Seq[Edge] = edges.toSeq;
 
-  override def to(processTo: String): Path = {
-    arrows.last.processTo = processTo;
+  override def addEdge(edge: Edge): Path = {
+    edges += edge;
     this;
   }
 
-  def add(arrow: Arrow) = {
-    arrows += arrow;
+  override def to(processTo: String, bundleOut: String, bundleIn: String): Path = {
+    edges += new Edge(edges.last.processTo, processTo, bundleOut, bundleIn);
+    this;
   }
 }
 
-class Arrow(val processFrom: String, var processTo: String, var bundleOut: String, var bundleIn: String) {
+class Edge(val processFrom: String, var processTo: String, var bundleOut: String, var bundleIn: String) {
   override def toString() = {
     s"[$processFrom]-($bundleOut)-($bundleIn)-[$processTo]";
   }
 }
 
 object Path {
-  def from(processFrom: String): Path = {
-    val path = new PathImpl();
-    path.add(new Arrow(processFrom, null, "", ""));
-    path;
+
+  trait PathHead {
+    def to(processTo: String, bundleOut: String = "", bundleIn: String = ""): Path;
+  }
+
+  def from(processFrom: String): PathHead = {
+    new PathHead() {
+      override def to(processTo: String, bundleOut: String, bundleIn: String): Path = {
+        val path = new PathImpl();
+        path.addEdge(new Edge(processFrom, processTo, bundleOut, bundleIn));
+        path;
+      }
+    };
   }
 }
 
 class FlowImpl extends Flow {
-  val arrows = ArrayBuffer[Arrow]();
+  val edges = ArrayBuffer[Edge]();
   val processes = MMap[String, Process]();
 
   def addProcess(name: String, process: Process) = {
@@ -97,7 +108,7 @@ class FlowImpl extends Flow {
   };
 
   def print(): Unit = {
-    arrows.foreach { arrow =>
+    edges.foreach { arrow =>
       println(arrow.toString());
     }
   }
@@ -107,33 +118,34 @@ class FlowImpl extends Flow {
   override def getProcessNames(): Seq[String] = processes.map(_._1).toSeq;
 
   def addPath(path: Path): Flow = {
-    arrows ++= path.toArrowSeq();
+    edges ++= path.toEdges();
     this;
   }
 
   override def analyze(): AnalyzedFlowGraph =
     new AnalyzedFlowGraph() {
-      val previousProcesses = MMap[String, ArrayBuffer[Arrow]]();
-      val nextProcesses = MMap[String, ArrayBuffer[Arrow]]();
+      val incomingEdges = MMap[String, ArrayBuffer[Edge]]();
+      val outgoingEdges = MMap[String, ArrayBuffer[Edge]]();
 
-      arrows.foreach { arrow =>
-        previousProcesses.getOrElseUpdate(arrow.processTo, ArrayBuffer[Arrow]()) += arrow;
-        nextProcesses.getOrElseUpdate(arrow.processFrom, ArrayBuffer[Arrow]()) += arrow;
+      edges.foreach { edge =>
+        incomingEdges.getOrElseUpdate(edge.processTo, ArrayBuffer[Edge]()) += edge;
+        outgoingEdges.getOrElseUpdate(edge.processFrom, ArrayBuffer[Edge]()) += edge;
       }
 
-      private def _visitProcess[T](processName: String, op: (String, Map[String, T]) => T, visited: MMap[String, T]): T = {
+      private def _visitProcess[T](processName: String, op: (String, Map[Edge, T]) => T, visited: MMap[String, T]): T = {
         if (!visited.contains(processName)) {
           //executes dependent processes
           val inputs =
-            if (previousProcesses.contains(processName)) {
-              val arrows = previousProcesses(processName);
-              arrows.map { arrow =>
-                arrow.bundleIn ->
-                  _visitProcess(arrow.processFrom, op, visited);
+            if (incomingEdges.contains(processName)) {
+              //all incoming edges
+              val edges = incomingEdges(processName);
+              edges.map { edge =>
+                edge ->
+                  _visitProcess(edge.processFrom, op, visited);
               }.toMap
             }
             else {
-              Map[String, T]();
+              Map[Edge, T]();
             }
 
           val ret = op(processName, inputs);
@@ -145,8 +157,8 @@ class FlowImpl extends Flow {
         }
       }
 
-      override def visit[T](op: (String, Map[String, T]) => T): Unit = {
-        val ends = processes.keys.filterNot(nextProcesses.contains(_));
+      override def visit[T](op: (String, Map[Edge, T]) => T): Unit = {
+        val ends = processes.keys.filterNot(outgoingEdges.contains(_));
         val visited = MMap[String, T]();
         ends.foreach {
           _visitProcess(_, op, visited);
@@ -156,7 +168,7 @@ class FlowImpl extends Flow {
 }
 
 trait AnalyzedFlowGraph {
-  def visit[T](op: (String, Map[String, T]) => T): Unit;
+  def visit[T](op: (String, Map[Edge, T]) => T): Unit;
 }
 
 object Runner {
@@ -193,11 +205,17 @@ class ProcessInputStreamImpl() extends ProcessInputStream {
 
   override def isEmpty(): Boolean = inputs.isEmpty;
 
-  def attach(inputs: Map[String, ProcessOutputStreamImpl]) = {
-    this.inputs ++ inputs;
+  def attach(inputs: Map[Edge, ProcessOutputStreamImpl]) = {
+    this.inputs ++= inputs.filter(x => x._2.contains(x._1.bundleOut))
+      .map(x => (x._1.bundleIn, x._2.getDataFrame(x._1.bundleOut)));
   };
 
-  override def read(): DataFrame = read(inputs.keysIterator.next());
+  override def read(): DataFrame = {
+    if (inputs.isEmpty)
+      throw new NoInputAvailableException();
+
+    read(inputs.head._1);
+  };
 
   override def read(bundle: String): DataFrame = {
     inputs(bundle);
@@ -207,13 +225,15 @@ class ProcessInputStreamImpl() extends ProcessInputStream {
 class ProcessOutputStreamImpl() extends ProcessOutputStream {
   val mapDataFrame = MMap[String, DataFrame]();
 
-  override def write(data: DataFrame): Unit = write("default", data);
+  override def write(data: DataFrame): Unit = write("", data);
 
   override def sendError(): Unit = ???
 
   override def write(bundle: String, data: DataFrame): Unit = {
     mapDataFrame(bundle) = data;
   }
+
+  def contains(bundle: String) = mapDataFrame.contains(bundle);
 
   def getDataFrame(bundle: String) = mapDataFrame(bundle);
 }
@@ -248,8 +268,8 @@ class FlowExecutionImpl(flow: Flow, runnerContext: Context)
 
     val analyzed = flow.analyze();
 
-    //runs start processes
-    analyzed.visit[ProcessOutputStreamImpl]((processName: String, inputs: Map[String, ProcessOutputStreamImpl]) => {
+    //runs processes
+    analyzed.visit[ProcessOutputStreamImpl]((processName: String, inputs: Map[Edge, ProcessOutputStreamImpl]) => {
       val pe = executions(processName);
       var outputs: ProcessOutputStreamImpl = null;
       try {
@@ -306,7 +326,7 @@ class ProcessExecutionImpl(processName: String, process: Process, flowExecutionC
 
   def getContext() = pec;
 
-  def perform(inputs: Map[String, ProcessOutputStreamImpl]): ProcessOutputStreamImpl = {
+  def perform(inputs: Map[Edge, ProcessOutputStreamImpl]): ProcessOutputStreamImpl = {
     pec.getInputStream().asInstanceOf[ProcessInputStreamImpl].attach(inputs);
     process.perform(pec.getInputStream(), pec.getOutputStream(), pec);
     pec.getOutputStream().asInstanceOf[ProcessOutputStreamImpl];
@@ -395,4 +415,12 @@ class FlowExecutionLogger extends FlowExecutionListener with Logging {
     val processName = ctx.getProcessExecution().getProcessName();
     logger.debug(s"process completed: $processName");
   };
+}
+
+class FlowException extends RuntimeException {
+
+}
+
+class NoInputAvailableException extends FlowException {
+
 }
