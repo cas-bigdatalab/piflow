@@ -23,7 +23,7 @@ class FlowElement {
 }
 
 class SparkProcessElement {
-  def build(): SparkProcess = {
+  def build(): ETLProcess = {
     null;
   }
 }

@@ -179,8 +179,12 @@ object Runner {
     this;
   }
 
-  def run(flow: Flow): FlowExecution = {
+  def schedule(flow: Flow): FlowExecution = {
     new FlowExecutionImpl(flow, ctx);
+  }
+
+  def run(flow: Flow): Unit = {
+    schedule(flow).start();
   }
 }
 

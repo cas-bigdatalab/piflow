@@ -26,7 +26,7 @@ class FlowTest {
 
     val exe = Runner.bind("localBackupDir", "/tmp/")
       .bind(classOf[SparkSession].getName, spark)
-      .run(flow);
+      .schedule(flow);
 
     flow.print();
     exe.start();
@@ -48,7 +48,7 @@ class FlowTest {
 
     val exe = Runner.bind("localBackupDir", "/tmp/")
       .bind(classOf[SparkSession].getName, spark)
-      .run(flow);
+      .schedule(flow);
 
     flow.print();
     exe.start();
@@ -71,7 +71,7 @@ class FlowTest {
 
     val exe = Runner.bind("localBackupDir", "/tmp/")
       .bind(classOf[SparkSession].getName, spark)
-      .run(flow);
+      .schedule(flow);
 
     flow.print();
     exe.start();
@@ -94,14 +94,14 @@ class FlowTest {
 
     val exe = Runner.bind("localBackupDir", "/tmp/")
       .bind(classOf[SparkSession].getName, spark)
-      .run(flow);
+      .schedule(flow);
 
     flow.print();
     exe.start();
   }
 
   @Test
-  def testSparkProcess() {
+  def testETLProcess() {
     val flow = new FlowImpl();
 
     flow.addProcess("CleanHouse", new CleanHouse());
@@ -112,16 +112,14 @@ class FlowTest {
     flow.addProcess("PrintCount", createProcessPrintCount());
     flow.addProcess("PrintMessage", new PrintMessage());
 
-    flow.addPath(Path.from("CleanHouse").to("CopyTextFile"));
-    flow.addPath(Path.from("CopyTextFile").to("CountWords"));
-    flow.addPath(Path.from("CountWords").to("PrintCount"));
+    flow.addPath(Path.from("CleanHouse").to("CopyTextFile").to("CountWords").to("PrintCount"));
 
     val spark = SparkSession.builder.master("local[4]")
       .getOrCreate();
 
     val exe = Runner.bind("localBackupDir", "/tmp/")
       .bind(classOf[SparkSession].getName, spark)
-      .run(flow);
+      .schedule(flow);
 
     flow.print();
     exe.start();
@@ -158,7 +156,7 @@ class FlowTest {
 
     val exe = Runner.bind("localBackupDir", "/tmp/")
       .bind(classOf[SparkSession].getName, spark)
-      .run(flow);
+      .schedule(flow);
 
     flow.print();
     exe.start();
@@ -185,7 +183,7 @@ class FlowTest {
     """;
 
   def createProcessCountWords() = {
-    val processCountWords = new SparkProcess();
+    val processCountWords = new ETLProcess();
     //SparkProcess = loadStream + transform... + writeStream
     val s1 = processCountWords.loadStream(TextFile("./out/honglou.txt", FileFormat.TEXT));
     //transform s1 using an map() operation
@@ -201,7 +199,7 @@ class FlowTest {
   }
 
   def createProcessPrintCount() = {
-    val processPrintCount = new SparkProcess();
+    val processPrintCount = new ETLProcess();
     val s1 = processPrintCount.loadStream(TextFile("./out/wordcount", FileFormat.JSON));
     val s2 = processPrintCount.transform(ExecuteSQL(
       "select value from table_0 order by count desc"), s1);

@@ -12,7 +12,7 @@ import org.apache.spark.sql.types.StructType
 import scala.collection.JavaConversions
 import scala.collection.mutable.{ArrayBuffer, Map => MMap}
 
-class SparkProcess extends Process with Logging {
+class ETLProcess extends Process with Logging {
 
   val ends = ArrayBuffer[Ops]();
 
@@ -130,18 +130,6 @@ trait Transformer1N1 extends Transformer {
 
 trait Sink {
   def save(data: DataFrame, ctx: ProcessExecutionContext): Unit;
-}
-
-trait SinkWithShadow extends Sink {
-  def createShadow(ctx: ProcessExecutionContext): SinkShadow;
-}
-
-trait SinkShadow {
-  def getSink(): Sink;
-
-  def commit();
-
-  def discard();
 }
 
 trait FunctionLogic {
