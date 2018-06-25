@@ -14,6 +14,8 @@ trait ProcessInputStream {
 }
 
 trait ProcessOutputStream {
+  def makeCheckPoint(pec: ProcessExecutionContext): Unit;
+
   def write(data: DataFrame);
 
   def write(bundle: String, data: DataFrame);
@@ -35,6 +37,8 @@ trait ProcessExecutionContext extends Context {
   def getInputStream(): ProcessInputStream;
 
   def getOutputStream(): ProcessOutputStream;
+
+  def getFlowExecutionContext(): FlowExecutionContext;
 }
 
 trait Process {
@@ -45,6 +49,8 @@ trait Process {
 
 trait Flow {
   def getProcessNames(): Seq[String];
+
+  def isCheckPoint(processName: String): Boolean;
 
   def getProcess(name: String): Process;
 
@@ -75,7 +81,7 @@ class PathImpl() extends Path {
   }
 }
 
-class Edge(val processFrom: String, var processTo: String, var bundleOut: String, var bundleIn: String) {
+case class Edge(processFrom: String, processTo: String, bundleOut: String, bundleIn: String) {
   override def toString() = {
     s"[$processFrom]-($bundleOut)-($bundleIn)-[$processTo]";
   }
@@ -101,6 +107,7 @@ object Path {
 class FlowImpl extends Flow {
   val edges = ArrayBuffer[Edge]();
   val processes = MMap[String, Process]();
+  val checkpoints = ArrayBuffer[String]();
 
   def addProcess(name: String, process: Process) = {
     processes(name) = process;
@@ -111,6 +118,14 @@ class FlowImpl extends Flow {
     edges.foreach { arrow =>
       println(arrow.toString());
     }
+  }
+
+  def addCheckPoint(processName: String): Unit = {
+    checkpoints += processName;
+  }
+
+  override def isCheckPoint(processName: String): Boolean = {
+    checkpoints.contains(processName);
   }
 
   override def getProcess(name: String) = processes(name);
@@ -205,7 +220,8 @@ trait FlowExecutionContext extends Context {
 }
 
 class ProcessInputStreamImpl() extends ProcessInputStream {
-  val inputs = MMap[String, DataFrame]();
+  //only returns DataFrame on calling read()
+  val inputs = MMap[String, () => DataFrame]();
 
   override def isEmpty(): Boolean = inputs.isEmpty;
 
@@ -222,19 +238,31 @@ class ProcessInputStreamImpl() extends ProcessInputStream {
   };
 
   override def read(bundle: String): DataFrame = {
-    inputs(bundle);
+    inputs(bundle)();
   }
 }
 
-class ProcessOutputStreamImpl() extends ProcessOutputStream {
-  val mapDataFrame = MMap[String, DataFrame]();
+class ProcessOutputStreamImpl() extends ProcessOutputStream with Logging {
+  override def makeCheckPoint(pec: ProcessExecutionContext) {
+    mapDataFrame.foreach(en => {
+      val path = pec.get("checkpoint.path").asInstanceOf[String].stripSuffix("/") + "/" + pec.getFlowExecutionContext().getFlowExecution().getExecutionId() + "/" + pec.getProcessExecution().getExecutionId();
+      logger.debug(s"writing data on checkpoint: $path");
+      en._2.apply().write.parquet(path);
+      mapDataFrame(en._1) = () => {
+        logger.debug(s"loading data from checkpoint: $path");
+        pec.get[SparkSession].read.parquet(path)
+      };
+    })
+  }
+
+  val mapDataFrame = MMap[String, () => DataFrame]();
 
   override def write(data: DataFrame): Unit = write("", data);
 
   override def sendError(): Unit = ???
 
   override def write(bundle: String, data: DataFrame): Unit = {
-    mapDataFrame(bundle) = data;
+    mapDataFrame(bundle) = () => data;
   }
 
   def contains(bundle: String) = mapDataFrame.contains(bundle);
@@ -247,7 +275,7 @@ class FlowExecutionImpl(flow: Flow, runnerContext: Context)
 
   val listeners = ArrayBuffer[FlowExecutionListener](new FlowExecutionLogger());
 
-  val id = "flow_excution_" + IdGenerator.nextId[FlowExecution];
+  val id = "flow_excution_" + IdGenerator.uuid() + "_" + IdGenerator.nextId[FlowExecution];
   val execution = this;
   val flowExecutionContext = createContext(runnerContext);
 
@@ -256,6 +284,7 @@ class FlowExecutionImpl(flow: Flow, runnerContext: Context)
 
   override def start(): Unit = {
 
+    //onFlowStarted
     listeners.foreach(_.onFlowStarted(flowExecutionContext));
 
     //initialize all processes
@@ -279,6 +308,12 @@ class FlowExecutionImpl(flow: Flow, runnerContext: Context)
       try {
         outputs = pe.perform(inputs);
         listeners.foreach(_.onProcessCompleted(pe.getContext()));
+
+        //is a checkpoint?
+        if (flow.isCheckPoint(processName)) {
+          //store dataset
+          outputs.makeCheckPoint(pe.getContext());
+        }
       }
       catch {
         case e: Throwable =>
@@ -319,6 +354,8 @@ class ProcessExecutionContextImpl(processExecution: ProcessExecution, flowExecut
   def getInputStream(): ProcessInputStream = is;
 
   def getOutputStream(): ProcessOutputStream = os;
+
+  override def getFlowExecutionContext(): FlowExecutionContext = flowExecutionContext;
 }
 
 class ProcessExecutionImpl(processName: String, process: Process, flowExecutionContext: FlowExecutionContext)
@@ -344,6 +381,8 @@ class ProcessExecutionImpl(processName: String, process: Process, flowExecutionC
 trait Context {
   def get(key: String): Any;
 
+  def get(key: String, defaultValue: Any): Any;
+
   def get[T]()(implicit m: Manifest[T]): T = {
     get(m.runtimeClass.getName).asInstanceOf[T];
   }
@@ -354,10 +393,19 @@ trait Context {
     put(m.runtimeClass.getName, value);
 }
 
-class CascadeContext(parent: Context = null) extends Context {
+class CascadeContext(parent: Context = null) extends Context with Logging {
   val map = MMap[String, Any]();
 
-  override def get(key: String): Any = {
+  override def get(key: String): Any = internalGet(key,
+    () => throw new ParameterNotSetException(key));
+
+  override def get(key: String, defaultValue: Any): Any = internalGet(key,
+    () => {
+      logger.warn(s"value of '$key' not set, using default: $defaultValue");
+      defaultValue;
+    });
+
+  def internalGet(key: String, op: () => Unit): Any = {
     if (map.contains(key)) {
       map(key);
     }
@@ -365,7 +413,7 @@ class CascadeContext(parent: Context = null) extends Context {
       if (parent != null)
         parent.get(key);
       else
-        null;
+        op();
     }
   };
 
@@ -421,10 +469,14 @@ class FlowExecutionLogger extends FlowExecutionListener with Logging {
   };
 }
 
-class FlowException extends RuntimeException {
+class FlowException(msg: String = null, cause: Throwable = null) extends RuntimeException(msg, cause) {
 
 }
 
-class NoInputAvailableException extends FlowException {
+class NoInputAvailableException extends FlowException() {
+
+}
+
+class ParameterNotSetException(key: String) extends FlowException(s"parameter not set: $key") {
 
 }

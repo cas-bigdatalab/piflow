@@ -24,7 +24,7 @@ class FlowTest {
     val spark = SparkSession.builder.master("local[4]")
       .getOrCreate();
 
-    val exe = Runner.bind("localBackupDir", "/tmp/")
+    val exe = Runner
       .bind(classOf[SparkSession].getName, spark)
       .schedule(flow);
 
@@ -46,8 +46,32 @@ class FlowTest {
     val spark = SparkSession.builder.master("local[4]")
       .getOrCreate();
 
-    val exe = Runner.bind("localBackupDir", "/tmp/")
+    val exe = Runner
       .bind(classOf[SparkSession].getName, spark)
+      .schedule(flow);
+
+    flow.print();
+    exe.start();
+  }
+
+  @Test
+  def testProcessCheckPoint() {
+    val flow = new FlowImpl();
+
+    flow.addProcess("CleanHouse", new CleanHouse());
+    flow.addProcess("PipedReadTextFile", new PipedReadTextFile());
+    flow.addProcess("PipedCountWords", new PipedCountWords());
+    flow.addProcess("PipedPrintCount", new PipedPrintCount());
+
+    flow.addPath(Path.from("CleanHouse").to("PipedReadTextFile").to("PipedCountWords").to("PipedPrintCount"));
+    flow.addCheckPoint("PipedReadTextFile");
+
+    val spark = SparkSession.builder.master("local[4]")
+      .getOrCreate();
+
+    val exe = Runner
+      .bind(classOf[SparkSession].getName, spark)
+      .bind("checkpoint.path", "/tmp/piflow/checkpoints/")
       .schedule(flow);
 
     flow.print();
@@ -69,7 +93,7 @@ class FlowTest {
     val spark = SparkSession.builder.master("local[4]")
       .getOrCreate();
 
-    val exe = Runner.bind("localBackupDir", "/tmp/")
+    val exe = Runner
       .bind(classOf[SparkSession].getName, spark)
       .schedule(flow);
 
@@ -92,7 +116,7 @@ class FlowTest {
     val spark = SparkSession.builder.master("local[4]")
       .getOrCreate();
 
-    val exe = Runner.bind("localBackupDir", "/tmp/")
+    val exe = Runner
       .bind(classOf[SparkSession].getName, spark)
       .schedule(flow);
 
@@ -117,7 +141,7 @@ class FlowTest {
     val spark = SparkSession.builder.master("local[4]")
       .getOrCreate();
 
-    val exe = Runner.bind("localBackupDir", "/tmp/")
+    val exe = Runner
       .bind(classOf[SparkSession].getName, spark)
       .schedule(flow);
 
@@ -154,7 +178,7 @@ class FlowTest {
     val spark = SparkSession.builder.master("local[4]")
       .getOrCreate();
 
-    val exe = Runner.bind("localBackupDir", "/tmp/")
+    val exe = Runner
       .bind(classOf[SparkSession].getName, spark)
       .schedule(flow);
 
