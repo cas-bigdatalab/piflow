@@ -52,7 +52,7 @@ class DoMap(func: FunctionLogic, targetSchema: StructType = null) extends Proces
       }
     };
 
-    val output = input.map(func.perform(_).asInstanceOf[Row])(encoder);
+    val output = input.map(x => func.perform(Seq(x)).asInstanceOf[Row])(encoder);
     out.write(output);
   }
 }
@@ -74,7 +74,7 @@ class DoFlatMap(func: FunctionLogic, targetSchema: StructType = null) extends Pr
     };
 
     val output = data.flatMap(x =>
-      JavaConversions.iterableAsScalaIterable(func.perform(x).asInstanceOf[java.util.ArrayList[Row]]))(encoder);
+      JavaConversions.iterableAsScalaIterable(func.perform(Seq(x)).asInstanceOf[java.util.ArrayList[Row]]))(encoder);
     out.write(output);
   }
 }

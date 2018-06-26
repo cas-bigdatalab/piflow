@@ -8,7 +8,6 @@ import cn.piflow.util.ScriptEngine
 import org.apache.commons.io.{FileUtils, IOUtils}
 import org.apache.spark.sql.SparkSession
 import org.junit.Test
-import Path._
 
 class FlowTest {
   @Test
