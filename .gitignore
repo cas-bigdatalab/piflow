@@ -7,4 +7,4 @@
 .DS_Store
 /doc/api/
 .idea/
-.idea/
+/spark-warehouse/
