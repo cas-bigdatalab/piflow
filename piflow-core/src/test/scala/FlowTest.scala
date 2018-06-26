@@ -20,7 +20,7 @@ class FlowTest {
     flow.addProcess("PrintCount", new PrintCount());
     flow.addProcess("PrintMessage", new PrintMessage());
 
-    flow.addPath(Path.from("CleanHouse").to("CopyTextFile").to("CountWords").to("PrintCount"));
+    flow.addPath(Path.of("CleanHouse" -> "CopyTextFile" -> "CountWords" -> "PrintCount"));
 
     val spark = SparkSession.builder.master("local[4]")
       .getOrCreate();

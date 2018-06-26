@@ -1,5 +1,7 @@
 package cn.piflow
 
+import java.security.InvalidParameterException
+
 import cn.piflow.util.{IdGenerator, Logging}
 import org.apache.spark.sql._
 
@@ -103,6 +105,33 @@ object Path {
         path;
       }
     };
+  }
+
+  def of(path: (Any, String)): Path = {
+    val pi = new PathImpl();
+
+    def _addEdges(path: (Any, String)): Unit = {
+      val value1 = path._1;
+
+      //String->String
+      if (value1.isInstanceOf[String]) {
+        pi.addEdge(new Edge(value1.asInstanceOf[String], path._2, "", ""));
+      }
+
+      //(String->String)->String
+      else if (value1.isInstanceOf[(Any, String)]) {
+        val tuple = value1.asInstanceOf[(Any, String)];
+        _addEdges(tuple);
+        pi.addEdge(new Edge(tuple._2, path._2, "", ""));
+      }
+
+      else {
+        throw new InvalidParameterException(s"invalid parameter: $value1, String or (String, String) expected!");
+      }
+    }
+
+    _addEdges(path);
+    pi;
   }
 }
 
