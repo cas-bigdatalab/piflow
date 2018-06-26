@@ -2,8 +2,9 @@ import java.io.{File, FileInputStream, FileOutputStream}
 import java.util.Date
 
 import cn.piflow._
-import cn.piflow.spark._
-import cn.piflow.spark.io._
+import cn.piflow.lib._
+import cn.piflow.lib.io._
+import cn.piflow.util.ScriptEngine
 import org.apache.commons.io.{FileUtils, IOUtils}
 import org.apache.spark.sql.SparkSession
 import org.junit.Test
@@ -24,11 +25,10 @@ class FlowTest {
     val spark = SparkSession.builder.master("local[4]")
       .getOrCreate();
 
-    val exe = Runner
+    val exe = Runner.create()
       .bind(classOf[SparkSession].getName, spark)
       .schedule(flow);
 
-    flow.print();
     exe.start();
   }
 
@@ -46,11 +46,10 @@ class FlowTest {
     val spark = SparkSession.builder.master("local[4]")
       .getOrCreate();
 
-    val exe = Runner
+    val exe = Runner.create()
       .bind(classOf[SparkSession].getName, spark)
       .schedule(flow);
 
-    flow.print();
     exe.start();
   }
 
@@ -69,12 +68,11 @@ class FlowTest {
     val spark = SparkSession.builder.master("local[4]")
       .getOrCreate();
 
-    val exe = Runner
+    val exe = Runner.create()
       .bind(classOf[SparkSession].getName, spark)
       .bind("checkpoint.path", "/tmp/piflow/checkpoints/")
       .schedule(flow);
 
-    flow.print();
     exe.start();
   }
 
@@ -93,11 +91,10 @@ class FlowTest {
     val spark = SparkSession.builder.master("local[4]")
       .getOrCreate();
 
-    val exe = Runner
+    val exe = Runner.create()
       .bind(classOf[SparkSession].getName, spark)
       .schedule(flow);
 
-    flow.print();
     exe.start();
   }
 
@@ -116,16 +113,15 @@ class FlowTest {
     val spark = SparkSession.builder.master("local[4]")
       .getOrCreate();
 
-    val exe = Runner
+    val exe = Runner.create()
       .bind(classOf[SparkSession].getName, spark)
       .schedule(flow);
 
-    flow.print();
     exe.start();
   }
 
   @Test
-  def testETLProcess() {
+  def testFlowAsProcess() {
     val flow = new FlowImpl();
 
     flow.addProcess("CleanHouse", new CleanHouse());
@@ -141,11 +137,10 @@ class FlowTest {
     val spark = SparkSession.builder.master("local[4]")
       .getOrCreate();
 
-    val exe = Runner
+    val exe = Runner.create()
       .bind(classOf[SparkSession].getName, spark)
       .schedule(flow);
 
-    flow.print();
     exe.start();
   }
 
@@ -178,11 +173,10 @@ class FlowTest {
     val spark = SparkSession.builder.master("local[4]")
       .getOrCreate();
 
-    val exe = Runner
+    val exe = Runner.create()
       .bind(classOf[SparkSession].getName, spark)
       .schedule(flow);
 
-    flow.print();
     exe.start();
   }
 
@@ -207,29 +201,31 @@ class FlowTest {
     """;
 
   def createProcessCountWords() = {
-    val processCountWords = new ETLProcess();
+    val processCountWords = new FlowImpl();
     //SparkProcess = loadStream + transform... + writeStream
-    val s1 = processCountWords.loadStream(TextFile("./out/honglou.txt", FileFormat.TEXT));
-    //transform s1 using an map() operation
-    val s2 = processCountWords.transform(DoMap(ScriptEngine.logic(SCRIPT_1)), s1);
-    //transform s2 using a flatMap() operation
-    val s3 = processCountWords.transform(DoFlatMap(ScriptEngine.logic(SCRIPT_2)), s2);
-    //transform s3 using a SQL operation
-    val s4 = processCountWords.transform(ExecuteSQL(
-      "select value, count(*) count from table_0 group by value order by count desc"), s3);
+    processCountWords.addProcess("LoadStream", new LoadStream(TextFile("./out/honglou.txt", FileFormat.TEXT)));
+    processCountWords.addProcess("DoMap", new DoMap(ScriptEngine.logic(SCRIPT_1)));
+    processCountWords.addProcess("DoFlatMap", new DoFlatMap(ScriptEngine.logic(SCRIPT_2)));
+    processCountWords.addProcess("ExecuteSQL", new ExecuteSQL(
+      "select value, count(*) count from table1 group by value order by count desc",
+      "" -> "table1"));
+    processCountWords.addProcess("WriteStream", new WriteStream(new TextFile("./out/wordcount", FileFormat.JSON)));
+    processCountWords.addPath(Path.from("LoadStream").to("DoMap").to("DoFlatMap").to("ExecuteSQL").to("WriteStream"));
 
-    processCountWords.writeStream(TextFile("./out/wordcount", FileFormat.JSON), s4);
-    processCountWords;
+    new FlowAsProcess(processCountWords);
   }
 
   def createProcessPrintCount() = {
-    val processPrintCount = new ETLProcess();
-    val s1 = processPrintCount.loadStream(TextFile("./out/wordcount", FileFormat.JSON));
-    val s2 = processPrintCount.transform(ExecuteSQL(
-      "select value from table_0 order by count desc"), s1);
+    val processPrintCount = new FlowImpl();
 
-    processPrintCount.writeStream(Console(40), s2);
-    processPrintCount;
+    processPrintCount.addProcess("LoadStream", new LoadStream(TextFile("./out/wordcount", FileFormat.JSON)));
+    processPrintCount.addProcess("ExecuteSQL", new ExecuteSQL(
+      "select value from table1 order by count desc",
+      "" -> "table1"));
+    processPrintCount.addProcess("PrintConsole", new WriteStream(Console(40)));
+    processPrintCount.addPath(Path.from("LoadStream").to("ExecuteSQL").to("PrintConsole"));
+
+    new FlowAsProcess(processPrintCount);
   }
 }
 

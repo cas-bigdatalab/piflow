@@ -1,4 +1,4 @@
-package cn.piflow.spark
+package cn.piflow.util
 
 import java.util.{Map => JMap}
 import javax.script.{Compilable, ScriptEngineManager}
@@ -13,6 +13,10 @@ trait ScriptEngine {
 
 trait CompiledFunction {
   def invoke(args: Map[String, Any] = Map[String, Any]()): Any;
+}
+
+trait FunctionLogic {
+  def perform(value: Any): Any;
 }
 
 object ScriptEngine {

@@ -55,6 +55,8 @@ trait Flow {
   def getProcess(name: String): Process;
 
   def analyze(): AnalyzedFlowGraph;
+
+  def show(): Unit;
 }
 
 trait Path {
@@ -114,7 +116,7 @@ class FlowImpl extends Flow {
     this;
   };
 
-  def print(): Unit = {
+  override def show(): Unit = {
     edges.foreach { arrow =>
       println(arrow.toString());
     }
@@ -186,20 +188,28 @@ trait AnalyzedFlowGraph {
   def visit[T](op: (String, Map[Edge, T]) => T): Unit;
 }
 
-object Runner {
-  val ctx = new CascadeContext();
+trait Runner {
+  def bind(key: String, value: Any): Runner;
 
-  def bind(key: String, value: Any): this.type = {
-    ctx.put(key, value);
-    this;
-  }
-
-  def schedule(flow: Flow): FlowExecution = {
-    new FlowExecutionImpl(flow, ctx);
-  }
+  def schedule(flow: Flow): FlowExecution;
 
   def run(flow: Flow): Unit = {
     schedule(flow).start();
+  }
+}
+
+object Runner {
+  def create(): Runner = new Runner() {
+    val ctx = new CascadeContext();
+
+    override def bind(key: String, value: Any): this.type = {
+      ctx.put(key, value);
+      this;
+    }
+
+    override def schedule(flow: Flow): FlowExecution = {
+      new FlowExecutionImpl(flow, ctx, this);
+    }
   }
 }
 
@@ -211,6 +221,8 @@ trait FlowExecution {
   def start();
 
   def getFlow(): Flow;
+
+  def fork(child: Flow): FlowExecution;
 }
 
 trait FlowExecutionContext extends Context {
@@ -270,20 +282,25 @@ class ProcessOutputStreamImpl() extends ProcessOutputStream with Logging {
   def getDataFrame(bundle: String) = mapDataFrame(bundle);
 }
 
-class FlowExecutionImpl(flow: Flow, runnerContext: Context)
+class FlowExecutionImpl(flow: Flow, runnerContext: Context, runner: Runner, parentExecution: Option[FlowExecution] = None)
   extends FlowExecution with Logging {
 
-  val listeners = ArrayBuffer[FlowExecutionListener](new FlowExecutionLogger());
-
   val id = "flow_excution_" + IdGenerator.uuid() + "_" + IdGenerator.nextId[FlowExecution];
+  val executionString = "" + id + parentExecution.map("(parent=" + _.toString + ")").getOrElse("");
+
+  logger.debug(s"create execution: $this, flow: $flow");
+  flow.show();
+
+  val listeners = ArrayBuffer[FlowExecutionListener](new FlowExecutionLogger());
   val execution = this;
   val flowExecutionContext = createContext(runnerContext);
 
   override def addListener(listener: FlowExecutionListener): Unit =
     listeners += listener;
 
-  override def start(): Unit = {
+  override def toString(): String = executionString;
 
+  override def start(): Unit = {
     //onFlowStarted
     listeners.foreach(_.onFlowStarted(flowExecutionContext));
 
@@ -338,6 +355,11 @@ class FlowExecutionImpl(flow: Flow, runnerContext: Context)
 
       override def getFlowExecution(): FlowExecution = execution;
     };
+  }
+
+  override def fork(child: Flow): FlowExecution = {
+    //add flow execution stack
+    new FlowExecutionImpl(child, runnerContext, runner, Some(this));
   }
 }
 
@@ -479,4 +501,14 @@ class NoInputAvailableException extends FlowException() {
 
 class ParameterNotSetException(key: String) extends FlowException(s"parameter not set: $key") {
 
+}
+
+//sub flow
+class FlowAsProcess(flow: Flow) extends Process {
+  override def initialize(ctx: FlowExecutionContext): Unit = {
+  }
+
+  override def perform(in: ProcessInputStream, out: ProcessOutputStream, pec: ProcessExecutionContext): Unit = {
+    pec.getFlowExecutionContext().getFlowExecution().fork(flow).start();
+  }
 }
