@@ -1,6 +1,6 @@
 package cn.piflow
 
-import java.security.InvalidParameterException
+import java.util.concurrent.{CountDownLatch, TimeUnit}
 
 import cn.piflow.util.{IdGenerator, Logging}
 import org.apache.spark.sql._
@@ -126,7 +126,7 @@ object Path {
       }
 
       else {
-        throw new InvalidParameterException(s"invalid parameter: $value1, String or (String, String) expected!");
+        throw new InvalidPathException(value1);
       }
     }
 
@@ -220,11 +220,7 @@ trait AnalyzedFlowGraph {
 trait Runner {
   def bind(key: String, value: Any): Runner;
 
-  def schedule(flow: Flow): FlowExecution;
-
-  def run(flow: Flow): Unit = {
-    schedule(flow).start();
-  }
+  def start(flow: Flow): FlowExecution;
 }
 
 object Runner {
@@ -236,8 +232,8 @@ object Runner {
       this;
     }
 
-    override def schedule(flow: Flow): FlowExecution = {
-      new FlowExecutionImpl(flow, ctx, this);
+    override def start(flow: Flow): FlowExecution = {
+      new FlowExecutionImpl(flow, ctx, this).start();
     }
   }
 }
@@ -247,11 +243,15 @@ trait FlowExecution {
 
   def getExecutionId(): String;
 
-  def start();
+  def awaitTermination();
+
+  def awaitTermination(timeout: Long, unit: TimeUnit);
 
   def getFlow(): Flow;
 
   def fork(child: Flow): FlowExecution;
+
+  def stop(): Unit;
 }
 
 trait FlowExecutionContext extends Context {
@@ -323,55 +323,91 @@ class FlowExecutionImpl(flow: Flow, runnerContext: Context, runner: Runner, pare
   val listeners = ArrayBuffer[FlowExecutionListener](new FlowExecutionLogger());
   val execution = this;
   val flowExecutionContext = createContext(runnerContext);
+  val latch = new CountDownLatch(1);
+  var running = false;
+
+  val workerThread = new Thread(new Runnable() {
+    def perform() {
+      //initialize all processes
+      //initialize process context
+      val executions = MMap[String, ProcessExecutionImpl]();
+      flow.getProcessNames().foreach { processName =>
+        val process = flow.getProcess(processName);
+        process.initialize(flowExecutionContext);
+
+        val pe = new ProcessExecutionImpl(processName, process, flowExecutionContext);
+        executions(processName) = pe;
+        listeners.foreach(_.onProcessInitialized(pe.getContext()));
+      }
+
+      val analyzed = flow.analyze();
+
+      //runs processes
+      analyzed.visit[ProcessOutputStreamImpl]((processName: String, inputs: Map[Edge, ProcessOutputStreamImpl]) => {
+        val pe = executions(processName);
+        var outputs: ProcessOutputStreamImpl = null;
+        try {
+          outputs = pe.perform(inputs);
+          listeners.foreach(_.onProcessCompleted(pe.getContext()));
+
+          //is a checkpoint?
+          if (flow.isCheckPoint(processName)) {
+            //store dataset
+            outputs.makeCheckPoint(pe.getContext());
+          }
+        }
+        catch {
+          case e: Throwable =>
+            listeners.foreach(_.onProcessFailed(pe.getContext()));
+            throw e;
+        }
+
+        outputs;
+      }
+      );
+    }
+
+    override def run(): Unit = {
+      running = true;
+
+      //onFlowStarted
+      listeners.foreach(_.onFlowStarted(flowExecutionContext));
+      try {
+        perform();
+        //onFlowCompleted
+        listeners.foreach(_.onFlowCompleted(flowExecutionContext));
+      }
+      //onFlowFailed
+      catch {
+        case e: Throwable =>
+          listeners.foreach(_.onFlowFailed(flowExecutionContext));
+          throw e;
+      }
+      finally {
+        latch.countDown();
+        running = false;
+      }
+    }
+  });
 
   override def addListener(listener: FlowExecutionListener): Unit =
     listeners += listener;
 
   override def toString(): String = executionString;
 
-  override def start(): Unit = {
-    //onFlowStarted
-    listeners.foreach(_.onFlowStarted(flowExecutionContext));
+  def start(): FlowExecutionImpl = {
+    workerThread.start();
+    this;
+  }
 
-    //initialize all processes
-    //initialize process context
-    val executions = MMap[String, ProcessExecutionImpl]();
-    flow.getProcessNames().foreach { processName =>
-      val process = flow.getProcess(processName);
-      process.initialize(flowExecutionContext);
+  override def awaitTermination(): Unit = {
+    latch.await();
+  }
 
-      val pe = new ProcessExecutionImpl(processName, process, flowExecutionContext);
-      executions(processName) = pe;
-      listeners.foreach(_.onProcessInitialized(pe.getContext()));
-    }
-
-    val analyzed = flow.analyze();
-
-    //runs processes
-    analyzed.visit[ProcessOutputStreamImpl]((processName: String, inputs: Map[Edge, ProcessOutputStreamImpl]) => {
-      val pe = executions(processName);
-      var outputs: ProcessOutputStreamImpl = null;
-      try {
-        outputs = pe.perform(inputs);
-        listeners.foreach(_.onProcessCompleted(pe.getContext()));
-
-        //is a checkpoint?
-        if (flow.isCheckPoint(processName)) {
-          //store dataset
-          outputs.makeCheckPoint(pe.getContext());
-        }
-      }
-      catch {
-        case e: Throwable =>
-          listeners.foreach(_.onProcessFailed(pe.getContext()));
-          throw e;
-      }
-
-      outputs;
-    }
-    );
-
-    listeners.foreach(_.onFlowShutdown(flowExecutionContext));
+  override def awaitTermination(timeout: Long, unit: TimeUnit): Unit = {
+    latch.await(timeout, unit);
+    if (running)
+      stop();
   }
 
   override def getExecutionId(): String = id;
@@ -388,7 +424,17 @@ class FlowExecutionImpl(flow: Flow, runnerContext: Context, runner: Runner, pare
 
   override def fork(child: Flow): FlowExecution = {
     //add flow execution stack
-    new FlowExecutionImpl(child, runnerContext, runner, Some(this));
+    new FlowExecutionImpl(child, runnerContext, runner, Some(this)).start();
+  }
+
+  //TODO: stopSparkJob()
+  override def stop(): Unit = {
+    if (!running)
+      throw new FlowNotRunningException(this);
+
+    workerThread.interrupt();
+    listeners.foreach(_.onFlowAborted(flowExecutionContext));
+    latch.countDown();
   }
 }
 
@@ -477,7 +523,11 @@ class CascadeContext(parent: Context = null) extends Context with Logging {
 trait FlowExecutionListener {
   def onFlowStarted(ctx: FlowExecutionContext);
 
-  def onFlowShutdown(ctx: FlowExecutionContext);
+  def onFlowCompleted(ctx: FlowExecutionContext);
+
+  def onFlowFailed(ctx: FlowExecutionContext);
+
+  def onFlowAborted(ctx: FlowExecutionContext);
 
   def onProcessInitialized(ctx: ProcessExecutionContext);
 
@@ -509,15 +559,25 @@ class FlowExecutionLogger extends FlowExecutionListener with Logging {
     logger.debug(s"process initialized: $processName");
   };
 
-  override def onFlowShutdown(ctx: FlowExecutionContext): Unit = {
+  override def onFlowCompleted(ctx: FlowExecutionContext): Unit = {
     val flowName = ctx.getFlow().toString;
-    logger.debug(s"flow shutdown: $flowName");
+    logger.debug(s"flow completed: $flowName");
   };
 
   override def onProcessCompleted(ctx: ProcessExecutionContext): Unit = {
     val processName = ctx.getProcessExecution().getProcessName();
     logger.debug(s"process completed: $processName");
   };
+
+  override def onFlowFailed(ctx: FlowExecutionContext): Unit = {
+    val flowName = ctx.getFlow().toString;
+    logger.debug(s"flow failed: $flowName");
+  }
+
+  override def onFlowAborted(ctx: FlowExecutionContext): Unit = {
+    val flowName = ctx.getFlow().toString;
+    logger.debug(s"flow aborted: $flowName");
+  }
 }
 
 class FlowException(msg: String = null, cause: Throwable = null) extends RuntimeException(msg, cause) {
@@ -538,6 +598,14 @@ class FlowAsProcess(flow: Flow) extends Process {
   }
 
   override def perform(in: ProcessInputStream, out: ProcessOutputStream, pec: ProcessExecutionContext): Unit = {
-    pec.getFlowExecutionContext().getFlowExecution().fork(flow).start();
+    pec.getFlowExecutionContext().getFlowExecution().fork(flow).awaitTermination();
   }
+}
+
+class FlowNotRunningException(execution: FlowExecution) extends FlowException() {
+
+}
+
+class InvalidPathException(head: Any) extends FlowException() {
+
 }

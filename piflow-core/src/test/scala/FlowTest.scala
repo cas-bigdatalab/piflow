@@ -1,5 +1,6 @@
 import java.io.{File, FileInputStream, FileOutputStream}
 import java.util.Date
+import java.util.concurrent.TimeUnit
 
 import cn.piflow._
 import cn.piflow.lib._
@@ -27,9 +28,55 @@ class FlowTest {
 
     val exe = Runner.create()
       .bind(classOf[SparkSession].getName, spark)
-      .schedule(flow);
+      .start(flow);
 
-    exe.start();
+    exe.awaitTermination();
+  }
+
+  @Test
+  def testStopFlow() {
+    val flow = new FlowImpl();
+
+    flow.addProcess("CleanHouse", new CleanHouse());
+    flow.addProcess("CopyTextFile", new CopyTextFile());
+    flow.addProcess("CountWords", new CountWords());
+    flow.addProcess("PrintCount", new PrintCount());
+    flow.addProcess("PrintMessage", new PrintMessage());
+
+    flow.addPath(Path.of("CleanHouse" -> "CopyTextFile" -> "CountWords" -> "PrintCount"));
+
+    val spark = SparkSession.builder.master("local[4]")
+      .getOrCreate();
+
+    val exe = Runner.create()
+      .bind(classOf[SparkSession].getName, spark)
+      .start(flow);
+
+    Thread.sleep(100);
+    exe.stop();
+  }
+
+  @Test
+  def testInterruptFlow() {
+    val flow = new FlowImpl();
+
+    flow.addProcess("CleanHouse", new CleanHouse());
+    flow.addProcess("CopyTextFile", new CopyTextFile());
+    flow.addProcess("CountWords", new CountWords());
+    flow.addProcess("PrintCount", new PrintCount());
+    flow.addProcess("PrintMessage", new PrintMessage());
+
+    flow.addPath(Path.of("CleanHouse" -> "CopyTextFile" -> "CountWords" -> "PrintCount"));
+
+    val spark = SparkSession.builder.master("local[4]")
+      .getOrCreate();
+
+    val exe = Runner.create()
+      .bind(classOf[SparkSession].getName, spark)
+      .start(flow);
+
+    exe.awaitTermination(100, TimeUnit.MILLISECONDS);
+    exe.stop();
   }
 
   @Test
@@ -48,9 +95,9 @@ class FlowTest {
 
     val exe = Runner.create()
       .bind(classOf[SparkSession].getName, spark)
-      .schedule(flow);
+      .start(flow);
 
-    exe.start();
+    exe.awaitTermination();
   }
 
   @Test
@@ -71,9 +118,9 @@ class FlowTest {
     val exe = Runner.create()
       .bind(classOf[SparkSession].getName, spark)
       .bind("checkpoint.path", "/tmp/piflow/checkpoints/")
-      .schedule(flow);
+      .start(flow);
 
-    exe.start();
+    exe.awaitTermination();
   }
 
   @Test
@@ -93,9 +140,9 @@ class FlowTest {
 
     val exe = Runner.create()
       .bind(classOf[SparkSession].getName, spark)
-      .schedule(flow);
+      .start(flow);
 
-    exe.start();
+    exe.awaitTermination();
   }
 
   @Test
@@ -115,9 +162,9 @@ class FlowTest {
 
     val exe = Runner.create()
       .bind(classOf[SparkSession].getName, spark)
-      .schedule(flow);
+      .start(flow);
 
-    exe.start();
+    exe.awaitTermination();
   }
 
   @Test
@@ -139,9 +186,9 @@ class FlowTest {
 
     val exe = Runner.create()
       .bind(classOf[SparkSession].getName, spark)
-      .schedule(flow);
+      .start(flow);
 
-    exe.start();
+    exe.awaitTermination();
   }
 
   @Test
@@ -175,9 +222,9 @@ class FlowTest {
 
     val exe = Runner.create()
       .bind(classOf[SparkSession].getName, spark)
-      .schedule(flow);
+      .start(flow);
 
-    exe.start();
+    exe.awaitTermination();
   }
 
   val SCRIPT_1 =
