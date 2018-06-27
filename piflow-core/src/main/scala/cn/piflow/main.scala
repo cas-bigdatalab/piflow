@@ -217,30 +217,7 @@ trait AnalyzedFlowGraph {
   def visit[T](op: (String, Map[Edge, T]) => T): Unit;
 }
 
-trait Runner {
-  def bind(key: String, value: Any): Runner;
-
-  def start(flow: Flow): Process;
-}
-
-object Runner {
-  def create(): Runner = new Runner() {
-    val ctx = new CascadeContext();
-
-    override def bind(key: String, value: Any): this.type = {
-      ctx.put(key, value);
-      this;
-    }
-
-    override def start(flow: Flow): Process = {
-      new ProcessImpl(flow, ctx, this);
-    }
-  }
-}
-
 trait Process {
-  def addListener(listener: FlowExecutionListener);
-
   def pid(): String;
 
   def awaitTermination();
@@ -320,8 +297,8 @@ class ProcessImpl(flow: Flow, runnerContext: Context, runner: Runner, parentProc
   logger.debug(s"create process: $this, flow: $flow");
   flow.show();
 
-  val listeners = ArrayBuffer[FlowExecutionListener](new FlowExecutionLogger());
   val process = this;
+  val runnerListener = runner.getListener();
   val processContext = createContext(runnerContext);
   val latch = new CountDownLatch(1);
   var running = false;
@@ -337,7 +314,7 @@ class ProcessImpl(flow: Flow, runnerContext: Context, runner: Runner, parentProc
 
         val pe = new StopJobImpl(stopName, stop, processContext);
         jobs(stopName) = pe;
-        listeners.foreach(_.onJobInitialized(pe.getContext()));
+        runnerListener.onJobInitialized(pe.getContext());
       }
 
       val analyzed = flow.analyze();
@@ -347,9 +324,9 @@ class ProcessImpl(flow: Flow, runnerContext: Context, runner: Runner, parentProc
         val pe = jobs(stopName);
         var outputs: JobOutputStreamImpl = null;
         try {
-          listeners.foreach(_.onJobStarted(pe.getContext()));
+          runnerListener.onJobStarted(pe.getContext());
           outputs = pe.perform(inputs);
-          listeners.foreach(_.onJobCompleted(pe.getContext()));
+          runnerListener.onJobCompleted(pe.getContext());
 
           //is a checkpoint?
           if (flow.hasCheckPoint(stopName)) {
@@ -359,7 +336,7 @@ class ProcessImpl(flow: Flow, runnerContext: Context, runner: Runner, parentProc
         }
         catch {
           case e: Throwable =>
-            listeners.foreach(_.onJobFailed(pe.getContext()));
+            runnerListener.onJobFailed(pe.getContext());
             throw e;
         }
 
@@ -372,16 +349,16 @@ class ProcessImpl(flow: Flow, runnerContext: Context, runner: Runner, parentProc
       running = true;
 
       //onFlowStarted
-      listeners.foreach(_.onProcessStarted(processContext));
+      runnerListener.onProcessStarted(processContext);
       try {
         perform();
         //onFlowCompleted
-        listeners.foreach(_.onProcessCompleted(processContext));
+        runnerListener.onProcessCompleted(processContext);
       }
       //onFlowFailed
       catch {
         case e: Throwable =>
-          listeners.foreach(_.onProcessFailed(processContext));
+          runnerListener.onProcessFailed(processContext);
           throw e;
       }
       finally {
@@ -393,9 +370,6 @@ class ProcessImpl(flow: Flow, runnerContext: Context, runner: Runner, parentProc
 
   //IMPORTANT: start thread
   workerThread.start();
-
-  override def addListener(listener: FlowExecutionListener): Unit =
-    listeners += listener;
 
   override def toString(): String = executionString;
 
@@ -424,7 +398,7 @@ class ProcessImpl(flow: Flow, runnerContext: Context, runner: Runner, parentProc
   override def fork(child: Flow): Process = {
     //add flow process stack
     val process = new ProcessImpl(child, runnerContext, runner, Some(this));
-    listeners.foreach(_.onProcessForked(processContext, process.processContext));
+    runnerListener.onProcessForked(processContext, process.processContext);
     process;
   }
 
@@ -434,7 +408,7 @@ class ProcessImpl(flow: Flow, runnerContext: Context, runner: Runner, parentProc
       throw new ProcessNotRunningException(this);
 
     workerThread.interrupt();
-    listeners.foreach(_.onProcessAborted(processContext));
+    runnerListener.onProcessAborted(processContext);
     latch.countDown();
   }
 }
@@ -518,76 +492,6 @@ class CascadeContext(parent: Context = null) extends Context with Logging {
   override def put(key: String, value: Any): this.type = {
     map(key) = value;
     this;
-  }
-}
-
-trait FlowExecutionListener {
-  def onProcessStarted(ctx: ProcessContext);
-
-  def onProcessForked(ctx: ProcessContext, child: ProcessContext);
-
-  def onProcessCompleted(ctx: ProcessContext);
-
-  def onProcessFailed(ctx: ProcessContext);
-
-  def onProcessAborted(ctx: ProcessContext);
-
-  def onJobInitialized(ctx: JobContext);
-
-  def onJobStarted(ctx: JobContext);
-
-  def onJobCompleted(ctx: JobContext);
-
-  def onJobFailed(ctx: JobContext);
-}
-
-class FlowExecutionLogger extends FlowExecutionListener with Logging {
-  override def onProcessStarted(ctx: ProcessContext): Unit = {
-    val pid = ctx.getProcess().pid();
-    val flowName = ctx.getFlow().toString;
-    logger.debug(s"process started: $pid, flow: $flowName");
-  };
-
-  override def onJobStarted(ctx: JobContext): Unit = {
-    val jid = ctx.getStopJob().jid();
-    val stopName = ctx.getStopJob().getStopName();
-    logger.debug(s"job started: $jid, stop: $stopName");
-  };
-
-  override def onJobFailed(ctx: JobContext): Unit = {
-    val stopName = ctx.getStopJob().getStopName();
-    logger.debug(s"job failed: $stopName");
-  };
-
-  override def onJobInitialized(ctx: JobContext): Unit = {
-    val stopName = ctx.getStopJob().getStopName();
-    logger.debug(s"job initialized: $stopName");
-  };
-
-  override def onProcessCompleted(ctx: ProcessContext): Unit = {
-    val pid = ctx.getProcess().pid();
-    logger.debug(s"process completed: $pid");
-  };
-
-  override def onJobCompleted(ctx: JobContext): Unit = {
-    val stopName = ctx.getStopJob().getStopName();
-    logger.debug(s"job completed: $stopName");
-  };
-
-  override def onProcessFailed(ctx: ProcessContext): Unit = {
-    val pid = ctx.getProcess().pid();
-    logger.debug(s"process failed: $pid");
-  }
-
-  override def onProcessAborted(ctx: ProcessContext): Unit = {
-    val pid = ctx.getProcess().pid();
-    logger.debug(s"process aborted: $pid");
-  }
-
-  override def onProcessForked(ctx: ProcessContext, child: ProcessContext): Unit = {
-    val pid = ctx.getProcess().pid();
-    val cid = child.getProcess().pid();
-    logger.debug(s"process forked: $pid, child flow execution: $cid");
   }
 }
 
