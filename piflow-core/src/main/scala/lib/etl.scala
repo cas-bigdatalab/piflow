@@ -11,37 +11,37 @@ import org.apache.spark.sql.types.StructType
 
 import scala.collection.JavaConversions
 
-class LoadStream(streamSource: Source) extends Process with Logging {
-  override def initialize(ctx: FlowExecutionContext): Unit = {
+class LoadStream(streamSource: Source) extends Stop with Logging {
+  override def initialize(ctx: ProcessContext): Unit = {
   }
 
-  override def perform(in: ProcessInputStream, out: ProcessOutputStream, pec: ProcessExecutionContext): Unit = {
+  override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     out.write(streamSource.load(pec));
   }
 }
 
-class WriteStream(streamSink: Sink) extends Process with Logging {
-  override def initialize(ctx: FlowExecutionContext): Unit = {
+class WriteStream(streamSink: Sink) extends Stop with Logging {
+  override def initialize(ctx: ProcessContext): Unit = {
   }
 
-  override def perform(in: ProcessInputStream, out: ProcessOutputStream, pec: ProcessExecutionContext): Unit = {
+  override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     streamSink.save(in.read(), pec);
   }
 }
 
 trait Source {
-  def load(ctx: ProcessExecutionContext): DataFrame;
+  def load(ctx: JobContext): DataFrame;
 }
 
 trait Sink {
-  def save(data: DataFrame, ctx: ProcessExecutionContext): Unit;
+  def save(data: DataFrame, ctx: JobContext): Unit;
 }
 
-class DoMap(func: FunctionLogic, targetSchema: StructType = null) extends Process with Logging with Serializable {
-  override def initialize(ctx: FlowExecutionContext): Unit = {
+class DoMap(func: FunctionLogic, targetSchema: StructType = null) extends Stop with Logging with Serializable {
+  override def initialize(ctx: ProcessContext): Unit = {
   }
 
-  override def perform(in: ProcessInputStream, out: ProcessOutputStream, pec: ProcessExecutionContext): Unit = {
+  override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     val input = in.read();
     val encoder = RowEncoder {
       if (targetSchema == null) {
@@ -57,12 +57,12 @@ class DoMap(func: FunctionLogic, targetSchema: StructType = null) extends Proces
   }
 }
 
-class DoFlatMap(func: FunctionLogic, targetSchema: StructType = null) extends Process with Logging with Serializable {
-  override def initialize(ctx: FlowExecutionContext): Unit = {
+class DoFlatMap(func: FunctionLogic, targetSchema: StructType = null) extends Stop with Logging with Serializable {
+  override def initialize(ctx: ProcessContext): Unit = {
 
   }
 
-  override def perform(in: ProcessInputStream, out: ProcessOutputStream, pec: ProcessExecutionContext): Unit = {
+  override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     val data = in.read();
     val encoder = RowEncoder {
       if (targetSchema == null) {
@@ -79,12 +79,12 @@ class DoFlatMap(func: FunctionLogic, targetSchema: StructType = null) extends Pr
   }
 }
 
-class ExecuteSQL(sql: String, bundle2TableName: (String, String)*) extends Process with Logging {
-  override def initialize(ctx: FlowExecutionContext): Unit = {
+class ExecuteSQL(sql: String, bundle2TableName: (String, String)*) extends Stop with Logging {
+  override def initialize(ctx: ProcessContext): Unit = {
 
   }
 
-  override def perform(in: ProcessInputStream, out: ProcessOutputStream, pec: ProcessExecutionContext): Unit = {
+  override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     bundle2TableName.foreach { x =>
       val tableName = x._2;
       logger.debug(s"registering sql table: $tableName");

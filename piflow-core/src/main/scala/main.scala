@@ -7,7 +7,7 @@ import org.apache.spark.sql._
 
 import scala.collection.mutable.{ArrayBuffer, Map => MMap}
 
-trait ProcessInputStream {
+trait JobInputStream {
   def isEmpty(): Boolean;
 
   def read(): DataFrame;
@@ -15,8 +15,8 @@ trait ProcessInputStream {
   def read(bundle: String): DataFrame;
 }
 
-trait ProcessOutputStream {
-  def makeCheckPoint(pec: ProcessExecutionContext): Unit;
+trait JobOutputStream {
+  def makeCheckPoint(pec: JobContext): Unit;
 
   def write(data: DataFrame);
 
@@ -25,36 +25,36 @@ trait ProcessOutputStream {
   def sendError();
 }
 
-trait ProcessExecution {
-  def getExecutionId(): String;
+trait StopJob {
+  def jid(): String;
 
-  def getProcessName(): String;
+  def getStopName(): String;
 
-  def getProcess(): Process;
+  def getStop(): Stop;
 }
 
-trait ProcessExecutionContext extends Context {
-  def getProcessExecution(): ProcessExecution;
+trait JobContext extends Context {
+  def getStopJob(): StopJob;
 
-  def getInputStream(): ProcessInputStream;
+  def getInputStream(): JobInputStream;
 
-  def getOutputStream(): ProcessOutputStream;
+  def getOutputStream(): JobOutputStream;
 
-  def getFlowExecutionContext(): FlowExecutionContext;
+  def getProcessContext(): ProcessContext;
 }
 
-trait Process {
-  def initialize(ctx: FlowExecutionContext): Unit;
+trait Stop {
+  def initialize(ctx: ProcessContext): Unit;
 
-  def perform(in: ProcessInputStream, out: ProcessOutputStream, pec: ProcessExecutionContext): Unit;
+  def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit;
 }
 
 trait Flow {
-  def getProcessNames(): Seq[String];
+  def getStopNames(): Seq[String];
 
   def hasCheckPoint(processName: String): Boolean;
 
-  def getProcess(name: String): Process;
+  def getStop(name: String): Stop;
 
   def analyze(): AnalyzedFlowGraph;
 
@@ -66,7 +66,7 @@ trait Path {
 
   def addEdge(edge: Edge): Path;
 
-  def to(processTo: String, bundleOut: String = "", bundleIn: String = ""): Path;
+  def to(stopTo: String, bundleOut: String = "", bundleIn: String = ""): Path;
 }
 
 class PathImpl() extends Path {
@@ -79,29 +79,29 @@ class PathImpl() extends Path {
     this;
   }
 
-  override def to(processTo: String, bundleOut: String, bundleIn: String): Path = {
-    edges += new Edge(edges.last.processTo, processTo, bundleOut, bundleIn);
+  override def to(stopTo: String, bundleOut: String, bundleIn: String): Path = {
+    edges += new Edge(edges.last.stopTo, stopTo, bundleOut, bundleIn);
     this;
   }
 }
 
-case class Edge(processFrom: String, processTo: String, bundleOut: String, bundleIn: String) {
+case class Edge(stopFrom: String, stopTo: String, bundleOut: String, bundleIn: String) {
   override def toString() = {
-    s"[$processFrom]-($bundleOut)-($bundleIn)-[$processTo]";
+    s"[$stopFrom]-($bundleOut)-($bundleIn)-[$stopTo]";
   }
 }
 
 object Path {
 
   trait PathHead {
-    def to(processTo: String, bundleOut: String = "", bundleIn: String = ""): Path;
+    def to(stopTo: String, bundleOut: String = "", bundleIn: String = ""): Path;
   }
 
-  def from(processFrom: String): PathHead = {
+  def from(stopFrom: String): PathHead = {
     new PathHead() {
       override def to(processTo: String, bundleOut: String, bundleIn: String): Path = {
         val path = new PathImpl();
-        path.addEdge(new Edge(processFrom, processTo, bundleOut, bundleIn));
+        path.addEdge(new Edge(stopFrom, processTo, bundleOut, bundleIn));
         path;
       }
     };
@@ -137,11 +137,11 @@ object Path {
 
 class FlowImpl extends Flow {
   val edges = ArrayBuffer[Edge]();
-  val processes = MMap[String, Process]();
+  val stops = MMap[String, Stop]();
   val checkpoints = ArrayBuffer[String]();
 
-  def addProcess(name: String, process: Process) = {
-    processes(name) = process;
+  def addStop(name: String, process: Stop) = {
+    stops(name) = process;
     this;
   };
 
@@ -159,9 +159,9 @@ class FlowImpl extends Flow {
     checkpoints.contains(processName);
   }
 
-  override def getProcess(name: String) = processes(name);
+  override def getStop(name: String) = stops(name);
 
-  override def getProcessNames(): Seq[String] = processes.map(_._1).toSeq;
+  override def getStopNames(): Seq[String] = stops.map(_._1).toSeq;
 
   def addPath(path: Path): Flow = {
     edges ++= path.toEdges();
@@ -174,8 +174,8 @@ class FlowImpl extends Flow {
       val outgoingEdges = MMap[String, ArrayBuffer[Edge]]();
 
       edges.foreach { edge =>
-        incomingEdges.getOrElseUpdate(edge.processTo, ArrayBuffer[Edge]()) += edge;
-        outgoingEdges.getOrElseUpdate(edge.processFrom, ArrayBuffer[Edge]()) += edge;
+        incomingEdges.getOrElseUpdate(edge.stopTo, ArrayBuffer[Edge]()) += edge;
+        outgoingEdges.getOrElseUpdate(edge.stopFrom, ArrayBuffer[Edge]()) += edge;
       }
 
       private def _visitProcess[T](processName: String, op: (String, Map[Edge, T]) => T, visited: MMap[String, T]): T = {
@@ -187,7 +187,7 @@ class FlowImpl extends Flow {
               val edges = incomingEdges(processName);
               edges.map { edge =>
                 edge ->
-                  _visitProcess(edge.processFrom, op, visited);
+                  _visitProcess(edge.stopFrom, op, visited);
               }.toMap
             }
             else {
@@ -204,7 +204,7 @@ class FlowImpl extends Flow {
       }
 
       override def visit[T](op: (String, Map[Edge, T]) => T): Unit = {
-        val ends = processes.keys.filterNot(outgoingEdges.contains(_));
+        val ends = stops.keys.filterNot(outgoingEdges.contains(_));
         val visited = MMap[String, T]();
         ends.foreach {
           _visitProcess(_, op, visited);
@@ -220,7 +220,7 @@ trait AnalyzedFlowGraph {
 trait Runner {
   def bind(key: String, value: Any): Runner;
 
-  def start(flow: Flow): FlowExecution;
+  def start(flow: Flow): Process;
 }
 
 object Runner {
@@ -232,16 +232,16 @@ object Runner {
       this;
     }
 
-    override def start(flow: Flow): FlowExecution = {
-      new FlowExecutionImpl(flow, ctx, this).start();
+    override def start(flow: Flow): Process = {
+      new ProcessImpl(flow, ctx, this).start();
     }
   }
 }
 
-trait FlowExecution {
+trait Process {
   def addListener(listener: FlowExecutionListener);
 
-  def getExecutionId(): String;
+  def pid(): String;
 
   def awaitTermination();
 
@@ -249,24 +249,24 @@ trait FlowExecution {
 
   def getFlow(): Flow;
 
-  def fork(child: Flow): FlowExecution;
+  def fork(child: Flow): Process;
 
   def stop(): Unit;
 }
 
-trait FlowExecutionContext extends Context {
+trait ProcessContext extends Context {
   def getFlow(): Flow;
 
-  def getFlowExecution(): FlowExecution;
+  def getProcess(): Process;
 }
 
-class ProcessInputStreamImpl() extends ProcessInputStream {
+class JobInputStreamImpl() extends JobInputStream {
   //only returns DataFrame on calling read()
   val inputs = MMap[String, () => DataFrame]();
 
   override def isEmpty(): Boolean = inputs.isEmpty;
 
-  def attach(inputs: Map[Edge, ProcessOutputStreamImpl]) = {
+  def attach(inputs: Map[Edge, JobOutputStreamImpl]) = {
     this.inputs ++= inputs.filter(x => x._2.contains(x._1.bundleOut))
       .map(x => (x._1.bundleIn, x._2.getDataFrame(x._1.bundleOut)));
   };
@@ -283,10 +283,10 @@ class ProcessInputStreamImpl() extends ProcessInputStream {
   }
 }
 
-class ProcessOutputStreamImpl() extends ProcessOutputStream with Logging {
-  override def makeCheckPoint(pec: ProcessExecutionContext) {
+class JobOutputStreamImpl() extends JobOutputStream with Logging {
+  override def makeCheckPoint(pec: JobContext) {
     mapDataFrame.foreach(en => {
-      val path = pec.get("checkpoint.path").asInstanceOf[String].stripSuffix("/") + "/" + pec.getFlowExecutionContext().getFlowExecution().getExecutionId() + "/" + pec.getProcessExecution().getExecutionId();
+      val path = pec.get("checkpoint.path").asInstanceOf[String].stripSuffix("/") + "/" + pec.getProcessContext().getProcess().pid() + "/" + pec.getStopJob().jid();
       logger.debug(s"writing data on checkpoint: $path");
       en._2.apply().write.parquet(path);
       mapDataFrame(en._1) = () => {
@@ -311,18 +311,18 @@ class ProcessOutputStreamImpl() extends ProcessOutputStream with Logging {
   def getDataFrame(bundle: String) = mapDataFrame(bundle);
 }
 
-class FlowExecutionImpl(flow: Flow, runnerContext: Context, runner: Runner, parentExecution: Option[FlowExecution] = None)
-  extends FlowExecution with Logging {
+class ProcessImpl(flow: Flow, runnerContext: Context, runner: Runner, parentProcess: Option[Process] = None)
+  extends Process with Logging {
 
-  val id = "flow_excution_" + IdGenerator.uuid() + "_" + IdGenerator.nextId[FlowExecution];
-  val executionString = "" + id + parentExecution.map("(parent=" + _.toString + ")").getOrElse("");
+  val id = "process_" + IdGenerator.uuid() + "_" + IdGenerator.nextId[Process];
+  val executionString = "" + id + parentProcess.map("(parent=" + _.toString + ")").getOrElse("");
 
-  logger.debug(s"create execution: $this, flow: $flow");
+  logger.debug(s"create process: $this, flow: $flow");
   flow.show();
 
   val listeners = ArrayBuffer[FlowExecutionListener](new FlowExecutionLogger());
-  val execution = this;
-  val flowExecutionContext = createContext(runnerContext);
+  val process = this;
+  val processContext = createContext(runnerContext);
   val latch = new CountDownLatch(1);
   var running = false;
 
@@ -330,35 +330,36 @@ class FlowExecutionImpl(flow: Flow, runnerContext: Context, runner: Runner, pare
     def perform() {
       //initialize all processes
       //initialize process context
-      val executions = MMap[String, ProcessExecutionImpl]();
-      flow.getProcessNames().foreach { processName =>
-        val process = flow.getProcess(processName);
-        process.initialize(flowExecutionContext);
+      val jobs = MMap[String, StopJobImpl]();
+      flow.getStopNames().foreach { stopName =>
+        val stop = flow.getStop(stopName);
+        stop.initialize(processContext);
 
-        val pe = new ProcessExecutionImpl(processName, process, flowExecutionContext);
-        executions(processName) = pe;
-        listeners.foreach(_.onProcessInitialized(pe.getContext()));
+        val pe = new StopJobImpl(stopName, stop, processContext);
+        jobs(stopName) = pe;
+        listeners.foreach(_.onJobInitialized(pe.getContext()));
       }
 
       val analyzed = flow.analyze();
 
       //runs processes
-      analyzed.visit[ProcessOutputStreamImpl]((processName: String, inputs: Map[Edge, ProcessOutputStreamImpl]) => {
-        val pe = executions(processName);
-        var outputs: ProcessOutputStreamImpl = null;
+      analyzed.visit[JobOutputStreamImpl]((stopName: String, inputs: Map[Edge, JobOutputStreamImpl]) => {
+        val pe = jobs(stopName);
+        var outputs: JobOutputStreamImpl = null;
         try {
+          listeners.foreach(_.onJobStarted(pe.getContext()));
           outputs = pe.perform(inputs);
-          listeners.foreach(_.onProcessCompleted(pe.getContext()));
+          listeners.foreach(_.onJobCompleted(pe.getContext()));
 
           //is a checkpoint?
-          if (flow.hasCheckPoint(processName)) {
+          if (flow.hasCheckPoint(stopName)) {
             //store dataset
             outputs.makeCheckPoint(pe.getContext());
           }
         }
         catch {
           case e: Throwable =>
-            listeners.foreach(_.onProcessFailed(pe.getContext()));
+            listeners.foreach(_.onJobFailed(pe.getContext()));
             throw e;
         }
 
@@ -371,16 +372,16 @@ class FlowExecutionImpl(flow: Flow, runnerContext: Context, runner: Runner, pare
       running = true;
 
       //onFlowStarted
-      listeners.foreach(_.onFlowStarted(flowExecutionContext));
+      listeners.foreach(_.onProcessStarted(processContext));
       try {
         perform();
         //onFlowCompleted
-        listeners.foreach(_.onFlowCompleted(flowExecutionContext));
+        listeners.foreach(_.onProcessCompleted(processContext));
       }
       //onFlowFailed
       catch {
         case e: Throwable =>
-          listeners.foreach(_.onFlowFailed(flowExecutionContext));
+          listeners.foreach(_.onProcessFailed(processContext));
           throw e;
       }
       finally {
@@ -395,7 +396,7 @@ class FlowExecutionImpl(flow: Flow, runnerContext: Context, runner: Runner, pare
 
   override def toString(): String = executionString;
 
-  def start(): FlowExecutionImpl = {
+  def start(): ProcessImpl = {
     workerThread.start();
     this;
   }
@@ -410,24 +411,24 @@ class FlowExecutionImpl(flow: Flow, runnerContext: Context, runner: Runner, pare
       stop();
   }
 
-  override def getExecutionId(): String = id;
+  override def pid(): String = id;
 
   override def getFlow(): Flow = flow;
 
-  private def createContext(runnerContext: Context): FlowExecutionContext = {
-    new CascadeContext(runnerContext) with FlowExecutionContext {
+  private def createContext(runnerContext: Context): ProcessContext = {
+    new CascadeContext(runnerContext) with ProcessContext {
       override def getFlow(): Flow = flow;
 
-      override def getFlowExecution(): FlowExecution = execution;
+      override def getProcess(): Process = process;
     };
   }
 
-  override def fork(child: Flow): FlowExecution = {
-    //add flow execution stack
-    val execution = new FlowExecutionImpl(child, runnerContext, runner, Some(this));
-    execution.start();
-    listeners.foreach(_.onFlowForked(flowExecutionContext, execution.flowExecutionContext));
-    execution;
+  override def fork(child: Flow): Process = {
+    //add flow process stack
+    val process = new ProcessImpl(child, runnerContext, runner, Some(this));
+    process.start();
+    listeners.foreach(_.onProcessForked(processContext, process.processContext));
+    process;
   }
 
   //TODO: stopSparkJob()
@@ -436,46 +437,46 @@ class FlowExecutionImpl(flow: Flow, runnerContext: Context, runner: Runner, pare
       throw new FlowNotRunningException(this);
 
     workerThread.interrupt();
-    listeners.foreach(_.onFlowAborted(flowExecutionContext));
+    listeners.foreach(_.onProcessAborted(processContext));
     latch.countDown();
   }
 }
 
-class ProcessExecutionContextImpl(processExecution: ProcessExecution, flowExecutionContext: FlowExecutionContext)
-  extends CascadeContext(flowExecutionContext)
-    with ProcessExecutionContext
+class JobContextImpl(job: StopJob, processContext: ProcessContext)
+  extends CascadeContext(processContext)
+    with JobContext
     with Logging {
-  val is: ProcessInputStreamImpl = new ProcessInputStreamImpl();
+  val is: JobInputStreamImpl = new JobInputStreamImpl();
 
-  val os = new ProcessOutputStreamImpl();
+  val os = new JobOutputStreamImpl();
 
-  def getProcessExecution() = processExecution;
+  def getStopJob() = job;
 
-  def getInputStream(): ProcessInputStream = is;
+  def getInputStream(): JobInputStream = is;
 
-  def getOutputStream(): ProcessOutputStream = os;
+  def getOutputStream(): JobOutputStream = os;
 
-  override def getFlowExecutionContext(): FlowExecutionContext = flowExecutionContext;
+  override def getProcessContext(): ProcessContext = processContext;
 }
 
-class ProcessExecutionImpl(processName: String, process: Process, flowExecutionContext: FlowExecutionContext)
-  extends ProcessExecution with Logging {
-  val id = "process_excution_" + IdGenerator.nextId[ProcessExecution];
-  val pec = new ProcessExecutionContextImpl(this, flowExecutionContext);
+class StopJobImpl(stopName: String, stop: Stop, processContext: ProcessContext)
+  extends StopJob with Logging {
+  val id = "job_" + IdGenerator.nextId[StopJob];
+  val pec = new JobContextImpl(this, processContext);
 
-  override def getExecutionId(): String = id;
+  override def jid(): String = id;
 
   def getContext() = pec;
 
-  def perform(inputs: Map[Edge, ProcessOutputStreamImpl]): ProcessOutputStreamImpl = {
-    pec.getInputStream().asInstanceOf[ProcessInputStreamImpl].attach(inputs);
-    process.perform(pec.getInputStream(), pec.getOutputStream(), pec);
-    pec.getOutputStream().asInstanceOf[ProcessOutputStreamImpl];
+  def perform(inputs: Map[Edge, JobOutputStreamImpl]): JobOutputStreamImpl = {
+    pec.getInputStream().asInstanceOf[JobInputStreamImpl].attach(inputs);
+    stop.perform(pec.getInputStream(), pec.getOutputStream(), pec);
+    pec.getOutputStream().asInstanceOf[JobOutputStreamImpl];
   }
 
-  override def getProcessName(): String = processName;
+  override def getStopName(): String = stopName;
 
-  override def getProcess(): Process = process;
+  override def getStop(): Stop = stop;
 }
 
 trait Context {
@@ -524,70 +525,72 @@ class CascadeContext(parent: Context = null) extends Context with Logging {
 }
 
 trait FlowExecutionListener {
-  def onFlowStarted(ctx: FlowExecutionContext);
+  def onProcessStarted(ctx: ProcessContext);
 
-  def onFlowForked(ctx: FlowExecutionContext, child: FlowExecutionContext);
+  def onProcessForked(ctx: ProcessContext, child: ProcessContext);
 
-  def onFlowCompleted(ctx: FlowExecutionContext);
+  def onProcessCompleted(ctx: ProcessContext);
 
-  def onFlowFailed(ctx: FlowExecutionContext);
+  def onProcessFailed(ctx: ProcessContext);
 
-  def onFlowAborted(ctx: FlowExecutionContext);
+  def onProcessAborted(ctx: ProcessContext);
 
-  def onProcessInitialized(ctx: ProcessExecutionContext);
+  def onJobInitialized(ctx: JobContext);
 
-  def onProcessStarted(ctx: ProcessExecutionContext);
+  def onJobStarted(ctx: JobContext);
 
-  def onProcessCompleted(ctx: ProcessExecutionContext);
+  def onJobCompleted(ctx: JobContext);
 
-  def onProcessFailed(ctx: ProcessExecutionContext);
+  def onJobFailed(ctx: JobContext);
 }
 
 class FlowExecutionLogger extends FlowExecutionListener with Logging {
-  override def onFlowStarted(ctx: FlowExecutionContext): Unit = {
-    val executionId = ctx.getFlowExecution().getExecutionId();
-    logger.debug(s"flow started: $executionId");
+  override def onProcessStarted(ctx: ProcessContext): Unit = {
+    val pid = ctx.getProcess().pid();
+    val flowName = ctx.getFlow().toString;
+    logger.debug(s"process started: $pid, flow: $flowName");
   };
 
-  override def onProcessStarted(ctx: ProcessExecutionContext): Unit = {
-    val processName = ctx.getProcessExecution().getProcessName();
-    logger.debug(s"process started: $processName");
+  override def onJobStarted(ctx: JobContext): Unit = {
+    val jid = ctx.getStopJob().jid();
+    val stopName = ctx.getStopJob().getStopName();
+    logger.debug(s"job started: $jid, stop: $stopName");
   };
 
-  override def onProcessFailed(ctx: ProcessExecutionContext): Unit = {
-    val processName = ctx.getProcessExecution().getProcessName();
-    logger.debug(s"process failed: $processName");
+  override def onJobFailed(ctx: JobContext): Unit = {
+    val stopName = ctx.getStopJob().getStopName();
+    logger.debug(s"job failed: $stopName");
   };
 
-  override def onProcessInitialized(ctx: ProcessExecutionContext): Unit = {
-    val processName = ctx.getProcessExecution().getProcessName();
-    logger.debug(s"process initialized: $processName");
+  override def onJobInitialized(ctx: JobContext): Unit = {
+    val stopName = ctx.getStopJob().getStopName();
+    logger.debug(s"job initialized: $stopName");
   };
 
-  override def onFlowCompleted(ctx: FlowExecutionContext): Unit = {
-    val executionId = ctx.getFlowExecution().getExecutionId();
-    logger.debug(s"flow completed: $executionId");
+  override def onProcessCompleted(ctx: ProcessContext): Unit = {
+    val pid = ctx.getProcess().pid();
+    logger.debug(s"process completed: $pid");
   };
 
-  override def onProcessCompleted(ctx: ProcessExecutionContext): Unit = {
-    val processName = ctx.getProcessExecution().getProcessName();
-    logger.debug(s"process completed: $processName");
+  override def onJobCompleted(ctx: JobContext): Unit = {
+    val stopName = ctx.getStopJob().getStopName();
+    logger.debug(s"job completed: $stopName");
   };
 
-  override def onFlowFailed(ctx: FlowExecutionContext): Unit = {
-    val executionId = ctx.getFlowExecution().getExecutionId();
-    logger.debug(s"flow failed: $executionId");
+  override def onProcessFailed(ctx: ProcessContext): Unit = {
+    val pid = ctx.getProcess().pid();
+    logger.debug(s"process failed: $pid");
   }
 
-  override def onFlowAborted(ctx: FlowExecutionContext): Unit = {
-    val executionId = ctx.getFlowExecution().getExecutionId();
-    logger.debug(s"flow aborted: $executionId");
+  override def onProcessAborted(ctx: ProcessContext): Unit = {
+    val pid = ctx.getProcess().pid();
+    logger.debug(s"process aborted: $pid");
   }
 
-  override def onFlowForked(ctx: FlowExecutionContext, child: FlowExecutionContext): Unit = {
-    val executionId = ctx.getFlowExecution().getExecutionId();
-    val childExecutionId = child.getFlowExecution().getExecutionId();
-    logger.debug(s"flow forked: $executionId, child flow execution: $childExecutionId");
+  override def onProcessForked(ctx: ProcessContext, child: ProcessContext): Unit = {
+    val pid = ctx.getProcess().pid();
+    val cid = child.getProcess().pid();
+    logger.debug(s"process forked: $pid, child flow execution: $cid");
   }
 }
 
@@ -604,16 +607,16 @@ class ParameterNotSetException(key: String) extends FlowException(s"parameter no
 }
 
 //sub flow
-class FlowAsProcess(flow: Flow) extends Process {
-  override def initialize(ctx: FlowExecutionContext): Unit = {
+class FlowAsStop(flow: Flow) extends Stop {
+  override def initialize(ctx: ProcessContext): Unit = {
   }
 
-  override def perform(in: ProcessInputStream, out: ProcessOutputStream, pec: ProcessExecutionContext): Unit = {
-    pec.getFlowExecutionContext().getFlowExecution().fork(flow).awaitTermination();
+  override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
+    pec.getProcessContext().getProcess().fork(flow).awaitTermination();
   }
 }
 
-class FlowNotRunningException(execution: FlowExecution) extends FlowException() {
+class FlowNotRunningException(execution: Process) extends FlowException() {
 
 }
 
