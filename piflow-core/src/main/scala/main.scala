@@ -424,7 +424,10 @@ class FlowExecutionImpl(flow: Flow, runnerContext: Context, runner: Runner, pare
 
   override def fork(child: Flow): FlowExecution = {
     //add flow execution stack
-    new FlowExecutionImpl(child, runnerContext, runner, Some(this)).start();
+    val execution = new FlowExecutionImpl(child, runnerContext, runner, Some(this));
+    execution.start();
+    listeners.foreach(_.onFlowForked(flowExecutionContext, execution.flowExecutionContext));
+    execution;
   }
 
   //TODO: stopSparkJob()
@@ -523,6 +526,8 @@ class CascadeContext(parent: Context = null) extends Context with Logging {
 trait FlowExecutionListener {
   def onFlowStarted(ctx: FlowExecutionContext);
 
+  def onFlowForked(ctx: FlowExecutionContext, child: FlowExecutionContext);
+
   def onFlowCompleted(ctx: FlowExecutionContext);
 
   def onFlowFailed(ctx: FlowExecutionContext);
@@ -540,8 +545,8 @@ trait FlowExecutionListener {
 
 class FlowExecutionLogger extends FlowExecutionListener with Logging {
   override def onFlowStarted(ctx: FlowExecutionContext): Unit = {
-    val flowName = ctx.getFlow().toString;
-    logger.debug(s"flow started: $flowName");
+    val executionId = ctx.getFlowExecution().getExecutionId();
+    logger.debug(s"flow started: $executionId");
   };
 
   override def onProcessStarted(ctx: ProcessExecutionContext): Unit = {
@@ -560,8 +565,8 @@ class FlowExecutionLogger extends FlowExecutionListener with Logging {
   };
 
   override def onFlowCompleted(ctx: FlowExecutionContext): Unit = {
-    val flowName = ctx.getFlow().toString;
-    logger.debug(s"flow completed: $flowName");
+    val executionId = ctx.getFlowExecution().getExecutionId();
+    logger.debug(s"flow completed: $executionId");
   };
 
   override def onProcessCompleted(ctx: ProcessExecutionContext): Unit = {
@@ -570,13 +575,19 @@ class FlowExecutionLogger extends FlowExecutionListener with Logging {
   };
 
   override def onFlowFailed(ctx: FlowExecutionContext): Unit = {
-    val flowName = ctx.getFlow().toString;
-    logger.debug(s"flow failed: $flowName");
+    val executionId = ctx.getFlowExecution().getExecutionId();
+    logger.debug(s"flow failed: $executionId");
   }
 
   override def onFlowAborted(ctx: FlowExecutionContext): Unit = {
-    val flowName = ctx.getFlow().toString;
-    logger.debug(s"flow aborted: $flowName");
+    val executionId = ctx.getFlowExecution().getExecutionId();
+    logger.debug(s"flow aborted: $executionId");
+  }
+
+  override def onFlowForked(ctx: FlowExecutionContext, child: FlowExecutionContext): Unit = {
+    val executionId = ctx.getFlowExecution().getExecutionId();
+    val childExecutionId = child.getFlowExecution().getExecutionId();
+    logger.debug(s"flow forked: $executionId, child flow execution: $childExecutionId");
   }
 }
 
