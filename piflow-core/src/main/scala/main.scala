@@ -52,7 +52,7 @@ trait Process {
 trait Flow {
   def getProcessNames(): Seq[String];
 
-  def isCheckPoint(processName: String): Boolean;
+  def hasCheckPoint(processName: String): Boolean;
 
   def getProcess(name: String): Process;
 
@@ -155,7 +155,7 @@ class FlowImpl extends Flow {
     checkpoints += processName;
   }
 
-  override def isCheckPoint(processName: String): Boolean = {
+  override def hasCheckPoint(processName: String): Boolean = {
     checkpoints.contains(processName);
   }
 
@@ -351,7 +351,7 @@ class FlowExecutionImpl(flow: Flow, runnerContext: Context, runner: Runner, pare
           listeners.foreach(_.onProcessCompleted(pe.getContext()));
 
           //is a checkpoint?
-          if (flow.isCheckPoint(processName)) {
+          if (flow.hasCheckPoint(processName)) {
             //store dataset
             outputs.makeCheckPoint(pe.getContext());
           }
