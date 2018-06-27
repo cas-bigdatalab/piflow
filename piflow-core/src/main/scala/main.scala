@@ -233,7 +233,7 @@ object Runner {
     }
 
     override def start(flow: Flow): Process = {
-      new ProcessImpl(flow, ctx, this).start();
+      new ProcessImpl(flow, ctx, this);
     }
   }
 }
@@ -391,15 +391,13 @@ class ProcessImpl(flow: Flow, runnerContext: Context, runner: Runner, parentProc
     }
   });
 
+  //IMPORTANT: start thread
+  workerThread.start();
+
   override def addListener(listener: FlowExecutionListener): Unit =
     listeners += listener;
 
   override def toString(): String = executionString;
-
-  def start(): ProcessImpl = {
-    workerThread.start();
-    this;
-  }
 
   override def awaitTermination(): Unit = {
     latch.await();
@@ -426,7 +424,6 @@ class ProcessImpl(flow: Flow, runnerContext: Context, runner: Runner, parentProc
   override def fork(child: Flow): Process = {
     //add flow process stack
     val process = new ProcessImpl(child, runnerContext, runner, Some(this));
-    process.start();
     listeners.foreach(_.onProcessForked(processContext, process.processContext));
     process;
   }
@@ -434,7 +431,7 @@ class ProcessImpl(flow: Flow, runnerContext: Context, runner: Runner, parentProc
   //TODO: stopSparkJob()
   override def stop(): Unit = {
     if (!running)
-      throw new FlowNotRunningException(this);
+      throw new ProcessNotRunningException(this);
 
     workerThread.interrupt();
     listeners.foreach(_.onProcessAborted(processContext));
@@ -616,7 +613,7 @@ class FlowAsStop(flow: Flow) extends Stop {
   }
 }
 
-class FlowNotRunningException(execution: Process) extends FlowException() {
+class ProcessNotRunningException(process: Process) extends FlowException() {
 
 }
 

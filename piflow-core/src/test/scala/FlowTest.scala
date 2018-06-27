@@ -181,9 +181,7 @@ class FlowTest {
 
     flow.addStop("CleanHouse", new CleanHouse());
     flow.addStop("CopyTextFile", new CopyTextFile());
-    //CountWords process is a SparkProcess
     flow.addStop("CountWords", createProcessCountWords());
-    //PrintCount process is a SparkProcess
     flow.addStop("PrintCount", createProcessPrintCount());
     flow.addStop("PrintMessage", new PrintMessage());
 
