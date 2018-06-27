@@ -1,9 +1,10 @@
 package cn.piflow
 
 import java.sql.Date
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.{CountDownLatch, TimeUnit}
 
-import scala.collection.mutable.{Map => MMap}
+import scala.collection.mutable.{ArrayBuffer, Map => MMap}
 
 /**
   * Created by bluejoe on 2018/6/27.
@@ -91,6 +92,7 @@ class FlowGroupExecutionImpl(fg: FlowGroup, runnerContext: Context, runner: Runn
   val mapFlowWithConditions: Map[String, (Flow, Condition)] = fg.mapFlowWithConditions();
   val completedProcesses = MMap[String, Boolean]();
   completedProcesses ++= mapFlowWithConditions.map(x => (x._1, false));
+  val numWaitingProcesses = new AtomicInteger(mapFlowWithConditions.size);
   val startedProcesses = MMap[String, Process]();
   val execution = this;
   val POLLING_INTERVAL = 1000;
@@ -104,6 +106,7 @@ class FlowGroupExecutionImpl(fg: FlowGroup, runnerContext: Context, runner: Runn
     override def onProcessCompleted(ctx: ProcessContext): Unit = {
       startedProcesses.filter(_._2 == ctx.getProcess()).foreach { x =>
         completedProcesses(x._1) = true;
+        numWaitingProcesses.decrementAndGet();
       }
     }
 
@@ -123,7 +126,7 @@ class FlowGroupExecutionImpl(fg: FlowGroup, runnerContext: Context, runner: Runn
   runner.addListener(listener);
 
   def isProcessCompleted(processName: String): Boolean = {
-    completedProcesses.contains(processName);
+    completedProcesses(processName);
   }
 
   private def startProcess(name: String, flow: Flow): Unit = {
@@ -133,11 +136,16 @@ class FlowGroupExecutionImpl(fg: FlowGroup, runnerContext: Context, runner: Runn
 
   val pollingThread = new Thread(new Runnable() {
     override def run(): Unit = {
-      while (!completedProcesses.filter(_._2 == false).isEmpty) {
+      while (numWaitingProcesses.get() > 0) {
+        val todos = ArrayBuffer[(String, Flow)]();
         mapFlowWithConditions.foreach { en =>
           if (!startedProcesses.contains(en._1) && en._2._2.matches(execution)) {
-            startProcess(en._1, en._2._1);
+            todos += (en._1 -> en._2._1);
           }
+        }
+
+        startedProcesses.synchronized {
+          todos.foreach(en => startProcess(en._1, en._2));
         }
 
         Thread.sleep(POLLING_INTERVAL);

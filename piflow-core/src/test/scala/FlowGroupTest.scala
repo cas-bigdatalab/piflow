@@ -26,7 +26,6 @@ class FlowGroupTest {
     val spark = SparkSession.builder.master("local[4]")
       .getOrCreate();
 
-
     val process = Runner.create()
       .bind(classOf[SparkSession].getName, spark)
       .start(fg);

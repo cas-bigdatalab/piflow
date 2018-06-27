@@ -19,7 +19,7 @@ trait Runner {
 object Runner {
   def create(): Runner = new Runner() {
     val listeners = ArrayBuffer[RunnerListener](new RunnerLogger());
-    listeners += new RunnerLogger();
+
     val compositeListener = new RunnerListener() {
       override def onProcessStarted(ctx: ProcessContext): Unit = {
         listeners.foreach(_.onProcessStarted(ctx));
