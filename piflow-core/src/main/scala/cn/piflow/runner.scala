@@ -13,6 +13,8 @@ trait Runner {
 
   def addListener(listener: RunnerListener);
 
+  def removeListener(listener: RunnerListener);
+
   def getListener(): RunnerListener;
 }
 
@@ -77,6 +79,10 @@ object Runner {
 
     override def start(flowGroup: FlowGroup): FlowGroupExecution = {
       new FlowGroupExecutionImpl(flowGroup, ctx, this);
+    }
+
+    override def removeListener(listener: RunnerListener): Unit = {
+      listeners -= listener;
     }
   }
 }

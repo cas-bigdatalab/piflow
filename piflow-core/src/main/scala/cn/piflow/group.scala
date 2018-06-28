@@ -83,6 +83,8 @@ class FlowGroupImpl extends FlowGroup {
 trait FlowGroupExecution {
   def isProcessCompleted(processName: String): Boolean;
 
+  def stop(): Unit;
+
   def awaitTermination(): Unit;
 
   def awaitTermination(timeout: Long, unit: TimeUnit): Unit;
@@ -97,11 +99,14 @@ class FlowGroupExecutionImpl(fg: FlowGroup, runnerContext: Context, runner: Runn
   val execution = this;
   val POLLING_INTERVAL = 1000;
   val latch = new CountDownLatch(1);
+  var running = true;
 
   val listener = new RunnerListener {
     override def onProcessStarted(ctx: ProcessContext): Unit = {}
 
-    override def onProcessFailed(ctx: ProcessContext): Unit = {}
+    override def onProcessFailed(ctx: ProcessContext): Unit = {
+      //TODO: retry?
+    }
 
     override def onProcessCompleted(ctx: ProcessContext): Unit = {
       startedProcesses.filter(_._2 == ctx.getProcess()).foreach { x =>
@@ -152,6 +157,7 @@ class FlowGroupExecutionImpl(fg: FlowGroup, runnerContext: Context, runner: Runn
       }
 
       latch.countDown();
+      finalizeExecution(true);
     }
   });
 
@@ -159,9 +165,27 @@ class FlowGroupExecutionImpl(fg: FlowGroup, runnerContext: Context, runner: Runn
 
   override def awaitTermination(): Unit = {
     latch.await();
+    finalizeExecution(true);
+  }
+
+  override def stop(): Unit = {
+    finalizeExecution(false);
   }
 
   override def awaitTermination(timeout: Long, unit: TimeUnit): Unit = {
-    latch.await(timeout, unit);
+    if (!latch.await(timeout, unit))
+      finalizeExecution(false);
+  }
+
+  private def finalizeExecution(completed: Boolean): Unit = {
+    if (running) {
+      if (!completed) {
+        pollingThread.interrupt();
+        startedProcesses.filter(x => isProcessCompleted(x._1)).map(_._2).foreach(_.stop());
+      }
+
+      runner.removeListener(listener);
+      running = false;
+    }
   }
 }
