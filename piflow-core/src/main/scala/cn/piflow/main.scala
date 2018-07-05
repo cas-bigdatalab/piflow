@@ -12,7 +12,7 @@ trait JobInputStream {
 
   def read(): DataFrame;
 
-  def read(bundle: String): DataFrame;
+  def read(inport: String): DataFrame;
 }
 
 trait JobOutputStream {
@@ -20,7 +20,7 @@ trait JobOutputStream {
 
   def write(data: DataFrame);
 
-  def write(bundle: String, data: DataFrame);
+  def write(outport: String, data: DataFrame);
 
   def sendError();
 }
@@ -66,7 +66,7 @@ trait Path {
 
   def addEdge(edge: Edge): Path;
 
-  def to(stopTo: String, bundleOut: String = "", bundleIn: String = ""): Path;
+  def to(stopTo: String, outport: String = "", inport: String = ""): Path;
 }
 
 class PathImpl() extends Path {
@@ -79,29 +79,29 @@ class PathImpl() extends Path {
     this;
   }
 
-  override def to(stopTo: String, bundleOut: String, bundleIn: String): Path = {
-    edges += new Edge(edges.last.stopTo, stopTo, bundleOut, bundleIn);
+  override def to(stopTo: String, outport: String, inport: String): Path = {
+    edges += new Edge(edges.last.stopTo, stopTo, outport, inport);
     this;
   }
 }
 
-case class Edge(stopFrom: String, stopTo: String, bundleOut: String, bundleIn: String) {
+case class Edge(stopFrom: String, stopTo: String, outport: String, inport: String) {
   override def toString() = {
-    s"[$stopFrom]-($bundleOut)-($bundleIn)-[$stopTo]";
+    s"[$stopFrom]-($outport)-($inport)-[$stopTo]";
   }
 }
 
 object Path {
 
   trait PathHead {
-    def to(stopTo: String, bundleOut: String = "", bundleIn: String = ""): Path;
+    def to(stopTo: String, outport: String = "", inport: String = ""): Path;
   }
 
   def from(stopFrom: String): PathHead = {
     new PathHead() {
-      override def to(processTo: String, bundleOut: String, bundleIn: String): Path = {
+      override def to(processTo: String, outport: String, inport: String): Path = {
         val path = new PathImpl();
-        path.addEdge(new Edge(stopFrom, processTo, bundleOut, bundleIn));
+        path.addEdge(new Edge(stopFrom, processTo, outport, inport));
         path;
       }
     };
@@ -244,8 +244,8 @@ class JobInputStreamImpl() extends JobInputStream {
   override def isEmpty(): Boolean = inputs.isEmpty;
 
   def attach(inputs: Map[Edge, JobOutputStreamImpl]) = {
-    this.inputs ++= inputs.filter(x => x._2.contains(x._1.bundleOut))
-      .map(x => (x._1.bundleIn, x._2.getDataFrame(x._1.bundleOut)));
+    this.inputs ++= inputs.filter(x => x._2.contains(x._1.outport))
+      .map(x => (x._1.inport, x._2.getDataFrame(x._1.outport)));
   };
 
   override def read(): DataFrame = {
@@ -255,8 +255,8 @@ class JobInputStreamImpl() extends JobInputStream {
     read(inputs.head._1);
   };
 
-  override def read(bundle: String): DataFrame = {
-    inputs(bundle)();
+  override def read(inport: String): DataFrame = {
+    inputs(inport)();
   }
 }
 
@@ -279,13 +279,13 @@ class JobOutputStreamImpl() extends JobOutputStream with Logging {
 
   override def sendError(): Unit = ???
 
-  override def write(bundle: String, data: DataFrame): Unit = {
-    mapDataFrame(bundle) = () => data;
+  override def write(outport: String, data: DataFrame): Unit = {
+    mapDataFrame(outport) = () => data;
   }
 
-  def contains(bundle: String) = mapDataFrame.contains(bundle);
+  def contains(port: String) = mapDataFrame.contains(port);
 
-  def getDataFrame(bundle: String) = mapDataFrame(bundle);
+  def getDataFrame(port: String) = mapDataFrame(port);
 }
 
 class ProcessImpl(flow: Flow, runnerContext: Context, runner: Runner, parentProcess: Option[Process] = None)
