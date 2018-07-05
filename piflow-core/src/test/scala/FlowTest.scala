@@ -138,8 +138,8 @@ class FlowTest {
     flow.addStop("zip", new ZipStop());
     flow.addStop("print", new PrintDataFrameStop());
 
-    flow.addPath(Path.from("flow1").to("zip", "", "data1").to("print"));
-    flow.addPath(Path.from("flow2").to("zip", "", "data2"));
+    flow.addPath(Path.from("flow1").via("" -> "data1").to("zip").to("print"));
+    flow.addPath(Path.from("flow2").via("" -> "data2").to("zip"));
 
     val spark = SparkSession.builder.master("local[4]")
       .getOrCreate();
@@ -161,8 +161,8 @@ class FlowTest {
     flow.addStop("print1", new PrintDataFrameStop());
     flow.addStop("print2", new PrintDataFrameStop());
 
-    flow.addPath(Path.from("flow").to("fork").to("print1", "data1", ""));
-    flow.addPath(Path.from("fork").to("print2", "data2", ""));
+    flow.addPath(Path.from("flow").to("fork").via("data1" -> "").to("print1"));
+    flow.addPath(Path.from("fork").via("data2" -> "").to("print2"));
 
     val spark = SparkSession.builder.master("local[4]")
       .getOrCreate();
