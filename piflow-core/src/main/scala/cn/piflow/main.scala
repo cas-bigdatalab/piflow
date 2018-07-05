@@ -12,6 +12,8 @@ trait JobInputStream {
 
   def read(): DataFrame;
 
+  def ports(): Seq[String];
+
   def read(inport: String): DataFrame;
 }
 
@@ -20,7 +22,7 @@ trait JobOutputStream {
 
   def write(data: DataFrame);
 
-  def write(outport: String, data: DataFrame);
+  def write(bundle: String, data: DataFrame);
 
   def sendError();
 }
@@ -247,6 +249,10 @@ class JobInputStreamImpl() extends JobInputStream {
     this.inputs ++= inputs.filter(x => x._2.contains(x._1.outport))
       .map(x => (x._1.inport, x._2.getDataFrame(x._1.outport)));
   };
+
+  override def ports(): Seq[String] = {
+    inputs.keySet.toSeq;
+  }
 
   override def read(): DataFrame = {
     if (inputs.isEmpty)
