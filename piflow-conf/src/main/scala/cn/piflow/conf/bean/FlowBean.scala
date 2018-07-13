@@ -2,6 +2,8 @@ package cn.piflow.conf.bean
 
 import cn.piflow.conf.util.MapUtil
 import cn.piflow.{FlowImpl, Path}
+import net.liftweb.json._
+import net.liftweb.json.JsonDSL._
 
 class FlowBean {
   var uuid : String = _
@@ -43,6 +45,28 @@ class FlowBean {
     })
 
     flow
+  }
+
+  def toJson():String = {
+    val json =
+      ("flow" ->
+        ("uuid" -> this.uuid) ~
+          ("name" -> this.name) ~
+          ("stops" ->
+            stops.map { stop =>(
+              ("uuid" -> stop.uuid) ~
+                ("name" -> stop.name)~
+                ("bundle" -> stop.bundle) )}) ~
+          ("paths" ->
+            paths.map { path => (
+              ("from" -> path.from) ~
+                ("outport" -> path.outport) ~
+                ("inport" -> path.inport) ~
+                ("to" -> path.to)
+              )}))
+    val jsonString = compactRender(json)
+    //println(jsonString)
+    jsonString
   }
 
 }
