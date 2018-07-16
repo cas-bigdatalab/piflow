@@ -10,7 +10,7 @@ import scala.util.parsing.json.JSON
 
 class FlowTest {
 
-  /*@Test
+  @Test
   def testFlow(): Unit ={
 
     //parse flow json
@@ -40,7 +40,7 @@ class FlowTest {
 
     process.awaitTermination();
     spark.close();
-  }*/
+  }
 
   @Test
   def testFlow2json() = {

@@ -6,6 +6,8 @@ import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 
 class Merge extends ConfigurableStop{
 
+  var inports : List[String] = _
+
   def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     out.write(in.ports().map(in.read(_)).reduce((x, y) => x.union(y)));
   }
@@ -19,4 +21,6 @@ class Merge extends ConfigurableStop{
   }
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = ???
+
+  override def getIcon(): Array[Byte] = ???
 }

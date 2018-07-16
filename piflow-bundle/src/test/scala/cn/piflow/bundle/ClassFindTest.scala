@@ -1,6 +1,6 @@
 package cn.piflow.bundle
 
-import cn.piflow.bundle.util.ClassUtil.{findAllConfigurableStop, findConfigurableStop}
+import cn.piflow.conf.util.ClassUtil.{findAllConfigurableStop, findConfigurableStop}
 import org.junit.Test
 
 class ClassFindTest {
@@ -46,8 +46,9 @@ class ClassFindTest {
     val stop = findConfigurableStop(bundle)
     stop match {
       case Some(x) => {
-        val propertiesDescList = x.getPropertyDescriptor()
-        propertiesDescList.foreach(println(_))
+        println("Find " + x.getClass.toString + "!!!!!!!!")
+        //val propertiesDescList = x.getPropertyDescriptor()
+        //propertiesDescList.foreach(println(_))
       }
       case _ => println("Can not find : " + bundle)
     }
@@ -56,7 +57,7 @@ class ClassFindTest {
   @Test
   def testFindAllConfigurableStop() = {
     val allConfigurableStopList = findAllConfigurableStop()
-    println("\n\n\n" + allConfigurableStopList)
+    allConfigurableStopList.foreach( x => println(x))
   }
 
 }

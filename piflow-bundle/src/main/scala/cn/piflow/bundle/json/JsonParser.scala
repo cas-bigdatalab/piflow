@@ -32,6 +32,8 @@ class JsonPathParser extends ConfigurableStop{
   }
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = ???
+
+  override def getIcon(): Array[Byte] = ???
 }
 
 class JsonStringParser extends ConfigurableStop{
@@ -57,4 +59,6 @@ class JsonStringParser extends ConfigurableStop{
   }
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = ???
+
+  override def getIcon(): Array[Byte] = ???
 }

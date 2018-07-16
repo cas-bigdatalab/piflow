@@ -1,13 +1,9 @@
-package cn.piflow.bundle.util
-
-
+package cn.piflow.conf.util
 
 import java.io.File
 
 import cn.piflow.conf.ConfigurableStop
 import org.clapper.classutil.ClassFinder
-
-import scala.util.control.Breaks
 
 
 object ClassUtil {
@@ -40,7 +36,7 @@ object ClassUtil {
     val finder = ClassFinder(getJarFile(classpathFile))
     val classes = finder.getClasses
     val classMap = ClassFinder.classInfoMap(classes)
-    val plugins = ClassFinder.concreteSubclasses("cn.piflow.conf.ConfigurableStop",classMap)
+    val plugins = ClassFinder.concreteSubclasses(configurableStopClass,classMap)
     plugins.foreach{
       pluginString =>
         //println(pluginString.name)

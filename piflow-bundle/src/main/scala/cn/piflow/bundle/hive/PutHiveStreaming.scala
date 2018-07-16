@@ -32,4 +32,6 @@ class PutHiveStreaming extends ConfigurableStop {
   }
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = ???
+
+  override def getIcon(): Array[Byte] = ???
 }

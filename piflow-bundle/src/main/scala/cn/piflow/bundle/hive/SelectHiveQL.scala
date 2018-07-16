@@ -1,9 +1,10 @@
 package cn.piflow.bundle.hive
 
 import cn.piflow._
+import cn.piflow.conf.util.ImageUtil
 import cn.piflow.conf.ConfigurableStop
 import cn.piflow.conf.bean.PropertyDescriptor
-import cn.piflow.conf.util.MapUtil
+import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import org.apache.spark.sql.SparkSession
 
 
@@ -35,6 +36,10 @@ class SelectHiveQL extends ConfigurableStop {
     val hiveQL = new PropertyDescriptor().name("hiveQL").displayName("HiveQL").defaultValue("").required(true)
     descriptor = hiveQL :: descriptor
     descriptor
+  }
+
+  override def getIcon(): Array[Byte] = {
+    ImageUtil.getImage("./src/main/resources/selectHiveQL.jpg")
   }
 }
 

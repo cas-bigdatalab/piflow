@@ -10,4 +10,6 @@ trait ConfigurableStop extends Stop{
 
   def getPropertyDescriptor() : List[PropertyDescriptor]
 
+  def getIcon() : Array[Byte]
+
 }
