@@ -21,9 +21,13 @@ object ClassUtil {
     val classMap = ClassFinder.classInfoMap(classes)
     val plugins = ClassFinder.concreteSubclasses(configurableStopClass,classMap)
     plugins.foreach{
-      plugin =>
-        //println(plugin.name)
-        stopList = plugin.name :: stopList
+      pluginClassInfo =>{
+        val plugin = Class.forName(pluginClassInfo.name).newInstance()
+        val stop = plugin.asInstanceOf[ConfigurableStop]
+        val stopAndGroup = pluginClassInfo.name + ":" + stop.getGroup().toString
+        stopList = stopAndGroup :: stopList
+      }
+
     }
     stopList
   }
@@ -38,10 +42,10 @@ object ClassUtil {
     val classMap = ClassFinder.classInfoMap(classes)
     val plugins = ClassFinder.concreteSubclasses(configurableStopClass,classMap)
     plugins.foreach{
-      pluginString =>
+      pluginClassInfo =>
         //println(pluginString.name)
-        if(pluginString.name.equals(bundle)){
-          val plugin = Class.forName(pluginString.name).newInstance()
+        if(pluginClassInfo.name.equals(bundle)){
+          val plugin = Class.forName(pluginClassInfo.name).newInstance()
           stop = Some(plugin.asInstanceOf[ConfigurableStop])
           return stop
         }
