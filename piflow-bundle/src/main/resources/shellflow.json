@@ -1,0 +1,36 @@
+{
+  "flow":{
+    "name":"shellTest",
+    "uuid":"5678",
+    "stops":[
+      {
+        "uuid":"1111",
+        "name":"ShellExecutor",
+        "bundle":"cn.piflow.bundle.script.ShellExecutor",
+        "properties":{
+            "shellPath":"/opt/data/test.sh",
+            "args":{},
+            "outputSchema":"id,name,gender,age"
+        }
+
+      },
+      {
+        "uuid":"2222",
+        "name":"PutHiveStreaming",
+        "bundle":"cn.piflow.bundle.hive.PutHiveStreaming",
+        "properties":{
+            "database":"sparktest",
+            "table":"student"
+        }
+      }
+    ],
+    "paths":[
+      {
+        "from":"ShellExecutor",
+        "outport":"",
+        "inport":"",
+        "to":"PutHiveStreaming"
+      }
+    ]
+  }
+}
