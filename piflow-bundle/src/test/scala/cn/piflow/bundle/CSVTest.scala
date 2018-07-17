@@ -1,6 +1,6 @@
 package cn.piflow.bundle
 
-import cn.piflow.bundle.csv.CSVParser
+import cn.piflow.bundle.csv.CsvParser
 import cn.piflow.bundle.json.JsonSave
 import cn.piflow.{FlowImpl, Path, Runner}
 import org.apache.spark.sql.SparkSession
@@ -19,7 +19,7 @@ class CSVTest {
     val jsonSaveParameters = Map(
       "jsonPath" -> "hdfs://10.0.86.89:9000/xjzhu/student_csv2json")
 
-    val csvParserStop = new CSVParser
+    val csvParserStop = new CsvParser
     csvParserStop.setProperties(csvParserParameters)
 
     val jsonPathStop =new JsonSave
@@ -62,7 +62,7 @@ class CSVTest {
       "jsonPath" -> "hdfs://10.0.86.89:9000/xjzhu/student_schema_csv2json")
 
 
-    val csvParserStop = new CSVParser
+    val csvParserStop = new CsvParser
     csvParserStop.setProperties(csvParserParameters)
 
     val jsonSaveStop = new JsonSave

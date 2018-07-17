@@ -1,12 +1,12 @@
 package cn.piflow.bundle.jdbc
 
 import cn.piflow._
-import cn.piflow.conf.ConfigurableStop
+import cn.piflow.conf.{ConfigurableStop, JdbcGroup, StopGroup}
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.MapUtil
 import org.apache.spark.sql.SparkSession
 
-class JDBCRead extends ConfigurableStop  {
+class JdbcRead extends ConfigurableStop  {
 
   var driver:String = _
   var url:String = _
@@ -45,4 +45,8 @@ class JDBCRead extends ConfigurableStop  {
   override def getPropertyDescriptor(): List[PropertyDescriptor] = ???
 
   override def getIcon(): Array[Byte] = ???
+
+  override def getGroup(): StopGroup = {
+    JdbcGroup
+  }
 }

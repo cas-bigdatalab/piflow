@@ -3,12 +3,12 @@ package cn.piflow.bundle.jdbc
 import java.util.Properties
 
 import cn.piflow._
-import cn.piflow.conf.ConfigurableStop
+import cn.piflow.conf.{ConfigurableStop, JdbcGroup, StopGroup}
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.MapUtil
 import org.apache.spark.sql.{SaveMode, SparkSession}
 
-class JDBCWrite extends ConfigurableStop{
+class JdbcWrite extends ConfigurableStop{
 
   var url:String = _
   var user:String = _
@@ -40,4 +40,8 @@ class JDBCWrite extends ConfigurableStop{
   override def getPropertyDescriptor(): List[PropertyDescriptor] = ???
 
   override def getIcon(): Array[Byte] = ???
+
+  override def getGroup(): StopGroup = {
+    JdbcGroup
+  }
 }

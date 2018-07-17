@@ -1,14 +1,14 @@
 package cn.piflow.bundle.csv
 
 import cn.piflow._
-import cn.piflow.conf.ConfigurableStop
+import cn.piflow.conf.{ConfigurableStop, CsvGroup, HiveGroup, StopGroup}
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.MapUtil
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
 
-class CSVParser extends ConfigurableStop{
+class CsvParser extends ConfigurableStop{
 
   var csvPath: String = _
   var header: Boolean = _
@@ -64,5 +64,9 @@ class CSVParser extends ConfigurableStop{
   override def getPropertyDescriptor(): List[PropertyDescriptor] = ???
 
   override def getIcon(): Array[Byte] = ???
+
+  def getGroup() : StopGroup = {
+    CsvGroup
+  }
 }
 

@@ -34,7 +34,7 @@
       {
         "uuid":"4444",
         "name":"CSVParser",
-        "bundle":"cn.piflow.bundle.csv.CSVParser",
+        "bundle":"cn.piflow.bundle.csv.CsvParser",
         "properties":{
             "csvPath":"hdfs://10.0.86.89:9000/xjzhu/phdthesis.csv",
             "header":"false",

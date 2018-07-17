@@ -1,6 +1,6 @@
 package cn.piflow.bundle.common
 
-import cn.piflow.conf.ConfigurableStop
+import cn.piflow.conf.{CommonGroup, ConfigurableStop, StopGroup}
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.MapUtil
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
@@ -24,4 +24,8 @@ class Fork extends ConfigurableStop{
   override def getPropertyDescriptor(): List[PropertyDescriptor] = ???
 
   override def getIcon(): Array[Byte] = ???
+
+  override def getGroup(): StopGroup = {
+    CommonGroup
+  }
 }

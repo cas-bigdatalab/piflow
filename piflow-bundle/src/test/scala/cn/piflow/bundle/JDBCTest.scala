@@ -1,6 +1,6 @@
 package cn.piflow.bundle
 
-import cn.piflow.bundle.jdbc.{JDBCRead, JDBCWrite}
+import cn.piflow.bundle.jdbc.{JdbcRead, JdbcWrite}
 import cn.piflow.{FlowImpl, Path, Runner}
 import org.apache.spark.sql.SparkSession
 import org.junit.Test
@@ -20,10 +20,10 @@ class JDBCTest {
 
     val jdbcWriteParameters = Map("writeDBtable" -> "student_full")
 
-    val jDBCReadStop = new JDBCRead()
+    val jDBCReadStop = new JdbcRead()
     jDBCReadStop.setProperties(jdbcReadParameters)
 
-    val jDBCWriteStop = new JDBCWrite()
+    val jDBCWriteStop = new JdbcWrite()
     jDBCWriteStop.setProperties(jdbcWriteParameters)
 
     val flow = new FlowImpl();

@@ -1,7 +1,7 @@
 package cn.piflow.bundle.json
 
 import cn.piflow._
-import cn.piflow.conf.ConfigurableStop
+import cn.piflow.conf.{ConfigurableStop, JsonGroup, StopGroup}
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.MapUtil
 import org.apache.spark.sql.SaveMode
@@ -29,4 +29,8 @@ class JsonSave extends ConfigurableStop{
   override def getPropertyDescriptor(): List[PropertyDescriptor] = ???
 
   override def getIcon(): Array[Byte] = ???
+
+  override def getGroup(): StopGroup = {
+    JsonGroup
+  }
 }

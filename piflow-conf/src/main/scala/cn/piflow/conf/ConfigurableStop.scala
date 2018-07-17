@@ -12,4 +12,6 @@ trait ConfigurableStop extends Stop{
 
   def getIcon() : Array[Byte]
 
+  def getGroup() : StopGroup
+
 }
