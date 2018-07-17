@@ -5,7 +5,11 @@ import cn.piflow.{FlowImpl, Path}
 import net.liftweb.json._
 import net.liftweb.json.JsonDSL._
 
+import scala.beans.BeanProperty
+
+
 class FlowBean {
+  /*@BeanProperty*/
   var uuid : String = _
   var name : String = _
   var stops : List[StopBean] = List()
