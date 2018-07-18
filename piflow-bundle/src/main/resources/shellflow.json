@@ -8,8 +8,8 @@
         "name":"ShellExecutor",
         "bundle":"cn.piflow.bundle.script.ShellExecutor",
         "properties":{
-            "shellPath":"/opt/data/test.sh",
-            "args":{},
+            "shellPath":"src/main/resources/shellflow.sh",
+            "args":"666,bing,M,32 777,ming,F,33",
             "outputSchema":"id,name,gender,age"
         }
 
