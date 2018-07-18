@@ -39,7 +39,7 @@ class DataFrameRowParser extends ConfigurableStop{
     })
 
     //parse schema
-    val field = schema.split(",")
+    val field = schema.split(separator)
     val structFieldArray : Array[StructField] = new Array[StructField](field.size)
     for(i <- 0 to field.size - 1){
       structFieldArray(i) = new StructField(field(i),StringType, nullable = true)

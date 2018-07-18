@@ -13,8 +13,6 @@ class StopGroupTest {
       "header" -> "true",
       "delimiter" -> ",",
       "schema" -> "")
-    val jsonSaveParameters = Map(
-      "jsonPath" -> "hdfs://10.0.86.89:9000/xjzhu/student_csv2json")
 
     val csvParserStop = new CsvParser
     csvParserStop.setProperties(csvParserParameters)
