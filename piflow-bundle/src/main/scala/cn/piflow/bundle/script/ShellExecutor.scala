@@ -38,17 +38,18 @@ class ShellExecutor extends ConfigurableStop{
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     val command = shellPath + " " + args
     val result =  command!!
-    val rawData = result.split("\n").toList
 
     var rowList : List[Row] = List()
+    val rawData = result.split("\n").toList
     rawData.foreach( s => rowList = Row(s) :: rowList )
 
     val spark = pec.get[SparkSession]()
 
-    val rdd = spark.sparkContext.parallelize(rowList)
+    val rowsRdd = spark.sparkContext.parallelize(rowList)
     val schema = StructType(List(new StructField("row", StringType, nullable = true)))
-    val df = spark.createDataFrame(rdd, schema)
-    out.write(df)
+    val df = spark.createDataFrame(rowsRdd,schema)
+    df.show()
 
+    out.write(df)
   }
 }

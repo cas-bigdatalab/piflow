@@ -16,6 +16,15 @@
       },
       {
         "uuid":"2222",
+        "name":"DataFrameRowParser",
+        "bundle":"cn.piflow.bundle.script.DataFrameRowParser",
+        "properties":{
+          "schema":"id,name,gender,age",
+          "separator":","
+        }
+      },
+      {
+        "uuid":"3333",
         "name":"PutHiveStreaming",
         "bundle":"cn.piflow.bundle.hive.PutHiveStreaming",
         "properties":{
@@ -27,6 +36,12 @@
     "paths":[
       {
         "from":"ShellExecutor",
+        "outport":"",
+        "inport":"",
+        "to":"DataFrameRowParser"
+      },
+      {
+        "from":"DataFrameRowParser",
         "outport":"",
         "inport":"",
         "to":"PutHiveStreaming"
