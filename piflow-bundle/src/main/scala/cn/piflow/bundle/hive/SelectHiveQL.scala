@@ -7,9 +7,14 @@ import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import org.apache.spark.sql.SparkSession
 
+import scala.beans.BeanProperty
+
 
 
 class SelectHiveQL extends ConfigurableStop {
+
+  val inportCount: Int = 0
+  val outportCount: Int = 1
 
   var hiveQL:String = _
 
@@ -45,6 +50,7 @@ class SelectHiveQL extends ConfigurableStop {
   override def getGroup(): StopGroup = {
     HiveGroup
   }
+
 }
 
 

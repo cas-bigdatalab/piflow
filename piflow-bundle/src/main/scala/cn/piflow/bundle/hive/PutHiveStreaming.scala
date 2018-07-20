@@ -6,7 +6,12 @@ import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.MapUtil
 import org.apache.spark.sql.SparkSession
 
+import scala.beans.BeanProperty
+
 class PutHiveStreaming extends ConfigurableStop {
+
+  val inportCount: Int = 1
+  val outportCount: Int = 0
 
   var database:String = _
   var table:String = _
@@ -38,4 +43,5 @@ class PutHiveStreaming extends ConfigurableStop {
   override def getGroup(): StopGroup = {
     HiveGroup
   }
+
 }

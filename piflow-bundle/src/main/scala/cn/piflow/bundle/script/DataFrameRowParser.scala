@@ -2,12 +2,18 @@ package cn.piflow.bundle.script
 
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
-import cn.piflow.conf.{CommonGroup, ConfigurableStop, StopGroup}
+import cn.piflow.conf.{CommonGroup, ConfigurableStop, ScriptGroup, StopGroup}
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
 import org.apache.spark.sql.{Row, SparkSession}
 
+import scala.beans.BeanProperty
+
 class DataFrameRowParser extends ConfigurableStop{
+
+  val inportCount: Int = 1
+  val outportCount: Int = 1
+
   var schema: String = _
   var separator: String = _
 
@@ -23,7 +29,7 @@ class DataFrameRowParser extends ConfigurableStop{
   }
 
   override def getGroup(): StopGroup = {
-    CommonGroup
+    ScriptGroup
   }
 
   override def initialize(ctx: ProcessContext): Unit = {}
@@ -34,7 +40,7 @@ class DataFrameRowParser extends ConfigurableStop{
 
     //parse RDD
     val rdd = inDF.rdd.map(row => {
-      val fieldArray = row.asInstanceOf[Row].get(0).asInstanceOf[String].split(",")
+      val fieldArray = row.get(0).asInstanceOf[String].split(",")
       Row.fromSeq(fieldArray.toSeq)
     })
 
@@ -51,4 +57,5 @@ class DataFrameRowParser extends ConfigurableStop{
     df.show()
     out.write(df)
   }
+
 }

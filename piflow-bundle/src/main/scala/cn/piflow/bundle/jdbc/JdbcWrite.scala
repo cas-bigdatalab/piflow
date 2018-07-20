@@ -8,7 +8,12 @@ import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.MapUtil
 import org.apache.spark.sql.{SaveMode, SparkSession}
 
+import scala.beans.BeanProperty
+
 class JdbcWrite extends ConfigurableStop{
+
+  val inportCount: Int = 1
+  val outportCount: Int = 0
 
   var url:String = _
   var user:String = _
@@ -44,4 +49,5 @@ class JdbcWrite extends ConfigurableStop{
   override def getGroup(): StopGroup = {
     JdbcGroup
   }
+
 }

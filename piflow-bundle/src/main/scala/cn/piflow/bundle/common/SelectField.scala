@@ -6,8 +6,13 @@ import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.MapUtil
 import org.apache.spark.sql.{Column, DataFrame}
 
+import scala.beans.BeanProperty
+
 
 class SelectField extends ConfigurableStop {
+
+  val inportCount: Int = -1
+  val outportCount: Int = 1
 
   var schema:String = _
 

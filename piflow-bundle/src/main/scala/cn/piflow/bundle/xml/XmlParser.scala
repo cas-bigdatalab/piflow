@@ -7,7 +7,12 @@ import cn.piflow.conf.util.MapUtil
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.types.StructType
 
+import scala.beans.BeanProperty
+
 class XmlParser extends ConfigurableStop {
+
+  val inportCount: Int = 1
+  val outportCount: Int = 1
 
   var xmlpath:String = _
   var rowTag:String = _
@@ -47,4 +52,5 @@ class XmlParser extends ConfigurableStop {
   override def getGroup(): StopGroup = {
     XmlGroup
   }
+
 }

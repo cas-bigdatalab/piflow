@@ -5,7 +5,12 @@ import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.MapUtil
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 
+import scala.beans.BeanProperty
+
 class Fork extends ConfigurableStop{
+
+  val inportCount: Int = 1
+  val outportCount: Int = -1
 
   var outports : List[String] = _
 
@@ -28,4 +33,5 @@ class Fork extends ConfigurableStop{
   override def getGroup(): StopGroup = {
     CommonGroup
   }
+
 }

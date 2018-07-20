@@ -7,9 +7,14 @@ import cn.piflow.conf.{ConfigurableStop, ScriptGroup, StopGroup}
 import org.apache.spark.sql.{Row, SparkSession}
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
 
+import scala.beans.BeanProperty
 import sys.process._
 
 class ShellExecutor extends ConfigurableStop{
+
+  val inportCount: Int = 0
+  val outportCount: Int = 1
+
   var shellPath: String = _
   var args: String = _
   var outputSchema: String = _

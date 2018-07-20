@@ -6,7 +6,12 @@ import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.MapUtil
 import org.codehaus.jackson.map.ext.CoreXMLSerializers.XMLGregorianCalendarSerializer
 
+import scala.beans.BeanProperty
+
 class XmlSave extends ConfigurableStop{
+
+  val inportCount: Int = 1
+  val outportCount: Int = 0
 
   var xmlSavePath:String = _
 
@@ -32,4 +37,5 @@ class XmlSave extends ConfigurableStop{
   override def getGroup(): StopGroup = {
     XmlGroup
   }
+
 }

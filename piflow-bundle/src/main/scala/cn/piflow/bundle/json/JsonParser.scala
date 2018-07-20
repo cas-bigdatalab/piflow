@@ -6,7 +6,12 @@ import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.MapUtil
 import org.apache.spark.sql.SparkSession
 
+import scala.beans.BeanProperty
+
 class JsonPathParser extends ConfigurableStop{
+
+  @BeanProperty  val inportCount: Int = 1
+  @BeanProperty  val outportCount: Int = 1
 
   var jsonPath: String = _
   var tag : String = _
@@ -38,9 +43,13 @@ class JsonPathParser extends ConfigurableStop{
   override def getGroup(): StopGroup = {
     JsonGroup
   }
+
 }
 
 class JsonStringParser extends ConfigurableStop{
+
+  val inportCount: Int = 1
+  val outportCount: Int = 1
 
   var jsonString: String = _
 
@@ -69,4 +78,5 @@ class JsonStringParser extends ConfigurableStop{
   override def getGroup(): StopGroup = {
     JsonGroup
   }
+
 }

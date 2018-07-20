@@ -4,7 +4,12 @@ import cn.piflow.conf.{CommonGroup, ConfigurableStop, StopGroup}
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 
+import scala.beans.BeanProperty
+
 class Merge extends ConfigurableStop{
+
+  val inportCount: Int = -1
+  val outportCount: Int = 1
 
   var inports : List[String] = _
 
@@ -27,4 +32,5 @@ class Merge extends ConfigurableStop{
   override def getGroup(): StopGroup = {
     CommonGroup
   }
+
 }

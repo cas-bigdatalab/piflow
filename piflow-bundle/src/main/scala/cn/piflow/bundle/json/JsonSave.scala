@@ -6,7 +6,12 @@ import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.MapUtil
 import org.apache.spark.sql.SaveMode
 
+import scala.beans.BeanProperty
+
 class JsonSave extends ConfigurableStop{
+
+  val inportCount: Int = 1
+  val outportCount: Int = 0
 
   var jsonSavePath: String = _
 
@@ -33,4 +38,5 @@ class JsonSave extends ConfigurableStop{
   override def getGroup(): StopGroup = {
     JsonGroup
   }
+
 }

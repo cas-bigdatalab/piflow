@@ -7,8 +7,13 @@ import cn.piflow.conf.util.MapUtil
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
+import scala.beans.BeanProperty
+
 
 class CsvParser extends ConfigurableStop{
+
+  val inportCount: Int = 1
+  val outportCount: Int = 1
 
   var csvPath: String = _
   var header: Boolean = _
@@ -68,5 +73,6 @@ class CsvParser extends ConfigurableStop{
   def getGroup() : StopGroup = {
     CsvGroup
   }
+
 }
 
