@@ -12,6 +12,7 @@ class FlowBean {
   /*@BeanProperty*/
   var uuid : String = _
   var name : String = _
+  var checkpoint : String = _
   var stops : List[StopBean] = List()
   var paths : List[PathBean] = List()
 
@@ -21,6 +22,7 @@ class FlowBean {
 
     this.uuid = MapUtil.get(flowMap,"uuid").asInstanceOf[String]
     this.name = MapUtil.get(flowMap,"name").asInstanceOf[String]
+    this.checkpoint = flowMap.getOrElse("checkpoint","").asInstanceOf[String]
 
     //construct StopBean List
     val stopsList = MapUtil.get(flowMap,"stops").asInstanceOf[List[Map[String, Any]]]
@@ -47,6 +49,10 @@ class FlowBean {
     this.paths.foreach( pathBean => {
       flow.addPath(Path.from(pathBean.from).via(pathBean.outport, pathBean.inport).to(pathBean.to))
     })
+
+    if(!this.checkpoint.equals("")){
+      flow.addCheckPoint(this.checkpoint)
+    }
 
     flow
   }

@@ -36,6 +36,7 @@ class FlowTest {
 
     val process = Runner.create()
       .bind(classOf[SparkSession].getName, spark)
+      .bind("checkpoint.path", "hdfs://10.0.86.89:9000/xjzhu/piflow/checkpoints/")
       .start(flow);
 
     process.awaitTermination();
