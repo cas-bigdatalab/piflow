@@ -58,10 +58,10 @@ object ClassUtil {
     files ++ dir.listFiles().filter(_.isDirectory).flatMap(getJarFile)
   }
 
-  def main(args: Array[String]): Unit = {
+  /*def main(args: Array[String]): Unit = {
     //val stop = findConfigurableStop("cn.piflow.bundle.Class1")
     val allConfigurableStopList = findAllConfigurableStop()
     println("\n\n\n" + allConfigurableStopList)
-  }
+  }*/
 
 }

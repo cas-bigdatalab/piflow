@@ -1,6 +1,7 @@
 package cn.piflow.bundle
 
 import cn.piflow.bundle.csv.CsvParser
+import cn.piflow.conf.StopGroup
 import org.junit.Test
 
 class StopGroupTest {
@@ -17,5 +18,12 @@ class StopGroupTest {
     val csvParserStop = new CsvParser
     csvParserStop.setProperties(csvParserParameters)
     println(csvParserStop.getGroup().toString)
+  }
+
+  @Test
+  def testFindAllGroup() = {
+
+    val group = StopGroup.findAllGroup()
+    group.foreach(println)
   }
 }

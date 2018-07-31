@@ -1,5 +1,5 @@
 package cn.piflow.conf
-
+import scala.reflect.runtime.{universe => ru}
 sealed class StopGroup
 case object CommonGroup extends StopGroup
 case object CsvGroup extends StopGroup
@@ -10,3 +10,19 @@ case object XmlGroup extends StopGroup
 case object HttpGroup extends StopGroup
 case object FtpGroup extends StopGroup
 case object ScriptGroup extends StopGroup
+
+object StopGroup{
+  def findAllGroup(): List[String] ={
+    var groupList : List[String] = List()
+    val tpe = ru.typeOf[StopGroup]
+    val clazz = tpe.typeSymbol.asClass
+    clazz.knownDirectSubclasses.foreach(x => {
+      val subObjectArray = x.toString.split(" ")
+      groupList = subObjectArray(1) :: groupList})
+    groupList
+  }
+}
+
+
+
+
