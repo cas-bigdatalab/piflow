@@ -2,6 +2,7 @@
   "flow":{
     "name":"test",
     "uuid":"1234",
+    "checkpoint":"Merge",
     "stops":[
       {
         "uuid":"1111",
