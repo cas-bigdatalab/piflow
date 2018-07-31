@@ -47,6 +47,22 @@
         "name":"Merge",
         "bundle":"cn.piflow.bundle.common.Merge",
         "properties":{}
+      },
+      {
+        "uuid":"666",
+        "name":"Fork",
+        "bundle":"cn.piflow.bundle.common.Fork",
+        "properties":{
+          "outports":["out1","out2"]
+        }
+      },
+      {
+        "uuid":"777",
+        "name":"JsonSave",
+        "bundle":"cn.piflow.bundle.json.JsonSave",
+        "properties":{
+          "jsonSavePath":"hdfs://10.0.86.89:9000/xjzhu/phdthesis.json"
+        }
       }
     ],
     "paths":[
@@ -72,7 +88,19 @@
         "from":"Merge",
         "outport":"",
         "inport":"",
+        "to":"Fork"
+      },
+      {
+        "from":"Fork",
+        "outport":"out1",
+        "inport":"",
         "to":"PutHiveStreaming"
+      },
+      {
+        "from":"Fork",
+        "outport":"out2",
+        "inport":"",
+        "to":"JsonSave"
       }
     ]
   }

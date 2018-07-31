@@ -11,7 +11,7 @@ import scala.beans.BeanProperty
 
 class SelectField extends ConfigurableStop {
 
-  val inportCount: Int = -1
+  val inportCount: Int = 1
   val outportCount: Int = 1
 
   var schema:String = _

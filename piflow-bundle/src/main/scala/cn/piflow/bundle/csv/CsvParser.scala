@@ -12,7 +12,7 @@ import scala.beans.BeanProperty
 
 class CsvParser extends ConfigurableStop{
 
-  val inportCount: Int = 1
+  val inportCount: Int = 0
   val outportCount: Int = 1
 
   var csvPath: String = _
