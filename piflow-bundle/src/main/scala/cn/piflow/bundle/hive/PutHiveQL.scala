@@ -46,7 +46,7 @@ class PutHiveQL extends ConfigurableStop {
     }
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
-    var descriptor : List[PropertyDescriptor] = null
+    var descriptor : List[PropertyDescriptor] = List()
     val hiveQL_path = new PropertyDescriptor().name("hiveQL_Path").displayName("HiveQL_Path").defaultValue("").required(true)
     val database=new PropertyDescriptor().name("database").displayName("DataBase").defaultValue("").required(true)
     descriptor = hiveQL_path :: descriptor
