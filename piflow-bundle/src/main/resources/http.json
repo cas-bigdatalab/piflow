@@ -18,7 +18,7 @@
         "name":"LoadZipFromUrl",
         "bundle":"cn.piflow.bundle.http.LoadZipFromUrl",
         "properties":{
-            "url_str":"http://10.0.86.93:8000/dblp.xml.gz"
+            "url_str":"http://10.0.86.93:8000/files.tar.gz"
         }
 
       },
