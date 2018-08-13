@@ -71,7 +71,7 @@ class LoadZipFromUrl extends ConfigurableStop{
   }
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
-    var descriptor : List[PropertyDescriptor] = null
+    var descriptor : List[PropertyDescriptor] = List()
     val url_str = new PropertyDescriptor().name("url_str").displayName("URL").defaultValue("").required(true)
     //val file_Path = new PropertyDescriptor().name("file_Path").displayName("File_Path").defaultValue("").required(true)
     descriptor = url_str :: descriptor
