@@ -29,10 +29,17 @@ class UnGZip extends ConfigurableStop {
     if(extention.equals("gz")){
       filePath=unGz(bis,filename)
       outDF=Seq((filePath)).toDF()
+      outDF.show(20)
     }
     if(extention.equals("tar")){
       filePathList=unTar(bis,filename)
       outDF=Seq(filePathList).toDF()
+      outDF.show(20)
+    }
+    if(extention.equals("tar.gz")){
+      filePathList=unTarGz(bis,filename)
+      outDF=Seq(filePathList).toDF()
+      outDF.show(20)
     }
 
 
