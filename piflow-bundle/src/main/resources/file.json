@@ -1,0 +1,37 @@
+{
+  "flow":{
+    "name":"test",
+    "uuid":"1234",
+    "stops":[
+      {
+        "uuid":"0000",
+        "name":"PutFile",
+        "bundle":"cn.piflow.bundle.file.PutFile",
+        "properties":{
+          "hdfs_path":"hdfs://10.0.86.89:9000/xx/",
+          "local_path":"/xx/files/file1.txt"
+        }
+
+      },
+      {
+        "uuid":"1111",
+        "name":"FetchFile",
+        "bundle":"cn.piflow.bundle.file.FetchFile",
+        "properties":{
+          "hdfs_path":"hdfs://10.0.86.89:9000/xx/file1.txt",
+          "local_path":"/xx/"
+        }
+
+      }
+
+    ],
+    "paths":[
+      {
+        "from":"PutFile",
+        "outport":"",
+        "inport":"",
+        "to":"FetchFile"
+      }
+    ]
+  }
+}
