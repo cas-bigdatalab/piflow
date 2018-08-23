@@ -40,6 +40,8 @@ class FlowTest {
       .start(flow);
 
     process.awaitTermination();
+    val pid = process.pid();
+    println(pid + "!!!!!!!!!!!!!!!!!!!!!")
     spark.close();
   }
 

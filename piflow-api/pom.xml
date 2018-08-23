@@ -10,6 +10,63 @@
     <modelVersion>4.0.0</modelVersion>
 
     <artifactId>piflow-api</artifactId>
+    <dependencies>
+        <dependency>
+            <groupId>piflow</groupId>
+            <artifactId>piflow-core</artifactId>
+            <version>0.9</version>
+        </dependency>
+        <dependency>
+            <groupId>piflow</groupId>
+            <artifactId>piflow-conf</artifactId>
+            <version>0.9</version>
+        </dependency>
+        <!-- https://mvnrepository.com/artifact/com.typesafe.akka/akka-remote -->
+        <dependency>
+            <groupId>com.typesafe.akka</groupId>
+            <artifactId>akka-remote_2.11</artifactId>
+            <version>2.3.12</version>
+        </dependency>
+        <!-- https://mvnrepository.com/artifact/com.typesafe.akka/akka-actor -->
+        <dependency>
+            <groupId>com.typesafe.akka</groupId>
+            <artifactId>akka-actor_2.11</artifactId>
+            <version>2.3.12</version>
+        </dependency>
+        <!-- https://mvnrepository.com/artifact/com.typesafe.akka/akka-slf4j -->
+        <dependency>
+            <groupId>com.typesafe.akka</groupId>
+            <artifactId>akka-slf4j_2.11</artifactId>
+            <version>2.3.12</version>
+        </dependency>
+        <!-- https://mvnrepository.com/artifact/com.typesafe.akka/akka-stream-experimental -->
+        <dependency>
+            <groupId>com.typesafe.akka</groupId>
+            <artifactId>akka-stream-experimental_2.11</artifactId>
+            <version>2.0.4</version>
+        </dependency>
+        <!-- https://mvnrepository.com/artifact/com.typesafe.akka/akka-http-core-experimental -->
+        <dependency>
+            <groupId>com.typesafe.akka</groupId>
+            <artifactId>akka-http-core-experimental_2.11</artifactId>
+            <version>2.0.4</version>
+        </dependency>
+        <!-- https://mvnrepository.com/artifact/com.typesafe.akka/akka-http-experimental -->
+        <dependency>
+            <groupId>com.typesafe.akka</groupId>
+            <artifactId>akka-http-experimental_2.11</artifactId>
+            <version>2.0.4</version>
+        </dependency>
+        <!-- https://mvnrepository.com/artifact/com.typesafe.akka/akka-http-spray-json-experimental -->
+        <dependency>
+            <groupId>com.typesafe.akka</groupId>
+            <artifactId>akka-http-spray-json-experimental_2.11</artifactId>
+            <version>2.0.4</version>
+        </dependency>
+
+
+
+    </dependencies>
 
 
 </project>
