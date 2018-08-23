@@ -86,5 +86,6 @@
         <module>piflow-core</module>
         <module>piflow-conf</module>
         <module>piflow-bundle</module>
+        <module>piflow-api</module>
     </modules>
 </project>
