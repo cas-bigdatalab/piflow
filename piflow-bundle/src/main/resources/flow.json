@@ -54,7 +54,7 @@
         "name":"Fork",
         "bundle":"cn.piflow.bundle.common.Fork",
         "properties":{
-          "outports":["out1","out2"]
+          "outports":["out1","out2","out3"]
         }
       },
       {
@@ -63,6 +63,16 @@
         "bundle":"cn.piflow.bundle.json.JsonSave",
         "properties":{
           "jsonSavePath":"hdfs://10.0.86.89:9000/xjzhu/phdthesis.json"
+        }
+      },
+      {
+        "uuid":"888",
+        "name":"CsvSave",
+        "bundle":"cn.piflow.bundle.csv.CsvSave",
+        "properties":{
+          "csvSavePath":"hdfs://10.0.86.89:9000/xjzhu/phdthesis.csv",
+          "header":"true",
+          "delimiter":","
         }
       }
     ],
@@ -102,6 +112,12 @@
         "outport":"out2",
         "inport":"",
         "to":"JsonSave"
+      },
+      {
+        "from":"Fork",
+        "outport":"out3",
+        "inport":"",
+        "to":"CsvSave"
       }
     ]
   }

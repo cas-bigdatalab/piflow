@@ -7,8 +7,6 @@ import cn.piflow.conf.util.MapUtil
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
-import scala.beans.BeanProperty
-
 
 class CsvParser extends ConfigurableStop{
 
