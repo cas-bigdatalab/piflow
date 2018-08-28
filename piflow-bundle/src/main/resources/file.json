@@ -5,21 +5,21 @@
     "stops":[
       {
         "uuid":"0000",
-        "name":"PutFile",
-        "bundle":"cn.piflow.bundle.file.PutFile",
+        "name":"SelectHiveQL",
+        "bundle":"cn.piflow.bundle.hive.SelectHiveQL",
         "properties":{
-          "hdfs_path":"hdfs://10.0.86.89:9000/xx/",
-          "local_path":"/xx/files/file1.txt"
+          "hiveQL":"select * from sparktest.dblp_phdthesis"
         }
 
       },
       {
         "uuid":"1111",
-        "name":"FetchFile",
-        "bundle":"cn.piflow.bundle.file.FetchFile",
+        "name":"RegexTextProcess",
+        "bundle":"cn.piflow.bundle.file.RegexTextProcess",
         "properties":{
-          "hdfs_path":"hdfs://10.0.86.89:9000/xx/file1.txt",
-          "local_path":"/xx/"
+          "regex":"[(A-Za-z)]",
+          "columnName":"title",
+          "replaceStr":"Test"
         }
 
       }
@@ -27,10 +27,10 @@
     ],
     "paths":[
       {
-        "from":"PutFile",
+        "from":"SelectHiveQL",
         "outport":"",
         "inport":"",
-        "to":"FetchFile"
+        "to":"RegexTextProcess"
       }
     ]
   }
