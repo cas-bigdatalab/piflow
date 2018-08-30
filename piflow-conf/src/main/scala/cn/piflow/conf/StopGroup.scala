@@ -10,6 +10,8 @@ case object XmlGroup extends StopGroup
 case object HttpGroup extends StopGroup
 case object FtpGroup extends StopGroup
 case object ScriptGroup extends StopGroup
+case object FileGroup extends StopGroup
+case object CleanGroup extends StopGroup
 
 object StopGroup{
   def findAllGroup(): List[String] ={
