@@ -4,7 +4,7 @@ import java.beans.Transient
 
 import cn.piflow.bundle.util.CleanUtil
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
-import cn.piflow.conf.{CleanGroup, ConfigurableStop, StopGroup}
+import cn.piflow.conf.{CleanGroup,ConfigurableStop, StopGroup}
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.MapUtil
 import org.apache.spark.sql.SparkSession
