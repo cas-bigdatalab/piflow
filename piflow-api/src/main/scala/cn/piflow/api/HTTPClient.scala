@@ -19,6 +19,7 @@ object HTTPClient {
     val response:CloseableHttpResponse = client.execute(post)
     val entity = response.getEntity
     val str = EntityUtils.toString(entity,"UTF-8")
+    println("Code is " + str)
   }
 
 }

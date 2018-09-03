@@ -3,18 +3,14 @@ package cn.piflow.api
 import java.io.File
 import java.util.concurrent.CompletionStage
 
-import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
-import akka.http.scaladsl.common.{EntityStreamingSupport, JsonEntityStreamingSupport}
+
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.model.HttpMethods._
 import akka.http.scaladsl.server.Directives
-import akka.http.impl.util.StreamUtils
 import akka.stream.ActorMaterializer
-import akka.stream.scaladsl.{FileIO, Framing, Sink, Source}
-import akka.util.ByteString
 import cn.piflow.api.util.PropertyUtil
 import com.typesafe.config.ConfigFactory
 
@@ -28,7 +24,6 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
   implicit val system = ActorSystem("HTTPService", ConfigFactory.load())
   implicit val materializer = ActorMaterializer()
   implicit val executionContext = system.dispatcher
-  implicit val jsonStreamingSupport : JsonEntityStreamingSupport = EntityStreamingSupport.json
   var processMap = Map[String, Process]()
 
   def toJson(entity: RequestEntity): Map[String, Any] = {
