@@ -22,7 +22,6 @@ class FolderXmlParser extends ConfigurableStop{
 
   var rowTag:String = _
   var xmlpath:String = _
-
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
 
     val spark = pec.get[SparkSession]()
