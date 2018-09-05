@@ -9,7 +9,10 @@ import org.clapper.classutil.ClassFinder
 object ClassUtil {
 
   val configurableStopClass:String = "cn.piflow.conf.ConfigurableStop"
-  val classpath:String = "/opt/project/piflow"
+  //val classpath:String = "/opt/project/piflow/classpath"
+
+  val classpath = System.getProperty("user.dir")+ "/classpath/"
+
 
   def findAllConfigurableStop() : List[String] = {
 
@@ -37,6 +40,7 @@ object ClassUtil {
     var stop:Option[ConfigurableStop] = None
 
     val classpathFile = new File(classpath)
+    println("classpath is " + classpath)
     val finder = ClassFinder(getJarFile(classpathFile))
     val classes = finder.getClasses
     val classMap = ClassFinder.classInfoMap(classes)

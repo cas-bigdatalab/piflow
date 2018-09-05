@@ -16,11 +16,12 @@
             <artifactId>piflow-core</artifactId>
             <version>0.9</version>
         </dependency>
-        <dependency>
+        <!--<dependency>
             <groupId>piflow</groupId>
             <artifactId>piflow-conf</artifactId>
             <version>0.9</version>
-        </dependency>
+        </dependency>-->
+
         <dependency>
             <groupId>org.clapper</groupId>
             <artifactId>classutil_2.11</artifactId>
@@ -48,6 +49,62 @@
             <version>1.7.25</version>
         </dependency>
 
+        <dependency>
+            <groupId>net.liftweb</groupId>
+            <artifactId>lift-json_2.11</artifactId>
+            <version>2.6.1</version>
+        </dependency>
+
     </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <artifactId>maven-shade-plugin</artifactId>
+                <version>1.5</version>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                        <configuration>
+                            <filters>
+                                <filter>
+                                    <artifact>*:*</artifact>
+                                    <excludes>
+                                        <exclude>META-INF/*.SF</exclude>
+                                        <exclude>META-INF/*.DSA</exclude>
+                                        <exclude>META-INF/*.RSA</exclude>
+                                    </excludes>
+                                </filter>
+                            </filters>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-install-plugin</artifactId>
+                <executions>
+                <execution>
+                    <id>install-external-1</id>
+                    <phase>package</phase>
+                    <configuration>
+                        <file>${basedir}/lib/spark-xml_2.11-0.4.2.jar</file>
+                        <groupId>com.databricks</groupId>
+                        <artifactId>spark-xml_2.11</artifactId>
+                        <version>0.4.2</version>
+                        <packaging>jar</packaging>
+                        <generatePom>true</generatePom>
+                    </configuration>
+                    <goals>
+                        <goal>install-file</goal>
+                    </goals>
+                </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
 
 </project>

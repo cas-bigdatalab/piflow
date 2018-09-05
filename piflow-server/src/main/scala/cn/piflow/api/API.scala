@@ -6,11 +6,7 @@ import org.apache.spark.sql.SparkSession
 import cn.piflow.conf.util.{FileUtil, OptionUtil}
 import cn.piflow.Process
 import cn.piflow.api.util.PropertyUtil
-import com.github.ywilkof.sparkrestclient.{JobStatusResponse, SparkRestClient}
-import com.github.ywilkof.sparkrestclient.SparkRestClient.SparkRestClientBuilder
-import jodd.util.PropertiesUtil
 import org.apache.http.client.methods.{CloseableHttpResponse, HttpGet, HttpPost}
-import org.apache.http.entity.StringEntity
 import org.apache.http.impl.client.HttpClients
 import org.apache.http.util.EntityUtils
 
@@ -34,7 +30,7 @@ object API {
       .config("spark.driver.memory", "1g")
       .config("spark.executor.memory", "2g")
       .config("spark.cores.max", "2")
-      .config("spark.jars", "/opt/project/piflow/out/artifacts/piflow_bundle/piflow-bundle.jar")
+      .config("spark.jars", PropertyUtil.getPropertyValue("piflow.bundle"))
       .enableHiveSupport()
       .getOrCreate()
 
@@ -66,4 +62,5 @@ object API {
     println("Code is " + str)
     str
   }
+
 }

@@ -2,10 +2,8 @@ package cn.piflow.conf.bean
 
 import cn.piflow.conf.util.MapUtil
 import cn.piflow.{FlowImpl, Path}
-import net.liftweb.json._
 import net.liftweb.json.JsonDSL._
-
-import scala.beans.BeanProperty
+import net.liftweb.json._
 
 
 class FlowBean {

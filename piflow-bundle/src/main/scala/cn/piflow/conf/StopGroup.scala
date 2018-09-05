@@ -1,4 +1,5 @@
 package cn.piflow.conf
+
 import scala.reflect.runtime.{universe => ru}
 sealed class StopGroup
 case object CommonGroup extends StopGroup

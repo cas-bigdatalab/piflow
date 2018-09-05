@@ -43,9 +43,15 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
     }
 
    case HttpRequest(GET, Uri.Path("/flow/info"), headers, entity, protocol) => {
-     val appID = ""
-     val result = API.getFlowInfo(appID)
-     Future.successful(HttpResponse(entity = "Get OK!"))
+
+     val appID = req.getUri().query().getOrElse("appID","")
+     if(!appID.equals("")){
+       val result = API.getFlowInfo(appID)
+       Future.successful(HttpResponse(entity = result))
+     }else{
+       Future.successful(HttpResponse(entity = "appID is null or not existed!"))
+     }
+
    }
 
    case HttpRequest(POST, Uri.Path("/flow/start"), headers, entity, protocol) =>{

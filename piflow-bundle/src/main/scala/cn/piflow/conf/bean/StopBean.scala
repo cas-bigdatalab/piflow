@@ -1,5 +1,7 @@
 package cn.piflow.conf.bean
 
+import java.lang.ClassNotFoundException
+
 import cn.piflow.conf.ConfigurableStop
 import cn.piflow.conf.util.{ClassUtil, MapUtil}
 
@@ -21,14 +23,28 @@ class StopBean {
     /*val stop = Class.forName(this.bundle).newInstance()
     stop.asInstanceOf[ConfigurableStop].setProperties(this.properties)
     stop.asInstanceOf[ConfigurableStop]*/
-    val stop : Option[ConfigurableStop] = ClassUtil.findConfigurableStop(this.bundle)
-    stop match {
-      case Some(s) => {
-        s.asInstanceOf[ConfigurableStop].setProperties(this.properties)
-        s.asInstanceOf[ConfigurableStop]
+    try{
+      val stop = Class.forName(this.bundle).newInstance()
+      stop.asInstanceOf[ConfigurableStop].setProperties(this.properties)
+      stop.asInstanceOf[ConfigurableStop]
+    }catch{
+
+      case classNotFoundException:ClassNotFoundException =>{
+        val stop : Option[ConfigurableStop] = ClassUtil.findConfigurableStop(this.bundle)
+        stop match {
+          case Some(s) => {
+            s.asInstanceOf[ConfigurableStop].setProperties(this.properties)
+            s.asInstanceOf[ConfigurableStop]
+          }
+          case _ => throw new ClassNotFoundException(this.bundle + " is not found!!!")
+        }
       }
       case _ => throw new ClassNotFoundException(this.bundle + " is not found!!!")
+
+
     }
+
+
 
   }
 

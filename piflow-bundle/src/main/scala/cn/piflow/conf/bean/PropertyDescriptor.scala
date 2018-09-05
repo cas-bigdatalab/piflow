@@ -39,6 +39,7 @@ class PropertyDescriptor {
     this
   }
 }
+
 object PropertyDescriptor{
   def apply(): PropertyDescriptor = {
     new PropertyDescriptor()
