@@ -55,6 +55,12 @@
             <version>2.6.1</version>
         </dependency>
 
+        <dependency>
+            <groupId>com.databricks</groupId>
+            <artifactId>spark-xml_2.11</artifactId>
+            <version>0.4.2</version>
+        </dependency>
+
     </dependencies>
 
     <build>
@@ -83,27 +89,7 @@
                     </execution>
                 </executions>
             </plugin>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-install-plugin</artifactId>
-                <executions>
-                <execution>
-                    <id>install-external-1</id>
-                    <phase>package</phase>
-                    <configuration>
-                        <file>${basedir}/lib/spark-xml_2.11-0.4.2.jar</file>
-                        <groupId>com.databricks</groupId>
-                        <artifactId>spark-xml_2.11</artifactId>
-                        <version>0.4.2</version>
-                        <packaging>jar</packaging>
-                        <generatePom>true</generatePom>
-                    </configuration>
-                    <goals>
-                        <goal>install-file</goal>
-                    </goals>
-                </execution>
-                </executions>
-            </plugin>
+
         </plugins>
     </build>
 
