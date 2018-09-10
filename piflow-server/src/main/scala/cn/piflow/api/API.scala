@@ -25,11 +25,12 @@ object API {
 
     //execute flow
     val spark = SparkSession.builder()
-      .master("spark://10.0.86.89:7077")
+      .master(PropertyUtil.getPropertyValue("spark.master"))
       .appName(flowBean.name)
-      .config("spark.driver.memory", "1g")
-      .config("spark.executor.memory", "2g")
-      .config("spark.cores.max", "2")
+      .config("spark.deploy.mode",PropertyUtil.getPropertyValue("spark.deploy.mode"))
+      //.config("spark.driver.memory", "1g")
+      //.config("spark.executor.memory", "1g")
+      //.config("spark.cores.max", "2")
       .config("spark.jars", PropertyUtil.getPropertyValue("piflow.bundle"))
       .enableHiveSupport()
       .getOrCreate()
