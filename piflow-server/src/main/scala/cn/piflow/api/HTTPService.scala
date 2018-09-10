@@ -59,9 +59,9 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
      entity match {
        case HttpEntity.Strict(_, data) =>{
          val flowJson = data.utf8String
-         val process = API.startFlow(flowJson)
+         val (appId,process) = API.startFlow(flowJson)
          processMap += (process.pid() -> process)
-         Future.successful(HttpResponse(entity = process.pid()))
+         Future.successful(HttpResponse(entity = appId))
        }
 
        case _ => Future.failed(new Exception("Can not start flow!"))

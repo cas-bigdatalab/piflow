@@ -14,7 +14,7 @@ import scala.util.parsing.json.JSON
 
 object API {
 
-  def startFlow(flowJson : String):Process = {
+  def startFlow(flowJson : String):(String,Process) = {
 
     val map = OptionUtil.getAny(JSON.parseFull(flowJson)).asInstanceOf[Map[String, Any]]
     println(map)
@@ -40,10 +40,10 @@ object API {
       .bind(classOf[SparkSession].getName, spark)
       .bind("checkpoint.path", PropertyUtil.getPropertyValue("checkpoint.path"))
       .start(flow);
-
+    val applicationId = spark.sparkContext.applicationId
     process.awaitTermination();
     spark.close();
-    process
+    (applicationId,process)
   }
 
   def stopFlow(process : Process): String = {
