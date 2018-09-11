@@ -39,7 +39,7 @@ class StopBean {
           case _ => throw new ClassNotFoundException(this.bundle + " is not found!!!")
         }
       }
-      case _ => throw new ClassNotFoundException(this.bundle + " is not found!!!")
+      case ex : Exception => throw ex
 
 
     }
