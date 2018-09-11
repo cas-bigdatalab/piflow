@@ -70,7 +70,7 @@
         "name":"CsvSave",
         "bundle":"cn.piflow.bundle.csv.CsvSave",
         "properties":{
-          "csvSavePath":"hdfs://10.0.86.89:9000/xjzhu/phdthesis.csv",
+          "csvSavePath":"hdfs://10.0.86.89:9000/xjzhu/phdthesis_result.csv",
           "header":"true",
           "delimiter":","
         }
