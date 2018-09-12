@@ -60,7 +60,7 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
        case HttpEntity.Strict(_, data) =>{
          val flowJson = data.utf8String
          val (appId,process) = API.startFlow(flowJson)
-         processMap += (process.pid() -> process)
+         processMap += (appId -> process)
          Future.successful(HttpResponse(entity = appId))
        }
 
@@ -71,13 +71,19 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
 
     case HttpRequest(POST, Uri.Path("/flow/stop"), headers, entity, protocol) =>{
       val data = toJson(entity)
-      val processId  = data.get("processId").getOrElse("").asInstanceOf[String]
-      if(processId.equals("") || !processMap.contains(processId)){
+      val appId  = data.get("appID").getOrElse("").asInstanceOf[String]
+      if(appId.equals("") || !processMap.contains(appId)){
         Future.failed(new Exception("Can not found process Error!"))
       }else{
 
-        val result = API.stopFlow(processMap.get(processId).asInstanceOf[Process])
-        Future.successful(HttpResponse(entity = result))
+        processMap.get(appId) match {
+          case Some(process) =>
+            val result = API.stopFlow(process.asInstanceOf[Process])
+            Future.successful(HttpResponse(entity = result))
+          case _ =>
+            Future.successful(HttpResponse(entity = "Can not found process Error!"))
+        }
+
       }
     }
 

@@ -46,8 +46,8 @@ object API {
       .bind("checkpoint.path", PropertyUtil.getPropertyValue("checkpoint.path"))
       .start(flow);
     val applicationId = spark.sparkContext.applicationId
-    process.awaitTermination();
-    spark.close();
+    //process.awaitTermination();
+    //spark.close();
     (applicationId,process)
   }
 

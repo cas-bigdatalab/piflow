@@ -9,11 +9,11 @@ import org.apache.http.message.BasicNameValuePair
 import org.apache.http.util.EntityUtils
 import org.omg.CORBA.NameValuePair
 
-object HTTPClientGet {
+object HTTPClientGetFlowInfo {
 
   def main(args: Array[String]): Unit = {
 
-    val url = "http://10.0.86.98:8002/flow/info?appID=application_1536562610670_0001"
+    val url = "http://10.0.86.98:8001/flow/info?appID=application_1536562610670_0005"
     val client = HttpClients.createDefault()
     val getFlowInfo:HttpGet = new HttpGet(url)
 
