@@ -37,7 +37,7 @@ object API {
       //.config("spark.executor.memory", "1g")
       //.config("spark.cores.max", "2")
       .config("spark.jars", PropertyUtil.getPropertyValue("piflow.bundle"))
-      //.config("hive.metastore.uris",PropertyUtil.getPropertyValue("hive.metastore.uris"))
+      .config("hive.metastore.uris",PropertyUtil.getPropertyValue("hive.metastore.uris"))
       .enableHiveSupport()
       .getOrCreate()
 
