@@ -32,11 +32,12 @@ object API {
       .config("spark.hadoop.yarn.resourcemanager.address", PropertyUtil.getPropertyValue("yarn.resourcemanager.address"))
       .config("spark.yarn.access.namenode", PropertyUtil.getPropertyValue("yarn.access.namenode"))
       .config("spark.yarn.stagingDir", PropertyUtil.getPropertyValue("yarn.stagingDir"))
+      .config("spark.yarn.jars", PropertyUtil.getPropertyValue("yarn.jars"))
       //.config("spark.driver.memory", "1g")
       //.config("spark.executor.memory", "1g")
       //.config("spark.cores.max", "2")
       .config("spark.jars", PropertyUtil.getPropertyValue("piflow.bundle"))
-      .config("hive.metastore.uris",PropertyUtil.getPropertyValue("hive.metastore.uris"))
+      //.config("hive.metastore.uris",PropertyUtil.getPropertyValue("hive.metastore.uris"))
       .enableHiveSupport()
       .getOrCreate()
 
