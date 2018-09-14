@@ -1,14 +1,16 @@
 package cn.piflow.api
 
 import cn.piflow.Runner
-import cn.piflow.conf.bean.FlowBean
+import cn.piflow.conf.bean.{FlowBean, PropertyDescriptor}
 import org.apache.spark.sql.SparkSession
-import cn.piflow.conf.util.{FileUtil, OptionUtil}
+import cn.piflow.conf.util.{ClassUtil, FileUtil, OptionUtil}
 import cn.piflow.Process
 import cn.piflow.api.util.PropertyUtil
+import cn.piflow.conf.util.ClassUtil.findConfigurableStopPropertyDescriptor
 import org.apache.http.client.methods.{CloseableHttpResponse, HttpGet, HttpPost}
 import org.apache.http.impl.client.HttpClients
 import org.apache.http.util.EntityUtils
+
 
 import scala.util.parsing.json.JSON
 
@@ -68,6 +70,22 @@ object API {
     val str = EntityUtils.toString(entity,"UTF-8")
     println("Code is " + str)
     str
+  }
+
+  def getStopProperties(bundle : String) : String = {
+    try{
+
+      val propertyDescriptorList = findConfigurableStopPropertyDescriptor(bundle)
+      var propertyJsonList = List[String]()
+      propertyDescriptorList.foreach( p => propertyJsonList = p.toJson() +: propertyJsonList  )
+      val start ="""{"properties":["""
+      val end = """]}"""
+      val str = propertyJsonList.mkString(start, ",", end)
+      str
+    }catch{
+      case ex : Exception => println(ex);throw ex
+    }
+
   }
 
 }

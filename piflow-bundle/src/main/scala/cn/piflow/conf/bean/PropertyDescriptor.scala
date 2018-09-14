@@ -1,5 +1,8 @@
 package cn.piflow.conf.bean
 
+import net.liftweb.json.JsonDSL._
+import net.liftweb.json._
+
 class PropertyDescriptor {
   var name : String = _
   var displayName : String = _
@@ -37,6 +40,22 @@ class PropertyDescriptor {
   def sensitive(sensitive:Boolean) : PropertyDescriptor = {
     this.sensitive = sensitive
     this
+  }
+  def toJson():String = {
+    val allowableValueStr = if(this.allowableValues == null)  "" else this.allowableValues.mkString(",")
+    val json =
+      ("property" ->
+        ("name" -> this.name) ~
+          ("displayName" -> this.displayName) ~
+          ("description" -> this.description) ~
+          ("defaultValue" -> this.defaultValue) ~
+          ("allowableValues" -> allowableValueStr) ~
+          ("required" -> this.required.toString) ~
+          ("sensitive" -> this.sensitive.toString))
+
+
+    val jsonString = compactRender(json)
+    jsonString
   }
 }
 

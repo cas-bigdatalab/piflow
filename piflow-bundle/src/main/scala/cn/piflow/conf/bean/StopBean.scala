@@ -19,33 +19,14 @@ class StopBean {
   }
 
   def constructStop() : ConfigurableStop = {
-    //val stop = Class.forName(this.bundle).getConstructor(classOf[Map[String, String]]).newInstance(this.properties)
-    /*val stop = Class.forName(this.bundle).newInstance()
-    stop.asInstanceOf[ConfigurableStop].setProperties(this.properties)
-    stop.asInstanceOf[ConfigurableStop]*/
+
     try{
-      val stop = Class.forName(this.bundle).newInstance()
-      stop.asInstanceOf[ConfigurableStop].setProperties(this.properties)
-      stop.asInstanceOf[ConfigurableStop]
-    }catch{
-
-      case classNotFoundException:ClassNotFoundException =>{
-        val stop : Option[ConfigurableStop] = ClassUtil.findConfigurableStop(this.bundle)
-        stop match {
-          case Some(s) => {
-            s.asInstanceOf[ConfigurableStop].setProperties(this.properties)
-            s.asInstanceOf[ConfigurableStop]
-          }
-          case _ => throw new ClassNotFoundException(this.bundle + " is not found!!!")
-        }
-      }
+      val stop = ClassUtil.findConfigurableStop(this.bundle)
+      stop.setProperties(this.properties)
+      stop
+    }catch {
       case ex : Exception => throw ex
-
-
     }
-
-
-
   }
 
 }

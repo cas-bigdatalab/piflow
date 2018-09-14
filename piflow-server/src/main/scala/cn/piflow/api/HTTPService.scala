@@ -5,7 +5,6 @@ import java.util.concurrent.CompletionStage
 
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
-
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.model.HttpMethods._
@@ -69,7 +68,7 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
 
    }
 
-    case HttpRequest(POST, Uri.Path("/flow/stop"), headers, entity, protocol) =>{
+   case HttpRequest(POST, Uri.Path("/flow/stop"), headers, entity, protocol) =>{
       val data = toJson(entity)
       val appId  = data.get("appID").getOrElse("").asInstanceOf[String]
       if(appId.equals("") || !processMap.contains(appId)){
@@ -86,6 +85,20 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
 
       }
     }
+
+   case HttpRequest(GET, Uri.Path("/stop/properties"), headers, entity, protocol) =>{
+     val bundle = req.getUri().query().getOrElse("bundle","")
+     if(bundle.equals("")){
+       Future.failed(new Exception("Can not found bundle Error!"))
+     }else{
+       try{
+         val stopPropertyDescStr = API.getStopProperties(bundle)
+         Future.successful(HttpResponse(entity = stopPropertyDescStr))
+       }catch {
+         case _ => Future.successful(HttpResponse(entity = "Can not found stop properties Error!"))
+       }
+     }
+   }
 
     case _: HttpRequest =>
       Future.successful(HttpResponse(404, entity = "Unknown resource!"))

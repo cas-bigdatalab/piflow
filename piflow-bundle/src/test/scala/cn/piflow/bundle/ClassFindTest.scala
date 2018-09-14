@@ -44,14 +44,22 @@ class ClassFindTest {
   def testFindConfigurableStop() = {
     val bundle = "cn.piflow.bundle.hive.SelectHiveQL"
     val stop = findConfigurableStop(bundle)
-    stop match {
-      case Some(x) => {
-        println("Find " + x.getClass.toString + "!!!!!!!!")
-        //val propertiesDescList = x.getPropertyDescriptor()
-        //propertiesDescList.foreach(println(_))
-      }
-      case _ => println("Can not find : " + bundle)
-    }
+    println("Find " + stop.getClass.toString + "!!!!!!!!")
+
+  }
+  @Test
+  def testFindConfigurableStopClassPath() = {
+    val bundle = "cn.piflow.bundle.Class1"
+    val stop = findConfigurableStop(bundle)
+    println("Find " + stop.getClass.toString + "!!!!!!!!")
+
+  }
+  @Test
+  def testFindConfigurableStopNotExist() = {
+    val bundle = "cn.piflow.bundle.Class5"
+    val stop = findConfigurableStop(bundle)
+    println("Find " + stop.getClass.toString + "!!!!!!!!")
+
   }
 
   @Test
