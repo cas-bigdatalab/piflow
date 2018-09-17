@@ -51,6 +51,7 @@ object API {
     val applicationId = spark.sparkContext.applicationId
     //process.awaitTermination();
     //spark.close();
+    new Thread( new WaitProcessTerminateRunnable(spark, process)).start()
     (applicationId,process)
   }
 
@@ -88,4 +89,11 @@ object API {
 
   }
 
+}
+
+class WaitProcessTerminateRunnable(spark : SparkSession, process: Process) extends Runnable  {
+  override def run(): Unit = {
+    process.awaitTermination()
+    spark.close()
+  }
 }
