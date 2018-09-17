@@ -6,8 +6,10 @@ import cn.piflow.conf.bean.PropertyDescriptor
 
 trait ConfigurableStop extends Stop{
 
+  val authorEmail : String
   val inportCount : Int
   val outportCount : Int
+
 
   def setProperties(map: Map[String, Any])
 

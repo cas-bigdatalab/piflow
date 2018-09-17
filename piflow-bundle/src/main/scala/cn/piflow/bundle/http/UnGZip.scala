@@ -11,6 +11,7 @@ import org.apache.commons.compress.archivers.tar.{TarArchiveEntry, TarArchiveInp
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
 class UnGZip extends ConfigurableStop {
+  override val authorEmail: String = "xiaoxiao@cnic.cn"
   val inportCount: Int = 0
   val outportCount: Int = 1
   val fileTypes:List[String]=List("tar.gz","tar","gz")

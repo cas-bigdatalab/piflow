@@ -10,6 +10,7 @@ import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.apache.spark.sql.SparkSession
 
 class LoadZipFromUrl extends ConfigurableStop{
+  override val authorEmail: String = "xiaoxiao@cnic.cn"
   val inportCount: Int = 0
   val outportCount: Int = 1
   var url_str:String =_

@@ -7,6 +7,7 @@ import cn.piflow.conf.{ConfigurableStop, CsvGroup, StopGroup}
 import org.apache.spark.sql.SaveMode
 
 class CsvSave extends ConfigurableStop{
+  override val authorEmail: String = "xjzhu@cnic.cn"
   override val inportCount: Int = 1
   override val outportCount: Int = 0
 

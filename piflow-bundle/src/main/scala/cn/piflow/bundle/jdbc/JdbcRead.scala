@@ -9,6 +9,7 @@ import org.apache.spark.sql.SparkSession
 import scala.beans.BeanProperty
 
 class JdbcRead extends ConfigurableStop  {
+  override val authorEmail: String = "xjzhu@cnic.cn"
   val inportCount: Int = 0
   val outportCount: Int = 1
 

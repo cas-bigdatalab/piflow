@@ -10,6 +10,7 @@ import org.apache.spark.sql.{DataFrame, SparkSession}
 
 class CsvParser extends ConfigurableStop{
 
+  override val authorEmail: String = "xjzhu@cnic.cn"
   val inportCount: Int = 0
   val outportCount: Int = 1
 

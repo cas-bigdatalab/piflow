@@ -17,6 +17,7 @@ import scala.util.control.Breaks._
   * Created by admin on 2018/8/27.
   */
 class FolderXmlParser extends ConfigurableStop{
+  override val authorEmail: String = "lijie"
   override val inportCount: Int = -1
   override val outportCount: Int = 1
 

@@ -9,6 +9,7 @@ import scala.beans.BeanProperty
 
 class Fork extends ConfigurableStop{
 
+  override val authorEmail: String = "xjzhu@cnic.cn"
   val inportCount: Int = 1
   val outportCount: Int = -1
 

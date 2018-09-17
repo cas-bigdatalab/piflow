@@ -10,6 +10,7 @@ import cn.piflow.conf.util.MapUtil
 import org.apache.spark.sql.SparkSession
 
 class EmailClean extends ConfigurableStop{
+  override val authorEmail: String = "xiaoxiao@cnic.cn"
   val inportCount: Int = 0
   val outportCount: Int = 1
   var columnName:String=_
