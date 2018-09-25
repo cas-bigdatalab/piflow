@@ -10,7 +10,7 @@ import cn.piflow.conf.util.ClassUtil.findConfigurableStopPropertyDescriptor
 import org.apache.http.client.methods.{CloseableHttpResponse, HttpGet, HttpPost}
 import org.apache.http.impl.client.HttpClients
 import org.apache.http.util.EntityUtils
-
+import org.apache.spark.launcher.SparkLauncher
 
 import scala.util.parsing.json.JSON
 
@@ -53,6 +53,20 @@ object API {
     //spark.close();
     new Thread( new WaitProcessTerminateRunnable(spark, process)).start()
     (applicationId,process)
+
+    /*val launcher = new SparkLauncher
+    launcher.setMaster(PropertyUtil.getPropertyValue("spark.master"))
+      .setAppName("test")
+      .setDeployMode(PropertyUtil.getPropertyValue("spark.deploy.mode"))
+      .setConf("spark.hadoop.yarn.resourcemanager.hostname", PropertyUtil.getPropertyValue("yarn.resourcemanager.hostname"))
+      .setConf("spark.hadoop.yarn.resourcemanager.address", PropertyUtil.getPropertyValue("yarn.resourcemanager.address")).setConf("spark.yarn.access.namenode", PropertyUtil.getPropertyValue("yarn.access.namenode"))
+      .setConf("spark.yarn.stagingDir", PropertyUtil.getPropertyValue("yarn.stagingDir"))
+      .setConf("spark.yarn.jars", PropertyUtil.getPropertyValue("yarn.jars"))
+      .setConf("spark.jars", PropertyUtil.getPropertyValue("piflow.bundle"))
+      .setConf("hive.metastore.uris", PropertyUtil.getPropertyValue("hive.metastore.uris"))
+      .setMainClass("lalla")
+      .addAppArgs(flowJson)*/
+
   }
 
   def stopFlow(process : Process): String = {
@@ -89,11 +103,16 @@ object API {
 
   }
 
+  def getAllGroups() = {
+    val groups = ClassUtil.findAllGroups().mkString(",")
+    """{"groups":"""" + groups + """"}"""
+  }
+
 }
 
 class WaitProcessTerminateRunnable(spark : SparkSession, process: Process) extends Runnable  {
   override def run(): Unit = {
     process.awaitTermination()
-    spark.close()
+    //spark.close()
   }
 }

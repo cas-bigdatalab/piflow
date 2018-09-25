@@ -99,6 +99,16 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
        }
      }
    }
+   case HttpRequest(GET, Uri.Path("/stop/groups"), headers, entity, protocol) =>{
+
+     try{
+       val stopGroups = API.getAllGroups()
+       Future.successful(HttpResponse(entity = stopGroups))
+     }catch {
+       case _ => Future.successful(HttpResponse(entity = "Can not found stop properties Error!"))
+     }
+
+   }
 
     case _: HttpRequest =>
       Future.successful(HttpResponse(404, entity = "Unknown resource!"))
