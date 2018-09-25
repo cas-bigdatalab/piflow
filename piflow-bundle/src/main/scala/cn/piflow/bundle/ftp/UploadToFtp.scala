@@ -4,7 +4,7 @@ import java.io.{DataOutputStream, File, InputStream, OutputStream}
 import java.util
 
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
-import cn.piflow.conf.{ConfigurableStop, FtpGroup, StopGroup}
+import cn.piflow.conf.{ConfigurableStop, FtpGroup, StopGroup, StopGroupEnum}
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.MapUtil
 import sun.net.TelnetOutputStream
@@ -170,8 +170,7 @@ class UploadToFtp extends ConfigurableStop{
 
     override def getIcon(): Array[Byte] = ???
 
-    override def getGroup(): StopGroup = {
-      FtpGroup
-    }
-
+  override def getGroup(): List[String] = {
+    List(StopGroupEnum.FtpGroup.toString)
+  }
 }

@@ -3,7 +3,7 @@ package cn.piflow.bundle.script
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
-import cn.piflow.conf.{ConfigurableStop, ScriptGroup, StopGroup}
+import cn.piflow.conf.{ConfigurableStop, ScriptGroup, StopGroup, StopGroupEnum}
 import org.apache.spark.sql.{Row, SparkSession}
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
 
@@ -33,8 +33,8 @@ class ShellExecutor extends ConfigurableStop{
     ImageUtil.getImage("./src/main/resources/ShellExecutor.jpg")
   }
 
-  override def getGroup(): StopGroup = {
-    ScriptGroup
+  override def getGroup(): List[String] = {
+    List(StopGroupEnum.ScriptGroup.toString)
   }
 
   override def initialize(ctx: ProcessContext): Unit = {

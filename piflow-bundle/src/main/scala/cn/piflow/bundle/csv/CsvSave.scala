@@ -3,7 +3,7 @@ package cn.piflow.bundle.csv
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
-import cn.piflow.conf.{ConfigurableStop, CsvGroup, StopGroup}
+import cn.piflow.conf.{ConfigurableStop, CsvGroup, StopGroup, StopGroupEnum}
 import org.apache.spark.sql.SaveMode
 
 class CsvSave extends ConfigurableStop{
@@ -43,8 +43,8 @@ class CsvSave extends ConfigurableStop{
     ImageUtil.getImage("./src/main/resources/selectHiveQL.jpg")
   }
 
-  override def getGroup(): StopGroup = {
-    CsvGroup
+  override def getGroup(): List[String] = {
+    List(StopGroupEnum.CsvGroup.toString)
   }
 
   override def initialize(ctx: ProcessContext): Unit = {

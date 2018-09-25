@@ -1,7 +1,7 @@
 package cn.piflow.bundle.jdbc
 
 import cn.piflow._
-import cn.piflow.conf.{ConfigurableStop, JdbcGroup, StopGroup}
+import cn.piflow.conf.{ConfigurableStop, JdbcGroup, StopGroup, StopGroupEnum}
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.MapUtil
 import org.apache.spark.sql.SparkSession
@@ -51,8 +51,8 @@ class JdbcRead extends ConfigurableStop  {
 
   override def getIcon(): Array[Byte] = ???
 
-  override def getGroup(): StopGroup = {
-    JdbcGroup
+  override def getGroup(): List[String] = {
+    List(StopGroupEnum.JdbcGroup.toString)
   }
 
 }

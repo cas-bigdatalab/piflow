@@ -1,6 +1,6 @@
 package cn.piflow.bundle.common
 
-import cn.piflow.conf.{CommonGroup, ConfigurableStop, StopGroup}
+import cn.piflow.conf.{CommonGroup, ConfigurableStop, StopGroup, StopGroupEnum}
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 
@@ -30,8 +30,8 @@ class Merge extends ConfigurableStop{
 
   override def getIcon(): Array[Byte] = ???
 
-  override def getGroup(): StopGroup = {
-    CommonGroup
+  override def getGroup(): List[String] = {
+    List(StopGroupEnum.CommonGroup.toString)
   }
 
 }

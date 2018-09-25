@@ -3,7 +3,7 @@ package cn.piflow.bundle.file
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.MapUtil
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
-import cn.piflow.conf.{ConfigurableStop, FileGroup, StopGroup}
+import cn.piflow.conf.{ConfigurableStop, FileGroup, StopGroup, StopGroupEnum}
 import org.apache.spark.sql.SparkSession
 
 
@@ -56,7 +56,7 @@ class RegexTextProcess extends ConfigurableStop{
 
   override def getIcon(): Array[Byte] = ???
 
-  override def getGroup(): StopGroup = {
-    FileGroup
+  override def getGroup(): List[String] = {
+    List(StopGroupEnum.FileGroup.toString)
   }
 }

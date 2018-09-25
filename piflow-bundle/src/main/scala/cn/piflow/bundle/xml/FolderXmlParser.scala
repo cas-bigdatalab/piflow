@@ -4,7 +4,7 @@ import java.net.URI
 
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.MapUtil
-import cn.piflow.conf.{ConfigurableStop, StopGroup, XmlGroup}
+import cn.piflow.conf.{ConfigurableStop, StopGroup, StopGroupEnum, XmlGroup}
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
@@ -45,8 +45,8 @@ class FolderXmlParser extends ConfigurableStop{
 
   override def getIcon(): Array[Byte] = ???
 
-  override def getGroup(): StopGroup = {
-    XmlGroup
+  override def getGroup(): List[String] = {
+    List(StopGroupEnum.XmlGroup.toString)
   }
 
   override def initialize(ctx: ProcessContext): Unit ={}

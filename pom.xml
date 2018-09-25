@@ -54,7 +54,7 @@
             <artifactId>spark-yarn_2.11</artifactId>
             <version>${spark.version}</version>
         </dependency>
-        <dependency>
+        <!--<dependency>
             <groupId>org.apache.hadoop</groupId>
             <artifactId>hadoop-client</artifactId>
             <version>2.6.0</version>
@@ -83,7 +83,7 @@
             <groupId>org.apache.hadoop</groupId>
             <artifactId>hadoop-yarn-common</artifactId>
             <version>2.6.4</version>
-        </dependency>
+        </dependency>-->
 
     </dependencies>
     <build>

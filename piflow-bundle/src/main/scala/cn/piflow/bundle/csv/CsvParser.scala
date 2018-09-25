@@ -1,7 +1,7 @@
 package cn.piflow.bundle.csv
 
 import cn.piflow._
-import cn.piflow.conf.{ConfigurableStop, CsvGroup, HiveGroup, StopGroup}
+import cn.piflow.conf._
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.MapUtil
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
@@ -69,8 +69,8 @@ class CsvParser extends ConfigurableStop{
 
   override def getIcon(): Array[Byte] = ???
 
-  def getGroup() : StopGroup = {
-    CsvGroup
+  override def getGroup(): List[String] = {
+    List(StopGroupEnum.CsvGroup.toString)
   }
 
 }

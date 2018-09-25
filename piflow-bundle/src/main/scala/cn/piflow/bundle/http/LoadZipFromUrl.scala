@@ -3,7 +3,7 @@ package cn.piflow.bundle.http
 import java.io._
 import java.net.{HttpURLConnection, URL}
 
-import cn.piflow.conf.{ConfigurableStop, HttpGroup, StopGroup}
+import cn.piflow.conf.{ConfigurableStop, HttpGroup, StopGroup, StopGroupEnum}
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.MapUtil
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
@@ -82,8 +82,9 @@ class LoadZipFromUrl extends ConfigurableStop{
 
   override def getIcon(): Array[Byte] = ???
 
-  override def getGroup(): StopGroup = {
-    HttpGroup
+  override def getGroup(): List[String] = {
+    List(StopGroupEnum.HttpGroup.toString)
   }
+
 
 }

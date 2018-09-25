@@ -6,7 +6,7 @@ import java.net.{HttpURLConnection, URI, URL}
 import org.apache.hadoop.fs.FileSystem
 import org.apache.hadoop.fs.Path
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
-import cn.piflow.conf.{ConfigurableStop, FileGroup, StopGroup}
+import cn.piflow.conf.{ConfigurableStop, FileGroup, StopGroup, StopGroupEnum}
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.MapUtil
 import org.apache.hadoop.conf.Configuration
@@ -57,8 +57,8 @@ class PutFile extends ConfigurableStop{
 
   override def getIcon(): Array[Byte] = ???
 
-  override def getGroup(): StopGroup = {
-    FileGroup
+  override def getGroup(): List[String] = {
+    List(StopGroupEnum.FileGroup.toString)
   }
 
 

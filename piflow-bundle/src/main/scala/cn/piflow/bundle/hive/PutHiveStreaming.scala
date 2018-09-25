@@ -1,7 +1,7 @@
 package cn.piflow.bundle.hive
 
 import cn.piflow._
-import cn.piflow.conf.{ConfigurableStop, HiveGroup, StopGroup}
+import cn.piflow.conf.{ConfigurableStop, HiveGroup, StopGroup, StopGroupEnum}
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.MapUtil
 import org.apache.spark.sql.SparkSession
@@ -41,8 +41,9 @@ class PutHiveStreaming extends ConfigurableStop {
 
   override def getIcon(): Array[Byte] = ???
 
-  override def getGroup(): StopGroup = {
-    HiveGroup
+  override def getGroup(): List[String] = {
+    List(StopGroupEnum.HiveGroup.toString)
   }
+
 
 }

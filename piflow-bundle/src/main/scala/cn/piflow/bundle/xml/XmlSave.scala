@@ -1,7 +1,7 @@
 package cn.piflow.bundle.xml
 
 import cn.piflow._
-import cn.piflow.conf.{ConfigurableStop, StopGroup, XmlGroup}
+import cn.piflow.conf.{ConfigurableStop, StopGroup, StopGroupEnum, XmlGroup}
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.MapUtil
 import org.codehaus.jackson.map.ext.CoreXMLSerializers.XMLGregorianCalendarSerializer
@@ -35,8 +35,8 @@ class XmlSave extends ConfigurableStop{
 
   override def getIcon(): Array[Byte] = ???
 
-  override def getGroup(): StopGroup = {
-    XmlGroup
+  override def getGroup(): List[String] = {
+    List(StopGroupEnum.XmlGroup.toString)
   }
 
 }

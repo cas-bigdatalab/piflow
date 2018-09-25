@@ -2,7 +2,7 @@ package cn.piflow.bundle.clean
 
 import cn.piflow.bundle.util.CleanUtil
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
-import cn.piflow.conf.{CleanGroup, ConfigurableStop, StopGroup}
+import cn.piflow.conf.{CleanGroup, ConfigurableStop, StopGroup, StopGroupEnum}
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.MapUtil
 import org.apache.spark.sql.SparkSession
@@ -46,8 +46,8 @@ class PhoneNumberClean extends ConfigurableStop{
 
   override def getIcon(): Array[Byte] = ???
 
-  override def getGroup(): StopGroup = {
-    CleanGroup
+  override def getGroup(): List[String] = {
+    List(StopGroupEnum.CleanGroup.toString)
   }
 
 }

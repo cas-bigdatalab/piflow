@@ -5,7 +5,7 @@ import java.net.{HttpURLConnection, URL}
 import java.util
 
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
-import cn.piflow.conf.{ConfigurableStop, FtpGroup, HttpGroup, StopGroup}
+import cn.piflow.conf.{ConfigurableStop, FtpGroup, HttpGroup, StopGroup, StopGroupEnum}
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.MapUtil
 import sun.net.ftp.{FtpClient, FtpDirEntry}
@@ -156,8 +156,8 @@ class LoadFromFtp extends ConfigurableStop{
 
   override def getIcon(): Array[Byte] = ???
 
-  override def getGroup(): StopGroup = {
-    FtpGroup
+  override def getGroup(): List[String] = {
+    List(StopGroupEnum.FtpGroup.toString)
   }
 
 

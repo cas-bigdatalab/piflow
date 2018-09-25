@@ -4,7 +4,7 @@ import java.io.{ByteArrayInputStream, File, FileInputStream, FileOutputStream}
 import java.lang.Exception
 import java.util.zip.GZIPInputStream
 
-import cn.piflow.conf.{ConfigurableStop, HiveGroup, HttpGroup, StopGroup}
+import cn.piflow.conf._
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.apache.commons.compress.archivers.tar.{TarArchiveEntry, TarArchiveInputStream}
@@ -208,8 +208,8 @@ class UnGZip extends ConfigurableStop {
 
   override def getIcon(): Array[Byte] = ???
 
-  override def getGroup(): StopGroup = {
-    HttpGroup
+  override def getGroup(): List[String] = {
+    List(StopGroupEnum.HttpGroup.toString)
   }
 
 }
