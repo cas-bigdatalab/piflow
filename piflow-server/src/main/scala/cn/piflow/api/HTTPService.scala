@@ -86,14 +86,14 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
       }
     }
 
-   case HttpRequest(GET, Uri.Path("/stop/properties"), headers, entity, protocol) =>{
+   case HttpRequest(GET, Uri.Path("/stop/info"), headers, entity, protocol) =>{
      val bundle = req.getUri().query().getOrElse("bundle","")
      if(bundle.equals("")){
        Future.failed(new Exception("Can not found bundle Error!"))
      }else{
        try{
-         val stopPropertyDescStr = API.getStopProperties(bundle)
-         Future.successful(HttpResponse(entity = stopPropertyDescStr))
+         val stopInfo = API.getStopInfo(bundle)
+         Future.successful(HttpResponse(entity = stopInfo))
        }catch {
          case _ => Future.successful(HttpResponse(entity = "Can not found stop properties Error!"))
        }

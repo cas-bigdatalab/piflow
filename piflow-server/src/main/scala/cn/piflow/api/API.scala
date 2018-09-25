@@ -87,15 +87,10 @@ object API {
     str
   }
 
-  def getStopProperties(bundle : String) : String = {
+  def getStopInfo(bundle : String) : String = {
     try{
 
-      val propertyDescriptorList = findConfigurableStopPropertyDescriptor(bundle)
-      var propertyJsonList = List[String]()
-      propertyDescriptorList.foreach( p => propertyJsonList = p.toJson() +: propertyJsonList  )
-      val start ="""{"properties":["""
-      val end = """]}"""
-      val str = propertyJsonList.mkString(start, ",", end)
+      val str = ClassUtil.findConfigurableStopInfo(bundle)
       str
     }catch{
       case ex : Exception => println(ex);throw ex

@@ -4,8 +4,11 @@ import java.io.File
 
 import cn.piflow.conf.ConfigurableStop
 import cn.piflow.conf.bean.PropertyDescriptor
+import net.liftweb.json.compactRender
 import org.clapper.classutil.ClassFinder
 import org.reflections.Reflections
+import net.liftweb.json.JsonDSL._
+import net.liftweb.json._
 
 
 object ClassUtil {
@@ -129,6 +132,29 @@ object ClassUtil {
     stopPropertyDesc.getPropertyDescriptor()
   }
 
+  def findConfigurableStopInfo(bundle : String) : String = {
+    val stop = ClassUtil.findConfigurableStop(bundle)
+    val propertyDescriptorList:List[PropertyDescriptor] = stop.getPropertyDescriptor()
+
+    val json =
+      ("StopInfo" ->
+        ("owner" -> stop.authorEmail) ~
+          ("inportCount" -> stop.inportCount) ~
+          ("outportCount" -> stop.outportCount) ~
+          ("groups" -> stop.getGroup().mkString(",")) ~
+          ("properties" ->
+            propertyDescriptorList.map { property =>(
+              ("name" -> property.name) ~
+                ("displayName" -> property.displayName) ~
+                ("description" -> property.description) ~
+                ("defaultValue" -> property.defaultValue) ~
+                ("allowableValues" -> property.allowableValues) ~
+                ("required" -> property.required.toString) ~
+                ("sensitive" -> property.sensitive.toString)) }) )
+    val jsonString = compactRender(json)
+    jsonString
+  }
+
   def main(args: Array[String]): Unit = {
     //val stop = findConfigurableStop("cn.piflow.bundle.Class1")
     //val allConfigurableStopList = findAllConfigurableStop()
@@ -139,10 +165,13 @@ object ClassUtil {
     val end = """]}"""
     val str = propertyJsonList.mkString(start, ",", end)
     println(str)*/
+
+    val stop = findConfigurableStopInClasspath("cn.piflow.bundle.Xjzhu")
+    val temp = 1
     //println(findAllGroups());
 
-    val stoplist = findAllGroups();
-    println(stoplist)
+    //val stoplist = findAllGroups();
+    //println(stoplist)
 
   }
 
