@@ -13,7 +13,7 @@ import org.apache.hadoop.conf.Configuration
 import org.apache.spark.sql.SparkSession
 
 class PutFile extends ConfigurableStop{
-  override val authorEmail: String = "xiaoxiao@cnic.cn"
+  val authorEmail: String = "xiaoxiao@cnic.cn"
   val inportCount: Int = 0
   val outportCount: Int = 1
   var hdfs_path:String =_

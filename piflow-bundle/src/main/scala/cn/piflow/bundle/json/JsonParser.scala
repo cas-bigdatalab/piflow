@@ -10,7 +10,7 @@ import scala.beans.BeanProperty
 
 class JsonPathParser extends ConfigurableStop{
 
-  override val authorEmail: String = "xjzhu@cnic.cn"
+  val authorEmail: String = "xjzhu@cnic.cn"
   val inportCount: Int = 1
   val outportCount: Int = 1
 
@@ -49,7 +49,7 @@ class JsonPathParser extends ConfigurableStop{
 }
 
 class JsonStringParser extends ConfigurableStop{
-  override val authorEmail: String = "xjzhu@cnic.cn"
+  val authorEmail: String = "xjzhu@cnic.cn"
   val inportCount: Int = 1
   val outportCount: Int = 1
 

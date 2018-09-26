@@ -11,7 +11,7 @@ import scala.beans.BeanProperty
 
 class SelectField extends ConfigurableStop {
 
-  override val authorEmail: String = "xjzhu@cnic.cn"
+  val authorEmail: String = "xjzhu@cnic.cn"
   val inportCount: Int = 1
   val outportCount: Int = 1
 

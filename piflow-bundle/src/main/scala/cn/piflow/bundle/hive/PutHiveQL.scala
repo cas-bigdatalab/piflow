@@ -8,7 +8,7 @@ import org.apache.spark.sql.SparkSession
 
 class PutHiveQL extends ConfigurableStop {
 
-  override val authorEmail: String = "xiaoxiao@cnic.cn"
+  val authorEmail: String = "xiaoxiao@cnic.cn"
   val inportCount: Int = 0
   val outportCount: Int = 1
 

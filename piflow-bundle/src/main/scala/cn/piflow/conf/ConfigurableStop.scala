@@ -4,7 +4,7 @@ import cn.piflow.Stop
 import cn.piflow.conf.bean.PropertyDescriptor
 
 
-trait ConfigurableStop extends Stop{
+abstract class ConfigurableStop extends Stop{
 
   val authorEmail : String
   val inportCount : Int

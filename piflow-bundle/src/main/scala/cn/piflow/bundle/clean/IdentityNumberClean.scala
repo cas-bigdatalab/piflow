@@ -14,7 +14,7 @@ import org.apache.spark.sql.SparkSession
 import scala.reflect.macros.ParseException
 
 class IdentityNumberClean extends ConfigurableStop{
-  override val authorEmail: String = "xiaoxiao@cnic.cn"
+  val authorEmail: String = "xiaoxiao@cnic.cn"
   val inportCount: Int = 0
   val outportCount: Int = 1
   //var regex:String =_

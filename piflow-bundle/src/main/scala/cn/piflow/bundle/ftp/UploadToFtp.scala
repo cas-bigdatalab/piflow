@@ -13,7 +13,7 @@ import sun.net.ftp.{FtpClient, FtpDirEntry}
 import scala.reflect.io.Directory
 
 class UploadToFtp extends ConfigurableStop{
-    override val authorEmail: String = "xiaoxiao@cnic.cn"
+    val authorEmail: String = "xiaoxiao@cnic.cn"
     val inportCount: Int = 0
     val outportCount: Int = 1
     var url_str:String =_

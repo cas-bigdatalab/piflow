@@ -16,7 +16,7 @@ object ClassUtil {
   val configurableStopClass:String = "cn.piflow.conf.ConfigurableStop"
   //val classpath:String = "/opt/project/piflow/classpath"
 
-  /*def findAllConfigurableStop() : List[String] = {
+  /*def findAllConfigurableStopByClassFinder() : List[String] = {
 
     val classpath = System.getProperty("user.dir")
     var stopList : List[String] = List()
@@ -63,17 +63,29 @@ object ClassUtil {
     var stopList:List[ConfigurableStop] = List()
 
     val classpathFile = new File(classpath)
-    println("classpath is " + classpath)
+    //println("classpath is " + classpath)
     val finder = ClassFinder(getJarFile(classpathFile))
     val classes = finder.getClasses
-    val classMap = ClassFinder.classInfoMap(classes)
+    val it = classes.iterator
+
+    while(it.hasNext) {
+      val externalClass = it.next()
+      if(externalClass.superClassName.equals(configurableStopClass)){
+
+          val stopIntance = Class.forName(externalClass.name).newInstance()
+          stopList = stopIntance.asInstanceOf[ConfigurableStop] +: stopList
+      }
+    }
+    stopList
+
+    /*val classMap = ClassFinder.classInfoMap(classes)
     val plugins = ClassFinder.concreteSubclasses(configurableStopClass,classMap)
     plugins.foreach{
       pluginClassInfo =>
           val plugin = Class.forName(pluginClassInfo.name).newInstance()
           stopList = plugin.asInstanceOf[ConfigurableStop] +: stopList
     }
-    stopList
+    stopList*/
   }
 
   def findAllGroups() : List[String] = {
@@ -89,10 +101,22 @@ object ClassUtil {
     var stop:Option[ConfigurableStop] = None
 
     val classpathFile = new File(classpath)
-    println("classpath is " + classpath)
+    //println("classpath is " + classpath)
     val finder = ClassFinder(getJarFile(classpathFile))
     val classes = finder.getClasses
-    val classMap = ClassFinder.classInfoMap(classes)
+    val it = classes.iterator
+
+    while(it.hasNext) {
+      val externalClass = it.next()
+      if(externalClass.superClassName.equals(configurableStopClass)){
+        if (externalClass.name.equals(bundle)){
+          val stopIntance = Class.forName(externalClass.name).newInstance()
+          stop = Some(stopIntance.asInstanceOf[ConfigurableStop])
+          return stop
+        }
+      }
+    }
+    /*val classMap = ClassFinder.classInfoMap(classes)
     val plugins = ClassFinder.concreteSubclasses(configurableStopClass,classMap)
     plugins.foreach{
       pluginClassInfo =>
@@ -101,7 +125,7 @@ object ClassUtil {
           stop = Some(plugin.asInstanceOf[ConfigurableStop])
           return stop
         }
-    }
+    }*/
     stop
   }
 
@@ -153,9 +177,10 @@ object ClassUtil {
                 ("sensitive" -> property.sensitive.toString)) }) )
     val jsonString = compactRender(json)
     jsonString
+
   }
 
-  def main(args: Array[String]): Unit = {
+  /*def main(args: Array[String]): Unit = {
     //val stop = findConfigurableStop("cn.piflow.bundle.Class1")
     //val allConfigurableStopList = findAllConfigurableStop()
     /*val propertyDescriptorList = findConfigurableStopPropertyDescriptor("cn.piflow.bundle.Xjzhu")
@@ -166,13 +191,15 @@ object ClassUtil {
     val str = propertyJsonList.mkString(start, ",", end)
     println(str)*/
 
-    val stop = findConfigurableStopInClasspath("cn.piflow.bundle.Xjzhu")
-    val temp = 1
-    //println(findAllGroups());
+    /*val stop = findAllConfigurableStop()
+    stop.foreach(s => println(s.getClass.getName))
+    val temp = 1*/
 
-    //val stoplist = findAllGroups();
-    //println(stoplist)
 
-  }
+    /*val stop = findConfigurableStop("cn.piflow.bundle.Xjzhu")
+    println(stop.getClass.getName)*/
+
+
+  }*/
 
 }
