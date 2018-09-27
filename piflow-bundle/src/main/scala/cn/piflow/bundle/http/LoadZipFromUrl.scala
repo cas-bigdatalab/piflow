@@ -3,13 +3,14 @@ package cn.piflow.bundle.http
 import java.io._
 import java.net.{HttpURLConnection, URL}
 
-import cn.piflow.conf.{ConfigurableStop, HttpGroup, StopGroup}
+import cn.piflow.conf.{ConfigurableStop, HttpGroup, StopGroup, StopGroupEnum}
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.MapUtil
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.apache.spark.sql.SparkSession
 
 class LoadZipFromUrl extends ConfigurableStop{
+  val authorEmail: String = "xiaoxiao@cnic.cn"
   val inportCount: Int = 0
   val outportCount: Int = 1
   var url_str:String =_
@@ -81,8 +82,9 @@ class LoadZipFromUrl extends ConfigurableStop{
 
   override def getIcon(): Array[Byte] = ???
 
-  override def getGroup(): StopGroup = {
-    HttpGroup
+  override def getGroup(): List[String] = {
+    List(StopGroupEnum.HttpGroup.toString)
   }
+
 
 }

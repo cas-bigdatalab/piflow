@@ -1,7 +1,7 @@
 package cn.piflow.bundle.xml
 
 import cn.piflow._
-import cn.piflow.conf.{ConfigurableStop, StopGroup, XmlGroup}
+import cn.piflow.conf.{ConfigurableStop, StopGroup, StopGroupEnum, XmlGroup}
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.MapUtil
 import org.apache.spark.sql.SparkSession
@@ -11,6 +11,7 @@ import scala.beans.BeanProperty
 
 class XmlParser extends ConfigurableStop {
 
+  val authorEmail: String = "xjzhu@cnic.cn"
   val inportCount: Int = 1
   val outportCount: Int = 1
 
@@ -49,8 +50,8 @@ class XmlParser extends ConfigurableStop {
 
   override def getIcon(): Array[Byte] = ???
 
-  override def getGroup(): StopGroup = {
-    XmlGroup
+  override def getGroup(): List[String] = {
+    List(StopGroupEnum.XmlGroup.toString)
   }
 
 }

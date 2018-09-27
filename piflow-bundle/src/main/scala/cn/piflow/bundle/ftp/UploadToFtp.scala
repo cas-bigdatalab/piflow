@@ -4,7 +4,7 @@ import java.io.{DataOutputStream, File, InputStream, OutputStream}
 import java.util
 
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
-import cn.piflow.conf.{ConfigurableStop, FtpGroup, StopGroup}
+import cn.piflow.conf.{ConfigurableStop, FtpGroup, StopGroup, StopGroupEnum}
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.MapUtil
 import sun.net.TelnetOutputStream
@@ -13,6 +13,7 @@ import sun.net.ftp.{FtpClient, FtpDirEntry}
 import scala.reflect.io.Directory
 
 class UploadToFtp extends ConfigurableStop{
+    val authorEmail: String = "xiaoxiao@cnic.cn"
     val inportCount: Int = 0
     val outportCount: Int = 1
     var url_str:String =_
@@ -169,8 +170,7 @@ class UploadToFtp extends ConfigurableStop{
 
     override def getIcon(): Array[Byte] = ???
 
-    override def getGroup(): StopGroup = {
-      FtpGroup
-    }
-
+  override def getGroup(): List[String] = {
+    List(StopGroupEnum.FtpGroup.toString)
+  }
 }

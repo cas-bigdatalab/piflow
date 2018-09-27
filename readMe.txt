@@ -6,3 +6,6 @@ mvn install:install-file -Dfile=/opt/project/piflow/piflow-bundle/lib/spark-xml_
 
 clean package -Dmaven.test.skip=true -U
 
+3.set SPARK_HOME in Configurations
+  Edit Configurations --> Application(HttpService) --> Configurations --> Environment Variable
+

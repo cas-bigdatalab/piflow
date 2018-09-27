@@ -2,7 +2,7 @@ package cn.piflow.bundle.script
 
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
-import cn.piflow.conf.{CommonGroup, ConfigurableStop, ScriptGroup, StopGroup}
+import cn.piflow.conf._
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
 import org.apache.spark.sql.{Row, SparkSession}
@@ -11,6 +11,7 @@ import scala.beans.BeanProperty
 
 class DataFrameRowParser extends ConfigurableStop{
 
+  val authorEmail: String = "xjzhu@cnic.cn"
   val inportCount: Int = 1
   val outportCount: Int = 1
 
@@ -28,9 +29,10 @@ class DataFrameRowParser extends ConfigurableStop{
     ImageUtil.getImage("./src/main/resources/DataFrameParse.jpg")
   }
 
-  override def getGroup(): StopGroup = {
-    ScriptGroup
+  override def getGroup(): List[String] = {
+    List(StopGroupEnum.ScriptGroup.toString)
   }
+
 
   override def initialize(ctx: ProcessContext): Unit = {}
 

@@ -3,7 +3,7 @@ package cn.piflow.bundle.jdbc
 import java.util.Properties
 
 import cn.piflow._
-import cn.piflow.conf.{ConfigurableStop, JdbcGroup, StopGroup}
+import cn.piflow.conf.{ConfigurableStop, JdbcGroup, StopGroup, StopGroupEnum}
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.MapUtil
 import org.apache.spark.sql.{SaveMode, SparkSession}
@@ -12,6 +12,7 @@ import scala.beans.BeanProperty
 
 class JdbcWrite extends ConfigurableStop{
 
+  val authorEmail: String = "xjzhu@cnic.cn"
   val inportCount: Int = 1
   val outportCount: Int = 0
 
@@ -46,8 +47,9 @@ class JdbcWrite extends ConfigurableStop{
 
   override def getIcon(): Array[Byte] = ???
 
-  override def getGroup(): StopGroup = {
-    JdbcGroup
+  override def getGroup(): List[String] = {
+    List(StopGroupEnum.JdbcGroup.toString)
   }
+
 
 }

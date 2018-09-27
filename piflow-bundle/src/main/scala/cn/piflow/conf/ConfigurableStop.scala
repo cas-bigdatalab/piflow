@@ -4,10 +4,12 @@ import cn.piflow.Stop
 import cn.piflow.conf.bean.PropertyDescriptor
 
 
-trait ConfigurableStop extends Stop{
+abstract class ConfigurableStop extends Stop{
 
+  val authorEmail : String
   val inportCount : Int
   val outportCount : Int
+
 
   def setProperties(map: Map[String, Any])
 
@@ -15,6 +17,6 @@ trait ConfigurableStop extends Stop{
 
   def getIcon() : Array[Byte]
 
-  def getGroup() : StopGroup
+  def getGroup() : List[String]
 
 }

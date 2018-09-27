@@ -3,13 +3,14 @@ package cn.piflow.bundle.file
 import java.net.URI
 
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
-import cn.piflow.conf.{ConfigurableStop, FileGroup, StopGroup}
+import cn.piflow.conf.{ConfigurableStop, FileGroup, StopGroup, StopGroupEnum}
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.MapUtil
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
 
 class FetchFile extends ConfigurableStop{
+  val authorEmail: String = "xiaoxiao@cnic.cn"
   val inportCount: Int = 0
   val outportCount: Int = 1
   var hdfs_path:String =_
@@ -53,8 +54,8 @@ class FetchFile extends ConfigurableStop{
 
   override def getIcon(): Array[Byte] = ???
 
-  override def getGroup(): StopGroup = {
-    FileGroup
+  override def getGroup(): List[String] = {
+    List(StopGroupEnum.FileGroup.toString)
   }
 
 

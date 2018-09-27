@@ -1,7 +1,7 @@
 package cn.piflow.bundle.json
 
 import cn.piflow._
-import cn.piflow.conf.{ConfigurableStop, JsonGroup, StopGroup}
+import cn.piflow.conf.{ConfigurableStop, JsonGroup, StopGroup, StopGroupEnum}
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.MapUtil
 import org.apache.spark.sql.SaveMode
@@ -10,6 +10,7 @@ import scala.beans.BeanProperty
 
 class JsonSave extends ConfigurableStop{
 
+  val authorEmail: String = "xjzhu@cnic.cn"
   val inportCount: Int = 1
   val outportCount: Int = 0
 
@@ -35,8 +36,9 @@ class JsonSave extends ConfigurableStop{
 
   override def getIcon(): Array[Byte] = ???
 
-  override def getGroup(): StopGroup = {
-    JsonGroup
+  override def getGroup(): List[String] = {
+    List(StopGroupEnum.JsonGroup.toString)
   }
+
 
 }

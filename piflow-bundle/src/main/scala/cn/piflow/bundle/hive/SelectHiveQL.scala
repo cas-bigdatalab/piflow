@@ -2,7 +2,7 @@ package cn.piflow.bundle.hive
 
 import cn.piflow._
 import cn.piflow.conf.util.ImageUtil
-import cn.piflow.conf.{ConfigurableStop, HiveGroup, StopGroup}
+import cn.piflow.conf.{ConfigurableStop, HiveGroup, StopGroup, StopGroupEnum}
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import org.apache.spark.sql.SparkSession
@@ -13,6 +13,7 @@ import scala.beans.BeanProperty
 
 class SelectHiveQL extends ConfigurableStop {
 
+  val authorEmail: String = "xjzhu@cnic.cn"
   val inportCount: Int = 0
   val outportCount: Int = 1
 
@@ -38,7 +39,7 @@ class SelectHiveQL extends ConfigurableStop {
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
-    val hiveQL = new PropertyDescriptor().name("hiveQL").displayName("HiveQL").defaultValue("").required(true)
+    val hiveQL = new PropertyDescriptor().name("hiveQL").displayName("HiveQL").defaultValue("").allowableValues(Set("")).required(true)
     descriptor = hiveQL :: descriptor
     descriptor
   }
@@ -47,9 +48,10 @@ class SelectHiveQL extends ConfigurableStop {
     ImageUtil.getImage("./src/main/resources/selectHiveQL.jpg")
   }
 
-  override def getGroup(): StopGroup = {
-    HiveGroup
+  override def getGroup(): List[String] = {
+    List(StopGroupEnum.HiveGroup.toString)
   }
+
 
 }
 
