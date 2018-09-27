@@ -168,6 +168,7 @@ object ClassUtil {
 
     val json =
       ("StopInfo" ->
+        ("bundle" -> bundle) ~
         ("owner" -> stop.authorEmail) ~
           ("inportCount" -> stop.inportCount) ~
           ("outportCount" -> stop.outportCount) ~
