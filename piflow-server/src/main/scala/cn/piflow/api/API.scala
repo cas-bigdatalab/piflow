@@ -3,10 +3,9 @@ package cn.piflow.api
 import cn.piflow.Runner
 import cn.piflow.conf.bean.{FlowBean, PropertyDescriptor}
 import org.apache.spark.sql.SparkSession
-import cn.piflow.conf.util.{ClassUtil, FileUtil, OptionUtil}
+import cn.piflow.conf.util.{ClassUtil, OptionUtil}
 import cn.piflow.Process
-import cn.piflow.api.util.PropertyUtil
-import cn.piflow.conf.util.ClassUtil.findConfigurableStopPropertyDescriptor
+import cn.piflow.api.util.{PropertyUtil}
 import org.apache.http.client.methods.{CloseableHttpResponse, HttpGet, HttpPost}
 import org.apache.http.impl.client.HttpClients
 import org.apache.http.util.EntityUtils

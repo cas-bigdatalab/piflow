@@ -136,18 +136,23 @@ object ClassUtil {
 
   def findConfigurableStop(bundle : String) : ConfigurableStop = {
     try{
+      println("find ConfigurableStop by Class.forName: " + bundle)
       val stop = Class.forName(bundle).newInstance()
       stop.asInstanceOf[ConfigurableStop]
     }catch{
 
       case classNotFoundException:ClassNotFoundException =>{
+        println("find ConfigurableStop in Classpath: " + bundle)
         val stop : Option[ConfigurableStop] = ClassUtil.findConfigurableStopInClasspath(bundle)
         stop match {
           case Some(s) => s.asInstanceOf[ConfigurableStop]
           case _ => throw new ClassNotFoundException(bundle + " is not found!!!")
         }
       }
-      case ex : Exception => throw ex
+      case ex : Exception => {
+        println("Can not find Configurable: " + bundle)
+        throw ex
+      }
     }
   }
 
@@ -159,6 +164,7 @@ object ClassUtil {
   def findConfigurableStopInfo(bundle : String) : String = {
     val stop = ClassUtil.findConfigurableStop(bundle)
     val propertyDescriptorList:List[PropertyDescriptor] = stop.getPropertyDescriptor()
+    propertyDescriptorList.foreach(p=> if (p.allowableValues == null) p.allowableValues = List(""))
 
     val json =
       ("StopInfo" ->
@@ -180,7 +186,7 @@ object ClassUtil {
 
   }
 
-  /*def main(args: Array[String]): Unit = {
+  def main(args: Array[String]): Unit = {
     //val stop = findConfigurableStop("cn.piflow.bundle.Class1")
     //val allConfigurableStopList = findAllConfigurableStop()
     /*val propertyDescriptorList = findConfigurableStopPropertyDescriptor("cn.piflow.bundle.Xjzhu")
@@ -196,10 +202,10 @@ object ClassUtil {
     val temp = 1*/
 
 
-    /*val stop = findConfigurableStop("cn.piflow.bundle.Xjzhu")
-    println(stop.getClass.getName)*/
+    val stop = findConfigurableStop("cn.piflow.bundle.Xjzhu")
+    println(stop.getClass.getName)
 
 
-  }*/
+  }
 
 }
