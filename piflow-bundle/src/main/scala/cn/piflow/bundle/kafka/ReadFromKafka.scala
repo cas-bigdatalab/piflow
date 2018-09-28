@@ -63,8 +63,8 @@ class ReadFromKafka extends ConfigurableStop{
     import spark.implicits._
     val schemaArr = schema.split(",")
     val newDF=spark.sparkContext.parallelize(res).toDF(schemaArr:_*)
-    //newRDD.show(20)
-    //out.write(df)
+    newDF.show(20)
+    out.write(newDF)
   }
   def initialize(ctx: ProcessContext): Unit = {
 
