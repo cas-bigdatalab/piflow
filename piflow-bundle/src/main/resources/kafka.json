@@ -18,7 +18,7 @@
         "bundle":"cn.piflow.bundle.kafka.WriteToKafka",
         "properties":{
           "kafka_host":"10.0.86.93:9092,10.0.86.94:9092,10.0.86.95:9092",
-          "topic":"test_topic"
+          "topic":"test_topic1"
         }
 
       },
@@ -28,7 +28,7 @@
         "bundle":"cn.piflow.bundle.kafka.ReadFromKafka",
         "properties":{
           "kafka_host":"10.0.86.93:9092,10.0.86.94:9092,10.0.86.95:9092",
-          "topic":"test_topic",
+          "topic":"test_topic1",
           "schema":"title,author,pages"
         }
 
