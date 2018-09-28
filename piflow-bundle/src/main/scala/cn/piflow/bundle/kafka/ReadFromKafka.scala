@@ -42,13 +42,10 @@ class ReadFromKafka extends ConfigurableStop{
     //properties.put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer")
 
 
+    //var res:List[Array[String]]=List()
+    var res:List[Row]=List()
 
-    //val fields:Array[String]=schema.split(",")
-    //val newSchema:Array[String]=col_str.split(",")
 
-    var res:List[Array[String]]=List()
-
-    //import org.apache.spark.sql.types._
     val dfSchema=StructType(schema.split(",").map(f=>StructField(f,org.apache.spark.sql.types.StringType,true)))
 
     val consumer = new KafkaConsumer[String,String](properties)
@@ -57,14 +54,13 @@ class ReadFromKafka extends ConfigurableStop{
     val it=records.iterator()
     while(it.hasNext){
         //println(it.next().value())
-        val row=it.next().value().split(",")
+        val row=Row.fromSeq(it.next().value().split(",").toSeq)
         res = row::res
     }
     import spark.implicits._
-    //val schemaArr = schema.split(",")
     val rdd=spark.sparkContext.parallelize(res)
-    val newRdd=rdd.map(line=>Row.fromSeq(line.toSeq))
-    val df=spark.sqlContext.createDataFrame(newRdd,dfSchema)
+    //val newRdd=rdd.map(line=>Row.fromSeq(line.toSeq))
+    val df=spark.sqlContext.createDataFrame(rdd,dfSchema)
     df.show(20)
     out.write(df)
   }

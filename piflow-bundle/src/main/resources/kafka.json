@@ -14,14 +14,22 @@
       },
       {
         "uuid":"1111",
-        "name":"ReadFromRedis",
-        "bundle":"cn.piflow.bundle.redis.ReadFromRedis",
+        "name":"WriteToKafka",
+        "bundle":"cn.piflow.bundle.kafka.WriteToKafka",
         "properties":{
-          "redis_host":"10.0.88.9",
-          "port":"7000",
-          "password":"bigdata",
-          "column_name":"title",
-          "schema":"author,pages"
+          "kafka_host":"10.0.86.93:9092,10.0.86.94:9092,10.0.86.95:9092",
+          "topic":"test_topic"
+        }
+
+      },
+      {
+        "uuid":"2222",
+        "name":"ReadFromKafka",
+        "bundle":"cn.piflow.bundle.kafka.ReadFromKafka",
+        "properties":{
+          "kafka_host":"10.0.86.93:9092,10.0.86.94:9092,10.0.86.95:9092",
+          "topic":"test_topic",
+          "schema":"title,author,pages"
         }
 
       }
@@ -32,8 +40,15 @@
         "from":"SelectHiveQL",
         "outport":"",
         "inport":"",
-        "to":"ReadFromRedis"
+        "to":"WriteToKafka"
+      },
+      {
+        "from":"WriteToKafka",
+        "outport":"",
+        "inport":"",
+        "to":"ReadFromKafka"
       }
+
     ]
   }
 }
