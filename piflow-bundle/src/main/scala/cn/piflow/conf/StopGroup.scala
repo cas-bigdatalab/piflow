@@ -13,6 +13,9 @@ case object FtpGroup extends StopGroup
 case object ScriptGroup extends StopGroup
 case object FileGroup extends StopGroup
 case object CleanGroup extends StopGroup
+case object RedisGroup extends StopGroup
+case object KafkaGroup extends StopGroup
+
 
 object StopGroup{
   def findAllGroup(): List[String] ={

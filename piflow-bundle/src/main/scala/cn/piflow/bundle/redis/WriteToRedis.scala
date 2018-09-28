@@ -3,11 +3,11 @@ package cn.piflow.bundle.redis
 
 import cn.piflow.bundle.util.{JedisClusterImplSer, RedisUtil}
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
-import cn.piflow.conf.{ConfigurableStop, FileGroup, RedisGroup, StopGroup}
+import cn.piflow.conf._
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.MapUtil
 import org.apache.spark.sql.{DataFrame, SparkSession}
-import redis.clients.jedis.{HostAndPort}
+import redis.clients.jedis.HostAndPort
 
 
 class WriteToRedis extends ConfigurableStop{
@@ -62,9 +62,9 @@ class WriteToRedis extends ConfigurableStop{
 
   override def getIcon(): Array[Byte] = ???
 
-  override def getGroup(): StopGroup = {
-    RedisGroup
+  override def getGroup(): List[String] = {
+    List(StopGroupEnum.RedisGroup.toString)
   }
 
-
+  override val authorEmail: String = "xiaoxiao@cnic.cn"
 }

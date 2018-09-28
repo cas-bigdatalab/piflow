@@ -5,7 +5,7 @@ import java.util
 
 import cn.piflow.bundle.util.{JedisClusterImplSer, RedisUtil}
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
-import cn.piflow.conf.{ConfigurableStop, FileGroup, RedisGroup, StopGroup}
+import cn.piflow.conf._
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.MapUtil
 import org.apache.avro.generic.GenericData.StringType
@@ -90,9 +90,9 @@ class ReadFromRedis extends ConfigurableStop{
 
   override def getIcon(): Array[Byte] = ???
 
-  override def getGroup(): StopGroup = {
-    RedisGroup
+  override def getGroup(): List[String] = {
+    List(StopGroupEnum.RedisGroup.toString)
   }
 
-
+  override val authorEmail: String = "xiaoxiao@cnic.cn"
 }

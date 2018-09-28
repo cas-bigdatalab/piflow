@@ -14,5 +14,7 @@ object StopGroupEnum extends Enumeration {
   val ScriptGroup = Value("ScriptGroup")
   val FileGroup = Value("FileGroup")
   val CleanGroup = Value("CleanGroup")
+  val KafkaGroup = Value("kafkaGroup")
+  val RedisGroup = Value("RedisGroup")
 
 }
