@@ -12,6 +12,8 @@ object StartFlowMain {
 
   def main(args: Array[String]): Unit = {
     val flowJson = args(0)
+    println(flowJson)
+    val t = JSON.parseFull(flowJson)
     val map = OptionUtil.getAny(JSON.parseFull(flowJson)).asInstanceOf[Map[String, Any]]
     println(map)
 

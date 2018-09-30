@@ -60,9 +60,9 @@ object API {
     var appId:String = null
     val countDownLatch = new CountDownLatch(1)
     val launcher = new SparkLauncher
-    val handle =launcher.setMaster(PropertyUtil.getPropertyValue("spark.master"))
-      //.setMaster(PropertyUtil.getPropertyValue("spark.master"))
-      //.setDeployMode(PropertyUtil.getPropertyValue("spark.deploy.mode"))
+    val handle =launcher//.setMaster(PropertyUtil.getPropertyValue("spark.master"))
+      .setMaster(PropertyUtil.getPropertyValue("spark.master"))
+      .setDeployMode(PropertyUtil.getPropertyValue("spark.deploy.mode"))
       .setAppResource(PropertyUtil.getPropertyValue("piflow.bundle"))
       .setVerbose(true)
       .setConf("spark.hadoop.yarn.resourcemanager.hostname", PropertyUtil.getPropertyValue("yarn.resourcemanager.hostname"))
@@ -82,9 +82,9 @@ object API {
           appId = handle.getAppId
           val sparkAppState = handle.getState
           if(appId != null){
-            println("Spark jon with app id: " + appId + ",\t State changed to: " + sparkAppState)
+            println("Spark job with app id: " + appId + ",\t State changed to: " + sparkAppState)
           }else{
-            println("Spark jon's state changed to: " + sparkAppState)
+            println("Spark job's state changed to: " + sparkAppState)
           }
           if (handle.getState().isFinal){
             countDownLatch.countDown()
