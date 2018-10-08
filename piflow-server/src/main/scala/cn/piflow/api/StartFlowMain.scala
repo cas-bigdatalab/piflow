@@ -29,7 +29,8 @@ object StartFlowMain {
 
     val process = Runner.create()
       .bind(classOf[SparkSession].getName, spark)
-      .bind("checkpoint.path", PropertyUtil.getPropertyValue("checkpoint.path"))
+      //.bind("checkpoint.path", PropertyUtil.getPropertyValue("checkpoint.path"))
+      .bind("checkpoint.path","hdfs://10.0.86.89:9000/xjzhu/piflow/checkpoints/")
       .start(flow);
     val applicationId = spark.sparkContext.applicationId
     process.awaitTermination();

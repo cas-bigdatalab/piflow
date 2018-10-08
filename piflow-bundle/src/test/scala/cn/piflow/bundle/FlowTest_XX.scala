@@ -8,7 +8,7 @@ import org.junit.Test
 
 import scala.util.parsing.json.JSON
 
-class FlowTest {
+class FlowTest_XX {
 
   @Test
   def testFlow(): Unit ={

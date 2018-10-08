@@ -8,7 +8,61 @@ import org.apache.http.util.EntityUtils
 object HTTPClientStartFlow1 {
 
   def main(args: Array[String]): Unit = {
-    val json = """{"flow":{"name":"Flow1","uuid":"1234","stops":[{"uuid":"1111","name":"XmlParser","bundle":"cn.piflow.bundle.xml.XmlParser","properties":{"xmlpath":"hdfs://10.0.86.89:9000/xjzhu/dblp.mini.xml","rowTag":"phdthesis"}},{"uuid":"2222","name":"SelectField","bundle":"cn.piflow.bundle.common.SelectField","properties":{"schema":"title,author,pages"}},{"uuid":"3333","name":"PutHiveStreaming","bundle":"cn.piflow.bundle.hive.PutHiveStreaming","properties":{"database":"sparktest","table":"dblp_phdthesis"}},{"uuid":"4444","name":"CsvParser","bundle":"cn.piflow.bundle.csv.CsvParser","properties":{"csvPath":"hdfs://10.0.86.89:9000/xjzhu/phdthesis.csv","header":"false","delimiter":",","schema":"title,author,pages"}},{"uuid":"555","name":"Merge","bundle":"cn.piflow.bundle.common.Merge","properties":{}}],"paths":[{"from":"XmlParser","outport":"","inport":"","to":"SelectField"},{"from":"SelectField","outport":"","inport":"data1","to":"Merge"},{"from":"CsvParser","outport":"","inport":"data2","to":"Merge"},{"from":"Merge","outport":"","inport":"","to":"PutHiveStreaming"}]}}"""
+    val json =
+      """
+        |{
+        |  "flow":{
+        |    "name":"test",
+        |    "uuid":"1234",
+        |    "checkpoint":"Merge",
+        |    "stops":[
+        |      {
+        |        "uuid":"1111",
+        |        "name":"XmlParser",
+        |        "bundle":"cn.piflow.bundle.xml.XmlParser",
+        |        "properties":{
+        |            "xmlpath":"hdfs://10.0.86.89:9000/xjzhu/dblp.mini.xml",
+        |            "rowTag":"phdthesis"
+        |        }
+        |
+        |      },
+        |      {
+        |        "uuid":"2222",
+        |        "name":"SelectField",
+        |        "bundle":"cn.piflow.bundle.common.SelectField",
+        |        "properties":{
+        |            "schema":"title,author,pages"
+        |        }
+        |
+        |      },
+        |      {
+        |        "uuid":"888",
+        |        "name":"CsvSave",
+        |        "bundle":"cn.piflow.bundle.csv.CsvSave",
+        |        "properties":{
+        |          "csvSavePath":"hdfs://10.0.86.89:9000/xjzhu/phdthesis_result.csv",
+        |          "header":"true",
+        |          "delimiter":","
+        |        }
+        |      }
+        |    ],
+        |    "paths":[
+        |      {
+        |        "from":"XmlParser",
+        |        "outport":"",
+        |        "inport":"",
+        |        "to":"SelectField"
+        |      },
+        |      {
+        |        "from":"SelectField",
+        |        "outport":"",
+        |        "inport":"",
+        |        "to":"CsvSave"
+        |      }
+        |    ]
+        |  }
+        |}
+      """.stripMargin
     val url = "http://10.0.86.98:8001/flow/start"
     val client = HttpClients.createDefault()
     val post:HttpPost = new HttpPost(url)
