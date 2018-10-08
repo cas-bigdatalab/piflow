@@ -106,7 +106,10 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
        val stopGroups = API.getAllGroups()
        Future.successful(HttpResponse(entity = stopGroups))
      }catch {
-       case _ => Future.successful(HttpResponse(entity = "Can not found stop properties Error!"))
+       case ex => {
+         println(ex)
+         Future.successful(HttpResponse(entity = "Can not found stop properties Error!"))
+       }
      }
 
    }
