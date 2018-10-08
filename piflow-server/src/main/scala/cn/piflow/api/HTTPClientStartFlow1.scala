@@ -12,7 +12,7 @@ object HTTPClientStartFlow1 {
       """
         |{
         |  "flow":{
-        |    "name":"test",
+        |    "name":"xml2csv",
         |    "uuid":"1234",
         |    "checkpoint":"Merge",
         |    "stops":[

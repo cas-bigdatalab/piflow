@@ -5,7 +5,7 @@ import java.util.concurrent.CountDownLatch
 import cn.piflow.Runner
 import cn.piflow.conf.bean.{FlowBean, PropertyDescriptor}
 import org.apache.spark.sql.SparkSession
-import cn.piflow.conf.util.{ClassUtil, OptionUtil}
+import cn.piflow.conf.util.{ClassUtil, MapUtil, OptionUtil}
 import cn.piflow.Process
 import cn.piflow.api.util.PropertyUtil
 import org.apache.http.client.methods.{CloseableHttpResponse, HttpGet, HttpPost}
@@ -57,10 +57,16 @@ object API {
 
   }*/
   def startFlow(flowJson : String):(String,SparkAppHandle) = {
+
     var appId:String = null
+    val map = OptionUtil.getAny(JSON.parseFull(flowJson)).asInstanceOf[Map[String, Any]]
+    val flowMap = MapUtil.get(map, "flow").asInstanceOf[Map[String, Any]]
+    val appName = MapUtil.get(flowMap,"name").asInstanceOf[String]
+
     val countDownLatch = new CountDownLatch(1)
     val launcher = new SparkLauncher
-    val handle =launcher//.setMaster(PropertyUtil.getPropertyValue("spark.master"))
+    val handle =launcher
+      .setAppName(appName)
       .setMaster(PropertyUtil.getPropertyValue("spark.master"))
       .setDeployMode(PropertyUtil.getPropertyValue("spark.deploy.mode"))
       .setAppResource(PropertyUtil.getPropertyValue("piflow.bundle"))

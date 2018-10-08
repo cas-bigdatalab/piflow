@@ -13,7 +13,7 @@ object HTTPClientStartFlow {
     val json ="""
         |{
         |  "flow":{
-        |    "name":"test",
+        |    "name":"xml,csv-merge-fork-hive,json,csv",
         |    "uuid":"1234",
         |    "checkpoint":"Merge",
         |    "stops":[
