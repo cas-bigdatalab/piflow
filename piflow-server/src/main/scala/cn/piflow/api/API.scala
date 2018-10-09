@@ -1,9 +1,10 @@
 package cn.piflow.api
 
+import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
 import java.util.concurrent.CountDownLatch
 
-import cn.piflow.Runner
-import cn.piflow.conf.bean.{FlowBean, PropertyDescriptor}
 import org.apache.spark.sql.SparkSession
 import cn.piflow.conf.util.{ClassUtil, MapUtil, OptionUtil}
 import cn.piflow.Process
@@ -61,7 +62,10 @@ object API {
     var appId:String = null
     val map = OptionUtil.getAny(JSON.parseFull(flowJson)).asInstanceOf[Map[String, Any]]
     val flowMap = MapUtil.get(map, "flow").asInstanceOf[Map[String, Any]]
+    val uuid = MapUtil.get(flowMap,"uuid").asInstanceOf[String]
     val appName = MapUtil.get(flowMap,"name").asInstanceOf[String]
+
+    val (stdout, stderr) = getLogFile(uuid, appName)
 
     val countDownLatch = new CountDownLatch(1)
     val launcher = new SparkLauncher
@@ -80,9 +84,11 @@ object API {
       .setConf("spark.hive.metastore.uris",PropertyUtil.getPropertyValue("hive.metastore.uris"))
       .setConf("spark.driver.memory", "1g")
       .setConf("spark.executor.memory", "1g")
-      .setConf("spark.cores.max", "1")
+      .setConf("spark.cores.max", "2")
       .setMainClass("cn.piflow.api.StartFlowMain")
       .addAppArgs(flowJson)
+      .redirectOutput(stdout)
+      .redirectError(stderr)
       .startApplication( new SparkAppHandle.Listener {
         override def stateChanged(handle: SparkAppHandle): Unit = {
           appId = handle.getAppId
@@ -150,6 +156,20 @@ object API {
   def getAllGroups() = {
     val groups = ClassUtil.findAllGroups().mkString(",")
     """{"groups":"""" + groups + """"}"""
+  }
+
+  private def getLogFile(uuid : String, appName : String) : (File,File) = {
+    val now : Date = new Date()
+    val dataFormat : SimpleDateFormat = new SimpleDateFormat("yyyy-MM-dd_HH:mm:ss")
+    val nowDate = dataFormat.format(now)
+
+    val stdoutPathString = PropertyUtil.getPropertyValue("log.path") + "/" + appName + "_" + uuid + "_stdout_" + nowDate
+    val stdout = new File(stdoutPathString)
+
+    val stderrPathString = PropertyUtil.getPropertyValue("log.path") + "/" + appName + "_" + uuid + "_stderr_" + nowDate
+    val stderr = new File(stderrPathString)
+
+    (stdout, stderr)
   }
 
 }
