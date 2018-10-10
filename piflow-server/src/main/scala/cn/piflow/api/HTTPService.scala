@@ -16,6 +16,7 @@ import com.typesafe.config.ConfigFactory
 import scala.concurrent.Future
 import scala.util.parsing.json.JSON
 import cn.piflow.Process
+import org.apache.spark.launcher.SparkAppHandle
 import spray.json.DefaultJsonProtocol
 
 
@@ -23,7 +24,7 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
   implicit val system = ActorSystem("HTTPService", ConfigFactory.load())
   implicit val materializer = ActorMaterializer()
   implicit val executionContext = system.dispatcher
-  var processMap = Map[String, Process]()
+  var processMap = Map[String, SparkAppHandle]()
 
   def toJson(entity: RequestEntity): Map[String, Any] = {
     entity match {
@@ -77,7 +78,7 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
 
         processMap.get(appId) match {
           case Some(process) =>
-            val result = API.stopFlow(process.asInstanceOf[Process])
+            val result = API.stopFlow(process)
             Future.successful(HttpResponse(entity = result))
           case _ =>
             Future.successful(HttpResponse(entity = "Can not found process Error!"))
@@ -105,7 +106,10 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
        val stopGroups = API.getAllGroups()
        Future.successful(HttpResponse(entity = stopGroups))
      }catch {
-       case _ => Future.successful(HttpResponse(entity = "Can not found stop properties Error!"))
+       case ex => {
+         println(ex)
+         Future.successful(HttpResponse(entity = "Can not found stop properties Error!"))
+       }
      }
 
    }
