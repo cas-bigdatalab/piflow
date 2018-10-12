@@ -9,6 +9,7 @@ abstract class ConfigurableStop extends Stop{
   val authorEmail : String
   val inportCount : Int
   val outportCount : Int
+  val description : String
 
 
   def setProperties(map: Map[String, Any])
