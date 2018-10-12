@@ -3,7 +3,7 @@ package cn.piflow.bundle.xml
 import java.net.URI
 
 import cn.piflow.conf.bean.PropertyDescriptor
-import cn.piflow.conf.util.MapUtil
+import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import cn.piflow.conf.{ConfigurableStop, StopGroup, StopGroupEnum, XmlGroup}
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.apache.hadoop.conf.Configuration
@@ -39,11 +39,15 @@ class FolderXmlParser extends ConfigurableStop{
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
     val folederXmlStop = new PropertyDescriptor().name("folederXmlStop").displayName("FolederXmlStop").defaultValue("").required(true)
+    val rowTag = new PropertyDescriptor().name("rowTag").displayName("rowTag").description("the tag you want to parse in xml file").defaultValue("").required(true)
     descriptor = folederXmlStop :: descriptor
+    descriptor = rowTag :: descriptor
     descriptor
   }
 
-  override def getIcon(): Array[Byte] = ???
+  override def getIcon(): Array[Byte] = {
+    ImageUtil.getImage("./src/main/resources/ShellExecutor.jpg")
+  }
 
   override def getGroup(): List[String] = {
     List(StopGroupEnum.XmlGroup.toString)

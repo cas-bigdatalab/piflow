@@ -3,7 +3,7 @@ package cn.piflow.bundle.xml
 import cn.piflow._
 import cn.piflow.conf.{ConfigurableStop, StopGroup, StopGroupEnum, XmlGroup}
 import cn.piflow.conf.bean.PropertyDescriptor
-import cn.piflow.conf.util.MapUtil
+import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import org.codehaus.jackson.map.ext.CoreXMLSerializers.XMLGregorianCalendarSerializer
 
 import scala.beans.BeanProperty
@@ -31,9 +31,16 @@ class XmlSave extends ConfigurableStop{
     xmlSavePath = MapUtil.get(map,"xmlSavePath").asInstanceOf[String]
   }
 
-  override def getPropertyDescriptor(): List[PropertyDescriptor] = ???
+  override def getPropertyDescriptor(): List[PropertyDescriptor] = {
+    var descriptor : List[PropertyDescriptor] = List()
+    val xmlSavePath = new PropertyDescriptor().name("xmlSavePath").displayName("xmlSavePath").description("the sva path of xml file").defaultValue("").required(true)
+    descriptor = xmlSavePath :: descriptor
+    descriptor
+  }
 
-  override def getIcon(): Array[Byte] = ???
+  override def getIcon(): Array[Byte] = {
+    ImageUtil.getImage("./src/main/resources/ShellExecutor.jpg")
+  }
 
   override def getGroup(): List[String] = {
     List(StopGroupEnum.XmlGroup.toString)

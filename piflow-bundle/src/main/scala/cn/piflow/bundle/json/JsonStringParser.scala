@@ -3,7 +3,7 @@ package cn.piflow.bundle.json
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import cn.piflow.conf.{ConfigurableStop, StopGroupEnum}
 import cn.piflow.conf.bean.PropertyDescriptor
-import cn.piflow.conf.util.MapUtil
+import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import org.apache.spark.sql.SparkSession
 
 class JsonStringParser extends ConfigurableStop{
@@ -31,9 +31,16 @@ class JsonStringParser extends ConfigurableStop{
     jsonString = MapUtil.get(map,"jsonString").asInstanceOf[String]
   }
 
-  override def getPropertyDescriptor(): List[PropertyDescriptor] = ???
+  override def getPropertyDescriptor(): List[PropertyDescriptor] = {
+    var descriptor : List[PropertyDescriptor] = List()
+    val jsonString = new PropertyDescriptor().name("jsonString").displayName("jsonString").description("The json string").defaultValue("").required(true)
+    descriptor = jsonString :: descriptor
+    descriptor
+  }
 
-  override def getIcon(): Array[Byte] = ???
+  override def getIcon(): Array[Byte] = {
+    ImageUtil.getImage("./src/main/resources/selectHiveQL.jpg")
+  }
 
   override def getGroup(): List[String] = {
     List(StopGroupEnum.JsonGroup.toString)

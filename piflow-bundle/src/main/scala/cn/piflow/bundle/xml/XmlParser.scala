@@ -3,7 +3,7 @@ package cn.piflow.bundle.xml
 import cn.piflow._
 import cn.piflow.conf.{ConfigurableStop, StopGroup, StopGroupEnum, XmlGroup}
 import cn.piflow.conf.bean.PropertyDescriptor
-import cn.piflow.conf.util.MapUtil
+import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.types.StructType
 
@@ -46,9 +46,18 @@ class XmlParser extends ConfigurableStop {
     schema = null
   }
 
-  override def getPropertyDescriptor(): List[PropertyDescriptor] = ???
+  override def getPropertyDescriptor(): List[PropertyDescriptor] = {
+    var descriptor : List[PropertyDescriptor] = List()
+    val xmlpath = new PropertyDescriptor().name("xmlpath").displayName("xmlpath").description("the path of xml file").defaultValue("").required(true)
+    val rowTag = new PropertyDescriptor().name("rowTag").displayName("rowTag").description("the tag you want to parse in xml file").defaultValue("").required(true)
+    descriptor = xmlpath :: descriptor
+    descriptor = rowTag :: descriptor
+    descriptor
+  }
 
-  override def getIcon(): Array[Byte] = ???
+  override def getIcon(): Array[Byte] = {
+    ImageUtil.getImage("./src/main/resources/ShellExecutor.jpg")
+  }
 
   override def getGroup(): List[String] = {
     List(StopGroupEnum.XmlGroup.toString)

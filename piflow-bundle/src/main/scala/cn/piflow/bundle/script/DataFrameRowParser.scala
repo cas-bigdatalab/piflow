@@ -23,7 +23,14 @@ class DataFrameRowParser extends ConfigurableStop{
     separator = MapUtil.get(map,"separator").asInstanceOf[String]
   }
 
-  override def getPropertyDescriptor(): List[PropertyDescriptor] = ???
+  override def getPropertyDescriptor(): List[PropertyDescriptor] = {
+    var descriptor : List[PropertyDescriptor] = List()
+    val schema = new PropertyDescriptor().name("schema").displayName("schema").description("The schema of dataframe").defaultValue("").required(true)
+    val separator = new PropertyDescriptor().name("separator").displayName("separator").description("The separator of schema").defaultValue("").required(true)
+    descriptor = schema :: descriptor
+    descriptor = separator :: descriptor
+    descriptor
+  }
 
   override def getIcon(): Array[Byte] = {
     ImageUtil.getImage("./src/main/resources/DataFrameParse.jpg")

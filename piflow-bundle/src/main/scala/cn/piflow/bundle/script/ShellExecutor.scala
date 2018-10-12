@@ -27,7 +27,14 @@ class ShellExecutor extends ConfigurableStop{
     args = MapUtil.get(map,"args").asInstanceOf[String]
   }
 
-  override def getPropertyDescriptor(): List[PropertyDescriptor] = ???
+  override def getPropertyDescriptor(): List[PropertyDescriptor] = {
+    var descriptor : List[PropertyDescriptor] = List()
+    val shellPath = new PropertyDescriptor().name("shellPath").displayName("shellPath").description("The path of shell script").defaultValue("").required(true)
+    val args = new PropertyDescriptor().name("args").displayName("args").description("The arguments of the shell script").defaultValue("").required(true)
+    descriptor = shellPath :: descriptor
+    descriptor = args :: descriptor
+    descriptor
+  }
 
   override def getIcon(): Array[Byte] = {
     ImageUtil.getImage("./src/main/resources/ShellExecutor.jpg")
