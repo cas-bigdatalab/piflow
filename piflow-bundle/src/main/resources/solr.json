@@ -1,0 +1,41 @@
+{
+  "flow":{
+    "name":"test",
+    "uuid":"1234",
+    "checkpoint":"Merge",
+    "stops":[
+      {
+        "uuid":"0000",
+        "name":"SelectHiveQL",
+        "bundle":"cn.piflow.bundle.hive.SelectHiveQL",
+        "properties":{
+          "hiveQL":"select * from sparktest.cleanfield"
+        }
+
+      },
+
+      {
+        "uuid":"1111",
+        "name":"PutIntoSolr",
+        "bundle":"cn.piflow.bundle.solr.PutIntoSolr",
+        "properties":{
+          "solrURL":"http://10.0.88.9:8886/solr",
+          "SolrCollection":"core01"
+
+        }
+      }
+
+
+    ],
+    "paths":[
+      {
+        "from":"SelectHiveQL",
+        "outport":"",
+        "inport":"",
+        "to":"PutIntoSolr"
+      }
+
+
+    ]
+  }
+}

@@ -11,6 +11,16 @@
 
     <artifactId>piflow-bundle</artifactId>
     <dependencies>
+
+        <!-- https://mvnrepository.com/artifact/org.apache.solr/solr-solrj -->
+        <dependency>
+            <groupId>org.apache.solr</groupId>
+            <artifactId>solr-solrj</artifactId>
+            <version>7.2.0</version>
+        </dependency>
+
+
+
         <dependency>
             <groupId>piflow</groupId>
             <artifactId>piflow-core</artifactId>
@@ -66,6 +76,7 @@
             <artifactId>spark-xml_2.11</artifactId>
             <version>0.4.2</version>
         </dependency>
+
 
         <dependency>
             <groupId>redis.clients</groupId>
