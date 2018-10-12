@@ -2,6 +2,7 @@ package cn.piflow.bundle.common
 
 import cn.piflow.conf.{CommonGroup, ConfigurableStop, StopGroup, StopGroupEnum}
 import cn.piflow.conf.bean.PropertyDescriptor
+import cn.piflow.conf.util.ImageUtil
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 
 import scala.beans.BeanProperty
@@ -26,9 +27,16 @@ class Merge extends ConfigurableStop{
 
   }
 
-  override def getPropertyDescriptor(): List[PropertyDescriptor] = ???
+  override def getPropertyDescriptor(): List[PropertyDescriptor] = {
+    var descriptor : List[PropertyDescriptor] = List()
+    val inports = new PropertyDescriptor().name("inports").displayName("inports").description("inports list").defaultValue("").required(true)
+    descriptor = inports :: descriptor
+    descriptor
+  }
 
-  override def getIcon(): Array[Byte] = ???
+  override def getIcon(): Array[Byte] = {
+    ImageUtil.getImage("./src/main/resources/selectHiveQL.jpg")
+  }
 
   override def getGroup(): List[String] = {
     List(StopGroupEnum.CommonGroup.toString)

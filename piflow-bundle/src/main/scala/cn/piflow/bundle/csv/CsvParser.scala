@@ -3,7 +3,7 @@ package cn.piflow.bundle.csv
 import cn.piflow._
 import cn.piflow.conf._
 import cn.piflow.conf.bean.PropertyDescriptor
-import cn.piflow.conf.util.MapUtil
+import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
@@ -65,9 +65,23 @@ class CsvParser extends ConfigurableStop{
     schema = MapUtil.get(map,"schema").asInstanceOf[String]
   }
 
-  override def getPropertyDescriptor(): List[PropertyDescriptor] = ???
+  override def getPropertyDescriptor(): List[PropertyDescriptor] = {
+    var descriptor : List[PropertyDescriptor] = List()
+    val csvPath = new PropertyDescriptor().name("csvPath").displayName("csvPath").description("The path of csv file").defaultValue("").required(true)
+    descriptor = csvPath :: descriptor
+    val header = new PropertyDescriptor().name("header").displayName("header").description("Whether the csv file have header or not").defaultValue("").required(true)
+    descriptor = header :: descriptor
+    val delimiter = new PropertyDescriptor().name("delimiter").displayName("delimiter").description("The delimiter of csv file").defaultValue("").required(true)
+    descriptor = delimiter :: descriptor
+    val schema = new PropertyDescriptor().name("schema").displayName("schema").description("The schema of csv file").defaultValue("").required(false)
+    descriptor = schema :: descriptor
 
-  override def getIcon(): Array[Byte] = ???
+    descriptor
+  }
+
+  override def getIcon(): Array[Byte] = {
+    ImageUtil.getImage("./src/main/resources/selectHiveQL.jpg")
+  }
 
   override def getGroup(): List[String] = {
     List(StopGroupEnum.CsvGroup.toString)

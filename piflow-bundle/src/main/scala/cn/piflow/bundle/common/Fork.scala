@@ -2,7 +2,7 @@ package cn.piflow.bundle.common
 
 import cn.piflow.conf.{CommonGroup, ConfigurableStop, StopGroup, StopGroupEnum}
 import cn.piflow.conf.bean.PropertyDescriptor
-import cn.piflow.conf.util.MapUtil
+import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 
 import scala.beans.BeanProperty
@@ -27,9 +27,16 @@ class Fork extends ConfigurableStop{
     outports.foreach(out.write(_, in.read()));
   }
 
-  override def getPropertyDescriptor(): List[PropertyDescriptor] = ???
+  override def getPropertyDescriptor(): List[PropertyDescriptor] = {
+    var descriptor : List[PropertyDescriptor] = List()
+    val outports = new PropertyDescriptor().name("outports").displayName("outports").description("outports list").defaultValue("").required(true)
+    descriptor = outports :: descriptor
+    descriptor
+  }
 
-  override def getIcon(): Array[Byte] = ???
+  override def getIcon(): Array[Byte] = {
+    ImageUtil.getImage("./src/main/resources/selectHiveQL.jpg")
+  }
 
   override def getGroup(): List[String] = {
     List(StopGroupEnum.CommonGroup.toString)

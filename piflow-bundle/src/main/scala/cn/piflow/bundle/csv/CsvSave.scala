@@ -25,15 +25,15 @@ class CsvSave extends ConfigurableStop{
     var descriptor : List[PropertyDescriptor] = List()
 
     //csvSavePath
-    val csvSavePath = new PropertyDescriptor().name("csvSavePath").displayName("csvSavePath").defaultValue("").required(true)
+    val csvSavePath = new PropertyDescriptor().name("csvSavePath").displayName("csvSavePath").description("The save path of csv file").defaultValue("").required(true)
     descriptor = csvSavePath :: descriptor
 
     //header
-    val header = new PropertyDescriptor().name("header").displayName("header").defaultValue("header").required(true)
+    val header = new PropertyDescriptor().name("header").displayName("header").description("Whether the csv file have header or not").defaultValue("").required(true)
     descriptor = header :: descriptor
 
     //delimiter
-    val delimiter = new PropertyDescriptor().name("delimiter").displayName("delimiter").defaultValue(",").required(true)
+    val delimiter = new PropertyDescriptor().name("delimiter").displayName("delimiter").description("The delimiter of csv file").defaultValue(",").required(true)
     descriptor = delimiter :: descriptor
 
     descriptor

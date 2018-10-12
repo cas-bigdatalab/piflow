@@ -164,7 +164,7 @@ object ClassUtil {
   def findConfigurableStopInfo(bundle : String) : String = {
     val stop = ClassUtil.findConfigurableStop(bundle)
     val propertyDescriptorList:List[PropertyDescriptor] = stop.getPropertyDescriptor()
-    propertyDescriptorList.foreach(p=> if (p.allowableValues == null) p.allowableValues = List(""))
+    propertyDescriptorList.foreach(p=> if (p.allowableValues == null || p.allowableValues == None) p.allowableValues = List(""))
 
     val json =
       ("StopInfo" ->

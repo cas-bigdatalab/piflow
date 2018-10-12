@@ -112,47 +112,56 @@ class RunnerLogger extends RunnerListener with Logging {
     val pid = ctx.getProcess().pid();
     val flowName = ctx.getFlow().toString;
     logger.debug(s"process started: $pid, flow: $flowName");
+    println(s"process started: $pid, flow: $flowName")
   };
 
   override def onJobStarted(ctx: JobContext): Unit = {
     val jid = ctx.getStopJob().jid();
     val stopName = ctx.getStopJob().getStopName();
     logger.debug(s"job started: $jid, stop: $stopName");
+    println(s"job started: $jid, stop: $stopName")
   };
 
   override def onJobFailed(ctx: JobContext): Unit = {
     val stopName = ctx.getStopJob().getStopName();
     logger.debug(s"job failed: $stopName");
+    println(s"job failed: $stopName")
   };
 
   override def onJobInitialized(ctx: JobContext): Unit = {
     val stopName = ctx.getStopJob().getStopName();
     logger.debug(s"job initialized: $stopName");
+    println(s"job initialized: $stopName")
   };
 
   override def onProcessCompleted(ctx: ProcessContext): Unit = {
     val pid = ctx.getProcess().pid();
     logger.debug(s"process completed: $pid");
+    println(s"process completed: $pid")
   };
 
   override def onJobCompleted(ctx: JobContext): Unit = {
     val stopName = ctx.getStopJob().getStopName();
     logger.debug(s"job completed: $stopName");
+    println(s"job completed: $stopName")
   };
 
   override def onProcessFailed(ctx: ProcessContext): Unit = {
     val pid = ctx.getProcess().pid();
     logger.debug(s"process failed: $pid");
+    println(s"process failed: $pid")
   }
 
   override def onProcessAborted(ctx: ProcessContext): Unit = {
     val pid = ctx.getProcess().pid();
     logger.debug(s"process aborted: $pid");
+    println(s"process aborted: $pid")
   }
 
   override def onProcessForked(ctx: ProcessContext, child: ProcessContext): Unit = {
     val pid = ctx.getProcess().pid();
     val cid = child.getProcess().pid();
     logger.debug(s"process forked: $pid, child flow execution: $cid");
+    println(s"process forked: $pid, child flow execution: $cid")
   }
 }
