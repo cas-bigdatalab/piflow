@@ -10,7 +10,7 @@ import org.apache.spark.sql.SparkSession
 import redis.clients.jedis.HostAndPort
 
 class NaiveBayesPrediction extends ConfigurableStop{
-  val description: String = "Read data from jdbc database."
+  val description: String = "Mllib naive bayes prediction."
   val inportCount: Int = 1
   val outportCount: Int = 0
   var test_data_path:String =_

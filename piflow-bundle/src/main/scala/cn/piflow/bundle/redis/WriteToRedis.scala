@@ -11,6 +11,7 @@ import redis.clients.jedis.HostAndPort
 
 
 class WriteToRedis extends ConfigurableStop{
+  val description: String = "Write data to redis."
   val inportCount: Int = 1
   val outportCount: Int = 0
   var redis_host:String =_

@@ -12,6 +12,7 @@ import org.apache.spark.sql.{DataFrame, SparkSession}
 
 class UnGZip extends ConfigurableStop {
   val authorEmail: String = "xiaoxiao@cnic.cn"
+  val description: String = "Unzip tar.gz, tar, gz file."
   val inportCount: Int = 0
   val outportCount: Int = 1
   val fileTypes:List[String]=List("tar.gz","tar","gz")

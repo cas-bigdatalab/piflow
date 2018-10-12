@@ -10,6 +10,7 @@ import org.apache.spark.sql.SparkSession
 
 class RegexTextProcess extends ConfigurableStop{
     val authorEmail: String = "xiaoxiao@cnic.cn"
+    val description: String = "Regex text."
     val inportCount: Int = 0
     val outportCount: Int = 1
     var regex:String =_

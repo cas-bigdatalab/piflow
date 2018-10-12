@@ -11,6 +11,7 @@ import org.apache.spark.sql.SparkSession
 
 class LoadZipFromUrl extends ConfigurableStop{
   val authorEmail: String = "xiaoxiao@cnic.cn"
+  val description: String = "DownLoad zip file by http."
   val inportCount: Int = 0
   val outportCount: Int = 1
   var url_str:String =_

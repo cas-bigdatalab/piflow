@@ -10,6 +10,7 @@ import cn.piflow.conf.util.MapUtil
 import org.apache.spark.sql.SparkSession
 
 class NaiveBayesTraining extends ConfigurableStop{
+  val description: String = "Mllib naive bayes training."
   val inportCount: Int = 1
   val outportCount: Int = 0
   var training_data_path:String =_

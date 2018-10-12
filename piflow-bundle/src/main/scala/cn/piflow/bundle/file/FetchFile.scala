@@ -11,6 +11,7 @@ import org.apache.hadoop.fs.{FileSystem, Path}
 
 class FetchFile extends ConfigurableStop{
   val authorEmail: String = "xiaoxiao@cnic.cn"
+  val description: String = "Fetch file from hdfs to local."
   val inportCount: Int = 0
   val outportCount: Int = 1
   var hdfs_path:String =_

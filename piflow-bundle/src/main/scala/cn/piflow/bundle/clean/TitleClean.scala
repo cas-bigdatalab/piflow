@@ -9,6 +9,7 @@ import org.apache.spark.sql.SparkSession
 
 class TitleClean extends ConfigurableStop{
   val authorEmail: String = "xiaoxiao@cnic.cn"
+  val description: String = "Clean title format data."
   val inportCount: Int = 0
   val outportCount: Int = 1
   var columnName:String=_

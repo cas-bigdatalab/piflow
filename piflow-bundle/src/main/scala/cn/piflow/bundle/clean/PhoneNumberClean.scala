@@ -9,6 +9,7 @@ import org.apache.spark.sql.SparkSession
 
 class PhoneNumberClean extends ConfigurableStop{
   val authorEmail: String = "xiaoxiao@cnic.cn"
+  val description: String = "Clean phone number format data."
   val inportCount: Int = 0
   val outportCount: Int = 1
   var columnName:String=_

@@ -14,6 +14,7 @@ import scala.reflect.io.Directory
 
 class LoadFromFtp extends ConfigurableStop{
   val authorEmail: String = "xiaoxiao@cnic.cn"
+  val description: String = "Load file from ftp server."
   val inportCount: Int = 0
   val outportCount: Int = 1
   var url_str:String =_

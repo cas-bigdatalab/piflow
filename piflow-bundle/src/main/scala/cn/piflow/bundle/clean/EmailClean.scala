@@ -11,6 +11,7 @@ import org.apache.spark.sql.SparkSession
 
 class EmailClean extends ConfigurableStop{
   val authorEmail: String = "xiaoxiao@cnic.cn"
+  val description: String = "Clean email format data."
   val inportCount: Int = 0
   val outportCount: Int = 1
   var columnName:String=_
