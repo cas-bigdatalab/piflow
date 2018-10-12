@@ -5,7 +5,7 @@ import java.util.Properties
 import cn.piflow._
 import cn.piflow.conf.{ConfigurableStop, JdbcGroup, StopGroup, StopGroupEnum}
 import cn.piflow.conf.bean.PropertyDescriptor
-import cn.piflow.conf.util.MapUtil
+import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import org.apache.spark.sql.{SaveMode, SparkSession}
 
 import scala.beans.BeanProperty
@@ -43,9 +43,31 @@ class JdbcWrite extends ConfigurableStop{
     dbtable = MapUtil.get(map,"dbtable").asInstanceOf[String]
   }
 
-  override def getPropertyDescriptor(): List[PropertyDescriptor] = ???
+  override def getPropertyDescriptor(): List[PropertyDescriptor] = {
+    var descriptor : List[PropertyDescriptor] = List()
 
-  override def getIcon(): Array[Byte] = ???
+    val url=new PropertyDescriptor().name("url").displayName("url").description("The Url, for example jdbc:mysql://127.0.0.1/dbname").defaultValue("").required(true)
+    descriptor = url :: descriptor
+
+    val user=new PropertyDescriptor().name("user").displayName("user").description("The user name of database").defaultValue("").required(true)
+    descriptor = user :: descriptor
+
+    val password=new PropertyDescriptor().name("password").displayName("password").description("The password of database").defaultValue("").required(true)
+    descriptor = password :: descriptor
+
+    val dbtable=new PropertyDescriptor().name("dbtable").displayName("dbtable").description("The table you want to write").defaultValue("").required(true)
+    descriptor = dbtable :: descriptor
+
+    descriptor = url :: descriptor
+    descriptor = user :: descriptor
+    descriptor = password :: descriptor
+    descriptor = dbtable :: descriptor
+    descriptor
+  }
+
+  override def getIcon(): Array[Byte] = {
+    ImageUtil.getImage("./src/main/resources/selectHiveQL.jpg")
+  }
 
   override def getGroup(): List[String] = {
     List(StopGroupEnum.JdbcGroup.toString)

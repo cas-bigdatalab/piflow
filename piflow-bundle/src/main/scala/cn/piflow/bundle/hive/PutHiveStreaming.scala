@@ -3,7 +3,7 @@ package cn.piflow.bundle.hive
 import cn.piflow._
 import cn.piflow.conf.{ConfigurableStop, HiveGroup, StopGroup, StopGroupEnum}
 import cn.piflow.conf.bean.PropertyDescriptor
-import cn.piflow.conf.util.MapUtil
+import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import org.apache.spark.sql.SparkSession
 
 import scala.beans.BeanProperty
@@ -37,9 +37,18 @@ class PutHiveStreaming extends ConfigurableStop {
     table = MapUtil.get(map,"table").asInstanceOf[String]
   }
 
-  override def getPropertyDescriptor(): List[PropertyDescriptor] = ???
+  override def getPropertyDescriptor(): List[PropertyDescriptor] = {
+    var descriptor : List[PropertyDescriptor] = List()
+    val database=new PropertyDescriptor().name("database").displayName("DataBase").description("The database name").defaultValue("").required(true)
+    val table = new PropertyDescriptor().name("table").displayName("Table").description("The table name").defaultValue("").required(true)
+    descriptor = database :: descriptor
+    descriptor = table :: descriptor
+    descriptor
+  }
 
-  override def getIcon(): Array[Byte] = ???
+  override def getIcon(): Array[Byte] = {
+    ImageUtil.getImage("./src/main/resources/selectHiveQL.jpg")
+  }
 
   override def getGroup(): List[String] = {
     List(StopGroupEnum.HiveGroup.toString)

@@ -1,7 +1,7 @@
 package cn.piflow.bundle.hive
 
 import cn.piflow.conf.bean.PropertyDescriptor
-import cn.piflow.conf.util.MapUtil
+import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import cn.piflow.conf.{ConfigurableStop, HiveGroup, StopGroup, StopGroupEnum}
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.apache.spark.sql.SparkSession
@@ -48,14 +48,17 @@ class PutHiveQL extends ConfigurableStop {
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
-    val hiveQL_path = new PropertyDescriptor().name("hiveQL_Path").displayName("HiveQL_Path").defaultValue("").required(true)
-    val database=new PropertyDescriptor().name("database").displayName("DataBase").defaultValue("").required(true)
+    val hiveQL_path = new PropertyDescriptor().name("hiveQL_Path").displayName("HiveQL_Path").description("The path of the hiveQL file").defaultValue("").required(true)
+    val database=new PropertyDescriptor().name("database").displayName("DataBase").description("The database name which the hiveQL" +
+      "will execute on").defaultValue("").required(true)
     descriptor = hiveQL_path :: descriptor
     descriptor = database :: descriptor
     descriptor
   }
 
-  override def getIcon(): Array[Byte] = ???
+  override def getIcon(): Array[Byte] = {
+    ImageUtil.getImage("./src/main/resources/selectHiveQL.jpg")
+  }
 
   override def getGroup(): List[String] = {
     List(StopGroupEnum.HiveGroup.toString)
