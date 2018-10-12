@@ -10,6 +10,7 @@ import scala.beans.BeanProperty
 class Merge extends ConfigurableStop{
 
   val authorEmail: String = "xjzhu@cnic.cn"
+  val description: String = "Merge data into one stop."
   val inportCount: Int = -1
   val outportCount: Int = 1
 

@@ -11,6 +11,7 @@ import org.apache.spark.sql.{DataFrame, SparkSession}
 class CsvParser extends ConfigurableStop{
 
   val authorEmail: String = "xjzhu@cnic.cn"
+  val description: String = "Parse csv file."
   val inportCount: Int = 0
   val outportCount: Int = 1
 

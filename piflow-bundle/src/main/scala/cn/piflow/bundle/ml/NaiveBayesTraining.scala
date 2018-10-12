@@ -5,7 +5,7 @@ import cn.piflow.bundle.util.{JedisClusterImplSer, RedisUtil}
 import cn.piflow.conf.{ConfigurableStop, StopGroupEnum}
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.MapUtil
-import org.apache.spark.ml.classification._
+//import org.apache.spark.ml.classification._
 
 import org.apache.spark.sql.SparkSession
 
@@ -18,7 +18,7 @@ class NaiveBayesTraining extends ConfigurableStop{
 
 
   def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
-    val spark = pec.get[SparkSession]()
+    /*val spark = pec.get[SparkSession]()
 
     //load data stored in libsvm format as a dataframe
     val data=spark.read.format("libsvm").load(training_data_path)
@@ -38,7 +38,7 @@ class NaiveBayesTraining extends ConfigurableStop{
     import spark.implicits._
     val dfOut=Seq(model_save_path).toDF
     dfOut.show()
-    out.write(dfOut)
+    out.write(dfOut)*/
 
   }
 
@@ -67,7 +67,7 @@ class NaiveBayesTraining extends ConfigurableStop{
   override def getIcon(): Array[Byte] = ???
 
   override def getGroup(): List[String] = {
-    List(StopGroupEnum.MLGroup.toString)
+    List(/*StopGroupEnum.MLGroup.toString*/"")
   }
 
   override val authorEmail: String = "xiaoxiao@cnic.cn"

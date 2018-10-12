@@ -14,6 +14,7 @@ import scala.beans.BeanProperty
 class SelectHiveQL extends ConfigurableStop {
 
   val authorEmail: String = "xjzhu@cnic.cn"
+  val description: String = "Execute select hiveQL."
   val inportCount: Int = 0
   val outportCount: Int = 1
 

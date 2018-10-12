@@ -10,6 +10,7 @@ import scala.beans.BeanProperty
 class Fork extends ConfigurableStop{
 
   val authorEmail: String = "xjzhu@cnic.cn"
+  val description: String = "Fork data into diffenrent stop."
   val inportCount: Int = 1
   val outportCount: Int = -1
 
@@ -41,5 +42,4 @@ class Fork extends ConfigurableStop{
   override def getGroup(): List[String] = {
     List(StopGroupEnum.CommonGroup.toString)
   }
-
 }

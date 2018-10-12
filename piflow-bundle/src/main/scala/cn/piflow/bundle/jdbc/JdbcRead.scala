@@ -10,6 +10,7 @@ import scala.beans.BeanProperty
 
 class JdbcRead extends ConfigurableStop  {
   val authorEmail: String = "xjzhu@cnic.cn"
+  val description: String = "Read data from jdbc database."
   val inportCount: Int = 0
   val outportCount: Int = 1
 

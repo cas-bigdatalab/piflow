@@ -12,6 +12,7 @@ import scala.beans.BeanProperty
 class DataFrameRowParser extends ConfigurableStop{
 
   val authorEmail: String = "xjzhu@cnic.cn"
+  val description: String = "Create dataframe by schema."
   val inportCount: Int = 1
   val outportCount: Int = 1
 

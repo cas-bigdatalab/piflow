@@ -11,6 +11,7 @@ import scala.beans.BeanProperty
 class JsonParser extends ConfigurableStop{
 
   val authorEmail: String = "xjzhu@cnic.cn"
+  val description: String = "Parse json file."
   val inportCount: Int = 1
   val outportCount: Int = 1
 

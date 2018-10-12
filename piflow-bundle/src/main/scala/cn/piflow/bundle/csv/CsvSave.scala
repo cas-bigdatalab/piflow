@@ -8,6 +8,7 @@ import org.apache.spark.sql.SaveMode
 
 class CsvSave extends ConfigurableStop{
   val authorEmail: String = "xjzhu@cnic.cn"
+  val description: String = "Save data into csv file."
   val inportCount: Int = 1
   val outportCount: Int = 0
 
