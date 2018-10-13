@@ -18,7 +18,6 @@ class CscFolderTest {
     val flowJsonStr = FileUtil.fileReader(file)
     val map = OptionUtil.getAny(JSON.parseFull(flowJsonStr)).asInstanceOf[Map[String, Any]]
     println(map)
-
     //create flow
     val flowBean = FlowBean(map)
     val flow = flowBean.constructFlow()

@@ -67,6 +67,7 @@ class CsvStringParser extends ConfigurableStop{
     val schema = new PropertyDescriptor().name("schema").displayName("schema").description("The schema of the String,The delimiter is ,").defaultValue("").required(false)
     descriptor = schema :: descriptor
     descriptor
+
   }
 
   override def getIcon(): Array[Byte] = {

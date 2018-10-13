@@ -44,7 +44,6 @@ class CsvStringTest {
     println(pid + "!!!!!!!!!!!!!!!!!!!!!")
     spark.close();
   }
-
   @Test
   def testFlow2json() = {
 

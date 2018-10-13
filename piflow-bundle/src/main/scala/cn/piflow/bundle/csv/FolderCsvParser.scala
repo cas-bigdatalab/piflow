@@ -18,7 +18,6 @@ class FolderCsvParser extends ConfigurableStop{
 
 
   var FolderPath:String=_
-  var header:Boolean=_
   var delimiter: String = _
   var schema: String = _
 
@@ -66,7 +65,6 @@ class FolderCsvParser extends ConfigurableStop{
 
   override def setProperties(map: Map[String, Any]): Unit = {
     FolderPath = MapUtil.get(map,"csvPath").asInstanceOf[String]
-    header = MapUtil.get(map,"header").asInstanceOf[String].toBoolean
     delimiter = MapUtil.get(map,"delimiter").asInstanceOf[String]
     schema = MapUtil.get(map,"schema").asInstanceOf[String]
   }
@@ -75,8 +73,6 @@ class FolderCsvParser extends ConfigurableStop{
     var descriptor : List[PropertyDescriptor] = List()
     val FolderPath = new PropertyDescriptor().name("FolderPath").displayName("FolderPath").description("The path of csv Folder").defaultValue("").required(true)
     descriptor = FolderPath :: descriptor
-    val header = new PropertyDescriptor().name("header").displayName("header").description("Whether the csv file have header or not").defaultValue("").required(true)
-    descriptor = header :: descriptor
     val delimiter = new PropertyDescriptor().name("delimiter").displayName("delimiter").description("The delimiter of csv file").defaultValue("").required(true)
     descriptor = delimiter :: descriptor
     val schema = new PropertyDescriptor().name("schema").displayName("schema").description("The schema of csv file,The delimiter is ,").defaultValue("").required(true)
