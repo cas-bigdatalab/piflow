@@ -1,8 +1,5 @@
 package cn.piflow.api
 
-import java.io.File
-import java.util.concurrent.CompletionStage
-
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
@@ -15,7 +12,6 @@ import com.typesafe.config.ConfigFactory
 
 import scala.concurrent.Future
 import scala.util.parsing.json.JSON
-import cn.piflow.Process
 import org.apache.spark.launcher.SparkAppHandle
 import spray.json.DefaultJsonProtocol
 
@@ -110,6 +106,15 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
          println(ex)
          Future.successful(HttpResponse(entity = "Can not found stop properties Error!"))
        }
+     }
+   }
+   case HttpRequest(GET, Uri.Path("/stop/list"), headers, entity, protocol) =>{
+
+     try{
+       val stops = API.getAllStops()
+       Future.successful(HttpResponse(entity = stops))
+     }catch {
+       case _ => Future.successful(HttpResponse(entity = "Can not found stop !"))
      }
 
    }

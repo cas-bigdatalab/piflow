@@ -110,17 +110,6 @@ object API {
     while (appId == null){
       Thread.sleep(1000)
     }
-    //println("Task is executing, please wait...")
-    //countDownLatch.await()
-    //println("Task is finished!")
-
-    /*launcher.launch()
-    val sparkAppHandle : SparkAppHandle = launcher.startApplication()
-
-    while(sparkAppHandle.getState != SparkAppHandle.State.FINISHED){
-      Thread.sleep(10000)
-      println("ApplicationId = " + sparkAppHandle.getAppId + "---Current State = " + sparkAppHandle.getState)
-    }*/
     (appId, handle)
   }
 
@@ -156,6 +145,13 @@ object API {
   def getAllGroups() = {
     val groups = ClassUtil.findAllGroups().mkString(",")
     """{"groups":"""" + groups + """"}"""
+  }
+
+  def getAllStops() : String = {
+    var stops : List[String] = List()
+    val stopList = ClassUtil.findAllConfigurableStop()
+    stopList.foreach(s => stops =  s.getClass.getName +: stops )
+    """{"stops":"""" + stops.mkString(",") + """"}"""
   }
 
   private def getLogFile(uuid : String, appName : String) : (File,File) = {
