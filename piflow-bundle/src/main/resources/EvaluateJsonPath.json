@@ -1,0 +1,37 @@
+{
+  "flow":{
+    "name":"test",
+    "uuid":"1234",
+    "stops":[
+
+
+      {
+        "uuid":"1111",
+        "name":"EvaluateJsonPath",
+        "bundle":"cn.piflow.bundle.json.EvaluateJsonPath",
+        "properties":{
+          "jsonPathes":"hdfs://10.0.86.89:9000/aYQDJson/student.json;hdfs://10.0.86.89:9000/aYQDJson/student01.json;hdfs://10.0.86.89:9000/aYQDJson/student02.json",
+          "tag":"students"
+        }
+      },
+      {
+        "uuid":"1111",
+        "name":"JsonSave",
+        "bundle":"cn.piflow.bundle.json.JsonSave",
+        "properties":{
+          "jsonSavePath":"hdfs://10.0.86.89:9000/xjzhu/yqd02.json"
+        }
+
+      }
+
+    ],
+    "paths":[
+      {
+        "from":"EvaluateJsonPath",
+        "outport":"",
+        "inport":"",
+        "to":"JsonSave"
+      }
+    ]
+  }
+}
