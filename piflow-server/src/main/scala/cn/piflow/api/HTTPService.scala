@@ -114,7 +114,23 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
        val stops = API.getAllStops()
        Future.successful(HttpResponse(entity = stops))
      }catch {
-       case _ => Future.successful(HttpResponse(entity = "Can not found stop !"))
+       case ex => {
+         println(ex)
+         Future.successful(HttpResponse(entity = "Can not found stop !"))
+       }
+     }
+
+   }
+   case HttpRequest(GET, Uri.Path("/stop/listWithGroup"), headers, entity, protocol) =>{
+
+     try{
+       val stops = API.getAllStopsWithGroup()
+       Future.successful(HttpResponse(entity = stops))
+     }catch {
+       case ex => {
+         println(ex)
+         Future.successful(HttpResponse(entity = "Can not found stop !"))
+       }
      }
 
    }

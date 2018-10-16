@@ -64,16 +64,19 @@ object ClassUtil {
 
     val classpathFile = new File(classpath)
     //println("classpath is " + classpath)
-    val finder = ClassFinder(getJarFile(classpathFile))
-    val classes = finder.getClasses
-    val it = classes.iterator
+    val jarFile = getJarFile(classpathFile)
+    if(jarFile.size != 0){
+      val finder = ClassFinder(jarFile)
+      val classes = finder.getClasses
+      val it = classes.iterator
+      while(it.hasNext) {
 
-    while(it.hasNext) {
-      val externalClass = it.next()
-      if(externalClass.superClassName.equals(configurableStopClass)){
+        val externalClass = it.next()
+        if(externalClass.superClassName.equals(configurableStopClass)){
 
           val stopIntance = Class.forName(externalClass.name).newInstance()
           stopList = stopIntance.asInstanceOf[ConfigurableStop] +: stopList
+        }
       }
     }
     stopList

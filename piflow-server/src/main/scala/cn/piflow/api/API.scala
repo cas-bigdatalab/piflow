@@ -87,8 +87,8 @@ object API {
       .setConf("spark.cores.max", "2")
       .setMainClass("cn.piflow.api.StartFlowMain")
       .addAppArgs(flowJson)
-      .redirectOutput(stdout)
-      .redirectError(stderr)
+      //.redirectOutput(stdout)
+      //.redirectError(stderr)
       .startApplication( new SparkAppHandle.Listener {
         override def stateChanged(handle: SparkAppHandle): Unit = {
           appId = handle.getAppId
@@ -152,6 +152,35 @@ object API {
     val stopList = ClassUtil.findAllConfigurableStop()
     stopList.foreach(s => stops =  s.getClass.getName +: stops )
     """{"stops":"""" + stops.mkString(",") + """"}"""
+  }
+
+  def getAllStopsWithGroup() : String = {
+
+    var resultList:List[String] = List()
+    var stops = List[Tuple2[String,String]]()
+    val configurableStopList = ClassUtil.findAllConfigurableStop()
+    configurableStopList.foreach(s => {
+      //generate (group,bundle) pair and put into stops
+      val groupList = s.getGroup()
+      groupList.foreach(group => {
+        val tuple = (group , s.getClass.getName)
+        stops =   tuple +: stops
+      })
+    })
+
+    //(CommonGroup,List((CommonGroup,cn.piflow.bundle.common.Fork),(CommonGroup,cn.piflow.bundle.common.Merge),(...)))
+    val groupsInfo = stops.groupBy(_._1)
+    groupsInfo.foreach(group => {
+      val stopList = group._2
+      stopList.foreach( groupAndstopPair => {
+        println(groupAndstopPair._1 + ":\t\t" + groupAndstopPair._2)
+        var groupAndstop = groupAndstopPair._1 + ":" + groupAndstopPair._2
+        resultList = groupAndstop +: resultList
+      })
+    })
+    println("Total stop count : " + stops.size)
+
+    """{"stopWithGroup":"""" + resultList.mkString(",") + """"}"""
   }
 
   private def getLogFile(uuid : String, appName : String) : (File,File) = {
