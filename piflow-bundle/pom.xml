@@ -8,8 +8,15 @@
         <version>0.9</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
-
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <jetty.version>9.0.0.M0</jetty.version>
+        <spark.version>2.1.0</spark.version>
+        <scala.version>2.11.8</scala.version>
+        <java.version>1.8</java.version>
+    </properties>
     <artifactId>piflow-bundle</artifactId>
+
     <dependencies>
 
         <!-- https://mvnrepository.com/artifact/org.apache.solr/solr-solrj -->
@@ -17,6 +24,14 @@
             <groupId>org.apache.solr</groupId>
             <artifactId>solr-solrj</artifactId>
             <version>7.2.0</version>
+        </dependency>
+
+
+        <!-- https://mvnrepository.com/artifact/dom4j/dom4j -->
+        <dependency>
+            <groupId>dom4j</groupId>
+            <artifactId>dom4j</artifactId>
+            <version>1.6.1</version>
         </dependency>
 
 
@@ -74,7 +89,7 @@
         <dependency>
             <groupId>com.databricks</groupId>
             <artifactId>spark-xml_2.11</artifactId>
-            <version>0.4.2</version>
+            <version>0.4.1</version>
         </dependency>
 
 
