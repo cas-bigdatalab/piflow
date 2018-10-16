@@ -60,7 +60,10 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
          Future.successful(HttpResponse(entity = appId))
        }
 
-       case _ => Future.failed(new Exception("Can not start flow!"))
+       case ex => {
+         println(ex)
+         Future.failed(new Exception("Can not start flow!"))
+       }
      }
 
    }
@@ -76,8 +79,11 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
           case Some(process) =>
             val result = API.stopFlow(process)
             Future.successful(HttpResponse(entity = result))
-          case _ =>
+          case ex =>{
+            println(ex)
             Future.successful(HttpResponse(entity = "Can not found process Error!"))
+          }
+
         }
 
       }
@@ -92,7 +98,10 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
          val stopInfo = API.getStopInfo(bundle)
          Future.successful(HttpResponse(entity = stopInfo))
        }catch {
-         case _ => Future.successful(HttpResponse(entity = "Can not found stop properties Error!"))
+         case ex => {
+           println(ex)
+           Future.successful(HttpResponse(entity = "Can not found stop properties Error!"))
+         }
        }
      }
    }
