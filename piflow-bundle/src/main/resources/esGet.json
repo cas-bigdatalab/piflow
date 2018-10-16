@@ -1,0 +1,39 @@
+{
+  "flow":{
+    "name":"test",
+    "uuid":"1234",
+    "stops":[
+      {
+        "uuid":"0000",
+        "name":"JsonSave",
+        "bundle":"cn.piflow.bundle.json.JsonSave",
+        "properties":{
+          "jsonSavePath":"hdfs://10.0.86.89:9000/yg/EsFetch.json"
+        }
+
+      },
+      {
+        "uuid":"1111",
+        "name":"esGet",
+        "bundle":"cn.piflow.bundle.es.FetchEs",
+        "properties":{
+          "es_nodes":"10.0.86.239",
+          "port":"9200",
+          "es_index":"sparkToEs",
+          "es_type":"toEs",
+          "schema":"author,pages"
+        }
+
+      }
+
+    ],
+    "paths":[
+      {
+        "from":"esGet",
+        "outport":"",
+        "inport":"",
+        "to":"JsonSave"
+      }
+    ]
+  }
+}
