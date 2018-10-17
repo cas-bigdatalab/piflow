@@ -14,7 +14,7 @@ class FlowTest_XX {
   def testFlow(): Unit ={
 
     //parse flow json
-    val file = "src/main/resources/flow.json"
+    val file = "src/main/resources/logistic.json"
     val flowJsonStr = FileUtil.fileReader(file)
     val map = OptionUtil.getAny(JSON.parseFull(flowJsonStr)).asInstanceOf[Map[String, Any]]
     println(map)
@@ -30,7 +30,7 @@ class FlowTest_XX {
       .config("spark.driver.memory", "1g")
       .config("spark.executor.memory", "2g")
       .config("spark.cores.max", "2")
-      .config("spark.jars","/opt/project/piflow/out/artifacts/piflow_bundle/piflow-bundle.jar")
+      .config("spark.jars","/root/xx/piflow/out/artifacts/piflow_jar/piflow_jar.jar")
       .enableHiveSupport()
       .getOrCreate()
 
@@ -49,7 +49,7 @@ class FlowTest_XX {
   def testFlow2json() = {
 
     //parse flow json
-    val file = "src/main/resources/flow.json"
+    val file = "src/main/resources/logistic.json"
     val flowJsonStr = FileUtil.fileReader(file)
     val map = OptionUtil.getAny(JSON.parseFull(flowJsonStr)).asInstanceOf[Map[String, Any]]
 
