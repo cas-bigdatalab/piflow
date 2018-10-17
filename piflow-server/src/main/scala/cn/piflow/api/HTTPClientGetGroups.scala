@@ -8,7 +8,7 @@ object HTTPClientGetGroups {
 
   def main(args: Array[String]): Unit = {
 
-    val url = "http://10.0.86.98:8001/stop/groups"
+    val url = "http://10.0.86.98:8002/stop/groups"
     val client = HttpClients.createDefault()
     val getGroups:HttpGet = new HttpGet(url)
 

@@ -52,7 +52,7 @@ object ClassUtil {
     }
 
     //find external stop
-    stopList = stopList ::: findAllConfigurableStopInClasspath()
+    //stopList = stopList ::: findAllConfigurableStopInClasspath()
     stopList
   }
 
