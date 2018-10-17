@@ -56,7 +56,7 @@ class DecisionTreeTraining extends ConfigurableStop{
       impurityValue=impurity
     }
 
-    //training a Logistic Regression model
+    //training a Decision Tree model
     val model=new DecisionTreeClassifier()
       .setMaxBins(maxBinsValue)
       .setMaxDepth(maxDepthValue)
