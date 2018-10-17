@@ -1,0 +1,38 @@
+{
+  "flow":{
+    "name":"test",
+    "uuid":"1234",
+    "stops":[
+      {
+        "uuid":"0000",
+        "name":"NaiveBayesTraining",
+        "bundle":"cn.piflow.bundle.ml_classification.NaiveBayesTraining",
+        "properties":{
+          "training_data_path":"hdfs://10.0.86.89:9000/xx/watermellonDataset.txt",
+          "smoothing_value":"1.0",
+          "model_save_path":"hdfs://10.0.86.89:9000/xx/naivebayes/nb.model"
+        }
+
+      },
+      {
+        "uuid":"1111",
+        "name":"NaiveBayesPrediction",
+        "bundle":"cn.piflow.bundle.ml_classification.NaiveBayesPrediction",
+        "properties":{
+          "test_data_path":"hdfs://10.0.86.89:9000/xx/watermellonDataset.txt",
+          "model_path":"hdfs://10.0.86.89:9000/xx/naivebayes/nb.model"
+        }
+
+      }
+
+    ],
+    "paths":[
+      {
+        "from":"NaiveBayesTraining",
+        "outport":"",
+        "inport":"",
+        "to":"NaiveBayesPrediction"
+      }
+    ]
+  }
+}

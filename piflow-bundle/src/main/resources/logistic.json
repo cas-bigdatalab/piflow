@@ -1,0 +1,43 @@
+{
+  "flow":{
+    "name":"test",
+    "uuid":"1234",
+    "stops":[
+      {
+        "uuid":"0000",
+        "name":"LogisticRegressionTraining",
+        "bundle":"cn.piflow.bundle.ml_classification.LogisticRegressionTraining",
+        "properties":{
+          "training_data_path":"hdfs://10.0.86.89:9000/xx/watermellonDataset.txt",
+          "model_save_path":"hdfs://10.0.86.89:9000/xx/naivebayes/lr.model",
+          "maxIter":"50",
+          "minTol":"1E-7",
+          "regParam":"0.1",
+          "elasticNetParam":"0.1",
+          "threshold":"0.5",
+          "family":""
+        }
+
+      },
+      {
+        "uuid":"1111",
+        "name":"LogisticRegressionPrediction",
+        "bundle":"cn.piflow.bundle.ml_classification.LogisticRegressionPrediction",
+        "properties":{
+          "test_data_path":"hdfs://10.0.86.89:9000/xx/watermellonDataset.txt",
+          "model_path":"hdfs://10.0.86.89:9000/xx/naivebayes/lr.model"
+        }
+
+      }
+
+    ],
+    "paths":[
+      {
+        "from":"LogisticRegressionTraining",
+        "outport":"",
+        "inport":"",
+        "to":"LogisticRegressionPrediction"
+      }
+    ]
+  }
+}

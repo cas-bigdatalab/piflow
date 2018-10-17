@@ -18,5 +18,6 @@ object StopGroupEnum extends Enumeration {
   val RedisGroup = Value("RedisGroup")
   val SolrGroup = Value("SolrGroup")
   val ESGroup = Value("ESGroup")
+  val MLGroup=Value("MLGroup")
 
 }
