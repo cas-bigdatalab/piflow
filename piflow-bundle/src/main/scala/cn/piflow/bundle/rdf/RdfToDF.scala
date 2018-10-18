@@ -5,7 +5,7 @@ import java.util.regex.{Matcher, Pattern}
 import cn.piflow.bundle.util.Entity
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
-import cn.piflow.conf.{ConfigurableStop, StopGroupEnum}
+import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroupEnum}
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.types.{DataTypes, StringType, StructField, StructType}
@@ -13,8 +13,7 @@ import org.apache.spark.sql.{Row, SparkSession}
 
 class RdfToDF extends ConfigurableStop{
   override val authorEmail: String = "shaow@cnic.cn"
-  override val inportCount: Int = 1
-  override val outportCount: Int = 1
+
   override val description: String = "Simple spark program to convert *.n3 RDF file to CSV(DataFrame) file"
 
   var rdfFilepath : String = _
@@ -291,4 +290,7 @@ class RdfToDF extends ConfigurableStop{
   def ? (regex : Pattern, str : String) : Boolean = {
     regex.matcher(str).find()
   }
+
+  override val inportList: List[String] = List(PortEnum.DefaultPort.toString)
+  override val outportList: List[String] = List(entityPort, relationshipPort)
 }
