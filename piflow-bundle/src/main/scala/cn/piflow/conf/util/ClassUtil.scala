@@ -171,11 +171,13 @@ object ClassUtil {
 
     val json =
       ("StopInfo" ->
+        ("name" -> bundle.split(".").last)~
         ("bundle" -> bundle) ~
         ("owner" -> stop.authorEmail) ~
           ("inportCount" -> stop.inportCount) ~
           ("outportCount" -> stop.outportCount) ~
           ("groups" -> stop.getGroup().mkString(",")) ~
+          ("description" -> stop.description) ~
           ("properties" ->
             propertyDescriptorList.map { property =>(
               ("name" -> property.name) ~
