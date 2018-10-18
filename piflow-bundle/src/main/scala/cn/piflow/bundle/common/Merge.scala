@@ -1,6 +1,6 @@
 package cn.piflow.bundle.common
 
-import cn.piflow.conf.{CommonGroup, ConfigurableStop, StopGroup, StopGroupEnum}
+import cn.piflow.conf._
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.ImageUtil
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
@@ -11,8 +11,8 @@ class Merge extends ConfigurableStop{
 
   val authorEmail: String = "xjzhu@cnic.cn"
   val description: String = "Merge data into one stop."
-  val inportCount: Int = -1
-  val outportCount: Int = 1
+  val inportList: List[String] = List(PortEnum.AnyPort.toString)
+  val outportList: List[String] = List(PortEnum.DefaultPort.toString)
 
   var inports : List[String] = _
 

@@ -3,7 +3,7 @@ package cn.piflow.bundle.http
 import java.io._
 import java.net.{HttpURLConnection, URL}
 
-import cn.piflow.conf.{ConfigurableStop, HttpGroup, StopGroup, StopGroupEnum}
+import cn.piflow.conf._
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.MapUtil
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
@@ -12,8 +12,8 @@ import org.apache.spark.sql.SparkSession
 class LoadZipFromUrl extends ConfigurableStop{
   val authorEmail: String = "xiaoxiao@cnic.cn"
   val description: String = "DownLoad zip file by http."
-  val inportCount: Int = 0
-  val outportCount: Int = 1
+  val inportList: List[String] = List(PortEnum.NonePort.toString)
+  val outportList: List[String] = List(PortEnum.DefaultPort.toString)
   var url_str:String =_
 
   def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {

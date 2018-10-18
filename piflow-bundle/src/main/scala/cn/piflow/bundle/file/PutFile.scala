@@ -6,7 +6,7 @@ import java.net.{HttpURLConnection, URI, URL}
 import org.apache.hadoop.fs.FileSystem
 import org.apache.hadoop.fs.Path
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
-import cn.piflow.conf.{ConfigurableStop, FileGroup, StopGroup, StopGroupEnum}
+import cn.piflow.conf._
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.MapUtil
 import org.apache.hadoop.conf.Configuration
@@ -15,8 +15,8 @@ import org.apache.spark.sql.SparkSession
 class PutFile extends ConfigurableStop{
   val authorEmail: String = "xiaoxiao@cnic.cn"
   val description: String = "Put local file to hdfs."
-  val inportCount: Int = 0
-  val outportCount: Int = 1
+  val inportList: List[String] = List(PortEnum.DefaultPort.toString)
+  val outportList: List[String] = List(PortEnum.NonePort.toString)
   var hdfs_path:String =_
   var local_path:String=_
   var fs:FileSystem=null

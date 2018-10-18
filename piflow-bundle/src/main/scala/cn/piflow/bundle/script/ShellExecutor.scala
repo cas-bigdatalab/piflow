@@ -3,7 +3,7 @@ package cn.piflow.bundle.script
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
-import cn.piflow.conf.{ConfigurableStop, ScriptGroup, StopGroup, StopGroupEnum}
+import cn.piflow.conf._
 import org.apache.spark.sql.{Row, SparkSession}
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
 
@@ -14,8 +14,8 @@ class ShellExecutor extends ConfigurableStop{
 
   val authorEmail: String = "xjzhu@cnic.cn"
   val description: String = "Execute shell script."
-  val inportCount: Int = 0
-  val outportCount: Int = 1
+  val inportList: List[String] = List(PortEnum.NonePort.toString)
+  val outportList: List[String] = List(PortEnum.DefaultPort.toString)
 
   var shellPath: String = _
   var args: String = _

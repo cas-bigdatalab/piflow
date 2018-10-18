@@ -3,27 +3,27 @@ import java.util
 
 import scala.collection.JavaConversions._
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
-import cn.piflow.conf.{ConfigurableStop, StopGroupEnum}
+import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroupEnum}
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import org.apache.solr.client.solrj.SolrQuery
 import org.apache.solr.client.solrj.SolrQuery.ORDER
 import org.apache.solr.client.solrj.impl.HttpSolrClient
 import org.apache.solr.client.solrj.response.QueryResponse
-import org.apache.solr.common.{ SolrDocumentList}
+import org.apache.solr.common.SolrDocumentList
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
 import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 
-import scala.collection.mutable.{ ListBuffer}
+import scala.collection.mutable.ListBuffer
 
 
 class GetFromSolr extends ConfigurableStop{
   override val authorEmail: String ="18525746364@163.com"
   override val description: String = ""
-  override val inportCount: Int = 0
-  override val outportCount: Int = 1
+  val inportList: List[String] = List(PortEnum.NonePort.toString)
+  val outportList: List[String] = List(PortEnum.DefaultPort.toString)
 
   var solrURL:String=_
   var SolrCollection:String=_

@@ -3,20 +3,21 @@ package cn.piflow.bundle.xml
 import java.util
 
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
-import cn.piflow.conf.{ConfigurableStop, StopGroupEnum}
+import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroupEnum}
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
 import org.dom4j.{Document, DocumentHelper, Element}
+
 import scala.collection.JavaConverters._
 import scala.collection.mutable.{ArrayBuffer, ListBuffer}
 
 class XmlStringParser extends ConfigurableStop {
   override val authorEmail: String = "yangqidong@cnic.cn"
-  override val inportCount: Int = 0
-  override val outportCount: Int = 1
+  val inportList: List[String] = List(PortEnum.NonePort.toString)
+  val outportList: List[String] = List(PortEnum.DefaultPort.toString)
   override val description: String = ""
 
   var XmlString:String=_

@@ -4,7 +4,7 @@ package cn.piflow.bundle.json
 import java.net.URI
 
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
-import cn.piflow.conf.{ConfigurableStop, StopGroupEnum}
+import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroupEnum}
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import org.apache.hadoop.conf.Configuration
@@ -16,8 +16,8 @@ import scala.util.control.Breaks.{break, breakable}
 
 class FolderJsonParser extends ConfigurableStop{
   override val authorEmail: String = "yangqidong@cnic.cn"
-  override val inportCount: Int =0
-  override val outportCount: Int =1
+  val inportList: List[String] = List(PortEnum.NonePort.toString)
+  val outportList: List[String] = List(PortEnum.DefaultPort.toString)
   override val description: String ="parser json folder"
 
 

@@ -4,7 +4,7 @@ import java.net.URI
 
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
-import cn.piflow.conf.{ConfigurableStop, StopGroup, StopGroupEnum, XmlGroup}
+import cn.piflow.conf._
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
@@ -19,8 +19,8 @@ import scala.util.control.Breaks._
 class FolderXmlParser extends ConfigurableStop{
   val authorEmail: String = "lijie"
   val description: String = "Parse xml folder."
-  val inportCount: Int = -1
-  val outportCount: Int = 1
+  val inportList: List[String] = List(PortEnum.NonePort.toString)
+  val outportList: List[String] = List(PortEnum.DefaultPort.toString)
 
   var rowTag:String = _
   var xmlpath:String = _

@@ -2,7 +2,7 @@ package cn.piflow.bundle.clean
 
 import cn.piflow.bundle.util.CleanUtil
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
-import cn.piflow.conf.{CleanGroup, ConfigurableStop, StopGroup, StopGroupEnum}
+import cn.piflow.conf._
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.MapUtil
 import org.apache.spark.sql.SparkSession
@@ -10,8 +10,8 @@ import org.apache.spark.sql.SparkSession
 class PhoneNumberClean extends ConfigurableStop{
   val authorEmail: String = "xiaoxiao@cnic.cn"
   val description: String = "Clean phone number format data."
-  val inportCount: Int = 0
-  val outportCount: Int = 1
+  val inportList: List[String] = List(PortEnum.DefaultPort.toString)
+  val outportList: List[String] = List(PortEnum.DefaultPort.toString)
   var columnName:String=_
 
   def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {

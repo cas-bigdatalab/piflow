@@ -5,7 +5,7 @@ import java.net.{HttpURLConnection, URL}
 import java.util
 
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
-import cn.piflow.conf.{ConfigurableStop, FtpGroup, HttpGroup, StopGroup, StopGroupEnum}
+import cn.piflow.conf.{ConfigurableStop, FtpGroup, HttpGroup, PortEnum, StopGroup, StopGroupEnum}
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.MapUtil
 import sun.net.ftp.{FtpClient, FtpDirEntry}
@@ -15,8 +15,8 @@ import scala.reflect.io.Directory
 class LoadFromFtp extends ConfigurableStop{
   val authorEmail: String = "xiaoxiao@cnic.cn"
   val description: String = "Load file from ftp server."
-  val inportCount: Int = 0
-  val outportCount: Int = 1
+  val inportList: List[String] = List(PortEnum.NonePort.toString)
+  val outportList: List[String] = List(PortEnum.NonePort.toString)
   var url_str:String =_
   var port:Int=_
   var username:String=_

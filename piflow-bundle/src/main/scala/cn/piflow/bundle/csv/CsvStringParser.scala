@@ -1,7 +1,7 @@
 package cn.piflow.bundle.csv
 
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
-import cn.piflow.conf.{ConfigurableStop, StopGroupEnum}
+import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroupEnum}
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import org.apache.spark.SparkContext
@@ -12,8 +12,8 @@ import org.apache.spark.sql.functions.monotonically_increasing_id
 
 class CsvStringParser extends ConfigurableStop{
   override val authorEmail: String = "yangqidong@cnic.cn"
-  override val inportCount: Int = 0
-  override val outportCount: Int = 1
+  val inportList: List[String] = List(PortEnum.NonePort.toString)
+  val outportList: List[String] = List(PortEnum.DefaultPort.toString)
   override val description: String = ""
 
 

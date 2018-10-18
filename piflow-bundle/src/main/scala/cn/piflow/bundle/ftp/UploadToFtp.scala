@@ -4,7 +4,7 @@ import java.io.{DataOutputStream, File, InputStream, OutputStream}
 import java.util
 
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
-import cn.piflow.conf.{ConfigurableStop, FtpGroup, StopGroup, StopGroupEnum}
+import cn.piflow.conf.{ConfigurableStop, FtpGroup, PortEnum, StopGroup, StopGroupEnum}
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.MapUtil
 import sun.net.TelnetOutputStream
@@ -14,9 +14,9 @@ import scala.reflect.io.Directory
 
 class UploadToFtp extends ConfigurableStop{
     val authorEmail: String = "xiaoxiao@cnic.cn"
-  val description: String = "Put file from ftp server."
-    val inportCount: Int = 0
-    val outportCount: Int = 1
+    val description: String = "Put file from ftp server."
+    val inportList: List[String] = List(PortEnum.NonePort.toString)
+    val outportList: List[String] = List(PortEnum.NonePort.toString)
     var url_str:String =_
     var port:Int=_
     var username:String=_

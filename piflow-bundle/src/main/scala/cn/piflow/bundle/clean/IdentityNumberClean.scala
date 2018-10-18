@@ -16,8 +16,8 @@ import scala.reflect.macros.ParseException
 class IdentityNumberClean extends ConfigurableStop{
   val authorEmail: String = "xiaoxiao@cnic.cn"
   val description: String = "Clean Id Card data."
-  val inportCount: Int = 0
-  val outportCount: Int = 1
+  val inportList: List[String] = List(PortEnum.DefaultPort.toString)
+  val outportList: List[String] = List(PortEnum.DefaultPort.toString)
   //var regex:String =_
   var columnName:String=_
   //var replaceStr:String=_
