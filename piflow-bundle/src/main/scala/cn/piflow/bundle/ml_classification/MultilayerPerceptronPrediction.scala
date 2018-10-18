@@ -1,16 +1,16 @@
 package cn.piflow.bundle.ml_classification
 
+import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
+import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroupEnum}
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.MapUtil
-import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroupEnum}
-import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
-import org.apache.spark.ml.classification.DecisionTreeClassificationModel
+import org.apache.spark.ml.classification.MultilayerPerceptronClassificationModel
 import org.apache.spark.sql.SparkSession
 
-class DecisionTreePrediction extends ConfigurableStop{
+class MultilayerPerceptronPrediction extends ConfigurableStop{
   val authorEmail: String = "xiaoxiao@cnic.cn"
-  val description: String = "Make use of a exist DecisionTreeModel to predict."
-  val inportList: List[String] = List(PortEnum.NonePort.toString)
+  val description: String = "Make use of a exist MultilayerPerceptronModel to predict."
+  val inportList: List[String] = List(PortEnum.DefaultPort.toString)
   val outportList: List[String] = List(PortEnum.DefaultPort.toString)
   var test_data_path:String =_
   var model_path:String=_
@@ -23,7 +23,7 @@ class DecisionTreePrediction extends ConfigurableStop{
     //data.show()
 
     //load model
-    val model=DecisionTreeClassificationModel.load(model_path)
+    val model=MultilayerPerceptronClassificationModel.load(model_path)
 
     val predictions=model.transform(data)
     predictions.show()
@@ -55,4 +55,5 @@ class DecisionTreePrediction extends ConfigurableStop{
   override def getGroup(): List[String] = {
     List(StopGroupEnum.MLGroup.toString)
   }
+
 }

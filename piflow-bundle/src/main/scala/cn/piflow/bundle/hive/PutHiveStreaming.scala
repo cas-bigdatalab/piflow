@@ -1,7 +1,7 @@
 package cn.piflow.bundle.hive
 
 import cn.piflow._
-import cn.piflow.conf.{ConfigurableStop, HiveGroup, StopGroup, StopGroupEnum}
+import cn.piflow.conf._
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import org.apache.spark.sql.SparkSession
@@ -12,8 +12,8 @@ class PutHiveStreaming extends ConfigurableStop {
 
   val authorEmail: String = "xjzhu@cnic.cn"
   val description: String = "Save data into hive."
-  val inportCount: Int = 1
-  val outportCount: Int = 0
+  val inportList: List[String] = List(PortEnum.DefaultPort.toString)
+  val outportList: List[String] = List(PortEnum.NonePort.toString)
 
   var database:String = _
   var table:String = _

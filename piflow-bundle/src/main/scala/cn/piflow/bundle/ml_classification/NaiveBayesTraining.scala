@@ -2,7 +2,7 @@ package cn.piflow.bundle.ml_classification
 
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.MapUtil
-import cn.piflow.conf.{ConfigurableStop, StopGroupEnum}
+import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroupEnum}
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.apache.spark.ml.classification.NaiveBayes
 import org.apache.spark.sql.SparkSession
@@ -10,8 +10,8 @@ import org.apache.spark.sql.SparkSession
 class NaiveBayesTraining extends ConfigurableStop{
   val authorEmail: String = "xiaoxiao@cnic.cn"
   val description: String = "Training a NaiveBayesModel."
-  val inportCount: Int = 1
-  val outportCount: Int = 0
+  val inportList: List[String] = List(PortEnum.NonePort.toString)
+  val outportList: List[String] = List(PortEnum.DefaultPort.toString)
   var training_data_path:String =_
   var smoothing_value:String=_
   var model_save_path:String=_

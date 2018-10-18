@@ -1,7 +1,7 @@
 package cn.piflow.bundle.xml
 
 import cn.piflow._
-import cn.piflow.conf.{ConfigurableStop, StopGroup, StopGroupEnum, XmlGroup}
+import cn.piflow.conf._
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import org.apache.spark.sql.SparkSession
@@ -13,8 +13,8 @@ class XmlParser extends ConfigurableStop {
 
   val authorEmail: String = "xjzhu@cnic.cn"
   val description: String = "Parse xml file."
-  val inportCount: Int = 1
-  val outportCount: Int = 1
+  val inportList: List[String] = List(PortEnum.NonePort.toString)
+  val outportList: List[String] = List(PortEnum.DefaultPort.toString)
 
   var xmlpath:String = _
   var rowTag:String = _

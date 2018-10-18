@@ -8,42 +8,13 @@ import org.junit.Test
 
 import scala.util.parsing.json.JSON
 
-class JsonFolderTest {
+class MultiFolderJsonParserTest {
 
   @Test
   def testFlow(): Unit ={
 
-//测试数据
-/*    {
-      "name": "BeJson",
-      "url": "http://www.bejson.com",
-      "page": 88,
-      "isNonProfit": true,
-      "address": {
-        "street": "科技园路.",
-        "city": "江苏苏州",
-        "country": "中国"
-      },
-      "links": [
-      {
-        "name": "Google",
-        "url": "http://www.google.com"
-      },
-      {
-        "name": "Baidu",
-        "url": "http://www.baidu.com"
-      },
-      {
-        "name": "SoSo",
-        "url": "http://www.SoSo.com"
-      }
-      ]
-    }*/
-
-
-
     //parse flow json
-    val file = "src/main/resources/JsonFolderTest.json"
+    val file = "src/main/resources/MultiFolderJsonParser.json"
     val flowJsonStr = FileUtil.fileReader(file)
     val map = OptionUtil.getAny(JSON.parseFull(flowJsonStr)).asInstanceOf[Map[String, Any]]
     println(map)
@@ -53,6 +24,7 @@ class JsonFolderTest {
     val flow = flowBean.constructFlow()
 
 
+
     //execute flow
     val spark = SparkSession.builder()
       .master("spark://10.0.86.89:7077")
@@ -60,7 +32,7 @@ class JsonFolderTest {
       .config("spark.driver.memory", "1g")
       .config("spark.executor.memory", "2g")
       .config("spark.cores.max", "2")
-      .config("spark.jars","/opt/project/gitwork/out/artifacts/piflow_bundle/piflow_bundle.jar")
+      .config("spark.jars","/root/Desktop/gitWORK/out/artifacts/piflow_bundle/piflow_bundle.jar")
       .enableHiveSupport()
       .getOrCreate()
 

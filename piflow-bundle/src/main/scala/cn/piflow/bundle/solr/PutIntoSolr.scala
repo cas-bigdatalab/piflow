@@ -1,7 +1,7 @@
 package cn.piflow.bundle.solr
 
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
-import cn.piflow.conf.{ConfigurableStop, StopGroupEnum}
+import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroupEnum}
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import org.apache.solr.client.solrj.impl.HttpSolrClient
@@ -15,8 +15,8 @@ class PutIntoSolr extends ConfigurableStop{
 
   override val authorEmail: String = "yangqidong@cnic.cn"
   override val description: String = ""
-  override val inportCount: Int = 1
-  override val outportCount: Int = 0
+  val inportList: List[String] = List(PortEnum.DefaultPort.toString)
+  val outportList: List[String] = List(PortEnum.NonePort.toString)
 
   var solrURL:String=_
   var SolrCollection:String=_

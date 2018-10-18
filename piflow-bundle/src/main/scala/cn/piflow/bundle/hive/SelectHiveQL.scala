@@ -2,7 +2,7 @@ package cn.piflow.bundle.hive
 
 import cn.piflow._
 import cn.piflow.conf.util.ImageUtil
-import cn.piflow.conf.{ConfigurableStop, HiveGroup, StopGroup, StopGroupEnum}
+import cn.piflow.conf._
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import org.apache.spark.sql.SparkSession
@@ -15,8 +15,8 @@ class SelectHiveQL extends ConfigurableStop {
 
   val authorEmail: String = "xjzhu@cnic.cn"
   val description: String = "Execute select hiveQL."
-  val inportCount: Int = 0
-  val outportCount: Int = 1
+  val inportList: List[String] = List(PortEnum.NonePort.toString)
+  val outportList: List[String] = List(PortEnum.DefaultPort.toString)
 
   var hiveQL:String = _
 

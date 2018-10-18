@@ -1,5 +1,6 @@
 package cn.piflow.bundle.json
 
+import cn.piflow.bundle.util.JsonUtil
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroupEnum}
 import cn.piflow.conf.bean.PropertyDescriptor
@@ -7,11 +8,13 @@ import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import org.apache.spark.sql
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
-class EvaluateJsonPath extends ConfigurableStop{
-  override val authorEmail: String = "yangqidong@cnic.cn"
+import scala.util.control.Breaks.{break, breakable}
+
+class MultiFolderJsonParser extends ConfigurableStop{
+   val authorEmail: String = "yangqidong@cnic.cn"
   val inportList: List[String] = List(PortEnum.NonePort.toString)
   val outportList: List[String] = List(PortEnum.DefaultPort.toString)
-  override val description: String = "Merge JSON files"
+   val description: String = "Merge JSON files"
 
 
   var jsonPathes: String = _
@@ -20,25 +23,40 @@ class EvaluateJsonPath extends ConfigurableStop{
 
 
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
-    val spark = pec.get[SparkSession]()
+    val ss = pec.get[SparkSession]()
 
-    val jsonPathARR: Array[String] = jsonPathes.split(";")
+    val arrPath: Array[String] = jsonPathes.split(";")
 
-    val jsonDF = spark.read.option("multiline","true").json(jsonPathARR(0))
-    var FinalDF: DataFrame = jsonDF.select(tag)
+    var index: Int = 0
+    breakable {
+      for (i <- 0 until arrPath.length) {
+        if (ss.read.json(arrPath(i)).count() != 0) {
+          index = i
+          break
+        }
+      }
+    }
 
-   if(jsonPathARR.length>1){
-     for(x<-(1 until jsonPathARR.length)){
-       var jDF: DataFrame = spark.read.option("multiline","true").json(jsonPathARR(x)).select(tag)
-       val ff: DataFrame = FinalDF.union(jDF).toDF()
-       FinalDF=ff
-     }
-   }
+    var FinalDF = ss.read.option("multiline","true").json(arrPath(index))
 
-    FinalDF.printSchema()
+    for(d <- index+1 until(arrPath.length)){
+      if(ss.read.json(arrPath(d)).count()!=0){
+        val df1: DataFrame = ss.read.option("multiline","true").json(arrPath(d))
+        //        df1.printSchema()
+        val df2: DataFrame = FinalDF.union(df1).toDF()
+        FinalDF=df2
+      }
+    }
+
+    if(tag.length>0){
+      val writeDF: DataFrame = JsonUtil.ParserJsonDF(FinalDF,tag)
+      FinalDF=writeDF
+    }
+
+
     FinalDF.show(10)
 
-    out.write(jsonDF)
+    out.write(FinalDF)
   }
 
   override def setProperties(map: Map[String, Any]): Unit = {
@@ -48,7 +66,7 @@ class EvaluateJsonPath extends ConfigurableStop{
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
     val jsonPathes = new PropertyDescriptor().name("jsonPathes").displayName("jsonPathes").description("The path of the json file,the delimiter is ;").defaultValue("").required(true)
-    val tag=new PropertyDescriptor().name("tag").displayName("tag").description("The tag you want to parse").defaultValue("").required(true)
+    val tag = new PropertyDescriptor().name("tag").displayName("tag").description("The tag you want to parse,If you want to open an array field,you have to write it like this:links_name(MasterField_ChildField)").defaultValue("").required(false)
     descriptor = jsonPathes :: descriptor
     descriptor = tag :: descriptor
     descriptor

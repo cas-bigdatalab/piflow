@@ -168,14 +168,14 @@ object ClassUtil {
     val stop = ClassUtil.findConfigurableStop(bundle)
     val propertyDescriptorList:List[PropertyDescriptor] = stop.getPropertyDescriptor()
     propertyDescriptorList.foreach(p=> if (p.allowableValues == null || p.allowableValues == None) p.allowableValues = List(""))
-
+    val stopName = bundle.split("\\.").last
     val json =
       ("StopInfo" ->
-        ("name" -> bundle.split(".").last)~
+        ("name" -> stopName)~
         ("bundle" -> bundle) ~
         ("owner" -> stop.authorEmail) ~
-          ("inportCount" -> stop.inportCount) ~
-          ("outportCount" -> stop.outportCount) ~
+          ("inports" -> stop.inportList.mkString(",")) ~
+          ("outports" -> stop.outportList.mkString(",")) ~
           ("groups" -> stop.getGroup().mkString(",")) ~
           ("description" -> stop.description) ~
           ("properties" ->

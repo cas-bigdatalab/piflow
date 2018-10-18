@@ -3,16 +3,16 @@ package cn.piflow.bundle.file
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.MapUtil
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
-import cn.piflow.conf.{ConfigurableStop, FileGroup, StopGroup, StopGroupEnum}
+import cn.piflow.conf._
 import org.apache.spark.sql.SparkSession
 
 
 
 class RegexTextProcess extends ConfigurableStop{
     val authorEmail: String = "xiaoxiao@cnic.cn"
-    val description: String = "Regex text."
-    val inportCount: Int = 0
-    val outportCount: Int = 1
+    val description: String = "Use regex to replace text."
+    val inportList: List[String] = List(PortEnum.DefaultPort.toString)
+    val outportList: List[String] = List(PortEnum.DefaultPort.toString)
     var regex:String =_
     var columnName:String=_
     var replaceStr:String=_

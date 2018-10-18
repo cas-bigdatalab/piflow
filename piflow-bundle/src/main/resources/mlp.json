@@ -1,0 +1,42 @@
+{
+  "flow":{
+    "name":"test",
+    "uuid":"1234",
+    "stops":[
+      {
+        "uuid":"0000",
+        "name":"MultilayerPerceptronTraining",
+        "bundle":"cn.piflow.bundle.ml_classification.MultilayerPerceptronTraining",
+        "properties":{
+          "training_data_path":"hdfs://10.0.86.89:9000/xx/watermellonDataset.txt",
+          "model_save_path":"hdfs://10.0.86.89:9000/xx/naivebayes/mlp.model",
+          "maxIter":"50",
+          "minTol":"1E-7",
+          "stepSize":"0.1",
+          "layers":"(6,5,3,2)",
+          "thresholds":"(0.6,0.4)"
+        }
+
+      },
+      {
+        "uuid":"1111",
+        "name":"MultilayerPerceptronPrediction",
+        "bundle":"cn.piflow.bundle.ml_classification.MultilayerPerceptronPrediction",
+        "properties":{
+          "test_data_path":"hdfs://10.0.86.89:9000/xx/watermellonDataset.txt",
+          "model_path":"hdfs://10.0.86.89:9000/xx/naivebayes/mlp.model"
+        }
+
+      }
+
+    ],
+    "paths":[
+      {
+        "from":"MultilayerPerceptronTraining",
+        "outport":"",
+        "inport":"",
+        "to":"MultilayerPerceptronPrediction"
+      }
+    ]
+  }
+}

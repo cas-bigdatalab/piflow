@@ -3,7 +3,7 @@ package cn.piflow.bundle.file
 import java.net.URI
 
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
-import cn.piflow.conf.{ConfigurableStop, FileGroup, StopGroup, StopGroupEnum}
+import cn.piflow.conf._
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.MapUtil
 import org.apache.hadoop.conf.Configuration
@@ -12,8 +12,8 @@ import org.apache.hadoop.fs.{FileSystem, Path}
 class FetchFile extends ConfigurableStop{
   val authorEmail: String = "xiaoxiao@cnic.cn"
   val description: String = "Fetch file from hdfs to local."
-  val inportCount: Int = 0
-  val outportCount: Int = 1
+  val inportList: List[String] = List(PortEnum.NonePort.toString)
+  val outportList: List[String] = List(PortEnum.DefaultPort.toString)
   var hdfs_path:String =_
   var local_path:String=_
   var fs:FileSystem=null
