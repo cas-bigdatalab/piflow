@@ -3,16 +3,21 @@ package cn.piflow.bundle.json
 
 import java.net.URI
 
+import cn.piflow.bundle.util.JsonUtil
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroupEnum}
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileStatus, FileSystem, FileUtil, Path}
-import org.apache.spark.sql.{DataFrame, SparkSession}
+import org.apache.spark.sql._
 
 import scala.collection.mutable.ArrayBuffer
 import scala.util.control.Breaks.{break, breakable}
+import org.apache.spark.sql.{DataFrame, SQLContext}
+import org.apache.spark.sql.functions._
+
+
 
 class FolderJsonParser extends ConfigurableStop{
   override val authorEmail: String = "yangqidong@cnic.cn"
@@ -24,21 +29,37 @@ class FolderJsonParser extends ConfigurableStop{
   var FolderPath:String = _
   var tag : String = _
 
+
+  var openArrField:String=""
+  var ArrSchame:String=""
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     val spark = pec.get[SparkSession]()
+    val sql: SQLContext = spark.sqlContext
+
     val arrPath: ArrayBuffer[String] = getFileName(FolderPath)
-    val FinalDF = getFinalDF(arrPath,spark)
+    var FinalDF: DataFrame = getFinalDF(arrPath,sql)
+
+    if(tag.length>0){
+      val writeDF: DataFrame = JsonUtil.ParserJsonDF(FinalDF,tag)
+      FinalDF=writeDF
+    }
+
+
+    println("##########################################################################")
+    FinalDF.printSchema()
+    FinalDF.show(20)
+    println("##########################################################################")
     out.write(FinalDF)
   }
 
-
-  def getDf(Path: String,ss:SparkSession): DataFrame ={
+//根据路径获取df
+  def getDf(Path: String,ss:SQLContext): DataFrame ={
     val frame: DataFrame = ss.read.json(Path)
     frame
   }
 
-
-  def getFinalDF(arrPath: ArrayBuffer[String],ss:SparkSession): DataFrame = {
+//遍历路径，获取总df
+  def getFinalDF(arrPath: ArrayBuffer[String],ss:SQLContext): DataFrame = {
     var index: Int = 0
     breakable {
       for (i <- 0 until arrPath.length) {
@@ -50,12 +71,13 @@ class FolderJsonParser extends ConfigurableStop{
     }
 
     val df01 = ss.read.option("multiline","true").json(arrPath(index))
-    var df: DataFrame = df01.select(tag)
-    df.printSchema()
+
+    var aaa:String="name"
+    var df: DataFrame = df01
     for(d <- index+1 until(arrPath.length)){
       if(getDf(arrPath(d),ss).count()!=0){
-        val df1: DataFrame = ss.read.option("multiline","true").json(arrPath(d)).select(tag)
-        df1.printSchema()
+                val df1: DataFrame = ss.read.option("multiline","true").json(arrPath(d))
+//        df1.printSchema()
         val df2: DataFrame = df.union(df1).toDF()
         df=df2
       }
@@ -64,7 +86,7 @@ class FolderJsonParser extends ConfigurableStop{
   }
 
 
-  //获取.xml所有文件路径
+  //获取.json所有文件路径
   def getFileName(path:String):ArrayBuffer[String]={
     val conf: Configuration = new Configuration()
     val hdfs: FileSystem = FileSystem.get(URI.create(path),conf)
@@ -82,6 +104,7 @@ class FolderJsonParser extends ConfigurableStop{
   override def setProperties(map: Map[String, Any]): Unit = {
     FolderPath = MapUtil.get(map,"FolderPath").asInstanceOf[String]
     tag = MapUtil.get(map,"tag").asInstanceOf[String]
+
   }
 
 
@@ -90,8 +113,10 @@ class FolderJsonParser extends ConfigurableStop{
     var descriptor : List[PropertyDescriptor] = List()
     val FolderPath = new PropertyDescriptor().name("FolderPath").displayName("FolderPath").description("The path of the json folder").defaultValue("").required(true)
     descriptor = FolderPath :: descriptor
-    val tag = new PropertyDescriptor().name("tag").displayName("tag").description("The tag you want to parse").defaultValue("").required(true)
+    val tag = new PropertyDescriptor().name("tag").displayName("tag").description("The tag you want to parse,If you want to open an array field,you have to write it like this:links_name(MasterField_ChildField)").defaultValue("").required(false)
     descriptor = tag :: descriptor
+
+
     descriptor
   }
 
