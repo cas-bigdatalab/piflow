@@ -46,6 +46,6 @@ object Entity{
   def main(args: Array[String]): Unit = {
     val m : Map[String, Any] = Map("sc1" -> "test1", "sc2" -> Array("2","1"))
     val e = new Entity("label1", "id2", m, Array("sc1","sc2"))
-    println(e.toString)
+    println(e.toString)  //"label1","test1","2;1","id2"
   }
 }
