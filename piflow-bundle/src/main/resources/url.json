@@ -1,0 +1,37 @@
+{
+  "flow":{
+    "name":"test",
+    "uuid":"1234",
+    "stops":[
+
+      {
+        "uuid":"1111",
+        "name":"getUrl",
+        "bundle":"cn.piflow.bundle.url.GetUrl",
+        "properties":{
+          "url":"http://10.0.86.98:8001/flow/info?appID=application_1539850523117_0029"
+        }
+
+      },
+      {
+        "uuid":"1111",
+        "name":"postUrl",
+        "bundle":"cn.piflow.bundle.url.PostUrl",
+        "properties":{
+          "url":"http://10.0.86.98:8001/flow/info?appID=application_1539850523117_0029",
+          "jsonPath":"hdfs://10.0.86.89:9000/xjzhu/student.json"
+        }
+
+      }
+
+    ],
+    "paths":[
+      {
+        "from":"getUrl",
+        "outport":"",
+        "inport":"",
+        "to":"postUrl"
+      }
+    ]
+  }
+}
