@@ -1,16 +1,15 @@
-package cn.piflow.bundle.ml
+package cn.piflow.bundle.ml_classification
 
-import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
-import cn.piflow.bundle.util.{JedisClusterImplSer, RedisUtil}
-import cn.piflow.conf.{ConfigurableStop, StopGroupEnum}
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.MapUtil
-//import org.apache.spark.ml.classification.{NaiveBayes, NaiveBayesModel}
+import cn.piflow.conf.{ConfigurableStop, StopGroupEnum}
+import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
+import org.apache.spark.ml.classification.DecisionTreeClassificationModel
 import org.apache.spark.sql.SparkSession
-import redis.clients.jedis.HostAndPort
 
-class NaiveBayesPrediction extends ConfigurableStop{
-  val description: String = "Mllib naive bayes prediction."
+class DecisionTreePrediction extends ConfigurableStop{
+  val authorEmail: String = "xiaoxiao@cnic.cn"
+  val description: String = "Make use of a exist DecisionTreeModel to predict."
   val inportCount: Int = 1
   val outportCount: Int = 0
   var test_data_path:String =_
@@ -24,11 +23,11 @@ class NaiveBayesPrediction extends ConfigurableStop{
     //data.show()
 
     //load model
-    //val model=NaiveBayesModel.load(model_path)
+    val model=DecisionTreeClassificationModel.load(model_path)
 
-    //val predictions=model.transform(data)
-    //predictions.show()
-    //out.write(predictions)
+    val predictions=model.transform(data)
+    predictions.show()
+    out.write(predictions)
 
   }
 
@@ -40,7 +39,7 @@ class NaiveBayesPrediction extends ConfigurableStop{
   def setProperties(map: Map[String, Any]): Unit = {
     test_data_path=MapUtil.get(map,key="test_data_path").asInstanceOf[String]
     model_path=MapUtil.get(map,key="model_path").asInstanceOf[String]
-    }
+  }
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
@@ -54,9 +53,6 @@ class NaiveBayesPrediction extends ConfigurableStop{
   override def getIcon(): Array[Byte] = ???
 
   override def getGroup(): List[String] = {
-    List(/*StopGroupEnum.MLGroup.toString*/"")
+    List(StopGroupEnum.MLGroup.toString)
   }
-
-  override val authorEmail: String = "xiaoxiao@cnic.cn"
-
 }

@@ -29,6 +29,8 @@ class SelectField extends ConfigurableStop {
 
 
     var finalFieldDF : DataFrame = df.select(columnArray:_*)
+
+    finalFieldDF.printSchema()
     finalFieldDF.show(2)
 
     out.write(finalFieldDF)
