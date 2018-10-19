@@ -33,7 +33,7 @@ class PostUrl extends ConfigurableStop{
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     val spark = pec.get[SparkSession]()
 
-//    val path = "hdfs://10.0.86.89:9000/yg/test.json"
+//    val jsonPath = "hdfs://10.0.86.89:9000/yg/test.json"
 //    val path = "hdfs://10.0.86.89:9000/xjzhu/example.json"
 
 
