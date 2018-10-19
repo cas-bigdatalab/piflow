@@ -1,7 +1,7 @@
 package cn.piflow.bundle.ml_classification
 
 import cn.piflow.conf.bean.PropertyDescriptor
-import cn.piflow.conf.util.MapUtil
+import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroupEnum}
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.apache.spark.ml.classification.DecisionTreeClassifier
@@ -110,7 +110,9 @@ class DecisionTreeTraining extends ConfigurableStop{
     descriptor
   }
 
-  override def getIcon(): Array[Byte] = ???
+  override def getIcon(): Array[Byte] = {
+    ImageUtil.getImage("ml.png")
+  }
 
   override def getGroup(): List[String] = {
     List(StopGroupEnum.MLGroup.toString)

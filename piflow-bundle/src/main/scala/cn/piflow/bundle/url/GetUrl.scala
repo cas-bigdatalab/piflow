@@ -5,7 +5,7 @@ import java.io.PrintWriter
 import cn.piflow._
 import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroupEnum}
 import cn.piflow.conf.bean.PropertyDescriptor
-import cn.piflow.conf.util.{FileUtil, MapUtil, OptionUtil}
+import cn.piflow.conf.util.{FileUtil, ImageUtil, MapUtil, OptionUtil}
 import org.apache.http.client.methods.{CloseableHttpResponse, HttpGet, HttpPost}
 import org.apache.http.entity.StringEntity
 import org.apache.http.impl.client.HttpClients
@@ -85,7 +85,9 @@ class GetUrl extends ConfigurableStop{
     descriptor
   }
 
-  override def getIcon(): Array[Byte] = ???
+  override def getIcon(): Array[Byte] = {
+    ImageUtil.getImage("http.jpg")
+  }
 
   override def getGroup(): List[String] = {
     List(StopGroupEnum.UrlGroup.toString)

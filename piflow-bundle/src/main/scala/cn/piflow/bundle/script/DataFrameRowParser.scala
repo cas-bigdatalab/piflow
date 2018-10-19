@@ -34,7 +34,7 @@ class DataFrameRowParser extends ConfigurableStop{
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("./src/main/resources/DataFrameParse.jpg")
+    ImageUtil.getImage("shell.png")
   }
 
   override def getGroup(): List[String] = {

@@ -52,7 +52,7 @@ class SelectField extends ConfigurableStop {
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("./src/main/resources/selectHiveQL.jpg")
+    ImageUtil.getImage("select.png")
   }
 
   override def getGroup(): List[String] = {

@@ -5,7 +5,7 @@ import java.util
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import cn.piflow.conf._
 import cn.piflow.conf.bean.PropertyDescriptor
-import cn.piflow.conf.util.MapUtil
+import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import java.util.Properties
 
 import org.apache.spark.sql.SparkSession
@@ -74,7 +74,9 @@ class WriteToKafka extends ConfigurableStop{
     descriptor
   }
 
-  override def getIcon(): Array[Byte] = ???
+  override def getIcon(): Array[Byte] = {
+    ImageUtil.getImage("kafka.png")
+  }
 
   override def getGroup(): List[String] = {
     List(StopGroupEnum.KafkaGroup.toString)

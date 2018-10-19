@@ -81,7 +81,7 @@ class FolderCsvParser extends ConfigurableStop{
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("./src/main/resources/selectHiveQL.jpg")
+    ImageUtil.getImage("csv.png")
   }
 
   override def getGroup(): List[String] = {

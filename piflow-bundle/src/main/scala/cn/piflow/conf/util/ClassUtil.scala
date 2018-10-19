@@ -9,6 +9,7 @@ import org.clapper.classutil.ClassFinder
 import org.reflections.Reflections
 import net.liftweb.json.JsonDSL._
 import net.liftweb.json._
+import sun.misc.BASE64Encoder
 
 
 object ClassUtil {
@@ -169,6 +170,7 @@ object ClassUtil {
     val propertyDescriptorList:List[PropertyDescriptor] = stop.getPropertyDescriptor()
     propertyDescriptorList.foreach(p=> if (p.allowableValues == null || p.allowableValues == None) p.allowableValues = List(""))
     val stopName = bundle.split("\\.").last
+    val base64Encoder = new BASE64Encoder()
     val json =
       ("StopInfo" ->
         ("name" -> stopName)~
@@ -178,6 +180,7 @@ object ClassUtil {
           ("outports" -> stop.outportList.mkString(",")) ~
           ("groups" -> stop.getGroup().mkString(",")) ~
           ("description" -> stop.description) ~
+          ("icon" -> base64Encoder.encode(stop.getIcon())) ~
           ("properties" ->
             propertyDescriptorList.map { property =>(
               ("name" -> property.name) ~

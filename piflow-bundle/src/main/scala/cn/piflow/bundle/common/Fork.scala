@@ -36,7 +36,7 @@ class Fork extends ConfigurableStop{
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("./src/main/resources/selectHiveQL.jpg")
+    ImageUtil.getImage("fork.png")
   }
 
   override def getGroup(): List[String] = {

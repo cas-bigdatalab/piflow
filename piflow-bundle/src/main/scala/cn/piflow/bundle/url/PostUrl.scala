@@ -4,7 +4,7 @@ import java.io.{BufferedReader, FileReader, InputStreamReader}
 import java.net.URI
 
 import cn.piflow.conf.bean.PropertyDescriptor
-import cn.piflow.conf.util.MapUtil
+import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroupEnum}
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.apache.commons.httpclient.HttpClient
@@ -102,7 +102,9 @@ class PostUrl extends ConfigurableStop{
     descriptor
   }
 
-  override def getIcon(): Array[Byte] = ???
+  override def getIcon(): Array[Byte] = {
+    ImageUtil.getImage("http.jpg")
+  }
 
   override def getGroup(): List[String] = {
     List(StopGroupEnum.UrlGroup.toString)

@@ -7,7 +7,7 @@ import cn.piflow.bundle.util.{JedisClusterImplSer, RedisUtil}
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import cn.piflow.conf._
 import cn.piflow.conf.bean.PropertyDescriptor
-import cn.piflow.conf.util.MapUtil
+import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import org.apache.avro.generic.GenericData.StringType
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.types.{DataType, StructField, StructType}
@@ -89,7 +89,9 @@ class ReadFromRedis extends ConfigurableStop{
     descriptor
   }
 
-  override def getIcon(): Array[Byte] = ???
+  override def getIcon(): Array[Byte] = {
+    ImageUtil.getImage("redis.png")
+  }
 
   override def getGroup(): List[String] = {
     List(StopGroupEnum.RedisGroup.toString)

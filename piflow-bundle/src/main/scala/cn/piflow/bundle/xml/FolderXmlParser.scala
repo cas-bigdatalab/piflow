@@ -47,7 +47,7 @@ class FolderXmlParser extends ConfigurableStop{
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("./src/main/resources/ShellExecutor.jpg")
+    ImageUtil.getImage("xml.png")
   }
 
   override def getGroup(): List[String] = {

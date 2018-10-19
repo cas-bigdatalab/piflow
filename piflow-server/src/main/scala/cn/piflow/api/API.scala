@@ -60,12 +60,15 @@ object API {
   def startFlow(flowJson : String):(String,SparkAppHandle) = {
 
     var appId:String = null
+    val t = JSON.parseFull(flowJson)
     val map = OptionUtil.getAny(JSON.parseFull(flowJson)).asInstanceOf[Map[String, Any]]
     val flowMap = MapUtil.get(map, "flow").asInstanceOf[Map[String, Any]]
     val uuid = MapUtil.get(flowMap,"uuid").asInstanceOf[String]
     val appName = MapUtil.get(flowMap,"name").asInstanceOf[String]
 
     val (stdout, stderr) = getLogFile(uuid, appName)
+
+    println("StartFlow API get json: \n" + flowJson )
 
     val countDownLatch = new CountDownLatch(1)
     val launcher = new SparkLauncher
@@ -86,7 +89,7 @@ object API {
       .setConf("spark.executor.memory", "1g")
       .setConf("spark.cores.max", "2")
       .setMainClass("cn.piflow.api.StartFlowMain")
-      .addAppArgs(flowJson)
+      .addAppArgs(flowJson.stripMargin)
       //.redirectOutput(stdout)
       //.redirectError(stderr)
       .startApplication( new SparkAppHandle.Listener {

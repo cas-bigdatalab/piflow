@@ -74,7 +74,7 @@ class JdbcRead extends ConfigurableStop  {
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("./src/main/resources/selectHiveQL.jpg")
+    ImageUtil.getImage("mysql.png")
   }
 
   override def getGroup(): List[String] = {

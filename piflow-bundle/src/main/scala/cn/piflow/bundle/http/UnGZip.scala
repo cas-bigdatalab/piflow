@@ -6,6 +6,7 @@ import java.util.zip.GZIPInputStream
 
 import cn.piflow.conf._
 import cn.piflow.conf.bean.PropertyDescriptor
+import cn.piflow.conf.util.ImageUtil
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.apache.commons.compress.archivers.tar.{TarArchiveEntry, TarArchiveInputStream}
 import org.apache.spark.sql.{DataFrame, SparkSession}
@@ -207,7 +208,9 @@ class UnGZip extends ConfigurableStop {
     return descriptor
   }
 
-  override def getIcon(): Array[Byte] = ???
+  override def getIcon(): Array[Byte] = {
+    ImageUtil.getImage("http.jpg")
+  }
 
   override def getGroup(): List[String] = {
     List(StopGroupEnum.HttpGroup.toString)

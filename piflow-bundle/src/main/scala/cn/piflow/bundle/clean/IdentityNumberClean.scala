@@ -8,7 +8,7 @@ import cn.piflow.bundle.util.CleanUtil
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import cn.piflow.conf._
 import cn.piflow.conf.bean.PropertyDescriptor
-import cn.piflow.conf.util.MapUtil
+import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import org.apache.spark.sql.SparkSession
 
 import scala.reflect.macros.ParseException
@@ -51,7 +51,9 @@ class IdentityNumberClean extends ConfigurableStop{
     descriptor
   }
 
-  override def getIcon(): Array[Byte] = ???
+  override def getIcon(): Array[Byte] = {
+    ImageUtil.getImage("clean.png")
+  }
 
   override def getGroup(): List[String] = {
     List(StopGroupEnum.CleanGroup.toString)

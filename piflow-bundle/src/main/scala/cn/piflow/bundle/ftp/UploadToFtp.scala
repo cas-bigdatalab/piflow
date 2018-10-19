@@ -6,7 +6,7 @@ import java.util
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import cn.piflow.conf.{ConfigurableStop, FtpGroup, PortEnum, StopGroup, StopGroupEnum}
 import cn.piflow.conf.bean.PropertyDescriptor
-import cn.piflow.conf.util.MapUtil
+import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import sun.net.TelnetOutputStream
 import sun.net.ftp.{FtpClient, FtpDirEntry}
 
@@ -169,7 +169,9 @@ class UploadToFtp extends ConfigurableStop{
       descriptor
     }
 
-    override def getIcon(): Array[Byte] = ???
+    override def getIcon(): Array[Byte] = {
+      ImageUtil.getImage("ftp.png")
+    }
 
   override def getGroup(): List[String] = {
     List(StopGroupEnum.FtpGroup.toString)

@@ -1,7 +1,7 @@
 package cn.piflow.bundle.es
 
 import cn.piflow.conf.bean.PropertyDescriptor
-import cn.piflow.conf.util.MapUtil
+import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroupEnum}
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.apache.spark.sql.SparkSession
@@ -79,7 +79,9 @@ class PutEs extends ConfigurableStop{
 
 
 
-  override def getIcon(): Array[Byte] = ???
+  override def getIcon(): Array[Byte] = {
+    ImageUtil.getImage("es.png")
+  }
 
   override def getGroup(): List[String] = {
     List(StopGroupEnum.ESGroup.toString)

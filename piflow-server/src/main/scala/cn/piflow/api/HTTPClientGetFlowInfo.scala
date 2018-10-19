@@ -13,7 +13,7 @@ object HTTPClientGetFlowInfo {
 
   def main(args: Array[String]): Unit = {
 
-    val url = "http://10.0.86.98:8002/flow/info?appID=application_1539588927382_0016"
+    val url = "http://10.0.86.98:8002/flow/info?appID=application_1539850523117_0032"
     val client = HttpClients.createDefault()
     val getFlowInfo:HttpGet = new HttpGet(url)
 
