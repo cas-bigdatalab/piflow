@@ -80,6 +80,7 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
         processMap.get(appId) match {
           case Some(process) =>
             val result = API.stopFlow(process)
+            processMap.-(appId)
             Future.successful(HttpResponse(entity = result))
           case ex =>{
             println(ex)

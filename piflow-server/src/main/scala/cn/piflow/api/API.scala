@@ -118,7 +118,7 @@ object API {
   }
 
   def stopFlow(process : SparkAppHandle): String = {
-    process.stop()
+    process.kill()
     "ok"
   }
 
