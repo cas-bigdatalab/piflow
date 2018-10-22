@@ -231,7 +231,10 @@ class RdfToDF extends ConfigurableStop{
             ->
             get(propertyRegexPattern.matcher(s),"value").replace("\"", "'")
           )
-        ).toArray
+        )
+        .groupBy(i => i._1)
+        .map(f => (f._1, f._2.map(_._2).toArray))
+        .toArray
         .toMap
       new Entity(id, label, prop, entitySchema.toSeq)
     })
