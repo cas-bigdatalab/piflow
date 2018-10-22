@@ -17,7 +17,8 @@ class Fork extends ConfigurableStop{
   var outports : List[String] = _
 
   override def setProperties(map: Map[String, Any]): Unit = {
-    outports = MapUtil.get(map,"outports").asInstanceOf[List[String]]
+    val outportStr = MapUtil.get(map,"outports").asInstanceOf[String]
+    outports = outportStr.split(",").toList
   }
 
   override def initialize(ctx: ProcessContext): Unit = {
@@ -30,7 +31,7 @@ class Fork extends ConfigurableStop{
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
-    val outports = new PropertyDescriptor().name("outports").displayName("outports").description("outports list").defaultValue("").required(true)
+    val outports = new PropertyDescriptor().name("outports").displayName("outports").description("outports string, seperated by ,.").defaultValue("").required(true)
     descriptor = outports :: descriptor
     descriptor
   }
