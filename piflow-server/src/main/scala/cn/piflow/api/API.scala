@@ -88,6 +88,8 @@ object API {
       .setConf("spark.driver.memory", "1g")
       .setConf("spark.executor.memory", "1g")
       .setConf("spark.cores.max", "2")
+      //.setConf("spark.checkpoint", PropertyUtil.getPropertyValue("checkpoint.path"))
+      .addFile(PropertyUtil.getConfigureFile())
       .setMainClass("cn.piflow.api.StartFlowMain")
       .addAppArgs(flowJson.stripMargin)
       //.redirectOutput(stdout)
