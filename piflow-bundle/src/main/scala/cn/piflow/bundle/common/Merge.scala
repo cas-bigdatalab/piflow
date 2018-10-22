@@ -2,7 +2,7 @@ package cn.piflow.bundle.common
 
 import cn.piflow.conf._
 import cn.piflow.conf.bean.PropertyDescriptor
-import cn.piflow.conf.util.ImageUtil
+import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 
 import scala.beans.BeanProperty
@@ -25,12 +25,13 @@ class Merge extends ConfigurableStop{
   }
 
   def setProperties(map : Map[String, Any]): Unit = {
-
+    val inportStr = MapUtil.get(map,"inports").asInstanceOf[String]
+    inports = inportStr.split(",").toList
   }
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
-    val inports = new PropertyDescriptor().name("inports").displayName("inports").description("inports list").defaultValue("").required(true)
+    val inports = new PropertyDescriptor().name("inports").displayName("inports").description("inports string, seperated by ,.").defaultValue("").required(true)
     descriptor = inports :: descriptor
     descriptor
   }
