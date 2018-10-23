@@ -229,7 +229,7 @@ class RdfToDF extends ConfigurableStop{
         .map(s => (
           get(propertyRegexPattern.matcher(s),"name")
             ->
-            get(propertyRegexPattern.matcher(s),"value").replace("\"", "'")
+            get(propertyRegexPattern.matcher(s),"value").replace("\"", " ")
           )
         )
         .groupBy(i => i._1)
@@ -259,6 +259,7 @@ class RdfToDF extends ConfigurableStop{
     var sampleSchema : Seq[String] = sampleEntity.schema
     sampleSchema +:= IDName
     sampleSchema :+= LABELName
+
     val entityDFSList: Seq[StructField] = for {
       s <- sampleSchema
       p <- sampleEntity.propSeq
