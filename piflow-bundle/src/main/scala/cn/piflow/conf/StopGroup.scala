@@ -17,6 +17,7 @@ case object RedisGroup extends StopGroup
 case object KafkaGroup extends StopGroup
 case object ESGroup extends StopGroup
 case object UrlGroup extends StopGroup
+case object HdfsGroup extends StopGroup
 
 
 

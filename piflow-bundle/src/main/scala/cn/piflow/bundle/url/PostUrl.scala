@@ -1,6 +1,6 @@
 package cn.piflow.bundle.url
 
-import java.io.{BufferedReader, FileReader, InputStreamReader}
+import java.io.{BufferedReader, InputStreamReader}
 import java.net.URI
 
 import cn.piflow.conf.bean.PropertyDescriptor
@@ -10,14 +10,11 @@ import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.apache.commons.httpclient.HttpClient
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FSDataInputStream, FileSystem, Path}
-import org.apache.hadoop.hdfs.client.HdfsUtils
 import org.apache.http.client.methods.HttpPost
 import org.apache.http.entity.StringEntity
 import org.apache.http.impl.client.HttpClients
+import org.apache.http.util.EntityUtils
 import org.apache.spark.sql.SparkSession
-
-import scala.io.Source
-import scala.util.parsing.json.JSONObject
 
 
 class PostUrl extends ConfigurableStop{
@@ -33,10 +30,6 @@ class PostUrl extends ConfigurableStop{
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     val spark = pec.get[SparkSession]()
 
-//    val jsonPath = "hdfs://10.0.86.89:9000/yg/test.json"
-//    val path = "hdfs://10.0.86.89:9000/xjzhu/example.json"
-
-
     //read  json from hdfs
     val conf = new Configuration()
     val fs = FileSystem.get(URI.create(jsonPath),conf)
@@ -45,25 +38,10 @@ class PostUrl extends ConfigurableStop{
     var lineTxt = bufferReader.readLine()
     val buffer = new StringBuffer()
     while (lineTxt != null ){
-
-      println(lineTxt)
       buffer.append(lineTxt.mkString)
-
       lineTxt=bufferReader.readLine()
     }
     println(buffer)
-
-
-
-    //    val file = Source.fromFile("hdfs://10.0.86.89:9000/xjzhu/cscd.xml","utf-8")
-    //    val buffer = new StringBuffer()
-    //    for (line <-file.getLines()){
-    //      buffer.append(line)
-    //      println(line)
-    //    }
-
-
-
 
     // post
     val client = HttpClients.createDefault()
@@ -72,17 +50,12 @@ class PostUrl extends ConfigurableStop{
 
     val post = new HttpPost(url)
     post.addHeader("content-Type","application/json")
-    post.setEntity(new StringEntity(buffer.toString()))
+    post.setEntity(new StringEntity(buffer.toString))
     val response = client.execute(post)
-    val allHeader = post.getAllHeaders
     val entity = response.getEntity
-    println(response+"******")
-    println(allHeader+"*******")
-    println(entity+"************")
-
-
-
-
+    val str = EntityUtils.toString(entity,"UTF-8")
+    println(response)
+    println("Code is " + str)
 
   }
 

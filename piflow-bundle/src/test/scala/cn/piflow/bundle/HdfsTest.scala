@@ -1,22 +1,19 @@
 package cn.piflow.bundle
 
-import cn.piflow.{FlowImpl, Runner}
-import cn.piflow.bundle.url.{GetUrl, PostUrl}
+import cn.piflow.Runner
 import cn.piflow.conf.bean.FlowBean
 import cn.piflow.conf.util.{FileUtil, OptionUtil}
-import org.apache.commons.httpclient.HttpClient
-import org.apache.commons.httpclient.methods.GetMethod
 import org.apache.spark.sql.SparkSession
 import org.junit.Test
 
 import scala.util.parsing.json.JSON
 
-class UrlTest {
+class HdfsTest {
   @Test
-  def testGetHttp(): Unit = {
+  def testHdfs(): Unit = {
 
     // parse flow json
-    val file = "src/main/resources/url.json"
+    val file = "src/main/resources/hdfs.json"
     val flowJsonStr = FileUtil.fileReader(file)
     val map = OptionUtil.getAny(JSON.parseFull(flowJsonStr)).asInstanceOf[Map[String, Any]]
     //    println(map)
