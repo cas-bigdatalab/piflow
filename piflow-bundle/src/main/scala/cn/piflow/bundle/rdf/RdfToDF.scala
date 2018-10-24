@@ -182,24 +182,28 @@ class RdfToDF extends ConfigurableStop{
     } else {
       hdfsFile = sc.textFile(rdfFilepath)
     }
+
     val entityRdd = hdfsFile
       .filter(s => entityRegexPattern.matcher(s).find() ||
         propertyRegexPattern.matcher(s).find())
+
     val relationshipRdd = hdfsFile
       .filter(s => relationRegexPattern.matcher(s).find())
+
     val settleUpEntityRdd = entityRdd.map(s => {
       val me = entityRegexPattern.matcher(s)
       val mp = propertyRegexPattern.matcher(s)
       if (me.find()) {
-        (me.group("prefix") + me.group("id"), me.group())
+        (me.group("id"), me.group())
       } else {
         mp.find()
-        (mp.group("prefix") + mp.group("id"), mp.group())
+        (mp.group("id"), mp.group())
       }
     })
       .groupByKey() //main
       .values
       .map(s => s.toList)
+
     val entitySchema : Set[String] = settleUpEntityRdd
       .map(s => s.filter(l => propertyRegexPattern.matcher(l).find()))
       .map(s => {
@@ -221,9 +225,8 @@ class RdfToDF extends ConfigurableStop{
 
     val entityObjectRdd = settleUpEntityRdd.map(l => {
       val en = l.filter(s => entityRegexPattern.matcher(s).find()).head
-      val label = get(entityRegexPattern.matcher(en),"lprefix") +
-        get(entityRegexPattern.matcher(en),"label")
-      val id = get(entityRegexPattern.matcher(en),"prefix") + get(entityRegexPattern.matcher(en),"id")
+      val label = get(entityRegexPattern.matcher(en),"label")
+      val id = get(entityRegexPattern.matcher(en),"id")
       val prop = l
         .filter(s => ?(propertyRegexPattern, s))
         .map(s => (
@@ -236,6 +239,7 @@ class RdfToDF extends ConfigurableStop{
         .map(f => (f._1, f._2.map(_._2).toArray))
         .toArray
         .toMap
+
       new Entity(id, label, prop, entitySchema.toSeq)
     })
 
@@ -244,11 +248,8 @@ class RdfToDF extends ConfigurableStop{
     val sampleEntity = entityObjectRdd.first()
 
     val relationshipRowRdd = relationshipRdd.map(s => Seq(
-      get(relationRegexPattern.matcher(s),"prefix1") ,
       get(relationRegexPattern.matcher(s),"id1") ,
-      get(relationRegexPattern.matcher(s),"tprefix") ,
       get(relationRegexPattern.matcher(s),"type") ,
-      get(relationRegexPattern.matcher(s),"prefix2") ,
       get(relationRegexPattern.matcher(s),"id2") ,
       get(relationRegexPattern.matcher(s),"type")
     )

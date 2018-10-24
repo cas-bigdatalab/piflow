@@ -30,21 +30,27 @@ class Entity( id : String,
     }
     ret ++= l
     ret += label
-    ret.map(s => {
-      s match {
-        case str: String =>
-          if (str.contains(","))
-            "\"" + s + "\""
-          else
-            s
-        case _ =>
-          s.asInstanceOf[Array[String]].map(a => if (a.contains(",")) "\"" + a + "\"" else a)
-      }
-    }).toArray
+    ret.map {
+      case c: String =>
+        if (c.contains(","))
+          "\"" + c + "\""
+        else
+          c
+      case c: Array[String] => c.asInstanceOf[Array[String]].map(a => if (a.contains(",")) "\"" + a + "\"" else a)
+      case _ => ""
+    }.toArray
   }
 
   override def toString: String = {
-    this.propSeq.reduce((a,b) => a + "," + b)
+    val list = this.propSeq
+    val ret = for (c <- list) yield {
+      c match {
+        case c : String => c.asInstanceOf[String]
+        case c : Array[String] => c.asInstanceOf[Array[String]].reduce(_ + ";" + _)
+        case _ => ""
+      }
+    }
+    ret.reduce(_ + "," + _)
   }
 
   def getEntityRow : Row = {
