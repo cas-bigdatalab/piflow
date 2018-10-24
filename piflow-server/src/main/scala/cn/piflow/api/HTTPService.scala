@@ -50,6 +50,29 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
      }
 
    }
+   case HttpRequest(GET, Uri.Path("/flow/progress"), headers, entity, protocol) => {
+
+     val appID = req.getUri().query().getOrElse("appID","")
+     if(!appID.equals("")){
+       val result = API.getFlowProgress(appID)
+       Future.successful(HttpResponse(entity = result))
+     }else{
+       Future.successful(HttpResponse(entity = "appID is null or not existed!"))
+     }
+
+   }
+
+   case HttpRequest(GET, Uri.Path("/flow/log"), headers, entity, protocol) => {
+
+     val appID = req.getUri().query().getOrElse("appID","")
+     if(!appID.equals("")){
+       val result = API.getFlowLog(appID)
+       Future.successful(HttpResponse(entity = result))
+     }else{
+       Future.successful(HttpResponse(entity = "appID is null or not existed!"))
+     }
+
+   }
 
    case HttpRequest(POST, Uri.Path("/flow/start"), headers, entity, protocol) =>{
 

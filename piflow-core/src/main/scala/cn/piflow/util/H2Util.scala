@@ -90,22 +90,31 @@ object H2Util {
 
     val flowRS : ResultSet = statement.executeQuery("select * from flow where id='" + appId +"'")
     while (flowRS.next()){
-
+      flowInfo = "{\"flow\":{\"id\":\"" + flowRS.getString("id") +
+        "\",\"name\":\"" +  flowRS.getString("name") +
+        "\",\"state\":\"" +  flowRS.getString("state") +
+        "\",\"startTime\":\"" +  flowRS.getString("startTime") +
+        "\",\"endTime\":\"" + flowRS.getString("endTime") +
+        "\",\"stops\":["
     }
+    flowRS.close()
 
     var stopList:List[String] = List()
     val rs : ResultSet = statement.executeQuery("select * from stop where flowId='" + appId +"'")
     while(rs.next()){
-      val stopStr = "{\"stop\":{\"name\":" + rs.getString("name") +
+      val stopStr = "{\"stop\":{\"name\":\"" + rs.getString("name") +
         "\",\"state\":\"" +  rs.getString("state") +
         "\",\"startTime\":\"" + rs.getString("startTime") +
         "\",\"endTime\":\"" + rs.getString("endTime") + "\"}}"
-      println(stopStr)
+      //println(stopStr)
       stopList = stopStr.toString +: stopList
     }
     rs.close()
 
     statement.close()
+    if (!flowInfo.equals(""))
+      flowInfo += stopList.mkString(",") + "]}"
+
     flowInfo
   }
 
@@ -172,7 +181,7 @@ object H2Util {
 
   def main(args: Array[String]): Unit = {
 
-    try{
+    /*try{
 
       val appId = "111"
       addFlow(appId,"xjzhu")
@@ -192,7 +201,9 @@ object H2Util {
 
     }catch {
       case ex => println(ex)
-    }
+    }*/
+    val flowInfo = getFlowInfo("application_1539850523117_0157")
+    println(flowInfo)
   }
 
 }

@@ -116,7 +116,7 @@ class RunnerLogger extends RunnerListener with Logging {
     println(s"process started: $pid, flow: $flowName")
     //update flow state to STARTED
     val appId = getAppId(ctx)
-    H2Util.addFlow(appId,flowName)
+    H2Util.addFlow(appId,ctx.getFlow().getClass.toString)
     H2Util.updateFlowState(appId,FlowState.STARTED)
     H2Util.updateFlowStartTime(appId)
   };
