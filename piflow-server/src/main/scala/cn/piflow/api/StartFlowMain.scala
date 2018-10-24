@@ -1,7 +1,7 @@
 package cn.piflow.api
 
 import cn.piflow.Runner
-import cn.piflow.api.util.ContainerPropertyUtil
+import cn.piflow.api.util.PropertyUtil
 import cn.piflow.conf.bean.FlowBean
 import cn.piflow.conf.util.OptionUtil
 import org.apache.spark.sql.SparkSession
@@ -29,7 +29,7 @@ object StartFlowMain {
 
     val process = Runner.create()
       .bind(classOf[SparkSession].getName, spark)
-      .bind("checkpoint.path",ContainerPropertyUtil.getPropertyValue("checkpoint.path"))
+      .bind("checkpoint.path",PropertyUtil.getPropertyValue("checkpoint.path"))
       .start(flow);
     val applicationId = spark.sparkContext.applicationId
     process.awaitTermination();

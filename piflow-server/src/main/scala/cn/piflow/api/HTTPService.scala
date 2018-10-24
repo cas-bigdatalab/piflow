@@ -13,6 +13,7 @@ import com.typesafe.config.ConfigFactory
 import scala.concurrent.Future
 import scala.util.parsing.json.JSON
 import org.apache.spark.launcher.SparkAppHandle
+import org.h2.tools.Server
 import spray.json.DefaultJsonProtocol
 
 
@@ -163,5 +164,6 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
 object Main {
   def main(argv: Array[String]):Unit = {
     HTTPService.run
+    val h2Server = Server.createTcpServer("-tcp", "-tcpAllowOthers").start()
   }
 }

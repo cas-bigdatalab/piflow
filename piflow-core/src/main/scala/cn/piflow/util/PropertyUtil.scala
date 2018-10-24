@@ -1,9 +1,9 @@
-package cn.piflow.api.util
+package cn.piflow.util
 
 import java.io.{FileInputStream, InputStream}
 import java.util.Properties
 
-object ContainerPropertyUtil {
+object PropertyUtil {
   private val prop: Properties = new Properties()
   var fis: InputStream = null
   var path :String = ""

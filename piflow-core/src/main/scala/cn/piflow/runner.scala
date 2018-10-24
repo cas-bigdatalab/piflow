@@ -1,6 +1,7 @@
 package cn.piflow
 
-import cn.piflow.util.Logging
+import cn.piflow.util.{FlowState, H2Util, Logging, StopState}
+import org.apache.spark.sql.SparkSession
 
 import scala.collection.mutable.ArrayBuffer
 
@@ -113,6 +114,11 @@ class RunnerLogger extends RunnerListener with Logging {
     val flowName = ctx.getFlow().toString;
     logger.debug(s"process started: $pid, flow: $flowName");
     println(s"process started: $pid, flow: $flowName")
+    //update flow state to STARTED
+    val appId = getAppId(ctx)
+    H2Util.addFlow(appId,flowName)
+    H2Util.updateFlowState(appId,FlowState.STARTED)
+    H2Util.updateFlowStartTime(appId)
   };
 
   override def onJobStarted(ctx: JobContext): Unit = {
@@ -120,42 +126,69 @@ class RunnerLogger extends RunnerListener with Logging {
     val stopName = ctx.getStopJob().getStopName();
     logger.debug(s"job started: $jid, stop: $stopName");
     println(s"job started: $jid, stop: $stopName")
+    //update stop state to STARTED
+    H2Util.updateStopState(getAppId(ctx),stopName,StopState.STARTED)
+    H2Util.updateStopStartTime(getAppId(ctx),stopName)
   };
 
   override def onJobFailed(ctx: JobContext): Unit = {
+    ctx.getProcessContext()
     val stopName = ctx.getStopJob().getStopName();
     logger.debug(s"job failed: $stopName");
     println(s"job failed: $stopName")
+    //update stop state to FAILED
+    H2Util.updateStopState(getAppId(ctx),stopName,StopState.FAILED)
+    H2Util.updateStopFinishedTime(getAppId(ctx),stopName)
   };
 
   override def onJobInitialized(ctx: JobContext): Unit = {
     val stopName = ctx.getStopJob().getStopName();
     logger.debug(s"job initialized: $stopName");
     println(s"job initialized: $stopName")
+    //add stop into h2 db and update stop state to INIT
+    val appId = getAppId(ctx)
+    H2Util.addStop(appId,stopName)
+    H2Util.updateStopState(appId,stopName,StopState.INIT)
   };
 
   override def onProcessCompleted(ctx: ProcessContext): Unit = {
     val pid = ctx.getProcess().pid();
     logger.debug(s"process completed: $pid");
     println(s"process completed: $pid")
+    //update flow state to COMPLETED
+    val appId = getAppId(ctx)
+    H2Util.updateFlowState(appId,FlowState.COMPLETED)
+    H2Util.updateFlowFinishedTime(appId)
   };
 
   override def onJobCompleted(ctx: JobContext): Unit = {
     val stopName = ctx.getStopJob().getStopName();
     logger.debug(s"job completed: $stopName");
     println(s"job completed: $stopName")
+    //update stop state to COMPLETED
+    val appId = getAppId(ctx)
+    H2Util.updateStopState(appId,stopName,StopState.COMPLETED)
+    H2Util.updateStopFinishedTime(appId,stopName)
   };
 
   override def onProcessFailed(ctx: ProcessContext): Unit = {
     val pid = ctx.getProcess().pid();
     logger.debug(s"process failed: $pid");
     println(s"process failed: $pid")
+    //update flow state to FAILED
+    val appId = getAppId(ctx)
+    H2Util.updateFlowState(getAppId(ctx),FlowState.FAILED)
+    H2Util.updateFlowFinishedTime(appId)
   }
 
   override def onProcessAborted(ctx: ProcessContext): Unit = {
     val pid = ctx.getProcess().pid();
     logger.debug(s"process aborted: $pid");
     println(s"process aborted: $pid")
+    //update flow state to ABORTED
+    val appId = getAppId(ctx)
+    H2Util.updateFlowState(appId,FlowState.ABORTED)
+    H2Util.updateFlowFinishedTime(appId)
   }
 
   override def onProcessForked(ctx: ProcessContext, child: ProcessContext): Unit = {
@@ -163,5 +196,12 @@ class RunnerLogger extends RunnerListener with Logging {
     val cid = child.getProcess().pid();
     logger.debug(s"process forked: $pid, child flow execution: $cid");
     println(s"process forked: $pid, child flow execution: $cid")
+    //update flow state to FORK
+    H2Util.updateFlowState(getAppId(ctx),FlowState.FORK)
+  }
+
+  private def getAppId(ctx: Context) : String = {
+    val sparkSession = ctx.get(classOf[SparkSession].getName).asInstanceOf[SparkSession]
+    sparkSession.sparkContext.applicationId
   }
 }
