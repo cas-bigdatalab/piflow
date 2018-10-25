@@ -9,6 +9,7 @@ import org.apache.spark.sql.SparkSession
 import cn.piflow.conf.util.{ClassUtil, MapUtil, OptionUtil}
 import cn.piflow.{Process, Runner}
 import cn.piflow.api.util.PropertyUtil
+import cn.piflow.util.H2Util
 import org.apache.http.client.methods.{CloseableHttpResponse, HttpGet, HttpPost}
 import org.apache.http.impl.client.HttpClients
 import org.apache.http.util.EntityUtils
@@ -125,6 +126,14 @@ object API {
   }
 
   def getFlowInfo(appID : String) : String = {
+    val flowInfo = H2Util.getFlowInfo(appID)
+    flowInfo
+  }
+  def getFlowProgress(appID : String) : String = {
+    val progress = H2Util.getFlowProgress(appID)
+    progress
+  }
+  def getFlowLog(appID : String) : String = {
 
     val url = PropertyUtil.getPropertyValue("yarn.url") + appID
     val client = HttpClients.createDefault()
@@ -133,9 +142,9 @@ object API {
     val response:CloseableHttpResponse = client.execute(get)
     val entity = response.getEntity
     val str = EntityUtils.toString(entity,"UTF-8")
-    println("Code is " + str)
     str
   }
+
 
   def getStopInfo(bundle : String) : String = {
     try{

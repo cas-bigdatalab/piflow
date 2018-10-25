@@ -13,6 +13,7 @@ import com.typesafe.config.ConfigFactory
 import scala.concurrent.Future
 import scala.util.parsing.json.JSON
 import org.apache.spark.launcher.SparkAppHandle
+import org.h2.tools.Server
 import spray.json.DefaultJsonProtocol
 
 
@@ -43,6 +44,29 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
      val appID = req.getUri().query().getOrElse("appID","")
      if(!appID.equals("")){
        val result = API.getFlowInfo(appID)
+       Future.successful(HttpResponse(entity = result))
+     }else{
+       Future.successful(HttpResponse(entity = "appID is null or not existed!"))
+     }
+
+   }
+   case HttpRequest(GET, Uri.Path("/flow/progress"), headers, entity, protocol) => {
+
+     val appID = req.getUri().query().getOrElse("appID","")
+     if(!appID.equals("")){
+       val result = API.getFlowProgress(appID)
+       Future.successful(HttpResponse(entity = result))
+     }else{
+       Future.successful(HttpResponse(entity = "appID is null or not existed!"))
+     }
+
+   }
+
+   case HttpRequest(GET, Uri.Path("/flow/log"), headers, entity, protocol) => {
+
+     val appID = req.getUri().query().getOrElse("appID","")
+     if(!appID.equals("")){
+       val result = API.getFlowLog(appID)
        Future.successful(HttpResponse(entity = result))
      }else{
        Future.successful(HttpResponse(entity = "appID is null or not existed!"))
@@ -163,5 +187,6 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
 object Main {
   def main(argv: Array[String]):Unit = {
     HTTPService.run
+    val h2Server = Server.createTcpServer("-tcp", "-tcpAllowOthers", "-tcpPort",PropertyUtil.getPropertyValue("h2.port")).start()
   }
 }
