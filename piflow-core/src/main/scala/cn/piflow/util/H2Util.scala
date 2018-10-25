@@ -11,7 +11,8 @@ object H2Util {
   val CREATE_FLOW_TABLE = "create table if not exists flow (id varchar(255), name varchar(255), state varchar(255), startTime varchar(255), endTime varchar(255))"
   val CREATE_STOP_TABLE = "create table if not exists stop (flowId varchar(255), name varchar(255), state varchar(255), startTime varchar(255), endTime varchar(255))"
   //val CONNECTION_URL = "jdbc:h2:tcp://" + PropertyUtil.getPropertyValue("server.ip") + ":9092/~/piflow"
-  val CONNECTION_URL = "jdbc:h2:tcp://" + PropertyUtil.getPropertyValue("server.ip")  + "/~/piflow"
+  val serverIP = PropertyUtil.getPropertyValue("server.ip") + ":" + PropertyUtil.getPropertyValue("h2.port")
+  val CONNECTION_URL = "jdbc:h2:tcp://" +  serverIP + "/~/piflow;AUTO_SERVER=true"
   var connection : Connection= null
 
   try{
@@ -113,7 +114,7 @@ object H2Util {
 
     statement.close()
     if (!flowInfo.equals(""))
-      flowInfo += stopList.mkString(",") + "]}"
+      flowInfo += stopList.mkString(",") + "]}}"
 
     flowInfo
   }

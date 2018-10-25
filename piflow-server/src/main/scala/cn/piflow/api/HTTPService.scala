@@ -187,6 +187,6 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
 object Main {
   def main(argv: Array[String]):Unit = {
     HTTPService.run
-    val h2Server = Server.createTcpServer("-tcp", "-tcpAllowOthers").start()
+    val h2Server = Server.createTcpServer("-tcp", "-tcpAllowOthers", "-tcpPort",PropertyUtil.getPropertyValue("h2.port")).start()
   }
 }
