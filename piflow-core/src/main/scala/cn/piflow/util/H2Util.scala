@@ -10,7 +10,6 @@ object H2Util {
   val QUERY_TIME = 30
   val CREATE_FLOW_TABLE = "create table if not exists flow (id varchar(255), name varchar(255), state varchar(255), startTime varchar(255), endTime varchar(255))"
   val CREATE_STOP_TABLE = "create table if not exists stop (flowId varchar(255), name varchar(255), state varchar(255), startTime varchar(255), endTime varchar(255))"
-  //val CONNECTION_URL = "jdbc:h2:tcp://" + PropertyUtil.getPropertyValue("server.ip") + ":9092/~/piflow"
   val serverIP = PropertyUtil.getPropertyValue("server.ip") + ":" + PropertyUtil.getPropertyValue("h2.port")
   val CONNECTION_URL = "jdbc:h2:tcp://" +  serverIP + "/~/piflow;AUTO_SERVER=true"
   var connection : Connection= null
@@ -47,25 +46,23 @@ object H2Util {
     val statement = getConnectionInstance().createStatement()
     statement.setQueryTimeout(QUERY_TIME)
     val updateSql = "update flow set state='" + state + "' where id='" + appId + "'"
-    println(updateSql)
+    //println(updateSql)
     statement.executeUpdate(updateSql)
     statement.close()
   }
-  def updateFlowStartTime(appId:String) = {
-    val startTime = new Date().toString
+  def updateFlowStartTime(appId:String, startTime:String) = {
     val statement = getConnectionInstance().createStatement()
     statement.setQueryTimeout(QUERY_TIME)
     val updateSql = "update flow set startTime='" + startTime + "' where id='" + appId + "'"
-    println(updateSql)
+    //println(updateSql)
     statement.executeUpdate(updateSql)
     statement.close()
   }
-  def updateFlowFinishedTime(appId:String) = {
-    val endTime = new Date().toString
+  def updateFlowFinishedTime(appId:String, endTime:String) = {
     val statement = getConnectionInstance().createStatement()
     statement.setQueryTimeout(QUERY_TIME)
     val updateSql = "update flow set endTime='" + endTime + "' where id='" + appId + "'"
-    println(updateSql)
+    //println(updateSql)
     statement.executeUpdate(updateSql)
     statement.close()
   }
@@ -77,7 +74,7 @@ object H2Util {
     val rs : ResultSet = statement.executeQuery("select * from flow where id='" + appId +"'")
     while(rs.next()){
       state = rs.getString("state")
-      println("id:" + rs.getString("id") + "\tname:" + rs.getString("name") + "\tstate:" + rs.getString("state"))
+      //println("id:" + rs.getString("id") + "\tname:" + rs.getString("name") + "\tstate:" + rs.getString("state"))
     }
     rs.close()
     statement.close()
@@ -129,14 +126,14 @@ object H2Util {
     val totalRS : ResultSet = statement.executeQuery("select count(*) as stopCount from stop where flowId='" + appId +"'")
     while(totalRS.next()){
       stopCount = totalRS.getInt("stopCount")
-      println("stopCount:" + stopCount)
+      //println("stopCount:" + stopCount)
     }
     totalRS.close()
 
     val completedRS : ResultSet = statement.executeQuery("select count(*) as completedStopCount from stop where flowId='" + appId +"' and state='" + StopState.COMPLETED + "'")
     while(completedRS.next()){
       completedStopCount = completedRS.getInt("completedStopCount")
-      println("completedStopCount:" + completedStopCount)
+      //println("completedStopCount:" + completedStopCount)
     }
     completedRS.close()
     statement.close()
@@ -155,27 +152,25 @@ object H2Util {
     val statement = getConnectionInstance().createStatement()
     statement.setQueryTimeout(QUERY_TIME)
     val updateSql = "update stop set state='" + state + "' where flowId='" + appId + "' and name='" + name + "'"
-    println(updateSql)
+    //println(updateSql)
     statement.executeUpdate(updateSql)
     statement.close()
   }
 
-  def updateStopStartTime(appId:String, name:String) = {
-    val startTime = new Date().toString
+  def updateStopStartTime(appId:String, name:String, startTime:String) = {
     val statement = getConnectionInstance().createStatement()
     statement.setQueryTimeout(QUERY_TIME)
     val updateSql = "update stop set startTime='" + startTime + "' where flowId='" + appId + "' and name='" + name + "'"
-    println(updateSql)
+    //println(updateSql)
     statement.executeUpdate(updateSql)
     statement.close()
   }
 
-  def updateStopFinishedTime(appId:String, name:String) = {
-    val endTime = new Date().toString
+  def updateStopFinishedTime(appId:String, name:String, endTime:String) = {
     val statement = getConnectionInstance().createStatement()
     statement.setQueryTimeout(QUERY_TIME)
     val updateSql = "update stop set endTime='" + endTime + "' where flowId='" + appId + "' and name='" + name + "'"
-    println(updateSql)
+    //println(updateSql)
     statement.executeUpdate(updateSql)
     statement.close()
   }
