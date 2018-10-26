@@ -43,10 +43,14 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
 
      val appID = req.getUri().query().getOrElse("appID","")
      if(!appID.equals("")){
-       val result = API.getFlowInfo(appID)
+       var result = API.getFlowInfo(appID)
+       println("getFlowInfo result: " + result)
+       if (result.equals("")){
+         result = "{}"
+       }
        Future.successful(HttpResponse(entity = result))
      }else{
-       Future.successful(HttpResponse(entity = "appID is null or not existed!"))
+       Future.successful(HttpResponse(entity = "appID is null or flow run failed!"))
      }
 
    }
@@ -54,10 +58,14 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
 
      val appID = req.getUri().query().getOrElse("appID","")
      if(!appID.equals("")){
-       val result = API.getFlowProgress(appID)
+       var result = API.getFlowProgress(appID)
+       println("getFlowProgress result: " + result)
+       if (result.equals("NaN")){
+         result = "0"
+       }
        Future.successful(HttpResponse(entity = result))
      }else{
-       Future.successful(HttpResponse(entity = "appID is null or not existed!"))
+       Future.successful(HttpResponse(entity = "appID is null or flow run failed!"))
      }
 
    }
@@ -69,7 +77,7 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
        val result = API.getFlowLog(appID)
        Future.successful(HttpResponse(entity = result))
      }else{
-       Future.successful(HttpResponse(entity = "appID is null or not existed!"))
+       Future.successful(HttpResponse(entity = "appID is null or flow does not exist!"))
      }
 
    }
