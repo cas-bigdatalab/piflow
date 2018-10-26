@@ -1,0 +1,42 @@
+{
+  "flow":{
+    "name":"test",
+    "uuid":"1234",
+    "stops":[
+      {
+        "uuid":"0000",
+        "name":"SelectHiveQL",
+        "bundle":"cn.piflow.bundle.hive.SelectHiveQL",
+        "properties":{
+          "hiveQL":"select * from sparktest.word2vec"
+        }
+
+      },
+      {
+        "uuid":"1111",
+        "name":"WordToVec",
+        "bundle":"cn.piflow.bundle.ml_feature.WordToVec",
+        "properties":{
+          "maxIter":"",
+          "maxSentenceLength":"",
+          "minCount":"",
+          "numPartitions":"",
+          "stepSize":"",
+          "vectorSize":"",
+          "colName":"doc",
+          "outputCol":"result"
+        }
+
+      }
+
+    ],
+    "paths":[
+      {
+        "from":"SelectHiveQL",
+        "outport":"",
+        "inport":"",
+        "to":"WordToVec"
+      }
+    ]
+  }
+}
