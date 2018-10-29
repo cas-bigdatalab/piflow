@@ -8,6 +8,7 @@ import akka.http.scaladsl.model.HttpMethods._
 import akka.http.scaladsl.server.Directives
 import akka.stream.ActorMaterializer
 import cn.piflow.api.util.PropertyUtil
+import cn.piflow.conf.util.{MapUtil, OptionUtil}
 import com.typesafe.config.ConfigFactory
 
 import scala.concurrent.Future
@@ -46,7 +47,17 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
        var result = API.getFlowInfo(appID)
        println("getFlowInfo result: " + result)
        if (result.equals("")){
-         result = "{}"
+         val yarnInfoJson = API.getFlowLog(appID)
+         val map = OptionUtil.getAny(JSON.parseFull(yarnInfoJson)).asInstanceOf[Map[String, Any]]
+         val appMap = MapUtil.get(map, "app").asInstanceOf[Map[String, Any]]
+         val name = MapUtil.get(appMap,"name").asInstanceOf[String]
+         val state = MapUtil.get(appMap,"state").asInstanceOf[String]
+         var flowInfo = "{\"flow\":{\"id\":\"" + appID +
+           "\",\"name\":\"" +  name +
+           "\",\"state\":\"" +  state +
+           "\",\"startTime\":\"" +  "" +
+           "\",\"endTime\":\"" + "" +
+           "\",\"stops\":[]}}"
        }
        Future.successful(HttpResponse(entity = result))
      }else{

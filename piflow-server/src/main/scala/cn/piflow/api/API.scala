@@ -61,7 +61,6 @@ object API {
   def startFlow(flowJson : String):(String,SparkAppHandle) = {
 
     var appId:String = null
-    val t = JSON.parseFull(flowJson)
     val map = OptionUtil.getAny(JSON.parseFull(flowJson)).asInstanceOf[Map[String, Any]]
     val flowMap = MapUtil.get(map, "flow").asInstanceOf[Map[String, Any]]
     val uuid = MapUtil.get(flowMap,"uuid").asInstanceOf[String]
