@@ -107,8 +107,8 @@
         </dependency>
         <dependency>
             <groupId>org.elasticsearch</groupId>
-            <artifactId>elasticsearch-spark-20_2.11</artifactId>
-            <version>5.6.3</version>
+            <artifactId>elasticsearch-hadoop</artifactId>
+            <version>6.4.2</version>
         </dependency>
         <dependency>
             <groupId>org.apache.spark</groupId>

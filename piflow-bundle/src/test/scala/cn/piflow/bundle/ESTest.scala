@@ -9,38 +9,43 @@ import org.junit.Test
 
 import scala.util.parsing.json.JSON
 
-class HdfsTest {
-  @Test
-  def testHdfs(): Unit = {
+class ESTest {
 
-    // parse flow json
-    val file = "src/main/resources/hdfs.json"
+  @Test
+  def testEs(): Unit ={
+
+    //parse flow json
+    val file = "src/main/resources/es.json"
     val flowJsonStr = FileUtil.fileReader(file)
     val map = OptionUtil.getAny(JSON.parseFull(flowJsonStr)).asInstanceOf[Map[String, Any]]
-    //    println(map)
+    println(map)
 
     //create flow
     val flowBean = FlowBean(map)
     val flow = flowBean.constructFlow()
 
     val h2Server = Server.createTcpServer("-tcp", "-tcpAllowOthers", "-tcpPort","50001").start()
-
+    //execute flow
     val spark = SparkSession.builder()
       .master("spark://10.0.86.89:7077")
-      .appName("DblpParserTest")
-      .config("spark.driver.memory", "4g")
+      .appName("es")
+      .config("spark.driver.memory", "1g")
       .config("spark.executor.memory", "2g")
-      .config("spark.cores.max", "3")
-      .config("spark.jars", "/opt/work/111/piflow-master/out/artifacts/piflow_bundle/piflow-bundle.jar")
+      .config("spark.cores.max", "2")
+      .config("spark.jars","/opt/project/piflow-master/out/artifacts/piflow_bundle/piflow_bundle.jar")
       .enableHiveSupport()
       .getOrCreate()
 
     val process = Runner.create()
       .bind(classOf[SparkSession].getName, spark)
+      .bind("checkpoint.path", "hdfs://10.0.86.89:9000/xjzhu/piflow/checkpoints/")
       .start(flow);
 
     process.awaitTermination();
+    val pid = process.pid();
+    println(pid + "!!!!!!!!!!!!!!!!!!!!!")
     spark.close();
   }
+
 
 }
