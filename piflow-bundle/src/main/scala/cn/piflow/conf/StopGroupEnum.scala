@@ -22,6 +22,6 @@ object StopGroupEnum extends Enumeration {
   val RDFGroup = Value("RDFGroup")
   val UrlGroup= Value("UrlGroup")
   val HdfsGroup= Value("HdfsGroup")
-  val GenBankParseGroup= Value("GenBankParseGroup")
+  val MicroorganismGroup= Value("MicroorganismGroup")
 
 }

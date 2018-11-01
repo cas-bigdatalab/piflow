@@ -1,4 +1,4 @@
-package cn.piflow.bundle.genBankParse
+package cn.piflow.bundle.microorganism
 
 import java.io._
 import java.net.URL
@@ -7,8 +7,8 @@ import java.util
 import java.util.ArrayList
 import java.util.zip.GZIPInputStream
 
-import cn.piflow.bundle.genBankParse.util.CustomIOTools
-import cn.piflow.bundle.genBankParse.util.Process
+import cn.piflow.bundle.microorganism.util.CustomIOTools
+import cn.piflow.bundle.microorganism.util.Process
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroupEnum}
@@ -204,7 +204,7 @@ class GenBankParse extends ConfigurableStop{
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroupEnum.GenBankParseGroup.toString)
+    List(StopGroupEnum.MicroorganismGroup.toString)
   }
 
   def initialize(ctx: ProcessContext): Unit = {

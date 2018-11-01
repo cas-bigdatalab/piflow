@@ -1,4 +1,4 @@
-package cn.piflow.bundle.genBankParse.util;
+package cn.piflow.bundle.microorganism.util;
 
 
 import org.biojava.bio.BioError;

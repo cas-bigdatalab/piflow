@@ -1,8 +1,4 @@
-package cn.piflow.bundle.genBankParse
-
-import java.io._
-import java.net.URL
-import java.util.ArrayList
+package cn.piflow.bundle.ftp
 
 import cn.piflow.bundle.util.UnGzUtil
 import cn.piflow.conf.bean.PropertyDescriptor
@@ -10,9 +6,6 @@ import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroupEnum}
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.apache.spark.sql.{Row, SparkSession}
-import org.jsoup.Jsoup
-import org.jsoup.select.Elements
-import sun.net.ftp.FtpProtocolException
 
 
 class UnGz extends ConfigurableStop{
@@ -80,7 +73,7 @@ class UnGz extends ConfigurableStop{
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroupEnum.GenBankParseGroup.toString)
+    List(StopGroupEnum.FtpGroup.toString)
   }
 
   def initialize(ctx: ProcessContext): Unit = {

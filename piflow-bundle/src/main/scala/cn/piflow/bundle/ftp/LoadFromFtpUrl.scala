@@ -1,19 +1,16 @@
-package cn.piflow.bundle.genBankParse
-
+package cn.piflow.bundle.ftp
 
 import java.io._
 import java.net.URL
-import java.util
 import java.util.ArrayList
 
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroupEnum}
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
-import org.apache.spark.sql.{DataFrame, SparkSession}
+import org.apache.spark.sql.SparkSession
 import org.jsoup.Jsoup
 import org.jsoup.select.Elements
-import shapeless.ops.hlist.Unzip
 import sun.net.ftp.FtpProtocolException
 
 
@@ -162,7 +159,7 @@ class LoadFromFtpUrl extends ConfigurableStop{
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroupEnum.GenBankParseGroup.toString)
+    List(StopGroupEnum.FtpGroup.toString)
   }
 
   def initialize(ctx: ProcessContext): Unit = {
