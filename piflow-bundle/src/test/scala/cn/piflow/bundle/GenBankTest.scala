@@ -13,7 +13,7 @@ import scala.util.parsing.json.{JSON, JSONObject}
 class GenBankTest {
 
   @Test
-  def testSeq(): Unit ={
+  def testgenBank(): Unit ={
 
     //parse flow json
     val file = "src/main/resources/genbank.json"
@@ -29,7 +29,7 @@ class GenBankTest {
     //execute flow
     val spark = SparkSession.builder()
       .master("spark://10.0.86.89:7077")
-      .appName("es")
+      .appName("genbank")
       .config("spark.driver.memory", "1g")
       .config("spark.executor.memory", "2g")
       .config("spark.cores.max", "2")
