@@ -15,7 +15,7 @@ class FlowTest_XX {
   def testFlow(): Unit ={
 
     //parse flow json
-    val file = "src/main/resources/lda.json"
+    val file = "src/main/resources/gaussion.json"
     val flowJsonStr = FileUtil.fileReader(file)
     val map = OptionUtil.getAny(JSON.parseFull(flowJsonStr)).asInstanceOf[Map[String, Any]]
     println(map)
@@ -52,7 +52,7 @@ class FlowTest_XX {
   def testFlow2json() = {
 
     //parse flow json
-    val file = "src/main/resources/lda.json"
+    val file = "src/main/resources/gaussion.json"
     val flowJsonStr = FileUtil.fileReader(file)
     val map = OptionUtil.getAny(JSON.parseFull(flowJsonStr)).asInstanceOf[Map[String, Any]]
 
