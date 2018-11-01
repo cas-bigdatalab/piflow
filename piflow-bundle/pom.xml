@@ -110,6 +110,14 @@
             <artifactId>elasticsearch-hadoop</artifactId>
             <version>6.4.2</version>
         </dependency>
+        <!-- https://mvnrepository.com/artifact/org.elasticsearch/elasticsearch -->
+        <dependency>
+            <groupId>org.elasticsearch</groupId>
+            <artifactId>elasticsearch</artifactId>
+            <version>5.6.3</version>
+        </dependency>
+
+
         <dependency>
             <groupId>org.apache.spark</groupId>
             <artifactId>spark-mllib_2.11</artifactId>
@@ -137,10 +145,12 @@
         </dependency>
 
 
+
     </dependencies>
 
     <build>
         <plugins>
+
             <plugin>
                 <artifactId>maven-shade-plugin</artifactId>
                 <version>1.5</version>
