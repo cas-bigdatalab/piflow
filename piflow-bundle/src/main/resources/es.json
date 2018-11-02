@@ -14,7 +14,7 @@
       {
         "uuid":"1111",
         "name":"putEs",
-        "bundle":"cn.piflow.bundle.es.NewPutEs",
+        "bundle":"cn.piflow.bundle.es.PutEs",
         "properties":{
           "es_nodes":"10.0.86.239",
           "port":"9200",
@@ -26,7 +26,7 @@
       {
         "uuid":"2222",
         "name":"fetchEs",
-        "bundle":"cn.piflow.bundle.es.NewFetchEs",
+        "bundle":"cn.piflow.bundle.es.FetchEs",
         "properties":{
           "es_nodes":"10.0.86.239",
           "port":"9200",
@@ -38,7 +38,7 @@
       {
         "uuid":"3333",
         "name":"queryEs",
-        "bundle":"cn.piflow.bundle.es.NewQueryEs",
+        "bundle":"cn.piflow.bundle.es.QueryEs",
         "properties":{
           "es_nodes":"10.0.86.239",
           "port":"9200",

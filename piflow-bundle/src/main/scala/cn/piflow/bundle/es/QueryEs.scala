@@ -7,7 +7,7 @@ import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.apache.spark.sql.SparkSession
 import org.elasticsearch.spark.rdd.EsSpark
 
-class NewQueryEs extends ConfigurableStop {
+class QueryEs extends ConfigurableStop {
 
   override val description: String = "query data with dataframe from elasticSearch "
   val authorEmail: String = "ygang@cnic.cn"
@@ -25,6 +25,7 @@ class NewQueryEs extends ConfigurableStop {
     val spark = pec.get[SparkSession]()
     val ssc = spark.sqlContext
 
+    // 查询 语句  字段：内容
     val query =
       s"""
          |{
@@ -61,7 +62,8 @@ class NewQueryEs extends ConfigurableStop {
 //        """.stripMargin
 
 
-    val options = Map("es.index.auto.create"-> "true","es.nodes.wan.only"->"true",
+    val options = Map("es.index.auto.create"-> "true",
+      "es.nodes.wan.only"->"true",
       "es.query" -> query,
       "es.nodes"->es_nodes,"es.port"->port)
 
@@ -70,11 +72,7 @@ class NewQueryEs extends ConfigurableStop {
       .options(options).load(s"${es_index}/${es_type}")
 
     outDf.show()
-    println(")))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))_________________")
-
     out.write(outDf)
-
-
   }
 
   def initialize(ctx: ProcessContext): Unit = {
@@ -116,7 +114,7 @@ class NewQueryEs extends ConfigurableStop {
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroupEnum.HiveGroup.toString)
+    List(StopGroupEnum.ESGroup.toString)
   }
 
 

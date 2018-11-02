@@ -4,14 +4,14 @@ import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroupEnum}
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
-import org.apache.spark.{SparkConf, SparkContext}
+import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.SparkSession
 import org.elasticsearch.spark.rdd.EsSpark
 import org.elasticsearch.spark.sql.EsSparkSQL
 
-class NewPutEs extends ConfigurableStop {
+class FetchEs extends ConfigurableStop {
 
-  override val description: String = "put data with dataframe to elasticSearch "
+  override val description: String = "fetch data with dataframe from elasticSearch "
   val authorEmail: String = "ygang@cnic.cn"
   val inportCount: Int = 0
   val outportCount: Int = 1
@@ -23,29 +23,18 @@ class NewPutEs extends ConfigurableStop {
 
   def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     val spark = pec.get[SparkSession]()
-    val inDf = in.read()
-    inDf.show()
 
-    val sc = spark.sparkContext
-    val options = Map("es.index.auto.create"-> "true",
+    val ssc = spark.sqlContext
+
+    val options = Map("es.index.auto.create"-> "true","es.nodes.wan.only"->"true",
       "es.nodes"->es_nodes,"es.port"->port)
 
-    EsSparkSQL.saveToEs(inDf,s"${es_index}/${es_type}",options)
-
-
-
-    //      val json1 = """{"name":"jack", "age":24, "sex":"man"}"""
-    //      val json2 = """{"name":"rose", "age":22, "sex":"woman"}"""
-    //
-    //      val rddData = sc.makeRDD(Seq(json1, json2))
-    //
-    //      EsSpark.saveJsonToEs(rddData, "spark/json2",options)
-    //自定义id
-    // EsSpark.saveJsonToEs(rddData, "spark/json1", Map("es.mapping.id"->"name"))
+    //load data with df  from es
+    val outDf = ssc.read.format("org.elasticsearch.spark.sql").options(options).load(s"${es_index}/${es_type}")
+    outDf.show()
+    out.write(outDf)
 
   }
-
-
   def initialize(ctx: ProcessContext): Unit = {
 
   }
@@ -78,7 +67,7 @@ class NewPutEs extends ConfigurableStop {
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroupEnum.HiveGroup.toString)
+    List(StopGroupEnum.ESGroup.toString)
   }
 
 
