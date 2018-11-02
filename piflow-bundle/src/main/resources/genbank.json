@@ -8,9 +8,10 @@
         "name":"LoadFromFtpUrl",
         "bundle":"cn.piflow.bundle.ftp.LoadFromFtpUrl",
         "properties":{
-          "url_str":"https://ftp.ncbi.nih.gov/genbank/gbbct151.seq.gz",
-          "url_type":"file",
-          "localPath":"/ftpUrlDownLoadDIR222"
+          "url_str":"https://ftp.ncbi.nih.gov/genbank/docs/",
+          "url_type":"dir",
+          "localPath":"/ftpUrlDownLoadDIR555",
+          "downType":"all11"
         }
       },
       {

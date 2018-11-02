@@ -2,7 +2,8 @@ package cn.piflow.bundle.ftp
 
 import java.io._
 import java.net.URL
-import java.util.ArrayList
+import java.text.SimpleDateFormat
+import java.util.{ArrayList, Date}
 
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
@@ -20,12 +21,12 @@ class LoadFromFtpUrl extends ConfigurableStop{
   val inportList: List[String] = List(PortEnum.NonePort.toString)
   val outportList: List[String] = List(PortEnum.NonePort.toString)
 
-  var url_str:String =_
-  var url_type:String =_
-  var localPath:String =_
+  var url_str:String =_  //url 地址
+  var url_type:String =_   // url 指向文件 类型，文件 or 文件夹
+  var localPath:String =_   // 保存的本地路径
+  var downType:String=_
 
   var list = List("")
-
 
   def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     val spark = pec.get[SparkSession]()
@@ -33,31 +34,84 @@ class LoadFromFtpUrl extends ConfigurableStop{
     import spark.sqlContext.implicits._
 
 
-    var filePath:String = null
+    var fileLocalPath:String = null
 
-
+    // 具体的文件路径  直接下载
     if (url_type == "file"){
+      println("************************************************    -----------file ")
       val aa  = url_str.split("/")
+      // 文件名字
       val fileName = aa(aa.size-1)
       println(fileName)
-      filePath = localPath+"/"+fileName
-      list = filePath::list
+      //文件 路径保存到 list
+      fileLocalPath = localPath+"/"+fileName
+      list = fileLocalPath::list
+      // 下载 文件
       downFileFromFtpUrl(url_str,localPath,fileName)
 
     } else {
 
       var arrayList:ArrayList[String]=getFilePathList(url_str)
-
+      // 遍历 文件路径 所在的集合
       for (i <- 0 until arrayList.size()) {
-        //println(arrayList.get(i))
-        val aa = arrayList.get(i).split("--1234567890987654321--")
-        val bb = arrayList.get(i).replace(s"$url_str", "/").split("--1234567890987654321--")
-        filePath = localPath + bb(0) + aa(1)
-        list = filePath :: list
-        downFileFromFtpUrl(aa(0) + aa(1), localPath + bb(0), aa(1))
+        // https://ftp.ncbi.nih.gov/genbank/docs/--1234567890987654321--Current_version_is_10.7--1234567890987654321--20180423
+        val array = arrayList.get(i)
+
+        if(downType.equals("all")){
+          println("##################################===========================================")
+
+          val arrayString = array.split("--1234567890987654321--")
+
+          val fileUrlDir = array.replace(s"$url_str", "/").split("--1234567890987654321--")(0)
+          // 单个文件url 指向的 路径
+          val urlPath = arrayString(0)+arrayString(1)
+          // 下载 保存 文件夹的目录
+          val savePath = localPath+fileUrlDir
+          // 文件名字
+          val fileName = arrayString(1)
+
+          fileLocalPath = savePath+fileName
+          println(urlPath)
+          println(savePath)
+          println(fileName)
+
+          list = fileLocalPath :: list
+
+          downFileFromFtpUrl(urlPath, savePath, fileName)
+
+        } else {
+          println("##################################")
+          // 增量下载  ,下载当天数据
+          var now = new Date()
+          var dateFormeat = new SimpleDateFormat("yyyy-MM-dd")
+          val todayDate = dateFormeat.format(now)
+          println(todayDate)
+
+          if(array.endsWith(todayDate)){
+            println("##################################_____-------------------------------")
+            val arrayString = array.split("--1234567890987654321--")
+
+            val fileUrlDir = array.replace(s"$url_str", "/").split("--1234567890987654321--")(0)
+            // 单个文件url 指向的 路径
+            val urlPath = arrayString(0)+arrayString(1)
+            // 下载 保存 文件夹的目录
+            val savePath = localPath+fileUrlDir
+            // 文件名字
+            val fileName = arrayString(1)
+
+            fileLocalPath = savePath+fileName
+            println(urlPath)
+            println(savePath)
+            println(fileName)
+
+            list = fileLocalPath :: list
+
+            downFileFromFtpUrl(urlPath, savePath, fileName)
+          }
+        }
       }
     }
-
+    //  保存的本地文件 路径 ，加载到 df 里面  ，字段名字为 filepath
     val outDF = sc.parallelize(list).toDF("filePath")
     println(outDF.count())
     outDF.show()
@@ -66,16 +120,23 @@ class LoadFromFtpUrl extends ConfigurableStop{
   }
 
 
+  //  下载文件从 url 上
+  //   URL网址   保存路径   保存文件名字
   def downFileFromFtpUrl(url: String,saveDir:String,fileName:String): Unit ={
     var bos:BufferedOutputStream = null
     var is :InputStream =null
     try {
       val buff = new Array[Byte](1024)
       is = new URL(url).openStream()
+
       val file = new File(saveDir, fileName)
+      // 级联创建文件夹  以及文件
       file.getParentFile.mkdirs
+       // 输出流的路径
       bos = new BufferedOutputStream(new FileOutputStream(file))
+
       var count = 0
+      // 写文件
       while ((count = is.read(buff)) != -1 && (count != -1)) {
         bos.write(buff, 0, count)
       }
@@ -96,40 +157,59 @@ class LoadFromFtpUrl extends ConfigurableStop{
   }
 
 
-  // 获取ftp上的文件 path
+  // 获取ftp上的文件 的路径
   var filePathList = new ArrayList[String]
   def getFilePathList(url:String):ArrayList[String] ={
 
 
     val doc = Jsoup.connect(url).timeout(100000000).get()
-    val selectStr = "body>pre>a"
-    val elements: Elements = doc.select("body>pre>a")
+    //  获取 url 界面   文件名字  日期   大小
+    //  Name                    Last modified      Size  Parent Directory                             -
+    //  build_gbff_cu.pl        2003-04-25 17:23   21K
 
-    for (i <- 0 until elements.size()) {
-      val fileName = elements.get(i).text()
+    val elements: Elements = doc.select("html >body >pre")
+    println(elements.first().text())
+
+    // 按行 分割 elements 为单个字符串
+    val fileString = elements.first().text().split("\\n")
+
+
+    for (i <- 0 until fileString.size) {
 
       // Parent Directory
-      if (fileName.contains("Parent Directory")) {
-        println(fileName + "---------------" + "父目录")
+      if(fileString(i).contains("Parent Directory")) {
+        println(fileString(i) + "---------------" + "父目录")
+      } else {
+        // 分割单个字符串
+        // build_gbff_cu.pl        2003-04-25 17:23   21K
+        val aa = fileString(i).split("\\s+")
+        // 获取文件 名字
+        val fileName = aa(0)
+        // 获取文件 日期
+        val fileDate = aa(1)
+        println(fileDate)
+
+        // Directory
+        if (fileName.contains("/")) {
+          println(fileName+"********************************"+"文件夹")
+          var url0 = ""
+          if (url.endsWith("/")) {
+            url0 = url + fileName
+          } else {
+            url0 = url + "/" + fileName
+          }
+          println(url0)
+          //recursive query
+          getFilePathList(url0)
+        } else {
+          // 保存 url文件路径到 集合中
+          filePathList.add(url + "--1234567890987654321--" + fileName+"--1234567890987654321--"+fileDate)
+          //println(url+fileName)
+        }
+
       }
       // Directory
-      else if (fileName.contains("/")) {
-        //println(fileName+"********************************"+"文件夹")
-        var url0 = ""
-        if (url.endsWith("/")) {
-          url0 = url + fileName
-        } else {
-          url0 = url + "/" + fileName
-        }
-        //println(url0)
-        //recursive query
-        getFilePathList(url0)
-      } else {
-        filePathList.add(url + "--1234567890987654321--" + fileName)
-        //println(url+fileName)
-      }
     }
-
     return filePathList
   }
 
@@ -139,18 +219,21 @@ class LoadFromFtpUrl extends ConfigurableStop{
     url_str=MapUtil.get(map,key="url_str").asInstanceOf[String]
     url_type=MapUtil.get(map,key="url_type").asInstanceOf[String]
     localPath=MapUtil.get(map,key="localPath").asInstanceOf[String]
+    downType=MapUtil.get(map,key="downType").asInstanceOf[String]
   }
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
     val url_str = new PropertyDescriptor().name("url_str").displayName("URL").defaultValue("").required(true)
     val localPath = new PropertyDescriptor().name("localPath").displayName("Local_Path").defaultValue("").required(true)
-    val  url_type= new PropertyDescriptor().name("url_type").displayName("url_type").defaultValue("").required(false)
+    val  url_type= new PropertyDescriptor().name("url_type").displayName("url_type").defaultValue("").required(true)
+    val  downType= new PropertyDescriptor().name("downType").displayName("downType").defaultValue("all,day").required(true)
 
 
     descriptor = url_str :: descriptor
     descriptor = url_type :: descriptor
     descriptor = localPath :: descriptor
+    descriptor = downType :: descriptor
     descriptor
   }
 

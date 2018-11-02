@@ -117,36 +117,8 @@ class GenBankParse extends ConfigurableStop{
         e.printStackTrace()
     }
 
-    val schema: StructType = StructType(
-      List(
-        StructField("path", StringType, true),
-        StructField("serialNumber", StringType, true),
-        StructField("content", StringType, true)
-      )
-    )
-
-    //    var arr:ArrayBuffer[String]=ArrayBuffer()
-    //    arr+="path"
-    //    arr+="serialNumber"
-    //    arr+="serialNumber"
-    //    val ff: Array[StructField] = arr.toArray.map(d=>StructField(d,StringType,nullable = true))
-    //    val schema01: StructType = StructType(ff)
-
-
-    //    val rows1: List[Row] = list2.toArray.map(xx => {
-    //      val seq: Seq[String] = xx.toArray.toSeq
-    //      val row: Row = Row.fromSeq(seq)
-    //      row
-    //    }).toList
-    //    val rdd1: RDD[Row] = sc.makeRDD(rows1)
-    //    val dfdf: DataFrame = spark.createDataFrame(rdd1,schema)
-    //    println("#####################")
-    //    dfdf.show()
-    //    out.write(dfdf)
-
 
     println("#################")
-//    val jsonString22 = "{\"SequenceLength\":1699,\"Organism\":\"Xanthomonas arboricola pv. juglandis\",\"Description\":\"Xanthomonas arboricola pv. juglandis partial integron InXaj76583, partial ilvD gene and intI pseudogene, strain DAR76583.\",\"MoleculeType\":\"DNA\",\"comments\":[],\"Accession\":\"AM905372\",\"TaxonID\":195709,\"Lineage\":\"Bacteria; Proteobacteria; Gammaproteobacteria; Xanthomonadales;Xanthomonadaceae; Xanthomonas.\",\"Sequence\":\"gctatctcaaatccaagggcctgggcaagcaatgcgcccttctcaccgacggccgcttctccggcggcacctcgggcctgtcgatcggccacgcttcgccggaagccgccgcaggcggcgcgatcggcctggtgcgcgacggcgacaagatcctgatcgatatccccaatcgctcgatcaacctgctggtgtccgacgaagaactcgccagccgccgcgccgagcaggatgccaagggctggaagccggtggaggtacgcccacgcaaggtcaccaccgcgttgaaggcgtatgcattattggcgaccagcgcggacaaaggtgcggtgcgggataaggcgttgctggacggctagggccagcaaatgcgacgtggcgaggcatgcatgcatgcctcttcgcgcgagagcaccacaggaatacgcctcggtcgcttggcacgcactagagtttccatacacggcaactcgatgcgcagaacgtcgcgataaagaaataacagcgctgccaatgcttggatctgcgtccccgcagacaactgcccgtcggtcgccagccgggtcaggaaggcctcgacctccgtcctgccccatcttccccggataccgcttaccgttggctagaatgaaacgccggatccaacttacgtacgcctgctcggtgcgcacgctgtaatgcctcacgcgcaagcggtcgcgcacctgatccaggcgcctgaccgaagggcgtgctgttacgccgtcgtttttctgggtgtctcatacgcctgcgtccttgcaggataacgctaaaagcatccgcaaggtcgcgtccgcttgccatggtgcgaaccctgattgtggctaggatttcctcccttttacaaaattcttgcaatcgaagatactcagcgcaacaccgcaagggcgaattccagcacactggcggccgttactagtggatccgagctcgtaccagnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnggatgacgtttaccgttggctagaatgaaacgccggatccaacttacgtacgcctgctcggtgcgcacgctgtaatgcctcacgcgcaagcggtcgcgcacctgatccagacgcctgaccgaagggcgtgctgttacaccgtcgtttttctgggtgtctcatacgcctgcgtccttgcaggataacgctaaaagcatccgcaaggtcgcgtccgcttgccatggtgcgaaccctgattgtggctaggatttcctcccttttacaaaattcttgcaatcgaagatactcgctgcggcaccgccttttggcggtccaatagtagttaggcggcaatggacagttcgtggcgacggggagagtgaaacatgagcgtgtttgaatggattgttgtcgtcctgcttgttctcatcttgttcaagcctaacggcaagcccttccgacttgagggtactgccttaaacttgatgcagcagtatgaaagccggttgattgccatcgagacacatctcgcggagattgacgcatcaaccaagtcggccagcgacgacatagggcgccatgcgcattgctcaacttccggactatcctcccgatggcccttgagttgccacctaacaattcattcacagcacgaggcgcctg\",\"Topology\":\"Linear\",\"KeyWords\":\"non functional integrase\",\"dateUpdated\":\"2016-07-26\",\"features\":[{\"strain\":\"DAR76583\",\"db_xref\":[],\"country\":\"Australia\",\"note\":\"pathovar: juglandis\",\"featureType\":\"source\",\"mol_type\":\"genomic DNA\"},{\"db_xref\":[],\"mobile_element_type\":\"integron:InXaj76583\",\"featureType\":\"mobile_element\"},{\"db_xref\":[],\"gene\":\"ilvD\",\"featureType\":\"gene\"},{\"db_xref\":[\"GOA:A9J6K1\",\"InterPro:IPR000581\",\"InterPro:IPR015928\",\"InterPro:IPR020558\",\"UniProtKB/TrEMBL:A9J6K1\"],\"codon_start\":\"3\",\"product\":\"dihydroxi-acid dehydratase\",\"protein_id\":\"CAP19874.1\",\"gene\":\"ilvD\",\"transl_table\":\"11\",\"featureType\":\"CDS\",\"translation\":\"YLKSKGLGKQCALLTDGRFSGGTSGLSIGHASPEAAAGGAIGLVRDGDKILIDIPNRSINLLVSDEELASRRAEQDAKGWKPVEVRPRKVTTALKAYALLATSADKGAVRDKALLDG\"},{\"db_xref\":[],\"gene\":\"intI\",\"featureType\":\"gene\",\"pseudo\":\"\"},{\"db_xref\":[],\"codon_start\":\"1\",\"product\":\"non functional integrase\",\"gene\":\"intI\",\"transl_table\":\"11\",\"featureType\":\"CDS\",\"pseudo\":\"\"},{\"db_xref\":[],\"featureType\":\"gap\",\"estimated_length\":\"unknown\"}],\"Version\":1,\"Division\":\"BCT\"}"
 
 
     var jsonDF: DataFrame = null
@@ -158,18 +130,17 @@ class GenBankParse extends ConfigurableStop{
 //      val esId = list222.get(i).get(1).toString
 //      println(esId)
 
+      // 加载 json 字符串 为 df
       val jsonRDD = spark.sparkContext.makeRDD(list222.get(i).get(0).toString() :: Nil)
       jsonDF = spark.read.json(jsonRDD)
-
       jsonDF.show()
       jsonDF.schema.printTreeString()
-
-
 
 
       val options = Map("es.index.auto.create"-> "true",
         "es.nodes"->es_nodes,"es.port"->port)
 
+      // df 写入 es
       EsSparkSQL.saveToEs(jsonDF,s"${es_index}/${es_type}",options)
 
     }

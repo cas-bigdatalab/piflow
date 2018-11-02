@@ -9,6 +9,7 @@ import sun.net.ftp.FtpProtocolException
 object UnGzUtil extends Serializable{
 
   var filePath:String = null
+
   def unGz(inputDir:String,savePath:String,filename:String):String = {
 
     try {
@@ -40,6 +41,25 @@ object UnGzUtil extends Serializable{
     }
 
     return  filePath
+  }
+
+
+
+  def unGzStream(inputDir:String):GZIPInputStream = {
+    var  gzip:GZIPInputStream = null
+
+    try {
+      val fileInput = new FileInputStream(inputDir)
+       gzip = new GZIPInputStream(fileInput)
+
+    } catch {
+      case  e:FtpProtocolException=>
+        e.printStackTrace()
+      case  e: IOException =>
+        e.printStackTrace()
+    }
+
+    return  gzip
   }
 
 }
