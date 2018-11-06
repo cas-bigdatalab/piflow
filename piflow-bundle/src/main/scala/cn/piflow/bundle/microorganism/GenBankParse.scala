@@ -1,29 +1,18 @@
 package cn.piflow.bundle.microorganism
 
 import java.io._
-import java.net.URL
 import java.text.ParseException
-import java.util
 import java.util.ArrayList
-import java.util.zip.GZIPInputStream
 
-import cn.piflow.bundle.microorganism.util.CustomIOTools
-import cn.piflow.bundle.microorganism.util.Process
+import cn.piflow.bundle.microorganism.util.{CustomIOTools, Process}
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroupEnum}
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
-import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.types.{StringType, StructField, StructType}
 import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 import org.biojava.bio.BioException
-import org.elasticsearch.action.bulk.BulkProcessor
-import org.json.JSONObject
-import org.elasticsearch.action.index.IndexRequest
 import org.elasticsearch.spark.sql.EsSparkSQL
-
-import scala.collection.mutable.ArrayBuffer
-
+import org.json.JSONObject
 
 
 class GenBankParse extends ConfigurableStop{
@@ -41,72 +30,55 @@ class GenBankParse extends ConfigurableStop{
   def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     val spark = pec.get[SparkSession]()
     val sc = spark.sparkContext
-    import spark.sqlContext.implicits._
-    import spark.implicits._
 
 
     val inDf = in.read()
-    inDf.show()
+    //inDf.show()
     println("++++++++++++++++++++++++++++++++++++++++++++++++++001")
+    println(inDf.count())
     inDf.schema.printTreeString()
 
-
-//    var list2 = new ArrayBuffer[ArrayBuffer[String]]
-    var list222 = new ArrayList[ArrayList[String]]
+    var listSeq = new ArrayList[ArrayList[String]]
 
     val rows: Array[Row] = inDf.collect()
     try {
       for (i <- 0 until rows.size) {
 
-        val sourceFile = rows(i)(0).toString
+        val sourceFile = rows(i)(0)
         println("++++++++++++++++++++++++++++++++++++++++++++++++++002" + sourceFile)
+        // 字节数组反序列化 为 ByteArrayInputStream
+        val bis:ByteArrayInputStream=new ByteArrayInputStream(inDf.head().get(0).asInstanceOf[Array[Byte]])
 
-        if (sourceFile.endsWith("seq")) {
-          println(sourceFile)
+        //val fileinputStream = new FileInputStream(sourceFile)
+        println("Start processing file ----->" + sourceFile)
 
-          val fileinputStream = new FileInputStream(sourceFile)
-          println("Start processing file ----->" + sourceFile)
+        val br = new BufferedReader(new InputStreamReader(bis))
 
-          val br = new BufferedReader(new InputStreamReader(fileinputStream))
+        //  解析seq  文件 的字节流
+        val sequenceIterator = CustomIOTools.IOTools.readGenbankDNA(br, null)
 
-          val sequenceIterator = CustomIOTools.IOTools.readGenbankDNA(br, null)
+        var doc: JSONObject = null
+        var count = 0
+        while (sequenceIterator.hasNext) {
+          var listJson = new ArrayList[String]
+          doc = new JSONObject()
+          try {
+            var seq = sequenceIterator.nextRichSequence()
 
-          var doc: JSONObject = null
-          var count = 0
+            Process.processSingleSequence(seq, doc)
+            // json 字符串
+            listJson.add(doc.toString())
+            // 序列号  CP009630
+            listJson.add(seq.getAccession)
 
+            listSeq.add(listJson)
 
-          while (sequenceIterator.hasNext) {
-//            var list1 = new ArrayBuffer[String]
-            var list001 = new ArrayList[String]
-
-            doc = new JSONObject()
-            try {
-              var seq = sequenceIterator.nextRichSequence()
-
-              if (seq.getAccession.equals("CP010565")) {
-                println(seq.getAccession)
-              }
-
-              Process.processSingleSequence(seq, doc)
-
-              println("++++++++++++++++++++++++++++++++++++++++++++++++++" + sourceFile)
-
-              //list1+=(sourceFile)
-              // list1+=(seq.getAccession)
-              //              list1+=(doc.toString())
-              //              list2+=(list1)
-              //              println(list1.size+"-----"+list2.size)
-              list001.add(doc.toString())
-              list001.add(seq.getAccession)
-              list222.add(list001)
-
-            }
-            catch {
-              case e: BioException =>
-                e.getMessage
-              case e: ParseException =>
-                e.printStackTrace()
-            }
+          }
+          catch {
+            case e: BioException =>
+              e.getMessage
+            case e: ParseException =>
+              e.printStackTrace()
           }
         }
       }
@@ -117,27 +89,29 @@ class GenBankParse extends ConfigurableStop{
         e.printStackTrace()
     }
 
-
-    println("#################")
-
-
     var jsonDF: DataFrame = null
-    for (i <- 0 until list222.size()) {
+    for (i <- 0 until listSeq.size()) {
 
-//      println("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$" + i)
-//      println(list222.get(i).size())
-//
-//      val esId = list222.get(i).get(1).toString
-//      println(esId)
+      println("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$" + i)
+      //
+      println(listSeq.get(i).size())
+
+      // seq 文件中的 json 字符串
+      val jsonString = listSeq.get(i).get(0)
+
+      // 序列号  CP009630
+      val esId = listSeq.get(i).get(1).toString
+      println(esId)
 
       // 加载 json 字符串 为 df
-      val jsonRDD = spark.sparkContext.makeRDD(list222.get(i).get(0).toString() :: Nil)
+      val jsonRDD = spark.sparkContext.makeRDD(jsonString.toString() :: Nil)
       jsonDF = spark.read.json(jsonRDD)
       jsonDF.show()
-      jsonDF.schema.printTreeString()
+      //      jsonDF.schema.printTreeString()
 
 
       val options = Map("es.index.auto.create"-> "true",
+        // "es.mapping.id"->"Accession",
         "es.nodes"->es_nodes,"es.port"->port)
 
       // df 写入 es

@@ -45,21 +45,25 @@ object UnGzUtil extends Serializable{
 
 
 
-  def unGzStream(inputDir:String):GZIPInputStream = {
+  def unGzStream(inputDir:String):Array[Byte] = {
+
     var  gzip:GZIPInputStream = null
+    var byteArrayOutputStream:ByteArrayOutputStream=new ByteArrayOutputStream()
+    val buffer=new Array[Byte](1024*1024)
 
-    try {
-      val fileInput = new FileInputStream(inputDir)
-       gzip = new GZIPInputStream(fileInput)
+    val fileInput = new FileInputStream(inputDir)
+    gzip = new GZIPInputStream(fileInput)
 
-    } catch {
-      case  e:FtpProtocolException=>
-        e.printStackTrace()
-      case  e: IOException =>
-        e.printStackTrace()
+    var count = -1
+    while ((count = gzip.read(buffer)) != -1 && (count != -1) ){
+
+      byteArrayOutputStream.write(buffer,0,count)
+
     }
 
-    return  gzip
+    val byteArray: Array[Byte] = byteArrayOutputStream.toByteArray
+
+    return  byteArray
   }
 
 }

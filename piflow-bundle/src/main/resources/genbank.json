@@ -8,10 +8,10 @@
         "name":"LoadFromFtpUrl",
         "bundle":"cn.piflow.bundle.ftp.LoadFromFtpUrl",
         "properties":{
-          "url_str":"https://ftp.ncbi.nih.gov/genbank/docs/",
-          "url_type":"dir",
+          "url_str":"https://ftp.ncbi.nih.gov/genbank/gbbct151.seq.gz",
+          "url_type":"file",
           "localPath":"/ftpUrlDownLoadDIR555",
-          "downType":"all11"
+          "downType":"all"
         }
       },
       {
@@ -19,7 +19,7 @@
         "name":"UnGz",
         "bundle":"cn.piflow.bundle.ftp.UnGz",
         "properties":{
-          "localPath":"/ftpUrlUnGz222"
+          "gzType":"seq.gz"
         }
       },
       {
@@ -30,7 +30,7 @@
           "es_nodes":"10.0.86.239",
           "port":"9200",
           "es_index":"genbank",
-          "es_type":"data1"
+          "es_type":"data6"
         }
       }
     ],

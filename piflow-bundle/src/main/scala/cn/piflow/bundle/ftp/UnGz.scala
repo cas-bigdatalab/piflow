@@ -1,11 +1,14 @@
 package cn.piflow.bundle.ftp
 
+import java.util
+import java.util.zip.GZIPInputStream
+
 import cn.piflow.bundle.util.UnGzUtil
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroupEnum}
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
-import org.apache.spark.sql.{Row, SparkSession}
+import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 
 
 class UnGz extends ConfigurableStop{
@@ -14,9 +17,7 @@ class UnGz extends ConfigurableStop{
   val inportList: List[String] = List(PortEnum.NonePort.toString)
   val outportList: List[String] = List(PortEnum.NonePort.toString)
 
-  var localPath:String =_
-
-  var list = List("")
+  var gzType:String =_
 
   def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     val spark = pec.get[SparkSession]()
@@ -27,30 +28,41 @@ class UnGz extends ConfigurableStop{
     inDf.show()
     inDf.schema.printTreeString()
 
+    // df => Array[Row]
     val rows: Array[Row] = inDf.collect()
+    var df:DataFrame = null
+
+    var count = 0
+    for (i <- 0 until rows.size) {
+
+      //row(i)    [/ftpUrlDownLoadDIR555/gbbct151.seq.gz]
+
+      // 文件 路径
+      val sourceFile = rows(i)(0).toString
+      // println(sourceFile+"----------------------------------")
+
+      if(sourceFile.endsWith("seq.gz")){
 
 
-      for (i <- 0 until rows.size) {
-        val sourceFile = rows(i)(0).toString
+        if (count == 0){
+          println(count+"-------------------------------")
 
-        if(sourceFile.endsWith("seq.gz")){
-          println(sourceFile+"----------------------------------")
-          val strings: Array[String] = sourceFile.split("/")
-          val fileName = strings(strings.length-1).split(".gz")(0)
-          val savePath = localPath+sourceFile.split(".seq.gz")(0)
+          // 加载文件为 byteArray
+          val byteArray: Array[Byte] = UnGzUtil.unGzStream(sourceFile)
 
-          println(savePath)
+          df = Seq(byteArray).toDF()
+          count = count+1
+        } else {
+          println(count+"-------------------------------")
+          val byteArray: Array[Byte] = UnGzUtil.unGzStream(sourceFile)
 
-          val filePath = UnGzUtil.unGz(sourceFile,savePath,fileName)
-
-          println(filePath)
-          list = filePath::list
+          df = df.union(Seq(byteArray).toDF())
         }
       }
+    }
 
-    val df = sc.parallelize(list).toDF("filePath")
     df.schema.printTreeString()
-    df.show()
+    println(df.count())
     out.write(df)
 
   }
@@ -58,13 +70,13 @@ class UnGz extends ConfigurableStop{
 
   def setProperties(map: Map[String, Any]): Unit = {
 
-    localPath=MapUtil.get(map,key="localPath").asInstanceOf[String]
+    gzType=MapUtil.get(map,key="gzType").asInstanceOf[String]
   }
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
-    val savePath = new PropertyDescriptor().name("savePath").displayName("savePath").defaultValue("").required(true)
-    descriptor = savePath :: descriptor
+    val gzType = new PropertyDescriptor().name("gzType").displayName("gzType").defaultValue("").required(true)
+    descriptor = gzType :: descriptor
     descriptor
   }
 
