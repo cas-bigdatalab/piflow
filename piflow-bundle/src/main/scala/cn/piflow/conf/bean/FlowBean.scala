@@ -41,6 +41,9 @@ class FlowBean {
   //create Flow by FlowBean
   def constructFlow()= {
     val flow = new FlowImpl();
+
+    flow.setFlowName(this.name)
+
     this.stops.foreach( stopBean => {
       flow.addStop(stopBean.name,stopBean.constructStop())
     })

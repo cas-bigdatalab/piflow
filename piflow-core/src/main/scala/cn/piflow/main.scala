@@ -61,9 +61,14 @@ trait Flow {
   def analyze(): AnalyzedFlowGraph;
 
   def show(): Unit;
+
+  def getFlowName(): String;
+
+  def setFlowName(flowName : String): Unit;
 }
 
 class FlowImpl extends Flow {
+  var name = ""
   val edges = ArrayBuffer[Edge]();
   val stops = MMap[String, Stop]();
   val checkpoints = ArrayBuffer[String]();
@@ -95,6 +100,8 @@ class FlowImpl extends Flow {
     edges ++= path.toEdges();
     this;
   }
+
+
 
   override def analyze(): AnalyzedFlowGraph =
     new AnalyzedFlowGraph() {
@@ -139,6 +146,14 @@ class FlowImpl extends Flow {
         }
       }
     }
+
+  override def getFlowName(): String = {
+    this.name
+  }
+
+  override def setFlowName(flowName : String): Unit = {
+    this.name = flowName;
+  }
 }
 
 trait AnalyzedFlowGraph {
