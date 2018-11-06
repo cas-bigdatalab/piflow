@@ -3,7 +3,8 @@ package cn.piflow.util
 import java.sql.{Connection, DriverManager, ResultSet}
 import java.util.Date
 
-import org.h2.tools.Server
+import net.liftweb.json.compactRender
+import net.liftweb.json.JsonDSL._
 
 object H2Util {
 
@@ -136,10 +137,30 @@ object H2Util {
       //println("completedStopCount:" + completedStopCount)
     }
     completedRS.close()
+
+    val flowRS : ResultSet = statement.executeQuery("select * from flow where id='" + appId +"'")
+    var id = ""
+    var name = ""
+    var state = ""
+    while (flowRS.next()){
+      id = flowRS.getString("id")
+      name =  flowRS.getString("name")
+      state = flowRS.getString("state")
+    }
+
+    flowRS.close()
+
     statement.close()
 
-    val process:Double = completedStopCount.asInstanceOf[Double] / stopCount * 100
-    process.toString
+    val progress:Double = completedStopCount.asInstanceOf[Double] / stopCount * 100
+    val json =
+      ("FlowInfo" ->
+        ("appId" -> id)~
+          ("name" -> name) ~
+          ("state" -> state) ~
+          ("progress" -> progress.toString))
+    val flowProgress = compactRender(json)
+    flowProgress
   }
 
   def addStop(appId:String,name:String)={

@@ -8,7 +8,6 @@ import net.liftweb.json.compactRender
 import org.clapper.classutil.ClassFinder
 import org.reflections.Reflections
 import net.liftweb.json.JsonDSL._
-import net.liftweb.json._
 import sun.misc.BASE64Encoder
 
 

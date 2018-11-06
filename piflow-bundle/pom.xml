@@ -175,6 +175,27 @@
                     </execution>
                 </executions>
             </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-install-plugin</artifactId>
+                <version>2.5.2</version>
+                <executions>
+                    <execution>
+                        <id>install-databricks</id>
+                        <goals><goal>install-file</goal></goals>
+                        <phase>clean</phase>
+                        <configuration>
+                            <file>${basedir}/lib/spark-xml_2.11-0.4.2.jar</file>
+                            <groupId>com.databricks</groupId>
+                            <artifactId>spark-xml_2.11</artifactId>
+                            <version>0.4.1</version>
+                            <packaging>jar</packaging>
+                            <generatePom>true</generatePom>
+                        </configuration>
+                    </execution>
+
+                </executions>
+            </plugin>
         </plugins>
     </build>
 
