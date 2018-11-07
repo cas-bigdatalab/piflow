@@ -66,6 +66,11 @@ object API {
     val uuid = MapUtil.get(flowMap,"uuid").asInstanceOf[String]
     val appName = MapUtil.get(flowMap,"name").asInstanceOf[String]
 
+    val dirverMem = map.getOrElse("driverMemory","1g").asInstanceOf[String]
+    val executorNum = map.getOrElse("executorNumber","1").asInstanceOf[String]
+    val executorMem= map.getOrElse("executorMemory","1g").asInstanceOf[String]
+    val executorCores = map.getOrElse("executorCores","1").asInstanceOf[String]
+
     val (stdout, stderr) = getLogFile(uuid, appName)
 
     println("StartFlow API get json: \n" + flowJson )
@@ -85,9 +90,11 @@ object API {
       .setConf("spark.yarn.jars", PropertyUtil.getPropertyValue("yarn.jars"))
       .setConf("spark.jars", PropertyUtil.getPropertyValue("piflow.bundle"))
       .setConf("spark.hive.metastore.uris",PropertyUtil.getPropertyValue("hive.metastore.uris"))
-      .setConf("spark.driver.memory", "1g")
-      .setConf("spark.executor.memory", "1g")
-      .setConf("spark.cores.max", "2")
+      .setConf("spark.driver.memory", dirverMem)
+      .setConf("spark.num.executors",executorNum)
+      .setConf("spark.executor.memory", executorMem)
+      .setConf("spark.executor.cores",executorCores)
+      //.setConf("spark.cores.max", "4")
       //.setConf("spark.checkpoint", PropertyUtil.getPropertyValue("checkpoint.path"))
       .addFile(PropertyUtil.getConfigureFile())
       .setMainClass("cn.piflow.api.StartFlowMain")
