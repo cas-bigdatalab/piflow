@@ -1,0 +1,62 @@
+{
+  "flow":{
+    "name":"test",
+    "uuid":"1234",
+    "checkpoint":"Merge",
+    "stops":[
+      {
+        "uuid":"0000",
+        "name":"SelectHiveQL",
+        "bundle":"cn.piflow.bundle.hive.SelectHiveQL",
+        "properties":{
+          "hiveQL":"select * from sparktest.student"
+        }
+      },
+
+      {
+        "uuid":"1111",
+        "name":"ComplementByMemcache",
+        "bundle":"cn.piflow.bundle.memcache.ComplementByMemcache",
+        "properties":{
+          "servers":"10.0.86.237:11111",
+          "weights":"3",
+          "keyFile":"id",
+          "maxIdle":"",
+          "maintSleep":"",
+          "nagle":"",
+          "socketTO":"",
+          "socketConnectTO":"",
+          "replaceField":"age"
+        }
+      },
+      {
+        "uuid":"2222",
+        "name":"putHdfs",
+        "bundle":"cn.piflow.bundle.hdfs.PutHdfs",
+        "properties":{
+          "hdfsUrl":"hdfs://10.0.86.89:9000",
+          "hdfsPath":"/yg/00",
+          "types":"csv"
+        }
+
+      }
+
+
+    ],
+    "paths":[
+      {
+        "from":"SelectHiveQL",
+        "outport":"",
+        "inport":"",
+        "to":"ComplementByMemcache"
+      },{
+        "from":"ComplementByMemcache",
+        "outport":"",
+        "inport":"",
+        "to":"putHdfs"
+      }
+
+
+    ]
+  }
+}

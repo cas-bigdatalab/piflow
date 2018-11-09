@@ -1,0 +1,44 @@
+{
+  "flow":{
+    "name":"test",
+    "uuid":"1234",
+    "checkpoint":"Merge",
+    "stops":[
+      {
+        "uuid":"0000",
+        "name":"SelectHiveQL",
+        "bundle":"cn.piflow.bundle.hive.SelectHiveQL",
+        "properties":{
+          "hiveQL":"select * from sparktest.student"
+        }
+
+      },
+
+      {
+        "uuid":"1111",
+        "name":"PutMongo",
+        "bundle":"cn.piflow.bundle.mongodb.PutMongo",
+        "properties":{
+          "addresses":"10.0.86.89,27017",
+          "credentials":"",
+          "dataBase":"test01",
+          "collection":"aaaaa"
+
+
+        }
+      }
+
+
+    ],
+    "paths":[
+      {
+        "from":"SelectHiveQL",
+        "outport":"",
+        "inport":"",
+        "to":"PutMongo"
+      }
+
+
+    ]
+  }
+}
