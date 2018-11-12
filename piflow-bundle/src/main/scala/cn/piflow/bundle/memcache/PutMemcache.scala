@@ -120,7 +120,7 @@ class PutMemcache extends ConfigurableStop{
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroupEnum.memcache.toString)
+    List(StopGroupEnum.Memcache.toString)
   }
 
   override def initialize(ctx: ProcessContext): Unit = { }

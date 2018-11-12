@@ -163,7 +163,7 @@ class GetUrl extends ConfigurableStop{
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("http.jpg")
+    ImageUtil.getImage("http.png")
   }
 
   override def getGroup(): List[String] = {

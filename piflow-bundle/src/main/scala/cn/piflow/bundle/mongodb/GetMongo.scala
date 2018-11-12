@@ -132,7 +132,7 @@ class GetMongo extends ConfigurableStop{
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroupEnum.mongodb.toString)
+    List(StopGroupEnum.Mongodb.toString)
   }
 
   override def initialize(ctx: ProcessContext): Unit = { }
