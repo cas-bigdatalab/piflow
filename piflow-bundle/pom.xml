@@ -158,6 +158,29 @@
         <plugins>
 
             <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-install-plugin</artifactId>
+                <version>2.5.2</version>
+                <executions>
+                    <execution>
+                        <id>install-external-1</id>
+                        <goals>
+                            <goal>install-file</goal>
+                        </goals>
+                        <phase>install</phase>
+                        <configuration>
+                            <file>/opt/project/piflow/piflow-bundle/lib/java_memcached-release_2.6.6.jar</file>
+                            <groupId>com.memcached</groupId>
+                            <artifactId>java_memcached-release_2.6.6</artifactId>
+                            <version>0.0.0</version>
+                            <packaging>jar</packaging>
+                            <generatePom>true</generatePom>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
                 <artifactId>maven-shade-plugin</artifactId>
                 <version>1.5</version>
                 <executions>
