@@ -204,12 +204,12 @@ class UnGZip extends ConfigurableStop {
   }
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
-    var descriptor : List[PropertyDescriptor] = null
+    var descriptor : List[PropertyDescriptor] = List()
     return descriptor
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("http.jpg")
+    ImageUtil.getImage("http.png")
   }
 
   override def getGroup(): List[String] = {
