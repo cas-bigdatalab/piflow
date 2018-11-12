@@ -23,8 +23,8 @@ object StopGroupEnum extends Enumeration {
   val UrlGroup= Value("UrlGroup")
   val HdfsGroup= Value("HdfsGroup")
   val MicroorganismGroup= Value("MicroorganismGroup")
-  val spider= Value("spider")
-  val mongodb= Value("mongodb")
-  val memcache= Value("memcache")
+  val Spider= Value("Spider")
+  val Mongodb= Value("Mongodb")
+  val Memcache= Value("Memcache")
 
 }

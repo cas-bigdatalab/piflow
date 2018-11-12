@@ -214,11 +214,11 @@ class spider extends ConfigurableStop{
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("hive.jpg")
+    ImageUtil.getImage("spider.jpg")
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroupEnum.spider.toString)
+    List(StopGroupEnum.Spider.toString)
   }
 
   override def initialize(ctx: ProcessContext): Unit = {}
