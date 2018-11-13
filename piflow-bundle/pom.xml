@@ -156,7 +156,12 @@
             <version>2.6.6</version>
         </dependency>
 
-
+        <!--https://mvnrepository.com/artifact/io.netty/netty-all-->
+        <dependency>
+            <groupId>io.netty</groupId>
+            <artifactId>netty-all</artifactId>
+            <version>4.0.42.Final</version>
+        </dependency>
         <dependency>
             <groupId>org.apache.hbase</groupId>
             <artifactId>hbase-client</artifactId>
