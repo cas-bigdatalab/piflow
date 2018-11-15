@@ -164,6 +164,19 @@
             <version>2.6.6</version>
         </dependency>
 
+
+        <dependency>
+            <groupId>jdbc_oracle</groupId>
+            <artifactId>ojdbc</artifactId>
+            <version>6.0.0</version>
+        </dependency>
+        <dependency>
+            <groupId>jdbc_oracle</groupId>
+            <artifactId>ojdbc</artifactId>
+            <version>5.0.0</version>
+        </dependency>
+
+
         <!--https://mvnrepository.com/artifact/io.netty/netty-all-->
         <dependency>
             <groupId>io.netty</groupId>
@@ -210,6 +223,41 @@
                             <generatePom>true</generatePom>
                         </configuration>
                     </execution>
+
+
+                    <execution>
+                        <id>install-external-2</id>
+                        <goals>
+                            <goal>install-file</goal>
+                        </goals>
+                        <phase>install</phase>
+                        <configuration>
+                            <file>${basedir}/lib/ojdbc6.jar</file>
+                            <groupId>jdbc_oracle</groupId>
+                            <artifactId>ojdbc</artifactId>
+                            <version>6.0.0</version>
+                            <packaging>jar</packaging>
+                            <generatePom>true</generatePom>
+                        </configuration>
+                    </execution>
+
+                    <execution>
+                        <id>install-external-2</id>
+                        <goals>
+                            <goal>install-file</goal>
+                        </goals>
+                        <phase>install</phase>
+                        <configuration>
+                            <file>${basedir}/lib/ojdbc5.jar</file>
+                            <groupId>jdbc_oracle</groupId>
+                            <artifactId>ojdbc</artifactId>
+                            <version>5.0.0</version>
+                            <packaging>jar</packaging>
+                            <generatePom>true</generatePom>
+                        </configuration>
+                    </execution>
+
+
                 </executions>
             </plugin>
 

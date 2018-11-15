@@ -1,0 +1,46 @@
+{
+  "flow":{
+    "name":"test",
+    "uuid":"1234",
+    "checkpoint":"Merge",
+    "stops":[
+
+      {
+        "uuid":"0000",
+        "name":"JdbcReadFromOracle",
+        "bundle":"cn.piflow.bundle.jdbc.JdbcReadFromOracle",
+        "properties":{
+          "url":"jdbc:oracle:thin:@10.0.86.237:1521/newdb",
+          "user":"my",
+          "password":"bigdata",
+          "sql":"select * from a",
+          "fileNamesString":"COL1,COL2,COL3,COL4"
+        }
+
+      },
+      {
+        "uuid":"1111",
+        "name":"CsvParser",
+        "bundle":"cn.piflow.bundle.csv.CsvParser",
+        "properties":{
+          "csvPath":"hdfs://10.0.86.89:9000/xjzhu/phdthesis.csv",
+          "header":"false",
+          "delimiter":",",
+          "schema":"title,author,pages"
+        }
+      }
+
+
+    ],
+    "paths":[
+      {
+        "from":"JdbcReadFromOracle",
+        "outport":"",
+        "inport":"",
+        "to":"CsvParser"
+      }
+
+
+    ]
+  }
+}
