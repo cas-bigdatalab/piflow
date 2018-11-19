@@ -13,8 +13,8 @@
           "url":"jdbc:oracle:thin:@10.0.86.237:1521/newdb",
           "user":"my",
           "password":"bigdata",
-          "sql":"select * from a",
-          "fileNamesString":"COL1,COL2,COL3,COL4"
+          "sql":"select * from typetype",
+          "fileNamesString":"mynum.number,mychar.varchar2,myblob.blob,myclob.clob,myxml.xmltype,mylong.long,mydate.date,mynclob.nclob"
         }
 
       },
@@ -29,7 +29,6 @@
           "schema":"title,author,pages"
         }
       }
-
 
     ],
     "paths":[
