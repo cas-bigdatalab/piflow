@@ -26,5 +26,6 @@ object StopGroupEnum extends Enumeration {
   val Spider= Value("Spider")
   val Mongodb= Value("Mongodb")
   val Memcache= Value("Memcache")
+  val GraphX=Value("GraphX")
 
 }
