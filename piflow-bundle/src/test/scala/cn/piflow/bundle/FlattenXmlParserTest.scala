@@ -8,13 +8,13 @@ import org.junit.Test
 
 import scala.util.parsing.json.JSON
 
-class NewXmlParserTest {
+class FlattenXmlParserTest {
 
   @Test
   def testFlow(): Unit ={
 
     //parse flow json
-    val file = "src/main/resources/NewXmlParser.json"
+    val file = "src/main/resources/FlattenXmlParser.json"
     val flowJsonStr = FileUtil.fileReader(file)
     val map = OptionUtil.getAny(JSON.parseFull(flowJsonStr)).asInstanceOf[Map[String, Any]]
     println(map)

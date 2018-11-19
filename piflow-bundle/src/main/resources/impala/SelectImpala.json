@@ -1,0 +1,46 @@
+{
+  "flow":{
+    "name":"test",
+    "uuid":"1234",
+    "checkpoint":"Merge",
+    "stops":[
+
+      {
+        "uuid":"0000",
+        "name":"SelectImpala",
+        "bundle":"cn.piflow.bundle.impala.SelectImpala",
+        "properties":{
+          "url":"10.0.82.165:21050",
+          "user":"",
+          "password":"test1",
+          "sql":"select * from kylin.test1",
+          "schameString":"pid,name"
+
+        }
+      },
+      {
+        "uuid":"1111",
+        "name":"putHdfs",
+        "bundle":"cn.piflow.bundle.hdfs.PutHdfs",
+        "properties":{
+          "hdfsUrl":"hdfs://10.0.86.89:9000",
+          "hdfsPath":"/yg/0",
+          "types":"csv"
+        }
+
+      }
+
+
+    ],
+    "paths":[
+      {
+        "from":"SelectImpala",
+        "outport":"",
+        "inport":"",
+        "to":"putHdfs"
+      }
+
+
+    ]
+  }
+}

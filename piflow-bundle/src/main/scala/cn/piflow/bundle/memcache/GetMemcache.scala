@@ -15,7 +15,7 @@ import scala.collection.mutable.ArrayBuffer
 
 class GetMemcache extends ConfigurableStop{
   override val authorEmail: String = "yangqidong@cnic.cn"
-  override val description: String = "get data from mongodb"
+  override val description: String = "get data from memache"
   val inportList: List[String] = List(PortEnum.DefaultPort.toString)
   val outportList: List[String] = List(PortEnum.DefaultPort.toString)
 
