@@ -70,7 +70,7 @@ class JdbcWriteToOracle extends ConfigurableStop{
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
 
-    val url=new PropertyDescriptor().name("url").displayName("url").description("The Url, for example jdbc:mysql://127.0.0.1/dbname").defaultValue("").required(true)
+    val url=new PropertyDescriptor().name("url").displayName("url").description("The Url, for example jdbc:oracle:thin:@192.168.0.1:1521/newdb").defaultValue("").required(true)
     descriptor = url :: descriptor
 
     val user=new PropertyDescriptor().name("user").displayName("user").description("The user name of database").defaultValue("").required(true)
