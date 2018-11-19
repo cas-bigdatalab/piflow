@@ -40,9 +40,7 @@ class spider extends ConfigurableStop{
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     val session: SparkSession = pec.get[SparkSession]()
 
-    //解析第一层界面，得到跳转到第二层界面所需的href所在标签的ele集合
     var doc: Document =null
-    //html>table>a>b/2/3    将用户提供的标签路径解析
     val selectArr: Array[String] = jumpDependence.split("/")
     try{
        doc = Jsoup.connect(firstUrl).timeout(50000).get()
@@ -55,42 +53,31 @@ class spider extends ConfigurableStop{
     }catch {
       case e:Exception => throw new RuntimeException("JumpDependence specified label path does not exist."+"\n"+"jumpDependence指定的标签路径不存在")
     }
-    //循环集合得到每一个text作为标记字段，得到href作为跳转依赖
     var choiceIntArr: Array[Int] =0.until(eles.size()).toArray
-//    var choiceIntArr: Array[Int] =0.until(15).toArray
 
-    //若用户制定了截取位置，从客户指定位置开始循环
     if(selectArr.size>1){
        choiceIntArr=selectArr(1).toInt.until(eles.size()).toArray
     }
     for(x <- choiceIntArr){
       var num=x
-      //若用户指定了选择方式，按用户指定的方式选取标签
       if(selectArr.size==3){
         num = x + countInt * (selectArr(2).toInt)
       }
       val ele = eles.get(num)
-      //将标记字段存储，区分每条数据
       var textStr: String = ele.text()
       if(textStr.length==0){
         textStr = " "
         throw  new RuntimeException("Label field no value"+"\n"+"标记字段无值")
       }
       map+=(markupField->textStr)
-//      得到href，分析第二层界面
       val hrefStr: String = ele.attr("href")
-      //将用户需要的每一个字段或者下载路径分离
       val strArr: Array[String] = fileMap.split("\\+")
       parseNext(rootUrl+hrefStr,strArr)
-//将map添加进去array，并清空map，开始下一条数据的存储
       array+=map
-      /*map.empty*/
 
       countInt+=1
     }
-    //将计数器清空，留待下次使用
     countInt=0
-//循环爬取结束，将所得数据存储为df
     var keySet: Set[String] =Set()
     val rows1: List[Row] = array.toList.map(map => {
       keySet = map.keySet
@@ -104,7 +91,7 @@ class spider extends ConfigurableStop{
     val fields: Array[StructField] = keySet.toArray.map(d=>StructField(d,StringType,nullable = true))
     val schema: StructType = StructType(fields)
     val df: DataFrame = session.createDataFrame(rowRDD,schema)
-
+    println("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
     df.show(10)
     println("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
 
@@ -112,10 +99,7 @@ class spider extends ConfigurableStop{
   }
 
 
-
-  //二层界面的解析
   def parseNext(url:String,strArr: Array[String]): Unit = {
-//    获取doc对象
     var doc: Document = null
     try {
       doc = Jsoup.connect(url).timeout(50000).get()
@@ -123,7 +107,6 @@ class spider extends ConfigurableStop{
     } catch {
         case e: IllegalArgumentException => throw new RuntimeException("The two level interface path does not exist."+"\n"+"二层界面路径不存在")
     }
-    //循环用户需要的每一个字段
     var textDownFile:File =null
     for(each <- strArr){
       val fileMapArr: Array[String] = each.split("/")
@@ -135,21 +118,17 @@ class spider extends ConfigurableStop{
         val rangeArr: Array[String] = fileMapArr(4).split("-")
         for(r <- (rangeArr(0).toInt until rangeArr(1).toInt) ){
           val eachFileEle: Element = downList.get(r)
-          // 建立每个数据集的本地文件夹
           if(downPath.size==0){
             downPath="/InternetWormDown/"
           }
           map+=("downPath"->downPath)
-          //获取当前时间，并记录
           val nowDate: String = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date())
           map+=("downDate"->nowDate)
           textDownFile = new File(downPath+map.get(markupField).get)
           if(! textDownFile.exists()){
             textDownFile.mkdirs()
           }
-          //建立文件
           val eachFile: File = new File(downPath+map.get(markupField).get+"/"+eachFileEle.text())
-          // 如果本地文件不存在，写入本地，若存在，跳过此文件
           if(!eachFile.exists()){
             val in: InputStream = new URL(url+eachFileEle.attr("href")).openStream()
             val out: BufferedOutputStream = new BufferedOutputStream(new FileOutputStream(eachFile),10485760)
@@ -168,7 +147,6 @@ class spider extends ConfigurableStop{
 
         }
       }else{
-        //循环用户给定的需求字段名称和标签地址，依次存储au
         if(fileMapArr.size > 2){
           map+=(fileMapArr(0) -> numEle.text())
         }else{
@@ -176,13 +154,6 @@ class spider extends ConfigurableStop{
       }
       }
     }
-
-
-    //      for(key <- fileMap.keySet){
-    //        //将用户给的标签路径和选择条件分离
-    //        val selects = fileMap.get(key).get.split("/")
-    //        val value: String = doc.select(selects(0)).get(selects(1).toInt).text()
-    //        map+=(key -> value)
   }
 
   override def setProperties(map: Map[String, Any]): Unit = {

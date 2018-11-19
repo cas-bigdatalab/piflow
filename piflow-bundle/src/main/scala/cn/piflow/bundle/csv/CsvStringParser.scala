@@ -14,7 +14,7 @@ class CsvStringParser extends ConfigurableStop{
   override val authorEmail: String = "yangqidong@cnic.cn"
   val inportList: List[String] = List(PortEnum.NonePort.toString)
   val outportList: List[String] = List(PortEnum.DefaultPort.toString)
-  override val description: String = ""
+  override val description: String = "Parsing for CSV strings"
 
 
   var Str:String=_

@@ -30,7 +30,6 @@ class GetMongo extends ConfigurableStop{
 
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     val session: SparkSession = pec.get[SparkSession]()
-//注入链接地址
     var addressesArr: util.ArrayList[ServerAddress] = new util.ArrayList[ServerAddress]()
     val ipANDport: Array[String] = addresses.split(",")
     for(x <- (0 until ipANDport.size)){
@@ -39,7 +38,6 @@ class GetMongo extends ConfigurableStop{
       }
     }
 
-//注入链接凭证
     var credentialsArr: util.ArrayList[MongoCredential] = new util.ArrayList[MongoCredential]()
     if(credentials.length!=0){
       val name_database_password: Array[String] = credentials.split(",")
@@ -50,22 +48,16 @@ class GetMongo extends ConfigurableStop{
       }
     }
 
-//链接到数据库和表
     val client: MongoClient = new MongoClient(addressesArr,credentialsArr)
     val db: MongoDatabase = client.getDatabase(dataBase)
     val col: MongoCollection[Document] = db.getCollection(collection)
 
-//获取表内全部数据   得到迭代器
     val documents: FindIterable[Document] = col.find()
     val dataIterator: MongoCursor[Document] = documents.iterator()
     var document: Document =null
-//记录字段名字
     var fileNamesArr: Array[String] =Array()
-//记录所有数据
     var rowArr:ArrayBuffer[ArrayBuffer[String]]=ArrayBuffer()
-//遍历数据
     while (dataIterator.hasNext){
-      //记录每一条数据
       var dataArr:ArrayBuffer[String]=ArrayBuffer()
       document = dataIterator.next()
       val fileNamesSet: util.Set[String] = document.keySet()
@@ -76,7 +68,6 @@ class GetMongo extends ConfigurableStop{
       rowArr+=dataArr
     }
 
-//生成df
     var names:ArrayBuffer[String]=ArrayBuffer()
     for(n <- (1 until fileNamesArr.size )){
       names += fileNamesArr(n)
@@ -128,7 +119,7 @@ class GetMongo extends ConfigurableStop{
     descriptor
   }
   override def getIcon(): Array[Byte] =  {
-    ImageUtil.getImage("mongoDB/mongodb.png")
+    ImageUtil.getImage("mongoDB/mongoDB.png")
   }
 
   override def getGroup(): List[String] = {
