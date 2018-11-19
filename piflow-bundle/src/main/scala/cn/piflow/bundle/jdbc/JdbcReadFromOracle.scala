@@ -24,7 +24,7 @@ class JdbcReadFromOracle extends ConfigurableStop{
   var user:String = _
   var password:String = _
   var sql:String = _
-  var fileNamesString:String=_
+  var schame:String=_
 
 
   def toByteArray(in: InputStream): Array[Byte] = {
@@ -48,7 +48,7 @@ class JdbcReadFromOracle extends ConfigurableStop{
     val rs: ResultSet = pre.executeQuery()
 
 
-    val filedNames: Array[String] = fileNamesString.split(",")
+    val filedNames: Array[String] = schame.split(",")
     var rowsArr:ArrayBuffer[ArrayBuffer[Any]]=ArrayBuffer()
     while (rs.next()){
       var rowArr:ArrayBuffer[Any]=ArrayBuffer()
@@ -158,7 +158,7 @@ class JdbcReadFromOracle extends ConfigurableStop{
     user = MapUtil.get(map,"user").asInstanceOf[String]
     password = MapUtil.get(map,"password").asInstanceOf[String]
     sql = MapUtil.get(map,"sql").asInstanceOf[String]
-    fileNamesString = MapUtil.get(map,"fileNamesString").asInstanceOf[String]
+    schame = MapUtil.get(map,"fileNamesString").asInstanceOf[String]
   }
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
@@ -176,8 +176,8 @@ class JdbcReadFromOracle extends ConfigurableStop{
     val sql=new PropertyDescriptor().name("sql").displayName("sql").description("The sql you want").defaultValue("").required(true)
     descriptor = sql :: descriptor
 
-    val fileNamesString=new PropertyDescriptor().name("fileNamesString").displayName("fileNamesString").description("The name of the field of your SQL statement query, such as: ID, name").defaultValue("").required(true)
-    descriptor = fileNamesString :: descriptor
+    val schame=new PropertyDescriptor().name("schame").displayName("schame").description("The name of the field of your SQL statement query, such as: ID.number, name.varchar").defaultValue("").required(true)
+    descriptor = schame :: descriptor
 
     descriptor
   }
