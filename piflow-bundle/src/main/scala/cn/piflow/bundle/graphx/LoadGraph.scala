@@ -55,7 +55,7 @@ class LoadGraph extends ConfigurableStop {
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroupEnum.GraphXGroup.toString)
+    List(StopGroupEnum.GraphX.toString)
   }
 
 }

@@ -9,7 +9,7 @@ import net.liftweb.json.JsonDSL._
 object H2Util {
 
   val QUERY_TIME = 30
-  val CREATE_FLOW_TABLE = "create table if not exists flow (id varchar(255), name varchar(255), state varchar(255), startTime varchar(255), endTime varchar(255))"
+  val CREATE_FLOW_TABLE = "create table if not exists flow (id varchar(255), pid varchar(255), name varchar(255), state varchar(255), startTime varchar(255), endTime varchar(255))"
   val CREATE_STOP_TABLE = "create table if not exists stop (flowId varchar(255), name varchar(255), state varchar(255), startTime varchar(255), endTime varchar(255))"
   val serverIP = PropertyUtil.getPropertyValue("server.ip") + ":" + PropertyUtil.getPropertyValue("h2.port")
   val CONNECTION_URL = "jdbc:h2:tcp://" +  serverIP + "/~/piflow;AUTO_SERVER=true"
@@ -36,11 +36,11 @@ object H2Util {
     connection
   }
 
-  def addFlow(appId:String,name:String)={
+  def addFlow(appId:String,pId:String, name:String)={
     val startTime = new Date().toString
     val statement = getConnectionInstance().createStatement()
     statement.setQueryTimeout(QUERY_TIME)
-    statement.executeUpdate("insert into flow(id, name) values('" + appId + "','" + name + "')")
+    statement.executeUpdate("insert into flow(id, pid, name) values('" + appId + "','" + pId + "','" + name + "')")
     statement.close()
   }
   def updateFlowState(appId:String, state:String) = {
@@ -82,6 +82,19 @@ object H2Util {
     state
   }
 
+  def getFlowProcessId(appId:String) : String = {
+    var pid = ""
+    val statement = getConnectionInstance().createStatement()
+    statement.setQueryTimeout(QUERY_TIME)
+    val rs : ResultSet = statement.executeQuery("select pid from flow where id='" + appId +"'")
+    while(rs.next()){
+      pid = rs.getString("pid")
+    }
+    rs.close()
+    statement.close()
+    pid
+  }
+
   def getFlowInfo(appId:String) : String = {
     val statement = getConnectionInstance().createStatement()
     statement.setQueryTimeout(QUERY_TIME)
@@ -90,6 +103,7 @@ object H2Util {
     val flowRS : ResultSet = statement.executeQuery("select * from flow where id='" + appId +"'")
     while (flowRS.next()){
       flowInfo = "{\"flow\":{\"id\":\"" + flowRS.getString("id") +
+        "\",\"pid\":\"" +  flowRS.getString("pid") +
         "\",\"name\":\"" +  flowRS.getString("name") +
         "\",\"state\":\"" +  flowRS.getString("state") +
         "\",\"startTime\":\"" +  flowRS.getString("startTime") +

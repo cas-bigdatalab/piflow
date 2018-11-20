@@ -93,6 +93,18 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
 
    }
 
+   case HttpRequest(GET, Uri.Path("/flow/checkpoints"), headers, entity, protocol) => {
+
+     val processID = req.getUri().query().getOrElse("processID","")
+     if(!processID.equals("")){
+       val result = API.getFlowCheckpoint(processID)
+       Future.successful(HttpResponse(entity = result))
+     }else{
+       Future.successful(HttpResponse(entity = "processID is null or flow does not exist!"))
+     }
+
+   }
+
    case HttpRequest(POST, Uri.Path("/flow/start"), headers, entity, protocol) =>{
 
      entity match {
@@ -100,9 +112,10 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
          var flowJson = data.utf8String
          flowJson = flowJson.replaceAll("}","}\n")
          //flowJson = JsonFormatTool.formatJson(flowJson)
-         val (appId,process) = API.startFlow(flowJson)
+         val (appId,pid,process) = API.startFlow(flowJson)
          processMap += (appId -> process)
-         Future.successful(HttpResponse(entity = appId))
+         val result = "{\"flow\":{\"id\":\"" + appId + "\",\"pid\":\"" +  pid + "\"}}"
+         Future.successful(HttpResponse(entity = result))
        }
 
        case ex => {

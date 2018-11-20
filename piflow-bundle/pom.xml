@@ -251,7 +251,7 @@
                     </execution>
 
                     <execution>
-                        <id>install-external-2</id>
+                        <id>install-external-3</id>
                         <goals>
                             <goal>install-file</goal>
                         </goals>
