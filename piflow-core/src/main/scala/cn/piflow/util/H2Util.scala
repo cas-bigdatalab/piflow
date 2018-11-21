@@ -138,7 +138,7 @@ object H2Util {
 
     var stopCount = 0
     var completedStopCount = 0
-    val totalRS : ResultSet = statement.executeQuery("select count(*) as stopCount from stop where flowId='" + appId +"'")
+    val totalRS : ResultSet = statement.executeQuery("select count(*) as stopCount from stop where flowId='" + appId +"' and state!='" + StopState.INIT + "'")
     while(totalRS.next()){
       stopCount = totalRS.getInt("stopCount")
       //println("stopCount:" + stopCount)
