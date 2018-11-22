@@ -202,9 +202,26 @@
             <version>1.2.6</version>
         </dependency>
 
+        <dependency>
+            <groupId>net.sourceforge.jexcelapi</groupId>
+            <artifactId>jxl</artifactId>
+            <version>2.6.12</version>
+        </dependency>
 
+        <!-- Poi（解析Excle表格用） -->
+        <dependency>
+            <groupId>org.apache.poi</groupId>
+            <artifactId>poi-ooxml</artifactId>
+            <version>3.11-beta1</version>
+        </dependency>
 
-
+        <!-- Json（组装Json用）-->
+        <dependency>
+            <groupId>net.sf.json-lib</groupId>
+            <artifactId>json-lib</artifactId>
+            <version>2.4</version>
+            <classifier>jdk15</classifier>
+        </dependency>
 
 
     </dependencies>

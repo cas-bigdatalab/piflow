@@ -1,0 +1,53 @@
+{
+  "flow":{
+    "name":"test",
+    "uuid":"1234",
+    "stops":[
+      {
+        "uuid":"0000",
+        "name":"LoadFromFtpUrl",
+        "bundle":"cn.piflow.bundle.ftp.LoadFromFtpUrl",
+        "properties":{
+          "http_URl":"https://gold.jgi.doe.gov/download?mode=site_excel",
+          "url_type":"file",
+          "localPath":"/ftpGoldData1",
+          "downType":"all",
+          "fileName":"golddata.xls"
+        }
+      },
+      {
+        "uuid": "1111",
+        "name": "ExcelParser",
+        "bundle": "cn.piflow.bundle.excel.ExcelParser",
+        "properties": {
+          "excelPath":"/ftpGoldData/test1.xlsx"
+        }
+      },
+      {
+        "uuid": "2222",
+        "name": "GoldDataParse",
+        "bundle": "cn.piflow.bundle.microorganism.GoldDataParse",
+        "properties": {
+          "es_nodes": "10.0.86.89,10.0.86.90,10.0.86.91",
+          "port": "9200",
+          "es_index": "golddata",
+          "es_type": "golddatatest"
+        }
+      }
+    ],
+    "paths":[
+      {
+        "from":"LoadFromFtpUrl",
+        "outport":"",
+        "inport":"",
+        "to":"ExcelParser"
+      },
+      {
+        "from":"ExcelParser",
+        "outport":"",
+        "inport":"",
+        "to":"GoldDataParse"
+      }
+    ]
+  }
+}

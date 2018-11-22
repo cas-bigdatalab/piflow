@@ -16,9 +16,9 @@ import org.json.JSONObject
 
 
 class GenBankParse extends ConfigurableStop{
-  val authorEmail: String = "xiaoxiao@cnic.cn"
-  val description: String = "Load file from ftp url."
-  val inportList: List[String] = List(PortEnum.NonePort.toString)
+  val authorEmail: String = "ygang@cnic.cn"
+  val description: String = " Parse genbank date put to elasticSearch"
+  val inportList: List[String] = List(PortEnum.DefaultPort.toString)
   val outportList: List[String] = List(PortEnum.NonePort.toString)
 
 
@@ -47,11 +47,9 @@ class GenBankParse extends ConfigurableStop{
         val sourceFile = rows(i)(0)
         println("++++++++++++++++++++++++++++++++++++++++++++++++++002" + sourceFile)
         // 字节数组反序列化 为 ByteArrayInputStream
-        val bis:ByteArrayInputStream=new ByteArrayInputStream(inDf.head().get(0).asInstanceOf[Array[Byte]])
+        val bis:ByteArrayInputStream=new ByteArrayInputStream(sourceFile.asInstanceOf[Array[Byte]])
 
         //val fileinputStream = new FileInputStream(sourceFile)
-        println("Start processing file ----->" + sourceFile)
-
         val br = new BufferedReader(new InputStreamReader(bis))
 
         //  解析seq  文件 的字节流
@@ -134,7 +132,6 @@ class GenBankParse extends ConfigurableStop{
     val port = new PropertyDescriptor().name("port").displayName("PORT").defaultValue("").required(true)
     val es_index = new PropertyDescriptor().name("es_index").displayName("ES_INDEX").defaultValue("").required(true)
     val es_type = new PropertyDescriptor().name("es_type").displayName("ES_TYPE").defaultValue("").required(true)
-
 
     descriptor = es_nodes :: descriptor
     descriptor = port :: descriptor

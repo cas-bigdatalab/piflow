@@ -1,5 +1,6 @@
 package cn.piflow.bundle.ftp
 
+
 import java.io._
 import java.net.URL
 import java.text.SimpleDateFormat
@@ -19,12 +20,13 @@ class LoadFromFtpUrl extends ConfigurableStop{
   val authorEmail: String = "ygang@cnic.cn"
   val description: String = "Load file from ftp url."
   val inportList: List[String] = List(PortEnum.NonePort.toString)
-  val outportList: List[String] = List(PortEnum.NonePort.toString)
+  val outportList: List[String] = List(PortEnum.DefaultPort.toString)
 
-  var url_str:String =_  //url 地址
+  var http_URl:String =_  //url 地址
   var url_type:String =_   // url 指向文件 类型，文件 or 文件夹
   var localPath:String =_   // 保存的本地路径
   var downType:String=_
+  var fileName:String=_
 
   var list = List("")
 
@@ -33,36 +35,31 @@ class LoadFromFtpUrl extends ConfigurableStop{
     val sc = spark.sparkContext
     import spark.sqlContext.implicits._
 
-
     var fileLocalPath:String = null
-
     // 具体的文件路径  直接下载
     if (url_type == "file"){
       println("************************************************    -----------file ")
-      val aa  = url_str.split("/")
+     // val aa  = url_str.split("/")
       // 文件名字
-      val fileName = aa(aa.size-1)
+      //val fileName = aa(aa.size-1)
       println(fileName)
       //文件 路径保存到 list
       fileLocalPath = localPath+"/"+fileName
       list = fileLocalPath::list
       // 下载 文件
-      downFileFromFtpUrl(url_str,localPath,fileName)
-
+      downFileFromFtpUrl(http_URl,localPath,fileName)
     } else {
-
-      var arrayList:ArrayList[String]=getFilePathList(url_str)
+      var arrayList:ArrayList[String]=getFilePathList(http_URl)
       // 遍历 文件路径 所在的集合
       for (i <- 0 until arrayList.size()) {
         // https://ftp.ncbi.nih.gov/genbank/docs/--1234567890987654321--Current_version_is_10.7--1234567890987654321--20180423
         val array = arrayList.get(i)
 
         if(downType.equals("all")){
-          println("##################################===========================================")
 
           val arrayString = array.split("--1234567890987654321--")
 
-          val fileUrlDir = array.replace(s"$url_str", "/").split("--1234567890987654321--")(0)
+          val fileUrlDir = array.replace(s"$http_URl", "/").split("--1234567890987654321--")(0)
           // 单个文件url 指向的 路径
           val urlPath = arrayString(0)+arrayString(1)
           // 下载 保存 文件夹的目录
@@ -91,7 +88,7 @@ class LoadFromFtpUrl extends ConfigurableStop{
             println("##################################_____-------------------------------")
             val arrayString = array.split("--1234567890987654321--")
 
-            val fileUrlDir = array.replace(s"$url_str", "/").split("--1234567890987654321--")(0)
+            val fileUrlDir = array.replace(s"$http_URl", "/").split("--1234567890987654321--")(0)
             // 单个文件url 指向的 路径
             val urlPath = arrayString(0)+arrayString(1)
             // 下载 保存 文件夹的目录
@@ -126,8 +123,14 @@ class LoadFromFtpUrl extends ConfigurableStop{
     var bos:BufferedOutputStream = null
     var is :InputStream =null
     try {
+
       val buff = new Array[Byte](1024)
       is = new URL(url).openStream()
+
+
+//      val configuration: Configuration = new Configuration()
+//      val fs = FileSystem.get(configuration)
+//      val out: FSDataOutputStream = fs.create(new Path(saveDir))
 
       val file = new File(saveDir, fileName)
       // 级联创建文件夹  以及文件
@@ -161,7 +164,6 @@ class LoadFromFtpUrl extends ConfigurableStop{
   var filePathList = new ArrayList[String]
   def getFilePathList(url:String):ArrayList[String] ={
 
-
     val doc = Jsoup.connect(url).timeout(100000000).get()
     //  获取 url 界面   文件名字  日期   大小
     //  Name                    Last modified      Size  Parent Directory                             -
@@ -172,7 +174,6 @@ class LoadFromFtpUrl extends ConfigurableStop{
 
     // 按行 分割 elements 为单个字符串
     val fileString = elements.first().text().split("\\n")
-
 
     for (i <- 0 until fileString.size) {
 
@@ -216,24 +217,27 @@ class LoadFromFtpUrl extends ConfigurableStop{
 
 
   def setProperties(map: Map[String, Any]): Unit = {
-    url_str=MapUtil.get(map,key="url_str").asInstanceOf[String]
+    http_URl=MapUtil.get(map,key="http_URl").asInstanceOf[String]
     url_type=MapUtil.get(map,key="url_type").asInstanceOf[String]
     localPath=MapUtil.get(map,key="localPath").asInstanceOf[String]
     downType=MapUtil.get(map,key="downType").asInstanceOf[String]
+    fileName=MapUtil.get(map,key="fileName").asInstanceOf[String]
   }
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
-    val url_str = new PropertyDescriptor().name("url_str").displayName("URL").defaultValue("").required(true)
+    val http_URl = new PropertyDescriptor().name("http_URl").displayName("http_URl").defaultValue("").required(true)
     val localPath = new PropertyDescriptor().name("localPath").displayName("Local_Path").defaultValue("").required(true)
     val  url_type= new PropertyDescriptor().name("url_type").displayName("url_type").defaultValue("").required(true)
     val  downType= new PropertyDescriptor().name("downType").displayName("downType").defaultValue("all,day").required(true)
+    val  fileName= new PropertyDescriptor().name("fileName").displayName("fileName").defaultValue("fileName").required(false)
 
 
-    descriptor = url_str :: descriptor
+    descriptor = http_URl :: descriptor
     descriptor = url_type :: descriptor
     descriptor = localPath :: descriptor
     descriptor = downType :: descriptor
+    descriptor = fileName :: descriptor
     descriptor
   }
 
