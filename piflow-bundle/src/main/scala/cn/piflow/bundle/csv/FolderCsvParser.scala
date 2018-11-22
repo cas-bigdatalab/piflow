@@ -14,7 +14,7 @@ class FolderCsvParser extends ConfigurableStop{
   override val authorEmail: String = "yangqidong@cnic.cn"
   val inportList: List[String] = List(PortEnum.NonePort.toString)
   val outportList: List[String] = List(PortEnum.DefaultPort.toString)
-  override val description: String = ""
+  override val description: String = "Parsing of CSV folder"
 
 
   var FolderPath:String=_
@@ -22,13 +22,8 @@ class FolderCsvParser extends ConfigurableStop{
   var schema: String = _
 
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
-
-    println("kkkkkkkkkkkkkkkk")
-
     val session: SparkSession = pec.get[SparkSession]
     val context: SparkContext = session.sparkContext
-
-
 
     val StrRDD: RDD[String] = context.textFile(FolderPath)
     var num:Int=0
@@ -40,8 +35,6 @@ class FolderCsvParser extends ConfigurableStop{
       val row = Row.fromSeq(seqSTR)
       row
     })
-
-
 
     val schameARR: Array[String] = schema.split(",")
     val fields: Array[StructField] = schameARR.map(d=>StructField(d.trim,StringType,nullable = true))
@@ -61,7 +54,6 @@ class FolderCsvParser extends ConfigurableStop{
     out.write(Fdf)
 
   }
-
 
   override def setProperties(map: Map[String, Any]): Unit = {
     FolderPath = MapUtil.get(map,"csvPath").asInstanceOf[String]

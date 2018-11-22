@@ -11,6 +11,7 @@ class FlowBean {
   var uuid : String = _
   var name : String = _
   var checkpoint : String = _
+  var checkpointParentProcessId : String = _
   var stops : List[StopBean] = List()
   var paths : List[PathBean] = List()
 
@@ -21,6 +22,7 @@ class FlowBean {
     this.uuid = MapUtil.get(flowMap,"uuid").asInstanceOf[String]
     this.name = MapUtil.get(flowMap,"name").asInstanceOf[String]
     this.checkpoint = flowMap.getOrElse("checkpoint","").asInstanceOf[String]
+    this.checkpointParentProcessId = flowMap.getOrElse("checkpointParentProcessId", "").asInstanceOf[String]
 
     //construct StopBean List
     val stopsList = MapUtil.get(flowMap,"stops").asInstanceOf[List[Map[String, Any]]]
@@ -43,6 +45,7 @@ class FlowBean {
     val flow = new FlowImpl();
 
     flow.setFlowName(this.name)
+    flow.setCheckpointParentProcessId(this.checkpointParentProcessId)
 
     this.stops.foreach( stopBean => {
       flow.addStop(stopBean.name,stopBean.constructStop())

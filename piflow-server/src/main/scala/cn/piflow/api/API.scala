@@ -9,7 +9,7 @@ import org.apache.spark.sql.SparkSession
 import cn.piflow.conf.util.{ClassUtil, MapUtil, OptionUtil}
 import cn.piflow.{Process, Runner}
 import cn.piflow.api.util.PropertyUtil
-import cn.piflow.util.H2Util
+import cn.piflow.util.{H2Util, HadoopFileUtil}
 import org.apache.http.client.methods.{CloseableHttpResponse, HttpGet, HttpPost}
 import org.apache.http.impl.client.HttpClients
 import org.apache.http.util.EntityUtils
@@ -58,7 +58,7 @@ object API {
     (applicationId,process)
 
   }*/
-  def startFlow(flowJson : String):(String,SparkAppHandle) = {
+  def startFlow(flowJson : String):(String,String,SparkAppHandle) = {
 
     var appId:String = null
     val map = OptionUtil.getAny(JSON.parseFull(flowJson)).asInstanceOf[Map[String, Any]]
@@ -122,7 +122,12 @@ object API {
     while (appId == null){
       Thread.sleep(1000)
     }
-    (appId, handle)
+    var processId = ""
+    while(processId.equals("")){
+      Thread.sleep(1000)
+      processId = H2Util.getFlowProcessId(appId)
+    }
+    (appId, processId, handle)
 
   }
 
@@ -149,6 +154,12 @@ object API {
     val entity = response.getEntity
     val str = EntityUtils.toString(entity,"UTF-8")
     str
+  }
+
+  def getFlowCheckpoint(processID:String) : String = {
+    val checkpointPath = PropertyUtil.getPropertyValue("checkpoint.path").stripSuffix("/") + "/" + processID
+    val checkpointList = HadoopFileUtil.getFileInHadoopPath(checkpointPath)
+    """{"checkpoints":"""" + checkpointList.mkString(",") + """"}"""
   }
 
 

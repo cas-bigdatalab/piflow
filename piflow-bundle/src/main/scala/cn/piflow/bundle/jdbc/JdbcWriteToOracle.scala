@@ -51,9 +51,6 @@ class JdbcWriteToOracle extends ConfigurableStop{
 
       star.executeUpdate(insertSQL)
     })
-
-
-
   }
 
   def initialize(ctx: ProcessContext): Unit = {

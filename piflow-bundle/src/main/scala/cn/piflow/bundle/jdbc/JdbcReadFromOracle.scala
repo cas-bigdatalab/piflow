@@ -134,16 +134,6 @@ class JdbcReadFromOracle extends ConfigurableStop{
     df.show(20)
     println("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
 
-/*
-    val v: Any = df.collect()(0).get(2)
-    println("3333333333333333333333"+v.getClass)
-    val ab: Array[Byte] = v.asInstanceOf[Seq[Byte]].toArray
-
-    val fos: FileOutputStream = new FileOutputStream(new File("/aa.txt"))
-    fos.write(ab)
-    fos.close()
-*/
-
     out.write(df)
 
 

@@ -29,13 +29,10 @@ class SelectImpala extends ConfigurableStop{
     override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit =  {
     val session: SparkSession = pec.get[SparkSession]()
 
-    //jdbc:hive2://10.0.82.165:21050/;auth=noSasl
-
       Class.forName("org.apache.hive.jdbc.HiveDriver")
 
       val con: Connection = DriverManager.getConnection("jdbc:hive2://"+url+"/;auth=noSasl",user,password)
       val stmt: Statement = con.createStatement()
-      //    val rs: ResultSet = stmt.executeQuery("select * from kylin.test1 full join kylin.morg on kylin.test1.pid=kylin.morg.belongtocode")
       val rs: ResultSet = stmt.executeQuery(sql)
 
       val filedNames: Array[String] = schameString.split(",")
@@ -81,9 +78,9 @@ class SelectImpala extends ConfigurableStop{
 
     val url=new PropertyDescriptor().name("url").displayName("url").description("IP and port number, you need to write like this -- ip:port").defaultValue("").required(true)
     descriptor = url :: descriptor
-    val user=new PropertyDescriptor().name("user").displayName("user").description("").defaultValue("").required(false)
+    val user=new PropertyDescriptor().name("user").displayName("user").description("user").defaultValue("").required(false)
     descriptor = user :: descriptor
-    val password=new PropertyDescriptor().name("password").displayName("password").description("").defaultValue("").required(false)
+    val password=new PropertyDescriptor().name("password").displayName("password").description("password").defaultValue("").required(false)
     descriptor = password :: descriptor
     val sql=new PropertyDescriptor().name("sql").displayName("sql").description("The name of the table has not changed.But you have to specify which database, such as database.table.").defaultValue("").required(true)
     descriptor = sql :: descriptor
@@ -101,8 +98,8 @@ class SelectImpala extends ConfigurableStop{
     List(StopGroupEnum.Mongodb.toString)
   }
 
+
   override def initialize(ctx: ProcessContext): Unit = {
   }
-
 
 }

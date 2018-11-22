@@ -24,7 +24,7 @@ class FlattenXmlParser extends ConfigurableStop{
   override val authorEmail: String = "yangqidong@cnic.cn"
   val inportList: List[String] = List(PortEnum.NonePort.toString)
   val outportList: List[String] = List(PortEnum.DefaultPort.toString)
-  override val description: String = "paring the xml file"
+  override val description: String = "Parse the XML file and expand the label you need."
 
 
   var xmlpath:String = _
@@ -33,9 +33,7 @@ class FlattenXmlParser extends ConfigurableStop{
   var returnField: String = _
 
 
-  //迭代器转换
   def javaIterToScalaIter(utilIter: util.Iterator[_]):Iterator[Element]={
-    //    asscala需要导入import scala.collection.JavaConverters._
     utilIter.asInstanceOf[util.Iterator[Element]].asScala
   }
 
@@ -45,44 +43,31 @@ class FlattenXmlParser extends ConfigurableStop{
 
 
     ss=pec.get[SparkSession]()
-//读取hdfs文件，封装到流
     val conf = new Configuration()
     val fs: FileSystem = FileSystem.get(URI.create(xmlpath), conf)
     val hdfsInputStream: FSDataInputStream = fs.open(new Path(xmlpath))
     val saxReader: SAXReader = new SAXReader()
-//    将流放入dom4j中，解析数据
     val document: Document = saxReader.read(hdfsInputStream)
-//获取根节点
     val rootElt: Element = document.getRootElement
-
 
     var finalDF:DataFrame=null
 
-
-//建立节点路径的沿途所有ele的list
     var arrbuffer:ArrayBuffer[Element]=ArrayBuffer()
     arrbuffer+=rootElt
 
-//    解析客户要解析的标签
-//    papers,paper
-
     val arrLabel: Array[String] = tagPath.split(",")
-//    循环标签路径，将沿途ele依次放入数组
     for(x<-(1 until arrLabel.length)){
       var ele: Element =arrbuffer(x-1).element(arrLabel(x))
       arrbuffer+=ele
     }
 
-//    生成客户想解析标签的迭代器,并转换为scala迭代器
     val FatherElement: Element = arrbuffer(arrbuffer.size-1)
     val FatherInterator: util.Iterator[_] = FatherElement.elementIterator()
     val scalalInterator: Iterator[Element] = javaIterToScalaIter(FatherInterator)
 
-//    提前准备关联的key和value
       var relationKey:String=""
       var relationValue:String=""
 
-    //解析、存储数据
     var valueArr:ArrayBuffer[ArrayBuffer[String]]=ArrayBuffer()
     var value:ArrayBuffer[String]=ArrayBuffer()
     var keyArr:ArrayBuffer[String]=ArrayBuffer()
@@ -109,7 +94,6 @@ class FlattenXmlParser extends ConfigurableStop{
 
 
 
-    //    解析用户要显示的字段名称
     if(returnField.size>0){
       val returnARR: Array[String] = returnField.split(",")
       val seq: Seq[Column] = returnARR.map(x=>finalDF(x)).toSeq
@@ -119,7 +103,6 @@ class FlattenXmlParser extends ConfigurableStop{
     }
 
 
-    //如果用户希望展开某一字段
    var smallDF: DataFrame = null
      if(openTag.size>0){
       val eleExplode: Element = FatherElement.element(openTag)
@@ -153,7 +136,6 @@ class FlattenXmlParser extends ConfigurableStop{
       val sonSchame: StructType = StructType(field)
       smallDF = ss.createDataFrame(ss.sparkContext.makeRDD(valueRows),sonSchame)
 
-       //       两表join
        val df: DataFrame = smallDF.join(finalDF,finalDF(relationKey)===smallDF(relationKey+"_"),"left")
        finalDF=  df.drop(relationKey+"_")
     }
@@ -163,10 +145,8 @@ class FlattenXmlParser extends ConfigurableStop{
     finalDF.show(20)
     println("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
 
-
     out.write(finalDF)
   }
-
 
 
   override def setProperties(map: Map[String, Any]): Unit = {
