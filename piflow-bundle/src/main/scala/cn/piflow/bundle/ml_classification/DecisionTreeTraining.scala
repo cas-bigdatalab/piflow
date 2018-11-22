@@ -8,7 +8,7 @@ import org.apache.spark.ml.classification.DecisionTreeClassifier
 import org.apache.spark.sql.SparkSession
 
 class DecisionTreeTraining extends ConfigurableStop{
-  val authorEmail: String = "xiaoxiao@cnic.cn"
+  val authorEmail: String = "06whuxx@163.com"
   val description: String = "Training a DecisionTreeModel."
   val inportList: List[String] = List(PortEnum.NonePort.toString)
   val outportList: List[String] = List(PortEnum.DefaultPort.toString)
@@ -95,10 +95,10 @@ class DecisionTreeTraining extends ConfigurableStop{
     var descriptor : List[PropertyDescriptor] = List()
     val training_data_path = new PropertyDescriptor().name("training_data_path").displayName("TRAINING_DATA_PATH").defaultValue("").required(true)
     val model_save_path = new PropertyDescriptor().name("model_save_path").displayName("MODEL_SAVE_PATH").description("ddd").defaultValue("").required(true)
-    val maxBins=new PropertyDescriptor().name("maxBins").displayName("MAX_BINS").description("ddd").defaultValue("").required(true)
-    val maxDepth=new PropertyDescriptor().name("maxDepth").displayName("MAX_DEPTH").description("ddd").defaultValue("").required(true)
-    val minInfoGain=new PropertyDescriptor().name("minInfoGain").displayName("MIN_INFO_GAIN").description("ddd").defaultValue("").required(true)
-    val minInstancesPerNode=new PropertyDescriptor().name("minInstancesPerNode").displayName("MIN_INSTANCES_PER_NODE").description("ddd").defaultValue("").required(true)
+    val maxBins=new PropertyDescriptor().name("maxBins").displayName("MAX_BINS").description("Maximum number of bins used for discretizing continuous features and for choosing how to split on features at each node.").defaultValue("").required(true)
+    val maxDepth=new PropertyDescriptor().name("maxDepth").displayName("MAX_DEPTH").description("Maximum depth of the tree").defaultValue("").required(true)
+    val minInfoGain=new PropertyDescriptor().name("minInfoGain").displayName("MIN_INFO_GAIN").description("Minimum information gain for a split to be considered at a tree node").defaultValue("").required(true)
+    val minInstancesPerNode=new PropertyDescriptor().name("minInstancesPerNode").displayName("MIN_INSTANCES_PER_NODE").description("Minimum number of instances each child must have after split.").defaultValue("").required(true)
     val impurity=new PropertyDescriptor().name("impurity").displayName("IMPURITY").description("Criterion used for information gain calculation (case-insensitive). Supported: \"entropy\" and \"gini\". (default = gini)").defaultValue("").required(true)
     descriptor = training_data_path :: descriptor
     descriptor = model_save_path :: descriptor

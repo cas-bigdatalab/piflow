@@ -8,7 +8,7 @@ import org.apache.spark.ml.classification.RandomForestClassificationModel
 import org.apache.spark.sql.SparkSession
 
 class RandomForestPrediction extends ConfigurableStop{
-  val authorEmail: String = "xiaoxiao@cnic.cn"
+  val authorEmail: String = "06whuxx@163.com"
   val description: String = "Make use of a exist RandomForest Model to predict."
   val inportList: List[String] = List(PortEnum.NonePort.toString)
   val outportList: List[String] = List(PortEnum.DefaultPort.toString)

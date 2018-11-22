@@ -14,7 +14,7 @@ import org.apache.spark.sql.SparkSession
 import scala.reflect.macros.ParseException
 
 class IdentityNumberClean extends ConfigurableStop{
-  val authorEmail: String = "xiaoxiao@cnic.cn"
+  val authorEmail: String = "06whuxx@163.com"
   val description: String = "Clean Id Card data."
   val inportList: List[String] = List(PortEnum.DefaultPort.toString)
   val outportList: List[String] = List(PortEnum.DefaultPort.toString)

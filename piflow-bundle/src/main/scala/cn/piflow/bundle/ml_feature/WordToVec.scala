@@ -9,7 +9,7 @@ import org.apache.spark.ml.feature.Word2VecModel
 import org.apache.spark.sql.SparkSession
 
 class WordToVec extends ConfigurableStop{
-  val authorEmail: String = "xiaoxiao@cnic.cn"
+  val authorEmail: String = "06whuxx@163.com"
   val description: String = "transfer word to vector"
   val inportList: List[String] = List(PortEnum.DefaultPort.toString)
   val outportList: List[String] = List(PortEnum.DefaultPort.toString)
@@ -104,12 +104,12 @@ class WordToVec extends ConfigurableStop{
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
-    val vectorSize = new PropertyDescriptor().name("vectorSize").displayName("VECTOR_SIZE").defaultValue("").required(false)
-    val maxSentenceLength = new PropertyDescriptor().name("maxSentenceLength").displayName("MAX_SENTENCE_LENGTH").description("").defaultValue("").required(false)
-    val maxIter=new PropertyDescriptor().name("maxIter").displayName("MAX_ITER").description("").defaultValue("").required(false)
-    val minCount=new PropertyDescriptor().name("minCount").displayName("MIN_COUNT").description("").defaultValue("").required(false)
+    val vectorSize = new PropertyDescriptor().name("vectorSize").displayName("VECTOR_SIZE").description("The dimension of the code that you want to transform from words. Default: 100").defaultValue("").required(false)
+    val maxSentenceLength = new PropertyDescriptor().name("maxSentenceLength").displayName("MAX_SENTENCE_LENGTH").description("Sets the maximum length (in words) of each sentence in the input data. Any sentence longer than this threshold will be divided into chunks of up to maxSentenceLength size. Default: 1000").defaultValue("").required(false)
+    val maxIter=new PropertyDescriptor().name("maxIter").displayName("MAX_ITER").description("Param for maximum number of iterations (>= 0)").defaultValue("").required(false)
+    val minCount=new PropertyDescriptor().name("minCount").displayName("MIN_COUNT").description("The minimum number of times a token must appear to be included in the word2vec model's vocabulary. Default: 5").defaultValue("").required(false)
     val stepSize=new PropertyDescriptor().name("stepSize").displayName("STEP_SIZE").defaultValue("").required(false)
-    val numPartitions=new PropertyDescriptor().name("numPartitions").displayName("NUM_PARTITIONS").description("").defaultValue("").required(false)
+    val numPartitions=new PropertyDescriptor().name("numPartitions").displayName("NUM_PARTITIONS").description("Param for Step size to be used for each iteration of optimization (> 0).").defaultValue("").required(false)
     val colName=new PropertyDescriptor().name("colName").displayName("INPUT_COL").description("").defaultValue("").required(true)
     val outputCol=new PropertyDescriptor().name("outputCol").displayName("OUTPUT_COL").description("").defaultValue("").required(true)
     descriptor = vectorSize :: descriptor

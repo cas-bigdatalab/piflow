@@ -99,5 +99,5 @@ class ReadFromKafka extends ConfigurableStop{
     List(StopGroupEnum.KafkaGroup.toString)
   }
 
-  override val authorEmail: String = "xiaoxiao@cnic.cn"
+  override val authorEmail: String = "06whuxx@163.com"
 }

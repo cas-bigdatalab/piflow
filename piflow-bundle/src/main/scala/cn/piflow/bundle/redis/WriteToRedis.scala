@@ -69,5 +69,5 @@ class WriteToRedis extends ConfigurableStop{
     List(StopGroupEnum.RedisGroup.toString)
   }
 
-  override val authorEmail: String = "xiaoxiao@cnic.cn"
+  override val authorEmail: String = "06whuxx@163.com"
 }

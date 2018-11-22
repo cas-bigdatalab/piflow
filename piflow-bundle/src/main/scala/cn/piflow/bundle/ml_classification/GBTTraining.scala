@@ -8,7 +8,7 @@ import org.apache.spark.ml.classification.GBTClassifier
 import org.apache.spark.sql.SparkSession
 
 class GBTTraining extends ConfigurableStop{
-  val authorEmail: String = "xiaoxiao@cnic.cn"
+  val authorEmail: String = "06whuxx@163.com"
   val description: String = "Training a GBT Model."
   val inportList: List[String] = List(PortEnum.NonePort.toString)
   val outportList: List[String] = List(PortEnum.DefaultPort.toString)
@@ -118,14 +118,14 @@ class GBTTraining extends ConfigurableStop{
     var descriptor : List[PropertyDescriptor] = List()
     val training_data_path = new PropertyDescriptor().name("training_data_path").displayName("TRAINING_DATA_PATH").defaultValue("").required(true)
     val model_save_path = new PropertyDescriptor().name("model_save_path").displayName("MODEL_SAVE_PATH").description("").defaultValue("").required(true)
-    val maxBins=new PropertyDescriptor().name("maxBins").displayName("MAX_BINS").description("ddd").defaultValue("").required(false)
-    val maxDepth=new PropertyDescriptor().name("maxDepth").displayName("MAX_DEPTH").description("ddd").defaultValue("").required(false)
-    val minInfoGain=new PropertyDescriptor().name("minInfoGain").displayName("MIN_INFO_GAIN").description("ddd").defaultValue("").required(false)
-    val minInstancesPerNode=new PropertyDescriptor().name("minInstancesPerNode").displayName("MIN_INSTANCES_PER_NODE").description("ddd").defaultValue("").required(false)
+    val maxBins=new PropertyDescriptor().name("maxBins").displayName("MAX_BINS").description("Maximum number of bins used for discretizing continuous features and for choosing how to split on features at each node.").defaultValue("").required(false)
+    val maxDepth=new PropertyDescriptor().name("maxDepth").displayName("MAX_DEPTH").description("Maximum depth of the tree").defaultValue("").required(false)
+    val minInfoGain=new PropertyDescriptor().name("minInfoGain").displayName("MIN_INFO_GAIN").description("Minimum information gain for a split to be considered at a tree node").defaultValue("").required(false)
+    val minInstancesPerNode=new PropertyDescriptor().name("minInstancesPerNode").displayName("MIN_INSTANCES_PER_NODE").description("Minimum number of instances each child must have after split.").defaultValue("").required(false)
     val impurity=new PropertyDescriptor().name("impurity").displayName("IMPURITY").description("Criterion used for information gain calculation (case-insensitive). Supported: \"entropy\" and \"gini\". (default = gini)").defaultValue("").required(false)
-    val subSamplingRate=new PropertyDescriptor().name("subSamplingRate").displayName("SUB_SAMPLING_RATE").description("ddd").defaultValue("").required(false)
-    val lossType=new PropertyDescriptor().name("lossType").displayName("LOSS_TYPE").description("ddd").defaultValue("").required(false)
-    val stepSize=new PropertyDescriptor().name("stepSize").displayName("STEP_SIZE").description("ddd").defaultValue("").required(false)
+    val subSamplingRate=new PropertyDescriptor().name("subSamplingRate").displayName("SUB_SAMPLING_RATE").description("Fraction of the training data used for learning each decision tree, in range (0, 1].").defaultValue("").required(false)
+    val lossType=new PropertyDescriptor().name("lossType").displayName("LOSS_TYPE").description("Loss function which GBT tries to minimize. (case-insensitive) Supported: \"logistic\" (default = logistic)").defaultValue("").required(false)
+    val stepSize=new PropertyDescriptor().name("stepSize").displayName("STEP_SIZE").description("Param for Step size (a.k.a. learning rate) in interval (0, 1] for shrinking the contribution of each estimator. (default = 0.1)").defaultValue("").required(false)
     descriptor = training_data_path :: descriptor
     descriptor = model_save_path :: descriptor
     descriptor = maxBins :: descriptor
