@@ -27,5 +27,6 @@ object StopGroupEnum extends Enumeration {
   val Memcache= Value("Memcache")
   val GraphX=Value("GraphX")
   val ExcelGroup=Value("ExcelGroup")
+  val HbaseGroup=Value("HbaseGroup")
 
 }

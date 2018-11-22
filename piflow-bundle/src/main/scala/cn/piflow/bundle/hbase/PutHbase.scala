@@ -17,11 +17,11 @@ import org.apache.spark.sql.SparkSession
 // Caused by: java.lang.ClassNotFoundException: org.apache.hadoop.hbase.io.ImmutableBytesWritable
 
 class PutHbase extends ConfigurableStop {
-
-  override val description: String = "put data with dataframe to elasticSearch "
   val authorEmail: String = "ygang@cnic.cn"
-  val inportCount: Int = 0
-  val outportCount: Int = 1
+
+  override val inportList: List[String] = List(PortEnum.DefaultPort.toString)
+  override val outportList: List[String] = List(PortEnum.NonePort.toString)
+  override val description: String = "put data  to hbase "
 
 
   def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
@@ -89,14 +89,11 @@ class PutHbase extends ConfigurableStop {
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("es.png")
+    ImageUtil.getImage("hbase.png")
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroupEnum.ESGroup.toString)
+    List(StopGroupEnum.HbaseGroup.toString)
   }
 
-
-  override val inportList: List[String] = List(PortEnum.DefaultPort.toString)
-  override val outportList: List[String] = List(PortEnum.NonePort.toString)
 }

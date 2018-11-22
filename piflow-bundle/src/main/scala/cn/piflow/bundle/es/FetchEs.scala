@@ -4,17 +4,17 @@ import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroupEnum}
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
-import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.SparkSession
-import org.elasticsearch.spark.rdd.EsSpark
-import org.elasticsearch.spark.sql.EsSparkSQL
+
 
 class FetchEs extends ConfigurableStop {
 
-  override val description: String = "fetch data with dataframe from elasticSearch "
   val authorEmail: String = "ygang@cnic.cn"
-  val inportCount: Int = 0
-  val outportCount: Int = 1
+
+  override val inportList: List[String] = List(PortEnum.NonePort.toString)
+  override val outportList: List[String] = List(PortEnum.DefaultPort.toString)
+  override val description: String = "fetch data with dataframe from elasticSearch "
+
 
   var es_nodes:String = _   //es的节点，多个用逗号隔开
   var port:String= _           //es的端口好
@@ -71,6 +71,5 @@ class FetchEs extends ConfigurableStop {
   }
 
 
-  override val inportList: List[String] = List(PortEnum.DefaultPort.toString)
-  override val outportList: List[String] = List(PortEnum.NonePort.toString)
+
 }

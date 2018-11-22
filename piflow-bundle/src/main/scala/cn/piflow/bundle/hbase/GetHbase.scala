@@ -16,22 +16,18 @@ import org.apache.hadoop.hbase.util.{Base64, Bytes}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.SparkSession
 
-
-
 class GetHbase extends ConfigurableStop {
 
-  override val description: String = "put data with dataframe to elasticSearch "
   val authorEmail: String = "ygang@cnic.cn"
-  val inportCount: Int = 0
-  val outportCount: Int = 1
+  override val inportList: List[String] = List(PortEnum.NonePort.toString)
+  override val outportList: List[String] = List(PortEnum.DefaultPort.toString)
+  override val description: String = "get data from hbase "
+
 
 
   def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     val spark = pec.get[SparkSession]()
     val sc = spark.sparkContext
-    val inDf = in.read()
-    inDf.show()
-
 
     val tableName = "person"
     val configuration: Configuration = HBaseConfiguration.create()
@@ -105,14 +101,11 @@ class GetHbase extends ConfigurableStop {
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("es.png")
+    ImageUtil.getImage("hbase.png")
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroupEnum.ESGroup.toString)
+    List(StopGroupEnum.HbaseGroup.toString)
   }
 
-
-  override val inportList: List[String] = List(PortEnum.DefaultPort.toString)
-  override val outportList: List[String] = List(PortEnum.NonePort.toString)
 }

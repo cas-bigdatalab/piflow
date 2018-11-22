@@ -10,6 +10,8 @@ import org.apache.spark.sql.SparkSession
 class GetHdfs extends ConfigurableStop{
   override val authorEmail: String = "ygang@cmic.com"
   override val description: String = "write dataframe data from hdfs"
+  override val inportList: List[String] = List(PortEnum.NonePort.toString)
+  override val outportList: List[String] = List(PortEnum.DefaultPort.toString)
 
   var hdfsUrl : String=_
   var hdfsPath :String= _
@@ -104,7 +106,4 @@ class GetHdfs extends ConfigurableStop{
   override def initialize(ctx: ProcessContext): Unit = {
 
   }
-
-  override val inportList: List[String] = List(PortEnum.DefaultPort.toString)
-  override val outportList: List[String] = List(PortEnum.NonePort.toString)
 }

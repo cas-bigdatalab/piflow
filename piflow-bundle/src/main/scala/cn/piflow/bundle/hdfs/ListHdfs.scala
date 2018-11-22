@@ -1,9 +1,5 @@
 package cn.piflow.bundle.hdfs
 
-import java.util
-import java.util.ArrayList
-
-import breeze.collection.mutable.ArrayLike
 import cn.piflow._
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
@@ -17,17 +13,15 @@ import org.apache.spark.sql. SparkSession
 class ListHdfs extends ConfigurableStop{
   override val authorEmail: String = "ygang@cmic.com"
 
-
+  override val inportList: List[String] = List(PortEnum.NonePort.toString)
+  override val outportList: List[String] = List(PortEnum.DefaultPort.toString)
   override val description: String = "retrieves a listing of files from hdfs "
 
   var hdfsPath :String= _
   var hdfsUrl :String= _
   var list = List("")
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
-
     val spark = pec.get[SparkSession]()
-
-
     val sc = spark.sparkContext
 
     val path = new Path(hdfsPath)
@@ -95,6 +89,4 @@ class ListHdfs extends ConfigurableStop{
 
   }
 
-  override val inportList: List[String] = List(PortEnum.DefaultPort.toString)
-  override val outportList: List[String] = List(PortEnum.NonePort.toString)
 }

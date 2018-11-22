@@ -1,21 +1,19 @@
 package cn.piflow.bundle.ftp
 
-import java.util
-import java.util.zip.GZIPInputStream
 
 import cn.piflow.bundle.util.UnGzUtil
 import cn.piflow.conf.bean.PropertyDescriptor
-import cn.piflow.conf.util.{ImageUtil, MapUtil}
+import cn.piflow.conf.util.ImageUtil
 import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroupEnum}
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 
 
 class UnGz extends ConfigurableStop{
-  val authorEmail: String = "xiaoxiao@cnic.cn"
-  val description: String = "Load file from ftp url."
-  val inportList: List[String] = List(PortEnum.NonePort.toString)
-  val outportList: List[String] = List(PortEnum.NonePort.toString)
+  val authorEmail: String = "ygang@cnic.cn"
+  val description: String = "UnZip seq.gz "
+  val inportList: List[String] = List(PortEnum.DefaultPort.toString)
+  val outportList: List[String] = List(PortEnum.DefaultPort.toString)
 
   var gzType:String =_
 
@@ -36,17 +34,12 @@ class UnGz extends ConfigurableStop{
     for (i <- 0 until rows.size) {
 
       //row(i)    [/ftpUrlDownLoadDIR555/gbbct151.seq.gz]
-
       // 文件 路径
       val sourceFile = rows(i)(0).toString
       // println(sourceFile+"----------------------------------")
-
       if(sourceFile.endsWith("seq.gz")){
-
-
         if (count == 0){
           println(count+"-------------------------------")
-
           // 加载文件为 byteArray
           val byteArray: Array[Byte] = UnGzUtil.unGzStream(sourceFile)
 
@@ -60,7 +53,6 @@ class UnGz extends ConfigurableStop{
         }
       }
     }
-
     df.schema.printTreeString()
     println(df.count())
     out.write(df)
@@ -69,14 +61,13 @@ class UnGz extends ConfigurableStop{
 
 
   def setProperties(map: Map[String, Any]): Unit = {
-
-    gzType=MapUtil.get(map,key="gzType").asInstanceOf[String]
+//    gzType=MapUtil.get(map,key="gzType").asInstanceOf[String]
   }
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
-    val gzType = new PropertyDescriptor().name("gzType").displayName("gzType").defaultValue("").required(true)
-    descriptor = gzType :: descriptor
+//    val gzType = new PropertyDescriptor().name("gzType").displayName("gzType").defaultValue("").required(true)
+//    descriptor = gzType :: descriptor
     descriptor
   }
 

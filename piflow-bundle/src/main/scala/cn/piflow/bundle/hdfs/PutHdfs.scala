@@ -12,17 +12,17 @@ import org.apache.spark.sql.SparkSession
 
 class PutHdfs extends ConfigurableStop{
   override val authorEmail: String = "ygang@cmic.com"
-
-
+  override val inportList: List[String] = List(PortEnum.DefaultPort.toString)
+  override val outportList: List[String] = List(PortEnum.NonePort.toString)
   override val description: String = "from dataframe write data to hdfs"
 
   var hdfsPath :String= _
   var hdfsUrl :String= _
+  var partition :Int=_
   var types :String= _
+
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
-
     val spark = pec.get[SparkSession]()
-
     val inDF = in.read()
     inDF.show()
     inDF.schema.printTreeString()
@@ -35,12 +35,12 @@ class PutHdfs extends ConfigurableStop{
     println(hdfsUrl+hdfsPath+"pppppppppppppppppppppppppppppppp--putHdfs")
 
       if (types=="json"){
-        inDF.repartition(3).write.json(hdfsUrl+hdfsPath)
+        inDF.repartition(partition).write.json(hdfsUrl+hdfsPath)
       } else if (types=="csv"){
-        inDF.repartition(3).write.csv(hdfsUrl+hdfsPath)
+        inDF.repartition(partition).write.csv(hdfsUrl+hdfsPath)
       } else {
         //parquet
-        inDF.repartition(3).write.save(hdfsUrl+hdfsPath)
+        inDF.repartition(partition).write.save(hdfsUrl+hdfsPath)
       }
 
   }
@@ -48,6 +48,7 @@ class PutHdfs extends ConfigurableStop{
     hdfsUrl = MapUtil.get(map,key="hdfsUrl").asInstanceOf[String]
     hdfsPath = MapUtil.get(map,key="hdfsPath").asInstanceOf[String]
     types = MapUtil.get(map,key="types").asInstanceOf[String]
+    partition = MapUtil.get(map,key="partition").asInstanceOf[Int]
   }
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
@@ -55,6 +56,8 @@ class PutHdfs extends ConfigurableStop{
     val hdfsPath = new PropertyDescriptor().name("hdfsPath").displayName("hdfsPath").defaultValue("").required(true)
     val hdfsUrl = new PropertyDescriptor().name("hdfsUrl").displayName("hdfsUrl").defaultValue("").required(true)
     val types = new PropertyDescriptor().name("types").displayName("json,csv,parquet").defaultValue("").required(true)
+    val partition = new PropertyDescriptor().name("partition").displayName("repartition").defaultValue("").required(true)
+    descriptor = partition :: descriptor
     descriptor = types :: descriptor
     descriptor = hdfsPath :: descriptor
     descriptor = hdfsUrl :: descriptor
@@ -73,6 +76,5 @@ class PutHdfs extends ConfigurableStop{
 
   }
 
-  override val inportList: List[String] = List(PortEnum.DefaultPort.toString)
-  override val outportList: List[String] = List(PortEnum.NonePort.toString)
+
 }

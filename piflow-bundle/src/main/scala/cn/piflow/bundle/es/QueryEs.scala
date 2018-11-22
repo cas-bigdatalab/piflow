@@ -8,11 +8,11 @@ import org.apache.spark.sql.SparkSession
 import org.elasticsearch.spark.rdd.EsSpark
 
 class QueryEs extends ConfigurableStop {
-
-  override val description: String = "query data with dataframe from elasticSearch "
   val authorEmail: String = "ygang@cnic.cn"
-  val inportCount: Int = 0
-  val outportCount: Int = 1
+
+  override val inportList: List[String] = List(PortEnum.NonePort.toString)
+  override val outportList: List[String] = List(PortEnum.DefaultPort.toString)
+  override val description: String = "query data with dataframe from elasticSearch "
 
   var es_nodes:String = _   //es的节点，多个用逗号隔开
   var port:String= _           //es的端口好
@@ -116,8 +116,4 @@ class QueryEs extends ConfigurableStop {
   override def getGroup(): List[String] = {
     List(StopGroupEnum.ESGroup.toString)
   }
-
-
-  override val inportList: List[String] = List(PortEnum.DefaultPort.toString)
-  override val outportList: List[String] = List(PortEnum.NonePort.toString)
 }

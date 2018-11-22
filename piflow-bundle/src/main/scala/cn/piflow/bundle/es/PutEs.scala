@@ -4,17 +4,16 @@ import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroupEnum}
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
-import org.apache.spark.{SparkConf, SparkContext}
 import org.apache.spark.sql.SparkSession
-import org.elasticsearch.spark.rdd.EsSpark
 import org.elasticsearch.spark.sql.EsSparkSQL
 
 class PutEs extends ConfigurableStop {
 
   override val description: String = "put data with dataframe to elasticSearch "
   val authorEmail: String = "ygang@cnic.cn"
-  val inportCount: Int = 0
-  val outportCount: Int = 1
+
+  override val inportList: List[String] = List(PortEnum.DefaultPort.toString)
+  override val outportList: List[String] = List(PortEnum.NonePort.toString)
 
   var es_nodes:String = _   //es的节点，多个用逗号隔开
   var port:String= _           //es的端口好
@@ -82,7 +81,4 @@ class PutEs extends ConfigurableStop {
     List(StopGroupEnum.ESGroup.toString)
   }
 
-
-  override val inportList: List[String] = List(PortEnum.DefaultPort.toString)
-  override val outportList: List[String] = List(PortEnum.NonePort.toString)
 }

@@ -13,6 +13,9 @@ import org.apache.hadoop.fs.Path
 
 class DeleteHdfs extends ConfigurableStop{
   override val authorEmail: String = "ygang@cmic.com"
+
+  override val inportList: List[String] = List(PortEnum.NonePort.toString)
+  override val outportList: List[String] = List(PortEnum.NonePort.toString)
   override val description: String = "delete file or dir from hdfs"
 
   var hdfsUrl :String= _
@@ -20,7 +23,6 @@ class DeleteHdfs extends ConfigurableStop{
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
 
     val spark = pec.get[SparkSession]()
-    println(deletePath)
 
     val array = deletePath.split(",")
 
@@ -74,6 +76,4 @@ class DeleteHdfs extends ConfigurableStop{
 
   }
 
-  override val inportList: List[String] = List(PortEnum.DefaultPort.toString)
-  override val outportList: List[String] = List(PortEnum.NonePort.toString)
 }
