@@ -24,12 +24,10 @@ class NewLoadFromFtp extends ConfigurableStop{
   var password:String=_
   var ftpFile:String=_
   var localPath:String=_
-  var ftpClient:FtpClient=null
 
+  var ftpClient:FtpClient=null
   def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
 
-    val inDf = in.read()
-    inDf.show()
 
     ftpClient=connectFTP(url_str,port,username,password)
     var arrayList:util.ArrayList[String]=getFileList(ftpFile)
@@ -164,12 +162,12 @@ class NewLoadFromFtp extends ConfigurableStop{
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
-    val url_str = new PropertyDescriptor().name("url_str").displayName("URL").defaultValue("").required(true)
-    val port = new PropertyDescriptor().name("port").displayName("PORT").defaultValue("").required(true)
-    val username = new PropertyDescriptor().name("username").displayName("USER_NAME").defaultValue("").required(true)
-    val password = new PropertyDescriptor().name("password").displayName("PASSWORD").defaultValue("").required(true)
-    val ftpFile = new PropertyDescriptor().name("ftpFile").displayName("FTP_File").defaultValue("").required(true)
-    val localPath = new PropertyDescriptor().name("localPath").displayName("Local_Path").defaultValue("").required(true)
+    val url_str = new PropertyDescriptor().name("url_str").displayName("url_str").defaultValue("").required(true)
+    val port = new PropertyDescriptor().name("port").displayName("port").defaultValue("").required(true)
+    val username = new PropertyDescriptor().name("username").displayName("username").defaultValue("").required(true)
+    val password = new PropertyDescriptor().name("password").displayName("password").defaultValue("").required(true)
+    val ftpFile = new PropertyDescriptor().name("ftpFile").displayName("ftpFile").defaultValue("").required(true)
+    val localPath = new PropertyDescriptor().name("localPath").displayName("localPath").defaultValue("").required(true)
     descriptor = url_str :: descriptor
     descriptor = port :: descriptor
     descriptor = username :: descriptor

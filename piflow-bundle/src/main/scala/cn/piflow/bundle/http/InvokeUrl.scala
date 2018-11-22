@@ -25,13 +25,15 @@ import scala.collection.mutable.{ArrayBuffer, ListBuffer}
 class InvokeUrl extends ConfigurableStop{
   override val authorEmail: String = "ygang@cmic.com"
   override val inportList: List[String] = List(PortEnum.NonePort.toString)
-  override val outportList: List[String] = List(PortEnum.DefaultPort.toString)
+  override val outportList: List[String] = List(PortEnum.NonePort.toString)
   override val description: String = "invoke http "
 
-  var urlPut :String= _
-  var urlPost :String= _
-  var urlDelete :String= _
-  var urlGet :String= _
+//  var urlPut :String= _
+//  var urlPost :String= _
+//  var urlDelete :String= _
+//  var urlGet :String= _
+
+  var url :String= _
   var jsonPath :String =_
   var method :String = _
   var colume : String = _
@@ -47,8 +49,8 @@ class InvokeUrl extends ConfigurableStop{
 
     val client = HttpClients.createDefault()
 
-    if (method == "GetHttp") {
-      val getFlowInfo: HttpGet = new HttpGet(urlGet)
+    if (method == "getHttp") {
+      val getFlowInfo: HttpGet = new HttpGet(url)
 
       val response: CloseableHttpResponse = client.execute(getFlowInfo)
       val entity = response.getEntity
@@ -129,7 +131,7 @@ class InvokeUrl extends ConfigurableStop{
       }
 
 
-      if (method == "PutHttp" || method == "PostHttp") {
+      if (method == "putHttp" || method == "postHttp") {
         //read  json from hdfs
         val conf = new Configuration()
         val fs = FileSystem.get(URI.create(jsonPath), conf)
@@ -143,8 +145,8 @@ class InvokeUrl extends ConfigurableStop{
         }
         println(buffer)
 
-        if (method == "PutHttp") {
-          val put = new HttpPut(urlPut)
+        if (method == "putHttp") {
+          val put = new HttpPut(url)
           put.setHeader("content-Type", "application/json")
           //put.setHeader("Accept","application/json")
           put.setEntity(new StringEntity(buffer.toString, "utf-8"))
@@ -159,7 +161,7 @@ class InvokeUrl extends ConfigurableStop{
           println(result)
           put.releaseConnection()
         } else {
-          val post = new HttpPost(urlPost)
+          val post = new HttpPost(url)
           post.setHeader("content-Type", "application/json")
           post.setEntity(new StringEntity(buffer.toString))
 
@@ -171,8 +173,8 @@ class InvokeUrl extends ConfigurableStop{
         }
       }
 
-      if (method == "DeleteHttp") {
-        println(urlDelete)
+      if (method == "deleteHttp") {
+        println(url)
         val inDf = in.read()
 
         inDf.createOrReplaceTempView("table")
@@ -183,7 +185,7 @@ class InvokeUrl extends ConfigurableStop{
 
 
         for (i <- 0 until array.length) {
-          var url = ""
+          var url1 = ""
           val newArray = array(i)
 
           var builder = new StringBuilder
@@ -197,10 +199,10 @@ class InvokeUrl extends ConfigurableStop{
           }
           //  println(builder)
 
-          url = urlDelete + "?" + builder
-          println(url + "##########################################################")
+          url1 = url + "?" + builder
+          println(url1 + "##########################################################")
 
-          val delete = new HttpDelete(url)
+          val delete = new HttpDelete(url1)
           delete.setHeader("content-Type", "application/json")
 
           val response = client.execute(delete)
@@ -218,12 +220,15 @@ class InvokeUrl extends ConfigurableStop{
 
 
   override def setProperties(map: Map[String, Any]): Unit = {
-    urlPut = MapUtil.get(map,key="urlPut").asInstanceOf[String]
-    urlPost = MapUtil.get(map,key="urlPost").asInstanceOf[String]
-    urlDelete = MapUtil.get(map,key="urlDelete").asInstanceOf[String]
-    urlGet = MapUtil.get(map,key="urlGet").asInstanceOf[String]
+    url = MapUtil.get(map,key="url").asInstanceOf[String]
+//    urlPut = MapUtil.get(map,key="urlPut").asInstanceOf[String]
+//    urlPost = MapUtil.get(map,key="urlPost").asInstanceOf[String]
+//    urlDelete = MapUtil.get(map,key="urlDelete").asInstanceOf[String]
+//    urlGet = MapUtil.get(map,key="urlGet").asInstanceOf[String]
     jsonPath = MapUtil.get(map,key="jsonPath").asInstanceOf[String]
     method = MapUtil.get(map,key = "method").asInstanceOf[String]
+
+    //delete
     colume = MapUtil.get(map,key = "colume").asInstanceOf[String]
 
 //  get xml
@@ -235,10 +240,11 @@ class InvokeUrl extends ConfigurableStop{
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
-    val urlPut = new PropertyDescriptor().name("urlPut").displayName("urlPutPost").defaultValue("").required(true)
-    val urlPost = new PropertyDescriptor().name("urlPost").displayName("urlPutPost").defaultValue("").required(true)
-    val urlDelete = new PropertyDescriptor().name("urlDelete").displayName("urlPutPost").defaultValue("").required(true)
-    val urlGet = new PropertyDescriptor().name("urlGet").displayName("urlGet").defaultValue("").required(true)
+//    val urlPut = new PropertyDescriptor().name("urlPut").displayName("urlPutPost").defaultValue("").required(true)
+//    val urlPost = new PropertyDescriptor().name("urlPost").displayName("urlPutPost").defaultValue("").required(true)
+//    val urlDelete = new PropertyDescriptor().name("urlDelete").displayName("urlPutPost").defaultValue("").required(true)
+//    val urlGet = new PropertyDescriptor().name("urlGet").displayName("urlGet").defaultValue("").required(true)
+    val url = new PropertyDescriptor().name("url").displayName("url").defaultValue("").required(true)
     val jsonPath = new PropertyDescriptor().name("jsonPath").displayName("JSONPATH").defaultValue("").required(true)
     val method = new PropertyDescriptor().name("method").displayName("the way with http").defaultValue("").required(true)
     val colume = new PropertyDescriptor().name("colume").displayName("colume").defaultValue("").required(true)
@@ -252,10 +258,10 @@ class InvokeUrl extends ConfigurableStop{
     val schema = new PropertyDescriptor().name("schema").displayName("schema").description("name of field in label,the delimiter is ,").defaultValue("").required(true)
     descriptor = schema :: descriptor
 
-    descriptor = urlPut :: descriptor
-    descriptor = urlPost :: descriptor
-    descriptor = urlDelete :: descriptor
-    descriptor = urlGet :: descriptor
+//    descriptor = urlPut :: descriptor
+//    descriptor = urlPost :: descriptor
+//    descriptor = urlDelete :: descriptor
+//    descriptor = urlGet :: descriptor
     descriptor = jsonPath :: descriptor
     descriptor = method :: descriptor
     descriptor = colume :: descriptor

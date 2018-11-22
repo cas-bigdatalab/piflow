@@ -20,7 +20,7 @@ import org.apache.spark.sql.SparkSession
 class PostUrl extends ConfigurableStop{
   override val authorEmail: String = "ygang@cmic.com"
   override val inportList: List[String] = List(PortEnum.NonePort.toString)
-  override val outportList: List[String] = List(PortEnum.DefaultPort.toString)
+  override val outportList: List[String] = List(PortEnum.NonePort.toString)
   override val description: String = "peforms an HTTP Post with "
 
   var url : String= _
@@ -63,13 +63,12 @@ class PostUrl extends ConfigurableStop{
   override def setProperties(map: Map[String, Any]): Unit = {
     url = MapUtil.get(map,key="url").asInstanceOf[String]
     jsonPath = MapUtil.get(map,key="jsonPath").asInstanceOf[String]
-    println(url)
   }
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
-    val url = new PropertyDescriptor().name("url").displayName("URL").defaultValue("").required(true)
-    val jsonPath = new PropertyDescriptor().name("jsonPath").displayName("JSONPATH").defaultValue("").required(true)
+    val url = new PropertyDescriptor().name("url").displayName("url").defaultValue("").required(true)
+    val jsonPath = new PropertyDescriptor().name("jsonPath").displayName("jsonPath").defaultValue("").required(true)
     descriptor = url :: descriptor
     descriptor = jsonPath :: descriptor
     descriptor

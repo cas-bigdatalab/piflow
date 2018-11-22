@@ -22,7 +22,7 @@ class LoadFromFtpUrl extends ConfigurableStop{
   val inportList: List[String] = List(PortEnum.NonePort.toString)
   val outportList: List[String] = List(PortEnum.DefaultPort.toString)
 
-  var http_URl:String =_  //url 地址
+  var http_url:String =_  //url 地址
   var url_type:String =_   // url 指向文件 类型，文件 or 文件夹
   var localPath:String =_   // 保存的本地路径
   var downType:String=_
@@ -47,9 +47,9 @@ class LoadFromFtpUrl extends ConfigurableStop{
       fileLocalPath = localPath+"/"+fileName
       list = fileLocalPath::list
       // 下载 文件
-      downFileFromFtpUrl(http_URl,localPath,fileName)
+      downFileFromFtpUrl(http_url,localPath,fileName)
     } else {
-      var arrayList:ArrayList[String]=getFilePathList(http_URl)
+      var arrayList:ArrayList[String]=getFilePathList(http_url)
       // 遍历 文件路径 所在的集合
       for (i <- 0 until arrayList.size()) {
         // https://ftp.ncbi.nih.gov/genbank/docs/--1234567890987654321--Current_version_is_10.7--1234567890987654321--20180423
@@ -59,7 +59,7 @@ class LoadFromFtpUrl extends ConfigurableStop{
 
           val arrayString = array.split("--1234567890987654321--")
 
-          val fileUrlDir = array.replace(s"$http_URl", "/").split("--1234567890987654321--")(0)
+          val fileUrlDir = array.replace(s"$http_url", "/").split("--1234567890987654321--")(0)
           // 单个文件url 指向的 路径
           val urlPath = arrayString(0)+arrayString(1)
           // 下载 保存 文件夹的目录
@@ -88,7 +88,7 @@ class LoadFromFtpUrl extends ConfigurableStop{
             println("##################################_____-------------------------------")
             val arrayString = array.split("--1234567890987654321--")
 
-            val fileUrlDir = array.replace(s"$http_URl", "/").split("--1234567890987654321--")(0)
+            val fileUrlDir = array.replace(s"$http_url", "/").split("--1234567890987654321--")(0)
             // 单个文件url 指向的 路径
             val urlPath = arrayString(0)+arrayString(1)
             // 下载 保存 文件夹的目录
@@ -217,7 +217,7 @@ class LoadFromFtpUrl extends ConfigurableStop{
 
 
   def setProperties(map: Map[String, Any]): Unit = {
-    http_URl=MapUtil.get(map,key="http_URl").asInstanceOf[String]
+    http_url=MapUtil.get(map,key="http_url").asInstanceOf[String]
     url_type=MapUtil.get(map,key="url_type").asInstanceOf[String]
     localPath=MapUtil.get(map,key="localPath").asInstanceOf[String]
     downType=MapUtil.get(map,key="downType").asInstanceOf[String]
@@ -226,14 +226,14 @@ class LoadFromFtpUrl extends ConfigurableStop{
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
-    val http_URl = new PropertyDescriptor().name("http_URl").displayName("http_URl").defaultValue("").required(true)
+    val http_url = new PropertyDescriptor().name("http_url").displayName("http_url").defaultValue("").required(true)
     val localPath = new PropertyDescriptor().name("localPath").displayName("Local_Path").defaultValue("").required(true)
     val  url_type= new PropertyDescriptor().name("url_type").displayName("url_type").defaultValue("").required(true)
     val  downType= new PropertyDescriptor().name("downType").displayName("downType").defaultValue("all,day").required(true)
     val  fileName= new PropertyDescriptor().name("fileName").displayName("fileName").defaultValue("fileName").required(false)
 
 
-    descriptor = http_URl :: descriptor
+    descriptor = http_url :: descriptor
     descriptor = url_type :: descriptor
     descriptor = localPath :: descriptor
     descriptor = downType :: descriptor

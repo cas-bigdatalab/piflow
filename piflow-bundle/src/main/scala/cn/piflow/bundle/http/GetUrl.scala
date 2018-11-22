@@ -32,7 +32,7 @@ class GetUrl extends ConfigurableStop{
   // xml String
   var label:String=_
   var schema: String = _
-  var xmlString :String=_
+//  var xmlString :String=_
 
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
 
@@ -63,7 +63,7 @@ class GetUrl extends ConfigurableStop{
 
     if(types=="xml"){
       println("8888888888888888888888888888888888888888888888888888888")
-      val doc: Document = DocumentHelper.parseText(xmlString)
+      val doc: Document = DocumentHelper.parseText(jsonString)
       val rootElt: Element = doc.getRootElement
       var arrbuffer:ArrayBuffer[Element]=ArrayBuffer()
       arrbuffer+=rootElt
@@ -130,7 +130,7 @@ class GetUrl extends ConfigurableStop{
     url = MapUtil.get(map,key="url").asInstanceOf[String]
     types= MapUtil.get(map,key="types").asInstanceOf[String]
 
-    xmlString = MapUtil.get(map,"XmlString").asInstanceOf[String]
+//    xmlString = MapUtil.get(map,"XmlString").asInstanceOf[String]
     label = MapUtil.get(map,"label").asInstanceOf[String]
     schema = MapUtil.get(map,"schema").asInstanceOf[String]
 
@@ -138,11 +138,11 @@ class GetUrl extends ConfigurableStop{
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
-    val url = new PropertyDescriptor().name("url").displayName("URL").defaultValue("").required(true)
+    val url = new PropertyDescriptor().name("url").displayName("url").defaultValue("").required(true)
     val types = new PropertyDescriptor().name("types").displayName("types").defaultValue("the url content is json or xml)").required(true)
 
-    val xmlString = new PropertyDescriptor().name("XmlString").displayName("XmlString").description("the xml String").defaultValue("").required(true)
-    descriptor = xmlString :: descriptor
+//    val xmlString = new PropertyDescriptor().name("XmlString").displayName("XmlString").description("the xml String").defaultValue("").required(true)
+//    descriptor = xmlString :: descriptor
     val label = new PropertyDescriptor().name("label").displayName("label").description("label path for hope,the delimiter is ,").defaultValue("").required(true)
     descriptor = label :: descriptor
     val schema = new PropertyDescriptor().name("schema").displayName("schema").description("name of field in label,the delimiter is ,").defaultValue("").required(true)

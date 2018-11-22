@@ -18,8 +18,8 @@ class QueryEs extends ConfigurableStop {
   var port:String= _           //es的端口好
   var es_index:String = _     //es的索引
   var es_type:String =  _     //es的类型
-  var field_name:String =  _     //es的类型
-  var field_content:String =  _     //es的类型
+  var field_name:String =  _     //es的字段类型
+  var field_content:String =  _     //es的字段内容
 
   def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     val spark = pec.get[SparkSession]()
@@ -92,10 +92,10 @@ class QueryEs extends ConfigurableStop {
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
-    val es_nodes = new PropertyDescriptor().name("es_nodes").displayName("REDIS_HOST").defaultValue("").required(true)
-    val port = new PropertyDescriptor().name("port").displayName("PORT").defaultValue("").required(true)
-    val es_index = new PropertyDescriptor().name("es_index").displayName("ES_INDEX").defaultValue("").required(true)
-    val es_type = new PropertyDescriptor().name("es_type").displayName("ES_TYPE").defaultValue("").required(true)
+    val es_nodes = new PropertyDescriptor().name("es_nodes").displayName("es_nodes").defaultValue("").required(true)
+    val port = new PropertyDescriptor().name("port").displayName("port").defaultValue("").required(true)
+    val es_index = new PropertyDescriptor().name("es_index").displayName("es_index").defaultValue("").required(true)
+    val es_type = new PropertyDescriptor().name("es_type").displayName("es_type").defaultValue("").required(true)
     val field_name = new PropertyDescriptor().name("field_name").displayName("field_name").defaultValue("").required(true)
     val field_content = new PropertyDescriptor().name("field_content").displayName("field_content").defaultValue("").required(true)
 

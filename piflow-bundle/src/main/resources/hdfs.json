@@ -20,6 +20,7 @@
         "properties":{
           "hdfsUrl":"hdfs://10.0.86.89:9000",
           "hdfsPath":"/yg/0",
+          "partition":"3",
           "types":"csv"
         }
 
