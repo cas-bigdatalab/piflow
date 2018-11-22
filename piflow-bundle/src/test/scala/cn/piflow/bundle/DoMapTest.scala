@@ -87,23 +87,6 @@ class DoMapTest {
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
   @Test
   def flume(): Unit ={
     val client = RpcClientFactory.getDefaultInstance(HOST_NAME,8888)

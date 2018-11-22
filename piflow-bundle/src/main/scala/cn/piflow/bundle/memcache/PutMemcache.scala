@@ -9,18 +9,18 @@ import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 
 class PutMemcache extends ConfigurableStop{
   override val authorEmail: String = "yangqidong@cnic.cn"
-  override val description: String = "put data into memcache"
+  override val description: String = "get data from memcache"
   val inportList: List[String] = List(PortEnum.DefaultPort.toString)
   val outportList: List[String] = List(PortEnum.NonePort.toString)
 
-  var servers:String=_            //Server address and port number,If you have multiple servers, use "," segmentation.
-  var keyFile:String=_            //You want to be used as a field for key.
-  var weights:String=_            //Weight of each server
-  var maxIdle:String=_            //Maximum processing time
-  var maintSleep:String=_         //Main thread sleep time
-  var nagle:String=_              //If the socket parameter is true, the data is not buffered and sent immediately.
-  var socketTO:String=_           //Socket timeout during blocking
-  var socketConnectTO:String=_    //Timeout control during connection establishment
+  var servers:String=_            //服务器地址和端口号Server address and port number,If you have multiple servers, use "," segmentation.
+  var keyFile:String=_            //你想用来作为key的字段You want to be used as a field for key.
+  var weights:String=_            //每台服务器的权重Weight of each server
+  var maxIdle:String=_            //最大处理时间Maximum processing time
+  var maintSleep:String=_         //主线程睡眠时间Main thread sleep time
+  var nagle:String=_              //socket参数，若为true，则写数据时不缓冲立即发送If the socket parameter is true, the data is not buffered and sent immediately.
+  var socketTO:String=_           //socket阻塞时候的超时时间Socket timeout during blocking
+  var socketConnectTO:String=_    //连接建立时的超时控制Timeout control during connection establishment
 
 
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
@@ -28,7 +28,9 @@ class PutMemcache extends ConfigurableStop{
     val session: SparkSession = pec.get[SparkSession]()
     val inDF: DataFrame = in.read()
 
+    //获取连接池实例对象
     val pool: SockIOPool = SockIOPool.getInstance()
+    //    链接到数据库
     var serversArr:Array[String]=servers.split(",")
     pool.setServers(serversArr)
 
@@ -53,6 +55,7 @@ class PutMemcache extends ConfigurableStop{
     }
 
     pool.initialize()
+    //建立全局唯一实例
     val mcc: MemCachedClient = new MemCachedClient()
 
     val fileNames: Array[String] = inDF.columns

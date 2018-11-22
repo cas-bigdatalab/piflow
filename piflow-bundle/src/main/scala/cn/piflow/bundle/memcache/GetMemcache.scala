@@ -19,15 +19,15 @@ class GetMemcache extends ConfigurableStop{
   val inportList: List[String] = List(PortEnum.DefaultPort.toString)
   val outportList: List[String] = List(PortEnum.DefaultPort.toString)
 
-  var servers:String=_            //Server address and port number,If you have multiple servers, use "," segmentation.
-  var keyFile:String=_            //The field you want to use as a query condition
-  var weights:String=_            //Weight of each server
-  var maxIdle:String=_            //Maximum processing time
-  var maintSleep:String=_         //Main thread sleep time
-  var nagle:String=_              //If the socket parameter is true, the data is not buffered and sent immediately.
-  var socketTO:String=_           //Socket timeout during blocking
-  var socketConnectTO:String=_    //Timeout control during connection establishment
-  var schame:String=_            //The fields you want to get
+  var servers:String=_            //服务器地址和端口号Server address and port number,If you have multiple servers, use "," segmentation.
+  var keyFile:String=_            //你想用来作为查询条件的字段The field you want to use as a query condition
+  var weights:String=_            //每台服务器的权重Weight of each server
+  var maxIdle:String=_            //最大处理时间Maximum processing time
+  var maintSleep:String=_         //主线程睡眠时间Main thread sleep time
+  var nagle:String=_              //socket参数，若为true，则写数据时不缓冲立即发送If the socket parameter is true, the data is not buffered and sent immediately.
+  var socketTO:String=_           //socket阻塞时候的超时时间Socket timeout during blocking
+  var socketConnectTO:String=_    //连接建立时的超时控制Timeout control during connection establishment
+  var schame:String=_            //你想得到的字段The fields you want to get
 
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     val session: SparkSession = pec.get[SparkSession]()
@@ -42,17 +42,21 @@ class GetMemcache extends ConfigurableStop{
       str.substring(1,str.length-1)
     })
 
+    //获得输出df的描述信息
       var schameArr:Array[String] =Array()
+    //若用户指定返回信息，返回用户需要的信息
       if(schame.length>0){
       val schameArrBuff: mutable.Buffer[String] = schame.split(",").toBuffer
       schameArrBuff.insert(0,keyFile)
       schameArr = schameArrBuff.toArray
     }
 
+    //获得输出df的数据
     var allFileDatas: ArrayBuffer[ArrayBuffer[String]] =ArrayBuffer()
     for(keyNum <- (0 until keys.size)){
       val map: Map[String, String] = mcc.get(keys(keyNum)).asInstanceOf[Map[String,String]]
 
+      //若用户没有指定返回字段，则将memcache中查到的数据全部返回
       if(schame.size==0){
         val arr: Array[String] = map.keySet.toArray
         val buffer: mutable.Buffer[String] = arr.toBuffer
@@ -60,6 +64,7 @@ class GetMemcache extends ConfigurableStop{
         schameArr = buffer.toArray
       }
 
+      //记录这一条数据的所有值
       var values: ArrayBuffer[String] =ArrayBuffer()
       values+=keys(keyNum)
       for(x <- (1 until schameArr.size)){
@@ -68,6 +73,7 @@ class GetMemcache extends ConfigurableStop{
       allFileDatas+=values
     }
 
+    //将schame和数据转换为df
     val rowList: List[Row] = allFileDatas.map(arr => {Row.fromSeq(arr)}).toList
     val rowRDD: RDD[Row] = session.sparkContext.makeRDD(rowList)
     val fields: Array[StructField] = schameArr.map(d=>StructField(d,StringType,nullable = true))
@@ -81,8 +87,11 @@ class GetMemcache extends ConfigurableStop{
     out.write(df)
   }
 
+  //得到全局唯一实例
   def getMcc(): MemCachedClient = {
+    //获取连接池实例对象
     val pool: SockIOPool = SockIOPool.getInstance()
+    //    链接到数据库
     var serversArr:Array[String]=servers.split(",")
     pool.setServers(serversArr)
 
@@ -107,6 +116,7 @@ class GetMemcache extends ConfigurableStop{
     }
 
     pool.initialize()
+    //建立全局唯一实例
     val mcc: MemCachedClient = new MemCachedClient()
     mcc
   }
