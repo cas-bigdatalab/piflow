@@ -8,7 +8,7 @@ import org.apache.spark.ml.classification.GBTClassificationModel
 import org.apache.spark.sql.SparkSession
 
 class GBTPrediction extends ConfigurableStop{
-  val authorEmail: String = "xiaoxiao@cnic.cn"
+  val authorEmail: String = "06whuxx@163.com"
   val description: String = "Make use of a exist GBT Model to predict."
   val inportList: List[String] = List(PortEnum.NonePort.toString)
   val outportList: List[String] = List(PortEnum.DefaultPort.toString)

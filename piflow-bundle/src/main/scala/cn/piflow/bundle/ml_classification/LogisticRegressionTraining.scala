@@ -8,7 +8,7 @@ import org.apache.spark.sql.SparkSession
 import org.apache.spark.ml.classification.LogisticRegression
 
 class LogisticRegressionTraining extends ConfigurableStop{
-  val authorEmail: String = "xiaoxiao@cnic.cn"
+  val authorEmail: String = "06whuxx@163.com"
   val description: String = "Training a LogisticRegressionModel."
   val inportList: List[String] = List(PortEnum.NonePort.toString)
   val outportList: List[String] = List(PortEnum.DefaultPort.toString)
@@ -104,12 +104,12 @@ class LogisticRegressionTraining extends ConfigurableStop{
     var descriptor : List[PropertyDescriptor] = List()
     val training_data_path = new PropertyDescriptor().name("training_data_path").displayName("TRAINING_DATA_PATH").defaultValue("").required(true)
     val model_save_path = new PropertyDescriptor().name("model_save_path").displayName("MODEL_SAVE_PATH").description("ddd").defaultValue("").required(true)
-    val maxIter=new PropertyDescriptor().name("maxIter").displayName("MAX_ITER").description("ddd").defaultValue("").required(true)
-    val minTol=new PropertyDescriptor().name("minTol").displayName("MIN_TOL").description("ddd").defaultValue("").required(true)
-    val regParam=new PropertyDescriptor().name("regParam").displayName("REG_PARAM").description("ddd").defaultValue("").required(true)
-    val elasticNetParam=new PropertyDescriptor().name("elasticNetParam").displayName("ELASTIC_NET_PARAM").description("ddd").defaultValue("").required(true)
-    val threshold=new PropertyDescriptor().name("threshold").displayName("THRESHOLD").description("ddd").defaultValue("").required(true)
-    val family=new PropertyDescriptor().name("family").displayName("FAMILY").description("ddd").defaultValue("").required(true)
+    val maxIter=new PropertyDescriptor().name("maxIter").displayName("MAX_ITER").description("Param for maximum number of iterations").defaultValue("").required(false)
+    val minTol=new PropertyDescriptor().name("minTol").displayName("MIN_TOL").description("Param for the convergence tolerance for iterative algorithms (>= 0)").defaultValue("").required(false)
+    val regParam=new PropertyDescriptor().name("regParam").displayName("REG_PARAM").description("Param for regularization parameter (>= 0)").defaultValue("").required(false)
+    val elasticNetParam=new PropertyDescriptor().name("elasticNetParam").displayName("ELASTIC_NET_PARAM").description("Param for the ElasticNet mixing parameter, in range [0, 1]").defaultValue("").required(false)
+    val threshold=new PropertyDescriptor().name("threshold").displayName("THRESHOLD").description("Param for threshold in binary classification prediction, in range [0, 1]").defaultValue("").required(false)
+    val family=new PropertyDescriptor().name("family").displayName("FAMILY").description("Param for the name of family which is a description of the label distribution to be used in the model").defaultValue("").required(false)
     descriptor = training_data_path :: descriptor
     descriptor = model_save_path :: descriptor
     descriptor = maxIter :: descriptor
