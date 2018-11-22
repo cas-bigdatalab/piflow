@@ -20,7 +20,6 @@ object StopGroupEnum extends Enumeration {
   val ESGroup = Value("ESGroup")
   val MLGroup = Value("MLGroup")
   val RDFGroup = Value("RDFGroup")
-  val UrlGroup= Value("UrlGroup")
   val HdfsGroup= Value("HdfsGroup")
   val MicroorganismGroup= Value("MicroorganismGroup")
   val Spider= Value("Spider")

@@ -1,4 +1,4 @@
-package cn.piflow.bundle.url
+package cn.piflow.bundle.http
 
 import java.io.{BufferedReader, InputStreamReader}
 import java.net.URI
@@ -19,8 +19,8 @@ import org.apache.spark.sql.SparkSession
 
 class PostUrl extends ConfigurableStop{
   override val authorEmail: String = "ygang@cmic.com"
-  override val inportList: List[String] = List(PortEnum.DefaultPort.toString)
-  override val outportList: List[String] = List(PortEnum.NonePort.toString)
+  override val inportList: List[String] = List(PortEnum.NonePort.toString)
+  override val outportList: List[String] = List(PortEnum.DefaultPort.toString)
   override val description: String = "peforms an HTTP Post with "
 
   var url : String= _
@@ -80,7 +80,7 @@ class PostUrl extends ConfigurableStop{
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroupEnum.UrlGroup.toString)
+    List(StopGroupEnum.HttpGroup.toString)
   }
 
   override def initialize(ctx: ProcessContext): Unit = {

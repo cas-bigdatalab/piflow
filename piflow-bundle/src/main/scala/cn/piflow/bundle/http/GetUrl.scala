@@ -1,36 +1,30 @@
-package cn.piflow.bundle.url
+package cn.piflow.bundle.http
 
-import java.net.URI
 import java.util
 
-import cn.piflow.bundle.util.JsonUtil
-import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
-import cn.piflow.conf.util.ImageUtil
-import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroupEnum}
 import cn.piflow.conf.bean.PropertyDescriptor
-import cn.piflow.conf.util.MapUtil
-import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.fs.{FSDataInputStream, FileSystem, Path}
+import cn.piflow.conf.util.{ImageUtil, MapUtil}
+import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroupEnum}
+import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.apache.http.client.methods.{CloseableHttpResponse, HttpGet}
 import org.apache.http.impl.client.HttpClients
 import org.apache.http.util.EntityUtils
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
-import org.apache.spark.sql.{Column, DataFrame, Row, SparkSession}
+import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 import org.dom4j.{Document, DocumentHelper, Element}
-import org.dom4j.io.SAXReader
 
-import scala.collection.mutable.{ArrayBuffer, ListBuffer}
 import scala.collection.JavaConverters._
-
-
+import scala.collection.mutable.{ArrayBuffer, ListBuffer}
 
 
 class GetUrl extends ConfigurableStop{
   override val authorEmail: String = "ygang@cmic.com"
+  override val description: String = "GetUrl to dataframe"
 
+  override val inportList: List[String] = List(PortEnum.NonePort.toString)
+  override val outportList: List[String] = List(PortEnum.DefaultPort.toString)
 
-  override val description: String = "Get data from http/url to dataframe"
 
   var url :String= _
   var types :String = _
@@ -43,9 +37,6 @@ class GetUrl extends ConfigurableStop{
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
 
     val ss = pec.get[SparkSession]()
-
-    println(url)
-    println(types)
 
     // get from url
     val client = HttpClients.createDefault()
@@ -167,13 +158,11 @@ class GetUrl extends ConfigurableStop{
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroupEnum.UrlGroup.toString)
+    List(StopGroupEnum.HttpGroup.toString)
   }
 
   override def initialize(ctx: ProcessContext): Unit = {
 
   }
 
-  override val inportList: List[String] = List(PortEnum.DefaultPort.toString)
-  override val outportList: List[String] = List(PortEnum.NonePort.toString)
 }

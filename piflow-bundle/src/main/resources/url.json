@@ -7,7 +7,7 @@
       {
         "uuid":"0000",
         "name":"getUrl",
-        "bundle":"cn.piflow.bundle.url.GetUrl",
+        "bundle":"cn.piflow.bundle.http.GetUrl",
         "properties":{
           "url":"http://10.0.86.98:8002/flow/info?appID=application_1539850523117_0136",
           "types":"json",
@@ -20,7 +20,7 @@
       {
         "uuid":"1111",
         "name":"postUrl",
-        "bundle":"cn.piflow.bundle.url.PostUrl",
+        "bundle":"cn.piflow.bundle.http.PostUrl",
         "properties":{
           "url":"http://10.0.86.98:8002/flow/start",
           "jsonPath":"hdfs://10.0.86.89:9000/yg/flow.json"
@@ -30,7 +30,7 @@
       {
         "uuid":"2222",
         "name":"invokeUrl",
-        "bundle":"cn.piflow.bundle.url.InvokeUrl",
+        "bundle":"cn.piflow.bundle.http.InvokeUrl",
         "properties": {
           "urlPut": "http://coolaf.com/tool/params",
           "urlDelete": "http://coolaf.com/tool/params",

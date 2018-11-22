@@ -1,4 +1,4 @@
-package cn.piflow.bundle.url
+package cn.piflow.bundle.http
 
 import java.io.{BufferedReader, InputStreamReader}
 import java.net.URI
@@ -14,21 +14,18 @@ import org.apache.http.client.methods._
 import org.apache.http.entity.StringEntity
 import org.apache.http.impl.client.HttpClients
 import org.apache.http.util.EntityUtils
-import org.apache.spark.SparkConf
-import org.apache.spark.api.java.JavaRDD
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
 import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 import org.dom4j.{Document, DocumentHelper, Element}
 
-
-import scala.collection.mutable.{ArrayBuffer, ListBuffer}
 import scala.collection.JavaConverters._
+import scala.collection.mutable.{ArrayBuffer, ListBuffer}
 
 class InvokeUrl extends ConfigurableStop{
   override val authorEmail: String = "ygang@cmic.com"
-  override val inportList: List[String] = List(PortEnum.DefaultPort.toString)
-  override val outportList: List[String] = List(PortEnum.NonePort.toString)
+  override val inportList: List[String] = List(PortEnum.NonePort.toString)
+  override val outportList: List[String] = List(PortEnum.DefaultPort.toString)
   override val description: String = "invoke http "
 
   var urlPut :String= _
@@ -270,7 +267,7 @@ class InvokeUrl extends ConfigurableStop{
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroupEnum.UrlGroup.toString)
+    List(StopGroupEnum.HttpGroup.toString)
   }
 
   override def initialize(ctx: ProcessContext): Unit = {
