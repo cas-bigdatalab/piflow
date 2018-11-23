@@ -16,14 +16,14 @@ class ConvertSchema extends ConfigurableStop {
   var schema:String = _
 
   def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
-    val df = in.read()
+    var df = in.read()
 
     //oldField1->newField1, oldField2->newField2
     val field = schema.split(",")
 
     field.foreach(f => {
       val old_new: Array[String] = f.split("->")
-      df.withColumnRenamed(old_new(0),old_new(1))
+      df = df.withColumnRenamed(old_new(0),old_new(1))
     })
 
     println("###########################")
