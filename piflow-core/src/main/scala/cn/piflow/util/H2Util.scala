@@ -112,12 +112,14 @@ object H2Util {
 
     val flowRS : ResultSet = statement.executeQuery("select * from flow where id='" + appId +"'")
     while (flowRS.next()){
+      val progress = getFlowProgress(appId:String)
       flowInfo = "{\"flow\":{\"id\":\"" + flowRS.getString("id") +
         "\",\"pid\":\"" +  flowRS.getString("pid") +
         "\",\"name\":\"" +  flowRS.getString("name") +
         "\",\"state\":\"" +  flowRS.getString("state") +
         "\",\"startTime\":\"" +  flowRS.getString("startTime") +
         "\",\"endTime\":\"" + flowRS.getString("endTime") +
+        "\",\"progress\":\"" + progress +
         "\",\"stops\":["
     }
     flowRS.close()
