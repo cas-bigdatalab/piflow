@@ -112,7 +112,7 @@ object H2Util {
 
     val flowRS : ResultSet = statement.executeQuery("select * from flow where id='" + appId +"'")
     while (flowRS.next()){
-      val progress = getFlowProgress(appId:String)
+      val progress = getFlowProgressPercent(appId:String)
       flowInfo = "{\"flow\":{\"id\":\"" + flowRS.getString("id") +
         "\",\"pid\":\"" +  flowRS.getString("pid") +
         "\",\"name\":\"" +  flowRS.getString("name") +
@@ -143,14 +143,13 @@ object H2Util {
     flowInfo
   }
 
-
-  def getFlowProgress(appId:String) : String = {
+  def getFlowProgressPercent(appId:String) : String = {
     val statement = getConnectionInstance().createStatement()
     statement.setQueryTimeout(QUERY_TIME)
 
     var stopCount = 0
     var completedStopCount = 0
-    val totalRS : ResultSet = statement.executeQuery("select count(*) as stopCount from stop where flowId='" + appId +"' and state!='" + StopState.INIT + "'")
+    val totalRS : ResultSet = statement.executeQuery("select count(*) as stopCount from stop where flowId='" + appId + "'")
     while(totalRS.next()){
       stopCount = totalRS.getInt("stopCount")
       //println("stopCount:" + stopCount)
@@ -165,6 +164,28 @@ object H2Util {
     completedRS.close()
 
     val flowRS : ResultSet = statement.executeQuery("select * from flow where id='" + appId +"'")
+    var flowState = ""
+    while (flowRS.next()){
+      flowState = flowRS.getString("state")
+    }
+    flowRS.close()
+
+    statement.close()
+
+    val progress:Double = completedStopCount.asInstanceOf[Double] / stopCount * 100
+    if(flowState.eq(FlowState.COMPLETED)){
+      "100%"
+    }else{
+      progress.toString
+    }
+  }
+
+  def getFlowProgress(appId:String) : String = {
+
+    val progress = getFlowProgressPercent(appId)
+    val statement = getConnectionInstance().createStatement()
+    statement.setQueryTimeout(QUERY_TIME)
+    val flowRS : ResultSet = statement.executeQuery("select * from flow where id='" + appId +"'")
     var id = ""
     var name = ""
     var state = ""
@@ -175,10 +196,6 @@ object H2Util {
     }
 
     flowRS.close()
-
-    statement.close()
-
-    val progress:Double = completedStopCount.asInstanceOf[Double] / stopCount * 100
     val json =
       ("FlowInfo" ->
         ("appId" -> id)~

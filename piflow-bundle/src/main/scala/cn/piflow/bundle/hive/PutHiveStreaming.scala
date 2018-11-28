@@ -21,11 +21,12 @@ class PutHiveStreaming extends ConfigurableStop {
   def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     val spark = pec.get[SparkSession]()
     val inDF = in.read()
-    inDF.show()
+
 
     val dfTempTable = table + "_temp"
     inDF.createOrReplaceTempView(dfTempTable)
     spark.sql("insert into " + database + "." + table +  " select * from " + dfTempTable)
+    inDF.show()
     //out.write(studentDF)
   }
 
