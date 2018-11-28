@@ -120,7 +120,8 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
 
        case ex => {
          println(ex)
-         Future.failed(new Exception("Can not start flow!"))
+         Future.successful(HttpResponse(entity = "Can not start flow!"))
+         //Future.failed(/*new Exception("Can not start flow!")*/HttpResponse(entity = "Can not start flow!"))
        }
      }
 

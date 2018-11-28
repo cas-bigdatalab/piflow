@@ -55,7 +55,8 @@ class FlowBean {
     })
 
     if(!this.checkpoint.equals("")){
-      flow.addCheckPoint(this.checkpoint)
+      val checkpointList = this.checkpoint.split(",")
+      checkpointList.foreach{checkpoint => flow.addCheckPoint(checkpoint)}
     }
 
     flow

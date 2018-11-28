@@ -5,6 +5,7 @@ import java.util.Date
 
 import net.liftweb.json.compactRender
 import net.liftweb.json.JsonDSL._
+import org.h2.tools.Server
 
 object H2Util {
 
@@ -19,8 +20,6 @@ object H2Util {
 
     val statement = getConnectionInstance().createStatement()
     statement.setQueryTimeout(QUERY_TIME)
-    //statement.executeUpdate("drop table if exists flow")
-    //statement.executeUpdate("drop table if exists stop")
     statement.executeUpdate(CREATE_FLOW_TABLE)
     statement.executeUpdate(CREATE_STOP_TABLE)
     statement.close()
@@ -34,6 +33,17 @@ object H2Util {
       connection = DriverManager.getConnection(CONNECTION_URL)
     }
     connection
+  }
+
+  def cleanDatabase() = {
+    val h2Server = Server.createTcpServer("-tcp", "-tcpAllowOthers", "-tcpPort",PropertyUtil.getPropertyValue("h2.port")).start()
+    val statement = getConnectionInstance().createStatement()
+    statement.setQueryTimeout(QUERY_TIME)
+    statement.executeUpdate("drop table if exists flow")
+    statement.executeUpdate("drop table if exists stop")
+    statement.close()
+    h2Server.shutdown()
+
   }
 
   def addFlow(appId:String,pId:String, name:String)={

@@ -47,14 +47,16 @@
         "uuid":"555",
         "name":"Merge",
         "bundle":"cn.piflow.bundle.common.Merge",
-        "properties":{}
+        "properties":{
+          "inports":"data1,data2"
+        }
       },
       {
         "uuid":"666",
         "name":"Fork",
         "bundle":"cn.piflow.bundle.common.Fork",
         "properties":{
-          "outports":["out1","out2","out3"]
+          "outports":"out1,out2,out3"
         }
       },
       {
