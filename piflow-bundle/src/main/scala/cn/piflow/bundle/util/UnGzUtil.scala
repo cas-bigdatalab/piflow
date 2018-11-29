@@ -17,6 +17,7 @@ object UnGzUtil extends Serializable{
       val gzip = new GZIPInputStream(fileInput)
 
       val outDir = new File(savePath)
+      outDir.mkdirs()
 
       if (savePath.endsWith("/")){
         filePath = savePath+filename

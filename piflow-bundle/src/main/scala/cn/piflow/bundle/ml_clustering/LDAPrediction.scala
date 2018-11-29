@@ -8,7 +8,7 @@ import org.apache.spark.ml.clustering.{DistributedLDAModel, LDAModel, LocalLDAMo
 import org.apache.spark.sql.SparkSession
 
 class LDAPrediction extends ConfigurableStop{
-  val authorEmail: String = "06whuxx@163.com
+  val authorEmail: String = "06whuxx@163.com"
   val description: String = "Make use of a exist LDAModel to predict."
   val inportList: List[String] = List(PortEnum.NonePort.toString)
   val outportList: List[String] = List(PortEnum.DefaultPort.toString)
