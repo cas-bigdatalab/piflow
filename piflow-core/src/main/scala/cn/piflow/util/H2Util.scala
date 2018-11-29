@@ -5,6 +5,7 @@ import java.util.Date
 
 import net.liftweb.json.compactRender
 import net.liftweb.json.JsonDSL._
+import org.h2.tools.Server
 
 object H2Util {
 
@@ -19,8 +20,6 @@ object H2Util {
 
     val statement = getConnectionInstance().createStatement()
     statement.setQueryTimeout(QUERY_TIME)
-    //statement.executeUpdate("drop table if exists flow")
-    //statement.executeUpdate("drop table if exists stop")
     statement.executeUpdate(CREATE_FLOW_TABLE)
     statement.executeUpdate(CREATE_STOP_TABLE)
     statement.close()
@@ -34,6 +33,17 @@ object H2Util {
       connection = DriverManager.getConnection(CONNECTION_URL)
     }
     connection
+  }
+
+  def cleanDatabase() = {
+    val h2Server = Server.createTcpServer("-tcp", "-tcpAllowOthers", "-tcpPort",PropertyUtil.getPropertyValue("h2.port")).start()
+    val statement = getConnectionInstance().createStatement()
+    statement.setQueryTimeout(QUERY_TIME)
+    statement.executeUpdate("drop table if exists flow")
+    statement.executeUpdate("drop table if exists stop")
+    statement.close()
+    h2Server.shutdown()
+
   }
 
   def addFlow(appId:String,pId:String, name:String)={
@@ -102,12 +112,14 @@ object H2Util {
 
     val flowRS : ResultSet = statement.executeQuery("select * from flow where id='" + appId +"'")
     while (flowRS.next()){
+      val progress = getFlowProgressPercent(appId:String)
       flowInfo = "{\"flow\":{\"id\":\"" + flowRS.getString("id") +
         "\",\"pid\":\"" +  flowRS.getString("pid") +
         "\",\"name\":\"" +  flowRS.getString("name") +
         "\",\"state\":\"" +  flowRS.getString("state") +
         "\",\"startTime\":\"" +  flowRS.getString("startTime") +
         "\",\"endTime\":\"" + flowRS.getString("endTime") +
+        "\",\"progress\":\"" + progress +
         "\",\"stops\":["
     }
     flowRS.close()
@@ -131,14 +143,13 @@ object H2Util {
     flowInfo
   }
 
-
-  def getFlowProgress(appId:String) : String = {
+  def getFlowProgressPercent(appId:String) : String = {
     val statement = getConnectionInstance().createStatement()
     statement.setQueryTimeout(QUERY_TIME)
 
     var stopCount = 0
     var completedStopCount = 0
-    val totalRS : ResultSet = statement.executeQuery("select count(*) as stopCount from stop where flowId='" + appId +"' and state!='" + StopState.INIT + "'")
+    val totalRS : ResultSet = statement.executeQuery("select count(*) as stopCount from stop where flowId='" + appId + "'")
     while(totalRS.next()){
       stopCount = totalRS.getInt("stopCount")
       //println("stopCount:" + stopCount)
@@ -153,6 +164,28 @@ object H2Util {
     completedRS.close()
 
     val flowRS : ResultSet = statement.executeQuery("select * from flow where id='" + appId +"'")
+    var flowState = ""
+    while (flowRS.next()){
+      flowState = flowRS.getString("state")
+    }
+    flowRS.close()
+
+    statement.close()
+
+    val progress:Double = completedStopCount.asInstanceOf[Double] / stopCount * 100
+    if(flowState.eq(FlowState.COMPLETED)){
+      "100%"
+    }else{
+      progress.toString
+    }
+  }
+
+  def getFlowProgress(appId:String) : String = {
+
+    val progress = getFlowProgressPercent(appId)
+    val statement = getConnectionInstance().createStatement()
+    statement.setQueryTimeout(QUERY_TIME)
+    val flowRS : ResultSet = statement.executeQuery("select * from flow where id='" + appId +"'")
     var id = ""
     var name = ""
     var state = ""
@@ -163,10 +196,6 @@ object H2Util {
     }
 
     flowRS.close()
-
-    statement.close()
-
-    val progress:Double = completedStopCount.asInstanceOf[Double] / stopCount * 100
     val json =
       ("FlowInfo" ->
         ("appId" -> id)~
