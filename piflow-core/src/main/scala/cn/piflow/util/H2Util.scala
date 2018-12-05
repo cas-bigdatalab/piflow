@@ -173,7 +173,7 @@ object H2Util {
     statement.close()
 
     val progress:Double = completedStopCount.asInstanceOf[Double] / stopCount * 100
-    if(flowState.eq(FlowState.COMPLETED)){
+    if(flowState.equals(FlowState.COMPLETED)){
       "100%"
     }else{
       progress.toString
@@ -262,8 +262,7 @@ object H2Util {
     }catch {
       case ex => println(ex)
     }*/
-    val flowInfo = getFlowInfo("application_1539850523117_0157")
-    println(flowInfo)
+    cleanDatabase()
   }
 
 }
