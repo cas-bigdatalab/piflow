@@ -174,7 +174,7 @@ object H2Util {
 
     val progress:Double = completedStopCount.asInstanceOf[Double] / stopCount * 100
     if(flowState.equals(FlowState.COMPLETED)){
-      "100%"
+      "100"
     }else{
       progress.toString
     }
