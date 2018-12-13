@@ -27,6 +27,24 @@ class UnzipFilesOnHDFS extends ConfigurableStop {
     val session: SparkSession = pec.get[SparkSession]()
 
     val configuration: Configuration = new Configuration()
+    val pathARR: Array[String] = filePath.split("\\/")
+    var hdfsUrl:String=""
+    for (x <- (0 until 3)){
+
+      hdfsUrl+=(pathARR(x) +"/")
+    }
+    configuration.set("fs.defaultFS",hdfsUrl)
+    //    configuration.set("dfs.nameservices", "nameservice1")
+    //        configuration.set("dfs.ha.namenodes.nameservice1", "nn1,nn2");
+    //        configuration.set("dfs.namenode.rpc-address.nameservice1.nn1", "xxx:8020");
+    //        configuration.set("dfs.namenode.rpc-address.nameservice1.nn2", "xxx:8020");
+    //        configuration.set("dfs.client.failover.proxy.provider.nameservice1"
+    //                ,"org.apache.hadoop.hdfs.server.namenode.ha.ConfiguredFailoverProxyProvider");
+
+    //        configuration.addResource("classpath:/hadoop/core-site.xml");
+    //        configuration.addResource("classpath:/hadoop/hdfs-site.xml");
+    //        configuration.addResource("classpath:/hadoop/mapred-site.xml");
+
     val fs = FileSystem.get(configuration)
     val fdis: FSDataInputStream = fs.open(new Path(filePath))
 
