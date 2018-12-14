@@ -4,7 +4,7 @@ import java.io._
 
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
-import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroupEnum}
+import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroup}
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 import org.elasticsearch.spark.sql.EsSparkSQL
@@ -271,7 +271,7 @@ class TaxonomyParse extends ConfigurableStop{
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroupEnum.MicroorganismGroup.toString)
+    List(StopGroup.MicroorganismGroup.toString)
   }
 
   def initialize(ctx: ProcessContext): Unit = {
