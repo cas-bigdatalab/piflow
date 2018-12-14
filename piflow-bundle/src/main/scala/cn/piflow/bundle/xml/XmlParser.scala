@@ -61,7 +61,7 @@ class XmlParser extends ConfigurableStop {
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroupEnum.XmlGroup.toString)
+    List(StopGroup.XmlGroup.toString)
   }
 
 }

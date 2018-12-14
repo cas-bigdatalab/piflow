@@ -51,7 +51,7 @@ class FolderXmlParser extends ConfigurableStop{
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroupEnum.XmlGroup.toString)
+    List(StopGroup.XmlGroup.toString)
   }
 
   override def initialize(ctx: ProcessContext): Unit ={}

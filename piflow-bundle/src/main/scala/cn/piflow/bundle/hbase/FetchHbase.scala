@@ -2,7 +2,7 @@ package cn.piflow.bundle.hbase
 
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.ImageUtil
-import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroupEnum}
+import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroup}
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.hbase.HBaseConfiguration
@@ -84,7 +84,7 @@ class FetchHbase extends ConfigurableStop {
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroupEnum.HbaseGroup.toString)
+    List(StopGroup.HbaseGroup.toString)
   }
 
 }

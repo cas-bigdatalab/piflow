@@ -66,7 +66,7 @@ class WriteToRedis extends ConfigurableStop{
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroupEnum.RedisGroup.toString)
+    List(StopGroup.RedisGroup.toString)
   }
 
   override val authorEmail: String = "06whuxx@163.com"

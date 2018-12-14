@@ -3,7 +3,7 @@ import java.util
 
 import scala.collection.JavaConversions._
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
-import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroupEnum}
+import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroup}
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import org.apache.solr.client.solrj.SolrQuery
@@ -141,7 +141,7 @@ class GetFromSolr extends ConfigurableStop{
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroupEnum.SolrGroup.toString)
+    List(StopGroup.SolrGroup.toString)
   }
 
   override def initialize(ctx: ProcessContext): Unit = {

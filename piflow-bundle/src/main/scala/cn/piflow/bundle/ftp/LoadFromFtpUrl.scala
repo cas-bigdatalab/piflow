@@ -8,7 +8,7 @@ import java.util.{ArrayList, Date}
 
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
-import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroupEnum}
+import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroup}
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.apache.spark.sql.SparkSession
 import org.jsoup.Jsoup
@@ -246,7 +246,7 @@ class LoadFromFtpUrl extends ConfigurableStop{
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroupEnum.FtpGroup.toString)
+    List(StopGroup.FtpGroup.toString)
   }
 
   def initialize(ctx: ProcessContext): Unit = {

@@ -62,7 +62,7 @@ class PutHiveQL extends ConfigurableStop {
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroupEnum.HiveGroup.toString)
+    List(StopGroup.HiveGroup.toString)
   }
 
 }

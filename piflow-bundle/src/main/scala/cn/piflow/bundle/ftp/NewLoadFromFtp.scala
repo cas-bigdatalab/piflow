@@ -6,7 +6,7 @@ import java.util.ArrayList
 
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
-import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroupEnum}
+import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroup}
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import sun.net.ftp.{FtpClient, FtpDirEntry}
 
@@ -182,7 +182,7 @@ class NewLoadFromFtp extends ConfigurableStop{
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroupEnum.FtpGroup.toString)
+    List(StopGroup.FtpGroup.toString)
   }
 
 

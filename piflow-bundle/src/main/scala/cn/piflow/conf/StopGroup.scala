@@ -1,41 +1,31 @@
 package cn.piflow.conf
 
-import scala.reflect.runtime.{universe => ru}
-sealed class StopGroup
-case object CommonGroup extends StopGroup
-case object CsvGroup extends StopGroup
-case object HiveGroup extends StopGroup
-case object JdbcGroup extends StopGroup
-case object JsonGroup extends StopGroup
-case object XmlGroup extends StopGroup
-case object HttpGroup extends StopGroup
-case object FtpGroup extends StopGroup
-case object ScriptGroup extends StopGroup
-case object FileGroup extends StopGroup
-case object CleanGroup extends StopGroup
-case object RedisGroup extends StopGroup
-case object KafkaGroup extends StopGroup
-case object ESGroup extends StopGroup
-case object HdfsGroup extends StopGroup
-case object MicroorganismGroup extends StopGroup
-case object ExcelGroup extends StopGroup
-case object HbaseGroup extends StopGroup
+object StopGroup {
 
-
-
-
-object StopGroup{
-  def findAllGroup(): List[String] ={
-    var groupList : List[String] = List()
-    val tpe = ru.typeOf[StopGroup]
-    val clazz = tpe.typeSymbol.asClass
-    clazz.knownDirectSubclasses.foreach(x => {
-      val subObjectArray = x.toString.split(" ")
-      groupList = subObjectArray(1) :: groupList})
-    groupList
-  }
+  val CommonGroup = "Common"
+  val CsvGroup = "CSV"
+  val HiveGroup = "Hive"
+  val JdbcGroup = "Jdbc"
+  val JsonGroup = "Json"
+  val XmlGroup = "Xml"
+  val HttpGroup = "Http"
+  val FtpGroup = "Ftp"
+  val ScriptGroup = "Script"
+  val FileGroup = "File"
+  val CleanGroup = "Data Clean"
+  val KafkaGroup = "Message Queue"
+  val RedisGroup = "Redis"
+  val SolrGroup = "Solr"
+  val ESGroup = "ElasticSearch"
+  val MLGroup = "Mechine Learning"
+  val RDFGroup = "RDF"
+  val HdfsGroup = "Hdfs"
+  val MicroorganismGroup = "Microorganism"
+  val Spider = "Spider"
+  val Mongodb = "MongoDB"
+  val Memcache = "Memcache"
+  val GraphX = "GraphX"
+  val ExcelGroup = "Excel"
+  val HbaseGroup = "Hbase"
+  val StreamingGroup = "Streaming"
 }
-
-
-
-

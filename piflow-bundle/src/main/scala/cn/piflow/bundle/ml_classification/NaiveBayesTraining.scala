@@ -2,7 +2,7 @@ package cn.piflow.bundle.ml_classification
 
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
-import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroupEnum}
+import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroup}
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.apache.spark.ml.classification.NaiveBayes
 import org.apache.spark.sql.SparkSession
@@ -69,7 +69,7 @@ class NaiveBayesTraining extends ConfigurableStop{
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroupEnum.MLGroup.toString)
+    List(StopGroup.MLGroup.toString)
   }
 
 }

@@ -1,7 +1,7 @@
 package cn.piflow.bundle.rdf
 
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
-import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroupEnum}
+import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroup}
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 
@@ -384,7 +384,7 @@ class CsvToNeo4J extends ConfigurableStop{
 
   override def getIcon(): Array[Byte] = ImageUtil.getImage("neo4j.jpg")
 
-  override def getGroup(): List[String] =  List(StopGroupEnum.RDFGroup.toString)
+  override def getGroup(): List[String] =  List(StopGroup.RDFGroup.toString)
 
   override def initialize(ctx: ProcessContext): Unit = {}
 

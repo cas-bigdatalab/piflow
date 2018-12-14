@@ -3,7 +3,7 @@ package cn.piflow.bundle.microorganism
 
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
-import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroupEnum}
+import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroup}
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.apache.spark.sql.{Row, SparkSession}
 import org.elasticsearch.spark.sql.EsSparkSQL
@@ -77,7 +77,7 @@ class GoldDataParse extends ConfigurableStop{
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroupEnum.MicroorganismGroup.toString)
+    List(StopGroup.MicroorganismGroup.toString)
   }
 
   def initialize(ctx: ProcessContext): Unit = {

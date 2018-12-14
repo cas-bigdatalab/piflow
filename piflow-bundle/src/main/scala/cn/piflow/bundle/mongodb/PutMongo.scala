@@ -3,7 +3,7 @@ package cn.piflow.bundle.mongodb
 import java.util
 
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
-import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroupEnum}
+import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroup}
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import com.mongodb.client.{MongoCollection, MongoDatabase}
@@ -99,7 +99,7 @@ class PutMongo extends ConfigurableStop{
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroupEnum.Mongodb.toString)
+    List(StopGroup.Mongodb.toString)
   }
 
   override def initialize(ctx: ProcessContext): Unit = { }

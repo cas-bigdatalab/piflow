@@ -7,7 +7,7 @@ import java.util
 import cn.piflow._
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
-import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroupEnum}
+import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroup}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FSDataInputStream, FileSystem, Path}
 import org.apache.http.client.methods._
@@ -273,7 +273,7 @@ class InvokeUrl extends ConfigurableStop{
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroupEnum.HttpGroup.toString)
+    List(StopGroup.HttpGroup.toString)
   }
 
   override def initialize(ctx: ProcessContext): Unit = {

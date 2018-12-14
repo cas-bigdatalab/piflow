@@ -71,7 +71,7 @@ class JdbcWrite extends ConfigurableStop{
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroupEnum.JdbcGroup.toString)
+    List(StopGroup.JdbcGroup.toString)
   }
 
 

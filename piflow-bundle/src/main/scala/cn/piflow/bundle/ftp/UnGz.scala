@@ -4,7 +4,7 @@ package cn.piflow.bundle.ftp
 import cn.piflow.bundle.util.UnGzUtil
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
-import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroupEnum}
+import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroup}
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 
@@ -121,7 +121,7 @@ class UnGz extends ConfigurableStop{
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroupEnum.FtpGroup.toString)
+    List(StopGroup.FtpGroup.toString)
   }
 
   def initialize(ctx: ProcessContext): Unit = {

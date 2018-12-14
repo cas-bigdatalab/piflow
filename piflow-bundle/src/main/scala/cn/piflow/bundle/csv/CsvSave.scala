@@ -45,7 +45,7 @@ class CsvSave extends ConfigurableStop{
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroupEnum.CsvGroup.toString)
+    List(StopGroup.CsvGroup.toString)
   }
 
   override def initialize(ctx: ProcessContext): Unit = {

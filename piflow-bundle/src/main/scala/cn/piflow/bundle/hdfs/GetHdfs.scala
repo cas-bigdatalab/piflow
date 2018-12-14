@@ -3,7 +3,7 @@ package cn.piflow.bundle.hdfs
 import cn.piflow._
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
-import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroupEnum}
+import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroup}
 import org.apache.spark.sql.SparkSession
 
 
@@ -100,7 +100,7 @@ class GetHdfs extends ConfigurableStop{
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroupEnum.HdfsGroup.toString)
+    List(StopGroup.HdfsGroup.toString)
   }
 
   override def initialize(ctx: ProcessContext): Unit = {

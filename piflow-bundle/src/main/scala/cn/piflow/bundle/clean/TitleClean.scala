@@ -48,7 +48,7 @@ class TitleClean extends ConfigurableStop{
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroupEnum.CleanGroup.toString)
+    List(StopGroup.CleanGroup.toString)
   }
 
 }

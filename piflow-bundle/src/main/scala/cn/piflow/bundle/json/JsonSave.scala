@@ -45,7 +45,7 @@ class JsonSave extends ConfigurableStop{
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroupEnum.JsonGroup.toString)
+    List(StopGroup.JsonGroup.toString)
   }
 
 

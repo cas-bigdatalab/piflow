@@ -23,7 +23,7 @@ class StopGroupTest {
   @Test
   def testFindAllGroup() = {
 
-    val group = StopGroup.findAllGroup()
-    group.foreach(println)
+    //val group = StopGroup.findAllGroup()
+    //group.foreach(println)
   }
 }

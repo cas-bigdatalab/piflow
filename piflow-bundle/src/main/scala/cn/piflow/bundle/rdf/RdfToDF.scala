@@ -5,7 +5,7 @@ import java.util.regex.{Matcher, Pattern}
 import cn.piflow.bundle.util.Entity
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
-import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroupEnum}
+import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroup}
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.types.{DataTypes, StringType, StructField, StructType}
@@ -141,7 +141,7 @@ class RdfToDF extends ConfigurableStop{
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroupEnum.RDFGroup.toString)
+    List(StopGroup.RDFGroup.toString)
   }
 
   override def initialize(ctx: ProcessContext): Unit = {

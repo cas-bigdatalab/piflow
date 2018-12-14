@@ -38,7 +38,7 @@ class DataFrameRowParser extends ConfigurableStop{
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroupEnum.ScriptGroup.toString)
+    List(StopGroup.ScriptGroup.toString)
   }
 
 

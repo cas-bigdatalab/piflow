@@ -5,7 +5,7 @@ import java.net.URI
 
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
-import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroupEnum}
+import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroup}
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.apache.commons.httpclient.HttpClient
 import org.apache.hadoop.conf.Configuration
@@ -79,7 +79,7 @@ class PostUrl extends ConfigurableStop{
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroupEnum.HttpGroup.toString)
+    List(StopGroup.HttpGroup.toString)
   }
 
   override def initialize(ctx: ProcessContext): Unit = {

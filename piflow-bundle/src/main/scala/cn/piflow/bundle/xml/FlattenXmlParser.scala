@@ -5,7 +5,7 @@ import java.util
 
 import cn.piflow.bundle.util.JsonUtil
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
-import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroupEnum}
+import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroup}
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import org.apache.hadoop.conf.Configuration
@@ -171,7 +171,7 @@ class FlattenXmlParser extends ConfigurableStop{
     ImageUtil.getImage("xml.png")
   }
   override def getGroup(): List[String] = {
-    List(StopGroupEnum.XmlGroup.toString)
+    List(StopGroup.XmlGroup.toString)
   }
   override def initialize(ctx: ProcessContext): Unit = {
 

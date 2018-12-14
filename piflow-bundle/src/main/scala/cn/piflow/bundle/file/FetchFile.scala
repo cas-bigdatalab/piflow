@@ -58,7 +58,7 @@ class FetchFile extends ConfigurableStop{
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroupEnum.FileGroup.toString)
+    List(StopGroup.FileGroup.toString)
   }
 
 

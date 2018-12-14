@@ -1,7 +1,7 @@
 package cn.piflow.bundle.memcache
 
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
-import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroupEnum}
+import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroup}
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import com.danga.MemCached.{MemCachedClient, SockIOPool}
@@ -166,7 +166,7 @@ class ComplementByMemcache extends ConfigurableStop {
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroupEnum.Memcache.toString)
+    List(StopGroup.Memcache.toString)
   }
 
   override def initialize(ctx: ProcessContext): Unit = {

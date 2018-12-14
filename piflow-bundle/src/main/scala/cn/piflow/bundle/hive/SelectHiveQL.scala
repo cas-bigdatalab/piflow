@@ -49,7 +49,7 @@ class SelectHiveQL extends ConfigurableStop {
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroupEnum.HiveGroup.toString)
+    List(StopGroup.HiveGroup.toString)
   }
 
 

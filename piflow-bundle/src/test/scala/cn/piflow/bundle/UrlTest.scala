@@ -1,7 +1,6 @@
 package cn.piflow.bundle
 
 import cn.piflow.{FlowImpl, Runner}
-import cn.piflow.bundle.url.{GetUrl, PostUrl}
 import cn.piflow.conf.bean.FlowBean
 import cn.piflow.conf.util.{FileUtil, OptionUtil}
 import org.apache.commons.httpclient.HttpClient

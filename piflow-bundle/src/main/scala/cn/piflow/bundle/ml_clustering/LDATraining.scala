@@ -1,7 +1,7 @@
 package cn.piflow.bundle.ml_clustering
 
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
-import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroupEnum}
+import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroup}
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import org.apache.spark.ml.clustering.LDA
@@ -125,7 +125,7 @@ class LDATraining extends ConfigurableStop{
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroupEnum.MLGroup.toString)
+    List(StopGroup.MLGroup.toString)
   }
 
 }

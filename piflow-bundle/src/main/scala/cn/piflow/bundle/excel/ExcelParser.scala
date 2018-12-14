@@ -73,7 +73,7 @@ class ExcelParser extends ConfigurableStop{
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroupEnum.ExcelGroup.toString)
+    List(StopGroup.ExcelGroup.toString)
   }
 
 }

@@ -1,7 +1,7 @@
 package cn.piflow.bundle.csv
 
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
-import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroupEnum}
+import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroup}
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import org.apache.spark.SparkContext
@@ -75,7 +75,7 @@ class CsvStringParser extends ConfigurableStop{
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroupEnum.CsvGroup.toString)
+    List(StopGroup.CsvGroup.toString)
   }
 
   override def initialize(ctx: ProcessContext): Unit = {

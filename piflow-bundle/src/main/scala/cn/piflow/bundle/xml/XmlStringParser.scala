@@ -3,7 +3,7 @@ package cn.piflow.bundle.xml
 import java.util
 
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
-import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroupEnum}
+import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroup}
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import org.apache.spark.rdd.RDD
@@ -114,7 +114,7 @@ class XmlStringParser extends ConfigurableStop {
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroupEnum.XmlGroup.toString)
+    List(StopGroup.XmlGroup.toString)
   }
 
   override def initialize(ctx: ProcessContext): Unit = {

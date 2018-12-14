@@ -5,7 +5,7 @@ import java.net.URI
 
 import cn.piflow.bundle.util.JsonUtil
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
-import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroupEnum}
+import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroup}
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import org.apache.hadoop.conf.Configuration
@@ -127,7 +127,7 @@ class FolderJsonParser extends ConfigurableStop{
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroupEnum.JsonGroup.toString)
+    List(StopGroup.JsonGroup.toString)
   }
 
   override def initialize(ctx: ProcessContext): Unit = {

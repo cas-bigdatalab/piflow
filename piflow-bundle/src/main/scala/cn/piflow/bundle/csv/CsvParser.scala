@@ -70,7 +70,7 @@ class CsvParser extends ConfigurableStop{
     var descriptor : List[PropertyDescriptor] = List()
     val csvPath = new PropertyDescriptor().name("csvPath").displayName("csvPath").description("The path of csv file").defaultValue("").required(true)
     descriptor = csvPath :: descriptor
-    val header = new PropertyDescriptor().name("header").displayName("header").description("Whether the csv file have header or not").defaultValue("").required(true)
+    val header = new PropertyDescriptor().name("header").displayName("header").description("Whether the csv file have header or not").defaultValue("false").allowableValues(Set("true","false")).required(true)
     descriptor = header :: descriptor
     val delimiter = new PropertyDescriptor().name("delimiter").displayName("delimiter").description("The delimiter of csv file").defaultValue("").required(true)
     descriptor = delimiter :: descriptor
@@ -85,7 +85,7 @@ class CsvParser extends ConfigurableStop{
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroupEnum.CsvGroup.toString)
+    List(StopGroup.CsvGroup.toString)
   }
 
 }

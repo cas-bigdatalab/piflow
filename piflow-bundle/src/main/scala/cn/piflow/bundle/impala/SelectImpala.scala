@@ -3,7 +3,7 @@ package cn.piflow.bundle.impala
 import java.sql.{Connection, DriverManager, ResultSet, Statement}
 
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
-import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroupEnum}
+import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroup}
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import org.apache.spark.rdd.RDD
@@ -95,7 +95,7 @@ class SelectImpala extends ConfigurableStop{
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroupEnum.Mongodb.toString)
+    List(StopGroup.Mongodb.toString)
   }
 
 

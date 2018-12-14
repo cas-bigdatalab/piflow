@@ -2,7 +2,7 @@ package cn.piflow.bundle.es
 
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
-import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroupEnum}
+import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroup}
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.apache.spark.sql.SparkSession
 import org.elasticsearch.spark.rdd.EsSpark
@@ -114,6 +114,6 @@ class QueryEs extends ConfigurableStop {
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroupEnum.ESGroup.toString)
+    List(StopGroup.ESGroup.toString)
   }
 }

@@ -86,7 +86,7 @@ class ExecuteSQLStop extends ConfigurableStop{
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroupEnum.CommonGroup.toString)
+    List(StopGroup.CommonGroup.toString)
   }
 
 

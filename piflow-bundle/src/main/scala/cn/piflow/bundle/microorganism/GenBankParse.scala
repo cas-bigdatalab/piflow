@@ -7,7 +7,7 @@ import java.util.ArrayList
 import cn.piflow.bundle.microorganism.util.{CustomIOTools, Process}
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
-import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroupEnum}
+import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroup}
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 import org.biojava.bio.BioException
@@ -146,7 +146,7 @@ class GenBankParse extends ConfigurableStop{
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroupEnum.MicroorganismGroup.toString)
+    List(StopGroup.MicroorganismGroup.toString)
   }
 
   def initialize(ctx: ProcessContext): Unit = {

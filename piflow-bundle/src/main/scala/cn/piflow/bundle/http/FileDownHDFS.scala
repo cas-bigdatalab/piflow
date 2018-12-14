@@ -86,7 +86,7 @@ class FileDownHDFS extends ConfigurableStop{
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroupEnum.HttpGroup.toString)
+    List(StopGroup.HttpGroup.toString)
   }
 
 
