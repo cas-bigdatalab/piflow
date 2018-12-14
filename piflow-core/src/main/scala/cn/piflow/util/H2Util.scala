@@ -57,6 +57,14 @@ object H2Util {
     val statement = getConnectionInstance().createStatement()
     statement.setQueryTimeout(QUERY_TIME)
     val updateSql = "update flow set state='" + state + "' where id='" + appId + "'"
+
+    //update related stop stop when flow state is KILLED
+    if(state.equals(FlowState.KILLED)){
+      val startedStopList = getStartedStop(appId)
+      startedStopList.foreach(stopName => {
+        updateStopState(appId,stopName,StopState.KILLED)
+      })
+    }
     //println(updateSql)
     statement.executeUpdate(updateSql)
     statement.close()
@@ -237,6 +245,21 @@ object H2Util {
     //println(updateSql)
     statement.executeUpdate(updateSql)
     statement.close()
+  }
+
+  def getStartedStop(appId:String) : List[String] = {
+    val statement = getConnectionInstance().createStatement()
+    statement.setQueryTimeout(QUERY_TIME)
+
+    var stopList:List[String] = List()
+    val rs : ResultSet = statement.executeQuery("select * from stop where flowId='" + appId +"' and state = '" + StopState.STARTED + "'")
+    while(rs.next()){
+
+      stopList = rs.getString("name") +: stopList
+    }
+    rs.close()
+    statement.close()
+    stopList
   }
 
   def main(args: Array[String]): Unit = {

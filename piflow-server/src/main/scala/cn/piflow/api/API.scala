@@ -9,8 +9,9 @@ import org.apache.spark.sql.SparkSession
 import cn.piflow.conf.util.{ClassUtil, MapUtil, OptionUtil}
 import cn.piflow.{Process, Runner}
 import cn.piflow.api.util.PropertyUtil
-import cn.piflow.util.{H2Util, HadoopFileUtil}
-import org.apache.http.client.methods.{CloseableHttpResponse, HttpGet, HttpPost}
+import cn.piflow.util.{FlowState, H2Util, HadoopFileUtil}
+import org.apache.http.client.methods.{CloseableHttpResponse, HttpGet, HttpPost, HttpPut}
+import org.apache.http.entity.StringEntity
 import org.apache.http.impl.client.HttpClients
 import org.apache.http.util.EntityUtils
 import org.apache.spark.launcher.{SparkAppHandle, SparkLauncher}
@@ -133,6 +134,28 @@ object API {
 
   def stopFlow(process : SparkAppHandle): String = {
     process.kill()
+    "ok"
+  }
+
+  def stopFlow(appID : String, process : SparkAppHandle) : String = {
+
+    //yarn application kill appId
+    val url = PropertyUtil.getPropertyValue("yarn.url") + appID + "/state"
+    val client = HttpClients.createDefault()
+    val put:HttpPut = new HttpPut(url)
+    val body ="{\"state\":\"KILLED\"}"
+    put.addHeader("Content-Type", "application/json")
+    put.setEntity(new StringEntity(body))
+    val response:CloseableHttpResponse = client.execute(put)
+    val entity = response.getEntity
+    val str = EntityUtils.toString(entity,"UTF-8")
+
+    //process kill
+    process.kill()
+
+    //update db
+    H2Util.updateFlowState(appID, FlowState.KILLED)
+
     "ok"
   }
 

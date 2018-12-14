@@ -7,4 +7,5 @@ object FlowState {
   val FAILED = "FAILED"
   val ABORTED = "ABORTED"
   val FORK = "FORK"
+  val KILLED = "KILLED"
 }
