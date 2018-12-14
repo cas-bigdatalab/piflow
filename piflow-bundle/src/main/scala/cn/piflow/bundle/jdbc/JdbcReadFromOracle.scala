@@ -50,8 +50,9 @@ class JdbcReadFromOracle extends ConfigurableStop{
 
     val filedNames: Array[String] = schame.split(",")
     var rowsArr:ArrayBuffer[ArrayBuffer[Any]]=ArrayBuffer()
+    var rowArr:ArrayBuffer[Any]=ArrayBuffer()
     while (rs.next()){
-      var rowArr:ArrayBuffer[Any]=ArrayBuffer()
+      rowArr.clear()
       for(fileName <- filedNames){
         val name_type: Array[String] = fileName.split("\\.")
         val name: String = name_type(0)
