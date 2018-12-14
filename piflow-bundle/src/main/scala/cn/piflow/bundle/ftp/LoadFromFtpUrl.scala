@@ -10,7 +10,7 @@ import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroupEnum}
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
-import org.apache.spark.sql.SparkSession
+import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.jsoup.Jsoup
 import org.jsoup.select.Elements
 import sun.net.ftp.FtpProtocolException
@@ -29,6 +29,7 @@ class LoadFromFtpUrl extends ConfigurableStop{
   var fileName:String=_
 
   var list = List("")
+  var df:DataFrame = null
 
   def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     val spark = pec.get[SparkSession]()
@@ -45,7 +46,10 @@ class LoadFromFtpUrl extends ConfigurableStop{
       println(fileName)
       //文件 路径保存到 list
       fileLocalPath = localPath+"/"+fileName
-      list = fileLocalPath::list
+
+      df = Seq(fileLocalPath).toDF()
+
+//      list = fileLocalPath::list
       // 下载 文件
       downFileFromFtpUrl(http_url,localPath,fileName)
     } else {
@@ -57,26 +61,35 @@ class LoadFromFtpUrl extends ConfigurableStop{
 
         if(downType.equals("all")){
 
+
           val arrayString = array.split("--1234567890987654321--")
 
+          println(http_url)
           val fileUrlDir = array.replace(s"$http_url", "/").split("--1234567890987654321--")(0)
           // 单个文件url 指向的 路径
           val urlPath = arrayString(0)+arrayString(1)
+
           // 下载 保存 文件夹的目录
           val savePath = localPath+fileUrlDir
           // 文件名字
-          val fileName = arrayString(1)
+          val filename = arrayString(1)
 
-          fileLocalPath = savePath+fileName
+          fileLocalPath = savePath+filename
           println(urlPath)
           println(savePath)
-          println(fileName)
+          println(filename)
 
-          list = fileLocalPath :: list
+          if (i == 0){ // 第一个文件路径 保存到空的 df
+            df = Seq(fileLocalPath).toDF()
+          } else {  // i > 0  2～～ 的文件路径生成df  与第一个文件路径的df   合并
+            df = df.union(Seq(fileLocalPath).toDF())
+          }
 
-          downFileFromFtpUrl(urlPath, savePath, fileName)
+//          list = fileLocalPath :: list
 
-        } else {
+          downFileFromFtpUrl(urlPath, savePath, filename)
+
+        } else if (downType.equals("day")) {
           println("##################################")
           // 增量下载  ,下载当天数据
           var now = new Date()
@@ -94,25 +107,33 @@ class LoadFromFtpUrl extends ConfigurableStop{
             // 下载 保存 文件夹的目录
             val savePath = localPath+fileUrlDir
             // 文件名字
-            val fileName = arrayString(1)
+            val filename = arrayString(1)
 
-            fileLocalPath = savePath+fileName
+            fileLocalPath = savePath+filename
             println(urlPath)
             println(savePath)
-            println(fileName)
+            println(filename)
 
-            list = fileLocalPath :: list
+            if (i == 0){
+              df = Seq(fileLocalPath).toDF()
+            } else {
+              df = df.union(Seq(fileLocalPath).toDF())
+            }
 
-            downFileFromFtpUrl(urlPath, savePath, fileName)
+//            list = fileLocalPath :: list
+            downFileFromFtpUrl(urlPath, savePath, filename)
           }
         }
       }
     }
-    //  保存的本地文件 路径 ，加载到 df 里面  ，字段名字为 filepath
-    val outDF = sc.parallelize(list).toDF("filePath")
-    println(outDF.count())
-    outDF.show()
-    out.write(outDF)
+//    //  保存的本地文件 路径 ，加载到 df 里面  ，字段名字为 filepath
+//    val outDF = sc.parallelize(list).toDF("filePath")
+//    println(outDF.count())
+//    outDF.show()
+
+//    df.show()
+//    df.schema.printTreeString()
+    out.write(df)
 
   }
 

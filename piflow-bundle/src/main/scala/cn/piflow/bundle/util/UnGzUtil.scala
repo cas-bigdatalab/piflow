@@ -1,17 +1,62 @@
 package cn.piflow.bundle.util
 
 import java.io._
+import java.util
 import java.util.zip.GZIPInputStream
 
-import org.apache.spark.sql.DataFrame
+import org.apache.tools.tar.{TarEntry, TarInputStream}
 import sun.net.ftp.FtpProtocolException
 
 object UnGzUtil extends Serializable{
 
   var filePath:String = null
 
-  def unGz(inputDir:String,savePath:String,filename:String):String = {
+  def unTarGz(inputDir:String,savePath:String)={
+    var list = new util.ArrayList[String]()
+    try {
+      val fileInput = new FileInputStream(inputDir)
+      val gzip = new GZIPInputStream(new BufferedInputStream(fileInput))
+      val tarIn = new TarInputStream(gzip, 1024 * 2)
 
+      val outDir = new File(savePath)
+      outDir.mkdirs()
+
+      var entry: TarEntry = null
+
+      while ((entry = tarIn.getNextEntry) != null  && entry !=null) {
+
+        // 是目录
+        if (entry.isDirectory()) {
+          val outPath = savePath + "/" + entry.getName
+          // 创建输出目录
+          val outDir = new File(outPath)
+          outDir.mkdirs()
+        } else {
+          // 文件
+          val outDir = new File(savePath + "/" + entry.getName)
+
+          list.add(outDir.toString)
+          val out = new FileOutputStream(outDir)
+
+          var lenth = 0
+          val buff = new Array[Byte](1024)
+          while ((lenth = tarIn.read(buff)) != -1 && (lenth != -1)) {
+            out.write(buff, 0, lenth)
+          }
+          out.close()
+        }
+      }
+    }catch {
+      case  e: IOException =>
+        e.printStackTrace()
+    }
+
+    list
+  }
+
+
+
+  def unGz(inputDir:String,savePath:String,filename:String):String = {
     try {
       val fileInput = new FileInputStream(inputDir)
       val gzip = new GZIPInputStream(fileInput)
@@ -40,7 +85,6 @@ object UnGzUtil extends Serializable{
       case  e: IOException =>
         e.printStackTrace()
     }
-
     return  filePath
   }
 
