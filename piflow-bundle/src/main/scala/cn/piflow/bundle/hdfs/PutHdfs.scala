@@ -18,8 +18,8 @@ class PutHdfs extends ConfigurableStop{
 
   var hdfsPath :String= _
   var hdfsUrl :String= _
-  var partition :Int=_
   var types :String= _
+  var partition :Int= 3
 
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     val spark = pec.get[SparkSession]()
@@ -48,7 +48,7 @@ class PutHdfs extends ConfigurableStop{
     hdfsUrl = MapUtil.get(map,key="hdfsUrl").asInstanceOf[String]
     hdfsPath = MapUtil.get(map,key="hdfsPath").asInstanceOf[String]
     types = MapUtil.get(map,key="types").asInstanceOf[String]
-    partition = MapUtil.get(map,key="partition").asInstanceOf[Int]
+    val partition1 = MapUtil.get(map,key="partition").asInstanceOf[String]
   }
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {

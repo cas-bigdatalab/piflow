@@ -26,7 +26,7 @@ class JdbcWriteToOracle extends ConfigurableStop{
     val inDF: DataFrame = in.read()
 
     Class.forName("oracle.jdbc.driver.OracleDriver")
-    val con: Connection = DriverManager.getConnection("jdbc:oracle:thin:@10.0.86.237:1521/newdb","my","bigdata")
+    val con: Connection = DriverManager.getConnection(url,user,password)
     val star: Statement = con.createStatement()
 
     val fileNames: Array[String] = inDF.columns

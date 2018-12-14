@@ -170,11 +170,7 @@
             <artifactId>ojdbc</artifactId>
             <version>6.0.0</version>
         </dependency>
-        <dependency>
-            <groupId>jdbc_oracle</groupId>
-            <artifactId>ojdbc</artifactId>
-            <version>5.0.0</version>
-        </dependency>
+
 
         <!-- https://mvnrepository.com/artifact/org.apache.flume/flume-ng-core -->
         <dependency>
