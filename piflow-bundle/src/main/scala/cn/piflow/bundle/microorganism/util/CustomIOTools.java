@@ -1,6 +1,5 @@
 package cn.piflow.bundle.microorganism.util;
 
-
 import org.biojava.bio.BioError;
 import org.biojava.bio.BioException;
 import org.biojava.bio.seq.*;
@@ -662,10 +661,19 @@ public interface CustomIOTools {
          * @return a <code>RichSequenceIterator</code> over each sequence in the
          *         fasta file
          */
+        public static RichSequenceIterator readEMBLDNA(BufferedReader br,
+                                                       Namespace ns) {
+            return new RichStreamReader(br, new CustomEMBLFormat(), getDNAParser(),
+                    factory, ns);
+        }
 
 
-
-
+        //parse Ensembl file
+        public static RichSequenceIterator readEnsembl(BufferedReader br,
+                                                       Namespace ns) {
+            return new RichStreamReader(br, new CustomEnsemblFormat(), getDNAParser(),
+                    factory, ns);
+        }
 
         /**
          * Iterate over the sequences in an EMBL-format stream of RNA sequences.
@@ -753,7 +761,11 @@ public interface CustomIOTools {
          * @return a <code>RichSequenceIterator</code> over each sequence in the
          *         fasta file
          */
-
+        public static RichSequenceIterator readUniProt(BufferedReader br,
+                                                       Namespace ns) {
+            return new RichStreamReader(br, new CustomUniProtFormat(),
+                    getProteinParser(), factory, ns);
+        }
 
         /**
          * Read a UniProt XML file using a custom type of SymbolList. For
