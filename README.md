@@ -1,5 +1,5 @@
 ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow.png) 
-**Piflow**  is an easy to use, powerful big data pipeline system.
+is an easy to use, powerful big data pipeline system.
 
 ## Table of Contents
 
