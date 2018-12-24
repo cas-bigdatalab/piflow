@@ -2,7 +2,7 @@ package cn.piflow.bundle.ftp
 
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
-import cn.piflow.conf.{ConfigurableStop, PortEnum}
+import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroup}
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.apache.commons.net.ftp.{FTP, FTPClient, FTPClientConfig, FTPFile}
 import org.apache.hadoop.conf.Configuration
@@ -130,7 +130,7 @@ class LoadFromFtpToHDFS extends ConfigurableStop {
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroupEnum.FtpGroup.toString)
+    List(StopGroup.FtpGroup.toString)
   }
 
   override def initialize(ctx: ProcessContext): Unit = {

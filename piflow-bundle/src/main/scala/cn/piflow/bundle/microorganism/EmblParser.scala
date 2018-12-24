@@ -5,7 +5,7 @@ import java.io._
 import cn.piflow.bundle.microorganism.util.{CustomIOTools, Process}
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.ImageUtil
-import cn.piflow.conf.{ConfigurableStop, PortEnum}
+import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroup}
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FSDataInputStream, FSDataOutputStream, FileSystem, Path}
@@ -158,7 +158,7 @@ class EmblParser extends ConfigurableStop{
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroupEnum.MicroorganismGroup.toString)
+    List(StopGroup.MicroorganismGroup)
   }
 
   override def initialize(ctx: ProcessContext): Unit = {

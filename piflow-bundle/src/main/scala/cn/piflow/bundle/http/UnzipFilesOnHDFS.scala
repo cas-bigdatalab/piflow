@@ -167,7 +167,7 @@ class UnzipFilesOnHDFS extends ConfigurableStop {
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroupEnum.HttpGroup.toString)
+    List(StopGroup.HttpGroup)
   }
 
 }

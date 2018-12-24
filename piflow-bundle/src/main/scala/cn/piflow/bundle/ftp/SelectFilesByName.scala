@@ -4,7 +4,7 @@ import java.util.regex.Pattern
 
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
-import cn.piflow.conf.{ConfigurableStop, PortEnum}
+import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroup}
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileStatus, FileSystem, Path}
@@ -99,7 +99,7 @@ class SelectFilesByName extends ConfigurableStop{
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroupEnum.FtpGroup.toString)
+    List(StopGroup.FtpGroup)
   }
 
   override def initialize(ctx: ProcessContext): Unit = {
