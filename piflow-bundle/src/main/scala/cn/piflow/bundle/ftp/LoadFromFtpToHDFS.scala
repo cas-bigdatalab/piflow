@@ -88,6 +88,8 @@ class LoadFromFtpToHDFS extends ConfigurableStop {
     con = new FTPClientConfig(FTPClientConfig.SYST_NT)
     con.setServerLanguageCode("zh")
     ftp.setFileType(FTP.BINARY_FILE_TYPE)
+    ftp.setDataTimeout(600000)
+    ftp.setConnectTimeout(600000)
     ftp
   }
 
