@@ -31,6 +31,8 @@ is an easy to use, powerful big data pipeline system.
 * JDK 1.8 or newer
 * Apache Maven 3.1.0 or newer
 * Git Client (used during build process by 'bower' plugin)
+* spark-2.1.0
+* hadoop-2.6.0
 
 ## Getting Started
 
