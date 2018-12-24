@@ -4,6 +4,7 @@ is an easy to use, powerful big data pipeline system.
 ## Table of Contents
 
 - [Features](#features)
+- [Architecture](#architecture)
 - [Requirements](#requirements)
 - [Getting Started](#getting-started)
 - [Getting Help](#getting-help)
@@ -23,7 +24,9 @@ is an easy to use, powerful big data pipeline system.
 - Powerful
   - 100+ data processing components available
   - include spark、mllib、hadoop、hive、hbase、solr、redis、memcache、elasticSearch、jdbc、mongodb、http、ftp、xml、csv、json，etc.
- 
+
+## Architecture
+![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/architecture.png) 
 ## Requirements
 * JDK 1.8 or newer
 * Apache Maven 3.1.0 or newer
