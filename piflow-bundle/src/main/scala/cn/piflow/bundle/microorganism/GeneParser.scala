@@ -1,8 +1,8 @@
 package cn.piflow.bundle.microorganism
 
-import java.io._
+import java.io.{BufferedInputStream, BufferedReader, ByteArrayInputStream, InputStreamReader}
+import java.text.SimpleDateFormat
 
-import cn.piflow.bundle.microorganism.util.{CustomIOTools, Process}
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.ImageUtil
 import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroup}
@@ -10,19 +10,16 @@ import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FSDataInputStream, FSDataOutputStream, FileSystem, Path}
 import org.apache.spark.sql.{DataFrame, SparkSession}
-import org.biojavax.bio.seq.{RichSequence, RichSequenceIterator}
 import org.json.JSONObject
 
-class RefseqParser extends ConfigurableStop{
+class GeneParser extends ConfigurableStop{
   override val authorEmail: String = "yangqidong@cnic.cn"
-  override val description: String = "Parsing Refseq_genome type data"
+  override val description: String = "Parsing gene type data"
   override val inportList: List[String] =List(PortEnum.DefaultPort.toString)
   override val outportList: List[String] = List(PortEnum.DefaultPort.toString)
 
 
-
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
-
     val session = pec.get[SparkSession]()
 
     val inDf: DataFrame = in.read()
@@ -46,42 +43,58 @@ class RefseqParser extends ConfigurableStop{
 
     fs.create(path).close()
     var fdos: FSDataOutputStream = fs.append(path)
-    val buff: Array[Byte] = new Array[Byte](1048576)
 
     var jsonStr: String =""
 
     var bis: BufferedInputStream =null
 
+    var names:Array[String]=Array("tax_id", "geneID", "symbol", "locus_tag", "synonyms", "dbxrefs", "chromosome", "map_location", "description", "type_of_gene",
+      "symbol_from_nomenclature_authority", "full_name_from_nomenclature_authority",
+      "nomenclature_status", "other_designations", "modification_date")
+    val format: java.text.DateFormat = new SimpleDateFormat("yyyyMMdd").asInstanceOf[java.text.DateFormat]
+    val newFormat: SimpleDateFormat = new SimpleDateFormat("yyyy-MM-dd")
+
+    var n:Int=0
     inDf.collect().foreach(row => {
 
-      var n : Int =0
       pathStr = row.get(0).asInstanceOf[String]
 
-      println("#############################################")
-      println("start parser ^^^" + pathStr)
-      println("#############################################")
-
-//      if(pathStr.equals("hdfs://10.0.88.70:9000/yqd/weishengwu/refseq/bacteria.1.genomic.gbff")) {
+      println("##########################     start parser ^^^" + pathStr)
 
       var fdis: FSDataInputStream = fs.open(new Path(pathStr))
 
       var br: BufferedReader = new BufferedReader(new InputStreamReader(fdis))
 
-      var sequences: RichSequenceIterator = CustomIOTools.IOTools.readGenbankProtein(br, null)
+      var line:String=""
+      var doc:JSONObject=null
 
-        while (sequences.hasNext) {
+      while ((line=br.readLine()) != null /*&& n<1000*/){
+        if( ! line.startsWith("#")){
           n += 1
-          var seq: RichSequence = sequences.nextRichSequence()
-          var doc: JSONObject = new JSONObject
-          Process.processSingleSequence(seq, doc)
+          doc=new JSONObject()
+          val tokens: Array[String] = line.split("\\\t")
+          for(i <- (0 until 15)){
+            if(i < 2){
+              doc.put(names(i),Integer.parseInt(tokens(i).trim))
+            }else if(i < 14){
+              if(tokens(i).equals("-")){
+                doc.put(names(i),"")
+              }else{
+                doc.put(names(i),tokens(i))
+              }
+            }else{
+              doc.put(names(i),newFormat.format(format.parse(tokens(i))))
+            }
+          }
           jsonStr = doc.toString
-          println("start " + n)
-
+println(n+"^^^^^^^^^^^^^^^^^^^^")
           if (n == 1) {
             bis = new BufferedInputStream(new ByteArrayInputStream(("[" + jsonStr).getBytes()))
           } else {
             bis = new BufferedInputStream(new ByteArrayInputStream(("," + jsonStr).getBytes()))
           }
+
+          val buff: Array[Byte] = new Array[Byte](1048576)
 
           var count: Int = bis.read(buff)
           while (count != -1) {
@@ -91,13 +104,13 @@ class RefseqParser extends ConfigurableStop{
           }
           fdos.flush()
           bis = null
-          seq = null
           doc = null
         }
+      }
 
-//      }
     })
     bis = new BufferedInputStream(new ByteArrayInputStream(("]").getBytes()))
+    val buff: Array[Byte] = new Array[Byte](1048576)
 
     var count: Int = bis.read(buff)
     while (count != -1) {
@@ -106,14 +119,14 @@ class RefseqParser extends ConfigurableStop{
       count = bis.read(buff)
     }
     fdos.flush()
-    bis.close()
+
     fdos.close()
 
     println("start parser HDFSjsonFile")
     val df: DataFrame = session.read.json(hdfsPathTemporary)
 
     println("############################################################")
-//    println(df.count())
+    println(df.count())
     df.show(20)
     println("############################################################")
     out.write(df)
@@ -125,17 +138,17 @@ class RefseqParser extends ConfigurableStop{
 
   }
 
-  override def getPropertyDescriptor(): List[PropertyDescriptor] ={
-  var descriptor : List[PropertyDescriptor] = List()
-  descriptor
-}
+  override def getPropertyDescriptor(): List[PropertyDescriptor] = {
+    var descriptor : List[PropertyDescriptor] = List()
+    descriptor
+  }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("/microorganism/refseq.png")
+    ImageUtil.getImage("/microorganism/gene.png")
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroup.MicroorganismGroup)
+    List(StopGroup.MicroorganismGroup.toString)
   }
 
   override def initialize(ctx: ProcessContext): Unit = {

@@ -1,0 +1,48 @@
+{
+  "flow":{
+    "name":"test",
+    "uuid":"1234",
+    "stops":[
+     {
+        "uuid":"1111",
+        "name":"SelectFilesByName",
+        "bundle":"cn.piflow.bundle.ftp.SelectFilesByName",
+        "properties":{
+          "HDFSUrl":"hdfs://10.0.88.70:9000",
+          "HDFSPath":"/yqd/weishengwu/gene_w/",
+          "selectionConditions":".*ene_info"
+        }
+      },{
+        "uuid":"3333",
+        "name":"GeneParser",
+        "bundle":"cn.piflow.bundle.microorganism.GeneParser",
+        "properties":{
+
+        }
+      },{
+        "uuid":"4444",
+        "name":"PutEs",
+        "bundle":"cn.piflow.bundle.es.PutEs",
+        "properties":{
+          "es_nodes": "10.0.88.70,10.0.88.71,10.0.88.72",
+          "port": "9200",
+          "es_index": "gene_index",
+          "es_type": "gene_type"
+        }
+      }
+    ],
+    "paths":[
+      {
+        "from":"SelectFilesByName",
+        "outport":"",
+        "inport":"",
+        "to":"GeneParser"
+      },{
+        "from":"GeneParser",
+        "outport":"",
+        "inport":"",
+        "to":"PutEs"
+      }
+    ]
+  }
+}

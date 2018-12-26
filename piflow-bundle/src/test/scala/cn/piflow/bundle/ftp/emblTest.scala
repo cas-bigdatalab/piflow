@@ -5,8 +5,6 @@ import cn.piflow.conf.bean.FlowBean
 import cn.piflow.conf.util.{FileUtil, OptionUtil}
 import org.apache.spark.sql.SparkSession
 import org.h2.tools.Server
-import org.jsoup.Jsoup
-import org.jsoup.select.Elements
 import org.junit.Test
 
 import scala.util.parsing.json.JSON
@@ -20,7 +18,7 @@ class emblTest {
 //    val file = "src/main/resources/yqd/down.json"
 //val file = "src/main/resources/yqd/refseq_genome.json"
 //val file = "src/main/resources/yqd/select_unzip.json"
-val file = "src/main/resources/yqd/embl_parser.json"
+val file = "src/main/resources/microorganism/gene.json"
 
     val flowJsonStr = FileUtil.fileReader(file)
 
@@ -34,12 +32,17 @@ val file = "src/main/resources/yqd/embl_parser.json"
     val h2Server = Server.createTcpServer("-tcp", "-tcpAllowOthers", "-tcpPort","50001").start()
     //execute flow
     val spark = SparkSession.builder()
-      .master("spark://10.0.88.70:7077")
-      .appName("Embl")
-      .config("spark.driver.memory", "8g")
-      .config("spark.executor.memory", "16g")
-      .config("spark.cores.max", "16")
-      .config("spark.jars","/root/Desktop/weishengwu/out/artifacts/piflow_bundle/piflow_bundle.jar")
+      .master("yarn")
+      .appName("test18")
+      .config("spark.deploy.mode","client")
+      .config("spark.driver.memory", "1g")
+      .config("spark.executor.memory", "2g")
+      .config("spark.cores.max", "4")
+      .config("hive.metastore.uris","thrift://10.0.88.64:9083")
+      .config("spark.yarn.am.extraJavaOptions","-Dhdp.version=2.6.5.0-292")
+      .config("spark.hadoop.yarn.resourcemanager.address","master2.packone:8050")
+      .config("spark.hadoop.fs.defaultFS","hdfs://master2.packone:8020")
+      .config("spark.jars","/git_1225/out/artifacts/piflow/piflow.jar")
       .enableHiveSupport()
       .getOrCreate()
 
@@ -53,34 +56,6 @@ val file = "src/main/resources/yqd/embl_parser.json"
     println(pid + "!!!!!!!!!!!!!!!!!!!!!")
     spark.close();
   }
-
-
-  @Test
-  def testEmblDataParse11(): Unit ={
-
-    val url ="http://ftp.ebi.ac.uk/pub/databases/ena/sequence/release/"
-    val doc = Jsoup.connect(url).timeout(100000000).get()
-    //  获取 url 界面   文件名字  日期   大小
-    //  Name                    Last modified      Size  Parent Directory                             -
-    //  build_gbff_cu.pl        2003-04-25 17:23   21K
-
-    val elements: Elements = doc.select("html >body >table >tbody")
-//    println(elements)
-    println(elements.first().text())
-
-    // 按行 分割 elements 为单个字符串
-    val fileString = elements.first().text().split("\\n")
-
-
-    for (i <- 0 until fileString.size) {
-
-     println(fileString(i))
-    }
-
-    println(fileString)
-  }
-
-
 
 
 
