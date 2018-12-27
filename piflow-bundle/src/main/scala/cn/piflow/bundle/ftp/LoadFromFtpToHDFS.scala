@@ -10,7 +10,7 @@ import org.apache.hadoop.fs.{FSDataOutputStream, FileSystem, Path}
 
 class LoadFromFtpToHDFS extends ConfigurableStop {
   override val authorEmail: String = "yangqidong@cnic.cn"
-  override val description: String = "Load file from ftp server save on HDFS"
+  override val description: String = "Download files or folders to save to HDFS"
   override val inportList: List[String] = List(PortEnum.NonePort.toString)
   override val outportList: List[String] = List(PortEnum.NonePort.toString)
 
@@ -29,20 +29,31 @@ class LoadFromFtpToHDFS extends ConfigurableStop {
   def downFile(ftp: FTPClient,ftpFilePath:String,HDFSSavePath:String): Unit = {
 
       val changeFlag: Boolean = ftp.changeWorkingDirectory(ftpFilePath)
-      val files: Array[FTPFile] = ftp.listFiles()
-      for(x <- files ) {
-        if (x.isFile) {
-          println("down start  ^^^  "+x.getName)
-          val hdfsPath: Path = new Path(HDFSSavePath + x.getName)
-          if(! fs.exists(hdfsPath)){
-            var fdos: FSDataOutputStream = fs.create(hdfsPath)
-            ftp.retrieveFile(new String(x.getName.getBytes("GBK"),"ISO-8859-1"), fdos)
-            fdos.close()
+      if(changeFlag){
+        println("change dir successful   "+ftpFilePath)
+        val files: Array[FTPFile] = ftp.listFiles()
+        for(x <- files ) {
+          if (x.isFile) {
+            println("down start  ^^^  "+x.getName)
+            val hdfsPath: Path = new Path(HDFSSavePath + x.getName)
+            if(! fs.exists(hdfsPath)){
+              var fdos: FSDataOutputStream = fs.create(hdfsPath)
+              val b = ftp.retrieveFile(new String(x.getName.getBytes("GBK"),"ISO-8859-1"), fdos)
+              if(b){
+                println("down successful   "+x.getName)
+              }else{
+                throw new Exception("down error")
+              }
+              fdos.close()
+            }
+          } else {
+            downFile(ftp,ftpFilePath+x.getName+"/",HDFSSavePath+x.getName+"/")
           }
-        } else {
-          downFile(ftp,ftpFilePath+x.getName+"/",HDFSSavePath+x.getName+"/")
         }
+      }else{
+        throw new Exception("File path error")
       }
+
 
   }
 
@@ -61,12 +72,23 @@ class LoadFromFtpToHDFS extends ConfigurableStop {
       for(x <- (0 until pathArr.length-1)){
         dirPath += (pathArr(x)+"/")
       }
-      ftp.changeWorkingDirectory(dirPath)
+      val boolChange: Boolean = ftp.changeWorkingDirectory(dirPath)
+      if(boolChange){
+        println("change dir successful   "+dirPath)
+        var fdos: FSDataOutputStream = fs.create(new Path(HDFSPath+pathArr.last))
+        val boolDownSeccess: Boolean = ftp.retrieveFile(new String(pathArr.last.getBytes("GBK"),"ISO-8859-1"), fdos)
+        if(boolDownSeccess){
+          println("down successful   "+pathArr.last)
+        }else{
+          throw new Exception("down error")
+        }
+        fdos.flush()
+        fdos.close()
+      }else{
+        throw new Exception("File path error")
+      }
 
-      var fdos: FSDataOutputStream = fs.create(new Path(HDFSPath+pathArr.last))
-      ftp.retrieveFile(new String(pathArr.last.getBytes("GBK"),"ISO-8859-1"), fdos)
-      fdos.flush()
-      fdos.close()
+
     }else{
       downFile(ftp,ftpFile,HDFSPath)
     }
@@ -74,16 +96,27 @@ class LoadFromFtpToHDFS extends ConfigurableStop {
 
   def openFtpClient(): FTPClient = {
     val ftp = new FTPClient
-    if(port.length > 0 ){
-      ftp.connect(url_str,port.toInt)
-    }else{
-      ftp.connect(url_str)
+
+    try{
+      if(port.length > 0 ){
+        ftp.connect(url_str,port.toInt)
+      }else{
+        ftp.connect(url_str)
+      }
+    }catch {
+      case e:Exception => throw new Exception("Failed to connect FTP server")
     }
-    if(username.length > 0 && password.length > 0){
-      ftp.login(username,password)
-    }else{
-      ftp.login("anonymous", "121@hotmail.com")
+
+    try{
+      if(username.length > 0 && password.length > 0){
+        ftp.login(username,password)
+      }else{
+        ftp.login("anonymous", "121@hotmail.com")
+      }
+    }catch {
+      case e:Exception => throw new Exception("Failed to log on to FTP server")
     }
+
     ftp.setControlEncoding("GBK")
     con = new FTPClientConfig(FTPClientConfig.SYST_NT)
     con.setServerLanguageCode("zh")
