@@ -28,32 +28,33 @@ class LoadFromFtpToHDFS extends ConfigurableStop {
 
   def downFile(ftp: FTPClient,ftpFilePath:String,HDFSSavePath:String): Unit = {
 
-      val changeFlag: Boolean = ftp.changeWorkingDirectory(ftpFilePath)
-      if(changeFlag){
-        println("change dir successful   "+ftpFilePath)
-        val files: Array[FTPFile] = ftp.listFiles()
-        for(x <- files ) {
-          if (x.isFile) {
-            println("down start  ^^^  "+x.getName)
-            val hdfsPath: Path = new Path(HDFSSavePath + x.getName)
-            if(! fs.exists(hdfsPath)){
-              var fdos: FSDataOutputStream = fs.create(hdfsPath)
-              val b = ftp.retrieveFile(new String(x.getName.getBytes("GBK"),"ISO-8859-1"), fdos)
-              if(b){
-                println("down successful   "+x.getName)
-              }else{
-                throw new Exception("down error")
-              }
-              fdos.close()
-            }
-          } else {
-            downFile(ftp,ftpFilePath+x.getName+"/",HDFSSavePath+x.getName+"/")
-          }
-        }
-      }else{
-        throw new Exception("File path error")
-      }
+    val changeFlag: Boolean = ftp.changeWorkingDirectory(ftpFilePath)
+    if(changeFlag){
+      println("change dir successful   "+ftpFilePath)
+      val files: Array[FTPFile] = ftp.listFiles()
+      for(x <- files ) {
+        if (x.isFile) {
+          ftp.changeWorkingDirectory(ftpFilePath)
+          println("down start  ^^^  "+x.getName)
+          val hdfsPath: Path = new Path(HDFSSavePath + x.getName)
+          if(! fs.exists(hdfsPath)){
+            var fdos: FSDataOutputStream = fs.create(hdfsPath)
 
+            val b = ftp.retrieveFile(new String(x.getName.getBytes("GBK"),"ISO-8859-1"), fdos)
+            if(b){
+              println("down successful   " + x.getName)
+            }else{
+              throw new Exception("down error")
+            }
+            fdos.close()
+          }
+        } else {
+          downFile(ftp,ftpFilePath+x.getName+"/",HDFSSavePath+x.getName+"/")
+        }
+      }
+    }else{
+      throw new Exception("File path error")
+    }
 
   }
 
@@ -73,6 +74,7 @@ class LoadFromFtpToHDFS extends ConfigurableStop {
         dirPath += (pathArr(x)+"/")
       }
       val boolChange: Boolean = ftp.changeWorkingDirectory(dirPath)
+
       if(boolChange){
         println("change dir successful   "+dirPath)
         var fdos: FSDataOutputStream = fs.create(new Path(HDFSPath+pathArr.last))
@@ -158,7 +160,7 @@ class LoadFromFtpToHDFS extends ConfigurableStop {
     descriptor = HDFSUrl :: descriptor
     descriptor = HDFSPath :: descriptor
     descriptor
-}
+  }
 
   override def getIcon(): Array[Byte] = {
     ImageUtil.getImage("ftp.png")

@@ -38,7 +38,7 @@ class UnzipFilesOnHDFS extends ConfigurableStop {
 
     if(isCustomize.equals("true")){
 
-      unzipFile(filePath,savePath)
+      unzipFile(hdfsUrl+filePath,savePath)
 
     }else if (isCustomize .equals("false")){
 
@@ -113,7 +113,7 @@ class UnzipFilesOnHDFS extends ConfigurableStop {
     if(saveHdfsPath.length < 1){
       sp=fileHdfsPath.replace(fileName,"")
     }else{
-      sp = saveHdfsPath
+      sp = hdfsUrl + saveHdfsPath
     }
 
     val fdis: FSDataInputStream = fs.open(new Path(fileHdfsPath))
@@ -141,7 +141,7 @@ class UnzipFilesOnHDFS extends ConfigurableStop {
         val gzip = new GZIPInputStream(new BufferedInputStream(fdis))
         val tarIn = new TarInputStream(gzip, 1024 * 2)
 
-        fs.create(new Path(sp)).close()
+//        fs.create(new Path(sp)).close()
 
         var entry: TarEntry = null
 
