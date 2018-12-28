@@ -27,11 +27,12 @@ class LoadFromFtpToHDFS extends ConfigurableStop {
   var con: FTPClientConfig =null
 
   def downFile(ftp: FTPClient,ftpFilePath:String,HDFSSavePath:String): Unit = {
-
     val changeFlag: Boolean = ftp.changeWorkingDirectory(ftpFilePath)
     if(changeFlag){
       println("change dir successful   "+ftpFilePath)
+
       val files: Array[FTPFile] = ftp.listFiles()
+
       for(x <- files ) {
         if (x.isFile) {
           ftp.changeWorkingDirectory(ftpFilePath)
@@ -78,6 +79,7 @@ class LoadFromFtpToHDFS extends ConfigurableStop {
       if(boolChange){
         println("change dir successful   "+dirPath)
         var fdos: FSDataOutputStream = fs.create(new Path(HDFSPath+pathArr.last))
+        println("down start   "+pathArr.last)
         val boolDownSeccess: Boolean = ftp.retrieveFile(new String(pathArr.last.getBytes("GBK"),"ISO-8859-1"), fdos)
         if(boolDownSeccess){
           println("down successful   "+pathArr.last)
@@ -125,6 +127,8 @@ class LoadFromFtpToHDFS extends ConfigurableStop {
     ftp.setFileType(FTP.BINARY_FILE_TYPE)
     ftp.setDataTimeout(600000)
     ftp.setConnectTimeout(600000)
+    ftp.enterLocalPassiveMode()//被动模式
+    ftp.setControlEncoding("UTF-8")
     ftp
   }
 
