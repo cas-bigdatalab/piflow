@@ -92,7 +92,6 @@ class LoadFromFtpToHDFS extends ConfigurableStop {
         throw new Exception("File path error")
       }
 
-
     }else{
       downFile(ftp,ftpFile,HDFSPath)
     }
