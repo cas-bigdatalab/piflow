@@ -88,7 +88,7 @@ class Swissprot_TrEMBLDataParser extends ConfigurableStop{
       br = new BufferedReader(new InputStreamReader(fdis))
       sequences = CustomIOTools.IOTools.readUniProt(br,null)
 
-      while (sequences.hasNext   && n<10000) {
+      while (sequences.hasNext  /* && n<10000*/) {
 
         n += 1
 
