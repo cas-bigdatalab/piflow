@@ -19,6 +19,12 @@
 
     <dependencies>
 
+
+        <dependency>
+            <groupId>org.biojava</groupId>
+            <artifactId>biojava-structure</artifactId>
+            <version>4.0.0</version>
+        </dependency>
         <!--
          https://mvnrepository.com/artifact/org.apache.hive/hive-jdbc
         -->
