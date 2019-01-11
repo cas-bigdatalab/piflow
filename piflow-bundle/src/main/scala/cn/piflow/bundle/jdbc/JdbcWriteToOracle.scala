@@ -76,14 +76,14 @@ class JdbcWriteToOracle extends ConfigurableStop{
     val password=new PropertyDescriptor().name("password").displayName("password").description("The password of database").defaultValue("").required(true)
     descriptor = password :: descriptor
 
-    val table=new PropertyDescriptor().name("table").displayName("table").description("The table you want").defaultValue("").required(true)
+    val table=new PropertyDescriptor().name("table").displayName("table").description("The table you want to write to").defaultValue("").required(true)
     descriptor = table :: descriptor
 
     descriptor
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("JDBC/oracle.jpeg")
+    ImageUtil.getImage("JDBC/oracle.png")
   }
 
   override def getGroup(): List[String] = {

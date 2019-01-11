@@ -82,7 +82,8 @@ class SelectImpala extends ConfigurableStop{
     descriptor = user :: descriptor
     val password=new PropertyDescriptor().name("password").displayName("password").description("password").defaultValue("").required(false)
     descriptor = password :: descriptor
-    val sql=new PropertyDescriptor().name("sql").displayName("sql").description("The name of the table has not changed.But you have to specify which database, such as database.table.").defaultValue("").required(true)
+    val sql=new PropertyDescriptor().name("sql").displayName("sql").description("The name of the table has not changed.But you have to specify which database," +
+      " such as database.table.").defaultValue("").required(true)
     descriptor = sql :: descriptor
     val schameString=new PropertyDescriptor().name("schameString").displayName("schameString").description("The field of SQL statement query results is divided by ,").defaultValue("").required(true)
     descriptor = schameString :: descriptor

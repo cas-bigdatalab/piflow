@@ -1,4 +1,4 @@
-package cn.piflow.bundle.http
+package cn.piflow.bundle.hdfs
 
 import java.io._
 import java.util.zip.GZIPInputStream
@@ -190,10 +190,10 @@ class UnzipFilesOnHDFS extends ConfigurableStop {
 
     val filePath = new PropertyDescriptor().name("filePath").displayName("filePath").description("file path,such as /a/a.gz").defaultValue("").required(false)
     val hdfsUrl = new PropertyDescriptor().name("hdfsUrl").displayName("hdfsUrl").description("the url of HDFS,such as hdfs://10.0.86.89:9000").defaultValue("").required(false)
-    val savePath = new PropertyDescriptor().name("savePath").displayName("savePath").description("unzip dir path, such as /b/").defaultValue("").required(true)
+    val savePath = new PropertyDescriptor().name("savePath").displayName("savePath").description("unzip dir or file path, such as /b/ or /b/b.gz").defaultValue("").required(true)
     val isCustomize = new PropertyDescriptor().name("isCustomize").displayName("isCustomize").description("Whether to customize the compressed file path, if true, " +
                                                                                                           "you must specify the path where the compressed file is located . " +
-                                                                                                          "If it is fals, it will automatically find the file path data from the upstream port ")
+                                                                                                          "If it is false, it will automatically find the file path data from the upstream port ")
                                                                                                           .defaultValue("").required(false)
     descriptor = isCustomize :: descriptor
     descriptor = filePath :: descriptor
@@ -204,11 +204,10 @@ class UnzipFilesOnHDFS extends ConfigurableStop {
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("http.png")
+    ImageUtil.getImage("hdfs.png")
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroup.HttpGroup)
+    List(StopGroup.HdfsGroup.toString)
   }
-
 }

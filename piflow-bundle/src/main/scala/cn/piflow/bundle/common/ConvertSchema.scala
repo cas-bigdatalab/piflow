@@ -9,7 +9,7 @@ import cn.piflow.conf.util.{ImageUtil, MapUtil}
 class ConvertSchema extends ConfigurableStop {
 
   val authorEmail: String = "yangqidong@cnic.cn"
-  val description: String = "convert data field."
+  val description: String = "Transform field name"
   val inportList: List[String] = List(PortEnum.DefaultPort.toString)
   val outportList: List[String] = List(PortEnum.DefaultPort.toString)
 
@@ -44,13 +44,14 @@ class ConvertSchema extends ConfigurableStop {
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
-    val inports = new PropertyDescriptor().name("schema").displayName("schema").description("The Schema you want to convert,You can write like this: oldField1->newField1, oldField2->newField2").defaultValue("").required(true)
+    val inports = new PropertyDescriptor().name("schema").displayName("schema").description("To change the field name of the name and the name you want, " +
+      "you can write oldField1 - > newField1, if there are more than one, you can use, partition, such as oldField1 - > newField1, oldField2 - > newField2.").defaultValue("").required(true)
     descriptor = inports :: descriptor
     descriptor
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("convert.jpg")
+    ImageUtil.getImage("common/convert.png")
   }
 
   override def getGroup(): List[String] = {

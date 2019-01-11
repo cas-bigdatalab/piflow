@@ -8,7 +8,7 @@ import org.apache.spark.sql.{Column, DataFrame}
 
 class Join extends ConfigurableStop{
   override val authorEmail: String = "yangqidong@cnic.cn"
-  override val description: String = "Table join"
+  override val description: String = "Table connection, including full connection, left connection, right connection and inner connection"
   override val inportList: List[String] =List(PortEnum.AnyPort.toString)
   override val outportList: List[String] = List(PortEnum.DefaultPort.toString)
 

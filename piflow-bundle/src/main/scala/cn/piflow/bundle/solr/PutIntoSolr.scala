@@ -14,7 +14,7 @@ import org.apache.spark.sql.DataFrame
 class PutIntoSolr extends ConfigurableStop{
 
   override val authorEmail: String = "yangqidong@cnic.cn"
-  override val description: String = "put into solr"
+  override val description: String = "put data to solr"
   val inportList: List[String] = List(PortEnum.DefaultPort.toString)
   val outportList: List[String] = List(PortEnum.NonePort.toString)
 

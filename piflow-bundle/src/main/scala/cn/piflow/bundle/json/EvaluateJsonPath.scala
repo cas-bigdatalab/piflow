@@ -11,7 +11,7 @@ class EvaluateJsonPath extends ConfigurableStop{
   override val authorEmail: String = "yangqidong@cnic.cn"
   val inportList: List[String] = List(PortEnum.NonePort.toString)
   val outportList: List[String] = List(PortEnum.DefaultPort.toString)
-  override val description: String = "Merge JSON files"
+  override val description: String = "Parsing of multiple JSON files"
 
 
   var jsonPathes: String = _
@@ -35,7 +35,7 @@ class EvaluateJsonPath extends ConfigurableStop{
      }
    }
 
-    FinalDF.printSchema()
+//    FinalDF.printSchema()
     FinalDF.show(10)
 
     out.write(jsonDF)

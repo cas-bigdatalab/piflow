@@ -112,7 +112,7 @@ class GetMongo extends ConfigurableStop{
     descriptor = credentials :: descriptor
     val dataBase=new PropertyDescriptor().name("dataBase").displayName("dataBase").description("data base").defaultValue("").required(true)
     descriptor = dataBase :: descriptor
-    val collection=new PropertyDescriptor().name("collection").displayName("collection").description("form").defaultValue("").required(true)
+    val collection=new PropertyDescriptor().name("collection").displayName("collection").description("collection").defaultValue("").required(true)
     descriptor = collection :: descriptor
     val sql=new PropertyDescriptor().name("sql").displayName("sql").description("We take the collection you need as a form, and you can find what you want.").defaultValue("").required(false)
     descriptor = sql :: descriptor

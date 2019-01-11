@@ -67,7 +67,7 @@ class FolderCsvParser extends ConfigurableStop{
     descriptor = FolderPath :: descriptor
     val delimiter = new PropertyDescriptor().name("delimiter").displayName("delimiter").description("The delimiter of csv file").defaultValue("").required(true)
     descriptor = delimiter :: descriptor
-    val schema = new PropertyDescriptor().name("schema").displayName("schema").description("The schema of csv file,The delimiter is ,").defaultValue("").required(true)
+    val schema = new PropertyDescriptor().name("schema").displayName("schema").description("CSV string field description information, please use, split").defaultValue("").required(true)
     descriptor = schema :: descriptor
     descriptor
   }

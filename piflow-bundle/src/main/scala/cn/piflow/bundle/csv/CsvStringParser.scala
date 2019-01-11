@@ -64,7 +64,7 @@ class CsvStringParser extends ConfigurableStop{
     descriptor = Str :: descriptor
     val delimiter = new PropertyDescriptor().name("delimiter").displayName("delimiter").description("The delimiter of the String").defaultValue("").required(true)
     descriptor = delimiter :: descriptor
-    val schema = new PropertyDescriptor().name("schema").displayName("schema").description("The schema of the String,The delimiter is ,").defaultValue("").required(false)
+    val schema = new PropertyDescriptor().name("schema").displayName("schema").description("CSV string field description information, please use, split").defaultValue("").required(false)
     descriptor = schema :: descriptor
     descriptor
 

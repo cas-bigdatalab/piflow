@@ -52,13 +52,11 @@ class FolderJsonParser extends ConfigurableStop{
     out.write(FinalDF)
   }
 
-//根据路径获取df
   def getDf(Path: String,ss:SQLContext): DataFrame ={
     val frame: DataFrame = ss.read.json(Path)
     frame
   }
 
-//遍历路径，获取总df
   def getFinalDF(arrPath: ArrayBuffer[String],ss:SQLContext): DataFrame = {
     var index: Int = 0
     breakable {
@@ -86,7 +84,6 @@ class FolderJsonParser extends ConfigurableStop{
   }
 
 
-  //获取.json所有文件路径
   def getFileName(path:String):ArrayBuffer[String]={
     val conf: Configuration = new Configuration()
     val hdfs: FileSystem = FileSystem.get(URI.create(path),conf)

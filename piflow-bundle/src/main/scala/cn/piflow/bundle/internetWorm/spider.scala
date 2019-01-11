@@ -176,7 +176,9 @@ class spider extends ConfigurableStop{
     descriptor = firstUrl :: descriptor
     val jumpDependence=new PropertyDescriptor().name("jumpDependence").displayName("jumpDependence").description("Href access to the second tier interface").defaultValue("").required(true)
     descriptor = jumpDependence :: descriptor
-    val fileMap=new PropertyDescriptor().name("fileMap").displayName("fileMap").description("The fields and label paths you want, and the location of the data, are separated by /, and different fields are connected by'+'. If you want to specify a link to the download list, you can do so.Number of Instances/html>body>table>tbody>tr>td>table>tbody>tr>td>p.normal/4+Data Set Characteristics/html>body>table>tbody>tr>td>table>tbody>tr>td>p.normal/2+DOWN/html>body>table>tbody>tr>td>table>tbody>tr>td>p>span.normal>a/0/html>body>table>tbody>tr>td>a/1-2").defaultValue("").required(true)
+    val fileMap=new PropertyDescriptor().name("fileMap").displayName("fileMap").description("The fields and label paths you want, and the location of the data, " +
+      "are separated by /, and different fields are connected by'+'. If you want to specify a link to the download list, " +
+      "you can do so.Number of Instances/html>body>table>tbody>tr>td>table>tbody>tr>td>p.normal/4+Data Set Characteristics/html>body>table>tbody>tr>td>table>tbody>tr>td>p.normal/2+DOWN/html>body>table>tbody>tr>td>table>tbody>tr>td>p>span.normal>a/0/html>body>table>tbody>tr>td>a/1-2").defaultValue("").required(true)
     descriptor = fileMap :: descriptor
     val downPath=new PropertyDescriptor().name("downPath").displayName("downPath").description("The path of the dataset you want to save").defaultValue("").required(false)
     descriptor = downPath :: descriptor
@@ -185,7 +187,7 @@ class spider extends ConfigurableStop{
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("spider.jpeg")
+    ImageUtil.getImage("spider.png")
 
   }
 

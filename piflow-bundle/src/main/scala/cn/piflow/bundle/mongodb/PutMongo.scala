@@ -14,7 +14,7 @@ import org.bson.Document
 
 class PutMongo extends ConfigurableStop{
   override val authorEmail: String = "yangqidong@cnic.cn"
-  override val description: String = "get data from mongodb"
+  override val description: String = "put data to mongodb"
   val inportList: List[String] = List(PortEnum.DefaultPort.toString)
   val outportList: List[String] = List(PortEnum.NonePort.toString)
 
@@ -27,7 +27,6 @@ class PutMongo extends ConfigurableStop{
     val spark: SparkSession = pec.get[SparkSession]()
     val df: DataFrame = in.read()
 
-    //注入链接地址
     var addressesArr: util.ArrayList[ServerAddress] = new util.ArrayList[ServerAddress]()
     val ipANDport: Array[String] = addresses.split(",")
     for(x <- (0 until ipANDport.size)){
@@ -36,7 +35,6 @@ class PutMongo extends ConfigurableStop{
       }
     }
 
-    //注入链接凭证
     var credentialsArr: util.ArrayList[MongoCredential] = new util.ArrayList[MongoCredential]()
     if(credentials.length!=0){
       val name_database_password: Array[String] = credentials.split(",")
@@ -47,7 +45,6 @@ class PutMongo extends ConfigurableStop{
       }
     }
 
-    //链接到数据库和表
     val client: MongoClient = new MongoClient(addressesArr,credentialsArr)
     val db: MongoDatabase = client.getDatabase(dataBase)
     val col: MongoCollection[Document] = db.getCollection(collection)
@@ -88,7 +85,7 @@ class PutMongo extends ConfigurableStop{
     descriptor = credentials :: descriptor
     val dataBase=new PropertyDescriptor().name("dataBase").displayName("dataBase").description("data base").defaultValue("").required(true)
     descriptor = dataBase :: descriptor
-    val collection=new PropertyDescriptor().name("collection").displayName("collection").description("form").defaultValue("").required(true)
+    val collection=new PropertyDescriptor().name("collection").displayName("collection").description("collection").defaultValue("").required(true)
     descriptor = collection :: descriptor
 
     descriptor

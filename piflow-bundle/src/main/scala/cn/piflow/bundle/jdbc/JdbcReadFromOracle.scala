@@ -174,7 +174,7 @@ class JdbcReadFromOracle extends ConfigurableStop{
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("JDBC/oracle.jpeg")
+    ImageUtil.getImage("JDBC/oracle.png")
   }
 
   override def getGroup(): List[String] = {
