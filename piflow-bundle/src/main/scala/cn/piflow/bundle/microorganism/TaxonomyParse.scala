@@ -266,7 +266,7 @@ class TaxonomyParse extends ConfigurableStop{
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("/microorganism/png/Taxonomy.png")
+    ImageUtil.getImage("microorganism/png/Taxonomy.png")
   }
 
   override def getGroup(): List[String] = {

@@ -70,7 +70,7 @@ class Join extends ConfigurableStop{
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("/common/join.png")
+    ImageUtil.getImage("common/join.png")
   }
 
   override def getGroup(): List[String] = {

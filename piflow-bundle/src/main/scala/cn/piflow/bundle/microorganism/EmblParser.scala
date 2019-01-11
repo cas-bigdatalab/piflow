@@ -154,7 +154,7 @@ class EmblParser extends ConfigurableStop{
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("/microorganism/png/embl.png")
+    ImageUtil.getImage("microorganism/png/embl.png")
   }
 
   override def getGroup(): List[String] = {

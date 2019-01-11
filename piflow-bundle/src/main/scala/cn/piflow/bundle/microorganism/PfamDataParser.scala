@@ -134,7 +134,7 @@ class PfamDataParser extends ConfigurableStop{
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("/microorganism/png/Pfam.png")
+    ImageUtil.getImage("microorganism/png/Pfam.png")
   }
 
   override def getGroup(): List[String] = {

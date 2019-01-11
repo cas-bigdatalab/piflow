@@ -29,7 +29,7 @@ class Ensembl_gff3Parser extends ConfigurableStop{
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("/microorganism/png/Ensembl.png")
+    ImageUtil.getImage("microorganism/png/Ensembl.png")
   }
 
   override def getGroup(): List[String] = {

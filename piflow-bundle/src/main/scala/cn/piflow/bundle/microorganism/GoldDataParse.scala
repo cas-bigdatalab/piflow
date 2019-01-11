@@ -72,7 +72,7 @@ class GoldDataParse extends ConfigurableStop{
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("/microorganism/png/GOLD.png")
+    ImageUtil.getImage("microorganism/png/GOLD.png")
   }
 
   override def getGroup(): List[String] = {

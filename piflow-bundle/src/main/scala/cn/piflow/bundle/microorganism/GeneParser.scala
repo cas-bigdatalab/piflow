@@ -144,7 +144,7 @@ println(n+"^^^^^^^^^^^^^^^^^^^^")
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("/microorganism/png/Gene.png")
+    ImageUtil.getImage("microorganism/png/Gene.png")
   }
 
   override def getGroup(): List[String] = {

@@ -132,7 +132,7 @@ class PDBParser extends ConfigurableStop{
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("/microorganism/png/PDB.png")
+    ImageUtil.getImage("microorganism/png/PDB.png")
   }
 
   override def getGroup(): List[String] = {

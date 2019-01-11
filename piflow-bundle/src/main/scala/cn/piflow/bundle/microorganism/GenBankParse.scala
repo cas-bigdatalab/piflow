@@ -142,7 +142,7 @@ class GenBankParse extends ConfigurableStop{
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("/microorganism/png/Genbank.png")
+    ImageUtil.getImage("microorganism/png/Genbank.png")
   }
 
   override def getGroup(): List[String] = {
