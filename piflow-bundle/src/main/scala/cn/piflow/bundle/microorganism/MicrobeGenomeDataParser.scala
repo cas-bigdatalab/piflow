@@ -1,14 +1,12 @@
 package cn.piflow.bundle.microorganism
 
 import java.io.{BufferedInputStream, BufferedReader, ByteArrayInputStream, InputStreamReader}
-import java.util.zip.GZIPInputStream
 
-import cn.piflow.bundle.microorganism.util.Process
-import cn.piflow.bundle.microorganism.util.CustomIOTools
-import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
-import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroup}
+import cn.piflow.bundle.microorganism.util.{CustomIOTools, Process}
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.ImageUtil
+import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroup}
+import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FSDataInputStream, FSDataOutputStream, FileSystem, Path}
 import org.apache.spark.sql.{DataFrame, SparkSession}
@@ -140,7 +138,7 @@ class MicrobeGenomeDataParser extends ConfigurableStop{
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("/microorganism/NCBI_Microbe_genome.png")
+    ImageUtil.getImage("/microorganism/png/NCBI_Microbe_genome.png")
   }
 
   override def getGroup(): List[String] = {

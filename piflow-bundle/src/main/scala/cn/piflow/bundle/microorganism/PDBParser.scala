@@ -1,14 +1,14 @@
 package cn.piflow.bundle.microorganism
 
 import java.io._
+
 import cn.piflow.bundle.microorganism.util.PDB
-import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
-import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroup}
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.ImageUtil
+import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroup}
+import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FSDataInputStream, FSDataOutputStream, FileSystem, Path}
-import org.apache.log4j.Logger
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.biojavax.bio.seq.{RichSequence, RichSequenceIterator}
 import org.json.JSONObject
@@ -132,7 +132,7 @@ class PDBParser extends ConfigurableStop{
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("/microorganism/pdb-logo.png")
+    ImageUtil.getImage("/microorganism/png/PDB.png")
   }
 
   override def getGroup(): List[String] = {

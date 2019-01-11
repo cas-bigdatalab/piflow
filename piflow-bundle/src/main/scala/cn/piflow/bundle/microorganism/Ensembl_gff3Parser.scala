@@ -2,11 +2,11 @@ package cn.piflow.bundle.microorganism
 
 import java.io.{BufferedInputStream, BufferedReader, ByteArrayInputStream, InputStreamReader}
 
-import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import cn.piflow.bundle.microorganism.util.ParserGff3Data
-import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroup}
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.ImageUtil
+import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroup}
+import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FSDataInputStream, FSDataOutputStream, FileSystem, Path}
 import org.apache.spark.sql.{DataFrame, SparkSession}
@@ -29,7 +29,7 @@ class Ensembl_gff3Parser extends ConfigurableStop{
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("/microorganism/Ensembl.png")
+    ImageUtil.getImage("/microorganism/png/Ensembl.png")
   }
 
   override def getGroup(): List[String] = {

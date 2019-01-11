@@ -29,7 +29,7 @@ class Swissprot_TrEMBLDataParser extends ConfigurableStop{
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("/microorganism/Swissprot+TrEMBL.png")
+    ImageUtil.getImage("/microorganism/png/Swissprot+TrEMBL.png")
   }
 
   override def getGroup(): List[String] = {

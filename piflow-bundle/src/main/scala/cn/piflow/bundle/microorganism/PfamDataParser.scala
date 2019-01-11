@@ -2,11 +2,11 @@ package cn.piflow.bundle.microorganism
 
 import java.io.{BufferedInputStream, BufferedReader, ByteArrayInputStream, InputStreamReader}
 
-import cn.piflow.bundle.microorganism.util.{CustomIOTools, Pfam, Process}
-import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
-import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroup}
+import cn.piflow.bundle.microorganism.util.Pfam
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.ImageUtil
+import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroup}
+import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FSDataInputStream, FSDataOutputStream, FileSystem, Path}
 import org.apache.spark.sql.{DataFrame, SparkSession}
@@ -134,7 +134,7 @@ class PfamDataParser extends ConfigurableStop{
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("/microorganism/pfam.png")
+    ImageUtil.getImage("/microorganism/png/Pfam.png")
   }
 
   override def getGroup(): List[String] = {

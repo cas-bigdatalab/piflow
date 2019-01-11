@@ -131,7 +131,7 @@ class RefseqParser extends ConfigurableStop{
 }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("/microorganism/refseq.png")
+    ImageUtil.getImage("/microorganism/png/Refseq.png")
   }
 
   override def getGroup(): List[String] = {

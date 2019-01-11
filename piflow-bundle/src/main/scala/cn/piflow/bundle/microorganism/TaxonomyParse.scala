@@ -6,10 +6,9 @@ import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroup}
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
-import org.apache.spark.sql.{DataFrame, Row, SparkSession}
+import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.elasticsearch.spark.sql.EsSparkSQL
 import org.json.JSONObject
-
 
 
 class TaxonomyParse extends ConfigurableStop{
@@ -267,7 +266,7 @@ class TaxonomyParse extends ConfigurableStop{
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("bioProject.png")
+    ImageUtil.getImage("/microorganism/png/Taxonomy.png")
   }
 
   override def getGroup(): List[String] = {

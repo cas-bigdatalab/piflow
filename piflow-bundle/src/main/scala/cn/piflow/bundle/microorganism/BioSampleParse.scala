@@ -1,9 +1,6 @@
 package cn.piflow.bundle.microorganism
 
 import java.io._
-import java.net.UnknownHostException
-import java.util.ArrayList
-import java.util.regex.Pattern
 
 import cn.piflow.bundle.microorganism.util.BioProject
 import cn.piflow.conf.bean.PropertyDescriptor
@@ -140,7 +137,7 @@ class BioSampleParse extends ConfigurableStop{
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("bioProject.png")
+    ImageUtil.getImage("/microorganism/png/Biosample.png")
   }
 
   override def getGroup(): List[String] = {

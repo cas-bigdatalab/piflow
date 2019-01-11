@@ -1,6 +1,5 @@
 package cn.piflow.bundle.microorganism
 
-
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroup}
@@ -73,7 +72,7 @@ class GoldDataParse extends ConfigurableStop{
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("goldData.png")
+    ImageUtil.getImage("/microorganism/png/GOLD.png")
   }
 
   override def getGroup(): List[String] = {

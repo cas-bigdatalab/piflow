@@ -4,18 +4,13 @@ import java.io._
 import java.net.UnknownHostException
 import java.util.regex.Pattern
 
-import cn.piflow.bundle.microorganism.util.BioProject
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroup}
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.apache.spark.sql.{Row, SparkSession}
-import org.biojava.bio.BioException
 import org.elasticsearch.spark.sql.EsSparkSQL
-import org.json.{JSONArray, JSONObject, XML}
-
-import scala.util.parsing.json.JSON
-
+import org.json.XML
 
 
 class BioProjetDataParse extends ConfigurableStop{
@@ -223,7 +218,7 @@ class BioProjetDataParse extends ConfigurableStop{
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("bioProject.png")
+    ImageUtil.getImage("/microorganism/png/BioProject.png")
   }
 
   override def getGroup(): List[String] = {
