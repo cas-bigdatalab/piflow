@@ -33,8 +33,8 @@ class BioProjetDataParse extends ConfigurableStop{
     val sc = spark.sparkContext
 
     val inDf= in.read()
-    inDf.show()
-    inDf.schema.printTreeString()
+    //inDf.show()
+    //inDf.schema.printTreeString()
 
     val rows: Array[Row] = inDf.collect()
 
@@ -85,7 +85,7 @@ class BioProjetDataParse extends ConfigurableStop{
           // 加载 json 字符串 为 df
           val jsonRDD = spark.sparkContext.makeRDD(doc.toString() :: Nil)
           val jsonDF = spark.read.json(jsonRDD)
-          jsonDF.show()
+          //jsonDF.show()
           //      jsonDF.schema.printTreeString()
 
           val options = Map("es.index.auto.create"-> "true",

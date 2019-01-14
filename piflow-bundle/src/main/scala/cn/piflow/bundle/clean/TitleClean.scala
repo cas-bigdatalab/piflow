@@ -22,7 +22,7 @@ class TitleClean extends ConfigurableStop{
     sqlContext.udf.register("regexPro",(str:String)=>CleanUtil.processTitle(str))
     val sqlText:String="select *,regexPro("+columnName+") as "+columnName+"_new from thesis"
     val dfNew=sqlContext.sql(sqlText)
-    dfNew.show()
+    //dfNew.show()
     out.write(dfNew)
   }
 

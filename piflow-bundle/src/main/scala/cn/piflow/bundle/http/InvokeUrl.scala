@@ -64,9 +64,9 @@ class InvokeUrl extends ConfigurableStop{
         val jsonRDD = spark.sparkContext.makeRDD(jsonString :: Nil)
         val jsonDF = spark.read.json(jsonRDD)
 
-        jsonDF.schema.printTreeString()
-        jsonDF.show(10)
-        jsonDF.select("app.id").show()
+        //jsonDF.schema.printTreeString()
+        //jsonDF.show(10)
+        //jsonDF.select("app.id").show()
         out.write(jsonDF)
       }
       if (types == "xml") {
@@ -122,8 +122,8 @@ class InvokeUrl extends ConfigurableStop{
 
         val outDf: DataFrame = spark.createDataFrame(rowRDD, structType)
 
-        outDf.show(20)
-        outDf.schema.printTreeString()
+        //outDf.show(20)
+        //outDf.schema.printTreeString()
         out.write(outDf)
 
         println("====================================================================")
@@ -179,7 +179,7 @@ class InvokeUrl extends ConfigurableStop{
 
         inDf.createOrReplaceTempView("table")
         val sqlDF = inDf.sqlContext.sql(s"select $colume from table")
-        sqlDF.show()
+        //sqlDF.show()
 
         val array = sqlDF.collect()
 

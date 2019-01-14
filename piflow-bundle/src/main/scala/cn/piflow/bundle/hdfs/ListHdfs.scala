@@ -32,7 +32,7 @@ class ListHdfs extends ConfigurableStop{
 
     val outDF = sc.parallelize(list).toDF("path")
 
-    outDF.show()
+    //outDF.show()
     outDF.schema.printTreeString()
 
     out.write(outDF)

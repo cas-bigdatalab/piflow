@@ -47,7 +47,7 @@ class CsvStringParser extends ConfigurableStop{
     val NewSchema: StructType = StructType(fields)
     Fdf = session.createDataFrame(rowRDD,NewSchema)
 
-    Fdf.show(10)
+    //Fdf.show(10)
     out.write(Fdf)
   }
 

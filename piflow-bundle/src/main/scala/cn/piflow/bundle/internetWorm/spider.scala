@@ -91,9 +91,9 @@ class spider extends ConfigurableStop{
     val fields: Array[StructField] = keySet.toArray.map(d=>StructField(d,StringType,nullable = true))
     val schema: StructType = StructType(fields)
     val df: DataFrame = session.createDataFrame(rowRDD,schema)
-    println("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
-    df.show(10)
-    println("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
+    //println("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
+    //df.show(10)
+    //println("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
 
     out.write(df)
   }

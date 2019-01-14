@@ -136,11 +136,11 @@ class Swissprot_TrEMBLDataParser extends ConfigurableStop{
 //    println("start parser HDFSjsonFile   --------------------")
     val df: DataFrame = session.read.json(hdfsPathTemporary)
 
-    println("############################################################")
+//    println("############################################################")
 //            println(df.count())
-    df.show(20)
+//    df.show(20)
 //        df.printSchema()
-    println("############################################################")
+//    println("############################################################")
     out.write(df)
   }
 

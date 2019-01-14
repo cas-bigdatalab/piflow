@@ -20,7 +20,7 @@ class JsonStringParser extends ConfigurableStop{
     val jsonRDD = spark.sparkContext.makeRDD(jsonString :: Nil)
     val jsonDF = spark.read.json(jsonRDD)
 
-    jsonDF.show(10)
+    //jsonDF.show(10)
     out.write(jsonDF)
   }
 

@@ -30,8 +30,8 @@ class JsonParser extends ConfigurableStop{
       jsonDF=writeDF
     }
 
-    jsonDF.printSchema()
-    jsonDF.show(10)
+    //jsonDF.printSchema()
+    //jsonDF.show(10)
     out.write(jsonDF)
   }
 

@@ -81,7 +81,7 @@ class XmlStringParser extends ConfigurableStop {
 
     val Fdf: DataFrame = spark.createDataFrame(rowRDD,structType)
 
-    Fdf.show(20)
+    //Fdf.show(20)
     out.write(Fdf)
 
 

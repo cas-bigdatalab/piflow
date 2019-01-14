@@ -28,9 +28,8 @@ class JdbcWrite extends ConfigurableStop{
     properties.put("user", user)
     properties.put("password", password)
     jdbcDF.write.mode(SaveMode.Append).jdbc(url,dbtable,properties)
-    jdbcDF.show(10)
+    //jdbcDF.show(10)
     out.write(jdbcDF)
-
   }
 
   def initialize(ctx: ProcessContext): Unit = {

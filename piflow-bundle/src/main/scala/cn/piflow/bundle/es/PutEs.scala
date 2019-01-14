@@ -23,7 +23,7 @@ class PutEs extends ConfigurableStop {
   def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     val spark = pec.get[SparkSession]()
     val inDf = in.read()
-    inDf.show()
+    //inDf.show()
 
     val sc = spark.sparkContext
     val options = Map("es.index.auto.create"-> "true",

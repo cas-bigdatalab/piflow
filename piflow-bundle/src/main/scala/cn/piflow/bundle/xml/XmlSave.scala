@@ -19,7 +19,7 @@ class XmlSave extends ConfigurableStop{
 
   def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     val xmlDF = in.read()
-    xmlDF.show()
+    //xmlDF.show()
 
     xmlDF.write.format("xml").save(xmlSavePath)
   }

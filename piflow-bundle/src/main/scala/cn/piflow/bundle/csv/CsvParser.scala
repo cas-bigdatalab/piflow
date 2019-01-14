@@ -50,7 +50,7 @@ class CsvParser extends ConfigurableStop{
         .csv(csvPath)
     }
 
-    csvDF.show(10)
+    //csvDF.show(10)
     out.write(csvDF)
 
   }

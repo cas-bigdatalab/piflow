@@ -24,7 +24,7 @@ class SelectHiveQL extends ConfigurableStop {
 
     import spark.sql
     val df = sql(hiveQL)
-    df.show()
+    //df.show()
 
     out.write(df)
   }

@@ -29,7 +29,7 @@ class FolderXmlParser extends ConfigurableStop{
     val spark = pec.get[SparkSession]()
     val pathArr = getFileName(xmlpath)
     val xmlDF = getResDf(pathArr,spark)
-    xmlDF.show(30)
+    //xmlDF.show(30)
     out.write(xmlDF)
   }
   override def setProperties(map: Map[String, Any]): Unit = {

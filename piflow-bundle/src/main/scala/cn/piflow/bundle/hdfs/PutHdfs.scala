@@ -24,7 +24,7 @@ class PutHdfs extends ConfigurableStop{
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     val spark = pec.get[SparkSession]()
     val inDF = in.read()
-    inDF.show()
+    //inDF.show()
     inDF.schema.printTreeString()
 
     //val path = new Path(hdfsUrl+hdfsPath)

@@ -30,7 +30,7 @@ class JdbcRead extends ConfigurableStop  {
       .option("user", user)
       .option("password",password)
       .load()
-    jdbcDF.show(10)
+    //jdbcDF.show(10)
 
     out.write(jdbcDF)
 

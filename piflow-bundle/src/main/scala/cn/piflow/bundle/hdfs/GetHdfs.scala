@@ -40,20 +40,20 @@ class GetHdfs extends ConfigurableStop{
 
       if (types == "json") {
         val rdd = spark.read.json(path)
-        rdd.show()
+        //rdd.show()
         rdd.schema.printTreeString()
         out.write(rdd)
 
       } else if (types == "csv") {
 
         val rdd = spark.read.csv(path)
-        rdd.show()
+        //rdd.show()
         rdd.schema.printTreeString()
         out.write(rdd)
 
       }else if (types == "parquet") {
         val rdd = spark.read.csv(path)
-        rdd.show()
+        //rdd.show()
         rdd.schema.printTreeString()
         out.write(rdd)
 
@@ -62,7 +62,7 @@ class GetHdfs extends ConfigurableStop{
         val rdd = sc.textFile(path)
         val outDf = rdd.toDF("txt")
         outDf.schema.printTreeString()
-        outDf.show()
+        //outDf.show()
         out.write(outDf)
 
     }

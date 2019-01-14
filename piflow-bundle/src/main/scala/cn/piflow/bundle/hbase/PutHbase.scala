@@ -28,7 +28,7 @@ class PutHbase extends ConfigurableStop {
     val spark = pec.get[SparkSession]()
     val sc = spark.sparkContext
     val inDf = in.read()
-    inDf.show()
+    //inDf.show()
 
     val tableName = "User1"
 

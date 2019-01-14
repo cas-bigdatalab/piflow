@@ -54,7 +54,7 @@ class CsvSave extends ConfigurableStop{
 
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     val df = in.read()
-    df.show()
+    //df.show()
     df.write
       .format("csv")
       .mode(SaveMode.Overwrite)

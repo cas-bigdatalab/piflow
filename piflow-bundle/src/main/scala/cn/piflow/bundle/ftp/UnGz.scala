@@ -27,7 +27,7 @@ class UnGz extends ConfigurableStop{
     import spark.sqlContext.implicits._
 
     val inDf = in.read()
-    inDf.show()
+    //inDf.show()
     inDf.schema.printTreeString()
 
     // df => Array[Row]

@@ -62,7 +62,7 @@ class ShellExecutor extends ConfigurableStop{
     val rowsRdd = spark.sparkContext.parallelize(rowList)
     val schema = StructType(List(new StructField("row", StringType, nullable = true)))
     val df = spark.createDataFrame(rowsRdd,schema)
-    df.show()
+    //df.show()
 
     out.write(df)
   }

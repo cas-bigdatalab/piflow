@@ -104,7 +104,7 @@ class GenBankParse extends ConfigurableStop{
       // 加载 json 字符串 为 df
       val jsonRDD = spark.sparkContext.makeRDD(jsonString.toString() :: Nil)
       jsonDF = spark.read.json(jsonRDD)
-      jsonDF.show()
+      //jsonDF.show()
       //      jsonDF.schema.printTreeString()
 
 

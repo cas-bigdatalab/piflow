@@ -4,7 +4,8 @@ import java.io.IOException
 import java.net.URI
 import java.util.concurrent.{CountDownLatch, TimeUnit}
 
-import cn.piflow.util.{HadoopFileUtil, IdGenerator, Logging}
+import cn.piflow.util.PropertyUtil
+import cn.piflow.util.{HadoopFileUtil, IdGenerator, Logging, PropertyUtil}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.FileSystem
 import org.apache.hadoop.fs.Path
@@ -313,6 +314,15 @@ class JobOutputStreamImpl() extends JobOutputStream with Logging {
 
   def getDataFrame(port: String) = mapDataFrame(port);
 
+  def showDataFrame() = {
+
+      mapDataFrame.foreach(en => {
+        val portName = if(en._1.equals("")) "default" else en._1
+        println(portName + " port: ")
+        en._2.apply().show(PropertyUtil.getPropertyValue("data.show").toInt)
+      })
+  }
+
 }
 
 class ProcessImpl(flow: Flow, runnerContext: Context, runner: Runner, parentProcess: Option[Process] = None)
@@ -343,6 +353,8 @@ class ProcessImpl(flow: Flow, runnerContext: Context, runner: Runner, parentProc
         jobs(stopName) = pe;
         runnerListener.onJobInitialized(pe.getContext());
       }
+
+      //TODO: judge streaming stop
 
       val analyzed = flow.analyze();
       val checkpointParentProcessId = flow.getCheckpointParentProcessId()
@@ -416,6 +428,8 @@ class ProcessImpl(flow: Flow, runnerContext: Context, runner: Runner, parentProc
             println("Visit process " + stopName + "!!!!!!!!!!!!!")
             outputs = pe.perform(inputs);
             runnerListener.onJobCompleted(pe.getContext());
+            //TODO: test
+            outputs.showDataFrame()
             if (flow.hasCheckPoint(stopName)) {
               outputs.makeCheckPoint(pe.getContext());
             }

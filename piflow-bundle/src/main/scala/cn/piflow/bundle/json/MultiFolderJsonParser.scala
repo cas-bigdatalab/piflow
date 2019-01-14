@@ -54,7 +54,7 @@ class MultiFolderJsonParser extends ConfigurableStop{
     }
 
 
-    FinalDF.show(10)
+    //FinalDF.show(10)
 
     out.write(FinalDF)
   }

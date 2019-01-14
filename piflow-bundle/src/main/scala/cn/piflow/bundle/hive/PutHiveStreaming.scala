@@ -26,7 +26,7 @@ class PutHiveStreaming extends ConfigurableStop {
     val dfTempTable = table + "_temp"
     inDF.createOrReplaceTempView(dfTempTable)
     spark.sql("insert into " + database + "." + table +  " select * from " + dfTempTable)
-    inDF.show()
+    //inDF.show()
     //out.write(studentDF)
   }
 

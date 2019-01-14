@@ -35,8 +35,8 @@ class EvaluateJsonPath extends ConfigurableStop{
      }
    }
 
-//    FinalDF.printSchema()
-    FinalDF.show(10)
+    //FinalDF.printSchema()
+    //FinalDF.show(10)
 
     out.write(jsonDF)
   }

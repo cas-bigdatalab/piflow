@@ -50,7 +50,7 @@ class FolderCsvParser extends ConfigurableStop{
       !bool
     }).toDF()
 
-    Fdf.show(10)
+    //Fdf.show(10)
     out.write(Fdf)
 
   }

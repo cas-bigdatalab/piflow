@@ -64,7 +64,7 @@ class DataFrameRowParser extends ConfigurableStop{
 
     //create DataFrame
     val df = spark.createDataFrame(rdd,schemaStructType)
-    df.show()
+    //df.show()
     out.write(df)
   }
 

@@ -281,8 +281,8 @@ class RdfToDF extends ConfigurableStop{
 
     val entityDF = sq.createDataFrame(entityRowRdd, entityDFSchema)
     val relationDF = sq.createDataFrame(relationshipRowRdd, relationshipDFSchema)
-    entityDF.show(1)
-    relationDF.show(1)
+    //entityDF.show(1)
+    //relationDF.show(1)
     out.write(entityPort, entityDF)
     out.write(relationshipPort, relationDF)
   }

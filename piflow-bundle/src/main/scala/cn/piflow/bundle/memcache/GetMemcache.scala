@@ -74,9 +74,9 @@ class GetMemcache extends ConfigurableStop{
     val s: StructType = StructType(fields)
     val df: DataFrame = session.createDataFrame(rowRDD,s)
 
-    println("############################################################")
-    df.show()
-    println("############################################################")
+    //println("############################################################")
+    //df.show()
+    //println("############################################################")
 
     out.write(df)
   }

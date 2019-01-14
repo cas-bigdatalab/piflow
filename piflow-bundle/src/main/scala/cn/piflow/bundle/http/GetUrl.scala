@@ -54,9 +54,9 @@ class GetUrl extends ConfigurableStop{
       val jsonRDD = ss.sparkContext.makeRDD(jsonString :: Nil)
       val jsonDF = ss.read.json(jsonRDD)
 
-      jsonDF.schema.printTreeString()
-      jsonDF.show(10)
-      jsonDF.select("app.id").show()
+      //jsonDF.schema.printTreeString()
+      //jsonDF.show(10)
+      //jsonDF.select("app.id").show()
       out.write(jsonDF)
     }
 
@@ -115,11 +115,10 @@ class GetUrl extends ConfigurableStop{
 
       val outDf: DataFrame = ss.createDataFrame(rowRDD,structType)
 
-      outDf.show(20)
+      //outDf.show(20)
       outDf.schema.printTreeString()
       out.write(outDf)
 
-      println("8888888888888888888888888888888888888888888888888888888")
     }
 
 

@@ -31,7 +31,7 @@ class FetchEs extends ConfigurableStop {
 
     //load data with df  from es
     val outDf = ssc.read.format("org.elasticsearch.spark.sql").options(options).load(s"${es_index}/${es_type}")
-    outDf.show()
+    //outDf.show()
     out.write(outDf)
 
   }

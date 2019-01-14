@@ -28,7 +28,7 @@ class FlowTest {
 
     //execute flow
     val spark = SparkSession.builder()
-      .master("spark://10.0.86.191:7077")
+      .master("spark://10.0.86.89:7077")
       .appName("piflow-hive-bundle-xjzhu")
       .config("spark.driver.memory", "1g")
       .config("spark.executor.memory", "2g")

@@ -119,11 +119,11 @@ class MicrobeGenomeDataParser extends ConfigurableStop{
     println("start parser HDFSjsonFile")
     val df: DataFrame = session.read.json(hdfsPathTemporary)
 
-    println("############################################################")
-//        println(df.count())
-    df.show(20)
-//    df.printSchema()
-    println("############################################################")
+    //println("############################################################")
+    //        println(df.count())
+    //df.show(20)
+    //    df.printSchema()
+    //println("############################################################")
     out.write(df)
 
   }

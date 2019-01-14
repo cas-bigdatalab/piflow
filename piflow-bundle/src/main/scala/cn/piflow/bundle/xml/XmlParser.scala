@@ -33,7 +33,7 @@ class XmlParser extends ConfigurableStop {
     /*xmlDF.select("ee").rdd.collect().foreach( row =>
       println(row.toSeq)
     )*/
-    xmlDF.show(30)
+    //xmlDF.show(30)
     out.write(xmlDF)
   }
 

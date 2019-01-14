@@ -26,9 +26,9 @@ class ConvertSchema extends ConfigurableStop {
       df = df.withColumnRenamed(old_new(0),old_new(1))
     })
 
-    println("###########################")
-    df.show(20)
-    println("###########################")
+    //println("###########################")
+    //df.show(20)
+    //println("###########################")
 
     out.write(df)
 

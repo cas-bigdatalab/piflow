@@ -47,8 +47,8 @@ class ExcelParser extends ConfigurableStop{
     }
 
     val outDF = sc.parallelize(list).toDF("jsonObject")
-    println(outDF.count())
-    outDF.show()
+    //println(outDF.count())
+    //outDF.show()
     out.write(outDF)
 
   }

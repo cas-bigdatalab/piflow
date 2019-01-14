@@ -95,7 +95,7 @@ class BioSampleParse extends ConfigurableStop{
             // 加载 json 字符串 为 df
             val jsonRDD = spark.sparkContext.makeRDD(doc.toString() :: Nil)
             val jsonDF = spark.read.json(jsonRDD)
-            jsonDF.show()
+            //jsonDF.show()
             //      jsonDF.schema.printTreeString()
 
             val options = Map("es.index.auto.create" -> "true",

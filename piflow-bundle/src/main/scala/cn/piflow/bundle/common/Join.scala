@@ -45,8 +45,8 @@ class Join extends ConfigurableStop{
       case "RIGHT" => df = df1.join(df2,column,"right_outer")
       case "FULL" => df = df1.join(df2,column,"outer")
     }
-    println("######################################")
-    df.show(20)
+    //println("######################################")
+    //df.show(20)
     out.write(df)
 
   }

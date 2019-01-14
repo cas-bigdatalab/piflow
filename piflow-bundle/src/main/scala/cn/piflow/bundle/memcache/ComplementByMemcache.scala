@@ -76,9 +76,9 @@ class ComplementByMemcache extends ConfigurableStop {
     val schema: StructType = StructType(fields)
     val df: DataFrame = session.createDataFrame(rowRDD,schema)
 
-    println("############################################################")
-    df.show()
-    println("############################################################")
+    //println("############################################################")
+    //df.show()
+    //println("############################################################")
 
     out.write(df)
   }
