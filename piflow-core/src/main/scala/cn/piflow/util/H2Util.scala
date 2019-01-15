@@ -63,6 +63,7 @@ object H2Util {
       val startedStopList = getStartedStop(appId)
       startedStopList.foreach(stopName => {
         updateStopState(appId,stopName,StopState.KILLED)
+        updateStopFinishedTime(appId, stopName, new Date().toString)
       })
     }
     //println(updateSql)

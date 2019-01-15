@@ -155,6 +155,7 @@ object API {
 
     //update db
     H2Util.updateFlowState(appID, FlowState.KILLED)
+    H2Util.updateFlowFinishedTime(appID, new Date().toString)
 
     "ok"
   }
