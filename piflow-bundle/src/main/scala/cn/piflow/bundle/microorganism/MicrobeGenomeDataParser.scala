@@ -63,7 +63,6 @@ class MicrobeGenomeDataParser extends ConfigurableStop{
     inDf.collect().foreach(row => {
 
       pathStr = row.get(0).asInstanceOf[String]
-      println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!   start parser ^^^" + pathStr)
       fdis = fs.open(new Path(pathStr))
       br = new BufferedReader(new InputStreamReader(fdis))
       sequences = CustomIOTools.IOTools.readGenbankProtein(br, null)
@@ -77,7 +76,6 @@ class MicrobeGenomeDataParser extends ConfigurableStop{
         Process.processSingleSequence(seq,doc)
 
         jsonStr = doc.toString
-        println("start " + n + "String\\\n" /*+ jsonStr*/)
 
         if (n == 1) {
           bis = new BufferedInputStream(new ByteArrayInputStream(("[" + jsonStr).getBytes()))
@@ -119,11 +117,6 @@ class MicrobeGenomeDataParser extends ConfigurableStop{
     println("start parser HDFSjsonFile")
     val df: DataFrame = session.read.json(hdfsPathTemporary)
 
-    //println("############################################################")
-    //        println(df.count())
-    //df.show(20)
-    //    df.printSchema()
-    //println("############################################################")
     out.write(df)
 
   }

@@ -90,12 +90,12 @@ class Ensembl_gff3Parser extends ConfigurableStop{
       br = new BufferedReader(new InputStreamReader(fdis))
       var eachStr:String=null
 
-      while((eachStr = br.readLine()) != null && eachStr != null       /*&& n<=10000*/      ){
+      while((eachStr = br.readLine()) != null && eachStr != null){
         doc = parser.parserGff3(eachStr)
         jsonStr = doc.toString
         if(jsonStr.length > 2){
           n +=1
-          println("start   " + n + "   String" /*+ jsonStr*/)
+          println("start   " + n + "   String")
           if (n == 1) {
             bis = new BufferedInputStream(new ByteArrayInputStream(("[" + jsonStr).getBytes()))
           } else {
@@ -133,14 +133,8 @@ class Ensembl_gff3Parser extends ConfigurableStop{
     bis.close()
     fdos.close()
 
-    //    println("start parser HDFSjsonFile   --------------------")
     val df: DataFrame = session.read.json(hdfsPathTemporary)
 
-    //println("############################################################")
-    //                println(df.count())
-    //  df.show(20)
-    //            df.printSchema()
-    //println("############################################################")
     out.write(df)
   }
 }

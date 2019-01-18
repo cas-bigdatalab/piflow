@@ -83,12 +83,11 @@ class Swissprot_TrEMBLDataParser extends ConfigurableStop{
     var n:Int=0
     inDf.collect().foreach(row => {
       pathStr = row.get(0).asInstanceOf[String]
-      println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!   start parser ^^^" + pathStr)
       fdis = fs.open(new Path(pathStr))
       br = new BufferedReader(new InputStreamReader(fdis))
       sequences = CustomIOTools.IOTools.readUniProt(br,null)
 
-      while (sequences.hasNext  /* && n<10000*/) {
+      while (sequences.hasNext) {
 
         n += 1
 
@@ -96,7 +95,7 @@ class Swissprot_TrEMBLDataParser extends ConfigurableStop{
         seq = sequences.nextRichSequence()
         Process.processUniprotSeq(seq,doc)
         jsonStr = doc.toString
-        println("start " + n + "String\\\n" /*+ jsonStr*/)
+        println("start " + n + "String\\\n" )
 
         if (n == 1) {
           bis = new BufferedInputStream(new ByteArrayInputStream(("[" + jsonStr).getBytes()))
@@ -133,14 +132,8 @@ class Swissprot_TrEMBLDataParser extends ConfigurableStop{
     bis.close()
     fdos.close()
 
-//    println("start parser HDFSjsonFile   --------------------")
     val df: DataFrame = session.read.json(hdfsPathTemporary)
 
-//    println("############################################################")
-//            println(df.count())
-//    df.show(20)
-//        df.printSchema()
-//    println("############################################################")
     out.write(df)
   }
 

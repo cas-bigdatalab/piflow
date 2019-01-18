@@ -57,11 +57,6 @@ class RefseqParser extends ConfigurableStop{
       var n : Int =0
       pathStr = row.get(0).asInstanceOf[String]
 
-      println("#############################################")
-      println("start parser ^^^" + pathStr)
-      println("#############################################")
-
-//      if(pathStr.equals("hdfs://10.0.88.70:9000/yqd/weishengwu/refseq/bacteria.1.genomic.gbff")) {
 
       var fdis: FSDataInputStream = fs.open(new Path(pathStr))
 
@@ -69,33 +64,32 @@ class RefseqParser extends ConfigurableStop{
 
       var sequences: RichSequenceIterator = CustomIOTools.IOTools.readGenbankProtein(br, null)
 
-        while (sequences.hasNext) {
-          n += 1
-          var seq: RichSequence = sequences.nextRichSequence()
-          var doc: JSONObject = new JSONObject
-          Process.processSingleSequence(seq, doc)
-          jsonStr = doc.toString
-          println("start " + n)
+      while (sequences.hasNext) {
+        n += 1
+        var seq: RichSequence = sequences.nextRichSequence()
+        var doc: JSONObject = new JSONObject
+        Process.processSingleSequence(seq, doc)
+        jsonStr = doc.toString
+        println("start " + n)
 
-          if (n == 1) {
-            bis = new BufferedInputStream(new ByteArrayInputStream(("[" + jsonStr).getBytes()))
-          } else {
-            bis = new BufferedInputStream(new ByteArrayInputStream(("," + jsonStr).getBytes()))
-          }
-
-          var count: Int = bis.read(buff)
-          while (count != -1) {
-            fdos.write(buff, 0, count)
-            fdos.flush()
-            count = bis.read(buff)
-          }
-          fdos.flush()
-          bis = null
-          seq = null
-          doc = null
+        if (n == 1) {
+          bis = new BufferedInputStream(new ByteArrayInputStream(("[" + jsonStr).getBytes()))
+        } else {
+          bis = new BufferedInputStream(new ByteArrayInputStream(("," + jsonStr).getBytes()))
         }
 
-//      }
+        var count: Int = bis.read(buff)
+        while (count != -1) {
+          fdos.write(buff, 0, count)
+          fdos.flush()
+          count = bis.read(buff)
+        }
+        fdos.flush()
+        bis = null
+        seq = null
+        doc = null
+      }
+
     })
     bis = new BufferedInputStream(new ByteArrayInputStream(("]").getBytes()))
 
@@ -112,10 +106,6 @@ class RefseqParser extends ConfigurableStop{
     println("start parser HDFSjsonFile")
     val df: DataFrame = session.read.json(hdfsPathTemporary)
 
-//    println("############################################################")
-//    println(df.count())
-//    df.show(20)
-//    println("############################################################")
     out.write(df)
 
 

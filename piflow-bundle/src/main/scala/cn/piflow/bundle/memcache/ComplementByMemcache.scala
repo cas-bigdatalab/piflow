@@ -10,7 +10,6 @@ import org.apache.spark.sql.types.{StringType, StructField, StructType}
 import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 
 import scala.collection.mutable
-import scala.collection.mutable.ArrayBuffer
 
 class ComplementByMemcache extends ConfigurableStop {
   override val authorEmail: String = "yangqidong@cnic.cn"
@@ -75,10 +74,6 @@ class ComplementByMemcache extends ConfigurableStop {
     val fields: Array[StructField] = arrKey.map(d=>StructField(d,StringType,nullable = true))
     val schema: StructType = StructType(fields)
     val df: DataFrame = session.createDataFrame(rowRDD,schema)
-
-    //println("############################################################")
-    //df.show()
-    //println("############################################################")
 
     out.write(df)
   }

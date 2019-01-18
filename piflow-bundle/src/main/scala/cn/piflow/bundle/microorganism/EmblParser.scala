@@ -22,7 +22,6 @@ class EmblParser extends ConfigurableStop{
 
 
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
-
     val session = pec.get[SparkSession]()
 
     val inDf: DataFrame = in.read()
@@ -51,73 +50,31 @@ class EmblParser extends ConfigurableStop{
 
     var bis: BufferedInputStream =null
 
-    //    var df: DataFrame =null
-    //    var d: DataFrame =null
-    //    var jsonRDD: RDD[String] =null
-
     inDf.collect().foreach(row => {
 
       var n : Int =0
       pathStr = row.get(0).asInstanceOf[String]
 
-      println("#############################################")
-      println("start parser ^^^" + pathStr)
-      println("#############################################")
+      var fdis: FSDataInputStream = fs.open(new Path(pathStr))
 
-//      if(pathStr.equals("hdfs://10.0.88.70:9000/yqd/weishengwu/refseq/bacteria.1.genomic.gbff")) {
+      var br: BufferedReader = new BufferedReader(new InputStreamReader(fdis))
 
+      var sequences: RichSequenceIterator = CustomIOTools.IOTools.readEMBLDNA (br, null)
 
-        var fdis: FSDataInputStream = fs.open(new Path(pathStr))
-        //        var fdis: FSDataInputStream = fs.open(new Path("hdfs://10.0.88.70:9000/yqd/weishengwu/refseq/bacteria.1.1.genomic.fna.gz"))
+      while (sequences.hasNext) {
+        n += 1
+        var seq: RichSequence = sequences.nextRichSequence()
+        var doc: JSONObject = new JSONObject
+        Process.processEMBL_EnsemblSeq(seq, doc)
+        jsonStr = doc.toString
+        println("start " + n)
 
-        //        var gzipout: GZIPInputStream = new GZIPInputStream(fdis)
-
-        //        var br: BufferedReader = new BufferedReader(new InputStreamReader(gzipout))
-
-        var br: BufferedReader = new BufferedReader(new InputStreamReader(fdis))
-
-        var sequences: RichSequenceIterator = CustomIOTools.IOTools.readEMBLDNA (br, null)
-
-        while (sequences.hasNext) {
-          n += 1
-          var seq: RichSequence = sequences.nextRichSequence()
-          var doc: JSONObject = new JSONObject
-          Process.processEMBL_EnsemblSeq(seq, doc)
-          jsonStr = doc.toString
-          println("start " + n)
-
-          if (n == 1) {
-            bis = new BufferedInputStream(new ByteArrayInputStream(("[" + jsonStr).getBytes()))
-          } else {
-            bis = new BufferedInputStream(new ByteArrayInputStream(("," + jsonStr).getBytes()))
-          }
-
-          val buff: Array[Byte] = new Array[Byte](1048576)
-
-          var count: Int = bis.read(buff)
-          while (count != -1) {
-            fdos.write(buff, 0, count)
-            fdos.flush()
-            count = bis.read(buff)
-          }
-
-          /*   if(n==1){
-            jsonRDD = session.sparkContext.makeRDD(jsonStr :: Nil)
-            df = session.read.json(jsonRDD)
-          }else{
-            jsonRDD = session.sparkContext.makeRDD(jsonStr :: Nil)
-            d = session.read.json(jsonRDD)
-            df = df.union(d.toDF(df.columns:_*))
-          }*/
-
-          fdos.flush()
-          bis = null
-          seq = null
-          doc = null
-          //          jsonRDD = null
-          //          d = null
+        if (n == 1) {
+          bis = new BufferedInputStream(new ByteArrayInputStream(("[" + jsonStr).getBytes()))
+        } else {
+          bis = new BufferedInputStream(new ByteArrayInputStream(("," + jsonStr).getBytes()))
         }
-        bis = new BufferedInputStream(new ByteArrayInputStream(("]").getBytes()))
+
         val buff: Array[Byte] = new Array[Byte](1048576)
 
         var count: Int = bis.read(buff)
@@ -126,21 +83,29 @@ class EmblParser extends ConfigurableStop{
           fdos.flush()
           count = bis.read(buff)
         }
+
         fdos.flush()
-//      }
+        bis = null
+        seq = null
+        doc = null
+      }
+      bis = new BufferedInputStream(new ByteArrayInputStream(("]").getBytes()))
+      val buff: Array[Byte] = new Array[Byte](1048576)
+
+      var count: Int = bis.read(buff)
+      while (count != -1) {
+        fdos.write(buff, 0, count)
+        fdos.flush()
+        count = bis.read(buff)
+      }
+      fdos.flush()
     })
 
     fdos.close()
 
-    println("start parser HDFSjsonFile")
     val df: DataFrame = session.read.json(hdfsPathTemporary)
 
-    //println("############################################################")
-    //    println(df.count())
-    //df.show(20)
-    //println("############################################################")
     out.write(df)
-
 
   }
 

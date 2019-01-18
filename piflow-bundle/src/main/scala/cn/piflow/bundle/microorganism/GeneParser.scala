@@ -59,8 +59,6 @@ class GeneParser extends ConfigurableStop{
 
       pathStr = row.get(0).asInstanceOf[String]
 
-      println("##########################     start parser ^^^" + pathStr)
-
       var fdis: FSDataInputStream = fs.open(new Path(pathStr))
 
       var br: BufferedReader = new BufferedReader(new InputStreamReader(fdis))
@@ -68,7 +66,7 @@ class GeneParser extends ConfigurableStop{
       var line:String=""
       var doc:JSONObject=null
 
-      while ((line=br.readLine()) != null /*&& n<1000*/){
+      while ((line=br.readLine()) != null){
         if( ! line.startsWith("#")){
           n += 1
           doc=new JSONObject()
@@ -87,7 +85,6 @@ class GeneParser extends ConfigurableStop{
             }
           }
           jsonStr = doc.toString
-println(n+"^^^^^^^^^^^^^^^^^^^^")
           if (n == 1) {
             bis = new BufferedInputStream(new ByteArrayInputStream(("[" + jsonStr).getBytes()))
           } else {
@@ -122,13 +119,8 @@ println(n+"^^^^^^^^^^^^^^^^^^^^")
 
     fdos.close()
 
-    println("start parser HDFSjsonFile")
     val df: DataFrame = session.read.json(hdfsPathTemporary)
 
-    //println("############################################################")
-    //println(df.count())
-    //df.show(20)
-    //println("############################################################")
     out.write(df)
 
 

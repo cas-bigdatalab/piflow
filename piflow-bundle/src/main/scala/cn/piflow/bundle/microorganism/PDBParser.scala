@@ -64,14 +64,12 @@ class PDBParser extends ConfigurableStop{
     var n:Int=0
     inDf.collect().foreach(row => {
       pathStr = row.get(0).asInstanceOf[String]
-      println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!   start parser ^^^" + pathStr)
 
       pdb = new PDB(pathStr,fs)
       doc = pdb.getDoc
 
       jsonStr = doc.toString
       n +=1
-      println("start " + n + "String\\\n" /*+ jsonStr*/)
 
       if (n == 1) {
         bis = new BufferedInputStream(new ByteArrayInputStream(("[" + jsonStr).getBytes()))
@@ -108,17 +106,9 @@ class PDBParser extends ConfigurableStop{
     bis.close()
     fdos.close()
 
-    //    println("start parser HDFSjsonFile   --------------------")
     val df: DataFrame = session.read.json(hdfsPathTemporary)
 
-//    println("############################################################")
-//                println(df.count())
-//    df.show(20)
-//            df.printSchema()
-//    println("############################################################")
     out.write(df)
-
-
 }
 
 
