@@ -13,7 +13,7 @@ class XmlParser extends ConfigurableStop {
 
   val authorEmail: String = "xjzhu@cnic.cn"
   val description: String = "Parse xml file."
-  val inportList: List[String] = List(PortEnum.NonePort.toString)
+  val inportList: List[String] = List(PortEnum.DefaultPort.toString)
   val outportList: List[String] = List(PortEnum.DefaultPort.toString)
 
   var xmlpath:String = _
