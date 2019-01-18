@@ -50,9 +50,6 @@ class Distinct extends ConfigurableStop{
     }else{
       outDf = inDf.distinct()
     }
-    println("###########################################################################")
-    outDf.show(20)
-    println("###########################################################################")
     out.write(outDf)
   }
 }

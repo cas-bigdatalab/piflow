@@ -18,17 +18,12 @@ class ConvertSchema extends ConfigurableStop {
   def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     var df = in.read()
 
-    //oldField1->newField1, oldField2->newField2
     val field = schema.split(",")
 
     field.foreach(f => {
       val old_new: Array[String] = f.split("->")
       df = df.withColumnRenamed(old_new(0),old_new(1))
     })
-
-    //println("###########################")
-    //df.show(20)
-    //println("###########################")
 
     out.write(df)
 
@@ -45,7 +40,7 @@ class ConvertSchema extends ConfigurableStop {
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
     val inports = new PropertyDescriptor().name("schema").displayName("schema").description("To change the field name of the name and the name you want, " +
-      "you can write oldField1 - > newField1, if there are more than one, you can use, partition, such as oldField1 - > newField1, oldField2 - > newField2.").defaultValue("").required(true)
+      "you can write oldField1 - > newField1, if there are more than one, you can use, partition, such as oldField1->newField1, oldField2->newField2").defaultValue("").required(true)
     descriptor = inports :: descriptor
     descriptor
   }

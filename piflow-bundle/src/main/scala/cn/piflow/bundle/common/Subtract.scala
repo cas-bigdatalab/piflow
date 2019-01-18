@@ -48,10 +48,6 @@ class Subtract extends ConfigurableStop{
     val schema: StructType = df1.schema
     val outDF: DataFrame = spark.createDataFrame(rdd,schema)
 
-    println("##############################################################")
-    outDF.show(20)
-    println("##############################################################")
-
     out.write(outDF)
   }
 }
