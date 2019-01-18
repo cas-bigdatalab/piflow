@@ -129,8 +129,6 @@ class GetFromSolr extends ConfigurableStop{
     val schema: StructType = StructType(fields)
     val Fdf: DataFrame = ss.createDataFrame(rowRDD,schema)
 
-    //Fdf.show()
-
     out.write(Fdf)
   }
 

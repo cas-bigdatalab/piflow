@@ -87,10 +87,6 @@ class GetMongo extends ConfigurableStop{
     }
     val finalDF: DataFrame = session.sql(sql).toDF()
 
-    //println("######################################")
-    //finalDF.show(20)
-    //println("######################################")
-
     out.write(finalDF)
   }
 

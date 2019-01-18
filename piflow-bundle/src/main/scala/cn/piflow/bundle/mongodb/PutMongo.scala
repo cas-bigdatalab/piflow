@@ -7,7 +7,7 @@ import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroup}
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import com.mongodb.client.{MongoCollection, MongoDatabase}
-import com.mongodb.{BasicDBObject, MongoClient, MongoCredential, ServerAddress}
+import com.mongodb.{MongoClient, MongoCredential, ServerAddress}
 import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 import org.bson.Document
 
@@ -50,20 +50,16 @@ class PutMongo extends ConfigurableStop{
     val col: MongoCollection[Document] = db.getCollection(collection)
 
 
-//    var bObject:BasicDBObject=null
     var d: Document = null
     val rows: Array[Row] = df.collect()
     val columns: Array[String] = df.columns
     for(row <- rows){
-//      bObject= new BasicDBObject()
       d = new Document()
       val rowStr: String = row.toString()
       val rowArr: Array[String] = rowStr.substring(1,rowStr.length-2).split(",")
       for(x <- (0 until rowArr.size)){
-//        bObject.putIfAbsent(columns(x),rowArr(x))
         d.put(columns(x),rowArr(x))
       }
-//      col.insert(bObject)
       col.insertOne(d)
     }
 

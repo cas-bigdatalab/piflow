@@ -26,12 +26,8 @@ class PutIntoSolr extends ConfigurableStop{
     SolrCollection=MapUtil.get(map,"SolrCollection").asInstanceOf[String]
   }
 
-
-
   var client: HttpSolrClient =_
   var doc:SolrInputDocument =_
-
-
 
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
 
