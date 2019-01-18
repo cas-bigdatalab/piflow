@@ -126,7 +126,7 @@ class LoadFromFtpToHDFS extends ConfigurableStop {
     ftp.setFileType(FTP.BINARY_FILE_TYPE)
     ftp.setDataTimeout(600000)
     ftp.setConnectTimeout(600000)
-    ftp.enterLocalPassiveMode()//被动模式
+    ftp.enterLocalPassiveMode()
     ftp.setControlEncoding("UTF-8")
     ftp
   }

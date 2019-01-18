@@ -8,7 +8,6 @@ import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
 import org.apache.spark.sql.{DataFrame, Row, SparkSession}
-import org.apache.spark.sql.functions.monotonically_increasing_id
 
 class CsvStringParser extends ConfigurableStop{
   override val authorEmail: String = "yangqidong@cnic.cn"
@@ -46,8 +45,6 @@ class CsvStringParser extends ConfigurableStop{
     val fields: Array[StructField] = schema.split(",").map(d=>StructField(d.trim,StringType,nullable = true))
     val NewSchema: StructType = StructType(fields)
     Fdf = session.createDataFrame(rowRDD,NewSchema)
-
-    //Fdf.show(10)
     out.write(Fdf)
   }
 

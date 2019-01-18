@@ -8,14 +8,12 @@ import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
 import org.apache.spark.sql.{DataFrame, Row, SparkSession}
-import org.apache.spark.sql.functions.monotonically_increasing_id
 
 class FolderCsvParser extends ConfigurableStop{
   override val authorEmail: String = "yangqidong@cnic.cn"
   val inportList: List[String] = List(PortEnum.NonePort.toString)
   val outportList: List[String] = List(PortEnum.DefaultPort.toString)
   override val description: String = "Parsing of CSV folder"
-
 
   var FolderPath:String=_
   var delimiter: String = _
@@ -50,7 +48,6 @@ class FolderCsvParser extends ConfigurableStop{
       !bool
     }).toDF()
 
-    //Fdf.show(10)
     out.write(Fdf)
 
   }

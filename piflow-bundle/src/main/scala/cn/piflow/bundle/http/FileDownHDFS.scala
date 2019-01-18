@@ -34,13 +34,7 @@ class FileDownHDFS extends ConfigurableStop{
     val buffer=new Array[Byte](1024*1024*10)
     var byteRead= -1
 
-
-
     val configuration: Configuration = new Configuration()
-
-
-    //          "savePath":"hdfs://10.0.88.70:9000/yqd/hdfstest/dblp.xml.gz"
-    //    val hdfsUrl = "hdfs://10.0.88.70:9000"
 
     val pathARR: Array[String] = savePath.split("\\/")
     var hdfsUrl:String=""
@@ -49,18 +43,6 @@ class FileDownHDFS extends ConfigurableStop{
       hdfsUrl+=(pathARR(x) +"/")
     }
     configuration.set("fs.defaultFS",hdfsUrl)
-    //    configuration.set("dfs.nameservices", "nameservice1")
-    //        configuration.set("dfs.ha.namenodes.nameservice1", "nn1,nn2");
-    //        configuration.set("dfs.namenode.rpc-address.nameservice1.nn1", "xxx:8020");
-    //        configuration.set("dfs.namenode.rpc-address.nameservice1.nn2", "xxx:8020");
-    //        configuration.set("dfs.client.failover.proxy.provider.nameservice1"
-    //                ,"org.apache.hadoop.hdfs.server.namenode.ha.ConfiguredFailoverProxyProvider");
-
-    //        configuration.addResource("classpath:/hadoop/core-site.xml");
-    //        configuration.addResource("classpath:/hadoop/hdfs-site.xml");
-    //        configuration.addResource("classpath:/hadoop/mapred-site.xml");
-
-
 
     val fs = FileSystem.get(configuration)
     val fdos: FSDataOutputStream = fs.create(new Path(savePath))
@@ -73,7 +55,6 @@ class FileDownHDFS extends ConfigurableStop{
 
     inputStream.close()
     fdos.close()
-
 
     var seq:Seq[String]=Seq(savePath)
     val row: Row = Row.fromSeq(seq)

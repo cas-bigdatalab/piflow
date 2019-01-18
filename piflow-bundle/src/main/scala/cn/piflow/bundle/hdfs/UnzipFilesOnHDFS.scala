@@ -46,20 +46,13 @@ class UnzipFilesOnHDFS extends ConfigurableStop {
       inDf.collect().foreach(row => {
         filePath = row.get(0).asInstanceOf[String]
         unzipFile(filePath,savePath)
-
       })
-
     }
 
     val rdd: RDD[Row] = session.sparkContext.makeRDD(arr.toList)
     val fields: Array[StructField] =Array(StructField("savePath",StringType,nullable = true))
     val schema: StructType = StructType(fields)
     val df: DataFrame = session.createDataFrame(rdd,schema)
-
-    //println("##################################################################################################")
-    //    println(df.count())
-    //df.show(20)
-    //println("##################################################################################################")
 
     out.write(df)
 
@@ -140,8 +133,6 @@ class UnzipFilesOnHDFS extends ConfigurableStop {
       try {
         val gzip = new GZIPInputStream(new BufferedInputStream(fdis))
         val tarIn = new TarInputStream(gzip, 1024 * 2)
-
-//        fs.create(new Path(sp)).close()
 
         var entry: TarEntry = null
 
