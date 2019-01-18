@@ -15,7 +15,6 @@ import org.apache.spark.sql._
 import scala.collection.mutable.ArrayBuffer
 import scala.util.control.Breaks.{break, breakable}
 import org.apache.spark.sql.{DataFrame, SQLContext}
-import org.apache.spark.sql.functions._
 
 
 
@@ -25,10 +24,8 @@ class FolderJsonParser extends ConfigurableStop{
   val outportList: List[String] = List(PortEnum.DefaultPort.toString)
   override val description: String ="parser json folder"
 
-
   var FolderPath:String = _
   var tag : String = _
-
 
   var openArrField:String=""
   var ArrSchame:String=""
@@ -44,11 +41,6 @@ class FolderJsonParser extends ConfigurableStop{
       FinalDF=writeDF
     }
 
-
-    //println("##########################################################################")
-    //FinalDF.printSchema()
-    //FinalDF.show(20)
-    //println("##########################################################################")
     out.write(FinalDF)
   }
 
@@ -75,7 +67,6 @@ class FolderJsonParser extends ConfigurableStop{
     for(d <- index+1 until(arrPath.length)){
       if(getDf(arrPath(d),ss).count()!=0){
                 val df1: DataFrame = ss.read.option("multiline","true").json(arrPath(d))
-//        df1.printSchema()
         val df2: DataFrame = df.union(df1).toDF()
         df=df2
       }

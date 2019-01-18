@@ -131,10 +131,6 @@ class JdbcReadFromOracle extends ConfigurableStop{
     val rdd: RDD[Row] = session.sparkContext.makeRDD(rows)
     val df: DataFrame = session.createDataFrame(rdd,schema)
 
-    //println("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
-    //df.show(20)
-    //println("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
-
     out.write(df)
 
 

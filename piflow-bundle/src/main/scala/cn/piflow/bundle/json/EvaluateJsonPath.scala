@@ -4,7 +4,6 @@ import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroup}
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
-import org.apache.spark.sql
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
 class EvaluateJsonPath extends ConfigurableStop{
@@ -35,8 +34,6 @@ class EvaluateJsonPath extends ConfigurableStop{
      }
    }
 
-    //FinalDF.printSchema()
-    //FinalDF.show(10)
 
     out.write(jsonDF)
   }

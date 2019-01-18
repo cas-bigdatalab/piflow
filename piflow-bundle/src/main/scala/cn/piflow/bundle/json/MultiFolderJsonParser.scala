@@ -11,16 +11,13 @@ import org.apache.spark.sql.{DataFrame, SparkSession}
 import scala.util.control.Breaks.{break, breakable}
 
 class MultiFolderJsonParser extends ConfigurableStop{
-   val authorEmail: String = "yangqidong@cnic.cn"
+  val authorEmail: String = "yangqidong@cnic.cn"
   val inportList: List[String] = List(PortEnum.NonePort.toString)
   val outportList: List[String] = List(PortEnum.DefaultPort.toString)
-   val description: String = "Analysis of multiple JSON folders"
-
+  val description: String = "Analysis of multiple JSON folders"
 
   var jsonPathes: String = _
   var tag : String = _
-
-
 
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     val ss = pec.get[SparkSession]()
@@ -42,7 +39,6 @@ class MultiFolderJsonParser extends ConfigurableStop{
     for(d <- index+1 until(arrPath.length)){
       if(ss.read.json(arrPath(d)).count()!=0){
         val df1: DataFrame = ss.read.option("multiline","true").json(arrPath(d))
-        //        df1.printSchema()
         val df2: DataFrame = FinalDF.union(df1).toDF()
         FinalDF=df2
       }
@@ -52,9 +48,6 @@ class MultiFolderJsonParser extends ConfigurableStop{
       val writeDF: DataFrame = JsonUtil.ParserJsonDF(FinalDF,tag)
       FinalDF=writeDF
     }
-
-
-    //FinalDF.show(10)
 
     out.write(FinalDF)
   }
