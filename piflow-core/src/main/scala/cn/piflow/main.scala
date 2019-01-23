@@ -341,7 +341,7 @@ class JobOutputStreamImpl() extends JobOutputStream with Logging {
     mapDataFrame.foreach(en => {
       val portName = if(en._1.equals("")) "default" else en._1
       val portDataPath = debugPath + "/" + portName
-      println(portDataPath)
+      //println(portDataPath)
       en._2.apply().write.json(portDataPath)
     })
   }
@@ -451,16 +451,11 @@ class ProcessImpl(flow: Flow, runnerContext: Context, runner: Runner, parentProc
           if (checkpointParentProcessId.equals("")) {
             println("Visit process " + stopName + "!!!!!!!!!!!!!")
             outputs = pe.perform(inputs);
-            runnerListener.onJobCompleted(pe.getContext());
-            //TODO: need to test
-            outputs.showDataFrame()
-            if(flow.getRunMode() == FlowRunMode.DEBUG) {
-              outputs.saveDataFrame(debugPath)
-            }
 
             if (flow.hasCheckPoint(stopName)) {
               outputs.makeCheckPoint(pe.getContext());
             }
+
           }else{//read checkpoint from old process
             if(flow.hasCheckPoint(stopName)){
               val pec = pe.getContext()
@@ -468,25 +463,20 @@ class ProcessImpl(flow: Flow, runnerContext: Context, runner: Runner, parentProc
               val checkpointPath = pec.get("checkpoint.path").asInstanceOf[String].stripSuffix("/") + "/" + checkpointParentProcessId + "/" + pec.getStopJob().getStopName();
               println("Visit process " + stopName + " by Checkpoint!!!!!!!!!!!!!")
               outputs.loadCheckPoint(pe.getContext(),checkpointPath)
-              //TODO: need to test
-              outputs.showDataFrame()
-              if(flow.getRunMode() == FlowRunMode.DEBUG) {
-                outputs.saveDataFrame(debugPath)
-              }
 
-              runnerListener.onJobCompleted(pe.getContext());
             }else{
               println("Visit process " + stopName + "!!!!!!!!!!!!!")
               outputs = pe.perform(inputs);
-              //TODO: need to test
-              outputs.showDataFrame()
-              if(flow.getRunMode() == FlowRunMode.DEBUG) {
-                outputs.saveDataFrame(debugPath)
-              }
-              runnerListener.onJobCompleted(pe.getContext());
-            }
 
+            }
           }
+          //TODO: need to test
+          outputs.showDataFrame()
+          if(flow.getRunMode() == FlowRunMode.DEBUG) {
+            outputs.saveDataFrame(debugPath)
+          }
+
+          runnerListener.onJobCompleted(pe.getContext());
         }
         catch {
           case e: Throwable =>
