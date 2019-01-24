@@ -32,6 +32,8 @@ trait JobOutputStream {
   def write(bundle: String, data: DataFrame);
 
   def sendError();
+
+  def getDataCount() : MMap[String, Long];
 }
 
 trait StopJob {
@@ -326,7 +328,7 @@ class JobOutputStreamImpl() extends JobOutputStream with Logging {
 
   def getDataFrame(port: String) = mapDataFrame(port);
 
-  def showDataFrame() = {
+  def showData() = {
 
       mapDataFrame.foreach(en => {
         val portName = if(en._1.equals("")) "default" else en._1
@@ -335,7 +337,7 @@ class JobOutputStreamImpl() extends JobOutputStream with Logging {
       })
   }
 
-  def saveDataFrame(debugPath : String) = {
+  def saveData(debugPath : String) = {
 
 
     mapDataFrame.foreach(en => {
@@ -344,6 +346,17 @@ class JobOutputStreamImpl() extends JobOutputStream with Logging {
       //println(portDataPath)
       en._2.apply().write.json(portDataPath)
     })
+  }
+
+  def getDataCount() : MMap[String, Long]= {
+
+    var result : MMap[String, Long] = MMap[String, Long]()
+    mapDataFrame.foreach(en => {
+      val portName = if(en._1.equals("")) "default" else en._1
+      result
+      result(portName) = en._2.apply.count()
+    })
+    result
   }
 
 }
@@ -470,13 +483,20 @@ class ProcessImpl(flow: Flow, runnerContext: Context, runner: Runner, parentProc
 
             }
           }
-          //TODO: need to test
-          outputs.showDataFrame()
+          //show data in log
+          outputs.showData()
+
+          //save data in debug mode
           if(flow.getRunMode() == FlowRunMode.DEBUG) {
-            outputs.saveDataFrame(debugPath)
+            outputs.saveData(debugPath)
           }
 
+          //monitor the throughput
+          if(PropertyUtil.getPropertyValue("monitor.throughput").toBoolean == true)
+            runnerListener.monitorJobCompleted(pe.getContext(), outputs : JobOutputStream)
+
           runnerListener.onJobCompleted(pe.getContext());
+
         }
         catch {
           case e: Throwable =>

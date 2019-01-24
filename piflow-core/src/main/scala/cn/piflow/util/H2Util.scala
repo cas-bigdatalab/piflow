@@ -12,6 +12,7 @@ object H2Util {
   val QUERY_TIME = 30
   val CREATE_FLOW_TABLE = "create table if not exists flow (id varchar(255), pid varchar(255), name varchar(255), state varchar(255), startTime varchar(255), endTime varchar(255))"
   val CREATE_STOP_TABLE = "create table if not exists stop (flowId varchar(255), name varchar(255), state varchar(255), startTime varchar(255), endTime varchar(255))"
+  val CREATE_THOUGHPUT_TABLE = "create table if not exists thoughput (flowId varchar(255), stopName varchar(255), portName varchar(255), count long)"
   val serverIP = PropertyUtil.getPropertyValue("server.ip") + ":" + PropertyUtil.getPropertyValue("h2.port")
   val CONNECTION_URL = "jdbc:h2:tcp://" +  serverIP + "/~/piflow;AUTO_SERVER=true"
   var connection : Connection= null
@@ -22,6 +23,7 @@ object H2Util {
     statement.setQueryTimeout(QUERY_TIME)
     statement.executeUpdate(CREATE_FLOW_TABLE)
     statement.executeUpdate(CREATE_STOP_TABLE)
+    statement.executeUpdate(CREATE_THOUGHPUT_TABLE)
     statement.close()
   }catch {
     case ex => println(ex)
@@ -41,6 +43,7 @@ object H2Util {
     statement.setQueryTimeout(QUERY_TIME)
     statement.executeUpdate("drop table if exists flow")
     statement.executeUpdate("drop table if exists stop")
+    statement.executeUpdate("drop table if exists thoughput")
     statement.close()
     h2Server.shutdown()
 
@@ -261,6 +264,32 @@ object H2Util {
     rs.close()
     statement.close()
     stopList
+  }
+
+  def addThroughput(appId:String, stopName:String, portName:String, count:Long) = {
+    val statement = getConnectionInstance().createStatement()
+    statement.setQueryTimeout(QUERY_TIME)
+    statement.executeUpdate("insert into thoughput(flowId, stopName, portName, count) values('" + appId + "','" + stopName + "','" + portName + "','" + count + "')")
+    statement.close()
+  }
+  def getThroughput(appId:String, stopName:String, portName:String) = {
+    var count = ""
+    val statement = getConnectionInstance().createStatement()
+    statement.setQueryTimeout(QUERY_TIME)
+    val rs : ResultSet = statement.executeQuery("select count from thoughput where flowId='" + appId +"' and stopName = '" + stopName + "' and portName = '" + portName + "'")
+    while(rs.next()){
+      count = rs.getString("count")
+    }
+    rs.close()
+    statement.close()
+    count
+  }
+  def updateThroughput(appId:String, stopName:String, portName:String, count:Long) = {
+    val statement = getConnectionInstance().createStatement()
+    statement.setQueryTimeout(QUERY_TIME)
+    val updateSql = "update thoughput set count='" + count + "' where flowId='" + appId + "' and stopName='" + stopName + "' and portName='" + portName + "'"
+    statement.executeUpdate(updateSql)
+    statement.close()
   }
 
   def main(args: Array[String]): Unit = {
