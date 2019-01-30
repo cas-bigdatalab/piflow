@@ -65,11 +65,6 @@ class JdbcRead extends ConfigurableStop  {
     val sql=new PropertyDescriptor().name("sql").displayName("sql").description("The sql sentence you want to execute").defaultValue("").required(true)
     descriptor = sql :: descriptor
 
-    //descriptor = driver :: descriptor
-    descriptor = url :: descriptor
-    descriptor = user :: descriptor
-    descriptor = password :: descriptor
-    descriptor = sql :: descriptor
     descriptor
   }
 

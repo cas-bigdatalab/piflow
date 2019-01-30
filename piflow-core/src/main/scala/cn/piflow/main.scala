@@ -4,8 +4,7 @@ import java.io.IOException
 import java.net.URI
 import java.util.concurrent.{CountDownLatch, TimeUnit}
 
-import cn.piflow.util.PropertyUtil
-import cn.piflow.util.{HadoopFileUtil, IdGenerator, Logging, PropertyUtil}
+import cn.piflow.util._
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.FileSystem
 import org.apache.hadoop.fs.Path
@@ -33,6 +32,8 @@ trait JobOutputStream {
   def write(bundle: String, data: DataFrame);
 
   def sendError();
+
+  def getDataCount() : MMap[String, Long];
 }
 
 trait StopJob {
@@ -77,6 +78,10 @@ trait Flow {
   def getCheckpointParentProcessId() : String;
 
   def setCheckpointParentProcessId(checkpointParentProcessId : String);
+
+  def getRunMode() : String;
+
+  def setRunMode( runMode : String) : Unit;
 }
 
 class FlowImpl extends Flow {
@@ -85,6 +90,7 @@ class FlowImpl extends Flow {
   val stops = MMap[String, Stop]();
   val checkpoints = ArrayBuffer[String]();
   var checkpointParentProcessId = ""
+  var runMode = ""
 
   def addStop(name: String, process: Stop) = {
     stops(name) = process;
@@ -182,6 +188,14 @@ class FlowImpl extends Flow {
 
   override def setCheckpointParentProcessId(checkpointParentProcessId : String) = {
     this.checkpointParentProcessId = checkpointParentProcessId
+  }
+
+  override def getRunMode(): String = {
+    this.runMode
+  }
+
+  override def setRunMode(runMode: String): Unit = {
+    this.runMode = runMode
   }
 }
 
@@ -314,13 +328,35 @@ class JobOutputStreamImpl() extends JobOutputStream with Logging {
 
   def getDataFrame(port: String) = mapDataFrame(port);
 
-  def showDataFrame() = {
+  def showData() = {
 
       mapDataFrame.foreach(en => {
         val portName = if(en._1.equals("")) "default" else en._1
         println(portName + " port: ")
         en._2.apply().show(PropertyUtil.getPropertyValue("data.show").toInt)
       })
+  }
+
+  def saveData(debugPath : String) = {
+
+
+    mapDataFrame.foreach(en => {
+      val portName = if(en._1.equals("")) "default" else en._1
+      val portDataPath = debugPath + "/" + portName
+      //println(portDataPath)
+      en._2.apply().write.json(portDataPath)
+    })
+  }
+
+  def getDataCount() : MMap[String, Long]= {
+
+    var result : MMap[String, Long] = MMap[String, Long]()
+    mapDataFrame.foreach(en => {
+      val portName = if(en._1.equals("")) "default" else en._1
+      result
+      result(portName) = en._2.apply.count()
+    })
+    result
   }
 
 }
@@ -360,37 +396,6 @@ class ProcessImpl(flow: Flow, runnerContext: Context, runner: Runner, parentProc
       val checkpointParentProcessId = flow.getCheckpointParentProcessId()
       analyzed.visit[JobOutputStreamImpl](flow,performStopByCheckpoint)
 
-      /*if (checkpointParentProcessId == "" ){
-        analyzed.visit[JobOutputStreamImpl](performStop)
-
-      }else{
-        analyzed.visit[JobOutputStreamImpl](performStopByCheckpoint)
-      }*/
-
-      //runs processes
-      /*analyzed.visit[JobOutputStreamImpl]((stopName: String, inputs: Map[Edge, JobOutputStreamImpl]) => {
-        val pe = jobs(stopName);
-        var outputs: JobOutputStreamImpl = null;
-        try {
-          runnerListener.onJobStarted(pe.getContext());
-          outputs = pe.perform(inputs);
-          runnerListener.onJobCompleted(pe.getContext());
-
-          //is a checkpoint?
-          if (flow.hasCheckPoint(stopName)) {
-            //store dataset
-            outputs.makeCheckPoint(pe.getContext());
-          }
-        }
-        catch {
-          case e: Throwable =>
-            runnerListener.onJobFailed(pe.getContext());
-            throw e;
-        }
-
-        outputs;
-      }
-      );*/
 
       def performStop(stopName: String, inputs: Map[Edge, JobOutputStreamImpl]) = {
         val pe = jobs(stopName);
@@ -422,17 +427,17 @@ class ProcessImpl(flow: Flow, runnerContext: Context, runner: Runner, parentProc
         var outputs : JobOutputStreamImpl = null
         try {
           runnerListener.onJobStarted(pe.getContext());
+          val debugPath = pe.getContext().get("debug.path").asInstanceOf[String].stripSuffix("/") + "/" + pe.getContext().getProcessContext().getProcess().pid()  + "/" + pe.getContext().getStopJob().getStopName();
 
           //new flow process
           if (checkpointParentProcessId.equals("")) {
             println("Visit process " + stopName + "!!!!!!!!!!!!!")
             outputs = pe.perform(inputs);
-            runnerListener.onJobCompleted(pe.getContext());
-            //TODO: test
-            outputs.showDataFrame()
+
             if (flow.hasCheckPoint(stopName)) {
               outputs.makeCheckPoint(pe.getContext());
             }
+
           }else{//read checkpoint from old process
             if(flow.hasCheckPoint(stopName)){
               val pec = pe.getContext()
@@ -440,14 +445,27 @@ class ProcessImpl(flow: Flow, runnerContext: Context, runner: Runner, parentProc
               val checkpointPath = pec.get("checkpoint.path").asInstanceOf[String].stripSuffix("/") + "/" + checkpointParentProcessId + "/" + pec.getStopJob().getStopName();
               println("Visit process " + stopName + " by Checkpoint!!!!!!!!!!!!!")
               outputs.loadCheckPoint(pe.getContext(),checkpointPath)
-              runnerListener.onJobCompleted(pe.getContext());
+
             }else{
               println("Visit process " + stopName + "!!!!!!!!!!!!!")
               outputs = pe.perform(inputs);
-              runnerListener.onJobCompleted(pe.getContext());
-            }
 
+            }
           }
+          //show data in log
+          outputs.showData()
+
+          //save data in debug mode
+          if(flow.getRunMode() == FlowRunMode.DEBUG) {
+            outputs.saveData(debugPath)
+          }
+
+          //monitor the throughput
+          if(PropertyUtil.getPropertyValue("monitor.throughput").toBoolean == true)
+            runnerListener.monitorJobCompleted(pe.getContext(), outputs : JobOutputStream)
+
+          runnerListener.onJobCompleted(pe.getContext());
+
         }
         catch {
           case e: Throwable =>

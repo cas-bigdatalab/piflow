@@ -1,15 +1,18 @@
 package cn.piflow.api
 
 import java.io.{File, FileOutputStream}
+import java.net.URI
 import java.text.SimpleDateFormat
-import java.util.Date
+import java.util.{Date, Properties}
 import java.util.concurrent.CountDownLatch
 
 import org.apache.spark.sql.SparkSession
 import cn.piflow.conf.util.{ClassUtil, MapUtil, OptionUtil}
 import cn.piflow.{Process, Runner}
-import cn.piflow.api.util.PropertyUtil
+import cn.piflow.api.util.{HdfsUtil, PropertyUtil}
 import cn.piflow.util.{FlowState, H2Util, HadoopFileUtil}
+import org.apache.hadoop.conf.Configuration
+import org.apache.hadoop.fs.{FileSystem, Path}
 import org.apache.http.client.methods.{CloseableHttpResponse, HttpGet, HttpPost, HttpPut}
 import org.apache.http.entity.StringEntity
 import org.apache.http.impl.client.HttpClients
@@ -186,6 +189,27 @@ object API {
     """{"checkpoints":"""" + checkpointList.mkString(",") + """"}"""
   }
 
+
+  def getFlowDebugData(processID : String, stopName : String, port : String) : String = {
+    var result = ""
+    val debugPath = PropertyUtil.getPropertyValue("debug.path").stripSuffix("/") + "/" + processID + "/" + stopName + "/" + port;
+    val properties = new Properties()
+    val hdfs = FileSystem.get(URI.create(debugPath), new Configuration())
+
+    val fileList = HdfsUtil.getFilesInFolder(PropertyUtil.getPropertyValue("debug.path"), debugPath)
+
+    fileList.filter(!_.equals("_SUCCESS")).foreach( file => {
+      var stream = hdfs.open(new Path(file))
+      def readLines = Stream.cons(stream.readLine(),Stream.continually(stream.readLine()))
+      readLines.takeWhile( _ != null).foreach( line => {
+
+        println(line)
+        result += line + "\n"
+      })
+    })
+
+    result.stripSuffix("\n")
+  }
 
   def getStopInfo(bundle : String) : String = {
     try{

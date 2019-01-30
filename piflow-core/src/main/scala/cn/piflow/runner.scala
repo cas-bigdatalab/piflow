@@ -61,6 +61,11 @@ object Runner {
       override def onProcessAborted(ctx: ProcessContext): Unit = {
         listeners.foreach(_.onProcessAborted(ctx));
       }
+
+      override def monitorJobCompleted(ctx: JobContext, outputs: JobOutputStream): Unit = {
+        //TODO:
+        listeners.foreach(_.monitorJobCompleted(ctx, outputs));
+      }
     }
 
     override def addListener(listener: RunnerListener) = {
@@ -108,7 +113,10 @@ trait RunnerListener {
   def onJobCompleted(ctx: JobContext);
 
   def onJobFailed(ctx: JobContext);
+
+  def monitorJobCompleted(ctx: JobContext,outputs : JobOutputStream);
 }
+
 
 class RunnerLogger extends RunnerListener with Logging {
   override def onProcessStarted(ctx: ProcessContext): Unit = {
@@ -214,5 +222,17 @@ class RunnerLogger extends RunnerListener with Logging {
   private def getAppId(ctx: Context) : String = {
     val sparkSession = ctx.get(classOf[SparkSession].getName).asInstanceOf[SparkSession]
     sparkSession.sparkContext.applicationId
+  }
+
+  override def monitorJobCompleted(ctx: JobContext, outputs: JobOutputStream): Unit = {
+    val appId = getAppId(ctx)
+    val stopName = ctx.getStopJob().getStopName();
+    logger.debug(s"job completed: monitor $stopName");
+    println(s"job completed: monitor $stopName")
+
+    val outputDataCount = outputs.getDataCount()
+    outputDataCount.keySet.foreach(portName => {
+      H2Util.addThroughput(appId, stopName, portName, outputDataCount(portName))
+    })
   }
 }

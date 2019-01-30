@@ -126,6 +126,8 @@ class FlowGroupExecutionImpl(fg: FlowGroup, runnerContext: Context, runner: Runn
     override def onJobFailed(ctx: JobContext): Unit = {}
 
     override def onProcessAborted(ctx: ProcessContext): Unit = {}
+
+    override def monitorJobCompleted(ctx: JobContext, outputs: JobOutputStream): Unit = {}
   };
 
   runner.addListener(listener);
