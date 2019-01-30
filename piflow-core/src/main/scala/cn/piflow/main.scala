@@ -396,37 +396,6 @@ class ProcessImpl(flow: Flow, runnerContext: Context, runner: Runner, parentProc
       val checkpointParentProcessId = flow.getCheckpointParentProcessId()
       analyzed.visit[JobOutputStreamImpl](flow,performStopByCheckpoint)
 
-      /*if (checkpointParentProcessId == "" ){
-        analyzed.visit[JobOutputStreamImpl](performStop)
-
-      }else{
-        analyzed.visit[JobOutputStreamImpl](performStopByCheckpoint)
-      }*/
-
-      //runs processes
-      /*analyzed.visit[JobOutputStreamImpl]((stopName: String, inputs: Map[Edge, JobOutputStreamImpl]) => {
-        val pe = jobs(stopName);
-        var outputs: JobOutputStreamImpl = null;
-        try {
-          runnerListener.onJobStarted(pe.getContext());
-          outputs = pe.perform(inputs);
-          runnerListener.onJobCompleted(pe.getContext());
-
-          //is a checkpoint?
-          if (flow.hasCheckPoint(stopName)) {
-            //store dataset
-            outputs.makeCheckPoint(pe.getContext());
-          }
-        }
-        catch {
-          case e: Throwable =>
-            runnerListener.onJobFailed(pe.getContext());
-            throw e;
-        }
-
-        outputs;
-      }
-      );*/
 
       def performStop(stopName: String, inputs: Map[Edge, JobOutputStreamImpl]) = {
         val pe = jobs(stopName);
