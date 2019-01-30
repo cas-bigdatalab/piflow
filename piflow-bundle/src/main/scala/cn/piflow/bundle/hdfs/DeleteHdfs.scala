@@ -34,20 +34,8 @@ class DeleteHdfs extends ConfigurableStop{
       config.set("fs.defaultFS",hdfsUrl)
       val fs = FileSystem.get(config)
 
-      println(path+"ddddddddddddddddddd--delete")
       fs.delete(path,true)
 
-//      if (fs.isDirectory(path)){
-//        println("-------wenjianjia-----")
-//              fs.delete(path,true)
-//      }
-//
-//      else if(fs.isFile(path)){
-//        println("wenjian -------------------------")
-//              fs.delete(path,true)
-//      } else {
-//        fs.delete(path, true)
-//      }
     }
   }
   override def setProperties(map: Map[String, Any]): Unit = {

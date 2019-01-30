@@ -1,6 +1,10 @@
 package cn.piflow.bundle.util;
 
 
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FSDataInputStream;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.Path;
 import org.apache.poi.hssf.usermodel.HSSFDateUtil;
 import org.apache.poi.hssf.usermodel.HSSFWorkbook;
 import org.apache.poi.openxml4j.exceptions.InvalidFormatException;
@@ -23,72 +27,62 @@ import java.util.Map;
 
 public class ExcelToJson {
 
-    public static final String XLSX = ".xlsx";
-    public static final String XLS=".xls";
+//    public static final String XLSX = ".xlsx";
+//    public static final String XLS=".xls";
+
+    public static final Configuration configuration = new Configuration();
 
     /**
      * 获取Excel文件（.xls和.xlsx都支持）
-     * @param file
+     * @param pathStr
      * @return  解析excle后的Json数据
      * @throws IOException
-     * @throws FileNotFoundException
-     * @throws InvalidFormatException
      */
-    public static net.sf.json.JSONArray readExcel(File file) throws FileNotFoundException, IOException, InvalidFormatException {
-        int res = checkFile(file);
-        if (res == 0) {
-            throw new NullPointerException("the file is null.");
-        }else if (res == 1) {
-            return readXLSX(file);
-        }else if (res == 2) {
-            return readXLS(file);
+    public static net.sf.json.JSONArray readExcel(String pathStr,String hdfsUrl) throws IOException {
+
+        configuration.set("fs.defaultFS",hdfsUrl);
+
+        if (pathStr.endsWith(".xlsx")) {
+            return readXLSX(pathStr);
+        }else   {
+            return readXLS(pathStr);
         }
-        throw new IllegalAccessError("the file["+file.getName()+"] is not excel file.");
+
+//        return new net.sf.json.JSONArray();
     }
-    /**
-     * 判断File文件的类型
-     * @param file 传入的文件
-     * @return 0-文件为空，1-XLSX文件，2-XLS文件，3-其他文件
-     */
-    public static int checkFile(File file){
-        if (file==null) {
-            System.out.println("0");
-            return 0;
-        }
-        String flieName = file.getName();
-        if (flieName.endsWith(XLSX)) {
-            System.out.println("1");
-            return 1;
-        }
-        if (flieName.endsWith(XLS)) {
-            System.out.println("2");
-            return 2;
-        }
-        return 3;
-    }
+
 
     /**
      * 读取XLSX文件
-     * @param file
+     * @param pathStr
      * @return
-     * @throws IOException
-     * @throws InvalidFormatException
      */
-    public static net.sf.json.JSONArray readXLSX(File file) throws InvalidFormatException, IOException{
-        Workbook book = new XSSFWorkbook(file);
+    public static net.sf.json.JSONArray readXLSX(String pathStr) throws  IOException{
+
+        FileSystem fs = FileSystem.get(configuration);
+        FSDataInputStream fdis = fs.open(new Path(pathStr));
+
+        System.out.println("xlsx");
+
+        Workbook book = new XSSFWorkbook(fdis);
         Sheet sheet = book.getSheetAt(0);
         return read(sheet, book);
     }
 
     /**
      * 读取XLS文件
-     * @param file
+     * @param pathStr
      * @return
      * @throws IOException
-     * @throws FileNotFoundException
      */
-    public static net.sf.json.JSONArray readXLS(File file) throws FileNotFoundException, IOException{
-        POIFSFileSystem poifsFileSystem = new POIFSFileSystem(new FileInputStream(file));
+    public static net.sf.json.JSONArray readXLS(String pathStr) throws  IOException{
+
+        FileSystem fs = FileSystem.get(configuration);
+        FSDataInputStream fdis = fs.open(new Path(pathStr));
+
+        System.out.println("xls");
+
+        POIFSFileSystem poifsFileSystem = new POIFSFileSystem(fdis);
         Workbook book = new HSSFWorkbook(poifsFileSystem);
         Sheet sheet = book.getSheetAt(0);
         return read(sheet, book);

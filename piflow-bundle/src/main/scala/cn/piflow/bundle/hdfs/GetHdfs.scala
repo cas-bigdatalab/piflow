@@ -9,7 +9,7 @@ import org.apache.spark.sql.SparkSession
 
 class GetHdfs extends ConfigurableStop{
   override val authorEmail: String = "ygang@cmic.com"
-  override val description: String = "write dataframe data from hdfs"
+  override val description: String = "get data from hdfs"
   override val inportList: List[String] = List(PortEnum.NonePort.toString)
   override val outportList: List[String] = List(PortEnum.DefaultPort.toString)
 
@@ -22,21 +22,7 @@ class GetHdfs extends ConfigurableStop{
     val sc= spark.sparkContext
     import spark.implicits._
 
-    println(hdfsPath+"gggggggggggggggggggggggg ---getHdfs---txt")
-
     val path = hdfsUrl+hdfsPath
-
-//    val array = hdfsPath.split(",")
-//
-//    val buffer = new StringBuffer()
-//    for (i<- 0 until array.length) {
-//      if (i== array.length-1){
-//        buffer.append(hdfsUrl+array(i))
-//      } else {
-//        buffer.append(hdfsUrl+array(i)+",")
-//      }
-//    }
-    // println(buffer.toString)
 
       if (types == "json") {
         val rdd = spark.read.json(path)
@@ -56,7 +42,6 @@ class GetHdfs extends ConfigurableStop{
         //rdd.show()
         rdd.schema.printTreeString()
         out.write(rdd)
-
       }
       else {
         val rdd = sc.textFile(path)
@@ -66,17 +51,6 @@ class GetHdfs extends ConfigurableStop{
         out.write(outDf)
 
     }
-
-
-
-
-//    val rdd = spark.read.text("hdfs://10.0.86.89:9000/yg/test/hdf1.txt")
-//    rdd.show()
-//    rdd.schema.printTreeString()
-  //  println( rdd.count())
-    // val rdd = ssc.read.load("hdfs://10.0.86.89:9000/yg/test/hdf1.txt")
-
-
   }
   override def setProperties(map: Map[String, Any]): Unit = {
     hdfsUrl = MapUtil.get(map,key="hdfsUrl").asInstanceOf[String]

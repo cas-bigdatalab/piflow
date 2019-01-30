@@ -30,11 +30,7 @@ class ListHdfs extends ConfigurableStop{
 
     import spark.implicits._
 
-    val outDF = sc.parallelize(list).toDF("path")
-
-    //outDF.show()
-    outDF.schema.printTreeString()
-
+    val outDF = sc.parallelize(list).toDF()
     out.write(outDF)
   }
 
@@ -56,7 +52,6 @@ class ListHdfs extends ConfigurableStop{
         iterationFile(fsPath)
 
       } else{
-
         list = f.getPath.toString::list
       }
     }

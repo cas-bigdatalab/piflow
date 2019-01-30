@@ -28,10 +28,6 @@ class InvokeUrl extends ConfigurableStop{
   override val outportList: List[String] = List(PortEnum.NonePort.toString)
   override val description: String = "invoke http "
 
-//  var urlPut :String= _
-//  var urlPost :String= _
-//  var urlDelete :String= _
-//  var urlGet :String= _
 
   var url :String= _
   var jsonPath :String =_
@@ -55,8 +51,6 @@ class InvokeUrl extends ConfigurableStop{
       val response: CloseableHttpResponse = client.execute(getFlowInfo)
       val entity = response.getEntity
       val jsonString = EntityUtils.toString(entity, "UTF-8")
-
-      println("=====================================================================invoke get")
 
       // json to df
       if (types == "json") {
@@ -122,12 +116,7 @@ class InvokeUrl extends ConfigurableStop{
 
         val outDf: DataFrame = spark.createDataFrame(rowRDD, structType)
 
-        //outDf.show(20)
-        //outDf.schema.printTreeString()
         out.write(outDf)
-
-        println("====================================================================")
-
       }
 
 
@@ -143,7 +132,6 @@ class InvokeUrl extends ConfigurableStop{
           buffer.append(lineTxt.mkString)
           lineTxt = bufferReader.readLine()
         }
-        println(buffer)
 
         if (method == "putHttp") {
           val put = new HttpPut(url)
@@ -157,8 +145,6 @@ class InvokeUrl extends ConfigurableStop{
           if (entity != null) {
             result = EntityUtils.toString(entity, "utf-8")
           }
-          println(response)
-          println(result)
           put.releaseConnection()
         } else {
           val post = new HttpPost(url)
@@ -168,22 +154,17 @@ class InvokeUrl extends ConfigurableStop{
           val response = client.execute(post)
           val entity = response.getEntity
           val str = EntityUtils.toString(entity, "UTF-8")
-          println(response)
-          println("Code is " + str)
         }
       }
 
       if (method == "deleteHttp") {
-        println(url)
+
         val inDf = in.read()
 
         inDf.createOrReplaceTempView("table")
         val sqlDF = inDf.sqlContext.sql(s"select $colume from table")
-        //sqlDF.show()
 
         val array = sqlDF.collect()
-
-
         for (i <- 0 until array.length) {
           var url1 = ""
           val newArray = array(i)
@@ -197,10 +178,7 @@ class InvokeUrl extends ConfigurableStop{
               builder.append(columns(i) + "=" + newArray(i) + "&")
             }
           }
-          //  println(builder)
-
           url1 = url + "?" + builder
-          println(url1 + "##########################################################")
 
           val delete = new HttpDelete(url1)
           delete.setHeader("content-Type", "application/json")
@@ -208,8 +186,6 @@ class InvokeUrl extends ConfigurableStop{
           val response = client.execute(delete)
           val entity = response.getEntity
           val str = EntityUtils.toString(entity, "UTF-8")
-          println("Code is " + str)
-          println(response)
 
         }
 
@@ -221,10 +197,6 @@ class InvokeUrl extends ConfigurableStop{
 
   override def setProperties(map: Map[String, Any]): Unit = {
     url = MapUtil.get(map,key="url").asInstanceOf[String]
-//    urlPut = MapUtil.get(map,key="urlPut").asInstanceOf[String]
-//    urlPost = MapUtil.get(map,key="urlPost").asInstanceOf[String]
-//    urlDelete = MapUtil.get(map,key="urlDelete").asInstanceOf[String]
-//    urlGet = MapUtil.get(map,key="urlGet").asInstanceOf[String]
     jsonPath = MapUtil.get(map,key="jsonPath").asInstanceOf[String]
     method = MapUtil.get(map,key = "method").asInstanceOf[String]
 
@@ -240,10 +212,6 @@ class InvokeUrl extends ConfigurableStop{
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
-//    val urlPut = new PropertyDescriptor().name("urlPut").displayName("urlPutPost").defaultValue("").required(true)
-//    val urlPost = new PropertyDescriptor().name("urlPost").displayName("urlPutPost").defaultValue("").required(true)
-//    val urlDelete = new PropertyDescriptor().name("urlDelete").displayName("urlPutPost").defaultValue("").required(true)
-//    val urlGet = new PropertyDescriptor().name("urlGet").displayName("urlGet").defaultValue("").required(true)
     val url = new PropertyDescriptor().name("url").displayName("url").defaultValue("").required(true)
     val jsonPath = new PropertyDescriptor().name("jsonPath").displayName("JSONPATH").defaultValue("").required(true)
     val method = new PropertyDescriptor().name("method").displayName("the way with http").defaultValue("").required(true)
@@ -258,10 +226,6 @@ class InvokeUrl extends ConfigurableStop{
     val schema = new PropertyDescriptor().name("schema").displayName("schema").description("name of field in label,the delimiter is ,").defaultValue("").required(true)
     descriptor = schema :: descriptor
 
-//    descriptor = urlPut :: descriptor
-//    descriptor = urlPost :: descriptor
-//    descriptor = urlDelete :: descriptor
-//    descriptor = urlGet :: descriptor
     descriptor = jsonPath :: descriptor
     descriptor = method :: descriptor
     descriptor = colume :: descriptor

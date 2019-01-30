@@ -13,11 +13,10 @@ class FetchEs extends ConfigurableStop {
 
   override val inportList: List[String] = List(PortEnum.NonePort.toString)
   override val outportList: List[String] = List(PortEnum.DefaultPort.toString)
-  override val description: String = "fetch data with dataframe from elasticSearch "
-
+  override val description: String = "Fetch data from Elasticsearch "
 
   var es_nodes:String = _   //es的节点，多个用逗号隔开
-  var port:String= _           //es的端口好
+  var es_port:String= _           //es的端口好
   var es_index:String = _     //es的索引
   var es_type:String =  _     //es的类型
 
@@ -27,11 +26,10 @@ class FetchEs extends ConfigurableStop {
     val ssc = spark.sqlContext
 
     val options = Map("es.index.auto.create"-> "true","es.nodes.wan.only"->"true",
-      "es.nodes"->es_nodes,"es.port"->port)
+      "es.nodes"->es_nodes,"es.port"->es_port)
 
     //load data with df  from es
     val outDf = ssc.read.format("org.elasticsearch.spark.sql").options(options).load(s"${es_index}/${es_type}")
-    //outDf.show()
     out.write(outDf)
 
   }
@@ -41,21 +39,21 @@ class FetchEs extends ConfigurableStop {
 
   def setProperties(map : Map[String, Any]): Unit = {
     es_nodes=MapUtil.get(map,key="es_nodes").asInstanceOf[String]
-    port=MapUtil.get(map,key="port").asInstanceOf[String]
+    es_port=MapUtil.get(map,key="es_port").asInstanceOf[String]
     es_index=MapUtil.get(map,key="es_index").asInstanceOf[String]
     es_type=MapUtil.get(map,key="es_type").asInstanceOf[String]
   }
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
-    val es_nodes = new PropertyDescriptor().name("es_nodes").displayName("es_nodes").defaultValue("").required(true)
-    val port = new PropertyDescriptor().name("port").displayName("port").defaultValue("").required(true)
-    val es_index = new PropertyDescriptor().name("es_index").displayName("es_index").defaultValue("").required(true)
-    val es_type = new PropertyDescriptor().name("es_type").displayName("es_type").defaultValue("").required(true)
+    val es_nodes = new PropertyDescriptor().name("es_nodes").displayName("es_nodes").defaultValue("Node of Elasticsearch").required(true)
+    val es_port = new PropertyDescriptor().name("es_port").displayName("es_port").defaultValue("Port of Elasticsearch").required(true)
+    val es_index = new PropertyDescriptor().name("es_index").displayName("es_index").defaultValue("Index of Elasticsearch").required(true)
+    val es_type = new PropertyDescriptor().name("es_type").displayName("es_type").defaultValue("Type of Elasticsearch").required(true)
 
 
     descriptor = es_nodes :: descriptor
-    descriptor = port :: descriptor
+    descriptor = es_port :: descriptor
     descriptor = es_index :: descriptor
     descriptor = es_type :: descriptor
 

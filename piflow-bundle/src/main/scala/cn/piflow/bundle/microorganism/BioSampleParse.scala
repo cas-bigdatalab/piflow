@@ -7,62 +7,67 @@ import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroup}
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
-import org.apache.spark.sql.{Row, SparkSession}
-import org.elasticsearch.spark.sql.EsSparkSQL
+import org.apache.hadoop.conf.Configuration
+import org.apache.hadoop.fs.{FSDataInputStream, FSDataOutputStream, FileSystem, Path}
+import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.json.{JSONArray, JSONObject, XML}
-
 
 class BioSampleParse extends ConfigurableStop{
   val authorEmail: String = "ygang@cnic.cn"
-  val description: String = "Load file from ftp url."
+  val description: String = "Parsing BioSample type data"
   val inportList: List[String] = List(PortEnum.DefaultPort.toString)
-  val outportList: List[String] = List(PortEnum.NonePort.toString)
+  val outportList: List[String] = List(PortEnum.DefaultPort.toString)
 
-
-  var es_nodes:String = _   //es的节点，多个用逗号隔开
-  var port:String= _           //es的端口好
-  var es_index:String = _     //es的索引
-  var es_type:String =  _     //es的类型
+  var cachePath:String = _
 
   var docName = "BioSample"
-
   def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     val spark = pec.get[SparkSession]()
     val sc = spark.sparkContext
-
+    val ssc = spark.sqlContext
     val inDf= in.read()
-//    inDf.show()
-//    inDf.schema.printTreeString()
 
+    val configuration: Configuration = new Configuration()
+    var pathStr: String =inDf.take(1)(0).get(0).asInstanceOf[String]
+    val pathARR: Array[String] = pathStr.split("\\/")
+    var hdfsUrl:String=""
+    for (x <- (0 until 3)){
+      hdfsUrl+=(pathARR(x) +"/")
+    }
 
-    val rows: Array[Row] = inDf.collect()
-    for (i <- 0 until rows.size) {
+    configuration.set("fs.defaultFS",hdfsUrl)
+    var fs: FileSystem = FileSystem.get(configuration)
 
-      //   /ftpBioSample1/biosample.xml
-      val sourceFile = rows(i)(0).toString
-      println("++++++++++++++++++++++++++++++++++++++++++++++++++"+sourceFile)
+    var hdfsPathJsonCache:String = ""
+
+    var fdosOut: FSDataOutputStream = null
+    var bisIn: BufferedInputStream =null
+
+    var count = 0
+    var nameNum = 0
+    inDf.collect().foreach(row => {
+      pathStr = row.get(0).asInstanceOf[String]
 
       var line: String = null
       var xml = ""
-      val br: BufferedReader = new BufferedReader(new FileReader(sourceFile))
+      var fdis: FSDataInputStream = fs.open(new Path(pathStr))
+      val br: BufferedReader = new BufferedReader(new InputStreamReader(fdis))
       br.readLine()
       br.readLine()
 
-      var count = 0
-      while ((line = br.readLine()) != null) {
+
+      while ((line = br.readLine()) != null && line!= null) {
         xml = xml + line
         if (line.indexOf("</" + docName + ">") != -1) {
           count = count + 1
-
           val doc: JSONObject = XML.toJSONObject(xml).getJSONObject(docName)
-          val accession = doc.optString("accession")
 
+          val accession = doc.optString("accession")
           // Attributes
           val attrs: String = doc.optString("Attributes")
           if (attrs.equals("")) {
             doc.remove("Attributes")
           }
-
           // Links
           val links: String = doc.optString("Links")
           if (links != null) {
@@ -70,9 +75,7 @@ class BioSampleParse extends ConfigurableStop{
               doc.remove("Links")
             }
           }
-
           val bio = new BioProject
-
           // owner.name
           val owner = doc.optString("Owner")
           if (owner != null) {
@@ -82,57 +85,85 @@ class BioSampleParse extends ConfigurableStop{
               bio.convertConcrete2KeyVal(singleOwner, "Name")
             }
           }
-
           // Models.Model
           val models = doc.optJSONObject("Models")
           if (models != null) {
             bio.convertConcrete2KeyVal(models, "Models")
           }
+          if (count%200000 == 1 ){
+            nameNum += 1
+            hdfsPathJsonCache = hdfsUrl+cachePath+"/biosampleCache/"+"biosample"+nameNum+".json"
 
+            val path: Path = new Path(hdfsPathJsonCache)
+            if(fs.exists(path)){
+              fs.delete(path)
+            }
+            fs.create(path).close()
+            fdosOut = fs.append(path)
 
-//          if (count < 20) {
-            println("#####################################" + count)
-            // 加载 json 字符串 为 df
-            val jsonRDD = spark.sparkContext.makeRDD(doc.toString() :: Nil)
-            val jsonDF = spark.read.json(jsonRDD)
-            //jsonDF.show()
-            //      jsonDF.schema.printTreeString()
+            bisIn = new BufferedInputStream(new ByteArrayInputStream(("[" + doc.toString).getBytes()))
+            val buff: Array[Byte] = new Array[Byte](1048576)
+            var num: Int = bisIn.read(buff)
+            while (num != -1) {
+              fdosOut.write(buff, 0, num)
+              fdosOut.flush()
+              num = bisIn.read(buff)
+            }
+            bisIn.close()
+          } else if (count%200000 ==0){
+            bisIn = new BufferedInputStream(new ByteArrayInputStream((","+doc.toString + "]").getBytes()))
+            val buff: Array[Byte] = new Array[Byte](1048576)
+            var num: Int = bisIn.read(buff)
+            while (num != -1) {
+              fdosOut.write(buff, 0, num)
+              fdosOut.flush()
+              num = bisIn.read(buff)
+            }
+            fdosOut.flush()
+            fdosOut.close()
+            bisIn.close()
 
-            val options = Map("es.index.auto.create" -> "true",
-              "es.mapping.id" -> "accession",
-              "es.nodes" -> es_nodes, "es.port" -> port)
-
-            // df 写入 es
-            EsSparkSQL.saveToEs(jsonDF, s"${es_index}/${es_type}", options)
-//          }
-
+          } else {
+            bisIn = new BufferedInputStream(new ByteArrayInputStream(("," + doc.toString).getBytes()))
+            val buff: Array[Byte] = new Array[Byte](1048576)
+            var num: Int = bisIn.read(buff)
+            while (num != -1) {
+              fdosOut.write(buff, 0, num)
+              fdosOut.flush()
+              num = bisIn.read(buff)
+            }
+            bisIn.close()
+          }
           xml = ""
         }
       }
-
+    })
+    if (count%200000 != 0){
+      bisIn = new BufferedInputStream(new ByteArrayInputStream(("]").getBytes()))
+      val buff: Array[Byte] = new Array[Byte](1048576)
+      var num: Int = bisIn.read(buff)
+      while (num != -1) {
+        fdosOut.write(buff, 0, num)
+        fdosOut.flush()
+        num = bisIn.read(buff)
+      }
+      fdosOut.flush()
+      bisIn.close()
     }
+    fdosOut.close()
+    println("start parser HDFSjsonFile")
+    val df: DataFrame = ssc.read.json(hdfsUrl+cachePath+"/biosampleCache/")
+    out.write(df)
   }
 
   def setProperties(map: Map[String, Any]): Unit = {
-    es_nodes=MapUtil.get(map,key="es_nodes").asInstanceOf[String]
-    port=MapUtil.get(map,key="port").asInstanceOf[String]
-    es_index=MapUtil.get(map,key="es_index").asInstanceOf[String]
-    es_type=MapUtil.get(map,key="es_type").asInstanceOf[String]
+    cachePath=MapUtil.get(map,key="cachePath").asInstanceOf[String]
   }
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
-    val es_nodes = new PropertyDescriptor().name("es_nodes").displayName("es_nodes").defaultValue("").required(true)
-    val port = new PropertyDescriptor().name("port").displayName("port").defaultValue("").required(true)
-    val es_index = new PropertyDescriptor().name("es_index").displayName("es_index").defaultValue("").required(true)
-    val es_type = new PropertyDescriptor().name("es_type").displayName("es_type").defaultValue("").required(true)
-
-
-    descriptor = es_nodes :: descriptor
-    descriptor = port :: descriptor
-    descriptor = es_index :: descriptor
-    descriptor = es_type :: descriptor
-
+    val cachePath = new PropertyDescriptor().name("cachePath").displayName("cachePath").defaultValue("").required(true)
+    descriptor = cachePath :: descriptor
     descriptor
   }
 

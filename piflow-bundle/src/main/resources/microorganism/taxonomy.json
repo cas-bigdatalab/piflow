@@ -1,0 +1,69 @@
+{
+  "flow":{
+    "name":"test",
+    "uuid":"1234",
+    "stops":[
+     {
+        "uuid":"1111",
+        "name":"SelectFilesByName",
+        "bundle":"cn.piflow.bundle.ftp.SelectFilesByName",
+        "properties":{
+          "HDFSUrl":"hdfs://master2.packone:8020",
+          "HDFSPath":"/microo/taxonomy/",
+          "selectionConditions":"taxdump.tar.gz"
+        }
+      },{
+        "uuid":"2222",
+        "name":"UnzipFilesOnHDFS",
+        "bundle":"cn.piflow.bundle.http.UnzipFilesOnHDFS",
+        "properties":{
+          "isCustomize":"true",
+          "filePath":"/microo/taxonomy/taxdump.tar.gz",
+          "hdfsUrl":"hdfs://master2.packone:8020",
+          "savePath":"/microo/taxonomy/taxdump/"
+
+        }
+      },
+      {
+        "uuid":"3333",
+        "name":"TaxonomyParse",
+        "bundle":"cn.piflow.bundle.microorganism.TaxonomyParse",
+        "properties":{
+
+        }
+      },
+      {
+        "uuid": "4444",
+        "name": "putEs",
+        "bundle": "cn.piflow.bundle.es.PutEs",
+        "properties": {
+          "es_nodes": "10.0.88.70,10.0.88.71,10.0.88.72",
+          "port": "9200",
+          "es_index": "taxonomy",
+          "es_type": "taxonomy"
+        }
+      }
+
+    ],
+    "paths":[
+      {
+        "from":"SelectFilesByName",
+        "outport":"",
+        "inport":"",
+        "to":"UnzipFilesOnHDFS"
+      },
+      {
+        "from":"UnzipFilesOnHDFS",
+        "outport":"",
+        "inport":"",
+        "to":"TaxonomyParse"
+      },
+      {
+        "from":"TaxonomyParse",
+        "outport":"",
+        "inport":"",
+        "to":"putEs"
+      }
+    ]
+  }
+}

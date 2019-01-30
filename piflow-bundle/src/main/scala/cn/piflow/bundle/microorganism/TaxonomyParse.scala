@@ -1,110 +1,77 @@
 package cn.piflow.bundle.microorganism
 
 import java.io._
+import java.util.HashMap
 
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroup}
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
+import org.apache.hadoop.conf.Configuration
+import org.apache.hadoop.fs.{FSDataInputStream, FSDataOutputStream, FileSystem, Path}
 import org.apache.spark.sql.{DataFrame, SparkSession}
-import org.elasticsearch.spark.sql.EsSparkSQL
 import org.json.JSONObject
+
+
 
 
 class TaxonomyParse extends ConfigurableStop{
   val authorEmail: String = "ygang@cnic.cn"
-  val description: String = "Load file from ftp url."
+  val description: String = "Parsing Taxonomy type data"
   val inportList: List[String] = List(PortEnum.DefaultPort.toString)
   val outportList: List[String] = List(PortEnum.NonePort.toString)
 
-
-  var es_nodes:String = _   //es的节点，多个用逗号隔开
-  var port:String= _           //es的端口好
-  var es_index:String = _     //es的索引
-  var es_type:String =  _     //es的类型
+  var cachePath:String = _
 
   var filePath:String = _
+  var outWriteDF:DataFrame = _
+  var nodesDF:DataFrame = _
+  var divisionDF:DataFrame = _
+  var gencodeDF:DataFrame = _
+  var namesDF:DataFrame = _
+  var citationsDF:DataFrame = _
 
   def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     val spark = pec.get[SparkSession]()
     val sc = spark.sparkContext
     val ssc = spark.sqlContext
-    println("###############################")
+    val inDf = in.read()
 
-//    val inDf = in.read()
-//    inDf.show()
-//    inDf.printSchema()
-//    val rows: Array[Row] = inDf.collect()
-//    val pathDir = new File(rows(0)(0).toString).getParent
+    val configuration: Configuration = new Configuration()
+    var pathStr: String =inDf.take(1)(0).get(0).asInstanceOf[String]
 
-
-
-
-    val path = "/ftpTaxonomy1/1/gencode.dmp"
-    val pathDir: String = new File(path).getParent
-    filePath = pathDir + File.separator + "nodes.dm"
-
-    // #########################################------004 ---namese.dmp
-    if (filePath.endsWith("names.dmp")) {
-
-      val optionsFromEs = Map("es.index.auto.create"-> "true",
-        "es.nodes.wan.only"->"true",
-        "es.nodes"->es_nodes,"es.port"->port)
-      //load data with df from es
-      val esDf = ssc.read.format("org.elasticsearch.spark.sql").options(optionsFromEs).load(s"${es_index}/${es_type}")
-
-
-      val br = new BufferedReader(new FileReader(filePath))
-      var line: String = null;
-      var count = 0
-      var divDF :DataFrame = null
-      while ((line = br.readLine) != null && line != null) {
-
-        val tokens: Array[String] = line.split("\\t\\|\\t")
-        val doc = new JSONObject()
-        doc.put("genetic_code_id", tokens(0))
-        doc.put("genetic_code_name", tokens(2))
-        doc.put("genetic_code_translation_table", tokens(3).trim)
-        doc.put("genetic_code_start_codons", tokens(4).replace("\t|","").trim)
-
-        if (count==0) {
-          val jsonRDD = spark.sparkContext.makeRDD(doc.toString :: Nil)
-          divDF = spark.read.json(jsonRDD)
-        } else {
-          val jsonRDD = spark.sparkContext.makeRDD(doc.toString :: Nil)
-          divDF = spark.read.json(jsonRDD).union(divDF)
-        }
-        count = count+1
-      }
-
-      //      divDF.show()
-
-      val outDf = esDf.join(divDF, Seq("genetic_code_id")).
-        filter(esDf.col("genetic_code_id") === divDF.col("genetic_code_id"))
-
-      val optionsToEs = Map("es.index.auto.create" -> "true",
-        "es.mapping.id" -> "tax_id",
-        "es.nodes" -> es_nodes,
-        "es.port" -> port)
-      // df 写入 es
-      EsSparkSQL.saveToEs(outDf, s"${es_index}/${es_type}", optionsToEs)
-      println("nodes.dmp--------------->存储成功")
-
-
-      filePath = pathDir + File.separator + "names.dmp"
+    val pathARR: Array[String] = pathStr.split("\\/")
+    var hdfsUrl:String=""
+    for (x <- (0 until 3)){
+      hdfsUrl+=(pathARR(x) +"/")
     }
+    configuration.set("fs.defaultFS",hdfsUrl)
+    var fs: FileSystem = FileSystem.get(configuration)
 
+    var pathDir = ""
+    for (x <- 0 until pathARR.length-1){
+      pathDir+=(pathARR(x) +"/")
+    }
+    filePath = pathDir + File.separator + "nodes.dmp"
 
-
-
-
-    // #########################################------001 ---nodes.dmp
     if (filePath.endsWith("nodes.dmp")) {
-      val br = new BufferedReader(new FileReader(filePath))
+      val hdfsPathJsonCache = hdfsUrl+cachePath+"/taxonomyCache/nodes.json"
+      val path: Path = new Path(hdfsPathJsonCache)
+      if(fs.exists(path)){
+        fs.delete(path)
+      }
+      fs.create(path).close()
+      var fdosOut: FSDataOutputStream = fs.append(path)
+      var jsonStr: String =""
+      var bisIn: BufferedInputStream =null
+
+
+      var fdis: FSDataInputStream = fs.open(new Path(filePath.toString))
+      val br: BufferedReader = new BufferedReader(new InputStreamReader(fdis))
       var line: String = null;
-      var count =1
-      while ((line = br.readLine) != null  &&line != null) {
-//        println(count)
+      var count =0
+      while ((line = br.readLine) != null  && line != null) {
+        count = count+1
         val doc = new JSONObject()
         val tokens: Array[String] = line.split("\\t\\|\\t")
         doc.put("tax_id", tokens(0))
@@ -114,154 +81,304 @@ class TaxonomyParse extends ConfigurableStop{
         doc.put("division_id", tokens(4))
         doc.put("genetic_code_id", tokens(6))
         doc.put("mitochondrial_genetic_code_id", tokens(8))
-//        println(doc)
-        count = count+1
-        if (tokens(0).equals("2492834") ){
-          println(tokens(0))
+
+        if (count == 1) {
+          bisIn = new BufferedInputStream(new ByteArrayInputStream(("[" + doc.toString).getBytes()))
+        } else {
+          bisIn = new BufferedInputStream(new ByteArrayInputStream(("," + doc.toString).getBytes()))
         }
-          // 加载 json 字符串 为 df
-          val jsonRDD = spark.sparkContext.makeRDD(doc.toString :: Nil)
-          val jsonDF = spark.read.json(jsonRDD)
+        val buff: Array[Byte] = new Array[Byte](1048576)
+        var num: Int = bisIn.read(buff)
+        while (num != -1) {
+          fdosOut.write(buff, 0, num)
+          fdosOut.flush()
+          num = bisIn.read(buff)
+        }
 
-          val options = Map("es.index.auto.create" -> "true",
-            "es.mapping.id" -> "tax_id",
-            "es.nodes" -> es_nodes, "es.port" -> port)
-          // df 写入 es
-          EsSparkSQL.saveToEs(jsonDF, s"${es_index}/${es_type}", options)
-          println("nodes.dmp--------------->存储成功")
-
-
+        fdosOut.flush()
+        bisIn.close()
       }
+      bisIn = new BufferedInputStream(new ByteArrayInputStream(("]").getBytes()))
+      val buff: Array[Byte] = new Array[Byte](1048576)
+
+      var num: Int = bisIn.read(buff)
+      while (num != -1) {
+        fdosOut.write(buff, 0, num)
+        fdosOut.flush()
+        num = bisIn.read(buff)
+      }
+      fdosOut.flush()
+      bisIn.close()
+      fdosOut.close()
+
+      nodesDF = spark.read.json(hdfsPathJsonCache)
       filePath = pathDir + File.separator + "division.dmp"
     }
 
-    // #########################################------002 ---division.dmp
-    else if (filePath.endsWith("division.dmp")) {
+    if (filePath.endsWith("division.dmp")){
+      val hdfsPathJsonCache = hdfsUrl+cachePath+"/taxonomyCache/division.json"
 
-      val options = Map("es.index.auto.create"-> "true",
-        "es.nodes.wan.only"->"true",
-        "es.nodes"->es_nodes,"es.port"->port)
+      val path: Path = new Path(hdfsPathJsonCache)
+      if(fs.exists(path)){
+        fs.delete(path)
+      }
+      fs.create(path).close()
+      var fdosOut: FSDataOutputStream = fs.append(path)
+      var jsonStr: String =""
+      var bisIn: BufferedInputStream =null
 
-      //load data with df from es
-      val esDf = ssc.read.format("org.elasticsearch.spark.sql").options(options).load(s"${es_index}/${es_type}")
-
-      val br = new BufferedReader(new FileReader(filePath))
+      var fdis: FSDataInputStream = fs.open(new Path(filePath.toString))
+      val br: BufferedReader = new BufferedReader(new InputStreamReader(fdis))
       var line: String = null;
       var count = 0
-      var divDF :DataFrame = null
-      while ((line = br.readLine) != null && line != null) {
+      while ((line = br.readLine) != null && line != null ) {
+        count=count+1
         val tokens: Array[String] = line.split("\\t\\|\\t")
         val doc = new JSONObject()
         doc.put("division_id", tokens(0))
         doc.put("dive", tokens(1))
         doc.put("diname", tokens(2))
-        if (count==0) {
-          val jsonRDD = spark.sparkContext.makeRDD(doc.toString :: Nil)
-          divDF = spark.read.json(jsonRDD)
+
+        if (count == 1) {
+          bisIn = new BufferedInputStream(new ByteArrayInputStream(("[" + doc.toString).getBytes()))
         } else {
-          val jsonRDD = spark.sparkContext.makeRDD(doc.toString :: Nil)
-          divDF = spark.read.json(jsonRDD).union(divDF)
+          bisIn = new BufferedInputStream(new ByteArrayInputStream(("," + doc.toString).getBytes()))
         }
-        count = count+1
+        val buff: Array[Byte] = new Array[Byte](1048576)
+        var num: Int = bisIn.read(buff)
+        while (num != -1) {
+          fdosOut.write(buff, 0, num)
+          fdosOut.flush()
+          num = bisIn.read(buff)
+        }
+        fdosOut.flush()
+        bisIn = null
       }
+      bisIn = new BufferedInputStream(new ByteArrayInputStream(("]").getBytes()))
+      val buff: Array[Byte] = new Array[Byte](1048576)
 
-      val outDf = esDf.join(divDF, Seq("division_id")).filter(esDf.col("division_id") === divDF.col("division_id"))
+      var num: Int = bisIn.read(buff)
+      while (num != -1) {
+        fdosOut.write(buff, 0, num)
+        fdosOut.flush()
+        num = bisIn.read(buff)
+      }
+      fdosOut.flush()
+      fdosOut.close()
 
-      val options1 = Map("es.index.auto.create" -> "true",
-        "es.mapping.id" -> "tax_id",
-        "es.nodes" -> es_nodes,
-        "es.port" -> port)
-      // df 写入 es
-      EsSparkSQL.saveToEs(outDf, s"${es_index}/${es_type}", options1)
-      println("nodes.dmp--------------->存储成功")
+      divisionDF = spark.read.json(hdfsPathJsonCache)
 
+      outWriteDF=nodesDF.join(divisionDF, Seq("division_id"))
 
       filePath = pathDir + File.separator + "gencode.dmp"
     }
 
-
-    // #########################################------003 ---gencode.dmp
-    else if (filePath.endsWith("gencode.dmp")) {
-
-      val optionsFromEs = Map("es.index.auto.create"-> "true",
-        "es.nodes.wan.only"->"true",
-        "es.nodes"->es_nodes,"es.port"->port)
-      //load data with df from es
-      val esDf = ssc.read.format("org.elasticsearch.spark.sql").options(optionsFromEs).load(s"${es_index}/${es_type}")
+    if (filePath.endsWith("gencode.dmp")){
 
 
-      val br = new BufferedReader(new FileReader(filePath))
+      val hdfsPathJsonCache = hdfsUrl+cachePath+"/taxonomyCache/gencode.json"
+      val path: Path = new Path(hdfsPathJsonCache)
+      if(fs.exists(path)){
+        fs.delete(path)
+      }
+      fs.create(path).close()
+      var fdosOut: FSDataOutputStream = fs.append(path)
+      var jsonStr: String =""
+      var bisIn: BufferedInputStream =null
+
+      var fdis: FSDataInputStream = fs.open(new Path(filePath.toString))
+      val br: BufferedReader = new BufferedReader(new InputStreamReader(fdis))
       var line: String = null;
       var count = 0
-      var divDF :DataFrame = null
-      while ((line = br.readLine) != null && line != null) {
-
+      while ((line = br.readLine) != null && line != null ) {
+        count += 1
         val tokens: Array[String] = line.split("\\t\\|\\t")
         val doc = new JSONObject()
         doc.put("genetic_code_id", tokens(0))
-        doc.put("genetic_code_name", tokens(2))
+        doc.put("genetic_code_name", tokens(2).trim)
         doc.put("genetic_code_translation_table", tokens(3).trim)
         doc.put("genetic_code_start_codons", tokens(4).replace("\t|","").trim)
-
-        if (count==0) {
-          val jsonRDD = spark.sparkContext.makeRDD(doc.toString :: Nil)
-          divDF = spark.read.json(jsonRDD)
+        if (count == 1) {
+          bisIn = new BufferedInputStream(new ByteArrayInputStream(("[" + doc.toString).getBytes()))
         } else {
-          val jsonRDD = spark.sparkContext.makeRDD(doc.toString :: Nil)
-          divDF = spark.read.json(jsonRDD).union(divDF)
+          bisIn = new BufferedInputStream(new ByteArrayInputStream(("," + doc.toString).getBytes()))
         }
-        count = count+1
+        val buff: Array[Byte] = new Array[Byte](1048576)
+        var num: Int = bisIn.read(buff)
+        while (num != -1) {
+          fdosOut.write(buff, 0, num)
+          fdosOut.flush()
+          num = bisIn.read(buff)
+        }
+        fdosOut.flush()
+        bisIn = null
       }
+      bisIn = new BufferedInputStream(new ByteArrayInputStream(("]").getBytes()))
+      val buff: Array[Byte] = new Array[Byte](1048576)
 
-      //      divDF.show()
+      var num: Int = bisIn.read(buff)
+      while (num != -1) {
+        fdosOut.write(buff, 0, num)
+        fdosOut.flush()
+        num = bisIn.read(buff)
+      }
+      fdosOut.flush()
+      fdosOut.close()
 
-      val outDf = esDf.join(divDF, Seq("genetic_code_id")).
-        filter(esDf.col("genetic_code_id") === divDF.col("genetic_code_id"))
 
-      val optionsToEs = Map("es.index.auto.create" -> "true",
-        "es.mapping.id" -> "tax_id",
-        "es.nodes" -> es_nodes,
-        "es.port" -> port)
-      // df 写入 es
-      EsSparkSQL.saveToEs(outDf, s"${es_index}/${es_type}", optionsToEs)
-      println("nodes.dmp--------------->存储成功")
-
+      gencodeDF = spark.read.json(hdfsPathJsonCache)
+      outWriteDF=outWriteDF.join(gencodeDF, Seq("genetic_code_id"))
 
       filePath = pathDir + File.separator + "names.dmp"
+
     }
 
+    if (filePath.endsWith("names.dmp")){
+      val hdfsPathJsonCache = hdfsUrl+cachePath+"/taxonomyCache/names.json"
+      val path: Path = new Path(hdfsPathJsonCache)
+      if(fs.exists(path)){
+        fs.delete(path)
+      }
+      fs.create(path).close()
+      var fdosOut: FSDataOutputStream = fs.append(path)
+      var jsonStr: String =""
+      var bisIn: BufferedInputStream =null
+
+      var fdis: FSDataInputStream = fs.open(new Path(filePath.toString))
+      val br: BufferedReader = new BufferedReader(new InputStreamReader(fdis))
+      var line: String = null
+      var count = 0
+      var pre_tax_id = "1"
+      var name_key = ""
+
+      var names = new HashMap[String,String]()
+
+      var doc = new JSONObject()
+      while ((line = br.readLine) != null && line != null ) {
+        val tokens: Array[String] = line.split("\\t\\|\\t")
+        name_key = tokens(3).replace("\t|","").trim
+
+        if (tokens(0).equals(pre_tax_id)){
+          if (names.containsKey(name_key)){
+            names.put(name_key,names.get(name_key).toString+";"+tokens(1))
+          } else {
+            names.put(name_key,tokens(1))
+          }
+        } else {
+          count += 1
+          names.put("tax_id",pre_tax_id)
+
+          doc.put("",names)
+          val doc1 = doc.toString().substring(0,doc.toString.length-1)
+          jsonStr = doc1.substring(4,doc1.length)
+
+          pre_tax_id = tokens(0)
+          names = new HashMap[String,String]()
+          names.put(name_key,tokens(1))
+
+          if (count == 1) {
+            bisIn = new BufferedInputStream(new ByteArrayInputStream(("[" + jsonStr).getBytes()))
+          } else {
+            bisIn = new BufferedInputStream(new ByteArrayInputStream(("," + jsonStr).getBytes()))
+          }
+          val buff: Array[Byte] = new Array[Byte](1048576)
+          var num: Int = bisIn.read(buff)
+          while (num != -1) {
+            fdosOut.write(buff, 0, num)
+            fdosOut.flush()
+            num = bisIn.read(buff)
+          }
+          fdosOut.flush()
+          bisIn = null
+        }
+      }
+      names.put("tax_id",pre_tax_id)
+      doc.put("",names)
+      val doc1 = doc.toString().substring(0,doc.toString.length-1)
+      jsonStr = doc1.substring(4,doc1.length)
+      bisIn = new BufferedInputStream(new ByteArrayInputStream(("," +jsonStr+ "]").getBytes()))
+      val buff: Array[Byte] = new Array[Byte](1048576)
+
+      var num: Int = bisIn.read(buff)
+      while (num != -1) {
+        fdosOut.write(buff, 0, num)
+        fdosOut.flush()
+        num = bisIn.read(buff)
+      }
+      fdosOut.flush()
+      fdosOut.close()
+
+      namesDF = spark.read.json(hdfsPathJsonCache)
+
+      outWriteDF = outWriteDF.join(namesDF,Seq("tax_id"))
+      outWriteDF.schema.printTreeString()
+
+      filePath = pathDir + File.separator + "citations.dmp"
+    }
+
+    if (filePath.endsWith("citations.dmp")){
+      var fdis: FSDataInputStream = fs.open(new Path(filePath.toString))
+      val br: BufferedReader = new BufferedReader(new InputStreamReader(fdis))
+      var line: String = null
+      var count = 0
+      while ((line = br.readLine) != null && line != null  ) {
+        count += 1
+        val tokens: Array[String] = line.split("\\t\\|\\t")
+        if (tokens.size > 6) {
+          val pumed_id = tokens(2)
+          val medline_id = tokens(3)
+          val tar_ids = tokens(6).replace("\t|", "").trim
+
+          var shouldUpdate_pubmed: Boolean = true
+          var shouldUpdate_medline: Boolean = true
+          var pumed_ids = null
+          var medline_ids = null
+
+          if (!tar_ids.isEmpty) {
+            if (pumed_id.equals("0") && medline_id.equals("0")) {
+
+            } else if (pumed_id.equals("0")) {
+              shouldUpdate_medline = true
+              shouldUpdate_pubmed = false
+            } else if (medline_id.equals("0")) {
+              shouldUpdate_pubmed = true
+              shouldUpdate_medline = false
+            } else {
+              shouldUpdate_pubmed = true
+              shouldUpdate_medline = true
+            }
+
+          }
+
+        }
+      }
 
 
+    }
+
+    outWriteDF.schema.printTreeString()
+    outWriteDF.show()
+    println("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$"+outWriteDF.count())
+
+    out.write(outWriteDF)
 
 
   }
-
   def processNodes(index:String,types:String)={
 
   }
 
 
 
+
   def setProperties(map: Map[String, Any]): Unit = {
-    es_nodes=MapUtil.get(map,key="es_nodes").asInstanceOf[String]
-    port=MapUtil.get(map,key="port").asInstanceOf[String]
-    es_index=MapUtil.get(map,key="es_index").asInstanceOf[String]
-    es_type=MapUtil.get(map,key="es_type").asInstanceOf[String]
+    cachePath=MapUtil.get(map,key="cachePath").asInstanceOf[String]
   }
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
-    val es_nodes = new PropertyDescriptor().name("es_nodes").displayName("es_nodes").defaultValue("").required(true)
-    val port = new PropertyDescriptor().name("port").displayName("port").defaultValue("").required(true)
-    val es_index = new PropertyDescriptor().name("es_index").displayName("es_index").defaultValue("").required(true)
-    val es_type = new PropertyDescriptor().name("es_type").displayName("es_type").defaultValue("").required(true)
-
-
-    descriptor = es_nodes :: descriptor
-    descriptor = port :: descriptor
-    descriptor = es_index :: descriptor
-    descriptor = es_type :: descriptor
-
+    val cachePath = new PropertyDescriptor().name("cachePath").displayName("cachePath").defaultValue("").required(true)
+    descriptor = cachePath :: descriptor
     descriptor
   }
 

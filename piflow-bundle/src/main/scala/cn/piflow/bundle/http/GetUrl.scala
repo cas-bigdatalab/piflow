@@ -32,7 +32,6 @@ class GetUrl extends ConfigurableStop{
   // xml String
   var label:String=_
   var schema: String = _
-//  var xmlString :String=_
 
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
 
@@ -45,24 +44,17 @@ class GetUrl extends ConfigurableStop{
     val response:CloseableHttpResponse = client.execute(getFlowInfo)
     val entity = response.getEntity
     val jsonString = EntityUtils.toString(entity,"UTF-8")
-    println("-------------------------------------------")
-
-
     if (types == "json"){
 
       // json to df
       val jsonRDD = ss.sparkContext.makeRDD(jsonString :: Nil)
       val jsonDF = ss.read.json(jsonRDD)
 
-      //jsonDF.schema.printTreeString()
-      //jsonDF.show(10)
-      //jsonDF.select("app.id").show()
       out.write(jsonDF)
     }
 
 
     if(types=="xml"){
-      println("8888888888888888888888888888888888888888888888888888888")
       val doc: Document = DocumentHelper.parseText(jsonString)
       val rootElt: Element = doc.getRootElement
       var arrbuffer:ArrayBuffer[Element]=ArrayBuffer()
@@ -98,8 +90,6 @@ class GetUrl extends ConfigurableStop{
         list.+=(text.substring(0,text.length-1))
       }
 
-
-
       val listRows: List[Row] = list.toList.map(line => {
         val seq: Seq[String] = line.split(",").toSeq
         val row = Row.fromSeq(seq)
@@ -115,10 +105,7 @@ class GetUrl extends ConfigurableStop{
 
       val outDf: DataFrame = ss.createDataFrame(rowRDD,structType)
 
-      //outDf.show(20)
-      outDf.schema.printTreeString()
       out.write(outDf)
-
     }
 
 
@@ -128,8 +115,6 @@ class GetUrl extends ConfigurableStop{
   override def setProperties(map: Map[String, Any]): Unit = {
     url = MapUtil.get(map,key="url").asInstanceOf[String]
     types= MapUtil.get(map,key="types").asInstanceOf[String]
-
-//    xmlString = MapUtil.get(map,"XmlString").asInstanceOf[String]
     label = MapUtil.get(map,"label").asInstanceOf[String]
     schema = MapUtil.get(map,"schema").asInstanceOf[String]
 
@@ -139,9 +124,6 @@ class GetUrl extends ConfigurableStop{
     var descriptor : List[PropertyDescriptor] = List()
     val url = new PropertyDescriptor().name("url").displayName("url").defaultValue("").required(true)
     val types = new PropertyDescriptor().name("types").displayName("types").defaultValue("the url content is json or xml)").required(true)
-
-//    val xmlString = new PropertyDescriptor().name("XmlString").displayName("XmlString").description("the xml String").defaultValue("").required(true)
-//    descriptor = xmlString :: descriptor
     val label = new PropertyDescriptor().name("label").displayName("label").description("label path for hope,the delimiter is ,").defaultValue("").required(true)
     descriptor = label :: descriptor
     val schema = new PropertyDescriptor().name("schema").displayName("schema").description("name of field in label,the delimiter is ,").defaultValue("").required(true)

@@ -41,7 +41,7 @@ class PostUrl extends ConfigurableStop{
       buffer.append(lineTxt.mkString)
       lineTxt=bufferReader.readLine()
     }
-    println(buffer)
+
 
     // post
     val client = HttpClients.createDefault()
@@ -54,7 +54,6 @@ class PostUrl extends ConfigurableStop{
     val response = client.execute(post)
     val entity = response.getEntity
     val str = EntityUtils.toString(entity,"UTF-8")
-    println(response)
     println("Code is " + str)
 
   }

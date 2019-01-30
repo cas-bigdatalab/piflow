@@ -9,39 +9,27 @@ import org.elasticsearch.spark.sql.EsSparkSQL
 
 class PutEs extends ConfigurableStop {
 
-  override val description: String = "put data with dataframe to elasticSearch "
+  override val description: String = "Put data to Elasticsearch "
   val authorEmail: String = "ygang@cnic.cn"
 
   override val inportList: List[String] = List(PortEnum.DefaultPort.toString)
   override val outportList: List[String] = List(PortEnum.NonePort.toString)
 
   var es_nodes:String = _   //es的节点，多个用逗号隔开
-  var port:String= _           //es的端口好
+  var es_port:String= _           //es的端口好
   var es_index:String = _     //es的索引
   var es_type:String =  _     //es的类型
 
   def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     val spark = pec.get[SparkSession]()
     val inDf = in.read()
-    //inDf.show()
 
     val sc = spark.sparkContext
     val options = Map("es.index.auto.create"-> "true",
-      "es.nodes"->es_nodes,"es.port"->port)
+      "es.nodes"->es_nodes,"es.port"->es_port)
 
     //保存 df 到es
     EsSparkSQL.saveToEs(inDf,s"${es_index}/${es_type}",options)
-
-
-
-    //      val json1 = """{"name":"jack", "age":24, "sex":"man"}"""
-    //      val json2 = """{"name":"rose", "age":22, "sex":"woman"}"""
-    //
-    //      val rddData = sc.makeRDD(Seq(json1, json2))
-    //
-    //      EsSpark.saveJsonToEs(rddData, "spark/json2",options)
-    //自定义id
-    // EsSpark.saveJsonToEs(rddData, "spark/json1", Map("es.mapping.id"->"name"))
 
   }
 
@@ -52,21 +40,21 @@ class PutEs extends ConfigurableStop {
 
   def setProperties(map : Map[String, Any]): Unit = {
     es_nodes=MapUtil.get(map,key="es_nodes").asInstanceOf[String]
-    port=MapUtil.get(map,key="port").asInstanceOf[String]
+    es_port=MapUtil.get(map,key="es_port").asInstanceOf[String]
     es_index=MapUtil.get(map,key="es_index").asInstanceOf[String]
     es_type=MapUtil.get(map,key="es_type").asInstanceOf[String]
   }
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
-    val es_nodes = new PropertyDescriptor().name("es_nodes").displayName("es_nodes").defaultValue("").required(true)
-    val port = new PropertyDescriptor().name("port").displayName("port").defaultValue("").required(true)
-    val es_index = new PropertyDescriptor().name("es_index").displayName("es_index").defaultValue("").required(true)
-    val es_type = new PropertyDescriptor().name("es_type").displayName("es_type").defaultValue("").required(true)
+    val es_nodes = new PropertyDescriptor().name("es_nodes").displayName("es_nodes").defaultValue("Node of Elasticsearch").required(true)
+    val es_port = new PropertyDescriptor().name("es_port").displayName("es_port").defaultValue("Port of Elasticsearch").required(true)
+    val es_index = new PropertyDescriptor().name("es_index").displayName("es_index").defaultValue("Index of Elasticsearch").required(true)
+    val es_type = new PropertyDescriptor().name("es_type").displayName("es_type").defaultValue("Type of Elasticsearch").required(true)
 
 
     descriptor = es_nodes :: descriptor
-    descriptor = port :: descriptor
+    descriptor = es_port :: descriptor
     descriptor = es_index :: descriptor
     descriptor = es_type :: descriptor
 

@@ -14,25 +14,20 @@ class PutHdfs extends ConfigurableStop{
   override val authorEmail: String = "ygang@cmic.com"
   override val inportList: List[String] = List(PortEnum.DefaultPort.toString)
   override val outportList: List[String] = List(PortEnum.NonePort.toString)
-  override val description: String = "from dataframe write data to hdfs"
+  override val description: String = "Put data to hdfs"
 
   var hdfsPath :String= _
   var hdfsUrl :String= _
   var types :String= _
-  var partition :Int= 3
+  var partition :Int= _
 
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     val spark = pec.get[SparkSession]()
     val inDF = in.read()
-    //inDF.show()
-    inDF.schema.printTreeString()
-
-    //val path = new Path(hdfsUrl+hdfsPath)
 
     val config = new Configuration()
     config.set("fs.defaultFS",hdfsUrl)
     val fs = FileSystem.get(config)
-    println(hdfsUrl+hdfsPath+"pppppppppppppppppppppppppppppppp--putHdfs")
 
       if (types=="json"){
         inDF.repartition(partition).write.json(hdfsUrl+hdfsPath)
@@ -48,7 +43,7 @@ class PutHdfs extends ConfigurableStop{
     hdfsUrl = MapUtil.get(map,key="hdfsUrl").asInstanceOf[String]
     hdfsPath = MapUtil.get(map,key="hdfsPath").asInstanceOf[String]
     types = MapUtil.get(map,key="types").asInstanceOf[String]
-    val partition1 = MapUtil.get(map,key="partition").asInstanceOf[String]
+    partition = MapUtil.get(map,key="partition").asInstanceOf[Int]
   }
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
