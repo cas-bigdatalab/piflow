@@ -19,7 +19,7 @@ class TaxonomyParse extends ConfigurableStop{
   val authorEmail: String = "ygang@cnic.cn"
   val description: String = "Parsing Taxonomy type data"
   val inportList: List[String] = List(PortEnum.DefaultPort.toString)
-  val outportList: List[String] = List(PortEnum.NonePort.toString)
+  val outportList: List[String] = List(PortEnum.DefaultPort.toString)
 
   var cachePath:String = _
 
