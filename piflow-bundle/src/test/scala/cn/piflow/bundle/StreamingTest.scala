@@ -9,13 +9,13 @@ import org.junit.Test
 
 import scala.util.parsing.json.JSON
 
-class FlowTest {
+class StreamingTest {
 
   @Test
-  def testFlow(): Unit ={
+  def testSockStreaming(): Unit ={
 
     //parse flow json
-    val file = "src/main/resources/flow.json"
+    val file = "src/main/resources/flow_SocketTextStreaming.json"
     val flowJsonStr = FileUtil.fileReader(file)
     val map = OptionUtil.getAny(JSON.parseFull(flowJsonStr)).asInstanceOf[Map[String, Any]]
     println(map)
@@ -33,26 +33,9 @@ class FlowTest {
       .config("spark.driver.memory", "1g")
       .config("spark.executor.memory", "2g")
       .config("spark.cores.max", "2")
-      .config("hive.metastore.uris","thrift://10.0.86.191:9083")
       .config("spark.jars","/opt/project/piflow/out/artifacts/piflow_bundle/piflow-bundle.jar")
       .enableHiveSupport()
       .getOrCreate()
-//    val spark = SparkSession.builder()
-//      .master("yarn")
-//      .appName(flowBean.name)
-//      .config("spark.deploy.mode","cluster")
-//      .config("spark.hadoop.yarn.resourcemanager.hostname", "10.0.86.191")
-//      .config("spark.hadoop.cdefnprst.resourcemanager.address", "10.0.86.191:8032")
-//      .config("spark.yarn.access.namenode", "hdfs://10.0.86.191:9000")
-//      .config("spark.yarn.stagingDir", "hdfs://10.0.86.191:9000/tmp")
-//      .config("spark.yarn.jars", "hdfs://10.0.86.191:9000/user/spark/share/lib/*.jar")
-//      //.config("spark.driver.memory", "1g")
-//      //.config("spark.executor.memory", "1g")
-//      //.config("spark.cores.max", "2")
-//      .config("spark.jars", "/opt/project/piflow/piflow-server/target/piflow-server-0.9.jar")
-//      .config("hive.metastore.uris","thrift://10.0.86.191:9083")
-//      .enableHiveSupport()
-//      .getOrCreate()
 
     val process = Runner.create()
       .bind(classOf[SparkSession].getName, spark)
@@ -64,20 +47,6 @@ class FlowTest {
     val pid = process.pid();
     println(pid + "!!!!!!!!!!!!!!!!!!!!!")
     spark.close();
-  }
-
-  @Test
-  def testFlow2json() = {
-
-    //parse flow json
-    val file = "src/main/resources/flow.json"
-    val flowJsonStr = FileUtil.fileReader(file)
-    val map = OptionUtil.getAny(JSON.parseFull(flowJsonStr)).asInstanceOf[Map[String, Any]]
-
-    //create flow
-    val flowBean = FlowBean(map)
-    val flowJson = flowBean.toJson()
-    println(flowJson)
   }
 
 }

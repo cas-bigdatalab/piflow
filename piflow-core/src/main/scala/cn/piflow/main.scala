@@ -7,10 +7,14 @@ import java.util.concurrent.{CountDownLatch, TimeUnit}
 import cn.piflow.util._
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.FileSystem
-import org.apache.hadoop.fs.Path
+import org.apache.spark.rdd.RDD
 import org.apache.spark.sql._
+import org.apache.spark.sql.types.{StringType, StructField, StructType}
+import org.apache.spark.streaming.{Seconds, StreamingContext}
+import org.apache.spark.streaming.dstream.{DStream, InputDStream, ReceiverInputDStream}
 
 import scala.collection.mutable.{ArrayBuffer, Map => MMap}
+import scala.reflect.ClassTag
 
 trait JobInputStream {
   def isEmpty(): Boolean;
@@ -60,6 +64,11 @@ trait Stop {
   def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit;
 }
 
+trait StreamingStop extends Stop{
+
+  def getDStream(ssc : StreamingContext): DStream[String];
+}
+
 trait Flow {
   def getStopNames(): Seq[String];
 
@@ -82,6 +91,10 @@ trait Flow {
   def getRunMode() : String;
 
   def setRunMode( runMode : String) : Unit;
+
+  def hasStreamingStop() : Boolean;
+
+  def getStreamingStop() : (String, StreamingStop);
 }
 
 class FlowImpl extends Flow {
@@ -164,9 +177,23 @@ class FlowImpl extends Flow {
         }
       }
 
+
       override def visit[T](flow: Flow, op: (String, Map[Edge, T]) => T): Unit = {
+
         val ends = stops.keys.filterNot(outgoingEdges.contains(_));
         val visited = MMap[String, T]();
+        ends.foreach {
+          _visitProcess(flow, _, op, visited);
+        }
+
+      }
+
+      override def visitStreaming[T](flow: Flow,streamingStop : String, streamingData: T,op: (String, Map[Edge, T]) => T): Unit = {
+
+        val visited = MMap[String, T]();
+        visited(streamingStop) = streamingData
+
+        val ends = stops.keys.filterNot(outgoingEdges.contains(_));
         ends.foreach {
           _visitProcess(flow, _, op, visited);
         }
@@ -197,10 +224,29 @@ class FlowImpl extends Flow {
   override def setRunMode(runMode: String): Unit = {
     this.runMode = runMode
   }
+
+  override def hasStreamingStop() : Boolean ={
+    stops.keys.foreach{ stopName => {
+      if( stops(stopName).isInstanceOf[StreamingStop] ){
+        return true
+      }
+    }}
+    false
+  }
+
+  override def getStreamingStop() : (String, StreamingStop) = {
+    stops.keys.foreach{ stopName => {
+      if( stops(stopName).isInstanceOf[StreamingStop] ){
+        return (stopName, stops(stopName).asInstanceOf[StreamingStop])
+      }
+    }}
+    null
+  }
 }
 
 trait AnalyzedFlowGraph {
   def visit[T](flow: Flow, op: (String, Map[Edge, T]) => T): Unit;
+  def visitStreaming[T](flow: Flow, streamingStop : String, streamingData: T, op: (String, Map[Edge, T]) => T): Unit;
 }
 
 trait Process {
@@ -333,7 +379,9 @@ class JobOutputStreamImpl() extends JobOutputStream with Logging {
       mapDataFrame.foreach(en => {
         val portName = if(en._1.equals("")) "default" else en._1
         println(portName + " port: ")
+
         en._2.apply().show(PropertyUtil.getPropertyValue("data.show").toInt)
+
       })
   }
 
@@ -390,14 +438,40 @@ class ProcessImpl(flow: Flow, runnerContext: Context, runner: Runner, parentProc
         runnerListener.onJobInitialized(pe.getContext());
       }
 
-      //TODO: judge streaming stop
-
       val analyzed = flow.analyze();
       val checkpointParentProcessId = flow.getCheckpointParentProcessId()
-      analyzed.visit[JobOutputStreamImpl](flow,performStopByCheckpoint)
+
+      //TODO: change number by property configuration
+      if(flow.hasStreamingStop()) {
+        val (streamingStopName, streamingStop) = flow.getStreamingStop()
+
+        val pec = jobs(streamingStopName).getContext()
+        val spark = pec.get[SparkSession]();
+        val ssc = new StreamingContext(spark.sparkContext,Seconds(10))
+
+        val lines = streamingStop.getDStream(ssc)
+        lines.foreachRDD {
+          rdd => {
+            println(rdd.count())
+            val spark = pec.get[SparkSession]()
+            import spark.implicits._
+            val df = rdd.toDF("value")
+            df.show(10)
+            val streamingData = new JobOutputStreamImpl()
+            streamingData.write(df)
+
+            analyzed.visitStreaming[JobOutputStreamImpl](flow, streamingStopName, streamingData, performStreamingStop)
+          }
+        }
+        ssc.start()
+        ssc.awaitTermination()
+      }else{
+
+        analyzed.visit[JobOutputStreamImpl](flow,performStopByCheckpoint)
+      }
 
 
-      def performStop(stopName: String, inputs: Map[Edge, JobOutputStreamImpl]) = {
+      def performStreamingStop(stopName: String, inputs: Map[Edge, JobOutputStreamImpl]) = {
         val pe = jobs(stopName);
         var outputs: JobOutputStreamImpl = null;
         try {
@@ -405,11 +479,8 @@ class ProcessImpl(flow: Flow, runnerContext: Context, runner: Runner, parentProc
           outputs = pe.perform(inputs);
           runnerListener.onJobCompleted(pe.getContext());
 
-          //is a checkpoint?
-          if (flow.hasCheckPoint(stopName)) {
-            //store dataset
-            outputs.makeCheckPoint(pe.getContext());
-          }
+          //show data in log
+          outputs.showData()
         }
         catch {
           case e: Throwable =>
@@ -461,8 +532,8 @@ class ProcessImpl(flow: Flow, runnerContext: Context, runner: Runner, parentProc
           }
 
           //monitor the throughput
-          if(PropertyUtil.getPropertyValue("monitor.throughput").toBoolean == true)
-            runnerListener.monitorJobCompleted(pe.getContext(), outputs : JobOutputStream)
+          //if(PropertyUtil.getPropertyValue("monitor.throughput").toBoolean == true)
+            //runnerListener.monitorJobCompleted(pe.getContext(), outputs : JobOutputStream)
 
           runnerListener.onJobCompleted(pe.getContext());
 

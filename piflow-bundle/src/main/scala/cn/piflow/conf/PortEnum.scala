@@ -1,9 +1,8 @@
 package cn.piflow.conf
 
-object PortEnum extends Enumeration {
+object PortEnum {
 
-  type Port = Value
-  val AnyPort = Value("Any")
-  val DefaultPort = Value("Default")
-  val NonePort = Value("None")
+  val AnyPort = "Any"
+  val DefaultPort = "Default"
+  val NonePort = "None"
 }
