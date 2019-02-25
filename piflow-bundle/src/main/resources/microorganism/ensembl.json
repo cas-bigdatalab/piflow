@@ -6,10 +6,10 @@
      {
         "uuid":"1111",
         "name":"SelectFilesByName",
-        "bundle":"cn.piflow.bundle.ftp.SelectFilesByName",
+        "bundle":"cn.piflow.bundle.hdfs.SelectFilesByName",
         "properties":{
           "HDFSUrl":"hdfs://10.0.88.70:9000",
-          "HDFSPath":"/yqd/weishengwu/Ensembl_gff3/",
+          "HDFSPath":"/yqd/ftp/ensembl_gff3/",
           "selectionConditions":".*.gff3"
         }
       },{
@@ -26,8 +26,8 @@
         "properties":{
           "es_nodes": "10.0.88.70,10.0.88.71,10.0.88.72",
           "port": "9200",
-          "es_index": "ensemblgff3",
-          "es_type": "ensemblgff3"
+          "es_index": "yqd_ensembl_index",
+          "es_type": "yqd_ensembl_type"
         }
       }
     ],
