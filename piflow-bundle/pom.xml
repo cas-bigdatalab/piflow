@@ -231,6 +231,11 @@
             <version>2.4.2</version>
         </dependency>
 
+        <dependency>
+            <groupId>ftpClient</groupId>
+            <artifactId>edtftp</artifactId>
+            <version>1.0.0</version>
+        </dependency>
 
     </dependencies>
 
@@ -286,6 +291,22 @@
                             <groupId>jdbc_oracle</groupId>
                             <artifactId>ojdbc</artifactId>
                             <version>5.0.0</version>
+                            <packaging>jar</packaging>
+                            <generatePom>true</generatePom>
+                        </configuration>
+                    </execution>
+
+                    <execution>
+                        <id>install-external-3</id>
+                        <goals>
+                            <goal>install-file</goal>
+                        </goals>
+                        <phase>install</phase>
+                        <configuration>
+                            <file>${basedir}/lib/edtftpj.jar</file>
+                            <groupId>ftpClient</groupId>
+                            <artifactId>edtftp</artifactId>
+                            <version>1.0.0</version>
                             <packaging>jar</packaging>
                             <generatePom>true</generatePom>
                         </configuration>

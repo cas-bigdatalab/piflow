@@ -15,7 +15,7 @@ import org.json.JSONObject
 
 class Ensembl_gff3Parser extends ConfigurableStop{
   override val authorEmail: String = "yangqidong@cnic.cn"
-  override val description: String = "Parsing ensembl type data"
+  override val description: String = "ensembl type data"
   override val inportList: List[String] =List(PortEnum.DefaultPort.toString)
   override val outportList: List[String] = List(PortEnum.DefaultPort.toString)
 
@@ -62,7 +62,7 @@ class Ensembl_gff3Parser extends ConfigurableStop{
     configuration.set("fs.defaultFS",hdfsUrl)
     var fs: FileSystem = FileSystem.get(configuration)
 
-    val hdfsPathTemporary:String = hdfsUrl+"/Refseq_genomeParser_temporary.json"
+    val hdfsPathTemporary:String = hdfsUrl+"/ensembl_genomeParser_temporary.json"
     val path: Path = new Path(hdfsPathTemporary)
 
     if(fs.exists(path)){
@@ -82,25 +82,18 @@ class Ensembl_gff3Parser extends ConfigurableStop{
     var doc: JSONObject = null
     var seq: RichSequence = null
     var jsonStr: String = ""
-    var n:Int=0
     inDf.collect().foreach(row => {
       pathStr = row.get(0).asInstanceOf[String]
-      println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!   start parser ^^^" + pathStr)
+      println("start parser ^^^" + pathStr)
       fdis = fs.open(new Path(pathStr))
       br = new BufferedReader(new InputStreamReader(fdis))
       var eachStr:String=null
 
-      while((eachStr = br.readLine()) != null && eachStr != null){
+      while((eachStr = br.readLine()) != null && eachStr != null ){
         doc = parser.parserGff3(eachStr)
         jsonStr = doc.toString
         if(jsonStr.length > 2){
-          n +=1
-          println("start   " + n + "   String")
-          if (n == 1) {
-            bis = new BufferedInputStream(new ByteArrayInputStream(("[" + jsonStr).getBytes()))
-          } else {
-            bis = new BufferedInputStream(new ByteArrayInputStream(("," + jsonStr).getBytes()))
-          }
+          bis = new BufferedInputStream(new ByteArrayInputStream((jsonStr+"\n").getBytes()))
           var count: Int = bis.read(buff)
           while (count != -1) {
             fdos.write(buff, 0, count)
@@ -109,6 +102,7 @@ class Ensembl_gff3Parser extends ConfigurableStop{
           }
           fdos.flush()
 
+          bis.close()
           bis = null
           doc = null
           seq = null
@@ -117,24 +111,15 @@ class Ensembl_gff3Parser extends ConfigurableStop{
 
       }
       sequences = null
+      br.close()
       br = null
+      fdis.close()
       fdis =null
       pathStr = null
     })
-    bis = new BufferedInputStream(new ByteArrayInputStream(("]").getBytes()))
 
-    var count: Int = bis.read(buff)
-    while (count != -1) {
-      fdos.write(buff, 0, count)
-      fdos.flush()
-      count = bis.read(buff)
-    }
-    fdos.flush()
-    bis.close()
     fdos.close()
 
-    val df: DataFrame = session.read.json(hdfsPathTemporary)
-
-    out.write(df)
+    out.write(session.read.json(hdfsPathTemporary))
   }
 }

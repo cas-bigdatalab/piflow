@@ -41,7 +41,7 @@ class MicrobeGenomeDataParser extends ConfigurableStop{
     configuration.set("fs.defaultFS",hdfsUrl)
     var fs: FileSystem = FileSystem.get(configuration)
 
-    val hdfsPathTemporary:String = hdfsUrl+"/Refseq_genomeParser_temporary.json"
+    val hdfsPathTemporary:String = hdfsUrl+"/NCBI_Microbe_genome_genomeParser_temporary.json"
     val path: Path = new Path(hdfsPathTemporary)
 
     if(fs.exists(path)){
@@ -63,14 +63,13 @@ class MicrobeGenomeDataParser extends ConfigurableStop{
     inDf.collect().foreach(row => {
 
       pathStr = row.get(0).asInstanceOf[String]
+      println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!   start parser ^^^" + pathStr)
       fdis = fs.open(new Path(pathStr))
       br = new BufferedReader(new InputStreamReader(fdis))
       sequences = CustomIOTools.IOTools.readGenbankProtein(br, null)
 
       while (sequences.hasNext) {
-
         n += 1
-
         doc = new JSONObject()
         seq = sequences.nextRichSequence()
         Process.processSingleSequence(seq,doc)
@@ -90,6 +89,7 @@ class MicrobeGenomeDataParser extends ConfigurableStop{
         }
         fdos.flush()
 
+        bis.close()
         bis = null
         doc = null
         seq = null
@@ -97,7 +97,9 @@ class MicrobeGenomeDataParser extends ConfigurableStop{
 
       }
       sequences = null
+      br.close()
       br = null
+      fdis.close()
       fdis =null
       pathStr = null
 
@@ -114,10 +116,7 @@ class MicrobeGenomeDataParser extends ConfigurableStop{
     bis.close()
     fdos.close()
 
-    println("start parser HDFSjsonFile")
-    val df: DataFrame = session.read.json(hdfsPathTemporary)
-
-    out.write(df)
+    out.write(session.read.json(hdfsPathTemporary))
 
   }
 

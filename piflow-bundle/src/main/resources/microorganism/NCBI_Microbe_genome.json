@@ -6,10 +6,10 @@
      {
         "uuid":"1111",
         "name":"SelectFilesByName",
-        "bundle":"cn.piflow.bundle.ftp.SelectFilesByName",
+        "bundle":"cn.piflow.bundle.hdfs.SelectFilesByName",
         "properties":{
           "HDFSUrl":"hdfs://10.0.88.70:9000",
-          "HDFSPath":"/yqd/weishengwu/NCBI_Microbe_genome/",
+          "HDFSPath":"/yqd/ftp/NCBI_Microbe_genome/",
           "selectionConditions":".*.gbk"
         }
       },{
@@ -26,8 +26,8 @@
         "properties":{
           "es_nodes": "10.0.88.70,10.0.88.71,10.0.88.72",
           "port": "9200",
-          "es_index": "gene_index",
-          "es_type": "gene_type"
+          "es_index": "yqd_ncbi_microbe_genome_index_delet",
+          "es_type": "yqd_ncbi_microbe_genome_type_delet"
         }
       }
     ],

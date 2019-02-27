@@ -226,4 +226,13 @@ To Use：
     }
   - curl -0 -X POST http://10.0.86.191:8002/flow/start -H "Content-type: application/json" -d 'this is your flow json'
 - piflow web
+    ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-login.png)
+  ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-flowList.png)
+  ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-createflow.png)
   ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow_web.png)
+  ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-loadflow.png)
+  ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-monitor.png)
+  ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-log.png)
+  ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-processlist.png)
+  ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-templatelist.png)
+  ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-savetemplate.png)
