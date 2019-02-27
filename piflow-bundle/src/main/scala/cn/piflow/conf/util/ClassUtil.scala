@@ -9,6 +9,7 @@ import org.clapper.classutil.ClassFinder
 import org.reflections.Reflections
 import net.liftweb.json.JsonDSL._
 import sun.misc.BASE64Encoder
+import util.control.Breaks._
 
 
 object ClassUtil {
@@ -46,9 +47,20 @@ object ClassUtil {
     val allClasses = reflections.getSubTypesOf(classOf[ConfigurableStop])
     val it = allClasses.iterator();
     while(it.hasNext) {
-      val plugin = Class.forName(it.next().getName).newInstance()
-      val stop = plugin.asInstanceOf[ConfigurableStop]
-      stopList = stop +: stopList
+
+      breakable{
+
+        val stopName = it.next.getName
+        if (stopName.equals("cn.piflow.conf.ConfigurableStreamingStop"))
+          break
+        else{
+          //println(stopName + " in findAllConfigurableStop!!!!!")
+          val stopClass = Class.forName(stopName)
+          val plugin = stopClass.newInstance()
+          val stop = plugin.asInstanceOf[ConfigurableStop]
+          stopList = stop +: stopList
+        }
+      }
     }
 
     //find external stop
@@ -205,13 +217,13 @@ object ClassUtil {
     val str = propertyJsonList.mkString(start, ",", end)
     println(str)*/
 
-    /*val stop = findAllConfigurableStop()
+    val stop = findAllConfigurableStop()
     stop.foreach(s => println(s.getClass.getName))
-    val temp = 1*/
+    val temp = 1
 
 
-    val stop = findConfigurableStop("cn.piflow.bundle.Xjzhu")
-    println(stop.getClass.getName)
+    //val stop = findConfigurableStop("cn.piflow.bundle.http.PostUrl")
+    //println(stop.getClass.getName)
 
 
   }
