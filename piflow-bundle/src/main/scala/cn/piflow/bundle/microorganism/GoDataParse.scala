@@ -39,7 +39,7 @@ class GoDataParse extends ConfigurableStop{
     configuration.set("fs.defaultFS",hdfsUrl)
     var fs: FileSystem = FileSystem.get(configuration)
 
-    val hdfsPathJsonCache = hdfsUrl+cachePath+"/godataCache/godata.json"
+    val hdfsPathJsonCache = hdfsUrl+cachePath+"/godataCache/godataCache.json"
 
     val path: Path = new Path(hdfsPathJsonCache)
     if(fs.exists(path)){
@@ -88,12 +88,9 @@ class GoDataParse extends ConfigurableStop{
             obj.put(key,value.substring(1))
           }
           count += 1
-          if (count ==1 ) {
-            bisIn = new BufferedInputStream(new ByteArrayInputStream(("[" + obj.toString).getBytes()))
-          }
-          else {
-            bisIn = new BufferedInputStream(new ByteArrayInputStream(("," + obj.toString).getBytes()))
-          }
+
+          bisIn = new BufferedInputStream(new ByteArrayInputStream((obj.toString+"\n").getBytes()))
+
           val buff: Array[Byte] = new Array[Byte](1048576)
           var num: Int = bisIn.read(buff)
           while (num != -1) {
@@ -104,28 +101,16 @@ class GoDataParse extends ConfigurableStop{
           fdosOut.flush()
           bisIn = null
 
+
           obj= new JSONObject()
         }
       }
     })
 
-    bisIn = new BufferedInputStream(new ByteArrayInputStream(("]").getBytes()))
-    val buff: Array[Byte] = new Array[Byte](1048576)
-
-    var num: Int = bisIn.read(buff)
-    while (num != -1) {
-      fdosOut.write(buff, 0, num)
-      fdosOut.flush()
-      num = bisIn.read(buff)
-    }
-
-    fdosOut.flush()
     fdosOut.close()
 
     println("start parser HDFSjsonFile")
     val df: DataFrame = spark.read.json(hdfsPathJsonCache)
-
-    df.schema.printTreeString()
     out.write(df)
 
   }

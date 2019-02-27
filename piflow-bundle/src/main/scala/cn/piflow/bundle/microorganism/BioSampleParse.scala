@@ -21,10 +21,11 @@ class BioSampleParse extends ConfigurableStop{
   var cachePath:String = _
 
   var docName = "BioSample"
+
   def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     val spark = pec.get[SparkSession]()
     val sc = spark.sparkContext
-    val ssc = spark.sqlContext
+//    val ssc = spark.sqlContext
     val inDf= in.read()
 
     val configuration: Configuration = new Configuration()
@@ -40,8 +41,18 @@ class BioSampleParse extends ConfigurableStop{
 
     var hdfsPathJsonCache:String = ""
 
+    hdfsPathJsonCache = hdfsUrl+cachePath+"/biosampleCache/biosampleCache.json"
+
+    val path: Path = new Path(hdfsPathJsonCache)
+    if(fs.exists(path)){
+      fs.delete(path)
+    }
+    fs.create(path).close()
+
+
     var fdosOut: FSDataOutputStream = null
     var bisIn: BufferedInputStream =null
+    fdosOut = fs.append(path)
 
     var count = 0
     var nameNum = 0
@@ -68,6 +79,7 @@ class BioSampleParse extends ConfigurableStop{
           if (attrs.equals("")) {
             doc.remove("Attributes")
           }
+
           // Links
           val links: String = doc.optString("Links")
           if (links != null) {
@@ -90,71 +102,61 @@ class BioSampleParse extends ConfigurableStop{
           if (models != null) {
             bio.convertConcrete2KeyVal(models, "Models")
           }
-          if (count%200000 == 1 ){
-            nameNum += 1
-            hdfsPathJsonCache = hdfsUrl+cachePath+"/biosampleCache/"+"biosample"+nameNum+".json"
 
-            val path: Path = new Path(hdfsPathJsonCache)
-            if(fs.exists(path)){
-              fs.delete(path)
-            }
-            fs.create(path).close()
-            fdosOut = fs.append(path)
+          var jsonDoc = doc.toString
 
-            bisIn = new BufferedInputStream(new ByteArrayInputStream(("[" + doc.toString).getBytes()))
-            val buff: Array[Byte] = new Array[Byte](1048576)
-            var num: Int = bisIn.read(buff)
-            while (num != -1) {
-              fdosOut.write(buff, 0, num)
-              fdosOut.flush()
-              num = bisIn.read(buff)
-            }
-            bisIn.close()
-          } else if (count%200000 ==0){
-            bisIn = new BufferedInputStream(new ByteArrayInputStream((","+doc.toString + "]").getBytes()))
-            val buff: Array[Byte] = new Array[Byte](1048576)
-            var num: Int = bisIn.read(buff)
-            while (num != -1) {
-              fdosOut.write(buff, 0, num)
-              fdosOut.flush()
-              num = bisIn.read(buff)
-            }
-            fdosOut.flush()
-            fdosOut.close()
-            bisIn.close()
+          if (jsonDoc.contains("Attributes\":{\"Attribute\":")){
+            if (jsonDoc.contains("Attributes\":{\"Attribute\":[{")){
 
-          } else {
-            bisIn = new BufferedInputStream(new ByteArrayInputStream(("," + doc.toString).getBytes()))
-            val buff: Array[Byte] = new Array[Byte](1048576)
-            var num: Int = bisIn.read(buff)
-            while (num != -1) {
-              fdosOut.write(buff, 0, num)
-              fdosOut.flush()
-              num = bisIn.read(buff)
+            } else {
+              jsonDoc = jsonDoc.replace("Attributes\":{\"Attribute\":{","Attributes\":{\"Attribute\":[{")
             }
-            bisIn.close()
           }
+          if (jsonDoc.contains("Links\":{\"Link\":{")){
+            if (jsonDoc.contains("Links\":{\"Link\":[{")){
+
+            } else {
+              jsonDoc = jsonDoc.replace("Links\":{\"Link\":{","Links\":{\"Link\":[{")
+            }
+          }
+          if (jsonDoc.contains("Ids\":{\"Id\":{")){
+            if (jsonDoc.contains("Ids\":{\"Id\":[{")){
+
+            } else {
+//              println(count)
+//              println(jsonDoc)
+              jsonDoc = jsonDoc.replace("Ids\":{\"Id\":{","Ids\":{\"Id\":[{")
+            }
+          }
+
+          bisIn = new BufferedInputStream(new ByteArrayInputStream((jsonDoc+"\n").getBytes()))
+
+          val buff: Array[Byte] = new Array[Byte](1048576)
+
+          var num: Int = bisIn.read(buff)
+          while (num != -1) {
+            fdosOut.write(buff, 0, num)
+            fdosOut.flush()
+            num = bisIn.read(buff)
+          }
+          fdosOut.flush()
+          bisIn = null
+
           xml = ""
         }
       }
     })
-    if (count%200000 != 0){
-      bisIn = new BufferedInputStream(new ByteArrayInputStream(("]").getBytes()))
-      val buff: Array[Byte] = new Array[Byte](1048576)
-      var num: Int = bisIn.read(buff)
-      while (num != -1) {
-        fdosOut.write(buff, 0, num)
-        fdosOut.flush()
-        num = bisIn.read(buff)
-      }
-      fdosOut.flush()
-      bisIn.close()
-    }
+
+    //    bisIn.close()
     fdosOut.close()
     println("start parser HDFSjsonFile")
-    val df: DataFrame = ssc.read.json(hdfsUrl+cachePath+"/biosampleCache/")
+
+    val df: DataFrame = spark.read.json(hdfsPathJsonCache)
+
     out.write(df)
   }
+
+
 
   def setProperties(map: Map[String, Any]): Unit = {
     cachePath=MapUtil.get(map,key="cachePath").asInstanceOf[String]

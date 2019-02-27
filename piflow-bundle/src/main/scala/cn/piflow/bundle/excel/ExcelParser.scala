@@ -19,7 +19,7 @@ class ExcelParser extends ConfigurableStop{
   val inportList: List[String] = List(PortEnum.DefaultPort.toString)
   val outportList: List[String] = List(PortEnum.DefaultPort.toString)
 
-  var jsonSavePath: String = _
+  var cachePath: String = _
 
 
   def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
@@ -39,7 +39,11 @@ class ExcelParser extends ConfigurableStop{
     configuration.set("fs.defaultFS",hdfsUrl)
     var fs: FileSystem = FileSystem.get(configuration)
 
-    val path: Path = new Path(jsonSavePath)
+    var hdfsPathJsonCache:String = ""
+
+    hdfsPathJsonCache = hdfsUrl+cachePath+"/excelCache/excelCache.json"
+
+    val path: Path = new Path(hdfsPathJsonCache)
     if(fs.exists(path)){
       fs.delete(path)
     }
@@ -63,21 +67,17 @@ class ExcelParser extends ConfigurableStop{
         for (i <- 0 until array.size()){
           jsonStr = array.get(i).toString
 
-          if (count == 0) {
-            bisIn = new BufferedInputStream(new ByteArrayInputStream(("[" + jsonStr).getBytes()))
-            count+=1
-          } else if (count==1){
-            bisIn = new BufferedInputStream(new ByteArrayInputStream(("," + jsonStr).getBytes()))
-          }
+
+          bisIn = new BufferedInputStream(new ByteArrayInputStream((jsonStr+"\n").getBytes()))
 
           val buff: Array[Byte] = new Array[Byte](1048576)
+
           var num: Int = bisIn.read(buff)
           while (num != -1) {
             fdosOut.write(buff, 0, num)
             fdosOut.flush()
             num = bisIn.read(buff)
           }
-
           fdosOut.flush()
           bisIn = null
 
@@ -85,20 +85,9 @@ class ExcelParser extends ConfigurableStop{
       }
     })
 
-    bisIn = new BufferedInputStream(new ByteArrayInputStream(("]").getBytes()))
-    val buff: Array[Byte] = new Array[Byte](1048576)
-
-    var num: Int = bisIn.read(buff)
-    while (num != -1) {
-      fdosOut.write(buff, 0, num)
-      fdosOut.flush()
-      num = bisIn.read(buff)
-    }
-
-    fdosOut.flush()
     fdosOut.close()
 
-    val df: DataFrame = spark.read.json(jsonSavePath)
+    val df: DataFrame = spark.read.json(hdfsPathJsonCache)
 
     out.write(df)
 
@@ -110,12 +99,12 @@ class ExcelParser extends ConfigurableStop{
   }
 
   def setProperties(map : Map[String, Any]): Unit = {
-    jsonSavePath = MapUtil.get(map,"jsonSavePath").asInstanceOf[String]
+    cachePath = MapUtil.get(map,"cachePath").asInstanceOf[String]
   }
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
-    val jsonSavePath = new PropertyDescriptor().name("jsonSavePath").displayName("jsonSavePath").description("save path of json").defaultValue("").required(true)
+    val jsonSavePath = new PropertyDescriptor().name("cachePath").displayName("cachePath").description("save path of json").defaultValue("").required(true)
     descriptor = jsonSavePath :: descriptor
     descriptor
   }

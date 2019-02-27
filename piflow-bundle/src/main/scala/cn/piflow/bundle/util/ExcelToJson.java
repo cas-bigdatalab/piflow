@@ -32,12 +32,7 @@ public class ExcelToJson {
 
     public static final Configuration configuration = new Configuration();
 
-    /**
-     * 获取Excel文件（.xls和.xlsx都支持）
-     * @param pathStr
-     * @return  解析excle后的Json数据
-     * @throws IOException
-     */
+
     public static net.sf.json.JSONArray readExcel(String pathStr,String hdfsUrl) throws IOException {
 
         configuration.set("fs.defaultFS",hdfsUrl);
@@ -52,11 +47,6 @@ public class ExcelToJson {
     }
 
 
-    /**
-     * 读取XLSX文件
-     * @param pathStr
-     * @return
-     */
     public static net.sf.json.JSONArray readXLSX(String pathStr) throws  IOException{
 
         FileSystem fs = FileSystem.get(configuration);
@@ -69,12 +59,7 @@ public class ExcelToJson {
         return read(sheet, book);
     }
 
-    /**
-     * 读取XLS文件
-     * @param pathStr
-     * @return
-     * @throws IOException
-     */
+
     public static net.sf.json.JSONArray readXLS(String pathStr) throws  IOException{
 
         FileSystem fs = FileSystem.get(configuration);
@@ -87,13 +72,7 @@ public class ExcelToJson {
         Sheet sheet = book.getSheetAt(0);
         return read(sheet, book);
     }
-    /**
-     * 解析数据
-     * @param sheet 表格sheet对象
-     * @param book 用于流关闭
-     * @return
-     * @throws IOException
-     */
+
     public static net.sf.json.JSONArray read(Sheet sheet, Workbook book) throws IOException{
         int rowStart = sheet.getFirstRowNum();	// 首行下标
         int rowEnd = sheet.getLastRowNum();	// 尾行下标

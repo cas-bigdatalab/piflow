@@ -14,8 +14,6 @@ import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.json.{JSONArray, JSONObject, XML}
 
 
-
-
 class BioProjetDataParse extends ConfigurableStop{
   val authorEmail: String = "ygang@cnic.cn"
   val description: String = "Parsing BioProjet type data"
@@ -23,6 +21,7 @@ class BioProjetDataParse extends ConfigurableStop{
   val outportList: List[String] = List(PortEnum.DefaultPort.toString)
 
   var cachePath:String = _
+
   var name:String = "Package"
   var dp = Pattern.compile("((\\d{4})-(\\d{2})-(\\d{2}))(T.*)")
 
@@ -42,7 +41,7 @@ class BioProjetDataParse extends ConfigurableStop{
     configuration.set("fs.defaultFS",hdfsUrl)
     var fs: FileSystem = FileSystem.get(configuration)
 
-    val hdfsPathTemporary = hdfsUrl+cachePath+"/bioprojectCatch/bioproject.json"
+    val hdfsPathTemporary = hdfsUrl+cachePath+"/bioprojectCatch/bioprojectCatch.json"
 
     val path: Path = new Path(hdfsPathTemporary)
     if(fs.exists(path)){
@@ -68,7 +67,7 @@ class BioProjetDataParse extends ConfigurableStop{
       var count = 0
       var xml = new StringBuffer()
       var x = 0
-      while ((line = br.readLine()) != null && x <1  && line!= null) {
+      while ((line = br.readLine()) != null && x <1  && line!= null ) {
         xml.append(line)
         if (line.equals("</PackageSet>")){
           println("----------------------------------break")
@@ -160,20 +159,17 @@ class BioProjetDataParse extends ConfigurableStop{
 
           //           ----------------6
           val  projTypeSubmission = doc.getJSONObject("Project").getJSONObject("Project").getJSONObject("ProjectType").optJSONObject("ProjectTypeSubmission");
-
           if(projTypeSubmission != null){
             val bioSampleSet = projTypeSubmission.getJSONObject("Target").optJSONObject("BioSampleSet");
             if(bioSampleSet != null){
               bio.convertConcrete2KeyVal(bioSampleSet, "ID");
             }
           }
-          if (count ==1 ) {
-            bisIn = new BufferedInputStream(new ByteArrayInputStream(("[" + doc.toString).getBytes()))
-          }
-          else {
-            bisIn = new BufferedInputStream(new ByteArrayInputStream(("," + doc.toString).getBytes()))
-          }
+
+          bisIn = new BufferedInputStream(new ByteArrayInputStream((doc.toString+"\n").getBytes()))
+
           val buff: Array[Byte] = new Array[Byte](1048576)
+
           var num: Int = bisIn.read(buff)
           while (num != -1) {
             fdosOut.write(buff, 0, num)
@@ -182,30 +178,17 @@ class BioProjetDataParse extends ConfigurableStop{
           }
           fdosOut.flush()
           bisIn = null
+
           xml = new StringBuffer()
 
         }
       }
     })
 
-    bisIn = new BufferedInputStream(new ByteArrayInputStream(("]").getBytes()))
-    val buff: Array[Byte] = new Array[Byte](1048576)
-
-    var num: Int = bisIn.read(buff)
-    while (num != -1) {
-      fdosOut.write(buff, 0, num)
-      fdosOut.flush()
-      num = bisIn.read(buff)
-    }
-
-    fdosOut.flush()
     fdosOut.close()
 
     println("start parser HDFSjsonFile")
     val df: DataFrame = spark.read.json(hdfsPathTemporary)
-
-    df.schema.printTreeString()
-
     out.write(df)
 
   }

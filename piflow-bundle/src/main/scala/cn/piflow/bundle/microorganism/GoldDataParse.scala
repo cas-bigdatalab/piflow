@@ -21,6 +21,8 @@ class GoldDataParse extends ConfigurableStop{
 
     val inDf = in.read()
 
+    inDf.schema.printTreeString()
+
     out.write(inDf)
 
   }

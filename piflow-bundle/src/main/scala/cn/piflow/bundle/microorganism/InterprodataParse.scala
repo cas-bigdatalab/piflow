@@ -17,6 +17,7 @@ class InterprodataParse extends ConfigurableStop{
   val description: String = "Parsing Interpro type data"
   val inportList: List[String] = List(PortEnum.DefaultPort.toString)
   val outportList: List[String] = List(PortEnum.DefaultPort.toString)
+
   var cachePath:String = _
 
   def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
@@ -34,7 +35,7 @@ class InterprodataParse extends ConfigurableStop{
     configuration.set("fs.defaultFS",hdfsUrl)
     var fs: FileSystem = FileSystem.get(configuration)
 
-    val hdfsPathJsonCache = hdfsUrl+cachePath+"/interproDataCatch/interpro.json"
+    val hdfsPathJsonCache = hdfsUrl+cachePath+"/interproDataCatch/interproDataCatch.json"
     val path: Path = new Path(hdfsPathJsonCache)
     if(fs.exists(path)){
       fs.delete(path)
@@ -75,12 +76,9 @@ class InterprodataParse extends ConfigurableStop{
             doc.remove("pub_list")
           }
 
-          if (count ==1 ) {
-            bisIn = new BufferedInputStream(new ByteArrayInputStream(("[" + doc.toString).getBytes()))
-          }
-          else {
-            bisIn = new BufferedInputStream(new ByteArrayInputStream(("," + doc.toString).getBytes()))
-          }
+
+          bisIn = new BufferedInputStream(new ByteArrayInputStream((doc.toString+"\n").getBytes()))
+
           val buff: Array[Byte] = new Array[Byte](1048576)
           var num: Int = bisIn.read(buff)
           while (num != -1) {
@@ -90,29 +88,16 @@ class InterprodataParse extends ConfigurableStop{
           }
           fdosOut.flush()
           bisIn = null
-          xml = ""
 
+          xml = ""
         }
       }
     })
 
-    bisIn = new BufferedInputStream(new ByteArrayInputStream(("]").getBytes()))
-    val buff: Array[Byte] = new Array[Byte](1048576)
-
-    var num: Int = bisIn.read(buff)
-    while (num != -1) {
-      fdosOut.write(buff, 0, num)
-      fdosOut.flush()
-      num = bisIn.read(buff)
-    }
-
-    fdosOut.flush()
     fdosOut.close()
 
     println("start parser HDFSjsonFile")
     val df: DataFrame = spark.read.json(hdfsPathJsonCache)
-
-    df.schema.printTreeString()
 
     out.write(df)
 

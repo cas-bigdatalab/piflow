@@ -68,11 +68,8 @@ class GenBankParse extends ConfigurableStop{
 
         Process.processSingleSequence(seq, doc)
 
-        if (count == 1) {
-          bisIn = new BufferedInputStream(new ByteArrayInputStream(("[" + doc.toString).getBytes()))
-        } else {
-          bisIn = new BufferedInputStream(new ByteArrayInputStream(("," + doc.toString).getBytes()))
-        }
+
+        bisIn = new BufferedInputStream(new ByteArrayInputStream((doc.toString+"\n").getBytes()))
 
         val buff: Array[Byte] = new Array[Byte](1048576)
         var num: Int = bisIn.read(buff)
@@ -88,19 +85,7 @@ class GenBankParse extends ConfigurableStop{
       }
     })
 
-    bisIn = new BufferedInputStream(new ByteArrayInputStream(("]").getBytes()))
-    val buff: Array[Byte] = new Array[Byte](1048576)
-
-    var num: Int = bisIn.read(buff)
-    while (num != -1) {
-      fdosOut.write(buff, 0, num)
-      fdosOut.flush()
-      num = bisIn.read(buff)
-    }
-
-    fdosOut.flush()
     fdosOut.close()
-
     println("start parser HDFSjsonFile")
     val df: DataFrame = spark.read.json(hdfsPathTemporary)
 

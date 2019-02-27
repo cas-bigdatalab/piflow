@@ -13,8 +13,6 @@ import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.json.JSONObject
 
 
-
-
 class TaxonomyParse extends ConfigurableStop{
   val authorEmail: String = "ygang@cnic.cn"
   val description: String = "Parsing Taxonomy type data"
@@ -70,7 +68,7 @@ class TaxonomyParse extends ConfigurableStop{
       val br: BufferedReader = new BufferedReader(new InputStreamReader(fdis))
       var line: String = null;
       var count =0
-      while ((line = br.readLine) != null  && line != null) {
+      while ((line = br.readLine) != null  && line != null ) {
         count = count+1
         val doc = new JSONObject()
         val tokens: Array[String] = line.split("\\t\\|\\t")
@@ -82,11 +80,8 @@ class TaxonomyParse extends ConfigurableStop{
         doc.put("genetic_code_id", tokens(6))
         doc.put("mitochondrial_genetic_code_id", tokens(8))
 
-        if (count == 1) {
-          bisIn = new BufferedInputStream(new ByteArrayInputStream(("[" + doc.toString).getBytes()))
-        } else {
-          bisIn = new BufferedInputStream(new ByteArrayInputStream(("," + doc.toString).getBytes()))
-        }
+        bisIn = new BufferedInputStream(new ByteArrayInputStream((doc.toString+"\n").getBytes()))
+
         val buff: Array[Byte] = new Array[Byte](1048576)
         var num: Int = bisIn.read(buff)
         while (num != -1) {
@@ -94,24 +89,15 @@ class TaxonomyParse extends ConfigurableStop{
           fdosOut.flush()
           num = bisIn.read(buff)
         }
-
         fdosOut.flush()
-        bisIn.close()
-      }
-      bisIn = new BufferedInputStream(new ByteArrayInputStream(("]").getBytes()))
-      val buff: Array[Byte] = new Array[Byte](1048576)
+        bisIn = null
 
-      var num: Int = bisIn.read(buff)
-      while (num != -1) {
-        fdosOut.write(buff, 0, num)
-        fdosOut.flush()
-        num = bisIn.read(buff)
       }
-      fdosOut.flush()
-      bisIn.close()
+
       fdosOut.close()
 
       nodesDF = spark.read.json(hdfsPathJsonCache)
+
       filePath = pathDir + File.separator + "division.dmp"
     }
 
@@ -139,11 +125,9 @@ class TaxonomyParse extends ConfigurableStop{
         doc.put("dive", tokens(1))
         doc.put("diname", tokens(2))
 
-        if (count == 1) {
-          bisIn = new BufferedInputStream(new ByteArrayInputStream(("[" + doc.toString).getBytes()))
-        } else {
-          bisIn = new BufferedInputStream(new ByteArrayInputStream(("," + doc.toString).getBytes()))
-        }
+
+        bisIn = new BufferedInputStream(new ByteArrayInputStream((doc.toString+"\n").getBytes()))
+
         val buff: Array[Byte] = new Array[Byte](1048576)
         var num: Int = bisIn.read(buff)
         while (num != -1) {
@@ -154,27 +138,16 @@ class TaxonomyParse extends ConfigurableStop{
         fdosOut.flush()
         bisIn = null
       }
-      bisIn = new BufferedInputStream(new ByteArrayInputStream(("]").getBytes()))
-      val buff: Array[Byte] = new Array[Byte](1048576)
 
-      var num: Int = bisIn.read(buff)
-      while (num != -1) {
-        fdosOut.write(buff, 0, num)
-        fdosOut.flush()
-        num = bisIn.read(buff)
-      }
-      fdosOut.flush()
       fdosOut.close()
 
       divisionDF = spark.read.json(hdfsPathJsonCache)
-
       outWriteDF=nodesDF.join(divisionDF, Seq("division_id"))
 
       filePath = pathDir + File.separator + "gencode.dmp"
     }
 
     if (filePath.endsWith("gencode.dmp")){
-
 
       val hdfsPathJsonCache = hdfsUrl+cachePath+"/taxonomyCache/gencode.json"
       val path: Path = new Path(hdfsPathJsonCache)
@@ -198,11 +171,10 @@ class TaxonomyParse extends ConfigurableStop{
         doc.put("genetic_code_name", tokens(2).trim)
         doc.put("genetic_code_translation_table", tokens(3).trim)
         doc.put("genetic_code_start_codons", tokens(4).replace("\t|","").trim)
-        if (count == 1) {
-          bisIn = new BufferedInputStream(new ByteArrayInputStream(("[" + doc.toString).getBytes()))
-        } else {
-          bisIn = new BufferedInputStream(new ByteArrayInputStream(("," + doc.toString).getBytes()))
-        }
+
+
+        bisIn = new BufferedInputStream(new ByteArrayInputStream((doc.toString+"\n").getBytes()))
+
         val buff: Array[Byte] = new Array[Byte](1048576)
         var num: Int = bisIn.read(buff)
         while (num != -1) {
@@ -212,22 +184,16 @@ class TaxonomyParse extends ConfigurableStop{
         }
         fdosOut.flush()
         bisIn = null
-      }
-      bisIn = new BufferedInputStream(new ByteArrayInputStream(("]").getBytes()))
-      val buff: Array[Byte] = new Array[Byte](1048576)
 
-      var num: Int = bisIn.read(buff)
-      while (num != -1) {
-        fdosOut.write(buff, 0, num)
-        fdosOut.flush()
-        num = bisIn.read(buff)
+
       }
-      fdosOut.flush()
+
       fdosOut.close()
 
 
       gencodeDF = spark.read.json(hdfsPathJsonCache)
       outWriteDF=outWriteDF.join(gencodeDF, Seq("genetic_code_id"))
+
 
       filePath = pathDir + File.separator + "names.dmp"
 
@@ -276,11 +242,8 @@ class TaxonomyParse extends ConfigurableStop{
           names = new HashMap[String,String]()
           names.put(name_key,tokens(1))
 
-          if (count == 1) {
-            bisIn = new BufferedInputStream(new ByteArrayInputStream(("[" + jsonStr).getBytes()))
-          } else {
-            bisIn = new BufferedInputStream(new ByteArrayInputStream(("," + jsonStr).getBytes()))
-          }
+          bisIn = new BufferedInputStream(new ByteArrayInputStream((jsonStr.toString+"\n").getBytes()))
+
           val buff: Array[Byte] = new Array[Byte](1048576)
           var num: Int = bisIn.read(buff)
           while (num != -1) {
@@ -290,28 +253,15 @@ class TaxonomyParse extends ConfigurableStop{
           }
           fdosOut.flush()
           bisIn = null
+
         }
       }
-      names.put("tax_id",pre_tax_id)
-      doc.put("",names)
-      val doc1 = doc.toString().substring(0,doc.toString.length-1)
-      jsonStr = doc1.substring(4,doc1.length)
-      bisIn = new BufferedInputStream(new ByteArrayInputStream(("," +jsonStr+ "]").getBytes()))
-      val buff: Array[Byte] = new Array[Byte](1048576)
 
-      var num: Int = bisIn.read(buff)
-      while (num != -1) {
-        fdosOut.write(buff, 0, num)
-        fdosOut.flush()
-        num = bisIn.read(buff)
-      }
-      fdosOut.flush()
       fdosOut.close()
 
       namesDF = spark.read.json(hdfsPathJsonCache)
 
       outWriteDF = outWriteDF.join(namesDF,Seq("tax_id"))
-      outWriteDF.schema.printTreeString()
 
       filePath = pathDir + File.separator + "citations.dmp"
     }
