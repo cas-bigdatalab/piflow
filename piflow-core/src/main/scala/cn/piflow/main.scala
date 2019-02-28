@@ -7,11 +7,15 @@ import java.util.concurrent.{CountDownLatch, TimeUnit}
 import cn.piflow.util._
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.FileSystem
+import org.apache.kafka.common.serialization.StringDeserializer
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql._
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
 import org.apache.spark.streaming.{Seconds, StreamingContext}
 import org.apache.spark.streaming.dstream.{DStream, InputDStream, ReceiverInputDStream}
+import org.apache.spark.streaming.kafka010.ConsumerStrategies.Subscribe
+import org.apache.spark.streaming.kafka010.KafkaUtils
+import org.apache.spark.streaming.kafka010.LocationStrategies.PreferConsistent
 
 import scala.collection.mutable.{ArrayBuffer, Map => MMap}
 import scala.reflect.ClassTag
@@ -452,7 +456,7 @@ class ProcessImpl(flow: Flow, runnerContext: Context, runner: Runner, parentProc
         val lines = streamingStop.getDStream(ssc)
         lines.foreachRDD {
           rdd => {
-            println(rdd.count())
+            //println(rdd.count())
             val spark = pec.get[SparkSession]()
             import spark.implicits._
             val df = rdd.toDF("value")

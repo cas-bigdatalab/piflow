@@ -12,8 +12,8 @@ import org.apache.spark.streaming.{Seconds, StreamingContext}
 class SocketTextStream extends ConfigurableStreamingStop {
   override val authorEmail: String = "xjzhu@cnic.cn"
   override val description: String = "Receive text data from a data server listening on a TCP socket."
-  override val inportList: List[String] = List(PortEnum.NonePort.toString)
-  override val outportList: List[String] = List(PortEnum.DefaultPort.toString)
+  override val inportList: List[String] = List(PortEnum.NonePort)
+  override val outportList: List[String] = List(PortEnum.DefaultPort)
   override val timing: Integer = 1
 
   var hostname:String =_
@@ -75,7 +75,8 @@ class SocketTextStream extends ConfigurableStreamingStop {
       //lines.asInstanceOf[ReceiverInputDStream[String]]
   }*/
   override def getDStream(ssc: StreamingContext): DStream[String] = {
-    ssc.socketTextStream(hostname,Integer.parseInt(port))
+    val dstream = ssc.socketTextStream(hostname,Integer.parseInt(port))
+    dstream.asInstanceOf[DStream[String]]
   }
 
 }

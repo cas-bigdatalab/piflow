@@ -5,10 +5,12 @@
     "stops":[
       {
         "uuid":"1111",
-        "name":"TextFileStream",
-        "bundle":"cn.piflow.bundle.streaming.TextFileStream",
+        "name":"kafkaStream",
+        "bundle":"cn.piflow.bundle.streaming.KafkaStream",
         "properties":{
-            "directory":"hdfs://10.0.86.89:9000/xjzhu/textfileStream"
+          "brokers":"10.0.86.191:9092,10.0.86.203:9092,10.0.86.210:9092",
+          "groupId":"piflow",
+          "topics":"streaming"
         }
 
       },
@@ -33,7 +35,7 @@
     ],
     "paths":[
       {
-        "from":"TextFileStream",
+        "from":"kafkaStream",
         "outport":"",
         "inport":"",
         "to":"ConvertSchema"
