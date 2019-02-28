@@ -30,4 +30,5 @@ clean package -Dmaven.test.skip=true -U
       <value>3600</value>
      </property>
 
+5.kafka related jars are needed to put on the spark cluster
 

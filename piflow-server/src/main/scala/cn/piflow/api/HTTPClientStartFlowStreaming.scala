@@ -5,7 +5,7 @@ import org.apache.http.entity.StringEntity
 import org.apache.http.impl.client.HttpClients
 import org.apache.http.util.EntityUtils
 
-object HTTPClientStartFlow {
+object HTTPClientStartFlowStreaming {
 
   def main(args: Array[String]): Unit = {
     val json =
