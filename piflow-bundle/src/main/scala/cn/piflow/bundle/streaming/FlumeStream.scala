@@ -34,7 +34,7 @@ class FlumeStream extends ConfigurableStreamingStop{
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("mllib.png")
+    ImageUtil.getImage("icon/streaming/flumeStream.png")
   }
 
   override def getGroup(): List[String] = {

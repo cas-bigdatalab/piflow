@@ -29,7 +29,7 @@ class TextFileStream extends ConfigurableStreamingStop{
 
   //TODO: change icon
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("mllib.png")
+    ImageUtil.getImage("icon/streaming/textFileStream.png")
   }
 
   override def getGroup(): List[String] = {
