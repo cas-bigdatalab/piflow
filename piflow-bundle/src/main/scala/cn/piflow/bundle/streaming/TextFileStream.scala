@@ -38,7 +38,7 @@ class TextFileStream extends ConfigurableStreamingStop{
 
   override def getDStream(ssc: StreamingContext): DStream[String] = {
     val dstream = ssc.textFileStream(directory)
-    dstream.asInstanceOf[DStream[String]]
+    dstream
   }
 
   override def initialize(ctx: ProcessContext): Unit = {}

@@ -31,4 +31,10 @@ clean package -Dmaven.test.skip=true -U
      </property>
 
 5.kafka related jars are needed to put on the spark cluster
+    spark-streaming-kafka-0-10_2.11-2.1.0.jar
+    kafka_2.11-2.1.1.jar
+    kafka-clients-2.1.1.jar
+
+6.flume related jars are needed to put on the spark cluster
+    spark-streaming-flume_2.11-2.1.0.jar
 

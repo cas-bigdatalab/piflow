@@ -8,7 +8,7 @@ import org.apache.http.util.EntityUtils
 object HTTPClientStartFlowStreaming {
 
   def main(args: Array[String]): Unit = {
-    val json =
+    /*val json =
       """
         |{
         |  "flow":{
@@ -48,6 +48,59 @@ object HTTPClientStartFlowStreaming {
         |    "paths":[
         |      {
         |        "from":"kafkaStream",
+        |        "outport":"",
+        |        "inport":"",
+        |        "to":"ConvertSchema"
+        |      },
+        |      {
+        |        "from":"ConvertSchema",
+        |        "outport":"",
+        |        "inport":"",
+        |        "to":"CsvSave"
+        |      }
+        |    ]
+        |  }
+        |}
+      """.stripMargin*/
+    val json=
+      """
+        |{
+        |  "flow":{
+        |    "name":"flumeStreaming",
+        |    "uuid":"1234",
+        |    "stops":[
+        |      {
+        |        "uuid":"1111",
+        |        "name":"SocketTextStream",
+        |        "bundle":"cn.piflow.bundle.streaming.FlumeStream",
+        |        "properties":{
+        |            "hostname":"10.0.86.210",
+        |            "port":"7777"
+        |        }
+        |
+        |      },
+        |      {
+        |        "uuid":"2222",
+        |        "name":"ConvertSchema",
+        |        "bundle":"cn.piflow.bundle.common.ConvertSchema",
+        |        "properties":{
+        |          "schema":"value->line"
+        |        }
+        |      },
+        |      {
+        |        "uuid":"3333",
+        |        "name":"CsvSave",
+        |        "bundle":"cn.piflow.bundle.csv.CsvSave",
+        |        "properties":{
+        |          "csvSavePath":"hdfs://10.0.86.89:9000/xjzhu/flowStreaming",
+        |          "header":"true",
+        |          "delimiter":","
+        |        }
+        |      }
+        |    ],
+        |    "paths":[
+        |      {
+        |        "from":"SocketTextStream",
         |        "outport":"",
         |        "inport":"",
         |        "to":"ConvertSchema"
