@@ -69,7 +69,7 @@ trait Stop {
 }
 
 trait StreamingStop extends Stop{
-
+  var batchDuration : Int
   def getDStream(ssc : StreamingContext): DStream[String];
 }
 
@@ -451,7 +451,7 @@ class ProcessImpl(flow: Flow, runnerContext: Context, runner: Runner, parentProc
 
         val pec = jobs(streamingStopName).getContext()
         val spark = pec.get[SparkSession]();
-        val ssc = new StreamingContext(spark.sparkContext,Seconds(10))
+        val ssc = new StreamingContext(spark.sparkContext,Seconds(streamingStop.batchDuration))
 
         val lines = streamingStop.getDStream(ssc)
         lines.foreachRDD {

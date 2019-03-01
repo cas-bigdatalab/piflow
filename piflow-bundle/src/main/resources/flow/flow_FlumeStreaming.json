@@ -9,7 +9,8 @@
         "bundle":"cn.piflow.bundle.streaming.FlumeStream",
         "properties":{
             "hostname":"10.0.86.191",
-            "port":"9998"
+            "port":"9998",
+            "batchDuration":"5"
         }
 
       },

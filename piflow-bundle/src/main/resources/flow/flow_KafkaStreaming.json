@@ -10,7 +10,8 @@
         "properties":{
           "brokers":"10.0.86.191:9092,10.0.86.203:9092,10.0.86.210:9092",
           "groupId":"piflow",
-          "topics":"streaming"
+          "topics":"streaming",
+          "batchDuration":"5"
         }
 
       },

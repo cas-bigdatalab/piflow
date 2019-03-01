@@ -14,26 +14,30 @@ class SocketTextStream extends ConfigurableStreamingStop {
   override val description: String = "Receive text data from a data server listening on a TCP socket."
   override val inportList: List[String] = List(PortEnum.NonePort)
   override val outportList: List[String] = List(PortEnum.DefaultPort)
-  override val timing: Integer = 1
+  override var batchDuration: Int = _
 
   var hostname:String =_
   var port:String=_
-  var schema:String=_
+  //var schema:String=_
 
   override def setProperties(map: Map[String, Any]): Unit = {
     hostname=MapUtil.get(map,key="hostname").asInstanceOf[String]
     port=MapUtil.get(map,key="port").asInstanceOf[String]
-    schema=MapUtil.get(map,key="schema").asInstanceOf[String]
+    //schema=MapUtil.get(map,key="schema").asInstanceOf[String]
+    val timing = MapUtil.get(map,key="batchDuration")
+    batchDuration=if(timing == None) new Integer(1) else timing.asInstanceOf[String].toInt
   }
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
     val hostname = new PropertyDescriptor().name("hostname").displayName("hostname").description("socket hostname ").defaultValue("").required(true)
     val port = new PropertyDescriptor().name("port").displayName("port").description("socket port").defaultValue("").required(true)
-    val schema = new PropertyDescriptor().name("schema").displayName("schema").description("data schema").defaultValue("").required(true)
+    //val schema = new PropertyDescriptor().name("schema").displayName("schema").description("data schema").defaultValue("").required(true)
+    val batchDuration = new PropertyDescriptor().name("batchDuration").displayName("batchDuration").description("the streaming batch duration").defaultValue("1").required(true)
     descriptor = hostname :: descriptor
     descriptor = port :: descriptor
-    descriptor = schema :: descriptor
+    //descriptor = schema :: descriptor
+    descriptor = batchDuration :: descriptor
     descriptor
   }
 

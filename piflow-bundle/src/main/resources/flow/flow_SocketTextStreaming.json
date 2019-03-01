@@ -10,7 +10,7 @@
         "properties":{
             "hostname":"10.0.86.98",
             "port":"9999",
-            "schema":"name,age"
+            "batchDuration":"5"
         }
 
       },

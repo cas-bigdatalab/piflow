@@ -13,7 +13,7 @@ import org.apache.spark.streaming.kafka010.ConsumerStrategies.Subscribe
 
 
 class KafkaStream extends ConfigurableStreamingStop{
-  override val timing: Integer = 1
+  override var batchDuration: Int = _
   override val authorEmail: String = "xjzhu@cnic.cn"
   override val description: String = "read data from kafka."
   override val inportList: List[String] = List(PortEnum.NonePort)
@@ -26,6 +26,8 @@ class KafkaStream extends ConfigurableStreamingStop{
     brokers=MapUtil.get(map,key="brokers").asInstanceOf[String]
     groupId=MapUtil.get(map,key="groupId").asInstanceOf[String]
     topics=MapUtil.get(map,key="topics").asInstanceOf[String].split(",")
+    val timing = MapUtil.get(map,key="batchDuration")
+    batchDuration=if(timing == None) new Integer(1) else timing.asInstanceOf[String].toInt
   }
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
@@ -33,9 +35,11 @@ class KafkaStream extends ConfigurableStreamingStop{
     val brokers = new PropertyDescriptor().name("brokers").displayName("brokers").description("kafka brokers, seperated by ','").defaultValue("").required(true)
     val groupId = new PropertyDescriptor().name("groupId").displayName("groupId").description("kafka consumer group").defaultValue("group").required(true)
     val topics = new PropertyDescriptor().name("topics").displayName("topics").description("kafka topics").defaultValue("").required(true)
+    val batchDuration = new PropertyDescriptor().name("batchDuration").displayName("batchDuration").description("the streaming batch duration").defaultValue("1").required(true)
     descriptor = brokers :: descriptor
     descriptor = groupId :: descriptor
     descriptor = topics :: descriptor
+    descriptor = batchDuration :: descriptor
     descriptor
   }
 

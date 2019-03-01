@@ -10,7 +10,7 @@ import org.apache.spark.streaming.dstream.DStream
 import org.apache.spark.streaming.flume._
 
 class FlumeStream extends ConfigurableStreamingStop{
-  override val timing: Integer = 10
+  override var batchDuration: Int = _
   override val authorEmail: String = "xjzhu@cnic.cn"
   override val description: String = "get data from flume Stream."
   override val inportList: List[String] = List(PortEnum.NonePort)
@@ -22,14 +22,18 @@ class FlumeStream extends ConfigurableStreamingStop{
   override def setProperties(map: Map[String, Any]): Unit = {
     hostname=MapUtil.get(map,key="hostname").asInstanceOf[String]
     port=MapUtil.get(map,key="port").asInstanceOf[String].toInt
+    val timing = MapUtil.get(map,key="batchDuration")
+    batchDuration=if(timing == None) new Integer(1) else timing.asInstanceOf[String].toInt
   }
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
     val hostname = new PropertyDescriptor().name("hostname").displayName("hostname").description("flume sink hostname ").defaultValue("").required(true)
     val port = new PropertyDescriptor().name("port").displayName("port").description("flume sink port").defaultValue("").required(true)
+    val batchDuration = new PropertyDescriptor().name("batchDuration").displayName("batchDuration").description("the streaming batch duration").defaultValue("1").required(true)
     descriptor = hostname :: descriptor
     descriptor = port :: descriptor
+    descriptor = batchDuration :: descriptor
     descriptor
   }
 
