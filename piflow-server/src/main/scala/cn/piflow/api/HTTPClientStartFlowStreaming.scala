@@ -12,7 +12,7 @@ object HTTPClientStartFlowStreaming {
       """
         |{
         |  "flow":{
-        |    "name":"TextFileStream",
+        |    "name":"kafkaStreaming",
         |    "uuid":"1234",
         |    "stops":[
         |      {
@@ -62,7 +62,7 @@ object HTTPClientStartFlowStreaming {
         |  }
         |}
       """.stripMargin*/
-    val json=
+    /*val json=
       """
         |{
         |  "flow":{
@@ -101,6 +101,58 @@ object HTTPClientStartFlowStreaming {
         |    "paths":[
         |      {
         |        "from":"SocketTextStream",
+        |        "outport":"",
+        |        "inport":"",
+        |        "to":"ConvertSchema"
+        |      },
+        |      {
+        |        "from":"ConvertSchema",
+        |        "outport":"",
+        |        "inport":"",
+        |        "to":"CsvSave"
+        |      }
+        |    ]
+        |  }
+        |}
+      """.stripMargin*/
+    val json =
+      """
+        |{
+        |  "flow":{
+        |    "name":"TextFileStream",
+        |    "uuid":"1234",
+        |    "stops":[
+        |      {
+        |        "uuid":"1111",
+        |        "name":"TextFileStream",
+        |        "bundle":"cn.piflow.bundle.streaming.TextFileStream",
+        |        "properties":{
+        |            "directory":"hdfs://10.0.86.89:9000/textfilestream"
+        |        }
+        |
+        |      },
+        |      {
+        |        "uuid":"2222",
+        |        "name":"ConvertSchema",
+        |        "bundle":"cn.piflow.bundle.common.ConvertSchema",
+        |        "properties":{
+        |          "schema":"value->line"
+        |        }
+        |      },
+        |      {
+        |        "uuid":"3333",
+        |        "name":"CsvSave",
+        |        "bundle":"cn.piflow.bundle.csv.CsvSave",
+        |        "properties":{
+        |          "csvSavePath":"hdfs://10.0.86.89:9000/xjzhu/flowStreaming",
+        |          "header":"true",
+        |          "delimiter":","
+        |        }
+        |      }
+        |    ],
+        |    "paths":[
+        |      {
+        |        "from":"TextFileStream",
         |        "outport":"",
         |        "inport":"",
         |        "to":"ConvertSchema"
