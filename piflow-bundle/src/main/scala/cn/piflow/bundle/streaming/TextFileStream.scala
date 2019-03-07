@@ -10,7 +10,7 @@ import org.apache.spark.streaming.dstream.DStream
 class TextFileStream extends ConfigurableStreamingStop{
   override var batchDuration: Int = _
   override val authorEmail: String = "xjzhu@cnic.cn"
-  override val description: String = "get text file streaming data"
+  override val description: String = "Get text file streaming data. "
   override val inportList: List[String] = List(PortEnum.NonePort.toString)
   override val outportList: List[String] = List(PortEnum.DefaultPort.toString)
 
@@ -24,7 +24,7 @@ class TextFileStream extends ConfigurableStreamingStop{
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
-    val directory = new PropertyDescriptor().name("directory").displayName("directory").description("the directory of files ").defaultValue("").required(true)
+    val directory = new PropertyDescriptor().name("directory").displayName("directory").description("HDFS directory to monitor for new file. Files must be written to the monitored directory by \"moving\" them from another location within the same file system ").defaultValue("").required(true)
     val batchDuration = new PropertyDescriptor().name("batchDuration").displayName("batchDuration").description("the streaming batch duration").defaultValue("1").required(true)
     descriptor = directory :: descriptor
     descriptor = batchDuration :: descriptor

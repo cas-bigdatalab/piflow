@@ -22,11 +22,11 @@ object HTTPClientStartFlowTextFileStreaming {
         |        "name":"TextFileStream",
         |        "bundle":"cn.piflow.bundle.streaming.TextFileStream",
         |        "properties":{
-        |            "directory":"hdfs://10.0.86.89:9000/textfilestream1",
+        |            "directory":"hdfs://10.0.86.191:9000/xjzhu/TextFileStream3",
         |            "batchDuration":"5"
         |        }
         |
-        |      },
+        |      },4.2bcefghw
         |      {
         |        "uuid":"2222",
         |        "name":"ConvertSchema",

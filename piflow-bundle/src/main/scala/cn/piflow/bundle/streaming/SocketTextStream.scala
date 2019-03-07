@@ -30,8 +30,8 @@ class SocketTextStream extends ConfigurableStreamingStop {
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
-    val hostname = new PropertyDescriptor().name("hostname").displayName("hostname").description("socket hostname ").defaultValue("").required(true)
-    val port = new PropertyDescriptor().name("port").displayName("port").description("socket port").defaultValue("").required(true)
+    val hostname = new PropertyDescriptor().name("hostname").displayName("hostname").description("Hostname to connect to for receiving data").defaultValue("").required(true)
+    val port = new PropertyDescriptor().name("port").displayName("port").description("Port to connect to for receiving data").defaultValue("").required(true)
     //val schema = new PropertyDescriptor().name("schema").displayName("schema").description("data schema").defaultValue("").required(true)
     val batchDuration = new PropertyDescriptor().name("batchDuration").displayName("batchDuration").description("the streaming batch duration").defaultValue("1").required(true)
     descriptor = hostname :: descriptor

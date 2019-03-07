@@ -28,8 +28,8 @@ class FlumeStream extends ConfigurableStreamingStop{
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
-    val hostname = new PropertyDescriptor().name("hostname").displayName("hostname").description("flume sink hostname ").defaultValue("").required(true)
-    val port = new PropertyDescriptor().name("port").displayName("port").description("flume sink port").defaultValue("").required(true)
+    val hostname = new PropertyDescriptor().name("hostname").displayName("hostname").description("hostname of the slave machine to which the flume data will be sent, the hostName must be one of the cluster worker node").defaultValue("").required(true)
+    val port = new PropertyDescriptor().name("port").displayName("port").description("Port of the slave machine to which the flume data will be sent, the port should be greater than 10000").defaultValue("").required(true)
     val batchDuration = new PropertyDescriptor().name("batchDuration").displayName("batchDuration").description("the streaming batch duration").defaultValue("1").required(true)
     descriptor = hostname :: descriptor
     descriptor = port :: descriptor
