@@ -8,8 +8,8 @@
         "name":"SocketTextStream",
         "bundle":"cn.piflow.bundle.streaming.FlumeStream",
         "properties":{
-            "hostname":"10.0.86.191",
-            "port":"9998",
+            "hostname":"slave1",
+            "port":"10001",
             "batchDuration":"5"
         }
 

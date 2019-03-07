@@ -15,7 +15,7 @@ class StreamingTest {
   def testSockStreaming(): Unit ={
 
     //parse flow json
-    val file = "src/main/resources/flow/flow_SocketTextStreamingByWindow.json"
+    val file = "src/main/resources/flow/flow_TextFileStreaming.json"
     val flowJsonStr = FileUtil.fileReader(file)
     val map = OptionUtil.getAny(JSON.parseFull(flowJsonStr)).asInstanceOf[Map[String, Any]]
     println(map)

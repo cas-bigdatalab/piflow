@@ -30,6 +30,7 @@ object StartFlowMain {
     val process = Runner.create()
       .bind(classOf[SparkSession].getName, spark)
       .bind("checkpoint.path",PropertyUtil.getPropertyValue("checkpoint.path"))
+      .bind("debug.path",PropertyUtil.getPropertyValue("debug.path"))
       .start(flow);
     val applicationId = spark.sparkContext.applicationId
     process.awaitTermination();

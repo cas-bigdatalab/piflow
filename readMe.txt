@@ -35,6 +35,23 @@ clean package -Dmaven.test.skip=true -U
     kafka_2.11-2.1.1.jar
     kafka-clients-2.1.1.jar
 
+    start kafka server:     ./bin/kafka-server-start.sh -daemon config/server.properties
+    stop kafka server:      ./bin/kafka-server-stop.sh
+    start kafka producer:   ./bin/kafka-console-producer.sh --broker-list master:9092,slave1:9092,slave2:9092 --topic streaming
+    start kafka consumer:   ./bin/kafka-console-consumer.sh --zookeeper master:2181,slave1:2181,slave2:2181 --topic streaming
+    list topics:
+                            ./bin/kafka-topics.sh --list --zookeeper master:2181,slave1:2181,slave2:2181
+                            ./bin/kafka-topics.sh --list --zookeeper master:2181,slave1:2181,slave2:2181
+    create topics:
+                            ./bin/kafka-topics.sh --create --zookeeper master:2181,slave1:2181,slave2:2181 --replication-factor 3 --partictions 3 --topic newTopic
+
+
 6.flume related jars are needed to put on the spark cluster
     spark-streaming-flume_2.11-2.1.0.jar
+
+    start flume agent: bin/flume-ng agent -n streamingAgent -c conf -f conf/streaming.conf -Dflume.root.logger=INFO,console
+
+7.socket text stream
+
+    nc -lk 9999
 

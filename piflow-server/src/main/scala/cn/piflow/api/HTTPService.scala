@@ -105,6 +105,20 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
 
    }
 
+   case HttpRequest(GET, Uri.Path("/flow/debugData"), headers, entity, protocol) => {
+
+     val processID = req.getUri().query().getOrElse("processID","")
+     val stopName = req.getUri().query().getOrElse("stopName","")
+     val port = req.getUri().query().getOrElse("port","default")
+     if(!processID.equals("") && !stopName.equals()){
+       val result = API.getFlowDebugData(processID, stopName, port)
+       Future.successful(HttpResponse(entity = result))
+     }else{
+       Future.successful(HttpResponse(entity = "processID is null or stop does not have debug data!"))
+     }
+
+   }
+
    case HttpRequest(POST, Uri.Path("/flow/start"), headers, entity, protocol) =>{
 
      entity match {
