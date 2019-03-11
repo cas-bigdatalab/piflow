@@ -29,5 +29,4 @@ object StopGroup {
   val HbaseGroup = "Hbase"
   val StreamingGroup = "Streaming"
   val Neo4jGroup = "Neo4j"
-  val Impala = "Impala"
 }

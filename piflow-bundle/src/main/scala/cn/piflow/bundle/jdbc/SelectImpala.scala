@@ -1,11 +1,11 @@
-package cn.piflow.bundle.impala
+package cn.piflow.bundle.jdbc
 
 import java.sql.{Connection, DriverManager, ResultSet, Statement}
 
-import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
-import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroup}
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
+import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroup}
+import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
 import org.apache.spark.sql.{DataFrame, Row, SparkSession}
@@ -92,7 +92,7 @@ class SelectImpala extends ConfigurableStop{
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroup.Impala)
+    List(StopGroup.JdbcGroup)
   }
 
 
