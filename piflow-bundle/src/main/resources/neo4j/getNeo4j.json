@@ -1,0 +1,31 @@
+{
+  "flow":{
+    "name":"test",
+    "uuid":"1234",
+    "checkpoint":"Merge",
+    "stops":[
+
+      {
+        "uuid":"0000",
+        "name":"PutNeo4j_spark",
+        "bundle":"cn.piflow.bundle.neo.PutNeo4j_spark",
+        "properties":{
+          "url":"bolt://0.0.88.69:7687",
+          "userName":"neo4j",
+          "password":"bigdata",
+          "labelName":" "
+        }
+
+      }
+    ],
+    "paths":[
+      {
+        "from":"PutNeo4j_spark",
+        "outport":"",
+        "inport":"",
+        "to":""
+      }
+
+    ]
+  }
+}

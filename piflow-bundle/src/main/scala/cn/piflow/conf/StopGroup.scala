@@ -28,4 +28,5 @@ object StopGroup {
   val ExcelGroup = "Excel"
   val HbaseGroup = "Hbase"
   val StreamingGroup = "Streaming"
+  val Neo4jGroup = "Neo4j"
 }
