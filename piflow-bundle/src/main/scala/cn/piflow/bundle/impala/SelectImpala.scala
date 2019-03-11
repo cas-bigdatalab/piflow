@@ -92,7 +92,7 @@ class SelectImpala extends ConfigurableStop{
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroup.Mongodb.toString)
+    List(StopGroup.Impala)
   }
 
 
