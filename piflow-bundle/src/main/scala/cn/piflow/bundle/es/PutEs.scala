@@ -15,10 +15,10 @@ class PutEs extends ConfigurableStop {
   override val inportList: List[String] = List(PortEnum.DefaultPort.toString)
   override val outportList: List[String] = List(PortEnum.NonePort.toString)
 
-  var es_nodes:String = _   //es的节点，多个用逗号隔开
-  var es_port:String= _           //es的端口好
-  var es_index:String = _     //es的索引
-  var es_type:String =  _     //es的类型
+  var es_nodes : String =  _
+  var es_port  : String  =  _
+  var es_index : String =  _
+  var es_type  : String  =  _
 
   def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     val spark = pec.get[SparkSession]()
@@ -26,9 +26,9 @@ class PutEs extends ConfigurableStop {
 
     val sc = spark.sparkContext
     val options = Map("es.index.auto.create"-> "true",
-      "es.nodes"->es_nodes,"es.port"->es_port)
+      "es.nodes"->es_nodes,
+      "es.port"->es_port)
 
-    //保存 df 到es
     EsSparkSQL.saveToEs(inDf,s"${es_index}/${es_type}",options)
 
   }

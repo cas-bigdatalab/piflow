@@ -15,18 +15,20 @@ class FetchEs extends ConfigurableStop {
   override val outportList: List[String] = List(PortEnum.DefaultPort.toString)
   override val description: String = "Fetch data from Elasticsearch "
 
-  var es_nodes:String = _   //es的节点，多个用逗号隔开
-  var es_port:String= _           //es的端口好
-  var es_index:String = _     //es的索引
-  var es_type:String =  _     //es的类型
+  var es_nodes : String =  _
+  var es_port  : String  =  _
+  var es_index : String =  _
+  var es_type  : String  =  _
 
   def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     val spark = pec.get[SparkSession]()
 
     val ssc = spark.sqlContext
 
-    val options = Map("es.index.auto.create"-> "true","es.nodes.wan.only"->"true",
-      "es.nodes"->es_nodes,"es.port"->es_port)
+    val options = Map("es.index.auto.create"-> "true",
+      "es.nodes.wan.only"->"true",
+      "es.nodes"->es_nodes,
+      "es.port"->es_port)
 
     //load data with df  from es
     val outDf = ssc.read.format("org.elasticsearch.spark.sql").options(options).load(s"${es_index}/${es_type}")
