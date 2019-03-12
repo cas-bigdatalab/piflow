@@ -1,8 +1,8 @@
 package cn.piflow.bundle.microorganism
 
-import java.io._
+import java.io.{BufferedInputStream, BufferedReader, ByteArrayInputStream, InputStreamReader}
 
-import cn.piflow.bundle.microorganism.util.{CustomIOTools, Process}
+import cn.piflow.bundle.microorganism.util.Pfam
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.ImageUtil
 import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroup}
@@ -13,12 +13,11 @@ import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.biojavax.bio.seq.{RichSequence, RichSequenceIterator}
 import org.json.JSONObject
 
-class EmblParser extends ConfigurableStop{
+class PfamData extends ConfigurableStop{
   override val authorEmail: String = "yangqidong@cnic.cn"
-  override val description: String = "Parsing EMBL type data"
+  override val description: String = "Parsing pfam type data"
   override val inportList: List[String] =List(PortEnum.DefaultPort.toString)
   override val outportList: List[String] = List(PortEnum.DefaultPort.toString)
-
 
 
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
@@ -26,13 +25,19 @@ class EmblParser extends ConfigurableStop{
 
     val inDf: DataFrame = in.read()
     val configuration: Configuration = new Configuration()
-
-    var pathStr: String =inDf.take(1)(0).get(0).asInstanceOf[String]
-    val pathARR: Array[String] = pathStr.split("\\/")
+    var pathStr: String = ""
     var hdfsUrl:String=""
-    for (x <- (0 until 3)){
-      hdfsUrl+=(pathARR(x) +"/")
+    try{
+      pathStr =inDf.take(1)(0).get(0).asInstanceOf[String]
+      val pathARR: Array[String] = pathStr.split("\\/")
+
+      for (x <- (0 until 3)){
+        hdfsUrl+=(pathARR(x) +"/")
+      }
+    }catch {
+      case e:Exception => throw new Exception("Path error")
     }
+
     configuration.set("fs.defaultFS",hdfsUrl)
     var fs: FileSystem = FileSystem.get(configuration)
 
@@ -45,69 +50,71 @@ class EmblParser extends ConfigurableStop{
 
     fs.create(path).close()
     var fdos: FSDataOutputStream = fs.append(path)
-
-    var jsonStr: String =""
+    val buff: Array[Byte] = new Array[Byte](1048576)
 
     var bis: BufferedInputStream =null
-
+    var fdis: FSDataInputStream =null
+    var br: BufferedReader = null
+    var sequences: RichSequenceIterator = null
+    var doc: JSONObject = null
+    var seq: RichSequence = null
+    var hasAnotherSequence : Boolean=true
+    var jsonStr: String = ""
+    var n:Int=0
     inDf.collect().foreach(row => {
-
-      var n : Int =0
       pathStr = row.get(0).asInstanceOf[String]
+      fdis = fs.open(new Path(pathStr))
+      br = new BufferedReader(new InputStreamReader(fdis))
 
-      var fdis: FSDataInputStream = fs.open(new Path(pathStr))
-
-      var br: BufferedReader = new BufferedReader(new InputStreamReader(fdis))
-
-      var sequences: RichSequenceIterator = CustomIOTools.IOTools.readEMBLDNA (br, null)
-
-      while (sequences.hasNext) {
+      while( hasAnotherSequence  &&  n < 1000 ){
         n += 1
-        var seq: RichSequence = sequences.nextRichSequence()
-        var doc: JSONObject = new JSONObject
-        Process.processEMBL_EnsemblSeq(seq, doc)
+
+        doc = new JSONObject()
+        hasAnotherSequence = Pfam.process(br,doc)
+
         jsonStr = doc.toString
-        println("start " + n)
 
         if (n == 1) {
           bis = new BufferedInputStream(new ByteArrayInputStream(("[" + jsonStr).getBytes()))
         } else {
           bis = new BufferedInputStream(new ByteArrayInputStream(("," + jsonStr).getBytes()))
         }
-
-        val buff: Array[Byte] = new Array[Byte](1048576)
-
         var count: Int = bis.read(buff)
         while (count != -1) {
           fdos.write(buff, 0, count)
           fdos.flush()
           count = bis.read(buff)
         }
-
         fdos.flush()
+
         bis = null
-        seq = null
         doc = null
+        seq = null
+        jsonStr = ""
       }
-      bis = new BufferedInputStream(new ByteArrayInputStream(("]").getBytes()))
-      val buff: Array[Byte] = new Array[Byte](1048576)
 
-      var count: Int = bis.read(buff)
-      while (count != -1) {
-        fdos.write(buff, 0, count)
-        fdos.flush()
-        count = bis.read(buff)
-      }
-      fdos.flush()
+      sequences = null
+      br = null
+      fdis =null
+      pathStr = null
     })
+    bis = new BufferedInputStream(new ByteArrayInputStream(("]").getBytes()))
 
+    var count: Int = bis.read(buff)
+    while (count != -1) {
+      fdos.write(buff, 0, count)
+      fdos.flush()
+      count = bis.read(buff)
+    }
+    fdos.flush()
+    bis.close()
     fdos.close()
 
     val df: DataFrame = session.read.json(hdfsPathTemporary)
 
     out.write(df)
-
   }
+
 
   override def setProperties(map: Map[String, Any]): Unit = {
 
@@ -119,7 +126,7 @@ class EmblParser extends ConfigurableStop{
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("microorganism/png/embl.png")
+    ImageUtil.getImage("microorganism/png/Pfam.png")
   }
 
   override def getGroup(): List[String] = {

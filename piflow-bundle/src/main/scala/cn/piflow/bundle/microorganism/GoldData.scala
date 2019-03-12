@@ -8,7 +8,7 @@ import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.apache.spark.sql. SparkSession
 
 
-class GoldDataParse extends ConfigurableStop{
+class GoldData extends ConfigurableStop{
   val authorEmail: String = "ygang@cnic.cn"
   val description: String = "Parsing GoldData type data"
   val inportList: List[String] = List(PortEnum.DefaultPort.toString)

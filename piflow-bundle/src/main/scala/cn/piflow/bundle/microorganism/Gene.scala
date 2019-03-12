@@ -12,7 +12,7 @@ import org.apache.hadoop.fs.{FSDataInputStream, FSDataOutputStream, FileSystem, 
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.json.JSONObject
 
-class GeneParser extends ConfigurableStop{
+class Gene extends ConfigurableStop{
   override val authorEmail: String = "yangqidong@cnic.cn"
   override val description: String = "Parsing gene type data"
   override val inportList: List[String] =List(PortEnum.DefaultPort.toString)

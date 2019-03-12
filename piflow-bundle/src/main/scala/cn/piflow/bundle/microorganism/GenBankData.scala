@@ -14,7 +14,7 @@ import org.apache.spark.sql.{DataFrame,  SparkSession}
 import org.json.JSONObject
 
 
-class GenBankParse extends ConfigurableStop{
+class GenBankData extends ConfigurableStop{
   val authorEmail: String = "ygang@cnic.cn"
   val description: String = " Parsing GenBank type data"
   val inportList: List[String] = List(PortEnum.DefaultPort.toString)

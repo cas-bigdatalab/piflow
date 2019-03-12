@@ -12,7 +12,7 @@ import org.apache.hadoop.fs.{FSDataInputStream, FSDataOutputStream, FileSystem, 
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.json.{JSONArray, JSONObject, XML}
 
-class BioSampleParse extends ConfigurableStop{
+class BioSample extends ConfigurableStop{
   val authorEmail: String = "ygang@cnic.cn"
   val description: String = "Parsing BioSample type data"
   val inportList: List[String] = List(PortEnum.DefaultPort.toString)

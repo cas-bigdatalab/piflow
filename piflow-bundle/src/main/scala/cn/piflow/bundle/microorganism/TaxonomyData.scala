@@ -13,7 +13,7 @@ import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.json.JSONObject
 
 
-class TaxonomyParse extends ConfigurableStop{
+class TaxonomyData extends ConfigurableStop{
   val authorEmail: String = "ygang@cnic.cn"
   val description: String = "Parsing Taxonomy type data"
   val inportList: List[String] = List(PortEnum.DefaultPort.toString)

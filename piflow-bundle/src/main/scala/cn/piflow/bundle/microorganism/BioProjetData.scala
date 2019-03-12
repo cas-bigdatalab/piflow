@@ -14,7 +14,7 @@ import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.json.{JSONArray, JSONObject, XML}
 
 
-class BioProjetDataParse extends ConfigurableStop{
+class BioProjetData extends ConfigurableStop{
   val authorEmail: String = "ygang@cnic.cn"
   val description: String = "Parsing BioProjet type data"
   val inportList: List[String] = List(PortEnum.DefaultPort.toString)

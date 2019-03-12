@@ -13,16 +13,15 @@ import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.biojavax.bio.seq.{RichSequence, RichSequenceIterator}
 import org.json.JSONObject
 
-class RefseqParser extends ConfigurableStop{
+class EmblData extends ConfigurableStop{
   override val authorEmail: String = "yangqidong@cnic.cn"
-  override val description: String = "Parsing Refseq_genome type data"
+  override val description: String = "Parsing EMBL type data"
   override val inportList: List[String] =List(PortEnum.DefaultPort.toString)
   override val outportList: List[String] = List(PortEnum.DefaultPort.toString)
 
 
 
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
-
     val session = pec.get[SparkSession]()
 
     val inDf: DataFrame = in.read()
@@ -46,7 +45,6 @@ class RefseqParser extends ConfigurableStop{
 
     fs.create(path).close()
     var fdos: FSDataOutputStream = fs.append(path)
-    val buff: Array[Byte] = new Array[Byte](1048576)
 
     var jsonStr: String =""
 
@@ -57,18 +55,17 @@ class RefseqParser extends ConfigurableStop{
       var n : Int =0
       pathStr = row.get(0).asInstanceOf[String]
 
-
       var fdis: FSDataInputStream = fs.open(new Path(pathStr))
 
       var br: BufferedReader = new BufferedReader(new InputStreamReader(fdis))
 
-      var sequences: RichSequenceIterator = CustomIOTools.IOTools.readGenbankProtein(br, null)
+      var sequences: RichSequenceIterator = CustomIOTools.IOTools.readEMBLDNA (br, null)
 
       while (sequences.hasNext) {
         n += 1
         var seq: RichSequence = sequences.nextRichSequence()
         var doc: JSONObject = new JSONObject
-        Process.processSingleSequence(seq, doc)
+        Process.processEMBL_EnsemblSeq(seq, doc)
         jsonStr = doc.toString
         println("start " + n)
 
@@ -78,36 +75,37 @@ class RefseqParser extends ConfigurableStop{
           bis = new BufferedInputStream(new ByteArrayInputStream(("," + jsonStr).getBytes()))
         }
 
+        val buff: Array[Byte] = new Array[Byte](1048576)
+
         var count: Int = bis.read(buff)
         while (count != -1) {
           fdos.write(buff, 0, count)
           fdos.flush()
           count = bis.read(buff)
         }
+
         fdos.flush()
         bis = null
         seq = null
         doc = null
       }
+      bis = new BufferedInputStream(new ByteArrayInputStream(("]").getBytes()))
+      val buff: Array[Byte] = new Array[Byte](1048576)
 
-    })
-    bis = new BufferedInputStream(new ByteArrayInputStream(("]").getBytes()))
-
-    var count: Int = bis.read(buff)
-    while (count != -1) {
-      fdos.write(buff, 0, count)
+      var count: Int = bis.read(buff)
+      while (count != -1) {
+        fdos.write(buff, 0, count)
+        fdos.flush()
+        count = bis.read(buff)
+      }
       fdos.flush()
-      count = bis.read(buff)
-    }
-    fdos.flush()
-    bis.close()
+    })
+
     fdos.close()
 
-    println("start parser HDFSjsonFile")
     val df: DataFrame = session.read.json(hdfsPathTemporary)
 
     out.write(df)
-
 
   }
 
@@ -116,12 +114,12 @@ class RefseqParser extends ConfigurableStop{
   }
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] ={
-  var descriptor : List[PropertyDescriptor] = List()
-  descriptor
-}
+    var descriptor : List[PropertyDescriptor] = List()
+    descriptor
+  }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("microorganism/png/Refseq.png")
+    ImageUtil.getImage("microorganism/png/embl.png")
   }
 
   override def getGroup(): List[String] = {

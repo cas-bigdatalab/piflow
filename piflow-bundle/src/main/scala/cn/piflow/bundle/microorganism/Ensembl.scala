@@ -13,7 +13,7 @@ import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.biojavax.bio.seq.{RichSequence, RichSequenceIterator}
 import org.json.JSONObject
 
-class Ensembl_gff3Parser extends ConfigurableStop{
+class Ensembl extends ConfigurableStop{
   override val authorEmail: String = "yangqidong@cnic.cn"
   override val description: String = "ensembl type data"
   override val inportList: List[String] =List(PortEnum.DefaultPort.toString)

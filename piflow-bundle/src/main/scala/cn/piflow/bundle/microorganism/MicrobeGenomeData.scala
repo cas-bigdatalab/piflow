@@ -1,8 +1,8 @@
 package cn.piflow.bundle.microorganism
 
-import java.io._
+import java.io.{BufferedInputStream, BufferedReader, ByteArrayInputStream, InputStreamReader}
 
-import cn.piflow.bundle.microorganism.util.PDB
+import cn.piflow.bundle.microorganism.util.{CustomIOTools, Process}
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.ImageUtil
 import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroup}
@@ -13,15 +13,14 @@ import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.biojavax.bio.seq.{RichSequence, RichSequenceIterator}
 import org.json.JSONObject
 
-class PDBParser extends ConfigurableStop{
+
+class MicrobeGenomeData extends ConfigurableStop{
   override val authorEmail: String = "yangqidong@cnic.cn"
-  override val description: String = "Parsing Swissprot_TrEMBL type data"
+  override val description: String = "Parsing MicrobeGenome type data"
   override val inportList: List[String] =List(PortEnum.DefaultPort.toString)
   override val outportList: List[String] = List(PortEnum.DefaultPort.toString)
 
-
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
-
     val session = pec.get[SparkSession]()
 
     val inDf: DataFrame = in.read()
@@ -42,7 +41,7 @@ class PDBParser extends ConfigurableStop{
     configuration.set("fs.defaultFS",hdfsUrl)
     var fs: FileSystem = FileSystem.get(configuration)
 
-    val hdfsPathTemporary:String = hdfsUrl+"/Refseq_genomeParser_temporary.json"
+    val hdfsPathTemporary:String = hdfsUrl+"/NCBI_Microbe_genome_genomeParser_temporary.json"
     val path: Path = new Path(hdfsPathTemporary)
 
     if(fs.exists(path)){
@@ -59,40 +58,51 @@ class PDBParser extends ConfigurableStop{
     var sequences: RichSequenceIterator = null
     var doc: JSONObject = null
     var seq: RichSequence = null
-    var pdb: PDB = null
     var jsonStr: String = ""
     var n:Int=0
     inDf.collect().foreach(row => {
+
       pathStr = row.get(0).asInstanceOf[String]
+      println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!   start parser ^^^" + pathStr)
+      fdis = fs.open(new Path(pathStr))
+      br = new BufferedReader(new InputStreamReader(fdis))
+      sequences = CustomIOTools.IOTools.readGenbankProtein(br, null)
 
-      pdb = new PDB(pathStr,fs)
-      doc = pdb.getDoc
+      while (sequences.hasNext) {
+        n += 1
+        doc = new JSONObject()
+        seq = sequences.nextRichSequence()
+        Process.processSingleSequence(seq,doc)
 
-      jsonStr = doc.toString
-      n +=1
+        jsonStr = doc.toString
 
-      if (n == 1) {
-        bis = new BufferedInputStream(new ByteArrayInputStream(("[" + jsonStr).getBytes()))
-      } else {
-        bis = new BufferedInputStream(new ByteArrayInputStream(("," + jsonStr).getBytes()))
-      }
-      var count: Int = bis.read(buff)
-      while (count != -1) {
-        fdos.write(buff, 0, count)
+        if (n == 1) {
+          bis = new BufferedInputStream(new ByteArrayInputStream(("[" + jsonStr).getBytes()))
+        } else {
+          bis = new BufferedInputStream(new ByteArrayInputStream(("," + jsonStr).getBytes()))
+        }
+        var count: Int = bis.read(buff)
+        while (count != -1) {
+          fdos.write(buff, 0, count)
+          fdos.flush()
+          count = bis.read(buff)
+        }
         fdos.flush()
-        count = bis.read(buff)
-      }
-      fdos.flush()
 
-      bis = null
-      doc = null
-      seq = null
-      jsonStr = ""
+        bis.close()
+        bis = null
+        doc = null
+        seq = null
+        jsonStr = ""
+
+      }
       sequences = null
+      br.close()
       br = null
+      fdis.close()
       fdis =null
       pathStr = null
-      pdb = null
+
     })
     bis = new BufferedInputStream(new ByteArrayInputStream(("]").getBytes()))
 
@@ -106,23 +116,21 @@ class PDBParser extends ConfigurableStop{
     bis.close()
     fdos.close()
 
-    val df: DataFrame = session.read.json(hdfsPathTemporary)
+    out.write(session.read.json(hdfsPathTemporary))
 
-    out.write(df)
-}
-
+  }
 
   override def setProperties(map: Map[String, Any]): Unit = {
 
   }
 
-  override def getPropertyDescriptor(): List[PropertyDescriptor] = {
+  override def getPropertyDescriptor(): List[PropertyDescriptor] ={
     var descriptor : List[PropertyDescriptor] = List()
     descriptor
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("microorganism/png/PDB.png")
+    ImageUtil.getImage("microorganism/png/NCBI_Microbe_genome.png")
   }
 
   override def getGroup(): List[String] = {
@@ -132,5 +140,4 @@ class PDBParser extends ConfigurableStop{
   override def initialize(ctx: ProcessContext): Unit = {
 
   }
-
 }
