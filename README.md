@@ -14,11 +14,11 @@ is an easy to use, powerful big data pipeline system.
 
 - Easy to use
   - provide a WYSIWYG web interface to configure data flow
-  - monitor big data flow status
-  - check big data flow logs
-  - provide checkpoint
-- Strong Scalability:
-  - Support for custom development data processing components
+  - monitor data flow status
+  - check the logs of data flow
+  - provide checkpoints
+- Strong scalability:
+  - Support customized development of data processing components
 - Superior performance
   - based on distributed computing engine Spark 
 - Powerful
@@ -31,8 +31,8 @@ is an easy to use, powerful big data pipeline system.
 * JDK 1.8 or newer
 * Apache Maven 3.1.0 or newer
 * Git Client (used during build process by 'bower' plugin)
-* spark-2.1.0
-* hadoop-2.6.0
+* Spark-2.1.0
+* Hadoop-2.6.0
 
 ## Getting Started
 
@@ -57,7 +57,18 @@ To Build:
           [INFO] ------------------------------------------------------------------------
 
 To Run Piflow Server：
-- configure config.properties
+
+- `run piflow server on intellij`: 
+  - edit config.properties
+  - build piflow to generate piflow-server.jar
+  - main class is cn.piflow.api.Main(remember to set SPARK_HOME)
+  
+- `run piflow server by release version`:
+  - download piflow_release:https://github.com/cas-bigdatalab/piflow_release
+  - copy the piflow-server.jar to the piflow_release folder
+  - edit config.properties
+  - run start.sh
+- `how to configure config.properties`
 
       #server ip and port
       server.ip=10.0.86.191
@@ -77,18 +88,23 @@ To Run Piflow Server：
       #hive config
       hive.metastore.uris=thrift://10.0.86.191:9083
 
-      #piflow jar path
+      #piflow-server.jar path
       piflow.bundle=/opt/piflowServer/piflow-server-0.9.jar
 
       #checkpoint hdfs path
       checkpoint.path=hdfs://10.0.86.89:9000/piflow/checkpoints/
-- you can run piflow server on intellij 
-  - main class is cn.piflow.api.Main
-  - remember to set SPARK_HOME
-- you can run piflow server as follows:
-  - download piflowServer:***
-  - edit config.properties
-  - run start.sh
+      
+      #debug path
+      debug.path=hdfs://10.0.88.191:9000/piflow/debug/
+      
+      #yarn url
+      yarn.url=http://10.0.86.191:8088/ws/v1/cluster/apps/
+      
+      #the count of data shown in log
+      data.show=10
+      
+      #h2 db port
+      h2.port=50002
   
 To Run Piflow Web：
   - todo
