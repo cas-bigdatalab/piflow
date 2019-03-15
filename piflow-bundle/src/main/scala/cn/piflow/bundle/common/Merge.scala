@@ -37,7 +37,7 @@ class Merge extends ConfigurableStop{
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("merge.png")
+    ImageUtil.getImage("icon/common/Merge.png")
   }
 
   override def getGroup(): List[String] = {

@@ -24,7 +24,7 @@ class Subtract extends ConfigurableStop{
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("common/subtract.png")
+    ImageUtil.getImage("icon/common/Subtract.png")
   }
 
   override def getGroup(): List[String] = {

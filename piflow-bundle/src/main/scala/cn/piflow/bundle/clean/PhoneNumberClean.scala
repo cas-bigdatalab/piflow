@@ -46,7 +46,7 @@ class PhoneNumberClean extends ConfigurableStop{
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("clean.png")
+    ImageUtil.getImage("icon/clean/PhoneNumberClean.png")
   }
 
   override def getGroup(): List[String] = {

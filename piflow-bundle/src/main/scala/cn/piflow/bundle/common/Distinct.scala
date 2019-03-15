@@ -29,7 +29,7 @@ class Distinct extends ConfigurableStop{
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("common/distinct.png")
+    ImageUtil.getImage("icon/common/Distinct.png")
   }
 
   override def getGroup(): List[String] = {

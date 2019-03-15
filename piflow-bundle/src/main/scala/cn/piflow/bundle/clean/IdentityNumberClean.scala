@@ -52,7 +52,7 @@ class IdentityNumberClean extends ConfigurableStop{
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("clean.png")
+    ImageUtil.getImage("icon/clean/IdentityNumberClean.png")
   }
 
   override def getGroup(): List[String] = {

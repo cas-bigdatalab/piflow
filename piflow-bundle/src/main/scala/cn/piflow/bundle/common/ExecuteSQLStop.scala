@@ -82,7 +82,7 @@ class ExecuteSQLStop extends ConfigurableStop{
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("fork.png")
+    ImageUtil.getImage("icon/common/ExecuteSql.png")
   }
 
   override def getGroup(): List[String] = {

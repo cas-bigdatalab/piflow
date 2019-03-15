@@ -41,7 +41,7 @@ class DoFlatMapStop extends ConfigurableStop{
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("fork.png")
+    ImageUtil.getImage("icon/common/DoFlatMap.png")
   }
 
   override def getGroup(): List[String] = {

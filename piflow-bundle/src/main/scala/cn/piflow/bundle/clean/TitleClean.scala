@@ -44,7 +44,7 @@ class TitleClean extends ConfigurableStop{
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("clean.png")
+    ImageUtil.getImage("icon/clean/TitleClean.png")
   }
 
   override def getGroup(): List[String] = {

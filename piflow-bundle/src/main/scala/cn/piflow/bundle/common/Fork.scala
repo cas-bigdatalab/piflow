@@ -37,7 +37,7 @@ class Fork extends ConfigurableStop{
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("fork.png")
+    ImageUtil.getImage("icon/common/Fork.png")
   }
 
   override def getGroup(): List[String] = {

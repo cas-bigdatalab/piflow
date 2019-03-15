@@ -46,7 +46,7 @@ class ConvertSchema extends ConfigurableStop {
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("common/convert.png")
+    ImageUtil.getImage("icon/common/ConvertSchema.png")
   }
 
   override def getGroup(): List[String] = {
