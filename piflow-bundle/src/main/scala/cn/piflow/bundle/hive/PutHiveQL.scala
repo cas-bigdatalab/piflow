@@ -58,7 +58,7 @@ class PutHiveQL extends ConfigurableStop {
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("hive.jpg")
+    ImageUtil.getImage("icon/hive/PutHiveQL.png")
   }
 
   override def getGroup(): List[String] = {

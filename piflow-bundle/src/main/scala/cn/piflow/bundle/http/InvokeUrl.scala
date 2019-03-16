@@ -233,7 +233,7 @@ class InvokeUrl extends ConfigurableStop{
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("http.png")
+    ImageUtil.getImage("icon/http/InvokeUrl.png")
   }
 
   override def getGroup(): List[String] = {

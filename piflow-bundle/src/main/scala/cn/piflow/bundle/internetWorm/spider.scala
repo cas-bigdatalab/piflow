@@ -184,7 +184,7 @@ class spider extends ConfigurableStop{
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("spider.png")
+    ImageUtil.getImage("icon/internetWorm/Spider.png")
 
   }
 

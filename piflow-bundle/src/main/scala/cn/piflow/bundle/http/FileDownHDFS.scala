@@ -88,7 +88,7 @@ class FileDownHDFS extends ConfigurableStop{
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("http.png")
+    ImageUtil.getImage("icon/http/LoadZipFromUrl.png")
   }
 
   override def getGroup(): List[String] = {

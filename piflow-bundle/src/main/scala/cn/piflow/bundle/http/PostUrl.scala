@@ -74,7 +74,7 @@ class PostUrl extends ConfigurableStop{
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("http.png")
+    ImageUtil.getImage("icon/http/PostUrl.png")
   }
 
   override def getGroup(): List[String] = {
