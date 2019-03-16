@@ -80,7 +80,7 @@ class FetchHbase extends ConfigurableStop {
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("hbase.png")
+    ImageUtil.getImage("icon/hbase/GetHbase.png")
   }
 
   override def getGroup(): List[String] = {

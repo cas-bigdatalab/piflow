@@ -73,7 +73,7 @@ class ListHdfs extends ConfigurableStop{
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("hdfs.png")
+    ImageUtil.getImage("icon/hdfs/ListHdfs.png")
   }
 
   override def getGroup(): List[String] = {

@@ -53,7 +53,7 @@ class DeleteHdfs extends ConfigurableStop{
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("hdfs.png")
+    ImageUtil.getImage("icon/hdfs/DeleteHdfs.png")
   }
 
   override def getGroup(): List[String] = {

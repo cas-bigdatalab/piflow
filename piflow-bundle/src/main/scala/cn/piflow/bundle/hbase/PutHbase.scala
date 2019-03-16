@@ -89,7 +89,7 @@ class PutHbase extends ConfigurableStop {
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("hbase.png")
+    ImageUtil.getImage("icon/hbase/PutHbase.png")
   }
 
   override def getGroup(): List[String] = {

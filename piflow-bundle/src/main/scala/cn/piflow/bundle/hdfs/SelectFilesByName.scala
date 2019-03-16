@@ -95,7 +95,7 @@ class SelectFilesByName extends ConfigurableStop{
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("ftp.png")
+    ImageUtil.getImage("icon/hdfs/SelectFileByName.png")
   }
 
   override def getGroup(): List[String] = {

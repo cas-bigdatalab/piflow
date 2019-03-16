@@ -196,7 +196,7 @@ class UnzipFilesOnHDFS extends ConfigurableStop {
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("hdfs.png")
+    ImageUtil.getImage("icon/hdfs/UnzipFilesOnHDFS.png")
   }
 
   override def getGroup(): List[String] = {
