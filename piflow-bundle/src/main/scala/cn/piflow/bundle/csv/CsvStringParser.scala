@@ -68,7 +68,7 @@ class CsvStringParser extends ConfigurableStop{
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("csv.png")
+    ImageUtil.getImage("icon/csv/CsvStringParser.png")
   }
 
   override def getGroup(): List[String] = {

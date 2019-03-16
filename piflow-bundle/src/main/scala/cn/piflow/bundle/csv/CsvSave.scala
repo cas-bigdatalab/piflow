@@ -41,7 +41,7 @@ class CsvSave extends ConfigurableStop{
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("csv.png")
+    ImageUtil.getImage("icon/csv/CsvSave.png")
   }
 
   override def getGroup(): List[String] = {
