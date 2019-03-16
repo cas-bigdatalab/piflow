@@ -57,7 +57,7 @@ class LabelPropagation extends ConfigurableStop {
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("graphx.jpg")
+    ImageUtil.getImage("icon/graphx/LabelPropagation.png")
   }
 
   override def getGroup(): List[String] = {

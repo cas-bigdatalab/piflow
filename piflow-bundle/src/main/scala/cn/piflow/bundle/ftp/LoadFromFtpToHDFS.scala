@@ -264,7 +264,7 @@ class LoadFromFtpToHDFS extends ConfigurableStop{
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("ftp.png")
+    ImageUtil.getImage("icon/ftp/loadFromFtpUrl.png")
   }
 
   override def getGroup(): List[String] = {

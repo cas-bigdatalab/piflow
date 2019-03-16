@@ -13,11 +13,11 @@ object HTTPClientGetFlowInfo {
 
   def main(args: Array[String]): Unit = {
 
-    val url = "http://10.0.86.98:8002/flow/info?appID=application_1539850523117_0032"
+    val url = "http://10.0.86.98:8001/flow/info??appID=application_1544066083705_0230"
     val client = HttpClients.createDefault()
-    val getFlowInfo:HttpGet = new HttpGet(url)
+    val getFlowDebugData:HttpGet = new HttpGet(url)
 
-    val response:CloseableHttpResponse = client.execute(getFlowInfo)
+    val response:CloseableHttpResponse = client.execute(getFlowDebugData)
     val entity = response.getEntity
     val str = EntityUtils.toString(entity,"UTF-8")
     println("Code is " + str)

@@ -8,7 +8,7 @@ object HttpClientGetFlowCheckpoints {
 
   def main(args: Array[String]): Unit = {
 
-    val url = "http://10.0.86.98:8001/flow/checkpoints?processID=process_088b2604-806e-4ccf-99cc-696aeaef730a_1"
+    val url = "http://10.0.86.98:8001/flow/checkpoints?processID=process_9e291e46-fe25-4e7c-943d-0ff85dddb22d_1"
     val client = HttpClients.createDefault()
     val getFlowInfo:HttpGet = new HttpGet(url)
 

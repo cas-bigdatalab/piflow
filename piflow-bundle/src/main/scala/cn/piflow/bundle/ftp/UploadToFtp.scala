@@ -170,7 +170,7 @@ class UploadToFtp extends ConfigurableStop{
     }
 
     override def getIcon(): Array[Byte] = {
-      ImageUtil.getImage("ftp.png")
+      ImageUtil.getImage("icon/ftp/UpLoadToFtp.png")
     }
 
   override def getGroup(): List[String] = {

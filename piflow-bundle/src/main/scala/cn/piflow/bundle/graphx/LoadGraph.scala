@@ -51,7 +51,7 @@ class LoadGraph extends ConfigurableStop {
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("graphx.jpg")
+    ImageUtil.getImage("icon/graphx/LoadGraph.png")
   }
 
   override def getGroup(): List[String] = {

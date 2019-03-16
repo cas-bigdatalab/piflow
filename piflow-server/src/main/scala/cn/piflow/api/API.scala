@@ -70,10 +70,10 @@ object API {
     val uuid = MapUtil.get(flowMap,"uuid").asInstanceOf[String]
     val appName = MapUtil.get(flowMap,"name").asInstanceOf[String]
 
-    val dirverMem = map.getOrElse("driverMemory","1g").asInstanceOf[String]
-    val executorNum = map.getOrElse("executorNumber","1").asInstanceOf[String]
-    val executorMem= map.getOrElse("executorMemory","1g").asInstanceOf[String]
-    val executorCores = map.getOrElse("executorCores","1").asInstanceOf[String]
+    val dirverMem = flowMap.getOrElse("driverMemory","1g").asInstanceOf[String]
+    val executorNum = flowMap.getOrElse("executorNumber","1").asInstanceOf[String]
+    val executorMem= flowMap.getOrElse("executorMemory","1g").asInstanceOf[String]
+    val executorCores = flowMap.getOrElse("executorCores","1").asInstanceOf[String]
 
     val (stdout, stderr) = getLogFile(uuid, appName)
 
