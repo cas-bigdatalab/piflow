@@ -65,7 +65,7 @@ class QueryEs extends ConfigurableStop {
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("es.png")
+    ImageUtil.getImage("icon/elasticsearch/QueryEs.png")
   }
 
   override def getGroup(): List[String] = {

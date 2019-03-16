@@ -110,7 +110,7 @@ class ExcelParser extends ConfigurableStop{
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("excel.png")
+    ImageUtil.getImage("icon/excel/excelParse.png")
   }
 
   override def getGroup(): List[String] = {

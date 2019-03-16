@@ -54,7 +54,7 @@ class FetchFile extends ConfigurableStop{
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("file.png")
+    ImageUtil.getImage("icon/file/FetchFile.png")
   }
 
   override def getGroup(): List[String] = {

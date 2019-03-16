@@ -57,7 +57,7 @@ class PutFile extends ConfigurableStop{
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("file.png")
+    ImageUtil.getImage("icon/file/PutFile.png")
   }
 
   override def getGroup(): List[String] = {

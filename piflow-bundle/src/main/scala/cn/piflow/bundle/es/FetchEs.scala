@@ -63,7 +63,7 @@ class FetchEs extends ConfigurableStop {
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("es.png")
+    ImageUtil.getImage("icon/elasticsearch/FetchEs.png")
   }
 
   override def getGroup(): List[String] = {

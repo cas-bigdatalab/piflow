@@ -62,7 +62,7 @@ class PutEs extends ConfigurableStop {
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("es.png")
+    ImageUtil.getImage("icon/elasticsearch/PutEs.png")
   }
 
   override def getGroup(): List[String] = {
