@@ -51,7 +51,7 @@ class DecisionTreePrediction extends ConfigurableStop{
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("mllib.png")
+    ImageUtil.getImage("icon/ml_classification/DecisionTreePrediction.png")
   }
 
   override def getGroup(): List[String] = {

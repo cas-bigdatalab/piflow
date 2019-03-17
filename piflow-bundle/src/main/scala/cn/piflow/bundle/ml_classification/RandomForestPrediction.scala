@@ -51,7 +51,7 @@ class RandomForestPrediction extends ConfigurableStop{
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("mllib.png")
+    ImageUtil.getImage("icon/ml_classification/RandomForestPrediction.png")
   }
 
   override def getGroup(): List[String] = {

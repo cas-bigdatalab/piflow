@@ -124,7 +124,7 @@ class WordToVec extends ConfigurableStop{
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("mllib.png")
+    ImageUtil.getImage("icon/ml_feature/WordToVec.png")
   }
 
   override def getGroup(): List[String] = {

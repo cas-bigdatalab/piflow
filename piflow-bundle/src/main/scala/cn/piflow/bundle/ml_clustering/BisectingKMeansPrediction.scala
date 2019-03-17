@@ -51,7 +51,7 @@ class BisectingKMeansPrediction extends ConfigurableStop{
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("mllib.png")
+    ImageUtil.getImage("icon/ml_clustering/BisetingKmeansPrediction.png")
   }
 
   override def getGroup(): List[String] = {

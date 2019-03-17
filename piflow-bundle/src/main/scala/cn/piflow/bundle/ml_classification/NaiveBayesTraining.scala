@@ -65,7 +65,7 @@ class NaiveBayesTraining extends ConfigurableStop{
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("mllib.png")
+    ImageUtil.getImage("icon/ml_classification/NavieBayesTraining.png")
   }
 
   override def getGroup(): List[String] = {

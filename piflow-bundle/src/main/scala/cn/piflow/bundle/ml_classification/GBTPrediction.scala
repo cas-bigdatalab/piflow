@@ -51,7 +51,7 @@ class GBTPrediction extends ConfigurableStop{
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("mllib.png")
+    ImageUtil.getImage("icon/ml_classification/GBTPrediction.png")
   }
 
   override def getGroup(): List[String] = {

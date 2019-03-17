@@ -51,7 +51,7 @@ class LDAPrediction extends ConfigurableStop{
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("mllib.png")
+    ImageUtil.getImage("icon/ml_clustering/LDAPrediction.png")
   }
 
   override def getGroup(): List[String] = {

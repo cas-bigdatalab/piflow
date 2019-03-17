@@ -85,7 +85,7 @@ class KmeansTraining extends ConfigurableStop{
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("mllib.png")
+    ImageUtil.getImage("icon/ml_clustering/KmeansTraining.png")
   }
 
   override def getGroup(): List[String] = {
