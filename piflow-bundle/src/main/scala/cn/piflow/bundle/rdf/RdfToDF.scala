@@ -137,7 +137,7 @@ class RdfToDF extends ConfigurableStop{
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("rdf.png")
+    ImageUtil.getImage("icon/rdf/RDF2DF.png")
   }
 
   override def getGroup(): List[String] = {

@@ -38,7 +38,7 @@ class ShellExecutor extends ConfigurableStop{
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("shell.png")
+    ImageUtil.getImage("icon/script/ShellExecutor.png")
   }
 
   override def getGroup(): List[String] = {

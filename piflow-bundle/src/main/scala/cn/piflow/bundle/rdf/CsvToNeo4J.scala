@@ -382,7 +382,7 @@ class CsvToNeo4J extends ConfigurableStop{
       maxMemory, cacheOnHeap, highIO, detailedProgress)
   }
 
-  override def getIcon(): Array[Byte] = ImageUtil.getImage("neo4j.jpg")
+  override def getIcon(): Array[Byte] = ImageUtil.getImage("icon/rdf/CsvToNeo4J.png")
 
   override def getGroup(): List[String] =  List(StopGroup.RDFGroup.toString)
 

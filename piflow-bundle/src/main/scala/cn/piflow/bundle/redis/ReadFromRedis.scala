@@ -90,7 +90,7 @@ class ReadFromRedis extends ConfigurableStop{
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("redis.png")
+    ImageUtil.getImage("icon/redis/ReadFromRedis.png")
   }
 
   override def getGroup(): List[String] = {

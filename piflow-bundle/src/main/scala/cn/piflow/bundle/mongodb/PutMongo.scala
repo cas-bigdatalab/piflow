@@ -88,7 +88,7 @@ class PutMongo extends ConfigurableStop{
   }
 
   override def getIcon(): Array[Byte] =  {
-    ImageUtil.getImage("mongoDB/mongoDB.png")
+    ImageUtil.getImage("icon/mongoDB/PutMongo.png")
   }
 
   override def getGroup(): List[String] = {

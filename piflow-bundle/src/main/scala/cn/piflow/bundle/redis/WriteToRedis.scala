@@ -62,7 +62,7 @@ class WriteToRedis extends ConfigurableStop{
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("redis.png")
+    ImageUtil.getImage("icon/redis/WriteToRedis.png")
   }
 
   override def getGroup(): List[String] = {

@@ -19,7 +19,7 @@ class PutNeo4j extends ConfigurableStop{
   var labelName : String =""
 
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
-    val spark: SparkSession = pec.get[SparkSession]()
+    /*val spark: SparkSession = pec.get[SparkSession]()
     val inDf: DataFrame = in.read()
 
     val fileNames: Array[String] = inDf.columns
@@ -62,7 +62,7 @@ class PutNeo4j extends ConfigurableStop{
       transaction.close()
       session.close()
       driver.close()
-    }
+    }*/
   }
 
   override def setProperties(map: Map[String, Any]): Unit = {
@@ -91,11 +91,11 @@ class PutNeo4j extends ConfigurableStop{
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("neo4j/neo4j-logo.png")
+    ImageUtil.getImage("icon/neo4j/PutNeo4j.png")
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroup.Neo4j)
+    List(StopGroup.Neo4jGroup)
   }
 
   override def initialize(ctx: ProcessContext): Unit = {

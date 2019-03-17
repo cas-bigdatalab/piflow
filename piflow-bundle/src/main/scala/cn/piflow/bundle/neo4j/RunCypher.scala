@@ -18,7 +18,7 @@ class RunCypher extends ConfigurableStop{
 
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
 
-    val cqls: Array[String] = cql.split(";")
+    /*val cqls: Array[String] = cql.split(";")
 
     var driver: Driver = GraphDatabase.driver(url,AuthTokens.basic(userName,password))
     var session: Session = null
@@ -41,7 +41,7 @@ class RunCypher extends ConfigurableStop{
       transaction.close()
       session.close()
       driver.close()
-    }
+    }*/
   }
 
   override def setProperties(map: Map[String, Any]): Unit = {
@@ -70,11 +70,11 @@ class RunCypher extends ConfigurableStop{
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("neo4j/neo4j-logo.png")
+    ImageUtil.getImage("icon/neo4j/RunCypher.png")
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroup.Neo4j)
+    List(StopGroup.Neo4jGroup)
   }
 
   override def initialize(ctx: ProcessContext): Unit = {
