@@ -126,7 +126,7 @@ class GoData extends ConfigurableStop{
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("microorganism/png/Gene_Ontology.png")
+    ImageUtil.getImage("icon/microorganism/GoData.png")
   }
 
   override def getGroup(): List[String] = {

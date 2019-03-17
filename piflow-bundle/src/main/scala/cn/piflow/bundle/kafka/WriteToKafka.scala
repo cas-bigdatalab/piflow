@@ -75,7 +75,7 @@ class WriteToKafka extends ConfigurableStop{
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("kafka.png")
+    ImageUtil.getImage("icon/kafka/WriteToKafka.png")
   }
 
   override def getGroup(): List[String] = {

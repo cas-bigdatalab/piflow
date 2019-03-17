@@ -115,7 +115,7 @@ class InterproData extends ConfigurableStop{
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("microorganism/png/Interpro.png")
+    ImageUtil.getImage("icon/microorganism/InterproData.png")
   }
 
   override def getGroup(): List[String] = {

@@ -148,7 +148,7 @@ class ComplementByMemcache extends ConfigurableStop {
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("memcache/Memcache.png")
+    ImageUtil.getImage("icon/memcache/ComplementByMemcache.png")
   }
 
   override def getGroup(): List[String] = {

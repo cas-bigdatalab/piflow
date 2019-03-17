@@ -136,7 +136,7 @@ class Gene extends ConfigurableStop{
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("microorganism/png/Gene.png")
+    ImageUtil.getImage("icon/microorganism/Gene.png")
   }
 
   override def getGroup(): List[String] = {

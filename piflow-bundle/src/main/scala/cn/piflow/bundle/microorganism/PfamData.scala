@@ -126,7 +126,7 @@ class PfamData extends ConfigurableStop{
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("microorganism/png/Pfam.png")
+    ImageUtil.getImage("icon/microorganism/PfamData.png")
   }
 
   override def getGroup(): List[String] = {

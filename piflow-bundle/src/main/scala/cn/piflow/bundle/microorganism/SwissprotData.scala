@@ -29,7 +29,7 @@ class SwissprotData extends ConfigurableStop{
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("microorganism/png/Swissprot+TrEMBL.png")
+    ImageUtil.getImage("icon/microorganism/SwissprotData.png")
   }
 
   override def getGroup(): List[String] = {

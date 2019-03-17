@@ -39,7 +39,7 @@ class GoldData extends ConfigurableStop{
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("microorganism/png/GOLD.png")
+    ImageUtil.getImage("icon/microorganism/GoldData.png")
   }
 
   override def getGroup(): List[String] = {

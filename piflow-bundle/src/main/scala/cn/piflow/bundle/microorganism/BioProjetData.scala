@@ -205,7 +205,7 @@ class BioProjetData extends ConfigurableStop{
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("microorganism/png/BioProject.png")
+    ImageUtil.getImage("icon/microorganism/BioprojectData.png")
   }
 
   override def getGroup(): List[String] = {

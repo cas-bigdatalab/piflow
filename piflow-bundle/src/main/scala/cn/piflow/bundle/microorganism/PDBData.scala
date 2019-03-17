@@ -122,7 +122,7 @@ class PDBData extends ConfigurableStop{
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("microorganism/png/PDB.png")
+    ImageUtil.getImage("icon/microorganism/PDBData.png")
   }
 
   override def getGroup(): List[String] = {

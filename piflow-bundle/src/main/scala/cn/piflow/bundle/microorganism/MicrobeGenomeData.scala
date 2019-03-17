@@ -130,7 +130,7 @@ class MicrobeGenomeData extends ConfigurableStop{
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("microorganism/png/NCBI_Microbe_genome.png")
+    ImageUtil.getImage("icon/microorganism/MicrobeGEnomeData.png")
   }
 
   override def getGroup(): List[String] = {

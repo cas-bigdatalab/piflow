@@ -106,7 +106,7 @@ class GenBankData extends ConfigurableStop{
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("microorganism/png/Genbank.png")
+    ImageUtil.getImage("icon/microorganism/GenbankData.png")
   }
 
   override def getGroup(): List[String] = {

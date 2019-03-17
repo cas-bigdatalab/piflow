@@ -170,7 +170,7 @@ class BioSample extends ConfigurableStop{
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("microorganism/png/Biosample.png")
+    ImageUtil.getImage("icon/microorganism/BioSample.png")
   }
 
   override def getGroup(): List[String] = {

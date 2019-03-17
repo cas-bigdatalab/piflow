@@ -220,7 +220,7 @@ class MedlineDate extends  ConfigurableStop{
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("microorganism/png/medline.png")
+    ImageUtil.getImage("icon/microorganism/MedlineData.png")
   }
 
   override def getGroup(): List[String] = {

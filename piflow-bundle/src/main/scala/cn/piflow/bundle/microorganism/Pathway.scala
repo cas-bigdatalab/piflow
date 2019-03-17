@@ -27,7 +27,7 @@ class Pathway extends ConfigurableStop{
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("microorganism/png/kegg.png")
+    ImageUtil.getImage("icon/microorganism/Pathway.png")
   }
 
   override def getGroup(): List[String] = {

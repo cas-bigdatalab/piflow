@@ -119,7 +119,7 @@ class EmblData extends ConfigurableStop{
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("microorganism/png/embl.png")
+    ImageUtil.getImage("icon/microorganism/EmblData.png")
   }
 
   override def getGroup(): List[String] = {

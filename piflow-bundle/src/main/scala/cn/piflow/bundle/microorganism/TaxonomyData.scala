@@ -333,7 +333,7 @@ class TaxonomyData extends ConfigurableStop{
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("microorganism/png/Taxonomy.png")
+    ImageUtil.getImage("icon/microorganism/TaxonomyData.png")
   }
 
   override def getGroup(): List[String] = {

@@ -29,7 +29,7 @@ class Ensembl extends ConfigurableStop{
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("microorganism/png/Ensembl.png")
+    ImageUtil.getImage("icon/microorganism/Ensembl.png")
   }
 
   override def getGroup(): List[String] = {

@@ -113,7 +113,7 @@ class PutMemcache extends ConfigurableStop{
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("memcache/Memcache.png")
+    ImageUtil.getImage("icon/memcache/PutMemcache.png")
   }
 
   override def getGroup(): List[String] = {
