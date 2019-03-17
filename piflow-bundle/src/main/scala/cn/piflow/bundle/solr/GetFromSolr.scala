@@ -135,7 +135,7 @@ class GetFromSolr extends ConfigurableStop{
 
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("solr.png")
+    ImageUtil.getImage("icon/solr/GetSolr.png")
   }
 
   override def getGroup(): List[String] = {

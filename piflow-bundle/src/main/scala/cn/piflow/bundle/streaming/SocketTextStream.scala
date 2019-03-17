@@ -43,7 +43,7 @@ class SocketTextStream extends ConfigurableStreamingStop {
 
   //TODO: change icon
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("icon/streaming/socketTextStream.png")
+    ImageUtil.getImage("icon/streaming/SocketTextStream.png")
   }
 
   override def getGroup(): List[String] = {

@@ -168,7 +168,7 @@ class FlattenXmlParser extends ConfigurableStop{
     descriptor
   }
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("xml.png")
+    ImageUtil.getImage("icon/xml/FlattenXmlParser.png")
   }
   override def getGroup(): List[String] = {
     List(StopGroup.XmlGroup.toString)

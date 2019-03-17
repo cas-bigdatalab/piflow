@@ -57,7 +57,7 @@ class XmlParser extends ConfigurableStop {
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("xml.png")
+    ImageUtil.getImage("icon/xml/XmlParser.png")
   }
 
   override def getGroup(): List[String] = {

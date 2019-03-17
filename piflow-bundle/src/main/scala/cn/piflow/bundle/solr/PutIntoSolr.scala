@@ -54,7 +54,7 @@ class PutIntoSolr extends ConfigurableStop{
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("solr.png")
+    ImageUtil.getImage("icon/solr/PutSolr.png")
   }
 
   override def getGroup(): List[String] = {

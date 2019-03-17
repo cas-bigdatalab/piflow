@@ -44,7 +44,7 @@ class KafkaStream extends ConfigurableStreamingStop{
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("icon/streaming/kafkaStream.png")
+    ImageUtil.getImage("icon/streaming/KafkaStream.png")
   }
 
   override def getGroup(): List[String] = {

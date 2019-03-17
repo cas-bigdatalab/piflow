@@ -40,7 +40,7 @@ class XmlSave extends ConfigurableStop{
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("xml.png")
+    ImageUtil.getImage("icon/xml/XmlSave.png")
   }
 
   override def getGroup(): List[String] = {
