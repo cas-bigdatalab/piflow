@@ -1,5 +1,5 @@
-![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow.png) 
-is an easy to use, powerful big data pipeline system.
+![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-logo2.png) 
+piflow is an easy to use, powerful big data pipeline system.
 
 ## Table of Contents
 
@@ -241,11 +241,11 @@ To Use：
       }
     }
   - curl -0 -X POST http://10.0.86.191:8002/flow/start -H "Content-type: application/json" -d 'this is your flow json'
-- piflow web
+- piflow web: try with "http://piflow.ml/piflow-web", user/password: admin/admin
     ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-login.png)
   ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-flowList.png)
   ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-createflow.png)
-  ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow_web.png)
+  ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow_flowconfig.png)
   ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-loadflow.png)
   ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-monitor.png)
   ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-log.png)
