@@ -69,7 +69,7 @@ class JdbcRead extends ConfigurableStop  {
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("mysql.png")
+    ImageUtil.getImage("icon/jdbc/jdbcRead.png")
   }
 
   override def getGroup(): List[String] = {

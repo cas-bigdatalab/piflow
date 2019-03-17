@@ -65,7 +65,7 @@ class MultiFolderJsonParser extends ConfigurableStop{
     descriptor
   }
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("json.png")
+    ImageUtil.getImage("icon/json/MultiFolderJsonParser.png")
   }
 
   override def getGroup(): List[String] = {

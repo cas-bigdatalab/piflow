@@ -40,7 +40,7 @@ class JsonStringParser extends ConfigurableStop{
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("json.png")
+    ImageUtil.getImage("icon/json/JsonStringParser.png")
   }
 
   override def getGroup(): List[String] = {

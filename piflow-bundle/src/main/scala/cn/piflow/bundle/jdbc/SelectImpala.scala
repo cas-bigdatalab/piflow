@@ -88,7 +88,7 @@ class SelectImpala extends ConfigurableStop{
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("impala/impala-logo.png")
+    ImageUtil.getImage("icon/jdbc/SelectImpala.png")
   }
 
   override def getGroup(): List[String] = {
