@@ -16,7 +16,7 @@ import org.json.JSONObject
 
 class GoData extends ConfigurableStop{
   val authorEmail: String = "ygang@cnic.cn"
-  val description: String = "Parsing Go type data"
+  val description: String = "Parse Go data"
   val inportList: List[String] = List(PortEnum.DefaultPort.toString)
   val outportList: List[String] = List(PortEnum.DefaultPort.toString)
 

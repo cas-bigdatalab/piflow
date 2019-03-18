@@ -15,7 +15,7 @@ import scala.collection.mutable.ArrayBuffer
 
 class SelectImpala extends ConfigurableStop{
   override val authorEmail: String = "yangqidong@cnic.cn"
-  override val description: String = "get data from impala"
+  override val description: String = "Get data from impala"
   val inportList: List[String] = List(PortEnum.NonePort.toString)
   val outportList: List[String] = List(PortEnum.DefaultPort.toString)
 

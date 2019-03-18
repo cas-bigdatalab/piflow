@@ -22,7 +22,7 @@ class FolderJsonParser extends ConfigurableStop{
   override val authorEmail: String = "yangqidong@cnic.cn"
   val inportList: List[String] = List(PortEnum.NonePort.toString)
   val outportList: List[String] = List(PortEnum.DefaultPort.toString)
-  override val description: String ="parser json folder"
+  override val description: String ="Parse json folder"
 
   var FolderPath:String = _
   var tag : String = _

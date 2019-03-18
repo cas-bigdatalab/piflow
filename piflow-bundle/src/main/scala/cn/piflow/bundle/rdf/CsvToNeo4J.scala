@@ -10,8 +10,8 @@ import scala.sys.process._
 class CsvToNeo4J extends ConfigurableStop{
   override val authorEmail: String = "sha0w@cnic.cn"
   override val description: String = "this stop use linux shell & neo4j-import command " +
-    "to lead CSV file data create/into a database" +
-    "the neo4j version is 3.0+"
+    "to load CSV file data to create or insert into neo4j" +
+    "the neo4j version should be above 3.0"
   override val inportList: List[String] = List(PortEnum.NonePort.toString)
   override val outportList: List[String] = List(PortEnum.NonePort.toString)
 

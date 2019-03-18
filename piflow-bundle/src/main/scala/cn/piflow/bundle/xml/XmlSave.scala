@@ -11,7 +11,7 @@ import scala.beans.BeanProperty
 class XmlSave extends ConfigurableStop{
 
   val authorEmail: String = "xjzhu@cnic.cn"
-  val description: String = "Save data to xml file."
+  val description: String = "Save data to xml file"
   val inportList: List[String] = List(PortEnum.DefaultPort.toString)
   val outportList: List[String] = List(PortEnum.NonePort.toString)
 

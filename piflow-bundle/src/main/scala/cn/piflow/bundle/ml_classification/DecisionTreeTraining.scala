@@ -9,7 +9,7 @@ import org.apache.spark.sql.SparkSession
 
 class DecisionTreeTraining extends ConfigurableStop{
   val authorEmail: String = "06whuxx@163.com"
-  val description: String = "Training a DecisionTreeModel."
+  val description: String = "Train a decision tree model"
   val inportList: List[String] = List(PortEnum.NonePort.toString)
   val outportList: List[String] = List(PortEnum.DefaultPort.toString)
   var training_data_path:String =_

@@ -7,7 +7,7 @@ import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 
 class RunCypher extends ConfigurableStop{
   override val authorEmail: String = "yangqidong@cnic.cn"
-  override val description: String = "run cql on your neo4j"
+  override val description: String = "Run cql on neo4j"
   override val inportList: List[String] =List(PortEnum.DefaultPort.toString)
   override val outportList: List[String] = List(PortEnum.NonePort.toString)
 

@@ -16,7 +16,7 @@ class DeleteHdfs extends ConfigurableStop{
 
   override val inportList: List[String] = List(PortEnum.NonePort.toString)
   override val outportList: List[String] = List(PortEnum.NonePort.toString)
-  override val description: String = "delete file or dir from hdfs"
+  override val description: String = "Delete file or directory on hdfs"
 
   var hdfsUrl :String= _
   var deletePath :String = _

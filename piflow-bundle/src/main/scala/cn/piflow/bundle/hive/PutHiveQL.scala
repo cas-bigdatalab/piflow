@@ -9,7 +9,7 @@ import org.apache.spark.sql.SparkSession
 class PutHiveQL extends ConfigurableStop {
 
   val authorEmail: String = "xiaoxiao@cnic.cn"
-  val description: String = "Execute hiveQL script."
+  val description: String = "Execute hiveQL script"
   val inportList: List[String] = List(PortEnum.NonePort.toString)
   val outportList: List[String] = List(PortEnum.NonePort.toString)
 

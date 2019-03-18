@@ -9,7 +9,7 @@ import org.apache.spark.sql.SparkSession
 
 class GetHdfs extends ConfigurableStop{
   override val authorEmail: String = "ygang@cmic.com"
-  override val description: String = "get data from hdfs"
+  override val description: String = "Get data from hdfs"
   override val inportList: List[String] = List(PortEnum.NonePort.toString)
   override val outportList: List[String] = List(PortEnum.DefaultPort.toString)
 

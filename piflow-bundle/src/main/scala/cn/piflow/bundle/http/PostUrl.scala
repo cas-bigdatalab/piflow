@@ -21,7 +21,7 @@ class PostUrl extends ConfigurableStop{
   override val authorEmail: String = "ygang@cmic.com"
   override val inportList: List[String] = List(PortEnum.NonePort.toString)
   override val outportList: List[String] = List(PortEnum.NonePort.toString)
-  override val description: String = "peforms an HTTP Post with "
+  override val description: String = "HTTP Post"
 
   var url : String= _
   var jsonPath : String = _

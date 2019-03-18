@@ -13,9 +13,9 @@ import org.apache.hadoop.fs.{FSDataInputStream, FileSystem, Path}
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.json.{JSONObject, XML}
 
-class MedlineDate extends  ConfigurableStop{
+class MedlineData extends  ConfigurableStop{
   override val authorEmail: String = "yangqidong@cnic.cn"
-  override val description: String = "Parsing kegg type data"
+  override val description: String = "Parse Medline data"
   override val inportList: List[String] =List(PortEnum.DefaultPort.toString)
   override val outportList: List[String] = List(PortEnum.DefaultPort.toString)
 

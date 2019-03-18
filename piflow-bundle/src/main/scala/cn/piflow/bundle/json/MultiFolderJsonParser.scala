@@ -14,7 +14,7 @@ class MultiFolderJsonParser extends ConfigurableStop{
   val authorEmail: String = "yangqidong@cnic.cn"
   val inportList: List[String] = List(PortEnum.NonePort.toString)
   val outportList: List[String] = List(PortEnum.DefaultPort.toString)
-  val description: String = "Analysis of multiple JSON folders"
+  val description: String = "Parse json folders"
 
   var jsonPathes: String = _
   var tag : String = _

@@ -10,7 +10,7 @@ import org.apache.spark.streaming.dstream.DStream
 class TextFileStream extends ConfigurableStreamingStop{
   override var batchDuration: Int = _
   override val authorEmail: String = "xjzhu@cnic.cn"
-  override val description: String = "Get text file streaming data. "
+  override val description: String = "Get text file streaming data"
   override val inportList: List[String] = List(PortEnum.NonePort.toString)
   override val outportList: List[String] = List(PortEnum.DefaultPort.toString)
 

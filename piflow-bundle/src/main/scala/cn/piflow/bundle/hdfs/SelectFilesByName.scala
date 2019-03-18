@@ -16,7 +16,7 @@ import scala.collection.mutable.ArrayBuffer
 
 class SelectFilesByName extends ConfigurableStop{
   override val authorEmail: String = "yangqidong@cnic.cn"
-  override val description: String = "Selecting files by file name"
+  override val description: String = "Select files by file name"
   override val inportList: List[String] = List(PortEnum.NonePort.toString)
   override val outportList: List[String] = List(PortEnum.DefaultPort.toString)
 
@@ -99,7 +99,7 @@ class SelectFilesByName extends ConfigurableStop{
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroup.FtpGroup)
+    List(StopGroup.HdfsGroup)
   }
 
   override def initialize(ctx: ProcessContext): Unit = {

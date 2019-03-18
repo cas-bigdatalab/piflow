@@ -18,7 +18,7 @@ import scala.collection.mutable.ArrayBuffer
 
 class GetMongo extends ConfigurableStop{
   override val authorEmail: String = "yangqidong@cnic.cn"
-  override val description: String = "get data from mongodb"
+  override val description: String = "Get data from mongodb"
   val inportList: List[String] = List(PortEnum.NonePort.toString)
   val outportList: List[String] = List(PortEnum.DefaultPort.toString)
 

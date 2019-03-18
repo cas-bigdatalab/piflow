@@ -15,7 +15,7 @@ import org.json.JSONObject
 
 class Ensembl extends ConfigurableStop{
   override val authorEmail: String = "yangqidong@cnic.cn"
-  override val description: String = "ensembl type data"
+  override val description: String = "Parse ensembl data"
   override val inportList: List[String] =List(PortEnum.DefaultPort.toString)
   override val outportList: List[String] = List(PortEnum.DefaultPort.toString)
 

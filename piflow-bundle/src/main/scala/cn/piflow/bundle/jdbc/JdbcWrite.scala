@@ -13,7 +13,7 @@ import scala.beans.BeanProperty
 class JdbcWrite extends ConfigurableStop{
 
   val authorEmail: String = "xjzhu@cnic.cn"
-  val description: String = "Write data into jdbc database."
+  val description: String = "Write data into jdbc database"
   val inportList: List[String] = List(PortEnum.DefaultPort.toString)
   val outportList: List[String] = List(PortEnum.NonePort.toString)
 

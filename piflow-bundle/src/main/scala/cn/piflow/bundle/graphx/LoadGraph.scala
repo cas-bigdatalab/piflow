@@ -9,7 +9,7 @@ import org.apache.spark.graphx.{GraphLoader, PartitionStrategy}
 class LoadGraph extends ConfigurableStop {
 
   val authorEmail: String = "06whuxx@163.com"
-  val description: String = "Load data and construct a graph."
+  val description: String = "Load data and construct a graph"
   val inportList: List[String] = List(PortEnum.NonePort.toString)
 
 

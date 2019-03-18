@@ -9,7 +9,7 @@ import org.elasticsearch.spark.sql.EsSparkSQL
 
 class PutEs extends ConfigurableStop {
 
-  override val description: String = "Put data to Elasticsearch "
+  override val description: String = "Put data into Elasticsearch"
   val authorEmail: String = "ygang@cnic.cn"
 
   override val inportList: List[String] = List(PortEnum.DefaultPort.toString)

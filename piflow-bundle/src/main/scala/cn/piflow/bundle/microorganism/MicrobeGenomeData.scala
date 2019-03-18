@@ -16,7 +16,7 @@ import org.json.JSONObject
 
 class MicrobeGenomeData extends ConfigurableStop{
   override val authorEmail: String = "yangqidong@cnic.cn"
-  override val description: String = "Parsing MicrobeGenome type data"
+  override val description: String = "Parse MicrobeGenome data"
   override val inportList: List[String] =List(PortEnum.DefaultPort.toString)
   override val outportList: List[String] = List(PortEnum.DefaultPort.toString)
 

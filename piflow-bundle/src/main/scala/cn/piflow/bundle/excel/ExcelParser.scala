@@ -15,7 +15,7 @@ import org.apache.spark.sql.{DataFrame, SparkSession}
 class ExcelParser extends ConfigurableStop{
 
   val authorEmail: String = "ygang@cnic.cn"
-  val description: String = "Parse excel file to json "
+  val description: String = "Parse excel file to json"
   val inportList: List[String] = List(PortEnum.DefaultPort.toString)
   val outportList: List[String] = List(PortEnum.DefaultPort.toString)
 

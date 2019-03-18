@@ -14,7 +14,7 @@ import org.bson.Document
 
 class PutMongo extends ConfigurableStop{
   override val authorEmail: String = "yangqidong@cnic.cn"
-  override val description: String = "put data to mongodb"
+  override val description: String = "Put data to mongodb"
   val inportList: List[String] = List(PortEnum.DefaultPort.toString)
   val outportList: List[String] = List(PortEnum.NonePort.toString)
 

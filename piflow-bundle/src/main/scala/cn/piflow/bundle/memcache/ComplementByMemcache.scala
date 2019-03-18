@@ -13,7 +13,7 @@ import scala.collection.mutable
 
 class ComplementByMemcache extends ConfigurableStop {
   override val authorEmail: String = "yangqidong@cnic.cn"
-  override val description: String = "Supplement to Memcache query data"
+  override val description: String = "Complement by Memcache"
   val inportList: List[String] = List(PortEnum.DefaultPort.toString)
   val outportList: List[String] = List(PortEnum.DefaultPort.toString)
 

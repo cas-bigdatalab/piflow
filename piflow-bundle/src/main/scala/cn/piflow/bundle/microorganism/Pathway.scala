@@ -13,7 +13,7 @@ import org.json.JSONObject
 
 class Pathway extends ConfigurableStop{
   override val authorEmail: String = "yangqidong@cnic.cn"
-  override val description: String = "Parsing kegg type data"
+  override val description: String = "Parse Pathway data"
   override val inportList: List[String] =List(PortEnum.DefaultPort.toString)
   override val outportList: List[String] = List(PortEnum.DefaultPort.toString)
 

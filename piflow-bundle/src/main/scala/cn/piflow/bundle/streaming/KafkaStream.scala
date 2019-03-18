@@ -15,7 +15,7 @@ import org.apache.spark.streaming.kafka010.ConsumerStrategies.Subscribe
 class KafkaStream extends ConfigurableStreamingStop{
   override var batchDuration: Int = _
   override val authorEmail: String = "xjzhu@cnic.cn"
-  override val description: String = "read data from kafka."
+  override val description: String = "Read data from kafka"
   override val inportList: List[String] = List(PortEnum.NonePort)
   override val outportList: List[String] = List(PortEnum.DefaultPort)
 

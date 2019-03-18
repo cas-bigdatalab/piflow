@@ -20,7 +20,7 @@ import scala.collection.mutable.{ArrayBuffer, ListBuffer}
 
 class GetUrl extends ConfigurableStop{
   override val authorEmail: String = "ygang@cmic.com"
-  override val description: String = "GetUrl to dataframe"
+  override val description: String = "Http Get"
 
   override val inportList: List[String] = List(PortEnum.NonePort.toString)
   override val outportList: List[String] = List(PortEnum.DefaultPort.toString)

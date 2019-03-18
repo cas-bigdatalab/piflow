@@ -10,7 +10,7 @@ import org.apache.spark.sql.SparkSession
 
 class WordToVec extends ConfigurableStop{
   val authorEmail: String = "06whuxx@163.com"
-  val description: String = "transfer word to vector"
+  val description: String = "Transfer word to vector"
   val inportList: List[String] = List(PortEnum.DefaultPort.toString)
   val outportList: List[String] = List(PortEnum.DefaultPort.toString)
   var maxIter:String=_

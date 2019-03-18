@@ -15,7 +15,7 @@ import org.json.JSONObject
 
 class TaxonomyData extends ConfigurableStop{
   val authorEmail: String = "ygang@cnic.cn"
-  val description: String = "Parsing Taxonomy type data"
+  val description: String = "Parse Taxonomy data"
   val inportList: List[String] = List(PortEnum.DefaultPort.toString)
   val outportList: List[String] = List(PortEnum.DefaultPort.toString)
 

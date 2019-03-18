@@ -12,7 +12,7 @@ import org.apache.spark.streaming.flume._
 class FlumeStream extends ConfigurableStreamingStop{
   override var batchDuration: Int = _
   override val authorEmail: String = "xjzhu@cnic.cn"
-  override val description: String = "get data from flume Stream."
+  override val description: String = "Get data from flume"
   override val inportList: List[String] = List(PortEnum.NonePort)
   override val outportList: List[String] = List(PortEnum.DefaultPort)
 

@@ -10,7 +10,7 @@ import scala.beans.BeanProperty
 class Fork extends ConfigurableStop{
 
   val authorEmail: String = "xjzhu@cnic.cn"
-  val description: String = "Fork data into diffenrent stop."
+  val description: String = "Fork data into different stops"
   val inportList: List[String] = List(PortEnum.DefaultPort.toString)
   val outportList: List[String] = List(PortEnum.AnyPort.toString)
 

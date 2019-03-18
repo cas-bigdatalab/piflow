@@ -13,7 +13,7 @@ class FetchEs extends ConfigurableStop {
 
   override val inportList: List[String] = List(PortEnum.NonePort.toString)
   override val outportList: List[String] = List(PortEnum.DefaultPort.toString)
-  override val description: String = "Fetch data from Elasticsearch "
+  override val description: String = "Fetch data from Elasticsearch"
 
   var es_nodes : String =  _
   var es_port  : String  =  _

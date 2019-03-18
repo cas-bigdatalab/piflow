@@ -9,7 +9,7 @@ import org.apache.spark.sql.SparkSession
 
 class RandomForestTraining extends ConfigurableStop{
   val authorEmail: String = "06whuxx@163.com"
-  val description: String = "Training a RandomForestModel."
+  val description: String = "Train a RandomForest model"
   val inportList: List[String] = List(PortEnum.NonePort.toString)
   val outportList: List[String] = List(PortEnum.DefaultPort.toString)
   var training_data_path:String =_

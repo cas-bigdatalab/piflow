@@ -10,7 +10,7 @@ import org.apache.spark.sql.SparkSession
 
 class RegexTextProcess extends ConfigurableStop{
     val authorEmail: String = "06whuxx@163.com"
-    val description: String = "Use regex to replace text."
+    val description: String = "Use regex to replace text"
     val inportList: List[String] = List(PortEnum.DefaultPort.toString)
     val outportList: List[String] = List(PortEnum.DefaultPort.toString)
     var regex:String =_

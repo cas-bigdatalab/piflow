@@ -14,7 +14,7 @@ import org.json.JSONObject
 
 class Gene extends ConfigurableStop{
   override val authorEmail: String = "yangqidong@cnic.cn"
-  override val description: String = "Parsing gene type data"
+  override val description: String = "Parse gene data"
   override val inportList: List[String] =List(PortEnum.DefaultPort.toString)
   override val outportList: List[String] = List(PortEnum.DefaultPort.toString)
 

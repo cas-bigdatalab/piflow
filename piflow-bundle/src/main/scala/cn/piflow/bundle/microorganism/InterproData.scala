@@ -14,7 +14,7 @@ import org.json.{JSONObject, XML}
 
 class InterproData extends ConfigurableStop{
   val authorEmail: String = "ygang@cnic.cn"
-  val description: String = "Parsing Interpro type data"
+  val description: String = "Parse Interpro data"
   val inportList: List[String] = List(PortEnum.DefaultPort.toString)
   val outportList: List[String] = List(PortEnum.DefaultPort.toString)
 

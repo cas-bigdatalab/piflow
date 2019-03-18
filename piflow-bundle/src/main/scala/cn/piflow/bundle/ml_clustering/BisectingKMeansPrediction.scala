@@ -9,7 +9,7 @@ import org.apache.spark.sql.SparkSession
 
 class BisectingKMeansPrediction extends ConfigurableStop{
   val authorEmail: String = "06whuxx@163.com"
-  val description: String = "Make use of a exist BisectingKMeans Model to predict."
+  val description: String = "use an existing BisectingKMeans model to predict"
   val inportList: List[String] = List(PortEnum.NonePort.toString)
   val outportList: List[String] = List(PortEnum.DefaultPort.toString)
   var test_data_path:String =_

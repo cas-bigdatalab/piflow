@@ -16,7 +16,7 @@ import org.json.{JSONArray, JSONObject, XML}
 
 class BioProjetData extends ConfigurableStop{
   val authorEmail: String = "ygang@cnic.cn"
-  val description: String = "Parsing BioProjet type data"
+  val description: String = "Parse BioProjet data"
   val inportList: List[String] = List(PortEnum.DefaultPort.toString)
   val outportList: List[String] = List(PortEnum.DefaultPort.toString)
 

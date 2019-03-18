@@ -19,7 +19,7 @@ import org.apache.kafka.common.serialization.StringSerializer
 
 
 class ReadFromKafka extends ConfigurableStop{
-  val description: String = "Read data from kafka."
+  val description: String = "Read data from kafka"
   val inportList: List[String] = List(PortEnum.NonePort.toString)
   val outportList: List[String] = List(PortEnum.DefaultPort.toString)
   var kafka_host:String =_

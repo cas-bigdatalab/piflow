@@ -20,7 +20,7 @@ import scala.collection.mutable.ArrayBuffer
 
 class spider extends ConfigurableStop{
   override val authorEmail: String = "yangqidong@cnic.cn"
-  override val description: String = "Crawling rules data from websites"
+  override val description: String = "Crawl data from websites"
   val inportList: List[String] = List(PortEnum.NonePort.toString)
   val outportList: List[String] = List(PortEnum.DefaultPort.toString)
 

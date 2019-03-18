@@ -9,7 +9,7 @@ import org.apache.spark.ml.classification.LogisticRegression
 
 class LogisticRegressionTraining extends ConfigurableStop{
   val authorEmail: String = "06whuxx@163.com"
-  val description: String = "Training a LogisticRegressionModel."
+  val description: String = "Train a logistic regression model"
   val inportList: List[String] = List(PortEnum.NonePort.toString)
   val outportList: List[String] = List(PortEnum.DefaultPort.toString)
   var training_data_path:String =_

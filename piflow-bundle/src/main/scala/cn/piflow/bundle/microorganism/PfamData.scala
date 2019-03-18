@@ -15,7 +15,7 @@ import org.json.JSONObject
 
 class PfamData extends ConfigurableStop{
   override val authorEmail: String = "yangqidong@cnic.cn"
-  override val description: String = "Parsing pfam type data"
+  override val description: String = "Parse pfam data"
   override val inportList: List[String] =List(PortEnum.DefaultPort.toString)
   override val outportList: List[String] = List(PortEnum.DefaultPort.toString)
 

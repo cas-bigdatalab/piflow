@@ -18,7 +18,7 @@ class XmlStringParser extends ConfigurableStop {
   override val authorEmail: String = "yangqidong@cnic.cn"
   val inportList: List[String] = List(PortEnum.NonePort.toString)
   val outportList: List[String] = List(PortEnum.DefaultPort.toString)
-  override val description: String = "Parsing XML string"
+  override val description: String = "Parse xml string"
 
   var XmlString:String=_
   var label:String=_

@@ -9,7 +9,7 @@ import org.apache.spark.streaming.dstream.DStream
 
 class SocketTextStreamByWindow extends ConfigurableStreamingStop {
   override val authorEmail: String = "xjzhu@cnic.cn"
-  override val description: String = "Receive text data from a data server listening on a TCP socket by window."
+  override val description: String = "Receive text data from socket by window"
   override val inportList: List[String] = List(PortEnum.NonePort)
   override val outportList: List[String] = List(PortEnum.DefaultPort)
   override var batchDuration: Int = _

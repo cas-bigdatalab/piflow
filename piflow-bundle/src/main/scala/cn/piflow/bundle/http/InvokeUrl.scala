@@ -26,7 +26,7 @@ class InvokeUrl extends ConfigurableStop{
   override val authorEmail: String = "ygang@cmic.com"
   override val inportList: List[String] = List(PortEnum.NonePort.toString)
   override val outportList: List[String] = List(PortEnum.NonePort.toString)
-  override val description: String = "invoke http "
+  override val description: String = "Http Invoke"
 
 
   var url :String= _

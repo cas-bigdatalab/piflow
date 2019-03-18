@@ -13,7 +13,7 @@ import scala.beans.BeanProperty
 class SelectHiveQL extends ConfigurableStop {
 
   val authorEmail: String = "xjzhu@cnic.cn"
-  val description: String = "Execute select hiveQL."
+  val description: String = "Execute select clause of hiveQL"
   val inportList: List[String] = List(PortEnum.NonePort.toString)
   val outportList: List[String] = List(PortEnum.DefaultPort.toString)
 

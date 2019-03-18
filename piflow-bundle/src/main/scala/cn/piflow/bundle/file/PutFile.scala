@@ -14,7 +14,7 @@ import org.apache.spark.sql.SparkSession
 
 class PutFile extends ConfigurableStop{
   val authorEmail: String = "06whuxx@163.com"
-  val description: String = "Put local file to hdfs."
+  val description: String = "Put local file to hdfs"
   val inportList: List[String] = List(PortEnum.DefaultPort.toString)
   val outportList: List[String] = List(PortEnum.DefaultPort.toString)
   var hdfs_path:String =_

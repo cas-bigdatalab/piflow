@@ -16,7 +16,7 @@ import scala.collection.mutable.ArrayBuffer
 
 class LoadFromFtpToHDFS extends ConfigurableStop{
   override val authorEmail: String = "yangqidong@cnic.cn"
-  override val description: String = "Download files or folders to save to HDFS"
+  override val description: String = "Download files or folders to HDFS"
   override val inportList: List[String] = List(PortEnum.NonePort.toString)
   override val outportList: List[String] = List(PortEnum.NonePort.toString)
 

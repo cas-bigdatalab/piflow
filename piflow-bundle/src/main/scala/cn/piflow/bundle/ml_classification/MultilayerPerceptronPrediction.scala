@@ -9,7 +9,7 @@ import org.apache.spark.sql.SparkSession
 
 class MultilayerPerceptronPrediction extends ConfigurableStop{
   val authorEmail: String = "06whuxx@163.com"
-  val description: String = "Make use of a exist MultilayerPerceptronModel to predict."
+  val description: String = "Use an existing multilayer perceptron model to predict"
   val inportList: List[String] = List(PortEnum.DefaultPort.toString)
   val outportList: List[String] = List(PortEnum.DefaultPort.toString)
   var test_data_path:String =_

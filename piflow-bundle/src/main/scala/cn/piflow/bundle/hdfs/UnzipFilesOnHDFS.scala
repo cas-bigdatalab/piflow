@@ -18,7 +18,7 @@ import scala.collection.mutable.ArrayBuffer
 
 class UnzipFilesOnHDFS extends ConfigurableStop {
   val authorEmail: String = "yangqidong@cnic.cn"
-  val description: String = "Unzip files on HDFS"
+  val description: String = "Unzip files on hdfs"
   val inportList: List[String] = List(PortEnum.DefaultPort.toString)
   val outportList: List[String] = List(PortEnum.DefaultPort.toString)
 

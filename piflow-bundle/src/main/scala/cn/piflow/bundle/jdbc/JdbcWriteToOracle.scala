@@ -11,7 +11,7 @@ import org.apache.spark.sql._
 class JdbcWriteToOracle extends ConfigurableStop{
 
   val authorEmail: String = "yangqidong@cnic.cn"
-  val description: String = "write to oracle."
+  val description: String = "Write data to oracle"
   val inportList: List[String] = List(PortEnum.NonePort.toString)
   val outportList: List[String] = List(PortEnum.DefaultPort.toString)
 

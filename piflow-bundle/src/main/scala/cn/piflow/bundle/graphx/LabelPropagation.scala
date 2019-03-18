@@ -11,7 +11,7 @@ import org.apache.spark.sql.SparkSession
 class LabelPropagation extends ConfigurableStop {
 
   val authorEmail: String = "06whuxx@163.com"
-  val description: String = "Compute sub graph."
+  val description: String = "Compute sub graphs"
   var edgePortIn : String = "edgesIn"
   var vertexPortIn : String = "vertexIn"
   val inportList: List[String] = List(edgePortIn,vertexPortIn)

@@ -21,7 +21,7 @@ class PutHbase extends ConfigurableStop {
 
   override val inportList: List[String] = List(PortEnum.DefaultPort.toString)
   override val outportList: List[String] = List(PortEnum.NonePort.toString)
-  override val description: String = "put data  to hbase "
+  override val description: String = "put data to hbase"
 
 
   def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {

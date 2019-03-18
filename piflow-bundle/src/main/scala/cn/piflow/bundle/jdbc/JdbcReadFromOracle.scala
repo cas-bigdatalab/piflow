@@ -16,7 +16,7 @@ import scala.collection.mutable.ArrayBuffer
 class JdbcReadFromOracle extends ConfigurableStop{
 
   val authorEmail: String = "yangqidong@cnic.cn"
-  val description: String = "read from oracle."
+  val description: String = "Read from oracle"
   val inportList: List[String] = List(PortEnum.NonePort.toString)
   val outportList: List[String] = List(PortEnum.DefaultPort.toString)
 

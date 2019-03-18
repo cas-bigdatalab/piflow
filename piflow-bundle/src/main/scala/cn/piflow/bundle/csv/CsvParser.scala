@@ -11,7 +11,7 @@ import org.apache.spark.sql.{DataFrame, SparkSession}
 class CsvParser extends ConfigurableStop{
 
   val authorEmail: String = "xjzhu@cnic.cn"
-  val description: String = "Parse csv file."
+  val description: String = "Parse csv file"
   val inportList: List[String] = List(PortEnum.NonePort.toString)
   val outportList: List[String] = List(PortEnum.DefaultPort.toString)
 

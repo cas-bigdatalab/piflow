@@ -11,7 +11,7 @@ import scala.beans.BeanProperty
 class PutHiveStreaming extends ConfigurableStop {
 
   val authorEmail: String = "xjzhu@cnic.cn"
-  val description: String = "Save data into hive."
+  val description: String = "Save data to hive"
   val inportList: List[String] = List(PortEnum.DefaultPort.toString)
   val outportList: List[String] = List(PortEnum.NonePort.toString)
 

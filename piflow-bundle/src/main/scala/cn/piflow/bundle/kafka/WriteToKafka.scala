@@ -16,7 +16,7 @@ import org.apache.kafka.clients.producer.ProducerRecord
 import scala.collection.mutable
 
 class WriteToKafka extends ConfigurableStop{
-  val description: String = "Write data to kafka."
+  val description: String = "Write data to kafka"
   val inportList: List[String] = List(PortEnum.DefaultPort.toString)
   val outportList: List[String] = List(PortEnum.NonePort.toString)
   var kafka_host:String =_

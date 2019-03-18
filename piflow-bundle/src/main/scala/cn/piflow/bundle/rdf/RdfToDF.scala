@@ -14,7 +14,7 @@ import org.apache.spark.sql.{Row, SparkSession}
 class RdfToDF extends ConfigurableStop{
   override val authorEmail: String = "shaow@cnic.cn"
 
-  override val description: String = "Simple spark program to convert *.n3 RDF file to CSV(DataFrame) file"
+  override val description: String = "convert *.n3 RDF file to CSV(DataFrame) file"
 
   var rdfFilepath : String = _
   var isFront : String = _

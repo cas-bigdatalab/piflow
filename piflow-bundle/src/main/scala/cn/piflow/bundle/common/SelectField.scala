@@ -12,7 +12,7 @@ import scala.beans.BeanProperty
 class SelectField extends ConfigurableStop {
 
   val authorEmail: String = "xjzhu@cnic.cn"
-  val description: String = "Select data field."
+  val description: String = "Select data field"
   val inportList: List[String] = List(PortEnum.DefaultPort.toString)
   val outportList: List[String] = List(PortEnum.DefaultPort.toString)
 

@@ -12,7 +12,7 @@ import scala.beans.BeanProperty
 class JsonParser extends ConfigurableStop{
 
   val authorEmail: String = "xjzhu@cnic.cn"
-  val description: String = "Parse json file."
+  val description: String = "Parse json file"
   val inportList: List[String] = List(PortEnum.NonePort.toString)
   val outportList: List[String] = List(PortEnum.DefaultPort.toString)
 

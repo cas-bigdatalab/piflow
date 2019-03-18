@@ -15,7 +15,7 @@ class ListHdfs extends ConfigurableStop{
 
   override val inportList: List[String] = List(PortEnum.NonePort.toString)
   override val outportList: List[String] = List(PortEnum.DefaultPort.toString)
-  override val description: String = "retrieves a listing of files from hdfs "
+  override val description: String = "Retrieve a list of files from hdfs"
 
   var hdfsPath :String= _
   var hdfsUrl :String= _

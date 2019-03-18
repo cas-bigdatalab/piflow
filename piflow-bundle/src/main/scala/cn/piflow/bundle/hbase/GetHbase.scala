@@ -21,7 +21,7 @@ class GetHbase extends ConfigurableStop {
   val authorEmail: String = "ygang@cnic.cn"
   override val inportList: List[String] = List(PortEnum.NonePort.toString)
   override val outportList: List[String] = List(PortEnum.DefaultPort.toString)
-  override val description: String = "get data from hbase "
+  override val description: String = "Get data from hbase"
 
 
 

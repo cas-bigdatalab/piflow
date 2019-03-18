@@ -9,7 +9,7 @@ import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 
 class PutMemcache extends ConfigurableStop{
   override val authorEmail: String = "yangqidong@cnic.cn"
-  override val description: String = "get data from memcache"
+  override val description: String = "Put data to memcache"
   val inportList: List[String] = List(PortEnum.DefaultPort.toString)
   val outportList: List[String] = List(PortEnum.NonePort.toString)
 

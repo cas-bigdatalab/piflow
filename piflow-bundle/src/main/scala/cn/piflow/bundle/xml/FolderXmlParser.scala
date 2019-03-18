@@ -18,7 +18,7 @@ import scala.util.control.Breaks._
   */
 class FolderXmlParser extends ConfigurableStop{
   val authorEmail: String = "lijie"
-  val description: String = "Parse xml folder."
+  val description: String = "Parse xml folder"
   val inportList: List[String] = List(PortEnum.NonePort.toString)
   val outportList: List[String] = List(PortEnum.DefaultPort.toString)
 
