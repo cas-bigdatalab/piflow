@@ -245,7 +245,7 @@ To Use：
     ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-login.png)
   ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-flowList.png)
   ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-createflow.png)
-  ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow_flowconfig.png)
+  ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-flowconfig.png)
   ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-loadflow.png)
   ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-monitor.png)
   ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-log.png)
