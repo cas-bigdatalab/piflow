@@ -1,42 +1,44 @@
 ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-logo2.png) 
-piflow is an easy to use, powerful big data pipeline system.
+PiFlow是一个简单易用，功能强大的大数据流水线系统。
 
-## Table of Contents
+## 目录
 
-- [Features](#features)
-- [Architecture](#architecture)
-- [Requirements](#requirements)
-- [Getting Started](#getting-started)
-- [Getting Help](#getting-help)
-- [Documentation](#documentation)
+- [特性](#特性)
+- [架构](#架构)
+- [要求](#要求)
+- [开始](#开始)
 
-## Features
+## 特性
 
-- Easy to use
-  - provide a WYSIWYG web interface to configure data flow
-  - monitor data flow status
-  - check the logs of data flow
-  - provide checkpoints
-- Strong scalability:
-  - Support customized development of data processing components
-- Superior performance
-  - based on distributed computing engine Spark 
-- Powerful
-  - 100+ data processing components available
-  - include spark、mllib、hadoop、hive、hbase、solr、redis、memcache、elasticSearch、jdbc、mongodb、http、ftp、xml、csv、json，etc.
+- 简单易用
+  - 可视化配置流水线
+  - 监控流水线
+  - 查看流水线日志
+  - 检查点功能
+  
+- 扩展性强:
+  - 支持自定义开发数据处理组件
+  
+- 性能优越：
+  - 基于分布式计算引擎Spark开发 
+  
+- 功能强大：
+  - 提供100+的数据处理组件
+  - 包括Hadoop 、Spark、MLlib、Hive、Solr、Redis、MemCache、ElasticSearch、JDBC、MongoDB、HTTP、FTP、XML、CSV、JSON等
+  - 集成了微生物领域的相关算法
 
-## Architecture
+## 架构
 ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/architecture.png) 
-## Requirements
-* JDK 1.8 or newer
-* Apache Maven 3.1.0 or newer
-* Git Client (used during build process by 'bower' plugin)
-* Spark-2.1.0
-* Hadoop-2.6.0
+## 要求
+* JDK 1.8 及以上版本
+* Apache Maven 3.1.0 及以上版本
+* Git Client 
+* Spark-2.1.0 及以上版本
+* Hadoop-2.6.0 及以上版本
 
-## Getting Started
+## 开始
 
-To Build: 
+如何Build: 
 `mvn clean package -Dmaven.test.skip=true`
 
           [INFO] Replacing original artifact with shaded artifact.
@@ -56,19 +58,20 @@ To Build:
           [INFO] Final Memory: 41M/812M
           [INFO] ------------------------------------------------------------------------
 
-To Run Piflow Server：
+如何运行Piflow Server：
 
-- `run piflow server on intellij`: 
-  - edit config.properties
-  - build piflow to generate piflow-server.jar
-  - main class is cn.piflow.api.Main(remember to set SPARK_HOME)
+- `使用Intellij Idea`: 
+  - 编辑config.properties文件
+  - build piflow工程，生成piflow-server.jar
+  - 运行cn.piflow.api.Main
+  - 切记设置SPARK_HOME
   
-- `run piflow server by release version`:
-  - download piflow_release: https://github.com/cas-bigdatalab/piflow_release
-  - copy the piflow-server.jar to the piflow_release folder
-  - edit config.properties
-  - run start.sh
-- `how to configure config.properties`
+- `直接运行release版本`:
+  - 下载release版本，地址：https://github.com/cas-bigdatalab/piflow_release
+  - 将build好的piflow-server.jar拷贝到piflow_release文件夹（由于git不能上传超过1G大文件，故需自行build piflow-server.jar）
+  - 编辑config.properties文件
+  - 运行start.sh 或者后台运行 nohup ./start.sh > piflow.log 2>&1 &
+- `如何配置config.properties`
 
       #server ip and port
       server.ip=10.0.86.191
@@ -106,13 +109,13 @@ To Run Piflow Server：
       #h2 db port
       h2.port=50002
   
-To Run Piflow Web：
+如何运行Piflow Web：
   - https://github.com/cas-bigdatalab/piflow-web
   
-To Use：
+如何使用：
 
-- command line
-  - flow config example
+- 命令行方式
+  - 流水线样例配置
   
 
         {
@@ -240,15 +243,27 @@ To Use：
         ]
       }
     }
-  - curl -0 -X POST http://10.0.86.191:8002/flow/start -H "Content-type: application/json" -d 'this is your flow json'
-- piflow web: try with "http://piflow.ml/piflow-web", user/password: admin/admin
-    ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-login.png)
+  - 运行命令
+    - curl -0 -X POST http://serverIP:serverPort/flow/start -H "Content-type: application/json" -d '你的流水线json配置文件'
+- 访问piflow web: 试运行地址 "http://piflow.ml/piflow-web", user/password: admin/admin
+  - 登录
+  ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-login.png)
+  - 流水线列表
   ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-flowlist.png)
+  - 创建流水线
   ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-createflow.png)
+  - 配置流水线
   ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-flowconfig.png)
+  - 运行及加载流水线
   ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-loadflow.png)
+  - 监控流水线
   ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-monitor.png)
+  - 查看流水线日志
   ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-log.png)
+  - 运行中流水线列表
   ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-processlist.png)
+  - 模板列表
   ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-templatelist.png)
+  - 保存模板
   ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-savetemplate.png)
+
