@@ -14,6 +14,7 @@ class EmailClean extends ConfigurableStop{
   val description: String = "Clean email format data."
   val inportList: List[String] = List(PortEnum.DefaultPort.toString)
   val outportList: List[String] = List(PortEnum.DefaultPort.toString)
+
   var columnName:String=_
 
   def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {

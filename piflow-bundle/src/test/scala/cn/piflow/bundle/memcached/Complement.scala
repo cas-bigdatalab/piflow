@@ -1,4 +1,4 @@
-package cn.piflow.bundle.memcache
+package cn.piflow.bundle.memcached
 
 import cn.piflow.Runner
 import cn.piflow.conf.bean.FlowBean
@@ -9,13 +9,13 @@ import org.junit.Test
 
 import scala.util.parsing.json.JSON
 
-class PutMemcacheTest {
+class Complement {
 
   @Test
   def testFlow(): Unit ={
 
     //parse flow json
-    val file = "src/main/resources/memcache/putMemcache.json"
+    val file = "src/main/resources/memcache/ComplementByMemcache.json"
     val flowJsonStr = FileUtil.fileReader(file)
     val map = OptionUtil.getAny(JSON.parseFull(flowJsonStr)).asInstanceOf[Map[String, Any]]
     println(map)
@@ -25,7 +25,6 @@ class PutMemcacheTest {
     val flow = flowBean.constructFlow()
 
     val h2Server = Server.createTcpServer("-tcp","-tcpAllowOthers","-tcpPort","50001").start()
-
 
     //execute flow
     val spark = SparkSession.builder()
@@ -37,6 +36,7 @@ class PutMemcacheTest {
       .config("spark.jars","/root/Desktop/gitWORK/out/artifacts/piflow_bundle/piflow-bundle.jar")
       .enableHiveSupport()
       .getOrCreate()
+
 
     val process = Runner.create()
       .bind(classOf[SparkSession].getName, spark)

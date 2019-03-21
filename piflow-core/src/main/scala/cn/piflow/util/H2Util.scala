@@ -9,7 +9,7 @@ import org.h2.tools.Server
 
 object H2Util {
 
-  val QUERY_TIME = 30
+  val QUERY_TIME = 300
   val CREATE_FLOW_TABLE = "create table if not exists flow (id varchar(255), pid varchar(255), name varchar(255), state varchar(255), startTime varchar(255), endTime varchar(255))"
   val CREATE_STOP_TABLE = "create table if not exists stop (flowId varchar(255), name varchar(255), state varchar(255), startTime varchar(255), endTime varchar(255))"
   val CREATE_THOUGHPUT_TABLE = "create table if not exists thoughput (flowId varchar(255), stopName varchar(255), portName varchar(255), count long)"

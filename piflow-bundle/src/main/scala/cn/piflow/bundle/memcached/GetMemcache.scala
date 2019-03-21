@@ -1,4 +1,4 @@
-package cn.piflow.bundle.memcache
+package cn.piflow.bundle.memcached
 
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroup}
@@ -6,14 +6,16 @@ import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import com.danga.MemCached.{MemCachedClient, SockIOPool}
 import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.types.{StringType, StructField, StructType}
 import org.apache.spark.sql.{DataFrame, Row, SparkSession}
+import org.apache.spark.sql.types.{StringType, StructField, StructType}
 
 import scala.collection.mutable
+import scala.collection.mutable.ArrayBuffer
 
-class ComplementByMemcache extends ConfigurableStop {
+
+class GetMemcache extends ConfigurableStop{
   override val authorEmail: String = "yangqidong@cnic.cn"
-  override val description: String = "Complement by Memcache"
+  override val description: String = "Get data from memache"
   val inportList: List[String] = List(PortEnum.DefaultPort.toString)
   val outportList: List[String] = List(PortEnum.DefaultPort.toString)
 
@@ -25,8 +27,7 @@ class ComplementByMemcache extends ConfigurableStop {
   var nagle:String=_              //If the socket parameter is true, the data is not buffered and sent immediately.
   var socketTO:String=_           //Socket timeout during blocking
   var socketConnectTO:String=_    //Timeout control during connection establishment
-  var replaceField:String=_            //The fields you want to get
-
+  var schame:String=_            //The fields you want to get
 
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     val session: SparkSession = pec.get[SparkSession]()
@@ -34,50 +35,47 @@ class ComplementByMemcache extends ConfigurableStop {
 
     val mcc: MemCachedClient =getMcc()
 
-    val replaceFields: mutable.Buffer[String] = replaceField.split(",").toBuffer
+    val keyDF = inDF.select(keyFile).toDF()
+    val rs: Array[Row] = keyDF.collect()
+    val keys: Array[String] = rs.map(row => {
+      val str = row.toString()
+      str.substring(1,str.length-1)
+    })
 
-    val rowArr: Array[Row] = inDF.collect()
-    val fileNames: Array[String] = inDF.columns
-    val data: Array[Map[String, String]] = rowArr.map(row => {
-      var rowStr: String = row.toString().substring(1,row.toString().length-1)
-      val dataARR: Array[String] = rowStr.split(",")
-      var map: Map[String, String] = Map()
-      for (x <- (0 until fileNames.size)) {
-        map += (fileNames(x) -> dataARR(x))
+      var schameArr:Array[String] =Array()
+      if(schame.length>0){
+      val schameArrBuff: mutable.Buffer[String] = schame.split(",").toBuffer
+      schameArrBuff.insert(0,keyFile)
+      schameArr = schameArrBuff.toArray
+    }
+
+    var allFileDatas: ArrayBuffer[ArrayBuffer[String]] =ArrayBuffer()
+    for(keyNum <- (0 until keys.size)){
+      val map: Map[String, String] = mcc.get(keys(keyNum)).asInstanceOf[Map[String,String]]
+
+      if(schame.size==0){
+        val arr: Array[String] = map.keySet.toArray
+        val buffer: mutable.Buffer[String] = arr.toBuffer
+        buffer.insert(0,keyFile)
+        schameArr = buffer.toArray
       }
-      map
-    })
 
-    val finalData: Array[Map[String, String]] = data.map(eachData => {
-      var d: Map[String, String] = eachData
-      val anyRef: AnyRef = mcc.get(d.get(keyFile).get)
-      if(anyRef.getClass.toString.equals("class scala.Some")){
-        val map: Map[String, String] = anyRef.asInstanceOf[Map[String, String]]
-        for (f <- replaceFields) {
-          d += (f -> map.get(f).get.toString)
-        }
+      var values: ArrayBuffer[String] =ArrayBuffer()
+      values+=keys(keyNum)
+      for(x <- (1 until schameArr.size)){
+        values+=map.get(schameArr(x)).get
       }
-      d
-    })
+      allFileDatas+=values
+    }
 
-    var arrKey: Array[String] = Array()
-    val rows: List[Row] = finalData.toList.map(map => {
-      arrKey = map.keySet.toArray
-      val values: Iterable[AnyRef] = map.values
-      val seq: Seq[AnyRef] = values.toSeq
-      val seqSTR: Seq[String] = values.toSeq.map(x=>x.toString)
-      val row: Row = Row.fromSeq(seqSTR)
-      row
-    })
-    val rowRDD: RDD[Row] = session.sparkContext.makeRDD(rows)
-
-    val fields: Array[StructField] = arrKey.map(d=>StructField(d,StringType,nullable = true))
-    val schema: StructType = StructType(fields)
-    val df: DataFrame = session.createDataFrame(rowRDD,schema)
+    val rowList: List[Row] = allFileDatas.map(arr => {Row.fromSeq(arr)}).toList
+    val rowRDD: RDD[Row] = session.sparkContext.makeRDD(rowList)
+    val fields: Array[StructField] = schameArr.map(d=>StructField(d,StringType,nullable = true))
+    val s: StructType = StructType(fields)
+    val df: DataFrame = session.createDataFrame(rowRDD,s)
 
     out.write(df)
   }
-
 
   def getMcc(): MemCachedClient = {
     val pool: SockIOPool = SockIOPool.getInstance()
@@ -118,9 +116,9 @@ class ComplementByMemcache extends ConfigurableStop {
     nagle = MapUtil.get(map,"nagle").asInstanceOf[String]
     socketTO = MapUtil.get(map,"socketTO").asInstanceOf[String]
     socketConnectTO = MapUtil.get(map,"socketConnectTO").asInstanceOf[String]
-    replaceField = MapUtil.get(map,"replaceField").asInstanceOf[String]
-
+    schame = MapUtil.get(map,"schame").asInstanceOf[String]
   }
+
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
@@ -141,14 +139,14 @@ class ComplementByMemcache extends ConfigurableStop {
     descriptor = socketTO :: descriptor
     val socketConnectTO=new PropertyDescriptor().name("socketConnectTO").displayName("socketConnectTO").description("Timeout control during connection establishment").defaultValue("").required(false)
     descriptor = socketConnectTO :: descriptor
-    val replaceField=new PropertyDescriptor().name("replaceField").displayName("replaceField").description("The field you want to replace .  use , segmentation.").defaultValue("").required(true)
-    descriptor = replaceField :: descriptor
+    val schame=new PropertyDescriptor().name("schame").displayName("schame").description("The fields you want to get.If you have multiple servers, use , segmentation.").defaultValue("").required(true)
+    descriptor = schame :: descriptor
 
     descriptor
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("icon/memcache/ComplementByMemcache.png")
+    ImageUtil.getImage("icon/memcache/GetMemcache.png")
   }
 
   override def getGroup(): List[String] = {

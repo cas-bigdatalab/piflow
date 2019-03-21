@@ -1,4 +1,4 @@
-package cn.piflow.bundle.memcache
+package cn.piflow.bundle.memcached
 
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroup}

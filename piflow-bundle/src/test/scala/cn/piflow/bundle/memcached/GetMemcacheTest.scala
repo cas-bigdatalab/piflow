@@ -1,4 +1,4 @@
-package cn.piflow.bundle.memcache
+package cn.piflow.bundle.memcached
 
 import cn.piflow.Runner
 import cn.piflow.conf.bean.FlowBean
