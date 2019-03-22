@@ -64,7 +64,7 @@ To Run Piflow Server：
   - main class is cn.piflow.api.Main(remember to set SPARK_HOME)
   
 - `run piflow server by release version`:
-  - download piflow_release: https://github.com/cas-bigdatalab/piflow_release
+  - download piflow_release: https://github.com/cas-bigdatalab/piflow-release
   - copy the piflow-server.jar to the piflow_release folder
   - edit config.properties
   - run start.sh
