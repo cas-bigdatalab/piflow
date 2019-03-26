@@ -5,6 +5,7 @@ import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroup}
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.apache.spark.sql.{DataFrame, SparkSession}
+import org.neo4j.driver.v1._
 
 
 class PutNeo4j extends ConfigurableStop{
@@ -19,7 +20,7 @@ class PutNeo4j extends ConfigurableStop{
   var labelName : String =""
 
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
-    /*val spark: SparkSession = pec.get[SparkSession]()
+    val spark: SparkSession = pec.get[SparkSession]()
     val inDf: DataFrame = in.read()
 
     val fileNames: Array[String] = inDf.columns
@@ -62,7 +63,7 @@ class PutNeo4j extends ConfigurableStop{
       transaction.close()
       session.close()
       driver.close()
-    }*/
+    }
   }
 
   override def setProperties(map: Map[String, Any]): Unit = {

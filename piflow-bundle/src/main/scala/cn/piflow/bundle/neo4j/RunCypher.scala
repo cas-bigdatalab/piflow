@@ -4,6 +4,7 @@ import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroup}
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
+import org.neo4j.driver.v1._
 
 class RunCypher extends ConfigurableStop{
   override val authorEmail: String = "yangqidong@cnic.cn"
@@ -18,7 +19,7 @@ class RunCypher extends ConfigurableStop{
 
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
 
-    /*val cqls: Array[String] = cql.split(";")
+    val cqls: Array[String] = cql.split(";")
 
     var driver: Driver = GraphDatabase.driver(url,AuthTokens.basic(userName,password))
     var session: Session = null
@@ -41,7 +42,7 @@ class RunCypher extends ConfigurableStop{
       transaction.close()
       session.close()
       driver.close()
-    }*/
+    }
   }
 
   override def setProperties(map: Map[String, Any]): Unit = {
