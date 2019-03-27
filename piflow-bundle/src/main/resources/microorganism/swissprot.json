@@ -6,18 +6,29 @@
      {
         "uuid":"1111",
         "name":"SelectFilesByName",
-        "bundle":"cn.piflow.bundle.ftp.SelectFilesByName",
+        "bundle":"cn.piflow.bundle.hdfs.SelectFilesByName",
         "properties":{
           "HDFSUrl":"hdfs://10.0.88.70:9000",
-          "HDFSPath":"/yqd/weishengwu/Swissprot_TrEMBL/",
-          "selectionConditions":"uniprot_sprot.dat"
+          "HDFSPath":"/yqd/ftp/swiss/",
+          "selectionConditions":".*trembl.dat.gz"
         }
       },{
-        "uuid":"3333",
-        "name":"Swissprot_TrEMBLDataParser",
-        "bundle":"cn.piflow.bundle.microorganism.Swissprot_TrEMBLDataParser",
+        "uuid":"2222",
+        "name":"UnzipFilesOnHDFS",
+        "bundle":"cn.piflow.bundle.hdfs.UnzipFilesOnHDFS",
         "properties":{
-
+          "isCustomize":"false",
+          "filePath":"",
+          "hdfsUrl":"hdfs://10.0.88.70:9000",
+          "savePath":"/yqd/test/swiss/"
+        }
+      },
+      {
+        "uuid":"3333",
+        "name":"SwissprotData",
+        "bundle":"cn.piflow.bundle.microorganism.SwissprotData",
+        "properties":{
+          "cachePath":"/yqd/test/swiss/"
         }
       },{
         "uuid":"4444",
@@ -25,9 +36,9 @@
         "bundle":"cn.piflow.bundle.es.PutEs",
         "properties":{
           "es_nodes": "10.0.88.70,10.0.88.71,10.0.88.72",
-          "port": "9200",
-          "es_index": "Swissprot_TrEMBL_index",
-          "es_type": "Swissprot_TrEMBL_type"
+          "es_port": "9200",
+          "es_index": "test_18",
+          "es_type": "test_18"
         }
       }
     ],
@@ -36,9 +47,15 @@
         "from":"SelectFilesByName",
         "outport":"",
         "inport":"",
-        "to":"Swissprot_TrEMBLDataParser"
+        "to":"UnzipFilesOnHDFS"
+      },
+      {
+        "from":"UnzipFilesOnHDFS",
+        "outport":"",
+        "inport":"",
+        "to":"SwissprotData"
       },{
-        "from":"Swissprot_TrEMBLDataParser",
+        "from":"SwissprotData",
         "outport":"",
         "inport":"",
         "to":"PutEs"

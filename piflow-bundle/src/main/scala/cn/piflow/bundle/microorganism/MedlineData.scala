@@ -7,7 +7,7 @@ import java.util.Locale
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroup}
 import cn.piflow.conf.bean.PropertyDescriptor
-import cn.piflow.conf.util.ImageUtil
+import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FSDataInputStream, FileSystem, Path}
 import org.apache.spark.sql.{DataFrame, SparkSession}
@@ -19,11 +19,12 @@ class MedlineData extends  ConfigurableStop{
   override val inportList: List[String] =List(PortEnum.DefaultPort.toString)
   override val outportList: List[String] = List(PortEnum.DefaultPort.toString)
 
+  var cachePath:String = _
 
-   var docName = "PubmedArticle"
-   val formatter = new SimpleDateFormat("yyyy-MM-dd")
-   val format = new SimpleDateFormat("dd-MM-yyyy")
-   val format_english = new SimpleDateFormat("dd-MMM-yyyy", Locale.ENGLISH)
+  var docName = "PubmedArticle"
+  val formatter = new SimpleDateFormat("yyyy-MM-dd")
+  val format = new SimpleDateFormat("dd-MM-yyyy")
+  val format_english = new SimpleDateFormat("dd-MMM-yyyy", Locale.ENGLISH)
 
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     val inDf: DataFrame = in.read()
@@ -38,7 +39,7 @@ class MedlineData extends  ConfigurableStop{
     configuration.set("fs.defaultFS",hdfsUrl)
     var fs: FileSystem = FileSystem.get(configuration)
 
-    val hdfsPathTemporary:String = hdfsUrl+"/yqd/test/medline/medlineAll.json"
+    val hdfsPathTemporary = hdfsUrl+cachePath+"/medlineCache/medlineCache.json"
     val path: Path = new Path(hdfsPathTemporary)
     if(fs.exists(path)){
       fs.delete(path)
@@ -56,27 +57,23 @@ class MedlineData extends  ConfigurableStop{
       fileNum += 1
 
       pathStr = row.get(0).asInstanceOf[String]
-      println(fileNum+"-----start parser ^^^" + pathStr)
       fdis = fs.open(new Path(pathStr))
       br = new BufferedReader(new InputStreamReader(fdis))
+
       var i = 0
       var eachLine: String= ""
       while (i < 3) {
         eachLine = br.readLine()
         i += 1
       }
+
       var xml = ""
       while ((eachLine = br.readLine) != null   && eachLine != null ) {
-
         xml += eachLine
 
         if (eachLine.indexOf("</"+docName+">")!= -1){
           count += 1
-
           doc = XML.toJSONObject(xml).getJSONObject(docName).optJSONObject("MedlineCitation")
-          println(count)
-//          println(doc.toString)
-
 
           if (doc.optJSONObject("DateCreated") != null) {
             val dateCreated = doc.getJSONObject("DateCreated")
@@ -130,9 +127,6 @@ class MedlineData extends  ConfigurableStop{
                   if (pubDate.opt("Year") != null) doc.put("PubYear", pubDate.get("Year"))
 
                   if (pubDate.opt("Year") != null && pubDate.opt("Month") != null && pubDate.opt("Day") != null) {
-
-
-
                     var  month = pubDate.get("Month")
                     if (month.toString.contains("01") || month.toString.contains("1")) month = "Jan"
                     if (month.toString.contains("02") || month.toString.contains("2")) month = "Feb"
@@ -147,10 +141,7 @@ class MedlineData extends  ConfigurableStop{
                     if (month.toString.contains("11")) month = "Nov"
                     if (month.toString.contains("12")) month = "Dec"
 
-
                     val date = pubDate.get("Day") + "-" +month + "-" + pubDate.get("Year")
-
-//                    println(date+"@@@@@@@@@@@")
                     doc.put("PubDate", formatter.format(format_english.parse(date)))
               }
             }
@@ -169,17 +160,13 @@ class MedlineData extends  ConfigurableStop{
           hdfsWriter.write("\n")
 
           xml = ""
-
         }
       }
       br.close()
       fdis.close()
     })
     hdfsWriter.close()
-
     val df: DataFrame = pec.get[SparkSession]().read.json(hdfsPathTemporary)
-    df.schema.printTreeString()
-//    println(df.count())
     out.write(df)
 
   }
@@ -199,9 +186,7 @@ class MedlineData extends  ConfigurableStop{
               return findJSONObject(objKey, obj.getJSONArray(key).getJSONObject(i))
             }
           }
-
         }
-
       }
     }
     return null
@@ -210,15 +195,16 @@ class MedlineData extends  ConfigurableStop{
 
 
 
-  override def setProperties(map: Map[String, Any]): Unit = {
-
+  def setProperties(map: Map[String, Any]): Unit = {
+    cachePath=MapUtil.get(map,key="cachePath").asInstanceOf[String]
   }
 
-  override def getPropertyDescriptor(): List[PropertyDescriptor] ={
-    var descriptor = List()
+  override def getPropertyDescriptor(): List[PropertyDescriptor] = {
+    var descriptor : List[PropertyDescriptor] = List()
+    val cachePath = new PropertyDescriptor().name("cachePath").displayName("cachePath").defaultValue("/medline").required(true)
+    descriptor = cachePath :: descriptor
     descriptor
   }
-
   override def getIcon(): Array[Byte] = {
     ImageUtil.getImage("icon/microorganism/MedlineData.png")
   }

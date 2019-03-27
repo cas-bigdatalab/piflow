@@ -10,7 +10,7 @@ import org.apache.spark.sql.SparkSession
 class GetHdfs extends ConfigurableStop{
   override val authorEmail: String = "ygang@cmic.com"
   override val description: String = "Get data from hdfs"
-  override val inportList: List[String] = List(PortEnum.NonePort.toString)
+  override val inportList: List[String] = List(PortEnum.DefaultPort.toString)
   override val outportList: List[String] = List(PortEnum.DefaultPort.toString)
 
   var hdfsUrl : String=_
@@ -45,7 +45,7 @@ class GetHdfs extends ConfigurableStop{
       }
       else {
         val rdd = sc.textFile(path)
-        val outDf = rdd.toDF("txt")
+        val outDf = rdd.toDF()
         outDf.schema.printTreeString()
         //outDf.show()
         out.write(outDf)

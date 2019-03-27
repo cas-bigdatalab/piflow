@@ -5,11 +5,12 @@ import java.io.{BufferedReader, InputStreamReader, OutputStreamWriter}
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroup}
 import cn.piflow.conf.bean.PropertyDescriptor
-import cn.piflow.conf.util.ImageUtil
+import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FSDataInputStream, FSDataOutputStream, FileSystem, Path}
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.json.JSONObject
+
 
 class Pathway extends ConfigurableStop{
   override val authorEmail: String = "yangqidong@cnic.cn"
@@ -17,12 +18,16 @@ class Pathway extends ConfigurableStop{
   override val inportList: List[String] =List(PortEnum.DefaultPort.toString)
   override val outportList: List[String] = List(PortEnum.DefaultPort.toString)
 
-  override def setProperties(map: Map[String, Any]): Unit = {
 
+  var cachePath:String = _
+  def setProperties(map: Map[String, Any]): Unit = {
+    cachePath=MapUtil.get(map,key="cachePath").asInstanceOf[String]
   }
 
-  override def getPropertyDescriptor(): List[PropertyDescriptor] ={
+  override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
+    val cachePath = new PropertyDescriptor().name("cachePath").displayName("cachePath").defaultValue("/pathway").required(true)
+    descriptor = cachePath :: descriptor
     descriptor
   }
 
@@ -51,8 +56,8 @@ class Pathway extends ConfigurableStop{
     configuration.set("fs.defaultFS",hdfsUrl)
     var fs: FileSystem = FileSystem.get(configuration)
 
-//    "/biosampleCache/biosampleCache.json"
-    val hdfsPathTemporary:String = hdfsUrl+"/yqd/test/kegg/Refseq_genomeParser_temporary2.json"
+
+    val hdfsPathTemporary = hdfsUrl+cachePath+"/pathwayCache/pathwayCache.json"
     val path: Path = new Path(hdfsPathTemporary)
     if(fs.exists(path)){
       fs.delete(path)
@@ -67,16 +72,14 @@ class Pathway extends ConfigurableStop{
 
     inDf.collect().foreach(row => {
       pathStr = row.get(0).asInstanceOf[String]
-      println("start parser ^^^" + pathStr)
+
       fdis = fs.open(new Path(pathStr))
       br = new BufferedReader(new InputStreamReader(fdis))
       var count = 0
       while (hasAnotherSequence) {
           count += 1
-          println(count)
           doc = new JSONObject
           hasAnotherSequence = util.KeggPathway.process(br, doc)
-
 
           doc.write(hdfsWriter)
           hdfsWriter.write("\n")

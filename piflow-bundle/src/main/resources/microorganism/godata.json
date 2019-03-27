@@ -6,18 +6,19 @@
       {
         "uuid":"1111",
         "name":"SelectFilesByName",
-        "bundle":"cn.piflow.bundle.ftp.SelectFilesByName",
+        "bundle":"cn.piflow.bundle.hdfs.SelectFilesByName",
         "properties":{
           "HDFSUrl":"hdfs://master2.packone:8020",
-          "HDFSPath":"/microoAll/",
+          "HDFSPath":"/yg/microo/go/",
           "selectionConditions":"go.obo"
         }
       },
       {
         "uuid": "3333",
         "name": "GoDataParse",
-        "bundle": "cn.piflow.bundle.microorganism.GoDataParse",
+        "bundle": "cn.piflow.bundle.microorganism.GoData",
         "properties": {
+          "cachePath": "/yg/microoCache/"
         }
       },
       {
@@ -26,9 +27,9 @@
         "bundle": "cn.piflow.bundle.es.PutEs",
         "properties": {
           "es_nodes": "10.0.88.70,10.0.88.71,10.0.88.72",
-          "port": "9200",
-          "es_index": "go",
-          "es_type": "go"
+          "es_port": "9200",
+          "es_index": "test_13",
+          "es_type": "test_13"
         }
       }
     ],

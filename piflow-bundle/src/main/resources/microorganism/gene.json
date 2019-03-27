@@ -6,29 +6,43 @@
      {
         "uuid":"1111",
         "name":"SelectFilesByName",
-        "bundle":"cn.piflow.bundle.ftp.SelectFilesByName",
+        "bundle":"cn.piflow.bundle.hdfs.SelectFilesByName",
         "properties":{
           "HDFSUrl":"hdfs://10.0.88.70:9000",
-          "HDFSPath":"/yqd/weishengwu/gene_w/",
-          "selectionConditions":".*ene_info"
+          "HDFSPath":"/yqd/ftp/gene/",
+          "selectionConditions":"gene_info.gz"
         }
       },{
-        "uuid":"3333",
-        "name":"GeneParser",
-        "bundle":"cn.piflow.bundle.microorganism.GeneParser",
+        "uuid":"2222",
+        "name":"UnzipFilesOnHDFS",
+        "bundle":"cn.piflow.bundle.hdfs.UnzipFilesOnHDFS",
         "properties":{
+          "isCustomize":"false",
+          "filePath":"",
+          "hdfsUrl":"hdfs://10.0.88.70:9000",
+          "savePath":"/yqd/test/gene/"
+        }
+      },
+      {
+        "uuid":"3333",
+        "name":"Gene",
+        "bundle":"cn.piflow.bundle.microorganism.Gene",
+        "properties":{
+          "cachePath":"/yqd/test/gene/"
 
         }
-      },{
+      },
+      {
         "uuid":"4444",
-        "name":"PutEs",
+        "name":"putEs",
         "bundle":"cn.piflow.bundle.es.PutEs",
         "properties":{
           "es_nodes": "10.0.88.70,10.0.88.71,10.0.88.72",
-          "port": "9200",
-          "es_index": "gene_index",
-          "es_type": "gene_type"
+          "es_port": "9200",
+          "es_index": "test_16",
+          "es_type": "test_16"
         }
+
       }
     ],
     "paths":[
@@ -36,12 +50,17 @@
         "from":"SelectFilesByName",
         "outport":"",
         "inport":"",
-        "to":"GeneParser"
+        "to":"UnzipFilesOnHDFS"
       },{
-        "from":"GeneParser",
+        "from":"UnzipFilesOnHDFS",
         "outport":"",
         "inport":"",
-        "to":"PutEs"
+        "to":"Gene"
+      },{
+        "from":"Gene",
+        "outport":"",
+        "inport":"",
+        "to":"putEs"
       }
     ]
   }

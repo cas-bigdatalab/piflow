@@ -1,10 +1,10 @@
 package cn.piflow.bundle.microorganism
 
-import java.io.{BufferedInputStream, BufferedReader, ByteArrayInputStream, InputStreamReader}
+import java.io._
 
 import cn.piflow.bundle.microorganism.util.{CustomIOTools, Process}
 import cn.piflow.conf.bean.PropertyDescriptor
-import cn.piflow.conf.util.ImageUtil
+import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroup}
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.apache.hadoop.conf.Configuration
@@ -14,118 +14,82 @@ import org.biojavax.bio.seq.{RichSequence, RichSequenceIterator}
 import org.json.JSONObject
 
 
+
 class MicrobeGenomeData extends ConfigurableStop{
   override val authorEmail: String = "yangqidong@cnic.cn"
   override val description: String = "Parse MicrobeGenome data"
   override val inportList: List[String] =List(PortEnum.DefaultPort.toString)
   override val outportList: List[String] = List(PortEnum.DefaultPort.toString)
 
+  var cachePath:String = _
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
-    val session = pec.get[SparkSession]()
-
+    val spark = pec.get[SparkSession]()
     val inDf: DataFrame = in.read()
+
     val configuration: Configuration = new Configuration()
-    var pathStr: String = ""
+    var pathStr: String =inDf.take(1)(0).get(0).asInstanceOf[String]
+    val pathARR: Array[String] = pathStr.split("\\/")
     var hdfsUrl:String=""
-    try{
-      pathStr =inDf.take(1)(0).get(0).asInstanceOf[String]
-      val pathARR: Array[String] = pathStr.split("\\/")
-
-      for (x <- (0 until 3)){
-        hdfsUrl+=(pathARR(x) +"/")
-      }
-    }catch {
-      case e:Exception => throw new Exception("Path error")
+    for (x <- (0 until 3)){
+      hdfsUrl+=(pathARR(x) +"/")
     }
-
     configuration.set("fs.defaultFS",hdfsUrl)
     var fs: FileSystem = FileSystem.get(configuration)
 
-    val hdfsPathTemporary:String = hdfsUrl+"/NCBI_Microbe_genome_genomeParser_temporary.json"
-    val path: Path = new Path(hdfsPathTemporary)
+    val hdfsPathTemporary = hdfsUrl+cachePath+"/microbeGenomeCache/microbeGenomeCache.json"
 
+    val path: Path = new Path(hdfsPathTemporary)
     if(fs.exists(path)){
       fs.delete(path)
     }
-
     fs.create(path).close()
-    var fdos: FSDataOutputStream = fs.append(path)
-    val buff: Array[Byte] = new Array[Byte](1048576)
 
-    var bis: BufferedInputStream =null
+    val hdfsWriter: OutputStreamWriter = new OutputStreamWriter(fs.append(path))
+
     var fdis: FSDataInputStream =null
     var br: BufferedReader = null
     var sequences: RichSequenceIterator = null
     var doc: JSONObject = null
     var seq: RichSequence = null
-    var jsonStr: String = ""
-    var n:Int=0
+
+    var count:Int=0
     inDf.collect().foreach(row => {
 
       pathStr = row.get(0).asInstanceOf[String]
-      println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!   start parser ^^^" + pathStr)
+
       fdis = fs.open(new Path(pathStr))
       br = new BufferedReader(new InputStreamReader(fdis))
       sequences = CustomIOTools.IOTools.readGenbankProtein(br, null)
 
       while (sequences.hasNext) {
-        n += 1
+        count += 1
         doc = new JSONObject()
         seq = sequences.nextRichSequence()
-        Process.processSingleSequence(seq,doc)
+        Process.processSingleSequence(seq, doc)
 
-        jsonStr = doc.toString
+        doc.write(hdfsWriter)
+        hdfsWriter.write("\n")
 
-        if (n == 1) {
-          bis = new BufferedInputStream(new ByteArrayInputStream(("[" + jsonStr).getBytes()))
-        } else {
-          bis = new BufferedInputStream(new ByteArrayInputStream(("," + jsonStr).getBytes()))
-        }
-        var count: Int = bis.read(buff)
-        while (count != -1) {
-          fdos.write(buff, 0, count)
-          fdos.flush()
-          count = bis.read(buff)
-        }
-        fdos.flush()
-
-        bis.close()
-        bis = null
-        doc = null
         seq = null
-        jsonStr = ""
-
-      }
-      sequences = null
-      br.close()
-      br = null
-      fdis.close()
-      fdis =null
-      pathStr = null
-
+        }
+        br.close()
+        fdis.close()
     })
-    bis = new BufferedInputStream(new ByteArrayInputStream(("]").getBytes()))
+    hdfsWriter.close()
 
-    var count: Int = bis.read(buff)
-    while (count != -1) {
-      fdos.write(buff, 0, count)
-      fdos.flush()
-      count = bis.read(buff)
-    }
-    fdos.flush()
-    bis.close()
-    fdos.close()
-
-    out.write(session.read.json(hdfsPathTemporary))
-
+    println("start parser HDFSjsonFile")
+    val df: DataFrame = spark.read.json(hdfsPathTemporary)
+    out.write(df)
   }
 
-  override def setProperties(map: Map[String, Any]): Unit = {
 
+  def setProperties(map: Map[String, Any]): Unit = {
+    cachePath=MapUtil.get(map,key="cachePath").asInstanceOf[String]
   }
-
-  override def getPropertyDescriptor(): List[PropertyDescriptor] ={
+  override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
+    val cachePath = new PropertyDescriptor().name("cachePath").displayName("cachePath").defaultValue("/microbeGenome").required(true)
+    descriptor = cachePath :: descriptor
     descriptor
   }
 

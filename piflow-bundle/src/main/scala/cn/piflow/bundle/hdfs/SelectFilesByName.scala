@@ -17,7 +17,7 @@ import scala.collection.mutable.ArrayBuffer
 class SelectFilesByName extends ConfigurableStop{
   override val authorEmail: String = "yangqidong@cnic.cn"
   override val description: String = "Select files by file name"
-  override val inportList: List[String] = List(PortEnum.NonePort.toString)
+  override val inportList: List[String] = List(PortEnum.DefaultPort.toString)
   override val outportList: List[String] = List(PortEnum.DefaultPort.toString)
 
   var HDFSUrl:String=_
@@ -68,10 +68,11 @@ class SelectFilesByName extends ConfigurableStop{
     val schema: StructType = StructType(fields)
     val df: DataFrame = session.createDataFrame(rowRDD,schema)
 
-
     println("#################################################")
     df.show(20)
-    println("#################################################")
+    println(df.count+"#################################################")
+
+
 
     out.write(df)
   }
