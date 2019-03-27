@@ -378,13 +378,12 @@ class JobOutputStreamImpl() extends JobOutputStream with Logging {
 
   def getDataFrame(port: String) = mapDataFrame(port);
 
-  def showData() = {
+  def showData(count:Int) = {
 
       mapDataFrame.foreach(en => {
         val portName = if(en._1.equals("")) "default" else en._1
         println(portName + " port: ")
-
-        en._2.apply().show(PropertyUtil.getPropertyValue("data.show").toInt)
+        en._2.apply().show(count)
 
       })
   }
@@ -484,7 +483,10 @@ class ProcessImpl(flow: Flow, runnerContext: Context, runner: Runner, parentProc
           runnerListener.onJobCompleted(pe.getContext());
 
           //show data in log
-          outputs.showData()
+          val showDataCount = PropertyUtil.getPropertyValue("data.show").toInt
+          if(showDataCount > 0) {
+            outputs.showData(showDataCount)
+          }
         }
         catch {
           case e: Throwable =>
@@ -528,7 +530,10 @@ class ProcessImpl(flow: Flow, runnerContext: Context, runner: Runner, parentProc
             }
           }
           //show data in log
-          outputs.showData()
+          val showDataCount = PropertyUtil.getPropertyValue("data.show").toInt
+          if(showDataCount > 0) {
+            outputs.showData(showDataCount)
+          }
 
           //save data in debug mode
           if(flow.getRunMode() == FlowRunMode.DEBUG) {
