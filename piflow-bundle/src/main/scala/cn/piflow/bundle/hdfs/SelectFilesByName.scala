@@ -68,11 +68,6 @@ class SelectFilesByName extends ConfigurableStop{
     val schema: StructType = StructType(fields)
     val df: DataFrame = session.createDataFrame(rowRDD,schema)
 
-    println("#################################################")
-    df.show(20)
-    println(df.count+"#################################################")
-
-
 
     out.write(df)
   }
