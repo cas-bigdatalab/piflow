@@ -86,9 +86,12 @@ class SelectFilesByName extends ConfigurableStop{
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
-    val HDFSUrl = new PropertyDescriptor().name("HDFSUrl").displayName("HDFSUrl").defaultValue("The URL of the HDFS file system, such as hdfs://10.0.88.70:9000").required(true)
-    val HDFSPath = new PropertyDescriptor().name("HDFSPath").displayName("HDFSPath").defaultValue("The save path of the HDFS file system, such as /test/Ab").required(true)
-    val selectionConditions = new PropertyDescriptor().name("selectionConditions").displayName("selectionConditions").defaultValue("To select conditions, you need to fill in regular expressions in java, such as. * abc. *").required(true)
+    val HDFSUrl = new PropertyDescriptor().name("HDFSUrl").displayName("HDFSUrl").description("The URL of the HDFS file system, such as hdfs://ip:port")
+      .defaultValue("hdfs://").required(true)
+    val HDFSPath = new PropertyDescriptor().name("HDFSPath").displayName("HDFSPath").description("The save path of the HDFS file system, such as /test/Ab")
+      .defaultValue("").required(true)
+    val selectionConditions = new PropertyDescriptor().name("selectionConditions").displayName("selectionConditions").description("To select conditions, you need to fill in regular expressions in java, such as. * abc. *")
+      .defaultValue("").required(true)
     descriptor = HDFSUrl :: descriptor
     descriptor = HDFSPath :: descriptor
     descriptor = selectionConditions :: descriptor

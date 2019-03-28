@@ -82,7 +82,8 @@ class GenBankData extends ConfigurableStop{
   }
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
-    val cachePath = new PropertyDescriptor().name("cachePath").displayName("cachePath").defaultValue("/genbank").required(true)
+    val cachePath = new PropertyDescriptor().name("cachePath").displayName("cachePath").description("Temporary Cache File Path")
+      .defaultValue("/genbank").required(true)
     descriptor = cachePath :: descriptor
     descriptor
   }

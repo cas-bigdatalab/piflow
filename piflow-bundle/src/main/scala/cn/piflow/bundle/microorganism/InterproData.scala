@@ -100,7 +100,8 @@ class InterproData extends ConfigurableStop{
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
-    val cachePath = new PropertyDescriptor().name("cachePath").displayName("cachePath").defaultValue("/interpro").required(true)
+    val cachePath = new PropertyDescriptor().name("cachePath").displayName("cachePath").description("Temporary Cache File Path")
+      .defaultValue("/interpro").required(true)
     descriptor = cachePath :: descriptor
     descriptor
   }

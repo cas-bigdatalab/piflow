@@ -73,7 +73,7 @@ class DeleteHdfs extends ConfigurableStop{
     val isCustomize = new PropertyDescriptor().name("isCustomize").displayName("isCustomize").description("Whether to customize the compressed file path, if true, " +
       "you must specify the path where the compressed file is located . " +
       "If it is false, it will automatically find the file path data from the upstream port ")
-      .defaultValue("").required(false)
+      .defaultValue("false").allowableValues(Set("true","false")).required(true)
     descriptor = isCustomize :: descriptor
     descriptor = hdfsUrl :: descriptor
     descriptor = deletePath :: descriptor

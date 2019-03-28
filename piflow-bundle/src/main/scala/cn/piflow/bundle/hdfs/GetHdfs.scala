@@ -60,9 +60,13 @@ class GetHdfs extends ConfigurableStop{
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
-    val hdfsPath = new PropertyDescriptor().name("hdfsPath").displayName("hdfsPath").defaultValue("").required(true)
-    val hdfsUrl = new PropertyDescriptor().name("hdfsUrl").displayName("hdfsUrl").defaultValue("").required(true)
-    val types = new PropertyDescriptor().name("types").displayName("types").defaultValue("txt,parquet,csv,json").required(true)
+    val hdfsPath = new PropertyDescriptor().name("hdfsPath").displayName("hdfsPath")
+      .defaultValue("").required(true)
+    val hdfsUrl = new PropertyDescriptor().name("hdfsUrl").displayName("hdfsUrl")
+      .defaultValue("").required(true)
+    val types = new PropertyDescriptor().name("types").displayName("types").description("txt,parquet,csv,json")
+      .defaultValue("txt").allowableValues(Set("txt","parquet","csv","json")).required(true)
+
     descriptor = types :: descriptor
     descriptor = hdfsPath :: descriptor
     descriptor = hdfsUrl :: descriptor

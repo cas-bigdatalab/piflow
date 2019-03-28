@@ -109,7 +109,8 @@ class GoData extends ConfigurableStop{
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
-    val cachePath = new PropertyDescriptor().name("cachePath").displayName("cachePath").defaultValue("/goData").required(true)
+    val cachePath = new PropertyDescriptor().name("cachePath").displayName("cachePath").description("Temporary Cache File Path")
+      .defaultValue("/goData").required(true)
     descriptor = cachePath :: descriptor
     descriptor
   }

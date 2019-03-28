@@ -47,11 +47,14 @@ class PutEs extends ConfigurableStop {
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
-    val es_nodes = new PropertyDescriptor().name("es_nodes").displayName("es_nodes").defaultValue("Node of Elasticsearch").required(true)
-    val es_port = new PropertyDescriptor().name("es_port").displayName("es_port").defaultValue("Port of Elasticsearch").required(true)
-    val es_index = new PropertyDescriptor().name("es_index").displayName("es_index").defaultValue("Index of Elasticsearch").required(true)
-    val es_type = new PropertyDescriptor().name("es_type").displayName("es_type").defaultValue("Type of Elasticsearch").required(true)
-
+    val es_nodes = new PropertyDescriptor().name("es_nodes").displayName("es_nodes")
+      .description("Node of Elasticsearch").defaultValue("").required(true)
+    val es_port = new PropertyDescriptor().defaultValue("9200").name("es_port").displayName("es_port")
+      .description("Port of Elasticsearch").required(true)
+    val es_index = new PropertyDescriptor().name("es_index").displayName("es_index")
+      .description("Index of Elasticsearch").defaultValue("").required(true)
+    val es_type = new PropertyDescriptor().name("es_type").displayName("es_type")
+      .description("Type of Elasticsearch").defaultValue("").required(true)
 
     descriptor = es_nodes :: descriptor
     descriptor = es_port :: descriptor

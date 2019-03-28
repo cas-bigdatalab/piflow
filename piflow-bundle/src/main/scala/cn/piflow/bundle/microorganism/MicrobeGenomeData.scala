@@ -88,7 +88,8 @@ class MicrobeGenomeData extends ConfigurableStop{
   }
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
-    val cachePath = new PropertyDescriptor().name("cachePath").displayName("cachePath").defaultValue("/microbeGenome").required(true)
+    val cachePath = new PropertyDescriptor().name("cachePath").displayName("cachePath").description("Temporary Cache File Path")
+      .defaultValue("/microbeGenome").required(true)
     descriptor = cachePath :: descriptor
     descriptor
   }

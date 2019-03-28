@@ -86,7 +86,8 @@ class RefseqData extends ConfigurableStop{
   }
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
-    val cachePath = new PropertyDescriptor().name("cachePath").displayName("cachePath").defaultValue("/refseqData").required(true)
+    val cachePath = new PropertyDescriptor().name("cachePath").displayName("cachePath").description("Temporary Cache File Path")
+      .defaultValue("/refseqData").required(true)
     descriptor = cachePath :: descriptor
     descriptor
   }
