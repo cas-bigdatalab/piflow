@@ -211,7 +211,7 @@ class MedlineData extends  ConfigurableStop{
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroup.MicroorganismGroup)
+    List(StopGroup.Algorithms_Literature)
   }
 
   override def initialize(ctx: ProcessContext): Unit = {

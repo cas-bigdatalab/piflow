@@ -337,7 +337,7 @@ class TaxonomyData extends ConfigurableStop{
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroup.MicroorganismGroup.toString)
+    List(StopGroup.Algorithms_OntologyAnnotations.toString)
   }
 
   def initialize(ctx: ProcessContext): Unit = {

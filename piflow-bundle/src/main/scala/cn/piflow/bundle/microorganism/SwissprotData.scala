@@ -37,7 +37,7 @@ class SwissprotData extends ConfigurableStop{
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroup.MicroorganismGroup)
+    List(StopGroup.Algorithms_Sequence)
   }
 
   override def initialize(ctx: ProcessContext): Unit = {

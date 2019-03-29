@@ -82,7 +82,7 @@ class PDBData extends ConfigurableStop{
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroup.MicroorganismGroup)
+    List(StopGroup.Algorithms_FunctionalDomain)
   }
 
   override def initialize(ctx: ProcessContext): Unit = {

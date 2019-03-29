@@ -110,7 +110,7 @@ class Gene extends ConfigurableStop{
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroup.MicroorganismGroup.toString)
+    List(StopGroup.Algorithms_OntologyAnnotations.toString)
   }
 
   override def initialize(ctx: ProcessContext): Unit = {
