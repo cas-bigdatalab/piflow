@@ -55,7 +55,7 @@ class BisectingKMeansPrediction extends ConfigurableStop{
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroup.MLGroup.toString)
+    List(StopGroup.Alg_MLCluster.toString)
   }
 
 }

@@ -17,8 +17,6 @@ object StopGroup {
   val RedisGroup = "Redis"
   val SolrGroup = "Solr"
   val ESGroup = "ElasticSearch"
-  val MLGroup = "Machine Learning"
-  val RDFGroup = "RDF"
   val HdfsGroup = "Hdfs"
   val MicroorganismGroup = "BioInformatics"
   val Spider = "Spider"
@@ -28,5 +26,20 @@ object StopGroup {
   val ExcelGroup = "Excel"
   val HbaseGroup = "Hbase"
   val StreamingGroup = "Streaming"
-  val Neo4jGroup = "Neo4j"
+  val Alg_NLPGroup = "Algorithms_NLP"
+  val Alg_ImageProcessGroup = "Algorithms_ImageProcess"
+  val Alg_ASRGroup = "Algorithms_ASR"
+
+  val Neo4jGroup = "Algorithms_Neo4j"
+  val RDFGroup = "Algorithms_RDF"
+
+  val Algorithms_FunctionalDomain="Algorithms_FunctionalDomain"
+  val Algorithms_Genome="Algorithms_Genome"
+  val Algorithms_OntologyAnnotations="Algorithms_OntologyAnnotations"
+  val Algorithms_Sequence="Algorithms_Sequence"
+  val Algorithms_Literature="Algorithms_Literature"
+
+  val Alg_MLCluster = "Algorithms_MachineLearningCluster"
+  val MLGroup = "Algorithms_MachineLearningClassification"
+  val Alg_MLFeature = "Algorithms_MachineLearningFeature"
 }
