@@ -25,10 +25,7 @@ class ASR extends ConfigurableStop {
   //val url = "http://10.0.86.128:8081/service/classify/asr/"
 
   var audioPath:String = _
-
   var url:String =_
-
-
 
   def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
 
@@ -93,27 +90,9 @@ class ASR extends ConfigurableStop {
     ))
     val df: DataFrame = session.createDataFrame(rowRDD,schema)
 
-//    println("#################################################")
-//    df.show(20)
-//    println("#################################################")
     out.write(df)
 
-    //write df
-//    val rows: List[Row] = tokenARR.map(each => {
-//      var arr:Array[String]=Array(each)
-//      val row: Row = Row.fromSeq(arr)
-//      row
-//    }).toList
-//    val rowRDD: RDD[Row] = session.sparkContext.makeRDD(rows)
-//    val schema: StructType = StructType(Array(
-//      StructField("words",StringType)
-//    ))
-//    val df: DataFrame = session.createDataFrame(rowRDD,schema)
-//
-//    println("#################################################")
-//    df.show(20)
-//    println("#################################################")
-//    out.write(df)
+
   }
 
   def initialize(ctx: ProcessContext): Unit = {
@@ -139,7 +118,7 @@ class ASR extends ConfigurableStop {
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroup.ASRGroup.toString)
+    List(StopGroup.Alg_ASRGroup.toString)
   }
 
 }

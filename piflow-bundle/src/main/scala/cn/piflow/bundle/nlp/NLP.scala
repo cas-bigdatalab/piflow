@@ -63,9 +63,6 @@ class NLP extends ConfigurableStop {
     ))
     val df: DataFrame = session.createDataFrame(rowRDD,schema)
 
-//    println("#################################################")
-//    df.show(20)
-//    println("#################################################")
     out.write(df)
   }
 
@@ -89,7 +86,7 @@ class NLP extends ConfigurableStop {
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroup.NLPGroup.toString)
+    List(StopGroup.Alg_NLPGroup.toString)
   }
 
 }
