@@ -33,6 +33,7 @@ piflow is an easy to use, powerful big data pipeline system.
 * Git Client (used during build process by 'bower' plugin)
 * Spark-2.1.0
 * Hadoop-2.6.0
+* Hive-1.2.1
 
 ## Getting Started
 
@@ -64,8 +65,8 @@ To Run Piflow Server：
   - main class is cn.piflow.api.Main(remember to set SPARK_HOME)
   
 - `run piflow server by release version`:
-  - download piflow_release: https://github.com/cas-bigdatalab/piflow-release
-  - copy the piflow-server.jar to the piflow_release folder
+  - download piflow.tar.gz: https://github.com/cas-bigdatalab/piflow/releases/download/v0.5/piflow.tar.gz
+  - unzip piflow.tar.gz: tar -zxvf piflow.tar.gz
   - edit config.properties
   - run start.sh
 - `how to configure config.properties`
