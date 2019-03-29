@@ -35,16 +35,15 @@ class InterproData extends ConfigurableStop{
     configuration.set("fs.defaultFS",hdfsUrl)
     var fs: FileSystem = FileSystem.get(configuration)
 
-    val hdfsPathJsonCache = hdfsUrl+cachePath+"/interproDataCatch/interproDataCatch.json"
-    val path: Path = new Path(hdfsPathJsonCache)
+    val hdfsPathTemporary = hdfsUrl+cachePath+"/interproCache/interproCache.json"
+
+    val path: Path = new Path(hdfsPathTemporary)
     if(fs.exists(path)){
       fs.delete(path)
     }
     fs.create(path).close()
 
-    var fdosOut: FSDataOutputStream = fs.append(path)
-    var jsonStr: String =""
-    var bisIn: BufferedInputStream =null
+    val hdfsWriter: OutputStreamWriter = new OutputStreamWriter(fs.append(path))
 
     inDf.collect().foreach(row => {
       pathStr = row.get(0).asInstanceOf[String]
@@ -76,28 +75,20 @@ class InterproData extends ConfigurableStop{
             doc.remove("pub_list")
           }
 
-
-          bisIn = new BufferedInputStream(new ByteArrayInputStream((doc.toString+"\n").getBytes()))
-
-          val buff: Array[Byte] = new Array[Byte](1048576)
-          var num: Int = bisIn.read(buff)
-          while (num != -1) {
-            fdosOut.write(buff, 0, num)
-            fdosOut.flush()
-            num = bisIn.read(buff)
-          }
-          fdosOut.flush()
-          bisIn = null
+          doc.write(hdfsWriter)
+          hdfsWriter.write("\n")
 
           xml = ""
         }
       }
+      br.close()
+      fdis.close()
     })
 
-    fdosOut.close()
+    hdfsWriter.close()
 
     println("start parser HDFSjsonFile")
-    val df: DataFrame = spark.read.json(hdfsPathJsonCache)
+    val df: DataFrame = spark.read.json(hdfsPathTemporary)
 
     out.write(df)
 
@@ -109,7 +100,8 @@ class InterproData extends ConfigurableStop{
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
-    val cachePath = new PropertyDescriptor().name("cachePath").displayName("cachePath").defaultValue("").required(true)
+    val cachePath = new PropertyDescriptor().name("cachePath").displayName("cachePath").description("Temporary Cache File Path")
+      .defaultValue("/interpro").required(true)
     descriptor = cachePath :: descriptor
     descriptor
   }

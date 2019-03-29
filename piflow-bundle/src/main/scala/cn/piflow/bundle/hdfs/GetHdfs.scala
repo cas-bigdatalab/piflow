@@ -10,7 +10,7 @@ import org.apache.spark.sql.SparkSession
 class GetHdfs extends ConfigurableStop{
   override val authorEmail: String = "ygang@cmic.com"
   override val description: String = "Get data from hdfs"
-  override val inportList: List[String] = List(PortEnum.NonePort.toString)
+  override val inportList: List[String] = List(PortEnum.DefaultPort.toString)
   override val outportList: List[String] = List(PortEnum.DefaultPort.toString)
 
   var hdfsUrl : String=_
@@ -45,7 +45,7 @@ class GetHdfs extends ConfigurableStop{
       }
       else {
         val rdd = sc.textFile(path)
-        val outDf = rdd.toDF("txt")
+        val outDf = rdd.toDF()
         outDf.schema.printTreeString()
         //outDf.show()
         out.write(outDf)
@@ -60,9 +60,13 @@ class GetHdfs extends ConfigurableStop{
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
-    val hdfsPath = new PropertyDescriptor().name("hdfsPath").displayName("hdfsPath").defaultValue("").required(true)
-    val hdfsUrl = new PropertyDescriptor().name("hdfsUrl").displayName("hdfsUrl").defaultValue("").required(true)
-    val types = new PropertyDescriptor().name("types").displayName("types").defaultValue("txt,parquet,csv,json").required(true)
+    val hdfsPath = new PropertyDescriptor().name("hdfsPath").displayName("hdfsPath")
+      .defaultValue("").required(true)
+    val hdfsUrl = new PropertyDescriptor().name("hdfsUrl").displayName("hdfsUrl")
+      .defaultValue("").required(true)
+    val types = new PropertyDescriptor().name("types").displayName("types").description("txt,parquet,csv,json")
+      .defaultValue("txt").allowableValues(Set("txt","parquet","csv","json")).required(true)
+
     descriptor = types :: descriptor
     descriptor = hdfsPath :: descriptor
     descriptor = hdfsUrl :: descriptor

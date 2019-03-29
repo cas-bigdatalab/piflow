@@ -19,7 +19,8 @@ import spray.json.DefaultJsonProtocol
 
 
 object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSupport{
-  implicit val system = ActorSystem("HTTPService", ConfigFactory.load())
+  implicit val config = ConfigFactory.load()
+  implicit val system = ActorSystem("PiFlowHTTPService", config)
   implicit val materializer = ActorMaterializer()
   implicit val executionContext = system.dispatcher
   var processMap = Map[String, SparkAppHandle]()

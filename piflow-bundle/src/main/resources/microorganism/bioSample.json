@@ -7,30 +7,30 @@
       {
         "uuid":"0000",
         "name":"SelectFilesByName",
-        "bundle":"cn.piflow.bundle.ftp.SelectFilesByName",
+        "bundle":"cn.piflow.bundle.hdfs.SelectFilesByName",
         "properties":{
           "HDFSUrl":"hdfs://master2.packone:8020",
-          "HDFSPath":"/microo/",
+          "HDFSPath":"/yg/microo/",
           "selectionConditions":".*ample_set.xml.gz"
         }
       },{
         "uuid":"2222",
         "name":"UnzipFilesOnHDFS",
-        "bundle":"cn.piflow.bundle.http.UnzipFilesOnHDFS",
+        "bundle":"cn.piflow.bundle.hdfs.UnzipFilesOnHDFS",
         "properties":{
           "isCustomize":"false",
           "filePath":"",
           "hdfsUrl":"hdfs://master2.packone:8020",
-          "savePath":"/microo/biosample/biosample/"
+          "savePath":"/yg/microo/biosample/"
 
         }
       },
       {
         "uuid":"2222",
         "name":"BioSampleParse",
-        "bundle":"cn.piflow.bundle.microorganism.BioSampleParse",
+        "bundle":"cn.piflow.bundle.microorganism.BioSample",
         "properties":{
-
+          "cachePath": "/yg/microoCache/"
         }
       },
       {
@@ -38,10 +38,10 @@
         "name":"putEs",
         "bundle":"cn.piflow.bundle.es.PutEs",
         "properties":{
-          "es_nodes":"10.0.88.70,10.0.88.71,10.0.88.72",
-          "port":"9200",
-          "es_index":"sample0122",
-          "es_type":"sample0122"
+          "es_nodes": "10.0.88.70,10.0.88.71,10.0.88.72",
+          "es_port": "9200",
+          "es_index": "test_11",
+          "es_type": "test_11"
         }
 
       }

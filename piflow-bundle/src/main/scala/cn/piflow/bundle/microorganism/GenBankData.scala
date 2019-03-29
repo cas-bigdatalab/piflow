@@ -2,15 +2,14 @@ package cn.piflow.bundle.microorganism
 
 import java.io._
 
-
 import cn.piflow.bundle.microorganism.util.{CustomIOTools, Process}
 import cn.piflow.conf.bean.PropertyDescriptor
-import cn.piflow.conf.util.ImageUtil
+import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroup}
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FSDataInputStream, FSDataOutputStream, FileSystem, Path}
-import org.apache.spark.sql.{DataFrame,  SparkSession}
+import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.json.JSONObject
 
 
@@ -21,10 +20,10 @@ class GenBankData extends ConfigurableStop{
   val outportList: List[String] = List(PortEnum.DefaultPort.toString)
 
 
+  var cachePath:String = _
   def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     val spark = pec.get[SparkSession]()
     val sc = spark.sparkContext
-
     val inDf= in.read()
 
     val configuration: Configuration = new Configuration()
@@ -34,21 +33,18 @@ class GenBankData extends ConfigurableStop{
     for (x <- (0 until 3)){
       hdfsUrl+=(pathARR(x) +"/")
     }
-
     configuration.set("fs.defaultFS",hdfsUrl)
     var fs: FileSystem = FileSystem.get(configuration)
 
-    val hdfsPathTemporary:String = hdfsUrl+"/microoCache/genbank/genbankcach.json"
+    val hdfsPathTemporary = hdfsUrl+cachePath+"/genebankCache/genebankCache.json"
+
     val path: Path = new Path(hdfsPathTemporary)
     if(fs.exists(path)){
       fs.delete(path)
     }
     fs.create(path).close()
 
-
-    var fdosOut: FSDataOutputStream = fs.append(path)
-    var jsonStr: String =""
-    var bisIn: BufferedInputStream =null
+    val hdfsWriter: OutputStreamWriter = new OutputStreamWriter(fs.append(path))
 
 
     inDf.collect().foreach(row=>{
@@ -60,48 +56,35 @@ class GenBankData extends ConfigurableStop{
 
       var doc: JSONObject = null
       var count = 0
-      while (sequenceIterator.hasNext) {
-        count += 1
-        doc = new JSONObject
+        while (sequenceIterator.hasNext) {
+          count += 1
+          doc = new JSONObject
 
-        val seq = sequenceIterator.nextRichSequence()
+          val seq = sequenceIterator.nextRichSequence()
+          Process.processSingleSequence(seq, doc)
 
-        Process.processSingleSequence(seq, doc)
+          doc.write(hdfsWriter)
+          hdfsWriter.write("\n")
 
-
-        bisIn = new BufferedInputStream(new ByteArrayInputStream((doc.toString+"\n").getBytes()))
-
-        val buff: Array[Byte] = new Array[Byte](1048576)
-        var num: Int = bisIn.read(buff)
-        while (num != -1) {
-          fdosOut.write(buff, 0, num)
-          fdosOut.flush()
-          num = bisIn.read(buff)
         }
-
-        fdosOut.flush()
-        bisIn = null
-
-      }
+        br.close()
+        fdis.close()
     })
-
-    fdosOut.close()
+    hdfsWriter.close()
     println("start parser HDFSjsonFile")
     val df: DataFrame = spark.read.json(hdfsPathTemporary)
-
-    df.schema.printTreeString()
     out.write(df)
-
-
   }
 
 
   def setProperties(map: Map[String, Any]): Unit = {
+    cachePath=MapUtil.get(map,key="cachePath").asInstanceOf[String]
   }
-
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
-
+    val cachePath = new PropertyDescriptor().name("cachePath").displayName("cachePath").description("Temporary Cache File Path")
+      .defaultValue("/genbank").required(true)
+    descriptor = cachePath :: descriptor
     descriptor
   }
 

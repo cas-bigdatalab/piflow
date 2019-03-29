@@ -17,7 +17,7 @@ import scala.collection.mutable.ArrayBuffer
 class SelectFilesByName extends ConfigurableStop{
   override val authorEmail: String = "yangqidong@cnic.cn"
   override val description: String = "Select files by file name"
-  override val inportList: List[String] = List(PortEnum.NonePort.toString)
+  override val inportList: List[String] = List(PortEnum.DefaultPort.toString)
   override val outportList: List[String] = List(PortEnum.DefaultPort.toString)
 
   var HDFSUrl:String=_
@@ -68,10 +68,11 @@ class SelectFilesByName extends ConfigurableStop{
     val schema: StructType = StructType(fields)
     val df: DataFrame = session.createDataFrame(rowRDD,schema)
 
-
     println("#################################################")
     df.show(20)
-    println("#################################################")
+    println(df.count+"#################################################")
+
+
 
     out.write(df)
   }
@@ -85,9 +86,12 @@ class SelectFilesByName extends ConfigurableStop{
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
-    val HDFSUrl = new PropertyDescriptor().name("HDFSUrl").displayName("HDFSUrl").defaultValue("The URL of the HDFS file system, such as hdfs://10.0.88.70:9000").required(true)
-    val HDFSPath = new PropertyDescriptor().name("HDFSPath").displayName("HDFSPath").defaultValue("The save path of the HDFS file system, such as /test/Ab").required(true)
-    val selectionConditions = new PropertyDescriptor().name("selectionConditions").displayName("selectionConditions").defaultValue("To select conditions, you need to fill in regular expressions in java, such as. * abc. *").required(true)
+    val HDFSUrl = new PropertyDescriptor().name("HDFSUrl").displayName("HDFSUrl").description("The URL of the HDFS file system, such as hdfs://ip:port")
+      .defaultValue("hdfs://").required(true)
+    val HDFSPath = new PropertyDescriptor().name("HDFSPath").displayName("HDFSPath").description("The save path of the HDFS file system, such as /test/Ab")
+      .defaultValue("").required(true)
+    val selectionConditions = new PropertyDescriptor().name("selectionConditions").displayName("selectionConditions").description("To select conditions, you need to fill in regular expressions in java, such as. * abc. *")
+      .defaultValue("").required(true)
     descriptor = HDFSUrl :: descriptor
     descriptor = HDFSPath :: descriptor
     descriptor = selectionConditions :: descriptor

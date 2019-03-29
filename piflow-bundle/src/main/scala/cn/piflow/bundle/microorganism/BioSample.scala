@@ -25,7 +25,6 @@ class BioSample extends ConfigurableStop{
   def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     val spark = pec.get[SparkSession]()
     val sc = spark.sparkContext
-//    val ssc = spark.sqlContext
     val inDf= in.read()
 
     val configuration: Configuration = new Configuration()
@@ -35,27 +34,22 @@ class BioSample extends ConfigurableStop{
     for (x <- (0 until 3)){
       hdfsUrl+=(pathARR(x) +"/")
     }
-
     configuration.set("fs.defaultFS",hdfsUrl)
     var fs: FileSystem = FileSystem.get(configuration)
 
-    var hdfsPathJsonCache:String = ""
 
-    hdfsPathJsonCache = hdfsUrl+cachePath+"/biosampleCache/biosampleCache.json"
+    val hdfsPathTemporary = hdfsUrl+cachePath+"/biosampleCache/biosampleCache.json"
 
-    val path: Path = new Path(hdfsPathJsonCache)
+    val path: Path = new Path(hdfsPathTemporary)
     if(fs.exists(path)){
       fs.delete(path)
     }
     fs.create(path).close()
 
+    val hdfsWriter: OutputStreamWriter = new OutputStreamWriter(fs.append(path))
 
-    var fdosOut: FSDataOutputStream = null
-    var bisIn: BufferedInputStream =null
-    fdosOut = fs.append(path)
 
     var count = 0
-    var nameNum = 0
     inDf.collect().foreach(row => {
       pathStr = row.get(0).asInstanceOf[String]
 
@@ -66,8 +60,7 @@ class BioSample extends ConfigurableStop{
       br.readLine()
       br.readLine()
 
-
-      while ((line = br.readLine()) != null && line!= null) {
+      while ((line = br.readLine()) != null && line!= null ) {
         xml = xml + line
         if (line.indexOf("</" + docName + ">") != -1) {
           count = count + 1
@@ -79,7 +72,6 @@ class BioSample extends ConfigurableStop{
           if (attrs.equals("")) {
             doc.remove("Attributes")
           }
-
           // Links
           val links: String = doc.optString("Links")
           if (links != null) {
@@ -123,36 +115,24 @@ class BioSample extends ConfigurableStop{
             if (jsonDoc.contains("Ids\":{\"Id\":[{")){
 
             } else {
-//              println(count)
-//              println(jsonDoc)
               jsonDoc = jsonDoc.replace("Ids\":{\"Id\":{","Ids\":{\"Id\":[{")
             }
           }
 
-          bisIn = new BufferedInputStream(new ByteArrayInputStream((jsonDoc+"\n").getBytes()))
-
-          val buff: Array[Byte] = new Array[Byte](1048576)
-
-          var num: Int = bisIn.read(buff)
-          while (num != -1) {
-            fdosOut.write(buff, 0, num)
-            fdosOut.flush()
-            num = bisIn.read(buff)
-          }
-          fdosOut.flush()
-          bisIn = null
+          doc.write(hdfsWriter)
+          hdfsWriter.write("\n")
 
           xml = ""
         }
       }
+      br.close()
+      fdis.close()
     })
+    hdfsWriter.close()
 
-    //    bisIn.close()
-    fdosOut.close()
     println("start parser HDFSjsonFile")
 
-    val df: DataFrame = spark.read.json(hdfsPathJsonCache)
-
+    val df: DataFrame = spark.read.json(hdfsPathTemporary)
     out.write(df)
   }
 
@@ -164,7 +144,8 @@ class BioSample extends ConfigurableStop{
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
-    val cachePath = new PropertyDescriptor().name("cachePath").displayName("cachePath").defaultValue("").required(true)
+    val cachePath = new PropertyDescriptor().name("cachePath").displayName("cachePath").description("Temporary Cache File Path")
+      .defaultValue("/biosample").required(true)
     descriptor = cachePath :: descriptor
     descriptor
   }

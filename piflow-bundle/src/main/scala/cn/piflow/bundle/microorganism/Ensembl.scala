@@ -1,10 +1,10 @@
 package cn.piflow.bundle.microorganism
 
-import java.io.{BufferedInputStream, BufferedReader, ByteArrayInputStream, InputStreamReader}
+import java.io._
 
 import cn.piflow.bundle.microorganism.util.ParserGff3Data
 import cn.piflow.conf.bean.PropertyDescriptor
-import cn.piflow.conf.util.ImageUtil
+import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroup}
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.apache.hadoop.conf.Configuration
@@ -19,12 +19,15 @@ class Ensembl extends ConfigurableStop{
   override val inportList: List[String] =List(PortEnum.DefaultPort.toString)
   override val outportList: List[String] = List(PortEnum.DefaultPort.toString)
 
-  override def setProperties(map: Map[String, Any]): Unit = {
-
+  var cachePath:String = _
+  def setProperties(map: Map[String, Any]): Unit = {
+    cachePath=MapUtil.get(map,key="cachePath").asInstanceOf[String]
   }
-
-  override def getPropertyDescriptor(): List[PropertyDescriptor] ={
+  override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
+    val cachePath = new PropertyDescriptor().name("cachePath").displayName("cachePath").description("Temporary Cache File Path")
+      .defaultValue("/ensembl").required(true)
+    descriptor = cachePath :: descriptor
     descriptor
   }
 
@@ -43,82 +46,55 @@ class Ensembl extends ConfigurableStop{
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
 
     val session = pec.get[SparkSession]()
-
     val inDf: DataFrame = in.read()
+
     val configuration: Configuration = new Configuration()
-    var pathStr: String = ""
+    var pathStr: String =inDf.take(1)(0).get(0).asInstanceOf[String]
+    val pathARR: Array[String] = pathStr.split("\\/")
     var hdfsUrl:String=""
-    try{
-      pathStr =inDf.take(1)(0).get(0).asInstanceOf[String]
-      val pathARR: Array[String] = pathStr.split("\\/")
-
-      for (x <- (0 until 3)){
-        hdfsUrl+=(pathARR(x) +"/")
-      }
-    }catch {
-      case e:Exception => throw new Exception("Path error")
+    for (x <- (0 until 3)){
+      hdfsUrl+=(pathARR(x) +"/")
     }
-
     configuration.set("fs.defaultFS",hdfsUrl)
     var fs: FileSystem = FileSystem.get(configuration)
 
-    val hdfsPathTemporary:String = hdfsUrl+"/ensembl_genomeParser_temporary.json"
-    val path: Path = new Path(hdfsPathTemporary)
+    val hdfsPathTemporary = hdfsUrl+cachePath+"/ensemblCache/ensemblCache.json"
 
+    val path: Path = new Path(hdfsPathTemporary)
     if(fs.exists(path)){
       fs.delete(path)
     }
-
     fs.create(path).close()
-    var fdos: FSDataOutputStream = fs.append(path)
-    val buff: Array[Byte] = new Array[Byte](1048576)
+
+    val hdfsWriter: OutputStreamWriter = new OutputStreamWriter(fs.append(path))
 
     val parser: ParserGff3Data = new ParserGff3Data
-
-    var bis: BufferedInputStream =null
     var fdis: FSDataInputStream =null
     var br: BufferedReader = null
-    var sequences: RichSequenceIterator = null
     var doc: JSONObject = null
-    var seq: RichSequence = null
-    var jsonStr: String = ""
+    var count:Int = 0
     inDf.collect().foreach(row => {
       pathStr = row.get(0).asInstanceOf[String]
-      println("start parser ^^^" + pathStr)
+
       fdis = fs.open(new Path(pathStr))
       br = new BufferedReader(new InputStreamReader(fdis))
       var eachStr:String=null
 
       while((eachStr = br.readLine()) != null && eachStr != null ){
         doc = parser.parserGff3(eachStr)
-        jsonStr = doc.toString
-        if(jsonStr.length > 2){
-          bis = new BufferedInputStream(new ByteArrayInputStream((jsonStr+"\n").getBytes()))
-          var count: Int = bis.read(buff)
-          while (count != -1) {
-            fdos.write(buff, 0, count)
-            fdos.flush()
-            count = bis.read(buff)
-          }
-          fdos.flush()
 
-          bis.close()
-          bis = null
-          doc = null
-          seq = null
-          jsonStr = ""
+        if(doc.toString.length > 2){
+          count += 1
+          doc.write(hdfsWriter)
+          hdfsWriter.write("\n")
         }
-
       }
-      sequences = null
+
       br.close()
-      br = null
       fdis.close()
-      fdis =null
-      pathStr = null
     })
 
-    fdos.close()
+    hdfsWriter.close()
 
     out.write(session.read.json(hdfsPathTemporary))
   }

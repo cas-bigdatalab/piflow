@@ -6,33 +6,30 @@
       {
         "uuid":"1111",
         "name":"SelectFilesByName",
-        "bundle":"cn.piflow.bundle.ftp.SelectFilesByName",
+        "bundle":"cn.piflow.bundle.hdfs.SelectFilesByName",
         "properties":{
           "HDFSUrl":"hdfs://master2.packone:8020",
-          "HDFSPath":"/microo/genbank/",
-          "selectionConditions":".*.seq.gz"
+          "HDFSPath":"/yg/microo/genbank2/",
+          "selectionConditions":"gbbct1.seq.gz"
         }
       },{
         "uuid":"2222",
         "name":"UnzipFilesOnHDFS",
-        "bundle":"cn.piflow.bundle.http.UnzipFilesOnHDFS",
+        "bundle":"cn.piflow.bundle.hdfs.UnzipFilesOnHDFS",
         "properties":{
           "isCustomize":"false",
           "filePath":"",
           "hdfsUrl":"hdfs://master2.packone:8020",
-          "savePath":"/microo/genbank/"
+          "savePath":"/yg/microo/genbank/"
 
         }
       },
       {
         "uuid":"3333",
         "name":"GenBankParse",
-        "bundle":"cn.piflow.bundle.microorganism.GenBankParse",
+        "bundle":"cn.piflow.bundle.microorganism.GenBankData",
         "properties":{
-          "es_nodes":"10.0.86.239",
-          "port":"9200",
-          "es_index":"genbank",
-          "es_type":"data6"
+          "cachePath": "/yg/microoCache/"
         }
       },
       {
@@ -41,9 +38,9 @@
         "bundle": "cn.piflow.bundle.es.PutEs",
         "properties": {
           "es_nodes": "10.0.88.70,10.0.88.71,10.0.88.72",
-          "port": "9200",
-          "es_index": "genbank",
-          "es_type": "genbank1"
+          "es_port": "9200",
+          "es_index": "test_12",
+          "es_type": "test_12"
         }
       }
     ],

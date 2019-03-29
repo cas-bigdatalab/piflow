@@ -6,22 +6,19 @@
       {
         "uuid":"1111",
         "name":"SelectFilesByName",
-        "bundle":"cn.piflow.bundle.ftp.SelectFilesByName",
+        "bundle":"cn.piflow.bundle.hdfs.SelectFilesByName",
         "properties":{
           "HDFSUrl":"hdfs://master2.packone:8020",
-          "HDFSPath":"/microo/biproject/",
+          "HDFSPath":"/yg/microo/biproject/",
           "selectionConditions":"bioproject.xml"
         }
       },
       {
         "uuid":"2222",
         "name":"BioProjetDataParse",
-        "bundle":"cn.piflow.bundle.microorganism.BioProjetDataParse",
+        "bundle":"cn.piflow.bundle.microorganism.BioProjetData",
         "properties":{
-          "es_nodes": "10.0.88.70,10.0.88.71,10.0.88.72",
-          "port": "9200",
-          "es_index": "bioproject",
-          "es_type": "bioprojecttest002"
+          "cachePath": "/yg/microoCache/"
         }
       },
       {
@@ -30,9 +27,9 @@
         "bundle": "cn.piflow.bundle.es.PutEs",
         "properties": {
           "es_nodes": "10.0.88.70,10.0.88.71,10.0.88.72",
-          "port": "9200",
-          "es_index": "bioproject10",
-          "es_type": "bioproject10"
+          "es_port": "9200",
+          "es_index": "test_10",
+          "es_type": "test_10"
         }
       }
     ],

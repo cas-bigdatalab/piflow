@@ -1,10 +1,10 @@
 package cn.piflow.bundle.microorganism
 
-import java.io.{BufferedInputStream, BufferedReader, ByteArrayInputStream, InputStreamReader}
+import java.io._
 import java.text.SimpleDateFormat
 
 import cn.piflow.conf.bean.PropertyDescriptor
-import cn.piflow.conf.util.ImageUtil
+import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroup}
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.apache.hadoop.conf.Configuration
@@ -18,13 +18,13 @@ class Gene extends ConfigurableStop{
   override val inportList: List[String] =List(PortEnum.DefaultPort.toString)
   override val outportList: List[String] = List(PortEnum.DefaultPort.toString)
 
-
+  var cachePath:String = _
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     val session = pec.get[SparkSession]()
-
     val inDf: DataFrame = in.read()
-    val configuration: Configuration = new Configuration()
 
+
+    val configuration: Configuration = new Configuration()
     var pathStr: String =inDf.take(1)(0).get(0).asInstanceOf[String]
     val pathARR: Array[String] = pathStr.split("\\/")
     var hdfsUrl:String=""
@@ -34,19 +34,15 @@ class Gene extends ConfigurableStop{
     configuration.set("fs.defaultFS",hdfsUrl)
     var fs: FileSystem = FileSystem.get(configuration)
 
-    val hdfsPathTemporary:String = hdfsUrl+"/Refseq_genomeParser_temporary.json"
-    val path: Path = new Path(hdfsPathTemporary)
+    val hdfsPathTemporary = hdfsUrl+cachePath+"/geneCache/geneCache.json"
 
+    val path: Path = new Path(hdfsPathTemporary)
     if(fs.exists(path)){
       fs.delete(path)
     }
-
     fs.create(path).close()
-    var fdos: FSDataOutputStream = fs.append(path)
 
-    var jsonStr: String =""
-
-    var bis: BufferedInputStream =null
+    val hdfsWriter: OutputStreamWriter = new OutputStreamWriter(fs.append(path))
 
     var names:Array[String]=Array("tax_id", "geneID", "symbol", "locus_tag", "synonyms", "dbxrefs", "chromosome", "map_location", "description", "type_of_gene",
       "symbol_from_nomenclature_authority", "full_name_from_nomenclature_authority",
@@ -54,7 +50,7 @@ class Gene extends ConfigurableStop{
     val format: java.text.DateFormat = new SimpleDateFormat("yyyyMMdd").asInstanceOf[java.text.DateFormat]
     val newFormat: SimpleDateFormat = new SimpleDateFormat("yyyy-MM-dd")
 
-    var n:Int=0
+    var count:Int=0
     inDf.collect().foreach(row => {
 
       pathStr = row.get(0).asInstanceOf[String]
@@ -66,9 +62,9 @@ class Gene extends ConfigurableStop{
       var line:String=""
       var doc:JSONObject=null
 
-      while ((line=br.readLine()) != null){
+      while ((line=br.readLine()) != null  && count < 10 ){
         if( ! line.startsWith("#")){
-          n += 1
+          count += 1
           doc=new JSONObject()
           val tokens: Array[String] = line.split("\\\t")
           for(i <- (0 until 15)){
@@ -84,54 +80,28 @@ class Gene extends ConfigurableStop{
               doc.put(names(i),newFormat.format(format.parse(tokens(i))))
             }
           }
-          jsonStr = doc.toString
-          if (n == 1) {
-            bis = new BufferedInputStream(new ByteArrayInputStream(("[" + jsonStr).getBytes()))
-          } else {
-            bis = new BufferedInputStream(new ByteArrayInputStream(("," + jsonStr).getBytes()))
-          }
-
-          val buff: Array[Byte] = new Array[Byte](1048576)
-
-          var count: Int = bis.read(buff)
-          while (count != -1) {
-            fdos.write(buff, 0, count)
-            fdos.flush()
-            count = bis.read(buff)
-          }
-          fdos.flush()
-          bis = null
-          doc = null
+          doc.write(hdfsWriter)
+          hdfsWriter.write("\n")
         }
       }
-
+      br.close()
+      fdis.close()
     })
-    bis = new BufferedInputStream(new ByteArrayInputStream(("]").getBytes()))
-    val buff: Array[Byte] = new Array[Byte](1048576)
-
-    var count: Int = bis.read(buff)
-    while (count != -1) {
-      fdos.write(buff, 0, count)
-      fdos.flush()
-      count = bis.read(buff)
-    }
-    fdos.flush()
-
-    fdos.close()
-
+    hdfsWriter.close()
     val df: DataFrame = session.read.json(hdfsPathTemporary)
-
     out.write(df)
 
 
   }
 
-  override def setProperties(map: Map[String, Any]): Unit = {
-
+  def setProperties(map: Map[String, Any]): Unit = {
+    cachePath=MapUtil.get(map,key="cachePath").asInstanceOf[String]
   }
-
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
+    val cachePath = new PropertyDescriptor().name("cachePath").displayName("cachePath").description("Temporary Cache File Path")
+      .defaultValue("/gene").required(true)
+    descriptor = cachePath :: descriptor
     descriptor
   }
 

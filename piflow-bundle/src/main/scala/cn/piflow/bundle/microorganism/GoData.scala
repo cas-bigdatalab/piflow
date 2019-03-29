@@ -35,21 +35,18 @@ class GoData extends ConfigurableStop{
     for (x <- (0 until 3)){
       hdfsUrl+=(pathARR(x) +"/")
     }
-
     configuration.set("fs.defaultFS",hdfsUrl)
     var fs: FileSystem = FileSystem.get(configuration)
 
-    val hdfsPathJsonCache = hdfsUrl+cachePath+"/godataCache/godataCache.json"
+    val hdfsPathTemporary = hdfsUrl+cachePath+"/godataCache/godataCache.json"
 
-    val path: Path = new Path(hdfsPathJsonCache)
+    val path: Path = new Path(hdfsPathTemporary)
     if(fs.exists(path)){
       fs.delete(path)
     }
     fs.create(path).close()
 
-    var fdosOut: FSDataOutputStream = fs.append(path)
-    var jsonStr: String =""
-    var bisIn: BufferedInputStream =null
+    val hdfsWriter: OutputStreamWriter = new OutputStreamWriter(fs.append(path))
 
     inDf.collect().foreach(row => {
       pathStr = row.get(0).asInstanceOf[String]
@@ -65,7 +62,7 @@ class GoData extends ConfigurableStop{
       }
       var obj = new JSONObject()
       var count= 0
-      while ((line = br.readLine()) !=null && line !=null ){
+      while ((line = br.readLine()) !=null && line !=null  && count<10){
         val m: Matcher = tv.matcher(line)
         if (line.startsWith("[")){
           if (line .equals("[Term]")){
@@ -89,28 +86,20 @@ class GoData extends ConfigurableStop{
           }
           count += 1
 
-          bisIn = new BufferedInputStream(new ByteArrayInputStream((obj.toString+"\n").getBytes()))
-
-          val buff: Array[Byte] = new Array[Byte](1048576)
-          var num: Int = bisIn.read(buff)
-          while (num != -1) {
-            fdosOut.write(buff, 0, num)
-            fdosOut.flush()
-            num = bisIn.read(buff)
-          }
-          fdosOut.flush()
-          bisIn = null
-
+          obj.write(hdfsWriter)
+          hdfsWriter.write("\n")
 
           obj= new JSONObject()
         }
       }
+      br.close()
+      fdis.close()
     })
+    hdfsWriter.close()
 
-    fdosOut.close()
 
     println("start parser HDFSjsonFile")
-    val df: DataFrame = spark.read.json(hdfsPathJsonCache)
+    val df: DataFrame = spark.read.json(hdfsPathTemporary)
     out.write(df)
 
   }
@@ -120,7 +109,8 @@ class GoData extends ConfigurableStop{
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
-    val cachePath = new PropertyDescriptor().name("cachePath").displayName("cachePath").defaultValue("").required(true)
+    val cachePath = new PropertyDescriptor().name("cachePath").displayName("cachePath").description("Temporary Cache File Path")
+      .defaultValue("/goData").required(true)
     descriptor = cachePath :: descriptor
     descriptor
   }
