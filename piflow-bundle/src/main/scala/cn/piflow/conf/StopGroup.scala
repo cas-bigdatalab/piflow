@@ -29,4 +29,7 @@ object StopGroup {
   val HbaseGroup = "Hbase"
   val StreamingGroup = "Streaming"
   val Neo4jGroup = "Neo4j"
+  val Alg_NLPGroup = "Algorithms_NLP"
+  val Alg_ImageProcessGroup = "Algorithms_ImageProcess"
+  val Alg_ASRGroup = "Algorithms_ASR"
 }
