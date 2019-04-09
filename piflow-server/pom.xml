@@ -22,11 +22,7 @@
             <artifactId>piflow-core</artifactId>
             <version>0.9</version>
         </dependency>
-        <!--<dependency>
-            <groupId>piflow</groupId>
-            <artifactId>piflow-conf</artifactId>
-            <version>0.9</version>
-        </dependency>-->
+
         <dependency>
             <groupId>piflow</groupId>
             <artifactId>piflow-bundle</artifactId>

@@ -26,7 +26,8 @@ class Fork extends ConfigurableStop{
   }
 
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
-    outports.foreach(out.write(_, in.read()));
+    val df = in.read().cache()
+    outports.foreach(out.write(_, df));
   }
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {

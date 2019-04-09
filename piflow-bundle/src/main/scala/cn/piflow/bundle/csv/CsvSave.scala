@@ -59,6 +59,7 @@ class CsvSave extends ConfigurableStop{
       .format("csv")
       .mode(SaveMode.Overwrite)
       .option("header", header)
+      .option("delimiter",delimiter)
       .save(csvSavePath)
   }
 }
