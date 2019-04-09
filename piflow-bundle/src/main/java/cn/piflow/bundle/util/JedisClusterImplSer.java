@@ -8,7 +8,7 @@ import java.io.IOException;
 import java.io.ObjectStreamException;
 import java.io.Serializable;
 
-public class JedisClusterImplSer  implements Serializable {
+public class JedisClusterImplSer implements Serializable {
 
     private static final long serialVersionUID = -51L;
 

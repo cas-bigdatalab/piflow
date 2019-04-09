@@ -1,6 +1,7 @@
 package cn.piflow.bundle.microorganism.util;
 
 import org.apache.hadoop.fs.FSDataInputStream;
+import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.log4j.Logger;
 import org.biojava.nbio.structure.*;
@@ -8,13 +9,14 @@ import org.biojava.nbio.structure.io.PDBFileReader;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-import java.io.*;
+import java.io.BufferedReader;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStreamReader;
 import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
-import java.util.zip.GZIPInputStream;
-import org.apache.hadoop.fs.FileSystem;
 
 public class PDB {
 

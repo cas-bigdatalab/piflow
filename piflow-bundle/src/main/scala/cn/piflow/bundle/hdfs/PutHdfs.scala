@@ -29,14 +29,14 @@ class PutHdfs extends ConfigurableStop{
     config.set("fs.defaultFS",hdfsUrl)
     val fs = FileSystem.get(config)
 
-      if (types=="json"){
-        inDF.repartition(partition).write.json(hdfsUrl+hdfsPath)
-      } else if (types=="csv"){
-        inDF.repartition(partition).write.csv(hdfsUrl+hdfsPath)
-      } else {
-        //parquet
-        inDF.repartition(partition).write.save(hdfsUrl+hdfsPath)
-      }
+    if (types=="json"){
+      inDF.repartition(partition).write.json(hdfsUrl+hdfsPath)
+    } else if (types=="csv"){
+      inDF.repartition(partition).write.csv(hdfsUrl+hdfsPath)
+    } else {
+      //parquet
+      inDF.repartition(partition).write.save(hdfsUrl+hdfsPath)
+    }
 
   }
   override def setProperties(map: Map[String, Any]): Unit = {
@@ -50,8 +50,10 @@ class PutHdfs extends ConfigurableStop{
     var descriptor : List[PropertyDescriptor] = List()
     val hdfsPath = new PropertyDescriptor().name("hdfsPath").displayName("hdfsPath").defaultValue("").required(true)
     val hdfsUrl = new PropertyDescriptor().name("hdfsUrl").displayName("hdfsUrl").defaultValue("").required(true)
-    val types = new PropertyDescriptor().name("types").displayName("json,csv,parquet").defaultValue("").required(true)
-    val partition = new PropertyDescriptor().name("partition").displayName("repartition").defaultValue("").required(true)
+    val types = new PropertyDescriptor().name("types").displayName("json,csv,parquet").description("json,csv,parquet")
+      .defaultValue("csv").allowableValues(Set("json","csv","parquet")).required(true)
+
+    val partition = new PropertyDescriptor().name("partition").displayName("repartition").description("partition").defaultValue("").required(true)
     descriptor = partition :: descriptor
     descriptor = types :: descriptor
     descriptor = hdfsPath :: descriptor
