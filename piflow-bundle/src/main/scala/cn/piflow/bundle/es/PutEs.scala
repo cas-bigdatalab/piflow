@@ -19,15 +19,23 @@ class PutEs extends ConfigurableStop {
   var es_port  : String  =  _
   var es_index : String =  _
   var es_type  : String  =  _
+  var configuration_item:String = _
+
 
   def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     val spark = pec.get[SparkSession]()
     val inDf = in.read()
 
     val sc = spark.sparkContext
-    val options = Map("es.index.auto.create"-> "true",
+    var options = Map("es.index.auto.create"-> "true",
       "es.nodes"->es_nodes,
       "es.port"->es_port)
+
+    if(configuration_item.length > 0){
+      configuration_item.split(",").foreach(each =>{
+        options += (each.split("->")(0) -> each.split("->")(1))
+      })
+    }
 
     EsSparkSQL.saveToEs(inDf,s"${es_index}/${es_type}",options)
 
@@ -43,6 +51,7 @@ class PutEs extends ConfigurableStop {
     es_port=MapUtil.get(map,key="es_port").asInstanceOf[String]
     es_index=MapUtil.get(map,key="es_index").asInstanceOf[String]
     es_type=MapUtil.get(map,key="es_type").asInstanceOf[String]
+    configuration_item=MapUtil.get(map,key="configuration_item").asInstanceOf[String]
   }
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
@@ -55,11 +64,15 @@ class PutEs extends ConfigurableStop {
       .description("Index of Elasticsearch").defaultValue("").required(true)
     val es_type = new PropertyDescriptor().name("es_type").displayName("es_type")
       .description("Type of Elasticsearch").defaultValue("").required(true)
+    val configuration_item = new PropertyDescriptor().name("configuration_item").displayName("configuration_item")
+      .defaultValue("Configuration Item of Es.such as:es.mapping.parent->id_1,es.mapping.parent->id_2").required(false)
+
 
     descriptor = es_nodes :: descriptor
     descriptor = es_port :: descriptor
     descriptor = es_index :: descriptor
     descriptor = es_type :: descriptor
+    descriptor = configuration_item :: descriptor
 
     descriptor
   }
