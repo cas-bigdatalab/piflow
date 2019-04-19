@@ -14,6 +14,8 @@ trait Runner {
 
   def start(flowGroup: FlowGroup): FlowGroupExecution;
 
+  def start(project: Project): ProjectExecution;
+
   def addListener(listener: RunnerListener);
 
   def removeListener(listener: RunnerListener);
@@ -66,6 +68,18 @@ object Runner {
         //TODO:
         listeners.foreach(_.monitorJobCompleted(ctx, outputs));
       }
+
+      override def onFlowGroupStarted(ctx: FlowGroupContext): Unit = {
+        listeners.foreach(_.onFlowGroupStarted(ctx));
+      }
+
+      override def onFlowGroupCompleted(ctx: FlowGroupContext): Unit = {
+        listeners.foreach(_.onFlowGroupCompleted(ctx));
+      }
+
+      override def onFlowGroupFailed(ctx: FlowGroupContext): Unit = {
+        listeners.foreach(_.onFlowGroupFailed(ctx));
+      }
     }
 
     override def addListener(listener: RunnerListener) = {
@@ -87,6 +101,10 @@ object Runner {
 
     override def start(flowGroup: FlowGroup): FlowGroupExecution = {
       new FlowGroupExecutionImpl(flowGroup, ctx, this);
+    }
+
+    override def start(project: Project): ProjectExecution = {
+      new ProjectExecutionImpl(project, ctx, this);
     }
 
     override def removeListener(listener: RunnerListener): Unit = {
@@ -115,6 +133,12 @@ trait RunnerListener {
   def onJobFailed(ctx: JobContext);
 
   def monitorJobCompleted(ctx: JobContext,outputs : JobOutputStream);
+
+  def onFlowGroupStarted(ctx: FlowGroupContext);
+
+  def onFlowGroupCompleted(ctx: FlowGroupContext);
+
+  def onFlowGroupFailed(ctx: FlowGroupContext);
 }
 
 
@@ -234,5 +258,17 @@ class RunnerLogger extends RunnerListener with Logging {
     outputDataCount.keySet.foreach(portName => {
       H2Util.addThroughput(appId, stopName, portName, outputDataCount(portName))
     })
+  }
+
+  override def onFlowGroupStarted(ctx: FlowGroupContext): Unit = {
+    //TODO: write monitor data into db
+  }
+
+  override def onFlowGroupCompleted(ctx: FlowGroupContext): Unit = {
+    //TODO: write monitor data into db
+  }
+
+  override def onFlowGroupFailed(ctx: FlowGroupContext): Unit = {
+    //TODO: write monitor data into db
   }
 }

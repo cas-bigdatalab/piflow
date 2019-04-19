@@ -73,7 +73,9 @@ trait StreamingStop extends Stop{
   def getDStream(ssc : StreamingContext): DStream[String];
 }
 
-trait Flow {
+trait ProjectEntry {}
+
+trait Flow extends ProjectEntry{
   def getStopNames(): Seq[String];
 
   def hasCheckPoint(processName: String): Boolean;
@@ -271,6 +273,12 @@ trait ProcessContext extends Context {
   def getFlow(): Flow;
 
   def getProcess(): Process;
+}
+
+trait FlowGroupContext extends Context {
+  def getFlowGroup() : FlowGroup;
+
+  def getFlowGroupExecution() : FlowGroupExecution;
 }
 
 class JobInputStreamImpl() extends JobInputStream {

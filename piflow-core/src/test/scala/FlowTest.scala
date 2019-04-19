@@ -332,6 +332,19 @@ class PrintCount extends Stop {
   }
 }
 
+class TestStop extends Stop {
+  def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
+    val spark = pec.get[SparkSession]();
+    import spark.implicits._
+    print("Test Stop!!!!")
+  }
+
+  def initialize(ctx: ProcessContext): Unit = {
+
+  }
+}
+
+
 class CountWords extends Stop {
   def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     val spark = pec.get[SparkSession]();

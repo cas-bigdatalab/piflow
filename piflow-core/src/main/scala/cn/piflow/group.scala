@@ -63,7 +63,7 @@ object Condition {
   }
 }
 
-trait FlowGroup {
+trait FlowGroup extends ProjectEntry{
   def addFlow(name: String, flow: Flow, con: Condition = Condition.AlwaysTrue);
 
   def mapFlowWithConditions(): Map[String, (Flow, Condition)];
@@ -83,14 +83,20 @@ class FlowGroupImpl extends FlowGroup {
 trait FlowGroupExecution {
   def isProcessCompleted(processName: String): Boolean;
 
+  def isFlowGroupCompleted() : Boolean;
+
   def stop(): Unit;
 
   def awaitTermination(): Unit;
 
   def awaitTermination(timeout: Long, unit: TimeUnit): Unit;
+
 }
 
 class FlowGroupExecutionImpl(fg: FlowGroup, runnerContext: Context, runner: Runner) extends FlowGroupExecution {
+  val flowGroupContext = createContext(runnerContext);
+  val flowGroupExecution = this;
+
   val mapFlowWithConditions: Map[String, (Flow, Condition)] = fg.mapFlowWithConditions();
   val completedProcesses = MMap[String, Boolean]();
   completedProcesses ++= mapFlowWithConditions.map(x => (x._1, false));
@@ -128,12 +134,33 @@ class FlowGroupExecutionImpl(fg: FlowGroup, runnerContext: Context, runner: Runn
     override def onProcessAborted(ctx: ProcessContext): Unit = {}
 
     override def monitorJobCompleted(ctx: JobContext, outputs: JobOutputStream): Unit = {}
-  };
 
+    override def onFlowGroupStarted(ctx: FlowGroupContext): Unit = {
+
+    }
+
+    override def onFlowGroupCompleted(ctx: FlowGroupContext): Unit = {
+
+    }
+
+    override def onFlowGroupFailed(ctx: FlowGroupContext): Unit = {
+
+    }
+  };
   runner.addListener(listener);
+  val runnerListener = runner.getListener()
 
   def isProcessCompleted(processName: String): Boolean = {
     completedProcesses(processName);
+  }
+
+  def isFlowGroupCompleted(): Boolean = {
+    completedProcesses.foreach( en =>{
+      if(en._2 == false){
+        return false
+      }
+    })
+    return true
   }
 
   private def startProcess(name: String, flow: Flow): Unit = {
@@ -143,6 +170,9 @@ class FlowGroupExecutionImpl(fg: FlowGroup, runnerContext: Context, runner: Runn
 
   val pollingThread = new Thread(new Runnable() {
     override def run(): Unit = {
+
+      runnerListener.onFlowGroupStarted(flowGroupContext)
+
       while (numWaitingProcesses.get() > 0) {
         val todos = ArrayBuffer[(String, Flow)]();
         mapFlowWithConditions.foreach { en =>
@@ -160,6 +190,10 @@ class FlowGroupExecutionImpl(fg: FlowGroup, runnerContext: Context, runner: Runn
 
       latch.countDown();
       finalizeExecution(true);
+
+      runnerListener.onFlowGroupCompleted(flowGroupContext)
+      //TODO: how to define FlowGroup Failed
+      //runnerListener.onFlowGroupFailed(ctx)
     }
   });
 
@@ -190,4 +224,14 @@ class FlowGroupExecutionImpl(fg: FlowGroup, runnerContext: Context, runner: Runn
       running = false;
     }
   }
+
+  private def createContext(runnerContext: Context): FlowGroupContext = {
+    new CascadeContext(runnerContext) with FlowGroupContext {
+      override def getFlowGroup(): FlowGroup = fg
+
+      override def getFlowGroupExecution(): FlowGroupExecution = flowGroupExecution
+    };
+  }
+
+
 }

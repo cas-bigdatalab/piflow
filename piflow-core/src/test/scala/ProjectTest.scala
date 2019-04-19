@@ -3,12 +3,10 @@ import org.apache.spark.sql.SparkSession
 import org.h2.tools.Server
 import org.junit.Test
 
-/**
-  * Created by bluejoe on 2018/6/27.
-  */
-class FlowGroupTest {
+
+class ProjectTest {
   @Test
-  def testProcessGroup() {
+  def testProject() {
     val flow1 = new FlowImpl();
 
     flow1.addStop("CleanHouse", new CleanHouse());
@@ -17,12 +15,24 @@ class FlowGroupTest {
     flow1.addPath(Path.of("CleanHouse" -> "CopyTextFile" -> "CountWords"));
 
     val flow2 = new FlowImpl();
-
     flow2.addStop("PrintCount", new PrintCount());
 
     val fg = new FlowGroupImpl();
     fg.addFlow("flow1", flow1);
     fg.addFlow("flow2", flow2, Condition.after("flow1"));
+
+
+    val flow3 = new FlowImpl();
+    flow3.addStop("TestStop", new TestStop());
+
+    val flow4 = new FlowImpl();
+    flow4.addStop("TestStop", new TestStop());
+
+    val project = new ProjectImpl();
+
+    project.addProjectEntry("flow3",flow3)
+    project.addProjectEntry("flowGroup",fg,ProjectCondition.after("flow3"))
+    project.addProjectEntry("flow4",flow4, ProjectCondition.after("flowGroup"))
 
     val h2Server = Server.createTcpServer("-tcp", "-tcpAllowOthers", "-tcpPort","50001").start()
 
@@ -33,7 +43,7 @@ class FlowGroupTest {
       .bind(classOf[SparkSession].getName, spark)
       .bind("checkpoint.path", "hdfs://10.0.86.89:9000/xjzhu/piflow/checkpoints/")
       .bind("debug.path","hdfs://10.0.86.89:9000/xjzhu/piflow/debug/")
-      .start(fg);
+      .start(project);
 
     process.awaitTermination();
     spark.close();
