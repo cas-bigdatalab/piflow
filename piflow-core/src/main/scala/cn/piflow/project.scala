@@ -7,80 +7,28 @@ import java.util.concurrent.{CountDownLatch, TimeUnit}
 import scala.collection.mutable.{ArrayBuffer, Map => MMap}
 
 
-trait ProjectCondition {
-  def matches(project: ProjectExecution): Boolean;
-}
-
-class And(con1: ProjectCondition, con2: ProjectCondition) extends ProjectCondition {
-  override def matches(project: ProjectExecution): Boolean = {
-    con1.matches(project) && con2.matches(project);
-  }
-}
-
-class Or(con1: ProjectCondition, con2: ProjectCondition) extends ProjectCondition {
-  override def matches(project: ProjectExecution): Boolean = {
-    con1.matches(project) || con2.matches(project);
-  }
-}
-
-trait ProjectComposableCondition extends ProjectCondition {
-  def and(others: ProjectCondition*): ProjectComposableCondition = {
-    new ProjectComposableCondition() {
-      override def matches(project: ProjectExecution): Boolean = {
-        (this +: others).reduce((x, y) => new And(x, y)).matches(project);
-      }
-    }
-  }
-
-  def or(others: ProjectCondition*): ProjectComposableCondition = {
-    new ProjectComposableCondition() {
-      override def matches(pg: ProjectExecution): Boolean = {
-        (this +: others).reduce((x, y) => new Or(x, y)).matches(pg);
-      }
-    }
-  }
-}
-
-object ProjectCondition {
-  val AlwaysTrue = new ProjectCondition() {
-    def matches(project: ProjectExecution): Boolean = true;
-  }
-
-  def after(processName: String, otherProcessNames: String*) = new ProjectComposableCondition {
-    def matches(project: ProjectExecution): Boolean = {
-      val processNames = processName +: otherProcessNames;
-      return processNames.map(project.isProjectEntryCompleted(_))
-        .filter(_ == true).length == processNames.length;
-    }
-  }
-
-  def after(when: Date) = new ProjectComposableCondition {
-    def matches(project: ProjectExecution): Boolean = {
-      return new Date(System.currentTimeMillis()).after(when);
-    }
-  }
-}
-
+/**
+  * Created by xjzhu@cnic.cn on 4/25/19
+  */
 
 trait Project {
-  def addProjectEntry(name: String, flowOrGroup: ProjectEntry, con: ProjectCondition = ProjectCondition.AlwaysTrue);
+  def addProjectEntry(name: String, flowOrGroup: ProjectEntry, con: Condition[ProjectExecution] = Condition.AlwaysTrue[ProjectExecution]);
 
-  def mapFlowWithConditions(): Map[String, (ProjectEntry, ProjectCondition)];
+  def mapFlowWithConditions(): Map[String, (ProjectEntry, Condition[ProjectExecution])];
 }
 
 
 class ProjectImpl extends Project {
-  val _mapFlowWithConditions = MMap[String, (ProjectEntry, ProjectCondition)]();
+  val _mapFlowWithConditions = MMap[String, (ProjectEntry, Condition[ProjectExecution])]();
 
-  def addProjectEntry(name: String, flowOrGroup: ProjectEntry, con: ProjectCondition = ProjectCondition.AlwaysTrue) = {
+  def addProjectEntry(name: String, flowOrGroup: ProjectEntry, con: Condition[ProjectExecution] = Condition.AlwaysTrue[ProjectExecution]) = {
     _mapFlowWithConditions(name) = flowOrGroup -> con;
   }
 
-  def mapFlowWithConditions(): Map[String, (ProjectEntry, ProjectCondition)] = _mapFlowWithConditions.toMap;
+  def mapFlowWithConditions(): Map[String, (ProjectEntry, Condition[ProjectExecution])] = _mapFlowWithConditions.toMap;
 }
 
-trait ProjectExecution {
-  def isProjectEntryCompleted(name: String): Boolean;
+trait ProjectExecution extends Execution{
 
   def stop(): Unit;
 
@@ -90,7 +38,7 @@ trait ProjectExecution {
 }
 
 class ProjectExecutionImpl(project: Project, runnerContext: Context, runner: Runner) extends ProjectExecution {
-  val mapFlowWithConditions: Map[String, (ProjectEntry, ProjectCondition)] = project.mapFlowWithConditions();
+  val mapFlowWithConditions: Map[String, (ProjectEntry, Condition[ProjectExecution])] = project.mapFlowWithConditions();
   val completedProcesses = MMap[String, Boolean]();
   completedProcesses ++= mapFlowWithConditions.map(x => (x._1, false));
   val numWaitingProcesses = new AtomicInteger(mapFlowWithConditions.size);
@@ -147,7 +95,7 @@ class ProjectExecutionImpl(project: Project, runnerContext: Context, runner: Run
   runner.addListener(listener);
 
 
-  def isProjectEntryCompleted(name: String): Boolean = {
+  def isEntryCompleted(name: String): Boolean = {
     completedProcesses(name)
   }
 
@@ -215,8 +163,8 @@ class ProjectExecutionImpl(project: Project, runnerContext: Context, runner: Run
     if (running) {
       if (!completed) {
         pollingThread.interrupt();
-        startedProcesses.filter(x => isProjectEntryCompleted(x._1)).map(_._2).foreach(_.stop());
-        startedFlowGroup.filter(x => isProjectEntryCompleted(x._1)).map(_._2).foreach(_.stop());
+        startedProcesses.filter(x => isEntryCompleted(x._1)).map(_._2).foreach(_.stop());
+        startedFlowGroup.filter(x => isEntryCompleted(x._1)).map(_._2).foreach(_.stop());
       }
 
       runner.removeListener(listener);

@@ -5,83 +5,31 @@ import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.{CountDownLatch, TimeUnit}
 
 import scala.collection.mutable.{ArrayBuffer, Map => MMap}
+import cn.piflow.Execution
 
 /**
   * Created by bluejoe on 2018/6/27.
   */
-trait Condition {
-  def matches(pg: FlowGroupExecution): Boolean;
-}
 
-class AndCondition(con1: Condition, con2: Condition) extends Condition {
-  override def matches(pg: FlowGroupExecution): Boolean = {
-    con1.matches(pg) && con2.matches(pg);
-  }
-}
-
-class OrCondition(con1: Condition, con2: Condition) extends Condition {
-  override def matches(pg: FlowGroupExecution): Boolean = {
-    con1.matches(pg) || con2.matches(pg);
-  }
-}
-
-trait ComposableCondition extends Condition {
-  def and(others: Condition*): ComposableCondition = {
-    new ComposableCondition() {
-      override def matches(pg: FlowGroupExecution): Boolean = {
-        (this +: others).reduce((x, y) => new AndCondition(x, y)).matches(pg);
-      }
-    }
-  }
-
-  def or(others: Condition*): ComposableCondition = {
-    new ComposableCondition() {
-      override def matches(pg: FlowGroupExecution): Boolean = {
-        (this +: others).reduce((x, y) => new OrCondition(x, y)).matches(pg);
-      }
-    }
-  }
-}
-
-object Condition {
-  val AlwaysTrue = new Condition() {
-    def matches(pg: FlowGroupExecution): Boolean = true;
-  }
-
-  def after(processName: String, otherProcessNames: String*) = new ComposableCondition {
-    def matches(pg: FlowGroupExecution): Boolean = {
-      val processNames = processName +: otherProcessNames;
-      return processNames.map(pg.isProcessCompleted(_))
-        .filter(_ == true).length == processNames.length;
-    }
-  }
-
-  def after(when: Date) = new ComposableCondition {
-    def matches(pg: FlowGroupExecution): Boolean = {
-      return new Date(System.currentTimeMillis()).after(when);
-    }
-  }
-}
 
 trait FlowGroup extends ProjectEntry{
-  def addFlow(name: String, flow: Flow, con: Condition = Condition.AlwaysTrue);
+  def addFlow(name: String, flow: Flow, con: Condition[FlowGroupExecution] = Condition.AlwaysTrue[FlowGroupExecution]);
 
-  def mapFlowWithConditions(): Map[String, (Flow, Condition)];
+  def mapFlowWithConditions(): Map[String, (Flow, Condition[FlowGroupExecution])];
 }
 
 
 class FlowGroupImpl extends FlowGroup {
-  val _mapFlowWithConditions = MMap[String, (Flow, Condition)]();
+  val _mapFlowWithConditions = MMap[String, (Flow, Condition[FlowGroupExecution])]();
 
-  def addFlow(name: String, flow: Flow, con: Condition = Condition.AlwaysTrue) = {
+  def addFlow(name: String, flow: Flow, con: Condition[FlowGroupExecution] = Condition.AlwaysTrue[FlowGroupExecution]) = {
     _mapFlowWithConditions(name) = flow -> con;
   }
 
-  def mapFlowWithConditions(): Map[String, (Flow, Condition)] = _mapFlowWithConditions.toMap;
+  def mapFlowWithConditions(): Map[String, (Flow, Condition[FlowGroupExecution])] = _mapFlowWithConditions.toMap;
 }
 
-trait FlowGroupExecution {
-  def isProcessCompleted(processName: String): Boolean;
+trait FlowGroupExecution extends Execution{
 
   def isFlowGroupCompleted() : Boolean;
 
@@ -97,7 +45,7 @@ class FlowGroupExecutionImpl(fg: FlowGroup, runnerContext: Context, runner: Runn
   val flowGroupContext = createContext(runnerContext);
   val flowGroupExecution = this;
 
-  val mapFlowWithConditions: Map[String, (Flow, Condition)] = fg.mapFlowWithConditions();
+  val mapFlowWithConditions: Map[String, (Flow, Condition[FlowGroupExecution])] = fg.mapFlowWithConditions();
   val completedProcesses = MMap[String, Boolean]();
   completedProcesses ++= mapFlowWithConditions.map(x => (x._1, false));
   val numWaitingProcesses = new AtomicInteger(mapFlowWithConditions.size);
@@ -150,9 +98,6 @@ class FlowGroupExecutionImpl(fg: FlowGroup, runnerContext: Context, runner: Runn
   runner.addListener(listener);
   val runnerListener = runner.getListener()
 
-  def isProcessCompleted(processName: String): Boolean = {
-    completedProcesses(processName);
-  }
 
   def isFlowGroupCompleted(): Boolean = {
     completedProcesses.foreach( en =>{
@@ -217,7 +162,7 @@ class FlowGroupExecutionImpl(fg: FlowGroup, runnerContext: Context, runner: Runn
     if (running) {
       if (!completed) {
         pollingThread.interrupt();
-        startedProcesses.filter(x => isProcessCompleted(x._1)).map(_._2).foreach(_.stop());
+        startedProcesses.filter(x => isEntryCompleted(x._1)).map(_._2).foreach(_.stop());
       }
 
       runner.removeListener(listener);
@@ -233,5 +178,7 @@ class FlowGroupExecutionImpl(fg: FlowGroup, runnerContext: Context, runner: Runn
     };
   }
 
-
+  override def isEntryCompleted(name: String): Boolean = {
+    completedProcesses(name);
+  }
 }

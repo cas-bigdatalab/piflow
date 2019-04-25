@@ -336,7 +336,7 @@ class TestStop extends Stop {
   def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     val spark = pec.get[SparkSession]();
     import spark.implicits._
-    print("Test Stop!!!!")
+    println("Test Stop!!!!!!!!!!!!!!!!!!!!!!")
   }
 
   def initialize(ctx: ProcessContext): Unit = {

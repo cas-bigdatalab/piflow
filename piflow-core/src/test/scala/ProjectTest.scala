@@ -31,8 +31,8 @@ class ProjectTest {
     val project = new ProjectImpl();
 
     project.addProjectEntry("flow3",flow3)
-    project.addProjectEntry("flowGroup",fg,ProjectCondition.after("flow3"))
-    project.addProjectEntry("flow4",flow4, ProjectCondition.after("flowGroup"))
+    project.addProjectEntry("flowGroup",fg,Condition.after("flow3"))
+    project.addProjectEntry("flow4",flow4, Condition.after("flowGroup"))
 
     val h2Server = Server.createTcpServer("-tcp", "-tcpAllowOthers", "-tcpPort","50001").start()
 
