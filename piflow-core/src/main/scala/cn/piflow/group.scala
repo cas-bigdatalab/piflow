@@ -13,13 +13,22 @@ import cn.piflow.Execution
 
 
 trait FlowGroup extends ProjectEntry{
+
   def addFlow(name: String, flow: Flow, con: Condition[FlowGroupExecution] = Condition.AlwaysTrue[FlowGroupExecution]);
 
   def mapFlowWithConditions(): Map[String, (Flow, Condition[FlowGroupExecution])];
+
+  def getFlowGroupName(): String;
+
+  def setFlowGroupName(flowGroupName : String): Unit;
 }
 
 
 class FlowGroupImpl extends FlowGroup {
+
+  var name = ""
+  var uuid = ""
+
   val _mapFlowWithConditions = MMap[String, (Flow, Condition[FlowGroupExecution])]();
 
   def addFlow(name: String, flow: Flow, con: Condition[FlowGroupExecution] = Condition.AlwaysTrue[FlowGroupExecution]) = {
@@ -27,6 +36,14 @@ class FlowGroupImpl extends FlowGroup {
   }
 
   def mapFlowWithConditions(): Map[String, (Flow, Condition[FlowGroupExecution])] = _mapFlowWithConditions.toMap;
+
+  override def getFlowGroupName(): String = {
+    this.name
+  }
+
+  override def setFlowGroupName(flowGroupName: String): Unit = {
+    this.name = flowGroupName
+  }
 }
 
 trait FlowGroupExecution extends Execution{

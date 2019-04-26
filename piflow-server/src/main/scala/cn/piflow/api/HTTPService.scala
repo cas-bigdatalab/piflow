@@ -219,6 +219,28 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
 
    }
 
+   case HttpRequest(POST, Uri.Path("/flowGroup/start"), headers, entity, protocol) =>{
+
+     entity match {
+       case HttpEntity.Strict(_, data) =>{
+         var flowGroupJson = data.utf8String
+         flowGroupJson = flowGroupJson.replaceAll("}","}\n")
+         //flowJson = JsonFormatTool.formatJson(flowJson)
+         val (appId,pid,process) = API.startFlowGroup(flowGroupJson)
+         processMap += (appId -> process)
+         val result = "{\"flow\":{\"id\":\"" + appId + "\",\"pid\":\"" +  pid + "\"}}"
+         Future.successful(HttpResponse(entity = result))
+       }
+
+       case ex => {
+         println(ex)
+         Future.successful(HttpResponse(entity = "Can not start flow!"))
+         //Future.failed(/*new Exception("Can not start flow!")*/HttpResponse(entity = "Can not start flow!"))
+       }
+     }
+
+   }
+
     case _: HttpRequest =>
       Future.successful(HttpResponse(404, entity = "Unknown resource!"))
   }
