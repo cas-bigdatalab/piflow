@@ -8,6 +8,7 @@ import cn.piflow.util._
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.FileSystem
 import org.apache.kafka.common.serialization.StringDeserializer
+import org.apache.spark.launcher.SparkAppHandle
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql._
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
@@ -101,6 +102,30 @@ trait Flow extends ProjectEntry{
   def hasStreamingStop() : Boolean;
 
   def getStreamingStop() : (String, StreamingStop);
+
+
+  //Flow Josn String API
+  def setFlowJson(flowJson:String);
+
+  def getFlowJson() : String;
+
+
+  // Flow resource API
+  def setDriverMemory(driverMem:String) ;
+
+  def getDriverMemory() : String;
+
+  def setExecutorNum(executorNum:String) ;
+
+  def getExecutorNum() : String;
+
+  def setExecutorMem(executorMem:String) ;
+
+  def getExecutorMem() : String;
+
+  def setExecutorCores(executorCores:String) ;
+
+  def getExecutorCores() : String;
 }
 
 class FlowImpl extends Flow {
@@ -110,6 +135,13 @@ class FlowImpl extends Flow {
   val checkpoints = ArrayBuffer[String]();
   var checkpointParentProcessId = ""
   var runMode = ""
+  var flowJson = ""
+
+  //Flow Resource
+  var driverMem = ""
+  var executorNum = ""
+  var executorMem= ""
+  var executorCores = ""
 
   def addStop(name: String, process: Stop) = {
     stops(name) = process;
@@ -247,6 +279,46 @@ class FlowImpl extends Flow {
       }
     }}
     null
+  }
+
+  override def setFlowJson(flowJson: String): Unit = {
+    this.flowJson = flowJson
+  }
+
+  override def getFlowJson(): String = {
+    flowJson
+  }
+
+  override def setDriverMemory(driverMem: String): Unit = {
+    this.driverMem = driverMem
+  }
+
+  override def getDriverMemory(): String = {
+    this.driverMem
+  }
+
+  override def setExecutorNum(executorNum: String): Unit = {
+    this.executorNum = executorNum
+  }
+
+  override def getExecutorNum(): String = {
+    this.executorNum
+  }
+
+  override def setExecutorMem(executorMem: String): Unit = {
+    this.executorMem = executorMem
+  }
+
+  override def getExecutorMem(): String = {
+    this.executorMem
+  }
+
+  override def setExecutorCores(executorCores: String): Unit = {
+    this.executorCores = executorCores
+  }
+
+  override def getExecutorCores(): String = {
+    this.executorCores
   }
 }
 

@@ -1,10 +1,13 @@
 package cn.piflow.api
 
+import cn.piflow.conf.util.{JsonUtil, MapUtil, OptionUtil}
 import org.apache.http.client.config.RequestConfig
 import org.apache.http.client.methods.{CloseableHttpResponse, HttpPost}
 import org.apache.http.entity.StringEntity
 import org.apache.http.impl.client.HttpClientBuilder
 import org.apache.http.util.EntityUtils
+
+import scala.util.parsing.json.{JSON, JSONArray, JSONObject}
 
 object HTTPClientStartFlowGroup {
 
@@ -19,6 +22,9 @@ object HTTPClientStartFlowGroup {
                 |                                "flow": {
                 |                                        "name": "one",
                 |                                        "uuid": "1234",
+                |                                        "executorNumber": "2",
+                |                                        "executorMemory": "1g",
+                |                                        "executorCores": "1",
                 |                                        "stops": [{
                 |                                                        "uuid": "1111",
                 |                                                        "name": "XmlParser",
@@ -112,10 +118,11 @@ object HTTPClientStartFlowGroup {
                 |                        }
                 |                ],
                 |
-                |                "conditions": [{
-                |                                "entry": "one",
-                |                                "after": "another"
-                |                        }
+                |                "conditions": [
+                |                  {
+                |                    "entry": "one",
+                |                    "after": "another"
+                |                  }
                 |
                 |                ]
                 |        }
@@ -141,6 +148,22 @@ object HTTPClientStartFlowGroup {
     val entity = response.getEntity
     val str = EntityUtils.toString(entity,"UTF-8")
     println("Code is " + str)
+
+    /*val map = OptionUtil.getAny(JSON.parseFull(json)).asInstanceOf[Map[String, Any]]
+
+    val jsonObj = JsonUtil.toJson(map)
+    val str = JsonUtil.format(jsonObj)
+    //convertJson = convertJson.replaceAll("\\{","\\{\t\n")
+
+
+    //var convertJson1 = convertJson.replaceAll("{","{\n")
+    //var convertJson2 = convertJson1.replaceAll("}","}\n")
+    println("Convert Json===" + str)
+
+    val convertMap = OptionUtil.getAny(JSON.parseFull(str)).asInstanceOf[Map[String, Any]]
+    println("Convert Map===" + convertMap)*/
+
+
   }
 
 }

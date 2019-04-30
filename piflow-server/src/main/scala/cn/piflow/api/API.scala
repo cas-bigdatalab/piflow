@@ -10,6 +10,7 @@ import org.apache.spark.sql.SparkSession
 import cn.piflow.conf.util.{ClassUtil, MapUtil, OptionUtil}
 import cn.piflow.{Process, Runner}
 import cn.piflow.api.util.{HdfsUtil, PropertyUtil}
+import cn.piflow.conf.bean.FlowGroupBean
 import cn.piflow.util.{FlowState, H2Util, HadoopFileUtil}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
@@ -23,7 +24,25 @@ import scala.util.parsing.json.JSON
 
 object API {
 
-  def startFlowGroup(flowGroupJson : String):(String,String,SparkAppHandle) = {
+  def startFlowGroup(flowGroupJson : String) = {
+
+    println("StartFlowGroup API get json: \n" + flowGroupJson )
+
+    var appId:String = null
+    val map = OptionUtil.getAny(JSON.parseFull(flowGroupJson)).asInstanceOf[Map[String, Any]]
+    val flowGroupMap = MapUtil.get(map, "group").asInstanceOf[Map[String, Any]]
+
+    //create flowGroup
+    val flowGroupBean = FlowGroupBean(map)
+    val flowGroup = flowGroupBean.constructFlowGroup()
+
+    val process = Runner.create()
+      .bind("checkpoint.path",PropertyUtil.getPropertyValue("checkpoint.path"))
+      .bind("debug.path",PropertyUtil.getPropertyValue("debug.path"))
+      .start(flowGroup);
+  }
+
+  /*def startFlowGroup(flowGroupJson : String):(String,String,SparkAppHandle) = {
 
     var appId:String = null
     val map = OptionUtil.getAny(JSON.parseFull(flowGroupJson)).asInstanceOf[Map[String, Any]]
@@ -95,7 +114,7 @@ object API {
     }
     (appId, processId, handle)
 
-  }
+  }*/
 
   def startFlow(flowJson : String):(String,String,SparkAppHandle) = {
 

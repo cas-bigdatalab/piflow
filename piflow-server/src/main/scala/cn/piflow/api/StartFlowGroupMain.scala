@@ -1,11 +1,12 @@
 package cn.piflow.api
 
-import cn.piflow.Runner
+import cn.piflow.{Flow, Runner}
 import cn.piflow.api.util.PropertyUtil
 import cn.piflow.conf.bean.FlowGroupBean
 import cn.piflow.conf.util.OptionUtil
 import org.apache.spark.sql.SparkSession
 
+import scala.collection.mutable.ArrayBuffer
 import scala.util.parsing.json.JSON
 
 object StartFlowGroupMain {
@@ -28,7 +29,7 @@ object StartFlowGroupMain {
     //val checkpointPath = spark.sparkContext.getConf.get("checkpoint.path")
 
     val process = Runner.create()
-      .bind(classOf[SparkSession].getName, spark)
+      //.bind(classOf[SparkSession].getName, spark)
       .bind("checkpoint.path",PropertyUtil.getPropertyValue("checkpoint.path"))
       .bind("debug.path",PropertyUtil.getPropertyValue("debug.path"))
       .start(flowGroup);

@@ -226,10 +226,11 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
          var flowGroupJson = data.utf8String
          flowGroupJson = flowGroupJson.replaceAll("}","}\n")
          //flowJson = JsonFormatTool.formatJson(flowJson)
-         val (appId,pid,process) = API.startFlowGroup(flowGroupJson)
-         processMap += (appId -> process)
-         val result = "{\"flow\":{\"id\":\"" + appId + "\",\"pid\":\"" +  pid + "\"}}"
-         Future.successful(HttpResponse(entity = result))
+         //val (appId,pid,process) = API.startFlowGroup(flowGroupJson)
+         API.startFlowGroup(flowGroupJson)
+         //processMap += (appId -> process)
+         //val result = "{\"flow\":{\"id\":\"" + appId + "\",\"pid\":\"" +  pid + "\"}}"
+         Future.successful(HttpResponse(entity = "okokok!!!"))
        }
 
        case ex => {
