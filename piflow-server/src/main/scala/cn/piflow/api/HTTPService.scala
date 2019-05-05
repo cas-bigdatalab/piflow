@@ -225,17 +225,32 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
        case HttpEntity.Strict(_, data) =>{
          var flowGroupJson = data.utf8String
          flowGroupJson = flowGroupJson.replaceAll("}","}\n")
-         //flowJson = JsonFormatTool.formatJson(flowJson)
-         //val (appId,pid,process) = API.startFlowGroup(flowGroupJson)
          API.startFlowGroup(flowGroupJson)
-         //processMap += (appId -> process)
-         //val result = "{\"flow\":{\"id\":\"" + appId + "\",\"pid\":\"" +  pid + "\"}}"
-         Future.successful(HttpResponse(entity = "okokok!!!"))
+         Future.successful(HttpResponse(entity = "start flow group ok!!!"))
        }
 
        case ex => {
          println(ex)
-         Future.successful(HttpResponse(entity = "Can not start flow!"))
+         Future.successful(HttpResponse(entity = "Can not start flow group!"))
+         //Future.failed(/*new Exception("Can not start flow!")*/HttpResponse(entity = "Can not start flow!"))
+       }
+     }
+
+   }
+
+   case HttpRequest(POST, Uri.Path("/project/start"), headers, entity, protocol) =>{
+
+     entity match {
+       case HttpEntity.Strict(_, data) =>{
+         var projectJson = data.utf8String
+         projectJson = projectJson.replaceAll("}","}\n")
+         API.startProject(projectJson)
+         Future.successful(HttpResponse(entity = "start project ok!!!"))
+       }
+
+       case ex => {
+         println(ex)
+         Future.successful(HttpResponse(entity = "Can not start project!"))
          //Future.failed(/*new Exception("Can not start flow!")*/HttpResponse(entity = "Can not start flow!"))
        }
      }

@@ -1,7 +1,7 @@
 package cn.piflow.conf.bean
 
 import cn.piflow.conf.util.{JsonUtil, MapUtil}
-import cn.piflow.{FlowImpl, Path}
+import cn.piflow.{FlowImpl, Path, ProjectEntry}
 import net.liftweb.json.JsonDSL._
 import net.liftweb.json._
 
@@ -9,7 +9,7 @@ import scala.util.parsing.json.JSONObject
 
 
 
-class FlowBean {
+class FlowBean extends ProjectEntryBean{
   /*@BeanProperty*/
   var uuid : String = _
   var name : String = _

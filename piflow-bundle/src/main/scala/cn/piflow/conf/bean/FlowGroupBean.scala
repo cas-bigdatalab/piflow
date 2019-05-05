@@ -1,17 +1,16 @@
 package cn.piflow.conf.bean
 
-import cn.piflow.{Condition, FlowGroupExecution, FlowGroupImpl}
+import cn.piflow._
 import cn.piflow.conf.util.MapUtil
 
 /**
   * Created by xjzhu@cnic.cn on 4/25/19
   */
-class FlowGroupBean {
+class FlowGroupBean extends ProjectEntryBean {
 
   var uuid : String = _
   var name : String = _
   var flows : List[FlowBean] = List()
-  //var conditions : [ConditionBean] = List()
   var conditions = scala.collection.mutable.Map[String, ConditionBean]()
 
   def init(map : Map[String, Any]) = {
@@ -69,30 +68,6 @@ class FlowGroupBean {
 
     flowGroup
   }
-
-  /*def toJson():String = {
-    val json =
-      ("flow" ->
-        ("uuid" -> this.uuid) ~
-          ("name" -> this.name) ~
-          ("stops" ->
-            stops.map { stop =>(
-              ("uuid" -> stop.uuid) ~
-                ("name" -> stop.name)~
-                ("bundle" -> stop.bundle) )}) ~
-          ("paths" ->
-            paths.map { path => (
-              ("from" -> path.from) ~
-                ("outport" -> path.outport) ~
-                ("inport" -> path.inport) ~
-                ("to" -> path.to)
-              )}))
-    val jsonString = compactRender(json)
-    //println(jsonString)
-    jsonString
-  }*/
-
-
 }
 
 object FlowGroupBean{

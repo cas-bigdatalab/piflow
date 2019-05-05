@@ -10,7 +10,7 @@ import org.apache.spark.sql.SparkSession
 import cn.piflow.conf.util.{ClassUtil, MapUtil, OptionUtil}
 import cn.piflow.{Process, Runner}
 import cn.piflow.api.util.{HdfsUtil, PropertyUtil}
-import cn.piflow.conf.bean.FlowGroupBean
+import cn.piflow.conf.bean.{FlowGroupBean, ProjectBean}
 import cn.piflow.util.{FlowState, H2Util, HadoopFileUtil}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
@@ -23,6 +23,24 @@ import org.apache.spark.launcher.{SparkAppHandle, SparkLauncher}
 import scala.util.parsing.json.JSON
 
 object API {
+
+  def startProject(projectJson : String) = {
+
+    println("StartProject API get json: \n" + projectJson )
+
+    var appId:String = null
+    val map = OptionUtil.getAny(JSON.parseFull(projectJson)).asInstanceOf[Map[String, Any]]
+    val projectMap = MapUtil.get(map, "project").asInstanceOf[Map[String, Any]]
+
+    //create flowGroup
+    val projectBean = ProjectBean(map)
+    val project = projectBean.constructProject()
+
+    val process = Runner.create()
+      .bind("checkpoint.path",PropertyUtil.getPropertyValue("checkpoint.path"))
+      .bind("debug.path",PropertyUtil.getPropertyValue("debug.path"))
+      .start(project);
+  }
 
   def startFlowGroup(flowGroupJson : String) = {
 

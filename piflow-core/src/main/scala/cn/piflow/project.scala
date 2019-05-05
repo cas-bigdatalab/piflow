@@ -4,6 +4,10 @@ import java.sql.Date
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.{CountDownLatch, TimeUnit}
 
+import cn.piflow.util.PropertyUtil
+import org.apache.spark.launcher.{SparkAppHandle, SparkLauncher}
+import org.apache.spark.launcher.SparkAppHandle.State
+
 import scala.collection.mutable.{ArrayBuffer, Map => MMap}
 
 
@@ -15,10 +19,17 @@ trait Project {
   def addProjectEntry(name: String, flowOrGroup: ProjectEntry, con: Condition[ProjectExecution] = Condition.AlwaysTrue[ProjectExecution]);
 
   def mapFlowWithConditions(): Map[String, (ProjectEntry, Condition[ProjectExecution])];
+
+  def getProjectName(): String;
+
+  def setProjectName(projectName : String): Unit;
 }
 
 
 class ProjectImpl extends Project {
+  var name = ""
+  var uuid = ""
+
   val _mapFlowWithConditions = MMap[String, (ProjectEntry, Condition[ProjectExecution])]();
 
   def addProjectEntry(name: String, flowOrGroup: ProjectEntry, con: Condition[ProjectExecution] = Condition.AlwaysTrue[ProjectExecution]) = {
@@ -26,6 +37,14 @@ class ProjectImpl extends Project {
   }
 
   def mapFlowWithConditions(): Map[String, (ProjectEntry, Condition[ProjectExecution])] = _mapFlowWithConditions.toMap;
+
+  override def getProjectName(): String = {
+    this.name
+  }
+
+  override def setProjectName(projectName: String): Unit = {
+    this.name = projectName
+  }
 }
 
 trait ProjectExecution extends Execution{
@@ -43,7 +62,7 @@ class ProjectExecutionImpl(project: Project, runnerContext: Context, runner: Run
   completedProcesses ++= mapFlowWithConditions.map(x => (x._1, false));
   val numWaitingProcesses = new AtomicInteger(mapFlowWithConditions.size);
 
-  val startedProcesses = MMap[String, Process]();
+  val startedProcesses = MMap[String, SparkAppHandle]();
   val startedFlowGroup = MMap[String, FlowGroupExecution]()
 
   val execution = this;
@@ -60,10 +79,6 @@ class ProjectExecutionImpl(project: Project, runnerContext: Context, runner: Run
     }
     override def onProcessCompleted(ctx: ProcessContext): Unit = {
 
-      startedProcesses.filter(_._2 == ctx.getProcess()).foreach { x =>
-        completedProcesses(x._1) = true;
-        numWaitingProcesses.decrementAndGet();
-      }
     }
 
     override def onJobStarted(ctx: JobContext): Unit = {}
@@ -100,8 +115,62 @@ class ProjectExecutionImpl(project: Project, runnerContext: Context, runner: Run
   }
 
   private def startProcess(name: String, flow: Flow): Unit = {
-    val process = runner.start(flow);
-    startedProcesses(name) = process;
+
+    println(flow.getFlowJson())
+
+    var flowJson = flow.getFlowJson()
+    flowJson = flowJson.replaceAll("}","}\n")
+    //TODO
+    var appId : String = ""
+    val countDownLatch = new CountDownLatch(1)
+    val launcher = new SparkLauncher
+    val handle =launcher
+      .setAppName(flow.getFlowName())
+      .setMaster(PropertyUtil.getPropertyValue("spark.master"))
+      .setDeployMode(PropertyUtil.getPropertyValue("spark.deploy.mode"))
+      .setAppResource(PropertyUtil.getPropertyValue("piflow.bundle"))
+      .setVerbose(true)
+      .setConf("spark.hadoop.yarn.resourcemanager.hostname", PropertyUtil.getPropertyValue("yarn.resourcemanager.hostname"))
+      .setConf("spark.hadoop.yarn.resourcemanager.address", PropertyUtil.getPropertyValue("yarn.resourcemanager.address"))
+      .setConf("spark.yarn.access.namenode", PropertyUtil.getPropertyValue("yarn.access.namenode"))
+      .setConf("spark.yarn.stagingDir", PropertyUtil.getPropertyValue("yarn.stagingDir"))
+      .setConf("spark.yarn.jars", PropertyUtil.getPropertyValue("yarn.jars"))
+      .setConf("spark.jars", PropertyUtil.getPropertyValue("piflow.bundle"))
+      .setConf("spark.hive.metastore.uris",PropertyUtil.getPropertyValue("hive.metastore.uris"))
+      .setConf("spark.driver.memory", flow.getDriverMemory())
+      .setConf("spark.num.executors", flow.getExecutorNum())
+      .setConf("spark.executor.memory", flow.getExecutorMem())
+      .setConf("spark.executor.cores",flow.getExecutorCores())
+      .addFile(PropertyUtil.getConfigureFile())
+      .setMainClass("cn.piflow.api.StartFlowMain")
+      .addAppArgs(flowJson)
+      .startApplication( new SparkAppHandle.Listener {
+        override def stateChanged(handle: SparkAppHandle): Unit = {
+          appId = handle.getAppId
+          val sparkAppState = handle.getState
+          if(appId != null){
+            println("Spark job with app id: " + appId + ",\t State changed to: " + sparkAppState)
+          }else{
+            println("Spark job's state changed to: " + sparkAppState)
+          }
+
+          //TODO: get the process status
+          if (handle.getState.equals(State.FINISHED)){
+            completedProcesses(flow.getFlowName()) = true;
+            numWaitingProcesses.decrementAndGet();
+          }
+          if (handle.getState().isFinal){
+            countDownLatch.countDown()
+            println("Task is finished!")
+          }
+        }
+        override def infoChanged(handle: SparkAppHandle): Unit = {
+
+        }
+      }
+      )
+
+    startedProcesses(name) = handle;
   }
 
   private def startFlowGroup(name: String, flowGroup: FlowGroup): Unit = {
