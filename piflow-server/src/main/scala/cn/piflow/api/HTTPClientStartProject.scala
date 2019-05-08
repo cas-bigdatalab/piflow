@@ -14,11 +14,11 @@ object HTTPClientStartProject {
       """
         |{
         |	"project": {
-        |		"name": "TestFlowGroup",
+        |		"name": "TestProject",
         |		"uuid": "1111111111111",
         |		"groups": [{
         |			"group": {
-        |				"name": "TestFlowGroup",
+        |				"name": "FlowGroup",
         |				"uuid": "1111111111111",
         |				"flows": [{
         |						"flow": {
@@ -178,7 +178,7 @@ object HTTPClientStartProject {
         |		}],
         |		"conditions": [{
         |			"entry": "three",
-        |			"after": "TestFlowGroup"
+        |			"after": "FlowGroup"
         |		}]
         |	}
         |}
