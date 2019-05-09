@@ -54,85 +54,13 @@ object API {
     val flowGroupBean = FlowGroupBean(map)
     val flowGroup = flowGroupBean.constructFlowGroup()
 
-    val process = Runner.create()
+    val flowGroupExecution = Runner.create()
       .bind("checkpoint.path",PropertyUtil.getPropertyValue("checkpoint.path"))
       .bind("debug.path",PropertyUtil.getPropertyValue("debug.path"))
       .start(flowGroup);
+
+    (flowGroupBean.name, flowGroupExecution)
   }
-
-  /*def startFlowGroup(flowGroupJson : String):(String,String,SparkAppHandle) = {
-
-    var appId:String = null
-    val map = OptionUtil.getAny(JSON.parseFull(flowGroupJson)).asInstanceOf[Map[String, Any]]
-    val flowGroupMap = MapUtil.get(map, "group").asInstanceOf[Map[String, Any]]
-    /*val uuid = MapUtil.get(flowMap,"uuid").asInstanceOf[String]
-    val appName = MapUtil.get(flowMap,"name").asInstanceOf[String]*/
-
-    val dirverMem = flowGroupMap.getOrElse("driverMemory","1g").asInstanceOf[String]
-    val executorNum = flowGroupMap.getOrElse("executorNumber","1").asInstanceOf[String]
-    val executorMem= flowGroupMap.getOrElse("executorMemory","1g").asInstanceOf[String]
-    val executorCores = flowGroupMap.getOrElse("executorCores","1").asInstanceOf[String]
-
-    //val (stdout, stderr) = getLogFile(uuid, appName)
-
-    println("StartFlowGroup API get json: \n" + flowGroupJson )
-
-    val countDownLatch = new CountDownLatch(1)
-    val launcher = new SparkLauncher
-    val handle =launcher
-      .setAppName("TestFlowGroup")
-      .setMaster(PropertyUtil.getPropertyValue("spark.master"))
-      .setDeployMode(PropertyUtil.getPropertyValue("spark.deploy.mode"))
-      .setAppResource(PropertyUtil.getPropertyValue("piflow.bundle"))
-      .setVerbose(true)
-      .setConf("spark.hadoop.yarn.resourcemanager.hostname", PropertyUtil.getPropertyValue("yarn.resourcemanager.hostname"))
-      .setConf("spark.hadoop.yarn.resourcemanager.address", PropertyUtil.getPropertyValue("yarn.resourcemanager.address"))
-      .setConf("spark.yarn.access.namenode", PropertyUtil.getPropertyValue("yarn.access.namenode"))
-      .setConf("spark.yarn.stagingDir", PropertyUtil.getPropertyValue("yarn.stagingDir"))
-      .setConf("spark.yarn.jars", PropertyUtil.getPropertyValue("yarn.jars"))
-      .setConf("spark.jars", PropertyUtil.getPropertyValue("piflow.bundle"))
-      .setConf("spark.hive.metastore.uris",PropertyUtil.getPropertyValue("hive.metastore.uris"))
-      .setConf("spark.driver.memory", dirverMem)
-      .setConf("spark.num.executors",executorNum)
-      .setConf("spark.executor.memory", executorMem)
-      .setConf("spark.executor.cores",executorCores)
-      //.setConf("spark.cores.max", "4")
-      //.setConf("spark.checkpoint", PropertyUtil.getPropertyValue("checkpoint.path"))
-      .addFile(PropertyUtil.getConfigureFile())
-      .setMainClass("cn.piflow.api.StartFlowGroupMain")
-      .addAppArgs(flowGroupJson.stripMargin)
-      //.redirectOutput(stdout)
-      //.redirectError(stderr)
-      .startApplication( new SparkAppHandle.Listener {
-      override def stateChanged(handle: SparkAppHandle): Unit = {
-        appId = handle.getAppId
-        val sparkAppState = handle.getState
-        if(appId != null){
-          println("Spark job with app id: " + appId + ",\t State changed to: " + sparkAppState)
-        }else{
-          println("Spark job's state changed to: " + sparkAppState)
-        }
-        if (handle.getState().isFinal){
-          countDownLatch.countDown()
-          println("Task is finished!")
-        }
-      }
-      override def infoChanged(handle: SparkAppHandle): Unit = {
-        //println("Info:" + handle.getState().toString)
-      }
-    }
-    )
-    while (appId == null){
-      Thread.sleep(1000)
-    }
-    var processId = ""
-    while(processId.equals("")){
-      Thread.sleep(1000)
-      processId = H2Util.getFlowProcessId(appId)
-    }
-    (appId, processId, handle)
-
-  }*/
 
   def startFlow(flowJson : String):(String,String,SparkAppHandle) = {
 

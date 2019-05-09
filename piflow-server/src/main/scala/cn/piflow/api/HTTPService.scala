@@ -7,6 +7,7 @@ import akka.http.scaladsl.model._
 import akka.http.scaladsl.model.HttpMethods._
 import akka.http.scaladsl.server.Directives
 import akka.stream.ActorMaterializer
+import cn.piflow.FlowGroupExecution
 import cn.piflow.api.util.PropertyUtil
 import cn.piflow.conf.util.{MapUtil, OptionUtil}
 import com.typesafe.config.ConfigFactory
@@ -24,6 +25,7 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
   implicit val materializer = ActorMaterializer()
   implicit val executionContext = system.dispatcher
   var processMap = Map[String, SparkAppHandle]()
+  var flowGroupMap = Map[String, FlowGroupExecution]()
 
   def toJson(entity: RequestEntity): Map[String, Any] = {
     entity match {
@@ -225,7 +227,8 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
        case HttpEntity.Strict(_, data) =>{
          var flowGroupJson = data.utf8String
          flowGroupJson = flowGroupJson.replaceAll("}","}\n")
-         API.startFlowGroup(flowGroupJson)
+         val (flowName, flowGroupExecution) = API.startFlowGroup(flowGroupJson)
+         flowGroupMap += (flowName -> flowGroupExecution)
          Future.successful(HttpResponse(entity = "start flow group ok!!!"))
        }
 
@@ -236,6 +239,28 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
        }
      }
 
+   }
+
+   case HttpRequest(POST, Uri.Path("/flowGroup/stop"), headers, entity, protocol) =>{
+     val data = toJson(entity)
+     val groupName  = data.get("groupName").getOrElse("").asInstanceOf[String]
+     if(groupName.equals("") || !flowGroupMap.contains(groupName)){
+       Future.failed(new Exception("Can not found flowGroup Error!"))
+     }else{
+
+       flowGroupMap.get(groupName) match {
+         case Some(flowGroupExecution) =>
+           val result = flowGroupExecution.stop()
+           flowGroupMap.-(groupName)
+           Future.successful(HttpResponse(entity = "Stop FlowGroup Ok!!!"))
+         case ex =>{
+           println(ex)
+           Future.successful(HttpResponse(entity = "Can not found FlowGroup Error!"))
+         }
+
+       }
+
+     }
    }
 
    case HttpRequest(POST, Uri.Path("/project/start"), headers, entity, protocol) =>{
@@ -256,6 +281,28 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
      }
 
    }
+
+   /*case HttpRequest(POST, Uri.Path("/project/stop"), headers, entity, protocol) =>{
+     val data = toJson(entity)
+     val projectName  = data.get("projectName").getOrElse("").asInstanceOf[String]
+     if(projectName.equals("") || !flowGroupMap.contains(projectName)){
+       Future.failed(new Exception("Can not found flowGroup Error!"))
+     }else{
+
+       flowGroupMap.get(groupName) match {
+         case Some(flowGroupExecution) =>
+           val result = flowGroupExecution.stop()
+           flowGroupMap.-(groupName)
+           Future.successful(HttpResponse(entity = "Stop FlowGroup Ok!!!"))
+         case ex =>{
+           println(ex)
+           Future.successful(HttpResponse(entity = "Can not found FlowGroup Error!"))
+         }
+
+       }
+
+     }
+   }*/
 
     case _: HttpRequest =>
       Future.successful(HttpResponse(404, entity = "Unknown resource!"))

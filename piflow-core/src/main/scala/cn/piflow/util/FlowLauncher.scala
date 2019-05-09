@@ -1,8 +1,14 @@
 package cn.piflow.util
 
+
+import java.util.Date
 import java.util.concurrent.CountDownLatch
 
 import cn.piflow.Flow
+import org.apache.http.client.methods.{CloseableHttpResponse, HttpPut}
+import org.apache.http.entity.StringEntity
+import org.apache.http.impl.client.HttpClients
+import org.apache.http.util.EntityUtils
 import org.apache.spark.launcher.SparkAppHandle.State
 import org.apache.spark.launcher.{SparkAppHandle, SparkLauncher}
 
@@ -47,6 +53,29 @@ object FlowLauncher {
       sparkLauncher.setConf("spark.yarn.jars", PropertyUtil.getPropertyValue("yarn.jars"))
 
     sparkLauncher
+  }
+
+  def stop(appID: String) = {
+
+    println("Stop Flow !!!!!!!!!!!!!!!!!!!!!!!!!!")
+    //yarn application kill appId
+    val url = PropertyUtil.getPropertyValue("yarn.url") + appID + "/state"
+    val client = HttpClients.createDefault()
+    val put:HttpPut = new HttpPut(url)
+    val body ="{\"state\":\"KILLED\"}"
+    put.addHeader("Content-Type", "application/json")
+    put.setEntity(new StringEntity(body))
+    val response:CloseableHttpResponse = client.execute(put)
+    val entity = response.getEntity
+    val str = EntityUtils.toString(entity,"UTF-8")
+
+    //update db
+    println("Update flow state after Stop Flow !!!!!!!!!!!!!!!!!!!!!!!!!!")
+    H2Util.updateFlowState(appID, FlowState.KILLED)
+    H2Util.updateFlowFinishedTime(appID, new Date().toString)
+
+
+    "ok"
   }
 
 }

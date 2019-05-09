@@ -212,8 +212,8 @@ class ProjectExecutionImpl(project: Project, runnerContext: Context, runner: Run
     if (running) {
       if (!completed) {
         pollingThread.interrupt();
-        startedProcesses.filter(x => isEntryCompleted(x._1)).map(_._2).foreach(_.stop());
-        startedFlowGroup.filter(x => isEntryCompleted(x._1)).map(_._2).foreach(_.stop());
+        startedProcesses.filter(x => !isEntryCompleted(x._1)).map(_._2).foreach(_.stop());
+        startedFlowGroup.filter(x => !isEntryCompleted(x._1)).map(_._2).foreach(_.stop());
       }
 
       runner.removeListener(listener);

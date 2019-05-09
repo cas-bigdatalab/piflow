@@ -1,12 +1,13 @@
 package cn.piflow
 
 import java.sql.Date
+import java.util.Date
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.{CountDownLatch, TimeUnit}
 
 import scala.collection.mutable.{ArrayBuffer, Map => MMap}
 import cn.piflow.Execution
-import cn.piflow.util.{FlowLauncher, PropertyUtil}
+import cn.piflow.util.{FlowLauncher, FlowState, H2Util, PropertyUtil}
 import org.apache.spark.launcher.SparkAppHandle.State
 import org.apache.spark.launcher.{SparkAppHandle, SparkLauncher}
 import org.apache.spark.sql.SparkSession
@@ -72,6 +73,7 @@ class FlowGroupExecutionImpl(fg: FlowGroup, runnerContext: Context, runner: Runn
   val numWaitingProcesses = new AtomicInteger(mapFlowWithConditions.size);
 
   val startedProcesses = MMap[String, SparkAppHandle]();
+  val startedProcessesAppID = MMap[String, String]()
 
   val execution = this;
   val POLLING_INTERVAL = 1000;
@@ -111,11 +113,11 @@ class FlowGroupExecutionImpl(fg: FlowGroup, runnerContext: Context, runner: Runn
           println("Spark job's state changed to: " + sparkAppState)
         }
 
-        //TODO: get the process status
-        if (handle.getState.equals(State.FINISHED)){
+        if(H2Util.getFlowState(appId).equals(FlowState.COMPLETED)){
           completedProcesses(flow.getFlowName()) = true;
           numWaitingProcesses.decrementAndGet();
         }
+
         if (handle.getState().isFinal){
           countDownLatch.countDown()
           println("Task is finished!")
@@ -128,7 +130,13 @@ class FlowGroupExecutionImpl(fg: FlowGroup, runnerContext: Context, runner: Runn
     }
     )
 
+
+    while (appId == null){
+      appId = handle.getAppId
+      Thread.sleep(100)
+    }
     startedProcesses(name) = handle;
+    startedProcessesAppID(name) = appId
   }
 
   val pollingThread = new Thread(new Runnable() {
@@ -136,27 +144,36 @@ class FlowGroupExecutionImpl(fg: FlowGroup, runnerContext: Context, runner: Runn
 
       runnerListener.onFlowGroupStarted(flowGroupContext)
 
-      while (numWaitingProcesses.get() > 0) {
-        val todos = ArrayBuffer[(String, Flow)]();
-        mapFlowWithConditions.foreach { en =>
-          if (!startedProcesses.contains(en._1) && en._2._2.matches(execution)) {
-            todos += (en._1 -> en._2._1);
+      try{
+
+        while (numWaitingProcesses.get() > 0) {
+          val todos = ArrayBuffer[(String, Flow)]();
+          mapFlowWithConditions.foreach { en =>
+            if (!startedProcesses.contains(en._1) && en._2._2.matches(execution)) {
+              todos += (en._1 -> en._2._1);
+            }
           }
+
+          startedProcesses.synchronized {
+            todos.foreach(en => startProcess(en._1, en._2));
+          }
+
+          Thread.sleep(POLLING_INTERVAL);
         }
 
-        startedProcesses.synchronized {
-          todos.foreach(en => startProcess(en._1, en._2));
-        }
 
-        Thread.sleep(POLLING_INTERVAL);
+        runnerListener.onFlowGroupCompleted(flowGroupContext)
+
+      }catch {
+        case e: Throwable =>
+          runnerListener.onFlowGroupFailed(flowGroupContext);
+          throw e;
+      }
+      finally {
+        latch.countDown();
+        finalizeExecution(true);
       }
 
-      latch.countDown();
-      finalizeExecution(true);
-
-      runnerListener.onFlowGroupCompleted(flowGroupContext)
-      //TODO: how to define FlowGroup Failed
-      //runnerListener.onFlowGroupFailed(ctx)
     }
   });
 
@@ -179,8 +196,20 @@ class FlowGroupExecutionImpl(fg: FlowGroup, runnerContext: Context, runner: Runn
   private def finalizeExecution(completed: Boolean): Unit = {
     if (running) {
       if (!completed) {
+
+        //startedProcesses.filter(x => isEntryCompleted(x._1)).map(_._2).foreach(_.stop());
+        startedProcesses.filter(x => !isEntryCompleted(x._1)).foreach(x => {
+
+          x._2.stop()
+          val appID: String = startedProcessesAppID.getOrElse(x._1,"")
+          if(!appID.equals("")){
+            println("Stop Flow " + appID + " by FlowLauncher!")
+            FlowLauncher.stop(appID)
+          }
+
+        });
         pollingThread.interrupt();
-        startedProcesses.filter(x => isEntryCompleted(x._1)).map(_._2).foreach(_.stop());
+
       }
 
       running = false;
