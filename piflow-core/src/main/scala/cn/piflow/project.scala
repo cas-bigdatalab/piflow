@@ -4,7 +4,7 @@ import java.sql.Date
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.{CountDownLatch, TimeUnit}
 
-import cn.piflow.util.{FlowLauncher, PropertyUtil}
+import cn.piflow.util.{FlowLauncher, FlowState, H2Util, PropertyUtil}
 import org.apache.spark.launcher.{SparkAppHandle, SparkLauncher}
 import org.apache.spark.launcher.SparkAppHandle.State
 
@@ -65,6 +65,8 @@ class ProjectExecutionImpl(project: Project, runnerContext: Context, runner: Run
   val startedProcesses = MMap[String, SparkAppHandle]();
   val startedFlowGroup = MMap[String, FlowGroupExecution]()
 
+  val startedProcessesAppID = MMap[String, String]()
+
   val execution = this;
   val POLLING_INTERVAL = 1000;
   val latch = new CountDownLatch(1);
@@ -120,6 +122,7 @@ class ProjectExecutionImpl(project: Project, runnerContext: Context, runner: Run
 
     var flowJson = flow.getFlowJson()
     flowJson = flowJson.replaceAll("}","}\n")
+
     var appId : String = ""
     val countDownLatch = new CountDownLatch(1)
 
@@ -133,11 +136,11 @@ class ProjectExecutionImpl(project: Project, runnerContext: Context, runner: Run
           println("Spark job's state changed to: " + sparkAppState)
         }
 
-        //TODO: get the process status
-        if (handle.getState.equals(State.FINISHED)){
+        if(H2Util.getFlowState(appId).equals(FlowState.COMPLETED)){
           completedProjectEntry(flow.getFlowName()) = true;
           numWaitingProjectEntry.decrementAndGet();
         }
+
         if (handle.getState().isFinal){
           countDownLatch.countDown()
           println("Task is finished!")
@@ -150,7 +153,13 @@ class ProjectExecutionImpl(project: Project, runnerContext: Context, runner: Run
     }
     )
 
+
+    while (appId == null){
+      appId = handle.getAppId
+      Thread.sleep(100)
+    }
     startedProcesses(name) = handle;
+    startedProcessesAppID(name) = appId
   }
 
   private def startFlowGroup(name: String, flowGroup: FlowGroup): Unit = {
@@ -211,9 +220,21 @@ class ProjectExecutionImpl(project: Project, runnerContext: Context, runner: Run
   private def finalizeExecution(completed: Boolean): Unit = {
     if (running) {
       if (!completed) {
-        pollingThread.interrupt();
-        startedProcesses.filter(x => !isEntryCompleted(x._1)).map(_._2).foreach(_.stop());
+        //pollingThread.interrupt();
+        //startedProcesses.filter(x => !isEntryCompleted(x._1)).map(_._2).foreach(_.stop());
+        startedProcesses.filter(x => !isEntryCompleted(x._1)).foreach(x => {
+
+          x._2.stop()
+          val appID: String = startedProcessesAppID.getOrElse(x._1,"")
+          if(!appID.equals("")){
+            println("Stop Flow " + appID + " by FlowLauncher!")
+            FlowLauncher.stop(appID)
+          }
+
+        });
         startedFlowGroup.filter(x => !isEntryCompleted(x._1)).map(_._2).foreach(_.stop());
+        pollingThread.interrupt();
+
       }
 
       runner.removeListener(listener);

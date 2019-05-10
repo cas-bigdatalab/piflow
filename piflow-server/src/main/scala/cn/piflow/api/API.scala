@@ -36,10 +36,13 @@ object API {
     val projectBean = ProjectBean(map)
     val project = projectBean.constructProject()
 
-    val process = Runner.create()
+    val projectExecution = Runner.create()
       .bind("checkpoint.path",PropertyUtil.getPropertyValue("checkpoint.path"))
       .bind("debug.path",PropertyUtil.getPropertyValue("debug.path"))
       .start(project);
+
+    (projectBean.name,projectExecution)
+
   }
 
   def startFlowGroup(flowGroupJson : String) = {

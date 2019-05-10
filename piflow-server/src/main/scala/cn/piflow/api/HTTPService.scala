@@ -7,7 +7,7 @@ import akka.http.scaladsl.model._
 import akka.http.scaladsl.model.HttpMethods._
 import akka.http.scaladsl.server.Directives
 import akka.stream.ActorMaterializer
-import cn.piflow.FlowGroupExecution
+import cn.piflow.{FlowGroupExecution, ProjectExecution}
 import cn.piflow.api.util.PropertyUtil
 import cn.piflow.conf.util.{MapUtil, OptionUtil}
 import com.typesafe.config.ConfigFactory
@@ -26,6 +26,7 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
   implicit val executionContext = system.dispatcher
   var processMap = Map[String, SparkAppHandle]()
   var flowGroupMap = Map[String, FlowGroupExecution]()
+  var projectMap = Map[String, ProjectExecution]()
 
   def toJson(entity: RequestEntity): Map[String, Any] = {
     entity match {
@@ -269,7 +270,8 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
        case HttpEntity.Strict(_, data) =>{
          var projectJson = data.utf8String
          projectJson = projectJson.replaceAll("}","}\n")
-         API.startProject(projectJson)
+         val (projectName, projectExecution) = API.startProject(projectJson)
+         projectMap += (projectName -> projectExecution)
          Future.successful(HttpResponse(entity = "start project ok!!!"))
        }
 
@@ -282,27 +284,27 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
 
    }
 
-   /*case HttpRequest(POST, Uri.Path("/project/stop"), headers, entity, protocol) =>{
+   case HttpRequest(POST, Uri.Path("/project/stop"), headers, entity, protocol) =>{
      val data = toJson(entity)
      val projectName  = data.get("projectName").getOrElse("").asInstanceOf[String]
-     if(projectName.equals("") || !flowGroupMap.contains(projectName)){
-       Future.failed(new Exception("Can not found flowGroup Error!"))
+     if(projectName.equals("") || !projectMap.contains(projectName)){
+       Future.failed(new Exception("Can not found project Error!"))
      }else{
 
-       flowGroupMap.get(groupName) match {
-         case Some(flowGroupExecution) =>
-           val result = flowGroupExecution.stop()
-           flowGroupMap.-(groupName)
-           Future.successful(HttpResponse(entity = "Stop FlowGroup Ok!!!"))
+       projectMap.get(projectName) match {
+         case Some(projectExecution) =>
+           val result = projectExecution.stop()
+           projectMap.-(projectName)
+           Future.successful(HttpResponse(entity = "Stop project Ok!!!"))
          case ex =>{
            println(ex)
-           Future.successful(HttpResponse(entity = "Can not found FlowGroup Error!"))
+           Future.successful(HttpResponse(entity = "Can not found project Error!"))
          }
 
        }
 
      }
-   }*/
+   }
 
     case _: HttpRequest =>
       Future.successful(HttpResponse(404, entity = "Unknown resource!"))
