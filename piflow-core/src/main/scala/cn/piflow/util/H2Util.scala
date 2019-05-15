@@ -376,6 +376,19 @@ object H2Util {
     statement.close()
   }
 
+  def getFlowGroupState(flowGroupId:String) : String = {
+    val statement = getConnectionInstance().createStatement()
+    statement.setQueryTimeout(QUERY_TIME)
+    var flowGroupState = ""
+
+    val flowGroupRS : ResultSet = statement.executeQuery("select state from flowGroup where id='" + flowGroupId +"'")
+    if (flowGroupRS.next()){
+
+      flowGroupState = flowGroupRS.getString("state")
+    }
+    return flowGroupState
+  }
+
   //project related api
   def addProject(projectId:String,name:String)={
     val startTime = new Date().toString

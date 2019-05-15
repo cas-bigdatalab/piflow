@@ -131,7 +131,7 @@ class ProjectExecutionImpl(project: Project, runnerContext: Context, runner: Run
     completedProjectEntry(name)
   }
 
-  private def startProcess(name: String, flow: Flow): Unit = {
+  private def startProcess(name: String, flow: Flow, projectId: String = ""): Unit = {
 
     println(flow.getFlowJson())
 
@@ -177,14 +177,30 @@ class ProjectExecutionImpl(project: Project, runnerContext: Context, runner: Run
       Thread.sleep(100)
     }
     appId = handle.getAppId
-    //H2Util.updateFlowGroupId(appId, groupId)
+
+    //wait flow process started
+    while(H2Util.getFlowProcessId(appId).equals("")){
+      Thread.sleep(1000)
+    }
+
+    if(projectId != ""){
+      H2Util.updateFlowProjectId(appId, projectId)
+    }
+
     startedProcesses(name) = handle;
     startedProcessesAppID(name) = appId
   }
 
-  private def startFlowGroup(name: String, flowGroup: FlowGroup): Unit = {
+  private def startFlowGroup(name: String, flowGroup: FlowGroup, projectId: String): Unit = {
     val flowGroupExecution = runner.start(flowGroup);
     startedFlowGroup(name) = flowGroupExecution;
+    val flowGroupId = flowGroupExecution.groupId()
+    while(H2Util.getFlowGroupState(flowGroupId).equals("")){
+      Thread.sleep(1000)
+    }
+    if(projectId != ""){
+      H2Util.updateFlowGroupProject(flowGroupId,projectId)
+    }
   }
 
   val pollingThread = new Thread(new Runnable() {
@@ -211,10 +227,10 @@ class ProjectExecutionImpl(project: Project, runnerContext: Context, runner: Run
           }
 
           startedProcesses.synchronized {
-            todosFlow.foreach(en => startProcess(en._1, en._2.asInstanceOf[Flow]));
+            todosFlow.foreach(en => startProcess(en._1, en._2.asInstanceOf[Flow],id));
           }
           startedFlowGroup.synchronized{
-            todosFlowGroup.foreach(en => startFlowGroup(en._1, en._2.asInstanceOf[FlowGroup]))
+            todosFlowGroup.foreach(en => startFlowGroup(en._1, en._2.asInstanceOf[FlowGroup],id))
           }
 
           Thread.sleep(POLLING_INTERVAL);
