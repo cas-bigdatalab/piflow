@@ -10,7 +10,9 @@ import org.h2.tools.Server
 object H2Util {
 
   val QUERY_TIME = 300
-  val CREATE_FLOW_TABLE = "create table if not exists flow (id varchar(255), pid varchar(255), name varchar(255), state varchar(255), startTime varchar(255), endTime varchar(255))"
+  val CREATE_PROJECT_TABLE = "create table if not exists project (id varchar(255), name varchar(255), state varchar(255), startTime varchar(255), endTime varchar(255))"
+  val CREATE_GROUP_TABLE = "create table if not exists flowGroup (id varchar(255), projectId varchar(255), name varchar(255), state varchar(255), startTime varchar(255), endTime varchar(255))"
+  val CREATE_FLOW_TABLE = "create table if not exists flow (id varchar(255), groupId varchar(255), projectId varchar(255), pid varchar(255), name varchar(255), state varchar(255), startTime varchar(255), endTime varchar(255))"
   val CREATE_STOP_TABLE = "create table if not exists stop (flowId varchar(255), name varchar(255), state varchar(255), startTime varchar(255), endTime varchar(255))"
   val CREATE_THOUGHPUT_TABLE = "create table if not exists thoughput (flowId varchar(255), stopName varchar(255), portName varchar(255), count long)"
   val serverIP = PropertyUtil.getPropertyValue("server.ip") + ":" + PropertyUtil.getPropertyValue("h2.port")
@@ -21,6 +23,8 @@ object H2Util {
 
     val statement = getConnectionInstance().createStatement()
     statement.setQueryTimeout(QUERY_TIME)
+    statement.executeUpdate(CREATE_PROJECT_TABLE)
+    statement.executeUpdate(CREATE_GROUP_TABLE)
     statement.executeUpdate(CREATE_FLOW_TABLE)
     statement.executeUpdate(CREATE_STOP_TABLE)
     statement.executeUpdate(CREATE_THOUGHPUT_TABLE)
@@ -38,14 +42,24 @@ object H2Util {
   }
 
   def cleanDatabase() = {
+
     val h2Server = Server.createTcpServer("-tcp", "-tcpAllowOthers", "-tcpPort",PropertyUtil.getPropertyValue("h2.port")).start()
-    val statement = getConnectionInstance().createStatement()
-    statement.setQueryTimeout(QUERY_TIME)
-    statement.executeUpdate("drop table if exists flow")
-    statement.executeUpdate("drop table if exists stop")
-    statement.executeUpdate("drop table if exists thoughput")
-    statement.close()
-    h2Server.shutdown()
+    try{
+
+      val statement = getConnectionInstance().createStatement()
+      statement.setQueryTimeout(QUERY_TIME)
+      statement.executeUpdate("drop table if exists project")
+      statement.executeUpdate("drop table if exists flowGroup")
+      statement.executeUpdate("drop table if exists flow")
+      statement.executeUpdate("drop table if exists stop")
+      statement.executeUpdate("drop table if exists thoughput")
+      statement.close()
+
+    } catch{
+        case ex => println(ex)
+    }finally {
+      h2Server.shutdown()
+    }
 
   }
 
@@ -86,6 +100,24 @@ object H2Util {
     statement.setQueryTimeout(QUERY_TIME)
     val updateSql = "update flow set endTime='" + endTime + "' where id='" + appId + "'"
     //println(updateSql)
+    statement.executeUpdate(updateSql)
+    statement.close()
+  }
+
+  def updateFlowGroupId(appId:String, groupId:String) = {
+    val statement = getConnectionInstance().createStatement()
+    statement.setQueryTimeout(QUERY_TIME)
+    val updateSql = "update flow set groupId='" + groupId + "' where id='" + appId + "'"
+    println(updateSql)
+    statement.executeUpdate(updateSql)
+    statement.close()
+  }
+
+  def updateFlowProjectId(appId:String, ProjectId:String) = {
+    val statement = getConnectionInstance().createStatement()
+    statement.setQueryTimeout(QUERY_TIME)
+    val updateSql = "update flow set projectId='" + ProjectId + "' where id='" + appId + "'"
+    println(updateSql)
     statement.executeUpdate(updateSql)
     statement.close()
   }
@@ -218,6 +250,7 @@ object H2Util {
     flowProgress
   }
 
+  //Stop related API
   def addStop(appId:String,name:String)={
     val statement = getConnectionInstance().createStatement()
     statement.setQueryTimeout(QUERY_TIME)
@@ -266,6 +299,7 @@ object H2Util {
     stopList
   }
 
+  // Throughput related API
   def addThroughput(appId:String, stopName:String, portName:String, count:Long) = {
     val statement = getConnectionInstance().createStatement()
     statement.setQueryTimeout(QUERY_TIME)
@@ -291,6 +325,99 @@ object H2Util {
     statement.executeUpdate(updateSql)
     statement.close()
   }
+
+  //flowGroup related api
+  def addFlowGroup(flowGroupId:String,name:String)={
+    val startTime = new Date().toString
+    val statement = getConnectionInstance().createStatement()
+    statement.setQueryTimeout(QUERY_TIME)
+    statement.executeUpdate("insert into flowGroup(id, name) values('" + flowGroupId +  "','" + name + "')")
+    statement.close()
+  }
+  def updateFlowGroupState(flowGroupId:String, state:String) = {
+    val statement = getConnectionInstance().createStatement()
+    statement.setQueryTimeout(QUERY_TIME)
+    val updateSql = "update flowGroup set state='" + state + "' where id='" + flowGroupId + "'"
+
+    //update related stop stop when flow state is KILLED
+    /*if(state.equals(FlowState.KILLED)){
+      val startedStopList = getStartedStop(appId)
+      startedStopList.foreach(stopName => {
+        updateStopState(appId,stopName,StopState.KILLED)
+        updateStopFinishedTime(appId, stopName, new Date().toString)
+      })
+    }*/
+    println(updateSql)
+    statement.executeUpdate(updateSql)
+    statement.close()
+  }
+  def updateFlowGroupStartTime(flowGroupId:String, startTime:String) = {
+    val statement = getConnectionInstance().createStatement()
+    statement.setQueryTimeout(QUERY_TIME)
+    val updateSql = "update flowGroup set startTime='" + startTime + "' where id='" + flowGroupId + "'"
+    println(updateSql)
+    statement.executeUpdate(updateSql)
+    statement.close()
+  }
+  def updateFlowGroupFinishedTime(flowGroupId:String, endTime:String) = {
+    val statement = getConnectionInstance().createStatement()
+    statement.setQueryTimeout(QUERY_TIME)
+    val updateSql = "update flowGroup set endTime='" + endTime + "' where id='" + flowGroupId + "'"
+    println(updateSql)
+    statement.executeUpdate(updateSql)
+    statement.close()
+  }
+  def updateFlowGroupProject(flowGroupId:String, projectId:String) = {
+    val statement = getConnectionInstance().createStatement()
+    statement.setQueryTimeout(QUERY_TIME)
+    val updateSql = "update flowGroup set projectId='" + projectId + "' where id='" + flowGroupId + "'"
+    //println(updateSql)
+    statement.executeUpdate(updateSql)
+    statement.close()
+  }
+
+  //project related api
+  def addProject(projectId:String,name:String)={
+    val startTime = new Date().toString
+    val statement = getConnectionInstance().createStatement()
+    statement.setQueryTimeout(QUERY_TIME)
+    statement.executeUpdate("insert into project(id, name) values('" + projectId +  "','" + name + "')")
+    statement.close()
+  }
+  def updateProjectState(projectId:String, state:String) = {
+    val statement = getConnectionInstance().createStatement()
+    statement.setQueryTimeout(QUERY_TIME)
+    val updateSql = "update project set state='" + state + "' where id='" + projectId + "'"
+
+    //update related stop stop when flow state is KILLED
+    /*if(state.equals(FlowState.KILLED)){
+      val startedStopList = getStartedStop(appId)
+      startedStopList.foreach(stopName => {
+        updateStopState(appId,stopName,StopState.KILLED)
+        updateStopFinishedTime(appId, stopName, new Date().toString)
+      })
+    }*/
+    //println(updateSql)
+    statement.executeUpdate(updateSql)
+    statement.close()
+  }
+  def updateProjectStartTime(projectId:String, startTime:String) = {
+    val statement = getConnectionInstance().createStatement()
+    statement.setQueryTimeout(QUERY_TIME)
+    val updateSql = "update project set startTime='" + startTime + "' where id='" + projectId + "'"
+    //println(updateSql)
+    statement.executeUpdate(updateSql)
+    statement.close()
+  }
+  def updateProjectFinishedTime(projectId:String, endTime:String) = {
+    val statement = getConnectionInstance().createStatement()
+    statement.setQueryTimeout(QUERY_TIME)
+    val updateSql = "update project set endTime='" + endTime + "' where id='" + projectId + "'"
+    //println(updateSql)
+    statement.executeUpdate(updateSql)
+    statement.close()
+  }
+
 
   def main(args: Array[String]): Unit = {
 

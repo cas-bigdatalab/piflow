@@ -353,6 +353,12 @@ trait FlowGroupContext extends Context {
   def getFlowGroupExecution() : FlowGroupExecution;
 }
 
+trait ProjectContext extends Context {
+  def getProject() : Project;
+
+  def getProjectExecution() : ProjectExecution;
+}
+
 class JobInputStreamImpl() extends JobInputStream {
   //only returns DataFrame on calling read()
   val inputs = MMap[String, () => DataFrame]();

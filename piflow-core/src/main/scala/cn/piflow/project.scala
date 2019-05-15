@@ -4,7 +4,7 @@ import java.sql.Date
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.{CountDownLatch, TimeUnit}
 
-import cn.piflow.util.{FlowLauncher, FlowState, H2Util, PropertyUtil}
+import cn.piflow.util._
 import org.apache.spark.launcher.{SparkAppHandle, SparkLauncher}
 import org.apache.spark.launcher.SparkAppHandle.State
 
@@ -54,9 +54,17 @@ trait ProjectExecution extends Execution{
   def awaitTermination(): Unit;
 
   def awaitTermination(timeout: Long, unit: TimeUnit): Unit;
+
+  def projectId() : String;
 }
 
 class ProjectExecutionImpl(project: Project, runnerContext: Context, runner: Runner) extends ProjectExecution {
+
+  val projectContext = createContext(runnerContext);
+  val projectExecution = this;
+
+  val id : String = "project_" + IdGenerator.uuid() + "_" + IdGenerator.nextId[ProjectExecution];
+
   val mapProjectEntryWithConditions: Map[String, (ProjectEntry, Condition[ProjectExecution])] = project.mapFlowWithConditions();
   val completedProjectEntry = MMap[String, Boolean]();
   completedProjectEntry ++= mapProjectEntryWithConditions.map(x => (x._1, false));
@@ -107,9 +115,16 @@ class ProjectExecutionImpl(project: Project, runnerContext: Context, runner: Run
     }
 
     override def onFlowGroupFailed(ctx: FlowGroupContext): Unit = {}
+
+    override def onProjectStarted(ctx: ProjectContext): Unit = {}
+
+    override def onProjectCompleted(ctx: ProjectContext): Unit = {}
+
+    override def onProjectFailed(ctx: ProjectContext): Unit = {}
   };
 
   runner.addListener(listener);
+  val runnerListener = runner.getListener()
 
 
   def isEntryCompleted(name: String): Boolean = {
@@ -135,6 +150,9 @@ class ProjectExecutionImpl(project: Project, runnerContext: Context, runner: Run
         }else{
           println("Spark job's state changed to: " + sparkAppState)
         }
+        if(!H2Util.getFlowProcessId(appId).equals("")){
+          //H2Util.updateFlowGroupId(appId,groupId)
+        }
 
         if(H2Util.getFlowState(appId).equals(FlowState.COMPLETED)){
           completedProjectEntry(flow.getFlowName()) = true;
@@ -154,10 +172,12 @@ class ProjectExecutionImpl(project: Project, runnerContext: Context, runner: Run
     )
 
 
-    while (appId == null){
-      appId = handle.getAppId
+    while (handle.getAppId ==  null){
+
       Thread.sleep(100)
     }
+    appId = handle.getAppId
+    //H2Util.updateFlowGroupId(appId, groupId)
     startedProcesses(name) = handle;
     startedProcessesAppID(name) = appId
   }
@@ -169,35 +189,48 @@ class ProjectExecutionImpl(project: Project, runnerContext: Context, runner: Run
 
   val pollingThread = new Thread(new Runnable() {
     override def run(): Unit = {
-      while (numWaitingProjectEntry.get() > 0) {
-        val todosFlow = ArrayBuffer[(String, Flow)]();
-        val todosFlowGroup = ArrayBuffer[(String, FlowGroup)]();
-        mapProjectEntryWithConditions.foreach { en =>
 
-          if(en._2._1.isInstanceOf[Flow]){
-            if (!startedProcesses.contains(en._1) && en._2._2.matches(execution)) {
-              todosFlow += (en._1 -> en._2._1.asInstanceOf[Flow]);
+      runnerListener.onProjectStarted(projectContext)
+
+      try{
+        while (numWaitingProjectEntry.get() > 0) {
+          val todosFlow = ArrayBuffer[(String, Flow)]();
+          val todosFlowGroup = ArrayBuffer[(String, FlowGroup)]();
+          mapProjectEntryWithConditions.foreach { en =>
+
+            if(en._2._1.isInstanceOf[Flow]){
+              if (!startedProcesses.contains(en._1) && en._2._2.matches(execution)) {
+                todosFlow += (en._1 -> en._2._1.asInstanceOf[Flow]);
+              }
+            }else if (en._2._1.isInstanceOf[FlowGroup]){
+              if (!startedFlowGroup.contains(en._1) && en._2._2.matches(execution)) {
+                todosFlowGroup += (en._1 -> en._2._1.asInstanceOf[FlowGroup]);
+              }
             }
-          }else if (en._2._1.isInstanceOf[FlowGroup]){
-            if (!startedFlowGroup.contains(en._1) && en._2._2.matches(execution)) {
-              todosFlowGroup += (en._1 -> en._2._1.asInstanceOf[FlowGroup]);
-            }
+
           }
 
+          startedProcesses.synchronized {
+            todosFlow.foreach(en => startProcess(en._1, en._2.asInstanceOf[Flow]));
+          }
+          startedFlowGroup.synchronized{
+            todosFlowGroup.foreach(en => startFlowGroup(en._1, en._2.asInstanceOf[FlowGroup]))
+          }
+
+          Thread.sleep(POLLING_INTERVAL);
         }
 
-        startedProcesses.synchronized {
-          todosFlow.foreach(en => startProcess(en._1, en._2.asInstanceOf[Flow]));
-        }
-        startedFlowGroup.synchronized{
-          todosFlowGroup.foreach(en => startFlowGroup(en._1, en._2.asInstanceOf[FlowGroup]))
-        }
+        runnerListener.onProjectCompleted(projectContext)
 
-        Thread.sleep(POLLING_INTERVAL);
+      }catch {
+        case e: Throwable =>
+          runnerListener.onProjectFailed(projectContext);
+          throw e;
       }
-
-      latch.countDown();
-      finalizeExecution(true);
+      finally {
+        latch.countDown();
+        finalizeExecution(true);
+      }
     }
   });
 
@@ -241,4 +274,14 @@ class ProjectExecutionImpl(project: Project, runnerContext: Context, runner: Run
       running = false;
     }
   }
+
+  private def createContext(runnerContext: Context): ProjectContext = {
+    new CascadeContext(runnerContext) with ProjectContext {
+      override def getProject(): Project = project
+
+      override def getProjectExecution(): ProjectExecution = projectExecution
+    };
+  }
+
+  override def projectId(): String = id
 }

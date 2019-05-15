@@ -7,7 +7,7 @@ import java.util.concurrent.{CountDownLatch, TimeUnit}
 
 import scala.collection.mutable.{ArrayBuffer, Map => MMap}
 import cn.piflow.Execution
-import cn.piflow.util.{FlowLauncher, FlowState, H2Util, PropertyUtil}
+import cn.piflow.util._
 import org.apache.spark.launcher.SparkAppHandle.State
 import org.apache.spark.launcher.{SparkAppHandle, SparkLauncher}
 import org.apache.spark.sql.SparkSession
@@ -61,11 +61,15 @@ trait FlowGroupExecution extends Execution{
 
   def awaitTermination(timeout: Long, unit: TimeUnit): Unit;
 
+  def groupId(): String;
+
 }
 
 class FlowGroupExecutionImpl(fg: FlowGroup, runnerContext: Context, runner: Runner) extends FlowGroupExecution {
   val flowGroupContext = createContext(runnerContext);
   val flowGroupExecution = this;
+
+  val id : String = "group_" + IdGenerator.uuid() + "_" + IdGenerator.nextId[FlowGroupExecution];
 
   val mapFlowWithConditions: Map[String, (Flow, Condition[FlowGroupExecution])] = fg.mapFlowWithConditions();
   val completedProcesses = MMap[String, Boolean]();
@@ -93,8 +97,9 @@ class FlowGroupExecutionImpl(fg: FlowGroup, runnerContext: Context, runner: Runn
     return true
   }
 
-  private def startProcess(name: String, flow: Flow): Unit = {
+  private def startProcess(name: String, flow: Flow, groupId : String): Unit = {
 
+    println("Start flow " + name + " , groupId: " + groupId)
     println(flow.getFlowJson())
 
     var flowJson = flow.getFlowJson()
@@ -126,17 +131,25 @@ class FlowGroupExecutionImpl(fg: FlowGroup, runnerContext: Context, runner: Runn
 
       override def infoChanged(handle: SparkAppHandle): Unit = {
 
+
       }
     }
     )
 
 
-    while (appId == null){
-      appId = handle.getAppId
-      Thread.sleep(100)
+    while (handle.getAppId == null){
+      Thread.sleep(1000)
     }
+    appId = handle.getAppId
+
+    //wait flow process started
+    while(H2Util.getFlowProcessId(appId).equals("")){
+      Thread.sleep(1000)
+    }
+    H2Util.updateFlowGroupId(appId,groupId)
     startedProcesses(name) = handle;
     startedProcessesAppID(name) = appId
+
   }
 
   val pollingThread = new Thread(new Runnable() {
@@ -155,7 +168,7 @@ class FlowGroupExecutionImpl(fg: FlowGroup, runnerContext: Context, runner: Runn
           }
 
           startedProcesses.synchronized {
-            todos.foreach(en => startProcess(en._1, en._2));
+            todos.foreach(en => startProcess(en._1, en._2, id));
           }
 
           Thread.sleep(POLLING_INTERVAL);
@@ -227,4 +240,6 @@ class FlowGroupExecutionImpl(fg: FlowGroup, runnerContext: Context, runner: Runn
   override def isEntryCompleted(name: String): Boolean = {
     completedProcesses(name);
   }
+
+  override def groupId(): String = id;
 }
