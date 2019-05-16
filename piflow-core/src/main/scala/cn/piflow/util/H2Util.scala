@@ -470,7 +470,7 @@ object H2Util {
 
     statement.close()
 
-    Map[String, Any]("flowGroup" -> flowGroupInfoMap)
+    Map[String, Any]("group" -> flowGroupInfoMap)
   }
 
   //project related api
@@ -513,6 +513,56 @@ object H2Util {
     //println(updateSql)
     statement.executeUpdate(updateSql)
     statement.close()
+  }
+
+  def getProjectInfo(projectId:String) : String = {
+
+    val projectInfoMap = getProjectInfoMap(projectId)
+    JsonUtil.format(JsonUtil.toJson(projectInfoMap))
+
+  }
+
+  def getProjectInfoMap(projectId:String) : Map[String, Any] = {
+    val statement = getConnectionInstance().createStatement()
+    statement.setQueryTimeout(QUERY_TIME)
+
+
+    var projectInfoMap = Map[String, Any]()
+
+    val projectRS : ResultSet = statement.executeQuery("select * from project where id='" + projectId +"'")
+    while (projectRS.next()){
+
+      projectInfoMap += ("id" -> projectRS.getString("id"))
+      projectInfoMap += ("name" -> projectRS.getString("name"))
+      projectInfoMap += ("state" -> projectRS.getString("state"))
+      projectInfoMap += ("startTime" -> projectRS.getString("startTime"))
+      projectInfoMap += ("endTime" -> projectRS.getString("endTime"))
+    }
+    projectRS.close()
+
+    //get flowGroups info
+    var flowGroupList:List[Map[String, Any]] = List()
+    val flowGroupRS : ResultSet = statement.executeQuery("select * from flowGroup where projectId='" + projectId +"'")
+    while (flowGroupRS.next()){
+      val flowGroupId = flowGroupRS.getString("id")
+      flowGroupList = getFlowGroupInfoMap(flowGroupId) +: flowGroupList
+    }
+    flowGroupRS.close()
+    projectInfoMap += ("groups" -> flowGroupList)
+
+    //get flow info
+    var flowList:List[Map[String, Any]] = List()
+    val flowRS : ResultSet = statement.executeQuery("select * from flow where projectId='" + projectId +"'")
+    while (flowRS.next()){
+      val appId = flowRS.getString("id")
+      flowList = getFlowInfoMap(appId) +: flowList
+    }
+    flowRS.close()
+    projectInfoMap += ("flows" -> flowList)
+
+    statement.close()
+
+    Map[String, Any]("flowGroup" -> projectInfoMap)
   }
 
 

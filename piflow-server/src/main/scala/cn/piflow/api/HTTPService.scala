@@ -274,7 +274,7 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
 
        Future.successful(HttpResponse(entity = result))
      }else{
-       Future.successful(HttpResponse(entity = "groupId is null or flow run failed!"))
+       Future.successful(HttpResponse(entity = "groupId is null or flowGroup run failed!"))
      }
    }
 
@@ -308,7 +308,7 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
 
        projectMap.get(projectId) match {
          case Some(projectExecution) =>
-           val result = projectExecution.stop()
+           val result = API.stopProject(projectExecution)
            projectMap.-(projectId)
            Future.successful(HttpResponse(entity = "Stop project Ok!!!"))
          case ex =>{
@@ -318,6 +318,19 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
 
        }
 
+     }
+   }
+
+   case HttpRequest(GET, Uri.Path("/project/info"), headers, entity, protocol) =>{
+
+     val projectId = req.getUri().query().getOrElse("projectId","")
+     if(!projectId.equals("")){
+       var result = API.getProjectInfo(projectId)
+       println("getProjectInfo result: " + result)
+
+       Future.successful(HttpResponse(entity = result))
+     }else{
+       Future.successful(HttpResponse(entity = "projectId is null or project run failed!"))
      }
    }
 
