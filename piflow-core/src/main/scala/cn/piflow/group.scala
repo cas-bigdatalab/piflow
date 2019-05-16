@@ -1,6 +1,5 @@
 package cn.piflow
 
-import java.sql.Date
 import java.util.Date
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.{CountDownLatch, TimeUnit}
@@ -69,7 +68,7 @@ class FlowGroupExecutionImpl(fg: FlowGroup, runnerContext: Context, runner: Runn
   val flowGroupContext = createContext(runnerContext);
   val flowGroupExecution = this;
 
-  val id : String = "group_" + IdGenerator.uuid() + "_" + IdGenerator.nextId[FlowGroupExecution];
+  val id : String = "group_" + IdGenerator.uuid() ;
 
   val mapFlowWithConditions: Map[String, (Flow, Condition[FlowGroupExecution])] = fg.mapFlowWithConditions();
   val completedProcesses = MMap[String, Boolean]();
@@ -199,6 +198,7 @@ class FlowGroupExecutionImpl(fg: FlowGroup, runnerContext: Context, runner: Runn
 
   override def stop(): Unit = {
     finalizeExecution(false);
+    //runnerListener.onFlowGroupStoped(flowGroupContext)
   }
 
   override def awaitTermination(timeout: Long, unit: TimeUnit): Unit = {
@@ -211,17 +211,19 @@ class FlowGroupExecutionImpl(fg: FlowGroup, runnerContext: Context, runner: Runn
       if (!completed) {
 
         //startedProcesses.filter(x => isEntryCompleted(x._1)).map(_._2).foreach(_.stop());
-        startedProcesses.filter(x => !isEntryCompleted(x._1)).foreach(x => {
+        startedProcesses.synchronized{
+          startedProcesses.filter(x => !isEntryCompleted(x._1)).foreach(x => {
 
-          x._2.stop()
-          val appID: String = startedProcessesAppID.getOrElse(x._1,"")
-          if(!appID.equals("")){
-            println("Stop Flow " + appID + " by FlowLauncher!")
-            FlowLauncher.stop(appID)
-          }
+            x._2.stop()
+            val appID: String = startedProcessesAppID.getOrElse(x._1,"")
+            if(!appID.equals("")){
+              println("Stop Flow " + appID + " by FlowLauncher!")
+              FlowLauncher.stop(appID)
+            }
 
-        });
-        pollingThread.interrupt();
+          });
+          pollingThread.interrupt();
+        }
 
       }
 

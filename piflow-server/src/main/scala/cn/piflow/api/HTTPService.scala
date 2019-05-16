@@ -228,9 +228,10 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
        case HttpEntity.Strict(_, data) =>{
          var flowGroupJson = data.utf8String
          flowGroupJson = flowGroupJson.replaceAll("}","}\n")
-         val (flowName, flowGroupExecution) = API.startFlowGroup(flowGroupJson)
-         flowGroupMap += (flowName -> flowGroupExecution)
-         Future.successful(HttpResponse(entity = "start flow group ok!!!"))
+         val flowGroupExecution = API.startFlowGroup(flowGroupJson)
+         flowGroupMap += (flowGroupExecution.groupId() -> flowGroupExecution)
+         val result = "{\"flowGroup\":{\"id\":\"" + flowGroupExecution.groupId() + "\"}}"
+         Future.successful(HttpResponse(entity = result))
        }
 
        case ex => {
@@ -244,15 +245,15 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
 
    case HttpRequest(POST, Uri.Path("/flowGroup/stop"), headers, entity, protocol) =>{
      val data = toJson(entity)
-     val groupName  = data.get("groupName").getOrElse("").asInstanceOf[String]
-     if(groupName.equals("") || !flowGroupMap.contains(groupName)){
+     val groupId  = data.get("groupId").getOrElse("").asInstanceOf[String]
+     if(groupId.equals("") || !flowGroupMap.contains(groupId)){
        Future.failed(new Exception("Can not found flowGroup Error!"))
      }else{
 
-       flowGroupMap.get(groupName) match {
+       flowGroupMap.get(groupId) match {
          case Some(flowGroupExecution) =>
            val result = flowGroupExecution.stop()
-           flowGroupMap.-(groupName)
+           flowGroupMap.-(groupId)
            Future.successful(HttpResponse(entity = "Stop FlowGroup Ok!!!"))
          case ex =>{
            println(ex)
@@ -270,9 +271,10 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
        case HttpEntity.Strict(_, data) =>{
          var projectJson = data.utf8String
          projectJson = projectJson.replaceAll("}","}\n")
-         val (projectName, projectExecution) = API.startProject(projectJson)
-         projectMap += (projectName -> projectExecution)
-         Future.successful(HttpResponse(entity = "start project ok!!!"))
+         val projectExecution = API.startProject(projectJson)
+         projectMap += (projectExecution.projectId() -> projectExecution)
+         val result = "{\"project\":{\"id\":\"" + projectExecution.projectId()+ "\"}}"
+         Future.successful(HttpResponse(entity = result))
        }
 
        case ex => {
@@ -286,15 +288,15 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
 
    case HttpRequest(POST, Uri.Path("/project/stop"), headers, entity, protocol) =>{
      val data = toJson(entity)
-     val projectName  = data.get("projectName").getOrElse("").asInstanceOf[String]
-     if(projectName.equals("") || !projectMap.contains(projectName)){
+     val projectId  = data.get("projectId").getOrElse("").asInstanceOf[String]
+     if(projectId.equals("") || !projectMap.contains(projectId)){
        Future.failed(new Exception("Can not found project Error!"))
      }else{
 
-       projectMap.get(projectName) match {
+       projectMap.get(projectId) match {
          case Some(projectExecution) =>
            val result = projectExecution.stop()
-           projectMap.-(projectName)
+           projectMap.-(projectId)
            Future.successful(HttpResponse(entity = "Stop project Ok!!!"))
          case ex =>{
            println(ex)

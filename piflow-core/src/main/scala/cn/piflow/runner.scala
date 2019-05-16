@@ -92,6 +92,14 @@ object Runner {
       override def onProjectFailed(ctx: ProjectContext): Unit = {
         listeners.foreach(_.onProjectFailed(ctx));
       }
+
+      override def onFlowGroupStoped(ctx: FlowGroupContext): Unit = {
+        listeners.foreach(_.onFlowGroupStoped(ctx))
+      }
+
+      override def onProjectStoped(ctx: ProjectContext): Unit = {
+        listeners.foreach(_.onProjectStoped(ctx))
+      }
     }
 
     override def addListener(listener: RunnerListener) = {
@@ -153,11 +161,15 @@ trait RunnerListener {
 
   def onFlowGroupFailed(ctx: FlowGroupContext);
 
+  def onFlowGroupStoped(ctx: FlowGroupContext);
+
   def onProjectStarted(ctx: ProjectContext);
 
   def onProjectCompleted(ctx: ProjectContext);
 
   def onProjectFailed(ctx: ProjectContext);
+
+  def onProjectStoped(ctx: ProjectContext);
 }
 
 
@@ -305,6 +317,19 @@ class RunnerLogger extends RunnerListener with Logging {
     H2Util.updateFlowGroupFinishedTime(groupId,time)
   }
 
+  override def onFlowGroupStoped(ctx: FlowGroupContext): Unit = {
+    //TODO: write monitor data into db
+    val groupId = ctx.getFlowGroupExecution().groupId()
+    val flowGroupName = ctx.getFlowGroup().getFlowGroupName()
+    val time = new Date().toString
+    logger.debug(s"Flow Group stoped: $groupId, time: $time");
+    println(s"Flow Group stoped: $groupId, time: $time")
+    //update flow group state to COMPLETED
+    H2Util.updateFlowGroupState(groupId,FlowGroupState.KILLED)
+    H2Util.updateFlowGroupFinishedTime(groupId,time)
+
+  }
+
   override def onFlowGroupFailed(ctx: FlowGroupContext): Unit = {
     //TODO: write monitor data into db
     val groupId = ctx.getFlowGroupExecution().groupId()
@@ -352,5 +377,19 @@ class RunnerLogger extends RunnerListener with Logging {
     //update project state to FAILED
     H2Util.updateProjectState(projectId,ProjectState.FAILED)
     H2Util.updateProjectFinishedTime(projectId,time)
+  }
+
+
+
+  override def onProjectStoped(ctx: ProjectContext): Unit = {
+    val projectId = ctx.getProjectExecution().projectId()
+    val projectName = ctx.getProject().getProjectName()
+    val time = new Date().toString
+    logger.debug(s"Project failed: $projectId, time: $time");
+    println(s"Project failed: $projectId, time: $time")
+    //update project state to FAILED
+    H2Util.updateProjectState(projectId,ProjectState.KILLED)
+    H2Util.updateProjectFinishedTime(projectId,time)
+
   }
 }

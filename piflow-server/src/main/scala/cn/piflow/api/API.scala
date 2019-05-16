@@ -41,7 +41,7 @@ object API {
       .bind("debug.path",PropertyUtil.getPropertyValue("debug.path"))
       .start(project);
 
-    (projectBean.name,projectExecution)
+    projectExecution
 
   }
 
@@ -62,7 +62,7 @@ object API {
       .bind("debug.path",PropertyUtil.getPropertyValue("debug.path"))
       .start(flowGroup);
 
-    (flowGroupBean.name, flowGroupExecution)
+    flowGroupExecution
   }
 
   def startFlow(flowJson : String):(String,String,SparkAppHandle) = {

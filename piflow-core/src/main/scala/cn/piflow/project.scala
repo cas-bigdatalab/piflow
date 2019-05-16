@@ -1,6 +1,6 @@
 package cn.piflow
 
-import java.sql.Date
+import java.util.Date
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.{CountDownLatch, TimeUnit}
 
@@ -63,7 +63,7 @@ class ProjectExecutionImpl(project: Project, runnerContext: Context, runner: Run
   val projectContext = createContext(runnerContext);
   val projectExecution = this;
 
-  val id : String = "project_" + IdGenerator.uuid() + "_" + IdGenerator.nextId[ProjectExecution];
+  val id : String = "project_" + IdGenerator.uuid();
 
   val mapProjectEntryWithConditions: Map[String, (ProjectEntry, Condition[ProjectExecution])] = project.mapFlowWithConditions();
   val completedProjectEntry = MMap[String, Boolean]();
@@ -121,6 +121,10 @@ class ProjectExecutionImpl(project: Project, runnerContext: Context, runner: Run
     override def onProjectCompleted(ctx: ProjectContext): Unit = {}
 
     override def onProjectFailed(ctx: ProjectContext): Unit = {}
+
+    override def onFlowGroupStoped(ctx: FlowGroupContext): Unit = {}
+
+    override def onProjectStoped(ctx: ProjectContext): Unit = {}
   };
 
   runner.addListener(listener);
@@ -259,6 +263,7 @@ class ProjectExecutionImpl(project: Project, runnerContext: Context, runner: Run
 
   override def stop(): Unit = {
     finalizeExecution(false);
+    //runnerListener.onProjectStoped(projectContext)
   }
 
   override def awaitTermination(timeout: Long, unit: TimeUnit): Unit = {
@@ -271,17 +276,22 @@ class ProjectExecutionImpl(project: Project, runnerContext: Context, runner: Run
       if (!completed) {
         //pollingThread.interrupt();
         //startedProcesses.filter(x => !isEntryCompleted(x._1)).map(_._2).foreach(_.stop());
-        startedProcesses.filter(x => !isEntryCompleted(x._1)).foreach(x => {
+        startedProcesses.synchronized{
+          startedProcesses.filter(x => !isEntryCompleted(x._1)).foreach(x => {
 
-          x._2.stop()
-          val appID: String = startedProcessesAppID.getOrElse(x._1,"")
-          if(!appID.equals("")){
-            println("Stop Flow " + appID + " by FlowLauncher!")
-            FlowLauncher.stop(appID)
-          }
+            x._2.stop()
+            val appID: String = startedProcessesAppID.getOrElse(x._1,"")
+            if(!appID.equals("")){
+              println("Stop Flow " + appID + " by FlowLauncher!")
+              FlowLauncher.stop(appID)
+            }
 
-        });
-        startedFlowGroup.filter(x => !isEntryCompleted(x._1)).map(_._2).foreach(_.stop());
+          });
+        }
+        startedFlowGroup.synchronized{
+          startedFlowGroup.filter(x => !isEntryCompleted(x._1)).map(_._2).foreach(_.stop());
+        }
+
         pollingThread.interrupt();
 
       }
