@@ -562,7 +562,7 @@ object H2Util {
 
     statement.close()
 
-    Map[String, Any]("flowGroup" -> projectInfoMap)
+    Map[String, Any]("project" -> projectInfoMap)
   }
 
 
