@@ -252,7 +252,7 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
 
        flowGroupMap.get(groupId) match {
          case Some(flowGroupExecution) =>
-           val result = flowGroupExecution.stop()
+           val result = API.stopFlowGroup(flowGroupExecution)
            flowGroupMap.-(groupId)
            Future.successful(HttpResponse(entity = "Stop FlowGroup Ok!!!"))
          case ex =>{
@@ -262,6 +262,19 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
 
        }
 
+     }
+   }
+
+   case HttpRequest(GET, Uri.Path("/flowGroup/info"), headers, entity, protocol) =>{
+
+     val groupId = req.getUri().query().getOrElse("groupId","")
+     if(!groupId.equals("")){
+       var result = API.getFlowGroupInfo(groupId)
+       println("getFlowGroupInfo result: " + result)
+
+       Future.successful(HttpResponse(entity = result))
+     }else{
+       Future.successful(HttpResponse(entity = "groupId is null or flow run failed!"))
      }
    }
 

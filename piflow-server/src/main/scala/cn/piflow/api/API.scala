@@ -8,7 +8,7 @@ import java.util.concurrent.CountDownLatch
 
 import org.apache.spark.sql.SparkSession
 import cn.piflow.conf.util.{ClassUtil, MapUtil, OptionUtil}
-import cn.piflow.{Process, Runner}
+import cn.piflow.{FlowGroupExecution, Process, Runner}
 import cn.piflow.api.util.{HdfsUtil, PropertyUtil}
 import cn.piflow.conf.bean.{FlowGroupBean, ProjectBean}
 import cn.piflow.util.{FlowState, H2Util, HadoopFileUtil}
@@ -63,6 +63,15 @@ object API {
       .start(flowGroup);
 
     flowGroupExecution
+  }
+
+  def stopFlowGroup(flowGroupExecution : FlowGroupExecution): Unit ={
+    flowGroupExecution.stop()
+  }
+
+  def getFlowGroupInfo(groupId : String) : String = {
+    val flowGroupInfo = H2Util.getFlowGroupInfo(groupId)
+    flowGroupInfo
   }
 
   def startFlow(flowJson : String):(String,String,SparkAppHandle) = {

@@ -74,7 +74,7 @@ object H2Util {
     val statement = getConnectionInstance().createStatement()
     statement.setQueryTimeout(QUERY_TIME)
     val updateSql = "update flow set state='" + state + "' where id='" + appId + "'"
-
+    println(updateSql)
     //update related stop stop when flow state is KILLED
     if(state.equals(FlowState.KILLED)){
       val startedStopList = getStartedStop(appId)
@@ -99,7 +99,7 @@ object H2Util {
     val statement = getConnectionInstance().createStatement()
     statement.setQueryTimeout(QUERY_TIME)
     val updateSql = "update flow set endTime='" + endTime + "' where id='" + appId + "'"
-    //println(updateSql)
+    println(updateSql)
     statement.executeUpdate(updateSql)
     statement.close()
   }
@@ -150,7 +150,7 @@ object H2Util {
   }
 
   def getFlowInfo(appId:String) : String = {
-    val statement = getConnectionInstance().createStatement()
+    /*val statement = getConnectionInstance().createStatement()
     statement.setQueryTimeout(QUERY_TIME)
     var flowInfo = ""
 
@@ -184,7 +184,52 @@ object H2Util {
     if (!flowInfo.equals(""))
       flowInfo += stopList.mkString(",") + "]}}"
 
-    flowInfo
+    flowInfo*/
+    val flowInfoMap = getFlowInfoMap(appId)
+    JsonUtil.format(JsonUtil.toJson(flowInfoMap))
+  }
+
+  def getFlowInfoMap(appId:String) : Map[String, Any] = {
+    val statement = getConnectionInstance().createStatement()
+    statement.setQueryTimeout(QUERY_TIME)
+
+    var flowInfoMap = Map[String, Any]()
+
+    //get flow basic info
+    val flowRS : ResultSet = statement.executeQuery("select * from flow where id='" + appId +"'")
+    while (flowRS.next()){
+      val progress = getFlowProgressPercent(appId:String)
+      flowInfoMap += ("id" -> flowRS.getString("id"))
+      flowInfoMap += ("pid" -> flowRS.getString("pid"))
+      flowInfoMap += ("name" -> flowRS.getString("name"))
+      flowInfoMap += ("state" -> flowRS.getString("state"))
+      flowInfoMap += ("startTime" -> flowRS.getString("startTime"))
+      flowInfoMap += ("endTime" -> flowRS.getString("endTime"))
+      flowInfoMap += ("progress" -> progress)
+    }
+    flowRS.close()
+
+    //get flow stops info
+    var stopList:List[Map[String, Any]] = List()
+    val rs : ResultSet = statement.executeQuery("select * from stop where flowId='" + appId +"'")
+    while(rs.next()){
+      var stopMap = Map[String, Any]()
+      stopMap += ("name" -> rs.getString("name"))
+      stopMap += ("state" -> rs.getString("state"))
+      stopMap += ("startTime" -> rs.getString("startTime"))
+      stopMap += ("endTime" -> rs.getString("endTime"))
+
+      stopList = Map("stop" -> stopMap) +: stopList
+
+    }
+    rs.close()
+
+    statement.close()
+
+    //add flow stops info to flowInfoMap
+    flowInfoMap += ("stops" -> stopList)
+
+    Map[String, Any]("flow" -> flowInfoMap)
   }
 
   def getFlowProgressPercent(appId:String) : String = {
@@ -389,6 +434,45 @@ object H2Util {
     return flowGroupState
   }
 
+  def getFlowGroupInfo(groupId:String) : String = {
+
+    val flowGroupInfoMap = getFlowGroupInfoMap(groupId)
+    JsonUtil.format(JsonUtil.toJson(flowGroupInfoMap))
+
+  }
+
+  def getFlowGroupInfoMap(groupId:String) : Map[String, Any] = {
+    val statement = getConnectionInstance().createStatement()
+    statement.setQueryTimeout(QUERY_TIME)
+
+
+    var flowGroupInfoMap = Map[String, Any]()
+
+    val flowGroupRS : ResultSet = statement.executeQuery("select * from flowGroup where id='" + groupId +"'")
+    while (flowGroupRS.next()){
+
+      flowGroupInfoMap += ("id" -> flowGroupRS.getString("id"))
+      flowGroupInfoMap += ("name" -> flowGroupRS.getString("name"))
+      flowGroupInfoMap += ("state" -> flowGroupRS.getString("state"))
+      flowGroupInfoMap += ("startTime" -> flowGroupRS.getString("startTime"))
+      flowGroupInfoMap += ("endTime" -> flowGroupRS.getString("endTime"))
+    }
+    flowGroupRS.close()
+
+    var flowList:List[Map[String, Any]] = List()
+    val flowRS : ResultSet = statement.executeQuery("select * from flow where groupId='" + groupId +"'")
+    while (flowRS.next()){
+      val appId = flowRS.getString("id")
+      flowList = getFlowInfoMap(appId) +: flowList
+    }
+    flowRS.close()
+    flowGroupInfoMap += ("flows" -> flowList)
+
+    statement.close()
+
+    Map[String, Any]("flowGroup" -> flowGroupInfoMap)
+  }
+
   //project related api
   def addProject(projectId:String,name:String)={
     val startTime = new Date().toString
@@ -456,6 +540,11 @@ object H2Util {
       case ex => println(ex)
     }*/
     cleanDatabase()
+    //println(getFlowGroupInfo("group_9b41bab2-7c3a-46ec-b716-93b636545e5e"))
+
+    //val flowInfoMap = getFlowInfoMap("application_1544066083705_0864")
+    //val flowJsonObject = JsonUtil.toJson(flowInfoMap)
+    //println(JsonUtil.format(flowJsonObject))
   }
 
 }
