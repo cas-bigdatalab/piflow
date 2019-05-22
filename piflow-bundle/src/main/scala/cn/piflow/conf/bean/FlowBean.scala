@@ -1,6 +1,7 @@
 package cn.piflow.conf.bean
 
-import cn.piflow.conf.util.{JsonUtil, MapUtil}
+import cn.piflow.conf.util.MapUtil
+import cn.piflow.util.JsonUtil
 import cn.piflow.{FlowImpl, Path, ProjectEntry}
 import net.liftweb.json.JsonDSL._
 import net.liftweb.json._
