@@ -4,10 +4,9 @@ import cn.piflow.conf._
 import cn.piflow.lib._
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
-import cn.piflow.util. ScriptEngine
+import cn.piflow.util.ScriptEngine
 import cn.piflow._
-import cn.piflow.lib.io.{FileFormat, TextFile}
-import org.apache.spark.sql.types.StructType
+import org.apache.spark.sql.types.{StringType, StructField, StructType}
 
 
 
@@ -19,32 +18,26 @@ class DoMapStop extends ConfigurableStop{
   val inportList: List[String] = List(PortEnum.DefaultPort.toString)
   val outportList: List[String] = List(PortEnum.DefaultPort.toString)
 
-  var  targetSchema: StructType = null
+  var  schema: String = _
   var  SCRIPT: String = _
 
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
-    in.read().show()
 
-    val doMap = new  DoMap(ScriptEngine.logic(SCRIPT))
+
+    val fieldsArray: Array[String] = schema.split(",")
+    val fields = fieldsArray.map(x => {
+      StructField(x, StringType, nullable = true)
+    })
+    val targetSchema = StructType(fields)
+
+    val doMap = new  DoMap(ScriptEngine.logic(SCRIPT),targetSchema)
     doMap.perform(in,out,pec)
 
-
-  }
-
-  def createCountWords() = {
-
-    val processCountWords = new FlowImpl();
-    processCountWords.addStop("LoadStream", new LoadStream(TextFile("hdfs://10.0.86.89:9000/yg/2", FileFormat.TEXT)));
-    processCountWords.addStop("DoMap", new DoMapStop);
-
-    processCountWords.addPath(Path.from("LoadStream").to("DoMap"));
-
-    new FlowAsStop(processCountWords);
-  }
-
+ }
 
   override def setProperties(map: Map[String, Any]): Unit = {
-    SCRIPT = MapUtil.get(map,"SCRIPT_1").asInstanceOf[String]
+    SCRIPT = MapUtil.get(map,"SCRIPT").asInstanceOf[String]
+    schema = MapUtil.get(map,"schema").asInstanceOf[String]
 
   }
   override def initialize(ctx: ProcessContext): Unit = {
@@ -54,6 +47,8 @@ class DoMapStop extends ConfigurableStop{
     var descriptor : List[PropertyDescriptor] = List()
     val SCRIPT = new PropertyDescriptor().name("SCRIPT").displayName("SCRIPT").description("").defaultValue("").required(true)
     descriptor = SCRIPT :: descriptor
+    val schema = new PropertyDescriptor().name("schema").displayName("schema").description("").defaultValue("").required(true)
+    descriptor = schema :: descriptor
     descriptor
   }
 
@@ -68,6 +63,7 @@ class DoMapStop extends ConfigurableStop{
 
 
 }
+
 
 
 
