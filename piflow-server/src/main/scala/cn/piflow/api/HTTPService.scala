@@ -121,26 +121,26 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
 
    case HttpRequest(GET, Uri.Path("/flow/checkpoints"), headers, entity, protocol) => {
 
-     val processID = req.getUri().query().getOrElse("processID","")
-     if(!processID.equals("")){
-       val result = API.getFlowCheckpoint(processID)
+     val appID = req.getUri().query().getOrElse("appID","")
+     if(!appID.equals("")){
+       val result = API.getFlowCheckpoint(appID)
        Future.successful(HttpResponse(SUCCESS_CODE, entity = result))
      }else{
-       Future.successful(HttpResponse(FAIL_CODE, entity = "processID is null or flow does not exist!"))
+       Future.successful(HttpResponse(FAIL_CODE, entity = "appID is null or flow does not exist!"))
      }
 
    }
 
    case HttpRequest(GET, Uri.Path("/flow/debugData"), headers, entity, protocol) => {
 
-     val processID = req.getUri().query().getOrElse("processID","")
+     val appID = req.getUri().query().getOrElse("appID","")
      val stopName = req.getUri().query().getOrElse("stopName","")
      val port = req.getUri().query().getOrElse("port","default")
-     if(!processID.equals("") && !stopName.equals()){
-       val result = API.getFlowDebugData(processID, stopName, port)
+     if(!appID.equals("") && !stopName.equals()){
+       val result = API.getFlowDebugData(appID, stopName, port)
        Future.successful(HttpResponse(SUCCESS_CODE, entity = result))
      }else{
-       Future.successful(HttpResponse(FAIL_CODE, entity = "processID is null or stop does not have debug data!"))
+       Future.successful(HttpResponse(FAIL_CODE, entity = "appID is null or stop does not have debug data!"))
      }
 
    }
@@ -152,9 +152,9 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
          var flowJson = data.utf8String
          flowJson = flowJson.replaceAll("}","}\n")
          //flowJson = JsonFormatTool.formatJson(flowJson)
-         val (appId,pid,process) = API.startFlow(flowJson)
+         val (appId,process) = API.startFlow(flowJson)
          processMap += (appId -> process)
-         val result = "{\"flow\":{\"id\":\"" + appId + "\",\"pid\":\"" +  pid + "\"}}"
+         val result = "{\"flow\":{\"id\":\"" + appId + "\"}}"
          Future.successful(HttpResponse(SUCCESS_CODE, entity = result))
        }
 

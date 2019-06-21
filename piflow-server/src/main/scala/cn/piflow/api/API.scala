@@ -83,7 +83,7 @@ object API {
     flowGroupInfo
   }
 
-  def startFlow(flowJson : String):(String,String,SparkAppHandle) = {
+  def startFlow(flowJson : String):(String,SparkAppHandle) = {
 
     var appId:String = null
     val map = OptionUtil.getAny(JSON.parseFull(flowJson)).asInstanceOf[Map[String, Any]]
@@ -144,15 +144,17 @@ object API {
           //println("Info:" + handle.getState().toString)
         }
       })
-    while (appId == null){
-      Thread.sleep(1000)
+    /*while (handle.getAppId != null){
+      appId = handle.getAppId
+    }*/
+
+    while (handle.getAppId == null){
+      Thread.sleep(100)
     }
-    var processId = ""
-    while(processId.equals("")){
-      Thread.sleep(1000)
-      processId = H2Util.getFlowProcessId(appId)
-    }
-    (appId, processId, handle)
+    appId = handle.getAppId
+
+
+    (appId, handle)
 
   }
 
@@ -204,16 +206,16 @@ object API {
     str
   }
 
-  def getFlowCheckpoint(processID:String) : String = {
-    val checkpointPath = PropertyUtil.getPropertyValue("checkpoint.path").stripSuffix("/") + "/" + processID
+  def getFlowCheckpoint(appId:String) : String = {
+    val checkpointPath = PropertyUtil.getPropertyValue("checkpoint.path").stripSuffix("/") + "/" + appId
     val checkpointList = HadoopFileUtil.getFileInHadoopPath(checkpointPath)
     """{"checkpoints":"""" + checkpointList.mkString(",") + """"}"""
   }
 
 
-  def getFlowDebugData(processID : String, stopName : String, port : String) : String = {
+  def getFlowDebugData(appId : String, stopName : String, port : String) : String = {
     var result = ""
-    val debugPath = PropertyUtil.getPropertyValue("debug.path").stripSuffix("/") + "/" + processID + "/" + stopName + "/" + port;
+    val debugPath = PropertyUtil.getPropertyValue("debug.path").stripSuffix("/") + "/" + appId + "/" + stopName + "/" + port;
     val properties = new Properties()
     val hdfs = FileSystem.get(URI.create(debugPath), new Configuration())
 

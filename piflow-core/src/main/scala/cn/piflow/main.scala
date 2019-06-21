@@ -390,9 +390,12 @@ class JobOutputStreamImpl() extends JobOutputStream with Logging {
   private val defaultPort = "default"
 
   override def makeCheckPoint(pec: JobContext) {
+
     mapDataFrame.foreach(en => {
       val port = if(en._1.equals("")) defaultPort else en._1
-      val path = pec.get("checkpoint.path").asInstanceOf[String].stripSuffix("/") + "/" + pec.getProcessContext().getProcess().pid() + "/" + pec.getStopJob().getStopName() + "/" + port;
+
+      //
+      val path = pec.get("checkpoint.path").asInstanceOf[String].stripSuffix("/") + "/" + /*pec.getProcessContext().getProcess().pid()*/getAppId(pec) + "/" + pec.getStopJob().getStopName() + "/" + port;
       println("MakeCheckPoint Path: " + path)
       //val path = getCheckPointPath(pec)
       logger.debug(s"writing data on checkpoint: $path");
@@ -426,7 +429,7 @@ class JobOutputStreamImpl() extends JobOutputStream with Logging {
 
   //get then checkpoint path
   private def getCheckPointPath(pec: JobContext) : String = {
-    val pathStr = pec.get("checkpoint.path").asInstanceOf[String].stripSuffix("/") + "/" + pec.getProcessContext().getProcess().pid() + "/" + pec.getStopJob().getStopName();
+    val pathStr = pec.get("checkpoint.path").asInstanceOf[String].stripSuffix("/") + "/" + /*pec.getProcessContext().getProcess().pid()*/getAppId(pec) + "/" + pec.getStopJob().getStopName();
     val conf:Configuration = new Configuration()
     try{
       val fs:FileSystem = FileSystem.get(URI.create(pathStr), conf)
@@ -494,6 +497,11 @@ class JobOutputStreamImpl() extends JobOutputStream with Logging {
       result(portName) = en._2.apply.count()
     })
     result
+  }
+
+  private def getAppId(ctx: Context) : String = {
+    val sparkSession = ctx.get(classOf[SparkSession].getName).asInstanceOf[SparkSession]
+    sparkSession.sparkContext.applicationId
   }
 
 }
@@ -590,7 +598,10 @@ class ProcessImpl(flow: Flow, runnerContext: Context, runner: Runner, parentProc
         var outputs : JobOutputStreamImpl = null
         try {
           runnerListener.onJobStarted(pe.getContext());
-          val debugPath = pe.getContext().get("debug.path").asInstanceOf[String].stripSuffix("/") + "/" + pe.getContext().getProcessContext().getProcess().pid()  + "/" + pe.getContext().getStopJob().getStopName();
+
+          val sparkSession = pe.getContext().get(classOf[SparkSession].getName).asInstanceOf[SparkSession]
+          val appId = sparkSession.sparkContext.applicationId
+          val debugPath = pe.getContext().get("debug.path").asInstanceOf[String].stripSuffix("/") + "/" + /*pe.getContext().getProcessContext().getProcess().pid()*/appId  + "/" + pe.getContext().getStopJob().getStopName();
 
           //new flow process
           if (checkpointParentProcessId.equals("")) {
