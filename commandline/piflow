@@ -1,0 +1,236 @@
+#!/bin/bash
+SERVER="10.0.86.191"
+PORT="8002"
+function help_info () {
+  echo "Usage:"
+  echo ""
+  flow_help
+  echo ""
+  group_help
+  echo ""
+  project_help
+}
+
+function flow_help () {
+  echo "        piflow  flow            start   [ ***.json ]"
+  echo "                                stop    [ appId ]"
+  echo "                                info    [ appId ]"
+  echo "                                log     [ appId ]"
+}
+
+function group_help () {
+  echo "                flowGroup       start   [ ***.json ]"
+  echo "                                stop    [ groupId ]"
+  echo "                                info    [ groupId ]"
+}
+
+function project_help () {
+  echo "                project         start   [ ***.json ]"
+  echo "                                stop    [ projectId ]"
+  echo "                                info    [ projectId ]"
+}
+
+function flow_process () {
+  if [ $# -eq 2 ]
+  then
+    case "$1" in
+      start)
+        flow_start $2 
+        ;;
+      stop)
+        flow_stop $2 
+        ;;
+      info)
+        flow_info $2 
+        ;;
+      log)
+        flow_log $2
+        ;;
+      *)
+        flow_help
+        ;;
+    esac
+  else
+    echo $1
+    flow_help
+  fi 
+}
+
+function flow_start () {
+  echo "Flow Start:"
+  #content=file_reader $1
+  content=$(file_reader $1)
+  echo "$content"
+  curl_command="curl -0 -X POST http://$SERVER:$PORT/flow/start -H \"Content-type: application/json\" -d '$content'"
+  #echo $curl_command
+  eval $curl_command
+}
+
+function flow_info () {
+  echo "Flow Info:"
+  curl_command="curl -Get http://$SERVER:$PORT/flow/info?appID=$1"
+  #echo $curl_command
+  eval $curl_command
+}
+
+function flow_stop () {
+  echo "Flow Stop:"
+  curl_command="curl -POST http://$SERVER:$PORT/flow/stop -H \"Content-type: application/json\" -d '{\"appID\":\"$1\"}'"
+  #echo $curl_command
+  eval $curl_command
+}
+
+function flow_log () { 
+  echo "Flow Log:" 
+  curl_command="curl -GET http://$SERVER:$PORT/flow/log?appID=$1" 
+  #echo $curl_command
+  eval $curl_command
+}
+
+function group_process () {
+  if [ $# -eq 2 ]
+  then
+    case "$1" in
+      start)
+        group_start $2
+        ;;
+      stop)
+        group_stop $2
+        ;;
+      info)
+        group_info $2
+        ;;
+      *)
+        group_help
+        ;;
+    esac
+  else
+    echo $1
+    group_help
+  fi
+}
+
+function group_start () {
+  echo "Group Start:"
+  content=$(file_reader $1)
+  echo "$content"
+  curl_command="curl -0 -X POST http://$SERVER:$PORT/flowGroup/start -H \"Content-type: application/json\" -d '$content'"
+  eval $curl_command
+}
+
+function group_info () {
+  echo "Group Info:"
+  curl_command="curl -Get http://$SERVER:$PORT/flowGroup/info?groupId=$1"
+  echo $curl_command
+  eval $curl_command
+}
+
+function group_stop () {
+  echo "Group Stop:"
+  curl_command="curl -POST http://$SERVER:$PORT/flowGroup/stop -H \"Content-type: application/json\" -d '{\"groupId\":\"$1\"}'"
+  #echo $curl_command
+  eval $curl_command
+}
+
+function project_process () {
+  if [ $# -eq 2 ]
+  then
+    case "$1" in
+      start)
+        project_start $2
+        ;;
+      stop)
+        project_stop $2
+        ;;
+      info)
+        project_info $2
+        ;;
+      *)
+        group_help
+        ;;
+    esac
+  else
+    echo $1
+    group_help
+  fi
+}
+
+function project_start () {
+  echo "Project Start:"
+  content=$(file_reader $1)
+  echo "$content"
+  curl_command="curl -0 -X POST http://$SERVER:$PORT/project/start -H \"Content-type: application/json\" -d '$content'"
+  eval $curl_command
+}
+
+function project_info () {
+  echo "Project Info:"
+  curl_command="curl -Get http://$SERVER:$PORT/project/info?projectId=$1"
+  #echo $curl_command
+  eval $curl_command
+}
+
+function project_stop () {
+  echo "Project Stop:"
+  curl_command="curl -POST http://$SERVER:$PORT/project/stop -H \"Content-type: application/json\" -d '{\"projectId\":\"$1\"}'"
+  #echo $curl_command
+  eval $curl_command
+}
+
+function file_reader () {
+  #bak=$IFS
+  content=""
+  if [ ! -f "$1" ];then
+   echo "the $1 is not a file"
+   exit
+  fi
+  #IFS="\t"
+  while read line  
+  do
+     #echo "$line"
+     content=`echo -e "${content}\n${line}"`
+  done < "$1"
+  echo $content
+  #IFS=$bak
+}
+
+#file_reader $1
+
+SERVICE=""
+if [ $# -gt 0 ]; then 
+  case "$1" in 
+    flow)
+      SERVICE=flow
+      ;; 
+    flowGroup)
+      SERVICE=flowGroup
+      ;;
+    project)
+      SERVICE=project
+      ;;
+    *)
+      ;;
+  esac
+fi
+
+if [[ $SERVICE = "" ]]
+then
+  help_info
+
+elif [[ $SERVICE = flow ]]
+then 
+  echo "$(flow_process $2 $3 2>/dev/null)"
+
+elif [[ $SERVICE = flowGroup ]]
+then
+  echo "$(group_process $2 $3 2>/dev/null)"
+
+elif [[ $SERVICE = project ]]
+then
+  echo "$(project_process $2 $3 2>/dev/null)"
+  
+else
+  help_info
+fi
+
+
