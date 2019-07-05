@@ -232,6 +232,9 @@ if [ $# -gt 0 ]; then
       help_info
       ;;
   esac
+
+else
+  help_info
 fi
 
 #if [[ $SERVICE = "" ]]
