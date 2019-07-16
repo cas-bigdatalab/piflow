@@ -8,7 +8,7 @@ import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import scala.sys.process._
 
 class CsvToNeo4J extends ConfigurableStop{
-  override val authorEmail: String = "sha0w@cnic.cn"
+  override val authorEmail: String = "xiaomeng7890@gmail.com"
   override val description: String = "this stop use linux shell & neo4j-import command " +
     "to load CSV file data to create or insert into neo4j" +
     "the neo4j version should be above 3.0"
@@ -20,7 +20,10 @@ class CsvToNeo4J extends ConfigurableStop{
   var dbPath : String = _
   var dbName : String = _
   var idType : String = _
-  var labels : String = _
+  //labels has been removed, you need to convey a string ,which combined by labels and files path in files property
+//  var labels : String = _
+  //files property should looks like => :Label1 xxx.csv,xxx.csv; :Label2 xxx.csv; xxx.csv
+  //split by ';'
   var files : String = _
   var relationshipFiles : String = _
   var ignoreEmptyString : String = _
@@ -55,7 +58,8 @@ class CsvToNeo4J extends ConfigurableStop{
     dbPath = MapUtil.get(map, "storeDir").asInstanceOf[String]
     dbName = MapUtil.get(map, "databaseName").asInstanceOf[String]
     idType = MapUtil.get(map, "idType").asInstanceOf[String]
-    labels = MapUtil.get(map, "labels").asInstanceOf[String]
+    //labels has been removed
+//    labels = MapUtil.get(map, "labels").asInstanceOf[String]
     files = MapUtil.get(map, "files").asInstanceOf[String]
     relationshipFiles = MapUtil.get(map, "relationshipFiles").asInstanceOf[String]
     delimiter = MapUtil.get(map, "delimiter").asInstanceOf[String]
@@ -109,19 +113,19 @@ class CsvToNeo4J extends ConfigurableStop{
       .defaultValue("graph.db")
       .description("Database name to import into. \r\n" +
         "Must not contain existing database.")
-
-    val nodeLabels : PropertyDescriptor = new PropertyDescriptor()
-      .name("labels")
-      .displayName("nodes labels paths")
-      .required(true)
-      .description("Node CSV header and data. Multiple files will be logically seen as one big file " +
-        "\n\tfrom the perspective of the importer. The first line must contain the header. " +
-        "\n\tMultiple data sources like these can be specified in one import, where each data " +
-        "\n\tsource has its own header. Note that file groups must be enclosed in quotation " +
-        "\n\tmarks. Each file can be a regular expression and will then include all matching " +
-        "\n\tfiles. The file matching is done with number awareness such that e.g. " +
-        "\n\tfiles:'File1Part_001.csv', 'File12Part_003' will be ordered in that order for a " +
-        "\n\tpattern like: 'File.*'")
+      // node labels has been removed
+//    val nodeLabels : PropertyDescriptor = new PropertyDescriptor()
+//      .name("labels")
+//      .displayName("nodes labels paths")
+//      .required(true)
+//      .description("Node CSV header and data. Multiple files will be logically seen as one big file " +
+//        "\n\tfrom the perspective of the importer. The first line must contain the header. " +
+//        "\n\tMultiple data sources like these can be specified in one import, where each data " +
+//        "\n\tsource has its own header. Note that file groups must be enclosed in quotation " +
+//        "\n\tmarks. Each file can be a regular expression and will then include all matching " +
+//        "\n\tfiles. The file matching is done with number awareness such that e.g. " +
+//        "\n\tfiles:'File1Part_001.csv', 'File12Part_003' will be ordered in that order for a " +
+//        "\n\tpattern like: 'File.*'")
 
     val nodesFiles : PropertyDescriptor = new PropertyDescriptor()
       .name("files")
@@ -133,8 +137,7 @@ class CsvToNeo4J extends ConfigurableStop{
         "\n\tsource has its own header. Note that file groups must be enclosed in quotation " +
         "\n\tmarks. Each file can be a regular expression and will then include all matching " +
         "\n\tfiles. The file matching is done with number awareness such that e.g. " +
-        "\n\tfiles:'File1Part_001.csv', 'File12Part_003' will be ordered in that order for a " +
-        "\n\tpattern like: 'File.*'")
+        "\n\tfiles property should looks like => :Label1 xxx.csv,xxx.csv;:Label2 xxx.csv;xxx.csv")
 
     val relationships : PropertyDescriptor = new PropertyDescriptor()
       .name("relationshipFiles")
@@ -147,7 +150,7 @@ class CsvToNeo4J extends ConfigurableStop{
         "\n\tquotation marks. Each file can be a regular expression and will then include all " +
         "\n\tmatching files. The file matching is done with number awareness such that e.g. " +
         "\n\tfiles:'File1Part_001.csv', 'File12Part_003' will be ordered in that order for a " +
-        "\n\tpattern like: 'File.*'")
+        "\n\tfiles property should looks like => :Label1 xxx.csv,xxx.csv;:Label2 xxx.csv;xxx.csv")
 
     val delimiter : PropertyDescriptor = new PropertyDescriptor()
       .name("delimiter")
@@ -372,7 +375,7 @@ class CsvToNeo4J extends ConfigurableStop{
       .allowableValues(Set("false", "true"))
       .description("Use the old detailed 'spectrum' progress printing. Default value: false")
 
-    List(f, into, database, nodeLabels, nodesFiles,
+    List(f, into, database, nodesFiles,
       relationships, delimiter, arrayDelimiter,
       quote, multilineFields, trimString, inputEncoding,
       ignoreEmptyString, idType, processors, stackTrace,
@@ -393,8 +396,8 @@ class CsvToNeo4J extends ConfigurableStop{
     makeCommand("into", dbPath) +
     makeCommand("f", argumentFiles) +
     makeCommand("database", dbName) +
-    makeCommand("nodes", labels, files) +
-    makeCommand("relationships", relationshipFiles) +
+    makeCommand("nodes", files.split(";")) +
+    makeCommand("relationships", relationshipFiles.split(";")) +
     makeCommand("delimiter", delimiter) +
     makeCommand("array-delimiter", arrayDelimiter) +
     makeCommand("quote", quote) +
@@ -431,4 +434,20 @@ class CsvToNeo4J extends ConfigurableStop{
   def makeCommand (commandPrefix : String, comm1 : String, comm2 : String): String = {
     "--" + commandPrefix + " " + comm1 + " " + comm2
   }
+  def makeCommand (commandPrefix : String, comm1 : Array[String]) : String = {
+    comm1.map(str => makeCommand(commandPrefix, str)).reduce(_ + " " + _)
+  }
+  def makeLabeledCommand (commandPrefix : String, comm : String) : String = {
+    if (comm == "default") ""
+    else {
+      if (comm startsWith ":")
+        "--" + commandPrefix + comm
+      else {
+        "--" + commandPrefix + " " + comm
+      }
+    }
+  }
+}
+object CsvToNeo4J {
+
 }
