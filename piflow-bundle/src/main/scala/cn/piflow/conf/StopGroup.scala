@@ -1,7 +1,7 @@
 package cn.piflow.conf
 
 object StopGroup {
-
+  val NSFC = "NSFC"
   val CommonGroup = "Common"
   val CsvGroup = "CSV"
   val HiveGroup = "Hive"

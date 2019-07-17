@@ -12,7 +12,7 @@ import org.apache.spark.sql.types.{DataTypes, StringType, StructField, StructTyp
 import org.apache.spark.sql.{Row, SparkSession}
 
 class RdfToDF extends ConfigurableStop{
-  override val authorEmail: String = "shaow@cnic.cn"
+  override val authorEmail: String = "xiaomeng7890@gmail.com"
 
   override val description: String = "convert *.n3 RDF file to CSV(DataFrame) file"
 
