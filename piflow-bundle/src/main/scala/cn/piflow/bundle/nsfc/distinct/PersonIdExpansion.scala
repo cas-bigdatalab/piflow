@@ -8,6 +8,9 @@ import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.{Row, SparkSession}
 
+/**
+  * expand the id from id:idtype to id:typea;_:typeb
+  * */
 class PersonIdExpansion extends ConfigurableStop{
   override val authorEmail: String = "xiaomeng7890@gmail.com"
   override val description: String = "nothing to say bro"
