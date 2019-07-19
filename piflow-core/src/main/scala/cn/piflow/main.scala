@@ -7,19 +7,13 @@ import java.util.concurrent.{CountDownLatch, TimeUnit}
 import cn.piflow.util._
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.FileSystem
-import org.apache.kafka.common.serialization.StringDeserializer
-import org.apache.spark.launcher.SparkAppHandle
-import org.apache.spark.rdd.RDD
 import org.apache.spark.sql._
-import org.apache.spark.sql.types.{StringType, StructField, StructType}
 import org.apache.spark.streaming.{Seconds, StreamingContext}
 import org.apache.spark.streaming.dstream.{DStream, InputDStream, ReceiverInputDStream}
-import org.apache.spark.streaming.kafka010.ConsumerStrategies.Subscribe
-import org.apache.spark.streaming.kafka010.KafkaUtils
-import org.apache.spark.streaming.kafka010.LocationStrategies.PreferConsistent
+
 
 import scala.collection.mutable.{ArrayBuffer, Map => MMap}
-import scala.reflect.ClassTag
+import org.apache.spark.sql.functions.max
 
 trait JobInputStream {
   def isEmpty(): Boolean;
@@ -43,6 +37,8 @@ trait JobOutputStream {
   def sendError();
 
   def getDataCount() : MMap[String, Long];
+
+  def getIncrementalValue(pec: JobContext, incrementalField : String): String;
 }
 
 trait StopJob {
@@ -74,6 +70,20 @@ trait StreamingStop extends Stop{
   def getDStream(ssc : StreamingContext): DStream[String];
 }
 
+trait IncrementalStop extends Stop{
+
+  var incrementalField : String
+  var incrementalValue : String
+  var incrementalPath : String
+
+  def init(flowName : String, stopName : String): Unit
+  def readIncrementalValue(): String;
+  def saveIncrementalValue(value : String);
+
+  def getIncrementalField (): String = { incrementalField}
+  def setIncrementalField (field : String) = {incrementalField = field}
+}
+
 trait ProjectEntry {}
 
 trait Flow extends ProjectEntry{
@@ -102,6 +112,10 @@ trait Flow extends ProjectEntry{
   def hasStreamingStop() : Boolean;
 
   def getStreamingStop() : (String, StreamingStop);
+
+  def hasIncrementalStop() : Boolean;
+
+  def getIncrementalStop() : (String, IncrementalStop);
 
 
   //Flow Josn String API
@@ -281,6 +295,24 @@ class FlowImpl extends Flow {
     null
   }
 
+  override def hasIncrementalStop() : Boolean = {
+    stops.keys.foreach{ stopName => {
+      if( stops(stopName).isInstanceOf[IncrementalStop] ){
+        return true
+      }
+    }}
+    false
+  }
+
+  override def getIncrementalStop() : (String, IncrementalStop) = {
+    stops.keys.foreach{ stopName => {
+      if( stops(stopName).isInstanceOf[StreamingStop] ){
+        return (stopName, stops(stopName).asInstanceOf[IncrementalStop])
+      }
+    }}
+    null
+  }
+
   override def setFlowJson(flowJson: String): Unit = {
     this.flowJson = flowJson
   }
@@ -450,7 +482,7 @@ class JobOutputStreamImpl() extends JobOutputStream with Logging {
 
   //get the checkpoint ports list
   private def getCheckPointPorts(pec: JobContext, checkpointPath : String) : List[String] = {
-    HadoopFileUtil.getFileInHadoopPath(checkpointPath)
+    HdfsUtil.getFiles(checkpointPath)
   }
 
   val mapDataFrame = MMap[String, () => DataFrame]();
@@ -504,6 +536,17 @@ class JobOutputStreamImpl() extends JobOutputStream with Logging {
     sparkSession.sparkContext.applicationId
   }
 
+  override def getIncrementalValue(pec: JobContext, incrementalField : String): String = {
+
+    var incrementalValue : String = ""
+    mapDataFrame.foreach(en => {
+
+      val Row(maxValue : Any) = en._2.apply().agg(max(incrementalField)).head()
+      incrementalValue = maxValue.toString
+
+    })
+    incrementalValue
+  }
 }
 
 class ProcessImpl(flow: Flow, runnerContext: Context, runner: Runner, parentProcess: Option[Process] = None)
@@ -553,7 +596,12 @@ class ProcessImpl(flow: Flow, runnerContext: Context, runner: Runner, parentProc
             val spark = pec.get[SparkSession]()
             import spark.implicits._
             val df = rdd.toDF("value")
-            df.show(10)
+
+            //show data in log
+            val showDataCount = PropertyUtil.getPropertyValue("data.show").toInt
+            if(showDataCount > 0) {
+              df.show(showDataCount)
+            }
             val streamingData = new JobOutputStreamImpl()
             streamingData.write(df)
 
@@ -607,6 +655,14 @@ class ProcessImpl(flow: Flow, runnerContext: Context, runner: Runner, parentProc
           if (checkpointParentProcessId.equals("")) {
             println("Visit process " + stopName + "!!!!!!!!!!!!!")
             outputs = pe.perform(inputs);
+
+            //TODO: save incremental Field value to hdfs
+            if(pe.getStop().isInstanceOf[IncrementalStop]){
+              val incrementalField = pe.getStop().asInstanceOf[IncrementalStop].getIncrementalField()
+              val incrementalValue = outputs.getIncrementalValue(pe.getContext(), incrementalField)
+              pe.getStop().asInstanceOf[IncrementalStop].saveIncrementalValue(incrementalValue)
+            }
+
 
             if (flow.hasCheckPoint(stopName)) {
               outputs.makeCheckPoint(pe.getContext());

@@ -9,9 +9,9 @@ import java.util.concurrent.CountDownLatch
 import org.apache.spark.sql.SparkSession
 import cn.piflow.conf.util.{ClassUtil, MapUtil, OptionUtil}
 import cn.piflow.{FlowGroupExecution, Process, ProjectExecution, Runner}
-import cn.piflow.api.util.{HdfsUtil, PropertyUtil}
+import cn.piflow.api.util.PropertyUtil
 import cn.piflow.conf.bean.{FlowGroupBean, ProjectBean}
-import cn.piflow.util.{FlowState, H2Util, HadoopFileUtil}
+import cn.piflow.util.{FlowState, H2Util, HdfsUtil}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
 import org.apache.http.client.methods.{CloseableHttpResponse, HttpGet, HttpPost, HttpPut}
@@ -74,8 +74,9 @@ object API {
     flowGroupExecution
   }
 
-  def stopFlowGroup(flowGroupExecution : FlowGroupExecution): Unit ={
+  def stopFlowGroup(flowGroupExecution : FlowGroupExecution): String ={
     flowGroupExecution.stop()
+    "ok"
   }
 
   def getFlowGroupInfo(groupId : String) : String = {
@@ -208,7 +209,7 @@ object API {
 
   def getFlowCheckpoint(appId:String) : String = {
     val checkpointPath = PropertyUtil.getPropertyValue("checkpoint.path").stripSuffix("/") + "/" + appId
-    val checkpointList = HadoopFileUtil.getFileInHadoopPath(checkpointPath)
+    val checkpointList = HdfsUtil.getFiles(checkpointPath)
     """{"checkpoints":"""" + checkpointList.mkString(",") + """"}"""
   }
 

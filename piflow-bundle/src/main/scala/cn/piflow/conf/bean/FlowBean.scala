@@ -54,7 +54,7 @@ class FlowBean extends ProjectEntryBean{
     //construct StopBean List
     val stopsList = MapUtil.get(flowMap,"stops").asInstanceOf[List[Map[String, Any]]]
     stopsList.foreach( stopMap => {
-      val stop = StopBean(stopMap.asInstanceOf[Map[String, Any]])
+      val stop = StopBean(this.name, stopMap.asInstanceOf[Map[String, Any]])
       this.stops =   stop +: this.stops
     })
 

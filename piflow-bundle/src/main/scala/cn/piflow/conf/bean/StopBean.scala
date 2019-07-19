@@ -2,16 +2,20 @@ package cn.piflow.conf.bean
 
 import java.lang.ClassNotFoundException
 
-import cn.piflow.conf.ConfigurableStop
+import cn.piflow.conf.{ConfigurableIncrementalStop, ConfigurableStop}
 import cn.piflow.conf.util.{ClassUtil, MapUtil}
 
+import scala.collection.mutable
+
 class StopBean {
+  var flowName : String = _
   var uuid : String = _
   var name : String = _
   var bundle : String = _
   var properties : Map[String, String] = _
 
-  def init(map:Map[String,Any]) = {
+  def init(flowName : String, map:Map[String,Any]) = {
+    this.flowName = flowName
     this.uuid = MapUtil.get(map,"uuid").asInstanceOf[String]
     this.name = MapUtil.get(map,"name").asInstanceOf[String]
     this.bundle = MapUtil.get(map,"bundle").asInstanceOf[String]
@@ -22,7 +26,29 @@ class StopBean {
 
     try{
       val stop = ClassUtil.findConfigurableStop(this.bundle)
-      stop.setProperties(this.properties)
+
+
+      //init ConfigurableIncrementalStop
+      if( stop.isInstanceOf[ConfigurableIncrementalStop]){
+        stop.asInstanceOf[ConfigurableIncrementalStop].init(flowName, name)
+        val incrementalValue = stop.asInstanceOf[ConfigurableIncrementalStop].incrementalValue
+
+
+        //replace the tag of incremental Field in properties
+        val newProperties: scala.collection.mutable.Map[String, String] = scala.collection.mutable.Map()
+        val it = this.properties.keysIterator
+        while(it.hasNext){
+          val key = it.next()
+          var value = this.properties(key)
+          value = value.replaceAll("#~#",incrementalValue)
+          newProperties(key) = value
+        }
+        stop.setProperties(newProperties.toMap)
+
+      }else
+        stop.setProperties(this.properties)
+
+
       stop
     }catch {
       case ex : Exception => throw ex
@@ -33,9 +59,9 @@ class StopBean {
 
 object StopBean  {
 
-  def apply(map : Map[String, Any]): StopBean = {
+  def apply(flowName : String, map : Map[String, Any]): StopBean = {
     val stopBean = new StopBean()
-    stopBean.init(map)
+    stopBean.init(flowName, map)
     stopBean
   }
 

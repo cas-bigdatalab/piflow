@@ -239,15 +239,15 @@ class LoadFromFtpToHDFS extends ConfigurableStop{
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
-    val url_str = new PropertyDescriptor().name("url_str").displayName("URL").defaultValue("IP of FTP server, such as 128.136.0.1 or ftp.ei.addfc.gak").required(true)
-    val port = new PropertyDescriptor().name("port").displayName("PORT").defaultValue("Port of FTP server").required(false)
-    val username = new PropertyDescriptor().name("username").displayName("USER_NAME").defaultValue("").required(false)
-    val password = new PropertyDescriptor().name("password").displayName("PASSWORD").defaultValue("").required(false)
-    val ftpFile = new PropertyDescriptor().name("ftpFile").displayName("FTP_File").defaultValue("The path of the file to the FTP server, such as /test/Ab/ or /test/Ab/test.txt").required(true)
-    val HDFSUrl = new PropertyDescriptor().name("HDFSUrl").displayName("HDFSUrl").defaultValue("The URL of the HDFS file system, such as hdfs://10.0.88.70:9000").required(true)
-    val HDFSPath = new PropertyDescriptor().name("HDFSPath").displayName("HDFSPath").defaultValue("The save path of the HDFS file system, such as /test/Ab/").required(true)
-    val isFile = new PropertyDescriptor().name("isFile").displayName("isFile").defaultValue("Whether the path is a file or not, if true is filled in, only a single file specified by the path is downloaded. If false is filled in, all files under the folder are downloaded recursively.").required(true)
-    val filterByName = new PropertyDescriptor().name("filterByName").displayName("filterByName").defaultValue("If you choose to download the entire directory, you can use this parameter to filter the files you need to download. " +
+    val url_str = new PropertyDescriptor().name("url_str").displayName("URL").description("IP of FTP server, such as 128.136.0.1 or ftp.ei.addfc.gak").required(true)
+    val port = new PropertyDescriptor().name("port").displayName("PORT").description("Port of FTP server").required(false)
+    val username = new PropertyDescriptor().name("username").displayName("USER_NAME").description("").required(false)
+    val password = new PropertyDescriptor().name("password").displayName("PASSWORD").description("").required(false)
+    val ftpFile = new PropertyDescriptor().name("ftpFile").displayName("FTP_File").description("The path of the file to the FTP server, such as /test/Ab/ or /test/Ab/test.txt").required(true)
+    val HDFSUrl = new PropertyDescriptor().name("HDFSUrl").displayName("HDFSUrl").description("The URL of the HDFS file system, such as hdfs://10.0.88.70:9000").required(true)
+    val HDFSPath = new PropertyDescriptor().name("HDFSPath").displayName("HDFSPath").description("The save path of the HDFS file system, such as /test/Ab/").required(true)
+    val isFile = new PropertyDescriptor().name("isFile").displayName("isFile").description("Whether the path is a file or not, if true is filled in, only a single file specified by the path is downloaded. If false is filled in, all files under the folder are downloaded recursively.").required(true)
+    val filterByName = new PropertyDescriptor().name("filterByName").displayName("filterByName").description("If you choose to download the entire directory, you can use this parameter to filter the files you need to download. " +
       "What you need to fill in here is standard Java regular expressions. For example, you need to download all files in the /A/ directory that end in .gz " +
       "You can fill in .*.gz here. If there are multiple screening conditions, need to use ; segmentation.").required(false)
 

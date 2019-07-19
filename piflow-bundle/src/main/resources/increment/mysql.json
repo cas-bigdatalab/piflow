@@ -1,0 +1,38 @@
+{
+  "flow":{
+    "name":"incremental",
+    "uuid":"1234",
+    "stops":[
+      {
+        "uuid":"1111",
+        "name":"MysqlReadIncremental",
+        "bundle":"cn.piflow.bundle.jdbc.MysqlReadIncremental",
+        "properties":{
+          "url":"jdbc:mysql://10.0.86.90:3306/sparktest",
+          "sql":"select * from student where id > #~#",
+          "user":"root",
+          "password":"root",
+          "incrementalField":"id"
+        }
+      },
+      {
+        "uuid":"888",
+        "name":"CsvSave",
+        "bundle":"cn.piflow.bundle.csv.CsvSave",
+        "properties":{
+          "csvSavePath":"hdfs://10.0.86.89:9000/xjzhu/phdthesis_result.csv",
+          "header":"true",
+          "delimiter":","
+        }
+      }
+    ],
+    "paths":[
+      {
+        "from":"MysqlReadIncremental",
+        "outport":"",
+        "inport":"",
+        "to":"CsvSave"
+      }
+    ]
+  }
+}
