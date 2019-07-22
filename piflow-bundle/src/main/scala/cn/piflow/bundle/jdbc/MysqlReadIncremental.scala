@@ -11,6 +11,7 @@ import org.apache.spark.sql.SparkSession
   */
 class MysqlReadIncremental extends ConfigurableIncrementalStop{
   override var incrementalField: String = _
+  override var incrementalStart: String = _
   override val authorEmail: String = "xjzhu@cnic.cn"
   override val description: String = "Read data from jdbc database"
   override val inportList: List[String] = List(PortEnum.NonePort.toString)
@@ -29,6 +30,7 @@ class MysqlReadIncremental extends ConfigurableIncrementalStop{
     password = MapUtil.get(map,"password").asInstanceOf[String]
     sql = MapUtil.get(map,"sql").asInstanceOf[String]
     incrementalField = MapUtil.get(map,"incrementalField").asInstanceOf[String]
+    incrementalStart = MapUtil.get(map,"incrementalStart").asInstanceOf[String]
 
   }
 
@@ -51,6 +53,9 @@ class MysqlReadIncremental extends ConfigurableIncrementalStop{
 
     val incrementalField=new PropertyDescriptor().name("incrementalField").displayName("incrementalField").description("The incremental field").defaultValue("").required(true)
     descriptor = incrementalField :: descriptor
+
+    val incrementalStart=new PropertyDescriptor().name("incrementalStart").displayName("incrementalStart").description("The incremental start value").defaultValue("").required(true)
+    descriptor = incrementalStart :: descriptor
 
     descriptor
   }

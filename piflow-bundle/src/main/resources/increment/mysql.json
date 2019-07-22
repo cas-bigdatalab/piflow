@@ -8,11 +8,12 @@
         "name":"MysqlReadIncremental",
         "bundle":"cn.piflow.bundle.jdbc.MysqlReadIncremental",
         "properties":{
-          "url":"jdbc:mysql://10.0.86.90:3306/sparktest",
-          "sql":"select * from student where id > #~#",
+          "url":"jdbc:mysql://10.0.86.191:3306/piflow_web",
+          "sql":"select * from flow where last_update_dttm > #~#",
           "user":"root",
           "password":"root",
-          "incrementalField":"id"
+          "incrementalField":"last_update_dttm",
+          "incrementalStart":"2019-05-05 15:48:29"
         }
       },
       {

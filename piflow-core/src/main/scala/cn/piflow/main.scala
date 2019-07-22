@@ -73,12 +73,12 @@ trait StreamingStop extends Stop{
 trait IncrementalStop extends Stop{
 
   var incrementalField : String
-  var incrementalValue : String
+  var incrementalStart : String
   var incrementalPath : String
 
   def init(flowName : String, stopName : String): Unit
-  def readIncrementalValue(): String;
-  def saveIncrementalValue(value : String);
+  def readIncrementalStart(): String;
+  def saveIncrementalStart(value : String);
 
   def getIncrementalField (): String = { incrementalField}
   def setIncrementalField (field : String) = {incrementalField = field}
@@ -540,10 +540,10 @@ class JobOutputStreamImpl() extends JobOutputStream with Logging {
 
     var incrementalValue : String = ""
     mapDataFrame.foreach(en => {
-
-      val Row(maxValue : Any) = en._2.apply().agg(max(incrementalField)).head()
-      incrementalValue = maxValue.toString
-
+      if(!en._2.apply().head(1).isEmpty){
+        val Row(maxValue : Any) = en._2.apply().agg(max(incrementalField)).head()
+        incrementalValue = maxValue.toString
+      }
     })
     incrementalValue
   }
@@ -660,7 +660,9 @@ class ProcessImpl(flow: Flow, runnerContext: Context, runner: Runner, parentProc
             if(pe.getStop().isInstanceOf[IncrementalStop]){
               val incrementalField = pe.getStop().asInstanceOf[IncrementalStop].getIncrementalField()
               val incrementalValue = outputs.getIncrementalValue(pe.getContext(), incrementalField)
-              pe.getStop().asInstanceOf[IncrementalStop].saveIncrementalValue(incrementalValue)
+              if(incrementalValue != ""){
+                pe.getStop().asInstanceOf[IncrementalStop].saveIncrementalStart(incrementalValue)
+              }
             }
 
 

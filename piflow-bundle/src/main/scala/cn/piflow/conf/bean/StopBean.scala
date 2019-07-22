@@ -31,8 +31,14 @@ class StopBean {
       //init ConfigurableIncrementalStop
       if( stop.isInstanceOf[ConfigurableIncrementalStop]){
         stop.asInstanceOf[ConfigurableIncrementalStop].init(flowName, name)
-        val incrementalValue = stop.asInstanceOf[ConfigurableIncrementalStop].incrementalValue
-
+        var startValue : String = stop.asInstanceOf[ConfigurableIncrementalStop].readIncrementalStart()
+        if(startValue == null || startValue == ""){
+          if(this.properties.contains("incrementalStart")){
+            startValue = MapUtil.get(this.properties,"incrementalStart").asInstanceOf[String]
+          }else{
+            throw new Exception("You must set incrementalStart value!")
+          }
+        }
 
         //replace the tag of incremental Field in properties
         val newProperties: scala.collection.mutable.Map[String, String] = scala.collection.mutable.Map()
@@ -40,7 +46,7 @@ class StopBean {
         while(it.hasNext){
           val key = it.next()
           var value = this.properties(key)
-          value = value.replaceAll("#~#",incrementalValue)
+          value = value.replaceAll("#~#", "'" + startValue + "'")
           newProperties(key) = value
         }
         stop.setProperties(newProperties.toMap)
