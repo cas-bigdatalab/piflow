@@ -1,6 +1,5 @@
 package cn.piflow.api
 
-import cn.piflow.conf.util.{JsonUtil, MapUtil, OptionUtil}
 import org.apache.http.client.config.RequestConfig
 import org.apache.http.client.methods.{CloseableHttpResponse, HttpPost}
 import org.apache.http.entity.StringEntity
