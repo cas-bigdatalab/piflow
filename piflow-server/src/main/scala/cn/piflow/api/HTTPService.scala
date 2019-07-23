@@ -171,22 +171,26 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
    case HttpRequest(POST, Uri.Path("/flow/stop"), headers, entity, protocol) =>{
       val data = toJson(entity)
       val appId  = data.get("appID").getOrElse("").asInstanceOf[String]
-      if(appId.equals("") || !processMap.contains(appId)){
-        Future.failed(new Exception("Can not found process Error!"))
+      if(appId.equals("")){
+        Future.failed(new Exception("Can not found application Error!"))
       }else{
 
-        processMap.get(appId) match {
-          case Some(process) =>
-            val result = API.stopFlow(appId, process)
-            processMap.-(appId)
-            Future.successful(HttpResponse(SUCCESS_CODE, entity = result))
-          case ex =>{
-            println(ex)
-            Future.successful(HttpResponse(FAIL_CODE, entity = "Can not found process Error!"))
+        if(processMap.contains(appId)) {
+          processMap.get(appId) match {
+            case Some(process) =>
+              val result = API.stopFlow(appId, process)
+              processMap.-(appId)
+              Future.successful(HttpResponse(SUCCESS_CODE, entity = result))
+            case ex => {
+              println(ex)
+              Future.successful(HttpResponse(FAIL_CODE, entity = "Can not found process Error!"))
+            }
+
           }
-
-        }
-
+        }else{
+            val result = API.stopFlowOnYarn(appId)
+            Future.successful(HttpResponse(SUCCESS_CODE, entity = result))
+          }
       }
     }
 
