@@ -80,8 +80,6 @@ trait IncrementalStop extends Stop{
   def readIncrementalStart(): String;
   def saveIncrementalStart(value : String);
 
-  def getIncrementalField (): String = { incrementalField}
-  def setIncrementalField (field : String) = {incrementalField = field}
 }
 
 trait ProjectEntry {}
@@ -658,7 +656,7 @@ class ProcessImpl(flow: Flow, runnerContext: Context, runner: Runner, parentProc
 
             //TODO: save incremental Field value to hdfs
             if(pe.getStop().isInstanceOf[IncrementalStop]){
-              val incrementalField = pe.getStop().asInstanceOf[IncrementalStop].getIncrementalField()
+              val incrementalField = pe.getStop().asInstanceOf[IncrementalStop].incrementalField
               val incrementalValue = outputs.getIncrementalValue(pe.getContext(), incrementalField)
               if(incrementalValue != ""){
                 pe.getStop().asInstanceOf[IncrementalStop].saveIncrementalStart(incrementalValue)

@@ -17,13 +17,11 @@
         }
       },
       {
-        "uuid":"888",
-        "name":"CsvSave",
-        "bundle":"cn.piflow.bundle.csv.CsvSave",
+        "uuid":"2222",
+        "name":"JsonSave",
+        "bundle":"cn.piflow.bundle.json.JsonSave",
         "properties":{
-          "csvSavePath":"hdfs://10.0.86.89:9000/xjzhu/phdthesis_result.csv",
-          "header":"true",
-          "delimiter":","
+          "jsonSavePath":"hdfs://10.0.86.89:9000/xjzhu/flow.json"
         }
       }
     ],
@@ -32,7 +30,7 @@
         "from":"MysqlReadIncremental",
         "outport":"",
         "inport":"",
-        "to":"CsvSave"
+        "to":"JsonSave"
       }
     ]
   }

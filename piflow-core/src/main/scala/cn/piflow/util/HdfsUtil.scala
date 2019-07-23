@@ -54,6 +54,35 @@ object HdfsUtil {
     line
   }
 
+  def getLines(file : String) : List[String] = {
+
+    var result = List[String]()
+    var line : String = ""
+    var inputStream : FSDataInputStream = null
+    var bufferedReader : BufferedReader = null
+
+    try{
+      inputStream = getFSDataInputStream(file)
+      bufferedReader = new BufferedReader(new InputStreamReader(inputStream))
+      line = bufferedReader.readLine();
+      while (line != null){
+        result = line +: result
+        line = bufferedReader.readLine()
+      }
+
+    }catch{
+      case ex : Exception => println(ex)
+    }finally {
+      if(bufferedReader != null){
+        bufferedReader.close()
+      }
+      if(inputStream != null){
+        close()
+      }
+    }
+    result
+  }
+
   def saveLine(file : String, line: String) = {
 
     if(!file.equals("")){

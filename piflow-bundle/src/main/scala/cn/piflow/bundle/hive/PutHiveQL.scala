@@ -3,6 +3,7 @@ package cn.piflow.bundle.hive
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import cn.piflow.conf._
+import cn.piflow.util.HdfsUtil
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.apache.spark.sql.SparkSession
 
@@ -10,8 +11,8 @@ class PutHiveQL extends ConfigurableStop {
 
   val authorEmail: String = "xiaoxiao@cnic.cn"
   val description: String = "Execute hiveQL script"
-  val inportList: List[String] = List(PortEnum.NonePort.toString)
-  val outportList: List[String] = List(PortEnum.NonePort.toString)
+  val inportList: List[String] = List(PortEnum.DefaultPort.toString)
+  val outportList: List[String] = List(PortEnum.DefaultPort.toString)
 
   var database:String =_
 
@@ -25,7 +26,8 @@ class PutHiveQL extends ConfigurableStop {
       import scala.io.Source
       sql(sqlText= "use "+database)
       var lines:String=""
-      Source.fromFile(hiveQL_path).getLines().foreach(x=>{
+      //Source.fromFile(hiveQL_path).getLines().foreach(x=>{
+      HdfsUtil.getLines(hiveQL_path).foreach(x => {
         if(x.contains(";")){
           lines=lines+" "+x.replace(";","")
           println(lines)
@@ -49,7 +51,7 @@ class PutHiveQL extends ConfigurableStop {
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
-    val hiveQL_path = new PropertyDescriptor().name("hiveQL_Path").displayName("HiveQL_Path").description("The path of the hiveQL file").defaultValue("").required(true)
+    val hiveQL_path = new PropertyDescriptor().name("hiveQL_Path").displayName("HiveQL_Path").description("The hdfs path of the hiveQL file").defaultValue("").required(true)
     val database=new PropertyDescriptor().name("database").displayName("DataBase").description("The database name which the hiveQL" +
       "will execute on").defaultValue("").required(true)
     descriptor = hiveQL_path :: descriptor

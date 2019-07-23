@@ -24,7 +24,7 @@ class JdbcReadFromOracle extends ConfigurableStop{
   var user:String = _
   var password:String = _
   var sql:String = _
-  var schame:String=_
+  var schema:String=_
 
 
   def toByteArray(in: InputStream): Array[Byte] = {
@@ -48,7 +48,7 @@ class JdbcReadFromOracle extends ConfigurableStop{
     val rs: ResultSet = pre.executeQuery()
 
 
-    val filedNames: Array[String] = schame.split(",")
+    val filedNames: Array[String] = schema.split(",")
     var rowsArr:ArrayBuffer[ArrayBuffer[Any]]=ArrayBuffer()
     var rowArr:ArrayBuffer[Any]=ArrayBuffer()
     while (rs.next()){
@@ -122,14 +122,14 @@ class JdbcReadFromOracle extends ConfigurableStop{
       sf
     })
 
-    val schema: StructType = StructType(fields)
+    val schemaNew: StructType = StructType(fields)
     val rows: List[Row] = rowsArr.toList.map(arr => {
 
       val row: Row = Row.fromSeq(arr)
       row
     })
     val rdd: RDD[Row] = session.sparkContext.makeRDD(rows)
-    val df: DataFrame = session.createDataFrame(rdd,schema)
+    val df: DataFrame = session.createDataFrame(rdd,schemaNew)
 
     out.write(df)
 
@@ -145,7 +145,7 @@ class JdbcReadFromOracle extends ConfigurableStop{
     user = MapUtil.get(map,"user").asInstanceOf[String]
     password = MapUtil.get(map,"password").asInstanceOf[String]
     sql = MapUtil.get(map,"sql").asInstanceOf[String]
-    schame = MapUtil.get(map,"fileNamesString").asInstanceOf[String]
+    schema = MapUtil.get(map,"schema").asInstanceOf[String]
   }
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
@@ -163,8 +163,8 @@ class JdbcReadFromOracle extends ConfigurableStop{
     val sql=new PropertyDescriptor().name("sql").displayName("sql").description("The sql you want").defaultValue("").required(true)
     descriptor = sql :: descriptor
 
-    val schame=new PropertyDescriptor().name("schame").displayName("schame").description("The name of the field of your SQL statement query, such as: ID.number, name.varchar").defaultValue("").required(true)
-    descriptor = schame :: descriptor
+    val schema=new PropertyDescriptor().name("schema").displayName("schema").description("The name of the field of your SQL statement query, such as: ID.number, name.varchar").defaultValue("").required(true)
+    descriptor = schema :: descriptor
 
     descriptor
   }

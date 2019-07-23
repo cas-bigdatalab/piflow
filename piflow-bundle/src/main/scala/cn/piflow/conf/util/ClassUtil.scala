@@ -51,7 +51,7 @@ object ClassUtil {
       breakable{
 
         val stopName = it.next.getName
-        if (stopName.equals("cn.piflow.conf.ConfigurableStreamingStop"))
+        if (stopName.equals("cn.piflow.conf.ConfigurableStreamingStop") || stopName.equals("cn.piflow.conf.ConfigurableIncrementalStop") )
           break
         else{
           //println(stopName + " in findAllConfigurableStop!!!!!")
