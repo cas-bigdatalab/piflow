@@ -18,6 +18,7 @@ class RedisDistinctCachePersist extends ConfigurableStop {
   var distinct_rule : String = _
   var redis_server_ip : String = _
   var redis_server_port : Int = _
+  var redis_server_passwd : String = _
 
   override def setProperties(map: Map[String, Any]): Unit = {
     persist_needed_fields = MapUtil.get(map,"distinct field").asInstanceOf[String]
@@ -25,10 +26,17 @@ class RedisDistinctCachePersist extends ConfigurableStop {
     distinct_rule = MapUtil.get(map,"distinct rule").asInstanceOf[String]
     redis_server_ip = MapUtil.get(map,"redis ip").asInstanceOf[String]
     redis_server_port = MapUtil.get(map,"redis port").asInstanceOf[Int]
+    redis_server_passwd = MapUtil.get(map,"redis passwd").asInstanceOf[String]
   }
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
+    val redis_passwd = new PropertyDescriptor().
+      name("redis passwd").
+      displayName("redis passwd").
+      description("redis server passwd").
+      required(true)
+    descriptor = redis_passwd :: descriptor
 
     val redis_port = new PropertyDescriptor().
       name("redis port").
@@ -80,7 +88,7 @@ class RedisDistinctCachePersist extends ConfigurableStop {
 
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     val jedisCluster : JedisClusterImplSer =
-      new JedisClusterImplSer(new HostAndPort(redis_server_ip, redis_server_port))
+      new JedisClusterImplSer(new HostAndPort(redis_server_ip, redis_server_port), redis_server_passwd)
     val df = in.read()
     val mPrimaryKeyIndex = df.schema.fieldIndex(persist_primary_field) //PSNCODE
     val df_mperson_fields = persist_needed_fields.split(",").+:(persist_primary_field)

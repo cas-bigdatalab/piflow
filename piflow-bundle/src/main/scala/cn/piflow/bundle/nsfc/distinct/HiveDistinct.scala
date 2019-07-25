@@ -42,6 +42,10 @@ class HiveDistinct  extends ConfigurableStop{
   }
 
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
+    if (noChange){
+      out.write(in.read())
+      return
+    }
     val spark = pec.get[SparkSession]()
   }
 }
