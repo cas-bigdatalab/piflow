@@ -4,7 +4,7 @@ import java.text.SimpleDateFormat
 import java.util.{Date, UUID}
 
 import org.apache.spark.sql.Row
-import org.apache.spark.sql.types.{StringType, StructField, StructType}
+import org.apache.spark.sql.types.{LongType, StringType, StructField, StructType}
 
 object NSFCUtil {
   val dateFormat: SimpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
@@ -35,8 +35,10 @@ object NSFCUtil {
     for (index <- 0 until beforeSchema.length) {
       val name = beforeSchema(index).name
       name match {
-        case `idTypeField` => if (beforeRowSeq(index) == null) card_type = "null" else card_type = String.valueOf(beforeRowSeq(index))
-        case `idField` => if (beforeRowSeq(index) == null) card_code = "null" else card_code = String.valueOf(beforeRowSeq(index))
+        case `idTypeField` => if (beforeRowSeq(index) == null)
+          card_type = "null" else card_type = String.valueOf(beforeRowSeq(index))
+        case `idField` => if (beforeRowSeq(index) == null)
+          card_code = "null" else card_code = String.valueOf(beforeRowSeq(index))
         case _ => afterMap.put(beforeSchema(index).name, beforeRowSeq(index))
       }
     }
@@ -59,6 +61,7 @@ object NSFCUtil {
     afterMap.put("mainland_travel_permit_for_taiwan_residents", ifNUll(six))
     afterMap.put("source", source) // 加入source字段
     afterMap.put("uuid", UUID.randomUUID().toString)
+    afterMap.put("id_hash", (card_code + card_type).##.toString)
     for (index <- 0 until afterSchema.length) {
       if (!afterMap.keySet.contains(afterSchema(index).name)) {
         afterMap.put(afterSchema(index).name, null)
@@ -81,7 +84,8 @@ object NSFCUtil {
       afterSchema = afterSchema.add(f.name, f.dataType,nullable = true)
     })
     afterSchema = afterSchema.add("source", StringType, nullable = true)
-    afterSchema.add("uuid", StringType, nullable = true)
+    afterSchema = afterSchema.add("uuid", StringType, nullable = true)
+    afterSchema.add("id_hash", StringType, nullable = true)
   }
 
 
