@@ -102,6 +102,35 @@ object NSFCUtil {
       date
     }
   }
+  def mkRowKey(schema_result:StructType, row: Row, key : String): String = {
+    var hasNull = false
+    var s = ""
+    if (key.contains("&")) {
+      val sl = key.split("&")
+      sl.foreach(s_ => {
+        val index = schema_result.fieldIndex(s_)
+        if (!row.isNullAt(index)) {
+          s += row.getAs[String](index)
+        } else {
+          hasNull = true
+        }
+      })
+    } else {
+      val index = schema_result.fieldIndex(key)
+      if (!row.isNullAt(index)) {
+        s = row.getAs[String](index)
+      } else {
+        hasNull = true
+      }
+    }
+    if (hasNull) {
+      s = generateUUID() // key 为空则生产uuid
+    }
+    s
+  }
+  def generateUUID(): String = {
+    UUID.randomUUID().toString
+  }
 }
 object id_type extends Enumeration {
   val MAINLAND: id = id("6", "mainland_travel_permit_for_taiwan_residents")
