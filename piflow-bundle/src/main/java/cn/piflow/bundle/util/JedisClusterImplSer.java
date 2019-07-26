@@ -53,4 +53,12 @@ public class JedisClusterImplSer implements Serializable {
     private void setJedisCluster(JedisCluster jedisCluster) {
         this.jedisCluster = jedisCluster;
     }
+
+    private void close() {
+        try {
+            this.jedisCluster.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
 }
