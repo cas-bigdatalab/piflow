@@ -25,7 +25,7 @@ class HivePSNDistinct  extends ConfigurableStop{
   var noChangeSource : String = _
   var sourceField : String = _
   var timeField : String = _
-  var idKeys : String = _
+  var idKey : String = _
   var noChange : Boolean = _
   var baseOnTime : Boolean = _
   var baseOnField : Boolean = _
@@ -98,7 +98,7 @@ class HivePSNDistinct  extends ConfigurableStop{
       row
     }))
     var processKeyArray = distinctFields.split(",")
-    processKeyArray += idKeys
+    processKeyArray +:= idKey
     processKeyArray.foreach(key => { //对这里的每一组key
       pairRDD = pairRDD.map(row => (cn.piflow.bundle.util.NSFCUtil.mkRowKey(inSchema, row._2, key), row)) //生成key pair， 若key不存在则生成UUID
         .groupByKey
