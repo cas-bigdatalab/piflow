@@ -1,49 +1,44 @@
 package cn.piflow.bundle.nsfc.distinct
 
 import cn.piflow.bundle.util.JedisClusterImplSer
-import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
-import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroup}
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
-import org.apache.spark.rdd.RDD
+import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroup}
+import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
-import org.apache.spark.sql.{Column, DataFrame, Row, SaveMode, SparkSession, TypedColumn}
+import org.apache.spark.sql.{Column, DataFrame, Row, SparkSession}
 import redis.clients.jedis.HostAndPort
 
 class HivePSNDistinct  extends ConfigurableStop{
   override val authorEmail: String = "xiaomeng7890@gmail.com"
-  override val description: String = ""
+  override val description: String = "person table distinct"
   override val inportList: List[String] = List(PortEnum.DefaultPort.toString)
   override val outportList: List[String] = List("Relation", "Entity")
-//  val primaryKey:String = _
-//  val subPrimaryKey:String = _
-//  val idKeyName : String = _
-//  val processKey = _
-//  val timeFields = _
-//  val subTimeFields = _
+
   var tableName : String = _ //after wash
-  var noChangeSource : String = _
-  var sourceField : String = _
-  var timeField : String = _
   var idKey : String = _
   var noChange : Boolean = _
-  var baseOnTime : Boolean = _
-  var baseOnField : Boolean = _
   var distinctRule : String = _
   var distinctFields : String = _
   var primaryKey : String = _
   var distinctTableType : String = _
   var rel_fields : String = _ //"id,prj_code,psn_code"
   var used_fields : String = _ //"id,psn_code,zh_name,id_type,id_no,birthday,gender,degree_code,nation,tel,email,org_code,zero,identity_card,military_id,passport,four,home_return_permit,mainland_travel_permit_for_taiwan_residents"
-
-
   var redis_server_ip : String = _
   var redis_server_port : Int = _
   var redis_server_passwd : String = _
-
   var jedisCluster : JedisClusterImplSer = _
-  //  val subTableName = _
+
   override def setProperties(map: Map[String, Any]): Unit = {
+    tableName = MapUtil.get(map,"tableName").asInstanceOf[String]
+    idKey = MapUtil.get(map,"idKey").asInstanceOf[String]
+    noChange = MapUtil.get(map,"noChange").asInstanceOf[Boolean]
+    distinctRule = MapUtil.get(map,"distinctRule").asInstanceOf[String]
+    distinctFields = MapUtil.get(map,"distinctFields").asInstanceOf[String]
+    primaryKey = MapUtil.get(map,"primaryKey").asInstanceOf[String]
+    distinctTableType = MapUtil.get(map,"distinctTableType").asInstanceOf[String]
+    rel_fields = MapUtil.get(map,"relFields").asInstanceOf[String]
+    used_fields = MapUtil.get(map,"usedFields").asInstanceOf[String]
     redis_server_ip = MapUtil.get(map,"redis ip").asInstanceOf[String]
     redis_server_port = MapUtil.get(map,"redis port").asInstanceOf[Int]
     redis_server_passwd = MapUtil.get(map,"redis passwd").asInstanceOf[String]
@@ -51,6 +46,85 @@ class HivePSNDistinct  extends ConfigurableStop{
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
+
+    val tableName = new PropertyDescriptor().
+      name("tableName").
+      displayName("distinct tablename").
+      description("distinct tablename").
+      allowableValues(Set("origin.o_stat_prp_persons_full", "temp.t_pj_member")).
+      required(true)
+    descriptor = tableName :: descriptor
+
+    // afterMap.put("id_hash", (card_code + card_type).##.toString)
+    val idKey = new PropertyDescriptor().
+      name("idKey").
+      displayName("hashed id key").
+      description("hashed id key, generated from person id expansion").
+      defaultValue("id_hash").
+      required(true)
+    descriptor = idKey :: descriptor
+
+    val noChange = new PropertyDescriptor().
+      name("noChange").
+      displayName("noChange").
+      description("need process?").
+      defaultValue("True").
+      allowableValues(Set("True", "False")).
+      required(true)
+
+    descriptor = noChange :: descriptor
+
+    val distinctRule = new PropertyDescriptor().
+      name("distinctRule").
+      displayName("distinct rule").
+      description("distinctRule").
+      defaultValue("zh_name&email,zh_name&tel").
+      required(true)
+    descriptor = distinctRule :: descriptor
+
+    val distinctFields = new PropertyDescriptor().
+      name("distinctFields").
+      displayName("distinctFields").
+      description("the fields listed in distinct rule").
+      defaultValue("zh_name,email,tel").
+      required(true)
+    descriptor = distinctFields :: descriptor
+
+    val primaryKey = new PropertyDescriptor().
+      name("primaryKey").
+      displayName("primaryKey").
+      description("the primary key (psn_code)").
+      defaultValue("psn_code").
+      required(true)
+    descriptor = primaryKey :: descriptor
+
+    val distinctTableType = new PropertyDescriptor().
+      name("distinctTableType").
+      displayName("distinctTableType").
+      description("the table name:\n pj for pjmember \nprp for prpmember, for distinct use ").
+      defaultValue("pj").
+      allowableValues(Set("pj","prp")).
+      required(true)
+    descriptor = distinctTableType :: descriptor
+
+    val relFields = new PropertyDescriptor().
+      name("relFields").
+      displayName("relation fields").
+      description("relation fields, 3 for pj \n4 for prp").
+      defaultValue("id,prj_code,psn_code").
+      allowableValues(Set("id,prj_code,psn_code",  "id,prp_code,psn_code,seq_no")).
+      required(true)
+    descriptor = relFields :: descriptor
+
+    val used_fields = new PropertyDescriptor().
+      name("usedFields").
+      displayName("all used field").
+      description("all used field").
+      allowableValues(Set("id,psn_code,zh_name,id_type,id_no,birthday,gender,degree_code,nation,tel,email,org_code,zero,identity_card,military_id,passport,four,home_return_permit,mainland_travel_permit_for_taiwan_residents,source,uuid,id_hash",
+        "psn_code,prp_code,zh_name,birthday,email,prof_title,gender,degreecode,regioncode,tel,mobile,zero,identity_card,military_id,passport,four,home_return_permit,mainland_travel_permit_for_taiwan_residents,seq_no,source,uuid,id_hash")).
+      required(true)
+    descriptor = used_fields :: descriptor
+
     val redis_passwd = new PropertyDescriptor().
       name("redis passwd").
       displayName("redis passwd").
