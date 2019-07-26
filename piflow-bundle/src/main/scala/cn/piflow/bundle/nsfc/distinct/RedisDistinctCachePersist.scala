@@ -19,7 +19,7 @@ class RedisDistinctCachePersist extends ConfigurableStop {
   var redis_server_ip : String = _
   var redis_server_port : Int = _
   var redis_server_passwd : String = _
-
+  var jedisCluster : JedisClusterImplSer = _
   override def setProperties(map: Map[String, Any]): Unit = {
     persist_needed_fields = MapUtil.get(map,"distinct field").asInstanceOf[String]
     persist_primary_field = MapUtil.get(map,"primary field").asInstanceOf[String]
@@ -84,11 +84,10 @@ class RedisDistinctCachePersist extends ConfigurableStop {
 
   override def getGroup(): List[String] =  List(StopGroup.NSFC.toString, "sha0w", "distinct")
 
-  override def initialize(ctx: ProcessContext): Unit = {}
-
+  override def initialize(ctx: ProcessContext): Unit = {
+    jedisCluster = new JedisClusterImplSer(new HostAndPort(redis_server_ip, redis_server_port), redis_server_passwd)
+  }
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
-    val jedisCluster : JedisClusterImplSer =
-      new JedisClusterImplSer(new HostAndPort(redis_server_ip, redis_server_port), redis_server_passwd)
     val df = in.read()
     val mPrimaryKeyIndex = df.schema.fieldIndex(persist_primary_field) //PSNCODE
     val df_mperson_fields = persist_needed_fields.split(",").+:(persist_primary_field)
@@ -101,6 +100,7 @@ class RedisDistinctCachePersist extends ConfigurableStop {
           row, s1, distinct_rule, mPrimaryKeyIndex, jedisCluster.getJedisCluster) // create the redis dataset
       }
     )
+    jedisCluster.close()
     out.write(df)
   }
 }

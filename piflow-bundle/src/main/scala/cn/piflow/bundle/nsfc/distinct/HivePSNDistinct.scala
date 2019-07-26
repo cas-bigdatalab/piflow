@@ -10,25 +10,17 @@ import org.apache.spark.sql.types.{StringType, StructField, StructType}
 import org.apache.spark.sql.{Column, DataFrame, Row, SaveMode, SparkSession, TypedColumn}
 import redis.clients.jedis.HostAndPort
 
-class HiveDistinct  extends ConfigurableStop{
+class HivePSNDistinct extends ConfigurableStop{
   override val authorEmail: String = "xiaomeng7890@gmail.com"
   override val description: String = ""
   override val inportList: List[String] = List(PortEnum.DefaultPort.toString)
   override val outportList: List[String] = List("Relation", "Entity")
-//  val primaryKey:String = _
-//  val subPrimaryKey:String = _
-//  val idKeyName : String = _
-//  val processKey = _
-//  val timeFields = _
-//  val subTimeFields = _
+
   var tableName : String = _ //after wash
-  var noChangeSource : String = _
   var sourceField : String = _
   var timeField : String = _
   var idKeys : String = _
   var noChange : Boolean = _
-  var baseOnTime : Boolean = _
-  var baseOnField : Boolean = _
   var distinctRule : String = _
   var distinctFields : String = _
   var primaryKey : String = _
