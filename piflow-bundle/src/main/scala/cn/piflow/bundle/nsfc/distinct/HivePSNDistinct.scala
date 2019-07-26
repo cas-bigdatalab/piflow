@@ -9,7 +9,7 @@ import org.apache.spark.sql.types.{StringType, StructField, StructType}
 import org.apache.spark.sql.{Column, DataFrame, Row, SparkSession}
 import redis.clients.jedis.HostAndPort
 
-class HivePSNDistinct  extends ConfigurableStop{
+class HivePSNDistinct extends ConfigurableStop {
   override val authorEmail: String = "xiaomeng7890@gmail.com"
   override val description: String = "person table distinct"
   override val inportList: List[String] = List(PortEnum.DefaultPort.toString)
