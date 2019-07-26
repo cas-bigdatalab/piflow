@@ -92,9 +92,9 @@ class RedisDistinctCachePersist extends ConfigurableStop {
     val df = in.read()
     val mPrimaryKeyIndex = df.schema.fieldIndex(persist_primary_field) //PSNCODE
     val df_mperson_fields = persist_needed_fields.split(",").+:(persist_primary_field)
-    val s1 = df_mperson_fields.map(i => (i, {
+    val s1: Map[String, Int] = df_mperson_fields.map(i => (i, {
       df.schema.fieldIndex(i)
-    })).toMap[String, Int] //生产字段名 -》 index的键值对
+    })).toMap //生产字段名 -》 index的键值对
     df.rdd.foreach(
       row => {
         cn.piflow.bundle.util.RedisUtil.putRedis(
