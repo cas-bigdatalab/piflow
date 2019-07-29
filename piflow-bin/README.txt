@@ -1,4 +1,4 @@
-1.build piflow-server-0.9.jar, copy it to folder --- lib
+1.build piflow-server-0.9.jar, copy it to folder --- ./lib
 
 2.set PIFLOW_HOME
   vim /etc/profile
