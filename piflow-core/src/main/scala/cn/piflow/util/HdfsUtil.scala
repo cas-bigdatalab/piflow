@@ -54,9 +54,9 @@ object HdfsUtil {
     line
   }
 
-  def getLines(file : String) : List[String] = {
+  def getLines(file : String) : String = {
 
-    var result = List[String]()
+    var result = ""
     var line : String = ""
     var inputStream : FSDataInputStream = null
     var bufferedReader : BufferedReader = null
@@ -66,7 +66,7 @@ object HdfsUtil {
       bufferedReader = new BufferedReader(new InputStreamReader(inputStream))
       line = bufferedReader.readLine();
       while (line != null){
-        result = line +: result
+        result = result + " " + line
         line = bufferedReader.readLine()
       }
 

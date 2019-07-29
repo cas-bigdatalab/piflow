@@ -25,19 +25,13 @@ class PutHiveQL extends ConfigurableStop {
 
       import scala.io.Source
       sql(sqlText= "use "+database)
-      var lines:String=""
-      //Source.fromFile(hiveQL_path).getLines().foreach(x=>{
-      HdfsUtil.getLines(hiveQL_path).foreach(x => {
-        if(x.contains(";")){
-          lines=lines+" "+x.replace(";","")
-          println(lines)
-          sql(sqlText = lines)
-          lines=""
-        }else{
-          lines=lines+" "+x
-        }
-
+      //val useDBText = "use "+database + ";"
+      var sqlString:String=HdfsUtil.getLines(hiveQL_path)
+      sqlString.split(";").foreach( s => {
+        println("Sql is " + s)
+        sql(s)
       })
+
     }
 
     def initialize(ctx: ProcessContext): Unit = {
@@ -45,7 +39,7 @@ class PutHiveQL extends ConfigurableStop {
     }
 
     def setProperties(map : Map[String, Any]): Unit = {
-      hiveQL_path = MapUtil.get(map,"hiveQL_path").asInstanceOf[String]
+      hiveQL_path = MapUtil.get(map,"hiveQL_Path").asInstanceOf[String]
       database = MapUtil.get(map,"database").asInstanceOf[String]
     }
 
