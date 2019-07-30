@@ -11,7 +11,6 @@
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <jetty.version>9.0.0.M0</jetty.version>
-        <spark.version>2.1.0</spark.version>
         <scala.version>2.11.8</scala.version>
         <java.version>1.8</java.version>
     </properties>
@@ -20,11 +19,7 @@
     <dependencies>
 
         <!-- https://mvnrepository.com/artifact/org.mongodb.spark/mongo-spark-connector -->
-        <dependency>
-            <groupId>org.mongodb.spark</groupId>
-            <artifactId>mongo-spark-connector_2.11</artifactId>
-            <version>${spark.version}</version>
-        </dependency>
+
 
         <dependency>
             <groupId>org.neo4j.driver</groupId>
@@ -158,14 +153,6 @@
             <artifactId>elasticsearch</artifactId>
             <version>5.6.3</version>
         </dependency>
-
-
-        <dependency>
-            <groupId>org.apache.spark</groupId>
-            <artifactId>spark-mllib_2.11</artifactId>
-            <version>${spark.version}</version>
-        </dependency>
-
 
         <!-- https://mvnrepository.com/artifact/org.jsoup/jsoup -->
         <dependency>
