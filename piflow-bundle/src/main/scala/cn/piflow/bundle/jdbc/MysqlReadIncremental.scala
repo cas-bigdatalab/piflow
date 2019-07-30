@@ -75,7 +75,7 @@ class MysqlReadIncremental extends ConfigurableIncrementalStop{
     val dbtable = "( "  + sql + ") AS Temp"
     val jdbcDF = spark.read.format("jdbc")
       .option("url", url)
-      //.option("driver", driver)
+      .option("driver", "com.mysql.jdbc.Driver")
       .option("dbtable", dbtable)
       .option("user", user)
       .option("password",password)
