@@ -1,12 +1,10 @@
 package cn.piflow.bundle.nsfc.distinct
 
 import cn.piflow.bundle.util.JedisClusterImplSer
-import cn.piflow.conf.{ConfigurableStop, StopGroup}
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
+import cn.piflow.conf.{ConfigurableStop, StopGroup}
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
-import org.apache.spark.SparkContext
-import org.apache.spark.sql.{DataFrame, Row, SQLContext}
 import redis.clients.jedis.HostAndPort
 
 /**
@@ -71,7 +69,7 @@ class HivePRDDistinct extends ConfigurableStop {
     jedisCluster = new JedisClusterImplSer(new HostAndPort(redis_server_ip, redis_server_port), redis_server_passwd)
   }
 
-  override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = ???
+  override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {}
 
 
 
