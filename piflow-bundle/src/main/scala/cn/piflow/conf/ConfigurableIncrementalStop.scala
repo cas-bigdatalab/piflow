@@ -17,6 +17,8 @@ abstract class ConfigurableIncrementalStop extends ConfigurableStop with Increme
   }
 
   override def readIncrementalStart(): String = {
+    if( HdfsUtil.exists(incrementalPath) == false)
+      HdfsUtil.createFile(incrementalPath)
     var value:String = HdfsUtil.getLine(incrementalPath)
     value
   }

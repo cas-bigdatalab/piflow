@@ -160,4 +160,27 @@ object HdfsUtil {
     result
   }
 
+  def exists(filePath : String) : Boolean = {
+    var result : Boolean = false
+    try{
+      fs = FileSystem.get(conf)
+      result = HdfsHelper.exists(fs, filePath)
+
+    }catch{
+      case ex : IOException => println(ex)
+    }
+    result
+  }
+
+  def createFile(filePath : String) : Boolean = {
+    var result : Boolean = false
+    try{
+      fs = FileSystem.get(conf)
+      result = HdfsHelper.createFile(fs, filePath)
+    }catch{
+      case ex : IOException => println(ex)
+    }
+    result
+  }
+
 }
