@@ -45,7 +45,7 @@ class HivePSNDistinct extends ConfigurableStop {
   }
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
-    var descriptor : List[PropertyDescriptor] = List()
+       var descriptor : List[PropertyDescriptor] = List()
 
     val tableName = new PropertyDescriptor().
       name("tableName").
@@ -151,7 +151,7 @@ class HivePSNDistinct extends ConfigurableStop {
   override def getIcon(): Array[Byte] =   ImageUtil.getImage("icon/hive/SelectHiveQL.png")
 
   override def getGroup(): List[String] = {
-    List(StopGroup.NSFC.toString, "sha0w", "distinct")
+    List(StopGroup.NSFC.toString, "sha0w", "distinct", "person")
   }
 
   override def initialize(ctx: ProcessContext): Unit = {
