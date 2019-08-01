@@ -106,7 +106,20 @@ object ClassUtil {
   def findAllGroups() : List[String] = {
 
     val stoplist = findAllConfigurableStop();
-    val groupList = stoplist.flatMap(_.getGroup()).distinct
+    val groupList = stoplist.flatMap(stop =>{
+      //stop.getGroup()
+      var group = List("")
+      try{
+        group = stop.getGroup()
+
+      }catch {
+        //case ex : Exception => println(ex)
+        case ex : scala.NotImplementedError => println(stop.getClass.getName + " -> " + ex)
+      }
+
+      group
+
+    }).distinct.filter(_ != "")
     groupList
   }
 

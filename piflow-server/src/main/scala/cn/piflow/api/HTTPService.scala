@@ -205,7 +205,7 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
        }catch {
          case ex => {
            println(ex)
-           Future.successful(HttpResponse(FAIL_CODE, entity = "Can not found stop properties Error!"))
+           Future.successful(HttpResponse(FAIL_CODE, entity = "getPropertyDescriptor or getIcon Method Not Implemented Error!"))
          }
        }
      }
@@ -218,7 +218,7 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
      }catch {
        case ex => {
          println(ex)
-         Future.successful(HttpResponse(FAIL_CODE, entity = "Can not found stop properties Error!"))
+         Future.successful(HttpResponse(FAIL_CODE, entity = "getGroup Method Not Implemented Error!"))
        }
      }
    }
