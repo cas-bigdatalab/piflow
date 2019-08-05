@@ -93,13 +93,11 @@ class ScopusSearchArticle extends ConfigurableStop {
           reg = "scopus_id\":\"(.*?)\","
           scopusIds = regula(reg,titleJsonString)
 
-
           //  Request author information
           if (titleJsonString.contains("prism:url")) {
             reg = "prism:url\":\"(.*?)\","
 
             prismUrls = regula(reg, titleJsonString)
-
             for (x <- 0 until prismUrls.size) {
               println(num+"----------------------"+scopusIds.get(x))
               num+=1
@@ -262,21 +260,20 @@ class ScopusSearchArticle extends ConfigurableStop {
   }
 
 
-  var arrayString = new util.ArrayList[String]()
+
   def regula(reg:String,orgString:String):util.ArrayList[String] ={
-    arrayString.clear()
+    val arrayString = new util.ArrayList[String]()
     val pattern: Pattern = Pattern.compile(reg)
     val matcher: Matcher = pattern.matcher(orgString.toString)
     while (matcher.find()) {
       arrayString.add(matcher.group(1))
     }
-
     return arrayString
   }
 
-  var author = new StringBuilder
+
   def regulaAuthor(reg:String,orgString:String) :StringBuilder ={
-    author.clear()
+    val author = new StringBuilder
     val pattern: Pattern = Pattern.compile(reg)
     val matcher: Matcher = pattern.matcher(orgString.toString)
     while (matcher.find()) author.append(matcher.group(2)+" "+matcher.group(1)+"#")
