@@ -2,6 +2,7 @@ package cn.piflow.bundle.nsfc.externalAcquisition
 
 import java.io.{ByteArrayInputStream, IOException}
 import java.net.URLEncoder
+import java.util
 import java.util.regex.{Matcher, Pattern}
 
 import cn.piflow.conf.bean.PropertyDescriptor
@@ -27,7 +28,7 @@ class ScopusSearchArticle extends ConfigurableStop {
   override val outportList: List[String] = List(PortEnum.scopus_articlePort.toString,PortEnum.scopus_article_api_response.toString)
 
 
-  var author = new StringBuilder
+
   var intervalTime:String = _
   var apiKey :String= _
   var httpurl :String= _
@@ -66,11 +67,22 @@ class ScopusSearchArticle extends ConfigurableStop {
     var eid:String =null
 
 
+
+
+
+    var prismUrls: util.ArrayList[String]= new util.ArrayList[String]()
+    var scopusIds: util.ArrayList[String]= new util.ArrayList[String]()
+    var num = 1
+
+
+
     try {
       inDf.collect().foreach(x=>{
 
         title = URLEncoder.encode(x.get(0).asInstanceOf[String],"UTF-8")
         titleUrl = httpurl+s"(${title})&apiKey=${apiKey}&httpAccept=application%2Fjson"
+        println(titleUrl)
+
         titleJsonString = getHttp(titleUrl)
 
         // Filter valid request scoups files
@@ -79,32 +91,41 @@ class ScopusSearchArticle extends ConfigurableStop {
           titleJsonString = titleJsonString.replace("\"dc:identifier\":\"SCOPUS_ID:","\"scopus_id\":\"")
 
           reg = "scopus_id\":\"(.*?)\","
-          scopus_id = regula(reg,titleJsonString)
-          println(scopus_id)
+          scopusIds = regula(reg,titleJsonString)
+
+
           //  Request author information
-          if (titleJsonString.contains("prism:url")){
+          if (titleJsonString.contains("prism:url")) {
             reg = "prism:url\":\"(.*?)\","
-            prismUrl= regula(reg,titleJsonString)+s"?field=author&apikey=${apiKey}&httpAccept=application%2Fjson"
-            authorJsonString = getHttp(prismUrl)
 
-            reg = "preferred-name\": \\{\n.*?\"ce:given-name\": \"(.*?)\",\n.*?,\n.*?ce:surname\": \"(.*?)\","
-            authorString = regulaAuthor(reg,authorJsonString).stripSuffix("#")
+            prismUrls = regula(reg, titleJsonString)
 
-            titleJsonString=titleJsonString.replace("\"prism:url\":","\"authorString\":\""+authorString+"\",\"prism:url\":")
+            for (x <- 0 until prismUrls.size) {
+              println(num+"----------------------"+scopusIds.get(x))
+              num+=1
+
+              prismUrl = prismUrls.get(x) + s"?field=author&apikey=${apiKey}&httpAccept=application%2Fjson"
+              authorJsonString = getHttp(prismUrl)
+
+              reg = "preferred-name\": \\{\n.*?\"ce:given-name\": \"(.*?)\",\n.*?,\n.*?ce:surname\": \"(.*?)\","
+              authorString = regulaAuthor(reg, authorJsonString).stripSuffix("#")
+
+
+              titleJsonString = titleJsonString.replace("\"prism:url\":\"" + prismUrls.get(x), "\"authorString\":\"" + authorString + "\",\"prism:url\":\"" + prismUrls.get(x))
+
+              inputStream = new ByteArrayInputStream((scopusIds.get(x) + "##&##" + titleJsonString + "##&##" + authorJsonString.replace("\n", " ") + "\n").getBytes("utf-8"))
+              IOUtils.copyBytes(inputStream, scopus_api_responseOut, 4096, false)
+
+            }
           }
+
 
 
           // Request summary information
-          if (titleJsonString.contains("eid")){
-            reg = "eid\":\"(.*?)\","
-            eid = regula(reg,titleJsonString)
-
-          }
+//          if (titleJsonString.contains("eid")) reg = "eid\":\"(.*?)\","
 
 
-          println(scopus_id)
-          inputStream = new ByteArrayInputStream((scopus_id+"##&##"+titleJsonString+"##&##"+authorJsonString.replace("\n"," ")+ "\n").getBytes("utf-8"))
-          IOUtils.copyBytes(inputStream, scopus_api_responseOut, 4096, false)
+
 
 
           inputStream = new ByteArrayInputStream((titleJsonString.toString + "\n").getBytes("utf-8"))
@@ -241,17 +262,21 @@ class ScopusSearchArticle extends ConfigurableStop {
   }
 
 
-  var value:String = null
-  def regula(reg:String,orgString:String) :String ={
+  var arrayString = new util.ArrayList[String]()
+  def regula(reg:String,orgString:String):util.ArrayList[String] ={
+    arrayString.clear()
     val pattern: Pattern = Pattern.compile(reg)
     val matcher: Matcher = pattern.matcher(orgString.toString)
-    if (matcher.find()) value = matcher.group(1)
-    else value = "value not exists"
+    while (matcher.find()) {
+      arrayString.add(matcher.group(1))
+    }
 
-    return value
+    return arrayString
   }
 
+  var author = new StringBuilder
   def regulaAuthor(reg:String,orgString:String) :StringBuilder ={
+    author.clear()
     val pattern: Pattern = Pattern.compile(reg)
     val matcher: Matcher = pattern.matcher(orgString.toString)
     while (matcher.find()) author.append(matcher.group(2)+" "+matcher.group(1)+"#")
