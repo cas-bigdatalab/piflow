@@ -66,7 +66,7 @@ class ExecuteSQLStop extends ConfigurableStop{
 
   override def setProperties(map: Map[String, Any]): Unit = {
     sql = MapUtil.get(map,"sql").asInstanceOf[String]
-    bundle2TableNames = MapUtil.get(map,"bundle2TableName").asInstanceOf[String]
+    bundle2TableNames = MapUtil.get(map,"bundle2TableNames").asInstanceOf[String]
 
   }
   override def initialize(ctx: ProcessContext): Unit = {
