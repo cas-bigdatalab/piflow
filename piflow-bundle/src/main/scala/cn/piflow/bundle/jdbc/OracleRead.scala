@@ -57,7 +57,7 @@ class OracleRead extends ConfigurableStop{
 
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     val spark = pec.get[SparkSession]()
-    val dbtable = "( "  + sql + ") AS Temp"
+    val dbtable = "( "  + sql + ")temp"
     val jdbcDF = spark.read.format("jdbc")
       .option("url", url)
       .option("driver", "oracle.jdbc.OracleDriver")
