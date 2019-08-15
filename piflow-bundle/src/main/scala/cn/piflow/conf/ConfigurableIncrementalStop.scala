@@ -12,7 +12,7 @@ abstract class ConfigurableIncrementalStop extends ConfigurableStop with Increme
   override var incrementalPath: String = _
 
   override def init(flowName : String, stopName : String): Unit = {
-    incrementalPath = PropertyUtil.getPropertyValue("increment.path") + "/" + flowName + "/" + stopName
+    incrementalPath = PropertyUtil.getPropertyValue("increment.path").stripSuffix("/") + "/" + flowName + "/" + stopName
 
   }
 

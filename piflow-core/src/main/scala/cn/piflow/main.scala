@@ -514,7 +514,8 @@ class JobOutputStreamImpl() extends JobOutputStream with Logging {
       val portName = if(en._1.equals("")) "default" else en._1
       val portDataPath = debugPath + "/" + portName
       //println(portDataPath)
-      en._2.apply().write.json(portDataPath)
+      println(en._2.apply().schema)
+      en._2.apply().na.fill("null").write.json(portDataPath)
     })
   }
 

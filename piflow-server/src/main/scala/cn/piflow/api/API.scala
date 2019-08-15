@@ -241,11 +241,14 @@ object API {
       readLines.takeWhile( _ != null).foreach( line => {
 
         println(line)
-        result += line + "\n"
+        result += line + ","
       })
     })
 
-    result.stripSuffix("\n")
+    result = result.stripSuffix(",")
+
+    val json = """{"debugInfo" : [ """ + result + """]}"""
+    json
   }
 
   def getStopInfo(bundle : String) : String = {
