@@ -228,7 +228,7 @@ object API {
 
 
   def getFlowDebugData(appId : String, stopName : String, port : String) : String = {
-    var result = ""
+    /*var result = ""
     val debugPath = PropertyUtil.getPropertyValue("debug.path").stripSuffix("/") + "/" + appId + "/" + stopName + "/" + port;
     val properties = new Properties()
     val hdfs = FileSystem.get(URI.create(debugPath), new Configuration())
@@ -238,7 +238,7 @@ object API {
     fileList.filter(!_.equals("_SUCCESS")).foreach( file => {
       var stream = hdfs.open(new Path(file))
       def readLines = Stream.cons(stream.readLine(),Stream.continually(stream.readLine()))
-      readLines.takeWhile( _ != null).foreach( line => {
+      readLines.takeWhile( _ != null).foreach( line => {dfhs
 
         println(line)
         result += line + ","
@@ -248,7 +248,12 @@ object API {
     result = result.stripSuffix(",")
 
     val json = """{"debugInfo" : [ """ + result + """]}"""
-    json
+    json*/
+
+    val debugPath :String = PropertyUtil.getPropertyValue("debug.path").stripSuffix("/") + "/" + appId + "/" + stopName + "/" + port;
+    val schema = HdfsUtil.getLine(debugPath + "_schema")
+    val result = """{"schema":$schema, "debugDataPath": $debugPath}"""
+    result
   }
 
   def getStopInfo(bundle : String) : String = {
