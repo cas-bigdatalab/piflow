@@ -99,9 +99,7 @@ class ScopusSearchArticle extends ConfigurableStop {
 
             prismUrls = regula(reg, titleJsonString)
             for (x <- 0 until prismUrls.size) {
-              println(num+"----------------------"+scopusIds.get(x))
-              num+=1
-
+       
               prismUrl = prismUrls.get(x) + s"?field=author&apikey=${apiKey}&httpAccept=application%2Fjson"
               authorJsonString = getHttp(prismUrl)
 
@@ -128,10 +126,11 @@ class ScopusSearchArticle extends ConfigurableStop {
 
           inputStream = new ByteArrayInputStream((titleJsonString.toString + "\n").getBytes("utf-8"))
           IOUtils.copyBytes(inputStream, scopusOut, 4096, false)
+            //suspend   (ms)
+        Thread.sleep(waitTime*1000)
         }
 
-        //suspend   (ms)
-        Thread.sleep(waitTime*1000)
+   
       })
 
     }catch {

@@ -11,9 +11,8 @@ import org.apache.spark.sql._
 import org.apache.spark.streaming.{Seconds, StreamingContext}
 import org.apache.spark.streaming.dstream.{DStream, InputDStream, ReceiverInputDStream}
 
-
 import scala.collection.mutable.{ArrayBuffer, Map => MMap}
-import org.apache.spark.sql.functions.max
+import org.apache.spark.sql.functions.{col, max}
 
 trait JobInputStream {
   def isEmpty(): Boolean;
@@ -513,8 +512,46 @@ class JobOutputStreamImpl() extends JobOutputStream with Logging {
     mapDataFrame.foreach(en => {
       val portName = if(en._1.equals("")) "default" else en._1
       val portDataPath = debugPath + "/" + portName
+      val portSchemaPath = debugPath + "/" + portName + "_schema"
       //println(portDataPath)
-      en._2.apply().write.json(portDataPath)
+      //println(en._2.apply().schema)
+      val jsonDF = en._2.apply().na.fill("")
+      var schemaStr = ""
+      val schema = jsonDF.schema.foreach(f => {
+        schemaStr =  schemaStr + "," + f.name
+      })
+      schemaStr = schemaStr.stripPrefix(",")
+      HdfsUtil.saveLine(portSchemaPath,schemaStr )
+      jsonDF.write.json(portDataPath)
+
+      /*val df = en._2.apply()
+      val resutl1 = df.withColumn("is_ee_null", col("ee").isNull)
+      resutl1.show()
+
+      println("Older Schema: " + df.schema)
+
+      val arrayColumnExp = "if(# is null , array(), #) as #"
+      val arrayColumns = df.schema.filter(_.dataType.typeName == "array").map(_.name)
+      println(arrayColumns)
+
+      var columnsList = List[String]()
+      df.schema.foreach(f => {
+        if(arrayColumns.contains(f.name)){
+          val t = arrayColumnExp.replace("#",f.name)
+          columnsList = t +: columnsList
+        }
+        else{
+          columnsList = f.name +: columnsList
+        }
+
+      })
+      println("Newer Schema: " + df.schema)
+
+      val noneDF = df.selectExpr(columnsList:_*)
+
+      noneDF.show()
+      noneDF.na.fill("").na.fill(0.0).na.fill(0).write.json(portDataPath)*/
+
     })
   }
 
