@@ -252,7 +252,7 @@ object API {
 
     val debugPath :String = PropertyUtil.getPropertyValue("debug.path").stripSuffix("/") + "/" + appId + "/" + stopName + "/" + port;
     val schema = HdfsUtil.getLine(debugPath + "_schema")
-    val result = """{"schema":$schema, "debugDataPath": $debugPath}"""
+    val result = """{"schema":""" + schema+ """, "debugDataPath": """ + debugPath + "}"
     result
   }
 
