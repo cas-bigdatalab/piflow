@@ -94,6 +94,8 @@ class ConvertSchemaType extends ConfigurableStop {
     val integerType = new PropertyDescriptor().name("integerType").displayName("integerType").description("the specified types are converted to integerType, Multiple are separated by commas").defaultValue("").required(true)
 
 
+    descriptor = stringType :: descriptor
+    descriptor = integerType :: descriptor
     descriptor = all :: descriptor
     descriptor
   }
