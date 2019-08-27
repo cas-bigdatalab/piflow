@@ -181,13 +181,6 @@
         </dependency>
 
 
-        <dependency>
-            <groupId>jdbc_oracle</groupId>
-            <artifactId>ojdbc</artifactId>
-            <version>6.0.0</version>
-        </dependency>
-
-
          <!--https://mvnrepository.com/artifact/org.apache.flume/flume-ng-core-->
         <dependency>
             <groupId>org.apache.flume</groupId>
@@ -266,6 +259,13 @@
             <version>4.5.3</version>
         </dependency>
 
+        <!-- https://mvnrepository.com/artifact/oracle/ojdbc6 -->
+        <dependency>
+            <groupId>oracle</groupId>
+            <artifactId>ojdbc6</artifactId>
+            <version>11.2.0.3</version>
+        </dependency>
+
     </dependencies>
 
     <build>
@@ -301,25 +301,9 @@
                         <phase>install</phase>
                         <configuration>
                             <file>${basedir}/lib/ojdbc6-11.2.0.3.jar</file>
-                            <groupId>jdbc_oracle</groupId>
-                            <artifactId>ojdbc</artifactId>
-                            <version>6.0.0</version>
-                            <packaging>jar</packaging>
-                            <generatePom>true</generatePom>
-                        </configuration>
-                    </execution>
-
-                    <execution>
-                        <id>install-external-3</id>
-                        <goals>
-                            <goal>install-file</goal>
-                        </goals>
-                        <phase>install</phase>
-                        <configuration>
-                            <file>${basedir}/lib/ojdbc5.jar</file>
-                            <groupId>jdbc_oracle</groupId>
-                            <artifactId>ojdbc</artifactId>
-                            <version>5.0.0</version>
+                            <groupId>oracle</groupId>
+                            <artifactId>ojdbc6</artifactId>
+                            <version>11.2.0.3</version>
                             <packaging>jar</packaging>
                             <generatePom>true</generatePom>
                         </configuration>
