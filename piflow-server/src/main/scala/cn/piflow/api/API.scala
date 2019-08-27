@@ -113,7 +113,7 @@ object API {
       .setVerbose(true)
       .setConf("spark.hive.metastore.uris",PropertyUtil.getPropertyValue("hive.metastore.uris"))
       .setConf("spark.driver.memory", dirverMem)
-      .setConf("spark.num.executors",executorNum)
+      .setConf("spark.executor.instances",executorNum)
       .setConf("spark.executor.memory", executorMem)
       .setConf("spark.executor.cores",executorCores)
       .addFile(PropertyUtil.getConfigureFile())
