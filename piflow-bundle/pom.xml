@@ -300,7 +300,7 @@
                         </goals>
                         <phase>install</phase>
                         <configuration>
-                            <file>${basedir}/lib/ojdbc6.jar</file>
+                            <file>${basedir}/lib/ojdbc6-11.2.0.3.jar</file>
                             <groupId>jdbc_oracle</groupId>
                             <artifactId>ojdbc</artifactId>
                             <version>6.0.0</version>
