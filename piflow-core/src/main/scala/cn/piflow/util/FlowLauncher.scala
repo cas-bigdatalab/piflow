@@ -34,7 +34,7 @@ object FlowLauncher {
       .setConf("spark.jars", PropertyUtil.getPropertyValue("piflow.bundle"))
       .setConf("spark.hive.metastore.uris",PropertyUtil.getPropertyValue("hive.metastore.uris"))
       .setConf("spark.driver.memory", flow.getDriverMemory())
-      .setConf("spark.num.executors", flow.getExecutorNum())
+      .setConf("spark.executor.instances", flow.getExecutorNum())
       .setConf("spark.executor.memory", flow.getExecutorMem())
       .setConf("spark.executor.cores",flow.getExecutorCores())
       .addFile(PropertyUtil.getConfigureFile())
