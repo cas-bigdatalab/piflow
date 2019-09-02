@@ -250,9 +250,19 @@ PiFlow是一个简单易用，功能强大的大数据流水线系统。
   ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-login.png)
   - 流水线列表
   ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-flowlist.png)
-  - 创建流水线
-  ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-createflow.png)
-  - 配置流水线
+  - 流水线配置
+  ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-congfigflow.png)
+  - 流水线资源配置
+  ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-resource.png)
+  - 运行流水线
+  ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-run.png)
+  - 删除流水线
+  ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-delete.png)
+  - 流水线保存模板
+  ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-savetemplate.png)
+  - 用户点击创建按钮，创建流水线。需要输入流水线名称及描述信息，同时可设置流水线需要的资源.
+  ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-createflows.png)
+  - 用户可通过拖拽方式进行流水线的配置，方式类似visio
   ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-flowconfig.png)
   - 运行及加载流水线
   ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-loadflow.png)
