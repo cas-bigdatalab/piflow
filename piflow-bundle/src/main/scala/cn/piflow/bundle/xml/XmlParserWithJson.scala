@@ -37,7 +37,7 @@ class XmlParserWithJson extends ConfigurableStop {
   }
 
   def setProperties(map : Map[String, Any]) = {
-    xmlColumn = MapUtil.get(map,"xmlpath").asInstanceOf[String]
+    xmlColumn = MapUtil.get(map,"xmlColumn").asInstanceOf[String]
   }
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
