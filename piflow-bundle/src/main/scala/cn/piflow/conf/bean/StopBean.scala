@@ -13,6 +13,7 @@ class StopBean {
   var name : String = _
   var bundle : String = _
   var properties : Map[String, String] = _
+  var customizedProperties : Map[String, String] = _
 
   def init(flowName : String, map:Map[String,Any]) = {
     this.flowName = flowName
@@ -20,6 +21,12 @@ class StopBean {
     this.name = MapUtil.get(map,"name").asInstanceOf[String]
     this.bundle = MapUtil.get(map,"bundle").asInstanceOf[String]
     this.properties = MapUtil.get(map, "properties").asInstanceOf[Map[String, String]]
+    if(map.contains("customizedProperties")){
+      this.customizedProperties  = MapUtil.get(map, "customizedProperties").asInstanceOf[Map[String, String]]
+    }else{
+      this.customizedProperties = Map[String, String]()
+    }
+
   }
 
   def constructStop() : ConfigurableStop = {
@@ -51,8 +58,12 @@ class StopBean {
         }
         stop.setProperties(newProperties.toMap)
 
-      }else
+      }else {
         stop.setProperties(this.properties)
+      }
+
+      stop.setCustomizedProperties(this.customizedProperties)
+
 
 
       stop

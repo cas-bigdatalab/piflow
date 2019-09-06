@@ -13,6 +13,7 @@ abstract class ConfigurableStop extends Stop{
   val inportList : List[String] //= List(PortEnum.DefaultPort.toString)
   val outportList : List[String] //= List(PortEnum.DefaultPort.toString)
 
+  var customizedProperties : Map[String, String] = null
 
   def setProperties(map: Map[String, Any])
 
@@ -21,5 +22,9 @@ abstract class ConfigurableStop extends Stop{
   def getIcon() : Array[Byte]
 
   def getGroup() : List[String]
+
+  def setCustomizedProperties( customizedProperties : Map[String, String]) = {
+    this.customizedProperties = customizedProperties
+  }
 
 }
