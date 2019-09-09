@@ -1,9 +1,6 @@
 ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-logo2.png) 
 PiFlow is an easy to use, powerful big data pipeline system.
 
-![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/PiFlowUserGroup.png)
-PiFlow user group, welcome to join us!
-
 ## Table of Contents
 
 - [Features](#features)
@@ -256,3 +253,8 @@ To Use：
   ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-processlist.png)
   ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-templatelist.png)
   ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-savetemplate.png)
+  
+  
+![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/PiFlowUserGroup.png)
+PiFlow user group, welcome to join us! Contact：吴老师 18910263390 wzs@cnic.cn
+
