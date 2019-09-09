@@ -256,5 +256,5 @@ To Use：
   
   
 ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/PiFlowUserGroup.png)
-PiFlow user group, welcome to join us! Contact：吴老师 18910263390 wzs@cnic.cn
+Welcome to join us! Contact：吴老师 18910263390 wzs@cnic.cn
 
