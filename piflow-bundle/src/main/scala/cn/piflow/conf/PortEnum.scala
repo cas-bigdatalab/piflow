@@ -5,6 +5,7 @@ object PortEnum {
   val AnyPort = "Any"
   val DefaultPort = "Default"
   val NonePort = "None"
+  val RoutePort = "Route"
   val LeftPort = "Left"
   val RightPort= "Right"
   val scopus_articlePort = "scopus_articlePort"
