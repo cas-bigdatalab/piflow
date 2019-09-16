@@ -1,4 +1,4 @@
-![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-logo2.png) 
+![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-logo2.png)  
 [![GitHub releases](https://img.shields.io/github/release/cas-bigdatalab/piflow.svg)](https://github.com/cas-bigdatalab/piflow/releases)
 [![GitHub stars](https://img.shields.io/github/stars/cas-bigdatalab/piflow.svg)](https://github.com/cas-bigdatalab/piflow/stargazers)
 [![GitHub forks](https://img.shields.io/github/forks/cas-bigdatalab/piflow.svg)](https://github.com/cas-bigdatalab/piflow/network)
