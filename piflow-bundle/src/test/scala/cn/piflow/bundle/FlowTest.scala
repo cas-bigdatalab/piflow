@@ -15,7 +15,7 @@ class FlowTest {
   def testFlow(): Unit ={
 
     //parse flow json
-    val file = "src/main/resources/flow.json"
+    val file = "src/main/resources/flow_route.json"
     val flowJsonStr = FileUtil.fileReader(file)
     val map = OptionUtil.getAny(JSON.parseFull(flowJsonStr)).asInstanceOf[Map[String, Any]]
     println(map)
@@ -28,13 +28,13 @@ class FlowTest {
 
     //execute flow
     val spark = SparkSession.builder()
-      .master("spark://10.0.86.89:7077")
+      .master("local")
       .appName("piflow-hive-bundle-xjzhu")
       .config("spark.driver.memory", "1g")
       .config("spark.executor.memory", "2g")
       .config("spark.cores.max", "2")
       .config("hive.metastore.uris","thrift://10.0.86.191:9083")
-      .config("spark.jars","/opt/project/piflow/out/artifacts/piflow_bundle/piflow-bundle.jar")
+      //.config("spark.jars","/opt/project/piflow/out/artifacts/piflow_bundle/piflow-bundle.jar")
       .enableHiveSupport()
       .getOrCreate()
 //    val spark = SparkSession.builder()
@@ -66,7 +66,7 @@ class FlowTest {
     spark.close();
   }
 
-  @Test
+  /*@Test
   def testFlow2json() = {
 
     //parse flow json
@@ -78,6 +78,6 @@ class FlowTest {
     val flowBean = FlowBean(map)
     val flowJson = flowBean.toJson()
     println(flowJson)
-  }
+  }*/
 
 }

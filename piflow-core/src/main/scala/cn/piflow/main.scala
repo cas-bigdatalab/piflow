@@ -22,6 +22,10 @@ trait JobInputStream {
   def ports(): Seq[String];
 
   def read(inport: String): DataFrame;
+
+  def readProperties() : MMap[String, String];
+
+  def readProperties(inport : String) : MMap[String, String]
 }
 
 trait JobOutputStream {
@@ -32,6 +36,10 @@ trait JobOutputStream {
   def write(data: DataFrame);
 
   def write(bundle: String, data: DataFrame);
+
+  def writeProperties(properties : MMap[String, String]);
+
+  def writeProperties(bundle: String, properties : MMap[String, String]);
 
   def sendError();
 
@@ -391,13 +399,18 @@ trait ProjectContext extends Context {
 class JobInputStreamImpl() extends JobInputStream {
   //only returns DataFrame on calling read()
   val inputs = MMap[String, () => DataFrame]();
+  val inputsProperties = MMap[String, () => MMap[String, String]]()
 
   override def isEmpty(): Boolean = inputs.isEmpty;
 
   def attach(inputs: Map[Edge, JobOutputStreamImpl]) = {
     this.inputs ++= inputs.filter(x => x._2.contains(x._1.outport))
       .map(x => (x._1.inport, x._2.getDataFrame(x._1.outport)));
+
+    this.inputsProperties ++= inputs.filter(x => x._2.contains(x._1.outport))
+      .map(x => (x._1.inport, x._2.getDataFrameProperties(x._1.outport)));
   };
+
 
   override def ports(): Seq[String] = {
     inputs.keySet.toSeq;
@@ -412,6 +425,16 @@ class JobInputStreamImpl() extends JobInputStream {
 
   override def read(inport: String): DataFrame = {
     inputs(inport)();
+  }
+
+  override def readProperties(): MMap[String, String] = {
+
+    readProperties("")
+  }
+
+  override def readProperties(inport: String): MMap[String, String] = {
+
+    inputsProperties(inport)()
   }
 }
 
@@ -483,6 +506,8 @@ class JobOutputStreamImpl() extends JobOutputStream with Logging {
   }
 
   val mapDataFrame = MMap[String, () => DataFrame]();
+
+  val mapDataFrameProperties = MMap[String, () => MMap[String, String]]();
 
   override def write(data: DataFrame): Unit = write("", data);
 
@@ -581,6 +606,26 @@ class JobOutputStreamImpl() extends JobOutputStream with Logging {
       }
     })
     incrementalValue
+  }
+
+  override def writeProperties(properties: MMap[String, String]): Unit = {
+
+    writeProperties("",properties)
+
+  }
+
+  override def writeProperties(outport: String, properties: MMap[String, String]): Unit = {
+
+    mapDataFrameProperties(outport) =  () => properties
+
+  }
+
+  def getDataFrameProperties(port : String)  = {
+    if(!mapDataFrameProperties.contains(port)){
+      mapDataFrameProperties(port) = () => MMap[String, String]()
+
+    }
+    mapDataFrameProperties(port)
   }
 }
 

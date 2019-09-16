@@ -56,9 +56,8 @@ class ReadFromRedis extends ConfigurableStop{
       }
       Row.fromSeq(row.toArray.toSeq)
     })
-    //val df=spark.createDataFrame(newRDD,dfSchema)
-    //newRDD.show(20)
-    //out.write(df)
+    val df=spark.createDataFrame(newRDD,dfSchema)
+    out.write(df)
   }
 
   def initialize(ctx: ProcessContext): Unit = {
