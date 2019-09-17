@@ -4,6 +4,7 @@ import cn.piflow.Stop
 import cn.piflow.conf.bean.PropertyDescriptor
 
 
+
 abstract class ConfigurableStop extends Stop{
 
   val authorEmail : String
@@ -12,6 +13,8 @@ abstract class ConfigurableStop extends Stop{
   //null: no port; userdefinePort: port1, port2...
   val inportList : List[String] //= List(PortEnum.DefaultPort.toString)
   val outportList : List[String] //= List(PortEnum.DefaultPort.toString)
+
+  val isCustomized = false
 
   var customizedProperties : Map[String, String] = null
 
@@ -25,6 +28,10 @@ abstract class ConfigurableStop extends Stop{
 
   def setCustomizedProperties( customizedProperties : Map[String, String]) = {
     this.customizedProperties = customizedProperties
+  }
+
+  def getCustomized() : Boolean = {
+    this.isCustomized
   }
 
 }

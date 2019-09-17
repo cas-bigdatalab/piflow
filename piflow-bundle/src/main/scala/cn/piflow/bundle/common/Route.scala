@@ -12,7 +12,7 @@ class Route extends ConfigurableStop{
   val inportList: List[String] = List(PortEnum.DefaultPort)
   val outportList: List[String] = List(PortEnum.RoutePort)
 
-  //var outports : List[String] = _
+  override val isCustomized: Boolean = true
 
   override def setProperties(map: Map[String, Any]): Unit = {
     //val outportStr = MapUtil.get(map,"outports").asInstanceOf[String]
