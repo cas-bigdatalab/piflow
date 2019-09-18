@@ -170,20 +170,22 @@ class HivePSNDistinct extends ConfigurableStop {
     val primaryIndex = inDF.schema.fieldIndex(primaryKey)
     var pairRDD = inDF.rdd.map(row => (row.getString(primaryIndex), {
       row
-    }))
-    var processKeyArray = distinctFields.split(",")
+    }))// id - row
+    var processKeyArray = distinctRule.split(",")
     processKeyArray +:= idKey
-    processKeyArray.foreach(key => { //对这里的每一组key
-      pairRDD = pairRDD.map(row => (cn.piflow.bundle.util.NSFCUtil.mkRowKey(inSchema, row._2, key), row)) //生成key pair， 若key不存在则生成UUID
+    processKeyArray.foreach(key => { //对这里的每一组key  hash - row
+      // name & : row
+      pairRDD = pairRDD.map((row: (String, Row)) => (cn.piflow.bundle.util.NSFCUtil.mkRowKey(inSchema, row._2, key), row)) //生成key pair， 若key不存在则生成UUID
         .groupByKey
         .map(i => (i._1 , {
-          cn.piflow.bundle.util.RedisUtil.recordMKDup(i._2, tableName ,jedisCluster.getJedisCluster) //Mark需要合并的key
+          cn.piflow.bundle.util.RedisUtil.recordMKDup(i._2, tableName ,jedisCluster.getJedisCluster) //Mark需要合并的key id2 ->id1, id3->id2
         })) //opt:R/W deliver this part record the mk Dup
         .values
         .filter(r => {
           r._2 != null
         }) //reduce can combine two duplicate value)
     })
+    //id -> psn_code -> row
     var keykeyRDD = pairRDD.map(r => (r._1, cn.piflow.bundle.util.RedisUtil.checkRedis(r, inSchema, tableName,distinctTableType, distinctRule.split(",") , jedisCluster.getJedisCluster),r._2))
 
     var backToHiveRdd = keykeyRDD.map(r => (r._1, {
@@ -191,7 +193,7 @@ class HivePSNDistinct extends ConfigurableStop {
       var psn = r._2
       var id = r._1
       var rowArray = row.toSeq
-      jedisCluster.getJedisCluster.hset(tableName + "@" + id, distinctTableType + "IdPSN" , psn)
+      jedisCluster.getJedisCluster.hset(tableName + "@" + id, distinctTableType + "IdPSN" , psn)//id:psn_code
       Row.fromSeq(rowArray.updated(primaryIndex,psn))
     })).filter(r => {
       !jedisCluster.getJedisCluster.hexists(tableName + "@" + r._1, distinctTableType + "PSNExist")
