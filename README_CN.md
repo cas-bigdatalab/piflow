@@ -67,7 +67,7 @@ PiFlow是一个简单易用，功能强大的大数据流水线系统。
   - 切记设置SPARK_HOME
   
 - `直接运行release版本`:
-  - 下载release版本，地址：https://github.com/cas-bigdatalab/piflow_release
+  - 下载release版本，地址：https://github.com/cas-bigdatalab/piflow/releases
   - 将build好的piflow-server.jar拷贝到piflow_release文件夹（由于git不能上传超过1G大文件，故需自行build piflow-server.jar）
   - 编辑config.properties文件
   - 运行start.sh 或者后台运行 nohup ./start.sh > piflow.log 2>&1 &
