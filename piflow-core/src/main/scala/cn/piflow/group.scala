@@ -62,6 +62,8 @@ trait FlowGroupExecution extends Execution{
 
   def groupId(): String;
 
+  def getFlowCount() : Int;
+
 }
 
 class FlowGroupExecutionImpl(fg: FlowGroup, runnerContext: Context, runner: Runner) extends FlowGroupExecution {
@@ -71,6 +73,8 @@ class FlowGroupExecutionImpl(fg: FlowGroup, runnerContext: Context, runner: Runn
   val id : String = "group_" + IdGenerator.uuid() ;
 
   val mapFlowWithConditions: Map[String, (Flow, Condition[FlowGroupExecution])] = fg.mapFlowWithConditions();
+
+  val flowCount = mapFlowWithConditions.size;
 
   val completedProcesses = MMap[String, Boolean]();
   completedProcesses ++= mapFlowWithConditions.map(x => (x._1, false));
@@ -260,4 +264,6 @@ class FlowGroupExecutionImpl(fg: FlowGroup, runnerContext: Context, runner: Runn
   }
 
   override def groupId(): String = id;
+
+  override def getFlowCount(): Int = flowCount;
 }

@@ -305,6 +305,19 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
      }
    }
 
+   case HttpRequest(GET, Uri.Path("/flowGroup/progress"), headers, entity, protocol) =>{
+
+     val groupId = req.getUri().query().getOrElse("groupId","")
+     if(!groupId.equals("")){
+       var result = API.getFlowGroupProgress(groupId)
+       println("getFlowGroupProgress result: " + result)
+
+       Future.successful(HttpResponse(SUCCESS_CODE, entity = result))
+     }else{
+       Future.successful(HttpResponse(FAIL_CODE, entity = "groupId is null or flowGroup progress exception!"))
+     }
+   }
+
    case HttpRequest(POST, Uri.Path("/project/start"), headers, entity, protocol) =>{
 
      entity match {
