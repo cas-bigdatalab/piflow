@@ -63,6 +63,26 @@ object H2Util {
 
   }
 
+  def updateToVersion6() = {
+    val h2Server = Server.createTcpServer("-tcp", "-tcpAllowOthers", "-tcpPort",PropertyUtil.getPropertyValue("h2.port")).start()
+    try{
+
+      val ALTER_COLUMN = "alter table flowgroup add flowCount Int;"
+      val statement = getConnectionInstance().createStatement()
+      statement.setQueryTimeout(QUERY_TIME)
+      statement.executeUpdate(CREATE_PROJECT_TABLE)
+      statement.executeUpdate(CREATE_GROUP_TABLE)
+      statement.executeUpdate(CREATE_THOUGHPUT_TABLE)
+      statement.executeUpdate(ALTER_COLUMN)
+      statement.close()
+
+    } catch{
+      case ex => println(ex)
+    }finally {
+      h2Server.shutdown()
+    }
+  }
+
   def addFlow(appId:String,pId:String, name:String)={
     val startTime = new Date().toString
     val statement = getConnectionInstance().createStatement()
@@ -626,7 +646,18 @@ object H2Util {
     }catch {
       case ex => println(ex)
     }*/
-    cleanDatabase()
+    if (args.size != 1){
+      println("Error args!!! Please enter Clean or UpdateToVersion6")
+    }
+    val operation =  args(0)
+    if(operation == "Clean"){
+      cleanDatabase()
+    }else if( operation == "UpdateToVersion6"){
+      updateToVersion6()
+    }else{
+      println("Error args!!! Please enter Clean or UpdateToVersion6")
+    }
+
     //println(getFlowGroupInfo("group_9b41bab2-7c3a-46ec-b716-93b636545e5e"))
 
     //val flowInfoMap = getFlowInfoMap("application_1544066083705_0864")
