@@ -10,13 +10,15 @@ import akka.stream.ActorMaterializer
 import cn.piflow.{FlowGroupExecution, ProjectExecution}
 import cn.piflow.api.util.PropertyUtil
 import cn.piflow.conf.util.{MapUtil, OptionUtil}
-import cn.piflow.util.{IdGenerator, JsonUtil}
+import cn.piflow.util.{HdfsUtil, IdGenerator, JsonUtil}
 import com.typesafe.akka.extension.quartz.QuartzSchedulerExtension
 import com.typesafe.config.ConfigFactory
 
 import scala.concurrent.Future
 import scala.util.parsing.json.JSON
 import org.apache.spark.launcher.SparkAppHandle
+import org.flywaydb.core.Flyway
+import org.flywaydb.core.api.FlywayException
 import org.h2.tools.Server
 import spray.json.DefaultJsonProtocol
 
@@ -451,8 +453,49 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
 }
 
 object Main {
+
+  /*def preparedPath() = {
+    val checkpointPath = PropertyUtil.getPropertyValue("checkpoint.path")
+    val fsDefaultName = "hdfs://10.0.86.89:9000"
+    if(!HdfsUtil.exists(fsDefaultName,checkpointPath)){
+      HdfsUtil.mkdir(fsDefaultName,checkpointPath)
+    }
+
+    val debugPath = PropertyUtil.getPropertyValue("debug.path")
+    if(!HdfsUtil.exists(debugPath)){
+      HdfsUtil.mkdir(debugPath)
+    }
+
+    val incrementPath = PropertyUtil.getPropertyValue("increment.path")
+    if(!HdfsUtil.exists(incrementPath)){
+      HdfsUtil.mkdir(incrementPath)
+    }
+
+  }*/
+
+  def flywayInit() = {
+
+    // Create the Flyway instance
+    val flyway: Flyway = new Flyway();
+    var url = "jdbc:h2:tcp://"+PropertyUtil.getPropertyValue("server.ip")+":"+PropertyUtil.getPropertyValue("h2.port")+"/~/piflow"
+    // Point it to the database
+    flyway.setDataSource(url,null,null);
+    flyway.setLocations("db/migrations");
+    flyway.setEncoding("UTF-8");
+    flyway.setTable("FLYWAY_SCHEMA_HISTORY");
+    flyway.setBaselineOnMigrate(true);
+    try {
+      //Start the migration
+      flyway.migrate();
+    } catch {
+      case e: FlywayException=>
+        flyway.repair();
+        print(e);
+    }
+  }
   def main(argv: Array[String]):Unit = {
     HTTPService.run
     val h2Server = Server.createTcpServer("-tcp", "-tcpAllowOthers", "-tcpPort",PropertyUtil.getPropertyValue("h2.port")).start()
+    flywayInit();
   }
 }

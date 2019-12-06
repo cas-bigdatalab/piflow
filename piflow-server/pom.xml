@@ -62,6 +62,12 @@
             <artifactId>akka-quartz-scheduler_2.11</artifactId>
             <version>${akka.quartz.version}</version>
         </dependency>
+        <!-- https://mvnrepository.com/artifact/org.flywaydb/flyway-core -->
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-core</artifactId>
+            <version>5.0.7</version>
+        </dependency>
 
 
     </dependencies>

@@ -183,4 +183,35 @@ object HdfsUtil {
     result
   }
 
+  def exists(fsDefaultName: String, filePath : String) : Boolean = {
+    var result : Boolean = false
+    try{
+      val conf = new Configuration()
+      conf.set("fs.default.name",fsDefaultName)
+      fs = FileSystem.get(conf)
+      result = HdfsHelper.exists(fs, filePath)
+
+    }catch{
+      case ex : IOException => println(ex)
+    }
+    result
+  }
+
+  def mkdir(fsDefaultName: String, path:String) = {
+
+    var result : Boolean = false
+    try{
+
+      val conf = new Configuration()
+      conf.set("fs.default.name",fsDefaultName)
+      fs = FileSystem.get(conf)
+
+      result = HdfsHelper.createFolder(fs, path)
+
+    }catch{
+      case ex : IOException => println(ex)
+    }
+    result
+  }
+
 }
