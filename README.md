@@ -261,8 +261,8 @@ To Use：
   ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-templatelist.png)
   ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-savetemplate.png)
   
-  QQ Group：1003489545
+Welcome to join PiFlow User Group! Contact：Name:吴老师 / Mobile Phone & WeChat：18910263390 / Email: wzs@cnic.cn / QQ Group：1003489545 
 ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/PiFlowUserGroup_QQ.png)
 
-Welcome to join PiFlow User Group! Contact：吴老师 18910263390 wzs@cnic.cn
+
 
