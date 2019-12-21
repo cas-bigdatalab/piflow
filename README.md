@@ -267,7 +267,7 @@ Mobile Phone：18910263390
 WeChat：18910263390  
 Email: wzs@cnic.cn  
 QQ Group：1003489545  
-![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/PiFlowUserGroup_QQ.png)
+![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/PiFlowUserGroup_QQ.jpeg)
 
 
 
