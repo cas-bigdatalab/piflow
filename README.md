@@ -261,8 +261,13 @@ To Use：
   ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-templatelist.png)
   ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-savetemplate.png)
   
-  
-![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/PiFlowUserGroup.png)
+Welcome to join PiFlow User Group! Contact US  
+Name:吴老师  
+Mobile Phone：18910263390  
+WeChat：18910263390  
+Email: wzs@cnic.cn  
+QQ Group：1003489545  
+![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/PiFlowUserGroup_QQ.jpeg)
 
-Welcome to join PiFlow User Group! Contact：吴老师 18910263390 wzs@cnic.cn
+
 
