@@ -256,7 +256,7 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
      entity match {
        case HttpEntity.Strict(_, data) =>{
          var flowGroupJson = data.utf8String
-         flowGroupJson = flowGroupJson.replaceAll("}","}\n")
+//         flowGroupJson = flowGroupJson.replaceAll("}","}\n")
          val flowGroupExecution = API.startFlowGroup(flowGroupJson)
          flowGroupMap += (flowGroupExecution.groupId() -> flowGroupExecution)
          val result = "{\"flowGroup\":{\"id\":\"" + flowGroupExecution.groupId() + "\"}}"
