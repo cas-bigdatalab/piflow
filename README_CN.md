@@ -1,4 +1,4 @@
-![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-logo2.png) 
+![](https://gitee.com/opensci/piflow/blob/master/doc/piflow-logo2.png) 
 PiFlow是一个简单易用，功能强大的大数据流水线系统。
 
 ## 目录
@@ -28,7 +28,7 @@ PiFlow是一个简单易用，功能强大的大数据流水线系统。
   - 集成了微生物领域的相关算法
 
 ## 架构
-![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/architecture.png) 
+![](https://gitee.com/opensci/piflow/blob/master/doc/architecture.png) 
 ## 要求
 * JDK 1.8 及以上版本
 * Apache Maven 3.1.0 及以上版本
@@ -67,7 +67,7 @@ PiFlow是一个简单易用，功能强大的大数据流水线系统。
   - 切记设置SPARK_HOME
   
 - `直接运行release版本`:
-  - 下载release版本，地址：https://github.com/cas-bigdatalab/piflow_release
+  - 下载release版本，地址：https://github.com/cas-bigdatalab/piflow/releases
   - 将build好的piflow-server.jar拷贝到piflow_release文件夹（由于git不能上传超过1G大文件，故需自行build piflow-server.jar）
   - 编辑config.properties文件
   - 运行start.sh 或者后台运行 nohup ./start.sh > piflow.log 2>&1 &
@@ -247,49 +247,49 @@ PiFlow是一个简单易用，功能强大的大数据流水线系统。
     - curl -0 -X POST http://serverIP:serverPort/flow/start -H "Content-type: application/json" -d '你的流水线json配置文件'
 - 访问piflow web: 试运行地址 "http://piflow.ml/piflow-web", user/password: admin/admin
   - 登录
-  ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-login.png)
+  ![](https://gitee.com/opensci/piflow/blob/master/doc/piflow-login.png)
   - 流水线列表
-  ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-flowlist.png)
+  ![](https://gitee.com/opensci/piflow/blob/master/doc/piflow-flowlist.png)
   - 流水线配置
-  ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-congfigflow.png)
+  ![](https://gitee.com/opensci/piflow/blob/master/doc/piflow-congfigflow.png)
   - 流水线资源配置
-  ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-resource.png)
+  ![](https://gitee.com/opensci/piflow/blob/master/doc/piflow-resource.png)
   - 运行流水线
-  ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-run.png)
+  ![](https://gitee.com/opensci/piflow/blob/master/doc/piflow-run.png)
   - 删除流水线
-  ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-delete.png)
+  ![](https://gitee.com/opensci/piflow/blob/master/doc/piflow-delete.png)
   - 流水线保存模板
-  ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-savetemplate.png)
+  ![](https://gitee.com/opensci/piflow/blob/master/doc/piflow-savetemplate.png)
   - 创建流水线:用户点击创建按钮,需要输入流水线名称及描述信息,同时可设置流水线需要的资源.
-  ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-createflows.png)
+  ![](https://gitee.com/opensci/piflow/blob/master/doc/piflow-createflows.png)
   - 配置流水线:用户可通过拖拽方式进行流水线的配置，方式类似visio
-  ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-flowconfig.png)
+  ![](https://gitee.com/opensci/piflow/blob/master/doc/piflow-flowconfig.png)
   - 搜索流水线组件：画布左边栏显示组件组和组件，可按关键字搜索,户选择好组件后可拖至画布中央
-  ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-module.png)
+  ![](https://gitee.com/opensci/piflow/blob/master/doc/piflow-module.png)
   - 流水线基本信息：画布右侧显示流水线基本信息，包括流水线名称及描述
-  ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-message.png)
+  ![](https://gitee.com/opensci/piflow/blob/master/doc/piflow-message.png)
   - 流水线配置：画布中央选择任一数据处理组件,右侧显示该数据处理组件的基本信息,包括名称描述,作者等信息.选择AttributeInfo tab,显示该数据处理组件的属性信息,用户可根据实际需求进行配置
-  ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-randomconfig.png)
+  ![](https://gitee.com/opensci/piflow/blob/master/doc/piflow-randomconfig.png)
   - 运行流水线：用户配置好流水线后,可点击运行按钮运行流水线
-  ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-runpiflow.png)
+  ![](https://gitee.com/opensci/piflow/blob/master/doc/piflow-runpiflow.png)
   - 流水线监控：进入流水线监控页面。监控页面会显示整条流水线的执行状况，包括运行状态、执行进度、执行时间等,击具体数据处理组件，显示该数据处理组件的运行状况，包括运行状态、执行时间。
-  ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-control.png)
+  ![](https://gitee.com/opensci/piflow/blob/master/doc/piflow-control.png)
   - 查看流水线日志
-  ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-log.png)
+  ![](https://gitee.com/opensci/piflow/blob/master/doc/piflow-log.png)
   - 运行中流水线列表: 已运行流水线会显示在Process List中，包括开始时间、结束时间、进度、状态等。同时可对已运行流水线进行查看，在运行，停止，和删除操作
-  ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-processlist.png)
+  ![](https://gitee.com/opensci/piflow/blob/master/doc/piflow-processlist.png)
   - 运行流水线检查点
-  ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-runcheckpoint.png)
+  ![](https://gitee.com/opensci/piflow/blob/master/doc/piflow-runcheckpoint.png)
   - 创建保存模板
-  ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-savetemplates.png)
-  ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-savetemplatess.png)
+  ![](https://gitee.com/opensci/piflow/blob/master/doc/piflow-savetemplates.png)
+  ![](https://gitee.com/opensci/piflow/blob/master/doc/piflow-savetemplatess.png)
   - 模板列表
-  ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-templatelist.png)
+  ![](https://gitee.com/opensci/piflow/blob/master/doc/piflow-templatelist.png)
   - 下载模板：模板会保存成xml文件存放到本地
-  ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-download.png)
+  ![](https://gitee.com/opensci/piflow/blob/master/doc/piflow-download.png)
   - 上传模板
-  ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-upload.png)
+  ![](https://gitee.com/opensci/piflow/blob/master/doc/piflow-upload.png)
   - 加载模板
-  ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-load1.png)
-  ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-load2.png)
+  ![](https://gitee.com/opensci/piflow/blob/master/doc/piflow-load1.png)
+  ![](https://gitee.com/opensci/piflow/blob/master/doc/piflow-load2.png)
   

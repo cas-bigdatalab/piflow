@@ -62,6 +62,8 @@ trait FlowGroupExecution extends Execution{
 
   def groupId(): String;
 
+  def getFlowCount() : Int;
+
 }
 
 class FlowGroupExecutionImpl(fg: FlowGroup, runnerContext: Context, runner: Runner) extends FlowGroupExecution {
@@ -71,12 +73,21 @@ class FlowGroupExecutionImpl(fg: FlowGroup, runnerContext: Context, runner: Runn
   val id : String = "group_" + IdGenerator.uuid() ;
 
   val mapFlowWithConditions: Map[String, (Flow, Condition[FlowGroupExecution])] = fg.mapFlowWithConditions();
+
+  val flowCount = mapFlowWithConditions.size;
+
   val completedProcesses = MMap[String, Boolean]();
   completedProcesses ++= mapFlowWithConditions.map(x => (x._1, false));
+
+  val failedProcesses = MMap[String, Boolean]();
+  failedProcesses ++= mapFlowWithConditions.map(x => (x._1, false));
+
   val numWaitingProcesses = new AtomicInteger(mapFlowWithConditions.size);
 
   val startedProcesses = MMap[String, SparkAppHandle]();
   val startedProcessesAppID = MMap[String, String]()
+
+
 
   val execution = this;
   val POLLING_INTERVAL = 1000;
@@ -102,7 +113,7 @@ class FlowGroupExecutionImpl(fg: FlowGroup, runnerContext: Context, runner: Runn
     println(flow.getFlowJson())
 
     var flowJson = flow.getFlowJson()
-    flowJson = flowJson.replaceAll("}","}\n")
+//    flowJson = flowJson.replaceAll("}","}\n")
 
     var appId : String = ""
     val countDownLatch = new CountDownLatch(1)
@@ -120,6 +131,10 @@ class FlowGroupExecutionImpl(fg: FlowGroup, runnerContext: Context, runner: Runn
         if(H2Util.getFlowState(appId).equals(FlowState.COMPLETED)){
           completedProcesses(flow.getFlowName()) = true;
           numWaitingProcesses.decrementAndGet();
+        }
+        if(H2Util.getFlowState(appId).equals(FlowState.KILLED) || H2Util.getFlowState(appId).equals(FlowState.FAILED)){
+          failedProcesses(flow.getFlowName()) = true;
+
         }
 
         if (handle.getState().isFinal){
@@ -168,6 +183,11 @@ class FlowGroupExecutionImpl(fg: FlowGroup, runnerContext: Context, runner: Runn
 
           startedProcesses.synchronized {
             todos.foreach(en => startProcess(en._1, en._2, id));
+            failedProcesses.foreach(f => {
+              if(f._2 == true){
+                throw new Exception("Flow " + f._1 + " execute error!")
+              }
+            })
           }
 
           Thread.sleep(POLLING_INTERVAL);
@@ -244,4 +264,6 @@ class FlowGroupExecutionImpl(fg: FlowGroup, runnerContext: Context, runner: Runn
   }
 
   override def groupId(): String = id;
+
+  override def getFlowCount(): Int = flowCount;
 }

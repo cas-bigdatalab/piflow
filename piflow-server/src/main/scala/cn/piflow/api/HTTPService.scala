@@ -10,13 +10,15 @@ import akka.stream.ActorMaterializer
 import cn.piflow.{FlowGroupExecution, ProjectExecution}
 import cn.piflow.api.util.PropertyUtil
 import cn.piflow.conf.util.{MapUtil, OptionUtil}
-import cn.piflow.util.{IdGenerator, JsonUtil}
+import cn.piflow.util.{HdfsUtil, IdGenerator, JsonUtil}
 import com.typesafe.akka.extension.quartz.QuartzSchedulerExtension
 import com.typesafe.config.ConfigFactory
 
 import scala.concurrent.Future
 import scala.util.parsing.json.JSON
 import org.apache.spark.launcher.SparkAppHandle
+import org.flywaydb.core.Flyway
+import org.flywaydb.core.api.FlywayException
 import org.h2.tools.Server
 import spray.json.DefaultJsonProtocol
 
@@ -150,7 +152,7 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
      entity match {
        case HttpEntity.Strict(_, data) =>{
          var flowJson = data.utf8String
-         flowJson = flowJson.replaceAll("}","}\n")
+//          flowJson = flowJson.replaceAll("}","}\n")
          //flowJson = JsonFormatTool.formatJson(flowJson)
          val (appId,process) = API.startFlow(flowJson)
          processMap += (appId -> process)
@@ -254,7 +256,7 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
      entity match {
        case HttpEntity.Strict(_, data) =>{
          var flowGroupJson = data.utf8String
-         flowGroupJson = flowGroupJson.replaceAll("}","}\n")
+//         flowGroupJson = flowGroupJson.replaceAll("}","}\n")
          val flowGroupExecution = API.startFlowGroup(flowGroupJson)
          flowGroupMap += (flowGroupExecution.groupId() -> flowGroupExecution)
          val result = "{\"flowGroup\":{\"id\":\"" + flowGroupExecution.groupId() + "\"}}"
@@ -305,12 +307,25 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
      }
    }
 
+   case HttpRequest(GET, Uri.Path("/flowGroup/progress"), headers, entity, protocol) =>{
+
+     val groupId = req.getUri().query().getOrElse("groupId","")
+     if(!groupId.equals("")){
+       var result = API.getFlowGroupProgress(groupId)
+       println("getFlowGroupProgress result: " + result)
+
+       Future.successful(HttpResponse(SUCCESS_CODE, entity = result))
+     }else{
+       Future.successful(HttpResponse(FAIL_CODE, entity = "groupId is null or flowGroup progress exception!"))
+     }
+   }
+
    case HttpRequest(POST, Uri.Path("/project/start"), headers, entity, protocol) =>{
 
      entity match {
        case HttpEntity.Strict(_, data) =>{
          var projectJson = data.utf8String
-         projectJson = projectJson.replaceAll("}","}\n")
+//         projectJson = projectJson.replaceAll("}","}\n")
          val projectExecution = API.startProject(projectJson)
          projectMap += (projectExecution.projectId() -> projectExecution)
          val result = "{\"project\":{\"id\":\"" + projectExecution.projectId()+ "\"}}"
@@ -438,8 +453,49 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
 }
 
 object Main {
+
+  /*def preparedPath() = {
+    val checkpointPath = PropertyUtil.getPropertyValue("checkpoint.path")
+    val fsDefaultName = "hdfs://10.0.86.89:9000"
+    if(!HdfsUtil.exists(fsDefaultName,checkpointPath)){
+      HdfsUtil.mkdir(fsDefaultName,checkpointPath)
+    }
+
+    val debugPath = PropertyUtil.getPropertyValue("debug.path")
+    if(!HdfsUtil.exists(debugPath)){
+      HdfsUtil.mkdir(debugPath)
+    }
+
+    val incrementPath = PropertyUtil.getPropertyValue("increment.path")
+    if(!HdfsUtil.exists(incrementPath)){
+      HdfsUtil.mkdir(incrementPath)
+    }
+
+  }*/
+
+  def flywayInit() = {
+
+    // Create the Flyway instance
+    val flyway: Flyway = new Flyway();
+    var url = "jdbc:h2:tcp://"+PropertyUtil.getPropertyValue("server.ip")+":"+PropertyUtil.getPropertyValue("h2.port")+"/~/piflow"
+    // Point it to the database
+    flyway.setDataSource(url,null,null);
+    flyway.setLocations("db/migrations");
+    flyway.setEncoding("UTF-8");
+    flyway.setTable("FLYWAY_SCHEMA_HISTORY");
+    flyway.setBaselineOnMigrate(true);
+    try {
+      //Start the migration
+      flyway.migrate();
+    } catch {
+      case e: FlywayException=>
+        flyway.repair();
+        print(e);
+    }
+  }
   def main(argv: Array[String]):Unit = {
     HTTPService.run
     val h2Server = Server.createTcpServer("-tcp", "-tcpAllowOthers", "-tcpPort",PropertyUtil.getPropertyValue("h2.port")).start()
+    flywayInit();
   }
 }

@@ -11,7 +11,7 @@ object H2Util {
 
   val QUERY_TIME = 300
   val CREATE_PROJECT_TABLE = "create table if not exists project (id varchar(255), name varchar(255), state varchar(255), startTime varchar(255), endTime varchar(255))"
-  val CREATE_GROUP_TABLE = "create table if not exists flowGroup (id varchar(255), projectId varchar(255), name varchar(255), state varchar(255), startTime varchar(255), endTime varchar(255))"
+  val CREATE_GROUP_TABLE = "create table if not exists flowGroup (id varchar(255), projectId varchar(255), name varchar(255), state varchar(255), startTime varchar(255), endTime varchar(255), flowCount int)"
   val CREATE_FLOW_TABLE = "create table if not exists flow (id varchar(255), groupId varchar(255), projectId varchar(255), pid varchar(255), name varchar(255), state varchar(255), startTime varchar(255), endTime varchar(255))"
   val CREATE_STOP_TABLE = "create table if not exists stop (flowId varchar(255), name varchar(255), state varchar(255), startTime varchar(255), endTime varchar(255))"
   val CREATE_THOUGHPUT_TABLE = "create table if not exists thoughput (flowId varchar(255), stopName varchar(255), portName varchar(255), count long)"
@@ -61,6 +61,26 @@ object H2Util {
       h2Server.shutdown()
     }
 
+  }
+
+  def updateToVersion6() = {
+    val h2Server = Server.createTcpServer("-tcp", "-tcpAllowOthers", "-tcpPort",PropertyUtil.getPropertyValue("h2.port")).start()
+    try{
+
+      val ALTER_COLUMN = "alter table flowgroup add flowCount Int;"
+      val statement = getConnectionInstance().createStatement()
+      statement.setQueryTimeout(QUERY_TIME)
+      statement.executeUpdate(CREATE_PROJECT_TABLE)
+      statement.executeUpdate(CREATE_GROUP_TABLE)
+      statement.executeUpdate(CREATE_THOUGHPUT_TABLE)
+      statement.executeUpdate(ALTER_COLUMN)
+      statement.close()
+
+    } catch{
+      case ex => println(ex)
+    }finally {
+      h2Server.shutdown()
+    }
   }
 
   def addFlow(appId:String,pId:String, name:String)={
@@ -372,11 +392,11 @@ object H2Util {
   }
 
   //flowGroup related api
-  def addFlowGroup(flowGroupId:String,name:String)={
+  def addFlowGroup(flowGroupId:String,name:String, flowCount:Int)={
     val startTime = new Date().toString
     val statement = getConnectionInstance().createStatement()
     statement.setQueryTimeout(QUERY_TIME)
-    statement.executeUpdate("insert into flowGroup(id, name) values('" + flowGroupId +  "','" + name + "')")
+    statement.executeUpdate("insert into flowGroup(id, name, flowCount) values('" + flowGroupId +  "','" + name + "','" + flowCount +"')")
     statement.close()
   }
   def updateFlowGroupState(flowGroupId:String, state:String) = {
@@ -471,6 +491,43 @@ object H2Util {
     statement.close()
 
     Map[String, Any]("group" -> flowGroupInfoMap)
+  }
+
+  def getFlowGroupProgressPercent(groupId:String) : String = {
+    val statement = getConnectionInstance().createStatement()
+    statement.setQueryTimeout(QUERY_TIME)
+
+    var flowCount = 0;
+    var completedFlowCount = 0
+    val totalRS : ResultSet = statement.executeQuery("select flowCount from flowGroup where Id='" + groupId + "'")
+    while(totalRS.next()){
+      flowCount = totalRS.getInt("flowCount")
+      println("flowCount:" + flowCount)
+    }
+    totalRS.close()
+
+    val completedRS : ResultSet = statement.executeQuery("select count(*) as completedFlowCount from flow where GroupId='" + groupId +"' and state='" + FlowState.COMPLETED + "'")
+    while(completedRS.next()){
+      completedFlowCount = completedRS.getInt("completedFlowCount")
+      println("completedFlowCount:" + completedFlowCount)
+    }
+    completedRS.close()
+
+    val flowGroupRS : ResultSet = statement.executeQuery("select * from flowGroup where id='" + groupId +"'")
+    var flowGroupState = ""
+    while (flowGroupRS.next()){
+      flowGroupState = flowGroupRS.getString("state")
+    }
+    flowGroupRS.close()
+
+    statement.close()
+
+    val progress:Double = completedFlowCount.asInstanceOf[Double] / flowCount * 100
+    if(flowGroupState.equals(FlowState.COMPLETED)){
+      "100"
+    }else{
+      progress.toString
+    }
   }
 
   //project related api
@@ -589,7 +646,18 @@ object H2Util {
     }catch {
       case ex => println(ex)
     }*/
-    cleanDatabase()
+    if (args.size != 1){
+      println("Error args!!! Please enter Clean or UpdateToVersion6")
+    }
+    val operation =  args(0)
+    if(operation == "Clean"){
+      cleanDatabase()
+    }else if( operation == "UpdateToVersion6"){
+      updateToVersion6()
+    }else{
+      println("Error args!!! Please enter Clean or UpdateToVersion6")
+    }
+
     //println(getFlowGroupInfo("group_9b41bab2-7c3a-46ec-b716-93b636545e5e"))
 
     //val flowInfoMap = getFlowInfoMap("application_1544066083705_0864")

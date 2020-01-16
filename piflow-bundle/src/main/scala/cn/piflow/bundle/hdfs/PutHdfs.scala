@@ -11,7 +11,7 @@ import org.apache.spark.sql.SparkSession
 
 
 class PutHdfs extends ConfigurableStop{
-  override val authorEmail: String = "ygang@cmic.com"
+  override val authorEmail: String = "ygang@cnic.com"
   override val inportList: List[String] = List(PortEnum.DefaultPort.toString)
   override val outportList: List[String] = List(PortEnum.DefaultPort.toString)
   override val description: String = "Put data to hdfs"

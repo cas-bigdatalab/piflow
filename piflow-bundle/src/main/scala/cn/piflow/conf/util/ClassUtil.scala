@@ -203,6 +203,7 @@ object ClassUtil {
           ("inports" -> stop.inportList.mkString(",")) ~
           ("outports" -> stop.outportList.mkString(",")) ~
           ("groups" -> stop.getGroup().mkString(",")) ~
+          ("isCustomized" -> stop.getCustomized().toString) ~
           ("description" -> stop.description) ~
           ("icon" -> base64Encoder.encode(stop.getIcon())) ~
           ("properties" ->

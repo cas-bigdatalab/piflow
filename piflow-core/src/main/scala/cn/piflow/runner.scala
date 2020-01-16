@@ -297,10 +297,11 @@ class RunnerLogger extends RunnerListener with Logging {
     val groupId = ctx.getFlowGroupExecution().groupId()
     val flowGroupName = ctx.getFlowGroup().getFlowGroupName()
     val time = new Date().toString
+    val flowCount = ctx.getFlowGroupExecution().getFlowCount();
     logger.debug(s"Flow Group started: $groupId, flow group: $flowGroupName, time: $time");
     println(s"Flow Group started: $groupId, flow group: $flowGroupName, time: $time")
     //update flow group state to STARTED
-    H2Util.addFlowGroup(groupId, flowGroupName)
+    H2Util.addFlowGroup(groupId, flowGroupName, flowCount)
     H2Util.updateFlowGroupState(groupId,FlowGroupState.STARTED)
     H2Util.updateFlowGroupStartTime(groupId,time)
   }

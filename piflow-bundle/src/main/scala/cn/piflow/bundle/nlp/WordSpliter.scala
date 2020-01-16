@@ -13,7 +13,7 @@ import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 import scala.collection.JavaConverters._
 import scala.collection.mutable.ArrayBuffer
 
-class NLP extends ConfigurableStop {
+class WordSpliter extends ConfigurableStop {
 
   val authorEmail: String = "huchuan0901@163.com"
   val description: String = "Word segmentation"

@@ -15,7 +15,7 @@ import org.json.JSONObject
 
 import scala.collection.mutable.ArrayBuffer
 
-class ImageProcess extends ConfigurableStop {
+class AnimalClassification extends ConfigurableStop {
 
   val authorEmail: String = "huchuan0901@163.com"
   val description: String = "Image classification"
