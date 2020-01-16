@@ -325,7 +325,7 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
      entity match {
        case HttpEntity.Strict(_, data) =>{
          var projectJson = data.utf8String
-         projectJson = projectJson.replaceAll("}","}\n")
+//         projectJson = projectJson.replaceAll("}","}\n")
          val projectExecution = API.startProject(projectJson)
          projectMap += (projectExecution.projectId() -> projectExecution)
          val result = "{\"project\":{\"id\":\"" + projectExecution.projectId()+ "\"}}"

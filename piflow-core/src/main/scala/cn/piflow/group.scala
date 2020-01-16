@@ -113,7 +113,7 @@ class FlowGroupExecutionImpl(fg: FlowGroup, runnerContext: Context, runner: Runn
     println(flow.getFlowJson())
 
     var flowJson = flow.getFlowJson()
-    flowJson = flowJson.replaceAll("}","}\n")
+//    flowJson = flowJson.replaceAll("}","}\n")
 
     var appId : String = ""
     val countDownLatch = new CountDownLatch(1)
