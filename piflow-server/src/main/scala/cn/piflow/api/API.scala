@@ -11,7 +11,7 @@ import cn.piflow.conf.util.{ClassUtil, MapUtil, OptionUtil}
 import cn.piflow.{FlowGroupExecution, Process, ProjectExecution, Runner}
 import cn.piflow.api.util.PropertyUtil
 import cn.piflow.conf.bean.{FlowGroupBean, ProjectBean}
-import cn.piflow.util.{FlowState, H2Util, HdfsUtil}
+import cn.piflow.util.{FileUtil, FlowState, H2Util, HdfsUtil}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
 import org.apache.http.client.methods.{CloseableHttpResponse, HttpGet, HttpPost, HttpPut}
@@ -121,7 +121,12 @@ object API {
       .addAppArgs(flowJson.stripMargin)
       //.redirectOutput(stdout)
 
-
+    //add other jars for application
+    val classPath = PropertyUtil.getClassPath()
+    FileUtil.getJarFile(new File(classPath)).foreach(f => {
+      println(f.getPath)
+      sparkLauncher.addJar(f.getPath)
+    })
 
     if(PropertyUtil.getPropertyValue("yarn.resourcemanager.hostname") != null)
       sparkLauncher.setConf("spark.hadoop.yarn.resourcemanager.hostname", PropertyUtil.getPropertyValue("yarn.resourcemanager.hostname"))

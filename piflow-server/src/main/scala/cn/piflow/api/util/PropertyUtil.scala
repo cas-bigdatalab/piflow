@@ -1,17 +1,19 @@
 package cn.piflow.api.util
 
-import java.io.{FileInputStream, InputStream}
+import java.io.{File, FileInputStream, InputStream}
 import java.util.Properties
 
 object PropertyUtil {
   private val prop: Properties = new Properties()
   var fis: InputStream = null
   var path :String = ""
+  var classPath:String = ""
     try{
     //val path = Thread.currentThread().getContextClassLoader.getResource("config.properties").getPath
     //fis = this.getClass.getResourceAsStream("")
     val userDir = System.getProperty("user.dir")
     path = userDir + "/config.properties"
+    classPath = userDir + "/classpath/"
     prop.load(new FileInputStream(path))
   } catch{
     case ex: Exception => ex.printStackTrace()
@@ -19,6 +21,10 @@ object PropertyUtil {
 
   def getConfigureFile() : String = {
     path
+  }
+
+  def getClassPath():String = {
+    classPath
   }
 
   def getPropertyValue(propertyKey: String): String ={
@@ -36,5 +42,6 @@ object PropertyUtil {
     }
     throw new NullPointerException
   }
+
 
 }
