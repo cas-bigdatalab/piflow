@@ -1,6 +1,7 @@
 package cn.piflow.util
 
 
+import java.io.File
 import java.util.Date
 import java.util.concurrent.CountDownLatch
 
@@ -52,6 +53,13 @@ object FlowLauncher {
     if(PropertyUtil.getPropertyValue("yarn.jars") != null)
       sparkLauncher.setConf("spark.yarn.jars", PropertyUtil.getPropertyValue("yarn.jars"))
 
+    //add other jars for application
+    val classPath = PropertyUtil.getClassPath()
+    FileUtil.getJarFile(new File(classPath)).foreach(f => {
+      println(f.getPath)
+      sparkLauncher.addJar(f.getPath)
+    })
+    
     sparkLauncher
   }
 
