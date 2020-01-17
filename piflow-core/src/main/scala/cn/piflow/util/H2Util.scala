@@ -1,5 +1,6 @@
 package cn.piflow.util
 
+import java.net.InetAddress
 import java.sql.{Connection, DriverManager, ResultSet}
 import java.util.Date
 
@@ -15,7 +16,11 @@ object H2Util {
   val CREATE_FLOW_TABLE = "create table if not exists flow (id varchar(255), groupId varchar(255), projectId varchar(255), pid varchar(255), name varchar(255), state varchar(255), startTime varchar(255), endTime varchar(255))"
   val CREATE_STOP_TABLE = "create table if not exists stop (flowId varchar(255), name varchar(255), state varchar(255), startTime varchar(255), endTime varchar(255))"
   val CREATE_THOUGHPUT_TABLE = "create table if not exists thoughput (flowId varchar(255), stopName varchar(255), portName varchar(255), count long)"
+  val CREATE_FLAG_TABLE = "create table if not exists configFlag(id bigint auto_increment, item varchar(255), flag int, createTime varchar(255))"
   val serverIP = PropertyUtil.getPropertyValue("server.ip") + ":" + PropertyUtil.getPropertyValue("h2.port")
+  //val ip = InetAddress.getLocalHost.getHostAddress
+  //val serverIP = ip + ":" + PropertyUtil.getPropertyValue("h2.port")
+  //print("getHostAddress:" +  ip  + " in H2Util!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1")
   val CONNECTION_URL = "jdbc:h2:tcp://" +  serverIP + "/~/piflow;AUTO_SERVER=true"
   var connection : Connection= null
 
@@ -28,6 +33,7 @@ object H2Util {
     statement.executeUpdate(CREATE_FLOW_TABLE)
     statement.executeUpdate(CREATE_STOP_TABLE)
     statement.executeUpdate(CREATE_THOUGHPUT_TABLE)
+    statement.executeUpdate(CREATE_FLAG_TABLE)
     statement.close()
   }catch {
     case ex => println(ex)
@@ -53,6 +59,7 @@ object H2Util {
       statement.executeUpdate("drop table if exists flow")
       statement.executeUpdate("drop table if exists stop")
       statement.executeUpdate("drop table if exists thoughput")
+      statement.executeUpdate("drop table if exists flag")
       statement.close()
 
     } catch{
@@ -620,6 +627,27 @@ object H2Util {
     statement.close()
 
     Map[String, Any]("project" -> projectInfoMap)
+  }
+
+  def addFlag(item:String, flag:Int) : Unit = {
+    val createTime = new Date().toString
+    val statement = getConnectionInstance().createStatement()
+    statement.setQueryTimeout(QUERY_TIME)
+    statement.executeUpdate("insert into configFlag(item, flag, createTime) values('" + item +  "','" + flag + "','" + createTime +"')")
+    statement.close()
+  }
+
+  def getFlag(item : String) : Int = {
+    val statement = getConnectionInstance().createStatement()
+    statement.setQueryTimeout(QUERY_TIME)
+    var flag = 0
+
+    val flowGroupRS : ResultSet = statement.executeQuery("select flag from configFlag where item='" + item +"'")
+    if (flowGroupRS.next()){
+
+      flag = flowGroupRS.getInt("flag")
+    }
+    return flag
   }
 
 

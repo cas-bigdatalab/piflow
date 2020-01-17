@@ -1,6 +1,6 @@
 package cn.piflow.conf
 
-import cn.piflow.util.{HdfsUtil, PropertyUtil}
+import cn.piflow.util.{ConfigureUtil, HdfsUtil, PropertyUtil}
 import cn.piflow.{IncrementalStop, JobContext}
 
 /**
@@ -12,7 +12,7 @@ abstract class ConfigurableIncrementalStop extends ConfigurableStop with Increme
   override var incrementalPath: String = _
 
   override def init(flowName : String, stopName : String): Unit = {
-    incrementalPath = PropertyUtil.getPropertyValue("increment.path").stripSuffix("/") + "/" + flowName + "/" + stopName
+    incrementalPath = ConfigureUtil.getIncrementPath().stripSuffix("/") + "/" + flowName + "/" + stopName
 
   }
 

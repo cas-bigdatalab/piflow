@@ -11,7 +11,7 @@ import cn.piflow.conf.util.{ClassUtil, MapUtil, OptionUtil}
 import cn.piflow.{FlowGroupExecution, Process, ProjectExecution, Runner}
 import cn.piflow.api.util.PropertyUtil
 import cn.piflow.conf.bean.{FlowGroupBean, ProjectBean}
-import cn.piflow.util.{FileUtil, FlowState, H2Util, HdfsUtil}
+import cn.piflow.util._
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
 import org.apache.http.client.methods.{CloseableHttpResponse, HttpGet, HttpPost, HttpPut}
@@ -37,8 +37,8 @@ object API {
     val project = projectBean.constructProject()
 
     val projectExecution = Runner.create()
-      .bind("checkpoint.path",PropertyUtil.getPropertyValue("checkpoint.path"))
-      .bind("debug.path",PropertyUtil.getPropertyValue("debug.path"))
+      .bind("checkpoint.path",ConfigureUtil.getCheckpointPath())
+      .bind("debug.path",ConfigureUtil.getDebugPath())
       .start(project);
 
     projectExecution
@@ -67,8 +67,8 @@ object API {
     val flowGroup = flowGroupBean.constructFlowGroup()
 
     val flowGroupExecution = Runner.create()
-      .bind("checkpoint.path",PropertyUtil.getPropertyValue("checkpoint.path"))
-      .bind("debug.path",PropertyUtil.getPropertyValue("debug.path"))
+      .bind("checkpoint.path",ConfigureUtil.getCheckpointPath())
+      .bind("debug.path",ConfigureUtil.getDebugPath())
       .start(flowGroup);
 
     flowGroupExecution
@@ -113,7 +113,7 @@ object API {
       .setAppName(appName)
       .setMaster(PropertyUtil.getPropertyValue("spark.master"))
       .setDeployMode(PropertyUtil.getPropertyValue("spark.deploy.mode"))
-      .setAppResource(PropertyUtil.getPropertyValue("piflow.bundle"))
+      .setAppResource(ConfigureUtil.getPiFlowBundlePath())
       .setVerbose(true)
       .setConf("spark.hive.metastore.uris",PropertyUtil.getPropertyValue("hive.metastore.uris"))
       .setConf("spark.driver.memory", dirverMem)
@@ -136,12 +136,17 @@ object API {
       sparkLauncher.setConf("spark.hadoop.yarn.resourcemanager.hostname", PropertyUtil.getPropertyValue("yarn.resourcemanager.hostname"))
     if(PropertyUtil.getPropertyValue("yarn.resourcemanager.address") != null)
       sparkLauncher.setConf("spark.hadoop.yarn.resourcemanager.address", PropertyUtil.getPropertyValue("yarn.resourcemanager.address"))
-    if(PropertyUtil.getPropertyValue("yarn.access.namenode") != null)
-      sparkLauncher.setConf("spark.yarn.access.namenode", PropertyUtil.getPropertyValue("yarn.access.namenode"))
+
+    if(PropertyUtil.getPropertyValue("spark.yarn.access.namenode") != null)
+      sparkLauncher.setConf("spark.yarn.access.namenode", PropertyUtil.getPropertyValue("spark.yarn.access.namenode"))
+    else
+      sparkLauncher.setConf("spark.yarn.access.namenode", PropertyUtil.getPropertyValue("fs.defaultFS"))
+
     if(PropertyUtil.getPropertyValue("yarn.stagingDir") != null)
       sparkLauncher.setConf("spark.yarn.stagingDir", PropertyUtil.getPropertyValue("yarn.stagingDir"))
     if(PropertyUtil.getPropertyValue("yarn.jars") != null)
       sparkLauncher.setConf("spark.yarn.jars", PropertyUtil.getPropertyValue("yarn.jars"))
+
 
       val handle = sparkLauncher.startApplication( new SparkAppHandle.Listener {
         override def stateChanged(handle: SparkAppHandle): Unit = {
@@ -230,7 +235,7 @@ object API {
   }
 
   def getFlowCheckpoint(appId:String) : String = {
-    val checkpointPath = PropertyUtil.getPropertyValue("checkpoint.path").stripSuffix("/") + "/" + appId
+    val checkpointPath = ConfigureUtil.getCheckpointPath().stripSuffix("/") + "/" + appId
     val checkpointList = HdfsUtil.getFiles(checkpointPath)
     """{"checkpoints":"""" + checkpointList.mkString(",") + """"}"""
   }
@@ -259,7 +264,7 @@ object API {
     val json = """{"debugInfo" : [ """ + result + """]}"""
     json*/
 
-    val debugPath :String = PropertyUtil.getPropertyValue("debug.path").stripSuffix("/") + "/" + appId + "/" + stopName + "/" + port;
+    val debugPath :String = ConfigureUtil.getDebugPath().stripSuffix("/") + "/" + appId + "/" + stopName + "/" + port;
     val schema = HdfsUtil.getLine(debugPath + "_schema")
     val result ="{\"schema\":\"" + schema+ "\", \"debugDataPath\": \""+ debugPath + "\"}"
     result

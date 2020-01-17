@@ -1,0 +1,1 @@
+create table if not exists configFlag(id bigint auto_increment, item varchar(255), flag int, createTime varchar(255))

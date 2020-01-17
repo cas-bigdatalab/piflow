@@ -1,5 +1,7 @@
 package cn.piflow.api
 
+import java.net.InetAddress
+
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
@@ -444,7 +446,9 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
 
 
   def run = {
-    val ip = PropertyUtil.getPropertyValue("server.ip")
+    //val ip = PropertyUtil.getPropertyValue("server.ip")
+    val ip = InetAddress.getLocalHost.getHostAddress
+    print("getHostAddress:" +  ip  + " in HTTPService!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1")
     val port = PropertyUtil.getIntPropertyValue("server.port")
     Http().bindAndHandleAsync(route, ip, port)
     println("Server:" + ip + ":" + port + " Started!!!")
@@ -454,30 +458,14 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
 
 object Main {
 
-  /*def preparedPath() = {
-    val checkpointPath = PropertyUtil.getPropertyValue("checkpoint.path")
-    val fsDefaultName = "hdfs://10.0.86.89:9000"
-    if(!HdfsUtil.exists(fsDefaultName,checkpointPath)){
-      HdfsUtil.mkdir(fsDefaultName,checkpointPath)
-    }
 
-    val debugPath = PropertyUtil.getPropertyValue("debug.path")
-    if(!HdfsUtil.exists(debugPath)){
-      HdfsUtil.mkdir(debugPath)
-    }
-
-    val incrementPath = PropertyUtil.getPropertyValue("increment.path")
-    if(!HdfsUtil.exists(incrementPath)){
-      HdfsUtil.mkdir(incrementPath)
-    }
-
-  }*/
 
   def flywayInit() = {
 
+    val ip = InetAddress.getLocalHost.getHostAddress
     // Create the Flyway instance
     val flyway: Flyway = new Flyway();
-    var url = "jdbc:h2:tcp://"+PropertyUtil.getPropertyValue("server.ip")+":"+PropertyUtil.getPropertyValue("h2.port")+"/~/piflow"
+    var url = "jdbc:h2:tcp://"+ip+":"+PropertyUtil.getPropertyValue("h2.port")+"/~/piflow"
     // Point it to the database
     flyway.setDataSource(url,null,null);
     flyway.setLocations("db/migrations");

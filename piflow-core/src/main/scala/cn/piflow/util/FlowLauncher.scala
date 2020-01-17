@@ -30,9 +30,9 @@ object FlowLauncher {
       .setAppName(flow.getFlowName())
       .setMaster(PropertyUtil.getPropertyValue("spark.master"))
       .setDeployMode(PropertyUtil.getPropertyValue("spark.deploy.mode"))
-      .setAppResource(PropertyUtil.getPropertyValue("piflow.bundle"))
+      .setAppResource(ConfigureUtil.getPiFlowBundlePath())
       .setVerbose(true)
-      .setConf("spark.jars", PropertyUtil.getPropertyValue("piflow.bundle"))
+      //.setConf("spark.jars", PropertyUtil.getPropertyValue("piflow.bundle"))
       .setConf("spark.hive.metastore.uris",PropertyUtil.getPropertyValue("hive.metastore.uris"))
       .setConf("spark.driver.memory", flow.getDriverMemory())
       .setConf("spark.executor.instances", flow.getExecutorNum())
@@ -46,8 +46,12 @@ object FlowLauncher {
       sparkLauncher.setConf("spark.hadoop.yarn.resourcemanager.hostname", PropertyUtil.getPropertyValue("yarn.resourcemanager.hostname"))
     if(PropertyUtil.getPropertyValue("yarn.resourcemanager.address") != null)
       sparkLauncher.setConf("spark.hadoop.yarn.resourcemanager.address", PropertyUtil.getPropertyValue("yarn.resourcemanager.address"))
-    if(PropertyUtil.getPropertyValue("yarn.access.namenode") != null)
-      sparkLauncher.setConf("spark.yarn.access.namenode", PropertyUtil.getPropertyValue("yarn.access.namenode"))
+
+    if(PropertyUtil.getPropertyValue("spark.yarn.access.namenode") != null)
+      sparkLauncher.setConf("spark.yarn.access.namenode", PropertyUtil.getPropertyValue("spark.yarn.access.namenode"))
+    else
+      sparkLauncher.setConf("spark.yarn.access.namenode", PropertyUtil.getPropertyValue("fs.defaultFS"))
+
     if(PropertyUtil.getPropertyValue("yarn.stagingDir") != null)
       sparkLauncher.setConf("spark.yarn.stagingDir", PropertyUtil.getPropertyValue("yarn.stagingDir"))
     if(PropertyUtil.getPropertyValue("yarn.jars") != null)
@@ -59,7 +63,7 @@ object FlowLauncher {
       println(f.getPath)
       sparkLauncher.addJar(f.getPath)
     })
-    
+
     sparkLauncher
   }
 

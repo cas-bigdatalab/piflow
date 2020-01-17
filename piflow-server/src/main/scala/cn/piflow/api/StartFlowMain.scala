@@ -4,6 +4,7 @@ import cn.piflow.Runner
 import cn.piflow.api.util.PropertyUtil
 import cn.piflow.conf.bean.FlowBean
 import cn.piflow.conf.util.OptionUtil
+import cn.piflow.util.ConfigureUtil
 import org.apache.spark.sql.SparkSession
 
 import scala.util.parsing.json.JSON
@@ -29,14 +30,11 @@ object StartFlowMain {
       .getOrCreate()
 
     println("hive.metastore.uris=" + spark.sparkContext.getConf.get("hive.metastore.uris") + "!!!!!!!")
-    //val checkpointPath = spark.sparkContext.getConf.get("checkpoint.path")
 
     val process = Runner.create()
       .bind(classOf[SparkSession].getName, spark)
-      //.bind("checkpoint.path","hdfs://10.0.86.89:9000/xjzhu/piflow/checkpoints/")
-      //.bind("debug.path","hdfs://10.0.86.89:9000/xjzhu/piflow/debug/")
-      .bind("checkpoint.path",PropertyUtil.getPropertyValue("checkpoint.path"))
-      .bind("debug.path",PropertyUtil.getPropertyValue("debug.path"))
+      .bind("checkpoint.path",ConfigureUtil.getCheckpointPath())
+      .bind("debug.path",ConfigureUtil.getDebugPath())
       .start(flow);
     val applicationId = spark.sparkContext.applicationId
     process.awaitTermination();

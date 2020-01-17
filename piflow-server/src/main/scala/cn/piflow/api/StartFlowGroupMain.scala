@@ -4,6 +4,7 @@ import cn.piflow.{Flow, Runner}
 import cn.piflow.api.util.PropertyUtil
 import cn.piflow.conf.bean.FlowGroupBean
 import cn.piflow.conf.util.OptionUtil
+import cn.piflow.util.ConfigureUtil
 import org.apache.spark.sql.SparkSession
 
 import scala.collection.mutable.ArrayBuffer
@@ -26,12 +27,11 @@ object StartFlowGroupMain {
       .appName(flowGroupBean.name)
       .enableHiveSupport()
       .getOrCreate()
-    //val checkpointPath = spark.sparkContext.getConf.get("checkpoint.path")
 
     val process = Runner.create()
       //.bind(classOf[SparkSession].getName, spark)
-      .bind("checkpoint.path",PropertyUtil.getPropertyValue("checkpoint.path"))
-      .bind("debug.path",PropertyUtil.getPropertyValue("debug.path"))
+      .bind("checkpoint.path",ConfigureUtil.getCheckpointPath())
+      .bind("debug.path",ConfigureUtil.getDebugPath())
       .start(flowGroup);
     val applicationId = spark.sparkContext.applicationId
     process.awaitTermination();
