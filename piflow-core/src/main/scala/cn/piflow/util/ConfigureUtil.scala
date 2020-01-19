@@ -1,7 +1,9 @@
 package cn.piflow.util
 
-import java.io.{FileInputStream, InputStream}
+import java.io.{File, FileInputStream, InputStream}
 import java.util.Properties
+
+import cn.piflow.util.FileUtil.getJarFile
 
 object ConfigureUtil {
 
@@ -60,14 +62,39 @@ object ConfigureUtil {
   }
 
   def getPiFlowBundlePath():String = {
+      var piflowBundleList = List[String]()
     val userDir = System.getProperty("user.dir")
-    var piflowBundlePath = PropertyUtil.getPropertyValue("piflow.bundle")
-    if(piflowBundlePath == null){
-      piflowBundlePath = userDir + "/lib/piflow-server-0.9.jar"
+    val path = new File(userDir)
+    getJarFile(path).foreach(x => {
+
+      if(x.getName == "piflow-server-0.9.jar")
+        piflowBundleList = x.getAbsolutePath +: piflowBundleList
+
+    })
+
+    var piflowBundleJar = ""
+    if(piflowBundleList.size > 0){
+      piflowBundleJar = piflowBundleList(0)
+
+      piflowBundleList.foreach( jarFile => {
+        if(jarFile.contains("classpath")){
+          piflowBundleJar =  jarFile
+          println(piflowBundleJar)
+          return piflowBundleJar
+        }
+      })
+
+      piflowBundleList.foreach( jarFile => {
+        if(jarFile.contains("piflow-server/target")){
+          piflowBundleJar =  jarFile
+          println(piflowBundleJar)
+          return piflowBundleJar
+        }
+      })
+
     }
-    else
-      piflowBundlePath = userDir + "/" + piflowBundlePath
-    piflowBundlePath
+    println(piflowBundleJar)
+    piflowBundleJar
   }
 
   def getYarnResourceManagerWebAppAddress() : String = {
@@ -84,7 +111,8 @@ object ConfigureUtil {
   }
 
   def main(args: Array[String]): Unit = {
-    val temp = getYarnResourceManagerWebAppAddress()
+    val temp = getPiFlowBundlePath()
+
   }
 
 }
