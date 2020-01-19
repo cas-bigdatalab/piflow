@@ -70,8 +70,21 @@ object ConfigureUtil {
     piflowBundlePath
   }
 
+  def getYarnResourceManagerWebAppAddress() : String = {
+    var yarnResourceManagerWebAppAddress = PropertyUtil.getPropertyValue("yarn.url")
+    if(yarnResourceManagerWebAppAddress == null){
+      var port = "8088"
+      val yarnHostName = PropertyUtil.getPropertyValue("yarn.resourcemanager.hostname")
+      if(PropertyUtil.getPropertyValue("yarn.resourcemanager.webapp.address.port") != null){
+        port = PropertyUtil.getPropertyValue("yarn.resourcemanager.webapp.address.port")
+      }
+      yarnResourceManagerWebAppAddress = "http://" + yarnHostName + ":" + port + "/ws/v1/cluster/apps/"
+    }
+    yarnResourceManagerWebAppAddress
+  }
+
   def main(args: Array[String]): Unit = {
-    val piflowBundlePath = getPiFlowBundlePath()
+    val temp = getYarnResourceManagerWebAppAddress()
   }
 
 }

@@ -202,7 +202,7 @@ object API {
 
   def stopFlowOnYarn(appID : String) : String = {
     //yarn application kill appId
-    val url = PropertyUtil.getPropertyValue("yarn.url") + appID + "/state"
+    val url = ConfigureUtil.getYarnResourceManagerWebAppAddress() + appID + "/state"
     val client = HttpClients.createDefault()
     val put:HttpPut = new HttpPut(url)
     val body ="{\"state\":\"KILLED\"}"
@@ -224,7 +224,7 @@ object API {
   }
   def getFlowLog(appID : String) : String = {
 
-    val url = PropertyUtil.getPropertyValue("yarn.url") + appID
+    val url = ConfigureUtil.getYarnResourceManagerWebAppAddress() + appID
     val client = HttpClients.createDefault()
     val get:HttpGet = new HttpGet(url)
 
