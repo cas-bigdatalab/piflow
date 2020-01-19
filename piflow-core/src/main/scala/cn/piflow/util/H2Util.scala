@@ -39,6 +39,7 @@ object H2Util {
   def getConnectionInstance() : Connection = {
     if(connection == null){
       Class.forName("org.h2.Driver")
+      println(CONNECTION_URL)
       connection = DriverManager.getConnection(CONNECTION_URL)
     }
     connection
@@ -674,14 +675,14 @@ object H2Util {
     if (args.size != 1){
       println("Error args!!! Please enter Clean or UpdateToVersion6")
     }
-    val operation =  args(0)
+    /*val operation =  args(0)
     if(operation == "Clean"){
       cleanDatabase()
     }else if( operation == "UpdateToVersion6"){
       updateToVersion6()
     }else{
       println("Error args!!! Please enter Clean or UpdateToVersion6")
-    }
+    }*/
 
     //println(getFlowGroupInfo("group_9b41bab2-7c3a-46ec-b716-93b636545e5e"))
 

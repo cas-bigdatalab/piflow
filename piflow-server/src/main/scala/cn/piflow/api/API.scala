@@ -128,10 +128,13 @@ object API {
 
     //add other jars for application
     val classPath = PropertyUtil.getClassPath()
-    FileUtil.getJarFile(new File(classPath)).foreach(f => {
-      println(f.getPath)
-      sparkLauncher.addJar(f.getPath)
-    })
+    if(new File(classPath).exists()){
+      FileUtil.getJarFile(new File(classPath)).foreach(f => {
+        println(f.getPath)
+        sparkLauncher.addJar(f.getPath)
+      })
+    }
+
 
     if(PropertyUtil.getPropertyValue("yarn.resourcemanager.hostname") != null)
       sparkLauncher.setConf("spark.hadoop.yarn.resourcemanager.hostname", PropertyUtil.getPropertyValue("yarn.resourcemanager.hostname"))
