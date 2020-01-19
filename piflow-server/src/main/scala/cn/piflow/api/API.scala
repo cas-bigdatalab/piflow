@@ -121,6 +121,7 @@ object API {
       .setConf("spark.executor.memory", executorMem)
       .setConf("spark.executor.cores",executorCores)
       .addFile(PropertyUtil.getConfigureFile())
+      .addFile(ServerIpUtil.getServerIpFile())
       .setMainClass("cn.piflow.api.StartFlowMain")
       .addAppArgs(flowJson.stripMargin)
       //.redirectOutput(stdout)

@@ -12,7 +12,7 @@ import akka.stream.ActorMaterializer
 import cn.piflow.{FlowGroupExecution, ProjectExecution}
 import cn.piflow.api.util.PropertyUtil
 import cn.piflow.conf.util.{MapUtil, OptionUtil}
-import cn.piflow.util.{HdfsUtil, IdGenerator, JsonUtil}
+import cn.piflow.util._
 import com.typesafe.akka.extension.quartz.QuartzSchedulerExtension
 import com.typesafe.config.ConfigFactory
 
@@ -446,9 +446,11 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
 
 
   def run = {
-    //val ip = PropertyUtil.getPropertyValue("server.ip")
+
     val ip = InetAddress.getLocalHost.getHostAddress
-    print("getHostAddress:" +  ip  + " in HTTPService!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1")
+    //write ip to server.ip file
+    FileUtil.writeFile("server.ip=" + ip, ServerIpUtil.getServerIpFile())
+
     val port = PropertyUtil.getIntPropertyValue("server.port")
     Http().bindAndHandleAsync(route, ip, port)
     println("Server:" + ip + ":" + port + " Started!!!")

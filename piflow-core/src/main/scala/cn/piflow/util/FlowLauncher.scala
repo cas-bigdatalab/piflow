@@ -39,6 +39,7 @@ object FlowLauncher {
       .setConf("spark.executor.memory", flow.getExecutorMem())
       .setConf("spark.executor.cores",flow.getExecutorCores())
       .addFile(PropertyUtil.getConfigureFile())
+      .addFile(ServerIpUtil.getServerIpFile())
       .setMainClass("cn.piflow.api.StartFlowMain")
       .addAppArgs(flowJson)
 

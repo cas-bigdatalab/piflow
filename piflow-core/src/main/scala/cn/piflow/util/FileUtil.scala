@@ -1,6 +1,6 @@
 package cn.piflow.util
 
-import java.io.File
+import java.io.{File, PrintWriter}
 
 object FileUtil {
 
@@ -11,6 +11,11 @@ object FileUtil {
   }
 
 
+  def writeFile(text: String, path: String) = {
+    val writer = new PrintWriter(new File(path))
+    writer.write(text)
+    writer.close()
+  }
 
   def main(args: Array[String]): Unit = {
     val classPath = PropertyUtil.getClassPath()
