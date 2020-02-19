@@ -15,8 +15,7 @@ Try with: http://piflow.cstcloud.cn/piflow-web/
 - [Requirements](#requirements)
 - [Getting Started](#getting-started)
 - [PiFlow Docker](#docker-started)
-- [Getting Help](#getting-help)
-- [Documentation](#documentation)
+- [Use Interface](#use-interface)
 
 ## Features
 
@@ -265,6 +264,7 @@ To Use：
   
   - if somethings goes wrong,  all the application are in /opt  folder，
   
+## use-interface
   ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-login.png)
   ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-flowlist.png)
   ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-createflow.png)
