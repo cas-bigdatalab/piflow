@@ -251,13 +251,13 @@ To Use：
   - curl -0 -X POST http://10.0.86.191:8002/flow/start -H "Content-type: application/json" -d 'this is your flow json'
 
 ## docker-started  
-  - pull piflow-v0.6 images  
+  - pull piflow images  
     docker pull registry.cn-hangzhou.aliyuncs.com/cnic_piflow/piflow:v0.6
     
   - show docker images  
     docker images
     
-  - run a container with  piflow-bundle imageID ， all services run automatically  
+  - run a container with  piflow imageID ， all services run automatically  
     docker run --name piflow-v0.6 -it [imageID] /bin/bash
     
   - please visit "containerip:6001/piflow-web", it may take a while   
