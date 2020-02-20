@@ -258,7 +258,7 @@ To Use：
     docker images
     
   - run a container with  piflow imageID ， all services run automatically  
-    docker run --name piflow-v0.6 -it [imageID] /bin/bash
+    docker run --name piflow-v0.6 -it [imageID]
     
   - please visit "containerip:6001/piflow-web", it may take a while   
   
