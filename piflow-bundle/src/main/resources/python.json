@@ -1,0 +1,19 @@
+{
+  "flow":{
+    "name":"pythonTest",
+    "uuid":"1234567890",
+    "stops":[
+      {
+        "uuid":"1111",
+        "name":"PythonExecutor",
+        "bundle":"cn.piflow.bundle.python.PythonExecutor",
+        "properties":{
+            "script":"python.py"
+        }
+      }
+    ],
+    "paths":[
+
+    ]
+  }
+}
