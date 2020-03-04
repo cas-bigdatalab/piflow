@@ -32,11 +32,11 @@ class PythonTest {
     //execute flow
     val spark = SparkSession.builder()
       .master("local")
-      //.master("spark://10.0.86.89:7077")
-      .appName("pythonTest")
-      .config("spark.driver.memory", "1g")
+      //.   master("spark://10.0.86.89:7077")t
+       .config("spark.driver.memory", "1g")
       .config("spark.executor.memory", "2g")
       .config("spark.cores.max", "2")
+      //.config("spark.yarn.appMasterEnv.PYSPARK_PYTHON","/usr/bin/python3")
       //.config("spark.jars","/opt/project/piflow/piflow-bundle/lib/jython-standalone-2.7.1.jar")
       .enableHiveSupport()
       .getOrCreate()

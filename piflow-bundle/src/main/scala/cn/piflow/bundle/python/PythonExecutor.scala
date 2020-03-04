@@ -1,11 +1,19 @@
 package cn.piflow.bundle.python
 
+import java.util
+import java.util.UUID
+
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroup}
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
-import org.python.core.{PyFunction, PyInteger, PyObject}
-import org.python.util.PythonInterpreter
+import cn.piflow.util.FileUtil
+import jep.Jep
+import org.apache.spark.sql.types.{StringType, StructField, StructType}
+import org.apache.spark.sql.{DataFrame, Encoders, Row, SparkSession}
+
+import scala.collection.mutable.HashMap
+import scala.collection.JavaConversions._
 
 /**
   * Created by xjzhu@cnic.cn on 2/24/20
@@ -17,15 +25,19 @@ class PythonExecutor extends ConfigurableStop{
   override val outportList: List[String] = List(PortEnum.DefaultPort)
 
   var script : String = _
+  var execFunction : String = _
 
   override def setProperties(map: Map[String, Any]): Unit = {
     script = MapUtil.get(map,"script").asInstanceOf[String]
+    execFunction = MapUtil.get(map,"execFunction").asInstanceOf[String]
   }
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
     val script = new PropertyDescriptor().name("script").displayName("script").description("The code of python").defaultValue("").required(true)
+    val execFunction = new PropertyDescriptor().name("execFunction").displayName("execFunction").description("The function of python script to be executed.").defaultValue("").required(true)
     descriptor = script :: descriptor
+    descriptor = execFunction :: descriptor
     descriptor
   }
 
@@ -39,61 +51,40 @@ class PythonExecutor extends ConfigurableStop{
   override def initialize(ctx: ProcessContext): Unit = {}
 
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
-    val script =
-      """
-        |import sys
-        |import os
-        |
-        |import numpy as np
-        |from scipy import linalg
-        |import pandas as pd
-        |
-        |import matplotlib
-        |matplotlib.use('Agg')
-        |import matplotlib.pyplot as plt
-        |
-        |import seaborn as sns
-        |
-        |import timeit
-        |import numpy.random as np_random
-        |from numpy.linalg import inv, qr
-        |from random import normalvariate
-        |
-        |import pylab
-        |
-        |if __name__ == "__main__":
-        |	print("Hello PiFlow")
-        |	try:
-        |		print("\n mock data：")
-        |		nsteps = 1000
-        |		draws = np.random.randint(0,2,size=nsteps)
-        |		print("\n " + str(draws))
-        |		steps = np.where(draws > 0, 1, -1)
-        |		walk = steps.cumsum()
-        |		print("Draw picture")
-        |		plt.title('Random Walk')
-        |		limit = max(abs(min(walk)), abs(max(walk)))
-        |		plt.axis([0, nsteps, -limit, limit])
-        |		x = np.linspace(0,nsteps, nsteps)
-        |		plt.plot(x, walk, 'g-')
-        |		plt.savefig('/opt/python.png')
-        |	except Exception as e:
-        |		print(e)
-        |
-        |
-        |
-      """.stripMargin
-    /*val script =
-      """
-        |import sys
-        |import os
-        |
-        |if __name__ == "__main__":
-        |    print("Hello PiFlow")
-      """.stripMargin*/
-    val interpreter = new PythonInterpreter()
-    interpreter.exec(script)
-    /*val proc1 = Runtime.getRuntime().exec("python " + script)
-    proc1.waitFor()*/
+
+    val spark = pec.get[SparkSession]()
+    import spark.implicits._
+
+    val df = in.read()
+
+    val jep = new Jep()
+    val scriptPath = "/tmp/pythonExcutor-"+ UUID.randomUUID() +".py"
+    FileUtil.writeFile(script,scriptPath)
+    jep.runScript(scriptPath)
+
+
+    val listInfo = df.toJSON.collectAsList()
+    jep.eval(s"result = $execFunction($listInfo)")
+    val resultArrayList = jep.getValue("result",new util.ArrayList().getClass)
+    println(resultArrayList)
+
+
+    var resultList = List[Map[String, Any]]()
+    val it = resultArrayList.iterator()
+    while(it.hasNext){
+      val i = it.next().asInstanceOf[java.util.HashMap[String, Any]]
+      val item =  mapAsScalaMap(i).toMap[String, Any]
+      resultList =  item +: resultList
+    }
+
+
+    val rows = resultList.map( m => Row(m.values.toSeq:_*))
+    val header = resultList.head.keys.toList
+    val schema = StructType(header.map(fieldName => new StructField(fieldName, StringType, true)))
+
+    val rdd = spark.sparkContext.parallelize(rows)
+    val resultDF = spark.createDataFrame(rdd, schema)
+
+    out.write(resultDF)
   }
 }

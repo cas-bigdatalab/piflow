@@ -46,6 +46,7 @@ class CsvParser extends ConfigurableStop{
         .option("header",header)
         .option("inferSchema","false")
         .option("delimiter",delimiter)
+        .option("timestampFormat","yyyy/MM/dd HH:mm:ss ZZ")
         .schema(schemaStructType)
         .csv(csvPath)
     }
