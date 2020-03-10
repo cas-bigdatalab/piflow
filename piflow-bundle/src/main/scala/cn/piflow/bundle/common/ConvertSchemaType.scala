@@ -89,9 +89,10 @@ class ConvertSchemaType extends ConfigurableStop {
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
-    val all = new PropertyDescriptor().name("all").displayName("all").description("if true ,the schema all types are converted to stringType").defaultValue("true").required(true)
-    val stringType = new PropertyDescriptor().name("stringType").displayName("stringType").description("the specified field types are converted to stringType, Multiple are separated by commas").defaultValue("").required(true)
-    val integerType = new PropertyDescriptor().name("integerType").displayName("integerType").description("the specified types are converted to integerType, Multiple are separated by commas").defaultValue("").required(true)
+    val all = new PropertyDescriptor().name("all").displayName("all").description("if true ,the schema all types are converted to stringType").allowableValues(Set("true","false")).defaultValue("true").required(true)
+
+    val stringType = new PropertyDescriptor().name("stringType").displayName("stringType").description("the specified field types are converted to stringType, Multiple are separated by commas").defaultValue("").required(false)
+    val integerType = new PropertyDescriptor().name("integerType").displayName("integerType").description("the specified types are converted to integerType, Multiple are separated by commas").defaultValue("").required(false)
 
 
     descriptor = stringType :: descriptor

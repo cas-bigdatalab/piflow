@@ -6,40 +6,30 @@ import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroup}
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.neo4j.driver.v1._
 
+import scala.collection.mutable
+
+
 class RunCypher extends ConfigurableStop{
-  override val authorEmail: String = "yangqidong@cnic.cn"
+  override val authorEmail: String = "anhong12@cnic.cn"
   override val description: String = "Run cql on neo4j"
   override val inportList: List[String] =List(PortEnum.DefaultPort.toString)
-  override val outportList: List[String] = List(PortEnum.NonePort.toString)
+  //  override val outportList: List[String] = List(PortEnum.NonePort.toString)
+  override val outportList: List[String] = List(PortEnum.DefaultPort.toString)
 
   var url : String =_
   var userName : String =_
   var password : String =_
-  var cql : String =""
+  var cql : String = ""
 
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
 
-    val cqls: Array[String] = cql.split(";")
-
-    var driver: Driver = GraphDatabase.driver(url,AuthTokens.basic(userName,password))
+    var driver: Driver = GraphDatabase.driver(url, AuthTokens.basic(userName, password))
     var session: Session = null
-    var transaction: Transaction = null
-    var n = 0
+
     try {
       session = driver.session()
-      transaction = session.beginTransaction()
-      cqls.foreach(eachCql => {
-        n += 1
-        transaction.run(eachCql)
-        transaction.success()
-        if(n == 50){
-          transaction.close()
-          transaction = session.beginTransaction()
-          n = 0
-        }
-      })
-    }finally {
-      transaction.close()
+      session.run(cql)
+    } finally {
       session.close()
       driver.close()
     }
@@ -50,7 +40,7 @@ class RunCypher extends ConfigurableStop{
     userName = MapUtil.get(map,"userName").asInstanceOf[String]
     password = MapUtil.get(map,"password").asInstanceOf[String]
     cql = MapUtil.get(map,"cql").asInstanceOf[String]
-}
+  }
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()

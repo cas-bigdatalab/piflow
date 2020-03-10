@@ -1,16 +1,13 @@
 package cn.piflow.bundle.clean
 
-import java.beans.Transient
-
 import cn.piflow.bundle.util.CleanUtil
-import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import cn.piflow.conf._
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
+import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.apache.spark.sql.SparkSession
-import org.apache.spark.sql.types.StructField
 
-class EmailClean extends ConfigurableStop{
+class ProvinceClean extends ConfigurableStop{
   val authorEmail: String = "songdongze@cnic.cn"
   val description: String = "Clean email format data."
   val inportList: List[String] = List(PortEnum.DefaultPort.toString)
@@ -23,7 +20,7 @@ class EmailClean extends ConfigurableStop{
     val sqlContext=spark.sqlContext
     val dfOld = in.read()
     dfOld.createOrReplaceTempView("thesis")
-    sqlContext.udf.register("regexPro",(str:String)=>CleanUtil.processEmail(str))
+    sqlContext.udf.register("regexPro",(str:String)=>CleanUtil.processProvince(str))
     val structFields: Array[String] = dfOld.schema.fieldNames
     val columnNames = columnName.split(",").toSet
     val sqlNewFieldStr = new StringBuilder
