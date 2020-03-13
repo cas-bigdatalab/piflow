@@ -12,9 +12,7 @@ trait Runner {
 
   def start(flow: Flow): Process;
 
-  def start(flowGroup: FlowGroup): FlowGroupExecution;
-
-  def start(project: Project): ProjectExecution;
+  def start(group: Group): GroupExecution;
 
   def addListener(listener: RunnerListener);
 
@@ -69,36 +67,20 @@ object Runner {
         listeners.foreach(_.monitorJobCompleted(ctx, outputs));
       }
 
-      override def onFlowGroupStarted(ctx: FlowGroupContext): Unit = {
-        listeners.foreach(_.onFlowGroupStarted(ctx));
+      override def onGroupStarted(ctx: GroupContext): Unit = {
+        listeners.foreach(_.onGroupStarted(ctx));
       }
 
-      override def onFlowGroupCompleted(ctx: FlowGroupContext): Unit = {
-        listeners.foreach(_.onFlowGroupCompleted(ctx));
+      override def onGroupCompleted(ctx: GroupContext): Unit = {
+        listeners.foreach(_.onGroupCompleted(ctx));
       }
 
-      override def onFlowGroupFailed(ctx: FlowGroupContext): Unit = {
-        listeners.foreach(_.onFlowGroupFailed(ctx));
+      override def onGroupFailed(ctx: GroupContext): Unit = {
+        listeners.foreach(_.onGroupFailed(ctx));
       }
 
-      override def onProjectStarted(ctx: ProjectContext): Unit = {
-        listeners.foreach(_.onProjectStarted(ctx));
-      }
-
-      override def onProjectCompleted(ctx: ProjectContext): Unit = {
-        listeners.foreach(_.onProjectCompleted(ctx));
-      }
-
-      override def onProjectFailed(ctx: ProjectContext): Unit = {
-        listeners.foreach(_.onProjectFailed(ctx));
-      }
-
-      override def onFlowGroupStoped(ctx: FlowGroupContext): Unit = {
-        listeners.foreach(_.onFlowGroupStoped(ctx))
-      }
-
-      override def onProjectStoped(ctx: ProjectContext): Unit = {
-        listeners.foreach(_.onProjectStoped(ctx))
+      override def onGroupStoped(ctx: GroupContext): Unit = {
+        //TODO
       }
     }
 
@@ -119,12 +101,8 @@ object Runner {
       new ProcessImpl(flow, ctx, this);
     }
 
-    override def start(flowGroup: FlowGroup): FlowGroupExecution = {
-      new FlowGroupExecutionImpl(flowGroup, ctx, this);
-    }
-
-    override def start(project: Project): ProjectExecution = {
-      new ProjectExecutionImpl(project, ctx, this);
+    override def start(group: Group): GroupExecution = {
+      new GroupExecutionImpl(group, ctx, this);
     }
 
     override def removeListener(listener: RunnerListener): Unit = {
@@ -134,8 +112,7 @@ object Runner {
 }
 
 trait RunnerListener {
-  def
-  onProcessStarted(ctx: ProcessContext);
+  def onProcessStarted(ctx: ProcessContext);
 
   def onProcessForked(ctx: ProcessContext, child: ProcessContext);
 
@@ -155,21 +132,14 @@ trait RunnerListener {
 
   def monitorJobCompleted(ctx: JobContext,outputs : JobOutputStream);
 
-  def onFlowGroupStarted(ctx: FlowGroupContext);
+  def onGroupStarted(ctx: GroupContext);
 
-  def onFlowGroupCompleted(ctx: FlowGroupContext);
+  def onGroupCompleted(ctx: GroupContext);
 
-  def onFlowGroupFailed(ctx: FlowGroupContext);
+  def onGroupFailed(ctx: GroupContext);
 
-  def onFlowGroupStoped(ctx: FlowGroupContext);
+  def onGroupStoped(ctx: GroupContext);
 
-  def onProjectStarted(ctx: ProjectContext);
-
-  def onProjectCompleted(ctx: ProjectContext);
-
-  def onProjectFailed(ctx: ProjectContext);
-
-  def onProjectStoped(ctx: ProjectContext);
 }
 
 
@@ -292,105 +262,56 @@ class RunnerLogger extends RunnerListener with Logging {
     })
   }
 
-  override def onFlowGroupStarted(ctx: FlowGroupContext): Unit = {
+  override def onGroupStarted(ctx: GroupContext): Unit = {
     //TODO: write monitor data into db
-    val groupId = ctx.getFlowGroupExecution().groupId()
-    val flowGroupName = ctx.getFlowGroup().getFlowGroupName()
+    val groupId = ctx.getGroupExecution().getGroupId()
+    val flowGroupName = ctx.getGroup().getGroupName()
+    val childCount = ctx.getGroupExecution().getChildCount()
     val time = new Date().toString
-    val flowCount = ctx.getFlowGroupExecution().getFlowCount();
-    logger.debug(s"Flow Group started: $groupId, flow group: $flowGroupName, time: $time");
-    println(s"Flow Group started: $groupId, flow group: $flowGroupName, time: $time")
+    //val flowCount = ctx.getGroupExecution().getFlowCount();
+    logger.debug(s"Group started: $groupId, group: $flowGroupName, time: $time");
+    println(s"Group started: $groupId, group: $flowGroupName, time: $time")
     //update flow group state to STARTED
-    H2Util.addFlowGroup(groupId, flowGroupName, flowCount)
-    H2Util.updateFlowGroupState(groupId,FlowGroupState.STARTED)
-    H2Util.updateFlowGroupStartTime(groupId,time)
+    H2Util.addGroup(groupId, flowGroupName, childCount)
+    H2Util.updateGroupState(groupId,GroupState.STARTED)
+    H2Util.updateGroupStartTime(groupId,time)
   }
 
-  override def onFlowGroupCompleted(ctx: FlowGroupContext): Unit = {
+  override def onGroupCompleted(ctx: GroupContext): Unit = {
     //TODO: write monitor data into db
-    val groupId = ctx.getFlowGroupExecution().groupId()
-    val flowGroupName = ctx.getFlowGroup().getFlowGroupName()
+    val groupId = ctx.getGroupExecution().getGroupId()
+    val flowGroupName = ctx.getGroup().getGroupName()
     val time = new Date().toString
-    logger.debug(s"Flow Group completed: $groupId, time: $time");
-    println(s"Flow Group completed: $groupId, time: $time")
+    logger.debug(s"Group completed: $groupId, time: $time");
+    println(s"Group completed: $groupId, time: $time")
     //update flow group state to COMPLETED
-    H2Util.updateFlowGroupState(groupId,FlowGroupState.COMPLETED)
-    H2Util.updateFlowGroupFinishedTime(groupId,time)
+    H2Util.updateGroupState(groupId,GroupState.COMPLETED)
+    H2Util.updateGroupFinishedTime(groupId,time)
   }
 
-  override def onFlowGroupStoped(ctx: FlowGroupContext): Unit = {
+  override def onGroupStoped(ctx: GroupContext): Unit = {
     //TODO: write monitor data into db
-    val groupId = ctx.getFlowGroupExecution().groupId()
-    val flowGroupName = ctx.getFlowGroup().getFlowGroupName()
+    val groupId = ctx.getGroupExecution().getGroupId()
+    val flowGroupName = ctx.getGroup().getGroupName()
     val time = new Date().toString
-    logger.debug(s"Flow Group stoped: $groupId, time: $time");
-    println(s"Flow Group stoped: $groupId, time: $time")
+    logger.debug(s"Group stoped: $groupId, time: $time");
+    println(s"Group stoped: $groupId, time: $time")
     //update flow group state to COMPLETED
-    H2Util.updateFlowGroupState(groupId,FlowGroupState.KILLED)
-    H2Util.updateFlowGroupFinishedTime(groupId,time)
+    H2Util.updateGroupState(groupId,GroupState.KILLED)
+    H2Util.updateGroupFinishedTime(groupId,time)
 
   }
 
-  override def onFlowGroupFailed(ctx: FlowGroupContext): Unit = {
+  override def onGroupFailed(ctx: GroupContext): Unit = {
     //TODO: write monitor data into db
-    val groupId = ctx.getFlowGroupExecution().groupId()
-    val flowGroupName = ctx.getFlowGroup().getFlowGroupName()
+    val groupId = ctx.getGroupExecution().getGroupId()
+    val flowGroupName = ctx.getGroup().getGroupName()
     val time = new Date().toString
-    logger.debug(s"Flow Group failed: $groupId, time: $time");
-    println(s"Flow Group failed: $groupId, time: $time")
+    logger.debug(s"Group failed: $groupId, time: $time");
+    println(s"Group failed: $groupId, time: $time")
     //update flow group state to FAILED
-    H2Util.updateFlowGroupState(groupId,FlowGroupState.FAILED)
-    H2Util.updateFlowGroupFinishedTime(groupId,time)
+    H2Util.updateGroupState(groupId,GroupState.FAILED)
+    H2Util.updateGroupFinishedTime(groupId,time)
   }
 
-  override def onProjectStarted(ctx: ProjectContext): Unit = {
-    //TODO: write monitor data into db
-    val projectId = ctx.getProjectExecution().projectId()
-    val projectName = ctx.getProject().getProjectName()
-    val time = new Date().toString
-    logger.debug(s"Project started: $projectId, project: $projectName, time: $time");
-    println(s"Project started: $projectId, project: $projectName, time: $time")
-    //update project state to STARTED
-    H2Util.addProject(projectId, projectName)
-    H2Util.updateProjectState(projectId,ProjectState.STARTED)
-    H2Util.updateProjectStartTime(projectId,time)
-  }
-
-  override def onProjectCompleted(ctx: ProjectContext): Unit = {
-    //TODO: write monitor data into db
-    val projectId = ctx.getProjectExecution().projectId()
-    val projectName = ctx.getProject().getProjectName()
-    val time = new Date().toString
-    logger.debug(s"Project completed: $projectId, time: $time");
-    println(s"Project completed: $projectId, time: $time")
-    //update project state to COMPLETED
-    H2Util.updateProjectState(projectId,ProjectState.COMPLETED)
-    H2Util.updateProjectFinishedTime(projectId,time)
-  }
-
-  override def onProjectFailed(ctx: ProjectContext): Unit = {
-    //TODO: write monitor data into db
-    val projectId = ctx.getProjectExecution().projectId()
-    val projectName = ctx.getProject().getProjectName()
-    val time = new Date().toString
-    logger.debug(s"Project failed: $projectId, time: $time");
-    println(s"Project failed: $projectId, time: $time")
-    //update project state to FAILED
-    H2Util.updateProjectState(projectId,ProjectState.FAILED)
-    H2Util.updateProjectFinishedTime(projectId,time)
-  }
-
-
-
-  override def onProjectStoped(ctx: ProjectContext): Unit = {
-    val projectId = ctx.getProjectExecution().projectId()
-    val projectName = ctx.getProject().getProjectName()
-    val time = new Date().toString
-    logger.debug(s"Project failed: $projectId, time: $time");
-    println(s"Project failed: $projectId, time: $time")
-    //update project state to FAILED
-    H2Util.updateProjectState(projectId,ProjectState.KILLED)
-    H2Util.updateProjectFinishedTime(projectId,time)
-
-  }
 }

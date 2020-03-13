@@ -8,7 +8,7 @@ object HTTPClientGetFlowGroupProcess {
 
   def main(args: Array[String]): Unit = {
 
-    val url = "http://10.0.86.98:8001/flowGroup/progress?groupId=group_15a89eb4-c4fa-45f2-bda5-46c4096053c0"
+    val url = "http://10.0.85.83:8001/group/progress?groupId=group_527ff279-a278-41b0-a658-7595a576fbb9"
     val client = HttpClients.createDefault()
     val getFlowGroupProgressData:HttpGet = new HttpGet(url)
 

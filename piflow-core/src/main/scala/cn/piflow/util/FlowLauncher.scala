@@ -1,6 +1,5 @@
 package cn.piflow.util
 
-
 import java.io.File
 import java.util.Date
 import java.util.concurrent.CountDownLatch
@@ -10,8 +9,7 @@ import org.apache.http.client.methods.{CloseableHttpResponse, HttpPut}
 import org.apache.http.entity.StringEntity
 import org.apache.http.impl.client.HttpClients
 import org.apache.http.util.EntityUtils
-import org.apache.spark.launcher.SparkAppHandle.State
-import org.apache.spark.launcher.{SparkAppHandle, SparkLauncher}
+import org.apache.spark.launcher.SparkLauncher
 
 /**
   * Created by xjzhu@cnic.cn on 4/30/19
@@ -21,7 +19,6 @@ object FlowLauncher {
   def launch(flow: Flow) : SparkLauncher = {
 
     var flowJson = flow.getFlowJson()
-//    flowJson = flowJson.replaceAll("}","}\n")
 
     var appId : String = ""
     val countDownLatch = new CountDownLatch(1)
@@ -33,7 +30,7 @@ object FlowLauncher {
       .setAppResource(ConfigureUtil.getPiFlowBundlePath())
       .setVerbose(true)
       //.setConf("spark.jars", PropertyUtil.getPropertyValue("piflow.bundle"))
-      .setConf("spark.hive.metastore.uris",PropertyUtil.getPropertyValue("hive.metastore.uris"))
+      //.setConf("spark.hive.metastore.uris",PropertyUtil.getPropertyValue("hive.metastore.uris"))
       .setConf("spark.driver.memory", flow.getDriverMemory())
       .setConf("spark.executor.instances", flow.getExecutorNum())
       .setConf("spark.executor.memory", flow.getExecutorMem())
@@ -43,9 +40,13 @@ object FlowLauncher {
       .setMainClass("cn.piflow.api.StartFlowMain")
       .addAppArgs(flowJson)
 
-    if(PropertyUtil.getPropertyValue("yarn.resourcemanager.hostname") != null)
+    /*if (PropertyUtil.getPropertyValue("hive.metastore.uris") != null){
+      sparkLauncher.setConf("spark.hive.metastore.uris",PropertyUtil.getPropertyValue("hive.metastore.uris"))
+    }*/
+
+      if(PropertyUtil.getPropertyValue("yarn.resourcemanager.hostname") != null)
       sparkLauncher.setConf("spark.hadoop.yarn.resourcemanager.hostname", PropertyUtil.getPropertyValue("yarn.resourcemanager.hostname"))
-    if(PropertyUtil.getPropertyValue("yarn.resourcemanager.address") != null)
+    /*if(PropertyUtil.getPropertyValue("yarn.resourcemanager.address") != null)
       sparkLauncher.setConf("spark.hadoop.yarn.resourcemanager.address", PropertyUtil.getPropertyValue("yarn.resourcemanager.address"))
 
     if(PropertyUtil.getPropertyValue("spark.yarn.access.namenode") != null)
@@ -53,17 +54,20 @@ object FlowLauncher {
     else
       sparkLauncher.setConf("spark.yarn.access.namenode", PropertyUtil.getPropertyValue("fs.defaultFS"))
 
-    if(PropertyUtil.getPropertyValue("yarn.stagingDir") != null)
+    if(PropertyUtil.getPrope     rtyValue("yarn.stagingDir") != null)
       sparkLauncher.setConf("spark.yarn.stagingDir", PropertyUtil.getPropertyValue("yarn.stagingDir"))
     if(PropertyUtil.getPropertyValue("yarn.jars") != null)
-      sparkLauncher.setConf("spark.yarn.jars", PropertyUtil.getPropertyValue("yarn.jars"))
+      sparkLauncher.setConf("spark.yarn.jars", PropertyUtil.getPropertyValue("yarn.jars"))*/
 
     //add other jars for application
     val classPath = PropertyUtil.getClassPath()
-    FileUtil.getJarFile(new File(classPath)).foreach(f => {
-      println(f.getPath)
-      sparkLauncher.addJar(f.getPath)
-    })
+    val classPathFile = new File(classPath)
+    if(classPathFile.exists()){
+      FileUtil.getJarFile(new File(classPath)).foreach(f => {
+        println(f.getPath)
+        sparkLauncher.addJar(f.getPath)
+      })
+    }
 
     sparkLauncher
   }

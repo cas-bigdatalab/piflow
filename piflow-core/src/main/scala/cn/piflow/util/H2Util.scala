@@ -11,9 +11,9 @@ import org.h2.tools.Server
 object H2Util {
 
   val QUERY_TIME = 300
-  val CREATE_PROJECT_TABLE = "create table if not exists project (id varchar(255), name varchar(255), state varchar(255), startTime varchar(255), endTime varchar(255))"
-  val CREATE_GROUP_TABLE = "create table if not exists flowGroup (id varchar(255), projectId varchar(255), name varchar(255), state varchar(255), startTime varchar(255), endTime varchar(255), flowCount int)"
-  val CREATE_FLOW_TABLE = "create table if not exists flow (id varchar(255), groupId varchar(255), projectId varchar(255), pid varchar(255), name varchar(255), state varchar(255), startTime varchar(255), endTime varchar(255))"
+  //val CREATE_PROJECT_TABLE = "create table if not exists project (id varchar(255), name varchar(255), state varchar(255), startTime varchar(255), endTime varchar(255))"
+  val CREATE_GROUP_TABLE = "create table if not exists flowGroup (id varchar(255), parentId varchar(255), name varchar(255), state varchar(255), startTime varchar(255), endTime varchar(255), childCount int)"
+  val CREATE_FLOW_TABLE = "create table if not exists flow (id varchar(255), groupId varchar(255), pid varchar(255), name varchar(255), state varchar(255), startTime varchar(255), endTime varchar(255))"
   val CREATE_STOP_TABLE = "create table if not exists stop (flowId varchar(255), name varchar(255), state varchar(255), startTime varchar(255), endTime varchar(255))"
   val CREATE_THOUGHPUT_TABLE = "create table if not exists thoughput (flowId varchar(255), stopName varchar(255), portName varchar(255), count long)"
   val CREATE_FLAG_TABLE = "create table if not exists configFlag(id bigint auto_increment, item varchar(255), flag int, createTime varchar(255))"
@@ -25,7 +25,7 @@ object H2Util {
 
     val statement = getConnectionInstance().createStatement()
     statement.setQueryTimeout(QUERY_TIME)
-    statement.executeUpdate(CREATE_PROJECT_TABLE)
+    //statement.executeUpdate(CREATE_PROJECT_TABLE)
     statement.executeUpdate(CREATE_GROUP_TABLE)
     statement.executeUpdate(CREATE_FLOW_TABLE)
     statement.executeUpdate(CREATE_STOP_TABLE)
@@ -68,7 +68,7 @@ object H2Util {
 
   }
 
-  def updateToVersion6() = {
+  /*def updateToVersion6() = {
     val h2Server = Server.createTcpServer("-tcp", "-tcpAllowOthers", "-tcpPort",PropertyUtil.getPropertyValue("h2.port")).start()
     try{
 
@@ -86,7 +86,7 @@ object H2Util {
     }finally {
       h2Server.shutdown()
     }
-  }
+  }*/
 
   def addFlow(appId:String,pId:String, name:String)={
     val startTime = new Date().toString
@@ -138,14 +138,14 @@ object H2Util {
     statement.close()
   }
 
-  def updateFlowProjectId(appId:String, ProjectId:String) = {
+  /*def updateFlowProjectId(appId:String, ProjectId:String) = {
     val statement = getConnectionInstance().createStatement()
     statement.setQueryTimeout(QUERY_TIME)
     val updateSql = "update flow set projectId='" + ProjectId + "' where id='" + appId + "'"
     println(updateSql)
     statement.executeUpdate(updateSql)
     statement.close()
-  }
+  }*/
 
   def getFlowState(appId: String): String = {
     var state = ""
@@ -396,18 +396,18 @@ object H2Util {
     statement.close()
   }
 
-  //flowGroup related api
-  def addFlowGroup(flowGroupId:String,name:String, flowCount:Int)={
+  //Group related api
+  def addGroup(groupId:String, name:String, childCount: Int)={
     val startTime = new Date().toString
     val statement = getConnectionInstance().createStatement()
     statement.setQueryTimeout(QUERY_TIME)
-    statement.executeUpdate("insert into flowGroup(id, name, flowCount) values('" + flowGroupId +  "','" + name + "','" + flowCount +"')")
+    statement.executeUpdate("insert into flowGroup(id, name, childCount) values('" + groupId +  "','" + name + "','" + childCount + "')")
     statement.close()
   }
-  def updateFlowGroupState(flowGroupId:String, state:String) = {
+  def updateGroupState(groupId:String, state:String) = {
     val statement = getConnectionInstance().createStatement()
     statement.setQueryTimeout(QUERY_TIME)
-    val updateSql = "update flowGroup set state='" + state + "' where id='" + flowGroupId + "'"
+    val updateSql = "update flowGroup set state='" + state + "' where id='" + groupId + "'"
 
     //update related stop stop when flow state is KILLED
     /*if(state.equals(FlowState.KILLED)){
@@ -421,52 +421,53 @@ object H2Util {
     statement.executeUpdate(updateSql)
     statement.close()
   }
-  def updateFlowGroupStartTime(flowGroupId:String, startTime:String) = {
+  def updateGroupStartTime(groupId:String, startTime:String) = {
     val statement = getConnectionInstance().createStatement()
     statement.setQueryTimeout(QUERY_TIME)
-    val updateSql = "update flowGroup set startTime='" + startTime + "' where id='" + flowGroupId + "'"
+    val updateSql = "update flowGroup set startTime='" + startTime + "' where id='" + groupId + "'"
     println(updateSql)
     statement.executeUpdate(updateSql)
     statement.close()
   }
-  def updateFlowGroupFinishedTime(flowGroupId:String, endTime:String) = {
+  def updateGroupFinishedTime(groupId:String, endTime:String) = {
     val statement = getConnectionInstance().createStatement()
     statement.setQueryTimeout(QUERY_TIME)
-    val updateSql = "update flowGroup set endTime='" + endTime + "' where id='" + flowGroupId + "'"
+    val updateSql = "update flowGroup set endTime='" + endTime + "' where id='" + groupId + "'"
     println(updateSql)
     statement.executeUpdate(updateSql)
     statement.close()
   }
-  def updateFlowGroupProject(flowGroupId:String, projectId:String) = {
+  def updateGroupParent(groupId:String, parentId:String) = {
     val statement = getConnectionInstance().createStatement()
     statement.setQueryTimeout(QUERY_TIME)
-    val updateSql = "update flowGroup set projectId='" + projectId + "' where id='" + flowGroupId + "'"
+    val updateSql = "update flowGroup set parentId='" + parentId + "' where id='" + groupId + "'"
     //println(updateSql)
     statement.executeUpdate(updateSql)
     statement.close()
   }
 
-  def getFlowGroupState(flowGroupId:String) : String = {
+  def getGroupState(groupId:String) : String = {
     val statement = getConnectionInstance().createStatement()
     statement.setQueryTimeout(QUERY_TIME)
-    var flowGroupState = ""
+    var groupState = ""
 
-    val flowGroupRS : ResultSet = statement.executeQuery("select state from flowGroup where id='" + flowGroupId +"'")
-    if (flowGroupRS.next()){
+    val groupRS : ResultSet = statement.executeQuery("select state from flowGroup where id='" + groupId +"'")
+    if (groupRS.next()){
 
-      flowGroupState = flowGroupRS.getString("state")
+      groupState = groupRS.getString("state")
     }
-    return flowGroupState
+    return groupState
   }
 
   def getFlowGroupInfo(groupId:String) : String = {
 
-    val flowGroupInfoMap = getFlowGroupInfoMap(groupId)
+    val flowGroupInfoMap = getGroupInfoMap(groupId)
     JsonUtil.format(JsonUtil.toJson(flowGroupInfoMap))
 
   }
 
-  def getFlowGroupInfoMap(groupId:String) : Map[String, Any] = {
+  //TODO need to get group
+  def getGroupInfoMap(groupId:String) : Map[String, Any] = {
     val statement = getConnectionInstance().createStatement()
     statement.setQueryTimeout(QUERY_TIME)
 
@@ -484,6 +485,16 @@ object H2Util {
     }
     flowGroupRS.close()
 
+    var groupList:List[Map[String, Any]] = List()
+    val childGroupRS : ResultSet = statement.executeQuery("select * from flowGroup where parentId='" + groupId +"'")
+    while (childGroupRS.next()){
+      val childGroupId = childGroupRS.getString("id")
+      val childGroupMapInfo = getGroupInfoMap(childGroupId)
+      groupList = childGroupMapInfo +: groupList
+    }
+    childGroupRS.close()
+    flowGroupInfoMap += ("groups" -> groupList)
+
     var flowList:List[Map[String, Any]] = List()
     val flowRS : ResultSet = statement.executeQuery("select * from flow where groupId='" + groupId +"'")
     while (flowRS.next()){
@@ -495,48 +506,58 @@ object H2Util {
 
     statement.close()
 
+
+
     Map[String, Any]("group" -> flowGroupInfoMap)
   }
 
-  def getFlowGroupProgressPercent(groupId:String) : String = {
+  def getGroupProgressPercent(groupId:String) : String = {
     val statement = getConnectionInstance().createStatement()
     statement.setQueryTimeout(QUERY_TIME)
 
-    var flowCount = 0;
+    var childCount = 0;
+
+    var completedGroupCount = 0
     var completedFlowCount = 0
-    val totalRS : ResultSet = statement.executeQuery("select flowCount from flowGroup where Id='" + groupId + "'")
-    while(totalRS.next()){
-      flowCount = totalRS.getInt("flowCount")
-      println("flowCount:" + flowCount)
+
+    val groupRSALL : ResultSet = statement.executeQuery("select * from flowGroup where id='" + groupId +"'")
+    var groupState = ""
+    while (groupRSALL.next()){
+      groupState = groupRSALL.getString("state")
+      childCount = groupRSALL.getInt("childCount")
     }
-    totalRS.close()
+    groupRSALL.close()
 
-    val completedRS : ResultSet = statement.executeQuery("select count(*) as completedFlowCount from flow where GroupId='" + groupId +"' and state='" + FlowState.COMPLETED + "'")
-    while(completedRS.next()){
-      completedFlowCount = completedRS.getInt("completedFlowCount")
-      println("completedFlowCount:" + completedFlowCount)
-    }
-    completedRS.close()
-
-    val flowGroupRS : ResultSet = statement.executeQuery("select * from flowGroup where id='" + groupId +"'")
-    var flowGroupState = ""
-    while (flowGroupRS.next()){
-      flowGroupState = flowGroupRS.getString("state")
-    }
-    flowGroupRS.close()
-
-    statement.close()
-
-    val progress:Double = completedFlowCount.asInstanceOf[Double] / flowCount * 100
-    if(flowGroupState.equals(FlowState.COMPLETED)){
-      "100"
+    if(groupState.equals(FlowState.COMPLETED)){
+      statement.close()
+      return "100"
     }else{
-      progress.toString
+
+      val completedGroupRS : ResultSet = statement.executeQuery("select count(*) as completedGroupCount from flowGroup where parentId='" + groupId +"' and state='" + GroupState.COMPLETED+ "'")
+      while(completedGroupRS.next()){
+        completedGroupCount = completedGroupRS.getInt("completedGroupCount")
+        println("completedGroupCount:" + completedGroupCount)
+      }
+      completedGroupRS.close()
+
+
+      val completedFlowRS : ResultSet = statement.executeQuery("select count(*) as completedFlowCount from flow where GroupId='" + groupId +"' and state='" + FlowState.COMPLETED + "'")
+      while(completedFlowRS.next()){
+        completedFlowCount = completedFlowRS.getInt("completedFlowCount")
+        println("completedFlowCount:" + completedFlowCount)
+      }
+      completedFlowRS.close()
+
+      statement.close()
+
+      val progress:Double = (completedFlowCount.asInstanceOf[Double] + completedGroupCount.asInstanceOf[Double])/ childCount * 100
+      return progress.toString
     }
+
   }
 
   //project related api
-  def addProject(projectId:String,name:String)={
+  /*def addProject(projectId:String,name:String)={
     val startTime = new Date().toString
     val statement = getConnectionInstance().createStatement()
     statement.setQueryTimeout(QUERY_TIME)
@@ -607,7 +628,7 @@ object H2Util {
     val flowGroupRS : ResultSet = statement.executeQuery("select * from flowGroup where projectId='" + projectId +"'")
     while (flowGroupRS.next()){
       val flowGroupId = flowGroupRS.getString("id")
-      flowGroupList = getFlowGroupInfoMap(flowGroupId) +: flowGroupList
+      flowGroupList = getGroupInfoMap(flowGroupId) +: flowGroupList
     }
     flowGroupRS.close()
     projectInfoMap += ("groups" -> flowGroupList)
@@ -625,7 +646,7 @@ object H2Util {
     statement.close()
 
     Map[String, Any]("project" -> projectInfoMap)
-  }
+  }*/
 
   def addFlag(item:String, flag:Int) : Unit = {
     val createTime = new Date().toString

@@ -64,7 +64,7 @@ object HTTPClientStartFlowKafkaStreaming {
         |}
       """.stripMargin
 
-    val url = "http://10.0.86.98:8001/flow/start"
+    val url = "http://10.0.86.191:8002/flow/start"
     val client = HttpClients.createDefault()
     val post:HttpPost = new HttpPost(url)
 

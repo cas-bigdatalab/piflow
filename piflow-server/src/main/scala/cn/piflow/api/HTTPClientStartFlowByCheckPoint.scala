@@ -14,7 +14,7 @@ object HTTPClientStartFlowByCheckPoint {
                 |    "name":"xml,csv-merge-fork-hive,json,csv",
                 |    "uuid":"1234",
                 |    "checkpoint":"Merge",
-                |    "checkpointParentProcessId":"process_67adfebe-1792-4baa-abc0-1591d29e0d49_1",
+                |    "checkpointParentProcessId":"application_1544066083705_1186",
                 |    "stops":[
                 |      {
                 |        "uuid":"1111",

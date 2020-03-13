@@ -7,8 +7,8 @@ import org.apache.http.util.EntityUtils
 
 object HTTPClientStopFlowGroup {
   def main(args: Array[String]): Unit = {
-    val json = """{"groupName":"FlowGroup"}"""
-    val url = "http://10.0.86.98:8001/flowGroup/stop"
+    val json = """{"groupId":"group_91198855-afbc-4726-856f-31326173a90f"}"""
+    val url = "http://10.0.85.83:8001/group/stop"
     val client = HttpClients.createDefault()
     val post:HttpPost = new HttpPost(url)
 

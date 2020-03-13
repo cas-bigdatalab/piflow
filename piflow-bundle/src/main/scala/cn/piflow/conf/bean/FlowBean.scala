@@ -2,7 +2,7 @@ package cn.piflow.conf.bean
 
 import cn.piflow.conf.util.MapUtil
 import cn.piflow.util.JsonUtil
-import cn.piflow.{FlowImpl, Path, ProjectEntry}
+import cn.piflow.{FlowImpl, Path, GroupEntry}
 import net.liftweb.json.JsonDSL._
 import net.liftweb.json._
 
@@ -10,7 +10,7 @@ import scala.util.parsing.json.JSONObject
 
 
 
-class FlowBean extends ProjectEntryBean{
+class FlowBean extends GroupEntryBean{
   /*@BeanProperty*/
   var uuid : String = _
   var name : String = _
@@ -73,6 +73,7 @@ class FlowBean extends ProjectEntryBean{
 
     flow.setFlowJson(this.flowJson)
     flow.setFlowName(this.name)
+    flow.setUUID(uuid)
     flow.setCheckpointParentProcessId(this.checkpointParentProcessId)
     flow.setRunMode(this.runMode)
 

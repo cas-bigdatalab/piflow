@@ -4,7 +4,7 @@ import org.h2.tools.Server
 import org.junit.Test
 
 
-class ProjectTest {
+class GroupTest {
   @Test
   def testProject() {
     val flow1 = new FlowImpl();
@@ -17,9 +17,9 @@ class ProjectTest {
     val flow2 = new FlowImpl();
     flow2.addStop("PrintCount", new PrintCount());
 
-    val fg = new FlowGroupImpl();
-    fg.addFlow("flow1", flow1);
-    fg.addFlow("flow2", flow2, Condition.after("flow1"));
+    val fg = new GroupImpl();
+    fg.addGroupEntry("flow1", flow1);
+    fg.addGroupEntry("flow2", flow2, Condition.after("flow1"));
 
 
     val flow3 = new FlowImpl();
@@ -28,11 +28,11 @@ class ProjectTest {
     val flow4 = new FlowImpl();
     flow4.addStop("TestStop", new TestStop());
 
-    val project = new ProjectImpl();
+    val project = new GroupImpl();
 
-    project.addProjectEntry("flow3",flow3)
-    project.addProjectEntry("flowGroup",fg,Condition.after("flow3"))
-    project.addProjectEntry("flow4",flow4, Condition.after("flowGroup"))
+    project.addGroupEntry("flow3",flow3)
+    project.addGroupEntry("flowGroup",fg,Condition.after("flow3"))
+    project.addGroupEntry("flow4",flow4, Condition.after("flowGroup"))
 
     val h2Server = Server.createTcpServer("-tcp", "-tcpAllowOthers", "-tcpPort","50001").start()
 

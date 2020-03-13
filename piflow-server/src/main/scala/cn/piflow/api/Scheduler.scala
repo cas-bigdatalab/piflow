@@ -12,7 +12,6 @@ import com.typesafe.akka.extension.quartz.QuartzSchedulerExtension
 object ScheduleType {
   val FLOW = "Flow"
   val GROUP = "Group"
-  val PROJECT = "Project"
 }
 
 class ExecutionActor(id: String, scheduleType: String) extends Actor {
@@ -21,8 +20,8 @@ class ExecutionActor(id: String, scheduleType: String) extends Actor {
     case json: String => {
       scheduleType match {
         case ScheduleType.FLOW => API.startFlow(json)
-        case ScheduleType.GROUP => API.startFlowGroup(json)
-        case ScheduleType.PROJECT => API.startProject(json)
+        case ScheduleType.GROUP => API.startGroup(json)
+        //case ScheduleType.PROJECT => API.startProject(json)
       }
     }
     case _ => println("error type!")

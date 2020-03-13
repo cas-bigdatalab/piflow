@@ -89,9 +89,9 @@ trait IncrementalStop extends Stop{
 
 }
 
-trait ProjectEntry {}
+trait GroupEntry {}
 
-trait Flow extends ProjectEntry{
+trait Flow extends GroupEntry{
   def getStopNames(): Seq[String];
 
   def hasCheckPoint(processName: String): Boolean;
@@ -145,10 +145,16 @@ trait Flow extends ProjectEntry{
   def setExecutorCores(executorCores:String) ;
 
   def getExecutorCores() : String;
+
+  def setUUID(uuid : String) ;
+
+  def getUUID() : String;
 }
 
 class FlowImpl extends Flow {
   var name = ""
+  var uuid = ""
+
   val edges = ArrayBuffer[Edge]();
   val stops = MMap[String, Stop]();
   val checkpoints = ArrayBuffer[String]();
@@ -357,6 +363,15 @@ class FlowImpl extends Flow {
   override def getExecutorCores(): String = {
     this.executorCores
   }
+
+
+  override def setUUID(uuid: String): Unit = {
+    this.uuid = uuid;
+  }
+
+  override def getUUID(): String = {
+    this.uuid
+  }
 }
 
 trait AnalyzedFlowGraph {
@@ -384,16 +399,18 @@ trait ProcessContext extends Context {
   def getProcess(): Process;
 }
 
-trait FlowGroupContext extends Context {
+/*trait FlowGroupContext extends Context {
   def getFlowGroup() : FlowGroup;
 
   def getFlowGroupExecution() : FlowGroupExecution;
-}
+}*/
 
-trait ProjectContext extends Context {
-  def getProject() : Project;
+trait GroupContext extends Context {
+  
+  def getGroup() : Group;
 
-  def getProjectExecution() : ProjectExecution;
+  def getGroupExecution() : GroupExecution;
+
 }
 
 class JobInputStreamImpl() extends JobInputStream {

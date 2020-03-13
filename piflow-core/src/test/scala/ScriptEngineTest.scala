@@ -47,7 +47,7 @@ class ScriptEngineTest {
     println(m);
   }
 
-  @Test
+  /*@Test
   def testScala(): Unit = {
     val engine = new ScriptEngineManager().getEngineByName("scala");
     val settings = engine.asInstanceOf[scala.tools.nsc.interpreter.IMain].settings
@@ -65,5 +65,5 @@ class ScriptEngineTest {
 
     //val s = engine.asInstanceOf[Invocable].invokeFunction("f", "bluejoe");
     println(s);
-  }
+  }*/
 }

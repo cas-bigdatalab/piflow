@@ -1,6 +1,6 @@
 package cn.piflow.util
 
-object FlowGroupState {
+object GroupState {
 
   val STARTED = "STARTED"
   val COMPLETED = "COMPLETED"

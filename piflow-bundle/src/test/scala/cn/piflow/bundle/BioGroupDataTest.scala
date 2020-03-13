@@ -13,7 +13,7 @@ import org.junit.Test
 
 import scala.util.parsing.json.JSON
 
-class BioProjectDataTest {
+class BioGroupDataTest {
 
   @Test
   def testBioProjetDataParse(): Unit ={

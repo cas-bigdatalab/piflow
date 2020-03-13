@@ -7,8 +7,8 @@ import org.apache.http.util.EntityUtils
 
 object HTTPClientStopFlow {
   def main(args: Array[String]): Unit = {
-    val json = """{"appID":"app-20180929163623-0059"}"""
-    val url = "http://10.0.86.98:8001/flow/stop"
+    val json = """{"appID":"application_1562293222869_0099"}"""
+    val url = "http://10.0.86.191:8002/flow/stop"
     val client = HttpClients.createDefault()
     val post:HttpPost = new HttpPost(url)
 

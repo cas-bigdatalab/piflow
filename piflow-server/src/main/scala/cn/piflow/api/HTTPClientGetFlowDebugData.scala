@@ -8,7 +8,7 @@ object HTTPClientGetFlowDebugData {
 
   def main(args: Array[String]): Unit = {
     //
-    val url = "http://10.0.86.98:8001/flow/debugData?appID=application_1544066083705_1186&stopName=Fork&port=out1"
+    val url = "http://10.0.86.191:8002/flow/debugData?appID=application_1562293222869_0090&stopName=Fork&port=out3"
     val client = HttpClients.createDefault()
     val getFlowInfo:HttpGet = new HttpGet(url)
 

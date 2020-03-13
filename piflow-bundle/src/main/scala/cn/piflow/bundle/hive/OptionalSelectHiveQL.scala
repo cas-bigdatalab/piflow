@@ -28,8 +28,7 @@ class OptionalSelectHiveQL extends ConfigurableStop {
     jdbcUrl = MapUtil.get(map,"jdbcUrl").asInstanceOf[String]
     sql = MapUtil.get(map,"query").asInstanceOf[String]
   }
-
-  override def getPropertyDescriptor(): List[PropertyDescriptor] = {
+   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
     val hiveUser = new PropertyDescriptor().
       name("hive user").

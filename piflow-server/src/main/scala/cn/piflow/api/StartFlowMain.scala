@@ -23,13 +23,15 @@ object StartFlowMain {
     val flow = flowBean.constructFlow()
 
     //execute flow
-    val spark = SparkSession.builder()
-      .appName(flowBean.name)
-      .config("hive.metastore.uris",PropertyUtil.getPropertyValue("hive.metastore.uris"))
-      .enableHiveSupport()
-      .getOrCreate()
+    val sparkSessionBuilder = SparkSession.builder().appName(flowBean.name)
+    if(PropertyUtil.getPropertyValue("hive.metastore.uris") != null){
 
-    println("hive.metastore.uris=" + spark.sparkContext.getConf.get("hive.metastore.uris") + "!!!!!!!")
+      sparkSessionBuilder
+        .config("hive.metastore.uris",PropertyUtil.getPropertyValue("hive.metastore.uris"))
+        .enableHiveSupport()
+    }
+    val spark = sparkSessionBuilder.getOrCreate()
+    //println("hive.metastore.uris=" + spark.sparkContext.getConf.get("hive.metastore.uris") + "!!!!!!!")
 
     val process = Runner.create()
       .bind(classOf[SparkSession].getName, spark)

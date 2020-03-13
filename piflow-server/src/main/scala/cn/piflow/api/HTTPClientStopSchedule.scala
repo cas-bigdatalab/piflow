@@ -7,8 +7,8 @@ import org.apache.http.util.EntityUtils
 
 object HTTPClientStopSchedule {
   def main(args: Array[String]): Unit = {
-    val json = """{"scheduleId":"schedule_a5791773-bb37-42ed-b8f8-97934fe03e86"}"""
-    val url = "http://10.0.86.98:8001/schedule/stop"
+    val json = """{"scheduleId":"schedule_badbf32a-674d-42a9-8e13-e91ae1539e01"}"""
+    val url = "http://10.0.88.13:8002/schedule/stop"
     val client = HttpClients.createDefault()
     val post:HttpPost = new HttpPost(url)
 

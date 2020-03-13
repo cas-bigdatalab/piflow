@@ -20,9 +20,9 @@ class FlowGroupTest {
 
     flow2.addStop("PrintCount", new PrintCount());
 
-    val fg = new FlowGroupImpl();
-    fg.addFlow("flow1", flow1);
-    fg.addFlow("flow2", flow2, Condition.after("flow1"));
+    val fg = new GroupImpl();
+    fg.addGroupEntry("flow1", flow1);
+    fg.addGroupEntry("flow2", flow2, Condition.after("flow1"));
 
     val h2Server = Server.createTcpServer("-tcp", "-tcpAllowOthers", "-tcpPort","50001").start()
 

@@ -8,7 +8,7 @@ object HTTPClientGetStopInfo {
 
   def main(args: Array[String]): Unit = {
 
-    val url = "http://10.0.86.191:8002/stop/info?bundle=cn.piflow.bundle.common.Route"
+    val url = "http://10.0.86.98:8001/stop/info?bundle=cn.piflow.bundle.jdbc.JdbcWrite"
     val client = HttpClients.createDefault()
     val getFlowInfo:HttpGet = new HttpGet(url)
 

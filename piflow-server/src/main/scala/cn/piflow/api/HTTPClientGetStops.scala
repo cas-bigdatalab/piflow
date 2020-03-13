@@ -7,8 +7,8 @@ import org.apache.http.util.EntityUtils
 object HTTPClientGetStops {
   def main(args: Array[String]): Unit = {
 
-    val url = "http://10.0.86.98:8001/stop/listWithGroup"
-    //val url = "http://10.0.86.98:8001/stop/list"
+    //val url = "http://10.0.86.98:8002/stop/listWithGroup"
+    val url = "http://10.0.86.98:8001/stop/list"
     val client = HttpClients.createDefault()
     val getGroups:HttpGet = new HttpGet(url)
 
