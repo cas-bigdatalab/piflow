@@ -8,7 +8,7 @@
 				"name": "XmlParser",
 				"bundle": "cn.piflow.bundle.xml.XmlParser",
 				"properties": {
-					"xmlpath": "hdfs://10.0.86.89:9000/xjzhu/dblp.mini.xml",
+					"xmlpath": "hdfs://10.0.86.191:9000/xjzhu/dblp.mini.xml",
 					"rowTag": "phdthesis"
 				}
 			},
@@ -35,7 +35,7 @@
 				"name": "CsvParser",
 				"bundle": "cn.piflow.bundle.csv.CsvParser",
 				"properties": {
-					"csvPath": "hdfs://10.0.86.89:9000/xjzhu/phdthesis.csv",
+					"csvPath": "hdfs://10.0.86.191:9000/xjzhu/phdthesis.csv",
 					"header": "false",
 					"delimiter": ",",
 					"schema": "title,author,pages"
@@ -62,7 +62,7 @@
 				"name": "JsonSave",
 				"bundle": "cn.piflow.bundle.json.JsonSave",
 				"properties": {
-					"jsonSavePath": "hdfs://10.0.86.89:9000/xjzhu/phdthesis.json"
+					"jsonSavePath": "hdfs://10.0.86.191:9000/xjzhu/phdthesis.json"
 				}
 			},
 			{
@@ -70,7 +70,7 @@
 				"name": "CsvSave",
 				"bundle": "cn.piflow.bundle.csv.CsvSave",
 				"properties": {
-					"csvSavePath": "hdfs://10.0.86.89:9000/xjzhu/phdthesis_result.csv",
+					"csvSavePath": "hdfs://10.0.86.191:9000/xjzhu/phdthesis_result.csv",
 					"header": "true",
 					"delimiter": ","
 				}

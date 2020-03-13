@@ -5,11 +5,12 @@ if [ $PIFLOW_HOME -eq "" ];then
 fi
 
 CONFIG_PATH="$PIFLOW_HOME/config.properties"
+SERVER_PATH="$PIFLOW_HOME/server.ip"
 SERVER=""
 PORT=""
 
 function server_info_init () {
-  SERVER=`sed '/^server.ip=/!d;s/.*=//' $CONFIG_PATH`
+  SERVER=`sed '/^server.ip=/!d;s/.*=//' $SERVER_PATH`
   PORT=`sed '/^server.port=/!d;s/.*=//' $CONFIG_PATH`
 }
 
@@ -19,8 +20,8 @@ function help_info () {
   flow_help
   echo ""
   group_help
-  echo ""
-  project_help
+  #echo ""
+  #project_help
 }
 
 function flow_help () {
@@ -126,20 +127,20 @@ function group_start () {
   echo "Group Start:"
   content=$(file_reader $1)
   echo "$content"
-  curl_command="curl -0 -X POST http://$SERVER:$PORT/flowGroup/start -H \"Content-type: application/json\" -d '$content'"
+  curl_command="curl -0 -X POST http://$SERVER:$PORT/group/start -H \"Content-type: application/json\" -d '$content'"
   eval $curl_command
 }
 
 function group_info () {
   echo "Group Info:"
-  curl_command="curl -Get http://$SERVER:$PORT/flowGroup/info?groupId=$1"
+  curl_command="curl -Get http://$SERVER:$PORT/group/info?groupId=$1"
   echo $curl_command
   eval $curl_command
 }
 
 function group_stop () {
   echo "Group Stop:"
-  curl_command="curl -POST http://$SERVER:$PORT/flowGroup/stop -H \"Content-type: application/json\" -d '{\"groupId\":\"$1\"}'"
+  curl_command="curl -POST http://$SERVER:$PORT/group/stop -H \"Content-type: application/json\" -d '{\"groupId\":\"$1\"}'"
   #echo $curl_command
   eval $curl_command
 }

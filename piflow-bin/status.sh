@@ -3,7 +3,7 @@
 function check_status()
 {
         [ ${#} -eq 0 ] && echo "usage: $FUNCNAME STRING" && return 0
-        local pid 
+        local pid
         pid=$(ps ax | grep "$1" | grep -v grep | awk '{ print $1 }')
 	if [[ "" -ne $pid ]]
 	then
@@ -16,4 +16,4 @@ function check_status()
 }
 #ps grep
 #ps aux | grep "piflow.api.Main"| grep -v 'grep'
-check_status piflow.api.Main 
+check_status piflow.api.Main

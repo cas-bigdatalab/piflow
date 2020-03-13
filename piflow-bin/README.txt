@@ -14,7 +14,3 @@
   piflow flowGroup start *.json
   piflow flowGroup stop groupId 
   piflow flowGroup info groupId 
-
-  piflow project start *.json
-  piflow project stop projectId
-  piflow project info projectId
