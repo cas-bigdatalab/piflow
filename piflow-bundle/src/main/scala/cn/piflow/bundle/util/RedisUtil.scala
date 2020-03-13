@@ -107,12 +107,12 @@ object RedisUtil extends Serializable {
   }
 
   def recordMKDup(rows: Iterable[(String,Row)], tableName : String, jedisCluster: JedisCluster) :(String,Row) = {
-    var head_row = rows.head //rows length >= 1
-    if (rows.size < 2) return head_row //only one elem
+    var f = rows.head //rows length >= 1
+    if (rows.size < 2) return f //only one elem
     for (row <- rows) {
-      jedisCluster.hset(tableName + "@" + row._1 ,tableName + ":MK - S", head_row._1) //set son =:MK - S=> father (1 -> 1)
+      jedisCluster.hset(tableName + "@" + row._1 ,tableName + ":MK - S", f._1) //set son =:MK - S=> father (1 -> 1)
     }
-    head_row
+    f
   }
 
   def getMKFather(key:String, tableName : String,psnType : String, jedisCluster: JedisCluster): String = {

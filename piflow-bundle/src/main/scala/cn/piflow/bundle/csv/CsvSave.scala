@@ -10,16 +10,18 @@ class CsvSave extends ConfigurableStop{
   val authorEmail: String = "xjzhu@cnic.cn"
   val description: String = "Save data into csv file."
   val inportList: List[String] = List(PortEnum.DefaultPort.toString)
-  val outportList: List[String] = List(PortEnum.NonePort.toString)
+  val outportList: List[String] = List(PortEnum.DefaultPort.toString)
 
   var csvSavePath: String = _
   var header: Boolean = _
   var delimiter: String = _
+  var partition :String= _
 
   override def setProperties(map: Map[String, Any]): Unit = {
     csvSavePath = MapUtil.get(map,"csvSavePath").asInstanceOf[String]
     header = MapUtil.get(map,"header").asInstanceOf[String].toBoolean
     delimiter = MapUtil.get(map,"delimiter").asInstanceOf[String]
+    partition = MapUtil.get(map,key="partition").asInstanceOf[String]
   }
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
@@ -36,6 +38,10 @@ class CsvSave extends ConfigurableStop{
     //delimiter
     val delimiter = new PropertyDescriptor().name("delimiter").displayName("delimiter").description("The delimiter of csv file").defaultValue(",").required(true)
     descriptor = delimiter :: descriptor
+
+    //partition
+    val partition = new PropertyDescriptor().name("partition").displayName("partition").description("The partition of csv file").defaultValue("1").required(true)
+    descriptor = partition :: descriptor
 
     descriptor
   }
@@ -55,7 +61,7 @@ class CsvSave extends ConfigurableStop{
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     val df = in.read()
     //df.show()
-    df.write
+    df.repartition(partition.toInt).write
       .format("csv")
       .mode(SaveMode.Overwrite)
       .option("header", header)

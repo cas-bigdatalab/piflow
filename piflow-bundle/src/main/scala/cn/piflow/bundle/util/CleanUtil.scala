@@ -10,6 +10,7 @@ import scala.reflect.macros.ParseException
 object CleanUtil extends Serializable {
   def processEmail(oriEmail: String): String = { //全角转半角
     var res:String = someTwoBytesCharToOneByte(oriEmail)
+    if (res == null) return null
     //字母小写
     res = oriEmail.toLowerCase
     val regularExp = "^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-_]+.[A-Za-z0-9.-_]$"
@@ -19,6 +20,7 @@ object CleanUtil extends Serializable {
 
   def processPhonenum(oriPhonenum: String): String = { //全角转半角
     var res:String = someTwoBytesCharToOneByte(oriPhonenum)
+    if (res == null) return null
     //删除非数字
     res = res.replaceAll("[^0-9]", "")
     //正则表达式
@@ -32,6 +34,43 @@ object CleanUtil extends Serializable {
     //若不包含空格则输出NULL
     //if (!res.contains(" ")) return null
     res
+  }
+
+  def processProvince(word: String): String = {
+    var str = ""
+    if (word==null) str=""
+    else if (word.indexOf("北京") > -1 || word.indexOf("天津") > -1 || word.indexOf("上海") > -1 || word.indexOf("重庆") > -1) str = word.replace("市", "")
+    else if (word.indexOf("云南") > -1 || word.indexOf("吉林") > -1 || word.indexOf("四川") > -1 || word.indexOf("安徽") > -1 || word.indexOf("山东") > -1 || word.indexOf("山西") > -1 || word.indexOf("广东") > -1 || word.indexOf("江苏") > -1 || word.indexOf("江西") > -1 || word.indexOf("河北") > -1 || word.indexOf("河南") > -1 || word.indexOf("浙江") > -1 || word.indexOf("海南") > -1 || word.indexOf("湖北") > -1 || word.indexOf("湖南") > -1 || word.indexOf("甘肃") > -1 || word.indexOf("福建") > -1 || word.indexOf("贵州") > -1 || word.indexOf("辽宁") > -1 || word.indexOf("重庆") > -1 || word.indexOf("陕西") > -1 || word.indexOf("青海") > -1 || word.indexOf("黑龙江") > -1) str = word.replace("省", "")
+    else if (word.toLowerCase.indexOf("anhui") > -1) str = "安徽"
+    else if (word.toLowerCase.indexOf("beijing") > -1) str = "北京"
+    else if (word.toLowerCase.indexOf("chongqing") > -1) str = "重庆"
+    else if (word.toLowerCase.indexOf("fujian") > -1) str = "福建"
+    else if (word.toLowerCase.indexOf("gansu") > -1) str = "甘肃"
+    else if (word.toLowerCase.indexOf("guangdong") > -1 || word.toLowerCase.indexOf("guizhou") > -1) str = "广东"
+    else if (word.toLowerCase.indexOf("hainan") > -1) str = "海南"
+    else if (word.toLowerCase.indexOf("hebei") > -1) str = "河北"
+    else if (word.toLowerCase.indexOf("heilongjiang") > -1) str = "黑龙江"
+    else if (word.toLowerCase.indexOf("henan") > -1) str = "河南"
+    else if (word.toLowerCase.indexOf("hunan") > -1) str = "湖南"
+    else if (word.toLowerCase.indexOf("jiangsu") > -1) str = "江苏"
+    else if (word.toLowerCase.indexOf("jiangxi") > -1) str = "江西"
+    else if (word.toLowerCase.indexOf("jilin") > -1) str = "吉林"
+    else if (word.toLowerCase.indexOf("liaoning") > -1) str = "辽宁"
+    else if (word.toLowerCase.indexOf("qinghai") > -1) str = "青海"
+    else if (word.toLowerCase.indexOf("shaanxi") > -1 || word.toLowerCase.indexOf("shanxi") > -1) str = "陕西"
+    else if (word.toLowerCase.indexOf("shandong") > -1) str = "山东"
+    else if (word.toLowerCase.indexOf("shanghai") > -1) str = "上海"
+    else if (word.toLowerCase.indexOf("sichuan") > -1) str = "四川"
+    else if (word.toLowerCase.indexOf("tianjin") > -1) str = "天津"
+    else if (word.toLowerCase.indexOf("yunnan") > -1) str = "云南"
+    else if (word.toLowerCase.indexOf("zhejiang") > -1) str = "浙江"
+    else if (word.indexOf("内蒙古") > -1 || word.toLowerCase.indexOf("inner mongolia") > -1) str = "内蒙古自治区"
+    else if (word.indexOf("宁夏") > -1) str = "宁夏回族自治区"
+    else if (word.indexOf("广西") > -1 || word.toLowerCase.indexOf("guangxi") > -1) str = "广西壮族自治区"
+    else if (word.indexOf("新疆") > -1 || word.toLowerCase.indexOf("xinjiang") > -1) str = "新疆维吾尔自治区"
+    else if (word.indexOf("西藏") > -1) str = "西藏自治区"
+    else if (!"".equals(word)) str = word
+    str
   }
 
   def someTwoBytesCharToOneByte(oriString: String): String = { //TODO 汉字和全角字符混合是否正常
@@ -51,6 +90,7 @@ object CleanUtil extends Serializable {
 
 
   def processCardCode(cardcode:String):String={
+     if (cardcode==null) return null
     //全角转半角
     var res = someTwoBytesCharToOneByte(cardcode)
     //将身份证号末尾X转变为大写

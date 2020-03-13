@@ -21,17 +21,18 @@ class XmlParserWithJson extends ConfigurableStop {
   def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
 
     val spark = pec.get[SparkSession]()
+
     val df = in.read()
 
     spark.sqlContext.udf.register("xmlToJson",(str:String)=>{
-      XmlToJson.xmlParse(str)
+      XmlToJson.xmlParse(str.replaceAll("\n","\t"))
     })
-    val columns: Array[String] = xmlColumns.split(",")
+    val columns: Array[String] = xmlColumns.toLowerCase.split(",")
 
     val fields: Array[String] = df.schema.fieldNames
     var fieldString = new StringBuilder
     fields.foreach(x=>{
-      if (columns.contains(x)){
+      if (columns.contains(x.toLowerCase)){
         fieldString.append(s"xmlToJson(${x}) as ${x} ,")
       } else {
         fieldString.append(s"${x},")

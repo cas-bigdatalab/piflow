@@ -66,7 +66,7 @@ trait JobContext extends Context {
   def getProcessContext(): ProcessContext;
 }
 
-trait Stop {
+trait Stop extends Serializable {
   def initialize(ctx: ProcessContext): Unit;
 
   def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit;
