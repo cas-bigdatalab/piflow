@@ -17,6 +17,7 @@ object H2Util {
   val CREATE_STOP_TABLE = "create table if not exists stop (flowId varchar(255), name varchar(255), state varchar(255), startTime varchar(255), endTime varchar(255))"
   val CREATE_THOUGHPUT_TABLE = "create table if not exists thoughput (flowId varchar(255), stopName varchar(255), portName varchar(255), count long)"
   val CREATE_FLAG_TABLE = "create table if not exists configFlag(id bigint auto_increment, item varchar(255), flag int, createTime varchar(255))"
+  val CREATE_SCHEDULE_TABLE = "create table if not exists schedule(id bigint auto_increment, scheduleId varchar(255), scheduleEntryId varchar(255), scheduleEntryType varchar(255))"
   val serverIP = ServerIpUtil.getServerIp() + ":" + PropertyUtil.getPropertyValue("h2.port")
   val CONNECTION_URL = "jdbc:h2:tcp://" +  serverIP + "/~/piflow;AUTO_SERVER=true"
   var connection : Connection= null
@@ -31,6 +32,7 @@ object H2Util {
     statement.executeUpdate(CREATE_STOP_TABLE)
     statement.executeUpdate(CREATE_THOUGHPUT_TABLE)
     statement.executeUpdate(CREATE_FLAG_TABLE)
+    statement.executeUpdate(CREATE_SCHEDULE_TABLE)
     statement.close()
   }catch {
     case ex => println(ex)
@@ -52,12 +54,12 @@ object H2Util {
 
       val statement = getConnectionInstance().createStatement()
       statement.setQueryTimeout(QUERY_TIME)
-      statement.executeUpdate("drop table if exists project")
       statement.executeUpdate("drop table if exists flowGroup")
       statement.executeUpdate("drop table if exists flow")
       statement.executeUpdate("drop table if exists stop")
       statement.executeUpdate("drop table if exists thoughput")
       statement.executeUpdate("drop table if exists flag")
+      statement.executeUpdate("drop table if exists schedule")
       statement.close()
 
     } catch{
@@ -667,6 +669,39 @@ object H2Util {
       flag = flowGroupRS.getInt("flag")
     }
     return flag
+  }
+
+  def addScheduleEntry(scheduleId : String, scheduleEntryId : String, scheduleEntryType : String): Unit ={
+    val createTime = new Date().toString
+    val statement = getConnectionInstance().createStatement()
+    statement.setQueryTimeout(QUERY_TIME)
+    statement.executeUpdate("insert into schedule(scheduleId, scheduleEntryId, scheduleEntryType) values('" + scheduleId +  "','" + scheduleEntryId + "','" + scheduleEntryType +"')")
+    statement.close()
+  }
+
+  def getScheduleInfo(scheduleId: String) : String = {
+
+    val statement = getConnectionInstance().createStatement()
+    statement.setQueryTimeout(QUERY_TIME)
+
+    var scheduleInfoMap = Map[String, Any]()
+    scheduleInfoMap += ("scheduleId" -> scheduleId)
+
+    var scheduleEntryList : List[Map[String, String]] = List()
+    val scheduleRS : ResultSet = statement.executeQuery("select * from schedule where scheduleId='" + scheduleId +"'")
+    while (scheduleRS.next()){
+
+      var scheduleEntryMap = Map[String, String]()
+      scheduleEntryMap += ("scheduleEntryId" -> scheduleRS.getString("scheduleEntryId"))
+      scheduleEntryMap += ("scheduleEntryType" -> scheduleRS.getString("scheduleEntryType"))
+
+      scheduleEntryList = scheduleEntryMap +: scheduleEntryList
+    }
+
+    scheduleInfoMap += ("entryList" -> scheduleEntryList)
+    var scheduleJson = JsonUtil.format(JsonUtil.toJson(Map("schedule" -> scheduleInfoMap)))
+    scheduleJson
+
   }
 
 

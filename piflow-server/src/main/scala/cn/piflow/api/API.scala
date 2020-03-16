@@ -22,6 +22,12 @@ import scala.util.parsing.json.JSON
 
 object API {
 
+  def getScheduleInfo(scheduleId : String) : String = {
+
+    val scheduleInfo = H2Util.getScheduleInfo(scheduleId)
+    scheduleInfo
+  }
+
   def startGroup(groupJson : String) = {
 
     println("StartGroup API get json: \n" + groupJson )

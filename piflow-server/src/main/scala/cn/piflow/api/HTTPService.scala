@@ -350,6 +350,7 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
      }
 
    }
+
    case HttpRequest(POST, Uri.Path("/schedule/stop"), headers, entity, protocol) =>{
 
      val data = toJson(entity)
@@ -374,7 +375,20 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
 
    }
 
-    case _: HttpRequest =>
+   case HttpRequest(GET, Uri.Path("/schedule/info"), headers, entity, protocol) =>{
+
+     val scheduleId = req.getUri().query().getOrElse("scheduleId","")
+     if(!scheduleId.equals("")){
+       var result = API.getScheduleInfo(scheduleId)
+       println("getScheduleInfo result: " + result)
+
+       Future.successful(HttpResponse(SUCCESS_CODE, entity = result))
+     }else{
+       Future.successful(HttpResponse(FAIL_CODE, entity = "scheduleId is null or schedule info is error!"))
+     }
+   }
+
+   case _: HttpRequest =>
       Future.successful(HttpResponse(UNKNOWN_CODE, entity = "Unknown resource!"))
   }
 
