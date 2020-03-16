@@ -2,7 +2,7 @@ package cn.piflow.bundle.neo4j
 
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
-import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroup}
+import cn.piflow.conf.{ConfigurableStop, Port, StopGroup}
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.neo4j.driver.v1._
 
@@ -12,9 +12,9 @@ import scala.collection.mutable
 class RunCypher extends ConfigurableStop{
   override val authorEmail: String = "anhong12@cnic.cn"
   override val description: String = "Run cql on neo4j"
-  override val inportList: List[String] =List(PortEnum.DefaultPort.toString)
+  override val inportList: List[String] =List(Port.DefaultPort.toString)
   //  override val outportList: List[String] = List(PortEnum.NonePort.toString)
-  override val outportList: List[String] = List(PortEnum.DefaultPort.toString)
+  override val outportList: List[String] = List(Port.DefaultPort.toString)
 
   var url : String =_
   var userName : String =_

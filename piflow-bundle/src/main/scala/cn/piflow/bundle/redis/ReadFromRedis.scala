@@ -19,8 +19,8 @@ import scala.collection.mutable.ArrayBuffer
 
 class ReadFromRedis extends ConfigurableStop{
   val description: String = "Read data from redis"
-  val inportList: List[String] = List(PortEnum.NonePort.toString)
-  val outportList: List[String] = List(PortEnum.DefaultPort.toString)
+  val inportList: List[String] = List(Port.NonePort.toString)
+  val outportList: List[String] = List(Port.DefaultPort.toString)
   var redis_host:String =_
   var port:Int=_
   var password:String=_

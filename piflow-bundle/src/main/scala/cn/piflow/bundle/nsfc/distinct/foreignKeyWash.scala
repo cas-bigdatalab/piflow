@@ -2,7 +2,7 @@ package cn.piflow.bundle.nsfc.distinct
 
 import cn.piflow.bundle.util.JedisClusterImplSer
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
-import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroup}
+import cn.piflow.conf.{ConfigurableStop, Port, StopGroup}
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import org.apache.spark.sql.{Row, SparkSession}
@@ -18,8 +18,8 @@ class foreignKeyWash extends ConfigurableStop {
   var redis_server_passwd : String = _
   var jedisCluster : JedisClusterImplSer = _
 
-  override val inportList: List[String] = List(PortEnum.DefaultPort.toString)
-  override val outportList: List[String] = List(PortEnum.DefaultPort.toString)
+  override val inportList: List[String] = List(Port.DefaultPort.toString)
+  override val outportList: List[String] = List(Port.DefaultPort.toString)
 
   override def setProperties(map: Map[String, Any]): Unit = {
     redis_server_ip = MapUtil.get(map,"redis ip").asInstanceOf[String]

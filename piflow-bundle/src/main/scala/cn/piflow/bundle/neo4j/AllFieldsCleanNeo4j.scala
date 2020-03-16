@@ -14,8 +14,8 @@ class AllFieldsCleanNeo4j extends ConfigurableStop {
   val authorEmail: String = "anhong12@cnic.cn"
   val description: String = "Clean DataFrame for NSFC Neo4j"
 
-  val inportList: List[String] = List(PortEnum.DefaultPort.toString)
-  val outportList: List[String] = List(PortEnum.DefaultPort.toString)
+  val inportList: List[String] = List(Port.DefaultPort.toString)
+  val outportList: List[String] = List(Port.DefaultPort.toString)
 
 
 //

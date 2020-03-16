@@ -19,8 +19,8 @@ class AnimalClassification extends ConfigurableStop {
 
   val authorEmail: String = "huchuan0901@163.com"
   val description: String = "Image classification"
-  val inportList: List[String] = List(PortEnum.DefaultPort.toString)
-  val outportList: List[String] = List(PortEnum.DefaultPort.toString)
+  val inportList: List[String] = List(Port.DefaultPort.toString)
+  val outportList: List[String] = List(Port.DefaultPort.toString)
 
   //val url = "http://10.0.86.128:8081/service/classify/dogorcat/"
 

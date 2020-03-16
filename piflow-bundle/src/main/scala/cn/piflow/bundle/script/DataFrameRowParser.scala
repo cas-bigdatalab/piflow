@@ -13,8 +13,8 @@ class DataFrameRowParser extends ConfigurableStop{
 
   val authorEmail: String = "xjzhu@cnic.cn"
   val description: String = "Create dataframe by schema"
-  val inportList: List[String] = List(PortEnum.DefaultPort.toString)
-  val outportList: List[String] = List(PortEnum.DefaultPort.toString)
+  val inportList: List[String] = List(Port.DefaultPort.toString)
+  val outportList: List[String] = List(Port.DefaultPort.toString)
 
   var schema: String = _
   var separator: String = _

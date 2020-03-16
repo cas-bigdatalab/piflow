@@ -9,8 +9,8 @@ import org.apache.spark.sql.SaveMode
 class CsvSave extends ConfigurableStop{
   val authorEmail: String = "xjzhu@cnic.cn"
   val description: String = "Save data into csv file."
-  val inportList: List[String] = List(PortEnum.DefaultPort.toString)
-  val outportList: List[String] = List(PortEnum.DefaultPort.toString)
+  val inportList: List[String] = List(Port.DefaultPort.toString)
+  val outportList: List[String] = List(Port.DefaultPort.toString)
 
   var csvSavePath: String = _
   var header: Boolean = _

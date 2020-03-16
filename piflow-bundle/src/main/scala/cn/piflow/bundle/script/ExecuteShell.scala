@@ -3,7 +3,7 @@ package cn.piflow.bundle.script
 import cn.piflow.bundle.util.RemoteShellExecutor
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
-import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroup}
+import cn.piflow.conf.{ConfigurableStop, Port, StopGroup}
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.apache.spark.sql.SparkSession
 
@@ -11,8 +11,8 @@ import org.apache.spark.sql.SparkSession
 class ExecuteShell extends ConfigurableStop{
   override val authorEmail: String = "ygang@cnic.cn"
   override val description: String = "Execute shell script"
-  val inportList: List[String] = List(PortEnum.DefaultPort.toString)
-  val outportList: List[String] = List(PortEnum.DefaultPort.toString)
+  val inportList: List[String] = List(Port.DefaultPort.toString)
+  val outportList: List[String] = List(Port.DefaultPort.toString)
 
   var IP :String= _
   var User :String= _

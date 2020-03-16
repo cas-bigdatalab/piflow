@@ -2,7 +2,7 @@ package cn.piflow.bundle.es
 
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
-import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroup}
+import cn.piflow.conf.{ConfigurableStop, Port, StopGroup}
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.apache.spark.sql.SparkSession
 
@@ -11,8 +11,8 @@ class FetchEs extends ConfigurableStop {
 
   val authorEmail: String = "ygang@cnic.cn"
 
-  override val inportList: List[String] = List(PortEnum.NonePort.toString)
-  override val outportList: List[String] = List(PortEnum.DefaultPort.toString)
+  override val inportList: List[String] = List(Port.NonePort.toString)
+  override val outportList: List[String] = List(Port.DefaultPort.toString)
   override val description: String = "Fetch data from Elasticsearch"
 
   var es_nodes : String =  _

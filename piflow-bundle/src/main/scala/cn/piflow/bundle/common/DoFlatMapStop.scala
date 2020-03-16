@@ -13,8 +13,8 @@ class DoFlatMapStop extends ConfigurableStop{
 
   val authorEmail: String = "ygang@cnic.cn"
   val description: String = "Do flat map"
-  val inportList: List[String] = List(PortEnum.DefaultPort.toString)
-  val outportList: List[String] = List(PortEnum.DefaultPort.toString)
+  val inportList: List[String] = List(Port.DefaultPort.toString)
+  val outportList: List[String] = List(Port.DefaultPort.toString)
 
   var  SCRIPT: String = _
 

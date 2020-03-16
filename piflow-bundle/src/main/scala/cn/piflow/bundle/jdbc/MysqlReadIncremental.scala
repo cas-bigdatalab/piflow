@@ -1,7 +1,7 @@
 package cn.piflow.bundle.jdbc
 
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
-import cn.piflow.conf.{ConfigurableIncrementalStop, PortEnum, StopGroup}
+import cn.piflow.conf.{ConfigurableIncrementalStop, Port, StopGroup}
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import org.apache.spark.sql.SparkSession
@@ -14,8 +14,8 @@ class MysqlReadIncremental extends ConfigurableIncrementalStop{
   override var incrementalStart: String = _
   override val authorEmail: String = "xjzhu@cnic.cn"
   override val description: String = "Read data from jdbc database"
-  override val inportList: List[String] = List(PortEnum.NonePort.toString)
-  override val outportList: List[String] = List(PortEnum.DefaultPort.toString)
+  override val inportList: List[String] = List(Port.NonePort.toString)
+  override val outportList: List[String] = List(Port.DefaultPort.toString)
 
   //var driver:String = _
   var url:String = _

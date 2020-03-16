@@ -15,8 +15,8 @@ class DoMapStop extends ConfigurableStop{
 
   val authorEmail: String = "ygang@cnic.cn"
   val description: String = "Do map"
-  val inportList: List[String] = List(PortEnum.DefaultPort.toString)
-  val outportList: List[String] = List(PortEnum.DefaultPort.toString)
+  val inportList: List[String] = List(Port.DefaultPort.toString)
+  val outportList: List[String] = List(Port.DefaultPort.toString)
 
   var  schema: String = _
   var  SCRIPT: String = _

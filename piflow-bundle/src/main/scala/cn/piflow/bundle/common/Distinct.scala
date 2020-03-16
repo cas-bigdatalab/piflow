@@ -2,15 +2,15 @@ package cn.piflow.bundle.common
 
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
-import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroup}
+import cn.piflow.conf.{ConfigurableStop, Port, StopGroup}
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.apache.spark.sql.DataFrame
 
 class Distinct extends ConfigurableStop{
   override val authorEmail: String = "yangqidong@cnic.cn"
   override val description: String = "Reduplicate data according to all fields or fields you specify"
-  override val inportList: List[String] =List(PortEnum.DefaultPort.toString)
-  override val outportList: List[String] = List(PortEnum.DefaultPort.toString)
+  override val inportList: List[String] =List(Port.DefaultPort.toString)
+  override val outportList: List[String] = List(Port.DefaultPort.toString)
 
   var files:String=_
 

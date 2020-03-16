@@ -12,8 +12,8 @@ class JdbcWriteToOracle extends ConfigurableStop{
 
   val authorEmail: String = "yangqidong@cnic.cn"
   val description: String = "Write data to oracle"
-  val inportList: List[String] = List(PortEnum.NonePort.toString)
-  val outportList: List[String] = List(PortEnum.DefaultPort.toString)
+  val inportList: List[String] = List(Port.NonePort.toString)
+  val outportList: List[String] = List(Port.DefaultPort.toString)
 
   var url:String = _
   var user:String = _

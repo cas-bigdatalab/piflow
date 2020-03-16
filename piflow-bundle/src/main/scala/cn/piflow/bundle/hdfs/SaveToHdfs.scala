@@ -2,7 +2,7 @@ package cn.piflow.bundle.hdfs
 
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
-import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroup}
+import cn.piflow.conf.{ConfigurableStop, Port, StopGroup}
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileStatus, FileSystem, Path}
@@ -18,8 +18,8 @@ class SaveToHdfs extends ConfigurableStop {
   override val description: String = "Put  data to hdfs "
   val authorEmail: String = "ygang@cnic.cn"
 
-  override val inportList: List[String] = List(PortEnum.DefaultPort.toString)
-  override val outportList: List[String] = List(PortEnum.DefaultPort.toString)
+  override val inportList: List[String] = List(Port.DefaultPort.toString)
+  override val outportList: List[String] = List(Port.DefaultPort.toString)
 
   var hdfsDirPath :String= _
   var hdfsUrl :String= _

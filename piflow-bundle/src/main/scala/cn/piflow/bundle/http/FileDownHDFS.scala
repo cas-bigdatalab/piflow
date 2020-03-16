@@ -16,8 +16,8 @@ import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 class FileDownHDFS extends ConfigurableStop{
   val authorEmail: String = "yangqidong@cnic.cn"
   val description: String = "Download url to hdfs"
-  val inportList: List[String] = List(PortEnum.NonePort.toString)
-  val outportList: List[String] = List(PortEnum.DefaultPort.toString)
+  val inportList: List[String] = List(Port.NonePort.toString)
+  val outportList: List[String] = List(Port.DefaultPort.toString)
 
   var url_str:String =_
   var savePath:String=_

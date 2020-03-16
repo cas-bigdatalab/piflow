@@ -3,7 +3,7 @@ package cn.piflow.bundle.mongodb
 import java.util
 
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
-import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroup}
+import cn.piflow.conf.{ConfigurableStop, Port, StopGroup}
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import com.mongodb.client.{MongoCollection, MongoDatabase}
@@ -15,8 +15,8 @@ import org.bson.Document
 class PutMongo extends ConfigurableStop{
   override val authorEmail: String = "yangqidong@cnic.cn"
   override val description: String = "Put data to mongodb"
-  val inportList: List[String] = List(PortEnum.DefaultPort.toString)
-  val outportList: List[String] = List(PortEnum.NonePort.toString)
+  val inportList: List[String] = List(Port.DefaultPort.toString)
+  val outportList: List[String] = List(Port.NonePort.toString)
 
   var addresses:String=_
   var credentials:String=_

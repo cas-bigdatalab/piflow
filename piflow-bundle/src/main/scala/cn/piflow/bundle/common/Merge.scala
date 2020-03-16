@@ -11,8 +11,8 @@ class Merge extends ConfigurableStop{
 
   val authorEmail: String = "xjzhu@cnic.cn"
   val description: String = "Merge data into one stop"
-  val inportList: List[String] = List(PortEnum.AnyPort.toString)
-  val outportList: List[String] = List(PortEnum.DefaultPort.toString)
+  val inportList: List[String] = List(Port.AnyPort.toString)
+  val outportList: List[String] = List(Port.DefaultPort.toString)
 
   var inports : List[String] = _
 

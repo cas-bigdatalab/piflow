@@ -2,7 +2,7 @@ package cn.piflow.bundle.neo4j
 
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
-import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroup}
+import cn.piflow.conf.{ConfigurableStop, Port, StopGroup}
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.neo4j.driver.v1._
@@ -11,8 +11,8 @@ import org.neo4j.driver.v1._
 class PutNeo4j extends ConfigurableStop{
   override val authorEmail: String = "yangqidong@cnic.cn"
   override val description: String = "Put data to Neo4j"
-  override val inportList: List[String] =List(PortEnum.DefaultPort.toString)
-  override val outportList: List[String] = List(PortEnum.NonePort.toString)
+  override val inportList: List[String] =List(Port.DefaultPort.toString)
+  override val outportList: List[String] = List(Port.NonePort.toString)
 
   var url : String =_
   var userName : String =_

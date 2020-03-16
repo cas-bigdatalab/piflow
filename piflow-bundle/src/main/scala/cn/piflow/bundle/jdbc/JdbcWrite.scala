@@ -15,8 +15,8 @@ JdbcWrite extends ConfigurableStop{
 
   val authorEmail: String = "xjzhu@cnic.cn"
   val description: String = "Write data into jdbc database"
-  val inportList: List[String] = List(PortEnum.DefaultPort.toString)
-  val outportList: List[String] = List(PortEnum.NonePort.toString)
+  val inportList: List[String] = List(Port.DefaultPort.toString)
+  val outportList: List[String] = List(Port.NonePort.toString)
 
   var url:String = _
   var user:String = _

@@ -4,7 +4,7 @@ import java.util.regex.Pattern
 
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
-import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroup}
+import cn.piflow.conf.{ConfigurableStop, Port, StopGroup}
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileStatus, FileSystem, Path}
@@ -17,8 +17,8 @@ import scala.collection.mutable.ArrayBuffer
 class SelectFilesByName extends ConfigurableStop{
   override val authorEmail: String = "yangqidong@cnic.cn"
   override val description: String = "Select files by file name"
-  override val inportList: List[String] = List(PortEnum.DefaultPort.toString)
-  override val outportList: List[String] = List(PortEnum.DefaultPort.toString)
+  override val inportList: List[String] = List(Port.DefaultPort.toString)
+  override val outportList: List[String] = List(Port.DefaultPort.toString)
 
   var HDFSUrl:String=_
   var HDFSPath:String=_

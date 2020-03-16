@@ -1,7 +1,7 @@
 package cn.piflow.bundle.streaming
 
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
-import cn.piflow.conf.{ConfigurableStreamingStop, PortEnum, StopGroup}
+import cn.piflow.conf.{ConfigurableStreamingStop, Port, StopGroup}
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import org.apache.spark.storage.StorageLevel
@@ -13,8 +13,8 @@ class FlumeStream extends ConfigurableStreamingStop{
   override var batchDuration: Int = _
   override val authorEmail: String = "xjzhu@cnic.cn"
   override val description: String = "Get data from flume"
-  override val inportList: List[String] = List(PortEnum.NonePort)
-  override val outportList: List[String] = List(PortEnum.DefaultPort)
+  override val inportList: List[String] = List(Port.NonePort)
+  override val outportList: List[String] = List(Port.DefaultPort)
 
   var hostname:String =_
   var port:Int=_

@@ -9,8 +9,8 @@ class Trager extends ConfigurableStop{
 
   val authorEmail: String = "ygang@cnic.cn"
   val description: String = "Upstream and downstream middleware"
-  val inportList: List[String] = List(PortEnum.AnyPort.toString)
-  val outportList: List[String] = List(PortEnum.AnyPort.toString)
+  val inportList: List[String] = List(Port.AnyPort.toString)
+  val outportList: List[String] = List(Port.AnyPort.toString)
 
 
   def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {

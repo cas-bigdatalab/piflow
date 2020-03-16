@@ -1,7 +1,7 @@
 package cn.piflow.bundle.mongodb
 
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
-import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroup}
+import cn.piflow.conf.{ConfigurableStop, Port, StopGroup}
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import org.apache.spark.sql.{DataFrame, SparkSession}
@@ -9,8 +9,8 @@ import org.apache.spark.sql.{DataFrame, SparkSession}
 class GetMongoDB extends ConfigurableStop{
   override val authorEmail: String = "yangqidong@cnic.cn"
   override val description: String = "Get data from mongodb"
-  val inportList: List[String] = List(PortEnum.NonePort.toString)
-  val outportList: List[String] = List(PortEnum.DefaultPort.toString)
+  val inportList: List[String] = List(Port.NonePort.toString)
+  val outportList: List[String] = List(Port.DefaultPort.toString)
 
   var ip:String=_
   var port:String=_

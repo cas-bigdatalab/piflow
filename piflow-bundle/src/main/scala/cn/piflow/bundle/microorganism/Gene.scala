@@ -5,7 +5,7 @@ import java.text.SimpleDateFormat
 
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
-import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroup}
+import cn.piflow.conf.{ConfigurableStop, Port, StopGroup}
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FSDataInputStream, FSDataOutputStream, FileSystem, Path}
@@ -15,8 +15,8 @@ import org.json.JSONObject
 class Gene extends ConfigurableStop{
   override val authorEmail: String = "yangqidong@cnic.cn"
   override val description: String = "Parse gene data"
-  override val inportList: List[String] =List(PortEnum.DefaultPort.toString)
-  override val outportList: List[String] = List(PortEnum.DefaultPort.toString)
+  override val inportList: List[String] =List(Port.DefaultPort.toString)
+  override val outportList: List[String] = List(Port.DefaultPort.toString)
 
   var cachePath:String = _
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {

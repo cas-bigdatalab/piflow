@@ -5,7 +5,7 @@ import java.util.regex.{Matcher, Pattern}
 import cn.piflow.bundle.util.Entity
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
-import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroup}
+import cn.piflow.conf.{ConfigurableStop, Port, StopGroup}
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.types.{DataTypes, StringType, StructField, StructType}
@@ -296,6 +296,6 @@ class RdfToDF extends ConfigurableStop{
     regex.matcher(str).find()
   }
 
-  override val inportList: List[String] = List(PortEnum.DefaultPort.toString)
+  override val inportList: List[String] = List(Port.DefaultPort.toString)
   override val outportList: List[String] = List(entityPort, relationshipPort)
 }

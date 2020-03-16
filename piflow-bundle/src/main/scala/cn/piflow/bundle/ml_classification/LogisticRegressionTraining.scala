@@ -2,7 +2,7 @@ package cn.piflow.bundle.ml_classification
 
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
-import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroup}
+import cn.piflow.conf.{ConfigurableStop, Port, StopGroup}
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.ml.classification.LogisticRegression
@@ -10,8 +10,8 @@ import org.apache.spark.ml.classification.LogisticRegression
 class LogisticRegressionTraining extends ConfigurableStop{
   val authorEmail: String = "06whuxx@163.com"
   val description: String = "Train a logistic regression model"
-  val inportList: List[String] = List(PortEnum.NonePort.toString)
-  val outportList: List[String] = List(PortEnum.DefaultPort.toString)
+  val inportList: List[String] = List(Port.NonePort.toString)
+  val outportList: List[String] = List(Port.DefaultPort.toString)
   var training_data_path:String =_
   var model_save_path:String=_
   var maxIter:String=_

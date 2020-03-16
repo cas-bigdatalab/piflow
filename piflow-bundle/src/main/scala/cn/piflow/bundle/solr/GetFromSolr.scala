@@ -3,7 +3,7 @@ import java.util
 
 import scala.collection.JavaConversions._
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
-import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroup}
+import cn.piflow.conf.{ConfigurableStop, Port, StopGroup}
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import org.apache.solr.client.solrj.SolrQuery
@@ -22,8 +22,8 @@ import scala.collection.mutable.ListBuffer
 class GetFromSolr extends ConfigurableStop{
   override val authorEmail: String ="yangqidong@cnic.cn"
   override val description: String = "Get data from solr"
-  val inportList: List[String] = List(PortEnum.NonePort.toString)
-  val outportList: List[String] = List(PortEnum.DefaultPort.toString)
+  val inportList: List[String] = List(Port.NonePort.toString)
+  val outportList: List[String] = List(Port.DefaultPort.toString)
 
   var solrURL:String=_
   var SolrCollection:String=_

@@ -1,7 +1,7 @@
 package cn.piflow.bundle.memcached
 
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
-import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroup}
+import cn.piflow.conf.{ConfigurableStop, Port, StopGroup}
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import com.danga.MemCached.{MemCachedClient, SockIOPool}
@@ -10,8 +10,8 @@ import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 class PutMemcache extends ConfigurableStop{
   override val authorEmail: String = "yangqidong@cnic.cn"
   override val description: String = "Put data to memcache"
-  val inportList: List[String] = List(PortEnum.DefaultPort.toString)
-  val outportList: List[String] = List(PortEnum.NonePort.toString)
+  val inportList: List[String] = List(Port.DefaultPort.toString)
+  val outportList: List[String] = List(Port.NonePort.toString)
 
   var servers:String=_            //Server address and port number,If you have multiple servers, use "," segmentation.
   var keyFile:String=_            //You want to be used as a field for key.

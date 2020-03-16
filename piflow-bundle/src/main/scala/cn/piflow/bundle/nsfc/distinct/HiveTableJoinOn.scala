@@ -1,7 +1,7 @@
 package cn.piflow.bundle.nsfc.distinct
 
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
-import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroup}
+import cn.piflow.conf.{ConfigurableStop, Port, StopGroup}
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import org.apache.spark.sql.SparkSession
@@ -9,8 +9,8 @@ import org.apache.spark.sql.SparkSession
 class HiveTableJoinOn extends ConfigurableStop{
   override val authorEmail: String = "xiaomeng7890@gmail.com"
   override val description: String = ""
-  override val inportList: List[String] = List(PortEnum.DefaultPort.toString)
-  override val outportList: List[String] = List(PortEnum.DefaultPort.toString)
+  override val inportList: List[String] = List(Port.DefaultPort.toString)
+  override val outportList: List[String] = List(Port.DefaultPort.toString)
 
   var baseTableName : String = _
   var subTableName : String = _

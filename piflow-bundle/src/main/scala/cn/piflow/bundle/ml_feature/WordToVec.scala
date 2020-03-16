@@ -1,7 +1,7 @@
 package cn.piflow.bundle.ml_feature
 
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
-import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroup}
+import cn.piflow.conf.{ConfigurableStop, Port, StopGroup}
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import org.apache.spark.ml.feature.Word2Vec
@@ -11,8 +11,8 @@ import org.apache.spark.sql.SparkSession
 class WordToVec extends ConfigurableStop{
   val authorEmail: String = "06whuxx@163.com"
   val description: String = "Transfer word to vector"
-  val inportList: List[String] = List(PortEnum.DefaultPort.toString)
-  val outportList: List[String] = List(PortEnum.DefaultPort.toString)
+  val inportList: List[String] = List(Port.DefaultPort.toString)
+  val outportList: List[String] = List(Port.DefaultPort.toString)
   var maxIter:String=_
   var maxSentenceLength:String=_
   var minCount:String=_

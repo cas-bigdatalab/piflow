@@ -2,7 +2,7 @@ package cn.piflow.bundle.es
 
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
-import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroup}
+import cn.piflow.conf.{ConfigurableStop, Port, StopGroup}
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.apache.spark.sql.SparkSession
 import org.elasticsearch.spark.sql.EsSparkSQL
@@ -12,8 +12,8 @@ class PutEs extends ConfigurableStop {
   override val description: String = "Put data into Elasticsearch"
   val authorEmail: String = "ygang@cnic.cn"
 
-  override val inportList: List[String] = List(PortEnum.DefaultPort.toString)
-  override val outportList: List[String] = List(PortEnum.NonePort.toString)
+  override val inportList: List[String] = List(Port.DefaultPort.toString)
+  override val outportList: List[String] = List(Port.NonePort.toString)
 
   var es_nodes : String =  _
   var es_port  : String  =  _

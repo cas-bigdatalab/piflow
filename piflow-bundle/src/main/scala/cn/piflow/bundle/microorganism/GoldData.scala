@@ -3,7 +3,7 @@ package cn.piflow.bundle.microorganism
 
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.ImageUtil
-import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroup}
+import cn.piflow.conf.{ConfigurableStop, Port, StopGroup}
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.apache.spark.sql. SparkSession
 
@@ -11,8 +11,8 @@ import org.apache.spark.sql. SparkSession
 class GoldData extends ConfigurableStop{
   val authorEmail: String = "ygang@cnic.cn"
   val description: String = "Parse GoldData data"
-  val inportList: List[String] = List(PortEnum.DefaultPort.toString)
-  val outportList: List[String] = List(PortEnum.DefaultPort.toString)
+  val inportList: List[String] = List(Port.DefaultPort.toString)
+  val outportList: List[String] = List(Port.DefaultPort.toString)
 
 
   def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {

@@ -1,7 +1,7 @@
 package cn.piflow.bundle.hive
 
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
-import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroup}
+import cn.piflow.conf.{ConfigurableStop, Port, StopGroup}
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import org.apache.spark.SparkContext
@@ -13,8 +13,8 @@ import org.apache.spark.sql.{DataFrame, Row, SQLContext, SparkSession}
 class OptionalSelectHiveQL extends ConfigurableStop {
   override val authorEmail: String = "xiaomeng7890@gmail.com"
   override val description: String = "some hive can only achieve by jdbc, this stop is designed for this"
-  override val inportList: List[String] = List(PortEnum.NonePort)
-  override val outportList: List[String] = List(PortEnum.DefaultPort)
+  override val inportList: List[String] = List(Port.NonePort)
+  override val outportList: List[String] = List(Port.DefaultPort)
 
   private val driverName = "org.apache.hive.jdbc.HiveDriver"
   var hiveUser : String = _

@@ -12,8 +12,8 @@ class XmlSave extends ConfigurableStop{
 
   val authorEmail: String = "xjzhu@cnic.cn"
   val description: String = "Save data to xml file"
-  val inportList: List[String] = List(PortEnum.DefaultPort.toString)
-  val outportList: List[String] = List(PortEnum.NonePort.toString)
+  val inportList: List[String] = List(Port.DefaultPort.toString)
+  val outportList: List[String] = List(Port.NonePort.toString)
 
   var xmlSavePath:String = _
 

@@ -4,14 +4,14 @@ import cn.piflow.bundle.util.CleanUtil
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
-import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroup}
+import cn.piflow.conf.{ConfigurableStop, Port, StopGroup}
 import org.apache.spark.sql.SparkSession
 
 class CardCodeClean extends ConfigurableStop {
     val authorEmail: String = "songdongze@cnic.cn"
     val description: String = "Clean Id Card data."
-    val inportList: List[String] = List(PortEnum.DefaultPort.toString)
-    val outportList: List[String] = List(PortEnum.DefaultPort.toString)
+    val inportList: List[String] = List(Port.DefaultPort.toString)
+    val outportList: List[String] = List(Port.DefaultPort.toString)
     //var regex:String =_
     var cardCodeField:String=_
     var cardTypeField:String=_

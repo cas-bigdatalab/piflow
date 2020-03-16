@@ -5,7 +5,7 @@ import java.net.URL
 import cn.piflow.bundle.util.XMLBuilder
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
-import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroup}
+import cn.piflow.conf.{ConfigurableStop, Port, StopGroup}
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import com.cscd.webservice.CscdService
 import javax.xml.namespace.QName
@@ -27,8 +27,8 @@ class CSCDSearchArticleAndExtractXML extends ConfigurableStop {
 
   val authorEmail: String = "songdongze@cnic.cn"
   val description: String = "CSCD Search Article And Extract XML"
-  val inportList: List[String] = List(PortEnum.DefaultPort.toString)
-  val outportList: List[String] = List(PortEnum.DefaultPort.toString)
+  val inportList: List[String] = List(Port.DefaultPort.toString)
+  val outportList: List[String] = List(Port.DefaultPort.toString)
 
   val xpath_expressions: List[String] = List("/articles/article/cscd_id", "/articles/article/title", "/articles/article/authorlist/author/author_name", "/articles/article/authorlist/author/institute", "/articles/article/journal/journal_name", "/articles/article/issue/volume", "/articles/article/issue/year", "/articles/article/page_string", "/articles/article/journal/issn", "/articles/article/issue/issue", "/articles/article/cited_num", "/articles/article/keywords", "/articles/article/doi", "/articles/article/abstract")
 

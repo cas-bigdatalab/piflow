@@ -1,6 +1,6 @@
 package cn.piflow.conf
 
-object PortEnum {
+object Port {
 
   val AnyPort = "Any"
   val DefaultPort = "Default"

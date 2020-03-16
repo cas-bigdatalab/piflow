@@ -10,8 +10,8 @@ class ConvertSchema extends ConfigurableStop {
 
   val authorEmail: String = "yangqidong@cnic.cn"
   val description: String = "Transform field name"
-  val inportList: List[String] = List(PortEnum.DefaultPort.toString)
-  val outportList: List[String] = List(PortEnum.DefaultPort.toString)
+  val inportList: List[String] = List(Port.DefaultPort.toString)
+  val outportList: List[String] = List(Port.DefaultPort.toString)
 
   var schema:String = _
 

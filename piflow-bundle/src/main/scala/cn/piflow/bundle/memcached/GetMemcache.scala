@@ -1,7 +1,7 @@
 package cn.piflow.bundle.memcached
 
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
-import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroup}
+import cn.piflow.conf.{ConfigurableStop, Port, StopGroup}
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import com.danga.MemCached.{MemCachedClient, SockIOPool}
@@ -16,8 +16,8 @@ import scala.collection.mutable.ArrayBuffer
 class GetMemcache extends ConfigurableStop{
   override val authorEmail: String = "yangqidong@cnic.cn"
   override val description: String = "Get data from memache"
-  val inportList: List[String] = List(PortEnum.DefaultPort.toString)
-  val outportList: List[String] = List(PortEnum.DefaultPort.toString)
+  val inportList: List[String] = List(Port.DefaultPort.toString)
+  val outportList: List[String] = List(Port.DefaultPort.toString)
 
   var servers:String=_            //Server address and port number,If you have multiple servers, use "," segmentation.
   var keyFile:String=_            //The field you want to use as a query condition

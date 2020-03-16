@@ -11,8 +11,8 @@ import scala.beans.BeanProperty
 class JdbcRead extends ConfigurableStop  {
   val authorEmail: String = "xjzhu@cnic.cn"
   val description: String = "Read data from jdbc database"
-  val inportList: List[String] = List(PortEnum.NonePort.toString)
-  val outportList: List[String] = List(PortEnum.DefaultPort.toString)
+  val inportList: List[String] = List(Port.NonePort.toString)
+  val outportList: List[String] = List(Port.DefaultPort.toString)
 
   //var driver:String = _
   var url:String = _

@@ -13,8 +13,8 @@ import org.apache.spark.sql.types.StructField
 class EmailClean extends ConfigurableStop{
   val authorEmail: String = "songdongze@cnic.cn"
   val description: String = "Clean email format data."
-  val inportList: List[String] = List(PortEnum.DefaultPort.toString)
-  val outportList: List[String] = List(PortEnum.DefaultPort.toString)
+  val inportList: List[String] = List(Port.DefaultPort.toString)
+  val outportList: List[String] = List(Port.DefaultPort.toString)
 
   var columnName:String=_
 

@@ -3,7 +3,7 @@ package cn.piflow.bundle.microorganism
 import java.io.{BufferedReader, InputStreamReader, OutputStreamWriter}
 
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
-import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroup}
+import cn.piflow.conf.{ConfigurableStop, Port, StopGroup}
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import org.apache.hadoop.conf.Configuration
@@ -15,8 +15,8 @@ import org.json.JSONObject
 class Pathway extends ConfigurableStop{
   override val authorEmail: String = "yangqidong@cnic.cn"
   override val description: String = "Parse Pathway data"
-  override val inportList: List[String] =List(PortEnum.DefaultPort.toString)
-  override val outportList: List[String] = List(PortEnum.DefaultPort.toString)
+  override val inportList: List[String] =List(Port.DefaultPort.toString)
+  override val outportList: List[String] = List(Port.DefaultPort.toString)
 
 
   var cachePath:String = _

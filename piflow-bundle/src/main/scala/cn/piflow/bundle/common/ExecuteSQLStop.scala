@@ -16,8 +16,8 @@ class ExecuteSQLStop extends ConfigurableStop{
 
   val authorEmail: String = "ygang@cnic.cn"
   val description: String = "Execute sql"
-  val inportList: List[String] = List(PortEnum.DefaultPort.toString)
-  val outportList: List[String] = List(PortEnum.DefaultPort.toString)
+  val inportList: List[String] = List(Port.DefaultPort.toString)
+  val outportList: List[String] = List(Port.DefaultPort.toString)
 
   var sql: String = _
   var tableName: String = _

@@ -3,7 +3,7 @@ package cn.piflow.bundle.hdfs
 import cn.piflow._
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
-import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroup}
+import cn.piflow.conf.{ConfigurableStop, Port, StopGroup}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileStatus, FileSystem, Path}
 import org.apache.spark.rdd.RDD
@@ -17,8 +17,8 @@ import scala.collection.mutable.ArrayBuffer
 class ListHdfs extends ConfigurableStop{
   override val authorEmail: String = "ygang@cnic.com"
 
-  override val inportList: List[String] = List(PortEnum.DefaultPort.toString)
-  override val outportList: List[String] = List(PortEnum.DefaultPort.toString)
+  override val inportList: List[String] = List(Port.DefaultPort.toString)
+  override val outportList: List[String] = List(Port.DefaultPort.toString)
   override val description: String = "Retrieve a list of files from hdfs"
 
   var HDFSPath :String= _

@@ -1,7 +1,7 @@
 package cn.piflow.bundle.streaming
 
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
-import cn.piflow.conf.{ConfigurableStreamingStop, PortEnum, StopGroup}
+import cn.piflow.conf.{ConfigurableStreamingStop, Port, StopGroup}
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import org.apache.spark.streaming.StreamingContext
@@ -11,8 +11,8 @@ class TextFileStream extends ConfigurableStreamingStop{
   override var batchDuration: Int = _
   override val authorEmail: String = "xjzhu@cnic.cn"
   override val description: String = "Get text file streaming data"
-  override val inportList: List[String] = List(PortEnum.NonePort.toString)
-  override val outportList: List[String] = List(PortEnum.DefaultPort.toString)
+  override val inportList: List[String] = List(Port.NonePort.toString)
+  override val outportList: List[String] = List(Port.DefaultPort.toString)
 
   var directory:String =_
 

@@ -4,7 +4,7 @@ import java.util
 
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
-import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroup}
+import cn.piflow.conf.{ConfigurableStop, Port, StopGroup}
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.apache.http.client.methods.{CloseableHttpResponse, HttpGet}
 import org.apache.http.impl.client.HttpClients
@@ -22,8 +22,8 @@ class GetUrl extends ConfigurableStop{
   override val authorEmail: String = "ygang@cnic.com"
   override val description: String = "Http Get"
 
-  override val inportList: List[String] = List(PortEnum.NonePort.toString)
-  override val outportList: List[String] = List(PortEnum.DefaultPort.toString)
+  override val inportList: List[String] = List(Port.NonePort.toString)
+  override val outportList: List[String] = List(Port.DefaultPort.toString)
 
 
   var url :String= _

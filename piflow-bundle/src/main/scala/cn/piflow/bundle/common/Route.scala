@@ -9,8 +9,8 @@ class Route extends ConfigurableStop{
 
   val authorEmail: String = "xjzhu@cnic.cn"
   val description: String = "Route data by customizedProperties, key is port & value is filter condition"
-  val inportList: List[String] = List(PortEnum.DefaultPort)
-  val outportList: List[String] = List(PortEnum.RoutePort)
+  val inportList: List[String] = List(Port.DefaultPort)
+  val outportList: List[String] = List(Port.RoutePort)
 
   override val isCustomized: Boolean = true
 

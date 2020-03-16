@@ -1,7 +1,7 @@
 package cn.piflow.bundle.common
 
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
-import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroup}
+import cn.piflow.conf.{ConfigurableStop, Port, StopGroup}
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import org.apache.spark.sql.{Column, DataFrame}
@@ -9,8 +9,8 @@ import org.apache.spark.sql.{Column, DataFrame}
 class Filter extends ConfigurableStop{
   override val authorEmail: String = "xjzhu@cnic.cn"
   override val description: String = "Do filter by condition"
-  override val inportList: List[String] = List(PortEnum.DefaultPort)
-  override val outportList: List[String] = List(PortEnum.DefaultPort)
+  override val inportList: List[String] = List(Port.DefaultPort)
+  override val outportList: List[String] = List(Port.DefaultPort)
 
   var condition: String = _
 

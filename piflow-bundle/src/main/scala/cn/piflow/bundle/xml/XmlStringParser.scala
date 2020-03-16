@@ -3,7 +3,7 @@ package cn.piflow.bundle.xml
 import java.util
 
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
-import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroup}
+import cn.piflow.conf.{ConfigurableStop, Port, StopGroup}
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import org.apache.spark.rdd.RDD
@@ -16,8 +16,8 @@ import scala.collection.mutable.{ArrayBuffer, ListBuffer}
 
 class XmlStringParser extends ConfigurableStop {
   override val authorEmail: String = "yangqidong@cnic.cn"
-  val inportList: List[String] = List(PortEnum.NonePort.toString)
-  val outportList: List[String] = List(PortEnum.DefaultPort.toString)
+  val inportList: List[String] = List(Port.NonePort.toString)
+  val outportList: List[String] = List(Port.DefaultPort.toString)
   override val description: String = "Parse xml string"
 
   var XmlString:String=_

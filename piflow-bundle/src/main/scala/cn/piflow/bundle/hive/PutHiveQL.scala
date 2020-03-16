@@ -11,8 +11,8 @@ class PutHiveQL extends ConfigurableStop {
 
   val authorEmail: String = "xiaoxiao@cnic.cn"
   val description: String = "Execute hiveQL script"
-  val inportList: List[String] = List(PortEnum.DefaultPort.toString)
-  val outportList: List[String] = List(PortEnum.DefaultPort.toString)
+  val inportList: List[String] = List(Port.DefaultPort.toString)
+  val outportList: List[String] = List(Port.DefaultPort.toString)
 
   var database:String =_
 

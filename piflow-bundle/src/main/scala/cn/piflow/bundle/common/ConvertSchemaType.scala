@@ -14,8 +14,8 @@ class ConvertSchemaType extends ConfigurableStop {
 
   val authorEmail: String = "ygang@cnic.cn"
   val description: String = "Transform the schema dataType"
-  val inportList: List[String] = List(PortEnum.DefaultPort.toString)
-  val outportList: List[String] = List(PortEnum.DefaultPort.toString)
+  val inportList: List[String] = List(Port.DefaultPort.toString)
+  val outportList: List[String] = List(Port.DefaultPort.toString)
 
 
   var stringType:String = _

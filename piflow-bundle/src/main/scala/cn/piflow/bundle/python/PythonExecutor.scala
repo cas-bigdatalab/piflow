@@ -4,7 +4,7 @@ import java.util
 import java.util.UUID
 
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
-import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroup}
+import cn.piflow.conf.{ConfigurableStop, Port, StopGroup}
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import cn.piflow.util.FileUtil
@@ -21,8 +21,8 @@ import scala.collection.JavaConversions._
 class PythonExecutor extends ConfigurableStop{
   override val authorEmail: String = "xjzhu@cnic.cn"
   override val description: String = "Execute python script"
-  override val inportList: List[String] = List(PortEnum.DefaultPort)
-  override val outportList: List[String] = List(PortEnum.DefaultPort)
+  override val inportList: List[String] = List(Port.DefaultPort)
+  override val outportList: List[String] = List(Port.DefaultPort)
 
   var script : String = _
   var execFunction : String = _

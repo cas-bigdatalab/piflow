@@ -12,8 +12,8 @@ class XmlParserGenerateNewField extends ConfigurableStop {
 
   val authorEmail: String = "songdongze@cnic.cn"
   val description: String = "parse xml string from a hive field, and generate a new field from a xml tag"
-  val inportList: List[String] = List(PortEnum.AnyPort.toString)
-  val outportList: List[String] = List(PortEnum.DefaultPort.toString)
+  val inportList: List[String] = List(Port.AnyPort.toString)
+  val outportList: List[String] = List(Port.DefaultPort.toString)
 
   var decoderField: String = _
   var tagXPath: String = _

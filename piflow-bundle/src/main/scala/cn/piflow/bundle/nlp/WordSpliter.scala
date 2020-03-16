@@ -17,8 +17,8 @@ class WordSpliter extends ConfigurableStop {
 
   val authorEmail: String = "huchuan0901@163.com"
   val description: String = "Word segmentation"
-  val inportList: List[String] = List(PortEnum.AnyPort.toString)
-  val outportList: List[String] = List(PortEnum.DefaultPort.toString)
+  val inportList: List[String] = List(Port.AnyPort.toString)
+  val outportList: List[String] = List(Port.DefaultPort.toString)
 
   var path:String = _
 

@@ -2,15 +2,15 @@ package cn.piflow.bundle.common
 
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
-import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroup}
+import cn.piflow.conf.{ConfigurableStop, Port, StopGroup}
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.apache.spark.sql.{Column, DataFrame}
 
 class Join extends ConfigurableStop{
   override val authorEmail: String = "yangqidong@cnic.cn"
   override val description: String = "Table connection, including full connection, left connection, right connection and inner connection"
-  override val inportList: List[String] =List(PortEnum.LeftPort.toString,PortEnum.RightPort.toString)
-  override val outportList: List[String] = List(PortEnum.DefaultPort.toString)
+  override val inportList: List[String] =List(Port.LeftPort.toString,Port.RightPort.toString)
+  override val outportList: List[String] = List(Port.DefaultPort.toString)
 
   var joinMode:String=_
   var correlationField:String=_
@@ -19,8 +19,8 @@ class Join extends ConfigurableStop{
 
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
 
-    val leftDF =  in.read(PortEnum.LeftPort)
-    val rightDF = in.read(PortEnum.RightPort)
+    val leftDF =  in.read(Port.LeftPort)
+    val rightDF = in.read(Port.RightPort)
 
     var seq: Seq[String]= Seq()
     correlationField.split(",").foreach(x=>{

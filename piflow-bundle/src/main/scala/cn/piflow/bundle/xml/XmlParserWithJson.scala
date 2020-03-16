@@ -13,8 +13,8 @@ class XmlParserWithJson extends ConfigurableStop {
 
   val authorEmail: String = "ygang@cnic.cn"
   val description: String = "Parse xml fields "
-  val inportList: List[String] = List(PortEnum.DefaultPort.toString)
-  val outportList: List[String] = List(PortEnum.DefaultPort.toString)
+  val inportList: List[String] = List(Port.DefaultPort.toString)
+  val outportList: List[String] = List(Port.DefaultPort.toString)
 
   var xmlColumns:String = _
 

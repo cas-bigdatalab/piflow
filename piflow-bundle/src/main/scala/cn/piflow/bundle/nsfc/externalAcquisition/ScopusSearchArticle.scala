@@ -7,7 +7,7 @@ import java.util.regex.{Matcher, Pattern}
 
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
-import cn.piflow.conf.{ConfigurableStop, PortEnum, StopGroup}
+import cn.piflow.conf.{ConfigurableStop, Port, StopGroup}
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FSDataOutputStream, FileSystem, Path}
@@ -24,8 +24,8 @@ class ScopusSearchArticle extends ConfigurableStop {
   override val description: String = "Scopus search article"
   val authorEmail: String = "ygang@cnic.cn"
 
-  override val inportList: List[String] = List(PortEnum.DefaultPort.toString)
-  override val outportList: List[String] = List(PortEnum.scopus_articlePort.toString,PortEnum.scopus_article_api_response.toString)
+  override val inportList: List[String] = List(Port.DefaultPort.toString)
+  override val outportList: List[String] = List(Port.scopus_articlePort.toString,Port.scopus_article_api_response.toString)
 
 
 
@@ -173,8 +173,8 @@ class ScopusSearchArticle extends ConfigurableStop {
     //    responseDF.printSchema()
     //    responseDF.show()
 
-    out.write(PortEnum.scopus_articlePort,scopusDF)
-    out.write(PortEnum.scopus_article_api_response,responseDF)
+    out.write(Port.scopus_articlePort,scopusDF)
+    out.write(Port.scopus_article_api_response,responseDF)
 
 
 
