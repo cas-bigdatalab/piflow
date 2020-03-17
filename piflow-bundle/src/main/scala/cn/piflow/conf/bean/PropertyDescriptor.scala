@@ -11,6 +11,7 @@ class PropertyDescriptor {
   var allowableValues : List[String] = _
   var required : Boolean = false
   var sensitive : Boolean = false
+  var example : String = _
 
 
   def name(name:String) : PropertyDescriptor = {
@@ -23,6 +24,10 @@ class PropertyDescriptor {
   }
   def description(description:String) : PropertyDescriptor = {
     this.description = description
+    this
+  }
+  def example(example: String) : PropertyDescriptor = {
+    this.example = example
     this
   }
   def defaultValue(defaultValue:String) : PropertyDescriptor = {
