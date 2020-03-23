@@ -59,7 +59,8 @@
         "properties":{
           "csvSavePath":"hdfs://10.0.86.191:9000/xjzhu/phdthesis_result.csv",
           "header":"true",
-          "delimiter":","
+          "delimiter":",",
+          "partition": "1"
         }
       }
     ],
