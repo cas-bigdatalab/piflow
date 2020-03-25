@@ -1,0 +1,36 @@
+{
+  "flow":{
+    "name":"test",
+    "uuid":"1234",
+    "stops":[
+      {
+        "uuid":"2222",
+        "name":"fetchEs",
+        "bundle":"cn.piflow.bundle.es.FetchEs",
+        "properties":{
+          "es_nodes":"10.0.86.239",
+          "port":"9200",
+          "es_index":"spark",
+          "es_type":"json"
+        }
+
+      },
+      {
+        "uuid":"0000",
+        "name":"PutHiveStreaming",
+        "bundle":"cn.piflow.bundle.hive.PutHiveStreaming",
+        "properties":{
+          "hiveQL":"select * from sparktest.student"
+        }
+      }
+    ],
+    "paths":[
+      {
+        "from":"fetchEs",
+        "outport":"",
+        "inport":"",
+        "to":"PutHiveStreaming"
+      }
+    ]
+  }
+}

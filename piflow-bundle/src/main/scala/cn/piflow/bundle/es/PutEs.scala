@@ -9,11 +9,10 @@ import org.elasticsearch.spark.sql.EsSparkSQL
 
 class PutEs extends ConfigurableStop {
 
-  override val description: String = "Put data into Elasticsearch"
   val authorEmail: String = "ygang@cnic.cn"
-
-  override val inportList: List[String] = List(Port.DefaultPort.toString)
-  override val outportList: List[String] = List(Port.NonePort.toString)
+  val description: String = "Put data into Elasticsearch"
+  val inportList: List[String] = List(Port.DefaultPort.toString)
+  val outportList: List[String] = List(Port.NonePort.toString)
 
   var es_nodes : String =  _
   var es_port  : String  =  _
@@ -56,22 +55,49 @@ class PutEs extends ConfigurableStop {
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
-    val es_nodes = new PropertyDescriptor().name("es_nodes").displayName("es_nodes")
-      .description("Node of Elasticsearch").defaultValue("").required(true)
-    val es_port = new PropertyDescriptor().defaultValue("9200").name("es_port").displayName("es_port")
-      .description("Port of Elasticsearch").required(true)
-    val es_index = new PropertyDescriptor().name("es_index").displayName("es_index")
-      .description("Index of Elasticsearch").defaultValue("").required(true)
-    val es_type = new PropertyDescriptor().name("es_type").displayName("es_type")
-      .description("Type of Elasticsearch").defaultValue("").required(true)
-    val configuration_item = new PropertyDescriptor().name("configuration_item").displayName("configuration_item")
-      .defaultValue("Configuration Item of Es.such as:es.mapping.parent->id_1,es.mapping.parent->id_2").required(false)
-
-
+    val es_nodes = new PropertyDescriptor()
+      .name("es_nodes")
+      .displayName("Es_Nodes")
+      .description("Node of Elasticsearch")
+      .defaultValue("")
+      .required(true)
+      .example("10.0.86.239")
     descriptor = es_nodes :: descriptor
+
+    val es_port = new PropertyDescriptor()
+      .defaultValue("9200")
+      .name("es_port")
+      .displayName("Es_Port")
+      .description("Port of Elasticsearch")
+      .required(true)
+      .example("9200")
     descriptor = es_port :: descriptor
+
+    val es_index = new PropertyDescriptor()
+      .name("es_index")
+      .displayName("Es_Index")
+      .description("Index of Elasticsearch")
+      .defaultValue("")
+      .required(true)
+      .example("spark")
     descriptor = es_index :: descriptor
+
+    val es_type = new PropertyDescriptor()
+      .name("es_type")
+      .displayName("Es_Type")
+      .description("Type of Elasticsearch")
+      .defaultValue("")
+      .required(true)
+      .example("testStudent1")
     descriptor = es_type :: descriptor
+
+    val configuration_item = new PropertyDescriptor()
+      .name("configuration_item")
+      .displayName("Configuration_Item")
+      .description("Configuration Item of Es.such as:es.mapping.parent->id_1,es.mapping.parent->id_2")
+      .defaultValue("")
+      .required(false)
+      .example("es.mapping.parent->id_1")
     descriptor = configuration_item :: descriptor
 
     descriptor
@@ -82,7 +108,7 @@ class PutEs extends ConfigurableStop {
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroup.ESGroup.toString)
+    List(StopGroup.ESGroup)
   }
 
 }

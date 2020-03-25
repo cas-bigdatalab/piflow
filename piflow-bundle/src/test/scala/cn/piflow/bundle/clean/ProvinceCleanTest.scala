@@ -1,4 +1,4 @@
-package cn.piflow.bundle
+package cn.piflow.bundle.clean
 
 import cn.piflow.Runner
 import cn.piflow.conf.bean.FlowBean
@@ -9,13 +9,13 @@ import org.junit.Test
 
 import scala.util.parsing.json.JSON
 
-class ESTest {
+class ProvinceCleanTest {
 
   @Test
-  def testEs(): Unit ={
+  def ProvinceCleanFlow(): Unit = {
 
     //parse flow json
-    val file = "src/main/resources/es.json"
+    val file = "src/main/resources/flow/clean/ProvinceClean.json"
     val flowJsonStr = FileUtil.fileReader(file)
     val map = OptionUtil.getAny(JSON.parseFull(flowJsonStr)).asInstanceOf[Map[String, Any]]
     println(map)
@@ -24,21 +24,23 @@ class ESTest {
     val flowBean = FlowBean(map)
     val flow = flowBean.constructFlow()
 
-    val h2Server = Server.createTcpServer("-tcp", "-tcpAllowOthers", "-tcpPort","50001").start()
+    val h2Server = Server.createTcpServer("-tcp", "-tcpAllowOthers", "-tcpPort", "50001").start()
+
     //execute flow
     val spark = SparkSession.builder()
-      .master("spark://10.0.86.89:7077")
-      .appName("es")
+      .master("local[12]")
+      .appName("ProvinceCleanTest")
       .config("spark.driver.memory", "1g")
       .config("spark.executor.memory", "2g")
       .config("spark.cores.max", "2")
-      .config("spark.jars","/opt/project/piflow-master/out/artifacts/piflow_bundle/piflow_bundle.jar")
+      .config("hive.metastore.uris", "thrift://192.168.3.140:9083")
       .enableHiveSupport()
       .getOrCreate()
 
     val process = Runner.create()
       .bind(classOf[SparkSession].getName, spark)
-      .bind("checkpoint.path", "hdfs://10.0.86.89:9000/xjzhu/piflow/checkpoints/")
+      .bind("checkpoint.path", "")
+      .bind("debug.path","")
       .start(flow);
 
     process.awaitTermination();
@@ -46,6 +48,4 @@ class ESTest {
     println(pid + "!!!!!!!!!!!!!!!!!!!!!")
     spark.close();
   }
-
-
 }

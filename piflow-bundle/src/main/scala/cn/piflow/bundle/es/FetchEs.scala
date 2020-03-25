@@ -10,10 +10,9 @@ import org.apache.spark.sql.SparkSession
 class FetchEs extends ConfigurableStop {
 
   val authorEmail: String = "ygang@cnic.cn"
-
-  override val inportList: List[String] = List(Port.NonePort.toString)
-  override val outportList: List[String] = List(Port.DefaultPort.toString)
-  override val description: String = "Fetch data from Elasticsearch"
+  val description: String = "Fetch data from Elasticsearch"
+  val inportList: List[String] = List(Port.NonePort.toString)
+  val outportList: List[String] = List(Port.DefaultPort.toString)
 
   var es_nodes : String =  _
   var es_port  : String  =  _
@@ -30,7 +29,6 @@ class FetchEs extends ConfigurableStop {
       "es.nodes"->es_nodes,
       "es.port"->es_port)
 
-    //load data with df  from es
     val outDf = ssc.read.format("org.elasticsearch.spark.sql").options(options).load(s"${es_index}/${es_type}")
     out.write(outDf)
 
@@ -48,19 +46,40 @@ class FetchEs extends ConfigurableStop {
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
-    val es_nodes = new PropertyDescriptor().name("es_nodes").displayName("es_nodes")
-      .description("Node of Elasticsearch").defaultValue("").required(true)
-    val es_port = new PropertyDescriptor().defaultValue("9200").name("es_port").displayName("es_port")
-      .description("Port of Elasticsearch").required(true)
-    val es_index = new PropertyDescriptor().name("es_index").displayName("es_index")
-      .description("Index of Elasticsearch").defaultValue("").required(true)
-    val es_type = new PropertyDescriptor().name("es_type").displayName("es_type")
-      .description("Type of Elasticsearch").defaultValue("").required(true)
-
-
+    val es_nodes = new PropertyDescriptor()
+      .name("es_nodes")
+      .displayName("Es_Nodes")
+      .description("Node of Elasticsearch")
+      .defaultValue("")
+      .required(true)
+      .example("10.0.86.239")
     descriptor = es_nodes :: descriptor
+
+    val es_port = new PropertyDescriptor()
+      .name("es_port")
+      .displayName("Es_Port")
+      .description("Port of Elasticsearch")
+      .defaultValue("9200")
+      .required(true)
+      .example("9200")
     descriptor = es_port :: descriptor
+
+    val es_index = new PropertyDescriptor()
+      .name("es_index")
+      .displayName("Es_Index")
+      .description("Index of Elasticsearch")
+      .defaultValue("")
+      .required(true)
+      .example("spark")
     descriptor = es_index :: descriptor
+
+    val es_type = new PropertyDescriptor()
+      .name("es_type")
+      .displayName("Es_Type")
+      .description("Type of Elasticsearch")
+      .defaultValue("")
+      .required(true)
+      .example("json")
     descriptor = es_type :: descriptor
 
     descriptor
@@ -71,7 +90,7 @@ class FetchEs extends ConfigurableStop {
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroup.ESGroup.toString)
+    List(StopGroup.ESGroup)
   }
 
 

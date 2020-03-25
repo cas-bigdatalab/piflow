@@ -24,7 +24,6 @@ class SelectHiveQL extends ConfigurableStop {
 
     import spark.sql
     val df = sql(hiveQL)
-    //df.show()
 
     out.write(df)
   }
@@ -39,7 +38,13 @@ class SelectHiveQL extends ConfigurableStop {
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
-    val hiveQL = new PropertyDescriptor().name("hiveQL").displayName("HiveQL").defaultValue("").allowableValues(Set("")).required(true)
+    val hiveQL = new PropertyDescriptor()
+      .name("hiveQL")
+      .displayName("HiveQL")
+      .defaultValue("")
+      .allowableValues(Set(""))
+      .required(true)
+      .example("select * from test.user1")
     descriptor = hiveQL :: descriptor
     descriptor
   }

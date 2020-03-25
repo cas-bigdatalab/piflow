@@ -18,61 +18,66 @@ class OptionalSelectHiveQL extends ConfigurableStop {
 
   private val driverName = "org.apache.hive.jdbc.HiveDriver"
   var hiveUser : String = _
-  var hivePasswd : String = _
+  var hivePassword : String = _
   var jdbcUrl : String = _
   var sql : String = _
 
   override def setProperties(map: Map[String, Any]): Unit = {
-    hiveUser = MapUtil.get(map,"hive user").asInstanceOf[String]
-    hivePasswd = MapUtil.get(map,"hive passwd").asInstanceOf[String]
+
+    hiveUser = MapUtil.get(map,"hiveUser").asInstanceOf[String]
+    hivePassword = MapUtil.get(map,"hivePassword").asInstanceOf[String]
     jdbcUrl = MapUtil.get(map,"jdbcUrl").asInstanceOf[String]
-    sql = MapUtil.get(map,"query").asInstanceOf[String]
+    sql = MapUtil.get(map,"sql").asInstanceOf[String]
   }
    override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
-    val hiveUser = new PropertyDescriptor().
-      name("hive user").
-      displayName("hive user").
-      description("hive user name").
-      defaultValue("hdfs").
-      required(true)
+    val hiveUser = new PropertyDescriptor()
+      .name("hive user")
+      .displayName("Hive User")
+      .description("Users connected to hive")
+      .defaultValue("root")
+      .required(true)
+      .example("root")
+
     descriptor = hiveUser :: descriptor
 
-    val hivePasswd = new PropertyDescriptor().
-      name("hive passwd").
-      displayName("hive passwd").
-      description("hive password").
-      defaultValue("123456").
-      required(true)
-    descriptor = hivePasswd :: descriptor
+    val hivePassword = new PropertyDescriptor().
+      name("hive password")
+      .displayName("Hive Password")
+      .description("Password to connect to hive")
+      .defaultValue("123456")
+      .required(true)
+      .example("123456")
+    descriptor = hivePassword :: descriptor
 
     val jdbcUrl = new PropertyDescriptor().
-      name("jdbcUrl").
-      displayName("jdbcUrl").
-      description("hive jdbc url").
-      defaultValue("jdbc:hive2://packone12:2181,packone13:2181,packone11:2181/middle;serviceDiscoveryMode=zooKeeper;zooKeeperNamespace=hiveserver2").
-      required(true)
+      name("jdbcUrl")
+      .displayName("JdbcUrl")
+      .description("URL for hive to connect to JDBC")
+      .defaultValue("jdbc:hive2://packone12:2181,packone13:2181,packone11:2181/middle;serviceDiscoveryMode=zooKeeper;zooKeeperNamespace=hiveserver2")
+      .required(true)
+      .example("jdbc:hive2://192.168.3.140:10000/default")
     descriptor = jdbcUrl :: descriptor
 
     val sql = new PropertyDescriptor().
-      name("query").
-      displayName("hive query").
-      description("hive sql query").
-      defaultValue("select * from middle.m_person").
-      required(true)
-    descriptor = sql :: descriptor
+      name("query")
+      .displayName("Hive Query")
+      .description("SQL query statement of hive")
+      .defaultValue("select * from middle.m_person")
+      .required(true)
+      .example("select * from test.user1")
+     descriptor = sql :: descriptor
 
     descriptor
   }
 
 
-
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("icon/hive/PutHiveQL.png")
+    ImageUtil.getImage("icon/hive/OptionalPutHiveQL.png")
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroup.HiveGroup.toString)
+    List(StopGroup.HiveGroup)
   }
 
 
@@ -103,7 +108,7 @@ class OptionalSelectHiveQL extends ConfigurableStop {
         e.printStackTrace()
         System.exit(1)
     }
-    val conn = DriverManager.getConnection(jdbcUrl, hiveUser, hivePasswd)
+    val conn = DriverManager.getConnection(jdbcUrl, hiveUser, hivePassword)
     val ptsm = conn.prepareStatement(sql)
     println(ptsm)
     val rs = ptsm.executeQuery()

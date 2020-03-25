@@ -1,6 +1,5 @@
 package cn.piflow.bundle.util
 
-import java.beans.Transient
 import java.text.SimpleDateFormat
 import java.util.regex.Pattern
 import java.util.{Calendar, Date}

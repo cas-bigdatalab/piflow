@@ -75,7 +75,7 @@ class IdentityNumberClean extends ConfigurableStop{
       .description("The columnName you want to clean,Multiple are separated by commas")
       .defaultValue("")
       .required(true)
-      .example("")
+      .example("idcard")
 
     descriptor = columnName :: descriptor
     descriptor

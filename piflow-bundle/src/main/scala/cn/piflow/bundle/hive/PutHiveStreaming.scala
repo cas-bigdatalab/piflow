@@ -22,12 +22,10 @@ class PutHiveStreaming extends ConfigurableStop {
     val spark = pec.get[SparkSession]()
     val inDF = in.read()
 
-
     val dfTempTable = table + "_temp"
     inDF.createOrReplaceTempView(dfTempTable)
     spark.sql("insert into " + database + "." + table +  " select * from " + dfTempTable)
-    //inDF.show()
-    //out.write(studentDF)
+
   }
 
   def initialize(ctx: ProcessContext): Unit = {
@@ -41,10 +39,24 @@ class PutHiveStreaming extends ConfigurableStop {
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
-    val database=new PropertyDescriptor().name("database").displayName("DataBase").description("The database name").defaultValue("").required(true)
-    val table = new PropertyDescriptor().name("table").displayName("Table").description("The table name").defaultValue("").required(true)
+    val database=new PropertyDescriptor()
+      .name("database")
+      .displayName("DataBase")
+      .description("The database name")
+      .defaultValue("")
+      .required(true)
+      .example("test")
     descriptor = database :: descriptor
+
+    val table = new PropertyDescriptor()
+      .name("table")
+      .displayName("Table")
+      .description("The table name")
+      .defaultValue("")
+      .required(true)
+      .example("stream")
     descriptor = table :: descriptor
+
     descriptor
   }
 

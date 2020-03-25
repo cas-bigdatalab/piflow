@@ -14,8 +14,7 @@ class PutHiveQL extends ConfigurableStop {
   val inportList: List[String] = List(Port.DefaultPort.toString)
   val outportList: List[String] = List(Port.DefaultPort.toString)
 
-  var database:String =_
-
+    var database:String =_
     var hiveQL_Path:String =_
 
     def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
@@ -23,9 +22,7 @@ class PutHiveQL extends ConfigurableStop {
 
       import spark.sql
 
-      import scala.io.Source
       sql(sqlText= "use "+database)
-      //val useDBText = "use "+database + ";"
       var sqlString:String=HdfsUtil.getLines(hiveQL_Path)
       sqlString.split(";").foreach( s => {
         println("Sql is " + s)
@@ -44,12 +41,27 @@ class PutHiveQL extends ConfigurableStop {
     }
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
+
     var descriptor : List[PropertyDescriptor] = List()
-    val hiveQL_Path = new PropertyDescriptor().name("hiveQL_Path").displayName("HiveQL_Path").description("The hdfs path of the hiveQL file").defaultValue("").required(true)
-    val database=new PropertyDescriptor().name("database").displayName("DataBase").description("The database name which the hiveQL" +
-      "will execute on").defaultValue("").required(true)
+
+    val hiveQL_Path = new PropertyDescriptor()
+      .name("hiveQL_Path")
+      .displayName("HiveQL_Path")
+      .description("The hdfs path of the hiveQL file")
+      .defaultValue("")
+      .required(true)
+      .example("hdfs://192.168.3.138:8020/test/PutHiveQL.hiveql")
     descriptor = hiveQL_Path :: descriptor
+
+    val database=new PropertyDescriptor()
+      .name("database")
+      .displayName("DataBase")
+      .description("The database name which the hiveQL will execute on")
+      .defaultValue("")
+      .required(true)
+      .example("test")
     descriptor = database :: descriptor
+
     descriptor
   }
 
@@ -58,7 +70,7 @@ class PutHiveQL extends ConfigurableStop {
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroup.HiveGroup.toString)
+    List(StopGroup.HiveGroup)
   }
 
 }

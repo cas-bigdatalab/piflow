@@ -60,12 +60,34 @@ class FolderCsvParser extends ConfigurableStop{
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
-    val FolderPath = new PropertyDescriptor().name("FolderPath").displayName("FolderPath").description("The path of csv Folder").defaultValue("").required(true)
+
+    val FolderPath = new PropertyDescriptor()
+      .name("FolderPath")
+      .displayName("FolderPath")
+      .description("The path of csv Folder")
+      .defaultValue("")
+      .required(true)
+      .example("")
     descriptor = FolderPath :: descriptor
-    val delimiter = new PropertyDescriptor().name("delimiter").displayName("delimiter").description("The delimiter of csv file").defaultValue("").required(true)
+
+    val delimiter = new PropertyDescriptor()
+      .name("delimiter")
+      .displayName("delimiter")
+      .description("The delimiter of csv file")
+      .defaultValue("")
+      .required(true)
+      .example("")
     descriptor = delimiter :: descriptor
-    val schema = new PropertyDescriptor().name("schema").displayName("schema").description("CSV string field description information, please use, split").defaultValue("").required(true)
+
+    val schema = new PropertyDescriptor()
+      .name("schema")
+      .displayName("schema")
+      .description("The schema of CSV string")
+      .defaultValue("")
+      .required(true)
+      .example("")
     descriptor = schema :: descriptor
+
     descriptor
   }
 
@@ -74,7 +96,7 @@ class FolderCsvParser extends ConfigurableStop{
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroup.CsvGroup.toString)
+    List(StopGroup.CsvGroup)
   }
 
   override def initialize(ctx: ProcessContext): Unit = {

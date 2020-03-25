@@ -151,19 +151,44 @@ class JdbcReadFromOracle extends ConfigurableStop{
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
 
-    val url=new PropertyDescriptor().name("url").displayName("url").description("The Url, for example jdbc:oracle:thin:@192.168.0.1:1521/newdb").defaultValue("").required(true)
+    val url=new PropertyDescriptor()
+      .name("url")
+      .displayName("url")
+      .description("The Url, for example jdbc:oracle:thin:@192.168.0.1:1521/newdb")
+      .defaultValue("")
+      .required(true)
     descriptor = url :: descriptor
 
-    val user=new PropertyDescriptor().name("user").displayName("user").description("The user name of database").defaultValue("").required(true)
+    val user=new PropertyDescriptor()
+      .name("user")
+      .displayName("user")
+      .description("The user name of database")
+      .defaultValue("")
+      .required(true)
     descriptor = user :: descriptor
 
-    val password=new PropertyDescriptor().name("password").displayName("password").description("The password of database").defaultValue("").required(true)
+    val password=new PropertyDescriptor()
+      .name("password")
+      .displayName("password")
+      .description("The password of database")
+      .defaultValue("")
+      .required(true)
     descriptor = password :: descriptor
 
-    val sql=new PropertyDescriptor().name("sql").displayName("sql").description("The sql you want").defaultValue("").required(true)
+    val sql=new PropertyDescriptor()
+      .name("sql")
+      .displayName("sql")
+      .description("The sql you want")
+      .defaultValue("")
+      .required(true)
     descriptor = sql :: descriptor
 
-    val schema=new PropertyDescriptor().name("schema").displayName("schema").description("The name of the field of your SQL statement query, such as: ID.number, name.varchar").defaultValue("").required(true)
+    val schema=new PropertyDescriptor()
+      .name("schema")
+      .displayName("schema")
+      .description("The name of the field of your SQL statement query, such as: ID.number, name.varchar")
+      .defaultValue("")
+      .required(true)
     descriptor = schema :: descriptor
 
     descriptor

@@ -14,7 +14,7 @@
           "user":"my",
           "password":"bigdata",
           "sql":"select * from typetype",
-          "fileNamesString":"mynum.number,mychar.varchar2,myblob.blob,myclob.clob,myxml.xmltype,mylong.long,mydate.date,mynclob.nclob"
+          "schema":"mynum.number,mychar.varchar2,myblob.blob,myclob.clob,myxml.xmltype,mylong.long,mydate.date,mynclob.nclob"
         }
 
       },

@@ -72,14 +72,14 @@ class ProvinceClean extends ConfigurableStop{
       .description("The columnName you want to clean,Multiple are separated by commas")
       .defaultValue("")
       .required(true)
-      .example("")
+      .example("province")
     descriptor = columnName :: descriptor
 
     descriptor
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("icon/clean/EmailClean.png")
+    ImageUtil.getImage("icon/clean/ProvinceClean.png")
 
   }
 

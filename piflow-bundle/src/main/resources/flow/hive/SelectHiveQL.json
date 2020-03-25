@@ -1,0 +1,38 @@
+{
+  "flow":{
+    "name":"test",
+    "uuid":"1234",
+    "stops":[
+
+      {
+        "uuid":"1111",
+        "name":"SelectHiveQL",
+        "bundle":"cn.piflow.bundle.hive.SelectHiveQL",
+        "properties":{
+          "hiveQL":"select * from test.csvparser"
+        }
+      },
+      {
+        "uuid":"1324",
+        "name":"CsvSave",
+        "bundle":"cn.piflow.bundle.csv.CsvSave",
+        "properties":{
+          "csvSavePath":"hdfs://192.168.3.138:8020/test/",
+          "header": "true",
+          "delimiter":",",
+          "partition":"1"
+        }
+
+      }
+
+    ],
+    "paths":[
+      {
+        "from":"SelectHiveQL",
+        "outport":"",
+        "inport":"",
+        "to":"CsvSave"
+      }
+    ]
+  }
+}

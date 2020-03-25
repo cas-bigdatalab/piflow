@@ -20,6 +20,20 @@ class OracleRead extends ConfigurableStop{
   var password:String = _
   var sql:String = _
 
+  override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
+    val spark = pec.get[SparkSession]()
+    val dbtable = "( "  + sql + ")temp"
+    val jdbcDF = spark.read.format("jdbc")
+      .option("url", url)
+      .option("driver", "oracle.jdbc.OracleDriver")
+      .option("dbtable", dbtable)
+      .option("user", user)
+      .option("password",password)
+      .load()
+
+    out.write(jdbcDF)
+  }
+
   override def setProperties(map: Map[String, Any]): Unit = {
     url = MapUtil.get(map,"url").asInstanceOf[String]
     user = MapUtil.get(map,"user").asInstanceOf[String]
@@ -55,18 +69,5 @@ class OracleRead extends ConfigurableStop{
 
   override def initialize(ctx: ProcessContext): Unit = {}
 
-  override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
-    val spark = pec.get[SparkSession]()
-    val dbtable = "( "  + sql + ")temp"
-    val jdbcDF = spark.read.format("jdbc")
-      .option("url", url)
-      .option("driver", "oracle.jdbc.OracleDriver")
-      .option("dbtable", dbtable)
-      .option("user", user)
-      .option("password",password)
-      .load()
-    //jdbcDF.show(10)
 
-    out.write(jdbcDF)
-  }
 }

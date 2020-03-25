@@ -75,7 +75,7 @@ class PhoneNumberClean extends ConfigurableStop{
       .description("The columnName you want to clean,Multiple are separated by commas")
       .defaultValue("")
       .required(true)
-      .example("")
+      .example("phonenumber")
     descriptor = columnName :: descriptor
     descriptor
   }

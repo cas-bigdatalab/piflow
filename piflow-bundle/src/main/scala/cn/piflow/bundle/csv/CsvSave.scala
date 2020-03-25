@@ -27,20 +27,39 @@ class CsvSave extends ConfigurableStop{
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
 
-    //csvSavePath
-    val csvSavePath = new PropertyDescriptor().name("csvSavePath").displayName("csvSavePath").description("The save path of csv file").defaultValue("").required(true)
+    val csvSavePath = new PropertyDescriptor()
+      .name("csvSavePath")
+      .displayName("CsvSavePath")
+      .description("The save path of csv file")
+      .defaultValue("")
+      .required(true)
+      .example("")
     descriptor = csvSavePath :: descriptor
 
-    //header
-    val header = new PropertyDescriptor().name("header").displayName("header").description("Whether the csv file have header or not").defaultValue("").required(true)
+    val header = new PropertyDescriptor()
+      .name("header")
+      .displayName("Header")
+      .description("Whether the csv file has a header")
+      .defaultValue("")
+      .required(true)
     descriptor = header :: descriptor
 
-    //delimiter
-    val delimiter = new PropertyDescriptor().name("delimiter").displayName("delimiter").description("The delimiter of csv file").defaultValue(",").required(true)
+    val delimiter = new PropertyDescriptor()
+      .name("delimiter")
+      .displayName("Delimiter")
+      .description("The delimiter of csv file")
+      .defaultValue(",")
+      .required(true)
+      .example("")
     descriptor = delimiter :: descriptor
 
-    //partition
-    val partition = new PropertyDescriptor().name("partition").displayName("partition").description("The partition of csv file").defaultValue("1").required(true)
+    val partition = new PropertyDescriptor()
+      .name("partition")
+      .displayName("Partition")
+      .description("The partition of csv file")
+      .defaultValue("1")
+      .required(true)
+      .example("")
     descriptor = partition :: descriptor
 
     descriptor
@@ -51,7 +70,7 @@ class CsvSave extends ConfigurableStop{
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroup.CsvGroup.toString)
+    List(StopGroup.CsvGroup)
   }
 
   override def initialize(ctx: ProcessContext): Unit = {
@@ -60,7 +79,6 @@ class CsvSave extends ConfigurableStop{
 
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     val df = in.read()
-    //df.show()
     df.repartition(partition.toInt).write
       .format("csv")
       .mode(SaveMode.Overwrite)

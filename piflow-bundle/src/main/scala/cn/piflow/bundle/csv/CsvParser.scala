@@ -29,9 +29,7 @@ class CsvParser extends ConfigurableStop{
         .option("header",header)
         .option("inferSchema","true")
         .option("delimiter",delimiter)
-        /*.schema(schema)*/
         .csv(csvPath)
-
 
     }else{
 
@@ -50,8 +48,6 @@ class CsvParser extends ConfigurableStop{
         .schema(schemaStructType)
         .csv(csvPath)
     }
-
-    //csvDF.show(10)
     out.write(csvDF)
 
   }
@@ -69,13 +65,42 @@ class CsvParser extends ConfigurableStop{
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
-    val csvPath = new PropertyDescriptor().name("csvPath").displayName("csvPath").description("The path of csv file").defaultValue("").required(true)
+
+    val csvPath = new PropertyDescriptor()
+      .name("csvPath")
+      .displayName("CsvPath")
+      .description("The path of csv file")
+      .defaultValue("")
+      .required(true)
+      .example("")
     descriptor = csvPath :: descriptor
-    val header = new PropertyDescriptor().name("header").displayName("header").description("Whether the csv file have header or not").defaultValue("false").allowableValues(Set("true","false")).required(true)
+
+    val header = new PropertyDescriptor()
+      .name("header")
+      .displayName("Header")
+      .description("Whether the csv file has a header")
+      .defaultValue("false")
+      .allowableValues(Set("true","false"))
+      .required(true)
+      .example("")
     descriptor = header :: descriptor
-    val delimiter = new PropertyDescriptor().name("delimiter").displayName("delimiter").description("The delimiter of csv file").defaultValue("").required(true)
+
+    val delimiter = new PropertyDescriptor()
+      .name("delimiter")
+      .displayName("Delimiter")
+      .description("The delimiter of csv file")
+      .defaultValue("")
+      .required(true)
+      .example("")
     descriptor = delimiter :: descriptor
-    val schema = new PropertyDescriptor().name("schema").displayName("schema").description("The schema of csv file").defaultValue("").required(false)
+
+    val schema = new PropertyDescriptor()
+      .name("schema")
+      .displayName("Schema")
+      .description("The schema of csv file")
+      .defaultValue("")
+      .required(false)
+      .example("")
     descriptor = schema :: descriptor
 
     descriptor
@@ -86,7 +111,7 @@ class CsvParser extends ConfigurableStop{
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroup.CsvGroup.toString)
+    List(StopGroup.CsvGroup)
   }
 
 }

@@ -57,12 +57,33 @@ class CsvStringParser extends ConfigurableStop{
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
-    val Str = new PropertyDescriptor().name("Str").displayName("Str").defaultValue("").required(true)
+
+    val Str = new PropertyDescriptor()
+      .name("Str")
+      .displayName("Str")
+      .defaultValue("")
+      .required(true)
+      .example("")
     descriptor = Str :: descriptor
-    val delimiter = new PropertyDescriptor().name("delimiter").displayName("delimiter").description("The delimiter of the String").defaultValue("").required(true)
+
+    val delimiter = new PropertyDescriptor()
+      .name("delimiter")
+      .displayName("delimiter")
+      .description("The delimiter of CSV string")
+      .defaultValue("")
+      .required(true)
+      .example("")
     descriptor = delimiter :: descriptor
-    val schema = new PropertyDescriptor().name("schema").displayName("schema").description("CSV string field description information, please use, split").defaultValue("").required(false)
+
+    val schema = new PropertyDescriptor()
+      .name("schema")
+      .displayName("schema")
+      .description("The schema of CSV string")
+      .defaultValue("")
+      .required(false)
+      .example("")
     descriptor = schema :: descriptor
+
     descriptor
 
   }
@@ -72,7 +93,7 @@ class CsvStringParser extends ConfigurableStop{
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroup.CsvGroup.toString)
+    List(StopGroup.CsvGroup)
   }
 
   override def initialize(ctx: ProcessContext): Unit = {

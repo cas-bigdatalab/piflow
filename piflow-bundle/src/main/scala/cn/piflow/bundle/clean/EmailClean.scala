@@ -73,7 +73,7 @@ class EmailClean extends ConfigurableStop{
       .description("The columnName you want to clean,Multiple are separated by commas")
       .defaultValue("")
       .required(true)
-      .example("")
+      .example("email")
 
     descriptor = columnName :: descriptor
     descriptor

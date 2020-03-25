@@ -7,11 +7,11 @@ import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.apache.spark.sql.SparkSession
 
 class QueryEs extends ConfigurableStop {
-  val authorEmail: String = "ygang@cnic.cn"
 
-  override val inportList: List[String] = List(Port.NonePort.toString)
-  override val outportList: List[String] = List(Port.DefaultPort.toString)
-  override val description: String = "Query data from Elasticsearch"
+  val authorEmail: String = "ygang@cnic.cn"
+  val description: String = "Query data from Elasticsearch"
+  val inportList: List[String] = List(Port.NonePort.toString)
+  val outportList: List[String] = List(Port.DefaultPort.toString)
 
   var es_nodes : String =  _
   var es_port  : String  =  _
@@ -39,7 +39,6 @@ class QueryEs extends ConfigurableStop {
   }
 
   def setProperties(map : Map[String, Any]): Unit = {
-
     es_nodes=MapUtil.get(map,key="es_nodes").asInstanceOf[String]
     es_port=MapUtil.get(map,key="es_port").asInstanceOf[String]
     es_index=MapUtil.get(map,key="es_index").asInstanceOf[String]
@@ -50,21 +49,49 @@ class QueryEs extends ConfigurableStop {
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
-    val es_nodes = new PropertyDescriptor().name("es_nodes").displayName("es_nodes")
-      .description("Node of Elasticsearch").defaultValue("").required(true)
-    val es_port = new PropertyDescriptor().defaultValue("9200").name("es_port").displayName("es_port")
-      .description("Port of Elasticsearch").required(true)
-    val es_index = new PropertyDescriptor().name("es_index").displayName("es_index")
-      .description("Index of Elasticsearch").defaultValue("").required(true)
-    val es_type = new PropertyDescriptor().name("es_type").displayName("es_type")
-      .description("Type of Elasticsearch").defaultValue("").required(true)
-    val jsonDSL = new PropertyDescriptor().name("jsonDSL").displayName("jsonDSL")
-      .description("DSL of Elasticsearch").defaultValue("").required(true)
-
+    val es_nodes = new PropertyDescriptor()
+      .name("es_nodes")
+      .displayName("Es_Nodes")
+      .description("Node of Elasticsearch")
+      .defaultValue("")
+      .required(true)
+      .example("")
     descriptor = es_nodes :: descriptor
+
+    val es_port = new PropertyDescriptor()
+      .name("es_port")
+      .displayName("Es_Port")
+      .description("Port of Elasticsearch")
+      .defaultValue("9200")
+      .required(true)
+      .example("")
     descriptor = es_port :: descriptor
+
+    val es_index = new PropertyDescriptor()
+      .name("es_index")
+      .displayName("Es_Index")
+      .description("Index of Elasticsearch")
+      .defaultValue("")
+      .required(true)
+      .example("")
     descriptor = es_index :: descriptor
+
+    val es_type = new PropertyDescriptor()
+      .name("es_type")
+      .displayName("Es_Type")
+      .description("Type of Elasticsearch")
+      .defaultValue("")
+      .required(true)
+      .example("")
     descriptor = es_type :: descriptor
+
+    val jsonDSL = new PropertyDescriptor()
+      .name("jsonDSL")
+      .displayName("JsonDSL")
+      .description("DSL of Elasticsearch")
+      .defaultValue("")
+      .required(true)
+      .example("GET _search \n {\\\"query\\\":{\\\"match_all:{}\\\"}}")
     descriptor = jsonDSL :: descriptor
 
     descriptor
@@ -75,6 +102,6 @@ class QueryEs extends ConfigurableStop {
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroup.ESGroup.toString)
+    List(StopGroup.ESGroup)
   }
 }

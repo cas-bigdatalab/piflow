@@ -1,0 +1,34 @@
+{
+  "flow":{
+    "name":"test",
+    "uuid":"1234",
+    "stops":[
+      {
+        "uuid":"0000",
+        "name":"SelectHiveQL",
+        "bundle":"cn.piflow.bundle.hive.SelectHiveQL",
+        "properties":{
+          "hiveQL":"select * from test.clean"
+        }
+      },
+      {
+        "uuid":"1111",
+        "name":"EmailClean",
+        "bundle":"cn.piflow.bundle.clean.EmailClean",
+        "properties":{
+        "columnName":"email"
+        }
+
+      }
+
+    ],
+    "paths":[
+      {
+        "from":"SelectHiveQL",
+        "outport":"",
+        "inport":"",
+        "to":"EmailClean"
+      }
+    ]
+  }
+}

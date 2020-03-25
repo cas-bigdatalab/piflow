@@ -8,16 +8,16 @@
         "name":"SelectHiveQL",
         "bundle":"cn.piflow.bundle.hive.SelectHiveQL",
         "properties":{
-          "hiveQL":"select * from sparktest.cleanfield"
+          "hiveQL":"select * from test.clean"
         }
 
       },
       {
         "uuid":"1111",
-        "name":"PhoneNumberClean",
-        "bundle":"cn.piflow.bundle.clean.PhoneNumberClean",
+        "name":"IdentityNumberClean",
+        "bundle":"cn.piflow.bundle.clean.IdentityNumberClean",
         "properties":{
-          "columnName":"PhoneNumber"
+          "columnName":"idcard"
         }
 
       }
@@ -28,7 +28,7 @@
         "from":"SelectHiveQL",
         "outport":"",
         "inport":"",
-        "to":"PhoneNumberClean"
+        "to":"IdentityNumberClean"
       }
     ]
   }
