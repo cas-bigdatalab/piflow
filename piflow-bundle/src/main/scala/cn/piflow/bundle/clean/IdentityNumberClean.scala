@@ -1,27 +1,23 @@
 package cn.piflow.bundle.clean
 
-import java.text.SimpleDateFormat
-import java.util.regex.Pattern
-import java.util.{Calendar, Date}
 
 import cn.piflow.bundle.util.CleanUtil
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import cn.piflow.conf._
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
-import org.apache.spark.sql.types.StructField
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
-import scala.reflect.macros.ParseException
+
 
 class IdentityNumberClean extends ConfigurableStop{
+
   val authorEmail: String = "06whuxx@163.com"
   val description: String = "Clean Id Card data."
   val inportList: List[String] = List(Port.DefaultPort.toString)
   val outportList: List[String] = List(Port.DefaultPort.toString)
-  //var regex:String =_
+
   var columnName:String=_
-  //var replaceStr:String=_
 
   def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     val spark = pec.get[SparkSession]()
@@ -55,10 +51,9 @@ class IdentityNumberClean extends ConfigurableStop{
       }
       schemaStr ++= ","
     })
-    val sqlText1:String = "select " + schemaStr.substring(0,schemaStr.length -1) + " from thesis"
-    val dfNew1=sqlContext.sql(sqlText1)
+    val sqlTextNew:String = "select " + schemaStr.substring(0,schemaStr.length -1) + " from thesis"
+    val dfNew1=sqlContext.sql(sqlTextNew)
 
-    //dfNew.show()
     out.write(dfNew1)
   }
 
@@ -74,7 +69,14 @@ class IdentityNumberClean extends ConfigurableStop{
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
-    val columnName = new PropertyDescriptor().name("columnName").displayName("COLUMN_NAME").description("The columnName you want to clean,Multiple are separated by commas").defaultValue("").required(true)
+    val columnName = new PropertyDescriptor()
+      .name("columnName")
+      .displayName("Column_Name")
+      .description("The columnName you want to clean,Multiple are separated by commas")
+      .defaultValue("")
+      .required(true)
+      .example("")
+
     descriptor = columnName :: descriptor
     descriptor
   }
@@ -84,6 +86,6 @@ class IdentityNumberClean extends ConfigurableStop{
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroup.CleanGroup.toString)
+    List(StopGroup.CleanGroup)
   }
 }

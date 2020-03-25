@@ -13,6 +13,7 @@ class TitleClean extends ConfigurableStop{
   val description: String = "Clean title format data."
   val inportList: List[String] = List(Port.DefaultPort.toString)
   val outportList: List[String] = List(Port.DefaultPort.toString)
+
   var columnName:String=_
 
   def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
@@ -47,13 +48,11 @@ class TitleClean extends ConfigurableStop{
       }
       schemaStr ++= ","
     })
-    val sqlText1:String = "select " + schemaStr.substring(0,schemaStr.length -1) + " from thesis"
-    val dfNew1=sqlContext.sql(sqlText1)
+    val sqlTextNew:String = "select " + schemaStr.substring(0,schemaStr.length -1) + " from thesis"
+    val dfNew1=sqlContext.sql(sqlTextNew)
 
-    //dfNew.show()
     out.write(dfNew1)
   }
-
 
   def initialize(ctx: ProcessContext): Unit = {
 
@@ -66,7 +65,14 @@ class TitleClean extends ConfigurableStop{
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
-    val columnName = new PropertyDescriptor().name("columnName").displayName("COLUMN_NAME").description("The columnName you want to clean,Multiple are separated by commas").defaultValue("").required(true)
+    val columnName = new PropertyDescriptor()
+      .name("columnName")
+      .displayName("Column_Name")
+      .description("The columnName you want to clean,Multiple are separated by commas")
+      .defaultValue("")
+      .required(true)
+      .example("")
+
     descriptor = columnName :: descriptor
     descriptor
   }
@@ -76,7 +82,7 @@ class TitleClean extends ConfigurableStop{
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroup.CleanGroup.toString)
+    List(StopGroup.CleanGroup)
   }
 
 }
