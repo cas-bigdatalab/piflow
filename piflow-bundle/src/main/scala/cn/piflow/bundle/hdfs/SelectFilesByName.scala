@@ -20,8 +20,8 @@ class SelectFilesByName extends ConfigurableStop{
   override val inportList: List[String] = List(Port.DefaultPort.toString)
   override val outportList: List[String] = List(Port.DefaultPort.toString)
 
-  var HDFSUrl:String=_
-  var HDFSPath:String=_
+  var hdfsUrl:String=_
+  var hdfsPath:String=_
   var selectionConditions:String =_
 
   var fs: FileSystem=null
@@ -53,10 +53,10 @@ class SelectFilesByName extends ConfigurableStop{
     val session: SparkSession = pec.get[SparkSession]()
 
     val configuration: Configuration = new Configuration()
-    configuration.set("fs.defaultFS", HDFSUrl)
+    configuration.set("fs.defaultFS", hdfsUrl)
     fs = FileSystem.get(configuration)
 
-    selectFile(HDFSPath)
+    selectFile(hdfsPath)
 
     val rows: List[Row] = pathARR.map(each => {
       var arr:Array[String]=Array(each)
@@ -67,33 +67,47 @@ class SelectFilesByName extends ConfigurableStop{
     val fields: Array[StructField] = "path".split("/").map(d=>StructField(d,StringType,nullable = true))
     val schema: StructType = StructType(fields)
     val df: DataFrame = session.createDataFrame(rowRDD,schema)
-
-    println("#################################################")
-    df.show(20)
-    println(df.count+"#################################################")
-
-
+    df.collect().foreach(println)
 
     out.write(df)
   }
 
   override def setProperties(map: Map[String, Any]): Unit = {
-    HDFSUrl=MapUtil.get(map,key="HDFSUrl").asInstanceOf[String]
-    HDFSPath=MapUtil.get(map,key="HDFSPath").asInstanceOf[String]
+    hdfsUrl=MapUtil.get(map,key="hdfsUrl").asInstanceOf[String]
+    hdfsPath=MapUtil.get(map,key="hdfsPath").asInstanceOf[String]
     selectionConditions=MapUtil.get(map,key="selectionConditions").asInstanceOf[String]
   }
 
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
-    val HDFSUrl = new PropertyDescriptor().name("HDFSUrl").displayName("HDFSUrl").description("The URL of the HDFS file system, such as hdfs://ip:port")
-      .defaultValue("hdfs://").required(true)
-    val HDFSPath = new PropertyDescriptor().name("HDFSPath").displayName("HDFSPath").description("The save path of the HDFS file system, such as /test/Ab")
-      .defaultValue("").required(true)
-    val selectionConditions = new PropertyDescriptor().name("selectionConditions").displayName("selectionConditions").description("To select conditions, you need to fill in regular expressions in java, such as. * abc. *")
-      .defaultValue("").required(true)
-    descriptor = HDFSUrl :: descriptor
-    descriptor = HDFSPath :: descriptor
+    val hdfsPath = new PropertyDescriptor()
+      .name("hdfsPath")
+      .displayName("HdfsPath")
+      .defaultValue("")
+      .description("File path of HDFS")
+      .required(true)
+      .example("/work/")
+
+
+    val hdfsUrl = new PropertyDescriptor()
+      .name("hdfsUrl")
+      .displayName("HdfsUrl")
+      .defaultValue("")
+      .description("URL address of HDFS")
+      .required(true)
+      .example("hdfs://192.168.3.138:8020")
+
+    val selectionConditions = new PropertyDescriptor()
+      .name("selectionConditions")
+      .displayName("SelectionConditions")
+      .description("To select conditions, you need to fill in regular expressions in java, such as '.*.csv'")
+      .defaultValue("")
+      .required(true)
+        .example("")
+
+    descriptor = hdfsUrl :: descriptor
+    descriptor = hdfsPath :: descriptor
     descriptor = selectionConditions :: descriptor
     descriptor
   }

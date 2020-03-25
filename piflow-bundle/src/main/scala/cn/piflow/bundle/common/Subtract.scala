@@ -10,8 +10,8 @@ import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 
 class Subtract extends ConfigurableStop{
   override val authorEmail: String = "yangqidong@cnic.cn"
-  override val description: String = "Delete duplicates of the first and second tables from the first table"
-  override val inportList: List[String] =List(Port.AnyPort.toString)
+  override val description: String = "Delete the data existing in the right table from the left table"
+  override val inportList: List[String] =List(Port.LeftPort.toString,Port.RightPort.toString)
   override val outportList: List[String] = List(Port.DefaultPort.toString)
 
   override def setProperties(map: Map[String, Any]): Unit = {
@@ -31,7 +31,6 @@ class Subtract extends ConfigurableStop{
     List(StopGroup.CommonGroup.toString)
   }
 
-
   override def initialize(ctx: ProcessContext): Unit = {
 
   }
@@ -39,14 +38,10 @@ class Subtract extends ConfigurableStop{
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     val spark = pec.get[SparkSession]()
 
-    val dfs: Seq[DataFrame] = in.ports().map(in.read(_))
-    var df1: DataFrame = dfs(0)
-    var df2: DataFrame = dfs(1)
+    val leftDF =  in.read(Port.LeftPort)
+    val rightDF = in.read(Port.RightPort)
 
-    val rdd: JavaRDD[Row] = df1.toJavaRDD.subtract(df2.toJavaRDD)
-
-    val schema: StructType = df1.schema
-    val outDF: DataFrame = spark.createDataFrame(rdd,schema)
+    val outDF = leftDF.except(rightDF)
 
     out.write(outDF)
   }

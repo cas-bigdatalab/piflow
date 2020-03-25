@@ -388,6 +388,17 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
      }
    }
 
+   case HttpRequest(GET, Uri.Path("/resource/info"), headers, entity, protocol) =>{
+
+     val resourceInfo = API.getResourceInfo()
+     if (resourceInfo != ""){
+       Future.successful(HttpResponse(SUCCESS_CODE, entity = resourceInfo))
+     }else{
+       Future.successful(HttpResponse(FAIL_CODE, entity = "get resource info error!"))
+     }
+
+   }
+
    case _: HttpRequest =>
       Future.successful(HttpResponse(UNKNOWN_CODE, entity = "Unknown resource!"))
   }

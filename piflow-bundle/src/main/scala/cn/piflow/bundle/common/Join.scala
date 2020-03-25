@@ -15,8 +15,6 @@ class Join extends ConfigurableStop{
   var joinMode:String=_
   var correlationField:String=_
 
-
-
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
 
     val leftDF =  in.read(Port.LeftPort)
@@ -35,10 +33,7 @@ class Join extends ConfigurableStop{
       case "full_outer" => df = leftDF.join(rightDF,seq,"outer")
     }
     out.write(df)
-
   }
-
-
 
   override def setProperties(map: Map[String, Any]): Unit = {
     joinMode = MapUtil.get(map,"joinMode").asInstanceOf[String]
@@ -48,11 +43,21 @@ class Join extends ConfigurableStop{
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
 
-    val joinMode = new PropertyDescriptor().name("joinMode").displayName("joinMode").description("For table association, you can choose INNER, LEFT, RIGHT, FULL")
-      .allowableValues(Set("inner","left","right","full_outer")).defaultValue("inner").required(true)
-    val correlationField = new PropertyDescriptor().name("correlationField").displayName("correlationField").description("Fields associated with tables,If there are more than one, please use , separate").defaultValue("").required(true)
-    descriptor = correlationField :: descriptor
+    val joinMode = new PropertyDescriptor().name("joinMode")
+      .displayName("joinMode")
+      .description("For table association, you can choose INNER, LEFT, RIGHT, FULL")
+      .allowableValues(Set("inner","left","right","full_outer"))
+      .defaultValue("inner")
+      .required(true)
     descriptor = joinMode :: descriptor
+
+    val correlationField = new PropertyDescriptor()
+      .name("correlationField")
+      .displayName("correlationField")
+      .description("Fields associated with tables,If there are more than one, please use , separate")
+      .defaultValue("")
+      .required(true)
+    descriptor = correlationField :: descriptor
 
     descriptor
   }

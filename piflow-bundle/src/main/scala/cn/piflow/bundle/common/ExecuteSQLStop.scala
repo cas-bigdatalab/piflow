@@ -15,68 +15,28 @@ import org.elasticsearch.common.collect.Tuple
 class ExecuteSQLStop extends ConfigurableStop{
 
   val authorEmail: String = "ygang@cnic.cn"
-  val description: String = "Execute sql"
+  val description: String = "Create temporary view table to execute sql"
   val inportList: List[String] = List(Port.DefaultPort.toString)
   val outportList: List[String] = List(Port.DefaultPort.toString)
 
   var sql: String = _
-  var tableName: String = _
+  var tempViewName: String = _
 
 
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
 
     val spark = pec.get[SparkSession]()
-
-
     val inDF = in.read()
-    inDF.createOrReplaceTempView(tableName)
+    inDF.createOrReplaceTempView(tempViewName)
 
     val frame: DataFrame = spark.sql(sql)
-
     out.write(frame)
-
-
-//    val tableNames = bundle2TableNames.split(",")
-//    for (i <- 0 until tableNames.length){
-//
-//      //   00->table1    ,.....
-//      if (i== 0){
-//        val imports = tableNames(i).split("->")(0)
-//        val tableName = tableNames(i).split("->")(1)
-//        val  bundle2 = imports -> tableName
-//
-//        val doMap = new ExecuteSQL(sql,bundle2);
-//        doMap.perform(in,out,pec)
-//
-//      } else {
-//        val imports = tableNames(i).split("->")(0)
-//        val tableName = tableNames(i).split("->")(1)
-//        val bundle2:(String,String)  = imports -> tableName
-//
-//        val doMap = new ExecuteSQL(sql,bundle2);
-//        doMap.perform(in,out,pec)
-//      }
-//    }
-
-
   }
-
-//  def createCountWords() = {
-//
-//    val processCountWords = new FlowImpl();
-//    //SparkProcess = loadStream + transform... + writeStream
-//    processCountWords.addStop("LoadStream", new LoadStream(TextFile("hdfs://10.0.86.89:9000/yg/2", FileFormat.TEXT)));
-//    processCountWords.addStop("DoMap", new ExecuteSQLStop);
-//
-//    processCountWords.addPath(Path.from("LoadStream").to("DoMap"));
-//
-//    new FlowAsStop(processCountWords);
-//  }
 
 
   override def setProperties(map: Map[String, Any]): Unit = {
     sql = MapUtil.get(map,"sql").asInstanceOf[String]
-    tableName = MapUtil.get(map,"tableName").asInstanceOf[String]
+    tempViewName = MapUtil.get(map,"tempViewName").asInstanceOf[String]
 
   }
   override def initialize(ctx: ProcessContext): Unit = {
@@ -84,10 +44,23 @@ class ExecuteSQLStop extends ConfigurableStop{
   }
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
-    val sql = new PropertyDescriptor().name("sql").displayName("sql").description("sql").defaultValue("").required(true)
-    val bundle2TableNames = new PropertyDescriptor().name("tableName").displayName("tableName").description(" tableName").defaultValue("temp").required(true)
+    val sql = new PropertyDescriptor().name("sql")
+      .displayName("Sql")
+      .description("Sql string")
+      .defaultValue("")
+      .required(true)
+        .example("select * from temp")
     descriptor = sql :: descriptor
-    descriptor = bundle2TableNames :: descriptor
+
+    val tableName = new PropertyDescriptor()
+      .name("tempViewName")
+      .displayName("TempViewName")
+      .description(" Temporary view table")
+      .defaultValue("temp")
+      .required(true)
+      .example("temp")
+
+    descriptor = tableName :: descriptor
     descriptor
   }
 

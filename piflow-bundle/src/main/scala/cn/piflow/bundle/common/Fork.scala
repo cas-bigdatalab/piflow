@@ -5,7 +5,6 @@ import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 
-import scala.beans.BeanProperty
 
 class Fork extends ConfigurableStop{
 
@@ -32,7 +31,11 @@ class Fork extends ConfigurableStop{
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
-    val outports = new PropertyDescriptor().name("outports").displayName("outports").description("outports string, seperated by ,.").defaultValue("").required(true)
+    val outports = new PropertyDescriptor().name("outports")
+      .displayName("outports")
+      .description("outports string, seperated by ,.")
+      .defaultValue("")
+      .required(true)
     descriptor = outports :: descriptor
     descriptor
   }

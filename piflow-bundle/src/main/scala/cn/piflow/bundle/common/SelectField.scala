@@ -16,23 +16,18 @@ class SelectField extends ConfigurableStop {
   val inportList: List[String] = List(Port.DefaultPort.toString)
   val outportList: List[String] = List(Port.DefaultPort.toString)
 
-  var schema:String = _
+  var fields:String = _
 
   def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     val df = in.read()
 
-    val field = schema.split(",")
+    val field = fields.split(",")
     val columnArray : Array[Column] = new Array[Column](field.size)
     for(i <- 0 to field.size - 1){
       columnArray(i) = new Column(field(i))
     }
 
-
     var finalFieldDF : DataFrame = df.select(columnArray:_*)
-
-    //finalFieldDF.printSchema()
-    //finalFieldDF.show(2)
-
     out.write(finalFieldDF)
   }
 
@@ -41,12 +36,17 @@ class SelectField extends ConfigurableStop {
   }
 
   def setProperties(map : Map[String, Any]): Unit = {
-    schema = MapUtil.get(map,"schema").asInstanceOf[String]
+    fields = MapUtil.get(map,"fields").asInstanceOf[String]
   }
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
-    val inports = new PropertyDescriptor().name("schema").displayName("schema").description("The Schema you want to select").defaultValue("").required(true)
+    val inports = new PropertyDescriptor()
+      .name("fields")
+      .displayName("Fields")
+      .description("The fields you want to select")
+      .defaultValue("")
+      .required(true)
     descriptor = inports :: descriptor
     descriptor
   }

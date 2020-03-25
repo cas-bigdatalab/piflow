@@ -31,7 +31,12 @@ class Merge extends ConfigurableStop{
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
-    val inports = new PropertyDescriptor().name("inports").displayName("inports").description("inports string, seperated by ,.").defaultValue("").required(true)
+    val inports = new PropertyDescriptor()
+      .name("inports")
+      .displayName("inports")
+      .description("inports string, seperated by ,.")
+      .defaultValue("")
+      .required(true)
     descriptor = inports :: descriptor
     descriptor
   }

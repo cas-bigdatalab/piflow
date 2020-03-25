@@ -1,6 +1,6 @@
 package cn.piflow.util
 
-import java.io.{FileInputStream, InputStream}
+import java.io.{File, FileInputStream, InputStream}
 import java.net.InetAddress
 import java.util.Properties
 
@@ -13,6 +13,10 @@ object ServerIpUtil {
 
     val userDir = System.getProperty("user.dir")
     path = userDir + "/server.ip"
+    val file = new File(path)
+    if(!file.exists()){
+      file.createNewFile()
+    }
     prop.load(new FileInputStream(path))
   } catch{
     case ex: Exception => ex.printStackTrace()

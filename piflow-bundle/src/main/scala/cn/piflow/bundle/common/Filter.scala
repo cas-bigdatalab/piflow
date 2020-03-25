@@ -20,9 +20,15 @@ class Filter extends ConfigurableStop{
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
-    val condition = new PropertyDescriptor().name("condition").displayName("condition").description("The condition you want to filter").defaultValue("").required(true)
+    val condition = new PropertyDescriptor().name("condition").
+      displayName("condition")
+      .description("The condition you want to filter")
+      .defaultValue("name=='zhangsan'")
+      .required(true)
+      .example("name=='zhangsan'")
     descriptor = condition :: descriptor
     descriptor
+
   }
 
   override def getIcon(): Array[Byte] = {

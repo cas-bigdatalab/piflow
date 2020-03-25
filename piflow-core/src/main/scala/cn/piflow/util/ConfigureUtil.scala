@@ -97,8 +97,22 @@ object ConfigureUtil {
     piflowBundleJar
   }
 
+  def getYarnResourceManagerAPI() : String = {
+    var yarnURL = PropertyUtil.getPropertyValue("yarn.url")
+    if(yarnURL == null){
+      var port = "8088"
+      val yarnHostName = PropertyUtil.getPropertyValue("yarn.resourcemanager.hostname")
+      if(PropertyUtil.getPropertyValue("yarn.resourcemanager.webapp.address.port") != null){
+        port = PropertyUtil.getPropertyValue("yarn.resourcemanager.webapp.address.port")
+      }
+      yarnURL = "http://" + yarnHostName + ":" + port
+    }
+    val yarnAPI = yarnURL + "/ws/v1/cluster/"
+    yarnAPI
+  }
+
   def getYarnResourceManagerWebAppAddress() : String = {
-    var yarnResourceManagerWebAppAddress = PropertyUtil.getPropertyValue("yarn.url")
+    /*var yarnResourceManagerWebAppAddress = PropertyUtil.getPropertyValue("yarn.url")
     if(yarnResourceManagerWebAppAddress == null){
       var port = "8088"
       val yarnHostName = PropertyUtil.getPropertyValue("yarn.resourcemanager.hostname")
@@ -106,8 +120,25 @@ object ConfigureUtil {
         port = PropertyUtil.getPropertyValue("yarn.resourcemanager.webapp.address.port")
       }
       yarnResourceManagerWebAppAddress = "http://" + yarnHostName + ":" + port + "/ws/v1/cluster/apps/"
-    }
-    yarnResourceManagerWebAppAddress
+    }*/
+    val yarnAPI = getYarnResourceManagerAPI()
+    val webAppAddress = yarnAPI + "apps" + "/"
+    webAppAddress
+  }
+
+  def getYarnResourceMatrics(): String = {
+    /*var yarnResourceManagerWebAppAddress = PropertyUtil.getPropertyValue("yarn.url")
+    if(yarnResourceManagerWebAppAddress == null){
+      var port = "8088"
+      val yarnHostName = PropertyUtil.getPropertyValue("yarn.resourcemanager.hostname")
+      if(PropertyUtil.getPropertyValue("yarn.resourcemanager.webapp.address.port") != null){
+        port = PropertyUtil.getPropertyValue("yarn.resourcemanager.webapp.address.port")
+      }
+      yarnResourceManagerWebAppAddress = "http://" + yarnHostName + ":" + port + "/ws/v1/cluster/matrics/"
+    }*/
+    val yarnAPI = getYarnResourceManagerAPI()
+    val matrics = yarnAPI + "metrics"
+    matrics
   }
 
   def main(args: Array[String]): Unit = {

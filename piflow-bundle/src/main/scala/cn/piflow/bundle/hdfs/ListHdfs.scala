@@ -21,17 +21,15 @@ class ListHdfs extends ConfigurableStop{
   override val outportList: List[String] = List(Port.DefaultPort.toString)
   override val description: String = "Retrieve a list of files from hdfs"
 
-  var HDFSPath :String= _
-  var HDFSUrl :String= _
+  var hdfsPath :String= _
+  var hdfsUrl :String= _
   var pathARR:ArrayBuffer[String]=ArrayBuffer()
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     val spark = pec.get[SparkSession]()
     val sc = spark.sparkContext
 
-    val path = new Path(HDFSPath)
+    val path = new Path(hdfsPath)
     iterationFile(path.toString)
-
-    import spark.implicits._
 
     val rows: List[Row] = pathARR.map(each => {
       var arr:Array[String]=Array(each)
@@ -40,8 +38,6 @@ class ListHdfs extends ConfigurableStop{
     }).toList
 
     val rowRDD: RDD[Row] = sc.makeRDD(rows)
-//    val fields: Array[StructField] = "path".split("/").map(d=>StructField(d,StringType,nullable = true))
-//    val schema: StructType = StructType(fields)
 
     val schema: StructType = StructType(Array(
       StructField("path",StringType)
@@ -53,7 +49,7 @@ class ListHdfs extends ConfigurableStop{
   // recursively traverse the folder
   def iterationFile(path: String):Unit = {
     val config = new Configuration()
-    config.set("fs.defaultFS",HDFSUrl)
+    config.set("fs.defaultFS",hdfsUrl)
     val fs = FileSystem.get(config)
     val listf = new Path(path)
 
@@ -72,15 +68,29 @@ class ListHdfs extends ConfigurableStop{
   }
 
   override def setProperties(map: Map[String, Any]): Unit = {
-    HDFSUrl = MapUtil.get(map,key="HDFSUrl").asInstanceOf[String]
-    HDFSPath = MapUtil.get(map,key="HDFSPath").asInstanceOf[String]
+    hdfsUrl = MapUtil.get(map,key="hdfsUrl").asInstanceOf[String]
+    hdfsPath = MapUtil.get(map,key="hdfsPath").asInstanceOf[String]
   }
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
-    val hdfsPath = new PropertyDescriptor().name("HDFSPath").displayName("HDFSPath").defaultValue("").required(true)
-    val hdfsUrl = new PropertyDescriptor().name("HDFSUrl").displayName("HDFSUrl").defaultValue("").required(true)
+    val hdfsPath = new PropertyDescriptor()
+      .name("hdfsPath")
+      .displayName("HdfsPath")
+      .defaultValue("")
+      .description("File path of HDFS")
+      .required(true)
+      .example("/work/")
     descriptor = hdfsPath :: descriptor
+
+    val hdfsUrl = new PropertyDescriptor()
+      .name("hdfsUrl")
+      .displayName("HdfsUrl")
+      .defaultValue("")
+      .description("URL address of HDFS")
+      .required(true)
+      .example("hdfs://192.168.3.138:8020")
+
     descriptor = hdfsUrl :: descriptor
     descriptor
   }

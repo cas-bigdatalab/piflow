@@ -13,7 +13,8 @@ class RegexTextProcess extends ConfigurableStop{
     val description: String = "Use regex to replace text"
     val inportList: List[String] = List(Port.DefaultPort.toString)
     val outportList: List[String] = List(Port.DefaultPort.toString)
-    var regex:String =_
+
+  var regex:String =_
     var columnName:String=_
     var replaceStr:String=_
 
@@ -46,9 +47,29 @@ class RegexTextProcess extends ConfigurableStop{
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
-    val regex = new PropertyDescriptor().name("regex").displayName("REGEX").defaultValue("").required(true)
-    val columnName = new PropertyDescriptor().name("columnName").displayName("COLUMN_NAME").defaultValue("").required(true)
-    val replaceStr = new PropertyDescriptor().name("replaceStr").displayName("REPLACE_STR").defaultValue("").required(true)
+    val regex = new PropertyDescriptor().name("regex")
+      .displayName("Regex")
+      .description("regex")
+      .defaultValue("")
+      .required(true)
+      .example("")
+
+    val columnName = new PropertyDescriptor()
+      .name("columnName")
+      .displayName("ColumnName")
+      .description("Field name of schema")
+      .defaultValue("")
+      .required(true)
+      .example("")
+
+    val replaceStr = new PropertyDescriptor()
+      .name("replaceStr")
+      .displayName("ReplaceStr")
+      .description("Replaced string")
+      .defaultValue("")
+      .required(true)
+        .example("")
+
     descriptor = regex :: descriptor
     descriptor = columnName :: descriptor
     descriptor = replaceStr :: descriptor

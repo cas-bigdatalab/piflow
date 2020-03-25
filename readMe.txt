@@ -51,6 +51,5 @@ clean package -Dmaven.test.skip=true -U
     start flume agent: bin/flume-ng agent -n streamingAgent -c conf -f conf/streaming.conf -Dflume.root.logger=INFO,console
 
 7.socket text stream
-
     nc -lk 9999
 

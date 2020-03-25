@@ -9,16 +9,16 @@ import cn.piflow.conf.util.{ImageUtil, MapUtil}
 class DropField extends ConfigurableStop {
 
   val authorEmail: String = "ygang@cnic.cn"
-  val description: String = "drop data field"
+  val description: String = "Delete fields in schema"
   val inportList: List[String] = List(Port.DefaultPort.toString)
   val outportList: List[String] = List(Port.DefaultPort.toString)
 
-  var schema:String = _
+  var fields:String = _
 
   def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     var df = in.read()
 
-    val field = schema.split(",")
+    val field = fields.split(",")
     for( x <- 0 until field.size){
       df = df.drop(field(x))
     }
@@ -31,18 +31,22 @@ class DropField extends ConfigurableStop {
   }
 
   def setProperties(map : Map[String, Any]): Unit = {
-    schema = MapUtil.get(map,"schema").asInstanceOf[String]
+    fields = MapUtil.get(map,"fields").asInstanceOf[String]
   }
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
-    val inports = new PropertyDescriptor().name("schema").displayName("schema").description("The Schema you want to drop,Multiple are separated by commas").defaultValue("").required(true)
+    val inports = new PropertyDescriptor().name("fields").displayName("Fields")
+      .description("Delete fields in schema,multiple are separated by commas")
+      .defaultValue("")
+      .required(true)
+      .example("id")
     descriptor = inports :: descriptor
     descriptor
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("icon/common/Subtract.png")
+    ImageUtil.getImage("icon/common/DropField.png")
   }
 
   override def getGroup(): List[String] = {

@@ -9,12 +9,11 @@ import cn.piflow.conf.util.{ImageUtil, MapUtil}
 class ConvertSchema extends ConfigurableStop {
 
   val authorEmail: String = "yangqidong@cnic.cn"
-  val description: String = "Transform field name"
+  val description: String = "Change field name"
   val inportList: List[String] = List(Port.DefaultPort.toString)
   val outportList: List[String] = List(Port.DefaultPort.toString)
 
   var schema:String = _
-
   def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     var df = in.read()
 
@@ -39,8 +38,12 @@ class ConvertSchema extends ConfigurableStop {
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
-    val inports = new PropertyDescriptor().name("schema").displayName("schema").description("To change the field name of the name and the name you want, " +
-      "you can write oldField1 - > newField1, if there are more than one, you can use, partition, such as oldField1->newField1, oldField2->newField2").defaultValue("").required(true)
+    val inports = new PropertyDescriptor().name("schema")
+      .displayName("Schema")
+      .description("Change field name, you can write oldField1 -> newField1, Multiple separated by commas, Such as 'oldField1->newField1, oldField2->newField2' ")
+      .defaultValue("")
+      .required(true)
+      .example("id->uuid")
     descriptor = inports :: descriptor
     descriptor
   }
