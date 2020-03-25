@@ -9,7 +9,7 @@ import org.apache.spark.graphx.{GraphLoader, PartitionStrategy}
 class LoadGraph extends ConfigurableStop {
 
   val authorEmail: String = "06whuxx@163.com"
-  val description: String = "Load data and construct a graph"
+  val description: String = "Load data and construct a graphx"
   val inportList: List[String] = List(Port.NonePort.toString)
 
 
@@ -27,7 +27,7 @@ class LoadGraph extends ConfigurableStop {
 
     import spark.sqlContext.implicits._
     var graph=GraphLoader.edgeListFile(sc,dataPath,true).partitionBy(PartitionStrategy.RandomVertexCut)
-    //val df=Seq((graph.edges.to,graph.vertices)).toDF()
+    //val df=Seq((graphx.edges.to,graphx.vertices)).toDF()
     //TODO:can not transfer EdgeRdd to Dataset
     out.write(edgePort,graph.edges.toDF())
     out.write(vertexPort,graph.vertices.toDF())

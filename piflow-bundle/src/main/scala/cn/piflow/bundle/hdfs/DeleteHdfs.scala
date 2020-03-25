@@ -19,7 +19,7 @@ class DeleteHdfs extends ConfigurableStop{
   override val description: String = "Delete file or directory on hdfs"
 
   var hdfsUrl :String= _
-  var deletePath :String = _
+  var hdfsPath :String = _
   var isCustomize:String=_
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
 
@@ -46,7 +46,7 @@ class DeleteHdfs extends ConfigurableStop{
       })
 
     } else {
-      val array = deletePath.split(",")
+      val array = hdfsPath.split(",")
 
       for (i<- 0 until array.length){
         val hdfsPath = hdfsUrl+"/"+array(i)
@@ -62,21 +62,44 @@ class DeleteHdfs extends ConfigurableStop{
   }
   override def setProperties(map: Map[String, Any]): Unit = {
     hdfsUrl = MapUtil.get(map,key="hdfsUrl").asInstanceOf[String]
-    deletePath = MapUtil.get(map,key="deletePath").asInstanceOf[String]
+    hdfsPath = MapUtil.get(map,key="hdfsPath").asInstanceOf[String]
     isCustomize=MapUtil.get(map,key="isCustomize").asInstanceOf[String]
   }
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
-    val hdfsUrl = new PropertyDescriptor().name("hdfsUrl").displayName("hdfsUrl").defaultValue("").required(true)
-    val deletePath = new PropertyDescriptor().name("deletePath").displayName("deletePath").defaultValue("").required(true)
-    val isCustomize = new PropertyDescriptor().name("isCustomize").displayName("isCustomize").description("Whether to customize the compressed file path, if true, " +
+    val hdfsPath = new PropertyDescriptor()
+      .name("hdfsPath")
+      .displayName("HdfsPath")
+      .defaultValue("")
+      .description("File path of HDFS")
+      .required(true)
+      .example("/work/test1/")
+    descriptor = hdfsPath :: descriptor
+
+    val hdfsUrl = new PropertyDescriptor()
+      .name("hdfsUrl")
+      .displayName("HdfsUrl")
+      .defaultValue("")
+      .description("URL address of HDFS")
+      .required(true)
+      .example("hdfs://192.168.3.138:8020")
+    descriptor = hdfsUrl :: descriptor
+
+
+    val isCustomize = new PropertyDescriptor()
+      .name("isCustomize")
+      .displayName("isCustomize")
+      .description("Whether to customize the compressed file path, if true, " +
       "you must specify the path where the compressed file is located . " +
       "If it is false, it will automatically find the file path data from the upstream port ")
-      .defaultValue("false").allowableValues(Set("true","false")).required(true)
+      .defaultValue("true")
+      .allowableValues(Set("true","false"))
+      .required(true)
+        .example("true")
     descriptor = isCustomize :: descriptor
-    descriptor = hdfsUrl :: descriptor
-    descriptor = deletePath :: descriptor
+
+
     descriptor
   }
 

@@ -47,7 +47,6 @@ class GetHdfs extends ConfigurableStop{
         val rdd = sc.textFile(path)
         val outDf = rdd.toDF()
         outDf.schema.printTreeString()
-        //outDf.show()
         out.write(outDf)
 
     }
@@ -60,16 +59,35 @@ class GetHdfs extends ConfigurableStop{
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
-    val hdfsPath = new PropertyDescriptor().name("hdfsPath").displayName("hdfsPath")
-      .defaultValue("").required(true)
-    val hdfsUrl = new PropertyDescriptor().name("hdfsUrl").displayName("hdfsUrl")
-      .defaultValue("").required(true)
-    val types = new PropertyDescriptor().name("types").displayName("types").description("txt,parquet,csv,json")
-      .defaultValue("txt").allowableValues(Set("txt","parquet","csv","json")).required(true)
+    val hdfsPath = new PropertyDescriptor()
+      .name("hdfsPath")
+      .displayName("HdfsPath")
+      .defaultValue("")
+      .description("File path of HDFS")
+      .required(true)
+      .example("/work/")
+    descriptor = hdfsPath :: descriptor
+
+    val hdfsUrl = new PropertyDescriptor()
+      .name("hdfsUrl")
+      .displayName("HdfsUrl")
+      .defaultValue("")
+      .description("URL address of HDFS")
+      .required(true)
+      .example("hdfs://192.168.3.138:8020")
+    descriptor = hdfsUrl :: descriptor
+
+    val types = new PropertyDescriptor().
+      name("types")
+      .displayName("types")
+      .description("The type of file you want to load")
+      .defaultValue("csv")
+      .allowableValues(Set("txt","parquet","csv","json"))
+      .required(true)
+        .example("csv")
 
     descriptor = types :: descriptor
-    descriptor = hdfsPath :: descriptor
-    descriptor = hdfsUrl :: descriptor
+
     descriptor
   }
 

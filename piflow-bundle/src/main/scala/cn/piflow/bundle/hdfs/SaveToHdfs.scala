@@ -125,21 +125,58 @@ class SaveToHdfs extends ConfigurableStop {
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
-    val hdfsDirPath = new PropertyDescriptor().name("hdfsDirPath").displayName("hdfsDirPath").defaultValue("/").required(true)
-    val hdfsUrl = new PropertyDescriptor().name("hdfsUrl").displayName("hdfsUrl").defaultValue("").required(true)
 
-    val fileName = new PropertyDescriptor().name("fileName").displayName("fileName").defaultValue("").required(true)
+    val hdfsDirPath = new PropertyDescriptor()
+      .name("hdfsDirPath")
+      .displayName("HdfsDirPath")
+      .defaultValue("")
+      .description("File dir path of HDFS")
+      .required(true)
+      .example("/work/")
 
-    val types = new PropertyDescriptor().name("types").displayName("json,csv,text").description("json,csv,text")
-      .defaultValue("csv").allowableValues(Set("json","csv","text")).required(true)
 
-    val delimiter = new PropertyDescriptor().name("delimiter").displayName("delimiter").description("type is csv ,please set it ").defaultValue(",").required(true)
+    val hdfsUrl = new PropertyDescriptor()
+      .name("hdfsUrl")
+      .displayName("HdfsUrl")
+      .defaultValue("")
+      .description("URL address of HDFS")
+      .required(true)
+      .example("hdfs://192.168.3.138:8020")
+
+
+    val fileName = new PropertyDescriptor()
+      .name("fileName")
+      .displayName("fileName")
+      .description("File name")
+      .defaultValue("")
+      .required(true)
+      .example("test.csv")
+
+    val types = new PropertyDescriptor()
+      .name("types")
+      .displayName("json,csv,text")
+      .description("What format do you want to write : json,csv,parquet")
+      .defaultValue("csv")
+      .allowableValues(Set("json","csv","text"))
+      .required(true)
+      .example("csv")
+
+    val delimiter = new PropertyDescriptor()
+      .name("delimiter")
+      .displayName("delimiter")
+      .description("The delimiter of csv file,types is csv ,please set it ")
+      .defaultValue(",")
+      .required(true)
 
     //header
-    val header = new PropertyDescriptor().name("header").displayName("header").description("Whether the csv file have header or not").defaultValue("").required(true)
+    val header = new PropertyDescriptor()
+      .name("header")
+      .displayName("header")
+      .description("Whether the csv file have header or not")
+      .defaultValue("true")
+      .required(true)
+
     descriptor = header :: descriptor
-
-
     descriptor = fileName :: descriptor
     descriptor = delimiter :: descriptor
     descriptor = hdfsDirPath :: descriptor

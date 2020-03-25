@@ -1,0 +1,59 @@
+{
+  "flow":{
+    "name":"test",
+    "uuid":"1234",
+    "stops":[
+      {
+        "uuid":"0000",
+        "name":"SelectHiveQL",
+        "bundle":"cn.piflow.bundle.hive.SelectHiveQL",
+        "properties":{
+          "hiveQL":"select * from test.user1"
+        }
+      },
+      {
+        "uuid":"1111",
+        "name":"Fork",
+        "bundle":"cn.piflow.bundle.common.Fork",
+        "properties":{
+          "outports":"out1,out2"
+        }
+      },{
+        "uuid":"2222",
+        "name":"ExecuteSQLStop",
+        "bundle":"cn.piflow.bundle.common.ExecuteSQLStop",
+        "properties":{
+          "sql":"select * from temp where id = 0001",
+          "tempViewName": "temp"
+        }
+      },{
+        "uuid":"3333",
+        "name":"SelectField",
+        "bundle":"cn.piflow.bundle.common.SelectField",
+        "properties":{
+          "fields":"id"
+        }
+      }
+
+
+    ],
+    "paths":[
+      {
+        "from":"SelectHiveQL",
+        "outport":"",
+        "inport":"",
+        "to":"Fork"
+      },{
+        "from":"Fork",
+        "outport":"out1",
+        "inport":"",
+        "to":"ExecuteSQLStop"
+      },{
+        "from":"Fork",
+        "outport":"out2",
+        "inport":"",
+        "to":"SelectField"
+      }
+    ]
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "flow":{
+    "name":"test",
+    "uuid":"1234",
+    "stops":[
+      {
+        "uuid":"0000",
+        "name":"SelectHiveQL",
+        "bundle":"cn.piflow.bundle.hive.SelectHiveQL",
+        "properties":{
+          "hiveQL":"select * from test.user1"
+        }
+      }, {
+        "uuid":"1111",
+        "name":"Filter",
+        "bundle":"cn.piflow.bundle.common.Filter",
+        "properties":{
+          "condition":"name=='zhangsan'"
+        }
+      }
+
+
+
+    ],
+    "paths":[
+      {
+        "from":"SelectHiveQL",
+        "outport":"",
+        "inport":"",
+        "to":"Filter"
+      }
+    ]
+  }
+}

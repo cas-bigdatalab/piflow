@@ -179,14 +179,44 @@ class UnzipFilesOnHDFS extends ConfigurableStop {
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
 
-    val filePath = new PropertyDescriptor().name("filePath").displayName("filePath").description("file path,such as /a/a.gz").defaultValue("").required(false)
-    val hdfsUrl = new PropertyDescriptor().name("hdfsUrl").displayName("hdfsUrl").description("the url of HDFS,such as hdfs://10.0.86.89:9000").defaultValue("").required(false)
-    val savePath = new PropertyDescriptor().name("savePath").displayName("savePath").description("This parameter can specify the location of the decompressed file, you can choose not to fill in, " +
-      "the program will default to save the decompressed file in the folder where the source file is located. If you fill in, you can specify a folder, such as /A/AB/").defaultValue("").required(false)
-    val isCustomize = new PropertyDescriptor().name("isCustomize").displayName("isCustomize").description("Whether to customize the compressed file path, if true, " +
-                                                                                                          "you must specify the path where the compressed file is located . " +
-                                                                                                          "If it is false, it will automatically find the file path data from the upstream port ")
-                                                                                                          .defaultValue("false").allowableValues(Set("true","false")).required(true)
+    val filePath = new PropertyDescriptor()
+      .name("filePath")
+      .displayName("FilePath")
+      .defaultValue("")
+      .description("File path of HDFS,such as '/work/a.gz'")
+      .required(false)
+      .example("/work/a.gz ")
+
+
+    val hdfsUrl = new PropertyDescriptor()
+      .name("hdfsUrl")
+      .displayName("HdfsUrl")
+      .defaultValue("")
+      .description("URL address of HDFS")
+      .required(true)
+      .example("hdfs://192.168.3.138:8020")
+
+
+
+    val savePath = new PropertyDescriptor()
+      .name("savePath")
+      .displayName("savePath")
+      .description("This parameter can specify the location of the decompressed file, you can choose not to fill in, " +
+      "the program will default to save the decompressed file in the folder where the source file is located. If you fill in, you can specify a folder, such as /A/AB/")
+      .defaultValue("")
+      .required(false)
+      .example("/work/aa/")
+
+
+
+    val isCustomize = new PropertyDescriptor()
+      .name("isCustomize")
+      .displayName("isCustomize")
+      .description("Whether to customize the compressed file path, if true, \n" +
+        "you must specify the path where the compressed file is located . \n" +
+        "If it is false, it will automatically find the file path data from the upstream port ")
+
+      .defaultValue("false").allowableValues(Set("true","false")).required(true)
     descriptor = isCustomize :: descriptor
     descriptor = filePath :: descriptor
     descriptor = hdfsUrl :: descriptor

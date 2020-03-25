@@ -10,7 +10,10 @@ import org.apache.spark.sql.{DataFrame, SparkSession}
 
 class AddUUIDStop extends ConfigurableStop{
   override val authorEmail: String = "ygang@cnic.cn"
-  override val description: String = "Increase the column with uuid"
+
+
+
+  override val description: String = "Add  UUID column"
   override val inportList: List[String] =List(Port.DefaultPort.toString)
   override val outportList: List[String] = List(Port.DefaultPort.toString)
 
@@ -22,15 +25,11 @@ class AddUUIDStop extends ConfigurableStop{
     var df = in.read()
 
 
-    val sqlContext = spark.sqlContext
-    val name  = df.schema(0).name
-    sqlContext.udf.register("code",(str:String)=>UUID.randomUUID().toString.replace("-",""))
+    spark.udf.register("generaterUUID",()=>UUID.randomUUID().toString.replace("-",""))
 
-    val columns = column.split(",")
-    columns.foreach(t=>{
-      df.createOrReplaceTempView("temp")
-      df = sqlContext.sql("select code("+name+") as "+t +",* from temp")
-    })
+    df.createOrReplaceTempView("temp")
+    df = spark.sql(s"select generaterUUID() as ${column},* from temp")
+
     out.write(df)
 
   }
@@ -43,9 +42,16 @@ class AddUUIDStop extends ConfigurableStop{
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
-    val inports = new PropertyDescriptor().name("column").displayName("column")
-      .description("The column is you want to add uuid column's name,Multiple are separated by commas").defaultValue("uuid").required(true)
-    descriptor = inports :: descriptor
+
+
+    val column = new PropertyDescriptor().name("column")
+      .displayName("Column")
+      .description("The column is you want to add uuid column's name,")
+      .defaultValue("uuid")
+      .required(true)
+      .example("uuid")
+    descriptor = column :: descriptor
+
     descriptor
   }
 
@@ -54,7 +60,7 @@ class AddUUIDStop extends ConfigurableStop{
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroup.CommonGroup.toString)
+    List(StopGroup.CommonGroup)
   }
 
 

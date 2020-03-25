@@ -8,22 +8,26 @@ import org.apache.spark.sql.DataFrame
 
 class Distinct extends ConfigurableStop{
   override val authorEmail: String = "yangqidong@cnic.cn"
-  override val description: String = "Reduplicate data according to all fields or fields you specify"
+  override val description: String = "De duplicate data according to all fields or specified  fields "
   override val inportList: List[String] =List(Port.DefaultPort.toString)
   override val outportList: List[String] = List(Port.DefaultPort.toString)
 
-  var files:String=_
+  var fields:String=_
 
   override def setProperties(map: Map[String, Any]): Unit = {
-    files = MapUtil.get(map,"files").asInstanceOf[String]
+    fields = MapUtil.get(map,"fields").asInstanceOf[String]
   }
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
 
-    val files = new PropertyDescriptor().name("files").displayName("files").description("To de-duplicate the field, you can fill in the field name, " +
-      "if there are more than one, please use, separate. You can also not fill in, we will be based on all fields as a condition to weight.").defaultValue("").required(false)
-    descriptor = files :: descriptor
+    val fields = new PropertyDescriptor().name("fields")
+      .displayName("Fields")
+      .description("De duplicate data according to all fields or specified  fields,Multiple separated by commas ; If not, all fields will be de duplicated")
+      .defaultValue("")
+      .required(false)
+      .example("id")
+    descriptor = fields :: descriptor
 
     descriptor
   }
@@ -44,8 +48,8 @@ class Distinct extends ConfigurableStop{
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     val inDf: DataFrame = in.read()
     var outDf: DataFrame = null
-    if(files.length > 0){
-      val fileArr: Array[String] = files.split(",")
+    if(fields.length > 0){
+      val fileArr: Array[String] = fields.split(",")
       outDf = inDf.dropDuplicates(fileArr)
     }else{
       outDf = inDf.distinct()
