@@ -12,6 +12,11 @@ object FileUtil {
 
 
   def writeFile(text: String, path: String) = {
+
+    val file = new File(path)
+    if(!file.exists()){
+      file.createNewFile()
+    }
     val writer = new PrintWriter(new File(path))
     writer.write(text)
     writer.close()

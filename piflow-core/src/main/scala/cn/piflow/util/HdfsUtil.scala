@@ -214,4 +214,16 @@ object HdfsUtil {
     result
   }
 
+  def getCapacity() : Map[String, Any] = {
+    val hdfsURL = PropertyUtil.getPropertyValue("fs.defaultFS")
+    val conf = new Configuration()
+    val fileSystem = FileSystem.get(new URI(hdfsURL),conf)
+    val fsStatus = fileSystem.getStatus
+    val capacity = fsStatus.getCapacity
+    val remaining = fsStatus.getRemaining
+    val used = fsStatus.getUsed
+    val map = Map("capacity" -> capacity, "remaining" -> remaining, "used" -> used)
+    map
+  }
+
 }

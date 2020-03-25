@@ -22,6 +22,42 @@ import scala.util.parsing.json.JSON
 
 object API {
 
+  def getResourceInfo() : String = {
+
+    try{
+      val matricsURL = ConfigureUtil.getYarnResourceMatrics()
+      val client = HttpClients.createDefault()
+      val get:HttpGet = new HttpGet(matricsURL)
+
+      val response:CloseableHttpResponse = client.execute(get)
+      val entity = response.getEntity
+      val str = EntityUtils.toString(entity,"UTF-8")
+      val yarnInfo = OptionUtil.getAny(JSON.parseFull(str)).asInstanceOf[Map[String, Any]]
+      val matricInfo = MapUtil.get(yarnInfo, "clusterMetrics").asInstanceOf[Map[String, Any]]
+
+
+      val cpuInfo = Map(
+        "totalVirtualCores" -> matricInfo.getOrElse("totalVirtualCores",""),
+        "allocatedVirtualCores" -> matricInfo.getOrElse("allocatedVirtualCores",""),
+        "reservedVirtualCores" -> matricInfo.getOrElse("reservedVirtualCores","")
+      )
+      val memoryInfo = Map(
+        "totalMB" -> matricInfo.getOrElse("totalMB",""),
+        "allocatedMB" -> matricInfo.getOrElse("allocatedMB",""),
+        "reservedMB" -> matricInfo.getOrElse("reservedMB","")
+      )
+      val hdfsInfo = HdfsUtil.getCapacity()
+
+      val map = Map("cpu" -> cpuInfo, "memory" -> memoryInfo, "hdfs" -> hdfsInfo)
+      val resultMap = Map("resource" -> map)
+
+      JsonUtil.format(JsonUtil.toJson(resultMap))
+    }catch{
+      case ex:Exception => ""
+    }
+
+  }
+
   def getScheduleInfo(scheduleId : String) : String = {
 
     val scheduleInfo = H2Util.getScheduleInfo(scheduleId)
