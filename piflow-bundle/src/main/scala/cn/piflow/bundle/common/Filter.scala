@@ -8,7 +8,7 @@ import org.apache.spark.sql.{Column, DataFrame}
 
 class Filter extends ConfigurableStop{
   override val authorEmail: String = "xjzhu@cnic.cn"
-  override val description: String = "Do filter by condition"
+  override val description: String = "Filter by condition"
   override val inportList: List[String] = List(Port.DefaultPort)
   override val outportList: List[String] = List(Port.DefaultPort)
 

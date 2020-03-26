@@ -8,9 +8,9 @@ import org.apache.spark.sql.SaveMode
 
 class CsvSave extends ConfigurableStop{
   val authorEmail: String = "xjzhu@cnic.cn"
-  val description: String = "Save data into csv file."
-  val inportList: List[String] = List(Port.DefaultPort.toString)
-  val outportList: List[String] = List(Port.DefaultPort.toString)
+  val description: String = "Save the data as a csv file."
+  val inportList: List[String] = List(Port.DefaultPort)
+  val outportList: List[String] = List(Port.DefaultPort)
 
   var csvSavePath: String = _
   var header: Boolean = _
@@ -33,7 +33,7 @@ class CsvSave extends ConfigurableStop{
       .description("The save path of csv file")
       .defaultValue("")
       .required(true)
-      .example("")
+      .example("hdfs://192.168.3.138:8020/test/")
     descriptor = csvSavePath :: descriptor
 
     val header = new PropertyDescriptor()
@@ -42,6 +42,7 @@ class CsvSave extends ConfigurableStop{
       .description("Whether the csv file has a header")
       .defaultValue("")
       .required(true)
+      .example("true")
     descriptor = header :: descriptor
 
     val delimiter = new PropertyDescriptor()
@@ -50,16 +51,16 @@ class CsvSave extends ConfigurableStop{
       .description("The delimiter of csv file")
       .defaultValue(",")
       .required(true)
-      .example("")
+      .example(",")
     descriptor = delimiter :: descriptor
 
     val partition = new PropertyDescriptor()
       .name("partition")
       .displayName("Partition")
       .description("The partition of csv file")
-      .defaultValue("1")
+      .defaultValue("")
       .required(true)
-      .example("")
+      .example("3")
     descriptor = partition :: descriptor
 
     descriptor
@@ -79,6 +80,7 @@ class CsvSave extends ConfigurableStop{
 
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     val df = in.read()
+
     df.repartition(partition.toInt).write
       .format("csv")
       .mode(SaveMode.Overwrite)

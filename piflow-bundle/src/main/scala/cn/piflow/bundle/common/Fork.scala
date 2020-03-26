@@ -9,9 +9,9 @@ import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 class Fork extends ConfigurableStop{
 
   val authorEmail: String = "xjzhu@cnic.cn"
-  val description: String = "Fork data into different stops"
-  val inportList: List[String] = List(Port.DefaultPort.toString)
-  val outportList: List[String] = List(Port.AnyPort.toString)
+  val description: String = "Forking data to different stops"
+  val inportList: List[String] = List(Port.DefaultPort)
+  val outportList: List[String] = List(Port.AnyPort)
 
   var outports : List[String] = _
 
@@ -33,7 +33,7 @@ class Fork extends ConfigurableStop{
     var descriptor : List[PropertyDescriptor] = List()
     val outports = new PropertyDescriptor().name("outports")
       .displayName("outports")
-      .description("outports string, seperated by ,.")
+      .description("Output ports string with comma")
       .defaultValue("")
       .required(true)
     descriptor = outports :: descriptor
@@ -45,6 +45,6 @@ class Fork extends ConfigurableStop{
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroup.CommonGroup.toString)
+    List(StopGroup.CommonGroup)
   }
 }

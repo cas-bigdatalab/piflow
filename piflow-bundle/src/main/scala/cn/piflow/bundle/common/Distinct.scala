@@ -8,22 +8,23 @@ import org.apache.spark.sql.DataFrame
 
 class Distinct extends ConfigurableStop{
   override val authorEmail: String = "yangqidong@cnic.cn"
-  override val description: String = "De duplicate data according to all fields or specified  fields "
-  override val inportList: List[String] =List(Port.DefaultPort.toString)
-  override val outportList: List[String] = List(Port.DefaultPort.toString)
+  override val description: String = "Duplicate based on the specified column name or all colume names"
+  override val inportList: List[String] =List(Port.DefaultPort)
+  override val outportList: List[String] = List(Port.DefaultPort)
 
-  var fields:String=_
+  var columnNames:String=_
 
   override def setProperties(map: Map[String, Any]): Unit = {
-    fields = MapUtil.get(map,"fields").asInstanceOf[String]
+    columnNames = MapUtil.get(map,"columnNames").asInstanceOf[String]
   }
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
 
-    val fields = new PropertyDescriptor().name("fields")
-      .displayName("Fields")
-      .description("De duplicate data according to all fields or specified  fields,Multiple separated by commas ; If not, all fields will be de duplicated")
+    val fields = new PropertyDescriptor()
+      .name("columnNames")
+      .displayName("ColumnNames")
+      .description("Fill in the column names you want to duplicate,multiple columns names separated by commas,if not,all the columns will be deduplicated")
       .defaultValue("")
       .required(false)
       .example("id")
@@ -37,7 +38,7 @@ class Distinct extends ConfigurableStop{
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroup.CommonGroup.toString)
+    List(StopGroup.CommonGroup)
   }
 
 
@@ -48,8 +49,8 @@ class Distinct extends ConfigurableStop{
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     val inDf: DataFrame = in.read()
     var outDf: DataFrame = null
-    if(fields.length > 0){
-      val fileArr: Array[String] = fields.split(",")
+    if(columnNames.length > 0){
+      val fileArr: Array[String] = columnNames.split(",")
       outDf = inDf.dropDuplicates(fileArr)
     }else{
       outDf = inDf.distinct()

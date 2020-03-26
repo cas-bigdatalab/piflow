@@ -16,7 +16,7 @@
         "bundle":"cn.piflow.bundle.common.ExecuteSQLStop",
         "properties":{
           "sql":"select * from temp where id = 0001",
-          "tempViewName": "temp"
+          "ViewName": "temp"
         }
       }
     ],

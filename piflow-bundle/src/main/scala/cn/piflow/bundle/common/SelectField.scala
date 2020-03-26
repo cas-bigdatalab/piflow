@@ -12,16 +12,16 @@ import scala.beans.BeanProperty
 class SelectField extends ConfigurableStop {
 
   val authorEmail: String = "xjzhu@cnic.cn"
-  val description: String = "Select data field"
-  val inportList: List[String] = List(Port.DefaultPort.toString)
-  val outportList: List[String] = List(Port.DefaultPort.toString)
+  val description: String = "Select data column"
+  val inportList: List[String] = List(Port.DefaultPort)
+  val outportList: List[String] = List(Port.DefaultPort)
 
-  var fields:String = _
+  var columnNames:String = _
 
   def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     val df = in.read()
 
-    val field = fields.split(",")
+    val field = columnNames.split(",")
     val columnArray : Array[Column] = new Array[Column](field.size)
     for(i <- 0 to field.size - 1){
       columnArray(i) = new Column(field(i))
@@ -36,17 +36,18 @@ class SelectField extends ConfigurableStop {
   }
 
   def setProperties(map : Map[String, Any]): Unit = {
-    fields = MapUtil.get(map,"fields").asInstanceOf[String]
+    columnNames = MapUtil.get(map,"columnNames").asInstanceOf[String]
   }
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
     val inports = new PropertyDescriptor()
-      .name("fields")
-      .displayName("Fields")
-      .description("The fields you want to select")
+      .name("columnNames")
+      .displayName("ColumnNames")
+      .description("Select the column you want,multiple columns separated by commas")
       .defaultValue("")
       .required(true)
+      .example("id,name")
     descriptor = inports :: descriptor
     descriptor
   }

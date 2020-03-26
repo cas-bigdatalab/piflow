@@ -9,8 +9,8 @@ class Trager extends ConfigurableStop{
 
   val authorEmail: String = "ygang@cnic.cn"
   val description: String = "Upstream and downstream middleware"
-  val inportList: List[String] = List(Port.AnyPort.toString)
-  val outportList: List[String] = List(Port.AnyPort.toString)
+  val inportList: List[String] = List(Port.AnyPort)
+  val outportList: List[String] = List(Port.AnyPort)
 
 
   def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
@@ -35,7 +35,7 @@ class Trager extends ConfigurableStop{
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroup.CommonGroup.toString)
+    List(StopGroup.CommonGroup)
   }
 
 }

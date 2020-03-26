@@ -8,15 +8,14 @@ import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 class Route extends ConfigurableStop{
 
   val authorEmail: String = "xjzhu@cnic.cn"
-  val description: String = "Route data by customizedProperties, key is port & value is filter condition"
+  val description: String = "Route data by custom properties,key is port,value is filter"
   val inportList: List[String] = List(Port.DefaultPort)
   val outportList: List[String] = List(Port.RoutePort)
 
   override val isCustomized: Boolean = true
 
   override def setProperties(map: Map[String, Any]): Unit = {
-    //val outportStr = MapUtil.get(map,"outports").asInstanceOf[String]
-    //outports = outportStr.split(",").toList
+
   }
 
   override def initialize(ctx: ProcessContext): Unit = {
@@ -40,8 +39,7 @@ class Route extends ConfigurableStop{
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
-    //val outports = new PropertyDescriptor().name("outports").displayName("outports").description("outports string, seperated by ,.").defaultValue("").required(true)
-    //descriptor = outports :: descriptor
+
     descriptor
   }
 
@@ -50,6 +48,6 @@ class Route extends ConfigurableStop{
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroup.CommonGroup.toString)
+    List(StopGroup.CommonGroup)
   }
 }

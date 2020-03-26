@@ -23,7 +23,7 @@
         "name":"Join",
         "bundle":"cn.piflow.bundle.common.Join",
         "properties":{
-          "correlationField": "id",
+          "correlationColumn": "id",
           "joinMode": "left"
 
         }

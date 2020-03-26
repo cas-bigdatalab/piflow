@@ -15,7 +15,7 @@
         "name":"Distinct",
         "bundle":"cn.piflow.bundle.common.Distinct",
         "properties":{
-          "fields":"id"
+          "columnNames":"id"
         }
       }
 

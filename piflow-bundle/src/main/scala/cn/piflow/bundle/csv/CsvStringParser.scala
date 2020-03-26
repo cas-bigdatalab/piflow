@@ -11,12 +11,12 @@ import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 
 class CsvStringParser extends ConfigurableStop{
   override val authorEmail: String = "yangqidong@cnic.cn"
-  val inportList: List[String] = List(Port.NonePort.toString)
-  val outportList: List[String] = List(Port.DefaultPort.toString)
+  val inportList: List[String] = List(Port.DefaultPort)
+  val outportList: List[String] = List(Port.DefaultPort)
   override val description: String = "Parse csv string"
 
 
-  var Str:String=_
+  var str:String=_
   var delimiter: String = _
   var schema: String = _
 
@@ -25,7 +25,7 @@ class CsvStringParser extends ConfigurableStop{
     val session: SparkSession = pec.get[SparkSession]
     val context: SparkContext = session.sparkContext
 
-    val arrStr: Array[String] = Str.split("\n")
+    val arrStr: Array[String] = str.split("\n")
 
     var num:Int=0
     val listROW: List[Row] = arrStr.map(line => {
@@ -50,7 +50,7 @@ class CsvStringParser extends ConfigurableStop{
 
 
   override def setProperties(map: Map[String, Any]): Unit = {
-    Str = MapUtil.get(map,"Str").asInstanceOf[String]
+    str = MapUtil.get(map,"String").asInstanceOf[String]
     delimiter = MapUtil.get(map,"delimiter").asInstanceOf[String]
     schema = MapUtil.get(map,"schema").asInstanceOf[String]
   }
@@ -58,17 +58,17 @@ class CsvStringParser extends ConfigurableStop{
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
 
-    val Str = new PropertyDescriptor()
+    val str = new PropertyDescriptor()
       .name("Str")
       .displayName("Str")
       .defaultValue("")
       .required(true)
       .example("")
-    descriptor = Str :: descriptor
+    descriptor = str :: descriptor
 
     val delimiter = new PropertyDescriptor()
       .name("delimiter")
-      .displayName("delimiter")
+      .displayName("Delimiter")
       .description("The delimiter of CSV string")
       .defaultValue("")
       .required(true)
@@ -77,7 +77,7 @@ class CsvStringParser extends ConfigurableStop{
 
     val schema = new PropertyDescriptor()
       .name("schema")
-      .displayName("schema")
+      .displayName("Schema")
       .description("The schema of CSV string")
       .defaultValue("")
       .required(false)

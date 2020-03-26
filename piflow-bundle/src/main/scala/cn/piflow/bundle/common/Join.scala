@@ -8,12 +8,12 @@ import org.apache.spark.sql.{Column, DataFrame}
 
 class Join extends ConfigurableStop{
   override val authorEmail: String = "yangqidong@cnic.cn"
-  override val description: String = "Table connection, including full connection, left connection, right connection and inner connection"
-  override val inportList: List[String] =List(Port.LeftPort.toString,Port.RightPort.toString)
-  override val outportList: List[String] = List(Port.DefaultPort.toString)
+  override val description: String = "Table joins include full join, left join, right join and inner join"
+  override val inportList: List[String] =List(Port.LeftPort,Port.RightPort)
+  override val outportList: List[String] = List(Port.DefaultPort)
 
   var joinMode:String=_
-  var correlationField:String=_
+  var correlationColumn:String=_
 
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
 
@@ -21,7 +21,7 @@ class Join extends ConfigurableStop{
     val rightDF = in.read(Port.RightPort)
 
     var seq: Seq[String]= Seq()
-    correlationField.split(",").foreach(x=>{
+    correlationColumn.split(",").foreach(x=>{
       seq = seq .++(Seq(x.toString))
     })
 
@@ -37,27 +37,30 @@ class Join extends ConfigurableStop{
 
   override def setProperties(map: Map[String, Any]): Unit = {
     joinMode = MapUtil.get(map,"joinMode").asInstanceOf[String]
-    correlationField = MapUtil.get(map,"correlationField").asInstanceOf[String]
+    correlationColumn = MapUtil.get(map,"correlationColumn").asInstanceOf[String]
   }
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
 
-    val joinMode = new PropertyDescriptor().name("joinMode")
-      .displayName("joinMode")
-      .description("For table association, you can choose INNER, LEFT, RIGHT, FULL")
+    val joinMode = new PropertyDescriptor()
+      .name("joinMode")
+      .displayName("JoinMode")
+      .description("For table associations, you can choose inner,left,right,full")
       .allowableValues(Set("inner","left","right","full_outer"))
       .defaultValue("inner")
       .required(true)
+      .example("left")
     descriptor = joinMode :: descriptor
 
-    val correlationField = new PropertyDescriptor()
-      .name("correlationField")
-      .displayName("correlationField")
-      .description("Fields associated with tables,If there are more than one, please use , separate")
+    val correlationColumn = new PropertyDescriptor()
+      .name("correlationColumn")
+      .displayName("CorrelationColumn")
+      .description("Columns associated with tables,if multiple are separated by commas")
       .defaultValue("")
       .required(true)
-    descriptor = correlationField :: descriptor
+      .example("id,name")
+    descriptor = correlationColumn :: descriptor
 
     descriptor
   }
@@ -67,7 +70,7 @@ class Join extends ConfigurableStop{
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroup.CommonGroup.toString)
+    List(StopGroup.CommonGroup)
   }
 
 
