@@ -12,14 +12,13 @@ class XmlSave extends ConfigurableStop{
 
   val authorEmail: String = "xjzhu@cnic.cn"
   val description: String = "Save data to xml file"
-  val inportList: List[String] = List(Port.DefaultPort.toString)
-  val outportList: List[String] = List(Port.NonePort.toString)
+  val inportList: List[String] = List(Port.DefaultPort)
+  val outportList: List[String] = List(Port.DefaultPort)
 
   var xmlSavePath:String = _
 
   def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     val xmlDF = in.read()
-    //xmlDF.show()
 
     xmlDF.write.format("xml").save(xmlSavePath)
   }
@@ -34,7 +33,13 @@ class XmlSave extends ConfigurableStop{
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
-    val xmlSavePath = new PropertyDescriptor().name("xmlSavePath").displayName("xmlSavePath").description("the sva path of xml file").defaultValue("").required(true)
+    val xmlSavePath = new PropertyDescriptor()
+      .name("xmlSavePath")
+      .displayName("XmlSavePath")
+      .description("xml file save path")
+      .defaultValue("")
+      .required(true)
+        .example("hdfs://192.168.3.138:8020/work/test/test.xml")
     descriptor = xmlSavePath :: descriptor
     descriptor
   }
@@ -44,7 +49,7 @@ class XmlSave extends ConfigurableStop{
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroup.XmlGroup.toString)
+    List(StopGroup.XmlGroup)
   }
 
 }

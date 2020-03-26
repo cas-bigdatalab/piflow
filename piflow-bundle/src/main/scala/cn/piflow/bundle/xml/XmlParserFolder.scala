@@ -16,11 +16,11 @@ import scala.util.control.Breaks._
 /**
   * Created by admin on 2018/8/27.
   */
-class FolderXmlParser extends ConfigurableStop{
+class XmlParserFolder extends ConfigurableStop{
   val authorEmail: String = "lijie"
   val description: String = "Parse xml folder"
-  val inportList: List[String] = List(Port.NonePort.toString)
-  val outportList: List[String] = List(Port.DefaultPort.toString)
+  val inportList: List[String] = List(Port.DefaultPort)
+  val outportList: List[String] = List(Port.DefaultPort)
 
   var rowTag:String = _
   var xmlpath:String = _
@@ -39,8 +39,21 @@ class FolderXmlParser extends ConfigurableStop{
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
-    val folederXmlStop = new PropertyDescriptor().name("folederXmlStop").displayName("FolederXmlStop").defaultValue("").required(true)
-    val rowTag = new PropertyDescriptor().name("rowTag").displayName("rowTag").description("the tag you want to parse in xml file").defaultValue("").required(true)
+    val folederXmlStop = new PropertyDescriptor()
+      .name("folederXmlStop")
+      .displayName("FolederXmlStop")
+      .defaultValue("")
+      .required(true)
+      .example("hdfs://192.168.3.138:8020/work/test/xml/")
+
+    val rowTag = new PropertyDescriptor()
+      .name("rowTag")
+      .displayName("rowTag")
+      .description("the tag you want to parse in xml file")
+      .defaultValue("")
+      .required(true)
+        .example("name,url")
+
     descriptor = folederXmlStop :: descriptor
     descriptor = rowTag :: descriptor
     descriptor
@@ -77,7 +90,7 @@ class FolderXmlParser extends ConfigurableStop{
   //获取每个xml得dataframe
   def getDf(path:String,sparkSession: SparkSession):DataFrame={
     val df = sparkSession.read.format("com.databricks.spark.xml")
-      .option("rowTag", "phdthesis")
+      .option("rowTag", rowTag)
       .option("treatEmptyValuesAsNulls", true)
       .load(path)
     df
@@ -94,13 +107,13 @@ class FolderXmlParser extends ConfigurableStop{
       }
     }
     var df = spark.read.format("com.databricks.spark.xml")
-      .option("rowTag", "phdthesis")
+      .option("rowTag", rowTag)
       .option("treatEmptyValuesAsNulls", true)
       .load(pathArr(index))
     for(d <- index+1 until(pathArr.length)){
       if(getDf(pathArr(d),spark).count()!=0){
         val df1 = spark.read.format("com.databricks.spark.xml")
-          .option("rowTag", "phdthesis")
+          .option("rowTag", rowTag)
           .option("treatEmptyValuesAsNulls", true)
           .load(pathArr(d))
         df = df.union(df1)

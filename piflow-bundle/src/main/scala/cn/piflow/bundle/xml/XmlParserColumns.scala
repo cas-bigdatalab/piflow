@@ -9,12 +9,12 @@ import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
 
-class XmlParserWithJson extends ConfigurableStop {
+class XmlParserColumns extends ConfigurableStop {
 
   val authorEmail: String = "ygang@cnic.cn"
-  val description: String = "Parse xml fields "
-  val inportList: List[String] = List(Port.DefaultPort.toString)
-  val outportList: List[String] = List(Port.DefaultPort.toString)
+  val description: String = "Parse xml data in columns in upstream data"
+  val inportList: List[String] = List(Port.DefaultPort)
+  val outportList: List[String] = List(Port.DefaultPort)
 
   var xmlColumns:String = _
 
@@ -64,7 +64,13 @@ class XmlParserWithJson extends ConfigurableStop {
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
-    val xmlColumns = new PropertyDescriptor().name("xmlColumns").displayName("xmlColumns").description("you want to parse contains XML fields ,Multiple are separated by commas").defaultValue("").required(true)
+    val xmlColumns = new PropertyDescriptor()
+      .name("xmlColumns")
+      .displayName("xmlColumns")
+      .description("Parsed column names containing xml,Multiple columns separated by commas")
+      .defaultValue("")
+      .required(true)
+        .example("product_xml")
     descriptor = xmlColumns :: descriptor
     descriptor
   }
@@ -74,7 +80,7 @@ class XmlParserWithJson extends ConfigurableStop {
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroup.XmlGroup.toString)
+    List(StopGroup.XmlGroup)
   }
 
 

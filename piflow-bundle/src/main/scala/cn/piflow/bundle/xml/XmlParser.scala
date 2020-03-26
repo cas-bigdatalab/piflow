@@ -13,8 +13,8 @@ class XmlParser extends ConfigurableStop {
 
   val authorEmail: String = "xjzhu@cnic.cn"
   val description: String = "Parse xml file"
-  val inportList: List[String] = List(Port.AnyPort.toString)
-  val outportList: List[String] = List(Port.DefaultPort.toString)
+  val inportList: List[String] = List(Port.DefaultPort)
+  val outportList: List[String] = List(Port.DefaultPort)
 
   var xmlpath:String = _
   var rowTag:String = _
@@ -30,10 +30,6 @@ class XmlParser extends ConfigurableStop {
       /*.schema(schema)*/
       .load(xmlpath)
 
-    /*xmlDF.select("ee").rdd.collect().foreach( row =>
-      println(row.toSeq)
-    )*/
-    //xmlDF.show(30)
     out.write(xmlDF)
   }
 
@@ -49,8 +45,22 @@ class XmlParser extends ConfigurableStop {
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
-    val xmlpath = new PropertyDescriptor().name("xmlpath").displayName("xmlpath").description("the path of xml file").defaultValue("").required(true)
-    val rowTag = new PropertyDescriptor().name("rowTag").displayName("rowTag").description("the tag you want to parse in xml file").defaultValue("").required(true)
+    val xmlpath = new PropertyDescriptor()
+      .name("xmlpath")
+      .displayName("xmlpath")
+      .description("the path of xml file")
+      .defaultValue("")
+      .required(true)
+      .example("hdfs://192.168.3.138:8020/work/test/testxml.xml")
+
+    val rowTag = new PropertyDescriptor()
+      .name("rowTag")
+      .displayName("rowTag")
+      .description("the tag you want to parse in xml file")
+      .defaultValue("")
+      .required(true)
+        .example("name")
+
     descriptor = xmlpath :: descriptor
     descriptor = rowTag :: descriptor
     descriptor
@@ -61,7 +71,7 @@ class XmlParser extends ConfigurableStop {
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroup.XmlGroup.toString)
+    List(StopGroup.XmlGroup)
   }
 
 }
