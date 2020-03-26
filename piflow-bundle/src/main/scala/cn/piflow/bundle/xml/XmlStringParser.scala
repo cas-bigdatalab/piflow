@@ -16,8 +16,8 @@ import scala.collection.mutable.{ArrayBuffer, ListBuffer}
 
 class XmlStringParser extends ConfigurableStop {
   override val authorEmail: String = "yangqidong@cnic.cn"
-  val inportList: List[String] = List(Port.NonePort.toString)
-  val outportList: List[String] = List(Port.DefaultPort.toString)
+  val inportList: List[String] = List(Port.DefaultPort)
+  val outportList: List[String] = List(Port.DefaultPort)
   override val description: String = "Parse xml string"
 
   var XmlString:String=_
@@ -65,7 +65,6 @@ class XmlStringParser extends ConfigurableStop {
     }
 
 
-
     val listRows: List[Row] = list.toList.map(line => {
       val seq: Seq[String] = line.split(",").toSeq
       val row = Row.fromSeq(seq)
@@ -100,11 +99,31 @@ class XmlStringParser extends ConfigurableStop {
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] =  {
     var descriptor : List[PropertyDescriptor] = List()
-    val XmlString = new PropertyDescriptor().name("XmlString").displayName("XmlString").description("the xml String").defaultValue("").required(true)
+    val XmlString = new PropertyDescriptor()
+      .name("XmlString")
+      .displayName("XmlString")
+      .description("the xml String")
+      .defaultValue("")
+      .required(true)
+      .example("<sites>\n    <site>\n        <name>菜鸟教程</name>\n        <url>www.runoob.com</url>\n    </site>\n    <site>\n        <name>Google</name>\n        <url>www.google.com</url>\n    </site>\n    <site>\n        <name>淘宝</name>\n        <url>www.taobao.com</url>\n    </site>\n</sites>")
+
     descriptor = XmlString :: descriptor
-    val label = new PropertyDescriptor().name("label").displayName("label").description("label path for hope,the delimiter is ,").defaultValue("").required(true)
+    val label = new PropertyDescriptor()
+      .name("label")
+      .displayName("label")
+      .description("Parsed label path")
+      .defaultValue("")
+      .required(true)
+        .example("sites,site")
+
     descriptor = label :: descriptor
-    val schema = new PropertyDescriptor().name("schema").displayName("schema").description("name of field in label,the delimiter is ,").defaultValue("").required(true)
+    val schema = new PropertyDescriptor()
+      .name("schema")
+      .displayName("schema")
+      .description("Parsed tag name")
+      .defaultValue("")
+      .required(true)
+        .example("name,url")
     descriptor = schema :: descriptor
     descriptor
   }
@@ -114,7 +133,7 @@ class XmlStringParser extends ConfigurableStop {
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroup.XmlGroup.toString)
+    List(StopGroup.XmlGroup)
   }
 
   override def initialize(ctx: ProcessContext): Unit = {

@@ -1,0 +1,29 @@
+{
+  "flow":{
+    "name":"test",
+    "uuid":"1234",
+    "stops":[
+
+
+      {
+        "uuid":"0000",
+        "name":"XmlStringParser",
+        "bundle":"cn.piflow.bundle.xml.XmlStringParser",
+        "properties":{
+          "XmlString":"<sites>\n    <site>\n        <name>菜鸟教程</name>\n        <url>www.runoob.com</url>\n    </site>\n    <site>\n        <name>Google</name>\n        <url>www.google.com</url>\n    </site>\n    <site>\n        <name>淘宝</name>\n        <url>www.taobao.com</url>\n    </site>\n</sites>",
+          "label":"sites,site",
+          "schema":"name,url"
+        }
+      }
+
+    ],
+    "paths":[
+      {
+        "from":"",
+        "outport":"",
+        "inport":"",
+        "to":""
+      }
+    ]
+  }
+}

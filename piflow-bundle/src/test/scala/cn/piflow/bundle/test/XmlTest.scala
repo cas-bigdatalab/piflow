@@ -3,7 +3,7 @@ package cn.piflow.bundle.test
 import cn.piflow._
 import cn.piflow.bundle.common.SelectField
 import cn.piflow.bundle.hive.PutHiveStreaming
-import cn.piflow.bundle.xml.{FolderXmlParser, XmlParser}
+import cn.piflow.bundle.xml.{XmlParserFolder, XmlParser}
 import org.apache.spark.sql.SparkSession
 import org.junit.Test
 
@@ -74,7 +74,7 @@ class XmlTest {
 
     val putHiveStreamingParameters = Map("database" -> "sparktest", "table" -> "xmldblp_phdthesis")
 
-    val folderXmlParserStop = new FolderXmlParser
+    val folderXmlParserStop = new XmlParserFolder
     folderXmlParserStop.setProperties(folderXmlParserParameters)
 
     val selectFieldStop = new SelectField
