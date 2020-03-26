@@ -1,4 +1,4 @@
-package cn.piflow.bundle.File
+package cn.piflow.bundle.file
 
 import java.net.InetAddress
 
@@ -12,13 +12,13 @@ import org.junit.Test
 
 import scala.util.parsing.json.JSON
 
-class RegexTextProcessTest {
+class FileTest {
 
   @Test
   def testFlow(): Unit ={
 
     //parse flow json
-    val file = "src/main/resources/flow/file/regexTextProcess.json"
+    val file = "src/main/resources/flow/file/file.json"
     val flowJsonStr = FileUtil.fileReader(file)
     val map = OptionUtil.getAny(JSON.parseFull(flowJsonStr)).asInstanceOf[Map[String, Any]]
     println(map)
