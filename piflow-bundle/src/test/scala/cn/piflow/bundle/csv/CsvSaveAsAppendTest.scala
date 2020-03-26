@@ -1,21 +1,22 @@
-package cn.piflow.bundle.es
+package cn.piflow.bundle.csv
 
-import cn.piflow.Runner
+import cn.piflow.bundle.json.JsonSave
 import cn.piflow.conf.bean.FlowBean
 import cn.piflow.conf.util.{FileUtil, OptionUtil}
+import cn.piflow.{FlowImpl, Path, Runner}
 import org.apache.spark.sql.SparkSession
 import org.h2.tools.Server
 import org.junit.Test
 
 import scala.util.parsing.json.JSON
 
-class QueryESTest {
+class CsvSaveAsAppendTest {
 
   @Test
-  def testEs(): Unit ={
+  def testFlow(): Unit ={
 
     //parse flow json
-    val file = "src/main/resources/flow/csv/CsvParser.json"
+    val file = "src/main/resources/flow/csv/CsvSaveAsAppend.json"
     val flowJsonStr = FileUtil.fileReader(file)
     val map = OptionUtil.getAny(JSON.parseFull(flowJsonStr)).asInstanceOf[Map[String, Any]]
     println(map)
@@ -23,13 +24,12 @@ class QueryESTest {
     //create flow
     val flowBean = FlowBean(map)
     val flow = flowBean.constructFlow()
-
     val h2Server = Server.createTcpServer("-tcp", "-tcpAllowOthers", "-tcpPort", "50001").start()
 
     //execute flow
     val spark = SparkSession.builder()
       .master("local[*]")
-      .appName("CsvParserTest")
+      .appName("piflow-hive-bundle")
       .config("spark.driver.memory", "1g")
       .config("spark.executor.memory", "2g")
       .config("spark.cores.max", "2")
@@ -48,6 +48,5 @@ class QueryESTest {
     println(pid + "!!!!!!!!!!!!!!!!!!!!!")
     spark.close();
   }
-
 
 }

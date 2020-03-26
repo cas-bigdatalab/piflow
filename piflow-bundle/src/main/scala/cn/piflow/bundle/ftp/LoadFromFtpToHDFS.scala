@@ -15,10 +15,11 @@ import org.apache.log4j.Logger
 import scala.collection.mutable.ArrayBuffer
 
 class LoadFromFtpToHDFS extends ConfigurableStop{
+
   override val authorEmail: String = "yangqidong@cnic.cn"
-  override val description: String = "Download files or folders to HDFS"
-  override val inportList: List[String] = List(Port.NonePort.toString)
-  override val outportList: List[String] = List(Port.NonePort.toString)
+  override val description: String = "Upload files or folders to HDFS"
+  override val inportList: List[String] = List(Port.DefaultPort)
+  override val outportList: List[String] = List(Port.DefaultPort)
 
   var ftp_url:String =_
   var port:String=_
@@ -50,7 +51,7 @@ class LoadFromFtpToHDFS extends ConfigurableStop{
       }catch {
         case e : Exception => {
           isConnect = false
-          log.warn("Retry the connection")
+          log.warn("Retry connection")
           Thread.sleep(1000*60*3)
         }
       }
@@ -158,7 +159,7 @@ class LoadFromFtpToHDFS extends ConfigurableStop{
       try{
         ftp.disconnect()
       }catch {
-        case e :Exception => log.warn("Failed to disconnect FTP server")
+        case e :Exception => log.warn("Failed to disconnect the ftp server")
       }
       fileArr.foreach(eachFile => {
         val fileName: String = eachFile.getName
@@ -215,7 +216,7 @@ class LoadFromFtpToHDFS extends ConfigurableStop{
     }else if(isFile.equals("false") || isFile.equals("FALSE")){
       downFileDir(ftpFile,HDFSPath)
     }else{
-      throw new Exception("Please specify whether it is a file or directory.")
+      throw new Exception("Please specify a file or directory.")
     }
 
     if(errorFile.size > 0){
@@ -239,27 +240,80 @@ class LoadFromFtpToHDFS extends ConfigurableStop{
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
-    val url_str = new PropertyDescriptor().name("url_str").displayName("URL").description("IP of FTP server, such as 128.136.0.1 or ftp.ei.addfc.gak").required(true)
-    val port = new PropertyDescriptor().name("port").displayName("PORT").description("Port of FTP server").required(false)
-    val username = new PropertyDescriptor().name("username").displayName("USER_NAME").description("").required(false)
-    val password = new PropertyDescriptor().name("password").displayName("PASSWORD").description("").required(false)
-    val ftpFile = new PropertyDescriptor().name("ftpFile").displayName("FTP_File").description("The path of the file to the FTP server, such as /test/Ab/ or /test/Ab/test.txt").required(true)
-    val HDFSUrl = new PropertyDescriptor().name("HDFSUrl").displayName("HDFSUrl").description("The URL of the HDFS file system, such as hdfs://10.0.88.70:9000").required(true)
-    val HDFSPath = new PropertyDescriptor().name("HDFSPath").displayName("HDFSPath").description("The save path of the HDFS file system, such as /test/Ab/").required(true)
-    val isFile = new PropertyDescriptor().name("isFile").displayName("isFile").description("Whether the path is a file or not, if true is filled in, only a single file specified by the path is downloaded. If false is filled in, all files under the folder are downloaded recursively.").required(true)
-    val filterByName = new PropertyDescriptor().name("filterByName").displayName("filterByName").description("If you choose to download the entire directory, you can use this parameter to filter the files you need to download. " +
-      "What you need to fill in here is standard Java regular expressions. For example, you need to download all files in the /A/ directory that end in .gz " +
-      "You can fill in .*.gz here. If there are multiple screening conditions, need to use ; segmentation.").required(false)
-
-    descriptor = filterByName :: descriptor
-    descriptor = isFile :: descriptor
+    val url_str = new PropertyDescriptor()
+      .name("url_str")
+      .displayName("URL")
+      .description("IP of FTP server")
+      .required(true)
+      .example("128.136.0.1 or ftp.ei.addfc.gak")
     descriptor = url_str :: descriptor
+
+    val port = new PropertyDescriptor()
+      .name("port")
+      .displayName("Port")
+      .description("Port of FTP server")
+      .required(false)
+      .example("")
     descriptor = port :: descriptor
+
+    val username = new PropertyDescriptor()
+      .name("username")
+      .displayName("User_Name")
+      .description("")
+      .required(false)
+      .example("root")
     descriptor = username :: descriptor
+
+    val password = new PropertyDescriptor()
+      .name("password")
+      .displayName("Password")
+      .description("")
+      .required(false)
+      .example("123456")
     descriptor = password :: descriptor
+
+    val ftpFile = new PropertyDescriptor()
+      .name("ftpFile")
+      .displayName("FTP_File")
+      .description("The path of the file to the FTP server")
+      .required(true)
+      .example("/test/Ab/ or /test/Ab/test.txt")
     descriptor = ftpFile :: descriptor
+
+    val HDFSUrl = new PropertyDescriptor()
+      .name("hdfsUrl")
+      .displayName("HdfsUrl")
+      .description("The URL of the HDFS file system")
+      .required(true)
+      .example("hdfs://10.0.88.70:9000")
     descriptor = HDFSUrl :: descriptor
+
+    val HDFSPath = new PropertyDescriptor()
+      .name("HDFSPath")
+      .displayName("HdfsPath")
+      .description("The save path of the HDFS file system")
+      .required(true)
+      .example("test/Ab/")
     descriptor = HDFSPath :: descriptor
+
+    val isFile = new PropertyDescriptor()
+      .name("isFile")
+      .displayName("IsFile")
+      .description("Whether the path is a file or not, if true,only a single file specified by the path is downloaded. If false,recursively download all files in the folder")
+      .required(true)
+      .example("true")
+    descriptor = isFile :: descriptor
+
+    val filterByName = new PropertyDescriptor()
+      .name("filterByName")
+      .displayName("FilterByName")
+      .description("If you choose to download the entire directory, you can use this parameter to filter the files that need to be downloaded. " +
+      "Here you need to fill in a standard Java regular expressions. For example, you need to download all files ending in the /A/ directory," +
+      "you can fill in .*.gz here. If there are multiple filters,they need to be separated by commas")
+      .required(false)
+      .example(".*. gz")
+    descriptor = filterByName :: descriptor
+
     descriptor
   }
 
@@ -268,7 +322,7 @@ class LoadFromFtpToHDFS extends ConfigurableStop{
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroup.FtpGroup.toString)
+    List(StopGroup.FtpGroup)
   }
 
   override def initialize(ctx: ProcessContext): Unit = {

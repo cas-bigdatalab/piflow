@@ -1,4 +1,4 @@
-package cn.piflow.bundle.es
+package cn.piflow.bundle.ftp
 
 import cn.piflow.Runner
 import cn.piflow.conf.bean.FlowBean
@@ -9,13 +9,13 @@ import org.junit.Test
 
 import scala.util.parsing.json.JSON
 
-class FecthESTest {
+class UploadToFtp {
 
   @Test
-  def testEs(): Unit ={
+  def testFlow(): Unit ={
 
     //parse flow json
-    val file = "src/main/resources/flow/es/FetchEs.json"
+    val file = "src/main/resources/flow/ftp/UploadToFtp.json"
     val flowJsonStr = FileUtil.fileReader(file)
     val map = OptionUtil.getAny(JSON.parseFull(flowJsonStr)).asInstanceOf[Map[String, Any]]
     println(map)

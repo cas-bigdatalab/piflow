@@ -63,7 +63,7 @@ class PutHiveMode extends ConfigurableStop {
       .displayName("SaveMode")
       .description("The save mode for table")
       .allowableValues(saveModeOption)
-      .defaultValue("ignore")
+      .defaultValue("append")
       .required(true)
       .example("append")
     descriptor = saveMode :: descriptor

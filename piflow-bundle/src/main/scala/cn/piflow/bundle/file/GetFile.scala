@@ -10,7 +10,7 @@ import org.apache.spark.sql.SparkSession
 
 class GetFile extends ConfigurableStop{
   override val authorEmail: String = "ygang@cnic.cn"
-  override val description: String = "Upload local files to hdfs"
+  override val description: String = "Download fields from hdfs to local"
   val inportList: List[String] = List(Port.DefaultPort)
   val outportList: List[String] = List(Port.DefaultPort)
 
@@ -28,7 +28,6 @@ class GetFile extends ConfigurableStop{
     val executor: RemoteShellExecutor = new RemoteShellExecutor(IP,User,PassWord)
 
     executor.exec(s"hdfs dfs -get ${hdfsFile}  ${localPath}")
-
 
   }
 
