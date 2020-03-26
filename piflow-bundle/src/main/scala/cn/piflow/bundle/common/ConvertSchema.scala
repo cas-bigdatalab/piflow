@@ -10,8 +10,8 @@ class ConvertSchema extends ConfigurableStop {
 
   val authorEmail: String = "yangqidong@cnic.cn"
   val description: String = "Change field name"
-  val inportList: List[String] = List(Port.DefaultPort.toString)
-  val outportList: List[String] = List(Port.DefaultPort.toString)
+  val inportList: List[String] = List(Port.DefaultPort)
+  val outportList: List[String] = List(Port.DefaultPort)
 
   var schema:String = _
   def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
@@ -40,7 +40,7 @@ class ConvertSchema extends ConfigurableStop {
     var descriptor : List[PropertyDescriptor] = List()
     val inports = new PropertyDescriptor().name("schema")
       .displayName("Schema")
-      .description("Change field name, you can write oldField1 -> newField1, Multiple separated by commas, Such as 'oldField1->newField1, oldField2->newField2' ")
+      .description("Change column names,multiple column names are separated by commas")
       .defaultValue("")
       .required(true)
       .example("id->uuid")
@@ -53,7 +53,7 @@ class ConvertSchema extends ConfigurableStop {
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroup.CommonGroup.toString)
+    List(StopGroup.CommonGroup)
   }
 
 }

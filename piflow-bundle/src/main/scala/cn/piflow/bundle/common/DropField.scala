@@ -9,16 +9,16 @@ import cn.piflow.conf.util.{ImageUtil, MapUtil}
 class DropField extends ConfigurableStop {
 
   val authorEmail: String = "ygang@cnic.cn"
-  val description: String = "Delete fields in schema"
-  val inportList: List[String] = List(Port.DefaultPort.toString)
-  val outportList: List[String] = List(Port.DefaultPort.toString)
+  val description: String = "Delete one or more columns"
+  val inportList: List[String] = List(Port.DefaultPort)
+  val outportList: List[String] = List(Port.DefaultPort)
 
-  var fields:String = _
+  var columnNames:String = _
 
   def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     var df = in.read()
 
-    val field = fields.split(",")
+    val field = columnNames.split(",")
     for( x <- 0 until field.size){
       df = df.drop(field(x))
     }
@@ -31,13 +31,15 @@ class DropField extends ConfigurableStop {
   }
 
   def setProperties(map : Map[String, Any]): Unit = {
-    fields = MapUtil.get(map,"fields").asInstanceOf[String]
+    columnNames = MapUtil.get(map,"columnNames").asInstanceOf[String]
   }
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
-    val inports = new PropertyDescriptor().name("fields").displayName("Fields")
-      .description("Delete fields in schema,multiple are separated by commas")
+    val inports = new PropertyDescriptor()
+      .name("columnNames")
+      .displayName("ColumnNames")
+      .description("Fill in the columns you want to delete,multiple columns names separated by commas")
       .defaultValue("")
       .required(true)
       .example("id")
@@ -46,11 +48,11 @@ class DropField extends ConfigurableStop {
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("icon/common/DropField.png")
+    ImageUtil.getImage("icon/common/DropColumnNames.png")
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroup.CommonGroup.toString)
+    List(StopGroup.CommonGroup)
   }
 
 }

@@ -12,8 +12,8 @@ class CsvParser extends ConfigurableStop{
 
   val authorEmail: String = "xjzhu@cnic.cn"
   val description: String = "Parse csv file"
-  val inportList: List[String] = List(Port.NonePort.toString)
-  val outportList: List[String] = List(Port.DefaultPort.toString)
+  val inportList: List[String] = List(Port.DefaultPort)
+  val outportList: List[String] = List(Port.DefaultPort)
 
   var csvPath: String = _
   var header: Boolean = _
@@ -72,7 +72,7 @@ class CsvParser extends ConfigurableStop{
       .description("The path of csv file")
       .defaultValue("")
       .required(true)
-      .example("")
+      .example("hdfs://192.168.3.138:8020/test/")
     descriptor = csvPath :: descriptor
 
     val header = new PropertyDescriptor()
@@ -82,7 +82,7 @@ class CsvParser extends ConfigurableStop{
       .defaultValue("false")
       .allowableValues(Set("true","false"))
       .required(true)
-      .example("")
+      .example("true")
     descriptor = header :: descriptor
 
     val delimiter = new PropertyDescriptor()
@@ -91,7 +91,7 @@ class CsvParser extends ConfigurableStop{
       .description("The delimiter of csv file")
       .defaultValue("")
       .required(true)
-      .example("")
+      .example(",")
     descriptor = delimiter :: descriptor
 
     val schema = new PropertyDescriptor()
@@ -100,7 +100,7 @@ class CsvParser extends ConfigurableStop{
       .description("The schema of csv file")
       .defaultValue("")
       .required(false)
-      .example("")
+      .example("id,name,gender,age")
     descriptor = schema :: descriptor
 
     descriptor

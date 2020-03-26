@@ -10,9 +10,9 @@ import org.apache.spark.sql.types.StructField
 
 class TitleClean extends ConfigurableStop{
   val authorEmail: String = "06whuxx@163.com"
-  val description: String = "Clean title format data."
-  val inportList: List[String] = List(Port.DefaultPort.toString)
-  val outportList: List[String] = List(Port.DefaultPort.toString)
+  val description: String = "Cleaning title data"
+  val inportList: List[String] = List(Port.DefaultPort)
+  val outportList: List[String] = List(Port.DefaultPort)
 
   var columnName:String=_
 
@@ -65,15 +65,16 @@ class TitleClean extends ConfigurableStop{
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
+
     val columnName = new PropertyDescriptor()
       .name("columnName")
       .displayName("Column_Name")
-      .description("The columnName you want to clean,Multiple are separated by commas")
+      .description("Column names are what you want to clean,multiple column names are separated by commas")
       .defaultValue("")
       .required(true)
       .example("title")
-
     descriptor = columnName :: descriptor
+
     descriptor
   }
 

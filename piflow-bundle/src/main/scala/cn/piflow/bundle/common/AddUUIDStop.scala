@@ -9,14 +9,11 @@ import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
 class AddUUIDStop extends ConfigurableStop{
+
   override val authorEmail: String = "ygang@cnic.cn"
-
-
-
-  override val description: String = "Add  UUID column"
-  override val inportList: List[String] =List(Port.DefaultPort.toString)
-  override val outportList: List[String] = List(Port.DefaultPort.toString)
-
+  override val description: String = "Add UUID column"
+  override val inportList: List[String] =List(Port.DefaultPort)
+  override val outportList: List[String] = List(Port.DefaultPort)
 
   var column:String=_
 
@@ -24,11 +21,10 @@ class AddUUIDStop extends ConfigurableStop{
     val spark =  pec.get[SparkSession]()
     var df = in.read()
 
-
-    spark.udf.register("generaterUUID",()=>UUID.randomUUID().toString.replace("-",""))
+    spark.udf.register("generateUUID",()=>UUID.randomUUID().toString.replace("-",""))
 
     df.createOrReplaceTempView("temp")
-    df = spark.sql(s"select generaterUUID() as ${column},* from temp")
+    df = spark.sql(s"select generateUUID() as ${column},* from temp")
 
     out.write(df)
 
@@ -44,9 +40,10 @@ class AddUUIDStop extends ConfigurableStop{
     var descriptor : List[PropertyDescriptor] = List()
 
 
-    val column = new PropertyDescriptor().name("column")
+    val column = new PropertyDescriptor()
+      .name("column")
       .displayName("Column")
-      .description("The column is you want to add uuid column's name,")
+      .description("The column is the name of the uuid you want to add")
       .defaultValue("uuid")
       .required(true)
       .example("uuid")

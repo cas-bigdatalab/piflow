@@ -15,7 +15,7 @@
         "name":"SelectField",
         "bundle":"cn.piflow.bundle.common.SelectField",
         "properties":{
-          "fields":"id"
+          "columnNames":"id"
         }
       }
 

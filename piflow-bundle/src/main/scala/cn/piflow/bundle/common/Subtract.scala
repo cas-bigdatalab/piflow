@@ -10,9 +10,9 @@ import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 
 class Subtract extends ConfigurableStop{
   override val authorEmail: String = "yangqidong@cnic.cn"
-  override val description: String = "Delete the data existing in the right table from the left table"
-  override val inportList: List[String] =List(Port.LeftPort.toString,Port.RightPort.toString)
-  override val outportList: List[String] = List(Port.DefaultPort.toString)
+  override val description: String = "Delete the existing data in the right table from the left table"
+  override val inportList: List[String] =List(Port.LeftPort,Port.RightPort)
+  override val outportList: List[String] = List(Port.DefaultPort)
 
   override def setProperties(map: Map[String, Any]): Unit = {
   }
@@ -28,7 +28,7 @@ class Subtract extends ConfigurableStop{
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroup.CommonGroup.toString)
+    List(StopGroup.CommonGroup)
   }
 
   override def initialize(ctx: ProcessContext): Unit = {

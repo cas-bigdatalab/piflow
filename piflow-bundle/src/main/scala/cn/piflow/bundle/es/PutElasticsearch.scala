@@ -5,34 +5,40 @@ import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import cn.piflow.conf.{ConfigurableStop, Port, StopGroup}
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.apache.spark.sql.SparkSession
+import org.elasticsearch.spark.sql.EsSparkSQL
 
-class QueryEs extends ConfigurableStop {
+class PutElasticsearch extends ConfigurableStop {
 
   val authorEmail: String = "ygang@cnic.cn"
-  val description: String = "Query data from Elasticsearch"
-  val inportList: List[String] = List(Port.NonePort.toString)
-  val outportList: List[String] = List(Port.DefaultPort.toString)
+  val description: String = "Put data into Elasticsearch"
+  val inportList: List[String] = List(Port.DefaultPort)
+  val outportList: List[String] = List(Port.DefaultPort)
 
   var es_nodes : String =  _
   var es_port  : String  =  _
   var es_index : String =  _
   var es_type  : String  =  _
-  var jsonDSL  : String  =  _
+  var configuration_item:String = _
 
   def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     val spark = pec.get[SparkSession]()
-    val ssc = spark.sqlContext
+    val inDf = in.read()
 
-    val options = Map("es.index.auto.create"-> "true",
-      "es.nodes.wan.only"->"true",
-      "es.query" -> jsonDSL,
-      "es.nodes"->es_nodes,"es.port"->es_port)
+    val sc = spark.sparkContext
+    var options = Map("es.index.auto.create"-> "true",
+      "es.nodes"->es_nodes,
+      "es.port"->es_port)
 
-    val outDf = ssc.read.format("org.elasticsearch.spark.sql")
-      .options(options).load(s"${es_index}/${es_type}")
+    if(configuration_item.length > 0){
+      configuration_item.split(",").foreach(each =>{
+        options += (each.split("->")(0) -> each.split("->")(1))
+      })
+    }
 
-    out.write(outDf)
+    EsSparkSQL.saveToEs(inDf,s"${es_index}/${es_type}",options)
+
   }
+
 
   def initialize(ctx: ProcessContext): Unit = {
 
@@ -43,8 +49,7 @@ class QueryEs extends ConfigurableStop {
     es_port=MapUtil.get(map,key="es_port").asInstanceOf[String]
     es_index=MapUtil.get(map,key="es_index").asInstanceOf[String]
     es_type=MapUtil.get(map,key="es_type").asInstanceOf[String]
-    jsonDSL=MapUtil.get(map,key="jsonDSL").asInstanceOf[String]
-
+    configuration_item=MapUtil.get(map,key="configuration_item").asInstanceOf[String]
   }
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
@@ -55,16 +60,16 @@ class QueryEs extends ConfigurableStop {
       .description("Node of Elasticsearch")
       .defaultValue("")
       .required(true)
-      .example("")
+      .example("10.0.86.239")
     descriptor = es_nodes :: descriptor
 
     val es_port = new PropertyDescriptor()
+      .defaultValue("9200")
       .name("es_port")
       .displayName("Es_Port")
       .description("Port of Elasticsearch")
-      .defaultValue("9200")
       .required(true)
-      .example("")
+      .example("9200")
     descriptor = es_port :: descriptor
 
     val es_index = new PropertyDescriptor()
@@ -73,7 +78,7 @@ class QueryEs extends ConfigurableStop {
       .description("Index of Elasticsearch")
       .defaultValue("")
       .required(true)
-      .example("")
+      .example("spark")
     descriptor = es_index :: descriptor
 
     val es_type = new PropertyDescriptor()
@@ -82,26 +87,27 @@ class QueryEs extends ConfigurableStop {
       .description("Type of Elasticsearch")
       .defaultValue("")
       .required(true)
-      .example("")
+      .example("testStudent1")
     descriptor = es_type :: descriptor
 
-    val jsonDSL = new PropertyDescriptor()
-      .name("jsonDSL")
-      .displayName("JsonDSL")
-      .description("DSL of Elasticsearch")
+    val configuration_item = new PropertyDescriptor()
+      .name("configuration_item")
+      .displayName("Configuration_Item")
+      .description("Configuration Item of Es.such as:es.mapping.parent->id_1,es.mapping.parent->id_2")
       .defaultValue("")
-      .required(true)
-      .example("GET _search \n {\\\"query\\\":{\\\"match_all:{}\\\"}}")
-    descriptor = jsonDSL :: descriptor
+      .required(false)
+      .example("es.mapping.parent->id_1")
+    descriptor = configuration_item :: descriptor
 
     descriptor
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("icon/elasticsearch/QueryEs.png")
+    ImageUtil.getImage("icon/elasticsearch/PutEs.png")
   }
 
   override def getGroup(): List[String] = {
     List(StopGroup.ESGroup)
   }
+
 }

@@ -6,15 +6,13 @@ import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import cn.piflow.conf._
 import org.apache.spark.sql.SparkSession
 
-
-
 class RegexTextProcess extends ConfigurableStop{
     val authorEmail: String = "06whuxx@163.com"
-    val description: String = "Use regex to replace text"
-    val inportList: List[String] = List(Port.DefaultPort.toString)
-    val outportList: List[String] = List(Port.DefaultPort.toString)
+    val description: String = "Replace values in a column with regex"
+    val inportList: List[String] = List(Port.DefaultPort)
+    val outportList: List[String] = List(Port.DefaultPort)
 
-  var regex:String =_
+    var regex:String =_
     var columnName:String=_
     var replaceStr:String=_
 
@@ -28,10 +26,8 @@ class RegexTextProcess extends ConfigurableStop{
       sqlContext.udf.register("regexPro",(str:String)=>str.replaceAll(regexText,replaceText))
       val sqlText:String="select *,regexPro("+columnName+") as "+columnName+"_new from thesis"
       val dfNew=sqlContext.sql(sqlText)
-      //dfNew.show()
       out.write(dfNew)
     }
-
 
   def initialize(ctx: ProcessContext): Unit = {
 
@@ -47,31 +43,31 @@ class RegexTextProcess extends ConfigurableStop{
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
-    val regex = new PropertyDescriptor().name("regex")
+    val regex = new PropertyDescriptor()
+      .name("regex")
       .displayName("Regex")
       .description("regex")
       .defaultValue("")
       .required(true)
-      .example("")
+      .example("0001")
+    descriptor = regex :: descriptor
 
     val columnName = new PropertyDescriptor()
       .name("columnName")
       .displayName("ColumnName")
-      .description("Field name of schema")
+      .description("The columns you want to replace")
       .defaultValue("")
       .required(true)
-      .example("")
+      .example("id")
+    descriptor = columnName :: descriptor
 
     val replaceStr = new PropertyDescriptor()
       .name("replaceStr")
       .displayName("ReplaceStr")
-      .description("Replaced string")
+      .description("Value after replacement")
       .defaultValue("")
       .required(true)
-        .example("")
-
-    descriptor = regex :: descriptor
-    descriptor = columnName :: descriptor
+      .example("1111")
     descriptor = replaceStr :: descriptor
     descriptor
   }
@@ -81,6 +77,6 @@ class RegexTextProcess extends ConfigurableStop{
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroup.FileGroup.toString)
+    List(StopGroup.FileGroup)
   }
 }

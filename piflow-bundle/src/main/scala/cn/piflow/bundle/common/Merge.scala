@@ -5,14 +5,12 @@ import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 
-import scala.beans.BeanProperty
-
 class Merge extends ConfigurableStop{
 
   val authorEmail: String = "xjzhu@cnic.cn"
   val description: String = "Merge data into one stop"
-  val inportList: List[String] = List(Port.AnyPort.toString)
-  val outportList: List[String] = List(Port.DefaultPort.toString)
+  val inportList: List[String] = List(Port.AnyPort)
+  val outportList: List[String] = List(Port.DefaultPort)
 
   var inports : List[String] = _
 
@@ -33,8 +31,8 @@ class Merge extends ConfigurableStop{
     var descriptor : List[PropertyDescriptor] = List()
     val inports = new PropertyDescriptor()
       .name("inports")
-      .displayName("inports")
-      .description("inports string, seperated by ,.")
+      .displayName("Inports")
+      .description("Inports string are separated by commas")
       .defaultValue("")
       .required(true)
     descriptor = inports :: descriptor
@@ -46,7 +44,7 @@ class Merge extends ConfigurableStop{
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroup.CommonGroup.toString)
+    List(StopGroup.CommonGroup)
   }
 
 }

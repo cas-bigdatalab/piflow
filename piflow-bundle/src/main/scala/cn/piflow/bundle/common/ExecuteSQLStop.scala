@@ -16,18 +16,18 @@ class ExecuteSQLStop extends ConfigurableStop{
 
   val authorEmail: String = "ygang@cnic.cn"
   val description: String = "Create temporary view table to execute sql"
-  val inportList: List[String] = List(Port.DefaultPort.toString)
-  val outportList: List[String] = List(Port.DefaultPort.toString)
+  val inportList: List[String] = List(Port.DefaultPort)
+  val outportList: List[String] = List(Port.DefaultPort)
 
   var sql: String = _
-  var tempViewName: String = _
+  var ViewName: String = _
 
 
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
 
     val spark = pec.get[SparkSession]()
     val inDF = in.read()
-    inDF.createOrReplaceTempView(tempViewName)
+    inDF.createOrReplaceTempView(ViewName)
 
     val frame: DataFrame = spark.sql(sql)
     out.write(frame)
@@ -36,7 +36,7 @@ class ExecuteSQLStop extends ConfigurableStop{
 
   override def setProperties(map: Map[String, Any]): Unit = {
     sql = MapUtil.get(map,"sql").asInstanceOf[String]
-    tempViewName = MapUtil.get(map,"tempViewName").asInstanceOf[String]
+    ViewName = MapUtil.get(map,"ViewName").asInstanceOf[String]
 
   }
   override def initialize(ctx: ProcessContext): Unit = {
@@ -49,18 +49,18 @@ class ExecuteSQLStop extends ConfigurableStop{
       .description("Sql string")
       .defaultValue("")
       .required(true)
-        .example("select * from temp")
+      .example("select * from temp")
     descriptor = sql :: descriptor
 
-    val tableName = new PropertyDescriptor()
-      .name("tempViewName")
-      .displayName("TempViewName")
-      .description(" Temporary view table")
+    val ViewName = new PropertyDescriptor()
+      .name("viewName")
+      .displayName("ViewName")
+      .description("Name of the temporary view table")
       .defaultValue("temp")
       .required(true)
       .example("temp")
 
-    descriptor = tableName :: descriptor
+    descriptor = ViewName :: descriptor
     descriptor
   }
 
@@ -69,7 +69,7 @@ class ExecuteSQLStop extends ConfigurableStop{
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroup.CommonGroup.toString)
+    List(StopGroup.CommonGroup)
   }
 
 

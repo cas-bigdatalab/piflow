@@ -15,7 +15,7 @@
         "name":"ConvertSchema",
         "bundle":"cn.piflow.bundle.common.DropField",
         "properties":{
-          "fields":"id"
+          "columnNames":"id"
         }
       }
 

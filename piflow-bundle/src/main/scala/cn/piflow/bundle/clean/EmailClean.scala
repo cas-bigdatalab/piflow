@@ -10,9 +10,9 @@ import org.apache.spark.sql.SparkSession
 class EmailClean extends ConfigurableStop{
 
   val authorEmail: String = "songdongze@cnic.cn"
-  val description: String = "Clean email format data."
-  val inportList: List[String] = List(Port.DefaultPort.toString)
-  val outportList: List[String] = List(Port.DefaultPort.toString)
+  val description: String = "Cleaning data in email format"
+  val inportList: List[String] = List(Port.DefaultPort)
+  val outportList: List[String] = List(Port.DefaultPort)
 
   var columnName:String= _
 
@@ -54,7 +54,6 @@ class EmailClean extends ConfigurableStop{
     out.write(dfNew1)
   }
 
-
   def initialize(ctx: ProcessContext): Unit = {
 
   }
@@ -69,8 +68,8 @@ class EmailClean extends ConfigurableStop{
     var descriptor : List[PropertyDescriptor] = List()
     val columnName = new PropertyDescriptor()
       .name("columnName")
-      .displayName("Column_Name")
-      .description("The columnName you want to clean,Multiple are separated by commas")
+      .displayName("Column Name")
+      .description("Column names are what you want to clean,multiple column names are separated by commas")
       .defaultValue("")
       .required(true)
       .example("email")
