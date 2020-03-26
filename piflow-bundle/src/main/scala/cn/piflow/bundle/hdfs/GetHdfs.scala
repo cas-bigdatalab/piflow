@@ -10,8 +10,8 @@ import org.apache.spark.sql.SparkSession
 class GetHdfs extends ConfigurableStop{
   override val authorEmail: String = "ygang@cnic.com"
   override val description: String = "Get data from hdfs"
-  override val inportList: List[String] = List(Port.DefaultPort.toString)
-  override val outportList: List[String] = List(Port.DefaultPort.toString)
+  override val inportList: List[String] = List(Port.DefaultPort)
+  override val outportList: List[String] = List(Port.DefaultPort)
 
   var hdfsUrl : String=_
   var hdfsPath :String= _
@@ -26,24 +26,20 @@ class GetHdfs extends ConfigurableStop{
 
       if (types == "json") {
         val rdd = spark.read.json(path)
-        //rdd.show()
         rdd.schema.printTreeString()
         out.write(rdd)
 
       } else if (types == "csv") {
-
         val rdd = spark.read.csv(path)
-        //rdd.show()
         rdd.schema.printTreeString()
         out.write(rdd)
 
       }else if (types == "parquet") {
         val rdd = spark.read.csv(path)
-        //rdd.show()
         rdd.schema.printTreeString()
         out.write(rdd)
-      }
-      else {
+
+      }else {
         val rdd = sc.textFile(path)
         val outDf = rdd.toDF()
         outDf.schema.printTreeString()
@@ -79,13 +75,12 @@ class GetHdfs extends ConfigurableStop{
 
     val types = new PropertyDescriptor().
       name("types")
-      .displayName("types")
+      .displayName("Types")
       .description("The type of file you want to load")
       .defaultValue("csv")
       .allowableValues(Set("txt","parquet","csv","json"))
       .required(true)
         .example("csv")
-
     descriptor = types :: descriptor
 
     descriptor
@@ -96,7 +91,7 @@ class GetHdfs extends ConfigurableStop{
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroup.HdfsGroup.toString)
+    List(StopGroup.HdfsGroup)
   }
 
   override def initialize(ctx: ProcessContext): Unit = {

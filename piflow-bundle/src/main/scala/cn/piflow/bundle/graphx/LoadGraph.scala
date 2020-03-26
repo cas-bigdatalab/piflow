@@ -15,7 +15,6 @@ class LoadGraph extends ConfigurableStop {
 
   var edgePort : String = "edges"
   var vertexPort : String = "vertex"
-
   val outportList: List[String] = List(edgePort,vertexPort)
 
 
@@ -26,13 +25,13 @@ class LoadGraph extends ConfigurableStop {
     val sc=spark.sparkContext
 
     import spark.sqlContext.implicits._
-    var graph=GraphLoader.edgeListFile(sc,dataPath,true).partitionBy(PartitionStrategy.RandomVertexCut)
-    //val df=Seq((graphx.edges.to,graphx.vertices)).toDF()
+    var graph=GraphLoader
+      .edgeListFile(sc,dataPath,true)
+      .partitionBy(PartitionStrategy.RandomVertexCut)
     //TODO:can not transfer EdgeRdd to Dataset
     out.write(edgePort,graph.edges.toDF())
     out.write(vertexPort,graph.vertices.toDF())
 
-    //df.show()
   }
 
   def initialize(ctx: ProcessContext): Unit = {
@@ -45,7 +44,13 @@ class LoadGraph extends ConfigurableStop {
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
-    val dataPath = new PropertyDescriptor().name("dataPath").displayName("DATA_PATH").defaultValue("").allowableValues(Set("")).required(true)
+    val dataPath = new PropertyDescriptor()
+      .name("dataPath")
+      .displayName("Data_Path")
+      .defaultValue("")
+      .allowableValues(Set(""))
+      .required(true)
+      .example("hdfs://192.168.3.138:8020/work/test/test.csv")
     descriptor = dataPath :: descriptor
     descriptor
   }

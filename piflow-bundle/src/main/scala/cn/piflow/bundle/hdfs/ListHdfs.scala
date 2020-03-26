@@ -15,15 +15,16 @@ import scala.collection.mutable.ArrayBuffer
 
 
 class ListHdfs extends ConfigurableStop{
-  override val authorEmail: String = "ygang@cnic.com"
 
+  override val authorEmail: String = "ygang@cnic.com"
+  override val description: String = "Retrieve a list of files from hdfs"
   override val inportList: List[String] = List(Port.DefaultPort.toString)
   override val outportList: List[String] = List(Port.DefaultPort.toString)
-  override val description: String = "Retrieve a list of files from hdfs"
 
   var hdfsPath :String= _
   var hdfsUrl :String= _
   var pathARR:ArrayBuffer[String]=ArrayBuffer()
+
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     val spark = pec.get[SparkSession]()
     val sc = spark.sparkContext
@@ -58,7 +59,6 @@ class ListHdfs extends ConfigurableStop{
     for (f <- statuses) {
       val fsPath = f.getPath().toString
       if (f.isDirectory) {
-//        pathARR += fsPath
         iterationFile(fsPath)
       } else{
         pathARR += f.getPath.toString
@@ -100,7 +100,7 @@ class ListHdfs extends ConfigurableStop{
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroup.HdfsGroup.toString)
+    List(StopGroup.HdfsGroup)
   }
 
   override def initialize(ctx: ProcessContext): Unit = {

@@ -11,8 +11,8 @@ import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 
 class FolderCsvParser extends ConfigurableStop{
   override val authorEmail: String = "yangqidong@cnic.cn"
-  val inportList: List[String] = List(Port.NonePort.toString)
-  val outportList: List[String] = List(Port.DefaultPort.toString)
+  val inportList: List[String] = List(Port.NonePort)
+  val outportList: List[String] = List(Port.DefaultPort)
   override val description: String = "Parse csv folder"
 
   var FolderPath:String=_

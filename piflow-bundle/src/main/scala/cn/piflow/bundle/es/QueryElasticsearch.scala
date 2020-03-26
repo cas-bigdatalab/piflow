@@ -10,7 +10,7 @@ class QueryElasticsearch extends ConfigurableStop {
 
   val authorEmail: String = "ygang@cnic.cn"
   val description: String = "Query data from Elasticsearch"
-  val inportList: List[String] = List(Port.NonePort)
+  val inportList: List[String] = List(Port.DefaultPort)
   val outportList: List[String] = List(Port.DefaultPort)
 
   var es_nodes : String =  _

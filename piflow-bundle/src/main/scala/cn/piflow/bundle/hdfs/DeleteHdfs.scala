@@ -12,15 +12,16 @@ import org.apache.hadoop.fs.Path
 
 
 class DeleteHdfs extends ConfigurableStop{
-  override val authorEmail: String = "ygang@cnic.com"
 
-  override val inportList: List[String] = List(Port.DefaultPort.toString)
-  override val outportList: List[String] = List(Port.DefaultPort.toString)
-  override val description: String = "Delete file or directory on hdfs"
+  override val authorEmail: String = "ygang@cnic.com"
+  override val inportList: List[String] = List(Port.DefaultPort)
+  override val outportList: List[String] = List(Port.DefaultPort)
+  override val description: String = "Delete files or directories on HDFS"
 
   var hdfsUrl :String= _
   var hdfsPath :String = _
   var isCustomize:String=_
+
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
 
     val spark = pec.get[SparkSession]()
@@ -89,14 +90,14 @@ class DeleteHdfs extends ConfigurableStop{
 
     val isCustomize = new PropertyDescriptor()
       .name("isCustomize")
-      .displayName("isCustomize")
-      .description("Whether to customize the compressed file path, if true, " +
-      "you must specify the path where the compressed file is located . " +
-      "If it is false, it will automatically find the file path data from the upstream port ")
+      .displayName("IsCustomize")
+      .description("Whether to customize the compressed file path, if true," +
+      "you must specify the path where the compressed file is located." +
+      "If false,automatically find the file path data from the upstream port")
       .defaultValue("true")
       .allowableValues(Set("true","false"))
       .required(true)
-        .example("true")
+      .example("true")
     descriptor = isCustomize :: descriptor
 
 
@@ -108,7 +109,7 @@ class DeleteHdfs extends ConfigurableStop{
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroup.HdfsGroup.toString)
+    List(StopGroup.HdfsGroup)
   }
 
   override def initialize(ctx: ProcessContext): Unit = {

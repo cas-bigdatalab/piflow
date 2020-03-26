@@ -21,7 +21,7 @@
           "header": "true",
           "delimiter":",",
           "partition":"1",
-          "saveMode": "ErrorIfExists"
+          "saveMode": "error"
         }
 
       }

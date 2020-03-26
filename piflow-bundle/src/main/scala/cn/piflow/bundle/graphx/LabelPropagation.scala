@@ -51,7 +51,13 @@ class LabelPropagation extends ConfigurableStop {
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
-    val maxIter = new PropertyDescriptor().name("maxIter").displayName("MAX_ITER").defaultValue("").allowableValues(Set("")).required(false)
+    val maxIter = new PropertyDescriptor()
+      .name("maxIter")
+      .displayName("MAX_ITER")
+      .defaultValue("")
+      .allowableValues(Set(""))
+      .required(false)
+      .example("20")
     descriptor = maxIter :: descriptor
     descriptor
   }
@@ -61,7 +67,7 @@ class LabelPropagation extends ConfigurableStop {
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroup.GraphX.toString)
+    List(StopGroup.GraphX)
   }
 
 }

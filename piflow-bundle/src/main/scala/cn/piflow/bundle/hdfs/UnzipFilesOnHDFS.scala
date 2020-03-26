@@ -19,8 +19,8 @@ import scala.collection.mutable.ArrayBuffer
 class UnzipFilesOnHDFS extends ConfigurableStop {
   val authorEmail: String = "yangqidong@cnic.cn"
   val description: String = "Unzip files on hdfs"
-  val inportList: List[String] = List(Port.DefaultPort.toString)
-  val outportList: List[String] = List(Port.DefaultPort.toString)
+  val inportList: List[String] = List(Port.DefaultPort)
+  val outportList: List[String] = List(Port.DefaultPort)
 
   var isCustomize:String=_
   var hdfsUrl:String=_
@@ -30,11 +30,9 @@ class UnzipFilesOnHDFS extends ConfigurableStop {
   var session: SparkSession = null
   var arr:ArrayBuffer[Row]=ArrayBuffer()
 
-
   def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
 
     session = pec.get[SparkSession]()
-
 
     if(isCustomize.equals("true")){
 
@@ -55,9 +53,7 @@ class UnzipFilesOnHDFS extends ConfigurableStop {
     val df: DataFrame = session.createDataFrame(rdd,schema)
 
     out.write(df)
-
   }
-
 
   def whatType(p:String): String = {
     var typeStr:String=""
@@ -195,7 +191,6 @@ class UnzipFilesOnHDFS extends ConfigurableStop {
       .description("URL address of HDFS")
       .required(true)
       .example("hdfs://192.168.3.138:8020")
-
 
 
     val savePath = new PropertyDescriptor()

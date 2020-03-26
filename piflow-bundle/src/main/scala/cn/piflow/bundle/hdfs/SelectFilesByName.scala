@@ -17,8 +17,8 @@ import scala.collection.mutable.ArrayBuffer
 class SelectFilesByName extends ConfigurableStop{
   override val authorEmail: String = "yangqidong@cnic.cn"
   override val description: String = "Select files by file name"
-  override val inportList: List[String] = List(Port.DefaultPort.toString)
-  override val outportList: List[String] = List(Port.DefaultPort.toString)
+  override val inportList: List[String] = List(Port.DefaultPort)
+  override val outportList: List[String] = List(Port.DefaultPort)
 
   var hdfsUrl:String=_
   var hdfsPath:String=_
@@ -88,7 +88,7 @@ class SelectFilesByName extends ConfigurableStop{
       .description("File path of HDFS")
       .required(true)
       .example("/work/")
-
+    descriptor = hdfsPath :: descriptor
 
     val hdfsUrl = new PropertyDescriptor()
       .name("hdfsUrl")
@@ -97,18 +97,17 @@ class SelectFilesByName extends ConfigurableStop{
       .description("URL address of HDFS")
       .required(true)
       .example("hdfs://192.168.3.138:8020")
+    descriptor = hdfsUrl :: descriptor
 
     val selectionConditions = new PropertyDescriptor()
       .name("selectionConditions")
       .displayName("SelectionConditions")
-      .description("To select conditions, you need to fill in regular expressions in java, such as '.*.csv'")
+      .description("To select a conditions,a regular expression needs to be populated in java")
       .defaultValue("")
       .required(true)
-        .example("")
-
-    descriptor = hdfsUrl :: descriptor
-    descriptor = hdfsPath :: descriptor
+      .example(".*.csv")
     descriptor = selectionConditions :: descriptor
+
     descriptor
   }
 

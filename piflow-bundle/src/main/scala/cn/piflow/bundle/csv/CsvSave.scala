@@ -30,7 +30,7 @@ class CsvSave extends ConfigurableStop{
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
 
-    val saveModeOption = Set("append","overwrite","ErrorIfExists","ignore")
+    val saveModeOption = Set("append","overwrite","error","ignore")
     var descriptor : List[PropertyDescriptor] = List()
 
     val csvSavePath = new PropertyDescriptor()

@@ -57,7 +57,7 @@ class SelectField extends ConfigurableStop {
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroup.CommonGroup.toString)
+    List(StopGroup.CommonGroup)
   }
 
 }

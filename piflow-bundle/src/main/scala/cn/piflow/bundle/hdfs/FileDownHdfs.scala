@@ -14,11 +14,11 @@ import org.apache.spark.sql.types.{StringType, StructField, StructType}
 import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 
 class FileDownHdfs extends ConfigurableStop{
+
   val authorEmail: String = "yangqidong@cnic.cn"
   val description: String = "Download the data from the url to HDFS"
-  val inportList: List[String] = List(Port.DefaultPort.toString)
-  val outportList: List[String] = List(Port.DefaultPort.toString)
-
+  val inportList: List[String] = List(Port.DefaultPort)
+  val outportList: List[String] = List(Port.DefaultPort)
 
   var hdfsUrl:String =_
   var hdfsPath:String =_
@@ -38,12 +38,10 @@ class FileDownHdfs extends ConfigurableStop{
 
     val configuration: Configuration = new Configuration()
 
-
     configuration.set("fs.defaultFS",hdfsUrl)
 
     val fs = FileSystem.get(configuration)
     val fdos: FSDataOutputStream = fs.create(new Path(hdfsUrl+hdfsPath))
-
 
     while(((byteRead=inputStream.read(buffer)) != -1) && (byteRead != -1)){
       fdos.write(buffer,0,byteRead)
@@ -63,7 +61,6 @@ class FileDownHdfs extends ConfigurableStop{
 
     out.write(df)
 
-
   }
 
   def initialize(ctx: ProcessContext): Unit = {
@@ -79,22 +76,22 @@ class FileDownHdfs extends ConfigurableStop{
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
 
-
     val url_str = new PropertyDescriptor()
       .name("url_str")
-      .displayName("Url_str")
+      .displayName("Url_Str")
       .description("Network address of file")
       .defaultValue("")
       .required(true)
+    descriptor = url_str :: descriptor
 
     val hdfsPath = new PropertyDescriptor()
-      .name("hdfsDirPath")
-      .displayName("HdfsDirPath")
+      .name("hdfsPath")
+      .displayName("HdfsPath")
       .defaultValue("")
-      .description("File dir path of HDFS")
+      .description("File path of HDFS")
       .required(true)
       .example("/work/test.gz")
-
+    descriptor = hdfsPath :: descriptor
 
     val hdfsUrl = new PropertyDescriptor()
       .name("hdfsUrl")
@@ -103,11 +100,8 @@ class FileDownHdfs extends ConfigurableStop{
       .description("URL address of HDFS")
       .required(true)
       .example("hdfs://192.168.3.138:8020")
-
-
-    descriptor = url_str :: descriptor
     descriptor = hdfsUrl :: descriptor
-    descriptor = hdfsPath :: descriptor
+
     descriptor
   }
 
@@ -116,7 +110,7 @@ class FileDownHdfs extends ConfigurableStop{
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroup.HdfsGroup.toString)
+    List(StopGroup.HdfsGroup)
   }
 
 

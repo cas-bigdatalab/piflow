@@ -15,11 +15,10 @@ import scala.collection.mutable.ArrayBuffer
 
 class SaveToHdfs extends ConfigurableStop {
 
-  override val description: String = "Put  data to hdfs "
   val authorEmail: String = "ygang@cnic.cn"
-
-  override val inportList: List[String] = List(Port.DefaultPort.toString)
-  override val outportList: List[String] = List(Port.DefaultPort.toString)
+  override val description: String = "Put data into hdfs "
+  override val inportList: List[String] = List(Port.DefaultPort)
+  override val outportList: List[String] = List(Port.DefaultPort)
 
   var hdfsDirPath :String= _
   var hdfsUrl :String= _
@@ -57,7 +56,6 @@ class SaveToHdfs extends ConfigurableStop {
       inDF.repartition(1).write.text(hdfsDir)
     }
 
-
     iterationFile(hdfsDir)
 
     val oldPath = new Path(oldFilePath)
@@ -79,7 +77,6 @@ class SaveToHdfs extends ConfigurableStop {
     val outDF: DataFrame = spark.createDataFrame(rowRDD,schema)
 
     out.write(outDF)
-
   }
 
   // recursively traverse the folder
@@ -96,7 +93,6 @@ class SaveToHdfs extends ConfigurableStop {
     for (f <- statuses) {
       val fsPath = f.getPath().toString
       if (f.isDirectory) {
-        //        pathARR += fsPath
         iterationFile(fsPath)
       } else{
         if (f.getPath.toString.contains("part")){
@@ -133,7 +129,7 @@ class SaveToHdfs extends ConfigurableStop {
       .description("File dir path of HDFS")
       .required(true)
       .example("/work/")
-
+    descriptor = hdfsDirPath :: descriptor
 
     val hdfsUrl = new PropertyDescriptor()
       .name("hdfsUrl")
@@ -142,46 +138,43 @@ class SaveToHdfs extends ConfigurableStop {
       .description("URL address of HDFS")
       .required(true)
       .example("hdfs://192.168.3.138:8020")
-
+    descriptor = hdfsUrl :: descriptor
 
     val fileName = new PropertyDescriptor()
       .name("fileName")
-      .displayName("fileName")
+      .displayName("FileName")
       .description("File name")
       .defaultValue("")
       .required(true)
       .example("test.csv")
+    descriptor = fileName :: descriptor
 
     val types = new PropertyDescriptor()
       .name("types")
       .displayName("json,csv,text")
-      .description("What format do you want to write : json,csv,parquet")
+      .description("The format you want to write is json,csv,parquet")
       .defaultValue("csv")
       .allowableValues(Set("json","csv","text"))
       .required(true)
       .example("csv")
+    descriptor = types :: descriptor
 
     val delimiter = new PropertyDescriptor()
       .name("delimiter")
       .displayName("delimiter")
-      .description("The delimiter of csv file,types is csv ,please set it ")
+      .description("Please set the separator for the type of csv file")
       .defaultValue(",")
       .required(true)
+      .example(",")
+    descriptor = delimiter :: descriptor
 
-    //header
     val header = new PropertyDescriptor()
       .name("header")
       .displayName("header")
-      .description("Whether the csv file have header or not")
+      .description("Does the csv file have a header")
       .defaultValue("true")
       .required(true)
-
     descriptor = header :: descriptor
-    descriptor = fileName :: descriptor
-    descriptor = delimiter :: descriptor
-    descriptor = hdfsDirPath :: descriptor
-    descriptor = hdfsUrl :: descriptor
-    descriptor = types :: descriptor
     descriptor
   }
 
@@ -190,7 +183,7 @@ class SaveToHdfs extends ConfigurableStop {
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroup.HdfsGroup.toString)
+    List(StopGroup.HdfsGroup)
   }
 
 }

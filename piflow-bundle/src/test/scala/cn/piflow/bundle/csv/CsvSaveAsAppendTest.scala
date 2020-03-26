@@ -3,6 +3,7 @@ package cn.piflow.bundle.csv
 import cn.piflow.bundle.json.JsonSave
 import cn.piflow.conf.bean.FlowBean
 import cn.piflow.conf.util.{FileUtil, OptionUtil}
+import cn.piflow.util.PropertyUtil
 import cn.piflow.{FlowImpl, Path, Runner}
 import org.apache.spark.sql.SparkSession
 import org.h2.tools.Server
@@ -33,7 +34,7 @@ class CsvSaveAsAppendTest {
       .config("spark.driver.memory", "1g")
       .config("spark.executor.memory", "2g")
       .config("spark.cores.max", "2")
-      .config("hive.metastore.uris", "thrift://192.168.3.140:9083")
+      .config("hive.metastore.uris",PropertyUtil.getPropertyValue("hive.metastore.uris"))
       .enableHiveSupport()
       .getOrCreate()
 

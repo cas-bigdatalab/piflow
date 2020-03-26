@@ -50,7 +50,8 @@ class GetFile extends ConfigurableStop{
       .description("Server IP where the local file is located")
       .defaultValue("")
       .required(true)
-      .description("192.168.3.139")
+      .example("192.168.3.139")
+    descriptor = IP :: descriptor
 
     val User = new PropertyDescriptor()
       .name("User")
@@ -59,6 +60,7 @@ class GetFile extends ConfigurableStop{
       .defaultValue("root")
       .required(true)
       .example("root")
+    descriptor = User :: descriptor
 
     val PassWord = new PropertyDescriptor()
       .name("PassWord")
@@ -67,7 +69,7 @@ class GetFile extends ConfigurableStop{
       .defaultValue("")
       .required(true)
       .example("123456")
-
+    descriptor = PassWord :: descriptor
 
     val hdfsFile = new PropertyDescriptor()
       .name("hdfsFile")
@@ -75,23 +77,18 @@ class GetFile extends ConfigurableStop{
       .description("path to file on hdfs")
       .required(true)
       .example("/work/test.csv")
-
+    descriptor = hdfsFile :: descriptor
 
     val localPath = new PropertyDescriptor()
       .name("localPath")
-      .displayName("localPath")
+      .displayName("LocalPath")
       .description("Local folder")
       .defaultValue("")
       .required(true)
       .example("/opt/")
-
-
-
-    descriptor = IP :: descriptor
-    descriptor = User :: descriptor
-    descriptor = PassWord :: descriptor
     descriptor = localPath :: descriptor
-    descriptor = hdfsFile :: descriptor
+
+
     descriptor
   }
 
