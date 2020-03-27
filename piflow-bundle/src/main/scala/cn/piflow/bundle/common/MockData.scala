@@ -65,8 +65,10 @@ class MockData extends ConfigurableStop{
   override def initialize(ctx: ProcessContext): Unit = {}
 
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
-    val field = this.schema.split(",")
+    val spark = pec.get[SparkSession]()
+    import spark.implicits._
 
+    val field = this.schema.split(",")
     val structFieldArray : Array[StructField] = new Array[StructField](field.size)
     for(i <- 0 to field.size - 1){
       val columnInfo = field(i).split(":")
@@ -86,17 +88,11 @@ class MockData extends ConfigurableStop{
         //case "Date"=>structFieldArray(i) = new StructField(column, DateType, nullable = true)
         //case "Timestamp"=>structFieldArray(i) = new StructField(column, TimestampType, nullable = true)
       }
-
     }
     val schemaStructType = StructType(structFieldArray)
-
-    val spark = pec.get[SparkSession]()
-    import spark.implicits._
     val rnd : Random = new Random()
-    val i = randomJson(rnd,schemaStructType)
     val df = spark.read.schema(schemaStructType).json((0 to count).map{ _ => compact(randomJson(rnd,schemaStructType))}.toDS())
     out.write(df)
-
   }
 
   private def randomJson( rnd: Random, dataType : DataType): JValue ={
