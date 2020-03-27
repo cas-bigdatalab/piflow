@@ -7,12 +7,12 @@ import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import org.apache.spark.sql.SparkSession
 
 
-class JdbcRead extends ConfigurableStop  {
+class MysqlRead extends ConfigurableStop  {
 
   val authorEmail: String = "xjzhu@cnic.cn"
-  val description: String = "Read data from jdbc database"
-  val inportList: List[String] = List(Port.NonePort.toString)
-  val outportList: List[String] = List(Port.DefaultPort.toString)
+  val description: String = "Read data from mysql database with jdbc"
+  val inportList: List[String] = List(Port.NonePort)
+  val outportList: List[String] = List(Port.DefaultPort)
 
   var url:String = _
   var user:String = _
@@ -51,7 +51,7 @@ class JdbcRead extends ConfigurableStop  {
     val url=new PropertyDescriptor()
       .name("url")
       .displayName("Url")
-      .description("The Url of database")
+      .description("The Url of mysql database")
       .defaultValue("")
       .required(true)
       .example("jdbc:mysql://127.0.0.1/dbname")
@@ -60,7 +60,7 @@ class JdbcRead extends ConfigurableStop  {
     val user=new PropertyDescriptor()
       .name("user")
       .displayName("User")
-      .description("The user name of database")
+      .description("The user name of mysql database")
       .defaultValue("")
       .required(true)
       .example("root")
@@ -69,7 +69,7 @@ class JdbcRead extends ConfigurableStop  {
     val password=new PropertyDescriptor()
       .name("password")
       .displayName("Password")
-      .description("The password of database")
+      .description("The password of mysql database")
       .defaultValue("")
       .required(true)
       .example("12345")

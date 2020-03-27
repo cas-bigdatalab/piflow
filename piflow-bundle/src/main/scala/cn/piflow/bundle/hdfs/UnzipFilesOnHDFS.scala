@@ -18,7 +18,7 @@ import scala.collection.mutable.ArrayBuffer
 
 class UnzipFilesOnHDFS extends ConfigurableStop {
   val authorEmail: String = "yangqidong@cnic.cn"
-  val description: String = "Unzip files on hdfs"
+  val description: String = "Extract files on hdfs"
   val inportList: List[String] = List(Port.DefaultPort)
   val outportList: List[String] = List(Port.DefaultPort)
 
@@ -67,7 +67,7 @@ class UnzipFilesOnHDFS extends ConfigurableStop {
         typeStr="gz"
       }
   }else{
-      throw new RuntimeException("File type fill in error, or do not support this type.")
+      throw new RuntimeException("The file type is incorrect,or is not supported.")
     }
     typeStr
   }
@@ -87,9 +87,6 @@ class UnzipFilesOnHDFS extends ConfigurableStop {
     fs = FileSystem.get(configuration)
     fs
   }
-
-
-
 
   def unzipFile(fileHdfsPath: String, saveHdfsPath: String)= {
     var eachSavePath : String=""
@@ -179,7 +176,7 @@ class UnzipFilesOnHDFS extends ConfigurableStop {
       .name("filePath")
       .displayName("FilePath")
       .defaultValue("")
-      .description("File path of HDFS,such as '/work/a.gz'")
+      .description("File path of HDFS")
       .required(false)
       .example("/work/a.gz ")
 
@@ -195,9 +192,9 @@ class UnzipFilesOnHDFS extends ConfigurableStop {
 
     val savePath = new PropertyDescriptor()
       .name("savePath")
-      .displayName("savePath")
+      .displayName("SavePath")
       .description("This parameter can specify the location of the decompressed file, you can choose not to fill in, " +
-      "the program will default to save the decompressed file in the folder where the source file is located. If you fill in, you can specify a folder, such as /A/AB/")
+      "the program saves the decompressed file in the folder where the source file is located by default. If you fill in, you can specify a folder, such as /A/AB/")
       .defaultValue("")
       .required(false)
       .example("/work/aa/")
@@ -209,7 +206,7 @@ class UnzipFilesOnHDFS extends ConfigurableStop {
       .displayName("isCustomize")
       .description("Whether to customize the compressed file path, if true, \n" +
         "you must specify the path where the compressed file is located . \n" +
-        "If it is false, it will automatically find the file path data from the upstream port ")
+        "If false, it will automatically find the file path data from the upstream port ")
 
       .defaultValue("false").allowableValues(Set("true","false")).required(true)
     descriptor = isCustomize :: descriptor
@@ -225,6 +222,6 @@ class UnzipFilesOnHDFS extends ConfigurableStop {
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroup.HdfsGroup.toString)
+    List(StopGroup.HdfsGroup)
   }
 }

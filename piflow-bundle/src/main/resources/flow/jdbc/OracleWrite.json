@@ -1,0 +1,38 @@
+{
+  "flow":{
+    "name":"test",
+    "uuid":"1234",
+    "stops":[
+      {
+        "uuid":"1111",
+        "name":"CsvParser",
+        "bundle":"cn.piflow.bundle.csv.CsvParser",
+        "properties":{
+          "csvPath":"hdfs://192.168.3.138:8020/test/",
+          "header": "true",
+          "delimiter":",",
+          "schema":"id,name,gender,age"
+        }
+      },
+      {
+        "uuid":"1111",
+        "name":"OracleWrite",
+        "bundle":"cn.piflow.bundle.jdbc.OracleWrite",
+        "properties":{
+          "url": "jdbc:mysql://192.168.3.141:3306/piflow_web",
+          "user": "root",
+          "password": "bigdata",
+          "dbtable":"test"
+        }
+      }
+    ],
+    "paths":[
+      {
+        "from":"CsvParser",
+        "outport":"",
+        "inport":"",
+        "to":"test"
+      }
+    ]
+  }
+}

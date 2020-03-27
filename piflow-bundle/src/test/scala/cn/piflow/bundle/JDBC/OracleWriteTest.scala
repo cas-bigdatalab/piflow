@@ -1,4 +1,4 @@
-package cn.piflow.bundle.hive
+package cn.piflow.bundle.JDBC
 
 import cn.piflow.Runner
 import cn.piflow.conf.bean.FlowBean
@@ -10,13 +10,13 @@ import org.junit.Test
 
 import scala.util.parsing.json.JSON
 
-class SelectHiveQLTest {
+class OracleWriteTest {
 
   @Test
   def testFlow(): Unit ={
 
     //parse flow json
-    val file = "src/main/resources/flow/hive/SelectHiveQL.json"
+    val file = "src/main/resources/flow/jdbc/OracleWrite.json"
     val flowJsonStr = FileUtil.fileReader(file)
     val map = OptionUtil.getAny(JSON.parseFull(flowJsonStr)).asInstanceOf[Map[String, Any]]
     println(map)

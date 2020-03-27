@@ -12,8 +12,8 @@ class PutHiveStreaming extends ConfigurableStop {
 
   val authorEmail: String = "xjzhu@cnic.cn"
   val description: String = "Save data to hive"
-  val inportList: List[String] = List(Port.DefaultPort.toString)
-  val outportList: List[String] = List(Port.DefaultPort.toString)
+  val inportList: List[String] = List(Port.DefaultPort)
+  val outportList: List[String] = List(Port.DefaultPort)
 
   var database:String = _
   var table:String = _

@@ -13,7 +13,7 @@ import org.apache.spark.sql.{DataFrame, SparkSession}
 class IdentityNumberClean extends ConfigurableStop{
 
   val authorEmail: String = "06whuxx@163.com"
-  val description: String = "Cleaning data in ID format"
+  val description: String = "Cleaning data in ID Card format"
   val inportList: List[String] = List(Port.DefaultPort)
   val outportList: List[String] = List(Port.DefaultPort)
 
@@ -75,7 +75,7 @@ class IdentityNumberClean extends ConfigurableStop{
       .description("Column names are what you want to clean,multiple column names are separated by commas")
       .defaultValue("")
       .required(true)
-      .example("idcard")
+      .example("IdCard")
 
     descriptor = columnName :: descriptor
     descriptor

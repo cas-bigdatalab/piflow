@@ -10,17 +10,18 @@ import org.apache.spark.sql.{SaveMode, SparkSession}
 
 import scala.beans.BeanProperty
 
-class WriteMysql extends ConfigurableStop{
+class MysqlWrite extends ConfigurableStop{
 
   val authorEmail: String = "xjzhu@cnic.cn"
-  val description: String = "Write data into jdbc database"
-  val inportList: List[String] = List(Port.DefaultPort.toString)
-  val outportList: List[String] = List(Port.NonePort.toString)
+  val description: String = "Write data to mysql database with jdbc"
+  val inportList: List[String] = List(Port.DefaultPort)
+  val outportList: List[String] = List(Port.NonePort)
 
   var url:String = _
   var user:String = _
   var password:String = _
   var dbtable:String = _
+
   def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     val spark = pec.get[SparkSession]()
     val jdbcDF = in.read()
@@ -28,7 +29,6 @@ class WriteMysql extends ConfigurableStop{
     properties.put("user", user)
     properties.put("password", password)
     jdbcDF.write.mode(SaveMode.Append).jdbc(url,dbtable,properties)
-    //jdbcDF.show(10)
     out.write(jdbcDF)
   }
 
@@ -46,22 +46,42 @@ class WriteMysql extends ConfigurableStop{
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
 
-    val url=new PropertyDescriptor().name("url").displayName("url").description("The Url, for example jdbc:mysql://127.0.0.1/dbname").defaultValue("").required(true)
-    //descriptor = url :: descriptor
-
-    val user=new PropertyDescriptor().name("user").displayName("user").description("The user name of database").defaultValue("").required(true)
-    //descriptor = user :: descriptor
-
-    val password=new PropertyDescriptor().name("password").displayName("password").description("The password of database").defaultValue("").required(true)
-    //descriptor = password :: descriptor
-
-    val dbtable=new PropertyDescriptor().name("dbtable").displayName("dbtable").description("The table you want to write").defaultValue("").required(true)
-    //descriptor = dbtable :: descriptor
-
+    val url=new PropertyDescriptor()
+      .name("url")
+      .displayName("Url")
+      .description("The Url, for example jdbc:mysql://127.0.0.1/dbname")
+      .defaultValue("")
+      .required(true)
+      .example("jdbc:mysql://127.0.0.1/dbname")
     descriptor = url :: descriptor
+
+    val user=new PropertyDescriptor()
+      .name("user")
+      .displayName("User")
+      .description("The user name of database")
+      .defaultValue("")
+      .required(true)
+      .example("root")
     descriptor = user :: descriptor
+
+    val password=new PropertyDescriptor()
+      .name("password")
+      .displayName("Password")
+      .description("The password of database")
+      .defaultValue("")
+      .required(true)
+      .example("123456")
     descriptor = password :: descriptor
+
+    val dbtable=new PropertyDescriptor()
+      .name("dbtable")
+      .displayName("DBTable")
+      .description("The table you want to write")
+      .defaultValue("")
+      .required(true)
+      .example("test")
     descriptor = dbtable :: descriptor
+
     descriptor
   }
 
@@ -70,7 +90,7 @@ class WriteMysql extends ConfigurableStop{
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroup.JdbcGroup.toString)
+    List(StopGroup.JdbcGroup)
   }
 
 

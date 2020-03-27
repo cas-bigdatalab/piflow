@@ -17,8 +17,8 @@ class JdbcReadFromOracle extends ConfigurableStop{
 
   val authorEmail: String = "yangqidong@cnic.cn"
   val description: String = "Read from oracle"
-  val inportList: List[String] = List(Port.NonePort.toString)
-  val outportList: List[String] = List(Port.DefaultPort.toString)
+  val inportList: List[String] = List(Port.NonePort)
+  val outportList: List[String] = List(Port.DefaultPort)
 
   var url:String = _
   var user:String = _
@@ -132,8 +132,6 @@ class JdbcReadFromOracle extends ConfigurableStop{
     val df: DataFrame = session.createDataFrame(rdd,schemaNew)
 
     out.write(df)
-
-
   }
 
   def initialize(ctx: ProcessContext): Unit = {
@@ -157,6 +155,7 @@ class JdbcReadFromOracle extends ConfigurableStop{
       .description("The Url, for example jdbc:oracle:thin:@192.168.0.1:1521/newdb")
       .defaultValue("")
       .required(true)
+      .example("jdbc:oracle:thin:@192.168.0.1:1521/newdb")
     descriptor = url :: descriptor
 
     val user=new PropertyDescriptor()
@@ -165,6 +164,7 @@ class JdbcReadFromOracle extends ConfigurableStop{
       .description("The user name of database")
       .defaultValue("")
       .required(true)
+      .example("root")
     descriptor = user :: descriptor
 
     val password=new PropertyDescriptor()
@@ -173,6 +173,7 @@ class JdbcReadFromOracle extends ConfigurableStop{
       .description("The password of database")
       .defaultValue("")
       .required(true)
+      .example("123456")
     descriptor = password :: descriptor
 
     val sql=new PropertyDescriptor()
@@ -181,6 +182,7 @@ class JdbcReadFromOracle extends ConfigurableStop{
       .description("The sql you want")
       .defaultValue("")
       .required(true)
+      .example("select * from type")
     descriptor = sql :: descriptor
 
     val schema=new PropertyDescriptor()
@@ -189,6 +191,7 @@ class JdbcReadFromOracle extends ConfigurableStop{
       .description("The name of the field of your SQL statement query, such as: ID.number, name.varchar")
       .defaultValue("")
       .required(true)
+      .example("ID.number, name.varchar")
     descriptor = schema :: descriptor
 
     descriptor
@@ -199,7 +202,7 @@ class JdbcReadFromOracle extends ConfigurableStop{
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroup.JdbcGroup.toString)
+    List(StopGroup.JdbcGroup)
   }
 
 

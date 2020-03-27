@@ -44,16 +44,40 @@ class OracleRead extends ConfigurableStop{
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
 
-    val url=new PropertyDescriptor().name("url").displayName("url").description("The Url, for example jdbc:mysql://127.0.0.1/dbname").defaultValue("").required(true)
+    val url=new PropertyDescriptor()
+      .name("url")
+      .displayName("Url")
+      .description("The Url, for example jdbc:oracle:thin:@10.0.86.237:1521/newdb")
+      .defaultValue("")
+      .required(true)
+      .example("jdbc:oracle:thin:@10.0.86.237:1521/newdb")
     descriptor = url :: descriptor
 
-    val user=new PropertyDescriptor().name("user").displayName("user").description("The user name of database").defaultValue("").required(true)
+    val user=new PropertyDescriptor()
+      .name("user")
+      .displayName("User")
+      .description("The user name of database")
+      .defaultValue("")
+      .required(true)
+      .example("root")
     descriptor = user :: descriptor
 
-    val password=new PropertyDescriptor().name("password").displayName("password").description("The password of database").defaultValue("").required(true)
+    val password=new PropertyDescriptor()
+      .name("password")
+      .displayName("Password")
+      .description("The password of database")
+      .defaultValue("")
+      .required(true)
+      .example("123456")
     descriptor = password :: descriptor
 
-    val sql=new PropertyDescriptor().name("sql").displayName("sql").description("The sql sentence you want to execute").defaultValue("").required(true)
+    val sql=new PropertyDescriptor()
+      .name("sql")
+      .displayName("Sql")
+      .description("The sql sentence you want to execute")
+      .defaultValue("")
+      .required(true)
+      .example("select * from test")
     descriptor = sql :: descriptor
 
     descriptor
@@ -64,7 +88,7 @@ class OracleRead extends ConfigurableStop{
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroup.JdbcGroup.toString)
+    List(StopGroup.JdbcGroup)
   }
 
   override def initialize(ctx: ProcessContext): Unit = {}

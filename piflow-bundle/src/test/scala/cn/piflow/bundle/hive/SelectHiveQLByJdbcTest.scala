@@ -1,4 +1,4 @@
-package cn.piflow.bundle.csv
+package cn.piflow.bundle.hive
 
 import cn.piflow.Runner
 import cn.piflow.conf.bean.FlowBean
@@ -10,13 +10,13 @@ import org.junit.Test
 
 import scala.util.parsing.json.JSON
 
-class CsvSaveAsErrorTest {
+class SelectHiveQLByJdbcTest {
 
   @Test
   def testFlow(): Unit ={
 
     //parse flow json
-    val file = "src/main/resources/flow/csv/CsvSaveAsError.json"
+    val file = "src/main/resources/flow/hive/SelectHiveQLByJdbc.json"
     val flowJsonStr = FileUtil.fileReader(file)
     val map = OptionUtil.getAny(JSON.parseFull(flowJsonStr)).asInstanceOf[Map[String, Any]]
     println(map)
@@ -24,12 +24,13 @@ class CsvSaveAsErrorTest {
     //create flow
     val flowBean = FlowBean(map)
     val flow = flowBean.constructFlow()
+
     val h2Server = Server.createTcpServer("-tcp", "-tcpAllowOthers", "-tcpPort", "50001").start()
 
     //execute flow
     val spark = SparkSession.builder()
       .master("local[*]")
-      .appName("piflow-hive-bundle")
+      .appName("CsvParserTest")
       .config("spark.driver.memory", "1g")
       .config("spark.executor.memory", "2g")
       .config("spark.cores.max", "2")

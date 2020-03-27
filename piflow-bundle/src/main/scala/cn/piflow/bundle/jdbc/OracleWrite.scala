@@ -8,18 +8,17 @@ import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import org.apache.spark.sql._
 
-class WriteOracle extends ConfigurableStop{
+class OracleWrite extends ConfigurableStop{
 
   val authorEmail: String = "yangqidong@cnic.cn"
   val description: String = "Write data to oracle"
-  val inportList: List[String] = List(Port.NonePort.toString)
-  val outportList: List[String] = List(Port.DefaultPort.toString)
+  val inportList: List[String] = List(Port.NonePort)
+  val outportList: List[String] = List(Port.DefaultPort)
 
   var url:String = _
   var user:String = _
   var password:String = _
   var table:String = _
-
 
   def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     val session = pec.get[SparkSession]()
@@ -67,16 +66,40 @@ class WriteOracle extends ConfigurableStop{
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
 
-    val url=new PropertyDescriptor().name("url").displayName("url").description("The Url, for example jdbc:oracle:thin:@192.168.0.1:1521/newdb").defaultValue("").required(true)
+    val url=new PropertyDescriptor()
+      .name("url")
+      .displayName("Url")
+      .description("The Url, for example jdbc:oracle:thin:@10.0.86.237:1521/newdb")
+      .defaultValue("")
+      .required(true)
+      .example("jdbc:oracle:thin:@10.0.86.237:1521/newdb")
     descriptor = url :: descriptor
 
-    val user=new PropertyDescriptor().name("user").displayName("user").description("The user name of database").defaultValue("").required(true)
+    val user=new PropertyDescriptor()
+      .name("user")
+      .displayName("User")
+      .description("The user name of database")
+      .defaultValue("")
+      .required(true)
+      .example("root")
     descriptor = user :: descriptor
 
-    val password=new PropertyDescriptor().name("password").displayName("password").description("The password of database").defaultValue("").required(true)
+    val password=new PropertyDescriptor()
+      .name("password")
+      .displayName("Password")
+      .description("The password of database")
+      .defaultValue("")
+      .required(true)
+      .example("123456")
     descriptor = password :: descriptor
 
-    val table=new PropertyDescriptor().name("table").displayName("table").description("The table you want to write to").defaultValue("").required(true)
+    val table=new PropertyDescriptor()
+      .name("table")
+      .displayName("table")
+      .description("The table name")
+      .defaultValue("")
+      .required(true)
+      .example("test")
     descriptor = table :: descriptor
 
     descriptor
@@ -87,7 +110,7 @@ class WriteOracle extends ConfigurableStop{
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroup.JdbcGroup.toString)
+    List(StopGroup.JdbcGroup)
   }
 
 

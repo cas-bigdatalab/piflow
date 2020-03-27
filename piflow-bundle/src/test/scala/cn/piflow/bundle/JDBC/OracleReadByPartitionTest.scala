@@ -1,21 +1,22 @@
-package cn.piflow.bundle.hive
+package cn.piflow.bundle.JDBC
 
 import cn.piflow.Runner
 import cn.piflow.conf.bean.FlowBean
 import cn.piflow.conf.util.{FileUtil, OptionUtil}
+import cn.piflow.util.PropertyUtil
 import org.apache.spark.sql.SparkSession
 import org.h2.tools.Server
 import org.junit.Test
 
 import scala.util.parsing.json.JSON
 
-class OptionalSelectHiveQLTest {
+class OracleReadByPartitionTest {
 
   @Test
   def testFlow(): Unit ={
 
     //parse flow json
-    val file = "src/main/resources/flow/hive/OptionalSelectHiveQL.json"
+    val file = "src/main/resources/flow/jdbc/OracleReadByPartition.json"
     val flowJsonStr = FileUtil.fileReader(file)
     val map = OptionUtil.getAny(JSON.parseFull(flowJsonStr)).asInstanceOf[Map[String, Any]]
     println(map)
@@ -33,7 +34,7 @@ class OptionalSelectHiveQLTest {
       .config("spark.driver.memory", "1g")
       .config("spark.executor.memory", "2g")
       .config("spark.cores.max", "2")
-      .config("hive.metastore.uris", "thrift://192.168.3.140:9083")
+      .config("hive.metastore.uris",PropertyUtil.getPropertyValue("hive.metastore.uris"))
       .enableHiveSupport()
       .getOrCreate()
 

@@ -1,22 +1,24 @@
-package cn.piflow.bundle.csv
+package cn.piflow.bundle.graphx
+
+import java.net.InetAddress
 
 import cn.piflow.Runner
 import cn.piflow.conf.bean.FlowBean
 import cn.piflow.conf.util.{FileUtil, OptionUtil}
-import cn.piflow.util.PropertyUtil
+import cn.piflow.util.{PropertyUtil, ServerIpUtil}
 import org.apache.spark.sql.SparkSession
 import org.h2.tools.Server
 import org.junit.Test
 
 import scala.util.parsing.json.JSON
 
-class CsvSaveAsIgnoreTest {
+class LoadGraph {
 
   @Test
   def testFlow(): Unit ={
 
     //parse flow json
-    val file = "src/main/resources/flow/csv/CsvSaveAsIgnore.json"
+    val file = "src/main/resources/flow/graphx/LoadGraph.json"
     val flowJsonStr = FileUtil.fileReader(file)
     val map = OptionUtil.getAny(JSON.parseFull(flowJsonStr)).asInstanceOf[Map[String, Any]]
     println(map)
@@ -24,16 +26,19 @@ class CsvSaveAsIgnoreTest {
     //create flow
     val flowBean = FlowBean(map)
     val flow = flowBean.constructFlow()
-    val h2Server = Server.createTcpServer("-tcp", "-tcpAllowOthers", "-tcpPort", "50001").start()
 
+
+    val ip = InetAddress.getLocalHost.getHostAddress
+    cn.piflow.util.FileUtil.writeFile("server.ip=" + ip, ServerIpUtil.getServerIpFile())
+    val h2Server = Server.createTcpServer("-tcp", "-tcpAllowOthers", "-tcpPort","50001").start()
     //execute flow
     val spark = SparkSession.builder()
-      .master("local[*]")
-      .appName("piflow-hive-bundle")
-      .config("spark.driver.memory", "1g")
-      .config("spark.executor.memory", "2g")
-      .config("spark.cores.max", "2")
-      .config("hive.metastore.uris", PropertyUtil.getPropertyValue("hive.metastore.uris"))
+      .master("local[12]")
+      .appName("hive")
+      .config("spark.driver.memory", "4g")
+      .config("spark.executor.memory", "8g")
+      .config("spark.cores.max", "8")
+      .config("hive.metastore.uris",PropertyUtil.getPropertyValue("hive.metastore.uris"))
       .enableHiveSupport()
       .getOrCreate()
 
@@ -48,5 +53,6 @@ class CsvSaveAsIgnoreTest {
     println(pid + "!!!!!!!!!!!!!!!!!!!!!")
     spark.close();
   }
+
 
 }

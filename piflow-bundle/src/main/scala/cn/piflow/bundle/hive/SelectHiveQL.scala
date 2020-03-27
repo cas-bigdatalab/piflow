@@ -14,8 +14,8 @@ class SelectHiveQL extends ConfigurableStop {
 
   val authorEmail: String = "xjzhu@cnic.cn"
   val description: String = "Execute select clause of hiveQL"
-  val inportList: List[String] = List(Port.DefaultPort.toString)
-  val outportList: List[String] = List(Port.DefaultPort.toString)
+  val inportList: List[String] = List(Port.DefaultPort)
+  val outportList: List[String] = List(Port.DefaultPort)
 
   var hiveQL:String = _
 
@@ -43,6 +43,7 @@ class SelectHiveQL extends ConfigurableStop {
       .displayName("HiveQL")
       .defaultValue("")
       .allowableValues(Set(""))
+      .description("Execute select clause of hiveQL")
       .required(true)
       .example("select * from test.user1")
     descriptor = hiveQL :: descriptor
@@ -54,7 +55,7 @@ class SelectHiveQL extends ConfigurableStop {
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroup.HiveGroup.toString)
+    List(StopGroup.HiveGroup)
   }
 
 

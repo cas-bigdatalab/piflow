@@ -38,28 +38,76 @@ class OracleReadByPartition extends ConfigurableStop{
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
 
-    val url=new PropertyDescriptor().name("url").displayName("url").description("The Url, for example jdbc:mysql://127.0.0.1/dbname").defaultValue("").required(true)
+    val url=new PropertyDescriptor()
+      .name("url")
+      .displayName("Url")
+      .description("The Url,for example jdbc:oracle:thin:@10.0.86.237:1521/newdb")
+      .defaultValue("")
+      .required(true)
+      .example("jdbc:oracle:thin:@10.0.86.237:1521/newdb")
     descriptor = url :: descriptor
 
-    val user=new PropertyDescriptor().name("user").displayName("user").description("The user name of database").defaultValue("").required(true)
+    val user=new PropertyDescriptor()
+      .name("user")
+      .displayName("User")
+      .description("The user name of database")
+      .defaultValue("")
+      .required(true)
+      .example("root")
     descriptor = user :: descriptor
 
-    val password=new PropertyDescriptor().name("password").displayName("password").description("The password of database").defaultValue("").required(true)
+    val password=new PropertyDescriptor()
+      .name("password")
+      .displayName("Password")
+      .description("The password of database")
+      .defaultValue("")
+      .required(true)
+      .example("123456")
     descriptor = password :: descriptor
 
-    val sql=new PropertyDescriptor().name("sql").displayName("sql").description("The sql sentence you want to execute").defaultValue("").required(true)
+    val sql=new PropertyDescriptor()
+      .name("sql")
+      .displayName("Sql")
+      .description("The sql sentence you want to execute")
+      .defaultValue("")
+      .required(true)
+      .example("select * from test")
     descriptor = sql :: descriptor
 
-    val partitionColumn=new PropertyDescriptor().name("partitionColumn").displayName("partitionColumn").description("The  partitionby column").defaultValue("").required(true)
+    val partitionColumn=new PropertyDescriptor()
+      .name("partitionColumn")
+      .displayName("PartitionColumn")
+      .description("partitioned column")
+      .defaultValue("")
+      .required(true)
+      .example("id")
     descriptor = partitionColumn :: descriptor
 
-    val lowerBound=new PropertyDescriptor().name("lowerBound").displayName("lowerBound").description("The  lowerBound of partitioned column").defaultValue("").required(true)
+    val lowerBound=new PropertyDescriptor()
+      .name("lowerBound")
+      .displayName("LowerBound")
+      .description("The lowerbound of partitioned columns")
+      .defaultValue("")
+      .required(true)
+      .example("1")
     descriptor = lowerBound :: descriptor
 
-    val upperBound=new PropertyDescriptor().name("upperBound").displayName("upperBound").description("The  upperBound of partitioned column").defaultValue("").required(true)
+    val upperBound=new PropertyDescriptor()
+      .name("upperBound")
+      .displayName("UpperBound")
+      .description("The  upperBound of partitioned columns")
+      .defaultValue("")
+      .required(true)
+      .example("20")
     descriptor = upperBound :: descriptor
 
-    val numPartitions=new PropertyDescriptor().name("numPartitions").displayName("numPartitions").description("The  number of partitions ").defaultValue("").required(true)
+    val numPartitions=new PropertyDescriptor()
+      .name("numPartitions")
+      .displayName("NumPartitions")
+      .description("The number of partitions ")
+      .defaultValue("")
+      .required(true)
+      .example("5")
     descriptor = numPartitions :: descriptor
 
     descriptor
@@ -70,7 +118,7 @@ class OracleReadByPartition extends ConfigurableStop{
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroup.JdbcGroup.toString)
+    List(StopGroup.JdbcGroup)
   }
 
   override def initialize(ctx: ProcessContext): Unit = {}

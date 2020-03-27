@@ -10,7 +10,7 @@ import org.apache.spark.sql.{DataFrame, Row, SQLContext, SparkSession}
 /**
   * HIVE JDBC DRIVER DESIGN FOR HIVE 1.2.1
   */
-class SelectHiveQLbyJDBC extends ConfigurableStop {
+class SelectHiveQLByJDBC extends ConfigurableStop {
   override val authorEmail: String = "xiaomeng7890@gmail.com"
   override val description: String = "some hive can only achieve by jdbc, this stop is designed for this"
   override val inportList: List[String] = List(Port.NonePort)

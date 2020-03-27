@@ -13,7 +13,7 @@ import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 import scala.collection.mutable.ArrayBuffer
 
 
-class ReadImpala extends ConfigurableStop{
+class ImpalaRead extends ConfigurableStop{
   override val authorEmail: String = "yangqidong@cnic.cn"
   override val description: String = "Get data from impala"
   val inportList: List[String] = List(Port.NonePort.toString)

@@ -7,6 +7,7 @@ import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
 class EvaluateJsonPath extends ConfigurableStop{
+
   override val authorEmail: String = "yangqidong@cnic.cn"
   val inportList: List[String] = List(Port.NonePort.toString)
   val outportList: List[String] = List(Port.DefaultPort.toString)

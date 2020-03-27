@@ -39,7 +39,7 @@ class CsvSave extends ConfigurableStop{
       .description("The save path of csv file")
       .defaultValue("")
       .required(true)
-      .example("hdfs://192.168.3.138:8020/test/")
+      .example("hdfs://127.0.0.1:9000/test/")
     descriptor = csvSavePath :: descriptor
 
     val header = new PropertyDescriptor()

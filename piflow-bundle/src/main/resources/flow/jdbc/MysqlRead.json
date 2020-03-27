@@ -6,8 +6,8 @@
 
       {
         "uuid":"1111",
-        "name":"JdbcRead",
-        "bundle":"cn.piflow.bundle.jdbc.JdbcRead",
+        "name":"MysqlRead",
+        "bundle":"cn.piflow.bundle.jdbc.MysqlRead",
         "properties":{
           "url": "jdbc:mysql://192.168.3.141:3306/piflow_web",
           "user": "root",
@@ -23,7 +23,8 @@
           "csvSavePath":"hdfs://192.168.3.138:8020/test/",
           "header": "true",
           "delimiter":",",
-          "partition":"1"
+          "partition":"1",
+          "saveMode": "append"
         }
 
       }

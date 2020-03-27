@@ -9,9 +9,9 @@ import org.apache.spark.sql.{SaveMode, SparkSession}
 class PutHiveMode extends ConfigurableStop {
 
   val authorEmail: String = "xjzhu@cnic.cn"
-  val description: String = "Save data to hive by overwrite mode"
-  val inportList: List[String] = List(Port.DefaultPort.toString)
-  val outportList: List[String] = List(Port.NonePort.toString)
+  val description: String = "Modes for saving data hive"
+  val inportList: List[String] = List(Port.DefaultPort)
+  val outportList: List[String] = List(Port.DefaultPort)
 
   var database:String = _
   var table:String = _
