@@ -1,0 +1,36 @@
+{
+  "flow":{
+    "name":"scalaTest",
+    "uuid":"1234567890",
+    "stops":[
+      {
+        "uuid":"1111",
+        "name":"CsvParser",
+        "bundle":"cn.piflow.bundle.csv.CsvParser",
+        "properties":{
+          "csvPath":"hdfs://10.0.88.13:9000/xjzhu/test.csv",
+          "header":"false",
+          "delimiter":",",
+          "schema":"title,author"
+        }
+      },
+      {
+        "uuid":"2222",
+        "name":"ExecuteScala",
+        "bundle":"cn.piflow.bundle.script.ExecuteScala",
+        "properties":{
+            "script":"import sys\nimport os\n\nimport numpy as np\nfrom scipy import linalg\nimport pandas as pd\n\nimport matplotlib\nmatplotlib.use('Agg')\n\n\ndef listFunction(dictInfo):\n\n    return dictInfo",
+            "execFunction": "listFunction"
+        }
+      }
+    ],
+    "paths":[
+      {
+        "from":"CsvParser",
+        "outport":"",
+        "inport":"",
+        "to":"ExecuteScala"
+      }
+    ]
+  }
+}

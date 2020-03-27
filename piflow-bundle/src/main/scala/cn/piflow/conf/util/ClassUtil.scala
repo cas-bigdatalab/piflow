@@ -214,7 +214,8 @@ object ClassUtil {
                 ("defaultValue" -> property.defaultValue) ~
                 ("allowableValues" -> property.allowableValues) ~
                 ("required" -> property.required.toString) ~
-                ("sensitive" -> property.sensitive.toString)) }) )
+                ("sensitive" -> property.sensitive.toString) ~
+                ("example" -> property.example)) }) )
     val jsonString = compactRender(json)
     jsonString
 
