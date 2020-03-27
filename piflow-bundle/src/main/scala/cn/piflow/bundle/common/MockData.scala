@@ -95,7 +95,6 @@ class MockData extends ConfigurableStop{
     val rnd : Random = new Random()
     val i = randomJson(rnd,schemaStructType)
     val df = spark.read.schema(schemaStructType).json((0 to count).map{ _ => compact(randomJson(rnd,schemaStructType))}.toDS())
-    df.show()
     out.write(df)
 
   }
