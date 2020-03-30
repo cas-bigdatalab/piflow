@@ -4,17 +4,23 @@
     "uuid":"1234",
     "checkpoint":"Merge",
     "stops":[
-
       {
         "uuid":"0000",
-        "name":"JdbcReadFromOracle",
-        "bundle":"cn.piflow.bundle.jdbc.JdbcReadFromOracle",
+        "name":"GetFromSolr",
+        "bundle":"cn.piflow.bundle.solr.GetFromSolr",
         "properties":{
-          "url": "jdbc:oracle:thin:@(DESCRIPTION =(ADDRESS_LIST =(ADDRESS=(PROTOCOL=TCP)(HOST=192.168.2.237)(PORT=1521)))(CONNECT_DATA=(SERVICE_NAME=RACDB_STANDBY)))",
-          "user":"dashuju",
-          "password":"DaShuju_732",
-          "sql":"select RPT_CODE,RPT_VERSION,START_DATE,RPT_XML from egrant_isis.rpt_completion where rownum<=10",
-          "schema":"PRT_CODE.number,RPT_VERSION.varchar2,START_DATE.DATE,RPT_XML.XMLTYPE"
+          "solrURL":"http://192.168.3.138:8886/solr",
+          "SolrCollection":"product_hongyu",
+          "QueryStr":"*:*",
+          "start":"1",
+          "rows":"2",
+          "sortBy":"business__product_id",
+          "DescentOrAscend":"Ascend",
+          "fl":"business__product_id,businessext__zh_title",
+          "fq":"",
+          "df":"",
+          "indent":"true|on"
+
         }
 
       },
@@ -31,10 +37,11 @@
         }
 
       }
+
     ],
     "paths":[
       {
-        "from":"JdbcReadFromOracle",
+        "from":"GetFromSolr",
         "outport":"",
         "inport":"",
         "to":"CsvSave"

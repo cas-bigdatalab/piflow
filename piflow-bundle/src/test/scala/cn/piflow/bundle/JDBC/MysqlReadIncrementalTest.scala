@@ -1,7 +1,5 @@
 package cn.piflow.bundle.JDBC
 
-import java.net.InetAddress
-
 import cn.piflow.Runner
 import cn.piflow.conf.bean.FlowBean
 import cn.piflow.conf.util.{FileUtil, OptionUtil}
@@ -12,7 +10,7 @@ import org.junit.Test
 
 import scala.util.parsing.json.JSON
 
-class JdbcReadFromOracleTest {
+class MysqlReadIncrementalTest {
 
   @Test
   def testFlow(): Unit ={
@@ -26,8 +24,6 @@ class JdbcReadFromOracleTest {
     //create flow
     val flowBean = FlowBean(map)
     val flow = flowBean.constructFlow()
-
-    val ip = InetAddress.getLocalHost.getHostAddress
 
     val h2Server = Server.createTcpServer("-tcp", "-tcpAllowOthers", "-tcpPort", "50001").start()
 

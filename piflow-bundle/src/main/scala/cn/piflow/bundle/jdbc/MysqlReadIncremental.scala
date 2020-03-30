@@ -14,14 +14,27 @@ class MysqlReadIncremental extends ConfigurableIncrementalStop{
   override var incrementalStart: String = _
   override val authorEmail: String = "xjzhu@cnic.cn"
   override val description: String = "Read data from jdbc database"
-  override val inportList: List[String] = List(Port.NonePort.toString)
-  override val outportList: List[String] = List(Port.DefaultPort.toString)
+  override val inportList: List[String] = List(Port.NonePort)
+  override val outportList: List[String] = List(Port.DefaultPort)
 
   var url:String = _
   var user:String = _
   var password:String = _
   var sql:String = _
 
+  override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
+    val spark = pec.get[SparkSession]()
+    val dbtable = "( "  + sql + ") AS Temp"
+    val jdbcDF = spark.read.format("jdbc")
+      .option("url", url)
+      .option("driver", "com.mysql.jdbc.Driver")
+      .option("dbtable", dbtable)
+      .option("user", user)
+      .option("password",password)
+      .load()
+
+    out.write(jdbcDF)
+  }
   override def setProperties(map: Map[String, Any]): Unit = {
     url = MapUtil.get(map,"url").asInstanceOf[String]
     user = MapUtil.get(map,"user").asInstanceOf[String]
@@ -37,50 +50,56 @@ class MysqlReadIncremental extends ConfigurableIncrementalStop{
 
     val url=new PropertyDescriptor()
       .name("url")
-      .displayName("url")
+      .displayName("Url")
       .description("The Url, for example jdbc:mysql://127.0.0.1/dbname")
       .defaultValue("")
       .required(true)
+      .example("")
     descriptor = url :: descriptor
 
     val user=new PropertyDescriptor()
       .name("user")
-      .displayName("user")
+      .displayName("User")
       .description("The user name of database")
       .defaultValue("")
       .required(true)
+      .example("")
     descriptor = user :: descriptor
 
     val password=new PropertyDescriptor()
       .name("password")
-      .displayName("password")
+      .displayName("Password")
       .description("The password of database")
       .defaultValue("")
       .required(true)
+      .example("")
     descriptor = password :: descriptor
 
     val sql=new PropertyDescriptor()
       .name("sql")
-      .displayName("sql")
+      .displayName("Sql")
       .description("The sql sentence you want to execute")
       .defaultValue("")
       .required(true)
+      .example("")
     descriptor = sql :: descriptor
 
     val incrementalField=new PropertyDescriptor()
       .name("incrementalField")
-      .displayName("incrementalField")
+      .displayName("IncrementalField")
       .description("The incremental field")
       .defaultValue("")
       .required(true)
+      .example("")
     descriptor = incrementalField :: descriptor
 
     val incrementalStart=new PropertyDescriptor()
       .name("incrementalStart")
-      .displayName("incrementalStart")
+      .displayName("IncrementalStart")
       .description("The incremental start value")
       .defaultValue("")
       .required(true)
+      .example("")
     descriptor = incrementalStart :: descriptor
 
     descriptor
@@ -91,23 +110,10 @@ class MysqlReadIncremental extends ConfigurableIncrementalStop{
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroup.JdbcGroup.toString)
+    List(StopGroup.JdbcGroup)
   }
 
   override def initialize(ctx: ProcessContext): Unit = {}
 
-  override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
-    val spark = pec.get[SparkSession]()
-    val dbtable = "( "  + sql + ") AS Temp"
-    val jdbcDF = spark.read.format("jdbc")
-      .option("url", url)
-      .option("driver", "com.mysql.jdbc.Driver")
-      .option("dbtable", dbtable)
-      .option("user", user)
-      .option("password",password)
-      .load()
-    //jdbcDF.show(10)
 
-    out.write(jdbcDF)
-  }
 }

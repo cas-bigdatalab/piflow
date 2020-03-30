@@ -21,9 +21,9 @@ import scala.collection.mutable.ListBuffer
 
 class GetFromSolr extends ConfigurableStop{
   override val authorEmail: String ="yangqidong@cnic.cn"
-  override val description: String = "Get data from solr"
-  val inportList: List[String] = List(Port.NonePort.toString)
-  val outportList: List[String] = List(Port.DefaultPort.toString)
+  override val description: String = "Read data from solr"
+  val inportList: List[String] = List(Port.NonePort)
+  val outportList: List[String] = List(Port.DefaultPort)
 
   var solrURL:String=_
   var SolrCollection:String=_
@@ -139,7 +139,7 @@ class GetFromSolr extends ConfigurableStop{
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroup.SolrGroup.toString)
+    List(StopGroup.SolrGroup)
   }
 
   override def initialize(ctx: ProcessContext): Unit = {
@@ -148,27 +148,102 @@ class GetFromSolr extends ConfigurableStop{
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
-    val solrURL = new PropertyDescriptor().name("solrURL").displayName("solrURL").defaultValue("").allowableValues(Set("")).required(true)
+    val solrURL = new PropertyDescriptor()
+      .name("solrURL")
+      .displayName("SolrURL")
+      .description("The url of solr")
+      .defaultValue("")
+      .required(true)
+      .example("http://127.0.0.1:8886/solr")
     descriptor = solrURL :: descriptor
-    val SolrCollection = new PropertyDescriptor().name("SolrCollection").displayName("SolrCollection").defaultValue("").allowableValues(Set("")).required(true)
+
+    val SolrCollection = new PropertyDescriptor()
+      .name("SolrCollection")
+      .displayName("SolrCollection")
+      .description("The name of collection")
+      .defaultValue("")
+      .required(true)
+      .example("test")
     descriptor = SolrCollection :: descriptor
-    val q = new PropertyDescriptor().name("q").displayName("q").defaultValue("").allowableValues(Set("")).description("Query String").required(true)
+
+    val q = new PropertyDescriptor()
+      .name("q")
+      .displayName("Q")
+      .description("Query key")
+      .defaultValue("")
+      .required(true)
+      .example("id:1")
     descriptor = q :: descriptor
-    val start = new PropertyDescriptor().name("start").displayName("start").defaultValue("Start Display Position").allowableValues(Set("")).description("   ").required(false)
+
+    val start = new PropertyDescriptor()
+      .name("start")
+      .displayName("Start")
+      .defaultValue("Offset of returned query results")
+      .description("   ")
+      .required(false)
+      .example("1")
     descriptor = start :: descriptor
-    val rows = new PropertyDescriptor().name("rows").displayName("rows").description("Display Number Each Page").defaultValue("").allowableValues(Set("")).required(false)
+
+    val rows = new PropertyDescriptor()
+      .name("rows")
+      .displayName("Rows")
+      .description("Number of rows returned")
+      .defaultValue("")
+      .required(false)
+      .example("10")
     descriptor = rows :: descriptor
-    val sortBy = new PropertyDescriptor().name("sortBy").displayName("sortBy").description("Sort Field").defaultValue("").allowableValues(Set("")).required(false)
+
+    val sortBy = new PropertyDescriptor()
+      .name("sortBy")
+      .displayName("SortBy")
+      .description("By which column to sort")
+      .defaultValue("")
+      .required(false)
+      .example("id")
     descriptor = sortBy :: descriptor
-    val DescentOrAscend = new PropertyDescriptor().name("DescentOrAscend").displayName("DescentOrAscend").defaultValue("").allowableValues(Set("")).required(false)
+
+    val DescentOrAscend = new PropertyDescriptor()
+      .name("AscendOrDescent")
+      .displayName("AscendOrDescent")
+      .description("Ascending or descending")
+      .defaultValue("")
+      .required(false)
+      .example("Ascend")
     descriptor = DescentOrAscend :: descriptor
-    val fq = new PropertyDescriptor().name("fq").displayName("fq").description("Filter Query").defaultValue("").allowableValues(Set("")).required(false)
+
+    val fq = new PropertyDescriptor()
+      .name("fq")
+      .displayName("FQ")
+      .description("Filter Query")
+      .defaultValue("Filter condition")
+      .required(false)
+      .example("id:1")
     descriptor = fq :: descriptor
-    val fl = new PropertyDescriptor().name("fl").description("Return Field").displayName("fl").defaultValue("").allowableValues(Set("")).required(false)
+
+    val fl = new PropertyDescriptor()
+      .name("fl")
+      .displayName("FL")
+      .description("Returns the specified column,separate multiple with commas or spaces")
+      .defaultValue("")
+      .required(false)
+      .example("id,name")
     descriptor = fl :: descriptor
-    val df = new PropertyDescriptor().name("df").displayName("df").description("Default Query Field").defaultValue("").allowableValues(Set("")).required(false)
+
+    val df = new PropertyDescriptor()
+      .name("df")
+      .displayName("DF")
+      .description("Default query column")
+      .defaultValue("")
+      .required(false)
     descriptor = df :: descriptor
-    val indent = new PropertyDescriptor().name("indent").displayName("indent").defaultValue("").allowableValues(Set("")).required(false)
+
+    val indent = new PropertyDescriptor()
+      .name("indent")
+      .displayName("Indent")
+      .description("Whether the returned result is indented.It is disabled by default.It is enabled with indent = ture|on")
+      .defaultValue("")
+      .required(false)
+      .example("ture|on")
     descriptor = indent :: descriptor
     descriptor
   }

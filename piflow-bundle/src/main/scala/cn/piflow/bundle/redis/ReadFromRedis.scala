@@ -18,9 +18,12 @@ import scala.collection.mutable.ArrayBuffer
 
 
 class ReadFromRedis extends ConfigurableStop{
+
+  override val authorEmail: String = "06whuxx@163.com"
   val description: String = "Read data from redis"
-  val inportList: List[String] = List(Port.NonePort.toString)
-  val outportList: List[String] = List(Port.DefaultPort.toString)
+  val inportList: List[String] = List(Port.NonePort)
+  val outportList: List[String] = List(Port.DefaultPort)
+
   var redis_host:String =_
   var port:Int=_
   var password:String=_
@@ -36,13 +39,10 @@ class ReadFromRedis extends ConfigurableStop{
     //connect to redis
     val jedisCluster=new JedisClusterImplSer(new HostAndPort(redis_host,port),password)
 
-    //val keysArray:Array[String]=keys.split(",")
     val fields:Array[String]=schema.split(",")
     val col_str:String=column_name+","+schema
     val newSchema:Array[String]=col_str.split(",")
-    //var res:List[List[String]]=List()
 
-    //import org.apache.spark.sql.types._
     val dfSchema=StructType(newSchema.map(f=>StructField(f,org.apache.spark.sql.types.StringType,true)))
 
 
@@ -75,15 +75,51 @@ class ReadFromRedis extends ConfigurableStop{
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
-    val redis_host = new PropertyDescriptor().name("redis_host").displayName("REDIS_HOST").defaultValue("").required(true)
-    val port = new PropertyDescriptor().name("port").displayName("PORT").defaultValue("").required(true)
-    val password = new PropertyDescriptor().name("password").displayName("PASSWORD").defaultValue("").required(true)
-    val schema = new PropertyDescriptor().name("schema").displayName("SCHEMA").defaultValue("").required(true)
-    val column_name = new PropertyDescriptor().name("column_name").displayName("COLUMN_NAME").defaultValue("").required(true)
+
+    val redis_host = new PropertyDescriptor()
+      .name("redis_host")
+      .displayName("Redis_Host")
+      .description("The host of Redis")
+      .defaultValue("")
+      .required(true)
+      .example("127.0.0.1")
     descriptor = redis_host :: descriptor
+
+    val port = new PropertyDescriptor()
+      .name("port")
+      .displayName("Port")
+      .description("Port to connect to Redis")
+      .defaultValue("")
+      .required(true)
+      .example("7000")
     descriptor = port :: descriptor
+
+    val password = new PropertyDescriptor()
+      .name("password")
+      .displayName("Password")
+      .description("The password of Redis")
+      .defaultValue("")
+      .required(true)
+      .example("123456")
+      .sensitive(true)
     descriptor = password :: descriptor
+
+    val schema = new PropertyDescriptor()
+      .name("schema")
+      .displayName("Schema")
+      .description("")
+      .defaultValue("")
+      .required(true)
+      .example("id,name")
     descriptor = schema :: descriptor
+
+    val column_name = new PropertyDescriptor()
+      .name("column_name")
+      .displayName("Column_Name")
+      .description("")
+      .defaultValue("")
+      .required(true)
+      .example("gender")
     descriptor = column_name :: descriptor
     descriptor
   }
@@ -93,8 +129,7 @@ class ReadFromRedis extends ConfigurableStop{
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroup.RedisGroup.toString)
+    List(StopGroup.RedisGroup)
   }
 
-  override val authorEmail: String = "06whuxx@163.com"
 }

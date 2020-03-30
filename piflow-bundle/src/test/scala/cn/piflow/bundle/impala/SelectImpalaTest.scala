@@ -15,7 +15,7 @@ class SelectImpalaTest {
   def testFlow(): Unit ={
 
     //parse flow json
-    val file = "src/main/resources/impala/SelectImpala.json"
+    val file = "src/main/resources/impala/ImpalaRead.json"
     val flowJsonStr = FileUtil.fileReader(file)
     val map = OptionUtil.getAny(JSON.parseFull(flowJsonStr)).asInstanceOf[Map[String, Any]]
     println(map)
