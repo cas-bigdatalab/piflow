@@ -91,6 +91,7 @@ class OracleWrite extends ConfigurableStop{
       .defaultValue("")
       .required(true)
       .example("123456")
+      .sensitive(true)
     descriptor = password :: descriptor
 
     val table=new PropertyDescriptor()

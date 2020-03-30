@@ -73,6 +73,7 @@ class MysqlReadIncremental extends ConfigurableIncrementalStop{
       .defaultValue("")
       .required(true)
       .example("")
+      .sensitive(true)
     descriptor = password :: descriptor
 
     val sql=new PropertyDescriptor()

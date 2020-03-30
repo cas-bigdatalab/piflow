@@ -70,6 +70,7 @@ class OracleRead extends ConfigurableStop{
       .required(true)
       .example("123456")
       .sensitive(true)
+      .sensitive(true)
     descriptor = password :: descriptor
 
     val sql=new PropertyDescriptor()

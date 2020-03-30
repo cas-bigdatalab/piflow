@@ -16,7 +16,7 @@
         "name":"WriteToRedis",
         "bundle":"cn.piflow.bundle.redis.WriteToRedis",
         "properties":{
-          "redis_host":"10.0.88.9",
+          "redis_host":"192.168.3.138",
           "port":"7000",
           "password":"bigdata",
           "column_name":"title",
