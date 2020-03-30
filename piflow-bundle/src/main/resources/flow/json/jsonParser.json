@@ -1,0 +1,26 @@
+{
+  "flow":{
+    "name":"test",
+    "uuid":"1234",
+    "stops":[
+
+      {
+        "uuid":"1111",
+        "name":"JsonParser",
+        "bundle":"cn.piflow.bundle.json.JsonParser",
+        "properties":{
+          "jsonPath":"hdfs://192.168.3.138:8020/work/json/test/example.json,hdfs://192.168.3.138:8020/work/json/test/example1.json",
+          "tag": "name,province_name"
+        }
+      }
+    ],
+    "paths":[
+      {
+        "from":"",
+        "outport":"",
+        "inport":"",
+        "to":""
+      }
+    ]
+  }
+}

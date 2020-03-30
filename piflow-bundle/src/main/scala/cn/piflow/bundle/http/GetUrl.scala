@@ -20,14 +20,14 @@ import scala.collection.mutable.{ArrayBuffer, ListBuffer}
 
 class GetUrl extends ConfigurableStop{
   override val authorEmail: String = "ygang@cnic.com"
-  override val description: String = "Http Get"
+  override val description: String = "Send a get request to the specified http"
 
-  override val inportList: List[String] = List(Port.NonePort.toString)
-  override val outportList: List[String] = List(Port.DefaultPort.toString)
+  override val inportList: List[String] = List(Port.DefaultPort)
+  override val outportList: List[String] = List(Port.DefaultPort)
 
 
   var url :String= _
-  var types :String = _
+  var httpAcceptTypes :String = _
 
   // xml String
   var label:String=_
@@ -36,25 +36,32 @@ class GetUrl extends ConfigurableStop{
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
 
     val ss = pec.get[SparkSession]()
+    if (httpAcceptTypes == "json"){
+      val client = HttpClients.createDefault()
+      val getFlowInfo:HttpGet = new HttpGet(url)
+      getFlowInfo.addHeader("Accept",s"application/${httpAcceptTypes}")
 
-    // get from url
-    val client = HttpClients.createDefault()
-    val getFlowInfo:HttpGet = new HttpGet(url)
+      val response:CloseableHttpResponse = client.execute(getFlowInfo)
+      val entity = response.getEntity
+      val jsonString = EntityUtils.toString(entity,"UTF-8")
+      println(jsonString)
 
-    val response:CloseableHttpResponse = client.execute(getFlowInfo)
-    val entity = response.getEntity
-    val jsonString = EntityUtils.toString(entity,"UTF-8")
-    if (types == "json"){
-
-      // json to df
       val jsonRDD = ss.sparkContext.makeRDD(jsonString :: Nil)
       val jsonDF = ss.read.json(jsonRDD)
-
+      jsonDF.printSchema()
       out.write(jsonDF)
     }
+    if(httpAcceptTypes=="xml"){
 
+      val client = HttpClients.createDefault()
+      val getFlowInfo:HttpGet = new HttpGet(url)
+      getFlowInfo.addHeader("Accept",s"application/${httpAcceptTypes}")
 
-    if(types=="xml"){
+      val response:CloseableHttpResponse = client.execute(getFlowInfo)
+      val entity = response.getEntity
+      val jsonString = EntityUtils.toString(entity,"UTF-8")
+      println(jsonString)
+
       val doc: Document = DocumentHelper.parseText(jsonString)
       val rootElt: Element = doc.getRootElement
       var arrbuffer:ArrayBuffer[Element]=ArrayBuffer()
@@ -114,7 +121,7 @@ class GetUrl extends ConfigurableStop{
   }
   override def setProperties(map: Map[String, Any]): Unit = {
     url = MapUtil.get(map,key="url").asInstanceOf[String]
-    types= MapUtil.get(map,key="types").asInstanceOf[String]
+    httpAcceptTypes= MapUtil.get(map,key="httpAcceptTypes").asInstanceOf[String]
     label = MapUtil.get(map,"label").asInstanceOf[String]
     schema = MapUtil.get(map,"schema").asInstanceOf[String]
 
@@ -122,15 +129,43 @@ class GetUrl extends ConfigurableStop{
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
-    val url = new PropertyDescriptor().name("url").displayName("url").defaultValue("").required(true)
-    val types = new PropertyDescriptor().name("types").displayName("types").defaultValue("the url content is json or xml)").required(true)
-    val label = new PropertyDescriptor().name("label").displayName("label").description("label path for hope,the delimiter is ,").defaultValue("").required(true)
+    val url = new PropertyDescriptor()
+      .name("url")
+      .displayName("Url")
+      .defaultValue("")
+      .description("http request address")
+      .required(true)
+        .example("https://api.elsevier.com/content/search/scopus?query=TITLE('title')&apiKey=555637gxd\"")
+     descriptor = url :: descriptor
+
+    val httpAcceptTypes = new PropertyDescriptor()
+      .name("httpAcceptTypes")
+      .displayName("HttpAcceptTypes")
+      .allowableValues(Set("xml","json"))
+      .defaultValue("json")
+      .description("The type of data you want to receive)")
+      .required(true)
+        .example("xml")
+    descriptor = httpAcceptTypes :: descriptor
+
+    val label = new PropertyDescriptor()
+      .name("label")
+      .displayName("Label")
+      .description("Parsed label path (types is xml)")
+      .defaultValue("")
+      .required(false)
+        .example("service-error,status")
     descriptor = label :: descriptor
-    val schema = new PropertyDescriptor().name("schema").displayName("schema").description("name of field in label,the delimiter is ,").defaultValue("").required(true)
+
+    val schema = new PropertyDescriptor()
+      .name("schema")
+      .displayName("Schema")
+      .description("Parsed tag name (types is xml)")
+      .defaultValue("")
+      .required(false)
+        .example("statusCode,statusText")
     descriptor = schema :: descriptor
 
-    descriptor = types :: descriptor
-    descriptor = url :: descriptor
     descriptor
   }
 

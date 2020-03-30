@@ -9,8 +9,8 @@ import org.apache.spark.sql.SparkSession
 class JsonStringParser extends ConfigurableStop{
   val authorEmail: String = "xjzhu@cnic.cn"
   val description: String = "Parse json string"
-  val inportList: List[String] = List(Port.NonePort.toString)
-  val outportList: List[String] = List(Port.DefaultPort.toString)
+  val inportList: List[String] = List(Port.DefaultPort)
+  val outportList: List[String] = List(Port.DefaultPort)
 
   var jsonString: String = _
 
@@ -19,8 +19,6 @@ class JsonStringParser extends ConfigurableStop{
     val spark = pec.get[SparkSession]()
     val jsonRDD = spark.sparkContext.makeRDD(jsonString :: Nil)
     val jsonDF = spark.read.json(jsonRDD)
-
-    //jsonDF.show(10)
     out.write(jsonDF)
   }
 
@@ -34,7 +32,14 @@ class JsonStringParser extends ConfigurableStop{
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
-    val jsonString = new PropertyDescriptor().name("jsonString").displayName("jsonString").description("The json string").defaultValue("").required(true)
+    val jsonString = new PropertyDescriptor()
+      .name("jsonString")
+      .displayName("JsonString")
+      .description("The json string")
+      .defaultValue("")
+      .required(true)
+      .example("{\"id\":\"13\",\"name\":\"13\",\"score\":\"13\",\"school\":\"13\",\"class\":\"13\"}")
+
     descriptor = jsonString :: descriptor
     descriptor
   }
@@ -44,7 +49,7 @@ class JsonStringParser extends ConfigurableStop{
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroup.JsonGroup.toString)
+    List(StopGroup.JsonGroup)
   }
 
 

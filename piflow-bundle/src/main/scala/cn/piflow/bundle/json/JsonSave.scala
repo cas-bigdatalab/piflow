@@ -12,16 +12,14 @@ class JsonSave extends ConfigurableStop{
 
   val authorEmail: String = "xjzhu@cnic.cn"
   val description: String = "Save data into json file"
-  val inportList: List[String] = List(Port.DefaultPort.toString)
-  val outportList: List[String] = List(Port.NonePort.toString)
+  val inportList: List[String] = List(Port.DefaultPort)
+  val outportList: List[String] = List(Port.DefaultPort)
 
   var jsonSavePath: String = _
 
   def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
 
     val jsonDF = in.read()
-    //jsonDF.show()
-
     jsonDF.write.format("json").mode(SaveMode.Overwrite).save(jsonSavePath)
   }
 
@@ -35,7 +33,14 @@ class JsonSave extends ConfigurableStop{
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
-    val jsonSavePath = new PropertyDescriptor().name("jsonSavePath").displayName("jsonSavePath").description("The save path of the json file").defaultValue("").required(true)
+    val jsonSavePath = new PropertyDescriptor()
+      .name("jsonSavePath")
+      .displayName("JsonSavePath")
+      .description("The save path of the json file")
+      .defaultValue("")
+      .required(true)
+        .example("hdfs://192.168.3.138:8020/work/testJson/test/")
+
     descriptor = jsonSavePath :: descriptor
     descriptor
   }
@@ -45,7 +50,7 @@ class JsonSave extends ConfigurableStop{
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroup.JsonGroup.toString)
+    List(StopGroup.JsonGroup)
   }
 
 

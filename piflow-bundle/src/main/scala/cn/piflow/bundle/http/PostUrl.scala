@@ -21,7 +21,7 @@ class PostUrl extends ConfigurableStop{
   override val authorEmail: String = "ygang@cnic.com"
   override val inportList: List[String] = List(Port.NonePort.toString)
   override val outportList: List[String] = List(Port.NonePort.toString)
-  override val description: String = "HTTP Post"
+  override val description: String = "Send a post request to the specified http"
 
   var url : String= _
   var jsonPath : String = _
@@ -41,7 +41,6 @@ class PostUrl extends ConfigurableStop{
       buffer.append(lineTxt.mkString)
       lineTxt=bufferReader.readLine()
     }
-
 
     // post
     val client = HttpClients.createDefault()
@@ -66,8 +65,22 @@ class PostUrl extends ConfigurableStop{
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
-    val url = new PropertyDescriptor().name("url").displayName("url").defaultValue("").required(true)
-    val jsonPath = new PropertyDescriptor().name("jsonPath").displayName("jsonPath").defaultValue("").required(true)
+    val url = new PropertyDescriptor()
+      .name("url")
+      .displayName("Url")
+      .defaultValue("")
+      .description("http request address")
+      .required(true)
+      .example("http://master:8002/flow/start")
+
+    val jsonPath = new PropertyDescriptor()
+      .name("jsonPath")
+      .displayName("JsonPath")
+      .defaultValue("")
+      .description("json parameter path for post request")
+      .required(true)
+        .example("hdfs://master:9000/work/flow.json")
+
     descriptor = url :: descriptor
     descriptor = jsonPath :: descriptor
     descriptor

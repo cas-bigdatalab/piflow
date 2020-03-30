@@ -7,14 +7,12 @@ import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
-import scala.beans.BeanProperty
-
 class JsonParser extends ConfigurableStop{
 
   val authorEmail: String = "xjzhu@cnic.cn"
   val description: String = "Parse json file"
-  val inportList: List[String] = List(Port.NonePort.toString)
-  val outportList: List[String] = List(Port.DefaultPort.toString)
+  val inportList: List[String] = List(Port.DefaultPort)
+  val outportList: List[String] = List(Port.DefaultPort)
 
   var jsonPath: String = _
   var tag : String = _
@@ -23,16 +21,25 @@ class JsonParser extends ConfigurableStop{
 
     val spark = pec.get[SparkSession]()
 
-    var jsonDF = spark.read.json(jsonPath)
+    val jsonPathARR: Array[String] = jsonPath.split(",")
+
+    var FinalDF = spark.read.option("multiline","true").json(jsonPathARR(0))
+
+    if(jsonPathARR.length>1){
+      for(x<-(1 until jsonPathARR.length)){
+        var jDF: DataFrame = spark.read.option("multiline","true").json(jsonPathARR(x))
+        val ff: DataFrame = FinalDF.union(jDF).toDF()
+        FinalDF=ff
+      }
+    }
+    FinalDF.printSchema()
 
     if(tag.length>0){
-      val writeDF: DataFrame = JsonUtil.ParserJsonDF(jsonDF,tag)
-      jsonDF=writeDF
+      val writeDF: DataFrame = JsonUtil.ParserJsonDF(FinalDF,tag)
+      FinalDF=writeDF
     }
 
-    //jsonDF.printSchema()
-    //jsonDF.show(10)
-    out.write(jsonDF)
+    out.write(FinalDF)
   }
 
   def initialize(ctx: ProcessContext): Unit = {
@@ -46,8 +53,22 @@ class JsonParser extends ConfigurableStop{
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
-    val jsonPath = new PropertyDescriptor().name("jsonPath").displayName("jsonPath").description("The path of the json file").defaultValue("").required(true)
-    val tag = new PropertyDescriptor().name("tag").displayName("tag").description("The tag you want to parse,If you want to open an array field,you have to write it like this:links_name(MasterField_ChildField)").defaultValue("").required(false)
+    val jsonPath = new PropertyDescriptor()
+      .name("jsonPath")
+      .displayName("jsonPath")
+      .description("The path of the json file,Separate multiple files with commas")
+      .defaultValue("")
+      .required(true)
+      .example("hdfs://master:9000/work/json/test/example.json,hdfs://master:9000/work/json/test/example1.json")
+
+    val tag = new PropertyDescriptor()
+      .name("tag")
+      .displayName("Tag")
+      .description("The tag you want to parse,If you want to open an array field,you have to write it like this:links_name(MasterField_ChildField)")
+      .defaultValue("")
+      .required(false)
+      .example("name,province_name")
+
     descriptor = jsonPath :: descriptor
     descriptor = tag :: descriptor
     descriptor
@@ -58,7 +79,7 @@ class JsonParser extends ConfigurableStop{
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroup.JsonGroup.toString)
+    List(StopGroup.JsonGroup)
   }
 
 }

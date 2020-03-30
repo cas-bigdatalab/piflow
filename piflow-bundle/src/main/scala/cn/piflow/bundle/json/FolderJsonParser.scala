@@ -20,11 +20,11 @@ import org.apache.spark.sql.{DataFrame, SQLContext}
 
 class FolderJsonParser extends ConfigurableStop{
   override val authorEmail: String = "yangqidong@cnic.cn"
-  val inportList: List[String] = List(Port.NonePort.toString)
-  val outportList: List[String] = List(Port.DefaultPort.toString)
+  val inportList: List[String] = List(Port.DefaultPort)
+  val outportList: List[String] = List(Port.DefaultPort)
   override val description: String ="Parse json folder"
 
-  var FolderPath:String = _
+  var folderPath:String = _
   var tag : String = _
 
   var openArrField:String=""
@@ -33,9 +33,9 @@ class FolderJsonParser extends ConfigurableStop{
     val spark = pec.get[SparkSession]()
     val sql: SQLContext = spark.sqlContext
 
-    val arrPath: ArrayBuffer[String] = getFileName(FolderPath)
+    val arrPath: ArrayBuffer[String] = getFileName(folderPath)
     var FinalDF: DataFrame = getFinalDF(arrPath,sql)
-
+    FinalDF.printSchema()
     if(tag.length>0){
       val writeDF: DataFrame = JsonUtil.ParserJsonDF(FinalDF,tag)
       FinalDF=writeDF
@@ -82,7 +82,7 @@ class FolderJsonParser extends ConfigurableStop{
     val arrPath: Array[Path] = FileUtil.stat2Paths(fs)
     var arrBuffer:ArrayBuffer[String]=ArrayBuffer()
     for(eachPath<-arrPath){
-      arrBuffer+=(FolderPath+eachPath.getName)
+      arrBuffer+=(folderPath+eachPath.getName)
     }
     arrBuffer
   }
@@ -90,7 +90,7 @@ class FolderJsonParser extends ConfigurableStop{
 
 
   override def setProperties(map: Map[String, Any]): Unit = {
-    FolderPath = MapUtil.get(map,"FolderPath").asInstanceOf[String]
+    folderPath = MapUtil.get(map,"folderPath").asInstanceOf[String]
     tag = MapUtil.get(map,"tag").asInstanceOf[String]
 
   }
@@ -99,9 +99,24 @@ class FolderJsonParser extends ConfigurableStop{
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
-    val FolderPath = new PropertyDescriptor().name("FolderPath").displayName("FolderPath").description("The path of the json folder").defaultValue("").required(true)
+
+    val FolderPath = new PropertyDescriptor()
+      .name("folderPath")
+      .displayName("FolderPath")
+      .description("Path to this json folder")
+      .defaultValue("")
+      .required(true)
+        .example("hdfs://master:9000/work/json/test/")
+
     descriptor = FolderPath :: descriptor
-    val tag = new PropertyDescriptor().name("tag").displayName("tag").description("The tag you want to parse,If you want to open an array field,you have to write it like this:links_name(MasterField_ChildField)").defaultValue("").required(false)
+
+    val tag = new PropertyDescriptor()
+      .name("tag")
+      .displayName("tag")
+      .description("The tag you want to parse,If you want to open an array field,you have to write it like this:links_name(MasterField_ChildField)")
+      .defaultValue("")
+      .required(false)
+        .example("name,province_name")
     descriptor = tag :: descriptor
 
 
