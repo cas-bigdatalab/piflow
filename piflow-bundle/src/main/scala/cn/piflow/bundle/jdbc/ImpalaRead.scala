@@ -72,16 +72,39 @@ class ImpalaRead extends ConfigurableStop{
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
 
-    val url=new PropertyDescriptor().name("url").displayName("url").description("IP and port number, you need to write like this -- ip:port").defaultValue("").required(true)
+    val url=new PropertyDescriptor().name("url")
+      .displayName("url")
+      .description("IP and port number, you need to write like this -- ip:port")
+      .defaultValue("")
+      .required(true)
     descriptor = url :: descriptor
-    val user=new PropertyDescriptor().name("user").displayName("user").description("user").defaultValue("").required(false)
+    val user=new PropertyDescriptor()
+      .name("user")
+      .displayName("user")
+      .description("user")
+      .defaultValue("")
+      .required(false)
     descriptor = user :: descriptor
-    val password=new PropertyDescriptor().name("password").displayName("password").description("password").defaultValue("").required(false)
+    val password=new PropertyDescriptor()
+      .name("password")
+      .displayName("password")
+      .description("password")
+      .defaultValue("")
+      .required(false)
     descriptor = password :: descriptor
-    val sql=new PropertyDescriptor().name("sql").displayName("sql").description("The name of the table has not changed.But you have to specify which database," +
-      " such as database.table.").defaultValue("").required(true)
+    val sql=new PropertyDescriptor()
+      .name("sql")
+      .displayName("sql")
+      .description("The name of the table has not changed.But you have to specify which database,such as database.table.")
+      .defaultValue("")
+      .required(true)
     descriptor = sql :: descriptor
-    val schameString=new PropertyDescriptor().name("schameString").displayName("schameString").description("The field of SQL statement query results is divided by ,").defaultValue("").required(true)
+    val schameString=new PropertyDescriptor()
+      .name("schameString")
+      .displayName("schameString")
+      .description("The field of SQL statement query results is divided by ,")
+      .defaultValue("")
+      .required(true)
     descriptor = schameString :: descriptor
 
     descriptor

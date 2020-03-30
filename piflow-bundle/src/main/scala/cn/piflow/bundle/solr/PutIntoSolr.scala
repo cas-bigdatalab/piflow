@@ -14,9 +14,9 @@ import org.apache.spark.sql.DataFrame
 class PutIntoSolr extends ConfigurableStop{
 
   override val authorEmail: String = "yangqidong@cnic.cn"
-  override val description: String = "Put data to solr"
-  val inportList: List[String] = List(Port.DefaultPort.toString)
-  val outportList: List[String] = List(Port.NonePort.toString)
+  override val description: String = "Write data to solr"
+  val inportList: List[String] = List(Port.DefaultPort)
+  val outportList: List[String] = List(Port.NonePort)
 
   var solrURL:String=_
   var SolrCollection:String=_
@@ -58,14 +58,27 @@ class PutIntoSolr extends ConfigurableStop{
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroup.SolrGroup.toString)
+    List(StopGroup.SolrGroup)
   }
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
-    val solrURL = new PropertyDescriptor().name("solrURL").displayName("solrURL").defaultValue("").allowableValues(Set("")).required(true)
+    val solrURL = new PropertyDescriptor()
+      .name("solrURL")
+      .displayName("SolrURL")
+      .description("The url of solr")
+      .defaultValue("")
+      .required(true)
+      .example("http://127.0.0.1:8886/solr")
     descriptor = solrURL :: descriptor
-    val SolrCollection = new PropertyDescriptor().name("SolrCollection").displayName("SolrCollection").defaultValue("").allowableValues(Set("")).required(true)
+
+    val SolrCollection = new PropertyDescriptor()
+      .name("SolrCollection")
+      .displayName("SolrCollection")
+      .description("The name of collection")
+      .defaultValue("")
+      .required(true)
+      .example("test")
     descriptor = SolrCollection :: descriptor
     descriptor
 

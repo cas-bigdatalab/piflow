@@ -151,7 +151,7 @@ class JdbcReadFromOracle extends ConfigurableStop{
 
     val url=new PropertyDescriptor()
       .name("url")
-      .displayName("url")
+      .displayName("Url")
       .description("The Url, for example jdbc:oracle:thin:@192.168.0.1:1521/newdb")
       .defaultValue("")
       .required(true)
@@ -160,7 +160,7 @@ class JdbcReadFromOracle extends ConfigurableStop{
 
     val user=new PropertyDescriptor()
       .name("user")
-      .displayName("user")
+      .displayName("User")
       .description("The user name of database")
       .defaultValue("")
       .required(true)
@@ -169,7 +169,7 @@ class JdbcReadFromOracle extends ConfigurableStop{
 
     val password=new PropertyDescriptor()
       .name("password")
-      .displayName("password")
+      .displayName("Password")
       .description("The password of database")
       .defaultValue("")
       .required(true)
@@ -178,7 +178,7 @@ class JdbcReadFromOracle extends ConfigurableStop{
 
     val sql=new PropertyDescriptor()
       .name("sql")
-      .displayName("sql")
+      .displayName("Sql")
       .description("The sql you want")
       .defaultValue("")
       .required(true)
@@ -187,7 +187,7 @@ class JdbcReadFromOracle extends ConfigurableStop{
 
     val schema=new PropertyDescriptor()
       .name("schema")
-      .displayName("schema")
+      .displayName("Schema")
       .description("The name of the field of your SQL statement query, such as: ID.number, name.varchar")
       .defaultValue("")
       .required(true)

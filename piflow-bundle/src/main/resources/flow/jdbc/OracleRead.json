@@ -12,7 +12,7 @@
           "url": "jdbc:oracle:thin:@(DESCRIPTION =(ADDRESS_LIST =(ADDRESS=(PROTOCOL=TCP)(HOST=192.168.2.237)(PORT=1521)))(CONNECT_DATA=(SERVICE_NAME=RACDB_STANDBY)))",
           "user": "dashuju",
           "password": "DaShuju_732",
-          "sql":"select rpt_code,submit_date from egrant_isis.rpt_completion where rownum <=10"
+          "sql":"select * from egrant_isis.rpt_completion where rownum <=10"
         }
       },
       {

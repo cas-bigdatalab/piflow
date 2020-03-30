@@ -48,6 +48,7 @@ class SelectHiveQLByJDBC extends ConfigurableStop {
       .defaultValue("123456")
       .required(true)
       .example("123456")
+      .sensitive(true)
     descriptor = hivePassword :: descriptor
 
     val jdbcUrl = new PropertyDescriptor().

@@ -73,6 +73,7 @@ class MysqlRead extends ConfigurableStop  {
       .defaultValue("")
       .required(true)
       .example("12345")
+      .sensitive(true)
     descriptor = password :: descriptor
 
     val sql=new PropertyDescriptor()

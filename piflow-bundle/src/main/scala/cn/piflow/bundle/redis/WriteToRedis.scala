@@ -11,14 +11,15 @@ import redis.clients.jedis.HostAndPort
 
 
 class WriteToRedis extends ConfigurableStop{
+  override val authorEmail: String = "06whuxx@163.com"
   val description: String = "Write data to redis"
-  val inportList: List[String] = List(Port.DefaultPort.toString)
-  val outportList: List[String] = List(Port.NonePort.toString)
+  val inportList: List[String] = List(Port.DefaultPort)
+  val outportList: List[String] = List(Port.NonePort)
+
   var redis_host:String =_
   var port:Int=_
   var password:String=_
   var column_name:String=_
-  //var schema_str:String=_
 
   def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     val spark = pec.get[SparkSession]()
@@ -31,7 +32,6 @@ class WriteToRedis extends ConfigurableStop{
     df.collect.foreach(row=> {
       RedisUtil.manipulateRow(row,col_name,jedisCluster)
     })
-    //val v=jedisCluster.getJedisCluster.hmget("Python","author","pages")
     val v=jedisCluster.getJedisCluster.hkeys("Python")
     println(v)
   }
@@ -50,13 +50,42 @@ class WriteToRedis extends ConfigurableStop{
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
-    val redis_host = new PropertyDescriptor().name("redis_host").displayName("REDIS_HOST").defaultValue("").required(true)
-    val port = new PropertyDescriptor().name("port").displayName("PORT").defaultValue("").required(true)
-    val password = new PropertyDescriptor().name("password").displayName("PASSWORD").defaultValue("").required(true)
-    val column_name = new PropertyDescriptor().name("column_name").displayName("COLUMN_NAME").defaultValue("").required(true)
+
+    val redis_host = new PropertyDescriptor()
+      .name("redis_host")
+      .displayName("Redis_Host")
+      .description("The host of Redis")
+      .defaultValue("")
+      .required(true)
+      .example("127.0.0.1")
     descriptor = redis_host :: descriptor
+
+    val port = new PropertyDescriptor()
+      .name("port")
+      .displayName("Port")
+      .description("Port to connect to Redis")
+      .defaultValue("")
+      .required(true)
+      .example("7000")
     descriptor = port :: descriptor
+
+    val password = new PropertyDescriptor()
+      .name("password")
+      .displayName("Password")
+      .description("The password of Redis")
+      .defaultValue("")
+      .required(true)
+      .example("123456")
+      .sensitive(true)
     descriptor = password :: descriptor
+
+    val column_name = new PropertyDescriptor()
+      .name("column_name")
+      .displayName("COLUMN_NAME")
+      .description("")
+      .defaultValue("")
+      .required(true)
+      .example("gender")
     descriptor = column_name :: descriptor
     descriptor
   }
@@ -66,8 +95,7 @@ class WriteToRedis extends ConfigurableStop{
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroup.RedisGroup.toString)
+    List(StopGroup.RedisGroup)
   }
 
-  override val authorEmail: String = "06whuxx@163.com"
 }
