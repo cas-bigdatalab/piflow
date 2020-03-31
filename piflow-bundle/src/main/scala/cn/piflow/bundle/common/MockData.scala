@@ -1,12 +1,10 @@
 package cn.piflow.bundle.common
 
-import java.time.LocalDate
 
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import cn.piflow.conf.{ConfigurableStop, Port, StopGroup}
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
-import jodd.datetime.JDateTime
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.sql.types._
 import org.json4s
@@ -18,7 +16,7 @@ import scala.util.Random
 class MockData extends ConfigurableStop{
   override val authorEmail: String = "xjzhu@cnic.cn"
   override val description: String = "Mock dataframe."
-  override val inportList: List[String] = List(Port.NonePort)
+  override val inportList: List[String] = List(Port.DefaultPort)
   override val outportList: List[String] = List(Port.DefaultPort)
 
   var schema: String = _
