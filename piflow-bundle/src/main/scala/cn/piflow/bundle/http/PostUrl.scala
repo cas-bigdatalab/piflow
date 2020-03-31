@@ -19,8 +19,8 @@ import org.apache.spark.sql.SparkSession
 
 class PostUrl extends ConfigurableStop{
   override val authorEmail: String = "ygang@cnic.com"
-  override val inportList: List[String] = List(Port.NonePort.toString)
-  override val outportList: List[String] = List(Port.NonePort.toString)
+  override val inportList: List[String] = List(Port.DefaultPort)
+  override val outportList: List[String] = List(Port.DefaultPort)
   override val description: String = "Send a post request to the specified http"
 
   var url : String= _

@@ -10,7 +10,7 @@ class LoadGraph extends ConfigurableStop {
 
   val authorEmail: String = "06whuxx@163.com"
   val description: String = "Load data and construct a graphx"
-  val inportList: List[String] = List(Port.NonePort.toString)
+  val inportList: List[String] = List(Port.DefaultPort)
 
 
   var edgePort : String = "edges"

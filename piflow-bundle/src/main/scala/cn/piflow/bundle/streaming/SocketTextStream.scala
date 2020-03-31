@@ -12,7 +12,7 @@ import org.apache.spark.streaming.{Seconds, StreamingContext}
 class SocketTextStream extends ConfigurableStreamingStop {
   override val authorEmail: String = "xjzhu@cnic.cn"
   override val description: String = "Receive text data from socket"
-  override val inportList: List[String] = List(Port.NonePort)
+  override val inportList: List[String] = List(Port.DefaultPort)
   override val outportList: List[String] = List(Port.DefaultPort)
   override var batchDuration: Int = _
 

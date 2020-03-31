@@ -10,8 +10,8 @@ import org.apache.spark.sql.SparkSession
 class LogisticRegressionPrediction extends ConfigurableStop{
   val authorEmail: String = "06whuxx@163.com"
   val description: String = "Use an existing logistic regression model to predict"
-  val inportList: List[String] = List(Port.NonePort.toString)
-  val outportList: List[String] = List(Port.DefaultPort.toString)
+  val inportList: List[String] = List(Port.DefaultPort)
+  val outportList: List[String] = List(Port.DefaultPort)
   var test_data_path:String =_
   var model_path:String=_
 

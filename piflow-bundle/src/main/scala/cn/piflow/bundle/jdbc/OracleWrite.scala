@@ -12,7 +12,7 @@ class OracleWrite extends ConfigurableStop{
 
   val authorEmail: String = "yangqidong@cnic.cn"
   val description: String = "Write data to oracle"
-  val inportList: List[String] = List(Port.NonePort)
+  val inportList: List[String] = List(Port.DefaultPort)
   val outportList: List[String] = List(Port.DefaultPort)
 
   var url:String = _

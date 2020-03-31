@@ -12,8 +12,8 @@ class CsvToNeo4J extends ConfigurableStop{
   override val description: String = "this stop use linux shell & neo4j-import command " +
     "to load CSV file data to create or insert into neo4j" +
     "the neo4j version should be above 3.0"
-  override val inportList: List[String] = List(Port.NonePort.toString)
-  override val outportList: List[String] = List(Port.NonePort.toString)
+  override val inportList: List[String] = List(Port.DefaultPort)
+  override val outportList: List[String] = List(Port.DefaultPort)
 
   //run time parameter
   var argumentFiles : String = _

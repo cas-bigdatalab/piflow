@@ -21,7 +21,7 @@ class ReadFromRedis extends ConfigurableStop{
 
   override val authorEmail: String = "06whuxx@163.com"
   val description: String = "Read data from redis"
-  val inportList: List[String] = List(Port.NonePort)
+  val inportList: List[String] = List(Port.DefaultPort)
   val outportList: List[String] = List(Port.DefaultPort)
 
   var redis_host:String =_

@@ -14,7 +14,7 @@ class WriteToRedis extends ConfigurableStop{
   override val authorEmail: String = "06whuxx@163.com"
   val description: String = "Write data to redis"
   val inportList: List[String] = List(Port.DefaultPort)
-  val outportList: List[String] = List(Port.NonePort)
+  val outportList: List[String] = List(Port.DefaultPort)
 
   var redis_host:String =_
   var port:Int=_

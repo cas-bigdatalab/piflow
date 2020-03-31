@@ -22,7 +22,7 @@ import scala.collection.mutable.ListBuffer
 class GetFromSolr extends ConfigurableStop{
   override val authorEmail: String ="yangqidong@cnic.cn"
   override val description: String = "Read data from solr"
-  val inportList: List[String] = List(Port.NonePort)
+  val inportList: List[String] = List(Port.DefaultPort)
   val outportList: List[String] = List(Port.DefaultPort)
 
   var solrURL:String=_

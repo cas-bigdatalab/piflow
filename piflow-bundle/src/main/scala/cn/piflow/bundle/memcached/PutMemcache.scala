@@ -10,8 +10,8 @@ import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 class PutMemcache extends ConfigurableStop{
   override val authorEmail: String = "yangqidong@cnic.cn"
   override val description: String = "Put data to memcache"
-  val inportList: List[String] = List(Port.DefaultPort.toString)
-  val outportList: List[String] = List(Port.NonePort.toString)
+  val inportList: List[String] = List(Port.DefaultPort)
+  val outportList: List[String] = List(Port.DefaultPort)
 
   var servers:String=_            //Server address and port number,If you have multiple servers, use "," segmentation.
   var keyFile:String=_            //You want to be used as a field for key.

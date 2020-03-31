@@ -10,8 +10,8 @@ import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 class PutMongoDB extends ConfigurableStop{
   override val authorEmail: String = "yangqidong@cnic.cn"
   override val description: String = "Put data to mongodb"
-  val inportList: List[String] = List(Port.DefaultPort.toString)
-  val outportList: List[String] = List(Port.NonePort.toString)
+  val inportList: List[String] = List(Port.DefaultPort)
+  val outportList: List[String] = List(Port.DefaultPort)
 
   var ip:String=_
   var port:String=_

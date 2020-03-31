@@ -16,7 +16,7 @@ class KafkaStream extends ConfigurableStreamingStop{
   override var batchDuration: Int = _
   override val authorEmail: String = "xjzhu@cnic.cn"
   override val description: String = "Read data from kafka"
-  override val inportList: List[String] = List(Port.NonePort)
+  override val inportList: List[String] = List(Port.DefaultPort)
   override val outportList: List[String] = List(Port.DefaultPort)
 
   var brokers:String = _

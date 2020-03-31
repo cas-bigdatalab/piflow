@@ -15,7 +15,7 @@ class MysqlWrite extends ConfigurableStop{
   val authorEmail: String = "xjzhu@cnic.cn"
   val description: String = "Write data to mysql database with jdbc"
   val inportList: List[String] = List(Port.DefaultPort)
-  val outportList: List[String] = List(Port.NonePort)
+  val outportList: List[String] = List(Port.DefaultPort)
 
   var url:String = _
   var user:String = _

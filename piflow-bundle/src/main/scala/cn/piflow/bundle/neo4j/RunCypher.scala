@@ -12,9 +12,8 @@ import scala.collection.mutable
 class RunCypher extends ConfigurableStop{
   override val authorEmail: String = "anhong12@cnic.cn"
   override val description: String = "Run cql on neo4j"
-  override val inportList: List[String] =List(Port.DefaultPort.toString)
-  //  override val outportList: List[String] = List(PortEnum.NonePort.toString)
-  override val outportList: List[String] = List(Port.DefaultPort.toString)
+  override val inportList: List[String] =List(Port.DefaultPort)
+  override val outportList: List[String] = List(Port.DefaultPort)
 
   var url : String =_
   var userName : String =_

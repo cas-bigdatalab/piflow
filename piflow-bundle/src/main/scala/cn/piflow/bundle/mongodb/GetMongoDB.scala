@@ -9,8 +9,8 @@ import org.apache.spark.sql.{DataFrame, SparkSession}
 class GetMongoDB extends ConfigurableStop{
   override val authorEmail: String = "yangqidong@cnic.cn"
   override val description: String = "Get data from mongodb"
-  val inportList: List[String] = List(Port.NonePort.toString)
-  val outportList: List[String] = List(Port.DefaultPort.toString)
+  val inportList: List[String] = List(Port.DefaultPort)
+  val outportList: List[String] = List(Port.DefaultPort)
 
   var ip:String=_
   var port:String=_

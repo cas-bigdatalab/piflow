@@ -10,8 +10,8 @@ import org.apache.spark.sql.SparkSession
 class NaiveBayesTraining extends ConfigurableStop{
   val authorEmail: String = "06whuxx@163.com"
   val description: String = "Train a NaiveBayes model"
-  val inportList: List[String] = List(Port.NonePort.toString)
-  val outportList: List[String] = List(Port.DefaultPort.toString)
+  val inportList: List[String] = List(Port.DefaultPort)
+  val outportList: List[String] = List(Port.DefaultPort)
   var training_data_path:String =_
   var smoothing_value:String=_
   var model_save_path:String=_

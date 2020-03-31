@@ -16,7 +16,7 @@ class PutIntoSolr extends ConfigurableStop{
   override val authorEmail: String = "yangqidong@cnic.cn"
   override val description: String = "Write data to solr"
   val inportList: List[String] = List(Port.DefaultPort)
-  val outportList: List[String] = List(Port.NonePort)
+  val outportList: List[String] = List(Port.DefaultPort)
 
   var solrURL:String=_
   var SolrCollection:String=_

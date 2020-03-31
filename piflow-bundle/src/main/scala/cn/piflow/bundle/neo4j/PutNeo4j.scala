@@ -11,8 +11,8 @@ import org.neo4j.driver.v1._
 class PutNeo4j extends ConfigurableStop{
   override val authorEmail: String = "yangqidong@cnic.cn"
   override val description: String = "Put data to Neo4j"
-  override val inportList: List[String] =List(Port.DefaultPort.toString)
-  override val outportList: List[String] = List(Port.NonePort.toString)
+  override val inportList: List[String] =List(Port.DefaultPort)
+  override val outportList: List[String] = List(Port.DefaultPort)
 
   var url : String =_
   var userName : String =_

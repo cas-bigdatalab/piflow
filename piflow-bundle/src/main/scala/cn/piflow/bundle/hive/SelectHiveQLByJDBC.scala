@@ -13,7 +13,7 @@ import org.apache.spark.sql.{DataFrame, Row, SQLContext, SparkSession}
 class SelectHiveQLByJDBC extends ConfigurableStop {
   override val authorEmail: String = "xiaomeng7890@gmail.com"
   override val description: String = "some hive can only achieve by jdbc, this stop is designed for this"
-  override val inportList: List[String] = List(Port.NonePort)
+  override val inportList: List[String] = List(Port.DefaultPort)
   override val outportList: List[String] = List(Port.DefaultPort)
 
   private val driverName = "org.apache.hive.jdbc.HiveDriver"

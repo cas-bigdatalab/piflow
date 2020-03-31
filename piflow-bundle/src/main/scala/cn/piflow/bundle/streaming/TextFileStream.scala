@@ -11,8 +11,8 @@ class TextFileStream extends ConfigurableStreamingStop{
   override var batchDuration: Int = _
   override val authorEmail: String = "xjzhu@cnic.cn"
   override val description: String = "Get text file streaming data"
-  override val inportList: List[String] = List(Port.NonePort.toString)
-  override val outportList: List[String] = List(Port.DefaultPort.toString)
+  override val inportList: List[String] = List(Port.DefaultPort)
+  override val outportList: List[String] = List(Port.DefaultPort)
 
   var directory:String =_
 
