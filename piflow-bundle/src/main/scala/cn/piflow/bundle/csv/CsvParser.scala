@@ -11,7 +11,7 @@ import org.apache.spark.sql.{DataFrame, SparkSession}
 class CsvParser extends ConfigurableStop{
 
   val authorEmail: String = "xjzhu@cnic.cn"
-  val description: String = "Parse csv file"
+  val description: String = "Parse csv file or folder"
   val inportList: List[String] = List(Port.DefaultPort)
   val outportList: List[String] = List(Port.DefaultPort)
 
@@ -69,7 +69,7 @@ class CsvParser extends ConfigurableStop{
     val csvPath = new PropertyDescriptor()
       .name("csvPath")
       .displayName("CsvPath")
-      .description("The path of csv file")
+      .description("The path of csv file or folder")
       .defaultValue("")
       .required(true)
       .example("hdfs://127.0.0.1:9000/test/")

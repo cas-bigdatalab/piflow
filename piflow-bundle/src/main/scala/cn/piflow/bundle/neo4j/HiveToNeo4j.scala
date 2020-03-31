@@ -14,8 +14,8 @@ import scala.collection.mutable.ArrayBuffer
 class HiveToNeo4j extends ConfigurableStop{
   override val authorEmail: String = "anhong12@cnic.cn"
   override val description: String = "Hive to Neo4j"
-  override val inportList: List[String] =List(Port.DefaultPort.toString)
-  override val outportList: List[String] = List(Port.DefaultPort.toString)
+  override val inportList: List[String] =List(Port.DefaultPort)
+  override val outportList: List[String] = List(Port.DefaultPort)
 
   var hiveQL:String = _
 
@@ -28,7 +28,6 @@ class HiveToNeo4j extends ConfigurableStop{
 
   var pathARR:ArrayBuffer[String]=ArrayBuffer()
   var oldFilePath:String = _
-
 
   var url : String =_
   var userName : String =_
@@ -157,29 +156,86 @@ class HiveToNeo4j extends ConfigurableStop{
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
 
-    val hiveQL = new PropertyDescriptor().name("hiveQL").displayName("HiveQL").defaultValue("").required(true)
+    val hiveQL = new PropertyDescriptor()
+      .name("hiveQL")
+      .displayName("HiveQL")
+      .defaultValue("")
+      .required(true)
+      .example("")
 
-    val hdfsDirPath = new PropertyDescriptor().name("hdfsDirPath").displayName("hdfsDirPath").defaultValue("/piflow-CSV-of-Neo4j/xxxxx").required(true)
-    val hdfsUrl = new PropertyDescriptor().name("hdfsUrl").displayName("hdfsUrl").defaultValue("hdfs://192.168.3.138:8020").required(true)
+    val hdfsDirPath = new PropertyDescriptor()
+      .name("hdfsDirPath")
+      .displayName("HdfsDirPath")
+      .defaultValue("/piflow-CSV-of-Neo4j/xxxxx")
+      .required(true)
+      .example("")
 
-    val fileName = new PropertyDescriptor().name("fileName").displayName("fileName").defaultValue("").required(true)
+    val hdfsUrl = new PropertyDescriptor()
+      .name("hdfsUrl")
+      .displayName("HdfsUrl")
+      .defaultValue("hdfs://192.168.3.138:8020")
+      .required(true)
+      .example("")
 
-    val delimiter = new PropertyDescriptor().name("delimiter").displayName("delimiter").description("type is csv ,please set it ").defaultValue("¤").required(true)
+    val fileName = new PropertyDescriptor()
+      .name("fileName")
+      .displayName("FileName")
+      .defaultValue("")
+      .required(true)
+      .example("")
+
+    val delimiter = new PropertyDescriptor()
+      .name("delimiter")
+      .displayName("Delimiter")
+      .description("type is csv ,please set it ")
+      .defaultValue("¤")
+      .required(true)
+      .example("")
 
     //header
-    val header = new PropertyDescriptor().name("header").displayName("header").description("Whether the csv file have header or not").defaultValue("true").allowableValues(Set("true", "false")).required(true)
+    val header = new PropertyDescriptor()
+      .name("header")
+      .displayName("Header")
+      .description("Whether the csv file have header or not")
+      .defaultValue("true")
+      .allowableValues(Set("true", "false"))
+      .required(true)
+      .example("")
 
-    val url=new PropertyDescriptor().name("url").displayName("url").description("for example bolt://0.0.1.1:7687").defaultValue("bolt://192.168.3.141:7687").required(true)
+    val url=new PropertyDescriptor()
+      .name("url")
+      .displayName("Url")
+      .description("for example bolt://0.0.1.1:7687")
+      .defaultValue("bolt://127.0.0.1:7687")
+      .required(true)
+      .example("")
 
-    val userName=new PropertyDescriptor().name("userName").displayName("userName").description("the user").defaultValue("neo4j").required(true)
+    val userName=new PropertyDescriptor()
+      .name("userName")
+      .displayName("UserName")
+      .description("the user")
+      .defaultValue("neo4j")
+      .required(true)
+      .example("")
 
-    val password=new PropertyDescriptor().name("password").displayName("password").description("the password").defaultValue("").required(true)
+    val password=new PropertyDescriptor()
+      .name("password")
+      .displayName("Password")
+      .description("the password")
+      .defaultValue("")
+      .required(true)
+      .example("")
 
-    val cypher=new PropertyDescriptor().name("cypher").displayName("cypher").description(" the Cypher").defaultValue("").required(true)
+    val cypher=new PropertyDescriptor()
+      .name("cypher")
+      .displayName("Cypher")
+      .description(" the Cypher")
+      .defaultValue("")
+      .required(true)
+      .example("")
 
 
     descriptor = hiveQL :: descriptor
-
     descriptor = hdfsUrl :: descriptor
     descriptor = hdfsDirPath :: descriptor
     descriptor = fileName :: descriptor

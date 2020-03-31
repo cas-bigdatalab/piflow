@@ -44,16 +44,36 @@ class RunCypher extends ConfigurableStop{
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
 
-    val url=new PropertyDescriptor().name("url").displayName("url").description("for example bolt://0.0.1.1:7687").defaultValue("").required(true)
+    val url=new PropertyDescriptor().name("url")
+      .displayName("url")
+      .description("for example bolt://0.0.1.1:7687")
+      .defaultValue("")
+      .required(true)
     descriptor = url :: descriptor
 
-    val userName=new PropertyDescriptor().name("userName").displayName("userName").description("the user").defaultValue("").required(true)
+    val userName=new PropertyDescriptor()
+      .name("userName")
+      .displayName("UserName")
+      .description("The user")
+      .defaultValue("")
+      .required(true)
     descriptor = userName :: descriptor
 
-    val password=new PropertyDescriptor().name("password").displayName("password").description("the password").defaultValue("").required(true)
+    val password=new PropertyDescriptor()
+      .name("password")
+      .displayName("Password")
+      .description("The password of neo4j")
+      .defaultValue("")
+      .required(true)
+      .sensitive(true)
     descriptor = password :: descriptor
 
-    val cql=new PropertyDescriptor().name("cql").displayName("cql").description(" the Cypher").defaultValue("").required(true)
+    val cql=new PropertyDescriptor()
+      .name("cql")
+      .displayName("cql")
+      .description(" The Cypher")
+      .defaultValue("")
+      .required(true)
     descriptor = cql :: descriptor
 
     descriptor

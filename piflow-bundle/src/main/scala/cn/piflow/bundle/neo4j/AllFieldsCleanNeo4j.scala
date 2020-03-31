@@ -14,8 +14,8 @@ class AllFieldsCleanNeo4j extends ConfigurableStop {
   val authorEmail: String = "anhong12@cnic.cn"
   val description: String = "Clean DataFrame for NSFC Neo4j"
 
-  val inportList: List[String] = List(Port.DefaultPort.toString)
-  val outportList: List[String] = List(Port.DefaultPort.toString)
+  val inportList: List[String] = List(Port.DefaultPort)
+  val outportList: List[String] = List(Port.DefaultPort)
 
 
 //
@@ -81,7 +81,7 @@ class AllFieldsCleanNeo4j extends ConfigurableStop {
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroup.Neo4jGroup.toString)
+    List(StopGroup.Neo4jGroup)
   }
 
 }

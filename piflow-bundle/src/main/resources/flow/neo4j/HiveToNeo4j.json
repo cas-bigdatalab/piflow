@@ -1,0 +1,43 @@
+{
+  "flow":{
+    "name":"test",
+    "uuid":"1234",
+    "checkpoint":"Merge",
+    "stops":[
+      {
+        "uuid":"1111",
+        "name":"SelectHiveQL",
+        "bundle":"cn.piflow.bundle.hive.SelectHiveQL",
+        "properties":{
+          "hiveQL":"select * from test.user1"
+        }
+      },
+      {
+        "uuid":"0000",
+        "name":"HiveToNeo4j",
+        "bundle":"cn.piflow.bundle.neo4j.HiveToNeo4j",
+        "properties": {
+        "hdfsDirPath": "/test",
+        "hdfsUrl":"hdfs://192.168.3.138:8020",
+        "fileName": "user1.csv",
+        "delimiter":",",
+        "header": "true",
+        "url":"bolt://192.168.3.141:7687",
+        "userName": "neo4j",
+        "password":"null",
+        "cypher": "USING PERIODIC COMMIT 100 LOAD CSV WITH HEADERS FROM 'http://192.168.3.138:50070/webhdfs/v1/test/user1.csv? op=OPEN' AS line FIELDTERMINATOR ',' CREATE (n:user{userid:line.id,username:line.name,userscore:line.score,userschool:line.school,userclass:line.class})"
+        }
+
+      }
+    ],
+    "paths":[
+      {
+        "from":"SelectHiveQL",
+        "outport":"",
+        "inport":"",
+        "to":"HiveToNeo4j"
+      }
+
+    ]
+  }
+}
