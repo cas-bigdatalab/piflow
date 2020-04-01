@@ -87,7 +87,7 @@ class MysqlWrite extends ConfigurableStop{
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("icon/jdbc/jdbcWrite.png")
+    ImageUtil.getImage("icon/jdbc/MysqlWrite.png")
   }
 
   override def getGroup(): List[String] = {

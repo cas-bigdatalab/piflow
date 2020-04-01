@@ -115,7 +115,7 @@ class OracleReadByPartition extends ConfigurableStop{
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("icon/jdbc/jdbcRead.png")
+    ImageUtil.getImage("icon/jdbc/OracleRead.png")
   }
 
   override def getGroup(): List[String] = {
