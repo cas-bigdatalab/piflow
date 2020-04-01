@@ -1,16 +1,16 @@
-package cn.piflow.bundle.es
+package cn.piflow.bundle.elasticsearch
 
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import cn.piflow.conf.{ConfigurableStop, Port, StopGroup}
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.apache.spark.sql.SparkSession
+import org.elasticsearch.spark.sql.EsSparkSQL
 
-
-class FetchElasticsearch extends ConfigurableStop {
+class PutElasticsearch extends ConfigurableStop {
 
   val authorEmail: String = "ygang@cnic.cn"
-  val description: String = "Fetch data from Elasticsearch"
+  val description: String = "Put data into Elasticsearch"
   val inportList: List[String] = List(Port.DefaultPort)
   val outportList: List[String] = List(Port.DefaultPort)
 
@@ -18,21 +18,28 @@ class FetchElasticsearch extends ConfigurableStop {
   var es_port  : String  =  _
   var es_index : String =  _
   var es_type  : String  =  _
+  var configuration_item:String = _
 
   def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     val spark = pec.get[SparkSession]()
+    val inDf = in.read()
 
-    val ssc = spark.sqlContext
-
-    val options = Map("es.index.auto.create"-> "true",
-      "es.nodes.wan.only"->"true",
+    val sc = spark.sparkContext
+    var options = Map("es.index.auto.create"-> "true",
       "es.nodes"->es_nodes,
       "es.port"->es_port)
 
-    val outDf = ssc.read.format("org.elasticsearch.spark.sql").options(options).load(s"${es_index}/${es_type}")
-    out.write(outDf)
+    if(configuration_item.length > 0){
+      configuration_item.split(",").foreach(each =>{
+        options += (each.split("->")(0) -> each.split("->")(1))
+      })
+    }
+
+    EsSparkSQL.saveToEs(inDf,s"${es_index}/${es_type}",options)
 
   }
+
+
   def initialize(ctx: ProcessContext): Unit = {
 
   }
@@ -42,6 +49,7 @@ class FetchElasticsearch extends ConfigurableStop {
     es_port=MapUtil.get(map,key="es_port").asInstanceOf[String]
     es_index=MapUtil.get(map,key="es_index").asInstanceOf[String]
     es_type=MapUtil.get(map,key="es_type").asInstanceOf[String]
+    configuration_item=MapUtil.get(map,key="configuration_item").asInstanceOf[String]
   }
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
@@ -52,10 +60,11 @@ class FetchElasticsearch extends ConfigurableStop {
       .description("Node of Elasticsearch")
       .defaultValue("")
       .required(true)
-      .example("10.0.86.239")
+      .example("10.0.88.70")
     descriptor = es_nodes :: descriptor
 
     val es_port = new PropertyDescriptor()
+      .defaultValue("9200")
       .name("es_port")
       .displayName("Es_Port")
       .description("Port of Elasticsearch")
@@ -79,20 +88,27 @@ class FetchElasticsearch extends ConfigurableStop {
       .description("Type of Elasticsearch")
       .defaultValue("")
       .required(true)
-      .example("json")
+      .example("testStudent1")
     descriptor = es_type :: descriptor
+
+    val configuration_item = new PropertyDescriptor()
+      .name("configuration_item")
+      .displayName("Configuration_Item")
+      .description("Configuration Item of Es.such as:es.mapping.parent->id_1,es.mapping.parent->id_2")
+      .defaultValue("")
+      .required(false)
+      .example("es.mapping.parent->id_1,es.mapping.parent->id_2")
+    descriptor = configuration_item :: descriptor
 
     descriptor
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("icon/elasticsearch/FetchEs.png")
+    ImageUtil.getImage("icon/elasticsearch/PutEs.png")
   }
 
   override def getGroup(): List[String] = {
     List(StopGroup.ESGroup)
   }
-
-
 
 }

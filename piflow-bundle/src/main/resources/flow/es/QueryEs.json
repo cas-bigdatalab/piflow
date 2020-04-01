@@ -6,32 +6,23 @@
       {
         "uuid":"3333",
         "name":"queryEs",
-        "bundle":"cn.piflow.bundle.es.QueryEs",
+        "bundle":"cn.piflow.bundle.elasticsearch.QueryElasticsearch",
         "properties":{
-          "es_nodes":"10.0.86.239",
-          "port":"9200",
-          "es_index":"spark",
-          "es_type":"json",
-          "jsonDSL":"GET _search \n {\\\"query\\\":{\\\"match_all:{}\\\"}}"
-        }
-
-      },
-      {
-        "uuid":"0000",
-        "name":"PutHiveStreaming",
-        "bundle":"cn.piflow.bundle.hive.PutHiveStreaming",
-        "properties":{
-          "hiveQL":"select * from sparktest.student"
+          "es_nodes":"10.0.88.70",
+          "es_port":"9200",
+          "es_index":"taxonomy",
+          "es_type":"taxonomy",
+          "jsonDSL":"{\"query\":{\"match_all\":{}}}"
         }
       }
 
     ],
     "paths":[
       {
-        "from":"queryEs",
+        "from":"",
         "outport":"",
         "inport":"",
-        "to":"PutHiveStreaming"
+        "to":""
       }
     ]
   }
