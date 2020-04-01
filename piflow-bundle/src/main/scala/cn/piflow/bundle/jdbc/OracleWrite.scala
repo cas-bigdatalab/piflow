@@ -107,7 +107,7 @@ class OracleWrite extends ConfigurableStop{
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("icon/jdbc/jdbcWriteToOracle.png")
+    ImageUtil.getImage("icon/jdbc/OracleWrite.png")
   }
 
   override def getGroup(): List[String] = {

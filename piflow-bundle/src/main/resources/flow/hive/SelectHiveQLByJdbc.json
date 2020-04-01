@@ -6,8 +6,8 @@
 
       {
         "uuid":"1111",
-        "name":"OptionalSelectHiveQL",
-        "bundle":"cn.piflow.bundle.hive.OptionalSelectHiveQL",
+        "name":"SelectHiveQLByJdbc",
+        "bundle":"cn.piflow.bundle.hive.SelectHiveQLByJdbc",
         "properties":{
           "hiveUser": "root",
           "hivePassword": "123456",

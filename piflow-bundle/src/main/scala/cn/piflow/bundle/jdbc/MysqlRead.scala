@@ -89,7 +89,7 @@ class MysqlRead extends ConfigurableStop  {
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("icon/jdbc/jdbcRead.png")
+    ImageUtil.getImage("icon/jdbc/MysqlRead.png")
   }
 
   override def getGroup(): List[String] = {

@@ -44,7 +44,7 @@ class SelectHiveQLByJDBC extends ConfigurableStop {
     val hivePassword = new PropertyDescriptor().
       name("hive password")
       .displayName("Hive Password")
-      .description("Password to connect to hive")
+      .description("Password connected to hive")
       .defaultValue("123456")
       .required(true)
       .example("123456")
@@ -57,14 +57,14 @@ class SelectHiveQLByJDBC extends ConfigurableStop {
       .description("URL for hive to connect to JDBC")
       .defaultValue("jdbc:hive2://packone12:2181,packone13:2181,packone11:2181/middle;serviceDiscoveryMode=zooKeeper;zooKeeperNamespace=hiveserver2")
       .required(true)
-      .example("jdbc:hive2://192.168.3.140:10000/default")
+      .example("jdbc:hive2://127.0.0.1:2181/newdb")
     descriptor = jdbcUrl :: descriptor
 
     val sql = new PropertyDescriptor().
       name("query")
       .displayName("Hive Query")
       .description("SQL query statement of hive")
-      .defaultValue("select * from middle.m_person")
+      .defaultValue("")
       .required(true)
       .example("select * from test.user1")
      descriptor = sql :: descriptor
@@ -74,7 +74,7 @@ class SelectHiveQLByJDBC extends ConfigurableStop {
 
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("icon/hive/OptionalPutHiveQL.png")
+    ImageUtil.getImage("icon/hive/SelectHiveQLByJdbc.png")
   }
 
   override def getGroup(): List[String] = {
