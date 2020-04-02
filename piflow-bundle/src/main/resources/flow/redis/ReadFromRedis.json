@@ -8,19 +8,19 @@
         "name":"SelectHiveQL",
         "bundle":"cn.piflow.bundle.hive.SelectHiveQL",
         "properties":{
-          "hiveQL":"select * from test.user1"
+          "hiveQL":"select *,name as author from test.user1"
         }
       },
       {
         "uuid":"1111",
-        "name":"WriteToRedis",
-        "bundle":"cn.piflow.bundle.redis.WriteToRedis",
+        "name":"ReadFromRedis",
+        "bundle":"cn.piflow.bundle.redis.ReadFromRedis",
         "properties":{
-          "redis_host":"10.0.88.9",
+          "redis_host":"192.168.3.121",
           "port":"7000",
           "password":"bigdata",
-          "column_name":"title",
-          "schema":"author,pages"
+          "column_name":"author",
+          "schema":"author"
         }
 
       }
