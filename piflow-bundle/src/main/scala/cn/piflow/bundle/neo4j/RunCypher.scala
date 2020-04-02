@@ -46,17 +46,19 @@ class RunCypher extends ConfigurableStop{
 
     val url=new PropertyDescriptor().name("url")
       .displayName("url")
-      .description("for example bolt://0.0.1.1:7687")
+      .description("The url of neo4j")
       .defaultValue("")
       .required(true)
+        .example("bolt://0.0.1.1:7687")
     descriptor = url :: descriptor
 
     val userName=new PropertyDescriptor()
       .name("userName")
       .displayName("UserName")
-      .description("The user")
+      .description("The user of neo4j")
       .defaultValue("")
       .required(true)
+        .example("neo4j")
     descriptor = userName :: descriptor
 
     val password=new PropertyDescriptor()
@@ -66,6 +68,7 @@ class RunCypher extends ConfigurableStop{
       .defaultValue("")
       .required(true)
       .sensitive(true)
+        .example("123456")
     descriptor = password :: descriptor
 
     val cql=new PropertyDescriptor()
@@ -74,6 +77,7 @@ class RunCypher extends ConfigurableStop{
       .description(" The Cypher")
       .defaultValue("")
       .required(true)
+        .example("match(n:user) where n.userid ='11' set n.userclass =5")
     descriptor = cql :: descriptor
 
     descriptor

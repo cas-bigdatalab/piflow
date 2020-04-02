@@ -161,28 +161,28 @@ class HiveToNeo4j extends ConfigurableStop{
       .displayName("HiveQL")
       .defaultValue("")
       .required(true)
-      .example("")
+      .example("select * from test.user1")
 
     val hdfsDirPath = new PropertyDescriptor()
       .name("hdfsDirPath")
       .displayName("HdfsDirPath")
       .defaultValue("/piflow-CSV-of-Neo4j/xxxxx")
       .required(true)
-      .example("")
+      .example("/test")
 
     val hdfsUrl = new PropertyDescriptor()
       .name("hdfsUrl")
       .displayName("HdfsUrl")
       .defaultValue("hdfs://192.168.3.138:8020")
       .required(true)
-      .example("")
+      .example("hdfs://192.168.3.138:8020")
 
     val fileName = new PropertyDescriptor()
       .name("fileName")
       .displayName("FileName")
       .defaultValue("")
       .required(true)
-      .example("")
+      .example("test.csv")
 
     val delimiter = new PropertyDescriptor()
       .name("delimiter")
@@ -190,7 +190,7 @@ class HiveToNeo4j extends ConfigurableStop{
       .description("type is csv ,please set it ")
       .defaultValue("¤")
       .required(true)
-      .example("")
+      .example(",")
 
     //header
     val header = new PropertyDescriptor()
@@ -200,15 +200,15 @@ class HiveToNeo4j extends ConfigurableStop{
       .defaultValue("true")
       .allowableValues(Set("true", "false"))
       .required(true)
-      .example("")
+      .example("true")
 
     val url=new PropertyDescriptor()
       .name("url")
       .displayName("Url")
-      .description("for example bolt://0.0.1.1:7687")
+      .description("The url of neo4j")
       .defaultValue("bolt://127.0.0.1:7687")
       .required(true)
-      .example("")
+      .example("bolt://127.0.0.1:7687")
 
     val userName=new PropertyDescriptor()
       .name("userName")
@@ -216,7 +216,7 @@ class HiveToNeo4j extends ConfigurableStop{
       .description("the user")
       .defaultValue("neo4j")
       .required(true)
-      .example("")
+      .example("neo4j")
 
     val password=new PropertyDescriptor()
       .name("password")
@@ -224,7 +224,7 @@ class HiveToNeo4j extends ConfigurableStop{
       .description("the password")
       .defaultValue("")
       .required(true)
-      .example("")
+      .example("123456")
 
     val cypher=new PropertyDescriptor()
       .name("cypher")
@@ -232,7 +232,7 @@ class HiveToNeo4j extends ConfigurableStop{
       .description(" the Cypher")
       .defaultValue("")
       .required(true)
-      .example("")
+      .example("USING PERIODIC COMMIT 10 LOAD CSV WITH HEADERS FROM 'http://192.168.3.138:50070/webhdfs/v1/test/user2.csv?op=OPEN' AS line FIELDTERMINATOR ',' CREATE (n:user{userid:line.id,username:line.name,userscore:line.score,userschool:line.school,userclass:line.class})")
 
 
     descriptor = hiveQL :: descriptor
