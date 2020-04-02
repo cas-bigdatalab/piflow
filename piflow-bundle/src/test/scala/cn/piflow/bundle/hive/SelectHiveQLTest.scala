@@ -30,7 +30,7 @@ class SelectHiveQLTest {
     //execute flow
     val spark = SparkSession.builder()
       .master("local[*]")
-      .appName("CsvParserTest")
+      .appName("SelectHiveQLTest")
       .config("spark.driver.memory", "1g")
       .config("spark.executor.memory", "2g")
       .config("spark.cores.max", "2")

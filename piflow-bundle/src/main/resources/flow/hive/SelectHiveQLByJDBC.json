@@ -6,12 +6,12 @@
 
       {
         "uuid":"1111",
-        "name":"SelectHiveQLByJdbc",
-        "bundle":"cn.piflow.bundle.hive.SelectHiveQLByJdbc",
+        "name":"SelectHiveQLByJDBC",
+        "bundle":"cn.piflow.bundle.hive.SelectHiveQLByJDBC",
         "properties":{
           "hiveUser": "root",
           "hivePassword": "123456",
-          "jdbcUrl": "jdbc:hive2://192.168.3.140:10000/default",
+          "jdbcUrl": "jdbc:hive2://192.168.3.140:10000/test",
           "sql":"select * from test.csvparser"
         }
       },
@@ -23,7 +23,8 @@
           "csvSavePath":"hdfs://192.168.3.138:8020/test/",
           "header": "true",
           "delimiter":",",
-          "partition":"1"
+          "partition":"1",
+          "saveMode": "append"
         }
 
       }
@@ -31,7 +32,7 @@
     ],
     "paths":[
       {
-        "from":"OptionalSelectHiveQL",
+        "from":"SelectHiveQLByJDBC",
         "outport":"",
         "inport":"",
         "to":"CsvSave"
