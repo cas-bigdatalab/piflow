@@ -8,18 +8,19 @@
         "name":"SelectHiveQL",
         "bundle":"cn.piflow.bundle.hive.SelectHiveQL",
         "properties":{
-          "hiveQL":"select * from sparktest.student"
+          "hiveQL":"select * from test.paper"
         }
       },
       {
         "uuid":"1111",
         "name":"putEs",
-        "bundle":"cn.piflow.bundle.es.PutEs",
+        "bundle":"cn.piflow.bundle.elasticsearch.PutElasticsearch",
         "properties":{
-          "es_nodes":"10.0.86.239",
-          "port":"9200",
+          "es_nodes":"10.0.88.70",
+          "es_port":"9200",
           "es_index":"spark",
-          "es_type":"testStudent1"
+          "es_type":"test_paper",
+          "configuration_item":""
         }
       }
     ],

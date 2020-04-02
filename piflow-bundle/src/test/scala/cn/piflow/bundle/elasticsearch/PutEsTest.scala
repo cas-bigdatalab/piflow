@@ -1,19 +1,21 @@
-package cn.piflow.bundle.es
+package cn.piflow.bundle.elasticsearch
+
+import java.net.InetAddress
 
 import cn.piflow.Runner
 import cn.piflow.conf.bean.FlowBean
 import cn.piflow.conf.util.{FileUtil, OptionUtil}
-import cn.piflow.util.PropertyUtil
+import cn.piflow.util.{PropertyUtil, ServerIpUtil}
 import org.apache.spark.sql.SparkSession
 import org.h2.tools.Server
 import org.junit.Test
 
 import scala.util.parsing.json.JSON
 
-class PutElasticsearchTest {
+class PutEsTest {
 
   @Test
-  def testEs(): Unit ={
+  def testFlow(): Unit ={
 
     //parse flow json
     val file = "src/main/resources/flow/es/PutEs.json"
@@ -25,16 +27,18 @@ class PutElasticsearchTest {
     val flowBean = FlowBean(map)
     val flow = flowBean.constructFlow()
 
-    val h2Server = Server.createTcpServer("-tcp", "-tcpAllowOthers", "-tcpPort", "50001").start()
 
+    val ip = InetAddress.getLocalHost.getHostAddress
+    cn.piflow.util.FileUtil.writeFile("server.ip=" + ip, ServerIpUtil.getServerIpFile())
+    val h2Server = Server.createTcpServer("-tcp", "-tcpAllowOthers", "-tcpPort","50001").start()
     //execute flow
     val spark = SparkSession.builder()
-      .master("local[*]")
-      .appName("CsvParserTest")
-      .config("spark.driver.memory", "1g")
-      .config("spark.executor.memory", "2g")
-      .config("spark.cores.max", "2")
-      .config("hive.metastore.uris", PropertyUtil.getPropertyValue("hive.metastore.uris"))
+      .master("local[12]")
+      .appName("hive")
+      .config("spark.driver.memory", "4g")
+      .config("spark.executor.memory", "8g")
+      .config("spark.cores.max", "8")
+      .config("hive.metastore.uris",PropertyUtil.getPropertyValue("hive.metastore.uris"))
       .enableHiveSupport()
       .getOrCreate()
 
