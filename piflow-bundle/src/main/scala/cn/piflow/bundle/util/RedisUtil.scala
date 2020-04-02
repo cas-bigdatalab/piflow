@@ -11,13 +11,17 @@ object RedisUtil extends Serializable {
   def manipulateRow(row:Row,column_name:String,jedisClusterImplSer: JedisClusterImplSer):Unit={
     var hm:util.HashMap[String,String]=new util.HashMap()
 
+    val key=row.getAs(column_name).asInstanceOf[String]
+
     row.schema.fields.foreach(f=>{
-      println(f.name+"---------"+row.getAs(f.name))
-      hm.put(f.name,row.getAs(f.name).asInstanceOf[String])
+      if (row.getAs(f.name).asInstanceOf[String] == null ) hm.put(f.name,"None")
+      else hm.put(f.name,row.getAs(f.name).asInstanceOf[String])
+
     })
 
+    println(hm)
 
-    jedisClusterImplSer.getJedisCluster.hmset(column_name,hm)
+    jedisClusterImplSer.getJedisCluster.hmset(key,hm)
 
   }
   /**
