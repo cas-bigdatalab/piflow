@@ -25,14 +25,15 @@ class WriteToRedis extends ConfigurableStop{
     val spark = pec.get[SparkSession]()
     val df = in.read()
     var col_name:String=column_name
+    df.printSchema()
 
-    println(df.schema)
     //connect to redis
     var jedisCluster=new JedisClusterImplSer(new HostAndPort(redis_host,port),password)
+
     df.collect.foreach(row=> {
       RedisUtil.manipulateRow(row,col_name,jedisCluster)
     })
-    val v=jedisCluster.getJedisCluster.hkeys("Python")
+    val v=jedisCluster.getJedisCluster.hkeys("doi")
     println(v)
   }
 
