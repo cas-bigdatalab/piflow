@@ -1,22 +1,24 @@
 package cn.piflow.bundle.hive
 
+import java.net.InetAddress
+
 import cn.piflow.Runner
 import cn.piflow.conf.bean.FlowBean
 import cn.piflow.conf.util.{FileUtil, OptionUtil}
-import cn.piflow.util.PropertyUtil
+import cn.piflow.util.{PropertyUtil, ServerIpUtil}
 import org.apache.spark.sql.SparkSession
 import org.h2.tools.Server
 import org.junit.Test
 
 import scala.util.parsing.json.JSON
 
-class SelectHiveQLByJdbcTest {
+class SelectHiveQLByJDBCTest {
 
   @Test
   def testFlow(): Unit ={
 
     //parse flow json
-    val file = "src/main/resources/flow/hive/SelectHiveQLByJdbc.json"
+    val file = "src/main/resources/flow/hive/SelectHiveQLByJDBC.json"
     val flowJsonStr = FileUtil.fileReader(file)
     val map = OptionUtil.getAny(JSON.parseFull(flowJsonStr)).asInstanceOf[Map[String, Any]]
     println(map)
@@ -25,12 +27,15 @@ class SelectHiveQLByJdbcTest {
     val flowBean = FlowBean(map)
     val flow = flowBean.constructFlow()
 
+    val ip = InetAddress.getLocalHost.getHostAddress
+    cn.piflow.util.FileUtil.writeFile("server.ip=" + ip, ServerIpUtil.getServerIpFile())
+
     val h2Server = Server.createTcpServer("-tcp", "-tcpAllowOthers", "-tcpPort", "50001").start()
 
     //execute flow
     val spark = SparkSession.builder()
       .master("local[*]")
-      .appName("CsvParserTest")
+      .appName("SelectHiveQLByJdbcTest")
       .config("spark.driver.memory", "1g")
       .config("spark.executor.memory", "2g")
       .config("spark.cores.max", "2")

@@ -30,7 +30,7 @@ class MysqlWriteTest {
     //execute flow
     val spark = SparkSession.builder()
       .master("local[*]")
-      .appName("CsvParserTest")
+      .appName("MysqlWriteTest")
       .config("spark.driver.memory", "1g")
       .config("spark.executor.memory", "2g")
       .config("spark.cores.max", "2")
