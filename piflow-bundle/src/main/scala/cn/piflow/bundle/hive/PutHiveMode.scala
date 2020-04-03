@@ -37,7 +37,6 @@ class PutHiveMode extends ConfigurableStop {
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
 
     val saveModeOption = Set("append","overwrite","error","ignore")
-    val saveFormatOption = Set("parquet","orc","avro","csv","hive")
     var descriptor : List[PropertyDescriptor] = List()
 
     val database=new PropertyDescriptor()
