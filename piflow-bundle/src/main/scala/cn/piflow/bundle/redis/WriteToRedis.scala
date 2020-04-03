@@ -33,7 +33,7 @@ class WriteToRedis extends ConfigurableStop{
     df.collect.foreach(row=> {
       RedisUtil.manipulateRow(row,col_name,jedisCluster)
     })
-    val v=jedisCluster.getJedisCluster.hkeys("doi")
+    val v=jedisCluster.getJedisCluster.hkeys("aaa")
     println(v)
   }
 
@@ -82,11 +82,11 @@ class WriteToRedis extends ConfigurableStop{
 
     val column_name = new PropertyDescriptor()
       .name("column_name")
-      .displayName("COLUMN_NAME")
-      .description("")
+      .displayName("Column_name")
+      .description("The field in the schema you want to use as the key (must be unique)")
       .defaultValue("")
       .required(true)
-      .example("gender")
+      .example("id")
     descriptor = column_name :: descriptor
     descriptor
   }

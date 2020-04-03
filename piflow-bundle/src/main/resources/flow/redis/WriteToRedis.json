@@ -8,7 +8,7 @@
         "name":"SelectHiveQL",
         "bundle":"cn.piflow.bundle.hive.SelectHiveQL",
         "properties":{
-          "hiveQL":"select id,name  from test.user1"
+          "hiveQL":"select * from test.user1  "
         }
       },
       {
@@ -16,10 +16,10 @@
         "name":"WriteToRedis",
         "bundle":"cn.piflow.bundle.redis.WriteToRedis",
         "properties":{
-          "redis_host":"192.168.3.138",
+          "redis_host":"192.168.3.121",
           "port":"7000",
           "password":"bigdata",
-          "column_name":"test"
+          "column_name":"id"
         }
       }
     ],

@@ -55,35 +55,5 @@ class ReadFromRedisTest {
     spark.close();
   }
 
-  @Test
-  def testFlow1(): Unit ={
-
-    val spark = SparkSession.builder()
-      .master("local[*]")
-      .appName("SparkReadRedis")
-      .config("spark.driver.memory", "1g")
-      .config("spark.executor.memory", "2g")
-      .config("spark.cores.max", "2")
-      .config("hive.metastore.uris",PropertyUtil.getPropertyValue("hive.metastore.uris"))
-
-      .config("spark.redis.host","192.168.3.138")
-      .config("spark.redis.port", "7000")
-      .config("spark.redis.auth","bigdata") //指定redis密码
-      .config("spark.redis.db","0") //指定redis库
-      .enableHiveSupport()
-      .getOrCreate()
-
-
-   val df =  spark.sql("select * from test.user1")
-
-    df.write
-      .format("org.apache.spark.sql.redis")
-      .option("table", "person")
-      .option("key.column", "name")
-      .mode(SaveMode.Overwrite)
-      .save()
-
-
-  }
 
 }
