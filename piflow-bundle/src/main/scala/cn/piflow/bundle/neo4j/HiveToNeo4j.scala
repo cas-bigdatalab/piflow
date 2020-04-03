@@ -29,7 +29,7 @@ class HiveToNeo4j extends ConfigurableStop{
   var pathARR:ArrayBuffer[String]=ArrayBuffer()
   var oldFilePath:String = _
 
-  var url : String =_
+  var neo4j_Url : String =_
   var userName : String =_
   var password : String =_
   var cypher : String =""
@@ -97,7 +97,7 @@ class HiveToNeo4j extends ConfigurableStop{
     //RunCypherLoadCSV----------------------------------------
     println("run cypher !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
     val cqls: Array[String] = cypher.split(";")
-    var driver: Driver = GraphDatabase.driver(url, AuthTokens.basic(userName, password))
+    var driver: Driver = GraphDatabase.driver(neo4j_Url, AuthTokens.basic(userName, password))
     var session: Session = null
 
     try {
@@ -147,7 +147,7 @@ class HiveToNeo4j extends ConfigurableStop{
     fileName = MapUtil.get(map,key="fileName").asInstanceOf[String]
     delimiter = MapUtil.get(map,key="delimiter").asInstanceOf[String]
     header = MapUtil.get(map,"header").asInstanceOf[String].toBoolean
-    url = MapUtil.get(map,"url").asInstanceOf[String]
+    neo4j_Url = MapUtil.get(map,"neo4j_Url").asInstanceOf[String]
     userName = MapUtil.get(map,"userName").asInstanceOf[String]
     password = MapUtil.get(map,"password").asInstanceOf[String]
     cypher = MapUtil.get(map,"cypher").asInstanceOf[String]
@@ -159,6 +159,7 @@ class HiveToNeo4j extends ConfigurableStop{
     val hiveQL = new PropertyDescriptor()
       .name("hiveQL")
       .displayName("HiveQL")
+      .description("SQL statement saved from hive to neo4j")
       .defaultValue("")
       .required(true)
       .example("select * from test.user1")
@@ -166,20 +167,23 @@ class HiveToNeo4j extends ConfigurableStop{
     val hdfsDirPath = new PropertyDescriptor()
       .name("hdfsDirPath")
       .displayName("HdfsDirPath")
-      .defaultValue("/piflow-CSV-of-Neo4j/xxxxx")
+      .description("Path saved to hdfs")
+      .defaultValue("")
       .required(true)
-      .example("/test")
+      .example("/piflow-CSV-of-Neo4j/xxxxx")
 
     val hdfsUrl = new PropertyDescriptor()
       .name("hdfsUrl")
       .displayName("HdfsUrl")
-      .defaultValue("hdfs://192.168.3.138:8020")
+      .description("The Url of hdfs")
+      .defaultValue("")
       .required(true)
-      .example("hdfs://192.168.3.138:8020")
+      .example("hdfs://127.0.0.1:8020")
 
     val fileName = new PropertyDescriptor()
       .name("fileName")
       .displayName("FileName")
+      .description("Csv file name saved to hdfs")
       .defaultValue("")
       .required(true)
       .example("test.csv")
@@ -187,7 +191,7 @@ class HiveToNeo4j extends ConfigurableStop{
     val delimiter = new PropertyDescriptor()
       .name("delimiter")
       .displayName("Delimiter")
-      .description("type is csv ,please set it ")
+      .description("Set separator from csv file")
       .defaultValue("¤")
       .required(true)
       .example(",")
@@ -202,18 +206,18 @@ class HiveToNeo4j extends ConfigurableStop{
       .required(true)
       .example("true")
 
-    val url=new PropertyDescriptor()
-      .name("url")
-      .displayName("Url")
+    val neo4j_Url=new PropertyDescriptor()
+      .name("neo4j_Url")
+      .displayName("Neo4j_Url")
       .description("The url of neo4j")
-      .defaultValue("bolt://127.0.0.1:7687")
+      .defaultValue("")
       .required(true)
       .example("bolt://127.0.0.1:7687")
 
     val userName=new PropertyDescriptor()
       .name("userName")
       .displayName("UserName")
-      .description("the user")
+      .description("The user of neo4j")
       .defaultValue("neo4j")
       .required(true)
       .example("neo4j")
@@ -221,7 +225,7 @@ class HiveToNeo4j extends ConfigurableStop{
     val password=new PropertyDescriptor()
       .name("password")
       .displayName("Password")
-      .description("the password")
+      .description("The password of neo4j")
       .defaultValue("")
       .required(true)
       .example("123456")
@@ -229,10 +233,10 @@ class HiveToNeo4j extends ConfigurableStop{
     val cypher=new PropertyDescriptor()
       .name("cypher")
       .displayName("Cypher")
-      .description(" the Cypher")
+      .description("Cypher statement to import csv file")
       .defaultValue("")
       .required(true)
-      .example("USING PERIODIC COMMIT 10 LOAD CSV WITH HEADERS FROM 'http://192.168.3.138:50070/webhdfs/v1/test/user2.csv?op=OPEN' AS line FIELDTERMINATOR ',' CREATE (n:user{userid:line.id,username:line.name,userscore:line.score,userschool:line.school,userclass:line.class})")
+      .example("USING PERIODIC COMMIT 10 LOAD CSV WITH HEADERS FROM 'http://127.0.0.1:50070/webhdfs/v1/test/user.csv?op=OPEN' AS line FIELDTERMINATOR ',' CREATE (n:user{userid:line.id,username:line.name,userscore:line.score,userschool:line.school,userclass:line.class})")
 
 
     descriptor = hiveQL :: descriptor
@@ -242,7 +246,7 @@ class HiveToNeo4j extends ConfigurableStop{
     descriptor = header :: descriptor
     descriptor = delimiter :: descriptor
 
-    descriptor = url :: descriptor
+    descriptor = neo4j_Url :: descriptor
     descriptor = userName :: descriptor
     descriptor = password :: descriptor
     descriptor = cypher :: descriptor
