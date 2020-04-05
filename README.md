@@ -252,7 +252,7 @@ To Use：
 
 ## docker-started  
   - pull piflow images  
-    docker pull registry.cn-hangzhou.aliyuncs.com/cnic_piflow/piflow:v0.6
+    docker pull registry.cn-hangzhou.aliyuncs.com/cnic_piflow/piflow:v0.6.1
     
   - show docker images  
     docker images
