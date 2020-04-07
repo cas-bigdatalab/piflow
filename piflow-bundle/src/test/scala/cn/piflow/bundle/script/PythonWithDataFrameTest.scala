@@ -15,12 +15,13 @@ import scala.util.parsing.json.JSON
 /**
   * Created by xjzhu@cnic.cn on 2/24/20
   */
-class PythonTest {
+class PythonWithDataFrameTest {
+
 
   @Test
-  def testPython() : Unit = {
+  def testPythonWithDataFrame() : Unit = {
     //parse flow json
-    val file = "src/main/resources/flow/script/python.json"
+    val file = "src/main/resources/flow/script/pythonWithDataFrame.json"
     val flowJsonStr = FileUtil.fileReader(file)
     val map = OptionUtil.getAny(JSON.parseFull(flowJsonStr)).asInstanceOf[Map[String, Any]]
     println(map)
@@ -56,4 +57,5 @@ class PythonTest {
     h2Server.stop()
   }
 
- }
+
+}
