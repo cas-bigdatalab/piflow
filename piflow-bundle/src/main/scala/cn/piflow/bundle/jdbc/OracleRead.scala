@@ -47,7 +47,7 @@ class OracleRead extends ConfigurableStop{
     val url=new PropertyDescriptor()
       .name("url")
       .displayName("Url")
-      .description("The Url, for example jdbc:oracle:thin:@10.0.86.237:1521/newdb")
+      .description("The Url of oracle")
       .defaultValue("")
       .required(true)
       .example("jdbc:oracle:thin:@10.0.86.237:1521/newdb")

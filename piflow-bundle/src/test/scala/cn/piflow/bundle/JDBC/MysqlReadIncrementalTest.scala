@@ -16,7 +16,7 @@ class MysqlReadIncrementalTest {
   def testFlow(): Unit ={
 
     //parse flow json
-    val file = "src/main/resources/flow/jdbc/JdbcReadFromOracle.json"
+    val file = "src/main/resources/flow/jdbc/MysqlReadIncremental.json"
     val flowJsonStr = FileUtil.fileReader(file)
     val map = OptionUtil.getAny(JSON.parseFull(flowJsonStr)).asInstanceOf[Map[String, Any]]
     println(map)

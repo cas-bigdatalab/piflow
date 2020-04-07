@@ -10,7 +10,7 @@
         "bundle":"cn.piflow.bundle.http.GetUrl",
         "properties":{
           "url":"https://api.elsevier.com/content/search/scopus?query=TITLE('title')&apiKey=555637gxd",
-          "types":"json",
+          "httpAcceptTypes":"json",
           "label":"",
           "schema":""
         }
@@ -20,7 +20,7 @@
         "bundle":"cn.piflow.bundle.http.GetUrl",
         "properties":{
           "url":"https://api.elsevier.com/content/search/scopus?query=TITLE('title')&apiKey=555637gxd",
-          "types":"xml",
+          "httpAcceptTypes":"xml",
           "label":"service-error,status",
           "schema":"statusCode,statusText"
         }

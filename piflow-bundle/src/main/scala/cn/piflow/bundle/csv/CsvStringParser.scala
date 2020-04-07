@@ -63,7 +63,7 @@ class CsvStringParser extends ConfigurableStop{
       .displayName("Str")
       .defaultValue("")
       .required(true)
-      .example("")
+      .example("1,zs\n2,ls\n3,ww")
     descriptor = str :: descriptor
 
     val delimiter = new PropertyDescriptor()
@@ -72,7 +72,7 @@ class CsvStringParser extends ConfigurableStop{
       .description("The delimiter of CSV string")
       .defaultValue("")
       .required(true)
-      .example("")
+      .example(",")
     descriptor = delimiter :: descriptor
 
     val schema = new PropertyDescriptor()

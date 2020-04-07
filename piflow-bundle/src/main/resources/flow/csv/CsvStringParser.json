@@ -11,7 +11,7 @@
         "properties":{
           "Str":"1,zs\n2,ls\n3,ww",
           "delimiter":",",
-          "schema":""
+          "schema":"id,name"
         }
       },
       {

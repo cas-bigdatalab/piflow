@@ -50,7 +50,7 @@ class GetFile extends ConfigurableStop{
       .description("Server IP where the local file is located")
       .defaultValue("")
       .required(true)
-      .example("192.168.3.139")
+      .example("127.0.0.1")
     descriptor = IP :: descriptor
 
     val User = new PropertyDescriptor()
