@@ -1,4 +1,4 @@
-package cn.piflow.bundle.test
+package cn.piflow.bundle.script
 
 import java.net.InetAddress
 
@@ -20,7 +20,7 @@ class PythonTest {
   @Test
   def testPython() : Unit = {
     //parse flow json
-    val file = "src/main/resources/python.json"
+    val file = "src/main/resources/flow/script/python.json"
     val flowJsonStr = FileUtil.fileReader(file)
     val map = OptionUtil.getAny(JSON.parseFull(flowJsonStr)).asInstanceOf[Map[String, Any]]
     println(map)

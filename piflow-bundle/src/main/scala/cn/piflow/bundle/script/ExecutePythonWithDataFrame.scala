@@ -1,26 +1,25 @@
-package cn.piflow.bundle.python
+package cn.piflow.bundle.script
 
 import java.util
 import java.util.UUID
 
-import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
-import cn.piflow.conf.{ConfigurableStop, Port, StopGroup}
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
+import cn.piflow.conf.{ConfigurableStop, Port, StopGroup}
 import cn.piflow.util.FileUtil
+import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import jep.Jep
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
-import org.apache.spark.sql.{DataFrame, Encoders, Row, SparkSession}
+import org.apache.spark.sql.{Row, SparkSession}
 
-import scala.collection.mutable.HashMap
 import scala.collection.JavaConversions._
 
 /**
   * Created by xjzhu@cnic.cn on 2/24/20
   */
-class PythonExecutor extends ConfigurableStop{
+class ExecutePythonWithDataFrame extends ConfigurableStop{
   override val authorEmail: String = "xjzhu@cnic.cn"
-  override val description: String = "Execute python script"
+  override val description: String = "Execute python script with dataframe"
   override val inportList: List[String] = List(Port.DefaultPort)
   override val outportList: List[String] = List(Port.DefaultPort)
 
@@ -34,26 +33,35 @@ class PythonExecutor extends ConfigurableStop{
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
-    val script = new PropertyDescriptor().name("script").displayName("script").description("The code of python").defaultValue("").required(true)
-    val execFunction = new PropertyDescriptor().name("execFunction").displayName("execFunction").description("The function of python script to be executed.").defaultValue("").required(true)
+    val script = new PropertyDescriptor()
+      .name("script")
+      .displayName("script")
+      .description("The code of python")
+      .defaultValue("")
+      .required(true)
+    val execFunction = new PropertyDescriptor()
+      .name("execFunction")
+      .displayName("execFunction")
+      .description("The function of python script to be executed.")
+      .defaultValue("")
+      .required(true)
     descriptor = script :: descriptor
     descriptor = execFunction :: descriptor
     descriptor
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("icon/python/python.png")
+    ImageUtil.getImage("icon/script/python.png")
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroup.Python)
+    List(StopGroup.ScriptGroup)
   }
   override def initialize(ctx: ProcessContext): Unit = {}
 
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
 
     val spark = pec.get[SparkSession]()
-    import spark.implicits._
 
     val df = in.read()
 
