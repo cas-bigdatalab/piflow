@@ -6,6 +6,7 @@ object MapUtil {
     map.get(key) match {
       case None => None
       case Some(x:String) => x
+      case Some(x:Integer) => x
       case Some(x:List[String]) => x
       case Some(x:List[Map[String, String]]) => x
       case Some(x:Map[String, Any]) => x

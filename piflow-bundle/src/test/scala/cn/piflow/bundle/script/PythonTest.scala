@@ -1,4 +1,4 @@
-package cn.piflow.bundle.test
+package cn.piflow.bundle.script
 
 import java.net.InetAddress
 
@@ -20,7 +20,7 @@ class PythonTest {
   @Test
   def testPython() : Unit = {
     //parse flow json
-    val file = "src/main/resources/python.json"
+    val file = "src/main/resources/flow/script/python.json"
     val flowJsonStr = FileUtil.fileReader(file)
     val map = OptionUtil.getAny(JSON.parseFull(flowJsonStr)).asInstanceOf[Map[String, Any]]
     println(map)
@@ -33,7 +33,7 @@ class PythonTest {
     val spark = SparkSession.builder()
       .master("local")
       //.   master("spark://10.0.86.89:7077")t
-       .config("spark.driver.memory", "1g")
+      .config("spark.driver.memory", "1g")
       .config("spark.executor.memory", "2g")
       .config("spark.cores.max", "2")
       //.config("spark.yarn.appMasterEnv.PYSPARK_PYTHON","/usr/bin/python3")
@@ -47,12 +47,13 @@ class PythonTest {
 
     val process = Runner.create()
       .bind(classOf[SparkSession].getName, spark)
-      .bind("checkpoint.path", "hdfs://10.0.86.89:9000/xjzhu/piflow/checkpoints/")
-      .bind("debug.path","hdfs://10.0.86.89:9000/xjzhu/piflow/debug/")
+      .bind("checkpoint.path", "")
+      .bind("debug.path","")
       .start(flow);
 
     process.awaitTermination();
     spark.close();
+    h2Server.stop()
   }
 
-}
+ }

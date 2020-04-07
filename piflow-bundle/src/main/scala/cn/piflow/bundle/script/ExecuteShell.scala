@@ -85,7 +85,7 @@ class ExecuteShell extends ConfigurableStop{
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroup.FileGroup)
+    List(StopGroup.ScriptGroup)
   }
 
   override def initialize(ctx: ProcessContext): Unit = { }

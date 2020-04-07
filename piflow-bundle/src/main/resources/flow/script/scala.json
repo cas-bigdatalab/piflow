@@ -1,6 +1,6 @@
 {
   "flow":{
-    "name":"pythonTest",
+    "name":"scalaTest",
     "uuid":"1234567890",
     "stops":[
       {
@@ -16,11 +16,10 @@
       },
       {
         "uuid":"2222",
-        "name":"PythonExecutor",
-        "bundle":"cn.piflow.bundle.python.PythonExecutor",
+        "name":"ExecuteScala",
+        "bundle":"cn.piflow.bundle.script.ExecuteScala",
         "properties":{
-            "script":"import sys\nimport os\n\nimport numpy as np\nfrom scipy import linalg\nimport pandas as pd\n\nimport matplotlib\nmatplotlib.use('Agg')\n\n\ndef listFunction(dictInfo):\n\n    return dictInfo",
-            "execFunction": "listFunction"
+            "script":"val t = 3 + 5 \n println(\" result = \" + t)"
         }
       }
     ],
@@ -29,7 +28,7 @@
         "from":"CsvParser",
         "outport":"",
         "inport":"",
-        "to":"PythonExecutor"
+        "to":"ExecuteScala"
       }
     ]
   }
