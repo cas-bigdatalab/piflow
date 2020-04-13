@@ -144,7 +144,7 @@ class ReadHbase extends ConfigurableStop{
       .name("family")
       .displayName("Family")
       .defaultValue("")
-      .description("The column family of table")
+      .description("The column family of table,multiple column families are separated by commas")
       .required(true)
       .example("info")
     descriptor = family :: descriptor
@@ -153,7 +153,7 @@ class ReadHbase extends ConfigurableStop{
       .name("qualifier")
       .displayName("Qualifier")
       .defaultValue("")
-      .description("Field of column family")
+      .description("Field of column family,fill in the order of column family")
       .required(true)
       .example("name,age")
     descriptor = qualifier :: descriptor
