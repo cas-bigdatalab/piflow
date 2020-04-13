@@ -1,0 +1,42 @@
+{
+  "flow":{
+    "name":"test",
+    "uuid":"1234",
+    "stops":[
+      {
+        "uuid":"0000",
+        "name":"ReadHbase",
+        "bundle":"cn.piflow.bundle.hbase.ReadHbase",
+        "properties":{
+          "quorum": "packone138,packone139,packone140",
+          "port":"2181",
+          "znodeParent": "/hbase-unsecure",
+          "table": "db0408:test02",
+          "rowid": "rowkey",
+          "family": "t1,t2",
+          "qualifier": "name,age,gender"
+        }
+      },
+      {
+        "uuid":"1324",
+        "name":"CsvSave",
+        "bundle":"cn.piflow.bundle.csv.CsvSave",
+        "properties":{
+          "csvSavePath":"hdfs://192.168.3.138:8020/test/hbasetest",
+          "header": "true",
+          "delimiter":",",
+          "partition":"1",
+          "saveMode": "append"
+        }
+      }
+    ],
+    "paths":[
+      {
+        "from":"ReadHbase",
+        "outport":"",
+        "inport":"",
+        "to":"CsvSave"
+      }
+    ]
+  }
+}
