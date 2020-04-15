@@ -174,6 +174,7 @@ class SaveToHdfs extends ConfigurableStop {
       .description("Does the csv file have a header")
       .defaultValue("true")
       .required(true)
+        .example("true")
     descriptor = header :: descriptor
     descriptor
   }

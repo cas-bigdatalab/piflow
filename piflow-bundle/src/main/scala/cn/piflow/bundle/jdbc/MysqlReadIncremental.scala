@@ -51,10 +51,10 @@ class MysqlReadIncremental extends ConfigurableIncrementalStop{
     val url=new PropertyDescriptor()
       .name("url")
       .displayName("Url")
-      .description("The Url, for example jdbc:mysql://127.0.0.1/dbname")
+      .description("The Url of mysql")
       .defaultValue("")
       .required(true)
-      .example("")
+      .example("jdbc:mysql://127.0.0.1/dbname")
     descriptor = url :: descriptor
 
     val user=new PropertyDescriptor()
@@ -63,7 +63,7 @@ class MysqlReadIncremental extends ConfigurableIncrementalStop{
       .description("The user name of database")
       .defaultValue("")
       .required(true)
-      .example("")
+      .example("root")
     descriptor = user :: descriptor
 
     val password=new PropertyDescriptor()
@@ -72,7 +72,7 @@ class MysqlReadIncremental extends ConfigurableIncrementalStop{
       .description("The password of database")
       .defaultValue("")
       .required(true)
-      .example("")
+      .example("123456")
       .sensitive(true)
     descriptor = password :: descriptor
 
@@ -82,7 +82,7 @@ class MysqlReadIncremental extends ConfigurableIncrementalStop{
       .description("The sql sentence you want to execute")
       .defaultValue("")
       .required(true)
-      .example("")
+      .example("select * from user")
     descriptor = sql :: descriptor
 
     val incrementalField=new PropertyDescriptor()
@@ -91,7 +91,7 @@ class MysqlReadIncremental extends ConfigurableIncrementalStop{
       .description("The incremental field")
       .defaultValue("")
       .required(true)
-      .example("")
+      .example("update_date")
     descriptor = incrementalField :: descriptor
 
     val incrementalStart=new PropertyDescriptor()
@@ -100,7 +100,7 @@ class MysqlReadIncremental extends ConfigurableIncrementalStop{
       .description("The incremental start value")
       .defaultValue("")
       .required(true)
-      .example("")
+      .example("2020-04-07")
     descriptor = incrementalStart :: descriptor
 
     descriptor

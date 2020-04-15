@@ -18,7 +18,6 @@ class XmlParser extends ConfigurableStop {
 
   var xmlpath:String = _
   var rowTag:String = _
-  var schema: StructType = _
 
   def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
 
@@ -27,7 +26,6 @@ class XmlParser extends ConfigurableStop {
     val xmlDF = spark.read.format("com.databricks.spark.xml")
       .option("rowTag",rowTag)
       .option("treatEmptyValuesAsNulls",true)
-      /*.schema(schema)*/
       .load(xmlpath)
 
     out.write(xmlDF)
@@ -40,7 +38,6 @@ class XmlParser extends ConfigurableStop {
   def setProperties(map : Map[String, Any]) = {
     xmlpath = MapUtil.get(map,"xmlpath").asInstanceOf[String]
     rowTag = MapUtil.get(map,"rowTag").asInstanceOf[String]
-    schema = null
   }
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
