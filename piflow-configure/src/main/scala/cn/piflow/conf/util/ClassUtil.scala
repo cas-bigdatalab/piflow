@@ -1,6 +1,7 @@
 package cn.piflow.conf.util
 
 import java.io.File
+import java.net.URLClassLoader
 
 import cn.piflow.conf.ConfigurableStop
 import cn.piflow.conf.bean.PropertyDescriptor
@@ -9,12 +10,15 @@ import org.clapper.classutil.ClassFinder
 import org.reflections.Reflections
 import net.liftweb.json.JsonDSL._
 import sun.misc.BASE64Encoder
+
 import util.control.Breaks._
 
 
 object ClassUtil {
 
-  val configurableStopClass:String = "cn.piflow.conf.ConfigurableStop"
+  val configurableStopClass:String = "ConfigurableStop"
+  val configurableStreamingStop:String = "ConfigurableStreamingStop"
+  val configurableIncrementalStop:String = "ConfigurableIncrementalStop"
   //val classpath:String = "/opt/project/piflow/classpath"
 
   /*def findAllConfigurableStopByClassFinder() : List[String] = {
@@ -46,6 +50,7 @@ object ClassUtil {
     val reflections = new Reflections("")
     val allClasses = reflections.getSubTypesOf(classOf[ConfigurableStop])
     val it = allClasses.iterator();
+    var count = 0
     while(it.hasNext) {
 
       breakable{
@@ -69,8 +74,9 @@ object ClassUtil {
   }
 
 
-  private def findAllConfigurableStopInClasspath() : List[ConfigurableStop] = {
+  def findAllConfigurableStopInClasspath() : List[ConfigurableStop] = {
 
+    //val classLoader = ClassUtil.getClass.getClassLoader
     val classpath = System.getProperty("user.dir")+ "/classpath/"
     var stopList:List[ConfigurableStop] = List()
 
@@ -84,10 +90,16 @@ object ClassUtil {
       while(it.hasNext) {
 
         val externalClass = it.next()
-        if(externalClass.superClassName.equals(configurableStopClass)){
 
-          val stopIntance = Class.forName(externalClass.name).newInstance()
-          stopList = stopIntance.asInstanceOf[ConfigurableStop] +: stopList
+        if(externalClass.superClassName.equals(configurableStopClass) &&
+          !externalClass.name.equals(configurableStreamingStop) &&
+          !externalClass.name.equals(configurableIncrementalStop)){
+
+          val classpath = System.getProperty("user.dir")+ "/classpath/NSFC.jar"
+          var classLoader = new URLClassLoader(Array(new File(classpath).toURI.toURL),this.getClass.getClassLoader )
+          val stopInstance = classLoader.loadClass(externalClass.name).newInstance()
+          //val stopInstance = Class.forName(externalClass.name).newInstance()
+          stopList = stopInstance.asInstanceOf[ConfigurableStop] +: stopList
         }
       }
     }
@@ -221,6 +233,12 @@ object ClassUtil {
 
   }
 
+  /*def getExterClassInJar() : List[ConfigurableStop] = {
+    val classpath = System.getProperty("user.dir")+ "/classpath/NSFC.jar"
+    var classLoader = new URLClassLoader(Array(new File(classpath).toURI.toURL),this.getClass.getClassLoader )
+
+  }*/
+
   def main(args: Array[String]): Unit = {
     //val stop = findConfigurableStop("cn.piflow.bundle.Class1")
     //val allConfigurableStopList = findAllConfigurableStop()
@@ -232,8 +250,9 @@ object ClassUtil {
     val str = propertyJsonList.mkString(start, ",", end)
     println(str)*/
 
-    val stop = findAllConfigurableStop()
-    stop.foreach(s => println(s.getClass.getName))
+    //val stop = findAllConfigurableStop()
+    //stop.foreach(s => println(s.getClass.getName))
+    val stopListInClassPath = findAllConfigurableStopInClasspath()
     val temp = 1
 
 

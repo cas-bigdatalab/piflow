@@ -81,6 +81,11 @@
             <artifactId>piflow-core</artifactId>
             <version>0.9</version>
         </dependency>
+        <dependency>
+            <groupId>piflow</groupId>
+            <artifactId>piflow-configure</artifactId>
+            <version>0.9</version>
+        </dependency>
 
         <dependency>
             <groupId>org.clapper</groupId>
