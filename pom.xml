@@ -198,5 +198,6 @@
         <!--<module>piflow-conf</module>-->
         <module>piflow-bundle</module>
         <module>piflow-server</module>
+        <module>piflow-configure</module>
     </modules>
 </project>
