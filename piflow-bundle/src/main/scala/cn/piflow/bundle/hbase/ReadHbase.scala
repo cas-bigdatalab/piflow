@@ -14,7 +14,7 @@ import scala.collection.mutable.ArrayBuffer
 
 class ReadHbase extends ConfigurableStop{
 
-  override val authorEmail: String = "bf219319@cnic.com"
+  override val authorEmail: String = "bf219319@163.com"
   override val description: String = "Read data from Hbase"
   override val inportList: List[String] = List(Port.DefaultPort)
   override val outportList: List[String] = List(Port.DefaultPort)
