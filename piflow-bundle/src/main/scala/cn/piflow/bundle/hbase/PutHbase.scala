@@ -137,11 +137,11 @@ class PutHbase extends ConfigurableStop{
 
     val rowid = new PropertyDescriptor()
       .name("rowid")
-      .displayName("rowid")
+      .displayName("RowId")
       .defaultValue("")
       .description("Id of table in hive and Rowkey of table in Hbase")
       .required(true)
-      .example("rowkey")
+      .example("id")
     descriptor = rowid :: descriptor
 
     val family = new PropertyDescriptor()
