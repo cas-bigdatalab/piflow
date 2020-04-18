@@ -58,13 +58,13 @@ class CsvStringParser extends ConfigurableStop{
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
 
-    val str = new PropertyDescriptor()
+    val string = new PropertyDescriptor()
       .name("Str")
       .displayName("Str")
       .defaultValue("")
       .required(true)
       .example("1,zs\n2,ls\n3,ww")
-    descriptor = str :: descriptor
+    descriptor = string :: descriptor
 
     val delimiter = new PropertyDescriptor()
       .name("delimiter")
