@@ -59,8 +59,8 @@ class CsvStringParser extends ConfigurableStop{
     var descriptor : List[PropertyDescriptor] = List()
 
     val string = new PropertyDescriptor()
-      .name("Str")
-      .displayName("Str")
+      .name("string")
+      .displayName("String")
       .defaultValue("")
       .required(true)
       .example("1,zs\n2,ls\n3,ww")
