@@ -9,7 +9,7 @@
         "name":"CsvStringParser",
         "bundle":"cn.piflow.bundle.csv.CsvStringParser",
         "properties":{
-          "Str":"1,zs\n2,ls\n3,ww",
+          "string":"1,zs\n2,ls\n3,ww",
           "delimiter":",",
           "schema":"id,name"
         }

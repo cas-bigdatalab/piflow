@@ -16,7 +16,7 @@ class CsvStringParser extends ConfigurableStop{
   override val description: String = "Parse csv string"
 
 
-  var str:String=_
+  var string:String=_
   var delimiter: String = _
   var schema: String = _
 
@@ -25,7 +25,7 @@ class CsvStringParser extends ConfigurableStop{
     val session: SparkSession = pec.get[SparkSession]
     val context: SparkContext = session.sparkContext
 
-    val arrStr: Array[String] = str.split("\n")
+    val arrStr: Array[String] = string.split("\n")
 
     var num:Int=0
     val listROW: List[Row] = arrStr.map(line => {
@@ -50,7 +50,7 @@ class CsvStringParser extends ConfigurableStop{
 
 
   override def setProperties(map: Map[String, Any]): Unit = {
-    str = MapUtil.get(map,"String").asInstanceOf[String]
+    string = MapUtil.get(map,"string").asInstanceOf[String]
     delimiter = MapUtil.get(map,"delimiter").asInstanceOf[String]
     schema = MapUtil.get(map,"schema").asInstanceOf[String]
   }
