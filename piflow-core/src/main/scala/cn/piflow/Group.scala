@@ -1,14 +1,15 @@
 package cn.piflow
 
+import java.lang.Thread.UncaughtExceptionHandler
 import java.util.Date
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.{CountDownLatch, TimeUnit}
 
 import cn.piflow.util._
 import org.apache.spark.launcher.{SparkAppHandle, SparkLauncher}
-import org.apache.spark.launcher.SparkAppHandle.State
 
 import scala.collection.mutable.{ArrayBuffer, Map => MMap}
+import scala.util.{Failure, Success, Try}
 
 
 /**
@@ -84,8 +85,10 @@ class GroupExecutionImpl(group: Group, runnerContext: Context, runner: Runner) e
 
   val mapGroupEntryWithConditions: Map[String, (GroupEntry, Condition[GroupExecution])] = group.mapFlowWithConditions();
   val completedGroupEntry = MMap[String, Boolean]();
-  completedGroupEntry ++= mapGroupEntryWithConditions.map(x => (x._1, false));
-  val numWaitingGroupEntry = new AtomicInteger(mapGroupEntryWithConditions.size);
+  completedGroupEntry ++= mapGroupEntryWithConditions.map(x => (x._1, false))
+  val numWaitingGroupEntry = new AtomicInteger(mapGroupEntryWithConditions.size)
+  var notExecuteGroupEntry = new AtomicInteger(mapGroupEntryWithConditions.size)
+  var numErrorGroupEntry = 0
 
   val startedProcesses = MMap[String, SparkAppHandle]();
   val startedGroup = MMap[String, GroupExecution]()
@@ -199,8 +202,11 @@ class GroupExecutionImpl(group: Group, runnerContext: Context, runner: Runner) e
       H2Util.updateFlowGroupId(appId, groupId)
     }
 
-    startedProcesses(name) = handle;
+    startedProcesses(name) = handle
     startedProcessesAppID(name) = appId
+    notExecuteGroupEntry.decrementAndGet()
+    println("notExecuteGroupEntry = " + notExecuteGroupEntry.get())
+    println("FlowName = " + name + "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!notExecuteGroupEntry = " + notExecuteGroupEntry.get())
   }
 
   private def startGroup(name: String, group: Group, parentId: String): Unit = {
@@ -213,8 +219,13 @@ class GroupExecutionImpl(group: Group, runnerContext: Context, runner: Runner) e
     if(parentId != ""){
       H2Util.updateGroupParent(groupId,parentId)
     }
+    notExecuteGroupEntry.decrementAndGet()
+    println("GroupName = " + name + "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!notExecuteGroupEntry = " + notExecuteGroupEntry.get())
   }
 
+
+  @volatile
+  var maybeException:Option[Throwable] = None
   val pollingThread = new Thread(new Runnable() {
     override def run(): Unit = {
 
@@ -224,6 +235,7 @@ class GroupExecutionImpl(group: Group, runnerContext: Context, runner: Runner) e
         while (numWaitingGroupEntry.get() > 0) {
           val todosFlow = ArrayBuffer[(String, Flow)]();
           val todosGroup = ArrayBuffer[(String, Group)]();
+
           mapGroupEntryWithConditions.foreach { en =>
 
             if(en._2._1.isInstanceOf[Flow]){
@@ -238,12 +250,18 @@ class GroupExecutionImpl(group: Group, runnerContext: Context, runner: Runner) e
 
           }
 
+          if(todosFlow.size == 0 && todosGroup.size == 0 &&  H2Util.isGroupChildError(id) && !H2Util.isGroupChildRunning(id))
+            throw new GroupException("Group Failed!")
+
           startedProcesses.synchronized {
-            todosFlow.foreach(en => startProcess(en._1, en._2.asInstanceOf[Flow],id));
+            todosFlow.foreach(en => {
+              startProcess(en._1, en._2.asInstanceOf[Flow],id)
+            });
           }
           startedGroup.synchronized{
-
-            todosGroup.foreach(en => startGroup(en._1, en._2.asInstanceOf[Group],id))
+            todosGroup.foreach(en => {
+              startGroup(en._1, en._2.asInstanceOf[Group],id)
+            })
           }
 
           Thread.sleep(POLLING_INTERVAL);
@@ -254,7 +272,9 @@ class GroupExecutionImpl(group: Group, runnerContext: Context, runner: Runner) e
       }catch {
         case e: Throwable =>
           runnerListener.onGroupFailed(groupContext);
-          throw e;
+          println(e)
+          if(e.isInstanceOf[GroupException])
+            throw e
       }
       finally {
         latch.countDown();
@@ -263,7 +283,26 @@ class GroupExecutionImpl(group: Group, runnerContext: Context, runner: Runner) e
     }
   });
 
-  pollingThread.start();
+  val doit = Try{
+    pollingThread.setUncaughtExceptionHandler( new UncaughtExceptionHandler {
+      override def uncaughtException(thread: Thread, throwable: Throwable): Unit = {
+        maybeException = Some(throwable)
+      }
+    })
+    pollingThread.start()
+    //pollingThread.join()
+  }
+
+  doit match {
+    case Success(v) => {
+      println("Did not capture error!")
+    }
+    case Failure(v) =>{
+      println("Capture error!")
+      runnerListener.onGroupFailed(groupContext)
+    }
+
+  }
 
   override def awaitTermination(): Unit = {
     latch.await();

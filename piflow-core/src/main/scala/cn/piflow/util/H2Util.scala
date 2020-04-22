@@ -7,6 +7,7 @@ import java.util.Date
 import net.liftweb.json.compactRender
 import net.liftweb.json.JsonDSL._
 import org.h2.tools.Server
+import scala.util.control.Breaks.{breakable}
 
 object H2Util {
 
@@ -459,6 +460,68 @@ object H2Util {
       groupState = groupRS.getString("state")
     }
     return groupState
+  }
+
+  def isGroupChildError( groupId : String) : Boolean = {
+
+    if(getGroupChildByStatus(groupId, GroupState.FAILED).size > 0 || getGroupChildByStatus(groupId, GroupState.KILLED).size > 0)
+      return true
+    else if(getFlowChildByStatus(groupId, FlowState.FAILED).size > 0 || getFlowChildByStatus(groupId, FlowState.KILLED).size > 0)
+      return true
+    else
+      return false
+  }
+
+  def isGroupChildRunning( groupId : String) : Boolean = {
+
+    if(getGroupChildByStatus(groupId, GroupState.STARTED).size > 0 )
+      return true
+    else if(getFlowChildByStatus(groupId, FlowState.STARTED).size > 0 )
+      return true
+    else
+      return false
+  }
+
+  def getGroupChildByStatus(groupId: String, status : String) : List[String] = {
+    val statement = getConnectionInstance().createStatement()
+    statement.setQueryTimeout(QUERY_TIME)
+    var failedList = List[String]()
+
+    //group children state
+    val groupRS : ResultSet = statement.executeQuery("select * from flowGroup where parentId='" + groupId +"'")
+    breakable{
+      while (groupRS.next()){
+        val groupName = groupRS.getString("name")
+        val groupState = groupRS.getString("state")
+        if(groupState == status){
+          failedList = groupName +: failedList
+        }
+      }
+    }
+    groupRS.close()
+    statement.close()
+    return failedList
+  }
+  def getFlowChildByStatus(groupId: String, status : String) : List[String] = {
+    val statement = getConnectionInstance().createStatement()
+    statement.setQueryTimeout(QUERY_TIME)
+    var failedList = List[String]()
+
+    //flow children state
+    val rs : ResultSet = statement.executeQuery("select * from flow where groupId='" + groupId +"'")
+    breakable{
+      while(rs.next()){
+        val flowName = rs.getString("name")
+        val flowState = rs.getString("state")
+        if(flowState == status){
+          failedList = flowName +: failedList
+        }
+      }
+    }
+
+    rs.close()
+    statement.close()
+    return failedList
   }
 
   def getFlowGroupInfo(groupId:String) : String = {
