@@ -87,8 +87,6 @@ class GroupExecutionImpl(group: Group, runnerContext: Context, runner: Runner) e
   val completedGroupEntry = MMap[String, Boolean]();
   completedGroupEntry ++= mapGroupEntryWithConditions.map(x => (x._1, false))
   val numWaitingGroupEntry = new AtomicInteger(mapGroupEntryWithConditions.size)
-  var notExecuteGroupEntry = new AtomicInteger(mapGroupEntryWithConditions.size)
-  var numErrorGroupEntry = 0
 
   val startedProcesses = MMap[String, SparkAppHandle]();
   val startedGroup = MMap[String, GroupExecution]()
@@ -204,10 +202,7 @@ class GroupExecutionImpl(group: Group, runnerContext: Context, runner: Runner) e
 
     startedProcesses(name) = handle
     startedProcessesAppID(name) = appId
-    notExecuteGroupEntry.decrementAndGet()
-    println("notExecuteGroupEntry = " + notExecuteGroupEntry.get())
-    println("FlowName = " + name + "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!notExecuteGroupEntry = " + notExecuteGroupEntry.get())
-  }
+   }
 
   private def startGroup(name: String, group: Group, parentId: String): Unit = {
     val groupExecution = runner.start(group);
@@ -219,8 +214,6 @@ class GroupExecutionImpl(group: Group, runnerContext: Context, runner: Runner) e
     if(parentId != ""){
       H2Util.updateGroupParent(groupId,parentId)
     }
-    notExecuteGroupEntry.decrementAndGet()
-    println("GroupName = " + name + "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!notExecuteGroupEntry = " + notExecuteGroupEntry.get())
   }
 
 
@@ -233,25 +226,15 @@ class GroupExecutionImpl(group: Group, runnerContext: Context, runner: Runner) e
 
       try{
         while (numWaitingGroupEntry.get() > 0) {
-          val todosFlow = ArrayBuffer[(String, Flow)]();
-          val todosGroup = ArrayBuffer[(String, Group)]();
 
-          mapGroupEntryWithConditions.foreach { en =>
+          val (todosFlow, todosGroup) = getTodos()
 
-            if(en._2._1.isInstanceOf[Flow]){
-              if (!startedProcesses.contains(en._1) && en._2._2.matches(execution)) {
-                todosFlow += (en._1 -> en._2._1.asInstanceOf[Flow]);
-              }
-            }else if (en._2._1.isInstanceOf[Group]){
-              if (!startedGroup.contains(en._1) && en._2._2.matches(execution)) {
-                todosGroup += (en._1 -> en._2._1.asInstanceOf[Group]);
-              }
-            }
+          if(todosFlow.size == 0 && todosGroup.size == 0 &&  H2Util.isGroupChildError(id) && !H2Util.isGroupChildRunning(id)){
+            val (todosFlow, todosGroup) = getTodos()
+            if(todosFlow.size == 0 && todosGroup.size == 0)
+              throw new GroupException("Group Failed!")
 
           }
-
-          if(todosFlow.size == 0 && todosGroup.size == 0 &&  H2Util.isGroupChildError(id) && !H2Util.isGroupChildRunning(id))
-            throw new GroupException("Group Failed!")
 
           startedProcesses.synchronized {
             todosFlow.foreach(en => {
@@ -356,6 +339,25 @@ class GroupExecutionImpl(group: Group, runnerContext: Context, runner: Runner) e
       override def getGroupExecution(): GroupExecution = groupExecution
 
     };
+  }
+
+  private def getTodos() : (ArrayBuffer[(String, Flow)], ArrayBuffer[(String, Group)]) = {
+
+    val todosFlow = ArrayBuffer[(String, Flow)]();
+    val todosGroup = ArrayBuffer[(String, Group)]();
+    mapGroupEntryWithConditions.foreach { en =>
+      if(en._2._1.isInstanceOf[Flow]){
+        if (!startedProcesses.contains(en._1) && en._2._2.matches(execution)) {
+          todosFlow += (en._1 -> en._2._1.asInstanceOf[Flow]);
+        }
+      }else if (en._2._1.isInstanceOf[Group]){
+        if (!startedGroup.contains(en._1) && en._2._2.matches(execution)) {
+          todosGroup += (en._1 -> en._2._1.asInstanceOf[Group]);
+        }
+      }
+
+    }
+    (todosFlow, todosGroup)
   }
 
   override def getGroupId(): String = id

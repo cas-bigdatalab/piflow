@@ -10,7 +10,7 @@ object HTTPClientStartFlowGroup {
 
   def main(args: Array[String]): Unit = {
 
-    val json =
+    /*val json =
       """
         |{
         |  "group": {
@@ -294,9 +294,412 @@ object HTTPClientStartFlowGroup {
         |  }
         |}
         |
+      """.stripMargin*/
+    /*val json=
+      """
+        |{
+        |  "group" : {
+        |    "name" : "xjzhu",
+        |    "flows" : [ {
+        |      "flow" : {
+        |        "executorNumber" : "1",
+        |        "driverMemory" : "1g",
+        |        "executorMemory" : "1g",
+        |        "executorCores" : "1",
+        |        "paths" : [ ],
+        |        "name" : "flow1",
+        |        "stops" : [ {
+        |          "customizedProperties" : { },
+        |          "name" : "SelectHiveQL",
+        |          "uuid" : "8a80d88d712aa8c601717c68f7220272",
+        |          "bundle" : "cn.piflow.bundle.hive.SelectHiveQL",
+        |          "properties" : {
+        |            "hiveQL" : "show databases"
+        |          }
+        |        } ],
+        |        "uuid" : "8a80d88d712aa8c601717c68f7220271"
+        |      }
+        |    } ],
+        |    "groups" : [ {
+        |      "group" : {
+        |        "flows" : [ {
+        |          "flow" : {
+        |            "executorNumber" : "1",
+        |            "driverMemory" : "1g",
+        |            "executorMemory" : "1g",
+        |            "executorCores" : "1",
+        |            "paths" : [ ],
+        |            "name" : "flow3",
+        |            "stops" : [ {
+        |              "customizedProperties" : { },
+        |              "name" : "SelectHiveQL",
+        |              "uuid" : "8a80d88d712aa8c601717c68f720026b",
+        |              "bundle" : "cn.piflow.bundle.hive.SelectHiveQL",
+        |              "properties" : {
+        |                "hiveQL" : "show databases"
+        |              }
+        |            } ],
+        |            "uuid" : "8a80d88d712aa8c601717c68f71f026a"
+        |          }
+        |        }, {
+        |          "flow" : {
+        |            "executorNumber" : "1",
+        |            "driverMemory" : "1g",
+        |            "executorMemory" : "1g",
+        |            "executorCores" : "1",
+        |            "paths" : [ ],
+        |            "name" : "flow2",
+        |            "stops" : [ {
+        |              "customizedProperties" : { },
+        |              "name" : "SelectHiveQL",
+        |              "uuid" : "8a80d88d712aa8c601717c68f721026e",
+        |              "bundle" : "cn.piflow.bundle.hive.SelectHiveQL",
+        |              "properties" : {
+        |                "hiveQL" : "show databases;"
+        |              }
+        |            } ],
+        |            "uuid" : "8a80d88d712aa8c601717c68f721026d"
+        |          }
+        |        },{
+        |          "flow" : {
+        |            "executorNumber" : "1",
+        |            "driverMemory" : "1g",
+        |            "executorMemory" : "1g",
+        |            "executorCores" : "1",
+        |            "paths" : [ ],
+        |            "name" : "flow4",
+        |            "stops" : [ {
+        |              "customizedProperties" : { },
+        |              "name" : "SelectHiveQL",
+        |              "uuid" : "8a80d88d712aa8c601717c68f720026b",
+        |              "bundle" : "cn.piflow.bundle.hive.SelectHiveQL",
+        |              "properties" : {
+        |                "hiveQL" : "show databases"
+        |              }
+        |            } ],
+        |            "uuid" : "8a80d88d712aa8c601717c68f71f026a"
+        |          }
+        |        },{
+        |          "flow" : {
+        |            "executorNumber" : "1",
+        |            "driverMemory" : "1g",
+        |            "executorMemory" : "1g",
+        |            "executorCores" : "1",
+        |            "paths" : [ ],
+        |            "name" : "flow5",
+        |            "stops" : [ {
+        |              "customizedProperties" : { },
+        |              "name" : "SelectHiveQL",
+        |              "uuid" : "8a80d88d712aa8c601717c68f720026b",
+        |              "bundle" : "cn.piflow.bundle.hive.SelectHiveQL",
+        |              "properties" : {
+        |                "hiveQL" : "show databases"
+        |              }
+        |            } ],
+        |            "uuid" : "8a80d88d712aa8c601717c68f71f026a"
+        |          }
+        |        }],
+        |        "conditions" : [ {
+        |          "entry" : "flow3",
+        |          "after" : "flow2"
+        |        },
+        |         {
+        |          "entry" : "flow5",
+        |          "after" : "flow4"
+        |        }],
+        |        "name" : "group1",
+        |        "uuid" : "8a80d88d712aa8c601717c68f71f0269"
+        |      }
+        |    } ],
+        |    "conditions" : [ {
+        |      "entry" : "group1",
+        |      "after" : "flow1"
+        |    } ],
+        |    "uuid" : "8a80d88d712aa8c601717c68f71e0268"
+        |  }
+        |}
+      """.stripMargin*/
+
+    val json =
+      """
+        |{
+        |  "group" : {
+        |    "name" : "xjzhu",
+        |    "flows" : [ {
+        |      "flow" : {
+        |        "executorNumber" : "1",
+        |        "driverMemory" : "1g",
+        |        "executorMemory" : "1g",
+        |        "executorCores" : "1",
+        |        "paths" : [ ],
+        |        "name" : "flow1",
+        |        "stops" : [ {
+        |          "customizedProperties" : { },
+        |          "name" : "SelectHiveQL",
+        |          "uuid" : "8a80d88d712aa8c601717c68f7220272",
+        |          "bundle" : "cn.piflow.bundle.hive.SelectHiveQL",
+        |          "properties" : {
+        |            "hiveQL" : "show databases"
+        |          }
+        |        } ],
+        |        "uuid" : "8a80d88d712aa8c601717c68f7220271"
+        |      }
+        |    } ],
+        |    "groups" : [ {
+        |      "group" : {
+        |        "flows" : [ {
+        |          "flow" : {
+        |            "executorNumber" : "1",
+        |            "driverMemory" : "1g",
+        |            "executorMemory" : "1g",
+        |            "executorCores" : "1",
+        |            "paths" : [ ],
+        |            "name" : "flow3",
+        |            "stops" : [ {
+        |              "customizedProperties" : { },
+        |              "name" : "SelectHiveQL",
+        |              "uuid" : "8a80d88d712aa8c601717c68f720026b",
+        |              "bundle" : "cn.piflow.bundle.hive.SelectHiveQL",
+        |              "properties" : {
+        |                "hiveQL" : "show databases"
+        |              }
+        |            } ],
+        |            "uuid" : "8a80d88d712aa8c601717c68f71f026a"
+        |          }
+        |        }, {
+        |          "flow" : {
+        |            "executorNumber" : "1",
+        |            "driverMemory" : "1g",
+        |            "executorMemory" : "1g",
+        |            "executorCores" : "1",
+        |            "paths" : [ ],
+        |            "name" : "flow2",
+        |            "stops" : [ {
+        |              "customizedProperties" : { },
+        |              "name" : "SelectHiveQL",
+        |              "uuid" : "8a80d88d712aa8c601717c68f721026e",
+        |              "bundle" : "cn.piflow.bundle.hive.SelectHiveQL",
+        |              "properties" : {
+        |                "hiveQL" : "show databases;"
+        |              }
+        |            } ],
+        |            "uuid" : "8a80d88d712aa8c601717c68f721026d"
+        |          }
+        |        },{
+        |          "flow" : {
+        |            "executorNumber" : "1",
+        |            "driverMemory" : "1g",
+        |            "executorMemory" : "1g",
+        |            "executorCores" : "1",
+        |            "paths" : [ ],
+        |            "name" : "flow4",
+        |            "stops" : [ {
+        |              "customizedProperties" : { },
+        |              "name" : "SelectHiveQL",
+        |              "uuid" : "8a80d88d712aa8c601717c68f720026b",
+        |              "bundle" : "cn.piflow.bundle.hive.SelectHiveQL",
+        |              "properties" : {
+        |                "hiveQL" : "show databases"
+        |              }
+        |            } ],
+        |            "uuid" : "8a80d88d712aa8c601717c68f71f026a"
+        |          }
+        |        },{
+        |          "flow" : {
+        |            "executorNumber" : "1",
+        |            "driverMemory" : "1g",
+        |            "executorMemory" : "1g",
+        |            "executorCores" : "1",
+        |            "paths" : [ ],
+        |            "name" : "flow5",
+        |            "stops" : [ {
+        |              "customizedProperties" : { },
+        |              "name" : "SelectHiveQL",
+        |              "uuid" : "8a80d88d712aa8c601717c68f720026b",
+        |              "bundle" : "cn.piflow.bundle.hive.SelectHiveQL",
+        |              "properties" : {
+        |                "hiveQL" : "show databases"
+        |              }
+        |            } ],
+        |            "uuid" : "8a80d88d712aa8c601717c68f71f026a"
+        |          }
+        |        }],
+        |        "conditions" : [ {
+        |          "entry" : "flow3",
+        |          "after" : "flow2"
+        |        },
+        |         {
+        |          "entry" : "flow5",
+        |          "after" : "flow4"
+        |        }],
+        |        "name" : "group1",
+        |        "uuid" : "8a80d88d712aa8c601717c68f71f0269"
+        |      }
+        |    },{
+        |      "group" : {
+        |        "flows" : [ {
+        |          "flow" : {
+        |            "executorNumber" : "1",
+        |            "driverMemory" : "1g",
+        |            "executorMemory" : "1g",
+        |            "executorCores" : "1",
+        |            "paths" : [ ],
+        |            "name" : "flow6",
+        |            "stops" : [ {
+        |              "customizedProperties" : { },
+        |              "name" : "SelectHiveQL",
+        |              "uuid" : "8a80d88d712aa8c601717c68f720026b",
+        |              "bundle" : "cn.piflow.bundle.hive.SelectHiveQL",
+        |              "properties" : {
+        |                "hiveQL" : "show databases;"
+        |              }
+        |            } ],
+        |            "uuid" : "8a80d88d712aa8c601717c68f71f026a"
+        |          }
+        |        }, {
+        |          "flow" : {
+        |            "executorNumber" : "1",
+        |            "driverMemory" : "1g",
+        |            "executorMemory" : "1g",
+        |            "executorCores" : "1",
+        |            "paths" : [ ],
+        |            "name" : "flow7",
+        |            "stops" : [ {
+        |              "customizedProperties" : { },
+        |              "name" : "SelectHiveQL",
+        |              "uuid" : "8a80d88d712aa8c601717c68f721026e",
+        |              "bundle" : "cn.piflow.bundle.hive.SelectHiveQL",
+        |              "properties" : {
+        |                "hiveQL" : "show databases"
+        |              }
+        |            } ],
+        |            "uuid" : "8a80d88d712aa8c601717c68f721026d"
+        |          }
+        |        },{
+        |          "flow" : {
+        |            "executorNumber" : "1",
+        |            "driverMemory" : "1g",
+        |            "executorMemory" : "1g",
+        |            "executorCores" : "1",
+        |            "paths" : [ ],
+        |            "name" : "flow8",
+        |            "stops" : [ {
+        |              "customizedProperties" : { },
+        |              "name" : "SelectHiveQL",
+        |              "uuid" : "8a80d88d712aa8c601717c68f720026b",
+        |              "bundle" : "cn.piflow.bundle.hive.SelectHiveQL",
+        |              "properties" : {
+        |                "hiveQL" : "show databases"
+        |              }
+        |            } ],
+        |            "uuid" : "8a80d88d712aa8c601717c68f71f026a"
+        |          }
+        |        },{
+        |          "flow" : {
+        |            "executorNumber" : "1",
+        |            "driverMemory" : "1g",
+        |            "executorMemory" : "1g",
+        |            "executorCores" : "1",
+        |            "paths" : [ ],
+        |            "name" : "flow9",
+        |            "stops" : [ {
+        |              "customizedProperties" : { },
+        |              "name" : "SelectHiveQL",
+        |              "uuid" : "8a80d88d712aa8c601717c68f720026b",
+        |              "bundle" : "cn.piflow.bundle.hive.SelectHiveQL",
+        |              "properties" : {
+        |                "hiveQL" : "show databases"
+        |              }
+        |            } ],
+        |            "uuid" : "8a80d88d712aa8c601717c68f71f026a"
+        |          }
+        |        }],
+        |        "conditions" : [ {
+        |          "entry" : "flow7",
+        |          "after" : "flow6"
+        |        },
+        |         {
+        |          "entry" : "flow9",
+        |          "after" : "flow8"
+        |        }],
+        |        "name" : "group2",
+        |        "uuid" : "8a80d88d712aa8c601717c68f71f0269"
+        |      }
+        |    } ],
+        |    "conditions" : [ {
+        |      "entry" : "group1",
+        |      "after" : "flow1"
+        |    },{
+        |      "entry" : "group2",
+        |      "after" : "flow1"
+        |    } ],
+        |    "uuid" : "8a80d88d712aa8c601717c68f71e0268"
+        |  }
+        |}
       """.stripMargin
 
-    val url = "http://10.0.88.13:8002/group/start"
+    /*val json=
+      """
+        |{
+        |  "group" : {
+        |    "flows" : [ {
+        |      "flow" : {
+        |        "executorNumber" : "1",
+        |        "driverMemory" : "1g",
+        |        "executorMemory" : "1g",
+        |        "executorCores" : "1",
+        |        "paths" : [ ],
+        |        "name" : "flow1",
+        |        "stops" : [ {
+        |          "customizedProperties" : { },
+        |          "name" : "SelectHiveQL",
+        |          "uuid" : "8a80d88d712aa8c601717c68f7220272",
+        |          "bundle" : "cn.piflow.bundle.hive.SelectHiveQL",
+        |          "properties" : {
+        |            "hiveQL" : "show databases"
+        |          }
+        |        } ],
+        |        "uuid" : "8a80d88d712aa8c601717c68f7220271"
+        |      }
+        |    } ],
+        |    "name" : "xjzhu",
+        |    "groups" : [ {
+        |      "group" : {
+        |        "flows" : [ {
+        |          "flow" : {
+        |            "executorNumber" : "1",
+        |            "driverMemory" : "1g",
+        |            "executorMemory" : "1g",
+        |            "executorCores" : "1",
+        |            "paths" : [ ],
+        |            "name" : "flow2",
+        |            "stops" : [ {
+        |              "customizedProperties" : { },
+        |              "name" : "SelectHiveQL",
+        |              "uuid" : "8a80d88d712aa8c601717c68f721026e",
+        |              "bundle" : "cn.piflow.bundle.hive.SelectHiveQL",
+        |              "properties" : {
+        |                "hiveQL" : "show databases;"
+        |              }
+        |            } ],
+        |            "uuid" : "8a80d88d712aa8c601717c68f721026d"
+        |          }
+        |        }],
+        |        "conditions" : [ ],
+        |        "name" : "group1",
+        |        "uuid" : "8a80d88d712aa8c601717c68f71f0269"
+        |      }
+        |    } ],
+        |    "conditions" : [ {
+        |      "entry" : "group1",
+        |      "after" : "flow1"
+        |    } ],
+        |    "uuid" : "8a80d88d712aa8c601717c68f71e0268"
+        |  }
+        |}
+      """.stripMargin*/
+
+    val url = "http://10.0.85.83:8001/group/start"
     val timeout = 1800
     val requestConfig = RequestConfig.custom()
       .setConnectTimeout(timeout*1000)
