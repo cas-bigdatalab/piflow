@@ -16,34 +16,13 @@ import util.control.Breaks._
 
 object ClassUtil {
 
-  val configurableStopClass:String = "ConfigurableStop"
-  val configurableStreamingStop:String = "ConfigurableStreamingStop"
-  val configurableIncrementalStop:String = "ConfigurableIncrementalStop"
-  //val classpath:String = "/opt/project/piflow/classpath"
 
-  /*def findAllConfigurableStopByClassFinder() : List[String] = {
-
-    val classpath = System.getProperty("user.dir")
-    var stopList : List[String] = List()
-
-    val classpathFile = new File(classpath)
-    val finder = ClassFinder(getJarFile(classpathFile))
-    val classes = finder.getClasses
-    val classMap = ClassFinder.classInfoMap(classes)
-    val plugins = ClassFinder.concreteSubclasses(configurableStopClass,classMap)
-    plugins.foreach{
-      pluginClassInfo =>{
-        val plugin = Class.forName(pluginClassInfo.name).newInstance()
-        val stop = plugin.asInstanceOf[ConfigurableStop]
-        val stopAndGroup = pluginClassInfo.name + ":" + stop.getGroup().toString
-        stopList = stopAndGroup :: stopList
-      }
-
-    }
-    stopList
-  }*/
+  val configurableStopClass:String = "cn.piflow.conf.ConfigurableStop"
+  val configurableStreamingStop:String = "cn.piflow.conf.ConfigurableStreamingStop"
+  val configurableIncrementalStop:String = "cn.piflow.conf.ConfigurableIncrementalStop"
 
   def findAllConfigurableStop() : List[ConfigurableStop] = {
+
     var stopList:List[ConfigurableStop] = List()
 
     //find internal stop
@@ -59,58 +38,63 @@ object ClassUtil {
         if (stopName.equals("cn.piflow.conf.ConfigurableStreamingStop") || stopName.equals("cn.piflow.conf.ConfigurableIncrementalStop") )
           break
         else{
-          //println(stopName + " in findAllConfigurableStop!!!!!")
+
           val stopClass = Class.forName(stopName)
           val plugin = stopClass.newInstance()
           val stop = plugin.asInstanceOf[ConfigurableStop]
+          println("Find ConfigurableStop: " + stopName)
           stopList = stop +: stopList
         }
       }
     }
 
     //find external stop
-    //stopList = stopList ::: findAllConfigurableStopInClasspath()
-    stopList
+    val pluginManager = PluginManager.getInstance
+    val externalStopList = findAllConfigurableStopInClasspath().toList
+
+    stopList:::externalStopList
   }
 
 
   def findAllConfigurableStopInClasspath() : List[ConfigurableStop] = {
 
-    //val classLoader = ClassUtil.getClass.getClassLoader
-    val classpath = System.getProperty("user.dir")+ "/classpath/"
-    var stopList:List[ConfigurableStop] = List()
+      val pluginManager = PluginManager.getInstance
+      val stopList= pluginManager.getPluginConfigurableStops()
+      stopList
 
+    /*val pluginManager = PluginManager.getInstance()
+    var stopList:List[ConfigurableStop] = List()
+    val classpath = System.getProperty("user.dir")+ "/classpath/"
     val classpathFile = new File(classpath)
-    //println("classpath is " + classpath)
     val jarFile = getJarFile(classpathFile)
     if(jarFile.size != 0){
       val finder = ClassFinder(jarFile)
       val classes = finder.getClasses
+
       val it = classes.iterator
-      while(it.hasNext) {
 
-        val externalClass = it.next()
+      try{
+        while(it.hasNext) {
 
-        if(externalClass.superClassName.equals(configurableStopClass) &&
-          !externalClass.name.equals(configurableStreamingStop) &&
-          !externalClass.name.equals(configurableIncrementalStop)){
+          val externalClass = it.next()
 
-          val classpath = System.getProperty("user.dir")+ "/classpath/NSFC.jar"
-          var classLoader = new URLClassLoader(Array(new File(classpath).toURI.toURL),this.getClass.getClassLoader )
-          val stopInstance = classLoader.loadClass(externalClass.name).newInstance()
-          //val stopInstance = Class.forName(externalClass.name).newInstance()
-          stopList = stopInstance.asInstanceOf[ConfigurableStop] +: stopList
+          if(externalClass.superClassName.equals(configurableStopClass) &&
+            !externalClass.name.equals(configurableStreamingStop) &&
+            !externalClass.name.equals(configurableIncrementalStop)){
+
+            //var classLoader = new URLClassLoader(Array(new File(classpath).toURI.toURL),this.getClass.getClassLoader )
+            //val stopInstance = classLoader.loadClass(externalClass.name).newInstance()
+
+            val stopInstance = pluginManager.getConfigurableStop(externalClass.name)
+            println("Find Stop: " + externalClass.name)
+            stopList = stopInstance.asInstanceOf[ConfigurableStop] +: stopList
+
+          }
         }
+      }catch {
+        case e: UnsupportedOperationException => println("error")
       }
-    }
-    stopList
 
-    /*val classMap = ClassFinder.classInfoMap(classes)
-    val plugins = ClassFinder.concreteSubclasses(configurableStopClass,classMap)
-    plugins.foreach{
-      pluginClassInfo =>
-          val plugin = Class.forName(pluginClassInfo.name).newInstance()
-          stopList = plugin.asInstanceOf[ConfigurableStop] +: stopList
     }
     stopList*/
   }
@@ -118,6 +102,7 @@ object ClassUtil {
   def findAllGroups() : List[String] = {
 
     val stoplist = findAllConfigurableStop();
+
     val groupList = stoplist.flatMap(stop =>{
       //stop.getGroup()
       var group = List("")
@@ -137,6 +122,12 @@ object ClassUtil {
 
   private def findConfigurableStopInClasspath(bundle : String) : Option[ConfigurableStop] = {
 
+    val pluginManager = PluginManager.getInstance
+    val stopInstance = pluginManager.getConfigurableStop(bundle)
+    val stop = Some(stopInstance.asInstanceOf[ConfigurableStop])
+    stop
+
+    /*val pluginManager = PluginManager.getInstance
     val classpath = System.getProperty("user.dir")+ "/classpath/"
     var stop:Option[ConfigurableStop] = None
 
@@ -150,23 +141,15 @@ object ClassUtil {
       val externalClass = it.next()
       if(externalClass.superClassName.equals(configurableStopClass)){
         if (externalClass.name.equals(bundle)){
-          val stopIntance = Class.forName(externalClass.name).newInstance()
-          stop = Some(stopIntance.asInstanceOf[ConfigurableStop])
+          //val stopIntance = Class.forName(externalClass.name).newInstance()
+          val stopInstance = pluginManager.getConfigurableStop(externalClass.name)
+          stop = Some(stopInstance.asInstanceOf[ConfigurableStop])
           return stop
         }
       }
     }
-    /*val classMap = ClassFinder.classInfoMap(classes)
-    val plugins = ClassFinder.concreteSubclasses(configurableStopClass,classMap)
-    plugins.foreach{
-      pluginClassInfo =>
-        if(pluginClassInfo.name.equals(bundle)){
-          val plugin = Class.forName(pluginClassInfo.name).newInstance()
-          stop = Some(plugin.asInstanceOf[ConfigurableStop])
-          return stop
-        }
-    }*/
-    stop
+
+    stop*/
   }
 
   private def getJarFile(dir : File) : Seq[File] = {
@@ -182,12 +165,19 @@ object ClassUtil {
     }catch{
 
       case classNotFoundException:ClassNotFoundException =>{
-        println("find ConfigurableStop in Classpath: " + bundle)
-        val stop : Option[ConfigurableStop] = ClassUtil.findConfigurableStopInClasspath(bundle)
-        stop match {
-          case Some(s) => s.asInstanceOf[ConfigurableStop]
-          case _ => throw new ClassNotFoundException(bundle + " is not found!!!")
+        val pluginManager = PluginManager.getInstance
+        if(pluginManager != null){
+          println("find ConfigurableStop in Classpath: " + bundle)
+          val stop : Option[ConfigurableStop] = ClassUtil.findConfigurableStopInClasspath(bundle)
+          stop match {
+            case Some(s) => return s.asInstanceOf[ConfigurableStop]
+            case _ => throw new ClassNotFoundException(bundle + " is not found!!!")
+          }
+        }else{
+          println("Can not find Configurable: " + bundle)
+          throw classNotFoundException
         }
+
       }
       case ex : Exception => {
         println("Can not find Configurable: " + bundle)
@@ -233,12 +223,6 @@ object ClassUtil {
 
   }
 
-  /*def getExterClassInJar() : List[ConfigurableStop] = {
-    val classpath = System.getProperty("user.dir")+ "/classpath/NSFC.jar"
-    var classLoader = new URLClassLoader(Array(new File(classpath).toURI.toURL),this.getClass.getClassLoader )
-
-  }*/
-
   def main(args: Array[String]): Unit = {
     //val stop = findConfigurableStop("cn.piflow.bundle.Class1")
     //val allConfigurableStopList = findAllConfigurableStop()
@@ -252,8 +236,14 @@ object ClassUtil {
 
     //val stop = findAllConfigurableStop()
     //stop.foreach(s => println(s.getClass.getName))
-    val stopListInClassPath = findAllConfigurableStopInClasspath()
-    val temp = 1
+    //findAllGroups().foreach(print(_))
+    //val t = findConfigurableStopInClasspath("cn.nsfc.personDistinct.PersonDistinct")
+
+    //val pluginManager = PluginManager.getInstance
+    //pluginManager.loadPlugin("piflowexternal.jar")
+    //val stop = findConfigurableStopInClasspath("cn.piflow.bundle.external.ShowData")
+    //val stopListInClassPath = findAllConfigurableStopInClasspath()
+    //val temp = 1
 
 
     //val stop = findConfigurableStop("cn.piflow.bundle.http.PostUrl")
