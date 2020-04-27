@@ -10,7 +10,7 @@ import org.neo4j.driver.v1._
 
 class PutNeo4j extends ConfigurableStop{
   override val authorEmail: String = "yangqidong@cnic.cn"
-  override val description: String = "Put data to Neo4j"
+  override val description: String = "Write DataFrame to neo4j,automatically get the fields name"
   override val inportList: List[String] =List(Port.DefaultPort)
   override val outportList: List[String] = List(Port.DefaultPort)
 
@@ -76,16 +76,40 @@ class PutNeo4j extends ConfigurableStop{
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
 
-    val url=new PropertyDescriptor().name("url").displayName("url").description("for example bolt://0.0.1.1:7687").defaultValue("").required(true)
+    val url=new PropertyDescriptor()
+      .name("url")
+      .displayName("Url")
+      .description("The url of neo4j")
+      .defaultValue("")
+      .required(true)
+      .example("bolt://0.0.1.1:7687")
     descriptor = url :: descriptor
 
-    val userName=new PropertyDescriptor().name("userName").displayName("userName").description("the user").defaultValue("").required(true)
+    val userName=new PropertyDescriptor()
+      .name("userName")
+      .displayName("UserName")
+      .description("The user of neo4j")
+      .defaultValue("")
+      .required(true)
+      .example("neo4j")
     descriptor = userName :: descriptor
 
-    val password=new PropertyDescriptor().name("password").displayName("password").description("the password").defaultValue("").required(true)
+    val password=new PropertyDescriptor()
+      .name("password")
+      .displayName("Password")
+      .description("The password of neo4j")
+      .defaultValue("")
+      .required(true)
+      .example("123456")
     descriptor = password :: descriptor
 
-    val labelName=new PropertyDescriptor().name("labelName").displayName("labelName").description("the name of the label").defaultValue("").required(true)
+    val labelName=new PropertyDescriptor()
+      .name("labelName")
+      .displayName("LabelName")
+      .description("The name of the label")
+      .defaultValue("")
+      .required(true)
+      .example("user")
     descriptor = labelName :: descriptor
 
     descriptor
