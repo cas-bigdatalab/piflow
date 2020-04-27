@@ -63,7 +63,7 @@ class CsvSave extends ConfigurableStop{
     val partition = new PropertyDescriptor()
       .name("partition")
       .displayName("Partition")
-      .description("The partition of csv file")
+      .description("The partition of csv file,you can specify the number of partitions saved as csv or not")
       .defaultValue("")
       .required(true)
       .example("3")
@@ -97,12 +97,21 @@ class CsvSave extends ConfigurableStop{
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     val df = in.read()
 
-    df.repartition(partition.toInt).write
-      .format("csv")
-      .mode(saveMode)
-      .option("header", header)
-      .option("delimiter",delimiter)
-      .save(csvSavePath)
+    if("".equals(partition)){
+      df.write
+        .format("csv")
+        .mode(saveMode)
+        .option("header", header)
+        .option("delimiter",delimiter)
+        .save(csvSavePath)
+    }else{
+      df.repartition(partition.toInt).write
+        .format("csv")
+        .mode(saveMode)
+        .option("header", header)
+        .option("delimiter",delimiter)
+        .save(csvSavePath)
+    }
   }
 }
 
