@@ -65,7 +65,7 @@ class CsvSave extends ConfigurableStop{
       .displayName("Partition")
       .description("The partition of csv file,you can specify the number of partitions saved as csv or not")
       .defaultValue("")
-      .required(true)
+      .required(false)
       .example("3")
     descriptor = partition :: descriptor
 
