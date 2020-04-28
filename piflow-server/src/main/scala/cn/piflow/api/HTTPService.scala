@@ -70,7 +70,10 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
      if(!appID.equals("")){
        var result = API.getFlowInfo(appID)
        println("getFlowInfo result: " + result)
-       if (result.equals("")){
+       val resultMap = OptionUtil.getAny(JSON.parseFull(result)).asInstanceOf[Map[String, Any]]
+       val flowInfoMap = MapUtil.get(resultMap, "flow").asInstanceOf[Map[String, Any]]
+       if(!flowInfoMap.contains("state")) {
+
          val yarnInfoJson = API.getFlowLog(appID)
          val map = OptionUtil.getAny(JSON.parseFull(yarnInfoJson)).asInstanceOf[Map[String, Any]]
          val appMap = MapUtil.get(map, "app").asInstanceOf[Map[String, Any]]
@@ -86,6 +89,7 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
          flowInfoMap += ("endTime" -> "")
          flowInfoMap += ("stops" -> List())
          result = JsonUtil.format(JsonUtil.toJson(Map("flow" -> flowInfoMap)))
+         println("getFlowInfo on Yarn: " + result)
        }
        Future.successful(HttpResponse(SUCCESS_CODE, entity = result))
      }else{
