@@ -6,19 +6,26 @@ import java.util
 import java.net.URL
 
 import cn.piflow.conf.ConfigurableStop
+import cn.piflow.util.PropertyUtil
 import org.clapper.classutil.ClassFinder
 
 import scala.collection.mutable.{Map => MMap}
 
 class PluginManager {
 
+  private var pluginPath = PropertyUtil.getClassPath()
   private val pluginMap = MMap[String, PluginClassLoader]()
 
   def PlugInManager() = {}
 
+  def getPluginPath() : String = {
+    this.pluginPath
+  }
+
   def getConfigurableStop(plugName: String, bundleName: String): ConfigurableStop = {
     try {
-      val forName = Class.forName(bundleName, true, getLoader(plugName))
+      val plugin = pluginPath + plugName
+      val forName = Class.forName(bundleName, true, getLoader(plugin))
       val ins = forName.newInstance.asInstanceOf[ConfigurableStop]
       ins
     } catch {
@@ -35,11 +42,11 @@ class PluginManager {
   def getConfigurableStop(bundleName: String): ConfigurableStop = {
     val it = pluginMap.keys.iterator
     while (it.hasNext) {
-      val pluginName = it.next
+      val plugin = it.next
       try {
-        val forName = Class.forName(bundleName, true, getLoader(pluginName))
+        val forName = Class.forName(bundleName, true, getLoader(plugin))
         val ins = forName.newInstance.asInstanceOf[ConfigurableStop]
-        System.out.println(bundleName + " is found in " + pluginName)
+        System.out.println(bundleName + " is found in " + plugin)
         return ins
 
       } catch {
@@ -48,7 +55,7 @@ class PluginManager {
         case e: InstantiationException =>
           e.printStackTrace()
         case e: ClassNotFoundException =>
-          System.err.println(bundleName + " can not be found in " + pluginName)
+          System.err.println(bundleName + " can not be found in " + plugin)
         //e.printStackTrace();
       }
     }
@@ -60,22 +67,20 @@ class PluginManager {
     var stopList = List[ConfigurableStop]()
     val pluginIterator = pluginMap.keys.iterator
     while (pluginIterator.hasNext) {
-      val pluginName : String = pluginIterator.next
-      val finder = ClassFinder(Seq(new File(pluginName)))
+      val plugin : String = pluginIterator.next
+      val finder = ClassFinder(Seq(new File(plugin)))
       val classes = finder.getClasses
-      //val it = classes.iterator
-
       try{
-        //while(it.hasNext){
+
         for( externalClass <- classes){
 
           try {
             if(externalClass.superClassName.equals(ClassUtil.configurableStopClass) &&
               !externalClass.name.equals(ClassUtil.configurableStreamingStop) &&
               !externalClass.name.equals(ClassUtil.configurableIncrementalStop)){
-              val forName = Class.forName(externalClass.name, true, getLoader(pluginName))
+              val forName = Class.forName(externalClass.name, true, getLoader(plugin))
               val ins = forName.newInstance.asInstanceOf[ConfigurableStop]
-              System.out.println("Find ConfigurableStop: " + externalClass.name + " in " + pluginName)
+              System.out.println("Find ConfigurableStop: " + externalClass.name + " in " + plugin)
               stopList = ins +: stopList
             }
 
@@ -83,10 +88,51 @@ class PluginManager {
             case e: IllegalAccessException =>
               e.printStackTrace()
             case e: InstantiationException =>
-              System.err.println(externalClass.name + " can not be instantiation in " + pluginName)
+              System.err.println(externalClass.name + " can not be instantiation in " + plugin)
             //e.printStackTrace()
             case e: ClassNotFoundException =>
-              System.err.println(externalClass.name + " can not be found in " + pluginName)
+              System.err.println(externalClass.name + " can not be found in " + plugin)
+          }
+        }
+      }catch {
+        case e: UnsupportedOperationException => {
+          System.err.println("external plugin throw UnsupportedOperationException.")
+          //e.printStackTrace()
+        }
+      }
+    }
+    stopList
+  }
+
+  def getPluginConfigurableStops(pluginName : String): List[ConfigurableStop] = {
+
+    var stopList = List[ConfigurableStop]()
+    val plugin = this.getPluginPath() + pluginName
+    if(pluginMap.contains(plugin)){
+
+      val finder = ClassFinder(Seq(new File(plugin)))
+      val classes = finder.getClasses
+      try{
+        for( externalClass <- classes){
+
+          try {
+            if(externalClass.superClassName.equals(ClassUtil.configurableStopClass) &&
+              !externalClass.name.equals(ClassUtil.configurableStreamingStop) &&
+              !externalClass.name.equals(ClassUtil.configurableIncrementalStop)){
+              val forName = Class.forName(externalClass.name, true, getLoader(plugin))
+              val ins = forName.newInstance.asInstanceOf[ConfigurableStop]
+              System.out.println("Find ConfigurableStop: " + externalClass.name + " in " + plugin)
+              stopList = ins +: stopList
+            }
+
+          } catch {
+            case e: IllegalAccessException =>
+              e.printStackTrace()
+            case e: InstantiationException =>
+              System.err.println(externalClass.name + " can not be instantiation in " + plugin)
+            //e.printStackTrace()
+            case e: ClassNotFoundException =>
+              System.err.println(externalClass.name + " can not be found in " + plugin)
           }
         }
       }catch {
@@ -108,7 +154,6 @@ class PluginManager {
   def loadPlugin(pluginName: String): Unit = {
     this.pluginMap.remove(pluginName)
     val loader = new PluginClassLoader
-    //String pluginurl = "jar:file:/opt/project/piflow/classpath/" + pluginName + ".jar!/";
     val pluginurl = "jar:file:" + pluginName + "!/"
     var url : URL = null
     try

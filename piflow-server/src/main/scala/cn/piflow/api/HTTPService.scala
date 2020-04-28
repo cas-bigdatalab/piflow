@@ -12,8 +12,6 @@ import akka.http.scaladsl.server.Directives
 import akka.stream.ActorMaterializer
 import cn.piflow.GroupExecution
 import cn.piflow.api.HTTPService.pluginManager
-import cn.piflow.api.util.PropertyUtil
-import cn.piflow.conf.util.ClassUtil.getJarFile
 import cn.piflow.conf.util.{MapUtil, OptionUtil, PluginManager}
 import cn.piflow.util._
 import com.typesafe.akka.extension.quartz.QuartzSchedulerExtension
@@ -415,11 +413,13 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
          val data = toJson(entity)
          val pluginName  = data.get("plugin").getOrElse("").asInstanceOf[String]
          val isOk = API.addPlugin(pluginManager, pluginName)
-
-         val result = "Ok"
-         Future.successful(HttpResponse(SUCCESS_CODE, entity = result))
+         if(isOk){
+           val bundles = API.getConfigurableStopInPlugin(pluginManager, pluginName)
+           Future.successful(HttpResponse(SUCCESS_CODE, entity = bundles))
+         }else{
+           Future.successful(HttpResponse(FAIL_CODE, entity = "Fail"))
+         }
        }
-
        case ex => {
          println(ex)
          Future.successful(HttpResponse(FAIL_CODE, entity = "Fail"))
@@ -494,8 +494,7 @@ object Main {
   }
 
   def initPlugin() = {
-    val classpath = System.getProperty("user.dir")+ "/classpath/"
-    val classpathFile = new File(classpath)
+    val classpathFile = new File(pluginManager.getPluginPath())
     val jarFile = FileUtil.getJarFile(classpathFile)
     jarFile.foreach( i => {
       println(i.getAbsolutePath)

@@ -6,19 +6,16 @@ import java.text.SimpleDateFormat
 import java.util.{Date, Properties}
 import java.util.concurrent.CountDownLatch
 
-import cn.piflow.api.HTTPService.pluginManager
 import org.apache.spark.sql.SparkSession
 import cn.piflow.conf.util.{ClassUtil, MapUtil, OptionUtil, PluginManager}
 import cn.piflow.{GroupExecution, Process, Runner}
-import cn.piflow.api.util.PropertyUtil
 import cn.piflow.conf.bean.{FlowBean, GroupBean}
-import cn.piflow.conf.util.ClassUtil.getJarFile
 import cn.piflow.util._
-import org.apache.http.client.methods.{CloseableHttpResponse, HttpGet, HttpPost, HttpPut}
+import org.apache.http.client.methods.{CloseableHttpResponse, HttpGet, HttpPut}
 import org.apache.http.entity.StringEntity
 import org.apache.http.impl.client.HttpClients
 import org.apache.http.util.EntityUtils
-import org.apache.spark.launcher.{SparkAppHandle, SparkLauncher}
+import org.apache.spark.launcher.{SparkAppHandle}
 
 import scala.util.parsing.json.JSON
 import scala.util.control.Breaks._
@@ -27,8 +24,7 @@ object API {
 
   def addPlugin(pluginManager:PluginManager, pluginName : String) : Boolean = {
     var result = false
-    val classpath = System.getProperty("user.dir")+ "/classpath/"
-    val classpathFile = new File(classpath)
+    val classpathFile = new File(pluginManager.getPluginPath())
     val jarFile = FileUtil.getJarFile(classpathFile)
     breakable{
       jarFile.foreach( i => {
@@ -46,8 +42,7 @@ object API {
 
   def removePlugin(pluginManager:PluginManager, pluginName : String) : Boolean = {
     var result = false
-    val classpath = System.getProperty("user.dir")+ "/classpath/"
-    val classpathFile = new File(classpath)
+    val classpathFile = new File(pluginManager.getPluginPath())
     val jarFile = FileUtil.getJarFile(classpathFile)
     breakable{
       jarFile.foreach( i => {
@@ -62,7 +57,15 @@ object API {
     result
   }
 
+  def getConfigurableStopInPlugin(pluginManager:PluginManager, pluginName : String) : String = {
+    var bundleList = List[String]()
+    val stops = pluginManager.getPluginConfigurableStops(pluginName)
+    stops.foreach(s => {
+      bundleList = s.getClass.getName +: bundleList
+    })
 
+    """{"bundles":"""" + bundleList.mkString(",") + """"}"""
+  }
 
   def getResourceInfo() : String = {
 

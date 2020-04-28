@@ -1,10 +1,9 @@
 package cn.piflow.api
 
 import cn.piflow.Runner
-import cn.piflow.api.util.PropertyUtil
 import cn.piflow.conf.bean.FlowBean
 import cn.piflow.conf.util.OptionUtil
-import cn.piflow.util.ConfigureUtil
+import cn.piflow.util.{ConfigureUtil, PropertyUtil}
 import org.apache.spark.sql.SparkSession
 
 import scala.util.parsing.json.JSON
