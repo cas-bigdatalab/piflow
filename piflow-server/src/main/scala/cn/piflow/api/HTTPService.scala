@@ -1,5 +1,6 @@
 package cn.piflow.api
 
+import java.io.File
 import java.net.InetAddress
 
 import akka.actor.{ActorRef, ActorSystem, Props}
@@ -9,9 +10,11 @@ import akka.http.scaladsl.model._
 import akka.http.scaladsl.model.HttpMethods._
 import akka.http.scaladsl.server.Directives
 import akka.stream.ActorMaterializer
-import cn.piflow.{GroupExecution}
+import cn.piflow.GroupExecution
+import cn.piflow.api.HTTPService.pluginManager
 import cn.piflow.api.util.PropertyUtil
-import cn.piflow.conf.util.{MapUtil, OptionUtil}
+import cn.piflow.conf.util.ClassUtil.getJarFile
+import cn.piflow.conf.util.{MapUtil, OptionUtil, PluginManager}
 import cn.piflow.util._
 import com.typesafe.akka.extension.quartz.QuartzSchedulerExtension
 import com.typesafe.config.ConfigFactory
@@ -38,6 +41,8 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
   var processMap = Map[String, SparkAppHandle]()
   var flowGroupMap = Map[String, GroupExecution]()
   //var projectMap = Map[String, GroupExecution]()
+
+  val pluginManager = PluginManager.getInstance
 
   val SUCCESS_CODE = 200
   val FAIL_CODE = 500
@@ -399,6 +404,46 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
 
    }
 
+   case HttpRequest(POST, Uri.Path("/plugin/add"), headers, entity, protocol) =>{
+
+     entity match {
+       case HttpEntity.Strict(_, data) =>{
+         val data = toJson(entity)
+         val pluginName  = data.get("plugin").getOrElse("").asInstanceOf[String]
+         val isOk = API.addPlugin(pluginManager, pluginName)
+
+         val result = "Ok"
+         Future.successful(HttpResponse(SUCCESS_CODE, entity = result))
+       }
+
+       case ex => {
+         println(ex)
+         Future.successful(HttpResponse(FAIL_CODE, entity = "Fail"))
+       }
+     }
+
+   }
+
+   case HttpRequest(POST, Uri.Path("/plugin/remove"), headers, entity, protocol) =>{
+
+     entity match {
+       case HttpEntity.Strict(_, data) =>{
+         val data = toJson(entity)
+         val pluginName  = data.get("plugin").getOrElse("").asInstanceOf[String]
+         val isOk = API.removePlugin(pluginManager, pluginName)
+
+         val result = "Ok"
+         Future.successful(HttpResponse(SUCCESS_CODE, entity = result))
+       }
+
+       case ex => {
+         println(ex)
+         Future.successful(HttpResponse(FAIL_CODE, entity = "Fail"))
+       }
+     }
+
+   }
+
    case _: HttpRequest =>
       Future.successful(HttpResponse(UNKNOWN_CODE, entity = "Unknown resource!"))
   }
@@ -443,9 +488,20 @@ object Main {
         print(e);
     }
   }
+
+  def initPlugin() = {
+    val classpath = System.getProperty("user.dir")+ "/classpath/"
+    val classpathFile = new File(classpath)
+    val jarFile = FileUtil.getJarFile(classpathFile)
+    jarFile.foreach( i => {
+      println(i.getAbsolutePath)
+      pluginManager.loadPlugin(i.getAbsolutePath)
+    })
+  }
   def main(argv: Array[String]):Unit = {
     HTTPService.run
     val h2Server = Server.createTcpServer("-tcp", "-tcpAllowOthers", "-tcpPort",PropertyUtil.getPropertyValue("h2.port")).start()
-    flywayInit();
+    flywayInit()
+    //initPlugin()
   }
 }
