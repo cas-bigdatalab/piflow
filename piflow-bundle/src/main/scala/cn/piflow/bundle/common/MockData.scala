@@ -32,9 +32,10 @@ class MockData extends ConfigurableStop{
     val schema = new PropertyDescriptor()
       .name("schema")
       .displayName("Schema")
-      .description("The schema of mock data, schema's format is column:columnType:isNullable." +
+      .description("The schema of mock data, format is column:columnType:isNullable. " +
+        "Separate multiple fields with commas. " +
         "columnType can be String/Int/Long/Float/Double/Boolean. " +
-        "isNullable can be left blank, the default value is false")
+        "isNullable can be left blank, the default value is false. ")
       .defaultValue("")
       .required(true)
       .example("id:String,name:String,age:Int")
@@ -69,12 +70,12 @@ class MockData extends ConfigurableStop{
     val field = this.schema.split(",")
     val structFieldArray : Array[StructField] = new Array[StructField](field.size)
     for(i <- 0 to field.size - 1){
-      val columnInfo = field(i).split(":")
-      val column = columnInfo(0)
-      val columnType = columnInfo(1)
+      val columnInfo = field(i).trim.split(":")
+      val column = columnInfo(0).trim
+      val columnType = columnInfo(1).trim
       var isNullable = false
       if(columnInfo.size == 3){
-        isNullable = columnInfo(2).toBoolean
+        isNullable = columnInfo(2).trim.toBoolean
       }
       columnType match {
         case "String"=> structFieldArray(i) = new StructField(column, StringType, isNullable)
