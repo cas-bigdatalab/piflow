@@ -46,9 +46,10 @@ class CsvSave extends ConfigurableStop{
       .name("header")
       .displayName("Header")
       .description("Whether the csv file has a header")
-      .defaultValue("")
+      .allowableValues(Set("true","false"))
+      .defaultValue("false")
       .required(true)
-      .example("true")
+      .example("false")
     descriptor = header :: descriptor
 
     val delimiter = new PropertyDescriptor()
