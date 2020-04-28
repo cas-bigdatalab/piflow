@@ -176,8 +176,9 @@ class RunnerLogger extends RunnerListener with Logging {
     logger.debug(s"job failed: $stopName, time: $time");
     println(s"job failed: $stopName, time: $time")
     //update stop state to FAILED
-    H2Util.updateStopState(getAppId(ctx),stopName,StopState.FAILED)
     H2Util.updateStopFinishedTime(getAppId(ctx),stopName,time)
+    H2Util.updateStopState(getAppId(ctx),stopName,StopState.FAILED)
+
   };
 
   override def onJobInitialized(ctx: JobContext): Unit = {
@@ -198,8 +199,9 @@ class RunnerLogger extends RunnerListener with Logging {
     println(s"process completed: $pid, time: $time")
     //update flow state to COMPLETED
     val appId = getAppId(ctx)
-    H2Util.updateFlowState(appId,FlowState.COMPLETED)
     H2Util.updateFlowFinishedTime(appId,time)
+    H2Util.updateFlowState(appId,FlowState.COMPLETED)
+
   };
 
   override def onJobCompleted(ctx: JobContext): Unit = {
@@ -209,8 +211,9 @@ class RunnerLogger extends RunnerListener with Logging {
     println(s"job completed: $stopName, time: $time")
     //update stop state to COMPLETED
     val appId = getAppId(ctx)
-    H2Util.updateStopState(appId,stopName,StopState.COMPLETED)
     H2Util.updateStopFinishedTime(appId,stopName,time)
+    H2Util.updateStopState(appId,stopName,StopState.COMPLETED)
+
   };
 
   override def onProcessFailed(ctx: ProcessContext): Unit = {
@@ -220,8 +223,9 @@ class RunnerLogger extends RunnerListener with Logging {
     println(s"process failed: $pid, time: $time")
     //update flow state to FAILED
     val appId = getAppId(ctx)
-    H2Util.updateFlowState(getAppId(ctx),FlowState.FAILED)
     H2Util.updateFlowFinishedTime(appId,time)
+    H2Util.updateFlowState(getAppId(ctx),FlowState.FAILED)
+
   }
 
   override def onProcessAborted(ctx: ProcessContext): Unit = {
@@ -231,8 +235,9 @@ class RunnerLogger extends RunnerListener with Logging {
     println(s"process aborted: $pid, time: $time")
     //update flow state to ABORTED
     val appId = getAppId(ctx)
-    H2Util.updateFlowState(appId,FlowState.ABORTED)
     H2Util.updateFlowFinishedTime(appId,time)
+    H2Util.updateFlowState(appId,FlowState.ABORTED)
+
   }
 
   override def onProcessForked(ctx: ProcessContext, child: ProcessContext): Unit = {
@@ -285,8 +290,9 @@ class RunnerLogger extends RunnerListener with Logging {
     logger.debug(s"Group completed: $groupId, time: $time");
     println(s"Group completed: $groupId, time: $time")
     //update flow group state to COMPLETED
-    H2Util.updateGroupState(groupId,GroupState.COMPLETED)
     H2Util.updateGroupFinishedTime(groupId,time)
+    H2Util.updateGroupState(groupId,GroupState.COMPLETED)
+
   }
 
   override def onGroupStoped(ctx: GroupContext): Unit = {
@@ -297,8 +303,9 @@ class RunnerLogger extends RunnerListener with Logging {
     logger.debug(s"Group stoped: $groupId, time: $time");
     println(s"Group stoped: $groupId, time: $time")
     //update flow group state to COMPLETED
-    H2Util.updateGroupState(groupId,GroupState.KILLED)
     H2Util.updateGroupFinishedTime(groupId,time)
+    H2Util.updateGroupState(groupId,GroupState.KILLED)
+
 
   }
 
@@ -310,8 +317,9 @@ class RunnerLogger extends RunnerListener with Logging {
     logger.debug(s"Group failed: $groupId, time: $time");
     println(s"Group failed: $groupId, time: $time")
     //update flow group state to FAILED
-    H2Util.updateGroupState(groupId,GroupState.FAILED)
     H2Util.updateGroupFinishedTime(groupId,time)
+    H2Util.updateGroupState(groupId,GroupState.FAILED)
+
   }
 
 }
