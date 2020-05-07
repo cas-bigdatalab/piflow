@@ -13,7 +13,7 @@ class MysqlReadIncremental extends ConfigurableIncrementalStop{
   override var incrementalField: String = _
   override var incrementalStart: String = _
   override val authorEmail: String = "xjzhu@cnic.cn"
-  override val description: String = "Read data from jdbc database"
+  override val description: String = "Read data from mysql incrementaly"
   override val inportList: List[String] = List(Port.DefaultPort)
   override val outportList: List[String] = List(Port.DefaultPort)
 
@@ -79,10 +79,10 @@ class MysqlReadIncremental extends ConfigurableIncrementalStop{
     val sql=new PropertyDescriptor()
       .name("sql")
       .displayName("Sql")
-      .description("The sql sentence you want to execute")
+      .description("The sql sentence you want to execute, '#~#' is the last time record.")
       .defaultValue("")
       .required(true)
-      .example("select * from user")
+      .example("select * from user where update_date > #~#")
     descriptor = sql :: descriptor
 
     val incrementalField=new PropertyDescriptor()
@@ -100,7 +100,7 @@ class MysqlReadIncremental extends ConfigurableIncrementalStop{
       .description("The incremental start value")
       .defaultValue("")
       .required(true)
-      .example("2020-04-07")
+      .example("2020-04-07 17:15:06")
     descriptor = incrementalStart :: descriptor
 
     descriptor
