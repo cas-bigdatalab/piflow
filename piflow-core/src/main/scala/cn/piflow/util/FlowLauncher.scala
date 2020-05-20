@@ -5,6 +5,7 @@ import java.util.Date
 import java.util.concurrent.CountDownLatch
 
 import cn.piflow.Flow
+import org.apache.hadoop.security.SecurityUtil
 import org.apache.http.client.methods.{CloseableHttpResponse, HttpPut}
 import org.apache.http.entity.StringEntity
 import org.apache.http.impl.client.HttpClients
@@ -19,6 +20,9 @@ object FlowLauncher {
   def launch(flow: Flow) : SparkLauncher = {
 
     var flowJson = flow.getFlowJson()
+    println("FlowLauncher json:" + flowJson)
+
+    val flowJsonencryptAES = SecurityUtil.encryptAES(flowJson)
 
     var appId : String = ""
     val countDownLatch = new CountDownLatch(1)
@@ -36,7 +40,7 @@ object FlowLauncher {
       .addFile(PropertyUtil.getConfigureFile())
       .addFile(ServerIpUtil.getServerIpFile())
       .setMainClass("cn.piflow.api.StartFlowMain")
-      .addAppArgs(flowJson)
+      .addAppArgs(flowJsonencryptAES)
 
 
     if(PropertyUtil.getPropertyValue("yarn.resourcemanager.hostname") != null)
@@ -47,6 +51,15 @@ object FlowLauncher {
     val classPathFile = new File(classPath)
     if(classPathFile.exists()){
       FileUtil.getJarFile(new File(classPath)).foreach(f => {
+        println(f.getPath)
+        sparkLauncher.addJar(f.getPath)
+      })
+    }
+
+    val scalaPath = PropertyUtil.getScalaPath()
+    val scalaPathFile = new File(scalaPath)
+    if(scalaPathFile.exists()){
+      FileUtil.getJarFile(new File(scalaPath)).foreach(f => {
         println(f.getPath)
         sparkLauncher.addJar(f.getPath)
       })

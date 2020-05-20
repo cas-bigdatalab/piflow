@@ -8,12 +8,14 @@ object PropertyUtil {
   var fis: InputStream = null
   var path :String = ""
   var classPath:String = ""
+  var scalaPath:String = ""
     try{
     //val path = Thread.currentThread().getContextClassLoader.getResource("config.properties").getPath
     //fis = this.getClass.getResourceAsStream("")
     val userDir = System.getProperty("user.dir")
     path = userDir + "/config.properties"
     classPath = userDir + "/classpath/"
+    scalaPath = userDir + "/scala"
     prop.load(new FileInputStream(path))
   } catch{
     case ex: Exception => ex.printStackTrace()
@@ -25,6 +27,10 @@ object PropertyUtil {
 
   def getClassPath():String = {
     classPath
+  }
+
+  def getScalaPath():String = {
+    scalaPath
   }
 
   def getPropertyValue(propertyKey: String): String ={

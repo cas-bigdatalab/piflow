@@ -3,7 +3,8 @@ package cn.piflow.api
 import cn.piflow.Runner
 import cn.piflow.conf.bean.FlowBean
 import cn.piflow.conf.util.OptionUtil
-import cn.piflow.util.{ConfigureUtil, PropertyUtil}
+import cn.piflow.util.{ConfigureUtil, PropertyUtil, SecurityUtil}
+import kafka.security.SecurityUtils
 import org.apache.spark.sql.SparkSession
 
 import scala.util.parsing.json.JSON
@@ -11,7 +12,8 @@ import scala.util.parsing.json.JSON
 object StartFlowMain {
 
   def main(args: Array[String]): Unit = {
-    val flowJson = args(0)
+    val flowJsonencryptAES = args(0)
+    val flowJson = SecurityUtil.decryptAES(flowJsonencryptAES)
 
     println(flowJson)
     val map = OptionUtil.getAny(JSON.parseFull(flowJson)).asInstanceOf[Map[String, Any]]

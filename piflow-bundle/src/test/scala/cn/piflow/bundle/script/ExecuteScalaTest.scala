@@ -3,6 +3,7 @@ package cn.piflow.bundle.script
 import java.net.InetAddress
 
 import cn.piflow.Runner
+import cn.piflow.bundle.util.ScalaExecutorUtil
 import cn.piflow.conf.bean.FlowBean
 import cn.piflow.conf.util.{FileUtil, OptionUtil}
 import cn.piflow.util.{PropertyUtil, ServerIpUtil}
@@ -27,13 +28,14 @@ class ExecuteScalaTest {
     val flowBean = FlowBean(map)
     val flow = flowBean.constructFlow()
 
+    val scalaExecutorJarList = ScalaExecutorUtil.buildScalaExcutorJar(flowBean)
 
     val ip = InetAddress.getLocalHost.getHostAddress
     cn.piflow.util.FileUtil.writeFile("server.ip=" + ip, ServerIpUtil.getServerIpFile())
     val h2Server = Server.createTcpServer("-tcp", "-tcpAllowOthers", "-tcpPort","50001").start()
     //execute flow
     val spark = SparkSession.builder()
-      .master("local[12]")
+      .master("local[3]")
       .appName("hive")
       .config("spark.driver.memory", "4g")
       .config("spark.executor.memory", "8g")

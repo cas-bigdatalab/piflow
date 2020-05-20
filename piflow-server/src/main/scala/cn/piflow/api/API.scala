@@ -6,6 +6,7 @@ import java.text.SimpleDateFormat
 import java.util.{Date, Properties}
 import java.util.concurrent.CountDownLatch
 
+import cn.piflow.bundle.util.ScalaExecutorUtil
 import org.apache.spark.sql.SparkSession
 import cn.piflow.conf.util.{ClassUtil, MapUtil, OptionUtil, PluginManager}
 import cn.piflow.{GroupExecution, Process, Runner}
@@ -15,10 +16,11 @@ import org.apache.http.client.methods.{CloseableHttpResponse, HttpGet, HttpPut}
 import org.apache.http.entity.StringEntity
 import org.apache.http.impl.client.HttpClients
 import org.apache.http.util.EntityUtils
-import org.apache.spark.launcher.{SparkAppHandle}
+import org.apache.spark.launcher.SparkAppHandle
 
 import scala.util.parsing.json.JSON
 import scala.util.control.Breaks._
+import scala.collection.mutable.{Map => MMap}
 
 object API {
 
@@ -153,6 +155,9 @@ object API {
     val flowBean = FlowBean(flowMap)
     val flow = flowBean.constructFlow()
 
+
+    //TODO: need to move it into constructFlow method
+    val scalaExecutorJarList = ScalaExecutorUtil.buildScalaExcutorJar(flowBean)
 
     val uuid = flow.getUUID()
     val appName = flow.getFlowName()

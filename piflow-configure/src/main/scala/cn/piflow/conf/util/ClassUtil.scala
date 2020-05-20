@@ -152,10 +152,6 @@ object ClassUtil {
     stop*/
   }
 
-  private def getJarFile(dir : File) : Seq[File] = {
-    val files = dir.listFiles.filter(! _.isDirectory).filter( _.toString.endsWith(".jar")).filter(_.toString.contains("piflow"))
-    files ++ dir.listFiles().filter(_.isDirectory).flatMap(getJarFile)
-  }
 
   def findConfigurableStop(bundle : String) : ConfigurableStop = {
     try{
