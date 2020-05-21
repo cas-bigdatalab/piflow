@@ -117,11 +117,11 @@ Try PiFlow v0.6 with: http://piflow.cstcloud.cn/piflow-web/
 ### Run Piflow Web：
   - https://github.com/cas-bigdatalab/piflow-web
   
-### Use with command line：
+### Restful API：
 
-- command line
+- flow json
   <details>
-    <summary>flow config example</summary>
+    <summary>flow example</summary>
     <pre>
       <code>
         {
@@ -252,9 +252,7 @@ Try PiFlow v0.6 with: http://piflow.cstcloud.cn/piflow-web/
       </code>
     </pre>
   </details>
-  - flow config example
-  
-
+- command：
   - curl -0 -X POST http://10.0.86.191:8002/flow/start -H "Content-type: application/json" -d 'this is your flow json'
 
 ## docker-started  
