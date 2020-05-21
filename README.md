@@ -45,7 +45,7 @@ Try PiFlow v0.6 with: http://piflow.cstcloud.cn/piflow-web/
 ## Getting Started
 
 ### To Build:  
-- `mvn install`
+- `install external package`
           
           mvn install:install-file -Dfile=/.../piflow/piflow-bundle/lib/spark-xml_2.11-0.4.2.jar -DgroupId=com.databricks -DartifactId=spark-xml_2.11 -Dversion=0.4.2 -Dpackaging=jar
           mvn install:install-file -Dfile=/.../piflow/piflow-bundle/lib/java_memcached-release_2.6.6.jar -DgroupId=com.memcached -DartifactId=java_memcached-release -Dversion=2.6.6 -Dpackaging=jar
@@ -84,7 +84,7 @@ Try PiFlow v0.6 with: http://piflow.cstcloud.cn/piflow-web/
     https://github.com/cas-bigdatalab/piflow/releases/download/v0.6/piflow-server-v0.6.tar.gz  
     https://github.com/cas-bigdatalab/piflow/releases/download/v0.7/piflow-server-v0.7.tar.gz  
     
-  - unzip piflow.tar.gz: 
+  - unzip piflow.tar.gz:  
     tar -zxvf piflow.tar.gz
     
   - edit config.properties
