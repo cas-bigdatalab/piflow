@@ -120,8 +120,10 @@ Try PiFlow v0.6 with: http://piflow.cstcloud.cn/piflow-web/
 ### Use with command line：
 
 - command line
-  - flow config example
-  
+  <details>
+    <summary>flow config example</summary>
+    <pre>
+      <code>
         {
           "flow":{
           "name":"test",
@@ -247,6 +249,12 @@ Try PiFlow v0.6 with: http://piflow.cstcloud.cn/piflow-web/
         ]
       }
     }
+      </code>
+    </pre>
+  </details>
+  - flow config example
+  
+
   - curl -0 -X POST http://10.0.86.191:8002/flow/start -H "Content-type: application/json" -d 'this is your flow json'
 
 ## docker-started  
