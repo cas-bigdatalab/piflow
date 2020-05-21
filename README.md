@@ -294,9 +294,15 @@ Try PiFlow v0.6 with: http://piflow.cstcloud.cn/piflow-web/
   
 - `Group list`:  
 
+  ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-group-list.png)
+
 - `Configure group`:
 
+  ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-configure-group.png)
+
 - `Monitor group`:
+
+  ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-monitor-group.png)
 
 - `Process List`:
 
