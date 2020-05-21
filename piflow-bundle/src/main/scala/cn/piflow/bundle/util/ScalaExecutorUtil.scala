@@ -55,7 +55,7 @@ object ScalaExecutorUtil {
   def buildScalaExcutorJar( flowBean : FlowBean) : List[String] = {
     var scalaPluginList = List[String]()
     flowBean.stops.foreach{s => {
-      if(s.bundle.equals("cn.piflow.bundle.script.ExecuteScalaFile")){
+      if(s.bundle.equals("cn.piflow.bundle.script.ExecuteScala")){
 
         //val plugin = s.flowName + "_" + s.name + "_" + s.uuid
         val plugin = s.properties.getOrElse("plugin", "")

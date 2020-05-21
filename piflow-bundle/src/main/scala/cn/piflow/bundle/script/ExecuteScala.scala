@@ -15,19 +15,18 @@ import scala.reflect.runtime.{universe => ru}
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
 
-class ExecuteScalaFile extends ConfigurableStop{
+class ExecuteScala extends ConfigurableStop{
   override val authorEmail: String = "xjzhu@cnic.cn"
   override val description: String = "Execute scala script"
   override val inportList: List[String] = List(Port.DefaultPort)
   override val outportList: List[String] = List(Port.DefaultPort)
 
   var packageName : String = "cn.piflow.bundle.script"
-  //val className : String = "ScalaFile1"
   var script : String = _
   var plugin : String = _
 
   override def setProperties(map: Map[String, Any]): Unit = {
-    //packageName = MapUtil.get(map,"packageName").asInstanceOf[String]
+
     script = MapUtil.get(map,"script").asInstanceOf[String]
     plugin = MapUtil.get(map,"plugin").asInstanceOf[String]
   }
@@ -46,11 +45,11 @@ class ExecuteScalaFile extends ConfigurableStop{
     val script = new PropertyDescriptor()
       .name("script")
       .displayName("script")
-      .description("The code of scala")
+      .description("The code of scala. \nUse in.read() to get dataframe from upstream component. \nUse out.write() to write datafram to downstream component.")
       .defaultValue("")
       .required(true)
-      .example("val t = 3 + 5 \n println(t)")
-    //descriptor = packageName :: descriptor
+      .example("val df = in.read() \nval df1 = df.select(\"author\").filter($\"author\".like(\"%xjzhu%\")) \ndf1.show() \ndf.createOrReplaceTempView(\"person\") \nval df2 = spark.sql(\"select * from person where author like '%xjzhu%'\") \ndf2.show() \nout.write(df2)")
+
     descriptor = script :: descriptor
     descriptor
   }
@@ -77,7 +76,7 @@ class ExecuteScalaFile extends ConfigurableStop{
     //val pluginurl = s"jar:file:$scalaDir/$plugin.jar!/"
 
     val userDir = System.getProperty("user.dir")
-    FileUtil.getJarFile(new File(userDir)).foreach(println(_))
+    //FileUtil.getJarFile(new File(userDir)).foreach(println(_))
 
     val pluginurl = s"jar:file:$userDir/$plugin.jar!/"
     println(s"Scala Plugin url : $pluginurl")
