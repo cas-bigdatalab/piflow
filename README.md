@@ -80,9 +80,9 @@ Try PiFlow v0.6 with: http://piflow.cstcloud.cn/piflow-web/
   
 - `run piflow server by release version`:
   - download piflow.tar.gz:  
-    https://github.com/cas-bigdatalab/piflow/releases/download/v0.5/piflow.tar.gz
-    https://github.com/cas-bigdatalab/piflow/releases/download/v0.6/piflow-server-v0.6.tar.gz
-    https://github.com/cas-bigdatalab/piflow/releases/download/v0.7/piflow-server-v0.7.tar.gz
+    https://github.com/cas-bigdatalab/piflow/releases/download/v0.5/piflow.tar.gz  
+    https://github.com/cas-bigdatalab/piflow/releases/download/v0.6/piflow-server-v0.6.tar.gz  
+    https://github.com/cas-bigdatalab/piflow/releases/download/v0.7/piflow-server-v0.7.tar.gz  
     
   - unzip piflow.tar.gz: 
     tar -zxvf piflow.tar.gz
