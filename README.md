@@ -7,7 +7,7 @@
 [![GitHub license](https://img.shields.io/github/license/cas-bigdatalab/piflow.svg)](https://github.com/cas-bigdatalab/piflow/blob/master/LICENSE)
 
 πFlow is an easy to use, powerful big data pipeline system.
-Try with: http://piflow.cstcloud.cn/piflow-web/
+Try PiFlow v0.6 with: http://piflow.cstcloud.cn/piflow-web/
 ## Table of Contents
 
 - [Features](#features)
@@ -35,12 +35,12 @@ Try with: http://piflow.cstcloud.cn/piflow-web/
 ## Architecture
 ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/architecture.png) 
 ## Requirements
-* JDK 1.8 or newer
+* JDK 1.8 
+* Scala-2.11.8
 * Apache Maven 3.1.0 or newer
 * Git Client (used during build process by 'bower' plugin)
-* Spark-2.1.0
+* Spark-2.1.0、 Spark-2.2.0、 Spark-2.3.0
 * Hadoop-2.6.0
-* Hive-1.2.1
 
 ## Getting Started
 
@@ -68,14 +68,20 @@ To Run Piflow Server：
 
 - `run piflow server on intellij`: 
   - edit config.properties
-  - build piflow to generate piflow-server.jar
+  - build piflow to generate piflow-server-0.9.jar
   - main class is cn.piflow.api.Main(remember to set SPARK_HOME)
   
 - `run piflow server by release version`:
-  - download piflow.tar.gz: https://github.com/cas-bigdatalab/piflow/releases/download/v0.5/piflow.tar.gz
-  - unzip piflow.tar.gz: tar -zxvf piflow.tar.gz
+  - download piflow.tar.gz: 
+    https://github.com/cas-bigdatalab/piflow/releases/download/v0.5/piflow.tar.gz
+    https://github.com/cas-bigdatalab/piflow/releases/download/v0.6/piflow-server-v0.6.tar.gz
+    https://github.com/cas-bigdatalab/piflow/releases/download/v0.7/piflow-server-v0.7.tar.gz
+    
+  - unzip piflow.tar.gz: 
+    tar -zxvf piflow.tar.gz
+    
   - edit config.properties
-  - run start.sh
+  - run start.sh、stop.sh、 restart.sh、 status.sh
 - `how to configure config.properties`
      
       #spark and yarn config
@@ -104,12 +110,11 @@ To Run Piflow Server：
 To Run Piflow Web：
   - https://github.com/cas-bigdatalab/piflow-web
   
-To Use：
+Use with command line：
 
 - command line
   - flow config example
   
-
         {
           "flow":{
           "name":"test",
