@@ -44,8 +44,8 @@ Try PiFlow v0.6 with: http://piflow.cstcloud.cn/piflow-web/
 
 ## Getting Started
 
-To Build: 
-`mvn install`
+### To Build:  
+- `mvn install`
           
           mvn install:install-file -Dfile=/.../piflow/piflow-bundle/lib/spark-xml_2.11-0.4.2.jar -DgroupId=com.databricks -DartifactId=spark-xml_2.11 -Dversion=0.4.2 -Dpackaging=jar
           mvn install:install-file -Dfile=/.../piflow/piflow-bundle/lib/java_memcached-release_2.6.6.jar -DgroupId=com.memcached -DartifactId=java_memcached-release -Dversion=2.6.6 -Dpackaging=jar
@@ -53,7 +53,7 @@ To Build:
           mvn install:install-file -Dfile=/.../piflow/piflow-bundle/lib/edtftpj.jar -DgroupId=ftpClient -DartifactId=edtftp -Dversion=1.0.0 -Dpackaging=jar
           
 
-`mvn clean package -Dmaven.test.skip=true`
+- `mvn clean package -Dmaven.test.skip=true`
 
           [INFO] Replacing original artifact with shaded artifact.
           [INFO] Reactor Summary:
@@ -71,7 +71,7 @@ To Build:
           [INFO] Final Memory: 118M/691M
           [INFO] ------------------------------------------------------------------------
 
-To Run Piflow Server：
+### Run Piflow Server：
 
 - `run piflow server on intellij`: 
   - edit config.properties
@@ -79,7 +79,7 @@ To Run Piflow Server：
   - main class is cn.piflow.api.Main(remember to set SPARK_HOME)
   
 - `run piflow server by release version`:
-  - download piflow.tar.gz: 
+  - download piflow.tar.gz:  
     https://github.com/cas-bigdatalab/piflow/releases/download/v0.5/piflow.tar.gz
     https://github.com/cas-bigdatalab/piflow/releases/download/v0.6/piflow-server-v0.6.tar.gz
     https://github.com/cas-bigdatalab/piflow/releases/download/v0.7/piflow-server-v0.7.tar.gz
@@ -114,10 +114,10 @@ To Run Piflow Server：
       h2.port=50002
 
   
-To Run Piflow Web：
+### Run Piflow Web：
   - https://github.com/cas-bigdatalab/piflow-web
   
-Use with command line：
+### Use with command line：
 
 - command line
   - flow config example
