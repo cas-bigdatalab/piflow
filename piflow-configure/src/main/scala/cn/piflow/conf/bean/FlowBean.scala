@@ -1,8 +1,8 @@
 package cn.piflow.conf.bean
 
-import cn.piflow.conf.util.MapUtil
+import cn.piflow.conf.util.{MapUtil, ScalaExecutorUtil}
 import cn.piflow.util.JsonUtil
-import cn.piflow.{FlowImpl, Path, GroupEntry}
+import cn.piflow.{FlowImpl, GroupEntry, Path}
 import net.liftweb.json.JsonDSL._
 import net.liftweb.json._
 
@@ -68,7 +68,11 @@ class FlowBean extends GroupEntryBean{
   }
 
   //create Flow by FlowBean
-  def constructFlow()= {
+  def constructFlow(buildScalaJar : Boolean = true)= {
+
+    if(buildScalaJar == true)
+      ScalaExecutorUtil.buildScalaExcutorJar(this)
+
     val flow = new FlowImpl();
 
     flow.setFlowJson(this.flowJson)

@@ -3,9 +3,8 @@ package cn.piflow.bundle.script
 import java.net.InetAddress
 
 import cn.piflow.Runner
-import cn.piflow.bundle.util.ScalaExecutorUtil
 import cn.piflow.conf.bean.FlowBean
-import cn.piflow.conf.util.{FileUtil, OptionUtil}
+import cn.piflow.conf.util.{FileUtil, OptionUtil, ScalaExecutorUtil}
 import cn.piflow.util.{PropertyUtil, ServerIpUtil}
 import org.apache.spark.sql.SparkSession
 import org.h2.tools.Server

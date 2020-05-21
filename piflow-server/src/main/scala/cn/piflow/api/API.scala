@@ -6,9 +6,8 @@ import java.text.SimpleDateFormat
 import java.util.{Date, Properties}
 import java.util.concurrent.CountDownLatch
 
-import cn.piflow.bundle.util.ScalaExecutorUtil
 import org.apache.spark.sql.SparkSession
-import cn.piflow.conf.util.{ClassUtil, MapUtil, OptionUtil, PluginManager}
+import cn.piflow.conf.util.{ClassUtil, MapUtil, OptionUtil, PluginManager, ScalaExecutorUtil}
 import cn.piflow.{GroupExecution, Process, Runner}
 import cn.piflow.conf.bean.{FlowBean, GroupBean}
 import cn.piflow.util._
@@ -154,10 +153,6 @@ object API {
     //create flow
     val flowBean = FlowBean(flowMap)
     val flow = flowBean.constructFlow()
-
-
-    //TODO: need to move it into constructFlow method
-    val scalaExecutorJarList = ScalaExecutorUtil.buildScalaExcutorJar(flowBean)
 
     val uuid = flow.getUUID()
     val appName = flow.getFlowName()

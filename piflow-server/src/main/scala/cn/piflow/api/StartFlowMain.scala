@@ -21,7 +21,7 @@ object StartFlowMain {
 
     //create flow
     val flowBean = FlowBean(map)
-    val flow = flowBean.constructFlow()
+    val flow = flowBean.constructFlow(false)
 
     //execute flow
     val sparkSessionBuilder = SparkSession.builder().appName(flowBean.name)
