@@ -252,9 +252,24 @@ Try PiFlow v0.6 with: http://piflow.cstcloud.cn/piflow-web/
       </code>
     </pre>
   </details>
-- command：
+- CURL POST：
   - curl -0 -X POST http://10.0.86.191:8002/flow/start -H "Content-type: application/json" -d 'this is your flow json'
+  
+- Command line：
+  - set PIFLOW_HOME
+    vim /etc/profile
+  	export PIFLOW_HOME=/yourPiflowPath/piflow-bin
+    export PATH=$PATH:$PIFLOW_HOME/bin
 
+  - command example
+    piflow flow start yourFlow.json
+    piflow flow stop appID
+    piflow flow info appID
+    piflow flow log appID
+
+    piflow flowGroup start yourFlowGroup.json
+    piflow flowGroup stop groupId
+    piflow flowGroup info groupId
 ## docker-started  
   - pull piflow images  
     docker pull registry.cn-hangzhou.aliyuncs.com/cnic_piflow/piflow:v0.6.1
