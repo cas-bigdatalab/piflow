@@ -1,0 +1,43 @@
+{
+  "flow": {
+    "name": "MockData",
+    "executorMemory": "1g",
+    "executorNumber": "1",
+    "uuid": "8a80d63f720cdd2301723b7461d92600",
+    "paths": [
+      {
+        "inport": "",
+        "from": "MockData",
+        "to": "ShowData",
+        "outport": ""
+      }
+    ],
+    "executorCores": "1",
+    "driverMemory": "1g",
+    "stops": [
+      {
+        "name": "MockData",
+        "bundle": "cn.piflow.bundle.common.MockData",
+        "uuid": "8a80d63f720cdd2301723b7461d92604",
+        "properties": {
+          "schema": "title:String, author:String, age:Int",
+          "count": "10"
+        },
+        "customizedProperties": {
+
+        }
+      },
+      {
+        "name": "ShowData",
+        "bundle": "cn.piflow.bundle.external.ShowData",
+        "uuid": "8a80d63f720cdd2301723b7461d92602",
+        "properties": {
+          "showNumber": "5"
+        },
+        "customizedProperties": {
+
+        }
+      }
+    ]
+  }
+}

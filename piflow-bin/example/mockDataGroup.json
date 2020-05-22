@@ -1,0 +1,153 @@
+{
+  "group" : {
+    "flows" : [ {
+      "flow" : {
+        "executorNumber" : "1",
+        "driverMemory" : "1g",
+        "executorMemory" : "1g",
+        "executorCores" : "1",
+        "paths" : [ {
+          "inport" : "",
+          "from" : "MockData",
+          "to" : "ShowData",
+          "outport" : ""
+        } ],
+        "name" : "f4",
+        "stops" : [ {
+          "customizedProperties" : { },
+          "name" : "MockData",
+          "uuid" : "8a80d63f720cdd2301723b7745b72649",
+          "bundle" : "cn.piflow.bundle.common.MockData",
+          "properties" : {
+            "schema" : "title:String, author:String, age:Int",
+            "count" : "10"
+          }
+        }, {
+          "customizedProperties" : { },
+          "name" : "ShowData",
+          "uuid" : "8a80d63f720cdd2301723b7745b72647",
+          "bundle" : "cn.piflow.bundle.external.ShowData",
+          "properties" : {
+            "showNumber" : "5"
+          }
+        } ],
+        "uuid" : "8a80d63f720cdd2301723b7745b62645"
+      }
+    }, {
+      "flow" : {
+        "executorNumber" : "1",
+        "driverMemory" : "1g",
+        "executorMemory" : "1g",
+        "executorCores" : "1",
+        "paths" : [ {
+          "inport" : "",
+          "from" : "MockData",
+          "to" : "ShowData",
+          "outport" : ""
+        } ],
+        "name" : "f3",
+        "stops" : [ {
+          "customizedProperties" : { },
+          "name" : "MockData",
+          "uuid" : "8a80d63f720cdd2301723b7745b9265d",
+          "bundle" : "cn.piflow.bundle.common.MockData",
+          "properties" : {
+            "schema" : "title:String, author:String, age:Int",
+            "count" : "10"
+          }
+        }, {
+          "customizedProperties" : { },
+          "name" : "ShowData",
+          "uuid" : "8a80d63f720cdd2301723b7745b9265b",
+          "bundle" : "cn.piflow.bundle.external.ShowData",
+          "properties" : {
+            "showNumber" : "5"
+          }
+        } ],
+        "uuid" : "8a80d63f720cdd2301723b7745b82659"
+      }
+    } ],
+    "name" : "SimpleGroup",
+    "groups" : [ {
+      "group" : {
+        "flows" : [ {
+          "flow" : {
+            "executorNumber" : "1",
+            "driverMemory" : "1g",
+            "executorMemory" : "1g",
+            "executorCores" : "1",
+            "paths" : [ {
+              "inport" : "",
+              "from" : "MockData",
+              "to" : "ShowData",
+              "outport" : ""
+            } ],
+            "name" : "MockData",
+            "stops" : [ {
+              "customizedProperties" : { },
+              "name" : "MockData",
+              "uuid" : "8a80d63f720cdd2301723b7745b4261a",
+              "bundle" : "cn.piflow.bundle.common.MockData",
+              "properties" : {
+                "schema" : "title:String, author:String, age:Int",
+                "count" : "10"
+              }
+            }, {
+              "customizedProperties" : { },
+              "name" : "ShowData",
+              "uuid" : "8a80d63f720cdd2301723b7745b32618",
+              "bundle" : "cn.piflow.bundle.external.ShowData",
+              "properties" : {
+                "showNumber" : "5"
+              }
+            } ],
+            "uuid" : "8a80d63f720cdd2301723b7745b32616"
+          }
+        }, {
+          "flow" : {
+            "executorNumber" : "1",
+            "driverMemory" : "1g",
+            "executorMemory" : "1g",
+            "executorCores" : "1",
+            "paths" : [ {
+              "inport" : "",
+              "from" : "MockData",
+              "to" : "ShowData",
+              "outport" : ""
+            } ],
+            "name" : "MockData",
+            "stops" : [ {
+              "customizedProperties" : { },
+              "name" : "MockData",
+              "uuid" : "8a80d63f720cdd2301723b7745b5262e",
+              "bundle" : "cn.piflow.bundle.common.MockData",
+              "properties" : {
+                "schema" : "title:String, author:String, age:Int",
+                "count" : "10"
+              }
+            }, {
+              "customizedProperties" : { },
+              "name" : "ShowData",
+              "uuid" : "8a80d63f720cdd2301723b7745b5262c",
+              "bundle" : "cn.piflow.bundle.external.ShowData",
+              "properties" : {
+                "showNumber" : "5"
+              }
+            } ],
+            "uuid" : "8a80d63f720cdd2301723b7745b4262a"
+          }
+        } ],
+        "name" : "g1",
+        "uuid" : "8a80d63f720cdd2301723b7745b22615"
+      }
+    } ],
+    "conditions" : [ {
+      "entry" : "f4",
+      "after" : "g1"
+    }, {
+      "entry" : "f3",
+      "after" : "g1"
+    } ],
+    "uuid" : "8a80d63f720cdd2301723b7745b22614"
+  }
+}

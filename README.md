@@ -37,8 +37,7 @@ Try PiFlow v0.6 with: http://piflow.cstcloud.cn/piflow-web/
 ## Requirements
 * JDK 1.8 
 * Scala-2.11.8
-* Apache Maven 3.1.0 or newer
-* Git Client (used during build process by 'bower' plugin)
+* Apache Maven 3.1.0 or newer  
 * Spark-2.1.0、 Spark-2.2.0、 Spark-2.3.0
 * Hadoop-2.6.0
 
@@ -47,10 +46,10 @@ Try PiFlow v0.6 with: http://piflow.cstcloud.cn/piflow-web/
 ### To Build:  
 - `install external package`
           
-          mvn install:install-file -Dfile=/.../piflow/piflow-bundle/lib/spark-xml_2.11-0.4.2.jar -DgroupId=com.databricks -DartifactId=spark-xml_2.11 -Dversion=0.4.2 -Dpackaging=jar
-          mvn install:install-file -Dfile=/.../piflow/piflow-bundle/lib/java_memcached-release_2.6.6.jar -DgroupId=com.memcached -DartifactId=java_memcached-release -Dversion=2.6.6 -Dpackaging=jar
-          mvn install:install-file -Dfile=/.../piflow/piflow-bundle/lib/ojdbc6-11.2.0.3.jar -DgroupId=oracle -DartifactId=ojdbc6 -Dversion=11.2.0.3 -Dpackaging=jar
-          mvn install:install-file -Dfile=/.../piflow/piflow-bundle/lib/edtftpj.jar -DgroupId=ftpClient -DartifactId=edtftp -Dversion=1.0.0 -Dpackaging=jar
+          mvn install:install-file -Dfile=/../piflow/piflow-bundle/lib/spark-xml_2.11-0.4.2.jar -DgroupId=com.databricks -DartifactId=spark-xml_2.11 -Dversion=0.4.2 -Dpackaging=jar
+          mvn install:install-file -Dfile=/../piflow/piflow-bundle/lib/java_memcached-release_2.6.6.jar -DgroupId=com.memcached -DartifactId=java_memcached-release -Dversion=2.6.6 -Dpackaging=jar
+          mvn install:install-file -Dfile=/../piflow/piflow-bundle/lib/ojdbc6-11.2.0.3.jar -DgroupId=oracle -DartifactId=ojdbc6 -Dversion=11.2.0.3 -Dpackaging=jar
+          mvn install:install-file -Dfile=/../piflow/piflow-bundle/lib/edtftpj.jar -DgroupId=ftpClient -DartifactId=edtftp -Dversion=1.0.0 -Dpackaging=jar
           
 
 - `mvn clean package -Dmaven.test.skip=true`
@@ -73,10 +72,27 @@ Try PiFlow v0.6 with: http://piflow.cstcloud.cn/piflow-web/
 
 ### Run Piflow Server：
 
-- `run piflow server on intellij`: 
-  - edit config.properties
-  - build piflow to generate piflow-server-0.9.jar
-  - main class is cn.piflow.api.Main(remember to set SPARK_HOME)
+- `run piflow server on Intellij`:   
+  - download piflow: git clone https://github.com/cas-bigdatalab/piflow.git
+  - import piflow into Intellij
+  - edit config.properties file
+  - build piflow to generate piflow jar:   
+    - Edit Configurations --> Add New Configuration --> Maven  
+    - Name: package
+    - Command line: clean package -Dmaven.test.skip=true -X  
+    - run 'package' (piflow jar file will be built in ../piflow/piflow-server/target/piflow-server-0.9.jar)  
+    
+  - run HttpService:   
+    - Edit Configurations --> Add New Configuration --> Application  
+    - Name: HttpService
+    - Main class : cn.piflow.api.Main  
+    - Environment Variable: SPARK_HOME=/opt/spark-2.2.0-bin-hadoop2.6(change the path to your spark home)  
+    - run 'HttpService'
+  
+  - test HttpService:   
+    - run /../piflow/piflow-server/src/main/scala/cn/piflow/api/HTTPClientStartMockDataFlow.scala
+    - change the piflow server ip and port to your configure
+  
   
 - `run piflow server by release version`:
   - download piflow.tar.gz:  
@@ -87,8 +103,25 @@ Try PiFlow v0.6 with: http://piflow.cstcloud.cn/piflow-web/
   - unzip piflow.tar.gz:  
     tar -zxvf piflow.tar.gz
     
-  - edit config.properties
-  - run start.sh、stop.sh、 restart.sh、 status.sh
+  - edit config.properties  
+  
+  - run start.sh、stop.sh、 restart.sh、 status.sh  
+  
+  - test piflow server
+    - set PIFLOW_HOME  
+      - vim /etc/profile  
+        export PIFLOW_HOME=/yourPiflowPath/bin  
+      	export PATH=$PATH:$PIFLOW_HOME/bin  
+      - command   
+        piflow flow start example/mockDataFlow.json  
+        piflow flow stop appID  
+        piflow flow info appID  
+        piflow flow log appID  
+      
+        piflow flowGroup start example/mockDataGroup.json  
+        piflow flowGroup stop groupId  
+        piflow flowGroup info groupId  
+        
 - `how to configure config.properties`
      
       #spark and yarn config
