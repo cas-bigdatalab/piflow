@@ -309,9 +309,7 @@ Try PiFlow v0.6 with: http://piflow.cstcloud.cn/piflow-web/
             }
         ]
     }
-}
-
-      </code>
+}</code>
     </pre>
   </details>
 - CURL POST：
