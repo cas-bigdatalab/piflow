@@ -14,3 +14,6 @@
   piflow flowGroup start *.json
   piflow flowGroup stop groupId 
   piflow flowGroup info groupId 
+
+4.please install piflow-web to configure flow in web page.
+  https://github.com/cas-bigdatalab/piflow-web

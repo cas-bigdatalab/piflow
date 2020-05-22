@@ -122,65 +122,20 @@ function group_start () {
   echo "Group Start:"
   content=$(file_reader $1)
   echo "$content"
-  curl_command="curl -0 -X POST http://$SERVER:$PORT/flowGroup/start -H \"Content-type: application/json\" -d '$content'"
+  curl_command="curl -0 -X POST http://$SERVER:$PORT/group/start -H \"Content-type: application/json\" -d '$content'"
   eval $curl_command
 }
 
 function group_info () {
   echo "Group Info:"
-  curl_command="curl -Get http://$SERVER:$PORT/flowGroup/info?groupId=$1"
+  curl_command="curl -Get http://$SERVER:$PORT/group/info?groupId=$1"
   echo $curl_command
   eval $curl_command
 }
 
 function group_stop () {
   echo "Group Stop:"
-  curl_command="curl -POST http://$SERVER:$PORT/flowGroup/stop -H \"Content-type: application/json\" -d '{\"groupId\":\"$1\"}'"
-  #echo $curl_command
-  eval $curl_command
-}
-
-function project_process () {
-  if [ $# -eq 2 ]
-  then
-    case "$1" in
-      start)
-        project_start $2
-        ;;
-      stop)
-        project_stop $2
-        ;;
-      info)
-        project_info $2
-        ;;
-      *)
-        group_help
-        ;;
-    esac
-  else
-    echo $1
-    group_help
-  fi
-}
-
-function project_start () {
-  echo "Project Start:"
-  content=$(file_reader $1)
-  echo "$content"
-  curl_command="curl -0 -X POST http://$SERVER:$PORT/project/start -H \"Content-type: application/json\" -d '$content'"
-  eval $curl_command
-}
-
-function project_info () {
-  echo "Project Info:"
-  curl_command="curl -Get http://$SERVER:$PORT/project/info?projectId=$1"
-  #echo $curl_command
-  eval $curl_command
-}
-
-function project_stop () {
-  echo "Project Stop:"
-  curl_command="curl -POST http://$SERVER:$PORT/project/stop -H \"Content-type: application/json\" -d '{\"projectId\":\"$1\"}'"
+  curl_command="curl -POST http://$SERVER:$PORT/group/stop -H \"Content-type: application/json\" -d '{\"groupId\":\"$1\"}'"
   #echo $curl_command
   eval $curl_command
 }
@@ -219,10 +174,6 @@ if [ $# -gt 0 ]; then
     flowGroup)
       #SERVICE=flowGroup
       echo "$(group_process $2 $3 2>/dev/null)"
-      ;;
-    project)
-      #SERVICE=project
-      echo "$(project_process $2 $3 2>/dev/null)"
       ;;
     *)
       help_info

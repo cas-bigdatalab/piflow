@@ -1,283 +1,153 @@
 {
-  "group":{
-    "name": "Group",
-    "uuid": "1111111111111",
-    "groups": [
-      {"group": {
-        "name": "Group1",
-        "uuid": "1111111111111",
-
-        "flows": [
-          {"flow": {
-            "name": "flow1",
-            "uuid": "1234",
-            "executorNumber": "2",
-            "executorMemory": "1g",
-            "executorCores": "1",
-            "stops": [{
-              "uuid": "1111",
-              "name": "XmlParser",
-              "bundle": "cn.piflow.bundle.xml.XmlParser",
-              "properties": {
-                "xmlpath": "hdfs://10.0.86.89:9000/xjzhu/dblp.mini.xml",
-                "rowTag": "phdthesis"
-              }
-            },
-              {
-                "uuid": "2222",
-                "name": "SelectField",
-                "bundle": "cn.piflow.bundle.common.SelectField",
-                "properties": {
-                  "schema": "title,author,pages"
-                }
-
-              },
-              {
-                "uuid": "3333",
-                "name": "PutHiveStreaming",
-                "bundle": "cn.piflow.bundle.hive.PutHiveStreaming",
-                "properties": {
-                  "database": "sparktest",
-                  "table": "dblp_phdthesis"
-                }
-              }
-            ],
-            "paths": [{
-              "from": "XmlParser",
-              "outport": "",
-              "inport": "",
-              "to": "SelectField"
-            },
-              {
-                "from": "SelectField",
-                "outport": "",
-                "inport": "",
-                "to": "PutHiveStreaming"
-              }
-            ]
-          }},
-          {"flow": {
-            "name": "flow2",
-            "uuid": "5678",
-            "stops": [{
-              "uuid": "1111",
-              "name": "XmlParser",
-              "bundle": "cn.piflow.bundle.xml.XmlParser",
-              "properties": {
-                "xmlpath": "hdfs://10.0.86.89:9000/xjzhu/dblp.mini.xml",
-                "rowTag": "phdthesis"
-              }
-            },
-              {
-                "uuid": "2222",
-                "name": "SelectField",
-                "bundle": "cn.piflow.bundle.common.SelectField",
-                "properties": {
-                  "schema": "title,author,pages"
-                }
-
-              },
-              {
-                "uuid": "3333",
-                "name": "PutHiveStreaming",
-                "bundle": "cn.piflow.bundle.hive.PutHiveStreaming",
-                "properties": {
-                  "database": "sparktest",
-                  "table": "dblp_phdthesis"
-                }
-              }
-            ],
-            "paths": [{
-              "from": "XmlParser",
-              "outport": "",
-              "inport": "",
-              "to": "SelectField"
-            },
-              {
-                "from": "SelectField",
-                "outport": "",
-                "inport": "",
-                "to": "PutHiveStreaming"
-              }
-            ]
-          }}
-        ],
-
-        "conditions": [{
-          "entry": "flow2",
-          "after": "flow1"
-        }]
-      }},
-      {"group": {
-        "name": "Group3",
-        "uuid": "1111111111111",
-
-        "flows": [
-          {"flow": {
-            "name": "flow4",
-            "uuid": "1234",
-            "executorNumber": "2",
-            "executorMemory": "1g",
-            "executorCores": "1",
-            "stops": [{
-              "uuid": "1111",
-              "name": "XmlParser",
-              "bundle": "cn.piflow.bundle.xml.XmlParser",
-              "properties": {
-                "xmlpath": "hdfs://10.0.86.89:9000/xjzhu/dblp.mini.xml",
-                "rowTag": "phdthesis"
-              }
-            },
-              {
-                "uuid": "2222",
-                "name": "SelectField",
-                "bundle": "cn.piflow.bundle.common.SelectField",
-                "properties": {
-                  "schema": "title,author,pages"
-                }
-
-              },
-              {
-                "uuid": "3333",
-                "name": "PutHiveStreaming",
-                "bundle": "cn.piflow.bundle.hive.PutHiveStreaming",
-                "properties": {
-                  "database": "sparktest",
-                  "table": "dblp_phdthesis"
-                }
-              }
-            ],
-            "paths": [{
-              "from": "XmlParser",
-              "outport": "",
-              "inport": "",
-              "to": "SelectField"
-            },
-              {
-                "from": "SelectField",
-                "outport": "",
-                "inport": "",
-                "to": "PutHiveStreaming"
-              }
-            ]
-          }},
-          {"flow": {
-            "name": "flow5",
-            "uuid": "5678",
-            "stops": [{
-              "uuid": "1111",
-              "name": "XmlParser",
-              "bundle": "cn.piflow.bundle.xml.XmlParser",
-              "properties": {
-                "xmlpath": "hdfs://10.0.86.89:9000/xjzhu/dblp.mini.xml",
-                "rowTag": "phdthesis"
-              }
-            },
-              {
-                "uuid": "2222",
-                "name": "SelectField",
-                "bundle": "cn.piflow.bundle.common.SelectField",
-                "properties": {
-                  "schema": "title,author,pages"
-                }
-
-              },
-              {
-                "uuid": "3333",
-                "name": "PutHiveStreaming",
-                "bundle": "cn.piflow.bundle.hive.PutHiveStreaming",
-                "properties": {
-                  "database": "sparktest",
-                  "table": "dblp_phdthesis"
-                }
-              }
-            ],
-            "paths": [{
-              "from": "XmlParser",
-              "outport": "",
-              "inport": "",
-              "to": "SelectField"
-            },
-              {
-                "from": "SelectField",
-                "outport": "",
-                "inport": "",
-                "to": "PutHiveStreaming"
-              }
-            ]
-          }}
-        ],
-
-
-        "conditions": [{
-          "entry": "flow5",
-          "after": "flow4"
-        }]
-      }}
-    ],
-
-    "flows":[
-      {"flow": {
-        "name": "flow3",
-        "uuid": "91011",
-        "executorNumber": "2",
-        "executorMemory": "1g",
-        "executorCores": "1",
-        "stops": [{
-          "uuid": "1111",
-          "name": "XmlParser",
-          "bundle": "cn.piflow.bundle.xml.XmlParser",
-          "properties": {
-            "xmlpath": "hdfs://10.0.86.89:9000/xjzhu/dblp.mini.xml",
-            "rowTag": "phdthesis"
+  "group" : {
+    "flows" : [ {
+      "flow" : {
+        "executorNumber" : "1",
+        "driverMemory" : "1g",
+        "executorMemory" : "1g",
+        "executorCores" : "1",
+        "paths" : [ {
+          "inport" : "",
+          "from" : "MockData",
+          "to" : "ShowData",
+          "outport" : ""
+        } ],
+        "name" : "f4",
+        "stops" : [ {
+          "customizedProperties" : { },
+          "name" : "MockData",
+          "uuid" : "8a80d63f720cdd2301723ad9f9e825a6",
+          "bundle" : "cn.piflow.bundle.common.MockData",
+          "properties" : {
+            "schema" : "title:String, author:String, age:Int",
+            "count" : "10"
           }
-        },
-          {
-            "uuid": "2222",
-            "name": "SelectField",
-            "bundle": "cn.piflow.bundle.common.SelectField",
-            "properties": {
-              "schema": "title,author,pages"
-            }
-
-          },
-          {
-            "uuid": "3333",
-            "name": "PutHiveStreaming",
-            "bundle": "cn.piflow.bundle.hive.PutHiveStreaming",
-            "properties": {
-              "database": "sparktest",
-              "table": "dblp_phdthesis"
-            }
+        }, {
+          "customizedProperties" : { },
+          "name" : "ShowData",
+          "uuid" : "8a80d63f720cdd2301723ad9f9e825a4",
+          "bundle" : "cn.piflow.bundle.external.ShowData",
+          "properties" : {
+            "showNumber" : "5"
           }
-        ],
-        "paths": [{
-          "from": "XmlParser",
-          "outport": "",
-          "inport": "",
-          "to": "SelectField"
-        },
-          {
-            "from": "SelectField",
-            "outport": "",
-            "inport": "",
-            "to": "PutHiveStreaming"
-          }
-        ]
-      }}
-    ],
-
-    "conditions": [
-      {
-      "entry": "flow3",
-      "after": "Group1"
-      },
-      {
-        "entry": "Group3",
-        "after": "flow3"
+        } ],
+        "uuid" : "8a80d63f720cdd2301723ad9f9e825a2"
       }
-    ]
+    }, {
+      "flow" : {
+        "executorNumber" : "1",
+        "driverMemory" : "1g",
+        "executorMemory" : "1g",
+        "executorCores" : "1",
+        "paths" : [ {
+          "inport" : "",
+          "from" : "MockData",
+          "to" : "ShowData",
+          "outport" : ""
+        } ],
+        "name" : "f3",
+        "stops" : [ {
+          "customizedProperties" : { },
+          "name" : "MockData",
+          "uuid" : "8a80d63f720cdd2301723ad9f9ea25ba",
+          "bundle" : "cn.piflow.bundle.common.MockData",
+          "properties" : {
+            "schema" : "title:String, author:String, age:Int",
+            "count" : "10"
+          }
+        }, {
+          "customizedProperties" : { },
+          "name" : "ShowData",
+          "uuid" : "8a80d63f720cdd2301723ad9f9ea25b8",
+          "bundle" : "cn.piflow.bundle.external.ShowData",
+          "properties" : {
+            "showNumber" : "5"
+          }
+        } ],
+        "uuid" : "8a80d63f720cdd2301723ad9f9e925b6"
+      }
+    } ],
+    "name" : "SimpleGroup",
+    "groups" : [ {
+      "group" : {
+        "flows" : [ {
+          "flow" : {
+            "executorNumber" : "1",
+            "driverMemory" : "1g",
+            "executorMemory" : "1g",
+            "executorCores" : "1",
+            "paths" : [ {
+              "inport" : "",
+              "from" : "MockData",
+              "to" : "ShowData",
+              "outport" : ""
+            } ],
+            "name" : "MockData",
+            "stops" : [ {
+              "customizedProperties" : { },
+              "name" : "MockData",
+              "uuid" : "8a80d63f720cdd2301723ad9f9e42577",
+              "bundle" : "cn.piflow.bundle.common.MockData",
+              "properties" : {
+                "schema" : "title:String, author:String, age:Int",
+                "count" : "10"
+              }
+            }, {
+              "customizedProperties" : { },
+              "name" : "ShowData",
+              "uuid" : "8a80d63f720cdd2301723ad9f9e42575",
+              "bundle" : "cn.piflow.bundle.external.ShowData",
+              "properties" : {
+                "showNumber" : "5"
+              }
+            } ],
+            "uuid" : "8a80d63f720cdd2301723ad9f9e32573"
+          }
+        }, {
+          "flow" : {
+            "executorNumber" : "1",
+            "driverMemory" : "1g",
+            "executorMemory" : "1g",
+            "executorCores" : "1",
+            "paths" : [ {
+              "inport" : "",
+              "from" : "MockData",
+              "to" : "ShowData",
+              "outport" : ""
+            } ],
+            "name" : "MockData",
+            "stops" : [ {
+              "customizedProperties" : { },
+              "name" : "MockData",
+              "uuid" : "8a80d63f720cdd2301723ad9f9e6258b",
+              "bundle" : "cn.piflow.bundle.common.MockData",
+              "properties" : {
+                "schema" : "title:String, author:String, age:Int",
+                "count" : "10"
+              }
+            }, {
+              "customizedProperties" : { },
+              "name" : "ShowData",
+              "uuid" : "8a80d63f720cdd2301723ad9f9e62589",
+              "bundle" : "cn.piflow.bundle.external.ShowData",
+              "properties" : {
+                "showNumber" : "5"
+              }
+            } ],
+            "uuid" : "8a80d63f720cdd2301723ad9f9e52587"
+          }
+        } ],
+        "name" : "g1",
+        "uuid" : "8a80d63f720cdd2301723ad9f9e32572"
+      }
+    } ],
+    "conditions" : [ {
+      "entry" : "f4",
+      "after" : "g1"
+    }, {
+      "entry" : "f3",
+      "after" : "g1"
+    } ],
+    "uuid" : "8a80d63f720cdd2301723ad9f9e22571"
   }
 }
-
-
