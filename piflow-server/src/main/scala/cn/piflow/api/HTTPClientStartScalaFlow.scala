@@ -5,7 +5,7 @@ import org.apache.http.client.methods.{CloseableHttpResponse, HttpPost}
 import org.apache.http.entity.StringEntity
 import org.apache.http.impl.client.HttpClientBuilder
 import org.apache.http.util.EntityUtils
-import org.springframework.util.Base64Utils
+
 
 object HTTPClientStartScalaFlow {
 
