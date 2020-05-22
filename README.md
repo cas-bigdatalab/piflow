@@ -7,7 +7,7 @@
 [![GitHub license](https://img.shields.io/github/license/cas-bigdatalab/piflow.svg)](https://github.com/cas-bigdatalab/piflow/blob/master/LICENSE)
 
 πFlow is an easy to use, powerful big data pipeline system.
-Try with: http://piflow.cstcloud.cn/piflow-web/
+Try PiFlow v0.6 with: http://piflow.cstcloud.cn/piflow-web/
 ## Table of Contents
 
 - [Features](#features)
@@ -35,94 +35,95 @@ Try with: http://piflow.cstcloud.cn/piflow-web/
 ## Architecture
 ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/architecture.png) 
 ## Requirements
-* JDK 1.8 or newer
+* JDK 1.8 
+* Scala-2.11.8
 * Apache Maven 3.1.0 or newer
 * Git Client (used during build process by 'bower' plugin)
-* Spark-2.1.0
+* Spark-2.1.0、 Spark-2.2.0、 Spark-2.3.0
 * Hadoop-2.6.0
-* Hive-1.2.1
 
 ## Getting Started
 
-To Build: 
-`mvn clean package -Dmaven.test.skip=true`
+### To Build:  
+- `install external package`
+          
+          mvn install:install-file -Dfile=/.../piflow/piflow-bundle/lib/spark-xml_2.11-0.4.2.jar -DgroupId=com.databricks -DartifactId=spark-xml_2.11 -Dversion=0.4.2 -Dpackaging=jar
+          mvn install:install-file -Dfile=/.../piflow/piflow-bundle/lib/java_memcached-release_2.6.6.jar -DgroupId=com.memcached -DartifactId=java_memcached-release -Dversion=2.6.6 -Dpackaging=jar
+          mvn install:install-file -Dfile=/.../piflow/piflow-bundle/lib/ojdbc6-11.2.0.3.jar -DgroupId=oracle -DartifactId=ojdbc6 -Dversion=11.2.0.3 -Dpackaging=jar
+          mvn install:install-file -Dfile=/.../piflow/piflow-bundle/lib/edtftpj.jar -DgroupId=ftpClient -DartifactId=edtftp -Dversion=1.0.0 -Dpackaging=jar
+          
+
+- `mvn clean package -Dmaven.test.skip=true`
 
           [INFO] Replacing original artifact with shaded artifact.
-          [INFO] Replacing /opt/project/piflow/piflow-server/target/piflow-server-0.9.jar with /opt/project/piflow/piflow-server/target/piflow-server-0.9-shaded.jar
-          [INFO] ------------------------------------------------------------------------
           [INFO] Reactor Summary:
-          [INFO] 
-          [INFO] piflow-project ..................................... SUCCESS [  4.602 s]
-          [INFO] piflow-core ........................................ SUCCESS [ 56.533 s]
+          [INFO]
+          [INFO] piflow-project ..................................... SUCCESS [  4.369 s]
+          [INFO] piflow-core ........................................ SUCCESS [01:23 min]
+          [INFO] piflow-configure ................................... SUCCESS [ 12.418 s]
           [INFO] piflow-bundle ...................................... SUCCESS [02:15 min]
-          [INFO] piflow-server ...................................... SUCCESS [03:01 min]
+          [INFO] piflow-server ...................................... SUCCESS [02:05 min]
           [INFO] ------------------------------------------------------------------------
           [INFO] BUILD SUCCESS
           [INFO] ------------------------------------------------------------------------
-          [INFO] Total time: 06:18 min
-          [INFO] Finished at: 2018-12-24T16:54:16+08:00
-          [INFO] Final Memory: 41M/812M
+          [INFO] Total time: 06:01 min
+          [INFO] Finished at: 2020-05-21T15:22:58+08:00
+          [INFO] Final Memory: 118M/691M
           [INFO] ------------------------------------------------------------------------
 
-To Run Piflow Server：
+### Run Piflow Server：
 
 - `run piflow server on intellij`: 
   - edit config.properties
-  - build piflow to generate piflow-server.jar
+  - build piflow to generate piflow-server-0.9.jar
   - main class is cn.piflow.api.Main(remember to set SPARK_HOME)
   
 - `run piflow server by release version`:
-  - download piflow.tar.gz: https://github.com/cas-bigdatalab/piflow/releases/download/v0.5/piflow.tar.gz
-  - unzip piflow.tar.gz: tar -zxvf piflow.tar.gz
+  - download piflow.tar.gz:  
+    https://github.com/cas-bigdatalab/piflow/releases/download/v0.5/piflow.tar.gz  
+    https://github.com/cas-bigdatalab/piflow/releases/download/v0.6/piflow-server-v0.6.tar.gz  
+    https://github.com/cas-bigdatalab/piflow/releases/download/v0.7/piflow-server-v0.7.tar.gz  
+    
+  - unzip piflow.tar.gz:  
+    tar -zxvf piflow.tar.gz
+    
   - edit config.properties
-  - run start.sh
+  - run start.sh、stop.sh、 restart.sh、 status.sh
 - `how to configure config.properties`
-
-      #server ip and port
-      server.ip=10.0.86.191
-      server.port=8002
-      h2.port=50002
-      
+     
       #spark and yarn config
       spark.master=yarn
       spark.deploy.mode=cluster
+      
+      #hdfs default file system
+      fs.defaultFS=hdfs://10.0.86.191:9000
+      
+      #yarn resourcemanager.hostname
       yarn.resourcemanager.hostname=10.0.86.191
-      yarn.resourcemanager.address=10.0.86.191:8032
-      yarn.access.namenode=hdfs://10.0.86.191:9000
-      yarn.stagingDir=hdfs://10.0.86.191:9000/tmp/
-      yarn.jars=hdfs://10.0.86.191:9000/user/spark/share/lib/*.jar
-      yarn.url=http://10.0.86.191:8088/ws/v1/cluster/apps/
-
-      #hive config
-      hive.metastore.uris=thrift://10.0.86.191:9083
-
-      #piflow-server.jar path
-      piflow.bundle=/opt/piflowServer/piflow-server-0.9.jar
-
-      #checkpoint hdfs path
-      checkpoint.path=hdfs://10.0.86.89:9000/piflow/checkpoints/
       
-      #debug path
-      debug.path=hdfs://10.0.88.191:9000/piflow/debug/
+      #if you want to use hive, set hive metastore uris
+      #hive.metastore.uris=thrift://10.0.88.71:9083
       
-      #yarn url
-      yarn.url=http://10.0.86.191:8088/ws/v1/cluster/apps/
-      
-      #the count of data shown in log
+      #show data in log, set 0 if you do not want to show data in logs
       data.show=10
       
-      #h2 db port
+      #server port
+      server.port=8002
+      
+      #h2db port
       h2.port=50002
+
   
-To Run Piflow Web：
+### Run Piflow Web：
   - https://github.com/cas-bigdatalab/piflow-web
   
-To Use：
+### Restful API：
 
-- command line
-  - flow config example
-  
-
+- flow json
+  <details>
+    <summary>flow example</summary>
+    <pre>
+      <code>
         {
           "flow":{
           "name":"test",
@@ -248,6 +249,10 @@ To Use：
         ]
       }
     }
+      </code>
+    </pre>
+  </details>
+- command：
   - curl -0 -X POST http://10.0.86.191:8002/flow/start -H "Content-type: application/json" -d 'this is your flow json'
 
 ## docker-started  
@@ -265,15 +270,56 @@ To Use：
   - if somethings goes wrong,  all the application are in /opt  folder，
   
 ## use-interface
+- `Login`:
+
   ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-login.png)
+  
+- `Flow list`:
+
   ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-flowlist.png)
+  
+- `Create flow`:
+
   ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-createflow.png)
+  
+- `Configure flow`:
+
   ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-flowconfig.png)
+  
+- `Load flow`:
+
   ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-loadflow.png)
+  
+- `Monitor flow`:  
+
   ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-monitor.png)
+
+- `Flow logs`:
+
   ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-log.png)
+  
+- `Group list`:  
+
+  ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-group-list.png)
+
+- `Configure group`:
+
+  ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-configure-group.png)
+
+- `Monitor group`:
+
+  ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-monitor-group.png)
+
+- `Process List`:
+
   ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-processlist.png)
+  
+- `Template List`:
+
   ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-templatelist.png)
+  
+- `Save Template`:
+
   ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-savetemplate.png)
   
 Welcome to join PiFlow User Group! Contact US  
