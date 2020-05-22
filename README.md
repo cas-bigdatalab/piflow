@@ -16,6 +16,7 @@ Try PiFlow v0.6 with: http://piflow.cstcloud.cn/piflow-web/
 - [Getting Started](#getting-started)
 - [PiFlow Docker](#docker-started)
 - [Use Interface](#use-interface)
+- [Contact Us](#contact-us)
 
 ## Features
 
@@ -156,159 +157,49 @@ Try PiFlow v0.6 with: http://piflow.cstcloud.cn/piflow-web/
   <details>
     <summary>flow example</summary>
     <pre>
-      <code>{
-    "flow": {
-        "name": "Example",
-        "executorMemory": "1g",
-        "executorNumber": "1",
-        "uuid": "8a80d63f720cdd2301723a4e679e2457",
-        "paths": [
-            {
-                "inport": "",
-                "from": "XmlParser",
-                "to": "SelectField",
-                "outport": ""
-            },
-            {
-                "inport": "",
-                "from": "Fork",
-                "to": "CsvSave",
-                "outport": "out1"
-            },
-            {
-                "inport": "data2",
-                "from": "SelectField",
-                "to": "Merge",
-                "outport": ""
-            },
-            {
-                "inport": "",
-                "from": "Merge",
-                "to": "Fork",
-                "outport": ""
-            },
-            {
-                "inport": "data1",
-                "from": "CsvParser",
-                "to": "Merge",
-                "outport": ""
-            },
-            {
-                "inport": "",
-                "from": "Fork",
-                "to": "JsonSave",
-                "outport": "out3"
-            },
-            {
-                "inport": "",
-                "from": "Fork",
-                "to": "PutHiveMode",
-                "outport": "out2"
-            }
-        ],
-        "executorCores": "1",
-        "driverMemory": "1g",
-        "stops": [
-            {
-                "name": "CsvSave",
-                "bundle": "cn.piflow.bundle.csv.CsvSave",
-                "uuid": "8a80d63f720cdd2301723a4e67a52467",
-                "properties": {
-                    "csvSavePath": "hdfs://master:9000/xjzhu/phdthesis_result.csv",
-                    "partition": "",
-                    "header": "false",
-                    "saveMode": "append",
-                    "delimiter": ","
-                },
-                "customizedProperties": {
+      <code>
+        {
+  "flow": {
+    "name": "MockData",
+    "executorMemory": "1g",
+    "executorNumber": "1",
+    "uuid": "8a80d63f720cdd2301723b7461d92600",
+    "paths": [
+      {
+        "inport": "",
+        "from": "MockData",
+        "to": "ShowData",
+        "outport": ""
+      }
+    ],
+    "executorCores": "1",
+    "driverMemory": "1g",
+    "stops": [
+      {
+        "name": "MockData",
+        "bundle": "cn.piflow.bundle.common.MockData",
+        "uuid": "8a80d63f720cdd2301723b7461d92604",
+        "properties": {
+          "schema": "title:String, author:String, age:Int",
+          "count": "10"
+        },
+        "customizedProperties": {
 
-                }
-            },
-            {
-                "name": "PutHiveMode",
-                "bundle": "cn.piflow.bundle.hive.PutHiveMode",
-                "uuid": "8a80d63f720cdd2301723a4e67a22461",
-                "properties": {
-                    "database": "sparktest",
-                    "saveMode": "append",
-                    "table": "dblp_phdthesis"
-                },
-                "customizedProperties": {
+        }
+      },
+      {
+        "name": "ShowData",
+        "bundle": "cn.piflow.bundle.external.ShowData",
+        "uuid": "8a80d63f720cdd2301723b7461d92602",
+        "properties": {
+          "showNumber": "5"
+        },
+        "customizedProperties": {
 
-                }
-            },
-            {
-                "name": "CsvParser",
-                "bundle": "cn.piflow.bundle.csv.CsvParser",
-                "uuid": "8a80d63f720cdd2301723a4e67a82470",
-                "properties": {
-                    "schema": "title,author,pages",
-                    "csvPath": "hdfs://master:9000/xjzhu/phdthesis.csv",
-                    "delimiter": ",",
-                    "header": "false"
-                },
-                "customizedProperties": {
-
-                }
-            },
-            {
-                "name": "JsonSave",
-                "bundle": "cn.piflow.bundle.json.JsonSave",
-                "uuid": "8a80d63f720cdd2301723a4e67a1245f",
-                "properties": {
-                    "jsonSavePath": "hdfs://10.0.86.191:9000/xjzhu/phdthesis.json"
-                },
-                "customizedProperties": {
-
-                }
-            },
-            {
-                "name": "XmlParser",
-                "bundle": "cn.piflow.bundle.xml.XmlParser",
-                "uuid": "8a80d63f720cdd2301723a4e67a7246d",
-                "properties": {
-                    "rowTag": "phdthesis",
-                    "xmlpath": "hdfs://master:9000/xjzhu/dblp.mini.xml"
-                },
-                "customizedProperties": {
-
-                }
-            },
-            {
-                "name": "SelectField",
-                "bundle": "cn.piflow.bundle.common.SelectField",
-                "uuid": "8a80d63f720cdd2301723a4e67aa2477",
-                "properties": {
-                    "columnNames": "title,author,pages"
-                },
-                "customizedProperties": {
-
-                }
-            },
-            {
-                "name": "Merge",
-                "bundle": "cn.piflow.bundle.common.Merge",
-                "uuid": "8a80d63f720cdd2301723a4e67a92475",
-                "properties": {
-                    "inports": "data1,data2"
-                },
-                "customizedProperties": {
-
-                }
-            },
-            {
-                "name": "Fork",
-                "bundle": "cn.piflow.bundle.common.Fork",
-                "uuid": "8a80d63f720cdd2301723a4e67a42465",
-                "properties": {
-                    "outports": "out1,out3,out2"
-                },
-                "customizedProperties": {
-
-                }
-            }
-        ]
-    }
+        }
+      }
+    ]
+  }
 }</code>
     </pre>
   </details>
@@ -398,13 +289,13 @@ Try PiFlow v0.6 with: http://piflow.cstcloud.cn/piflow-web/
 
   ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-savetemplate.png)
   
-Welcome to join PiFlow User Group! Contact US  
-Name:吴老师  
-Mobile Phone：18910263390  
-WeChat：18910263390  
-Email: wzs@cnic.cn  
-QQ Group：1003489545  
-![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/PiFlowUserGroup_QQ.jpeg)
+## Contact Us
+- Name:吴老师  
+- Mobile Phone：18910263390  
+- WeChat：18910263390  
+- Email: wzs@cnic.cn  
+- QQ Group：1003489545  
+  ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/PiFlowUserGroup_QQ.jpeg)
 
 
 
