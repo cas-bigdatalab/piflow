@@ -47,7 +47,7 @@ class DeleteHdfs extends ConfigurableStop{
       })
 
     } else {
-      val array = hdfsPath.split(",")
+      val array = hdfsPath.split(",").map(x=>x.trim)
 
       for (i<- 0 until array.length){
         val hdfsPath = hdfsUrl+"/"+array(i)

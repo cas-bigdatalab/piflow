@@ -34,7 +34,7 @@ class SelectFilesByName extends ConfigurableStop{
       val pathStr = each.getPath.toString
       if(each.isFile){
         val fileName: String = pathStr.split("/").last
-        selectArr = selectionConditions.split(",")
+        selectArr = selectionConditions.split(",").map(x => x.trim)
         var b: Boolean =false
         for(x <- selectArr){
           b = Pattern.matches(x,fileName)

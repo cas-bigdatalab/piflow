@@ -48,7 +48,7 @@ class JdbcReadFromOracle extends ConfigurableStop{
     val rs: ResultSet = pre.executeQuery()
 
 
-    val filedNames: Array[String] = schema.split(",")
+    val filedNames: Array[String] = schema.split(",").map(x => x.trim)
     var rowsArr:ArrayBuffer[ArrayBuffer[Any]]=ArrayBuffer()
     var rowArr:ArrayBuffer[Any]=ArrayBuffer()
     while (rs.next()){

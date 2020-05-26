@@ -50,7 +50,7 @@ class PutHbase extends ConfigurableStop{
 
     val df = in.read()
 
-    val qualifiers=qualifier.split(",")
+    val qualifiers=qualifier.split(",").map(x => x.trim)
 
     df.rdd.map(row =>{
       val rowkey = nullHandle(row.getAs[String](rowid))

@@ -67,7 +67,7 @@ class GetUrl extends ConfigurableStop{
       var arrbuffer:ArrayBuffer[Element]=ArrayBuffer()
       arrbuffer+=rootElt
 
-      val arrLabel: Array[String] = label.split(",")
+      val arrLabel: Array[String] = label.split(",").map(x => x.trim)
       for(x<-(1 until arrLabel.length)){
         var ele: Element =null
         if(x==1){
@@ -80,7 +80,7 @@ class GetUrl extends ConfigurableStop{
 
       val FatherElement: Element = arrbuffer(arrbuffer.size-2)
 
-      val arrSchame: Array[String] = schema.split(",")
+      val arrSchame: Array[String] = schema.split(",").map(x=>x.trim)
 
       var list:ListBuffer[String]=ListBuffer()
 
@@ -98,7 +98,7 @@ class GetUrl extends ConfigurableStop{
       }
 
       val listRows: List[Row] = list.toList.map(line => {
-        val seq: Seq[String] = line.split(",").toSeq
+        val seq: Seq[String] = line.split(",").map(x => x.trim).toSeq
         val row = Row.fromSeq(seq)
         row
       })

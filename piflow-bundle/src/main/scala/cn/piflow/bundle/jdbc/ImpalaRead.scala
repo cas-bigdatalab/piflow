@@ -35,7 +35,7 @@ class ImpalaRead extends ConfigurableStop{
       val stmt: Statement = con.createStatement()
       val rs: ResultSet = stmt.executeQuery(sql)
 
-      val filedNames: Array[String] = schameString.split(",")
+      val filedNames: Array[String] = schameString.split(",").map(x => x.trim)
       var rowsArr:ArrayBuffer[ArrayBuffer[String]]=ArrayBuffer()
       while (rs.next()){
         var rowArr:ArrayBuffer[String]=ArrayBuffer()

@@ -207,10 +207,10 @@ class LoadFromFtpToHDFS extends ConfigurableStop{
     if(filterByName.length == 0){
       filterByName=".*"
     }
-    filters = filterByName.split(";")
+    filters = filterByName.split(";").map(x => x.trim)
 
     if(isFile.equals("true") || isFile.equals("TRUE")){
-      val fileNmae: String = ftpFile.split("/").last
+      val fileNmae: String = ftpFile.split("/").last.trim
       val fileDir = ftpFile.replace(fileNmae,"")
       copyFile(fileDir,fileNmae,HDFSPath)
     }else if(isFile.equals("false") || isFile.equals("FALSE")){

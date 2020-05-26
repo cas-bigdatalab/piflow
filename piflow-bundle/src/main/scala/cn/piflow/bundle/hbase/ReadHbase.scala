@@ -42,8 +42,8 @@ class ReadHbase extends ConfigurableStop{
       classOf[org.apache.hadoop.hbase.io.ImmutableBytesWritable],
       classOf[org.apache.hadoop.hbase.client.Result])
 
-    val schema: Array[String] = qualifier.split(",")
-    val families=family.split(",")
+    val schema: Array[String] = qualifier.split(",").map(x=>x.trim)
+    val families=family.split(",").map(x=>x.trim)
 
     val col_str=rowid+","+qualifier
     val newSchema:Array[String]=col_str.split(",")

@@ -30,8 +30,8 @@ class PutElasticsearch extends ConfigurableStop {
       "es.port"->es_port)
 
     if(configuration_item.length > 0){
-      configuration_item.split(",").foreach(each =>{
-        options += (each.split("->")(0) -> each.split("->")(1))
+      configuration_item.split(",").map(x => x.trim).foreach(each =>{
+        options += (each.split("->")(0).trim -> each.split("->")(1).trim)
       })
     }
 

@@ -25,11 +25,11 @@ class CsvStringParser extends ConfigurableStop{
     val session: SparkSession = pec.get[SparkSession]
     val context: SparkContext = session.sparkContext
 
-    val arrStr: Array[String] = string.split("\n")
+    val arrStr: Array[String] = string.split("\n").map(x => x.trim)
 
     var num:Int=0
     val listROW: List[Row] = arrStr.map(line => {
-      val seqSTR: Seq[String] = line.split(delimiter).toSeq
+      val seqSTR: Seq[String] = line.split(delimiter).map(x=>x.trim).toSeq
       num=seqSTR.size
       val row = Row.fromSeq(seqSTR)
       row

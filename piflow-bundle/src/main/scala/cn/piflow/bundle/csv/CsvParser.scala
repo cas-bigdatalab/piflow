@@ -33,7 +33,7 @@ class CsvParser extends ConfigurableStop{
 
     }else{
 
-      val field = schema.split(",")
+      val field = schema.split(",").map(x => x.trim)
       val structFieldArray : Array[StructField] = new Array[StructField](field.size)
       for(i <- 0 to field.size - 1){
         structFieldArray(i) = new StructField(field(i), StringType, nullable = true)
