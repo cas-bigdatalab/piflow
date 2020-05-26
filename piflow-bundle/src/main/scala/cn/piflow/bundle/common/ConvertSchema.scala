@@ -17,10 +17,10 @@ class ConvertSchema extends ConfigurableStop {
   def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     var df = in.read()
 
-    val field = schema.split(",")
+    val field = schema.split(",").map(x => x.trim)
 
     field.foreach(f => {
-      val old_new: Array[String] = f.split("->")
+      val old_new: Array[String] = f.split("->").map(x => x.trim)
       df = df.withColumnRenamed(old_new(0),old_new(1))
     })
 

@@ -18,7 +18,7 @@ class DropField extends ConfigurableStop {
   def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     var df = in.read()
 
-    val field = columnNames.split(",")
+    val field = columnNames.split(",").map(x => x.trim)
     for( x <- 0 until field.size){
       df = df.drop(field(x))
     }

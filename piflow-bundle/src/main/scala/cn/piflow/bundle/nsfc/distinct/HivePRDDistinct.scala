@@ -209,6 +209,8 @@ class HivePRDDistinct extends ConfigurableStop {
         catch {
           case ignored: Exception =>
         } finally if (connection != null) connection.close()
+      }catch {
+        case _ => print(_)
       }
     }
     keys

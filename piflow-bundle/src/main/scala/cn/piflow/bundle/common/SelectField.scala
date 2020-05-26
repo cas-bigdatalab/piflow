@@ -21,7 +21,7 @@ class SelectField extends ConfigurableStop {
   def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     val df = in.read()
 
-    val field = columnNames.split(",")
+    val field = columnNames.split(",").map(x => x.trim)
     val columnArray : Array[Column] = new Array[Column](field.size)
     for(i <- 0 to field.size - 1){
       columnArray(i) = new Column(field(i))

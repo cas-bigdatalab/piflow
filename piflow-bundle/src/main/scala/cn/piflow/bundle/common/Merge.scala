@@ -24,7 +24,7 @@ class Merge extends ConfigurableStop{
 
   def setProperties(map : Map[String, Any]): Unit = {
     val inportStr = MapUtil.get(map,"inports").asInstanceOf[String]
-    inports = inportStr.split(",").toList
+    inports = inportStr.split(",").map(x => x.trim).toList
   }
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {

@@ -17,7 +17,8 @@ class Fork extends ConfigurableStop{
 
   override def setProperties(map: Map[String, Any]): Unit = {
     val outportStr = MapUtil.get(map,"outports").asInstanceOf[String]
-    outports = outportStr.split(",").toList
+    outports = outportStr.split(",").map(x => x.trim).toList
+
   }
 
   override def initialize(ctx: ProcessContext): Unit = {

@@ -22,7 +22,7 @@ class Join extends ConfigurableStop{
 
     var seq: Seq[String]= Seq()
     correlationColumn.split(",").foreach(x=>{
-      seq = seq .++(Seq(x.toString))
+      seq = seq .++(Seq(x.trim.toString))
     })
 
     var df: DataFrame = null
