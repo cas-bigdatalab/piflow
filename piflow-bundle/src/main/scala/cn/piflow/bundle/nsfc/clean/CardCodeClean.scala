@@ -24,7 +24,7 @@ class CardCodeClean extends ConfigurableStop {
         dfOld.createOrReplaceTempView("thesis")
         sqlContext.udf.register("regexPro",(str:String)=>CleanUtil.processCardCode(str))
         val structFields: Array[String] = dfOld.schema.fieldNames
-        val columnNames = cardCodeField.split(",").toSet
+        val columnNames = cardCodeField.split(",").map(x => x.trim).toSet
         val sqlNewFieldStr = new StringBuilder
 
 

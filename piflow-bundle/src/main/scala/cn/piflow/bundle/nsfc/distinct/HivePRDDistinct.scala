@@ -82,7 +82,7 @@ class HivePRDDistinct extends ConfigurableStop {
     //get used key
     val useKey = cols.array
 
-    val processUseKeyArray = processUseKey.split(",")
+    val processUseKeyArray = processUseKey.split(",").map(x => x.trim)
     val useCol = useKey.
       filter(s => {processUseKeyArray.contains(s)}).
       map(x => new Column(x))
@@ -96,7 +96,7 @@ class HivePRDDistinct extends ConfigurableStop {
 
     println("================================================")
     //dup
-    val processKeyArray = rule.split(",")
+    val processKeyArray = rule.split(",").map(x => x.trim)
     processKeyArray.foreach(key => {
       require_rdd = require_rdd.map(row => (this.mkRowKey(require_schema, row, key).trim, row))
         .groupByKey()
@@ -219,7 +219,7 @@ class HivePRDDistinct extends ConfigurableStop {
     var hasNull = false
     var s = ""
     if (key.contains("&")) {
-      val sl = key.split("&")
+      val sl = key.split("&").map(x => x.trim)
       sl.foreach(s_ => {
         val index = schema_result.fieldIndex(s_)
         if (row.isNullAt(index) || (row.getAs[String](index) == "null")) {

@@ -34,13 +34,13 @@ class ComplementByMemcache extends ConfigurableStop {
 
     val mcc: MemCachedClient =getMcc()
 
-    val replaceFields: mutable.Buffer[String] = replaceField.split(",").toBuffer
+    val replaceFields: mutable.Buffer[String] = replaceField.split(",").map(x => x.trim).toBuffer
 
     val rowArr: Array[Row] = inDF.collect()
     val fileNames: Array[String] = inDF.columns
     val data: Array[Map[String, String]] = rowArr.map(row => {
       var rowStr: String = row.toString().substring(1,row.toString().length-1)
-      val dataARR: Array[String] = rowStr.split(",")
+      val dataARR: Array[String] = rowStr.split(",").map(x => x.trim)
       var map: Map[String, String] = Map()
       for (x <- (0 until fileNames.size)) {
         map += (fileNames(x) -> dataARR(x))
@@ -81,7 +81,7 @@ class ComplementByMemcache extends ConfigurableStop {
 
   def getMcc(): MemCachedClient = {
     val pool: SockIOPool = SockIOPool.getInstance()
-    var serversArr:Array[String]=servers.split(",")
+    var serversArr:Array[String]=servers.split(",").map(x => x.trim)
     pool.setServers(serversArr)
 
     if(weights.length>0){

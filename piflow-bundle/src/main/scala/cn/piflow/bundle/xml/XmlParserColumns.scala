@@ -27,7 +27,7 @@ class XmlParserColumns extends ConfigurableStop {
     spark.sqlContext.udf.register("xmlToJson",(str:String)=>{
       XmlToJson.xmlParse(str.replaceAll("\n","\t"))
     })
-    val columns: Array[String] = xmlColumns.toLowerCase.split(",")
+    val columns: Array[String] = xmlColumns.toLowerCase.split(",").map(x => x.trim)
 
     val fields: Array[String] = df.schema.fieldNames
     var fieldString = new StringBuilder

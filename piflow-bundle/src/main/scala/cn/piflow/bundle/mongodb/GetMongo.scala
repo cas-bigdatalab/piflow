@@ -31,7 +31,7 @@ class GetMongo extends ConfigurableStop{
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     val session: SparkSession = pec.get[SparkSession]()
     var addressesArr: util.ArrayList[ServerAddress] = new util.ArrayList[ServerAddress]()
-    val ipANDport: Array[String] = addresses.split(",")
+    val ipANDport: Array[String] = addresses.split(",").map(x => x.trim)
     for(x <- (0 until ipANDport.size)){
       if(x%2==0){
         addressesArr.add(new ServerAddress(ipANDport(x),ipANDport(x+1).toInt))
@@ -40,7 +40,7 @@ class GetMongo extends ConfigurableStop{
 
     var credentialsArr: util.ArrayList[MongoCredential] = new util.ArrayList[MongoCredential]()
     if(credentials.length!=0){
-      val name_database_password: Array[String] = credentials.split(",")
+      val name_database_password: Array[String] = credentials.split(",").map(x => x.trim)
       for(x <- (0 until name_database_password.size)){
         if(x%3==0){
           credentialsArr.add(MongoCredential.createScramSha1Credential(name_database_password(x),name_database_password(x+1),name_database_password(x+2).toCharArray))

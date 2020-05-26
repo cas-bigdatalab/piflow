@@ -20,7 +20,7 @@ class HiveTableJoinOn extends ConfigurableStop{
   override def setProperties(map: Map[String, Any]): Unit = {
     baseTableName = MapUtil.get(map,"baseTable").asInstanceOf[String]
     subTableName = MapUtil.get(map,"subTable").asInstanceOf[String]
-    joinField = MapUtil.get(map,"joinFields").asInstanceOf[String].split(";")
+    joinField = MapUtil.get(map,"joinFields").asInstanceOf[String].split(";").map(x => x.trim)
     joinForm = MapUtil.get(map,"joinForm").asInstanceOf[String]
   }
 

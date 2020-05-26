@@ -96,7 +96,7 @@ class HiveToNeo4j extends ConfigurableStop{
 
     //RunCypherLoadCSV----------------------------------------
     println("run cypher !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-    val cqls: Array[String] = cypher.split(";")
+    val cqls: Array[String] = cypher.split(";").map(x => x.trim)
     var driver: Driver = GraphDatabase.driver(neo4j_Url, AuthTokens.basic(userName, password))
     var session: Session = null
 

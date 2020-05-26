@@ -163,9 +163,9 @@ class ScopusSearchArticle extends ConfigurableStop {
     import spark.implicits._
     val rdd: RDD[String] = spark.sparkContext.textFile("hdfs://192.168.3.138:8020/nsfc/externalData/scoups/scopus.txt")
     val responseDF = rdd.map(x=>{
-      val scopus_id =  x.split("##&##")(0)
-      val scopus_search_response=x.split("##&##")(1)
-      val authors_affiliations_response=x.split("##&##")(2)
+      val scopus_id =  x.split("##&##")(0).trim
+      val scopus_search_response=x.split("##&##")(1).trim
+      val authors_affiliations_response=x.split("##&##")(2).trim
       val description_response= ""
       (scopus_id,scopus_search_response,authors_affiliations_response,description_response)
     }).toDF("scopus_id","scopus_search_response","authors_affiliations_response","description_response")

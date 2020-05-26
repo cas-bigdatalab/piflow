@@ -25,7 +25,7 @@ class KafkaStream extends ConfigurableStreamingStop{
   override def setProperties(map: Map[String, Any]): Unit = {
     brokers=MapUtil.get(map,key="brokers").asInstanceOf[String]
     groupId=MapUtil.get(map,key="groupId").asInstanceOf[String]
-    topics=MapUtil.get(map,key="topics").asInstanceOf[String].split(",")
+    topics=MapUtil.get(map,key="topics").asInstanceOf[String].split(",").map(x => x.trim)
     val timing = MapUtil.get(map,key="batchDuration")
     batchDuration=if(timing == None) new Integer(1) else timing.asInstanceOf[String].toInt
   }

@@ -33,7 +33,7 @@ class XmlStringParser extends ConfigurableStop {
     var arrbuffer:ArrayBuffer[Element]=ArrayBuffer()
     arrbuffer+=rootElt
 
-    val arrLabel: Array[String] = label.split(",")
+    val arrLabel: Array[String] = label.split(",").map(x => x.trim)
     for(x<-(1 until arrLabel.length)){
       var ele: Element =null
       if(x==1){
@@ -47,7 +47,7 @@ class XmlStringParser extends ConfigurableStop {
 
     val FatherElement: Element = arrbuffer(arrbuffer.size-2)
 
-    val arrSchame: Array[String] = schema.split(",")
+    val arrSchame: Array[String] = schema.split(",").map(x => x.trim)
 
     var list:ListBuffer[String]=ListBuffer()
 

@@ -91,7 +91,7 @@ class RedisDistinctCachePersist extends ConfigurableStop {
       new JedisClusterImplSer(new HostAndPort(redis_server_ip, redis_server_port), redis_server_passwd)
     val df = in.read()
     val mPrimaryKeyIndex = df.schema.fieldIndex(persist_primary_field) //PSNCODE
-    val df_mperson_fields = persist_needed_fields.split(",").+:(persist_primary_field)
+    val df_mperson_fields = persist_needed_fields.split(",").map(x => x.trim).+:(persist_primary_field)
     val s1: Map[String, Int] = df_mperson_fields.map(i => (i, {
       df.schema.fieldIndex(i)
     })).toMap //生产字段名 -》 index的键值对

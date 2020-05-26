@@ -396,8 +396,8 @@ class CsvToNeo4J extends ConfigurableStop{
     makeCommand("into", dbPath) +
     makeCommand("f", argumentFiles) +
     makeCommand("database", dbName) +
-    makeCommand("nodes", files.split(";")) +
-    makeCommand("relationships", relationshipFiles.split(";")) +
+    makeCommand("nodes", files.split(";").map(x => x.trim)) +
+    makeCommand("relationships", relationshipFiles.split(";").map(x => x.trim)) +
     makeCommand("delimiter", delimiter) +
     makeCommand("array-delimiter", arrayDelimiter) +
     makeCommand("quote", quote) +

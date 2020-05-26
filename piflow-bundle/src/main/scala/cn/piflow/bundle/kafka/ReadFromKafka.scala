@@ -51,7 +51,7 @@ class ReadFromKafka extends ConfigurableStop{
     var res:List[Row]=List()
 
 
-    val dfSchema=StructType(schema.split(",").map(f=>StructField(f,org.apache.spark.sql.types.StringType,true)))
+    val dfSchema=StructType(schema.split(",").map(x => x.trim).map(f=>StructField(f,org.apache.spark.sql.types.StringType,true)))
 
     val consumer = new KafkaConsumer[String,String](properties)
     consumer.subscribe(java.util.Arrays.asList(topic,"finally"))

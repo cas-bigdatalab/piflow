@@ -21,7 +21,7 @@ class JsonParser extends ConfigurableStop{
 
     val spark = pec.get[SparkSession]()
 
-    val jsonPathARR: Array[String] = jsonPath.split(",")
+    val jsonPathARR: Array[String] = jsonPath.split(",").map(x => x.trim)
 
     var FinalDF = spark.read.option("multiline","true").json(jsonPathARR(0))
 

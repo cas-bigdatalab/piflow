@@ -39,9 +39,9 @@ class ReadFromRedis extends ConfigurableStop{
     //connect to redis
     val jedisCluster=new JedisClusterImplSer(new HostAndPort(redis_host,port),password)
 
-    val fields:Array[String]=schema.split(",")
+    val fields:Array[String]=schema.split(",").map(x => x.trim)
     val col_str:String=column_name+","+schema
-    val newSchema:Array[String]=col_str.split(",")
+    val newSchema:Array[String]=col_str.split(",").map(x => x.trim)
 
     val dfSchema=StructType(newSchema.map(f=>StructField(f,org.apache.spark.sql.types.StringType,true)))
 

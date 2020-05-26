@@ -163,7 +163,7 @@ class HivePSNDistinct extends ConfigurableStop {
       out.write(in.read())
       return
     }
-    val inDF = in.read().select(used_fields.split(",").map(s => new Column(s)) : _*)
+    val inDF = in.read().select(used_fields.split(",").map(s => new Column(s.trim)) : _*)
 
     val spark = pec.get[SparkSession]()
     val inSchema = inDF.schema
@@ -171,7 +171,7 @@ class HivePSNDistinct extends ConfigurableStop {
     var pairRDD = inDF.rdd.map(row => (row.getString(primaryIndex), {
       row
     }))
-    var processKeyArray = distinctFields.split(",")
+    var processKeyArray = distinctFields.split(",").map(x => x.trim)
     processKeyArray +:= idKey
     processKeyArray.foreach(key => { //对这里的每一组key
       pairRDD = pairRDD.map(row => (cn.piflow.bundle.util.NSFCUtil.mkRowKey(inSchema, row._2, key), row)) //生成key pair， 若key不存在则生成UUID
@@ -184,7 +184,7 @@ class HivePSNDistinct extends ConfigurableStop {
           r._2 != null
         }) //reduce can combine two duplicate value)
     })
-    var keykeyRDD = pairRDD.map(r => (r._1, cn.piflow.bundle.util.RedisUtil.checkRedis(r, inSchema, tableName,distinctTableType, distinctRule.split(",") , jedisCluster.getJedisCluster),r._2))
+    var keykeyRDD = pairRDD.map(r => (r._1, cn.piflow.bundle.util.RedisUtil.checkRedis(r, inSchema, tableName,distinctTableType, distinctRule.split(",").map(x => x.trim) , jedisCluster.getJedisCluster),r._2))
 
     var backToHiveRdd = keykeyRDD.map(r => (r._1, {
       var row = r._3
@@ -200,7 +200,7 @@ class HivePSNDistinct extends ConfigurableStop {
     val df_backToHive = spark.sqlContext.createDataFrame(
       backToHiveRdd, inSchema
     )
-    val rel_fields_arr = rel_fields.split(",")
+    val rel_fields_arr = rel_fields.split(",").map(x => x.trim)
     if (rel_fields_arr.size == 3) {
       var df_relationship : DataFrame = inDF.select(rel_fields_arr.map(x => new Column(x)) : _*)
       //此处应对pj_member进行映射

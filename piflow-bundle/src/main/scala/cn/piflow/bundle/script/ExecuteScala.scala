@@ -1,18 +1,15 @@
 package cn.piflow.bundle.script
 
-import java.io.File
+
 import java.net.{MalformedURLException, URL}
 
 import cn.piflow.conf.bean.PropertyDescriptor
-import cn.piflow.conf.util.{ImageUtil, MapUtil, PluginClassLoader, PluginManager}
+import cn.piflow.conf.util.{ImageUtil, MapUtil, PluginClassLoader}
 import cn.piflow.conf.{ConfigurableStop, Port, StopGroup}
-import cn.piflow.util.{ConfigureUtil, FileUtil, PropertyUtil}
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 
-import sys.process._
 import scala.language.experimental.macros
 import scala.reflect.runtime.{universe => ru}
-import org.apache.spark.sql.{DataFrame, SparkSession}
 
 
 class ExecuteScala extends ConfigurableStop{

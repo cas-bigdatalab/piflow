@@ -29,7 +29,7 @@ class PutMemcache extends ConfigurableStop{
     val inDF: DataFrame = in.read()
 
     val pool: SockIOPool = SockIOPool.getInstance()
-    var serversArr:Array[String]=servers.split(",")
+    var serversArr:Array[String]=servers.split(",").map(x => x.trim)
     pool.setServers(serversArr)
 
     if(weights.length>0){

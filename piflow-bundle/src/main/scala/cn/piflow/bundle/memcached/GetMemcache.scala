@@ -44,7 +44,7 @@ class GetMemcache extends ConfigurableStop{
 
       var schameArr:Array[String] =Array()
       if(schame.length>0){
-      val schameArrBuff: mutable.Buffer[String] = schame.split(",").toBuffer
+      val schameArrBuff: mutable.Buffer[String] = schame.split(",").map(x => x.trim).toBuffer
       schameArrBuff.insert(0,keyFile)
       schameArr = schameArrBuff.toArray
     }
@@ -79,7 +79,7 @@ class GetMemcache extends ConfigurableStop{
 
   def getMcc(): MemCachedClient = {
     val pool: SockIOPool = SockIOPool.getInstance()
-    var serversArr:Array[String]=servers.split(",")
+    var serversArr:Array[String]=servers.split(",").map(x => x.trim)
     pool.setServers(serversArr)
 
     if(weights.length>0){

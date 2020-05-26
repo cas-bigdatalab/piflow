@@ -274,7 +274,7 @@ class RdfToDF extends ConfigurableStop{
       }
     }
 
-    val relationshipDFSchema : StructType = StructType(RSchema.split(",")
+    val relationshipDFSchema : StructType = StructType(RSchema.split(",").map(x => x.trim)
       .map(i => StructField(i, StringType, nullable = true)))
 
     val entityDFSchema : StructType = StructType(entityDFSList)
