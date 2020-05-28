@@ -7,6 +7,9 @@ PiFlow是一个简单易用，功能强大的大数据流水线系统。
 - [架构](#架构)
 - [要求](#要求)
 - [开始](#开始)
+- [Docker镜像](#Docker镜像)
+- [用户接口](#用户接口)
+- [联系我们](#联系我们)
 
 ## 特性
 
@@ -28,268 +31,265 @@ PiFlow是一个简单易用，功能强大的大数据流水线系统。
   - 集成了微生物领域的相关算法
 
 ## 架构
-![](https://gitee.com/opensci/piflow/blob/master/doc/architecture.png) 
+![](https://gitee.com/opensci/piflow/raw/master/doc/architecture.png) 
 ## 要求
-* JDK 1.8 及以上版本
-* Apache Maven 3.1.0 及以上版本
-* Git Client 
+* JDK 1.8
+* Spark-2.11.8
+* Apache Maven 3.1.0 
 * Spark-2.1.0 及以上版本
-* Hadoop-2.6.0 及以上版本
+* Hadoop-2.6.0 
 
 ## 开始
+### Build PiFlow:  
+- `install external package`
+          
+          mvn install:install-file -Dfile=/../piflow/piflow-bundle/lib/spark-xml_2.11-0.4.2.jar -DgroupId=com.databricks -DartifactId=spark-xml_2.11 -Dversion=0.4.2 -Dpackaging=jar
+          mvn install:install-file -Dfile=/../piflow/piflow-bundle/lib/java_memcached-release_2.6.6.jar -DgroupId=com.memcached -DartifactId=java_memcached-release -Dversion=2.6.6 -Dpackaging=jar
+          mvn install:install-file -Dfile=/../piflow/piflow-bundle/lib/ojdbc6-11.2.0.3.jar -DgroupId=oracle -DartifactId=ojdbc6 -Dversion=11.2.0.3 -Dpackaging=jar
+          mvn install:install-file -Dfile=/../piflow/piflow-bundle/lib/edtftpj.jar -DgroupId=ftpClient -DartifactId=edtftp -Dversion=1.0.0 -Dpackaging=jar
+          
 
-如何Build: 
-`mvn clean package -Dmaven.test.skip=true`
+- `mvn clean package -Dmaven.test.skip=true`
 
           [INFO] Replacing original artifact with shaded artifact.
-          [INFO] Replacing /opt/project/piflow/piflow-server/target/piflow-server-0.9.jar with /opt/project/piflow/piflow-server/target/piflow-server-0.9-shaded.jar
-          [INFO] ------------------------------------------------------------------------
           [INFO] Reactor Summary:
-          [INFO] 
-          [INFO] piflow-project ..................................... SUCCESS [  4.602 s]
-          [INFO] piflow-core ........................................ SUCCESS [ 56.533 s]
+          [INFO]
+          [INFO] piflow-project ..................................... SUCCESS [  4.369 s]
+          [INFO] piflow-core ........................................ SUCCESS [01:23 min]
+          [INFO] piflow-configure ................................... SUCCESS [ 12.418 s]
           [INFO] piflow-bundle ...................................... SUCCESS [02:15 min]
-          [INFO] piflow-server ...................................... SUCCESS [03:01 min]
+          [INFO] piflow-server ...................................... SUCCESS [02:05 min]
           [INFO] ------------------------------------------------------------------------
           [INFO] BUILD SUCCESS
           [INFO] ------------------------------------------------------------------------
-          [INFO] Total time: 06:18 min
-          [INFO] Finished at: 2018-12-24T16:54:16+08:00
-          [INFO] Final Memory: 41M/812M
+          [INFO] Total time: 06:01 min
+          [INFO] Finished at: 2020-05-21T15:22:58+08:00
+          [INFO] Final Memory: 118M/691M
           [INFO] ------------------------------------------------------------------------
 
-如何运行Piflow Server：
 
-- `使用Intellij Idea`: 
-  - 编辑config.properties文件
-  - build piflow工程，生成piflow-server.jar
-  - 运行cn.piflow.api.Main
-  - 切记设置SPARK_HOME
+### 运行 Piflow Server：
+
+- `Intellij上运行PiFlow Server`:   
+  - 下载 piflow: git clone https://github.com/cas-bigdatalab/piflow.git
+  - 将PiFlow导入到Intellij
+  - 编辑配置文件config.properties
+  - Build PiFlow jar包:   
+    - Edit Configurations --> Add New Configuration --> Maven  
+    - Name: package
+    - Command line: clean package -Dmaven.test.skip=true -X  
+    - run 'package' (piflow jar file will be built in ../piflow/piflow-server/target/piflow-server-0.9.jar)  
+    
+  - 运行 HttpService:   
+    - Edit Configurations --> Add New Configuration --> Application  
+    - Name: HttpService
+    - Main class : cn.piflow.api.Main  
+    - Environment Variable: SPARK_HOME=/opt/spark-2.2.0-bin-hadoop2.6(change the path to your spark home)  
+    - run 'HttpService'
   
-- `直接运行release版本`:
-  - 下载release版本，地址：https://github.com/cas-bigdatalab/piflow/releases
-  - 将build好的piflow-server.jar拷贝到piflow_release文件夹（由于git不能上传超过1G大文件，故需自行build piflow-server.jar）
-  - 编辑config.properties文件
-  - 运行start.sh 或者后台运行 nohup ./start.sh > piflow.log 2>&1 &
-- `如何配置config.properties`
-
-      #server ip and port
-      server.ip=10.0.86.191
-      server.port=8002
-      h2.port=50002
+  - 测试 HttpService:   
+    - run /../piflow/piflow-server/src/main/scala/cn/piflow/api/HTTPClientStartMockDataFlow.scala
+    - change the piflow server ip and port to your configure
+  
+  
+- `通过Release版本运行PiFlow`:
+  - 根据需求下载不同版本（建议下载最新版本）:  
+    https://github.com/cas-bigdatalab/piflow/releases/download/v0.5/piflow.tar.gz  
+    https://github.com/cas-bigdatalab/piflow/releases/download/v0.6/piflow-server-v0.6.tar.gz  
+    https://github.com/cas-bigdatalab/piflow/releases/download/v0.7/piflow-server-v0.7.tar.gz  
+    
+  - 解压piflow.tar.gz:  
+    tar -zxvf piflow.tar.gz
+    
+  - 编辑配置文件config.properties  
+  
+  - run start.sh、stop.sh、 restart.sh、 status.sh  
+  
+  - 测试 PiFlow Server
+    - 设置环境变量 PIFLOW_HOME  
+      - vim /etc/profile  
+        export PIFLOW_HOME=/yourPiflowPath/bin  
+      	export PATH=$PATH:$PIFLOW_HOME/bin  
+      - 运行如下命令   
+        piflow flow start example/mockDataFlow.json  
+        piflow flow stop appID  
+        piflow flow info appID  
+        piflow flow log appID  
       
+        piflow flowGroup start example/mockDataGroup.json  
+        piflow flowGroup stop groupId  
+        piflow flowGroup info groupId  
+        
+- `如何配置config.properties`
+     
       #spark and yarn config
       spark.master=yarn
       spark.deploy.mode=cluster
+      
+      #hdfs default file system
+      fs.defaultFS=hdfs://10.0.86.191:9000
+      
+      #yarn resourcemanager.hostname
       yarn.resourcemanager.hostname=10.0.86.191
-      yarn.resourcemanager.address=10.0.86.191:8032
-      yarn.access.namenode=hdfs://10.0.86.191:9000
-      yarn.stagingDir=hdfs://10.0.86.191:9000/tmp/
-      yarn.jars=hdfs://10.0.86.191:9000/user/spark/share/lib/*.jar
-      yarn.url=http://10.0.86.191:8088/ws/v1/cluster/apps/
-
-      #hive config
-      hive.metastore.uris=thrift://10.0.86.191:9083
-
-      #piflow-server.jar path
-      piflow.bundle=/opt/piflowServer/piflow-server-0.9.jar
-
-      #checkpoint hdfs path
-      checkpoint.path=hdfs://10.0.86.89:9000/piflow/checkpoints/
       
-      #debug path
-      debug.path=hdfs://10.0.88.191:9000/piflow/debug/
+      #if you want to use hive, set hive metastore uris
+      #hive.metastore.uris=thrift://10.0.88.71:9083
       
-      #yarn url
-      yarn.url=http://10.0.86.191:8088/ws/v1/cluster/apps/
-      
-      #the count of data shown in log
+      #show data in log, set 0 if you do not want to show data in logs
       data.show=10
       
-      #h2 db port
+      #server port
+      server.port=8002
+      
+      #h2db port
       h2.port=50002
   
-如何运行Piflow Web：
+### 运行PiFlow Web请到如下链接，PiFlow Server 与 PiFlow Web版本要对应：
   - https://github.com/cas-bigdatalab/piflow-web
   
-如何使用：
+### 接口Restful API：
 
-- 命令行方式
-  - 流水线样例配置
-  
-
+- flow json
+  <details>
+    <summary>flow example</summary>
+    <pre>
+      <code>
         {
-          "flow":{
-          "name":"test",
-          "uuid":"1234",
-          "checkpoint":"Merge",
-          "stops":[
-          {
-            "uuid":"1111",
-            "name":"XmlParser",
-            "bundle":"cn.piflow.bundle.xml.XmlParser",
-            "properties":{
-                "xmlpath":"hdfs://10.0.86.89:9000/xjzhu/dblp.mini.xml",
-                "rowTag":"phdthesis"
-            }
-          },
-          {
-            "uuid":"2222",
-            "name":"SelectField",
-            "bundle":"cn.piflow.bundle.common.SelectField",
-            "properties":{
-                "schema":"title,author,pages"
-            }
-
-          },
-          {
-            "uuid":"3333",
-            "name":"PutHiveStreaming",
-            "bundle":"cn.piflow.bundle.hive.PutHiveStreaming",
-            "properties":{
-                "database":"sparktest",
-                "table":"dblp_phdthesis"
-            }
-          },
-          {
-            "uuid":"4444",
-            "name":"CsvParser",
-            "bundle":"cn.piflow.bundle.csv.CsvParser",
-            "properties":{
-                "csvPath":"hdfs://10.0.86.89:9000/xjzhu/phdthesis.csv",
-                "header":"false",
-                "delimiter":",",
-                "schema":"title,author,pages"
-            }
-          },
-          {
-            "uuid":"555",
-            "name":"Merge",
-            "bundle":"cn.piflow.bundle.common.Merge",
-            "properties":{
-              "inports":"data1,data2"
-            }
-          },
-          {
-            "uuid":"666",
-            "name":"Fork",
-            "bundle":"cn.piflow.bundle.common.Fork",
-            "properties":{
-              "outports":"out1,out2,out3"
-            }
-          },
-          {
-            "uuid":"777",
-            "name":"JsonSave",
-            "bundle":"cn.piflow.bundle.json.JsonSave",
-            "properties":{
-              "jsonSavePath":"hdfs://10.0.86.89:9000/xjzhu/phdthesis.json"
-            }
-          },
-          {
-            "uuid":"888",
-            "name":"CsvSave",
-            "bundle":"cn.piflow.bundle.csv.CsvSave",
-            "properties":{
-              "csvSavePath":"hdfs://10.0.86.89:9000/xjzhu/phdthesis_result.csv",
-              "header":"true",
-              "delimiter":","
-            }
-          }
-        ],
-        "paths":[
-          {
-            "from":"XmlParser",
-            "outport":"",
-            "inport":"",
-            "to":"SelectField"
-          },
-          {
-            "from":"SelectField",
-            "outport":"",
-            "inport":"data1",
-            "to":"Merge"
-          },
-          {
-            "from":"CsvParser",
-            "outport":"",
-            "inport":"data2",
-            "to":"Merge"
-          },
-          {
-            "from":"Merge",
-            "outport":"",
-            "inport":"",
-            "to":"Fork"
-          },
-          {
-            "from":"Fork",
-            "outport":"out1",
-            "inport":"",
-            "to":"PutHiveStreaming"
-          },
-          {
-            "from":"Fork",
-            "outport":"out2",
-            "inport":"",
-            "to":"JsonSave"
-          },
-          {
-            "from":"Fork",
-            "outport":"out3",
-            "inport":"",
-            "to":"CsvSave"
-          }
-        ]
+  "flow": {
+    "name": "MockData",
+    "executorMemory": "1g",
+    "executorNumber": "1",
+    "uuid": "8a80d63f720cdd2301723b7461d92600",
+    "paths": [
+      {
+        "inport": "",
+        "from": "MockData",
+        "to": "ShowData",
+        "outport": ""
       }
-    }
-  - 运行命令
-    - curl -0 -X POST http://serverIP:serverPort/flow/start -H "Content-type: application/json" -d '你的流水线json配置文件'
-- 访问piflow web: 试运行地址 "http://piflow.ml/piflow-web", user/password: admin/admin
-  - 登录
-  ![](https://gitee.com/opensci/piflow/blob/master/doc/piflow-login.png)
-  - 流水线列表
-  ![](https://gitee.com/opensci/piflow/blob/master/doc/piflow-flowlist.png)
-  - 流水线配置
-  ![](https://gitee.com/opensci/piflow/blob/master/doc/piflow-congfigflow.png)
-  - 流水线资源配置
-  ![](https://gitee.com/opensci/piflow/blob/master/doc/piflow-resource.png)
-  - 运行流水线
-  ![](https://gitee.com/opensci/piflow/blob/master/doc/piflow-run.png)
-  - 删除流水线
-  ![](https://gitee.com/opensci/piflow/blob/master/doc/piflow-delete.png)
-  - 流水线保存模板
-  ![](https://gitee.com/opensci/piflow/blob/master/doc/piflow-savetemplate.png)
-  - 创建流水线:用户点击创建按钮,需要输入流水线名称及描述信息,同时可设置流水线需要的资源.
-  ![](https://gitee.com/opensci/piflow/blob/master/doc/piflow-createflows.png)
-  - 配置流水线:用户可通过拖拽方式进行流水线的配置，方式类似visio
-  ![](https://gitee.com/opensci/piflow/blob/master/doc/piflow-flowconfig.png)
-  - 搜索流水线组件：画布左边栏显示组件组和组件，可按关键字搜索,户选择好组件后可拖至画布中央
-  ![](https://gitee.com/opensci/piflow/blob/master/doc/piflow-module.png)
-  - 流水线基本信息：画布右侧显示流水线基本信息，包括流水线名称及描述
-  ![](https://gitee.com/opensci/piflow/blob/master/doc/piflow-message.png)
-  - 流水线配置：画布中央选择任一数据处理组件,右侧显示该数据处理组件的基本信息,包括名称描述,作者等信息.选择AttributeInfo tab,显示该数据处理组件的属性信息,用户可根据实际需求进行配置
-  ![](https://gitee.com/opensci/piflow/blob/master/doc/piflow-randomconfig.png)
-  - 运行流水线：用户配置好流水线后,可点击运行按钮运行流水线
-  ![](https://gitee.com/opensci/piflow/blob/master/doc/piflow-runpiflow.png)
-  - 流水线监控：进入流水线监控页面。监控页面会显示整条流水线的执行状况，包括运行状态、执行进度、执行时间等,击具体数据处理组件，显示该数据处理组件的运行状况，包括运行状态、执行时间。
-  ![](https://gitee.com/opensci/piflow/blob/master/doc/piflow-control.png)
-  - 查看流水线日志
-  ![](https://gitee.com/opensci/piflow/blob/master/doc/piflow-log.png)
-  - 运行中流水线列表: 已运行流水线会显示在Process List中，包括开始时间、结束时间、进度、状态等。同时可对已运行流水线进行查看，在运行，停止，和删除操作
-  ![](https://gitee.com/opensci/piflow/blob/master/doc/piflow-processlist.png)
-  - 运行流水线检查点
-  ![](https://gitee.com/opensci/piflow/blob/master/doc/piflow-runcheckpoint.png)
-  - 创建保存模板
-  ![](https://gitee.com/opensci/piflow/blob/master/doc/piflow-savetemplates.png)
-  ![](https://gitee.com/opensci/piflow/blob/master/doc/piflow-savetemplatess.png)
-  - 模板列表
-  ![](https://gitee.com/opensci/piflow/blob/master/doc/piflow-templatelist.png)
-  - 下载模板：模板会保存成xml文件存放到本地
-  ![](https://gitee.com/opensci/piflow/blob/master/doc/piflow-download.png)
-  - 上传模板
-  ![](https://gitee.com/opensci/piflow/blob/master/doc/piflow-upload.png)
-  - 加载模板
-  ![](https://gitee.com/opensci/piflow/blob/master/doc/piflow-load1.png)
-  ![](https://gitee.com/opensci/piflow/blob/master/doc/piflow-load2.png)
+    ],
+    "executorCores": "1",
+    "driverMemory": "1g",
+    "stops": [
+      {
+        "name": "MockData",
+        "bundle": "cn.piflow.bundle.common.MockData",
+        "uuid": "8a80d63f720cdd2301723b7461d92604",
+        "properties": {
+          "schema": "title:String, author:String, age:Int",
+          "count": "10"
+        },
+        "customizedProperties": {
+
+        }
+      },
+      {
+        "name": "ShowData",
+        "bundle": "cn.piflow.bundle.external.ShowData",
+        "uuid": "8a80d63f720cdd2301723b7461d92602",
+        "properties": {
+          "showNumber": "5"
+        },
+        "customizedProperties": {
+
+        }
+      }
+    ]
+  }
+}</code>
+    </pre>
+  </details>
+- CURL POST：
+  - curl -0 -X POST http://10.0.86.191:8002/flow/start -H "Content-type: application/json" -d 'this is your flow json'
   
+- Command line： 
+  - set PIFLOW_HOME  
+    vim /etc/profile  
+  	export PIFLOW_HOME=/yourPiflowPath/piflow-bin  
+    export PATH=$PATH:$PIFLOW_HOME/bin  
+
+  - command example  
+    piflow flow start yourFlow.json  
+    piflow flow stop appID  
+    piflow flow info appID  
+    piflow flow log appID  
+
+    piflow flowGroup start yourFlowGroup.json  
+    piflow flowGroup stop groupId  
+    piflow flowGroup info groupId  
+    
+## Docker镜像  
+
+  - 根据需求拉取不同版本PiFlow docker镜像  
+    docker pull registry.cn-hangzhou.aliyuncs.com/cnic_piflow/piflow:v0.6.1
+    
+  - 查看Docker镜像的信息  
+    docker images
+    
+  - 通过镜像Id运行一个Container，所有PiFlow服务会自动运行
+    docker run --name piflow-v0.6 -it [imageID]
+    
+  - 访问 "containerip:6001/piflow-web", 启动时间可能有些慢，需要等待几分钟。   
+  
+  - 如果发生错误，所有应用都放在了/opt文件夹下，可自行单独启动服务
+  
+## 页面展示
+- `Login`:
+
+  ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-login.png)
+  
+- `Flow list`:
+
+  ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-flowlist.png)
+  
+- `Create flow`:
+
+  ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-createflow.png)
+  
+- `Configure flow`:
+
+  ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-flowconfig.png)
+  
+- `Load flow`:
+
+  ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-loadflow.png)
+  
+- `Monitor flow`:  
+
+  ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-monitor.png)
+
+- `Flow logs`:
+
+  ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-log.png)
+  
+- `Group list`:  
+
+  ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-group-list.png)
+
+- `Configure group`:
+
+  ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-configure-group.png)
+
+- `Monitor group`:
+
+  ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-monitor-group.png)
+
+- `Process List`:
+
+  ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-processlist.png)
+  
+- `Template List`:
+
+  ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-templatelist.png)
+  
+- `Save Template`:
+
+  ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-savetemplate.png)
+  
+## 联系我们
+- Name:吴老师  
+- Mobile Phone：18910263390  
+- WeChat：18910263390  
+- Email: wzs@cnic.cn  
+- QQ Group：1003489545  
+  ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/PiFlowUserGroup_QQ.jpeg)
