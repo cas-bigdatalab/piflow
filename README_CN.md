@@ -75,7 +75,7 @@ PiFlow是一个简单易用，功能强大的大数据流水线系统。
   - 将PiFlow导入到Intellij
   - 编辑配置文件config.properties
   - Build PiFlow jar包:   
-    - Edit Configurations --> Add New Configuration --> Maven  
+    - Run --> Edit Configurations --> Add New Configuration --> Maven  
     - Name: package
     - Command line: clean package -Dmaven.test.skip=true -X  
     - run 'package' (piflow jar file will be built in ../piflow/piflow-server/target/piflow-server-0.9.jar)  
@@ -93,17 +93,18 @@ PiFlow是一个简单易用，功能强大的大数据流水线系统。
   
   
 - `通过Release版本运行PiFlow`:
-  - 根据需求下载不同版本（建议下载最新版本）:  
+  - 根据需求下载不同版本PiFlow（建议下载最新版本）:  
     https://github.com/cas-bigdatalab/piflow/releases/download/v0.5/piflow.tar.gz  
     https://github.com/cas-bigdatalab/piflow/releases/download/v0.6/piflow-server-v0.6.tar.gz  
     https://github.com/cas-bigdatalab/piflow/releases/download/v0.7/piflow-server-v0.7.tar.gz  
     
-  - 解压piflow.tar.gz:  
-    tar -zxvf piflow.tar.gz
+  - 解压piflow-server-v0.7.tar.gz:  
+    tar -zxvf piflow-server-v0.7.tar.gz
     
   - 编辑配置文件config.properties  
   
-  - run start.sh、stop.sh、 restart.sh、 status.sh  
+  - 运行、停止、重启PiFlow Server  
+    start.sh、stop.sh、 restart.sh、 status.sh  
   
   - 测试 PiFlow Server
     - 设置环境变量 PIFLOW_HOME  
@@ -145,11 +146,12 @@ PiFlow是一个简单易用，功能强大的大数据流水线系统。
       h2.port=50002
   
 ### 运行PiFlow Web请到如下链接，PiFlow Server 与 PiFlow Web版本要对应：
-  - https://github.com/cas-bigdatalab/piflow-web
+  - https://github.com/cas-bigdatalab/piflow-web  
+  
   
 ### 接口Restful API：
 
-- flow json
+- flow json（可查看piflow-bin/example文件夹下的流水线样例）
   <details>
     <summary>flow example</summary>
     <pre>
@@ -199,14 +201,14 @@ PiFlow是一个简单易用，功能强大的大数据流水线系统。
 }</code>
     </pre>
   </details>
-- CURL POST：
+- CURL方式：
   - curl -0 -X POST http://10.0.86.191:8002/flow/start -H "Content-type: application/json" -d 'this is your flow json'
   
-- Command line： 
+- 命令行方式： 
   - set PIFLOW_HOME  
     vim /etc/profile  
   	export PIFLOW_HOME=/yourPiflowPath/piflow-bin  
-    export PATH=$PATH:$PIFLOW_HOME/bin  
+    export PATH=\$PATH:\$PIFLOW_HOME/bin  
 
   - command example  
     piflow flow start yourFlow.json  
@@ -226,65 +228,62 @@ PiFlow是一个简单易用，功能强大的大数据流水线系统。
   - 查看Docker镜像的信息  
     docker images
     
-  - 通过镜像Id运行一个Container，所有PiFlow服务会自动运行
+  - 通过镜像Id运行一个Container，所有PiFlow服务会自动运行  
     docker run --name piflow-v0.6 -it [imageID]
     
-  - 访问 "containerip:6001/piflow-web", 启动时间可能有些慢，需要等待几分钟。   
+  - 访问 "containerip:6001/piflow-web", 启动时间可能有些慢，需要等待几分钟   
   
   - 如果发生错误，所有应用都放在了/opt文件夹下，可自行单独启动服务
   
 ## 页面展示
-- `Login`:
+- `登录`:
 
-  ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-login.png)
+  ![](https://gitee.com/opensci/piflow/raw/master/doc/piflow-login.png)
   
-- `Flow list`:
+- `流水线列表`:
 
-  ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-flowlist.png)
+  ![](https://gitee.com/opensci/piflow/raw/master/doc/piflow-flowlist.png)
   
-- `Create flow`:
+- `创建流水线`:
 
-  ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-createflow.png)
+  ![](https://gitee.com/opensci/piflow/raw/master/doc/piflow-createflow.png)
   
-- `Configure flow`:
+- `配置流水线`:
 
-  ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-flowconfig.png)
+  ![](https://gitee.com/opensci/piflow/raw/master/doc/piflow-flowconfig.png)
   
-- `Load flow`:
+- `运行流水线`:
 
-  ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-loadflow.png)
+  ![](https://gitee.com/opensci/piflow/raw/master/doc/piflow-loadflow.png)
   
-- `Monitor flow`:  
+- `监控流水线`:  
 
-  ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-monitor.png)
+  ![](https://gitee.com/opensci/piflow/raw/master/doc/piflow-monitor.png)
 
-- `Flow logs`:
+- `流水线日志`:
 
-  ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-log.png)
+  ![](https://gitee.com/opensci/piflow/raw/master/doc/piflow-log.png)
   
-- `Group list`:  
+- `流水线组列表`:  
 
-  ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-group-list.png)
+  ![](https://gitee.com/opensci/piflow/raw/master/doc/piflow-group-list.png)
 
-- `Configure group`:
+- `配置流水线组`:
 
-  ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-configure-group.png)
+  ![](https://gitee.com/opensci/piflow/raw/master/doc/piflow-configure-group.png)
 
-- `Monitor group`:
+- `监控流水线组`:
 
-  ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-monitor-group.png)
+  ![](https://gitee.com/opensci/piflow/raw/master/doc/piflow-monitor-group.png)
 
-- `Process List`:
+- `运行态流水线列表`:
 
-  ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-processlist.png)
+  ![](https://gitee.com/opensci/piflow/raw/master/doc/piflow-processlist.png)
   
-- `Template List`:
+- `流水线模板列表`:
 
-  ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-templatelist.png)
+  ![](https://gitee.com/opensci/piflow/raw/master/doc/piflow-templatelist.png)
   
-- `Save Template`:
-
-  ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-savetemplate.png)
   
 ## 联系我们
 - Name:吴老师  
@@ -292,4 +291,4 @@ PiFlow是一个简单易用，功能强大的大数据流水线系统。
 - WeChat：18910263390  
 - Email: wzs@cnic.cn  
 - QQ Group：1003489545  
-  ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/PiFlowUserGroup_QQ.jpeg)
+  ![](https://gitee.com/opensci/piflow/raw/master/doc/PiFlowUserGroup.png)
