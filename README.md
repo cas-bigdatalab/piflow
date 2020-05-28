@@ -284,10 +284,10 @@ Try PiFlow v0.6 with: http://piflow.cstcloud.cn/piflow-web/
 - `Template List`:
 
   ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-templatelist.png)
-  
-- `Save Template`:
 
-  ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-savetemplate.png)
+- `DataSource List`:
+
+  ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-templatelist.png)
   
 ## Contact Us
 - Name:吴老师  
