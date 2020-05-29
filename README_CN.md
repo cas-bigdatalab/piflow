@@ -111,6 +111,7 @@ PiFlow是一个简单易用，功能强大的大数据流水线系统。
       - vim /etc/profile  
         export PIFLOW_HOME=/yourPiflowPath/bin  
       	export PATH=$PATH:$PIFLOW_HOME/bin  
+        
       - 运行如下命令   
         piflow flow start example/mockDataFlow.json  
         piflow flow stop appID  
