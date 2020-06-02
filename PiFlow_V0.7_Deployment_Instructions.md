@@ -20,9 +20,7 @@ https://github.com/cas-bigdatalab/piflow/releases/download/v0.7/piflow-server-v0
 
 将piflow-server-v0.7.tar.gz解压，如下图所示：
 
-![img](http://image-picgo.test.upcdn.net/img/20200530124546.jpg)
-
-![img](http://image-picgo.test.upcdn.net/img/20200530124549.jpg)
+![](http://image-picgo.test.upcdn.net/img/20200602135412.png)
 
 1. bin为PiFlow命令行工具；
 
@@ -99,8 +97,7 @@ export PATH=$PATH:$SCALA_HOME/bin
 
 ## 1.4 运行
 
-![img](http://image-picgo.test.upcdn.net/img/20200530124552.jpg)
-
+![](http://image-picgo.test.upcdn.net/img/20200602135438.png)
  
 
 ```
@@ -130,8 +127,7 @@ export PATH=$PATH:$SCALA_HOME/bin
 https://github.com/cas-bigdatalab/piflow-web/releases/download/v0.7/piflow-web-v0.7.tar.gz
 
 将piflow-web-v0.7.tar.gz解压，如下图所示：
-
-![img](http://image-picgo.test.upcdn.net/img/20200530124555.jpg)
+![](http://image-picgo.test.upcdn.net/img/20200602135520.png)
 
 解压后内容说明：
 
@@ -256,4 +252,4 @@ logging.level.org.hibernate.SQL=DEBUG
 
 访问进行登陆注册：http://serverIp:serverPort/piflow-web/
 
-![img](http://image-picgo.test.upcdn.net/img/20200530124559.jpg)
+![](http://image-picgo.test.upcdn.net/img/20200602135741.png)
