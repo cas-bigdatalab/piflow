@@ -18,9 +18,7 @@ https://github.com/cas-bigdatalab/piflow/releases/download/v0.6/piflow-server-v0
 
 将piflow-server-v0.6.tar.gz解压，如下图所示：
 
-![img](http://image-picgo.test.upcdn.net/img/20200522103503.jpg)
-
-![img](http://image-picgo.test.upcdn.net/img/20200522103508.jpg)
+![](http://image-picgo.test.upcdn.net/img/20200602135034.png)
 
 其中，classpath为用户自定开发组件Stop放置路径；config.properties为配置文件；lib为piflowServer所需jar包；piflow-server-0.9.jar为piflowServer本身jar包；start.sh为piflowServer启动脚本。
 
@@ -94,8 +92,7 @@ export PATH=$PATH:$SCALA_HOME/bin
 
 ## 1.4 运行
 
-![img](http://image-picgo.test.upcdn.net/img/20200522103513.jpg)
-
+![](http://image-picgo.test.upcdn.net/img/20200602135103.png)
  
 
 ```
@@ -122,7 +119,7 @@ https://github.com/cas-bigdatalab/piflow-web/releases/download/v0.6/piflow-web-v
 
 将piflow-web-v0.6.tar.gz解压，如下图所示：
 
-![img](http://image-picgo.test.upcdn.net/img/20200522103516.jpg)
+![](http://image-picgo.test.upcdn.net/img/20200602135121.png)
 
 解压后内容说明：
 
@@ -192,4 +189,4 @@ logging.level.org.hibernate.SQL=WARN
 
 http://192.168.3.141:6001/piflow-web/
 
-![img](http://image-picgo.test.upcdn.net/img/20200522103521.jpg)
+![](http://image-picgo.test.upcdn.net/img/20200602135150.png)
