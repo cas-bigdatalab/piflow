@@ -293,5 +293,5 @@ PiFlow是一个简单易用，功能强大的大数据流水线系统。
 - Email: wzs@cnic.cn  
 - QQ Group：1003489545  
   ![](https://gitee.com/opensci/piflow/raw/master/doc/PiFlowUserGroup_QQ.jpeg)
-- WeChat group is valid for 7 days
+- WeChat group is valid for 7 days  
   ![](https://gitee.com/opensci/piflow/raw/master/doc/PiFlowUserGroup.png)
