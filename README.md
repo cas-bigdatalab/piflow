@@ -224,7 +224,7 @@ Try PiFlow v0.6 with: http://piflow.cstcloud.cn/piflow-web/
     
 ## docker-started  
   - pull piflow images  
-    docker pull registry.cn-hangzhou.aliyuncs.com/cnic_piflow/piflow:v0.7
+    docker pull registry.cn-hangzhou.aliyuncs.com/cnic_piflow/piflow:v0.7  
     docker pull registry.cn-hangzhou.aliyuncs.com/cnic_piflow/piflow:v0.6.1
     
   - show docker images  
@@ -298,7 +298,7 @@ Try PiFlow v0.6 with: http://piflow.cstcloud.cn/piflow-web/
 - QQ Group：1003489545  
   ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/PiFlowUserGroup_QQ.jpeg)
 - WeChat group is valid for 7 days
-  ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/PiFlowUserGroup.jpeg)
+  ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/PiFlowUserGroup.png)
 
 
 
