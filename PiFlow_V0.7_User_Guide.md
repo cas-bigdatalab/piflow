@@ -60,24 +60,20 @@ l DataSource：数据源
 
 ### 3.1.1 注册
 
-![img](http://image-picgo.test.upcdn.net/img/20200530122455.jpg)
-
+![](http://image-picgo.test.upcdn.net/img/20200604192256.png)
 ### 3.1.2 登录
 
-![img](http://image-picgo.test.upcdn.net/img/20200530122458.jpg)
-
+![](http://image-picgo.test.upcdn.net/img/20200604192309.png)
 ### 3.1.3 流水线Flow
 
 #### 3.1.3.1 流水线列表
 
-![img](http://image-picgo.test.upcdn.net/img/20200530122501.jpg)
-
+![](http://image-picgo.test.upcdn.net/img/20200604192324.png)
  
 
 Ø 可点击进入流水线配置页面按钮，对流水线进行配置。
 
-![img](http://image-picgo.test.upcdn.net/img/20200530122506.jpg)
-
+![](http://image-picgo.test.upcdn.net/img/20200604192349.png)
  
 
 Ø 可编辑流水线信息
@@ -88,216 +84,178 @@ l DataSource：数据源
 
 Ø 可运行流水线
 
-![img](http://image-picgo.test.upcdn.net/img/20200530122511.jpg)
-
- 
+![](http://image-picgo.test.upcdn.net/img/20200604192428.png) 
 
 Ø 可以debug模式运行流水线
 
-![img](http://image-picgo.test.upcdn.net/img/20200530122515.jpg)
-
+![](http://image-picgo.test.upcdn.net/img/20200604192445.png)
  
 
 Ø 可删除流水线
 
-![img](http://image-picgo.test.upcdn.net/img/20200530122519.jpg)
-
+![](http://image-picgo.test.upcdn.net/img/20200604192502.png)
  
 
 Ø 可对流水线保存模板
 
-![img](http://image-picgo.test.upcdn.net/img/20200530122522.jpg)
-
+![](http://image-picgo.test.upcdn.net/img/20200604192513.png)
 #### 3.1.3.2 创建流水线
 
 用户点击创建按钮，创建流水线。需要输入流水线名称及描述信息，同时可设置流水线需要的资源。
 
-![img](http://image-picgo.test.upcdn.net/img/20200530122526.jpg)
-
+![](http://image-picgo.test.upcdn.net/img/20200604192530.png)
 #### 3.1.3.3 配置流水线
 
 Ø 用户可通过拖拽方式进行流水线的配置，方式类似visio，如下图所示。
 
-![img](http://image-picgo.test.upcdn.net/img/20200530122529.jpg)
-
+![](http://image-picgo.test.upcdn.net/img/20200604192542.png)
  
 
 Ø 画布左边栏显示组件组和组件，可按关键字搜索。用户选择好组件后可拖至画布中央。
 
-![img](http://image-picgo.test.upcdn.net/img/20200530122533.jpg)
-
+![](http://image-picgo.test.upcdn.net/img/20200604192554.png)
  
 
 Ø 画布右侧显示流水线基本信息，包括流水线名称及描述。
 
-![img](http://image-picgo.test.upcdn.net/img/20200530122536.jpg)
-
+![](http://image-picgo.test.upcdn.net/img/20200604192612.png)
  
 
 Ø 画布中央选择任一数据处理组件，右侧显示该数据处理组件的基本信息，包括名称，描述，作者等信息。选择AttributeInfo tab，显示该数据处理组件的属性信息，用户可根据实际需求进行配置。鼠标浮动到问号上会出现对应属性的说明，同时可以选择已设置好的数据源进行属性填充。
 
-![img](http://image-picgo.test.upcdn.net/img/20200530122540.jpg)
-
+![](http://image-picgo.test.upcdn.net/img/20200604192626.png)
  
 
-![img](http://image-picgo.test.upcdn.net/img/20200530122543.jpg)
-
+![](http://image-picgo.test.upcdn.net/img/20200604192636.png)
  
 
 #### 3.1.3.4 运行流水线
 
 Ø 用户配置好流水线后，可点击运行按钮运行流水线。
 
-![img](http://image-picgo.test.upcdn.net/img/20200530122546.jpg)
-
+![](http://image-picgo.test.upcdn.net/img/20200604192649.png)
 #### 3.1.3.5 流水线监控
 
 加载完成之后，进入流水线监控页面。监控页面会显示整条流水线的执行状况，包括运行状态、执行进度、执行时间等。点击具体数据处理组件，显示该数据处理组件的运行状况，包括运行状态、执行时间。
 
-![img](http://image-picgo.test.upcdn.net/img/20200530122549.jpg)
-
-![img](http://image-picgo.test.upcdn.net/img/20200530122552.jpg)
-
+![](http://image-picgo.test.upcdn.net/img/20200604192659.png)
+![](http://image-picgo.test.upcdn.net/img/20200604192715.png)
 #### 3.1.3.6 流水线日志
 
-![img](http://image-picgo.test.upcdn.net/img/20200530122555.jpg)
-
+![](http://image-picgo.test.upcdn.net/img/20200604192725.png)
 #### 3.1.3.7 调试流水线
 
 Ø 可以以Debug模式运行流水线，运行后可查看流经每条线上的数据信息，实现数据可溯源
 
-![img](http://image-picgo.test.upcdn.net/img/20200530122557.jpg)
-
+![](http://image-picgo.test.upcdn.net/img/20200604192737.png)
  
 
-![img](http://image-picgo.test.upcdn.net/img/20200530122600.jpg)
-
+![](http://image-picgo.test.upcdn.net/img/20200604192748.png)
  
 
-![img](http://image-picgo.test.upcdn.net/img/20200530122603.jpg)
-
+![](http://image-picgo.test.upcdn.net/img/20200604192759.png)
 #### 3.1.3.8 检查点
 
 Ø 流水线可设置检查点，再次运行时可选择从检查点运行
 
-![img](http://image-picgo.test.upcdn.net/img/20200530122606.jpg)
-
+![](http://image-picgo.test.upcdn.net/img/20200604192813.png)
 ### 3.1.4 流水线组Group
 
 #### 3.1.4.1 流水线组列表
 
 Ø 流水线组支持流水线的调度功能，组嵌套功能。列表功能与流水线列表功能一致。
 
-![img](http://image-picgo.test.upcdn.net/img/20200530122609.jpg)
-
+![](http://image-picgo.test.upcdn.net/img/20200604192829.png)
 #### 3.1.4.2 新建流水线组
 
 Ø 点击创建按钮，输入流水线组名称和基本信息可创建流水线组Group。
 
-![img](http://image-picgo.test.upcdn.net/img/20200530122612.jpg)
-
+![](http://image-picgo.test.upcdn.net/img/20200604192841.png)
 #### 3.1.4.3 配置流水线组
 
 ##### 3.2.4.3.1 创建group
 
 Ø 拖动左侧group图标
 
-![img](http://image-picgo.test.upcdn.net/img/20200530122615.jpg)
-
+![](http://image-picgo.test.upcdn.net/img/20200604192854.png)
 ##### 3.2.4.3.2 创建flow
 
 Ø 拖动flow图标创建流水线flow
 
-![img](http://image-picgo.test.upcdn.net/img/20200530122618.jpg)
-
+![](http://image-picgo.test.upcdn.net/img/20200604192905.png)
 ##### 3.2.4.3.3 创建label
 
 Ø 拖动Label可添加标签，用于备注说明
 
-![img](http://image-picgo.test.upcdn.net/img/20200530122622.jpg)
-
+![](http://image-picgo.test.upcdn.net/img/20200604192917.png)
 ##### 3.2.4.3.4 创建调度关系
 
 Ø 连线实现调度顺序
 
-![img](http://image-picgo.test.upcdn.net/img/20200530122627.jpg)
-
+![](http://image-picgo.test.upcdn.net/img/20200604192930.png)
 ##### 3.2.4.3.5 创建子group
 
 Ø Group可双击进入，配置组内流水线组group、流水线flow、以及之间的调度顺序
 
-![img](http://image-picgo.test.upcdn.net/img/20200530122630.jpg)
-
+![](http://image-picgo.test.upcdn.net/img/20200604192943.png)
 ##### 3.2.4.3.6 配置流水线flow
 
 Ø 双击flow图标，可进入具体流水线的配置界面
 
-![img](http://image-picgo.test.upcdn.net/img/20200530122633.jpg)
-
+![](http://image-picgo.test.upcdn.net/img/20200604192956.png)
 ##### 3.2.4.3.7 导入流水线flow
 
 Ø 可导入flow列表中已配置的流水线
 
-![img](http://image-picgo.test.upcdn.net/img/20200530122636.jpg)
-
+![](http://image-picgo.test.upcdn.net/img/20200604193006.png)
  
 
 ##### 3.2.4.3.8 更换图标
 
 Ø 右键group或flow，可支持更换图标
 
-![img](http://image-picgo.test.upcdn.net/img/20200530122639.jpg)
-
+![](http://image-picgo.test.upcdn.net/img/20200604193019.png)
  
 
 Ø Group图标列表，支持用户上传
 
-![image-20200530125104894](http://image-picgo.test.upcdn.net/img/20200530125105.png) 
-
+![](http://image-picgo.test.upcdn.net/img/20200604193031.png)
 Ø Flow图标列表，支持用户上传
 
-![img](http://image-picgo.test.upcdn.net/img/20200530122641.jpg)
-
+![](http://image-picgo.test.upcdn.net/img/20200604193043.png)
 #### 3.1.4.4 运行流水线组
 
 Ø 运行
 
-![img](http://image-picgo.test.upcdn.net/img/20200530122644.jpg)
-
+![](http://image-picgo.test.upcdn.net/img/20200604193053.png)
  
 
 Ø 可右键运行单个group或flow
 
-![img](http://image-picgo.test.upcdn.net/img/20200530122647.jpg)
-
+![](http://image-picgo.test.upcdn.net/img/20200604193108.png)
  
 
-![img](http://image-picgo.test.upcdn.net/img/20200530122649.jpg)
-
+![](http://image-picgo.test.upcdn.net/img/20200604193117.png)
 #### 3.1.4.5 监控流水线组
 
 Ø 默认显示流水线组监控信息
 
-![img](http://image-picgo.test.upcdn.net/img/20200530122653.jpg)
-
+![](http://image-picgo.test.upcdn.net/img/20200604193130.png)
 Ø 单击group或flow，显示点击组件的监控信息
 
-![img](http://image-picgo.test.upcdn.net/img/20200530122655.jpg)
-
+![](http://image-picgo.test.upcdn.net/img/20200604193142.png)
 可双击进入group或flow，查看进一步监控信息
 
 #### 3.1.4.6 流水线组日志
 
  
 
-![img](http://image-picgo.test.upcdn.net/img/20200530122659.jpg)
-
+![](http://image-picgo.test.upcdn.net/img/20200604193158.png)
 ### 3.1.5 运行态流水线Process
 
 已运行流水线组和流水线会显示在Process List中，包括开始时间、结束时间、进度、状态等。同时可对已运行流水线进行查看，在运行，停止，和删除操作。
 
-![img](http://image-picgo.test.upcdn.net/img/20200530122702.jpg)
-
+![](http://image-picgo.test.upcdn.net/img/20200604193209.png)
 ### 3.1.6 模板Template
 
 流水线组和流水线可保存成模板
@@ -306,56 +264,47 @@ l DataSource：数据源
 
 Ø 流水线保存模板
 
-![img](http://image-picgo.test.upcdn.net/img/20200530122705.jpg)
-
+![](http://image-picgo.test.upcdn.net/img/20200604193220.png)
  
 
 Ø 流水线组保存模板
 
-![img](http://image-picgo.test.upcdn.net/img/20200530122708.jpg)
-
+![](http://image-picgo.test.upcdn.net/img/20200604193232.png)
  
 
 #### 3.1.6.2 模板列表
 
-![img](http://image-picgo.test.upcdn.net/img/20200530122712.jpg)
-
+![](http://image-picgo.test.upcdn.net/img/20200604193243.png)
  
 
 #### 3.1.6.3 模板下载
 
-![img](http://image-picgo.test.upcdn.net/img/20200530122715.jpg)
-
+![](http://image-picgo.test.upcdn.net/img/20200604193254.png)
 #### 3.1.6.4 模板上传
 
-![img](http://image-picgo.test.upcdn.net/img/20200530122717.jpg)
-
+![](http://image-picgo.test.upcdn.net/img/20200604193303.png)
  
 
 #### 3.1.6.5 模板加载
 
 Ø 流水线模板加载
 
-![img](http://image-picgo.test.upcdn.net/img/20200530122721.jpg)
-
+![](http://image-picgo.test.upcdn.net/img/20200604193313.png)
  
 
 Ø 流水线组模板加载
 
-![img](http://image-picgo.test.upcdn.net/img/20200530122724.jpg)
-
+![](http://image-picgo.test.upcdn.net/img/20200604193326.png)
  
 
 #### 3.1.6.6 模板删除
 
-![img](http://image-picgo.test.upcdn.net/img/20200530122726.jpg)
-
+![](http://image-picgo.test.upcdn.net/img/20200604193336.png)
  
 
  
 
-![img](http://image-picgo.test.upcdn.net/img/20200530122731.jpg)
-
+![](http://image-picgo.test.upcdn.net/img/20200604193355.png)
 
 
 ### 3.1.7 数据源
@@ -364,7 +313,7 @@ l DataSource：数据源
 
 Ø 支持JDBC、ElasticSearch、等数据源的创建。同时支持自定义数据源（other）
 
-![img](http://image-picgo.test.upcdn.net/img/20200530122734.jpg)
+![](http://image-picgo.test.upcdn.net/img/20200604193412.png)
 
 #### 3.1.7.1 使用数据源
 
