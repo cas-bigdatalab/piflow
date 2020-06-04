@@ -224,7 +224,7 @@ PiFlow是一个简单易用，功能强大的大数据流水线系统。
 ## Docker镜像  
 
   - 根据需求拉取不同版本PiFlow docker镜像  
-    docker pull registry.cn-hangzhou.aliyuncs.com/cnic_piflow/piflow:v0.7  
+    docker pull registry.cn-hangzhou.aliyuncs.com/cnic_piflow/piflow:v0.7.1  
     docker pull registry.cn-hangzhou.aliyuncs.com/cnic_piflow/piflow:v0.6.1
     
   - 查看Docker镜像的信息  
