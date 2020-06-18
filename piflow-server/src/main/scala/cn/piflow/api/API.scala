@@ -33,6 +33,7 @@ object API {
 
           pluginManager.unloadPlugin(i.getAbsolutePath)
           pluginManager.loadPlugin(i.getAbsolutePath)
+          H2Util.addPlugin(pluginName)
           result = true
           break
         }
@@ -50,6 +51,7 @@ object API {
         println(i.getAbsolutePath)
         if(i.getName.equals(pluginName)) {
           pluginManager.unloadPlugin(i.getAbsolutePath)
+          H2Util.removePlugin(pluginName)
           result = true
           break
         }

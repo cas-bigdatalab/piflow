@@ -19,6 +19,7 @@ object H2Util {
   val CREATE_THOUGHPUT_TABLE = "create table if not exists thoughput (flowId varchar(255), stopName varchar(255), portName varchar(255), count long)"
   val CREATE_FLAG_TABLE = "create table if not exists configFlag(id bigint auto_increment, item varchar(255), flag int, createTime varchar(255))"
   val CREATE_SCHEDULE_TABLE = "create table if not exists schedule(id bigint auto_increment, scheduleId varchar(255), scheduleEntryId varchar(255), scheduleEntryType varchar(255))"
+  val CREATE_PLUGIN_TABLE = "create table if not exists plugin (id varchar(255), name varchar(255), state varchar(255), createTime varchar(255), updateTime varchar(255))"
   val serverIP = ServerIpUtil.getServerIp() + ":" + PropertyUtil.getPropertyValue("h2.port")
   val CONNECTION_URL = "jdbc:h2:tcp://" +  serverIP + "/~/piflow;AUTO_SERVER=true"
   var connection : Connection= null
@@ -34,6 +35,7 @@ object H2Util {
     statement.executeUpdate(CREATE_THOUGHPUT_TABLE)
     statement.executeUpdate(CREATE_FLAG_TABLE)
     statement.executeUpdate(CREATE_SCHEDULE_TABLE)
+    statement.executeUpdate(CREATE_PLUGIN_TABLE)
     statement.close()
   }catch {
     case ex => println(ex)
@@ -61,6 +63,7 @@ object H2Util {
       statement.executeUpdate("drop table if exists thoughput")
       statement.executeUpdate("drop table if exists flag")
       statement.executeUpdate("drop table if exists schedule")
+      statement.executeUpdate("drop table if exists plugin")
       statement.close()
 
     } catch{
@@ -765,6 +768,57 @@ object H2Util {
     var scheduleJson = JsonUtil.format(JsonUtil.toJson(Map("schedule" -> scheduleInfoMap)))
     scheduleJson
 
+  }
+
+  def addPlugin(name:String)={
+
+    var state = ""
+    val statement = getConnectionInstance().createStatement()
+    statement.setQueryTimeout(QUERY_TIME)
+    val rs : ResultSet = statement.executeQuery("select * from plugin where name='" + name +"'")
+    if(!rs.isBeforeFirst){
+      val id = IdGenerator.uuid()
+      val time = new Date().toString
+      statement.executeUpdate("insert into plugin(id, name, state, createTime, updateTime) values('" + id + "','" + name + "','" + PluginState.ON + "','" + time + "','" + time  + "')")
+      state = PluginState.ON
+    }else{
+      while(rs.next()){
+        state = rs.getString("state")
+        val time = new Date().toString
+        if(state == PluginState.OFF){
+          val updateSql = "update plugin set state='" + PluginState.ON + "'," + "updateTime='" + time +"' where name='" + name + "'"
+          statement.executeUpdate(updateSql)
+          state = PluginState.ON
+        }
+      }
+    }
+    rs.close()
+    statement.close()
+    state
+  }
+
+  def removePlugin(name:String)={
+
+    var state = ""
+    val statement = getConnectionInstance().createStatement()
+    statement.setQueryTimeout(QUERY_TIME)
+    val rs : ResultSet = statement.executeQuery("select * from plugin where name='" + name +"'")
+    if(!rs.isBeforeFirst){
+      state = PluginState.NONE
+    }else{
+      while(rs.next()){
+        state = rs.getString("state")
+        val time = new Date().toString
+        if(state == PluginState.ON){
+          val updateSql = "update plugin set state='" + PluginState.OFF + "'," + "updateTime='" + time +"' where name='" + name + "'"
+          statement.executeUpdate(updateSql)
+          state = PluginState.OFF
+        }
+      }
+    }
+    rs.close()
+    statement.close()
+    state
   }
 
 

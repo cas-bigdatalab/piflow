@@ -15,8 +15,6 @@ function help_info () {
   flow_help
   echo ""
   group_help
-  echo ""
-  project_help
 }
 
 function flow_help () {
