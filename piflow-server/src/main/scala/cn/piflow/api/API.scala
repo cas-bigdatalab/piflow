@@ -60,6 +60,11 @@ object API {
     result
   }
 
+  def getAllPlugin() : String = {
+    val plugins = H2Util.getPluginInfo()
+    plugins
+  }
+
   def getConfigurableStopInPlugin(pluginManager:PluginManager, pluginName : String) : String = {
     var bundleList = List[String]()
     val stops = pluginManager.getPluginConfigurableStops(pluginName)

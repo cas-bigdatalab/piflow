@@ -7,7 +7,7 @@ import java.util.Date
 import net.liftweb.json.compactRender
 import net.liftweb.json.JsonDSL._
 import org.h2.tools.Server
-import scala.util.control.Breaks.{breakable}
+import scala.util.control.Breaks.{breakable, break}
 
 object H2Util {
 
@@ -782,14 +782,19 @@ object H2Util {
       statement.executeUpdate("insert into plugin(id, name, state, createTime, updateTime) values('" + id + "','" + name + "','" + PluginState.ON + "','" + time + "','" + time  + "')")
       state = PluginState.ON
     }else{
-      while(rs.next()){
-        state = rs.getString("state")
-        val time = new Date().toString
-        if(state == PluginState.OFF){
-          val updateSql = "update plugin set state='" + PluginState.ON + "'," + "updateTime='" + time +"' where name='" + name + "'"
-          statement.executeUpdate(updateSql)
-          state = PluginState.ON
+
+      breakable{
+        while(rs.next()){
+          state = rs.getString("state")
+          val time = new Date().toString
+          if(state == PluginState.OFF){
+            val updateSql = "update plugin set state='" + PluginState.ON + "'," + "updateTime='" + time +"' where name='" + name + "'"
+            statement.executeUpdate(updateSql)
+            state = PluginState.ON
+            break
+          }
         }
+
       }
     }
     rs.close()
@@ -806,19 +811,48 @@ object H2Util {
     if(!rs.isBeforeFirst){
       state = PluginState.NONE
     }else{
-      while(rs.next()){
-        state = rs.getString("state")
-        val time = new Date().toString
-        if(state == PluginState.ON){
-          val updateSql = "update plugin set state='" + PluginState.OFF + "'," + "updateTime='" + time +"' where name='" + name + "'"
-          statement.executeUpdate(updateSql)
-          state = PluginState.OFF
+
+      breakable{
+        while(rs.next()){
+          state = rs.getString("state")
+          val time = new Date().toString
+          if(state == PluginState.ON){
+            val updateSql = "update plugin set state='" + PluginState.OFF + "'," + "updateTime='" + time +"' where name='" + name + "'"
+            statement.executeUpdate(updateSql)
+            state = PluginState.OFF
+            break
+          }
         }
       }
     }
     rs.close()
     statement.close()
     state
+  }
+
+  def getPluginInfo() : String ={
+
+    //get flow stops info
+    var pluginList:List[Map[String, Any]] = List()
+    val statement = getConnectionInstance().createStatement()
+    val rs : ResultSet = statement.executeQuery("select * from plugin")
+    while(rs.next()){
+      var pluginMap = Map[String, Any]()
+
+      pluginMap += ("id" -> rs.getString("id"))
+      pluginMap += ("name" -> rs.getString("name"))
+      pluginMap += ("state" -> rs.getString("state"))
+      pluginMap += ("createTime" -> rs.getString("createTime"))
+      pluginMap += ("updateTime" -> rs.getString("updateTime"))
+
+      pluginList = Map("plugin" -> pluginMap) +: pluginList
+
+    }
+    rs.close()
+    statement.close()
+
+    val pluginsMap = Map[String, Any]("plugins" -> pluginList)
+    JsonUtil.format(JsonUtil.toJson(pluginsMap))
   }
 
 

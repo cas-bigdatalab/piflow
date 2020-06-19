@@ -448,6 +448,21 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
 
    }
 
+   case HttpRequest(GET, Uri.Path("/plugin/info"), headers, entity, protocol) =>{
+
+     try{
+       val plugins = API.getAllPlugin()
+       Future.successful(HttpResponse(SUCCESS_CODE, entity = plugins))
+     }catch {
+       case ex => {
+         println(ex)
+         Future.successful(HttpResponse(FAIL_CODE, entity = "Can not found plugins !"))
+       }
+     }
+
+   }
+
+
    case _: HttpRequest =>
       Future.successful(HttpResponse(UNKNOWN_CODE, entity = "Unknown resource!"))
   }
