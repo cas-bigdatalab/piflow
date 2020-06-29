@@ -1,7 +1,6 @@
 package cn.piflow.bundle.common
 
-import breeze.collection.mutable.ArrayMap
-import breeze.linalg.*
+
 import cn.piflow._
 import cn.piflow.conf._
 import cn.piflow.conf.bean.PropertyDescriptor
@@ -36,7 +35,7 @@ class ExecuteSQLStop extends ConfigurableStop{
 
   override def setProperties(map: Map[String, Any]): Unit = {
     sql = MapUtil.get(map,"sql").asInstanceOf[String]
-    ViewName = MapUtil.get(map,"ViewName").asInstanceOf[String]
+    ViewName = MapUtil.get(map,"viewName").asInstanceOf[String]
 
   }
   override def initialize(ctx: ProcessContext): Unit = {

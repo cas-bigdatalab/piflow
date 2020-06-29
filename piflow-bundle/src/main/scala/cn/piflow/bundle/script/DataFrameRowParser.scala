@@ -50,12 +50,12 @@ class DataFrameRowParser extends ConfigurableStop{
 
     //parse RDD
     val rdd = inDF.rdd.map(row => {
-      val fieldArray = row.get(0).asInstanceOf[String].split(",")
+      val fieldArray = row.get(0).asInstanceOf[String].split(",").map(x => x.trim)
       Row.fromSeq(fieldArray.toSeq)
     })
 
     //parse schema
-    val field = schema.split(separator)
+    val field = schema.split(separator).map(x => x.trim)
     val structFieldArray : Array[StructField] = new Array[StructField](field.size)
     for(i <- 0 to field.size - 1){
       structFieldArray(i) = new StructField(field(i),StringType, nullable = true)

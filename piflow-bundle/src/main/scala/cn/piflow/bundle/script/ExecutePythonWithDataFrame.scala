@@ -62,8 +62,9 @@ class ExecutePythonWithDataFrame extends ConfigurableStop{
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
 
     val spark = pec.get[SparkSession]()
-
     val df = in.read()
+    //df.toArrowPayload.collect()
+
 
     val jep = new Jep()
     val scriptPath = "/tmp/pythonExcutor-"+ UUID.randomUUID() +".py"

@@ -520,6 +520,6 @@ object Main {
     HTTPService.run
     val h2Server = Server.createTcpServer("-tcp", "-tcpAllowOthers", "-tcpPort",PropertyUtil.getPropertyValue("h2.port")).start()
     flywayInit()
-    //initPlugin()
+    initPlugin()
   }
 }
