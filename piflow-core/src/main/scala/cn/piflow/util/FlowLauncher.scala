@@ -30,7 +30,7 @@ object FlowLauncher {
     val sparkLauncher =launcher
       .setAppName(flow.getFlowName())
       .setMaster(PropertyUtil.getPropertyValue("spark.master"))
-      .setDeployMode(PropertyUtil.getPropertyValue("spark.deploy.mode"))
+      //.setDeployMode(PropertyUtil.getPropertyValue("spark.deploy.mode"))
       .setAppResource(ConfigureUtil.getPiFlowBundlePath())
       .setVerbose(true)
       .setConf("spark.driver.memory", flow.getDriverMemory())
@@ -42,6 +42,8 @@ object FlowLauncher {
       .setMainClass("cn.piflow.api.StartFlowMain")
       .addAppArgs(flowJsonencryptAES)
 
+    if(PropertyUtil.getPropertyValue("spark.master").equals("yarn"))
+      sparkLauncher.setDeployMode(PropertyUtil.getPropertyValue("spark.deploy.mode"))
 
     if(PropertyUtil.getPropertyValue("yarn.resourcemanager.hostname") != null)
       sparkLauncher.setConf("spark.hadoop.yarn.resourcemanager.hostname", PropertyUtil.getPropertyValue("yarn.resourcemanager.hostname"))
