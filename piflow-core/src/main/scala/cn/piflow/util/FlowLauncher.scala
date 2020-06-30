@@ -42,11 +42,11 @@ object FlowLauncher {
       .setMainClass("cn.piflow.api.StartFlowMain")
       .addAppArgs(flowJsonencryptAES)
 
-    if(PropertyUtil.getPropertyValue("spark.master").equals("yarn"))
+    val sparkMaster = PropertyUtil.getPropertyValue("spark.master")
+    if(sparkMaster.equals("yarn")){
       sparkLauncher.setDeployMode(PropertyUtil.getPropertyValue("spark.deploy.mode"))
-
-    if(PropertyUtil.getPropertyValue("yarn.resourcemanager.hostname") != null)
       sparkLauncher.setConf("spark.hadoop.yarn.resourcemanager.hostname", PropertyUtil.getPropertyValue("yarn.resourcemanager.hostname"))
+    }
 
     //add other jars for application
     val classPath = PropertyUtil.getClassPath()
