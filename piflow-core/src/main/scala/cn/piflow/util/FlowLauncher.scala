@@ -43,11 +43,11 @@ object FlowLauncher {
       .addAppArgs(flowJsonencryptAES)
 
     val sparkMaster = PropertyUtil.getPropertyValue("spark.master")
-    if(sparkMaster.equals("yarn"))
+    if(sparkMaster.equals("yarn")){
       sparkLauncher.setDeployMode(PropertyUtil.getPropertyValue("spark.deploy.mode"))
-
-    if(PropertyUtil.getPropertyValue("yarn.resourcemanager.hostname") != null)
       sparkLauncher.setConf("spark.hadoop.yarn.resourcemanager.hostname", PropertyUtil.getPropertyValue("yarn.resourcemanager.hostname"))
+    }
+
 
     //add other jars for application
     val classPath = PropertyUtil.getClassPath()
