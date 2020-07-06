@@ -9,7 +9,7 @@ object ServerIpUtil {
   var fis: InputStream = null
   var path :String = ""
 
-    try{
+  try{
 
     val userDir = System.getProperty("user.dir")
     path = userDir + "/server.ip"

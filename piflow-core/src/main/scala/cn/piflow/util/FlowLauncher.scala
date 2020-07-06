@@ -22,7 +22,10 @@ object FlowLauncher {
     var flowJson = flow.getFlowJson()
     println("FlowLauncher json:" + flowJson)
 
-    val flowJsonencryptAES = SecurityUtil.encryptAES(flowJson)
+    val flowFileName = flow.getFlowName() + new Date().getTime
+    val flowFile = FlowFileUtil.getFlowFilePath(flowFileName)
+    FileUtil.writeFile(flowJson, flowFile)
+    //val flowJsonencryptAES = SecurityUtil.encryptAES(flowJson)
 
     var appId : String = ""
     val countDownLatch = new CountDownLatch(1)
@@ -39,15 +42,15 @@ object FlowLauncher {
       .setConf("spark.executor.cores",flow.getExecutorCores())
       .addFile(PropertyUtil.getConfigureFile())
       .addFile(ServerIpUtil.getServerIpFile())
+      .addFile(flowFile)
       .setMainClass("cn.piflow.api.StartFlowMain")
-      .addAppArgs(flowJsonencryptAES)
+      .addAppArgs(flowFileName)
 
     val sparkMaster = PropertyUtil.getPropertyValue("spark.master")
     if(sparkMaster.equals("yarn")){
       sparkLauncher.setDeployMode(PropertyUtil.getPropertyValue("spark.deploy.mode"))
       sparkLauncher.setConf("spark.hadoop.yarn.resourcemanager.hostname", PropertyUtil.getPropertyValue("yarn.resourcemanager.hostname"))
     }
-
 
     //add other jars for application
     val classPath = PropertyUtil.getClassPath()
