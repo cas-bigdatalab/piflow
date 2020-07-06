@@ -2,6 +2,8 @@ package cn.piflow.util
 
 import java.io.{File, PrintWriter}
 
+import scala.io.Source
+
 object FileUtil {
 
   def getJarFile(file:File): Array[File] ={
@@ -20,6 +22,10 @@ object FileUtil {
     val writer = new PrintWriter(new File(path))
     writer.write(text)
     writer.close()
+  }
+
+  def readFile(path : String) : String = {
+    Source.fromFile(path).mkString("")
   }
 
   def main(args: Array[String]): Unit = {
