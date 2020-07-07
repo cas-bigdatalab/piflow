@@ -357,6 +357,11 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
            val startDate : Option[Date] = Some(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").parse(startDateStr))
            scheduler.schedule(id,flowActor,JsonUtil.format(JsonUtil.toJson(scheduleInstance)),startDate)
          }
+
+         //TODO
+         if(endDateStr.equals("")){
+
+         }
          actorMap += (id -> flowActor)
 
          Future.successful(HttpResponse(SUCCESS_CODE, entity = id))
