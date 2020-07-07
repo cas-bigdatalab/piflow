@@ -10,6 +10,10 @@
     </parent>
     <artifactId>piflow-core</artifactId>
     <name>piflow-core</name>
+
+    <properties>
+        <scala.big.version>2.12</scala.big.version>
+    </properties>
     <dependencies>
         <dependency>
             <groupId>org.quartz-scheduler</groupId>
@@ -18,8 +22,8 @@
         </dependency>
         <dependency>
             <groupId>net.liftweb</groupId>
-            <artifactId>lift-json_2.11</artifactId>
-            <version>2.6.1</version>
+            <artifactId>lift-json_${scala.big.version}</artifactId>
+            <version>3.4.1</version>
         </dependency>
     </dependencies>
 
