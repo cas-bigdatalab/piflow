@@ -73,7 +73,7 @@ class foreignKeyWash extends ConfigurableStop {
   }
 
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
-    val washTable = in.read()
+    /*val washTable = in.read()
     val ss = pec.get[SparkSession]()
     val acc = ss.sparkContext.accumulator[Int](0,"changeCount")
     val washTableSchema = washTable.schema
@@ -95,7 +95,7 @@ class foreignKeyWash extends ConfigurableStop {
     println(bkDF.count())
     println("====================================")
     println(acc.name.get+" : "+acc.value)
-    out.write(bkDF)
+    out.write(bkDF)*/
   }
 
   def getMKFather(key:String, jedisCluster: JedisCluster): String = {
