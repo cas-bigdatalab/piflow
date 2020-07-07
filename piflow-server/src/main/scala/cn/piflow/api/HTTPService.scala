@@ -2,6 +2,8 @@ package cn.piflow.api
 
 import java.io.File
 import java.net.InetAddress
+import java.text.SimpleDateFormat
+import java.util.Date
 
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.http.scaladsl.Http
@@ -330,6 +332,9 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
          val dataMap = toJson(data.utf8String)
 
          val expression = dataMap.get("expression").getOrElse("").asInstanceOf[String]
+         val startDateStr = dataMap.get("startDate").getOrElse("").asInstanceOf[String]
+         val endDateStr = dataMap.get("endDate").getOrElse("").asInstanceOf[String]
+
          val scheduleInstance = dataMap.get("schedule").getOrElse(Map[String, Any]()).asInstanceOf[Map[String, Any]]
 
          val id : String = "schedule_" + IdGenerator.uuid() ;
@@ -344,7 +349,14 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
          }
          val flowActor = system.actorOf(Props(new ExecutionActor(id,scheduleType)))
          scheduler.createSchedule(id,cronExpression = expression)
-         scheduler.schedule(id,flowActor,JsonUtil.format(JsonUtil.toJson(scheduleInstance)))
+         //scheduler.schedule(id,flowActor,JsonUtil.format(JsonUtil.toJson(scheduleInstance)))
+         if(startDateStr.equals("")){
+           scheduler.schedule(id,flowActor,JsonUtil.format(JsonUtil.toJson(scheduleInstance)))
+
+         }else{
+           val startDate : Option[Date] = Some(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").parse(startDateStr))
+           scheduler.schedule(id,flowActor,JsonUtil.format(JsonUtil.toJson(scheduleInstance)),startDate)
+         }
          actorMap += (id -> flowActor)
 
          Future.successful(HttpResponse(SUCCESS_CODE, entity = id))
