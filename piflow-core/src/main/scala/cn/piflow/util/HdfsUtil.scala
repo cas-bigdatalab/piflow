@@ -253,16 +253,18 @@ object HdfsUtil {
     val fsStatus = fileSystem.getStatus
     val capacity = fsStatus.getCapacity
     val remaining = fsStatus.getRemaining
-    val used = fsStatus.getUsed
-    val map = Map("capacity" -> capacity, "remaining" -> remaining, "used" -> used)
+    //val used = fsStatus.getUsed
+    val used = capacity - remaining
+    val map = Map("capacityGB" -> capacity/(1024*1024*1024), "remainingGB" -> remaining/(1024*1024*1024), "usedGB" -> used/(1024*1024*1024))
     map
   }
 
   def main(args: Array[String]): Unit = {
-    val path = "hdfs://10.0.86.191:9000/user/piflow/debug/test/test_schema"
+    //val path = "hdfs://10.0.86.191:9000/user/piflow/debug/test/test_schema"
 
     //val t = createFile(path)
-    saveLine(path,"xjzhu,xjzhu,xjzhu")
+    //saveLine(path,"xjzhu,xjzhu,xjzhu")
+    getCapacity()
 
   }
 
