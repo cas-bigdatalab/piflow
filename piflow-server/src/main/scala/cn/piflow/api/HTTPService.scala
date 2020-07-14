@@ -35,7 +35,7 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
   implicit val executionContext = system.dispatcher
 
   val scheduler = QuartzSchedulerExtension(system)
-  var actorMap = Map[String, ActorRef]()
+    var actorMap = Map[String, ActorRef]()
 
 
   var processMap = Map[String, SparkAppHandle]()
@@ -490,13 +490,37 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
     val port = PropertyUtil.getIntPropertyValue("server.port")
     Http().bindAndHandleAsync(route, ip, port)
     println("Server:" + ip + ":" + port + " Started!!!")
+
+    new MonitorScheduler().start()
+
   }
 
+  class MonitorScheduler extends Thread {
+
+    override def run(): Unit = {
+      while(true){
+        val needStopSchedule = H2Util.getNeedStopSchedule()
+        needStopSchedule.foreach{scheduleId => {
+          actorMap.get(scheduleId) match {
+            case Some(actorRef) =>
+              system.stop(actorRef)
+              processMap.-(scheduleId)
+            case ex =>{
+              println(ex)
+            }
+          }
+          H2Util.updateScheduleInstanceStatus(scheduleId, ScheduleState.STOPED)
+        }}
+        Thread.sleep(10000)
+      }
+    }
+  }
 }
 
+
+
+
 object Main {
-
-
 
   def flywayInit() = {
 
@@ -529,9 +553,9 @@ object Main {
     })
   }
   def main(argv: Array[String]):Unit = {
-    HTTPService.run
     val h2Server = Server.createTcpServer("-tcp", "-tcpAllowOthers", "-tcpPort",PropertyUtil.getPropertyValue("h2.port")).start()
     flywayInit()
+    HTTPService.run
     initPlugin()
   }
 }

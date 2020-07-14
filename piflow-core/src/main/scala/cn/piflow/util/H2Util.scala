@@ -2,12 +2,17 @@ package cn.piflow.util
 
 import java.net.InetAddress
 import java.sql.{Connection, DriverManager, ResultSet}
+import java.text.SimpleDateFormat
 import java.util.Date
 
+import cn.piflow.util
 import net.liftweb.json.compactRender
 import net.liftweb.json.JsonDSL._
+import org.apache.spark.sql.execution.streaming.state
 import org.h2.tools.Server
-import scala.util.control.Breaks.{breakable, break}
+import cn.piflow.util.ScheduleState
+
+import scala.util.control.Breaks.{break, breakable}
 
 object H2Util {
 
@@ -738,7 +743,7 @@ object H2Util {
   }
 
   def addScheduleInstance(scheduleId : String, cronExpression : String, startDate : String, endDate : String, state : String): Unit ={
-        val statement = getConnectionInstance().createStatement()
+    val statement = getConnectionInstance().createStatement()
     statement.setQueryTimeout(QUERY_TIME)
     val time = new Date().toString
     statement.executeUpdate("insert into scheduleInstance(id, cronExpression, startDate, endDate, state, createTime, updateTime) values('" + scheduleId +  "','" + cronExpression + "','" + startDate + "','" + endDate + "','" + state + "','" + time + "','" + time + "')")
@@ -751,8 +756,27 @@ object H2Util {
     val time = new Date().toString
     val updateSql = "update scheduleInstance set state='" + state + "', updateTime='" + time + "' where id='" + scheduleId + "'"
     println(updateSql)
-        statement.executeUpdate(updateSql)
+    statement.executeUpdate(updateSql)
     statement.close()
+  }
+
+  def getNeedStopSchedule(): List[String] = {
+    var resultList : List[String]= List()
+    val statement = getConnectionInstance().createStatement()
+    statement.setQueryTimeout(QUERY_TIME)
+    val nowDate: String = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date())
+    val updateSql = "select id from scheduleInstance where state = '" + ScheduleState.STARTED  + "' and endDate <= '" + nowDate + "'"
+    println(updateSql)
+
+    val scheduleRS : ResultSet = statement.executeQuery(updateSql)
+    while (scheduleRS.next()){
+
+      val id = scheduleRS.getString("id")
+      resultList = id +: resultList
+
+    }
+    statement.close()
+    resultList
   }
 
   def addScheduleEntry(scheduleId : String, scheduleEntryId : String, scheduleEntryType : String): Unit ={
@@ -909,6 +933,7 @@ object H2Util {
     }catch {
       case ex => println(ex)
     }*/
+    val needStopSchedule = H2Util.getNeedStopSchedule()
     if (args.size != 1){
       println("Error args!!! Please enter Clean or UpdateToVersion6")
     }
