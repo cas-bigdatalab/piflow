@@ -13,6 +13,8 @@ object HTTPClientScheduleFlowGroup {
       """
         |{
         |  "expression": "0 */10 * * * ?",
+        |  "startDate" : "2020-07-10 16:05:00",
+        |  "endDate" : "",
         |  "schedule":{
         |    "group": {
         |      "name": "Group",

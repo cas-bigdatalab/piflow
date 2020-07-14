@@ -193,46 +193,55 @@ object HTTPClientStartFlow {
                 |  }
                 |}
               """.stripMargin*/
-    val json ="""
-                |{
-                |  "flow":{
-                |    "name":"中文翻译为",
-                |    "uuid":"1234",
-                |    "runMode":"DEBUG",
-                |    "stops":[
-                |      {
-                |        "uuid":"1111",
-                |        "name":"XmlParser",
-                |        "bundle":"cn.piflow.bundle.xml.XmlParser",
-                |        "properties":{
-                |            "xmlpath":"hdfs://10.0.86.191:9000/xjzhu/dblp.mini.xml",
-                |            "rowTag":"phdthesis"
-                |        }
-                |
-                |      },
-                |      {
-                |        "uuid":"2222",
-                |        "name":"ShowData",
-                |        "bundle":"cn.piflow.bundle.external.ShowData",
-                |        "properties":{
-                |            "showNumber":"10"
-                |        }
-                |
-                |      }
-                |    ],
-                |    "paths":[
-                |      {
-                |        "from":"XmlParser",
-                |        "outport":"",
-                |        "inport":"",
-                |        "to":"      "
-                |      }
-                |    ]
-                |  }
-                |}
-              """.stripMargin
+    val json =
+      """
+        |{
+        |  "flow": {
+        |    "name": "MockData",
+        |    "executorMemory": "1g",
+        |    "executorNumber": "1",
+        |    "uuid": "8a80d63f720cdd2301723b7461d92600",
+        |    "paths": [
+        |      {
+        |        "inport": "",
+        |        "from": "MockData",
+        |        "to": "ShowData",
+        |        "outport": ""
+        |      }
+        |    ],
+        |    "executorCores": "1",
+        |    "driverMemory": "1g",
+        |    "stops": [
+        |      {
+        |        "name": "MockData",
+        |        "bundle": "cn.piflow.bundle.common.MockData",
+        |        "uuid": "8a80d63f720cdd2301723b7461d92604",
+        |        "properties": {
+        |          "schema": "title:String, author:String, age:Int",
+        |          "count": "10"
+        |        },
+        |        "customizedProperties": {
+        |
+        |        }
+        |      },
+        |      {
+        |        "name": "ShowData",
+        |        "bundle": "cn.piflow.bundle.external.ShowData",
+        |        "uuid": "8a80d63f720cdd2301723b7461d92602",
+        |        "properties": {
+        |          "showNumber": "5"
+        |        },
+        |        "customizedProperties": {
+        |
+        |        }
+        |      }
+        |    ]
+        |  }
+        |}
+        |
+      """.stripMargin
 
-    val url = "http://10.0.86.191:8002/flow/start"
+    val url = "http://10.0.90.119:8001/flow/start"
     val timeout = 1800
     val requestConfig = RequestConfig.custom()
       .setConnectTimeout(timeout*1000)

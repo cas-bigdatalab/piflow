@@ -13,134 +13,56 @@ object HTTPClientScheduleFlow {
       """
         |{
         |	"expression": "0 0/5 * * * ?",
-        |	"schedule": {
-        |		"flow": {
-        |			"name": "xml,csv-merge-fork-hive,json,csv",
-        |			"uuid": "1234",
-        |			"checkpoint": "Merge",
-        |			"runMode": "DEBUG",
-        |			"stops": [{
-        |					"uuid": "1111",
-        |					"name": "XmlParser",
-        |					"bundle": "cn.piflow.bundle.xml.XmlParser",
-        |					"properties": {
-        |						"xmlpath": "hdfs://10.0.86.89:9000/xjzhu/dblp.mini.xml",
-        |						"rowTag": "phdthesis"
-        |					}
+        | "startDate" : "2020-07-14 03:25:00",
+        | "endDate" : "2020-07-14 03:50:00",
+        |	"schedule":{
+        |  "flow": {
+        |    "name": "MockData",
+        |    "executorMemory": "1g",
+        |    "executorNumber": "1",
+        |    "uuid": "8a80d63f720cdd2301723b7461d92600",
+        |    "paths": [
+        |      {
+        |        "inport": "",
+        |        "from": "MockData",
+        |        "to": "ShowData",
+        |        "outport": ""
+        |      }
+        |    ],
+        |    "executorCores": "1",
+        |    "driverMemory": "1g",
+        |    "stops": [
+        |      {
+        |        "name": "MockData",
+        |        "bundle": "cn.piflow.bundle.common.MockData",
+        |        "uuid": "8a80d63f720cdd2301723b7461d92604",
+        |        "properties": {
+        |          "schema": "title:String, author:String, age:Int",
+        |          "count": "10"
+        |        },
+        |        "customizedProperties": {
         |
-        |				},
-        |				{
-        |					"uuid": "2222",
-        |					"name": "SelectField",
-        |					"bundle": "cn.piflow.bundle.common.SelectField",
-        |					"properties": {
-        |						"schema": "title,author,pages"
-        |					}
+        |        }
+        |      },
+        |      {
+        |        "name": "ShowData",
+        |        "bundle": "cn.piflow.bundle.external.ShowData",
+        |        "uuid": "8a80d63f720cdd2301723b7461d92602",
+        |        "properties": {
+        |          "showNumber": "5"
+        |        },
+        |        "customizedProperties": {
         |
-        |				},
-        |				{
-        |					"uuid": "3333",
-        |					"name": "PutHiveStreaming",
-        |					"bundle": "cn.piflow.bundle.hive.PutHiveStreaming",
-        |					"properties": {
-        |						"database": "sparktest",
-        |						"table": "dblp_phdthesis"
-        |					}
-        |				},
-        |				{
-        |					"uuid": "4444",
-        |					"name": "CsvParser",
-        |					"bundle": "cn.piflow.bundle.csv.CsvParser",
-        |					"properties": {
-        |						"csvPath": "hdfs://10.0.86.89:9000/xjzhu/phdthesis.csv",
-        |						"header": "false",
-        |						"delimiter": ",",
-        |						"schema": "title,author,pages"
-        |					}
-        |				},
-        |				{
-        |					"uuid": "555",
-        |					"name": "Merge",
-        |					"bundle": "cn.piflow.bundle.common.Merge",
-        |					"properties": {
-        |						"inports": "data1,data2"
-        |					}
-        |				},
-        |				{
-        |					"uuid": "666",
-        |					"name": "Fork",
-        |					"bundle": "cn.piflow.bundle.common.Fork",
-        |					"properties": {
-        |						"outports": "out1,out2,out3"
-        |					}
-        |				},
-        |				{
-        |					"uuid": "777",
-        |					"name": "JsonSave",
-        |					"bundle": "cn.piflow.bundle.json.JsonSave",
-        |					"properties": {
-        |						"jsonSavePath": "hdfs://10.0.86.89:9000/xjzhu/phdthesis.json"
-        |					}
-        |				},
-        |				{
-        |					"uuid": "888",
-        |					"name": "CsvSave",
-        |					"bundle": "cn.piflow.bundle.csv.CsvSave",
-        |					"properties": {
-        |						"csvSavePath": "hdfs://10.0.86.89:9000/xjzhu/phdthesis_result.csv",
-        |						"header": "true",
-        |						"delimiter": ","
-        |					}
-        |				}
-        |			],
-        |			"paths": [{
-        |					"from": "XmlParser",
-        |					"outport": "",
-        |					"inport": "",
-        |					"to": "SelectField"
-        |				},
-        |				{
-        |					"from": "SelectField",
-        |					"outport": "",
-        |					"inport": "data1",
-        |					"to": "Merge"
-        |				},
-        |				{
-        |					"from": "CsvParser",
-        |					"outport": "",
-        |					"inport": "data2",
-        |					"to": "Merge"
-        |				},
-        |				{
-        |					"from": "Merge",
-        |					"outport": "",
-        |					"inport": "",
-        |					"to": "Fork"
-        |				},
-        |				{
-        |					"from": "Fork",
-        |					"outport": "out1",
-        |					"inport": "",
-        |					"to": "PutHiveStreaming"
-        |				},
-        |				{
-        |					"from": "Fork",
-        |					"outport": "out2",
-        |					"inport": "",
-        |					"to": "JsonSave"
-        |				},
-        |				{
-        |					"from": "Fork",
-        |					"outport": "out3",
-        |					"inport": "",
-        |					"to": "CsvSave"
-        |				}
-        |			]
-        |		}
-        |	}
+        |        }
+        |      }
+        |    ]
+        |  }
+        |}
+        |
+        |
         |}
       """.stripMargin
-    val url = "http://10.0.86.98:8001/schedule/start"
+    val url = "http://10.0.90.119:8001/schedule/start"
     val timeout = 1800
     val requestConfig = RequestConfig.custom()
       .setConnectTimeout(timeout*1000)
