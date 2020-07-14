@@ -737,6 +737,24 @@ object H2Util {
     return flag
   }
 
+  def addScheduleInstance(scheduleId : String, cronExpression : String, startDate : String, endDate : String, state : String): Unit ={
+        val statement = getConnectionInstance().createStatement()
+    statement.setQueryTimeout(QUERY_TIME)
+    val time = new Date().toString
+    statement.executeUpdate("insert into scheduleInstance(id, cronExpression, startDate, endDate, state, createTime, updateTime) values('" + scheduleId +  "','" + cronExpression + "','" + startDate + "','" + endDate + "','" + state + "','" + time + "','" + time + "')")
+    statement.close()
+  }
+
+  def updateScheduleInstanceStatus(scheduleId : String, state : String)  = {
+    val statement = getConnectionInstance().createStatement()
+    statement.setQueryTimeout(QUERY_TIME)
+    val time = new Date().toString
+    val updateSql = "update scheduleInstance set state='" + state + "', updateTime='" + time + "' where id='" + scheduleId + "'"
+    println(updateSql)
+        statement.executeUpdate(updateSql)
+    statement.close()
+  }
+
   def addScheduleEntry(scheduleId : String, scheduleEntryId : String, scheduleEntryType : String): Unit ={
     val createTime = new Date().toString
     val statement = getConnectionInstance().createStatement()
@@ -751,7 +769,19 @@ object H2Util {
     statement.setQueryTimeout(QUERY_TIME)
 
     var scheduleInfoMap = Map[String, Any]()
-    scheduleInfoMap += ("scheduleId" -> scheduleId)
+    //get flow basic info
+    val scheduleInstanceRS : ResultSet = statement.executeQuery("select * from scheduleInstance where id='" + scheduleId +"'")
+    while (scheduleInstanceRS.next()){
+
+      scheduleInfoMap += ("id" -> scheduleInstanceRS.getString("id"))
+      scheduleInfoMap += ("cronExpression" -> scheduleInstanceRS.getString("cronExpression"))
+      scheduleInfoMap += ("startDate" -> scheduleInstanceRS.getString("startDate"))
+      scheduleInfoMap += ("endDate" -> scheduleInstanceRS.getString("endDate"))
+      scheduleInfoMap += ("state" -> scheduleInstanceRS.getString("state"))
+      scheduleInfoMap += ("createTime" -> scheduleInstanceRS.getString("createTime"))
+      scheduleInfoMap += ("updateTime" -> scheduleInstanceRS.getString("updateTime"))
+    }
+    scheduleInstanceRS.close()
 
     var scheduleEntryList : List[Map[String, String]] = List()
     val scheduleRS : ResultSet = statement.executeQuery("select * from schedule where scheduleId='" + scheduleId +"'")
