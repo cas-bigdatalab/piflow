@@ -53,12 +53,18 @@ object FlowLauncher {
     }
 
     //add other jars for application
+
+    val pluginOnList = H2Util.getPluginOn()
     val classPath = PropertyUtil.getClassPath()
     val classPathFile = new File(classPath)
     if(classPathFile.exists()){
       FileUtil.getJarFile(new File(classPath)).foreach(f => {
-        println(f.getPath)
-        sparkLauncher.addJar(f.getPath)
+        pluginOnList.foreach( pluginName => {
+          if(pluginName == f.getName){
+            println(f.getPath)
+            sparkLauncher.addJar(f.getPath)
+          }
+        })
       })
     }
 
