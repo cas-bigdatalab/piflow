@@ -4,11 +4,11 @@ import org.apache.http.client.methods.{CloseableHttpResponse, HttpGet}
 import org.apache.http.impl.client.HttpClients
 import org.apache.http.util.EntityUtils
 
-object HTTPClientGetAllPlugin {
+object HTTPClientGetPluginPath {
 
   def main(args: Array[String]): Unit = {
 
-    val url = "http://10.0.85.83:8001/plugin/info"
+    val url = "http://10.0.90.119:8001/plugin/path"
     val client = HttpClients.createDefault()
     val getFlowInfo:HttpGet = new HttpGet(url)
 

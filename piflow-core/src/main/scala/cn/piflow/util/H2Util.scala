@@ -826,12 +826,13 @@ object H2Util {
 
   def addPlugin(name:String)={
 
+    var id = ""
     var state = ""
     val statement = getConnectionInstance().createStatement()
     statement.setQueryTimeout(QUERY_TIME)
     val rs : ResultSet = statement.executeQuery("select * from plugin where name='" + name +"'")
     if(!rs.isBeforeFirst){
-      val id = IdGenerator.uuid()
+      id = IdGenerator.uuid()
       val time = new Date().toString
       statement.executeUpdate("insert into plugin(id, name, state, createTime, updateTime) values('" + id + "','" + name + "','" + PluginState.ON + "','" + time + "','" + time  + "')")
       state = PluginState.ON
@@ -839,6 +840,7 @@ object H2Util {
 
       breakable{
         while(rs.next()){
+          id = rs.getString("id")
           state = rs.getString("state")
           val time = new Date().toString
           if(state == PluginState.OFF){
@@ -853,7 +855,7 @@ object H2Util {
     }
     rs.close()
     statement.close()
-    state
+    id
   }
 
   def removePlugin(name:String)={
@@ -884,29 +886,43 @@ object H2Util {
     state
   }
 
-  def getPluginInfo() : String ={
+  def getPluginInfo(pluginId : String) : String ={
 
-    //get flow stops info
-    var pluginList:List[Map[String, Any]] = List()
+    val pluginMap = getPluginInfoMap(pluginId)
+    JsonUtil.format(JsonUtil.toJson(pluginMap))
+  }
+
+  def getPluginInfoMap(pluginId : String) : Map[String, String] ={
+
+    var pluginMap = Map[String, String]()
     val statement = getConnectionInstance().createStatement()
-    val rs : ResultSet = statement.executeQuery("select * from plugin")
+    val rs : ResultSet = statement.executeQuery("select * from plugin where id='" + pluginId + "'")
     while(rs.next()){
-      var pluginMap = Map[String, Any]()
 
+      val path = PropertyUtil.getClassPath() + "/" + rs.getString("name")
       pluginMap += ("id" -> rs.getString("id"))
       pluginMap += ("name" -> rs.getString("name"))
+      pluginMap += ("path" -> path)
       pluginMap += ("state" -> rs.getString("state"))
       pluginMap += ("createTime" -> rs.getString("createTime"))
       pluginMap += ("updateTime" -> rs.getString("updateTime"))
-
-      pluginList = Map("plugin" -> pluginMap) +: pluginList
-
     }
     rs.close()
     statement.close()
+    pluginMap
+  }
 
-    val pluginsMap = Map[String, Any]("plugins" -> pluginList)
-    JsonUtil.format(JsonUtil.toJson(pluginsMap))
+  def getPluginOn() : List[String] ={
+
+    var pluginList = List[String]()
+    val statement = getConnectionInstance().createStatement()
+    val rs : ResultSet = statement.executeQuery("select * from plugin where state='" + PluginState.ON + "'")
+    while(rs.next()){
+      pluginList = rs.getString("name") +: pluginList
+    }
+    rs.close()
+    statement.close()
+    pluginList
   }
 
 

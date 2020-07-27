@@ -23,8 +23,8 @@ import scala.collection.mutable.{Map => MMap}
 
 object API {
 
-  def addPlugin(pluginManager:PluginManager, pluginName : String) : Boolean = {
-    var result = false
+  def addPlugin(pluginManager:PluginManager, pluginName : String) : String = {
+    var id = ""
     val classpathFile = new File(pluginManager.getPluginPath())
     val jarFile = FileUtil.getJarFile(classpathFile)
     breakable{
@@ -33,36 +33,39 @@ object API {
 
           pluginManager.unloadPlugin(i.getAbsolutePath)
           pluginManager.loadPlugin(i.getAbsolutePath)
-          H2Util.addPlugin(pluginName)
-          result = true
+          id = H2Util.addPlugin(pluginName)
           break
         }
       })
     }
-    result
+    id
   }
 
-  def removePlugin(pluginManager:PluginManager, pluginName : String) : Boolean = {
+  def removePlugin(pluginManager:PluginManager, pluginId : String) : Boolean = {
     var result = false
-    val classpathFile = new File(pluginManager.getPluginPath())
-    val jarFile = FileUtil.getJarFile(classpathFile)
-    breakable{
-      jarFile.foreach( i => {
-        println(i.getAbsolutePath)
-        if(i.getName.equals(pluginName)) {
-          pluginManager.unloadPlugin(i.getAbsolutePath)
-          H2Util.removePlugin(pluginName)
-          result = true
-          break
-        }
-      })
+    val pluginName = H2Util.getPluginInfoMap(pluginId).getOrElse("name","")
+    if(pluginName != ""){
+      val classpathFile = new File(pluginManager.getPluginPath())
+      val jarFile = FileUtil.getJarFile(classpathFile)
+      breakable{
+        jarFile.foreach( i => {
+          println(i.getAbsolutePath)
+          if(i.getName.equals(pluginName)) {
+            pluginManager.unloadPlugin(i.getAbsolutePath)
+            H2Util.removePlugin(pluginName)
+            result = true
+            break
+          }
+        })
+      }
     }
+
     result
   }
 
-  def getAllPlugin() : String = {
-    val plugins = H2Util.getPluginInfo()
-    plugins
+  def getPluginInfo(pluginId : String) : String = {
+    val pluginInfo = H2Util.getPluginInfo(pluginId)
+    pluginInfo
   }
 
   def getConfigurableStopInPlugin(pluginManager:PluginManager, pluginName : String) : String = {

@@ -424,10 +424,11 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
        case HttpEntity.Strict(_, data) =>{
          val data = toJson(entity)
          val pluginName  = data.get("plugin").getOrElse("").asInstanceOf[String]
-         val isOk = API.addPlugin(pluginManager, pluginName)
-         if(isOk){
-           val bundles = API.getConfigurableStopInPlugin(pluginManager, pluginName)
-           Future.successful(HttpResponse(SUCCESS_CODE, entity = bundles))
+         val pluginID = API.addPlugin(pluginManager, pluginName)
+         if(pluginID != ""){
+           //val bundles = API.getConfigurableStopInPlugin(pluginManager, pluginName)
+           val result = "{\"plugin\":{\"id\":\"" + pluginID + "\"}}"
+           Future.successful(HttpResponse(SUCCESS_CODE, entity = result))
          }else{
            Future.successful(HttpResponse(FAIL_CODE, entity = "Fail"))
          }
@@ -445,11 +446,14 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
      entity match {
        case HttpEntity.Strict(_, data) =>{
          val data = toJson(entity)
-         val pluginName  = data.get("plugin").getOrElse("").asInstanceOf[String]
-         val isOk = API.removePlugin(pluginManager, pluginName)
+         val pluginId  = data.get("pluginId").getOrElse("").asInstanceOf[String]
+         val isOk = API.removePlugin(pluginManager, pluginId)
 
-         val result = "Ok"
-         Future.successful(HttpResponse(SUCCESS_CODE, entity = result))
+         if(isOk == true){
+           Future.successful(HttpResponse(SUCCESS_CODE, entity = "OK"))
+         }else{
+           Future.successful(HttpResponse(FAIL_CODE, entity = "Fail"))
+         }
        }
 
        case ex => {
@@ -462,9 +466,10 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
 
    case HttpRequest(GET, Uri.Path("/plugin/info"), headers, entity, protocol) =>{
 
+     val pluginId = req.getUri().query().getOrElse("pluginId","")
      try{
-       val plugins = API.getAllPlugin()
-       Future.successful(HttpResponse(SUCCESS_CODE, entity = plugins))
+       val pluginInfo = API.getPluginInfo(pluginId)
+       Future.successful(HttpResponse(SUCCESS_CODE, entity = pluginInfo))
      }catch {
        case ex => {
          println(ex)
@@ -474,6 +479,19 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
 
    }
 
+   case HttpRequest(GET, Uri.Path("/plugin/path"), headers, entity, protocol) =>{
+
+     try{
+       val pluginPath = PropertyUtil.getClassPath()
+       val result = "{\"pluginPath\":\""+ pluginPath + "\"}"
+       Future.successful(HttpResponse(SUCCESS_CODE, entity = result))
+     }catch {
+       case ex => {
+         println(ex)
+         Future.successful(HttpResponse(FAIL_CODE, entity = "Can not found plugin path !"))
+       }
+     }
+   }
 
    case _: HttpRequest =>
       Future.successful(HttpResponse(UNKNOWN_CODE, entity = "Unknown resource!"))
@@ -545,12 +563,19 @@ object Main {
   }
 
   def initPlugin() = {
+    val pluginOnList = H2Util.getPluginOn()
     val classpathFile = new File(pluginManager.getPluginPath())
     val jarFile = FileUtil.getJarFile(classpathFile)
-    jarFile.foreach( i => {
-      println(i.getAbsolutePath)
-      pluginManager.loadPlugin(i.getAbsolutePath)
+
+    pluginOnList.foreach( pluginName => {
+      jarFile.foreach( pluginJar => {
+        if(pluginName == pluginJar.getName){
+          println(pluginJar.getAbsolutePath)
+          pluginManager.loadPlugin(pluginJar.getAbsolutePath)
+        }
+      })
     })
+
   }
   def main(argv: Array[String]):Unit = {
     val h2Server = Server.createTcpServer("-tcp", "-tcpAllowOthers", "-tcpPort",PropertyUtil.getPropertyValue("h2.port")).start()
