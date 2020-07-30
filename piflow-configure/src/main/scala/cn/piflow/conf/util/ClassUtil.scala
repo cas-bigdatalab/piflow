@@ -5,7 +5,7 @@ import java.net.URLClassLoader
 
 import cn.piflow.conf.ConfigurableStop
 import cn.piflow.conf.bean.PropertyDescriptor
-import net.liftweb.json.compactRender
+import net.liftweb.json.{JValue, compactRender}
 import org.clapper.classutil.ClassFinder
 import org.reflections.Reflections
 import net.liftweb.json.JsonDSL._
@@ -187,17 +187,16 @@ object ClassUtil {
     stopPropertyDesc.getPropertyDescriptor()
   }
 
-  def findConfigurableStopInfo(bundle : String) : String = {
-    val stop = ClassUtil.findConfigurableStop(bundle)
+  def constructStopInfoJValue(bundle: String, stop:ConfigurableStop) : JValue ={
+    val stopName = bundle.split("\\.").last
     val propertyDescriptorList:List[PropertyDescriptor] = stop.getPropertyDescriptor()
     propertyDescriptorList.foreach(p=> if (p.allowableValues == null || p.allowableValues == None) p.allowableValues = List(""))
-    val stopName = bundle.split("\\.").last
     val base64Encoder = new BASE64Encoder()
-    val json =
+    val jsonValue =
       ("StopInfo" ->
         ("name" -> stopName)~
-        ("bundle" -> bundle) ~
-        ("owner" -> stop.authorEmail) ~
+          ("bundle" -> bundle) ~
+          ("owner" -> stop.authorEmail) ~
           ("inports" -> stop.inportList.mkString(",")) ~
           ("outports" -> stop.outportList.mkString(",")) ~
           ("groups" -> stop.getGroup().mkString(",")) ~
@@ -214,9 +213,27 @@ object ClassUtil {
                 ("required" -> property.required.toString) ~
                 ("sensitive" -> property.sensitive.toString) ~
                 ("example" -> property.example)) }) )
-    val jsonString = compactRender(json)
-    jsonString
+    jsonValue
+  }
 
+  def findConfigurableStopInfo(bundle : String) : String = {
+    val stop = ClassUtil.findConfigurableStop(bundle)
+    val jvalue = constructStopInfoJValue(bundle,stop)
+    val jsonString = compactRender(jvalue)
+    jsonString
+  }
+
+  def findConfigurableStopListInfo(bundleList : List[String]) : String = {
+
+    var stopInfoJValueList = List[JValue]()
+    bundleList.foreach(bundle =>{
+      val stop = ClassUtil.findConfigurableStop(bundle)
+      val stopJValue = constructStopInfoJValue(bundle,stop)
+      stopInfoJValueList = stopJValue +: stopInfoJValueList
+    })
+    val stopInfoJValue = (stopInfoJValueList)
+    val jsonString = compactRender(stopInfoJValue)
+    jsonString
   }
 
   def main(args: Array[String]): Unit = {

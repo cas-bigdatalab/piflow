@@ -78,6 +78,16 @@ object API {
     """{"bundles":"""" + bundleList.mkString(",") + """"}"""
   }
 
+  def getConfigurableStopInfoInPlugin(pluginManager:PluginManager, pluginName : String) : String = {
+    var bundleList = List[String]()
+    val stops = pluginManager.getPluginConfigurableStops(pluginName)
+    stops.foreach(s => {
+      bundleList = s.getClass.getName +: bundleList
+    })
+    val jsonString = ClassUtil.findConfigurableStopListInfo(bundleList)
+    jsonString
+  }
+
   def getResourceInfo() : String = {
 
     try{

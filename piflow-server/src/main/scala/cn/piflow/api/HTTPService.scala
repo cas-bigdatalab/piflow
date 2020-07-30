@@ -426,8 +426,8 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
          val pluginName  = data.get("plugin").getOrElse("").asInstanceOf[String]
          val pluginID = API.addPlugin(pluginManager, pluginName)
          if(pluginID != ""){
-           //val bundles = API.getConfigurableStopInPlugin(pluginManager, pluginName)
-           val result = "{\"plugin\":{\"id\":\"" + pluginID + "\"}}"
+           val stopsInfo = API.getConfigurableStopInfoInPlugin(pluginManager,pluginName)
+           val result = "{\"plugin\":{\"id\":\"" + pluginID + "\"},\"stopsInfo\":" + stopsInfo +"}"
            Future.successful(HttpResponse(SUCCESS_CODE, entity = result))
          }else{
            Future.successful(HttpResponse(FAIL_CODE, entity = "Fail"))
@@ -447,10 +447,14 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
        case HttpEntity.Strict(_, data) =>{
          val data = toJson(entity)
          val pluginId  = data.get("pluginId").getOrElse("").asInstanceOf[String]
-         val isOk = API.removePlugin(pluginManager, pluginId)
+         val pluginName = H2Util.getPluginInfoMap(pluginId).getOrElse("name","")
+         val stopsInfo = API.getConfigurableStopInfoInPlugin(pluginManager,pluginName)
 
+         val isOk = API.removePlugin(pluginManager, pluginId)
          if(isOk == true){
-           Future.successful(HttpResponse(SUCCESS_CODE, entity = "OK"))
+
+           val result = "{\"plugin\":{\"id\":\"" + pluginId + "\"},\"stopsInfo\":" + stopsInfo +"}"
+           Future.successful(HttpResponse(SUCCESS_CODE, entity = result))
          }else{
            Future.successful(HttpResponse(FAIL_CODE, entity = "Fail"))
          }
