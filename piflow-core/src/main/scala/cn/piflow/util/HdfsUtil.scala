@@ -251,11 +251,10 @@ object HdfsUtil {
     val conf = new Configuration()
     val fileSystem = FileSystem.get(new URI(hdfsURL),conf)
     val fsStatus = fileSystem.getStatus
-    val capacity = fsStatus.getCapacity
-    val remaining = fsStatus.getRemaining
-    //val used = fsStatus.getUsed
+    val capacity = fsStatus.getCapacity/(1024*1024*1024)
+    val remaining = fsStatus.getRemaining/(1024*1024*1024)
     val used = capacity - remaining
-    val map = Map("capacityGB" -> capacity/(1024*1024*1024), "remainingGB" -> remaining/(1024*1024*1024), "usedGB" -> used/(1024*1024*1024))
+    val map = Map("TotalCapacityGB" -> capacity, "remainingCapacityGB" -> remaining, "allocatedCapacityGB" -> used)
     map
   }
 
