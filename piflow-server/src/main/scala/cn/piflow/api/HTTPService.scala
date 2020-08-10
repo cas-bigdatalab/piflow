@@ -358,6 +358,10 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
          actorMap += (id -> flowActor)
 
          H2Util.addScheduleInstance(id, expression, startDateStr, endDateStr, ScheduleState.STARTED)
+
+         //save schedule json file
+         val flowFile = FlowFileUtil.getScheduleFilePath(id)
+         FileUtil.writeFile(data.utf8String, flowFile)
          Future.successful(HttpResponse(SUCCESS_CODE, entity = id))
        }
 
@@ -513,6 +517,7 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
     Http().bindAndHandleAsync(route, ip, port)
     println("Server:" + ip + ":" + port + " Started!!!")
 
+    initSchedule()
     new MonitorScheduler().start()
 
   }
@@ -536,6 +541,38 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
         Thread.sleep(10000)
       }
     }
+  }
+
+  def initSchedule() = {
+    val scheduleList = H2Util.getStartedSchedule()
+    scheduleList.foreach(id => {
+      val scheduleContent = FlowFileUtil.readFlowFile(FlowFileUtil.getScheduleFilePath(id))
+      val dataMap = JSON.parseFull(scheduleContent).get.asInstanceOf[Map[String, Any]]
+
+
+      val expression = dataMap.get("expression").getOrElse("").asInstanceOf[String]
+      val startDateStr = dataMap.get("startDate").getOrElse("").asInstanceOf[String]
+      val endDateStr = dataMap.get("endDate").getOrElse("").asInstanceOf[String]
+      val scheduleInstance = dataMap.get("schedule").getOrElse(Map[String, Any]()).asInstanceOf[Map[String, Any]]
+
+      var scheduleType = ""
+      if(!scheduleInstance.getOrElse("flow","").equals("")){
+        scheduleType = ScheduleType.FLOW
+      }else if(!scheduleInstance.getOrElse("group","").equals("")){
+        scheduleType = ScheduleType.GROUP
+      }
+      val flowActor = system.actorOf(Props(new ExecutionActor(id,scheduleType)))
+      scheduler.createSchedule(id,cronExpression = expression)
+
+      if(startDateStr.equals("")){
+        scheduler.schedule(id,flowActor,JsonUtil.format(JsonUtil.toJson(scheduleInstance)))
+      }else{
+        val startDate : Option[Date] = Some(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").parse(startDateStr))
+        scheduler.schedule(id,flowActor,JsonUtil.format(JsonUtil.toJson(scheduleInstance)), startDate)
+      }
+      actorMap += (id -> flowActor)
+    })
+
   }
 }
 
@@ -579,8 +616,9 @@ object Main {
         }
       })
     })
-
   }
+
+
   def main(argv: Array[String]):Unit = {
     val h2Server = Server.createTcpServer("-tcp", "-tcpAllowOthers", "-tcpPort",PropertyUtil.getPropertyValue("h2.port")).start()
     flywayInit()

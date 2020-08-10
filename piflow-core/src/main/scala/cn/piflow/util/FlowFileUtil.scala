@@ -1,7 +1,6 @@
 package cn.piflow.util
 
 import java.io.{File, FileInputStream, InputStream}
-import java.net.InetAddress
 import java.util.Properties
 
 object FlowFileUtil {
@@ -9,10 +8,17 @@ object FlowFileUtil {
   var fis: InputStream = null
   val userDir = System.getProperty("user.dir")
   var path :String = ""
+  var schedulePath:String = ""
+  var file : File = null
 
-    try{
+  try{
 
     path = userDir + "/flowFile"
+    schedulePath = path + "/scheduleFile"
+    file = new File(schedulePath)
+    if(!file.exists()){
+      file.mkdirs()
+    }
 
   } catch{
     case ex: Exception => ex.printStackTrace()
@@ -33,6 +39,10 @@ object FlowFileUtil {
   def readFlowFile(flowFilePath : String) : String = {
 
     FileUtil.readFile(flowFilePath)
+  }
+
+  def getScheduleFilePath(fileName : String) : String = {
+    schedulePath + "/" + fileName + ".json"
   }
 
 

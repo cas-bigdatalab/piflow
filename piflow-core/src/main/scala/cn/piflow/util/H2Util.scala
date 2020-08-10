@@ -824,6 +824,23 @@ object H2Util {
 
   }
 
+  def getStartedSchedule() : List[String] ={
+
+    var scheduleList = List[String]()
+    val statement = getConnectionInstance().createStatement()
+    statement.setQueryTimeout(QUERY_TIME)
+
+    var scheduleInfoMap = Map[String, Any]()
+    //get flow basic info
+    val scheduleInstanceRS : ResultSet = statement.executeQuery("select * from scheduleInstance where state='" + ScheduleState.STARTED +"'")
+    while (scheduleInstanceRS.next()){
+
+      scheduleList = scheduleInstanceRS.getString("id") +: scheduleList
+    }
+    scheduleInstanceRS.close()
+    scheduleList
+  }
+
   def addPlugin(name:String)={
 
     var id = ""
