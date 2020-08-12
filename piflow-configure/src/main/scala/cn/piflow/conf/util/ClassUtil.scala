@@ -5,6 +5,7 @@ import java.net.URLClassLoader
 
 import cn.piflow.conf.ConfigurableStop
 import cn.piflow.conf.bean.PropertyDescriptor
+import javassist.Modifier
 import net.liftweb.json.{JValue, compactRender}
 import org.clapper.classutil.ClassFinder
 import org.reflections.Reflections
@@ -32,14 +33,23 @@ object ClassUtil {
     var count = 0
     while(it.hasNext) {
 
+
       breakable{
 
-        val stopName = it.next.getName
-        if (stopName.equals("cn.piflow.conf.ConfigurableStreamingStop") || stopName.equals("cn.piflow.conf.ConfigurableIncrementalStop") )
+        val stop = it.next
+        val stopName = stop.getName
+        val stopClass = Class.forName(stopName)
+
+        if(Modifier.isAbstract(stopClass.getModifiers())) {
+          println("Stop " + stop.getName + " is interface!")
+          /*if (stopName.equals("cn.piflow.conf.ConfigurableStreamingStop")
+            || stopName.equals("cn.piflow.conf.ConfigurableIncrementalStop")
+            || stopName.equals("cn.piflow.conf.ConfigurableVisualizationStop"))*/
           break
+        }
         else{
 
-          val stopClass = Class.forName(stopName)
+
           val plugin = stopClass.newInstance()
           val stop = plugin.asInstanceOf[ConfigurableStop]
           println("Find ConfigurableStop: " + stopName)
