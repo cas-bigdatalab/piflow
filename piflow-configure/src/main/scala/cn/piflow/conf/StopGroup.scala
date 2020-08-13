@@ -33,4 +33,5 @@ object StopGroup {
   val Alg_ImageProcessGroup = "Algorithms_ImageProcess"
   val Alg_ASRGroup = "Algorithms_ASR"
   val Python = "Python"
+  val Visualization = "Visualization"
 }

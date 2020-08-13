@@ -10,6 +10,24 @@ object ConfigureUtil {
   val NOT_EXIST_FLAG = 0
   val EXIST_FLAG = 1
 
+  def getVisualizationPath() : String = {
+    val item = "visualizationPath"
+    val hdfsFS = PropertyUtil.getPropertyValue("fs.defaultFS")
+    val visualizationPath = hdfsFS + "/user/piflow/visualization/"
+
+    val isCheckPointPathExist = H2Util.getFlag(item)
+    if(isCheckPointPathExist == NOT_EXIST_FLAG){
+      if(!HdfsUtil.exists(hdfsFS,visualizationPath)){
+        HdfsUtil.mkdir(hdfsFS,visualizationPath)
+      }
+      H2Util.addFlag(item, EXIST_FLAG)
+    }else{
+      visualizationPath
+    }
+
+    visualizationPath
+  }
+
   def getCheckpointPath() : String = {
     val item = "checkPointPath"
     val hdfsFS = PropertyUtil.getPropertyValue("fs.defaultFS")

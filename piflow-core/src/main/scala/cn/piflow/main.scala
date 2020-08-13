@@ -88,6 +88,16 @@ trait IncrementalStop extends Stop{
   def saveIncrementalStart(value : String);
 
 }
+trait VisualizationStop extends Stop{
+
+  var processId : String
+  var stopName : String
+  var visualizationPath : String
+
+  def init(stopName : String): Unit
+  def getVisualizationPath(processId : String) : String
+
+}
 
 trait GroupEntry {}
 
@@ -566,36 +576,29 @@ class JobOutputStreamImpl() extends JobOutputStream with Logging {
       HdfsUtil.saveLine(portSchemaPath,schemaStr )
       jsonDF.write.json(portDataPath)
 
-      /*val df = en._2.apply()
-      val resutl1 = df.withColumn("is_ee_null", col("ee").isNull)
-      resutl1.show()
+    })
+  }
 
-      println("Older Schema: " + df.schema)
+  def saveVisualizationData(visualizationPath : String) = {
 
-      val arrayColumnExp = "if(# is null , array(), #) as #"
-      val arrayColumns = df.schema.filter(_.dataType.typeName == "array").map(_.name)
-      println(arrayColumns)
 
-      var columnsList = List[String]()
-      df.schema.foreach(f => {
-        if(arrayColumns.contains(f.name)){
-          val t = arrayColumnExp.replace("#",f.name)
-          columnsList = t +: columnsList
-        }
-        else{
-          columnsList = f.name +: columnsList
-        }
-
+    mapDataFrame.foreach(en => {
+      val portName = if(en._1.equals("")) "default" else en._1
+      val portDataPath = visualizationPath + "/data"
+      val portSchemaPath = visualizationPath + "/schema"
+      val jsonDF = en._2.apply().na.fill("")
+      var schemaStr = ""
+      val schema = jsonDF.schema.foreach(f => {
+        schemaStr =  schemaStr + "," + f.name
       })
-      println("Newer Schema: " + df.schema)
-
-      val noneDF = df.selectExpr(columnsList:_*)
-
-      noneDF.show()
-      noneDF.na.fill("").na.fill(0.0).na.fill(0).write.json(portDataPath)*/
+      schemaStr = schemaStr.stripPrefix(",")
+      HdfsUtil.saveLine(portSchemaPath,schemaStr )
+      jsonDF.write.json(portDataPath)
 
     })
   }
+
+
 
   def getDataCount() : MMap[String, Long]= {
 
@@ -781,6 +784,12 @@ class ProcessImpl(flow: Flow, runnerContext: Context, runner: Runner, parentProc
 
             }
           }
+
+          if(pe.getStop().isInstanceOf[VisualizationStop]){
+            val s = pe.getStop().asInstanceOf[VisualizationStop]
+            outputs.saveVisualizationData(s.getVisualizationPath(id))
+          }
+
           //show data in log
           val showDataCount = PropertyUtil.getPropertyValue("data.show").toInt
           if(showDataCount > 0) {

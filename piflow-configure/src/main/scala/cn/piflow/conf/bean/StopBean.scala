@@ -2,7 +2,7 @@ package cn.piflow.conf.bean
 
 import java.lang.ClassNotFoundException
 
-import cn.piflow.conf.{ConfigurableIncrementalStop, ConfigurableStop}
+import cn.piflow.conf.{ConfigurableIncrementalStop, ConfigurableStop, ConfigurableVisualizationStop}
 import cn.piflow.conf.util.{ClassUtil, MapUtil}
 
 import scala.collection.mutable
@@ -58,6 +58,9 @@ class StopBean {
         }
         stop.setProperties(newProperties.toMap)
 
+      }else if( stop.isInstanceOf[ConfigurableVisualizationStop]){
+        stop.asInstanceOf[ConfigurableVisualizationStop].init(name)
+        stop.setProperties(this.properties)
       }else {
         stop.setProperties(this.properties)
       }
