@@ -65,6 +65,6 @@ class LineChart extends ConfigurableVisualizationStop{
     val sqlText = "select " + abscissa + "," + dimensionCountArray.mkString(",") + " from LineChart group by " + abscissa;
     println("LineChart Sql: " + sqlText)
     val lineChartDF = spark.sql(sqlText)
-    out.write(lineChartDF)
+    out.write(lineChartDF.repartition(1))
   }
 }

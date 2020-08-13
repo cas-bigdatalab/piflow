@@ -787,7 +787,7 @@ class ProcessImpl(flow: Flow, runnerContext: Context, runner: Runner, parentProc
 
           if(pe.getStop().isInstanceOf[VisualizationStop]){
             val s = pe.getStop().asInstanceOf[VisualizationStop]
-            outputs.saveVisualizationData(s.getVisualizationPath(id))
+            outputs.saveVisualizationData(s.getVisualizationPath(appId))
           }
 
           //show data in log

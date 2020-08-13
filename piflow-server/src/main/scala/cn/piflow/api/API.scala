@@ -10,6 +10,7 @@ import org.apache.spark.sql.SparkSession
 import cn.piflow.conf.util.{ClassUtil, MapUtil, OptionUtil, PluginManager, ScalaExecutorUtil}
 import cn.piflow.{GroupExecution, Process, Runner}
 import cn.piflow.conf.bean.{FlowBean, GroupBean}
+import cn.piflow.util.HdfsUtil.{getJsonMapList, getLine}
 import cn.piflow.util._
 import org.apache.http.client.methods.{CloseableHttpResponse, HttpGet, HttpPut}
 import org.apache.http.entity.StringEntity
@@ -283,6 +284,43 @@ object API {
     val schema = HdfsUtil.getLine(debugPath + "_schema")
     val result ="{\"schema\":\"" + schema+ "\", \"debugDataPath\": \""+ debugPath + "\"}"
     result
+  }
+
+  def getFlowVisualizationData(appId : String, stopName : String) : String = {
+
+    var dimensionMap = Map[String, List[String]]()
+    val visuanlizationPath :String = ConfigureUtil.getVisualizationPath().stripSuffix("/") + "/" + appId + "/" + stopName + "/"
+
+    val visualizationSchema = getLine(visuanlizationPath + "/schema")
+    val schemaArray = visualizationSchema.split(",")
+    val jsonMapList = getJsonMapList(visuanlizationPath + "/data")
+
+    var visuanlizationTuple = List[Tuple2[String,String]]()
+
+    val jsonTupleList = jsonMapList.flatMap( map => map.toSeq)
+
+    val visualizationInfo = jsonTupleList.groupBy(_._1)
+    visualizationInfo.foreach(dimension => {
+      var valueList = List[String]()
+      val dimensionList = dimension._2
+      dimensionList.foreach( dimensionAndCountPair => {
+        val v = String.valueOf(dimensionAndCountPair._2)
+        println(v)
+        valueList = valueList :+ v
+      })
+      dimensionMap += (dimension._1 -> valueList)
+    })
+    //dimensionMap
+
+    var lineChartMap = Map[String, Any]()
+    val x = schemaArray(0)
+    val xMap = Map(x -> OptionUtil.getAny(dimensionMap.get(schemaArray(0))) )
+    lineChartMap += {"x" -> xMap}
+    lineChartMap += {"y" -> dimensionMap.filterKeys(!_.equals(x))}
+
+    val visualizationJsonData = JsonUtil.format(JsonUtil.toJson(lineChartMap))
+    println(visualizationJsonData)
+    visualizationJsonData
   }
 
   def getStopInfo(bundle : String) : String = {

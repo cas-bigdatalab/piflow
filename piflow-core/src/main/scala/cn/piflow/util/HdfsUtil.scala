@@ -6,6 +6,8 @@ import java.net.URI
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FSDataInputStream, FSDataOutputStream, FileStatus, FileSystem, Path}
 
+import scala.util.parsing.json.JSON
+
 object HdfsUtil {
 
   def getFiles(filePath : String) : List[String] = {
@@ -72,6 +74,40 @@ object HdfsUtil {
       close(inputStream)
     }
     result
+  }
+
+  def getJsonMapList(hdfsFolder : String) : List[Map[String, Any]] = {
+    val files = HdfsUtil.getFiles(hdfsFolder)
+    var jsonList = List[Map[String, Any]]()
+    files.filter(!_.equals("_SUCCESSS")).foreach(file => {
+      val filePath = hdfsFolder + "/" + file
+      var line : String = ""
+      var inputStream : FSDataInputStream = null
+      var bufferedReader : BufferedReader = null
+
+      try{
+        inputStream = getFSDataInputStream(filePath)
+        bufferedReader = new BufferedReader(new InputStreamReader(inputStream))
+        line = bufferedReader.readLine();
+        while (line != null){
+          //result = result + " " + line
+          val jsonObj = JSON.parseFull(line) match {
+            case Some(x)  => x
+            case None => throw new IllegalArgumentException
+          }
+          jsonList = jsonList :+ jsonObj.asInstanceOf[Map[String, Any]]
+          line = bufferedReader.readLine()
+        }
+
+      }catch{
+        case ex : Exception => println(ex)
+      }finally {
+        close(bufferedReader)
+        close(inputStream)
+      }
+    })
+
+    jsonList
   }
 
   def saveLine(file : String, line: String) = {
@@ -263,7 +299,7 @@ object HdfsUtil {
 
     //val t = createFile(path)
     //saveLine(path,"xjzhu,xjzhu,xjzhu")
-    getCapacity()
+    //getCapacity()
 
   }
 

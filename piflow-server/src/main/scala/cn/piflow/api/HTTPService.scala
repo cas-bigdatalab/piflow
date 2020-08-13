@@ -150,6 +150,19 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
      }
 
    }
+   case HttpRequest(GET, Uri.Path("/flow/visualizationData"), headers, entity, protocol) => {
+
+     val appID = req.getUri().query().getOrElse("appID","")
+     val stopName = req.getUri().query().getOrElse("stopName","")
+     //val port = req.getUri().query().getOrElse("port","default")
+     if(!appID.equals("") && !stopName.equals()){
+       val result = API.getFlowVisualizationData(appID, stopName)
+       Future.successful(HttpResponse(SUCCESS_CODE, entity = result))
+     }else{
+       Future.successful(HttpResponse(FAIL_CODE, entity = "appID is null or stop does not have visualization data!"))
+     }
+
+   }
 
    case HttpRequest(POST, Uri.Path("/flow/start"), headers, entity, protocol) =>{
 
