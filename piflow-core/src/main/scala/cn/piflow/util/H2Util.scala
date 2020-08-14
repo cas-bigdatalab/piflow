@@ -765,7 +765,7 @@ object H2Util {
     val statement = getConnectionInstance().createStatement()
     statement.setQueryTimeout(QUERY_TIME)
     val nowDate: String = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date())
-    val updateSql = "select id from scheduleInstance where state = '" + ScheduleState.STARTED  + "' and endDate <= '" + nowDate + "'"
+    val updateSql = "select id from scheduleInstance where state = '" + ScheduleState.STARTED  + "' and endDate != '' and endDate <= '" + nowDate + "'"
     println(updateSql)
 
     val scheduleRS : ResultSet = statement.executeQuery(updateSql)
