@@ -202,6 +202,8 @@ object ClassUtil {
     val propertyDescriptorList:List[PropertyDescriptor] = stop.getPropertyDescriptor()
     propertyDescriptorList.foreach(p=> if (p.allowableValues == null || p.allowableValues == None) p.allowableValues = List(""))
     val base64Encoder = new BASE64Encoder()
+
+    //TODO: add properties for visualization stop
     val jsonValue =
       ("StopInfo" ->
         ("name" -> stopName)~
@@ -211,6 +213,8 @@ object ClassUtil {
           ("outports" -> stop.outportList.mkString(",")) ~
           ("groups" -> stop.getGroup().mkString(",")) ~
           ("isCustomized" -> stop.getCustomized().toString) ~
+          /*("customizedAllowKey" -> "") ~
+          ("customizedAllowValue" -> "") ~*/
           ("description" -> stop.description) ~
           ("icon" -> base64Encoder.encode(stop.getIcon())) ~
           ("properties" ->

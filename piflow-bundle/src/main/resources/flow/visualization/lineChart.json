@@ -3,12 +3,12 @@
     "name": "test",
     "executorMemory": "1g",
     "executorNumber": "1",
-    "uuid": "8a80da1b73d7047f0173e59dde8d0035",
+    "uuid": "8a80da1b73d7047f0173eaf27c1f007a",
     "paths": [
       {
         "inport": "",
         "from": "SelectHiveQL",
-        "to": "LineChart",
+        "to": "LineChart8",
         "outport": ""
       }
     ],
@@ -16,26 +16,26 @@
     "driverMemory": "1g",
     "stops": [
       {
-        "name": "LineChart",
-        "bundle": "cn.piflow.bundle.visualization.LineChart",
-        "uuid": "8a80da1b73d7047f0173e59dde8f0039",
+        "name": "SelectHiveQL",
+        "bundle": "cn.piflow.bundle.hive.SelectHiveQL",
+        "uuid": "8a80da1b73d7047f0173eaf27c230080",
         "properties": {
-          "dimension": "name",
-          "abscissa": "birthday"
+          "hiveQL": "select * from test.student"
         },
         "customizedProperties": {
 
         }
       },
       {
-        "name": "SelectHiveQL",
-        "bundle": "cn.piflow.bundle.hive.SelectHiveQL",
-        "uuid": "8a80da1b73d7047f0173e59dde8e0037",
+        "name": "LineChart8",
+        "bundle": "cn.piflow.bundle.visualization.LineChart",
+        "uuid": "8a80da1b73d7047f0173eaf27c20007c",
         "properties": {
-          "hiveQL": "select * from test.student"
+          "x": "birthday"
         },
         "customizedProperties": {
-
+          "name": "COUNT",
+          "id": "SUM"
         }
       }
     ]
