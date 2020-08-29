@@ -25,21 +25,26 @@ class GetHdfs extends ConfigurableStop{
     val path = hdfsUrl+hdfsPath
 
       if (types == "json") {
-        val rdd = spark.read.json(path)
-        rdd.schema.printTreeString()
-        out.write(rdd)
+        val df = spark.read.json(path)
+        df.schema.printTreeString()
+        out.write(df)
 
       } else if (types == "csv") {
-        val rdd = spark.read.csv(path)
-        rdd.schema.printTreeString()
-        out.write(rdd)
+        val df = spark.read.csv(path)
+        df.schema.printTreeString()
+        out.write(df)
 
       }else if (types == "parquet") {
-        val rdd = spark.read.csv(path)
-        rdd.schema.printTreeString()
-        out.write(rdd)
+        val df = spark.read.csv(path)
+        df.schema.printTreeString()
+        out.write(df)
 
-      }else {
+      }else if (types == "orc"){
+        val df = spark.read.orc(path)
+        df.schema.printTreeString()
+        out.write(df)
+      }
+      else {
         val rdd = sc.textFile(path)
         val outDf = rdd.toDF()
         outDf.schema.printTreeString()
@@ -78,7 +83,7 @@ class GetHdfs extends ConfigurableStop{
       .displayName("Types")
       .description("The type of file you want to load")
       .defaultValue("csv")
-      .allowableValues(Set("txt","parquet","csv","json"))
+      .allowableValues(Set("txt","parquet","csv","json","orc"))
       .required(true)
         .example("csv")
     descriptor = types :: descriptor
