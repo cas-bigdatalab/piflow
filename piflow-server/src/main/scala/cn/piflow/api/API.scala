@@ -6,6 +6,7 @@ import java.text.SimpleDateFormat
 import java.util.{Date, Properties}
 import java.util.concurrent.CountDownLatch
 
+import cn.piflow.conf.VisualizationType
 import org.apache.spark.sql.SparkSession
 import cn.piflow.conf.util.{ClassUtil, MapUtil, OptionUtil, PluginManager, ScalaExecutorUtil}
 import cn.piflow.{GroupExecution, Process, Runner}
@@ -286,7 +287,7 @@ object API {
     result
   }
 
-  def getFlowVisualizationData(appId : String, stopName : String) : String = {
+  def getFlowVisualizationData(appId : String, stopName : String, visualizationType : String) : String = {
 
     var dimensionMap = Map[String, List[String]]()
     val visuanlizationPath :String = ConfigureUtil.getVisualizationPath().stripSuffix("/") + "/" + appId + "/" + stopName + "/"
@@ -295,32 +296,57 @@ object API {
     val schemaArray = visualizationSchema.split(",")
     val jsonMapList = getJsonMapList(visuanlizationPath + "/data")
 
-    var visuanlizationTuple = List[Tuple2[String,String]]()
 
-    val jsonTupleList = jsonMapList.flatMap( map => map.toSeq)
+    if(VisualizationType.LineChart == visualizationType){
 
-    val visualizationInfo = jsonTupleList.groupBy(_._1)
-    visualizationInfo.foreach(dimension => {
-      var valueList = List[String]()
-      val dimensionList = dimension._2
-      dimensionList.foreach( dimensionAndCountPair => {
-        val v = String.valueOf(dimensionAndCountPair._2)
-        println(v)
-        valueList = valueList :+ v
+      var visualizationTuple = List[Tuple2[String,String]]()
+
+      val jsonTupleList = jsonMapList.flatMap( map => map.toSeq)
+
+      val visualizationInfo = jsonTupleList.groupBy(_._1)
+      visualizationInfo.foreach(dimension => {
+        var valueList = List[String]()
+        val dimensionList = dimension._2
+        dimensionList.foreach( dimensionAndCountPair => {
+          val v = String.valueOf(dimensionAndCountPair._2)
+          println(v)
+          valueList = valueList :+ v
+        })
+        dimensionMap += (dimension._1 -> valueList)
       })
-      dimensionMap += (dimension._1 -> valueList)
-    })
-    //dimensionMap
+      //dimensionMap
+      var lineChartMap = Map[String, Any]()
+      val x = schemaArray(0)
+      val xMap = Map(x -> OptionUtil.getAny(dimensionMap.get(schemaArray(0))) )
+      lineChartMap += {"x" -> xMap}
+      lineChartMap += {"y" -> dimensionMap.filterKeys(!_.equals(x))}
 
-    var lineChartMap = Map[String, Any]()
-    val x = schemaArray(0)
-    val xMap = Map(x -> OptionUtil.getAny(dimensionMap.get(schemaArray(0))) )
-    lineChartMap += {"x" -> xMap}
-    lineChartMap += {"y" -> dimensionMap.filterKeys(!_.equals(x))}
+      val visualizationJsonData = JsonUtil.format(JsonUtil.toJson(lineChartMap))
+      println(visualizationJsonData)
+      visualizationJsonData
+    }else if(VisualizationType.PieChart == visualizationType){
+      val schemaArray = visualizationSchema.split(",")
+      val schemaReplaceMap = Map(schemaArray(1)->"value", schemaArray(0)->"name")
+      val jsonMapList = getJsonMapList(visuanlizationPath + "/data")
 
-    val visualizationJsonData = JsonUtil.format(JsonUtil.toJson(lineChartMap))
-    println(visualizationJsonData)
-    visualizationJsonData
+      var pieChartList = List[Map[String, Any]]()
+      jsonMapList.foreach(map => {
+        var lineMap = Map[String, Any]()
+        for(i <- 0 to schemaArray.size-1){
+          val column = schemaArray(i)
+          lineMap += (schemaReplaceMap.getOrElse(column,"")-> map.getOrElse(column,""))
+        }
+        pieChartList = lineMap +: pieChartList
+      })
+      val pieChartMap = Map("data" -> pieChartList)
+      val visualizationJsonData = JsonUtil.format(JsonUtil.toJson(pieChartMap))
+      println(visualizationJsonData)
+      visualizationJsonData
+    }else{
+      ""
+    }
+
+
   }
 
   def getStopInfo(bundle : String) : String = {

@@ -1,7 +1,7 @@
 package cn.piflow.bundle.visualization
 
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
-import cn.piflow.conf.{ConfigurableVisualizationStop, Port, StopGroup}
+import cn.piflow.conf.{ConfigurableVisualizationStop, Port, StopGroup, VisualizationType}
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import org.apache.spark.sql.SparkSession
@@ -14,9 +14,10 @@ class LineChart extends ConfigurableVisualizationStop{
   override val inportList: List[String] = List(Port.DefaultPort)
   override val outportList: List[String] = List(Port.DefaultPort)
 
-  var x:String =_
-  //var dimension:String =_
 
+  var x:String =_
+
+  override var visualizationType: String = VisualizationType.LineChart
   override val isCustomized: Boolean = true
   override val customizedAllowValue: List[String] = List("COUNT","SUM","AVG","MAX","MIN")
 
@@ -32,6 +33,7 @@ class LineChart extends ConfigurableVisualizationStop{
       .displayName("x")
       .description("The abscissa  of line chart")
       .defaultValue("")
+      .example("year")
       .required(true)
     /*val dimension = new PropertyDescriptor()
       .name("dimension")

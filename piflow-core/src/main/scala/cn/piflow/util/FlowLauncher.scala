@@ -68,6 +68,17 @@ object FlowLauncher {
       })
     }
 
+    /*val classPath = PropertyUtil.getClassPath()
+    val classPathFile = new File(classPath)
+    if(classPathFile.exists()){
+      FileUtil.getJarFile(new File(classPath)).foreach(f => {
+
+            sparkLauncher.addJar(f.getPath)
+
+        })
+      }*/
+
+
     val scalaPath = PropertyUtil.getScalaPath()
     val scalaPathFile = new File(scalaPath)
     if(scalaPathFile.exists()){

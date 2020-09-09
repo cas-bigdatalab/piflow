@@ -54,7 +54,7 @@ class MysqlRead extends ConfigurableStop  {
       .description("The Url of mysql database")
       .defaultValue("")
       .required(true)
-      .example("jdbc:mysql://127.0.0.1/dbname")
+      .example("jdbc:mysql://127.0.0.1:3306/dbname")
     descriptor = url :: descriptor
 
     val user=new PropertyDescriptor()

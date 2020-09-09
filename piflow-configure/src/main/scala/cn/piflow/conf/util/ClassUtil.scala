@@ -214,7 +214,8 @@ object ClassUtil {
           ("groups" -> stop.getGroup().mkString(",")) ~
           ("isCustomized" -> stop.getCustomized().toString) ~
           /*("customizedAllowKey" -> "") ~
-          ("customizedAllowValue" -> "") ~*/
+          ("customizedAllowValue" -> "")
+          ("visualizationType" -> "") ~*/
           ("description" -> stop.description) ~
           ("icon" -> base64Encoder.encode(stop.getIcon())) ~
           ("properties" ->

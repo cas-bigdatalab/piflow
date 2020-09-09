@@ -93,6 +93,7 @@ trait VisualizationStop extends Stop{
   var processId : String
   var stopName : String
   var visualizationPath : String
+  var visualizationType : String
 
   def init(stopName : String): Unit
   def getVisualizationPath(processId : String) : String

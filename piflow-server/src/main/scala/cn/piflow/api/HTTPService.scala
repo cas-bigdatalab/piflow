@@ -154,9 +154,10 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
 
      val appID = req.getUri().query().getOrElse("appID","")
      val stopName = req.getUri().query().getOrElse("stopName","")
+     val visualizationType = req.getUri().query().getOrElse("visualizationType","")
      //val port = req.getUri().query().getOrElse("port","default")
      if(!appID.equals("") && !stopName.equals()){
-       val result = API.getFlowVisualizationData(appID, stopName)
+       val result = API.getFlowVisualizationData(appID, stopName,visualizationType)
        Future.successful(HttpResponse(SUCCESS_CODE, entity = result))
      }else{
        Future.successful(HttpResponse(FAIL_CODE, entity = "appID is null or stop does not have visualization data!"))

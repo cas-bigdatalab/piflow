@@ -32,7 +32,9 @@ class StopBean {
   def constructStop() : ConfigurableStop = {
 
     try{
+      println("Construct stop: " + this.bundle + "!!!!!!!!!!!!!!!!!!!!!")
       val stop = ClassUtil.findConfigurableStop(this.bundle)
+      println("Construct stop: " + stop + "!!!!!!!!!!!!!!!!!!!!!")
 
 
       //init ConfigurableIncrementalStop
@@ -62,7 +64,8 @@ class StopBean {
         stop.asInstanceOf[ConfigurableVisualizationStop].init(name)
         stop.setProperties(this.properties)
       }else {
-        stop.setProperties(this.properties)
+        print(this.properties)
+        stop.asInstanceOf[ConfigurableStop].setProperties(this.properties)
       }
 
       stop.setCustomizedProperties(this.customizedProperties)

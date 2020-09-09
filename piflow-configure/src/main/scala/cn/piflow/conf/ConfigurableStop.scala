@@ -14,6 +14,7 @@ abstract class ConfigurableStop extends Stop{
   val inportList : List[String] //= List(PortEnum.DefaultPort.toString)
   val outportList : List[String] //= List(PortEnum.DefaultPort.toString)
 
+  //Have customized properties or not
   val isCustomized = false
   val customizedAllowKey = List[String]()
   val customizedAllowValue = List[String]()
