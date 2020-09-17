@@ -38,8 +38,6 @@ class GetFile extends ConfigurableStop{
     PassWord = MapUtil.get(map,key="PassWord").asInstanceOf[String]
     hdfsFile = MapUtil.get(map,key="hdfsFile").asInstanceOf[String]
     localPath = MapUtil.get(map,key="localPath").asInstanceOf[String]
-
-
   }
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {

@@ -4,5 +4,6 @@ object VisualizationType {
 
   val LineChart = "LINECHART"
   val PieChart = "PIECHART"
+  val Histogram = "HISTOGRAM"
 
 }

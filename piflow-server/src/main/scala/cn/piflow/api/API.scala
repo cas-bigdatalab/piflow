@@ -297,7 +297,7 @@ object API {
     val jsonMapList = getJsonMapList(visuanlizationPath + "/data")
 
 
-    if(VisualizationType.LineChart == visualizationType){
+    if(VisualizationType.LineChart == visualizationType || VisualizationType.Histogram == visualizationType){
 
       var visualizationTuple = List[Tuple2[String,String]]()
 
@@ -317,9 +317,22 @@ object API {
       //dimensionMap
       var lineChartMap = Map[String, Any]()
       val x = schemaArray(0)
-      val xMap = Map(x -> OptionUtil.getAny(dimensionMap.get(schemaArray(0))) )
-      lineChartMap += {"x" -> xMap}
-      lineChartMap += {"y" -> dimensionMap.filterKeys(!_.equals(x))}
+      lineChartMap += {"xAxis" -> Map("type" -> x, "data" -> OptionUtil.getAny(dimensionMap.get(schemaArray(0))) )}
+      lineChartMap += {"yAxis" -> Map("type" -> "value")}
+      var seritesList = List[Map[String, Any]]()
+      dimensionMap.filterKeys(!_.equals(x)).foreach(item =>{
+        val name_action = item._1
+        val data = item._2
+        val name = name_action.split("_")(0)
+        val action = name_action.split("_")(1)
+        val vType = visualizationType match {
+          case VisualizationType.LineChart => "line"
+          case VisualizationType.Histogram => "bar"
+        }
+        val map = Map("name" -> name, "type" -> vType,"stack" -> action, "data" -> data)
+        seritesList = map +: seritesList
+      })
+      lineChartMap += {"series" -> seritesList}
 
       val visualizationJsonData = JsonUtil.format(JsonUtil.toJson(lineChartMap))
       println(visualizationJsonData)
