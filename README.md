@@ -242,6 +242,10 @@ Try PiFlow v0.6 with: http://piflow.cstcloud.cn/piflow-web/
 
   ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-login.png)
   
+- `Dashboard`:
+
+  ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/dashboard.png)
+  
 - `Flow list`:
 
   ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-flowlist.png)
@@ -288,7 +292,15 @@ Try PiFlow v0.6 with: http://piflow.cstcloud.cn/piflow-web/
 
 - `DataSource List`:
 
-  ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-templatelist.png)
+  ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-datasourcelist.png)
+  
+- `Schedule List`:
+
+  ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-schedulelist.png)
+  
+- `StopHub List`:
+
+  ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-stophublist.png)
   
 ## Contact Us
 - Name:吴老师  
