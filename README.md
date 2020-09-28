@@ -149,10 +149,10 @@ Try PiFlow v0.6 with: http://piflow.cstcloud.cn/piflow-web/
 
   
 ### Run Piflow Web：
-  - Visit address, download the corresponding *.tar.gz file, and modify the corresponding configuration file（The version must be consistent with piflow-server） 
-  - https://github.com/cas-bigdatalab/piflow-web/releases/tag/v0.7
-  - https://github.com/cas-bigdatalab/piflow-web/releases/tag/v0.6
-  - https://github.com/cas-bigdatalab/piflow-web/releases/tag/v0.5
+  - Visit address, download the corresponding *.tar.gz file, and modify the corresponding configuration file（`The version must be consistent with piflow-server`） 
+    - https://github.com/cas-bigdatalab/piflow-web/releases/tag/v0.7
+    - https://github.com/cas-bigdatalab/piflow-web/releases/tag/v0.6
+    - https://github.com/cas-bigdatalab/piflow-web/releases/tag/v0.5
   
 ### Restful API：
 
