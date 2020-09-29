@@ -69,7 +69,7 @@ PiFlow server 及PiFlow web的使用说明
 
 ### 3.1.1 注册
 
-![](https://github.com/cas-bigdatalab/piflow/tree/master/doc/V0.8/1.png) 
+![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/V0.8/1.png?raw=true) 
 
 ### 3.1.2 登录
 
