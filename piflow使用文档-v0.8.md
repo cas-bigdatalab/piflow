@@ -178,17 +178,17 @@ PiFlow server 及PiFlow web的使用说明
 
 -   可以以Debug模式运行流水线，运行后可查看流经每条线上的数据信息，实现数据可溯源
 
-![](media/bea241c3479deca8085bd1480ca46c7d.png)
+![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/V0.8/24.png?raw=true)
 
-![](media/458067709215b1f7a74448ada1c562da.png)
+![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/V0.8/25.png?raw=true)
 
-![](media/3fb3c84ac73286d9f9292cf635a8ef78.png)
+![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/V0.8/26.png?raw=true)
 
 #### 3.1.4.8 检查点
 
 -   流水线可设置检查点，再次运行时可选择从检查点运行
 
-![](media/d8fef3b9b572baf509ef6c005f6377ad.png)
+![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/V0.8/27.png?raw=true)
 
 ### 3.1.5 流水线组Group
 
@@ -196,13 +196,13 @@ PiFlow server 及PiFlow web的使用说明
 
 -   流水线组支持流水线的顺序调度功能，组嵌套功能。列表功能与流水线列表功能一致。列表支持进入、编辑、运行/停止、删除、保存模板功能。
 
-![](media/3e2b75a920dab6e8e80223ea55e4138c.png)
+![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/V0.8/28.png?raw=true)
 
 #### 3.1.5.2 新建流水线组
 
 -   点击创建按钮，输入流水线组名称和基本信息可创建流水线组Group。
 
-![](media/2098c1b0bc900e3ef6784f190b90ea03.png)
+![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/V0.8/29.png?raw=true)
 
 #### 3.1.5.3 配置流水线组
 
@@ -210,92 +210,92 @@ PiFlow server 及PiFlow web的使用说明
 
 -   拖动左侧group图标
 
-![](media/962d857fa6d81841b68e7d66fec1fab7.png)
+![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/V0.8/30.png?raw=true)
 
 ##### 3.1.5.3.2 创建flow
 
 -   拖动flow图标创建流水线flow
 
-![](media/0ce7214d28dfafa361eb71797b420208.png)
+![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/V0.8/31.png?raw=true)
 
 ##### 3.1.5.3.3 创建label
 
 -   拖动Label可添加标签，用于备注说明
 
-![](media/691a0860ccc3550de400e40fff27d9aa.png)
+![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/V0.8/32.png?raw=true)
 
 ##### 3.1.5.3.4 创建调度关系
 
 -   连线实现调度顺序
 
-![](media/5d252f945b58e243b67e17db0bdd3266.png)
+![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/V0.8/33.png?raw=true)
 
 ##### 3.1.5.3.5 创建子group
 
 -   Group可双击进入，配置组内流水线组group、流水线flow、以及之间的调度顺序。下部有导航栏，可退出该级目录，返回上一级。同时可以返回根目录。
 
-![](media/c37366a416edcbdbc8d3e156b2c17728.png)
+![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/V0.8/34.png?raw=true)
 
 ##### 3.1.5.3.6 配置流水线flow
 
 -   双击flow图标，可进入具体流水线的配置界面
 
-![](media/74004a9c950b9938546b9bc4d60d1a6d.png)
+![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/V0.8/35.png?raw=true)
 
 ##### 3.1.5.3.7 导入流水线flow
 
 -   可导入flow列表中已配置的流水线
 
-![](media/e40afa0d5300a994c13fb71d60edb02d.png)
+![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/V0.8/36.png?raw=true)
 
 ##### 3.1.5.3.8 更换图标
 
 -   右键group或flow，可支持更换图标
 
-![](media/723edc23349f5db4e0206ab84f9183f3.png)
+![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/V0.8/37.png?raw=true)
 
 -   Group图标列表，支持用户上传
 
-![](media/778fc60b703609d7bed36c1d3ddf1b65.png)
+![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/V0.8/38.png?raw=true)
 
 -   Flow图标列表，支持用户上传
 
-![](media/9a586cd3d63b62ebe0468a556cbb48c8.png)
+![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/V0.8/39.png?raw=true)
 
 #### 3.1.5.4 运行流水线组
 
 -   运行
 
-![](media/ba6ace4a165ebe4103022d51d925a809.png)
+![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/V0.8/40.png?raw=true)
 
 -   可右键运行单个group或flow
 
-![](media/6fcd81e765e4b35e6856d7e256a52c93.png)
+![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/V0.8/41.png?raw=true)
 
-![](media/2cc6a0aa5fae6bf352e05b520f688a79.png)
+![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/V0.8/42.png?raw=true)
 
 #### 3.1.5.5 监控流水线组
 
 -   默认显示流水线组监控信息
 
-![](media/eac334b51f911c2ab6485637ec3a61a8.png)
+![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/V0.8/43.png?raw=true)
 
 -   单击group或flow，显示点击组件的监控信息
 
-![](media/5d46f397da6d8fe00d59881e51e0489f.png)
+![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/V0.8/44.png?raw=true)
 
 可双击进入group或flow，查看进一步监控信息
 
 #### 3.1.5.6 流水线组日志
 
-![](media/fd427e60a1bf0cf972af6def8de99d62.png)
+![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/V0.8/45.png?raw=true)
 
 ### 3.1.6 运行态流水线Process
 
 已运行流水线组和流水线会显示在Process
 List中，包括开始时间、结束时间、进度、状态等。同时可对已运行流水线进行查看，在运行，停止，和删除操作。
 
-![](media/d08ecc7d6809d724e193abb87bee4579.png)
+![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/V0.8/46.png?raw=true)
 
 ### 3.1.7 模板Template
 
@@ -305,37 +305,37 @@ List中，包括开始时间、结束时间、进度、状态等。同时可对�
 
 -   流水线保存模板
 
-![](media/843ef0e7d2ef3d8ae9b25fb7643e124a.png)
+![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/V0.8/47.png?raw=true)
 
 -   流水线组保存模板
 
-![](media/222be5da30a64ff4a5f0ea6a775fda84.png)
+![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/V0.8/48.png?raw=true)
 
 #### 3.1.7.2 模板列表
 
-![](media/551a4be7c3ed491e61b33ca06fc95a75.png)
+![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/V0.8/49.png?raw=true)
 
 #### 3.1.7.3 模板下载
 
-![](media/5a303edbe77897f3affcaf8b92ed66cb.png)
+![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/V0.8/50.png?raw=true)
 
 #### 3.1.7.4 模板上传
 
-![](media/3f7d71f9be11017717a6657f2acb378c.png)
+![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/V0.8/51.png?raw=true)
 
 #### 3.1.7.5 模板加载
 
 -   流水线模板加载
 
-![](media/69f40f0793cf7ac591a41a693811d7b3.png)
+![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/V0.8/52.png?raw=true)
 
 -   流水线组模板加载
 
-![](media/22734e828f3636d889c561d2779fe09a.png)
+![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/V0.8/53.png?raw=true)
 
 #### 3.1.7.6 模板删除
 
-![](media/5974d3c28593d699e9c5e05326273b0b.png)
+![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/V0.8/54.png?raw=true)
 
 ### 3.1.8 数据源
 
@@ -343,13 +343,13 @@ List中，包括开始时间、结束时间、进度、状态等。同时可对�
 
 -   支持JDBC、ElasticSearch、等数据源的创建。同时支持自定义数据源（other）
 
-![](media/697b4d7a34548ae8cc38d2ea2b678830.png)
+![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/V0.8/55.png?raw=true)
 
 #### 3.1.8.1 使用数据源
 
 在流水线配置页面，选择某个组件，设置该组件属性时，可从已配置数据源填充相关属性。同时数据源变更时，该组件属性也随之变更。
 
-![](media/6131d5e3b230691195e7ffe8e2cf158a.png)
+![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/V0.8/56.png?raw=true)
 
 ### 3.1.9 定时调度
 
@@ -357,21 +357,21 @@ List中，包括开始时间、结束时间、进度、状态等。同时可对�
 
 调度列表如下图所示，支持进入流水线/流水线组进行配置，支持编辑调度信息，启动调度、停止调度和删除调度。
 
-![](media/74506b31ea2a9b14757b1383d5907443.png)
+![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/V0.8/57.png?raw=true)
 
 新建调度如下图所示。需选择调度的类型（Flow/FlowGroup），Cron表达式，调度开始时间，调度结束时间，以及被调度的流水线/流水线组。
 
-![](media/a7ad4b6f8ad9ea4bd7b019dc0d7fe51c.png)
+![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/V0.8/58.png?raw=true)
 
 被调度成功的流水线会在Processor列表页显示。
 
-![](media/6ce32509960f6ce33a48a8c52d2bbd35.png)
+![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/V0.8/59.png?raw=true)
 
 ### 3.1.10 组件热插拔
 
 支持上传自定义开发组件jar包，mount成功后流水线配置页面会自动显示自定义开发组件。Unmount后，自定义开发组件会消失。
 
-![](media/3f7ba0f389717bf0da295ff4ccdc2553.png)
+![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/V0.8/60.png?raw=true)
 
 ## 3.2 Restful API
 
