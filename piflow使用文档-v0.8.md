@@ -73,106 +73,106 @@ PiFlow server 及PiFlow web的使用说明
 
 ### 3.1.2 登录
 
-![](media/0fb8f864b8b8771cb4b112f01b99a1b4.png)
+![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/V0.8/2.png?raw=true) 
 
 ### 3.1.4 首页
 
 首页展示了资源使用情况，包括CPU、内存和磁盘。同时，展示了流水线Flow的总体情况、Group的总体情况、调度Schedule的总体情况、数据源DataSource的总体情况、数据处理组件的基本情况。其中Processor为运行态流水线/流水线组，状态可分为Started开始、完成Completed、失败Failed、Killed杀死、其他Other状态。
 
-![](media/2ba4f0258d7c1ce88b5d9a62951d69ec.png)
+![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/V0.8/3.png?raw=true) 
 
 同时，支持了国际化，如下图所示。
 
-![](media/37c5fd88e21160456829b81ef0da6e17.png)
+![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/V0.8/4.png?raw=true) 
 
 ### 3.1.4 流水线Flow
 
 #### 3.1.4.1 流水线列表
 
-![](media/ce3c14c203f683dbb6352bc65bd485c3.png)
+![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/V0.8/5.png?raw=true) 
 
 -   可点击进入流水线配置页面按钮，对流水线进行配置。
 
-![](media/3370e78c6400dd8da9a74c6aad38e26c.png)
+![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/V0.8/6.png?raw=true) 
 
 -   可编辑流水线信息
 
-![](media/314bdac455964e5c9147aa60f196e38c.png)
+![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/V0.8/7.png?raw=true) 
 
 -   可运行流水线
 
-![](media/c8026939816d22732be62f3ee74a69d2.png)
+![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/V0.8/8.png?raw=true) 
 
 -   可以debug模式运行流水线
 
-![](media/98188fa9ff6e34c5ed847a9b8a6a8f06.png)
+![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/V0.8/9.png?raw=true) 
 
 -   可删除流水线
 
-![](media/e0fe4e3ce81df3a2c6bcbf9011665d0b.png)
+![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/V0.8/10.png?raw=true) 
 
 -   可对流水线保存模板
 
-![](media/4b55ce202cb56a84b9f3c379f52457d4.png)
+![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/V0.8/11.png?raw=true) 
 
 #### 3.1.4.2 创建流水线
 
 用户点击创建按钮，创建流水线。需要输入流水线名称及描述信息，同时可设置流水线需要的资源。
 
-![](media/3773464b6a0681231693e93907a14913.png)
+![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/V0.8/12.png?raw=true) 
 
 #### 3.1.4.3 配置流水线
 
 -   用户可通过拖拽方式进行流水线的配置，方式类似visio，如下图所示。
 
-![](media/196a7a99a6675b13de7b16280a771ed1.png)
+![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/V0.8/13.png?raw=true) 
 
 -   画布左边栏显示组件组和组件，可按关键字搜索。用户选择好组件后可拖至画布中央。
 
-![](media/5e41f29adc56f48a11e366cb71964b1e.png)
+![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/V0.8/14.png?raw=true) 
 
 -   画布右侧显示流水线基本信息，包括流水线名称及描述。
 
-![](media/9a8d4dcf9ec91763d84da112503b8746.png)
+![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/V0.8/15.png?raw=true) 
 
 -   画布中央选择任一数据处理组件，右侧显示该数据处理组件的基本信息，包括名称，描述，作者等信息。选择AttributeInfo
     Tab，显示该数据处理组件的属性信息，用户可根据实际需求进行配置。鼠标浮动到问号上会出现对应属性的说明，同时可以选择已设置好的数据源进行属性填充。
 
     数据处理组件基本信息如下图所示，点击StopName可对数据处理组件进行改名。
 
-![](media/224b0701fe371ea188c486a965479af7.png)
+![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/V0.8/16.png?raw=true) 
 
 数据处理组件属性信息设置如下图所示。“问号”按钮提示该属性描述信息，“红星”表示必填项。
 
-![](media/ac4a2020b57ad8a89baf3a5baff79041.png)
+![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/V0.8/17.png?raw=true) 
 
 数据处理组件属性样例信息如下图所示：
 
-![](media/fb46f7d107154685d461da70d58fee95.png)
+![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/V0.8/18.png?raw=true) 
 
 数据处理组件数据源填充如下图所示。已选择数据源相关数据会自动填充到所选数据处理组件中。数据源变更后，相应组件的属性也会随之更新。
 
-![](media/c9aca3f7fdf518b303dfd89eb531583e.png)
+![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/V0.8/19.png?raw=true) 
 
 #### 3.1.4.4 运行流水线
 
 -   用户配置好流水线后，可点击运行按钮运行流水线。
 
-![](media/298f03ec66e58bbffa4b39bfde561a73.png)
+![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/V0.8/20.png?raw=true) 
 
 #### 3.1.4.5 流水线监控
 
 加载完成之后，进入流水线监控页面。监控页面会显示整条流水线的执行状况，包括运行状态、执行进度、执行时间等。
 
-![](media/4b7aa225d667724cf4d131203ef4b38a.png)
+![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/V0.8/21.png?raw=true) 
 
 点击具体数据处理组件，显示该数据处理组件的运行状况，包括运行状态、执行时间。
 
-![](media/94819e5c8445407656ab2a448f056d89.png)
+![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/V0.8/22.png?raw=true) 
 
 #### 3.1.4.6 流水线日志
 
-![](media/f19aec5e6da383e3f4fd82deeaa2d73d.png)
+![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/V0.8/23.png?raw=true) 
 
 #### 3.1.4.7 调试流水线
 
