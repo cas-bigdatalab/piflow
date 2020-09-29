@@ -2,9 +2,10 @@
 
 ## 样例
 
-请下载<https://github.com/cas-bigdatalab/piflowExternal>，并参考ShowData组件进行开发，依赖包piflow-configure.jar在lib目录下
+请下载样例工程，并参考ShowData组件进行开发，依赖包piflow-configure.jar在lib目录下  
+<https://github.com/cas-bigdatalab/piflowExternal>
 
-![](media/d6a47568961f8bf1c94dd544e266fdbe.png)
+![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/V0.8/stop_dev/1.png?raw=true)
 
 ## 1.1环境要求
 
@@ -20,12 +21,167 @@
 
 1.  导入piflow-configure.jar包
 
-![](media/e57ef1164bb094d314eeb6b5c5c88bd6.png)
+![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/V0.8/stop_dev/2.png?raw=true)
 
 1.  修改pom.xml文件如下
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
 
-| *\<?***xml version="1.0" encoding="UTF-8"***?\>* \<**project xmlns="http://maven.apache.org/POM/4.0.0"**  **xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"**  **xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd"**\>  \<**modelVersion**\>4.0.0\</**modelVersion**\>   \<**groupId**\>piflow\</**groupId**\>  \<**artifactId**\>piflow-external\</**artifactId**\>  \<**version**\>1.0-SNAPSHOT\</**version**\>   \<**properties**\>  \<**project.build.sourceEncoding**\>UTF-8\</**project.build.sourceEncoding**\>  \<**jetty.version**\>9.0.0.M0\</**jetty.version**\>  \<**spark.version**\>2.2.0\</**spark.version**\>  \<**scala.version**\>2.11.8\</**scala.version**\>  \<**java.version**\>1.8\</**java.version**\>  \</**properties**\>   \<**dependencies**\>  \<**dependency**\>  \<**groupId**\>org.scala-lang\</**groupId**\>  \<**artifactId**\>scala-library\</**artifactId**\>  \<**version**\>\${scala.version}\</**version**\>  \</**dependency**\>  \<**dependency**\>  \<**groupId**\>org.scala-lang\</**groupId**\>  \<**artifactId**\>scala-reflect\</**artifactId**\>  \<**version**\>\${scala.version}\</**version**\>  \</**dependency**\>  \<**dependency**\>  \<**groupId**\>org.scala-lang\</**groupId**\>  \<**artifactId**\>scala-compiler\</**artifactId**\>  \<**version**\>\${scala.version}\</**version**\>  \</**dependency**\>  \<**dependency**\>  \<**groupId**\>junit\</**groupId**\>  \<**artifactId**\>junit\</**artifactId**\>  \<**version**\>4.11\</**version**\>  \<**scope**\>test\</**scope**\>  \</**dependency**\>  \<**dependency**\>  \<**groupId**\>org.apache.spark\</**groupId**\>  \<**artifactId**\>spark-core_2.11\</**artifactId**\>  \<**version**\>\${spark.version}\</**version**\>  \</**dependency**\>  \<**dependency**\>  \<**groupId**\>org.apache.spark\</**groupId**\>  \<**artifactId**\>spark-sql_2.11\</**artifactId**\>  \<**version**\>\${spark.version}\</**version**\>  \</**dependency**\>  \<**dependency**\>  \<**groupId**\>org.apache.spark\</**groupId**\>  \<**artifactId**\>spark-hive_2.11\</**artifactId**\>  \<**version**\>\${spark.version}\</**version**\>  \</**dependency**\>  \<**dependency**\>  \<**groupId**\>org.apache.spark\</**groupId**\>  \<**artifactId**\>spark-yarn_2.11\</**artifactId**\>  \<**version**\>\${spark.version}\</**version**\>  \</**dependency**\>  \<**dependency**\>  \<**groupId**\>org.apache.spark\</**groupId**\>  \<**artifactId**\>spark-streaming_2.11\</**artifactId**\>  \<**version**\>\${spark.version}\</**version**\>  \</**dependency**\>  \<**dependency**\>  \<**groupId**\>org.apache.spark\</**groupId**\>  \<**artifactId**\>spark-streaming-kafka-0-10_2.11\</**artifactId**\>  \<**version**\>\${spark.version}\</**version**\>  \</**dependency**\>  \<**dependency**\>  \<**groupId**\>org.apache.spark\</**groupId**\>  \<**artifactId**\>spark-streaming-flume_2.11\</**artifactId**\>  \<**version**\>\${spark.version}\</**version**\>  \</**dependency**\>  \<**dependency**\>  \<**groupId**\>org.mongodb.spark\</**groupId**\>  \<**artifactId**\>mongo-spark-connector_2.11\</**artifactId**\>  \<**version**\>\${spark.version}\</**version**\>  \</**dependency**\>  \<**dependency**\>  \<**groupId**\>org.apache.spark\</**groupId**\>  \<**artifactId**\>spark-mllib_2.11\</**artifactId**\>  \<**version**\>\${spark.version}\</**version**\>  \</**dependency**\>  \<**dependency**\>  \<**groupId**\>org.apache.kafka\</**groupId**\>  \<**artifactId**\>kafka-clients\</**artifactId**\>  \<**version**\>2.1.1\</**version**\>  \</**dependency**\>  \<**dependency**\>  \<**groupId**\>org.apache.kafka\</**groupId**\>  \<**artifactId**\>kafka_2.11\</**artifactId**\>  \<**version**\>2.1.1\</**version**\>  \</**dependency**\>  \<**dependency**\>  \<**groupId**\>com.h2database\</**groupId**\>  \<**artifactId**\>h2\</**artifactId**\>  \<**version**\>1.4.197\</**version**\>  \</**dependency**\>  \<**dependency**\>  \<**groupId**\>org.apache.httpcomponents\</**groupId**\>  \<**artifactId**\>httpcore\</**artifactId**\>  \<**version**\>4.4\</**version**\>  \</**dependency**\>   \</**dependencies**\>  \<**build**\>   \<**plugins**\>   \<**plugin**\>  \<**groupId**\>net.alchim31.maven\</**groupId**\>  \<**artifactId**\>scala-maven-plugin\</**artifactId**\>  \<**version**\>3.2.2\</**version**\>  \<**executions**\>  \<**execution**\>  \<**id**\>Scaladoc\</**id**\>  \<**goals**\>  \<**goal**\>doc\</**goal**\>  \</**goals**\>  \<**phase**\>prepare-package\</**phase**\>  \<**configuration**\>  \<**args**\>  \<**arg**\>-no-link-warnings\</**arg**\>  \</**args**\>  \</**configuration**\>  \</**execution**\>  \<**execution**\>  \<**id**\>compile\</**id**\>  \<**goals**\>  \<**goal**\>compile\</**goal**\>  \<**goal**\>testCompile\</**goal**\>  \</**goals**\>  \<**configuration**\>  \<**args**\>  \<**arg**\>-dependencyfile\</**arg**\>  \<**arg**\>\${project.build.directory}/.scala_dependencies\</**arg**\>  \</**args**\>  \</**configuration**\>  \<**phase**\>compile\</**phase**\>  \</**execution**\>   \<**execution**\>  \<**phase**\>process-resources\</**phase**\>  \<**goals**\>  \<**goal**\>compile\</**goal**\>  \</**goals**\>  \</**execution**\>  \</**executions**\>  \</**plugin**\>   \</**plugins**\>  \</**build**\> \</**project**\> |
-|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+    <groupId>piflow</groupId>
+    <artifactId>piflow-external</artifactId>
+    <version>1.0-SNAPSHOT</version>
+
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <jetty.version>9.0.0.M0</jetty.version>
+        <spark.version>2.2.0</spark.version>
+        <scala.version>2.11.8</scala.version>
+        <java.version>1.8</java.version>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.scala-lang</groupId>
+            <artifactId>scala-library</artifactId>
+            <version>${scala.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.scala-lang</groupId>
+            <artifactId>scala-reflect</artifactId>
+            <version>${scala.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.scala-lang</groupId>
+            <artifactId>scala-compiler</artifactId>
+            <version>${scala.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+            <version>4.11</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.spark</groupId>
+            <artifactId>spark-core_2.11</artifactId>
+            <version>${spark.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.spark</groupId>
+            <artifactId>spark-sql_2.11</artifactId>
+            <version>${spark.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.spark</groupId>
+            <artifactId>spark-hive_2.11</artifactId>
+            <version>${spark.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.spark</groupId>
+            <artifactId>spark-yarn_2.11</artifactId>
+            <version>${spark.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.spark</groupId>
+            <artifactId>spark-streaming_2.11</artifactId>
+            <version>${spark.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.spark</groupId>
+            <artifactId>spark-streaming-kafka-0-10_2.11</artifactId>
+            <version>${spark.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.spark</groupId>
+            <artifactId>spark-streaming-flume_2.11</artifactId>
+            <version>${spark.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.mongodb.spark</groupId>
+            <artifactId>mongo-spark-connector_2.11</artifactId>
+            <version>${spark.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.spark</groupId>
+            <artifactId>spark-mllib_2.11</artifactId>
+            <version>${spark.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.kafka</groupId>
+            <artifactId>kafka-clients</artifactId>
+            <version>2.1.1</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.kafka</groupId>
+            <artifactId>kafka_2.11</artifactId>
+            <version>2.1.1</version>
+        </dependency>
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <version>1.4.197</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.httpcomponents</groupId>
+            <artifactId>httpcore</artifactId>
+            <version>4.4</version>
+        </dependency>
+
+    </dependencies>
+    <build>
+
+        <plugins>
+
+            <plugin>
+                <groupId>net.alchim31.maven</groupId>
+                <artifactId>scala-maven-plugin</artifactId>
+                <version>3.2.2</version>
+                <executions>
+                    <execution>
+                        <id>Scaladoc</id>
+                        <goals>
+                            <goal>doc</goal>
+                        </goals>
+                        <phase>prepare-package</phase>
+                        <configuration>
+                            <args>
+                                <arg>-no-link-warnings</arg>
+                            </args>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>compile</id>
+                        <goals>
+                            <goal>compile</goal>
+                            <goal>testCompile</goal>
+                        </goals>
+                        <configuration>
+                            <args>
+                                <arg>-dependencyfile</arg>
+                                <arg>${project.build.directory}/.scala_dependencies</arg>
+                            </args>
+                        </configuration>
+                        <phase>compile</phase>
+                    </execution>
+
+                    <execution>
+                        <phase>process-resources</phase>
+                        <goals>
+                            <goal>compile</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+        </plugins>
+    </build>
+</project>
+```
+
 
 
 ### 1.2.2 开发Stop
@@ -34,55 +190,55 @@
 
 2.新建Stop extends ConfigurableStop，并实现对应方法
 
-![](media/cc56af5c8904adeeec80a06a8a04b600.png)
+![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/V0.8/stop_dev/3.png?raw=true)
 
 ### build jar 包
 
 首先选择File-\>Project Structure
 
-![](media/6ceded86ade82c520e4a8f8925e89613.png)
+![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/V0.8/stop_dev/4.png?raw=true)
 
 然后点击Artifacts，添加“+”添加空白的jar
 
-![](media/b360e9e1a2f10e357208348806966c88.png)
+![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/V0.8/stop_dev/5.png?raw=true)
 
 点击“+”，下拉框选择Module Output
 
-![](media/040b8e81703becb9d2005f98d6f20305.png)
+![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/V0.8/stop_dev/6.png?raw=true)
 
 在弹出框中选择module
 
-![](media/ddf629e5eab14eccef9fd7aed496f8ee.png)
+![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/V0.8/stop_dev/7.png?raw=true)
 
 修改jar的名称
 
-![](media/173eea24536da68cc6d334652b8db54c.png)
+![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/V0.8/stop_dev/8.png?raw=true)
 
 点击Build-\>Build Artifacts，build jar包
 
-![](media/f457ac7271e38d1e113d49d2423253e7.png)
+![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/V0.8/stop_dev/9.png?raw=true)
 
-![](media/7af6dbfc363cc3f79e7bb49ae8770feb.png)
+![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/V0.8/stop_dev/10.png?raw=true)
 
 最终build jar包在工程的out/artifacts/目录下
 
-![](media/35abeb1b05c4f24165dfadc45118edfd.png)
+![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/V0.8/stop_dev/11.png?raw=true)
 
 ### 发布jar包
 
 1.  V0.7中：将生成的jar放置PiflowServer中的classpath下，并重启PiFlowServer服务。同时在web界面中ReloadStop
 
-![](media/5d1c90ae459c9856617a6056b946d457.png)
+![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/V0.8/stop_dev/12.png?raw=true)
 
 1.  V0.8版本中：StopHub列表中点击上传按钮进行上传，上传成功之后进行Mount操作。成功后在流水线配置页面即可显示该jar中对应的数据处理组件
 
-![](media/b4b7d67d0a8c0af83e780dadc221a201.png)
+![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/V0.8/stop_dev/13.png?raw=true)
 
-![](media/f5933efcefa16004a8170385829780c7.png)
+![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/V0.8/stop_dev/14.png?raw=true)
 
 ## 1.3 PiFlowServer中的开发步骤
 
 在PiFlow-bundle模块中新建类，继承ConfigurableStop并实现对应接口，具体参考样例小节。完成后build
 jar包并替换piflow-server.jar,重启服务即可。
 
-![](media/5793c1b26f2c30a1d38a76fdace0a444.png)
+![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/V0.8/stop_dev/15.png?raw=true)
