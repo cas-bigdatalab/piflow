@@ -35,7 +35,6 @@ Try PiFlow v0.6 with: http://piflow.cstcloud.cn/piflow-web/
 
 ## Architecture
 ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/architecture.png) 
-The ports occupied by PiFlow include 8002（PiFLow Server）,50002（h2db port of PiFlow Server），6002（PiFlow Web service），6001（PiFlow web Page access address），6443（the default https listening port of tomcat），6080（The default http listening port of tomcat），6010 （AJP listening port）
 ## Requirements
 * JDK 1.8 
 * Scala-2.11.8
