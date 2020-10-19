@@ -25,6 +25,23 @@ import scala.collection.mutable.{Map => MMap}
 
 object API {
 
+  def addSparkJar(sparkJarName : String, sparkNodes : List[Map[String, String]]) : String = {
+    var id = ""
+    sparkNodes.foreach( nodeInfo => {
+      val ip = nodeInfo.getOrElse("ip","")
+      val password = nodeInfo.getOrElse("password","")
+      val path = nodeInfo.getOrElse("path","")
+
+      if(ip == null || path == null)
+        "fail"
+      else{
+        println("ip=" + ip + "; password=" + password + ";path=" + path)
+      }
+    })
+
+    "Ok"
+  }
+
   def addPlugin(pluginManager:PluginManager, pluginName : String) : String = {
     var id = ""
     val classpathFile = new File(pluginManager.getPluginPath())
@@ -316,9 +333,10 @@ object API {
       })
       //dimensionMap
       var lineChartMap = Map[String, Any]()
+      var legend = List[String]()
       val x = schemaArray(0)
       lineChartMap += {"xAxis" -> Map("type" -> x, "data" -> OptionUtil.getAny(dimensionMap.get(schemaArray(0))) )}
-      lineChartMap += {"yAxis" -> Map("type" -> "value")}
+      //lineChartMap += {"yAxis" -> Map("type" -> "value")}
       var seritesList = List[Map[String, Any]]()
       dimensionMap.filterKeys(!_.equals(x)).foreach(item =>{
         val name_action = item._1
@@ -331,13 +349,15 @@ object API {
         }
         val map = Map("name" -> name, "type" -> vType,"stack" -> action, "data" -> data)
         seritesList = map +: seritesList
+        legend = name +: legend
       })
       lineChartMap += {"series" -> seritesList}
-
+      lineChartMap += {"legent" -> legend}
       val visualizationJsonData = JsonUtil.format(JsonUtil.toJson(lineChartMap))
       println(visualizationJsonData)
       visualizationJsonData
     }else if(VisualizationType.PieChart == visualizationType){
+      var legend = List[String]()
       val schemaArray = visualizationSchema.split(",")
       val schemaReplaceMap = Map(schemaArray(1)->"value", schemaArray(0)->"name")
       val jsonMapList = getJsonMapList(visuanlizationPath + "/data")
@@ -351,7 +371,10 @@ object API {
         }
         pieChartList = lineMap +: pieChartList
       })
-      val pieChartMap = Map("data" -> pieChartList)
+      pieChartList.foreach( item => {
+        legend = item.getOrElse("name","").asInstanceOf[String] +: legend
+      })
+      val pieChartMap = Map("legend" -> legend, "series" -> pieChartList)
       val visualizationJsonData = JsonUtil.format(JsonUtil.toJson(pieChartMap))
       println(visualizationJsonData)
       visualizationJsonData
