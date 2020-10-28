@@ -372,7 +372,7 @@ object API {
         pieChartList = lineMap +: pieChartList
       })
       pieChartList.foreach( item => {
-        legend = item.getOrElse("name","").asInstanceOf[String] +: legend
+        legend = item.getOrElse("name","").toString +: legend
       })
       val pieChartMap = Map("legend" -> legend, "series" -> pieChartList)
       val visualizationJsonData = JsonUtil.format(JsonUtil.toJson(pieChartMap))
