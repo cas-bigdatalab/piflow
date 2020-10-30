@@ -78,6 +78,15 @@ object FlowLauncher {
         })
       }*/
 
+    //add sparkJar to spark cluster
+    val sparkJarPath = PropertyUtil.getSpartJarPath()
+    val sparkJarPathFile = new File(sparkJarPath)
+    if(sparkJarPathFile.exists()){
+      FileUtil.getJarFile(new File(sparkJarPath)).foreach(f => {
+        println(f.getPath)
+        sparkLauncher.addJar(f.getPath)
+      })
+    }
 
     val scalaPath = PropertyUtil.getScalaPath()
     val scalaPathFile = new File(scalaPath)

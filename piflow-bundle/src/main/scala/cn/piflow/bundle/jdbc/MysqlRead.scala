@@ -15,6 +15,7 @@ class MysqlRead extends ConfigurableStop  {
   val outportList: List[String] = List(Port.DefaultPort)
 
   var url:String = _
+  var driver:String = _
   var user:String = _
   var password:String = _
   var sql:String = _
@@ -24,6 +25,7 @@ class MysqlRead extends ConfigurableStop  {
     val dbtable = "( "  + sql + ") AS Temp"
     val jdbcDF = spark.read.format("jdbc")
       .option("url", url)
+      .option("driver", driver)
       .option("dbtable", dbtable)
       .option("user", user)
       .option("password",password)
@@ -40,6 +42,7 @@ class MysqlRead extends ConfigurableStop  {
   override def setProperties(map: Map[String, Any]): Unit = {
 
     url = MapUtil.get(map,"url").asInstanceOf[String]
+    driver = MapUtil.get(map, "driver").asInstanceOf[String]
     user = MapUtil.get(map,"user").asInstanceOf[String]
     password = MapUtil.get(map,"password").asInstanceOf[String]
     sql = MapUtil.get(map,"sql").asInstanceOf[String]
@@ -56,6 +59,15 @@ class MysqlRead extends ConfigurableStop  {
       .required(true)
       .example("jdbc:mysql://127.0.0.1:3306/dbname")
     descriptor = url :: descriptor
+
+    val driver=new PropertyDescriptor()
+      .name("driver")
+      .displayName("Driver")
+      .description("The Driver of mysql database")
+      .defaultValue("com.mysql.jdbc.Driver")
+      .required(true)
+      .example("com.mysql.jdbc.Driver")
+    descriptor = driver :: descriptor
 
     val user=new PropertyDescriptor()
       .name("user")

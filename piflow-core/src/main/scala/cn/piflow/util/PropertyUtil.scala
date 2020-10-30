@@ -9,6 +9,7 @@ object PropertyUtil {
   var path :String = ""
   var classPath:String = ""
   var scalaPath:String = ""
+  var sparkJarPath:String = ""
     try{
     //val path = Thread.currentThread().getContextClassLoader.getResource("config.properties").getPath
     //fis = this.getClass.getResourceAsStream("")
@@ -16,6 +17,7 @@ object PropertyUtil {
     path = userDir + "/config.properties"
     classPath = userDir + "/classpath/"
     scalaPath = userDir + "/scala"
+    sparkJarPath = userDir + "/sparkJar"
     prop.load(new FileInputStream(path))
   } catch{
     case ex: Exception => ex.printStackTrace()
@@ -31,6 +33,10 @@ object PropertyUtil {
 
   def getScalaPath():String = {
     scalaPath
+  }
+
+  def getSpartJarPath():String = {
+    sparkJarPath
   }
 
   def getPropertyValue(propertyKey: String): String ={

@@ -3,6 +3,7 @@ package cn.piflow.conf.util
 import java.io.File
 import java.net.URLClassLoader
 
+import cn.piflow.VisualizationStop
 import cn.piflow.conf.ConfigurableStop
 import cn.piflow.conf.bean.PropertyDescriptor
 import javassist.Modifier
@@ -204,6 +205,10 @@ object ClassUtil {
     val base64Encoder = new BASE64Encoder()
 
     //TODO: add properties for visualization stop
+    var visualizationType = ""
+    if (stop.isInstanceOf[VisualizationStop]){
+      visualizationType = stop.asInstanceOf[VisualizationStop].visualizationType.toString()
+    }
     val jsonValue =
       ("StopInfo" ->
         ("name" -> stopName)~
@@ -214,8 +219,8 @@ object ClassUtil {
           ("groups" -> stop.getGroup().mkString(",")) ~
           ("isCustomized" -> stop.getCustomized().toString) ~
           /*("customizedAllowKey" -> "") ~
-          ("customizedAllowValue" -> "")
-          ("visualizationType" -> "") ~*/
+          ("customizedAllowValue" -> "")*/
+          ("visualizationType" -> visualizationType) ~
           ("description" -> stop.description) ~
           ("icon" -> base64Encoder.encode(stop.getIcon())) ~
           ("properties" ->
