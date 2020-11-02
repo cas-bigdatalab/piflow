@@ -25,22 +25,6 @@ import scala.collection.mutable.{Map => MMap}
 
 object API {
 
-  def addSparkJar(sparkJarName : String, sparkNodes : List[Map[String, String]]) : String = {
-    var id = ""
-    sparkNodes.foreach( nodeInfo => {
-      val ip = nodeInfo.getOrElse("ip","")
-      val password = nodeInfo.getOrElse("password","")
-      val path = nodeInfo.getOrElse("path","")
-
-      if(ip == null || path == null)
-        "fail"
-      else{
-        println("ip=" + ip + "; password=" + password + ";path=" + path)
-      }
-    })
-
-    "Ok"
-  }
 
   def addPlugin(pluginManager:PluginManager, pluginName : String) : String = {
     var id = ""
