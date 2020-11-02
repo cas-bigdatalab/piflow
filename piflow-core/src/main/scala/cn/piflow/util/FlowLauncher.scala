@@ -68,23 +68,20 @@ object FlowLauncher {
       })
     }
 
-    /*val classPath = PropertyUtil.getClassPath()
-    val classPathFile = new File(classPath)
-    if(classPathFile.exists()){
-      FileUtil.getJarFile(new File(classPath)).foreach(f => {
-
-            sparkLauncher.addJar(f.getPath)
-
-        })
-      }*/
 
     //add sparkJar to spark cluster
+    val sparkJarList = H2Util.getSparkJarOn()
     val sparkJarPath = PropertyUtil.getSpartJarPath()
     val sparkJarPathFile = new File(sparkJarPath)
     if(sparkJarPathFile.exists()){
       FileUtil.getJarFile(new File(sparkJarPath)).foreach(f => {
-        println(f.getPath)
-        sparkLauncher.addJar(f.getPath)
+        sparkJarList.foreach( pluginName => {
+          if(pluginName == f.getName){
+            println(f.getPath)
+            sparkLauncher.addJar(f.getPath)
+          }
+        })
+
       })
     }
 

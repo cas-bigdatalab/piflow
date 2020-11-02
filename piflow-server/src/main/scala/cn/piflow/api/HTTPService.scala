@@ -603,6 +603,69 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
      }
    }
 
+   case HttpRequest(GET, Uri.Path("/sparkJar/path"), headers, entity, protocol) =>{
+
+     try{
+       val sparkJarPath = PropertyUtil.getSpartJarPath()
+       val result = "{\"sparkJarPath\":\""+ sparkJarPath + "\"}"
+       Future.successful(HttpResponse(SUCCESS_CODE, entity = result))
+     }catch {
+       case ex => {
+         println(ex)
+         Future.successful(HttpResponse(FAIL_CODE, entity = "Can not found spark jar path !"))
+       }
+     }
+   }
+
+   case HttpRequest(POST, Uri.Path("/sparkJar/add"), headers, entity, protocol) =>{
+
+     entity match {
+       case HttpEntity.Strict(_, data) =>{
+         val data = toJson(entity)
+         val sparkJarName  = data.get("sparkJar").getOrElse("").asInstanceOf[String]
+         val sparkJarID = API.addSparkJar(sparkJarName)
+         if(sparkJarID != ""){
+
+           val result = "{\"sparkJar\":{\"id\":\"" + sparkJarID + "\"}}"
+           Future.successful(HttpResponse(SUCCESS_CODE, entity = result))
+         }else{
+           Future.successful(HttpResponse(FAIL_CODE, entity = "Fail"))
+         }
+       }
+       case ex => {
+         println(ex)
+         Future.successful(HttpResponse(FAIL_CODE, entity = "Fail"))
+       }
+     }
+
+   }
+
+   case HttpRequest(POST, Uri.Path("/sparkJar/remove"), headers, entity, protocol) =>{
+
+     entity match {
+       case HttpEntity.Strict(_, data) =>{
+         val data = toJson(entity)
+         val sparkJarId  = data.get("sparkJarId").getOrElse("").asInstanceOf[String]
+         val isOK = API.removeSparkJar(sparkJarId)
+
+         if(isOK == true){
+
+           val result = "{\"sparkJar\":{\"id\":\"" + sparkJarId + "\"}}"
+           Future.successful(HttpResponse(SUCCESS_CODE, entity = result))
+         }else{
+           Future.successful(HttpResponse(FAIL_CODE, entity = "Fail"))
+         }
+       }
+
+       case ex => {
+         println(ex)
+         Future.successful(HttpResponse(FAIL_CODE, entity = "Fail"))
+       }
+     }
+
+   }
+
+
    case _: HttpRequest =>
       Future.successful(HttpResponse(UNKNOWN_CODE, entity = "Unknown resource!"))
   }

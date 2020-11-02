@@ -943,6 +943,108 @@ object H2Util {
   }
 
 
+  def addSparkJar(sparkJarName:String)={
+
+    var id = ""
+    var state = ""
+    val statement = getConnectionInstance().createStatement()
+    statement.setQueryTimeout(QUERY_TIME)
+    val rs : ResultSet = statement.executeQuery("select * from sparkJar where name='" + sparkJarName +"'")
+    if(!rs.isBeforeFirst){
+      id = IdGenerator.uuid()
+      val time = new Date().toString
+      statement.executeUpdate("insert into sparkJar(id, name, state, createTime, updateTime) values('" + id + "','" + sparkJarName + "','" + PluginState.ON + "','" + time + "','" + time  + "')")
+      state = SparkJarState.ON
+    }else{
+
+      breakable{
+        while(rs.next()){
+          id = rs.getString("id")
+          state = rs.getString("state")
+          val time = new Date().toString
+          if(state == SparkJarState.OFF){
+            val updateSql = "update sparkJar set state='" + SparkJarState.ON + "'," + "updateTime='" + time +"' where name='" + sparkJarName + "'"
+            statement.executeUpdate(updateSql)
+            state = SparkJarState.ON
+            break
+          }
+        }
+
+      }
+    }
+    rs.close()
+    statement.close()
+    id
+  }
+
+  def removeSparkJar(sparkJarId:String) : String={
+
+    var state = ""
+    val statement = getConnectionInstance().createStatement()
+    statement.setQueryTimeout(QUERY_TIME)
+    val rs : ResultSet = statement.executeQuery("select * from sparkJar where id='" + sparkJarId +"'")
+    if(!rs.isBeforeFirst){
+      state = SparkJarState.NONE
+    }else{
+
+      breakable{
+        while(rs.next()){
+          state = rs.getString("state")
+          val time = new Date().toString
+          if(state == SparkJarState.ON){
+            val updateSql = "update sparkJar set state='" + SparkJarState.OFF + "'," + "updateTime='" + time +"' where id='" + sparkJarId + "'"
+            statement.executeUpdate(updateSql)
+            state = SparkJarState.OFF
+            break
+          }
+        }
+      }
+    }
+    rs.close()
+    statement.close()
+    state
+  }
+
+  def getSparkJarInfo(sparkJarId : String) : String ={
+
+    val sparkJarMap = getSparkJarInfoMap(sparkJarId)
+    JsonUtil.format(JsonUtil.toJson(sparkJarMap))
+  }
+
+  def getSparkJarInfoMap(sparkJarId : String) : Map[String, String] ={
+
+    var sparkJarMap = Map[String, String]()
+    val statement = getConnectionInstance().createStatement()
+    val rs : ResultSet = statement.executeQuery("select * from sparkJar where id='" + sparkJarId + "'")
+    while(rs.next()){
+
+      val path = PropertyUtil.getSpartJarPath() + "/" + rs.getString("name")
+      sparkJarMap += ("id" -> rs.getString("id"))
+      sparkJarMap += ("name" -> rs.getString("name"))
+      sparkJarMap += ("path" -> path)
+      sparkJarMap += ("state" -> rs.getString("state"))
+      sparkJarMap += ("createTime" -> rs.getString("createTime"))
+      sparkJarMap += ("updateTime" -> rs.getString("updateTime"))
+    }
+    rs.close()
+    statement.close()
+    sparkJarMap
+  }
+
+  def getSparkJarOn() : List[String] ={
+
+    var pluginList = List[String]()
+    val statement = getConnectionInstance().createStatement()
+    val rs : ResultSet = statement.executeQuery("select * from sparkJar where state='" + SparkJarState.ON + "'")
+    while(rs.next()){
+      pluginList = rs.getString("name") +: pluginList
+    }
+    rs.close()
+    statement.close()
+    pluginList
+  }
+
+
   def main(args: Array[String]): Unit = {
 
     /*try{

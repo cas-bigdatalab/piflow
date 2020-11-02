@@ -25,6 +25,36 @@ import scala.collection.mutable.{Map => MMap}
 
 object API {
 
+  def addSparkJar(addSparkJarName: String) : String = {
+    var id = ""
+    val sparkJarFile = new File(PropertyUtil.getSpartJarPath())
+    val jarFile = FileUtil.getJarFile(sparkJarFile)
+    breakable{
+      jarFile.foreach( i => {
+        if(i.getName.equals(addSparkJarName)) {
+
+          id = H2Util.addSparkJar(addSparkJarName)
+          break
+        }
+      })
+    }
+    id
+  }
+  def removeSparkJar(sparkJarId : String) : Boolean = {
+    var result = false
+    val sparkJarState = H2Util.removeSparkJar(sparkJarId)
+    if(sparkJarState == SparkJarState.ON){
+      false
+    }else{
+      true
+    }
+
+  }
+
+  /*def getSparkJarInfo(sparkJarId : String) : String = {
+    val pluginInfo = H2Util.getPluginInfo(pluginId)
+    pluginInfo
+  }*/
 
   def addPlugin(pluginManager:PluginManager, pluginName : String) : String = {
     var id = ""
