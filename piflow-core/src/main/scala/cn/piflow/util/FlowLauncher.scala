@@ -52,8 +52,7 @@ object FlowLauncher {
       sparkLauncher.setConf("spark.hadoop.yarn.resourcemanager.hostname", PropertyUtil.getPropertyValue("yarn.resourcemanager.hostname"))
     }
 
-    //add other jars for application
-
+    //add plugin jars for application
     val pluginOnList = H2Util.getPluginOn()
     val classPath = PropertyUtil.getClassPath()
     val classPathFile = new File(classPath)
@@ -75,9 +74,9 @@ object FlowLauncher {
     val sparkJarPathFile = new File(sparkJarPath)
     if(sparkJarPathFile.exists()){
       FileUtil.getJarFile(new File(sparkJarPath)).foreach(f => {
-        sparkJarList.foreach( pluginName => {
-          if(pluginName == f.getName){
-            println(f.getPath)
+        sparkJarList.foreach( sparkJarName => {
+          if(sparkJarName == f.getName){
+            println("Load " + f.getPath + "to spark cluster!!!")
             sparkLauncher.addJar(f.getPath)
           }
         })
@@ -89,7 +88,7 @@ object FlowLauncher {
     val scalaPathFile = new File(scalaPath)
     if(scalaPathFile.exists()){
       FileUtil.getJarFile(new File(scalaPath)).foreach(f => {
-        println(f.getPath)
+        println("Load scala Jar: " + f.getPath )
         sparkLauncher.addJar(f.getPath)
       })
     }
