@@ -16,8 +16,8 @@ object PropertyUtil {
     val userDir = System.getProperty("user.dir")
     path = userDir + "/config.properties"
     classPath = userDir + "/classpath/"
-    scalaPath = userDir + "/scala"
-    sparkJarPath = userDir + "/sparkJar"
+    scalaPath = userDir + "/scala/"
+    sparkJarPath = userDir + "/sparkJar/"
     prop.load(new FileInputStream(path))
   } catch{
     case ex: Exception => ex.printStackTrace()
