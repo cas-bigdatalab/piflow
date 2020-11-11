@@ -21,7 +21,7 @@ import org.apache.spark.launcher.SparkAppHandle
 
 import scala.util.parsing.json.JSON
 import scala.util.control.Breaks._
-import scala.collection.mutable.{Map => MMap}
+import scala.collection.mutable.{ListBuffer, Map => MMap}
 
 object API {
 
@@ -328,7 +328,8 @@ object API {
     val jsonMapList = getJsonMapList(visuanlizationPath + "/data")
 
 
-    if(VisualizationType.LineChart == visualizationType || VisualizationType.Histogram == visualizationType){
+    if(VisualizationType.LineChart == visualizationType ||
+      VisualizationType.Histogram == visualizationType ){
 
       var visualizationTuple = List[Tuple2[String,String]]()
 
@@ -370,7 +371,54 @@ object API {
       val visualizationJsonData = JsonUtil.format(JsonUtil.toJson(lineChartMap))
       println(visualizationJsonData)
       visualizationJsonData
-    }else if(VisualizationType.PieChart == visualizationType){
+    }else if (VisualizationType.ScatterPlot == visualizationType){
+      var visualizationTuple = List[Tuple2[String,String]]()
+
+      val legendColumn = schemaArray(0)
+      val abscissaColumn = schemaArray(1)
+      val yaxisColumn = schemaArray(2)
+
+
+      //get legend
+      val legendList = jsonMapList.map(item =>{
+        item.getOrElse(legendColumn,"").asInstanceOf[String]
+      }).distinct
+
+      //get schema
+      val newSchema = schemaArray.filter(_ != legendColumn )
+      val schemaList = ListBuffer[Map[String, Any]]()
+      var index = 0
+      newSchema.foreach(column =>{
+        val schemaMap = Map("name" -> column, "index" -> index, "text" ->column)
+        schemaList.append(schemaMap)
+        index = index + 1
+      })
+
+      //get series
+      val seriesList = ListBuffer[Map[String, Any]]()
+      legendList.foreach( legend => {
+
+        var legendDataList = ListBuffer[List[String]]()
+        jsonMapList.foreach(item => {
+          if(item.getOrElse(legendColumn,"").asInstanceOf[String].equals(legend)){
+            var dataList = ListBuffer[String]()
+            newSchema.foreach(column =>{
+              val value = item.getOrElse(column,"").asInstanceOf[String]
+              dataList.append(value)
+            })
+            legendDataList.append(dataList.toList)
+          }
+        })
+
+        val legendMap = Map[String, Any]("name" -> legend, "type" -> "scatter", "data" -> legendDataList.toList)
+        seriesList.append(legendMap)
+      })
+
+      val resultMap = Map[String, Any]("legend" -> legendList, "schema" -> schemaList.toList,  "series" -> seriesList.toList)
+      val visualizationJsonData = JsonUtil.format(JsonUtil.toJson(resultMap))
+      println(visualizationJsonData)
+      visualizationJsonData
+    }else if(VisualizationType.PieChart == visualizationType  ){
       var legend = List[String]()
       val schemaArray = visualizationSchema.split(",")
       val schemaReplaceMap = Map(schemaArray(1)->"value", schemaArray(0)->"name")

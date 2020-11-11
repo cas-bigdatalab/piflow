@@ -6,32 +6,30 @@ import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import org.apache.spark.sql.SparkSession
 
-class LineChart extends ConfigurableVisualizationStop{
+class ScatterPlotChart extends ConfigurableVisualizationStop{
   override val authorEmail: String = "xjzhu@cnic.cn"
-  override val description: String = "Show data with scatter plot. " +
-    "The ordinate is represented by customizedProperties, " +
-    "the key of customizedProperty is the dimentsion, and the value of customizedProperty is the operation for the dimension, such as COUNT/SUM/AVG/MAX/MIN."
-
+  override val description: String = "Show data with scatter plot chart." +
+    "Dimension is represented by customizedProperties, " +
+    "the key of customizedProperty is the dimentsion column, and the value is the index of the dimension. " +
+    "The first index represent abscissa, the second index represent ordinate. "
   override val inportList: List[String] = List(Port.DefaultPort)
   override val outportList: List[String] = List(Port.DefaultPort)
 
+  var legend:String =_
 
-  var abscissa:String =_
-
-  override var visualizationType: String = VisualizationType.LineChart
+  override var visualizationType: String = VisualizationType.ScatterPlot
   override val isCustomized: Boolean = true
-  override val customizedAllowValue: List[String] = List("COUNT","SUM","AVG","MAX","MIN")
-
+  //override val customizedAllowValue: List[String] = List("COUNT","SUM","AVG","MAX","MIN")
   override def setProperties(map: Map[String, Any]): Unit = {
-    abscissa=MapUtil.get(map,key="abscissa").asInstanceOf[String]
+    legend=MapUtil.get(map,key="legend").asInstanceOf[String]
   }
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
     val abscissa = new PropertyDescriptor()
-      .name("abscissa")
-      .displayName("Abscissa")
-      .description("The abscissa  of line chart")
+      .name("legend")
+      .displayName("Legend")
+      .description("The legend  of bubble chart")
       .defaultValue("")
       .example("year")
       .required(true)
@@ -41,7 +39,7 @@ class LineChart extends ConfigurableVisualizationStop{
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("icon/visualization/line-chart.png")
+    ImageUtil.getImage("icon/visualization/scatter-plot.png")
   }
 
   override def getGroup(): List[String] = {
@@ -54,25 +52,19 @@ class LineChart extends ConfigurableVisualizationStop{
     val spark = pec.get[SparkSession]()
     val sqlContext=spark.sqlContext
     val dataFrame = in.read()
-    dataFrame.createOrReplaceTempView("LineChart")
+    dataFrame.createOrReplaceTempView("ScatterPlot")
 
     if(this.customizedProperties != null || this.customizedProperties.size != 0){
 
       println("dimension is " + this.customizedProperties.keySet.mkString(",") + "!!!!!!!!!!!!!!!")
 
-      var dimensionActionArray = List[String]()
-      val it = this.customizedProperties.keySet.iterator
-      while (it.hasNext){
-        val dimention = it.next()
-        val action = MapUtil.get(this.customizedProperties,dimention).asInstanceOf[String]
-        val dimentionAction = action + "(" + dimention + ") as " + dimention + "_" + action
-        dimensionActionArray = dimensionActionArray :+ dimentionAction
-      }
+      var dimensionArray = List(this.customizedProperties.toSeq.sortBy(_._2): _*).map( x => x._1)
+      println("ordered dimension is " + dimensionArray.mkString(",") + "!!!!!!!!!!!!!!!")
 
-      val sqlText = "select " + abscissa + "," + dimensionActionArray.mkString(",") + " from LineChart group by " + abscissa;
-      println("LineChart Sql: " + sqlText)
-      val lineChartDF = spark.sql(sqlText)
-      out.write(lineChartDF.repartition(1))
+      val sqlText = "select " + legend + "," + dimensionArray.mkString(",") + " from ScatterPlot order by " + legend + "," + dimensionArray(0);
+      println("ScatterPlot Sql: " + sqlText)
+      val scatterPlottDF = spark.sql(sqlText)
+      out.write(scatterPlottDF.repartition(1))
     }else{
       out.write(dataFrame)
     }

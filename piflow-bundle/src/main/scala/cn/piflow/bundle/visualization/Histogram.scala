@@ -9,28 +9,28 @@ import org.apache.spark.sql.SparkSession
 class Histogram extends ConfigurableVisualizationStop{
   override val authorEmail: String = "xjzhu@cnic.cn"
   override val description: String = "Show data with histogram. " +
-    "X represents the abscissa, the ordinate is represented by customizedProperties, " +
-    "the key is the dimentsion, and the value is the operation for the dimentsion, such as SUM."
+    "The ordinate is represented by customizedProperties, " +
+    "the key of customizedProperty is the dimentsion, and the value of customizedProperty is the operation for the dimension, such as COUNT/SUM/AVG/MAX/MIN."
   override val inportList: List[String] = List(Port.DefaultPort)
   override val outportList: List[String] = List(Port.DefaultPort)
 
 
-  var x:String =_
+  var abscissa:String =_
 
   override var visualizationType: String = VisualizationType.Histogram
   override val isCustomized: Boolean = true
   override val customizedAllowValue: List[String] = List("COUNT","SUM","AVG","MAX","MIN")
 
   override def setProperties(map: Map[String, Any]): Unit = {
-    x=MapUtil.get(map,key="x").asInstanceOf[String]
+    abscissa=MapUtil.get(map,key="abscissa").asInstanceOf[String]
     //dimension=MapUtil.get(map,key="dimension").asInstanceOf[String]
   }
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
     val abscissa = new PropertyDescriptor()
-      .name("x")
-      .displayName("x")
+      .name("abscissa")
+      .displayName("Abscissa")
       .description("The abscissa  of histogram")
       .defaultValue("")
       .example("year")
@@ -75,7 +75,7 @@ class Histogram extends ConfigurableVisualizationStop{
         dimensionActionArray = dimensionActionArray :+ dimentionAction
       }
 
-      val sqlText = "select " + x + "," + dimensionActionArray.mkString(",") + " from Histoqram group by " + x;
+      val sqlText = "select " + abscissa + "," + dimensionActionArray.mkString(",") + " from Histoqram group by " + abscissa;
       println("Histoqram Sql: " + sqlText)
       val lineChartDF = spark.sql(sqlText)
       out.write(lineChartDF.repartition(1))

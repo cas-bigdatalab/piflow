@@ -60,11 +60,13 @@ class StopBean {
         }
         stop.setProperties(newProperties.toMap)
 
-      }else if( stop.isInstanceOf[ConfigurableVisualizationStop]){
+      }
+      else if( stop.isInstanceOf[ConfigurableVisualizationStop]){
         stop.asInstanceOf[ConfigurableVisualizationStop].init(name)
-        stop.setProperties(this.properties)
+        println("properties is " + this.properties + "!!!!!!!!!!!!!!!")
+        stop.asInstanceOf[ConfigurableVisualizationStop].setProperties(this.properties)
       }else {
-        print(this.properties)
+        println("properties is " + this.properties + "!!!!!!!!!!!!!!!")
         stop.asInstanceOf[ConfigurableStop].setProperties(this.properties)
       }
 
