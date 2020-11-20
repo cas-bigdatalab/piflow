@@ -5,7 +5,7 @@ import java.util.UUID
 
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
-import cn.piflow.conf.{ConfigurableStop, Port, StopGroup}
+import cn.piflow.conf.{ConfigurableStop, Language, Port, StopGroup}
 import cn.piflow.util.FileUtil
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import jep.Jep
@@ -39,6 +39,7 @@ class ExecutePythonWithDataFrame extends ConfigurableStop{
       .description("The code of python")
       .defaultValue("")
       .required(true)
+      .language(Language.Python)
     val execFunction = new PropertyDescriptor()
       .name("execFunction")
       .displayName("execFunction")

@@ -3,7 +3,7 @@ package cn.piflow.bundle.script
 import cn.piflow.bundle.util.RemoteShellExecutor
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
-import cn.piflow.conf.{ConfigurableStop, Port, StopGroup}
+import cn.piflow.conf.{ConfigurableStop, Language, Port, StopGroup}
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.apache.spark.sql.SparkSession
 
@@ -71,6 +71,7 @@ class ExecuteShell extends ConfigurableStop{
       .defaultValue("")
       .required(true)
       .example("mkdir /work/###cp /opt/1.29.3.tar.gz /work/")
+      .language(Language.Shell)
 
 
     descriptor = IP :: descriptor

@@ -5,7 +5,7 @@ import java.net.{MalformedURLException, URL}
 
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil, PluginClassLoader}
-import cn.piflow.conf.{ConfigurableStop, Port, StopGroup}
+import cn.piflow.conf.{ConfigurableStop, Language, Port, StopGroup}
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 
 import scala.language.experimental.macros
@@ -46,6 +46,7 @@ class ExecuteScala extends ConfigurableStop{
       .defaultValue("")
       .required(true)
       .example("val df = in.read() \nval df1 = df.select(\"author\").filter($\"author\".like(\"%xjzhu%\")) \ndf1.show() \ndf.createOrReplaceTempView(\"person\") \nval df2 = spark.sql(\"select * from person where author like '%xjzhu%'\") \ndf2.show() \nout.write(df2)")
+      .language(Language.Scala)
 
     descriptor = script :: descriptor
     descriptor

@@ -1,5 +1,6 @@
 package cn.piflow.conf.bean
 
+import cn.piflow.conf.Language
 import net.liftweb.json.JsonDSL._
 import net.liftweb.json._
 
@@ -12,6 +13,7 @@ class PropertyDescriptor {
   var required : Boolean = false
   var sensitive : Boolean = false
   var example : String = _
+  var language : String = Language.Text
 
 
   def name(name:String) : PropertyDescriptor = {
@@ -44,6 +46,10 @@ class PropertyDescriptor {
   }
   def sensitive(sensitive:Boolean) : PropertyDescriptor = {
     this.sensitive = sensitive
+    this
+  }
+  def language(language: String) : PropertyDescriptor = {
+    this.language = language
     this
   }
   def toJson():String = {
