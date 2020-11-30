@@ -75,24 +75,35 @@ class ExecutePythonWithDataFrame extends ConfigurableStop{
     val listInfo = df.toJSON.collectAsList()
     jep.eval(s"result = $execFunction($listInfo)")
     val resultArrayList = jep.getValue("result",new util.ArrayList().getClass)
-    println(resultArrayList)
+    println("Execute Python Result : " + resultArrayList + "!!!!!!!!!!!!!!!!!!!!!")
 
 
-    var resultList = List[Map[String, Any]]()
+    var resultList = List[Map[String, String]]()
     val it = resultArrayList.iterator()
     while(it.hasNext){
       val i = it.next().asInstanceOf[java.util.HashMap[String, Any]]
       val item =  mapAsScalaMap(i).toMap[String, Any]
-      resultList =  item +: resultList
+      var new_item = Map[String, String]()
+      item.foreach(m => {
+        val key = m._1
+        val value = m._2
+        new_item += (key -> String.valueOf(value))
+      })
+      resultList =  new_item +: resultList
     }
+    println("Convert Python Result to Scala List: " + resultList + "!!!!!!!!!!!!!!!!!!!!!")
 
 
     val rows = resultList.map( m => Row(m.values.toSeq:_*))
+    //println("rows: " + rows + "!!!!!!!!!!!!!!!!!!!!!")
     val header = resultList.head.keys.toList
+    //println("header: " + header + "!!!!!!!!!!!!!!!!!!!!!")
     val schema = StructType(header.map(fieldName => new StructField(fieldName, StringType, true)))
+    println("schema: " + schema + "!!!!!!!!!!!!!!!!!!!!!")
 
     val rdd = spark.sparkContext.parallelize(rows)
     val resultDF = spark.createDataFrame(rdd, schema)
+    resultDF.show()
 
     out.write(resultDF)
   }

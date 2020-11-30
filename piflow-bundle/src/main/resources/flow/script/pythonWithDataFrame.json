@@ -5,13 +5,14 @@
     "stops":[
       {
         "uuid":"1111",
-        "name":"CsvParser",
-        "bundle":"cn.piflow.bundle.csv.CsvParser",
+        "name":"MysqlRead",
+        "bundle":"cn.piflow.bundle.jdbc.MysqlRead",
         "properties":{
-          "csvPath":"hdfs://10.0.88.13:9000/xjzhu/test.csv",
-          "header":"false",
-          "delimiter":",",
-          "schema":"title,author"
+          "sql":"select id,name from student",
+          "url":"jdbc:mysql://10.0.88.24:3306/visualization?useUnicode=true&characterEncoding=utf-8",
+          "driver":"com.mysql.jdbc.Driver",
+          "user":"root",
+          "password":"123456"
         }
       },
       {
@@ -19,14 +20,14 @@
         "name":"ExecutePythonWithDataFrame",
         "bundle":"cn.piflow.bundle.script.ExecutePythonWithDataFrame",
         "properties":{
-            "script":"import sys\nimport os\n\nimport numpy as np\nfrom scipy import linalg\nimport pandas as pd\n\nimport matplotlib\nmatplotlib.use('Agg')\n\n\ndef listFunction(dictInfo):\n\n    return dictInfo",
+            "script":"import sys\nimport os\nimport numpy as np\ndef listFunction(dictInfo):  \n  newDict = {\"name\":\"hello new user!\", \"id\":11}\n  secondDict = {\"name\":\"hello second user!\", \"id\":12}\n  listInfo=[newDict, secondDict]\n  return dictInfo + listInfo\n",
             "execFunction": "listFunction"
         }
       }
     ],
     "paths":[
       {
-        "from":"CsvParser",
+        "from":"MysqlRead",
         "outport":"",
         "inport":"",
         "to":"ExecutePythonWithDataFrame"

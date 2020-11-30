@@ -31,6 +31,8 @@ import org.flywaydb.core.api.FlywayException
 import org.h2.tools.Server
 import spray.json.DefaultJsonProtocol
 
+import scala.io.Source
+
 
 object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSupport{
   implicit val config = ConfigFactory.load()
@@ -295,28 +297,28 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
 
    case HttpRequest(POST, Uri.Path("/group/start"), headers, entity, protocol) =>{
 
-     try{
-       /*entity match {
-         case HttpEntity.Strict(_, data) =>{
-           var flowGroupJson = data.utf8String
-           val flowGroupExecution = API.startGroup(flowGroupJson)
-           flowGroupMap += (flowGroupExecution.getGroupId() -> flowGroupExecution)
-           val result = "{\"group\":{\"id\":\"" + flowGroupExecution.getGroupId() + "\"}}"
-           Future.successful(HttpResponse(SUCCESS_CODE, entity = result))
-         }
-         case otherType => {
-           println(otherType)
+     /*try{
 
-           val bodyFeature = Unmarshal(entity).to [String]
-           val flowGroupJson = Await.result(bodyFeature,scala.concurrent.duration.Duration(1,"second"))
-           val flowGroupExecution = API.startGroup(flowGroupJson)
-           flowGroupMap += (flowGroupExecution.getGroupId() -> flowGroupExecution)
-           val result = "{\"group\":{\"id\":\"" + flowGroupExecution.getGroupId() + "\"}}"
-           Future.successful(HttpResponse(SUCCESS_CODE, entity = result))
-         }
-       }*/
+       val bodyFeature = Unmarshal(entity.withoutSizeLimit())
+       val flowGroupJson = ""//Await.result(bodyFeature,scala.concurrent.duration.Duration(5,"second"))
+
+       val flowGroupExecution = API.startGroup(flowGroupJson)
+       flowGroupMap += (flowGroupExecution.getGroupId() -> flowGroupExecution)
+       val result = "{\"group\":{\"id\":\"" + flowGroupExecution.getGroupId() + "\"}}"
+       Future.successful(HttpResponse(SUCCESS_CODE, entity = result))
+     }catch {
+       case ex => {
+         println(ex)
+         Future.successful(HttpResponse(FAIL_CODE, entity = "Can not start group!"))
+       }
+     }*/
+     try{
+
        val bodyFeature = Unmarshal(entity).to [String]
        val flowGroupJson = Await.result(bodyFeature,scala.concurrent.duration.Duration(1,"second"))
+       //use file to run large group
+       //val flowGroupJsonPath = Await.result(bodyFeature,scala.concurrent.duration.Duration(1,"second"))
+       //val flowGroupJson = Source.fromFile(flowGroupJsonPath).getLines().toArray.mkString("\n")*/
        val flowGroupExecution = API.startGroup(flowGroupJson)
        flowGroupMap += (flowGroupExecution.getGroupId() -> flowGroupExecution)
        val result = "{\"group\":{\"id\":\"" + flowGroupExecution.getGroupId() + "\"}}"
@@ -327,6 +329,7 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
          Future.successful(HttpResponse(FAIL_CODE, entity = "Can not start group!"))
        }
      }
+
 
    }
 

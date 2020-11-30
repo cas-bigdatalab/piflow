@@ -34,7 +34,7 @@ class ExecuteScala extends ConfigurableStop{
     val pluginName = new PropertyDescriptor()
       .name("plugin")
       .displayName("Plugin")
-      .description("The class name of scala code. This field is generated automaticly.")
+      .description("The class name of scala code.")
       .defaultValue("")
       .required(true)
     descriptor = pluginName :: descriptor
