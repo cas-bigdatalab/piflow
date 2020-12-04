@@ -96,7 +96,8 @@ Try PiFlow v0.6 with: http://piflow.cstcloud.cn/piflow-web/
   
   
 - `run piflow server by release version`:
-  - download piflow.tar.gz:    
+  - download piflow.tar.gz:   
+    https://github.com/cas-bigdatalab/piflow/releases/download/v0.9/piflow-server-v0.9.tar.gz  
     https://github.com/cas-bigdatalab/piflow/releases/download/v0.8/piflow-server-v0.8.tar.gz  
     https://github.com/cas-bigdatalab/piflow/releases/download/v0.7/piflow-server-v0.7.tar.gz  
     https://github.com/cas-bigdatalab/piflow/releases/download/v0.6/piflow-server-v0.6.tar.gz   
@@ -154,6 +155,7 @@ Try PiFlow v0.6 with: http://piflow.cstcloud.cn/piflow-web/
   
 ### Run Piflow Web：
   - Visit address, download the corresponding *.tar.gz file, and modify the corresponding configuration file（`The version must be consistent with piflow-server`） 
+    - https://github.com/cas-bigdatalab/piflow-web/releases/tag/v0.9  
     - https://github.com/cas-bigdatalab/piflow-web/releases/tag/v0.8
     - https://github.com/cas-bigdatalab/piflow-web/releases/tag/v0.7
     - https://github.com/cas-bigdatalab/piflow-web/releases/tag/v0.6
@@ -232,6 +234,7 @@ Try PiFlow v0.6 with: http://piflow.cstcloud.cn/piflow-web/
     
 ## docker-started  
   - pull piflow images  
+    docker pull registry.cn-hangzhou.aliyuncs.com/cnic_piflow/piflow:v0.9  
     docker pull registry.cn-hangzhou.aliyuncs.com/cnic_piflow/piflow:v0.7.1  
     docker pull registry.cn-hangzhou.aliyuncs.com/cnic_piflow/piflow:v0.6.1
     
@@ -241,7 +244,7 @@ Try PiFlow v0.6 with: http://piflow.cstcloud.cn/piflow-web/
   - run a container with  piflow imageID ， all services run automatically  
     docker run --name piflow-v0.6 -it [imageID]
     
-  - please visit "containerip:6001/piflow-web", it may take a while   
+  - please visit "containerip:6001", it may take a while   
   
   - if somethings goes wrong,  all the application are in /opt  folder，
   
