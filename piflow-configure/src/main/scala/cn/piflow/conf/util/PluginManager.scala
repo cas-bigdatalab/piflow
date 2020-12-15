@@ -1,12 +1,13 @@
 package cn.piflow.conf.util
 
-import java.io.File
+import java.io.{BufferedInputStream, File}
 import java.net.{MalformedURLException, URL}
 import java.util
 import java.net.URL
 
 import cn.piflow.conf.ConfigurableStop
 import cn.piflow.util.PropertyUtil
+import com.sksamuel.scrimage.Image
 import org.clapper.classutil.ClassFinder
 
 import scala.collection.mutable.{Map => MMap}
@@ -48,6 +49,31 @@ class PluginManager {
         val ins = forName.newInstance.asInstanceOf[ConfigurableStop]
         System.out.println(bundleName + " is found in " + plugin)
         return ins
+
+      } catch {
+        case e: IllegalAccessException =>
+          e.printStackTrace()
+        case e: InstantiationException =>
+          e.printStackTrace()
+        case e: ClassNotFoundException =>
+          System.err.println(bundleName + " can not be found in " + plugin)
+        //e.printStackTrace();
+      }
+    }
+    null
+  }
+
+
+  def getConfigurableStopIcon(imagePath:String, bundleName:String): Array[Byte] = {
+    val it = pluginMap.keys.iterator
+    while (it.hasNext) {
+      val plugin = it.next
+      try {
+        val forName = Class.forName(bundleName, true, getLoader(plugin))
+        val ins = forName.newInstance.asInstanceOf[ConfigurableStop]
+        val  imageInputStream = getLoader(plugin).getResourceAsStream(imagePath)
+        val input = new BufferedInputStream(imageInputStream)
+        return Image.fromStream(input).bytes
 
       } catch {
         case e: IllegalAccessException =>
