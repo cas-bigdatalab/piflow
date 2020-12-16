@@ -7,5 +7,5 @@ object VisualizationType {
   val Histogram = "HISTOGRAM"
   val ScatterPlot = "SCATTERPLOT"
   val RadarChart = "RADARCHART"
-
+  val Table = "TABLE"
 }

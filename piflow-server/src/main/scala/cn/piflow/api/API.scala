@@ -440,7 +440,25 @@ object API {
       val visualizationJsonData = JsonUtil.format(JsonUtil.toJson(pieChartMap))
       println(visualizationJsonData)
       visualizationJsonData
-    }else{
+    }else if(VisualizationType.Table == visualizationType  ){
+      println(visualizationSchema)
+      println(jsonMapList)
+      var legendDataList = ListBuffer[List[String]]()
+      jsonMapList.foreach(item => {
+
+        var dataList = ListBuffer[String]()
+        schemaArray.foreach(column =>{
+          val value = item.getOrElse(column,"").asInstanceOf[String]
+          dataList.append(value)
+        })
+        legendDataList.append(dataList.toList)
+      })
+      val resultMap = Map[String, Any]("schema" -> schemaArray.toList, "data" -> legendDataList.toList)
+      val visualizationJsonData = JsonUtil.format(JsonUtil.toJson(resultMap))
+      println(visualizationJsonData)
+      visualizationJsonData
+    }
+    else{
       ""
     }
 
