@@ -441,19 +441,9 @@ object API {
       println(visualizationJsonData)
       visualizationJsonData
     }else if(VisualizationType.Table == visualizationType  ){
-      println(visualizationSchema)
-      println(jsonMapList)
-      var legendDataList = ListBuffer[List[String]]()
-      jsonMapList.foreach(item => {
-
-        var dataList = ListBuffer[String]()
-        schemaArray.foreach(column =>{
-          val value = item.getOrElse(column,"").asInstanceOf[String]
-          dataList.append(value)
-        })
-        legendDataList.append(dataList.toList)
-      })
-      val resultMap = Map[String, Any]("schema" -> schemaArray.toList, "data" -> legendDataList.toList)
+      //println(visualizationSchema)
+      //println(jsonMapList)
+      val resultMap = Map[String, Any]("schema" -> schemaArray.toList, "data" -> jsonMapList)
       val visualizationJsonData = JsonUtil.format(JsonUtil.toJson(resultMap))
       println(visualizationJsonData)
       visualizationJsonData
