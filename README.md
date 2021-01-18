@@ -242,11 +242,15 @@ Try PiFlow v0.6 with: http://piflow.cstcloud.cn/piflow-web/
     docker images
     
   - run a container with  piflow imageID ， all services run automatically  
-    docker run --name piflow-v0.6 -it [imageID]
+    docker run --name piflow -it [imageID]
     
-  - please visit "containerip:6001", it may take a while   
+  - please visit "containerip:6001", it may take a while  
   
-  - if somethings goes wrong,  all the application are in /opt  folder，
+  - if somethings goes wrong,  all the application are in /opt  folder  
+  
+  - You can use port mapping to access piflow on the host 
+    docker run --name piflow -it [imageID] -p 6001:6001 -p 6002:6002
+    please visit 'host:6001'
   
 ## use-interface
 - `Login`:
