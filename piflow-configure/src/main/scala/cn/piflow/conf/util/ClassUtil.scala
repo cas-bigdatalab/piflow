@@ -203,6 +203,12 @@ object ClassUtil {
     val propertyDescriptorList:List[PropertyDescriptor] = stop.getPropertyDescriptor()
     propertyDescriptorList.foreach(p=> if (p.allowableValues == null || p.allowableValues == None) p.allowableValues = List(""))
     val base64Encoder = new BASE64Encoder()
+    var iconArrayByte : Array[Byte]= Array[Byte]()
+    try{
+      iconArrayByte = stop.getIcon()
+    }catch {
+      case ex => println(ex)
+    }
 
     //TODO: add properties for visualization stop
     var visualizationType = ""
@@ -222,7 +228,7 @@ object ClassUtil {
           ("customizedAllowValue" -> "")*/
           ("visualizationType" -> visualizationType) ~
           ("description" -> stop.description) ~
-          ("icon" -> base64Encoder.encode(stop.getIcon())) ~
+          ("icon" -> base64Encoder.encode(iconArrayByte)) ~
           ("properties" ->
             propertyDescriptorList.map { property =>(
               ("name" -> property.name) ~
