@@ -249,7 +249,7 @@ Try PiFlow v0.6 with: http://piflow.cstcloud.cn/piflow-web/
   - if somethings goes wrong,  all the application are in /opt  folder  
   
   - You can use port mapping to access piflow on the host 
-    docker run --name piflow -it [imageID] -p 6001:6001 -p 6002:6002
+    docker run --name piflow -it -p 6001:6001 -p 6002:6002 [imageID] 
     please visit 'host:6001'
   
 ## use-interface
