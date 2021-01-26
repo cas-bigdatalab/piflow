@@ -1,0 +1,47 @@
+FROM ubuntu
+MAINTAINER xjzhu@cnic.cn
+
+ENV HOSTNAME master
+
+RUN apt-get update
+RUN apt-get install net-tools -y
+RUN apt-get install vim -y
+RUN apt-get install openssh-server -y
+RUN apt-get install openssh-client -y
+RUN ssh-keygen -b 2048 -t rsa -f ~/.ssh/id_rsa -q -N "" && cat ~/.ssh/id_rsa.pub >> ~/.ssh/authorized_keys
+RUN echo "StrictHostKeyChecking no" > ~/.ssh/config
+
+RUN mkdir -p /opt
+COPY ./java.tar.gz /usr/local
+RUN tar -zxvf /usr/local/java.tar.gz -C /usr/local/
+
+ENV JAVA_HOME /usr/local/java
+ENV JRE_HOME  /usr/local/java/jre
+ENV CLASSPATH .:${JAVA_HOME}/lib:${JRE_HOME}/lib
+ENV PATH ${JAVA_HOME}/bin:$PATH
+
+COPY ./scala-2.11.8.tar.gz  /opt
+RUN tar -zxvf /opt/scala-2.11.8.tar.gz -C /opt
+ENV SCALA_HOME=/opt/scala-2.11.8
+ENV PATH=$PATH:${SCALA_HOME}/bin
+
+COPY ./hadoop-2.6.0.tar.gz  /opt
+RUN tar -zxvf /opt/hadoop-2.6.0.tar.gz -C /opt
+ENV HADOOP_HOME=/opt/hadoop-2.6.0
+ENV PATH=$PATH:${HADOOP_HOME}/bin:${HADOOP_HOME}/sbin
+ENV HADOOP_CONF_DIR=/opt/hadoop-2.6.0/etc/hadoop
+
+COPY ./spark-2.2.0-bin-hadoop2.6.tar.gz  /opt
+RUN tar -zxvf /opt/spark-2.2.0-bin-hadoop2.6.tar.gz -C /opt
+ENV SPARK_HOME=/opt/spark-2.2.0-bin-hadoop2.6
+ENV PATH=$PATH:${SPARK_HOME}/bin:${SPARK_HOME}/sbin
+
+COPY ./piflow.tar.gz  /opt
+RUN tar -zxvf /opt/piflow.tar.gz -C /opt
+
+COPY ./piflow.sh /opt
+
+EXPOSE 8002 6002 6001
+
+ENTRYPOINT  /opt/piflow.sh && tail -f /dev/null
+
