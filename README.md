@@ -240,7 +240,7 @@ Try PiFlow v0.6 with: http://piflow.cstcloud.cn/piflow-web/
     docker images
     
   - run a container with  piflow imageID ， all services run automatically  
-    docker run -h master -itd --env HOST_IP=*.*.*.* --name piflow-v0.9.1 -p 6001:6001 -p 6002:6002  [imageID]  
+    docker run -h master -itd --env HOST_IP=\*.\*.\*.\* --name piflow-v0.9.1 -p 6001:6001 -p 6002:6002  [imageID]  
     
   - please visit "HOST_IP:6001", it may take a while  
   
