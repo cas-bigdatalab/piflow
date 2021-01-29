@@ -7,7 +7,7 @@
 [![GitHub license](https://img.shields.io/github/license/cas-bigdatalab/piflow.svg)](https://github.com/cas-bigdatalab/piflow/blob/master/LICENSE)
 
 πFlow is an easy to use, powerful big data pipeline system.
-Try PiFlow v0.6 with: http://piflow.cstcloud.cn/piflow-web/
+Try PiFlow v0.6 with: http://piflow.cstcloud.cn
 ## Table of Contents
 
 - [Features](#features)
