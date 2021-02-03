@@ -234,23 +234,17 @@ Try PiFlow v0.6 with: http://piflow.cstcloud.cn/piflow-web/
     
 ## docker-started  
   - pull piflow images  
-    docker pull registry.cn-hangzhou.aliyuncs.com/cnic_piflow/piflow:v0.9  
-    docker pull registry.cn-hangzhou.aliyuncs.com/cnic_piflow/piflow:v0.7.1  
-    docker pull registry.cn-hangzhou.aliyuncs.com/cnic_piflow/piflow:v0.6.1
+    docker pull registry.cn-hangzhou.aliyuncs.com/cnic_piflow/piflow:v0.9.1  
     
   - show docker images  
     docker images
     
   - run a container with  piflow imageID ， all services run automatically  
-    docker run --name piflow -it [imageID]
+    docker run -h master -itd --env HOST_IP=\*.\*.\*.\* --name piflow-v0.9.1 -p 6001:6001 -p 6002:6002  [imageID]  
     
-  - please visit "containerip:6001", it may take a while  
+  - please visit "HOST_IP:6001", it may take a while  
   
   - if somethings goes wrong,  all the application are in /opt  folder  
-  
-  - You can use port mapping to access piflow on the host 
-    docker run --name piflow -it -p 6001:6001 -p 6002:6002 [imageID] 
-    please visit 'host:6001'
   
 ## use-interface
 - `Login`:
