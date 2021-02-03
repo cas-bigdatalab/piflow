@@ -207,7 +207,8 @@ object ClassUtil {
     try{
       iconArrayByte = stop.getIcon()
     }catch {
-      case ex => println(ex)
+      case ex: ClassNotFoundException => println(ex)
+      case ex: NoSuchMethodError => println(ex)
     }
 
     //TODO: add properties for visualization stop
