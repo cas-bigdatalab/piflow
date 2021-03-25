@@ -8,7 +8,7 @@
 
 
 πFlow is an easy to use, powerful big data pipeline system.
-Try PiFlow v0.6 with: http://piflow.cstcloud.cn/piflow-web/
+Try PiFlow v0.9 with: http://piflow.cstcloud.cn/
 ## Table of Contents
 
 - [Features](#features)
