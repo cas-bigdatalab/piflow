@@ -261,10 +261,6 @@ class RunnerLogger extends RunnerListener with Logging {
     logger.debug(s"job completed: monitor $stopName");
     println(s"job completed: monitor $stopName")
 
-    val outputDataCount = outputs.getDataCount()
-    outputDataCount.keySet.foreach(portName => {
-      H2Util.addThroughput(appId, stopName, portName, outputDataCount(portName))
-    })
   }
 
   override def onGroupStarted(ctx: GroupContext): Unit = {

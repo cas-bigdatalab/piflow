@@ -8,8 +8,8 @@ import org.apache.http.util.EntityUtils
 object HTTPClientPutPlugin {
 
   def main(args: Array[String]): Unit = {
-    val json = """{"plugin":"piflowexternal.jar"}"""
-    val url = "http://10.0.86.191:8002/plugin/add"
+    val json = """{"plugin":"ShowDataTest.jar"}"""
+    val url = "http://159.226.193.156:8001/plugin/add"
     val client = HttpClients.createDefault()
     val post:HttpPost = new HttpPost(url)
 

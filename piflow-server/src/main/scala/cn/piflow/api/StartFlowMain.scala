@@ -11,7 +11,7 @@ import org.apache.spark.sql.SparkSession
 
 import scala.util.parsing.json.JSON
 
-object StartFlowMain {
+object StartFlinkFlowMain {
 
   def main(args: Array[String]): Unit = {
     //val flowJsonencryptAES = args(0)

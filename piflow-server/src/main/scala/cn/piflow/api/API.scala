@@ -13,6 +13,8 @@ import cn.piflow.{GroupExecution, Process, Runner}
 import cn.piflow.conf.bean.{FlowBean, GroupBean}
 import cn.piflow.util.HdfsUtil.{getJsonMapList, getLine}
 import cn.piflow.util._
+import org.apache.flink.api.scala.ExecutionEnvironment
+import org.apache.flink.streaming.api.scala.StreamExecutionEnvironment
 import org.apache.http.client.methods.{CloseableHttpResponse, HttpGet, HttpPut}
 import org.apache.http.entity.StringEntity
 import org.apache.http.impl.client.HttpClients
@@ -520,6 +522,29 @@ object API {
 
     (stdout, stderr)
   }
+
+
+   //Flink Flow
+  def startFlinkFlow(flowJson : String) = {
+
+
+    println(flowJson)
+    val map = OptionUtil.getAny(JSON.parseFull(flowJson)).asInstanceOf[Map[String, Any]]
+    println(map)
+
+    //create flow
+    val flowBean = FlowBean(map)
+    val flow = flowBean.constructFlow(false)
+
+
+    val env = FlinkLauncher.launch(flow)
+
+    val process = Runner.create()
+      .bind(classOf[StreamExecutionEnvironment].getName, env)
+      .start(flow);
+  }
+
+
 
 }
 

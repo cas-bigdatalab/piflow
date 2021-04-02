@@ -1,14 +1,9 @@
 package cn.piflow.conf.util
 
-import java.io.File
-import java.net.URLClassLoader
-
-import cn.piflow.VisualizationStop
 import cn.piflow.conf.ConfigurableStop
 import cn.piflow.conf.bean.PropertyDescriptor
 import javassist.Modifier
 import net.liftweb.json.{JValue, compactRender}
-import org.clapper.classutil.ClassFinder
 import org.reflections.Reflections
 import net.liftweb.json.JsonDSL._
 import sun.misc.BASE64Encoder
@@ -20,7 +15,6 @@ object ClassUtil {
 
 
   val configurableStopClass:String = "cn.piflow.conf.ConfigurableStop"
-  val configurableStreamingStop:String = "cn.piflow.conf.ConfigurableStreamingStop"
   val configurableIncrementalStop:String = "cn.piflow.conf.ConfigurableIncrementalStop"
 
   def findAllConfigurableStop() : List[ConfigurableStop] = {
@@ -43,9 +37,6 @@ object ClassUtil {
 
         if(Modifier.isAbstract(stopClass.getModifiers())) {
           println("Stop " + stop.getName + " is interface!")
-          /*if (stopName.equals("cn.piflow.conf.ConfigurableStreamingStop")
-            || stopName.equals("cn.piflow.conf.ConfigurableIncrementalStop")
-            || stopName.equals("cn.piflow.conf.ConfigurableVisualizationStop"))*/
           break
         }
         else{
@@ -211,11 +202,7 @@ object ClassUtil {
       case ex: NoSuchMethodError => println(ex)
     }
 
-    //TODO: add properties for visualization stop
-    var visualizationType = ""
-    if (stop.isInstanceOf[VisualizationStop]){
-      visualizationType = stop.asInstanceOf[VisualizationStop].visualizationType.toString()
-    }
+
     val jsonValue =
       ("StopInfo" ->
         ("name" -> stopName)~
@@ -225,9 +212,7 @@ object ClassUtil {
           ("outports" -> stop.outportList.mkString(",")) ~
           ("groups" -> stop.getGroup().mkString(",")) ~
           ("isCustomized" -> stop.getCustomized().toString) ~
-          /*("customizedAllowKey" -> "") ~
-          ("customizedAllowValue" -> "")*/
-          ("visualizationType" -> visualizationType) ~
+          ("visualizationType" -> "") ~
           ("description" -> stop.description) ~
           ("icon" -> base64Encoder.encode(iconArrayByte)) ~
           ("properties" ->
@@ -265,31 +250,6 @@ object ClassUtil {
   }
 
   def main(args: Array[String]): Unit = {
-    //val stop = findConfigurableStop("cn.piflow.bundle.Class1")
-    //val allConfigurableStopList = findAllConfigurableStop()
-    /*val propertyDescriptorList = findConfigurableStopPropertyDescriptor("cn.piflow.bundle.Xjzhu")
-    var propertyJsonList = List[String]()
-    propertyDescriptorList.foreach( p => propertyJsonList = p.toJson() +: propertyJsonList  )
-    val start ="""{"properties":["""
-    val end = """]}"""
-    val str = propertyJsonList.mkString(start, ",", end)
-    println(str)*/
-
-    //val stop = findAllConfigurableStop()
-    //stop.foreach(s => println(s.getClass.getName))
-    //findAllGroups().foreach(print(_))
-    //val t = findConfigurableStopInClasspath("cn.nsfc.personDistinct.PersonDistinct")
-
-    //val pluginManager = PluginManager.getInstance
-    //pluginManager.loadPlugin("piflowexternal.jar")
-    //val stop = findConfigurableStopInClasspath("cn.piflow.bundle.external.ShowData")
-    //val stopListInClassPath = findAllConfigurableStopInClasspath()
-    //val temp = 1
-
-
-    //val stop = findConfigurableStop("cn.piflow.bundle.http.PostUrl")
-    //println(stop.getClass.getName)
-
 
   }
 

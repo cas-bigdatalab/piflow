@@ -668,6 +668,24 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
 
    }
 
+   case HttpRequest(POST, Uri.Path("/flink/flow/start"), headers, entity, protocol) => {
+
+
+     try {
+
+       val bodyFeature = Unmarshal(entity).to[String]
+       val flowJson = Await.result(bodyFeature, scala.concurrent.duration.Duration(1, "second"))
+       API.startFlinkFlow(flowJson)
+
+       val result = "{\"flow\":{\"id\":\"" + 0 + "\"}}"
+       Future.successful(HttpResponse(SUCCESS_CODE, entity = result))
+     } catch {
+       case ex: Exception => {
+         println(ex)
+         Future.successful(HttpResponse(FAIL_CODE, entity = "Can not start flow!"))
+       }
+     }
+   }
 
    case _: HttpRequest =>
       Future.successful(HttpResponse(UNKNOWN_CODE, entity = "Unknown resource!"))
@@ -677,7 +695,8 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
 
   def run = {
 
-    val ip = InetAddress.getLocalHost.getHostAddress
+    //val ip = InetAddress.getLocalHost.getHostAddress
+    val ip="223.193.3.32"
     //write ip to server.ip file
     FileUtil.writeFile("server.ip=" + ip, ServerIpUtil.getServerIpFile())
 

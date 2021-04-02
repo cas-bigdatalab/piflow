@@ -101,9 +101,7 @@ class PluginManager {
         for( externalClass <- classes){
 
           try {
-            if(externalClass.superClassName.equals(ClassUtil.configurableStopClass) &&
-              !externalClass.name.equals(ClassUtil.configurableStreamingStop) &&
-              !externalClass.name.equals(ClassUtil.configurableIncrementalStop)){
+            if(externalClass.superClassName.equals(ClassUtil.configurableStopClass) ){
               val forName = Class.forName(externalClass.name, true, getLoader(plugin))
               val ins = forName.newInstance.asInstanceOf[ConfigurableStop]
               System.out.println("Find ConfigurableStop: " + externalClass.name + " in " + plugin)
@@ -133,7 +131,9 @@ class PluginManager {
   def getPluginConfigurableStops(pluginName : String): List[ConfigurableStop] = {
 
     var stopList = List[ConfigurableStop]()
-    val plugin = this.getPluginPath() + pluginName
+    var plugin = this.getPluginPath() + pluginName
+    //temp
+    plugin = plugin.replace("/","\\")
     if(pluginMap.contains(plugin)){
 
       val finder = ClassFinder(Seq(new File(plugin)))
@@ -142,9 +142,7 @@ class PluginManager {
         for( externalClass <- classes){
 
           try {
-            if(externalClass.superClassName.equals(ClassUtil.configurableStopClass) &&
-              !externalClass.name.equals(ClassUtil.configurableStreamingStop) &&
-              !externalClass.name.equals(ClassUtil.configurableIncrementalStop)){
+            if(externalClass.superClassName.equals(ClassUtil.configurableStopClass)){
               val forName = Class.forName(externalClass.name, true, getLoader(plugin))
               val ins = forName.newInstance.asInstanceOf[ConfigurableStop]
               System.out.println("Find ConfigurableStop: " + externalClass.name + " in " + plugin)

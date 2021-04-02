@@ -50,6 +50,9 @@ object FlowLauncher {
     if(sparkMaster.equals("yarn")){
       sparkLauncher.setDeployMode(PropertyUtil.getPropertyValue("spark.deploy.mode"))
       sparkLauncher.setConf("spark.hadoop.yarn.resourcemanager.hostname", PropertyUtil.getPropertyValue("yarn.resourcemanager.hostname"))
+    }else if(sparkMaster.equals("local")){
+      sparkLauncher.setConf("spark.eventLog.enabled","true")
+      sparkLauncher.setConf("spark.eventLog.dir","E:\\project\\piflow\\logs")
     }
 
     //add plugin jars for application

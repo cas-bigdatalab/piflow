@@ -2,7 +2,7 @@ package cn.piflow.conf.bean
 
 import java.lang.ClassNotFoundException
 
-import cn.piflow.conf.{ConfigurableIncrementalStop, ConfigurableStop, ConfigurableVisualizationStop}
+import cn.piflow.conf.ConfigurableStop
 import cn.piflow.conf.util.{ClassUtil, MapUtil}
 
 import scala.collection.mutable
@@ -36,43 +36,10 @@ class StopBean {
       val stop = ClassUtil.findConfigurableStop(this.bundle)
       println("Construct stop: " + stop + "!!!!!!!!!!!!!!!!!!!!!")
 
-
-      //init ConfigurableIncrementalStop
-      if( stop.isInstanceOf[ConfigurableIncrementalStop]){
-        stop.asInstanceOf[ConfigurableIncrementalStop].init(flowName, name)
-        var startValue : String = stop.asInstanceOf[ConfigurableIncrementalStop].readIncrementalStart()
-        if(startValue == null || startValue == ""){
-          if(this.properties.contains("incrementalStart")){
-            startValue = MapUtil.get(this.properties,"incrementalStart").asInstanceOf[String]
-          }else{
-            throw new Exception("You must set incrementalStart value!")
-          }
-        }
-
-        //replace the tag of incremental Field in properties
-        val newProperties: scala.collection.mutable.Map[String, String] = scala.collection.mutable.Map()
-        val it = this.properties.keysIterator
-        while(it.hasNext){
-          val key = it.next()
-          var value = this.properties(key)
-          value = value.replaceAll("#~#", "'" + startValue + "'")
-          newProperties(key) = value
-        }
-        stop.setProperties(newProperties.toMap)
-
-      }
-      else if( stop.isInstanceOf[ConfigurableVisualizationStop]){
-        stop.asInstanceOf[ConfigurableVisualizationStop].init(name)
-        println("properties is " + this.properties + "!!!!!!!!!!!!!!!")
-        stop.asInstanceOf[ConfigurableVisualizationStop].setProperties(this.properties)
-      }else {
-        println("properties is " + this.properties + "!!!!!!!!!!!!!!!")
-        stop.asInstanceOf[ConfigurableStop].setProperties(this.properties)
-      }
+      println("properties is " + this.properties + "!!!!!!!!!!!!!!!")
+      stop.asInstanceOf[ConfigurableStop].setProperties(this.properties)
 
       stop.setCustomizedProperties(this.customizedProperties)
-
-
 
       stop
     }catch {

@@ -8,8 +8,8 @@ import org.apache.http.util.EntityUtils
 object HTTPClientRemovePlugin {
 
   def main(args: Array[String]): Unit = {
-    val json = """{"plugin":"piflowexternal.jar"}"""
-    val url = "http://10.0.85.83:8001/plugin/remove"
+    val json = """{"pluginId":"2ac9e250-1824-4bea-b33a-b896c11b4f1a"}"""
+    val url = "http://159.226.193.156:8001/plugin/remove"
     val client = HttpClients.createDefault()
     val post:HttpPost = new HttpPost(url)
 
