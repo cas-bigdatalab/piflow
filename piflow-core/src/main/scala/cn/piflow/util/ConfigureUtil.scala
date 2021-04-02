@@ -115,6 +115,24 @@ object ConfigureUtil {
     piflowBundleJar
   }
 
+  def getTestDataPath() : String = {
+    val item = "testDataPath"
+    val hdfsFS = PropertyUtil.getPropertyValue("fs.defaultFS")
+    val testDataPath = hdfsFS + "/user/piflow/testData/"
+
+    val isCheckPointPathExist = H2Util.getFlag(item)
+    if(isCheckPointPathExist == NOT_EXIST_FLAG){
+      if(!HdfsUtil.exists(hdfsFS,testDataPath)){
+        HdfsUtil.mkdir(hdfsFS,testDataPath)
+      }
+      H2Util.addFlag(item, EXIST_FLAG)
+    }else{
+      testDataPath
+    }
+
+    testDataPath
+  }
+
   def getYarnResourceManagerAPI() : String = {
     var yarnURL = PropertyUtil.getPropertyValue("yarn.url")
     if(yarnURL == null){
