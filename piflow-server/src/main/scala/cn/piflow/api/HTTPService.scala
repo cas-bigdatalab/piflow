@@ -675,9 +675,9 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
 
        val bodyFeature = Unmarshal(entity).to[String]
        val flowJson = Await.result(bodyFeature, scala.concurrent.duration.Duration(1, "second"))
-       API.startFlinkFlow(flowJson)
+       val appId = API.startFlinkYarnClusterFlow(flowJson)
 
-       val result = "{\"flow\":{\"id\":\"" + 0 + "\"}}"
+       val result = "{\"flow\":{\"id\":\"" + appId + "\"}}"
        Future.successful(HttpResponse(SUCCESS_CODE, entity = result))
      } catch {
        case ex: Exception => {

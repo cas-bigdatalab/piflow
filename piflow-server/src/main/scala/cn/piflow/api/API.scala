@@ -525,7 +525,7 @@ object API {
 
 
    //Flink Flow
-  def startFlinkFlow(flowJson : String) = {
+  def startFlinkYarnSessionFlow(flowJson : String) = {
 
 
     println(flowJson)
@@ -537,11 +537,28 @@ object API {
     val flow = flowBean.constructFlow(false)
 
 
-    val env = FlinkLauncher.launch(flow)
+    val env = FlinkLauncher.launchYarnSession(flow)
 
     val process = Runner.create()
       .bind(classOf[StreamExecutionEnvironment].getName, env)
       .start(flow);
+  }
+
+  def startFlinkYarnClusterFlow(flowJson : String) = {
+
+
+    println(flowJson)
+    val map = OptionUtil.getAny(JSON.parseFull(flowJson)).asInstanceOf[Map[String, Any]]
+    println(map)
+
+    //create flow
+    val flowBean = FlowBean(map)
+    val flow = flowBean.constructFlow(false)
+
+
+    val appId = FlinkLauncher.launchYarnCluster(flow)
+
+    appId
   }
 
 

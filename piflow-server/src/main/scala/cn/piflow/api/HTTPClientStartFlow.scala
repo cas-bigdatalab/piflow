@@ -14,7 +14,7 @@ object HTTPClientStartFlow {
       """
         |{
         |  "flow": {
-        |    "name": "Flink-1",
+        |    "name": "Flink-2",
         |    "executorMemory": "1g",
         |    "executorNumber": "1",
         |    "executorCores": "1",
