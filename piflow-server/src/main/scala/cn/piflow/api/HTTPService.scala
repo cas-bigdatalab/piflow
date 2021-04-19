@@ -686,6 +686,17 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
        }
      }
    }
+   case HttpRequest(GET, Uri.Path("/flink/flow/log"), headers, entity, protocol) => {
+
+     val appID = req.getUri().query().getOrElse("appID","")
+     if(!appID.equals("")){
+       val result = API.getFlowLog(appID)
+       Future.successful(HttpResponse(SUCCESS_CODE, entity = result))
+     }else{
+       Future.successful(HttpResponse(FAIL_CODE, entity = "appID is null or flow does not exist!"))
+     }
+
+   }
 
    case _: HttpRequest =>
       Future.successful(HttpResponse(UNKNOWN_CODE, entity = "Unknown resource!"))
