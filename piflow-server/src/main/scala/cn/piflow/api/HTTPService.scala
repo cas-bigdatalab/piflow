@@ -212,6 +212,7 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
        val (appId,process) = API.startFlow(flowJson)
        processMap += (appId -> process)
        val result = "{\"flow\":{\"id\":\"" + appId + "\"}}"
+       println("Start Flow Succeed : " + result + "!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
        Future.successful(HttpResponse(SUCCESS_CODE, entity = result))
      }catch {
        case ex : Exception => {
@@ -310,13 +311,13 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
 
      try{
 
-       //val bodyFeature = Unmarshal(entity).to [String]
-       //val flowGroupJson = Await.result(bodyFeature,scala.concurrent.duration.Duration(1,"second"))
+       val bodyFeature = Unmarshal(entity).to [String]
+       val flowGroupJson = Await.result(bodyFeature,scala.concurrent.duration.Duration(1,"second"))
 
        //use file to run large group
-       val bodyFeature = Unmarshal(entity).to [String]
-       val flowGroupJsonPath = Await.result(bodyFeature,scala.concurrent.duration.Duration(1,"second"))
-       val flowGroupJson = Source.fromFile(flowGroupJsonPath).getLines().toArray.mkString("\n")
+       //val bodyFeature = Unmarshal(entity).to [String]
+       //val flowGroupJsonPath = Await.result(bodyFeature,scala.concurrent.duration.Duration(1,"second"))
+       //val flowGroupJson = Source.fromFile(flowGroupJsonPath).getLines().toArray.mkString("\n")
 
        val flowGroupExecution = API.startGroup(flowGroupJson)
        flowGroupMap += (flowGroupExecution.getGroupId() -> flowGroupExecution)
@@ -386,13 +387,13 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
 
      try{
 
-       //val bodyFeature = Unmarshal(entity).to [String]
-       //val data = Await.result(bodyFeature,scala.concurrent.duration.Duration(1,"second"))
+       val bodyFeature = Unmarshal(entity).to [String]
+       val data = Await.result(bodyFeature,scala.concurrent.duration.Duration(1,"second"))
 
        //use file to load flow or flowGroup
-       val bodyFeature = Unmarshal(entity).to [String]
-       val scheduleJsonPath = Await.result(bodyFeature,scala.concurrent.duration.Duration(1,"second"))
-       val data = Source.fromFile(scheduleJsonPath).getLines().toArray.mkString("\n")
+       //val bodyFeature = Unmarshal(entity).to [String]
+       //val scheduleJsonPath = Await.result(bodyFeature,scala.concurrent.duration.Duration(1,"second"))
+       //val data = Source.fromFile(scheduleJsonPath).getLines().toArray.mkString("\n")
 
        val dataMap = toJson(data)
        val expression = dataMap.get("expression").getOrElse("").asInstanceOf[String]
