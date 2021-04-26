@@ -288,15 +288,15 @@ PiFlow是一个简单易用，功能强大的大数据流水线系统。
 
   ![](https://gitee.com/opensci/piflow/raw/master/doc/piflow-templatelist.png)
   
-- `数据源列表`:
+- `数据源`:
 
   ![](https://gitee.com/opensci/piflow/raw/master/doc/piflow-datasourcelist.png)
 
-- `调度列表`:
+- `调度`:
 
   ![](https://gitee.com/opensci/piflow/raw/master/doc/piflow-schedulelist.png)
   
-- `自定义组件列表`:
+- `自定义组件`:
 
   ![](https://gitee.com/opensci/piflow/raw/master/doc/piflow-stophublist.png)
   
