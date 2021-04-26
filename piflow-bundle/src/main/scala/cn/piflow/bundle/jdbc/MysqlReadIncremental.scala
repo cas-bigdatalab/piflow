@@ -1,7 +1,7 @@
 package cn.piflow.bundle.jdbc
 
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
-import cn.piflow.conf.{ConfigurableIncrementalStop, Port, StopGroup}
+import cn.piflow.conf.{ConfigurableIncrementalStop, Language, Port, StopGroup}
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import org.apache.spark.sql.SparkSession
@@ -82,6 +82,7 @@ class MysqlReadIncremental extends ConfigurableIncrementalStop{
       .description("The sql sentence you want to execute, '#~#' is the last time record.")
       .defaultValue("")
       .required(true)
+      .language(Language.Sql)
       .example("select * from user where update_date > #~#")
     descriptor = sql :: descriptor
 

@@ -4,7 +4,7 @@ import java.sql.{Connection, DriverManager, ResultSet, Statement}
 
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
-import cn.piflow.conf.{ConfigurableStop, Port, StopGroup}
+import cn.piflow.conf.{ConfigurableStop, Language, Port, StopGroup}
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
@@ -98,6 +98,7 @@ class ImpalaRead extends ConfigurableStop{
       .description("The name of the table has not changed.But you have to specify which database,such as database.table.")
       .defaultValue("")
       .required(true)
+      .language(Language.Sql)
     descriptor = sql :: descriptor
     val schameString=new PropertyDescriptor()
       .name("schameString")

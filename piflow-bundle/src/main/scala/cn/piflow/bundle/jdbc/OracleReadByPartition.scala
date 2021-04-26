@@ -2,7 +2,7 @@ package cn.piflow.bundle.jdbc
 
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
-import cn.piflow.conf.{ConfigurableStop, Port, StopGroup}
+import cn.piflow.conf.{ConfigurableStop, Language, Port, StopGroup}
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.apache.spark.sql.SparkSession
 
@@ -72,6 +72,7 @@ class OracleReadByPartition extends ConfigurableStop{
       .description("The sql sentence you want to execute")
       .defaultValue("")
       .required(true)
+      .language(Language.Sql)
       .example("select * from test")
     descriptor = sql :: descriptor
 

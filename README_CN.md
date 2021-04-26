@@ -18,6 +18,7 @@ PiFlow是一个简单易用，功能强大的大数据流水线系统。
   - 监控流水线
   - 查看流水线日志
   - 检查点功能
+  - 流水线调度
   
 - 扩展性强:
   - 支持自定义开发数据处理组件
@@ -88,18 +89,20 @@ PiFlow是一个简单易用，功能强大的大数据流水线系统。
     - run 'HttpService'
   
   - 测试 HttpService:   
-    - run /../piflow/piflow-server/src/main/scala/cn/piflow/api/HTTPClientStartMockDataFlow.scala
-    - change the piflow server ip and port to your configure
+    - 运行样例流水线: ../piflow/piflow-server/src/main/scala/cn/piflow/api/HTTPClientStartMockDataFlow.scala
+    - 需要修改API中的server ip 和 port
   
   
 - `通过Release版本运行PiFlow`:
   - 根据需求下载不同版本PiFlow（建议下载最新版本）:  
-    https://github.com/cas-bigdatalab/piflow/releases/download/v0.5/piflow.tar.gz  
-    https://github.com/cas-bigdatalab/piflow/releases/download/v0.6/piflow-server-v0.6.tar.gz  
+    https://github.com/cas-bigdatalab/piflow/releases/download/v0.9/piflow-server-v0.9.tar.gz  
+    https://github.com/cas-bigdatalab/piflow/releases/download/v0.8/piflow-server-v0.8.tar.gz  
     https://github.com/cas-bigdatalab/piflow/releases/download/v0.7/piflow-server-v0.7.tar.gz  
+    https://github.com/cas-bigdatalab/piflow/releases/download/v0.6/piflow-server-v0.6.tar.gz   
+    https://github.com/cas-bigdatalab/piflow/releases/download/v0.5/piflow.tar.gz  
     
-  - 解压piflow-server-v0.7.tar.gz:  
-    tar -zxvf piflow-server-v0.7.tar.gz
+  - 解压piflow-server-v0.9.tar.gz:  
+    tar -zxvf piflow-server-v0.9.tar.gz
     
   - 编辑配置文件config.properties  
   
@@ -224,16 +227,15 @@ PiFlow是一个简单易用，功能强大的大数据流水线系统。
 ## Docker镜像  
 
   - 根据需求拉取不同版本PiFlow docker镜像  
-    docker pull registry.cn-hangzhou.aliyuncs.com/cnic_piflow/piflow:v0.7.1  
-    docker pull registry.cn-hangzhou.aliyuncs.com/cnic_piflow/piflow:v0.6.1
+    docker pull registry.cn-hangzhou.aliyuncs.com/cnic_piflow/piflow:v0.9.1  
     
   - 查看Docker镜像的信息  
     docker images
     
   - 通过镜像Id运行一个Container，所有PiFlow服务会自动运行  
-    docker run --name piflow-v0.6 -it [imageID]
+    docker run -h master -itd --env HOST_IP=\*.\*.\*.\* --name piflow-v0.9.1 -p 6001:6001 -p 6002:6002  [imageID]  
     
-  - 访问 "containerip:6001/piflow-web", 启动时间可能有些慢，需要等待几分钟   
+  - 访问 "HOST_IP:6001", 启动时间可能有些慢，需要等待几分钟   
   
   - 如果发生错误，所有应用都放在了/opt文件夹下，可自行单独启动服务
   
@@ -285,6 +287,18 @@ PiFlow是一个简单易用，功能强大的大数据流水线系统。
 - `流水线模板列表`:
 
   ![](https://gitee.com/opensci/piflow/raw/master/doc/piflow-templatelist.png)
+  
+- `数据源列表`:
+
+  ![](https://gitee.com/opensci/piflow/raw/master/doc/piflow-datasourcelist.png)
+
+- `调度列表`:
+
+  ![](https://gitee.com/opensci/piflow/raw/master/doc/piflow-schedulelist.png)
+  
+- `自定义组件列表`:
+
+  ![](https://gitee.com/opensci/piflow/raw/master/doc/piflow-stophublist.png)
   
   
 ## 联系我们

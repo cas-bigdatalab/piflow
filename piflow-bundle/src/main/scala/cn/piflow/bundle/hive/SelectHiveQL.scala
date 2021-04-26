@@ -45,6 +45,7 @@ class SelectHiveQL extends ConfigurableStop {
       .allowableValues(Set(""))
       .description("Execute select clause of hiveQL")
       .required(true)
+      .language(Language.Sql)
       .example("select * from test.user1")
     descriptor = hiveQL :: descriptor
     descriptor

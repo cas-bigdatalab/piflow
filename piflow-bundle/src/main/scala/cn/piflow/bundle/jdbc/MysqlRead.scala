@@ -94,6 +94,7 @@ class MysqlRead extends ConfigurableStop  {
       .description("The sql sentence you want to execute")
       .defaultValue("")
       .required(true)
+      .language(Language.Sql)
       .example("select * from test.user1")
     descriptor = sql :: descriptor
 

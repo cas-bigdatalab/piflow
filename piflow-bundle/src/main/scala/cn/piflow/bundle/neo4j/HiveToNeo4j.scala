@@ -2,7 +2,7 @@ package cn.piflow.bundle.neo4j
 
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
-import cn.piflow.conf.{ConfigurableStop, Port, StopGroup}
+import cn.piflow.conf.{ConfigurableStop, Language, Port, StopGroup}
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileStatus, FileSystem, Path}
@@ -162,6 +162,7 @@ class HiveToNeo4j extends ConfigurableStop{
       .description("SQL statement saved from hive to neo4j")
       .defaultValue("")
       .required(true)
+      .language(Language.Sql)
       .example("select * from test.user1")
 
     val hdfsDirPath = new PropertyDescriptor()

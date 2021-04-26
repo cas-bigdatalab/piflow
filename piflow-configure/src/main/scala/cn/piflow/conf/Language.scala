@@ -6,4 +6,5 @@ object Language {
   val Scala = "Scala"
   val Python = "Python"
   val Shell = "Shell"
+  val Sql = "Sql"
 }

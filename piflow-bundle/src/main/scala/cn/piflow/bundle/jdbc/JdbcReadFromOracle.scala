@@ -182,6 +182,7 @@ class JdbcReadFromOracle extends ConfigurableStop{
       .description("The sql you want")
       .defaultValue("")
       .required(true)
+      .language(Language.Sql)
       .example("select * from type")
     descriptor = sql :: descriptor
 
