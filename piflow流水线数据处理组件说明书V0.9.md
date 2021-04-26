@@ -1327,10 +1327,47 @@ outport：默认端口
 ## 7.1 GetHbase
 
 >   从Hbase读取数据
+## 7.1.1 Port
+
+> inport：默认端口
+
+> outport：默认端口
+
+## 7.1.2 properties
+
+| **名称**    | **展示名称** | **默认值** | **允许值** | **是否必填** | **描述**                       | **例子**                         |
+| ----------- | ------------ | ---------- | ---------- | ------------ | ------------------------------ | -------------------------------- |
+| quorum      | quorum       |            |            | 是           | Zookeeper的集群地址            | 10.0.0.101,10.0.0.102,10.0.1.103 |
+| port        | port         |            |            | 是           | Zookeeper的连接端口            | 2181                             |
+| znodeParent | znodeParent  |            |            | 是           | Hbase znode在zookeeper中的位置 | /hbase-unsecure                  |
+| table       | table        |            |            | 是           | Hbase中的表名                  | student                          |
+| rowid       | rowid        |            |            | 是           | rowkey                         | id                               |
+| family      | family       |            |            | 是           | 列簇                           | info                             |
+| qualifier   | qualifier    |            |            | 是           | 列簇字段，按列族顺序填写       | Name,gender,age                  |
 
 ## 7.2 PutHbase
 
 >   将数据写入 hbase
+## 7.2.1 Port
+
+> inport：默认端口
+
+> outport：默认端口
+
+## 7.2.2 properties
+
+| **名称**    | **展示名称** | **默认值** | **允许值** | **是否必填** | **描述**                             | **例子**                         |
+| ----------- | ------------ | ---------- | ---------- | ------------ | ------------------------------------ | -------------------------------- |
+| quorum      | quorum       |            |            | 是           | Zookeeper的集群地址                  | 10.0.0.101,10.0.0.102,10.0.1.103 |
+| port        | port         |            |            | 是           | Zookeeper的连接端口                  | 2181                             |
+| znodeParent | znodeParent  |            |            | 是           | Hbase znode在zookeeper中的位置       | /hbase-unsecure                  |
+| outPutDir   | outPutDir    |            |            | 是           | Hbase临时工作区，作业输出路径        | /tmp                             |
+| table       | table        |            |            | 是           | Hbase中的表名                        | student                          |
+| rowid       | rowid        |            |            | 是           | hive中的表Id, Hbase中的表Rowkey      | id                               |
+| family      | family       |            |            | 是           | 表的列簇,只允许一个                  | info                             |
+| qualifier   | qualifier    |            |            | 是           | 列簇的字段，在hive表中包含唯一id的列 | Name,gender,age                  |
+
+# 
 
 # Hdfs
 
