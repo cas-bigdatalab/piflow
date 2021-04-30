@@ -398,14 +398,14 @@ class JobOutputStreamImpl() extends JobOutputStream with Logging {
 
   def getDataFrame(port: String) = mapDataFrame(port);
 
-  def showData(count:Int) = {
+  def showData[T](count:Int) = {
 
-      /*mapDataFrame.foreach(en => {
+      mapDataFrame.foreach(en => {
         val portName = if(en._1.equals("")) "default" else en._1
         println(portName + " port: ")
-        en._2.print()
+        en._2.asInstanceOf[DataStream[T]].print()
 
-      })*/
+      })
   }
 
 
@@ -445,79 +445,50 @@ class ProcessImpl(flow: Flow, runnerContext: Context, runner: Runner, parentProc
   val latch = new CountDownLatch(1);
   var running = false;
 
-  val workerThread = new Thread(new Runnable() {
-    def perform() {
 
-      val jobs = MMap[String, StopJobImpl]();
-      flow.getStopNames().foreach { stopName =>
-        val stop = flow.getStop(stopName);
-        stop.initialize(processContext);
+  val jobs = MMap[String, StopJobImpl]();
+  flow.getStopNames().foreach { stopName =>
+    val stop = flow.getStop(stopName);
+    stop.initialize(processContext);
 
-        val pe = new StopJobImpl(stopName, stop, processContext);
-        jobs(stopName) = pe;
-        //runnerListener.onJobInitialized(pe.getContext());
-      }
+    val pe = new StopJobImpl(stopName, stop, processContext);
+    jobs(stopName) = pe;
+    //runnerListener.onJobInitialized(pe.getContext());
+  }
 
-      val analyzed = flow.analyze();
-      val checkpointParentProcessId = flow.getCheckpointParentProcessId()
+  val analyzed = flow.analyze();
+  val checkpointParentProcessId = flow.getCheckpointParentProcessId()
 
 
-      analyzed.visit[JobOutputStreamImpl](flow,performStopByCheckpoint)
+  analyzed.visit[JobOutputStreamImpl](flow,performStopByCheckpoint)
 
 
-      //perform stop use checkpoint
-      def performStopByCheckpoint(stopName: String, inputs: Map[Edge, JobOutputStreamImpl]) = {
-        val pe = jobs(stopName);
+  //perform stop use checkpoint
+  def performStopByCheckpoint(stopName: String, inputs: Map[Edge, JobOutputStreamImpl]) = {
+    val pe = jobs(stopName);
 
-        var outputs : JobOutputStreamImpl = null
-        try {
-          //runnerListener.onJobStarted(pe.getContext());
+    var outputs : JobOutputStreamImpl = null
+    try {
+      //runnerListener.onJobStarted(pe.getContext());
 
-          println("Visit process " + stopName + "!!!!!!!!!!!!!")
-          outputs = pe.perform(inputs);
+      println("Visit process " + stopName + "!!!!!!!!!!!!!")
+      outputs = pe.perform(inputs);
 
-          //runnerListener.onJobCompleted(pe.getContext());
+      outputs.showData(10)
 
-        }
-        catch {
-          case e: Throwable =>
-            //runnerListener.onJobFailed(pe.getContext());
-            throw e;
-        }
-
-        outputs;
-      }
-
-      val env = processContext.get[StreamExecutionEnvironment]()
-      env.execute(flow.getFlowName())
+      //runnerListener.onJobCompleted(pe.getContext());
 
     }
-
-    override def run(): Unit = {
-      running = true;
-
-      //onFlowStarted
-      //runnerListener.onProcessStarted(processContext);
-      try {
-        perform();
-        //onFlowCompleted
-        //runnerListener.onProcessCompleted(processContext);
-      }
-      //onFlowFailed
-      catch {
-        case e: Throwable =>
-          //runnerListener.onProcessFailed(processContext);
-          throw e;
-      }
-      finally {
-        latch.countDown();
-        running = false;
-      }
+    catch {
+      case e: Throwable =>
+        //runnerListener.onJobFailed(pe.getContext());
+        throw e;
     }
-  });
 
-  //IMPORTANT: start thread
-  workerThread.start();
+    outputs;
+  }
+
+
 
   override def toString(): String = executionString;
 
@@ -543,6 +514,15 @@ class ProcessImpl(flow: Flow, runnerContext: Context, runner: Runner, parentProc
     };
   }
 
+
+
+
+
+
+
+
+
+
   override def fork(child: Flow): Process = {
     //add flow process stack
     val process = new ProcessImpl(child, runnerContext, runner, Some(this));
@@ -552,12 +532,12 @@ class ProcessImpl(flow: Flow, runnerContext: Context, runner: Runner, parentProc
 
   //TODO: stopSparkJob()
   override def stop(): Unit = {
-    if (!running)
+    /*if (!running)
       throw new ProcessNotRunningException(this);
 
     workerThread.interrupt();
     runnerListener.onProcessAborted(processContext);
-    latch.countDown();
+    latch.countDown();*/
   }
 }
 

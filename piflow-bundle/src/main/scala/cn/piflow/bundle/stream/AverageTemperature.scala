@@ -5,7 +5,7 @@ import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import cn.piflow.conf.{ConfigurableStop, Port, StopGroup}
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.ImageUtil
-import org.apache.flink.streaming.api.scala.DataStream
+import org.apache.flink.streaming.api.scala.{DataStream, StreamExecutionEnvironment}
 import org.apache.flink.api.scala._
 import org.apache.flink.streaming.api.scala.function.WindowFunction
 import org.apache.flink.streaming.api.windowing.time.Time
@@ -38,6 +38,7 @@ class AverageTemperature extends ConfigurableStop{
 
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
 
+    //val env = pec.get[StreamExecutionEnvironment]()
     val data = in.read().asInstanceOf[DataStream[SensorReading]]
     val avgTemp: DataStream[SensorReading] = data.map(r =>
       SensorReading(r.id, r.timestamp, (r.temperature - 32) * (5.0/9.0)))
@@ -46,7 +47,7 @@ class AverageTemperature extends ConfigurableStop{
       .apply(new TemperatureAverager)
 
     avgTemp.print()
-
+    //env.execute("AverageTemperature")
   }
 }
 

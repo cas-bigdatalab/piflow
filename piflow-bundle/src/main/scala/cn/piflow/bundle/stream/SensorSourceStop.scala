@@ -36,5 +36,6 @@ class SensorSourceStop extends ConfigurableStop{
       .assignTimestampsAndWatermarks(new SensorTimeAssigner)
     out.write(sensorData)
 
+    //env.execute("SensorSourceStop")
   }
 }

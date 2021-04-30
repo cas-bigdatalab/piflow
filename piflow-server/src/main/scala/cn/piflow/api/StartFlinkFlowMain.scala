@@ -16,7 +16,7 @@ object StartFlinkFlowMain {
 
   def main(args: Array[String]): Unit = {
 
-    /*val flowFileName = args(0)
+    val flowFileName = args(0)
 
     var flowFilePath= FlowFileUtil.getFlowFileInUserDir(flowFileName)
     val file = new File(flowFilePath)
@@ -24,8 +24,8 @@ object StartFlinkFlowMain {
       flowFilePath = FlowFileUtil.getFlowFilePath(flowFileName)
     }
 
-    val flowJson = FlowFileUtil.readFlowFile(flowFilePath).trim()*/
-    val flowJson = args(0)
+    val flowJson = FlowFileUtil.readFlowFile(flowFilePath).trim()
+    //val flowJson = args(0)
     println(flowJson)
     val map = OptionUtil.getAny(JSON.parseFull(flowJson)).asInstanceOf[Map[String, Any]]
     println(map)
@@ -34,12 +34,12 @@ object StartFlinkFlowMain {
     val flowBean = FlowBean(map)
     val flow = flowBean.constructFlow(false)
 
-
     val env = StreamExecutionEnvironment.getExecutionEnvironment
+    println("StreamExecutionEnvironment is " + env + "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
     val process = Runner.create()
       .bind(classOf[StreamExecutionEnvironment].getName, env)
       .start(flow);
+    env.execute(flow.getFlowName())
 
   }
-
 }

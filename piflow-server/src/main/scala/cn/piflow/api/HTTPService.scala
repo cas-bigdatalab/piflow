@@ -706,8 +706,8 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
 
   def run = {
 
-    //val ip = InetAddress.getLocalHost.getHostAddress
-    val ip="223.193.3.32"
+    val ip = InetAddress.getLocalHost.getHostAddress
+    //val ip="223.193.3.32"
     //write ip to server.ip file
     FileUtil.writeFile("server.ip=" + ip, ServerIpUtil.getServerIpFile())
 
