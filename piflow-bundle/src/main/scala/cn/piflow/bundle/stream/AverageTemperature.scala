@@ -5,7 +5,7 @@ import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import cn.piflow.conf.{ConfigurableStop, Port, StopGroup}
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.ImageUtil
-import org.apache.flink.streaming.api.scala.DataStream
+import org.apache.flink.streaming.api.scala.{DataStream, StreamExecutionEnvironment}
 import org.apache.flink.api.scala._
 import org.apache.flink.streaming.api.scala.function.WindowFunction
 import org.apache.flink.streaming.api.windowing.time.Time
@@ -45,7 +45,7 @@ class AverageTemperature extends ConfigurableStop{
       .timeWindow(Time.seconds(1))
       .apply(new TemperatureAverager)
 
-    avgTemp.print()
+    out.write(avgTemp)
 
   }
 }

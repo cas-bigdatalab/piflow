@@ -542,6 +542,7 @@ object API {
     val process = Runner.create()
       .bind(classOf[StreamExecutionEnvironment].getName, env)
       .start(flow);
+    env.execute(flow.getFlowName())
   }
 
   def startFlinkYarnClusterFlow(flowJson : String) = {
@@ -554,7 +555,6 @@ object API {
     //create flow
     val flowBean = FlowBean(map)
     val flow = flowBean.constructFlow(false)
-
 
     val appId = FlinkLauncher.launchYarnCluster(flow)
 
