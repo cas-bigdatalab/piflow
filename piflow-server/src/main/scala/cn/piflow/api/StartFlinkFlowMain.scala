@@ -3,14 +3,11 @@ package cn.piflow.api
 import java.io.File
 
 import cn.piflow.Runner
-import cn.piflow.bundle.stream.TemperatureAverager
-import cn.piflow.bundle.util.{SensorReading, SensorSource, SensorTimeAssigner}
 import cn.piflow.conf.bean.FlowBean
 import cn.piflow.conf.util.OptionUtil
 import cn.piflow.util.{ConfigureUtil, FlowFileUtil, PropertyUtil}
 import org.apache.flink.api.scala.ExecutionEnvironment
-import org.apache.flink.streaming.api.scala.{DataStream, StreamExecutionEnvironment}
-import org.apache.flink.streaming.api.windowing.time.Time
+import org.apache.flink.streaming.api.scala.StreamExecutionEnvironment
 import org.apache.spark.sql.SparkSession
 
 import scala.util.parsing.json.JSON
@@ -42,11 +39,8 @@ object StartFlinkFlowMain {
     val process = Runner.create()
       .bind(classOf[StreamExecutionEnvironment].getName, env)
       .start(flow);
-    /*import org.apache.flink.api.scala._
-    val sensorData : DataStream[SensorReading] = env.addSource(new SensorSource)
-      .assignTimestampsAndWatermarks(new SensorTimeAssigner)
-    sensorData.print()*/
     env.execute(flow.getFlowName())
 
   }
+
 }
