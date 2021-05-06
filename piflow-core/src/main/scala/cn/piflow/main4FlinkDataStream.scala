@@ -445,8 +445,58 @@ class ProcessImpl(flow: Flow, runnerContext: Context, runner: Runner, parentProc
   val latch = new CountDownLatch(1);
   var running = false;
 
-  val workerThread = new Thread(new Runnable() {
+  //val env = StreamExecutionEnvironment.getExecutionEnvironment
+
+  val jobs = MMap[String, StopJobImpl]();
+  flow.getStopNames().foreach { stopName =>
+    val stop = flow.getStop(stopName);
+    stop.initialize(processContext);
+
+    val pe = new StopJobImpl(stopName, stop, processContext);
+    jobs(stopName) = pe;
+    //runnerListener.onJobInitialized(pe.getContext());
+  }
+
+  val analyzed = flow.analyze();
+  val checkpointParentProcessId = flow.getCheckpointParentProcessId()
+
+
+  analyzed.visit[JobOutputStreamImpl](flow,performStopByCheckpoint)
+
+
+  //perform stop use checkpoint
+  def performStopByCheckpoint(stopName: String, inputs: Map[Edge, JobOutputStreamImpl]) = {
+    val pe = jobs(stopName);
+
+    var outputs : JobOutputStreamImpl = null
+    try {
+      //runnerListener.onJobStarted(pe.getContext());
+
+      println("Visit process " + stopName + "!!!!!!!!!!!!!")
+      outputs = pe.perform(inputs);
+
+      //outputs.showData(10)
+
+      //runnerListener.onJobCompleted(pe.getContext());
+
+    }
+    catch {
+      case e: Throwable =>
+        //runnerListener.onJobFailed(pe.getContext());
+        throw e;
+    }
+
+    outputs;
+  }
+
+  //env.execute(flow.getFlowName())
+
+  /*val workerThread = new Thread(new Runnable() {
     def perform() {
+
+      //val env = processContext.get[StreamExecutionEnvironment]()
+      val env = StreamExecutionEnvironment.getExecutionEnvironment
+      println("StreamExecutionEnvironment in worderThread!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
 
       val jobs = MMap[String, StopJobImpl]();
       flow.getStopNames().foreach { stopName =>
@@ -488,8 +538,8 @@ class ProcessImpl(flow: Flow, runnerContext: Context, runner: Runner, parentProc
         outputs;
       }
 
-      val env = processContext.get[StreamExecutionEnvironment]()
-      env.execute(flow.getFlowName())
+
+      //env.execute(flow.getFlowName())
 
     }
 
@@ -514,10 +564,10 @@ class ProcessImpl(flow: Flow, runnerContext: Context, runner: Runner, parentProc
         running = false;
       }
     }
-  });
+  });*/
 
   //IMPORTANT: start thread
-  workerThread.start();
+  //workerThread.start();
 
   override def toString(): String = executionString;
 
@@ -543,6 +593,15 @@ class ProcessImpl(flow: Flow, runnerContext: Context, runner: Runner, parentProc
     };
   }
 
+
+
+
+
+
+
+
+
+
   override def fork(child: Flow): Process = {
     //add flow process stack
     val process = new ProcessImpl(child, runnerContext, runner, Some(this));
@@ -552,12 +611,12 @@ class ProcessImpl(flow: Flow, runnerContext: Context, runner: Runner, parentProc
 
   //TODO: stopSparkJob()
   override def stop(): Unit = {
-    if (!running)
+    /*if (!running)
       throw new ProcessNotRunningException(this);
 
     workerThread.interrupt();
     runnerListener.onProcessAborted(processContext);
-    latch.countDown();
+    latch.countDown();*/
   }
 }
 

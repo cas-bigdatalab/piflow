@@ -31,7 +31,7 @@ class FileSink extends ConfigurableStop{
       .description("save data into path.")
       .defaultValue("")
       .required(true)
-      .example("/user/flink")
+      .example("hdfs://master:9000/user/flink/data")
 
     descriptor = path :: descriptor
     descriptor
