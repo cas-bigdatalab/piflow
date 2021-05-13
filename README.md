@@ -98,14 +98,7 @@ Try PiFlow v0.9 with: http://piflow.cstcloud.cn/
   
 - `run piflow server by release version`:
   - download piflow.tar.gz:   
-    https://github.com/cas-bigdatalab/piflow/releases/download/v0.9/piflow-server-v0.9.tar.gz  
-    https://github.com/cas-bigdatalab/piflow/releases/download/v0.8/piflow-server-v0.8.tar.gz  
-    https://github.com/cas-bigdatalab/piflow/releases/download/v0.7/piflow-server-v0.7.tar.gz  
-    https://github.com/cas-bigdatalab/piflow/releases/download/v0.6/piflow-server-v0.6.tar.gz   
-    https://github.com/cas-bigdatalab/piflow/releases/download/v0.5/piflow.tar.gz    
-     
-      
-    
+    https://github.com/cas-bigdatalab/piflow/releases/download/v1.0/piflow-server-v1.0.tar.gz  
     
   - unzip piflow.tar.gz:  
     tar -zxvf piflow.tar.gz
@@ -156,11 +149,7 @@ Try PiFlow v0.9 with: http://piflow.cstcloud.cn/
   
 ### Run Piflow Web：
   - Visit address, download the corresponding *.tar.gz file, and modify the corresponding configuration file（`The version must be consistent with piflow-server`） 
-    - https://github.com/cas-bigdatalab/piflow-web/releases/tag/v0.9  
-    - https://github.com/cas-bigdatalab/piflow-web/releases/tag/v0.8
-    - https://github.com/cas-bigdatalab/piflow-web/releases/tag/v0.7
-    - https://github.com/cas-bigdatalab/piflow-web/releases/tag/v0.6
-    - https://github.com/cas-bigdatalab/piflow-web/releases/tag/v0.5
+    - https://github.com/cas-bigdatalab/piflow-web/releases/tag/v1.0  
   
 ### Restful API：
 
