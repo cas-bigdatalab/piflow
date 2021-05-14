@@ -224,7 +224,7 @@ Try PiFlow v0.9 with: http://piflow.cstcloud.cn/
     
 ## docker-started  
   - pull piflow images  
-    docker pull registry.cn-hangzhou.aliyuncs.com/cnic_piflow/piflow:v0.9.1  
+    docker pull registry.cn-hangzhou.aliyuncs.com/cnic_piflow/piflow:v1.0    
     
   - show docker images  
     docker images
