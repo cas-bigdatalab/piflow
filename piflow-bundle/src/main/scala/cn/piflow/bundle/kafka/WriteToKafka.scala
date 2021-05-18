@@ -66,9 +66,24 @@ class WriteToKafka extends ConfigurableStop{
   }
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
-    var descriptor : List[PropertyDescriptor] = List()
-    val kafka_host = new PropertyDescriptor().name("kafka_host").displayName("KAFKA_HOST").defaultValue("").required(true)
-    val topic = new PropertyDescriptor().name("topic").displayName("TOPIC").defaultValue("").required(true)
+     var descriptor : List[PropertyDescriptor] = List()
+
+    val kafka_host = new PropertyDescriptor()
+      .name("kafka_host")
+      .displayName("Kafka_Host")
+      .defaultValue("")
+      .description("Kafka cluster address")
+      .required(true)
+      .example("10.0.0.101:9092,10.0.0.102:9092,10.0.0.103:9092")
+
+    val topic = new PropertyDescriptor()
+      .name("topic")
+      .displayName("Topic")
+      .defaultValue("")
+      .description("Topics of different categories of messages processed by Kafka")
+      .required(true)
+      .example("hadoop")
+
     descriptor = kafka_host :: descriptor
     descriptor = topic :: descriptor
     descriptor
