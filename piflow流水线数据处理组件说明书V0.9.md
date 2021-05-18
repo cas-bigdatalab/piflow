@@ -1327,6 +1327,7 @@ outport：默认端口
 ## 7.1 GetHbase
 
 >   从Hbase读取数据
+
 ## 7.1.1 Port
 
 > inport：默认端口
@@ -1348,6 +1349,7 @@ outport：默认端口
 ## 7.2 PutHbase
 
 >   将数据写入 hbase
+
 ## 7.2.1 Port
 
 > inport：默认端口
@@ -1366,8 +1368,6 @@ outport：默认端口
 | rowid       | rowid        |            |            | 是           | hive中的表Id, Hbase中的表Rowkey      | id                               |
 | family      | family       |            |            | 是           | 表的列簇,只允许一个                  | info                             |
 | qualifier   | qualifier    |            |            | 是           | 列簇的字段，在hive表中包含唯一id的列 | Name,gender,age                  |
-
-# 
 
 # Hdfs
 
