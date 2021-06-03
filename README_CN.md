@@ -227,13 +227,13 @@ PiFlow是一个简单易用，功能强大的大数据流水线系统。
 ## Docker镜像  
 
   - 根据需求拉取不同版本PiFlow docker镜像  
-    docker pull registry.cn-hangzhou.aliyuncs.com/cnic_piflow/piflow:v0.9.1  
+    docker pull registry.cn-hangzhou.aliyuncs.com/cnic_piflow/piflow:v1.0  
     
   - 查看Docker镜像的信息  
     docker images
     
-  - 通过镜像Id运行一个Container，所有PiFlow服务会自动运行  
-    docker run -h master -itd --env HOST_IP=\*.\*.\*.\* --name piflow-v0.9.1 -p 6001:6001 -p 6002:6002  [imageID]  
+  - 通过镜像Id运行一个Container，所有PiFlow服务会自动运行. 请注意更换HOST_IP.  
+    docker run -h master -itd --env HOST_IP=\*.\*.\*.\* --name piflow-v1.0 -p 6001:6001 -p 6002:6002  [imageID]  
     
   - 访问 "HOST_IP:6001", 启动时间可能有些慢，需要等待几分钟   
   

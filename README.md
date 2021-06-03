@@ -229,7 +229,7 @@ Try PiFlow v0.9 with: http://piflow.cstcloud.cn/
   - show docker images  
     docker images
     
-  - run a container with  piflow imageID ， all services run automatically  
+  - run a container with  piflow imageID ， all services run automatically. Please Set HOST_IP.    
     docker run -h master -itd --env HOST_IP=\*.\*.\*.\* --name piflow-v0.9.1 -p 6001:6001 -p 6002:6002  [imageID]  
     
   - please visit "HOST_IP:6001", it may take a while  
