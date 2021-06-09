@@ -94,15 +94,11 @@ PiFlow是一个简单易用，功能强大的大数据流水线系统。
   
   
 - `通过Release版本运行PiFlow`:
-  - 根据需求下载不同版本PiFlow（建议下载最新版本）:  
-    https://github.com/cas-bigdatalab/piflow/releases/download/v0.9/piflow-server-v0.9.tar.gz  
-    https://github.com/cas-bigdatalab/piflow/releases/download/v0.8/piflow-server-v0.8.tar.gz  
-    https://github.com/cas-bigdatalab/piflow/releases/download/v0.7/piflow-server-v0.7.tar.gz  
-    https://github.com/cas-bigdatalab/piflow/releases/download/v0.6/piflow-server-v0.6.tar.gz   
-    https://github.com/cas-bigdatalab/piflow/releases/download/v0.5/piflow.tar.gz  
+  - 根据需求下载最新版本PiFlow:  
+    https://github.com/cas-bigdatalab/piflow/releases/download/v1.0/piflow-server-v1.0.tar.gz    
     
-  - 解压piflow-server-v0.9.tar.gz:  
-    tar -zxvf piflow-server-v0.9.tar.gz
+  - 解压piflow-server-v1.0.tar.gz:  
+    tar -zxvf piflow-server-v1.0.tar.gz
     
   - 编辑配置文件config.properties  
   
@@ -150,7 +146,7 @@ PiFlow是一个简单易用，功能强大的大数据流水线系统。
       h2.port=50002
   
 ### 运行PiFlow Web请到如下链接，PiFlow Server 与 PiFlow Web版本要对应：
-  - https://github.com/cas-bigdatalab/piflow-web  
+  - https://github.com/cas-bigdatalab/piflow-web/releases/tag/v1.0  
   
   
 ### 接口Restful API：
@@ -161,48 +157,47 @@ PiFlow是一个简单易用，功能强大的大数据流水线系统。
     <pre>
       <code>
         {
-  "flow": {
-    "name": "MockData",
-    "executorMemory": "1g",
-    "executorNumber": "1",
-    "uuid": "8a80d63f720cdd2301723b7461d92600",
-    "paths": [
-      {
-        "inport": "",
-        "from": "MockData",
-        "to": "ShowData",
-        "outport": ""
-      }
-    ],
-    "executorCores": "1",
-    "driverMemory": "1g",
-    "stops": [
-      {
-        "name": "MockData",
-        "bundle": "cn.piflow.bundle.common.MockData",
-        "uuid": "8a80d63f720cdd2301723b7461d92604",
-        "properties": {
-          "schema": "title:String, author:String, age:Int",
-          "count": "10"
-        },
-        "customizedProperties": {
-
+          "flow": {
+            "name": "MockData",
+            "executorMemory": "1g",
+            "executorNumber": "1",
+            "uuid": "8a80d63f720cdd2301723b7461d92600",
+            "paths": [
+              {
+                "inport": "",
+                "from": "MockData",
+                "to": "ShowData",
+                "outport": ""
+              }
+            ],
+            "executorCores": "1",
+            "driverMemory": "1g",
+            "stops": [
+              {
+                "name": "MockData",
+                "bundle": "cn.piflow.bundle.common.MockData",
+                "uuid": "8a80d63f720cdd2301723b7461d92604",
+                "properties": {
+                  "schema": "title:String, author:String, age:Int",
+                  "count": "10"
+                },
+                "customizedProperties": {
+                }
+              },
+              {
+                "name": "ShowData",
+                "bundle": "cn.piflow.bundle.external.ShowData",
+                "uuid": "8a80d63f720cdd2301723b7461d92602",
+                "properties": {
+                  "showNumber": "5"
+                },
+                "customizedProperties": {
+                }
+              }
+            ]
+          }
         }
-      },
-      {
-        "name": "ShowData",
-        "bundle": "cn.piflow.bundle.external.ShowData",
-        "uuid": "8a80d63f720cdd2301723b7461d92602",
-        "properties": {
-          "showNumber": "5"
-        },
-        "customizedProperties": {
-
-        }
-      }
-    ]
-  }
-}</code>
+       </code>
     </pre>
   </details>
 - CURL方式：
