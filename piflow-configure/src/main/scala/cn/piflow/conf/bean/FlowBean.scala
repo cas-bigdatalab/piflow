@@ -6,7 +6,8 @@ import cn.piflow.{FlowImpl, GroupEntry, Path}
 import net.liftweb.json.JsonDSL._
 import net.liftweb.json._
 
-import scala.util.parsing.json.JSONObject
+import scala.util.matching.Regex
+import scala.collection.mutable.{Map => MMap}
 
 
 
@@ -27,6 +28,9 @@ class FlowBean extends GroupEntryBean{
   var executorNum : String = _
   var executorMem : String = _
   var executorCores : String = _
+
+  //flow environment variable
+  var environmentVariable : Map[String, Any] = _
 
   //flow json string
   var flowJson: String = _
@@ -51,12 +55,40 @@ class FlowBean extends GroupEntryBean{
     this.executorMem= flowMap.getOrElse("executorMemory","1g").asInstanceOf[String]
     this.executorCores = flowMap.getOrElse("executorCores","1").asInstanceOf[String]
 
+    this.environmentVariable = flowMap.getOrElse("environmentVariable", Map()).asInstanceOf[Map[String, Any]]
+
     //construct StopBean List
     val stopsList = MapUtil.get(flowMap,"stops").asInstanceOf[List[Map[String, Any]]]
-    stopsList.foreach( stopMap => {
-      val stop = StopBean(this.name, stopMap.asInstanceOf[Map[String, Any]])
-      this.stops =   stop +: this.stops
-    })
+
+    //replace environment variable
+    if(this.environmentVariable.keySet.size != 0){
+      val pattern = new Regex("\\$\\{+[^\\}]*\\}")
+      stopsList.foreach( stopMap => {
+        val stopMutableMap = MMap(stopMap.toSeq: _*)
+        var stopPropertiesMap = MapUtil.get(stopMutableMap, "properties").asInstanceOf[MMap[String, Any]]
+        stopPropertiesMap.keySet.foreach{ key => {
+
+          var value = MapUtil.get(stopPropertiesMap,key).asInstanceOf[String]
+
+          val it = (pattern findAllIn value)
+          while (it.hasNext){
+            val item = it.next()
+            val newValue = value.replace(item,MapUtil.get(environmentVariable,item).asInstanceOf[String])
+            stopPropertiesMap(key) = newValue
+            println(key + " -> " + newValue)
+          }
+        }}
+        stopMutableMap("properties") = stopPropertiesMap.toMap
+        val stop = StopBean(this.name, stopMutableMap.toMap)
+        this.stops =   stop +: this.stops
+      })
+    }else{//no environment variables
+      stopsList.foreach( stopMap => {
+        val stop = StopBean(this.name, stopMap)
+        this.stops =   stop +: this.stops
+      })
+    }
+
 
     //construct PathBean List
     val pathsList = MapUtil.get(flowMap,"paths").asInstanceOf[List[Map[String, Any]]]
@@ -122,6 +154,7 @@ class FlowBean extends GroupEntryBean{
     //println(jsonString)
     jsonString
   }
+
 
 }
 
