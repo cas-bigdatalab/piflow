@@ -307,9 +307,7 @@ Try PiFlow v0.9 with: http://piflow.cstcloud.cn/
 - WeChat：18910263390  
 - Email: wzs@cnic.cn  
 - QQ Group：1003489545  
-  ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/PiFlowUserGroup_QQ.jpeg)
-- WeChat group is valid for 7 days
-  ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/PiFlowUserGroup.png)
+  ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/PiFlowUserGroup_QQ.jpeg)  
 
 
 
