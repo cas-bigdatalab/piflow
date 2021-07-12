@@ -79,6 +79,23 @@ object ConfigureUtil {
     incrementPath
   }
 
+  def getDataCenterPath(): String = {
+    val item = "dataCenterPath"
+    val hdfsFS = PropertyUtil.getPropertyValue("fs.defaultFS")
+    val dataCenterPath = hdfsFS + "/user/piflow/dataCenter/"
+
+    val isDataCenterPathExist = H2Util.getFlag(item)
+    if(isDataCenterPathExist == NOT_EXIST_FLAG){
+      if(!HdfsUtil.exists(hdfsFS,dataCenterPath)){
+        HdfsUtil.mkdir(hdfsFS,dataCenterPath)
+      }
+      H2Util.addFlag(item, EXIST_FLAG)
+    }else{
+      dataCenterPath
+    }
+    dataCenterPath
+  }
+
   def getPiFlowBundlePath():String = {
       var piflowBundleList = List[String]()
     val userDir = System.getProperty("user.dir")

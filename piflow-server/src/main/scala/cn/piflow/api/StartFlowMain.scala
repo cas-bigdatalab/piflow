@@ -49,6 +49,7 @@ object StartFlowMain {
       .bind(classOf[SparkSession].getName, spark)
       .bind("checkpoint.path",ConfigureUtil.getCheckpointPath())
       .bind("debug.path",ConfigureUtil.getDebugPath())
+      .bind("datacenter.path", ConfigureUtil.getDataCenterPath())
       .bind("environmentVariable", flowBean.environmentVariable)
       .start(flow);
     val applicationId = spark.sparkContext.applicationId
