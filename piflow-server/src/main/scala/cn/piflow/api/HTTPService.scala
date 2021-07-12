@@ -382,6 +382,32 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
      }
    }
 
+   //datacenter
+   case HttpRequest(POST, Uri.Path("/datacenter/start"), headers, entity, protocol) =>{
+
+     try{
+
+       val bodyFeature = Unmarshal(entity).to [String]
+       val flowGroupJson = Await.result(bodyFeature,scala.concurrent.duration.Duration(1,"second"))
+
+       //use file to run large group
+       //val bodyFeature = Unmarshal(entity).to [String]
+       //val flowGroupJsonPath = Await.result(bodyFeature,scala.concurrent.duration.Duration(1,"second"))
+       //val flowGroupJson = Source.fromFile(flowGroupJsonPath).getLines().toArray.mkString("\n")
+
+       val groupExecution = API.startDataCenterGroup(flowGroupJson)
+       flowGroupMap += (groupExecution.getGroupId() -> groupExecution)
+       val result = "{\"group\":{\"id\":\"" + groupExecution.getGroupId() + "\"}}"
+       Future.successful(HttpResponse(SUCCESS_CODE, entity = result))
+     }catch {
+       case ex => {
+         println(ex)
+         Future.successful(HttpResponse(FAIL_CODE, entity = "Can not start datacenter group!"))
+       }
+     }
+
+   }
+
    //schedule related API
    case HttpRequest(POST, Uri.Path("/schedule/start"), headers, entity, protocol) =>{
 
@@ -673,6 +699,20 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
 
    }
 
+   /*case HttpRequest(POST, Uri.Path("/code/debug"), headers, entity, protocol) => {
+
+      val sparkSessionBuilder = SparkSession.builder().appName("xjzhu").master("local")
+      if(PropertyUtil.getPropertyValue("hive.metastore.uris") != null){
+
+      sparkSessionBuilder
+      .config("hive.metastore.uris",PropertyUtil.getPropertyValue("hive.metastore.uris"))
+      .enableHiveSupport()
+      }
+      val spark = sparkSessionBuilder.getOrCreate()
+
+      val df = spark.sql("select * from test.student")
+      df.show(10)
+  }*/
 
    case _: HttpRequest =>
       Future.successful(HttpResponse(UNKNOWN_CODE, entity = "Unknown resource!"))

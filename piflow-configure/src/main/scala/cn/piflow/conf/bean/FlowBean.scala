@@ -32,6 +32,9 @@ class FlowBean extends GroupEntryBean{
   //flow environment variable
   var environmentVariable : Map[String, Any] = _
 
+  //flow DataCenter
+  var dataCenter : String = _
+
   //flow json string
   var flowJson: String = _
 
@@ -56,6 +59,8 @@ class FlowBean extends GroupEntryBean{
     this.executorCores = flowMap.getOrElse("executorCores","1").asInstanceOf[String]
 
     this.environmentVariable = flowMap.getOrElse("environmentVariable", Map()).asInstanceOf[Map[String, Any]]
+
+    this.dataCenter = flowMap.getOrElse("dataCenter", "").asInstanceOf[String]
 
     //construct StopBean List
     val stopsList = MapUtil.get(flowMap,"stops").asInstanceOf[List[Map[String, Any]]]

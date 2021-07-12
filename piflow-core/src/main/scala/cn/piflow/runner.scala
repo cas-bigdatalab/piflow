@@ -102,7 +102,11 @@ object Runner {
     }
 
     override def start(group: Group): GroupExecution = {
-      new GroupExecutionImpl(group, ctx, this);
+      if( group.isInstanceOf[DataCenterGroupImpl])
+        new DataCenterGroupExecutionImpl(group.asInstanceOf[DataCenterGroupImpl], ctx, this)
+      else
+        new GroupExecutionImpl(group, ctx, this);
+
     }
 
     override def removeListener(listener: RunnerListener): Unit = {
