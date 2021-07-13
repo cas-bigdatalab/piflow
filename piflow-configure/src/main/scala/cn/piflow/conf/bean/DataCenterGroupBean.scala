@@ -41,7 +41,11 @@ class DataCenterGroupBean extends GroupEntryBean{
       val conditionList = MapUtil.get(groupMap,"conditions").asInstanceOf[List[Map[String, Any]]]
       conditionList.foreach( conditionMap => {
         val conditionBean = ConditionBean(conditionMap.asInstanceOf[Map[String, Any]])
-        conditions(conditionBean.entry) =  conditionBean
+        if(!conditions.getOrElse(conditionBean.entry,"").equals("")){
+
+          conditionBean.after = conditions(conditionBean.entry).after ::: conditionBean.after
+        }
+        conditions(conditionBean.entry) = conditionBean
       })
     }
 
@@ -60,7 +64,6 @@ class DataCenterGroupBean extends GroupEntryBean{
           val groupBean = groupEntryBean.asInstanceOf[GroupBean]
           group.addGroupEntry(groupBean.name,groupBean.constructGroup())
         }
-
       }
       else{
         val conditionBean = conditions(groupEntryBean.name)
