@@ -102,10 +102,15 @@ object Runner {
     }
 
     override def start(group: Group): GroupExecution = {
-      if( group.isInstanceOf[DataCenterGroupImpl])
+
+      if( group.isInstanceOf[DataCenterGroupImpl]){
+
         new DataCenterGroupExecutionImpl(group.asInstanceOf[DataCenterGroupImpl], ctx, this)
-      else
-        new GroupExecutionImpl(group, ctx, this);
+
+      }else{
+
+        new GroupExecutionImpl(group, ctx, this)
+      }
 
     }
 
@@ -136,7 +141,7 @@ trait RunnerListener {
 
   def monitorJobCompleted(ctx: JobContext,outputs : JobOutputStream);
 
-  def onGroupStarted(ctx: GroupContext);
+  def  onGroupStarted(ctx: GroupContext);
 
   def onGroupCompleted(ctx: GroupContext);
 

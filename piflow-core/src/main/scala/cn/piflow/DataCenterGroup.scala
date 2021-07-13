@@ -227,6 +227,8 @@ class DataCenterGroupExecutionImpl(group: Group, runnerContext: Context, runner:
     val todosFlow = ArrayBuffer[(String, Flow)]();
     mapGroupEntryWithConditions.foreach { en =>
 
+      //TODO: send request to datacenter
+
       if (!startedProcessesAppID.contains(en._1) && en._2._2.matches(execution)) {
         todosFlow += (en._1 -> en._2._1.asInstanceOf[Flow]);
       }
