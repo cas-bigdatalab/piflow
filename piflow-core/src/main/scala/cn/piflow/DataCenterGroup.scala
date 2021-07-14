@@ -19,8 +19,14 @@ class DataCenterGroupImpl extends Group {
   def addGroupEntry(name: String, flow: GroupEntry, con: Condition[GroupExecution] = Condition.AlwaysTrue[GroupExecution]) = {
     _mapFlowWithConditions(name) = flow -> con;
   }
-
   def mapFlowWithConditions(): Map[String, (GroupEntry, Condition[GroupExecution])] = _mapFlowWithConditions.toMap;
+
+
+  var _mapConditions = MMap[String, DataCenterConditionBean]();
+  def addCondition(conditionMap : MMap[String, DataCenterConditionBean] ) = {
+    _mapConditions = conditionMap
+  }
+
 
   override def getGroupName(): String = {
     this.name
@@ -34,6 +40,10 @@ class DataCenterGroupImpl extends Group {
 
 
   override def setParentGroupId(groupId: String): Unit = {}
+
+  override def mapContitions: MMap[String, DataCenterConditionBean] = {
+    _mapConditions
+  }
 }
 
 class DataCenterGroupExecutionImpl(group: Group, runnerContext: Context, runner: Runner) extends GroupExecution {
@@ -49,6 +59,8 @@ class DataCenterGroupExecutionImpl(group: Group, runnerContext: Context, runner:
   val numWaitingGroupEntry = new AtomicInteger(mapGroupEntryWithConditions.size)
 
   val startedProcessesAppID = MMap[String, String]()
+  val mapConditions = group.mapContitions //TODO: optimize code!!!!!!!!!!!!!!
+
 
   val execution = this;
   val POLLING_INTERVAL = 1000;
@@ -106,6 +118,8 @@ class DataCenterGroupExecutionImpl(group: Group, runnerContext: Context, runner:
 
     var flowJson = flow.getFlowJson()
 
+    //TODO: replace flow json
+    //var flowJsonNew = constructDataCenterFlowJson()
     //TODO: send request to run flow!!!!!!!!! zhoujianpeng
     var appId : String = ""
     startedProcessesAppID(name) = appId
@@ -131,6 +145,16 @@ class DataCenterGroupExecutionImpl(group: Group, runnerContext: Context, runner:
           }
 
           Thread.sleep(POLLING_INTERVAL);
+          //TODO: check wether flow finished!!!!!!!zhoujianpeng
+          startedProcessesAppID.foreach{appID => {
+            //var flowInfo = HttpRequest。。。。
+            //update H2DB
+            var finishedFlowName = ""
+            completedGroupEntry(finishedFlowName) = true
+            numWaitingGroupEntry.decrementAndGet
+            mapConditions(finishedFlowName).entry
+          }}
+
         }
 
         runnerListener.onGroupCompleted(groupContext)
@@ -227,8 +251,6 @@ class DataCenterGroupExecutionImpl(group: Group, runnerContext: Context, runner:
     val todosFlow = ArrayBuffer[(String, Flow)]();
     mapGroupEntryWithConditions.foreach { en =>
 
-      //TODO: send request to datacenter
-
       if (!startedProcessesAppID.contains(en._1) && en._2._2.matches(execution)) {
         todosFlow += (en._1 -> en._2._1.asInstanceOf[Flow]);
       }
@@ -243,4 +265,5 @@ class DataCenterGroupExecutionImpl(group: Group, runnerContext: Context, runner:
 
   }
 }
+
 

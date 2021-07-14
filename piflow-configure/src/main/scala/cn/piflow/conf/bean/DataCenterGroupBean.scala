@@ -1,6 +1,6 @@
 package cn.piflow.conf.bean
 
-import cn.piflow.{Condition, DataCenterGroupImpl, GroupImpl}
+import cn.piflow.{Condition, DataCenterConditionBean, DataCenterGroupImpl, GroupImpl}
 import cn.piflow.conf.util.MapUtil
 
 class DataCenterGroupBean extends GroupEntryBean{
@@ -8,7 +8,7 @@ class DataCenterGroupBean extends GroupEntryBean{
   var uuid : String = _
   var name : String = _
   var groupEntries : List[GroupEntryBean] = List()
-  var conditions = scala.collection.mutable.Map[String, ConditionBean]()
+  var conditions = scala.collection.mutable.Map[String, DataCenterConditionBean]()
 
   def init(map : Map[String, Any]) = {
 
@@ -16,15 +16,6 @@ class DataCenterGroupBean extends GroupEntryBean{
 
     this.uuid = MapUtil.get(groupMap,"uuid").asInstanceOf[String]
     this.name = MapUtil.get(groupMap,"name").asInstanceOf[String]
-
-    //construct GroupBean List
-    /*if(MapUtil.get(groupMap,"groups") != None){
-      val groupList = MapUtil.get(groupMap,"groups").asInstanceOf[List[Map[String, Any]]]
-      groupList.foreach( groupMap => {
-        val group = GroupBean(groupMap.asInstanceOf[Map[String, Any]])
-        this.groupEntries =   group +: this.groupEntries
-      })
-    }*/
 
 
     //construct FlowBean List
@@ -40,20 +31,21 @@ class DataCenterGroupBean extends GroupEntryBean{
     if(MapUtil.get(groupMap,"conditions") != None){
       val conditionList = MapUtil.get(groupMap,"conditions").asInstanceOf[List[Map[String, Any]]]
       conditionList.foreach( conditionMap => {
-        val conditionBean = ConditionBean(conditionMap.asInstanceOf[Map[String, Any]])
-        if(!conditions.getOrElse(conditionBean.entry,"").equals("")){
+        val conditionBean = DataCenterConditionBean(conditionMap.asInstanceOf[Map[String, Any]])
+        if(!conditions.getOrElse(conditionBean.entry.flowName,"").equals("")){
 
-          conditionBean.after = conditions(conditionBean.entry).after ::: conditionBean.after
+          conditionBean.after = conditions(conditionBean.entry.flowName).after ::: conditionBean.after
         }
-        conditions(conditionBean.entry) = conditionBean
+        conditions(conditionBean.entry.flowName) = conditionBean
+
       })
     }
-
   }
 
   def constructGroup() : DataCenterGroupImpl = {
     val group = new DataCenterGroupImpl();
     group.setGroupName(name)
+    group.addCondition(conditions)
 
     this.groupEntries.foreach(groupEntryBean => {
       if( !conditions.contains(groupEntryBean.name) ){
@@ -87,25 +79,27 @@ class DataCenterGroupBean extends GroupEntryBean{
 
           if (groupEntryBean.isInstanceOf[FlowBean]){
             val bean = groupEntryBean.asInstanceOf[FlowBean]
-            group.addGroupEntry(groupEntryBean.name,bean.constructFlow(),Condition.after(conditionBean.after(0)))
+            group.addGroupEntry(groupEntryBean.name,bean.constructFlow(),Condition.after(conditionBean.after(0).flowName))
           }else{
             val groupBean = groupEntryBean.asInstanceOf[GroupBean]
-            group.addGroupEntry(groupBean.name,groupBean.constructGroup(), Condition.after(conditionBean.after(0)))
+            group.addGroupEntry(groupBean.name,groupBean.constructGroup(), Condition.after(conditionBean.after(0).flowName))
           }
 
         }
         else {
           println(groupEntryBean.name + " after " + conditionBean.after.toSeq + "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
 
-          var other = new Array[String](conditionBean.after.size-1)
-          conditionBean.after.copyToArray(other,1)
+          var other = List[String]()
+          conditionBean.after.foreach{x =>
+            other = x.flowName +: other
+          }
 
           if (groupEntryBean.isInstanceOf[FlowBean]){
             val bean = groupEntryBean.asInstanceOf[FlowBean]
-            group.addGroupEntry(groupEntryBean.name,bean.constructFlow(),Condition.after(conditionBean.after(0),other: _*))
+            group.addGroupEntry(groupEntryBean.name,bean.constructFlow(),Condition.after(conditionBean.after(0).flowName,other: _*))
           }else{
             val groupBean = groupEntryBean.asInstanceOf[GroupBean]
-            group.addGroupEntry(groupBean.name,groupBean.constructGroup(), Condition.after(conditionBean.after(0),other: _*))
+            group.addGroupEntry(groupBean.name,groupBean.constructGroup(), Condition.after(conditionBean.after(0).flowName,other: _*))
           }
 
         }

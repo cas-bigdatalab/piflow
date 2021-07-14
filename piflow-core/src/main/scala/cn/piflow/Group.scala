@@ -21,6 +21,8 @@ trait Group extends GroupEntry{
 
   def mapFlowWithConditions(): Map[String, (GroupEntry, Condition[GroupExecution])];
 
+  def mapContitions : MMap[String, DataCenterConditionBean];
+
   def getGroupName(): String;
 
   def setGroupName(groupName : String): Unit;
@@ -61,6 +63,7 @@ class GroupImpl extends Group {
     this.parentId = groupId
   }
 
+  override def mapContitions: MMap[String, DataCenterConditionBean] = {null}
 }
 
 trait GroupExecution extends Execution{

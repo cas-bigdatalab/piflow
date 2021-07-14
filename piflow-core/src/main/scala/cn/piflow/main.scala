@@ -160,6 +160,14 @@ trait Flow extends GroupEntry{
   def setUUID(uuid : String) ;
 
   def getUUID() : String;
+
+  def getFlowInport() : List[String]
+
+  def setFlowInport(inport : List[String]);
+
+  def getFlowOutport() : List[String]
+
+  def setFlowOutport(outport : List[String]);
 }
 
 class FlowImpl extends Flow {
@@ -178,6 +186,9 @@ class FlowImpl extends Flow {
   var executorNum = ""
   var executorMem= ""
   var executorCores = ""
+
+  var flowInports = List[String]();
+  var flowOutports = List[String]();
 
   def addStop(name: String, process: Stop) = {
     stops(name) = process;
@@ -383,6 +394,23 @@ class FlowImpl extends Flow {
   override def getUUID(): String = {
     this.uuid
   }
+
+  override def getFlowInport(): List[String] = {
+    this.flowInports
+  }
+
+  override def setFlowInport(inport: List[String]): Unit = {
+    this.flowInports = inport
+  }
+
+  override def getFlowOutport(): List[String] = {
+    this.flowOutports
+  }
+
+  override def setFlowOutport(outport: List[String]): Unit = {
+    this.flowOutports = outport
+  }
+
 }
 
 trait AnalyzedFlowGraph {
