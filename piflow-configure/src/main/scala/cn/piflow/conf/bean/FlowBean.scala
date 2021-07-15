@@ -123,6 +123,8 @@ class FlowBean extends GroupEntryBean{
     flow.setExecutorCores(this.executorCores)
     flow.setExecutorMem(this.executorMem)
 
+    flow.setDataCenter(this.dataCenter)
+
     this.stops.foreach( stopBean => {
       flow.addStop(stopBean.name,stopBean.constructStop())
     })

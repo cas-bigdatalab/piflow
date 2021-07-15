@@ -1,6 +1,6 @@
 package cn.piflow.conf.bean
 
-import cn.piflow.{Condition, DataCenterConditionBean, DataCenterGroupImpl, GroupImpl}
+import cn.piflow.{Condition,  DataCenterGroupImpl}
 import cn.piflow.conf.util.MapUtil
 
 class DataCenterGroupBean extends GroupEntryBean{
@@ -8,6 +8,7 @@ class DataCenterGroupBean extends GroupEntryBean{
   var uuid : String = _
   var name : String = _
   var groupEntries : List[GroupEntryBean] = List()
+  var paths : List[DataCenterConditionBean] = List()
   var conditions = scala.collection.mutable.Map[String, DataCenterConditionBean]()
 
   def init(map : Map[String, Any]) = {
@@ -27,6 +28,13 @@ class DataCenterGroupBean extends GroupEntryBean{
       })
     }
 
+    //construct groupEntry path
+    val pathsList = MapUtil.get(groupMap,"conditions").asInstanceOf[List[Map[String, Any]]]
+    pathsList.foreach( pathMap => {
+      val path = DataCenterConditionBean(pathMap.asInstanceOf[Map[String, Any]])
+      this.paths = path +: this.paths
+    })
+
     //construct ConditionBean List
     if(MapUtil.get(groupMap,"conditions") != None){
       val conditionList = MapUtil.get(groupMap,"conditions").asInstanceOf[List[Map[String, Any]]]
@@ -37,15 +45,14 @@ class DataCenterGroupBean extends GroupEntryBean{
           conditionBean.after = conditions(conditionBean.entry.flowName).after ::: conditionBean.after
         }
         conditions(conditionBean.entry.flowName) = conditionBean
-
       })
     }
+
   }
 
   def constructGroup() : DataCenterGroupImpl = {
     val group = new DataCenterGroupImpl();
     group.setGroupName(name)
-    group.addCondition(conditions)
 
     this.groupEntries.foreach(groupEntryBean => {
       if( !conditions.contains(groupEntryBean.name) ){

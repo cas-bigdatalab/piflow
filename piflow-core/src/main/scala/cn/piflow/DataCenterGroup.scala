@@ -13,18 +13,19 @@ class DataCenterGroupImpl extends Group {
   var name = ""
   var uuid = ""
   var parentId = ""
-
+  var edges = ArrayBuffer[Edge]();
   val _mapFlowWithConditions = MMap[String, (GroupEntry, Condition[GroupExecution])]();
 
   def addGroupEntry(name: String, flow: GroupEntry, con: Condition[GroupExecution] = Condition.AlwaysTrue[GroupExecution]) = {
     _mapFlowWithConditions(name) = flow -> con;
   }
+
   def mapFlowWithConditions(): Map[String, (GroupEntry, Condition[GroupExecution])] = _mapFlowWithConditions.toMap;
 
 
-  var _mapConditions = MMap[String, DataCenterConditionBean]();
-  def addCondition(conditionMap : MMap[String, DataCenterConditionBean] ) = {
-    _mapConditions = conditionMap
+  def addPath(path: Path): Group = {
+    edges ++= path.toEdges();
+    this;
   }
 
 
@@ -41,8 +42,8 @@ class DataCenterGroupImpl extends Group {
 
   override def setParentGroupId(groupId: String): Unit = {}
 
-  override def mapContitions: MMap[String, DataCenterConditionBean] = {
-    _mapConditions
+  override def getEdges(): ArrayBuffer[Edge] = {
+    this.edges
   }
 }
 
@@ -54,13 +55,29 @@ class DataCenterGroupExecutionImpl(group: Group, runnerContext: Context, runner:
   val id : String = "group_" + UUID.randomUUID().toString;
 
   val mapGroupEntryWithConditions: Map[String, (GroupEntry, Condition[GroupExecution])] = group.mapFlowWithConditions();
+
+  //completed flow
   val completedGroupEntry = MMap[String, Boolean]();
   completedGroupEntry ++= mapGroupEntryWithConditions.map(x => (x._1, false))
+
+  // waiting flow number
   val numWaitingGroupEntry = new AtomicInteger(mapGroupEntryWithConditions.size)
 
-  val startedProcessesAppID = MMap[String, String]()
-  val mapConditions = group.mapContitions //TODO: optimize code!!!!!!!!!!!!!!
 
+  //init imcomingEdges and outgoingEdges
+  val incomingEdges = MMap[String, ArrayBuffer[Edge]]();
+  val outgoingEdges = MMap[String, ArrayBuffer[Edge]]();
+  group.getEdges().foreach { edge =>
+    incomingEdges.getOrElseUpdate(edge.stopTo, ArrayBuffer[Edge]()) += edge;//use this
+    outgoingEdges.getOrElseUpdate(edge.stopFrom, ArrayBuffer[Edge]()) += edge;
+  }
+
+  //init dataCenter info
+  val dataCenterMap = MMap[String, String]()
+  mapGroupEntryWithConditions.foreach { en => dataCenterMap(en._1) = en._2._1.asInstanceOf[Flow].getDataCenter() }
+
+  //started flow appId Map
+  val startedProcessesAppID = MMap[String, String]()
 
   val execution = this;
   val POLLING_INTERVAL = 1000;
@@ -119,11 +136,23 @@ class DataCenterGroupExecutionImpl(group: Group, runnerContext: Context, runner:
     var flowJson = flow.getFlowJson()
 
     //TODO: replace flow json
+    val flowIncomingEdge  = incomingEdges(name)
+    flowIncomingEdge.foreach(edge => {
+
+      val fromFlow = edge.stopFrom
+      val fromFlowDataCenter = dataCenterMap(fromFlow)
+      val fromFlowAppID = startedProcessesAppID(fromFlow)// check exist
+      val fromOutport = edge.outport
+      //TODO: send request to get data source from remote datacenter
+      //val dataSource = getDataCenterData(fromFlowDataCenter, fromFlowAppID, fromOutport)
+      //replace flow Json
+    })
     //var flowJsonNew = constructDataCenterFlowJson()
     //TODO: send request to run flow!!!!!!!!! zhoujianpeng
+    //construct new flow json
     var appId : String = ""
     startedProcessesAppID(name) = appId
-    //TODO: save flow statuw by H2Util
+    //TODO: save flow status by H2Util
   }
 
   @volatile
@@ -145,16 +174,17 @@ class DataCenterGroupExecutionImpl(group: Group, runnerContext: Context, runner:
           }
 
           Thread.sleep(POLLING_INTERVAL);
-          //TODO: check wether flow finished!!!!!!!zhoujianpeng
-          startedProcessesAppID.foreach{appID => {
-            //var flowInfo = HttpRequest。。。。
-            //update H2DB
+          //TODO: check wether flow finished!!!!!!!
+          completedGroupEntry.filter(x => x._2 == false).map(_._1).foreach{flowName => {
+            val appId = startedProcessesAppID(flowName)
+            //TODO: sent request, getFlowInfo(dataCenter,appId)
+            //TODO:update flow status
             var finishedFlowName = ""
-            completedGroupEntry(finishedFlowName) = true
-            numWaitingGroupEntry.decrementAndGet
-            mapConditions(finishedFlowName).entry
+            if(true/*flowInfo.status == Finished*/){
+              completedGroupEntry(finishedFlowName) = true
+              numWaitingGroupEntry.decrementAndGet
+            }
           }}
-
         }
 
         runnerListener.onGroupCompleted(groupContext)
@@ -220,9 +250,8 @@ class DataCenterGroupExecutionImpl(group: Group, runnerContext: Context, runner:
             val appID: String = startedProcessesAppID.getOrElse(x._1,"")
             if(!appID.equals("")){
 
-              //TODO:set request to remote DataCenter!!! zhoujianpeng
+              //TODO:set request to remote DataCenter!!!!! zhoujianpeng
               println("Stop Flow " + appID + " by Request!")
-              //FlowLauncher.stop(appID)
             }
 
           });

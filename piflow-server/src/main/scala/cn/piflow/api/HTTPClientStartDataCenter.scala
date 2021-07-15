@@ -17,7 +17,7 @@ object HTTPClientStartDataCenter {
         |		"name": "xjzhu",
         |		"flows": [{
         |				"flow": {
-        |					"dataCenter": "",
+        |					"dataCenter": "http://223.193.3.32:8001",
         |					"name": "flow1",
         |					"executorMemory": "1g",
         |					"executorNumber": "1",
@@ -41,7 +41,7 @@ object HTTPClientStartDataCenter {
         |							}
         |						},
         |						{
-        |							"name": "FlowOutportWriter",
+        |							"name": "flow1-FlowOutportWriter",
         |							"bundle": "cn.piflow.bundle.FlowPort.FlowOutportWriter",
         |							"uuid": "8a80d63f720cdd2301723b7461d92602",
         |							"properties": {},
@@ -53,14 +53,58 @@ object HTTPClientStartDataCenter {
         |					"paths": [{
         |						"inport": "",
         |						"from": "MockData",
-        |						"to": "FlowOutportWriter",
+        |						"to": "flow1-FlowOutportWriter",
         |						"outport": ""
         |					}]
         |				}
         |			},
         |			{
         |				"flow": {
+        |					"dataCenter": "http://223.193.3.32:8001",
         |					"name": "flow2",
+        |					"executorMemory": "1g",
+        |					"executorNumber": "1",
+        |					"uuid": "8a80d63f720cdd2301723b7461d92601",
+        |					"executorCores": "1",
+        |					"driverMemory": "1g",
+        |					"environmentVariable": {
+        |						"${SPARK_HOME}": "/opt/data/spark/bin",
+        |						"${CODE}": "A00101"
+        |					},
+        |					"stops": [{
+        |							"name": "MockData",
+        |							"bundle": "cn.piflow.bundle.common.MockData",
+        |							"uuid": "8a80d63f720cdd2301723b7461d92604",
+        |							"properties": {
+        |								"schema": "title:String, author:String, age:Int",
+        |								"count": "10"
+        |							},
+        |							"customizedProperties": {
+        |
+        |							}
+        |						},
+        |						{
+        |							"name": "flow2-FlowOutportWriter",
+        |							"bundle": "cn.piflow.bundle.FlowPort.FlowOutportWriter",
+        |							"uuid": "8a80d63f720cdd2301723b7461d92602",
+        |							"properties": {},
+        |							"customizedProperties": {
+        |
+        |							}
+        |						}
+        |					],
+        |					"paths": [{
+        |						"inport": "",
+        |						"from": "MockData",
+        |						"to": "flow2-FlowOutportWriter",
+        |						"outport": ""
+        |					}]
+        |				}
+        |			},
+        |			{
+        |				"flow": {
+        |					"datacenter":"http://223.193.3.32:8001",
+        |					"name": "flow3",
         |					"executorMemory": "1g",
         |					"executorNumber": "1",
         |					"uuid": "8a80d63f720cdd2301723b7461d92600",
@@ -71,11 +115,33 @@ object HTTPClientStartDataCenter {
         |						"${CODE}": "A00101"
         |					},
         |					"stops": [{
-        |							"name": "FlowInportReader",
+        |							"name": "flow3-FlowInportReader-1",
         |							"bundle": "cn.piflow.bundle.FlowPort.FlowInportReader",
-        |							"uuid": "8a80d63f720cdd2301723b7461d92604",
+        |							"uuid": "8a80d63f720cdd2301723b7461d92605",
         |							"properties": {
         |								"dataSource": ""
+        |							},
+        |							"customizedProperties": {
+        |
+        |							}
+        |						},
+        |						{
+        |							"name": "flow3-FlowInportReader-2",
+        |							"bundle": "cn.piflow.bundle.FlowPort.FlowInportReader",
+        |							"uuid": "8a80d63f720cdd2301723b7461d92606",
+        |							"properties": {
+        |								"dataSource": ""
+        |							},
+        |							"customizedProperties": {
+        |
+        |							}
+        |						},
+        |						{
+        |							"name": "Merge",
+        |							"bundle": "cn.piflow.bundle.common.Merge",
+        |							"uuid": "8a80da1b7a8a1327017a9e94e04b0008",
+        |							"properties": {
+        |								"inports": "data1,data2"
         |							},
         |							"customizedProperties": {
         |
@@ -94,8 +160,22 @@ object HTTPClientStartDataCenter {
         |						}
         |					],
         |					"paths": [{
+        |
+        |						"from": "flow3-FlowInportReader-1",
+        |						"outport": "",
+        |						"inport": "data1",
+        |						"to": "Merge"
+        |
+        |					},
+        |					{
+        |						"from": "flow3-FlowInportReader-2",
+        |						"outport": "",
+        |						"inport": "data2",
+        |						"to": "Merge"
+        |					},
+        |					{
         |						"inport": "",
-        |						"from": "FlowInportReader",
+        |						"from": "Merge",
         |						"to": "ShowData",
         |						"outport": ""
         |					}]
@@ -104,17 +184,36 @@ object HTTPClientStartDataCenter {
         |
         |		],
         |		"conditions": [{
-        |     "after": "flow1",
-        |			"flowOutport": "FlowOutportWriter",
-        |     "flowInport": "FlowInportReader",
-        |			"entry": "flow2"
+        |			"after": {
+        |       "dataCenter" : "http://223.193.3.32:8001",
+        |       "flowName" : "flow1"
+        |     },
+        |     "outport" : "flow1-FlowOutportWriter",
+        |     "inport" : "flow3-FlowInportReader-1",
+        |			"entry": {
+        |       "dataCenter" : "http://223.193.3.32:8001",
+        |       "flowName" : "flow3"
+        |     }
+        |		},
+        |		{
+        |			"after": {
+        |       "dataCenter" : "http://223.193.3.32:8001",
+        |       "flowName" : "flow2"
+        |     },
+        |     "outport" : "flow2-FlowOutportWriter",
+        |     "inport" : "flow3-FlowInportReader-2",
+        |			"entry": {
+        |       "dataCenter" : "http://223.193.3.32:8001",
+        |       "flowName" : "flow3"
+        |     }
         |		}],
         |		"uuid": "8a80d88d712aa8c601717c68f71e0268"
         |	}
         |}
       """.stripMargin
 
-    val url = "http://10.0.85.83:8001/group/start"
+
+    val url = "http://223.193.3.32:8001/datacenter/start"
     val timeout = 1800
     val requestConfig = RequestConfig.custom()
       .setConnectTimeout(timeout*1000)

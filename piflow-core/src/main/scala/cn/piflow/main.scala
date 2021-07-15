@@ -161,6 +161,10 @@ trait Flow extends GroupEntry{
 
   def getUUID() : String;
 
+  def getDataCenter() : String;
+
+  def setDataCenter(dataCenter : String);
+
   def getFlowInport() : List[String]
 
   def setFlowInport(inport : List[String]);
@@ -187,6 +191,7 @@ class FlowImpl extends Flow {
   var executorMem= ""
   var executorCores = ""
 
+  var dataCenter = ""
   var flowInports = List[String]();
   var flowOutports = List[String]();
 
@@ -411,6 +416,9 @@ class FlowImpl extends Flow {
     this.flowOutports = outport
   }
 
+  override def getDataCenter(): String = { this.dataCenter}
+
+  override def setDataCenter(dataCenter: String): Unit = { this.dataCenter = dataCenter}
 }
 
 trait AnalyzedFlowGraph {
