@@ -44,6 +44,10 @@ class GroupBean extends GroupEntryBean {
       val conditionList = MapUtil.get(groupMap,"conditions").asInstanceOf[List[Map[String, Any]]]
       conditionList.foreach( conditionMap => {
         val conditionBean = ConditionBean(conditionMap.asInstanceOf[Map[String, Any]])
+        //TODO: need to check
+        if(!conditions.getOrElse(conditionBean.entry,"").equals("")){
+          conditionBean.after = conditions(conditionBean.entry).after ::: conditionBean.after
+        }
         conditions(conditionBean.entry) =  conditionBean
       })
     }
