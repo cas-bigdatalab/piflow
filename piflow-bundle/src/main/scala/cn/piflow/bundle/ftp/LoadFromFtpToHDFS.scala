@@ -21,7 +21,7 @@ class LoadFromFtpToHDFS extends ConfigurableStop{
   override val inportList: List[String] = List(Port.DefaultPort)
   override val outportList: List[String] = List(Port.DefaultPort)
 
-  var ftp_url:String =_
+  var url_str:String =_
   var port:String=_
   var username:String=_
   var password:String=_
@@ -62,7 +62,7 @@ class LoadFromFtpToHDFS extends ConfigurableStop{
     ftp = null
 
     ftp = new FileTransferClient
-    ftp.setRemoteHost(ftp_url)
+    ftp.setRemoteHost(url_str)
     if(port.size > 0){
       ftp.setRemotePort(port.toInt)
     }
@@ -227,7 +227,7 @@ class LoadFromFtpToHDFS extends ConfigurableStop{
   }
 
   override def setProperties(map: Map[String, Any]): Unit = {
-    ftp_url=MapUtil.get(map,key="ftp_url").asInstanceOf[String]
+    url_str=MapUtil.get(map,key="url_str").asInstanceOf[String]
     port=MapUtil.get(map,key="port").asInstanceOf[String]
     username=MapUtil.get(map,key="username").asInstanceOf[String]
     password=MapUtil.get(map,key="password").asInstanceOf[String]
