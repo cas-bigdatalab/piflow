@@ -1,6 +1,6 @@
 package cn.piflow.conf.bean
 
-import cn.piflow.{Condition,  DataCenterGroupImpl}
+import cn.piflow.{Condition, DataCenterGroupImpl, Path}
 import cn.piflow.conf.util.MapUtil
 
 class DataCenterGroupBean extends GroupEntryBean{
@@ -112,6 +112,10 @@ class DataCenterGroupBean extends GroupEntryBean{
         }
       }
 
+    })
+
+    this.paths.foreach( pathBean => {
+      group.addPath(Path.from(pathBean.after(0).flowName).via(pathBean.outport, pathBean.inport).to(pathBean.entry.flowName))
     })
 
     group
