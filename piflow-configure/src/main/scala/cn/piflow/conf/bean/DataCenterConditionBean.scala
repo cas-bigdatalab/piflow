@@ -7,7 +7,7 @@ import cn.piflow.util.MapUtil
   */
 class DataCenterConditionBean {
 
-  var after : List[Entry] = _
+  var after : List[Entry] = List[Entry]()
   var outport : String = _
   var inport : String = _
   var entry : Entry = _
