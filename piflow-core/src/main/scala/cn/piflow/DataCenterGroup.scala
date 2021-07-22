@@ -1,5 +1,9 @@
 package cn.piflow
 
+import cn.piflow.util.{H2Util, HttpClientsUtil, MapUtil}
+import com.alibaba.fastjson.JSON
+import com.alibaba.fastjson.serializer.SerializerFeature
+
 import java.lang.Thread.UncaughtExceptionHandler
 import java.util.UUID
 import java.util.concurrent.{CountDownLatch, TimeUnit}
@@ -136,9 +140,18 @@ class DataCenterGroupExecutionImpl(group: Group, runnerContext: Context, runner:
     var flowJson = flow.getFlowJson()
 
     //TODO: replace flow json
-    val flowIncomingEdge  = incomingEdges(name)
-    flowIncomingEdge.foreach(edge => {
+    var flowIncomingEdge: ArrayBuffer[Edge] = null
+    try {
+      flowIncomingEdge = incomingEdges(name)
+    } catch {
+      case e: Throwable =>
+        println("test", e)
+        flowIncomingEdge = ArrayBuffer[Edge]()
+    }
 
+    val hdfsUrl = flow.getDataCenter().replace("8001", "9000")
+    val emptyMap = MMap[String, Any]()
+    flowIncomingEdge.foreach(edge => {
       val fromFlow = edge.stopFrom
       val fromFlowDataCenter = dataCenterMap(fromFlow)
       val fromFlowAppID = startedProcessesAppID(fromFlow)// check exist
@@ -146,13 +159,73 @@ class DataCenterGroupExecutionImpl(group: Group, runnerContext: Context, runner:
       //TODO: send request to get data source from remote datacenter
       //val dataSource = getDataCenterData(fromFlowDataCenter, fromFlowAppID, fromOutport)
       //replace flow Json
+
+      //hdfs://*.*.*.*:9000/user/piflow/datacenter/appid/stopName
+      val hdfs = (fromFlowDataCenter + "/user/piflow/datacenter/" + fromFlowAppID + "/" + fromOutport)
+      emptyMap += (edge.inport -> hdfs)
     })
+
+    if (emptyMap.size > 0) {
+      flowJson = flowToJsonStr(flow, emptyMap);
+
+    }
     //var flowJsonNew = constructDataCenterFlowJson()
     //TODO: send request to run flow!!!!!!!!! zhoujianpeng
     //construct new flow json
+
+    val timeoutMs = 1800
+    val url = flow.getDataCenter() + "/flow/start"
+    val doPostStr = HttpClientsUtil.doPost(url, timeoutMs, flowJson);
+    println("Code is " + doPostStr)
+
     var appId : String = ""
     startedProcessesAppID(name) = appId
     //TODO: save flow status by H2Util
+    //H2Util.addFlow()
+  }
+
+  private def flowToJsonStr(flow: Flow, dataSourceMap: MMap[String, Any]) : String = {
+    val flow3Json = flow.getFlowJson()
+    val flowJSONObject = JSON.parseObject(flow3Json)
+    val stopsJSONArray = flowJSONObject.getJSONObject("flow").getJSONArray("stops")
+    for (index <- 0 until stopsJSONArray.size()) {
+      val stopJSONObject = stopsJSONArray.getJSONObject(index)
+      val stopName = stopJSONObject.getString("name")
+      val datasourceUrl = MapUtil.get(dataSourceMap, stopName)
+      if (None != datasourceUrl) {
+        var properties = stopJSONObject.getJSONObject("properties")
+        properties.put("dataSource", datasourceUrl)
+        stopJSONObject.put("properties", properties)
+      }
+    }
+    val flow3JsonNew = JSON.toJSONString(flowJSONObject, SerializerFeature.PrettyFormat, SerializerFeature.WriteMapNullValue, SerializerFeature.WriteDateUseDateFormat)
+
+    //val flowJsonObj = JSON.parseRaw(flow3Json) match {
+    //  case Some(x: JSONObject) => x.obj
+    //}
+    //val flowJSONObject = MapUtil.getJSON(flowJsonObj, "flow").asInstanceOf[Map[String, Any]]
+    //val stopsJSONArray = MapUtil.getJSON(flowJSONObject, "stops").asInstanceOf[List[JSONObject]]
+    //val stopsJSONArrayNew: List[JSONObject] = List()
+    //println("----------------------------------------")
+    //for (index <- 0 until stopsJSONArray.length) {
+    //  var stopJSONObject = stopsJSONArray(index)
+    //  val stopName = MapUtil.get(stopJSONObject.obj, "name").asInstanceOf[String]
+    //  val datasourceUrl = MapUtil.get(emptyMap, stopName)
+    //  if (None != datasourceUrl) {
+    //    var properties = MapUtil.getJSON(stopJSONObject.obj, "properties").asInstanceOf[Map[String, Any]]
+    //    properties += ("dataSource" -> datasourceUrl)
+    //    println(stopJSONObject)
+    //    val stopJSONObjectStr = stopJSONObject.obj.+("properties" -> properties).toString()
+    //    var stopJSONObjectNew = JSON.parseRaw(stopJSONObjectStr) match {
+    //      case Some(x: JSONObject) => x.obj
+    //    }
+    //    println(stopJSONObject)
+    //  }
+    //  stopsJSONArray.toSet(index, stopJSONObject)
+    //}
+    //println("----------------------------------------")
+
+    flow3JsonNew
   }
 
   @volatile

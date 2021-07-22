@@ -1,6 +1,7 @@
 package cn.piflow.util
 
 import scala.collection.mutable.{Map => MMap}
+import scala.util.parsing.json.{JSONArray, JSONObject}
 
 object MapUtil {
 
@@ -28,4 +29,14 @@ object MapUtil {
       case _ => throw new IllegalArgumentException
     }
   }
+
+  def getJSON(map: Map[String, Any], key: String): Any = {
+    map.get(key) match {
+      case None => None
+      case Some(x: JSONObject) => x.obj
+      case Some(x: JSONArray) => x.list
+      case _ => throw new IllegalArgumentException
+    }
+  }
+
 }
