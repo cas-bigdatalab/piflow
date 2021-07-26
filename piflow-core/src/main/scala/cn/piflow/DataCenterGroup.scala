@@ -294,7 +294,7 @@ class DataCenterGroupExecutionImpl(group: Group, runnerContext: Context, runner:
             listener.onDataCentProcessState(flowState, appId)
             var finishedFlowName = ""
             if(flowState == "COMPLETED"){
-              completedGroupEntry(flowInfo.get("name")) = true
+              completedGroupEntry(flowInfo.getString("name")) = true
               numWaitingGroupEntry.decrementAndGet
               listener.onDataCentProcessFinished(appId);
             }
