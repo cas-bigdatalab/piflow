@@ -230,7 +230,6 @@ class DataCenterGroupExecutionImpl(group: Group, runnerContext: Context, runner:
         flowIncomingEdge = ArrayBuffer[Edge]()
     }
 
-    val hdfsUrl = flow.getDataCenter().replace("8001", "9000")
     val emptyMap = MMap[String, Any]()
     flowIncomingEdge.foreach(edge => {
       val fromFlow = edge.stopFrom
@@ -238,12 +237,13 @@ class DataCenterGroupExecutionImpl(group: Group, runnerContext: Context, runner:
       val fromFlowAppID = startedProcessesAppID(fromFlow)// check exist
       val fromOutport = edge.outport
       //TODO: send request to get data source from remote datacenter
-      //val dataSource = getDataCenterData(fromFlowDataCenter, fromFlowAppID, fromOutport)
+      val jsonStr = "{'appId':'"+ fromFlowAppID +"', 'flowOutport':'" + fromOutport + "'}"
+      val dataSource = HttpClientsUtil.doPost(fromFlowDataCenter + "/datacenter/datasource", 1800, jsonStr)
       //replace flow Json
 
       //hdfs://*.*.*.*:9000/user/piflow/datacenter/appid/stopName
-      val hdfs = (fromFlowDataCenter + "/user/piflow/datacenter/" + fromFlowAppID + "/" + fromOutport)
-      emptyMap += (edge.inport -> hdfs)
+      //val hdfs = (fromFlowDataCenter + "/user/piflow/datacenter/" + fromFlowAppID + "/" + fromOutport)
+      emptyMap += (edge.inport -> dataSource)
     })
 
     if (emptyMap.size > 0) {
