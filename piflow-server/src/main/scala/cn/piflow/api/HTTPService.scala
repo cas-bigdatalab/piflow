@@ -383,7 +383,7 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
    }
 
    //datacenter
-   case HttpRequest(POST, Uri.Path("/datacenter/start"), headers, entity, protocol) =>{
+   case HttpRequest(POST, Uri.Path("/datacenter/group/start"), headers, entity, protocol) =>{
 
      try{
 
@@ -406,6 +406,18 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
        }
      }
 
+   }
+
+
+   case HttpRequest(POST, Uri.Path("/datacenter/datasource"), headers, entity, protocol) =>{
+     val appId = req.getUri().query().getOrElse("appId","")
+     val flowOutport = req.getUri().query().getOrElse("flowOutport","")
+     if(appId != "" && flowOutport != ""){
+       val datasource = ConfigureUtil.getDataCenterPath() + "/" + appId + "/" + flowOutport
+       Future.successful(HttpResponse(SUCCESS_CODE, entity = datasource))
+     }else{
+       Future.successful(HttpResponse(FAIL_CODE, entity = "params is null!"))
+     }
    }
 
    //schedule related API

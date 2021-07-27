@@ -53,10 +53,10 @@ class DataCenterGroupImpl extends Group {
 
 class DataCenterGroupExecutionImpl(group: Group, runnerContext: Context, runner: Runner) extends GroupExecution {
 
+  val id : String = "group_" + UUID.randomUUID().toString;
+
   val groupContext = createContext(runnerContext);
   val groupExecution = this;
-
-  val id : String = "group_" + UUID.randomUUID().toString;
 
   val mapGroupEntryWithConditions: Map[String, (GroupEntry, Condition[GroupExecution])] = group.mapFlowWithConditions();
 
