@@ -1,7 +1,7 @@
 package cn.piflow.bundle.FlowPort
 
 import cn.piflow.conf.bean.PropertyDescriptor
-import cn.piflow.conf.util.ImageUtil
+import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import cn.piflow.conf.{ConfigurableStop, Port}
 import cn.piflow.util.HdfsUtil
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
@@ -16,7 +16,9 @@ class FlowInportReader extends ConfigurableStop {
 
   var dataSource: String = _
 
-  override def setProperties(map: Map[String, Any]): Unit = {}
+  override def setProperties(map: Map[String, Any]): Unit = {
+    dataSource = MapUtil.get(map,key="dataSource").asInstanceOf[String]
+  }
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = { List()}
 

@@ -172,13 +172,14 @@ class DataCenterGroupExecutionImpl(group: Group, runnerContext: Context, runner:
 
     def getFlowInfo(flowName: String, appId: String) : JSONObject = {
       val dataCenter = dataCenterMap(flowName)
-      val jsonObject:JSONObject = JSON.parseObject("{}")
-      jsonObject.put("appID", appId);
-      val json = JSON.toJSONString(jsonObject, SerializerFeature.PrettyFormat, SerializerFeature.WriteMapNullValue, SerializerFeature.WriteDateUseDateFormat)
-
-      val doPostStr = HttpClientsUtil.doPost(dataCenter + "/flow/info", 1800, json);
-      val flowInfoJSONObject = JSON.parseObject(doPostStr)
-
+      var flowInfoJSONObject = new JSONObject()
+      try {
+        val doGetStr = HttpClientsUtil.doGet(dataCenter + "/flow/info?appID=" + appId, 1800);
+        flowInfoJSONObject = JSON.parseObject(doGetStr).getJSONObject("flow")
+      } catch {
+        case e: Throwable =>
+          println(e)
+      }
       flowInfoJSONObject
     }
 
@@ -226,7 +227,6 @@ class DataCenterGroupExecutionImpl(group: Group, runnerContext: Context, runner:
       flowIncomingEdge = incomingEdges(name)
     } catch {
       case e: Throwable =>
-        println("test", e)
         flowIncomingEdge = ArrayBuffer[Edge]()
     }
 
@@ -237,8 +237,8 @@ class DataCenterGroupExecutionImpl(group: Group, runnerContext: Context, runner:
       val fromFlowAppID = startedProcessesAppID(fromFlow)// check exist
       val fromOutport = edge.outport
       //TODO: send request to get data source from remote datacenter
-      val jsonStr = "{'appId':'"+ fromFlowAppID +"', 'flowOutport':'" + fromOutport + "'}"
-      val dataSource = HttpClientsUtil.doPost(fromFlowDataCenter + "/datacenter/datasource", 1800, jsonStr)
+      val url = fromFlowDataCenter + "/datacenter/datasource?appId="+ fromFlowAppID +"&flowOutport=" + fromOutport
+      val dataSource = HttpClientsUtil.doGet(url, 1800)
       //replace flow Json
 
       //hdfs://*.*.*.*:9000/user/piflow/datacenter/appid/stopName
@@ -253,7 +253,7 @@ class DataCenterGroupExecutionImpl(group: Group, runnerContext: Context, runner:
     //TODO: send request to run flow!!!!!!!!! zhoujianpeng
     //construct new flow json
 
-    val timeoutMs = 1800
+    val timeoutMs = 18000
     val url = flow.getDataCenter() + "/flow/start"
     val doPostStr = HttpClientsUtil.doPost(url, timeoutMs, flowJson);
     println("Code is " + doPostStr)
@@ -286,18 +286,24 @@ class DataCenterGroupExecutionImpl(group: Group, runnerContext: Context, runner:
           Thread.sleep(POLLING_INTERVAL);
           //TODO: check wether flow finished!!!!!!!
           completedGroupEntry.filter(x => x._2 == false).map(_._1).foreach{flowName => {
-            val appId = startedProcessesAppID(flowName)
-            //TODO: sent request, getFlowInfo(dataCenter,appId) zhoujianpeng
-            val flowInfo = listener.getFlowInfo(flowName, appId)
-            //TODO:update flow status
-            val flowState = flowInfo.getString("state")
-            listener.onDataCentProcessState(flowState, appId)
-            var finishedFlowName = ""
-            if(flowState == "COMPLETED"){
-              completedGroupEntry(flowInfo.getString("name")) = true
-              numWaitingGroupEntry.decrementAndGet
-              listener.onDataCentProcessFinished(appId);
+
+            if (startedProcessesAppID.get(flowName) != None) {
+              val appId = startedProcessesAppID(flowName)
+              //TODO: sent request, getFlowInfo(dataCenter,appId) zhoujianpeng
+              val flowInfo = listener.getFlowInfo(flowName, appId)
+              if (flowInfo.size() > 0) {
+                //TODO:update flow status
+                val flowState = flowInfo.getString("state")
+                listener.onDataCentProcessState(flowState, appId)
+                var finishedFlowName = ""
+                if (flowState == "COMPLETED") {
+                  completedGroupEntry(flowInfo.getString("name")) = true
+                  numWaitingGroupEntry.decrementAndGet
+                  listener.onDataCentProcessFinished(appId);
+                }
+              }
             }
+
           }}
         }
 

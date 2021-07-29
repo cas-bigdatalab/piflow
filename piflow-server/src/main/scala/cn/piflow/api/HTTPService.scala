@@ -409,7 +409,7 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
    }
 
 
-   case HttpRequest(POST, Uri.Path("/datacenter/datasource"), headers, entity, protocol) =>{
+   case HttpRequest(GET, Uri.Path("/datacenter/datasource"), headers, entity, protocol) =>{
      val appId = req.getUri().query().getOrElse("appId","")
      val flowOutport = req.getUri().query().getOrElse("flowOutport","")
      if(appId != "" && flowOutport != ""){
