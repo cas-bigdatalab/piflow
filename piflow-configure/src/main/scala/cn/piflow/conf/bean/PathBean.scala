@@ -29,5 +29,11 @@ object PathBean{
     pathBean.init(map)
     pathBean
   }
+
+  def apply(from:String, outport: String, inport : String, to:String): PathBean = {
+    val pathBean = new PathBean()
+    pathBean.init(from, outport, inport, to)
+    pathBean
+  }
 }
 

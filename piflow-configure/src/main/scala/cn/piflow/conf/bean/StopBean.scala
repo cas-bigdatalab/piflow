@@ -15,6 +15,9 @@ class StopBean {
   var properties : Map[String, String] = _
   var customizedProperties : Map[String, String] = _
 
+  //stop DataCenter
+  var dataCenter : String = _
+
   def init(flowName : String, map:Map[String,Any]) = {
     this.flowName = flowName
     this.uuid = MapUtil.get(map,"uuid").asInstanceOf[String]
@@ -26,6 +29,7 @@ class StopBean {
     }else{
       this.customizedProperties = Map[String, String]()
     }
+    this.dataCenter = map.getOrElse("dataCenter", "").asInstanceOf[String]
 
   }
 

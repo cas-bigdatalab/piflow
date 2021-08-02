@@ -408,6 +408,30 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
 
    }
 
+   case HttpRequest(POST, Uri.Path("/datacenter/flow/start"), headers, entity, protocol) =>{
+
+     try{
+
+       val bodyFeature = Unmarshal(entity).to [String]
+       val flowJson = Await.result(bodyFeature,scala.concurrent.duration.Duration(1,"second"))
+
+       //use file to run large group
+       //val bodyFeature = Unmarshal(entity).to [String]
+       //val flowGroupJsonPath = Await.result(bodyFeature,scala.concurrent.duration.Duration(1,"second"))
+       //val flowGroupJson = Source.fromFile(flowGroupJsonPath).getLines().toArray.mkString("\n")
+
+       val groupExecution = API.startDataCenterFlow(flowJson)
+       //flowGroupMap += (groupExecution.getGroupId() -> groupExecution)
+       val result = "{\"group\":{\"id\":\"" + "" + "\"}}"
+       Future.successful(HttpResponse(SUCCESS_CODE, entity = result))
+     }catch {
+       case ex => {
+         println(ex)
+         Future.successful(HttpResponse(FAIL_CODE, entity = "Can not start datacenter group!"))
+       }
+     }
+
+   }
 
    case HttpRequest(GET, Uri.Path("/datacenter/datasource"), headers, entity, protocol) =>{
      val appId = req.getUri().query().getOrElse("appId","")

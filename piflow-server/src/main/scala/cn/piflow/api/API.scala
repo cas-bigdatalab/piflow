@@ -10,7 +10,7 @@ import cn.piflow.conf.VisualizationType
 import org.apache.spark.sql.SparkSession
 import cn.piflow.conf.util.{ClassUtil, MapUtil, OptionUtil, PluginManager, ScalaExecutorUtil}
 import cn.piflow.{GroupExecution, Process, Runner}
-import cn.piflow.conf.bean.{DataCenterGroupBean, FlowBean, GroupBean}
+import cn.piflow.conf.bean.{DataCenterFlowBean, DataCenterGroupBean, FlowBean, GroupBean}
 import cn.piflow.util.HdfsUtil.{getJsonMapList, getLine}
 import cn.piflow.util._
 import org.apache.http.client.methods.{CloseableHttpResponse, HttpGet, HttpPut}
@@ -223,6 +223,29 @@ object API {
       .start(group);
 
     flowGroupExecution
+  }
+
+  def startDataCenterFlow(flowJson : String) = {
+
+    println("StartDataCenterFlow API get json: \n" + flowJson )
+
+    var appId:String = null
+    val map = OptionUtil.getAny(JSON.parseFull(flowJson)).asInstanceOf[Map[String, Any]]
+    val flowMap = MapUtil.get(map, "flow").asInstanceOf[Map[String, Any]]
+
+    //create  data center group
+    val flowBean = DataCenterFlowBean(map)
+    flowBean.constructTaskPlan()
+    //val group = groupBean.constructGroup()
+
+    /*val flowGroupExecution = Runner.create()
+      .bind("checkpoint.path",ConfigureUtil.getCheckpointPath())
+      .bind("debug.path",ConfigureUtil.getDebugPath())
+      .start(group);*/
+
+    //flowGroupExecution
+    null
+
   }
 
   def startFlow(flowJson : String):(String,SparkAppHandle) = {
