@@ -6,18 +6,18 @@ class DataCenterFlowBean{
   //flow json string
   var flowJson: String = _
   var flowBean : FlowBean = _
-  var dataCenterGroupBean : DataCenterGroupBean = _
 
-  def initFlowBean(map : Map[String, Any]):FlowBean = {
+
+  def initFlowBean(map : Map[String, Any]) = {
     this.flowBean = FlowBean(map)
-    this.flowBean
   }
-  //create Flow by FlowBean
-  def constructTaskPlan() : FlowBean= {
 
-    DataCenterTaskPlan().visit(this.flowBean)
-    flowBean
+  //create Flow by FlowBean
+  def constructDataCenterGroupBean() : DataCenterGroupBean= {
+
+    DataCenterTaskPlan(this.flowBean).plan()
   }
+
 }
 
 object DataCenterFlowBean{

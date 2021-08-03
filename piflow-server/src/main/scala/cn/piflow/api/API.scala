@@ -235,16 +235,15 @@ object API {
 
     //create  data center group
     val flowBean = DataCenterFlowBean(map)
-    flowBean.constructTaskPlan()
-    //val group = groupBean.constructGroup()
+    val groupBean = flowBean.constructDataCenterGroupBean()
+    val group = groupBean.constructGroup()
 
-    /*val flowGroupExecution = Runner.create()
+    val flowGroupExecution = Runner.create()
       .bind("checkpoint.path",ConfigureUtil.getCheckpointPath())
       .bind("debug.path",ConfigureUtil.getDebugPath())
-      .start(group);*/
+      .start(group);
 
-    //flowGroupExecution
-    null
+    flowGroupExecution
 
   }
 
