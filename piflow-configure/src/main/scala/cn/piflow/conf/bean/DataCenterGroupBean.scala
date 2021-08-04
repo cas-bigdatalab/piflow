@@ -50,6 +50,11 @@ class DataCenterGroupBean extends GroupEntryBean{
 
   }
 
+  def init(flowBean : FlowBean) = {
+
+
+  }
+
   def constructGroup() : DataCenterGroupImpl = {
     val group = new DataCenterGroupImpl();
     group.setGroupName(name)
@@ -127,6 +132,12 @@ object DataCenterGroupBean {
 
     val groupBean = new DataCenterGroupBean()
     groupBean.init(map)
+    groupBean
+  }
+
+  def apply(flowBean : FlowBean) : DataCenterGroupBean = {
+    val groupBean = new DataCenterGroupBean()
+    groupBean.init(flowBean)
     groupBean
   }
 }

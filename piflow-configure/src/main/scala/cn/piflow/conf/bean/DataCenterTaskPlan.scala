@@ -19,6 +19,8 @@ class DataCenterTaskPlan {
   val incomingEdges = MMap[String, ArrayBuffer[PathBean]]()
   val outgoingEdges = MMap[String, ArrayBuffer[PathBean]]()
 
+  var flowCount = 1
+
   def init(flowBean: FlowBean) = {
     this.flowBean = flowBean
     this.edges = flowBean.paths
@@ -31,9 +33,10 @@ class DataCenterTaskPlan {
     }
   }
 
-  def plan() : DataCenterGroupBean = {
+  def plan() : Int = {
     initDataCenter(flowBean)
-    constructDataCenterGroupBean(flowBean)
+    splitDataCenterFlow(flowBean)
+    //DataCenterGroupBean(flowBean)
   }
 
   def initDataCenter(flow: FlowBean): Unit = {
@@ -105,20 +108,23 @@ class DataCenterTaskPlan {
         if(intersect.size > 0){
           stop.dataCenter = intersect.iterator.next()
         }else{
-          stop.dataCenter = fromDataCenterMap.keySet.iterator.next()
+          if(toDataCenterMap.keySet.size == 1)
+            stop.dataCenter = toDataCenterMap.keySet.iterator.next()
+          else
+            stop.dataCenter = fromDataCenterMap.keySet.iterator.next()
         }
       }
     }
     true
   }
 
-  def constructDataCenterGroupBean(flow: FlowBean): DataCenterGroupBean = {
+  def splitDataCenterFlow(flow: FlowBean) : Int = {
 
     //DataCenterGroupBean()
     var newStop = List[StopBean]()
     var newPath = List[PathBean]()
     var removePath = List[PathBean]()
-    var flowCount = 1
+
     flow.paths.foreach(path => {
 
       val from = path.from
@@ -155,10 +161,11 @@ class DataCenterTaskPlan {
     flow.paths = flow.paths.diff(removePath)
     flow.paths = flow.paths.union(newPath)
 
-
-    //TODO
-    null
+    flowCount
   }
+
+
+
 
   private def getFlowOutportWriter(dataCenter:String, flowName:String, stopName:String) : StopBean = {
     val map = Map[String, Any]("uuid" -> UUID.randomUUID.toString,
@@ -168,7 +175,6 @@ class DataCenterTaskPlan {
       "dataCenter" -> dataCenter
     )
     StopBean(flowName, map)
-
   }
 
   private def getFlowInportReader(dataCenter:String, flowName:String, stopName:String) : StopBean = {
