@@ -33,7 +33,7 @@ class DataCenterTaskPlan {
     }
   }
 
-  def plan() : Int = {
+  def plan() : (FlowBean, List[DataCenterConditionBean]) = {
     initDataCenter(flowBean)
     splitDataCenterFlow(flowBean)
     //DataCenterGroupBean(flowBean)
@@ -118,12 +118,13 @@ class DataCenterTaskPlan {
     true
   }
 
-  def splitDataCenterFlow(flow: FlowBean) : Int = {
+  def splitDataCenterFlow(flow: FlowBean) : (FlowBean, List[DataCenterConditionBean]) = {
 
     //DataCenterGroupBean()
     var newStop = List[StopBean]()
     var newPath = List[PathBean]()
     var removePath = List[PathBean]()
+    var dataCenterConditionList = List[DataCenterConditionBean]()
 
     flow.paths.foreach(path => {
 
@@ -154,14 +155,18 @@ class DataCenterTaskPlan {
         //remove path
         removePath = path +: removePath
         flowCount = flowCount + 1
+
+        dataCenterConditionList = getDataCenterConditionBean(flowOutportName,flowInportName) +: dataCenterConditionList
       }
     })
 
-    flow.stops = flow.stops.union(newStop)
-    flow.paths = flow.paths.diff(removePath)
-    flow.paths = flow.paths.union(newPath)
+    val splitFlowBean = flow
 
-    flowCount
+    splitFlowBean.stops = splitFlowBean.stops.union(newStop)
+    splitFlowBean.paths = splitFlowBean.paths.diff(removePath)
+    splitFlowBean.paths = splitFlowBean.paths.union(newPath)
+
+    (splitFlowBean, dataCenterConditionList)
   }
 
 
@@ -186,6 +191,15 @@ class DataCenterTaskPlan {
     )
     StopBean(flowName, map)
 
+  }
+
+  private def getDataCenterConditionBean(outport:String, inport:String) : DataCenterConditionBean = {
+    val map = Map[String, Any]("after" ->Map[String, String](),
+    "outport" -> outport,
+    "inport" -> inport,
+    "entry" -> Map[String, String]())
+
+    DataCenterConditionBean(map)
   }
 }
 object DataCenterTaskPlan{

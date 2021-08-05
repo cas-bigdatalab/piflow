@@ -2,6 +2,7 @@ package cn.piflow.conf.bean
 
 import cn.piflow.{Condition, DataCenterGroupImpl, Path}
 import cn.piflow.conf.util.MapUtil
+import scala.collection.mutable.{Map => MMap}
 
 class DataCenterGroupBean extends GroupEntryBean{
 
@@ -9,7 +10,7 @@ class DataCenterGroupBean extends GroupEntryBean{
   var name : String = _
   var groupEntries : List[GroupEntryBean] = List()
   var paths : List[DataCenterConditionBean] = List()
-  var conditions = scala.collection.mutable.Map[String, DataCenterConditionBean]()
+  var conditions = MMap[String, DataCenterConditionBean]()
 
   def init(map : Map[String, Any]) = {
 
@@ -50,8 +51,12 @@ class DataCenterGroupBean extends GroupEntryBean{
 
   }
 
-  def init(flowBean : FlowBean) = {
-
+  def init(uuid:String, name:String, groupEntries:List[GroupEntryBean] , conditions : MMap[String, DataCenterConditionBean], paths : List[DataCenterConditionBean]) = {
+    this.uuid = uuid
+    this.name = name
+    this.groupEntries = groupEntries
+    this.conditions = conditions
+    this.paths = paths
 
   }
 
@@ -135,9 +140,9 @@ object DataCenterGroupBean {
     groupBean
   }
 
-  def apply(flowBean : FlowBean) : DataCenterGroupBean = {
+  def apply(uuid:String, name:String, groupEntries:List[GroupEntryBean] , conditions : MMap[String, DataCenterConditionBean], paths : List[DataCenterConditionBean]) : DataCenterGroupBean = {
     val groupBean = new DataCenterGroupBean()
-    groupBean.init(flowBean)
+    groupBean.init(uuid, name, groupEntries, conditions, paths)
     groupBean
   }
 }

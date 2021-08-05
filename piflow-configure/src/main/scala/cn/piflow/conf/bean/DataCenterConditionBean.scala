@@ -41,8 +41,8 @@ class Entry {
   var appId : String = _
 
   def init(map : Map[String, String]): Unit ={
-    this.dataCenter = MapUtil.get(map,"dataCenter").asInstanceOf[String]
-    this.flowName = MapUtil.get(map,"flowName").asInstanceOf[String]
+    this.dataCenter = map.getOrElse("dataCenter","")
+    this.flowName = map.getOrElse("flowName","")
     this.appId = ""
   }
 }
