@@ -200,10 +200,8 @@
     </build>
     <modules>
         <module>piflow-core</module>
-        <!--<module>piflow-conf</module>-->
         <module>piflow-bundle</module>
         <module>piflow-server</module>
         <module>piflow-configure</module>
-        <module>piflow-datacenter</module>
     </modules>
 </project>
