@@ -126,6 +126,22 @@ class DataCenterGroupExecutionImpl(group: Group, runnerContext: Context, runner:
 
     override def monitorJobCompleted(ctx: JobContext, outputs: JobOutputStream): Unit = {}
 
+    def getDateCentDataSource(flowIncomingEdge: ArrayBuffer[Edge]) : MMap[String, Any] = {
+      val emptyMap = MMap[String, Any]()
+      flowIncomingEdge.foreach(edge => {
+        val fromFlow = edge.stopFrom
+        val fromFlowDataCenter = dataCenterMap(fromFlow)
+        val fromFlowAppID = startedProcessesAppID(fromFlow)// check exist
+        val fromOutport = edge.outport
+        //TODO: send request to get data source from remote datacenter
+        val url = fromFlowDataCenter + "/datacenter/datasource?appId="+ fromFlowAppID +"&flowOutport=" + fromOutport
+        val dataSource = HttpClientsUtil.doGet(url, 1800)
+        emptyMap += (edge.inport -> dataSource)
+      })
+
+      emptyMap
+    }
+
     def flowToJsonStr(flow: Flow, dataSourceMap: MMap[String, Any]) : String = {
       val flowJson = flow.getFlowJson()
       val flowJSONObject = JSON.parseObject(flowJson)
@@ -141,31 +157,6 @@ class DataCenterGroupExecutionImpl(group: Group, runnerContext: Context, runner:
         }
       }
       val flow3JsonNew = JSON.toJSONString(flowJSONObject, SerializerFeature.PrettyFormat, SerializerFeature.WriteMapNullValue, SerializerFeature.WriteDateUseDateFormat)
-
-      //val flowJsonObj = JSON.parseRaw(flow3Json) match {
-      //  case Some(x: JSONObject) => x.obj
-      //}
-      //val flowJSONObject = MapUtil.getJSON(flowJsonObj, "flow").asInstanceOf[Map[String, Any]]
-      //val stopsJSONArray = MapUtil.getJSON(flowJSONObject, "stops").asInstanceOf[List[JSONObject]]
-      //val stopsJSONArrayNew: List[JSONObject] = List()
-      //println("----------------------------------------")
-      //for (index <- 0 until stopsJSONArray.length) {
-      //  var stopJSONObject = stopsJSONArray(index)
-      //  val stopName = MapUtil.get(stopJSONObject.obj, "name").asInstanceOf[String]
-      //  val datasourceUrl = MapUtil.get(emptyMap, stopName)
-      //  if (None != datasourceUrl) {
-      //    var properties = MapUtil.getJSON(stopJSONObject.obj, "properties").asInstanceOf[Map[String, Any]]
-      //    properties += ("dataSource" -> datasourceUrl)
-      //    println(stopJSONObject)
-      //    val stopJSONObjectStr = stopJSONObject.obj.+("properties" -> properties).toString()
-      //    var stopJSONObjectNew = JSON.parseRaw(stopJSONObjectStr) match {
-      //      case Some(x: JSONObject) => x.obj
-      //    }
-      //    println(stopJSONObject)
-      //  }
-      //  stopsJSONArray.toSet(index, stopJSONObject)
-      //}
-      //println("----------------------------------------")
 
       flow3JsonNew
     }
@@ -184,10 +175,13 @@ class DataCenterGroupExecutionImpl(group: Group, runnerContext: Context, runner:
     }
 
     def addFlowInfo(appId: String, flowName:String) : Unit = {
-      val time = new Date().toString
-      H2Util.addFlow(appId, "dataCenter", flowName)
-      H2Util.updateFlowState(appId,FlowState.STARTED)
-      H2Util.updateFlowStartTime(appId,time)
+      val flowState = H2Util.getFlowState(appId)
+      if (flowState.length <= 0) {
+        val time = new Date().toString
+        H2Util.addFlow(appId, "dataCenter", flowName)
+        H2Util.updateFlowState(appId,FlowState.STARTED)
+        H2Util.updateFlowStartTime(appId,time)
+      }
     }
 
     def onDataCentProcessFinished(appId: String) : Unit = {
@@ -207,6 +201,7 @@ class DataCenterGroupExecutionImpl(group: Group, runnerContext: Context, runner:
       H2Util.updateFlowFinishedTime(appId,time)
       H2Util.updateFlowState(appId,state)
     }
+
   };
 
   runner.addListener(listener);
@@ -222,37 +217,19 @@ class DataCenterGroupExecutionImpl(group: Group, runnerContext: Context, runner:
     var flowJson = flow.getFlowJson()
 
     //TODO: replace flow json
-    var flowIncomingEdge: ArrayBuffer[Edge] = null
     try {
-      flowIncomingEdge = incomingEdges(name)
+      val flowIncomingEdge = incomingEdges(name)
+      val emptyMap = listener.getDateCentDataSource(flowIncomingEdge)
+      if (emptyMap.size > 0) {
+        flowJson = listener.flowToJsonStr(flow, emptyMap);
+      }
     } catch {
       case e: Throwable =>
-        flowIncomingEdge = ArrayBuffer[Edge]()
+      println(e)
     }
 
-    val emptyMap = MMap[String, Any]()
-    flowIncomingEdge.foreach(edge => {
-      val fromFlow = edge.stopFrom
-      val fromFlowDataCenter = dataCenterMap(fromFlow)
-      val fromFlowAppID = startedProcessesAppID(fromFlow)// check exist
-      val fromOutport = edge.outport
-      //TODO: send request to get data source from remote datacenter
-      val url = fromFlowDataCenter + "/datacenter/datasource?appId="+ fromFlowAppID +"&flowOutport=" + fromOutport
-      val dataSource = HttpClientsUtil.doGet(url, 1800)
-      //replace flow Json
-
-      //hdfs://*.*.*.*:9000/user/piflow/datacenter/appid/stopName
-      //val hdfs = (fromFlowDataCenter + "/user/piflow/datacenter/" + fromFlowAppID + "/" + fromOutport)
-      emptyMap += (edge.inport -> dataSource)
-    })
-
-    if (emptyMap.size > 0) {
-      flowJson = listener.flowToJsonStr(flow, emptyMap);
-    }
-    //var flowJsonNew = constructDataCenterFlowJson()
     //TODO: send request to run flow!!!!!!!!! zhoujianpeng
     //construct new flow json
-
     val timeoutMs = 18000
     val url = flow.getDataCenter() + "/flow/start"
     val doPostStr = HttpClientsUtil.doPost(url, timeoutMs, flowJson);
@@ -261,6 +238,7 @@ class DataCenterGroupExecutionImpl(group: Group, runnerContext: Context, runner:
     val doPostJson = JSON.parseObject(doPostStr)
     val appId : String = doPostJson.getJSONObject("flow").getString("id")
     startedProcessesAppID(name) = appId
+
     //TODO: save flow status by H2Util
     listener.addFlowInfo(appId, flow.getFlowName())
   }
