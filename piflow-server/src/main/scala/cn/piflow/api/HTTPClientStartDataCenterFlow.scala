@@ -25,7 +25,7 @@ object HTTPClientStartDataCenterFlow {
         |						"${CODE}": "A00101"
         |					},
         |					"stops": [{
-        |							"dataCenter" : "http://223.193.3.31:8001",
+        |							"dataCenter" : "http://10.0.90.210:8002",
         |							"name": "MockData-A",
         |							"bundle": "cn.piflow.bundle.common.MockData",
         |							"uuid": "8a80d63f720cdd2301723b7461d92604",
@@ -38,7 +38,7 @@ object HTTPClientStartDataCenterFlow {
         |							}
         |						},
         |						{
-        |							"dataCenter" : "http://223.193.3.32:8001",
+        |							"dataCenter" : "http://10.0.90.155:8002",
         |							"name": "MockData-B",
         |							"bundle": "cn.piflow.bundle.common.MockData",
         |							"uuid": "8a80d63f720cdd2301723b7461d92604",
@@ -63,7 +63,7 @@ object HTTPClientStartDataCenterFlow {
         |							}
         |						},
         |						{
-        |							"dataCenter" : "http://223.193.3.32:8001",
+        |							"dataCenter" : "http://10.0.90.119:8001",
         |							"name": "ShowData",
         |							"bundle": "cn.piflow.bundle.external.ShowData",
         |							"uuid": "8a80d63f720cdd2301723b7461d92602",
@@ -99,7 +99,7 @@ object HTTPClientStartDataCenterFlow {
       """.stripMargin
 
 
-    val url = "http://223.193.3.32:8001/datacenter/flow/start"
+    val url = "http://10.0.90.119:8001/datacenter/flow/start"
     val timeout = 1800
     val requestConfig = RequestConfig.custom()
       .setConnectTimeout(timeout*1000)

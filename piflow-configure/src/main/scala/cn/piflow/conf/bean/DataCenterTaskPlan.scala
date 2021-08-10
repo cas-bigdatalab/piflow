@@ -101,7 +101,7 @@ class DataCenterTaskPlan {
       }
       else if (fromDataCenterMap.keySet.size == 1){
 
-        stop.dataCenter = fromDataCenterMap.keySet.take(0).asInstanceOf[String]
+        stop.dataCenter = fromDataCenterMap.keySet.iterator.next()
 
       }else{
         val intersect = fromDataCenterMap.keySet.intersect(toDataCenterMap.keySet)

@@ -95,6 +95,11 @@ class DataCenterFlowBean{
       condition.entry = getEntry(stops(inport).dataCenter, stops(inport).flowName)
       condition
     })
+    //paths
+    var paths : List[DataCenterConditionBean] = List()
+   conditionList.foreach( conditionBean => {
+     paths = conditionBean.copy() +: paths
+   })
 
     //conditions
     var conditions = MMap[String, DataCenterConditionBean]()
@@ -105,14 +110,6 @@ class DataCenterFlowBean{
       }
       conditions(conditionBean.entry.flowName) = conditionBean
     })
-
-    //paths
-    val paths = conditionList
-    /*var paths : List[DataCenterConditionBean] = List()
-    conditionList.foreach( pathMap => {
-      val path = DataCenterConditionBean(pathMap.asInstanceOf[Map[String, Any]])
-      paths = path +: paths
-    })*/
 
     val uuid =  UUID.randomUUID.toString
     DataCenterGroupBean(uuid, flowBean.name, flowBeanList, conditions, paths)
