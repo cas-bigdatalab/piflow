@@ -68,6 +68,7 @@ class DataCenterGroupBean extends GroupEntryBean{
       if( !conditions.contains(groupEntryBean.name) ){
         if (groupEntryBean.isInstanceOf[FlowBean]){
           val bean = groupEntryBean.asInstanceOf[FlowBean]
+          bean.flowJson = bean.toJson()
           group.addGroupEntry(groupEntryBean.name,bean.constructFlow())
         }else{
           val groupBean = groupEntryBean.asInstanceOf[GroupBean]
@@ -83,6 +84,7 @@ class DataCenterGroupBean extends GroupEntryBean{
 
           if (groupEntryBean.isInstanceOf[FlowBean]){
             val bean = groupEntryBean.asInstanceOf[FlowBean]
+            bean.flowJson = bean.toJson()
             group.addGroupEntry(groupEntryBean.name,bean.constructFlow())
           }else{
             val groupBean = groupEntryBean.asInstanceOf[GroupBean]
@@ -96,6 +98,7 @@ class DataCenterGroupBean extends GroupEntryBean{
 
           if (groupEntryBean.isInstanceOf[FlowBean]){
             val bean = groupEntryBean.asInstanceOf[FlowBean]
+            bean.flowJson = bean.toJson()
             group.addGroupEntry(groupEntryBean.name,bean.constructFlow(),Condition.after(conditionBean.after(0).flowName))
           }else{
             val groupBean = groupEntryBean.asInstanceOf[GroupBean]
@@ -113,6 +116,7 @@ class DataCenterGroupBean extends GroupEntryBean{
 
           if (groupEntryBean.isInstanceOf[FlowBean]){
             val bean = groupEntryBean.asInstanceOf[FlowBean]
+            bean.flowJson = bean.toJson()
             group.addGroupEntry(groupEntryBean.name,bean.constructFlow(),Condition.after(conditionBean.after(0).flowName,other: _*))
           }else{
             val groupBean = groupEntryBean.asInstanceOf[GroupBean]

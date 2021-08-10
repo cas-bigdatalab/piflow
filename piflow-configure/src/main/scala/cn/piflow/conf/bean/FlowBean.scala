@@ -145,13 +145,22 @@ class FlowBean extends GroupEntryBean{
       ("flow" ->
         ("uuid" -> this.uuid) ~
           ("name" -> this.name) ~
-          ("stops" ->
-            stops.map { stop =>(
+          ("checkpoint" -> this.checkpoint) ~
+          ("checkpointParentProcessId" -> this.checkpointParentProcessId) ~
+          ("runMode" -> this.runMode) ~
+          ("showData" -> this.showData) ~
+          ("driverMemory" -> this.driverMem) ~
+          ("executorNumber" -> this.executorNum) ~
+          ("executorMemory" -> this.executorMem) ~
+          ("executorCores" -> this.executorCores) ~
+          ("dataCenter" -> this.dataCenter) ~
+          ("stops" -> stops.map { stop =>(
+              ("flowName" -> stop.flowName) ~
               ("uuid" -> stop.uuid) ~
-                ("name" -> stop.name)~
-                ("bundle" -> stop.bundle) )}) ~
-          ("paths" ->
-            paths.map { path => (
+              ("name" -> stop.name)~
+              ("bundle" -> stop.bundle)~
+              ("properties" -> stop.properties.map{p => (p._1 -> p._2)}))}) ~
+          ("paths" -> paths.map { path => (
               ("from" -> path.from) ~
                 ("outport" -> path.outport) ~
                 ("inport" -> path.inport) ~
