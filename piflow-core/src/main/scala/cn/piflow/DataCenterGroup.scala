@@ -217,15 +217,12 @@ class DataCenterGroupExecutionImpl(group: Group, runnerContext: Context, runner:
     var flowJson = flow.getFlowJson()
 
     //TODO: replace flow json
-    try {
+    if (incomingEdges.contains(name)) {
       val flowIncomingEdge = incomingEdges(name)
       val emptyMap = listener.getDateCentDataSource(flowIncomingEdge)
       if (emptyMap.size > 0) {
         flowJson = listener.flowToJsonStr(flow, emptyMap);
       }
-    } catch {
-      case e: Throwable =>
-      println(e)
     }
 
     //TODO: send request to run flow!!!!!!!!! zhoujianpeng
