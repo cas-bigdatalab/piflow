@@ -108,7 +108,7 @@ class DataCenterTaskPlan {
         if(intersect.size > 0){
           stop.dataCenter = intersect.iterator.next()
         }else{
-          if(toDataCenterMap.keySet.size == 1)
+          if(toDataCenterMap.keySet.size == 1 && toDataCenterMap.keySet.iterator.next() != "")
             stop.dataCenter = toDataCenterMap.keySet.iterator.next()
           else
             stop.dataCenter = fromDataCenterMap.keySet.iterator.next()

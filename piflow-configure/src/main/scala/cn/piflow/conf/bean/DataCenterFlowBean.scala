@@ -50,8 +50,8 @@ class DataCenterFlowBean{
     val flowCount = dataCenterConditionBeanList.size + 1
     val ends = stops.keySet.filterNot(outgoingEdges.contains(_));
     val visited = MMap[String, String]();
-    for(i <- 1 to flowCount){
-      val flowName = "flow_" + i
+    for(i <-  1 to flowCount){
+      val flowName = "flow_" + (flowCount - i + 1)
       val iteratorStop = ends.diff(visited.keySet).iterator.next()
       _visitStop(flow, iteratorStop, visited, flowName)
     }

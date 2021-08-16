@@ -17,7 +17,7 @@ object HTTPClientStartDataCenter {
         |		"name": "xjzhu",
         |		"flows": [{
         |				"flow": {
-        |					"dataCenter": "http://223.193.3.32:8001",
+        |					"dataCenter": "http://10.0.90.119:8001",
         |					"name": "flow1",
         |					"executorMemory": "1g",
         |					"executorNumber": "1",
@@ -60,7 +60,7 @@ object HTTPClientStartDataCenter {
         |			},
         |			{
         |				"flow": {
-        |					"dataCenter": "http://223.193.3.32:8001",
+        |					"dataCenter": "http://10.0.90.119:8001",
         |					"name": "flow2",
         |					"executorMemory": "1g",
         |					"executorNumber": "1",
@@ -103,7 +103,7 @@ object HTTPClientStartDataCenter {
         |			},
         |			{
         |				"flow": {
-        |					"datacenter":"http://223.193.3.32:8001",
+        |					"dataCenter":"http://10.0.90.119:8001",
         |					"name": "flow3",
         |					"executorMemory": "1g",
         |					"executorNumber": "1",
@@ -185,25 +185,25 @@ object HTTPClientStartDataCenter {
         |		],
         |		"conditions": [{
         |			"after": {
-        |       "dataCenter" : "http://223.193.3.32:8001",
+        |       "dataCenter" : "http://10.0.90.119:8001",
         |       "flowName" : "flow1"
         |     },
         |     "outport" : "flow1-FlowOutportWriter",
         |     "inport" : "flow3-FlowInportReader-1",
         |			"entry": {
-        |       "dataCenter" : "http://223.193.3.32:8001",
+        |       "dataCenter" : "http://10.0.90.119:8001",
         |       "flowName" : "flow3"
         |     }
         |		},
         |		{
         |			"after": {
-        |       "dataCenter" : "http://223.193.3.32:8001",
+        |       "dataCenter" : "http://10.0.90.119:8001",
         |       "flowName" : "flow2"
         |     },
         |     "outport" : "flow2-FlowOutportWriter",
         |     "inport" : "flow3-FlowInportReader-2",
         |			"entry": {
-        |       "dataCenter" : "http://223.193.3.32:8001",
+        |       "dataCenter" : "http://10.0.90.119:8001",
         |       "flowName" : "flow3"
         |     }
         |		}],
@@ -213,7 +213,84 @@ object HTTPClientStartDataCenter {
       """.stripMargin
 
 
-    val url = "http://223.193.3.32:8001/datacenter/start"
+    val json2 =
+      """
+        |{
+        |	"flow":{
+        |		"executorNumber":"1",
+        |		"executorMemory":"1g",
+        |		"driverMemory":"1g",
+        |		"paths":[
+        |			{
+        |				"inport":"data1",
+        |				"from":"flow3-FlowInportReader-1",
+        |				"to":"Merge",
+        |				"outport":""
+        |			},
+        |			{
+        |				"inport":"data2",
+        |				"from":"flow3-FlowInportReader-2",
+        |				"to":"Merge",
+        |				"outport":""
+        |			},
+        |			{
+        |				"inport":"",
+        |				"from":"Merge",
+        |				"to":"ShowData",
+        |				"outport":""
+        |			}
+        |		],
+        |		"executorCores":"1",
+        |		"name":"flow3",
+        |		"dataCenter":"http://10.0.90.119:8001",
+        |		"stops":[
+        |			{
+        |				"customizedProperties":{},
+        |				"name":"flow3-FlowInportReader-1",
+        |				"bundle":"cn.piflow.bundle.FlowPort.FlowInportReader",
+        |				"uuid":"8a80d63f720cdd2301723b7461d92605",
+        |				"properties":{
+        |					"dataSource":"hdfs://10.0.90.155:9000/user/piflow/dataCenter//application_1627523264894_0006/flow1-FlowOutportWriter"
+        |				}
+        |			},
+        |			{
+        |				"customizedProperties":{},
+        |				"name":"flow3-FlowInportReader-2",
+        |				"bundle":"cn.piflow.bundle.FlowPort.FlowInportReader",
+        |				"uuid":"8a80d63f720cdd2301723b7461d92606",
+        |				"properties":{
+        |					"dataSource":"hdfs://10.0.90.155:9000/user/piflow/dataCenter//application_1627523264894_0005/flow2-FlowOutportWriter"
+        |				}
+        |			},
+        |			{
+        |				"customizedProperties":{},
+        |				"name":"Merge",
+        |				"bundle":"cn.piflow.bundle.common.Merge",
+        |				"uuid":"8a80da1b7a8a1327017a9e94e04b0008",
+        |				"properties":{
+        |					"inports":"data1,data2"
+        |				}
+        |			},
+        |			{
+        |				"customizedProperties":{},
+        |				"name":"ShowData",
+        |				"bundle":"cn.piflow.bundle.external.ShowData",
+        |				"uuid":"8a80d63f720cdd2301723b7461d92602",
+        |				"properties":{
+        |					"showNumber":"5"
+        |				}
+        |			}
+        |		],
+        |		"environmentVariable":{
+        |			"${CODE}":"A00101",
+        |			"${SPARK_HOME}":"/opt/data/spark/bin"
+        |		},
+        |		"uuid":"8a80d63f720cdd2301723b7461d92600"
+        |	}
+        |}
+      """.stripMargin
+    val url = "http://10.0.90.119:8001/datacenter/group/start"
+    //val url = "http://10.0.90.119:8001/flow/start"
     val timeout = 1800
     val requestConfig = RequestConfig.custom()
       .setConnectTimeout(timeout*1000)
