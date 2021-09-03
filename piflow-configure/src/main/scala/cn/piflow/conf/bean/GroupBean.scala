@@ -3,6 +3,8 @@ package cn.piflow.conf.bean
 import cn.piflow.{Condition, GroupImpl}
 import cn.piflow.conf.util.MapUtil
 
+import scala.collection.mutable.ArrayBuffer
+
 /**
   * Created by xjzhu@cnic.cn on 4/25/19
   */
@@ -101,8 +103,13 @@ class GroupBean extends GroupEntryBean {
         else {
           println(groupEntryBean.name + " after " + conditionBean.after.toSeq + "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
 
-          var other = new Array[String](conditionBean.after.size-1)
-          conditionBean.after.copyToArray(other,1)
+          //var other = new Array[String](conditionBean.after.size-1)
+          //conditionBean.after.copyToArray(other,1)
+          var otherAfterGroupEntry = ArrayBuffer[String]()
+          for(i<- 1 until conditionBean.after.size){
+            otherAfterGroupEntry.append(conditionBean.after(i))
+          }
+          val other = otherAfterGroupEntry.toArray
 
           if (groupEntryBean.isInstanceOf[FlowBean]){
             val bean = groupEntryBean.asInstanceOf[FlowBean]
