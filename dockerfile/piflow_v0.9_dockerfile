@@ -36,6 +36,11 @@ RUN tar -zxvf /opt/spark-2.2.0-bin-hadoop2.6.tar.gz -C /opt
 ENV SPARK_HOME=/opt/spark-2.2.0-bin-hadoop2.6
 ENV PATH=$PATH:${SPARK_HOME}/bin:${SPARK_HOME}/sbin
 
+COPY ./apache-livy-0.7.1-incubating-bin.tar.gz  /opt
+RUN tar -zxvf /opt/apache-livy-0.7.1-incubating-bin.tar.gz -C /opt
+ENV LIVY_HOME=/opt/apache-livy-0.7.1-incubating-bin
+ENV PATH=$PATH:$LIVY_HOME/bin
+
 COPY ./piflow.tar.gz  /opt
 RUN tar -zxvf /opt/piflow.tar.gz -C /opt
 
