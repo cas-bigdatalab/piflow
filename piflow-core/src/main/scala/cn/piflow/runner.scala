@@ -141,7 +141,7 @@ trait RunnerListener {
 
   def monitorJobCompleted(ctx: JobContext,outputs : JobOutputStream);
 
-  def  onGroupStarted(ctx: GroupContext);
+  def onGroupStarted(ctx: GroupContext);
 
   def onGroupCompleted(ctx: GroupContext);
 

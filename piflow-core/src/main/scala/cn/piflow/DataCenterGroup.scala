@@ -126,7 +126,7 @@ class DataCenterGroupExecutionImpl(group: Group, runnerContext: Context, runner:
 
     override def monitorJobCompleted(ctx: JobContext, outputs: JobOutputStream): Unit = {}
 
-    def getDateCentDataSource(flowIncomingEdge: ArrayBuffer[Edge]) : MMap[String, Any] = {
+    def getDataCenterDataSource(flowIncomingEdge: ArrayBuffer[Edge]) : MMap[String, Any] = {
       val emptyMap = MMap[String, Any]()
       flowIncomingEdge.foreach(edge => {
         val fromFlow = edge.stopFrom
@@ -219,7 +219,7 @@ class DataCenterGroupExecutionImpl(group: Group, runnerContext: Context, runner:
     //TODO: replace flow json
     if (incomingEdges.contains(name)) {
       val flowIncomingEdge = incomingEdges(name)
-      val emptyMap = listener.getDateCentDataSource(flowIncomingEdge)
+      val emptyMap = listener.getDataCenterDataSource(flowIncomingEdge)
       if (emptyMap.size > 0) {
         flowJson = listener.flowToJsonStr(flow, emptyMap);
       }
