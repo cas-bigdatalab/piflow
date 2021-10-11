@@ -13,6 +13,10 @@
         <jetty.version>9.0.0.M0</jetty.version>
         <scala.version>2.11.8</scala.version>
         <java.version>1.8</java.version>
+
+        <!--        添加-->
+        <scala.binary.version>2.11</scala.binary.version>
+        <flink.version>1.11.2</flink.version>
     </properties>
     <artifactId>piflow-bundle</artifactId>
 
@@ -52,8 +56,8 @@
          https://mvnrepository.com/artifact/org.apache.hive/hive-jdbc
         -->
         <dependency><groupId>org.apache.hive</groupId>
-           <artifactId>hive-jdbc</artifactId>
-           <version>1.2.1</version>
+            <artifactId>hive-jdbc</artifactId>
+            <version>1.2.1</version>
         </dependency>
 
         <dependency>
@@ -211,7 +215,7 @@
         </dependency>
 
 
-         <!--https://mvnrepository.com/artifact/org.apache.flume/flume-ng-core-->
+        <!--https://mvnrepository.com/artifact/org.apache.flume/flume-ng-core-->
         <dependency>
             <groupId>org.apache.flume</groupId>
             <artifactId>flume-ng-core</artifactId>
@@ -300,6 +304,55 @@
             <artifactId>ojdbc6</artifactId>
             <version>11.2.0.3</version>
         </dependency>
+
+        <!--        kafka-->
+        <dependency>
+            <groupId>org.apache.flink</groupId>
+            <artifactId>flink-connector-kafka-0.11_${scala.binary.version}</artifactId>
+            <version>${flink.version}</version>
+        </dependency>
+        <!--        Table 程序依赖-->
+        <dependency>
+            <groupId>org.apache.flink</groupId>
+            <artifactId>flink-table-api-java-bridge_${scala.binary.version}</artifactId>
+            <version>${flink.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.flink</groupId>
+            <artifactId>flink-table-api-scala-bridge_${scala.binary.version}</artifactId>
+            <version>${flink.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.flink</groupId>
+            <artifactId>flink-table-planner_${scala.binary.version}</artifactId>
+            <version>${flink.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.flink</groupId>
+            <artifactId>flink-table-planner-blink_${scala.binary.version}</artifactId>
+            <version>${flink.version}</version>
+        </dependency>
+        <!--        自定义格式来解析 Kafka 数据-->
+        <dependency>
+            <groupId>org.apache.flink</groupId>
+            <artifactId>flink-table-common</artifactId>
+            <version>${flink.version}</version>
+        </dependency>
+        <!--        处理json数据-->
+        <dependency>
+            <groupId>org.apache.flink</groupId>
+            <artifactId>flink-json</artifactId>
+            <version>${flink.version}</version>
+        </dependency>
+        <!--        处理csv数据-->
+        <dependency>
+            <groupId>org.apache.flink</groupId>
+            <artifactId>flink-csv</artifactId>
+            <version>${flink.version}</version>
+        </dependency>
+
+
 
     </dependencies>
 
