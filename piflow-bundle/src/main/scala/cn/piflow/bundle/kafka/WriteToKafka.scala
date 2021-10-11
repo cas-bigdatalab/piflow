@@ -5,6 +5,9 @@ import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.apache.flink.streaming.api.scala.{DataStream, StreamExecutionEnvironment}
+import org.apache.flink.table.api.Table
+import org.apache.flink.table.api.bridge.scala.StreamTableEnvironment
+import org.apache.flink.table.descriptors.{Csv, Kafka, Schema}
 import org.apache.flink.types.Row
 
 class WriteToKafka extends ConfigurableStop{
