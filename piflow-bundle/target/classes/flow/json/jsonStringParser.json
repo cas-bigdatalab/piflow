@@ -1,0 +1,25 @@
+{
+  "flow":{
+    "name":"test",
+    "uuid":"1234",
+    "stops":[
+       {
+        "uuid":"1111",
+        "name":"JsonStringParser",
+        "bundle":"cn.piflow.bundle.json.JsonStringParser",
+        "properties":{
+          "jsonString":"{\"id\":\"13\",\"name\":\"13\",\"score\":\"13\",\"school\":\"13\",\"class\":\"13\"}"
+        }
+      }
+
+    ],
+    "paths":[
+      {
+        "from":"",
+        "outport":"",
+        "inport":"",
+        "to":""
+      }
+    ]
+  }
+}

@@ -1,0 +1,1 @@
+create table if not exists scheduleInstance (id varchar(255), cronExpression varchar(255), startDate varchar(255), endDate varchar(255), state varchar(255), createTime varchar(255), updateTime varchar(255))

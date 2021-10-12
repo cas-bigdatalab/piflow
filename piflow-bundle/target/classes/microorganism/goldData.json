@@ -1,0 +1,33 @@
+{
+  "flow":{
+    "name":"test",
+    "uuid":"1234",
+    "stops":[
+      {
+        "uuid":"0000",
+        "name":"FileDownHDFS",
+        "bundle":"cn.piflow.bundle.http.FileDownHDFS",
+        "properties":{
+          "url_str":"https://gold.jgi.doe.gov/download?mode=site_excel",
+          "savePath":"hdfs://master2.packone:8020/yg/microo/golddata/gold.xlsx"
+        }
+      },
+      {
+        "uuid": "1111",
+        "name": "ExcelParser",
+        "bundle": "cn.piflow.bundle.excel.ExcelParser",
+        "properties": {
+          "cachePath":"hdfs://master2.packone:8020/yg/microo/golddata/golddata.json"
+        }
+      }
+    ],
+    "paths":[
+      {
+        "from":"FileDownHDFS",
+        "outport":"",
+        "inport":"",
+        "to":"ExcelParser"
+      }
+    ]
+  }
+}

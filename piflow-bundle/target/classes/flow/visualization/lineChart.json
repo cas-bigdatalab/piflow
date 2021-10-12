@@ -1,0 +1,43 @@
+{
+  "flow": {
+    "name": "test",
+    "executorMemory": "1g",
+    "executorNumber": "1",
+    "uuid": "8a80da1b73d7047f0173eaf27c1f007a",
+    "paths": [
+      {
+        "inport": "",
+        "from": "SelectHiveQL",
+        "to": "LineChart8",
+        "outport": ""
+      }
+    ],
+    "executorCores": "1",
+    "driverMemory": "1g",
+    "stops": [
+      {
+        "name": "SelectHiveQL",
+        "bundle": "cn.piflow.bundle.hive.SelectHiveQL",
+        "uuid": "8a80da1b73d7047f0173eaf27c230080",
+        "properties": {
+          "hiveQL": "select * from test.student"
+        },
+        "customizedProperties": {
+
+        }
+      },
+      {
+        "name": "LineChart8",
+        "bundle": "cn.piflow.bundle.visualization.LineChart",
+        "uuid": "8a80da1b73d7047f0173eaf27c20007c",
+        "properties": {
+          "x": "birthday"
+        },
+        "customizedProperties": {
+          "name": "COUNT",
+          "id": "SUM"
+        }
+      }
+    ]
+  }
+}

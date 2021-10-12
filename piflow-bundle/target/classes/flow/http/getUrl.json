@@ -1,0 +1,38 @@
+{
+  "flow":{
+    "name":"test",
+    "uuid":"1234",
+    "stops":[
+
+      {
+        "uuid":"0000",
+        "name":"getUrl",
+        "bundle":"cn.piflow.bundle.http.GetUrl",
+        "properties":{
+          "url":"https://api.elsevier.com/content/search/scopus?query=TITLE('title')&apiKey=555637gxd",
+          "httpAcceptTypes":"json",
+          "label":"",
+          "schema":""
+        }
+      }, {
+        "uuid":"1111",
+        "name":"getUrl1",
+        "bundle":"cn.piflow.bundle.http.GetUrl",
+        "properties":{
+          "url":"https://api.elsevier.com/content/search/scopus?query=TITLE('title')&apiKey=555637gxd",
+          "httpAcceptTypes":"xml",
+          "label":"service-error,status",
+          "schema":"statusCode,statusText"
+        }
+      }
+    ],
+    "paths":[
+      {
+        "from":"getUrl",
+        "outport":"",
+        "inport":"",
+        "to":"getUrl1"
+      }
+    ]
+  }
+}

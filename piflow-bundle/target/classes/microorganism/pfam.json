@@ -1,0 +1,50 @@
+{
+  "flow":{
+    "name":"test",
+    "uuid":"1234",
+    "stops":[
+     {
+        "uuid":"1111",
+        "name":"SelectFilesByName",
+        "bundle":"cn.piflow.bundle.hdfs.SelectFilesByName",
+        "properties":{
+          "HDFSUrl":"hdfs://10.0.88.70:9000",
+          "HDFSPath":"/yqd/test/pfam/",
+          "selectionConditions":".*full"
+        }
+      },
+      {
+        "uuid":"3333",
+        "name":"PfamData",
+        "bundle":"cn.piflow.bundle.microorganism.PfamData",
+        "properties":{
+          "cachePath":"/yqd/test/pfam/"
+        }
+      },
+      {
+        "uuid":"4444",
+        "name":"putEs",
+        "bundle":"cn.piflow.bundle.es.PutEs",
+        "properties":{
+          "es_nodes": "10.0.88.70,10.0.88.71,10.0.88.72",
+          "es_port": "9200",
+          "es_index": "test_15",
+          "es_type": "test_15"
+        }
+      }
+    ],
+    "paths":[
+      {
+        "from":"SelectFilesByName",
+        "outport":"",
+        "inport":"",
+        "to":"PfamData"
+      },{
+        "from":"PfamData",
+        "outport":"",
+        "inport":"",
+        "to":"putEs"
+      }
+    ]
+  }
+}

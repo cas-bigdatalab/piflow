@@ -1,0 +1,63 @@
+{
+  "flow":{
+    "name":"test",
+    "uuid":"1234",
+    "stops":[
+      {
+        "uuid":"0000",
+        "name":"SelectHiveQL",
+        "bundle":"cn.piflow.bundle.hive.SelectHiveQL",
+        "properties":{
+          "hiveQL":"select * from sparktest.student"
+        }
+      },
+      {
+        "uuid":"1111",
+        "name":"putEs",
+        "bundle":"cn.piflow.bundle.es.PutEs",
+        "properties":{
+          "es_nodes":"10.0.86.239",
+          "port":"9200",
+          "es_index":"spark",
+          "es_type":"testStudent1"
+        }
+
+      },
+      {
+        "uuid":"2222",
+        "name":"fetchEs",
+        "bundle":"cn.piflow.bundle.es.FetchEs",
+        "properties":{
+          "es_nodes":"10.0.86.239",
+          "port":"9200",
+          "es_index":"spark",
+          "es_type":"json"
+        }
+
+      },
+      {
+        "uuid":"3333",
+        "name":"queryEs",
+        "bundle":"cn.piflow.bundle.es.QueryEs",
+        "properties":{
+          "es_nodes":"10.0.86.239",
+          "port":"9200",
+          "es_index":"spark",
+          "es_type":"json",
+          "field_name":"name",
+          "field_content":"rose"
+        }
+
+      }
+
+    ],
+    "paths":[
+      {
+        "from":"SelectHiveQL",
+        "outport":"",
+        "inport":"",
+        "to":"putEs"
+      }
+    ]
+  }
+}

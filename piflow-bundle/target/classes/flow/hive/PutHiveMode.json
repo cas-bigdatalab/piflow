@@ -9,16 +9,17 @@
         "name":"SelectHiveQL",
         "bundle":"cn.piflow.bundle.hive.SelectHiveQL",
         "properties":{
-          "hiveQL":"select * from stu"
+          "hiveQL":"select * from test.user1"
         }
       },
       {
         "uuid":"1324",
-        "name":"PutHiveStream",
-        "bundle":"cn.piflow.bundle.hive.PutHiveStream",
+        "name":"PutHiveMode",
+        "bundle":"cn.piflow.bundle.hive.PutHiveMode",
         "properties":{
         "database":"test",
-        "table"   :"stream"
+        "table"   :"userMode",
+        "saveMode":"overwrite"
         }
 
       }
@@ -29,7 +30,7 @@
         "from":"SelectHiveQL",
         "outport":"",
         "inport":"",
-        "to":"PutHiveStream"
+        "to":"PutHiveMode"
       }
     ]
   }

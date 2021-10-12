@@ -1,0 +1,1 @@
+create table if not exists plugin (id varchar(255), name varchar(255), state varchar(255), createTime varchar(255), updateTime varchar(255))

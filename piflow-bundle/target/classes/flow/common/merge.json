@@ -1,0 +1,59 @@
+{
+  "flow":{
+    "name":"test",
+    "uuid":"1234",
+    "stops":[
+      {
+        "uuid":"0000",
+        "name":"SelectHiveQL",
+        "bundle":"cn.piflow.bundle.hive.SelectHiveQL",
+        "properties":{
+          "hiveQL":"select * from test.user1"
+        }
+      },{
+        "uuid":"1111",
+        "name":"SelectHiveQL1",
+        "bundle":"cn.piflow.bundle.hive.SelectHiveQL",
+        "properties":{
+          "hiveQL":"select * from test.user2"
+        }
+      },
+      {
+        "uuid":"2222",
+        "name":"Merge",
+        "bundle":"cn.piflow.bundle.common.Merge",
+        "properties":{
+          "inports":"in1,in2"
+        }
+      },{
+        "uuid":"3333",
+        "name":"ExecuteSQLStop",
+        "bundle":"cn.piflow.bundle.common.ExecuteSQLStop",
+        "properties":{
+          "sql":"select * from temp where id = 0001",
+          "tempViewName": "temp"
+        }
+      }
+
+
+    ],
+    "paths":[
+      {
+        "from":"SelectHiveQL",
+        "outport":"",
+        "inport":"in1",
+        "to":"Merge"
+      },{
+        "from":"SelectHiveQL1",
+        "outport":"",
+        "inport":"in2",
+        "to":"Merge"
+      },{
+        "from":"Merge",
+        "outport":"",
+        "inport":"",
+        "to":"ExecuteSQLStop"
+      }
+    ]
+  }
+}

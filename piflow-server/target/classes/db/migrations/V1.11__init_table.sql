@@ -1,0 +1,1 @@
+insert into plugin values ('11111111', 'piflowexternal.jar', 'ON','','');

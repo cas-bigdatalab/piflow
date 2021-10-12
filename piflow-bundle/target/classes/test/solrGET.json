@@ -1,0 +1,48 @@
+{
+  "flow":{
+    "name":"test",
+    "uuid":"1234",
+    "checkpoint":"Merge",
+    "stops":[
+      {
+        "uuid":"0000",
+        "name":"GetFromSolr",
+        "bundle":"cn.piflow.bundle.solr.GetFromSolr",
+        "properties":{
+          "solrURL":"http://10.0.88.9:8886/solr",
+          "SolrCollection":"core01",
+          "QueryStr":"*:*",
+          "start":"1",
+          "rows":"2",
+          "sortBy":"id",
+          "DescentOrAscend":"Ascend",
+          "fl":"pid,id",
+          "fq":"",
+          "df":"",
+          "indent":"true|on"
+
+        }
+
+      },
+      {
+        "uuid":"1111",
+        "name":"JsonSave",
+        "bundle":"cn.piflow.bundle.json.JsonSave",
+        "properties":{
+          "jsonSavePath":"hdfs://10.0.86.89:9000/xjzhu/SolrText01.json"
+        }
+      }
+
+    ],
+    "paths":[
+      {
+        "from":"GetFromSolr",
+        "outport":"",
+        "inport":"",
+        "to":"JsonSave"
+      }
+
+
+    ]
+  }
+}

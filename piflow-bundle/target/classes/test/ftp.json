@@ -1,0 +1,45 @@
+{
+  "flow":{
+    "name":"test",
+    "uuid":"1234",
+    "stops":[
+      {
+        "uuid":"0000",
+        "name":"LoadFromFtp",
+        "bundle":"cn.piflow.bundle.ftp.LoadFromFtp",
+        "properties":{
+          "url_str":"10.0.86.94",
+          "port":"21",
+          "username":"ftpuser",
+          "password":"qazwsx123456",
+          "ftpFile":"/test/",
+          "localPath":"/ftpDownLoad"
+        }
+
+      },
+      {
+        "uuid":"1111",
+        "name":"UploadToFtp",
+        "bundle":"cn.piflow.bundle.ftp.UploadToFtp",
+        "properties":{
+          "url_str":"10.0.86.94",
+          "port":"21",
+          "username":"ftpuser",
+          "password":"qazwsx123456",
+          "ftpFile":"/ttt",
+          "localPath":"/uploadTest"
+        }
+
+      }
+
+    ],
+    "paths":[
+      {
+        "from":"LoadFromFtp",
+        "outport":"",
+        "inport":"",
+        "to":"UploadToFtp"
+      }
+    ]
+  }
+}

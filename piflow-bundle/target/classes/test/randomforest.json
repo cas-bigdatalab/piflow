@@ -1,0 +1,45 @@
+{
+  "flow":{
+    "name":"test",
+    "uuid":"1234",
+    "stops":[
+      {
+        "uuid":"0000",
+        "name":"RandomForestTraining",
+        "bundle":"cn.piflow.bundle.ml_classification.RandomForestTraining",
+        "properties":{
+          "training_data_path":"hdfs://10.0.86.89:9000/xx/watermellonDataset.txt",
+          "model_save_path":"hdfs://10.0.86.89:9000/xx/naivebayes/rf.model",
+          "maxBins":"20",
+          "maxDepth":"10",
+          "minInfoGain":"0.1",
+          "minInstancesPerNode":"2",
+          "impurity":"entropy",
+          "subSamplingRate":"0.6",
+          "featureSubsetStrategy":"auto",
+          "numTrees":"10"
+        }
+
+      },
+      {
+        "uuid":"1111",
+        "name":"RandomForestPrediction",
+        "bundle":"cn.piflow.bundle.ml_classification.RandomForestPrediction",
+        "properties":{
+          "test_data_path":"hdfs://10.0.86.89:9000/xx/watermellonDataset.txt",
+          "model_path":"hdfs://10.0.86.89:9000/xx/naivebayes/rf.model"
+        }
+
+      }
+
+    ],
+    "paths":[
+      {
+        "from":"RandomForestTraining",
+        "outport":"",
+        "inport":"",
+        "to":"RandomForestPrediction"
+      }
+    ]
+  }
+}
