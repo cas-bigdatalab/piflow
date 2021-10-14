@@ -29,7 +29,7 @@ class ReadFromKafka extends ConfigurableStop{
 
     tableEnv.connect(
       new Kafka()
-        .version("0.11")
+        .version("universal")
         .topic(topic)
         //        .startFromEarliest()
         //        .startFromLatest()

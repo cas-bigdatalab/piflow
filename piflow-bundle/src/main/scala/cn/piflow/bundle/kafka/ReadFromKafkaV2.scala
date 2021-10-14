@@ -6,11 +6,10 @@ import cn.piflow.conf._
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
-
 import org.apache.flink.api.common.serialization.SimpleStringSchema
 import org.apache.flink.streaming.api.scala.{DataStream, StreamExecutionEnvironment}
 import org.apache.flink.api.scala._
-import org.apache.flink.streaming.connectors.kafka.FlinkKafkaConsumer011
+import org.apache.flink.streaming.connectors.kafka.{FlinkKafkaConsumer}
 import org.apache.kafka.common.serialization.StringSerializer
 
 
@@ -40,7 +39,7 @@ class ReadFromKafkaV2 extends ConfigurableStop{
     //properties.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer")
     //properties.put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer")
 
-    val kafkaDS: DataStream[String] = flink.addSource( new FlinkKafkaConsumer011[String](topic,new SimpleStringSchema(),properties))
+    val kafkaDS: DataStream[String] = flink.addSource( new FlinkKafkaConsumer[String](topic,new SimpleStringSchema(),properties))
     out.write(kafkaDS)
     //flink.execute()
   }

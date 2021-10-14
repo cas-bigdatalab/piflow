@@ -1,12 +1,15 @@
 package cn.piflow.bundle.kafka
 
+import java.util.Properties
+
 import cn.piflow.conf._
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.apache.flink.api.common.serialization.SimpleStringSchema
 import org.apache.flink.streaming.api.scala.{DataStream, StreamExecutionEnvironment}
-import org.apache.flink.streaming.connectors.kafka.FlinkKafkaProducer011
+import org.apache.flink.streaming.connectors.kafka.FlinkKafkaProducer
+import org.apache.flink.streaming.connectors.kafka.internals.KeyedSerializationSchemaWrapper
 
 class WriteToKafkaV2 extends ConfigurableStop{
   val description: String = "Write data to kafka"
@@ -18,7 +21,23 @@ class WriteToKafkaV2 extends ConfigurableStop{
   def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     //val flink = pec.get[StreamExecutionEnvironment]()
     val data = in.read().asInstanceOf[DataStream[String]]
-    data.addSink(new FlinkKafkaProducer011[String](kafka_host, topic, new SimpleStringSchema()))
+
+    val properties:Properties  = new Properties()
+    properties.put("bootstrap.servers", kafka_host)
+    properties.put("acks", "all")
+    //properties.put("retries", 0)
+    //properties.put("batch.size", 16384)
+    //properties.put("linger.ms", 1)
+    //properties.put("buffer.memory", 33554432)
+    //properties.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer")
+    //properties.put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer")
+
+    data.addSink(new FlinkKafkaProducer[String](
+      topic,
+      new KeyedSerializationSchemaWrapper[String](new SimpleStringSchema()),
+      properties,
+      FlinkKafkaProducer.Semantic.EXACTLY_ONCE))
+
     //flink.execute()
   }
 

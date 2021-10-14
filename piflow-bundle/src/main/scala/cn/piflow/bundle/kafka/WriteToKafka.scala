@@ -22,28 +22,28 @@ class WriteToKafka extends ConfigurableStop{
     val tableEnv = StreamTableEnvironment.create(flink)
     val inputStream = in.read().asInstanceOf[DataStream[Row]]
     val kafkaTable: Table = tableEnv.fromDataStream(inputStream)
-    val kafkaSchema = new Schema().schema(kafkaTable.getSchema)
+    val fieldNames = kafkaTable.getSchema.getFieldNames
+    var fields = ""
+    for(i <- 0 until fieldNames.size){
+      if(i == fieldNames.size-1 ) fields +="`" + fieldNames(i) + "`" + " STRING"
+      else fields +="`" + fieldNames(i) + "`" + " STRING,"
+    }
 
-    tableEnv.connect(
-      new Kafka()
-        .version("0.11")
-        .topic(topic)
-        //        .startFromEarliest()
-        //        .startFromLatest()
-        .property("bootstrap.servers", kafka_host)
-        .property("acks", "all")
-        //        .property(""retries", 0)
-        //        .property("batch.size", 16384)
-        //        .property("linger.ms", 1)
-        //        .property("buffer.memory", 33554432)
-        .property("key.deserializer", "org.apache.kafka.common.serialization.StringDeserializer")
-        .property("value.deserializer", "org.apache.kafka.common.serialization.StringDeserializer")
-    ).withFormat(new Csv())
-      .withSchema(kafkaSchema)
-      .createTemporaryTable("kafkaOutputTable")
+    tableEnv.executeSql(
+      "create table kafkaOutputTable(" +
+        fields +
+        ")with(" +
+        "'connector' = 'kafka'," +
+        "'topic' = '"+topic+"'," +
+        "'properties.bootstrap.servers' = '"+kafka_host+"'," +
+        "'properties.group.id' = 'mmmm',"+
+        "'properties.acks' = 'all'," +
+        "'scan.startup.mode' = 'earliest-offset'," +
+        "'format' = 'csv'," +
+        "'csv.field-delimiter' = ','" +
+        ")")
 
-    kafkaTable.insertInto("kafkaOutputTable")
-    tableEnv.execute("write to kafka")
+    kafkaTable.executeInsert("kafkaOutputTable");
     //flink.execute()
   }
 

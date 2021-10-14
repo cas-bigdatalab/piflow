@@ -16,7 +16,7 @@
 
         <!--        添加-->
         <scala.binary.version>2.11</scala.binary.version>
-        <flink.version>1.11.2</flink.version>
+        <flink.version>1.12.2</flink.version>
     </properties>
     <artifactId>piflow-bundle</artifactId>
 
@@ -305,10 +305,15 @@
             <version>11.2.0.3</version>
         </dependency>
 
-        <!--        kafka-->
+        <!--        kafka连接器 1.12-->
         <dependency>
             <groupId>org.apache.flink</groupId>
-            <artifactId>flink-connector-kafka-0.11_${scala.binary.version}</artifactId>
+            <artifactId>flink-connector-kafka_${scala.binary.version}</artifactId>
+            <version>${flink.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.flink</groupId>
+            <artifactId>flink-avro</artifactId>
             <version>${flink.version}</version>
         </dependency>
         <!--        Table 程序依赖-->
@@ -352,7 +357,19 @@
             <version>${flink.version}</version>
         </dependency>
 
+        <!--flink-hive-connecter-->
+        <dependency>
+            <groupId>org.apache.flink</groupId>
+            <artifactId>flink-connector-hive_2.11</artifactId>
+            <version>1.12.0</version>
+        </dependency>
 
+        <!-- Hive Dependency -->
+        <dependency>
+            <groupId>org.apache.hive</groupId>
+            <artifactId>hive-exec</artifactId>
+            <version>2.1.1</version>
+        </dependency>
 
     </dependencies>
 
