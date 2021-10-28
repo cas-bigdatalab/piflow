@@ -1,0 +1,45 @@
+{
+  "flow":{
+    "name":"test",
+    "uuid":"1234",
+    "stops":[
+
+      {
+        "uuid":"1111",
+        "name":"LoadFromFtpToHDFS",
+        "bundle":"cn.piflow.bundle.ftp.LoadFromFtpToHDFS",
+        "properties": {
+        "ftp_url":"",
+        "port":"",
+        "username":"",
+        "password":"",
+        "ftpFile": "",
+        "HDFSUrl":"",
+        "HDFSPath":"",
+        "isFile":"",
+        "filterByName":""
+        }
+      },
+      {
+        "uuid":"1324",
+        "name":"PutHiveMode",
+        "bundle":"cn.piflow.bundle.hive.PutHiveMode",
+        "properties":{
+        "database":"test",
+        "table"   :"userMode",
+        "saveMode":"overwrite"
+        }
+
+      }
+
+    ],
+    "paths":[
+      {
+        "from":"SelectHiveQL",
+        "outport":"",
+        "inport":"",
+        "to":"PutHiveMode"
+      }
+    ]
+  }
+}

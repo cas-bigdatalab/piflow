@@ -1,0 +1,42 @@
+{
+  "flow":{
+    "name":"test",
+    "uuid":"1234",
+    "stops":[
+
+      {
+        "uuid":"1111",
+        "name":"OracleRead",
+        "bundle":"cn.piflow.bundle.jdbc.OracleRead",
+        "properties":{
+          "url": "jdbc:oracle:thin:@(DESCRIPTION =(ADDRESS_LIST =(ADDRESS=(PROTOCOL=TCP)(HOST=192.168.2.237)(PORT=1521)))(CONNECT_DATA=(SERVICE_NAME=RACDB_STANDBY)))",
+          "user": "dashuju",
+          "password": "DaShuju_732",
+          "sql":"select * from egrant_isis.rpt_completion where rownum <=10"
+        }
+      },
+      {
+        "uuid":"1324",
+        "name":"CsvSave",
+        "bundle":"cn.piflow.bundle.csv.CsvSave",
+        "properties":{
+          "csvSavePath":"hdfs://192.168.3.138:8020/test/",
+          "header": "true",
+          "delimiter":",",
+          "partition":"1",
+          "saveMode": "append"
+        }
+
+      }
+
+    ],
+    "paths":[
+      {
+        "from":"OracleRead",
+        "outport":"",
+        "inport":"",
+        "to":"CsvSave"
+      }
+    ]
+  }
+}

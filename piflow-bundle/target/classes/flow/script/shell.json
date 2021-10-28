@@ -1,0 +1,35 @@
+{
+  "flow":{
+    "name":"test",
+    "uuid":"1234",
+    "stops":[
+      {
+        "uuid":"0000",
+        "name":"SelectHiveQL",
+        "bundle":"cn.piflow.bundle.hive.SelectHiveQL",
+        "properties":{
+          "hiveQL":"select * from test.user1"
+        }
+      }, {
+        "uuid":"1111",
+        "name":"ExecuteShell",
+        "bundle":"cn.piflow.bundle.script.ExecuteShell",
+        "properties":{
+          "IP": "192.168.3.140",
+          "User": "root",
+          "PassWord":"123456",
+          "shellString": "mkdir /work/###cp /opt/1.29.3.tar.gz /work/"
+        }
+      }
+
+    ],
+    "paths":[
+      {
+        "from":"SelectHiveQL",
+        "outport":"",
+        "inport":"",
+        "to":"ExecuteShell"
+      }
+    ]
+  }
+}

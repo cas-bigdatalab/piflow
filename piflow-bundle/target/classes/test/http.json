@@ -1,0 +1,52 @@
+{
+  "flow":{
+    "name":"test",
+    "uuid":"1234",
+    "stops":[
+      {
+        "uuid":"0000",
+        "name":"PutHiveQL",
+        "bundle":"cn.piflow.bundle.hive.PutHiveQL",
+        "properties":{
+          "hiveQL_path":"/xx/test.hiveql",
+          "database":"sparktest"
+        }
+
+      },
+      {
+        "uuid":"1111",
+        "name":"LoadZipFromUrl",
+        "bundle":"cn.piflow.bundle.http.LoadZipFromUrl",
+        "properties":{
+            "url_str":"http://10.0.86.93:8000/files.tar.gz"
+        }
+
+      },
+
+      {
+        "uuid":"2222",
+        "name":"UnGZip",
+        "bundle":"cn.piflow.bundle.http.UnGZip",
+        "properties":{
+        }
+
+      }
+
+    ],
+    "paths":[
+      {
+        "from":"PutHiveQL",
+        "outport":"",
+        "inport":"",
+        "to":"LoadZipFromUrl"
+      },
+
+      {
+        "from":"LoadZipFromUrl",
+        "outport":"",
+        "inport":"",
+        "to":"UnGZip"
+      }
+    ]
+  }
+}

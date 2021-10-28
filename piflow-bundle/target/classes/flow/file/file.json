@@ -1,0 +1,54 @@
+{
+  "flow":{
+    "name":"test",
+    "uuid":"1234",
+    "stops":[
+      {
+        "uuid":"0000",
+        "name":"SelectHiveQL",
+        "bundle":"cn.piflow.bundle.hive.SelectHiveQL",
+        "properties":{
+          "hiveQL":"select * from test.user1"
+        }
+      }, {
+        "uuid":"1111",
+        "name":"PutFile",
+        "bundle":"cn.piflow.bundle.file.PutFile",
+        "properties":{
+          "IP": "192.168.3.140",
+          "User": "root",
+          "PassWord":"123456",
+          "localFile": "/opt/npd_1993_2016.csv",
+          "hdfsPath": "/work/test/"
+        }
+      },{
+        "uuid":"2222",
+        "name":"GetFile",
+        "bundle":"cn.piflow.bundle.file.GetFile",
+        "properties":{
+          "IP": "192.168.3.140",
+          "User": "root",
+          "PassWord":"123456",
+          "localPath": "/data/",
+          "hdfsFile": "/work/test/npd_1993_2016.csv"
+        }
+      }
+
+
+
+    ],
+    "paths":[
+      {
+        "from":"SelectHiveQL",
+        "outport":"",
+        "inport":"",
+        "to":"PutFile"
+      },{
+        "from":"PutFile",
+        "outport":"",
+        "inport":"",
+        "to":"GetFile"
+      }
+    ]
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "flow":{
+    "name":"test",
+    "uuid":"1234",
+    "stops":[
+      {
+        "uuid":"0000",
+        "name":"LDATraining",
+        "bundle":"cn.piflow.bundle.ml_clustering.LDATraining",
+        "properties":{
+          "training_data_path":"hdfs://10.0.86.89:9000/xx/data/mllib/sample_lda_libsvm_data.txt",
+          "model_save_path":"hdfs://10.0.86.89:9000/xx/naivebayes/lda.model",
+          "maxIter":"50",
+          "k":"50",
+          "checkpointInterval":"-1",
+          "docConcentration":"",
+          "optimizer":"",
+          "topicConcentration":""
+        }
+
+      },
+      {
+        "uuid":"1111",
+        "name":"LDAPrediction",
+        "bundle":"cn.piflow.bundle.ml_clustering.LDAPrediction",
+        "properties":{
+          "test_data_path":"hdfs://10.0.86.89:9000/xx/data/mllib/sample_lda_libsvm_data.txt",
+          "model_path":"hdfs://10.0.86.89:9000/xx/naivebayes/lda.model"
+        }
+
+      }
+
+    ],
+    "paths":[
+      {
+        "from":"LDATraining",
+        "outport":"",
+        "inport":"",
+        "to":"LDAPrediction"
+      }
+    ]
+  }
+}

@@ -1,0 +1,48 @@
+{
+  "flow":{
+    "name":"test",
+    "uuid":"1234",
+    "checkpoint":"Merge",
+    "stops":[
+
+      {
+        "uuid":"0000",
+        "name":"GetMongo",
+        "bundle":"cn.piflow.bundle.mongodb.GetMongo",
+        "properties":{
+          "addresses":"10.0.86.89,27017",
+          "credentials":"",
+          "dataBase":"test01",
+          "collection":"aaaaa",
+          "sql":"select id,name,age from aaaaa"
+
+
+        }
+      },
+      {
+        "uuid":"1111",
+        "name":"JdbcWriteToOracle",
+        "bundle":"cn.piflow.bundle.jdbc.JdbcWriteToOracle",
+        "properties":{
+          "url":"jdbc:oracle:thin:@10.0.86.237:1521/newdb",
+          "user":"my",
+          "password":"bigdata",
+          "table":"a111"
+        }
+
+      }
+
+
+    ],
+    "paths":[
+      {
+        "from":"GetMongo",
+        "outport":"",
+        "inport":"",
+        "to":"JdbcWriteToOracle"
+      }
+
+
+    ]
+  }
+}

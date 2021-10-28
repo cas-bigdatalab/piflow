@@ -1,0 +1,51 @@
+{
+  "flow":{
+    "name":"shellTest",
+    "uuid":"5678",
+    "stops":[
+      {
+        "uuid":"1111",
+        "name":"ShellExecutor",
+        "bundle":"cn.piflow.bundle.script.ShellExecutor",
+        "properties":{
+            "shellPath":"src/main/resources/shellflow.sh",
+            "args":"666,bing,M,32 777,ming,F,33",
+            "outputSchema":"id,name,gender,age"
+        }
+
+      },
+      {
+        "uuid":"2222",
+        "name":"DataFrameRowParser",
+        "bundle":"cn.piflow.bundle.script.DataFrameRowParser",
+        "properties":{
+          "schema":"id,name,gender,age",
+          "separator":","
+        }
+      },
+      {
+        "uuid":"3333",
+        "name":"PutHiveStreaming",
+        "bundle":"cn.piflow.bundle.hive.PutHiveStreaming",
+        "properties":{
+            "database":"sparktest",
+            "table":"student"
+        }
+      }
+    ],
+    "paths":[
+      {
+        "from":"ShellExecutor",
+        "outport":"",
+        "inport":"",
+        "to":"DataFrameRowParser"
+      },
+      {
+        "from":"DataFrameRowParser",
+        "outport":"",
+        "inport":"",
+        "to":"PutHiveStreaming"
+      }
+    ]
+  }
+}

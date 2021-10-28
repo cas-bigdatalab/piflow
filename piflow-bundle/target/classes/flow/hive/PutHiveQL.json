@@ -1,0 +1,36 @@
+{
+  "flow":{
+    "name":"test",
+    "uuid":"1234",
+    "stops":[
+
+      {
+        "uuid":"1111",
+        "name":"PutHiveQL",
+        "bundle":"cn.piflow.bundle.hive.PutHiveQL",
+        "properties":{
+          "database": "test",
+          "hiveQL_Path":"hdfs://192.168.3.138:8020/test/PutHiveQL.hiveql"
+        }
+      },
+      {
+        "uuid":"1324",
+        "name":"SelectHiveQL",
+        "bundle":"cn.piflow.bundle.hive.SelectHiveQL",
+        "properties":{
+        "hiveQL": "select * from test.puthiveql"
+        }
+
+      }
+
+    ],
+    "paths":[
+      {
+        "from":"PutHiveQL",
+        "outport":"",
+        "inport":"",
+        "to":"SelectHiveQL"
+      }
+    ]
+  }
+}

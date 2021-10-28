@@ -1,0 +1,25 @@
+{
+  "flow":{
+    "name":"test",
+    "uuid":"1234",
+    "stops":[
+      {
+        "uuid": "1111",
+        "name": "postUrl",
+        "bundle": "cn.piflow.bundle.http.PostUrl",
+        "properties": {
+          "url": "http://10.0.86.98:8002/flow/start",
+          "jsonPath": "hdfs://10.0.86.89:9000/yg/flow.json"
+        }
+      }
+    ],
+    "paths":[
+      {
+        "from":"",
+        "outport":"",
+        "inport":"",
+        "to":""
+      }
+    ]
+  }
+}

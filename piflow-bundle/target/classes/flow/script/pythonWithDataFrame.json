@@ -1,0 +1,37 @@
+{
+  "flow":{
+    "name":"pythonTest",
+    "uuid":"1234567890",
+    "stops":[
+      {
+        "uuid":"1111",
+        "name":"MysqlRead",
+        "bundle":"cn.piflow.bundle.jdbc.MysqlRead",
+        "properties":{
+          "sql":"select id,name from student",
+          "url":"jdbc:mysql://10.0.88.24:3306/visualization?useUnicode=true&characterEncoding=utf-8",
+          "driver":"com.mysql.jdbc.Driver",
+          "user":"root",
+          "password":"123456"
+        }
+      },
+      {
+        "uuid":"2222",
+        "name":"ExecutePythonWithDataFrame",
+        "bundle":"cn.piflow.bundle.script.ExecutePythonWithDataFrame",
+        "properties":{
+            "script":"import sys\nimport os\nimport numpy as np\ndef listFunction(dictInfo):  \n  newDict = {\"name\":\"hello new user!\", \"id\":11}\n  secondDict = {\"name\":\"hello second user!\", \"id\":12}\n  listInfo=[newDict, secondDict]\n  return dictInfo + listInfo\n",
+            "execFunction": "listFunction"
+        }
+      }
+    ],
+    "paths":[
+      {
+        "from":"MysqlRead",
+        "outport":"",
+        "inport":"",
+        "to":"ExecutePythonWithDataFrame"
+      }
+    ]
+  }
+}

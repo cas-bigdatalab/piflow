@@ -3,22 +3,23 @@
     "name":"test",
     "uuid":"1234",
     "stops":[
-
       {
-        "uuid":"1111",
+        "uuid":"0000",
         "name":"SelectHiveQL",
         "bundle":"cn.piflow.bundle.hive.SelectHiveQL",
         "properties":{
-          "hiveQL":"select * from stu"
+          "hiveQL":"select * from sparktest.dblp_phdthesis"
         }
+
       },
       {
-        "uuid":"1324",
-        "name":"PutHiveStream",
-        "bundle":"cn.piflow.bundle.hive.PutHiveStream",
+        "uuid":"1111",
+        "name":"RegexTextProcess",
+        "bundle":"cn.piflow.bundle.file.RegexTextProcess",
         "properties":{
-        "database":"test",
-        "table"   :"stream"
+          "regex":"[(A-Za-z)]",
+          "columnName":"title",
+          "replaceStr":"Test"
         }
 
       }
@@ -29,7 +30,7 @@
         "from":"SelectHiveQL",
         "outport":"",
         "inport":"",
-        "to":"PutHiveStream"
+        "to":"RegexTextProcess"
       }
     ]
   }

@@ -1,0 +1,41 @@
+{
+  "flow":{
+    "name":"test",
+    "uuid":"1234",
+    "checkpoint":"Merge",
+    "stops":[
+      {
+        "uuid":"0000",
+        "name":"SelectHiveQL",
+        "bundle":"cn.piflow.bundle.hive.SelectHiveQL",
+        "properties":{
+          "hiveQL":"select businessext_id as businessext__id,businessext_zh_title as businessext__zh_title,businessext_en_title as businessext__en_title,business_product_id as business__product_id,businessext_authors_name as businessext__authors_name,businessext_journal_name as businessext__journal_name,business_publish_date as business__publish_date,business_year as business__year,project_prj_code as project__prj_code,project_prj_no as project__prj_no,project_zh_title as project__zh_title,organization_org_code  as organization__org_code,organization_name as organization__name,project_grant_code   as   project__grant_code,project_grant_name as project__grant_name,project_subject_code1 as project__subject_code1,businessext_pub_id as businessext__pub_id,product_type as product_type,doi as doi,doi_url as doi_url,zh_abstract as zh_abstract,zh_key_word as zh_keyword,source as source,'output' as output_ir_source,'true'  as  display from test.solr where (doi_url is not null and trim(doi_url) <> '') or source = 'springer'"
+        }
+
+      },
+
+      {
+        "uuid":"1111",
+        "name":"PutIntoSolr",
+        "bundle":"cn.piflow.bundle.solr.PutIntoSolr",
+        "properties":{
+          "solrURL":"http://192.168.3.138:8886/solr",
+          "SolrCollection":"product_hongyu"
+
+        }
+      }
+
+
+    ],
+    "paths":[
+      {
+        "from":"SelectHiveQL",
+        "outport":"",
+        "inport":"",
+        "to":"PutIntoSolr"
+      }
+
+
+    ]
+  }
+}

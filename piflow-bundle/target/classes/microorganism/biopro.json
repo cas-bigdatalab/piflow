@@ -1,0 +1,51 @@
+{
+  "flow":{
+    "name":"test",
+    "uuid":"1234",
+    "stops":[
+      {
+        "uuid":"1111",
+        "name":"SelectFilesByName",
+        "bundle":"cn.piflow.bundle.hdfs.SelectFilesByName",
+        "properties":{
+          "HDFSUrl":"hdfs://master2.packone:8020",
+          "HDFSPath":"/yg/microo/biproject/",
+          "selectionConditions":"bioproject.xml"
+        }
+      },
+      {
+        "uuid":"2222",
+        "name":"BioProjetDataParse",
+        "bundle":"cn.piflow.bundle.microorganism.BioProjetData",
+        "properties":{
+          "cachePath": "/yg/microoCache/"
+        }
+      },
+      {
+        "uuid": "3333",
+        "name": "putEs",
+        "bundle": "cn.piflow.bundle.es.PutEs",
+        "properties": {
+          "es_nodes": "10.0.88.70,10.0.88.71,10.0.88.72",
+          "es_port": "9200",
+          "es_index": "test_10",
+          "es_type": "test_10"
+        }
+      }
+    ],
+    "paths":[
+      {
+        "from":"SelectFilesByName",
+        "outport":"",
+        "inport":"",
+        "to":"BioProjetDataParse"
+      },
+      {
+        "from":"BioProjetDataParse",
+        "outport":"",
+        "inport":"",
+        "to":"putEs"
+      }
+    ]
+  }
+}

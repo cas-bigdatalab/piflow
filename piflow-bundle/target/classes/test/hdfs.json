@@ -1,0 +1,75 @@
+{
+  "flow":{
+    "name":"test",
+    "uuid":"1234",
+    "stops":[
+
+      {
+        "uuid":"0000",
+        "name":"SelectHiveQL",
+        "bundle":"cn.piflow.bundle.hive.SelectHiveQL",
+        "properties":{
+          "hiveQL":"select * from sparktest.student"
+        }
+
+      },
+      {
+        "uuid":"1111",
+        "name":"putHdfs",
+        "bundle":"cn.piflow.bundle.hdfs.PutHdfs",
+        "properties":{
+          "hdfsUrl":"hdfs://10.0.86.89:9000",
+          "hdfsPath":"/yg/0",
+          "partition":"3",
+          "types":"csv"
+        }
+
+      },
+      {
+        "uuid":"2222",
+        "name":"getHdfs",
+        "bundle":"cn.piflow.bundle.hdfs.GetHdfs",
+        "properties":{
+          "hdfsUrl":"hdfs://10.0.86.89:9000",
+          "hdfsPath":"/yg/2",
+          "types":"csv"
+        }
+
+      },
+      {
+        "uuid":"3333",
+        "name":"deleteHdfs",
+        "bundle":"cn.piflow.bundle.hdfs.DeleteHdfs",
+        "properties":{
+          "hdfsUrl":"hdfs://10.0.86.89:9000",
+          "deletePath":"/yg/0,/yg/hdf.txt,/yg/33"
+        }
+
+      },
+      {
+        "uuid":"4444",
+        "name":"listHdfs",
+        "bundle":"cn.piflow.bundle.hdfs.ListHdfs",
+        "properties":{
+          "hdfsUrl":"hdfs://10.0.86.89:9000",
+          "hdfsPath":"/yg"
+        }
+
+      }
+    ],
+    "paths":[
+      {
+        "from":"SelectHiveQL",
+        "outport":"",
+        "inport":"",
+        "to":"putHdfs"
+      },
+      {
+        "from":"putHdfs",
+        "outport":"",
+        "inport":"",
+        "to":"getHdfs"
+      }
+    ]
+  }
+}

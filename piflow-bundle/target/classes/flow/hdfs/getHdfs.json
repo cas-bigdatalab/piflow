@@ -1,0 +1,36 @@
+  {
+  "flow":{
+    "name":"test",
+    "uuid":"1234",
+    "stops":[
+      {
+        "uuid":"0000",
+        "name":"SelectHiveQL",
+        "bundle":"cn.piflow.bundle.hive.SelectHiveQL",
+        "properties":{
+          "hiveQL":"select * from test.user1"
+        }
+      }, {
+        "uuid":"1111",
+        "name":"GetHdfs",
+        "bundle":"cn.piflow.bundle.hdfs.GetHdfs",
+        "properties":{
+          "hdfsPath": "/work/test1/part-00000-a445068e-ab6b-4bc0-b3df-e1ccbb9a738e.csv",
+          "hdfsUrl": "hdfs://192.168.3.138:8020",
+          "types": "csv"
+        }
+      }
+
+
+
+    ],
+    "paths":[
+      {
+        "from":"SelectHiveQL",
+        "outport":"",
+        "inport":"",
+        "to":"GetHdfs"
+      }
+    ]
+  }
+}

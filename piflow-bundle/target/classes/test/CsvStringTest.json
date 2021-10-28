@@ -1,0 +1,37 @@
+{
+  "flow":{
+    "name":"test",
+    "uuid":"1234",
+    "stops":[
+
+      {
+        "uuid":"0000",
+        "name":"CsvStringParser",
+        "bundle":"cn.piflow.bundle.csv.CsvStringParser",
+        "properties":{
+          "Str":"1,zs\n2,ls\n3,ww",
+          "delimiter":",",
+          "schema":""
+        }
+      },
+      {
+        "uuid":"1111",
+        "name":"JsonSave",
+        "bundle":"cn.piflow.bundle.json.JsonSave",
+        "properties":{
+          "jsonSavePath":"hdfs://10.0.86.89:9000/xjzhu/yqd01.json"
+        }
+
+      }
+
+    ],
+    "paths":[
+      {
+        "from":"CsvStringParser",
+        "outport":"",
+        "inport":"",
+        "to":"JsonSave"
+      }
+    ]
+  }
+}

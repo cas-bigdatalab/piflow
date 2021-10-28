@@ -3,33 +3,28 @@
     "name":"test",
     "uuid":"1234",
     "stops":[
-
       {
-        "uuid":"1111",
+        "uuid":"0000",
         "name":"SelectHiveQL",
         "bundle":"cn.piflow.bundle.hive.SelectHiveQL",
         "properties":{
-          "hiveQL":"select * from stu"
+          "hiveQL":"select * from sparktest.student"
         }
       },
       {
-        "uuid":"1324",
-        "name":"PutHiveStream",
-        "bundle":"cn.piflow.bundle.hive.PutHiveStream",
+        "uuid":"1111",
+        "name":"PutHbase",
+        "bundle":"cn.piflow.bundle.Hbase.CreateTable",
         "properties":{
-        "database":"test",
-        "table"   :"stream"
         }
-
       }
-
     ],
     "paths":[
       {
         "from":"SelectHiveQL",
         "outport":"",
         "inport":"",
-        "to":"PutHiveStream"
+        "to":"PutHbase"
       }
     ]
   }

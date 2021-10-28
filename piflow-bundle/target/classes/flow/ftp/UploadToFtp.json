@@ -1,0 +1,43 @@
+{
+  "flow":{
+    "name":"test",
+    "uuid":"1234",
+    "stops":[
+
+      {
+        "uuid":"1111",
+        "name":"UploadToFtp",
+        "bundle":"cn.piflow.bundle.ftp.UploadToFtp",
+        "properties": {
+        "url_str":"",
+        "port":"",
+        "username":"",
+        "password":"",
+        "ftpFile": "",
+        "localPath":"",
+        "ftpClient":""
+        }
+      },
+      {
+        "uuid":"1324",
+        "name":"PutHiveMode",
+        "bundle":"cn.piflow.bundle.hive.PutHiveMode",
+        "properties":{
+        "database":"test",
+        "table"   :"userMode",
+        "saveMode":"overwrite"
+        }
+
+      }
+
+    ],
+    "paths":[
+      {
+        "from":"SelectHiveQL",
+        "outport":"",
+        "inport":"",
+        "to":"PutHiveMode"
+      }
+    ]
+  }
+}

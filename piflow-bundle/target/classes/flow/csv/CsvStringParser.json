@@ -1,0 +1,38 @@
+{
+  "flow":{
+    "name":"test",
+    "uuid":"1234",
+    "stops":[
+
+      {
+        "uuid":"0000",
+        "name":"CsvStringParser",
+        "bundle":"cn.piflow.bundle.csv.CsvStringParser",
+        "properties":{
+          "string":"1,zs\n2,ls\n3,ww",
+          "delimiter":",",
+          "schema":"id,name"
+        }
+      },
+      {
+        "uuid":"1324",
+        "name":"PutHiveStreaming",
+        "bundle":"cn.piflow.bundle.hive.PutHiveStreaming",
+        "properties":{
+          "database": "test",
+          "table": "csvstring"
+        }
+
+      }
+
+    ],
+    "paths":[
+      {
+        "from":"CsvStringParser",
+        "outport":"",
+        "inport":"",
+        "to":"PutHiveStreaming"
+      }
+    ]
+  }
+}

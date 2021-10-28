@@ -1,0 +1,36 @@
+{
+  "flow":{
+    "name":"test",
+    "uuid":"1234",
+    "stops":[
+      {
+        "uuid":"1324",
+        "name":"SelectHiveQL",
+        "bundle":"cn.piflow.bundle.hive.SelectHiveQL",
+        "properties":{
+          "hiveQL": "select * from test.h2hbase"
+        }
+      },
+      {
+        "uuid":"0000",
+        "name":"PutNeo4j",
+        "bundle":"cn.piflow.bundle.neo4j.PutNeo4j",
+        "properties": {
+        "url":"bolt://192.168.3.141:7687",
+        "userName": "neo4j",
+        "password":"null",
+        "labelName": "user"
+        }
+      }
+    ],
+    "paths":[
+      {
+        "from":"SelectHiveQL",
+        "outport":"",
+        "inport":"",
+        "to":"PutNeo4j"
+      }
+
+    ]
+  }
+}
