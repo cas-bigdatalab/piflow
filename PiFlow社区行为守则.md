@@ -1,6 +1,6 @@
 # PiFlow社区行为守则
 
-openGauss社区遵守开源社区[《贡献者公约》](https://contributor-covenant.org)v1.4中规定的行为守则，请参考[v1.4版本](https://www.contributor-covenant.org/zh-cn/version/1/4/code-of-conduct.html)。
+PiFlow社区遵守开源社区[《贡献者公约》](https://contributor-covenant.org)v1.4中规定的行为守则，请参考[v1.4版本](https://www.contributor-covenant.org/zh-cn/version/1/4/code-of-conduct.html)。
 
 
 
