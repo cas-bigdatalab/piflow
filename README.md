@@ -17,7 +17,7 @@ Try PiFlow v0.9 with: http://piflow.cstcloud.cn/
 - [Getting Started](#getting-started)
 - [PiFlow Docker](#docker-started)
 - [Use Interface](#use-interface)
-- [Principled Stand](https://github.com/cas-bigdatalab/piflow/blob/master/%E5%8E%9F%E5%88%99.md)
+- [Principled Stand](https://github.com/cas-bigdatalab/piflow/blob/master/Governance/%E5%8E%9F%E5%88%99.md)
 - [Contact Us](#contact-us)
 
 ## Features
