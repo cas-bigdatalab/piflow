@@ -158,6 +158,21 @@ object H2Util {
     statement.close()
   }*/
 
+  def isFlowExist(appId : String) : Boolean = {
+    var isExist = false
+    val statement = getConnectionInstance().createStatement()
+    statement.setQueryTimeout(QUERY_TIME)
+    val rs : ResultSet = statement.executeQuery("select * from flow where id='" + appId +"'")
+    while(rs.next()){
+      val id = rs.getString("id")
+      println("Flow id exist: " + id)
+      isExist = true
+    }
+    rs.close()
+    statement.close()
+    isExist
+  }
+
   def getFlowState(appId: String): String = {
     var state = ""
     val statement = getConnectionInstance().createStatement()

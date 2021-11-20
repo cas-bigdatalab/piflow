@@ -245,8 +245,10 @@ object API {
     while (handle.getAppId == null){
       Thread.sleep(100)
     }
+    while (!H2Util.isFlowExist(handle.getAppId)){
+      Thread.sleep(1000)
+    }
     appId = handle.getAppId
-
 
     (appId, handle)
 
