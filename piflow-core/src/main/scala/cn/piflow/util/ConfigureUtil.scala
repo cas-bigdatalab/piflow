@@ -1,9 +1,13 @@
 package cn.piflow.util
 
 import java.io.{File, FileInputStream, InputStream}
-import java.util.Properties
 
 import cn.piflow.util.FileUtil.getJarFile
+import org.apache.http.client.methods.{CloseableHttpResponse, HttpGet}
+import org.apache.http.impl.client.HttpClients
+import org.apache.http.util.EntityUtils
+import com.alibaba.fastjson
+import com.alibaba.fastjson.JSON
 
 object ConfigureUtil {
 
@@ -177,8 +181,24 @@ object ConfigureUtil {
     matrics
   }
 
+  def getYarnResourceManagerAppState(appId : String) : String = {
+    val url = ConfigureUtil.getYarnResourceManagerWebAppAddress() + appId + "/state"
+    val client = HttpClients.createDefault()
+    val get:HttpGet = new HttpGet(url)
+
+    val response:CloseableHttpResponse = client.execute(get)
+    val entity = response.getEntity
+    val stateJson = EntityUtils.toString(entity,"UTF-8")
+
+    val flowJSONObject = JSON.parseObject(stateJson)
+    val state = flowJSONObject.getString("state")
+    state
+  }
+
   def main(args: Array[String]): Unit = {
-    val temp = getPiFlowBundlePath()
+    val appId = "application_1627523264894_6792"
+    val state = getYarnResourceManagerAppState(appId)
+    println("Flow " + appId + "'s state is " + state )
 
   }
 
