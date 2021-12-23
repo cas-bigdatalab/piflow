@@ -140,8 +140,11 @@ class DataCenterTaskPlan {
 
         //flow inport
         val flowInportDataCenter = stops(to).dataCenter
-        val flowInportName = "FlowInportReader_" + flowCount
-        val flowInportReader = getFlowInportReader(flowInportDataCenter, flow.name, flowInportName)
+//        val flowInportName = "FlowInportReader_" + flowCount
+//        val flowInportReader = getFlowInportReader(flowInportDataCenter, flow.name, flowInportName)
+        //change to call FlowHttpInportReader
+        val flowInportName = "FlowHttpInportReader_" + flowCount
+        val flowInportReader = getFlowHttpInportReader(flowInportDataCenter, flow.name, flowInportName)
         val flowInportPathBean = PathBean(flowInportName, "", path.inport, to)
 
         //add new stop
@@ -187,6 +190,17 @@ class DataCenterTaskPlan {
       "name" -> stopName,
       "bundle" -> "cn.piflow.bundle.FlowPort.FlowInportReader",
       "properties" -> Map[String,String]("dataSource" -> ""),
+      "dataCenter" -> dataCenter
+    )
+    StopBean(flowName, map)
+
+  }
+
+  private def getFlowHttpInportReader(dataCenter:String, flowName:String, stopName:String) : StopBean = {
+    val map = Map[String, Any]("uuid" -> UUID.randomUUID.toString,
+      "name" -> stopName,
+      "bundle" -> "cn.piflow.bundle.FlowPort.FlowHttpInportReader",
+      "properties" -> Map[String,String]("hdfsDir" -> "","urlAddress" ->""),
       "dataCenter" -> dataCenter
     )
     StopBean(flowName, map)
