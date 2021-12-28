@@ -35,7 +35,7 @@ PiFlow是一个简单易用，功能强大的大数据流水线系统。
 ![](https://gitee.com/opensci/piflow/raw/master/doc/architecture.png) 
 ## 要求
 * JDK 1.8
-* Spark-2.11.8
+* Scala-2.11.8
 * Apache Maven 3.1.0 
 * Spark-2.1.0 及以上版本
 * Hadoop-2.6.0 
