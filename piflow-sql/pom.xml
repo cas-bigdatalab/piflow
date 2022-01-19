@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <parent>
+        <artifactId>piflow-project</artifactId>
+        <groupId>piflow</groupId>
+        <version>0.9</version>
+    </parent>
+    <modelVersion>4.0.0</modelVersion>
+
+    <artifactId>piflow-sql</artifactId>
+
+    <properties>
+        <antlr4.verson>4.5.3</antlr4.verson>
+        <!--<antlr4.verson>4.7</antlr4.verson>-->
+        <antlr4-runtime.verson>4.5.3</antlr4-runtime.verson>
+        <!--<antlr4-runtime.verson>4.7</antlr4-runtime.verson>-->
+    </properties>
+
+    <dependencies>
+
+
+        <!--&lt;!&ndash; https://mvnrepository.com/artifact/org.antlr/antlr4 &ndash;&gt;-->
+        <dependency>
+            <groupId>org.antlr</groupId>
+            <artifactId>antlr4</artifactId>
+            <version>${antlr4.verson}</version>
+        </dependency>
+
+
+        <!-- https://mvnrepository.com/artifact/org.antlr/antlr4-runtime -->
+        <dependency>
+            <groupId>org.antlr</groupId>
+            <artifactId>antlr4-runtime</artifactId>
+            <version>${antlr4-runtime.verson}</version>
+        </dependency>
+
+
+        <!-- https://mvnrepository.com/artifact/com.google.guava/guava -->
+        <dependency>
+            <groupId>com.google.guava</groupId>
+            <artifactId>guava</artifactId>
+            <version>25.0-jre</version>
+        </dependency>
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+            <version>4.12</version>
+        </dependency>
+
+
+    </dependencies>
+</project>
