@@ -3,7 +3,6 @@ package cn.piflow
 import cn.piflow.util.{FlowState, H2Util, HttpClientsUtil, MapUtil}
 import com.alibaba.fastjson.{JSON, JSONObject}
 import com.alibaba.fastjson.serializer.SerializerFeature
-
 import java.lang.Thread.UncaughtExceptionHandler
 import java.util.{Date, UUID}
 import java.util.concurrent.{CountDownLatch, TimeUnit}
@@ -126,33 +125,45 @@ class DataCenterGroupExecutionImpl(group: Group, runnerContext: Context, runner:
 
     override def monitorJobCompleted(ctx: JobContext, outputs: JobOutputStream): Unit = {}
 
-    def getDataCenterDataSource(flowIncomingEdge: ArrayBuffer[Edge]) : MMap[String, Any] = {
-      val emptyMap = MMap[String, Any]()
+    def getDataCenterDataSource(flowIncomingEdge: ArrayBuffer[Edge]) : MMap[String, MMap[String,Any]] = {
+      val returnMap = MMap[String, MMap[String,Any]]()
       flowIncomingEdge.foreach(edge => {
+        val emptyMap = MMap[String, Any]()
         val fromFlow = edge.stopFrom
         val fromFlowDataCenter = dataCenterMap(fromFlow)
         val fromFlowAppID = startedProcessesAppID(fromFlow)// check exist
         val fromOutport = edge.outport
-        //TODO: send request to get data source from remote datacenter
-        val url = fromFlowDataCenter + "/datacenter/datasource?appId="+ fromFlowAppID +"&flowOutport=" + fromOutport
-        val dataSource = HttpClientsUtil.doGet(url, 1800)
-        emptyMap += (edge.inport -> dataSource)
+
+        //hdfsDir and urlAddress: in order to assign a value to the properties in FlowHttpInportReader
+        val hdfsDir = "/user/piflow/dataCenter/" + fromFlowAppID + "/" + fromOutport
+        emptyMap += ("hdfsDir" -> hdfsDir)
+        val ipAndPortRegex = "(\\d+\\.\\d+\\.\\d+\\.\\d+)\\:(\\d{4,5})".r
+        val regex = ipAndPortRegex.findFirstIn(fromFlowDataCenter)
+        if (regex == None){
+          throw new Exception("the format of the IP address and port is error")
+        }else{
+          emptyMap += ("urlAddress" -> regex.mkString)
+        }
+        returnMap += (edge.inport -> emptyMap)
       })
 
-      emptyMap
+      returnMap
     }
 
-    def flowToJsonStr(flow: Flow, dataSourceMap: MMap[String, Any]) : String = {
+    def flowToJsonStr(flow: Flow, dataSourceMap: MMap[String, MMap[String,Any]]) : String = {
       val flowJson = flow.getFlowJson()
       val flowJSONObject = JSON.parseObject(flowJson)
       val stopsJSONArray = flowJSONObject.getJSONObject("flow").getJSONArray("stops")
       for (index <- 0 until stopsJSONArray.size()) {
         val stopJSONObject = stopsJSONArray.getJSONObject(index)
         val stopName = stopJSONObject.getString("name")
-        val datasourceUrl = MapUtil.get(dataSourceMap, stopName)
-        if (None != datasourceUrl) {
+        val dataMap = dataSourceMap.getOrElse(stopName,None)
+        if (None != dataMap) {
+          val tempMap = dataMap.asInstanceOf[MMap[String,Any]]
+          //set hdfsDir and urlAddress for FlowHttpInportReader
           var properties = stopJSONObject.getJSONObject("properties")
-          properties.put("dataSource", datasourceUrl)
+          properties.put("hdfsDir",  MapUtil.get(tempMap,"hdfsDir"))
+          properties.put("urlAddress",  MapUtil.get(tempMap,"urlAddress"))
           stopJSONObject.put("properties", properties)
         }
       }

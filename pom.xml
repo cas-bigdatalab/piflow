@@ -203,5 +203,6 @@
         <module>piflow-bundle</module>
         <module>piflow-server</module>
         <module>piflow-configure</module>
+        <module>piflow-sql</module>
     </modules>
 </project>
