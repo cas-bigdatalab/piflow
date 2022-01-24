@@ -20,6 +20,11 @@
 
     <dependencies>
 
+        <dependency>
+            <groupId>piflow</groupId>
+            <artifactId>piflow-configure</artifactId>
+            <version>0.9</version>
+        </dependency>
 
         <!--&lt;!&ndash; https://mvnrepository.com/artifact/org.antlr/antlr4 &ndash;&gt;-->
         <dependency>
