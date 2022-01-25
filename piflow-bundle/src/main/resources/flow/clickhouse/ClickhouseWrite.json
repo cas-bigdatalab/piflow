@@ -1,0 +1,51 @@
+{
+  "flow": {
+    "environmentVariable": {
+      "${SCHEMA}": "id:Int,name:String,age:Int",
+      "${SPARK_HOME_TEST}": "\/data\/test"
+    },
+    "name": "testwriteclickhouse",
+    "executorMemory": "1g",
+    "executorNumber": "1",
+    "uuid": "6a8d35207279432d9c06f9f55dfdd7b5",
+    "paths": [
+      {
+        "inport": "",
+        "from": "MockData",
+        "to": "ClickhouseWrite",
+        "outport": ""
+      }
+    ],
+    "executorCores": "1",
+    "driverMemory": "1g",
+    "stops": [
+      {
+        "name": "MockData",
+        "bundle": "cn.piflow.bundle.common.MockData",
+        "uuid": "7968dd1aaff74eb7a31eacf4b2df78ae",
+        "properties": {
+          "schema": "host:String,name:String",
+          "count": "10"
+        },
+        "customizedProperties": {
+
+        }
+      },
+      {
+        "name": "ClickhouseWrite",
+        "bundle": "cn.piflow.bundle.clickhouse.ClickhouseWrite",
+        "uuid": "53df6dfcf64342feb3f37e2bc1f3019b",
+        "properties": {
+          "url": "jdbc:clickhouse:\/\/10.0.90.97:8123\/default",
+          "driver": "ru.yandex.clickhouse.ClickHouseDriver",
+          "dbtable": "test1",
+          "user": "",
+          "password": ""
+        },
+        "customizedProperties": {
+
+        }
+      }
+    ]
+  }
+}
