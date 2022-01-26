@@ -3,18 +3,18 @@ package cn.piflow.api
 import java.io._
 import java.net.InetAddress
 import java.text.SimpleDateFormat
-import java.util
-import java.util.{Collections, Date}
+import java.util.zip.{ZipEntry, ZipOutputStream}
+import java.util.{Date}
 
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
-import akka.http.scaladsl.model.HttpEntity.Chunked
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.model.HttpMethods._
 import akka.http.scaladsl.server.Directives
 import akka.http.scaladsl.unmarshalling.Unmarshal
-import akka.stream.ActorMaterializer
+import akka.stream.{ActorMaterializer, IOResult, scaladsl}
+import akka.stream.scaladsl.{StreamConverters}
 import akka.util.ByteString
 import cn.piflow.GroupExecution
 import cn.piflow.api.HTTPService.pluginManager
@@ -33,9 +33,7 @@ import org.flywaydb.core.api.FlywayException
 import org.h2.tools.Server
 import spray.json.DefaultJsonProtocol
 
-import scala.collection.mutable.ListBuffer
-import scala.io.Source
-import scala.util.control.Breaks
+import scala.collection.mutable.{HashMap}
 
 
 object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSupport {
@@ -747,34 +745,36 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
         conf.set("fs.defaultFS", PropertyUtil.getPropertyValue("fs.defaultFS"))
         val fs: FileSystem = FileSystem.get(conf)
         val fileStatusArr: Array[FileStatus] = fs.listStatus(new Path(data))
-        var backFsInputStreamArr = ListBuffer[FSDataInputStream]()
-        val break = new Breaks
-
+        val map = HashMap[String, FSDataInputStream]()
         for (elem <- fileStatusArr) {
-          break.breakable({
-            if (!elem.getPath.getName.startsWith("part-"))
-              break.break()
-            val inputStream: FSDataInputStream = fs.open(elem.getPath)
-            backFsInputStreamArr += inputStream
-          })
+          val name =elem.getPath.getName
+          val inputStream = fs.open(elem.getPath)
+          map.put(name,inputStream)
         }
 
-        import collection.JavaConverters._
-        val en: util.Enumeration[FSDataInputStream] = Collections.enumeration(backFsInputStreamArr.toList.asJava)
-        val mergeStream: SequenceInputStream = new SequenceInputStream(en)
+        val byteArrayOutputStream = new ByteArrayOutputStream()
+        val zos = new ZipOutputStream(byteArrayOutputStream)
+        var zipEntry:ZipEntry = null
+        for (elem <- map) {
+          zipEntry = new ZipEntry(elem._1)
+          zos.putNextEntry(zipEntry)
+          var index :Int = 0;
+          var flag = true
+          while(flag){
+            val byte:Array[Byte] =new Array[Byte](1024*1024*50);
+            index = elem._2.read(byte,0,byte.length)
+            if (index>0){
+              zos.write(byte,0,index)
+            }else{
+              flag = false
+            }
+          }
+          zos.closeEntry()
+        }
+        zos.close()
 
-        import akka.stream.scaladsl.{Source => akkaSource}
-        val mergeStreamSource: (SequenceInputStream, String) => akkaSource[ByteString, _] =
-          (fileName, enc) =>
-            akkaSource.fromIterator(()=>{
-              val eachLines: Iterator[String] = Source.fromInputStream(fileName, enc).getLines.map(a=>a+System.getProperty("line.separator"))
-              eachLines
-            })
-              .map(ByteString.apply(_,enc))
-
-        val mergeStreamChunk: Chunked = HttpEntity(ContentTypes.`application/octet-stream`,mergeStreamSource(mergeStream,"UTF-8"))
-        Future.successful(HttpResponse(SUCCESS_CODE, entity = mergeStreamChunk))
-
+        val returnValue: scaladsl.Source[ByteString, Future[IOResult]] = StreamConverters.fromInputStream(()=>new ByteArrayInputStream(byteArrayOutputStream.toByteArray))
+        Future.successful(HttpResponse(SUCCESS_CODE, entity = HttpEntity(ContentTypes.`application/octet-stream`,returnValue)))
       } catch {
         case ex => {
           println(ex)

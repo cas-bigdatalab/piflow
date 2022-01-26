@@ -1,6 +1,7 @@
 package cn.piflow.bundle.FlowPort
 
 import java.io.InputStream
+import java.util.zip.{ZipEntry, ZipInputStream}
 
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
@@ -74,18 +75,35 @@ class FlowHttpInportReader extends ConfigurableStop {
     val response: CloseableHttpResponse = client.execute(post)
     if(response.getStatusLine.getStatusCode == 200){
       val inputStream: InputStream = response.getEntity.getContent
+      val zipInputStream = new ZipInputStream(inputStream)
+      var zipEntry:ZipEntry = null
+      var flag = true
       //myself hdfsAddress
       val myHdfsAddress = PropertyUtil.getPropertyValue("fs.defaultFS")
 
       val conf = new Configuration()
       conf.set("fs.defaultFS", myHdfsAddress)
-      val fs: FileSystem  = FileSystem.get(conf);
-      val path = new Path(hdfsDir+"/temp.json")
-      val outputStream: FSDataOutputStream = fs.create(path,true)
-      IOUtils.copyBytes(inputStream,outputStream,1024*1024*10,true)
+      val fs: FileSystem  = FileSystem.get(conf)
+
+      while (flag){
+        zipEntry = zipInputStream.getNextEntry
+        var savePath =hdfsDir+"/temp/"
+        if (zipEntry !=null){
+          println("zipEntryName:"+zipEntry.getName)
+          savePath += zipEntry.getName
+          val path = new Path(savePath)
+          val outputStream: FSDataOutputStream = fs.create(path,true)
+          IOUtils.copyBytes(zipInputStream,outputStream,1024*1024*50,false)
+          outputStream.close()
+        }else{
+          flag = false
+        }
+      }
+      zipInputStream.close()
       fs.close()
 
-      val sparkReadAddress = myHdfsAddress+hdfsDir+"/temp.json"
+      //read hdfs data
+      val sparkReadAddress = myHdfsAddress+hdfsDir+"/temp"
       val df = spark.read.json(sparkReadAddress)
       out.write(df)
     }else{
