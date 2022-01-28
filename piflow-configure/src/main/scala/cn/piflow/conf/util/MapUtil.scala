@@ -1,5 +1,7 @@
 package cn.piflow.conf.util
 
+import cn.piflow.conf.bean.{FlowBean, PathBean, StopBean}
+
 import scala.collection.mutable.{Map => MMap}
 
 object MapUtil {
@@ -12,6 +14,9 @@ object MapUtil {
       case Some(x:List[String]) => x
       case Some(x:List[Map[String, String]]) => x
       case Some(x:Map[String, Any]) => x
+      case Some(x:StopBean) => x
+      case Some(x:PathBean) => x
+      case Some(x:FlowBean) => x
       case _ => throw new IllegalArgumentException
     }
   }
