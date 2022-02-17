@@ -293,7 +293,7 @@ object API {
     progress
   }
 
-  def getFlowLog(appID : String) : String = {
+  def getFlowYarnInfo(appID : String) : String = {
 
     val url = ConfigureUtil.getYarnResourceManagerWebAppAddress() + appID
     val client = HttpClients.createDefault()
