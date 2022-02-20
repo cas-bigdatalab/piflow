@@ -162,6 +162,7 @@ class FlowBean extends GroupEntryBean{
               ("uuid" -> stop.uuid) ~
               ("name" -> stop.name)~
               ("bundle" -> stop.bundle)~
+              ("dataCenter" -> stop.dataCenter) ~
               ("properties" -> stop.properties.map{p => (p._1 -> p._2)}))}) ~
           ("paths" -> paths.map { path => (
               ("from" -> path.from) ~

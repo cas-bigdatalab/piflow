@@ -11,11 +11,11 @@ public class ParserDriver {
     public static void main(String[] args) {
 //        String query = "SELECT LastName,FirstName FROM Persons;";
 
-       String  query = "SELECT Id, Name, Score\n" +
+       String  query = "SELECT Id, Name, AVG(Score)\n" +
                 "FROM Persons\n" +
                 "INNER JOIN Scores\n" +
                 "ON Persons.id = Scores.pId\n" +
-                "GROUP BY Persons.id";
+                "GROUP BY Persons.id, Persons.Name";
 
         System.out.println(query);
 
@@ -25,6 +25,7 @@ public class ParserDriver {
         FlowBeanVisitor visitor = new FlowBeanVisitor();
         SqlBaseParser.SingleStatementContext bb = parser.singleStatement();
         FlowBean res = visitor.visitSingleStatement(bb);
-        System.out.println("res="+res);
+        String flowJson = res.toJson();
+        System.out.println("res="+flowJson);
     }
 }

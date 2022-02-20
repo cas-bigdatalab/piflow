@@ -1,6 +1,7 @@
 package com.piflow.sql.visitor
 import cn.piflow.conf.bean.{FlowBean, PathBean, StopBean}
 import cn.piflow.conf.util.MapUtil
+import com.piflow.sql.datasource.RegisterDataSource
 import com.piflow.sql.out.{SqlBaseBaseVisitor, SqlBaseParser}
 
 import scala.collection.mutable.{Map => MMap}
@@ -13,35 +14,7 @@ class FlowBeanVisitor extends SqlBaseBaseVisitor[FlowBean]{
       flowBean = FlowBean(Map())
     flowBean
   }
-
-  //TODO: need to optimize
-  //add left Stop
-  val personPropertisMap:Map[String, String] = Map("hiveQL" -> "select * from test.student limit 10")
-  val personMap : Map[String, Any] = Map(
-    "dataCenter" -> "http://10.0.90.155:8002",
-    "name" -> "SelectHiveQL-A",
-    "bundle" -> "cn.piflow.bundle.hive.SelectHiveQL",
-    "uuid" -> "223232",
-    "properties" -> personPropertisMap)
-  val personDataSource = StopBean("test", personMap)
-
-
-  //add right Stop
-  val scorePropertisMap:Map[String, String] = Map("hiveQL" -> "select * from test.score")
-  val scoreMap : Map[String, Any] = Map(
-    "dataCenter" -> "http://10.0.82.42:8002",
-    "name" -> "SelectHiveQL-B",
-    "bundle" -> "cn.piflow.bundle.hive.SelectHiveQL",
-    "uuid" -> "223232",
-    "properties" -> scorePropertisMap)
-  val scoreDataSource = StopBean("test", scoreMap)
-
-  val dataSourceMap : Map[String, StopBean] = Map(
-    "Persons" -> personDataSource,
-    "Scores" -> scoreDataSource
-  )
-
-  val childMap:MMap[String, StopBean] = MMap[String, StopBean]()
+  var currentStopBean:StopBean = null
 
 
   //TODO: return flow json
@@ -665,6 +638,30 @@ class FlowBeanVisitor extends SqlBaseBaseVisitor[FlowBean]{
     val aa = ctx.getText
     System.out.println("visitQuerySpecification:\t " + aa)
     visitChildren(ctx)
+
+    //Select Stop
+    val viewName = "test"
+    var sql: String =
+      "SELECT " + ctx.namedExpressionSeq().getText + " " +
+      "FROM " + viewName + " " +
+      "GROUP BY " + ctx.aggregation().expression.getText
+
+    val propertiesMap: Map[String, String] = Map("ViewName" -> viewName, "sql" -> sql)
+    val map:Map[String, Any] = Map(
+      "uuid" -> "1111",
+      "name" -> "ExecuteSQL",
+      "bundle" -> "com.piflow.bundle.common.ExecuteSQLStop",
+      "properties" -> propertiesMap)
+    val executeSQLStop = StopBean("test",map)
+
+    //Path
+    val Path = PathBean(currentStopBean.name,"","", executeSQLStop.name)
+
+    flowBean.addStop(executeSQLStop)
+    flowBean.addPath(Path)
+
+    currentStopBean = executeSQLStop
+
     flowBean
   }
 
@@ -678,6 +675,23 @@ class FlowBeanVisitor extends SqlBaseBaseVisitor[FlowBean]{
   override def visitAggregation(ctx: SqlBaseParser.AggregationContext): FlowBean = {
     val aa = ctx.getText
     System.out.println("visitAggregation:\t " + aa)
+
+    /*//GroupBy Stop
+    val propertiesMap: Map[String, String] = Map("columns" -> ctx.expression.getText)
+    val map:Map[String, Any] = Map(
+      "uuid" -> "1111",
+      "name" -> "GroupBy",
+      "bundle" -> "com.piflow.bundle.common.GroupBy",
+      "properties" -> propertiesMap)
+    val groupByStop = StopBean("test",map)
+    currentStopBean = groupByStop
+    //Path
+    val Path = PathBean(currentStopBean.name,"","", groupByStop.name)
+
+
+    flowBean.addStop(groupByStop)
+    flowBean.addPath(Path)
+*/
     visitChildren(ctx)
     flowBean
   }
@@ -718,11 +732,11 @@ class FlowBeanVisitor extends SqlBaseBaseVisitor[FlowBean]{
     val flowBean = this.getFlowBeanInstance
     //left stop
     val left = ctx.parent.getChild(0).getText
-    val leftStop = MapUtil.get(dataSourceMap, left).asInstanceOf[StopBean]
+    val leftStop = RegisterDataSource.getDataSourceStopBean(left)
 
     //right stop
     val right = ctx.right.getText
-    val rightStop = MapUtil.get(dataSourceMap, right).asInstanceOf[StopBean]
+    val rightStop = RegisterDataSource.getDataSourceStopBean(right)
 
     //join Stop
     val propertiesMap: Map[String, String] = Map("join" -> ctx.joinType.getText, "correlationField" -> ctx.joinCriteria.booleanExpression.getText)
@@ -732,6 +746,7 @@ class FlowBeanVisitor extends SqlBaseBaseVisitor[FlowBean]{
       "bundle" -> "com.piflow.bundle.common.join",
       "properties" -> propertiesMap)
     val joinStop = StopBean("test",map)
+    currentStopBean = joinStop
 
     //left Path
     val leftPath = PathBean(leftStop.name,"","Left", joinStop.name)
