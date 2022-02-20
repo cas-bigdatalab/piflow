@@ -21,10 +21,9 @@ public class ParserDriver {
 
         SqlBaseLexer lexer = new SqlBaseLexer(new ANTLRInputStream(query));
         SqlBaseParser parser = new SqlBaseParser(new CommonTokenStream(lexer));
-        //MyVisitor visitor = new MyVisitor();
         FlowBeanVisitor visitor = new FlowBeanVisitor();
-        SqlBaseParser.SingleStatementContext bb = parser.singleStatement();
-        FlowBean res = visitor.visitSingleStatement(bb);
+        SqlBaseParser.SingleStatementContext statementContext = parser.singleStatement();
+        FlowBean res = visitor.visitSingleStatement(statementContext);
         String flowJson = res.toJson();
         System.out.println("res="+flowJson);
     }

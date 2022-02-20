@@ -8,10 +8,22 @@ import scala.collection.mutable.{Map => MMap}
 
 class FlowBeanVisitor extends SqlBaseBaseVisitor[FlowBean]{
 
+  val flowName = "Test"
   var flowBean : FlowBean = null
   def getFlowBeanInstance: FlowBean = {
-    if (flowBean == null)
-      flowBean = FlowBean(Map())
+    if (flowBean == null){
+      val initMap = Map(
+        "name" -> flowName,
+        "uuid" -> "cca7524b6fc84343ab172cf9d16615a8",
+        "executorMemory" -> "1g",
+        "executorCores" -> "1",
+        "executorNumber" -> "1",
+        "driverMemory" -> "1g",
+        "stops" -> List(),
+        "paths" -> List()
+      )
+      flowBean = FlowBean(Map("flow" -> initMap))
+    }
     flowBean
   }
   var currentStopBean:StopBean = null
@@ -659,7 +671,7 @@ class FlowBeanVisitor extends SqlBaseBaseVisitor[FlowBean]{
       "name" -> "ExecuteSQL",
       "bundle" -> "com.piflow.bundle.common.ExecuteSQLStop",
       "properties" -> propertiesMap)
-    val executeSQLStop = StopBean("test",map)
+    val executeSQLStop = StopBean(flowName,map)
 
     //Path
     val Path = PathBean(currentStopBean.name,"","", executeSQLStop.name)
@@ -690,7 +702,7 @@ class FlowBeanVisitor extends SqlBaseBaseVisitor[FlowBean]{
       "name" -> "GroupBy",
       "bundle" -> "com.piflow.bundle.common.GroupBy",
       "properties" -> propertiesMap)
-    val groupByStop = StopBean("test",map)
+    val groupByStop = StopBean(flowName,map)
     currentStopBean = groupByStop
     //Path
     val Path = PathBean(currentStopBean.name,"","", groupByStop.name)
@@ -754,7 +766,7 @@ class FlowBeanVisitor extends SqlBaseBaseVisitor[FlowBean]{
       "name" -> "join",
       "bundle" -> "com.piflow.bundle.common.join",
       "properties" -> propertiesMap)
-    val joinStop = StopBean("test",map)
+    val joinStop = StopBean(flowName,map)
     currentStopBean = joinStop
 
     //left Path
