@@ -643,8 +643,15 @@ class FlowBeanVisitor extends SqlBaseBaseVisitor[FlowBean]{
     val viewName = "test"
     var sql: String =
       "SELECT " + ctx.namedExpressionSeq().getText + " " +
-      "FROM " + viewName + " " +
-      "GROUP BY " + ctx.aggregation().expression.getText
+      "FROM " + viewName + " "
+    var groupingColumnList : List[String] = List()
+    val groupingExpressions = ctx.aggregation().groupingExpressions
+    val it = groupingExpressions.iterator()
+    while(it.hasNext){
+      val item = it.next().getText
+      groupingColumnList = item +: groupingColumnList
+    }
+    sql = sql + "GROUP BY " + groupingColumnList.mkString(",")
 
     val propertiesMap: Map[String, String] = Map("ViewName" -> viewName, "sql" -> sql)
     val map:Map[String, Any] = Map(
