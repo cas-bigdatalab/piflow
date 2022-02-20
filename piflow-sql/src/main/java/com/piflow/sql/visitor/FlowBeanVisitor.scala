@@ -746,7 +746,9 @@ class FlowBeanVisitor extends SqlBaseBaseVisitor[FlowBean]{
     val rightStop = RegisterDataSource.getDataSourceStopBean(right)
 
     //join Stop
-    val propertiesMap: Map[String, String] = Map("join" -> ctx.joinType.getText, "correlationField" -> ctx.joinCriteria.booleanExpression.getText)
+    //val correlationField = ctx.joinCriteria.booleanExpression.getText//TODO: need modify
+    val correlationField = "id"
+    val propertiesMap: Map[String, String] = Map("join" -> ctx.joinType.getText, "correlationField" -> correlationField)
     val map:Map[String, Any] = Map(
       "uuid" -> "1111",
       "name" -> "join",
