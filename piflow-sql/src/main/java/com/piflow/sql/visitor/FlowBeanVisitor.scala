@@ -665,11 +665,11 @@ class FlowBeanVisitor extends SqlBaseBaseVisitor[FlowBean]{
     }
     sql = sql + "GROUP BY " + groupingColumnList.mkString(",")
 
-    val propertiesMap: Map[String, String] = Map("ViewName" -> viewName, "sql" -> sql)
+    val propertiesMap: Map[String, String] = Map("viewName" -> viewName, "sql" -> sql)
     val map:Map[String, Any] = Map(
       "uuid" -> "1111",
       "name" -> "ExecuteSQL",
-      "bundle" -> "com.piflow.bundle.common.ExecuteSQLStop",
+      "bundle" -> "cn.piflow.bundle.common.ExecuteSQLStop",
       "properties" -> propertiesMap)
     val executeSQLStop = StopBean(flowName,map)
 
@@ -760,11 +760,11 @@ class FlowBeanVisitor extends SqlBaseBaseVisitor[FlowBean]{
     //join Stop
     //val correlationField = ctx.joinCriteria.booleanExpression.getText//TODO: need modify
     val correlationField = "id"
-    val propertiesMap: Map[String, String] = Map("join" -> ctx.joinType.getText, "correlationField" -> correlationField)
+    val propertiesMap: Map[String, String] = Map("joinMode" -> ctx.joinType.getText, "correlationColumn" -> correlationField)
     val map:Map[String, Any] = Map(
       "uuid" -> "1111",
       "name" -> "join",
-      "bundle" -> "com.piflow.bundle.common.join",
+      "bundle" -> "cn.piflow.bundle.common.Join",
       "properties" -> propertiesMap)
     val joinStop = StopBean(flowName,map)
     currentStopBean = joinStop
