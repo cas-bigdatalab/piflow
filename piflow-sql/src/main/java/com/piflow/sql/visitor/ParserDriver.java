@@ -23,8 +23,10 @@ public class ParserDriver {
         SqlBaseParser parser = new SqlBaseParser(new CommonTokenStream(lexer));
         FlowBeanVisitor visitor = new FlowBeanVisitor();
         SqlBaseParser.SingleStatementContext statementContext = parser.singleStatement();
-        FlowBean res = visitor.visitSingleStatement(statementContext);
-        String flowJson = res.toJson();
+        FlowBean flowBean = visitor.visitSingleStatement(statementContext);
+        String flowJson = flowBean.toJson();
         System.out.println("res="+flowJson);
+
+        String result = SQLHttpClient.post(flowJson);
     }
 }
