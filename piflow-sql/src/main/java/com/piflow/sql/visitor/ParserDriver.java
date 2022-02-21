@@ -15,7 +15,7 @@ public class ParserDriver {
                 "FROM Persons\n" +
                 "INNER JOIN Scores\n" +
                 "ON Persons.id = Scores.pId\n" +
-                "GROUP BY Persons.id, Persons.Name";
+                "GROUP BY Persons.Id, Persons.Name";
 
         System.out.println(query);
 

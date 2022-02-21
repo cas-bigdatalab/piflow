@@ -654,14 +654,14 @@ class FlowBeanVisitor extends SqlBaseBaseVisitor[FlowBean]{
     //Select Stop
     val viewName = "test"
     var sql: String =
-      "SELECT " + ctx.namedExpressionSeq().getText + " " +
+      "SELECT " + ctx.namedExpressionSeq().getText.toLowerCase + " " +
       "FROM " + viewName + " "
     var groupingColumnList : List[String] = List()
     val groupingExpressions = ctx.aggregation().groupingExpressions
     val it = groupingExpressions.iterator()
     while(it.hasNext){
-      val item = it.next().getText
-      groupingColumnList = item +: groupingColumnList
+      val item = it.next().getText.split("\\.").last.toLowerCase
+      groupingColumnList = groupingColumnList :+ item
     }
     sql = sql + "GROUP BY " + groupingColumnList.mkString(",")
 
@@ -760,7 +760,7 @@ class FlowBeanVisitor extends SqlBaseBaseVisitor[FlowBean]{
     //join Stop
     //val correlationField = ctx.joinCriteria.booleanExpression.getText//TODO: need modify
     val correlationField = "id"
-    val propertiesMap: Map[String, String] = Map("joinMode" -> ctx.joinType.getText, "correlationColumn" -> correlationField)
+    val propertiesMap: Map[String, String] = Map("joinMode" -> ctx.joinType.getText.toLowerCase, "correlationColumn" -> correlationField)
     val map:Map[String, Any] = Map(
       "uuid" -> "1111",
       "name" -> "join",
