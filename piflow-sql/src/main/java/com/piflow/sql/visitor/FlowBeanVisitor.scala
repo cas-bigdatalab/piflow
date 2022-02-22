@@ -3,6 +3,7 @@ import cn.piflow.conf.bean.{FlowBean, PathBean, StopBean}
 import cn.piflow.conf.util.MapUtil
 import com.piflow.sql.datasource.RegisterDataSource
 import com.piflow.sql.out.{SqlBaseBaseVisitor, SqlBaseParser}
+import com.piflow.sql.util.MD5Util
 
 import scala.collection.mutable.{Map => MMap}
 
@@ -653,30 +654,51 @@ class FlowBeanVisitor extends SqlBaseBaseVisitor[FlowBean]{
 
     //Select Stop
     val viewName = "test"
+
+    //select and from statement
     var sql: String =
       "SELECT " + ctx.namedExpressionSeq().getText.toLowerCase + " " +
       "FROM " + viewName + " "
 
-    var groupingColumnList : List[String] = List()
-    val groupingExpressions = ctx.aggregation().groupingExpressions
-    val it = groupingExpressions.iterator()
-    if(it.hasNext){
-      while(it.hasNext){
-        val item = it.next().getText.split("\\.").last.toLowerCase
-        groupingColumnList = groupingColumnList :+ item
+    //group by statement
+    if(ctx.aggregation() != null){
+      var groupingColumnList : List[String] = List()
+      val groupingExpressions = ctx.aggregation().groupingExpressions
+      val it = groupingExpressions.iterator()
+      if(it.hasNext){
+        while(it.hasNext){
+          val item = it.next().getText.split("\\.").last.toLowerCase
+          groupingColumnList = groupingColumnList :+ item
+        }
+        sql = sql + "GROUP BY " + groupingColumnList.mkString(",")
       }
-      sql = sql + "GROUP BY " + groupingColumnList.mkString(",")
     }
 
+    //where statement
+    if(ctx.where != null){
+      var whereConditionList : List[String] = List()
+      val it = ctx.where.children.iterator()
+      if(it.hasNext){
+        while(it.hasNext){
+          val item = it.next().getText
+          whereConditionList = whereConditionList :+ item.toLowerCase
+        }
+        sql = sql + "WHERE " + whereConditionList.mkString(" ")
+      }
+    }
+
+    val stopUUID = MD5Util.encode(ctx.getText)
+    val stopName = "ExecuteSQl_" + stopUUID
     val propertiesMap: Map[String, String] = Map("viewName" -> viewName, "sql" -> sql)
     val map:Map[String, Any] = Map(
-      "uuid" -> "1111",
-      "name" -> "ExecuteSQL",
+      "uuid" -> stopUUID,
+      "name" -> stopName,
       "bundle" -> "cn.piflow.bundle.common.ExecuteSQLStop",
       "properties" -> propertiesMap)
     val executeSQLStop = StopBean(flowName,map)
 
     //Path
+    //TODO: need to check
     val Path = PathBean(currentStopBean.name,"","", executeSQLStop.name)
 
     flowBean.addStop(executeSQLStop)

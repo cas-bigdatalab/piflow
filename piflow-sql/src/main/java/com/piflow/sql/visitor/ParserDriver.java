@@ -11,11 +11,16 @@ public class ParserDriver {
     public static void main(String[] args) {
 //        String query = "SELECT LastName,FirstName FROM Persons;";
 
-       String  query = "SELECT Id, Name, AVG(Score)\n" +
+       /*String  query = "SELECT Id, Name, AVG(Score)\n" +
                 "FROM Persons\n" +
                 "INNER JOIN Scores\n" +
                 "ON Persons.id = Scores.pId\n" +
-                "GROUP BY Persons.Id, Persons.Name";
+                "GROUP BY Persons.Id, Persons.Name";*/
+
+        String  query =
+                "SELECT * FROM \n" +
+                    "(SELECT ID,NAME,AVG(SCORE) FROM PERSONS INNER JOIN SCORES ON PERSONS.ID=PERSONS.ID GROUP BY PERSONS.ID,PERSONS.NAME)\n" +
+                "WHERE ID > 1 AND NAME != 'zhuxiaojie' ";
 
         System.out.println(query);
 
@@ -27,6 +32,6 @@ public class ParserDriver {
         String flowJson = flowBean.toJson();
         System.out.println("res="+flowJson);
 
-        String result = SQLHttpClient.post(flowJson);
+        //String result = SQLHttpClient.post(flowJson);
     }
 }

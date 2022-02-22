@@ -28,7 +28,9 @@ object RegisterDataSource {
 
   val dataSourceMap : Map[String, StopBean] = Map(
     "Persons" -> personDataSource,
-    "Scores" -> scoreDataSource
+    "Scores" -> scoreDataSource,
+    "PERSONS" -> personDataSource,
+    "SCORES" -> scoreDataSource
   )
 
   def getDataSourceStopBean(key:String) : StopBean = {
