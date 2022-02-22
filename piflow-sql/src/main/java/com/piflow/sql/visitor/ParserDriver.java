@@ -32,6 +32,6 @@ public class ParserDriver {
         String flowJson = flowBean.toJson();
         System.out.println("res="+flowJson);
 
-        //String result = SQLHttpClient.post(flowJson);
+        String result = SQLHttpClient.post(flowJson);
     }
 }
