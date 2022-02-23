@@ -10,7 +10,7 @@ object SQLHttpClient {
 
   def post(flow: String): String = {
     //val url = "http://10.0.90.155:8002/datacenter/flow/start"
-    val url = "http://10.0.90.155:8002/flow/start"
+    val url = "http://10.0.90.119:8001/datacenter/flow/start"
     val timeout = 1800
     val requestConfig = RequestConfig.custom()
       .setConnectTimeout(timeout*1000)

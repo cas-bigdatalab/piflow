@@ -74,8 +74,8 @@ class DataCenterTaskPlan {
     val stop = stops.getOrElse(stopName,None).asInstanceOf[StopBean]
     if(stop.dataCenter == ""){
 
-      val inEdges = incomingEdges(stopName)
-      val outEdges = outgoingEdges(stopName)
+      val inEdges = incomingEdges.getOrElse(stopName,ArrayBuffer[PathBean]());
+      val outEdges = outgoingEdges.getOrElse(stopName,ArrayBuffer[PathBean]());
 
       val fromDataCenterMap = MMap[String, Int]()
       val toDataCenterMap = MMap[String, Int]()

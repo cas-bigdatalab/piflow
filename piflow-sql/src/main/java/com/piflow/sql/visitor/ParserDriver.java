@@ -11,11 +11,11 @@ public class ParserDriver {
     public static void main(String[] args) {
 //        String query = "SELECT LastName,FirstName FROM Persons;";
 
-       /*String  query = "SELECT Id, Name, AVG(Score)\n" +
+       String  query1 = "SELECT Id, Name, AVG(Score)\n" +
                 "FROM Persons\n" +
                 "INNER JOIN Scores\n" +
                 "ON Persons.id = Scores.pId\n" +
-                "GROUP BY Persons.Id, Persons.Name";*/
+                "GROUP BY Persons.Id, Persons.Name";
 
         String  query =
                 "SELECT * FROM \n" +
