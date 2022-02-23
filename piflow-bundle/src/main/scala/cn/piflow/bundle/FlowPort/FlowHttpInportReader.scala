@@ -6,7 +6,7 @@ import java.util.zip.{ZipEntry, ZipInputStream}
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import cn.piflow.conf.{ConfigurableStop, Port}
-import cn.piflow.util.PropertyUtil
+import cn.piflow.util.{AESUtil, PropertyUtil}
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FSDataOutputStream, FileSystem, Path}
@@ -56,8 +56,14 @@ class FlowHttpInportReader extends ConfigurableStop {
     val spark = pec.get[SparkSession]()
     val sc= spark.sparkContext
 
+
+
+    //AES key
+    val key :String = System.currentTimeMillis().toString
+    val aesKey = AESUtil.wrap(key)
+
     //url
-    val httpUrl = "http://"+urlAddress+"/hdfs/data"
+    val httpUrl = "http://"+urlAddress+"/hdfs/data?key="+aesKey
 
     val timeout = 1800
     val requestConfig = RequestConfig.custom()
@@ -75,7 +81,9 @@ class FlowHttpInportReader extends ConfigurableStop {
     val response: CloseableHttpResponse = client.execute(post)
     if(response.getStatusLine.getStatusCode == 200){
       val inputStream: InputStream = response.getEntity.getContent
-      val zipInputStream = new ZipInputStream(inputStream)
+      //dec return stream
+      val cipherInputStream = AESUtil.decryptInputStream(inputStream,key)
+      val zipInputStream = new ZipInputStream(cipherInputStream)
       var zipEntry:ZipEntry = null
       var flag = true
       //myself hdfsAddress
@@ -89,7 +97,7 @@ class FlowHttpInportReader extends ConfigurableStop {
         zipEntry = zipInputStream.getNextEntry
         var savePath =hdfsDir+"/temp/"
         if (zipEntry !=null){
-          println("zipEntryName:"+zipEntry.getName)
+//          println("zipEntryName:"+zipEntry.getName)
           savePath += zipEntry.getName
           val path = new Path(savePath)
           val outputStream: FSDataOutputStream = fs.create(path,true)

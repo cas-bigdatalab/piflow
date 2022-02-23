@@ -738,6 +738,14 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
 
     case HttpRequest(POST, Uri.Path("/hdfs/data"), headers, entity, protocol) => {
       try {
+        val aesKey = req.getUri().query().getOrElse("key", "")
+        var key: String = null
+        if (aesKey.equals("")){
+          throw new Exception("The encryption key can not be empty ! ")
+        }else{
+          key = AESUtil.unwrap(aesKey)
+        }
+
         val bodyFeature: Future[String] = Unmarshal(entity).to[String]
         val data = Await.result(bodyFeature, scala.concurrent.duration.Duration(1, "second"))
 
@@ -772,8 +780,11 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
           zos.closeEntry()
         }
         zos.close()
-
-        val returnValue: scaladsl.Source[ByteString, Future[IOResult]] = StreamConverters.fromInputStream(()=>new ByteArrayInputStream(byteArrayOutputStream.toByteArray))
+        val byteArrayInputStream = new ByteArrayInputStream(byteArrayOutputStream.toByteArray)
+        //AES Stream
+        val cipherInputStream = AESUtil.aesInputStream(key,byteArrayInputStream)
+        //create return value
+        val returnValue: scaladsl.Source[ByteString, Future[IOResult]] = StreamConverters.fromInputStream(()=>cipherInputStream)
         Future.successful(HttpResponse(SUCCESS_CODE, entity = HttpEntity(ContentTypes.`application/octet-stream`,returnValue)))
       } catch {
         case ex => {
@@ -807,8 +818,8 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
 
   def run = {
 
-//    val ip = InetAddress.getLocalHost.getHostAddress
-    val ip ="10.0.82.98"
+    val ip = InetAddress.getLocalHost.getHostAddress
+//    val ip ="10.0.82.98"
     //write ip to server.ip file
     FileUtil.writeFile("server.ip=" + ip, ServerIpUtil.getServerIpFile())
 
