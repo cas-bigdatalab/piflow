@@ -79,43 +79,69 @@ class FlowHttpInportReader extends ConfigurableStop {
     post.setEntity(new StringEntity(hdfsDir))
 
     val response: CloseableHttpResponse = client.execute(post)
-    if(response.getStatusLine.getStatusCode == 200){
-      val inputStream: InputStream = response.getEntity.getContent
-      //dec return stream
-      val cipherInputStream = AESUtil.decryptInputStream(inputStream,key)
-      val zipInputStream = new ZipInputStream(cipherInputStream)
-      var zipEntry:ZipEntry = null
-      var flag = true
-      //myself hdfsAddress
-      val myHdfsAddress = PropertyUtil.getPropertyValue("fs.defaultFS")
 
-      val conf = new Configuration()
-      conf.set("fs.defaultFS", myHdfsAddress)
-      val fs: FileSystem  = FileSystem.get(conf)
+    var outputStream: FSDataOutputStream = null
+    var fs:FileSystem = null
+    var zipInputStream:ZipInputStream = null
+    var myHdfsAddress:String = null
+    try {
+      if(response.getStatusLine.getStatusCode == 200){
+        val inputStream: InputStream = response.getEntity.getContent
+        //dec return stream
+        val cipherInputStream = AESUtil.decryptInputStream(inputStream,key)
+        zipInputStream = new ZipInputStream(cipherInputStream)
+        var zipEntry:ZipEntry = null
+        var flag = true
+        //myself hdfsAddress
+        myHdfsAddress = PropertyUtil.getPropertyValue("fs.defaultFS")
 
-      while (flag){
-        zipEntry = zipInputStream.getNextEntry
-        var savePath =hdfsDir+"/temp/"
-        if (zipEntry !=null){
-//          println("zipEntryName:"+zipEntry.getName)
-          savePath += zipEntry.getName
-          val path = new Path(savePath)
-          val outputStream: FSDataOutputStream = fs.create(path,true)
-          IOUtils.copyBytes(zipInputStream,outputStream,1024*1024*50,false)
-          outputStream.close()
-        }else{
-          flag = false
+        val conf = new Configuration()
+        conf.set("fs.defaultFS", myHdfsAddress)
+        fs = FileSystem.get(conf)
+
+        while (flag){
+          zipEntry = zipInputStream.getNextEntry
+          var savePath =hdfsDir+"/temp/"
+          if (zipEntry !=null){
+            //          println("zipEntryName:"+zipEntry.getName)
+            savePath += zipEntry.getName
+            val path = new Path(savePath)
+            //file is exist
+            if (fs.exists(path)){
+              outputStream = fs.append(path)
+              val haveWriteLength = outputStream.getPos
+              zipInputStream.skip(haveWriteLength)
+              IOUtils.copyBytes(zipInputStream,outputStream,1024*1024*50,false)
+              outputStream.close()
+            }else{
+              outputStream = fs.create(path,true)
+              IOUtils.copyBytes(zipInputStream,outputStream,1024*1024*50,false)
+//              throw new Exception("use test !! after delete")
+              outputStream.close()
+            }
+          }else{
+            flag = false
+          }
         }
+      }else{
+        throw new Exception("HttpRequest error,the error code"+EntityUtils.toString(response.getEntity,"UTF-8"))
       }
-      zipInputStream.close()
-      fs.close()
-
-      //read hdfs data
-      val sparkReadAddress = myHdfsAddress+hdfsDir+"/temp"
-      val df = spark.read.json(sparkReadAddress)
-      out.write(df)
-    }else{
-      throw new Exception(EntityUtils.toString(response.getEntity,"UTF-8"))
+    }catch {
+      case ex => throw new Exception(ex.getMessage)
+    }finally {
+      if (outputStream !=null){
+        outputStream.close()
+      }
+      if (zipInputStream !=null){
+        zipInputStream.close()
+      }
+      if (fs !=null){
+        fs.close()
+      }
     }
+    //read hdfs data
+    val sparkReadAddress = myHdfsAddress+hdfsDir+"/temp"
+    val df = spark.read.json(sparkReadAddress)
+    out.write(df)
   }
 }
