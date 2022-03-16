@@ -49,7 +49,7 @@ class TidbWrite extends ConfigurableStop{
     val driver=new PropertyDescriptor()
       .name("driver")
       .displayName("Driver")
-      .description("The Driver of gaussdb database")
+      .description("The Driver of tidb database")
       .defaultValue("com.mysql.jdbc.Driver")
       .required(true)
       .example("com.mysql.jdbc.Driver")
@@ -96,11 +96,11 @@ class TidbWrite extends ConfigurableStop{
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("icon/hdfs/TidbWrite.png")
+    ImageUtil.getImage("icon/jdbc/TidbWrite.png")
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroup.HdfsGroup)
+    List(StopGroup.JdbcGroup)
   }
 
   override def initialize(ctx: ProcessContext): Unit = {

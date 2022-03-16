@@ -96,11 +96,11 @@ class OceanBaseWrite extends ConfigurableStop{
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("icon/hdfs/OceanBaseWrite.png")
+    ImageUtil.getImage("icon/jdbc/OceanBaseWrite.png")
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroup.HdfsGroup)
+    List(StopGroup.JdbcGroup)
   }
 
   override def initialize(ctx: ProcessContext): Unit = {
