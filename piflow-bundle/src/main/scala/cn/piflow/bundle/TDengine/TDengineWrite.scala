@@ -99,7 +99,7 @@ class TDengineWrite extends ConfigurableStop{
   }
 
   override def getGroup(): List[String] = {
-    List(StopGroup.HdfsGroup)
+    List(StopGroup.JdbcGroup)
   }
 
   override def initialize(ctx: ProcessContext): Unit = {
