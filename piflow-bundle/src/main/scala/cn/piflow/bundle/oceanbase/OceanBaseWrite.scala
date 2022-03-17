@@ -58,10 +58,10 @@ class OceanBaseWrite extends ConfigurableStop{
     val url=new PropertyDescriptor()
       .name("url")
       .displayName("Url")
-      .description("The Url, for example jdbc:mysql://127.0.0.1:4000/mysql")
+      .description("The Url, for example jdbc:mysql://127.0.0.1:2881/mysql")
       .defaultValue("")
       .required(true)
-      .example("jdbc:mysql://127.0.0.1:4000/mysql")
+      .example("jdbc:mysql://127.0.0.1:2881/mysql")
     descriptor = url :: descriptor
 
     val user=new PropertyDescriptor()
