@@ -1,4 +1,4 @@
-package cn.piflow.bundle.tidb
+package cn.piflow.bundle.openLooKeng
 
 import cn.piflow._
 import cn.piflow.conf.bean.PropertyDescriptor
@@ -7,13 +7,13 @@ import cn.piflow.conf.{ConfigurableStop, Language, Port, StopGroup}
 import org.apache.spark.sql.SparkSession
 
 
-class TidbRead extends ConfigurableStop{
+class OpenLooKengRead extends ConfigurableStop{
   override val authorEmail: String = "llei@cnic.com"
-  override val description: String = "Read data from tidb"
+  override val description: String = "Read data from OpenLookEng"
   override val inportList: List[String] = List(Port.DefaultPort)
   override val outportList: List[String] = List(Port.DefaultPort)
 
-  var driver :String = _
+  var driver:String=_
   var url : String=_
   var user :String = _
   var password :String = _
@@ -26,8 +26,8 @@ class TidbRead extends ConfigurableStop{
     val dbtable = "( "  + sql + ") AS Temp"
     val jdbcDF = spark.read.format("jdbc")
       .option("url", url)
-      .option("driver", driver)
       .option("dbtable", dbtable)
+      .option("driver", driver)
       .option("user", user)
       .option("password",password)
       .load()
@@ -42,7 +42,6 @@ class TidbRead extends ConfigurableStop{
     password = MapUtil.get(map,key="password").asInstanceOf[String]
     sql = MapUtil.get(map,key="sql").asInstanceOf[String]
 
-
   }
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
@@ -51,25 +50,25 @@ class TidbRead extends ConfigurableStop{
     val driver=new PropertyDescriptor()
       .name("driver")
       .displayName("Driver")
-      .description("The Driver of tidb database")
-      .defaultValue("com.mysql.jdbc.Driver")
+      .description("The Driver of openLooKeng")
+      .defaultValue("io.hetu.core.jdbc.OpenLooKengDriver")
       .required(true)
-      .example("com.mysql.jdbc.Driver")
+      .example("io.hetu.core.jdbc.OpenLooKengDriver")
     descriptor = driver :: descriptor
-
+    
     val url=new PropertyDescriptor()
       .name("url")
       .displayName("Url")
-      .description("The Url, for example jdbc:mysql://127.0.0.1:4000/dbname")
+      .description("The Url, for example jdbc:lk://127.0.0.1:8090/catalog/schema")
       .defaultValue("")
       .required(true)
-      .example("jdbc:mysql://127.0.0.1:4000/mysql")
+      .example("jdbc:lk://127.0.0.1:8090/catalog/schema")
     descriptor = url :: descriptor
 
     val user=new PropertyDescriptor()
       .name("user")
       .displayName("User")
-      .description("The user name of database")
+      .description("The username of openLooKeng")
       .defaultValue("")
       .required(true)
       .example("root")
@@ -78,7 +77,7 @@ class TidbRead extends ConfigurableStop{
     val password=new PropertyDescriptor()
       .name("password")
       .displayName("Password")
-      .description("The password of database")
+      .description("The password of openLooKeng")
       .defaultValue("")
       .required(true)
       .example("123456")
@@ -88,7 +87,7 @@ class TidbRead extends ConfigurableStop{
     val sql=new PropertyDescriptor()
       .name("sql")
       .displayName("Sql")
-      .description("The sql sentence you want to execute")
+      .description("The sql sentence you want to execute,support join operations of different data sources")
       .defaultValue("")
       .required(true)
       .language(Language.Sql)
@@ -99,7 +98,7 @@ class TidbRead extends ConfigurableStop{
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("icon/jdbc/TidbRead.png")
+    ImageUtil.getImage("icon/jdbc/OpenLooKengRead.png")
   }
 
   override def getGroup(): List[String] = {
