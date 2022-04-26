@@ -21,6 +21,8 @@ abstract class ConfigurableStop extends Stop{
 
   var customizedProperties : Map[String, String] = null
 
+  val isDataSource = false
+
   def setProperties(map: Map[String, Any])
 
   def getPropertyDescriptor() : List[PropertyDescriptor]
@@ -35,6 +37,10 @@ abstract class ConfigurableStop extends Stop{
 
   def getCustomized() : Boolean = {
     this.isCustomized
+  }
+
+  def getIsDataSource() : Boolean = {
+    this.isDataSource
   }
 
 }
