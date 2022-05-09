@@ -108,7 +108,7 @@ PiFlow是一个简单易用，功能强大的大数据流水线系统。
   - 测试 PiFlow Server
     - 设置环境变量 PIFLOW_HOME  
       - vim /etc/profile  
-        export PIFLOW_HOME=/yourPiflowPath/bin  
+        export PIFLOW_HOME=/yourPiflowPath  
       	export PATH=$PATH:$PIFLOW_HOME/bin  
         
       - 运行如下命令   
