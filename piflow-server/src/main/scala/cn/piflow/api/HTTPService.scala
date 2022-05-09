@@ -800,8 +800,12 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
     case HttpRequest(POST, Uri.Path("/flow/dataSize"), headers, entity, protocol) => {
       val appId = req.getUri().query().getOrElse("appId", "")
       if (appId != "" ) {
-        val byteSize: String = H2Util.getFlowDataSize(appId)
-        Future.successful(HttpResponse(SUCCESS_CODE, entity = byteSize))
+        val dataSize: String = H2Util.getFlowDataSize(appId)
+        var map = Map[String,AnyRef]()
+        map += ("dataSize" ->dataSize)
+        map += ("appid" -> appId)
+        val result: String = JsonUtil.format(JsonUtil.toJson(Map("flow" -> map)))
+        Future.successful(HttpResponse(SUCCESS_CODE, entity = result))
       } else {
         Future.successful(HttpResponse(FAIL_CODE, entity = "appId is null!"))
       }

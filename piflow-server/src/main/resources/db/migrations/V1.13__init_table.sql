@@ -1,0 +1,1 @@
+create table if not exists flow_datasize (appId varchar(255), datasize varchar(255),createTime varchar(255))
