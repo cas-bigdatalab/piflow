@@ -164,8 +164,8 @@ class FlowBean extends GroupEntryBean{
               ("bundle" -> stop.bundle)~
               ("dataCenter" -> stop.dataCenter) ~
               ("properties" -> stop.properties.map{p => (p._1 -> p._2)}))}) ~
-          ("paths" -> paths.map { path => (
-              ("from" -> path.from) ~
+              ("paths" -> paths.map { path => (
+                ("from" -> path.from) ~
                 ("outport" -> path.outport) ~
                 ("inport" -> path.inport) ~
                 ("to" -> path.to)
@@ -182,8 +182,6 @@ class FlowBean extends GroupEntryBean{
   def addPath(path : PathBean) : Unit = {
     this.paths = path +: this.paths
   }
-
-
 }
 
 object FlowBean{

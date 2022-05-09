@@ -421,7 +421,8 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
         //val flowGroupJsonPath = Await.result(bodyFeature,scala.concurrent.duration.Duration(1,"second"))
         //val flowGroupJson = Source.fromFile(flowGroupJsonPath).getLines().toArray.mkString("\n")
 
-        val groupExecution = API.startDataCenterFlow(flowJson)
+        //val groupExecution = API.startDataCenterFlow(flowJson)
+        val groupExecution = API.startDynamicDataCenterFlow(flowJson)
         //flowGroupMap += (groupExecution.getGroupId() -> groupExecution)
         val result = "{\"group\":{\"id\":\"" + "" + "\"}}"
         Future.successful(HttpResponse(SUCCESS_CODE, entity = result))
@@ -819,7 +820,7 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
   def run = {
 
     val ip = InetAddress.getLocalHost.getHostAddress
-//    val ip ="10.0.82.98"
+    //val ip ="169.254.247.137"
     //write ip to server.ip file
     FileUtil.writeFile("server.ip=" + ip, ServerIpUtil.getServerIpFile())
 

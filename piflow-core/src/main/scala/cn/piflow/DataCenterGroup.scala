@@ -79,6 +79,9 @@ class DataCenterGroupExecutionImpl(group: Group, runnerContext: Context, runner:
   val dataCenterMap = MMap[String, String]()
   mapGroupEntryWithConditions.foreach { en => dataCenterMap(en._1) = en._2._1.asInstanceOf[Flow].getDataCenter() }
 
+  //flow data size
+  val flowDataSize = MMap[String, Long]()
+
   //started flow appId Map
   val startedProcessesAppID = MMap[String, String]()
 
@@ -185,6 +188,19 @@ class DataCenterGroupExecutionImpl(group: Group, runnerContext: Context, runner:
       flowInfoJSONObject
     }
 
+    def getFlowDataSize(flowName: String, appId: String) : JSONObject = {
+      val dataCenter = dataCenterMap(flowName)
+      var flowInfoJSONObject = new JSONObject()
+      try {
+        val doGetStr = HttpClientsUtil.doGet(dataCenter + "/flow/dataSize?appID=" + appId, 1800);
+        flowInfoJSONObject = JSON.parseObject(doGetStr).getJSONObject("flow")
+      } catch {
+        case e: Throwable =>
+          println(e)
+      }
+      flowInfoJSONObject
+    }
+
     def addFlowInfo(appId: String, flowName:String) : Unit = {
       val flowState = H2Util.getFlowState(appId)
       if (flowState.length <= 0) {
@@ -275,16 +291,22 @@ class DataCenterGroupExecutionImpl(group: Group, runnerContext: Context, runner:
 
             if (startedProcessesAppID.get(flowName) != None) {
               val appId = startedProcessesAppID(flowName)
-              //TODO: sent request, getFlowInfo(dataCenter,appId) zhoujianpeng
+              //sent request, getFlowInfo(dataCenter,appId) zhoujianpeng
               val flowInfo = listener.getFlowInfo(flowName, appId)
               if (flowInfo.size() > 0) {
-                //TODO:update flow status
+                //update flow status
                 val flowState = flowInfo.getString("state")
                 listener.onDataCentProcessState(flowState, appId)
                 var finishedFlowName = ""
                 if (flowState == "COMPLETED") {
                   completedGroupEntry(flowInfo.getString("name")) = true
                   numWaitingGroupEntry.decrementAndGet
+                  //update flow data size
+                  val flowDataSizeInfo = listener.getFlowDataSize(flowName, appId)
+                  if (flowDataSizeInfo.size() > 0) {
+                    val dataSize = flowDataSizeInfo.getString("dataSize")
+                    flowDataSize(flowName) = dataSize.toLong
+                  }
                   listener.onDataCentProcessFinished(appId);
                 }
               }
@@ -388,6 +410,23 @@ class DataCenterGroupExecutionImpl(group: Group, runnerContext: Context, runner:
     mapGroupEntryWithConditions.foreach { en =>
 
       if (!startedProcessesAppID.contains(en._1) && en._2._2.matches(execution)) {
+        val flowName = en._1
+        val flow = en._2._1.asInstanceOf[Flow]
+        //TODO: according to upStream flow data size, determine which data center the flow should be executed.
+        if(flow.getDataCenter().equals("")){
+          val flowIncomingEdge = incomingEdges(flowName)
+          var upstreamMaxDataSize : Long = 0
+          flowIncomingEdge.foreach( edge => {
+            val upstreamFlowName = edge.stopFrom
+            val upstreamFlowDataCenter = dataCenterMap(upstreamFlowName)
+            val upstreamFlowDataSize = flowDataSize(upstreamFlowName) //TODO: dataSize API
+            if(upstreamMaxDataSize < upstreamFlowDataSize){
+              upstreamMaxDataSize = upstreamFlowDataSize
+              dataCenterMap(flowName) = upstreamFlowDataCenter
+            }
+          })
+          en._2._1.asInstanceOf[Flow].setDataCenter(dataCenterMap(flowName))
+        }
         todosFlow += (en._1 -> en._2._1.asInstanceOf[Flow]);
       }
     }

@@ -247,6 +247,28 @@ object API {
 
   }
 
+  def startDynamicDataCenterFlow(flowJson : String) = {
+
+    println("StartDataCenterFlow API get json: \n" + flowJson )
+
+    var appId:String = null
+    val map = OptionUtil.getAny(JSON.parseFull(flowJson)).asInstanceOf[Map[String, Any]]
+    val flowMap = MapUtil.get(map, "flow").asInstanceOf[Map[String, Any]]
+
+    //create  data center group
+    val flowBean = DataCenterFlowBean(map)
+    val groupBean = flowBean.constructDynamicDataCenterGroupBean()
+    val group = groupBean.constructGroup()
+
+    val flowGroupExecution = Runner.create()
+      .bind("checkpoint.path",ConfigureUtil.getCheckpointPath())
+      .bind("debug.path",ConfigureUtil.getDebugPath())
+      .start(group);
+
+    flowGroupExecution
+
+  }
+
   def startFlow(flowJson : String):(String,SparkAppHandle) = {
 
     var appId:String = null

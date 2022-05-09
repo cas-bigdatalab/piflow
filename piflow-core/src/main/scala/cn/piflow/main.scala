@@ -275,7 +275,6 @@ class FlowImpl extends Flow {
         ends.foreach {
           _visitProcess(flow, _, op, visited);
         }
-
       }
 
       override def visitStreaming[T](flow: Flow,streamingStop : String, streamingData: T,op: (String, Map[Edge, T]) => T): Unit = {
@@ -445,12 +444,6 @@ trait ProcessContext extends Context {
 
   def getProcess(): Process;
 }
-
-/*trait FlowGroupContext extends Context {
-  def getFlowGroup() : FlowGroup;
-
-  def getFlowGroupExecution() : FlowGroupExecution;
-}*/
 
 trait GroupContext extends Context {
   

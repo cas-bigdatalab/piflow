@@ -69,7 +69,6 @@ class GroupBean extends GroupEntryBean {
           val groupBean = groupEntryBean.asInstanceOf[GroupBean]
           group.addGroupEntry(groupBean.name,groupBean.constructGroup())
         }
-
       }
       else{
         val conditionBean = conditions(groupEntryBean.name)
@@ -85,7 +84,6 @@ class GroupBean extends GroupEntryBean {
             val groupBean = groupEntryBean.asInstanceOf[GroupBean]
             group.addGroupEntry(groupBean.name,groupBean.constructGroup())
           }
-
         }
         else if(conditionBean.after.size == 1){
 
@@ -98,7 +96,6 @@ class GroupBean extends GroupEntryBean {
             val groupBean = groupEntryBean.asInstanceOf[GroupBean]
             group.addGroupEntry(groupBean.name,groupBean.constructGroup(), Condition.after(conditionBean.after(0)))
           }
-
         }
         else {
           println(groupEntryBean.name + " after " + conditionBean.after.toSeq + "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")

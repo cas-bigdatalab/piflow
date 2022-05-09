@@ -1,12 +1,10 @@
 package cn.piflow.conf.bean
 
 import java.util.UUID
-
 import scala.collection.mutable.{ArrayBuffer, Map => MMap}
 
 
 class DataCenterFlowBean{
-
 
   var flowBean : FlowBean = _
   var dataCenterConditionBeanList : List[DataCenterConditionBean] = _
@@ -34,6 +32,7 @@ class DataCenterFlowBean{
       outgoingEdges.getOrElseUpdate(edge.from, ArrayBuffer[PathBean]()) += edge;
     }
   }
+
   //create Flow by FlowBean
   def constructDataCenterGroupBean() : DataCenterGroupBean= {
 
@@ -42,10 +41,10 @@ class DataCenterFlowBean{
     this.dataCenterConditionBeanList = dataCenterConditionList
 
     initParams(this.flowBean)
-    constructDataCenterGroupBean(this.flowBean, this.dataCenterConditionBeanList)
+    _constructDataCenterGroupBean(this.flowBean, this.dataCenterConditionBeanList)
   }
 
-  def constructDataCenterGroupBean(flow: FlowBean, dataCenterConditionBeanList :List[DataCenterConditionBean]) : DataCenterGroupBean = {
+  private def _constructDataCenterGroupBean(flow: FlowBean, dataCenterConditionBeanList :List[DataCenterConditionBean]) : DataCenterGroupBean = {
 
     val flowCount = dataCenterConditionBeanList.size + 1
     val ends = stops.keySet.filterNot(outgoingEdges.contains(_));
@@ -97,9 +96,9 @@ class DataCenterFlowBean{
     })
     //paths
     var paths : List[DataCenterConditionBean] = List()
-   conditionList.foreach( conditionBean => {
-     paths = conditionBean.copy() +: paths
-   })
+    conditionList.foreach( conditionBean => {
+      paths = conditionBean.copy() +: paths
+    })
 
     //conditions
     var conditions = MMap[String, DataCenterConditionBean]()
@@ -115,7 +114,7 @@ class DataCenterFlowBean{
     DataCenterGroupBean(uuid, flowBean.name, flowBeanList, conditions, paths)
   }
 
-  def _visitStop(flow: FlowBean, stopName: String,visited: MMap[String, String], flowName:String): String = {
+  private def _visitStop(flow: FlowBean, stopName: String,visited: MMap[String, String], flowName:String): String = {
 
     if (!visited.contains(stopName)) {
 
@@ -164,7 +163,86 @@ class DataCenterFlowBean{
     Entry(map)
   }
 
+  //TODO: create dynamic datacenter group by FlowBean
+  def constructDynamicDataCenterGroupBean() = {
+    val (splitFlowBean, dataCenterConditionList) = DynamicDataCenterTaskPlan(this.flowBean).plan()
+    this.flowBean = splitFlowBean
+    this.dataCenterConditionBeanList = dataCenterConditionList
 
+    initParams(this.flowBean)
+    _constructDynamicDataCenterGroupBean(this.flowBean, this.dataCenterConditionBeanList)
+  }
+  //TODO: create dynamic datacenter group by FlowBean
+  private def _constructDynamicDataCenterGroupBean(flow: FlowBean, dataCenterConditionBeanList :List[DataCenterConditionBean]) : DataCenterGroupBean = {
+
+    val flowCount = dataCenterConditionBeanList.size + 1
+    val ends = stops.keySet.filterNot(outgoingEdges.contains(_));
+    //initialize FlowName for each Stop
+    val visited = MMap[String, String]();
+    for(i <-  1 to flowCount){
+      val flowName = "flow_" + (flowCount - i + 1)
+      val iteratorStop = ends.diff(visited.keySet).iterator.next()
+      _visitStop(flow, iteratorStop, visited, flowName)
+    }
+
+    //flowBean list
+    var flowBeanList = List[GroupEntryBean]()
+    for(i <- 1 to flowCount){
+
+      //construct flowBean
+      val flowName = "flow_" + i
+      val flowBean = getFlowBean("",flowName )
+      var stopBeanList =  List[StopBean]()
+      var pathBeanList = List[PathBean]()
+      visited.foreach{m => {
+        val tempStopName = m._1
+        val tempFlowName = m._2
+        if(tempFlowName == flowName){
+          stopBeanList = stops(tempStopName) +: stopBeanList
+          if(outgoingEdges.contains(tempStopName))
+            pathBeanList = outgoingEdges(tempStopName).toList ::: pathBeanList
+        }
+      }}
+      flowBean.stops = stopBeanList
+      flowBean.paths = pathBeanList
+      //TODO: modify the dataCenter!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      flowBean.dataCenter = stopBeanList(0).dataCenter
+
+      //DataCenterGroupBean
+      flowBeanList = flowBean +: flowBeanList
+      //conditions
+      //path
+    }
+
+    //conditionList
+    val conditionList = dataCenterConditionBeanList.map( condition => {
+
+      val outport = condition.outport
+      val inport = condition.inport
+
+      condition.after = List(getEntry(stops(outport).dataCenter, stops(outport).flowName) )
+      condition.entry = getEntry(stops(inport).dataCenter, stops(inport).flowName)
+      condition
+    })
+    //paths
+    var paths : List[DataCenterConditionBean] = List()
+    conditionList.foreach( conditionBean => {
+      paths = conditionBean.copy() +: paths
+    })
+
+    //conditions
+    var conditions = MMap[String, DataCenterConditionBean]()
+    conditionList.foreach( conditionBean => {
+
+      if(!conditions.getOrElse(conditionBean.entry.flowName,"").equals("")){
+        conditionBean.after = conditions(conditionBean.entry.flowName).after ::: conditionBean.after
+      }
+      conditions(conditionBean.entry.flowName) = conditionBean
+    })
+
+    val uuid =  UUID.randomUUID.toString
+    DataCenterGroupBean(uuid, flowBean.name, flowBeanList, conditions, paths)
+  }
 }
 
 object DataCenterFlowBean{
