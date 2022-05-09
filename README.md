@@ -112,7 +112,7 @@ Try PiFlow v0.9 with: http://piflow.cstcloud.cn/
   - test piflow server
     - set PIFLOW_HOME  
       - vim /etc/profile  
-        export PIFLOW_HOME=/yourPiflowPath/bin  
+        export PIFLOW_HOME=/yourPiflowPath  
       	export PATH=$PATH:$PIFLOW_HOME/bin  
       - command   
         piflow flow start example/mockDataFlow.json  
