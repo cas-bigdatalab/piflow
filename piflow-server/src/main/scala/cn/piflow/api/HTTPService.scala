@@ -797,6 +797,16 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
 
     }
 
+    case HttpRequest(POST, Uri.Path("/flow/dataSize"), headers, entity, protocol) => {
+      val appId = req.getUri().query().getOrElse("appId", "")
+      if (appId != "" ) {
+        val byteSize: String = H2Util.getFlowDataSize(appId)
+        Future.successful(HttpResponse(SUCCESS_CODE, entity = byteSize))
+      } else {
+        Future.successful(HttpResponse(FAIL_CODE, entity = "appId is null!"))
+      }
+    }
+
     /*case HttpRequest(POST, Uri.Path("/code/debug"), headers, entity, protocol) => {
 
        val sparkSessionBuilder = SparkSession.builder().appName("xjzhu").master("local")
