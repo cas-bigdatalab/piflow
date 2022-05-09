@@ -1055,15 +1055,16 @@ object H2Util {
     statement.close()
   }
   def getFlowDataSize(appId:String):String = {
-    var datasize =_
+    var dataSizeMap = Map[String, String]()
     val statement = getConnectionInstance().createStatement()
     val rs : ResultSet = statement.executeQuery("select * from flow_datasize where appId='" + appId + "'")
     while(rs.next()){
-      datasize = rs.getString("datasize")
+      val datasize = rs.getString("datasize")
+      dataSizeMap += ("datasize" -> datasize)
     }
     rs.close()
     statement.close()
-    datasize
+    JsonUtil.format(JsonUtil.toJson(dataSizeMap))
   }
 
 
