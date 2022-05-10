@@ -249,7 +249,7 @@ object API {
 
   def startDynamicDataCenterFlow(flowJson : String) = {
 
-    println("StartDataCenterFlow API get json: \n" + flowJson )
+    println("StartDynamicDataCenterFlow API get json: \n" + flowJson )
 
     var appId:String = null
     val map = OptionUtil.getAny(JSON.parseFull(flowJson)).asInstanceOf[Map[String, Any]]

@@ -192,7 +192,7 @@ class DataCenterGroupExecutionImpl(group: Group, runnerContext: Context, runner:
       val dataCenter = dataCenterMap(flowName)
       var flowInfoJSONObject = new JSONObject()
       try {
-        val doGetStr = HttpClientsUtil.doGet(dataCenter + "/flow/dataSize?appID=" + appId, 1800);
+        val doGetStr = HttpClientsUtil.doGet(dataCenter + "/flow/dataSize?appId=" + appId, 1800);
         flowInfoJSONObject = JSON.parseObject(doGetStr).getJSONObject("flow")
       } catch {
         case e: Throwable =>

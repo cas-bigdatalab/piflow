@@ -31,9 +31,7 @@ class DynamicDataCenterTaskPlan {
   }
 
   def plan() : (FlowBean, List[DataCenterConditionBean]) = {
-    //initDataCenter(flowBean)
     splitDataCenterFlow(flowBean)
-
   }
 
   def initDataCenter(flow: FlowBean): Unit = {

@@ -33,7 +33,7 @@ class DataCenterFlowBean{
     }
   }
 
-  //create Flow by FlowBean
+  //create datacenter group by FlowBean
   def constructDataCenterGroupBean() : DataCenterGroupBean= {
 
     val (splitFlowBean, dataCenterConditionList) = DataCenterTaskPlan(this.flowBean).plan()
@@ -163,7 +163,7 @@ class DataCenterFlowBean{
     Entry(map)
   }
 
-  //TODO: create dynamic datacenter group by FlowBean
+  //create dynamic datacenter group by FlowBean
   def constructDynamicDataCenterGroupBean() = {
     val (splitFlowBean, dataCenterConditionList) = DynamicDataCenterTaskPlan(this.flowBean).plan()
     this.flowBean = splitFlowBean
@@ -172,12 +172,13 @@ class DataCenterFlowBean{
     initParams(this.flowBean)
     _constructDynamicDataCenterGroupBean(this.flowBean, this.dataCenterConditionBeanList)
   }
-  //TODO: create dynamic datacenter group by FlowBean
+  //create dynamic datacenter group by FlowBean
   private def _constructDynamicDataCenterGroupBean(flow: FlowBean, dataCenterConditionBeanList :List[DataCenterConditionBean]) : DataCenterGroupBean = {
 
     val flowCount = dataCenterConditionBeanList.size + 1
-    val ends = stops.keySet.filterNot(outgoingEdges.contains(_));
+
     //initialize FlowName for each Stop
+    val ends = stops.keySet.filterNot(outgoingEdges.contains(_));
     val visited = MMap[String, String]();
     for(i <-  1 to flowCount){
       val flowName = "flow_" + (flowCount - i + 1)
@@ -189,7 +190,7 @@ class DataCenterFlowBean{
     var flowBeanList = List[GroupEntryBean]()
     for(i <- 1 to flowCount){
 
-      //construct flowBean
+      //construct flowBean,StopBean and PathBean
       val flowName = "flow_" + i
       val flowBean = getFlowBean("",flowName )
       var stopBeanList =  List[StopBean]()
@@ -205,6 +206,7 @@ class DataCenterFlowBean{
       }}
       flowBean.stops = stopBeanList
       flowBean.paths = pathBeanList
+
       //TODO: modify the dataCenter!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       flowBean.dataCenter = stopBeanList(0).dataCenter
 

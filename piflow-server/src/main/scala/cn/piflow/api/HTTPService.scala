@@ -423,8 +423,7 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
 
         //val groupExecution = API.startDataCenterFlow(flowJson)
         val groupExecution = API.startDynamicDataCenterFlow(flowJson)
-        //flowGroupMap += (groupExecution.getGroupId() -> groupExecution)
-        val result = "{\"group\":{\"id\":\"" + "" + "\"}}"
+        val result = "{\"group\":{\"id\":\"" + groupExecution.getGroupId() + "\"}}"
         Future.successful(HttpResponse(SUCCESS_CODE, entity = result))
       } catch {
         case ex => {
@@ -811,20 +810,6 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
       }
     }
 
-    /*case HttpRequest(POST, Uri.Path("/code/debug"), headers, entity, protocol) => {
-
-       val sparkSessionBuilder = SparkSession.builder().appName("xjzhu").master("local")
-       if(PropertyUtil.getPropertyValue("hive.metastore.uris") != null){
-
-       sparkSessionBuilder
-       .config("hive.metastore.uris",PropertyUtil.getPropertyValue("hive.metastore.uris"))
-       .enableHiveSupport()
-       }
-       val spark = sparkSessionBuilder.getOrCreate()
-
-       val df = spark.sql("select * from test.student")
-       df.show(10)
-   }*/
 
     case _: HttpRequest =>
       Future.successful(HttpResponse(UNKNOWN_CODE, entity = "Unknown resource!"))
