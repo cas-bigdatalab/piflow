@@ -48,6 +48,6 @@ class FlowOutportWriter extends ConfigurableStop {
     val now: Date = new Date()
     val dateFormat: SimpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
     val date = dateFormat.format(now)
-    H2Util.addFlowDataSize(appId,dataSize.toString,date)
+    H2Util.addFlowDataSize(appId,dataSize.value.toString,date)
   }
 }

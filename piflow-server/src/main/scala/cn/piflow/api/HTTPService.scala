@@ -797,7 +797,7 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
 
     }
 
-    case HttpRequest(POST, Uri.Path("/flow/dataSize"), headers, entity, protocol) => {
+    case HttpRequest(GET, Uri.Path("/flow/dataSize"), headers, entity, protocol) => {
       val appId = req.getUri().query().getOrElse("appId", "")
       if (appId != "" ) {
         val dataSize: String = H2Util.getFlowDataSize(appId)
