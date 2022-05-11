@@ -151,6 +151,14 @@ object H2Util {
     statement.executeUpdate(updateSql)
     statement.close()
   }
+  def updateFlowDataCenter(appId:String, dataCenter:String) = {
+    val statement = getConnectionInstance().createStatement()
+    statement.setQueryTimeout(QUERY_TIME)
+    val updateSql = "update flow set dataCenter='" + dataCenter + "' where id='" + appId + "'"
+    println(updateSql)
+    statement.executeUpdate(updateSql)
+    statement.close()
+  }
 
   /*def updateFlowProjectId(appId:String, ProjectId:String) = {
     val statement = getConnectionInstance().createStatement()
@@ -244,6 +252,7 @@ object H2Util {
       flowInfoMap += ("state" -> flowRS.getString("state"))
       flowInfoMap += ("startTime" -> flowRS.getString("startTime"))
       flowInfoMap += ("endTime" -> flowRS.getString("endTime"))
+      flowInfoMap += ("dataCenter" -> flowRS.getString("dataCenter"))
       flowInfoMap += ("progress" -> progress)
     }
     flowRS.close()

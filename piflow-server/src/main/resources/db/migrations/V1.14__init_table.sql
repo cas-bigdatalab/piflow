@@ -1,0 +1,1 @@
+alter table FLOW add column DATACENTER varchar(255);

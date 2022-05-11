@@ -201,13 +201,15 @@ class DataCenterGroupExecutionImpl(group: Group, runnerContext: Context, runner:
       flowInfoJSONObject
     }
 
-    def addFlowInfo(appId: String, flowName:String) : Unit = {
+    def addFlowInfo(groupId:String, appId: String, flowName:String, dataCenter:String) : Unit = {
       val flowState = H2Util.getFlowState(appId)
       if (flowState.length <= 0) {
         val time = new Date().toString
-        H2Util.addFlow(appId, "dataCenter", flowName)
+        H2Util.addFlow(appId, "", flowName)
         H2Util.updateFlowState(appId,FlowState.STARTED)
         H2Util.updateFlowStartTime(appId,time)
+        H2Util.updateFlowGroupId(appId, groupId)
+        H2Util.updateFlowDataCenter(appId, dataCenter)
       }
     }
 
@@ -252,7 +254,7 @@ class DataCenterGroupExecutionImpl(group: Group, runnerContext: Context, runner:
       }
     }
 
-    //TODO: send request to run flow!!!!!!!!! zhoujianpeng
+    //send request to run flow!!!!!!!!!
     //construct new flow json
     val timeoutMs = 18000
     val url = flow.getDataCenter() + "/flow/start"
@@ -264,7 +266,7 @@ class DataCenterGroupExecutionImpl(group: Group, runnerContext: Context, runner:
     startedProcessesAppID(name) = appId
 
     //TODO: save flow status by H2Util
-    listener.addFlowInfo(appId, flow.getFlowName())
+    listener.addFlowInfo(this.getGroupId(), appId, flow.getFlowName(), flow.getDataCenter())
   }
 
   @volatile
@@ -304,8 +306,13 @@ class DataCenterGroupExecutionImpl(group: Group, runnerContext: Context, runner:
                   //update flow data size
                   val flowDataSizeInfo = listener.getFlowDataSize(flowName, appId)
                   if (flowDataSizeInfo.size() > 0) {
-                    val dataSize = flowDataSizeInfo.getString("dataSize")
-                    flowDataSize(flowName) = dataSize.toLong
+                    var dataSize = flowDataSizeInfo.getString("dataSize")
+                    if(dataSize.equals("")){
+                      flowDataSize(flowName) = 0
+                    }else
+                    {
+                      flowDataSize(flowName) = dataSize.toLong
+                    }
                   }
                   listener.onDataCentProcessFinished(appId);
                 }
