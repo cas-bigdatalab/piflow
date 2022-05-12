@@ -423,6 +423,7 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
 
         //val groupExecution = API.startDataCenterFlow(flowJson)
         val groupExecution = API.startDynamicDataCenterFlow(flowJson)
+        flowGroupMap += (groupExecution.getGroupId() -> groupExecution)
         val result = "{\"group\":{\"id\":\"" + groupExecution.getGroupId() + "\"}}"
         Future.successful(HttpResponse(SUCCESS_CODE, entity = result))
       } catch {
@@ -432,6 +433,40 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
         }
       }
 
+    }
+    case HttpRequest(GET, Uri.Path("/datacenter/flow/taskPlan"), headers, entity, protocol) => {
+
+      val groupId = req.getUri().query().getOrElse("groupId", "")
+      if (!groupId.equals("")) {
+        var result = API.getDynamicDataCenterFlowTaskPlan(groupId)
+        println("getDatacenterFlowTaskPlan result: " + result)
+
+        Future.successful(HttpResponse(SUCCESS_CODE, entity = result))
+      } else {
+        Future.successful(HttpResponse(FAIL_CODE, entity = "Id is null or flow run failed!"))
+      }
+
+    }
+    case HttpRequest(POST, Uri.Path("/datacenter/flow/stop"), headers, entity, protocol) => {
+      val data = toJson(entity)
+      val groupId = data.get("groupId").getOrElse("").asInstanceOf[String]
+      if (groupId.equals("") || !flowGroupMap.contains(groupId)) {
+        Future.failed(new Exception("Can not found flow Error!"))
+      } else {
+
+        flowGroupMap.get(groupId) match {
+          case Some(flowGroupExecution) =>
+            val result = API.stopGroup(flowGroupExecution)
+            flowGroupMap.-(groupId)
+            Future.successful(HttpResponse(SUCCESS_CODE, entity = "Stop DataCenter Flow Ok!!!"))
+          case ex => {
+            println(ex)
+            Future.successful(HttpResponse(FAIL_CODE, entity = "Can not found DataCenter Flow Error!"))
+          }
+
+        }
+
+      }
     }
 
     case HttpRequest(GET, Uri.Path("/datacenter/datasource"), headers, entity, protocol) => {

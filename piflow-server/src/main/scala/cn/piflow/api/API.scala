@@ -269,6 +269,10 @@ object API {
 
   }
 
+  def getDynamicDataCenterFlowTaskPlan(groupId : String) : String = {
+    null
+  }
+
   def startFlow(flowJson : String):(String,SparkAppHandle) = {
 
     var appId:String = null

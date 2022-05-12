@@ -95,7 +95,7 @@ class DataCenterGroupExecutionImpl(group: Group, runnerContext: Context, runner:
     override def onProcessStarted(ctx: ProcessContext): Unit = {}
 
     override def onProcessFailed(ctx: ProcessContext): Unit = {
-      //TODO: retry?
+      //TODO: retry
     }
     override def onProcessCompleted(ctx: ProcessContext): Unit = {
 
@@ -213,15 +213,9 @@ class DataCenterGroupExecutionImpl(group: Group, runnerContext: Context, runner:
       H2Util.updateFlowState(appId,FlowState.COMPLETED)
     }
 
-    def onDataCenterProcessFailed(state: String, appId: String) : Unit = {
+    def onDataCenterProcessChangeState(state: String, appId: String) : Unit = {
       val time = new Date().toString
-      H2Util.updateFlowFinishedTime(appId,time)
-      H2Util.updateFlowState(appId,FlowState.FAILED)
-    }
-
-    def onDataCenterProcessState(state: String, appId: String) : Unit = {
-      val time = new Date().toString
-      H2Util.updateFlowFinishedTime(appId,time)
+      //H2Util.updateFlowFinishedTime(appId,time)
       H2Util.updateFlowState(appId,state)
     }
 
@@ -230,39 +224,6 @@ class DataCenterGroupExecutionImpl(group: Group, runnerContext: Context, runner:
   runner.addListener(listener);
   val runnerListener = runner.getListener()
 
-
-  //check whether the group entry (flow/group) is completed or not
-  def isEntryCompleted(name: String): Boolean = {
-    completedGroupEntry(name)
-  }
-
-  //run flow
-  private def startProcess(name: String, flow: Flow, groupId: String = ""): Unit = {
-
-    var flowJson = flow.getFlowJson()
-
-    //construct new flow json
-    if (incomingEdges.contains(name)) {
-      val flowIncomingEdge = incomingEdges(name)
-      val emptyMap = listener.getDataCenterDataSource(flowIncomingEdge)
-      if (emptyMap.size > 0) {
-        flowJson = listener.flowToJsonStr(flow, emptyMap);
-      }
-    }
-
-    //send request to run flow!!!!!!!!!
-    val timeoutMs = 18000
-    val url = flow.getDataCenter() + "/flow/start"
-    val doPostStr = HttpClientsUtil.doPost(url, timeoutMs, flowJson);
-    println("Code is " + doPostStr)
-
-    val doPostJson = JSON.parseObject(doPostStr)
-    val appId : String = doPostJson.getJSONObject("flow").getString("id")
-    startedProcessesAppID(name) = appId
-
-    //save flow status by H2Util
-    listener.addFlowInfo(this.getGroupId(), appId, flow.getFlowName(), flow.getDataCenter())
-  }
 
   @volatile
   var maybeException:Option[Throwable] = None
@@ -294,7 +255,7 @@ class DataCenterGroupExecutionImpl(group: Group, runnerContext: Context, runner:
               if (flowInfo.size() > 0) {
                 //update flow status
                 val flowState = flowInfo.getString("state")
-                listener.onDataCenterProcessState(flowState, appId)
+                listener.onDataCenterProcessChangeState(flowState, appId)
 
                 if (flowState == "COMPLETED") {
                   completedGroupEntry(flowInfo.getString("name")) = true
@@ -385,8 +346,13 @@ class DataCenterGroupExecutionImpl(group: Group, runnerContext: Context, runner:
             val appID: String = startedProcessesAppID.getOrElse(x._1,"")
             if(!appID.equals("")){
 
-              //TODO:set request to remote DataCenter and stop flow
-              println("Stop Flow " + appID + " by Request!")
+              //set request to remote DataCenter and stop flow
+              val dataCenter = dataCenterMap(flowName)
+              val isStopped = stopProcess(flowName,appID,dataCenter)
+              if(isStopped == true)
+                println("Stop data center flow " + appID + " successfully!")
+              else
+                println("Stop data center flow " + appID + " failed!")
             }
 
           });
@@ -396,6 +362,33 @@ class DataCenterGroupExecutionImpl(group: Group, runnerContext: Context, runner:
       runner.removeListener(listener);
       running = false;
     }
+  }
+
+  //stop flow
+  private def stopProcess(flowName: String, appId:String , dataCenter:String, groupId: String = ""): Boolean = {
+
+    //send request to stop flow!!!!!!!!!
+    val timeoutMs = 18000
+    val url = dataCenter + "/flow/stop"
+    val postJson = "{\"appID\":\"" + appId +"\"}"
+
+    val doPostStr = HttpClientsUtil.doPost(url, timeoutMs, postJson);
+    println("Code is " + doPostStr)
+
+    //save flow status by H2Util
+    if(doPostStr.equals("ok")) {
+      val flowInfo = listener.getFlowInfo(flowName, appId)
+      if (flowInfo.size() > 0) {
+        //update flow status
+        val flowState = flowInfo.getString("state")
+        listener.onDataCenterProcessChangeState(flowState, appId)
+      }
+      true
+    }else{
+
+      false
+    }
+
   }
 
   //create the group execution context
@@ -437,6 +430,40 @@ class DataCenterGroupExecutionImpl(group: Group, runnerContext: Context, runner:
     }
     todosFlow
   }
+
+  //run flow
+  private def startProcess(name: String, flow: Flow, groupId: String = ""): Unit = {
+
+    var flowJson = flow.getFlowJson()
+
+    //construct new flow json
+    if (incomingEdges.contains(name)) {
+      val flowIncomingEdge = incomingEdges(name)
+      val emptyMap = listener.getDataCenterDataSource(flowIncomingEdge)
+      if (emptyMap.size > 0) {
+        flowJson = listener.flowToJsonStr(flow, emptyMap);
+      }
+    }
+
+    //send request to run flow!!!!!!!!!
+    val timeoutMs = 18000
+    val url = flow.getDataCenter() + "/flow/start"
+    val doPostStr = HttpClientsUtil.doPost(url, timeoutMs, flowJson);
+    println("Code is " + doPostStr)
+
+    val doPostJson = JSON.parseObject(doPostStr)
+    val appId : String = doPostJson.getJSONObject("flow").getString("id")
+    startedProcessesAppID(name) = appId
+
+    //save flow status by H2Util
+    listener.addFlowInfo(this.getGroupId(), appId, flow.getFlowName(), flow.getDataCenter())
+  }
+
+  //check whether the group entry (flow/group) is completed or not
+  def isEntryCompleted(name: String): Boolean = {
+    completedGroupEntry(name)
+  }
+
 
   override def getGroupId(): String = id
 
