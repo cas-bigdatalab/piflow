@@ -1,5 +1,5 @@
 ![](https://gitee.com/opensci/piflow/raw/master/doc/piflow-logo2.png)
-PiFlow是一个简单易用，功能强大的大数据流水线系统。
+πFlow是一个简单易用，功能强大的大数据流水线系统。
 
 ## 目录
 
