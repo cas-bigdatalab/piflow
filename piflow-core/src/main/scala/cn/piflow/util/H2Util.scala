@@ -591,8 +591,6 @@ object H2Util {
 
     statement.close()
 
-
-
     Map[String, Any]("group" -> flowGroupInfoMap)
   }
 
@@ -641,97 +639,6 @@ object H2Util {
 
   }
 
-  //project related api
-  /*def addProject(projectId:String,name:String)={
-    val startTime = new Date().toString
-    val statement = getConnectionInstance().createStatement()
-    statement.setQueryTimeout(QUERY_TIME)
-    statement.executeUpdate("insert into project(id, name) values('" + projectId +  "','" + name + "')")
-    statement.close()
-  }
-  def updateProjectState(projectId:String, state:String) = {
-    val statement = getConnectionInstance().createStatement()
-    statement.setQueryTimeout(QUERY_TIME)
-    val updateSql = "update project set state='" + state + "' where id='" + projectId + "'"
-
-    //update related stop stop when flow state is KILLED
-    /*if(state.equals(FlowState.KILLED)){
-      val startedStopList = getStartedStop(appId)
-      startedStopList.foreach(stopName => {
-        updateStopState(appId,stopName,StopState.KILLED)
-        updateStopFinishedTime(appId, stopName, new Date().toString)
-      })
-    }*/
-    //println(updateSql)
-    statement.executeUpdate(updateSql)
-    statement.close()
-  }
-  def updateProjectStartTime(projectId:String, startTime:String) = {
-    val statement = getConnectionInstance().createStatement()
-    statement.setQueryTimeout(QUERY_TIME)
-    val updateSql = "update project set startTime='" + startTime + "' where id='" + projectId + "'"
-    //println(updateSql)
-    statement.executeUpdate(updateSql)
-    statement.close()
-  }
-  def updateProjectFinishedTime(projectId:String, endTime:String) = {
-    val statement = getConnectionInstance().createStatement()
-    statement.setQueryTimeout(QUERY_TIME)
-    val updateSql = "update project set endTime='" + endTime + "' where id='" + projectId + "'"
-    //println(updateSql)
-    statement.executeUpdate(updateSql)
-    statement.close()
-  }
-
-  def getProjectInfo(projectId:String) : String = {
-
-    val projectInfoMap = getProjectInfoMap(projectId)
-    JsonUtil.format(JsonUtil.toJson(projectInfoMap))
-
-  }
-
-  def getProjectInfoMap(projectId:String) : Map[String, Any] = {
-    val statement = getConnectionInstance().createStatement()
-    statement.setQueryTimeout(QUERY_TIME)
-
-
-    var projectInfoMap = Map[String, Any]()
-
-    val projectRS : ResultSet = statement.executeQuery("select * from project where id='" + projectId +"'")
-    while (projectRS.next()){
-
-      projectInfoMap += ("id" -> projectRS.getString("id"))
-      projectInfoMap += ("name" -> projectRS.getString("name"))
-      projectInfoMap += ("state" -> projectRS.getString("state"))
-      projectInfoMap += ("startTime" -> projectRS.getString("startTime"))
-      projectInfoMap += ("endTime" -> projectRS.getString("endTime"))
-    }
-    projectRS.close()
-
-    //get flowGroups info
-    var flowGroupList:List[Map[String, Any]] = List()
-    val flowGroupRS : ResultSet = statement.executeQuery("select * from flowGroup where projectId='" + projectId +"'")
-    while (flowGroupRS.next()){
-      val flowGroupId = flowGroupRS.getString("id")
-      flowGroupList = getGroupInfoMap(flowGroupId) +: flowGroupList
-    }
-    flowGroupRS.close()
-    projectInfoMap += ("groups" -> flowGroupList)
-
-    //get flow info
-    var flowList:List[Map[String, Any]] = List()
-    val flowRS : ResultSet = statement.executeQuery("select * from flow where projectId='" + projectId +"'")
-    while (flowRS.next()){
-      val appId = flowRS.getString("id")
-      flowList = getFlowInfoMap(appId) +: flowList
-    }
-    flowRS.close()
-    projectInfoMap += ("flows" -> flowList)
-
-    statement.close()
-
-    Map[String, Any]("project" -> projectInfoMap)
-  }*/
 
   def addFlag(item:String, flag:Int) : Unit = {
     val createTime = new Date().toString
@@ -1075,6 +982,66 @@ object H2Util {
     datasize
   }
 
+  /*
+  create table if not exists taskplan_group (id varchar(255), groupName varchar(255), groupDataCenter varchar(255))
+create table if not exists taskplan_flow (id varchar(255), groupId varchar(255), flowName varchar(255), flowDataCenter varchar(255))
+create table if not exists taskplan_condition (id varchar(255), groupId varchar(255), upstreamFlowName varchar(255), flowOutport varchar(255), flowInport varchar(255), downstreamFlowName varchar(255))
+create table if not exists taskplan_stop (id varchar(255), flowId varchar(255), stopName varchar(255), stopDataCenter varchar(255))
+create table if not exists taskplan_path (id varchar(255), flowId varchar(255), fromStop varchar(255), outport varchar(255), inport varchar(255), toStop varchar(255))
+
+  */
+
+  //datacenter's task plan related API
+  def addTaskPlanGroup(groupId:String,groupName:String,groupDataCenter:String) = {
+
+    val statement = getConnectionInstance().createStatement()
+    statement.setQueryTimeout(QUERY_TIME)
+    statement.executeUpdate("insert into taskplan_group(id, groupName, groupDataCenter) values('" + groupId +  "','" + groupName + "','" + groupDataCenter + "')")
+    statement.close()
+
+  }
+  def addTaskPlanFlow(id:String, groupId:String,flowName:String,flowDataCenter:String) = {
+
+    val statement = getConnectionInstance().createStatement()
+    statement.setQueryTimeout(QUERY_TIME)
+    statement.executeUpdate("insert into taskplan_flow(id, groupId, flowName, flowDataCenter) values('" + id +  "','" + groupId +  "','" + flowName + "','" + flowDataCenter + "')")
+    statement.close()
+  }
+
+  def addTaskPlanCondition(id:String,groupId:String,upstreamFlowName:String,flowOutport:String,flowInport:String,downstreamFlowName:String) = {
+
+    val statement = getConnectionInstance().createStatement()
+    statement.setQueryTimeout(QUERY_TIME)
+    statement.executeUpdate("insert into taskplan_condition(id, groupId, upstreamFlowName, flowOutport, flowInport, downstreamFlowName) values('" + id +  "','" + groupId +  "','" + upstreamFlowName + "','" + flowOutport + "','" + flowInport + "','" + downstreamFlowName  + "')")
+    statement.close()
+  }
+
+  def addTaskPlanStop(id:String,flowId:String,stopName:String,stopDataCenter:String) ={
+
+    val statement = getConnectionInstance().createStatement()
+    statement.setQueryTimeout(QUERY_TIME)
+    statement.executeUpdate("insert into taskplan_stop(id, flowId, stopName, stopDataCenter) values('" + id +  "','" + flowId +  "','" + stopName + "','" + stopDataCenter + "')")
+    statement.close()
+
+  }
+  def addTaskPlanPath(id:String,flowId:String,fromStop:String,outport:String,inport:String,toStop:String)= {
+
+    val statement = getConnectionInstance().createStatement()
+    statement.setQueryTimeout(QUERY_TIME)
+    statement.executeUpdate("insert into taskplan_path(id, flowId, fromStop, outport, inport, toStop) values('" + id +  "','" + flowId +  "','" + fromStop + "','" + outport + "','" + inport + "','" + toStop  + "')")
+    statement.close()
+
+  }
+
+  def updateTaskPlanFlowDataCenter(groupId:String, flowName:String, flowDataCenter:String) = {
+    val statement = getConnectionInstance().createStatement()
+    statement.setQueryTimeout(QUERY_TIME)
+    val updateSql = "update taskplan_flow set flowDataCenter='" + flowDataCenter + "' where groupId='" + groupId + "' and flowName='" + flowName + "'"
+    println(updateSql)
+
+    statement.executeUpdate(updateSql)
+    statement.close()
+  }
 
   def main(args: Array[String]): Unit = {
 

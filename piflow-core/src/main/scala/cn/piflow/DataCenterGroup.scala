@@ -302,6 +302,7 @@ class DataCenterGroupExecutionImpl(group: Group, runnerContext: Context, runner:
       }
     })
     pollingThread.start()
+    saveTaskPlan()
     //pollingThread.join()
   }
 
@@ -424,6 +425,8 @@ class DataCenterGroupExecutionImpl(group: Group, runnerContext: Context, runner:
             }
           })
           en._2._1.asInstanceOf[Flow].setDataCenter(dataCenterMap(flowName))
+          //update data center of flow in task plan
+          H2Util.updateTaskPlanFlowDataCenter(this.id, flowName, flow.getDataCenter())
         }
         todosFlow += (en._1 -> en._2._1.asInstanceOf[Flow]);
       }
@@ -449,7 +452,7 @@ class DataCenterGroupExecutionImpl(group: Group, runnerContext: Context, runner:
     val timeoutMs = 18000
     val url = flow.getDataCenter() + "/flow/start"
     val doPostStr = HttpClientsUtil.doPost(url, timeoutMs, flowJson);
-    println("Code is " + doPostStr)
+    //println("Code is " + doPostStr)
 
     val doPostJson = JSON.parseObject(doPostStr)
     val appId : String = doPostJson.getJSONObject("flow").getString("id")
@@ -469,6 +472,64 @@ class DataCenterGroupExecutionImpl(group: Group, runnerContext: Context, runner:
 
   override def getChildCount(): Int = {
     mapGroupEntryWithConditions.size
+
+  }
+
+  def saveTaskPlan()= {
+
+    //add data center group into db
+    val groupId = this.id
+    val groupName = this.group.getGroupName()
+    val groupDataCenter = ""
+    H2Util.addTaskPlanGroup(groupId,groupName,groupDataCenter)
+
+    mapGroupEntryWithConditions.foreach(en => println("hello data center flow: " + en._1 + "!!!!!!!!!!!"))
+
+    mapGroupEntryWithConditions.foreach{en => {
+        //add data center flow into db
+        val flowId = UUID.randomUUID().toString
+        val flow = en._2._1.asInstanceOf[Flow]
+        val flowName = en._1
+        val flowDataCenter = flow.getDataCenter()
+        H2Util.addTaskPlanFlow(id,groupId,flowName,flowDataCenter)
+
+        //add data center condition into db
+        if(incomingEdges.contains(flowName)){
+          val flowIncomingEdge = incomingEdges(flowName)
+          flowIncomingEdge.foreach( edge => {
+            val id = UUID.randomUUID().toString
+            val upstreamFlowName = edge.stopFrom
+            val flowOutport = edge.outport
+            val flowInport = edge.inport
+            val downstreamFlowName = edge.stopTo
+            H2Util.addTaskPlanCondition(id,groupId,upstreamFlowName,flowOutport,flowInport,downstreamFlowName)
+          })
+        }
+
+
+        val flowJson = flow.getFlowJson()
+        val flowJSONObject = JSON.parseObject(flowJson)
+        //add data center stop into db
+        val stopsJSONArray = flowJSONObject.getJSONObject("flow").getJSONArray("stops")
+        for (index <- 0 until stopsJSONArray.size()) {
+          val stopJSONObject = stopsJSONArray.getJSONObject(index)
+          val id = UUID.randomUUID().toString
+          val stopName = stopJSONObject.getString("name")
+          val stopDataCenter = flowDataCenter
+          H2Util.addTaskPlanStop(id,flowName,stopName,stopDataCenter)
+        }
+        //add data center path into db
+        val pathsJSONArray = flowJSONObject.getJSONObject("flow").getJSONArray("paths")
+        for (index <- 0 until pathsJSONArray.size()) {
+          val pathJSONObject = pathsJSONArray.getJSONObject(index)
+          val id = UUID.randomUUID().toString
+          val fromStop = pathJSONObject.getString("from")
+          val outport = pathJSONObject.getString("outport")
+          val inport = pathJSONObject.getString("inport")
+          val toStop = pathJSONObject.getString("to")
+          H2Util.addTaskPlanPath(id,flowId,fromStop,outport,inport,toStop)
+        }
+      }}
 
   }
 }
