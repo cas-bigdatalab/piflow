@@ -41,7 +41,7 @@
 * Hadoop-2.6.0 
 
 ## 开始
-### Build PiFlow:  
+### Build πFlow:  
 - `install external package`
           
           mvn install:install-file -Dfile=/../piflow/piflow-bundle/lib/spark-xml_2.11-0.4.2.jar -DgroupId=com.databricks -DartifactId=spark-xml_2.11 -Dversion=0.4.2 -Dpackaging=jar
@@ -69,7 +69,7 @@
           [INFO] ------------------------------------------------------------------------
 
 
-### 运行 Piflow Server：
+### 运行 πflow Server：
 
 - `Intellij上运行PiFlow Server`:   
   - 下载 piflow: git clone https://github.com/cas-bigdatalab/piflow.git
@@ -145,7 +145,7 @@
       #h2db port
       h2.port=50002
   
-### 运行PiFlow Web请到如下链接，PiFlow Server 与 PiFlow Web版本要对应：
+### 运行πFlow Web请到如下链接，πFlow Server 与 πFlow Web版本要对应：
   - https://github.com/cas-bigdatalab/piflow-web/releases/tag/v1.0  
   
   
