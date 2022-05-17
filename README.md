@@ -74,7 +74,7 @@
           [INFO] Final Memory: 118M/691M
           [INFO] ------------------------------------------------------------------------
 
-### Run Piflow Server：
+### Run πFlow Server：
 
 - `run piflow server on Intellij`:   
   - download piflow: git clone https://github.com/cas-bigdatalab/piflow.git
@@ -149,7 +149,7 @@
       h2.port=50002
 
   
-### Run Piflow Web：
+### Run πFlow Web：
   - Visit address, download the corresponding *.tar.gz file, and modify the corresponding configuration file（`The version must be consistent with piflow-server`） 
     - https://github.com/cas-bigdatalab/piflow-web/releases/tag/v1.2 
   
