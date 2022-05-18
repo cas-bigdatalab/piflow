@@ -5,7 +5,7 @@ import org.apache.http.entity.StringEntity
 import org.apache.http.impl.client.HttpClients
 import org.apache.http.util.EntityUtils
 
-object HTTPClientStopFlowGroup {
+object HTTPClientStopDataCenterFlow {
   def main(args: Array[String]): Unit = {
     val json = """{"groupId":"group_efffb19e-e28d-4690-a52d-77ae9a74b6c5"}"""
     val url = "http://10.0.90.119:8001/datacenter/flow/stop"
