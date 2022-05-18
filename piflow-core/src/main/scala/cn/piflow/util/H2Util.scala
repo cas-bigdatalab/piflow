@@ -16,7 +16,7 @@ import scala.util.control.Breaks.{break, breakable}
 
 object H2Util {
 
-  val QUERY_TIME = 300
+  val QUERY_TIME = 3000
   //val CREATE_PROJECT_TABLE = "create table if not exists project (id varchar(255), name varchar(255), state varchar(255), startTime varchar(255), endTime varchar(255))"
   val CREATE_GROUP_TABLE = "create table if not exists flowGroup (id varchar(255), parentId varchar(255), name varchar(255), state varchar(255), startTime varchar(255), endTime varchar(255), childCount int)"
   val CREATE_FLOW_TABLE = "create table if not exists flow (id varchar(255), groupId varchar(255), pid varchar(255), name varchar(255), state varchar(255), startTime varchar(255), endTime varchar(255))"
@@ -982,14 +982,7 @@ object H2Util {
     datasize
   }
 
-  /*
-  create table if not exists taskplan_group (id varchar(255), groupName varchar(255), groupDataCenter varchar(255))
-create table if not exists taskplan_flow (id varchar(255), groupId varchar(255), flowName varchar(255), flowDataCenter varchar(255))
-create table if not exists taskplan_condition (id varchar(255), groupId varchar(255), upstreamFlowName varchar(255), flowOutport varchar(255), flowInport varchar(255), downstreamFlowName varchar(255))
-create table if not exists taskplan_stop (id varchar(255), flowId varchar(255), stopName varchar(255), stopDataCenter varchar(255))
-create table if not exists taskplan_path (id varchar(255), flowId varchar(255), fromStop varchar(255), outport varchar(255), inport varchar(255), toStop varchar(255))
 
-  */
 
   //datacenter's task plan related API
   def addTaskPlanGroup(groupId:String,groupName:String,groupDataCenter:String) = {
@@ -1042,6 +1035,117 @@ create table if not exists taskplan_path (id varchar(255), flowId varchar(255), 
     statement.executeUpdate(updateSql)
     statement.close()
   }
+  def getTaskPlan(groupId:String) : String = {
+    val statement = getConnectionInstance().createStatement()
+    statement.setQueryTimeout(QUERY_TIME)
+
+
+    var flowGroupInfoMap = Map[String, Any]()
+
+    val flowGroupRS : ResultSet = statement.executeQuery("select * from taskplan_group where id='" + groupId +"'")
+    while (flowGroupRS.next()){
+
+      flowGroupInfoMap += ("id" -> flowGroupRS.getString("id"))
+      flowGroupInfoMap += ("name" -> flowGroupRS.getString("groupName"))
+      flowGroupInfoMap += ("dataCenter" -> flowGroupRS.getString("groupDataCenter"))
+    }
+    flowGroupRS.close()
+
+    flowGroupInfoMap += ("flows" -> getTaskPlanFlowInfoMap(groupId))
+    flowGroupInfoMap += ("conditions" -> getTaskPlanConditionsList(groupId))
+
+    statement.close()
+
+    val taskPlanMap = Map[String, Any]("group" -> flowGroupInfoMap)
+    JsonUtil.format(JsonUtil.toJson(taskPlanMap))
+
+  }
+
+  private def getTaskPlanFlowInfoMap(groupId:String) = {
+
+    val statement = getConnectionInstance().createStatement()
+    statement.setQueryTimeout(QUERY_TIME)
+
+    var taskPlanFlowInfoMap = Map[String, Any]()
+    var flowInfoList:List[Map[String, Any]] = List()
+    var flowIdList:List[String] = List()
+    //get flow basic info
+    val flowRS : ResultSet = statement.executeQuery("select * from taskplan_flow where groupId='group_9f497ee5-56a1-42e5-8555-fa427ab49c34'")
+    while (flowRS.next()){
+      flowIdList = flowRS.getString("id") +: flowIdList
+    }
+    flowRS.close()
+    statement.close()
+
+    flowIdList.foreach{ id => {
+      val statement = getConnectionInstance().createStatement()
+      statement.setQueryTimeout(QUERY_TIME)
+
+      val flowRS : ResultSet = statement.executeQuery("select * from taskplan_flow where id='" + id + "'")
+      if(flowRS.next()){
+        var flowInfoMap = Map[String, Any]()
+        val flowId = flowRS.getString("id")
+        flowInfoMap += ("name" -> flowRS.getString("flowName"))
+        flowInfoMap += ("dataCenter") -> flowRS.getString("flowDataCenter")
+
+        //get flow stops info
+        var stopList:List[Map[String, Any]] = List()
+        val stopRS : ResultSet = statement.executeQuery("select * from taskplan_stop where flowId='" + flowId +"'")
+        while(stopRS.next()){
+          var stopMap = Map[String, Any]()
+          stopMap += ("name" -> stopRS.getString("stopName"))
+          stopMap += ("dataCenter" -> stopRS.getString("stopDataCenter"))
+          stopList = Map("stop" -> stopMap) +: stopList
+        }
+        stopRS.close()
+        flowInfoMap += ("stops" -> stopList)
+
+        //get flow path info
+        var pathList:List[Map[String, Any]] = List()
+        val pathRS : ResultSet = statement.executeQuery("select * from taskplan_path where flowId='" + flowId +"'")
+        while(pathRS.next()){
+          var pathMap = Map[String, Any]()
+          pathMap += ("fromStop" -> pathRS.getString("fromStop"))
+          pathMap += ("outport" -> pathRS.getString("outport"))
+          pathMap += ("inport" -> pathRS.getString("inport"))
+          pathMap += ("toStop" -> pathRS.getString("toStop"))
+          pathList = Map("path" -> pathMap) +: stopList
+        }
+        pathRS.close()
+        flowInfoMap += ("paths" -> pathList)
+
+        flowInfoList = Map("flow" -> flowInfoMap) +: flowInfoList
+      }
+      flowRS.close()
+      statement.close()
+    }}
+
+    flowInfoList
+  }
+  private def getTaskPlanConditionsList(groupId:String) = {
+
+    val statement = getConnectionInstance().createStatement()
+    statement.setQueryTimeout(QUERY_TIME)
+
+    //var taskPlanConditionInfoMap = Map[String, Any]()
+
+    //get condition info
+    var conditionList:List[Map[String, Any]] = List()
+    val conditionRS : ResultSet = statement.executeQuery("select * from taskplan_condition where groupId='" + groupId +"'")
+    while (conditionRS.next()){
+
+      var conditionMap = Map[String, Any]()
+      conditionMap += ("upstreamFlowName" -> conditionRS.getString("upstreamFlowName"))
+      conditionMap += ("flowOutport" -> conditionRS.getString("flowOutport"))
+      conditionMap += ("flowInport" -> conditionRS.getString("flowInport"))
+      conditionMap += ("downstreamFlowName" -> conditionRS.getString("downstreamFlowName"))
+      conditionList = Map("condition" -> conditionMap) +: conditionList
+    }
+    conditionRS.close()
+
+    conditionList
+
+  }
 
   def main(args: Array[String]): Unit = {
 
@@ -1066,24 +1170,66 @@ create table if not exists taskplan_path (id varchar(255), flowId varchar(255), 
     }catch {
       case ex => println(ex)
     }*/
-    val needStopSchedule = H2Util.getNeedStopSchedule()
-    if (args.size != 1){
-      println("Error args!!! Please enter Clean or UpdateToVersion6")
+    /*val statement = getConnectionInstance().createStatement()
+    statement.setQueryTimeout(QUERY_TIME)
+
+    var taskPlanFlowInfoMap = Map[String, Any]()
+    var flowInfoList:List[Map[String, Any]] = List()
+    var flowIdList:List[String] = List()
+    //get flow basic info
+    val flowRS : ResultSet = statement.executeQuery("select * from taskplan_flow where groupId='group_9f497ee5-56a1-42e5-8555-fa427ab49c34'")
+    while (flowRS.next()){
+      flowIdList = flowRS.getString("id") +: flowIdList
     }
-    /*val operation =  args(0)
-    if(operation == "Clean"){
-      cleanDatabase()
-    }else if( operation == "UpdateToVersion6"){
-      updateToVersion6()
-    }else{
-      println("Error args!!! Please enter Clean or UpdateToVersion6")
-    }*/
+    flowRS.close()
+    statement.close()
 
-    //println(getFlowGroupInfo("group_9b41bab2-7c3a-46ec-b716-93b636545e5e"))
+    flowIdList.foreach{ id => {
+      val statement = getConnectionInstance().createStatement()
+      statement.setQueryTimeout(QUERY_TIME)
 
-    //val flowInfoMap = getFlowInfoMap("application_1544066083705_0864")
-    //val flowJsonObject = JsonUtil.toJson(flowInfoMap)
-    //println(JsonUtil.format(flowJsonObject))
+      val flowRS : ResultSet = statement.executeQuery("select * from taskplan_flow where id='" + id + "'")
+      if(flowRS.next()){
+        var flowInfoMap = Map[String, Any]()
+        val flowId = flowRS.getString("id")
+        flowInfoMap += ("name" -> flowRS.getString("flowName"))
+        flowInfoMap += ("dataCenter") -> flowRS.getString("flowDataCenter")
+
+        //get flow stops info
+        var stopList:List[Map[String, Any]] = List()
+        val stopRS : ResultSet = statement.executeQuery("select * from taskplan_stop where flowId='" + flowId +"'")
+        while(stopRS.next()){
+          var stopMap = Map[String, Any]()
+          stopMap += ("name" -> stopRS.getString("stopName"))
+          stopMap += ("dataCenter" -> stopRS.getString("stopDataCenter"))
+          stopList = Map("stop" -> stopMap) +: stopList
+        }
+        stopRS.close()
+        flowInfoMap += ("stops" -> stopList)
+
+        //get flow path info
+        var pathList:List[Map[String, Any]] = List()
+        val pathRS : ResultSet = statement.executeQuery("select * from taskplan_path where flowId='" + flowId +"'")
+        while(pathRS.next()){
+          var pathMap = Map[String, Any]()
+          pathMap += ("fromStop" -> pathRS.getString("fromStop"))
+          pathMap += ("outport" -> pathRS.getString("outport"))
+          pathMap += ("inport" -> pathRS.getString("inport"))
+          pathMap += ("toStop" -> pathRS.getString("toStop"))
+          pathList = Map("path" -> pathMap) +: stopList
+        }
+        pathRS.close()
+        flowInfoMap += ("paths" -> pathList)
+
+        flowInfoList = Map("flow" -> flowInfoMap) +: flowInfoList
+      }
+      flowRS.close()
+      statement.close()
+    }}
+
+    flowInfoList*/
+    val str = getTaskPlan("group_9f497ee5-56a1-42e5-8555-fa427ab49c34")
+    println(str)
   }
 
 }

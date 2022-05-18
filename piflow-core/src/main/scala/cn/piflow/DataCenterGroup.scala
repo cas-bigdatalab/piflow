@@ -491,7 +491,7 @@ class DataCenterGroupExecutionImpl(group: Group, runnerContext: Context, runner:
         val flow = en._2._1.asInstanceOf[Flow]
         val flowName = en._1
         val flowDataCenter = flow.getDataCenter()
-        H2Util.addTaskPlanFlow(id,groupId,flowName,flowDataCenter)
+        H2Util.addTaskPlanFlow(flowId,groupId,flowName,flowDataCenter)
 
         //add data center condition into db
         if(incomingEdges.contains(flowName)){
@@ -516,7 +516,7 @@ class DataCenterGroupExecutionImpl(group: Group, runnerContext: Context, runner:
           val id = UUID.randomUUID().toString
           val stopName = stopJSONObject.getString("name")
           val stopDataCenter = flowDataCenter
-          H2Util.addTaskPlanStop(id,flowName,stopName,stopDataCenter)
+          H2Util.addTaskPlanStop(id,flowId,stopName,stopDataCenter)
         }
         //add data center path into db
         val pathsJSONArray = flowJSONObject.getJSONObject("flow").getJSONArray("paths")

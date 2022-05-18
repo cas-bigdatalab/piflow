@@ -269,8 +269,8 @@ object API {
 
   }
 
-  def getDynamicDataCenterFlowTaskPlan(groupId : String) : String = {
-    null
+  def getDataCenterFlowTaskPlan(groupId : String) : String = {
+    H2Util.getTaskPlan(groupId)
   }
 
   def startFlow(flowJson : String):(String,SparkAppHandle) = {
