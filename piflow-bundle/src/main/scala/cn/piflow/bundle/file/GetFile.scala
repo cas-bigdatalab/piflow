@@ -14,6 +14,8 @@ class GetFile extends ConfigurableStop{
   val inportList: List[String] = List(Port.DefaultPort)
   val outportList: List[String] = List(Port.DefaultPort)
 
+  override  val isDataSource = true
+
   var IP :String= _
   var User :String= _
   var PassWord :String = _

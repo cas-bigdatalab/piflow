@@ -208,7 +208,12 @@ class DataCenterFlowBean{
       flowBean.paths = pathBeanList
 
       //TODO: modify the dataCenter!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-      flowBean.dataCenter = stopBeanList(0).dataCenter
+      stopBeanList.foreach(stop => {
+        if(stop.dataCenter != ""){
+          flowBean.dataCenter = stop.dataCenter
+        }
+      })
+
 
       //DataCenterGroupBean
       flowBeanList = flowBean +: flowBeanList

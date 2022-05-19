@@ -15,6 +15,8 @@ class OracleRead extends ConfigurableStop{
   override val inportList: List[String] = List(Port.DefaultPort)
   override val outportList: List[String] = List(Port.DefaultPort)
 
+  override  val isDataSource = true
+
   var url:String = _
   var user:String = _
   var password:String = _

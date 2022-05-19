@@ -19,6 +19,8 @@ class ReadHbase extends ConfigurableStop{
   override val inportList: List[String] = List(Port.DefaultPort)
   override val outportList: List[String] = List(Port.DefaultPort)
 
+  override  val isDataSource = true
+
   var quorum :String= _
   var port :String = _
   var znodeParent:String= _

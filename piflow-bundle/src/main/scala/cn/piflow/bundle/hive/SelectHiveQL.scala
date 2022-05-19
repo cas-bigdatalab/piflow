@@ -17,6 +17,8 @@ class SelectHiveQL extends ConfigurableStop {
   val inportList: List[String] = List(Port.DefaultPort)
   val outportList: List[String] = List(Port.DefaultPort)
 
+  override  val isDataSource = true
+
   var hiveQL:String = _
 
   def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
@@ -47,6 +49,7 @@ class SelectHiveQL extends ConfigurableStop {
       .required(true)
       .language(Language.Sql)
       .example("select * from test.user1")
+
     descriptor = hiveQL :: descriptor
     descriptor
   }

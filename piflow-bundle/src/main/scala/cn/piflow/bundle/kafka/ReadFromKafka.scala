@@ -22,6 +22,9 @@ class ReadFromKafka extends ConfigurableStop{
   val description: String = "Read data from kafka"
   val inportList: List[String] = List(Port.DefaultPort)
   val outportList: List[String] = List(Port.DefaultPort)
+
+  override  val isDataSource = true
+
   var kafka_host:String =_
   var topic:String=_
   var schema:String=_

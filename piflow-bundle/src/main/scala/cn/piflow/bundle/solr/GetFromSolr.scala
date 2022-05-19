@@ -25,6 +25,8 @@ class GetFromSolr extends ConfigurableStop{
   val inportList: List[String] = List(Port.DefaultPort)
   val outportList: List[String] = List(Port.DefaultPort)
 
+  override  val isDataSource = true
+
   var solrURL:String=_
   var SolrCollection:String=_
   var q:String=_

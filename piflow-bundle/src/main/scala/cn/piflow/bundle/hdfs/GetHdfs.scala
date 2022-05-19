@@ -13,6 +13,8 @@ class GetHdfs extends ConfigurableStop{
   override val inportList: List[String] = List(Port.DefaultPort)
   override val outportList: List[String] = List(Port.DefaultPort)
 
+  override  val isDataSource = true
+
   var hdfsUrl : String=_
   var hdfsPath :String= _
   var types :String = _

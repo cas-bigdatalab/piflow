@@ -15,6 +15,8 @@ class CsvParser extends ConfigurableStop{
   val inportList: List[String] = List(Port.DefaultPort)
   val outportList: List[String] = List(Port.DefaultPort)
 
+  override  val isDataSource = true
+
   var csvPath: String = _
   var header: Boolean = _
   var delimiter: String = _

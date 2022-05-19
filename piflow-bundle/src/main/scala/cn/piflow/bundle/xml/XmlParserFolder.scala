@@ -22,6 +22,8 @@ class XmlParserFolder extends ConfigurableStop{
   val inportList: List[String] = List(Port.DefaultPort)
   val outportList: List[String] = List(Port.DefaultPort)
 
+  override  val isDataSource = true
+
   var rowTag:String = _
   var xmlpath:String = _
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {

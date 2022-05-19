@@ -12,6 +12,8 @@ class GetMongoDB extends ConfigurableStop{
   val inportList: List[String] = List(Port.DefaultPort)
   val outportList: List[String] = List(Port.DefaultPort)
 
+  override  val isDataSource = true
+
   var ip:String=_
   var port:String=_
   var dataBase:String=_

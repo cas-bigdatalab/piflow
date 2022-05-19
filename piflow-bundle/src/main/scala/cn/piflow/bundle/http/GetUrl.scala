@@ -25,6 +25,7 @@ class GetUrl extends ConfigurableStop{
   override val inportList: List[String] = List(Port.DefaultPort)
   override val outportList: List[String] = List(Port.DefaultPort)
 
+  override  val isDataSource = true
 
   var url :String= _
   var httpAcceptTypes :String = _

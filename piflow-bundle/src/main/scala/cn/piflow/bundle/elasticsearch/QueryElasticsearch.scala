@@ -13,6 +13,8 @@ class QueryElasticsearch extends ConfigurableStop {
   val inportList: List[String] = List(Port.DefaultPort)
   val outportList: List[String] = List(Port.DefaultPort)
 
+  override  val isDataSource = true
+
   var es_nodes : String =  _
   var es_port  : String  =  _
   var es_index : String =  _

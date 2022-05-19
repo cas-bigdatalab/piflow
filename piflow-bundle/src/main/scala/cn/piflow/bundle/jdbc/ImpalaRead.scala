@@ -19,6 +19,8 @@ class ImpalaRead extends ConfigurableStop{
   val inportList: List[String] = List(Port.DefaultPort)
   val outportList: List[String] = List(Port.DefaultPort)
 
+  override  val isDataSource = true
+
   var url:String=_
   var user:String=_
   var password:String=_

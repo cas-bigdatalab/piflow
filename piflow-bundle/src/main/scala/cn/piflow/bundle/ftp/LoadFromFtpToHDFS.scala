@@ -21,6 +21,8 @@ class LoadFromFtpToHDFS extends ConfigurableStop{
   override val inportList: List[String] = List(Port.DefaultPort)
   override val outportList: List[String] = List(Port.DefaultPort)
 
+  override  val isDataSource = true
+
   var ftp_url:String =_
   var port:String=_
   var username:String=_

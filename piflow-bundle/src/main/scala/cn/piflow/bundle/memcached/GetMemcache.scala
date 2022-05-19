@@ -19,6 +19,8 @@ class GetMemcache extends ConfigurableStop{
   val inportList: List[String] = List(Port.DefaultPort.toString)
   val outportList: List[String] = List(Port.DefaultPort.toString)
 
+  override  val isDataSource = true
+
   var servers:String=_            //Server address and port number,If you have multiple servers, use "," segmentation.
   var keyFile:String=_            //The field you want to use as a query condition
   var weights:String=_            //Weight of each server
