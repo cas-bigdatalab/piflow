@@ -252,7 +252,13 @@ object H2Util {
       flowInfoMap += ("state" -> flowRS.getString("state"))
       flowInfoMap += ("startTime" -> flowRS.getString("startTime"))
       flowInfoMap += ("endTime" -> flowRS.getString("endTime"))
-      flowInfoMap += ("dataCenter" -> flowRS.getString("dataCenter"))
+      if(flowInfoMap.contains("dataCenter") ){
+        if(flowInfoMap("dataCenter") == null)
+          flowInfoMap += ("dataCenter" -> flowRS.getString("dataCenter"))
+      }else{
+        flowInfoMap += ("dataCenter" -> flowRS.getString("dataCenter"))
+      }
+
       flowInfoMap += ("progress" -> progress)
     }
     flowRS.close()
@@ -1228,8 +1234,9 @@ object H2Util {
     }}
 
     flowInfoList*/
-    val str = getTaskPlan("group_9f497ee5-56a1-42e5-8555-fa427ab49c34")
-    println(str)
+    //val str = getTaskPlan("group_9f497ee5-56a1-42e5-8555-fa427ab49c34")
+    //println(str)
+    val t = getFlowInfoMap("local-1593669132968")
   }
 
 }
