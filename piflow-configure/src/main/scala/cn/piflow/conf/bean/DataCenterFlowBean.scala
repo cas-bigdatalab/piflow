@@ -50,7 +50,7 @@ class DataCenterFlowBean{
     val ends = stops.keySet.filterNot(outgoingEdges.contains(_));
     val visited = MMap[String, String]();
     for(i <-  1 to flowCount){
-      val flowName = "flow_" + (flowCount - i + 1)
+      val flowName = flow.name + "_ChildFlow_" + (flowCount - i + 1)
       val iteratorStop = ends.diff(visited.keySet).iterator.next()
       _visitStop(flow, iteratorStop, visited, flowName)
     }
@@ -61,7 +61,7 @@ class DataCenterFlowBean{
     for(i <- 1 to flowCount){
 
       //construct flowBean
-      val flowName = "flow_" + i
+      val flowName = flow.name + "_ChildFlow_" + i
       val flowBean = getFlowBean("",flowName )
       var stopBeanList =  List[StopBean]()
       var pathBeanList = List[PathBean]()
@@ -181,7 +181,7 @@ class DataCenterFlowBean{
     val ends = stops.keySet.filterNot(outgoingEdges.contains(_));
     val visited = MMap[String, String]();
     for(i <-  1 to flowCount){
-      val flowName = "flow_" + (flowCount - i + 1)
+      val flowName = flow.name + "_ChildFlow_" + (flowCount - i + 1)
       val iteratorStop = ends.diff(visited.keySet).iterator.next()
       _visitStop(flow, iteratorStop, visited, flowName)
     }
@@ -191,7 +191,7 @@ class DataCenterFlowBean{
     for(i <- 1 to flowCount){
 
       //construct flowBean,StopBean and PathBean
-      val flowName = "flow_" + i
+      val flowName = flow.name + "_ChildFlow_" + i
       val flowBean = getFlowBean("",flowName )
       var stopBeanList =  List[StopBean]()
       var pathBeanList = List[PathBean]()

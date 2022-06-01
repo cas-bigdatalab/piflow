@@ -196,15 +196,15 @@ class DataCenterGroupExecutionImpl(group: Group, runnerContext: Context, runner:
     }
 
     def addFlowInfo(groupId:String, appId: String, flowName:String, dataCenter:String) : Unit = {
-      val flowState = H2Util.getFlowState(appId)
-      if (flowState.length <= 0) {
+      val isFlowExist = H2Util.isFlowExist(appId)
+      if (isFlowExist == false) {
         val time = new Date().toString
         H2Util.addFlow(appId, "", flowName)
         H2Util.updateFlowState(appId,FlowState.STARTED)
         H2Util.updateFlowStartTime(appId,time)
-        H2Util.updateFlowGroupId(appId, groupId)
-        H2Util.updateFlowDataCenter(appId, dataCenter)
       }
+      H2Util.updateFlowGroupId(appId, groupId)
+      H2Util.updateFlowDataCenter(appId, dataCenter)
     }
 
     def onDataCenterProcessFinished(appId: String) : Unit = {

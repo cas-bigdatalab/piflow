@@ -159,6 +159,19 @@ object H2Util {
     statement.executeUpdate(updateSql)
     statement.close()
   }
+  def isFlowExist(appId:String) : Boolean = {
+    var isExist = false
+    val statement = getConnectionInstance().createStatement()
+    statement.setQueryTimeout(QUERY_TIME)
+    val rs : ResultSet = statement.executeQuery("select * from flow where id='" + appId +"'")
+    if(rs.next()){
+      isExist = true
+      println("Flow exist: id:" + rs.getString("id") + "\tname:" + rs.getString("name") + "\tstate:" + rs.getString("state"))
+    }
+    rs.close()
+    statement.close()
+    isExist
+  }
 
   /*def updateFlowProjectId(appId:String, ProjectId:String) = {
     val statement = getConnectionInstance().createStatement()
@@ -252,12 +265,13 @@ object H2Util {
       flowInfoMap += ("state" -> flowRS.getString("state"))
       flowInfoMap += ("startTime" -> flowRS.getString("startTime"))
       flowInfoMap += ("endTime" -> flowRS.getString("endTime"))
-      if(flowInfoMap.contains("dataCenter") ){
+      flowInfoMap += ("dataCenter" -> flowRS.getString("dataCenter"))
+      /*if(flowInfoMap.contains("dataCenter") ){
         if(flowInfoMap("dataCenter") == null)
           flowInfoMap += ("dataCenter" -> flowRS.getString("dataCenter"))
       }else{
         flowInfoMap += ("dataCenter" -> flowRS.getString("dataCenter"))
-      }
+      }*/
 
       flowInfoMap += ("progress" -> progress)
     }
@@ -640,6 +654,10 @@ object H2Util {
       statement.close()
 
       val progress:Double = (completedFlowCount.asInstanceOf[Double] + completedGroupCount.asInstanceOf[Double])/ childCount * 100
+
+      if(progress > 100){
+        println("ERROR: completedCount : " + completedFlowCount + " + completedGroupCount : " + completedGroupCount +" / totalFlowCount = " + childCount + " !!!!!!!!!!!!!!!!!!!!!!!!!!")
+      }
       return progress.toString
     }
 
