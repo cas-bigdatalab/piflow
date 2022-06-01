@@ -1,6 +1,6 @@
 package cn.piflow
 
-import cn.piflow.util.{FlowState, H2Util, HttpClientsUtil, MapUtil}
+import cn.piflow.util.{FlowState, H2Util, HttpClientsUtil, MapUtil, PropertyUtil, ServerIpUtil}
 import com.alibaba.fastjson.{JSON, JSONObject}
 import com.alibaba.fastjson.serializer.SerializerFeature
 import java.lang.Thread.UncaughtExceptionHandler
@@ -196,6 +196,7 @@ class DataCenterGroupExecutionImpl(group: Group, runnerContext: Context, runner:
     }
 
     def addFlowInfo(groupId:String, appId: String, flowName:String, dataCenter:String) : Unit = {
+
       val isFlowExist = H2Util.isFlowExist(appId)
       if (isFlowExist == false) {
         val time = new Date().toString
@@ -207,16 +208,23 @@ class DataCenterGroupExecutionImpl(group: Group, runnerContext: Context, runner:
       H2Util.updateFlowDataCenter(appId, dataCenter)
     }
 
-    def onDataCenterProcessFinished(appId: String) : Unit = {
-      val time = new Date().toString
-      H2Util.updateFlowFinishedTime(appId,time)
-      H2Util.updateFlowState(appId,FlowState.COMPLETED)
+    def onDataCenterProcessFinished(flowName:String, appId: String) : Unit = {
+      val serverIP = ServerIpUtil.getServerIp() + ":" + PropertyUtil.getPropertyValue("server.port")
+      if(!dataCenterMap(flowName).contains(serverIP)){
+        val time = new Date().toString
+        H2Util.updateFlowFinishedTime(appId,time)
+        H2Util.updateFlowState(appId,FlowState.COMPLETED)
+      }
+
     }
 
-    def onDataCenterProcessChangeState(state: String, appId: String) : Unit = {
-      val time = new Date().toString
-      //H2Util.updateFlowFinishedTime(appId,time)
-      H2Util.updateFlowState(appId,state)
+    def onDataCenterProcessChangeState(flowName:String, appId:String, state: String) : Unit = {
+      val serverIP = ServerIpUtil.getServerIp() + ":" + PropertyUtil.getPropertyValue("server.port")
+      if(!dataCenterMap(flowName).contains(serverIP)){
+        val time = new Date().toString
+        //H2Util.updateFlowFinishedTime(appId,time)
+        H2Util.updateFlowState(appId,state)
+      }
     }
 
   };
@@ -255,7 +263,7 @@ class DataCenterGroupExecutionImpl(group: Group, runnerContext: Context, runner:
               if (flowInfo.size() > 0) {
                 //update flow status
                 val flowState = flowInfo.getString("state")
-                listener.onDataCenterProcessChangeState(flowState, appId)
+                listener.onDataCenterProcessChangeState(flowName, appId,flowState)
 
                 if (flowState == "COMPLETED") {
                   completedGroupEntry(flowInfo.getString("name")) = true
@@ -271,7 +279,7 @@ class DataCenterGroupExecutionImpl(group: Group, runnerContext: Context, runner:
                       flowDataSize(flowName) = dataSize.toLong
                     }
                   }
-                  listener.onDataCenterProcessFinished(appId);
+                  listener.onDataCenterProcessFinished(flowName, appId);
                 }
               }
             }
@@ -382,7 +390,7 @@ class DataCenterGroupExecutionImpl(group: Group, runnerContext: Context, runner:
       if (flowInfo.size() > 0) {
         //update flow status
         val flowState = flowInfo.getString("state")
-        listener.onDataCenterProcessChangeState(flowState, appId)
+        listener.onDataCenterProcessChangeState(flowName, appId, flowState)
       }
       true
     }else{
