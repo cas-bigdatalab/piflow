@@ -100,7 +100,7 @@
   
 - `run piflow server by release version`:
   - download piflow.tar.gz:   
-    https://github.com/cas-bigdatalab/piflow/releases/download/v1.2/piflow-server-v1.2.tar.gz  
+    https://github.com/cas-bigdatalab/piflow/releases/download/v1.2/piflow-server-v1.3.tar.gz  
     
   - unzip piflow.tar.gz:  
     tar -zxvf piflow.tar.gz
@@ -151,7 +151,7 @@
   
 ### Run πFlow Web：
   - Visit address, download the corresponding *.tar.gz file, and modify the corresponding configuration file（`The version must be consistent with piflow-server`） 
-    - https://github.com/cas-bigdatalab/piflow-web/releases/tag/v1.2 
+    - https://github.com/cas-bigdatalab/piflow-web/releases/tag/v1.3 
   
 ### Restful API：
 
@@ -226,13 +226,13 @@
     
 ## docker-started  
   - pull piflow images  
-    docker pull registry.cn-hangzhou.aliyuncs.com/cnic_piflow/piflow:v1.2    
+    docker pull registry.cn-hangzhou.aliyuncs.com/cnic_piflow/piflow:v1.3    
     
   - show docker images  
     docker images
     
   - run a container with  piflow imageID ， all services run automatically. Please Set HOST_IP.    
-    docker run -h master -itd --env HOST_IP=\*.\*.\*.\* --name piflow-v1.2 -p 6001:6001 -p 6002:6002  [imageID]  
+    docker run -h master -itd --env HOST_IP=\*.\*.\*.\* --name piflow-v1.3 -p 6001:6001 -p 6002:6002  [imageID]  
     
   - please visit "HOST_IP:6001", it may take a while  
   
