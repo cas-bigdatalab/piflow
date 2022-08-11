@@ -99,6 +99,7 @@
   
   
 - `run piflow server by release version`:
+
   - download piflow.tar.gz:   
     https://github.com/cas-bigdatalab/piflow/releases/download/v1.2/piflow-server-v1.3.tar.gz  
     
@@ -114,6 +115,7 @@
       - vim /etc/profile  
         export PIFLOW_HOME=/yourPiflowPath  
       	export PATH=$PATH:$PIFLOW_HOME/bin  
+        
       - command   
         piflow flow start example/mockDataFlow.json  
         piflow flow stop appID  
