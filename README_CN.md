@@ -1,5 +1,5 @@
 ![](https://gitee.com/opensci/piflow/raw/master/doc/piflow-logo2.png)
-PiFlow是一个简单易用，功能强大的大数据流水线系统。
+πFlow是一个简单易用，功能强大的大数据流水线系统。
 
 ## 目录
 
@@ -35,13 +35,13 @@ PiFlow是一个简单易用，功能强大的大数据流水线系统。
 ![](https://gitee.com/opensci/piflow/raw/master/doc/architecture.png) 
 ## 要求
 * JDK 1.8
-* Spark-2.11.8
+* Scala-2.11.8
 * Apache Maven 3.1.0 
 * Spark-2.1.0 及以上版本
 * Hadoop-2.6.0 
 
 ## 开始
-### Build PiFlow:  
+### Build πFlow:  
 - `install external package`
           
           mvn install:install-file -Dfile=/../piflow/piflow-bundle/lib/spark-xml_2.11-0.4.2.jar -DgroupId=com.databricks -DartifactId=spark-xml_2.11 -Dversion=0.4.2 -Dpackaging=jar
@@ -69,7 +69,7 @@ PiFlow是一个简单易用，功能强大的大数据流水线系统。
           [INFO] ------------------------------------------------------------------------
 
 
-### 运行 Piflow Server：
+### 运行 πflow Server：
 
 - `Intellij上运行PiFlow Server`:   
   - 下载 piflow: git clone https://github.com/cas-bigdatalab/piflow.git
@@ -108,7 +108,7 @@ PiFlow是一个简单易用，功能强大的大数据流水线系统。
   - 测试 PiFlow Server
     - 设置环境变量 PIFLOW_HOME  
       - vim /etc/profile  
-        export PIFLOW_HOME=/yourPiflowPath/bin  
+        export PIFLOW_HOME=/yourPiflowPath  
       	export PATH=$PATH:$PIFLOW_HOME/bin  
         
       - 运行如下命令   
@@ -145,7 +145,7 @@ PiFlow是一个简单易用，功能强大的大数据流水线系统。
       #h2db port
       h2.port=50002
   
-### 运行PiFlow Web请到如下链接，PiFlow Server 与 PiFlow Web版本要对应：
+### 运行πFlow Web请到如下链接，πFlow Server 与 πFlow Web版本要对应：
   - https://github.com/cas-bigdatalab/piflow-web/releases/tag/v1.0  
   
   
@@ -221,18 +221,18 @@ PiFlow是一个简单易用，功能强大的大数据流水线系统。
     
 ## Docker镜像  
 
-  - 根据需求拉取不同版本PiFlow docker镜像  
-    docker pull registry.cn-hangzhou.aliyuncs.com/cnic_piflow/piflow:v1.0  
+  - 拉取Docker镜像  
+    docker pull registry.cn-hangzhou.aliyuncs.com/cnic_piflow/piflow:v1.1    
     
-  - 查看Docker镜像的信息  
+  - 查看Docker镜像的信息    
     docker images
+     
+  - 通过镜像Id运行一个Container，所有PiFlow服务会自动运行。请注意设置HOST_IP   
+    docker run -h master -itd --env HOST_IP=\*.\*.\*.\* --name piflow-v1.1 -p 6001:6001 -p 6002:6002  [imageID]  
     
-  - 通过镜像Id运行一个Container，所有PiFlow服务会自动运行. 请注意更换HOST_IP.  
-    docker run -h master -itd --env HOST_IP=\*.\*.\*.\* --name piflow-v1.0 -p 6001:6001 -p 6002:6002  [imageID]  
-    
-  - 访问 "HOST_IP:6001", 启动时间可能有些慢，需要等待几分钟   
+  - 访问 "HOST_IP:6001", 启动时间可能有些慢，需要等待几分钟
   
-  - 如果发生错误，所有应用都放在了/opt文件夹下，可自行单独启动服务
+  - if somethings goes wrong,  all the application are in /opt  folder  
   
 ## 页面展示
 - `登录`:

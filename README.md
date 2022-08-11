@@ -8,7 +8,7 @@
 
 
 πFlow is an easy to use, powerful big data pipeline system.
-Try PiFlow v0.9 with: http://piflow.cstcloud.cn/
+
 ## Table of Contents
 
 - [Features](#features)
@@ -74,7 +74,7 @@ Try PiFlow v0.9 with: http://piflow.cstcloud.cn/
           [INFO] Final Memory: 118M/691M
           [INFO] ------------------------------------------------------------------------
 
-### Run Piflow Server：
+### Run πFlow Server：
 
 - `run piflow server on Intellij`:   
   - download piflow: git clone https://github.com/cas-bigdatalab/piflow.git
@@ -99,8 +99,9 @@ Try PiFlow v0.9 with: http://piflow.cstcloud.cn/
   
   
 - `run piflow server by release version`:
-  - download piflow-server-xxx.tar.gz:   
-    https://github.com/cas-bigdatalab/piflow/releases/download/v1.1/piflow-server-v1.1.tar.gz  
+
+  - download piflow.tar.gz:   
+    https://github.com/cas-bigdatalab/piflow/releases/download/v1.2/piflow-server-v1.3.tar.gz  
     
   - unzip piflow.tar.gz:  
     tar -zxvf piflow.tar.gz
@@ -112,8 +113,9 @@ Try PiFlow v0.9 with: http://piflow.cstcloud.cn/
   - test piflow server
     - set PIFLOW_HOME  
       - vim /etc/profile  
-        export PIFLOW_HOME=/../yourPiflowPath  
+        export PIFLOW_HOME=/yourPiflowPath  
       	export PATH=$PATH:$PIFLOW_HOME/bin  
+        
       - command   
         piflow flow start example/mockDataFlow.json  
         piflow flow stop appID  
@@ -149,9 +151,9 @@ Try PiFlow v0.9 with: http://piflow.cstcloud.cn/
       h2.port=50002
 
   
-### Run Piflow Web：
+### Run πFlow Web：
   - Visit address, download the corresponding *.tar.gz file, and modify the corresponding configuration file（`The version must be consistent with piflow-server`） 
-    - https://github.com/cas-bigdatalab/piflow-web/releases/tag/v1.1  
+    - https://github.com/cas-bigdatalab/piflow-web/releases/tag/v1.3 
   
 ### Restful API：
 
@@ -226,13 +228,13 @@ Try PiFlow v0.9 with: http://piflow.cstcloud.cn/
     
 ## docker-started  
   - pull piflow images  
-    docker pull registry.cn-hangzhou.aliyuncs.com/cnic_piflow/piflow:v1.1    
+    docker pull registry.cn-hangzhou.aliyuncs.com/cnic_piflow/piflow:v1.3    
     
   - show docker images  
     docker images
     
   - run a container with  piflow imageID ， all services run automatically. Please Set HOST_IP.    
-    docker run -h master -itd --env HOST_IP=\*.\*.\*.\* --name piflow-v1.1 -p 6001:6001 -p 6002:6002  [imageID]  
+    docker run -h master -itd --env HOST_IP=\*.\*.\*.\* --name piflow-v1.3 -p 6001:6001 -p 6002:6002  [imageID]  
     
   - please visit "HOST_IP:6001", it may take a while  
   

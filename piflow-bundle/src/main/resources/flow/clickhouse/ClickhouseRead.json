@@ -1,0 +1,34 @@
+{
+  "flow": {
+    "environmentVariable": {
+      "${SCHEMA}": "id:Int,name:String,age:Int",
+      "${SPARK_HOME_TEST}": "\/data\/test"
+    },
+    "name": "testClickhouse",
+    "executorMemory": "1g",
+    "executorNumber": "1",
+    "uuid": "ca1e7b0e2ac844178d5e1c002e3b5211",
+    "paths": [
+
+    ],
+    "executorCores": "1",
+    "driverMemory": "1g",
+    "stops": [
+      {
+        "name": "ClickhouseRead",
+        "bundle": "cn.piflow.bundle.clickhouse.ClickhouseRead",
+        "uuid": "12af53d2f7fd42179d3586e1f7efb570",
+        "properties": {
+          "sql": "select * from default.test",
+          "url": "jdbc:clickhouse:\/\/10.0.90.97:8123\/default",
+          "driver": "ru.yandex.clickhouse.ClickHouseDriver",
+          "user": "",
+          "password": ""
+        },
+        "customizedPropertiess": {
+
+        }
+      }
+    ]
+  }
+}
