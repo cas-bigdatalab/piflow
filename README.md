@@ -113,8 +113,8 @@
   - test piflow server
     - set PIFLOW_HOME  
       - vim /etc/profile  
-        export PIFLOW_HOME=/yourPiflowPath  
-      	export PATH=$PATH:$PIFLOW_HOME/bin  
+        export PIFLOW_HOME=/yourPiflowPath/bin  
+      	 export PATH=$PATH:$PIFLOW_HOME/bin  
         
       - command   
         piflow flow start example/mockDataFlow.json  
