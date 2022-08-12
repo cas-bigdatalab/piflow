@@ -1,0 +1,43 @@
+{
+  "flow":{
+    "name":"test",
+    "uuid":"1234",
+    "stops":[
+
+      {
+        "uuid":"1111",
+        "name":"PostgresqlRead",
+        "bundle":"cn.piflow.bundle.jdbc.PostgresqlRead",
+        "properties":{
+          "url": "jdbc:postgresql://10.0.82.191:5432/postgres",
+          "user": "postgres",
+          "password": "123456",
+          "selectedContent":"*",
+          "tableName": "test1"
+        }
+      },
+      {
+        "uuid":"1324",
+        "name":"CsvSave",
+        "bundle":"cn.piflow.bundle.csv.CsvSave",
+        "properties":{
+          "csvSavePath":"hdfs://10.0.82.191:9000/test",
+          "header": "true",
+          "delimiter":",",
+          "partition":"1",
+          "saveMode": "append"
+        }
+
+      }
+
+    ],
+    "paths":[
+      {
+        "from":"PostgresqlRead",
+        "outport":"",
+        "inport":"",
+        "to":"CsvSave"
+      }
+    ]
+  }
+}
