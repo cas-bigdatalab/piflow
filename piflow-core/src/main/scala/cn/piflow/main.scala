@@ -803,8 +803,8 @@ class ProcessImpl(flow: Flow, runnerContext: Context, runner: Runner, parentProc
           }
 
           //monitor the throughput
-          //if(PropertyUtil.getPropertyValue("monitor.throughput").toBoolean == true)
-            //runnerListener.monitorJobCompleted(pe.getContext(), outputs : JobOutputStream)
+          if(PropertyUtil.getPropertyValue("monitor.throughput").toBoolean == true)
+            runnerListener.monitorJobCompleted(pe.getContext(), outputs : JobOutputStream)
 
           runnerListener.onJobCompleted(pe.getContext());
 
