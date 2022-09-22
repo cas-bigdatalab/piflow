@@ -1,0 +1,204 @@
+<!DOCTYPE html SYSTEM "http://www.thymeleaf.org/dtd/xhtml1-strict-thymeleaf-4.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:th="http://www.thymeleaf.org">
+
+<body>
+    <div>
+        <style>
+            #tab li {
+                float: left;
+                line-height: 40px;
+                width: 50%;
+            }
+        </style>
+        <div>
+
+        </div>
+        <div style="line-height: 25px;">
+            <div id="process_property_inc_loading" style="position: absolute;top: 49%;width: 100%;text-align: center;">
+                <img src="/drawingBoard/img/fullScreen.gif" alt="loading">
+<!--                <span style="font-size: 60px;">Loading</span>-->
+            </div>
+            <div id="process_property_inc_load_fail"
+                style="position: absolute;top: 49%;width: 100%;text-align: center;display: none;">
+                <span style="font-size: 60px;">Load Fail</span>
+            </div>
+            <div id="process_property_inc_no_data"
+                style="position: absolute;top: 49%;width: 100%;text-align: center;display: none;">
+                <span style="font-size: 60px;">No Data</span>
+            </div>
+            <div id="process_property_inc_load_data" style="display: none;">
+                <ul id="tab" style="width:100%; height:40px; text-align: center;font-weight: bold;cursor: pointer;">
+                    <li id="tab1" value="1">BaseInfo</li>
+                    <li id="tab2" value="2" style="background-color: rgb(218,218,218); border-color: rgb(192,192,192);">
+                        AttributeInfo
+                    </li>
+                </ul>
+                <div id="tab_container">
+                    <div id="tab_content1" style="display:block;">
+                        <div style="padding: 10px; border-bottom: 1px solid rgb(192, 192, 192);">
+                            <div
+                                style="padding: 0px 0px 6px; white-space: nowrap; overflow: hidden; width: 200px; font-weight: bold;">
+                                Stop Basic Information
+                            </div>
+                            <input id="input_flowStopsVo_id" value="" style="display: none;">
+                            <input id="input_flowStopsVo_pageId" value="" style="display: none;">
+                            <table style="border-collapse: separate; border-spacing: 0px 5px;">
+                                <tbody>
+                                    <tr id="tr_stopsVo_name_info">
+                                        <td><span>StopsName</span></td>
+                                        <td>
+                                            ：<span id="span_stopsVo_name"></span>
+                                            <button id="btn_show_update"
+                                                style="height: 28px; width: 28px; background: rgb(245, 245, 245); border: 1px solid; margin-left: 10px;"
+                                                title="Update name" onclick="isShowUpdateStopsName(true);">
+                                                <i class="glyphicon glyphicon-floppy-saved"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    <tr id="tr_stopsVo_name_input">
+                                        <td><span>StopsName</span></td>
+                                        <td>
+                                            <input id="input_stopsVo_name" class="form-control"
+                                                style="width: 80%;display: inline;" />
+                                            <button
+                                                style="height: 28px; width: 28px; background: rgb(245, 245, 245); border: 1px solid; margin-left: 10px;"
+                                                title="Update name" onclick="updateStopsName();">
+                                                <i class="glyphicon glyphicon-saved"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td><span>Description</span></td>
+                                        <td>：<span id="span_processStopVo_description"></span></td>
+                                    </tr>
+                                    <tr>
+                                        <td><span>Groups</span></td>
+                                        <td>：<span id="span_processStopVo_groups"></span></td>
+                                    </tr>
+                                    <tr>
+                                        <td><span>Bundle</span></td>
+                                        <td>：<span id="span_flowStopsVo_bundle"></span></td>
+                                    </tr>
+                                    <tr>
+                                        <td><span>ModifyCounts</span></td>
+                                        <td>：<span id="span_flowStopsVo_version"></span></td>
+                                    </tr>
+                                    <tr>
+                                        <td><span>Owner</span></td>
+                                        <td>：<span id="span_processStopVo_owner"></span></td>
+                                    </tr>
+                                    <tr>
+                                        <td><span>CreateTime</span></td>
+                                        <td>：<span id="span_processStopVo_crtDttmString"></span></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div id="tab_content2" style="display:none;">
+                        <div id="div_datasource_html"
+                            style="padding: 10px; border-bottom: 1px solid rgb(192, 192, 192);">
+                            <table style="border-collapse: separate; border-spacing: 0px 5px;width: 100%;">
+                                <tbody>
+                                    <tr>
+                                        <td style="width: 99px;">
+                                            <span>DataSource: </span>
+                                        </td>
+                                        <td style="width: 25px;">
+                                            <img src="/drawingBoard/img/descIcon.png" class="" title="Fill Datasoure"
+                                                style="cursor: pointer;">
+                                        </td>
+                                        <td>
+                                            <div id="datasourceDivElement" style="float: left;width: 100%;">
+                                                <select id="datasourceSelectElement" class="form-control"
+                                                    style="height: 32px;">
+                                                    <option value="" selected="selected"></option>
+                                                </select>
+                                            </div>
+                                        </td>
+<!--                                        <td style="width: 37px;text-align: right;">-->
+<!--                                            <div style="float: left;width: 2%;">-->
+<!--                                                <button class="btn" onclick="openDatasourceList()"-->
+<!--                                                    style="margin-left: 2px;">-->
+<!--                                                    <i class="glyphicon glyphicon-edit"></i>-->
+<!--                                                </button>-->
+<!--                                            </div>-->
+<!--                                        </td>-->
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div id="div_propertiesVo_html"
+                            style="padding: 10px; border-bottom: 1px solid rgb(192, 192, 192);">
+                            <table id="div_propertiesVo_table"
+                                style="border-collapse: separate; border-spacing: 0px 5px;width: 100%">
+
+                            </table>
+                        </div>
+                        <div id="div_customized_html">
+                            <div style="border-collapse: separate; border-spacing: 0px 5px; width: 100%;">
+                                <div style="margin-left:10px;float: left;line-height: 34px;">Add Custom Property</div>
+                                <div style="margin-right:10px;float: right;text-align: right;">
+                                    <a id="div_a_customized_html" class="btn"
+                                        href="javascript:openAddStopCustomAttrPage();"><i
+                                            class="glyphicon glyphicon-plus"></i></a>
+                                </div>
+                            </div>
+                            <hr>
+                            <table style="border-collapse: separate; border-spacing: 0px 5px;width: 100%;"
+                                id="div_table_customized_html">
+                                <tbody>
+                                    <tr style="border: 1px solid #e2e2e2;">
+                                        <th colspan="2"
+                                            style="border-bottom: 1px solid #e2e2e2; width: 85px;text-align: center;">
+                                            Key</th>
+                                        <th colspan="2" style="border-bottom: 1px solid #e2e2e2;">Value</th>
+                                    </tr>
+                                    <tr>
+                                        <td style="width: 60px;">1</td>
+                                        <td style="width: 25px;">1</td>
+                                        <td></td>
+                                        <td></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div id="div_properties_example_html" style="padding: 10px; border-bottom: 1px solid rgb(192, 192, 192);">
+                            <div style="float: left;line-height: 34px;">Stops Properties Example</div>
+                            <hr>
+                            <table id="div_properties_example_table"
+                                   style="border-collapse: separate; border-spacing: 0px 5px;width: 100%">
+
+                            </table>
+                        </div>
+                        <div id="div_stops_checkpoint_html"
+                            style="padding: 10px; border-bottom: 1px solid rgb(192, 192, 192);">
+                            <span>Whether to add Checkpoint</span>
+                        </div>
+                        <div id="div_del_last_reload">
+                            <div style="line-height: 27px;margin-left: 10px;font-size: 20px;"><span>last reload
+                                    data</span>
+                                <button class="btn" style="margin-left: 2px;"
+                                    onclick="deleteLastReloadData('a9c01659979a49d3bef68e503d9b3028')">
+                                    <i class="icon-trash"></i>
+                                </button>
+                            </div>
+                            <div style="padding: 10px; border-bottom: 1px solid rgb(192, 192, 192);">
+                                <span>audioPath: </span>
+                                <img src="/drawingBoard/img/descIcon.png" class="" title="The path of audio file"
+                                    style="cursor: pointer;">
+                                <input data-toggle="true" class="form-control" id="old_d3d7173e193f47ff81222d73c7680786"
+                                    name="audioPath" locked="false" readonly="readonly"
+                                    style="cursor: pointer; background: rgb(245, 245, 245);">
+                                <span style="color:red">*</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+
+
+</html>

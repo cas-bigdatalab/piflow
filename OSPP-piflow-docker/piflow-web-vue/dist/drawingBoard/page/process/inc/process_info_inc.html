@@ -1,0 +1,62 @@
+<!DOCTYPE html SYSTEM "http://www.thymeleaf.org/dtd/xhtml1-strict-thymeleaf-4.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:th="http://www.thymeleaf.org">
+<body>
+
+<div style="line-height: 25px;">
+    <div id="process_info_inc_loading" style="position: absolute;top: 49%;width: 100%;text-align: center;">
+        <img src="/drawingBoard/img/fullScreen.gif" alt="loading">
+    </div>
+    <div id="process_info_inc_load_fail"
+         style="position: absolute;top: 49%;width: 100%;text-align: center;display: none;">
+        <span style="font-size: 60px;">Load Fail</span>
+    </div>
+    <div id="process_info_inc_no_data"
+         style="position: absolute;top: 49%;width: 100%;text-align: center;display: none;">
+        <span style="font-size: 60px;">No Data</span>
+    </div>
+    <div id="process_info_inc_load_data" style="display: none;">
+        <div style="padding: 12px 0px 12px 18px; border-bottom: 1px solid rgb(192, 192, 192);">
+            <div style="padding: 0px 0px 6px; white-space: nowrap; overflow: hidden; width: 200px; font-weight: bold;">
+                Process Basic Information
+            </div>
+            <table style="border-collapse: separate; border-spacing: 0px 5px;">
+                <tbody>
+                <tr>
+                    <td valign="top"><span>UUID ：</span></td>
+                    <td valign="top"><span id="span_processVo_id"/></td>
+                </tr>
+                <tr>
+                    <td valign="top"><span>FlowName ：</span></td>
+                    <td valign="top"><span id="span_processVo_name"/></td>
+                </tr>
+                <tr>
+                    <td valign="top"><span>Description ：</span></td>
+                    <td valign="top"><span id="span_processVo_description"/></td>
+                </tr>
+                <tr>
+                    <td valign="top"><p>CreateTime ：</p></td>
+                    <td valign="top"><span id="span_processVo_crtDttmStr"/></td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+        <div style="padding: 12px 0px 12px 18px; border-bottom: 1px solid rgb(192, 192, 192);">
+            <div style="padding: 0px 0px 6px; white-space: nowrap; overflow: hidden; width: 200px; font-weight: bold;">
+                Process Running Information
+            </div>
+            <span>StartTime ：</span>
+            <span id="processStartTimeShow"/>
+            <br>
+            <span>CompleteTime ：</span>
+            <span id="processStopTimeShow"/>
+            <br>
+            <span>State ：</span>
+            <span id="processStateShow"/>
+            <br>
+            <span>ProgressData ：</span>
+            <span id="processProgressShow"/>
+        </div>
+    </div>
+</div>
+</body>
+</html>

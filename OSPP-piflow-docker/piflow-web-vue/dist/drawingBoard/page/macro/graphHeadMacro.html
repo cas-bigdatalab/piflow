@@ -1,0 +1,29 @@
+<!DOCTYPE html SYSTEM "http://www.thymeleaf.org/dtd/xhtml1-strict-thymeleaf-4.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:th="http://www.thymeleaf.org">
+<body>
+
+<div class="fixed">
+    <a href="/piflow-web/page/index.html?accessPath=flowList" style="color: #ffffff; padding: 0px 10px;" title="">
+            <span style="color: white;position: fixed;font-size: 19px;margin-top: 4px;margin-left: -16px;">
+                <img style="width: 40px;" src="/drawingBoardimg/logo1.png"></img>
+                PiFlow Big Data Pipeline System
+            </span>
+    </a>
+    <ul class="top-menu">
+        <li class="dropdown">
+            <a class="user-menu" style="height: 100%;" data-toggle="dropdown">
+                <img src='/drawingBoardimg/userpic.png' alt=""/>
+                <span id="span_username_id">Howdy,<b class="caret"></b></span>
+            </a>
+            <ul class="dropdown-menu">
+                <li>
+                    <a href="javascript:document.logoutForm.submit();" title="Logout"><i class="icon-remove"></i>Logout</a>
+                    <form style="display: none" name="logoutForm" th:action="@{/logout}" method="post"></form>
+                </li>
+            </ul>
+        </li>
+    </ul>
+</div>
+
+</body>
+</html>

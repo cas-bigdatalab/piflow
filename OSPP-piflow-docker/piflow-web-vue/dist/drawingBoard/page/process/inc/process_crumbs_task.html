@@ -1,0 +1,50 @@
+<!DOCTYPE html SYSTEM "http://www.thymeleaf.org/dtd/xhtml1-strict-thymeleaf-4.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:th="http://www.thymeleaf.org">
+<body>
+
+
+<div>
+    <span id="web_flowList_navigation" style="display: none;">
+        <span style="color: #ffffff">
+            <a style="color: #ffffff" href="/piflow-web/page/index.html?accessPath=flowList">FlowList</a>
+        </span>
+        <span style="color: #ffffff">&gt;&gt;</span>
+    </span>
+    <span id="grapheditor_home_navigation" style="display: none;">
+        <span style="color: #ffffff;">
+            <a style="color: #ffffff" href="/piflow-web/page/flow/mxGraph/index.html?drawingBoardType=TASK&load=" + process >Flow</a>
+        </span>
+        <span style="color: #ffffff">&gt;&gt;</span>
+    </span>
+    <span id="web_processGroupList_navigation" style="display: none;">
+        <span style="color: #ffffff">
+            <a style="color: #ffffff" href="/piflow-web/page/index.html?accessPath=processAndProcessGroup">ProcessGroupList</a>
+        </span>
+        <span style="color: #ffffff">&gt;&gt;</span>
+    </span>
+    <span id="web_getProcessGroupById_navigation" style="display: none;">
+        <span style="color: #ffffff">...</span>
+        <span style="color: #ffffff">&gt;&gt;</span>
+        <span style="color: #ffffff">
+            <a style="color: #ffffff"
+               href="/piflow-web/page/processGroup/mxGraph/index.html?parentAccessPath=processGroupList&drawingBoardType=PROCESS&processType=PROCESS_GROUP&load=" + processGroupId>ProcessGroup</a>
+        </span>
+        <span style="color: #ffffff">&gt;&gt;</span>
+    </span>
+    <span id="web_groupTypeProcessList_navigation" style="display: none;">
+        <span style="color: #ffffff">
+            <a style="color: #ffffff" href="/piflow-web/web/groupTypeProcessList">FlowProcess</a>
+        </span>
+        <span style="color: #ffffff">&gt;&gt;</span>
+    </span>
+    <span id="web_processList_navigation">
+        <span style="color: #ffffff">
+            <a style="color: #ffffff" href="/piflow-web/page/index.html?accessPath=processAndProcessGroup">Process</a>
+        </span>
+        <span style="color: #ffffff">&gt;&gt;</span>
+    </span>
+    <span style="color: #ffffff; font-weight: bold">ProcessContent</span>
+</div>
+
+</body>
+</html>

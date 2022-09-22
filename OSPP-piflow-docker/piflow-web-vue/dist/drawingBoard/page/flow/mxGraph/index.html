@@ -1,0 +1,383 @@
+<!--[if IE]>
+<meta http-equiv="X-UA-Compatible" content="IE=5,IE=9"><![endif]-->
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:th="http://www.thymeleaf.org">
+
+<head>
+    <title>piflow-web</title>
+
+    <!-- 要删除的内容 end -->
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <link rel="stylesheet" type="text/css" href="/drawingBoard/components/mxGraph/styles/grapheditor.css">
+    <link rel="stylesheet" type="text/css" href="/drawingBoard/components/bootstrap/css/bootstrap.min.css">
+    <link rel="stylesheet" type="text/css" href="/drawingBoard/my_css/publicMacro.css"/>
+    <link rel="stylesheet" type="text/css" href="/drawingBoard/my_css/fullScreen.css"/>
+    <link rel="stylesheet" type="text/css" href="/drawingBoard/components/font-awesome-4.7.0/css/font-awesome.min.css"/>
+    <link rel="stylesheet" type="text/css" href="/drawingBoard/components/mxGraph/styles/grapheditor.css">
+    <link rel="stylesheet" type="text/css" href="/drawingBoard/components/bootstrap/css/bootstrap.min.css">
+    <link rel="stylesheet" type="text/css" href="/drawingBoard/components/layui/css/layui.css"/>
+    <link rel="stylesheet" type="text/css" href="/drawingBoard/css/main.css"/>
+    <link rel="shortcut icon" href="/drawingBoard/img/favicon.ico">
+
+    <script type="text/javascript" src="/drawingBoard/components/mxGraph/js/Init.js"></script>
+    <script type="text/javascript" src="/drawingBoard/components/mxGraph/deflate/pako.min.js"></script>
+    <script type="text/javascript" src="/drawingBoard/components/mxGraph/deflate/base64.js"></script>
+    <script type="text/javascript" src="/drawingBoard/components/mxGraph/jscolor/jscolor.js"></script>
+    <script type="text/javascript" src="/drawingBoard/components/mxGraph/sanitizer/sanitizer.min.js"></script>
+    <script type="text/javascript" src="/drawingBoard/components/mxGraph/js/mxClient.js"></script>
+    <script type="text/javascript" src="/drawingBoard/components/mxGraph/js/EditorUi.js"></script>
+    <script type="text/javascript" src="/drawingBoard/components/mxGraph/js/Editor.js"></script>
+    <script type="text/javascript" src="/drawingBoard/components/mxGraph/js/Sidebar.js"></script>
+    <script type="text/javascript" src="/drawingBoard/components/mxGraph/js/Graph.js"></script>
+    <script type="text/javascript" src="/drawingBoard/components/mxGraph/js/Shapes.js"></script>
+    <script type="text/javascript" src="/drawingBoard/components/mxGraph/js/Actions.js"></script>
+    <script type="text/javascript" src="/drawingBoard/components/mxGraph/js/Menus.js"></script>
+    <script type="text/javascript" src="/drawingBoard/components/mxGraph/js/Format.js"></script>
+    <script type="text/javascript" src="/drawingBoard/components/mxGraph/js/Toolbar.js"></script>
+    <script type="text/javascript" src="/drawingBoard/components/mxGraph/js/Dialogs.js"></script>
+    <script type="text/javascript" src="/drawingBoard/js/jquery/jquery.min.js"></script>
+    <!--The user drags elements, links：http://api.jqueryui.com/draggable/#method-disable/-->
+    <script type="text/javascript" src="/drawingBoard/js/jquery/jquery-ui.min.js"></script>
+    <!--Mobile device users drag elements, depending on juery-ui.min.js，links：http://touchpunch.furf.com/-->
+    <script type="text/javascript" src="/drawingBoard/js/jquery/jquery.ui.touch-punch.min.js"></script>
+    <script type="text/javascript" src="/drawingBoard/components/bootstrap/js/bootstrap.min.js"></script>
+    <script type="text/javascript" src="/drawingBoard/components/layui/layui.all.js"></script>
+    <script type="text/javascript" src='/drawingBoard/js/dataTables1.10.18/jquery.dataTables.min.js'></script>
+    <script type="text/javascript" src="/drawingBoard/js/ajaxUtils.js"></script>
+
+    <style>
+        .btn-position {
+            float: right;
+            margin-right: 8px
+        }
+
+        .btn-position .btn {
+            margin: 6px 6px 2px 0 !important;
+        }
+
+        .customize_btn_css {
+            display: inline-block;
+            padding: 6px 12px;
+            margin-bottom: 0;
+            font-size: 14px;
+            font-weight: 400;
+            text-align: center;
+            white-space: nowrap;
+            vertical-align: middle;
+            touch-action: manipulation;
+            cursor: pointer;
+            user-select: none;
+            border: 1px solid transparent;
+            border-radius: 4px;
+            background: #1A8B5F;
+            color: #ffffff;
+            height: 34px;
+            text-decoration: none;
+        }
+
+        a.customize_btn_css:hover {
+            color: #ffffff;
+        }
+
+        a.customize_btn_css:focus {
+            color: #ffffff;
+        }
+        /*#targetTitleCheckbox, #sourceTitleCheckbox{*/
+        /*    margin: 15px 0;*/
+        /*}*/
+        #targetTitleCheckbox{
+            /*margin: 15px 0;*/
+        }
+        #sourceTitleCheckbox {
+            /*padding: 0 4px;*/
+        }
+        #sourceTitleCheckbox div {
+            display: inline-block;
+            margin: 0 5px;
+        }
+        .modal-footer .btn + .btn {
+            margin: 2px 0 2px 5px!important;
+        }
+
+        #targetTitleName, #sourceTitleName{
+            /*margin-top: 15px;*/
+            margin: 15px 0;
+        }
+        .modal-body{
+            min-height: auto;
+        }
+    </style>
+</head>
+
+<body class="geEditor">
+
+    <div id="fullScreen_load_id"></div>
+    <div id="publicUserHeadMacro_load_id"></div>
+
+    <!-- run button start -->
+    <div style="width: 30.2%;top: 48px;right: 0px;height: 50px;position: absolute;z-index: 1001;">
+        <div id="graphEditor_menus_task_load_id" style="float: right;"></div>
+    </div>
+    <!-- run button end -->
+
+    <!-- crumbs start -->
+    <div style="width: 100%;position: fixed;z-index: 99999;float: left;left: 0px;bottom: 0px;text-align: center;height: 28px;line-height: 28px; background: #37714b;">
+        <div id="graphEditor_crumbs_task_load_id"></div>
+    </div>
+    <!-- crumbs end -->
+
+    <!-- stop prot create starts -->
+    <div id="portShowDiv" class="modal-content" style="display:none;width: 100%;  top: 77px">
+        <div class="modal-body">
+            <from id="portInfo1Copy">
+                <div style="width: 50%; float: left; padding: 0 10px; border-right: 1px dashed darkgray;" id="sourceTitle1Copy">
+                    <span id="sourceTitleStr1Copy" style="font-size: 20px">Source:</span>
+                    <div id="sourceTitleName"></div>
+                    <div id="sourceTitleCheckbox1Copy">
+                        port:
+                        <input type="checkbox" class="addCheckbox" checked="checked" disabled="disabled">
+                        <span class="addCheckbox">default</span>
+                    </div>
+                    <div class="layui-row" id="sourceTitleBtn1Copy" style="margin: 15px 0">
+                        <div class="layui-col-xs2">
+                          port:
+                        </div>
+                        <div class="layui-col-xs10">
+                            <input type="text" class="addCrtBtn form-control" id="sourceCrtPortId1Copy">
+                        </div>
+<!--                        <div class="layui-col-xs2">-->
+<!--                            <span class="input-group-btn">-->
+<!--                                <button id="sourceCrtPortBtnId1Copy" type="button" class="addCrtBtn btn btn-default"-->
+<!--                                    style="margin-left: 10px"-->
+<!--                                    onclick="crtAnyPort('sourceCrtPortId1Copy',true)">-->
+<!--                                    CreatePort-->
+<!--                                </button>-->
+<!--                            </span>-->
+<!--                        </div>-->
+                    </div>
+                    <div class="layui-row" id="sourceRouteFilterList1Copy">
+                        <div class="layui-col-xs10">
+                            <select id="sourceRouteFilterSelect1Copy" class="form-control" style="width: 100%;">
+                                <option value="">Please click Select Filter Country</option>
+                            </select>
+                        </div>
+                        <div class="layui-col-xs2"></div>
+                    </div>
+                    <div id="sourceTypeDiv1Copy" style="display: none;"></div>
+                </div>
+<!--                <hr />-->
+                <div style="width: 50%; float: left; padding: 0 10px;" id="targetTitle1Copy">
+                    <span id="targetTitleStr1Copy" style="font-size: 20px">Target:</span>
+                    <div id="targetTitleName"></div>
+                    <div id="targetTitleCheckbox1Copy">
+                        <span style="margin-right: 10px">port:</span>
+                        <input type="checkbox" class="addCheckbox" checked="checked" disabled="disabled">
+                        <span class="addCheckbox">default</span>
+                    </div>
+                    <div class="layui-row" id="targetTitleBtn1Copy">
+                        <div>
+                            <div class="layui-col-xs2">
+                                port:
+                            </div>
+                            <div class="layui-col-xs10">
+                                <input type="text" class="addCrtBtn form-control" id="targetCrtPortId1Copy">
+                            </div>
+<!--                            <div class="layui-col-xs2">-->
+<!--                                <span class="input-group-btn">-->
+<!--                                    <button id="targetCrtPortBtnId1Copy" type="button" class="addCrtBtn btn btn-default"-->
+<!--                                        style="margin-left: 10px"-->
+<!--                                        onclick="crtAnyPort('targetCrtPortId',true)">-->
+<!--                                        CreatePort-->
+<!--                                    </button>-->
+<!--                                </span>-->
+<!--                            </div>-->
+                        </div>
+                    </div>
+                    <div class="layui-row" id="targetRouteFilterList1Copy">
+                        <div class="layui-col-xs10">
+                            <select id="targetRouteFilterSelect1Copy" class="form-control" style="width: 100%;">
+                                <option value="">Please click Select Filter Country</option>
+                            </select>
+                        </div>
+                        <div class="layui-col-xs2">
+                        </div>
+                    </div>
+                    <div id="targetTypeDiv1Copy" style="display: none;"></div>
+                </div>
+            </from>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-default" onclick="choosePortNew()">Submit</button>
+            <button type="button" class="btn btn-default" onclick="cancelPortAndPathNew()">Cancel</button>
+        </div>
+    </div>
+    <!-- stop prot create end -->
+
+    <!--stop Property edit popover starts -->
+    <div style="display: none;" id="stopOpenTemplate">
+        <div style="height: 90%;">
+            <form class="layui-form" action="" style="height: 100%;">
+                <div class="layui-form-text" style="margin-left: 12px; text-align: center;height: 100%;">
+                    <textarea id="stopValue" placeholder="please input ..." class="layui-textarea"
+                        style="margin-left: -6px;margin-bottom: 6px;resize:none;height: 80%;"></textarea>
+                    <div style="height: 20%;">
+                        <button type="button" class="layui-btn layui-btn-primary" id="buttonStop">save
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+    <!--stop Property edit popover ends-->
+
+    <!-- 'stop' custom attribute add popup start -->
+    <div style="display: none;" id="addStopCustomizedAttrOpenTemplate">
+        <form class="layui-form" action="" style="margin: 10px;" method="post">
+            <input id="openAddCustomizedWindowStopId" name="stopId" />
+            <div class="layui-form-item">
+                <label class="layui-form-label">Key</label>
+                <div class="layui-input-block">
+                    <input type="text" style="width: 95%;" name="name" lay-verify="required"
+                        placeholder="please input key ..." class="layui-input" />
+                </div>
+            </div>
+            <div class="layui-form-item">
+                <label class="layui-form-label">CustomValue</label>
+                <div class="layui-input-block">
+                    <input type="text" style="width: 95%;" name="customValue" lay-verify="required"
+                        placeholder="please input customValue ..." class="layui-input" />
+                </div>
+            </div>
+
+            <div class="layui-form-item">
+                <label class="layui-form-label">SDescription</label>
+                <div class="layui-input-block">
+                    <textarea name="description" style="width: 95%;" lay-verify="required"
+                        placeholder="please input description ..." class="layui-textarea"></textarea>
+                </div>
+            </div>
+            <div class="layui-form-item" style="text-align: center;margin-right: 90px;margin-top: -8px;">
+                <div class="layui-input-block">
+                    <button class="layui-btn" lay-submit="" lay-filter="component-form-submit">save</button>
+                </div>
+            </div>
+        </form>
+    </div>
+    <!-- 'stop' custom attribute add popup end -->
+
+    <!-- 'stop' custom attribute editing popup start -->
+    <div style="display: none;" id="stopCustomizedAttrOpenTemplate">
+        <form class="layui-form" action="">
+            <div class="layui-form-item layui-form-text">
+                <div class="layui-input-block">
+                    <textarea id="stopCustomizedAttrValueTemplate" placeholder="please input ..." class="layui-textarea"
+                        style="width: 272px;margin-left: -100px;resize:none;"></textarea>
+                </div>
+            </div>
+            <div class="layui-form-item" style="text-align: center;margin-right: 90px;margin-top: -8px;">
+                <div class="layui-input-block">
+                    <button type="button" class="layui-btn layui-btn-primary" id="buttonStopCustomizedAttrTemplate">
+                        save
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+    <!-- 'stop' custom attribute editing popup start -->
+
+    <!-- change image start -->
+    <div style="display: none;;padding:20px" id="changeimage">
+<!--        <br>-->
+<!--        <p>已有现存可选择更改的图片</p>-->
+        <div id="nowimage" style="width:100%;height:220px;overflow-y:auto"></div>
+        <div style="width:100%;height:1px;border-bottom:1px solid #000;margin:10px 0"></div>
+        <button type="button" class="layui-btn" id="uploadimage">
+            <i class="layui-icon">&#xe67c;</i>Upload
+        </button>
+    </div>
+    <!-- change image end -->
+
+    <!-- right attribute start -->
+    <div id="right-group-wrap" style="position:absolute;right:0;top:86px;width:25%;bottom: 20px;transition: 2s">
+        <div class="ExpandSidebar">
+            <div class="triggerSlider">
+                <i style="color: white" class="fa fa-angle-left fa-2x"></i>
+            </div>
+        </div>
+        <div id="right-group" class="right-group">
+            <!--flow info -->
+            <div id="flow_info_inc_id" style="display: none;"></div>
+            <!--path info -->
+            <div id="flow_path_inc_id" style="display: none;"></div>
+            <!--stops info -->
+            <div id="flow_property_inc_id" style="display: none;"></div>
+        </div>
+    </div>
+    <!-- right attribute end -->
+
+<script type="text/javascript" src="/drawingBoard/my_js/flow/initFlowGraph.js"></script>
+
+<script type="text/javascript">
+    var urlParams = getUrlParams(window.location.href);
+    // Default resources are included in grapheditor resources
+    mxLoadResources = false;
+    var loadId = urlParams.load
+    var parentAccessPath = urlParams.parentAccessPath;
+    // console.log(urlParams);
+    // var currentUser = JSON.parse(localStorage.jwtUser);
+
+    $(function () {
+        // operation menus button
+        ajaxLoad("graphEditor_menus_task_load_id", "/page/flow/inc/graphEditor_menus_task.html");
+        //fullScreen
+        ajaxLoad("fullScreen_load_id", "/page/macro/fragmentMacro.html");
+        //Header
+        // ajaxLoad("publicUserHeadMacro_load_id", "/page/macro/graphHeadMacro.html", function () {
+        //     $("#span_username_id").html('Howdy,' + currentUser.username + '<b class="caret"></b>');
+        // });
+
+        // init data
+        initFlowDrawingBoardData(loadId, parentAccessPath);
+        initFlowGraph();
+        //crumbs
+        ajaxLoad("graphEditor_crumbs_task_load_id", "/page/flow/inc/graphEditor_crumbs_task.html", function () {
+            if ("flowGroupList" === parentAccessPath) {
+                $("#web_flowGroupList_navigation").show();
+                $("#web_flowList_navigation").hide();
+                if (parentsId) {
+                    $("#grapheditor_groupDrawingBoard_navigation").show();
+                } else {
+                    $("#grapheditor_groupDrawingBoard_navigation").hide();
+                }
+            }
+        });
+
+        ajaxLoad("flow_info_inc_id", "/page/flow/inc/flow_info_inc.html", function () {
+            // flowMxEventClickFunc();
+        });
+        ajaxLoad("flow_path_inc_id", "/page/flow/inc/flow_path_inc.html");
+        ajaxLoad("flow_property_inc_id", "/page/flow/inc/flow_property_inc.html", function () {
+            $("#tab>li").click(function () {
+                $(this).removeAttr("style").siblings("li").attr("style", "background-color: rgb(218,218,218); border-color: rgb(192,192,192);");
+                $("#tab_content" + $(this).val()).show().siblings("div").hide();
+            });
+        });
+
+        layui.form.on('submit(component-form-submit)', function (data) {
+            addStopCustomProperty(data.field);
+            return false;
+        });
+        // 替换图片地址
+        var domArr = document.querySelectorAll('.img-src');
+        for (var index = 0; index < domArr.length; index++) {
+            var src = domArr[index].getAttribute('src');
+            domArr[index].setAttribute('src', web_header_prefix + src)
+        }
+    });
+
+    //@ sourceURL=flowMxGraphIndex.js
+</script>
+</body>
+
+</html>

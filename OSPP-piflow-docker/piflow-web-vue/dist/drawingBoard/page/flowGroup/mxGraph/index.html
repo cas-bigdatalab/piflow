@@ -1,0 +1,315 @@
+<!--[if IE]>
+<meta http-equiv="X-UA-Compatible" content="IE=5,IE=9"><![endif]-->
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:th="http://www.thymeleaf.org">
+
+<head>
+    <title>piflow-web</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <link rel="stylesheet" type="text/css" href="/drawingBoard/components/mxGraph/styles/grapheditor.css">
+    <link rel="stylesheet" type="text/css" href="/drawingBoard/components/bootstrap/css/bootstrap.min.css">
+    <link rel="stylesheet" type="text/css" href='/drawingBoard/my_css/publicMacro.css'/>
+    <link rel="stylesheet" type="text/css" href="/drawingBoard/my_css/fullScreen.css"/>
+    <link rel="stylesheet" type="text/css" href="/drawingBoard/components/font-awesome-4.7.0/css/font-awesome.min.css"/>
+    <link rel="stylesheet" type="text/css" href="/drawingBoard/components/layui/css/layui.css"/>
+    <link rel="shortcut icon" href="/drawingBoard/img/favicon.ico">
+
+    <script type="text/javascript" src="/drawingBoard/components/mxGraph/js/Init.js"></script>
+    <script type="text/javascript" src="/drawingBoard/components/mxGraph/deflate/pako.min.js"></script>
+    <script type="text/javascript" src="/drawingBoard/components/mxGraph/deflate/base64.js"></script>
+    <script type="text/javascript" src="/drawingBoard/components/mxGraph/jscolor/jscolor.js"></script>
+    <script type="text/javascript" src="/drawingBoard/components/mxGraph/sanitizer/sanitizer.min.js"></script>
+    <script type="text/javascript" src="/drawingBoard/components/mxGraph/js/mxClient.js"></script>
+    <script type="text/javascript" src="/drawingBoard/components/mxGraph/js/EditorUi.js"></script>
+    <script type="text/javascript" src="/drawingBoard/components/mxGraph/js/Editor.js"></script>
+    <script type="text/javascript" src="/drawingBoard/components/mxGraph/js/Sidebar.js"></script>
+    <script type="text/javascript" src="/drawingBoard/components/mxGraph/js/Graph.js"></script>
+    <script type="text/javascript" src="/drawingBoard/components/mxGraph/js/Shapes.js"></script>
+    <script type="text/javascript" src="/drawingBoard/components/mxGraph/js/Actions.js"></script>
+    <script type="text/javascript" src="/drawingBoard/components/mxGraph/js/Menus.js"></script>
+    <script type="text/javascript" src="/drawingBoard/components/mxGraph/js/Format.js"></script>
+    <script type="text/javascript" src="/drawingBoard/components/mxGraph/js/Toolbar.js"></script>
+    <script type="text/javascript" src="/drawingBoard/components/mxGraph/js/Dialogs.js"></script>
+    <script type="text/javascript" src="/drawingBoard/js/jquery/jquery.min.js"></script>
+    <!--The user drags elements, links：http://api.jqueryui.com/draggable/#method-disable/-->
+    <script type="text/javascript" src="/drawingBoard/js/jquery/jquery-ui.min.js"></script>
+    <!--Mobile device users drag elements, depending on juery-ui.min.js，links：http://touchpunch.furf.com/-->
+    <script type="text/javascript" src="/drawingBoard/js/jquery/jquery.ui.touch-punch.min.js"></script>
+    <script type="text/javascript" src="/drawingBoard/components/bootstrap/js/bootstrap.min.js"></script>
+    <script type="text/javascript" src="/drawingBoard/components/layui/layui.all.js"></script>
+    <script type="text/javascript" src='/drawingBoard/js/dataTables1.10.18/jquery.dataTables.min.js'></script>
+    <style>
+        .btn-position {
+            float: right;
+            margin-right: 8px
+        }
+
+        .btn-position .btn {
+            margin: 6px 6px 2px 0 !important;
+        }
+
+        .customize_btn_css {
+            display: inline-block;
+            padding: 6px 12px;
+            margin-bottom: 0;
+            font-size: 14px;
+            font-weight: 400;
+            text-align: center;
+            white-space: nowrap;
+            vertical-align: middle;
+            touch-action: manipulation;
+            cursor: pointer;
+            user-select: none;
+            border: 1px solid transparent;
+            border-radius: 4px;
+            background: #1A8B5F;
+            color: #ffffff;
+            height: 34px;
+            text-decoration: none;
+        }
+
+        a.customize_btn_css:hover {
+            color: #ffffff;
+        }
+
+        a.customize_btn_css:focus {
+            color: #ffffff;
+        }
+
+        .layui-table-cell {
+            height: 36px;
+            line-height: 36px;
+        }
+    </style>
+    <link rel="stylesheet" type="text/css" href="/drawingBoard/css/main.css"/>
+</head>
+
+<body class="geEditor">
+
+<div id="fullScreen_load_id"></div>
+<div id="publicUserHeadMacro_load_id"></div>
+
+<!-- run button -->
+<div style="width: 30.2%;top: 48px;right: 0px;height: 50px;position: absolute;z-index: 1001;">
+    <div id="graphEditor_menus_group_load_id" style="float: right;"></div>
+</div>
+<!-- crumbs -->
+<div style="width: 100%;position: fixed;z-index: 99999;float: left;left: 0px;bottom: 0px;text-align: center;height: 28px;line-height: 28px; background: #37714b;">
+    <div id="graphEditor_crumbs_task_load_id"></div>
+</div>
+
+<!-- ======================== new ======================================= -->
+<!--Initializes the drawing board-->
+<!--stop Property edit popover starts-->
+<div style="display: none;" id="updateCellsPropertyTemplate">
+    <div style="height: 90%;">
+        <form class="layui-form" action="" style="height: 100%;">
+            <div class="layui-form-text" style="margin-left: 12px; text-align: center;height: 100%;">
+                <textarea id="cellsValue" placeholder="please input ..." class="layui-textarea"
+                          style="margin-left: -6px;margin-bottom: 6px;resize:none;height: 80%;"></textarea>
+                <div style="height: 20%;">
+                    <button type="button" class="layui-btn layui-btn-primary" id="buttonCells">save
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+<!--stop Property edit popover ends-->
+
+<div style="display: none;" id="flowGroup_SubmitPage">
+    <br>
+    <form class="layui-form" action="" style="position: relative">
+        <input id="input_node_flowGroup_id" type="hidden"/>
+        <input id="input_node_flowGroup_pageId" type="hidden"/>
+        <div class="layui-form-item">
+            <label class="layui-form-label">flowGroupName</label>
+            <div class="layui-input-block">
+                <input type="hidden" id="flowGroupId"/>
+                <input id="flowGroupName" placeholder="please input flowGroupName..." autocomplete="off"
+                       class="layui-input"
+                       style="width: 400px;margin-left: 20px;">
+            </div>
+        </div>
+        <div class="layui-form-item layui-form-text">
+            <label class="layui-form-label">description</label>
+            <div class="layui-input-block">
+                <textarea id="flowGroup_description" placeholder="please input description..." class="layui-textarea"
+                          style="width: 400px;margin-left: 20px;"></textarea>
+            </div>
+        </div>
+        <div class="layui-form-item" style="text-align: center;position: absolute;right: 36px">
+            <button id="buttonGroupCancel" type="button" class="layui-btn layui-btn-primary" onclick="cancelGroup()"
+                    style="color: #333333;border-color: #2f7600;">
+                Cancel
+            </button>
+            <button id="buttonGroup" type="button" class="layui-btn layui-btn-primary" onclick='saveOrUpdateFlowGroup()'
+                    style="color: #ffffff;background-color: #2f7600;border-color: #2f7600;">
+                Submit
+            </button>
+        </div>
+    </form>
+</div>
+
+<div style="display: none;" id="flow_SubmitPage">
+    <form class="layui-form" action="" style="position: relative">
+        <input id="input_node_flow_id" type="hidden"/>
+        <input id="input_node_flow_pageId" type="hidden"/>
+        <div class="layui-form-item" style="margin-top: 14px">
+            <label class="layui-form-label">flowName</label>
+            <div class="layui-input-block">
+                <input id="flowName" placeholder="please input flowName..." autocomplete="off" class="layui-input"
+                       style="width: 400px;margin-left: 20px;">
+            </div>
+        </div>
+        <div class="layui-form-item layui-form-text">
+            <label class="layui-form-label">description</label>
+            <div class="layui-input-block">
+                <textarea id="description" placeholder="please input description..." class="layui-textarea"
+                          style="width: 400px;margin-left: 20px;"></textarea>
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <label class="layui-form-label">driverMemory</label>
+            <div class="layui-input-block">
+                <input id="driverMemory" autocomplete="off" class="layui-input" style="width: 400px;margin-left: 20px;"
+                       value="1g">
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <label class="layui-form-label">executorNumber</label>
+            <div class="layui-input-block">
+                <input id="executorNumber" autocomplete="off" class="layui-input"
+                       style="width: 400px;margin-left: 20px;" value="1">
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <label class="layui-form-label">executorMemory</label>
+            <div class="layui-input-block">
+                <input id="executorMemory" autocomplete="off" class="layui-input"
+                       style="width: 400px;margin-left: 20px;" value="1g">
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <label class="layui-form-label">executorCores</label>
+            <div class="layui-input-block">
+                <input id="executorCores" autocomplete="off" class="layui-input" style="width: 400px;margin-left: 20px;"
+                       value="1">
+            </div>
+        </div>
+        <div class="layui-form-item" style="text-align: center;position: absolute;right: 36px">
+            <button type="button" class="layui-btn layui-btn-primary" onclick="cancelFlow()"
+                    style="color: #333333;border-color: #2f7600;" id="buttonFlowCancel">
+                cancel
+            </button>
+            <button type="button" class="layui-btn layui-btn-primary" onclick='saveFlow()'
+                    style="color: #ffffff;background-color: #2f7600;border-color: #2f7600;" id="buttonFlow">
+                Submit
+            </button>
+        </div>
+    </form>
+</div>
+
+<div style="display: none;;padding:20px" id="changeimage">
+<!--    <br>-->
+<!--    <p>已有现存可选择更改的图片</p>-->
+    <!--    <form class="layui-form" action="">-->
+    <div id="nowimage" style="width:100%;height:220px;overflow-y:auto"></div>
+    <div style="width:100%;height:1px;border-bottom:1px solid #000;margin:10px 0"></div>
+    <button type="button" class="layui-btn" id="uploadimage">
+        <i class="layui-icon">&#xe67c;</i>Upload
+    </button>
+    <!--    </form>-->
+</div>
+
+<div id="right-group-wrap" style="position:absolute;right:0;top:86px;width:25%;bottom: 20px;transition: 2s">
+    <div class="ExpandSidebar">
+        <div class="triggerSlider">
+            <i style="color: white" class="fa fa-angle-left fa-2x"></i>
+        </div>
+    </div>
+    <div id="right-group" class="right-group">
+        <!--flow info -->
+        <div id="flowGroup_info_inc_id" style="display: none;"></div>
+        <!--path info -->
+        <div id="flowGroup_path_inc_id" style="display: none;"></div>
+        <!--cell info -->
+        <div id="flowGroup_property_inc_id" style="display: none;"></div>
+    </div>
+</div>
+
+
+<script type="text/javascript" src="/drawingBoard/js/ajaxUtils.js"></script>
+<script type="text/javascript" src="/drawingBoard/my_js/flowGroup/initFlowGroupGraph.js"></script>
+
+<script type="text/javascript">
+    var urlParams = getUrlParams(window.location.href);
+    var loadId = urlParams.load
+    var parentAccessPath = urlParams.parentAccessPath;
+    // var currentUser = JSON.parse(localStorage.jwtUser);
+
+    var parentsId = '[[${parentsId}]]';
+    var flowGroupId = '[[${flowGroupId}]]';
+    var xmlDate = '[[${xmlDate}]]';
+    var xmlDateStr = '[[${xmlDateStr}]]';
+    var isExample = '[[${isExample}]]';
+    var maxStopPageId = '[[${maxStopPageId}]]';
+    var maxFlowPageId = '[[${maxFlowPageId}]]';
+    var processType = '[[${processType}]]';
+    var parentAccessPath = '[[${parentAccessPath}]]';
+    var xmlDate = '[[${xmlDate}]]';
+    var pID = '[[${pID}]]';
+    var appId = '[[${appId}]]';
+
+
+    $(function () {
+        ajaxLoad("fullScreen_load_id", "/page/macro/fragmentMacro.html");
+        ajaxLoad("flowGroup_info_inc_id", "/page/flowGroup/inc/flowGroup_info_inc.html");
+        ajaxLoad("flowGroup_path_inc_id", "/page/flowGroup/inc/flowGroup_path_inc.html");
+        ajaxLoad("flowGroup_property_inc_id", "/page/flowGroup/inc/flowGroup_property_inc.html", function () {
+            $("#tab>li").click(function () {
+                $(this).removeAttr("style").siblings("li").attr("style", "background-color: rgb(218,218,218); border-color: rgb(192,192,192);");
+                $("#tab_content" + $(this).val()).show().siblings("div").hide();
+            });
+        });
+
+        $(".btn-group").mouseover(function () {
+            $(this).addClass("open");
+            var oDiv = document.getElementById("divloadingXml");
+            oDiv.style.display = "none";
+        });
+        $(".btn-group").mouseleave(function () {
+            $(this).removeClass("open");
+        });
+        ajaxLoad("graphEditor_menus_group_load_id", "/page/flowGroup/inc/graphEditor_menus_group.html", function () {
+            initFlowGroupDrawingBoardData(loadId, parentAccessPath);
+            initFlowGroupGraph();
+
+            // 替换图片地址
+            var domArr = document.querySelectorAll('.img-src');
+            for (var index = 0; index < domArr.length; index++) {
+                var src = domArr[index].getAttribute('src');
+                domArr[index].setAttribute('src', web_header_prefix + src)
+            }
+        });
+        $("input[id=flowGroupName]").each(function(){
+            $(this).focus(function(){
+                //禁用Enter键
+                document.onkeydown = function (e) {
+                    //捕捉回车事件
+                    var ev = (typeof event != 'undefined') ? window.event : e;
+                    if (ev.keyCode == 13 || event.which == 13) {
+                        return false;
+                    }
+                }
+            })
+        });
+    });
+    //@ sourceURL=mxGraphIndex.js
+</script>
+
+
+</body>
+
+</html>

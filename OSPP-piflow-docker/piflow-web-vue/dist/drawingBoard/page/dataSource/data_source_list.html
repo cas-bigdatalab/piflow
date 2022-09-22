@@ -1,0 +1,59 @@
+<!DOCTYPE html SYSTEM "http://www.thymeleaf.org/dtd/xhtml1-strict-thymeleaf-4.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:th="http://www.thymeleaf.org">
+<body th:fragment=data_source_List>
+<head>
+    <link rel="stylesheet" type="text/css" href="/drawingBoard/components/layui/css/layui.css"/>
+</head>
+<!-- content starts -->
+<div class="wrapper" style="margin: 20px;">
+    <!-- Media datatable -->
+    <div class="widget">
+<!--        <div class="navbar">-->
+<!--            <div class="navbar-inner">-->
+<!--                <h6 style="color: #1A7444">Data Source</h6>-->
+<!--                <div class="btn-position" style="float: right;margin-right: 8px">-->
+<!--                    <a class="btn" href="javascript:void(0);" onclick="dataSourceOpen()"-->
+<!--                       style="background-color: #C0C0C0;border: 1px solid;color: #21794c;"-->
+<!--                       title="create datasource">-->
+<!--                        <i class="icon-plus-sign icon-white"></i>-->
+<!--                    </a>-->
+<!--                </div>-->
+<!--                </div>-->
+        </div>
+        <div class="navbar">
+<!--            <a class="btn" href="javascript:void(0);" onclick="dataSourceOpen()"-->
+<!--               style="background-color: #C0C0C0;border: 1px solid;color: #21794c;"-->
+<!--               title="create datasource">-->
+<!--                <i class="icon-plus-sign icon-white"></i>-->
+<!--            </a>-->
+            <div class="demoTable">
+                <div style="margin-top: 6px">
+<!--                    Search:-->
+                    <div class="layui-inline">
+                        <i class="fa fa-search fa-2x" style="position:absolute;top:8px ;left:8px;font-size:18px"></i>
+                        <input class="layui-input" name="param" id="search_input_id" autocomplete="off" style="padding-left:30px">
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="table-overflow">
+            <table class="layui-hide" id="testTableId" lay-filter="user"></table>
+        </div>
+    </div>
+    <!-- /media datatable -->
+</div>
+<!-- content ends -->
+<script type="text/javascript" src="/drawingBoard/js/ajaxUtils.js"></script>
+<script type="text/javascript" src="/drawingBoard/js/jquery/jquery.min.js"></script>
+<script type="text/javascript" src="/drawingBoard/components/layui/layui.all.js"></script>
+<script src="/drawingBoard/my_js/datasource/dataSourceList.js"></script>
+<script type="text/javascript">
+    initDataTablePage("testTableId", "/datasource/getDataSourceListPagination", "search_input_id");
+    window.onload = function () {
+        //timer = window.setInterval("processListMonitoring()", 5000);
+        //$(".paginate_button.current")[0].style.backgroundColor="red";
+    };
+    //@ sourceURL=dataSourceListHtml.js
+</script>
+</body>
+</html>

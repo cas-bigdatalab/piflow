@@ -1,0 +1,17 @@
+<!DOCTYPE html SYSTEM "http://www.thymeleaf.org/dtd/xhtml1-strict-thymeleaf-4.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <div th:fragment=process_Checkpoint_Inc>
+        <div th:unless="${checkpointsSplit}" style="line-height: 25px;">
+            <input id="checkpointsIsNull" style="display: none" value="isNull"/>
+        </div>
+        <div th:if="${checkpointsSplit}">
+            <span th:each=" checkpoint : ${checkpointsSplit}">
+                <input type="checkbox" th:value="${checkpoint}"/>
+                <span th:text="${checkpoint}"></span>
+                </br>
+            </span>
+         </div>
+    </div>
+</body>
+</html>

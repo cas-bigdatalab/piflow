@@ -1,0 +1,32 @@
+<!DOCTYPE html SYSTEM "http://www.thymeleaf.org/dtd/xhtml1-strict-thymeleaf-4.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:th="http://www.thymeleaf.org">
+<body>
+
+
+<div>
+    <span id="web_flowGroupList_navigation" style="display: none;">
+        <span style="color: #ffffff">
+            <a style="color: #ffffff" href="/piflow-web/page/index.html?accessPath=flowGroupList">FlowGroupList</a>
+        </span>
+        <span style="color: #ffffff">>></span>
+    </span>
+    <span id="grapheditor_groupDrawingBoard_navigation" style="display: none;">
+        <span style="color: #ffffff">...</span>
+        <span style="color: #ffffff">>></span>
+        <span style="color: #ffffff">
+            <a style="color: #ffffff"
+               th:href="'/page/flowGroup/mxGraph/index.html?drawingBoardType=GROUP&parentAccessPath=flowGroupList&load=' + ${parentsId}">FlowGroup</a>
+        </span>
+        <span style="color: #ffffff">>></span>
+    </span>
+    <span id="web_flowList_navigation">
+        <span style="color: #ffffff">
+            <a style="color: #ffffff" href="/piflow-web/page/index.html?accessPath=flowList">FlowList</a>
+        </span>
+        <span style="color: #ffffff">>></span>
+    </span>
+    <span style="color: #ffffff; font-weight: bold">FlowContent</span>
+</div>
+
+</body>
+</html>
