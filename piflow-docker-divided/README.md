@@ -8,3 +8,9 @@
 ### START
 
 `docker-compose up -d`
+
+#### K8S
+
+`**kompose convert**`
+
+`**kubectl apply -f created-file-name**`
