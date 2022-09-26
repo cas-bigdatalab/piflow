@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: kompose convert --volumes hostPath
+    kompose.version: 1.26.1 (HEAD)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: piflow-web
+  name: piflow-web
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: piflow-web
+  strategy: {}
+  template:
+    metadata:
+      annotations:
+        kompose.cmd: kompose convert --volumes hostPath
+        kompose.version: 1.26.1 (HEAD)
+      creationTimestamp: null
+      labels:
+        io.kompose.service: piflow-web
+    spec:
+      containers:
+        - env:
+            - name: Host
+              value: mysql
+            - name: Interface
+              value: piflow-server
+          image: niuzj/piflow-web:1.0
+          name: piflow-web
+          ports:
+            - containerPort: 6002
+          resources: {}
+      restartPolicy: Always
+status: {}

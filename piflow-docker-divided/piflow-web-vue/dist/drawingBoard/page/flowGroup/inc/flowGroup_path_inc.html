@@ -1,0 +1,60 @@
+<!DOCTYPE html SYSTEM "http://www.thymeleaf.org/dtd/xhtml1-strict-thymeleaf-4.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:th="http://www.thymeleaf.org">
+<body>
+
+<div style="line-height: 25px;">
+    <div id="flowGroup_path_inc_loading" style="position: absolute;top: 49%;width: 100%;text-align: center;">
+        <img src="/drawingBoard/img/fullScreen.gif" alt="loading">
+<!--        <span style="font-size: 60px;">Loading</span>-->
+    </div>
+    <div id="flowGroup_path_inc_load_fail"
+         style="position: absolute;top: 49%;width: 100%;text-align: center;display: none;">
+        <span style="font-size: 60px;">Load Fail</span>
+    </div>
+    <div id="flowGroup_path_inc_no_data"
+         style="position: absolute;top: 49%;width: 100%;text-align: center;display: none;">
+        <span style="font-size: 60px;">No Data</span>
+    </div>
+    <div id="flowGroup_path_inc_load_data" style="display:none;">
+        <div style="padding: 10px; border-bottom: 1px solid rgb(192, 192, 192);">
+            <div style="padding: 0px 0px 6px; white-space: nowrap; overflow: hidden; width: 200px; font-weight: bold;">
+                FlowGroup Path Information
+            </div>
+            <table style="border-collapse: separate; border-spacing: 0px 5px;">
+                <tbody>
+                <tr>
+                    <td><span>PageId</span></td>
+                    <td>&nbsp;：&nbsp;<span id="span_flowGroupPathVo_pageId"></span></td>
+                </tr>
+                <tr>
+                    <td><span>FlowGtoupName</span></td>
+                    <td>&nbsp;：&nbsp;<span id="span_flowGroupPathVo_flowName"></span></td>
+                </tr>
+                <tr>
+                    <td><span>InPorts</span></td>
+                    <td>&nbsp;：&nbsp;<span id="span_flowGroupPathVo_inport"></span></td>
+                </tr>
+                <tr>
+                    <td><span>OutPort</span></td>
+                    <td>&nbsp;：&nbsp;<span id="span_flowGroupPathVo_outport"></span></td>
+                </tr>
+                <tr>
+                    <td><span>From</span></td>
+                    <td>&nbsp;：&nbsp;<span id="span_flowGroupPathVo_from"></span></td>
+                </tr>
+                <tr>
+                    <td><span>To</span></td>
+                    <td>&nbsp;：&nbsp;<span id="span_flowGroupPathVo_to"></span></td>
+                </tr>
+                <tr>
+                    <td valign="top"><span>CreateTime</span></td>
+                    <td valign="top">&nbsp;：&nbsp;<span id="span_flowGroupPathVo_crtDttmStr"/></td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>

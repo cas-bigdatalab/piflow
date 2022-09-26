@@ -1,0 +1,29 @@
+<!DOCTYPE html SYSTEM "http://www.thymeleaf.org/dtd/xhtml1-strict-thymeleaf-4.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:th="http://www.thymeleaf.org">
+<body>
+<div style="width: 100%;height: 98%;">
+    <span id="debug_data_last_read_line" style="display: none;">0</span>
+    <span id="debug_data_last_file_name" style="display: none;"></span>
+    <span id="debug_app_id" style="display: none;"></span>
+    <span id="debug_stop_name" style="display: none;"></span>
+    <span id="debug_port_name" style="display: none;"></span>
+    <div style="height: 6px;"></div>
+    <div id="div_table_list" style="width: 98%; margin: 0 auto">
+
+    </div>
+    <div class="layui-box layui-laypage layui-laypage-default">
+        <a id="debug_data_prev" href="javascript:changePageNo(1);" class="layui-laypage-prev layui-disabled">
+            <i class="layui-icon"></i>
+        </a>
+        <!--
+        <span id="current_page_id" class="layui-laypage-curr">
+            <em class="layui-laypage-em"></em><em>1</em>
+        </span>
+        -->
+        <a id="debug_data_next" href="javascript:changePageNo(2);" class="layui-laypage-next">
+            <i class="layui-icon"></i>
+        </a>
+    </div>
+</div>
+</body>
+</html>

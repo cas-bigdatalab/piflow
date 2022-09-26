@@ -1,0 +1,33 @@
+<!DOCTYPE html SYSTEM "http://www.thymeleaf.org/dtd/xhtml1-strict-thymeleaf-4.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:th="http://www.thymeleaf.org">
+<body>
+<head>
+    <link rel="stylesheet" type="text/css" href="/drawingBoard/components/layui/css/layui.css"/>
+</head>
+<!-- content starts -->
+<div class="wrapper" style="margin: 20px;">
+    <!-- Media datatable -->
+    <div class="widget">
+        <div class="table-overflow">
+            <div class="demoTable">
+                Search:
+                <div class="layui-inline">
+                    <input class="layui-input" name="param" id="search_input_id" autocomplete="off">
+                </div>
+            </div>
+            <table class="layui-hide" id="flowTableId" lay-filter="user"></table>
+        </div>
+    </div>
+    <!-- /media datatable -->
+</div>
+<!-- content ends -->
+<script type="text/javascript" src="/drawingBoard/js/ajaxUtils.js"></script>
+<script type="text/javascript" src="/drawingBoard/js/jquery/jquery.min.js"></script>
+<script type="text/javascript" src="/drawingBoard/components/layui/layui.all.js"></script>
+<script type="text/javascript" src="/drawingBoard/my_js/flow/flowListImport.js"></script>
+<script type="text/javascript" >
+    initDatatableFlowImportPage('flowTableId', "/flow/getFlowListPage", "search_input_id");
+    //@ sourceURL=table_right.js
+</script>
+</body>
+</html>

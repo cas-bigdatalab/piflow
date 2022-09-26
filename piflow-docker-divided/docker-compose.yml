@@ -1,0 +1,50 @@
+version: '3'
+volumes:
+  spark:
+services:
+  spark-master:
+    container_name: "cluster-apache-spark"
+    build: ./docker-spark-cluster/
+    restart: always
+    ports:
+      - "9090:8080"
+      - "7077:7077"
+    volumes:
+      - spark:/opt/spark
+    environment:
+      - SPARK_LOCAL_IP=127.0.0.1
+      - SPARK_WORKLOAD=master
+  piflow-vue:
+    container_name: "piflow-vue"
+    build: ./piflow-web-vue/
+    restart: always
+    ports:
+      - 6001:80
+  piflow-web:
+    container_name: "piflow-web"
+    image: niuzj/piflow-web:1.0
+    restart: always
+    ports:
+      - 6002:6002
+    environment:
+      Interface: piflow-server
+      Host: mysql
+  mysql:
+    container_name: "mysql"
+    image: mysql:5.7
+    volumes:
+      - ./mysql/db:/var/lib/mysql
+      - ./mysql/init:/docker-entrypoint-initdb.d/
+    restart: always
+    ports:
+      - 3306:3306
+    environment:
+      MYSQL_ROOT_PASSWORD: 
+  piflow-serve:
+    container_name: "piflow-server"
+    build: piflow-server
+    restart: always
+    ports:
+      - 8002:8002
+    volumes:
+      - spark:/opt/spark

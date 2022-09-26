@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: kompose convert --volumes hostPath
+    kompose.version: 1.26.1 (HEAD)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: spark-master
+  name: spark-master
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: spark-master
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      annotations:
+        kompose.cmd: kompose convert --volumes hostPath
+        kompose.version: 1.26.1 (HEAD)
+      creationTimestamp: null
+      labels:
+        io.kompose.service: spark-master
+    spec:
+      containers:
+        - env:
+            - name: SPARK_LOCAL_IP
+              value: 127.0.0.1
+            - name: SPARK_WORKLOAD
+              value: master
+          image: spark-master
+          name: cluster-apache-spark
+          ports:
+            - containerPort: 8080
+            - containerPort: 7077
+          resources: {}
+          volumeMounts:
+            - mountPath: /opt/spark
+              name: spark
+      restartPolicy: Always
+      volumes:
+        - hostPath:
+            path: /Users/mrniu/Desktop/ospp-docker-niu/piflow/piflow-docker-divided
+          name: spark
+status: {}

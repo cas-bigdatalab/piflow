@@ -1,0 +1,42 @@
+<!DOCTYPE html SYSTEM "http://www.thymeleaf.org/dtd/xhtml1-strict-thymeleaf-4.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:th="http://www.thymeleaf.org">
+<body>
+
+
+<div>
+    <span th:switch="${parentAccessPath}">
+        <span th:case="'groupDrawingBoard'">
+            <span style="color: #ffffff">
+                <a style="color: #ffffff" href="/pifow-web/page/index.html?accessPath=flowGroupList">FlowGroupList</a>
+            </span>
+            <span style="color: #ffffff">&gt;&gt;</span>
+            <span style="color: #ffffff">...</span>
+            <span style="color: #ffffff">&gt;&gt;</span>
+            <span style="color: #ffffff;">
+                <a style="color: #ffffff" th:href="'/piflow-web/page/flow/mxGraph/index.html?drawingBoardType=GROUP&load=' + ${processGroupVo?.flowId}">FlowGroupContent</a>
+            </span>
+        </span>
+        <span th:case="'processGroupList'">
+            <span style="color: #ffffff">
+                <a style="color: #ffffff" href="/pifow-web/page/index.html?accessPath=processAndProcessGroup">ProcessGroupList</a>
+            </span>
+            <span th:if="${parentsId}">
+                <span style="color: #ffffff">...</span>
+                <span style="color: #ffffff">&gt;&gt;</span>
+                <span style="color: #ffffff">
+                    <a style="color: #ffffff" th:href="'/piflow-web/page/processGroup/mxGraph/index.html?parentAccessPath=processGroupList&drawingBoardType=PROCESS&processType=PROCESS_GROUP&load=' + ${parentsId}">ProcessGroup</a>
+                </span>
+            </span>
+        </span>
+        <span th:case="*" style="color: #ffffff">
+            <span style="color: #ffffff">
+                <a style="color: #ffffff" href="/piflow-web/page/index.html?accessPath=processAndProcessGroup">ProcessGroupList</a>
+            </span>
+        </span>
+    </span>
+    <span style="color: #ffffff">&gt;&gt;</span>
+    <span style="color: #ffffff; font-weight: bold">ProcessGroupContent</span>
+</div>
+
+</body>
+</html>

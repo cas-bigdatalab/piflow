@@ -1,0 +1,64 @@
+<!DOCTYPE html SYSTEM "http://www.thymeleaf.org/dtd/xhtml1-strict-thymeleaf-4.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:th="http://www.thymeleaf.org">
+<body>
+
+<div style="line-height: 25px;">
+    <div id="process_property_inc_loading" style="position: absolute;top: 49%;width: 100%;text-align: center;">
+        <img src="/drawingBoard/img/fullScreen.gif" alt="loading">
+<!--        <span style="font-size: 60px;">Loading</span>-->
+    </div>
+    <div id="process_property_inc_load_fail"
+         style="position: absolute;top: 49%;width: 100%;text-align: center;display: none;">
+        <span style="font-size: 60px;">Load Fail</span>
+    </div>
+    <div id="process_property_inc_no_data"
+         style="position: absolute;top: 49%;width: 100%;text-align: center;display: none;">
+        <span style="font-size: 60px;">No Data</span>
+    </div>
+    <div id="process_property_inc_load_data" style="display: none;">
+        <div style="padding: 12px 0px 12px 18px; border-bottom: 1px solid rgb(192, 192, 192);">
+            <div style="padding: 0px 0px 6px; white-space: nowrap; overflow: hidden; width: 200px; font-weight: bold;">
+                Stop Basic Information
+            </div>
+            <span>SotpName：</span>
+            <span id="stopNameShow"/><br>
+            <span>Description：</span>
+            <span id="span_processStopVo_description"/><br>
+            <span>GroupName：</span>
+            <span id="span_processStopVo_groups"/><br>
+            <span>Bundel：</span>
+            <span id="stopsBundleShow"/><br>
+            <span>Owner：</span>
+            <span id="span_processStopVo_owner"/><br>
+        </div>
+        <div id="div_processStopVo_processStopPropertyVoList"
+             style="padding: 12px 0px 12px 18px; border-bottom: 1px solid rgb(192, 192, 192);display:none;">
+            <div style="padding: 0px 0px 6px; white-space: nowrap; overflow: hidden; width: 200px; font-weight: bold;">
+                Stop Property Information
+            </div>
+            <div id="div_processStopVo_processStopPropertyVo"></div>
+        </div>
+        <div style="padding: 12px 0px 12px 18px; border-bottom: 1px solid rgb(192, 192, 192);">
+            <div style="padding: 0px 0px 6px; white-space: nowrap; overflow: hidden; width: 200px; font-weight: bold;">
+                Stop Running Information
+            </div>
+            <span>Start time ：</span>
+            <span id="stopStartTimeShow"/>
+            <br>
+            <span>Stop time ：</span>
+            <span id="stopStopTimeShow"/>
+            <br>
+            <span>state ：</span>
+            <span id="stopStateShow"/>
+            <br>
+        </div>
+        <div style="padding: 12px 0px 12px 18px;">
+            <div id="process_info_inc_load_chart" style="display: block;">
+                <input type="button" id="process_info_inc_load_getChartBtn" class="btn btn-primary" onclick="getChart(this)" value="View Charts">
+            </div>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>
