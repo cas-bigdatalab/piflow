@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: kompose convert --volumes hostPath
+    kompose.version: 1.26.1 (HEAD)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: piflow-vue
+  name: piflow-vue
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: piflow-vue
+  strategy: {}
+  template:
+    metadata:
+      annotations:
+        kompose.cmd: kompose convert --volumes hostPath
+        kompose.version: 1.26.1 (HEAD)
+      creationTimestamp: null
+      labels:
+        io.kompose.service: piflow-vue
+    spec:
+      containers:
+        - image: piflow-vue
+          name: piflow-vue
+          ports:
+            - containerPort: 80
+          resources: {}
+      restartPolicy: Always
+status: {}
