@@ -1,0 +1,123 @@
+<!DOCTYPE html SYSTEM "http://www.thymeleaf.org/dtd/xhtml1-strict-thymeleaf-4.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:th="http://www.thymeleaf.org">
+<body>
+<link rel="stylesheet" type="text/css" href="/piflow-web/components/layui/css/layui.css"/>
+<form class="layui-form" action="" lay-filter="component-form-group" method="post" style="height: 100%">
+    <div style="position: absolute;left: 10px;right: 10px; top: 10px;">
+        <div id="selectTypeDivId" class="layui-form-item">
+            <label class="layui-form-label">type</label>
+            <div class="layui-input-block">
+                <select id="type_select_id" class="layui-select" style="display: block; width: 95%;"
+                        onchange="changeDataSourceType(this)">
+                </select>
+            </div>
+        </div>
+        <div id="typeContentId" class="layui-form-item">
+            <input style="display: none" id="updateDatasourceId" name="id" value=""/>
+            <div id="template_type_div_id" class="layui-form-item">
+                <label class="layui-form-label">type</label>
+                <div class="layui-input-block">
+                    <input id="template_type_id" placeholder="please input name..." autocomplete="off"
+                           class="layui-input" style="width: 95%;" name="dataSourceType" readonly="readonly" value=""/>
+                </div>
+            </div>
+            <div class="layui-form-item">
+                <label class="layui-form-label">name</label>
+                <div class="layui-input-block">
+                    <input id="dataSourceName"
+                           placeholder="please input name..."
+                           autocomplete="off"
+                           class="layui-input dataSource1Copy"
+                           style="width: 95%;"
+                           name="dataSourceName"
+                           value=""/>
+                </div>
+            </div>
+            <div class="layui-form-item layui-form-text">
+                <label class="layui-form-label">description</label>
+                <div class="layui-input-block">
+                    <textarea id="dataSourceDescription" placeholder="please input description..."
+                              class="layui-textarea dataSource1Copy" style="width: 95%;"
+                              name="dataSourceDescription"></textarea>
+                </div>
+            </div>
+            <div id="customOtherDatasource" style="display: none;">
+                <hr/>
+                <div class="layui-form-item layui-form-text" style="width: 93%;">
+                    <label class="layui-form-label">
+                        AddProperty
+                    </label>
+                    <div class="layui-input-block" style="text-align: right;">
+                        <a onclick="addCustomProperty('customKeyValueCopy','custom_property_list')">
+                            <i class="icon-plus-sign icon-white" style="position: absolute;margin-top: 10px;"></i>
+                        </a>
+                    </div>
+                </div>
+                <div id="custom_property_list"
+                     class="layui-form-item layui-form-text"
+                     style="/*border: 1px solid #0C0C0C;*/">
+                </div>
+            </div>
+            <div id="typeId" class="layui-form-item layui-form-text">
+            </div>
+            <div class="layui-form-item layui-footer" style="text-align: right;">
+                <button id="submitBtnId" class="layui-btn layui-btn-primary"
+                        lay-submit="" lay-filter="component-form-submit"
+                        style="color: #ffffff;background-color: #2f7600;border-color: #2f7600;">
+                    <span id="submitBtnSpan">Create</span>
+                </button>
+            </div>
+        </div>
+    </div>
+</form>
+
+<div id="customKeyValueCopy" style="display: none;">
+    <div>
+        <div id="customProperty1Copy"
+             class="layui-form-item layui-form-text"
+             style="margin-top: 15px;">
+            <label class="layui-form-label" style="padding-top: 0px;">
+                <input name="dataSourcePropertyVoList[1Copy].name"
+                       class="layui-input"
+                       autocomplete="off"/>
+            </label>
+            <div class="layui-input-block">
+                <input name="dataSourcePropertyVoList[1Copy].value"
+                       class="layui-input"
+                       autocomplete="off"
+                       placeholder="please input name..."
+                       style="width: 95%;"/>
+            </div>
+            <a style="position: absolute;right: 7px;margin-top: -26px;"
+               onclick="removeCustomModule('customProperty1Copy','custom_property_list')">
+                <i class="icon-trash icon-white"></i>
+            </a>
+        </div>
+    </div>
+</div>
+<script type="text/javascript" src="/piflow-web/js/jquery/jquery.min.js"></script>
+<script type="text/javascript" src="/piflow-web/js/ajaxUtils.js"></script>
+<script type="text/javascript" src="/piflow-web/components/layui/layui.all.js"></script>
+<script type="text/javascript" src="/piflow-web/my_js/datasource/dataSourceList.js"></script>
+<script>
+    layui.use(['form'], function () {
+        var $ = layui.$
+            , element = layui.element
+            , form = layui.form
+            , layer = layui.layer;
+
+        form.render(null, 'component-form-element');
+        element.render('breadcrumb', 'breadcrumb');
+
+        form.on('submit(component-form-submit)', function (data) {
+            console.info(data.field);
+            console.info("--------------------------------");
+            saveOrUpdateDataSource(data.field);
+            $("submitBtnId").removeAttr("lay-submit");
+            return false;
+        });
+    });
+    onloadPageData();
+</script>
+</body>
+</html>

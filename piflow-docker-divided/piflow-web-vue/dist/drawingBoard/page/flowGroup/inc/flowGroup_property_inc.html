@@ -1,0 +1,213 @@
+<!DOCTYPE html SYSTEM "http://www.thymeleaf.org/dtd/xhtml1-strict-thymeleaf-4.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:th="http://www.thymeleaf.org">
+<body>
+<div>
+    <style>
+        #tab li {
+            float: left;
+            line-height: 40px;
+            width: 50%;
+        }
+    </style>
+    <div style="line-height: 25px;">
+        <div id="cell_flowGroup_property_inc_loading"
+             style="position: absolute;top: 49%;width: 100%;text-align: center;">
+            <img src="/drawingBoard/img/fullScreen.gif" alt="loading">
+<!--            <span style="font-size: 60px;">Loading</span>-->
+        </div>
+        <div id="cell_flowGroup_property_inc_load_fail"
+             style="position: absolute;top: 49%;width: 100%;text-align: center;display: none;">
+            <span style="font-size: 60px;">Load Fail</span>
+        </div>
+        <div id="cell_flowGroup_property_inc_no_data"
+             style="position: absolute;top: 49%;width: 100%;text-align: center;display: none;">
+            <span style="font-size: 60px;">No Data</span>
+        </div>
+        <div id="cell_flowGroup_property_inc_load_data" style="display: none;">
+            <ul id="tab" style="width:100%; height:40px; text-align: center;font-weight: bold;cursor: pointer;">
+                <li id="tab1" value="1">BaseInfo</li>
+                <li id="tab2" value="2" style="background-color: rgb(218,218,218); border-color: rgb(192,192,192);">
+                    AttributeInfo
+                </li>
+            </ul>
+            <div id="tab_container">
+                <div id="tab_content1" style="display:block;">
+                    <div id="div_cell_flowVo_basicInfo_id"
+                         style="padding: 10px; border-bottom: 1px solid rgb(192, 192, 192);">
+                        <input id="input_cell_flowVo_id" value="" style="display: none;">
+                        <input id="input_cell_flowVo_pageId" value="" style="display: none;">
+                        <table style="border-collapse: separate; border-spacing: 0px 5px;">
+                            <tbody>
+                            <tr id="tr_cell_flowVo_name_info">
+                                <td><span>FlowName</span>&nbsp;</td>
+                                <td>
+                                    ：<span id="span_cell_flowVo_name"></span>
+                                    <button id="btn_show_update"
+                                            style="height: 28px; width: 28px; background: rgb(245, 245, 245); border: 1px solid; margin-left: 10px;"
+                                            title="Update name" onclick="isShowUpdateCellsName(true,'flow');">
+                                        <i class="glyphicon glyphicon-floppy-saved"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            <tr id="tr_cell_flowVo_name_input" style="display: none;">
+                                <td><span>FlowName</span>&nbsp;</td>
+                                <td>
+                                    <input id="input_cell_flowVo_name" class="form-control"
+                                           style="width: 80%;display: inline;"/>
+                                    <button style="height: 28px; width: 28px; background: rgb(245, 245, 245); border: 1px solid; margin-left: 10px;"
+                                            title="Update name" onclick="updateFlowGroupCellsNameById('flow');">
+                                        <i class="glyphicon glyphicon-saved"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><span>Description</span>&nbsp;</td>
+                                <td>：<span id="span_cell_flowVo_description"></span></td>
+                            </tr>
+                            <tr>
+                                <td><span>DriverMemory</span>&nbsp;</td>
+                                <td>：<span id="span_cell_flowVo_driverMemory"></span></td>
+                            </tr>
+                            <tr>
+                                <td><span>ExecutorCores</span>&nbsp;</td>
+                                <td>：<span id="span_cell_flowVo_executorCores"></span></td>
+                            </tr>
+                            <tr>
+                                <td><span>ExecutorMemory</span>&nbsp;</td>
+                                <td>：<span id="span_cell_flowVo_executorMemory"></span></td>
+                            </tr>
+                            <tr>
+                                <td><span>ExecutorNumber</span>&nbsp;</td>
+                                <td>：<span id="span_cell_flowVo_executorNumber"></span></td>
+                            </tr>
+                            <tr>
+                                <td><span>CreateTime</span>&nbsp;</td>
+                                <td>：<span id="span_cell_flowVo_crtDttmString"></span></td>
+                            </tr>
+                            <tr>
+                                <td><span>Stops</span>&nbsp;</td>
+                                <td>：<span id="span_cell_flowVo_stopQuantity"></span></td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div id="div_cell_flowGroupVo_basicInfo_id"
+                         style="padding: 10px; border-bottom: 1px solid rgb(192, 192, 192);  display: none;">
+                        <input id="input_cell_flowGroupVo_id" value="" style="display: none;">
+                        <input id="input_cell_flowGroupVo_pageId" value="" style="display: none;">
+                        <table style="border-collapse: separate; border-spacing: 0px 5px;">
+                            <tbody>
+                            <tr id="tr_cell_flowGroupVo_name_info">
+                                <td><span>FlowGroupName</span>&nbsp;</td>
+                                <td>
+                                    ：<span id="span_cell_flowGroupVo_name"></span>
+                                    <button id="btn_show_update_group"
+                                            style="height: 28px; width: 28px; background: rgb(245, 245, 245); border: 1px solid; margin-left: 10px;"
+                                            title="Update name" onclick="isShowUpdateCellsName(true,'flowGroup');">
+                                        <i class="glyphicon glyphicon-floppy-saved"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            <tr id="tr_cell_flowGroupVo_name_input">
+                                <td><span>FlowGroupName</span>&nbsp;</td>
+                                <td>
+                                    <input id="input_cell_flowGroupVo_name" class="form-control"
+                                           style="width: 80%;display: inline;"/>
+                                    <button style="height: 28px; width: 28px; background: rgb(245, 245, 245); border: 1px solid; margin-left: 10px;"
+                                            title="Update name" onclick="updateFlowGroupCellsNameById('flowGroup');">
+                                        <i class="glyphicon glyphicon-saved"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><span>Description</span>&nbsp;</td>
+                                <td>：<span id="span_cell_flowGroupVo_description"></span></td>
+                            </tr>
+                            <tr>
+                                <td><span>CreateTime</span>&nbsp;</td>
+                                <td>：<span id="span_cell_flowGroupVo_crtDttmString"></span></td>
+                            </tr>
+                            <tr>
+                                <td><span>Flows</span>&nbsp;</td>
+                                <td>：<span id="span_cell_flowGroupVo_flowQuantity"></span></td>
+                            </tr>
+                            <tr>
+                                <td><span>Groups</span>&nbsp;</td>
+                                <td>：<span id="span_cell_flowGroupVo_flowGroupQuantity"></span></td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div id="tab_content2" style="display:none;">
+                    <div id="div_cell_flowVo_attributeInfo_id"
+                         style="padding: 10px; border-bottom: 1px solid rgb(192, 192, 192);">
+                        <table style="border-collapse: separate; border-spacing: 0px 5px;width: 100%">
+                            <tr>
+                                <td style="width: 60px;"><span>Description</span></td>
+                                <td style="width: 25px;"><img src="/drawingBoard/img/descIcon.png" class="" title="Description"
+                                                              style="cursor: pointer;"></td>
+                                <td><input id="input_cell_flowVo_description" class="form-control" readonly="readonly"
+                                           data-toggle="true" style="cursor: pointer; background: rgb(245, 245, 245);">
+                                </td>
+                                <td></td>
+                            </tr>
+                            <tr>
+                                <td><span>DriverMemory</span>&nbsp;</td>
+                                <td style="width: 25px;"><img src="/drawingBoard/img/descIcon.png" class="" title="DriverMemory"
+                                                              style="cursor: pointer;"></td>
+                                <td><input id="input_cell_flowVo_driverMemory" class="form-control" name="driverMemory"
+                                           readonly="readonly" data-toggle="true"
+                                           style="cursor: pointer; background: rgb(245, 245, 245);"></td>
+                                <td><span style="color:red">*</span></td>
+                            </tr>
+                            <tr>
+                                <td><span>ExecutorCores</span>&nbsp;</td>
+                                <td style="width: 25px;"><img src="/drawingBoard/img/descIcon.png" class="" title="DriverMemory"
+                                                              style="cursor: pointer;"></td>
+                                <td><input id="input_cell_flowVo_executorCores" class="form-control"
+                                           name="executorCores" readonly="readonly" data-toggle="true"
+                                           style="cursor: pointer; background: rgb(245, 245, 245);"></td>
+                                <td><span style="color:red">*</span></td>
+                            </tr>
+                            <tr>
+                                <td><span>ExecutorMemory</span>&nbsp;</td>
+                                <td style="width: 25px;"><img src="/drawingBoard/img/descIcon.png" class="" title="DriverMemory"
+                                                              style="cursor: pointer;"></td>
+                                <td><input id="input_cell_flowVo_executorMemory" class="form-control"
+                                           name="executorMemory" readonly="readonly" data-toggle="true"
+                                           style="cursor: pointer; background: rgb(245, 245, 245);"></td>
+                                <td><span style="color:red">*</span></td>
+                            </tr>
+                            <tr>
+                                <td><span>ExecutorNumber</span>&nbsp;</td>
+                                <td style="width: 25px;"><img src="/drawingBoard/img/descIcon.png" class="" title="DriverMemory"
+                                                              style="cursor: pointer;"></td>
+                                <td><input id="input_cell_flowVo_executorNumber" class="form-control"
+                                           name="executorNumber" readonly="readonly" data-toggle="true"
+                                           style="cursor: pointer; background: rgb(245, 245, 245);"></td>
+                                <td><span style="color:red">*</span></td>
+                            </tr>
+                        </table>
+                    </div>
+                    <div id="div_cell_flowGroupVo_attributeInfo_id"
+                         style="padding: 10px; border-bottom: 1px solid rgb(192, 192, 192); display: none;">
+                        <table style="border-collapse: separate; border-spacing: 0px 5px;width: 100%">
+                            <tr>
+                                <td style="width: 60px;"><span>Description</span></td>
+                                <td style="width: 25px;"><img src="/drawingBoard/img/descIcon.png" class="" title="Description"
+                                                              style="cursor: pointer;"></td>
+                                <td><input id="input_cell_flowGroupVo_description" class="form-control"
+                                           readonly="readonly" data-toggle="true"
+                                           style="cursor: pointer; background: rgb(245, 245, 245);"></td>
+                                <td></td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+</html>

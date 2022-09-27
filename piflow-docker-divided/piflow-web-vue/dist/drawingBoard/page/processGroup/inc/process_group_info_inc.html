@@ -1,0 +1,61 @@
+<!DOCTYPE html SYSTEM "http://www.thymeleaf.org/dtd/xhtml1-strict-thymeleaf-4.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:th="http://www.thymeleaf.org">
+<body>
+<div style="line-height: 25px;">
+    <div id="processGroup_info_inc_loading" style="position: absolute;top: 49%;width: 100%;text-align: center;">
+        <img src="/drawingBoard/img/fullScreen.gif" alt="loading">
+    </div>
+    <div id="processGroup_info_inc_load_fail"
+         style="position: absolute;top: 49%;width: 100%;text-align: center;display: none;">
+        <span style="font-size: 60px;">Load Fail</span>
+    </div>
+    <div id="processGroup_info_inc_no_data"
+         style="position: absolute;top: 49%;width: 100%;text-align: center;display: none;">
+        <span style="font-size: 60px;">No Data</span>
+    </div>
+    <div id="processGroup_info_inc_load_data" style="display: block;">
+        <div style="padding: 12px 0px 12px 18px; border-bottom: 1px solid rgb(192, 192, 192);">
+            <div style="padding: 0px 0px 6px; white-space: nowrap; overflow: hidden; width: 200px; font-weight: bold;">
+                ProcessGroup Basic Information
+            </div>
+            <table style="border-collapse: separate; border-spacing: 0px 5px;">
+                <tbody>
+                <tr>
+                    <td valign="top"><span>UUID&nbsp;：</span></td>
+                    <td valign="top"><span id="span_processGroupVo_id"/></td>
+                </tr>
+                <tr>
+                    <td valign="top"><span>GroupName&nbsp;：</span></td>
+                    <td valign="top"><span id="span_processGroupVo_name"/></td>
+                </tr>
+                <tr>
+                    <td valign="top"><span>Description&nbsp;：</span></td>
+                    <td valign="top"><span id="span_processGroupVo_description"/></td>
+                </tr>
+                <tr>
+                    <td valign="top"><p>CreateTime&nbsp;：</p></td>
+                    <td valign="top"><span id="span_processGroupVo_crtDttmStr"/></td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+        <div style="padding: 12px 0px 12px 18px; border-bottom: 1px solid rgb(192, 192, 192);">
+            <div style="padding: 0px 0px 6px; white-space: nowrap; overflow: hidden; width: 200px; font-weight: bold;">
+                ProcessGroup Running Information
+            </div>
+            <span>StartTime&nbsp;：</span>
+            <span id="processGroupStartTimeShow"></span>
+            <br>
+            <span>CompleteTime&nbsp;：</span>
+            <span id="processGroupStopTimeShow"></span>
+            <br>
+            <span>State&nbsp;：</span>
+            <span id="processGroupStateShow"></span>
+            <br>
+            <span>ProgressData&nbsp;：</span>
+            <span id="processGroupProgressShow"></span>
+        </div>
+    </div>
+</div>
+</body>
+</html>

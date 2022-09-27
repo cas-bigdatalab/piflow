@@ -225,6 +225,7 @@ object ClassUtil {
           ("outports" -> stop.outportList.mkString(",")) ~
           ("groups" -> stop.getGroup().mkString(",")) ~
           ("isCustomized" -> stop.getCustomized().toString) ~
+          ("isDataSource" -> stop.getIsDataSource().toString) ~
           /*("customizedAllowKey" -> "") ~
           ("customizedAllowValue" -> "")*/
           ("visualizationType" -> visualizationType) ~

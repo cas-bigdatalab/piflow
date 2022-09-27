@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    kompose.cmd: kompose convert --volumes hostPath
+    kompose.version: 1.26.1 (HEAD)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: piflow-web
+  name: piflow-web
+spec:
+  ports:
+    - name: "6002"
+      port: 6002
+      targetPort: 6002
+  selector:
+    io.kompose.service: piflow-web
+status:
+  loadBalancer: {}

@@ -1,4 +1,4 @@
-![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-logo2.png)  
+![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-logo3.png)  
 [![GitHub releases](https://img.shields.io/github/release/cas-bigdatalab/piflow.svg)](https://github.com/cas-bigdatalab/piflow/releases)
 [![GitHub stars](https://img.shields.io/github/stars/cas-bigdatalab/piflow.svg)](https://github.com/cas-bigdatalab/piflow/stargazers)
 [![GitHub forks](https://img.shields.io/github/forks/cas-bigdatalab/piflow.svg)](https://github.com/cas-bigdatalab/piflow/network)
@@ -8,7 +8,7 @@
 
 
 πFlow is an easy to use, powerful big data pipeline system.
-Try PiFlow v0.9 with: http://piflow.cstcloud.cn/
+
 ## Table of Contents
 
 - [Features](#features)
@@ -74,7 +74,7 @@ Try PiFlow v0.9 with: http://piflow.cstcloud.cn/
           [INFO] Final Memory: 118M/691M
           [INFO] ------------------------------------------------------------------------
 
-### Run Piflow Server：
+### Run πFlow Server：
 
 - `run piflow server on Intellij`:   
   - download piflow: git clone https://github.com/cas-bigdatalab/piflow.git
@@ -99,8 +99,9 @@ Try PiFlow v0.9 with: http://piflow.cstcloud.cn/
   
   
 - `run piflow server by release version`:
+
   - download piflow.tar.gz:   
-    https://github.com/cas-bigdatalab/piflow/releases/download/v1.2/piflow-server-v1.2.tar.gz  
+    https://github.com/cas-bigdatalab/piflow/releases/download/v1.2/piflow-server-v1.3.tar.gz  
     
   - unzip piflow.tar.gz:  
     tar -zxvf piflow.tar.gz
@@ -113,7 +114,8 @@ Try PiFlow v0.9 with: http://piflow.cstcloud.cn/
     - set PIFLOW_HOME  
       - vim /etc/profile  
         export PIFLOW_HOME=/yourPiflowPath/bin  
-      	export PATH=$PATH:$PIFLOW_HOME/bin  
+      	 export PATH=$PATH:$PIFLOW_HOME/bin  
+        
       - command   
         piflow flow start example/mockDataFlow.json  
         piflow flow stop appID  
@@ -149,9 +151,9 @@ Try PiFlow v0.9 with: http://piflow.cstcloud.cn/
       h2.port=50002
 
   
-### Run Piflow Web：
+### Run πFlow Web：
   - Visit address, download the corresponding *.tar.gz file, and modify the corresponding configuration file（`The version must be consistent with piflow-server`） 
-    - https://github.com/cas-bigdatalab/piflow-web/releases/tag/v1.2 
+    - https://github.com/cas-bigdatalab/piflow-web/releases/tag/v1.3 
   
 ### Restful API：
 
@@ -226,13 +228,13 @@ Try PiFlow v0.9 with: http://piflow.cstcloud.cn/
     
 ## docker-started  
   - pull piflow images  
-    docker pull registry.cn-hangzhou.aliyuncs.com/cnic_piflow/piflow:v1.2    
+    docker pull registry.cn-hangzhou.aliyuncs.com/cnic_piflow/piflow:v1.3    
     
   - show docker images  
     docker images
     
   - run a container with  piflow imageID ， all services run automatically. Please Set HOST_IP.    
-    docker run -h master -itd --env HOST_IP=\*.\*.\*.\* --name piflow-v1.2 -p 6001:6001 -p 6002:6002  [imageID]  
+    docker run -h master -itd --env HOST_IP=\*.\*.\*.\* --name piflow-v1.3 -p 6001:6001 -p 6002:6002  [imageID]  
     
   - please visit "HOST_IP:6001", it may take a while  
   

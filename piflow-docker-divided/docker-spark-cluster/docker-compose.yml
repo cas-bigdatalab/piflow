@@ -1,0 +1,22 @@
+version: "3"
+services:
+  spark-master:
+    image: cluster-apache-spark:2.2.0
+    ports:
+      - "9090:8080"
+      - "7077:7077"
+    volumes:
+       - ./apps:/opt/spark-apps
+       - ./data:/opt/spark-data
+    environment:
+      - SPARK_LOCAL_IP=127.0.0.1
+      - SPARK_WORKLOAD=master
+    volumes:
+       - ./apps:/opt/spark-apps
+       - ./data:/opt/spark-data  
+  demo-database:
+    image: postgres:11.7-alpine
+    ports: 
+      - "5432:5432"
+    environment: 
+      - POSTGRES_PASSWORD=123456

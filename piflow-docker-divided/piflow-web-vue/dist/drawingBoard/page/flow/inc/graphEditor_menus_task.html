@@ -1,0 +1,53 @@
+<!DOCTYPE html SYSTEM "http://www.thymeleaf.org/dtd/xhtml1-strict-thymeleaf-4.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:th="http://www.thymeleaf.org">
+<body th:fragment=graphEditor_menus_task>
+
+<div>
+    <div class="btn-group">
+        <a class="customize_btn_css" href='javascript:void(0);' style="padding: 9px 12px;" onclick="runFlow()"
+           title="Run flow" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+            <i class="icon-play icon-white"></i>
+        </a>
+    </div>
+    <div class="btn-group">
+        <a class="customize_btn_css" href='javascript:void(0);' style="padding: 9px 12px;"
+           onclick="runFlow('DEBUG')" title="Debug flow">
+            <i class="fa-bug icon-white"></i>
+        </a>
+    </div>
+    <div class="btn-group" style="margin-right: 5px;">
+        <a class="customize_btn_css" style="background: #F14D50;color: #ffffff;border: 1px solid #f14d50;"
+           href='javascript:void(0);' title="menu" data-toggle="dropdown" aria-haspopup="true"
+           aria-expanded="false">
+            <i class='glyphicon glyphicon-cog'></i>
+        </a>
+        <ul class="dropdown-menu pull-right" style="margin-top: 0px">
+            <li>
+                <a id="reloadStops_Task" href='javascript:void(0);' onclick="reloadStops()" title="reload Stops">reloadStops </a>
+            </li>
+            <li role="separator" class=""></li>
+            <li>
+                <a id="saveTemplate_Task" href='javascript:void(0);' onclick="saveTemplateFun()" title="save Template">saveTemplate</a>
+            </li>
+            <li role="separator" class=""></li>
+            <li>
+                <a id="uploadTemplate_Task" href='javascript:void(0);' onclick="uploadTemplate()"
+                   title="uploadTemplate">uploadTemplate </a>
+            </li>
+            <li role="separator" class=""></li>
+            <li>
+                <a id="loadingXml_Task" href='javascript:void(0);' onclick="openTemplateList()">LoadTemplate</a>
+            </li>
+        </ul>
+    </div>
+    <div id="divloadingXml" style="display:none;">
+        <select name="loadingXmlSelect" id="loadingXmlSelect" onchange="loadTemplateFun()"
+                style="width: 218px;"></select>
+    </div>
+    <form id="uploadForm" enctype="multipart/form-data" method="post">
+        <input type="file" id="uploadFile" name="file" style="display:none;" onchange="uploadTemplateFile(this)"/>
+    </form>
+</div>
+
+</body>
+</html>

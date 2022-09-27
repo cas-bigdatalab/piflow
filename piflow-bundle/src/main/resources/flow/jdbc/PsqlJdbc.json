@@ -1,0 +1,40 @@
+{
+  "flow":{
+    "name":"test",
+    "uuid":"1234",
+    "stops":[
+      {
+        "uuid":"1111",
+        "name":"PostgresqlRead",
+        "bundle":"cn.piflow.bundle.jdbc.PostgresqlRead",
+        "properties":{
+          "url": "jdbc:postgresql://10.0.82.191:5432/postgres",
+          "user": "postgres",
+          "password": "123456",
+          "selectedContent":"*",
+          "tableName": "test1"
+        }
+      },
+      {
+        "uuid":"1111",
+        "name":"PostgresqlWrite",
+        "bundle":"cn.piflow.bundle.jdbc.PostgresqlWrite",
+        "properties":{
+          "url": "jdbc:postgresql://10.0.82.191:5432/postgres",
+          "user": "postgres",
+          "password": "123456",
+          "dbtable":"test2",
+          "saveMode": "Append"
+        }
+      }
+    ],
+    "paths":[
+      {
+        "from":"PostgresqlRead",
+        "outport":"",
+        "inport":"",
+        "to":"PostgresqlWrite"
+      }
+    ]
+  }
+}

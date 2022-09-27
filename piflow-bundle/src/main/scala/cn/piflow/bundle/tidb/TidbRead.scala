@@ -60,7 +60,7 @@ class TidbRead extends ConfigurableStop{
     val url=new PropertyDescriptor()
       .name("url")
       .displayName("Url")
-      .description("The Url, for example jdbc:mysql://127.0.0.1/dbname")
+      .description("The Url, for example jdbc:mysql://127.0.0.1:4000/dbname")
       .defaultValue("")
       .required(true)
       .example("jdbc:mysql://127.0.0.1:4000/mysql")

@@ -1,0 +1,68 @@
+<!DOCTYPE html SYSTEM "http://www.thymeleaf.org/dtd/xhtml1-strict-thymeleaf-4.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:th="http://www.thymeleaf.org">
+<body>
+
+<div style="line-height: 25px;">
+    <div id="flow_info_inc_loading" style="position: absolute;top: 49%;width: 100%;text-align: center;">
+        <img src="/drawingBoard/img/fullScreen.gif" alt="loading">
+<!--        <span style="font-size: 60px;">Loading</span>-->
+    </div>
+    <div id="flow_info_inc_load_fail"
+         style="position: absolute;top: 49%;width: 100%;text-align: center;display: none;">
+        <span style="font-size: 60px;">Load Fail</span>
+    </div>
+    <div id="flow_info_inc_no_data"
+         style="position: absolute;top: 49%;width: 100%;text-align: center;display: none;">
+        <span style="font-size: 60px;">No Data</span>
+    </div>
+    <div id="flow_info_inc_load_data" style="display: none;">
+        <div style="padding: 10px; border-bottom: 1px solid rgb(192, 192, 192);">
+            <div style="padding: 0px 0px 6px; white-space: nowrap; overflow: hidden; width: 200px; font-weight: bold;">
+                Flow Basic Information
+            </div>
+            <table style="border-collapse: separate; border-spacing: 0px 5px;">
+                <tbody>
+                <tr>
+                    <td valign="top"><span>UUID</span></td>
+                    <td valign="top">：<span id="span_flowVo_id"/></td>
+                </tr>
+                <tr>
+                    <td valign="top"><span>FlowName</span></td>
+                    <td valign="top">：<span id="span_flowVo_name"/></td>
+                </tr>
+                <tr>
+                    <td valign="top"><span>Description</span></td>
+                    <td valign="top">：<span id="span_flowVo_description"/></td>
+                </tr>
+                <tr>
+                    <td valign="top"><span>CreateTime</span></td>
+                    <td valign="top">：<span id="span_flowVo_crtDttmStr"/></td>
+                </tr>
+                <tr>
+                    <td valign="top"><span>Stops</span></td>
+                    <td valign="top">：<span id="span_flowVo_stopsCounts"/></td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+        <div id="runningProcessID"
+             style="white-space: nowrap; color: rgb(112, 112, 112); text-align: left; cursor: default; line-height: 25px; display: none;">
+            <div style="padding: 10px; border-bottom: 1px solid rgb(192, 192, 192);">
+                <div style="padding: 0px 0px 6px; white-space: nowrap; overflow: hidden; width: 200px; font-weight: bold;">
+                    Running Process
+                </div>
+                <table style="border-collapse: separate; border-spacing: 0px 0px; width: 95%;">
+                    <tbody>
+                    <tr>
+                        <td style="width: 50%;"><label>ProcessName</label></td>
+                        <td style="width: 50%;"><label>StartTime</label></td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,49 @@
+<!DOCTYPE html SYSTEM "http://www.thymeleaf.org/dtd/xhtml1-strict-thymeleaf-4.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:th="http://www.thymeleaf.org">
+<body th:fragment=flow_group_template_List>
+    <link href="/drawingBoard/my_css/fullScreen.css"/>
+    <link href="/drawingBoard/components/layui/css/layui.css"/>
+
+    <script type="text/javascript" src="/drawingBoard/components/layui/layui.all.js"></script>
+
+    <!-- content starts -->
+    <div class="wrapper" style="margin: 20px;">
+        <!-- Media datatable -->
+        <div class="widget">
+            <div class="navbar">
+                <div class="navbar-inner">
+                    <h6 style="color: #1A7444">Templates</h6>
+                </div>
+            </div>
+            <div class="navbar">
+                <form id="uploadForm" enctype="multipart/form-data" method="post">
+                    <input type="file" id="flowTemplateFile" name="flowGroupTemplateFile" style="display:none;" onchange="listUploadFlowGroupTemplate()"/>
+                    <a class='btn' href='javascript:void(0);' onclick="javascript:listUploadFlowGroupTemplateBtn();"  style='background-color: #1A7444;border: 1px solid;color: #1A7444;' title="upload template">
+                        <i class="icon-upload icon-white"></i></a>
+                </form>
+            </div>
+            <div class="table-overflow">
+                <div class="demoTable">
+                    <div style="margin-top: 6px">
+                        <div class="layui-inline">
+                            <i class="fa fa-search fa-2x" style="position:absolute;top:8px ;left:8px;font-size:18px"></i>
+                            <input class="layui-input" name="param" id="search_input_id" autocomplete="off"
+                                   style="padding-left:30px">
+                        </div>
+                    </div>
+                </div>
+                <table class="layui-hide" id="flowGroupTemplateTableId" lay-filter="user"></table>
+            </div>
+        </div>
+        <!-- /media datatable -->
+    </div>
+    <!-- content ends -->
+    <div th:include="Macro/fragmentMacro :: fullScreen"></div>
+    <script th:include="Macro/csrfTokeHeadMacro :: csrfTokeHeadMacroScript"/>
+    <script src="/drawingBoard/my_js/template/flowGroupTemplateList.js"></script>
+    <script type="text/javascript">
+        initLayerTableFlowGroupTemplatePage('flowGroupTemplateTableId', "/flowTemplate/flowTemplatePage","search_input_id");
+        //@ sourceURL=flow_group_template_List.js
+    </script>
+</body>
+</html>

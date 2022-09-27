@@ -698,7 +698,21 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
      }
 
    }
+   case HttpRequest(GET, Uri.Path("/monitor/throughout"), headers, entity, protocol) => {
 
+     val appId = req.getUri().query().getOrElse("appId", "")
+     val stopName = req.getUri().query().getOrElse("stopName", "")
+     val portName = req.getUri().query().getOrElse("portName", "")
+     try {
+       val pluginInfo = API.getThroughput(appId,stopName,portName)
+       Future.successful(HttpResponse(SUCCESS_CODE, entity = pluginInfo))
+     } catch {
+       case ex => {
+         println(ex)
+         Future.successful(HttpResponse(FAIL_CODE, entity = "Can not found plugins !"))
+       }
+     }
+   }
 
    case _: HttpRequest =>
       Future.successful(HttpResponse(UNKNOWN_CODE, entity = "Unknown resource!"))

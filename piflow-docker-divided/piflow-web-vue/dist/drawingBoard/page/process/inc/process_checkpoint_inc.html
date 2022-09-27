@@ -1,0 +1,85 @@
+<!DOCTYPE html SYSTEM "http://www.thymeleaf.org/dtd/xhtml1-strict-thymeleaf-4.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:th="http://www.thymeleaf.org">
+<body>
+<head>
+    <script type="text/javascript" src="/piflow-web/js/jquery/jquery.min.js"></script>
+    <script type="text/javascript" src="/piflow-web/components/layui/layui.all.js"></script>
+    <script type="text/javascript" src="/piflow-web/js/ajaxUtils.js"></script>
+    <script type="text/javascript" src="/piflow-web/my_js/process/processContent.js"></script>
+    <script type="text/javascript" src="/piflow-web/my_js/process/initProcessGraph.js"></script>
+</head>
+<div>
+    <div id="checkpointsContentDiv">
+        <input id="checkpointsIsNull" style="display: none" value="isNull"/>
+    </div>
+    <div style="text-align: right;">
+        <button id="run_checkpoint_new"
+                type="button"
+                class="btn btn-default"
+                style="margin-right: 10px;display: none;">
+            Run
+        </button>
+        <button id="debug_checkpoint_new"
+                type="button"
+                class="btn btn-default"
+                style="margin-right: 10px; display: none;">
+            Debug
+        </button>
+    </div>
+</div>
+<script type="text/javascript">
+    var urlParams = getUrlParams(location.href);
+
+    function initProcessCheckpointIncPageData() {
+        ajaxRequest({
+            cache: true,//Keep cached data
+            type: "POST",//Request for get
+            url: "/process/getCheckpointData",//This is the name of the file where I receive data in the background.
+            //data:$('#loginForm').serialize(),//Serialize the form
+            data: {
+                pID: urlParams.pID,
+                parentProcessId: urlParams.parentProcessId,
+            },
+            async: false,//Setting it to true indicates that other code can still be executed after the request has started. If this option is set to false, it means that all requests are no longer asynchronous, which also causes the browser to be locked.
+            error: function (request) {//Operation after request failure
+                alert("Request Failed");
+                return;
+            },
+            success: function (data) {//Operation after request successful
+                var dataMap = JSON.parse(data);
+                if (200 === dataMap.code) {
+                    var checkpointsSplitArray = dataMap.checkpointsSplit;
+                    if (checkpointsSplitArray) {
+                        var checkpointsContentCheckBoxHtml = "";
+                        for (var i = 0; i < checkpointsSplitArray.length; i++) {
+                            checkpointsContentCheckBoxHtml += ('<span>'
+                                + '<input type="checkbox" th:value="' + checkpointsSplitArray[i] + '"/>'
+                                + '<span>' + checkpointsSplitArray[i] + '</span>'
+                                + '</br>'
+                                + '</span>');
+                        }
+                        $("#checkpointsContentDiv").html(checkpointsContentCheckBoxHtml);
+                        if (urlParams.runMode && 'DEBUG' === urlParams.runMode) {
+                            $("#debug_checkpoint_new").show();
+                        } else {
+                            $("#run_checkpoint_new").show();
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    $(document).ready(function () {
+        if ("list" === urlParams.pageType) {
+            $('#run_checkpoint_new').attr('onclick', 'listRunProcess("' + urlParams.id + '","DEBUG")');
+            $('#debug_checkpoint_new').attr('onclick', 'listRunProcess("' + urlParams.id + '")');
+        } else {
+            $('#run_checkpoint_new').attr('onclick', 'runProcess("' + urlParams.id + '","DEBUG")');
+            $('#debug_checkpoint_new').attr('onclick', 'runProcess("' + urlParams.id + '")');
+        }
+        initProcessCheckpointIncPageData();
+    });
+</script>
+</body>
+</html>

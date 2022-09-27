@@ -1,0 +1,91 @@
+/*===== Top =====*/
+.fixed {
+    position: fixed;
+    height: 48px;
+    width: 100%;
+    z-index: 1039;
+    background: #37714b;
+    padding: 0 20px;
+    border-bottom: 4px solid gainsboro;
+    -webkit-box-sizing: border-box;
+    -moz-box-sizing: border-box;
+    -ms-box-sizing: border-box;
+    box-sizing: border-box;
+}
+
+.top-menu {
+    border-left: 1px solid #37714b;
+    border-right: 1px solid #37714b;
+    float: right;
+    margin-right: -1px;
+}
+
+.top-menu > li {
+    list-style: none;
+    float: left;
+    border-right: 1px solid #37714b;
+    position: relative;
+}
+
+.top-menu > li > a {
+    cursor: pointer;
+    display: block;
+    border-left: 1px solid #37714b;
+    border-right: 1px solid #37714b;
+    -webkit-transition: all 0.2s ease-in-out;
+    -moz-transition: all 0.2s ease-in-out;
+    -o-transition: all 0.2s ease-in-out;
+    transition: all 0.2s ease-in-out;
+
+}
+
+.top-menu > li > a:hover {
+    background-color: #333;
+    border-color: #333;
+}
+
+.top-menu > li > ul {
+    width: 100%;
+    top: 48px;
+    left: -1px;
+    border-top: 0;
+}
+
+.top-menu > li > ul > li > a {
+    padding: 8px;
+}
+
+
+.top-menu > li > ul:after {
+    content: '';
+    display: inline-block;
+    border-left: 6px solid transparent;
+    border-right: 6px solid transparent;
+    border-bottom: 5px solid white;
+    position: absolute;
+    top: -4px;
+    left: 50%;
+    margin-left: -6px;
+}
+
+
+.user-menu {
+    padding: 12px 14px;
+    height: 20px;
+}
+
+.user-menu > img {
+    display: inline-block;
+    float: left;
+    margin-right: 10px;
+    margin-top: -1px;
+}
+
+.user-menu > span {
+    font-size: 11px;
+    margin-left: 32px;
+    display: block;
+    color: #ffffff;
+    font-weight: bold;
+    white-space: nowrap;
+}

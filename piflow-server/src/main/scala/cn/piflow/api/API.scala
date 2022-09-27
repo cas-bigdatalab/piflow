@@ -509,6 +509,14 @@ object API {
     """{"stopWithGroup":"""" + resultList.mkString(",") + """"}"""
   }
 
+    
+  def  getThroughput(appId:String, stopName:String, portName:String):String = {
+    //test   
+    //H2Util.addThroughput("a","b","c",100)
+    H2Util.getThroughput(appId, stopName, portName)
+    // "out 200"
+  }
+  
   private def getLogFile(uuid : String, appName : String) : (File,File) = {
     val now : Date = new Date()
     val dataFormat : SimpleDateFormat = new SimpleDateFormat("yyyy-MM-dd_HH:mm:ss")
