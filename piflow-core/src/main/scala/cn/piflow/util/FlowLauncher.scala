@@ -3,13 +3,13 @@ package cn.piflow.util
 import java.io.File
 import java.util.Date
 import java.util.concurrent.CountDownLatch
-
 import cn.piflow.Flow
 import org.apache.hadoop.security.SecurityUtil
 import org.apache.http.client.methods.{CloseableHttpResponse, HttpPut}
 import org.apache.http.entity.StringEntity
 import org.apache.http.impl.client.HttpClients
 import org.apache.http.util.EntityUtils
+import org.apache.spark.SparkFiles
 import org.apache.spark.launcher.SparkLauncher
 
 /**
@@ -30,6 +30,9 @@ object FlowLauncher {
     var appId : String = ""
     val countDownLatch = new CountDownLatch(1)
     val launcher = new SparkLauncher
+    val pyspark= PropertyUtil.getPropertyValue("fs.defaultFS") + "/piflow/pythonEnv/pyspark_venv.zip#pyspark"
+    val pythonExecutor= PropertyUtil.getPropertyValue("fs.defaultFS") + "/piflow/pythonExecutor.zip#pythonExecutor"
+
     val sparkLauncher =launcher
       .setAppName(flow.getFlowName())
       .setMaster(PropertyUtil.getPropertyValue("spark.master"))
@@ -40,11 +43,17 @@ object FlowLauncher {
       .setConf("spark.executor.instances", flow.getExecutorNum())
       .setConf("spark.executor.memory", flow.getExecutorMem())
       .setConf("spark.executor.cores",flow.getExecutorCores())
+      .setConf("spark.driver.allowMultipleContexts","true")
+      .setConf("spark.driver.allowMultipleContexts","true")
+      .setConf("spark.pyspark.python","pyspark/venv/bin/python3")
       .addFile(PropertyUtil.getConfigureFile())
       .addFile(ServerIpUtil.getServerIpFile())
       .addFile(flowFile)
+      .setConf("spark.yarn.dist.archives",pyspark+","+pythonExecutor)
       .setMainClass("cn.piflow.api.StartFlowMain")
       .addAppArgs(flowFileName)
+
+
 
     val sparkMaster = PropertyUtil.getPropertyValue("spark.master")
     if(sparkMaster.equals("yarn")){
@@ -83,6 +92,15 @@ object FlowLauncher {
 
       })
     }
+
+    //add pythonJar to spark cluster
+    /*val pythonJarPath = PythonScriptUtil.getJarPath()
+    val pythonJarPathFile = new File(pythonJarPath)
+    if(pythonJarPathFile.exists()){
+      FileUtil.getTarFile(new File(pythonJarPath)).foreach(f => {
+        sparkLauncher.addJar(f.getPath)
+      })
+    }*/
 
     val scalaPath = PropertyUtil.getScalaPath()
     val scalaPathFile = new File(scalaPath)

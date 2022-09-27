@@ -1,0 +1,17 @@
+Make python virtual Env
+1. python3 -m venv [ virtual-enviromment-name]
+   python3 -m venv venv
+
+2. source venv/bin/activate
+
+3. ./venv/bin/pip3 install findspark pyspark numpy pandas
+
+4. zip -r -q pyspark_venv.zip venv
+
+5. hadoop fs -put pyspark_venv.zip /piflow/pythonEnv/
+
+
+check python virtual Evn
+1. unzip -d pyspark pyspark_venv.zip
+2. cd ./pyspark/venv/bin
+3. ./python3
