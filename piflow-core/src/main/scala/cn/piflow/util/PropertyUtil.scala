@@ -44,18 +44,18 @@ object PropertyUtil {
   }
 
   def getVisualDataDirectoryPath():String = {
-    val item = "VisualDataDirectory"
+    val item = "visualDataDirectoryHdfsPath"
     val hdfsFS = PropertyUtil.getPropertyValue("fs.defaultFS")
-    val sparkJarHdfsPath = hdfsFS + "/user/piflow/visualDataDirectoryPath/"
+    val visualDataDirectoryHdfsPath = hdfsFS + "/user/piflow/visualDataDirectoryPath/"
 
     val isPluginHdfsPathExist = H2Util.getFlag(item)
     if(isPluginHdfsPathExist == NOT_EXIST_FLAG){
-      if(!HdfsUtil.exists(hdfsFS,sparkJarHdfsPath)){
-        HdfsUtil.mkdir(hdfsFS,sparkJarHdfsPath)
+      if(!HdfsUtil.exists(hdfsFS,visualDataDirectoryHdfsPath)){
+        HdfsUtil.mkdir(hdfsFS,visualDataDirectoryHdfsPath)
       }
       H2Util.addFlag(item, EXIST_FLAG)
     }
-    sparkJarHdfsPath
+    visualDataDirectoryHdfsPath
   }
 
   def getPropertyValue(propertyKey: String): String ={
