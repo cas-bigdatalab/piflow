@@ -714,6 +714,22 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
      }
    }
 
+   case HttpRequest(GET, Uri.Path("/visualDataDirectory/path"), headers, entity, protocol) =>{
+
+     try{
+       val appId = req.getUri().query().getOrElse("appId", "")
+       val stopName = req.getUri().query().getOrElse("stopName", "")
+       val visualDataDirectoryPath = PropertyUtil.getVisualDataDirectoryPath() + appId + "/" + stopName
+       val result = "{\"visualDataDirectoryPath\":\""+ visualDataDirectoryPath + "\"}"
+       Future.successful(HttpResponse(SUCCESS_CODE, entity = result))
+     }catch {
+       case ex => {
+         println(ex)
+         Future.successful(HttpResponse(FAIL_CODE, entity = "Can not found visualDataDirectory path !"))
+       }
+     }
+   }
+
    case _: HttpRequest =>
       Future.successful(HttpResponse(UNKNOWN_CODE, entity = "Unknown resource!"))
   }
