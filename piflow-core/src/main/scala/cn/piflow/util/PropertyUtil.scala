@@ -10,7 +10,10 @@ object PropertyUtil {
   var classPath:String = ""
   var scalaPath:String = ""
   var sparkJarPath:String = ""
-  var visualDataDirectoryPath:String = ""
+
+  val NOT_EXIST_FLAG = 0
+  val EXIST_FLAG = 1
+
     try{
     //val path = Thread.currentThread().getContextClassLoader.getResource("config.properties").getPath
     //fis = this.getClass.getResourceAsStream("")
@@ -19,7 +22,6 @@ object PropertyUtil {
     classPath = userDir + "/classpath/"
     scalaPath = userDir + "/scala/"
     sparkJarPath = userDir + "/sparkJar/"
-    visualDataDirectoryPath = getPropertyValue("fs.defaultFS") + "/visualDataDirectoryPath/"
     prop.load(new FileInputStream(path))
   } catch{
     case ex: Exception => ex.printStackTrace()
@@ -42,7 +44,18 @@ object PropertyUtil {
   }
 
   def getVisualDataDirectoryPath():String = {
-    visualDataDirectoryPath
+    val item = "VisualDataDirectory"
+    val hdfsFS = PropertyUtil.getPropertyValue("fs.defaultFS")
+    val sparkJarHdfsPath = hdfsFS + "/user/piflow/visualDataDirectoryPath/"
+
+    val isPluginHdfsPathExist = H2Util.getFlag(item)
+    if(isPluginHdfsPathExist == NOT_EXIST_FLAG){
+      if(!HdfsUtil.exists(hdfsFS,sparkJarHdfsPath)){
+        HdfsUtil.mkdir(hdfsFS,sparkJarHdfsPath)
+      }
+      H2Util.addFlag(item, EXIST_FLAG)
+    }
+    sparkJarHdfsPath
   }
 
   def getPropertyValue(propertyKey: String): String ={
