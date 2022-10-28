@@ -1,10 +1,9 @@
 package cn.piflow.api
 
-import java.io.File
+import java.io.{File, InputStream}
 import java.net.InetAddress
 import java.text.SimpleDateFormat
 import java.util.Date
-
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
@@ -13,8 +12,8 @@ import akka.http.scaladsl.model.HttpMethods._
 import akka.http.scaladsl.model.StatusCodes.Success
 import akka.http.scaladsl.server.Directives
 import akka.http.scaladsl.unmarshalling.Unmarshal
-import akka.stream.ActorMaterializer
-import akka.stream.scaladsl.Sink
+import akka.stream.{ActorMaterializer, IOResult, scaladsl}
+import akka.stream.scaladsl.{Sink, StreamConverters}
 import akka.util.ByteString
 import cn.piflow.GroupExecution
 import cn.piflow.api.HTTPService.pluginManager
@@ -22,6 +21,8 @@ import cn.piflow.conf.util.{MapUtil, OptionUtil, PluginManager}
 import cn.piflow.util._
 import com.typesafe.akka.extension.quartz.QuartzSchedulerExtension
 import com.typesafe.config.ConfigFactory
+import org.apache.http.client.methods.{CloseableHttpResponse, HttpGet}
+import org.apache.http.impl.client.HttpClients
 
 import scala.concurrent.{Await, Future}
 import scala.util.parsing.json.JSON
@@ -715,14 +716,15 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
    }
 
    case HttpRequest(GET, Uri.Path("/visualDataDirectory/path"), headers, entity, protocol) =>{
-
      try{
-       val appId = req.getUri().query().getOrElse("appId", "")
+       val dataCenter = req.getUri().query().getOrElse("dataCenter", "")
+       val appID = req.getUri().query().getOrElse("appID", "")
        val stopName = req.getUri().query().getOrElse("stopName", "")
-       val visualDataDirectoryPath = PropertyUtil.getVisualDataDirectoryPath() + appId + "/" + stopName
-       val result = "{\"visualDataDirectoryPath\":\""+ visualDataDirectoryPath + "\"}"
-       Future.successful(HttpResponse(SUCCESS_CODE, entity = result))
-     }catch {
+       val visualDataDirectoryPath = PropertyUtil.getVisualDataDirectoryPath() + appID + "/" + stopName
+       val visualDataDirectoryData = API.getHdfsDataByPath(visualDataDirectoryPath)
+       val returnValue: scaladsl.Source[ByteString, Future[IOResult]] = StreamConverters.fromInputStream(()=>visualDataDirectoryData)
+       Future.successful(HttpResponse(SUCCESS_CODE, entity = HttpEntity(ContentTypes.`application/octet-stream`,returnValue)))
+     } catch {
        case ex => {
          println(ex)
          Future.successful(HttpResponse(FAIL_CODE, entity = "Can not found visualDataDirectory path !"))
