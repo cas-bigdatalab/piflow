@@ -715,7 +715,7 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
      }
    }
 
-   case HttpRequest(GET, Uri.Path("/visualDataDirectory/path"), headers, entity, protocol) =>{
+   case HttpRequest(GET, Uri.Path("/visualDataDirectory/data"), headers, entity, protocol) =>{
      try{
        val dataCenter = req.getUri().query().getOrElse("dataCenter", "")
        val appID = req.getUri().query().getOrElse("appID", "")
