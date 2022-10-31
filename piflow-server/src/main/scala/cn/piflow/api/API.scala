@@ -1,11 +1,10 @@
 package cn.piflow.api
 
-import java.io.{File, FileOutputStream}
+import java.io.{ByteArrayInputStream, ByteArrayOutputStream, File, FileOutputStream}
 import java.net.URI
 import java.text.SimpleDateFormat
 import java.util.{Date, Properties}
 import java.util.concurrent.CountDownLatch
-
 import cn.piflow.conf.VisualizationType
 import org.apache.spark.sql.SparkSession
 import cn.piflow.conf.util.{ClassUtil, MapUtil, OptionUtil, PluginManager, ScalaExecutorUtil}
@@ -13,15 +12,19 @@ import cn.piflow.{GroupExecution, Process, Runner}
 import cn.piflow.conf.bean.{FlowBean, GroupBean}
 import cn.piflow.util.HdfsUtil.{getJsonMapList, getLine}
 import cn.piflow.util._
+import org.apache.hadoop.conf.Configuration
+import org.apache.hadoop.fs.{FSDataInputStream, FileStatus, FileSystem, Path}
+import org.apache.hadoop.io.IOUtils
 import org.apache.http.client.methods.{CloseableHttpResponse, HttpGet, HttpPut}
 import org.apache.http.entity.StringEntity
 import org.apache.http.impl.client.HttpClients
 import org.apache.http.util.EntityUtils
 import org.apache.spark.launcher.SparkAppHandle
 
+import java.util.zip.{ZipEntry, ZipOutputStream}
 import scala.util.parsing.json.JSON
 import scala.util.control.Breaks._
-import scala.collection.mutable.{ListBuffer, Map => MMap}
+import scala.collection.mutable.{HashMap, ListBuffer, Map => MMap}
 
 object API {
 
@@ -529,6 +532,33 @@ object API {
     val stderr = new File(stderrPathString)
 
     (stdout, stderr)
+  }
+
+  def getHdfsDataByPath(hdfsPath:String) : ByteArrayInputStream={
+    val conf = new Configuration()
+    conf.set("fs.defaultFS", PropertyUtil.getPropertyValue("fs.defaultFS"))
+    val fs: FileSystem = FileSystem.get(conf)
+    val fileStatusArr: Array[FileStatus] = fs.listStatus(new Path(hdfsPath))
+    val map = HashMap[String, FSDataInputStream]()
+    for (elem <- fileStatusArr) {
+      val name =elem.getPath.getName
+      val inputStream = fs.open(elem.getPath)
+      map.put(name,inputStream)
+    }
+
+    val byteArrayOutputStream = new ByteArrayOutputStream()
+    val zos = new ZipOutputStream(byteArrayOutputStream)
+    var zipEntry:ZipEntry = null
+    for (elem <- map) {
+      zipEntry = new ZipEntry(elem._1)
+      zos.putNextEntry(zipEntry)
+      IOUtils.copyBytes(elem._2,zos,1024*1024*50,false)
+      zos.closeEntry()
+    }
+    zos.close()
+    //    println("copy hdfsDir end time:"+new Date(System.currentTimeMillis()))
+    val byteArrayInputStream = new ByteArrayInputStream(byteArrayOutputStream.toByteArray)
+    byteArrayInputStream
   }
 
 }
