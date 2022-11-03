@@ -699,6 +699,7 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
      }
 
    }
+   /*
    case HttpRequest(GET, Uri.Path("/monitor/throughout"), headers, entity, protocol) => {
 
      val appId = req.getUri().query().getOrElse("appId", "")
@@ -714,6 +715,7 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
        }
      }
    }
+   */
 
    case HttpRequest(GET, Uri.Path("/visualDataDirectory/data"), headers, entity, protocol) =>{
      try{
