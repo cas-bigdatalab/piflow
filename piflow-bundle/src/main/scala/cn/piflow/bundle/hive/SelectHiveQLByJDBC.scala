@@ -32,8 +32,8 @@ class SelectHiveQLByJDBC extends ConfigurableStop {
    override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
     val hiveUser = new PropertyDescriptor()
-      .name("hive user")
-      .displayName("Hive User")
+      .name("hiveUser")
+      .displayName("hiveUser")
       .description("Users connected to hive")
       .defaultValue("root")
       .required(true)
@@ -42,8 +42,8 @@ class SelectHiveQLByJDBC extends ConfigurableStop {
     descriptor = hiveUser :: descriptor
 
     val hivePassword = new PropertyDescriptor().
-      name("hive password")
-      .displayName("Hive Password")
+      name("hivePassword")
+      .displayName("hivePassword")
       .description("Password connected to hive")
       .defaultValue("123456")
       .required(true)
@@ -53,7 +53,7 @@ class SelectHiveQLByJDBC extends ConfigurableStop {
 
     val jdbcUrl = new PropertyDescriptor().
       name("jdbcUrl")
-      .displayName("JdbcUrl")
+      .displayName("jdbcUrl")
       .description("URL for hive to connect to JDBC")
       .defaultValue("jdbc:hive2://packone12:2181,packone13:2181,packone11:2181/middle;serviceDiscoveryMode=zooKeeper;zooKeeperNamespace=hiveserver2")
       .required(true)
