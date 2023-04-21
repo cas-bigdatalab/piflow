@@ -32,8 +32,8 @@ class DockerExecute extends ConfigurableStop{
       stringBuffer.append(System.lineSeparator() + "      - \"" + x + "\"")
     })
 
-    ymlContent = ymlContent.replace("hdfs_url", PropertyUtil.getPropertyValue("hdfs.web.url"))
-      .replace("extra_hosts", stringBuffer.toString)
+    ymlContent = ymlContent.replace("piflow_hdfs_url", PropertyUtil.getPropertyValue("hdfs.web.url"))
+      .replace("piflow_extra_hosts", stringBuffer.toString)
 
     println(ymlContent)
     
