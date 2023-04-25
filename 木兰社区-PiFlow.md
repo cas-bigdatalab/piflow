@@ -27,7 +27,7 @@
  - WeChat：PiFlow User Group
  - QQ群：1003489545
  
-
+    
 ### 外部依赖关系，包括这些依赖关系的许可证（名称和版本）  
  - Spark 2.3.4 (Apache-2.0 License)
  - hadoop 2.6.0 (Apache-2.0 License)
