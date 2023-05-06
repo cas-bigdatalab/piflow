@@ -160,6 +160,12 @@
 ### Run πFlow Web：
   - Visit address, download the corresponding *.tar.gz file, and modify the corresponding configuration file（`The version must be consistent with piflow-server`） 
     - https://github.com/cas-bigdatalab/piflow-web/releases/tag/v1.5 
+  - If you want to upload python stops, please modify docker.service
+  ```
+    vim /usr/lib/systemd/system/docker.service
+    ExecStart=/usr/bin/dockerd -H tcp://0.0.0.0:2375 -H unix://var/run/docker.sock
+    systemctl daemon-reload
+    systemctl restart docker
   
 ### Restful API：
 
