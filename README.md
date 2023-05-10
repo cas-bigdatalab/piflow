@@ -101,7 +101,7 @@
 - `run piflow server by release version`:
 
   - download piflow.tar.gz:   
-    https://github.com/cas-bigdatalab/piflow/releases/download/v1.2/piflow-server-v1.3.tar.gz  
+    https://github.com/cas-bigdatalab/piflow/releases/download/v1.2/piflow-server-v1.5.tar.gz  
     
   - unzip piflow.tar.gz:  
     tar -zxvf piflow.tar.gz
@@ -149,11 +149,24 @@
       
       #h2db port
       h2.port=50002
+      
+      #If you want to upload python stop,please set hdfs configs
+      #example hdfs.cluster=hostname:hostIP
+      #hdfs.cluster=master:127.0.0.1
+      #hdfs.web.url=master:50070
+
 
   
 ### Run πFlow Web：
   - Visit address, download the corresponding *.tar.gz file, and modify the corresponding configuration file（`The version must be consistent with piflow-server`） 
-    - https://github.com/cas-bigdatalab/piflow-web/releases/tag/v1.3 
+    - https://github.com/cas-bigdatalab/piflow-web/releases/tag/v1.5 
+  - If you want to upload python stops, please modify docker.service
+  ```
+    vim /usr/lib/systemd/system/docker.service
+    ExecStart=/usr/bin/dockerd -H tcp://0.0.0.0:2375 -H unix://var/run/docker.sock
+    systemctl daemon-reload
+    systemctl restart docker
+  ```
   
 ### Restful API：
 
@@ -228,13 +241,13 @@
     
 ## docker-started  
   - pull piflow images  
-    docker pull registry.cn-hangzhou.aliyuncs.com/cnic_piflow/piflow:v1.3    
+    docker pull registry.cn-hangzhou.aliyuncs.com/cnic_piflow/piflow:v1.5    
     
   - show docker images  
     docker images
     
-  - run a container with  piflow imageID ， all services run automatically. Please Set HOST_IP.    
-    docker run -h master -itd --env HOST_IP=\*.\*.\*.\* --name piflow-v1.3 -p 6001:6001 -p 6002:6002  [imageID]  
+  - run a container with  piflow imageID ， all services run automatically. Please Set HOST_IP and some docker configs.  
+    docker run -h master -itd --env HOST_IP=\*.\*.\*.\* --name piflow-v1.5 -p 6001:6001 -v /usr/bin/docker:/usr/bin/docker -v /var/run/docker.sock:/var/run/docker.sock --add-host docker.host:\*.\*.\*.\* [imageID]
     
   - please visit "HOST_IP:6001", it may take a while  
   
