@@ -53,7 +53,7 @@ class DockerExecute extends ConfigurableStop{
       inports.foreach(x => {
         val hdfsSavePath = inputPath + x
         inputPathStringBuffer.append(hdfsSavePath + ",")
-        in.read(x).write.format("csv").mode("overwrite")
+        in.read(x).repartition(1).write.format("csv").mode("overwrite")
           .option("delimiter", "\t")
           .option("header", true).save(hdfsSavePath)
       })
