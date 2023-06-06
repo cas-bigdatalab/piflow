@@ -21,6 +21,8 @@ class MysqlWrite extends ConfigurableStop{
   var user:String = _
   var password:String = _
   var dbtable:String = _
+  var driver:String = _
+  var saveMode:String = _
 
   def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     val spark = pec.get[SparkSession]()
@@ -28,7 +30,8 @@ class MysqlWrite extends ConfigurableStop{
     val properties = new Properties()
     properties.put("user", user)
     properties.put("password", password)
-    jdbcDF.write.mode(SaveMode.Append).jdbc(url,dbtable,properties)
+    properties.put("driver", driver)
+    jdbcDF.write.mode(SaveMode.valueOf(saveMode)).jdbc(url,dbtable,properties)
     out.write(jdbcDF)
   }
 
@@ -41,10 +44,13 @@ class MysqlWrite extends ConfigurableStop{
     user = MapUtil.get(map,"user").asInstanceOf[String]
     password = MapUtil.get(map,"password").asInstanceOf[String]
     dbtable = MapUtil.get(map,"dbtable").asInstanceOf[String]
+    saveMode = MapUtil.get(map,"saveMode").asInstanceOf[String]
+    driver = MapUtil.get(map, "driver").asInstanceOf[String]
   }
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
+
 
     val url=new PropertyDescriptor()
       .name("url")
@@ -82,6 +88,26 @@ class MysqlWrite extends ConfigurableStop{
       .required(true)
       .example("test")
     descriptor = dbtable :: descriptor
+
+    val saveModeOption = Set("Append", "Overwrite", "Ignore")
+    val saveMode = new PropertyDescriptor()
+      .name("saveMode")
+      .displayName("SaveMode")
+      .description("The save mode for table")
+      .allowableValues(saveModeOption)
+      .defaultValue("Append")
+      .required(true)
+      .example("Append")
+    descriptor = saveMode :: descriptor
+
+    val driver=new PropertyDescriptor()
+      .name("driver")
+      .displayName("Driver")
+      .description("The Driver of mysql database")
+      .defaultValue("com.mysql.jdbc.Driver")
+      .required(true)
+      .example("com.mysql.jdbc.Driver")
+    descriptor = driver :: descriptor
 
     descriptor
   }
