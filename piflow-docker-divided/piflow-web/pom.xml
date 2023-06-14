@@ -37,7 +37,7 @@
         <swagger2.version>2.9.2</swagger2.version>
         <swagger2-ui.version>2.9.2</swagger2-ui.version>
         <swagger2-bootstrap-ui.version>1.9.3</swagger2-bootstrap-ui.version>
-        <guava.version>29.0-jre</guava.version>
+        <guava.version>32.0.0-jre</guava.version>
     </properties>
 
     <dependencies>
