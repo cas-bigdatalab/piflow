@@ -49,7 +49,7 @@ class DockerExecute extends ConfigurableStop{
 
     val inputPathStringBuffer = new StringBuffer()
 
-    if(!inports.contains("DefaultPort")){
+    if(!(inports.contains("Default") || inports.contains("DefaultPort"))){
       inports.foreach(x => {
         val hdfsSavePath = inputPath + x
         inputPathStringBuffer.append(hdfsSavePath + ",")
@@ -60,13 +60,13 @@ class DockerExecute extends ConfigurableStop{
 
       DockerStreamUtil.execRuntime(s"echo ${inputPath}> app/inputPath.txt")
     }
-    if(!outports.contains("DefaultPort")){
+    if(!(outports.contains("Default") || inports.contains("DefaultPort"))){
       DockerStreamUtil.execRuntime(s"echo ${outputPath}> app/outputPath.txt")
     }
 
     DockerStreamUtil.execRuntime(dockerShellString)
 
-    if (!outports.contains("DefaultPort")) {
+    if(!(outports.contains("Default") || inports.contains("DefaultPort"))){
       outports.foreach(x => {
         println("spark start write csv to hdfs:=====> x ")
         val outDF = spark.read.format("csv")
