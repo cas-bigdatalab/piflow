@@ -6,8 +6,6 @@ import java.net.URI
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FSDataInputStream, FSDataOutputStream, FileStatus, FileSystem, Path}
 
-import scala.util.parsing.json.JSON
-
 object HdfsUtil {
 
   def getFiles(filePath : String) : List[String] = {
@@ -91,11 +89,12 @@ object HdfsUtil {
         line = bufferedReader.readLine();
         while (line != null){
           //result = result + " " + line
-          val jsonObj = JSON.parseFull(line) match {
-            case Some(x)  => x
-            case None => throw new IllegalArgumentException
-          }
-          jsonList = jsonList :+ jsonObj.asInstanceOf[Map[String, Any]]
+//          val jsonObj = JSON.parseFull(line) match {
+//            case Some(x)  => x
+//            case None => throw new IllegalArgumentException
+//          }
+//          jsonList = jsonList :+ jsonObj.asInstanceOf[Map[String, Any]]
+          jsonList = jsonList :+ JsonUtil.jsonToMap(line)
           line = bufferedReader.readLine()
         }
 

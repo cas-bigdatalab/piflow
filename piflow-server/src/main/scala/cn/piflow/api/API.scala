@@ -22,7 +22,6 @@ import org.apache.http.util.EntityUtils
 import org.apache.spark.launcher.SparkAppHandle
 
 import java.util.zip.{ZipEntry, ZipOutputStream}
-import scala.util.parsing.json.JSON
 import scala.util.control.Breaks._
 import scala.collection.mutable.{HashMap, ListBuffer, Map => MMap}
 
@@ -134,7 +133,8 @@ object API {
       val response:CloseableHttpResponse = client.execute(get)
       val entity = response.getEntity
       val str = EntityUtils.toString(entity,"UTF-8")
-      val yarnInfo = OptionUtil.getAny(JSON.parseFull(str)).asInstanceOf[Map[String, Any]]
+//      val yarnInfo = OptionUtil.getAny(JSON.parseFull(str)).asInstanceOf[Map[String, Any]]
+      val yarnInfo = JsonUtil.jsonToMap(str)
       val matricInfo = MapUtil.get(yarnInfo, "clusterMetrics").asInstanceOf[Map[String, Any]]
 
 
@@ -178,7 +178,8 @@ object API {
     println("StartGroup API get json: \n" + groupJson )
 
     var appId:String = null
-    val map = OptionUtil.getAny(JSON.parseFull(groupJson)).asInstanceOf[Map[String, Any]]
+//    val map = OptionUtil.getAny(JSON.parseFull(groupJson)).asInstanceOf[Map[String, Any]]
+    val map = JsonUtil.jsonToMap(groupJson)
     val flowGroupMap = MapUtil.get(map, "group").asInstanceOf[Map[String, Any]]
 
     //create flowGroup
@@ -210,7 +211,8 @@ object API {
   def startFlow(flowJson : String):(String,SparkAppHandle) = {
 
     var appId:String = null
-    val flowMap = OptionUtil.getAny(JSON.parseFull(flowJson)).asInstanceOf[Map[String, Any]]
+//    val flowMap = OptionUtil.getAny(JSON.parseFull(flowJson)).asInstanceOf[Map[String, Any]]
+    val flowMap =  JsonUtil.jsonToMap(flowJson)
 
 
     //create flow

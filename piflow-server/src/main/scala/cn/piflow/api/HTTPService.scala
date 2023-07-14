@@ -25,7 +25,7 @@ import org.apache.http.client.methods.{CloseableHttpResponse, HttpGet}
 import org.apache.http.impl.client.HttpClients
 
 import scala.concurrent.{Await, Future}
-import scala.util.parsing.json.JSON
+//import scala.util.parsing.json.JSON
 import org.apache.spark.launcher.SparkAppHandle
 import org.flywaydb.core.Flyway
 import org.flywaydb.core.api.FlywayException
@@ -58,8 +58,10 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
   def toJson(entity: RequestEntity): Map[String, Any] = {
     entity match {
       case HttpEntity.Strict(_, data) =>{
-        val temp = JSON.parseFull(data.utf8String)
-        temp.get.asInstanceOf[Map[String, Any]]
+//        val temp = JSON.parseFull(data.utf8String)
+//        temp.get.asInstanceOf[Map[String, Any]]
+        val temp = JsonUtil.jsonToMap(data.utf8String)
+        temp
       }
       case _ => Map()
     }
@@ -78,13 +80,15 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
        //server state in h2db
        var result = API.getFlowInfo(appID)
        println("getFlowInfo result: " + result)
-       val resultMap = OptionUtil.getAny(JSON.parseFull(result)).asInstanceOf[Map[String, Any]]
+//       val resultMap = OptionUtil.getAny(JSON.parseFull(result)).asInstanceOf[Map[String, Any]]
+       val resultMap = JsonUtil.jsonToMap(result)
        val flowInfoMap = MapUtil.get(resultMap, "flow").asInstanceOf[Map[String, Any]]
        val flowState = MapUtil.get(flowInfoMap,"state").asInstanceOf[String]
 
        //yarn flow state
        val flowYarnInfoJson = API.getFlowYarnInfo(appID)
-       val map = OptionUtil.getAny(JSON.parseFull(flowYarnInfoJson)).asInstanceOf[Map[String, Any]]
+//       val map = OptionUtil.getAny(JSON.parseFull(flowYarnInfoJson)).asInstanceOf[Map[String, Any]]
+       val map = JsonUtil.jsonToMap(flowYarnInfoJson)
        val yanrFlowInfoMap = MapUtil.get(map, "app").asInstanceOf[Map[String, Any]]
        val name = MapUtil.get(yanrFlowInfoMap,"name").asInstanceOf[String]
        val flowYarnState = MapUtil.get(yanrFlowInfoMap,"state").asInstanceOf[String]
@@ -247,8 +251,6 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
          Future.successful(HttpResponse(FAIL_CODE, entity = "Can not start flow!"))
        }
      }
-
-
 
    }
 
@@ -780,8 +782,8 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
     val scheduleList = H2Util.getStartedSchedule()
     scheduleList.foreach(id => {
       val scheduleContent = FlowFileUtil.readFlowFile(FlowFileUtil.getScheduleFilePath(id))
-      val dataMap = JSON.parseFull(scheduleContent).get.asInstanceOf[Map[String, Any]]
-
+//      val dataMap = JSON.parseFull(scheduleContent).get.asInstanceOf[Map[String, Any]]
+      val dataMap = JsonUtil.jsonToMap(scheduleContent)
 
       val expression = dataMap.get("expression").getOrElse("").asInstanceOf[String]
       val startDateStr = dataMap.get("startDate").getOrElse("").asInstanceOf[String]
