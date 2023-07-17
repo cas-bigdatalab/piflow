@@ -4,8 +4,7 @@ import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import cn.piflow.conf.{ConfigurableStop, Port, StopGroup}
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
-import org.apache.spark.sql.{SaveMode, SparkSession}
-import org.elasticsearch.spark.sql.EsSparkSQL
+import org.apache.spark.sql.SparkSession
 
 class PutElasticsearch extends ConfigurableStop {
 
@@ -30,6 +29,7 @@ class PutElasticsearch extends ConfigurableStop {
       .option("es.resource", s"${es_index}/${es_type}")
       .mode(saveMode)
       .save()
+
 
   }
 

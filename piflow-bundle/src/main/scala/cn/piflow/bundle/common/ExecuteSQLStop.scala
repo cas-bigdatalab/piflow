@@ -8,8 +8,6 @@ import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import cn.piflow.lib._
 import cn.piflow.lib.io.{FileFormat, TextFile}
 import org.apache.spark.sql.{DataFrame, SparkSession}
-import org.elasticsearch.common.collect.Tuple
-
 
 class ExecuteSQLStop extends ConfigurableStop{
 
