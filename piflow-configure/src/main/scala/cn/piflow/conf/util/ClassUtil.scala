@@ -266,11 +266,12 @@ object ClassUtil {
   }
 
   def main(args: Array[String]): Unit = {
-    //val stop = findConfigurableStop("cn.piflow.bundle.Class1")
-    //val allConfigurableStopList = findAllConfigurableStop()
+//    val stop = findConfigurableStop("cn.piflow.bundle.Class1")
+//    val allConfigurableStopList = findAllConfigurableStop()
+//    println(allConfigurableStopList)
     /*val propertyDescriptorList = findConfigurableStopPropertyDescriptor("cn.piflow.bundle.Xjzhu")
     var propertyJsonList = List[String]()
-    propertyDescriptorList.foreach( p => propertyJsonList = p.toJson() +: propertyJsonList  )
+    propertyDescriptorList.foreach( p => propertyJsonList = p.toJson() +: propertyJsonListd  )
     val start ="""{"properties":["""
     val end = """]}"""
     val str = propertyJsonList.mkString(start, ",", end)

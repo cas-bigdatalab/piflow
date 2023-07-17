@@ -6,7 +6,7 @@ import cn.piflow.conf.{ConfigurableStop, Port, StopGroup}
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.apache.spark.sql.SparkSession
 
-class QueryElasticsearch extends ConfigurableStop {
+class ReadElasticsearch extends ConfigurableStop {
 
   val authorEmail: String = "ygang@cnic.cn"
   val description: String = "Query data from Elasticsearch"
@@ -17,23 +17,16 @@ class QueryElasticsearch extends ConfigurableStop {
   var es_port  : String  =  _
   var es_index : String =  _
   var es_type  : String  =  _
-  var jsonDSL  : String  =  _
 
   def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     val spark = pec.get[SparkSession]()
-    val ssc = spark.sqlContext
 
-    val options = Map("es.index.auto.create"-> "true",
-      "es.nodes.wan.only"->"true",
-      "es.query" -> jsonDSL,
-      "es.nodes"->es_nodes,"es.port"->es_port)
+    val esDF = spark.read.format("org.elasticsearch.spark.sql")
+      .option("es.nodes", es_nodes)
+      .option("es.port", es_port)
+      .load(s"${es_index}/${es_type}")
 
-    val outDf = ssc.read.format("org.elasticsearch.spark.sql")
-      .options(options).load(s"${es_index}/${es_type}")
-
-    outDf.printSchema()
-
-    out.write(outDf)
+    out.write(esDF)
   }
 
   def initialize(ctx: ProcessContext): Unit = {
@@ -45,7 +38,6 @@ class QueryElasticsearch extends ConfigurableStop {
     es_port=MapUtil.get(map,key="es_port").asInstanceOf[String]
     es_index=MapUtil.get(map,key="es_index").asInstanceOf[String]
     es_type=MapUtil.get(map,key="es_type").asInstanceOf[String]
-    jsonDSL=MapUtil.get(map,key="jsonDSL").asInstanceOf[String]
 
   }
 
@@ -86,15 +78,6 @@ class QueryElasticsearch extends ConfigurableStop {
       .required(true)
       .example("test")
     descriptor = es_type :: descriptor
-
-    val jsonDSL = new PropertyDescriptor()
-      .name("jsonDSL")
-      .displayName("JsonDSL")
-      .description("DSL of Elasticsearch")
-      .defaultValue("{\"query\":{\"match_all\":{}}}")
-      .required(true)
-      .example("{\"query\":{\"match_all\":{}}}")
-    descriptor = jsonDSL :: descriptor
 
     descriptor
   }
