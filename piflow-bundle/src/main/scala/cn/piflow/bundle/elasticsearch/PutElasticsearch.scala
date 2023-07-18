@@ -20,16 +20,14 @@ class PutElasticsearch extends ConfigurableStop {
   var saveMode : String = _
 
   def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
-    val spark = pec.get[SparkSession]()
-    val inDf = in.read()
+    val inDfES = in.read()
 
-    inDf.write.format("org.elasticsearch.spark.sql")
+    inDfES.write.format("org.elasticsearch.spark.sql")
       .option("es.nodes", es_nodes)
       .option("es.port", es_port)
       .option("es.resource", s"${es_index}/${es_type}")
       .mode(saveMode)
       .save()
-
 
   }
 
@@ -49,7 +47,7 @@ class PutElasticsearch extends ConfigurableStop {
     var descriptor : List[PropertyDescriptor] = List()
     val es_nodes = new PropertyDescriptor()
       .name("es_nodes")
-      .displayName("Es_Nodes")
+      .displayName("es_nodes")
       .description("Node of Elasticsearch")
       .defaultValue("")
       .required(true)
@@ -59,7 +57,7 @@ class PutElasticsearch extends ConfigurableStop {
     val es_port = new PropertyDescriptor()
       .defaultValue("9200")
       .name("es_port")
-      .displayName("Es_Port")
+      .displayName("es_port")
       .description("Port of Elasticsearch")
       .defaultValue("9200")
       .required(true)
@@ -68,7 +66,7 @@ class PutElasticsearch extends ConfigurableStop {
 
     val es_index = new PropertyDescriptor()
       .name("es_index")
-      .displayName("Es_Index")
+      .displayName("es_index")
       .description("Index of Elasticsearch")
       .defaultValue("")
       .required(true)
@@ -77,22 +75,21 @@ class PutElasticsearch extends ConfigurableStop {
 
     val es_type = new PropertyDescriptor()
       .name("es_type")
-      .displayName("Es_Type")
+      .displayName("es_type")
       .description("Type of Elasticsearch")
       .defaultValue("")
       .required(true)
       .example("testStudent1")
     descriptor = es_type :: descriptor
 
-    val saveModeOption = Set("Append","Overwrite","ErrorIfExists","Ignore")
     val saveMode = new PropertyDescriptor()
       .name("saveMode")
       .displayName("SaveMode")
-      .description("The save mode for csv file")
-      .allowableValues(saveModeOption)
-      .defaultValue("append")
+      .description("save mode")
+//      .allowableValues(Set("Append","Overwrite","ErrorIfExists","Ignore"))
+      .defaultValue("Overwrite")
       .required(true)
-      .example("append")
+      .example("Overwrite")
     descriptor = saveMode :: descriptor
 
     descriptor
