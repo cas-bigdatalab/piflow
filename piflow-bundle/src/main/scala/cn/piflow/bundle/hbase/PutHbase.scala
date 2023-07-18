@@ -7,7 +7,6 @@
 //import org.apache.hadoop.hbase.HBaseConfiguration
 //import org.apache.hadoop.hbase.client.{Put, Result}
 //import org.apache.hadoop.hbase.io.ImmutableBytesWritable
-//import org.apache.hadoop.hbase.mapreduce.{TableInputFormat, TableOutputFormat}
 //import org.apache.hadoop.hbase.util.Bytes
 //import org.apache.hadoop.mapreduce.Job
 //import org.apache.spark.sql.SparkSession

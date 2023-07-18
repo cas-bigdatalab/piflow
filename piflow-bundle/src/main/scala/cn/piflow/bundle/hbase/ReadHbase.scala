@@ -5,7 +5,6 @@
 //import cn.piflow.conf.bean.PropertyDescriptor
 //import cn.piflow.conf.util.{ImageUtil, MapUtil}
 //import org.apache.hadoop.hbase.HBaseConfiguration
-//import org.apache.hadoop.hbase.mapreduce.TableInputFormat
 //import org.apache.hadoop.hbase.util.Bytes
 //import org.apache.spark.sql.types.{StringType, StructField, StructType}
 //import org.apache.spark.sql.{Row, SparkSession}
