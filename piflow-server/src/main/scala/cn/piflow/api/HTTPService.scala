@@ -353,26 +353,44 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
 
     case HttpRequest(POST, Uri.Path("/group/start"), headers, entity, protocol) => {
 
-      try {
+//      try {
+//
+//        val bodyFeature = Unmarshal(entity).to[String]
+//        val flowGroupJson = Await.result(bodyFeature, scala.concurrent.duration.Duration(1, "second"))
+//
+//        //use file to run large group
+//        //val bodyFeature = Unmarshal(entity).to [String]
+//        //val flowGroupJsonPath = Await.result(bodyFeature,scala.concurrent.duration.Duration(1,"second"))
+//        //val flowGroupJson = Source.fromFile(flowGroupJsonPath).getLines().toArray.mkString("\n")
+//
+//        val flowGroupExecution = API.startGroup(flowGroupJson)
+//        flowGroupMap += (flowGroupExecution.getGroupId() -> flowGroupExecution)
+//        val result = "{\"group\":{\"id\":\"" + flowGroupExecution.getGroupId() + "\"}}"
+//        Future.successful(HttpResponse(SUCCESS_CODE, entity = result))
+//      } catch {
+//        case ex => {
+//          println(ex)
+//          Future.successful(HttpResponse(FAIL_CODE, entity = "Can not start group!"))
+//        }
+//      }
 
-        val bodyFeature = Unmarshal(entity).to[String]
-        val flowGroupJson = Await.result(bodyFeature, scala.concurrent.duration.Duration(1, "second"))
-
-        //use file to run large group
-        //val bodyFeature = Unmarshal(entity).to [String]
-        //val flowGroupJsonPath = Await.result(bodyFeature,scala.concurrent.duration.Duration(1,"second"))
-        //val flowGroupJson = Source.fromFile(flowGroupJsonPath).getLines().toArray.mkString("\n")
-
+      Thread.sleep(1000)
+      val entityStream = entity.dataBytes
+      // Use fold to concatenate chunks into a single string
+      val concatenateChunks: Future[String] = entityStream.runFold("")((acc, chunk) => acc + chunk.utf8String)
+      // Construct a successful Future[HttpResponse] in onComplete
+      val responseFuture: Future[HttpResponse] = concatenateChunks.flatMap { concatenatedString =>
+        val flowGroupJson = concatenatedString
         val flowGroupExecution = API.startGroup(flowGroupJson)
         flowGroupMap += (flowGroupExecution.getGroupId() -> flowGroupExecution)
         val result = "{\"group\":{\"id\":\"" + flowGroupExecution.getGroupId() + "\"}}"
         Future.successful(HttpResponse(SUCCESS_CODE, entity = result))
-      } catch {
-        case ex => {
-          println(ex)
-          Future.successful(HttpResponse(FAIL_CODE, entity = "Can not start group!"))
-        }
+      }.recover {
+        case ex =>
+          println(s"An error occurred: ${ex.getMessage}")
+          HttpResponse(FAIL_CODE, entity = "Can not start flow!!!")
       }
+      responseFuture
 
     }
 
@@ -429,16 +447,65 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
     //schedule related API
     case HttpRequest(POST, Uri.Path("/schedule/start"), headers, entity, protocol) => {
 
-      try {
+//      try {
+//
+//        val bodyFeature = Unmarshal(entity).to[String]
+//        val data = Await.result(bodyFeature, scala.concurrent.duration.Duration(1, "second"))
+//
+//        //use file to load flow or flowGroup
+//        //val bodyFeature = Unmarshal(entity).to [String]
+//        //val scheduleJsonPath = Await.result(bodyFeature,scala.concurrent.duration.Duration(1,"second"))
+//        //val data = Source.fromFile(scheduleJsonPath).getLines().toArray.mkString("\n")
+//
+//        val dataMap = toJson(data)
+//        val expression = dataMap.get("expression").getOrElse("").asInstanceOf[String]
+//        val startDateStr = dataMap.get("startDate").getOrElse("").asInstanceOf[String]
+//        val endDateStr = dataMap.get("endDate").getOrElse("").asInstanceOf[String]
+//        val scheduleInstance = dataMap.get("schedule").getOrElse(Map[String, Any]()).asInstanceOf[Map[String, Any]]
+//
+//
+//        val id: String = "schedule_" + IdGenerator.uuid();
+//
+//        var scheduleType = ""
+//        if (!scheduleInstance.getOrElse("flow", "").equals("")) {
+//          scheduleType = ScheduleType.FLOW
+//        } else if (!scheduleInstance.getOrElse("group", "").equals("")) {
+//          scheduleType = ScheduleType.GROUP
+//        } else {
+//          Future.successful(HttpResponse(FAIL_CODE, entity = "Can not schedule, please check the json format!"))
+//        }
+//        val flowActor = system.actorOf(Props(new ExecutionActor(id, scheduleType)))
+//        scheduler.createSchedule(id, cronExpression = expression)
+//        //scheduler.schedule(id,flowActor,JsonUtil.format(JsonUtil.toJson(scheduleInstance)))
+//        if (startDateStr.equals("")) {
+//          scheduler.schedule(id, flowActor, JsonUtil.format(JsonUtil.toJson(scheduleInstance)))
+//        } else {
+//          val startDate: Option[Date] = Some(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").parse(startDateStr))
+//          scheduler.schedule(id, flowActor, JsonUtil.format(JsonUtil.toJson(scheduleInstance)), startDate)
+//        }
+//        actorMap += (id -> flowActor)
+//
+//        H2Util.addScheduleInstance(id, expression, startDateStr, endDateStr, ScheduleState.STARTED)
+//
+//        //save schedule json file
+//        val flowFile = FlowFileUtil.getScheduleFilePath(id)
+//        FileUtil.writeFile(data, flowFile)
+//        Future.successful(HttpResponse(SUCCESS_CODE, entity = id))
+//      } catch {
+//
+//        case ex => {
+//          println(ex)
+//          Future.successful(HttpResponse(FAIL_CODE, entity = "Can not start flow!"))
+//        }
+//      }
 
-        val bodyFeature = Unmarshal(entity).to[String]
-        val data = Await.result(bodyFeature, scala.concurrent.duration.Duration(1, "second"))
-
-        //use file to load flow or flowGroup
-        //val bodyFeature = Unmarshal(entity).to [String]
-        //val scheduleJsonPath = Await.result(bodyFeature,scala.concurrent.duration.Duration(1,"second"))
-        //val data = Source.fromFile(scheduleJsonPath).getLines().toArray.mkString("\n")
-
+      Thread.sleep(1000)
+      val entityStream = entity.dataBytes
+      // Use fold to concatenate chunks into a single string
+      val concatenateChunks: Future[String] = entityStream.runFold("")((acc, chunk) => acc + chunk.utf8String)
+      // Construct a successful Future[HttpResponse] in onComplete
+      val responseFuture: Future[HttpResponse] = concatenateChunks.flatMap { concatenatedString =>
+        val data = concatenatedString
         val dataMap = toJson(data)
         val expression = dataMap.get("expression").getOrElse("").asInstanceOf[String]
         val startDateStr = dataMap.get("startDate").getOrElse("").asInstanceOf[String]
@@ -473,13 +540,12 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
         val flowFile = FlowFileUtil.getScheduleFilePath(id)
         FileUtil.writeFile(data, flowFile)
         Future.successful(HttpResponse(SUCCESS_CODE, entity = id))
-      } catch {
-
-        case ex => {
-          println(ex)
-          Future.successful(HttpResponse(FAIL_CODE, entity = "Can not start flow!"))
-        }
+      }.recover {
+        case ex =>
+          println(s"An error occurred: ${ex.getMessage}")
+          HttpResponse(FAIL_CODE, entity = "Can not start flow!!!")
       }
+      responseFuture
 
       /*entity match {
         case HttpEntity.Strict(_, data) =>{
