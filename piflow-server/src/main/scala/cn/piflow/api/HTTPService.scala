@@ -211,7 +211,7 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
     case HttpRequest(POST, Uri.Path("/flow/start"), headers, entity, protocol) => {
 
 
-//      try {
+      try {
         /*entity match {
           case HttpEntity.Strict(_, data) =>{
             var flowJson = data.utf8String
@@ -233,37 +233,38 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
             Future.successful(HttpResponse(SUCCESS_CODE, entity = result))
           }
         }*/
-        //       val bodyFeature = Unmarshal(entity).to [String]
-        //       val flowJson = Await.result(bodyFeature,scala.concurrent.duration.Duration(1,"second"))
-        //       val (appId,process) = API.startFlow(flowJson)
-        //       processMap += (appId -> process)
-        //       val result = "{\"flow\":{\"id\":\"" + appId + "\"}}"
-        //       println("Start Flow Succeed : " + result + "!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-        //       Future.successful(HttpResponse(SUCCESS_CODE, entity = result))
-        //     }catch {
-        //       case ex : Exception => {
-        //         println(ex)
-        //         Future.successful(HttpResponse(FAIL_CODE, entity = "Can not start flow!"))
-        //       }
-
-        Thread.sleep(1000)
-        val entityStream = entity.dataBytes
-        // Use fold to concatenate chunks into a single string
-        val concatenateChunks: Future[String] = entityStream.runFold("")((acc, chunk) => acc + chunk.utf8String)
-        // Construct a successful Future[HttpResponse] in onComplete
-        val responseFuture: Future[HttpResponse] = concatenateChunks.flatMap { concatenatedString =>
-          val flowJson = concatenatedString
-          val (appId, process) = API.startFlow(flowJson)
-          processMap += (appId -> process)
-          val result = "{\"flow\":{\"id\":\"" + appId + "\"}}"
-          println("Start Flow Succeed : " + result + "!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-          Future.successful(HttpResponse(SUCCESS_CODE, entity = result))
-        }.recover {
-          case ex =>
-            println(s"An error occurred: ${ex.getMessage}")
-            HttpResponse(FAIL_CODE, entity = "Can not start flow!!!")
+               val bodyFeature = Unmarshal(entity).to [String]
+               val flowJson = Await.result(bodyFeature,scala.concurrent.duration.Duration(1,"second"))
+               val (appId,process) = API.startFlow(flowJson)
+               processMap += (appId -> process)
+               val result = "{\"flow\":{\"id\":\"" + appId + "\"}}"
+               println("Start Flow Succeed : " + result + "!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+               Future.successful(HttpResponse(SUCCESS_CODE, entity = result))
+             }catch {
+        case ex: Exception => {
+          println(ex)
+          Future.successful(HttpResponse(FAIL_CODE, entity = "Can not start flow!"))
         }
-        responseFuture
+      }
+
+//        Thread.sleep(1000)
+//        val entityStream = entity.dataBytes
+//        // Use fold to concatenate chunks into a single string
+//        val concatenateChunks: Future[String] = entityStream.runFold("")((acc, chunk) => acc + chunk.utf8String)
+//        // Construct a successful Future[HttpResponse] in onComplete
+//        val responseFuture: Future[HttpResponse] = concatenateChunks.flatMap { concatenatedString =>
+//          val flowJson = concatenatedString
+//          val (appId, process) = API.startFlow(flowJson)
+//          processMap += (appId -> process)
+//          val result = "{\"flow\":{\"id\":\"" + appId + "\"}}"
+//          println("Start Flow Succeed : " + result + "!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+//          Future.successful(HttpResponse(SUCCESS_CODE, entity = result))
+//        }.recover {
+//          case ex =>
+//            println(s"An error occurred: ${ex.getMessage}")
+//            HttpResponse(FAIL_CODE, entity = "Can not start flow!!!")
+//        }
+//        responseFuture
 
     }
 
