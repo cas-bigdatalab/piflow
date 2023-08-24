@@ -211,7 +211,7 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
     case HttpRequest(POST, Uri.Path("/flow/start"), headers, entity, protocol) => {
 
 
-      try {
+//      try {
         /*entity match {
           case HttpEntity.Strict(_, data) =>{
             var flowJson = data.utf8String
@@ -264,8 +264,6 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
             HttpResponse(FAIL_CODE, entity = "Can not start flow!!!")
         }
         responseFuture
-
-      }
 
     }
 
