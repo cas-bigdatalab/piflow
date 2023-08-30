@@ -33,7 +33,7 @@
   - based on distributed computing engine Spark 
 - Powerful
   - 100+ data processing components available
-  - include spark、mllib、hadoop、hive、hbase、solr、redis、memcache、elasticSearch、jdbc、mongodb、http、ftp、xml、csv、json，etc.
+  - include spark、mllib、hadoop、hive、hbase、TDengine、OceanBase、openLooKeng、TiDB、solr、redis、memcache、elasticSearch、jdbc、mongodb、http、ftp、xml、csv、json，etc.
 
 ## Architecture
 ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/architecture.png) 
