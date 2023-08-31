@@ -12,7 +12,7 @@ import sun.net.ftp.{FtpClient, FtpDirEntry}
 
 import scala.reflect.io.Directory
 
-class UploadToFtp extends ConfigurableStop {
+class UploadFromHdfsToFtp11 extends ConfigurableStop {
   val authorEmail: String = "xiaoxiao@cnic.cn"
   val description: String = "Upload file to ftp server"
   val inportList: List[String] = List(Port.DefaultPort)
