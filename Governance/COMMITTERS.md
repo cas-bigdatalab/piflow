@@ -1,5 +1,38 @@
-Please see CONTRIBUTING.md for general contribution guidelines. GOVERNANCE.md describes governance guidelines and maintainer responsibilities.
+# Committers
 
-MAINTAINERS.md contains the project maintainers.
-
-GUIDING_PRINCIPLES.md contains the project vision, values and principles and how we apply them in making decisions.
+* 赵润淇
+  * 交互引擎
+* 谢意帆
+  * 交互引擎
+* 田尧
+  * 交互引擎
+* 沈志宏
+  * 执行引擎
+* 张克强
+  * 执行引擎
+* 衣文盛
+  * 执行引擎
+* 杨刚
+  * 组件扩展
+* 杨刚
+  * 组件扩展
+* 李金宝
+  * 组件扩展
+* 雷蕾
+  * 组件扩展
+* 廖青华
+  * 组件扩展
+* 梁董成
+  * 组件扩展
+* 陈鑫
+  * 组件扩展
+* 肖潇
+  * 组件扩展
+* 杨启东
+  * 组件扩展
+* 肖濛
+  * 组件扩展
+* 赵子豪
+  * 组件扩展
+* 胡同学
+  * 文档小组
