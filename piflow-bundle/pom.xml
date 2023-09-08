@@ -18,6 +18,21 @@
     <artifactId>piflow-bundle</artifactId>
 
     <dependencies>
+
+        <dependency>
+            <groupId>com.crealytics</groupId>
+            <artifactId>spark-excel_2.11</artifactId>
+            <version>0.13.7</version>
+            <exclusions>
+                <exclusion>
+                    <artifactId>xmlbeans</artifactId>
+                    <groupId>org.apache.xmlbeans</groupId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+
+
         <dependency>
             <groupId>ch.ethz.ganymed</groupId>
             <artifactId>ganymed-ssh2</artifactId>
@@ -216,11 +231,11 @@
             <version>1.9.1</version>
         </dependency>
 
-        <dependency>
-            <groupId>com.memcached</groupId>
-            <artifactId>java_memcached-release</artifactId>
-            <version>2.6.6</version>
-        </dependency>
+<!--        <dependency>-->
+<!--            <groupId>com.memcached</groupId>-->
+<!--            <artifactId>java_memcached-release</artifactId>-->
+<!--            <version>2.6.6</version>-->
+<!--        </dependency>-->
 
 
          <!--https://mvnrepository.com/artifact/org.apache.flume/flume-ng-core-->
@@ -275,11 +290,11 @@
             <version>3.5</version>
         </dependency>
 
-        <dependency>
-            <groupId>ftpClient</groupId>
-            <artifactId>edtftp</artifactId>
-            <version>1.0.0</version>
-        </dependency>
+<!--        <dependency>-->
+<!--            <groupId>ftpClient</groupId>-->
+<!--            <artifactId>edtftp</artifactId>-->
+<!--            <version>1.0.0</version>-->
+<!--        </dependency>-->
 
 
         <!-- https://mvnrepository.com/artifact/com.huaban/jieba-analysis -->
@@ -300,12 +315,12 @@
             <version>4.5.3</version>
         </dependency>
 
-        <!-- https://mvnrepository.com/artifact/oracle/ojdbc6 -->
-        <dependency>
-            <groupId>oracle</groupId>
-            <artifactId>ojdbc6</artifactId>
-            <version>11.2.0.3</version>
-        </dependency>
+<!--        &lt;!&ndash; https://mvnrepository.com/artifact/oracle/ojdbc6 &ndash;&gt;-->
+<!--        <dependency>-->
+<!--            <groupId>oracle</groupId>-->
+<!--            <artifactId>ojdbc6</artifactId>-->
+<!--            <version>11.2.0.3</version>-->
+<!--        </dependency>-->
 
         <!-- https://mvnrepository.com/artifact/com.taosdata.jdbc/taos-jdbcdriver -->
         <dependency>
