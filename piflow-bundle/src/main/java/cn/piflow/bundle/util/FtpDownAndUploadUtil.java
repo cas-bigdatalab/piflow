@@ -50,8 +50,6 @@ public class FtpDownAndUploadUtil {
 
         try {
             FSDataInputStream inputStream = fs.open(new Path(hdfsSourcePath));
-            ftpClient.storeFile(remotePath,inputStream);
-
             OutputStream outputStream = ftpClient.storeFileStream(remotePath);
             byte[] buffer = new byte[2048];
             int length;
