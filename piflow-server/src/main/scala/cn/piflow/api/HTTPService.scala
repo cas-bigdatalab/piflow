@@ -855,7 +855,7 @@ object Main {
 
 
   def main(argv: Array[String]):Unit = {
-    val h2Server = Server.createTcpServer("-tcp", "-tcpAllowOthers", "-tcpPort",PropertyUtil.getPropertyValue("h2.port")).start()
+    val h2Server = Server.createTcpServer("-tcp", "-tcpAllowOthers","-ifNotExists", "-tcpPort",PropertyUtil.getPropertyValue("h2.port")).start()
     flywayInit()
     HTTPService.run
     initPlugin()

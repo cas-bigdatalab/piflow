@@ -83,7 +83,6 @@
             <version>4.0.0</version>
         </dependency>
 
-
         <dependency>
             <groupId>org.mongodb</groupId>
             <artifactId>mongodb-driver</artifactId>
@@ -151,12 +150,6 @@
             <version>2.1.8</version>
         </dependency>
 
-        <dependency>
-            <groupId>org.slf4j</groupId>
-            <artifactId>slf4j-api</artifactId>
-            <version>1.7.25</version>
-        </dependency>
-
         <!-- https://mvnrepository.com/artifact/net.liftweb/lift-json -->
         <dependency>
             <groupId>net.liftweb</groupId>
@@ -164,23 +157,11 @@
             <version>3.3.0</version>
         </dependency>
 
-
         <dependency>
             <groupId>com.databricks</groupId>
             <artifactId>spark-xml_2.12</artifactId>
             <version>0.5.0</version>
         </dependency>
-
-        <!--<dependency>
-            <groupId>org.python</groupId>
-            <artifactId>jython</artifactId>
-            <version>2.7.0</version>
-        </dependency>-->
-        <!--<dependency>
-            <groupId>org.python</groupId>
-            <artifactId>jython-standalone</artifactId>
-            <version>2.7.1</version>
-        </dependency>-->
 
         <dependency>
             <groupId>black.ninia</groupId>
@@ -201,15 +182,12 @@
             <version>0.11.0.0</version>
         </dependency>
 
-
-
         <!-- https://mvnrepository.com/artifact/org.jsoup/jsoup -->
         <dependency>
             <groupId>org.jsoup</groupId>
             <artifactId>jsoup</artifactId>
             <version>1.10.3</version>
         </dependency>
-
 
         <dependency>
             <groupId>org.json</groupId>
@@ -223,11 +201,11 @@
             <version>1.9.1</version>
         </dependency>
 
-<!--        <dependency>-->
-<!--            <groupId>com.memcached</groupId>-->
-<!--            <artifactId>java_memcached-release</artifactId>-->
-<!--            <version>2.6.6</version>-->
-<!--        </dependency>-->
+        <dependency>
+            <groupId>com.memcached</groupId>
+            <artifactId>java_memcached-release</artifactId>
+            <version>2.6.6</version>
+        </dependency>
 
         <!-- https://mvnrepository.com/artifact/io.netty/netty-all -->
         <dependency>
@@ -256,7 +234,6 @@
             <version>2.6.12</version>
         </dependency>
 
-
         <!-- Json（组装Json用）-->
         <dependency>
             <groupId>net.sf.json-lib</groupId>
@@ -270,6 +247,7 @@
             <artifactId>commons-pool2</artifactId>
             <version>2.4.2</version>
         </dependency>
+
         <dependency>
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-lang3</artifactId>
@@ -315,10 +293,8 @@
 			<version>1.6.0</version>
 		</dependency>
     </dependencies>
-
     <build>
         <plugins>
-
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-install-plugin</artifactId>
@@ -339,41 +315,6 @@
                             <generatePom>true</generatePom>
                         </configuration>
                     </execution>
-
-
-                    <execution>
-                        <id>install-external-2</id>
-                        <goals>
-                            <goal>install-file</goal>
-                        </goals>
-                        <phase>install</phase>
-                        <configuration>
-                            <file>${basedir}/lib/ojdbc6-11.2.0.3.jar</file>
-                            <groupId>oracle</groupId>
-                            <artifactId>ojdbc6</artifactId>
-                            <version>11.2.0.3</version>
-                            <packaging>jar</packaging>
-                            <generatePom>true</generatePom>
-                        </configuration>
-                    </execution>
-
-                    <execution>
-                        <id>install-external-4</id>
-                        <goals>
-                            <goal>install-file</goal>
-                        </goals>
-                        <phase>install</phase>
-                        <configuration>
-                            <file>${basedir}/lib/edtftpj.jar</file>
-                            <groupId>ftpClient</groupId>
-                            <artifactId>edtftp</artifactId>
-                            <version>1.0.0</version>
-                            <packaging>jar</packaging>
-                            <generatePom>true</generatePom>
-                        </configuration>
-                    </execution>
-
-
                 </executions>
             </plugin>
 
