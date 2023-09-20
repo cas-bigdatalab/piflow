@@ -508,14 +508,16 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
         val startDateStr = dataMap.get("startDate").getOrElse("").asInstanceOf[String]
         val endDateStr = dataMap.get("endDate").getOrElse("").asInstanceOf[String]
         val scheduleInstance = dataMap.get("schedule").getOrElse(Map[String, Any]()).asInstanceOf[Map[String, Any]]
-
+        println("scheduleInstance:"+scheduleInstance)
 
         val id: String = "schedule_" + IdGenerator.uuid();
 
         var scheduleType = ""
         if (!scheduleInstance.getOrElse("flow", "").equals("")) {
+          println("====ScheduleType:Flow")
           scheduleType = ScheduleType.FLOW
         } else if (!scheduleInstance.getOrElse("group", "").equals("")) {
+          println("=====ScheduleType:Group")
           scheduleType = ScheduleType.GROUP
         } else {
           Future.successful(HttpResponse(FAIL_CODE, entity = "Can not schedule, please check the json format!"))
