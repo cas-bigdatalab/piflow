@@ -23,12 +23,6 @@
             <groupId>com.crealytics</groupId>
             <artifactId>spark-excel_2.11</artifactId>
             <version>0.13.7</version>
-            <exclusions>
-                <exclusion>
-                    <artifactId>xmlbeans</artifactId>
-                    <groupId>org.apache.xmlbeans</groupId>
-                </exclusion>
-            </exclusions>
         </dependency>
 
 
