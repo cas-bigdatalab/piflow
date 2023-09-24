@@ -33,7 +33,7 @@
   - based on distributed computing engine Spark 
 - Powerful
   - 100+ data processing components available
-  - include spark、mllib、hadoop、hive、hbase、solr、redis、memcache、elasticSearch、jdbc、mongodb、http、ftp、xml、csv、json，etc.
+  - include Spark、MLlib、Hadoop、Hive、HBase、TDengine、OceanBase、openLooKeng、TiDB、Solr、Redis、Memcache、Elasticsearch、JDBC、MongoDB、HTTP、FTP、XML、CSV、JSON，etc.
 
 ## Architecture
 ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/architecture.png) 
@@ -218,7 +218,7 @@
     ]
   }
 }</code>
-    </pre>
+  </pre>
   </details>
 - CURL POST：
   - curl -0 -X POST http://10.0.86.191:8002/flow/start -H "Content-type: application/json" -d 'this is your flow json'

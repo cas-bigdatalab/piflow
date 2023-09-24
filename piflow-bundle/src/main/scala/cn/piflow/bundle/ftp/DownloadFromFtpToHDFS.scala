@@ -1,7 +1,6 @@
 package cn.piflow.bundle.ftp
 
 import cn.piflow.bundle.util.FtpDownAndUploadUtil
-
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import cn.piflow.conf.{ConfigurableStop, Port, StopGroup}
