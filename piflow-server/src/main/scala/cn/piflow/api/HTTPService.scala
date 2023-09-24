@@ -12,7 +12,7 @@ import akka.stream.{ActorMaterializer, IOResult, scaladsl}
 import akka.util.ByteString
 import cn.piflow.GroupExecution
 import cn.piflow.api.HTTPService.pluginManager
-import cn.piflow.conf.util.{MapUtil, OptionUtil, PluginManager}
+import cn.piflow.conf.util.{MapUtil, PluginManager}
 import cn.piflow.util._
 import com.typesafe.akka.extension.quartz.QuartzSchedulerExtension
 import com.typesafe.config.ConfigFactory
@@ -30,7 +30,6 @@ import java.io.File
 import java.net.InetAddress
 import java.text.SimpleDateFormat
 import java.util.Date
-import scala.util.parsing.json.JSON
 
 
 object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSupport {
