@@ -34,4 +34,5 @@ object StopGroup {
   val Alg_ASRGroup = "Algorithms_ASR"
   val Python = "Python"
   val Visualization = "Visualization"
+  val CephGroup="ceph"
 }
