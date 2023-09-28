@@ -39,11 +39,10 @@
 ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/architecture.png) 
 ## Requirements
 * JDK 1.8 
-* Scala-2.11.8
+* Scala-2.12.18
 * Apache Maven 3.1.0 or newer  
-* Spark-2.1.0、 Spark-2.2.0、 Spark-2.3.0
-* Hadoop-2.6.0
-* Apache Livy-0.7.1
+* Spark-3.4.0
+* Hadoop-3.3.0
 
 ## Getting Started
 
