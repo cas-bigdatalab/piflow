@@ -12,7 +12,7 @@ class ScopeNormalization extends ConfigurableStop {
   // 组件的作者信息
   val authorEmail: String = "zljxnu@163.com"
   // 组件的描述信息
-  val description: String = "将数据映射到指定范围内"
+  val description: String = "Scope standardization"
   // 定义输入端口
   val inportList: List[String] = List(Port.DefaultPort)
   // 定义输出端口

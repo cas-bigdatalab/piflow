@@ -12,7 +12,7 @@ class ZScore extends ConfigurableStop {
   // 作者邮箱
   val authorEmail: String = "zljxnu@163.cn"
   // 描述
-  val description: String = "对选择的列执行z-score标准化"
+  val description: String = "ZScore standardization"
   // 输入端口
   val inportList: List[String] = List(Port.DefaultPort)
   // 输出端口

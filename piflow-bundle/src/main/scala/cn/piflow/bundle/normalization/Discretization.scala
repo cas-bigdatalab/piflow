@@ -14,7 +14,7 @@ import org.apache.spark.ml.feature.QuantileDiscretizer
 class Discretization extends ConfigurableStop {
 
   val authorEmail: String = "zljxnu@163.com"
-  val description: String = "Discretization"
+  val description: String = "continuous numerical discretization"
   val inportList: List[String] = List(Port.DefaultPort)
   val outportList: List[String] = List(Port.DefaultPort)
 

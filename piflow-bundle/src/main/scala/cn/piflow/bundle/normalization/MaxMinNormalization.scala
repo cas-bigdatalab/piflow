@@ -8,9 +8,9 @@ import org.apache.spark.sql.{DataFrame, SparkSession}
 
 class MaxMinNormalization extends ConfigurableStop {
   // 作者信息
-  val authorEmail: String = "your.email@example.com"
+  val authorEmail: String = "zljxnu@163.com"
   // 组件描述
-  val description: String = "最小-最大值标准化"
+  val description: String = "maximum and minimum value standardization"
   // 输入端口列表
   val inportList: List[String] = List(Port.DefaultPort)
   // 输出端口列表
