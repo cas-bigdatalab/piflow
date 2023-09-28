@@ -12,10 +12,14 @@ import akka.stream.{ActorMaterializer, IOResult, scaladsl}
 import akka.util.ByteString
 import cn.piflow.GroupExecution
 import cn.piflow.api.HTTPService.pluginManager
-import cn.piflow.conf.util.{MapUtil, OptionUtil, PluginManager}
+import cn.piflow.conf.util.{MapUtil, PluginManager}
 import cn.piflow.util._
 import com.typesafe.akka.extension.quartz.QuartzSchedulerExtension
 import com.typesafe.config.ConfigFactory
+
+import scala.concurrent.{Await, Future}
+//import scala.util.parsing.json.JSON
+
 import org.apache.spark.launcher.SparkAppHandle
 import org.flywaydb.core.Flyway
 import org.flywaydb.core.api.FlywayException
@@ -26,8 +30,6 @@ import java.io.File
 import java.net.InetAddress
 import java.text.SimpleDateFormat
 import java.util.Date
-import scala.concurrent.{Await, Future}
-import scala.util.parsing.json.JSON
 
 
 object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSupport {
@@ -52,9 +54,11 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
 
   def toJson(entity: RequestEntity): Map[String, Any] = {
     entity match {
-      case HttpEntity.Strict(_, data) => {
-        val temp = JSON.parseFull(data.utf8String)
-        temp.get.asInstanceOf[Map[String, Any]]
+      case HttpEntity.Strict(_, data) =>{
+//        val temp = JSON.parseFull(data.utf8String)
+//        temp.get.asInstanceOf[Map[String, Any]]
+        val temp = JsonUtil.jsonToMap(data.utf8String)
+        temp
       }
       case _ => Map()
     }
@@ -68,21 +72,23 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
 
     case HttpRequest(GET, Uri.Path("/flow/info"), headers, entity, protocol) => {
 
-      val appID = req.getUri().query().getOrElse("appID", "")
-      if (!appID.equals("")) {
-        //server state in h2db
-        var result = API.getFlowInfo(appID)
-        println("getFlowInfo result: " + result)
-        val resultMap = OptionUtil.getAny(JSON.parseFull(result)).asInstanceOf[Map[String, Any]]
-        val flowInfoMap = MapUtil.get(resultMap, "flow").asInstanceOf[Map[String, Any]]
-        val flowState = MapUtil.get(flowInfoMap, "state").asInstanceOf[String]
+     val appID = req.getUri().query().getOrElse("appID","")
+     if(!appID.equals("")){
+       //server state in h2db
+       var result = API.getFlowInfo(appID)
+       println("getFlowInfo result: " + result)
+//       val resultMap = OptionUtil.getAny(JSON.parseFull(result)).asInstanceOf[Map[String, Any]]
+       val resultMap = JsonUtil.jsonToMap(result)
+       val flowInfoMap = MapUtil.get(resultMap, "flow").asInstanceOf[Map[String, Any]]
+       val flowState = MapUtil.get(flowInfoMap,"state").asInstanceOf[String]
 
-        //yarn flow state
-        val flowYarnInfoJson = API.getFlowYarnInfo(appID)
-        val map = OptionUtil.getAny(JSON.parseFull(flowYarnInfoJson)).asInstanceOf[Map[String, Any]]
-        val yanrFlowInfoMap = MapUtil.get(map, "app").asInstanceOf[Map[String, Any]]
-        val name = MapUtil.get(yanrFlowInfoMap, "name").asInstanceOf[String]
-        val flowYarnState = MapUtil.get(yanrFlowInfoMap, "state").asInstanceOf[String]
+       //yarn flow state
+       val flowYarnInfoJson = API.getFlowYarnInfo(appID)
+//       val map = OptionUtil.getAny(JSON.parseFull(flowYarnInfoJson)).asInstanceOf[Map[String, Any]]
+       val map = JsonUtil.jsonToMap(flowYarnInfoJson)
+       val yanrFlowInfoMap = MapUtil.get(map, "app").asInstanceOf[Map[String, Any]]
+       val name = MapUtil.get(yanrFlowInfoMap,"name").asInstanceOf[String]
+       val flowYarnState = MapUtil.get(yanrFlowInfoMap,"state").asInstanceOf[String]
 
 
         if (flowInfoMap.contains("state")) {
@@ -262,8 +268,7 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
       //     }
       //     responseFuture
 
-
-    }
+   }
 
 
     case HttpRequest(POST, Uri.Path("/flow/stop"), headers, entity, protocol) => {
@@ -862,8 +867,8 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
     val scheduleList = H2Util.getStartedSchedule()
     scheduleList.foreach(id => {
       val scheduleContent = FlowFileUtil.readFlowFile(FlowFileUtil.getScheduleFilePath(id))
-      val dataMap = JSON.parseFull(scheduleContent).get.asInstanceOf[Map[String, Any]]
-
+//      val dataMap = JSON.parseFull(scheduleContent).get.asInstanceOf[Map[String, Any]]
+      val dataMap = JsonUtil.jsonToMap(scheduleContent)
 
       val expression = dataMap.get("expression").getOrElse("").asInstanceOf[String]
       val startDateStr = dataMap.get("startDate").getOrElse("").asInstanceOf[String]
@@ -931,9 +936,8 @@ object Main {
     })
   }
 
-
-  def main(argv: Array[String]): Unit = {
-    val h2Server = Server.createTcpServer("-tcp", "-tcpAllowOthers", "-tcpPort", PropertyUtil.getPropertyValue("h2.port")).start()
+  def main(argv: Array[String]):Unit = {
+    val h2Server = Server.createTcpServer("-tcp", "-tcpAllowOthers","-ifNotExists", "-tcpPort",PropertyUtil.getPropertyValue("h2.port")).start()
     flywayInit()
     HTTPService.run
     initPlugin()

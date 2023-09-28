@@ -11,7 +11,7 @@ import org.apache.http.impl.client.HttpClients
 import org.apache.http.util.EntityUtils
 import org.apache.spark.SparkFiles
 import org.apache.spark.launcher.SparkLauncher
-import com.alibaba.fastjson.{JSON, JSONObject}
+import com.alibaba.fastjson2.{JSON, JSONObject}
 
 import scala.collection.mutable
 

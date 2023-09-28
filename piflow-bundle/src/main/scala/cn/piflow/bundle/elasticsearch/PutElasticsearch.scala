@@ -5,7 +5,6 @@ import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import cn.piflow.conf.{ConfigurableStop, Port, StopGroup}
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.apache.spark.sql.SparkSession
-import org.elasticsearch.spark.sql.EsSparkSQL
 
 class PutElasticsearch extends ConfigurableStop {
 
@@ -18,27 +17,19 @@ class PutElasticsearch extends ConfigurableStop {
   var es_port  : String  =  _
   var es_index : String =  _
   var es_type  : String  =  _
-  var configuration_item:String = _
+  var saveMode : String = _
 
   def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
-    val spark = pec.get[SparkSession]()
-    val inDf = in.read()
+    val inDfES = in.read()
 
-    val sc = spark.sparkContext
-    var options = Map("es.index.auto.create"-> "true",
-      "es.nodes"->es_nodes,
-      "es.port"->es_port)
-
-    if(configuration_item.length > 0){
-      configuration_item.split(",").map(x => x.trim).foreach(each =>{
-        options += (each.split("->")(0).trim -> each.split("->")(1).trim)
-      })
-    }
-
-    EsSparkSQL.saveToEs(inDf,s"${es_index}/${es_type}",options)
+    inDfES.write.format("org.elasticsearch.spark.sql")
+      .option("es.nodes", es_nodes)
+      .option("es.port", es_port)
+      .option("es.resource", s"${es_index}/${es_type}")
+      .mode(saveMode)
+      .save()
 
   }
-
 
   def initialize(ctx: ProcessContext): Unit = {
 
@@ -49,14 +40,14 @@ class PutElasticsearch extends ConfigurableStop {
     es_port=MapUtil.get(map,key="es_port").asInstanceOf[String]
     es_index=MapUtil.get(map,key="es_index").asInstanceOf[String]
     es_type=MapUtil.get(map,key="es_type").asInstanceOf[String]
-    configuration_item=MapUtil.get(map,key="configuration_item").asInstanceOf[String]
+    saveMode=MapUtil.get(map,key="saveMode").asInstanceOf[String]
   }
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
     val es_nodes = new PropertyDescriptor()
       .name("es_nodes")
-      .displayName("Es_Nodes")
+      .displayName("es_nodes")
       .description("Node of Elasticsearch")
       .defaultValue("")
       .required(true)
@@ -66,7 +57,7 @@ class PutElasticsearch extends ConfigurableStop {
     val es_port = new PropertyDescriptor()
       .defaultValue("9200")
       .name("es_port")
-      .displayName("Es_Port")
+      .displayName("es_port")
       .description("Port of Elasticsearch")
       .defaultValue("9200")
       .required(true)
@@ -75,7 +66,7 @@ class PutElasticsearch extends ConfigurableStop {
 
     val es_index = new PropertyDescriptor()
       .name("es_index")
-      .displayName("Es_Index")
+      .displayName("es_index")
       .description("Index of Elasticsearch")
       .defaultValue("")
       .required(true)
@@ -84,21 +75,22 @@ class PutElasticsearch extends ConfigurableStop {
 
     val es_type = new PropertyDescriptor()
       .name("es_type")
-      .displayName("Es_Type")
+      .displayName("es_type")
       .description("Type of Elasticsearch")
       .defaultValue("")
       .required(true)
       .example("testStudent1")
     descriptor = es_type :: descriptor
 
-    val configuration_item = new PropertyDescriptor()
-      .name("configuration_item")
-      .displayName("Configuration_Item")
-      .description("Configuration Item of Es.such as:es.mapping.parent->id_1,es.mapping.parent->id_2")
-      .defaultValue("")
-      .required(false)
-      .example("es.mapping.parent->id_1,es.mapping.parent->id_2")
-    descriptor = configuration_item :: descriptor
+    val saveMode = new PropertyDescriptor()
+      .name("saveMode")
+      .displayName("SaveMode")
+      .description("save mode")
+//      .allowableValues(Set("Append","Overwrite","ErrorIfExists","Ignore"))
+      .defaultValue("Overwrite")
+      .required(true)
+      .example("Overwrite")
+    descriptor = saveMode :: descriptor
 
     descriptor
   }
