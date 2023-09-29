@@ -39,12 +39,12 @@ class XmlParserFolder extends ConfigurableStop{
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
-    val folederXmlStop = new PropertyDescriptor()
-      .name("folederXmlStop")
-      .displayName("FolederXmlStop")
+    val xmlpath = new PropertyDescriptor()
+      .name("xmlpath")
+      .displayName("xmlpath")
       .defaultValue("")
       .required(true)
-      .example("hdfs://192.168.3.138:8020/work/test/xml/")
+      .example("/work/test/xml/")
 
     val rowTag = new PropertyDescriptor()
       .name("rowTag")
@@ -54,7 +54,7 @@ class XmlParserFolder extends ConfigurableStop{
       .required(true)
         .example("name,url")
 
-    descriptor = folederXmlStop :: descriptor
+    descriptor = xmlpath :: descriptor
     descriptor = rowTag :: descriptor
     descriptor
   }

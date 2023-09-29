@@ -39,11 +39,10 @@
 ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/architecture.png) 
 ## Requirements
 * JDK 1.8 
-* Scala-2.11.8
+* Scala-2.12.18
 * Apache Maven 3.1.0 or newer  
-* Spark-2.1.0、 Spark-2.2.0、 Spark-2.3.0
-* Hadoop-2.6.0
-* Apache Livy-0.7.1
+* Spark-3.4.0
+* Hadoop-3.3.0
 
 ## Getting Started
 
@@ -218,7 +217,7 @@
     ]
   }
 }</code>
-    </pre>
+  </pre>
   </details>
 - CURL POST：
   - curl -0 -X POST http://10.0.86.191:8002/flow/start -H "Content-type: application/json" -d 'this is your flow json'

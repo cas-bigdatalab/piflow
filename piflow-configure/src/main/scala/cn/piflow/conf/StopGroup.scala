@@ -35,4 +35,5 @@ object StopGroup {
   val Python = "Python"
   val Visualization = "Visualization"
   val CephGroup="ceph"
+  val NormalizationGroup = "Normalization"
 }

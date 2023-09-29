@@ -1,15 +1,14 @@
 package cn.piflow.api
 
 import java.io.File
-
 import cn.piflow.Runner
 import cn.piflow.conf.bean.FlowBean
 import cn.piflow.conf.util.OptionUtil
-import cn.piflow.util.{ConfigureUtil, FlowFileUtil, PropertyUtil, SecurityUtil}
+import cn.piflow.util.{ConfigureUtil, FlowFileUtil, JsonUtil, PropertyUtil, SecurityUtil}
 import kafka.security.SecurityUtils
 import org.apache.spark.sql.SparkSession
 
-import scala.util.parsing.json.JSON
+//import scala.util.parsing.json.JSON
 
 object StartFlowMain {
 
@@ -27,7 +26,8 @@ object StartFlowMain {
 
     val flowJson = FlowFileUtil.readFlowFile(flowFilePath).trim()
     println(flowJson)
-    val map = OptionUtil.getAny(JSON.parseFull(flowJson)).asInstanceOf[Map[String, Any]]
+//    val map = OptionUtil.getAny(JSON.parseFull(flowJson)).asInstanceOf[Map[String, Any]]
+    val map = JsonUtil.jsonToMap(flowJson)
     println(map)
 
     //create flow

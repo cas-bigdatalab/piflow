@@ -4,61 +4,61 @@ import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import cn.piflow.conf.{ConfigurableStop, Port, StopGroup}
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
-import org.apache.hadoop.hbase.HBaseConfiguration
 import org.apache.hadoop.hbase.mapreduce.TableInputFormat
 import org.apache.hadoop.hbase.util.Bytes
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
 import org.apache.spark.sql.{Row, SparkSession}
+import org.apache.hadoop.hbase.HBaseConfiguration
 
 import scala.collection.mutable.ArrayBuffer
 
+
 class ReadHbase extends ConfigurableStop{
 
-  override val authorEmail: String = "bf219319@163.com"
+  override val authorEmail: String = "ygang@cnic.cn"
   override val description: String = "Read data from Hbase"
   override val inportList: List[String] = List(Port.DefaultPort)
   override val outportList: List[String] = List(Port.DefaultPort)
 
-  var quorum :String= _
-  var port :String = _
-  var znodeParent:String= _
-  var table:String=_
-  var rowid:String=_
-  var family:String= _
-  var qualifier:String=_
+  var zookeeperQuorum  :String= _
+  var zookeeperClientPort  :String= _
+  var tablename  :String= _
+  var rowkey  :String= _
+  var columnFamily: String = _
+  var columnQualifier  :String= _
 
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
 
     val spark = pec.get[SparkSession]()
-
-    val hbaseConf = HBaseConfiguration.create()
-    hbaseConf.set("hbase.zookeeper.quorum", quorum)
-    hbaseConf.set("hbase.zookeeper.property.clientPort", port)
-    hbaseConf.set("zookeeper.znode.parent",znodeParent)
-    hbaseConf.set(TableInputFormat.INPUT_TABLE, table)
     val sc = spark.sparkContext
 
-    val hbaseRDD= sc.newAPIHadoopRDD(hbaseConf, classOf[TableInputFormat],
+    val hbaseConf = HBaseConfiguration.create()
+    hbaseConf.set("hbase.zookeeper.quorum", zookeeperQuorum) //设置zooKeeper集群地址，也可以通过将hbase-site.xml导入classpath，但是建议在程序里这样设置
+    hbaseConf.set("hbase.zookeeper.property.clientPort", zookeeperClientPort) //设置zookeeper连接端口，默认2181
+    hbaseConf.set(TableInputFormat.INPUT_TABLE, tablename)
+
+    //读取数据并转化成rdd TableInputFormat 是 org.apache.hadoop.hbase.mapreduce 包下的
+    val hBaseRDD= sc.newAPIHadoopRDD(hbaseConf, classOf[TableInputFormat],
       classOf[org.apache.hadoop.hbase.io.ImmutableBytesWritable],
       classOf[org.apache.hadoop.hbase.client.Result])
 
-    val schema: Array[String] = qualifier.split(",").map(x=>x.trim)
-    val families=family.split(",").map(x=>x.trim)
+    val schema: Array[String] = columnQualifier.split(",").map(x=>x.trim)
+    val families=columnFamily.split(",").map(x=>x.trim)
 
-    val col_str=rowid+","+qualifier
+    val col_str=rowkey+","+ columnQualifier
     val newSchema:Array[String]=col_str.split(",")
 
     val fields: Array[StructField] = newSchema.map(d=>StructField(d,StringType,nullable = true))
     val dfSchema: StructType = StructType(fields)
 
 
-    val kv = hbaseRDD.map(r => {
+    val kv = hBaseRDD.map(r => {
       val rowkey = Bytes.toString(r._2.getRow)
       val row = new ArrayBuffer[String]
       row += rowkey
       if(families.size==1){
         schema.foreach(c => {
-          val fields = Bytes.toString(r._2.getValue(Bytes.toBytes(family), Bytes.toBytes(c)))
+          val fields = Bytes.toString(r._2.getValue(Bytes.toBytes(columnFamily), Bytes.toBytes(c)))
           row += fields
 
         })
@@ -76,87 +76,77 @@ class ReadHbase extends ConfigurableStop{
       }
       Row.fromSeq(row.toArray.toSeq)
     })
-
     val df=spark.createDataFrame(kv,dfSchema)
 
     out.write(df)
 
   }
   override def setProperties(map: Map[String, Any]): Unit = {
-    quorum = MapUtil.get(map,key="quorum").asInstanceOf[String]
-    port = MapUtil.get(map,key="port").asInstanceOf[String]
-    znodeParent = MapUtil.get(map,key="znodeParent").asInstanceOf[String]
-    table = MapUtil.get(map,key="table").asInstanceOf[String]
-    rowid = MapUtil.get(map,key="rowid").asInstanceOf[String]
-    family = MapUtil.get(map,key="family").asInstanceOf[String]
-    qualifier = MapUtil.get(map,key="qualifier").asInstanceOf[String]
+    zookeeperQuorum=MapUtil.get(map,key="zookeeperQuorum").asInstanceOf[String]
+    zookeeperClientPort=MapUtil.get(map,key="zookeeperClientPort").asInstanceOf[String]
+    tablename=MapUtil.get(map,key="tablename").asInstanceOf[String]
+    rowkey=MapUtil.get(map,key="rowkey").asInstanceOf[String]
+    columnFamily=MapUtil.get(map,key="columnFamily").asInstanceOf[String]
+    columnQualifier=MapUtil.get(map,key="columnQualifier").asInstanceOf[String]
 
   }
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
     var descriptor : List[PropertyDescriptor] = List()
-    val quorum = new PropertyDescriptor()
-      .name("quorum")
-      .displayName("Quorum")
+
+    val zookeeperQuorum = new PropertyDescriptor()
+      .name("zookeeperQuorum")
+      .displayName("zookeeperQuorum")
       .defaultValue("")
       .description("Zookeeper cluster address")
       .required(true)
       .example("10.0.0.101,10.0.0.102,10.0.0.103")
-    descriptor = quorum :: descriptor
+    descriptor = zookeeperQuorum :: descriptor
 
-    val port = new PropertyDescriptor()
-      .name("port")
-      .displayName("Port")
-      .defaultValue("")
+    val zookeeperClientPort = new PropertyDescriptor()
+      .name("zookeeperClientPort")
+      .displayName("zookeeperClientPort")
+      .defaultValue("2181")
       .description("Zookeeper connection port")
       .required(true)
       .example("2181")
-    descriptor = port :: descriptor
+    descriptor = zookeeperClientPort :: descriptor
 
-    val znodeParent = new PropertyDescriptor()
-      .name("znodeParent")
-      .displayName("ZnodeParent")
-      .defaultValue("")
-      .description("Hbase znode location in zookeeper")
-      .required(true)
-      .example("/hbase-unsecure")
-    descriptor = znodeParent :: descriptor
-
-    val table = new PropertyDescriptor()
-      .name("table")
-      .displayName("Table")
+    val tablename = new PropertyDescriptor()
+      .name("tablename")
+      .displayName("tablename")
       .defaultValue("")
       .description("Table in Hbase")
       .required(true)
-      .example("test or dbname:test")
-    descriptor = table :: descriptor
+      .example("sparkdemo")
+    descriptor = tablename :: descriptor
 
-    val rowid = new PropertyDescriptor()
-      .name("rowid")
-      .displayName("rowid")
+    val rowkey = new PropertyDescriptor()
+      .name("rowkey")
+      .displayName("rowkey")
       .defaultValue("")
       .description("Rowkey of table in Hbase")
       .required(true)
       .example("rowkey")
-    descriptor = rowid :: descriptor
+    descriptor = rowkey :: descriptor
 
-    val family = new PropertyDescriptor()
-      .name("family")
-      .displayName("Family")
+    val columnFamily = new PropertyDescriptor()
+      .name("columnFamily")
+      .displayName("columnFamily")
       .defaultValue("")
       .description("The column family of table,multiple column families are separated by commas")
       .required(true)
-      .example("info")
-    descriptor = family :: descriptor
+      .example("cf1")
+    descriptor = columnFamily :: descriptor
 
-    val qualifier = new PropertyDescriptor()
-      .name("qualifier")
-      .displayName("Qualifier")
+    val columnQualifier = new PropertyDescriptor()
+      .name("columnQualifier")
+      .displayName("columnQualifier")
       .defaultValue("")
-      .description("Field of column family,fill in the order of column family")
+      .description("Column Qualifier")
       .required(true)
       .example("name,age")
-    descriptor = qualifier :: descriptor
+    descriptor = columnQualifier :: descriptor
 
     descriptor
   }
