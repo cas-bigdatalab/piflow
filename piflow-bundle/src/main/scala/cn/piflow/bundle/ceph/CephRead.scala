@@ -4,8 +4,8 @@ import cn.piflow._
 import cn.piflow.conf._
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
+import org.apache.spark.sql.types.{StringType, StructField, StructType}
 import org.apache.spark.sql.{DataFrame, SparkSession}
-
 
 class CephRead extends ConfigurableStop  {
 
@@ -16,9 +16,12 @@ class CephRead extends ConfigurableStop  {
 
   var cephAccessKey:String = _
   var cephSecretKey:String = _
-  var cephBucket:String = _
   var cephEndpoint:String = _
   var types: String = _
+  var path: String = _
+  var header: Boolean = _
+  var delimiter: String = _
+  var schema: String = _
 
   def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     val spark = pec.get[SparkSession]()
@@ -26,25 +29,44 @@ class CephRead extends ConfigurableStop  {
     spark.conf.set("fs.s3a.access.key", cephAccessKey)
     spark.conf.set("fs.s3a.secret.key", cephSecretKey)
     spark.conf.set("fs.s3a.endpoint", cephEndpoint)
+    spark.conf.set("fs.s3a.connection.ssl.enabled", "false")
 
     var df:DataFrame = null
 
     if (types == "parquet") {
       df = spark.read
-        .option("compression", "gzip") // 压缩算法，可选项包括gzip, snappy, lzo, none
-        .parquet(s"s3a://$cephBucket@$cephEndpoint")
+        .parquet(path)
     }
+
     if (types == "csv") {
-       df = spark.read
-        .option("header", true)
-        .option("inferSchema", true)
-        .option("delimiter", ",")
-        .csv(s"s3a://$cephBucket@$cephEndpoint")
-    }
-    if (types == "json") {
+      if (header){
         df = spark.read
-        .option("multiline", "true") // 处理多行 JSON
-        .json(s"s3a://$cephBucket@$cephEndpoint")
+          .option("header", header)
+          .option("inferSchema", "true")
+          .option("delimiter", delimiter)
+          .csv(path)
+      }
+      else{
+        val field = schema.split(",").map(x => x.trim)
+        val structFieldArray: Array[StructField] = new Array[StructField](field.size)
+        for (i <- 0 to field.size - 1) {
+          structFieldArray(i) = new StructField(field(i), StringType, nullable = true)
+        }
+        val schemaStructType = StructType(structFieldArray)
+
+        df = spark.read
+          .option("header", header)
+          .option("inferSchema", "false")
+          .option("delimiter", delimiter)
+          .option("timestampFormat", "yyyy/MM/dd HH:mm:ss ZZ")
+          .schema(schemaStructType)
+          .csv(path)
+      }
+    }
+
+    if (types == "json") {
+      df = spark.read
+        .json(path)
     }
 
     out.write(df)
@@ -59,9 +81,12 @@ class CephRead extends ConfigurableStop  {
   override def setProperties(map: Map[String, Any]): Unit = {
     cephAccessKey = MapUtil.get(map,"cephAccessKey").asInstanceOf[String]
     cephSecretKey = MapUtil.get(map, "cephSecretKey").asInstanceOf[String]
-    cephBucket = MapUtil.get(map,"cephBucket").asInstanceOf[String]
     cephEndpoint = MapUtil.get(map,"cephEndpoint").asInstanceOf[String]
     types = MapUtil.get(map,"types").asInstanceOf[String]
+    path =  MapUtil.get(map,"path").asInstanceOf[String]
+    header = MapUtil.get(map, "header").asInstanceOf[String].toBoolean
+    delimiter = MapUtil.get(map, "delimiter").asInstanceOf[String]
+    schema = MapUtil.get(map, "schema").asInstanceOf[String]
   }
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
@@ -86,14 +111,6 @@ class CephRead extends ConfigurableStop  {
       .example("")
     descriptor = cephSecretKey :: descriptor
 
-    val cephBucket=new PropertyDescriptor()
-      .name("cephBucket")
-      .displayName("cephBucket")
-      .description("This parameter is of type String and represents the name of the bucket in the Ceph storage system where the data will be stored/retrieved")
-      .defaultValue("")
-      .required(true)
-      .example("")
-    descriptor = cephBucket :: descriptor
 
 
     val cephEndpoint = new PropertyDescriptor()
@@ -115,6 +132,43 @@ class CephRead extends ConfigurableStop  {
       .required(true)
       .example("csv")
     descriptor = types :: descriptor
+
+    val header = new PropertyDescriptor()
+      .name("header")
+      .displayName("Header")
+      .description("Whether the csv file has a header")
+      .defaultValue("false")
+      .allowableValues(Set("true", "false"))
+      .required(true)
+      .example("true")
+    descriptor = header :: descriptor
+
+    val delimiter = new PropertyDescriptor()
+      .name("delimiter")
+      .displayName("Delimiter")
+      .description("The delimiter of csv file")
+      .defaultValue("")
+      .required(true)
+      .example(",")
+    descriptor = delimiter :: descriptor
+
+    val schema = new PropertyDescriptor()
+      .name("schema")
+      .displayName("Schema")
+      .description("The schema of csv file")
+      .defaultValue("")
+      .required(false)
+      .example("id,name,gender,age")
+    descriptor = schema :: descriptor
+
+    val path = new PropertyDescriptor()
+      .name("path")
+      .displayName("Path")
+      .description("The file path you want to write to")
+      .defaultValue("")
+      .required(true)
+      .example("s3a://radosgw-test/test_df")
+    descriptor = path :: descriptor
 
 
     descriptor
