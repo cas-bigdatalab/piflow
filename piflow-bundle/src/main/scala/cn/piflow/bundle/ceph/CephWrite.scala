@@ -3,7 +3,7 @@ package cn.piflow.bundle.ceph
 import cn.piflow._
 import cn.piflow.conf._
 import cn.piflow.conf.bean.PropertyDescriptor
-import cn.piflow.conf.util.{ImageUtil, MapUtil}
+import cn.piflow.conf.util.{ImageUtil,MapUtil}
 import org.apache.spark.sql.SparkSession
 
 
@@ -25,8 +25,6 @@ class CephWrite extends ConfigurableStop  {
 
 
   def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
-
-
     val spark = pec.get[SparkSession]()
 
     spark.conf.set("fs.s3a.access.key", cephAccessKey)
@@ -34,15 +32,13 @@ class CephWrite extends ConfigurableStop  {
     spark.conf.set("fs.s3a.endpoint", cephEndpoint)
     spark.conf.set("fs.s3a.connection.ssl.enabled", "false")
 
-
     // Create a DataFrame from the data
     val df = in.read()
-
 
     if (types == "parquet") {
       df.write
         .format("parquet")
-        .mode("overwrite") // You can use "overwrite" or "append" based on your needs
+        .mode("overwrite") // only overwrite
         .save(path)
     }
 
@@ -51,25 +47,22 @@ class CephWrite extends ConfigurableStop  {
         .format("csv")
         .option("header", header)
         .option("delimiter",delimiter)
-        .mode("overwrite") // You can use "overwrite" or "append" based on your needs
+        .mode("overwrite")
         .save(path)
     }
 
     if (types == "json") {
       df.write
         .format("json")
-        .mode("overwrite")// You can use "overwrite" or "append" based on your needs
+        .mode("overwrite")
         .save(path)
     }
-
 
   }
 
   def initialize(ctx: ProcessContext): Unit = {
 
   }
-
-
 
   override def setProperties(map: Map[String, Any]): Unit = {
     cephAccessKey = MapUtil.get(map, "cephAccessKey").asInstanceOf[String]
@@ -103,7 +96,6 @@ class CephWrite extends ConfigurableStop  {
       .example("")
     descriptor = cephSecretKey :: descriptor
 
-
     val cephEndpoint = new PropertyDescriptor()
       .name("cephEndpoint")
       .displayName("cephEndpoint")
@@ -128,7 +120,7 @@ class CephWrite extends ConfigurableStop  {
       .name("delimiter")
       .displayName("Delimiter")
       .description("The delimiter of csv file")
-      .defaultValue("")
+      .defaultValue(",")
       .required(true)
       .example(",")
     descriptor = delimiter :: descriptor
@@ -138,7 +130,7 @@ class CephWrite extends ConfigurableStop  {
       .name("header")
       .displayName("Header")
       .description("Whether the csv file has a header")
-      .defaultValue("false")
+      .defaultValue("true")
       .allowableValues(Set("true", "false"))
       .required(true)
       .example("true")
@@ -149,7 +141,7 @@ class CephWrite extends ConfigurableStop  {
       .name("path")
       .displayName("Path")
       .description("The file path you want to write to")
-      .defaultValue("")
+      .defaultValue("s3a://radosgw-test/test_df")
       .required(true)
       .example("s3a://radosgw-test/test_df")
     descriptor = path :: descriptor

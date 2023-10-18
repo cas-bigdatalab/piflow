@@ -4,7 +4,6 @@ import cn.piflow._
 import cn.piflow.conf._
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
-import org.apache.spark.sql.types.{StringType, StructField, StructType}
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
 class CephRead extends ConfigurableStop  {
@@ -21,7 +20,6 @@ class CephRead extends ConfigurableStop  {
   var path: String = _
   var header: Boolean = _
   var delimiter: String = _
-  var schema: String = _
 
   def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     val spark = pec.get[SparkSession]()
@@ -39,29 +37,12 @@ class CephRead extends ConfigurableStop  {
     }
 
     if (types == "csv") {
-      if (header){
-        df = spark.read
-          .option("header", header)
-          .option("inferSchema", "true")
-          .option("delimiter", delimiter)
-          .csv(path)
-      }
-      else{
-        val field = schema.split(",").map(x => x.trim)
-        val structFieldArray: Array[StructField] = new Array[StructField](field.size)
-        for (i <- 0 to field.size - 1) {
-          structFieldArray(i) = new StructField(field(i), StringType, nullable = true)
-        }
-        val schemaStructType = StructType(structFieldArray)
 
-        df = spark.read
-          .option("header", header)
-          .option("inferSchema", "false")
-          .option("delimiter", delimiter)
-          .option("timestampFormat", "yyyy/MM/dd HH:mm:ss ZZ")
-          .schema(schemaStructType)
-          .csv(path)
-      }
+      df = spark.read
+        .option("header", header)
+        .option("inferSchema", "true")
+        .option("delimiter", delimiter)
+        .csv(path)
     }
 
     if (types == "json") {
@@ -86,7 +67,6 @@ class CephRead extends ConfigurableStop  {
     path =  MapUtil.get(map,"path").asInstanceOf[String]
     header = MapUtil.get(map, "header").asInstanceOf[String].toBoolean
     delimiter = MapUtil.get(map, "delimiter").asInstanceOf[String]
-    schema = MapUtil.get(map, "schema").asInstanceOf[String]
   }
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
@@ -152,14 +132,6 @@ class CephRead extends ConfigurableStop  {
       .example(",")
     descriptor = delimiter :: descriptor
 
-    val schema = new PropertyDescriptor()
-      .name("schema")
-      .displayName("Schema")
-      .description("The schema of csv file")
-      .defaultValue("")
-      .required(false)
-      .example("id,name,gender,age")
-    descriptor = schema :: descriptor
 
     val path = new PropertyDescriptor()
       .name("path")
@@ -169,7 +141,6 @@ class CephRead extends ConfigurableStop  {
       .required(true)
       .example("s3a://radosgw-test/test_df")
     descriptor = path :: descriptor
-
 
     descriptor
   }
