@@ -139,16 +139,16 @@ object API {
 
 
       val totalVirtualCores = matricInfo.getOrElse("totalVirtualCores","");
-      val allocatedVirtualCores = matricInfo.getOrElse("allocatedVirtualCores","");
-      val remainingVirtualCores = totalVirtualCores.asInstanceOf[Double] - allocatedVirtualCores.asInstanceOf[Double];
+      val allocatedVirtualCores = matricInfo.getOrElse("allocatedVirtualCores","")
+      val remainingVirtualCores = totalVirtualCores.toString.toDouble - allocatedVirtualCores.toString.toDouble;
       val cpuInfo = Map(
         "totalVirtualCores" -> totalVirtualCores,
         "allocatedVirtualCores" -> allocatedVirtualCores,
         "remainingVirtualCores" -> remainingVirtualCores
       )
 
-      val totalMemoryGB = matricInfo.getOrElse("totalMB","").asInstanceOf[Double]/1024;
-      val allocatedMemoryGB = matricInfo.getOrElse("allocatedMB","").asInstanceOf[Double]/1024;
+      val totalMemoryGB = matricInfo.getOrElse("totalMB","").toString.toDouble/1024;
+      val allocatedMemoryGB = matricInfo.getOrElse("allocatedMB","").toString.toDouble/1024;
       val remainingMemoryGB =  totalMemoryGB - allocatedMemoryGB;
       val memoryInfo = Map(
         "totalMemoryGB" -> totalMemoryGB,
