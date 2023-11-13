@@ -326,6 +326,7 @@ Compatible with X86 architecture and ARM architecture, Support center OS and Kir
 - Email: wzs@cnic.cn  
 - QQ Group：1003489545
 - Private vulnerability contact information：ygang@cnic.cn
+  
   ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/PiFlowUserGroup_QQ.jpeg)  
 
 
