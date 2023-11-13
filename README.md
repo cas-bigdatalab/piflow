@@ -324,7 +324,8 @@ Compatible with X86 architecture and ARM architecture, Support center OS and Kir
 - Mobile Phone：18910263390  
 - WeChat：18910263390  
 - Email: wzs@cnic.cn  
-- QQ Group：1003489545  
+- QQ Group：1003489545
+- Private vulnerability contact information：ygang@cnic.cn
   ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/PiFlowUserGroup_QQ.jpeg)  
 
 
