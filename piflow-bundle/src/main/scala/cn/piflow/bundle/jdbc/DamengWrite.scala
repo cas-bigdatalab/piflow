@@ -4,15 +4,11 @@ import cn.piflow._
 import cn.piflow.conf._
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
-import org.apache.spark.sql.{SaveMode, SparkSession}
 
-import java.util.Properties
+class DamengWrite extends ConfigurableStop{
 
-
-class TbaseWrite extends ConfigurableStop{
-
-  val authorEmail: String = "bbbbbbyz1110@163.com"
-  val description: String = "Write data into Tbase database with jdbc"
+  val authorEmail: String = "ygang@cnic.cn"
+  val description: String = "Write data into dameng database with jdbc"
   val inportList: List[String] = List(Port.DefaultPort)
   val outportList: List[String] = List(Port.DefaultPort)
 
@@ -23,16 +19,16 @@ class TbaseWrite extends ConfigurableStop{
   var saveMode:String = _
 
   def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
-    val spark = pec.get[SparkSession]()
-    val jdbcDF = in.read()
-    val properties = new Properties()
-    properties.put("user", user)
-    properties.put("password", password)
-    properties.put("driver", "org.postgresql.Driver")
+   val jdbcDF = in.read()
 
-    jdbcDF.write
-      .mode(SaveMode.valueOf(saveMode)).jdbc(url,dbtable,properties)
-    out.write(jdbcDF)
+    jdbcDF.write.format("jdbc")
+      .option("url", url)
+      .option("driver", "dm.jdbc.driver.DmDriver")
+      .option("user", user)
+      .option("password", password)
+      .option("dbtable", dbtable)
+      .mode(saveMode)
+      .save()
   }
 
   def initialize(ctx: ProcessContext): Unit = {
@@ -54,29 +50,29 @@ class TbaseWrite extends ConfigurableStop{
     val url=new PropertyDescriptor()
       .name("url")
       .displayName("Url")
-      .description("The Url of postgresql database")
-      .defaultValue("jdbc:postgresql://127.0.0.1:30004/tbase")
+      .description("The Url of dameng database")
+      .defaultValue("")
       .required(true)
-      .example("jdbc:postgresql://127.0.0.1:30004/tbase")
+      .example("jdbc:dm://127.0.0.1:5236/DAMENG")
     descriptor = url :: descriptor
 
 
     val user=new PropertyDescriptor()
       .name("user")
       .displayName("User")
-      .description("The user name of postgresql")
-      .defaultValue("tbase")
+      .description("The user name of dameng")
+      .defaultValue("")
       .required(true)
-      .example("tbase")
+      .example("")
     descriptor = user :: descriptor
 
     val password=new PropertyDescriptor()
       .name("password")
       .displayName("Password")
-      .description("The password of postgresql")
+      .description("The password of dameng")
       .defaultValue("")
       .required(true)
-      .example("123456")
+      .example("")
       .sensitive(true)
     descriptor = password :: descriptor
 
@@ -86,7 +82,7 @@ class TbaseWrite extends ConfigurableStop{
       .description("The table you want to write")
       .defaultValue("")
       .required(true)
-      .example("test")
+      .example("")
     descriptor = dbtable :: descriptor
 
     val saveMode = new PropertyDescriptor()
@@ -103,7 +99,7 @@ class TbaseWrite extends ConfigurableStop{
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("icon/jdbc/tbase.png")
+    ImageUtil.getImage("icon/jdbc/dameng.png")
   }
 
   override def getGroup(): List[String] = {
