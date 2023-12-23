@@ -138,24 +138,23 @@ object API {
       val matricInfo = MapUtil.get(yarnInfo, "clusterMetrics").asInstanceOf[Map[String, Any]]
 
 
-      val totalVirtualCores = matricInfo.getOrElse("totalVirtualCores","");
-      val allocatedVirtualCores = matricInfo.getOrElse("allocatedVirtualCores","")
-      val remainingVirtualCores = totalVirtualCores.toString.toDouble - allocatedVirtualCores.toString.toDouble;
+      val totalVirtualCores = matricInfo.getOrElse("totalVirtualCores","").toString
+      val allocatedVirtualCores = matricInfo.getOrElse("allocatedVirtualCores","").toString
+      val remainingVirtualCores = totalVirtualCores.toDouble - allocatedVirtualCores.toDouble
       val cpuInfo = Map(
         "totalVirtualCores" -> totalVirtualCores,
         "allocatedVirtualCores" -> allocatedVirtualCores,
         "remainingVirtualCores" -> remainingVirtualCores
       )
 
-      val totalMemoryGB = matricInfo.getOrElse("totalMB","").toString.toDouble/1024;
-      val allocatedMemoryGB = matricInfo.getOrElse("allocatedMB","").toString.toDouble/1024;
-      val remainingMemoryGB =  totalMemoryGB - allocatedMemoryGB;
+      val totalMemoryGB = matricInfo.getOrElse("totalMB","").toString.toDouble/1024
+      val allocatedMemoryGB = matricInfo.getOrElse("allocatedMB","").toString.toDouble/1024
+      val remainingMemoryGB =  totalMemoryGB - allocatedMemoryGB
       val memoryInfo = Map(
         "totalMemoryGB" -> totalMemoryGB,
         "allocatedMemoryGB" -> allocatedMemoryGB,
         "remainingMemoryGB" -> remainingMemoryGB
       )
-
       val hdfsInfo = HdfsUtil.getCapacity()
       val map = Map("cpu" -> cpuInfo, "memory" -> memoryInfo, "hdfs" -> hdfsInfo)
       val resultMap = Map("resource" -> map)
