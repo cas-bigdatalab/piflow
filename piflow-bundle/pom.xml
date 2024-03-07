@@ -18,6 +18,12 @@
     <artifactId>piflow-bundle</artifactId>
 
     <dependencies>
+
+        <dependency>
+            <groupId>com.crealytics</groupId>
+            <artifactId>spark-excel_2.11</artifactId>
+            <version>0.13.7</version>
+        </dependency>
         <dependency>
             <groupId>ch.ethz.ganymed</groupId>
             <artifactId>ganymed-ssh2</artifactId>
@@ -300,11 +306,12 @@
             <version>4.5.3</version>
         </dependency>
 
-        <!-- https://mvnrepository.com/artifact/oracle/ojdbc6 -->
+
+        <!-- https://mvnrepository.com/artifact/com.oracle.database.jdbc/ojdbc6 -->
         <dependency>
-            <groupId>oracle</groupId>
+            <groupId>com.oracle.database.jdbc</groupId>
             <artifactId>ojdbc6</artifactId>
-            <version>11.2.0.3</version>
+            <version>11.2.0.4</version>
         </dependency>
 
         <!-- https://mvnrepository.com/artifact/com.taosdata.jdbc/taos-jdbcdriver -->
