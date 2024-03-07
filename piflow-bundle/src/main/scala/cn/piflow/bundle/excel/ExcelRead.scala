@@ -15,9 +15,6 @@ class ExcelRead extends ConfigurableStop{
   var filePath: String = _
   var header: String = _
   var dataAddress: String = _
-  //  var setErrorCellsToFallbackValues: String = _
-  //  var timestampFormat: String = _
-  //  var excerptSize: String = _
 
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     val spark = pec.get[SparkSession]()
@@ -26,9 +23,6 @@ class ExcelRead extends ConfigurableStop{
       .format("com.crealytics.spark.excel")
       .option("dataAddress",dataAddress)
       .option("inferSchema", true) //这是自动推断属性列的数据类型
-      //      .option("setErrorCellsToFallbackValues", setErrorCellsToFallbackValues)
-      //      .option("timestampFormat", timestampFormat)
-      //      .option("excerptSize", excerptSize.toInt)
       .option("header", header)
       .load(filePath)
 
@@ -41,9 +35,6 @@ class ExcelRead extends ConfigurableStop{
     filePath = MapUtil.get(map,"filePath").asInstanceOf[String]
     header = MapUtil.get(map,"header").asInstanceOf[String]
     dataAddress = MapUtil.get(map,"dataAddress").asInstanceOf[String]
-    //    setErrorCellsToFallbackValues = MapUtil.get(map,"setErrorCellsToFallbackValues").asInstanceOf[String]
-    //    timestampFormat = MapUtil.get(map,"timestampFormat").asInstanceOf[String]
-    //    excerptSize = MapUtil.get(map,"excerptSize").asInstanceOf[String]
   }
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
@@ -83,39 +74,12 @@ class ExcelRead extends ConfigurableStop{
       .example("'Sheet1'!")
     descriptor = dataAddress :: descriptor
 
-    //    val setErrorCellsToFallbackValues = new PropertyDescriptor()
-    //      .name("setErrorCellsToFallbackValues")
-    //      .displayName("setErrorCellsToFallbackValues")
-    //      .description("default: false, where errors will be converted to null. If true, any ERROR cell values (e.g. #N/A) will be converted to the zero values of the column's data type.")
-    //      .defaultValue("false")
-    //      .required(false)
-    //      .example("fales")
-    //    descriptor = setErrorCellsToFallbackValues :: descriptor
-    //
-    //
-    //    val timestampFormat = new PropertyDescriptor()
-    //      .name("timestampFormat")
-    //      .displayName("timestampFormat")
-    //      .description("default: yyyy-mm-dd hh:mm:ss[.fffffffff]")
-    //      .defaultValue("yyyy-mm-dd hh:mm:ss")
-    //      .required(true)
-    //      .example("yyyy-mm-dd hh:mm:ss")
-    //    descriptor = timestampFormat :: descriptor
-    //
-    //    val excerptSize = new PropertyDescriptor()
-    //      .name("excerptSize")
-    //      .displayName("excerptSize")
-    //      .description("default: 10. If set and if schema inferred, number of rows to infer schema from")
-    //      .defaultValue("10")
-    //      .required(true)
-    //      .example("10")
-    //    descriptor = excerptSize :: descriptor
 
     descriptor
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("icon/excel/excelParse.png",this.getClass.getName)
+    ImageUtil.getImage("icon/excel/excelParse.png")
   }
 
   override def getGroup(): List[String] = {

@@ -62,7 +62,7 @@ class DataSort extends ConfigurableStop{
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("icon/csv/CsvParser.png",this.getClass.getName)
+    ImageUtil.getImage("icon/csv/CsvParser.png")
   }
 
   override def getGroup(): List[String] = {
