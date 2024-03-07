@@ -120,7 +120,7 @@ class DockerExecute extends ConfigurableStop{
   }
 
   override def getGroup(): List[String] = {
-    List()
+    List(StopGroup.ScriptGroup)
   }
 
 
