@@ -82,8 +82,12 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
        val flowInfoMap = MapUtil.get(resultMap, "flow").asInstanceOf[Map[String, Any]]
        val flowState = MapUtil.get(flowInfoMap,"state").asInstanceOf[String]
 
+       println("----------------getFlowYarnInfo--------------------start")
        //yarn flow state
        val flowYarnInfoJson = API.getFlowYarnInfo(appID)
+       println("----------------getFlowYarnInfo--------------------finish")
+       println("----------------getFlowYarnInfo--------------------"+flowYarnInfoJson)
+
 //       val map = OptionUtil.getAny(JSON.parseFull(flowYarnInfoJson)).asInstanceOf[Map[String, Any]]
        val map = JsonUtil.jsonToMap(flowYarnInfoJson)
        val yanrFlowInfoMap = MapUtil.get(map, "app").asInstanceOf[Map[String, Any]]
@@ -92,6 +96,7 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
 
 
         if (flowInfoMap.contains("state")) {
+          println("----------------flowInfoMap.state--------------------"+flowState)
           val checkState = StateUtil.FlowStateCheck(flowState, flowYarnState)
           if (checkState == true) {
             Future.successful(HttpResponse(SUCCESS_CODE, entity = result))
@@ -104,6 +109,7 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
             Future.successful(HttpResponse(SUCCESS_CODE, entity = result))
           }
         } else if (yanrFlowInfoMap.contains("state")) {
+          println("----------------yanrFlowInfoMap.state--------------------"+flowYarnState)
           var flowInfoMap = Map[String, Any]()
           flowInfoMap += ("id" -> appID)
           flowInfoMap += ("name" -> name)
