@@ -75,6 +75,7 @@ class VisualDisplay extends ConfigurableVisualizationStop  {
     val user = PropertyUtil.getPropertyValue("vis.mysql.user")
     val password = PropertyUtil.getPropertyValue("vis.mysql.password")
     val url = PropertyUtil.getPropertyValue("vis.mysql.url")
+    val driver = PropertyUtil.getPropertyValue("vis.mysql.driver")
 
     println(user+"\n"+password+"\n"+url)
 
@@ -82,6 +83,7 @@ class VisualDisplay extends ConfigurableVisualizationStop  {
     val properties = new Properties()
     properties.put("user", user)
     properties.put("password", password)
+    properties.put("driver", driver)
     jdbcDF.write.mode(SaveMode.Overwrite).jdbc(url,visTableName,properties)
 
   }
