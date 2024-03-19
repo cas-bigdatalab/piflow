@@ -734,6 +734,8 @@ class ProcessImpl(flow: Flow, runnerContext: Context, runner: Runner, parentProc
         catch {
           case e: Throwable =>
             runnerListener.onJobFailed(pe.getContext());
+            println("---------------performStreamingStop----update flow state failed!!!----------------")
+            runnerListener.onProcessFailed(processContext);
             throw e;
         }
 
@@ -815,6 +817,8 @@ class ProcessImpl(flow: Flow, runnerContext: Context, runner: Runner, parentProc
         catch {
           case e: Throwable =>
             runnerListener.onJobFailed(pe.getContext());
+            println("---------------performStopByCheckpoint--------------update flow state failed!!!----------------")
+            runnerListener.onProcessFailed(processContext);
             throw e;
         }
 
