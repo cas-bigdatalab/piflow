@@ -910,7 +910,14 @@ object Main {
     val ip = InetAddress.getLocalHost.getHostAddress
     // Create the Flyway instance
     val flyway: Flyway = new Flyway();
-    var url = "jdbc:h2:tcp://" + ip + ":" + PropertyUtil.getPropertyValue("h2.port") + "/~/piflow"
+    val h2Path: String = PropertyUtil.getPropertyValue("h2.path")
+    var url: String = ""
+    if (h2Path != null) {
+      url = "jdbc:h2:tcp://" + ip + ":" + PropertyUtil.getPropertyValue("h2.port") + "/~/piflow/" + h2Path
+    } else {
+      url = "jdbc:h2:tcp://" + ip + ":" + PropertyUtil.getPropertyValue("h2.port") + "/~/piflow"
+    }
+//    var url = "jdbc:h2:tcp://" + ip + ":" + PropertyUtil.getPropertyValue("h2.port") + "/~/piflow"
     // Point it to the database
     flyway.setDataSource(url, null, null);
     flyway.setLocations("db/migrations");
