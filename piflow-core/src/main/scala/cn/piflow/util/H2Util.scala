@@ -28,7 +28,7 @@ object H2Util {
   val serverIP = ServerIpUtil.getServerIp() + ":" + PropertyUtil.getPropertyValue("h2.port")
   var CONNECTION_URL = "";
   val h2Path: String = PropertyUtil.getPropertyValue("h2.path")
-  if (h2Path != null) {
+  if (h2Path != null && h2Path.nonEmpty) {
     CONNECTION_URL = "jdbc:h2:tcp://" + serverIP + "/~/piflow/" + h2Path + ";AUTO_SERVER=true;DB_CLOSE_ON_EXIT=FALSE"
   } else {
     CONNECTION_URL = "jdbc:h2:tcp://" + serverIP + "/~/piflow;AUTO_SERVER=true;DB_CLOSE_ON_EXIT=FALSE"
