@@ -823,7 +823,7 @@ object Main {
     val flyway: Flyway = new Flyway();
     val h2Path: String = PropertyUtil.getPropertyValue("h2.path")
     var url: String = ""
-    if (h2Path != null) {
+    if (h2Path != null && h2Path.nonEmpty) {
       url = "jdbc:h2:tcp://" + ip + ":" + PropertyUtil.getPropertyValue("h2.port") + "/~/piflow/" + h2Path
     } else {
       url = "jdbc:h2:tcp://" + ip + ":" + PropertyUtil.getPropertyValue("h2.port") + "/~/piflow"
