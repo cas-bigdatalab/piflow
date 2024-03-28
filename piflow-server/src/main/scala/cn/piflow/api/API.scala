@@ -24,8 +24,23 @@ import org.apache.spark.launcher.SparkAppHandle
 import java.util.zip.{ZipEntry, ZipOutputStream}
 import scala.util.control.Breaks._
 import scala.collection.mutable.{HashMap, ListBuffer, Map => MMap}
+import scala.tools.nsc.classpath.FileUtils
 
 object API {
+  def downloadFileFromHdfs(filePath: String) = {
+    var result = false
+    //先检验file是否已经存在在本地
+    val localFilePath =FileUtil.LOCAL_FILE_PREFIX+FileUtil.extractFileNameWithExtension(filePath)
+    val exists = FileUtil.exists(localFilePath)
+    if(!exists){
+      val hdfsFS = PropertyUtil.getPropertyValue("fs.defaultFS")
+      result = FileUtil.downloadFileFromHdfs(hdfsFS,filePath)
+    }else{
+      result = true
+    }
+    result
+  }
+
 
   def addSparkJar(addSparkJarName: String) : String = {
     var id = ""

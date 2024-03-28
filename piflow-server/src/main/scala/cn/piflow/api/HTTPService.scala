@@ -82,11 +82,11 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
        val flowInfoMap = MapUtil.get(resultMap, "flow").asInstanceOf[Map[String, Any]]
        val flowState = MapUtil.get(flowInfoMap,"state").asInstanceOf[String]
 
-       println("----------------getFlowYarnInfo--------------------start")
+//       println("----------------getFlowYarnInfo--------------------start")
        //yarn flow state
        val flowYarnInfoJson = API.getFlowYarnInfo(appID)
-       println("----------------getFlowYarnInfo--------------------finish")
-       println("----------------getFlowYarnInfo--------------------"+flowYarnInfoJson)
+//       println("----------------getFlowYarnInfo--------------------finish")
+//       println("----------------getFlowYarnInfo--------------------"+flowYarnInfoJson)
 
 //       val map = OptionUtil.getAny(JSON.parseFull(flowYarnInfoJson)).asInstanceOf[Map[String, Any]]
        val map = JsonUtil.jsonToMap(flowYarnInfoJson)
@@ -97,17 +97,18 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
 
         if (flowInfoMap.contains("state")) {
           println("----------------flowInfoMap.state--------------------"+flowState)
-          val checkState = StateUtil.FlowStateCheck(flowState, flowYarnState)
-          if (checkState == true) {
-            Future.successful(HttpResponse(SUCCESS_CODE, entity = result))
-          } else {
-            val newflowState = StateUtil.getNewFlowState(flowState, flowYarnState)
-            if (newflowState != flowState) {
-              H2Util.updateFlowState(appID, newflowState)
-            }
-            result = API.getFlowInfo(appID)
-            Future.successful(HttpResponse(SUCCESS_CODE, entity = result))
-          }
+//          val checkState = StateUtil.FlowStateCheck(flowState, flowYarnState)
+//          if (checkState == true) {
+//            Future.successful(HttpResponse(SUCCESS_CODE, entity = result))
+//          } else {
+//            val newflowState = StateUtil.getNewFlowState(flowState, flowYarnState)
+//            if (newflowState != flowState) {
+//              H2Util.updateFlowState(appID, newflowState)
+//            }
+//            result = API.getFlowInfo(appID)
+//            Future.successful(HttpResponse(SUCCESS_CODE, entity = result))
+//          }
+          Future.successful(HttpResponse(SUCCESS_CODE, entity = result))
         } else if (yanrFlowInfoMap.contains("state")) {
           println("----------------yanrFlowInfoMap.state--------------------"+flowYarnState)
           var flowInfoMap = Map[String, Any]()
@@ -823,6 +824,19 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
         case ex => {
           println(ex)
           Future.successful(HttpResponse(FAIL_CODE, entity = "Can not found visualDataDirectory path !"))
+        }
+      }
+    }
+
+    case HttpRequest(GET, Uri.Path("/hdfs/downloadFile"), headers, entity, protocol) => {
+      try {
+        val filePath = req.getUri().query().getOrElse("filePath", "")
+        API.downloadFileFromHdfs(filePath)
+        Future.successful(HttpResponse(FAIL_CODE, entity = "Success!!"))
+      } catch {
+        case ex => {
+          println(ex)
+          Future.successful(HttpResponse(FAIL_CODE, entity = "Fail!!"))
         }
       }
     }
