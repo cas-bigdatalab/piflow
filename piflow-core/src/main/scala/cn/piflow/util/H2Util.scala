@@ -25,7 +25,7 @@ object H2Util {
   val CREATE_FLAG_TABLE = "create table if not exists configFlag(id bigint auto_increment, item varchar(255), flag int, createTime varchar(255))"
   val CREATE_SCHEDULE_TABLE = "create table if not exists schedule(id bigint auto_increment, scheduleId varchar(255), scheduleEntryId varchar(255), scheduleEntryType varchar(255))"
   val CREATE_PLUGIN_TABLE = "create table if not exists plugin (id varchar(255), name varchar(255), state varchar(255), createTime varchar(255), updateTime varchar(255))"
-  val serverIP = ServerIpUtil.getServerIp() + ":" + PropertyUtil.getPropertyValue("h2.port")
+  val serverIP = PropertyUtil.getPropertyValue("server.ip") + ":" + PropertyUtil.getPropertyValue("h2.port")
   var CONNECTION_URL = "";
   val h2Path: String = PropertyUtil.getPropertyValue("h2.path")
   if (h2Path != null && h2Path.nonEmpty) {

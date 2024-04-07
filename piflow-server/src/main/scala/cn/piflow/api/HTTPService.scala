@@ -27,7 +27,6 @@ import org.h2.tools.Server
 import spray.json.DefaultJsonProtocol
 
 import java.io.File
-import java.net.InetAddress
 import java.text.SimpleDateFormat
 import java.util.Date
 
@@ -54,9 +53,9 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
 
   def toJson(entity: RequestEntity): Map[String, Any] = {
     entity match {
-      case HttpEntity.Strict(_, data) =>{
-//        val temp = JSON.parseFull(data.utf8String)
-//        temp.get.asInstanceOf[Map[String, Any]]
+      case HttpEntity.Strict(_, data) => {
+        //        val temp = JSON.parseFull(data.utf8String)
+        //        temp.get.asInstanceOf[Map[String, Any]]
         val temp = JsonUtil.jsonToMap(data.utf8String)
         temp
       }
@@ -72,45 +71,45 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
 
     case HttpRequest(GET, Uri.Path("/flow/info"), headers, entity, protocol) => {
 
-     val appID = req.getUri().query().getOrElse("appID","")
-     if(!appID.equals("")){
-       //server state in h2db
-       var result = API.getFlowInfo(appID)
-       println("getFlowInfo result: " + result)
-//       val resultMap = OptionUtil.getAny(JSON.parseFull(result)).asInstanceOf[Map[String, Any]]
-       val resultMap = JsonUtil.jsonToMap(result)
-       val flowInfoMap = MapUtil.get(resultMap, "flow").asInstanceOf[Map[String, Any]]
-       val flowState = MapUtil.get(flowInfoMap,"state").asInstanceOf[String]
+      val appID = req.getUri().query().getOrElse("appID", "")
+      if (!appID.equals("")) {
+        //server state in h2db
+        var result = API.getFlowInfo(appID)
+        println("getFlowInfo result: " + result)
+        //       val resultMap = OptionUtil.getAny(JSON.parseFull(result)).asInstanceOf[Map[String, Any]]
+        val resultMap = JsonUtil.jsonToMap(result)
+        val flowInfoMap = MapUtil.get(resultMap, "flow").asInstanceOf[Map[String, Any]]
+        val flowState = MapUtil.get(flowInfoMap, "state").asInstanceOf[String]
 
-//       println("----------------getFlowYarnInfo--------------------start")
-       //yarn flow state
-       val flowYarnInfoJson = API.getFlowYarnInfo(appID)
-//       println("----------------getFlowYarnInfo--------------------finish")
-//       println("----------------getFlowYarnInfo--------------------"+flowYarnInfoJson)
+        //       println("----------------getFlowYarnInfo--------------------start")
+        //yarn flow state
+        val flowYarnInfoJson = API.getFlowYarnInfo(appID)
+        //       println("----------------getFlowYarnInfo--------------------finish")
+        //       println("----------------getFlowYarnInfo--------------------"+flowYarnInfoJson)
 
-//       val map = OptionUtil.getAny(JSON.parseFull(flowYarnInfoJson)).asInstanceOf[Map[String, Any]]
-       val map = JsonUtil.jsonToMap(flowYarnInfoJson)
-       val yanrFlowInfoMap = MapUtil.get(map, "app").asInstanceOf[Map[String, Any]]
-       val name = MapUtil.get(yanrFlowInfoMap,"name").asInstanceOf[String]
-       val flowYarnState = MapUtil.get(yanrFlowInfoMap,"state").asInstanceOf[String]
+        //       val map = OptionUtil.getAny(JSON.parseFull(flowYarnInfoJson)).asInstanceOf[Map[String, Any]]
+        val map = JsonUtil.jsonToMap(flowYarnInfoJson)
+        val yanrFlowInfoMap = MapUtil.get(map, "app").asInstanceOf[Map[String, Any]]
+        val name = MapUtil.get(yanrFlowInfoMap, "name").asInstanceOf[String]
+        val flowYarnState = MapUtil.get(yanrFlowInfoMap, "state").asInstanceOf[String]
 
 
         if (flowInfoMap.contains("state")) {
-          println("----------------flowInfoMap.state--------------------"+flowState)
-//          val checkState = StateUtil.FlowStateCheck(flowState, flowYarnState)
-//          if (checkState == true) {
-//            Future.successful(HttpResponse(SUCCESS_CODE, entity = result))
-//          } else {
-//            val newflowState = StateUtil.getNewFlowState(flowState, flowYarnState)
-//            if (newflowState != flowState) {
-//              H2Util.updateFlowState(appID, newflowState)
-//            }
-//            result = API.getFlowInfo(appID)
-//            Future.successful(HttpResponse(SUCCESS_CODE, entity = result))
-//          }
+          println("----------------flowInfoMap.state--------------------" + flowState)
+          //          val checkState = StateUtil.FlowStateCheck(flowState, flowYarnState)
+          //          if (checkState == true) {
+          //            Future.successful(HttpResponse(SUCCESS_CODE, entity = result))
+          //          } else {
+          //            val newflowState = StateUtil.getNewFlowState(flowState, flowYarnState)
+          //            if (newflowState != flowState) {
+          //              H2Util.updateFlowState(appID, newflowState)
+          //            }
+          //            result = API.getFlowInfo(appID)
+          //            Future.successful(HttpResponse(SUCCESS_CODE, entity = result))
+          //          }
           Future.successful(HttpResponse(SUCCESS_CODE, entity = result))
         } else if (yanrFlowInfoMap.contains("state")) {
-          println("----------------yanrFlowInfoMap.state--------------------"+flowYarnState)
+          println("----------------yanrFlowInfoMap.state--------------------" + flowYarnState)
           var flowInfoMap = Map[String, Any]()
           flowInfoMap += ("id" -> appID)
           flowInfoMap += ("name" -> name)
@@ -275,7 +274,7 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
       //     }
       //     responseFuture
 
-   }
+    }
 
 
     case HttpRequest(POST, Uri.Path("/flow/stop"), headers, entity, protocol) => {
@@ -520,7 +519,7 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
         val startDateStr = dataMap.get("startDate").getOrElse("").asInstanceOf[String]
         val endDateStr = dataMap.get("endDate").getOrElse("").asInstanceOf[String]
         val scheduleInstance = dataMap.get("schedule").getOrElse(Map[String, Any]()).asInstanceOf[Map[String, Any]]
-        println("scheduleInstance:"+scheduleInstance)
+        println("scheduleInstance:" + scheduleInstance)
 
         val id: String = "schedule_" + IdGenerator.uuid();
 
@@ -828,19 +827,6 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
       }
     }
 
-    case HttpRequest(GET, Uri.Path("/hdfs/downloadFile"), headers, entity, protocol) => {
-      try {
-        val filePath = req.getUri().query().getOrElse("filePath", "")
-        API.downloadFileFromHdfs(filePath)
-        Future.successful(HttpResponse(FAIL_CODE, entity = "Success!!"))
-      } catch {
-        case ex => {
-          println(ex)
-          Future.successful(HttpResponse(FAIL_CODE, entity = "Fail!!"))
-        }
-      }
-    }
-
     case _: HttpRequest =>
       Future.successful(HttpResponse(UNKNOWN_CODE, entity = "Unknown resource!"))
   }
@@ -848,9 +834,10 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
 
   def run = {
 
-    val ip = InetAddress.getLocalHost.getHostAddress
+    //    val ip = InetAddress.getLocalHost.getHostAddress
+    val ip = PropertyUtil.getPropertyValue("server.ip")
     //write ip to server.ip file
-    FileUtil.writeFile("server.ip=" + ip, ServerIpUtil.getServerIpFile())
+//    FileUtil.writeFile("server.ip=" + ip, ServerIpUtil.getServerIpFile())
 
     val port = PropertyUtil.getIntPropertyValue("server.port")
     Http().bindAndHandleAsync(route, ip, port)
@@ -887,7 +874,7 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
     val scheduleList = H2Util.getStartedSchedule()
     scheduleList.foreach(id => {
       val scheduleContent = FlowFileUtil.readFlowFile(FlowFileUtil.getScheduleFilePath(id))
-//      val dataMap = JSON.parseFull(scheduleContent).get.asInstanceOf[Map[String, Any]]
+      //      val dataMap = JSON.parseFull(scheduleContent).get.asInstanceOf[Map[String, Any]]
       val dataMap = JsonUtil.jsonToMap(scheduleContent)
 
       val expression = dataMap.get("expression").getOrElse("").asInstanceOf[String]
@@ -921,7 +908,8 @@ object Main {
 
   def flywayInit() = {
 
-    val ip = InetAddress.getLocalHost.getHostAddress
+    //    val ip = InetAddress.getLocalHost.getHostAddress
+    val ip = PropertyUtil.getPropertyValue("server.ip")
     // Create the Flyway instance
     val flyway: Flyway = new Flyway();
     val h2Path: String = PropertyUtil.getPropertyValue("h2.path")
@@ -931,7 +919,7 @@ object Main {
     } else {
       url = "jdbc:h2:tcp://" + ip + ":" + PropertyUtil.getPropertyValue("h2.port") + "/~/piflow"
     }
-//    var url = "jdbc:h2:tcp://" + ip + ":" + PropertyUtil.getPropertyValue("h2.port") + "/~/piflow"
+    //    var url = "jdbc:h2:tcp://" + ip + ":" + PropertyUtil.getPropertyValue("h2.port") + "/~/piflow"
     // Point it to the database
     flyway.setDataSource(url, null, null);
     flyway.setLocations("db/migrations");
@@ -963,8 +951,8 @@ object Main {
     })
   }
 
-  def main(argv: Array[String]):Unit = {
-    val h2Server = Server.createTcpServer("-tcp", "-tcpAllowOthers","-ifNotExists", "-tcpPort",PropertyUtil.getPropertyValue("h2.port")).start()
+  def main(argv: Array[String]): Unit = {
+    val h2Server = Server.createTcpServer("-tcp", "-tcpAllowOthers", "-ifNotExists", "-tcpPort", PropertyUtil.getPropertyValue("h2.port")).start()
     flywayInit()
     HTTPService.run
     initPlugin()

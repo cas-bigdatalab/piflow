@@ -1,17 +1,11 @@
 package cn.piflow.api
 
-import java.io.{ByteArrayInputStream, ByteArrayOutputStream, File, FileOutputStream}
-import java.net.URI
-import java.text.SimpleDateFormat
-import java.util.{Date, Properties}
-import java.util.concurrent.CountDownLatch
 import cn.piflow.conf.VisualizationType
-import org.apache.spark.sql.SparkSession
-import cn.piflow.conf.util.{ClassUtil, MapUtil, OptionUtil, PluginManager, ScalaExecutorUtil}
-import cn.piflow.{GroupExecution, Process, Runner}
 import cn.piflow.conf.bean.{FlowBean, GroupBean}
+import cn.piflow.conf.util.{ClassUtil, MapUtil, OptionUtil, PluginManager}
 import cn.piflow.util.HdfsUtil.{getJsonMapList, getLine}
 import cn.piflow.util._
+import cn.piflow.{GroupExecution, Process, Runner}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FSDataInputStream, FileStatus, FileSystem, Path}
 import org.apache.hadoop.io.IOUtils
@@ -20,35 +14,26 @@ import org.apache.http.entity.StringEntity
 import org.apache.http.impl.client.HttpClients
 import org.apache.http.util.EntityUtils
 import org.apache.spark.launcher.SparkAppHandle
+import org.apache.spark.sql.SparkSession
 
+import java.io.{ByteArrayInputStream, ByteArrayOutputStream, File}
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.concurrent.CountDownLatch
 import java.util.zip.{ZipEntry, ZipOutputStream}
+import scala.collection.mutable.{HashMap, ListBuffer}
 import scala.util.control.Breaks._
-import scala.collection.mutable.{HashMap, ListBuffer, Map => MMap}
-import scala.tools.nsc.classpath.FileUtils
 
 object API {
-  def downloadFileFromHdfs(filePath: String) = {
-    var result = false
-    //先检验file是否已经存在在本地
-    val localFilePath =FileUtil.LOCAL_FILE_PREFIX+FileUtil.extractFileNameWithExtension(filePath)
-    val exists = FileUtil.exists(localFilePath)
-    if(!exists){
-      val hdfsFS = PropertyUtil.getPropertyValue("fs.defaultFS")
-      result = FileUtil.downloadFileFromHdfs(hdfsFS,filePath)
-    }else{
-      result = true
-    }
-    result
-  }
 
 
-  def addSparkJar(addSparkJarName: String) : String = {
+  def addSparkJar(addSparkJarName: String): String = {
     var id = ""
     val sparkJarFile = new File(PropertyUtil.getSpartJarPath())
     val jarFile = FileUtil.getJarFile(sparkJarFile)
-    breakable{
-      jarFile.foreach( i => {
-        if(i.getName.equals(addSparkJarName)) {
+    breakable {
+      jarFile.foreach(i => {
+        if (i.getName.equals(addSparkJarName)) {
 
           id = H2Util.addSparkJar(addSparkJarName)
           break
@@ -57,12 +42,13 @@ object API {
     }
     id
   }
-  def removeSparkJar(sparkJarId : String) : Boolean = {
+
+  def removeSparkJar(sparkJarId: String): Boolean = {
     var result = false
     val sparkJarState = H2Util.removeSparkJar(sparkJarId)
-    if(sparkJarState == SparkJarState.ON){
+    if (sparkJarState == SparkJarState.ON) {
       false
-    }else{
+    } else {
       true
     }
 
@@ -73,13 +59,13 @@ object API {
     pluginInfo
   }*/
 
-  def addPlugin(pluginManager:PluginManager, pluginName : String) : String = {
+  def addPlugin(pluginManager: PluginManager, pluginName: String): String = {
     var id = ""
     val classpathFile = new File(pluginManager.getPluginPath())
     val jarFile = FileUtil.getJarFile(classpathFile)
-    breakable{
-      jarFile.foreach( i => {
-        if(i.getName.equals(pluginName)) {
+    breakable {
+      jarFile.foreach(i => {
+        if (i.getName.equals(pluginName)) {
 
           pluginManager.unloadPlugin(i.getAbsolutePath)
           pluginManager.loadPlugin(i.getAbsolutePath)
@@ -91,16 +77,16 @@ object API {
     id
   }
 
-  def removePlugin(pluginManager:PluginManager, pluginId : String) : Boolean = {
+  def removePlugin(pluginManager: PluginManager, pluginId: String): Boolean = {
     var result = false
-    val pluginName = H2Util.getPluginInfoMap(pluginId).getOrElse("name","")
-    if(pluginName != ""){
+    val pluginName = H2Util.getPluginInfoMap(pluginId).getOrElse("name", "")
+    if (pluginName != "") {
       val classpathFile = new File(pluginManager.getPluginPath())
       val jarFile = FileUtil.getJarFile(classpathFile)
-      breakable{
-        jarFile.foreach( i => {
+      breakable {
+        jarFile.foreach(i => {
           println(i.getAbsolutePath)
-          if(i.getName.equals(pluginName)) {
+          if (i.getName.equals(pluginName)) {
             pluginManager.unloadPlugin(i.getAbsolutePath)
             H2Util.removePlugin(pluginName)
             result = true
@@ -113,12 +99,12 @@ object API {
     result
   }
 
-  def getPluginInfo(pluginId : String) : String = {
+  def getPluginInfo(pluginId: String): String = {
     val pluginInfo = H2Util.getPluginInfo(pluginId)
     pluginInfo
   }
 
-  def getConfigurableStopInPlugin(pluginManager:PluginManager, pluginName : String) : String = {
+  def getConfigurableStopInPlugin(pluginManager: PluginManager, pluginName: String): String = {
     var bundleList = List[String]()
     val stops = pluginManager.getPluginConfigurableStops(pluginName)
     stops.foreach(s => {
@@ -128,7 +114,7 @@ object API {
     """{"bundles":"""" + bundleList.mkString(",") + """"}"""
   }
 
-  def getConfigurableStopInfoInPlugin(pluginManager:PluginManager, pluginName : String) : String = {
+  def getConfigurableStopInfoInPlugin(pluginManager: PluginManager, pluginName: String): String = {
     var bundleList = List[String]()
     val stops = pluginManager.getPluginConfigurableStops(pluginName)
     stops.foreach(s => {
@@ -138,23 +124,23 @@ object API {
     jsonString
   }
 
-  def getResourceInfo() : String = {
+  def getResourceInfo(): String = {
 
-    try{
+    try {
       val matricsURL = ConfigureUtil.getYarnResourceMatrics()
       val client = HttpClients.createDefault()
-      val get:HttpGet = new HttpGet(matricsURL)
+      val get: HttpGet = new HttpGet(matricsURL)
 
-      val response:CloseableHttpResponse = client.execute(get)
+      val response: CloseableHttpResponse = client.execute(get)
       val entity = response.getEntity
-      val str = EntityUtils.toString(entity,"UTF-8")
-//      val yarnInfo = OptionUtil.getAny(JSON.parseFull(str)).asInstanceOf[Map[String, Any]]
+      val str = EntityUtils.toString(entity, "UTF-8")
+      //      val yarnInfo = OptionUtil.getAny(JSON.parseFull(str)).asInstanceOf[Map[String, Any]]
       val yarnInfo = JsonUtil.jsonToMap(str)
       val matricInfo = MapUtil.get(yarnInfo, "clusterMetrics").asInstanceOf[Map[String, Any]]
 
 
-      val totalVirtualCores = matricInfo.getOrElse("totalVirtualCores","");
-      val allocatedVirtualCores = matricInfo.getOrElse("allocatedVirtualCores","")
+      val totalVirtualCores = matricInfo.getOrElse("totalVirtualCores", "");
+      val allocatedVirtualCores = matricInfo.getOrElse("allocatedVirtualCores", "")
       val remainingVirtualCores = totalVirtualCores.toString.toDouble - allocatedVirtualCores.toString.toDouble;
       val cpuInfo = Map(
         "totalVirtualCores" -> totalVirtualCores,
@@ -162,9 +148,9 @@ object API {
         "remainingVirtualCores" -> remainingVirtualCores
       )
 
-      val totalMemoryGB = matricInfo.getOrElse("totalMB","").toString.toDouble/1024;
-      val allocatedMemoryGB = matricInfo.getOrElse("allocatedMB","").toString.toDouble/1024;
-      val remainingMemoryGB =  totalMemoryGB - allocatedMemoryGB;
+      val totalMemoryGB = matricInfo.getOrElse("totalMB", "").toString.toDouble / 1024;
+      val allocatedMemoryGB = matricInfo.getOrElse("allocatedMB", "").toString.toDouble / 1024;
+      val remainingMemoryGB = totalMemoryGB - allocatedMemoryGB;
       val memoryInfo = Map(
         "totalMemoryGB" -> totalMemoryGB,
         "allocatedMemoryGB" -> allocatedMemoryGB,
@@ -176,24 +162,24 @@ object API {
       val resultMap = Map("resource" -> map)
 
       JsonUtil.format(JsonUtil.toJson(resultMap))
-    }catch{
-      case ex:Exception => ""
+    } catch {
+      case ex: Exception => ""
     }
 
   }
 
-  def getScheduleInfo(scheduleId : String) : String = {
+  def getScheduleInfo(scheduleId: String): String = {
 
     val scheduleInfo = H2Util.getScheduleInfo(scheduleId)
     scheduleInfo
   }
 
-  def startGroup(groupJson : String) = {
+  def startGroup(groupJson: String) = {
 
-    println("StartGroup API get json: \n" + groupJson )
+    println("StartGroup API get json: \n" + groupJson)
 
-    var appId:String = null
-//    val map = OptionUtil.getAny(JSON.parseFull(groupJson)).asInstanceOf[Map[String, Any]]
+    var appId: String = null
+    //    val map = OptionUtil.getAny(JSON.parseFull(groupJson)).asInstanceOf[Map[String, Any]]
     val map = JsonUtil.jsonToMap(groupJson)
     val flowGroupMap = MapUtil.get(map, "group").asInstanceOf[Map[String, Any]]
 
@@ -202,32 +188,33 @@ object API {
     val group = groupBean.constructGroup()
 
     val flowGroupExecution = Runner.create()
-      .bind("checkpoint.path",ConfigureUtil.getCheckpointPath())
-      .bind("debug.path",ConfigureUtil.getDebugPath())
+      .bind("checkpoint.path", ConfigureUtil.getCheckpointPath())
+      .bind("debug.path", ConfigureUtil.getDebugPath())
       .start(group);
 
     flowGroupExecution
   }
 
-  def stopGroup(flowGroupExecution : GroupExecution): String ={
+  def stopGroup(flowGroupExecution: GroupExecution): String = {
     flowGroupExecution.stop()
     "ok"
   }
 
-  def getFlowGroupInfo(groupId : String) : String = {
+  def getFlowGroupInfo(groupId: String): String = {
     val flowGroupInfo = H2Util.getFlowGroupInfo(groupId)
     flowGroupInfo
   }
-  def getFlowGroupProgress(flowGroupID : String) : String = {
+
+  def getFlowGroupProgress(flowGroupID: String): String = {
     val progress = H2Util.getGroupProgressPercent(flowGroupID)
     progress
   }
 
-  def startFlow(flowJson : String):(String,SparkAppHandle) = {
+  def startFlow(flowJson: String): (String, SparkAppHandle) = {
 
-    var appId:String = null
-//    val flowMap = OptionUtil.getAny(JSON.parseFull(flowJson)).asInstanceOf[Map[String, Any]]
-    val flowMap =  JsonUtil.jsonToMap(flowJson)
+    var appId: String = null
+    //    val flowMap = OptionUtil.getAny(JSON.parseFull(flowJson)).asInstanceOf[Map[String, Any]]
+    val flowMap = JsonUtil.jsonToMap(flowJson)
 
 
     //create flow
@@ -238,34 +225,35 @@ object API {
     val appName = flow.getFlowName()
     val (stdout, stderr) = getLogFile(uuid, appName)
 
-    println("StartFlow API get json: \n" + flowJson )
+    println("StartFlow API get json: \n" + flowJson)
 
     val countDownLatch = new CountDownLatch(1)
 
-    val handle = FlowLauncher.launch(flow).startApplication( new SparkAppHandle.Listener {
+    val handle = FlowLauncher.launch(flow).startApplication(new SparkAppHandle.Listener {
       override def stateChanged(handle: SparkAppHandle): Unit = {
         appId = handle.getAppId
         val sparkAppState = handle.getState
-        if(appId != null){
+        if (appId != null) {
           println("Spark job with app id: " + appId + ",\t State changed to: " + sparkAppState)
-        }else{
+        } else {
           println("Spark job's state changed to: " + sparkAppState)
         }
-        if (handle.getState().isFinal){
+        if (handle.getState().isFinal) {
           countDownLatch.countDown()
           println("Task is finished!")
         }
       }
+
       override def infoChanged(handle: SparkAppHandle): Unit = {
         //println("Info:" + handle.getState().toString)
       }
     })
 
 
-    while (handle.getAppId == null){
+    while (handle.getAppId == null) {
       Thread.sleep(100)
     }
-    while (!H2Util.isFlowExist(handle.getAppId)){
+    while (!H2Util.isFlowExist(handle.getAppId)) {
       Thread.sleep(1000)
     }
     appId = handle.getAppId
@@ -274,7 +262,7 @@ object API {
 
   }
 
-  def stopFlow(appID : String, process : SparkAppHandle) : String = {
+  def stopFlow(appID: String, process: SparkAppHandle): String = {
 
     //yarn application kill appId
     stopFlowOnYarn(appID)
@@ -289,79 +277,79 @@ object API {
     "ok"
   }
 
-  def stopFlowOnYarn(appID : String) : String = {
+  def stopFlowOnYarn(appID: String): String = {
     //yarn application kill appId
     val url = ConfigureUtil.getYarnResourceManagerWebAppAddress() + appID + "/state"
     val client = HttpClients.createDefault()
-    val put:HttpPut = new HttpPut(url)
-    val body ="{\"state\":\"KILLED\"}"
+    val put: HttpPut = new HttpPut(url)
+    val body = "{\"state\":\"KILLED\"}"
     put.addHeader("Content-Type", "application/json")
     put.setEntity(new StringEntity(body))
-    val response:CloseableHttpResponse = client.execute(put)
+    val response: CloseableHttpResponse = client.execute(put)
     val entity = response.getEntity
-    val str = EntityUtils.toString(entity,"UTF-8")
+    val str = EntityUtils.toString(entity, "UTF-8")
     str
   }
 
-  def getFlowInfo(appID : String) : String = {
+  def getFlowInfo(appID: String): String = {
     val flowInfo = H2Util.getFlowInfo(appID)
     flowInfo
   }
 
-  def getFlowProgress(appID : String) : String = {
+  def getFlowProgress(appID: String): String = {
     val progress = H2Util.getFlowProgress(appID)
     progress
   }
 
-  def getFlowYarnInfo(appID : String) : String = {
+  def getFlowYarnInfo(appID: String): String = {
 
     val url = ConfigureUtil.getYarnResourceManagerWebAppAddress() + appID
     val client = HttpClients.createDefault()
-    val get:HttpGet = new HttpGet(url)
+    val get: HttpGet = new HttpGet(url)
 
-    val response:CloseableHttpResponse = client.execute(get)
+    val response: CloseableHttpResponse = client.execute(get)
     val entity = response.getEntity
-    val str = EntityUtils.toString(entity,"UTF-8")
+    val str = EntityUtils.toString(entity, "UTF-8")
     str
   }
 
-  def getFlowCheckpoint(appId:String) : String = {
+  def getFlowCheckpoint(appId: String): String = {
     val checkpointPath = ConfigureUtil.getCheckpointPath().stripSuffix("/") + "/" + appId
     val checkpointList = HdfsUtil.getFiles(checkpointPath)
     """{"checkpoints":"""" + checkpointList.mkString(",") + """"}"""
   }
 
 
-  def getFlowDebugData(appId : String, stopName : String, port : String) : String = {
+  def getFlowDebugData(appId: String, stopName: String, port: String): String = {
 
-    val debugPath :String = ConfigureUtil.getDebugPath().stripSuffix("/") + "/" + appId + "/" + stopName + "/" + port;
+    val debugPath: String = ConfigureUtil.getDebugPath().stripSuffix("/") + "/" + appId + "/" + stopName + "/" + port;
     val schema = HdfsUtil.getLine(debugPath + "_schema")
-    val result ="{\"schema\":\"" + schema+ "\", \"debugDataPath\": \""+ debugPath + "\"}"
+    val result = "{\"schema\":\"" + schema + "\", \"debugDataPath\": \"" + debugPath + "\"}"
     result
   }
 
-  def getFlowVisualizationData(appId : String, stopName : String, visualizationType : String) : String = {
+  def getFlowVisualizationData(appId: String, stopName: String, visualizationType: String): String = {
 
     var dimensionMap = Map[String, List[String]]()
-    val visuanlizationPath :String = ConfigureUtil.getVisualizationPath().stripSuffix("/") + "/" + appId + "/" + stopName + "/"
+    val visuanlizationPath: String = ConfigureUtil.getVisualizationPath().stripSuffix("/") + "/" + appId + "/" + stopName + "/"
 
     val visualizationSchema = getLine(visuanlizationPath + "/schema")
     val schemaArray = visualizationSchema.split(",")
     val jsonMapList = getJsonMapList(visuanlizationPath + "/data")
 
 
-    if(VisualizationType.LineChart == visualizationType ||
-      VisualizationType.Histogram == visualizationType ){
+    if (VisualizationType.LineChart == visualizationType ||
+      VisualizationType.Histogram == visualizationType) {
 
-      var visualizationTuple = List[Tuple2[String,String]]()
+      var visualizationTuple = List[Tuple2[String, String]]()
 
-      val jsonTupleList = jsonMapList.flatMap( map => map.toSeq)
+      val jsonTupleList = jsonMapList.flatMap(map => map.toSeq)
 
       val visualizationInfo = jsonTupleList.groupBy(_._1)
       visualizationInfo.foreach(dimension => {
         var valueList = List[String]()
         val dimensionList = dimension._2
-        dimensionList.foreach( dimensionAndCountPair => {
+        dimensionList.foreach(dimensionAndCountPair => {
           val v = String.valueOf(dimensionAndCountPair._2)
           println(v)
           valueList = valueList :+ v
@@ -372,10 +360,12 @@ object API {
       var lineChartMap = Map[String, Any]()
       var legend = List[String]()
       val x = schemaArray(0)
-      lineChartMap += {"xAxis" -> Map("type" -> x, "data" -> OptionUtil.getAny(dimensionMap.get(schemaArray(0))) )}
+      lineChartMap += {
+        "xAxis" -> Map("type" -> x, "data" -> OptionUtil.getAny(dimensionMap.get(schemaArray(0))))
+      }
       //lineChartMap += {"yAxis" -> Map("type" -> "value")}
       var seritesList = List[Map[String, Any]]()
-      dimensionMap.filterKeys(!_.equals(x)).foreach(item =>{
+      dimensionMap.filterKeys(!_.equals(x)).foreach(item => {
         val name_action = item._1
         val data = item._2
         val name = name_action.split("_")(0)
@@ -384,17 +374,21 @@ object API {
           case VisualizationType.LineChart => "line"
           case VisualizationType.Histogram => "bar"
         }
-        val map = Map("name" -> name, "type" -> vType,"stack" -> action, "data" -> data)
+        val map = Map("name" -> name, "type" -> vType, "stack" -> action, "data" -> data)
         seritesList = map +: seritesList
         legend = name +: legend
       })
-      lineChartMap += {"series" -> seritesList}
-      lineChartMap += {"legent" -> legend}
+      lineChartMap += {
+        "series" -> seritesList
+      }
+      lineChartMap += {
+        "legent" -> legend
+      }
       val visualizationJsonData = JsonUtil.format(JsonUtil.toJson(lineChartMap))
       println(visualizationJsonData)
       visualizationJsonData
-    }else if (VisualizationType.ScatterPlot == visualizationType){
-      var visualizationTuple = List[Tuple2[String,String]]()
+    } else if (VisualizationType.ScatterPlot == visualizationType) {
+      var visualizationTuple = List[Tuple2[String, String]]()
 
       val legendColumn = schemaArray(0)
       val abscissaColumn = schemaArray(1)
@@ -402,30 +396,30 @@ object API {
 
 
       //get legend
-      val legendList = jsonMapList.map(item =>{
-        item.getOrElse(legendColumn,"").asInstanceOf[String]
+      val legendList = jsonMapList.map(item => {
+        item.getOrElse(legendColumn, "").asInstanceOf[String]
       }).distinct
 
       //get schema
-      val newSchema = schemaArray.filter(_ != legendColumn )
+      val newSchema = schemaArray.filter(_ != legendColumn)
       val schemaList = ListBuffer[Map[String, Any]]()
       var index = 0
-      newSchema.foreach(column =>{
-        val schemaMap = Map("name" -> column, "index" -> index, "text" ->column)
+      newSchema.foreach(column => {
+        val schemaMap = Map("name" -> column, "index" -> index, "text" -> column)
         schemaList.append(schemaMap)
         index = index + 1
       })
 
       //get series
       val seriesList = ListBuffer[Map[String, Any]]()
-      legendList.foreach( legend => {
+      legendList.foreach(legend => {
 
         var legendDataList = ListBuffer[List[String]]()
         jsonMapList.foreach(item => {
-          if(item.getOrElse(legendColumn,"").asInstanceOf[String].equals(legend)){
+          if (item.getOrElse(legendColumn, "").asInstanceOf[String].equals(legend)) {
             var dataList = ListBuffer[String]()
-            newSchema.foreach(column =>{
-              val value = item.getOrElse(column,"").asInstanceOf[String]
+            newSchema.foreach(column => {
+              val value = item.getOrElse(column, "").asInstanceOf[String]
               dataList.append(value)
             })
             legendDataList.append(dataList.toList)
@@ -436,33 +430,33 @@ object API {
         seriesList.append(legendMap)
       })
 
-      val resultMap = Map[String, Any]("legend" -> legendList, "schema" -> schemaList.toList,  "series" -> seriesList.toList)
+      val resultMap = Map[String, Any]("legend" -> legendList, "schema" -> schemaList.toList, "series" -> seriesList.toList)
       val visualizationJsonData = JsonUtil.format(JsonUtil.toJson(resultMap))
       println(visualizationJsonData)
       visualizationJsonData
-    }else if(VisualizationType.PieChart == visualizationType  ){
+    } else if (VisualizationType.PieChart == visualizationType) {
       var legend = List[String]()
       val schemaArray = visualizationSchema.split(",")
-      val schemaReplaceMap = Map(schemaArray(1)->"value", schemaArray(0)->"name")
+      val schemaReplaceMap = Map(schemaArray(1) -> "value", schemaArray(0) -> "name")
       val jsonMapList = getJsonMapList(visuanlizationPath + "/data")
 
       var pieChartList = List[Map[String, Any]]()
       jsonMapList.foreach(map => {
         var lineMap = Map[String, Any]()
-        for(i <- 0 to schemaArray.size-1){
+        for (i <- 0 to schemaArray.size - 1) {
           val column = schemaArray(i)
-          lineMap += (schemaReplaceMap.getOrElse(column,"")-> map.getOrElse(column,""))
+          lineMap += (schemaReplaceMap.getOrElse(column, "") -> map.getOrElse(column, ""))
         }
         pieChartList = lineMap +: pieChartList
       })
-      pieChartList.foreach( item => {
-        legend = item.getOrElse("name","").toString +: legend
+      pieChartList.foreach(item => {
+        legend = item.getOrElse("name", "").toString +: legend
       })
       val pieChartMap = Map("legend" -> legend, "series" -> pieChartList)
       val visualizationJsonData = JsonUtil.format(JsonUtil.toJson(pieChartMap))
       println(visualizationJsonData)
       visualizationJsonData
-    }else if(VisualizationType.Table == visualizationType  ){
+    } else if (VisualizationType.Table == visualizationType) {
       //println(visualizationSchema)
       //println(jsonMapList)
       val resultMap = Map[String, Any]("schema" -> schemaArray.toList, "data" -> jsonMapList)
@@ -470,20 +464,20 @@ object API {
       println(visualizationJsonData)
       visualizationJsonData
     }
-    else{
+    else {
       ""
     }
 
 
   }
 
-  def getStopInfo(bundle : String) : String = {
-    try{
+  def getStopInfo(bundle: String): String = {
+    try {
 
       val str = ClassUtil.findConfigurableStopInfo(bundle)
       str
-    }catch{
-      case ex : Exception => println(ex);throw ex
+    } catch {
+      case ex: Exception => println(ex); throw ex
     }
 
   }
@@ -493,24 +487,24 @@ object API {
     """{"groups":"""" + groups + """"}"""
   }
 
-  def getAllStops() : String = {
-    var stops : List[String] = List()
+  def getAllStops(): String = {
+    var stops: List[String] = List()
     val stopList = ClassUtil.findAllConfigurableStop()
-    stopList.foreach(s => stops =  s.getClass.getName +: stops )
+    stopList.foreach(s => stops = s.getClass.getName +: stops)
     """{"stops":"""" + stops.mkString(",") + """"}"""
   }
 
-  def getAllStopsWithGroup() : String = {
+  def getAllStopsWithGroup(): String = {
 
-    var resultList:List[String] = List()
-    var stops = List[Tuple2[String,String]]()
+    var resultList: List[String] = List()
+    var stops = List[Tuple2[String, String]]()
     val configurableStopList = ClassUtil.findAllConfigurableStop()
     configurableStopList.foreach(s => {
       //generate (group,bundle) pair and put into stops
       val groupList = s.getGroup()
       groupList.foreach(group => {
-        val tuple = (group , s.getClass.getName)
-        stops =   tuple +: stops
+        val tuple = (group, s.getClass.getName)
+        stops = tuple +: stops
       })
     })
 
@@ -518,7 +512,7 @@ object API {
     val groupsInfo = stops.groupBy(_._1)
     groupsInfo.foreach(group => {
       val stopList = group._2
-      stopList.foreach( groupAndstopPair => {
+      stopList.foreach(groupAndstopPair => {
         println(groupAndstopPair._1 + ":\t\t" + groupAndstopPair._2)
         var groupAndstop = groupAndstopPair._1 + ":" + groupAndstopPair._2
         resultList = groupAndstop +: resultList
@@ -537,10 +531,10 @@ object API {
     // "out 200"
   }
   */
-  
-  private def getLogFile(uuid : String, appName : String) : (File,File) = {
-    val now : Date = new Date()
-    val dataFormat : SimpleDateFormat = new SimpleDateFormat("yyyy-MM-dd_HH:mm:ss")
+
+  private def getLogFile(uuid: String, appName: String): (File, File) = {
+    val now: Date = new Date()
+    val dataFormat: SimpleDateFormat = new SimpleDateFormat("yyyy-MM-dd_HH:mm:ss")
     val nowDate = dataFormat.format(now)
 
     val stdoutPathString = PropertyUtil.getPropertyValue("log.path") + "/" + appName + "_" + uuid + "_stdout_" + nowDate
@@ -552,25 +546,25 @@ object API {
     (stdout, stderr)
   }
 
-  def getHdfsDataByPath(hdfsPath:String) : ByteArrayInputStream={
+  def getHdfsDataByPath(hdfsPath: String): ByteArrayInputStream = {
     val conf = new Configuration()
     conf.set("fs.defaultFS", PropertyUtil.getPropertyValue("fs.defaultFS"))
     val fs: FileSystem = FileSystem.get(conf)
     val fileStatusArr: Array[FileStatus] = fs.listStatus(new Path(hdfsPath))
     val map = HashMap[String, FSDataInputStream]()
     for (elem <- fileStatusArr) {
-      val name =elem.getPath.getName
+      val name = elem.getPath.getName
       val inputStream = fs.open(elem.getPath)
-      map.put(name,inputStream)
+      map.put(name, inputStream)
     }
 
     val byteArrayOutputStream = new ByteArrayOutputStream()
     val zos = new ZipOutputStream(byteArrayOutputStream)
-    var zipEntry:ZipEntry = null
+    var zipEntry: ZipEntry = null
     for (elem <- map) {
       zipEntry = new ZipEntry(elem._1)
       zos.putNextEntry(zipEntry)
-      IOUtils.copyBytes(elem._2,zos,1024*1024*50,false)
+      IOUtils.copyBytes(elem._2, zos, 1024 * 1024 * 50, false)
       zos.closeEntry()
     }
     zos.close()
@@ -581,7 +575,7 @@ object API {
 
 }
 
-class WaitProcessTerminateRunnable(spark : SparkSession, process: Process) extends Runnable  {
+class WaitProcessTerminateRunnable(spark: SparkSession, process: Process) extends Runnable {
   override def run(): Unit = {
     process.awaitTermination()
     //spark.close()

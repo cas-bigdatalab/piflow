@@ -6,6 +6,8 @@ import scala.io.Source
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FSDataInputStream, FSDataOutputStream, FileStatus, FileSystem, Path}
 
+import scala.util.Try
+
 object FileUtil {
 
   val LOCAL_FILE_PREFIX = "/data/temp/files/"
@@ -51,6 +53,12 @@ object FileUtil {
       filePath.substring(separatorIndex + 1)  // 从分隔符后面开始截取，得到文件名
     }
   }
+
+  def deleteFile(filePath: String): Try[Unit] = Try {
+    Files.delete(Paths.get(filePath))
+    println(s"File $filePath deleted successfully.")
+  }
+
 
   def getJarFile(file:File): Array[File] ={
     val files = file.listFiles().filter(! _.isDirectory)
