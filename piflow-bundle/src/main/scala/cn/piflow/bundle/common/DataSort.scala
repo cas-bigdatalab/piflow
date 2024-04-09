@@ -57,6 +57,7 @@ class DataSort extends ConfigurableStop{
       .allowableValues(Set("asc","desc"))
       .required(true)
       .example("asc")
+    descriptor = sortOrder :: descriptor
 
     descriptor
   }

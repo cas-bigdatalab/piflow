@@ -18,6 +18,12 @@
     <artifactId>piflow-bundle</artifactId>
 
     <dependencies>
+        <!-- https://mvnrepository.com/artifact/jep/jep -->
+        <dependency>
+            <groupId>jep</groupId>
+            <artifactId>jep</artifactId>
+            <version>2.24</version>
+        </dependency>
 
         <dependency>
             <groupId>com.crealytics</groupId>
@@ -222,11 +228,11 @@
             <version>1.9.1</version>
         </dependency>
 
-        <dependency>
-            <groupId>com.memcached</groupId>
-            <artifactId>java_memcached-release</artifactId>
-            <version>2.6.6</version>
-        </dependency>
+<!--        <dependency>-->
+<!--            <groupId>com.memcached</groupId>-->
+<!--            <artifactId>java_memcached-release</artifactId>-->
+<!--            <version>2.6.6</version>-->
+<!--        </dependency>-->
 
 
          <!--https://mvnrepository.com/artifact/org.apache.flume/flume-ng-core-->
@@ -281,11 +287,11 @@
             <version>3.5</version>
         </dependency>
 
-        <dependency>
-            <groupId>ftpClient</groupId>
-            <artifactId>edtftp</artifactId>
-            <version>1.0.0</version>
-        </dependency>
+<!--        <dependency>-->
+<!--            <groupId>ftpClient</groupId>-->
+<!--            <artifactId>edtftp</artifactId>-->
+<!--            <version>1.0.0</version>-->
+<!--        </dependency>-->
 
 
         <!-- https://mvnrepository.com/artifact/com.huaban/jieba-analysis -->

@@ -47,7 +47,8 @@ class ExcelRead extends ConfigurableStop{
       .description("The path of excel file")
       .defaultValue("")
       .required(true)
-      .example("/test/test.xlsx")
+//      .example("/test/test.xlsx")
+      .example("")
     descriptor = filePath :: descriptor
 
     val header = new PropertyDescriptor()
@@ -71,7 +72,8 @@ class ExcelRead extends ConfigurableStop{
         "'My Sheet'!A1:F35: Same as above, but with a specific sheet.")
       .defaultValue("'Sheet1'!")
       .required(true)
-      .example("'Sheet1'!")
+//      .example("'Sheet1'!")
+      .example("")
     descriptor = dataAddress :: descriptor
 
 
