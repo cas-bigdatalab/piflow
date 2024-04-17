@@ -3,7 +3,7 @@ package cn.piflow.bundle.unstructured
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil, ProcessUtil}
 import cn.piflow.conf.{ConfigurableStop, Port}
-import cn.piflow.util.{FileUtil, PropertyUtil, UnstructuredUtils}
+import cn.piflow.util.UnstructuredUtils
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.apache.spark.sql.SparkSession
 
@@ -11,21 +11,19 @@ import scala.collection.mutable.ArrayBuffer
 
 class HtmlParser extends ConfigurableStop {
   val authorEmail: String = "tianyao@cnic.cn"
-  val description: String = "parse pdf to structured data."
+  val description: String = "parse html to structured data."
   val inportList: List[String] = List(Port.DefaultPort)
   val outportList: List[String] = List(Port.DefaultPort)
 
   var filePath: String = _
   var fileSource: String = _
-  var encoding: String = _
-  var includePageBreaks: String = _
 
 
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     val spark = pec.get[SparkSession]()
 
-    val unstructuredHost: String = PropertyUtil.getPropertyValue("unstructured.host")
-    var unstructuredPort: String = PropertyUtil.getPropertyValue("unstructured.port")
+    val unstructuredHost: String = UnstructuredUtils.unstructuredHost()
+    val unstructuredPort: String = UnstructuredUtils.unstructuredPort()
     if (unstructuredHost == null || unstructuredHost.isEmpty) {
       println("########## Exception: can not parse, unstructured host is null!!!")
       throw new Exception("########## Exception: can not parse, unstructured host is null!!!")
@@ -33,12 +31,10 @@ class HtmlParser extends ConfigurableStop {
       println("########## Exception: can not parse, the unstructured host cannot be set to localhost!!!")
       throw new Exception("########## Exception: can not parse, the unstructured host cannot be set to localhost!!!")
     }
-    if (unstructuredPort == null || unstructuredPort.isEmpty) unstructuredPort = "8000"
-
+    var localDir = ""
     if ("hdfs".equals(fileSource)) {
-      //Download the file to the location
-      UnstructuredUtils.downloadFileFromHdfs(filePath)
-      filePath = FileUtil.LOCAL_FILE_PREFIX + UnstructuredUtils.extractFileNameWithExtension(filePath)
+      //Download the file to the location,
+      localDir = UnstructuredUtils.downloadFilesFromHdfs(filePath)
     }
 
     //Create a mutable ArrayBuffer to store the parameters of the curl command
@@ -52,13 +48,26 @@ class HtmlParser extends ConfigurableStop {
     curlCommandParams += "accept: application/json"
     curlCommandParams += "-H"
     curlCommandParams += "Content-Type: multipart/form-data"
-    curlCommandParams += "-F"
-    curlCommandParams += s"files=@$filePath"
-
+    if ("hdfs".equals(fileSource)) {
+      val fileList = UnstructuredUtils.getLocalFilePaths(localDir)
+      fileList.foreach { path =>
+        curlCommandParams += "-F"
+        curlCommandParams += s"files=@$path"
+      }
+    }
+    if ("nfs".equals(fileSource)) {
+      val fileList = UnstructuredUtils.getLocalFilePaths(filePath)
+      fileList.foreach { path =>
+        curlCommandParams += "-F"
+        curlCommandParams += s"files=@$path"
+      }
+    }
     val (output, error): (String, String) = ProcessUtil.executeCommand(curlCommandParams.toSeq)
     if (output.nonEmpty) {
+      println(output)
       val jsonRDD = spark.sparkContext.parallelize(Seq(output))
       val df = spark.read.json(jsonRDD)
+      df.show(10)
       out.write(df)
     } else {
       println(s"########## Exception: $error")
@@ -66,7 +75,7 @@ class HtmlParser extends ConfigurableStop {
     }
     //delete local temp file
     if ("hdfs".equals(fileSource)) {
-      UnstructuredUtils.deleteTempFile(filePath)
+      UnstructuredUtils.deleteTempFiles(localDir)
     }
   }
 
@@ -81,7 +90,7 @@ class HtmlParser extends ConfigurableStop {
       .name("filePath")
       .displayName("FilePath")
       .description("The path of the file(.html/.htm)")
-      .defaultValue("")
+      .defaultValue("/test/test.html")
       .required(true)
       .example("/test/test.html")
     descriptor = descriptor :+ filePath
@@ -90,7 +99,7 @@ class HtmlParser extends ConfigurableStop {
       .name("fileSource")
       .displayName("FileSource")
       .description("The source of the file ")
-      .defaultValue("true")
+      .defaultValue("hdfs")
       .allowableValues(Set("hdfs", "nfs"))
       .required(true)
       .example("hdfs")

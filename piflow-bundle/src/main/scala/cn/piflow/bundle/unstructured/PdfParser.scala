@@ -3,9 +3,10 @@ package cn.piflow.bundle.unstructured
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil, ProcessUtil}
 import cn.piflow.conf.{ConfigurableStop, Port}
-import cn.piflow.util.{FileUtil, PropertyUtil, UnstructuredUtils}
+import cn.piflow.util.UnstructuredUtils
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
-import org.apache.spark.sql.SparkSession
+import org.apache.spark.sql.{DataFrame, SparkSession, functions}
+import org.apache.spark.sql.types.{ArrayType, MapType, StringType, StructField, StructType}
 
 import scala.collection.mutable.ArrayBuffer
 
@@ -17,13 +18,14 @@ class PdfParser extends ConfigurableStop {
 
   var filePath: String = _
   var fileSource: String = _
+  var strategy: String = _
 
 
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     val spark = pec.get[SparkSession]()
 
-    val unstructuredHost: String = PropertyUtil.getPropertyValue("unstructured.host")
-    var unstructuredPort: String = PropertyUtil.getPropertyValue("unstructured.port")
+    val unstructuredHost: String = UnstructuredUtils.unstructuredHost()
+    val unstructuredPort: String = UnstructuredUtils.unstructuredPort()
     if (unstructuredHost == null || unstructuredHost.isEmpty) {
       println("########## Exception: can not parse, unstructured host is null!!!")
       throw new Exception("########## Exception: can not parse, unstructured host is null!!!")
@@ -31,12 +33,10 @@ class PdfParser extends ConfigurableStop {
       println("########## Exception: can not parse, the unstructured host cannot be set to localhost!!!")
       throw new Exception("########## Exception: can not parse, the unstructured host cannot be set to localhost!!!")
     }
-    if (unstructuredPort == null || unstructuredPort.isEmpty) unstructuredPort = "8000"
-
+    var localDir = ""
     if ("hdfs".equals(fileSource)) {
-      //Download the file to the location
-      UnstructuredUtils.downloadFileFromHdfs(filePath)
-      filePath = FileUtil.LOCAL_FILE_PREFIX + UnstructuredUtils.extractFileNameWithExtension(filePath)
+      //Download the file to the location,
+      localDir = UnstructuredUtils.downloadFilesFromHdfs(filePath)
     }
 
     //Create a mutable ArrayBuffer to store the parameters of the curl command
@@ -51,26 +51,77 @@ class PdfParser extends ConfigurableStop {
     curlCommandParams += "-H"
     curlCommandParams += "Content-Type: multipart/form-data"
     curlCommandParams += "-F"
-    curlCommandParams += s"files=@$filePath"
-
+    curlCommandParams += "pdf_infer_table_structure=false"
+    curlCommandParams += "-F"
+    curlCommandParams += s"strategy=$strategy"
+    curlCommandParams += "-F"
+    curlCommandParams += "hi_res_model_name=detectron2_lp"
+    var fileListSize = 0;
+    if ("hdfs".equals(fileSource)) {
+      val fileList = UnstructuredUtils.getLocalFilePaths(localDir)
+      fileListSize = fileList.size
+      fileList.foreach { path =>
+        println(s"local path:$path")
+        curlCommandParams += "-F"
+        curlCommandParams += s"files=@$path"
+      }
+    }
+    if ("nfs".equals(fileSource)) {
+      val fileList = UnstructuredUtils.getLocalFilePaths(filePath)
+      fileListSize = fileList.size
+      fileList.foreach { path =>
+        println(s"local path:$path")
+        curlCommandParams += "-F"
+        curlCommandParams += s"files=@$path"
+      }
+    }
     val (output, error): (String, String) = ProcessUtil.executeCommand(curlCommandParams.toSeq)
     if (output.nonEmpty) {
-      val jsonRDD = spark.sparkContext.parallelize(Seq(output))
-      val df = spark.read.json(jsonRDD)
-      out.write(df)
+      println(output)
+
+      import spark.implicits._
+      if (fileListSize > 1) {
+        val schema1 = ArrayType(StructType(Array(
+          StructField("type", StringType, true),
+          StructField("element_id", StringType, true),
+          StructField("text", StringType, true),
+          StructField("metadata", MapType(StringType, StringType), true)
+        )))
+        val df = Seq(output).toDS().toDF("json").withColumn("data", functions.from_json($"json", schema1))
+//        val df = spark.read.json(Seq(output).toDS())
+//          .withColumn("data", functions.explode($"value"))
+//          .select("data.*")
+        df.show(10)
+        out.write(df)
+      } else {
+//        val schema2 = new StructType()
+//          .add("type", StringType)
+//          .add("element_id", StringType)
+//          .add("text", StringType)
+//          .add("metadata", MapType(StringType, StringType))
+//        val df = Seq(output).toDS().toDF("json").withColumn("data", functions.from_json($"json", schema2)).
+        val df = spark.read.json(Seq(output).toDS())
+        df.show(10)
+        out.write(df)
+      }
+      //      val jsonRDD = spark.sparkContext.parallelize(Seq(output))
+      //      val df = spark.read.json(jsonRDD)
+      //      df.show(10)
+      //      out.write(df)
     } else {
       println(s"########## Exception: $error")
       throw new Exception(s"########## Exception: $error")
     }
     //delete local temp file
     if ("hdfs".equals(fileSource)) {
-      UnstructuredUtils.deleteTempFile(filePath)
+      UnstructuredUtils.deleteTempFiles(localDir)
     }
   }
 
   override def setProperties(map: Map[String, Any]): Unit = {
     filePath = MapUtil.get(map, "filePath").asInstanceOf[String]
     fileSource = MapUtil.get(map, "fileSource").asInstanceOf[String]
+    strategy = MapUtil.get(map, "strategy").asInstanceOf[String]
   }
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
@@ -93,6 +144,16 @@ class PdfParser extends ConfigurableStop {
       .required(true)
       .example("hdfs")
     descriptor = descriptor :+ fileSource
+
+    val strategy = new PropertyDescriptor()
+      .name("strategy")
+      .displayName("strategy")
+      .description("The method the method that will be used to process the file ")
+      .defaultValue("true")
+      .allowableValues(Set("auto", "hi_res", "ocr_only", "fast"))
+      .required(true)
+      .example("auto")
+    descriptor = descriptor :+ strategy
 
     descriptor
   }

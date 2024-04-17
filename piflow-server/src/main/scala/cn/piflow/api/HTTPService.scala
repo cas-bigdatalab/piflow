@@ -17,6 +17,7 @@ import cn.piflow.util._
 import com.typesafe.akka.extension.quartz.QuartzSchedulerExtension
 import com.typesafe.config.ConfigFactory
 
+import java.net.InetAddress
 import scala.concurrent.{Await, Future}
 //import scala.util.parsing.json.JSON
 
@@ -837,7 +838,7 @@ object HTTPService extends DefaultJsonProtocol with Directives with SprayJsonSup
     //    val ip = InetAddress.getLocalHost.getHostAddress
     val ip = PropertyUtil.getPropertyValue("server.ip")
     //write ip to server.ip file
-//    FileUtil.writeFile("server.ip=" + ip, ServerIpUtil.getServerIpFile())
+    //    FileUtil.writeFile("server.ip=" + ip, ServerIpUtil.getServerIpFile())
 
     val port = PropertyUtil.getIntPropertyValue("server.port")
     Http().bindAndHandleAsync(route, ip, port)
@@ -908,11 +909,11 @@ object Main {
 
   def flywayInit() = {
 
-    //    val ip = InetAddress.getLocalHost.getHostAddress
-    val ip = PropertyUtil.getPropertyValue("server.ip")
+    val ip = InetAddress.getLocalHost.getHostAddress
+    //    val ip = PropertyUtil.getPropertyValue("server.ip")
     // Create the Flyway instance
     val flyway: Flyway = new Flyway();
-    val h2Path: String = PropertyUtil.getPropertyValue("h2.path")
+    val h2Path: String = PropertyUtil.getPropertyValue("h2.name")
     var url: String = ""
     if (h2Path != null && h2Path.nonEmpty) {
       url = "jdbc:h2:tcp://" + ip + ":" + PropertyUtil.getPropertyValue("h2.port") + "/~/piflow/" + h2Path
