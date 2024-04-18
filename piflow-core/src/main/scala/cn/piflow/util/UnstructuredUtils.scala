@@ -12,7 +12,8 @@ import scala.collection.mutable.ListBuffer
 object UnstructuredUtils {
 
   def unstructuredHost(): String = {
-    val unstructuredHost: String = PropertyUtil.getPropertyValue("unstructured.host")
+//    val unstructuredHost: String = PropertyUtil.getPropertyValue("unstructured.host")
+    val unstructuredHost: String = PropertyUtil.getPropertyValue("server.ip")
     unstructuredHost
   }
 

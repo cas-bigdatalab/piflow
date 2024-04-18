@@ -5,7 +5,8 @@ import cn.piflow.conf.util.{ImageUtil, MapUtil, ProcessUtil}
 import cn.piflow.conf.{ConfigurableStop, Port}
 import cn.piflow.util.UnstructuredUtils
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
-import org.apache.spark.sql.SparkSession
+import com.alibaba.fastjson2.{JSON, JSONArray}
+import org.apache.spark.sql.{DataFrame, SparkSession}
 
 import scala.collection.mutable.ArrayBuffer
 
@@ -54,8 +55,10 @@ class ImageParser extends ConfigurableStop {
     curlCommandParams += s"strategy=$strategy"
     curlCommandParams += "-F"
     curlCommandParams += "hi_res_model_name=detectron2_lp"
+    var fileListSize = 0;
     if ("hdfs".equals(fileSource)) {
       val fileList = UnstructuredUtils.getLocalFilePaths(localDir)
+      fileListSize = fileList.size
       fileList.foreach { path =>
         curlCommandParams += "-F"
         curlCommandParams += s"files=@$path"
@@ -63,6 +66,7 @@ class ImageParser extends ConfigurableStop {
     }
     if ("nfs".equals(fileSource)) {
       val fileList = UnstructuredUtils.getLocalFilePaths(filePath)
+      fileListSize = fileList.size
       fileList.foreach { path =>
         curlCommandParams += "-F"
         curlCommandParams += s"files=@$path"
@@ -70,11 +74,28 @@ class ImageParser extends ConfigurableStop {
     }
     val (output, error): (String, String) = ProcessUtil.executeCommand(curlCommandParams.toSeq)
     if (output.nonEmpty) {
-      println(output)
-      val jsonRDD = spark.sparkContext.parallelize(Seq(output))
-      val df = spark.read.json(jsonRDD)
-      df.show(10)
-      out.write(df)
+      //      println(output)
+      import spark.implicits._
+      if (fileListSize > 1) {
+        val array: JSONArray = JSON.parseArray(output)
+        var combinedDF: DataFrame = null
+        array.forEach {
+          o =>
+            val jsonString = o.toString
+            val df = spark.read.json(Seq(jsonString).toDS)
+            if (combinedDF == null) {
+              combinedDF = df
+            } else {
+              combinedDF = combinedDF.union(df)
+            }
+        }
+        combinedDF.show(10)
+        out.write(combinedDF)
+      } else {
+        val df = spark.read.json(Seq(output).toDS())
+        df.show(10)
+        out.write(df)
+      }
     } else {
       println(s"########## Exception: $error")
       throw new Exception(s"########## Exception: $error")

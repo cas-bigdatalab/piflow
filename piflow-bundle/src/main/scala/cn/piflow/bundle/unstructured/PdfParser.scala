@@ -5,8 +5,8 @@ import cn.piflow.conf.util.{ImageUtil, MapUtil, ProcessUtil}
 import cn.piflow.conf.{ConfigurableStop, Port}
 import cn.piflow.util.UnstructuredUtils
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
-import org.apache.spark.sql.{DataFrame, SparkSession, functions}
-import org.apache.spark.sql.types.{ArrayType, MapType, StringType, StructField, StructType}
+import com.alibaba.fastjson2.{JSON, JSONArray}
+import org.apache.spark.sql.{DataFrame, SparkSession}
 
 import scala.collection.mutable.ArrayBuffer
 
@@ -77,37 +77,28 @@ class PdfParser extends ConfigurableStop {
     }
     val (output, error): (String, String) = ProcessUtil.executeCommand(curlCommandParams.toSeq)
     if (output.nonEmpty) {
-      println(output)
-
+      //      println(output)
       import spark.implicits._
       if (fileListSize > 1) {
-        val schema1 = ArrayType(StructType(Array(
-          StructField("type", StringType, true),
-          StructField("element_id", StringType, true),
-          StructField("text", StringType, true),
-          StructField("metadata", MapType(StringType, StringType), true)
-        )))
-        val df = Seq(output).toDS().toDF("json").withColumn("data", functions.from_json($"json", schema1))
-//        val df = spark.read.json(Seq(output).toDS())
-//          .withColumn("data", functions.explode($"value"))
-//          .select("data.*")
-        df.show(10)
-        out.write(df)
+        val array: JSONArray = JSON.parseArray(output)
+        var combinedDF: DataFrame = null
+        array.forEach {
+          o =>
+            val jsonString = o.toString
+            val df = spark.read.json(Seq(jsonString).toDS)
+            if (combinedDF == null) {
+              combinedDF = df
+            } else {
+              combinedDF = combinedDF.union(df)
+            }
+        }
+        combinedDF.show(10)
+        out.write(combinedDF)
       } else {
-//        val schema2 = new StructType()
-//          .add("type", StringType)
-//          .add("element_id", StringType)
-//          .add("text", StringType)
-//          .add("metadata", MapType(StringType, StringType))
-//        val df = Seq(output).toDS().toDF("json").withColumn("data", functions.from_json($"json", schema2)).
         val df = spark.read.json(Seq(output).toDS())
         df.show(10)
         out.write(df)
       }
-      //      val jsonRDD = spark.sparkContext.parallelize(Seq(output))
-      //      val df = spark.read.json(jsonRDD)
-      //      df.show(10)
-      //      out.write(df)
     } else {
       println(s"########## Exception: $error")
       throw new Exception(s"########## Exception: $error")

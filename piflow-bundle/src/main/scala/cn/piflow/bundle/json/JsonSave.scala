@@ -39,7 +39,7 @@ class JsonSave extends ConfigurableStop{
       .description("The save path of the json file")
       .defaultValue("")
       .required(true)
-        .example("hdfs://192.168.3.138:8020/work/testJson/test/")
+        .example("/test/test.json")
 
     descriptor = jsonSavePath :: descriptor
     descriptor
