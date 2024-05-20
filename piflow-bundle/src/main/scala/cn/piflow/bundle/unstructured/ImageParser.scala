@@ -147,7 +147,7 @@ class ImageParser extends ConfigurableStop {
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("icon/unstructured/ImageParser.png", this.getClass.getName)
+    ImageUtil.getImage("icon/unstructured/ImageParser.png")
   }
 
   override def getGroup(): List[String] = {

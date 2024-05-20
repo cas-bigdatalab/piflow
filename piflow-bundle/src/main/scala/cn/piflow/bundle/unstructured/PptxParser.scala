@@ -130,7 +130,7 @@ class PptxParser extends ConfigurableStop {
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("icon/unstructured/PptxParser.png", this.getClass.getName)
+    ImageUtil.getImage("icon/unstructured/PptxParser.png")
   }
 
   override def getGroup(): List[String] = {

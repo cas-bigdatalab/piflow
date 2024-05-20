@@ -130,7 +130,7 @@ class DocxParser extends ConfigurableStop {
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("icon/unstructured/DocxParser.png", this.getClass.getName)
+    ImageUtil.getImage("icon/unstructured/DocxParser.png")
   }
 
   override def getGroup(): List[String] = {

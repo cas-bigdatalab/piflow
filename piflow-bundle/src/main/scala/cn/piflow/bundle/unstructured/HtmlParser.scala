@@ -130,7 +130,7 @@ class HtmlParser extends ConfigurableStop {
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("icon/unstructured/HtmlParser.png", this.getClass.getName)
+    ImageUtil.getImage("icon/unstructured/HtmlParser.png")
   }
 
   override def getGroup(): List[String] = {

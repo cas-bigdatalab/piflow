@@ -150,7 +150,7 @@ class PdfParser extends ConfigurableStop {
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("icon/unstructured/PdfParser.png", this.getClass.getName)
+    ImageUtil.getImage("icon/unstructured/PdfParser.png")
   }
 
   override def getGroup(): List[String] = {
