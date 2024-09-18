@@ -44,7 +44,7 @@
 * Spark-3.4.0
 * Hadoop-3.3.0
 
-Compatible with X86 architecture and ARM architecture, Support center OS and Kirin system deployment
+Compatible with X86 architecture and ARM architecture, Support CentOS and Kirin system deployment
 
 ## Getting Started
 
