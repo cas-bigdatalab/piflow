@@ -1,0 +1,9 @@
+numpy
+hdfs
+pyhdfs
+pandas
+langchain_community
+langchain_huggingface
+protobuf==3.20.1
+pinecone-client
+pyarrow
