@@ -109,7 +109,7 @@
 
   该命令会启动 Qdrant 实例，并将本地的 6333 和 6334 端口映射到 Docker 容器中的相应端口。可以通过web访问http://localhost:6333/dashboard,查看qdrant数据库状态.
 
-  ![image-20240916135327817](/home/leishu/.config/Typora/typora-user-images/image-20240916135327817.png)
+  ![image-20240916135327817](./README_picture/image-20240916135327817.png)
 
 ---
 
@@ -232,21 +232,19 @@ def write_dict(collection_name: str, elements_dict: t.List[t.Dict[str, str]], cl
 
 1）**配置基础镜像**：在基础镜像管理菜单中，可以选择已有镜像或从官方镜像拉取制定版本的python镜像（python本版3.10以上，此处我们设置基础镜像为 `registry.cn-hangzhou.aliyuncs.com/cnic-piflow/embed-base:v1`）。配置的具体步骤请参考下图：
 
-![image-20240916140241146](/home/leishu/.config/Typora/typora-user-images/image-20240916140241146.png)
+![image-20240916140241146](./README_picture/image-20240916140241146.png)
 
 2）**安装向量数据库存储组件**：首先，从 [GitHub](https://github.com/cas-bigdatalab/piflow/blob/master/doc/embed/embed.zip) 下载包含向量数据库存储组件的 ZIP 文件。然后，将 ZIP 文件上传到系统并进行挂载（mount）。挂载成功后，选择组件并编辑其基本信息和图标。配置的详细步骤请参考下图：
 
-![image-20240916140334408](/home/leishu/.config/Typora/typora-user-images/image-20240916140334408.png)
+![image-20240916140334408](./README_picture/image-20240916140334408.png)
 
-![image-20240927113942764](/home/leishu/.config/Typora/typora-user-images/image-20240927113942764.png)
+![image-20240927113942764](./README_picture/image-20240927113942764.png)
 
-![image-20240927105740270](/home/leishu/.config/Typora/typora-user-images/image-20240927105740270.png)
+![image-20240927105740270](./README_picture/image-20240927105740270.png)
 
-![image-20240927105806488](/home/leishu/.config/Typora/typora-user-images/image-20240927105806488.png)
+![image-20240927105806488](./README_picture/image-20240927105806488.png)
 
-![image-20240927110000207](/home/leishu/.config/Typora/typora-user-images/image-20240927110000207.png)
-
-
+![image-20240927110000207](./README_picture/image-20240927110000207.png)
 
 
 
