@@ -56,8 +56,6 @@
 
 
 
-
-
 ----
 
 <div align='center'><font size=60>目录</font></div>
@@ -176,7 +174,7 @@
 
 ### 主程序结构：
 ```python
-if __name__ == "__main__":
+DATAConnectif __name__ == "__main__":
     # 获取组件配置参数, 使用命令行参数或默认值进行赋值
     collection_name = sys.argv[1] if len(sys.argv) > 1 else DEFAULT_COLLECTION_NAME
     batch_size = int(sys.argv[2]) if len(sys.argv) > 2 else DEFAULT_BATCH_SIZE
@@ -232,7 +230,7 @@ def write_dict(collection_name: str, elements_dict: t.List[t.Dict[str, str]], cl
 
 ## 6. 使用示例
 
-1）**配置基础镜像**：在基础镜像管理菜单中，设置基础镜像为 `registry.cn-hangzhou.aliyuncs.com/cnic-piflow/embed-base:v1`。配置的具体步骤请参考下图：
+1）**配置基础镜像**：在基础镜像管理菜单中，可以选择已有镜像或从官方镜像拉取制定版本的python镜像（python本版3.10以上，此处我们设置基础镜像为 `registry.cn-hangzhou.aliyuncs.com/cnic-piflow/embed-base:v1`）。配置的具体步骤请参考下图：
 
 ![image-20240916140241146](/home/leishu/.config/Typora/typora-user-images/image-20240916140241146.png)
 
@@ -240,11 +238,13 @@ def write_dict(collection_name: str, elements_dict: t.List[t.Dict[str, str]], cl
 
 ![image-20240916140334408](/home/leishu/.config/Typora/typora-user-images/image-20240916140334408.png)
 
-![image-20240916140658383](/home/leishu/.config/Typora/typora-user-images/image-20240916140658383.png)
+![image-20240927113942764](/home/leishu/.config/Typora/typora-user-images/image-20240927113942764.png)
 
-![image-20240916140845907](/home/leishu/.config/Typora/typora-user-images/image-20240916140845907.png)
+![image-20240927105740270](/home/leishu/.config/Typora/typora-user-images/image-20240927105740270.png)
 
-![image-20240916141024529](/home/leishu/.config/Typora/typora-user-images/image-20240916141024529.png)
+![image-20240927105806488](/home/leishu/.config/Typora/typora-user-images/image-20240927105806488.png)
+
+![image-20240927110000207](/home/leishu/.config/Typora/typora-user-images/image-20240927110000207.png)
 
 
 
@@ -272,3 +272,8 @@ def write_dict(collection_name: str, elements_dict: t.List[t.Dict[str, str]], cl
 通过以上步骤，已经成功配置了所需的基础镜像，并将向量数据库存储组件集成到系统中。这些设置为处理和存储来自不同解析组件的非结构化数据提供了强大的支持，确保了数据在 Qdrant 向量数据库中的高效存储与检索。
 
 在进行后续操作时，可以利用此组件来优化大模型训练的数据需求，提升数据检索与分析的效率。Qdrant 的向量化处理和存储能力将更好地管理和利用非结构化数据，为数据驱动的决策提供坚实的基础。
+
+## 10. 代码地址
+
+https://github.com/cas-bigdatalab/piflow/tree/master/python/embed/qdrant
+
