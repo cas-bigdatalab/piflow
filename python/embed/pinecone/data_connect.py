@@ -6,7 +6,7 @@ import uuid
 import shutil
 
 
-class DATAConncet:
+class DATAConnect:
     def __init__(self):
         env_dist = os.environ
         self.HdfsClientHost = env_dist.get("hdfs_url")

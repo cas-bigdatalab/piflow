@@ -1,6 +1,6 @@
 from langchain_huggingface import HuggingFaceEmbeddings as hfe
 import os
-from data_connect import DATAConncet  # 引入 data_connect 中的 DATAConncet 类
+from data_connect import DATAConnect  # 引入 data_connect 中的 DATAConnect 类
 import pandas as pd
 from helpers import *# 从 helpers.py 引入 embed_change 函数
 import sys
@@ -105,7 +105,7 @@ if __name__ == "__main__":
     index = init_pinecone_index(api_key, index_name, dimension, metric, cloud, region)
 
     # 使用 data_connect 中的方法从 HDFS 获取数据
-    dataConnect = DATAConncet()
+    dataConnect = DATAConnect()
 
     # 从 HDFS 读取数据
     df = dataConnect.dataInputStream(port="input_read")

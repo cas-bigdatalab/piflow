@@ -17,7 +17,18 @@
    - **度量标准选择**：支持三种度量方式（欧几里得距离、余弦相似度、点积），根据场景灵活选择。
 4. **批量处理**：支持大规模数据的批量向量化和插入，用户可根据数据量和性能需求调整批量大小。
 
-### 2.参数说明
+### 2.环境要求
+
+- python版本：3.9或更高版本
+- pinecone云数据库：访问pinecone官网，注册账户
+- 所需python库：
+  - numpy
+  - pandas
+  - langchain_community
+  - langchain_huggingface
+  - pinecone-client
+
+### 3.参数说明
 
 可以通过命令行传入多个参数来控制 Pinecone 索引的创建、向量存储及模型选择等行为。以下是每个参数的使用说明：
 
@@ -34,7 +45,7 @@
 
 
 
-### 3.支持的向量化模型
+### 4.支持的向量化模型
 
 在该组件中，嵌入模型的选择和加载是通过 helpers 脚本中的 `embed_change` 函数实现的。具体过程如下：
 
@@ -46,39 +57,43 @@
 
 ​		目前集成了7个模型，支持自定义扩展（源码在helpers.py），具体信息如下表所示。用户可以自行去hugging face 官网下载，也可以用网盘下载（https://pan.quark.cn/s/fc0de5220493），下载后放到/data的目录下。
 
-| 序号 | 名称                                                         | 简称                                    | 介绍                                                         |
-| ---- | ------------------------------------------------------------ | --------------------------------------- | ------------------------------------------------------------ |
-| 1    | sentence-transformers/all-MiniLM-L6-v2                       | all_MiniLM_L6_v2                        | 通用文本嵌入(GTE)模型：将句子和段落映射到384维的密集向量空间，可以用于聚类或语义搜索等任务。 |
-| 2    | sentence-transformers/all-roberta-large-v1                   | all-roberta-large-v1                    | 通用文本嵌入(GTE)模型：将句子和段落映射到1024维的密集向量空间，可以用于聚类或语义搜索等任务。 |
-| 3    | sentence-transformers/average<br />_word_embeddings_glove.840B.300d | average_word_embeddings_glove.840B.300d | 通用文本嵌入(GTE)模型：将句子和段落映射到300维的密集向量空间，可以用于聚类或语义搜索等任务。 |
-| 4    | thenlper/gte-small                                           | gte-small                               | 通用文本嵌入(GTE)模型。基于多阶段对比学习的通用文本嵌入，由阿里巴巴达摩学院训练。 |
-| 5    | sentence-transformers/sentence-t5-xl                         | sentence-t5-xl                          | 通用文本嵌入(GTE)模型：将句子和段落映射到768维的密集向量空间，可以用于聚类或语义搜索等任务。 |
-| 6    | Snowflake/snowflake-arctic-embed-m                           | snowflake-arctic-embed-m                | 通用文本嵌入(GTE)模型，专注于创建针对性能优化的高质量检索模型。 |
-| 7    | embaas/sentence-transformers-e5-large-v2                     | sentence-transformers-e5-large-v2       | 通用文本嵌入(GTE)模型：将句子和段落映射到1024维的密集向量空间，可用于聚类或语义搜索等任务. |
-
-
+![image-20240927170843969](./pictures/image-20240927170843969.png)
 
 ### 4.使用说明
 
-（1）配置基础镜像：点击基础镜像管理菜单，配置基础镜像python环境即可，配置详情如下图所示：
+（1）配置基础镜像：在docker中拉取python3.9镜像，点击基础镜像管理菜单，配置基础镜像python:3.9即可，配置详情如下图所示：
 
-<img src="C:\Users\rose\AppData\Roaming\Typora\typora-user-images\image-20240921060606680.png" alt="image-20240921060606680" style="zoom:50%;" />
+![image-20240921060606680](./pictures/image-20240921060606680.png)
 
 （2）从公开连接下载对应的嵌入模型放到data\testingStuff\models路径下【https://public.ukp.informatik.tu-darmstadt.de/reimers/sentence-transformers/v0.2/】
 
-（3）配置数据库存储组件：从 GitHub 下载包含向量数据库存储组件的 ZIP ⽂件，然后将zip包上传到系统并挂载（mount）。挂载成功后，选择组件并编辑其基本信息和图标。配置的详细步骤如下图所示：
+（3）配置数据库存储组件：从 GitHub 下载包含向量数据库存储组件的 zip ⽂件，然后将zip包上传到系统并挂载（mount）。挂载成功后，选择组件并编辑其基本信息和图标。配置的详细步骤如下图所示：
 
-<img src="C:\Users\rose\AppData\Roaming\Typora\typora-user-images\image-20240921060858879.png" alt="image-20240921060858879" style="zoom:50%;" />
+![image-20240921060858879](./pictures/image-20240921060858879.png)
 
 （4）配置流水线，详情如下图所示：
 
-<img src="C:\Users\rose\AppData\Roaming\Typora\typora-user-images\image-20240921061009045.png" alt="image-20240921061009045" style="zoom:50%;" />
+![image-20240927172024264](./pictures/image-20240927172024264.png)
 
-（5）运行成功以后日志显示：
+![image-20240927172040390](./pictures/image-20240927172040390.png)
 
-<img src="C:\Users\rose\AppData\Roaming\Typora\typora-user-images\image-20240921061421703.png" alt="image-20240921061421703" style="zoom:50%;" />
+（5）运行流水线
 
-（6）查看pinecone数据库,可以看到创建了新的索引并且存储了数据
-<img src="C:\Users\rose\AppData\Roaming\Typora\typora-user-images\image-20240921053728775.png" alt="image-20240921053728775" style="zoom: 50%;" />
+![image-20240921061009045](./pictures/image-20240921061009045.png)
 
-<img src="C:\Users\rose\AppData\Roaming\Typora\typora-user-images\image-20240921053803937.png" alt="image-20240921053803937" style="zoom: 50%;" />
+（6）运行成功以后日志显示：
+
+![image-20240921061421703](./pictures/image-20240921061421703.png)
+
+（7）查看pinecone数据库,可以看到创建了新的索引并且存储了数据
+![image-20240921053728775](./pictures/image-20240921053728775.png)
+
+![image-20240921053803937](./pictures/image-20240921053803937.png)
+
+### 5.注意事项
+
+1.需要在pinecone官网先注册账户，从而得到api_key，通过api_key连接数据库
+
+2.免费的账户云空间会有一定的限制，当索引量超多免费容量时便无法添加
+
+3.pinecone-finnal.py组件名文件不可以用pinecone.py命名，因为开头有import pinecone会产生干扰
