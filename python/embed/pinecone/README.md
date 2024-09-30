@@ -96,4 +96,4 @@
 
 2.免费的账户云空间会有一定的限制，当索引量超多免费容量时便无法添加
 
-3.pinecone-finnal.py组件名文件不可以用pinecone.py命名，因为开头有import pinecone会产生干扰
+3.pinecone_finnal.py组件名文件不可以用pinecone.py命名，因为开头有import pinecone会产生干扰
