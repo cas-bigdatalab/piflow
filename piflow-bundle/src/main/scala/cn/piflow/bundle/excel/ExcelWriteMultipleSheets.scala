@@ -7,7 +7,8 @@ import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 
 class ExcelWriteMultipleSheets extends ConfigurableStop{
   val authorEmail: String = "ygang@cnic.cn"
-  val description: String = "Write multiple DataFrames into multiple sheets of the same Excel file"
+  val description: String = "Write multiple DataFrames into multiple sheets of the same Excel file" +
+    "(If dataFrame empty, no output)"
   val inportList: List[String] = List(Port.AnyPort)
   val outportList: List[String] = List(Port.DefaultPort)
 
@@ -15,15 +16,16 @@ class ExcelWriteMultipleSheets extends ConfigurableStop{
   var header: String = _
   var inports : List[String] = _
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
-
     inports.foreach(x=>{
       val df = in.read(x)
-      df.write
-        .format("com.crealytics.spark.excel")
-        .option("dataAddress",s"'${x}'!A1")
-        .option("header", header)
-        .mode("append")
-        .save(filePath)
+      if(!df.limit(1).collect().isEmpty){
+        df.write
+          .format("com.crealytics.spark.excel")
+          .option("dataAddress",s"'${x}'!A1")
+          .option("header", header)
+          .mode("append")
+          .save(filePath)
+      }
     })
   }
 

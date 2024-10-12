@@ -15,6 +15,7 @@ class ExcelRead extends ConfigurableStop{
   var filePath: String = _
   var header: String = _
   var dataAddress: String = _
+  var inferSchema:Boolean = _
 
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     val spark = pec.get[SparkSession]()
@@ -22,10 +23,9 @@ class ExcelRead extends ConfigurableStop{
     val frame = spark.read
       .format("com.crealytics.spark.excel")
       .option("dataAddress",dataAddress)
-      .option("inferSchema", true) //这是自动推断属性列的数据类型
+      .option("inferSchema", inferSchema) //这是自动推断属性列的数据类型
       .option("header", header)
       .load(filePath)
-
     frame.printSchema()
 
     out.write(frame)
@@ -35,6 +35,14 @@ class ExcelRead extends ConfigurableStop{
     filePath = MapUtil.get(map,"filePath").asInstanceOf[String]
     header = MapUtil.get(map,"header").asInstanceOf[String]
     dataAddress = MapUtil.get(map,"dataAddress").asInstanceOf[String]
+
+    if(MapUtil.get(map,"inferSchema") != None) {
+      inferSchema = MapUtil.get(map,"inferSchema").asInstanceOf[String].toBoolean
+    } else{
+      inferSchema = true
+    }
+
+
   }
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
@@ -75,6 +83,17 @@ class ExcelRead extends ConfigurableStop{
 //      .example("'Sheet1'!")
       .example("")
     descriptor = dataAddress :: descriptor
+
+
+    val inferSchema = new PropertyDescriptor()
+      .name("inferSchema")
+      .displayName("inferSchema")
+      .description("Whether to automatically infer field types")
+      .defaultValue("true")
+      .allowableValues(Set("true","false"))
+      .required(true)
+      .example("true")
+    descriptor = inferSchema :: descriptor
 
 
     descriptor
