@@ -327,9 +327,7 @@ Compatible with X86 architecture and ARM architecture, Support CentOS and Kirin 
 - Private vulnerability contact information：ygang@cnic.cn
 - Wechat User Group
   
-  ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/wechat_user.png)
-- Tencent
-  
+  ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/wechat_user.png)    
   ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/tencent.png)
 
 
