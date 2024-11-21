@@ -320,14 +320,15 @@ Compatible with X86 architecture and ARM architecture, Support CentOS and Kirin 
   ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-stophublist.png)
   
 ## Contact Us
-- Name:吴老师  
-- Mobile Phone：18910263390  
-- WeChat：18910263390  
-- Email: wzs@cnic.cn  
-- QQ Group：1003489545
+- Name:Tian Yao  
+- Mobile Phone：18501260806  
+- WeChat：18501260806  
+- Email: tianyao@cnic.cn
 - Private vulnerability contact information：ygang@cnic.cn
-  
-  ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/PiFlowUserGroup_QQ.jpeg)  
+- Wechat User Group
+  ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/wechat_user.png)
+- Tencent
+  ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/tencent.png)
 
 
 
