@@ -320,10 +320,10 @@ Compatible with X86 architecture and ARM architecture, Support CentOS and Kirin 
   ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-stophublist.png)
   
 ## Contact Us
-- Name:Tian Yao  
-- Mobile Phone：18501260806  
-- WeChat：18501260806  
-- Email: tianyao@cnic.cn
+- Name:Yang Gang    Tian Yao  
+- Mobile Phone：13253365393    18501260806  
+- WeChat：13253365393    18501260806  
+- Email: ygang@cnic.cn    tianyao@cnic.cn
 - Private vulnerability contact information：ygang@cnic.cn
 - Wechat User Group
   
