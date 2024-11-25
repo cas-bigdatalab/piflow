@@ -328,7 +328,7 @@ Compatible with X86 architecture and ARM architecture, Support CentOS and Kirin 
 - Join Us
 <center class="half">
     <img src="https://github.com/cas-bigdatalab/piflow/blob/master/doc/wechat_user.png" width="300"/>
-    <img src="https://github.com/cas-bigdatalab/piflow/blob/master/doc/tencent.png" width="300"/>
+    <img src="https://github.com/cas-bigdatalab/piflow/blob/master/doc/tencent.jpg" width="300"/>
 </center>
 
 
