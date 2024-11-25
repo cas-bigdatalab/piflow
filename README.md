@@ -325,13 +325,12 @@ Compatible with X86 architecture and ARM architecture, Support CentOS and Kirin 
 - WeChat：13253365393, 18501260806  
 - Email: ygang@cnic.cn, tianyao@cnic.cn
 - Private vulnerability contact information：ygang@cnic.cn
-- Join Us
-  - Wechat User Group  
+- Wechat User Group  
 <center>
     <img src="https://github.com/cas-bigdatalab/piflow/blob/master/doc/wechat_user.png" width="100"/>
 </center>
 
-  - Wechat Official Account
+- Wechat Official Account
 <center>
     <img src="https://github.com/cas-bigdatalab/piflow/blob/master/doc/tencent.jpg" width="100"/>
 </center>
