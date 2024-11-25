@@ -326,9 +326,14 @@ Compatible with X86 architecture and ARM architecture, Support CentOS and Kirin 
 - Email: ygang@cnic.cn, tianyao@cnic.cn
 - Private vulnerability contact information：ygang@cnic.cn
 - Join Us
-<center class="half">
-    <img src="https://github.com/cas-bigdatalab/piflow/blob/master/doc/wechat_user.png" width="50"/>
-    <img src="https://github.com/cas-bigdatalab/piflow/blob/master/doc/tencent.jpg" width="50"/>
+  - Wechat User Group  
+<center>
+    <img src="https://github.com/cas-bigdatalab/piflow/blob/master/doc/wechat_user.png" width="100"/>
+</center>
+
+  - Wechat Official Account
+<center>
+    <img src="https://github.com/cas-bigdatalab/piflow/blob/master/doc/tencent.jpg" width="100"/>
 </center>
 
 
