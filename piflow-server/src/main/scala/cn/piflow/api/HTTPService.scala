@@ -909,7 +909,7 @@ object Main {
 
   def flywayInit() = {
 
-    val ip = InetAddress.getLocalHost.getHostAddress
+    val ip = "127.0.0.1"
     //    val ip = PropertyUtil.getPropertyValue("server.ip")
     // Create the Flyway instance
     val flyway: Flyway = new Flyway();

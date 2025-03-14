@@ -11,7 +11,7 @@ import net.liftweb.json.{JValue, compactRender}
 import org.clapper.classutil.ClassFinder
 import org.reflections.Reflections
 import net.liftweb.json.JsonDSL._
-import sun.misc.BASE64Encoder
+import java.util.Base64
 
 import util.control.Breaks._
 
@@ -202,7 +202,6 @@ object ClassUtil {
     val stopName = bundle.split("\\.").last
     val propertyDescriptorList:List[PropertyDescriptor] = stop.getPropertyDescriptor()
     propertyDescriptorList.foreach(p=> if (p.allowableValues == null || p.allowableValues == None) p.allowableValues = List(""))
-    val base64Encoder = new BASE64Encoder()
     var iconArrayByte : Array[Byte]= Array[Byte]()
     try{
       iconArrayByte = stop.getIcon()
@@ -230,7 +229,7 @@ object ClassUtil {
           ("customizedAllowValue" -> "")*/
           ("visualizationType" -> visualizationType) ~
           ("description" -> stop.description) ~
-          ("icon" -> base64Encoder.encode(iconArrayByte)) ~
+          ("icon" -> Base64.getEncoder.encodeToString(iconArrayByte)) ~
           ("properties" ->
             propertyDescriptorList.map { property =>(
               ("name" -> property.name) ~
