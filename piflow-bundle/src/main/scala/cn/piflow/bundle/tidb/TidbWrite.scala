@@ -30,7 +30,7 @@ class TidbWrite extends ConfigurableStop{
     properties.put("password", password)
     properties.put("driver",driver)
     properties.put("isolationLevel","NONE")  //if not set this value, throw expection
-    val df = in.read()
+    val df = in.read().getSparkDf
     df.write.mode(SaveMode.Append).jdbc(url,dbtable,properties)
 
   }

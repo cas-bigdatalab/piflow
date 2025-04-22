@@ -31,7 +31,7 @@
 //
 //  override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
 //    val session: SparkSession = pec.get[SparkSession]()
-//    val inDF: DataFrame = in.read()
+//    val inDF: DataFrame = in.read().getSparkDf
 //
 //    val mcc: MemCachedClient =getMcc()
 //
@@ -74,7 +74,7 @@
 //    val s: StructType = StructType(fields)
 //    val df: DataFrame = session.createDataFrame(rowRDD,s)
 //
-//    out.write(df)
+//    out.write(new SciDataFrame(df))
 //  }
 //
 //  def getMcc(): MemCachedClient = {

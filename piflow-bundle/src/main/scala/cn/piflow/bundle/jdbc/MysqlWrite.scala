@@ -1,11 +1,11 @@
 package cn.piflow.bundle.jdbc
 
 import java.util.Properties
-
 import cn.piflow._
 import cn.piflow.conf._
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
+import cn.piflow.util.SciDataFrame
 import org.apache.spark.sql.{SaveMode, SparkSession}
 
 import scala.beans.BeanProperty
@@ -26,13 +26,13 @@ class MysqlWrite extends ConfigurableStop{
 
   def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     val spark = pec.get[SparkSession]()
-    val jdbcDF = in.read()
+    val jdbcDF = in.read().getSparkDf
     val properties = new Properties()
     properties.put("user", user)
     properties.put("password", password)
     properties.put("driver", driver)
     jdbcDF.write.mode(SaveMode.valueOf(saveMode)).jdbc(url,dbtable,properties)
-    out.write(jdbcDF)
+    out.write(new SciDataFrame(jdbcDF))
   }
 
   def initialize(ctx: ProcessContext): Unit = {

@@ -5,7 +5,8 @@ import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import cn.piflow.conf.{ConfigurableStop, Language, Port, StopGroup}
 import org.apache.spark.sql.SparkSession
-
+import cn.piflow.SciDataFrameImplicits.autoWrapDataFrame
+import cn.piflow.util.SciDataFrame
 
 class TidbRead extends ConfigurableStop{
   override val authorEmail: String = "llei@cnic.com"
@@ -32,7 +33,7 @@ class TidbRead extends ConfigurableStop{
       .option("password",password)
       .load()
 
-    out.write(jdbcDF)
+    out.write(new SciDataFrame(jdbcDF))
 
   }
   override def setProperties(map: Map[String, Any]): Unit = {

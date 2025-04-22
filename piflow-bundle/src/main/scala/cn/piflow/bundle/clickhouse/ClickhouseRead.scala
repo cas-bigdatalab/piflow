@@ -3,6 +3,7 @@ package cn.piflow.bundle.clickhouse
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import cn.piflow.conf.{ConfigurableStop, Language, Port, StopGroup}
+import cn.piflow.util.SciDataFrame
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
@@ -36,7 +37,7 @@ class ClickhouseRead extends ConfigurableStop  {
       .options(options)
       .load()
     jdbcDF.show()
-    out.write(jdbcDF)
+    out.write(new SciDataFrame(jdbcDF))
 
   }
 

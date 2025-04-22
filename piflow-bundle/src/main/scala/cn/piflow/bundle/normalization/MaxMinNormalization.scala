@@ -5,7 +5,7 @@ import cn.piflow.conf._
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import org.apache.spark.sql.{DataFrame, SparkSession}
-
+import cn.piflow.SciDataFrameImplicits.autoWrapDataFrame
 class MaxMinNormalization extends ConfigurableStop {
   // 作者信息
   val authorEmail: String = "zljxnu@163.com"
@@ -31,7 +31,7 @@ class MaxMinNormalization extends ConfigurableStop {
     val spark = pec.get[SparkSession]()
 
     // 从输入端口读取数据
-    val df = in.read()
+    val df = in.read().getSparkDf
 
     // 计算列的最大值和最小值
     val max = df.agg(Map(inputCol -> "max")).collect()(0)(0).asInstanceOf[Double]
@@ -111,7 +111,7 @@ class MaxMinNormalization extends ConfigurableStop {
 //    val spark = pec.get[SparkSession]()
 //    val sqlContext = spark.sqlContext
 //    // 读取输入数据
-//    val dfOld = in.read()
+//    val dfOld = in.read().getSparkDf
 //    // 将输入数据创建为临时表
 //    dfOld.createOrReplaceTempView("data")
 //    // 解析需要标准化的列名

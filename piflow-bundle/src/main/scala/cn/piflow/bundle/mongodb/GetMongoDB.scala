@@ -5,7 +5,7 @@ import cn.piflow.conf.{ConfigurableStop, Port, StopGroup}
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import org.apache.spark.sql.{DataFrame, SparkSession}
-
+import cn.piflow.SciDataFrameImplicits.autoWrapDataFrame
 class GetMongoDB extends ConfigurableStop{
   override val authorEmail: String = "yangqidong@cnic.cn"
   override val description: String = "Get data from mongodb"

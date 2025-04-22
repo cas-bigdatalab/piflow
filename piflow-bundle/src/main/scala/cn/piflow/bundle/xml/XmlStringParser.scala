@@ -13,7 +13,7 @@ import org.dom4j.{Document, DocumentHelper, Element}
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable.{ArrayBuffer, ListBuffer}
-
+import cn.piflow.SciDataFrameImplicits.autoWrapDataFrame
 class XmlStringParser extends ConfigurableStop {
   override val authorEmail: String = "yangqidong@cnic.cn"
   val inportList: List[String] = List(Port.DefaultPort)

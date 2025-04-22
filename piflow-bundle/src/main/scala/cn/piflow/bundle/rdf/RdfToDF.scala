@@ -10,7 +10,7 @@ import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.types.{DataTypes, StringType, StructField, StructType}
 import org.apache.spark.sql.{Row, SparkSession}
-
+import cn.piflow.SciDataFrameImplicits.autoWrapDataFrame
 class RdfToDF extends ConfigurableStop{
   override val authorEmail: String = "xiaomeng7890@gmail.com"
 
@@ -162,7 +162,7 @@ class RdfToDF extends ConfigurableStop{
     //in
     if (isFront == "true") {
       val inDF : Array[String] = in
-        .read()
+        .read().getSparkDf
         .collect()
         .map(r => r.getAs[String](1))
       var index = 0

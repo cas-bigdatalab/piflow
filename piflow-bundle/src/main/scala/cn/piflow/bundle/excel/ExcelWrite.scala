@@ -17,7 +17,7 @@ class ExcelWrite extends ConfigurableStop{
   var saveMode: String = _
 
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
-    val df = in.read()
+    val df = in.read().getSparkDf
     df.write
       .format("com.crealytics.spark.excel")
       .option("dataAddress",dataAddress)

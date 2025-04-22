@@ -9,7 +9,7 @@ import org.apache.spark.ml.feature.VectorAssembler
 import org.apache.spark.ml.feature.Bucketizer
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.ml.feature.QuantileDiscretizer
-
+import cn.piflow.SciDataFrameImplicits.autoWrapDataFrame
 
 class Discretization extends ConfigurableStop {
 
@@ -26,7 +26,7 @@ class Discretization extends ConfigurableStop {
 
   def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     val spark = pec.get[SparkSession]()
-    val df = in.read()
+    val df = in.read().getSparkDf
 
     // 根据用户选择的方法进行相应的离散化
     val discretizedDF = method match {

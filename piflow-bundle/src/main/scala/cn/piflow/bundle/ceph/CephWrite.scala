@@ -33,7 +33,7 @@ class CephWrite extends ConfigurableStop  {
     spark.conf.set("fs.s3a.connection.ssl.enabled", "false")
 
     // Create a DataFrame from the data
-    val df = in.read()
+    val df = in.read().getSparkDf
 
     if (types == "parquet") {
       df.write

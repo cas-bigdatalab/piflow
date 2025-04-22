@@ -73,7 +73,7 @@ object ScalaExecutorUtil {
   def main(args: Array[String]): Unit = {
     val script =
       """
-        |val df = in.read()
+        |val df = in.read().getSparkDf
         |df.show()
         |val df1 = df.select("title")
         |out.write(df1)

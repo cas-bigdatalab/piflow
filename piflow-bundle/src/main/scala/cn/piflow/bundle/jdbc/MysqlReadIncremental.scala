@@ -4,6 +4,7 @@ import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import cn.piflow.conf.{ConfigurableIncrementalStop, Language, Port, StopGroup}
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
+import cn.piflow.util.SciDataFrame
 import org.apache.spark.sql.SparkSession
 
 /**
@@ -33,7 +34,7 @@ class MysqlReadIncremental extends ConfigurableIncrementalStop{
       .option("password",password)
       .load()
 
-    out.write(jdbcDF)
+    out.write(new SciDataFrame(jdbcDF))
   }
   override def setProperties(map: Map[String, Any]): Unit = {
     url = MapUtil.get(map,"url").asInstanceOf[String]

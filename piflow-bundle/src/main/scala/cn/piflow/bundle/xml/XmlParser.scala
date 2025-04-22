@@ -8,7 +8,7 @@ import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.types.StructType
 
 import scala.beans.BeanProperty
-
+import cn.piflow.SciDataFrameImplicits.autoWrapDataFrame
 class XmlParser extends ConfigurableStop {
 
   val authorEmail: String = "xjzhu@cnic.cn"

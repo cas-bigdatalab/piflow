@@ -4,6 +4,7 @@ import cn.piflow._
 import cn.piflow.conf._
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
+import cn.piflow.util.SciDataFrame
 import org.apache.spark.sql.SparkSession
 
 
@@ -32,7 +33,7 @@ class OpenTenBaseRead extends ConfigurableStop  {
       .option("password",password)
       .load()
 
-    out.write(jdbcDF)
+    out.write(new SciDataFrame(jdbcDF))
 
   }
 

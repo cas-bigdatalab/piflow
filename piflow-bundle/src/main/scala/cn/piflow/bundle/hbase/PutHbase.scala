@@ -47,7 +47,7 @@ class PutHbase extends ConfigurableStop{
   var columnFamily: String = _
 
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
-    val df = in.read()
+    val df = in.read().getSparkDf
 
     val hbaseConf = HBaseConfiguration.create()
     hbaseConf.set("hbase.zookeeper.quorum",zookeeperQuorum)  //设置zooKeeper集群地址，也可以通过将hbase-site.xml导入classpath，但是建议在程序里这样设置

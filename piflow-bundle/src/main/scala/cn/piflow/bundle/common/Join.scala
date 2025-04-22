@@ -3,6 +3,7 @@ package cn.piflow.bundle.common
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import cn.piflow.conf.{ConfigurableStop, Port, StopGroup}
+import cn.piflow.util.SciDataFrame
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.apache.spark.sql.{Column, DataFrame}
 
@@ -17,8 +18,8 @@ class Join extends ConfigurableStop{
 
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
 
-    val leftDF =  in.read(Port.LeftPort)
-    val rightDF = in.read(Port.RightPort)
+    val leftDF =  in.read(Port.LeftPort).getSparkDf
+    val rightDF = in.read(Port.RightPort).getSparkDf
 
     var seq: Seq[String]= Seq()
     correlationColumn.split(",").foreach(x=>{
@@ -32,7 +33,7 @@ class Join extends ConfigurableStop{
       case "right" => df = leftDF.join(rightDF,seq,"right_outer")
       case "full_outer" => df = leftDF.join(rightDF,seq,"outer")
     }
-    out.write(df)
+    out.write(new SciDataFrame(df))
   }
 
   override def setProperties(map: Map[String, Any]): Unit = {

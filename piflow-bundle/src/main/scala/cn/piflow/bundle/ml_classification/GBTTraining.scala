@@ -6,7 +6,7 @@ import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import org.apache.spark.ml.classification.GBTClassifier
 import org.apache.spark.sql.SparkSession
-
+import cn.piflow.SciDataFrameImplicits.autoWrapDataFrame
 class GBTTraining extends ConfigurableStop{
   val authorEmail: String = "06whuxx@163.com"
   val description: String = "Train a GBT Model"

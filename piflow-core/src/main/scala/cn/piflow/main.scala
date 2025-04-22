@@ -5,6 +5,7 @@ import java.net.URI
 import java.util.concurrent.{CountDownLatch, TimeUnit}
 
 import cn.piflow.util._
+import cn.piflow.util.SciDataFrame
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.FileSystem
 import org.apache.spark.sql._
@@ -17,11 +18,11 @@ import org.apache.spark.sql.functions.{col, max}
 trait JobInputStream {
   def isEmpty(): Boolean;
 
-  def read(): DataFrame;
+  def read(): SciDataFrame;
 
   def ports(): Seq[String];
 
-  def read(inport: String): DataFrame;
+  def read(inport: String): SciDataFrame;
 
   def readProperties() : MMap[String, String];
 
@@ -33,9 +34,9 @@ trait JobOutputStream {
 
   def loadCheckPoint(pec: JobContext, path : String) : Unit;
 
-  def write(data: DataFrame);
+  def write(data: SciDataFrame);
 
-  def write(bundle: String, data: DataFrame);
+  def write(bundle: String, data: SciDataFrame);
 
   def writeProperties(properties : MMap[String, String]);
 
@@ -426,7 +427,7 @@ trait GroupContext extends Context {
 
 class JobInputStreamImpl() extends JobInputStream {
   //only returns DataFrame on calling read()
-  val inputs = MMap[String, () => DataFrame]();
+  val inputs = MMap[String, () => SciDataFrame]();
   val inputsProperties = MMap[String, () => MMap[String, String]]()
 
   override def isEmpty(): Boolean = inputs.isEmpty;
@@ -444,14 +445,14 @@ class JobInputStreamImpl() extends JobInputStream {
     inputs.keySet.toSeq;
   }
 
-  override def read(): DataFrame = {
+  override def read(): SciDataFrame = {
     if (inputs.isEmpty)
       throw new NoInputAvailableException();
 
     read(inputs.head._1);
   };
 
-  override def read(inport: String): DataFrame = {
+  override def read(inport: String): SciDataFrame = {
     inputs(inport)();
   }
 
@@ -480,10 +481,10 @@ class JobOutputStreamImpl() extends JobOutputStream with Logging {
       //val path = getCheckPointPath(pec)
       logger.debug(s"writing data on checkpoint: $path");
 
-      en._2.apply().write.parquet(path);
+      en._2.apply().getSparkDf.write.parquet(path);
       mapDataFrame(en._1) = () => {
         logger.debug(s"loading data from checkpoint: $path");
-        pec.get[SparkSession].read.parquet(path)//default port?
+        new SciDataFrame(pec.get[SparkSession].read.parquet(path))//default port?
       };
     })
   }
@@ -498,7 +499,7 @@ class JobOutputStreamImpl() extends JobOutputStream with Logging {
         val checkpointPortPath = checkpointPath + "/" + port
         logger.debug(s"loading data from checkpoint: $checkpointPortPath")
         println(s"loading data from checkpoint: $checkpointPortPath")
-        pec.get[SparkSession].read.parquet(checkpointPortPath)
+        new SciDataFrame(pec.get[SparkSession].read.parquet(checkpointPortPath))
       };
 
       val newPort = if(port.equals(defaultPort)) "" else port
@@ -533,15 +534,15 @@ class JobOutputStreamImpl() extends JobOutputStream with Logging {
     HdfsUtil.getFiles(checkpointPath)
   }
 
-  val mapDataFrame = MMap[String, () => DataFrame]();
+  val mapDataFrame = MMap[String, () => SciDataFrame]();
 
   val mapDataFrameProperties = MMap[String, () => MMap[String, String]]();
 
-  override def write(data: DataFrame): Unit = write("", data);
+  override def write(data: SciDataFrame): Unit = write("", data);
 
   override def sendError(): Unit = ???
 
-  override def write(outport: String, data: DataFrame): Unit = {
+  override def write(outport: String, data: SciDataFrame): Unit = {
     mapDataFrame(outport) = () => data;
   }
 
@@ -568,7 +569,7 @@ class JobOutputStreamImpl() extends JobOutputStream with Logging {
       val portSchemaPath = debugPath + "/" + portName + "_schema"
       //println(portDataPath)
       //println(en._2.apply().schema)
-      val jsonDF = en._2.apply().na.fill("")
+      val jsonDF = en._2.apply().getSparkDf.na.fill("")
       var schemaStr = ""
       val schema = jsonDF.schema.foreach(f => {
         schemaStr =  schemaStr + "," + f.name
@@ -587,7 +588,7 @@ class JobOutputStreamImpl() extends JobOutputStream with Logging {
       val portName = if(en._1.equals("")) "default" else en._1
       val portDataPath = visualizationPath + "/data"
       val portSchemaPath = visualizationPath + "/schema"
-      val jsonDF = en._2.apply().na.fill("")
+      val jsonDF = en._2.apply().getSparkDf.na.fill("")
       var schemaStr = ""
       val schema = jsonDF.schema.foreach(f => {
         schemaStr =  schemaStr + "," + f.name
@@ -607,7 +608,7 @@ class JobOutputStreamImpl() extends JobOutputStream with Logging {
     mapDataFrame.foreach(en => {
       val portName = if(en._1.equals("")) "default" else en._1
       result
-      result(portName) = en._2.apply.count()
+      result(portName) = en._2.apply.getSparkDf.count()
     })
     result
   }
@@ -621,8 +622,8 @@ class JobOutputStreamImpl() extends JobOutputStream with Logging {
 
     var incrementalValue : String = ""
     mapDataFrame.foreach(en => {
-      if(!en._2.apply().head(1).isEmpty){
-        val Row(maxValue : Any) = en._2.apply().agg(max(incrementalField)).head()
+      if(!en._2.apply().getSparkDf.head(1).isEmpty){
+        val Row(maxValue : Any) = en._2.apply().getSparkDf.agg(max(incrementalField)).head()
         incrementalValue = maxValue.toString
       }
     })
@@ -704,7 +705,7 @@ class ProcessImpl(flow: Flow, runnerContext: Context, runner: Runner, parentProc
               df.show(showDataCount)
             }
             val streamingData = new JobOutputStreamImpl()
-            streamingData.write(df)
+            streamingData.write(new SciDataFrame(df))
 
             analyzed.visitStreaming[JobOutputStreamImpl](flow, streamingStopName, streamingData, performStreamingStop)
           }

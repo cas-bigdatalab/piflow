@@ -19,7 +19,7 @@ class DamengWrite extends ConfigurableStop{
   var saveMode:String = _
 
   def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
-   val jdbcDF = in.read()
+   val jdbcDF = in.read().getSparkDf
 
     jdbcDF.write.format("jdbc")
       .option("url", url)

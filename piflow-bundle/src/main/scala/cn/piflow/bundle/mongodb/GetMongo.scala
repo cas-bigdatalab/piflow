@@ -14,7 +14,7 @@ import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 import org.bson.Document
 
 import scala.collection.mutable.ArrayBuffer
-
+import cn.piflow.SciDataFrameImplicits.autoWrapDataFrame
 
 class GetMongo extends ConfigurableStop{
   override val authorEmail: String = "yangqidong@cnic.cn"

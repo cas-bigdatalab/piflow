@@ -4,6 +4,7 @@ import cn.piflow._
 import cn.piflow.conf._
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
+import cn.piflow.util.SciDataFrame
 import org.apache.spark.sql.SparkSession
 
 import scala.beans.BeanProperty
@@ -25,7 +26,7 @@ class SelectHiveQL extends ConfigurableStop {
     import spark.sql
     val df = sql(hiveQL)
 
-    out.write(df)
+    out.write(new SciDataFrame(df))
   }
 
   def initialize(ctx: ProcessContext): Unit = {

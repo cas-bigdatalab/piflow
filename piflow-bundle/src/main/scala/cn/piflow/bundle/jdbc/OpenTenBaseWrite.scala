@@ -4,6 +4,7 @@ import cn.piflow._
 import cn.piflow.conf._
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
+import cn.piflow.util.SciDataFrame
 import org.apache.spark.sql.{SaveMode, SparkSession}
 
 import java.util.Properties
@@ -24,7 +25,7 @@ class OpenTenBaseWrite extends ConfigurableStop{
 
   def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     val spark = pec.get[SparkSession]()
-    val jdbcDF = in.read()
+    val jdbcDF = in.read().getSparkDf
     val properties = new Properties()
     properties.put("user", user)
     properties.put("password", password)
@@ -32,7 +33,7 @@ class OpenTenBaseWrite extends ConfigurableStop{
 
     jdbcDF.write
       .mode(SaveMode.valueOf(saveMode)).jdbc(url,dbtable,properties)
-    out.write(jdbcDF)
+    out.write(new SciDataFrame(jdbcDF))
   }
 
   def initialize(ctx: ProcessContext): Unit = {

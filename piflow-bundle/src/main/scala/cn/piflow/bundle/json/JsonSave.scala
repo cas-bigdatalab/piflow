@@ -19,7 +19,7 @@ class JsonSave extends ConfigurableStop{
 
   def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
 
-    val jsonDF = in.read()
+    val jsonDF = in.read().getSparkDf
     jsonDF.write.format("json").mode(SaveMode.Overwrite).save(jsonSavePath)
   }
 

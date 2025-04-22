@@ -1,10 +1,10 @@
 package cn.piflow.bundle.common
 
 import java.util.UUID
-
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import cn.piflow.conf.{ConfigurableStop, Port, StopGroup}
+import cn.piflow.util.SciDataFrame
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
@@ -19,14 +19,14 @@ class AddUUIDStop extends ConfigurableStop{
 
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     val spark =  pec.get[SparkSession]()
-    var df = in.read()
+    var df = in.read().getSparkDf
 
     spark.udf.register("generateUUID",()=>UUID.randomUUID().toString.replace("-",""))
 
     df.createOrReplaceTempView("temp")
     df = spark.sql(s"select generateUUID() as ${column},* from temp")
 
-    out.write(df)
+    out.write(new SciDataFrame(df))
 
   }
 

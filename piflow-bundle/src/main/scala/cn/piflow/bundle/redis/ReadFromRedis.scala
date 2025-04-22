@@ -2,12 +2,12 @@ package cn.piflow.bundle.redis
 
 
 import java.util
-
 import cn.piflow.bundle.util.{JedisClusterImplSer, RedisUtil}
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import cn.piflow.conf._
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
+import cn.piflow.util.SciDataFrame
 import org.apache.avro.generic.GenericData.StringType
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.types.{DataType, StructField, StructType}
@@ -33,7 +33,7 @@ class ReadFromRedis extends ConfigurableStop{
   def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     val spark = pec.get[SparkSession]()
 
-    var dfIn=in.read()
+    var dfIn=in.read().getSparkDf
     var colName=column_name
 
     //connect to redis
@@ -57,7 +57,7 @@ class ReadFromRedis extends ConfigurableStop{
       Row.fromSeq(row.toArray.toSeq)
     })
     val df=spark.createDataFrame(newRDD,dfSchema)
-    out.write(df)
+    out.write(new SciDataFrame(df))
   }
 
   def initialize(ctx: ProcessContext): Unit = {

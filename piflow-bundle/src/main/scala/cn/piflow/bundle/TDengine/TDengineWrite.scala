@@ -29,7 +29,7 @@ class TDengineWrite extends ConfigurableStop{
     properties.put("user", user)
     properties.put("password", password)
     properties.put("driver",driver)
-    val df = in.read()
+    val df = in.read().getSparkDf
     df.write.mode(SaveMode.Append).jdbc(url,dbtable,properties)
 
   }

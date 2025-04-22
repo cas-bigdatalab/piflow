@@ -8,7 +8,7 @@ import cn.piflow.conf.util.{ImageUtil, MapUtil}
 
 import org.apache.spark.deploy.PythonRunner
 import org.apache.spark.sql.SparkSession
-
+import cn.piflow.SciDataFrameImplicits.autoWrapDataFrame
 class PythonRun extends ConfigurableStop{
   override val authorEmail: String = ""
   override val description: String = ""
@@ -60,7 +60,7 @@ class PythonRun extends ConfigurableStop{
     val inputPath = "/piflow/python/" + ID + "/inport/default/"
     var outputPath = "/piflow/python/" + ID + "/outport/default/"
 
-    val dataFrame = in.read()
+    val dataFrame = in.read().getSparkDf
     dataFrame.write.format("csv").mode("overwrite").option("set","\t").save(inputPath)
 
     PythonRunner.main(Array(pyPath, pyFileshelp, "-i " + inputPath, "-o " + outputPath))

@@ -13,7 +13,7 @@ import org.apache.spark.sql.types.{StringType, StructField, StructType}
 import org.apache.spark.sql.{Row, SparkSession}
 
 import scala.collection.JavaConversions._
-
+import cn.piflow.SciDataFrameImplicits.autoWrapDataFrame
 /**
   * Created by xjzhu@cnic.cn on 2/24/20
   */
@@ -64,7 +64,7 @@ class ExecutePythonWithDataFrame extends ConfigurableStop{
 
     val spark = pec.get[SparkSession]()
 
-    val df = in.read()
+    val df = in.read().getSparkDf
 
     val jep = new Jep()
     val scriptPath = "/tmp/pythonExcutor-"+ UUID.randomUUID() +".py"

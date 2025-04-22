@@ -42,10 +42,10 @@ class ExecuteScala extends ConfigurableStop{
     val script = new PropertyDescriptor()
       .name("script")
       .displayName("script")
-      .description("The code of scala. \nUse in.read() to get dataframe from upstream component. \nUse out.write() to write datafram to downstream component.")
+      .description("The code of scala. \nUse in.read().getSparkDf to get dataframe from upstream component. \nUse out.write() to write datafram to downstream component.")
       .defaultValue("")
       .required(true)
-      .example("val df = in.read() \nval df1 = df.select(\"author\").filter($\"author\".like(\"%xjzhu%\")) \ndf1.show() \ndf.createOrReplaceTempView(\"person\") \nval df2 = spark.sql(\"select * from person where author like '%xjzhu%'\") \ndf2.show() \nout.write(df2)")
+      .example("val df = in.read().getSparkDf \nval df1 = df.select(\"author\").filter($\"author\".like(\"%xjzhu%\")) \ndf1.show() \ndf.createOrReplaceTempView(\"person\") \nval df2 = spark.sql(\"select * from person where author like '%xjzhu%'\") \ndf2.show() \nout.write(df2)")
       .language(Language.Scala)
 
     descriptor = script :: descriptor

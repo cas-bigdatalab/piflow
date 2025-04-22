@@ -1,10 +1,10 @@
 package cn.piflow.bundle.hdfs
 
 import java.util.regex.Pattern
-
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import cn.piflow.conf.{ConfigurableStop, Port, StopGroup}
+import cn.piflow.util.SciDataFrame
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileStatus, FileSystem, Path}
@@ -69,7 +69,7 @@ class SelectFilesByName extends ConfigurableStop{
     val df: DataFrame = session.createDataFrame(rowRDD,schema)
     df.collect().foreach(println)
 
-    out.write(df)
+    out.write(new SciDataFrame(df))
   }
 
   override def setProperties(map: Map[String, Any]): Unit = {

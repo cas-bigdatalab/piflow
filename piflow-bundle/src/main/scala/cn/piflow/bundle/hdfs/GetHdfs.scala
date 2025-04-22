@@ -4,6 +4,7 @@ import cn.piflow._
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import cn.piflow.conf.{ConfigurableStop, Port, StopGroup}
+import cn.piflow.util.SciDataFrame
 import org.apache.spark.sql.SparkSession
 
 
@@ -27,28 +28,28 @@ class GetHdfs extends ConfigurableStop{
       if (types == "json") {
         val df = spark.read.json(path)
         df.schema.printTreeString()
-        out.write(df)
+        out.write(new SciDataFrame(df))
 
       } else if (types == "csv") {
         val df = spark.read.csv(path)
         df.schema.printTreeString()
-        out.write(df)
+        out.write(new SciDataFrame(df))
 
       }else if (types == "parquet") {
         val df = spark.read.csv(path)
         df.schema.printTreeString()
-        out.write(df)
+        out.write(new SciDataFrame(df))
 
       }else if (types == "orc"){
         val df = spark.read.orc(path)
         df.schema.printTreeString()
-        out.write(df)
+        out.write(new SciDataFrame(df))
       }
       else {
         val rdd = sc.textFile(path)
         val outDf = rdd.toDF()
         outDf.schema.printTreeString()
-        out.write(outDf)
+        out.write(new SciDataFrame(outDf))
 
     }
   }

@@ -19,7 +19,7 @@ class ExcelWriteMultipleSheets extends ConfigurableStop{
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
 
     inports.foreach(x=>{
-      val df = in.read(x)
+      val df = in.read(x).getSparkDf
       df.write
         .format("com.crealytics.spark.excel")
         .option("dataAddress",s"'${x}'!A1")

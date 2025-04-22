@@ -12,7 +12,7 @@ import org.apache.spark.sql.{DataFrame, SparkSession}
 
 import scala.collection.mutable.ArrayBuffer
 import scala.util.control.Breaks._
-
+import cn.piflow.SciDataFrameImplicits.autoWrapDataFrame
 /**
   * Created by admin on 2018/8/27.
   */

@@ -7,6 +7,7 @@ import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import cn.piflow.lib._
 import cn.piflow.lib.io.{FileFormat, TextFile}
+import cn.piflow.util.SciDataFrame
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
 class ExecuteSQLStop extends ConfigurableStop{
@@ -23,11 +24,11 @@ class ExecuteSQLStop extends ConfigurableStop{
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
 
     val spark = pec.get[SparkSession]()
-    val inDF = in.read()
+    val inDF = in.read().getSparkDf
     inDF.createOrReplaceTempView(ViewName)
 
     val frame: DataFrame = spark.sql(sql)
-    out.write(frame)
+    out.write(new SciDataFrame(frame))
   }
 
 

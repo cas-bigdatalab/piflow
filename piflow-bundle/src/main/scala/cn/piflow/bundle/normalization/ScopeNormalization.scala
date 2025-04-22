@@ -6,7 +6,7 @@ import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.{DataFrame, SparkSession}
-
+import cn.piflow.SciDataFrameImplicits.autoWrapDataFrame
 class ScopeNormalization extends ConfigurableStop {
 
   // 组件的作者信息
@@ -31,7 +31,7 @@ class ScopeNormalization extends ConfigurableStop {
     val spark = pec.get[SparkSession]()
 
     // 读取输入数据
-    val dfOld = in.read()
+    val dfOld = in.read().getSparkDf
 
     // 使用范围映射公式进行数据处理
     val dfNew = mapToRange(dfOld, inputCol, outputCol, range)

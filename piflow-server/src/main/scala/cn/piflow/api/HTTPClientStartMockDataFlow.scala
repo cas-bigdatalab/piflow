@@ -70,12 +70,6 @@ object HTTPClientStartMockDataFlow {
         |                "from": "CsvParser",
         |                "to": "CsvSave",
         |                "outport": ""
-        |            },
-        |            {
-        |                "inport": "",
-        |                "from": "CsvParser",
-        |                "to": "CsvSave",
-        |                "outport": ""
         |            }
         |        ],
         |        "executorCores": "1",
@@ -86,7 +80,7 @@ object HTTPClientStartMockDataFlow {
         |                "bundle": "cn.piflow.bundle.csv.CsvSave",
         |                "uuid": "8a80d63f720cdd2301723a4e67a52467",
         |                "properties": {
-        |                    "csvSavePath": "hdfs://172.18.32.1:9000/user/Yomi/test1.csv",
+        |                    "csvSavePath": "hdfs://172.18.39.41:9000/user/Yomi/test1.csv",
         |                    "partition": "",
         |                    "header": "false",
         |                    "saveMode": "append",
@@ -102,7 +96,56 @@ object HTTPClientStartMockDataFlow {
         |                "uuid": "8a80d63f720cdd2301723a4e67a82470",
         |                "properties": {
         |                    "schema": "title,author,pages",
-        |                    "csvPath": "hdfs://172.18.32.1:9000/user/Yomi/test.csv",
+        |                    "csvPath": "hdfs://172.18.39.41:9000/user/Yomi/test.csv",
+        |                    "delimiter": ",",
+        |                    "header": "false"
+        |                },
+        |                "customizedProperties": {
+        |
+        |                }
+        |            }
+        |        ]
+        |    }
+        |}
+        |
+        |""".stripMargin
+    val json3=
+      """
+        |{
+        |    "flow": {
+        |        "name": "Example",
+        |        "executorMemory": "1g",
+        |        "executorNumber": "1",
+        |        "uuid": "8a80d63f720cdd2301723a4e679e2457",
+        |        "paths": [
+        |            {
+        |                "inport": "",
+        |                "from": "CsvParser",
+        |                "to": "ArrowFlightOut",
+        |                "outport": ""
+        |            }
+        |        ],
+        |        "executorCores": "1",
+        |        "driverMemory": "1g",
+        |        "stops": [
+        |            {
+        |                "name": "ArrowFlightOut",
+        |                "bundle": "cn.piflow.bundle.arrowflight.ArrowFlightOut",
+        |                "uuid": "8a80d63f720cdd2301723a4e67a52467",
+        |                "properties": {
+        |                    "outputIp": "127.0.0.1",
+        |                },
+        |                "customizedProperties": {
+        |
+        |                }
+        |            },
+        |            {
+        |                "name": "CsvParser",
+        |                "bundle": "cn.piflow.bundle.csv.CsvParser",
+        |                "uuid": "8a80d63f720cdd2301723a4e67a82470",
+        |                "properties": {
+        |                    "schema": "title,author,pages",
+        |                    "csvPath": "hdfs://172.18.39.41:9000/user/Yomi/test.csv",
         |                    "delimiter": ",",
         |                    "header": "false"
         |                },
@@ -126,7 +169,7 @@ object HTTPClientStartMockDataFlow {
 
     val post:HttpPost = new HttpPost(url)
     post.addHeader("Content-Type", "application/json")
-    post.setEntity(new StringEntity(json_2))
+    post.setEntity(new StringEntity(json3))
 
 
     val response:CloseableHttpResponse = client.execute(post)

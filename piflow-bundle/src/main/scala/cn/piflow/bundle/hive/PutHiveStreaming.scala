@@ -20,7 +20,7 @@ class PutHiveStreaming extends ConfigurableStop {
 
   def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     val spark = pec.get[SparkSession]()
-    val inDF = in.read()
+    val inDF = in.read().getSparkDf
 
     val dfTempTable = table + "_temp"
     inDF.createOrReplaceTempView(dfTempTable)

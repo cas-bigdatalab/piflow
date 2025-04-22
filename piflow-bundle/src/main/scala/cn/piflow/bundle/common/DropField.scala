@@ -4,6 +4,7 @@ import cn.piflow._
 import cn.piflow.conf._
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
+import cn.piflow.util.SciDataFrame
 
 
 class DropField extends ConfigurableStop {
@@ -16,14 +17,14 @@ class DropField extends ConfigurableStop {
   var columnNames:String = _
 
   def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
-    var df = in.read()
+    var df = in.read().getSparkDf
 
     val field = columnNames.split(",").map(x => x.trim)
     for( x <- 0 until field.size){
       df = df.drop(field(x))
     }
 
-    out.write(df)
+    out.write(new SciDataFrame(df))
   }
 
   def initialize(ctx: ProcessContext): Unit = {

@@ -4,6 +4,7 @@ import cn.piflow._
 import cn.piflow.conf._
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
+import cn.piflow.util.SciDataFrame
 import org.apache.spark.sql.{Column, DataFrame}
 
 import scala.beans.BeanProperty
@@ -19,7 +20,7 @@ class SelectField extends ConfigurableStop {
   var columnNames:String = _
 
   def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
-    val df = in.read()
+    val df = in.read().getSparkDf
 
     val field = columnNames.split(",").map(x => x.trim)
     val columnArray : Array[Column] = new Array[Column](field.size)
@@ -28,7 +29,7 @@ class SelectField extends ConfigurableStop {
     }
 
     var finalFieldDF : DataFrame = df.select(columnArray:_*)
-    out.write(finalFieldDF)
+    out.write(new SciDataFrame(finalFieldDF))
   }
 
   def initialize(ctx: ProcessContext): Unit = {

@@ -4,6 +4,7 @@ import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import cn.piflow.conf.{ConfigurableStop, Port, StopGroup}
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
+import cn.piflow.util.SciDataFrame
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
@@ -45,7 +46,7 @@ class CsvStringParser extends ConfigurableStop{
     val fields: Array[StructField] = schema.split(",").map(d=>StructField(d.trim,StringType,nullable = true))
     val NewSchema: StructType = StructType(fields)
     Fdf = session.createDataFrame(rowRDD,NewSchema)
-    out.write(Fdf)
+    out.write(new SciDataFrame(Fdf))
   }
 
 

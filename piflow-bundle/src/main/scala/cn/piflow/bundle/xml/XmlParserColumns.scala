@@ -5,9 +5,10 @@ import cn.piflow.bundle.util.XmlToJson
 import cn.piflow.conf._
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
+import cn.piflow.util.SciDataFrame
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.{DataFrame, SparkSession}
-
+import cn.piflow.SciDataFrameImplicits.autoWrapDataFrame
 
 class XmlParserColumns extends ConfigurableStop {
 
@@ -22,7 +23,7 @@ class XmlParserColumns extends ConfigurableStop {
 
     val spark = pec.get[SparkSession]()
 
-    val df = in.read()
+    val df = in.read().getSparkDf
 
     spark.sqlContext.udf.register("xmlToJson",(str:String)=>{
       XmlToJson.xmlParse(str.replaceAll("\n","\t"))
@@ -50,7 +51,7 @@ class XmlParserColumns extends ConfigurableStop {
     val outDF: DataFrame = spark.read.json(rdd)
     outDF.printSchema()
 
-    out.write(outDF)
+    out.write(new SciDataFrame(outDF))
 
   }
 

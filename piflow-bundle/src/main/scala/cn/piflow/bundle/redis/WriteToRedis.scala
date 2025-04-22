@@ -23,7 +23,7 @@ class WriteToRedis extends ConfigurableStop{
 
   def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     val spark = pec.get[SparkSession]()
-    val df = in.read()
+    val df = in.read().getSparkDf
     var col_name:String=column_name
     df.printSchema()
 

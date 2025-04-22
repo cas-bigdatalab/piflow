@@ -23,7 +23,7 @@ class PutHdfs extends ConfigurableStop{
 
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     val spark = pec.get[SparkSession]()
-    val inDF = in.read()
+    val inDF = in.read().getSparkDf
 
     val config = new Configuration()
     config.set("fs.defaultFS",hdfsUrl)

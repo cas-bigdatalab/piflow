@@ -5,7 +5,7 @@ import cn.piflow.conf.{ConfigurableStop, Port, StopGroup}
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import org.apache.spark.sql.SparkSession
-
+import cn.piflow.SciDataFrameImplicits.autoWrapDataFrame
 class JsonStringParser extends ConfigurableStop{
   val authorEmail: String = "xjzhu@cnic.cn"
   val description: String = "Parse json string"

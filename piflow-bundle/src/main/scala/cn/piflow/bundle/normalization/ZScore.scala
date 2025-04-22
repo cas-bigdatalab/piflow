@@ -6,7 +6,7 @@ import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.sql.functions._
-
+import cn.piflow.SciDataFrameImplicits.autoWrapDataFrame
 class ZScore extends ConfigurableStop {
 
   // 作者邮箱
@@ -25,7 +25,7 @@ class ZScore extends ConfigurableStop {
 
   def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     val spark = pec.get[SparkSession]()
-    val df = in.read()
+    val df = in.read().getSparkDf
 
     // 将逗号分隔的输入和输出列名称拆分为列表
     val inputColList = inputCols.split(",").map(_.trim)

@@ -39,7 +39,7 @@ class CustomView extends ConfigurableVisualizationStop  {
     val hdfs = PropertyUtil.getVisualDataDirectoryPath()
     val appID = spark.sparkContext.applicationId
 
-    val df = in.read()
+    val df = in.read().getSparkDf
     val filePath= hdfs + appID + "/" + pec.getStopJob().getStopName()
     df.repartition(1).write
       .format("csv")

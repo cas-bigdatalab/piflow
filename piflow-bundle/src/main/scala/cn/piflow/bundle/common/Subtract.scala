@@ -3,6 +3,7 @@ package cn.piflow.bundle.common
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.ImageUtil
 import cn.piflow.conf.{ConfigurableStop, Port, StopGroup}
+import cn.piflow.util.SciDataFrame
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.apache.spark.api.java.JavaRDD
 import org.apache.spark.sql.types.StructType
@@ -38,11 +39,11 @@ class Subtract extends ConfigurableStop{
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     val spark = pec.get[SparkSession]()
 
-    val leftDF =  in.read(Port.LeftPort)
-    val rightDF = in.read(Port.RightPort)
+    val leftDF =  in.read(Port.LeftPort).getSparkDf
+    val rightDF = in.read(Port.RightPort).getSparkDf
 
     val outDF = leftDF.except(rightDF)
 
-    out.write(outDF)
+    out.write(new SciDataFrame(outDF))
   }
 }

@@ -3,6 +3,7 @@ package cn.piflow.bundle.elasticsearch
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import cn.piflow.conf.{ConfigurableStop, Port, StopGroup}
+import cn.piflow.util.SciDataFrame
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.apache.spark.sql.SparkSession
 
@@ -26,7 +27,7 @@ class ReadElasticsearch extends ConfigurableStop {
       .option("es.port", es_port)
       .load(s"${es_index}/${es_type}")
 
-    out.write(esDF)
+    out.write(new SciDataFrame(esDF))
   }
 
   def initialize(ctx: ProcessContext): Unit = {

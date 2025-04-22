@@ -4,6 +4,7 @@ import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import cn.piflow.conf.{ConfigurableStop, Port, StopGroup}
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
+import cn.piflow.util.SciDataFrame
 import org.apache.hadoop.hbase.mapreduce.TableInputFormat
 import org.apache.hadoop.hbase.util.Bytes
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
@@ -97,7 +98,7 @@ class ReadHbase extends ConfigurableStop{
     })
     val df=spark.createDataFrame(kv,dfSchema)
 
-    out.write(df)
+    out.write(new SciDataFrame(df))
 
   }
   override def setProperties(map: Map[String, Any]): Unit = {

@@ -4,10 +4,10 @@ import java.io.{BufferedOutputStream, File, FileOutputStream, InputStream}
 import java.net.URL
 import java.text.SimpleDateFormat
 import java.util.Date
-
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import cn.piflow.conf.{ConfigurableStop, Port, StopGroup}
+import cn.piflow.util.SciDataFrame
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
@@ -92,7 +92,7 @@ class spider extends ConfigurableStop{
     val schema: StructType = StructType(fields)
     val df: DataFrame = session.createDataFrame(rowRDD,schema)
 
-    out.write(df)
+    out.write(new SciDataFrame(df))
   }
 
 

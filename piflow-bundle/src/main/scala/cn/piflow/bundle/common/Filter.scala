@@ -4,6 +4,7 @@ import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import cn.piflow.conf.{ConfigurableStop, Port, StopGroup}
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
+import cn.piflow.util.SciDataFrame
 import org.apache.spark.sql.{Column, DataFrame}
 
 class Filter extends ConfigurableStop{
@@ -45,10 +46,10 @@ class Filter extends ConfigurableStop{
 
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
 
-    val df = in.read()
+    val df = in.read().getSparkDf
 
     var filterDF : DataFrame = df.filter(condition)
 
-    out.write(filterDF)
+    out.write(new SciDataFrame(filterDF))
   }
 }

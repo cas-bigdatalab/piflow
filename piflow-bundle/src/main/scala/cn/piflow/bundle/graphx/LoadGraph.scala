@@ -6,6 +6,7 @@ import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.graphx.{GraphLoader, PartitionStrategy}
+import cn.piflow.SciDataFrameImplicits.autoWrapDataFrame
 class LoadGraph extends ConfigurableStop {
 
   val authorEmail: String = "06whuxx@163.com"

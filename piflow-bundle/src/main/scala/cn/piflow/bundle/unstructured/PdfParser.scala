@@ -3,13 +3,13 @@ package cn.piflow.bundle.unstructured
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil, ProcessUtil}
 import cn.piflow.conf.{ConfigurableStop, Port}
-import cn.piflow.util.UnstructuredUtils
+import cn.piflow.util.{SciDataFrame, UnstructuredUtils}
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import com.alibaba.fastjson2.{JSON, JSONArray}
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
 import scala.collection.mutable.ArrayBuffer
-
+import cn.piflow.SciDataFrameImplicits.autoWrapDataFrame
 class PdfParser extends ConfigurableStop {
   val authorEmail: String = "tianyao@cnic.cn"
   val description: String = "parse pdf to structured data."
@@ -97,7 +97,7 @@ class PdfParser extends ConfigurableStop {
       } else {
         val df = spark.read.json(Seq(output).toDS())
         df.show(10)
-        out.write(df)
+        out.write(new SciDataFrame(df))
       }
     } else {
       println(s"########## Exception: $error")

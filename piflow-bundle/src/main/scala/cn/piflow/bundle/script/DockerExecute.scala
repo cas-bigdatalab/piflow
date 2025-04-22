@@ -7,7 +7,7 @@ import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import cn.piflow.util.PropertyUtil
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.apache.spark.sql.{SaveMode, SparkSession}
-
+import cn.piflow.SciDataFrameImplicits.autoWrapDataFrame
 
 class DockerExecute extends ConfigurableStop {
 
@@ -63,7 +63,7 @@ class DockerExecute extends ConfigurableStop {
         //        in.read(x).write.format("csv").mode("overwrite")
         //          .option("delimiter", "\t")
         //          .option("header", true).save(hdfsSavePath)
-        in.read(x).write
+        in.read(x).getSparkDf.write
           .mode("overwrite") // 指定写入模式，这里是覆盖已存在的文件
           .parquet(hdfsSavePath)
       })

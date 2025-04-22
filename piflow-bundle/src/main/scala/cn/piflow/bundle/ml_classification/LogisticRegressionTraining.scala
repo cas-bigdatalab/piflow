@@ -6,7 +6,7 @@ import cn.piflow.conf.{ConfigurableStop, Port, StopGroup}
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.ml.classification.LogisticRegression
-
+import cn.piflow.SciDataFrameImplicits.autoWrapDataFrame
 class LogisticRegressionTraining extends ConfigurableStop{
   val authorEmail: String = "06whuxx@163.com"
   val description: String = "Train a logistic regression model"

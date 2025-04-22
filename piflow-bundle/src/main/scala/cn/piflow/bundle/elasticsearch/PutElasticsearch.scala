@@ -20,7 +20,7 @@ class PutElasticsearch extends ConfigurableStop {
   var saveMode : String = _
 
   def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
-    val inDfES = in.read()
+    val inDfES = in.read().getSparkDf
 
     inDfES.write.format("org.elasticsearch.spark.sql")
       .option("es.nodes", es_nodes)

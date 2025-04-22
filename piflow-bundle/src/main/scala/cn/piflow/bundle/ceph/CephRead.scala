@@ -4,6 +4,7 @@ import cn.piflow._
 import cn.piflow.conf._
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
+import cn.piflow.util.SciDataFrame
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
 class CephRead extends ConfigurableStop  {
@@ -50,7 +51,7 @@ class CephRead extends ConfigurableStop  {
         .json(path)
     }
 
-    out.write(df)
+    out.write(new SciDataFrame(df))
   }
 
   def initialize(ctx: ProcessContext): Unit = {

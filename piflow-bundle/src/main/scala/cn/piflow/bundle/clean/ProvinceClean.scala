@@ -4,6 +4,7 @@ import cn.piflow.bundle.util.CleanUtil
 import cn.piflow.conf._
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
+import cn.piflow.util.SciDataFrame
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.apache.spark.sql.SparkSession
 
@@ -18,7 +19,7 @@ class ProvinceClean extends ConfigurableStop{
   def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     val spark = pec.get[SparkSession]()
     val sqlContext=spark.sqlContext
-    val dfOld = in.read()
+    val dfOld = in.read().getSparkDf
     dfOld.createOrReplaceTempView("thesis")
     sqlContext.udf.register("regexPro",(str:String)=>CleanUtil.processProvince(str))
     val structFields: Array[String] = dfOld.schema.fieldNames
@@ -50,7 +51,7 @@ class ProvinceClean extends ConfigurableStop{
     val sqlTextNew:String = "select " + schemaStr.substring(0,schemaStr.length -1) + " from thesis"
     val dfNew1=sqlContext.sql(sqlTextNew)
 
-    out.write(dfNew1)
+    out.write(new SciDataFrame(dfNew1))
   }
 
 
