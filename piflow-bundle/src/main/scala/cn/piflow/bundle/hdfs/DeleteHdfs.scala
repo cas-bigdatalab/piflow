@@ -27,7 +27,7 @@ class DeleteHdfs extends ConfigurableStop{
     val spark = pec.get[SparkSession]()
 
     if (isCustomize.equals("false")){
-      val inDf = in.read()
+      val inDf = in.read().getSparkDf
 
       val configuration: Configuration = new Configuration()
       var pathStr: String =inDf.take(1)(0).get(0).asInstanceOf[String]

@@ -13,7 +13,26 @@ import org.apache.hadoop.mapred.JobConf
 import org.apache.hadoop.mapreduce.Job
 import org.apache.spark.sql.SparkSession
 
-
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ *
+ * Copyright (c) 2022 πFlow. All rights reserved.
+ */
 class PutHbase extends ConfigurableStop{
 
   override val authorEmail: String = "ygang@cnic.cn"
@@ -28,7 +47,7 @@ class PutHbase extends ConfigurableStop{
   var columnFamily: String = _
 
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
-    val df = in.read()
+    val df = in.read().getSparkDf
 
     val hbaseConf = HBaseConfiguration.create()
     hbaseConf.set("hbase.zookeeper.quorum",zookeeperQuorum)  //设置zooKeeper集群地址，也可以通过将hbase-site.xml导入classpath，但是建议在程序里这样设置

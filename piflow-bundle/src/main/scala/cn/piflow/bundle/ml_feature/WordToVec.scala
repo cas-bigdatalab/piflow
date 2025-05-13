@@ -7,7 +7,7 @@ import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import org.apache.spark.ml.feature.Word2Vec
 import org.apache.spark.ml.feature.Word2VecModel
 import org.apache.spark.sql.SparkSession
-
+import cn.piflow.SciDataFrameImplicits.autoWrapDataFrame
 class WordToVec extends ConfigurableStop{
   val authorEmail: String = "06whuxx@163.com"
   val description: String = "Transfer word to vector"
@@ -25,7 +25,7 @@ class WordToVec extends ConfigurableStop{
   def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     val spark = pec.get[SparkSession]()
     val sqlContext=spark.sqlContext
-    val df=in.read()
+    val df=in.read().getSparkDf
     df.createOrReplaceTempView("doc")
     sqlContext.udf.register("split",(str:String)=>str.split(" "))
     val sqlText:String="select split("+colName+") as "+colName+"_new from doc"

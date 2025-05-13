@@ -1,11 +1,10 @@
 import java.io.{File, FileInputStream, FileOutputStream}
 import java.util.Date
 import java.util.concurrent.TimeUnit
-
 import cn.piflow._
 import cn.piflow.lib._
 import cn.piflow.lib.io._
-import cn.piflow.util.ScriptEngine
+import cn.piflow.util.{SciDataFrame, ScriptEngine}
 import org.apache.commons.io.{FileUtils, IOUtils}
 import org.apache.spark.sql.SparkSession
 import org.junit.Test
@@ -369,7 +368,7 @@ class PipedReadTextFile extends Stop {
   def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     val spark = pec.get[SparkSession]();
     val df = spark.read.json("../testdata/honglou.txt");
-    out.write(df);
+    out.write(new SciDataFrame(df));
   }
 
   def initialize(ctx: ProcessContext): Unit = {
@@ -381,13 +380,13 @@ class PipedCountWords extends Stop {
   def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     val spark = pec.get[SparkSession]();
     import spark.implicits._
-    val df = in.read();
+    val df = in.read().getSparkDf;
     val count = df.as[String]
       .map(_.replaceAll("[\\x00-\\xff]|，|。|：|．|“|”|？|！|　", ""))
       .flatMap(s => s.zip(s.drop(1)).map(t => "" + t._1 + t._2))
       .groupBy("value").count.sort($"count".desc);
 
-    out.write(count);
+    out.write(new SciDataFrame(count));
   }
 
   def initialize(ctx: ProcessContext): Unit = {
@@ -401,10 +400,10 @@ class PipedPrintCount extends Stop {
     val spark = pec.get[SparkSession]();
     import spark.implicits._
 
-    val df = in.read();
+    val df = in.read().getSparkDf;
     val count = df.sort($"count".desc);
     count.show(40);
-    out.write(df);
+    out.write(new SciDataFrame(df));
   }
 
   def initialize(ctx: ProcessContext): Unit = {
@@ -416,7 +415,7 @@ class PrintDataFrameStop extends Stop {
   def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     val spark = pec.get[SparkSession]();
 
-    val df = in.read();
+    val df = in.read().getSparkDf;
     df.show(40);
   }
 
@@ -431,7 +430,7 @@ class TestDataGeneratorStop(seq: Seq[String]) extends Stop {
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     val spark = pec.get[SparkSession]();
     import spark.implicits._
-    out.write(seq.toDF());
+    out.write(new SciDataFrame(seq.toDF()));
   }
 }
 
@@ -439,7 +438,7 @@ class ZipStop extends Stop {
   override def initialize(ctx: ProcessContext): Unit = {}
 
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
-    out.write(in.read("data1").union(in.read("data2")));
+    out.write(new SciDataFrame(in.read("data1").getSparkDf.union(in.read("data2").getSparkDf)));
   }
 }
 
@@ -447,10 +446,10 @@ class ForkStop extends Stop {
   override def initialize(ctx: ProcessContext): Unit = {}
 
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
-    val ds = in.read();
+    val ds = in.read().getSparkDf;
     val spark = pec.get[SparkSession]();
     import spark.implicits._
-    out.write("data1", ds.as[String].filter(_.head % 2 == 0).toDF());
-    out.write("data2", ds.as[String].filter(_.head % 2 == 1).toDF());
+    out.write("data1", new SciDataFrame(ds.as[String].filter(_.head % 2 == 0).toDF()));
+    out.write("data2", new SciDataFrame(ds.as[String].filter(_.head % 2 == 1).toDF()));
   }
 }

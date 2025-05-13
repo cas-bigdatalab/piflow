@@ -6,7 +6,7 @@ import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import org.apache.spark.ml.classification.RandomForestClassificationModel
 import org.apache.spark.sql.SparkSession
-
+import cn.piflow.SciDataFrameImplicits.autoWrapDataFrame
 class RandomForestPrediction extends ConfigurableStop{
   val authorEmail: String = "06whuxx@163.com"
   val description: String = "use an existing RandomForest Model to predict"

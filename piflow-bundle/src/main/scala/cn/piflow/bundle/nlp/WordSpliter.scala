@@ -4,6 +4,7 @@ import cn.piflow._
 import cn.piflow.conf._
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
+import cn.piflow.util.SciDataFrame
 import com.huaban.analysis.jieba.JiebaSegmenter.SegMode
 import com.huaban.analysis.jieba._
 import org.apache.spark.rdd.RDD
@@ -63,7 +64,7 @@ class WordSpliter extends ConfigurableStop {
     ))
     val df: DataFrame = session.createDataFrame(rowRDD,schema)
 
-    out.write(df)
+    out.write(new SciDataFrame(df))
   }
 
   def initialize(ctx: ProcessContext): Unit = {

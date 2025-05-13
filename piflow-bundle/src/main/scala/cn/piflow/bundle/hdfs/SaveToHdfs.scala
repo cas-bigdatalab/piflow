@@ -3,6 +3,7 @@ package cn.piflow.bundle.hdfs
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import cn.piflow.conf.{ConfigurableStop, Port, StopGroup}
+import cn.piflow.util.SciDataFrame
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileStatus, FileSystem, Path}
@@ -38,7 +39,7 @@ class SaveToHdfs extends ConfigurableStop {
     config.set("fs.defaultFS",hdfsUrl)
     val fs = FileSystem.get(config)
 
-    val inDF = in.read()
+    val inDF = in.read().getSparkDf
 
 
     if (types=="json"){
@@ -76,7 +77,7 @@ class SaveToHdfs extends ConfigurableStop {
     ))
     val outDF: DataFrame = spark.createDataFrame(rowRDD,schema)
 
-    out.write(outDF)
+    out.write(new SciDataFrame(outDF))
   }
 
   // recursively traverse the folder

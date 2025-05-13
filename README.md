@@ -39,11 +39,12 @@
 ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/architecture.png) 
 ## Requirements
 * JDK 1.8 
-* Scala-2.11.8
+* Scala-2.12.18
 * Apache Maven 3.1.0 or newer  
-* Spark-2.1.0、 Spark-2.2.0、 Spark-2.3.0
-* Hadoop-2.6.0
-* Apache Livy-0.7.1
+* Spark-3.4.0
+* Hadoop-3.3.0
+
+Compatible with X86 architecture and ARM architecture, Support CentOS and Kirin system deployment
 
 ## Getting Started
 
@@ -319,12 +320,20 @@
   ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/piflow-stophublist.png)
   
 ## Contact Us
-- Name:吴老师  
-- Mobile Phone：18910263390  
-- WeChat：18910263390  
-- Email: wzs@cnic.cn  
-- QQ Group：1003489545  
-  ![](https://github.com/cas-bigdatalab/piflow/blob/master/doc/PiFlowUserGroup_QQ.jpeg)  
+- Name:Yang Gang, Tian Yao  
+- Mobile Phone：13253365393, 18501260806  
+- WeChat：13253365393, 18501260806  
+- Email: ygang@cnic.cn, tianyao@cnic.cn
+- Private vulnerability contact information：ygang@cnic.cn
+- Wechat User Group  
+<center>
+    <img src="https://github.com/cas-bigdatalab/piflow/blob/master/doc/wechat_user.png" width="100"/>
+</center>
+
+- Wechat Official Account
+<center>
+    <img src="https://github.com/cas-bigdatalab/piflow/blob/master/doc/tencent.jpg" width="100"/>
+</center>
 
 
 

@@ -6,7 +6,7 @@ import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import org.apache.spark.ml.classification.MultilayerPerceptronClassifier
 import org.apache.spark.sql.SparkSession
-
+import cn.piflow.SciDataFrameImplicits.autoWrapDataFrame
 class MultilayerPerceptronTraining extends ConfigurableStop{
   val authorEmail: String = "xiaoxiao@cnic.cn"
   val description: String = "Train a multilayer perceptron model"

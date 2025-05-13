@@ -5,6 +5,7 @@ import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import cn.piflow.conf.{ConfigurableStop, Port, StopGroup}
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
+import cn.piflow.util.SciDataFrame
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.sql.types._
 import org.json4s
@@ -91,7 +92,7 @@ class MockData extends ConfigurableStop{
     val schemaStructType = StructType(structFieldArray)
     val rnd : Random = new Random()
     val df = spark.read.schema(schemaStructType).json((0 to count -1 ).map{ _ => compact(randomJson(rnd,schemaStructType))}.toDS())
-    out.write(df)
+    out.write(new SciDataFrame(df))
   }
 
   private def randomJson( rnd: Random, dataType : DataType): JValue ={

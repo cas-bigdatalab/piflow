@@ -4,15 +4,16 @@ import cn.piflow._
 import cn.piflow.conf._
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
+import cn.piflow.util.SciDataFrame
 import org.apache.spark.sql.{SaveMode, SparkSession}
 
 import java.util.Properties
 
 
-class TbaseWrite extends ConfigurableStop{
+class OpenTenBaseWrite extends ConfigurableStop{
 
-  val authorEmail: String = "bbbbbbyz1110@163.com"
-  val description: String = "Write data into Tbase database with jdbc"
+  val authorEmail: String = "ygang@cnic.cn"
+  val description: String = "Write data into OpenTenBase database with jdbc"
   val inportList: List[String] = List(Port.DefaultPort)
   val outportList: List[String] = List(Port.DefaultPort)
 
@@ -24,7 +25,7 @@ class TbaseWrite extends ConfigurableStop{
 
   def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     val spark = pec.get[SparkSession]()
-    val jdbcDF = in.read()
+    val jdbcDF = in.read().getSparkDf
     val properties = new Properties()
     properties.put("user", user)
     properties.put("password", password)
@@ -32,7 +33,7 @@ class TbaseWrite extends ConfigurableStop{
 
     jdbcDF.write
       .mode(SaveMode.valueOf(saveMode)).jdbc(url,dbtable,properties)
-    out.write(jdbcDF)
+    out.write(new SciDataFrame(jdbcDF))
   }
 
   def initialize(ctx: ProcessContext): Unit = {
@@ -54,8 +55,8 @@ class TbaseWrite extends ConfigurableStop{
     val url=new PropertyDescriptor()
       .name("url")
       .displayName("Url")
-      .description("The Url of postgresql database")
-      .defaultValue("jdbc:postgresql://127.0.0.1:30004/tbase")
+      .description("The Url of OpenTenBase database")
+      .defaultValue("")
       .required(true)
       .example("jdbc:postgresql://127.0.0.1:30004/tbase")
     descriptor = url :: descriptor
@@ -64,16 +65,16 @@ class TbaseWrite extends ConfigurableStop{
     val user=new PropertyDescriptor()
       .name("user")
       .displayName("User")
-      .description("The user name of postgresql")
-      .defaultValue("tbase")
+      .description("The user name of OpenTenBase")
+      .defaultValue("")
       .required(true)
-      .example("tbase")
+      .example("")
     descriptor = user :: descriptor
 
     val password=new PropertyDescriptor()
       .name("password")
       .displayName("Password")
-      .description("The password of postgresql")
+      .description("The password of OpenTenBase")
       .defaultValue("")
       .required(true)
       .example("123456")

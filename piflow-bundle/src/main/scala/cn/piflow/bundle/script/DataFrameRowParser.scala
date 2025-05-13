@@ -3,6 +3,7 @@ package cn.piflow.bundle.script
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import cn.piflow.conf._
+import cn.piflow.util.SciDataFrame
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
 import org.apache.spark.sql.{Row, SparkSession}
@@ -46,7 +47,7 @@ class DataFrameRowParser extends ConfigurableStop{
 
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     val spark = pec.get[SparkSession]()
-    val inDF = in.read()
+    val inDF = in.read().getSparkDf
 
     //parse RDD
     val rdd = inDF.rdd.map(row => {
@@ -65,7 +66,7 @@ class DataFrameRowParser extends ConfigurableStop{
     //create DataFrame
     val df = spark.createDataFrame(rdd,schemaStructType)
     //df.show()
-    out.write(df)
+    out.write(new SciDataFrame(df))
   }
 
 }

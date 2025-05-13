@@ -5,7 +5,7 @@ import cn.piflow.conf.{ConfigurableVisualizationStop, Port, StopGroup, Visualiza
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import org.apache.spark.sql.SparkSession
-
+import cn.piflow.SciDataFrameImplicits.autoWrapDataFrame
 class TableShow extends ConfigurableVisualizationStop{
   override var visualizationType: String = VisualizationType.Table
   override val authorEmail: String = "xjzhu@cnic.cn"
@@ -46,7 +46,7 @@ class TableShow extends ConfigurableVisualizationStop{
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     val spark = pec.get[SparkSession]()
     val sqlContext=spark.sqlContext
-    val dataFrame = in.read()
+    val dataFrame = in.read().getSparkDf
     dataFrame.createOrReplaceTempView("TableShow")
     val sqlText = "select " + showField+ " from TableShow"
     println("TableShow Sql: " + sqlText)

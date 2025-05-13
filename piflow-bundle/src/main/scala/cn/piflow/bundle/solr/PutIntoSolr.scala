@@ -31,7 +31,7 @@ class PutIntoSolr extends ConfigurableStop{
 
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
 
-    val df: DataFrame = in.read()
+    val df: DataFrame = in.read().getSparkDf
 
 
     val SchemaList: List[StructField] = df.schema.toList

@@ -4,6 +4,7 @@ import cn.piflow._
 import cn.piflow.conf._
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
+import cn.piflow.util.SciDataFrame
 import org.apache.spark.sql.SparkSession
 
 import java.sql.{Connection, DriverManager, ResultSet}
@@ -33,7 +34,7 @@ class ExcuteSql extends ConfigurableStop {
     conn.close()
     statement.close()
 
-    out.write(jdbcDF)
+    out.write(new SciDataFrame(jdbcDF))
   }
 
   def initialize(ctx: ProcessContext): Unit = {

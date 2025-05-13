@@ -20,7 +20,7 @@ class PutMongoDB extends ConfigurableStop{
 
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     val spark: SparkSession = pec.get[SparkSession]()
-    val df: DataFrame = in.read()
+    val df: DataFrame = in.read().getSparkDf
 
     df.write.options(
       Map("spark.mongodb.output.uri" -> ("mongodb://" + ip + ":" + port + "/" + dataBase + "." + collection))

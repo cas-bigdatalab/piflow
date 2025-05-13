@@ -1,6 +1,7 @@
 package cn.piflow.bundle.csv
 
 import cn.piflow._
+import cn.piflow.util.SciDataFrame
 import cn.piflow.conf._
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
@@ -23,13 +24,13 @@ class CsvParser extends ConfigurableStop{
   def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
 
     val spark = pec.get[SparkSession]()
-    var csvDF:DataFrame = null
+    var csvDF:SciDataFrame = null
     if (header){
-      csvDF = spark.read
+      csvDF.setSparkDf(spark.read
         .option("header",header)
         .option("inferSchema","true")
         .option("delimiter",delimiter)
-        .csv(csvPath)
+        .csv(csvPath))
 
     }else{
 
@@ -40,13 +41,13 @@ class CsvParser extends ConfigurableStop{
       }
       val schemaStructType = StructType(structFieldArray)
 
-      csvDF = spark.read
+      csvDF.setSparkDf(spark.read
         .option("header",header)
         .option("inferSchema","false")
         .option("delimiter",delimiter)
         .option("timestampFormat","yyyy/MM/dd HH:mm:ss ZZ")
         .schema(schemaStructType)
-        .csv(csvPath)
+        .csv(csvPath))
     }
     out.write(csvDF)
 

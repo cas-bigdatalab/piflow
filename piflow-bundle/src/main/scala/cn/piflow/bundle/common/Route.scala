@@ -3,6 +3,7 @@ package cn.piflow.bundle.common
 import cn.piflow.conf._
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
+import cn.piflow.util.SciDataFrame
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 
 class Route extends ConfigurableStop{
@@ -23,7 +24,7 @@ class Route extends ConfigurableStop{
   }
 
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
-    val df = in.read().cache()
+    val df = in.read().getSparkDf.cache()
 
     if(this.customizedProperties != null || this.customizedProperties.size != 0){
       val it = this.customizedProperties.keySet.iterator
@@ -31,10 +32,10 @@ class Route extends ConfigurableStop{
         val port = it.next()
         val filterCondition = MapUtil.get(this.customizedProperties,port).asInstanceOf[String]
         val filterDf = df.filter(filterCondition)
-        out.write(port,filterDf)
+        out.write(port,new SciDataFrame(filterDf))
       }
     }
-    out.write(df);
+    out.write(new SciDataFrame(df));
   }
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {

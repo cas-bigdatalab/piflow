@@ -4,7 +4,7 @@
 package cn.piflow.lib
 
 import cn.piflow._
-import cn.piflow.util.{FunctionLogic, Logging}
+import cn.piflow.util.{FunctionLogic, Logging,SciDataFrame}
 import org.apache.spark.sql._
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.types.StructType
@@ -30,11 +30,11 @@ class WriteStream(streamSink: Sink) extends Stop with Logging {
 }
 
 trait Source {
-  def load(ctx: JobContext): DataFrame;
+  def load(ctx: JobContext): SciDataFrame;
 }
 
 trait Sink {
-  def save(data: DataFrame, ctx: JobContext): Unit;
+  def save(data: SciDataFrame, ctx: JobContext): Unit;
 }
 
 class DoMap(func: FunctionLogic, targetSchema: StructType = null) extends Stop with Logging with Serializable {
@@ -45,14 +45,14 @@ class DoMap(func: FunctionLogic, targetSchema: StructType = null) extends Stop w
     val input = in.read();
     val encoder = RowEncoder {
       if (targetSchema == null) {
-        input.schema;
+        input.getSchema
       }
       else {
         targetSchema;
       }
     };
 
-    val output = input.map(x => func.perform(Seq(x)).asInstanceOf[Row])(encoder);
+    val output = input.map(x => func.perform(Seq(x)).asInstanceOf[Row],encoder);
     out.write(output);
   }
 }
@@ -66,7 +66,7 @@ class DoFlatMap(func: FunctionLogic, targetSchema: StructType = null) extends St
     val data = in.read();
     val encoder = RowEncoder {
       if (targetSchema == null) {
-        data.schema;
+        data.getSchema;
       }
       else {
         targetSchema;
@@ -74,7 +74,7 @@ class DoFlatMap(func: FunctionLogic, targetSchema: StructType = null) extends St
     };
 
     val output = data.flatMap(x =>
-      JavaConversions.iterableAsScalaIterable(func.perform(Seq(x)).asInstanceOf[java.util.ArrayList[Row]]))(encoder);
+      JavaConversions.iterableAsScalaIterable(func.perform(Seq(x)).asInstanceOf[java.util.ArrayList[Row]]),encoder);
     out.write(output);
   }
 }
@@ -89,12 +89,12 @@ class ExecuteSQL(sql: String, bundle2TableName: (String, String)*) extends Stop 
       val tableName = x._2;
       logger.debug(s"registering sql table: $tableName");
 
-      in.read(x._1).createOrReplaceTempView(tableName);
+//      in.read(x._1).createOrReplaceTempView(tableName);
     }
 
     try {
       val output = pec.get[SparkSession].sql(sql);
-      out.write(output);
+      out.write(new SciDataFrame(output));
     }
     catch {
       case e: Throwable =>

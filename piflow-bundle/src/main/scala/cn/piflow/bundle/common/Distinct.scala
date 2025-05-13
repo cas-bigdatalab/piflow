@@ -3,6 +3,7 @@ package cn.piflow.bundle.common
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import cn.piflow.conf.{ConfigurableStop, Port, StopGroup}
+import cn.piflow.util.SciDataFrame
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.apache.spark.sql.DataFrame
 
@@ -47,7 +48,7 @@ class Distinct extends ConfigurableStop{
   }
 
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
-    val inDf: DataFrame = in.read()
+    val inDf: DataFrame = in.read().getSparkDf
     var outDf: DataFrame = null
     if(columnNames.length > 0){
       val fileArr: Array[String] = columnNames.split(",")
@@ -55,6 +56,6 @@ class Distinct extends ConfigurableStop{
     }else{
       outDf = inDf.distinct()
     }
-    out.write(outDf)
+    out.write(new SciDataFrame(outDf))
   }
 }

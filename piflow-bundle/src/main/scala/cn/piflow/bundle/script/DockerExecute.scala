@@ -6,20 +6,20 @@ import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import cn.piflow.util.PropertyUtil
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
-import org.apache.spark.sql.SparkSession
+import org.apache.spark.sql.{SaveMode, SparkSession}
+import cn.piflow.SciDataFrameImplicits.autoWrapDataFrame
 
-
-class DockerExecute extends ConfigurableStop{
+class DockerExecute extends ConfigurableStop {
 
   val authorEmail: String = "ygang@cnic.cn"
   val description: String = "docker runs Python"
   val inportList: List[String] = List(Port.AnyPort)
   val outportList: List[String] = List(Port.AnyPort)
 
-  var outports : List[String] = _
-  var inports : List[String] = _
+  var outports: List[String] = _
+  var inports: List[String] = _
 
-  var ymlContent:String =_
+  var ymlContent: String = _
 
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     val spark = pec.get[SparkSession]()
@@ -34,37 +34,44 @@ class DockerExecute extends ConfigurableStop{
 
     ymlContent = ymlContent.replace("piflow_hdfs_url", PropertyUtil.getPropertyValue("hdfs.web.url"))
       .replace("piflow_extra_hosts", stringBuffer.toString)
+    val embedModelsPath = PropertyUtil.getPropertyValue("embed_models_path")
 
+    if (embedModelsPath != null) {
+      ymlContent = ymlContent.replace("embed_models_path", embedModelsPath)
+    }
     println(ymlContent)
-    
+
     DockerStreamUtil.execRuntime("mkdir app")
-    val ymlName = uuid+".yml"
+    val ymlName = uuid + ".yml"
 
     println("执行命令：=============================执行创建app文件夹命令=================")
     DockerStreamUtil.execRuntime(s"echo '${ymlContent}'> app/${ymlName}")
 
-    val dockerShellString=s"docker-compose -f app/${ymlName} up"
-    val dockerDownShellString=s"docker-compose -f app/${ymlName} down"
+    val dockerShellString = s"docker-compose -f app/${ymlName} up --force-recreate"
+    val dockerDownShellString = s"docker-compose -f app/${ymlName} down"
 
     val inputPath = "/piflow/docker/" + appID + s"/inport_${uuid}/"
     val outputPath = "/piflow/docker/" + appID + s"/outport_${uuid}/"
 
     val inputPathStringBuffer = new StringBuffer()
 
-    if(!(inports.contains("Default") || inports.contains("DefaultPort"))){
+    if (!(inports.contains("Default") || inports.contains("DefaultPort"))) {
       inports.foreach(x => {
-        println("输入端口：============================="+x+"=================")
+        println("输入端口：=============================" + x + "=================")
         val hdfsSavePath = inputPath + x
         inputPathStringBuffer.append(hdfsSavePath + ",")
-        in.read(x).write.format("csv").mode("overwrite")
-          .option("delimiter", "\t")
-          .option("header", true).save(hdfsSavePath)
+        //        in.read(x).write.format("csv").mode("overwrite")
+        //          .option("delimiter", "\t")
+        //          .option("header", true).save(hdfsSavePath)
+        in.read(x).getSparkDf.write
+          .mode("overwrite") // 指定写入模式，这里是覆盖已存在的文件
+          .parquet(hdfsSavePath)
       })
 
       println("执行命令：======================输入路径写入app/inputPath.txt 文件========================")
       DockerStreamUtil.execRuntime(s"echo ${inputPath}> app/inputPath.txt")
     }
-    if(!(outports.contains("Default") || outports.contains("DefaultPort"))){
+    if (!(outports.contains("Default") || outports.contains("DefaultPort"))) {
       println("执行命令：======================输出路径写入app/outputPath.txt 文件========================")
       DockerStreamUtil.execRuntime(s"echo ${outputPath}> app/outputPath.txt")
     }
@@ -72,9 +79,9 @@ class DockerExecute extends ConfigurableStop{
     println("执行命令：======================创建镜像命令========================")
     DockerStreamUtil.execRuntime(dockerShellString)
 
-    if(!(outports.contains("Default") || outports.contains("DefaultPort"))){
+    if (!(outports.contains("Default") || outports.contains("DefaultPort"))) {
       outports.foreach(x => {
-        println("输出端口：============================="+x+"=================")
+        println("输出端口：=============================" + x + "=================")
         val outDF = spark.read.format("csv")
           .option("header", true)
           .option("mode", "FAILFAST")
@@ -92,7 +99,7 @@ class DockerExecute extends ConfigurableStop{
     val inportStr = MapUtil.get(map, "inports").asInstanceOf[String]
     inports = inportStr.split(",").map(x => x.trim).toList
 
-    ymlContent =MapUtil.get(map, key = "ymlContent").asInstanceOf[String]
+    ymlContent = MapUtil.get(map, key = "ymlContent").asInstanceOf[String]
 
   }
 
@@ -102,7 +109,7 @@ class DockerExecute extends ConfigurableStop{
 
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {
-    var descriptor : List[PropertyDescriptor] = List()
+    var descriptor: List[PropertyDescriptor] = List()
     val inports = new PropertyDescriptor()
       .name("inports")
       .displayName("Inports")

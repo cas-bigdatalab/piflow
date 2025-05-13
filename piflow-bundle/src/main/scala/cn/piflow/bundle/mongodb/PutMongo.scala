@@ -25,7 +25,7 @@ class PutMongo extends ConfigurableStop{
 
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     val spark: SparkSession = pec.get[SparkSession]()
-    val df: DataFrame = in.read()
+    val df: DataFrame = in.read().getSparkDf
 
     var addressesArr: util.ArrayList[ServerAddress] = new util.ArrayList[ServerAddress]()
     val ipANDport: Array[String] = addresses.split(",").map(x => x.trim)

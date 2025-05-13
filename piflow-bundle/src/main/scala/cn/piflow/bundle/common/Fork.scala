@@ -3,6 +3,7 @@ package cn.piflow.bundle.common
 import cn.piflow.conf._
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
+import cn.piflow.util.SciDataFrame
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 
 
@@ -26,8 +27,8 @@ class Fork extends ConfigurableStop{
   }
 
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
-    val df = in.read().cache()
-    outports.foreach(out.write(_, df));
+    val df = in.read().getSparkDf.cache()
+    outports.foreach(out.write(_, new SciDataFrame(df)));
   }
 
   override def getPropertyDescriptor(): List[PropertyDescriptor] = {

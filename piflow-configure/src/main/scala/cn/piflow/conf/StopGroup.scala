@@ -4,6 +4,7 @@ object StopGroup {
   val NSFC = "NSFC"
   val CommonGroup = "Common"
   val CsvGroup = "CSV"
+  val FlightGroup = "Flight"
   val HiveGroup = "Hive"
   val JdbcGroup = "Jdbc"
   val JsonGroup = "Json"
@@ -34,4 +35,6 @@ object StopGroup {
   val Alg_ASRGroup = "Algorithms_ASR"
   val Python = "Python"
   val Visualization = "Visualization"
+  val CephGroup="ceph"
+  val NormalizationGroup = "Normalization"
 }

@@ -2,8 +2,7 @@ package cn.piflow.util;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import sun.misc.BASE64Decoder;
-import sun.misc.BASE64Encoder;
+import java.util.Base64;
 import javax.crypto.Cipher;
 import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
@@ -37,12 +36,11 @@ public class SecurityUtil {
    }
 
     private static String ebotongEncrypto(String str) {
-        BASE64Encoder base64encoder = new BASE64Encoder();
         String result = str;
        if (str != null && str.length() > 0) {
             try {
                 byte[] encodeByte = str.getBytes(ENCODING);
-                result = base64encoder.encode(encodeByte);
+                result = Base64.getEncoder().encodeToString(encodeByte);
             } catch (Exception e) {
                 e.printStackTrace();
             }
@@ -51,10 +49,9 @@ public class SecurityUtil {
     }
 
     private static String ebotongDecrypto(String str) {
-        BASE64Decoder base64decoder = new BASE64Decoder();
        try {
-            byte[] encodeByte = base64decoder.decodeBuffer(str);
-            return new String(encodeByte);
+            byte[] encodeByte = Base64.getDecoder().decode(str);
+            return new String(encodeByte, ENCODING);
        } catch (IOException e) {
             logger.error("IO 异Exception",e);
             return str;

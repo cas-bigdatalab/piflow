@@ -4,6 +4,7 @@ import cn.piflow._
 import cn.piflow.conf._
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
+import cn.piflow.util.SciDataFrame
 import org.apache.spark.sql.{DataFrame, SaveMode}
 
 import java.util.Properties
@@ -22,7 +23,7 @@ class ClickhouseWrite extends ConfigurableStop{
   var dbtable:String = _
 
   def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
-    val jdbcDF: DataFrame = in.read()
+    val jdbcDF: DataFrame = in.read().getSparkDf
     val properties: Properties = new Properties()
     properties.put("driver", driver)
     if (user != null && user.nonEmpty) {
@@ -35,7 +36,7 @@ class ClickhouseWrite extends ConfigurableStop{
       "numPartitions" -> "1"
     )
     jdbcDF.write.mode(SaveMode.Append).options(options).jdbc(url, dbtable, properties)
-    out.write(jdbcDF)
+    out.write(new SciDataFrame(jdbcDF))
   }
 
   def initialize(ctx: ProcessContext): Unit = {

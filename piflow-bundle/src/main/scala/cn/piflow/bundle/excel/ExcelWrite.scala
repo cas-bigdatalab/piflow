@@ -17,7 +17,7 @@ class ExcelWrite extends ConfigurableStop{
   var saveMode: String = _
 
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
-    val df = in.read()
+    val df = in.read().getSparkDf
     df.write
       .format("com.crealytics.spark.excel")
       .option("dataAddress",dataAddress)
@@ -84,7 +84,7 @@ class ExcelWrite extends ConfigurableStop{
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("icon/excel/excelParse.png",this.getClass.getName)
+    ImageUtil.getImage("icon/excel/excelParse.png")
   }
 
   override def getGroup(): List[String] = {

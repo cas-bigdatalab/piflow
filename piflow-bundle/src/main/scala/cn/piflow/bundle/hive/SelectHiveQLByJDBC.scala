@@ -4,6 +4,7 @@ import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import cn.piflow.conf.{ConfigurableStop, Language, Port, StopGroup}
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
+import cn.piflow.util.SciDataFrame
 import org.apache.spark.SparkContext
 import org.apache.spark.sql.{DataFrame, Row, SQLContext, SparkSession}
 
@@ -88,7 +89,7 @@ class SelectHiveQLByJDBC extends ConfigurableStop {
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     val sc = pec.get[SparkSession]()
     val df = getDF (sc.sqlContext, sc.sparkContext, sql)
-    out.write(df)
+    out.write(new SciDataFrame(df))
   }
 
   def getDF(sqlContext : SQLContext, sc : SparkContext, tableName : String) : DataFrame = {

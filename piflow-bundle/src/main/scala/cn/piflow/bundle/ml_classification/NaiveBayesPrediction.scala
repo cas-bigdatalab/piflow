@@ -6,7 +6,7 @@ import cn.piflow.conf.{ConfigurableStop, Port, StopGroup}
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.apache.spark.ml.classification.NaiveBayesModel
 import org.apache.spark.sql.SparkSession
-
+import cn.piflow.SciDataFrameImplicits.autoWrapDataFrame
 class NaiveBayesPrediction extends ConfigurableStop{
   val authorEmail: String = "06whuxx@163.com"
   val description: String = "Use an existing NaiveBayes model to predict"

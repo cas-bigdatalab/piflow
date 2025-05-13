@@ -26,7 +26,7 @@
 //  override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
 //
 //    val session: SparkSession = pec.get[SparkSession]()
-//    val inDF: DataFrame = in.read()
+//    val inDF: DataFrame = in.read().getSparkDf
 //
 //    val pool: SockIOPool = SockIOPool.getInstance()
 //    var serversArr:Array[String]=servers.split(",").map(x => x.trim)

@@ -20,7 +20,7 @@
         "bundle":"cn.piflow.bundle.script.ExecuteScalaFile",
         "properties":{
             "plugin": "ScalaTest_ExecuteScalaFile_123123123",
-            "script":" val df = in.read()\n    df.show()\n  df.createOrReplaceTempView(\"people\")\n  val df1 = spark.sql(\"select * from people where author like  '%xjzhu%'\")\n  out.write(df1)"
+            "script":" val df = in.read().getSparkDf\n    df.show()\n  df.createOrReplaceTempView(\"people\")\n  val df1 = spark.sql(\"select * from people where author like  '%xjzhu%'\")\n  out.write(df1)"
         }
       },
       {

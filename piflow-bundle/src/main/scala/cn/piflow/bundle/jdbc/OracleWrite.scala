@@ -22,7 +22,7 @@ class OracleWrite extends ConfigurableStop{
 
   def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     val session = pec.get[SparkSession]()
-    val inDF: DataFrame = in.read()
+    val inDF: DataFrame = in.read().getSparkDf
 
     Class.forName("oracle.jdbc.driver.OracleDriver")
     val con: Connection = DriverManager.getConnection(url,user,password)

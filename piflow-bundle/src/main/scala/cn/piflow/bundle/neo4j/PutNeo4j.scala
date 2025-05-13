@@ -21,7 +21,7 @@ class PutNeo4j extends ConfigurableStop{
 
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     val spark: SparkSession = pec.get[SparkSession]()
-    val inDf: DataFrame = in.read()
+    val inDf: DataFrame = in.read().getSparkDf
 
     val fileNames: Array[String] = inDf.columns
 

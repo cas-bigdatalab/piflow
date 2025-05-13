@@ -4,6 +4,7 @@ import cn.piflow._
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import cn.piflow.conf.{ConfigurableStop, Language, Port, StopGroup}
+import cn.piflow.util.SciDataFrame
 import org.apache.spark.sql.SparkSession
 
 
@@ -31,7 +32,7 @@ class TDengineRead extends ConfigurableStop{
       .option("password",password)
       .load()
 
-    out.write(jdbcDF)
+    out.write(new SciDataFrame(jdbcDF))
 
   }
   override def setProperties(map: Map[String, Any]): Unit = {

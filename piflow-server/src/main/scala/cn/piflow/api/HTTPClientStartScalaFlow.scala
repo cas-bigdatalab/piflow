@@ -36,7 +36,7 @@ object HTTPClientStartScalaFlow {
         |        "bundle":"cn.piflow.bundle.script.ExecuteScalaFile",
         |        "properties":{
         |            "plugin":"stop_scalaTest_ExecuteScalaFile_4444",
-        |            "script":"val df = in.read() \n df.createOrReplaceTempView(\"people\") \n val df1 = spark.sql(\"select * from prople where author like 'xjzhu'\") \n out.write(df1);"
+        |            "script":"val df = in.read().getSparkDf \n df.createOrReplaceTempView(\"people\") \n val df1 = spark.sql(\"select * from prople where author like 'xjzhu'\") \n out.write(df1);"
         |        }
         |      },
         |      {

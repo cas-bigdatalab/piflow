@@ -4,6 +4,7 @@ import cn.piflow._
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import cn.piflow.conf.{ConfigurableStop, Port, StopGroup}
+import cn.piflow.util.SciDataFrame
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileStatus, FileSystem, Path}
 import org.apache.spark.rdd.RDD
@@ -44,7 +45,7 @@ class ListHdfs extends ConfigurableStop{
       StructField("path",StringType)
     ))
     val outDF: DataFrame = spark.createDataFrame(rowRDD,schema)
-    out.write(outDF)
+    out.write(new SciDataFrame(outDF))
   }
 
   // recursively traverse the folder

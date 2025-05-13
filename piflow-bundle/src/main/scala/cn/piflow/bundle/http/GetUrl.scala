@@ -1,7 +1,6 @@
 package cn.piflow.bundle.http
 
 import java.util
-
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import cn.piflow.conf.{ConfigurableStop, Port, StopGroup}
@@ -13,6 +12,8 @@ import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
 import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 import org.dom4j.{Document, DocumentHelper, Element}
+import cn.piflow.SciDataFrameImplicits.autoWrapDataFrame
+import cn.piflow.util.SciDataFrame
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable.{ArrayBuffer, ListBuffer}
@@ -112,7 +113,7 @@ class GetUrl extends ConfigurableStop{
 
       val outDf: DataFrame = ss.createDataFrame(rowRDD,structType)
 
-      out.write(outDf)
+      out.write(new SciDataFrame(outDf))
     }
 
 

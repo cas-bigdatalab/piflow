@@ -17,7 +17,7 @@ import org.apache.spark.sql.types.{StringType, StructField, StructType}
 import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 
 import scala.collection.mutable.ListBuffer
-
+import cn.piflow.SciDataFrameImplicits.autoWrapDataFrame
 
 class GetFromSolr extends ConfigurableStop{
   override val authorEmail: String ="yangqidong@cnic.cn"

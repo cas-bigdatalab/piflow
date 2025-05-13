@@ -8,7 +8,7 @@ import org.apache.spark.sql.SparkSession
 import org.apache.spark.storage.StorageLevel
 import org.apache.spark.streaming.dstream.{DStream, InputDStream, ReceiverInputDStream, SocketReceiver}
 import org.apache.spark.streaming.{Seconds, StreamingContext}
-
+import cn.piflow.SciDataFrameImplicits.autoWrapDataFrame
 class SocketTextStream extends ConfigurableStreamingStop {
   override val authorEmail: String = "xjzhu@cnic.cn"
   override val description: String = "Receive text data from socket"

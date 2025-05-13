@@ -5,7 +5,7 @@ import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import cn.piflow.conf.{ConfigurableStop, Language, Port, StopGroup}
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
-import cn.piflow.util.{FileUtil, PropertyUtil, PythonScriptUtil}
+import cn.piflow.util.{FileUtil, PropertyUtil, PythonScriptUtil, SciDataFrame}
 import org.apache.spark.SparkFiles
 import org.apache.spark.deploy.PythonRunner
 import org.apache.spark.sql.SparkSession
@@ -82,7 +82,7 @@ class PythonExecutor extends ConfigurableStop{
     val inputPath = "/piflow/python/" + appID + "/inport/default/"
     var outputPath = "/piflow/python/" + appID + "/outport/default/"
 
-    val df = in.read()
+    val df = in.read().getSparkDf
     df.write.format("csv").mode("overwrite").option("set","\t").save(inputPath)
 
     PythonRunner.main(Array(pyFilePath, pyFiles, "-i " + inputPath, "-o " + outputPath))
@@ -93,7 +93,7 @@ class PythonExecutor extends ConfigurableStop{
       .option("mode","FAILFAST")
       .load(outputPath)
     outDF.show()
-    out.write(outDF)
+    out.write(new SciDataFrame(outDF))
 
   }
 }

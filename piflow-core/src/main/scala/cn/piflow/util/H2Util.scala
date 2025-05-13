@@ -25,11 +25,19 @@ object H2Util {
   val CREATE_FLAG_TABLE = "create table if not exists configFlag(id bigint auto_increment, item varchar(255), flag int, createTime varchar(255))"
   val CREATE_SCHEDULE_TABLE = "create table if not exists schedule(id bigint auto_increment, scheduleId varchar(255), scheduleEntryId varchar(255), scheduleEntryType varchar(255))"
   val CREATE_PLUGIN_TABLE = "create table if not exists plugin (id varchar(255), name varchar(255), state varchar(255), createTime varchar(255), updateTime varchar(255))"
-  val serverIP = ServerIpUtil.getServerIp() + ":" + PropertyUtil.getPropertyValue("h2.port")
-  val CONNECTION_URL = "jdbc:h2:tcp://" +  serverIP + "/~/piflow;AUTO_SERVER=true"
-  var connection : Connection= null
+  val serverIP = PropertyUtil.getPropertyValue("server.ip") + ":" + PropertyUtil.getPropertyValue("h2.port")
+//  val serverIP = ServerIpUtil.getServerIp() + ":" + PropertyUtil.getPropertyValue("h2.port")
+  var CONNECTION_URL = "";
+  val h2Path: String = PropertyUtil.getPropertyValue("h2.path")
+  if (h2Path != null && h2Path.nonEmpty) {
+    CONNECTION_URL = "jdbc:h2:tcp://" + serverIP + "/~/piflow/" + h2Path + ";AUTO_SERVER=true;DB_CLOSE_DELAY=-1"
+  } else {
+    CONNECTION_URL = "jdbc:h2:tcp://" + serverIP + "/~/piflow;AUTO_SERVER=true;DB_CLOSE_DELAY=-1"
+  }
+//  val CONNECTION_URL = "jdbc:h2:tcp://" + serverIP + "/~/piflow;AUTO_SERVER=true"
+  var connection: Connection = null
 
-  try{
+  try {
 
     val statement = getConnectionInstance().createStatement()
     statement.setQueryTimeout(QUERY_TIME)
@@ -42,12 +50,12 @@ object H2Util {
     statement.executeUpdate(CREATE_SCHEDULE_TABLE)
     statement.executeUpdate(CREATE_PLUGIN_TABLE)
     statement.close()
-  }catch {
+  } catch {
     case ex => println(ex)
   }
 
-  def getConnectionInstance() : Connection = {
-    if(connection == null){
+  def getConnectionInstance(): Connection = {
+    if (connection == null) {
       Class.forName("org.h2.Driver")
       println(CONNECTION_URL)
       connection = DriverManager.getConnection(CONNECTION_URL)
@@ -57,8 +65,8 @@ object H2Util {
 
   def cleanDatabase() = {
 
-    val h2Server = Server.createTcpServer("-tcp", "-tcpAllowOthers", "-tcpPort",PropertyUtil.getPropertyValue("h2.port")).start()
-    try{
+    val h2Server = Server.createTcpServer("-tcp", "-tcpAllowOthers", "-tcpPort", PropertyUtil.getPropertyValue("h2.port")).start()
+    try {
 
       val statement = getConnectionInstance().createStatement()
       statement.setQueryTimeout(QUERY_TIME)
@@ -71,9 +79,9 @@ object H2Util {
       statement.executeUpdate("drop table if exists plugin")
       statement.close()
 
-    } catch{
-        case ex => println(ex)
-    }finally {
+    } catch {
+      case ex => println(ex)
+    } finally {
       h2Server.shutdown()
     }
 
@@ -99,23 +107,24 @@ object H2Util {
     }
   }*/
 
-  def addFlow(appId:String,pId:String, name:String)={
+  def addFlow(appId: String, pId: String, name: String) = {
     val startTime = new Date().toString
     val statement = getConnectionInstance().createStatement()
     statement.setQueryTimeout(QUERY_TIME)
     statement.executeUpdate("insert into flow(id, pid, name) values('" + appId + "','" + pId + "','" + name + "')")
     statement.close()
   }
-  def updateFlowState(appId:String, state:String) = {
+
+  def updateFlowState(appId: String, state: String) = {
     val statement = getConnectionInstance().createStatement()
     statement.setQueryTimeout(QUERY_TIME)
     val updateSql = "update flow set state='" + state + "' where id='" + appId + "'"
     println(updateSql)
     //update related stop stop when flow state is KILLED
-    if(state.equals(FlowState.KILLED)){
+    if (state.equals(FlowState.KILLED)) {
       val startedStopList = getStartedStop(appId)
       startedStopList.foreach(stopName => {
-        updateStopState(appId,stopName,StopState.KILLED)
+        updateStopState(appId, stopName, StopState.KILLED)
         updateStopFinishedTime(appId, stopName, new Date().toString)
       })
     }
@@ -123,7 +132,8 @@ object H2Util {
     statement.executeUpdate(updateSql)
     statement.close()
   }
-  def updateFlowStartTime(appId:String, startTime:String) = {
+
+  def updateFlowStartTime(appId: String, startTime: String) = {
     val statement = getConnectionInstance().createStatement()
     statement.setQueryTimeout(QUERY_TIME)
     val updateSql = "update flow set startTime='" + startTime + "' where id='" + appId + "'"
@@ -131,7 +141,8 @@ object H2Util {
     statement.executeUpdate(updateSql)
     statement.close()
   }
-  def updateFlowFinishedTime(appId:String, endTime:String) = {
+
+  def updateFlowFinishedTime(appId: String, endTime: String) = {
     val statement = getConnectionInstance().createStatement()
     statement.setQueryTimeout(QUERY_TIME)
     val updateSql = "update flow set endTime='" + endTime + "' where id='" + appId + "'"
@@ -140,7 +151,7 @@ object H2Util {
     statement.close()
   }
 
-  def updateFlowGroupId(appId:String, groupId:String) = {
+  def updateFlowGroupId(appId: String, groupId: String) = {
     val statement = getConnectionInstance().createStatement()
     statement.setQueryTimeout(QUERY_TIME)
     val updateSql = "update flow set groupId='" + groupId + "' where id='" + appId + "'"
@@ -158,12 +169,12 @@ object H2Util {
     statement.close()
   }*/
 
-  def isFlowExist(appId : String) : Boolean = {
+  def isFlowExist(appId: String): Boolean = {
     var isExist = false
     val statement = getConnectionInstance().createStatement()
     statement.setQueryTimeout(QUERY_TIME)
-    val rs : ResultSet = statement.executeQuery("select * from flow where id='" + appId +"'")
-    while(rs.next()){
+    val rs: ResultSet = statement.executeQuery("select * from flow where id='" + appId + "'")
+    while (rs.next()) {
       val id = rs.getString("id")
       println("Flow id exist: " + id)
       isExist = true
@@ -177,8 +188,8 @@ object H2Util {
     var state = ""
     val statement = getConnectionInstance().createStatement()
     statement.setQueryTimeout(QUERY_TIME)
-    val rs : ResultSet = statement.executeQuery("select * from flow where id='" + appId +"'")
-    while(rs.next()){
+    val rs: ResultSet = statement.executeQuery("select * from flow where id='" + appId + "'")
+    while (rs.next()) {
       state = rs.getString("state")
       //println("id:" + rs.getString("id") + "\tname:" + rs.getString("name") + "\tstate:" + rs.getString("state"))
     }
@@ -187,12 +198,12 @@ object H2Util {
     state
   }
 
-  def getFlowProcessId(appId:String) : String = {
+  def getFlowProcessId(appId: String): String = {
     var pid = ""
     val statement = getConnectionInstance().createStatement()
     statement.setQueryTimeout(QUERY_TIME)
-    val rs : ResultSet = statement.executeQuery("select pid from flow where id='" + appId +"'")
-    while(rs.next()){
+    val rs: ResultSet = statement.executeQuery("select pid from flow where id='" + appId + "'")
+    while (rs.next()) {
       pid = rs.getString("pid")
     }
     rs.close()
@@ -200,7 +211,7 @@ object H2Util {
     pid
   }
 
-  def getFlowInfo(appId:String) : String = {
+  def getFlowInfo(appId: String): String = {
     /*val statement = getConnectionInstance().createStatement()
     statement.setQueryTimeout(QUERY_TIME)
     var flowInfo = ""
@@ -240,16 +251,16 @@ object H2Util {
     JsonUtil.format(JsonUtil.toJson(flowInfoMap))
   }
 
-  def getFlowInfoMap(appId:String) : Map[String, Any] = {
+  def getFlowInfoMap(appId: String): Map[String, Any] = {
     val statement = getConnectionInstance().createStatement()
     statement.setQueryTimeout(QUERY_TIME)
 
     var flowInfoMap = Map[String, Any]()
 
     //get flow basic info
-    val flowRS : ResultSet = statement.executeQuery("select * from flow where id='" + appId +"'")
-    while (flowRS.next()){
-      val progress = getFlowProgressPercent(appId:String)
+    val flowRS: ResultSet = statement.executeQuery("select * from flow where id='" + appId + "'")
+    while (flowRS.next()) {
+      val progress = getFlowProgressPercent(appId: String)
       flowInfoMap += ("id" -> flowRS.getString("id"))
       flowInfoMap += ("pid" -> flowRS.getString("pid"))
       flowInfoMap += ("name" -> flowRS.getString("name"))
@@ -261,9 +272,9 @@ object H2Util {
     flowRS.close()
 
     //get flow stops info
-    var stopList:List[Map[String, Any]] = List()
-    val rs : ResultSet = statement.executeQuery("select * from stop where flowId='" + appId +"'")
-    while(rs.next()){
+    var stopList: List[Map[String, Any]] = List()
+    val rs: ResultSet = statement.executeQuery("select * from stop where flowId='" + appId + "'")
+    while (rs.next()) {
       var stopMap = Map[String, Any]()
       stopMap += ("name" -> rs.getString("name"))
       stopMap += ("state" -> rs.getString("state"))
@@ -283,62 +294,62 @@ object H2Util {
     Map[String, Any]("flow" -> flowInfoMap)
   }
 
-  def getFlowProgressPercent(appId:String) : String = {
+  def getFlowProgressPercent(appId: String): String = {
     val statement = getConnectionInstance().createStatement()
     statement.setQueryTimeout(QUERY_TIME)
 
     var stopCount = 0
     var completedStopCount = 0
-    val totalRS : ResultSet = statement.executeQuery("select count(*) as stopCount from stop where flowId='" + appId + "'")
-    while(totalRS.next()){
+    val totalRS: ResultSet = statement.executeQuery("select count(*) as stopCount from stop where flowId='" + appId + "'")
+    while (totalRS.next()) {
       stopCount = totalRS.getInt("stopCount")
       //println("stopCount:" + stopCount)
     }
     totalRS.close()
 
-    val completedRS : ResultSet = statement.executeQuery("select count(*) as completedStopCount from stop where flowId='" + appId +"' and state='" + StopState.COMPLETED + "'")
-    while(completedRS.next()){
+    val completedRS: ResultSet = statement.executeQuery("select count(*) as completedStopCount from stop where flowId='" + appId + "' and state='" + StopState.COMPLETED + "'")
+    while (completedRS.next()) {
       completedStopCount = completedRS.getInt("completedStopCount")
       //println("completedStopCount:" + completedStopCount)
     }
     completedRS.close()
 
-    val flowRS : ResultSet = statement.executeQuery("select * from flow where id='" + appId +"'")
+    val flowRS: ResultSet = statement.executeQuery("select * from flow where id='" + appId + "'")
     var flowState = ""
-    while (flowRS.next()){
+    while (flowRS.next()) {
       flowState = flowRS.getString("state")
     }
     flowRS.close()
 
     statement.close()
 
-    val progress:Double = completedStopCount.asInstanceOf[Double] / stopCount * 100
-    if(flowState.equals(FlowState.COMPLETED)){
+    val progress: Double = completedStopCount.asInstanceOf[Double] / stopCount * 100
+    if (flowState.equals(FlowState.COMPLETED)) {
       "100"
-    }else{
+    } else {
       progress.toString
     }
   }
 
-  def getFlowProgress(appId:String) : String = {
+  def getFlowProgress(appId: String): String = {
 
     val progress = getFlowProgressPercent(appId)
     val statement = getConnectionInstance().createStatement()
     statement.setQueryTimeout(QUERY_TIME)
-    val flowRS : ResultSet = statement.executeQuery("select * from flow where id='" + appId +"'")
+    val flowRS: ResultSet = statement.executeQuery("select * from flow where id='" + appId + "'")
     var id = ""
     var name = ""
     var state = ""
-    while (flowRS.next()){
+    while (flowRS.next()) {
       id = flowRS.getString("id")
-      name =  flowRS.getString("name")
+      name = flowRS.getString("name")
       state = flowRS.getString("state")
     }
 
     flowRS.close()
     val json =
       ("FlowInfo" ->
-        ("appId" -> id)~
+        ("appId" -> id) ~
           ("name" -> name) ~
           ("state" -> state) ~
           ("progress" -> progress.toString))
@@ -347,13 +358,14 @@ object H2Util {
   }
 
   //Stop related API
-  def addStop(appId:String,name:String)={
+  def addStop(appId: String, name: String) = {
     val statement = getConnectionInstance().createStatement()
     statement.setQueryTimeout(QUERY_TIME)
     statement.executeUpdate("insert into stop(flowId, name) values('" + appId + "','" + name + "')")
     statement.close()
   }
-  def updateStopState(appId:String, name:String, state:String) = {
+
+  def updateStopState(appId: String, name: String, state: String) = {
     val statement = getConnectionInstance().createStatement()
     statement.setQueryTimeout(QUERY_TIME)
     val updateSql = "update stop set state='" + state + "' where flowId='" + appId + "' and name='" + name + "'"
@@ -362,7 +374,7 @@ object H2Util {
     statement.close()
   }
 
-  def updateStopStartTime(appId:String, name:String, startTime:String) = {
+  def updateStopStartTime(appId: String, name: String, startTime: String) = {
     val statement = getConnectionInstance().createStatement()
     statement.setQueryTimeout(QUERY_TIME)
     val updateSql = "update stop set startTime='" + startTime + "' where flowId='" + appId + "' and name='" + name + "'"
@@ -371,7 +383,7 @@ object H2Util {
     statement.close()
   }
 
-  def updateStopFinishedTime(appId:String, name:String, endTime:String) = {
+  def updateStopFinishedTime(appId: String, name: String, endTime: String) = {
     val statement = getConnectionInstance().createStatement()
     statement.setQueryTimeout(QUERY_TIME)
     val updateSql = "update stop set endTime='" + endTime + "' where flowId='" + appId + "' and name='" + name + "'"
@@ -380,13 +392,13 @@ object H2Util {
     statement.close()
   }
 
-  def getStartedStop(appId:String) : List[String] = {
+  def getStartedStop(appId: String): List[String] = {
     val statement = getConnectionInstance().createStatement()
     statement.setQueryTimeout(QUERY_TIME)
 
-    var stopList:List[String] = List()
-    val rs : ResultSet = statement.executeQuery("select * from stop where flowId='" + appId +"' and state = '" + StopState.STARTED + "'")
-    while(rs.next()){
+    var stopList: List[String] = List()
+    val rs: ResultSet = statement.executeQuery("select * from stop where flowId='" + appId + "' and state = '" + StopState.STARTED + "'")
+    while (rs.next()) {
 
       stopList = rs.getString("name") +: stopList
     }
@@ -396,25 +408,27 @@ object H2Util {
   }
 
   // Throughput related API
-  def addThroughput(appId:String, stopName:String, portName:String, count:Long) = {
+  def addThroughput(appId: String, stopName: String, portName: String, count: Long) = {
     val statement = getConnectionInstance().createStatement()
     statement.setQueryTimeout(QUERY_TIME)
     statement.executeUpdate("insert into thoughput(flowId, stopName, portName, count) values('" + appId + "','" + stopName + "','" + portName + "','" + count + "')")
     statement.close()
   }
-  def getThroughput(appId:String, stopName:String, portName:String) = {
+
+  def getThroughput(appId: String, stopName: String, portName: String) = {
     var count = ""
     val statement = getConnectionInstance().createStatement()
     statement.setQueryTimeout(QUERY_TIME)
-    val rs : ResultSet = statement.executeQuery("select count from thoughput where flowId='" + appId +"' and stopName = '" + stopName + "' and portName = '" + portName + "'")
-    while(rs.next()){
+    val rs: ResultSet = statement.executeQuery("select count from thoughput where flowId='" + appId + "' and stopName = '" + stopName + "' and portName = '" + portName + "'")
+    while (rs.next()) {
       count = rs.getString("count")
     }
     rs.close()
     statement.close()
     count
   }
-  def updateThroughput(appId:String, stopName:String, portName:String, count:Long) = {
+
+  def updateThroughput(appId: String, stopName: String, portName: String, count: Long) = {
     val statement = getConnectionInstance().createStatement()
     statement.setQueryTimeout(QUERY_TIME)
     val updateSql = "update thoughput set count='" + count + "' where flowId='" + appId + "' and stopName='" + stopName + "' and portName='" + portName + "'"
@@ -423,14 +437,15 @@ object H2Util {
   }
 
   //Group related api
-  def addGroup(groupId:String, name:String, childCount: Int)={
+  def addGroup(groupId: String, name: String, childCount: Int) = {
     val startTime = new Date().toString
     val statement = getConnectionInstance().createStatement()
     statement.setQueryTimeout(QUERY_TIME)
-    statement.executeUpdate("insert into flowGroup(id, name, childCount) values('" + groupId +  "','" + name + "','" + childCount + "')")
+    statement.executeUpdate("insert into flowGroup(id, name, childCount) values('" + groupId + "','" + name + "','" + childCount + "')")
     statement.close()
   }
-  def updateGroupState(groupId:String, state:String) = {
+
+  def updateGroupState(groupId: String, state: String) = {
     val statement = getConnectionInstance().createStatement()
     statement.setQueryTimeout(QUERY_TIME)
     val updateSql = "update flowGroup set state='" + state + "' where id='" + groupId + "'"
@@ -447,7 +462,8 @@ object H2Util {
     statement.executeUpdate(updateSql)
     statement.close()
   }
-  def updateGroupStartTime(groupId:String, startTime:String) = {
+
+  def updateGroupStartTime(groupId: String, startTime: String) = {
     val statement = getConnectionInstance().createStatement()
     statement.setQueryTimeout(QUERY_TIME)
     val updateSql = "update flowGroup set startTime='" + startTime + "' where id='" + groupId + "'"
@@ -455,7 +471,8 @@ object H2Util {
     statement.executeUpdate(updateSql)
     statement.close()
   }
-  def updateGroupFinishedTime(groupId:String, endTime:String) = {
+
+  def updateGroupFinishedTime(groupId: String, endTime: String) = {
     val statement = getConnectionInstance().createStatement()
     statement.setQueryTimeout(QUERY_TIME)
     val updateSql = "update flowGroup set endTime='" + endTime + "' where id='" + groupId + "'"
@@ -463,7 +480,8 @@ object H2Util {
     statement.executeUpdate(updateSql)
     statement.close()
   }
-  def updateGroupParent(groupId:String, parentId:String) = {
+
+  def updateGroupParent(groupId: String, parentId: String) = {
     val statement = getConnectionInstance().createStatement()
     statement.setQueryTimeout(QUERY_TIME)
     val updateSql = "update flowGroup set parentId='" + parentId + "' where id='" + groupId + "'"
@@ -472,51 +490,51 @@ object H2Util {
     statement.close()
   }
 
-  def getGroupState(groupId:String) : String = {
+  def getGroupState(groupId: String): String = {
     val statement = getConnectionInstance().createStatement()
     statement.setQueryTimeout(QUERY_TIME)
     var groupState = ""
 
-    val groupRS : ResultSet = statement.executeQuery("select state from flowGroup where id='" + groupId +"'")
-    if (groupRS.next()){
+    val groupRS: ResultSet = statement.executeQuery("select state from flowGroup where id='" + groupId + "'")
+    if (groupRS.next()) {
 
       groupState = groupRS.getString("state")
     }
     return groupState
   }
 
-  def isGroupChildError( groupId : String) : Boolean = {
+  def isGroupChildError(groupId: String): Boolean = {
 
-    if(getGroupChildByStatus(groupId, GroupState.FAILED).size > 0 || getGroupChildByStatus(groupId, GroupState.KILLED).size > 0)
+    if (getGroupChildByStatus(groupId, GroupState.FAILED).size > 0 || getGroupChildByStatus(groupId, GroupState.KILLED).size > 0)
       return true
-    else if(getFlowChildByStatus(groupId, FlowState.FAILED).size > 0 || getFlowChildByStatus(groupId, FlowState.KILLED).size > 0)
-      return true
-    else
-      return false
-  }
-
-  def isGroupChildRunning( groupId : String) : Boolean = {
-
-    if(getGroupChildByStatus(groupId, GroupState.STARTED).size > 0 )
-      return true
-    else if(getFlowChildByStatus(groupId, FlowState.STARTED).size > 0 )
+    else if (getFlowChildByStatus(groupId, FlowState.FAILED).size > 0 || getFlowChildByStatus(groupId, FlowState.KILLED).size > 0)
       return true
     else
       return false
   }
 
-  def getGroupChildByStatus(groupId: String, status : String) : List[String] = {
+  def isGroupChildRunning(groupId: String): Boolean = {
+
+    if (getGroupChildByStatus(groupId, GroupState.STARTED).size > 0)
+      return true
+    else if (getFlowChildByStatus(groupId, FlowState.STARTED).size > 0)
+      return true
+    else
+      return false
+  }
+
+  def getGroupChildByStatus(groupId: String, status: String): List[String] = {
     val statement = getConnectionInstance().createStatement()
     statement.setQueryTimeout(QUERY_TIME)
     var failedList = List[String]()
 
     //group children state
-    val groupRS : ResultSet = statement.executeQuery("select * from flowGroup where parentId='" + groupId +"'")
-    breakable{
-      while (groupRS.next()){
+    val groupRS: ResultSet = statement.executeQuery("select * from flowGroup where parentId='" + groupId + "'")
+    breakable {
+      while (groupRS.next()) {
         val groupName = groupRS.getString("name")
         val groupState = groupRS.getString("state")
-        if(groupState == status){
+        if (groupState == status) {
           failedList = groupName +: failedList
         }
       }
@@ -525,18 +543,19 @@ object H2Util {
     statement.close()
     return failedList
   }
-  def getFlowChildByStatus(groupId: String, status : String) : List[String] = {
+
+  def getFlowChildByStatus(groupId: String, status: String): List[String] = {
     val statement = getConnectionInstance().createStatement()
     statement.setQueryTimeout(QUERY_TIME)
     var failedList = List[String]()
 
     //flow children state
-    val rs : ResultSet = statement.executeQuery("select * from flow where groupId='" + groupId +"'")
-    breakable{
-      while(rs.next()){
+    val rs: ResultSet = statement.executeQuery("select * from flow where groupId='" + groupId + "'")
+    breakable {
+      while (rs.next()) {
         val flowName = rs.getString("name")
         val flowState = rs.getString("state")
-        if(flowState == status){
+        if (flowState == status) {
           failedList = flowName +: failedList
         }
       }
@@ -547,7 +566,7 @@ object H2Util {
     return failedList
   }
 
-  def getFlowGroupInfo(groupId:String) : String = {
+  def getFlowGroupInfo(groupId: String): String = {
 
     val flowGroupInfoMap = getGroupInfoMap(groupId)
     JsonUtil.format(JsonUtil.toJson(flowGroupInfoMap))
@@ -555,15 +574,15 @@ object H2Util {
   }
 
   //TODO need to get group
-  def getGroupInfoMap(groupId:String) : Map[String, Any] = {
+  def getGroupInfoMap(groupId: String): Map[String, Any] = {
     val statement = getConnectionInstance().createStatement()
     statement.setQueryTimeout(QUERY_TIME)
 
 
     var flowGroupInfoMap = Map[String, Any]()
 
-    val flowGroupRS : ResultSet = statement.executeQuery("select * from flowGroup where id='" + groupId +"'")
-    while (flowGroupRS.next()){
+    val flowGroupRS: ResultSet = statement.executeQuery("select * from flowGroup where id='" + groupId + "'")
+    while (flowGroupRS.next()) {
 
       flowGroupInfoMap += ("id" -> flowGroupRS.getString("id"))
       flowGroupInfoMap += ("name" -> flowGroupRS.getString("name"))
@@ -573,9 +592,9 @@ object H2Util {
     }
     flowGroupRS.close()
 
-    var groupList:List[Map[String, Any]] = List()
-    val childGroupRS : ResultSet = statement.executeQuery("select * from flowGroup where parentId='" + groupId +"'")
-    while (childGroupRS.next()){
+    var groupList: List[Map[String, Any]] = List()
+    val childGroupRS: ResultSet = statement.executeQuery("select * from flowGroup where parentId='" + groupId + "'")
+    while (childGroupRS.next()) {
       val childGroupId = childGroupRS.getString("id")
       val childGroupMapInfo = getGroupInfoMap(childGroupId)
       groupList = childGroupMapInfo +: groupList
@@ -583,9 +602,9 @@ object H2Util {
     childGroupRS.close()
     flowGroupInfoMap += ("groups" -> groupList)
 
-    var flowList:List[Map[String, Any]] = List()
-    val flowRS : ResultSet = statement.executeQuery("select * from flow where groupId='" + groupId +"'")
-    while (flowRS.next()){
+    var flowList: List[Map[String, Any]] = List()
+    val flowRS: ResultSet = statement.executeQuery("select * from flow where groupId='" + groupId + "'")
+    while (flowRS.next()) {
       val appId = flowRS.getString("id")
       flowList = getFlowInfoMap(appId) +: flowList
     }
@@ -595,11 +614,10 @@ object H2Util {
     statement.close()
 
 
-
     Map[String, Any]("group" -> flowGroupInfoMap)
   }
 
-  def getGroupProgressPercent(groupId:String) : String = {
+  def getGroupProgressPercent(groupId: String): String = {
     val statement = getConnectionInstance().createStatement()
     statement.setQueryTimeout(QUERY_TIME)
 
@@ -608,29 +626,29 @@ object H2Util {
     var completedGroupCount = 0
     var completedFlowCount = 0
 
-    val groupRSALL : ResultSet = statement.executeQuery("select * from flowGroup where id='" + groupId +"'")
+    val groupRSALL: ResultSet = statement.executeQuery("select * from flowGroup where id='" + groupId + "'")
     var groupState = ""
-    while (groupRSALL.next()){
+    while (groupRSALL.next()) {
       groupState = groupRSALL.getString("state")
       childCount = groupRSALL.getInt("childCount")
     }
     groupRSALL.close()
 
-    if(groupState.equals(FlowState.COMPLETED)){
+    if (groupState.equals(FlowState.COMPLETED)) {
       statement.close()
       return "100"
-    }else{
+    } else {
 
-      val completedGroupRS : ResultSet = statement.executeQuery("select count(*) as completedGroupCount from flowGroup where parentId='" + groupId +"' and state='" + GroupState.COMPLETED+ "'")
-      while(completedGroupRS.next()){
+      val completedGroupRS: ResultSet = statement.executeQuery("select count(*) as completedGroupCount from flowGroup where parentId='" + groupId + "' and state='" + GroupState.COMPLETED + "'")
+      while (completedGroupRS.next()) {
         completedGroupCount = completedGroupRS.getInt("completedGroupCount")
         println("completedGroupCount:" + completedGroupCount)
       }
       completedGroupRS.close()
 
 
-      val completedFlowRS : ResultSet = statement.executeQuery("select count(*) as completedFlowCount from flow where GroupId='" + groupId +"' and state='" + FlowState.COMPLETED + "'")
-      while(completedFlowRS.next()){
+      val completedFlowRS: ResultSet = statement.executeQuery("select count(*) as completedFlowCount from flow where GroupId='" + groupId + "' and state='" + FlowState.COMPLETED + "'")
+      while (completedFlowRS.next()) {
         completedFlowCount = completedFlowRS.getInt("completedFlowCount")
         println("completedFlowCount:" + completedFlowCount)
       }
@@ -638,7 +656,7 @@ object H2Util {
 
       statement.close()
 
-      val progress:Double = (completedFlowCount.asInstanceOf[Double] + completedGroupCount.asInstanceOf[Double])/ childCount * 100
+      val progress: Double = (completedFlowCount.asInstanceOf[Double] + completedGroupCount.asInstanceOf[Double]) / childCount * 100
       return progress.toString
     }
 
@@ -736,36 +754,36 @@ object H2Util {
     Map[String, Any]("project" -> projectInfoMap)
   }*/
 
-  def addFlag(item:String, flag:Int) : Unit = {
+  def addFlag(item: String, flag: Int): Unit = {
     val createTime = new Date().toString
     val statement = getConnectionInstance().createStatement()
     statement.setQueryTimeout(QUERY_TIME)
-    statement.executeUpdate("insert into configFlag(item, flag, createTime) values('" + item +  "','" + flag + "','" + createTime +"')")
+    statement.executeUpdate("insert into configFlag(item, flag, createTime) values('" + item + "','" + flag + "','" + createTime + "')")
     statement.close()
   }
 
-  def getFlag(item : String) : Int = {
+  def getFlag(item: String): Int = {
     val statement = getConnectionInstance().createStatement()
     statement.setQueryTimeout(QUERY_TIME)
     var flag = 0
 
-    val flowGroupRS : ResultSet = statement.executeQuery("select flag from configFlag where item='" + item +"'")
-    if (flowGroupRS.next()){
+    val flowGroupRS: ResultSet = statement.executeQuery("select flag from configFlag where item='" + item + "'")
+    if (flowGroupRS.next()) {
 
       flag = flowGroupRS.getInt("flag")
     }
     return flag
   }
 
-  def addScheduleInstance(scheduleId : String, cronExpression : String, startDate : String, endDate : String, state : String): Unit ={
+  def addScheduleInstance(scheduleId: String, cronExpression: String, startDate: String, endDate: String, state: String): Unit = {
     val statement = getConnectionInstance().createStatement()
     statement.setQueryTimeout(QUERY_TIME)
     val time = new Date().toString
-    statement.executeUpdate("insert into scheduleInstance(id, cronExpression, startDate, endDate, state, createTime, updateTime) values('" + scheduleId +  "','" + cronExpression + "','" + startDate + "','" + endDate + "','" + state + "','" + time + "','" + time + "')")
+    statement.executeUpdate("insert into scheduleInstance(id, cronExpression, startDate, endDate, state, createTime, updateTime) values('" + scheduleId + "','" + cronExpression + "','" + startDate + "','" + endDate + "','" + state + "','" + time + "','" + time + "')")
     statement.close()
   }
 
-  def updateScheduleInstanceStatus(scheduleId : String, state : String)  = {
+  def updateScheduleInstanceStatus(scheduleId: String, state: String) = {
     val statement = getConnectionInstance().createStatement()
     statement.setQueryTimeout(QUERY_TIME)
     val time = new Date().toString
@@ -776,15 +794,15 @@ object H2Util {
   }
 
   def getNeedStopSchedule(): List[String] = {
-    var resultList : List[String]= List()
+    var resultList: List[String] = List()
     val statement = getConnectionInstance().createStatement()
     statement.setQueryTimeout(QUERY_TIME)
     val nowDate: String = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date())
-    val updateSql = "select id from scheduleInstance where state = '" + ScheduleState.STARTED  + "' and endDate != '' and endDate <= '" + nowDate + "'"
+    val updateSql = "select id from scheduleInstance where state = '" + ScheduleState.STARTED + "' and endDate != '' and endDate <= '" + nowDate + "'"
     println(updateSql)
 
-    val scheduleRS : ResultSet = statement.executeQuery(updateSql)
-    while (scheduleRS.next()){
+    val scheduleRS: ResultSet = statement.executeQuery(updateSql)
+    while (scheduleRS.next()) {
 
       val id = scheduleRS.getString("id")
       resultList = id +: resultList
@@ -794,23 +812,23 @@ object H2Util {
     resultList
   }
 
-  def addScheduleEntry(scheduleId : String, scheduleEntryId : String, scheduleEntryType : String): Unit ={
+  def addScheduleEntry(scheduleId: String, scheduleEntryId: String, scheduleEntryType: String): Unit = {
     val createTime = new Date().toString
     val statement = getConnectionInstance().createStatement()
     statement.setQueryTimeout(QUERY_TIME)
-    statement.executeUpdate("insert into schedule(scheduleId, scheduleEntryId, scheduleEntryType) values('" + scheduleId +  "','" + scheduleEntryId + "','" + scheduleEntryType +"')")
+    statement.executeUpdate("insert into schedule(scheduleId, scheduleEntryId, scheduleEntryType) values('" + scheduleId + "','" + scheduleEntryId + "','" + scheduleEntryType + "')")
     statement.close()
   }
 
-  def getScheduleInfo(scheduleId: String) : String = {
+  def getScheduleInfo(scheduleId: String): String = {
 
     val statement = getConnectionInstance().createStatement()
     statement.setQueryTimeout(QUERY_TIME)
 
     var scheduleInfoMap = Map[String, Any]()
     //get flow basic info
-    val scheduleInstanceRS : ResultSet = statement.executeQuery("select * from scheduleInstance where id='" + scheduleId +"'")
-    while (scheduleInstanceRS.next()){
+    val scheduleInstanceRS: ResultSet = statement.executeQuery("select * from scheduleInstance where id='" + scheduleId + "'")
+    while (scheduleInstanceRS.next()) {
 
       scheduleInfoMap += ("id" -> scheduleInstanceRS.getString("id"))
       scheduleInfoMap += ("cronExpression" -> scheduleInstanceRS.getString("cronExpression"))
@@ -822,9 +840,9 @@ object H2Util {
     }
     scheduleInstanceRS.close()
 
-    var scheduleEntryList : List[Map[String, String]] = List()
-    val scheduleRS : ResultSet = statement.executeQuery("select * from schedule where scheduleId='" + scheduleId +"'")
-    while (scheduleRS.next()){
+    var scheduleEntryList: List[Map[String, String]] = List()
+    val scheduleRS: ResultSet = statement.executeQuery("select * from schedule where scheduleId='" + scheduleId + "'")
+    while (scheduleRS.next()) {
 
       var scheduleEntryMap = Map[String, String]()
       scheduleEntryMap += ("scheduleEntryId" -> scheduleRS.getString("scheduleEntryId"))
@@ -839,7 +857,7 @@ object H2Util {
 
   }
 
-  def getStartedSchedule() : List[String] ={
+  def getStartedSchedule(): List[String] = {
 
     var scheduleList = List[String]()
     val statement = getConnectionInstance().createStatement()
@@ -847,8 +865,8 @@ object H2Util {
 
     var scheduleInfoMap = Map[String, Any]()
     //get flow basic info
-    val scheduleInstanceRS : ResultSet = statement.executeQuery("select * from scheduleInstance where state='" + ScheduleState.STARTED +"'")
-    while (scheduleInstanceRS.next()){
+    val scheduleInstanceRS: ResultSet = statement.executeQuery("select * from scheduleInstance where state='" + ScheduleState.STARTED + "'")
+    while (scheduleInstanceRS.next()) {
 
       scheduleList = scheduleInstanceRS.getString("id") +: scheduleList
     }
@@ -856,27 +874,27 @@ object H2Util {
     scheduleList
   }
 
-  def addPlugin(name:String)={
+  def addPlugin(name: String) = {
 
     var id = ""
     var state = ""
     val statement = getConnectionInstance().createStatement()
     statement.setQueryTimeout(QUERY_TIME)
-    val rs : ResultSet = statement.executeQuery("select * from plugin where name='" + name +"'")
-    if(!rs.isBeforeFirst){
+    val rs: ResultSet = statement.executeQuery("select * from plugin where name='" + name + "'")
+    if (!rs.isBeforeFirst) {
       id = IdGenerator.uuid()
       val time = new Date().toString
-      statement.executeUpdate("insert into plugin(id, name, state, createTime, updateTime) values('" + id + "','" + name + "','" + PluginState.ON + "','" + time + "','" + time  + "')")
+      statement.executeUpdate("insert into plugin(id, name, state, createTime, updateTime) values('" + id + "','" + name + "','" + PluginState.ON + "','" + time + "','" + time + "')")
       state = PluginState.ON
-    }else{
+    } else {
 
-      breakable{
-        while(rs.next()){
+      breakable {
+        while (rs.next()) {
           id = rs.getString("id")
           state = rs.getString("state")
           val time = new Date().toString
-          if(state == PluginState.OFF){
-            val updateSql = "update plugin set state='" + PluginState.ON + "'," + "updateTime='" + time +"' where name='" + name + "'"
+          if (state == PluginState.OFF) {
+            val updateSql = "update plugin set state='" + PluginState.ON + "'," + "updateTime='" + time + "' where name='" + name + "'"
             statement.executeUpdate(updateSql)
             state = PluginState.ON
             break
@@ -890,22 +908,22 @@ object H2Util {
     id
   }
 
-  def removePlugin(name:String)={
+  def removePlugin(name: String) = {
 
     var state = ""
     val statement = getConnectionInstance().createStatement()
     statement.setQueryTimeout(QUERY_TIME)
-    val rs : ResultSet = statement.executeQuery("select * from plugin where name='" + name +"'")
-    if(!rs.isBeforeFirst){
+    val rs: ResultSet = statement.executeQuery("select * from plugin where name='" + name + "'")
+    if (!rs.isBeforeFirst) {
       state = PluginState.NONE
-    }else{
+    } else {
 
-      breakable{
-        while(rs.next()){
+      breakable {
+        while (rs.next()) {
           state = rs.getString("state")
           val time = new Date().toString
-          if(state == PluginState.ON){
-            val updateSql = "update plugin set state='" + PluginState.OFF + "'," + "updateTime='" + time +"' where name='" + name + "'"
+          if (state == PluginState.ON) {
+            val updateSql = "update plugin set state='" + PluginState.OFF + "'," + "updateTime='" + time + "' where name='" + name + "'"
             statement.executeUpdate(updateSql)
             state = PluginState.OFF
             break
@@ -918,18 +936,18 @@ object H2Util {
     state
   }
 
-  def getPluginInfo(pluginId : String) : String ={
+  def getPluginInfo(pluginId: String): String = {
 
     val pluginMap = getPluginInfoMap(pluginId)
     JsonUtil.format(JsonUtil.toJson(pluginMap))
   }
 
-  def getPluginInfoMap(pluginId : String) : Map[String, String] ={
+  def getPluginInfoMap(pluginId: String): Map[String, String] = {
 
     var pluginMap = Map[String, String]()
     val statement = getConnectionInstance().createStatement()
-    val rs : ResultSet = statement.executeQuery("select * from plugin where id='" + pluginId + "'")
-    while(rs.next()){
+    val rs: ResultSet = statement.executeQuery("select * from plugin where id='" + pluginId + "'")
+    while (rs.next()) {
 
       val path = PropertyUtil.getClassPath() + "/" + rs.getString("name")
       pluginMap += ("id" -> rs.getString("id"))
@@ -944,12 +962,12 @@ object H2Util {
     pluginMap
   }
 
-  def getPluginOn() : List[String] ={
+  def getPluginOn(): List[String] = {
 
     var pluginList = List[String]()
     val statement = getConnectionInstance().createStatement()
-    val rs : ResultSet = statement.executeQuery("select * from plugin where state='" + PluginState.ON + "'")
-    while(rs.next()){
+    val rs: ResultSet = statement.executeQuery("select * from plugin where state='" + PluginState.ON + "'")
+    while (rs.next()) {
       pluginList = rs.getString("name") +: pluginList
     }
     rs.close()
@@ -958,27 +976,27 @@ object H2Util {
   }
 
 
-  def addSparkJar(sparkJarName:String)={
+  def addSparkJar(sparkJarName: String) = {
 
     var id = ""
     var state = ""
     val statement = getConnectionInstance().createStatement()
     statement.setQueryTimeout(QUERY_TIME)
-    val rs : ResultSet = statement.executeQuery("select * from sparkJar where name='" + sparkJarName +"'")
-    if(!rs.isBeforeFirst){
+    val rs: ResultSet = statement.executeQuery("select * from sparkJar where name='" + sparkJarName + "'")
+    if (!rs.isBeforeFirst) {
       id = IdGenerator.uuid()
       val time = new Date().toString
-      statement.executeUpdate("insert into sparkJar(id, name, state, createTime, updateTime) values('" + id + "','" + sparkJarName + "','" + PluginState.ON + "','" + time + "','" + time  + "')")
+      statement.executeUpdate("insert into sparkJar(id, name, state, createTime, updateTime) values('" + id + "','" + sparkJarName + "','" + PluginState.ON + "','" + time + "','" + time + "')")
       state = SparkJarState.ON
-    }else{
+    } else {
 
-      breakable{
-        while(rs.next()){
+      breakable {
+        while (rs.next()) {
           id = rs.getString("id")
           state = rs.getString("state")
           val time = new Date().toString
-          if(state == SparkJarState.OFF){
-            val updateSql = "update sparkJar set state='" + SparkJarState.ON + "'," + "updateTime='" + time +"' where name='" + sparkJarName + "'"
+          if (state == SparkJarState.OFF) {
+            val updateSql = "update sparkJar set state='" + SparkJarState.ON + "'," + "updateTime='" + time + "' where name='" + sparkJarName + "'"
             statement.executeUpdate(updateSql)
             state = SparkJarState.ON
             break
@@ -992,22 +1010,22 @@ object H2Util {
     id
   }
 
-  def removeSparkJar(sparkJarId:String) : String={
+  def removeSparkJar(sparkJarId: String): String = {
 
     var state = ""
     val statement = getConnectionInstance().createStatement()
     statement.setQueryTimeout(QUERY_TIME)
-    val rs : ResultSet = statement.executeQuery("select * from sparkJar where id='" + sparkJarId +"'")
-    if(!rs.isBeforeFirst){
+    val rs: ResultSet = statement.executeQuery("select * from sparkJar where id='" + sparkJarId + "'")
+    if (!rs.isBeforeFirst) {
       state = SparkJarState.NONE
-    }else{
+    } else {
 
-      breakable{
-        while(rs.next()){
+      breakable {
+        while (rs.next()) {
           state = rs.getString("state")
           val time = new Date().toString
-          if(state == SparkJarState.ON){
-            val updateSql = "update sparkJar set state='" + SparkJarState.OFF + "'," + "updateTime='" + time +"' where id='" + sparkJarId + "'"
+          if (state == SparkJarState.ON) {
+            val updateSql = "update sparkJar set state='" + SparkJarState.OFF + "'," + "updateTime='" + time + "' where id='" + sparkJarId + "'"
             statement.executeUpdate(updateSql)
             state = SparkJarState.OFF
             break
@@ -1020,18 +1038,18 @@ object H2Util {
     state
   }
 
-  def getSparkJarInfo(sparkJarId : String) : String ={
+  def getSparkJarInfo(sparkJarId: String): String = {
 
     val sparkJarMap = getSparkJarInfoMap(sparkJarId)
     JsonUtil.format(JsonUtil.toJson(sparkJarMap))
   }
 
-  def getSparkJarInfoMap(sparkJarId : String) : Map[String, String] ={
+  def getSparkJarInfoMap(sparkJarId: String): Map[String, String] = {
 
     var sparkJarMap = Map[String, String]()
     val statement = getConnectionInstance().createStatement()
-    val rs : ResultSet = statement.executeQuery("select * from sparkJar where id='" + sparkJarId + "'")
-    while(rs.next()){
+    val rs: ResultSet = statement.executeQuery("select * from sparkJar where id='" + sparkJarId + "'")
+    while (rs.next()) {
 
       val path = PropertyUtil.getSpartJarPath() + "/" + rs.getString("name")
       sparkJarMap += ("id" -> rs.getString("id"))
@@ -1046,12 +1064,12 @@ object H2Util {
     sparkJarMap
   }
 
-  def getSparkJarOn() : List[String] ={
+  def getSparkJarOn(): List[String] = {
 
     var pluginList = List[String]()
     val statement = getConnectionInstance().createStatement()
-    val rs : ResultSet = statement.executeQuery("select * from sparkJar where state='" + SparkJarState.ON + "'")
-    while(rs.next()){
+    val rs: ResultSet = statement.executeQuery("select * from sparkJar where state='" + SparkJarState.ON + "'")
+    while (rs.next()) {
       pluginList = rs.getString("name") +: pluginList
     }
     rs.close()
@@ -1084,7 +1102,7 @@ object H2Util {
       case ex => println(ex)
     }*/
     val needStopSchedule = H2Util.getNeedStopSchedule()
-    if (args.size != 1){
+    if (args.size != 1) {
       println("Error args!!! Please enter Clean or UpdateToVersion6")
     }
     /*val operation =  args(0)

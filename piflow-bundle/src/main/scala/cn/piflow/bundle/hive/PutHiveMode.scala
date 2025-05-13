@@ -19,7 +19,7 @@ class PutHiveMode extends ConfigurableStop {
 
   def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     val spark = pec.get[SparkSession]()
-    val inDF = in.read()
+    val inDF = in.read().getSparkDf
 
     inDF.write.format("hive").mode(saveMode).saveAsTable(database + "." + table)
   }

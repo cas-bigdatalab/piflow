@@ -2,10 +2,10 @@ package cn.piflow.bundle.hdfs
 
 import java.io.InputStream
 import java.net.{HttpURLConnection, URL}
-
 import cn.piflow.conf._
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
+import cn.piflow.util.SciDataFrame
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FSDataOutputStream, FileSystem, Path}
@@ -59,7 +59,7 @@ class FileDownHdfs extends ConfigurableStop{
     val schema: StructType = StructType(fields)
     val df: DataFrame = spark.createDataFrame(rdd,schema)
 
-    out.write(df)
+    out.write(new SciDataFrame(df))
 
   }
 

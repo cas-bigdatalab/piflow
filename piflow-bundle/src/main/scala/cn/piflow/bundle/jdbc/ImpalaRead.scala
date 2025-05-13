@@ -1,15 +1,15 @@
 package cn.piflow.bundle.jdbc
 
-import java.sql.{Connection, DriverManager, ResultSet, Statement}
-
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import cn.piflow.conf.{ConfigurableStop, Language, Port, StopGroup}
+import cn.piflow.util.SciDataFrame
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
 import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 
+import java.sql.{Connection, DriverManager, ResultSet, Statement}
 import scala.collection.mutable.ArrayBuffer
 
 
@@ -55,7 +55,7 @@ class ImpalaRead extends ConfigurableStop{
       val rdd: RDD[Row] = session.sparkContext.makeRDD(rows)
       val df: DataFrame = session.createDataFrame(rdd,schema)
 
-      out.write(df)
+      out.write(new  SciDataFrame(df))
 
   }
 

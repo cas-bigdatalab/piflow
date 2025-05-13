@@ -2,12 +2,12 @@ package cn.piflow.bundle.kafka
 
 import java.util
 import java.util.{Collections, Properties}
-
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import cn.piflow.bundle.util.JedisClusterImplSer
 import cn.piflow.conf._
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
+import cn.piflow.util.SciDataFrame
 import org.apache.spark.sql.{Row, SparkSession}
 import org.apache.spark.sql.types.{StructField, StructType}
 
@@ -67,7 +67,7 @@ class ReadFromKafka extends ConfigurableStop{
     //val newRdd=rdd.map(line=>Row.fromSeq(line.toSeq))
     val df=spark.sqlContext.createDataFrame(rdd,dfSchema)
     //df.show(20)
-    out.write(df)
+    out.write(new SciDataFrame(df))
   }
   def initialize(ctx: ProcessContext): Unit = {
 

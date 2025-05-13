@@ -24,7 +24,7 @@ class WriteToKafka extends ConfigurableStop{
 
   def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     val spark = pec.get[SparkSession]()
-    val df = in.read()
+    val df = in.read().getSparkDf
     val properties:Properties  = new Properties()
     properties.put("bootstrap.servers", kafka_host)
     properties.put("acks", "all")

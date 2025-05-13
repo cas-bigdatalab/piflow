@@ -7,7 +7,7 @@ import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import org.apache.spark.graphx._
 import org.apache.spark.graphx.lib.LabelPropagation
 import org.apache.spark.sql.SparkSession
-
+import cn.piflow.SciDataFrameImplicits.autoWrapDataFrame
 class LabelPropagation extends ConfigurableStop {
 
   val authorEmail: String = "06whuxx@163.com"

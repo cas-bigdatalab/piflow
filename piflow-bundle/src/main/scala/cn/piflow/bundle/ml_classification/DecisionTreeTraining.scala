@@ -6,7 +6,7 @@ import cn.piflow.conf.{ConfigurableStop, Port, StopGroup}
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.apache.spark.ml.classification.DecisionTreeClassifier
 import org.apache.spark.sql.SparkSession
-
+import cn.piflow.SciDataFrameImplicits.autoWrapDataFrame
 class DecisionTreeTraining extends ConfigurableStop{
   val authorEmail: String = "06whuxx@163.com"
   val description: String = "Train a decision tree model"

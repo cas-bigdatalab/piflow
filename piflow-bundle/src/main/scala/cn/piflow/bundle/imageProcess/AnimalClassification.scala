@@ -1,11 +1,11 @@
 package cn.piflow.bundle.imageProcess
 
 import java.io.{File, FileNotFoundException}
-
 import cn.piflow._
 import cn.piflow.conf._
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
+import cn.piflow.util.SciDataFrame
 import org.apache.http.entity.ContentType
 import org.apache.http.util.EntityUtils
 import org.apache.spark.rdd.RDD
@@ -89,7 +89,7 @@ class AnimalClassification extends ConfigurableStop {
       StructField("res",StringType)
     ))
     val df: DataFrame = session.createDataFrame(rowRDD,schema)
-    out.write(df)
+    out.write(new SciDataFrame(df))
 
 
   }

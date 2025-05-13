@@ -4,6 +4,7 @@ import cn.piflow._
 import cn.piflow.conf._
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
+import cn.piflow.util.SciDataFrame
 
 
 class ConvertSchema extends ConfigurableStop {
@@ -15,7 +16,7 @@ class ConvertSchema extends ConfigurableStop {
 
   var schema:String = _
   def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
-    var df = in.read()
+    var df = in.read().getSparkDf
 
     val field = schema.split(",").map(x => x.trim)
 
@@ -24,7 +25,7 @@ class ConvertSchema extends ConfigurableStop {
       df = df.withColumnRenamed(old_new(0),old_new(1))
     })
 
-    out.write(df)
+    out.write(new SciDataFrame(df))
 
   }
 

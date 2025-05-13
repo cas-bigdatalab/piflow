@@ -5,7 +5,7 @@ import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import cn.piflow.conf.{ConfigurableVisualizationStop, Port, StopGroup, VisualizationType}
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.apache.spark.sql.SparkSession
-
+import cn.piflow.SciDataFrameImplicits.autoWrapDataFrame
 class PieChart extends ConfigurableVisualizationStop {
   override val authorEmail: String = "xjzhu@cnic.cn"
   override val description: String = "Show data with pie chart. "
@@ -74,7 +74,7 @@ class PieChart extends ConfigurableVisualizationStop {
   override def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
     val spark = pec.get[SparkSession]()
     val sqlContext = spark.sqlContext
-    val dataFrame = in.read()
+    val dataFrame = in.read().getSparkDf
     dataFrame.createOrReplaceTempView("PieChart")
     val sqlText = "select " + dimension + "," +indicatorOption+ "(" + indicator + ") from PieChart group by " + dimension;
     println("PieChart Sql: " + sqlText)

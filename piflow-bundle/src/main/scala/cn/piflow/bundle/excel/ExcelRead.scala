@@ -3,6 +3,7 @@ package cn.piflow.bundle.excel
 import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import cn.piflow.conf.{ConfigurableStop, Port, StopGroup}
+import cn.piflow.util.SciDataFrame
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import org.apache.spark.sql.SparkSession
 
@@ -31,7 +32,7 @@ class ExcelRead extends ConfigurableStop{
       .option("header", header)
       .load(filePath)
 
-    out.write(frame)
+    out.write(new SciDataFrame(frame))
   }
 
   override def setProperties(map: Map[String, Any]): Unit = {
@@ -112,7 +113,7 @@ class ExcelRead extends ConfigurableStop{
   }
 
   override def getIcon(): Array[Byte] = {
-    ImageUtil.getImage("icon/excel/excelParse.png",this.getClass.getName)
+    ImageUtil.getImage("icon/excel/excelParse.png")
   }
 
   override def getGroup(): List[String] = {

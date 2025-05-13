@@ -4,6 +4,7 @@ import cn.piflow.conf.bean.PropertyDescriptor
 import cn.piflow.conf.util.{ImageUtil, MapUtil}
 import cn.piflow.{JobContext, JobInputStream, JobOutputStream, ProcessContext}
 import cn.piflow.conf._
+import cn.piflow.util.SciDataFrame
 import org.apache.spark.sql.SparkSession
 
 class RegexTextProcess extends ConfigurableStop{
@@ -19,14 +20,14 @@ class RegexTextProcess extends ConfigurableStop{
     def perform(in: JobInputStream, out: JobOutputStream, pec: JobContext): Unit = {
       val spark = pec.get[SparkSession]()
       val sqlContext=spark.sqlContext
-      val dfOld = in.read()
+      val dfOld = in.read().getSparkDf
       val regexText=regex
       val replaceText=replaceStr
       dfOld.createOrReplaceTempView("thesis")
       sqlContext.udf.register("regexPro",(str:String)=>str.replaceAll(regexText,replaceText))
       val sqlText:String="select *,regexPro("+columnName+") as "+columnName+"_new from thesis"
       val dfNew=sqlContext.sql(sqlText)
-      out.write(dfNew)
+      out.write(new SciDataFrame(dfNew))
     }
 
   def initialize(ctx: ProcessContext): Unit = {
