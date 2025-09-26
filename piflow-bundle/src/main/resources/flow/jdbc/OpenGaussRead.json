@@ -1,0 +1,42 @@
+{
+  "flow":{
+    "name":"test",
+    "uuid":"1234",
+    "stops":[
+      {
+        "uuid":"1111",
+        "name":"OpenGaussRead",
+        "bundle":"cn.piflow.bundle.jdbc.OpenGaussRead",
+        "properties":{
+          "url": "jdbc:postgresql://localhost:8888/postgres",
+          "user": "user1",
+          "password": "openFLOW@1234",
+          "selectedContent":"*",
+          "tableName": "customer",
+          "queryDop": "4",
+          "hint": ""
+        }
+      },
+      {
+        "uuid":"1324",
+        "name":"CsvSave",
+        "bundle":"cn.piflow.bundle.csv.CsvSave",
+        "properties":{
+          "csvSavePath":"hdfs://localhost:9000/data/openGaussRead1",
+          "header": "true",
+          "delimiter":",",
+          "partition":"1",
+          "saveMode": "append"
+        }
+      }
+    ],
+    "paths":[
+      {
+        "from":"OpenGaussRead",
+        "outport":"",
+        "inport":"",
+        "to":"CsvSave"
+      }
+    ]
+  }
+}
