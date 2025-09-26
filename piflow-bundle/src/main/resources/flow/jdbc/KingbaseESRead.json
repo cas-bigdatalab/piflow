@@ -1,0 +1,41 @@
+{
+  "flow":{
+    "name":"test",
+    "uuid":"1234",
+    "stops":[
+      {
+        "uuid":"1111",
+        "name":"KingbaseESRead",
+        "bundle":"cn.piflow.bundle.jdbc.KingbaseESRead",
+        "properties":{
+          "url": "jdbc:kingbase8://localhost:54321/kingbase",
+          "user": "kingbase",
+          "password": "123456",
+          "selectedContent":"*",
+          "tableName": "customer",
+          "hint": ""
+        }
+      },
+      {
+        "uuid":"1324",
+        "name":"CsvSave",
+        "bundle":"cn.piflow.bundle.csv.CsvSave",
+        "properties":{
+          "csvSavePath":"hdfs://localhost:9000/data/KingbaseESRead1",
+          "header": "true",
+          "delimiter":",",
+          "partition":"1",
+          "saveMode": "append"
+        }
+      }
+    ],
+    "paths":[
+      {
+        "from":"KingbaseESRead",
+        "outport":"",
+        "inport":"",
+        "to":"CsvSave"
+      }
+    ]
+  }
+}
