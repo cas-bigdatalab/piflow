@@ -1,0 +1,71 @@
+{
+  "test_cases": [
+    {
+      "name": "按比例选择测试",
+      "command": "python scripts/random_selector.py --input_file test_data.csv --output_file test_output_ratio.csv --select_ratio 0.5",
+      "input_files": ["test_data.csv"],
+      "output_files": ["test_output_ratio.csv"],
+      "expected_output": {
+        "type": "file",
+        "path": "test_output_ratio.csv",
+        "checks": [
+          {
+            "type": "file_exists",
+            "message": "Output file should exist"
+          },
+          {
+            "type": "csv_row_count",
+            "operator": "less_than_or_equal",
+            "value": 5,
+            "message": "Output file should have at most 5 rows"
+          }
+        ]
+      }
+    },
+    {
+      "name": "按固定数量选择测试",
+      "command": "python scripts/random_selector.py --input_file test_data.csv --output_file test_output_num.csv --select_num 3",
+      "input_files": ["test_data.csv"],
+      "output_files": ["test_output_num.csv"],
+      "expected_output": {
+        "type": "file",
+        "path": "test_output_num.csv",
+        "checks": [
+          {
+            "type": "file_exists",
+            "message": "Output file should exist"
+          },
+          {
+            "type": "csv_row_count",
+            "operator": "equal",
+            "value": 3,
+            "message": "Output file should have exactly 3 rows"
+          }
+        ]
+      }
+    },
+    {
+      "name": "同时设置比例和数量测试",
+      "command": "python scripts/random_selector.py --input_file test_data.csv --output_file test_output_both.csv --select_ratio 0.5 --select_num 2",
+      "input_files": ["test_data.csv"],
+      "output_files": ["test_output_both.csv"],
+      "expected_output": {
+        "type": "file",
+        "path": "test_output_both.csv",
+        "checks": [
+          {
+            "type": "file_exists",
+            "message": "Output file should exist"
+          },
+          {
+            "type": "csv_row_count",
+            "operator": "equal",
+            "value": 2,
+            "message": "Output file should have exactly 2 rows (smaller value)
+"
+          }
+        ]
+      }
+    }
+  ]
+}

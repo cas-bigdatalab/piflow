@@ -1,0 +1,11 @@
+deepagents
+fastapi
+fastmcp
+langchain-core
+langchain-openai
+pydantic
+PyYAML
+uvicorn
+pytest
+requests
+pycryptodome

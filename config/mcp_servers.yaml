@@ -1,0 +1,13 @@
+runtime:
+  timeout: 10
+  retry_interval: 5
+  health_check_interval: 30
+
+servers:
+  - name: EcoflowMCP
+    url: http://127.0.0.1:8000/mcp
+    enabled: true
+
+  - name: FlowAgents
+    url: http://10.0.87.1131:8000/mcp
+    enabled: true

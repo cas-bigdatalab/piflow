@@ -1,0 +1,11 @@
+skills:
+
+  paths:
+    - skills
+    - plugins
+
+  report:
+    enabled: true
+
+  shell:
+    enabled: false

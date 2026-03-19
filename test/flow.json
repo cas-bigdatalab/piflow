@@ -1,0 +1,174 @@
+
+{
+  "flow" : {
+    "executorNumber" : "1",
+    "driverMemory" : "1g",
+    "executorMemory" : "1g",
+    "executorCores" : "1",
+    "paths" : [ {
+      "inport" : "tfw_port",
+      "from" : "榆林市地理坐标信息文件",
+      "to" : "geotrans_main",
+      "outport" : ""
+    }, {
+      "inport" : "gully_slop_port",
+      "from" : "gully_slop",
+      "to" : "hydro_susceptibility",
+      "outport" : "gully_slop_port"
+    }, {
+      "inport" : "label_port",
+      "from" : "geotrans_main",
+      "to" : "overlap_dam_select",
+      "outport" : "detect_geotrans_port"
+    }, {
+      "inport" : "suscep_hdyro_port",
+      "from" : "hydro_susceptibility",
+      "to" : "overlap_dam_select",
+      "outport" : "suscep_hdyro_port"
+    }, {
+      "inport" : "demPort",
+      "from" : "2019年中国榆林市30m数字高程数据集",
+      "to" : "gully_slop",
+      "outport" : ""
+    }, {
+      "inport" : "yolov7_port",
+      "from" : "榆林市卫星遥感数据集图像分割文件",
+      "to" : "geotrans_main",
+      "outport" : ""
+    }, {
+      "inport" : "recordPort",
+      "from" : "2019年中国榆林市沟道信息",
+      "to" : "gully_slop",
+      "outport" : ""
+    }, {
+      "inport" : "",
+      "from" : "overlap_dam_select",
+      "to" : "结果存储",
+      "outport" : "damDetect_port"
+    }, {
+      "inport" : "geoentropy_port",
+      "from" : "地貌信息熵",
+      "to" : "hydro_susceptibility",
+      "outport" : ""
+    } ],
+    "name" : "协同智能编排",
+    "stops" : [ {
+      "customizedProperties" : { },
+      "dataCenter" : "http://210.77.77.148:7001",
+      "name" : "结果存储",
+      "uuid" : "b9a4ff9213804cfa84017349cff681c5",
+      "bundle" : "cn.piflow.bundle.csv.CsvSave",
+      "properties" : {
+        "csvSavePath" : "/work/ncdc/out/result/",
+        "saveMode" : "append",
+        "partition" : "1",
+        "delimiter" : ",",
+        "header" : "false"
+      }
+    }, {
+      "customizedProperties" : { },
+      "dataSourceId" : "b60d8e7d3b6fba85a12ad4d5251d08ea",
+      "dataCenter" : "http://210.77.77.148:7001",
+      "registerId" : "CSTR:33113.11.KNoAEF5k2vZJW7",
+      "sourceType" : "COLLABORATIVE_NETWORK",
+      "webAddress" : "http://210.77.77.148:7001",
+      "name" : "地貌信息熵",
+      "uuid" : "c12f9dae027f4c63b54d936d73382279",
+      "bundle" : "cn.piflow.bundle.csv.CsvParser",
+      "properties" : { }
+    }, {
+      "customizedProperties" : { },
+      "dataCenter" : "http://210.77.77.148:7001",
+      "registerId" : "CSTR:33113.11.bcE2SaomXIS5s2",
+      "name" : "gully_slop",
+      "uuid" : "7f494083465b4e819b58a2d79002bd29",
+      "bundle" : "cn.piflow.bundle.script.DockerExecute",
+      "properties" : {
+        "outports" : "gully_slop_port",
+        "ymlContent" : "version: \"3\"\nservices:\n  gully_slop-53826edfc71f4685bb88d6c59f620a55:\n    image: \"registry.cn-hangzhou.aliyuncs.com/bigflow/geo_entropy.py-1672748449294:3.7.5\"\n    extra_hosts:bigflow_extra_hosts\n    hostname: gully_slop-53826edfc71f4685bb88d6c59f620a55\n    container_name: gully_slop-53826edfc71f4685bb88d6c59f620a55\n    environment:\n      - hdfs_url=bigflow_hdfs_url\n      - TZ=Asia/Shanghai\n    volumes:\n      - ../app:/app\n      - /data/nfs/:/data/nfs/\n      - /data1/nfs:/data1/nfs\n      - /data/instdb:/data/instdb\n    command: python3 /pythonDir/gully_slop.py /demo.csv \n    network_mode: bridge\n",
+        "inports" : "recordPort,demPort"
+      }
+    }, {
+      "customizedProperties" : { },
+      "dataCenter" : "http://210.77.77.148:7001",
+      "registerId" : "CSTR:33113.11.kR1thvZQvEOF8f",
+      "name" : "hydro_susceptibility",
+      "uuid" : "81ad7c684f6a42308059e36758134e9b",
+      "bundle" : "cn.piflow.bundle.script.DockerExecute",
+      "properties" : {
+        "outports" : "suscep_hdyro_port",
+        "ymlContent" : "version: \"3\"\nservices:\n  hydro_susceptibility-e6523ad41cb94446a70a8bca0698a44f:\n    image: \"registry.cn-hangzhou.aliyuncs.com/bigflow/geo_entropy.py-1672748449294:3.7.5\"\n    extra_hosts:bigflow_extra_hosts\n    hostname: hydro_susceptibility-e6523ad41cb94446a70a8bca0698a44f\n    container_name: hydro_susceptibility-e6523ad41cb94446a70a8bca0698a44f\n    environment:\n      - hdfs_url=bigflow_hdfs_url\n      - TZ=Asia/Shanghai\n    volumes:\n      - ../app:/app\n      - /data/nfs/:/data/nfs/\n      - /data1/nfs:/data1/nfs\n      - /data/instdb:/data/instdb\n    command: python3 /pythonDir/hydro_susceptibility.py /demo.csv \n    network_mode: bridge\n",
+        "inports" : "gully_slop_port,geoentropy_port"
+      }
+    }, {
+      "customizedProperties" : { },
+      "dataSourceId" : "ba6150401be0165ec5e775965f6cb864",
+      "dataCenter" : "http://124.16.184.77:7801",
+      "registerId" : "CSTR:33113.11.qAVho1T4uVUzIC",
+      "sourceType" : "COLLABORATIVE_NETWORK",
+      "webAddress" : "http://124.16.184.77:7801",
+      "name" : "榆林市地理坐标信息文件",
+      "uuid" : "7ea0197cddd9445bad49e94e476e2a32",
+      "bundle" : "cn.piflow.bundle.hdfs.HdfsPathToDf",
+      "properties" : { }
+    }, {
+      "customizedProperties" : { },
+      "dataSourceId" : "eeddd7533316dbe26146565c18c95505",
+      "dataCenter" : "http://124.16.184.77:7801",
+      "registerId" : "CSTR:33113.11.ZYlk4iEw9sxvKs",
+      "sourceType" : "COLLABORATIVE_NETWORK",
+      "webAddress" : "http://124.16.184.77:7801",
+      "name" : "榆林市卫星遥感数据集图像分割文件",
+      "uuid" : "c66d0303493f4968a4b696892fddf311",
+      "bundle" : "cn.piflow.bundle.hdfs.HdfsPathToDf",
+      "properties" : { }
+    }, {
+      "customizedProperties" : { },
+      "dataCenter" : "http://124.16.184.77:7801",
+      "registerId" : "CSTR:33113.11.UYfFpZa2Zoi9Dl",
+      "name" : "geotrans_main",
+      "uuid" : "0dd2af2f8aea43a9ab4be8b652b4b1aa",
+      "bundle" : "cn.piflow.bundle.script.DockerExecute",
+      "properties" : {
+        "outports" : "detect_geotrans_port",
+        "ymlContent" : "version: \"3\"\nservices:\n  geotrans_main-bd952e03da7947e3afc0e63ac8b32b75:\n    image: \"registry.cn-hangzhou.aliyuncs.com/bigflow/yolo:3.7.5\"\n    extra_hosts:bigflow_extra_hosts\n    hostname: geotrans_main-bd952e03da7947e3afc0e63ac8b32b75\n    container_name: geotrans_main-bd952e03da7947e3afc0e63ac8b32b75\n    environment:\n      - hdfs_url=bigflow_hdfs_url\n      - TZ=Asia/Shanghai\n    volumes:\n      - ../app:/app\n      - /data/nfs/:/data/nfs/\n      - /data1/nfs:/data1/nfs\n      - /data/instdb:/data/instdb\n    command: python3 /pythonDir/geotrans_main.py /demo.csv \n    network_mode: bridge\n",
+        "inports" : "yolov7_port,tfw_port"
+      }
+    }, {
+      "customizedProperties" : { },
+      "dataSourceId" : "f03b9904530bb9a2a785f86eea032b5f",
+      "dataCenter" : "http://210.77.77.148:7001",
+      "registerId" : "CSTR:33113.11.iXX5KpqKwJzDLs",
+      "sourceType" : "COLLABORATIVE_NETWORK",
+      "webAddress" : "http://210.77.77.148:7001",
+      "name" : "2019年中国榆林市沟道信息",
+      "uuid" : "91688b4287084d7c8227cd266b583b9f",
+      "bundle" : "cn.piflow.bundle.hdfs.HdfsPathToDf",
+      "properties" : { }
+    }, {
+      "customizedProperties" : { },
+      "dataCenter" : "http://210.77.77.148:7001",
+      "registerId" : "CSTR:33113.11.YIox6ZS4Ab4IUT",
+      "name" : "overlap_dam_select",
+      "uuid" : "4894d94dcaa4493d8f35aca1110c9be8",
+      "bundle" : "cn.piflow.bundle.script.DockerExecute",
+      "properties" : {
+        "outports" : "damDetect_port",
+        "ymlContent" : "version: \"3\"\nservices:\n  overlap_dam_select-87e39f3cfb3f41debeb016c8a219567d:\n    image: \"registry.cn-hangzhou.aliyuncs.com/bigflow/geo_entropy.py-1672748449294:3.7.5\"\n    extra_hosts:bigflow_extra_hosts\n    hostname: overlap_dam_select-87e39f3cfb3f41debeb016c8a219567d\n    container_name: overlap_dam_select-87e39f3cfb3f41debeb016c8a219567d\n    environment:\n      - hdfs_url=bigflow_hdfs_url\n      - TZ=Asia/Shanghai\n    volumes:\n      - ../app:/app\n      - /data/nfs/:/data/nfs/\n      - /data1/nfs:/data1/nfs\n      - /data/instdb:/data/instdb\n    command: python3 /pythonDir/overlap_dam_select.py /demo.csv \n    network_mode: bridge\n",
+        "inports" : "suscep_hdyro_port,label_port"
+      }
+    }, {
+      "customizedProperties" : { },
+      "dataSourceId" : "ed398be641d7aebeafe55128669b3915",
+      "dataCenter" : "http://210.77.77.148:7001",
+      "registerId" : "CSTR:33113.11.H4YNfhqKWY1WwG",
+      "sourceType" : "COLLABORATIVE_NETWORK",
+      "webAddress" : "http://210.77.77.148:7001",
+      "name" : "2019年中国榆林市30m数字高程数据集",
+      "uuid" : "e4d35e0a10e7449387d22ddafbc77b25",
+      "bundle" : "cn.piflow.bundle.hdfs.HdfsPathToDf",
+      "properties" : { }
+    } ],
+    "uuid" : "1f42db93dc094914b3fd4aece6f3990a"
+  }
+}

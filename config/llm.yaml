@@ -1,0 +1,24 @@
+llm:
+  provider: dashscope
+  model: qwen-plus
+  temperature: 0
+
+#llm:
+#  provider: cstcloud
+#  model: qwen3.5
+#  temperature: 0
+
+#llm:
+#  provider: cstcloud
+#  model: deepseek-r1:671b
+#  temperature: 0
+
+
+providers:
+  dashscope:
+    base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
+    api_key_env: DASHSCOPE_API_KEY
+
+  cstcloud:
+    base_url: https://uni-api.cstcloud.cn/v1
+    api_key_env: CSTCLOUD_API_KEY

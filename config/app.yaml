@@ -1,0 +1,17 @@
+app:
+  app_name: Flow DeepAgent
+  debug: false
+  log_level: INFO
+  log_to_console: true
+  log_file: app.log
+  log_max_bytes: 5242880
+  log_backup_count: 5
+
+workspace:
+  root: ./workspace
+
+  dirs:
+    artifacts: artifacts
+    outputs: outputs
+    temp: temp
+    logs: logs
