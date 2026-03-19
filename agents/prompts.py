@@ -92,7 +92,11 @@ def build_skill_prompt(skills):
 ScienceDB 路由规则：
 - 用于公开可下载数据集检索场景。
 - 普通检索（找数据/查数据/下载）优先走 `sciencedb_search.process`。
+- 普通检索默认只调用一次 `sciencedb_search.process`；除非用户明确要求追加检索或指定单一来源，否则不要再调用 `scidb_search_main` / `instDB_search_main`。
 - 只要调用了 `sciencedb_search.process`，面向用户回复时必须逐条给出“数据集名称 + 下载链接”。
+- 普通检索对外展示字段仅限：数据集名、下载链接、关键词、描述（精简）、文件大小、来源。
+- 只要 `sciencedb_search.process` 返回结果中含“来源”字段，最终回复必须逐条保留“来源”，禁止省略。
+- 普通检索场景禁止将工具返回结果再改写为总结段落；应按条目直接展示检索结果。
 - 禁止只给总结性推荐而省略下载链接。
 """
         )

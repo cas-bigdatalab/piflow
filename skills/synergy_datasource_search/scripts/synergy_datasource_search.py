@@ -359,6 +359,27 @@ def process(
             ),
         }
 
+    if not full_names:
+        return {
+            "analysis_name": analysis_label,
+            "required_data_source_keywords": keywords,
+            "required_data_source_full_names": full_names,
+            "dataset_stops": [],
+            "dataset_count": 0,
+            "exact_full_name_matched_dataset_stops": [],
+            "exact_full_name_matched_count": 0,
+            "keyword_related_dataset_stops": [],
+            "keyword_related_count": 0,
+            "missing_required_full_names": [],
+            "blocked_by_intent_guard": True,
+            "routing_recommendation": "sciencedb_search.process",
+            "message": (
+                "analysis routing requires required_data_source_full_names from "
+                "explicit workflow planning context. "
+                "Without required_data_source_full_names, use sciencedb_search.process."
+            ),
+        }
+
     if not keywords and not full_names:
         return {
             "analysis_name": analysis_label,

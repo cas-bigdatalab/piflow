@@ -1,3 +1,4 @@
 .idea/
 .venv/
+.workspace/logs/app.log
 .env

@@ -1,75 +1,122 @@
+from __future__ import annotations
+
+from typing import Any
+
 import requests
-import json
 
-from langchain_core.tools import tool
-
-from skills.sciencedb_search.scripts.search_main import scidb_search_main
-
-
-def _split_keywords(raw: str) -> list[str]:
-    # Split on any whitespace and drop empties.
-    return [k for k in raw.split() if k]
-
-url = "https://www.casdc.cn/api/query/list"
-downloadUrl = "https://www.casdc.cn/api/query/download"
-
-def getFtpInfo(downloadId: str) -> str:
-    params = {
-        "id": downloadId
-    }
-
-    headers = {
-        "User-Agent": "Mozilla/5.0",
-        "Accept": "application/json"
-    }
-
-    response = requests.get(downloadUrl, params=params, headers = headers)
-    return response.json().get("data")
+from skills.sciencedb_search.scripts.search_main import (
+    MAX_SIZE_PER_KEYWORD,
+    _format_records,
+    _matches_keyword,
+    _normalize_keywords,
+    _record_key,
+)
 
 
-def instDB_search_main(keyword: str) -> str:
-    """
-    搜索 InstDB 数据集。
+INSTDB_LIST_URL = "https://www.casdc.cn/api/query/list"
+INSTDB_DOWNLOAD_URL = "https://www.casdc.cn/api/query/download"
+REQUEST_TIMEOUT = 30
 
-    用于：
-    - 查找科学数据集
-    - 获取数据下载链接
-    - 数据资源检索
 
-    参数：
-    - keyword: 检索关键词
-    - size: 返回数量
-    """
-    print(f"使用关键词 {keyword} 在InstDB 中搜索相关数据集")
-    params = {
-        "keyword": keyword  # 搜索关键词
-    }
+def get_ftp_info(download_id: str) -> dict[str, Any]:
+    if not download_id:
+        return {}
 
     headers = {
         "User-Agent": "Mozilla/5.0",
-        "Accept": "application/json"
+        "Accept": "application/json",
+    }
+    try:
+        response = requests.get(
+            INSTDB_DOWNLOAD_URL,
+            params={"id": download_id},
+            headers=headers,
+            timeout=REQUEST_TIMEOUT,
+        )
+        response.raise_for_status()
+    except requests.RequestException:
+        return {}
+
+    data = response.json().get("data", {})
+    if isinstance(data, dict):
+        return data
+    return {}
+
+
+def _format_instdb_download_link(ftp_info: dict[str, Any]) -> str:
+    ftp_url = str(ftp_info.get("ftpUrl", "")).strip()
+    username = str(ftp_info.get("username", "")).strip()
+    password = str(ftp_info.get("password", "")).strip()
+
+    if ftp_url and username and password:
+        return f"{ftp_url} (username: {username}, password: {password})"
+    if ftp_url:
+        return ftp_url
+    return ""
+
+
+def search_instdb_records(keywords: str | list[str] | tuple[str, ...], size: int = 5) -> list[dict[str, Any]]:
+    keyword_list = _normalize_keywords(keywords)
+    if not keyword_list:
+        return []
+    effective_size = max(1, min(size, MAX_SIZE_PER_KEYWORD))
+
+    headers = {
+        "User-Agent": "Mozilla/5.0",
+        "Accept": "application/json",
     }
 
-    response = requests.get(url, params=params, headers=headers)
+    dedup: dict[str, dict[str, Any]] = {}
 
-    lines = []
-    if response.status_code == 200:
-        data = response.json()
-        results = []
-        for item in data.get("data", []):
-            results.append({
-                "title": item.get("name"),
-                "descriptionZh": item.get("description"),
-                "下载链接": item.get("ftpUrl") ,
-                "source": 'InstDB'
-            })
-            title = item.get("name")
-            downloadUrl = getFtpInfo(item.get("_id"))
-            descriptionZh = item.get("description")
-            size = item.get("storageNum")
-            source = item.get("publisher").get("nameZh")
-            lines.append(
-                f" **{title}**,description:{descriptionZh}, 下载链接: {downloadUrl}, 来源: {source}, size: {size} KB"
+    for keyword in keyword_list:
+        try:
+            response = requests.get(
+                INSTDB_LIST_URL,
+                params={"keyword": keyword},
+                headers=headers,
+                timeout=REQUEST_TIMEOUT,
             )
-    scidb_search_result = scidb_search_main(keyword, 10)
-    return "\n".join(lines) + "\n"  + scidb_search_result
+            response.raise_for_status()
+        except requests.RequestException:
+            continue
+
+        data = response.json()
+        items = data.get("data", [])
+        if not isinstance(items, list):
+            continue
+
+        for item in items[:effective_size]:
+            ftp_info = get_ftp_info(str(item.get("_id", "")))
+            download_link = _format_instdb_download_link(ftp_info)
+
+            publisher = (item.get("publisher") or {}).get("nameZh") or "国家基础学科公共科学数据中心"
+            record = {
+                "title": item.get("name") or "未命名数据集",
+                "description": item.get("description") or "",
+                "download_link": download_link,
+                "size": item.get("storageNum", ""),
+                "source": "InstDB",
+                "provider": publisher,
+                "matched_keyword": keyword,
+            }
+            if not _matches_keyword(record, keyword):
+                continue
+            key = _record_key(record)
+            if key not in dedup:
+                dedup[key] = record
+
+    return list(dedup.values())
+
+
+def instDB_search_main(keyword: str | list[str], size: int = 5) -> str:
+    """
+    在 InstDB 检索数据集，支持一次传入多个关键词并自动合并去重。
+
+    参数:
+    - keyword: 关键词字符串或关键词列表
+    - size: 每个关键词的检索条数上限
+    """
+    records = search_instdb_records(keyword, size=size)
+    if not records:
+        return f"抱歉，没有在 InstDB 找到与 '{keyword}' 相关的数据集。"
+    return _format_records(records)
