@@ -38,16 +38,15 @@ def build_skill_prompt(skills):
         extra_rules_parts.append(
             """
 流程编排规则（重要）：
-- 用户问“做什么分析 / 需要哪些输入数据源 / 生成 DAG”时，走三阶段链路：
+- 当用户请求“做什么分析 / 需要哪些输入数据源 / 生成 DAG”时，按三步执行：
   1) 调用算法算子 skill（`*.emit_operator`）确定 `selected_operators`
   2) 调用 `flow_orchestrator.plan_analysis` 获取 `required_sources`
   3) 用户选定数据源后调用 `flow_orchestrator.build_flow_with_selected_sources` 生成完整 flow JSON
-- `build_flow_with_selected_sources` 返回的 `run_payload` 用于后续执行阶段。
+- `build_flow_with_selected_sources` 的返回 `run_payload` 用于后续执行阶段。
 - 用户说“开始执行”时，调用执行 skill 并传入缓存参数（`run_payload` 或 `flow_session_id`）。
 - 展示 DAG 时使用 JSON，不使用箭头文本。
-- 调用 `build_flow_with_selected_sources` 时，必须传入 `selected_dataset_stops` 的完整数据源 stop JSON 数组，不允许只传名称列表。
-- 当任务是“推荐分析流程输入数据源”时，也应先经过算法算子识别（`*.emit_operator` + `plan_analysis`），再做数据源检索。
-- 不要在面向用户的文本中暴露内部临时文件路径（如 `/temp/dam_flow_xxx.json`），只暴露 `flow_session_id`。
+- 调用 `build_flow_with_selected_sources` 时，必须传入完整 `selected_dataset_stops` stop JSON 数组，不能只传名称列表。
+- 面向用户回复中不要暴露内部临时文件路径（如 `/temp/*.json`），只暴露 `flow_session_id`。
 """
         )
 
@@ -55,15 +54,35 @@ def build_skill_prompt(skills):
         extra_rules_parts.append(
             """
 协同数据源检索规则：
-- 该工具只负责检索执行，不负责语义拆词。
-- 先做语义理解，再传入 `analysis_name / required_data_source_keywords / required_data_source_full_names`。
+- 该工具只负责检索执行，不负责语义拆解。
+- 模型必须先做语义理解，再传入 `analysis_name / required_data_source_keywords / required_data_source_full_names`。
 - 分析类请求中，`required_data_source_full_names` 不允许为 `None`。
 - 若已有 `plan_analysis.required_sources`，必须原样传入 `required_data_source_full_names`。
-- 图像分割算法分析场景下，`required_data_source_full_names` 至少包含：
-  - `榆林市卫星遥感数据集图像分割文件`
-  - `榆林市地理坐标信息文件`
-- 对用户展示时按数据类型分组：地形高程、沟道网络、地貌特征、遥感影像、地理坐标、其他候选。
-- 每条默认只展示：数据集名称、dataSourceId、（可选）一句用途。
+- `required_data_source_keywords` 必须按当前请求动态生成，禁止写死固定关键词模板。
+- 调用本工具时，必须设置 `routing_intent="analysis"`。
+"""
+        )
+
+    if "synergy_datasource_search" in skill_names:
+        extra_rules_parts.append(
+            """
+协同检索结果展示规则（面向用户，强制）：
+- 只按数据类别分组展示，不按命中机制分组。
+- 不得出现“完全匹配/关键词匹配/精确匹配/候选命中”等文案。
+- 不得暴露内部字段名：`exact_full_name_matched_*`、`keyword_related_*`。
+- 建议分类：地形高程 / 沟道网络 / 地貌特征 / 遥感影像 / 地理坐标 / 气象水文 / 其他。
+- 每条默认展示：数据集名称、dataSourceId、（可选）一句用途。
+"""
+        )
+
+    if "sciencedb_search" in skill_names and "synergy_datasource_search" in skill_names:
+        extra_rules_parts.append(
+            """
+检索路由优先级（强制）：
+- 只有用户语义中出现非常明确的分析/处理/计算/评估/建模/流程编排意图时，才允许走 `synergy_datasource_search.process`。
+- 若用户只是找数据、查数据、下载数据，必须走 `sciencedb_search.process`。
+- 未出现明确分析语义时，禁止调用 `synergy_datasource_search.process`。
+- 除非用户明确要求对比两种来源，否则一轮内不要同时调用两个检索工具。
 """
         )
 
@@ -71,8 +90,10 @@ def build_skill_prompt(skills):
         extra_rules_parts.append(
             """
 ScienceDB 路由规则：
-- 仅用于公开可下载链接检索场景。
-- 分析流程输入数据源问题不调用 `sciencedb_search.process`，应走协同数据源检索与编排链路。
+- 用于公开可下载数据集检索场景。
+- 普通检索（找数据/查数据/下载）优先走 `sciencedb_search.process`。
+- 只要调用了 `sciencedb_search.process`，面向用户回复时必须逐条给出“数据集名称 + 下载链接”。
+- 禁止只给总结性推荐而省略下载链接。
 """
         )
 
@@ -94,4 +115,3 @@ def build_system_prompt(skills=None) -> str:
     if skills:
         prompt += "\n\n" + build_skill_prompt(skills)
     return prompt
-

@@ -1,6 +1,6 @@
 ---
 name: synergy_datasource_search
-description: 检索 Conet 协同数据源并返回标准 stop JSON 数组。用于分析流程输入数据源推荐。
+description: 检索 Conet 协同数据源并返回标准 stop JSON。仅用于分析流程输入数据源推荐，不用于普通数据集检索。
 allowed-tools:
   - process
 ---
@@ -8,7 +8,6 @@ allowed-tools:
 # synergy_datasource_search
 
 调用 `synergy_datasource_search.process(...)` 返回：
-
 1. `analysis_name`
 2. `required_data_source_keywords`
 3. `required_data_source_full_names`
@@ -19,27 +18,25 @@ allowed-tools:
 
 ## 关键原则
 
-- 该脚本是纯检索执行器，不做语义拆词和意图路由硬编码。
-- 模型必须先做语义理解，再传入关键词与全称检索列表。
+- 该脚本是检索执行器，不做语义路由决策。
+- 语义理解应由模型完成，再传入检索参数。
 
-## 调用约束（强制）
+## 路由规则（强制）
 
-- 对分析类请求，`required_data_source_full_names` 不能传 `None`。
-- 如果已有算子选择结果（例如 `flow_orchestrator.plan_analysis.required_sources`），必须把这些名称写入 `required_data_source_full_names`。
+- `routing_intent` 必传，且由模型根据用户语义决定。
+- 当请求是分析流程输入推荐时：`routing_intent="analysis"`。
+- 当请求是普通找数据/下载数据时：应改走 `sciencedb_search.process`，不要调用本 skill。
+- 若误传 `routing_intent="generic_search"` 给本 skill，脚本会直接返回路由建议并跳过协同检索。
 
-## 图像分割场景（强制）
+## 调用约束（分析场景）
 
-当用户语义为“图像分割算法分析 / 遥感图像分割 / YOLO 分割流程输入数据源推荐”时，  
-`required_data_source_full_names` 至少必须包含：
-
-1. `榆林市卫星遥感数据集图像分割文件`
-2. `榆林市地理坐标信息文件`
-
-即使关键词检索已有其它候选，也必须做这两条全称检索，并在结果中优先展示。
+- 分析类请求里，`required_data_source_full_names` 不应为 `None`。
+- 若已有 `flow_orchestrator.plan_analysis.required_sources`，应原样传入 `required_data_source_full_names`。
 
 ## 展示规则（面向用户）
 
-- 按数据类型分组展示，不按命中方式分组。
-- 推荐分组：`地形高程`、`沟道网络`、`地貌特征`、`遥感影像`、`地理坐标`、`其他候选`。
+- 按数据类别分组展示，不按命中方式分组。
+- 推荐分组：`地形高程`、`沟道网络`、`地貌特征`、`遥感影像`、`地理坐标`、`气象水文`、`其他`。
 - 每条默认展示：`数据集名称`、`dataSourceId`、（可选）一句用途。
-- 不展示“精确匹配/关键词候选/高置信命中”这类命中标签文案。
+- 不展示“完全匹配/关键词匹配/精确匹配/候选命中”等命中标签文案。
+

@@ -42,6 +42,7 @@ def test_synergy_datasource_search_process(monkeypatch):
         analysis_name="山洪敏感度识别",
         required_data_source_keywords=["沟道", "高程", "地貌信息熵"],
         required_data_source_full_names=[],
+        routing_intent="analysis",
         token="mock-token",
         size=10,
     )
@@ -103,6 +104,7 @@ def test_dam_intent_adds_full_name_search(monkeypatch):
             "榆林市卫星遥感数据集图像分割文件",
             "榆林市地理坐标信息文件",
         ],
+        routing_intent="analysis",
         token="mock-token",
         size=10,
     )

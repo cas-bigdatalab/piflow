@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import base64
 import os
+import re
 import uuid as uuid_lib
 from typing import Any
 
@@ -23,8 +24,19 @@ JWT_LOGIN_PATH = "/piflow-web/jwtLogin"
 SYNERGY_SEARCH_PATH = "/piflow-web/datasource/v2/getSynergyByPage"
 
 DATA_CENTER_NAME_TO_URL = {
-    "国家对地观测科学数据中心": "http://124.16.184.77:7801",
-    "国家冰川冻土沙漠科学数据中心": "http://210.77.77.148:7001",
+    "\u56fd\u5bb6\u5bf9\u5730\u89c2\u6d4b\u79d1\u5b66\u6570\u636e\u4e2d\u5fc3": "http://124.16.184.77:7801",
+    "\u56fd\u5bb6\u51b0\u5ddd\u51bb\u571f\u6c99\u6f20\u79d1\u5b66\u6570\u636e\u4e2d\u5fc3": "http://210.77.77.148:7001",
+}
+
+ROUTING_INTENTS_ANALYSIS = {
+    "analysis",
+    "workflow_source_recommendation",
+}
+ROUTING_INTENTS_GENERIC_SEARCH = {
+    "generic_search",
+    "dataset_search",
+    "download_search",
+    "search",
 }
 
 
@@ -186,6 +198,48 @@ def _normalize_queries(values: list[str] | str | None) -> list[str]:
     return normalized
 
 
+def _derive_fallback_keywords(
+    user_query: str,
+    analysis_name: str,
+    full_names: list[str],
+) -> list[str]:
+    """
+    Build lexical fallback keywords when callers omit `required_data_source_keywords`.
+    The fallback is deterministic and domain-agnostic.
+    """
+    corpus = [user_query, analysis_name, *full_names]
+    raw_tokens: list[str] = []
+
+    for text in corpus:
+        normalized = str(text or "").strip()
+        if not normalized:
+            continue
+
+        parts = re.split(r"[^\w\u4e00-\u9fff]+", normalized)
+        for part in parts:
+            token = part.strip()
+            if not token:
+                continue
+            if re.fullmatch(r"\d{4}(?:\u5e74)?", token):
+                continue
+            raw_tokens.append(token)
+
+    compact_tokens: list[str] = []
+    for token in raw_tokens:
+        if token.isdigit():
+            continue
+        if len(token) <= 1:
+            continue
+        compact_tokens.append(token)
+
+    return _normalize_queries(compact_tokens)[:8]
+
+
+def _normalize_routing_intent(value: str) -> str:
+    normalized = str(value or "").strip().lower()
+    return normalized.replace("-", "_").replace(" ", "_")
+
+
 def _dedupe_dataset_stops(stops: list[dict[str, Any]]) -> list[dict[str, Any]]:
     seen: set[tuple[str, str]] = set()
     deduped: list[dict[str, Any]] = []
@@ -227,15 +281,83 @@ def process(
     conet_username: str = "",
     conet_password: str = "",
     conet_base_url: str = "http://conet.rdcn.link",
+    routing_intent: str = "",
 ) -> dict[str, Any]:
     """
     Execute synergy datasource retrieval by explicit keywords/full names.
     Semantic understanding should be done by the model via SKILL.md instructions.
     """
-    analysis_label = analysis_name.strip() or user_query.strip() or "未指定分析类型"
+    analysis_label = analysis_name.strip() or user_query.strip() or "\u672a\u6307\u5b9a\u5206\u6790\u7c7b\u578b"
 
     keywords = _normalize_queries(required_data_source_keywords)
     full_names = _normalize_queries(required_data_source_full_names)
+    if not keywords and full_names:
+        keywords = _derive_fallback_keywords(
+            user_query=user_query,
+            analysis_name=analysis_name,
+            full_names=full_names,
+        )
+
+    normalized_intent = _normalize_routing_intent(routing_intent)
+    if not normalized_intent:
+        return {
+            "analysis_name": analysis_label,
+            "required_data_source_keywords": keywords,
+            "required_data_source_full_names": full_names,
+            "dataset_stops": [],
+            "dataset_count": 0,
+            "exact_full_name_matched_dataset_stops": [],
+            "exact_full_name_matched_count": 0,
+            "keyword_related_dataset_stops": [],
+            "keyword_related_count": 0,
+            "missing_required_full_names": full_names,
+            "blocked_by_intent_guard": True,
+            "routing_recommendation": "set routing_intent to analysis or generic_search",
+            "message": (
+                "routing_intent is required. "
+                "Use routing_intent='analysis' for workflow source recommendation "
+                "or routing_intent='generic_search' for ordinary dataset retrieval."
+            ),
+        }
+
+    if normalized_intent in ROUTING_INTENTS_GENERIC_SEARCH:
+        return {
+            "analysis_name": analysis_label,
+            "required_data_source_keywords": keywords,
+            "required_data_source_full_names": full_names,
+            "dataset_stops": [],
+            "dataset_count": 0,
+            "exact_full_name_matched_dataset_stops": [],
+            "exact_full_name_matched_count": 0,
+            "keyword_related_dataset_stops": [],
+            "keyword_related_count": 0,
+            "missing_required_full_names": full_names,
+            "blocked_by_intent_guard": True,
+            "routing_recommendation": "sciencedb_search.process",
+            "message": (
+                "routing_intent indicates generic dataset search. "
+                "Please use sciencedb_search.process."
+            ),
+        }
+    if normalized_intent not in ROUTING_INTENTS_ANALYSIS:
+        return {
+            "analysis_name": analysis_label,
+            "required_data_source_keywords": keywords,
+            "required_data_source_full_names": full_names,
+            "dataset_stops": [],
+            "dataset_count": 0,
+            "exact_full_name_matched_dataset_stops": [],
+            "exact_full_name_matched_count": 0,
+            "keyword_related_dataset_stops": [],
+            "keyword_related_count": 0,
+            "missing_required_full_names": full_names,
+            "blocked_by_intent_guard": True,
+            "routing_recommendation": "set routing_intent to analysis or generic_search",
+            "message": (
+                f"Unsupported routing_intent='{normalized_intent}'. "
+                "Use routing_intent='analysis' or routing_intent='generic_search'."
+            ),
+        }
 
     if not keywords and not full_names:
         return {
@@ -301,7 +423,7 @@ def process(
 
     missing_required_full_names = _find_missing_required_names(exact_full_name_matched_stops, full_names)
 
-    return {
+    response = {
         "analysis_name": analysis_label,
         "required_data_source_keywords": keywords,
         "required_data_source_full_names": full_names,
@@ -313,3 +435,6 @@ def process(
         "keyword_related_count": len(keyword_related_stops),
         "missing_required_full_names": missing_required_full_names,
     }
+    if normalized_intent in ROUTING_INTENTS_ANALYSIS:
+        response["resolved_routing_intent"] = "analysis"
+    return response
