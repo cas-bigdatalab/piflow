@@ -1,6 +1,6 @@
 import uuid
 
-from skills.synergy_datasource_search.scripts import synergy_datasource_search as skill
+from workspace.skills.synergy_datasource_search.scripts import synergy_datasource_search as skill
 
 
 class _FakeResponse:

@@ -1,7 +1,7 @@
-llm:
-  provider: dashscope
-  model: qwen-plus
-  temperature: 0
+#llm:
+#  provider: dashscope
+#  model: qwen-plus
+#  temperature: 0
 
 #llm:
 #  provider: cstcloud
@@ -13,6 +13,15 @@ llm:
 #  model: deepseek-r1:671b
 #  temperature: 0
 
+llm:
+  provider: dashscope
+  model: qwen3-max
+  temperature: 0
+
+#llm:
+#  provider: openai
+#  model: glm-4.7-flash
+#  temperature: 0
 
 providers:
   dashscope:
@@ -22,3 +31,7 @@ providers:
   cstcloud:
     base_url: https://uni-api.cstcloud.cn/v1
     api_key_env: CSTCLOUD_API_KEY
+
+  openai:
+    base_url: https://open.bigmodel.cn/api/paas/v4
+    api_key_env: GLM_API_KEY

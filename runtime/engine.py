@@ -16,8 +16,8 @@ log = logging.getLogger("flow.engine")
 
 class AgentEngine:
 
-    def __init__(self):
-        self.agent = None
+    def __init__(self, agent=None):
+        self.agent = agent
         self.initialized = False
         self.settings = get_settings()
         self.mcp_runtime = MCPRuntime(self.settings.mcp)
