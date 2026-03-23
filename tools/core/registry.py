@@ -3,6 +3,7 @@ from __future__ import annotations
 import time
 import uuid
 import logging
+import contextvars
 from dataclasses import dataclass
 from typing import Any, Awaitable, Callable, Dict, List, Optional, Union
 
@@ -43,6 +44,15 @@ class ToolRegistry:
         self._internal_by_external: Dict[str, str] = {}
 
         self._policy = policy or Policy()
+
+        self._request_total_calls: contextvars.ContextVar[int] = contextvars.ContextVar(
+            "tool_registry_request_total_calls",
+            default=0,
+        )
+        self._request_calls_by_tool: contextvars.ContextVar[Dict[str, int]] = contextvars.ContextVar(
+            "tool_registry_request_calls_by_tool",
+            default={},
+        )
 
         self._before_hooks: List[HookBefore] = []
         self._after_hooks: List[HookAfter] = []
@@ -116,6 +126,13 @@ class ToolRegistry:
     def list_tools(self) -> List[str]:
         return list(self._by_internal.keys())
 
+    def set_policy(self, policy: Policy) -> None:
+        self._policy = policy
+
+    def begin_request(self) -> None:
+        self._request_total_calls.set(0)
+        self._request_calls_by_tool.set({})
+
     # ----------------------------
     # Metrics / budget
     # ----------------------------
@@ -128,18 +145,25 @@ class ToolRegistry:
             self.calls_by_tool.get(internal_name, 0) + 1
         )
 
-        if self.total_calls > self._policy.total_call_budget:
+        request_total_calls = self._request_total_calls.get() + 1
+        self._request_total_calls.set(request_total_calls)
+
+        request_calls_by_tool = dict(self._request_calls_by_tool.get())
+        request_calls_by_tool[internal_name] = request_calls_by_tool.get(internal_name, 0) + 1
+        self._request_calls_by_tool.set(request_calls_by_tool)
+
+        if request_total_calls > self._policy.total_call_budget:
             raise RuntimeError(
                 f"Total tool call budget exceeded: "
-                f"{self.total_calls} > {self._policy.total_call_budget}"
+                f"{request_total_calls} > {self._policy.total_call_budget}"
             )
 
         limit = self._policy.per_tool_budget.get(internal_name)
 
-        if limit is not None and self.calls_by_tool[internal_name] > limit:
+        if limit is not None and request_calls_by_tool[internal_name] > limit:
             raise RuntimeError(
                 f"Tool budget exceeded for {internal_name}: "
-                f"{self.calls_by_tool[internal_name]} > {limit}"
+                f"{request_calls_by_tool[internal_name]} > {limit}"
             )
 
     # ----------------------------
@@ -267,6 +291,7 @@ class ToolRegistry:
 
         self.total_calls = 0
         self.calls_by_tool.clear()
+        self.begin_request()
 
         self._before_hooks.clear()
         self._after_hooks.clear()
