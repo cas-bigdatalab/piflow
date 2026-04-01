@@ -79,6 +79,16 @@ class SkillsConfig(BaseModel):
 
 
 # =========================
+# Policy Config
+# =========================
+class PolicyConfig(BaseModel):
+    deny_tools: List[str] = Field(default_factory=list)
+    allow_tools: List[str] = Field(default_factory=list)
+    total_call_budget: int = 100
+    per_tool_budget: Dict[str, int] = Field(default_factory=dict)
+
+
+# =========================
 # Global Settings
 # =========================
 
@@ -100,3 +110,5 @@ class Settings(BaseModel):
     mcp: MCPConfig = Field(default_factory=MCPConfig)
 
     skills: SkillsConfig = Field(default_factory=SkillsConfig)
+
+    policy: PolicyConfig = Field(default_factory=PolicyConfig)

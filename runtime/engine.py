@@ -9,6 +9,8 @@ from infra.logging import init_logging
 from mcp_runtime.mcp_runtime import MCPRuntime
 from runtime.skill_loader import SkillLoader
 from runtime.workspace_manager import WorkspaceManager
+from runtime.policy import Policy
+from tools.core.registry import registry
 
 
 log = logging.getLogger("flow.engine")
@@ -42,6 +44,9 @@ class AgentEngine:
         for skill in skills:
             log.info("skill loaded name=%s", skill["name"])
 
+        policy = Policy(**self.settings.policy.model_dump())
+        registry.set_policy(policy)
+
         self.agent = AgentFactory.create_agent(
             skills=self.skill_loader.skills
         )
@@ -51,6 +56,7 @@ class AgentEngine:
 
     async def run(self, message: str, thread_id: str = "default"):
         start_total = time.time()
+        registry.begin_request()
 
         config = {
             "configurable": {
@@ -144,6 +150,7 @@ class AgentEngine:
         return final_answer
 
     async def stream(self, message: str, thread_id: str = "default"):
+        registry.begin_request()
 
         config = {
             "configurable": {

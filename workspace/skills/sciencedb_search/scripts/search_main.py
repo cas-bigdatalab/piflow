@@ -67,6 +67,14 @@ def _safe_text(text: Any, limit: int = DESCRIPTION_LIMIT) -> str:
     return value[: limit - 3] + "..."
 
 
+def _clean_title(text: Any) -> str:
+    if text is None:
+        return "未命名数据集"
+    value = str(text).replace("\n", " ").replace("\r", " ").strip()
+    value = re.sub(r"<[^>]+>", "", value).strip()
+    return value or "未命名数据集"
+
+
 def _record_key(record: dict[str, Any]) -> str:
     link = str(record.get("download_link", "")).strip().lower()
     source = str(record.get("source", "")).strip().lower()
@@ -84,8 +92,42 @@ def _matches_keyword(record: dict[str, Any], keyword: str) -> bool:
     return token in haystack
 
 
+def _keyword_match_count(record: dict[str, Any], keywords: list[str]) -> int:
+    haystack = f"{record.get('title', '')} {record.get('description', '')}".lower()
+    count = 0
+    for token in keywords:
+        key = token.strip().lower()
+        if len(key) < 2:
+            continue
+        if key in haystack:
+            count += 1
+    return count
+
+
+def _rerank_records(records: list[dict[str, Any]], keywords: list[str]) -> list[dict[str, Any]]:
+    if not records:
+        return []
+
+    scored: list[tuple[int, dict[str, Any]]] = []
+    for record in records:
+        scored.append((_keyword_match_count(record, keywords), record))
+
+    min_match = 1
+    if len(keywords) >= 3:
+        min_match = 2
+
+    filtered = [pair for pair in scored if pair[0] >= min_match]
+    if not filtered:
+        filtered = [pair for pair in scored if pair[0] >= 1]
+    if not filtered:
+        filtered = scored
+
+    filtered.sort(key=lambda pair: pair[0], reverse=True)
+    return [record for _, record in filtered]
+
+
 def _format_dataset_line(index: int, item: dict[str, Any]) -> str:
-    title = item.get("title") or "未命名数据集"
+    title = _clean_title(item.get("title"))
     description = _safe_text(item.get("description", ""))
     source = item.get("source", "未知来源")
     provider = item.get("provider", "")
@@ -114,28 +156,48 @@ def _format_process_output(
     instdb_records: list[dict[str, Any]],
     max_results: int,
 ) -> str:
-    merged: dict[str, dict[str, Any]] = {}
-    for record in scidb_records + instdb_records:
-        key = _record_key(record)
-        if key not in merged:
-            merged[key] = record
+    def dedupe(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        seen: set[str] = set()
+        output: list[dict[str, Any]] = []
+        for record in records:
+            key = _record_key(record)
+            if key in seen:
+                continue
+            seen.add(key)
+            output.append(record)
+        return output
 
-    merged_records = list(merged.values())
-    if max_results > 0:
-        merged_records = merged_records[:max_results]
+    scidb_unique = dedupe(scidb_records)
+    instdb_unique = dedupe(instdb_records)
 
-    if not merged_records:
+    interleaved: list[dict[str, Any]] = []
+    i = 0
+    j = 0
+    while i < len(scidb_unique) or j < len(instdb_unique):
+        if i < len(scidb_unique):
+            interleaved.append(scidb_unique[i])
+            i += 1
+            if max_results > 0 and len(interleaved) >= max_results:
+                break
+        if j < len(instdb_unique):
+            interleaved.append(instdb_unique[j])
+            j += 1
+            if max_results > 0 and len(interleaved) >= max_results:
+                break
+
+    if not interleaved:
         return "未检索到相关数据集。"
 
     lines: list[str] = []
-    if not scidb_records:
+    lines.append(f"来源覆盖: ScienceDB={len(scidb_unique)}, InstDB={len(instdb_unique)}")
+    if not scidb_unique:
         lines.append("ScienceDB: 无结果")
-    if not instdb_records:
+    if not instdb_unique:
         lines.append("InstDB: 无结果")
 
     lines.extend(
         _format_dataset_line(index, item)
-        for index, item in enumerate(merged_records, start=1)
+        for index, item in enumerate(interleaved, start=1)
     )
     return "\n".join(lines)
 
@@ -242,6 +304,7 @@ def search_scidb_records(
     keywords: str | list[str] | tuple[str, ...],
     size: int = 5,
     keyword_limit: int = MAX_KEYWORDS,
+    max_records: int | None = None,
 ) -> list[dict[str, Any]]:
     keyword_list = _normalize_keywords(keywords, limit=keyword_limit)
     if not keyword_list:
@@ -258,7 +321,8 @@ def search_scidb_records(
             key = _record_key(record)
             if key not in dedup:
                 dedup[key] = record
-            if len(dedup) >= MAX_OUTPUT_RECORDS:
+            hard_limit = max_records if max_records is not None and max_records > 0 else MAX_OUTPUT_RECORDS
+            if len(dedup) >= hard_limit:
                 return list(dedup.values())
 
     return list(dedup.values())
@@ -325,6 +389,7 @@ def process(
                 normalized_keywords,
                 effective_size,
                 limit,
+                result_limit,
             )
         if use_instdb:
             from workspace.skills.sciencedb_search.scripts.instdb_search import search_instdb_records
@@ -333,6 +398,7 @@ def process(
                 search_instdb_records,
                 normalized_keywords,
                 effective_size,
+                result_limit,
             )
 
         for source_name, future in futures.items():
@@ -341,9 +407,9 @@ def process(
             except Exception:
                 records = []
             if source_name == "scidb":
-                scidb_records = records
+                scidb_records = _rerank_records(records, normalized_keywords)
             else:
-                instdb_records = records
+                instdb_records = _rerank_records(records, normalized_keywords)
 
     if not scidb_records and not instdb_records:
         return f"抱歉，没有找到与 '{normalized_keywords}' 相关的数据集。"
