@@ -33,22 +33,21 @@ class AgentEngine:
 
         load_dotenv_file()
 
-        self.skill_loader = SkillLoader()
-        self.skill_loader.load()
+        # 现在这里不通过tool加载skills了
+        # self.skill_loader = SkillLoader()
+        # self.skill_loader.load()
 
         # await self.mcp_runtime.start()
 
-        skills = self.skill_loader.skills
-        log.info("skills loaded count=%s", len(skills))
 
-        for skill in skills:
-            log.info("skill loaded name=%s", skill["name"])
-
-        policy = Policy(**self.settings.policy.model_dump())
-        registry.set_policy(policy)
+        # for skill in skills:
+        #     log.info("skill loaded name=%s", skill["name"])
+        #
+        # policy = Policy(**self.settings.policy.model_dump())
+        # registry.set_policy(policy)
 
         self.agent = AgentFactory.create_agent(
-            skills=self.skill_loader.skills
+            # skills=self.skill_loader.skills
         )
 
         self.initialized = True

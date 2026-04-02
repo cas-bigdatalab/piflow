@@ -1,10 +1,11 @@
 import os
 
 from deepagents import create_deep_agent
+from deepagents.backends import CompositeBackend, StoreBackend
 from langchain_openai import ChatOpenAI
 
+from tools import ToolSpec
 from tools.core.registry import registry
-from tools.adapters.deepagents_adapter import DeepAgentsAdapter
 from infra.config_loader import get_settings
 from .prompts import build_system_prompt
 from .middleware import install_registry_hooks
@@ -13,7 +14,9 @@ from runtime.workspace_manager import WorkspaceManager
 from deepagents.backends.filesystem import FilesystemBackend
 
 from langgraph.checkpoint.memory import MemorySaver
+from langgraph.store.memory import InMemoryStore
 
+from .tools import exec_shell
 
 
 class AgentFactory:
@@ -41,7 +44,7 @@ class AgentFactory:
         return "\n".join(lines)
 
     @staticmethod
-    def create_agent(skills=None):
+    def create_agent():
 
         settings = get_settings()
 
@@ -80,21 +83,26 @@ class AgentFactory:
             temperature=llm_cfg.temperature,
             api_key=api_key,
             base_url=provider_cfg.base_url,
-            max_retries=2,
+            max_retries=5,
             model_kwargs={
-                "parallel_tool_calls": False
-            }
+                "parallel_tool_calls": True,
+            },
         )
 
         # -----------------------------
         # 加载工具
         # -----------------------------
 
-        tool_records = registry.list_records()
+        spec = ToolSpec(
+            name="shell.exec_shell",
+            description="执行终端命令",
+            func=exec_shell,
+            args_schema=exec_shell.args_schema  # @tool 装饰器会自动生成
+        )
+        registry.register(spec, exec_shell)
 
         tools = [
-            DeepAgentsAdapter.to_deepagents_tool(rec.spec, registry)
-            for rec in tool_records
+            exec_shell
         ]
 
         install_registry_hooks(registry)
@@ -103,9 +111,7 @@ class AgentFactory:
         tool_prompt = AgentFactory.build_tool_prompt()
 
         # 把工具能力注入 system prompt
-        # system_prompt = build_system_prompt(tool_prompt)
-        system_prompt = build_system_prompt(skills)
-
+        system_prompt = build_system_prompt()
 
         # -----------------------------
         # 创建 DeepAgent
@@ -114,10 +120,24 @@ class AgentFactory:
         workspace = WorkspaceManager()
         workspace.ensure_workspace()
 
-        backend = FilesystemBackend(
-            root_dir=workspace.get_root(),
-            virtual_mode=True
-        )
+        #创建带有长期记忆的综合性backend
+        # backend = FilesystemBackend(
+        #     root_dir=workspace.get_root(),
+        #     virtual_mode=True
+        # )
+
+        store = InMemoryStore()
+
+        def make_backend(runtime):
+            return CompositeBackend(
+                default=FilesystemBackend(
+                    root_dir=workspace.get_root(),
+                    virtual_mode=True
+                ),
+                routes={
+                    "/memories/": StoreBackend(runtime)
+                }
+            )
 
         memory = MemorySaver()
 
@@ -125,8 +145,16 @@ class AgentFactory:
             model=llm,
             tools=tools,
             system_prompt=system_prompt,
-            backend=backend,
-            checkpointer=memory
+            backend=make_backend,
+            store = store,
+            checkpointer=memory,
+            skills = ["/skills/"],
+            interrupt_on = {
+                "write_file": False,
+                "read_file": False,
+                "edit_file": True,
+            },
+            debug = False,
         )
 
         return agent

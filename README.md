@@ -36,84 +36,66 @@ python -m api.server
 ## 2. 项目目录结构
 
 ```text
-deep-agent-project/
-├── api/                         # 基于 deepagents 的 Agent 封装与编排
-│   ├── server.py                # 服务启动入口
+flow-deepagents/
+├── main_cli.py                     # CLI 启动入口
 │
-├── agents/                         # 基于 deepagents 的 Agent 封装与编排
-│   ├── factory.py                  # create_agent(): 组装 deepagents Agent（model/prompt/tools/memory）
-│   ├── prompts.py                  # 系统提示词/规划提示词模板（集中管理）
-│   ├── middleware.py               # deepagents middleware hooks（before/after tool call、日志、审计）
-│   ├── planner.py                  # 可选：Plan-and-Execute 规划器（只负责产出 plan，不负责循环执行）
-│   └── deepagents_config.py        # 可选: backend / workspace / default settings
+├── agents/                         # Agent 封装与编排
+│   ├── factory.py                  # AgentFactory: 组装 deepagents Agent（model/prompt/tools/memory）
+│   ├── prompts.py                  # 系统提示词模板（BASE_PROMPT、WORKSPACE_PROMPT、build_system_prompt）
+│   ├── middleware.py               # registry hooks（before/after tool call 日志记录）
+│   └── tools.py                    # 内置工具（exec_shell 执行终端命令）
 │
-├── tools/                          # 工具统一抽象层（你项目核心价值）
-│   ├── core/
-│   │   ├── base.py               # ToolSpec / ToolRequest / ToolResult（统一协议）
-│   │   ├── registry.py           # ToolRegistry：注册、查找、按 namespace 管理
-│   │   └── naming.py             # namespace.tool_name 规范（避免命名冲突）
-│   ├── adapters/                    # 关键：对接 deepagents / MCP 的适配器
-│   │    ├── deepagents_adapter.py   # ToolSpec -> deepagents tool format（函数/JSON schema/回调）
-│   │    └── mcp_adapter.py          # MCP Tool -> ToolSpec（把 MCP schema 转成统一工具协议）
+├── api/                            # API 服务
+│   └── server.py                   # FastAPI 服务启动入口
 │
-├── skills/                         # 本地能力集 (Local Toolkits)
-│   ├── shell/
-│   │   ├── executor.py             # Shell 执行（异步/超时）
-│   │   ├── sandbox.py              # 安全沙箱（白名单/过滤/权限）
-│   │   └── tools.py                # 暴露成 ToolSpec（如 shell.exec, shell.which）
-│   └── file/
-│       ├── reader.py               # 文件读取实现
-│       ├── manager.py              # 文件管理实现（ls/mkdir/rm-safe）
-│       └── tools.py                # 暴露成 ToolSpec（如 file.read, file.write）
-│
-├── mcp_runtime/                    # MCP 管理中心（远程工具入口）
-│   ├── __init__.py
-│   ├── client_manager.py           # MCP client 生命周期
-│   ├── health_monitor.py           # MCP 服务健康检测
-│   ├── mcp_runtime.py              # MCP runtime 主入口
-│   ├── reconnect_loop.py           # 自动重连
-│   ├── schema_cache.py             # 防止重复加载 tools
-│   └── tool_loader.py              # 从 MCP 拉取 tools -> 通过 mcp_adapter 转成 ToolSpec 并注册
-│
-│
-├── runtime/                        # 运行编排层（不是自研 Agent loop）
-│   ├── engine.py                   # 主运行入口：加载配置 -> 初始化 registry/mcp/skills -> 创建 deepagents agent -> run
-│   ├── context.py                  # 任务级上下文（trace_id、budget、用户输入、审计信息）
-│   ├── policy.py                   # 安全策略/预算控制（工具允许列表、调用次数、超时等）
-│   ├── memory.py                   # 记忆接口（短期上下文 + 长期存储，可选向量库）
-│   ├── skill_loader.py             # 本地工具加载
+├── runtime/                        # 运行编排层
+│   ├── engine.py                   # 主运行入口：初始化 -> 创建 agent -> run
+│   ├── policy.py                   # 安全策略/预算控制
+│   ├── skill_loader.py             # 本地 skills 加载器
 │   ├── workspace_manager.py        # workspace 生命周期管理
-│   └── events.py                   # 事件定义（tool_called/tool_finished/plan_created 等）
+│   └── events.py                   # 事件总线（tool_called/tool_finished 等）
 │
-├── infra/                          # 基础设施与运行支持
-│   ├── config_loader.py            # 配置加载（支持 yaml/json/env）
-│   ├── logging.py                  # 结构化日志初始化
-│   ├── metrics.py                  # 指标统计（调用次数/耗时/错误率）
-│   └── tracing.py                  # 链路追踪（OpenTelemetry 等）
+├── tools/                          # 工具统一抽象层
+│   ├── core/
+│   │   ├── base.py               # ToolSpec / ToolResult 定义
+│   │   ├── registry.py           # ToolRegistry：注册、查找、执行工具
+│   │   └── naming.py             # namespace.tool_name 规范
+│   └── adapters/
+│       ├── deepagents_adapter.py # ToolSpec -> deepagents tool format
+│       └── mcp_adapter.py        # MCP Tool -> ToolSpec
 │
-├── config/
-│   ├── app.yaml                    # 应用配置
-│   ├── llm.yaml                    # LLM 配置（可选：多个 LLM 客户端）
-│   ├── mcp_servers.yaml            # MCP 服务列表配置
-│   ├── skills.yaml                 # skills 启用与参数配置
-│   └── policy.yaml                 # 可选：安全策略配置
+├── mcp_runtime/                    # MCP 管理中心
+│   ├── mcp_runtime.py            # MCP runtime 主入口
+│   ├── client_manager.py         # MCP client 生命周期
+│   ├── mcp_registry_loader.py    # MCP tools 注册到 registry
+│   ├── health_monitor.py         # MCP 服务健康检测
+│   ├── reconnect_loop.py         # 自动重连
+│   └── schema_cache.py          # 防止重复加载 tools
 │
-├── workspace/                         # Agent 工作目录（sandbox）
-│   ├── artifacts/
-│   ├── outputs/
-│   ├── temp/
-│   └── logs/
+├── infra/                          # 基础设施
+│   ├── config_loader.py          # 配置加载（yaml）
+│   ├── env_loader.py             # .env 文件加载
+│   ├── logging.py                # 日志初始化
+│   └── settings.py               # 配置模型定义
 │
-├── tests/
-│   ├── test_registry.py            # unit -测试工具注册、查找功能
-│   ├── test_deepagents_adapter.py  # unit -测试 Adapter 层是否正确把 ToolSpec 转换为 DeepAgents / LangChain Tool
-│   ├── test_mcp_adapter.py         # 测试 mcp adapter 功能
-│   ├── test_shell_sandbox.py       # 测试 shell sandbox 功能
-│   ├── test_engine_load_skills.py  # integration-测试 skills 是否真的被加载
-│   └── test_engine_smoke.py        # smoke-测试 AgentEngine 是否可以启动
+├── config/                         # 配置文件
+│   ├── app.yaml                  # 应用配置
+│   ├── llm.yaml                  # LLM 配置
+│   ├── mcp_servers.yaml          # MCP 服务列表
+│   └── skills.yaml               # skills 配置
 │
-├── main.py                         # 项目启动入口（调用 runtime/engine.py）
-├── main_cli.py                     # 项目交互式CLI启动入口（调用 runtime/engine.py）
+├── workspace/                      # Agent 工作目录
+│   ├── artifacts/                # 任务产物
+│   ├── outputs/                  # 结果文件
+│   ├── temp/                     # 临时文件
+│   ├── logs/                     # 日志
+│   └── skills/                    # skills 目录
+│
+├── test/                           # 测试
+│   ├── test_registry.py          # registry 单元测试
+│   ├── test_deepagents_adapter.py # adapter 测试
+│   └── ...
+│
 ├── README.md
 └── requirements.txt
 ```
