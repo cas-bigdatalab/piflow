@@ -53,7 +53,7 @@ class AgentEngine:
         self.initialized = True
         log.info("Agent Runtime initialized")
 
-    async def run(self, message: str, thread_id: str = "default"):
+    async def run(self, message: str, thread_id: str = "default",user_id: str = "default_user"):
         start_total = time.time()
         registry.begin_request()
 

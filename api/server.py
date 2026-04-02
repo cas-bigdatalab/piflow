@@ -17,6 +17,7 @@ engine = AgentEngine()
 class ChatRequest(BaseModel):
     message: str
     thread_id: str = "default"
+    user_id: str = "default_user"
 
 
 @app.on_event("startup")
@@ -28,7 +29,7 @@ async def startup():
 
 @app.post("/chat")
 async def chat(req: ChatRequest):
-    result = await engine.run(req.message, req.thread_id)
+    result = await engine.run(req.message, req.thread_id, req.user_id)
     return {"events": result}
 
 

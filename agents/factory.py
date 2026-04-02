@@ -135,7 +135,12 @@ class AgentFactory:
                     virtual_mode=True
                 ),
                 routes={
-                    "/memories/": StoreBackend(runtime)
+                    "/memories/": StoreBackend(
+                                    runtime,
+                                    namespace=lambda ctx: (
+                                        ctx.runtime.context.user_id,
+                                    )
+                                )
                 }
             )
 
