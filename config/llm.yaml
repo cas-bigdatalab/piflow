@@ -1,26 +1,27 @@
 #llm:
 #  provider: dashscope
+#  model: qwen3-max
+#  temperature: 0
+
+llm:
+  provider: dashscope
+  model: qwen3.5-plus
+  temperature: 0
+
+#llm:
+#  provider: dashscope
 #  model: qwen-plus
+#  temperature: 0
+
+
+#llm:
+#  provider: openai
+#  model: glm-4.7-flash
 #  temperature: 0
 
 #llm:
 #  provider: cstcloud
 #  model: qwen3.5
-#  temperature: 0
-
-#llm:
-#  provider: cstcloud
-#  model: deepseek-r1:671b
-#  temperature: 0
-
-llm:
-  provider: dashscope
-  model: qwen3-max
-  temperature: 0
-
-#llm:
-#  provider: openai
-#  model: glm-4.7-flash
 #  temperature: 0
 
 providers:

@@ -1,6 +1,6 @@
 import uuid
 
-from agents.agent_factory import agent
+from agents.agent_factory import agent,memory_agent
 
 
 def build_stage_preview(user_input: str) -> list[str]:
@@ -26,15 +26,25 @@ def build_stage_preview(user_input: str) -> list[str]:
     return []
 
 
+USER_ID = "user_001"  # 👉 真实场景这里从登录态来
+
 if __name__ == "__main__":
+
     thread_id = str(uuid.uuid4())
-    config = {"configurable": {"thread_id": thread_id}}
+    config = {
+        "configurable": {
+            "thread_id": thread_id,
+            "user_id": USER_ID,
+        }
+    }
+
     printed_count = 0
 
     print("Deep Agent interactive CLI")
     print("Input 'exit' or 'quit' to stop.")
 
     while True:
+
         user_input = input("\nYou> ").strip()
         if not user_input:
             continue
@@ -48,7 +58,19 @@ if __name__ == "__main__":
             for stage in stage_preview:
                 print(f"[stage] {stage}")
 
-        result = agent.invoke(
+        # result = agent.invoke(
+        #     {
+        #         "messages": [
+        #             {
+        #                 "role": "user",
+        #                 "content": user_input,
+        #             }
+        #         ]
+        #     },
+        #     config,
+        # )
+
+        result = memory_agent.invoke(
             {
                 "messages": [
                     {
