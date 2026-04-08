@@ -89,6 +89,17 @@ class PolicyConfig(BaseModel):
 
 
 # =========================
+# Database Config
+# =========================
+class DatabaseConfig(BaseModel):
+    host: str = "localhost"
+    port: int = 5432
+    user: str = "postgres"
+    password: str = ""
+    name: str = "flow_agent"
+
+
+# =========================
 # Global Settings
 # =========================
 
@@ -112,3 +123,5 @@ class Settings(BaseModel):
     skills: SkillsConfig = Field(default_factory=SkillsConfig)
 
     policy: PolicyConfig = Field(default_factory=PolicyConfig)
+
+    database: DatabaseConfig = Field(default_factory=DatabaseConfig)

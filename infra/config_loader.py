@@ -1,7 +1,7 @@
 import yaml
 from pathlib import Path
 
-from infra.settings import Settings, SkillsConfig, PolicyConfig
+from infra.settings import Settings, SkillsConfig, PolicyConfig, DatabaseConfig
 
 
 # 项目根目录
@@ -26,6 +26,7 @@ def load_settings() -> Settings:
     mcp_config = load_yaml(CONFIG_DIR / "mcp_servers.yaml")
     skills_config = load_yaml(CONFIG_DIR / "skills.yaml")
     policy_config = load_yaml(CONFIG_DIR / "policy.yaml")
+    database_config = load_yaml(CONFIG_DIR / "database.yaml")
     workspace_config = app_config.get("workspace", {})
 
     # skills.yaml 结构
@@ -46,6 +47,7 @@ def load_settings() -> Settings:
         "mcp": mcp_config,
         "skills": SkillsConfig(paths=paths, configs=configs),
         "policy": PolicyConfig(**policy_config.get("policy", {})),
+        "database": DatabaseConfig(**database_config),
     }
 
     return Settings(**config)

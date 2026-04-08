@@ -1,3 +1,4 @@
+import json
 import os
 import shlex
 import subprocess
@@ -5,7 +6,7 @@ import time
 from datetime import datetime
 
 from langchain.tools import tool
-
+from runtime.chat_store import search_threads, get_messages
 
 REAL_ROOT_DIR = r"D:\hqr\projects\python\new-flow-deepagents\flow-deepagents\workspace"
 VENV_PYTHON = r"D:\hqr\software\miniforge3\envs\test-whl\python.exe"
@@ -93,3 +94,35 @@ stderr:
 
 returncode: {result.returncode}
 """
+
+
+
+# @tool
+# def search_past_conversations(query: str) -> str:
+#     """
+#     搜索用户历史对话，用于查找类似问题或上下文。
+#     """
+#
+#     # ⚠️ user_id 要从 runtime context 里取（关键）
+#     from langgraph.config import get_config
+#
+#     config = get_config()
+#     user_id = config["configurable"].get("user_id", "default_user")
+#
+#     threads = search_threads(user_id)
+#
+#     results = []
+#
+#     for tid in threads:
+#         history = get_messages(tid, limit=10)
+#
+#         # 简单拼接（后续可以加 embedding）
+#         text = "\n".join([m["content"] for m in history])
+#
+#         if query in text:
+#             results.append({
+#                 "thread_id": tid,
+#                 "history": history
+#             })
+#
+#     return json.dumps(results[:3], ensure_ascii=False)

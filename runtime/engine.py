@@ -11,7 +11,7 @@ from runtime.skill_loader import SkillLoader
 from runtime.workspace_manager import WorkspaceManager
 from runtime.policy import Policy
 from tools.core.registry import registry
-
+from runtime.chat_store import init_db, save_message, create_thread, get_messages, update_thread_time
 
 log = logging.getLogger("flow.engine")
 
@@ -32,6 +32,11 @@ class AgentEngine:
         log.info("initializing Agent Runtime")
 
         load_dotenv_file()
+        log.info("loading env files complete")
+
+        # 初始化数据库
+        init_db()
+        log.info("initializing database complete")
 
         # 现在这里不通过tool加载skills了
         # self.skill_loader = SkillLoader()
@@ -56,6 +61,31 @@ class AgentEngine:
     async def run(self, message: str, thread_id: str = "default",user_id: str = "default_user"):
         start_total = time.time()
         registry.begin_request()
+        # 加载会话历史
+        history = get_messages(thread_id)
+
+        # 确保 thread 存在
+        # 截取 message 前 30 字作为 title
+        if not history:
+            # 用用户第一句话做 title
+            title = message[:30]
+            create_thread(user_id, thread_id, title)
+
+        # 每次会话更新时间
+        update_thread_time(thread_id)
+
+        messages = []
+
+        for m in history:
+            messages.append({
+                "role": m["role"],
+                "content": m["content"]
+            })
+
+        messages.append({
+            "role": "user",
+            "content": message
+        })
 
         config = {
             "configurable": {
@@ -64,13 +94,17 @@ class AgentEngine:
         }
 
         input_message = {
-            "messages": [
-                {
-                    "role": "user",
-                    "content": message
-                }
-            ]
+            "messages": messages
+            # "messages": [
+            #     {
+            #         "role": "user",
+            #         "content": message
+            #     }
+            # ]
         }
+
+        # 保存用户输入信息
+        save_message(user_id, thread_id, "user", message)
 
         workspace = WorkspaceManager()
         before_outputs = workspace.list_outputs()
@@ -123,6 +157,9 @@ class AgentEngine:
 
             if final_answer:
                 break
+
+        # 保存大模型回答内容
+        save_message(user_id, thread_id, "assistant", final_answer)
 
         latency = time.time() - start_total
 

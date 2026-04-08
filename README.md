@@ -4,9 +4,54 @@
 本项目通过统一工具抽象层，实现了复杂任务在本地环境与远程服务之间的无缝调度。
  pip install -qU deepagents
  pip install deepagents tavily-python
+ pip install --upgrade deepagents tavily-python
 
 
 ## 1.快速开始
+
+### 准备数据库存储会话记忆
+
+本项目使用 **PostgreSQL** 存储会话历史记录，请提前准备数据库。
+
+#### 方式一：Docker 快速安装（推荐）
+
+如果服务器已安装 Docker，可通过以下命令快速启动一个 PostgreSQL 数据库：
+
+```bash
+docker run -d --name postgres -p 5432:5432 \
+  -e POSTGRES_PASSWORD=123456 \
+  -e POSTGRES_USER=admin \
+  -e POSTGRES_DB=mydb \
+  -v /data/postgres:/var/lib/postgresql/data \
+  --restart=always \
+  swr.cn-north-4.myhuaweicloud.com/ddn-k8s/ghcr.io/cloudnative-pg/postgresql:15
+```
+
+#### 方式二：自行安装 PostgreSQL
+
+请自行安装 PostgreSQL 15+ 版本，并创建相应数据库。
+
+#### 配置数据库连接
+
+编辑 `config/database.yaml` 文件，配置你的数据库连接信息：
+
+```yaml
+host: "10.0.87.112"   # 数据库地址
+port: 5432            # 端口
+user: "admin"         # 用户名
+password: "123456"    # 密码
+name: "mydb"          # 数据库名
+```
+
+> **提示**：首次运行时会自动创建 `messages` 表。
+
+#### 安装依赖
+
+```bash
+pip install psycopg2-binary
+```
+
+
 ### 1) 运行命令行 Agent
 请先确保安装了所需的依赖库，并且增加.env文件，配置好你的 API Key。
 
@@ -54,6 +99,7 @@ flow-deepagents/
 │   ├── skill_loader.py             # 本地 skills 加载器
 │   ├── workspace_manager.py        # workspace 生命周期管理
 │   └── events.py                   # 事件总线（tool_called/tool_finished 等）
+│   └── chat_store.py               # 会话记忆存储
 │
 ├── tools/                          # 工具统一抽象层
 │   ├── core/

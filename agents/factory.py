@@ -1,7 +1,7 @@
 import os
 
 from deepagents import create_deep_agent
-from deepagents.backends import CompositeBackend, StoreBackend
+from deepagents.backends import CompositeBackend, StoreBackend, StateBackend
 from langchain_openai import ChatOpenAI
 
 from tools import ToolSpec
@@ -128,21 +128,35 @@ class AgentFactory:
 
         store = InMemoryStore()
 
-        def make_backend(runtime):
-            return CompositeBackend(
-                default=FilesystemBackend(
-                    root_dir=workspace.get_root(),
-                    virtual_mode=True
-                ),
-                routes={
-                    "/memories/": StoreBackend(
-                                    runtime,
-                                    namespace=lambda ctx: (
-                                        ctx.runtime.context.user_id,
-                                    )
-                                )
-                }
-            )
+        # def make_backend(runtime):
+        #     return CompositeBackend(
+        #         default=FilesystemBackend(
+        #             root_dir=workspace.get_root(),
+        #             virtual_mode=True
+        #         ),
+        #         routes={
+        #             "/memories/": StoreBackend(
+        #                             runtime,
+        #                             namespace=lambda ctx: (
+        #                                 ctx.runtime.context.user_id,
+        #                             )
+        #                         )
+        #         }
+        #     )
+
+        backend = CompositeBackend(
+            default=FilesystemBackend(
+                root_dir=workspace.get_root(),
+                virtual_mode=True
+            ),
+            routes={
+                "/memories/": StoreBackend(
+                    namespace=lambda ctx: (
+                        ctx.runtime.context.get("user_id", "default_user"),
+                    )
+                )
+            }
+        )
 
         memory = MemorySaver()
 
@@ -150,7 +164,8 @@ class AgentFactory:
             model=llm,
             tools=tools,
             system_prompt=system_prompt,
-            backend=make_backend,
+            # backend=make_backend,
+            backend=backend,
             store = store,
             checkpointer=memory,
             skills = ["/skills/"],
