@@ -1,0 +1,25 @@
+{
+  "test_cases": [
+    {
+      "name": "标准化处理测试",
+      "command": "python scripts/bdbe_scnorm.py --input_file test_data.csv --species mouse",
+      "input_files": ["test_data.csv"],
+      "output_files": [],
+      "expected_output": {
+        "type": "console",
+        "checks": [
+          {
+            "type": "contains",
+            "value": "上传成功",
+            "message": "输出应包含上传成功信息"
+          },
+          {
+            "type": "contains",
+            "value": "分析任务启动成功",
+            "message": "输出应包含分析任务启动成功信息"
+          }
+        ]
+      }
+    }
+  ]
+}

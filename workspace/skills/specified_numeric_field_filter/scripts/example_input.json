@@ -1,0 +1,36 @@
+[
+  {
+    "text": "Today is Sun",
+    "meta": {
+      "suffix": ".pdf",
+      "star": 50
+    }
+  },
+  {
+    "text": "a v s e c s f e f g a a a",
+    "meta": {
+      "suffix": ".docx",
+      "star": 6
+    }
+  },
+  {
+    "text": "中文也是一个字算一个长度",
+    "meta": {
+      "suffix": ".txt",
+      "star": 100
+    }
+  },
+  {
+    "text": "，。、„""«»１」「《》´∶：？！",
+    "meta": {
+      "suffix": ".html",
+      "star": 12.51
+    }
+  },
+  {
+    "text": "dasdasdasdasdasdasdasd",
+    "meta": {
+      "suffix": null
+    }
+  }
+]

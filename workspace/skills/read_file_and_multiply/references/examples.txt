@@ -1,0 +1,316 @@
+# 使用示例和测试用例
+
+## 快速测试
+
+### 测试1: 逗号分隔 (最常见)
+**创建测试文件**:
+```bash
+echo "1,2,3,4,5" > test_comma.txt
+```
+
+**运行技能**:
+```
+/multiply-numbers-by-10 test_comma.txt output_comma.txt
+```
+
+**期望输出**:
+```
+10,20,30,40,50
+```
+
+---
+
+### 测试2: 空格分隔
+**创建测试文件**:
+```bash
+echo "1.5 2.3 3.7" > test_space.txt
+```
+
+**运行技能**:
+```
+/multiply-numbers-by-10 test_space.txt output_space.txt
+```
+
+**期望输出**:
+```
+15.0 23.0 37.0
+```
+
+---
+
+### 测试3: 换行符分隔 (每行一个数字)
+**创建测试文件**:
+```bash
+cat > test_newline.txt << EOF
+10
+20
+30
+40
+50
+EOF
+```
+
+**运行技能**:
+```
+/multiply-numbers-by-10 test_newline.txt output_newline.txt
+```
+
+**期望输出**:
+```
+100
+200
+300
+400
+500
+```
+
+---
+
+### 测试4: 混合格式 (多行+逗号)
+**创建测试文件**:
+```bash
+cat > test_mixed.txt << EOF
+1,2,3
+4,5,6
+7,8,9
+EOF
+```
+
+**运行技能**:
+```
+/multiply-numbers-by-10 test_mixed.txt output_mixed.txt
+```
+
+**期望输出**:
+```
+10,20,30
+40,50,60
+70,80,90
+```
+
+---
+
+### 测试5: 小数和负数
+**创建测试文件**:
+```bash
+echo "-1.5,2.3,-3.7,4.0" > test_decimal.txt
+```
+
+**运行技能**:
+```
+/multiply-numbers-by-10 test_decimal.txt output_decimal.txt
+```
+
+**期望输出**:
+```
+-15.0,23.0,-37.0,40.0
+```
+
+---
+
+### 测试6: 制表符分隔
+**创建测试文件**:
+```bash
+echo -e "1\t2\t3\t4" > test_tab.txt
+```
+
+**运行技能**:
+```
+/multiply-numbers-by-10 test_tab.txt output_tab.txt
+```
+
+**期望输出**:
+```
+10	20	30	40
+```
+
+---
+
+## 交互式使用示例
+
+### 场景1: 不确定文件路径时
+```
+/multiply-numbers-by-10
+```
+
+然后根据提示输入：
+```
+请输入输入文件路径: D:\data\numbers.txt
+请输入输出文件路径: D:\data\result.txt
+```
+
+---
+
+### 场景2: 批量处理多个文件
+
+可以结合 Bash 循环使用：
+
+```bash
+for file in *.txt; do
+  /multiply-numbers-by-10 "$file" "processed_${file}"
+done
+```
+
+---
+
+## 错误处理测试
+
+### 错误1: 文件不存在
+```
+/multiply-numbers-by-10 nonexistent.txt output.txt
+```
+
+**期望**: 报错 "输入文件不存在: nonexistent.txt"
+
+---
+
+### 错误2: 文件为空
+**创建空文件**:
+```bash
+touch empty.txt
+```
+
+**运行**:
+```
+/multiply-numbers-by-10 empty.txt output.txt
+```
+
+**期望**: 报错 "输入文件为空"
+
+---
+
+### 错误3: 包含非数字字符
+**创建测试文件**:
+```bash
+echo "1,2,abc,4" > invalid.txt
+```
+
+**运行**:
+```
+/multiply-numbers-by-10 invalid.txt output.txt
+```
+
+**期望**: 报错 "无效的数字格式: abc"
+
+---
+
+## 实际应用场景
+
+### 场景1: 财务数据处理
+将收入数据统一扩大10倍（例如单位转换）：
+
+**输入**: `income_2024.txt`
+```
+12500,15000,18000,22000
+```
+
+**输出**: `income_2024_adjusted.txt`
+```
+125000,150000,180000,220000
+```
+
+---
+
+### 场景2: 科学计算数据转换
+实验数据需要乘以系数：
+
+**输入**: `experiment_data.txt`
+```
+0.015,0.023,0.037
+0.045,0.052,0.061
+```
+
+**输出**: `experiment_data_scaled.txt`
+```
+0.15,0.23,0.37
+0.45,0.52,0.61
+```
+
+---
+
+### 场景3: 游戏数值调整
+游戏物品价格批量调整：
+
+**输入**: `item_prices.txt`
+```
+ItemA: 100
+ItemB: 250
+ItemC: 500
+```
+
+**注意**: 这种格式包含文本，技能会保留文本部分，只处理数字：
+
+**输出**: `item_prices_adjusted.txt`
+```
+ItemA: 1000
+ItemB: 2500
+ItemC: 5000
+```
+
+---
+
+## 性能测试
+
+### 大文件测试 (10000个数字)
+**创建测试文件** (Python):
+```python
+with open('large_test.txt', 'w') as f:
+    f.write(','.join(str(i) for i in range(1, 10001)))
+```
+
+**运行**:
+```
+/multiply-numbers-by-10 large_test.txt large_output.txt
+```
+
+**期望**: 快速处理（通常 < 1秒）
+
+---
+
+## 技巧和提示
+
+### 技巧1: 直接查看输出
+```bash
+/multiply-numbers-by-10 input.txt temp.txt && cat temp.txt
+```
+
+### 技巧2: 使用相对路径
+```bash
+/multiply-numbers-by-10 ./data/input.txt ./data/output.txt
+```
+
+### 技巧3: 输出到不同目录
+```bash
+/multiply-numbers-by-10 input.txt ../results/processed.txt
+```
+
+### 技巧4: 连续处理
+```bash
+/multiply-numbers-by-10 step1.txt step2.txt && \
+/multiply-numbers-by-10 step2.txt step3.txt
+```
+
+---
+
+## 故障排查
+
+### 问题1: 技能未触发
+**检查**: 是否使用了正确的触发词，如"数字乘以10"、"处理数字文件"等
+
+### 问题2: 输出格式不对
+**检查**: 输入文件是否包含特殊字符或编码问题
+
+### 问题3: 处理速度慢
+**检查**: 文件是否过大，建议分批处理
+
+### 问题4: 中文路径问题
+**检查**: 路径是否包含中文字符，建议使用英文路径或完整路径
+
+---
+
+## 贡献和改进
+
+如果你发现了问题或有改进建议，可以：
+1. 检查输入文件格式是否符合要求
+2. 确认技能版本是否最新
+3. 查看错误信息并提供详细描述

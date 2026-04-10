@@ -1,0 +1,42 @@
+[
+  {
+    "text": [
+      "Today is Sunday and it's a happy day!"
+    ],
+    "meta": [
+      {
+        "language": "en"
+      }
+    ]
+  },
+  {
+    "text": [
+      "Welcome to Alibaba."
+    ],
+    "meta": [
+      {
+        "language": "en"
+      }
+    ]
+  },
+  {
+    "text": [
+      "欢迎来到阿里巴巴！"
+    ],
+    "meta": [
+      {
+        "language": "zh"
+      }
+    ]
+  },
+  {
+    "text": [
+      "你好世界"
+    ],
+    "meta": [
+      {
+        "language": "zh"
+      }
+    ]
+  }
+]

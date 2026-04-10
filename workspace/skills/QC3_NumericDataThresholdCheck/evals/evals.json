@@ -1,0 +1,17 @@
+{
+  "skill_name": "QC3_NumericDataThresholdCheck",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "对 D:\\hqr\\workspace\\csvfiles\\csv\\森林每木调查数据QC.csv 文件进行阈值检验，检查胸径（DBH）字段在 0-100 之间，树高（Height）字段在 0-50 之间",
+      "expected_output": "成功执行阈值检验，输出文件包含符合阈值范围的数据",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "对 D:\\hqr\\workspace\\csvfiles\\tsv\\LAT16178_AllGenes_FPKMs_DESeq2.tsv 文件进行阈值检验，检查 FPKM 值在 0-10000 之间",
+      "expected_output": "成功执行阈值检验，输出文件包含符合阈值范围的数据",
+      "files": []
+    }
+  ]
+}

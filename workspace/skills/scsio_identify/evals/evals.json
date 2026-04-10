@@ -1,0 +1,36 @@
+{
+  "test_cases": [
+    {
+      "name": "图片识别测试",
+      "command": "python scripts/scsio_identify.py --image_file test_image.jpg",
+      "input_files": ["test_image.jpg"],
+      "output_files": [],
+      "expected_output": {
+        "type": "console",
+        "checks": [
+          {
+            "type": "contains",
+            "value": "识别结果",
+            "message": "输出应包含识别结果"
+          }
+        ]
+      }
+    },
+    {
+      "name": "设置阈值测试",
+      "command": "python scripts/scsio_identify.py --image_file test_image.jpg --threshold 0.3",
+      "input_files": ["test_image.jpg"],
+      "output_files": [],
+      "expected_output": {
+        "type": "console",
+        "checks": [
+          {
+            "type": "contains",
+            "value": "识别结果",
+            "message": "输出应包含识别结果"
+          }
+        ]
+      }
+    }
+  ]
+}

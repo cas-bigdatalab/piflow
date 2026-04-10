@@ -1,0 +1,11 @@
+[
+  {
+    "meta": [
+      {"query_sentiment_label": "开心"},
+      {"query_sentiment_label": "快乐"},
+      {"query_sentiment_label": "难过"},
+      {"query_sentiment_label": "不开心"},
+      {"query_sentiment_label": "愤怒"}
+    ]
+  }
+]

@@ -1,0 +1,23 @@
+[
+  {
+    "images": ["/path/to/img1.png"]
+  },
+  {
+    "images": ["/path/to/img2.jpg"]
+  },
+  {
+    "images": ["/path/to/img3.jpg"]
+  },
+  {
+    "images": ["/path/to/img1_dup.png"]
+  },
+  {
+    "images": ["/path/to/img2_dup.jpg"]
+  },
+  {
+    "images": ["/path/to/img3_dup.jpg"]
+  },
+  {
+    "images": ["/path/to/img3_dup_dup.jpg"]
+  }
+]

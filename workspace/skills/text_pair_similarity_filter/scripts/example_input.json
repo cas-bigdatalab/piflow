@@ -1,0 +1,14 @@
+[
+  {
+    "text": "a lovely cat",
+    "target_text": "a lovely cat"
+  },
+  {
+    "text": "a cute cat",
+    "target_text": "a lovely cat"
+  },
+  {
+    "text": "a black dog",
+    "target_text": "a lovely cat"
+  }
+]

@@ -1,0 +1,5 @@
+[
+  {"images": ["/path/to/image1.png"]},
+  {"images": ["/path/to/image2.jpg"]},
+  {"images": ["/path/to/image3.jpg"]}
+]
