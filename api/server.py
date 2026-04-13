@@ -23,12 +23,15 @@ class ChatRequest(BaseModel):
     thread_id: str = "default"
     user_id: str = "default_user"
 
+
 class ThreadListRequest(BaseModel):
     user_id: str
+
 
 class DeleteThreadRequest(BaseModel):
     user_id: str
     thread_id: str
+
 
 @app.on_event("startup")
 async def startup():
@@ -42,10 +45,12 @@ async def chat(req: ChatRequest):
     result = await engine.run(req.message, req.thread_id, req.user_id)
     return {"events": result}
 
+
 @app.post("/threads/getTitles")
 async def get_threads(req: ThreadListRequest):
     threads = get_user_threads(req.user_id)
     return {"threads": threads}
+
 
 @app.post("/thread/delete")
 async def delete_thread_api(req: DeleteThreadRequest):
@@ -105,24 +110,26 @@ async def download_workspace_file(path: str):
 
 
 @app.get("/skills/list")
-async def list_skills():
+async def list_skills(page: int = 1, page_size: int = 20, keyword: str = ""):
     try:
-        skills = get_skills_list()
+        result = get_skills_list(page=page, page_size=page_size, keyword=keyword)
         return {
             "code": 200,
-            "skills": skills,
-            "total": len(skills),
+            "data": result["data"],
+            "total": result["total"],
+            "current_count": result["current_count"],
         }
     except Exception as e:
         log.error("failed to get skills list: %s", e)
-        return {"code": 500, "skills": [], "total": 0, "message": str(e)}
+        return {
+            "code": 500,
+            "data": [],
+            "total": 0,
+            "current_count": 0,
+            "message": str(e),
+        }
 
 
 if __name__ == "__main__":
     init_logging()
-    uvicorn.run(
-        "api.server:app",
-        host="0.0.0.0",
-        port=8080,
-        reload=True
-    )
+    uvicorn.run("api.server:app", host="0.0.0.0", port=8080, reload=True)
