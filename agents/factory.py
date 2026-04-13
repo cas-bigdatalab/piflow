@@ -152,7 +152,7 @@ class AgentFactory:
             routes={
                 "/memories/": StoreBackend(
                     namespace=lambda ctx: (
-                        ctx.runtime.context.get("user_id", "default_user"),
+                        ((getattr(getattr(ctx, "runtime", None), "context", None) or {}).get("user_id", "default_user")),
                     )
                 )
             }
