@@ -8,9 +8,10 @@ from datetime import datetime
 from pathlib import Path
 
 from langchain.tools import tool
+from infra.config_loader import resolve_workspace_root
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-WORKSPACE_ROOT = PROJECT_ROOT / "workspace"
+WORKSPACE_ROOT = resolve_workspace_root()
 VENV_PYTHON = sys.executable
 
 
@@ -35,6 +36,45 @@ def _rewrite_inline_python(code: str) -> str:
     return code
 
 
+def _merge_split_virtual_path_parts(parts: list[str]) -> list[str]:
+    merged: list[str] = []
+    index = 0
+
+    while index < len(parts):
+        token = parts[index]
+
+        if not token.startswith("/"):
+            merged.append(token)
+            index += 1
+            continue
+
+        candidate = token
+        candidate_path = _convert_virtual_path(candidate)
+        best_candidate = candidate
+        best_path = candidate_path if os.path.exists(candidate_path) else None
+
+        look_ahead = index + 1
+        while look_ahead < len(parts):
+            next_token = parts[look_ahead]
+            if next_token.startswith("-") or next_token.startswith("/"):
+                break
+
+            candidate = f"{candidate} {next_token}"
+            candidate_path = _convert_virtual_path(candidate)
+            if os.path.exists(candidate_path):
+                best_candidate = candidate
+                best_path = candidate_path
+                look_ahead += 1
+                continue
+
+            look_ahead += 1
+
+        merged.append(best_candidate if best_path else token)
+        index += len(best_candidate.split(" ")) if best_path else 1
+
+    return merged
+
+
 def _split_command(command: str) -> tuple[list[str], str | None]:
     cwd: str | None = None
     raw = command.strip()
@@ -50,6 +90,7 @@ def _split_command(command: str) -> tuple[list[str], str | None]:
     if not parts:
         return [], cwd
 
+    parts = _merge_split_virtual_path_parts(parts)
     parts = [_convert_virtual_path(part) if part.startswith("/") else part for part in parts]
 
     if parts[0] in ("python", "python3"):
@@ -114,6 +155,13 @@ def exec_shell(command: str):
         f"[exec_shell][end {finished_at.strftime('%Y-%m-%d %H:%M:%S')}] "
         f"elapsed={elapsed:.2f}s returncode={result.returncode}"
     )
+    if result.returncode != 0:
+        stdout_preview = (result.stdout or "").strip()
+        stderr_preview = (result.stderr or "").strip()
+        if stdout_preview:
+            print(f"[exec_shell][stdout] {stdout_preview[:2000]}")
+        if stderr_preview:
+            print(f"[exec_shell][stderr] {stderr_preview[:2000]}")
 
     return f"""
 command: {' '.join(parts)}

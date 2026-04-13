@@ -4,7 +4,7 @@ import logging
 from logging.handlers import TimedRotatingFileHandler
 from pathlib import Path
 
-from infra.config_loader import get_settings
+from infra.config_loader import get_settings, resolve_workspace_root
 
 
 _LOGGING_INITIALIZED = False
@@ -28,7 +28,7 @@ def init_logging(force: bool = False) -> None:
     app_cfg = settings.app
     workspace_cfg = settings.workspace
 
-    logs_dir = Path(workspace_cfg.root) / workspace_cfg.dirs.logs
+    logs_dir = resolve_workspace_root(workspace_cfg.root) / workspace_cfg.dirs.logs
     logs_dir.mkdir(parents=True, exist_ok=True)
 
     level = _resolve_level(app_cfg.log_level, app_cfg.debug)

@@ -428,6 +428,7 @@ class AgentEngine:
         config = {
             "configurable": {
                 "thread_id": thread_id,
+                "user_id": user_id,
             }
         }
 
@@ -496,6 +497,7 @@ class AgentEngine:
         config = {
             "configurable": {
                 "thread_id": thread_id,
+                "user_id": user_id,
             }
         }
 

@@ -3,9 +3,10 @@ import yaml
 from pathlib import Path
 from typing import List, Dict, Optional
 
+from infra.config_loader import resolve_workspace_root
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-SKILLS_DIR = PROJECT_ROOT / "workspace" / "skills"
+SKILLS_DIR = resolve_workspace_root() / "skills"
 
 
 def _parse_skill_info(skill_dir: Path) -> Optional[Dict[str, Optional[str]]]:
