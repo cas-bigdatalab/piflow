@@ -1,10 +1,26 @@
-from pathlib import Path
 import os
+from pathlib import Path
+
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+
+
+def _resolve_env_path(path: str) -> Path:
+    env_path = Path(path)
+
+    if env_path.is_absolute():
+        return env_path
+
+    cwd_path = Path.cwd() / env_path
+    if cwd_path.exists():
+        return cwd_path
+
+    return PROJECT_ROOT / env_path
 
 
 def load_dotenv_file(path: str = ".env") -> None:
     """Load simple KEY=VALUE pairs from a .env file into process env."""
-    env_path = Path(path)
+    env_path = _resolve_env_path(path)
     if not env_path.exists():
         return
 

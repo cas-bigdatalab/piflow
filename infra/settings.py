@@ -1,10 +1,7 @@
+from typing import Dict, List, Optional
+
 from pydantic import BaseModel, Field
-from typing import List, Optional, Dict, Any
 
-
-# =========================
-# App Config
-# =========================
 
 class AppConfig(BaseModel):
     app_name: str = "Flow DeepAgent"
@@ -14,6 +11,7 @@ class AppConfig(BaseModel):
     log_file: str = "app.log"
     log_max_bytes: int = 5 * 1024 * 1024
     log_backup_count: int = 5
+
 
 class WorkspaceDirs(BaseModel):
     artifacts: str = "artifacts"
@@ -27,27 +25,22 @@ class WorkspaceConfig(BaseModel):
     dirs: WorkspaceDirs = Field(default_factory=WorkspaceDirs)
 
 
-# =========================
-# MCP Config
-# =========================
-
 class MCPServer(BaseModel):
     name: str
     url: str
     enabled: bool = True
+
 
 class MCPRuntimeConfig(BaseModel):
     timeout: int = 10
     retry_interval: int = 5
     health_check_interval: int = 30
 
+
 class MCPConfig(BaseModel):
     runtime: MCPRuntimeConfig = Field(default_factory=MCPRuntimeConfig)
     servers: List[MCPServer] = Field(default_factory=list)
 
-# =========================
-# LLM Config
-# =========================
 
 class ProviderConfig(BaseModel):
     base_url: str
@@ -67,20 +60,6 @@ class LLMConfig(BaseModel):
     temperature: float = 0
 
 
-# =========================
-# Skill Config
-# =========================
-class SkillsConfig(BaseModel):
-
-    # skill 搜索路径
-    paths: List[str] = Field(default_factory=lambda: ["skills"])
-
-    configs: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
-
-
-# =========================
-# Policy Config
-# =========================
 class PolicyConfig(BaseModel):
     deny_tools: List[str] = Field(default_factory=list)
     allow_tools: List[str] = Field(default_factory=list)
@@ -88,9 +67,6 @@ class PolicyConfig(BaseModel):
     per_tool_budget: Dict[str, int] = Field(default_factory=dict)
 
 
-# =========================
-# Database Config
-# =========================
 class DatabaseConfig(BaseModel):
     host: str = "localhost"
     port: int = 5432
@@ -99,29 +75,16 @@ class DatabaseConfig(BaseModel):
     name: str = "flow_agent"
 
 
-# =========================
-# Global Settings
-# =========================
-
 class Settings(BaseModel):
-
     app: AppConfig = Field(default_factory=AppConfig)
-
     workspace: WorkspaceConfig = Field(default_factory=WorkspaceConfig)
-
     llm: LLMConfig = Field(
         default_factory=lambda: LLMConfig(
             provider="dashscope",
-            model="qwen-max"
+            model="qwen-max",
         )
     )
-
     providers: ProvidersConfig = Field(default_factory=ProvidersConfig)
-
     mcp: MCPConfig = Field(default_factory=MCPConfig)
-
-    skills: SkillsConfig = Field(default_factory=SkillsConfig)
-
     policy: PolicyConfig = Field(default_factory=PolicyConfig)
-
     database: DatabaseConfig = Field(default_factory=DatabaseConfig)
