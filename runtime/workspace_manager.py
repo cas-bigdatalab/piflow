@@ -1,8 +1,11 @@
 from pathlib import Path
+
 from infra.config_loader import get_settings
 
 
 class WorkspaceManager:
+
+    ALLOWED_DIRS = {"artifacts", "outputs", "temp", "logs"}
 
     def __init__(self):
 
@@ -32,6 +35,37 @@ class WorkspaceManager:
 
     def get_root(self):
         return str(self.root.resolve())
+
+    def resolve_virtual_path(self, virtual_path: str, create_parent: bool = False) -> Path:
+
+        raw = (virtual_path or "").strip()
+
+        if not raw:
+            raise ValueError("workspace path is empty")
+
+        relative = raw.lstrip("/")
+        candidate = self.root / relative
+        resolved = candidate.resolve()
+        root_resolved = self.root.resolve()
+
+        try:
+            resolved.relative_to(root_resolved)
+        except ValueError as exc:
+            raise ValueError(f"path escapes workspace: {virtual_path}") from exc
+
+        parts = resolved.relative_to(root_resolved).parts
+        if not parts:
+            raise ValueError("workspace root path is not allowed")
+
+        if parts[0] not in self.ALLOWED_DIRS:
+            raise ValueError(
+                f"top-level workspace dir must be one of: {sorted(self.ALLOWED_DIRS)}"
+            )
+
+        if create_parent:
+            resolved.parent.mkdir(parents=True, exist_ok=True)
+
+        return resolved
 
 # -----------------------------
 # outputs 管理
