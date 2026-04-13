@@ -1,0 +1,15 @@
+# CSV格式化器示例
+# 输入文件示例 (data.csv):
+text,label
+"This is a sample text.",positive
+"Another example for testing.",negative
+"CSV formatting example.",neutral
+
+# 使用说明:
+# 1. 将上述内容保存为 CSV 文件
+# 2. 使用脚本加载并转换为 JSONL 格式:
+#    python scripts/run_csv_formatter.py --input_path data.csv --output_path output.jsonl --text_keys text
+# 3. 输出结果:
+#    {"text": "This is a sample text.", "label": "positive"}
+#    {"text": "Another example for testing.", "label": "negative"}
+#    {"text": "CSV formatting example.", "label": "neutral"}

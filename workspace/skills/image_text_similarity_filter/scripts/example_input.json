@@ -1,0 +1,10 @@
+[
+  {
+    "text": "<image>a photo of a cat",
+    "images": ["D:/hqr/workspace/Agent/data-juicer/data-juicer/tests/data/cat.jpg"]
+  },
+  {
+    "text": "<image>a photo of a dog",
+    "images": ["D:/hqr/workspace/Agent/data-juicer/data-juicer/tests/data/cat.jpg"]
+  }
+]

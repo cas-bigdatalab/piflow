@@ -1,0 +1,14 @@
+[
+  {
+    "text": "image pair 1",
+    "images": ["D:/hqr/workspace/Agent/data-juicer/data-juicer/tests/data/cat.jpg", "D:/hqr/workspace/Agent/data-juicer/data-juicer/tests/data/img3.jpg"]
+  },
+  {
+    "text": "image pair 2",
+    "images": ["D:/hqr/workspace/Agent/data-juicer/data-juicer/tests/data/img3.jpg", "D:/hqr/workspace/Agent/data-juicer/data-juicer/tests/data/img7.jpg"]
+  },
+  {
+    "text": "image pair 3",
+    "images": ["D:/hqr/workspace/Agent/data-juicer/data-juicer/tests/data/img2.jpg", "D:/hqr/workspace/Agent/data-juicer/data-juicer/tests/data/img5.jpg"]
+  }
+]

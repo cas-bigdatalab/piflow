@@ -1,0 +1,33 @@
+{
+  "tests": [
+    {
+      "name": "基本测试",
+      "description": "测试基本的性别判定功能",
+      "command": "python scripts/bdbe_sexdetermine.py --input_file "mousedemo.csv" --species mouse",
+      "expected_output": [
+        "上传成功，文件ID:",
+        "分析任务启动成功，任务ID:",
+        "分析完成！",
+        "性别判定结果：",
+        "共判定"
+      ],
+      "type": "console",
+      "timeout": 600
+    },
+    {
+      "name": "指定输出目录测试",
+      "description": "测试指定输出目录的功能",
+      "command": "python scripts/bdbe_sexdetermine.py --input_file "mousedemo.csv" --species mouse --output_dir "output"",
+      "expected_output": [
+        "输出目录: output",
+        "上传成功，文件ID:",
+        "分析任务启动成功，任务ID:",
+        "分析完成！",
+        "性别判定结果：",
+        "下载成功:"
+      ],
+      "type": "console",
+      "timeout": 600
+    }
+  ]
+}

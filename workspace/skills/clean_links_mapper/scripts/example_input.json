@@ -1,0 +1,7 @@
+[
+  {"text": "This is a test, https://www.example.com/file.html?param1=value1&param2=value2"},
+  {"text": "这是个测试, https://example.com/my-page.html"},
+  {"text": "FTP服务器：ftp://ftp.example.com"},
+  {"text": "访问 https://www.example.com 了解更多信息"},
+  {"text": "这是一个测试 sample@example"}
+]

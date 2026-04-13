@@ -1,0 +1,23 @@
+{
+  "skill_name": "chemdb_search",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "检索C6H6的化学物质详细信息",
+      "expected_output": "返回包含C6H6化学物质详细信息的JSON数据，包括分子式、分子量、CAS编号等",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "检索C12H12的化学物质详细信息，第2页，每页20条",
+      "expected_output": "返回包含C12H12化学物质详细信息的JSON数据，第2页，每页20条",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "查看C2H5OH的化学物质详细信息",
+      "expected_output": "返回包含C2H5OH化学物质详细信息的JSON数据",
+      "files": []
+    }
+  ]
+}

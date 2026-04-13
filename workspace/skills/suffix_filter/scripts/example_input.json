@@ -1,0 +1,22 @@
+[
+  {
+    "text": "Today is Sun",
+    "suffix": ".pdf"
+  },
+  {
+    "text": "a v s e c s f e f g a a a",
+    "suffix": ".docx"
+  },
+  {
+    "text": "中文也是一个字算一个长度",
+    "suffix": ".txt"
+  },
+  {
+    "text": "这是一段HTML内容",
+    "suffix": ".html"
+  },
+  {
+    "text": "Python代码内容",
+    "suffix": ".py"
+  }
+]

@@ -1,0 +1,11 @@
+[
+  {
+    "images": ["/path/to/cat.jpg"]
+  },
+  {
+    "images": ["/path/to/blip.jpg"]
+  },
+  {
+    "images": ["/path/to/lena-face.jpg"]
+  }
+]

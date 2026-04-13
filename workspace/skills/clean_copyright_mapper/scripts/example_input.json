@@ -1,0 +1,7 @@
+[
+  {"text": "/* copyright\n多行注释\n注释内容 */\n这是一段正文内容。"},
+  {"text": "//if start with\n//that will be cleaned \nevenly"},
+  {"text": "#if start with\nthat will be cleaned \n#evenly"},
+  {"text": "http://www.example.com\n正常文本内容"},
+  {"text": "这是一段 /* 多行注释\n注释内容copyright\n*/ 的文本。另外还有一些 // 单行注释。"}
+]

@@ -1,0 +1,33 @@
+{
+  "tests": [
+    {
+      "name": "基本测试",
+      "description": "测试基本的细胞类型注释功能",
+      "command": "python scripts/bdbe_cellanno.py --input_file "mouse_ERX2609603" --species mouse",
+      "expected_output": [
+        "上传成功，文件ID:",
+        "分析任务启动成功，任务ID:",
+        "分析完成！",
+        "细胞类型注释结果：",
+        "共注释"
+      ],
+      "type": "console",
+      "timeout": 600
+    },
+    {
+      "name": "指定输出目录测试",
+      "description": "测试指定输出目录的功能",
+      "command": "python scripts/bdbe_cellanno.py --input_file "mouse_ERX2609603" --species mouse --output_dir "output"",
+      "expected_output": [
+        "输出目录: output",
+        "上传成功，文件ID:",
+        "分析任务启动成功，任务ID:",
+        "分析完成！",
+        "细胞类型注释结果：",
+        "下载成功:"
+      ],
+      "type": "console",
+      "timeout": 600
+    }
+  ]
+}

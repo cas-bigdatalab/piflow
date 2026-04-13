@@ -1,0 +1,11 @@
+[
+  {
+    "images": ["D:/hqr/workspace/Agent/data-juicer/data-juicer/tests/data/cat.jpg"]
+  },
+  {
+    "images": ["D:/hqr/workspace/Agent/data-juicer/data-juicer/tests/data/lena.jpg"]
+  },
+  {
+    "images": ["D:/hqr/workspace/Agent/data-juicer/data-juicer/tests/data/lena-face.jpg"]
+  }
+]

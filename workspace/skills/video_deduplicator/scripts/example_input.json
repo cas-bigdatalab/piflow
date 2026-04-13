@@ -1,0 +1,23 @@
+[
+  {
+    "videos": ["/path/to/video1.mp4"]
+  },
+  {
+    "videos": ["/path/to/video2.mp4"]
+  },
+  {
+    "videos": ["/path/to/video3.mp4"]
+  },
+  {
+    "videos": ["/path/to/video1_dup.mp4"]
+  },
+  {
+    "videos": ["/path/to/video2_dup.mp4"]
+  },
+  {
+    "videos": ["/path/to/video3_dup.mp4"]
+  },
+  {
+    "videos": ["/path/to/video3_dup_dup.mp4"]
+  }
+]

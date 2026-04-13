@@ -1,0 +1,41 @@
+{
+  "test_cases": [
+    {
+      "name": "基本查询测试",
+      "command": "python scripts/bdbe_homo.py --organism "Acomys cahirinus"",
+      "input_files": [],
+      "output_files": [],
+      "expected_output": {
+        "type": "console",
+        "checks": [
+          {
+            "type": "contains",
+            "value": "查询结果",
+            "message": "输出应包含查询结果"
+          },
+          {
+            "type": "contains",
+            "value": "总数据集数量",
+            "message": "输出应包含总数据集数量"
+          }
+        ]
+      }
+    },
+    {
+      "name": "带筛选条件查询测试",
+      "command": "python scripts/bdbe_homo.py --organism "Acomys cahirinus" --organ "ear" --page_num 1 --page_size 5",
+      "input_files": [],
+      "output_files": [],
+      "expected_output": {
+        "type": "console",
+        "checks": [
+          {
+            "type": "contains",
+            "value": "查询结果",
+            "message": "输出应包含查询结果"
+          }
+        ]
+      }
+    }
+  ]
+}
