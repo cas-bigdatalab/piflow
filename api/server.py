@@ -1,5 +1,4 @@
 import logging
-from pathlib import Path
 
 import uvicorn
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
@@ -10,6 +9,7 @@ from infra.logging import init_logging
 from runtime.chat_store import get_user_threads, delete_thread
 from runtime.engine import AgentEngine
 from runtime.workspace_manager import WorkspaceManager
+from runtime.skill_manage import get_skills_list
 
 
 log = logging.getLogger("flow.api")
@@ -102,6 +102,20 @@ async def download_workspace_file(path: str):
         filename=source.name,
         media_type="application/octet-stream",
     )
+
+
+@app.get("/skills/list")
+async def list_skills():
+    try:
+        skills = get_skills_list()
+        return {
+            "code": 200,
+            "skills": skills,
+            "total": len(skills),
+        }
+    except Exception as e:
+        log.error("failed to get skills list: %s", e)
+        return {"code": 500, "skills": [], "total": 0, "message": str(e)}
 
 
 if __name__ == "__main__":
