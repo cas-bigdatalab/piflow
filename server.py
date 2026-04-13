@@ -74,6 +74,7 @@ class ChatRequest(BaseModel):
     message: str
     thread_id: str = "default"
     user_id: str = "default_user"
+    attachments: list[str] = []
 
 class ThreadListRequest(BaseModel):
     user_id: str
@@ -115,6 +116,7 @@ async def chat(req: ChatRequest, request: Request):
             req.message,
             req.thread_id,
             req.user_id,
+            attachments=req.attachments,
             request_id=request_id,
         )
     except Exception:
@@ -156,6 +158,7 @@ async def chat_stream(req: ChatRequest, request: Request):
                 req.message,
                 req.thread_id,
                 req.user_id,
+                attachments=req.attachments,
                 request_id=request_id,
             ):
                 yield _encode_sse(event, event.get("type"))

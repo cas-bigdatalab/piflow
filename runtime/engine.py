@@ -1,4 +1,4 @@
-import logging
+﻿import logging
 import time
 from typing import Any, AsyncIterator
 
@@ -53,6 +53,30 @@ def _message_content_text(content: Any) -> str:
 def _message_content_preview(content: Any) -> str:
     return _preview_text(_message_content_text(content))
 
+
+def _build_attachment_context(attachments: list[str] | None) -> str:
+    valid = []
+    for item in attachments or []:
+        if not isinstance(item, str):
+            continue
+        path = item.strip()
+        if path:
+            valid.append(path)
+
+    if not valid:
+        return ""
+
+    lines = [
+        "Uploaded files for this request:",
+        "Use these files as the primary inputs for the current task.",
+        "Do not scan the whole workspace or ask which file to use unless the request is truly ambiguous.",
+    ]
+    lines.extend(f"- {path}" for path in valid)
+    if len(valid) == 1:
+        lines.append(f'If the user says "this file", "that file", or "uploaded file", resolve it to: {valid[0]}')
+    else:
+        lines.append("If the user refers to an uploaded file, resolve it from the list above before asking a follow-up question.")
+    return "\n".join(lines)
 
 def _append_reasoning_part(parts: list[str], seen: set[str], value: Any) -> None:
     text = _message_content_text(value).strip()
@@ -173,6 +197,32 @@ def _extract_reasoning_from_event(event: Any) -> str:
     return "\n".join(parts).strip()
 
 
+def _split_stream_part(stream_part: Any) -> tuple[str | None, Any]:
+    if not isinstance(stream_part, tuple):
+        return None, stream_part
+
+    if len(stream_part) == 2:
+        mode, data = stream_part
+        return str(mode), data
+
+    if len(stream_part) == 3:
+        _, mode, data = stream_part
+        return str(mode), data
+
+    return None, stream_part
+
+
+def _merge_text_delta(current_text: str, incoming_text: str) -> tuple[str, str]:
+    if not incoming_text:
+        return "", current_text
+
+    if incoming_text.startswith(current_text):
+        delta = incoming_text[len(current_text):]
+        return delta, incoming_text
+
+    return incoming_text, current_text + incoming_text
+
+
 def _summarize_event(event: Any) -> dict[str, Any]:
     if not isinstance(event, dict):
         return {
@@ -255,6 +305,7 @@ class AgentEngine:
         thread_id: str,
         user_id: str,
         request_id: str,
+        attachments: list[str] | None = None,
     ) -> tuple[dict[str, Any], WorkspaceManager, list[str]]:
         registry.begin_request()
 
@@ -287,9 +338,21 @@ class AgentEngine:
                 "content": item["content"],
             })
 
+        attachment_context = _build_attachment_context(attachments)
+        input_content = message
+        if attachment_context:
+            input_content = f"{message}\n\n{attachment_context}"
+            log.info(
+                "attachments injected request_id=%s thread_id=%s attachment_count=%s attachments=%s",
+                request_id,
+                thread_id,
+                len(attachments or []),
+                ",".join(attachments or []),
+            )
+
         messages.append({
             "role": "user",
-            "content": message,
+            "content": input_content,
         })
 
         save_message(user_id, thread_id, "user", message)
@@ -349,6 +412,7 @@ class AgentEngine:
         message: str,
         thread_id: str = "default",
         user_id: str = "default_user",
+        attachments: list[str] | None = None,
         request_id: str | None = None,
     ):
         start_total = time.time()
@@ -358,6 +422,7 @@ class AgentEngine:
             thread_id,
             user_id,
             request_id,
+            attachments,
         )
 
         config = {
@@ -415,6 +480,7 @@ class AgentEngine:
         message: str,
         thread_id: str = "default",
         user_id: str = "default_user",
+        attachments: list[str] | None = None,
         request_id: str | None = None,
     ) -> AsyncIterator[dict[str, Any]]:
         start_total = time.time()
@@ -424,6 +490,7 @@ class AgentEngine:
             thread_id,
             user_id,
             request_id,
+            attachments,
         )
 
         config = {
@@ -445,65 +512,77 @@ class AgentEngine:
         latest_answer = ""
         latest_reasoning = ""
         token_usage = None
+        update_events: list[Any] = []
 
         try:
-            async for event in self.agent.astream(input_message, config=config):
-                event_count += 1
-                summary = self._log_stream_event(request_id, event_count, event)
+            async for stream_part in self.agent.astream(
+                input_message,
+                config=config,
+                stream_mode=["messages", "updates"],
+            ):
+                mode, payload = _split_stream_part(stream_part)
 
-                yield {
-                    "type": "agent_event",
-                    "request_id": request_id,
-                    "index": event_count,
-                    "nodes": summary["nodes"],
-                    "message_types": summary["message_types"],
-                    "tool_calls": summary["tool_calls"],
-                    "preview": summary["preview"],
-                }
+                if mode == "updates":
+                    update_events.append(payload)
+                    event_count += 1
+                    summary = self._log_stream_event(request_id, event_count, payload)
 
-                current_reasoning = _extract_reasoning_from_event(event)
-                if current_reasoning:
-                    if current_reasoning.startswith(latest_reasoning):
-                        delta = current_reasoning[len(latest_reasoning):]
-                        if delta:
-                            yield {
-                                "type": "reasoning_delta",
-                                "request_id": request_id,
-                                "delta": delta,
-                                "content": current_reasoning,
-                            }
-                    elif current_reasoning != latest_reasoning:
-                        yield {
-                            "type": "reasoning",
-                            "request_id": request_id,
-                            "content": current_reasoning,
-                        }
-                    latest_reasoning = current_reasoning
+                    yield {
+                        "type": "agent_event",
+                        "request_id": request_id,
+                        "index": event_count,
+                        "nodes": summary["nodes"],
+                        "message_types": summary["message_types"],
+                        "tool_calls": summary["tool_calls"],
+                        "preview": summary["preview"],
+                    }
+                    continue
 
-                current_answer, current_token_usage = _extract_ai_message_from_event(event)
+                if mode != "messages":
+                    continue
+
+                if (
+                    not isinstance(payload, tuple)
+                    or len(payload) != 2
+                ):
+                    continue
+
+                message, metadata = payload
+                if not _is_ai_message(message):
+                    continue
+
+                response_metadata = getattr(message, "response_metadata", None) or {}
+                current_token_usage = response_metadata.get("token_usage")
                 if current_token_usage:
                     token_usage = current_token_usage
 
-                if not current_answer:
-                    continue
-
-                if current_answer.startswith(latest_answer):
-                    delta = current_answer[len(latest_answer):]
-                    if delta:
-                        yield {
-                            "type": "message_delta",
-                            "request_id": request_id,
-                            "delta": delta,
-                            "content": current_answer,
-                        }
-                elif current_answer != latest_answer:
+                reasoning_piece = _extract_reasoning_text(message)
+                reasoning_delta, latest_reasoning = _merge_text_delta(
+                    latest_reasoning,
+                    reasoning_piece,
+                )
+                if reasoning_delta:
                     yield {
-                        "type": "message",
+                        "type": "reasoning_delta",
                         "request_id": request_id,
-                        "content": current_answer,
+                        "delta": reasoning_delta,
+                        "content": latest_reasoning,
+                        "node": metadata.get("langgraph_node") if isinstance(metadata, dict) else None,
                     }
 
-                latest_answer = current_answer
+                if getattr(message, "tool_call_chunks", None) or getattr(message, "tool_calls", None):
+                    continue
+
+                answer_piece = _message_content_text(getattr(message, "content", ""))
+                answer_delta, latest_answer = _merge_text_delta(latest_answer, answer_piece)
+                if answer_delta:
+                    yield {
+                        "type": "message_delta",
+                        "request_id": request_id,
+                        "delta": answer_delta,
+                        "content": latest_answer,
+                        "node": metadata.get("langgraph_node") if isinstance(metadata, dict) else None,
+                    }
         except Exception:
             log.exception(
                 "agent stream failed request_id=%s thread_id=%s user_id=%s",
@@ -519,6 +598,14 @@ class AgentEngine:
             time.time() - start_stream,
             event_count,
         )
+
+        if update_events:
+            if not latest_reasoning:
+                latest_reasoning = _extract_reasoning_from_event(update_events[-1])
+            if not latest_answer:
+                latest_answer, update_token_usage = _extract_final_response(update_events)
+                if update_token_usage and not token_usage:
+                    token_usage = update_token_usage
 
         new_files = workspace.detect_new_outputs(before_outputs)
         if new_files:
