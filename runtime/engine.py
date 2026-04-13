@@ -54,6 +54,61 @@ def _message_content_preview(content: Any) -> str:
     return _preview_text(_message_content_text(content))
 
 
+def _append_reasoning_part(parts: list[str], seen: set[str], value: Any) -> None:
+    text = _message_content_text(value).strip()
+    if not text or text in seen:
+        return
+    seen.add(text)
+    parts.append(text)
+
+
+def _extract_reasoning_text(message: Any) -> str:
+    parts: list[str] = []
+    seen: set[str] = set()
+
+    additional_kwargs = getattr(message, "additional_kwargs", None) or {}
+    reasoning = additional_kwargs.get("reasoning")
+
+    if isinstance(reasoning, str):
+        _append_reasoning_part(parts, seen, reasoning)
+    elif isinstance(reasoning, dict):
+        _append_reasoning_part(parts, seen, reasoning.get("reasoning") or reasoning.get("text"))
+        for item in reasoning.get("summary") or []:
+            if isinstance(item, dict):
+                _append_reasoning_part(parts, seen, item.get("text") or item.get("reasoning"))
+            else:
+                _append_reasoning_part(parts, seen, item)
+    elif isinstance(reasoning, list):
+        for item in reasoning:
+            if isinstance(item, dict):
+                _append_reasoning_part(parts, seen, item.get("reasoning") or item.get("text"))
+                for summary_item in item.get("summary") or []:
+                    if isinstance(summary_item, dict):
+                        _append_reasoning_part(
+                            parts,
+                            seen,
+                            summary_item.get("text") or summary_item.get("reasoning"),
+                        )
+                    else:
+                        _append_reasoning_part(parts, seen, summary_item)
+            else:
+                _append_reasoning_part(parts, seen, item)
+
+    content = getattr(message, "content", None)
+    if isinstance(content, list):
+        for block in content:
+            if not isinstance(block, dict) or block.get("type") != "reasoning":
+                continue
+            _append_reasoning_part(parts, seen, block.get("reasoning") or block.get("text"))
+            for item in block.get("summary") or []:
+                if isinstance(item, dict):
+                    _append_reasoning_part(parts, seen, item.get("text") or item.get("reasoning"))
+                else:
+                    _append_reasoning_part(parts, seen, item)
+
+    return "\n".join(parts).strip()
+
+
 def _is_ai_message(message: Any) -> bool:
     message_type = str(getattr(message, "type", message.__class__.__name__)).lower()
     return "ai" in message_type
@@ -93,6 +148,29 @@ def _extract_final_response(events: list[Any]) -> tuple[str, dict[str, Any] | No
         if text or token_usage:
             return text, token_usage
     return "", None
+
+
+def _extract_reasoning_from_event(event: Any) -> str:
+    if not isinstance(event, dict):
+        return ""
+
+    parts: list[str] = []
+    seen: set[str] = set()
+
+    for payload in event.values():
+        if not isinstance(payload, dict):
+            continue
+
+        messages = payload.get("messages")
+        if not isinstance(messages, list):
+            continue
+
+        for message in messages:
+            if not _is_ai_message(message):
+                continue
+            _append_reasoning_part(parts, seen, _extract_reasoning_text(message))
+
+    return "\n".join(parts).strip()
 
 
 def _summarize_event(event: Any) -> dict[str, Any]:
@@ -365,6 +443,7 @@ class AgentEngine:
         start_stream = time.time()
         event_count = 0
         latest_answer = ""
+        latest_reasoning = ""
         token_usage = None
 
         try:
@@ -381,6 +460,25 @@ class AgentEngine:
                     "tool_calls": summary["tool_calls"],
                     "preview": summary["preview"],
                 }
+
+                current_reasoning = _extract_reasoning_from_event(event)
+                if current_reasoning:
+                    if current_reasoning.startswith(latest_reasoning):
+                        delta = current_reasoning[len(latest_reasoning):]
+                        if delta:
+                            yield {
+                                "type": "reasoning_delta",
+                                "request_id": request_id,
+                                "delta": delta,
+                                "content": current_reasoning,
+                            }
+                    elif current_reasoning != latest_reasoning:
+                        yield {
+                            "type": "reasoning",
+                            "request_id": request_id,
+                            "content": current_reasoning,
+                        }
+                    latest_reasoning = current_reasoning
 
                 current_answer, current_token_usage = _extract_ai_message_from_event(event)
                 if current_token_usage:
