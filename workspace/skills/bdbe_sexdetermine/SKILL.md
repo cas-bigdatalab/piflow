@@ -1,3 +1,12 @@
+---
+name: bdbe_sexdetermine
+description: 本skill是用于单细胞样本性别判定的专用技能，首先需要用户上传需要处理的单细胞样本数据，再判定未标注性别的样本，或纠正标注错误的性别信息，生成最后的修正文件。
+compatibility:
+  - python
+  - requests
+---
+
+
 # Skill: bdbe_sexdetermine
 
 ## Overview
