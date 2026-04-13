@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from infra.config_loader import get_settings
+from infra.config_loader import get_settings, resolve_workspace_root
 
 
 class WorkspaceManager:
@@ -13,7 +13,7 @@ class WorkspaceManager:
 
         cfg = settings.workspace
 
-        self.root = Path(cfg.root)
+        self.root = resolve_workspace_root(cfg.root)
 
         self.artifacts = self.root / cfg.dirs.artifacts
         self.outputs = self.root / cfg.dirs.outputs

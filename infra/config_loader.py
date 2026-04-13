@@ -47,3 +47,10 @@ def get_settings() -> Settings:
         _settings = load_settings()
 
     return _settings
+
+
+def resolve_workspace_root(root: str | Path | None = None) -> Path:
+    raw_root = Path(root if root is not None else get_settings().workspace.root)
+    if raw_root.is_absolute():
+        return raw_root.resolve()
+    return (PROJECT_ROOT / raw_root).resolve()

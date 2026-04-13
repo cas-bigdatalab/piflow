@@ -8,9 +8,10 @@ from datetime import datetime
 from pathlib import Path
 
 from langchain.tools import tool
+from infra.config_loader import resolve_workspace_root
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-WORKSPACE_ROOT = PROJECT_ROOT / "workspace"
+WORKSPACE_ROOT = resolve_workspace_root()
 VENV_PYTHON = sys.executable
 
 
