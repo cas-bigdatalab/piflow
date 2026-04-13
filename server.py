@@ -12,7 +12,12 @@ from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 
 from infra.logging import init_logging
-from runtime.chat_store import get_user_threads, delete_thread, get_messages
+from runtime.chat_store import (
+    get_user_threads,
+    delete_thread,
+    get_messages,
+    list_skills,
+)
 from runtime.engine import AgentEngine
 from runtime.skill_manage import get_skills_list
 from runtime.workspace_manager import WorkspaceManager
@@ -76,8 +81,10 @@ class ChatRequest(BaseModel):
     user_id: str = "default_user"
     attachments: list[str] = []
 
+
 class ThreadListRequest(BaseModel):
     user_id: str
+
 
 class DeleteThreadRequest(BaseModel):
     user_id: str
@@ -195,10 +202,12 @@ async def chat_stream(req: ChatRequest, request: Request):
         },
     )
 
+
 @app.post("/threads/getTitles")
 async def get_threads(req: ThreadListRequest):
     threads = get_user_threads(req.user_id)
     return {"threads": threads}
+
 
 @app.post("/thread/delete")
 async def delete_thread_api(req: DeleteThreadRequest):
@@ -267,14 +276,30 @@ async def download_workspace_file(path: str):
 
 
 @app.get("/skills/list")
-async def list_skills(page: int = 1, page_size: int = 20, keyword: str = ""):
+async def list_skills_api(page: int = 1, page_size: int = 20, keyword: str = ""):
     try:
-        result = get_skills_list(page=page, page_size=page_size, keyword=keyword)
+        offset = (page - 1) * page_size
+        result = list_skills(limit=page_size, offset=offset, keyword=keyword)
+
+        data = []
+        for r in result.get("data", []):
+            if not r:
+                continue
+            data.append(
+                {
+                    "name": r.get("name"),
+                    "description": r.get("description"),
+                    "icon": r.get("icon_path"),
+                    "version": r.get("version"),
+                    "type": r.get("type"),
+                }
+            )
+
         return {
             "code": 200,
-            "data": result["data"],
-            "total": result["total"],
-            "current_count": result["current_count"],
+            "data": data,
+            "total": result.get("total", 0),
+            "current_count": len(data),
         }
     except Exception as exc:
         log.error("failed to get skills list: %s", exc)
@@ -289,7 +314,12 @@ async def list_skills(page: int = 1, page_size: int = 20, keyword: str = ""):
 
 if __name__ == "__main__":
     init_logging()
-    enable_reload = os.getenv("FLOW_API_RELOAD", "").lower() in {"1", "true", "yes", "on"}
+    enable_reload = os.getenv("FLOW_API_RELOAD", "").lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
 
     if enable_reload:
         log.info("starting uvicorn with reload enabled")

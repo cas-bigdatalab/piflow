@@ -125,6 +125,67 @@ def get_all_skills_list() -> List[Dict[str, Optional[str]]]:
     return results
 
 
+def _load_skill_type_mapping() -> Dict[str, str]:
+    """
+    从 docs/skill分类.txt 解析技能分类映射
+    """
+    classification_file = PROJECT_ROOT / "docs" / "skill分类.txt"
+    if not classification_file.exists():
+        return {}
+
+    type_mapping = {}
+    current_type = ""
+
+    try:
+        content = classification_file.read_text(encoding="utf-8")
+        for line in content.splitlines():
+            line = line.strip()
+
+            if line.startswith("## "):
+                current_type = line.replace("##", "").strip()
+            elif line.startswith("- **"):
+                parts = line.split("**")
+                if len(parts) >= 3:
+                    skill_name = parts[1]
+                    type_mapping[skill_name] = current_type
+    except Exception:
+        pass
+
+    return type_mapping
+
+
+def init_skills_to_database():
+    """
+    初始化本地所有 skills 到数据库
+    从 workspace/skills 读取信息，从 docs/skill分类.txt 获取类型
+    版本号默认 1.0.0
+    """
+    from runtime.chat_store import insert_skill
+
+    type_mapping = _load_skill_type_mapping()
+
+    all_skills = get_all_skills_list()
+
+    count = 0
+    for skill in all_skills:
+        skill_name = skill.get("name", "")
+        description = skill.get("description", "")
+        icon_path = skill.get("icon")
+
+        skill_type = type_mapping.get(skill_name, "其他")
+
+        insert_skill(
+            name=skill_name,
+            description=description or "",
+            icon_path=icon_path,
+            type=skill_type,
+            version="1.0.0",
+        )
+        count += 1
+
+    return count
+
+
 if __name__ == "__main__":
     import json
 
