@@ -78,6 +78,25 @@ class WorkspaceManager:
 
         return [p.name for p in self.outputs.iterdir()]
 
+    def snapshot_downloadables(self) -> dict[str, tuple[int, int]]:
+
+        snapshot: dict[str, tuple[int, int]] = {}
+
+        for prefix, directory in (
+            ("outputs", self.outputs),
+            ("artifacts", self.artifacts),
+        ):
+            if not directory.exists():
+                continue
+
+            for path in directory.iterdir():
+                if not path.is_file():
+                    continue
+                stat = path.stat()
+                snapshot[f"/{prefix}/{path.name}"] = (stat.st_mtime_ns, stat.st_size)
+
+        return snapshot
+
     def detect_new_outputs(self, before):
 
         after = self.list_outputs()
@@ -85,3 +104,19 @@ class WorkspaceManager:
         new_files = list(set(after) - set(before))
 
         return new_files
+
+    def detect_changed_downloadables(
+        self,
+        before: dict[str, tuple[int, int]] | None,
+    ) -> list[str]:
+
+        before = before or {}
+        after = self.snapshot_downloadables()
+        changed: list[str] = []
+
+        for virtual_path, state in after.items():
+            if before.get(virtual_path) != state:
+                changed.append(virtual_path)
+
+        changed.sort()
+        return changed

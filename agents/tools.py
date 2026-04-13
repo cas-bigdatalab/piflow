@@ -1,67 +1,97 @@
-import json
 import os
+import re
 import shlex
 import subprocess
+import sys
 import time
 from datetime import datetime
+from pathlib import Path
 
 from langchain.tools import tool
-from runtime.chat_store import search_threads, get_messages
 
-REAL_ROOT_DIR = r"D:\hqr\projects\python\new-flow-deepagents\flow-deepagents\workspace"
-VENV_PYTHON = r"D:\hqr\software\miniforge3\envs\test-whl\python.exe"
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+WORKSPACE_ROOT = PROJECT_ROOT / "workspace"
+VENV_PYTHON = sys.executable
+
+
+def _convert_virtual_path(value: str) -> str:
+    if not isinstance(value, str):
+        return value
+    if value.startswith("/"):
+        rel = value.lstrip("/").replace("/", os.sep)
+        return (WORKSPACE_ROOT / rel).resolve().as_posix()
+    return value
+
+
+def _rewrite_inline_python(code: str) -> str:
+    def replace_single(match: re.Match[str]) -> str:
+        return "'" + _convert_virtual_path(match.group(1)) + "'"
+
+    def replace_double(match: re.Match[str]) -> str:
+        return '"' + _convert_virtual_path(match.group(1)) + '"'
+
+    code = re.sub(r"'(\/[^']*)'", replace_single, code)
+    code = re.sub(r'"(\/[^"]*)"', replace_double, code)
+    return code
+
+
+def _split_command(command: str) -> tuple[list[str], str | None]:
+    cwd: str | None = None
+    raw = command.strip()
+
+    if "&&" in raw:
+        left, right = raw.split("&&", 1)
+        left_parts = shlex.split(left.strip())
+        if left_parts and left_parts[0] == "cd" and len(left_parts) > 1:
+            cwd = _convert_virtual_path(left_parts[1])
+        raw = right.strip()
+
+    parts = shlex.split(raw)
+    if not parts:
+        return [], cwd
+
+    parts = [_convert_virtual_path(part) if part.startswith("/") else part for part in parts]
+
+    if parts[0] in ("python", "python3"):
+        parts[0] = VENV_PYTHON
+        if len(parts) > 2 and parts[1] == "-c":
+            parts[2] = _rewrite_inline_python(parts[2])
+            if not cwd:
+                cwd = str(WORKSPACE_ROOT)
+        elif len(parts) > 1 and parts[1] not in ("-m",):
+            if not cwd:
+                script_path = Path(parts[1])
+                cwd = str(script_path.parent if script_path.parent != Path("") else WORKSPACE_ROOT)
+
+    if cwd == "":
+        cwd = None
+
+    return parts, cwd
 
 
 @tool
 def exec_shell(command: str):
     """
-    执行终端命令
+    Execute a shell-style command inside the project workspace.
     """
-
-    def convert_path(path: str):
-        # 把 agent 看到的 /xxx 映射到真实 workspace 根目录
-        if path.startswith("/"):
-            rel = path.lstrip("/")
-            return os.path.normpath(os.path.join(REAL_ROOT_DIR, rel))
-        return path
 
     started_at = datetime.now()
     started_perf = time.perf_counter()
     print(f"[exec_shell][start {started_at.strftime('%Y-%m-%d %H:%M:%S')}] {command}")
 
-    cwd = None
-
-    if "&&" in command:
-        left, right = command.split("&&", 1)
-
-        left_parts = shlex.split(left.strip())
-        right_parts = shlex.split(right.strip())
-
-        if left_parts and left_parts[0] == "cd" and len(left_parts) > 1:
-            cwd = convert_path(left_parts[1])
-
-        parts = right_parts
-    else:
-        parts = shlex.split(command)
-
-    parts = [convert_path(part) if part.startswith("/") else part for part in parts]
-
-    if cwd is None and parts and parts[0] in ("python", "python3") and len(parts) > 1:
-        script_path = parts[1]
-        cwd = os.path.dirname(script_path)
-
-    if parts and parts[0] in ("python", "python3"):
-        parts[0] = VENV_PYTHON
-
+    parts, cwd = _split_command(command)
     print(f"[exec_shell] -> parts={parts}")
     print(f"[exec_shell] -> cwd={cwd}")
 
-    if cwd and not os.path.isdir(cwd):
-        return f"cwd 不存在: {cwd}"
+    if not parts:
+        return "empty command"
 
-    if parts and parts[0] in ("python", "python3") and len(parts) > 1:
+    if cwd and not os.path.isdir(cwd):
+        return f"cwd does not exist: {cwd}"
+
+    if parts[0] == VENV_PYTHON and len(parts) > 1 and parts[1] not in ("-c", "-m"):
         if not os.path.isfile(parts[1]):
-            return f"脚本不存在: {parts[1]}"
+            return f"script does not exist: {parts[1]}"
 
     result = subprocess.run(
         parts,
@@ -71,7 +101,13 @@ def exec_shell(command: str):
         encoding="utf-8",
         errors="ignore",
         timeout=120,
+        env={
+            **os.environ,
+            "PYTHONIOENCODING": "utf-8",
+            "PYTHONUTF8": "1",
+        },
     )
+
     finished_at = datetime.now()
     elapsed = time.perf_counter() - started_perf
     print(
@@ -80,49 +116,17 @@ def exec_shell(command: str):
     )
 
     return f"""
-命令: {' '.join(parts)}
+command: {' '.join(parts)}
 cwd: {cwd}
 started_at: {started_at.strftime('%Y-%m-%d %H:%M:%S')}
 finished_at: {finished_at.strftime('%Y-%m-%d %H:%M:%S')}
 elapsed_seconds: {elapsed:.2f}
 
 stdout:
-# {result.stdout}
+{result.stdout}
 
 stderr:
 {result.stderr}
 
 returncode: {result.returncode}
 """
-
-
-
-# @tool
-# def search_past_conversations(query: str) -> str:
-#     """
-#     搜索用户历史对话，用于查找类似问题或上下文。
-#     """
-#
-#     # ⚠️ user_id 要从 runtime context 里取（关键）
-#     from langgraph.config import get_config
-#
-#     config = get_config()
-#     user_id = config["configurable"].get("user_id", "default_user")
-#
-#     threads = search_threads(user_id)
-#
-#     results = []
-#
-#     for tid in threads:
-#         history = get_messages(tid, limit=10)
-#
-#         # 简单拼接（后续可以加 embedding）
-#         text = "\n".join([m["content"] for m in history])
-#
-#         if query in text:
-#             results.append({
-#                 "thread_id": tid,
-#                 "history": history
-#             })
-#
-#     return json.dumps(results[:3], ensure_ascii=False)

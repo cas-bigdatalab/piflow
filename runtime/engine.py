@@ -358,7 +358,7 @@ class AgentEngine:
         save_message(user_id, thread_id, "user", message)
 
         workspace = WorkspaceManager()
-        before_outputs = workspace.list_outputs()
+        before_outputs = workspace.snapshot_downloadables()
 
         return {
             "messages": messages,
@@ -456,11 +456,11 @@ class AgentEngine:
             event_count,
         )
 
-        new_files = workspace.detect_new_outputs(before_outputs)
+        new_files = workspace.detect_changed_downloadables(before_outputs)
         if new_files:
             events.append({
                 "type": "artifact",
-                "files": [f"/outputs/{name}" for name in new_files],
+                "files": new_files,
             })
             log.info(
                 "artifacts detected request_id=%s files=%s",
@@ -607,7 +607,7 @@ class AgentEngine:
                 if update_token_usage and not token_usage:
                     token_usage = update_token_usage
 
-        new_files = workspace.detect_new_outputs(before_outputs)
+        new_files = workspace.detect_changed_downloadables(before_outputs)
         if new_files:
             log.info(
                 "artifacts detected request_id=%s files=%s",
@@ -617,7 +617,7 @@ class AgentEngine:
             yield {
                 "type": "artifact",
                 "request_id": request_id,
-                "files": [f"/outputs/{name}" for name in new_files],
+                "files": new_files,
             }
 
         save_message(user_id, thread_id, "assistant", latest_answer)
