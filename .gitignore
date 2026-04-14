@@ -2,3 +2,7 @@
 .venv/
 .workspace/logs/app.log
 .env
+./vue-web/node_modules/
+./vue-web/dist/
+./vue-web/.DS_Store
+./vue-web/*.log

@@ -20,8 +20,8 @@ from Crypto.Util.Padding import pad
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
-JWT_LOGIN_PATH = "/piflow-web/jwtLogin"
-SYNERGY_SEARCH_PATH = "/piflow-web/datasource/v2/getSynergyByPage"
+JWT_LOGIN_PATH = "/piflow-vue-web/jwtLogin"
+SYNERGY_SEARCH_PATH = "/piflow-vue-web/datasource/v2/getSynergyByPage"
 
 DATA_CENTER_NAME_TO_URL = {
     "\u56fd\u5bb6\u5bf9\u5730\u89c2\u6d4b\u79d1\u5b66\u6570\u636e\u4e2d\u5fc3": "http://124.16.184.77:7801",

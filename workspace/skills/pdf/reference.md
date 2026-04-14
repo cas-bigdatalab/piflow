@@ -314,7 +314,7 @@ qpdf --empty --pages doc1.pdf 1-3 doc2.pdf 5-7 doc3.pdf 2,4 -- combined.pdf
 
 #### PDF Optimization and Repair
 ```bash
-# Optimize PDF for web (linearize for streaming)
+# Optimize PDF for vue-web (linearize for streaming)
 qpdf --linearize input.pdf optimized.pdf
 
 # Remove unused objects and compress

@@ -152,7 +152,7 @@ def search_and_analyze_datasets(
 ) -> dict[str, Any]:
     """
     检索协同数据源，并返回统一化分析结果。
-    对应接口：/piflow-web/datasource/v2/getSynergyByPage
+    对应接口：/piflow-vue-web/datasource/v2/getSynergyByPage
     """
     url = "http://conet.rdcn.link/piflow-web/datasource/v2/getSynergyByPage"
 
