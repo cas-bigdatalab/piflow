@@ -210,13 +210,13 @@ export function SkillsPage() {
       </div>
 
       <div className="grid gap-8 lg:grid-cols-[220px_minmax(0,1fr)] xl:grid-cols-[240px_minmax(0,1fr)]">
-        <aside className="h-fit rounded-[28px] border border-slate-200 bg-white p-5 shadow-[0_24px_60px_rgba(15,23,42,0.04)]">
-          <div className="mb-4 flex items-center justify-between">
+        <aside className="h-fit rounded-[28px] border border-slate-200 bg-white p-3.5 shadow-[0_24px_60px_rgba(15,23,42,0.04)]">
+          <div className="mb-3 flex items-center justify-between">
             <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-slate-400">分类</p>
             {categoryError ? <span className="text-xs text-rose-500">加载失败</span> : null}
           </div>
 
-          <ul className="space-y-2">
+          <ul className="space-y-1">
             {categoryOptions.map((category) => {
               const active = activeType === category.value;
               return (
@@ -224,8 +224,8 @@ export function SkillsPage() {
                   <button
                     className={
                       active
-                        ? "flex w-full items-center justify-between rounded-2xl bg-black px-3 py-3 text-left text-sm font-medium text-white"
-                        : "flex w-full items-center justify-between rounded-2xl px-3 py-3 text-left text-sm font-medium text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-900"
+                        ? "flex w-full items-center justify-between rounded-2xl bg-black px-3 py-2 text-left text-[13px] font-medium text-white"
+                        : "flex w-full items-center justify-between rounded-2xl px-3 py-2 text-left text-[13px] font-medium text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-900"
                     }
                     onClick={() => {
                       setActiveType(category.value);
@@ -268,7 +268,7 @@ export function SkillsPage() {
               return (
                 <article
                   key={item.key}
-                  className="group/skill relative z-0 flex h-full flex-col rounded-[28px] border border-slate-200 bg-white p-6 shadow-[0_20px_60px_rgba(15,23,42,0.04)] transition-all hover:z-20 hover:-translate-y-1 hover:border-black"
+                  className="group/skill relative z-0 flex h-full flex-col rounded-[28px] border border-slate-200 bg-white p-5 shadow-[0_20px_60px_rgba(15,23,42,0.04)] transition-all hover:z-20 hover:-translate-y-1 hover:border-black"
                 >
                   <div className="flex items-start gap-4">
                     <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl bg-slate-100 text-slate-700">
@@ -291,7 +291,7 @@ export function SkillsPage() {
                     </div>
                   </div>
 
-                  <div className="group/desc relative mt-5 flex-1 rounded-[24px] bg-slate-50 px-4 py-4">
+                  <div className="group/desc relative mt-4 flex-1 rounded-[24px] bg-slate-50 px-4 py-3.5">
                     <p className="line-clamp-3 text-sm leading-7 text-slate-600" title={item.description}>
                       {item.description}
                     </p>
@@ -303,10 +303,9 @@ export function SkillsPage() {
                     </div>
                   </div>
 
-                  <div className="mt-5 flex items-center justify-between border-t border-slate-100 pt-4">
-                    <span className="text-xs text-slate-400">点击复制技能配置</span>
+                  <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3">
                     <button
-                      className="inline-flex items-center gap-1 rounded-full border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:border-black hover:text-black"
+                      className="ml-auto inline-flex items-center gap-1 rounded-full border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:border-black hover:text-black"
                       onClick={() => {
                         navigator.clipboard?.writeText(JSON.stringify(item.raw, null, 2)).catch(() => {});
                         setCopiedSkillKey(item.key);
