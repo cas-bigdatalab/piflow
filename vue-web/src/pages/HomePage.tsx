@@ -473,10 +473,13 @@ export function HomePage() {
           ref={composerRef}
           className={
             compact
-              ? "min-h-[92px] w-full resize-none border-none bg-transparent px-5 py-4 pr-36 text-sm leading-7 text-slate-800 outline-none placeholder:text-slate-400"
-              : "min-h-[116px] w-full resize-none border-none bg-transparent px-5 py-4 pr-40 text-sm leading-7 text-slate-800 outline-none placeholder:text-slate-400"
+              ? "min-h-[92px] max-h-[180px] w-full resize-none overflow-y-auto border-none bg-transparent pl-5 pr-36 pt-4 pb-16 text-sm leading-7 text-slate-800 outline-none placeholder:text-slate-400"
+              : "min-h-[116px] max-h-[220px] w-full resize-none overflow-y-auto border-none bg-transparent pl-5 pr-40 pt-4 pb-16 text-sm leading-7 text-slate-800 outline-none placeholder:text-slate-400"
           }
-          onChange={(event) => setInput(event.target.value)}
+          onChange={(event) => {
+            setInput(event.target.value);
+            event.currentTarget.scrollTop = event.currentTarget.scrollHeight;
+          }}
           onKeyDown={(event) => {
             if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
               event.preventDefault();
@@ -602,17 +605,11 @@ export function HomePage() {
               </div>
             ) : null}
 
-            <div className="mb-4 flex items-start justify-between gap-4">
-              <div>
-                <div className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">
-                  当前会话
-                </div>
-                <h2 className="mt-1 text-lg font-semibold text-slate-900">{threadId}</h2>
-              </div>
-              <div className="rounded-full bg-white px-4 py-1.5 text-xs text-slate-500 shadow-sm ring-1 ring-slate-200">
+           <div className="mb-4 ml-auto w-fit">
+              <div className="shrink-0 rounded-full bg-white px-3 py-1 text-[11px] text-slate-500 shadow-sm ring-1 ring-slate-200">
                 {sending ? streamStatus || "处理中..." : "等待输入"}
               </div>
-            </div>
+           </div>
 
             <div
               ref={transcriptRef}
@@ -734,4 +731,3 @@ export function HomePage() {
     </div>
   );
 }
-
