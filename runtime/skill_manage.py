@@ -187,6 +187,32 @@ def init_skills_to_database():
     return count
 
 
+def get_skills_grouped_by_type() -> List[Dict]:
+    """
+    获取所有 skill 分类及每个分类的 skills 数量
+    """
+    from runtime.chat_store import list_skills as db_list_skills
+
+    result = db_list_skills(limit=10000, offset=0, keyword="")
+
+    type_count: Dict[str, int] = {}
+
+    for r in result.get("data", []):
+        skill_type = r.get("type") or "未分类"
+        type_count[skill_type] = type_count.get(skill_type, 0) + 1
+
+    grouped = []
+    for type_name, count in sorted(type_count.items(), key=lambda x: x[0]):
+        grouped.append(
+            {
+                "type": type_name,
+                "count": count,
+            }
+        )
+
+    return grouped
+
+
 if __name__ == "__main__":
     import json
 

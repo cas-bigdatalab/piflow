@@ -24,7 +24,7 @@ from runtime.chat_store import (
     update_thread_time,
 )
 from runtime.engine import AgentEngine
-from runtime.skill_manage import get_skills_list
+from runtime.skill_manage import get_skills_list, get_skills_grouped_by_type
 from runtime.workspace_manager import WorkspaceManager
 
 
@@ -358,10 +358,12 @@ async def download_workspace_file(path: str):
 
 
 @app.get("/skills/list")
-async def list_skills_api(page: int = 1, page_size: int = 20, keyword: str = ""):
+async def list_skills_api(
+    page: int = 1, page_size: int = 20, keyword: str = "", type: str = ""
+):
     try:
         offset = (page - 1) * page_size
-        result = list_skills(limit=page_size, offset=offset, keyword=keyword)
+        result = list_skills(limit=page_size, offset=offset, keyword=keyword, type=type)
 
         data = []
         for r in result.get("data", []):
@@ -390,6 +392,25 @@ async def list_skills_api(page: int = 1, page_size: int = 20, keyword: str = "")
             "data": [],
             "total": 0,
             "current_count": 0,
+            "message": str(exc),
+        }
+
+
+@app.get("/skills/types")
+async def get_skills_types():
+    try:
+        types = get_skills_grouped_by_type()
+        return {
+            "code": 200,
+            "data": types,
+            "total": len(types),
+        }
+    except Exception as exc:
+        log.error("failed to get skills types: %s", exc)
+        return {
+            "code": 500,
+            "data": [],
+            "total": 0,
             "message": str(exc),
         }
 

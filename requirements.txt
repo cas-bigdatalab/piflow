@@ -9,3 +9,4 @@ uvicorn
 pytest
 requests
 pycryptodome
+pypdf
