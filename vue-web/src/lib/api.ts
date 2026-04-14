@@ -31,6 +31,11 @@ export type MessageAttachment = {
 
 export type SkillItem = Record<string, unknown>;
 
+export type SkillTypeStat = {
+  type: string;
+  count: number;
+};
+
 const DEFAULT_BASE = "http://localhost:8080";
 
 export function apiBase() {
@@ -121,12 +126,14 @@ export function downloadWorkspaceUrl(path: string) {
   return `${apiBase()}/workspace/download?${sp.toString()}`;
 }
 
-export async function listSkills(page = 1, page_size = 20, keyword = "") {
-  const sp = new URLSearchParams({
-    page: String(page),
-    page_size: String(page_size),
-    keyword,
-  });
+export async function listSkills(page = 1, page_size = 20, keyword = "", type = "") {
+  const sp = new URLSearchParams();
+  sp.set("page", String(page));
+  sp.set("page_size", String(page_size));
+  sp.set("keyword", keyword);
+  if (type) {
+    sp.set("type", type);
+  }
   return apiFetch<{
     code: number;
     data: SkillItem[];
@@ -134,6 +141,15 @@ export async function listSkills(page = 1, page_size = 20, keyword = "") {
     current_count: number;
     message?: string;
   }>(`/skills/list?${sp.toString()}`);
+}
+
+export async function getSkillTypes() {
+  return apiFetch<{
+    code: number;
+    data: SkillTypeStat[];
+    total: number;
+    message?: string;
+  }>("/skills/types");
 }
 
 export type SseEvent = Record<string, any> & { type?: string };

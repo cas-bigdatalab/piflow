@@ -1,4 +1,4 @@
-import os
+import shutil
 import yaml
 from pathlib import Path
 from typing import List, Dict, Optional
@@ -7,6 +7,58 @@ from infra.config_loader import resolve_workspace_root
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SKILLS_DIR = resolve_workspace_root() / "skills"
+STORAGE_DIR = PROJECT_ROOT / "storage"
+STORAGE_SKILLS_DIR = STORAGE_DIR / "skills"
+DEFAULT_COMMON_ICON = "/storage/common/common.png"
+
+
+def ensure_storage_dirs():
+    STORAGE_SKILLS_DIR.mkdir(parents=True, exist_ok=True)
+
+
+def _public_skill_icon_path(skill_folder: str) -> str:
+    return f"/storage/skills/{skill_folder}.png"
+
+
+def _skill_icon_source_path(skill_folder: str) -> Path:
+    return SKILLS_DIR / skill_folder / "assets" / "icon.png"
+
+
+def _skill_icon_storage_path(skill_folder: str) -> Path:
+    return STORAGE_SKILLS_DIR / f"{skill_folder}.png"
+
+
+def sync_skill_icon_to_storage(skill_folder: str) -> Optional[str]:
+    source = _skill_icon_source_path(skill_folder)
+    if not source.exists():
+        return None
+
+    ensure_storage_dirs()
+    target = _skill_icon_storage_path(skill_folder)
+    target.parent.mkdir(parents=True, exist_ok=True)
+
+    if not target.exists() or source.stat().st_mtime_ns != target.stat().st_mtime_ns:
+        shutil.copy2(source, target)
+
+    return _public_skill_icon_path(skill_folder)
+
+
+def normalize_skill_icon_path(icon_path: str | None = None, skill_folder: str | None = None) -> Optional[str]:
+    raw_path = (icon_path or "").strip()
+
+    if raw_path.startswith(("http://", "https://", "data:")):
+        return raw_path
+
+    if raw_path.startswith("/storage/"):
+        return raw_path
+
+    if raw_path.startswith("storage/"):
+        return f"/{raw_path.lstrip('/')}"
+
+    if skill_folder:
+        return sync_skill_icon_to_storage(skill_folder) or DEFAULT_COMMON_ICON
+
+    return DEFAULT_COMMON_ICON
 
 
 def _parse_skill_info(skill_dir: Path) -> Optional[Dict[str, Optional[str]]]:
@@ -35,10 +87,7 @@ def _parse_skill_info(skill_dir: Path) -> Optional[Dict[str, Optional[str]]]:
         except Exception:
             pass
 
-    icon_path = skill_dir / "assets" / "icon.png"
-    icon_relative = None
-    if icon_path.exists():
-        icon_relative = f"workspace/skills/{skill_name}/assets/icon.png"
+    icon_relative = sync_skill_icon_to_storage(skill_name) or DEFAULT_COMMON_ICON
 
     return {
         "name": name,
