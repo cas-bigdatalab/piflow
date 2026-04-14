@@ -9,6 +9,7 @@ import uvicorn
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from infra.logging import init_logging
@@ -24,11 +25,16 @@ from runtime.chat_store import (
     update_thread_time,
 )
 from runtime.engine import AgentEngine
-from runtime.skill_manage import get_skills_list, get_skills_grouped_by_type
+from runtime.skill_manage import (
+    get_skills_grouped_by_type,
+    normalize_skill_icon_path,
+)
 from runtime.workspace_manager import WorkspaceManager
 
 
 log = logging.getLogger("flow.api")
+PROJECT_ROOT = Path(__file__).resolve().parent
+STORAGE_DIR = PROJECT_ROOT / "storage"
 
 
 def _preview_text(value: str, limit: int = 120) -> str:
@@ -70,6 +76,8 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
+STORAGE_DIR.mkdir(parents=True, exist_ok=True)
+app.mount("/storage", StaticFiles(directory=STORAGE_DIR), name="storage")
 
 app.add_middleware(
     CORSMiddleware,
@@ -373,7 +381,7 @@ async def list_skills_api(
                 {
                     "name": r.get("name"),
                     "description": r.get("description"),
-                    "icon": r.get("icon_path"),
+                    "icon": normalize_skill_icon_path(r.get("icon_path")),
                     "version": r.get("version"),
                     "type": r.get("type"),
                 }

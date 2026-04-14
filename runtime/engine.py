@@ -8,6 +8,7 @@ from infra.env_loader import load_dotenv_file
 from infra.logging import init_logging
 from mcp_runtime.mcp_runtime import MCPRuntime
 from runtime.chat_store import create_thread, get_messages, init_db, save_message, update_thread_time
+from runtime.skill_manage import init_skills_to_database
 from runtime.workspace_manager import WorkspaceManager
 from tools.core.registry import registry
 
@@ -293,6 +294,12 @@ class AgentEngine:
 
         init_db()
         log.info("initializing database complete")
+
+        try:
+            skill_count = init_skills_to_database()
+            log.info("synchronized skills metadata complete count=%s", skill_count)
+        except Exception:
+            log.exception("failed to synchronize skills metadata")
 
         self.agent = AgentFactory.create_agent()
 

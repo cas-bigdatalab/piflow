@@ -31,10 +31,10 @@ function pickString(record: SkillItem, keys: string[]) {
 }
 
 function resolveIconUrl(icon: string) {
-  if (/^(https?:|data:|\/)/.test(icon)) {
+  if (/^(https?:|data:)/.test(icon)) {
     return icon;
   }
-  return `${apiBase()}/${icon.replace(/^\/+/, "")}`;
+  return new URL(icon.replace(/^\/+/, ""), `${apiBase().replace(/\/+$/, "")}/`).toString();
 }
 
 function normalizeSkill(item: SkillItem, index: number): SkillCard {
