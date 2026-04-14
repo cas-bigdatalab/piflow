@@ -544,14 +544,14 @@ export function HomePage() {
           <div className="mx-auto flex max-w-5xl flex-col">
             <div className="border-b border-slate-200/70 bg-white/40 px-8 pb-14 pt-10 text-center">
               <div className="mx-auto max-w-4xl">
-                <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-4 py-1 text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-500">
-                  Research Workflow Copilot
-                </div>
+                {/*<div className="mb-5 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-4 py-1 text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-500">*/}
+                {/*  Research Workflow Copilot*/}
+                {/*</div>*/}
                 <h1 className="mb-5 text-[38px] font-bold tracking-tight text-slate-950">
                   πFlowAgent：面向科研数据处理的智能工作台
                 </h1>
                 <p className="mx-auto max-w-2xl text-[15px] leading-7 text-slate-500">
-                  用一个统一的界面完成语料清洗、实体抽取、知识整理和文件产物回收，首页直连你的大模型后端与技能中心。
+                  专注科研数据治理，赋能科研语料构建
                 </p>
               </div>
             </div>
@@ -627,7 +627,9 @@ export function HomePage() {
                       className={isAssistant ? "max-w-[82%]" : "ml-auto max-w-[70%]"}
                     >
                       <div className="mb-2 flex items-center gap-2 text-[11px] uppercase tracking-[0.22em] text-slate-400">
-                        <span>{isAssistant ? "Agent" : "User"}</span>
+                        <span className={isAssistant ? "normal-case" : ""}>
+                          {isAssistant ? "πFlow" : "USER"}
+                        </span>
                         {isAssistant && message.reasoning ? (
                           <span className="text-emerald-500">Thinking</span>
                         ) : null}
