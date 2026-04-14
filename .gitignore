@@ -6,5 +6,3 @@
 ./vue-web/dist/
 ./vue-web/.DS_Store
 ./vue-web/*.log
-storage/*
-!storage/.gitkeep

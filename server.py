@@ -27,7 +27,6 @@ from runtime.chat_store import (
 from runtime.engine import AgentEngine
 from runtime.skill_manage import (
     get_skills_grouped_by_type,
-    normalize_skill_icon_path,
 )
 from runtime.workspace_manager import WorkspaceManager
 
@@ -381,7 +380,7 @@ async def list_skills_api(
                 {
                     "name": r.get("name"),
                     "description": r.get("description"),
-                    "icon": normalize_skill_icon_path(r.get("icon_path")),
+                    "icon": r.get("icon_path"),
                     "version": r.get("version"),
                     "type": r.get("type"),
                 }

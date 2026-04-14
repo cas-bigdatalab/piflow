@@ -4,6 +4,7 @@ import { apiBase, getSkillTypes, listSkills, type SkillItem, type SkillTypeStat 
 
 const PAGE_SIZE = 12;
 const ALL_SKILLS_LABEL = "全部技能";
+const DEFAULT_SKILL_ICON = "/storage/common/common.png";
 
 type SkillCard = {
   key: string;
@@ -30,11 +31,34 @@ function pickString(record: SkillItem, keys: string[]) {
   return "";
 }
 
-function resolveIconUrl(icon: string) {
-  if (/^(https?:|data:)/.test(icon)) {
-    return icon;
+function resolveIconUrl(icon?: string) {
+  const rawIcon = (icon || "").trim();
+  const normalizeStoragePath = (path: string) => {
+    const normalized = `/${path.replace(/^\/+/, "")}`;
+    if (
+      normalized.startsWith("/storage/") &&
+      !normalized.startsWith("/storage/skill/") &&
+      !normalized.startsWith("/storage/skills/") &&
+      !normalized.startsWith("/storage/common/")
+    ) {
+      return normalized.replace("/storage/", "/storage/skills/");
+    }
+    return normalized;
+  };
+
+  const normalizedPath = !rawIcon
+    ? DEFAULT_SKILL_ICON
+    : rawIcon.startsWith("/storage/")
+      ? normalizeStoragePath(rawIcon)
+      : rawIcon.startsWith("storage/")
+        ? normalizeStoragePath(rawIcon)
+        : `/storage/skills/${rawIcon.replace(/^\/+/, "")}`;
+
+  if (/^(https?:|data:)/.test(rawIcon)) {
+    return rawIcon;
   }
-  return new URL(icon.replace(/^\/+/, ""), `${apiBase().replace(/\/+$/, "")}/`).toString();
+
+  return new URL(normalizedPath.replace(/^\/+/, ""), `${apiBase().replace(/\/+$/, "")}/`).toString();
 }
 
 function normalizeSkill(item: SkillItem, index: number): SkillCard {
@@ -48,7 +72,7 @@ function normalizeSkill(item: SkillItem, index: number): SkillCard {
     description:
       pickString(item, ["description", "desc", "summary"]) || "面向科研数据处理流程的可复用技能。",
     category,
-    icon: icon ? resolveIconUrl(icon) : undefined,
+    icon: resolveIconUrl(icon),
     raw: item,
   };
 }
