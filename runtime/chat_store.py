@@ -58,10 +58,25 @@ def init_db():
             deleted BOOLEAN DEFAULT FALSE
         )
         """,
+        """
+        CREATE TABLE IF NOT EXISTS chat_files (
+            file_id SERIAL PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            thread_id TEXT NOT NULL,
+            message_id TEXT NOT NULL,
+            virtual_path TEXT NOT NULL,
+            original_filename TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            deleted BOOLEAN DEFAULT FALSE
+        )
+        """,
         "CREATE INDEX IF NOT EXISTS idx_messages_thread_id ON messages(thread_id)",
         "CREATE INDEX IF NOT EXISTS idx_messages_user_id ON messages(user_id)",
         "CREATE INDEX IF NOT EXISTS idx_chat_threads_user_id ON chat_threads(user_id)",
         "CREATE INDEX IF NOT EXISTS idx_skills_name ON skills(name)",
+        "CREATE INDEX IF NOT EXISTS idx_chat_files_user_id ON chat_files(user_id)",
+        "CREATE INDEX IF NOT EXISTS idx_chat_files_thread_id ON chat_files(thread_id)",
+        "CREATE INDEX IF NOT EXISTS idx_chat_files_message_id ON chat_files(message_id)",
     ]
 
     for ddl in ddl_statements:
@@ -150,13 +165,18 @@ def delete_thread(user_id: str, thread_id: str):
 
 def save_message(user_id: str, thread_id: str, role: str, content: str):
     conn = _get_connection()
-    cursor = conn.cursor()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
 
     # 写消息
     cursor.execute(
-        "INSERT INTO messages (user_id, thread_id, role, content) VALUES (%s, %s, %s, %s)",
+        """
+        INSERT INTO messages (user_id, thread_id, role, content)
+        VALUES (%s, %s, %s, %s)
+        RETURNING id, user_id, thread_id, role, content, created_at
+        """,
         (user_id, thread_id, role, content),
     )
+    row = cursor.fetchone()
 
     # 🔥 更新会话时间（用于排序）
     cursor.execute(
@@ -172,14 +192,37 @@ def save_message(user_id: str, thread_id: str, role: str, content: str):
     cursor.close()
     conn.close()
 
+    return dict(row) if row else None
+
 
 def get_messages(thread_id: str, limit: int = 50) -> List[Dict]:
     conn = _get_connection()
     cursor = conn.cursor(cursor_factory=RealDictCursor)
 
     cursor.execute(
-        "SELECT role, content FROM messages WHERE thread_id=%s ORDER BY id ASC LIMIT %s",
+        "SELECT id, role, content FROM messages WHERE thread_id=%s ORDER BY id ASC LIMIT %s",
         (thread_id, limit),
+    )
+
+    rows = cursor.fetchall()
+    cursor.close()
+    conn.close()
+
+    return [dict(r) for r in rows]
+
+
+def get_chat_files(thread_id: str) -> List[Dict]:
+    conn = _get_connection()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+
+    cursor.execute(
+        """
+        SELECT file_id, user_id, thread_id, message_id, virtual_path, original_filename, created_at
+        FROM chat_files
+        WHERE thread_id = %s AND deleted = FALSE
+        ORDER BY file_id ASC
+        """,
+        (thread_id,),
     )
 
     rows = cursor.fetchall()
@@ -250,6 +293,33 @@ def update_thread_title(thread_id: str, title: str):
     conn.commit()
     cursor.close()
     conn.close()
+
+
+def save_chat_file(
+    user_id: str,
+    thread_id: str,
+    message_id: str,
+    virtual_path: str,
+    original_filename: str,
+):
+    conn = _get_connection()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+
+    cursor.execute(
+        """
+        INSERT INTO chat_files (user_id, thread_id, message_id, virtual_path, original_filename)
+        VALUES (%s, %s, %s, %s, %s)
+        RETURNING file_id, user_id, thread_id, message_id, virtual_path, original_filename, created_at
+        """,
+        (user_id, thread_id, message_id, virtual_path, original_filename),
+    )
+
+    row = cursor.fetchone()
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+    return dict(row) if row else None
 
 
 def insert_skill(

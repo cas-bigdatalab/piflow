@@ -3,6 +3,7 @@ export type ChatRequest = {
   thread_id?: string;
   user_id?: string;
   attachments?: string[];
+  message_id?: number;
 };
 
 export type ThreadTitle = {
@@ -12,8 +13,20 @@ export type ThreadTitle = {
 };
 
 export type ThreadMessage = {
+  id: number;
   role: string;
   content: string;
+  attachments?: Array<{
+    file_id: number;
+    path: string;
+    name: string;
+  }>;
+};
+
+export type MessageAttachment = {
+  file_id?: number;
+  path: string;
+  name: string;
 };
 
 export type SkillItem = Record<string, unknown>;
@@ -57,11 +70,34 @@ export async function getThreadMessages(user_id: string, thread_id: string, limi
   });
 }
 
-export async function uploadWorkspaceFile(file: File, target_dir = "temp", filename = "") {
+export async function createMessage(user_id: string, thread_id: string, content: string, role = "user") {
+  return apiFetch<{
+    message: {
+      id: number;
+      user_id: string;
+      thread_id: string;
+      role: string;
+      content: string;
+      created_at: string;
+    };
+  }>("/message/create", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ user_id, thread_id, content, role }),
+  });
+}
+
+export async function uploadWorkspaceFile(
+  user_id: string,
+  thread_id: string,
+  message_id: number | string,
+  file: File,
+) {
   const form = new FormData();
+  form.append("user_id", user_id);
+  form.append("thread_id", thread_id);
+  form.append("message_id", String(message_id));
   form.append("file", file);
-  form.append("target_dir", target_dir);
-  if (filename) form.append("filename", filename);
 
   const res = await fetch(`${apiBase()}/workspace/upload`, { method: "POST", body: form });
   if (!res.ok) {
@@ -69,8 +105,12 @@ export async function uploadWorkspaceFile(file: File, target_dir = "temp", filen
     throw new Error(`Upload failed ${res.status}: ${text}`);
   }
   return (await res.json()) as {
+    file_id: number;
+    user_id: string;
+    thread_id: string;
+    message_id: string;
     path: string;
-    filename: string;
+    original_filename: string;
     size: number;
     content_type: string;
   };
@@ -128,6 +168,7 @@ export async function streamChat(
       thread_id: req.thread_id ?? "default",
       user_id: req.user_id ?? "default_user",
       attachments: req.attachments ?? [],
+      message_id: req.message_id ?? null,
     }),
     signal,
   });
@@ -157,4 +198,3 @@ export async function streamChat(
     }
   }
 }
-

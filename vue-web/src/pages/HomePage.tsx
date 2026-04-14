@@ -1,10 +1,12 @@
 ﻿import { Icon } from "@iconify/react";
-import { type DragEvent, useEffect, useMemo, useRef, useState } from "react";
+import { type DragEvent, useEffect, useRef, useState } from "react";
 import {
+  createMessage,
   downloadWorkspaceUrl,
   getThreadMessages,
   streamChat,
   uploadWorkspaceFile,
+  type MessageAttachment,
   type ThreadMessage,
 } from "../lib/api";
 import { shortId } from "../lib/ids";
@@ -17,6 +19,13 @@ type UiMsg = {
   content: string;
   reasoning?: string;
   artifacts?: string[];
+  attachments?: MessageAttachment[];
+};
+
+type PendingAttachment = {
+  id: string;
+  file: File;
+  name: string;
 };
 
 type ExampleCard = {
@@ -80,10 +89,11 @@ const EXAMPLES: ExampleCard[] = [
 
 function toUiMessage(threadId: string, message: ThreadMessage, index: number): UiMsg {
   return {
-    id: `${threadId}-${index}`,
+    id: String(message.id ?? `${threadId}-${index}`),
     role: message.role === "assistant" ? "assistant" : "user",
     content: message.content,
     artifacts: message.role === "assistant" ? extractWorkspaceLinks(message.content) : [],
+    attachments: Array.isArray(message.attachments) ? message.attachments : [],
   };
 }
 
@@ -93,7 +103,7 @@ export function HomePage() {
   const [messages, setMessages] = useState<UiMsg[]>([]);
   const [sending, setSending] = useState(false);
   const [streamStatus, setStreamStatus] = useState("");
-  const [uploadedFiles, setUploadedFiles] = useState<Array<{ path: string; name: string; error?: string }>>([]);
+  const [pendingFiles, setPendingFiles] = useState<PendingAttachment[]>([]);
   const [uploadingCount, setUploadingCount] = useState(0);
   const [loadError, setLoadError] = useState("");
   const [dragActive, setDragActive] = useState(false);
@@ -104,10 +114,6 @@ export function HomePage() {
 
   const hasMessages = messages.length > 0;
 
-  const activeUploads = useMemo(
-    () => uploadedFiles.filter((file) => !file.error),
-    [uploadedFiles],
-  );
   const uploading = uploadingCount > 0;
   const isExpanded = hasMessages || sending || Boolean(loadError);
 
@@ -135,7 +141,7 @@ export function HomePage() {
       setThreadId(nextThreadId);
       setInput("");
       setMessages([]);
-      setUploadedFiles([]);
+      setPendingFiles([]);
       setStreamStatus("");
       setLoadError("");
     };
@@ -162,7 +168,7 @@ export function HomePage() {
     setThreadId(nextThreadId);
     setStreamStatus("");
     setLoadError("");
-    setUploadedFiles([]);
+    setPendingFiles([]);
 
     try {
       const response = await getThreadMessages(DEFAULT_USER_ID, nextThreadId, 200);
@@ -175,7 +181,7 @@ export function HomePage() {
 
   async function send() {
     const prompt = input.trim();
-    if (!prompt || sending || uploading) {
+    if ((!prompt && pendingFiles.length === 0) || sending || uploading) {
       return;
     }
 
@@ -183,11 +189,6 @@ export function HomePage() {
     const controller = new AbortController();
     abortRef.current = controller;
 
-    const userMessage: UiMsg = {
-      id: `u_${shortId()}`,
-      role: "user",
-      content: prompt,
-    };
     const assistantId = `a_${shortId()}`;
     const assistantMessage: UiMsg = {
       id: assistantId,
@@ -197,22 +198,58 @@ export function HomePage() {
       artifacts: [],
     };
 
+    const filesToUpload = [...pendingFiles];
     setSending(true);
     setInput("");
+    setPendingFiles([]);
     setStreamStatus("正在连接智能体...");
-    setMessages((current) => [...current, userMessage, assistantMessage]);
 
     let assistantContent = "";
     let assistantReasoning = "";
     let assistantArtifacts: string[] = [];
 
     try {
+      const created = await createMessage(DEFAULT_USER_ID, threadId, prompt);
+      const messageId = created.message.id;
+
+      const uploadedAttachments: MessageAttachment[] = [];
+      if (filesToUpload.length > 0) {
+        setUploadingCount(filesToUpload.length);
+        setStreamStatus("正在上传附件...");
+
+        for (const item of filesToUpload) {
+          const response = await uploadWorkspaceFile(
+            DEFAULT_USER_ID,
+            threadId,
+            messageId,
+            item.file,
+          );
+          uploadedAttachments.push({
+            file_id: response.file_id,
+            path: response.path,
+            name: response.original_filename,
+          });
+          setUploadingCount((current) => Math.max(0, current - 1));
+        }
+      }
+
+      const userMessage: UiMsg = {
+        id: String(messageId),
+        role: "user",
+        content: prompt,
+        attachments: uploadedAttachments,
+      };
+
+      setMessages((current) => [...current, userMessage, assistantMessage]);
+      setStreamStatus("正在连接智能体...");
+
       await streamChat(
         {
           message: prompt,
           thread_id: threadId,
           user_id: DEFAULT_USER_ID,
-          attachments: activeUploads.map((file) => file.path),
+          attachments: uploadedAttachments.map((file) => file.path),
+          message_id: messageId,
         },
         (event) => {
           if (event.type === "status") {
@@ -361,8 +398,22 @@ export function HomePage() {
       window.dispatchEvent(new CustomEvent("flow:threads-refresh"));
     } catch (error: any) {
       const message = String(error?.message || error);
-      setMessages((current) =>
-        current.map((item) =>
+      setMessages((current) => {
+        const exists = current.some((item) => item.id === assistantId);
+        if (!exists) {
+          return [
+            ...current,
+            {
+              id: assistantId,
+              role: "assistant",
+              content: `请求失败：${message}`,
+              reasoning: assistantReasoning,
+              artifacts: assistantArtifacts,
+            },
+          ];
+        }
+
+        return current.map((item) =>
           item.id === assistantId
             ? {
                 ...item,
@@ -371,11 +422,12 @@ export function HomePage() {
                 artifacts: assistantArtifacts,
               }
             : item,
-        ),
-      );
+        );
+      });
       setStreamStatus("请求失败");
     } finally {
       setSending(false);
+      setUploadingCount(0);
       abortRef.current = null;
     }
   }
@@ -385,30 +437,18 @@ export function HomePage() {
       return;
     }
 
-    setUploadingCount((current) => current + files.length);
-    for (const file of files) {
-      try {
-        const response = await uploadWorkspaceFile(file, "temp", file.name);
-        setUploadedFiles((current) => [
-          ...current,
-          {
-            path: response.path,
-            name: response.filename,
-          },
-        ]);
-      } catch (error: any) {
-        setUploadedFiles((current) => [
-          ...current,
-          {
-            path: "",
-            name: file.name,
-            error: String(error?.message || error),
-          },
-        ]);
-      } finally {
-        setUploadingCount((current) => Math.max(0, current - 1));
-      }
-    }
+    setPendingFiles((current) => [
+      ...current,
+      ...files.map((file) => ({
+        id: shortId(),
+        file,
+        name: file.name,
+      })),
+    ]);
+  }
+
+  function removePendingFile(id: string) {
+    setPendingFiles((current) => current.filter((file) => file.id !== id));
   }
 
   function handleDragEnter(event: DragEvent<HTMLDivElement>) {
@@ -467,6 +507,26 @@ export function HomePage() {
             <div className="rounded-full border border-sky-200 bg-white px-5 py-2 text-sm font-medium text-sky-700 shadow-sm">
               松开以上传文件
             </div>
+          </div>
+        ) : null}
+        {pendingFiles.length > 0 ? (
+          <div className="flex flex-wrap gap-2 border-b border-slate-100 px-5 py-3">
+            {pendingFiles.map((file) => (
+              <div
+                key={file.id}
+                className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-600"
+              >
+                <Icon icon="ri:file-2-line" width="14" />
+                <span>{file.name}</span>
+                <button
+                  className="inline-flex h-4 w-4 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-slate-200 hover:text-slate-700"
+                  onClick={() => removePendingFile(file.id)}
+                  type="button"
+                >
+                  <Icon icon="ri:close-line" width="12" />
+                </button>
+              </div>
+            ))}
           </div>
         ) : null}
         <textarea
@@ -528,7 +588,7 @@ export function HomePage() {
             ) : null}
             <button
               className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition-colors hover:bg-black hover:text-white disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-300"
-              disabled={sending || uploading || !input.trim()}
+              disabled={sending || uploading || (!input.trim() && pendingFiles.length === 0)}
               onClick={() => send().catch(() => {})}
               type="button"
             >
@@ -639,6 +699,22 @@ export function HomePage() {
                             : "rounded-[24px] bg-slate-100 px-4 py-3 text-slate-900"
                         }
                       >
+                        {!isAssistant && message.attachments && message.attachments.length > 0 ? (
+                          <div className="mb-3 flex flex-wrap gap-2">
+                            {message.attachments.map((file) => (
+                              <a
+                                key={`${message.id}-${file.path}`}
+                                className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-700 transition-colors hover:border-black hover:text-black"
+                                href={downloadWorkspaceUrl(file.path)}
+                                rel="noreferrer"
+                                target="_blank"
+                              >
+                                <Icon icon="ri:file-2-line" width="14" />
+                                <span>{file.name}</span>
+                              </a>
+                            ))}
+                          </div>
+                        ) : null}
                         <pre
                           className={
                             isAssistant
@@ -689,38 +765,6 @@ export function HomePage() {
                 </div>
               )}
             </div>
-
-            {uploadedFiles.length > 0 ? (
-              <div className="mb-4 flex flex-wrap gap-2">
-                {uploadedFiles.map((file) => (
-                  <div
-                    key={`${file.name}-${file.path}-${file.error ?? "ok"}`}
-                    className={
-                      file.error
-                        ? "rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-xs text-rose-700"
-                        : "rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-600"
-                    }
-                  >
-                    {file.error
-                      ? `${file.name} 上传失败：${file.error}`
-                      : `${file.name} 已上传到 ${file.path}`}
-                  </div>
-                ))}
-              </div>
-            ) : null}
-
-            {uploading ? (
-              <div className="mb-4 rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-700 shadow-sm">
-                附件上传中，请等待上传完成后再发送问题。
-              </div>
-            ) : null}
-
-            {activeUploads.length > 0 ? (
-              <div className="mb-4 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-500 shadow-sm">
-                <span className="font-medium text-slate-700">当前附件：</span>
-                {activeUploads.map((file) => file.name).join("、")}
-              </div>
-            ) : null}
 
             <div className="sticky bottom-0 pt-2">
               {renderComposer({ compact: false })}

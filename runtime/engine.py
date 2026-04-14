@@ -306,6 +306,7 @@ class AgentEngine:
         user_id: str,
         request_id: str,
         attachments: list[str] | None = None,
+        message_id: int | None = None,
     ) -> tuple[dict[str, Any], WorkspaceManager, list[str]]:
         registry.begin_request()
 
@@ -331,13 +332,6 @@ class AgentEngine:
 
         update_thread_time(thread_id)
 
-        messages = []
-        for item in history:
-            messages.append({
-                "role": item["role"],
-                "content": item["content"],
-            })
-
         attachment_context = _build_attachment_context(attachments)
         input_content = message
         if attachment_context:
@@ -350,12 +344,25 @@ class AgentEngine:
                 ",".join(attachments or []),
             )
 
-        messages.append({
-            "role": "user",
-            "content": input_content,
-        })
+        messages = []
+        injected = False
+        for item in history:
+            content = item["content"]
+            if message_id is not None and item.get("id") == message_id:
+                content = input_content
+                injected = True
 
-        save_message(user_id, thread_id, "user", message)
+            messages.append({
+                "role": item["role"],
+                "content": content,
+            })
+
+        if not injected:
+            messages.append({
+                "role": "user",
+                "content": input_content,
+            })
+            save_message(user_id, thread_id, "user", message)
 
         workspace = WorkspaceManager()
         before_outputs = workspace.snapshot_downloadables()
@@ -414,6 +421,7 @@ class AgentEngine:
         user_id: str = "default_user",
         attachments: list[str] | None = None,
         request_id: str | None = None,
+        message_id: int | None = None,
     ):
         start_total = time.time()
         request_id = request_id or "-"
@@ -423,6 +431,7 @@ class AgentEngine:
             user_id,
             request_id,
             attachments,
+            message_id,
         )
 
         config = {
@@ -483,6 +492,7 @@ class AgentEngine:
         user_id: str = "default_user",
         attachments: list[str] | None = None,
         request_id: str | None = None,
+        message_id: int | None = None,
     ) -> AsyncIterator[dict[str, Any]]:
         start_total = time.time()
         request_id = request_id or "-"
@@ -492,6 +502,7 @@ class AgentEngine:
             user_id,
             request_id,
             attachments,
+            message_id,
         )
 
         config = {
