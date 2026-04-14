@@ -13,8 +13,7 @@ function Logo({ compact }: { compact?: boolean }) {
         </div>
       ) : null}
       <span className="text-xl font-bold tracking-tight text-slate-950">
-        πFlow<span className="ml-1 text-sm font-medium text-slate-400">Agent</span>
-      </span>
+        πFlow AI</span>
     </Link>
   );
 }
