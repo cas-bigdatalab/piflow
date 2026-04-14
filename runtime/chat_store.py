@@ -320,54 +320,48 @@ def get_skill_by_name(name: str) -> Dict:
     return dict(row) if row else None
 
 
-def list_skills(limit: int = 100, offset: int = 0, keyword: str = "") -> Dict:
+def list_skills(
+    limit: int = 100, offset: int = 0, keyword: str = "", type: str = ""
+) -> Dict:
     conn = _get_connection()
     cursor = conn.cursor(cursor_factory=RealDictCursor)
 
+    conditions = ["deleted = FALSE"]
+    params = []
+
     if keyword:
+        conditions.append("(name LIKE %s OR description LIKE %s)")
         keyword_pattern = f"%{keyword}%"
-        cursor.execute(
-            """
-            SELECT id, name, description, icon_path, type, version, update_time
-            FROM skills
-            WHERE deleted = FALSE 
-              AND (name LIKE %s OR description LIKE %s)
-            ORDER BY name
-            LIMIT %s OFFSET %s
-            """,
-            (keyword_pattern, keyword_pattern, limit, offset),
-        )
-        rows = cursor.fetchall()
+        params.extend([keyword_pattern, keyword_pattern])
 
-        cursor.execute(
-            """
-            SELECT COUNT(*) as total
-            FROM skills
-            WHERE deleted = FALSE 
-              AND (name LIKE %s OR description LIKE %s)
-            """,
-            (keyword_pattern, keyword_pattern),
-        )
-    else:
-        cursor.execute(
-            """
-            SELECT id, name, description, icon_path, type, version, update_time
-            FROM skills
-            WHERE deleted = FALSE
-            ORDER BY name
-            LIMIT %s OFFSET %s
-            """,
-            (limit, offset),
-        )
-        rows = cursor.fetchall()
+    if type:
+        conditions.append("type = %s")
+        params.append(type)
 
-        cursor.execute(
-            """
-            SELECT COUNT(*) as total
-            FROM skills
-            WHERE deleted = FALSE
-            """,
-        )
+    where_clause = " AND ".join(conditions)
+    params.extend([limit, offset])
+
+    cursor.execute(
+        f"""
+        SELECT id, name, description, icon_path, type, version, update_time
+        FROM skills
+        WHERE {where_clause}
+        ORDER BY name
+        LIMIT %s OFFSET %s
+        """,
+        params,
+    )
+    rows = cursor.fetchall()
+
+    count_params = [p for p in params[:-2]]
+    cursor.execute(
+        f"""
+        SELECT COUNT(*) as total
+        FROM skills
+        WHERE {where_clause}
+        """,
+        count_params,
+    )
 
     total_row = cursor.fetchone()
     cursor.close()
