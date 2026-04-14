@@ -60,30 +60,89 @@ function mergeArtifacts(...groups: Array<string[] | undefined>) {
   return normalizeArtifacts(groups.flatMap((group) => group || []).filter(Boolean));
 }
 
+function svgToDataUri(svg: string) {
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+}
+
 const EXAMPLES: ExampleCard[] = [
   {
-    title: "科研语料清洗",
-    description: "去除页眉页脚、乱码和参考编号，并按句输出。",
+    title: "数据清洗与排序",
+    description: "「请对上传数据分别进行空行清洗、空格清洗，并根据fa0116字段进行升序排序。」",
     prompt:
-      "请对我上传或粘贴的科研语料进行清洗：去除页眉页脚、乱码、参考文献编号，并按句子切分输出。",
-    image:
-      "https://modao.cc/agent-py/media/generated_images/2026-04-08/1301f4ba9e40414fb4d24590558242d4.jpg",
+      "我想对 `/temp/森林每木调查数据-blank-line-space.csv` 先进行空行清洗，再进行空格清洗，最后对fa0116字段进行升序排序",
+    image: svgToDataUri(`
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 180" fill="none">
+        <rect width="320" height="180" fill="#EFF6FF"/>
+        <g transform="translate(62 0) scale(1.62)">
+          <path d="M20 45L60 25L100 45L60 65L20 45Z" fill="#3B82F6" fill-opacity="0.1" stroke="#3B82F6"/>
+          <path d="M20 52L60 32L100 52L60 72L20 52Z" fill="#3B82F6" fill-opacity="0.15" stroke="#3B82F6"/>
+          <path d="M20 59L60 39L100 59L60 79L20 59Z" fill="#3B82F6" fill-opacity="0.2" stroke="#3B82F6"/>
+          <path d="M20 59V64L60 84V79L20 59Z" fill="#2563EB" fill-opacity="0.3"/>
+          <path d="M100 59V64L60 84V79L100 59Z" fill="#1D4ED8" fill-opacity="0.3"/>
+          <path d="M45 45L60 37.5L75 45L60 52.5L45 45Z" fill="#60A5FA" fill-opacity="0.6"/>
+          <path d="M35 50L50 42.5L65 50L50 57.5L35 50Z" fill="#93C5FD" fill-opacity="0.4"/>
+          <g transform="translate(75 25)">
+            <circle cx="15" cy="15" r="14" fill="white"/>
+            <path d="M11 12L15 8L19 12M15 8V22M11 18L15 22L19 18" stroke="#1D4ED8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+          </g>
+          <g transform="translate(25 20)">
+            <path d="M4 6H20L14 13V19L10 21V13L4 6Z" fill="#3B82F6" fill-opacity="0.8" stroke="white"/>
+          </g>
+        </g>
+      </svg>
+    `),
   },
   {
-    title: "学术实体抽取",
-    description: "提取文中的化学物质、机构、方法和关键指标。",
+    title: "表格提取与摘要生成",
+    description: "「请对文档进行以下处理：1、提取所有表格数据 2、提取文本内容生成摘要报告」",
     prompt:
-      "请从文本中抽取关键学术实体，给出实体名称、实体类型、上下文句子，以及简短说明，最终输出为结构化表格。",
-    image:
-      "https://modao.cc/agent-py/media/generated_images/2026-04-08/d29ffe14473b4d7d9b3eacafe2ed50b2.jpg",
+      "请对 `/temp/Akcay.pdf` 进行以下处理：1、提取所有表格数据  2、提取文本内容生成摘要报告",
+    image: svgToDataUri(`
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 180" fill="none">
+        <rect width="320" height="180" fill="#ECFDF5"/>
+        <g transform="translate(70 -2) scale(1.58)">
+          <rect x="35" y="30" width="45" height="55" rx="2" fill="white" stroke="#10B981" transform="skewY(-10)"/>
+          <rect x="30" y="25" width="45" height="55" rx="2" fill="white" stroke="#10B981" transform="skewY(-10)"/>
+          <g transform="translate(55 45) skewY(-10)">
+            <rect x="0" y="0" width="35" height="25" rx="1" fill="#D1FAE5" stroke="#059669"/>
+            <line x1="0" y1="8" x2="35" y2="8" stroke="#059669" stroke-width="0.8"/>
+            <line x1="0" y1="16" x2="35" y2="16" stroke="#059669" stroke-width="0.8"/>
+            <line x1="12" y1="0" x2="12" y2="25" stroke="#059669" stroke-width="0.8"/>
+          </g>
+          <g transform="translate(20 55)">
+            <path d="M0 5C0 2.23858 2.23858 0 5 0H35C37.7614 0 40 2.23858 40 5V20C40 22.7614 37.7614 25 35 25H15L5 32V25C2.23858 25 0 22.7614 0 20V5Z" fill="#10B981"/>
+            <line x1="8" y1="8" x2="32" y2="8" stroke="white" stroke-width="2" stroke-linecap="round"/>
+            <line x1="8" y1="14" x2="26" y2="14" stroke="white" stroke-width="2" stroke-linecap="round"/>
+            <line x1="8" y1="20" x2="20" y2="20" stroke="white" stroke-width="2" stroke-linecap="round"/>
+          </g>
+        </g>
+      </svg>
+    `),
   },
   {
-    title: "多模态数据对齐",
-    description: "将图表、文本描述和结论做语义关联。",
+    title: "文档规范化处理",
+    description: "「请检查文档中的格式问题（如标题层级、表格式内容），最后生成一份格式规范后的 markdown格式的文档。」",
     prompt:
-      "请对图表数据和文本说明进行语义对齐：列出每张图对应的描述段落、关键指标，以及一致性检查点。",
-    image:
-      "https://modao.cc/agent-py/media/generated_images/2026-04-08/f259359ad2a5480c83e99ede3d6cb08a.jpg",
+      "请检查 `/temp/Marxist_Average_Rate_of_Profit_DOCUMENTATION.docx` 文档中的格式问题（如标题层级、表格式内容），最后生成一份格式规范后的 markdown格式的文档。",
+    image: svgToDataUri(`
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 180" fill="none">
+        <rect width="320" height="180" fill="#F5F3FF"/>
+        <g transform="translate(90 28)">
+          <path d="M30 40L70 20L110 40L70 60L30 40Z" fill="#8B5CF6" fill-opacity="0.1" stroke="#8B5CF6"/>
+          <path d="M45 42L65 32M45 48L75 33M45 54L60 46" stroke="#8B5CF6" stroke-width="2" stroke-linecap="round" opacity="0.6"/>
+          <g transform="translate(65 50)">
+            <circle cx="20" cy="20" r="18" fill="white"/>
+            <path d="M12 20L18 26L28 16" stroke="#7C3AED" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M10 10H30M10 30H30" stroke="#DDD6FE" stroke-width="1" stroke-dasharray="2 2"/>
+          </g>
+          <path d="M25 25L30 35L20 30L25 25Z" fill="#C084FC"/>
+          <circle cx="15" cy="15" r="2" fill="#A855F7"/>
+          <circle cx="35" cy="20" r="1.5" fill="#A855F7"/>
+          <path d="M110 40V48L70 68V60L110 40Z" fill="#7C3AED" fill-opacity="0.2"/>
+          <path d="M30 40V48L70 68V60L30 40Z" fill="#6D28D9" fill-opacity="0.2"/>
+        </g>
+      </svg>
+    `),
   },
 ];
 
@@ -179,8 +238,8 @@ export function HomePage() {
     }
   }
 
-  async function send() {
-    const prompt = input.trim();
+  async function send(overridePrompt?: string) {
+    const prompt = (overridePrompt ?? input).trim();
     if ((!prompt && pendingFiles.length === 0) || sending || uploading) {
       return;
     }
@@ -626,7 +685,7 @@ export function HomePage() {
             <div className="mt-16">
               <div className="mb-8 text-center">
                 <h2 className="text-sm font-bold uppercase tracking-[0.24em] text-slate-900">
-                  选择一个加工示例，一键填充提示词
+                  选择加工流水线示例，一键体验
                 </h2>
                 <div className="mx-auto mt-3 h-0.5 w-12 bg-black" />
               </div>
@@ -636,7 +695,10 @@ export function HomePage() {
                   <button
                     key={card.title}
                     className="group overflow-hidden rounded-[26px] border border-slate-200 bg-white text-left shadow-[0_20px_60px_rgba(15,23,42,0.04)] transition-all hover:-translate-y-1 hover:border-black"
-                    onClick={() => setInput(card.prompt)}
+                    onClick={() => {
+                      setInput(card.prompt);
+                      send(card.prompt).catch(() => {});
+                    }}
                     type="button"
                   >
                     <div className="aspect-video overflow-hidden bg-slate-100">

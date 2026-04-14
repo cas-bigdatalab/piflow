@@ -10,3 +10,4 @@ pytest
 requests
 pycryptodome
 pypdf
+pandoc
