@@ -1,19 +1,22 @@
-﻿import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
+import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
+import { apiBase } from "../lib/api";
 import { ThreadsSidebar } from "./ThreadsSidebar";
 
 function Logo({ compact }: { compact?: boolean }) {
   return (
     <Link className="flex items-center gap-3" to="/">
       {!compact ? (
-        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-black text-white shadow-[0_10px_30px_rgba(15,23,42,0.15)]">
-          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-            <path d="M4 5V7H6.5C6.9 11.5 7.5 15.5 8 19H10C9.5 15.5 8.9 11.5 8.5 7H13.5C13.9 11.5 14.5 15.5 15 19H17C16.5 15.5 15.9 11.5 15.5 7H18V5H4Z" fill="currentColor" />
-            <path d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12" stroke="currentColor" strokeDasharray="2 4" strokeLinecap="round" strokeWidth="1.5" />
-          </svg>
+        <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-xl bg-black shadow-[0_10px_30px_rgba(15,23,42,0.15)]">
+          <img
+            alt="πFlow AI"
+            className="h-full w-full object-cover"
+            src={`${apiBase().replace(/\/+$/, "")}/storage/icon/logo.png`}
+          />
         </div>
       ) : null}
       <span className="text-xl font-bold tracking-tight text-slate-950">
-        πFlow AI</span>
+        πFlow AI
+      </span>
     </Link>
   );
 }

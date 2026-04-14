@@ -611,7 +611,7 @@ export function HomePage() {
                 {/*  Research Workflow Copilot*/}
                 {/*</div>*/}
                 <h1 className="mb-5 text-[38px] font-bold tracking-tight text-slate-950">
-                  πFlow AI：面向科研数据处理的智能工作台
+                  πFlow AI：面向科研数据加工处理的智能工作台
                 </h1>
                 <p className="mx-auto max-w-2xl text-[15px] leading-7 text-slate-500">
                   专注科研数据治理，赋能科研语料构建

@@ -5,6 +5,21 @@ import { apiBase, getSkillTypes, listSkills, type SkillItem, type SkillTypeStat 
 const PAGE_SIZE = 12;
 const ALL_SKILLS_LABEL = "全部技能";
 const DEFAULT_SKILL_ICON = "/storage/common/common.png";
+const CATEGORY_ORDER = [
+  "输入",
+  "清洗",
+  "校验",
+  "去重",
+  "格式转换",
+  "标准化",
+  "过滤与筛选",
+  "切分与采样",
+  "增强",
+  "流程控制",
+  "输出",
+  "设计创作",
+  "其他",
+];
 
 type SkillCard = {
   key: string;
@@ -78,6 +93,7 @@ function normalizeSkill(item: SkillItem, index: number): SkillCard {
 }
 
 function normalizeTypeStats(stats: SkillTypeStat[]): CategoryOption[] {
+  const orderMap = new Map(CATEGORY_ORDER.map((label, index) => [label, index]));
   const normalized = stats
     .filter((item) => item && typeof item.type === "string" && item.type.trim())
     .map((item) => ({
@@ -85,7 +101,11 @@ function normalizeTypeStats(stats: SkillTypeStat[]): CategoryOption[] {
       value: item.type,
       count: Number(item.count) || 0,
     }))
-    .sort((left, right) => right.count - left.count || left.label.localeCompare(right.label, "zh-CN"));
+    .sort((left, right) => {
+      const leftOrder = orderMap.get(left.label) ?? Number.MAX_SAFE_INTEGER;
+      const rightOrder = orderMap.get(right.label) ?? Number.MAX_SAFE_INTEGER;
+      return leftOrder - rightOrder || left.label.localeCompare(right.label, "zh-CN");
+    });
 
   const totalCount = normalized.reduce((sum, item) => sum + item.count, 0);
   return [{ label: ALL_SKILLS_LABEL, value: "", count: totalCount }, ...normalized];
