@@ -11,3 +11,5 @@ requests
 pycryptodome
 pypdf
 pandoc
+python-docx
+defusedxml
