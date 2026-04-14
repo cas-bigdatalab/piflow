@@ -2,7 +2,7 @@ import { Icon } from "@iconify/react";
 import { useEffect, useMemo, useState } from "react";
 import { apiBase, getSkillTypes, listSkills, type SkillItem, type SkillTypeStat } from "../lib/api";
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE = 12;
 const ALL_SKILLS_LABEL = "全部技能";
 
 type SkillCard = {
@@ -257,19 +257,8 @@ export function SkillsPage() {
             </div>
           ) : null}
 
-          <div className="mb-6 flex flex-col gap-3 rounded-[28px] border border-slate-200 bg-white px-5 py-4 shadow-[0_20px_50px_rgba(15,23,42,0.03)]">
-            <div className="text-sm text-slate-500">
-              {loading ? "正在加载技能列表..." : `共 ${total} 个技能，每页 ${PAGE_SIZE} 个，当前页显示 ${items.length} 个`}
-            </div>
-            <div className="flex flex-wrap items-center gap-2 text-xs text-slate-400">
-              <span className="rounded-full bg-slate-100 px-3 py-1">
-                类型：{categoryOptions.find((item) => item.value === activeType)?.label || ALL_SKILLS_LABEL}
-              </span>
-              {keyword ? <span className="rounded-full bg-slate-100 px-3 py-1">关键词：{keyword}</span> : null}
-              {!loading ? (
-                <span className="rounded-full bg-slate-100 px-3 py-1">当前第 {page} 页</span>
-              ) : null}
-            </div>
+          <div className="mb-4 text-sm text-slate-500">
+            {loading ? "正在加载技能列表..." : `共 ${total} 个技能`}
           </div>
 
           <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
