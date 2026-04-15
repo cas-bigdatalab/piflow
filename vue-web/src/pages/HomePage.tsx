@@ -744,7 +744,7 @@ export function HomePage() {
                   return (
                     <article
                       key={message.id}
-                      className={isAssistant ? "max-w-[82%]" : "ml-auto max-w-[70%]"}
+                      className={isAssistant ? "max-w-[82%]" : "ml-auto flex max-w-[70%] flex-col items-end"}
                     >
                       <div className="mb-2 flex items-center gap-2 text-[11px] uppercase tracking-[0.22em] text-slate-400">
                         <span className={isAssistant ? "normal-case" : ""}>
@@ -755,68 +755,68 @@ export function HomePage() {
                         ) : null}
                       </div>
 
-                      <div
-                        className={
-                          isAssistant
-                            ? "rounded-[28px] bg-transparent px-1 py-1"
-                            : "rounded-[24px] bg-slate-100 px-4 py-3 text-slate-900"
-                        }
-                      >
-                        {!isAssistant && message.attachments && message.attachments.length > 0 ? (
-                          <div className="mb-3 flex flex-wrap gap-2">
-                            {message.attachments.map((file) => (
-                              <a
-                                key={`${message.id}-${file.path}`}
-                                className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-700 transition-colors hover:border-black hover:text-black"
-                                href={downloadWorkspaceUrl(file.path)}
-                                rel="noreferrer"
-                                target="_blank"
-                              >
-                                <Icon icon="ri:file-2-line" width="14" />
-                                <span>{file.name}</span>
-                              </a>
-                            ))}
-                          </div>
-                        ) : null}
-                        {isAssistant ? (
+                      {isAssistant ? (
+                        <div className="rounded-[28px] bg-transparent px-1 py-1">
                           <MarkdownMessage content={message.content} pending={sending} />
-                        ) : (
-                          <pre className="whitespace-pre-wrap break-words font-sans text-sm leading-7 text-slate-900">
-                            {message.content}
-                          </pre>
-                        )}
 
-                        {isAssistant && message.reasoning ? (
-                          <details
-                            className="mt-4 rounded-2xl border border-emerald-100 bg-emerald-50/70 p-3"
-                            open={sending}
-                          >
-                            <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">
-                              思考过程
-                            </summary>
-                            <pre className="mt-3 whitespace-pre-wrap break-words font-sans text-xs leading-6 text-emerald-900">
-                              {message.reasoning}
+                          {isAssistant && message.reasoning ? (
+                            <details
+                              className="mt-4 rounded-2xl border border-emerald-100 bg-emerald-50/70 p-3"
+                              open={sending}
+                            >
+                              <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">
+                                思考过程
+                              </summary>
+                              <pre className="mt-3 whitespace-pre-wrap break-words font-sans text-xs leading-6 text-emerald-900">
+                                {message.reasoning}
+                              </pre>
+                            </details>
+                          ) : null}
+
+                          {isAssistant && message.artifacts && message.artifacts.length > 0 ? (
+                            <div className="mt-4 flex flex-wrap gap-2 pt-1">
+                              {message.artifacts.map((path) => (
+                                <a
+                                  key={path}
+                                  className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-700 transition-colors hover:border-black hover:text-black"
+                                  href={downloadWorkspaceUrl(path)}
+                                  rel="noreferrer"
+                                  target="_blank"
+                                >
+                                  <Icon icon="ri:download-2-line" width="14" />
+                                  <span>{path.split("/").pop() || "下载产物"}</span>
+                                </a>
+                              ))}
+                            </div>
+                          ) : null}
+                        </div>
+                      ) : (
+                        <div
+                          className={`relative w-fit max-w-full ${message.attachments && message.attachments.length > 0 ? "pt-8" : ""}`}
+                        >
+                          {message.attachments && message.attachments.length > 0 ? (
+                            <div className="absolute right-0 top-0 z-10 flex max-w-full flex-wrap justify-end gap-2">
+                              {message.attachments.map((file) => (
+                                <a
+                                  key={`${message.id}-${file.path}`}
+                                  className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-700 shadow-sm transition-colors hover:border-black hover:text-black"
+                                  href={downloadWorkspaceUrl(file.path)}
+                                  rel="noreferrer"
+                                  target="_blank"
+                                >
+                                  <Icon icon="ri:file-2-line" width="14" />
+                                  <span>{file.name}</span>
+                                </a>
+                              ))}
+                            </div>
+                          ) : null}
+                          <div className="inline-block w-fit max-w-full rounded-[24px] bg-slate-100 px-4 py-3 text-slate-900">
+                            <pre className="custom-scrollbar max-h-60 overflow-auto whitespace-pre-wrap break-words font-sans text-sm leading-7 text-slate-900">
+                              {message.content}
                             </pre>
-                          </details>
-                        ) : null}
-
-                        {isAssistant && message.artifacts && message.artifacts.length > 0 ? (
-                          <div className="mt-4 flex flex-wrap gap-2 pt-1">
-                            {message.artifacts.map((path) => (
-                              <a
-                                key={path}
-                                className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-700 transition-colors hover:border-black hover:text-black"
-                                href={downloadWorkspaceUrl(path)}
-                                rel="noreferrer"
-                                target="_blank"
-                              >
-                                <Icon icon="ri:download-2-line" width="14" />
-                                <span>{path.split("/").pop() || "下载产物"}</span>
-                              </a>
-                            ))}
                           </div>
-                        ) : null}
-                      </div>
+                        </div>
+                      )}
                     </article>
                   );
                 })
