@@ -9,6 +9,7 @@ import {
   type MessageAttachment,
   type ThreadMessage,
 } from "../lib/api";
+import { MarkdownMessage } from "../components/MarkdownMessage";
 import { shortId } from "../lib/ids";
 
 const DEFAULT_USER_ID = "default_user";
@@ -777,15 +778,13 @@ export function HomePage() {
                             ))}
                           </div>
                         ) : null}
-                        <pre
-                          className={
-                            isAssistant
-                              ? "whitespace-pre-wrap break-words font-sans text-sm leading-7 text-slate-700"
-                              : "whitespace-pre-wrap break-words font-sans text-sm leading-7 text-slate-900"
-                          }
-                        >
-                          {message.content || (sending && isAssistant ? "正在生成回答..." : "")}
-                        </pre>
+                        {isAssistant ? (
+                          <MarkdownMessage content={message.content} pending={sending} />
+                        ) : (
+                          <pre className="whitespace-pre-wrap break-words font-sans text-sm leading-7 text-slate-900">
+                            {message.content}
+                          </pre>
+                        )}
 
                         {isAssistant && message.reasoning ? (
                           <details

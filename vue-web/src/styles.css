@@ -55,3 +55,371 @@ textarea {
   background: rgba(100, 116, 139, 0.65);
 }
 
+.markdown-message {
+  color: #334155;
+  font-size: 0.95rem;
+  line-height: 1.9;
+  word-break: break-word;
+}
+
+.markdown-message > :first-child {
+  margin-top: 0;
+}
+
+.markdown-message > :last-child {
+  margin-bottom: 0;
+}
+
+.markdown-message p,
+.markdown-message ul,
+.markdown-message ol,
+.markdown-message blockquote,
+.markdown-message pre,
+.markdown-message table {
+  margin: 0.85rem 0;
+}
+
+.markdown-message h1,
+.markdown-message h2,
+.markdown-message h3,
+.markdown-message h4,
+.markdown-message h5,
+.markdown-message h6 {
+  margin: 1.15rem 0 0.6rem;
+  color: #0f172a;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.markdown-message h2 {
+  font-size: 1.1rem;
+}
+
+.markdown-message h3 {
+  font-size: 1rem;
+}
+
+.markdown-message ul,
+.markdown-message ol {
+  padding-left: 1.3rem;
+}
+
+.markdown-message li + li {
+  margin-top: 0.25rem;
+}
+
+.markdown-message hr {
+  margin: 1.25rem 0;
+  border: 0;
+  border-top: 1px solid rgba(148, 163, 184, 0.35);
+}
+
+.markdown-message blockquote {
+  padding: 0.2rem 0 0.2rem 1rem;
+  border-left: 3px solid rgba(148, 163, 184, 0.5);
+  color: #475569;
+}
+
+.markdown-link {
+  color: #0f766e;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.markdown-link:hover {
+  color: #115e59;
+}
+
+.markdown-inline-code {
+  padding: 0.12rem 0.4rem;
+  border-radius: 0.45rem;
+  background: rgba(226, 232, 240, 0.7);
+  color: #0f172a;
+  font-size: 0.92em;
+}
+
+.markdown-pre {
+  overflow-x: auto;
+  padding: 0.95rem 1rem;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 1rem;
+  background: #f8fafc;
+  color: #0f172a;
+  font-size: 0.85rem;
+  line-height: 1.7;
+  white-space: pre-wrap;
+}
+
+.markdown-message table {
+  display: block;
+  overflow-x: auto;
+  border-collapse: collapse;
+}
+
+.markdown-message th,
+.markdown-message td {
+  padding: 0.6rem 0.75rem;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.markdown-message th {
+  background: rgba(241, 245, 249, 0.95);
+  color: #0f172a;
+  font-weight: 600;
+}
+
+.mermaid-panel {
+  margin: 1rem 0;
+  overflow: hidden;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 1.25rem;
+  background:
+    radial-gradient(circle at top, rgba(226, 232, 240, 0.55), transparent 40%),
+    linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  box-shadow: 0 18px 50px rgba(15, 23, 42, 0.06);
+  line-height: normal;
+}
+
+.mermaid-panel.is-fullscreen {
+  margin: 0;
+  height: 100vh;
+  width: 100vw;
+  border-radius: 0;
+  border: 0;
+}
+
+.mermaid-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(12px);
+}
+
+.mermaid-panel.is-code-mode .mermaid-toolbar {
+  padding: 1rem 1.2rem 0.75rem;
+  border-bottom: 0;
+  background: transparent;
+  backdrop-filter: none;
+}
+
+.mermaid-tabs,
+.mermaid-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.mermaid-tab,
+.mermaid-action,
+.mermaid-zoom-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  height: 2.25rem;
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.94);
+  color: #475569;
+  cursor: pointer;
+  transition:
+    border-color 0.2s ease,
+    color 0.2s ease,
+    background-color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.2s ease;
+}
+
+.mermaid-tab:hover,
+.mermaid-action:hover,
+.mermaid-zoom-label:hover {
+  border-color: rgba(15, 23, 42, 0.18);
+  color: #0f172a;
+  background: #ffffff;
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.08);
+}
+
+.mermaid-tab:active,
+.mermaid-action:active,
+.mermaid-zoom-label:active {
+  transform: translateY(1px);
+}
+
+.mermaid-tab {
+  padding: 0 0.95rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.mermaid-tab.is-active {
+  border-color: rgba(14, 116, 144, 0.22);
+  background: rgba(240, 253, 250, 0.95);
+  color: #0f766e;
+}
+
+.mermaid-panel.is-code-mode .mermaid-tab.is-active {
+  border-color: rgba(15, 23, 42, 0.08);
+  background: #ffffff;
+  color: #0f172a;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
+}
+
+.mermaid-action {
+  width: 2.25rem;
+}
+
+.mermaid-action.wide,
+.mermaid-zoom-label {
+  width: auto;
+  padding: 0 0.85rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.mermaid-zoom-label {
+  min-width: 4.5rem;
+}
+
+.mermaid-actions-code .mermaid-action {
+  width: auto;
+  padding: 0 0.15rem;
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+}
+
+.mermaid-actions-code .mermaid-action:hover {
+  border-color: transparent;
+  background: rgba(255, 255, 255, 0.7);
+  box-shadow: none;
+}
+
+.mermaid-actions-code .mermaid-action.is-success {
+  color: #0f766e;
+}
+
+.mermaid-viewport {
+  overflow: auto;
+  max-height: min(72vh, 780px);
+  padding: 1rem;
+  background:
+    linear-gradient(180deg, rgba(248, 250, 252, 0.96), rgba(255, 255, 255, 0.96)),
+    linear-gradient(rgba(226, 232, 240, 0.45) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(226, 232, 240, 0.45) 1px, transparent 1px);
+  background-size:
+    auto,
+    24px 24px,
+    24px 24px;
+}
+
+.mermaid-panel.is-fullscreen .mermaid-viewport {
+  max-height: calc(100vh - 4.3rem);
+}
+
+.mermaid-canvas {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  min-width: fit-content;
+  min-height: 340px;
+  padding: 1rem;
+}
+
+.mermaid-graph {
+  min-width: fit-content;
+}
+
+.mermaid-graph svg {
+  display: block;
+  height: auto;
+  max-width: none;
+}
+
+.mermaid-graph .nodeLabel,
+.mermaid-graph .edgeLabel,
+.mermaid-graph .label,
+.mermaid-graph .cluster-label {
+  line-height: 1.25;
+}
+
+.mermaid-graph .nodeLabel p,
+.mermaid-graph .edgeLabel p,
+.mermaid-graph .label p,
+.mermaid-graph .cluster-label p {
+  margin: 0;
+  line-height: 1.25;
+}
+
+.mermaid-graph foreignObject {
+  overflow: visible;
+}
+
+.mermaid-code-wrap {
+  padding: 0 1.2rem 1.2rem;
+}
+
+.mermaid-code-surface {
+  overflow: auto;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 1.15rem;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 250, 252, 0.96));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+
+.mermaid-code-block {
+  margin: 0;
+  padding: 1.4rem 1.5rem;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #0f172a;
+  font-family: "JetBrains Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 0.92rem;
+  line-height: 1.75;
+  white-space: pre;
+}
+
+.mermaid-panel.is-code-mode .mermaid-code-block code {
+  display: block;
+  min-width: max-content;
+}
+
+.mermaid-state {
+  padding: 1rem 1rem 0;
+  font-size: 0.82rem;
+  color: #64748b;
+}
+
+.mermaid-state-error {
+  color: #b91c1c;
+}
+
+@media (max-width: 768px) {
+  .mermaid-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .mermaid-tabs,
+  .mermaid-actions {
+    flex-wrap: wrap;
+  }
+
+  .mermaid-viewport {
+    max-height: 60vh;
+    padding: 0.75rem;
+  }
+
+  .mermaid-canvas {
+    min-height: 260px;
+    padding: 0.5rem;
+  }
+}
+
