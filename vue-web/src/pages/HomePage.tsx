@@ -183,6 +183,7 @@ export function HomePage() {
   const [messages, setMessages] = useState<UiMsg[]>([]);
   const [sending, setSending] = useState(false);
   const [streamStatus, setStreamStatus] = useState("");
+  const [activeAssistantId, setActiveAssistantId] = useState<string | null>(null);
   const [pendingFiles, setPendingFiles] = useState<PendingAttachment[]>([]);
   const [uploadingCount, setUploadingCount] = useState(0);
   const [loadError, setLoadError] = useState("");
@@ -223,6 +224,7 @@ export function HomePage() {
       setMessages([]);
       setPendingFiles([]);
       setStreamStatus("");
+      setActiveAssistantId(null);
       setLoadError("");
     };
 
@@ -247,6 +249,7 @@ export function HomePage() {
     abortRef.current = null;
     setThreadId(nextThreadId);
     setStreamStatus("");
+    setActiveAssistantId(null);
     setLoadError("");
     setPendingFiles([]);
 
@@ -288,6 +291,7 @@ export function HomePage() {
 
     const filesToUpload = [...pendingFiles];
     setSending(true);
+    setActiveAssistantId(assistantId);
     setInput("");
     setPendingFiles([]);
     setStreamStatus("正在连接智能体...");
@@ -489,6 +493,7 @@ export function HomePage() {
               ),
             );
             setStreamStatus("已完成");
+            setActiveAssistantId(null);
           }
         },
         controller.signal,
@@ -524,6 +529,7 @@ export function HomePage() {
         );
       });
       setStreamStatus("请求失败");
+      setActiveAssistantId(null);
     } finally {
       setSending(false);
       setUploadingCount(0);
@@ -541,6 +547,7 @@ export function HomePage() {
     setMessages([]);
     setPendingFiles([]);
     setStreamStatus("");
+    setActiveAssistantId(null);
     setLoadError("");
 
     send(card.prompt, {
@@ -693,7 +700,7 @@ export function HomePage() {
               type="button"
             >
               <Icon icon="ri:flashlight-line" width="15" />
-              <span>工具</span>
+              <span>技能</span>
             </button>
           </div>
 
@@ -782,12 +789,6 @@ export function HomePage() {
               </div>
             ) : null}
 
-           <div className="mb-4 ml-auto w-fit">
-              <div className="shrink-0 rounded-full bg-white px-3 py-1 text-[11px] text-slate-500 shadow-sm ring-1 ring-slate-200">
-                {sending ? streamStatus || "处理中..." : "等待输入"}
-              </div>
-           </div>
-
             <div
               ref={transcriptRef}
               className="flex-1 space-y-5 overflow-y-auto px-2 py-4 custom-scrollbar"
@@ -812,6 +813,12 @@ export function HomePage() {
                       {isAssistant ? (
                         <div className="rounded-[28px] bg-transparent px-1 py-1">
                           <MarkdownMessage content={message.content} pending={sending} />
+
+                          {sending && message.id === activeAssistantId ? (
+                            <div className="mt-3 w-fit rounded-full bg-white px-3 py-1 text-[11px] text-slate-500 shadow-sm ring-1 ring-slate-200">
+                              {streamStatus || "处理中..."}
+                            </div>
+                          ) : null}
 
                           {isAssistant && message.reasoning ? (
                             <details
