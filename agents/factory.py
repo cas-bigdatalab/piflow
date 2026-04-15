@@ -172,7 +172,7 @@ class AgentFactory:
             interrupt_on = {
                 "write_file": False,
                 "read_file": False,
-                "edit_file": True,
+                "edit_file": False,
             },
             debug = False,
         )
