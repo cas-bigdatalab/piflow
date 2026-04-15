@@ -51,6 +51,8 @@ name: "mydb"          # 数据库名
 pip install psycopg2-binary
 ```
 
+> **提示**：为了最佳体验，请在您部署本工程的服务器上安装 [pandoc](https://pandoc.org/)。
+
 
 ### 1) 运行命令行 Agent
 请先确保安装了所需的依赖库，并且增加.env文件，配置好你的 API Key。
@@ -62,9 +64,6 @@ DASHSCOPE_API_KEY="******"
 ```bash
 python main_cli.py
 ```
-
-skill样例测试：我想先对temp/森林每木调查数据QC.csv数据集文件进行随机采样10%，再把随机采样的输出结果进行二次采样10% ；采样结果临时保存起来
-
 
 ### 2) 启动 API 服务（推荐）
 

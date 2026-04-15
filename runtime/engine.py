@@ -7,7 +7,7 @@ from infra.config_loader import get_settings
 from infra.env_loader import load_dotenv_file
 from infra.logging import init_logging
 from mcp_runtime.mcp_runtime import MCPRuntime
-from runtime.chat_store import create_thread, get_messages, save_message, update_thread_time
+from runtime.chat_store import create_thread, get_messages, save_message, update_thread_time, init_db
 from runtime.workspace_manager import WorkspaceManager
 from tools.core.registry import registry
 
@@ -290,6 +290,9 @@ class AgentEngine:
 
         load_dotenv_file()
         log.info("loading env files complete")
+
+        init_db()
+        log.info("initializing database complete")
 
         self.agent = AgentFactory.create_agent()
 

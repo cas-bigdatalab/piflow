@@ -20,6 +20,73 @@ def _get_connection():
     )
 
 
+def init_db():
+    conn = _get_connection()
+    cursor = conn.cursor()
+
+    ddl_statements = [
+        """
+        CREATE TABLE IF NOT EXISTS chat_threads (
+            id SERIAL PRIMARY KEY,
+            thread_id TEXT UNIQUE,
+            user_id TEXT,
+            title TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            deleted BOOLEAN DEFAULT FALSE
+        )
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS messages (
+            id SERIAL PRIMARY KEY,
+            user_id TEXT,
+            thread_id TEXT,
+            role TEXT,
+            content TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS skills (
+            id SERIAL PRIMARY KEY,
+            name TEXT UNIQUE,
+            description TEXT,
+            icon_path TEXT,
+            type TEXT,
+            version TEXT DEFAULT '1.0.0',
+            update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            deleted BOOLEAN DEFAULT FALSE
+        )
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS chat_files (
+            file_id SERIAL PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            thread_id TEXT NOT NULL,
+            message_id TEXT NOT NULL,
+            virtual_path TEXT NOT NULL,
+            original_filename TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            deleted BOOLEAN DEFAULT FALSE
+        )
+        """,
+        "CREATE INDEX IF NOT EXISTS idx_messages_thread_id ON messages(thread_id)",
+        "CREATE INDEX IF NOT EXISTS idx_messages_user_id ON messages(user_id)",
+        "CREATE INDEX IF NOT EXISTS idx_chat_threads_user_id ON chat_threads(user_id)",
+        "CREATE INDEX IF NOT EXISTS idx_skills_name ON skills(name)",
+        "CREATE INDEX IF NOT EXISTS idx_chat_files_user_id ON chat_files(user_id)",
+        "CREATE INDEX IF NOT EXISTS idx_chat_files_thread_id ON chat_files(thread_id)",
+        "CREATE INDEX IF NOT EXISTS idx_chat_files_message_id ON chat_files(message_id)",
+    ]
+
+    for ddl in ddl_statements:
+        cursor.execute(ddl)
+
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+
 def create_thread(user_id: str, thread_id: str, title: str = "新对话"):
     conn = _get_connection()
     cursor = conn.cursor()

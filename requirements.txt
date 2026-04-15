@@ -13,3 +13,4 @@ pypdf
 pandoc
 python-docx
 defusedxml
+psycopg2-binary
