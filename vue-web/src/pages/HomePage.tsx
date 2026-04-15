@@ -1,6 +1,7 @@
 ﻿import { Icon } from "@iconify/react";
 import { type DragEvent, useEffect, useRef, useState } from "react";
 import {
+  attachMessageFiles,
   createMessage,
   downloadWorkspaceUrl,
   getThreadMessages,
@@ -34,6 +35,7 @@ type ExampleCard = {
   description: string;
   prompt: string;
   image: string;
+  attachments?: Array<Pick<MessageAttachment, "path" | "name">>;
 };
 
 const WORKSPACE_FILE_PATTERN = /\/(?:outputs|artifacts)\/[^\s"'`)\]}>,，。；：！？]+/g;
@@ -70,7 +72,13 @@ const EXAMPLES: ExampleCard[] = [
     title: "数据清洗与排序",
     description: "「请对上传数据分别进行空行清洗、空格清洗，并根据fa0116字段进行升序排序。」",
     prompt:
-      "我想对 `/temp/森林每木调查数据-blank-line-space.csv` 先进行空行清洗，再进行空格清洗，最后对fa0116字段进行升序排序",
+      "请对上传数据分别进行空行清洗、空格清洗，并根据fa0116字段进行升序排序。",
+    attachments: [
+      {
+        path: "/temp/森林每木调查数据-blank-line-space.csv",
+        name: "森林每木调查数据-blank-line-space.csv",
+      },
+    ],
     image: svgToDataUri(`
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 180" fill="none">
         <rect width="320" height="180" fill="#EFF6FF"/>
@@ -97,7 +105,13 @@ const EXAMPLES: ExampleCard[] = [
     title: "表格提取与摘要生成",
     description: "「请对文档进行以下处理：1、提取所有表格数据 2、提取文本内容生成摘要报告」",
     prompt:
-      "请对 `/temp/Akcay.pdf` 进行以下处理：1、提取所有表格数据  2、提取文本内容生成摘要报告",
+      "请对文档进行以下处理：1、提取所有表格数据 2、提取文本内容生成摘要报告",
+    attachments: [
+      {
+        path: "/temp/Akcay.pdf",
+        name: "Akcay.pdf",
+      },
+    ],
     image: svgToDataUri(`
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 180" fill="none">
         <rect width="320" height="180" fill="#ECFDF5"/>
@@ -124,7 +138,13 @@ const EXAMPLES: ExampleCard[] = [
     title: "文档规范化处理",
     description: "「请检查文档中的格式问题（如标题层级、表格式内容），最后生成一份格式规范后的 markdown格式的文档。」",
     prompt:
-      "请检查 `/temp/Marxist_Average_Rate_of_Profit_DOCUMENTATION.docx` 文档中的格式问题（如标题层级、表格式内容），最后生成一份格式规范后的 markdown格式的文档。",
+      "请检查文档中的格式问题（如标题层级、表格式内容），最后生成一份格式规范后的 markdown格式的文档。",
+    attachments: [
+      {
+        path: "/temp/Marxist_Average_Rate_of_Profit_DOCUMENTATION.docx",
+        name: "Marxist_Average_Rate_of_Profit_DOCUMENTATION.docx",
+      },
+    ],
     image: svgToDataUri(`
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 180" fill="none">
         <rect width="320" height="180" fill="#F5F3FF"/>
@@ -239,11 +259,19 @@ export function HomePage() {
     }
   }
 
-  async function send(overridePrompt?: string) {
+  async function send(
+    overridePrompt?: string,
+    options?: {
+      threadId?: string;
+      presetAttachments?: Array<Pick<MessageAttachment, "path" | "name">>;
+    },
+  ) {
     const prompt = (overridePrompt ?? input).trim();
     if ((!prompt && pendingFiles.length === 0) || sending || uploading) {
       return;
     }
+    const targetThreadId = options?.threadId ?? threadId;
+    const presetAttachments = options?.presetAttachments || [];
 
     abortRef.current?.abort();
     const controller = new AbortController();
@@ -269,8 +297,19 @@ export function HomePage() {
     let assistantArtifacts: string[] = [];
 
     try {
-      const created = await createMessage(DEFAULT_USER_ID, threadId, prompt);
+      const created = await createMessage(DEFAULT_USER_ID, targetThreadId, prompt);
       const messageId = created.message.id;
+
+      let attachedPresetFiles: MessageAttachment[] = [];
+      if (presetAttachments.length > 0) {
+        const attached = await attachMessageFiles(
+          DEFAULT_USER_ID,
+          targetThreadId,
+          messageId,
+          presetAttachments,
+        );
+        attachedPresetFiles = attached.attachments || [];
+      }
 
       const uploadedAttachments: MessageAttachment[] = [];
       if (filesToUpload.length > 0) {
@@ -280,7 +319,7 @@ export function HomePage() {
         for (const item of filesToUpload) {
           const response = await uploadWorkspaceFile(
             DEFAULT_USER_ID,
-            threadId,
+            targetThreadId,
             messageId,
             item.file,
           );
@@ -297,7 +336,7 @@ export function HomePage() {
         id: String(messageId),
         role: "user",
         content: prompt,
-        attachments: uploadedAttachments,
+        attachments: [...attachedPresetFiles, ...uploadedAttachments],
       };
 
       setMessages((current) => [...current, userMessage, assistantMessage]);
@@ -306,9 +345,9 @@ export function HomePage() {
       await streamChat(
         {
           message: prompt,
-          thread_id: threadId,
+          thread_id: targetThreadId,
           user_id: DEFAULT_USER_ID,
-          attachments: uploadedAttachments.map((file) => file.path),
+          attachments: [...attachedPresetFiles, ...uploadedAttachments].map((file) => file.path),
           message_id: messageId,
         },
         (event) => {
@@ -490,6 +529,24 @@ export function HomePage() {
       setUploadingCount(0);
       abortRef.current = null;
     }
+  }
+
+  function startExample(card: ExampleCard) {
+    abortRef.current?.abort();
+    abortRef.current = null;
+
+    const nextThreadId = `t_${shortId()}`;
+    setThreadId(nextThreadId);
+    setInput(card.prompt);
+    setMessages([]);
+    setPendingFiles([]);
+    setStreamStatus("");
+    setLoadError("");
+
+    send(card.prompt, {
+      threadId: nextThreadId,
+      presetAttachments: card.attachments || [],
+    }).catch(() => {});
   }
 
   async function handleFiles(files: File[]) {
@@ -696,10 +753,7 @@ export function HomePage() {
                   <button
                     key={card.title}
                     className="group overflow-hidden rounded-[26px] border border-slate-200 bg-white text-left shadow-[0_20px_60px_rgba(15,23,42,0.04)] transition-all hover:-translate-y-1 hover:border-black"
-                    onClick={() => {
-                      setInput(card.prompt);
-                      send(card.prompt).catch(() => {});
-                    }}
+                    onClick={() => startExample(card)}
                     type="button"
                   >
                     <div className="aspect-video overflow-hidden bg-slate-100">

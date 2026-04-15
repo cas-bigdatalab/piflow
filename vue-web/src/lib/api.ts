@@ -92,6 +92,19 @@ export async function createMessage(user_id: string, thread_id: string, content:
   });
 }
 
+export async function attachMessageFiles(
+  user_id: string,
+  thread_id: string,
+  message_id: number,
+  attachments: Array<Pick<MessageAttachment, "path" | "name">>,
+) {
+  return apiFetch<{ attachments: MessageAttachment[] }>("/message/attach", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ user_id, thread_id, message_id, attachments }),
+  });
+}
+
 export async function uploadWorkspaceFile(
   user_id: string,
   thread_id: string,

@@ -117,6 +117,18 @@ class CreateMessageRequest(BaseModel):
     role: str = "user"
 
 
+class AttachmentItem(BaseModel):
+    path: str
+    name: str
+
+
+class AttachMessageFilesRequest(BaseModel):
+    user_id: str
+    thread_id: str
+    message_id: int
+    attachments: list[AttachmentItem]
+
+
 def get_engine(request: Request) -> AgentEngine:
     engine = getattr(request.app.state, "engine", None)
     if engine is None:
@@ -289,6 +301,60 @@ async def create_message_api(req: CreateMessageRequest):
         raise HTTPException(status_code=500, detail="failed to create message")
 
     return {"message": message}
+
+
+@app.post("/message/attach")
+async def attach_message_files_api(req: AttachMessageFilesRequest):
+    user_id = req.user_id.strip()
+    thread_id = req.thread_id.strip()
+    message_id = str(req.message_id).strip()
+
+    if not user_id:
+        raise HTTPException(status_code=400, detail="user_id is required")
+    if not thread_id:
+        raise HTTPException(status_code=400, detail="thread_id is required")
+    if not message_id:
+        raise HTTPException(status_code=400, detail="message_id is required")
+    if not req.attachments:
+        return {"attachments": []}
+
+    workspace = WorkspaceManager()
+    workspace.ensure_workspace()
+
+    allowed = {t["thread_id"] for t in get_user_threads(user_id)}
+    if thread_id not in allowed:
+        raise HTTPException(status_code=403, detail="thread not found or access denied")
+
+    attached = []
+    for item in req.attachments:
+        path = item.path.strip()
+        name = item.name.strip()
+
+        if not path:
+            raise HTTPException(status_code=400, detail="attachment path is required")
+        if not name:
+            raise HTTPException(status_code=400, detail="attachment name is required")
+
+        try:
+            workspace.resolve_virtual_path(path)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+        record = save_chat_file(
+            user_id=user_id,
+            thread_id=thread_id,
+            message_id=message_id,
+            virtual_path=path,
+            original_filename=name,
+        )
+        if record:
+            attached.append({
+                "file_id": record.get("file_id"),
+                "path": record.get("virtual_path"),
+                "name": record.get("original_filename"),
+            })
+
+    return {"attachments": attached}
 
 
 @app.post("/workspace/upload")
