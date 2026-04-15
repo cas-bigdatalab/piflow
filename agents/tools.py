@@ -133,21 +133,27 @@ def exec_shell(command: str):
     if parts[0] == VENV_PYTHON and len(parts) > 1 and parts[1] not in ("-c", "-m"):
         if not os.path.isfile(parts[1]):
             return f"script does not exist: {parts[1]}"
-
-    result = subprocess.run(
-        parts,
-        cwd=cwd,
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="ignore",
-        timeout=120,
-        env={
-            **os.environ,
-            "PYTHONIOENCODING": "utf-8",
-            "PYTHONUTF8": "1",
-        },
-    )
+    try:
+        result = subprocess.run(
+            parts,
+            cwd=cwd,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="ignore",
+            timeout=120,
+            env={
+                **os.environ,
+                "PYTHONIOENCODING": "utf-8",
+                "PYTHONUTF8": "1",
+            },
+        )
+    except Exception as e:
+        return f"""command: {' '.join(parts)}
+    cwd: {cwd}
+    error: {type(e).__name__}: {str(e)}
+    returncode: -1
+    """
 
     finished_at = datetime.now()
     elapsed = time.perf_counter() - started_perf
