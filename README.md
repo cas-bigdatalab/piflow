@@ -1,4 +1,4 @@
-# πFlowAgent / Flow DeepAgent
+# πFlow AI
 
 基于 DeepAgents、FastAPI、 Skill 接入和 React 前端的科研数据处理原型系统。
 
