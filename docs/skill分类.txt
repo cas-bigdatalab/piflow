@@ -1,0 +1,129 @@
+## 清洗
+- **DC1_Blank_Line_Clean**: 空行清洗工具
+- **DC2_SpaceCleaning**: 字符串空格清理工具
+- **DC3_RoundOff**: 四舍五入数据处理工具
+
+## 校验
+- **QC2_EnumerationFieldCheck**: 枚举校验工具
+- **QC3_NumericDataThresholdCheck**: 数值数据阈值检验工具
+- **QC4_AssociationRuleCheck**: 数值关联规则校验工具
+- **QC5_BatchThresholdCheck**: 批量阈值检验工具
+- **QC6_SingleFieldMultiThresholdCheck**: 单字段多条件阈值检验工具
+- **QC7_BatchInputThresholdCheck**: 批量阈值检验-输入框工具
+- **QC8_DataTypeCheck**: 数据类型检查工具
+- **QC10_TimeConsistency**: 时间一致性检查工具
+- **QC11_FieldNullValueCheck**: 字段空值检查工具
+- **QC12_ConstantFieldCheck**: 特定字段恒定下的其他字段不一致检查工具
+- **QC13_TimeEquivalentValue**: 等值检验（连续数值无变化检查）工具
+- **QC14_TimePeakValue**: 尖峰检验（连续剧烈变化检测）工具
+- **QC15_TimeChangeRange**: 最大变化范围检验工具
+- **QC16_TimeMissing**: 数据时序完整性检查工具
+- **v1_FormatConsistency**: 格式一致性校验工具
+- **v9_MarkFieldCheck**: 标识符字段检查工具
+
+## 去重
+- **document_deduplicator**: 文档去重工具
+- **ray_document_deduplicator**: Ray分布式文档去重工具
+- **video_deduplicator**: 视频去重工具
+- **ray_video_deduplicator**: Ray分布式视频去重工具
+- **ray_image_deduplicator**: Ray分布式图像去重工具
+- **image_deduplicator**: 图像去重工具
+
+## 格式转换
+- **csv_formatter**: CSV格式化器
+- **tsv_formatter**: TSV格式化器
+- **parquet_formatter**: Parquet格式化器
+- **local_formatter**: 本地格式化器
+- **remote_formatter**: 远程格式化器
+- **empty_formatter**: 空数据格式化器
+- **mixture_formatter**: 混合格式化器
+
+## 标准化
+- **chinese_convert_mapper**: 中文繁简转换
+- **clean_copyright_mapper**: 清理版权注释
+- **clean_email_mapper**: 清理电子邮件
+- **clean_html_mapper**: 清理HTML代码
+- **clean_ip_mapper**: 清除IP地址
+- **clean_links_mapper**: 清理链接
+- **calibrate_qa_mapper**: 问答对校准
+- **calibrate_query_mapper**: 查询校准
+- **calibrate_response_mapper**: 响应校准
+
+## 过滤与筛选
+- **alphanumeric_filter**: 字母数字比例过滤器
+- **character_repetition_filter**: 字符重复比例过滤器
+- **flagged_words_filter**: 敏感词过滤器
+- **text_length_filter**: 文本长度过滤器
+- **word_repetition_filter**: 单词重复比例过滤器
+- **words_num_filter**: 单词数量过滤器
+- **token_num_filter**: Token数量过滤器
+- **stopwords_filter**: 停用词过滤器
+- **special_characters_filter**: 特殊字符过滤器
+- **perplexity_filter**: 困惑度过滤器
+- **language_id_score_filter**: 语言识别分数过滤器
+- **text_action_filter**: 文本动作词过滤器
+- **text_entity_dependency_filter**: 文本实体依赖过滤器
+- **text_pair_similarity_filter**: 文本对相似度过滤器
+- **maximum_line_length_filter**: 最大行长度过滤器
+- **average_line_length_filter**: 平均行长度过滤器
+- **suffix_filter**: 后缀过滤器
+- **specified_field_filter**: 指定字段过滤器
+- **specified_numeric_field_filter**: 指定数值字段过滤器
+- **random_selector**: 随机抽样
+- **image_aesthetics_filter**: 图像美学过滤器
+- **image_aspect_ratio_filter**: 图像长宽比过滤器
+- **image_face_count_filter**: 图像人脸数量过滤器
+- **image_face_ratio_filter**: 图像人脸面积比例过滤器
+- **image_nsfw_filter**: 图像NSFW内容检测过滤器
+- **image_pair_similarity_filter**: 图像对相似度过滤器
+- **image_shape_filter**: 图像形状过滤器
+- **image_size_filter**: 图像文件大小过滤器
+- **image_text_matching_filter**: 图像文本匹配过滤器
+- **image_text_similarity_filter**: 图像文本相似度过滤器
+- **image_watermark_filter**: 图像水印过滤器
+
+## 增强
+- **Pi_AddMonotonicallyIncreasingID**: 添加单调递增ID工具
+- **Pi_DataSorting**: 数据排序工具
+- **key_value_grouper**: 实体属性聚合工具
+- **naive_grouper**: 将所有样本分组为一批样品
+- **naive_reverse_grouper**: 将批处理的样本拆分为独立样本
+- **nested_aggregator**: 嵌套聚合工具
+- **entity_attribute_aggregator**: 实体属性聚合工具
+- **most_relevant_entities_aggregator**: 最相关实体聚合工具
+- **meta_tags_aggregator**: 元标签聚合工具
+
+## 流程控制
+- **pipeline-add**: 数字加10
+- **pipeline-minus**: 数字减5
+- **pipeline-multiply**: 数字乘10
+- **read_file_and_add**: 文档数据加法工具
+- **read_file_and_minus**: 文档数据减法工具
+- **read_file_and_multiply**: 文档数据乘法工具
+
+## 输出
+- **result_storage_operator**: 分析结果落盘算子
+
+## 设计创作
+- **canvas-design**: 创建美丽视觉设计
+- **frontend-design**: 创建前端界面
+- **doc-coauthoring**: 文档协作撰写
+- **slack-gif-creator**: 创建Slack动画GIF
+
+## 输入
+- **pdf**: PDF文件处理
+- **docx**: Word文档处理
+- **pptx**: PowerPoint演示文稿处理
+- **xlsx**: Excel电子表格处理
+
+## 其他
+- **bdbe_cellanno**: 单细胞测序数据细胞类型注释
+- **bdbe_homo**: 单细胞测序数据集检索
+- **bdbe_scnorm**: 单细胞测序数据预处理
+- **bdbe_sexdetermine**: 单细胞样本性别判定
+- **chemdb_search**: 化学物质信息检索
+- **scsio_identify**: 海洋生物识别
+- **geotrans_main_operator**: 地理转换算子
+- **gully_slop_operator**: 沟道坡度特征计算算子
+- **hydro_susceptibility_operator**: 山洪/水文敏感度计算算子
+- **overlap_dam_select_operator**: 淤地坝候选叠加筛选算子

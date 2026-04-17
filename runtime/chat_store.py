@@ -5,6 +5,7 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 
 from infra.config_loader import get_settings
+from runtime.skill_manage import init_skills_to_database
 
 
 def _get_connection():
@@ -84,6 +85,26 @@ def init_db():
 
     conn.commit()
     cursor.close()
+
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        SELECT EXISTS (
+            SELECT FROM information_schema.tables
+            WHERE table_name = 'skills'
+        )
+        """
+    )
+    table_exists = cursor.fetchone()[0]
+    cursor.close()
+
+    if table_exists:
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM skills")
+        cursor.close()
+        conn.commit()
+        init_skills_to_database()
+
     conn.close()
 
 
