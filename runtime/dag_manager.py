@@ -48,8 +48,9 @@ def init_dag_db():
             dag_task_name VARCHAR(255) NOT NULL,
             message_id VARCHAR(128),
             description TEXT,
-            create_user VARCHAR(128),
+            create_user_id VARCHAR(128) NOT NULL, 
             is_deleted INT NOT NULL DEFAULT 0,
+            dag_task_type INT NOT NULL DEFAULT 0,
             create_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
             update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
         )
@@ -215,7 +216,8 @@ def insert_dag_task(
     dag_task_name: str,
     message_id: str = None,
     description: str = None,
-    create_user: str = None,
+    create_user_id: str = None,
+    dag_task_type: int = 0,
 ):
     dag_task_id = uuid.uuid4().hex
 
@@ -227,12 +229,12 @@ def insert_dag_task(
                         """
                         INSERT INTO dag_task (
                             dag_task_id, dag_task_name, message_id,
-                            description, create_user
+                            description, create_user_id, dag_task_type
                         )
-                        VALUES (%s, %s, %s, %s, %s)
+                        VALUES (%s, %s, %s, %s, %s, %s)
                         RETURNING id, dag_task_id
                         """,
-                        (dag_task_id, dag_task_name, message_id, description, create_user),
+                        (dag_task_id, dag_task_name, message_id, description, create_user_id, dag_task_type),
                     )
                     row = cursor.fetchone()
                     if not row:
@@ -452,8 +454,8 @@ def get_dag_task(dag_task_id: str) -> Optional[DagTask]:
                 cursor.execute(
                     """
                     SELECT id, dag_task_id, dag_task_name, message_id,
-                           description, create_user, is_deleted,
-                           create_time, update_time
+                           description, create_user_id, is_deleted,
+                           dag_task_type, create_time, update_time
                     FROM dag_task
                     WHERE dag_task_id = %s AND is_deleted = 0
                     """,
@@ -467,15 +469,15 @@ def get_dag_task(dag_task_id: str) -> Optional[DagTask]:
                     dag_task_name=row["dag_task_name"],
                     message_id=row.get("message_id"),
                     description=row.get("description"),
-                    create_user=row.get("create_user"),
+                    create_user_id=row.get("create_user_id"),
                     db_id=row["id"],
                     is_deleted=row["is_deleted"],
+                    dag_task_type=row.get("dag_task_type", 0),
                     create_time=row.get("create_time"),
                     update_time=row.get("update_time"),
                 )
     except Exception as e:
         raise RuntimeError("get_dag_task failed") from e
-
 
 def get_dag_skill(skill_id: str) -> Optional[DagSkill]:
     try:
@@ -569,7 +571,6 @@ def get_dag_node_by_node_id(node_id: str) -> Optional[DagNode]:
     except Exception as e:
         raise RuntimeError("get_dag_node_by_node_id failed") from e
 
-
 def get_dag_nodes_by_task_id(dag_task_id: str) -> List[DagNode]:
     try:
         with closing(_get_connection()) as conn:
@@ -654,7 +655,6 @@ def get_dag_edge_by_edge_id(edge_id: str) -> Optional[DagEdge]:
     except Exception as e:
         raise RuntimeError("get_dag_edge_by_edge_id failed") from e
 
-
 def get_dag_edges_by_task_id(dag_task_id: str) -> List[DagEdge]:
     try:
         with closing(_get_connection()) as conn:
@@ -685,7 +685,6 @@ def get_dag_edges_by_task_id(dag_task_id: str) -> List[DagEdge]:
     except Exception as e:
         raise RuntimeError("get_dag_edges_by_task_id failed") from e
 
-
 def get_dag_param_binding_by_binding_id(binding_id: str) -> Optional[DagParamBinding]:
     try:
         with closing(_get_connection()) as conn:
@@ -715,7 +714,6 @@ def get_dag_param_binding_by_binding_id(binding_id: str) -> Optional[DagParamBin
                 )
     except Exception as e:
         raise RuntimeError("get_dag_param_binding_by_binding_id failed") from e
-
 
 def get_dag_bindings_by_task_id(dag_task_id: str) -> List[DagParamBinding]:
     try:
@@ -844,7 +842,7 @@ def test_insert_task():
         dag_task_name="csv空行、空格清洗任务",
         message_id="test_message_id_123",
         description="对csv文件的空行和字段值前后空格进行清洗",
-        create_user="test_user",
+        create_user_id="test_user_id",
     )
 
 # 模拟创建节点，连线,填写参数，绑定参数的全过程
