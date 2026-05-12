@@ -1,0 +1,43 @@
+.topIcon{
+  box-sizing: border-box;
+  padding:10px 10px 0 10px;
+  display: flex;
+  justify-content: space-between;
+}
+.topIcons{
+  cursor: pointer;
+}
+.menuCon{
+  box-sizing: border-box;
+  padding: 16px;
+}
+.oneMenu{
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  margin-top:16px;
+  box-sizing: border-box;
+  padding: 8px 16px;
+}
+.oneMenu:first-child{
+  margin-top:-20px;
+}
+.activeOneMenu{
+  margin-top:16px;
+  cursor: pointer;
+  box-sizing: border-box;
+  padding: 8px 16px;
+  background-color: #f1f5f9;
+  border:1px solid rgba(45,108,172,1);
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+}
+.leftIcon{
+  margin-right: 20px;
+}
+
+.menuTitle{
+  font-size:16px;
+  color:#4b5563;
+}
