@@ -6,3 +6,6 @@
 ./vue-web/dist/
 ./vue-web/.DS_Store
 ./vue-web/*.log
+vue-web/node_modules
+./vue-web/package-lock.json
+vue-web/package-lock.json

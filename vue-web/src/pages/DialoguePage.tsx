@@ -1,6 +1,5 @@
-﻿import { Icon } from "@iconify/react";
+import { Icon } from "@iconify/react";
 import { type DragEvent, useEffect, useRef, useState } from "react";
-import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 import {
   attachMessageFiles,
   createMessage,
@@ -13,7 +12,8 @@ import {
 } from "../lib/api";
 import { MarkdownMessage } from "../components/MarkdownMessage";
 import { shortId } from "../lib/ids";
-
+import FlowEditor from '../components/Draw'; // 引入画板组件
+import RunDetails from '../components/RunDetails'; // 引入流程运行详情组件
 const DEFAULT_USER_ID = "default_user";
 
 type UiMsg = {
@@ -178,17 +178,77 @@ function toUiMessage(threadId: string, message: ThreadMessage, index: number): U
   };
 }
 
-export function HomePage() {
+// 节点数据类型定义
+interface FlowNode {
+  id: string;
+  label: string;
+  bgColor: string;
+  iconBgColor: string;
+  icon: '';
+}
+// 自定义节点数据，与图片中的节点一一对应
+const waterNodeArr: FlowNode[] = [
+  {
+    id: 'upload',
+    label: '文件上传',
+    bgColor: '#e8f3ff',
+    iconBgColor: '#3b82f6',
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="white">
+        <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z" />
+      </svg>
+    ),
+  },
+  {
+    id: 'empty-clean',
+    label: '空行清洗',
+    bgColor: '#fff3cd',
+    iconBgColor: '#f59e0b',
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="white">
+        <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
+      </svg>
+    ),
+  },
+  {
+    id: 'space-clean',
+    label: '空格清洗',
+    bgColor: '#f3e8ff',
+    iconBgColor: '#a855f7',
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="white">
+        <path d="M5 4v3h5.5v12h3V7H19V4z" />
+      </svg>
+    ),
+  },
+  {
+    id: 'sort',
+    label: '年份排序',
+    bgColor: '#dcfce7',
+    iconBgColor: '#22c55e',
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="white">
+        <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z" />
+      </svg>
+    ),
+  },
+];
+
+export function DialoguePage() {
   const [threadId, setThreadId] = useState<string>("default");
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<UiMsg[]>([]);
   const [sending, setSending] = useState(false);
+  //显示发送问题后预览流水线
+  const [showQuestionPreview, setShowQuestionPreview] = useState(false);
   const [streamStatus, setStreamStatus] = useState("");
   const [activeAssistantId, setActiveAssistantId] = useState<string | null>(null);
   const [pendingFiles, setPendingFiles] = useState<PendingAttachment[]>([]);
   const [uploadingCount, setUploadingCount] = useState(0);
   const [loadError, setLoadError] = useState("");
   const [dragActive, setDragActive] = useState(false);
+  const [showDraw, setDraw] = useState(false);//是否显示画板
+  const [showRunDetails, setRunDetails] = useState(true);//是否显示运行流程详情
   const abortRef = useRef<AbortController | null>(null);
   const transcriptRef = useRef<HTMLDivElement | null>(null);
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
@@ -262,7 +322,11 @@ export function HomePage() {
       setLoadError(String(error?.message || error));
     }
   }
-
+  // 发送问题
+  function sendQuestion(sta:boolean){
+    setShowQuestionPreview(sta);
+  }
+  // 发送消息
   async function send(
     overridePrompt?: string,
     options?: {
@@ -613,9 +677,19 @@ export function HomePage() {
       handleFiles(files).catch(() => {});
     }
   }
-
+  // 打开编辑画板
+  function openDraw(){
+    setRunDetails(false);
+    setDraw(true);
+  }
+  // 打开运行流程详情
+  function openRunDetails(){
+    setDraw(false);
+    setRunDetails(true);
+  }
   function renderComposer({ compact }: { compact: boolean }) {
     return (
+      
       <div
         className={
           compact
@@ -627,6 +701,172 @@ export function HomePage() {
         onDragOver={handleDragOver}
         onDrop={handleDrop}
       >
+        {/* 生成问题回答预览流水线 */}
+        {showQuestionPreview ? <div style={{
+            width: '90%',
+            margin: '16px auto',
+            fontSize:'16px'
+          }}>
+            {/* 主卡片容器 */}
+            <div style={{
+              background: '#ffffff',
+              borderRadius: '12px',
+              padding: '16px',
+              boxShadow: '0 2px 12px rgba(0,0,0,0.08)',
+            }}>
+              {/* 头部文字 */}
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', marginBottom: '20px' }}>
+                {/* 左侧小图标 */}
+                <div style={{
+                  boxSizing:'border-box',
+                  backgroundColor: '#000000',
+                  width: '26px',
+                  height: '26px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderRadius: '6px',
+                  flexShrink: 0,
+                }}>
+                  <svg width="18" height="18" viewBox="0 0 22 22" fill="#FFFFFF">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z" />
+                  </svg>
+                </div>
+                <div style={{fontSize: '16px', lineHeight: 1.5, color: '#333333' }}>
+                  我已根据您的需求生成了完整的科研数据清洗与排序流水线，包含以下 4 个加工环节：
+                </div>
+              </div>
+
+              {/* 预览区域 */}
+              <div style={{
+                boxSizing:'border-box',
+                borderRadius: '8px',
+                padding: '20px',
+                background: 'F9FAFB',
+                marginBottom: '6px'
+              }}>
+                {/* 预览标题 */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '7px', marginBottom: '16px', fontSize: '14px', color: '#333333' }}>
+                  <span>流水线预览</span>
+                  <span>|</span>
+                  <span style={{ color: '#333333' }}>科研数据清洗与排序</span>
+                </div>
+
+                {/* 流水线 */}
+                <div style={{ display: 'flex', alignItems: 'center',flexWrap:'wrap', marginBottom: '16px', gap: '8px' }}>
+                  {waterNodeArr.map((oneNode, index) => (
+                    <div key={oneNode.id} style={{ display: 'flex', alignItems: 'center',}}>
+                      {/* 节点按钮 */}
+                      <div style={{
+                        boxSizing:'border-box',
+                        borderRadius: '6px',
+                        padding: '6px 12px',
+                        whiteSpace: 'nowrap',
+                        background: oneNode.bgColor,
+                        fontSize: '14px',
+                        fontWeight: 500,
+                        color: '#333333',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '5px'
+                      }}>
+                        <div style={{
+                          boxSizing:'border-box',
+                          width: '18px',
+                          height: '18px',
+                          borderRadius: '3px',
+                          background: oneNode.iconBgColor,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}>
+                          {oneNode.icon}
+                        </div>
+                        {oneNode.label}
+                      </div>
+                      {/* 算子间连接线 */}
+                      {index < waterNodeArr.length - 1 && (
+                        <div style={{marginLeft:'5px'}}>
+                          <svg width="14" height="14" viewBox="0 0 22 22" fill="#9ca3af">
+                            <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z" />
+                          </svg>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                {/* 状态的校验 */}
+                <div style={{ fontSize: '14px', color: '#333333', display: 'flex', alignItems: 'center', gap: '16px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="#9ca3af">
+                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z" />
+                    </svg>
+                    <span>4 个节点</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="#9ca3af">
+                      <path d="M16 13c0 1.1-.9 2-2 2s-2-.9-2-2 .9-2 2-2 2 .9 2 2zm-8 0c0 1.1-.9 2-2 2s-2-.9-2-2 .9-2 2-2 2 .9 2 2zm4-6c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 14c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2z" />
+                    </svg>
+                    <span>3 条连线</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#16a34a' }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="#16a34a">
+                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
+                    </svg>
+                    <span>校验通过</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* 底部按钮 */}
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <button style={{
+                  cursor: 'pointer',
+                  boxSizing:'border-box',
+                  borderRadius: '8px',
+                  border: 'none',
+                  padding: '8px 20px',
+                  background: '#059669',
+                  display: 'flex',
+                  alignItems: 'center',
+                  fontSize: '15px',
+                  color: '#ffffff',
+                  gap: '6px',
+                }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="white">
+                    <path d="M8 5v14l11-7z" />
+                  </svg>
+                  一键运行
+                </button>
+                <button style={{
+                  cursor: 'pointer',
+                  boxSizing:'border-box',
+                  background: '#ffffff',
+                  padding: '8px 20px',
+                  borderRadius: '8px',
+                  border: '1px solid #e2e8f0',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  fontSize: '16px',
+                  color: '#666666'
+                }}
+                onClick={() => openDraw()}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="#111827">
+                    <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" />
+                  </svg>
+                  打开画板编辑
+                </button>
+              </div>
+            </div>
+
+            {/* 底部时间戳 */}
+            <div style={{ fontSize: '12px', color: '#999999', marginTop: '6px' }}>
+              10:46 · AI 生成
+            </div>
+          </div> : <div></div>}
         {dragActive ? (
           <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-sky-50/80 backdrop-blur-[1px]">
             <div className="rounded-full border border-sky-200 bg-white px-5 py-2 text-sm font-medium text-sky-700 shadow-sm">
@@ -654,6 +894,8 @@ export function HomePage() {
             ))}
           </div>
         ) : null}
+        
+          
         <textarea
           ref={composerRef}
           className={
@@ -704,28 +946,26 @@ export function HomePage() {
               <span>技能</span>
             </button>
           </div>
-
+          
           <div className="pointer-events-auto flex items-center gap-3">
             {!compact ? (
               <span className="text-xs font-medium text-slate-400">
                 {uploading ? "附件上传中" : sending ? "处理中" : "快速发送"}
               </span>
             ) : null}
-            
-            <NavLink
-              to="/dialogue"
+            <button
+              className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition-colors hover:bg-black hover:text-white disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-300"
+              disabled={sending || uploading || (!input.trim() && pendingFiles.length === 0)}
+              // onClick={() => sendQuestion(true)}
+              onClick={() => send().catch(() => {})}
+              type="button"
             >
-              <button
-                className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition-colors hover:bg-black hover:text-white disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-300"
-                disabled={sending || uploading || (!input.trim() && pendingFiles.length === 0)}
-                type="button"
-              >
-              
-                <Icon icon={uploading ? "ri:loader-4-line" : sending ? "ri:stop-fill" : "ri:arrow-right-line"} width="18" />
-              </button>
-            </NavLink>
+              <Icon icon={uploading ? "ri:loader-4-line" : sending ? "ri:stop-fill" : "ri:arrow-right-line"} width="18" />
+            </button>
           </div>
+          
         </div>
+        
       </div>
     );
   }
@@ -733,58 +973,20 @@ export function HomePage() {
   return (
     <div className="flex min-h-full flex-1 flex-col">
       {!isExpanded ? (
-        <section className="px-8 pb-16 pt-16">
-          <div className="mx-auto flex max-w-5xl flex-col">
-            <div className="border-b border-slate-200/70 bg-white/40 px-8 pb-14 pt-10 text-center">
-              <div className="mx-auto max-w-4xl">
-                {/*<div className="mb-5 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-4 py-1 text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-500">*/}
-                {/*  Research Workflow Copilot*/}
-                {/*</div>*/}
-                <h1 className="mb-5 text-[38px] font-bold tracking-tight text-slate-950">
-                  πFlow AI：面向科学数据加工处理的智能工作台
-                </h1>
-                <p className="mx-auto max-w-2xl text-[15px] leading-7 text-slate-500">
-                  专注科学数据治理，赋能科学语料构建
-                </p>
-              </div>
-            </div>
-
+        <section className="px-2 pb-2 pt-10" style={{width:'100%',display:'flex'}}>
+          <div className="mx-auto" style={{width:showDraw || showRunDetails ? '35%' : '65%'}}>
             <div className="mx-auto -mt-8 w-full max-w-[760px]">
               {renderComposer({ compact: true })}
             </div>
-
-            <div className="mt-16">
-              <div className="mb-8 text-center">
-                <h2 className="text-sm font-bold uppercase tracking-[0.24em] text-slate-900">
-                  选择加工流水线示例，一键体验
-                </h2>
-                <div className="mx-auto mt-3 h-0.5 w-12 bg-black" />
-              </div>
-
-              <div className="grid gap-6 md:grid-cols-3">
-                {EXAMPLES.map((card) => (
-                  <button
-                    key={card.title}
-                    className="group overflow-hidden rounded-[26px] border border-slate-200 bg-white text-left shadow-[0_20px_60px_rgba(15,23,42,0.04)] transition-all hover:-translate-y-1 hover:border-black"
-                    onClick={() => startExample(card)}
-                    type="button"
-                  >
-                    <div className="aspect-video overflow-hidden bg-slate-100">
-                      <img
-                        alt={card.title}
-                        className="h-full w-full object-cover opacity-90 transition-transform duration-300 group-hover:scale-105"
-                        src={card.image}
-                      />
-                    </div>
-                    <div className="p-5">
-                      <h3 className="text-sm font-bold text-slate-900">{card.title}</h3>
-                      <p className="mt-2 text-xs leading-6 text-slate-500">{card.description}</p>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
           </div>
+          {showDraw ?(
+          <div className="mx-auto" style={{width:'70%',marginLeft:'10px'}}>
+            <FlowEditor></FlowEditor>
+          </div>) : <span></span>}
+          {showRunDetails ?(
+          <div className="mx-auto" style={{width:'70%',marginLeft:'10px'}}>
+            <RunDetails></RunDetails>
+          </div>) : <span></span>}
         </section>
       ) : (
         <section className="flex min-h-0 flex-1 flex-col px-8 pb-6 pt-6">
