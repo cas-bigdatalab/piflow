@@ -15,14 +15,22 @@ async def get_tasks(
     page_size: int = 20,
     keyword: str = None,
 ):
-    result = get_user_dag_tasks(
-        create_user_id=current_user["user_id"],
-        page=page,
-        page_size=page_size,
-        keyword=keyword,
-    )
+    try:
+        result = get_user_dag_tasks(
+            create_user_id=current_user["user_id"],
+            page=page,
+            page_size=page_size,
+            keyword=keyword,
+        )
 
-    return {
-        "message": "success",
-        "result": result,
-    }
+        return {
+            "message": "success",
+            "result": result,
+            "code": 200,
+        }
+    except Exception as e:
+        return {
+            "message": str(e),
+            "result": None,
+            "code": 500,
+        }
