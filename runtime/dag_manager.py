@@ -1,4 +1,3 @@
-
 import json
 import uuid
 from contextlib import closing
@@ -6,37 +5,18 @@ from typing import List, Optional
 
 import psycopg2
 from psycopg2.extras import RealDictCursor
-
-from runtime.dag_objects import (
-    DagEdge,
-    DagNode,
-    DagNodeInputParamSet,
-    DagNodeManualParam,
-    DagNodeReferenceParam,
-    DagObs,
-    DagParamBinding,
-    DagSkill,
-    DagTask,
-)
-
-from infra.config_loader import get_settings
-
-
-def _get_connection():
-    settings = get_settings()
-    db = settings.database
-    return psycopg2.connect(
-        host=db.host,
-        port=db.port,
-        user=db.user,
-        password=db.password,
-        dbname=db.name,
-        connect_timeout=10,
-    )
+from database.postgres import get_connection
+from schemas.dag.dag_edge_schema import DagEdge
+from schemas.dag.dag_node_input_param import DagNodeInputParamSet, DagNodeReferenceParam, DagNodeManualParam
+from schemas.dag.dag_node_schema import DagNode
+from schemas.dag.dag_obs import DagObs
+from schemas.dag.dag_param_binding_schema import DagParamBinding
+from schemas.dag.dag_skill_schema import DagSkill
+from schemas.dag.dag_task_schema import DagTask
 
 
 def init_dag_db():
-    conn = _get_connection()
+    conn = get_connection()
     cursor = conn.cursor()
 
     ddl_statements = [
@@ -152,6 +132,28 @@ def init_dag_db():
         "CREATE INDEX IF NOT EXISTS idx_dag_skills_skill_name ON dag_skills(skill_name)",
         "CREATE INDEX IF NOT EXISTS idx_dag_skills_skill_type ON dag_skills(skill_type)",
         "CREATE INDEX IF NOT EXISTS idx_dag_skills_language ON dag_skills(language)",
+
+        # user
+        """
+        CREATE TABLE IF NOT EXISTS sys_user (
+            id BIGSERIAL PRIMARY KEY,
+            
+            user_id VARCHAR(64) NOT NULL UNIQUE,
+            
+            username VARCHAR(128) NOT NULL UNIQUE,
+            
+            password_hash VARCHAR(255) NOT NULL,
+            
+            nickname VARCHAR(128),
+            
+            is_admin SMALLINT NOT NULL DEFAULT 0,
+            
+            is_deleted SMALLINT NOT NULL DEFAULT 0,
+            
+            create_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )
+        """,
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_sys_user_user_id ON sys_user(user_id)",
     ]
 
     for ddl in ddl_statements:
@@ -177,7 +179,7 @@ def insert_dag_skill(
     skill_id = uuid.uuid4().hex
 
     try:
-        with closing(_get_connection()) as conn:
+        with closing(get_connection()) as conn:
             with conn:
                 with conn.cursor() as cursor:
                     cursor.execute(
@@ -222,7 +224,7 @@ def insert_dag_task(
     dag_task_id = uuid.uuid4().hex
 
     try:
-        with closing(_get_connection()) as conn:
+        with closing(get_connection()) as conn:
             with conn:
                 with conn.cursor() as cursor:
                     cursor.execute(
@@ -256,7 +258,7 @@ def insert_dag_node(
     node_id = uuid.uuid4().hex
 
     try:
-        with closing(_get_connection()) as conn:
+        with closing(get_connection()) as conn:
             with conn:
                 with conn.cursor() as cursor:
                     cursor.execute(
@@ -353,7 +355,7 @@ def update_dag_node(
         """
 
     try:
-        with closing(_get_connection()) as conn:
+        with closing(get_connection()) as conn:
             with conn:
                 with conn.cursor() as cursor:
                     cursor.execute(sql, params)
@@ -372,7 +374,7 @@ def insert_dag_param_binding(
     binding_id = uuid.uuid4().hex
 
     try:
-        with closing(_get_connection()) as conn:
+        with closing(get_connection()) as conn:
             with conn:
                 with conn.cursor() as cursor:
                     cursor.execute(
@@ -405,7 +407,7 @@ def insert_dag_edge(
     edge_id = uuid.uuid4().hex
 
     try:
-        with closing(_get_connection()) as conn:
+        with closing(get_connection()) as conn:
             with conn:
                 with conn.cursor() as cursor:
                     cursor.execute(
@@ -449,7 +451,7 @@ def _parse_input_params_from_db(raw: Optional[dict]) -> DagNodeInputParamSet:
 
 def get_dag_task(dag_task_id: str) -> Optional[DagTask]:
     try:
-        with closing(_get_connection()) as conn:
+        with closing(get_connection()) as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cursor:
                 cursor.execute(
                     """
@@ -479,9 +481,73 @@ def get_dag_task(dag_task_id: str) -> Optional[DagTask]:
     except Exception as e:
         raise RuntimeError("get_dag_task failed") from e
 
+def list_dag_tasks(
+    create_user_id: str,
+    page: int = 1,
+    page_size: int = 20,
+    keyword: str = None,
+) -> dict:
+    try:
+        with closing(get_connection()) as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                conditions = ["is_deleted = 0", "create_user_id = %s"]
+                params = [create_user_id]
+
+                if keyword:
+                    conditions.append("dag_task_name LIKE %s")
+                    params.append(f"%{keyword}%")
+
+                where = " AND ".join(conditions)
+
+                cursor.execute(
+                    f"SELECT COUNT(*) AS total FROM dag_task WHERE {where}",
+                    params,
+                )
+                total = cursor.fetchone()["total"]
+
+                offset = (page - 1) * page_size
+                cursor.execute(
+                    f"""
+                    SELECT id, dag_task_id, dag_task_name, message_id,
+                           description, create_user_id, is_deleted,
+                           dag_task_type, create_time, update_time
+                    FROM dag_task
+                    WHERE {where}
+                    ORDER BY update_time DESC
+                    LIMIT %s OFFSET %s
+                    """,
+                    params + [page_size, offset],
+                )
+                rows = cursor.fetchall()
+
+                tasks = [
+                    DagTask(
+                        dag_task_id=row["dag_task_id"],
+                        dag_task_name=row["dag_task_name"],
+                        message_id=row.get("message_id"),
+                        description=row.get("description"),
+                        # create_user_id=row.get("create_user_id"),
+                        db_id=row["id"],
+                        # is_deleted=row["is_deleted"],
+                        dag_task_type=row.get("dag_task_type", 0),
+                        create_time=row.get("create_time"),
+                        update_time=row.get("update_time"),
+                    )
+                    for row in rows
+                ]
+
+                return {
+                    "total": total,
+                    "page": page,
+                    "page_size": page_size,
+                    "data": tasks,
+                }
+    except Exception as e:
+        raise RuntimeError("list_dag_tasks failed") from e
+
 def get_dag_skill(skill_id: str) -> Optional[DagSkill]:
     try:
-        with closing(_get_connection()) as conn:
+        with closing(get_connection()) as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cursor:
                 cursor.execute(
                     """
@@ -519,7 +585,7 @@ def get_dag_skill(skill_id: str) -> Optional[DagSkill]:
 
 def get_dag_node_by_node_id(node_id: str) -> Optional[DagNode]:
     try:
-        with closing(_get_connection()) as conn:
+        with closing(get_connection()) as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cursor:
                 cursor.execute(
                     """
@@ -573,7 +639,7 @@ def get_dag_node_by_node_id(node_id: str) -> Optional[DagNode]:
 
 def get_dag_nodes_by_task_id(dag_task_id: str) -> List[DagNode]:
     try:
-        with closing(_get_connection()) as conn:
+        with closing(get_connection()) as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cursor:
                 cursor.execute(
                     """
@@ -629,7 +695,7 @@ def get_dag_nodes_by_task_id(dag_task_id: str) -> List[DagNode]:
 
 def get_dag_edge_by_edge_id(edge_id: str) -> Optional[DagEdge]:
     try:
-        with closing(_get_connection()) as conn:
+        with closing(get_connection()) as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cursor:
                 cursor.execute(
                     """
@@ -657,7 +723,7 @@ def get_dag_edge_by_edge_id(edge_id: str) -> Optional[DagEdge]:
 
 def get_dag_edges_by_task_id(dag_task_id: str) -> List[DagEdge]:
     try:
-        with closing(_get_connection()) as conn:
+        with closing(get_connection()) as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cursor:
                 cursor.execute(
                     """
@@ -687,7 +753,7 @@ def get_dag_edges_by_task_id(dag_task_id: str) -> List[DagEdge]:
 
 def get_dag_param_binding_by_binding_id(binding_id: str) -> Optional[DagParamBinding]:
     try:
-        with closing(_get_connection()) as conn:
+        with closing(get_connection()) as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cursor:
                 cursor.execute(
                     """
@@ -717,7 +783,7 @@ def get_dag_param_binding_by_binding_id(binding_id: str) -> Optional[DagParamBin
 
 def get_dag_bindings_by_task_id(dag_task_id: str) -> List[DagParamBinding]:
     try:
-        with closing(_get_connection()) as conn:
+        with closing(get_connection()) as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cursor:
                 cursor.execute(
                     """
@@ -952,6 +1018,5 @@ if __name__ == '__main__':
     try:
         init_dag_db()
         print("DAG database initialized successfully.")
-        test_insert_skills()
     except Exception as e:
         print(f"Error initializing DAG database: {str(e)}")
