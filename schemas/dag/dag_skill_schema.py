@@ -39,5 +39,7 @@ class DagSkill:
         return {
             "skill_id": self.skill_id,
             "skill_name": self.skill_name,
+            "input_params": self.input_params["params"],
+            "output_params": self.output_params["params"],
             "version": self.version,
         }

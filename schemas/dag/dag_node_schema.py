@@ -35,7 +35,9 @@ class DagNode:
     def to_json(self) -> dict:
         skill_json = self.skill.to_json() if self.skill else {
             "skill_id": self.skill_id,
-            "skill_name": self.skill_id,
+            "skill_name": self.skill.skill_name,
+            "input_params": self.skill.input_params["params"],
+            "output_params": self.skill.output_params["params"],
             "version": "1.0.0",
         }
         return {

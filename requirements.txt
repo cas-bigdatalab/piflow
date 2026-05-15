@@ -19,7 +19,6 @@ webdataset~=1.0.2
 transformers~=4.57.5
 langchain~=1.2.15
 langgraph~=1.1.6
-psycopg2~=2.9.11
 fonttools~=4.61.1
 pdfplumber~=0.11.9
 pandas~=2.3.3
