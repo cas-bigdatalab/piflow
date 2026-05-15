@@ -38,7 +38,7 @@ async def get_tasks(
         }
 
 
-@router.post("dag/task/createTask")
+@router.post("/dag/task/createTask")
 async def create_task(
     current_user=Depends(get_current_user),
     description: str = Body(None, description="任务描述"),
@@ -72,6 +72,7 @@ async def update_task(
     dag_name: str = Body(None, description="任务名称"),
     dag_task_id: str = Body(None, description="任务id"),
     description: str = Body(None, description="任务描述"),
+    message_id: str = Body(None, description="消息id（只有大模型生成的任务才有，否则为空）"),
 ):
     try:
         result = update_dag_task(
@@ -79,6 +80,7 @@ async def update_task(
             dag_name=dag_name,
             dag_task_id=dag_task_id,
             description=description,
+            message_id=message_id,
         )
 
         return {

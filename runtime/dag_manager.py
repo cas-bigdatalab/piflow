@@ -1023,7 +1023,7 @@ def create_or_update_task(
         # task不存在 → 新建
         if not dag_task_id:
 
-            task_id = uuid.uuid4().hex
+            dag_task_id = uuid.uuid4().hex
 
             cursor.execute(
                 """
@@ -1047,7 +1047,7 @@ def create_or_update_task(
                 )
             )
 
-            return task_id
+            return dag_task_id
 
         # 查询task是否存在
         cursor.execute(

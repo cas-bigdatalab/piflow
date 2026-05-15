@@ -104,12 +104,12 @@ def create_dag_task(
                 "description": description,
                 "message_id": message_id,
             }
-            create_or_update_task(
+            dag_task_id = create_or_update_task(
                 conn,
                 task,
                 create_user_id
             )
-            return {}
+            return {"dag_task_id" : dag_task_id}
 
 
 def update_dag_task(
@@ -117,6 +117,7 @@ def update_dag_task(
     dag_name: str = None,
     dag_task_id: str = None,
     description: str = None,
+    message_id: str = None,
 ) -> dict:
     with closing(get_connection()) as conn:
         with conn:
@@ -124,6 +125,7 @@ def update_dag_task(
                 "dag_task_id": dag_task_id,
                 "dag_task_name": dag_name,
                 "description": description,
+                "message_id": message_id,
             }
             create_or_update_task(
                 conn,
