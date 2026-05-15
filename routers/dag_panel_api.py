@@ -1,11 +1,11 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Body
 
 from schemas.dag.DagDefinition import DagDefinition
 from security.auth_dependency import (
     get_current_user,
 )
 from services.dag_panel_service import get_user_dag_tasks, save_dag_panel, get_panel_dag_json, \
-    get_skill_info_by_id, get_dag_skills_by_condition
+    get_skill_info_by_id, get_dag_skills_by_condition, create_dag_task, update_dag_task, remove_dag_task
 
 router = APIRouter()
 
@@ -23,6 +23,86 @@ async def get_tasks(
             page=page,
             page_size=page_size,
             keyword=keyword,
+        )
+
+        return {
+            "message": "success",
+            "result": result,
+            "code": 200,
+        }
+    except Exception as e:
+        return {
+            "message": str(e),
+            "result": None,
+            "code": 500,
+        }
+
+
+@router.post("dag/task/createTask")
+async def create_task(
+    current_user=Depends(get_current_user),
+    description: str = Body(None, description="任务描述"),
+    message_id: str = Body(None, description="消息id（只有大模型生成的任务才有，否则为空）"),
+    task_name: str = Body(None, description="任务名称"),
+):
+    try:
+        result = create_dag_task(
+            create_user_id=current_user["user_id"],
+            description=description,
+            message_id=message_id,
+            task_name=task_name,
+        )
+
+        return {
+            "message": "success",
+            "result": result,
+            "code": 200,
+        }
+    except Exception as e:
+        return {
+            "message": str(e),
+            "result": None,
+            "code": 500,
+        }
+
+
+@router.post("/dag/task/updateTask")
+async def update_task(
+    current_user=Depends(get_current_user),
+    dag_name: str = Body(None, description="任务名称"),
+    dag_task_id: str = Body(None, description="任务id"),
+    description: str = Body(None, description="任务描述"),
+):
+    try:
+        result = update_dag_task(
+            create_user_id=current_user["user_id"],
+            dag_name=dag_name,
+            dag_task_id=dag_task_id,
+            description=description,
+        )
+
+        return {
+            "message": "success",
+            "result": result,
+            "code": 200,
+        }
+    except Exception as e:
+        return {
+            "message": str(e),
+            "result": None,
+            "code": 500,
+        }
+
+
+@router.post("/dag/task/deleteTask")
+async def delete_task(
+    current_user=Depends(get_current_user),
+    dag_task_id: str = Body(None, description="任务id"),
+):
+    try:
+        result = remove_dag_task(
+            create_user_id=current_user["user_id"],
+            dag_task_id=dag_task_id,
         )
 
         return {

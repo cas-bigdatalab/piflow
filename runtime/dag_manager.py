@@ -1151,6 +1151,34 @@ def disable_current_definition(
             )
         )
 
+
+def delete_dag_task(
+    conn,
+    dag_task_id: str,
+    create_user_id: str,
+):
+    with conn.cursor() as cursor:
+        cursor.execute(
+            """
+            UPDATE dag_task
+            SET
+                is_deleted=1,
+                update_time=CURRENT_TIMESTAMP
+            WHERE
+                dag_task_id=%s
+            AND
+                create_user_id=%s
+            AND
+                is_deleted=0
+            """,
+            (
+                dag_task_id,
+                create_user_id,
+            )
+        )
+        if cursor.rowcount == 0:
+            raise ValueError(f"task not found or already deleted: {dag_task_id}")
+
 # 根据用户id与任务id查询DSL Json
 def get_dag_definition_json(create_user_id: str, dag_task_id: str):
     try:

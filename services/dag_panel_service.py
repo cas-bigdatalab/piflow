@@ -5,7 +5,7 @@ from psycopg2.extras import RealDictCursor
 
 from database.postgres import get_connection
 from runtime.dag_manager import list_dag_tasks, create_or_update_task, get_next_revision, disable_current_definition, \
-    insert_dag_definition, get_dag_definition_json, get_dag_skill, list_dag_skills
+    insert_dag_definition, get_dag_definition_json, get_dag_skill, list_dag_skills, delete_dag_task
 from schemas.dag.dag_skill_schema import DagSkill
 
 
@@ -89,3 +89,59 @@ def get_dag_skills_by_condition(
         version=version,
     )
     return result
+
+
+def create_dag_task(
+    create_user_id: str,
+    description: str = None,
+    message_id: str = None,
+    task_name: str = None,
+) -> dict:
+    with closing(get_connection()) as conn:
+        with conn:
+            task = {
+                "dag_task_name": task_name,
+                "description": description,
+                "message_id": message_id,
+            }
+            create_or_update_task(
+                conn,
+                task,
+                create_user_id
+            )
+            return {}
+
+
+def update_dag_task(
+    create_user_id: str,
+    dag_name: str = None,
+    dag_task_id: str = None,
+    description: str = None,
+) -> dict:
+    with closing(get_connection()) as conn:
+        with conn:
+            task = {
+                "dag_task_id": dag_task_id,
+                "dag_task_name": dag_name,
+                "description": description,
+            }
+            create_or_update_task(
+                conn,
+                task,
+                create_user_id
+            )
+            return {}
+
+
+def remove_dag_task(
+    create_user_id: str,
+    dag_task_id: str = None,
+) -> dict:
+    with closing(get_connection()) as conn:
+        with conn:
+            delete_dag_task(
+                conn,
+                dag_task_id,
+                create_user_id
+            )
+            return {}
