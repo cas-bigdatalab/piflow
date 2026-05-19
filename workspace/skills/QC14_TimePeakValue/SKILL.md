@@ -4,6 +4,49 @@ description: |
   尖峰检验（连续剧烈变化检测）工具。读取时间序列数据，识别在连续N次的相邻读数之间的差值（变化量）的绝对值都高于预设阈值的异常数据，最后输出为相同格式的文件。
   当用户提到尖峰检验、连续剧烈变化检测、峰值检测、时间序列突变检查等需求时使用此skill。
   即使用户没有说出"尖峰检验"，只要任务涉及检查时间序列数据的剧烈变化，就应该使用此skill。
+
+input_params:
+  - name: input_path
+    type: string
+    required: true
+    description: 输入文件路径
+
+  - name: output_path
+    type: string
+    required: true
+    description: 输出文件路径
+
+  - name: conditions
+    type: string
+    required: true
+    description: 检验条件，格式：字段名,峰值阈值,连续次数，多行用换行分隔
+
+  - name: time_field
+    type: string
+    required: true
+    description: 时间字段名（用于排序判断连续性）
+
+  - name: time_format
+    type: string
+    required: true
+    description: 时间格式（如：%Y-%m-%d %H:%M:%S）
+
+  - name: qc_mark
+    type: string
+    required: false
+    default: "尖值异常"
+    description: 质控标识
+
+  - name: mark_field_name
+    type: string
+    required: false
+    default: QC0000
+    description: 质控标识字段名
+
+output_params:
+  - name: output
+    type: csv_file
+    description: 尖峰检验后的结构化数据文件，带质控标识
 ---
 
 # QC14_TimePeakValue 尖峰检验Skill

@@ -5,6 +5,58 @@ description: |
   检查是否超出词典规定的固有词表枚举值范围，超出范围的记录会标记质控标识并输出异常数据。
   当用户提到枚举校验、枚举值检查、属性项校验、词表校验等需求时使用此skill。
   即使用户没有明确说出"枚举校验"，只要任务涉及将被检验数据与标准词典进行比对，就应该使用此skill。
+
+input_params:
+  - name: origin_file_path
+    type: string
+    required: true
+    description: 被检验数据文件路径
+
+  - name: standard_file_path
+    type: string
+    required: true
+    description: 标准词典文件路径
+
+  - name: error_output_path
+    type: string
+    required: true
+    description: 异常数据输出路径
+
+  - name: origin_output_path
+    type: string
+    required: true
+    description: 处理后原始数据输出路径
+
+  - name: comparison_field
+    type: string
+    required: true
+    description: 对比字段，格式：原字段1,原字段2:标准字段1,标准字段2
+
+  - name: qc_mark
+    type: string
+    required: true
+    description: 质控标识（如QC2_ERROR）
+
+  - name: mark_field_name
+    type: string
+    required: false
+    default: QC0000
+    description: 质控标识字段名
+
+  - name: id_field_name
+    type: string
+    required: false
+    default: ID0000
+    description: 唯一ID字段名
+
+output_params:
+  - name: error_output
+    type: csv_file
+    description: 异常数据文件，包含不在标准词典范围内的记录
+
+  - name: origin_output
+    type: csv_file
+    description: 处理后原始数据文件，带质控标识
 ---
 
 # QC2_EnumerationFieldCheck 枚举校验Skill

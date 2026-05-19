@@ -6,6 +6,40 @@ description: |
   pip install py-data-juicer
   
   当用户提到动作词过滤、动词检测、文本动作过滤、文本操作词过滤等需求时使用此skill。
+
+input_params:
+  - name: input_path
+    type: string
+    required: true
+    description: 输入数据文件路径 (JSON/JSONL格式)
+
+  - name: output_path
+    type: string
+    required: true
+    description: 输出数据文件路径 (JSONL格式)
+
+  - name: lang
+    type: string
+    required: false
+    default: en
+    description: 语言代码（en 或 zh）
+
+  - name: min_action_num
+    type: int
+    required: false
+    default: 1
+    description: 最小动作词数量
+
+  - name: num_proc
+    type: int
+    required: false
+    default: 1
+    description: 并行处理的进程数
+
+output_params:
+  - name: output
+    type: jsonl_file
+    description: 过滤后的JSONL格式数据文件
 ---
 
 ## 功能概述

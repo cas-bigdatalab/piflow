@@ -6,6 +6,40 @@ description: |
   pip install py-data-juicer
   
   当用户提到TSV格式化、TSV数据加载、读取TSV文件、TSV转JSONL等需求时使用此skill。
+
+input_params:
+  - name: input_path
+    type: string
+    required: true
+    description: 输入TSV文件路径或目录
+
+  - name: output_path
+    type: string
+    required: true
+    description: 输出JSONL文件路径
+
+  - name: text_keys
+    type: list
+    required: false
+    default: ['text']
+    description: 文本字段名列表
+
+  - name: add_suffix
+    type: bool
+    required: false
+    default: false
+    description: 是否添加文件后缀信息
+
+  - name: num_proc
+    type: int
+    required: false
+    default: 1
+    description: 并行处理的进程数
+
+output_params:
+  - name: output
+    type: jsonl_file
+    description: 输出的JSONL格式数据集文件
 ---
 
 ## 功能概述

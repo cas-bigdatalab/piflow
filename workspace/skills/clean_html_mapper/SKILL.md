@@ -3,6 +3,22 @@ name: clean_html_mapper
 description: |
   清理文本示例中的HTML代码。当用户提到清理HTML、去除HTML标签、HTML转文本、提取网页文本等需求时使用此skill。
   即使用户没有明确说出"HTML"，只要任务涉及从HTML代码中提取纯文本，就应该使用此skill。
+
+input_params:
+  - name: input_path
+    type: string
+    required: true
+    description: 输入JSON文件路径
+
+  - name: output_path
+    type: string
+    required: true
+    description: 输出JSON文件路径
+
+output_params:
+  - name: output
+    type: json_file
+    description: 清理HTML后的JSON文件
 ---
 
 # Clean HTML Mapper

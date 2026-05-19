@@ -6,6 +6,29 @@ description: |
   pip install py-data-juicer
   
   当用户提到创建空数据集、生成空数据、初始化数据集、测试用空数据等需求时使用此skill。
+
+input_params:
+  - name: output_path
+    type: string
+    required: true
+    description: 输出JSONL文件路径
+
+  - name: length
+    type: int
+    required: false
+    default: 0
+    description: 空数据集长度
+
+  - name: feature_keys
+    type: list
+    required: false
+    default: "[]"
+    description: 字段名列表
+
+output_params:
+  - name: output
+    type: jsonl_file
+    description: 空数据集JSONL文件
 ---
 
 ## 功能概述

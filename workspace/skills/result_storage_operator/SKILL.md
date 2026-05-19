@@ -3,6 +3,13 @@ name: result_storage_operator
 description: 分析结果落盘算子。用户提到结果保存、导出CSV、结果存储时调用。
 allowed-tools:
   - emit_operator
+
+input_params: []
+
+output_params:
+  - name: operator_definition
+    type: json_file
+    description: 结果存储算子的标准JSON定义，用于作为DAG的sink节点
 ---
 
 # result_storage_operator

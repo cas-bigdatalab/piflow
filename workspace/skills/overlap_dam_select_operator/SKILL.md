@@ -3,6 +3,13 @@ name: overlap_dam_select_operator
 description: 淤地坝候选叠加筛选算子。用户提到淤地坝识别、坝体候选筛选、叠加过滤时优先调用。
 allowed-tools:
   - emit_operator
+
+input_params: []
+
+output_params:
+  - name: operator_definition
+    type: json_file
+    description: 淤地坝候选叠加筛选算子的标准JSON片段，包含算子配置和数据源依赖
 ---
 
 # overlap_dam_select_operator

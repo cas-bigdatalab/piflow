@@ -3,6 +3,13 @@ name: gully_slop_operator
 description: 沟道坡度特征计算算子。用户提到沟道坡度、DEM地形坡度预处理、沟道地形分析时优先调用。
 allowed-tools:
   - emit_operator
+
+input_params: []
+
+output_params:
+  - name: operator_definition
+    type: json_file
+    description: 沟道坡度算子的标准JSON片段，包含算子配置和数据源依赖
 ---
 
 # gully_slop_operator

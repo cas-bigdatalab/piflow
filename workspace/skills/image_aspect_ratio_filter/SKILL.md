@@ -5,6 +5,46 @@ description: |
   当用户提到图像长宽比、图片比例过滤、图像尺寸筛选、图像宽高比等需求时使用此skill。
   即使用户没有明确说出"长宽比"，只要任务涉及根据图像宽高比来筛选数据，
   就应该使用此skill。
+
+input_params:
+  - name: input
+    type: string
+    required: true
+    description: 输入JSON文件路径
+
+  - name: output
+    type: string
+    required: true
+    description: 输出JSON文件路径
+
+  - name: min_ratio
+    type: float
+    required: false
+    default: 0.333
+    description: 最小长宽比
+
+  - name: max_ratio
+    type: float
+    required: false
+    default: 3.0
+    description: 最大长宽比
+
+  - name: any_or_all
+    type: string
+    required: false
+    default: any
+    description: 多图像过滤策略（any/all）
+
+  - name: image_key
+    type: string
+    required: false
+    default: images
+    description: 图像字段的键名
+
+output_params:
+  - name: output
+    type: json_file
+    description: 过滤后的JSON文件，包含长宽比在指定范围内的图像样本
 ---
 
 # Image Aspect Ratio Filter 图像长宽比过滤 Skill

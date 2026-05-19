@@ -5,6 +5,28 @@ description: |
   如果不存在则添加从1开始的单调递增ID字段，并将其放在第一列，最后输出为相同格式的文件。
   当用户提到添加ID、添加自增ID、添加序号、添加行号等需求时使用此skill。
   即使用户没有明确说出"添加ID"，只要任务涉及给数据添加自增ID，就应该使用此skill。
+
+input_params:
+  - name: input_path
+    type: string
+    required: true
+    description: 输入文件路径（支持CSV/TSV/Excel等）
+
+  - name: output_path
+    type: string
+    required: true
+    description: 输出文件路径（处理后的文件）
+
+  - name: id_field_name
+    type: string
+    required: false
+    default: ID0000
+    description: ID字段名
+
+output_params:
+  - name: output
+    type: csv_file
+    description: 添加了单调递增ID的结构化数据文件
 ---
 
 # Pi_AddMonotonicallyIncreasingID 添加单调递增ID Skill

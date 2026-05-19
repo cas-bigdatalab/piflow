@@ -6,6 +6,52 @@ description: |
   pip install py-data-juicer
   
   当用户提到图像相似度检测、图像对过滤、双图相似度、图片相似度筛选、图像pair过滤等需求时使用此skill。
+
+input_params:
+  - name: input_path
+    type: string
+    required: true
+    description: 输入数据文件路径（JSON/JSONL格式）
+
+  - name: output_path
+    type: string
+    required: true
+    description: 输出数据文件路径（JSONL格式）
+
+  - name: hf_clip
+    type: string
+    required: false
+    default: openai/clip-vit-base-patch32
+    description: HuggingFace上的CLIP模型
+
+  - name: min_score
+    type: float
+    required: false
+    default: 0.1
+    description: 最小相似度分数
+
+  - name: max_score
+    type: float
+    required: false
+    default: 1.0
+    description: 最大相似度分数
+
+  - name: any_or_all
+    type: string
+    required: false
+    default: any
+    description: 过滤策略（any/all）
+
+  - name: num_proc
+    type: int
+    required: false
+    default: 1
+    description: 并行处理的进程数
+
+output_params:
+  - name: output
+    type: jsonl_file
+    description: 过滤后的JSONL文件，包含图像对相似度在指定范围内的样本
 ---
 
 ## 功能概述

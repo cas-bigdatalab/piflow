@@ -5,6 +5,48 @@ description: |
   当用户提到文档摘要、整合文档、文档聚合、碎片整合、长文总结等需求时使用此skill。
   即使用户没有明确说出"嵌套"或"聚合"，只要任务涉及将多个短文档整合成一个总结，
   就应该使用此skill。
+
+input_params:
+  - name: input
+    type: string
+    required: true
+    description: 输入JSON文件路径
+
+  - name: output
+    type: string
+    required: true
+    description: 输出JSON文件路径
+
+  - name: api_model
+    type: string
+    required: true
+    description: API模型名称
+
+  - name: input_key
+    type: string
+    required: false
+    default: event_description
+    description: 输入文档的键名
+
+  - name: output_key
+    type: string
+    required: false
+    description: 输出结果的键名（默认与input_key相同）
+
+  - name: max_token_num
+    type: int
+    required: false
+    description: 每个分组最大token数
+
+  - name: api_endpoint
+    type: string
+    required: false
+    description: API端点URL
+
+output_params:
+  - name: output
+    type: json_file
+    description: 聚合后的JSON文件，包含整合后的文档总结
 ---
 
 # Nested Aggregator 嵌套聚合 Skill

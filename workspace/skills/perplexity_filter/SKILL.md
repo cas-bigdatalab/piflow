@@ -6,6 +6,46 @@ description: |
   pip install py-data-juicer
   
   当用户提到困惑度过滤、文本困惑度检测、语言模型分数过滤、文本质量过滤等需求时使用此skill。
+
+input_params:
+  - name: input_path
+    type: string
+    required: true
+    description: 输入数据文件路径（JSON/JSONL格式）
+
+  - name: output_path
+    type: string
+    required: true
+    description: 输出数据文件路径（JSONL格式）
+
+  - name: lang
+    type: string
+    required: false
+    default: en
+    description: 语言代码（影响分词和语言模型）
+
+  - name: max_ppl
+    type: float
+    required: false
+    default: 1500
+    description: 最大困惑度阈值（低于此值保留）
+
+  - name: batch_size
+    type: int
+    required: false
+    default: 1
+    description: 批处理大小
+
+  - name: num_proc
+    type: int
+    required: false
+    default: 1
+    description: 并行处理的进程数
+
+output_params:
+  - name: output
+    type: jsonl_file
+    description: 过滤后的JSONL文件，包含困惑度低于阈值的样本
 ---
 
 ## 功能概述

@@ -6,6 +6,40 @@ description: |
   清洗重复数据、整理文档集合等需求时使用此skill。
   即使用户没有明确说出"去重"，只要任务涉及从多个文档中识别和删除重复内容，
   就应该使用此skill。
+
+input_params:
+  - name: input
+    type: string
+    required: true
+    description: 输入文件路径（支持json, txt）
+
+  - name: output
+    type: string
+    required: true
+    description: 输出文件路径（支持json, txt）
+
+  - name: text_key
+    type: string
+    required: false
+    default: text
+    description: 文本字段的键名
+
+  - name: lowercase
+    type: bool
+    required: false
+    default: false
+    description: 是否将文本转为小写进行比对
+
+  - name: ignore_non_character
+    type: bool
+    required: false
+    default: false
+    description: 是否忽略非字母字符（空格、数字、标点）
+
+output_params:
+  - name: output
+    type: json_file
+    description: 去重后的文件（json或txt格式）
 ---
 
 # Document Deduplicator 文档去重 Skill

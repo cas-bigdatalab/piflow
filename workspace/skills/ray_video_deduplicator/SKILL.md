@@ -5,6 +5,46 @@ description: |
   当用户提到视频去重、删除重复视频、分布式去重、大规模视频去重等需求时使用此skill。
   即使用户没有明确说出"Ray"或"分布式"，只要任务涉及大规模视频去重处理，
   就应该使用此skill。
+
+input_params:
+  - name: input
+    type: string
+    required: true
+    description: 输入JSON文件路径
+
+  - name: output
+    type: string
+    required: true
+    description: 输出JSON文件路径
+
+  - name: backend
+    type: string
+    required: false
+    default: ray_actor
+    description: 分布式后端类型（ray_actor/redis）
+
+  - name: redis_address
+    type: string
+    required: false
+    default: "redis://localhost:6379"
+    description: Redis服务器地址
+
+  - name: video_key
+    type: string
+    required: false
+    default: videos
+    description: 视频字段的键名
+
+  - name: text_key
+    type: string
+    required: false
+    default: text
+    description: 文本字段的键名
+
+output_params:
+  - name: output
+    type: jsonl_file
+    description: 去重后的JSON文件
 ---
 
 # Ray Video Deduplicator Ray分布式视频去重 Skill

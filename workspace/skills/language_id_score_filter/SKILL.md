@@ -6,6 +6,40 @@ description: |
   pip install py-data-juicer
   
   当用户提到语言识别过滤、语言检测、文本语言筛选、按语言过滤等需求时使用此skill。
+
+input_params:
+  - name: input_path
+    type: string
+    required: true
+    description: 输入数据文件路径（JSON/JSONL格式）
+
+  - name: output_path
+    type: string
+    required: true
+    description: 输出数据文件路径（JSONL格式）
+
+  - name: lang
+    type: string
+    required: false
+    default: ""
+    description: 指定语言代码，可重复指定多个（为空则保留所有语言）
+
+  - name: min_score
+    type: float
+    required: false
+    default: 0.8
+    description: 最小语言识别置信度分数
+
+  - name: num_proc
+    type: int
+    required: false
+    default: 1
+    description: 并行处理的进程数
+
+output_params:
+  - name: output
+    type: jsonl_file
+    description: 过滤后的JSONL文件，包含指定语言且置信度达标的样本
 ---
 
 ## 功能概述

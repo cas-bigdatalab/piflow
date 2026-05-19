@@ -3,6 +3,28 @@ name: clean_ip_mapper
 description: |
   清除文本示例中的IPv4和IPv6地址。当用户提到清理IP、删除IP地址、去除IP、清理网络地址等需求时使用此skill。
   即使用户没有明确说出"IP"，只要任务涉及从文本中删除或替换IP地址，就应该使用此skill。
+
+input_params:
+  - name: input_path
+    type: string
+    required: true
+    description: 输入JSON文件路径
+
+  - name: output_path
+    type: string
+    required: true
+    description: 输出JSON文件路径
+
+  - name: repl
+    type: string
+    required: false
+    default: ""
+    description: 替换字符串（默认为空，即删除）
+
+output_params:
+  - name: output
+    type: json_file
+    description: 清理IP地址后的JSON文件
 ---
 
 # Clean IP Mapper

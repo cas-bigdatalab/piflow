@@ -6,6 +6,52 @@ description: |
   pip install py-data-juicer
   
   当用户提到停用词过滤、停用词比例过滤、文本质量过滤、停用词占比检测等需求时使用此skill。
+
+input_params:
+  - name: input_path
+    type: string
+    required: true
+    description: 输入数据文件路径 (JSON/JSONL格式)
+
+  - name: output_path
+    type: string
+    required: true
+    description: 输出数据文件路径 (JSONL格式)
+
+  - name: lang
+    type: string
+    required: false
+    default: en
+    description: 语言代码（支持 en, zh, all 等）
+
+  - name: tokenization
+    type: bool
+    required: false
+    default: false
+    description: 是否使用模型进行分词（中文建议开启）
+
+  - name: min_ratio
+    type: float
+    required: false
+    default: 0.3
+    description: 最小停用词比例
+
+  - name: use_words_aug
+    type: bool
+    required: false
+    default: false
+    description: 是否使用词语增强（中文建议开启）
+
+  - name: num_proc
+    type: int
+    required: false
+    default: 1
+    description: 并行处理的进程数
+
+output_params:
+  - name: output
+    type: jsonl_file
+    description: 过滤后的JSONL格式数据文件
 ---
 
 ## 功能概述

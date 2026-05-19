@@ -5,6 +5,52 @@ description: |
   当用户提到图像美学、图像质量过滤、图片评分筛选、图像质量评估、过滤低质量图像等需求时使用此skill。
   即使用户没有明确说出"美学评分"，只要任务涉及根据图像美学质量来筛选数据，
   就应该使用此skill。
+
+input_params:
+  - name: input
+    type: string
+    required: true
+    description: 输入JSON文件路径
+
+  - name: output
+    type: string
+    required: true
+    description: 输出JSON文件路径
+
+  - name: hf_scorer_model
+    type: string
+    required: false
+    default: shunk031/aesthetics-predictor-v2-sac-logos-ava1-l14-linearMSE
+    description: 美学评分模型
+
+  - name: min_score
+    type: float
+    required: false
+    default: 0.5
+    description: 最小美学评分
+
+  - name: max_score
+    type: float
+    required: false
+    default: 1.0
+    description: 最大美学评分
+
+  - name: any_or_all
+    type: string
+    required: false
+    default: any
+    description: 多图像过滤策略（any/all）
+
+  - name: image_key
+    type: string
+    required: false
+    default: images
+    description: 图像字段的键名
+
+output_params:
+  - name: output
+    type: json_file
+    description: 过滤后的JSON文件，包含美学评分在指定范围内的图像样本
 ---
 
 # Image Aesthetics Filter 图像美学过滤 Skill

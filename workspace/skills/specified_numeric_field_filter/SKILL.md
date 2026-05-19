@@ -6,6 +6,43 @@ description: |
   pip install py-data-juicer
   
   当用户提到数值字段过滤、字段范围筛选、数值范围过滤、元数据数值过滤、按数值过滤等需求时使用此skill。
+
+input_params:
+  - name: input_path
+    type: string
+    required: true
+    description: 输入数据文件路径 (JSON/JSONL格式)
+
+  - name: output_path
+    type: string
+    required: true
+    description: 输出数据文件路径 (JSONL格式)
+
+  - name: field_key
+    type: string
+    required: true
+    description: 字段路径，用点号分隔，如 'meta.star'
+
+  - name: min_value
+    type: float
+    required: false
+    description: 最小值（默认不限）
+
+  - name: max_value
+    type: float
+    required: false
+    description: 最大值（默认不限）
+
+  - name: num_proc
+    type: int
+    required: false
+    default: 1
+    description: 并行处理的进程数
+
+output_params:
+  - name: output
+    type: jsonl_file
+    description: 过滤后的JSONL格式数据文件，保持原始字段结构
 ---
 
 ## 功能概述

@@ -5,6 +5,52 @@ description: |
   当用户提到敏感词过滤、脏词过滤、违禁词过滤、内容审核、敏感词检测等需求时使用此skill。
   即使用户没有明确说出"敏感词"，只要任务涉及过滤包含特定敏感词的文本内容，
   就应该使用此skill。
+
+input_params:
+  - name: input
+    type: string
+    required: true
+    description: 输入JSON文件路径
+
+  - name: output
+    type: string
+    required: true
+    description: 输出JSON文件路径
+
+  - name: lang
+    type: string
+    required: false
+    default: en
+    description: 语言（en/zh/all）
+
+  - name: max_ratio
+    type: float
+    required: false
+    default: 0.045
+    description: 最大敏感词比例
+
+  - name: tokenization
+    type: bool
+    required: false
+    default: false
+    description: 是否使用模型分词
+
+  - name: use_words_aug
+    type: bool
+    required: false
+    default: false
+    description: 是否使用词语增强
+
+  - name: text_key
+    type: string
+    required: false
+    default: text
+    description: 文本字段的键名
+
+output_params:
+  - name: output
+    type: json_file
+    description: 过滤敏感词后的JSON文件
 ---
 
 # Flagged Words Filter 敏感词过滤 Skill

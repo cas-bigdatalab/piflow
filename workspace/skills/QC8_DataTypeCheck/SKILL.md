@@ -5,6 +5,38 @@ description: |
   并标记不合格的数据点，最后输出为相同格式的文件。
   当用户提到数据类型检查、数值类型校验、字段类型检查、数据格式校验等需求时使用此skill。
   即使用户没有说出"数据类型检查"，只要任务涉及检查数据字段类型是否正确，就应该使用此skill。
+
+input_params:
+  - name: input_path
+    type: string
+    required: true
+    description: 输入文件路径
+
+  - name: output_path
+    type: string
+    required: true
+    description: 输出文件路径
+
+  - name: check_fields_name
+    type: string
+    required: true
+    description: 检查字段名，逗号分隔（如：field1,field2）
+
+  - name: qc_mark
+    type: string
+    required: true
+    description: 质控标识
+
+  - name: mark_field_name
+    type: string
+    required: false
+    default: QC0000
+    description: 质控标识字段名
+
+output_params:
+  - name: output
+    type: csv_file
+    description: 数据类型检查后的结构化数据文件，带质控标识
 ---
 
 # QC8_DataTypeCheck 数据类型检查Skill

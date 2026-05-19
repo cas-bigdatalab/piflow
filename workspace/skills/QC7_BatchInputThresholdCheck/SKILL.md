@@ -5,6 +5,38 @@ description: |
   识别并标记超出允许范围（包括上限和下限）或为空值的数据点，最后输出为相同格式的文件。
   当用户提到批量阈值检验、输入框阈值检验、多字段阈值检查、范围校验等需求时使用此skill。
   即使用户没有明确说出"批量阈值输入框"，只要任务涉及根据输入的阈值条件进行批量范围校验，就应该使用此skill。
+
+input_params:
+  - name: input_path
+    type: string
+    required: true
+    description: 输入文件路径
+
+  - name: output_path
+    type: string
+    required: true
+    description: 输出文件路径
+
+  - name: conditions
+    type: string
+    required: true
+    description: 阈值条件，格式：字段名,最大值,最小值，多行用换行分隔
+
+  - name: qc_mark
+    type: string
+    required: true
+    description: 质控标识
+
+  - name: mark_field_name
+    type: string
+    required: false
+    default: QC0000
+    description: 质控标识字段名
+
+output_params:
+  - name: output
+    type: csv_file
+    description: 批量阈值检验后的结构化数据文件，带质控标识
 ---
 
 # QC7_BatchInputThresholdCheck 批量阈值检验(输入框) Skill

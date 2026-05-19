@@ -6,6 +6,70 @@ description: |
   根据文档总结实体属性（如总结某人物的主要经历、身份背景、成就等）等需求时使用此skill。
   即使用户没有明确说出"聚合"或"实体"，只要任务涉及从多个文档中提取和总结某个主题/人物/实体的
   特定属性，就应该使用此skill。
+
+input_params:
+  - name: input
+    type: string
+    required: true
+    description: 输入JSON文件路径
+
+  - name: output
+    type: string
+    required: true
+    description: 输出JSON文件路径
+
+  - name: api_model
+    type: string
+    required: true
+    description: API模型名称（如 qwen2.5-72b-instruct, gpt-4o）
+
+  - name: entity
+    type: string
+    required: true
+    description: 要提取属性的实体名称
+
+  - name: attribute
+    type: string
+    required: true
+    description: 要提取的属性名称（如身份背景、主要经历）
+
+  - name: input_key
+    type: string
+    required: false
+    default: event_description
+    description: 输入文档的键名
+
+  - name: output_key
+    type: string
+    required: false
+    default: entity_attribute
+    description: 输出结果的键名
+
+  - name: word_limit
+    type: int
+    required: false
+    default: 100
+    description: 输出字数限制
+
+  - name: max_token_num
+    type: int
+    required: false
+    description: 输入文档的最大token数
+
+  - name: api_endpoint
+    type: string
+    required: false
+    description: API端点URL
+
+  - name: example_prompt
+    type: string
+    required: false
+    description: 示例提示词
+
+output_params:
+  - name: output
+    type: json_file
+    description: 聚合后的实体属性JSON文件
 ---
 
 # Entity Attribute Aggregator 实体属性聚合 Skill

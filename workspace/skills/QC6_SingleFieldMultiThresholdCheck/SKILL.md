@@ -5,6 +5,58 @@ description: |
   检查是否在门限范围内，不允许超出门限值（包括上限和下限）。不满足条件的数据会标记质控标识并输出异常数据。
   当用户提到单字段阈值检验、多条件阈值检验、单字段多条件检查等需求时使用此skill。
   即使用户没有说出"单字段多条件"，只要任务涉及根据多个条件进行单字段阈值校验，就应该使用此skill。
+
+input_params:
+  - name: original_file
+    type: string
+    required: true
+    description: 被检验数据文件路径
+
+  - name: threshold_file
+    type: string
+    required: true
+    description: 阈值表文件路径
+
+  - name: origin_output
+    type: string
+    required: true
+    description: 处理后原始数据输出路径
+
+  - name: field_name
+    type: string
+    required: true
+    description: 阈值检测字段名
+
+  - name: qc_mark
+    type: string
+    required: true
+    description: 质控标识
+
+  - name: error_output
+    type: string
+    required: false
+    description: 异常数据输出路径（可选）
+
+  - name: mark_field_name
+    type: string
+    required: false
+    default: QC0000
+    description: 质控标识字段名
+
+  - name: id_field_name
+    type: string
+    required: false
+    default: ID0000
+    description: 唯一ID字段名
+
+output_params:
+  - name: origin_output
+    type: csv_file
+    description: 处理后原始数据文件，带质控标识
+
+  - name: error_output
+    type: csv_file
+    description: 异常数据文件（可选），包含不满足阈值条件的记录
 ---
 
 # QC6_SingleFieldMultiThresholdCheck 单字段多条件阈值检验Skill
