@@ -1,0 +1,439 @@
+.run-history-page {
+  padding: 24px;
+  background: #f8fafc;
+  min-height: 100vh
+}
+
+.stats-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px
+}
+
+.stats-cards {
+  display: flex;
+  gap: 12px
+}
+
+.stat-card {
+  width:150px;
+  height:38px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: #fff;
+  border-radius: 8px;
+  border: 1px solid rgb(226 232 240);
+  cursor: pointer;
+  transition: all .2s;
+}
+.stat-label {
+  font-size: 18px;
+  font-weight: 600;
+  color: #475569;
+  margin-right: 4px
+}
+
+.stat-value {
+  font-size: 18px;
+  font-weight: 600;
+  color: #9199a5;
+}
+
+.stat-card.active{
+  background-color: rgb(15 23 42);
+}
+.stat-card.active .stat-label.all {
+  color: #ffffff;
+}
+.stat-card.active .stat-value.all {
+  color: #9fa2aa;
+}
+
+.stat-card.active2{
+  border: 1px solid rgb(251, 191, 36);
+  background-color: rgb(254 243 199);
+}
+.stat-card.active2 .stat-label.running {
+  color: rgb(180 83 9);
+}
+.stat-card.active2 .stat-value.running {
+  color: #d29355;
+}
+
+.stat-card.active3{
+  border: 1px solid rgb(52, 211, 153);
+  background-color: #d1fae5;
+}
+.stat-card.active3 .stat-label.completed {
+  color: rgb(4 120 87);
+}
+.stat-card.active3 .stat-value.completed {
+  color: rgb(86,172,144);
+}
+
+.stat-card.active4{
+  border: 1px solid rgb(248, 113, 113);
+  background-color: rgb(254,226,226);
+}
+.stat-card.active4 .stat-label.failed {
+  color: rgb(185 28 28);
+}
+.stat-card.active4 .stat-value.failed {
+  color: rgb(213,107,107);
+}
+
+.stats-summary {
+  display: flex;
+  gap: 24px
+}
+
+.summary-item {
+  display: flex;
+  align-items: center;
+  gap: 8px
+}
+
+.summary-label {
+  font-size: 18px;
+  font-weight: 600;
+  color: #64748b
+}
+
+.summary-value {
+  font-size: 18px;
+  font-weight: 600;
+  color: #1e293b
+}
+
+.summary-value.success {
+  font-weight: 600;
+  color: rgb(4 120 87);
+}
+
+.summary-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background:rgb(4 120 87);
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px
+}
+
+.page-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: #1e293b;
+  margin: 0
+}
+
+.page-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center
+}
+
+.search-box {
+  position: relative;
+  display: flex;
+  align-items: center
+}
+
+.search-box input {
+  width: 280px;
+  padding: 8px 12px 8px 36px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  font-size: 13px;
+  outline: none
+}
+
+.search-box input:focus {
+  border-color: #1890ff
+}
+
+.search-icon {
+  position: absolute;
+  left: 12px;
+  color: #94a3b8
+}
+
+.filter-btn {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  cursor: pointer;
+  color: #64748b
+}
+
+.filter-btn:hover {
+  border-color: #1890ff;
+  color: #1890ff
+}
+
+.data-table-container {
+  background: #fff;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  overflow: hidden
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse
+}
+
+.data-table th {
+  padding: 12px 16px;
+  text-align: left;
+  font-size: 13px;
+  font-weight: 500;
+  color: #64748b;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0
+}
+
+.data-table td {
+  padding: 16px;
+  font-size: 13px;
+  color: #334155;
+  border-bottom: 1px solid #f1f5f9
+}
+
+.data-table tbody tr:hover {
+  background: #f8fafc
+}
+
+.id-cell {
+  font-family: Consolas, Monaco, monospace;
+  color: #475569
+}
+
+.task-cell {
+  font-weight: 500
+}
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500
+}
+
+.status-badge.running {
+  background: #e6f7ff;
+  color: #1890ff
+}
+
+.status-dot {
+  width: 6px;
+  height: 6px;
+  background: #1890ff;
+  border-radius: 50%;
+  animation: pulse 1.5s ease-in-out infinite
+}
+
+@keyframes pulse {
+
+  0%,
+  100% {
+    opacity: 1
+  }
+
+  50% {
+    opacity: .4
+  }
+}
+
+.status-badge.completed {
+  background: #e6faf3;
+  color: #17bb85
+}
+
+.status-badge.failed {
+  background: #fef2f2;
+  color: #ef4444
+}
+
+.progress-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 120px
+}
+
+.progress-bar.failed {
+  color: #94a3b8
+}
+
+.progress-fill {
+  height: 6px;
+  background: #e2e8f0;
+  border-radius: 3px;
+  flex: 1;
+  overflow: hidden
+}
+
+.progress-fill.running {
+  background: #1890ff
+}
+
+.progress-fill.completed {
+  background: #17bb85
+}
+
+.progress-text {
+  font-size: 12px;
+  color: #64748b;
+  min-width: 36px
+}
+
+.action-cell {
+  display: flex;
+  gap: 8px
+}
+
+.action-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+  background: #f1f5f9;
+  border: none;
+  border-radius: 4px;
+  font-size: 12px;
+  color: #475569;
+  cursor: pointer
+}
+
+.action-btn:hover {
+  background: #e2e8f0;
+  color: #334155
+}
+
+.icon-btn {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  color: #64748b
+}
+
+.icon-btn:hover {
+  background: #f1f5f9;
+  color: #334155
+}
+
+.icon-btn.delete {
+  background: #fef2f2;
+  color: #f87171
+}
+
+.loading-state {
+  padding: 40px;
+  text-align: center;
+  color: #94a3b8;
+  font-size: 14px
+}
+
+.pagination {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  border-top: 1px solid #f1f5f9
+}
+
+.pagination-info {
+  font-size: 13px;
+  color: #64748b
+}
+
+.pagination-controls {
+  display: flex;
+  gap: 4px
+}
+
+.page-btn {
+  padding: 6px 12px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  border-radius: 4px;
+  font-size: 13px;
+  color: #475569;
+  cursor: pointer
+}
+
+.page-btn:hover:not(:disabled) {
+  border-color: #1890ff;
+  color: #1890ff
+}
+
+.page-btn.active {
+  background: #1890ff;
+  border-color: #1890ff;
+  color: #fff
+}
+
+.page-btn:disabled {
+  color: #cbd5e1;
+  cursor: not-allowed
+}
+
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px;
+  gap: 16px;
+  color: #94a3b8;
+  font-size: 14px
+}
+
+.loading-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid #e2e8f0;
+  border-top-color: #1890ff;
+  border-radius: 50%;
+  animation: spin .8s linear infinite
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg)
+  }
+}
+
+.empty-state {
+  padding: 60px;
+  text-align: center;
+  color: #94a3b8;
+  font-size: 14px
+}
+
+.page-ellipsis {
+  padding: 6px 8px;
+  color: #94a3b8;
+  font-size: 13px
+}

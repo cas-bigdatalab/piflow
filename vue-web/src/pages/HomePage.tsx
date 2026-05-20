@@ -8,6 +8,7 @@ import {
   getThreadMessages,
   streamChat,
   uploadWorkspaceFile,
+  getLogin,
   type MessageAttachment,
   type ThreadMessage,
 } from "../lib/api";
@@ -198,7 +199,21 @@ export function HomePage() {
 
   const uploading = uploadingCount > 0;
   const isExpanded = hasMessages || sending || Boolean(loadError);
-
+  // 页面加载时请求登录接口
+  useEffect(() => {
+    const login = async () => {
+      try {
+        let params={ username:'admin',password:'admin123' };
+        let loginRes=await getLogin(params);
+        localStorage.setItem('token',loginRes.access_token);
+        console.log('登录了')
+      } catch (error) {
+        console.error('登录失败:', error);
+      }
+    };
+    
+    login();
+  }, []);
   useEffect(() => {
     if (!transcriptRef.current) {
       return;
@@ -733,7 +748,7 @@ export function HomePage() {
   return (
     <div className="flex min-h-full flex-1 flex-col">
       {!isExpanded ? (
-        <section className="px-8 pb-16 pt-16">
+        <section className="px-8 pb-16 pt-6">
           <div className="mx-auto flex max-w-5xl flex-col">
             <div className="border-b border-slate-200/70 bg-white/40 px-8 pb-14 pt-10 text-center">
               <div className="mx-auto max-w-4xl">

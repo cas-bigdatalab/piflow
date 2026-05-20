@@ -35,15 +35,37 @@ export type SkillTypeStat = {
   type: string;
   count: number;
 };
-
-const DEFAULT_BASE = "http://localhost:8080";
-
+// const DEFAULT_BASE = "http://localhost:8080";
+const DEFAULT_BASE = "http://10.0.87.112:8080";
 export function apiBase() {
   return (import.meta as any).env?.VITE_API_BASE || DEFAULT_BASE;
 }
+// 登录
+export async function getLogin(params:any) {
+  let loginForm = new FormData();
+  loginForm.append("username", params.username);
+  loginForm.append("password", params.password);
+  return apiFetch<{ threads: ThreadTitle[] }>("/login", {
+    method: "POST",
+    body: loginForm
+  });
+}
+
 
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${apiBase()}${path}`, init);
+  // 从 localStorage 获取 token
+  const token = localStorage.getItem('token') || '';
+  
+  // 合并 headers，添加 token
+  let headers2=init ? init.headers : {};
+  const headers = {
+    'Authorization': token ? `Bearer ${token}` : '',
+    ...headers2
+  };
+  const res = await fetch(`${apiBase()}${path}`, {
+    ...init,
+    headers
+  });
   if (!res.ok) {
     const text = await res.text().catch(() => "");
     throw new Error(`HTTP ${res.status} ${res.statusText}${text ? `: ${text}` : ""}`);
@@ -58,7 +80,14 @@ export async function getThreads(user_id: string) {
     body: JSON.stringify({ user_id }),
   });
 }
-
+// 保存画板
+export async function saveDrawInfo(params:any) {
+  return apiFetch<{ threads: ThreadTitle[] }>("/dag/panel/save", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(params)
+  });
+}
 export async function deleteThread(user_id: string, thread_id: string) {
   return apiFetch<{ success: boolean }>("/thread/delete", {
     method: "POST",
@@ -133,7 +162,23 @@ export async function uploadWorkspaceFile(
     content_type: string;
   };
 }
-
+// 获取算子库
+export async function getAllSkills(page = '', page_size = '', keyword = "", type = "", skill_type = "") {
+  // const sp = new URLSearchParams();
+  // sp.set("page", String(page));
+  // sp.set("page_size", String(page_size));
+  // sp.set("keyword", keyword);
+  // if (type) {
+  //   sp.set("type", type);
+  // }
+  return apiFetch<{
+    code: number;
+    data: SkillItem[];
+    total: number;
+    current_count: number;
+    message?: string;
+  }>(`/dag/skill/listSkills`);
+}
 export function downloadWorkspaceUrl(path: string) {
   const sp = new URLSearchParams({ path });
   return `${apiBase()}/workspace/download?${sp.toString()}`;
@@ -154,6 +199,14 @@ export async function listSkills(page = 1, page_size = 20, keyword = "", type = 
     current_count: number;
     message?: string;
   }>(`/skills/list?${sp.toString()}`);
+}
+// 请求算子详情信息
+export async function listSkillsDetails(skill_id:string) {
+  return apiFetch<{
+    code: number;
+    result: Object;
+    message?: string;
+  }>(`/dag/skill/getSkillInfo?skill_id=${skill_id.toString()}`);
 }
 
 export async function getSkillTypes() {

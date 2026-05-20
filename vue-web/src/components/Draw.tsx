@@ -1,4 +1,5 @@
-import React, { useCallback, useState, useRef, memo, useEffect } from 'react';
+import React, { useCallback, useState, useRef, memo, useEffect, useMemo } from 'react';
+import { saveDrawInfo,getAllSkills,listSkillsDetails} from "../lib/api";
 import {
   ReactFlow,
   Background,
@@ -8,7 +9,7 @@ import {
   Handle,
   Position,
   getBezierPath,
-  BaseEdge,
+  getStraightPath,
   useReactFlow,
   ReactFlowProvider,
   type Connection,
@@ -21,6 +22,7 @@ import {
 import '@xyflow/react/dist/style.css';
 import {
   Play,
+  Save,
   Trash2,
   X,
   Upload,
@@ -37,14 +39,17 @@ import {
   MessageSquarePlus,
   ZoomIn,
   ZoomOut,
+  Minus,
+  GitBranch,
   RotateCcw,
   Search,
   ChevronDown,
   ChevronUp,
+  Edit3,
 } from 'lucide-react';
 import './Draw.css';
 
-// ==================== TypeScript 类型定义 ====================
+// ==================== 类型定义 ====================
 
 interface NodeData {
   label: string;
@@ -56,13 +61,27 @@ interface NodeData {
   outputVar?: string;
   onDelete?: (id: string) => void;
   onUpdateParams?: (id: string, params: Record<string, any>) => void;
+  onUpdateLabel?: (id: string, label: string) => void;
+  onSelect?: (id: string) => void;
+  isSelected?: boolean;
+  input_params?: { params: { name: string; param_value: string; type?: string }[] };
+  output_params?: { params: { name: string; type: string }[] };
 }
 
 interface CustomEdgeData {
+  edgeType?: 'bezier' | 'straight';
   onDelete?: (id: string) => void;
 }
 
-// ==================== 图标映射 ====================
+// 拖拽数据类型
+interface DraggedOperator {
+  id: string;
+  name: string;
+  icon: string;
+  category: string;
+}
+
+// ==================== 图标组件映射 ====================
 
 const iconComponents: Record<string, React.ComponentType<{ size?: number; className?: string }>> = {
   Upload,
@@ -77,6 +96,7 @@ const iconComponents: Record<string, React.ComponentType<{ size?: number; classN
   Circle,
 };
 
+// 获取图标
 const getIcon = (iconName: string) => {
   return iconComponents[iconName] || Circle;
 };
@@ -85,29 +105,29 @@ const getIcon = (iconName: string) => {
 
 const paramLabels: Record<string, Record<string, string>> = {
   'file-upload': {
-    filePath: 'file_path',
-    fileType: 'file_type',
-    encoding: 'encoding',
+    filePath: '文件路径',
+    format: '文件类型',
+    encoding: '编码格式',
   },
   'empty-clean': {
-    cleanMode: 'mode',
+    cleanMode: '清理模式',
   },
   'space-clean': {
-    spaceMode: 'scope',
+    spaceMode: '清理范围',
   },
   'year-sort': {
-    sortField: 'sort_field',
-    sortOrder: 'order',
+    sortField: '排序字段',
+    sortOrder: '排序顺序',
   },
 };
 
-const paramDisplayValues: Record<string, Record<string, any>> = {
+const paramDisplayValues: Record<string, Record<string, Record<string, string>>> = {
   'file-upload': {
-    fileType: { csv: 'CSV', excel: 'Excel', json: 'JSON' },
+    format: { csv: 'CSV', excel: 'Excel', json: 'JSON', txt: 'TXT' },
     encoding: { utf8: 'UTF-8', gb2312: 'GB2312', gbk: 'GBK' },
   },
   'empty-clean': {
-    cleanMode: { all: '去除全空行', spaces: '去除仅含空格的行' },
+    cleanMode: { all: '移除所有空行', spaces: '移除仅含空格的行' },
   },
   'space-clean': {
     spaceMode: { trim: '首尾空格', extra: '多余空格', all: '所有空格' },
@@ -118,52 +138,34 @@ const paramDisplayValues: Record<string, Record<string, any>> = {
   },
 };
 
-// ==================== 算子分类配置 ====================
+// ==================== 算子分类 ====================
 
-const operatorCategories = [
-  {
-    key: 'input',
-    label: '输入算子',
-    operators: [
-      { id: 'mysql-source', name: 'MySQL Source', icon: 'Database', category: 'input' as const },
-      { id: 'kafka-reader', name: 'Kafka Reader', icon: 'MessageSquare', category: 'input' as const },
-      { id: 'file-upload', name: '文件上传', icon: 'Upload', category: 'input' as const },
-    ],
-  },
-  {
-    key: 'process',
-    label: '处理算子',
-    operators: [
-      { id: 'data-filter', name: 'Data Filter', icon: 'Filter', category: 'process' as const },
-      { id: 'data-transformer', name: 'Data Transformer', icon: 'Shuffle', category: 'process' as const },
-      { id: 'empty-clean', name: '空行清洗', icon: 'Eraser', category: 'process' as const },
-      { id: 'space-clean', name: '空格清洗', icon: 'Type', category: 'process' as const },
-      { id: 'year-sort', name: '年份排序', icon: 'Calendar', category: 'process' as const },
-    ],
-  },
-  {
-    key: 'output',
-    label: '输出算子',
-    operators: [
-      { id: 'file-uploader', name: 'File Uploader', icon: 'Download', category: 'output' as const },
-    ],
-  },
-];
+// 算子分类数据（从后端接口获取后赋值）
+let operatorCategories: {
+  groupName: string;
+  DagSkillInfoList: { skill_id: string; skill_name: string; icon_path: string; skill_type: string; description?: string }[];
+}[] = [];
 
 // ==================== 自定义节点组件 ====================
 
 const CustomNode: React.FC<NodeProps<NodeData>> = ({ id, data, selected }) => {
-  const [isExpanded, setIsExpanded] = useState(true);
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const Icon = getIcon(data.icon);
-
-  const handleDelete = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    data.onDelete?.(id);
-  };
 
   const toggleExpand = (e: React.MouseEvent) => {
     e.stopPropagation();
     setIsExpanded(!isExpanded);
+  };
+
+  const handleDeleteClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShowDeleteConfirm(true);
+  };
+
+  const handleConfirmDelete = () => {
+    data.onDelete?.(id);
+    setShowDeleteConfirm(false);
   };
 
   // 获取参数显示值
@@ -176,17 +178,16 @@ const CustomNode: React.FC<NodeProps<NodeData>> = ({ id, data, selected }) => {
   };
 
   // 获取参数标签
-  const getParamLabel = (paramKey: string): string => {
-    return paramLabels[data.operatorId]?.[paramKey] || paramKey;
+  const getParamLabel = (operatorId: string, paramKey: string): string => {
+    return paramLabels[operatorId]?.[paramKey] || paramKey;
   };
 
   // 渲染参数项
   const renderParams = () => {
     if (!data.params) return null;
-    
     return Object.entries(data.params).map(([key, value]) => (
       <div key={key} className="node-param-item">
-        <span className="node-param-label">{getParamLabel(key)}:</span>
+        <span className="node-param-label">{getParamLabel(data.operatorId, key)}:</span>
         <span className="node-param-value">{getDisplayValue(key, value)}</span>
       </div>
     ));
@@ -194,74 +195,109 @@ const CustomNode: React.FC<NodeProps<NodeData>> = ({ id, data, selected }) => {
 
   return (
     <div className={`custom-node ${selected ? 'selected' : ''}`}>
-      <Handle 
-        type="target" 
-        position={Position.Left} 
+      <Handle
+        type="target"
+        position={Position.Left}
         className="node-handle"
         style={{ top: '50%' }}
       />
 
-      {/* 节点头部 */}
+      {/* 节点顶部 */}
       <div className="node-header">
+          <button className="node-expand-icon-btn" onClick={toggleExpand} title={isExpanded ? '收起参数' : '展开参数'}>
+            {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+          </button>
         <div className="node-header-left">
-          <div className="node-icon-wrapper">
+          <div className="node-icon-wrapper" onClick={(e) => { e.stopPropagation(); data.onSelect?.(id); }} style={{ cursor: 'pointer' }}>
             <Icon size={18} className="node-icon" />
           </div>
-          <span className="node-title">{data.label}</span>
+          <span
+            className="node-title-text"
+            onClick={(e) => { e.stopPropagation(); data.onSelect?.(id); }}
+          >
+            {data.label}
+          </span>
         </div>
         <div className="node-header-right">
-          <button className="node-delete-btn" onClick={handleDelete} title="删除节点">
+          <button className="node-delete-btn" onClick={handleDeleteClick} title="删除节点">
             <Trash2 size={14} />
           </button>
         </div>
       </div>
 
-      {/* 展开/折叠按钮 */}
-      <div className="node-expand-btn" onClick={toggleExpand}>
-        <span>{isExpanded ? '收起参数' : '展开参数'}</span>
-        {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-      </div>
 
-      {/* 参数内容 */}
+
+      {/* 展开参数详情 */}
       {isExpanded && (
-        <div className="node-params-scroll-container">
-          <div className="node-params-content">
-            {/* 输入 */}
-            <div className="node-section node-section-input">
-              <div className="node-section-label">输入</div>
-              <div className="node-param-item">
-                <span className="node-param-value-var">{data.inputVar || 'data_stream'}</span>
+        <div className="node-params-panel">
+          {/* 输入参数 */}
+          {data.input_params?.params && data.input_params.params.length > 0 && (
+            <div className="nodeParams">
+              <div className="topTitle">
+                <div className="labelText">输入</div>
+                <div className="valueText">值</div>
               </div>
+              {data.input_params.params.map((inputItem, index) => (
+                <div key={`input-${index}`} className="oneParams">
+                  <div className="node-param-label">{inputItem.name}</div>
+                  <div className="node-param-value">{inputItem.param_value || '-'}</div>
+                </div>
+              ))}
             </div>
-
-            {/* 普通 */}
-            <div className="node-section node-section-general">
-              <div className="node-section-label">普通</div>
-              {renderParams()}
+          )}
+          
+          {/* 输出参数 */}
+          {data.output_params?.params && data.output_params.params.length > 0 && (
+            <div className="nodeParams">
+              <div className="topTitle">
+                <div className="labelText">输出</div>
+                <div className="valueText">类型</div>
+              </div>
+              {data.output_params.params.map((outputItem, index) => (
+                <div key={`output-${index}`} className="oneParams">
+                  <div className="node-param-label">{outputItem.name}</div>
+                  <div className="node-param-value">{outputItem.type}</div>
+                </div>
+              ))}
             </div>
+          )}
+        </div>
+      )}
 
-            {/* 输出 */}
-            <div className="node-section node-section-output">
-              <div className="node-section-label">输出</div>
-              <div className="node-param-item">
-                <span className="node-param-value-var">{data.outputVar || 'output_data'}</span>
+      <Handle
+        type="source"
+        position={Position.Right}
+        className="node-handle"
+        style={{ top: '50%' }}
+      />
+
+      {/* 删除确认弹窗 */}
+      {showDeleteConfirm && (
+        <div className="delete-confirm-overlay" onClick={() => setShowDeleteConfirm(false)}>
+          <div className="delete-confirm-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="delete-confirm-header">
+              <div className="delete-confirm-icon">!</div>
+              <h3>确认删除此节点?</h3>
+              <button className="delete-confirm-close" onClick={() => setShowDeleteConfirm(false)}>
+                <X size={20} />
+              </button>
+            </div>
+            <div className="delete-confirm-body">
+              <p>删除节点后会影响您当前组件的运行结果,请谨慎操作。</p>
+            </div>
+            <div className="delete-confirm-footer">
+              <div className="delete-confirm-actions">
+                <button className="delete-confirm-cancel" onClick={() => setShowDeleteConfirm(false)}>
+                  取消
+                </button>
+                <button className="delete-confirm-confirm" onClick={handleConfirmDelete}>
+                  删除
+                </button>
               </div>
             </div>
           </div>
         </div>
       )}
-
-      {/* 节点底部 */}
-      <div className="node-footer">
-        <span className="node-description">{data.description}</span>
-      </div>
-
-      <Handle 
-        type="source" 
-        position={Position.Right} 
-        className="node-handle"
-        style={{ top: '50%' }}
-      />
     </div>
   );
 };
@@ -270,15 +306,12 @@ const MemoizedCustomNode = memo(CustomNode);
 
 // ==================== 注释节点组件 ====================
 
-interface CommentNodeProps {
-  id: string;
-  data: {
-    label: string;
-    onChange?: (id: string, label: string) => void;
-  };
+interface CommentNodeData {
+  label: string;
+  onChange?: (id: string, label: string) => void;
 }
 
-const CommentNode: React.FC<NodeProps<{ label: string; onChange?: (id: string, label: string) => void }>> = ({ id, data }) => {
+const CommentNode: React.FC<NodeProps<CommentNodeData>> = ({ id, data }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [text, setText] = useState(data.label);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -332,7 +365,7 @@ const CommentNode: React.FC<NodeProps<{ label: string; onChange?: (id: string, l
 
 const MemoizedCommentNode = memo(CommentNode);
 
-// ==================== 自定义连线组件（带删除按钮）====================
+// ==================== 自定义连线组件 ====================
 
 type CustomEdgeType = Edge<CustomEdgeData>;
 
@@ -348,15 +381,24 @@ const CustomEdge: React.FC<EdgeProps<CustomEdgeType>> = ({
 }) => {
   const [isHovered, setIsHovered] = useState(false);
 
-  // 计算贝塞尔曲线路径
-  const [edgePath, labelX, labelY] = getBezierPath({
-    sourceX,
-    sourceY,
-    sourcePosition,
-    targetX,
-    targetY,
-    targetPosition,
-  });
+  // 从data中获取连线类型
+  const edgeStyle = data?.edgeType || 'bezier';
+
+  // 使用useMemo确保路径在edgeStyle变化时重新计算
+  const [edgePath, labelX, labelY] = useMemo(() => {
+    if (edgeStyle === 'straight') {
+      return getStraightPath({ sourceX, sourceY, targetX, targetY });
+    }
+    return getBezierPath({
+      sourceX,
+      sourceY,
+      sourcePosition,
+      targetX,
+      targetY,
+      targetPosition,
+      curvature: 0.4,
+    });
+  }, [edgeStyle, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition]);
 
   const handleDelete = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -377,8 +419,8 @@ const CustomEdge: React.FC<EdgeProps<CustomEdgeType>> = ({
         fill="none"
         style={{ transition: 'stroke 0.2s' }}
       />
-      
-      {/* 箭头 - 水平垂直三角形 */}
+
+      {/* 箭头 */}
       <defs>
         <marker
           id="arrowhead"
@@ -420,7 +462,7 @@ const CustomEdge: React.FC<EdgeProps<CustomEdgeType>> = ({
   );
 };
 
-// ==================== 主画布组件 ====================
+// ==================== 节点和连线类型配置 ====================
 
 const nodeTypes = {
   custom: MemoizedCustomNode,
@@ -432,7 +474,7 @@ const edgeTypes = {
 };
 
 // 节点间距配置
-const NODE_WIDTH = 240;
+const NODE_WIDTH = 285;
 const NODE_GAP = 60;
 const START_X = 50;
 const START_Y = 200;
@@ -461,10 +503,10 @@ const defaultNodes: Node<NodeData>[] = [
     type: 'custom',
     position: { x: START_X + (NODE_WIDTH + NODE_GAP), y: START_Y },
     data: {
-      label: '空行清洗',
+      label: '空行清理',
       icon: 'Eraser',
       operatorId: 'empty-clean',
-      description: '去除空行',
+      description: '移除空行',
       params: {
         cleanMode: 'all',
       },
@@ -477,10 +519,10 @@ const defaultNodes: Node<NodeData>[] = [
     type: 'custom',
     position: { x: START_X + (NODE_WIDTH + NODE_GAP) * 2, y: START_Y },
     data: {
-      label: '空格清洗',
+      label: '空格清理',
       icon: 'Type',
       operatorId: 'space-clean',
-      description: '去除多余空格',
+      description: '移除多余空格',
       params: {
         spaceMode: 'trim',
       },
@@ -508,9 +550,9 @@ const defaultNodes: Node<NodeData>[] = [
 ];
 
 const defaultEdges: Edge[] = [
-  { id: 'edge-1', source: 'node-1', target: 'node-2', type: 'custom' },
-  { id: 'edge-2', source: 'node-2', target: 'node-3', type: 'custom' },
-  { id: 'edge-3', source: 'node-3', target: 'node-4', type: 'custom' },
+  { id: 'edge-1', source: 'node-1', target: 'node-2', type: 'custom', data: { edgeType: 'bezier' } },
+  { id: 'edge-2', source: 'node-2', target: 'node-3', type: 'custom', data: { edgeType: 'bezier' } },
+  { id: 'edge-3', source: 'node-3', target: 'node-4', type: 'custom', data: { edgeType: 'bezier' } },
 ];
 
 // ==================== 底部工具栏组件 ====================
@@ -522,6 +564,8 @@ interface FloatingToolbarProps {
   onZoomIn: () => void;
   onZoomOut: () => void;
   onResetView: () => void;
+  edgeType: 'bezier' | 'straight';
+  onEdgeTypeChange: (type: 'bezier' | 'straight') => void;
 }
 
 const FloatingToolbar: React.FC<FloatingToolbarProps> = ({
@@ -531,16 +575,39 @@ const FloatingToolbar: React.FC<FloatingToolbarProps> = ({
   onZoomIn,
   onZoomOut,
   onResetView,
+  edgeType,
+  onEdgeTypeChange,
 }) => {
   return (
     <div className="floating-toolbar">
-      <button className="toolbar-btn" onClick={onOpenOperatorLibrary} title="算子库">
-        <Package size={20} />
+      <button className="toolbar-operator-btn" onClick={onOpenOperatorLibrary}>
+        <Package size={16} />
+        <span>算子库</span>
       </button>
       <div className="toolbar-divider"></div>
       <button className="toolbar-btn" onClick={onAddComment} title="添加注释">
         <MessageSquarePlus size={20} />
       </button>
+      <div className="toolbar-divider"></div>
+
+      {/* 连线类型切换 */}
+      <div className="edge-type-toggle">
+        <button
+          className={`toolbar-btn ${edgeType === 'straight' ? 'active' : ''}`}
+          onClick={() => onEdgeTypeChange('straight')}
+          title="直线"
+        >
+          <Minus size={20} />
+        </button>
+        <button
+          className={`toolbar-btn ${edgeType === 'bezier' ? 'active' : ''}`}
+          onClick={() => onEdgeTypeChange('bezier')}
+          title="曲线"
+        >
+          <GitBranch size={20} />
+        </button>
+      </div>
+
       <div className="toolbar-divider"></div>
       <button className="toolbar-btn" onClick={onZoomIn} title="放大">
         <ZoomIn size={20} />
@@ -561,10 +628,11 @@ const FloatingToolbar: React.FC<FloatingToolbarProps> = ({
 interface OperatorLibraryModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onAddNode: (operator: { id: string; name: string; icon: string; category: string }) => void;
+  onAddNode: (operator: { skill_id: string; skill_name: string; icon_path: string; skill_type: string; description?: string }, position?: { x: number; y: number }) => void;
+  operatorList: { groupName: string; DagSkillInfoList: { skill_id: string; skill_name: string; icon_path: string; skill_type: string; description?: string }[] }[];
 }
 
-const OperatorLibraryModal: React.FC<OperatorLibraryModalProps> = ({ isOpen, onClose, onAddNode }) => {
+const OperatorLibraryModal: React.FC<OperatorLibraryModalProps> = ({ isOpen, onClose, onAddNode, operatorList }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(
     new Set(['input', 'process', 'output'])
@@ -584,74 +652,93 @@ const OperatorLibraryModal: React.FC<OperatorLibraryModalProps> = ({ isOpen, onC
     });
   };
 
-  const filteredCategories = operatorCategories
+  const filteredCategories = operatorList
     .map((category) => ({
       ...category,
-      operators: category.operators.filter((op) =>
-        op.name.toLowerCase().includes(searchTerm.toLowerCase())
+      DagSkillInfoList: category.DagSkillInfoList.filter((op) =>
+        op.skill_name.toLowerCase().includes(searchTerm.toLowerCase())
       ),
     }))
-    .filter((category) => category.operators.length > 0);
+    .filter((category) => category.DagSkillInfoList.length > 0);
+
+  // 处理拖拽开始
+  const handleDragStart = (e: React.DragEvent, operator: { skill_id: string; skill_name: string; icon_path: string; skill_type: string; description?: string }) => {
+    e.dataTransfer.effectAllowed = 'copy';
+    e.dataTransfer.setData('application/json', JSON.stringify(operator));
+    // 设置拖拽时的自定义图标
+    const dragImage = document.createElement('div');
+    dragImage.style.padding = '8px 12px';
+    dragImage.style.background = '#1890ff';
+    dragImage.style.color = '#fff';
+    dragImage.style.borderRadius = '4px';
+    dragImage.style.fontSize = '14px';
+    dragImage.style.position = 'absolute';
+    dragImage.style.top = '-1000px';
+    dragImage.textContent = operator.skill_name;
+    document.body.appendChild(dragImage);
+    e.dataTransfer.setDragImage(dragImage, 0, 0);
+    setTimeout(() => document.body.removeChild(dragImage), 0);
+  };
 
   return (
-    <>
-      <div className="modal-overlay" onClick={onClose}></div>
-      <div className="operator-modal">
-        <div className="modal-header">
-          <h3>算子库</h3>
-          <button className="modal-close" onClick={onClose}>
-            <X size={18} />
-          </button>
-        </div>
-
-        <div className="modal-search">
-          <Search size={16} className="search-icon" />
-          <input
-            type="text"
-            placeholder="搜索算子..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </div>
-
-        <div className="modal-content">
-          {filteredCategories.map((category) => (
-            <div key={category.key} className="modal-category">
-              <div className="modal-category-header" onClick={() => toggleCategory(category.key)}>
-                <span>{category.label}</span>
-                <ChevronDown
-                  size={16}
-                  className={`chevron ${expandedCategories.has(category.key) ? 'expanded' : ''}`}
-                />
-              </div>
-
-              {expandedCategories.has(category.key) && (
-                <div className="modal-operators">
-                  {category.operators.map((operator) => {
-                    const Icon = getIcon(operator.icon);
-                    return (
-                      <div
-                        key={operator.id}
-                        className="modal-operator-item"
-                        onClick={() => {
-                          onAddNode(operator);
-                          onClose();
-                        }}
-                      >
-                        <div className="modal-operator-icon">
-                          <Icon size={20} />
-                        </div>
-                        <span className="modal-operator-name">{operator.name}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
+    <div className="operator-modal">
+      <div className="modal-header">
+        <h3>算子库</h3>
+        <button className="modal-close" onClick={onClose}>
+          <X size={18} />
+        </button>
       </div>
-    </>
+
+      <div className="modal-search">
+        <Search size={16} className="search-icon" />
+        <input
+          type="text"
+          placeholder="搜索算子..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
+      </div>
+
+      <div className="modal-content">
+        {filteredCategories.map((category) => (
+          <div key={category.groupName} className="modal-category">
+            <div className="modal-category-header" onClick={() => toggleCategory(category.groupName)}>
+              <span>{category.groupName}</span>
+              <ChevronDown
+                size={16}
+                className={`chevron ${expandedCategories.has(category.groupName) ? 'expanded' : ''}`}
+              />
+            </div>
+
+            {expandedCategories.has(category.groupName) && (
+              <div className="modal-operators">
+                {category.DagSkillInfoList.map((operator) => {
+                  const Icon = getIcon(operator.icon_path);
+                  return (
+                    <div
+                      key={operator.skill_id}
+                      className="modal-operator-item"
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, operator)}
+                      onClick={() => {
+                        onAddNode(operator);
+                        onClose();
+                      }}
+                      style={{ cursor: 'grab' }}
+                    >
+                      <div className="modal-operator-icon">
+                        <Icon size={20} />
+                      </div>
+                      <span className="modal-operator-name">{operator.skill_name}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
   );
 };
 
@@ -661,17 +748,314 @@ const FlowEditorInner: React.FC = () => {
   const [nodes, setNodes, onNodesChange] = useNodesState<Node<NodeData>>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [isOperatorLibraryOpen, setIsOperatorLibraryOpen] = useState(false);
+  const [edgeType, setEdgeType] = useState<'bezier' | 'straight'>('bezier');
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState('');
+  const [isLoading, setIsLoading] = useState(false);  // 添加：加载状态
+  const [operatorList, setOperatorList] = useState(operatorCategories);
+  const [referenceOptions, setReferenceOptions] = useState<{ name: string; type: string; description: string }[]>([]);  // 引用下拉选项
+  const [isLoadingReferences, setIsLoadingReferences] = useState(false);   // 加载引用状态
+  const [taskId, setTaskId] = useState<string>('');
+  const [isEditingNodeName, setIsEditingNodeName] = useState(false);
+  const [editingNodeName, setEditingNodeName] = useState('');
+  const [isDescExpanded, setIsDescExpanded] = useState(false);
+  const [showOperatorModal, setShowOperatorModal] = useState(false);  // 任务ID，保存后获取
   const isInitialized = useRef(false);
-  const nodeIdCounter = useRef(4);
-  const { zoomIn, zoomOut, fitView } = useReactFlow();
+  const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const isFirstRender = useRef(true);
+  const reactFlowWrapper = useRef<HTMLDivElement>(null);
+  const { zoomIn, zoomOut, fitView, screenToFlowPosition } = useReactFlow();
 
-  // 初始化默认节点
+  // 获取选中的节点
+  const selectedNode = nodes.find((m) => m.id === selectedNodeId);
+
+  // 关闭配置面板
+  const closeConfigPanel = () => setSelectedNodeId(null);
+
+  // 切换连线类型时更新所有现有连线
   useEffect(() => {
-    if (!isInitialized.current) {
-      const nodesWithCallbacks = defaultNodes.map((node) => ({
-        ...node,
+    setEdges((eds) =>
+      eds.map((edge) => ({
+        ...edge,
         data: {
-          ...node.data,
+          ...edge.data,
+          edgeType,
+        },
+      }))
+    );
+  }, [edgeType, setEdges]);
+
+  // 辅助函数：获取节点数组中的最大ID数字
+  const getMaxNodeId = (nodes: any[]): number => {
+    if (nodes.length === 0) return 0;
+    const ids = nodes
+      .map(n => n.id.replace('node-', ''))
+      .filter(id => !isNaN(parseInt(id)))
+      .map(id => parseInt(id));
+    return ids.length > 0 ? Math.max(...ids) : 0;
+  };
+
+  const nodeIdCounter = useRef(4);
+
+  // 模拟请求后端接口获取画板数据
+  useEffect(() => {
+    // 模拟 API 请求，延迟返回数据
+    // setTimeout(() => {
+    //   // 模拟从后端获取的画板数据
+    //   const fetchedNodes = [
+    //     {
+    //       id: 'node-1',
+    //       type: 'custom',
+    //       position: { x: 50, y: 200 },
+    //       data: {
+    //         label: '文件上传',
+    //         icon: 'Upload',
+    //         operatorId: 'file-upload',
+    //         description: 'CSV文件',
+    //         params: { filePath: '/data/input.csv', encoding: 'utf8' },
+    //         inputVar: undefined,
+    //         outputVar: 'records: 1,204',
+    //       },
+    //     },
+    //     {
+    //       id: 'node-2',
+    //       type: 'custom',
+    //       position: { x: 350, y: 200 },
+    //       data: {
+    //         label: '空行清洗',
+    //         icon: 'Eraser',
+    //         operatorId: 'empty-clean',
+    //         description: '去除空行',
+    //         params: { cleanMode: 'all' },
+    //         inputVar: 'data_stream',
+    //         outputVar: 'cleaned_data',
+    //       },
+    //     },
+    //     {
+    //       id: 'node-3',
+    //       type: 'custom',
+    //       position: { x: 650, y: 200 },
+    //       data: {
+    //         label: '空格清洗',
+    //         icon: 'Type',
+    //         operatorId: 'space-clean',
+    //         description: '去除多余空格',
+    //         params: { spaceMode: 'trim' },
+    //         inputVar: 'cleaned_data',
+    //         outputVar: 'trimmed_data',
+    //       },
+    //     },
+    //     {
+    //       id: 'node-4',
+    //       type: 'custom',
+    //       position: { x: 950, y: 200 },
+    //       data: {
+    //         label: '年份排序',
+    //         icon: 'Calendar',
+    //         operatorId: 'year-sort',
+    //         description: '按年份升序',
+    //         params: { sortField: 'year', sortOrder: 'asc' },
+    //         inputVar: 'trimmed_data',
+    //         outputVar: 'sorted_data',
+    //       },
+    //     },
+    //   ];
+
+    //   const fetchedEdges = [
+    //     { id: 'edge-1', source: 'node-1', target: 'node-2', type: 'custom', data: { edgeType: 'bezier' } },
+    //     { id: 'edge-2', source: 'node-2', target: 'node-3', type: 'custom', data: { edgeType: 'bezier' } },
+    //     { id: 'edge-3', source: 'node-3', target: 'node-4', type: 'custom', data: { edgeType: 'bezier' } },
+    //   ];
+
+    //   console.log('从后端获取画板数据:', { nodes: fetchedNodes, edges: fetchedEdges });
+
+    //   // 获取最大节点ID，用于后续新增节点
+    //   nodeIdCounter.current = getMaxNodeId(fetchedNodes);
+
+    //   // 为节点和连线添加回调函数
+    //   const nodesWithCallbacks = fetchedNodes.map((node) => ({
+    //     ...node,
+    //     data: {
+    //       ...node.data,
+    //       onDelete: (id: string) => {
+    //         setNodes((nds) => nds.filter((n) => n.id !== id));
+    //         setEdges((eds) => eds.filter((e) => e.source !== id && e.target !== id));
+    //       },
+    //       onUpdateParams: (id: string, params: Record<string, any>) => {
+    //         setNodes((nds) =>
+    //           nds.map((n) => {
+    //             if (n.id === id) {
+    //               return { ...n, data: { ...n.data, params } };
+    //             }
+    //             return n;
+    //           })
+    //         );
+    //       },
+    //       onSelect: (id: string) => setSelectedNodeId(id),
+    //       onUpdateLabel: (id: string, label: string) => {
+    //         const otherLabels = nodes.filter(n => n.id !== id).map(n => n.data.label);
+    //         let finalLabel = label;
+    //         if (otherLabels.includes(label)) {
+    //           let counter = 1;
+    //           while (otherLabels.includes(`${label}_${counter}`)) {
+    //             counter++;
+    //           }
+    //           finalLabel = `${label}_${counter}`;
+    //         }
+    //         setNodes((nds) =>
+    //           nds.map((n) => {
+    //             if (n.id === id) {
+    //               return { ...n, data: { ...n.data, label: finalLabel } };
+    //             }
+    //             return n;
+    //           })
+    //         );
+    //       },
+    //     },
+    //   }));
+
+    //   const edgesWithCallbacks = fetchedEdges.map((edge) => ({
+    //     ...edge,
+    //     data: {
+    //       edgeType: edge.data?.edgeType || 'bezier',
+    //       onDelete: (id: string) => {
+    //         setEdges((eds) => eds.filter((e) => e.id !== id));
+    //       },
+    //     },
+    //   }));
+
+    //   setNodes(nodesWithCallbacks);
+    //   setEdges(edgesWithCallbacks);
+    // 模拟请求 /suanzi 接口获取算子数据
+    getAllSkills().then(resAllSkills=>{
+      if(resAllSkills.code === 200){
+        setOperatorList(resAllSkills.result.data);
+        isInitialized.current = true;
+      }
+    })
+  }, []);
+
+  const onConnect = useCallback(
+    (connection: Connection) => {
+      const edge = {
+        ...connection,
+        type: 'custom',
+        data: {
+          edgeType,
+          onDelete: (id: string) => {
+            setEdges((eds) => eds.filter((e) => e.id !== id));
+          },
+        },
+      };
+      setEdges((eds) => addEdge(edge, eds));
+    },
+    [setEdges, edgeType]
+  );
+
+  // 获取引用类型的数据源列表（根据上游节点的算子ID请求算子详情接口）
+  const fetchReferenceOptions = useCallback(async (currentNodeId: string) => {
+    setIsLoadingReferences(true);
+    setReferenceOptions([]);
+
+    // 找到指向当前节点的所有上游节点（通过 edges 的 target 找 source）
+    const upstreamNodeIds = edges
+      .filter((e) => e.target === currentNodeId)
+      .map((e) => e.source);
+
+    if (upstreamNodeIds.length === 0) {
+      setIsLoadingReferences(false);
+      return;
+    }
+
+    // 获取所有上游节点的算子ID
+    const upstreamNodes = nodes.filter((n) => upstreamNodeIds.includes(n.id));
+    const operatorIds = upstreamNodes.map((n) => n.data.operatorId);
+
+    // 去重
+    const uniqueOperatorIds = [...new Set(operatorIds)];
+
+    // 并行请求所有上游算子的详情
+    try {
+      const results = await Promise.all(
+        uniqueOperatorIds.map((opId) => listSkillsDetails(opId))
+      );
+
+      // 提取所有出参
+      const allOutputParams: { name: string; type: string; description: string }[] = [];
+      results.forEach((resSkillsDetails) => {
+        if (resSkillsDetails.result?.output_params?.params) {
+          allOutputParams.push(...resSkillsDetails.result.output_params.params);
+        }
+      });
+
+      setReferenceOptions(allOutputParams);
+      console.log('引用变量选项:', allOutputParams);
+    } catch (error) {
+      console.error('获取算子详情失败:', error);
+      setReferenceOptions([]);
+    } finally {
+      setIsLoadingReferences(false);
+    }
+  }, [edges, nodes]);
+
+  // 当选中节点时，获取上游节点的出参数据（用于引用下拉）
+  useEffect(() => {
+    if (selectedNodeId) {
+      fetchReferenceOptions(selectedNodeId);
+    }
+  }, [selectedNodeId, fetchReferenceOptions]);
+
+  // 辅助函数:生成唯一的节点名称
+  const generateUniqueLabel = useCallback((baseName: string): string => {
+    const existingLabels = nodes.map((n) => n.data.label);
+    if (!existingLabels.includes(baseName)) {
+      return baseName;
+    }
+    let counter = 1;
+    let newLabel = `${baseName}_${counter}`;
+    while (existingLabels.includes(newLabel)) {
+      counter += 1;
+      newLabel = `${baseName}_${counter}`;
+    }
+    return newLabel;
+  }, [nodes]);
+
+  const handleAddNode = useCallback(
+    async (operator: { skill_id: string; skill_name: string; icon_path: string; skill_type: string; description?: string }, position?: { x: number; y: number }) => {
+      nodeIdCounter.current += 1;
+      const uniqueLabel = generateUniqueLabel(operator.skill_name);
+
+      // 请求算子详情获取 input_params 和 output_params
+      let inputParams = undefined;
+      let outputParams = undefined;
+      try {
+        const res = await listSkillsDetails(operator.skill_id);
+        if (res.result) {
+          inputParams = res.result.input_params;
+          outputParams = res.result.output_params;
+        }
+      } catch (error) {
+        console.error('获取算子详情失败:', error);
+      }
+      const newNode: Node<NodeData> = {
+        id: `node-${nodeIdCounter.current}`,
+        type: 'custom',
+        position: position || {
+          x: START_X + (NODE_WIDTH + NODE_GAP) * (nodes.length),
+          y: START_Y,
+        },
+        data: {
+          label: uniqueLabel,
+          icon: operator.icon_path,
+          operatorId: operator.skill_id,
+          description: operator.description || getOperatorDescription(operator.skill_id),
+          params: getDefaultParams(operator.skill_id),
+          inputVar: 'input_data',
+          outputVar: 'output_data',
+          input_params: inputParams,
+          output_params: outputParams,
           onDelete: (id: string) => {
             setNodes((nds) => nds.filter((n) => n.id !== id));
             setEdges((eds) => eds.filter((e) => e.source !== id && e.target !== id));
@@ -689,70 +1073,28 @@ const FlowEditorInner: React.FC = () => {
               })
             );
           },
-        },
-      }));
-
-      const edgesWithCallbacks = defaultEdges.map((edge) => ({
-        ...edge,
-        data: {
-          onDelete: (id: string) => {
-            setEdges((eds) => eds.filter((e) => e.id !== id));
+          onSelect: (id: string) => {
+            setSelectedNodeId(id);
+            setShowOperatorModal(false);
           },
-        },
-      }));
+          onUpdateLabel: (id: string, label: string) => {
+            // 获取当前节点以外的所有节点标签
+            const otherLabels = nodes.filter(n => n.id !== id).map(n => n.data.label);
 
-      setNodes(nodesWithCallbacks);
-      setEdges(edgesWithCallbacks);
-      isInitialized.current = true;
-    }
-  }, [setNodes, setEdges]);
+            // 生成唯一名称（如果冲突则添加后缀）
+            let finalLabel = label;
+            if (otherLabels.includes(label)) {
+              let counter = 1;
+              while (otherLabels.includes(`${label}_${counter}`)) {
+                counter++;
+              }
+              finalLabel = `${label}_${counter}`;
+            }
 
-  const onConnect = useCallback(
-    (connection: Connection) => {
-      const edge = {
-        ...connection,
-        type: 'custom',
-        data: {
-          onDelete: (id: string) => {
-            setEdges((eds) => eds.filter((e) => e.id !== id));
-          },
-        },
-      };
-      setEdges((eds) => addEdge(edge, eds));
-    },
-    [setEdges]
-  );
-
-  const handleAddNode = useCallback(
-    (operator: { id: string; name: string; icon: string; category: string }) => {
-      nodeIdCounter.current += 1;
-      const newNode: Node<NodeData> = {
-        id: `node-${nodeIdCounter.current}`,
-        type: 'custom',
-        position: {
-          x: START_X + (NODE_WIDTH + NODE_GAP) * (nodes.length),
-          y: START_Y,
-        },
-        data: {
-          label: operator.name,
-          icon: operator.icon,
-          operatorId: operator.id,
-          description: getOperatorDescription(operator.id),
-          params: getDefaultParams(operator.id),
-          inputVar: 'input_data',
-          outputVar: 'output_data',
-          onDelete: (id: string) => {
-            setNodes((nds) => nds.filter((n) => n.id !== id));
-            setEdges((eds) => eds.filter((e) => e.source !== id && e.target !== id));
-          },
-          onUpdateParams: (id: string, params: Record<string, any>) => {
             setNodes((nds) =>
               nds.map((n) => {
                 if (n.id === id) {
-                  return {
-                    ...n,
-                    data: { ...n.data, params },
-                  };
+                  return { ...n, data: { ...n.data, label: finalLabel } };
                 }
                 return n;
               })
@@ -762,7 +1104,7 @@ const FlowEditorInner: React.FC = () => {
       };
       setNodes((nds) => [...nds, newNode]);
     },
-    [setNodes, setEdges]
+    [setNodes, setEdges, nodes.length, generateUniqueLabel]
   );
 
   // 添加注释
@@ -795,25 +1137,258 @@ const FlowEditorInner: React.FC = () => {
     setNodes((nds) => [...nds, newComment]);
   }, [setNodes]);
 
+  // 自动保存画板数据
+  useEffect(() => {
+    // 跳过首次渲染（初始化时不需要保存）
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+
+    // 跳过未初始化的状态
+    if (!isInitialized.current) return;
+
+    // 防抖：清除上一次的定时器
+    if (autoSaveTimerRef.current) {
+      clearTimeout(autoSaveTimerRef.current);
+    }
+
+    // 设置新的定时器，800ms 后执行保存
+    autoSaveTimerRef.current = setTimeout(async () => {
+      // 检查 nodes 中是否有引用类型的参数
+      console.log('=== 保存前检查 ===');
+      console.log('edges 数量:', edges.length);
+      console.log('edges:', edges);
+      console.log('nodes:', nodes.map(n => ({ id: n.id, label: n.data.label })));
+      
+      console.log('=== 保存前检查 nodes ===');
+      nodes.forEach(node => {
+        if (node.data.input_params?.params) {
+          node.data.input_params.params.forEach(param => {
+            console.log('Node:', node.id, 'Param:', param.name, '_refType:', param._refType, '_refValue:', param._refValue);
+          });
+        }
+      });
+      
+      // 构造请求参数（按照接口文档结构）
+      const params = {
+        dsl_version: "1.0",
+        task: {
+          dag_task_id: taskId || '',  // 有则更新，无则创建
+          dag_task_name: '科研数据清洗与排序',
+          description: '对科研论文数据进行空行清洗、空格清理、按年份升序排序',
+          message_id: ''
+        },
+        nodes: nodes
+            .filter(n => n.type !== 'comment')  // 过滤掉注释节点
+            .map(n => ({
+              node_id: n.id,
+              node_name: n.data.label,
+              node_type: 'default',
+              skill: {
+                skill_id: n.data.operatorId,
+                version: '1.0',
+              },
+              position: {
+                x: Math.round(n.position.x),
+                y: Math.round(n.position.y),
+              },
+              input_params: {
+                params: n.data.params ? [{
+                  param_name: n.data.params.paramName || '',
+                  value_mode: n.data.params.referenceType === 'reference' ? 'reference' : 'manual',
+                  param_type: n.data.params.paramType || '',
+                  value_source: 'default',
+                  param_value: n.data.params.referenceType === 'manual' || n.data.params.referenceType === 'dataSource' 
+                    ? (n.data.params.value || '') 
+                    : '',
+                  binding_id: n.data.params.referenceType === 'reference' 
+                    ? (n.data.params.refValue || '') 
+                    : '',
+                }] : [],
+              },
+            })),
+          edges: edges.map(e => ({
+            edge_id: e.id,
+            from_node_id: e.source,
+            to_node_id: e.target,
+          })),
+          bindings: (() => {
+            const bindingsList = [];
+            
+            console.log('=== bindings 生成 ===');
+            console.log('edges 数量:', edges.length);
+            console.log('edges 数据:', edges);
+            console.log('nodes 数量:', nodes.length);
+            
+            // 遍历所有节点，查找有引用类型参数的节点
+            nodes.forEach(node => {
+              if (node.data.input_params?.params) {
+                node.data.input_params.params.forEach(param => {
+                  // 如果参数的引用类型是"引用"，则生成 binding（不检查 _refValue 是否有值）
+                  if (param._refType === 'reference') {
+                    // 找到上游节点（通过 edges 找到指向当前节点的边）
+                    const upstreamEdge = edges.find(e => e.target === node.id);
+                    if (upstreamEdge) {
+                      // _refValue 的格式可能是 "paramName（type）"，需要提取参数名
+                      // 如果 _refValue 为空，使用上游节点的第一个出参名称
+                      let refParamName = param._refValue;
+                      if (!refParamName) {
+                        // 从上游节点的 output_params 中获取第一个参数名
+                        const upstreamNode = nodes.find(n => n.id === upstreamEdge.source);
+                        refParamName = upstreamNode?.data.output_params?.params?.[0]?.name || '';
+                      } else if (refParamName.includes('（')) {
+                        refParamName = refParamName.split('（')[0];
+                      }
+                      
+                      const binding = {
+                        // binding_id: param._refValue || `binding_${upstreamEdge.source}_${node.id}_${param.name}`,
+                        binding_id: crypto.randomUUID(),
+                        from_node_id: upstreamEdge.source,
+                        from_param_name: refParamName.trim() || param.name,
+                        to_node_id: node.id,
+                        to_param_name: param.name || '',
+                      };
+                      console.log('生成 binding:', binding);
+                      bindingsList.push(binding);
+                    }
+                  }
+                });
+              }
+            });
+            return bindingsList;
+          })()
+      };
+
+      console.log('保存画板请求参数:', params);
+
+      setIsSaving(true);
+      setSaveMessage('');
+
+      try {
+        // 调用保存接口
+        const res = await saveDrawInfo(params);
+        console.log('保存接口返回:', res);
+        
+        // 如果返回了任务ID，保存起来
+        if (res?.result?.dag_task_id) {
+          setTaskId(res.result.dag_task_id);
+        }
+        
+        setIsSaving(false);
+        setSaveMessage('已自动保存');
+      } catch (error) {
+        console.error('保存失败:', error);
+        setIsSaving(false);
+        setSaveMessage('保存失败');
+      }
+
+      // 3秒后清除消息
+      setTimeout(() => {
+        setSaveMessage('');
+      }, 3000);
+    }, 800);
+
+    // 清理定时器
+    return () => {
+      if (autoSaveTimerRef.current) {
+        clearTimeout(autoSaveTimerRef.current);
+      }
+    };
+  }, [nodes, edges]);
+
+  // 处理拖拽进入画布
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+    setIsDragOver(true);
+  }, []);
+
+  // 处理拖拽离开画布
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+  }, []);
+
+  // 处理拖拽放置到画布
+  const handleDrop = useCallback(
+    async (e: React.DragEvent) => {
+      e.preventDefault();
+      setIsDragOver(false);
+
+      const data = e.dataTransfer.getData('application/json');
+      if (!data) return;
+
+      try {
+        const operator: DraggedOperator = JSON.parse(data);
+
+        // 计算放置位置(转换为画布坐标)
+        const position = screenToFlowPosition({
+          x: e.clientX,
+          y: e.clientY,
+        });
+
+        // 调整位置使节点中心对准鼠标位置
+        const adjustedPosition = {
+          x: position.x - NODE_WIDTH / 2,
+          y: position.y - 40,
+        };
+
+        await handleAddNode(operator, adjustedPosition);
+      } catch (error) {
+        console.error('Failed to parse dragged operator:', error);
+      }
+    },
+    [handleAddNode, screenToFlowPosition]
+  );
+
   return (
     <div className="flow-canvas-container">
+      {/* 加载中显示 */}
+      {isLoading && (
+        <div className="flow-loading-overlay">
+          <div className="flow-loading-content">
+            <div className="flow-loading-spinner"></div>
+            <span>加载画板数据...</span>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flow-header">
         <div className="header-left">
           <h2>科研数据清洗与排序</h2>
-          <span className="header-desc">对科研文献数据进行空行清洗、空格清洗、按年份升序排序</span>
+          <span className="header-desc">对科研论文数据进行空行清洗、空格清理、按年份升序排序</span>
         </div>
         <div className="header-right">
-          <button className="run-btn">
+          <span className="auto-save-status">
+            {isSaving && <span className="save-saving">保存中...</span>}
+            {!isSaving && saveMessage && <span className="save-message">{saveMessage}</span>}
+            {!isSaving && !saveMessage && <span className="save-idle">已保存</span>}
+          </span>
+          <button className="run-btn" onClick={()=>{
+            saveDrawInfo()
+          }}>
             <Play size={16} fill="currentColor" />
-            <span>运行</span>
+            <span>保存</span>
           </button>
         </div>
       </div>
 
       {/* Main Content */}
       <div className="flow-content">
-        <div className="reactflow-wrapper">
+        <div
+          className="reactflow-wrapper"
+          ref={reactFlowWrapper}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+          style={{
+            position: 'relative',
+            width: '100%',
+            height: '100%',
+          }}
+        >
           <ReactFlow
             nodes={nodes}
             edges={edges}
@@ -823,10 +1398,52 @@ const FlowEditorInner: React.FC = () => {
             nodeTypes={nodeTypes}
             edgeTypes={edgeTypes}
             fitView
-            attributionPosition="bottom-left"
           >
             <Background variant={BackgroundVariant.Dots} gap={12} size={1} />
           </ReactFlow>
+
+          {/* 拖拽时的视觉反馈遮罩 */}
+          {isDragOver && (
+            <div
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                background: 'rgba(24, 144, 255, 0.1)',
+                border: '2px dashed #1890ff',
+                pointerEvents: 'none',
+                zIndex: 1000,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <div
+                style={{
+                  background: '#1890ff',
+                  color: '#fff',
+                  padding: '12px 24px',
+                  borderRadius: '8px',
+                  fontSize: '16px',
+                  fontWeight: 500,
+                }}
+              >
+                释放以创建节点
+              </div>
+            </div>
+          )}
+
+          {/* Operator Library Modal */}
+          {isOperatorLibraryOpen && (
+            <OperatorLibraryModal
+              isOpen={isOperatorLibraryOpen}
+              onClose={() => setIsOperatorLibraryOpen(false)}
+              onAddNode={handleAddNode}
+              operatorList={operatorList}
+            />
+          )}
 
           {/* Floating Toolbar */}
           <FloatingToolbar
@@ -836,26 +1453,272 @@ const FlowEditorInner: React.FC = () => {
             onZoomIn={zoomIn}
             onZoomOut={zoomOut}
             onResetView={fitView}
+            edgeType={edgeType}
+            onEdgeTypeChange={setEdgeType}
           />
+
+          {/* 右侧参数配置面板 */}
+          {selectedNode && (
+            <div className="config-panel">
+              <div className="config-panel-header">
+                <h3>参数配置</h3>
+                <button className="config-panel-close" onClick={closeConfigPanel}>
+                  <X size={20} />
+                </button>
+              </div>
+              {(() => {
+                const Icon = getIcon(selectedNode.data.icon);
+                return (
+              <div className="config-panel-body">
+                {/* 节点名称 + 图标 + 编辑按钮 */}
+                <div className="config-node-header">
+                  <div className="config-node-icon">
+                    {getIcon && <Icon size={24} className="config-node-icon-svg" />}
+                  </div>
+                  <div className="config-node-info">
+                    {isEditingNodeName ? (
+                      <input
+                        className="config-node-name-input"
+                        value={editingNodeName}
+                        onChange={(e) => setEditingNodeName(e.target.value)}
+                        onBlur={() => {
+                          const trimmedName = editingNodeName.trim();
+                          if (trimmedName && trimmedName !== selectedNode.data.label) {
+                            const uniqueName = generateUniqueLabel(trimmedName);
+                            setNodes((nds) =>
+                              nds.map((n) => {
+                                if (n.id === selectedNodeId) {
+                                  return { ...n, data: { ...n.data, label: uniqueName } };
+                                }
+                                return n;
+                              })
+                            );
+                          }
+                          setIsEditingNodeName(false);
+                        }}
+                        autoFocus
+                      />
+                    ) : (
+                      <span className="config-node-name">{selectedNode.data.label}</span>
+                    )}
+                    <button
+                      className="edit-name-btn"
+                      onClick={() => {
+                        setIsEditingNodeName(true);
+                        setEditingNodeName(selectedNode.data.label);
+                      }}
+                      title="编辑节点名称"
+                    >
+                      <Edit3 size={14} />
+                    </button>
+                  </div>
+                </div>
+
+                {/* 节点描述 */}
+                {selectedNode.data.description && (
+                  <div className="config-node-desc">
+                    <div
+                      className={`config-desc-text ${!isDescExpanded && selectedNode.data.description.length > 100 ? 'collapsed' : ''}`}
+                      onClick={() => {
+                        if (selectedNode.data.description.length > 100) {
+                          setIsDescExpanded(!isDescExpanded);
+                        }
+                      }}
+                    >
+                      {isDescExpanded || selectedNode.data.description.length <= 100
+                        ? selectedNode.data.description
+                        : selectedNode.data.description.slice(0, 100) + '...'}
+                    </div>
+                  </div>
+                )}
+
+                {/* 输入参数表格 */}
+                {selectedNode.data.input_params?.params && selectedNode.data.input_params.params.length > 0 && (
+                  <div className="config-params-section" >
+                    <div className="config-params-title" style={{marginTop:'10px'}}>
+                      <span className="config-params-title-text">输入</span>
+                      {/* <span className="config-params-title-count">{selectedNode.data.input_params.params.length}</span> */}
+                    </div>
+                    <div className="config-params-table-wrapper">
+                      <table className="config-params-table">
+                        <thead>
+                          <tr>
+                            <th className="col-param-name" style={{color:'#999999'}}>参数名</th>
+                            <th className="col-ref" style={{color:'#999999'}}>引用</th>
+                            <th className="col-value" style={{color:'#999999'}}>值</th>
+                            <th className="col-type" style={{color:'#999999'}}>类型</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {selectedNode.data.input_params.params.map((param, index) => (
+                            <tr key={`input-${index}`}>
+                              <td className="col-param-name">
+                                <span className="param-name-text">{param.name}</span>
+                              </td>
+                              <td className="col-ref">
+                                <select
+                                  className="config-param-select"
+                                  value={param._refType || 'manual'}
+                                  onChange={(e) => {
+                                    const newRefType = e.target.value;
+                                    const newParams = [...selectedNode.data.input_params.params];
+                                    newParams[index] = { 
+                                      ...newParams[index], 
+                                      _refType: newRefType, 
+                                      _value: '', 
+                                      _refValue: '' 
+                                    };
+                                    
+                                    // 如果选择引用，但 referenceOptions 为空，提示用户
+                                    if (newRefType === 'reference' && referenceOptions.length === 0) {
+                                      alert('没有可用的引用选项，请确保有上游节点连接');
+                                    }
+                                    
+                                    setNodes((nds) =>
+                                      nds.map((n) => {
+                                        if (n.id === selectedNodeId) {
+                                          return {
+                                            ...n,
+                                            data: {
+                                              ...n.data,
+                                              input_params: { ...n.data.input_params, params: newParams },
+                                            },
+                                          };
+                                        }
+                                        return n;
+                                      })
+                                    );
+                                  }}
+                                >
+                                  <option value="manual">手动</option>
+                                  <option value="reference">引用</option>
+                                  <option value="dataSource">数据源</option>
+                                </select>
+                              </td>
+                              <td className="col-value">
+                                {param._refType === 'reference' ? (
+                                  <>
+                                    {console.log('渲染引用下拉框:', {
+                                      paramName: param.name,
+                                      refValue: param._refValue,
+                                      referenceOptionsCount: referenceOptions.length,
+                                      referenceOptions: referenceOptions
+                                    })}
+                                    <select
+                                      className="config-param-select ref-select"
+                                      value={param._refValue || ''}
+                                    onChange={(e) => {
+                                      const newParams = [...selectedNode.data.input_params.params];
+                                      newParams[index] = { ...newParams[index], _refValue: e.target.value };
+                                      setNodes((nds) =>
+                                        nds.map((n) => {
+                                          if (n.id === selectedNodeId) {
+                                            return {
+                                              ...n,
+                                              data: {
+                                                ...n.data,
+                                                input_params: { ...n.data.input_params, params: newParams },
+                                              },
+                                            };
+                                          }
+                                          return n;
+                                        })
+                                      );
+                                    }}
+                                  >
+                                    {referenceOptions.map((opt) => (
+                                      <option key={opt.name} value={opt.name}>
+                                        {opt.name}（{opt.type}）
+                                      </option>
+                                    ))}
+                                  </select>
+                                  </>
+                                ) : (
+                                  <input
+                                    className="config-param-input"
+                                    value={param._value || ''}
+                                    placeholder={param._refType === 'dataSource' ? '数据源' : '值'}
+                                    onChange={(e) => {
+                                      const newParams = [...selectedNode.data.input_params.params];
+                                      newParams[index] = { ...newParams[index], _value: e.target.value };
+                                      setNodes((nds) =>
+                                        nds.map((n) => {
+                                          if (n.id === selectedNodeId) {
+                                            return {
+                                              ...n,
+                                              data: {
+                                                ...n.data,
+                                                input_params: { ...n.data.input_params, params: newParams },
+                                              },
+                                            };
+                                          }
+                                          return n;
+                                        })
+                                      );
+                                    }}
+                                  />
+                                )}
+                              </td>
+                              <td className="col-type">
+                                <span className="param-type-text">{param.type || '-'}</span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {/* 输出参数表格 */}
+                {selectedNode.data.output_params?.params && selectedNode.data.output_params.params.length > 0 && (
+                  <div className="config-params-section">
+                    <div className="config-params-title" style={{marginTop:'10px'}}>
+                      <span className="config-params-title-text">输出</span>
+                      <span className="config-params-title-count">{selectedNode.data.output_params.params.length}</span>
+                    </div>
+                    <div className="config-params-table-wrapper">
+                      <table className="config-params-table output-table">
+                        <thead>
+                          <tr>
+                            <th className="col-param-name" style={{color:'#999999',width:'100px'}}>参数名</th>
+                            <th className="col-type" style={{color:'#999999',width:'100px'}}>类型</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {selectedNode.data.output_params.params.map((param, index) => (
+                            <tr key={`output-${index}`}>
+                              <td className="col-param-name">
+                                <span className="param-name-text">{param.name}</span>
+                              </td>
+                              <td className="col-type">
+                                <span className="param-type-text">{param.type || '-'}</span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </div>
+              );
+              })()}
+            </div>
+          )}
         </div>
       </div>
-
-      {/* Operator Library Modal */}
-      <OperatorLibraryModal
-        isOpen={isOperatorLibraryOpen}
-        onClose={() => setIsOperatorLibraryOpen(false)}
-        onAddNode={handleAddNode}
-      />
     </div>
   );
 };
 
-// 辅助函数
+// ==================== 辅助函数 ====================
+
 const getOperatorDescription = (id: string): string => {
   const descriptions: Record<string, string> = {
     'file-upload': 'CSV文件',
-    'empty-clean': '去除空行',
-    'space-clean': '去除多余空格',
+    'empty-clean': '移除空行',
+    'space-clean': '移除多余空格',
     'year-sort': '按年份升序',
     'mysql-source': 'MySQL',
     'kafka-reader': 'Kafka',
@@ -870,6 +1733,7 @@ const getDefaultParams = (id: string): Record<string, any> => {
   const params: Record<string, Record<string, any>> = {
     'file-upload': {
       filePath: '/data/input.csv',
+      format: 'csv',
       encoding: 'utf8',
     },
     'empty-clean': {
@@ -904,6 +1768,8 @@ const getDefaultParams = (id: string): Record<string, any> => {
   };
   return params[id] || {};
 };
+
+// ==================== 导出组件 ====================
 
 const FlowEditor: React.FC = () => {
   return (

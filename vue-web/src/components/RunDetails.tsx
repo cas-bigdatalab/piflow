@@ -107,6 +107,11 @@ const CustomNode: React.FC<NodeProps<NodeData>> = ({ id, data, selected }) => {
         style={{ top: '50%' }}
       />
 
+      {/* 状态图标 - 边框右上角 */}
+      <div className="node-status-badge">
+        {getStatusIcon()}
+      </div>
+
       {/* 节点头部 */}
       <div className="node-header">
         <div className="node-header-left">
@@ -114,9 +119,6 @@ const CustomNode: React.FC<NodeProps<NodeData>> = ({ id, data, selected }) => {
             <Icon size={18} className="node-icon" />
           </div>
           <span className="node-title">{data.label}</span>
-        </div>
-        <div className="node-header-right">
-          {getStatusIcon()}
         </div>
       </div>
 
@@ -141,15 +143,15 @@ const CustomNode: React.FC<NodeProps<NodeData>> = ({ id, data, selected }) => {
         )}
       </div>
 
-      {/* 进度条 */}
-      {(status === 'completed' || status === 'running') && (
-        <div className="node-progress-bar">
+      {/* 进度条 - 所有状态都显示，pending 为空 */}
+      <div className="node-progress-bar">
+        {(status === 'completed' || status === 'running') && (
           <div
             className={`progress-fill progress-${status}`}
             style={{ width: `${status === 'completed' ? 100 : (data.progress || 0)}%` }}
           />
-        </div>
-      )}
+        )}
+      </div>
 
       <Handle
         type="source"
@@ -224,7 +226,7 @@ const CustomEdge: React.FC<EdgeProps<CustomEdgeType>> = ({
         stroke={getStrokeColor()}
         strokeWidth={2}
         fill="none"
-        strokeDasharray={status === 'pending' ? '6 4' : 'none'}
+        strokeDasharray='6 4'
         style={{ transition: 'stroke 0.2s' }}
       />
 
@@ -288,7 +290,7 @@ const edgeTypes = {
 };
 
 // 节点间距配置
-const NODE_WIDTH = 240;
+const NODE_WIDTH = 285;
 const NODE_GAP = 60;
 const START_X = 50;
 const START_Y = 200;

@@ -1,4 +1,10 @@
-/* ==================== 全局样式 ==================== */
+/* ==================== 基础样式 ==================== */
+
+/* 全局字体放大 */
+.flow-canvas-container,
+.flow-canvas-container * {
+  font-family: PingFangSC,PingFang SC !important;
+}
 
 .flow-canvas-container {
   display: flex;
@@ -35,7 +41,7 @@
 }
 
 .header-desc {
-  font-size: 13px;
+  font-size: 17px;
   color: #999;
 }
 
@@ -53,7 +59,7 @@
   color: #fff;
   border: none;
   border-radius: 4px;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s;
@@ -74,6 +80,7 @@
 .reactflow-wrapper {
   flex: 1;
   height: 100%;
+  position: relative;
 }
 
 .reactflow-wrapper .react-flow {
@@ -86,12 +93,12 @@
   padding: 0;
 }
 
-/* ==================== 底部悬浮工具栏 ==================== */
+/* ==================== 悬浮工具栏样式 ==================== */
 
 .floating-toolbar {
   position: absolute;
   bottom: 24px;
-  left: 50%;
+  left: 24px;
   transform: translateX(-50%);
   display: flex;
   align-items: center;
@@ -117,11 +124,60 @@
   transition: all 0.2s;
 }
 
+/* 连线类型切换按钮 */
+.edge-type-toggle {
+  display: flex;
+  gap: 2px;
+}
+
+.edge-type-toggle .toolbar-btn {
+  border-radius: 0;
+}
+
+.edge-type-toggle .toolbar-btn:first-child {
+  border-radius: 8px 0 0 8px;
+}
+
+.edge-type-toggle .toolbar-btn:last-child {
+  border-radius: 0 8px 8px 0;
+}
+
+.edge-type-toggle .toolbar-btn.active {
+  background: #1890ff;
+  color: #fff;
+}
+
 .toolbar-btn:hover {
   background: #f5f5f5;
   color: #1890ff;
 }
 
+
+
+/* 算子库按钮 */
+.toolbar-operator-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: #52c41a;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.toolbar-operator-btn:hover {
+  background: #45a816;
+}
+
+.toolbar-operator-btn:active {
+  background: #3d9613;
+}
 .toolbar-divider {
   width: 1px;
   height: 20px;
@@ -130,27 +186,17 @@
 }
 
 .zoom-level {
-  font-size: 13px;
+  font-size: 17px;
   color: #666;
   min-width: 40px;
   text-align: center;
   font-weight: 500;
 }
 
-/* ==================== 算子库弹窗 ==================== */
-
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.3);
-  z-index: 1001;
-}
+/* ==================== 算子库弹窗样式 ==================== */
 
 .operator-modal {
-  position: fixed;
+  position: absolute;
   bottom: 80px;
   left: 24px;
   width: 280px;
@@ -217,7 +263,7 @@
   padding: 8px 12px 8px 32px;
   border: 1px solid #e8e8e8;
   border-radius: 8px;
-  font-size: 13px;
+  font-size: 17px;
   outline: none;
   transition: border-color 0.2s;
   box-sizing: border-box;
@@ -244,7 +290,7 @@
   padding: 10px 16px;
   cursor: pointer;
   color: #999;
-  font-size: 13px;
+  font-size: 17px;
   font-weight: 500;
   transition: background 0.2s;
 }
@@ -290,7 +336,7 @@
 }
 
 .modal-operator-name {
-  font-size: 14px;
+  font-size: 16px;
   color: #333;
   font-weight: 500;
 }
@@ -301,7 +347,8 @@
   background: #fff;
   border: 1px solid #e8e8e8;
   border-radius: 12px;
-  min-width: 240px;
+  padding: 6px 0;
+  width: 285px;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
   transition: all 0.2s;
 }
@@ -311,7 +358,7 @@
 }
 
 .custom-node.selected {
-  border-color: #1890ff;
+  border-color: #C4C5D1;
   box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
 }
 
@@ -320,19 +367,30 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 16px;
+  padding: 4px 8px;
   border-bottom: 1px solid #f0f0f0;
 }
+.config-node-info{
+  margin-left:4px;
+}
+.config-node-desc{
+  margin-top:4px;
+  color:#ACA8B5;
+  cursor: pointer;
+}
 
+.config-node-header{
+  display: flex;
+  align-items: center;
+}
 .node-header-left {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 4px;
 }
-
 .node-icon-wrapper {
-  width: 28px;
-  height: 28px;
+  width: 10px;
+  height: 10px;
   border-radius: 6px;
   background: #f0f5ff;
   display: flex;
@@ -343,9 +401,13 @@
 .node-icon {
   color: #1890ff;
 }
-
+.config-params-title-text{
+  font-size: 16px;
+  color:#333333;
+  font-weight: 600;
+}
 .node-title {
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 600;
   color: #333;
 }
@@ -355,31 +417,50 @@
   align-items: center;
 }
 
+
+
 .node-delete-btn {
   width: 24px;
   height: 24px;
   border: none;
   background: transparent;
-  color: #999;
+  color: #ff4d4f;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 4px;
-  opacity: 0;
   transition: all 0.2s;
 }
 
-.custom-node:hover .node-delete-btn {
-  opacity: 1;
-}
-
 .node-delete-btn:hover {
-  background: #ff4d4f;
-  color: #fff;
+  background: #fff1f0;
 }
 
-/* 展开/折叠按钮 */
+/* 节点展开/折叠按钮 */
+
+
+/* 节点展开图标按钮 */
+.node-expand-icon-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  color: #999;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.node-expand-icon-btn:hover {
+  background: #f0f0f0;
+  color: #666;
+}
+
+.node-expand-icon-btn:active {
+  background: #e0e0e0;
+}
+
 .node-expand-btn {
   display: flex;
   align-items: center;
@@ -387,7 +468,7 @@
   padding: 8px 16px;
   cursor: pointer;
   color: #999;
-  font-size: 12px;
+  font-size: 16px;
   transition: all 0.2s;
   border-bottom: 1px solid #f0f0f0;
 }
@@ -453,7 +534,7 @@
 }
 
 .node-section-label {
-  font-size: 12px;
+  font-size: 16px;
   color: #999;
   margin-bottom: 6px;
   font-weight: 500;
@@ -464,7 +545,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 13px;
+  font-size: 17px;
   margin-bottom: 4px;
 }
 
@@ -474,18 +555,15 @@
 
 .node-param-label {
   color: #666;
-  font-family: 'Consolas', 'Monaco', monospace;
 }
 
 .node-param-value {
   color: #1890ff;
-  font-family: 'Consolas', 'Monaco', monospace;
 }
 
 .node-param-value-var {
   color: #52c41a;
-  font-family: 'Consolas', 'Monaco', monospace;
-  font-size: 13px;
+  font-size: 17px;
 }
 
 /* 节点底部 */
@@ -498,7 +576,7 @@
 }
 
 .node-description {
-  font-size: 12px;
+  font-size: 16px;
   color: #999;
 }
 
@@ -538,7 +616,7 @@
 }
 
 .comment-text {
-  font-size: 13px;
+  font-size: 17px;
   color: #666;
   line-height: 1.5;
   word-wrap: break-word;
@@ -551,12 +629,11 @@
   border: 2px solid #1890ff;
   border-radius: 8px;
   background: #fff;
-  font-size: 13px;
+  font-size: 17px;
   color: #333;
   resize: none;
   outline: none;
   box-sizing: border-box;
-  font-family: inherit;
 }
 
 .comment-input:focus {
@@ -597,4 +674,541 @@
 
 .edge-delete-btn:active {
   transform: scale(0.95);
+}
+.label {
+  display: block;
+  font-size: 16px;
+  color: #666;
+  margin-bottom: 8px;
+}
+
+select {
+  width: 230px;
+  padding: 10px 14px;
+  font-size: 16px;
+  color: #333;
+  background: #fff;
+  border: 1px solid #d9d9d9;
+  border-radius: 8px;
+  outline: none;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23999' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 36px;
+}
+
+select:hover {
+  border-color: #40a9ff;
+}
+
+select:focus {
+  border-color: #1890ff;
+  box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.1);
+}
+
+
+
+/* 删除确认弹窗 */
+.delete-confirm-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+
+.delete-confirm-modal {
+  background: #fff;
+  border-radius: 8px;
+  width: 420px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.delete-confirm-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 24px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.delete-confirm-icon {
+  width: 22px;
+  height: 22px;
+  background: #ff4d4f;
+  color: #fff;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  font-weight: bold;
+}
+
+.delete-confirm-header h3 {
+  flex: 1;
+  margin: 0;
+  font-size: 16px;
+  font-weight: 500;
+  color: #262626;
+}
+
+.delete-confirm-close {
+  background: none;
+  border: none;
+  color: #999;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.delete-confirm-close:hover {
+  background: #f5f5f5;
+  color: #666;
+}
+
+.delete-confirm-body {
+  padding: 24px;
+}
+
+.delete-confirm-body p {
+  margin: 0;
+  color: #595959;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.delete-confirm-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 16px 24px;
+  border-top: 1px solid #f0f0f0;
+}
+
+.delete-confirm-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.delete-confirm-cancel {
+  padding: 8px 16px;
+  border: 1px solid #d9d9d9;
+  background: #fff;
+  color: #595959;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.delete-confirm-cancel:hover {
+  border-color: #1890ff;
+  color: #1890ff;
+}
+
+.delete-confirm-confirm {
+  padding: 8px 16px;
+  border: none;
+  background: #ff4d4f;
+  color: #fff;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.delete-confirm-confirm:hover {
+  background: #ff7875;
+}
+
+
+
+/* 右侧参数配置面板 */
+.config-panel {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 320px;
+  height: 100%;
+  background: #fff;
+  border-left: 1px solid #e8e8e8;
+  box-shadow: -2px 0 8px rgba(0, 0, 0, 0.05);
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+}
+
+.config-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.config-panel-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #333;
+}
+
+.config-panel-close {
+  margin-right:4px;
+  background: none;
+  border: none;
+  color: #999;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+.config-node-name-input{
+  font-size: 16px;
+  color:#333333;
+  font-weight: 500;
+  margin-right:4px;
+}
+.config-node-name{
+  margin-right:4px;
+}
+.config-panel-close:hover {
+  background: #f5f5f5;
+  color: #666;
+}
+
+.config-panel-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+}
+
+.config-section {
+  margin-bottom: 24px;
+}
+
+.config-section-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #333333;
+  margin-bottom: 12px;
+}
+
+.config-input {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #d9d9d9;
+  border-radius: 6px;
+  font-size: 14px;
+  color: #333;
+  background: #fff;
+  transition: all 0.2s;
+  box-sizing: border-box;
+}
+
+.config-input:focus {
+  border-color: #1890ff;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.1);
+}
+
+.config-var {
+  padding: 8px 12px;
+  background: #f5f5f5;
+  border-radius: 6px;
+  font-size: 14px;
+  color: #333;
+}
+
+.config-param {
+  margin-bottom: 16px;
+}
+
+.config-param label {
+  display: block;
+  font-size: 13px;
+  color: #666;
+  margin-bottom: 6px;
+}
+
+/* 节点名称输入框样式 */
+.node-title-input {
+  border: none;
+  background: transparent;
+  font-size: 14px;
+  font-weight: 500;
+  color: #333;
+  padding: 4px 8px;
+  border-radius: 4px;
+  min-width: 80px;
+  max-width: 120px;
+  transition: all 0.2s;
+}
+
+.node-title-input:hover {
+  background: #f5f5f5;
+}
+
+.node-title-input:focus {
+  background: #fff;
+  border: 1px solid #1890ff;
+  outline: none;
+}
+
+
+/* 配置面板下拉选择框 */
+.config-select {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #d9d9d9;
+  border-radius: 6px;
+  font-size: 14px;
+  color: #333;
+  background: #fff;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-sizing: border-box;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 32px;
+}
+
+.config-select:focus {
+  border-color: #1890ff;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.1);
+}
+
+.config-select:hover {
+  border-color: #40a9ff;
+}
+
+.config-select option {
+  padding: 8px 12px;
+}
+
+
+/* 展开/折叠图标按钮 */
+.node-expand-icon-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  color: #999;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.node-expand-icon-btn:hover {
+  background: #f0f0f0;
+  color: #666;
+}
+
+/* 参数详情面板 */
+.node-params-panel {
+  box-sizing: border-box;
+  padding: 4px 10px;
+  background: #ffffff;
+}
+.nodeParams{
+  font-size:14px;
+  margin-top:2px;
+  box-sizing: border-box;
+  padding: 4px 10px;
+  border-radius: 8px;
+  background: #F9F9FB;
+}
+.topTitle{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.labelText{
+  font-size:12px;
+  color:#333333;
+}
+.valueText{
+  font-size:12px;
+  color:#999999;
+}
+.node-param-section {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.node-param-section:last-child {
+  border-bottom: none;
+}
+
+.node-param-label {
+  font-size: 12px;
+  color: #333;
+  font-weight: 500;
+}
+
+.node-param-value {
+  font-size: 12px;
+  color: #333;
+}
+
+
+/* 隐藏 React Flow 水印 */
+.react-flow__attribution {
+  display: none !important;
+}
+
+/* 自动保存状态 */
+.auto-save-status {
+  display: flex;
+  align-items: center;
+  margin-right: 16px;
+  font-size: 13px;
+}
+
+.save-idle {
+  color: #999;
+}
+
+.save-saving {
+  color: #1890ff;
+}
+
+.save-message {
+  color: #52c41a;
+}
+
+/* 加载动画 */
+.flow-loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+.flow-loading-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  color: #666;
+  font-size: 14px;
+}
+
+.flow-loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid #f3f3f3;
+  border-top: 3px solid #1890ff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+
+/* 参数配置面板 - 只读值 */
+.config-value-readonly {
+  padding: 8px 12px;
+  background: #f5f5f5;
+  border: 1px solid #d9d9d9;
+  border-radius: 4px;
+  color: #333;
+  font-size: 14px;
+}
+.oneParams{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.config-node-name-row{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.nodeTitle{
+  font-size: 18px;
+  font-weight: 500;
+  color:#333333;
+}
+/* 参数行样式 */
+.param-row {
+  margin-bottom: 12px;
+}
+
+.param-label {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 12px;
+  color: #666;
+}
+
+.param-input {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.param-loading {
+  padding: 8px 12px;
+  color: #999;
+  font-size: 12px;
+}
+.config-param-select{
+  width: 80px;
+}
+/* 引用选择框宽度 */
+.config-param-select.ref-select {
+  width: 215px;
+}
+.col-value{
+  width: 100px;
+}
+/* 表格单元格居中 */
+.config-params-table th,
+.config-params-table td {
+  text-align: center;
+  vertical-align: middle;
+}
+
+/* 参数名左对齐 */
+.config-params-table .col-param-name {
+  text-align: left;
+}
+
+/* 确保选择框和输入框在单元格内居中 */
+.config-params-table .config-param-select,
+.config-params-table .config-param-input {
+  margin: 0 auto;
+  border:1px solid #d9d9d9;
+}
+.config-param-input{
+  border:1px solid #d9d9d9;
 }

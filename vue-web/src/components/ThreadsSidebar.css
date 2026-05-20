@@ -9,21 +9,26 @@
 }
 .menuCon{
   box-sizing: border-box;
-  padding: 16px;
+  padding: 0 16px;
 }
 .oneMenu{
   cursor: pointer;
   display: flex;
   align-items: center;
-  margin-top:16px;
+  margin-top:4px;
   box-sizing: border-box;
   padding: 8px 16px;
+  border-radius: 16px;
+  transition: background-color 0.15s, border-color 0.15s;
+}
+.oneMenu:hover{
+  background-color: #f1f5f9;
 }
 .oneMenu:first-child{
-  margin-top:-20px;
+  margin-top:0;
 }
 .activeOneMenu{
-  margin-top:16px;
+  margin-top:4px;
   cursor: pointer;
   box-sizing: border-box;
   padding: 8px 16px;

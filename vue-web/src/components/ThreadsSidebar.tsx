@@ -1,7 +1,7 @@
 ﻿import { Icon } from "@iconify/react";
-import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
+import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { apiBase } from "../lib/api";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { deleteThread, getThreads, type ThreadTitle } from "../lib/api";
 import './ThreadsSidebar.css';
 function Logo({ compact }: { compact?: boolean }) {
@@ -38,11 +38,36 @@ function formatDate(value: string) {
     .replace(/\//g, ".");
 }
 
+const menuArr = [{
+  id:1,
+  title:'编辑任务',
+  icon:'fa-solid:edit',
+  path:'/editTask'
+},
+{
+  id:2,
+  title:'运行历史',
+  icon:'fa-solid:history',
+  path:'/run-history'
+},
+{
+  id:3,
+  title:'算子库',
+  icon:'fa-solid:coins',
+  path:'/'
+},
+{
+  id:4,
+  title:'定时调度',
+  icon:'fa-solid:chart-bar',
+  path:'/'
+}];
+
 export function ThreadsSidebar() {
   const [threads, setThreads] = useState<ThreadTitle[]>([]);
   const [loading, setLoading] = useState(false);
   const [isShow, setIsShow] = useState(true);
-  let [activeMenuId, setActiveMenuId] = useState(0);
+  const [activeMenuId, setActiveMenuId] = useState(0);
   const [selectedThreadId, setSelectedThreadId] = useState<string>("default");
   const [error, setError] = useState("");
 
@@ -54,30 +79,6 @@ export function ThreadsSidebar() {
       })),
     [threads],
   );
-  let menuArr = [{
-    id:1,
-    title:'编辑任务',
-    icon:'fa-solid:edit',
-    path:''
-  },
-  {
-    id:2,
-    title:'运行历史',
-    icon:'fa-solid:history',
-    path:''
-  },
-  {
-    id:3,
-    title:'算子库',
-    icon:'fa-solid:coins',
-    path:''
-  },
-  {
-    id:4,
-    title:'定时调度',
-    icon:'fa-solid:chart-bar',
-    path:''
-  }];
   async function refresh() {
     setLoading(true);
     setError("");
@@ -91,10 +92,14 @@ export function ThreadsSidebar() {
       setLoading(false);
     }
   }
+  const navigate = useNavigate();
   // 跳转路由
-  function navRouter(ids: number,paths:string){
+  const navRouter = useCallback((ids: number, paths:string)=>{
+    if (paths) {
+      navigate(paths);
+    }
     setActiveMenuId(ids);
-  }
+  }, [navigate]);
   useEffect(() => {
     refresh().catch(() => {});
   }, []);

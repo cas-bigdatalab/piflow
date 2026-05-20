@@ -1,4 +1,14 @@
+/* @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap'); */
 /* ==================== 全局样式 ==================== */
+
+/* 全局字体放大 */
+.flow-canvas-container,
+.flow-canvas-container * {
+  font-family: PingFangSC,PingFang SC !important;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+}
+
 
 .flow-canvas-container {
   display: flex;
@@ -255,18 +265,8 @@
 
 /* ==================== 算子库弹窗 ==================== */
 
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.3);
-  z-index: 1001;
-}
-
 .operator-modal {
-  position: fixed;
+  position: absolute;
   bottom: 80px;
   left: 24px;
   width: 280px;
@@ -414,10 +414,12 @@
 /* ==================== 自定义节点样式 ==================== */
 
 .custom-node {
+  position: relative;
   background: #fff;
   border: 1px solid #e8e8e8;
   border-radius: 12px;
-  min-width: 240px;
+  width: 285px;
+  padding: 6px 0;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
   transition: all 0.2s;
 }
@@ -428,8 +430,8 @@
 
 /* 节点状态样式 */
 .node-completed {
-  border-color: #52c41a;
-  box-shadow: 0 2px 12px rgba(82, 196, 26, 0.15);
+  border-color: #17BB85;
+  box-shadow: 0 2px 12px rgba(23, 187, 133, 0.15);
 }
 
 .node-running {
@@ -439,7 +441,11 @@
 
 .node-pending {
   border-color: #e8e8e8;
-  opacity: 0.7;
+  opacity: 0.85;
+}
+
+.node-pending .node-status-area {
+  padding: 12px 24px 20px;
 }
 
 /* 节点头部 */
@@ -447,30 +453,30 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 16px;
+  padding: 4px 8px;
 }
 
 .node-header-left {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 4px;
 }
 
 .node-icon-wrapper {
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
+  width: 10px;
+  height: 10px;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .icon-completed {
-  background: #f6ffed;
+  background: #e6faf3;
 }
 
 .icon-completed .node-icon {
-  color: #52c41a;
+  color: #17BB85;
 }
 
 .icon-running {
@@ -490,9 +496,11 @@
 }
 
 .node-title {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   font-size: 14px;
   font-weight: 600;
   color: #333;
+  letter-spacing: -0.02em;
 }
 
 .node-header-right {
@@ -505,7 +513,7 @@
 }
 
 .status-completed {
-  color: #52c41a;
+  color: #17BB85;
 }
 
 .status-running {
@@ -524,7 +532,7 @@
 
 /* 进度条 */
 .node-status-area {
-  padding: 0 16px 10px;
+  padding: 12px 24px 20px;
 }
 .stop-btn {
   display: flex;
@@ -543,12 +551,14 @@
 .status-line {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 12px;
+  gap: 16px;
+  font-size: 13px;
+  font-style: italic;
+  opacity: 0.9;
 }
 
 .status-line.completed {
-  color: #52c41a;
+  color: #17BB85;
 }
 
 .status-line.running {
@@ -565,14 +575,15 @@
 
 .status-percent {
   font-weight: 600;
-  font-size: 13px;
+  font-size: 14px;
+  font-style: normal;
 }
 
 /* 进度条 */
 .node-progress-bar {
-  height: 3px;
+  height: 4px;
   background: #f0f0f0;
-  margin: 0 16px 12px;
+  margin: 0 24px 20px;
   border-radius: 2px;
   overflow: hidden;
 }
@@ -584,7 +595,7 @@
 }
 
 .progress-completed {
-  background: #52c41a;
+  background: #17BB85;
 }
 
 .progress-running {
@@ -605,7 +616,7 @@
 }
 
 .handle-completed {
-  border-color: #52c41a;
+  border-color: #17BB85;
 }
 
 .handle-running {
@@ -697,4 +708,83 @@
 
 .edge-delete-btn:active {
   transform: scale(0.95);
+}
+
+
+
+
+/* 状态图标 - 边框右上角 */
+.node-status-badge {
+  position: absolute;
+  top: -12px;
+  right: -12px;
+  width: 28px;
+  height: 28px;
+  background: #fff;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  z-index: 10;
+}
+
+.node-status-badge .status-completed {
+  color: #17BB85;
+}
+
+.node-status-badge .status-running {
+  color: #1890ff;
+}
+
+.node-status-badge .status-pending {
+  color: #b8b8b8;
+}
+
+
+/* running 状态边框脉冲放大动画 */
+@keyframes border-glow {
+  0% {
+    box-shadow: 0 0 4px 0 rgba(24, 144, 255, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 20px 4px rgba(24, 144, 255, 0.6);
+  }
+  100% {
+    box-shadow: 0 0 4px 0 rgba(24, 144, 255, 0.4);
+  }
+}
+
+.node-running {
+  animation: border-glow 1.5s ease-in-out infinite;
+}
+
+.node-completed {
+  animation: border-glow-green 1.5s ease-in-out infinite;
+}
+
+
+/* 执行中箭头流动动画 */
+@keyframes flow-dash {
+  to {
+    stroke-dashoffset: -20;
+  }
+}
+
+.edge-running path:first-child {
+  animation: flow-dash 1s linear infinite;
+}
+
+
+/* 成功状态边框脉冲动画 */
+@keyframes border-glow-green {
+  0% {
+    box-shadow: 0 0 4px 0 rgba(23, 187, 133, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 20px 4px rgba(23, 187, 133, 0.6);
+  }
+  100% {
+    box-shadow: 0 0 4px 0 rgba(23, 187, 133, 0.4);
+  }
 }

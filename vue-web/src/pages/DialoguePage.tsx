@@ -12,7 +12,7 @@ import {
 } from "../lib/api";
 import { MarkdownMessage } from "../components/MarkdownMessage";
 import { shortId } from "../lib/ids";
-import FlowEditor from '../components/Draw'; // 引入画板组件
+import Draw from '../components/Draw'; // 引入画板组件
 import RunDetails from '../components/RunDetails'; // 引入流程运行详情组件
 const DEFAULT_USER_ID = "default_user";
 
@@ -31,7 +31,7 @@ type PendingAttachment = {
   name: string;
 };
 
-type ExampleCard = {
+type cards = {
   title: string;
   description: string;
   prompt: string;
@@ -68,7 +68,7 @@ function svgToDataUri(svg: string) {
   return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
 }
 
-const EXAMPLES: ExampleCard[] = [
+const EXAMPLES: cards[] = [
   {
     title: "数据清洗与排序",
     description: "「请对上传数据分别进行空行清洗、空格清洗，并根据fa0116字段进行升序排序。」",
@@ -247,8 +247,8 @@ export function DialoguePage() {
   const [uploadingCount, setUploadingCount] = useState(0);
   const [loadError, setLoadError] = useState("");
   const [dragActive, setDragActive] = useState(false);
-  const [showDraw, setDraw] = useState(false);//是否显示画板
-  const [showRunDetails, setRunDetails] = useState(true);//是否显示运行流程详情
+  const [showDraw, setDraw] = useState(true);//是否显示画板
+  const [showRunDetails, setRunDetails] = useState(false);//是否显示运行流程详情
   const abortRef = useRef<AbortController | null>(null);
   const transcriptRef = useRef<HTMLDivElement | null>(null);
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
@@ -258,7 +258,20 @@ export function DialoguePage() {
 
   const uploading = uploadingCount > 0;
   const isExpanded = hasMessages || sending || Boolean(loadError);
-
+  // // 页面加载时请求登录接口
+  // useEffect(() => {
+  //   const login = async () => {
+  //     try {
+  //       let params={ username:'admin',password:'admin123' };
+  //       let loginRes=await getLogin(params);
+  //       localStorage.setItem('token',loginRes.access_token);
+  //     } catch (error) {
+  //       console.error('登录失败:', error);
+  //     }
+  //   };
+    
+  //   login();
+  // }, []);
   useEffect(() => {
     if (!transcriptRef.current) {
       return;
@@ -602,7 +615,7 @@ export function DialoguePage() {
     }
   }
 
-  function startExample(card: ExampleCard) {
+  function startExample(card: cards) {
     abortRef.current?.abort();
     abortRef.current = null;
 
@@ -973,7 +986,7 @@ export function DialoguePage() {
   return (
     <div className="flex min-h-full flex-1 flex-col">
       {!isExpanded ? (
-        <section className="px-2 pb-2 pt-10" style={{width:'100%',display:'flex'}}>
+        <section className="px-2 pb-2 pt-2" style={{width:'100%',display:'flex'}}>
           <div className="mx-auto" style={{width:showDraw || showRunDetails ? '35%' : '65%'}}>
             <div className="mx-auto -mt-8 w-full max-w-[760px]">
               {renderComposer({ compact: true })}
@@ -981,7 +994,7 @@ export function DialoguePage() {
           </div>
           {showDraw ?(
           <div className="mx-auto" style={{width:'70%',marginLeft:'10px'}}>
-            <FlowEditor></FlowEditor>
+            <Draw></Draw>
           </div>) : <span></span>}
           {showRunDetails ?(
           <div className="mx-auto" style={{width:'70%',marginLeft:'10px'}}>
