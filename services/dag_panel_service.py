@@ -5,7 +5,7 @@ from psycopg2.extras import RealDictCursor
 
 from database.postgres import get_connection
 from runtime.dag_manager import list_dag_tasks, create_or_update_task, get_next_revision, disable_current_definition, \
-    insert_dag_definition, get_dag_definition_json, get_dag_skill, list_dag_skills, delete_dag_task
+    insert_dag_definition, get_dag_definition_json, get_dag_skill, list_dag_skills, delete_dag_task, list_dag_skills_by_type
 from schemas.dag.dag_skill_schema import DagSkill
 
 
@@ -81,7 +81,7 @@ def get_dag_skills_by_condition(
     skill_type: str = None,
     version: str = None,
 ) -> dict:
-    result = list_dag_skills(
+    result = list_dag_skills_by_type(
         page=page,
         page_size=page_size,
         keyword=keyword,

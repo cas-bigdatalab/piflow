@@ -752,6 +752,95 @@ def list_dag_skills(
         raise RuntimeError("list_dag_skills failed") from e
 
 
+def list_dag_skills_by_type(
+    page: int = 1,
+    page_size: int = 20,
+    keyword: str = None,
+    skill_type: str = None,
+    version: str = None,
+) -> dict:
+    try:
+        with closing(get_connection()) as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                conditions = ["is_deleted = 0"]
+                params = []
+
+                if keyword:
+                    conditions.append("skill_name LIKE %s")
+                    params.append(f"%{keyword}%")
+
+                if skill_type:
+                    conditions.append("skill_type = %s")
+                    params.append(skill_type)
+
+                if version:
+                    conditions.append("version = %s")
+                    params.append(version)
+
+                where = " AND ".join(conditions)
+
+                cursor.execute(
+                    f"SELECT COUNT(*) AS total FROM dag_skills WHERE {where}",
+                    params,
+                )
+                total = cursor.fetchone()["total"]
+
+                offset = (page - 1) * page_size
+                cursor.execute(
+                    f"""
+                    SELECT id, skill_id, skill_name, description, file_path,
+                           input_params, output_params, skill_type,
+                           language, command, icon_path, version,
+                           create_time, update_time, is_deleted
+                    FROM dag_skills
+                    WHERE {where}
+                    ORDER BY skill_type, skill_name
+                    LIMIT %s OFFSET %s
+                    """,
+                    params + [page_size, offset],
+                )
+                rows = cursor.fetchall()
+
+                groups = {}
+                for row in rows:
+                    st = row["skill_type"] or "未分类"
+                    if st not in groups:
+                        groups[st] = []
+                    groups[st].append(
+                        DagSkill(
+                            skill_id=row["skill_id"],
+                            skill_name=row["skill_name"],
+                            version=row.get("version", "1.0.0"),
+                            description=row.get("description"),
+                            file_path=row.get("file_path"),
+                            input_params=row.get("input_params"),
+                            output_params=row.get("output_params"),
+                            skill_type=row["skill_type"],
+                            language=row.get("language"),
+                            command=row.get("command"),
+                            icon_path=row.get("icon_path"),
+                            db_id=row["id"],
+                            create_time=row.get("create_time"),
+                            update_time=row.get("update_time"),
+                            is_deleted=row["is_deleted"],
+                        )
+                    )
+
+                group_list = [
+                    {"groupName": t, "DagSkillInfoList": skills}
+                    for t, skills in groups.items()
+                ]
+
+                return {
+                    "total": total,
+                    "page": page,
+                    "page_size": page_size,
+                    "data": group_list,
+                }
+    except Exception as e:
+        raise RuntimeError("list_dag_skills_by_type failed") from e
+
+
 def get_dag_node_by_node_id(node_id: str) -> Optional[DagNode]:
     try:
         with closing(get_connection()) as conn:
@@ -1265,7 +1354,117 @@ def get_dag_definition_json(create_user_id: str, dag_task_id: str):
 #         icon_path="storage/skills/DC2_SpaceCleaning.png",
 #         version="1.0.0",
 #     )
-#
+
+def test_insert_skills():
+    insert_dag_skill(
+        "chinese_convert_mapper",
+        "在繁体中文、简体中文和日语汉字之间转换中文。当用户提到中文繁简转换、中文转换、简体转繁体、繁体转简体、中日文转换等需求时使用此skill。",
+        "workspace/skills/chinese_convert_mapper/scripts/run_chinese_convert_mapper.py",
+        {"params": [
+            {
+                "name": "input_path ",
+                "type": "String",
+                "description": "输入JSON文件路径",
+                "required": True
+            },
+            {
+                "name": "output_path",
+                "type": "String",
+                "description": "输出JSON文件路径",
+                "required": True
+            },
+            {
+                "name": "mode ",
+                "type": "String",
+                "description": "转换模式",
+                "required": False,
+                "default_value": "s2t",
+            }
+        ]},
+        {"params": [
+            {
+                "name": "output_path",
+                "type": "String",
+                "description": "输出JSON文件路径",
+                "required": True
+            }
+        ]},
+        skill_type="标准化",
+        language="Python",
+        command="python scripts/run_chinese_convert_mapper.py --input_path <input_path> --output_path <output_path> [--mode <mode>]",
+        icon_path="storage/skills/chinese_convert_mapper.png",
+        version="1.0.0",
+    )
+
+    insert_dag_skill(
+        "parquet_formatter",
+        "  Parquet格式化器。用于加载和格式化parquet类型的文件。本SKILL使用依赖data_juicer，请在调用前安装好python环境并安装data_juicer，你可用以下指令进行安装：pip install py-data-juicer",
+        "workspace/skills/parquet_formatter/scripts/run_parquet_formatter.py",
+        {"params": [
+            {
+                "name": "input_path",
+                "type": "String",
+                "description": "输入Parquet文件路径或目录",
+                "required": True
+            },
+            {
+                "name": "output_path",
+                "type": "String",
+                "description": "输出JSONL文件路径",
+                "required": True
+            },
+            {
+                "name": "text_keys",
+                "type": "list",
+                "description": "文本字段名列表",
+                "required": False,
+                "default_value": ['text']
+            },
+            {
+                "name": "add_suffix",
+                "type": "bool",
+                "description": "是否添加文件后缀信息",
+                "required": False,
+                "default_value": False
+            },
+            {
+                "name": "num_proc",
+                "type": "int",
+                "description": "并行处理的进程数",
+                "required": False,
+                "default_value": 1
+            }
+        ]},
+        {"params": [
+            {
+                "name": "output_path",
+                "type": "String",
+                "description": "输出JSONL文件路径",
+                "required": True
+            }
+        ]},
+        skill_type="格式转换",
+        language="Python",
+        command="""# 加载单个Parquet文件
+python scripts/run_parquet_formatter.py \
+--input_path /path/to/input.parquet \
+--output_path /path/to/output.jsonl
+
+# 指定文本字段
+python scripts/run_parquet_formatter.py \
+--input_path /path/to/input.parquet \
+--output_path /path/to/output.jsonl \
+--text_keys text
+
+# 加载目录中的所有Parquet文件
+python scripts/run_parquet_formatter.py \
+--input_path /path/to/parquet_directory \
+--output_path /path/to/output.jsonl \
+--add_suffix""",
+        icon_path="storage/skills/parquet_formatter.png",
+        version="1.0.0",
+    )
+
 # def test_insert_task():
 #     insert_dag_task(
 #         dag_task_name="csv空行、空格清洗任务",
