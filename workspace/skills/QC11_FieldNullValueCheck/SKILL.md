@@ -5,6 +5,45 @@ description: |
   识别并标记存在空值的数据点，最后输出为相同格式的文件。
   当用户提到空值检查、字段空值校验、缺失值检查、NULL值检查等需求时使用此skill。
   即使用户没有说出"空值检查"，只要任务涉及检查数据字段是否为空，就应该使用此skill。
+
+input_params:
+  - name: input_path
+    type: string
+    required: true
+    description: 输入文件路径
+
+  - name: output_path
+    type: string
+    required: true
+    description: 输出文件路径
+
+  - name: check_fields_name
+    type: string
+    required: true
+    description: 检查字段名，逗号分隔（如：field1,field2）
+
+  - name: qc_mark
+    type: string
+    required: false
+    default: "缺测检查"
+    description: 质控标识
+
+  - name: mark_field_name
+    type: string
+    required: false
+    default: QC0000
+    description: 质控标识字段名
+
+  - name: id_field_name
+    type: string
+    required: false
+    default: ID0000
+    description: 唯一ID字段名
+
+output_params:
+  - name: output
+    type: csv_file
+    description: 空值检查后的结构化数据文件，带质控标识
 ---
 
 # QC11_FieldNullValueCheck 字段空值检查Skill

@@ -3,6 +3,37 @@ name: random_selector
 description: 从CSV数据集中随机抽取样本。支持按比例（0-1）或固定数量抽取，当两者同时提供时取较小值。
 allowed-tools:
   - process
+
+input_params:
+  - name: input_file
+    type: string
+    required: true
+    description: 输入CSV文件路径
+
+  - name: output_file
+    type: string
+    required: true
+    description: 输出CSV文件路径
+
+  - name: select_ratio
+    type: float
+    required: false
+    description: 抽取比例（0-1），与select_num同时提供时取较小值
+
+  - name: select_num
+    type: int
+    required: false
+    description: 抽取数量，与select_ratio同时提供时取较小值
+
+  - name: seed
+    type: int
+    required: false
+    description: 随机种子
+
+output_params:
+  - name: output_file
+    type: csv_file
+    description: 随机采样后的CSV文件
 ---
 
 # random_selector

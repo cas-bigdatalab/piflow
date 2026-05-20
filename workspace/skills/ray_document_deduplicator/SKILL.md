@@ -5,6 +5,52 @@ description: |
   当用户提到文档去重、删除重复文档、样本去重、分布式去重、大规模数据去重等需求时使用此skill。
   即使用户没有明确说出"Ray"或"分布式"，只要任务涉及大规模文档去重处理，
   就应该使用此skill。
+
+input_params:
+  - name: input
+    type: string
+    required: true
+    description: 输入JSON文件路径
+
+  - name: output
+    type: string
+    required: true
+    description: 输出JSON文件路径
+
+  - name: lowercase
+    type: bool
+    required: false
+    default: false
+    description: 是否将文本转为小写进行比对
+
+  - name: ignore_non_character
+    type: bool
+    required: false
+    default: false
+    description: 是否忽略非字母字符（空格、数字、标点）
+
+  - name: backend
+    type: string
+    required: false
+    default: ray_actor
+    description: 分布式后端类型（ray_actor/redis）
+
+  - name: redis_address
+    type: string
+    required: false
+    default: "redis://localhost:6379"
+    description: Redis服务器地址
+
+  - name: text_key
+    type: string
+    required: false
+    default: text
+    description: 文本字段的键名
+
+output_params:
+  - name: output
+    type: jsonl_file
+    description: 去重后的JSON文件
 ---
 
 # Ray Document Deduplicator Ray分布式文档去重 Skill

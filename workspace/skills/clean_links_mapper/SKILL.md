@@ -3,6 +3,28 @@ name: clean_links_mapper
 description: |
   清理文本中的链接（HTTP/HTTPS/FTP）。当用户提到清理链接、删除URL、去除超链接、清理网页链接等需求时使用此skill。
   即使用户没有明确说出"链接"，只要任务涉及从文本中删除或替换URL链接，就应该使用此skill。
+
+input_params:
+  - name: input_path
+    type: string
+    required: true
+    description: 输入JSON文件路径
+
+  - name: output_path
+    type: string
+    required: true
+    description: 输出JSON文件路径
+
+  - name: repl
+    type: string
+    required: false
+    default: ""
+    description: 替换字符串（默认为空，即删除）
+
+output_params:
+  - name: output
+    type: json_file
+    description: 清理链接后的JSON文件
 ---
 
 # Clean Links Mapper

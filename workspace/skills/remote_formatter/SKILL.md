@@ -6,6 +6,40 @@ description: |
   pip install py-data-juicer
   
   当用户提到加载HuggingFace数据集、远程数据集加载、HuggingFace Hub等需求时使用此skill。
+
+input_params:
+  - name: dataset_path
+    type: string
+    required: true
+    description: HuggingFace数据集路径（如 "rotten_tomatoes"）
+
+  - name: output_path
+    type: string
+    required: true
+    description: 输出JSONL文件路径
+
+  - name: text_keys
+    type: list
+    required: false
+    default: ['text']
+    description: 文本字段名列表
+
+  - name: split
+    type: string
+    required: false
+    default: train
+    description: 数据集划分
+
+  - name: num_proc
+    type: int
+    required: false
+    default: 1
+    description: 并行处理的进程数
+
+output_params:
+  - name: output
+    type: jsonl_file
+    description: 输出的JSONL格式数据集文件
 ---
 
 ## 功能概述

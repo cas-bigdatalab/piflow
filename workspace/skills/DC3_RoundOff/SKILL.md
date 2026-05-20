@@ -4,6 +4,39 @@ description: |
   四舍五入数据处理工具。读取结构化数据文件和标准配置文件，根据配置对数字型字段进行四舍五入处理，
   然后输出为相同格式的文件。当用户提到四舍五入、数字取整、保留小数位、数据舍入等需求时使用此skill。
   即使用户没有明确说出"四舍五入"，只要任务涉及根据配置文件对数据进行舍入处理，就应该使用此skill。
+
+input_params:
+  - name: origin_path
+    type: string
+    required: true
+    description: 原始数据文件路径
+
+  - name: standard_path
+    type: string
+    required: true
+    description: 标准配置文件路径，包含字段小数位配置
+
+  - name: output_path
+    type: string
+    required: true
+    description: 处理后数据输出路径
+
+  - name: flow_name
+    type: string
+    required: false
+    default: ""
+    description: 流水线名称（可选，用于筛选配置）
+
+  - name: file_name
+    type: string
+    required: false
+    default: ""
+    description: 流水线内要处理的文件名称（可选，用于筛选配置）
+
+output_params:
+  - name: output
+    type: csv_file
+    description: 四舍五入处理后的结构化数据文件
 ---
 
 # DC3_RoundOff 四舍五入处理Skill

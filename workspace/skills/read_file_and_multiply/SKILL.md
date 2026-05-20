@@ -1,6 +1,22 @@
 ---
 name: read_file_and_multiply
 description: Multiply all numbers in a text file by 10 and save to a new file. Use when user mentions multiply numbers by 10, process number file, batch calculation.
+
+input_params:
+  - name: input_file
+    type: string
+    required: true
+    description: 输入文件路径（包含数字的文本文件）
+
+  - name: output_file
+    type: string
+    required: true
+    description: 输出文件路径
+
+output_params:
+  - name: output
+    type: csv_file
+    description: 处理后的文本文件
 ---
 
 # Multiply Numbers by 10

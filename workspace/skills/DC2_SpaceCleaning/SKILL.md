@@ -4,6 +4,22 @@ description: |
   字符串空格清理工具。读取结构化数据文件（CSV、TSV、Excel等），检查所有字符串类型（object）字段，
   删除字段值前后多余的空格，然后输出为相同格式的文件。当用户提到空格清理、去除空格、trim、清理字符串空格等需求时使用此skill。
   即使用户没有明确说出"空格清理"，只要任务涉及读取结构化文件并删除字符串字段的前后空格，就应该使用此skill。
+
+input_params:
+  - name: input_path
+    type: string
+    required: true
+    description: 输入文件路径（支持CSV/TSV/Excel等）
+
+  - name: output_path
+    type: string
+    required: true
+    description: 输出文件路径（清理后的文件）
+
+output_params:
+  - name: output
+    type: csv_file
+    description: 清理空格后的结构化数据文件
 ---
 
 # DC2_SpaceCleaning 空格清理Skill

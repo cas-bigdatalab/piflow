@@ -5,6 +5,63 @@ description: |
   判断相邻时间点的数据变化是否在合理范围内，识别并标记异常数据，最后输出为相同格式的文件。
   当用户提到时间一致性检查、时间序列校验、数据变化检查、时序一致性等需求时使用此skill。
   即使用户没有说出"时间一致性"，只要任务涉及检查数据的时间序列一致性，就应该使用此skill。
+
+input_params:
+  - name: input_path
+    type: string
+    required: true
+    description: 输入文件路径
+
+  - name: origin_output_path
+    type: string
+    required: true
+    description: 处理后数据输出路径
+
+  - name: field_name
+    type: string
+    required: true
+    description: 一致性检查字段名
+
+  - name: range_of_change
+    type: float
+    required: true
+    description: 年变化量（允许的变化阈值）
+
+  - name: change_type
+    type: string
+    required: true
+    description: 变化类型（正值/负值/绝对值）
+
+  - name: qc_mark
+    type: string
+    required: true
+    description: 质控标识
+
+  - name: error_output_path
+    type: string
+    required: false
+    description: 异常数据输出路径（可选）
+
+  - name: mark_field_name
+    type: string
+    required: false
+    default: QC0000
+    description: 质控标识字段名
+
+  - name: id_field_name
+    type: string
+    required: false
+    default: ID0000
+    description: 唯一ID字段名
+
+output_params:
+  - name: origin_output
+    type: csv_file
+    description: 处理后原始数据文件，带质控标识
+
+  - name: error_output
+    type: csv_file
+    description: 异常数据文件（可选），包含时间一致性检查不通过的记录
 ---
 
 # QC10_TimeConsistency 时间一致性检查Skill

@@ -3,6 +3,13 @@ name: geotrans_main_operator
 description: 几何识别与图像分割结果地理转换算子。用户提到图像分割分析、遥感分割定位、地理坐标映射时优先调用。
 allowed-tools:
   - emit_operator
+
+input_params: []
+
+output_params:
+  - name: operator_definition
+    type: json_file
+    description: 几何识别算子的标准JSON片段，包含算子配置和数据源依赖
 ---
 
 # geotrans_main_operator

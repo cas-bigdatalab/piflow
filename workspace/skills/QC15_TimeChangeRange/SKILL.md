@@ -5,6 +5,49 @@ description: |
   即在任意两个读数之间，其差值（变化量）的绝对值超出了预设的容忍阈值，识别并标记异常数据，最后输出为相同格式的文件。
   当用户提到最大变化范围检验、变化范围检验、时间序列波动检验、窗口变化检测等需求时使用此skill。
   即使用户没有说出"最大变化范围"，只要任务涉及检查时间序列数据在时间窗口内的变化幅度是否异常，就应该使用此skill。
+
+input_params:
+  - name: input_path
+    type: string
+    required: true
+    description: 输入文件路径
+
+  - name: output_path
+    type: string
+    required: true
+    description: 输出文件路径
+
+  - name: conditions
+    type: string
+    required: true
+    description: 检验条件，格式：字段名,阈值,窗口大小，多行用换行分隔
+
+  - name: time_field
+    type: string
+    required: true
+    description: 时间字段名（用于排序判断连续性）
+
+  - name: time_format
+    type: string
+    required: true
+    description: 时间格式（如：%Y-%m-%d %H:%M:%S）
+
+  - name: qc_mark
+    type: string
+    required: false
+    default: "最大变化范围检验异常"
+    description: 质控标识
+
+  - name: mark_field_name
+    type: string
+    required: false
+    default: QC0000
+    description: 质控标识字段名
+
+output_params:
+  - name: output
+    type: csv_file
+    description: 最大变化范围检验后的结构化数据文件，带质控标识
 ---
 
 # QC15_TimeChangeRange 最大变化范围检验Skill

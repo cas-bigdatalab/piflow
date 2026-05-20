@@ -5,6 +5,52 @@ description: |
   以此频率为基准遍历数据的时间范围，检查数据时序是否完整，发现缺失与多余数据点，最后输出为相同格式的文件。
   当用户提到时序完整性检查、时间序列缺失检查、时间点完整性、数据遗漏检验等需求时使用此skill。
   即使用户没有说出"时序完整性"，只要任务涉及检查时间序列数据是否有遗漏或多余的时间点，就应该使用此skill。
+
+input_params:
+  - name: input_path
+    type: string
+    required: true
+    description: 输入文件路径
+
+  - name: origin_output_path
+    type: string
+    required: true
+    description: 原始数据输出路径
+
+  - name: error_output_path
+    type: string
+    required: true
+    description: 异常数据输出路径（缺失/多余时间点）
+
+  - name: data_frequency
+    type: int
+    required: true
+    description: 数据记录频率（分钟，如30表示每30分钟）
+
+  - name: time_field
+    type: string
+    required: true
+    description: 时间字段名
+
+  - name: time_format
+    type: string
+    required: true
+    description: 时间格式（如：%Y-%m-%d %H:%M:%S）
+
+  - name: mark_field_name
+    type: string
+    required: false
+    default: QC0000
+    description: 质控标识字段名
+
+output_params:
+  - name: origin_output
+    type: csv_file
+    description: 处理后原始数据文件，带质控标识
+
+  - name: error_output
+    type: csv_file
+    description: 异常数据文件，包含缺失/多余时间点记录
 ---
 
 # QC16_TimeMissing 数据时序完整性检查Skill

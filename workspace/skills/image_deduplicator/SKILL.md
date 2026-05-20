@@ -5,6 +5,46 @@ description: |
   当用户提到图像去重、删除重复图片、图片去重、清理重复图像等需求时使用此skill。
   即使用户没有明确说出"图像去重"，只要任务涉及从包含图像的数据中删除重复图片，
   就应该使用此skill。
+
+input_params:
+  - name: input
+    type: string
+    required: true
+    description: 输入JSON文件路径
+
+  - name: output
+    type: string
+    required: true
+    description: 输出JSON文件路径
+
+  - name: method
+    type: string
+    required: false
+    default: phash
+    description: 图像哈希方法（phash/dhash/whash/ahash）
+
+  - name: consider_text
+    type: bool
+    required: false
+    default: false
+    description: 是否同时考虑文本哈希进行去重
+
+  - name: image_key
+    type: string
+    required: false
+    default: images
+    description: 图像字段的键名
+
+  - name: text_key
+    type: string
+    required: false
+    default: text
+    description: 文本字段的键名
+
+output_params:
+  - name: output
+    type: json_file
+    description: 去重后的JSON文件，包含去重后的图像样本
 ---
 
 # Image Deduplicator 图像去重 Skill

@@ -6,6 +6,45 @@ description: |
   pip install py-data-juicer
   
   当用户提到加载本地数据集、读取本地文件、格式化本地数据、数据集加载等需求时使用此skill。
+
+input_params:
+  - name: input_path
+    type: string
+    required: true
+    description: 数据集文件或目录路径
+
+  - name: output_path
+    type: string
+    required: true
+    description: 输出JSONL文件路径
+
+  - name: suffixes
+    type: list
+    required: false
+    description: 指定后缀列表，如 ['.json', '.csv']
+
+  - name: text_keys
+    type: list
+    required: false
+    default: "['text']"
+    description: 文本字段名列表
+
+  - name: add_suffix
+    type: bool
+    required: false
+    default: false
+    description: 是否添加文件后缀信息
+
+  - name: num_proc
+    type: int
+    required: false
+    default: 1
+    description: 并行处理的进程数
+
+output_params:
+  - name: output
+    type: jsonl_file
+    description: 格式化后的JSONL数据集文件
 ---
 
 ## 功能概述

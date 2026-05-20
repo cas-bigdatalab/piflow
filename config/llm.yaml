@@ -3,10 +3,10 @@
 #  model: qwen3-max
 #  temperature: 0
 
-llm:
-  provider: dashscope
-  model: qwen3.5-plus
-  temperature: 0
+#llm:
+#  provider: dashscope
+#  model: qwen3.5-plus
+#  temperature: 0
 
 #llm:
 #  provider: dashscope
@@ -19,10 +19,10 @@ llm:
 #  model: glm-4.7-flash
 #  temperature: 0
 
-#llm:
-#  provider: cstcloud
-#  model: qwen3.5
-#  temperature: 0
+llm:
+  provider: cstcloud
+  model: qwen3.5
+  temperature: 0
 
 providers:
   dashscope:

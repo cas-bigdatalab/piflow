@@ -3,6 +3,33 @@ name: clean_email_mapper
 description: |
   清理文本样本中的电子邮件。当用户提到清理邮件、删除邮箱、去除邮件地址、清理个人信息等需求时使用此skill。
   即使用户没有明确说出"邮件"，只要任务涉及从文本中删除或替换邮箱地址，就应该使用此skill。
+
+input_params:
+  - name: input_path
+    type: string
+    required: true
+    description: 输入JSON文件路径
+
+  - name: output_path
+    type: string
+    required: true
+    description: 输出JSON文件路径
+
+  - name: pattern
+    type: string
+    required: false
+    description: 正则表达式模式（默认使用邮箱正则）
+
+  - name: repl
+    type: string
+    required: false
+    default: ""
+    description: 替换字符串（默认为空，即删除）
+
+output_params:
+  - name: output
+    type: json_file
+    description: 清理邮件后的JSON文件
 ---
 
 # Clean Email Mapper

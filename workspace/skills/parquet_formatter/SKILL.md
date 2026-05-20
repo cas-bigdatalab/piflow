@@ -6,6 +6,40 @@ description: |
   pip install py-data-juicer
   
   当用户提到Parquet格式化、Parquet数据加载、读取Parquet文件、Parquet转JSONL等需求时使用此skill。
+
+input_params:
+  - name: input_path
+    type: string
+    required: true
+    description: 输入Parquet文件路径或目录
+
+  - name: output_path
+    type: string
+    required: true
+    description: 输出JSONL文件路径
+
+  - name: text_keys
+    type: list
+    required: false
+    default: "['text']"
+    description: 文本字段名列表
+
+  - name: add_suffix
+    type: bool
+    required: false
+    default: false
+    description: 是否添加文件后缀信息
+
+  - name: num_proc
+    type: int
+    required: false
+    default: 1
+    description: 并行处理的进程数
+
+output_params:
+  - name: output
+    type: jsonl_file
+    description: 格式化后的JSONL文件
 ---
 
 ## 功能概述

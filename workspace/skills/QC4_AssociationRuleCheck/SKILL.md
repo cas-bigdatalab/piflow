@@ -5,6 +5,58 @@ description: |
   具有关联关系的数据项需满足特定约束条件。不满足条件的数据会标记质控标识并输出异常数据。
   当用户提到关联规则校验、数据约束校验、自定义规则校验、条件表达式校验等需求时使用此skill。
   即使用户没有说出"关联规则"，只要任务涉及根据自定义条件表达式进行数据校验，就应该使用此skill。
+
+input_params:
+  - name: input_path
+    type: string
+    required: true
+    description: 输入文件路径
+
+  - name: origin_output_path
+    type: string
+    required: true
+    description: 处理后原始数据输出路径
+
+  - name: expression
+    type: string
+    required: true
+    description: 条件表达式（pandas eval语法）
+
+  - name: filter_type
+    type: string
+    required: true
+    description: yes=满足表达式为正确数据，not=满足表达式为异常数据
+
+  - name: qc_mark
+    type: string
+    required: true
+    description: 质控标识
+
+  - name: error_output_path
+    type: string
+    required: false
+    description: 异常数据输出路径（可选）
+
+  - name: mark_field_name
+    type: string
+    required: false
+    default: QC0000
+    description: 质控标识字段名
+
+  - name: id_field_name
+    type: string
+    required: false
+    default: ID0000
+    description: 唯一ID字段名
+
+output_params:
+  - name: origin_output
+    type: csv_file
+    description: 处理后原始数据文件，带质控标识
+
+  - name: error_output
+    type: csv_file
+    description: 异常数据文件（可选），包含不满足约束条件的记录
 ---
 
 # QC4_AssociationRuleCheck 关联规则校验Skill

@@ -5,6 +5,46 @@ description: |
   当用户提到字符重复、重复比例过滤、文本重复过滤、清理重复内容等需求时使用此skill。
   即使用户没有明确说出"字符重复"，只要任务涉及根据文本中字符重复的程度来筛选数据，
   就应该使用此skill。
+
+input_params:
+  - name: input
+    type: string
+    required: true
+    description: 输入JSON文件路径
+
+  - name: output
+    type: string
+    required: true
+    description: 输出JSON文件路径
+
+  - name: rep_len
+    type: int
+    required: false
+    default: 10
+    description: 字符级n-gram重复长度
+
+  - name: min_ratio
+    type: float
+    required: false
+    default: 0.0
+    description: 最小重复比例
+
+  - name: max_ratio
+    type: float
+    required: false
+    default: 0.5
+    description: 最大重复比例
+
+  - name: text_key
+    type: string
+    required: false
+    default: text
+    description: 文本字段的键名
+
+output_params:
+  - name: output
+    type: json_file
+    description: 过滤后的JSON文件，包含字符重复比例在指定范围内的样本
 ---
 
 # Character Repetition Filter 字符重复比例过滤 Skill

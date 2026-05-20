@@ -6,6 +6,50 @@ description: |
   pip install py-data-juicer
   
   当用户提到混合数据集、合并多个数据集、数据集混合、数据融合等需求时使用此skill。
+
+input_params:
+  - name: dataset_path
+    type: string
+    required: true
+    description: 数据集路径，支持带权重格式（如 "0.7 path1 0.3 path2"）
+
+  - name: output_path
+    type: string
+    required: true
+    description: 输出JSONL文件路径
+
+  - name: suffixes
+    type: list
+    required: false
+    description: 指定后缀列表
+
+  - name: text_keys
+    type: list
+    required: false
+    default: "['text']"
+    description: 文本字段名列表
+
+  - name: add_suffix
+    type: bool
+    required: false
+    default: false
+    description: 是否添加文件后缀信息
+
+  - name: max_samples
+    type: int
+    required: false
+    description: 混合数据集最大样本数
+
+  - name: num_proc
+    type: int
+    required: false
+    default: 1
+    description: 并行处理的进程数
+
+output_params:
+  - name: output
+    type: jsonl_file
+    description: 混合后的JSONL数据集文件
 ---
 
 ## 功能概述

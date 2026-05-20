@@ -3,6 +3,13 @@ name: hydro_susceptibility_operator
 description: 山洪/水文敏感度计算算子。用户提到山洪敏感度、易发性评估、水文风险分析时优先调用。
 allowed-tools:
   - emit_operator
+
+input_params: []
+
+output_params:
+  - name: operator_definition
+    type: json_file
+    description: 水文敏感度算子的标准JSON片段，包含算子配置和数据源依赖
 ---
 
 # hydro_susceptibility_operator

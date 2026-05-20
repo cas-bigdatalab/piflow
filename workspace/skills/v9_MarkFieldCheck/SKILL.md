@@ -4,6 +4,28 @@ description: |
   标识符字段检查工具。读取结构化数据文件，检查是否存在指定的质量标识符字段（默认为QC0000），
   如果不存在则添加该字段，最后输出为相同格式的文件。当用户提到标识符字段检查、添加质量标识符、QC字段检查等需求时使用此skill。
   即使用户没有明确说出"标识符字段"，只要任务涉及检查或添加质量标识符字段，就应该使用此skill。
+
+input_params:
+  - name: input_path
+    type: string
+    required: true
+    description: 输入文件路径
+
+  - name: output_path
+    type: string
+    required: true
+    description: 输出文件路径
+
+  - name: mark_field_name
+    type: string
+    required: false
+    default: QC0000
+    description: 质量标识符字段名
+
+output_params:
+  - name: output
+    type: csv_file
+    description: 处理后结构化数据文件，包含质量标识符字段
 ---
 
 # v9_MarkFieldCheck 标识符字段检查Skill

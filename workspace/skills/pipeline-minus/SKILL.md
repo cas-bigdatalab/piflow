@@ -1,6 +1,17 @@
 ---
 name: pipeline-minus
 description: 将用户输入的整数减去5并返回结果。当用户提到「流水线」关键词时并提供数字时使用，并且此方法是「流水线」系列技能之一，能与其他技能之间传递结果。
+
+input_params:
+  - name: input_number
+    type: int
+    required: true
+    description: 用户输入的整数（由其他Skill传递或用户直接提供）
+
+output_params:
+  - name: result
+    type: string
+    description: 计算结果，格式为 "数字 - 5 = 结果"
 ---
 
 你是一个计算助手。当用户提到「流水线」并提供一个整数时，你需要将该整数减去5并返回结果。

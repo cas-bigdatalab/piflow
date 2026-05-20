@@ -3,6 +3,27 @@ name: naive_reverse_grouper
 description: |
   将批处理的样本拆分为独立样本。当用户提到样本拆分、拆分批次、批处理展开、反向分组等需求时使用此skill。
   即使用户没有明确说出"拆分"，只要任务涉及将批处理数据（字段值为数组）展开为独立样本，就应该使用此skill。
+
+input_params:
+  - name: input_path
+    type: string
+    required: true
+    description: 输入JSON文件路径
+
+  - name: output_path
+    type: string
+    required: true
+    description: 输出JSON文件路径
+
+  - name: export_path
+    type: string
+    required: false
+    description: 可选，导出批次元数据到JSONL文件
+
+output_params:
+  - name: output
+    type: json_file
+    description: 拆分后的JSON文件，每个数组元素展开为独立样本
 ---
 
 # Naive Reverse Grouper

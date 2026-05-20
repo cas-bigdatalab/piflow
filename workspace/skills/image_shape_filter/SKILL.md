@@ -6,6 +6,58 @@ description: |
   pip install py-data-juicer
   
   当用户提到图像尺寸过滤、图片宽高筛选、图像分辨率过滤、按图片大小过滤、图像形状限制等需求时使用此skill。
+
+input_params:
+  - name: input_path
+    type: string
+    required: true
+    description: 输入数据文件路径（JSON/JSONL格式）
+
+  - name: output_path
+    type: string
+    required: true
+    description: 输出数据文件路径（JSONL格式）
+
+  - name: min_width
+    type: int
+    required: false
+    default: 1
+    description: 最小图像宽度
+
+  - name: max_width
+    type: int
+    required: false
+    default: 2147483647
+    description: 最大图像宽度
+
+  - name: min_height
+    type: int
+    required: false
+    default: 1
+    description: 最小图像高度
+
+  - name: max_height
+    type: int
+    required: false
+    default: 2147483647
+    description: 最大图像高度
+
+  - name: any_or_all
+    type: string
+    required: false
+    default: any
+    description: 过滤策略（any/all）
+
+  - name: num_proc
+    type: int
+    required: false
+    default: 1
+    description: 并行处理的进程数
+
+output_params:
+  - name: output
+    type: jsonl_file
+    description: 过滤后的JSONL文件，包含图像尺寸在指定范围内的样本
 ---
 
 ## 功能概述

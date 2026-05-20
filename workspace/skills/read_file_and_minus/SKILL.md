@@ -1,6 +1,22 @@
 ---
 name: read_file_and_minus
 description: Minus all numbers in a text file by 5 and save to a new file. Use when user mentions read a file minus numbers by 15, process number file, batch calculation.
+
+input_params:
+  - name: input_file
+    type: string
+    required: true
+    description: 输入文件路径（包含数字的文本文件）
+
+  - name: output_file
+    type: string
+    required: true
+    description: 输出文件路径
+
+output_params:
+  - name: output
+    type: csv_file
+    description: 处理后的文本文件
 ---
 
 # Minus Numbers by 5

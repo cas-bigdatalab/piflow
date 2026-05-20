@@ -5,6 +5,40 @@ description: |
   当用户提到视频去重、删除重复视频、清理重复视频等需求时使用此skill。
   即使用户没有明确说出"视频去重"，只要任务涉及从包含视频的数据中删除重复视频，
   就应该使用此skill。
+
+input_params:
+  - name: input
+    type: string
+    required: true
+    description: 输入JSON文件路径
+
+  - name: output
+    type: string
+    required: true
+    description: 输出JSON文件路径
+
+  - name: consider_text
+    type: bool
+    required: false
+    default: false
+    description: 是否同时考虑文本哈希进行去重
+
+  - name: video_key
+    type: string
+    required: false
+    default: videos
+    description: 视频字段的键名
+
+  - name: text_key
+    type: string
+    required: false
+    default: text
+    description: 文本字段的键名
+
+output_params:
+  - name: output
+    type: jsonl_file
+    description: 去重后的JSON文件
 ---
 
 # Video Deduplicator 视频去重 Skill

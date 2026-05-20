@@ -5,6 +5,49 @@ description: |
   检查其他指定字段（差异字段）是否存在多个不同的值，如果存在则标记为异常数据，最后输出为相同格式的文件。
   当用户提到恒定字段检查、字段一致性检查、分组内差异检查等需求时使用此skill。
   即使用户没有说出"恒定字段"，只要任务涉及检查分组内字段是否存在不一致，就应该使用此skill。
+
+input_params:
+  - name: input_path
+    type: string
+    required: true
+    description: 输入文件路径
+
+  - name: output_path
+    type: string
+    required: true
+    description: 输出文件路径
+
+  - name: constantFieldsNames
+    type: string
+    required: true
+    description: 恒定字段，逗号分隔（如：field1,field2）
+
+  - name: diffFieldsNames
+    type: string
+    required: true
+    description: 差异字段，逗号分隔（如：field3,field4）
+
+  - name: QcMark
+    type: string
+    required: true
+    description: 质控标识
+
+  - name: markFieldName
+    type: string
+    required: false
+    default: QC0000
+    description: 质控标识字段名
+
+  - name: idFieldName
+    type: string
+    required: false
+    default: ID0000
+    description: 唯一ID字段名
+
+output_params:
+  - name: output
+    type: csv_file
+    description: 恒定字段一致性检查后的结构化数据文件，带质控标识
 ---
 
 # QC12_ConstantFieldCheck 恒定字段一致性检查Skill

@@ -5,6 +5,42 @@ description: |
   当用户提到标签聚合、合并标签、归类标签、标签映射、标签合并、整理标签等需求时使用此skill。
   即使用户没有明确说出"聚合"或"合并"，只要任务涉及将多个相似标签归类统一，
   就应该使用此skill。
+
+input_params:
+  - name: input
+    type: string
+    required: true
+    description: 输入JSON文件路径
+
+  - name: output
+    type: string
+    required: true
+    description: 输出JSON文件路径
+
+  - name: api_model
+    type: string
+    required: true
+    description: API模型名称
+
+  - name: meta_tag_key
+    type: string
+    required: true
+    description: 元数据标签的键名
+
+  - name: target_tags
+    type: string
+    required: false
+    description: 目标标签列表，逗号分隔（不指定则自动生成）
+
+  - name: api_endpoint
+    type: string
+    required: false
+    description: API端点URL
+
+output_params:
+  - name: output
+    type: json_file
+    description: 标签聚合后的JSON文件，包含合并后的标签
 ---
 
 # Meta Tags Aggregator 元标签聚合 Skill

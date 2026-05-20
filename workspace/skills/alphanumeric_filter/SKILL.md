@@ -5,6 +5,46 @@ description: |
   当用户提到文本过滤、比例筛选、字母比例、数字比例、清理乱码文本等需求时使用此skill。
   即使用户没有明确说出"过滤"，只要任务涉及根据文本中字母或数字的比例来筛选数据，
   就应该使用此skill。
+
+input_params:
+  - name: input
+    type: string
+    required: true
+    description: 输入JSON文件路径
+
+  - name: output
+    type: string
+    required: true
+    description: 输出JSON文件路径
+
+  - name: min_ratio
+    type: float
+    required: false
+    default: 0.25
+    description: 最小字母数字比例
+
+  - name: max_ratio
+    type: float
+    required: false
+    default: 1.0
+    description: 最大字母数字比例
+
+  - name: tokenization
+    type: bool
+    required: false
+    default: false
+    description: 是否使用tokenization计算比例
+
+  - name: text_key
+    type: string
+    required: false
+    default: text
+    description: 文本字段的键名
+
+output_params:
+  - name: output
+    type: json_file
+    description: 过滤后的JSON文件，包含保留的样本数据
 ---
 
 # Alphanumeric Filter 字母数字比例过滤 Skill

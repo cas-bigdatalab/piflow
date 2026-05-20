@@ -3,6 +3,56 @@ name: calibrate_qa_mapper
 description: |
   基于参考文本校准问答对。当用户提到问答校准、校准QA、语言风格校准、问答对优化等需求时使用此skill。
   即使用户没有明确说出"校准"，只要任务涉及根据参考文本调整问答对使其更符合特定风格，就应该使用此skill。
+
+input_params:
+  - name: input_path
+    type: string
+    required: true
+    description: 输入JSON文件路径
+
+  - name: output_path
+    type: string
+    required: true
+    description: 输出JSON文件路径
+
+  - name: api_model
+    type: string
+    required: true
+    description: LLM模型名称，如 'qwen2.5-72b-instruct'
+
+  - name: api_endpoint
+    type: string
+    required: false
+    description: API端点URL
+
+  - name: response_path
+    type: string
+    required: false
+    default: choices.0.message.content
+    description: 响应内容路径
+
+  - name: text_key
+    type: string
+    required: false
+    default: text
+    description: 参考文本字段名
+
+  - name: query_key
+    type: string
+    required: false
+    default: query
+    description: 问题字段名
+
+  - name: response_key
+    type: string
+    required: false
+    default: response
+    description: 回答字段名
+
+output_params:
+  - name: output
+    type: json_file
+    description: 校准后的问答对JSON文件，包含校准后的query和response
 ---
 
 # Calibrate QA Mapper

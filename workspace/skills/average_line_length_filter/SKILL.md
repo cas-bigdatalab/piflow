@@ -5,6 +5,39 @@ description: |
   当用户提到行长度过滤、平均行长度、文本行长度筛选、按行筛选等需求时使用此skill。
   即使用户没有明确说出"平均行长度"，只要任务涉及根据文本中每行的平均长度来筛选数据，
   就应该使用此skill。
+
+input_params:
+  - name: input
+    type: string
+    required: true
+    description: 输入JSON文件路径
+
+  - name: output
+    type: string
+    required: true
+    description: 输出JSON文件路径
+
+  - name: min_len
+    type: float
+    required: false
+    default: 10
+    description: 最小平均行长度
+
+  - name: max_len
+    type: float
+    required: false
+    description: 最大平均行长度（默认无限制）
+
+  - name: text_key
+    type: string
+    required: false
+    default: text
+    description: 文本字段的键名
+
+output_params:
+  - name: output
+    type: json_file
+    description: 过滤后的JSON文件，包含平均行长度在指定范围内的样本
 ---
 
 # Average Line Length Filter 平均行长度过滤 Skill

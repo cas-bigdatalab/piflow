@@ -5,6 +5,49 @@ description: |
   某个关键指标的数值是否长时间保持不变（久无变化检查），识别并标记异常数据，最后输出为相同格式的文件。
   当用户提到等值检验、连续无变化检查、久无变化检查、时间序列恒定值检查等需求时使用此skill。
   即使用户没有说出"等值检验"，只要任务涉及检查时间序列数据是否长时间保持不变，就应该使用此skill。
+
+input_params:
+  - name: input_path
+    type: string
+    required: true
+    description: 输入文件路径
+
+  - name: output_path
+    type: string
+    required: true
+    description: 输出文件路径
+
+  - name: conditions
+    type: string
+    required: true
+    description: 检验条件，格式：字段名,连续次数，多行用换行分隔
+
+  - name: time_field
+    type: string
+    required: true
+    description: 时间字段名（用于排序判断连续性）
+
+  - name: time_format
+    type: string
+    required: true
+    description: 时间格式（如：%Y-%m-%d %H:%M:%S）
+
+  - name: qc_mark
+    type: string
+    required: false
+    default: "等值异常"
+    description: 质控标识
+
+  - name: mark_field_name
+    type: string
+    required: false
+    default: QC0000
+    description: 质控标识字段名
+
+output_params:
+  - name: output
+    type: csv_file
+    description: 等值检验后的结构化数据文件，带质控标识
 ---
 
 # QC13_TimeEquivalentValue 等值检验Skill

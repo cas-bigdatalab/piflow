@@ -4,6 +4,33 @@ description: |
   数据排序工具。读取结构化数据文件，根据指定字段进行升序或降序排序，最后输出为相同格式的文件。
   当用户提到数据排序、升序排列、降序排列、按某字段排序等需求时使用此skill。
   即使用户没有明确说出"排序"，只要任务涉及对数据进行排序，就应该使用此skill。
+
+input_params:
+  - name: input_path
+    type: string
+    required: true
+    description: 输入文件路径（支持CSV/TSV/Excel等）
+
+  - name: output_path
+    type: string
+    required: true
+    description: 输出文件路径（排序后的文件）
+
+  - name: id_field_name
+    type: string
+    required: true
+    description: 排序字段名，支持多字段用逗号分隔
+
+  - name: sort_order
+    type: string
+    required: false
+    default: asc
+    description: 排序方式（asc升序/desc降序）
+
+output_params:
+  - name: output
+    type: csv_file
+    description: 排序后的结构化数据文件
 ---
 
 # Pi_DataSorting 数据排序Skill

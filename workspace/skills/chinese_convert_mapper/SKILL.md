@@ -3,6 +3,28 @@ name: chinese_convert_mapper
 description: |
   在繁体中文、简体中文和日语汉字之间转换中文。当用户提到中文繁简转换、中文转换、简体转繁体、繁体转简体、中日文转换等需求时使用此skill。
   即使用户没有明确说出"转换"，只要任务涉及中文繁简转换或中日文转换，就应该使用此skill。
+
+input_params:
+  - name: input_path
+    type: string
+    required: true
+    description: 输入JSON文件路径
+
+  - name: output_path
+    type: string
+    required: true
+    description: 输出JSON文件路径
+
+  - name: mode
+    type: string
+    required: false
+    default: s2t
+    description: 转换模式，如 s2t、t2s、s2tw、t2jp 等
+
+output_params:
+  - name: output
+    type: json_file
+    description: 转换后的JSON文件，包含转换后的text字段
 ---
 
 # Chinese Convert Mapper

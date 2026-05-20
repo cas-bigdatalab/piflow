@@ -6,6 +6,46 @@ description: |
   pip install py-data-juicer
   
   当用户提到实体依赖过滤、文本实体检测、依存关系过滤、实体独立性过滤等需求时使用此skill。
+
+input_params:
+  - name: input_path
+    type: string
+    required: true
+    description: 输入数据文件路径 (JSON/JSONL格式)
+
+  - name: output_path
+    type: string
+    required: true
+    description: 输出数据文件路径 (JSONL格式)
+
+  - name: lang
+    type: string
+    required: false
+    default: en
+    description: 语言代码（en 或 zh）
+
+  - name: min_dependency_num
+    type: int
+    required: false
+    default: 1
+    description: 最小依赖边数
+
+  - name: any_or_all
+    type: string
+    required: false
+    default: all
+    description: 过滤策略（any 或 all）
+
+  - name: num_proc
+    type: int
+    required: false
+    default: 1
+    description: 并行处理的进程数
+
+output_params:
+  - name: output
+    type: jsonl_file
+    description: 过滤后的JSONL格式数据文件
 ---
 
 ## 功能概述
