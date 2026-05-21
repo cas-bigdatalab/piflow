@@ -163,7 +163,7 @@ export async function uploadWorkspaceFile(
   };
 }
 // 获取算子库
-export async function getAllSkills(page = '', page_size = '', keyword = "", type = "", skill_type = "") {
+export async function getAllSkills(keyword = "") {
   // const sp = new URLSearchParams();
   // sp.set("page", String(page));
   // sp.set("page_size", String(page_size));
@@ -177,7 +177,7 @@ export async function getAllSkills(page = '', page_size = '', keyword = "", type
     total: number;
     current_count: number;
     message?: string;
-  }>(`/dag/skill/listSkills`);
+  }>(`/dag/skill/listSkills?keyword=${keyword}`);
 }
 export function downloadWorkspaceUrl(path: string) {
   const sp = new URLSearchParams({ path });
@@ -279,4 +279,18 @@ export async function streamChat(
       }
     }
   }
+}
+// 根据画板信息给大模型发消息
+export async function sendMessages(
+  user_id: string,
+  thread_id: string,
+  message_id: number,
+  attachments: Array<Pick<MessageAttachment, "path" | "name">>,
+  message: string
+) {
+  return apiFetch<{ attachments: MessageAttachment[] }>("/chat/stream", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ user_id, thread_id, message_id, attachments,message }),
+  });
 }

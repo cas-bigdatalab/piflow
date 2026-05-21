@@ -14,6 +14,8 @@ import {
 } from "../lib/api";
 import { MarkdownMessage } from "../components/MarkdownMessage";
 import { shortId } from "../lib/ids";
+import PipelinePreview, { extractPipelineJson, PipelineData } from "../components/PipelinePreview";
+import FlowEditor, { InitialPipelineData } from "../components/Draw";
 
 const DEFAULT_USER_ID = "default_user";
 
@@ -190,6 +192,11 @@ export function HomePage() {
   const [uploadingCount, setUploadingCount] = useState(0);
   const [loadError, setLoadError] = useState("");
   const [dragActive, setDragActive] = useState(false);
+  
+  // 画板相关状态
+  const [showCanvas, setShowCanvas] = useState(false);
+  const [canvasPipelineData, setCanvasPipelineData] = useState<PipelineData | null>(null);
+  
   const abortRef = useRef<AbortController | null>(null);
   const transcriptRef = useRef<HTMLDivElement | null>(null);
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
@@ -199,6 +206,19 @@ export function HomePage() {
 
   const uploading = uploadingCount > 0;
   const isExpanded = hasMessages || sending || Boolean(loadError);
+  
+  // 处理打开画板
+  const handleOpenCanvas = (data: PipelineData) => {
+    setCanvasPipelineData(data);
+    setShowCanvas(true);
+  };
+  
+  // 关闭画板
+  const handleCloseCanvas = () => {
+    setShowCanvas(false);
+    setCanvasPipelineData(null);
+  };
+
   // 页面加载时请求登录接口
   useEffect(() => {
     const login = async () => {
@@ -214,6 +234,7 @@ export function HomePage() {
     
     login();
   }, []);
+  
   useEffect(() => {
     if (!transcriptRef.current) {
       return;
@@ -726,19 +747,14 @@ export function HomePage() {
                 {uploading ? "附件上传中" : sending ? "处理中" : "快速发送"}
               </span>
             ) : null}
-            
-            <NavLink
-              to="/dialogue"
+            <button
+              className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition-colors hover:bg-black hover:text-white disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-300"
+              disabled={sending || uploading || (!input.trim() && pendingFiles.length === 0)}
+              onClick={() => send().catch(() => {})}
+              type="button"
             >
-              <button
-                className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition-colors hover:bg-black hover:text-white disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-300"
-                disabled={sending || uploading || (!input.trim() && pendingFiles.length === 0)}
-                type="button"
-              >
-              
-                <Icon icon={uploading ? "ri:loader-4-line" : sending ? "ri:stop-fill" : "ri:arrow-right-line"} width="18" />
-              </button>
-            </NavLink>
+              <Icon icon={uploading ? "ri:loader-4-line" : sending ? "ri:stop-fill" : "ri:arrow-right-line"} width="18" />
+            </button>
           </div>
         </div>
       </div>
@@ -752,9 +768,6 @@ export function HomePage() {
           <div className="mx-auto flex max-w-5xl flex-col">
             <div className="border-b border-slate-200/70 bg-white/40 px-8 pb-14 pt-10 text-center">
               <div className="mx-auto max-w-4xl">
-                {/*<div className="mb-5 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-4 py-1 text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-500">*/}
-                {/*  Research Workflow Copilot*/}
-                {/*</div>*/}
                 <h1 className="mb-5 text-[38px] font-bold tracking-tight text-slate-950">
                   πFlow AI：面向科学数据加工处理的智能工作台
                 </h1>
@@ -802,116 +815,139 @@ export function HomePage() {
           </div>
         </section>
       ) : (
-        <section className="flex min-h-0 flex-1 flex-col px-8 pb-6 pt-6">
-          <div className="mx-auto flex min-h-0 w-full max-w-5xl flex-1 flex-col">
-            {loadError ? (
-              <div className="mb-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-                加载对话失败：{loadError}
-              </div>
-            ) : null}
+        <section className="flex min-h-0 flex-1 flex-col">
+          <div className="flex flex-1">
+            {/* 左侧对话区域 */}
+            <div className={`flex flex-col ${showCanvas ? 'w-1/2 border-r border-slate-200' : 'w-full'} max-w-5xl`}>
+              <div className="mx-auto flex min-h-0 w-full flex-1 flex-col px-8 pt-6">
+                {loadError ? (
+                  <div className="mb-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                    加载对话失败：{loadError}
+                  </div>
+                ) : null}
 
-            <div
-              ref={transcriptRef}
-              className="flex-1 space-y-5 overflow-y-auto px-2 py-4 custom-scrollbar"
-            >
-              {hasMessages ? (
-                messages.map((message) => {
-                  const isAssistant = message.role === "assistant";
-                  return (
-                    <article
-                      key={message.id}
-                      className={isAssistant ? "max-w-[82%]" : "ml-auto flex max-w-[70%] flex-col items-end"}
-                    >
-                      <div className="mb-2 flex items-center gap-2 text-[11px] uppercase tracking-[0.22em] text-slate-400">
-                        <span className={isAssistant ? "normal-case" : ""}>
-                          {isAssistant ? "πFlow" : "USER"}
-                        </span>
-                        {isAssistant && message.reasoning ? (
-                          <span className="text-emerald-500">Thinking</span>
-                        ) : null}
-                      </div>
-
-                      {isAssistant ? (
-                        <div className="rounded-[28px] bg-transparent px-1 py-1">
-                          <MarkdownMessage content={message.content} pending={sending} />
-
-                          {sending && message.id === activeAssistantId ? (
-                            <div className="mt-3 w-fit rounded-full bg-white px-3 py-1 text-[11px] text-slate-500 shadow-sm ring-1 ring-slate-200">
-                              {streamStatus || "处理中..."}
-                            </div>
-                          ) : null}
-
-                          {isAssistant && message.reasoning ? (
-                            <details
-                              className="mt-4 rounded-2xl border border-emerald-100 bg-emerald-50/70 p-3"
-                              open={sending}
-                            >
-                              <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">
-                                思考过程
-                              </summary>
-                              <pre className="mt-3 whitespace-pre-wrap break-words font-sans text-xs leading-6 text-emerald-900">
-                                {message.reasoning}
-                              </pre>
-                            </details>
-                          ) : null}
-
-                          {isAssistant && message.artifacts && message.artifacts.length > 0 ? (
-                            <div className="mt-4 flex flex-wrap gap-2 pt-1">
-                              {message.artifacts.map((path) => (
-                                <a
-                                  key={path}
-                                  className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-700 transition-colors hover:border-black hover:text-black"
-                                  href={downloadWorkspaceUrl(path)}
-                                  rel="noreferrer"
-                                  target="_blank"
-                                >
-                                  <Icon icon="ri:download-2-line" width="14" />
-                                  <span>{path.split("/").pop() || "下载产物"}</span>
-                                </a>
-                              ))}
-                            </div>
-                          ) : null}
-                        </div>
-                      ) : (
-                        <div
-                          className={`relative w-fit max-w-full ${message.attachments && message.attachments.length > 0 ? "pt-8" : ""}`}
+                <div
+                  ref={transcriptRef}
+                  className="flex-1 space-y-5 overflow-y-auto px-2 py-4 custom-scrollbar"
+                >
+                  {hasMessages ? (
+                    messages.map((message) => {
+                      const isAssistant = message.role === "assistant";
+                      return (
+                        <article
+                          key={message.id}
+                          className={isAssistant ? "max-w-[82%]" : "ml-auto flex max-w-[70%] flex-col items-end"}
                         >
-                          {message.attachments && message.attachments.length > 0 ? (
-                            <div className="absolute right-0 top-0 z-10 flex max-w-full flex-wrap justify-end gap-2">
-                              {message.attachments.map((file) => (
-                                <a
-                                  key={`${message.id}-${file.path}`}
-                                  className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-700 shadow-sm transition-colors hover:border-black hover:text-black"
-                                  href={downloadWorkspaceUrl(file.path)}
-                                  rel="noreferrer"
-                                  target="_blank"
-                                >
-                                  <Icon icon="ri:file-2-line" width="14" />
-                                  <span>{file.name}</span>
-                                </a>
-                              ))}
-                            </div>
-                          ) : null}
-                          <div className="inline-block w-fit max-w-full rounded-[24px] bg-slate-100 px-4 py-3 text-slate-900">
-                            <pre className="custom-scrollbar max-h-60 overflow-auto whitespace-pre-wrap break-words font-sans text-sm leading-7 text-slate-900">
-                              {message.content}
-                            </pre>
+                          <div className="mb-2 flex items-center gap-2 text-[11px] uppercase tracking-[0.22em] text-slate-400">
+                            <span className={isAssistant ? "normal-case" : ""}>
+                              {isAssistant ? "πFlow" : "USER"}
+                            </span>
+                            {isAssistant && message.reasoning ? (
+                              <span className="text-emerald-500">Thinking</span>
+                            ) : null}
                           </div>
-                        </div>
-                      )}
-                    </article>
-                  );
-                })
-              ) : (
-                <div className="flex h-full items-center justify-center text-sm text-slate-400">
-                  输入内容后，这里会展开完整对话。
+
+                          {isAssistant ? (
+                            <div className="rounded-[28px] bg-transparent px-1 py-1">
+                              <MarkdownMessage content={message.content} pending={sending} />
+
+                              {sending && message.id === activeAssistantId ? (
+                                <div className="mt-3 w-fit rounded-full bg-white px-3 py-1 text-[11px] text-slate-500 shadow-sm ring-1 ring-slate-200">
+                                  {streamStatus || "处理中..."}
+                                </div>
+                              ) : null}
+                              {!sending && (() => {
+                                try {
+                                  const c = message.content || '';
+                                  const pipelineData = extractPipelineJson(c);
+                                  if (pipelineData) {
+                                    return <PipelinePreview data={pipelineData} threadId={threadId} onOpenCanvas={handleOpenCanvas} />;
+                                  }
+                                } catch (err) {
+                                  console.error('[PipelineDebug] Error:', err);
+                                }
+                                return null;
+                              })()}
+                              {isAssistant && message.reasoning ? (
+                                <details
+                                  className="mt-4 rounded-2xl border border-emerald-100 bg-emerald-50/70 p-3"
+                                  open={sending}
+                                >
+                                  <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">
+                                    思考过程
+                                  </summary>
+                                  <pre className="mt-3 whitespace-pre-wrap break-words font-sans text-xs leading-6 text-emerald-900">
+                                    {message.reasoning}
+                                  </pre>
+                                </details>
+                              ) : null}
+
+                              {isAssistant && message.artifacts && message.artifacts.length > 0 ? (
+                                <div className="mt-4 flex flex-wrap gap-2 pt-1">
+                                  {message.artifacts.map((path) => (
+                                    <a
+                                      key={path}
+                                      className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-700 transition-colors hover:border-black hover:text-black"
+                                      href={downloadWorkspaceUrl(path)}
+                                      rel="noreferrer"
+                                      target="_blank"
+                                    >
+                                      <Icon icon="ri:download-2-line" width="14" />
+                                      <span>{path.split("/").pop() || "下载产物"}</span>
+                                    </a>
+                                  ))}
+                                </div>
+                              ) : null}
+                            </div>
+                          ) : (
+                            <div
+                              className={`relative w-fit max-w-full ${message.attachments && message.attachments.length > 0 ? "pt-8" : ""}`}
+                            >
+                              {message.attachments && message.attachments.length > 0 ? (
+                                <div className="absolute right-0 top-0 z-10 flex max-w-full flex-wrap justify-end gap-2">
+                                  {message.attachments.map((file) => (
+                                    <a
+                                      key={`${message.id}-${file.path}`}
+                                      className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-700 shadow-sm transition-colors hover:border-black hover:text-black"
+                                      href={downloadWorkspaceUrl(file.path)}
+                                      rel="noreferrer"
+                                      target="_blank"
+                                    >
+                                      <Icon icon="ri:file-2-line" width="14" />
+                                      <span>{file.name}</span>
+                                    </a>
+                                  ))}
+                                </div>
+                              ) : null}
+                              <div className="inline-block w-fit max-w-full rounded-[24px] bg-slate-100 px-4 py-3 text-slate-900">
+                                <pre className="custom-scrollbar max-h-60 overflow-auto whitespace-pre-wrap break-words font-sans text-sm leading-7 text-slate-900">
+                                  {message.content}
+                                </pre>
+                              </div>
+                            </div>
+                          )}
+                        </article>
+                      );
+                    })
+                  ) : (
+                    <div className="flex h-full items-center justify-center text-sm text-slate-400">
+                      输入内容后，这里会展开完整对话。
+                    </div>
+                  )}
                 </div>
-              )}
+
+                <div className="sticky bottom-0 pt-2">
+                  {renderComposer({ compact: false })}
+                </div>
+              </div>
             </div>
 
-            <div className="sticky bottom-0 pt-2">
-              {renderComposer({ compact: false })}
-            </div>
+            {/* 右侧画板区域 */}
+            {showCanvas && canvasPipelineData && (
+              <div className="w-1/2">
+                <FlowEditor initialPipelineData={canvasPipelineData as unknown as InitialPipelineData} onClose={handleCloseCanvas} threadId={threadId} />
+              </div>
+            )}
           </div>
         </section>
       )}

@@ -200,7 +200,7 @@ export function ThreadsSidebar() {
               </div>
             ) : null}
 
-            <div className="space-y-2">
+            <div className="space-y-2" style={{height:'600px'}}>
               {items.map((thread) => {
                 const active = thread.thread_id === selectedThreadId;
                 return (

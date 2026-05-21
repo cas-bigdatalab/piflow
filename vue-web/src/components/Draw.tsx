@@ -1,5 +1,6 @@
-import React, { useCallback, useState, useRef, memo, useEffect, useMemo } from 'react';
-import { saveDrawInfo,getAllSkills,listSkillsDetails} from "../lib/api";
+﻿import React, { useCallback, useState, useRef, memo, useEffect, useMemo } from 'react';
+import { shortId } from '../lib/ids';
+import { saveDrawInfo, getAllSkills, listSkillsDetails, createMessage, streamChat } from "../lib/api";
 import {
   ReactFlow,
   Background,
@@ -742,9 +743,27 @@ const OperatorLibraryModal: React.FC<OperatorLibraryModalProps> = ({ isOpen, onC
   );
 };
 
+// ==================== 外部传入的初始 Pipeline 数据 ====================
+
+export interface InitialPipelineNode {
+  node_name: string;
+  skill_name?: string;
+  params?: Record<string, unknown>;
+}
+
+export interface InitialPipelineData {
+  task: { name: string; description?: string };
+  nodes: InitialPipelineNode[];
+}
+
+export interface FlowEditorProps {
+  initialPipelineData?: InitialPipelineData | null;
+  onClose?: () => void;
+}
+
 // ==================== 主画布组件 ====================
 
-const FlowEditorInner: React.FC = () => {
+const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClose, threadId }) => {
   const [nodes, setNodes, onNodesChange] = useNodesState<Node<NodeData>>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [isOperatorLibraryOpen, setIsOperatorLibraryOpen] = useState(false);
@@ -798,6 +817,106 @@ const FlowEditorInner: React.FC = () => {
   };
 
   const nodeIdCounter = useRef(4);
+
+  // 加载外部传入的初始 pipeline 数据
+  useEffect(() => {
+    if (!initialPipelineData || !initialPipelineData.nodes || initialPipelineData.nodes.length === 0) return;
+    if (isInitialized.current) return;
+
+    const loadInitialPipeline = async () => {
+      setIsLoading(true);
+      const pipelineNodes = initialPipelineData.nodes;
+
+      const createdNodes: Node<NodeData>[] = [];
+      const createdEdges: Edge[] = [];
+
+      for (let i = 0; i < pipelineNodes.length; i++) {
+        const pNode = pipelineNodes[i];
+        let skillId = pNode.skill_id || '';
+        const skillName = pNode.skill_name;
+
+        // 获取算子详情信息
+        let inputParams = undefined;
+        let outputParams = undefined;
+        try {
+          const res = await getAllSkills(skillName);
+          console.log('res算子列表',res);
+          if (res.result.data && res.result.data.length>0) {
+            inputParams = res.result.data[0].DagSkillInfoList[0].input_params;
+            outputParams = res.result.data[0].DagSkillInfoList[0].output_params;
+            skillId = res.result.data[0].DagSkillInfoList[0].skill_id;
+          }
+        } catch (error) {
+          console.error('获取算子库失败:', error);
+        }
+
+        const nodeId = `node-${i + 1}`;
+        const newNode: Node<NodeData> = {
+          id: nodeId,
+          type: 'custom',
+          position: {
+            x: START_X + (NODE_WIDTH + NODE_GAP) * i,
+            y: START_Y,
+          },
+          data: {
+            label: skillName,
+            icon: skillId,
+            operatorId: skillId,
+            description: '',
+            params: pNode.params || getDefaultParams(skillId),
+            inputVar: 'input_data',
+            outputVar: 'output_data',
+            input_params: inputParams,
+            output_params: outputParams,
+            onDelete: (delId: string) => {
+              setNodes((nds) => nds.filter((n) => n.id !== delId));
+              setEdges((eds) => eds.filter((e) => e.source !== delId && e.target !== delId));
+            },
+            onUpdateParams: (updId: string, params: Record<string, any>) => {
+              setNodes((nds) =>
+                nds.map((n) => {
+                  if (n.id === updId) {
+                    return { ...n, data: { ...n.data, params } };
+                  }
+                  return n;
+                })
+              );
+            },
+            onSelect: (selId: string) => {
+              setSelectedNodeId(selId);
+              setShowOperatorModal(false);
+            },
+          },
+        };
+        createdNodes.push(newNode);
+
+        // 创建到下一个节点的边
+        if (i < pipelineNodes.length - 1) {
+          createdEdges.push({
+            id: `edge-${i}`,
+            source: nodeId,
+            target: `node-${i + 2}`,
+            type: 'custom',
+            data: { edgeType: 'bezier', onDelete: (delId: string) => {
+              setEdges((eds) => eds.filter((e) => e.id !== delId));
+            }},
+          });
+        }
+      }
+
+      nodeIdCounter.current = pipelineNodes.length;
+      setNodes(createdNodes);
+      setEdges(createdEdges);
+      setIsLoading(false);
+      isInitialized.current = true;
+
+      setTimeout(() => {
+        fitView({ padding: 0.2 });
+      }, 200);
+    };
+
+    loadInitialPipeline();
+  }, [initialPipelineData]);
 
   // 模拟请求后端接口获取画板数据
   useEffect(() => {
@@ -1366,11 +1485,75 @@ const FlowEditorInner: React.FC = () => {
             {!isSaving && saveMessage && <span className="save-message">{saveMessage}</span>}
             {!isSaving && !saveMessage && <span className="save-idle">已保存</span>}
           </span>
-          <button className="run-btn" onClick={()=>{
+          {/* <button className="run-btn" onClick={()=>{
             saveDrawInfo()
           }}>
             <Play size={16} fill="currentColor" />
             <span>保存</span>
+          </button> */}
+          <button className="config-panel-close" onClick={async () => {
+            const pipelineNodes = nodes.map((node) => {
+              const nodeData = node.data;
+              let inputValue = nodeData.params?.input || '';
+              const incomingEdges = edges.filter((e) => e.target === node.id);
+              if (incomingEdges.length > 0) {
+                const sourceNodeId = incomingEdges[0].source;
+                const sourceNode = nodes.find((n) => n.id === sourceNodeId);
+                if (sourceNode) {
+                  inputValue = { source_node: sourceNode.data.label, source_param: 'output' };
+                }
+              }
+              return {
+                node_name: nodeData.label,
+                skill_name: nodeData.operatorId,
+                params: { ...nodeData.params, input: inputValue },
+              };
+            });
+
+            const pipelineJson = JSON.stringify({
+              task: {
+                name: nodes[0]?.data.label || '流程任务',
+                description: '用户修改后的流程',
+              },
+              nodes: pipelineNodes,
+            }, null, 2);
+
+            const fullMessage = `用户已经在画板上修改了流程内容，我现在将修改后的json内容发给你：\n${pipelineJson}`;
+            const DEFAULT_USER_ID = 'default_user';
+            const targetThreadId = threadId || 'default';
+
+            try {
+              // 1. 创建消息
+              const created = await createMessage(DEFAULT_USER_ID, targetThreadId, fullMessage);
+              const messageId = created.message.id;
+
+              // 2. 发送消息到 AI
+              await streamChat(
+                {
+                  message: fullMessage,
+                  thread_id: targetThreadId,
+                  user_id: DEFAULT_USER_ID,
+                  attachments: [],
+                  message_id: messageId,
+                },
+                (event) => {
+                  if (event.type === 'done') {
+                    // 触发刷新事件
+                    window.dispatchEvent(new CustomEvent('flow:threads-refresh'));
+                    // 刷新当前对话消息
+                    window.dispatchEvent(new CustomEvent('flow:select-thread', { detail: { thread_id: targetThreadId } }));
+                  }
+                }
+              );
+
+              // 3. 关闭画板
+              onClose?.();
+            } catch (error) {
+              console.error('发送消息失败:', error);
+              onClose?.();
+            }
+          }}>
+            <X size={20} />
           </button>
         </div>
       </div>
@@ -1771,10 +1954,10 @@ const getDefaultParams = (id: string): Record<string, any> => {
 
 // ==================== 导出组件 ====================
 
-const FlowEditor: React.FC = () => {
+const FlowEditor: React.FC<FlowEditorProps> = (props) => {
   return (
     <ReactFlowProvider>
-      <FlowEditorInner />
+      <FlowEditorInner {...props} />
     </ReactFlowProvider>
   );
 };
