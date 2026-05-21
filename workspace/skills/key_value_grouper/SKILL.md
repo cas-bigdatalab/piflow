@@ -25,6 +25,7 @@ output_params:
   - name: output
     type: json_file
     description: 分组后的JSON文件，每组样本的字段值为数组
+tag: 增强
 ---
 
 # Key Value Grouper

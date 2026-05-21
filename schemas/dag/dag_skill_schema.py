@@ -7,6 +7,7 @@ class DagSkill:
         skill_name: str,
         version: str = "1.0.0",
         description: str = None,
+        skill_path: str = None,
         file_path: str = None,
         input_params: dict = None,
         output_params: dict = None,
@@ -24,6 +25,7 @@ class DagSkill:
         self.skill_name = skill_name
         self.version = version
         self.description = description
+        self.skill_path = skill_path
         self.file_path = file_path
         self.input_params = input_params or {}
         self.output_params = output_params or {}

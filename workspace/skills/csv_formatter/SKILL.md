@@ -40,6 +40,7 @@ output_params:
   - name: output
     type: jsonl_file
     description: 格式化后的JSONL文件
+tag: 格式转换
 ---
 
 ## 功能概述

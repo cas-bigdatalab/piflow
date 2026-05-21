@@ -19,6 +19,7 @@ output_params:
   - name: output
     type: json_file
     description: 清理HTML后的JSON文件
+tag: 标准化
 ---
 
 # Clean HTML Mapper

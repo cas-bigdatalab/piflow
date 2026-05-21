@@ -1,0 +1,58 @@
+{
+  "name": "pdf_text_extract",
+
+  "version": "1.0.0",
+
+  "description": "从PDF文件中提取文本内容，保存为txt文件。",
+
+  "language": "python",
+
+  "script_path": "scripts/run_pdf_text_extract.py",
+
+  "entrypoint": "python scripts/run_pdf_text_extract.py",
+
+  "input_params": [
+    {
+      "name": "input_path",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "输入PDF文件路径"
+    },
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "输出txt文件路径"
+    },
+    {
+      "name": "pages",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "页码范围，如\"1-3,5\"（可选，默认全部页面）"
+    }
+  ],
+
+  "output_params": [
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "text_file",
+      "default": "extracted_text.txt",
+      "description": "提取的文本文件(.txt)"
+    }
+  ],
+
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input_path",
+    "{input_path}",
+    "--output_path",
+    "{output_path}",
+    "--pages",
+    "{pages}"
+  ]
+}

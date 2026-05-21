@@ -51,6 +51,7 @@ output_params:
   - name: output
     type: jsonl_file
     description: 去重后的JSON文件
+tag: 去重
 ---
 
 # Ray Image Deduplicator Ray分布式图像去重 Skill

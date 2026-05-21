@@ -27,6 +27,7 @@ output_params:
   - name: output
     type: csv_file
     description: 添加了单调递增ID的结构化数据文件
+tag: 增强
 ---
 
 # Pi_AddMonotonicallyIncreasingID 添加单调递增ID Skill

@@ -20,6 +20,7 @@ output_params:
   - name: output
     type: csv_file
     description: 清洗空行后的结构化数据文件
+tag: 清洗
 ---
 
 # DC1_Blank_Line_Clean 空行清洗Skill

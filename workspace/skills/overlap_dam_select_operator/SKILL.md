@@ -10,6 +10,7 @@ output_params:
   - name: operator_definition
     type: json_file
     description: 淤地坝候选叠加筛选算子的标准JSON片段，包含算子配置和数据源依赖
+tag: 其他
 ---
 
 # overlap_dam_select_operator

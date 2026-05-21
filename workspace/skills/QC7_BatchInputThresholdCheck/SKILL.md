@@ -37,6 +37,7 @@ output_params:
   - name: output
     type: csv_file
     description: 批量阈值检验后的结构化数据文件，带质控标识
+tag: 校验
 ---
 
 # QC7_BatchInputThresholdCheck 批量阈值检验(输入框) Skill

@@ -11,6 +11,7 @@ class AppConfig(BaseModel):
     log_file: str = "app.log"
     log_max_bytes: int = 5 * 1024 * 1024
     log_backup_count: int = 5
+    port: int = 8080
 
 
 class WorkspaceDirs(BaseModel):

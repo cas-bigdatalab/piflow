@@ -45,6 +45,7 @@ output_params:
   - name: output
     type: jsonl_file
     description: 去重后的JSON文件
+tag: 去重
 ---
 
 # Ray Video Deduplicator Ray分布式视频去重 Skill

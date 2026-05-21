@@ -41,6 +41,7 @@ output_params:
   - name: output
     type: json_file
     description: 标签聚合后的JSON文件，包含合并后的标签
+tag: 增强
 ---
 
 # Meta Tags Aggregator 元标签聚合 Skill

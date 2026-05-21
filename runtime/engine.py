@@ -8,6 +8,8 @@ from infra.env_loader import load_dotenv_file
 from infra.logging import init_logging
 from mcp_runtime.mcp_runtime import MCPRuntime
 from runtime.chat_store import create_thread, get_messages, save_message, update_thread_time, init_db
+from runtime.dag_manager import init_dag_db
+from runtime.skill_manage import init_dag_skills_to_database
 from runtime.workspace_manager import WorkspaceManager
 from tools.core.registry import registry
 
@@ -292,6 +294,8 @@ class AgentEngine:
         log.info("loading env files complete")
 
         init_db()
+        init_dag_db()
+        init_dag_skills_to_database()
         log.info("initializing database complete")
 
         self.agent = AgentFactory.create_agent()

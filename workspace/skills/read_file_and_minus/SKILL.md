@@ -17,6 +17,7 @@ output_params:
   - name: output
     type: csv_file
     description: 处理后的文本文件
+tag: 流程控制
 ---
 
 # Minus Numbers by 5

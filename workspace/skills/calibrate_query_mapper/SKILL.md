@@ -35,6 +35,7 @@ output_params:
   - name: output
     type: json_file
     description: 校准后的JSON文件，包含校准后的query字段
+tag: 标准化
 ---
 
 # Calibrate Query Mapper

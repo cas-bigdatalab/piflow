@@ -50,6 +50,7 @@ output_params:
   - name: output
     type: jsonl_file
     description: 混合后的JSONL数据集文件
+tag: 格式转换
 ---
 
 ## 功能概述

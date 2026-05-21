@@ -6,6 +6,7 @@ from typing import List, Optional, Dict
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from database.postgres import get_connection
+from runtime.skill_manage import init_dag_skills_to_database
 from schemas.dag.dag_edge_schema import DagEdge
 from schemas.dag.dag_node_input_param import DagNodeInputParamSet, DagNodeReferenceParam, DagNodeManualParam
 from schemas.dag.dag_node_schema import DagNode
@@ -174,12 +175,13 @@ def init_dag_db():
             skill_id VARCHAR(128) NOT NULL,
             skill_name VARCHAR(255) NOT NULL,
             description TEXT,
-            file_path TEXT NOT NULL,
+            skill_path TEXT,
+            file_path TEXT,
             input_params JSONB NOT NULL DEFAULT '{}'::jsonb,
             output_params JSONB NOT NULL DEFAULT '{}'::jsonb,
             skill_type VARCHAR(128),
-            language VARCHAR(64) NOT NULL,
-            command TEXT NOT NULL,
+            language VARCHAR(64),
+            command TEXT,
             icon_path TEXT,
             version VARCHAR(64),
             create_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -191,6 +193,7 @@ def init_dag_db():
         "CREATE INDEX IF NOT EXISTS idx_dag_skills_skill_name ON dag_skills(skill_name)",
         "CREATE INDEX IF NOT EXISTS idx_dag_skills_skill_type ON dag_skills(skill_type)",
         "CREATE INDEX IF NOT EXISTS idx_dag_skills_language ON dag_skills(language)",
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_dag_skills_name_version ON dag_skills(skill_name, version)",
 
         # user
         """
@@ -221,56 +224,6 @@ def init_dag_db():
     conn.commit()
     cursor.close()
     conn.close()
-
-
-def insert_dag_skill(
-    skill_name: str,
-    description: str,
-    file_path: str,
-    input_params: dict,
-    output_params: dict,
-    skill_type: str,
-    language: str,
-    command: str,
-    icon_path: str = None,
-    version: str = None,
-):
-    skill_id = uuid.uuid4().hex
-
-    try:
-        with closing(get_connection()) as conn:
-            with conn:
-                with conn.cursor() as cursor:
-                    cursor.execute(
-                        """
-                        INSERT INTO dag_skills (
-                            skill_id, skill_name, description, file_path,
-                            input_params, output_params, skill_type,
-                            language, command, icon_path, version
-                        )
-                        VALUES (%s, %s, %s, %s, %s::jsonb, %s::jsonb, %s, %s, %s, %s, %s)
-                        RETURNING id, skill_id
-                        """,
-                        (
-                            skill_id, skill_name, description, file_path,
-                            psycopg2.extras.Json(input_params),
-                            psycopg2.extras.Json(output_params),
-                            skill_type, language, command, icon_path, version,
-                        ),
-                    )
-                    row = cursor.fetchone()
-
-                    if not row:
-                        return None
-
-                    return {
-                        "id": row[0],
-                        "skill_id": row[1],
-                    }
-
-
-    except Exception as e:
-        raise RuntimeError("insert_dag_skill failed") from e
 
 
 def insert_dag_task(
@@ -640,7 +593,7 @@ def get_dag_skill(skill_id: str) -> Optional[DagSkill]:
             with conn.cursor(cursor_factory=RealDictCursor) as cursor:
                 cursor.execute(
                     """
-                    SELECT id, skill_id, skill_name, description, file_path,
+                    SELECT id, skill_id, skill_name, description, skill_path, file_path,
                            input_params, output_params, skill_type,
                            language, command, icon_path, version,
                            create_time, update_time, is_deleted
@@ -657,6 +610,7 @@ def get_dag_skill(skill_id: str) -> Optional[DagSkill]:
                     skill_name=row["skill_name"],
                     version=row.get("version", "1.0.0"),
                     description=row.get("description"),
+                    skill_path=row.get("skill_path"),
                     file_path=row.get("file_path"),
                     input_params=row.get("input_params"),
                     output_params=row.get("output_params"),
@@ -708,7 +662,7 @@ def list_dag_skills(
                 offset = (page - 1) * page_size
                 cursor.execute(
                     f"""
-                    SELECT id, skill_id, skill_name, description, file_path,
+                    SELECT id, skill_id, skill_name, description, skill_path, file_path,
                            input_params, output_params, skill_type,
                            language, command, icon_path, version,
                            create_time, update_time, is_deleted
@@ -727,6 +681,7 @@ def list_dag_skills(
                         skill_name=row["skill_name"],
                         version=row.get("version", "1.0.0"),
                         description=row.get("description"),
+                        skill_path=row.get("skill_path"),
                         file_path=row.get("file_path"),
                         input_params=row.get("input_params"),
                         output_params=row.get("output_params"),
@@ -788,7 +743,7 @@ def list_dag_skills_by_type(
                 offset = (page - 1) * page_size
                 cursor.execute(
                     f"""
-                    SELECT id, skill_id, skill_name, description, file_path,
+                    SELECT id, skill_id, skill_name, description, skill_path, file_path,
                            input_params, output_params, skill_type,
                            language, command, icon_path, version,
                            create_time, update_time, is_deleted
@@ -812,6 +767,7 @@ def list_dag_skills_by_type(
                             skill_name=row["skill_name"],
                             version=row.get("version", "1.0.0"),
                             description=row.get("description"),
+                            skill_path=row.get("skill_path"),
                             file_path=row.get("file_path"),
                             input_params=row.get("input_params"),
                             output_params=row.get("output_params"),
@@ -850,7 +806,7 @@ def get_dag_node_by_node_id(node_id: str) -> Optional[DagNode]:
                     SELECT n.id, n.node_id, n.dag_task_id, n.skill_id, n.node_name,
                            n.input_params AS node_input, n.node_type, n.position_x, n.position_y,
                            s.skill_name, s.version, s.description,
-                           s.file_path, s.input_params AS skill_input, s.output_params,
+                           s.skill_path, s.file_path, s.input_params AS skill_input, s.output_params,
                            s.skill_type, s.language, s.command, s.icon_path,
                            s.create_time AS skill_create_time,
                            s.update_time AS skill_update_time,
@@ -870,6 +826,7 @@ def get_dag_node_by_node_id(node_id: str) -> Optional[DagNode]:
                     skill_name=row.get("skill_name") or row["skill_id"],
                     version=row.get("version", "1.0.0"),
                     description=row.get("description"),
+                    skill_path=row.get("skill_path"),
                     file_path=row.get("file_path"),
                     input_params=row.get("skill_input"),
                     output_params=row.get("output_params"),
@@ -904,7 +861,7 @@ def get_dag_nodes_by_task_id(dag_task_id: str) -> List[DagNode]:
                     SELECT n.id, n.node_id, n.dag_task_id, n.skill_id, n.node_name,
                            n.input_params AS node_input, n.node_type, n.position_x, n.position_y,
                            s.skill_name, s.version, s.description,
-                           s.file_path, s.input_params AS skill_input, s.output_params,
+                           s.skill_path, s.file_path, s.input_params AS skill_input, s.output_params,
                            s.skill_type, s.language, s.command, s.icon_path,
                            s.create_time AS skill_create_time,
                            s.update_time AS skill_update_time,
@@ -925,6 +882,7 @@ def get_dag_nodes_by_task_id(dag_task_id: str) -> List[DagNode]:
                         skill_name=row.get("skill_name") or row["skill_id"],
                         version=row.get("version", "1.0.0"),
                         description=row.get("description"),
+                        skill_path=row.get("skill_path"),
                         file_path=row.get("file_path"),
                         input_params=row.get("skill_input"),
                         output_params=row.get("output_params"),
@@ -1355,115 +1313,115 @@ def get_dag_definition_json(create_user_id: str, dag_task_id: str):
 #         version="1.0.0",
 #     )
 
-def test_insert_skills():
-    insert_dag_skill(
-        "chinese_convert_mapper",
-        "在繁体中文、简体中文和日语汉字之间转换中文。当用户提到中文繁简转换、中文转换、简体转繁体、繁体转简体、中日文转换等需求时使用此skill。",
-        "workspace/skills/chinese_convert_mapper/scripts/run_chinese_convert_mapper.py",
-        {"params": [
-            {
-                "name": "input_path ",
-                "type": "String",
-                "description": "输入JSON文件路径",
-                "required": True
-            },
-            {
-                "name": "output_path",
-                "type": "String",
-                "description": "输出JSON文件路径",
-                "required": True
-            },
-            {
-                "name": "mode ",
-                "type": "String",
-                "description": "转换模式",
-                "required": False,
-                "default_value": "s2t",
-            }
-        ]},
-        {"params": [
-            {
-                "name": "output_path",
-                "type": "String",
-                "description": "输出JSON文件路径",
-                "required": True
-            }
-        ]},
-        skill_type="标准化",
-        language="Python",
-        command="python scripts/run_chinese_convert_mapper.py --input_path <input_path> --output_path <output_path> [--mode <mode>]",
-        icon_path="storage/skills/chinese_convert_mapper.png",
-        version="1.0.0",
-    )
-
-    insert_dag_skill(
-        "parquet_formatter",
-        "  Parquet格式化器。用于加载和格式化parquet类型的文件。本SKILL使用依赖data_juicer，请在调用前安装好python环境并安装data_juicer，你可用以下指令进行安装：pip install py-data-juicer",
-        "workspace/skills/parquet_formatter/scripts/run_parquet_formatter.py",
-        {"params": [
-            {
-                "name": "input_path",
-                "type": "String",
-                "description": "输入Parquet文件路径或目录",
-                "required": True
-            },
-            {
-                "name": "output_path",
-                "type": "String",
-                "description": "输出JSONL文件路径",
-                "required": True
-            },
-            {
-                "name": "text_keys",
-                "type": "list",
-                "description": "文本字段名列表",
-                "required": False,
-                "default_value": ['text']
-            },
-            {
-                "name": "add_suffix",
-                "type": "bool",
-                "description": "是否添加文件后缀信息",
-                "required": False,
-                "default_value": False
-            },
-            {
-                "name": "num_proc",
-                "type": "int",
-                "description": "并行处理的进程数",
-                "required": False,
-                "default_value": 1
-            }
-        ]},
-        {"params": [
-            {
-                "name": "output_path",
-                "type": "String",
-                "description": "输出JSONL文件路径",
-                "required": True
-            }
-        ]},
-        skill_type="格式转换",
-        language="Python",
-        command="""# 加载单个Parquet文件
-python scripts/run_parquet_formatter.py \
---input_path /path/to/input.parquet \
---output_path /path/to/output.jsonl
-
-# 指定文本字段
-python scripts/run_parquet_formatter.py \
---input_path /path/to/input.parquet \
---output_path /path/to/output.jsonl \
---text_keys text
-
-# 加载目录中的所有Parquet文件
-python scripts/run_parquet_formatter.py \
---input_path /path/to/parquet_directory \
---output_path /path/to/output.jsonl \
---add_suffix""",
-        icon_path="storage/skills/parquet_formatter.png",
-        version="1.0.0",
-    )
+# def test_insert_skills():
+#     insert_dag_skill(
+#         "chinese_convert_mapper",
+#         "在繁体中文、简体中文和日语汉字之间转换中文。当用户提到中文繁简转换、中文转换、简体转繁体、繁体转简体、中日文转换等需求时使用此skill。",
+#         "workspace/skills/chinese_convert_mapper/scripts/run_chinese_convert_mapper.py",
+#         {"params": [
+#             {
+#                 "name": "input_path ",
+#                 "type": "String",
+#                 "description": "输入JSON文件路径",
+#                 "required": True
+#             },
+#             {
+#                 "name": "output_path",
+#                 "type": "String",
+#                 "description": "输出JSON文件路径",
+#                 "required": True
+#             },
+#             {
+#                 "name": "mode ",
+#                 "type": "String",
+#                 "description": "转换模式",
+#                 "required": False,
+#                 "default_value": "s2t",
+#             }
+#         ]},
+#         {"params": [
+#             {
+#                 "name": "output_path",
+#                 "type": "String",
+#                 "description": "输出JSON文件路径",
+#                 "required": True
+#             }
+#         ]},
+#         skill_type="标准化",
+#         language="Python",
+#         command="python scripts/run_chinese_convert_mapper.py --input_path <input_path> --output_path <output_path> [--mode <mode>]",
+#         icon_path="storage/skills/chinese_convert_mapper.png",
+#         version="1.0.0",
+#     )
+#
+#     insert_dag_skill(
+#         "parquet_formatter",
+#         "  Parquet格式化器。用于加载和格式化parquet类型的文件。本SKILL使用依赖data_juicer，请在调用前安装好python环境并安装data_juicer，你可用以下指令进行安装：pip install py-data-juicer",
+#         "workspace/skills/parquet_formatter/scripts/run_parquet_formatter.py",
+#         {"params": [
+#             {
+#                 "name": "input_path",
+#                 "type": "String",
+#                 "description": "输入Parquet文件路径或目录",
+#                 "required": True
+#             },
+#             {
+#                 "name": "output_path",
+#                 "type": "String",
+#                 "description": "输出JSONL文件路径",
+#                 "required": True
+#             },
+#             {
+#                 "name": "text_keys",
+#                 "type": "list",
+#                 "description": "文本字段名列表",
+#                 "required": False,
+#                 "default_value": ['text']
+#             },
+#             {
+#                 "name": "add_suffix",
+#                 "type": "bool",
+#                 "description": "是否添加文件后缀信息",
+#                 "required": False,
+#                 "default_value": False
+#             },
+#             {
+#                 "name": "num_proc",
+#                 "type": "int",
+#                 "description": "并行处理的进程数",
+#                 "required": False,
+#                 "default_value": 1
+#             }
+#         ]},
+#         {"params": [
+#             {
+#                 "name": "output_path",
+#                 "type": "String",
+#                 "description": "输出JSONL文件路径",
+#                 "required": True
+#             }
+#         ]},
+#         skill_type="格式转换",
+#         language="Python",
+#         command="""# 加载单个Parquet文件
+# python scripts/run_parquet_formatter.py \
+# --input_path /path/to/input.parquet \
+# --output_path /path/to/output.jsonl
+#
+# # 指定文本字段
+# python scripts/run_parquet_formatter.py \
+# --input_path /path/to/input.parquet \
+# --output_path /path/to/output.jsonl \
+# --text_keys text
+#
+# # 加载目录中的所有Parquet文件
+# python scripts/run_parquet_formatter.py \
+# --input_path /path/to/parquet_directory \
+# --output_path /path/to/output.jsonl \
+# --add_suffix""",
+#         icon_path="storage/skills/parquet_formatter.png",
+#         version="1.0.0",
+#     )
 
 # def test_insert_task():
 #     insert_dag_task(
@@ -1576,100 +1534,101 @@ python scripts/run_parquet_formatter.py \
 # def test_get_dag_json():
 #     generate_dag_json(test_task_id)
 
-def test_insert_dag_definition():
-    insert_dag_definition(
-        dag_task_id="b3691c8a124d4c619a77904f7422465e",
-        create_user_id="52d1f9857e2946f8aa9994a4a3f05bb3",
-        revision=1,
-        definition_json={
-  "dsl_version":"1.0",
-  "task": {
-    "task_id": "b3691c8a124d4c619a77904f7422465e",
-    "task_name": "csv空行、空格清洗任务",
-    "description": "对csv文件的空行和字段值前后空格进行清洗",
-    "message_id": "test_message_id_123"
-  },
-  "nodes": [
-    {
-      "node_id": "e1f6a960c5454e1b92d7e1bdb2a680e8",
-      "node_name": "空行清洗节点",
-      "node_type": "default",
-      "skill": {
-        "skill_id": "5b80cadba9c44ac0b7fe0c136291d0e4",
-        "version": "1.0.0"
-      },
-      "position": {
-        "x": 100.0,
-        "y": 200.0
-      },
-      "input_params": [
-        {
-          "param_name": "input",
-          "value_mode": "manual",
-          "param_type": "String",
-          "value_source": "local_file",
-          "param_value": "workspace/temp/森林每木调查数据-blank-line-space.csv"
-        },
-        {
-          "param_name": "output",
-          "value_mode": "manual",
-          "param_type": "String",
-          "value_source": "local_file",
-          "param_value": "workspace/outputs/森林每木调查数据-blank-space.csv"
-        }
-      ]
-    },
-    {
-      "node_id": "593a473d01ef4f5da0c93db24441a1cc",
-      "node_name": "空格清洗节点",
-      "node_type": "default",
-      "skill": {
-        "skill_id": "485ecf9d51814566a1b8ab93423ce3c8",
-        "version": "1.0.0"
-      },
-      "position": {
-        "x": 400.0,
-        "y": 200.0
-      },
-      "input_params": [
-        {
-          "param_name": "input_path",
-          "value_mode": "reference",
-          "param_type": "String",
-          "binding_id": "c3bfd56347804535889f84300c437816"
-        },
-        {
-          "param_name": "output_path",
-          "value_mode": "manual",
-          "param_type": "String",
-          "value_source": "local_file",
-          "param_value": "workspace/outputs/森林每木调查数据-clean.csv"
-        }
-      ]
-    }
-  ],
-  "edges": [
-    {
-      "edge_id": "e666d658c2614f5085ce112707647965",
-      "from_node_id": "e1f6a960c5454e1b92d7e1bdb2a680e8",
-      "to_node_id": "593a473d01ef4f5da0c93db24441a1cc",
-    }
-  ],
-  "bindings": [
-    {
-      "binding_id": "c3bfd56347804535889f84300c437816",
-      "from_node_id": "e1f6a960c5454e1b92d7e1bdb2a680e8",
-      "from_param_name": "output",
-      "to_node_id": "593a473d01ef4f5da0c93db24441a1cc",
-      "to_param_name": "input_path"
-    }
-  ]
-},
-    )
+# def test_insert_dag_definition():
+#     insert_dag_definition(
+#         dag_task_id="b3691c8a124d4c619a77904f7422465e",
+#         create_user_id="52d1f9857e2946f8aa9994a4a3f05bb3",
+#         revision=1,
+#         definition_json={
+#   "dsl_version":"1.0",
+#   "task": {
+#     "task_id": "b3691c8a124d4c619a77904f7422465e",
+#     "task_name": "csv空行、空格清洗任务",
+#     "description": "对csv文件的空行和字段值前后空格进行清洗",
+#     "message_id": "test_message_id_123"
+#   },
+#   "nodes": [
+#     {
+#       "node_id": "e1f6a960c5454e1b92d7e1bdb2a680e8",
+#       "node_name": "空行清洗节点",
+#       "node_type": "default",
+#       "skill": {
+#         "skill_id": "5b80cadba9c44ac0b7fe0c136291d0e4",
+#         "version": "1.0.0"
+#       },
+#       "position": {
+#         "x": 100.0,
+#         "y": 200.0
+#       },
+#       "input_params": [
+#         {
+#           "param_name": "input",
+#           "value_mode": "manual",
+#           "param_type": "String",
+#           "value_source": "local_file",
+#           "param_value": "workspace/temp/森林每木调查数据-blank-line-space.csv"
+#         },
+#         {
+#           "param_name": "output",
+#           "value_mode": "manual",
+#           "param_type": "String",
+#           "value_source": "local_file",
+#           "param_value": "workspace/outputs/森林每木调查数据-blank-space.csv"
+#         }
+#       ]
+#     },
+#     {
+#       "node_id": "593a473d01ef4f5da0c93db24441a1cc",
+#       "node_name": "空格清洗节点",
+#       "node_type": "default",
+#       "skill": {
+#         "skill_id": "485ecf9d51814566a1b8ab93423ce3c8",
+#         "version": "1.0.0"
+#       },
+#       "position": {
+#         "x": 400.0,
+#         "y": 200.0
+#       },
+#       "input_params": [
+#         {
+#           "param_name": "input_path",
+#           "value_mode": "reference",
+#           "param_type": "String",
+#           "binding_id": "c3bfd56347804535889f84300c437816"
+#         },
+#         {
+#           "param_name": "output_path",
+#           "value_mode": "manual",
+#           "param_type": "String",
+#           "value_source": "local_file",
+#           "param_value": "workspace/outputs/森林每木调查数据-clean.csv"
+#         }
+#       ]
+#     }
+#   ],
+#   "edges": [
+#     {
+#       "edge_id": "e666d658c2614f5085ce112707647965",
+#       "from_node_id": "e1f6a960c5454e1b92d7e1bdb2a680e8",
+#       "to_node_id": "593a473d01ef4f5da0c93db24441a1cc",
+#     }
+#   ],
+#   "bindings": [
+#     {
+#       "binding_id": "c3bfd56347804535889f84300c437816",
+#       "from_node_id": "e1f6a960c5454e1b92d7e1bdb2a680e8",
+#       "from_param_name": "output",
+#       "to_node_id": "593a473d01ef4f5da0c93db24441a1cc",
+#       "to_param_name": "input_path"
+#     }
+#   ]
+# },
+#     )
 
 if __name__ == '__main__':
     try:
         init_dag_db()
+        init_dag_skills_to_database()
         print("DAG database initialized successfully.")
     except Exception as e:
         print(f"Error initializing DAG database: {str(e)}")

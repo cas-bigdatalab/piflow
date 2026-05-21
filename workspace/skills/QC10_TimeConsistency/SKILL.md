@@ -62,6 +62,7 @@ output_params:
   - name: error_output
     type: csv_file
     description: 异常数据文件（可选），包含时间一致性检查不通过的记录
+tag: 校验
 ---
 
 # QC10_TimeConsistency 时间一致性检查Skill

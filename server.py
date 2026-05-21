@@ -12,6 +12,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
+from infra.config_loader import get_settings
 from infra.logging import init_logging
 from runtime.chat_store import (
     create_thread,
@@ -498,26 +499,28 @@ async def get_skills_types():
 
 if __name__ == "__main__":
     init_logging()
+    settings = get_settings()
     enable_reload = os.getenv("FLOW_API_RELOAD", "").lower() in {
         "1",
         "true",
         "yes",
         "on",
     }
+    port = settings.app.port
 
     if enable_reload:
-        log.info("starting uvicorn with reload enabled")
+        log.info("starting uvicorn with reload enabled on port %s", port)
         uvicorn.run(
             "server:app",
             host="0.0.0.0",
-            port=8080,
+            port=port,
             reload=True,
         )
     else:
-        log.info("starting uvicorn without reload")
+        log.info("starting uvicorn without reload on port %s", port)
         uvicorn.run(
             app,
             host="0.0.0.0",
-            port=8080,
+            port=port,
             reload=False,
         )

@@ -105,9 +105,9 @@ const EXAMPLES: ExampleCard[] = [
   },
   {
     title: "元数据提取与摘要生成",
-    description: "「请对文档进行以下处理：1、提取文档元数据 2、提取文本内容生成摘要报告」",
+    description: "「请对文档进行以下处理：1、提取文档元数据 2、提取pdf文档文本内容」",
     prompt:
-      "请对文档进行以下处理：1、提取文档元数据 2、提取文本内容生成摘要报告",
+      "请对文档进行以下处理：1、提取文档元数据 2、提取pdf文档文本内容",
     attachments: [
       {
         path: "/temp/Akcay.pdf",

@@ -63,6 +63,7 @@ output_params:
   - name: error_output
     type: csv_file
     description: 错误数据文件（可选），包含超出阈值范围的记录
+tag: 校验
 ---
 
 # QC3_NumericDataThresholdCheck

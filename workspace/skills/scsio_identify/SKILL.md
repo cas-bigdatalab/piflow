@@ -21,6 +21,7 @@ output_params:
   - name: result
     type: string
     description: 海洋生物识别结果（文本格式）
+tag: 其他
 ---
 
 # scsio_identify Skill

@@ -25,6 +25,7 @@ output_params:
   - name: gender_result
     type: csv_file
     description: 性别判定结果CSV文件，包含每个样本的性别标签
+tag: 其他
 ---
 
 
