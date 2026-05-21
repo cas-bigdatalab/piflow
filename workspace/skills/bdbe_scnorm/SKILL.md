@@ -29,6 +29,7 @@ output_params:
   - name: auxiliary_files
     type: json_file
     description: 辅助文件，包含state.json、dataset_info.json等
+tag: 其他
 ---
 
 # bdbe_scnorm Skill

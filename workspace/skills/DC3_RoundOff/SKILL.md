@@ -37,6 +37,7 @@ output_params:
   - name: output
     type: csv_file
     description: 四舍五入处理后的结构化数据文件
+tag: 清洗
 ---
 
 # DC3_RoundOff 四舍五入处理Skill

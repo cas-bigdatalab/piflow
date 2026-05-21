@@ -29,6 +29,7 @@ output_params:
   - name: result_file
     type: csv_file
     description: 下载的细胞类型注释结果CSV文件
+tag: 其他
 ---
 
 

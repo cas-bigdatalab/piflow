@@ -1,12 +1,19 @@
+import re
 import shutil
+import uuid
+from contextlib import closing
+import psycopg2
+from psycopg2.extras import RealDictCursor
 import yaml
 from pathlib import Path
 from typing import List, Dict, Optional
 
+from database.postgres import get_connection
 from infra.config_loader import resolve_workspace_root
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-SKILLS_DIR = resolve_workspace_root() / "skills"
+WORKSPACE_ROOT = resolve_workspace_root()
+SKILLS_DIR = WORKSPACE_ROOT / "skills"
 STORAGE_DIR = PROJECT_ROOT / "storage"
 STORAGE_SKILLS_DIR = STORAGE_DIR / "skills"
 DEFAULT_COMMON_ICON = "/storage/common/common.png"
@@ -202,3 +209,219 @@ def get_skills_grouped_by_type() -> List[Dict]:
         )
 
     return grouped
+
+
+def insert_dag_skill(
+    skill_name: str,
+    description: str,
+    skill_path: str = "",
+    file_path: str = "",
+    input_params: dict = None,
+    output_params: dict = None,
+    skill_type: str = "",
+    language: str = "",
+    command: str = "",
+    icon_path: str = None,
+    version: str = None,
+):
+    skill_id = uuid.uuid4().hex
+
+    try:
+        with closing(get_connection()) as conn:
+            with conn:
+                with conn.cursor() as cursor:
+                    cursor.execute(
+                        """
+                        INSERT INTO dag_skills (
+                            skill_id, skill_name, description, skill_path, file_path,
+                            input_params, output_params, skill_type,
+                            language, command, icon_path, version
+                        )
+                        VALUES (%s, %s, %s, %s, %s, %s::jsonb, %s::jsonb, %s, %s, %s, %s, %s)
+                        
+                        
+                        ON CONFLICT (skill_name, version)
+
+                        DO UPDATE SET
+                            skill_name = EXCLUDED.skill_name,
+                            description = EXCLUDED.description,
+                            skill_path = EXCLUDED.skill_path,
+                            file_path = EXCLUDED.file_path,
+                            input_params = EXCLUDED.input_params,
+                            output_params = EXCLUDED.output_params,
+                            skill_type = EXCLUDED.skill_type,
+                            language = EXCLUDED.language,
+                            command = EXCLUDED.command,
+                            icon_path = EXCLUDED.icon_path,
+                            version = EXCLUDED.version
+                        
+                        RETURNING id, skill_id
+                        """,
+                        (
+                            skill_id, skill_name, description, skill_path or "", file_path or "",
+                            psycopg2.extras.Json(input_params or {}),
+                            psycopg2.extras.Json(output_params or {}),
+                            skill_type, language or "", command or "", icon_path, version,
+                        ),
+                    )
+                    row = cursor.fetchone()
+
+                    if not row:
+                        return None
+
+                    return {
+                        "id": row[0],
+                        "skill_id": row[1],
+                    }
+
+
+    except Exception as e:
+        raise RuntimeError("insert_dag_skill failed") from e
+
+
+def _parse_dag_skill_frontmatter(skill_dir: Path) -> Optional[dict]:
+    skill_md = skill_dir / "SKILL.md"
+    if not skill_md.exists():
+        return None
+
+    try:
+        content = skill_md.read_text(encoding="utf-8")
+        if not content.startswith("---"):
+            return None
+
+        parts = content.split("---", 2)
+        if len(parts) < 2:
+            return None
+
+        frontmatter = yaml.safe_load(parts[1])
+        if not frontmatter:
+            return None
+
+        name = frontmatter.get("name", skill_dir.name)
+        description = frontmatter.get("description", "")
+        tag = frontmatter.get("tag", "")
+
+        raw_inputs = frontmatter.get("input_params") or []
+        raw_outputs = frontmatter.get("output_params") or []
+
+        input_params = {"params": []}
+        for p in raw_inputs:
+            entry = {
+                "name": p.get("name", ""),
+                "type": p.get("type", "String"),
+                "description": p.get("description", ""),
+                "required": p.get("required", False),
+            }
+            if "default" in p:
+                entry["default_value"] = p["default"]
+            input_params["params"].append(entry)
+
+        output_params = {"params": []}
+        for p in raw_outputs:
+            entry = {
+                "name": p.get("name", ""),
+                "type": p.get("type", "String"),
+                "description": p.get("description", ""),
+            }
+            output_params["params"].append(entry)
+
+        return {
+            "name": name,
+            "description": description,
+            "tag": tag,
+            "input_params": input_params,
+            "output_params": output_params,
+        }
+    except Exception:
+        return None
+
+
+def _find_skill_script_path(skill_dir: Path) -> str:
+    scripts_dir = skill_dir / "scripts"
+    if not scripts_dir.exists():
+        return ""
+
+    py_files = sorted(scripts_dir.glob("*.py"))
+    if not py_files:
+        return ""
+
+    script_file = py_files[0]
+    return str(script_file.relative_to(WORKSPACE_ROOT)).replace("\\", "/")
+
+
+def _extract_command_from_skill_md(skill_dir: Path, skill_name: str, input_params: dict) -> str:
+    skill_md = skill_dir / "SKILL.md"
+    if not skill_md.exists():
+        return ""
+
+    try:
+        content = skill_md.read_text(encoding="utf-8")
+    except Exception:
+        return ""
+
+    if content.startswith("---"):
+        parts = content.split("---", 2)
+        if len(parts) >= 3:
+            body = parts[2]
+        else:
+            body = content
+    else:
+        body = content
+
+    bash_blocks = re.findall(r"```(?:bash|shell)\s*\n(.*?)```", body, re.DOTALL)
+    for block in bash_blocks:
+        for line in block.strip().splitlines():
+            line = line.strip()
+            if line and not line.startswith("#"):
+                return line
+
+    return ""
+
+
+def init_dag_skills_to_database() -> int:
+    if not SKILLS_DIR.exists():
+        return 0
+
+    count = 0
+    for skill_dir in sorted(SKILLS_DIR.iterdir()):
+        if not skill_dir.is_dir():
+            continue
+        if skill_dir.name == "__init__":
+            continue
+
+        info = _parse_dag_skill_frontmatter(skill_dir)
+        if info is None:
+            continue
+
+        skill_name = info["name"]
+        description = info["description"]
+        skill_type = info["tag"]
+        input_params = info["input_params"]
+        output_params = info["output_params"]
+
+        skill_path = f"skills/{skill_dir.name}"
+
+        file_path = _find_skill_script_path(skill_dir)
+
+        language = "Python" if file_path else ""
+
+        command = _extract_command_from_skill_md(skill_dir, skill_name, input_params)
+
+        icon_path = _public_skill_icon_path(skill_dir.name)
+
+        insert_dag_skill(
+            skill_name=skill_name,
+            description=description,
+            skill_path=skill_path,
+            file_path=file_path,
+            input_params=input_params,
+            output_params=output_params,
+            skill_type=skill_type,
+            language=language,
+            command=command,
+            icon_path=icon_path,
+            version="1.0.0",
+        )
+        count += 1
+
+    return count

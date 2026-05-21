@@ -1,0 +1,49 @@
+{
+  "name": "DC1_Blank_Line_Clean",
+
+  "version": "1.0.0",
+
+  "description": "空行清洗工具。读取结构化数据文件（CSV、TSV、Excel等），删除所有列为空的行（空行），然后输出为相同格式的文件。",
+
+  "language": "python",
+
+  "script_path": "scripts/DC1_Blank_Line_Clean.py",
+
+  "entrypoint": "python scripts/DC1_Blank_Line_Clean.py",
+
+  "input_params": [
+    {
+      "name": "input",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "输入文件路径（支持CSV/TSV/Excel等）"
+    },
+    {
+      "name": "output",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "输出文件路径（清洗后的文件）"
+    }
+  ],
+
+  "output_params": [
+    {
+      "name": "output",
+      "role": "output_data",
+      "type": "csv_file",
+      "default": "cleaned_output.csv",
+      "description": "清洗空行后的结构化数据文件"
+    }
+  ],
+
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input",
+    "{input}",
+    "--output",
+    "{output}"
+  ]
+}

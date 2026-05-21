@@ -44,6 +44,7 @@ output_params:
   - name: output
     type: csv_file
     description: 空值检查后的结构化数据文件，带质控标识
+tag: 校验
 ---
 
 # QC11_FieldNullValueCheck 字段空值检查Skill

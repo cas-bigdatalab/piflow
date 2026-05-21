@@ -27,6 +27,7 @@ output_params:
   - name: search_result
     type: json_file
     description: 化学物质详细信息JSON，包含化学物质列表、分子结构（SVG）等
+tag: 其他
 ---
 
 # chemdb_search 技能

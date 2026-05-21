@@ -20,6 +20,8 @@
 - **QC16_TimeMissing**: 数据时序完整性检查工具
 - **v1_FormatConsistency**: 格式一致性校验工具
 - **v9_MarkFieldCheck**: 标识符字段检查工具
+- **docx_validate**: Word文档校验工具
+- **xlsx_validate**: Excel电子表格校验工具
 
 ## 去重
 - **document_deduplicator**: 文档去重工具
@@ -111,10 +113,19 @@
 - **slack-gif-creator**: 创建Slack动画GIF
 
 ## 输入
-- **pdf**: PDF文件处理
-- **docx**: Word文档处理
-- **pptx**: PowerPoint演示文稿处理
-- **xlsx**: Excel电子表格处理
+- **pdf_create**: PDF文件创建工具
+- **pdf_crop**: PDF文件裁剪工具
+- **pdf_merge**: PDF文件合并工具
+- **pdf_metadata_extract**: PDF元数据提取工具
+- **pdf_rotate**: PDF页面旋转工具
+- **pdf_split**: PDF文件拆分工具
+- **pdf_table_extract**: PDF表格提取工具
+- **pdf_text_extract**: PDF文本提取工具
+- **docx_pack**: Word文档打包工具
+- **docx_text_extract**: Word文档文本提取工具
+- **docx_unpack**: Word文档解包工具
+- **xlsx_pack**: Excel电子表格打包工具
+- **xlsx_unpack**: Excel电子表格解包工具
 
 ## 其他
 - **bdbe_cellanno**: 单细胞测序数据细胞类型注释

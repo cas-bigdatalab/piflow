@@ -51,6 +51,7 @@ output_params:
   - name: error_output
     type: csv_file
     description: 异常数据文件，包含缺失/多余时间点记录
+tag: 校验
 ---
 
 # QC16_TimeMissing 数据时序完整性检查Skill

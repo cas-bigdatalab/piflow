@@ -70,6 +70,7 @@ output_params:
   - name: output
     type: json_file
     description: 聚合后的实体属性JSON文件
+tag: 增强
 ---
 
 # Entity Attribute Aggregator 实体属性聚合 Skill

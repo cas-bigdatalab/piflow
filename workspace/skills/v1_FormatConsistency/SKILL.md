@@ -25,6 +25,7 @@ output_params:
   - name: output
     type: csv_file
     description: 格式一致性校验通过后的结构化数据文件
+tag: 校验
 ---
 
 # v1_FormatConsistency 格式一致性校验Skill

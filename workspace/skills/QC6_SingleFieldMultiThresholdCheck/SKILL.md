@@ -57,6 +57,7 @@ output_params:
   - name: error_output
     type: csv_file
     description: 异常数据文件（可选），包含不满足阈值条件的记录
+tag: 校验
 ---
 
 # QC6_SingleFieldMultiThresholdCheck 单字段多条件阈值检验Skill

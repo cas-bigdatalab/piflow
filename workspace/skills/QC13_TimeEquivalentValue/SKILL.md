@@ -48,6 +48,7 @@ output_params:
   - name: output
     type: csv_file
     description: 等值检验后的结构化数据文件，带质控标识
+tag: 校验
 ---
 
 # QC13_TimeEquivalentValue 等值检验Skill

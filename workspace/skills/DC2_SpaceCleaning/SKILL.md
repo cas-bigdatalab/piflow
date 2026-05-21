@@ -20,6 +20,7 @@ output_params:
   - name: output
     type: csv_file
     description: 清理空格后的结构化数据文件
+tag: 清洗
 ---
 
 # DC2_SpaceCleaning 空格清理Skill

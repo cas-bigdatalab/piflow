@@ -62,6 +62,7 @@ output_params:
   - name: query_result
     type: json_file
     description: 检索结果JSON，包含数据集列表和总数等信息
+tag: 其他
 ---
 
 # bdbe_homo Skill

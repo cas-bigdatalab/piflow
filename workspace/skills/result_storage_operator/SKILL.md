@@ -10,6 +10,7 @@ output_params:
   - name: operator_definition
     type: json_file
     description: 结果存储算子的标准JSON定义，用于作为DAG的sink节点
+tag: 输出
 ---
 
 # result_storage_operator

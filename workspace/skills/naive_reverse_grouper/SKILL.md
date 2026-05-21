@@ -24,6 +24,7 @@ output_params:
   - name: output
     type: json_file
     description: 拆分后的JSON文件，每个数组元素展开为独立样本
+tag: 增强
 ---
 
 # Naive Reverse Grouper

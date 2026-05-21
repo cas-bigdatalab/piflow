@@ -34,6 +34,7 @@ output_params:
   - name: output
     type: jsonl_file
     description: 过滤后的JSONL格式数据文件，保持原始字段结构
+tag: 过滤与筛选
 ---
 
 ## 功能概述

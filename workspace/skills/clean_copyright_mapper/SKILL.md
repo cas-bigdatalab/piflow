@@ -19,6 +19,7 @@ output_params:
   - name: output
     type: json_file
     description: 清理版权注释后的JSON文件
+tag: 标准化
 ---
 
 # Clean Copyright Mapper

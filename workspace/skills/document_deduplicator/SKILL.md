@@ -40,6 +40,7 @@ output_params:
   - name: output
     type: json_file
     description: 去重后的文件（json或txt格式）
+tag: 去重
 ---
 
 # Document Deduplicator 文档去重 Skill
