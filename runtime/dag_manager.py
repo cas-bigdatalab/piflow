@@ -1268,6 +1268,26 @@ def get_dag_definition_json(create_user_id: str, dag_task_id: str):
     except Exception as e:
         raise RuntimeError("get_dag_definition_json failed") from e
 
+
+def get_dag_task_id_by_message_id(message_id: str) -> Optional[str]:
+    try:
+        with closing(get_connection()) as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                cursor.execute(
+                    """
+                    SELECT dag_task_id
+                    FROM dag_task
+                    WHERE message_id = %s AND is_deleted = 0
+                    """,
+                    (message_id,),
+                )
+                row = cursor.fetchone()
+                if row is None:
+                    return None
+                return row["dag_task_id"]
+    except Exception as e:
+        raise RuntimeError("get_dag_task_id_by_message_id failed") from e
+
 # def test_insert_skills():
 #     insert_dag_skill(
 #         "DC1_Blank_Line_Clean",

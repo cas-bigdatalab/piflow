@@ -5,7 +5,8 @@ from psycopg2.extras import RealDictCursor
 
 from database.postgres import get_connection
 from runtime.dag_manager import list_dag_tasks, create_or_update_task, get_next_revision, disable_current_definition, \
-    insert_dag_definition, get_dag_definition_json, get_dag_skill, list_dag_skills, delete_dag_task, list_dag_skills_by_type
+    insert_dag_definition, get_dag_definition_json, get_dag_skill, list_dag_skills, delete_dag_task, list_dag_skills_by_type, \
+    get_dag_task_id_by_message_id
 from schemas.dag.dag_skill_schema import DagSkill
 
 
@@ -69,6 +70,13 @@ def save_dag_panel(
 def get_panel_dag_json(create_user_id: str, dag_task_id: str) -> dict:
     result = get_dag_definition_json(create_user_id, dag_task_id)
     return result
+
+
+def get_dag_json_by_message_id(create_user_id: str, message_id: str):
+    dag_task_id = get_dag_task_id_by_message_id(message_id)
+    if dag_task_id is None:
+        return None
+    return get_dag_definition_json(create_user_id, dag_task_id)
 
 def get_skill_info_by_id(skill_id:str)->DagSkill:
     result = get_dag_skill(skill_id)
