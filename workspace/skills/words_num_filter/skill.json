@@ -1,0 +1,100 @@
+{
+  "name": "words_num_filter",
+  "version": "1.0.0",
+  "description": "单词数量过滤器。过滤器，以保持总字数在特定范围内的样本。 本SKILL使用依赖data_juicer，请在调用前安装好python环境并安装data_juicer，你可用以下指令进行安装： pip install py-data-juicer  当用户提到单词数量过滤、文本字数筛选、按单词数过滤、按字数过滤等需求时使用此skill。",
+  "language": "python",
+  "script_path": "scripts/run_words_num_filter.py",
+  "entrypoint": "python scripts/run_words_num_filter.py",
+  "input_params": [
+    {
+      "name": "input_path",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "输入数据文件路径 (JSON/JSONL格式)"
+    },
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "输出数据文件路径 (JSONL格式)"
+    },
+    {
+      "name": "lang",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "语言代码",
+      "default": "en"
+    },
+    {
+      "name": "tokenization",
+      "role": "data",
+      "type": "bool",
+      "required": false,
+      "description": "是否使用分词模型",
+      "default": false
+    },
+    {
+      "name": "min_num",
+      "role": "data",
+      "type": "int",
+      "required": false,
+      "description": "最小单词数量",
+      "default": 10
+    },
+    {
+      "name": "max_num",
+      "role": "data",
+      "type": "int",
+      "required": false,
+      "description": "最大单词数量（默认不限制）"
+    },
+    {
+      "name": "batch_size",
+      "role": "data",
+      "type": "int",
+      "required": false,
+      "description": "批处理大小",
+      "default": 1
+    },
+    {
+      "name": "num_proc",
+      "role": "data",
+      "type": "int",
+      "required": false,
+      "description": "并行处理的进程数",
+      "default": 1
+    }
+  ],
+  "output_params": [
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "jsonl_file",
+      "default": "words_num_filter_output.jsonl",
+      "description": "过滤后的JSONL格式数据文件"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input_path",
+    "{input_path}",
+    "--output_path",
+    "{output_path}",
+    "--lang",
+    "{lang}",
+    "--tokenization",
+    "{tokenization}",
+    "--min_num",
+    "{min_num}",
+    "--max_num",
+    "{max_num}",
+    "--batch_size",
+    "{batch_size}",
+    "--num_proc",
+    "{num_proc}"
+  ]
+}

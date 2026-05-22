@@ -1,0 +1,57 @@
+{
+  "name": "bdbe_scnorm",
+  "version": "1.0.0",
+  "description": "用于单细胞测序数据预处理的专用技能，对单细胞表达矩阵进行标准化处理，以消除技术偏差，为聚类、差异表达分析提供可靠的数据基础。",
+  "language": "python",
+  "script_path": "scripts/bdbe_scnorm.py",
+  "entrypoint": "python scripts/bdbe_scnorm.py",
+  "input_params": [
+    {
+      "name": "input_file",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "输入单细胞测序数据文件路径（支持h5ad、csv等格式）"
+    },
+    {
+      "name": "species",
+      "role": "data",
+      "type": "string",
+      "required": true,
+      "description": "物种类型，如 mouse、human 等"
+    },
+    {
+      "name": "output_dir",
+      "role": "output_data",
+      "type": "string",
+      "required": false,
+      "description": "输出目录，默认在上传文件所在目录"
+    }
+  ],
+  "output_params": [
+    {
+      "name": "output_dir",
+      "role": "output_data",
+      "type": "string",
+      "default": "bdbe_scnorm_output",
+      "description": "标准化后的单细胞数据集文件（h5ad格式）"
+    },
+    {
+      "name": "auxiliary_files",
+      "role": "output_data",
+      "type": "json_file",
+      "default": "bdbe_scnorm_output.json",
+      "description": "辅助文件，包含state.json、dataset_info.json等"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input_file",
+    "{input_file}",
+    "--species",
+    "{species}",
+    "--output_dir",
+    "{output_dir}"
+  ]
+}

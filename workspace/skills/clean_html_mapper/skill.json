@@ -1,0 +1,41 @@
+{
+  "name": "clean_html_mapper",
+  "version": "1.0.0",
+  "description": "清理文本示例中的HTML代码。当用户提到清理HTML、去除HTML标签、HTML转文本、提取网页文本等需求时使用此skill。 即使用户没有明确说出\"HTML\"，只要任务涉及从HTML代码中提取纯文本，就应该使用此skill。",
+  "language": "python",
+  "script_path": "scripts/run_clean_html_mapper.py",
+  "entrypoint": "python scripts/run_clean_html_mapper.py",
+  "input_params": [
+    {
+      "name": "input_path",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "输入JSON文件路径"
+    },
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "输出JSON文件路径"
+    }
+  ],
+  "output_params": [
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "json_file",
+      "default": "clean_html_mapper_output.json",
+      "description": "清理HTML后的JSON文件"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input_path",
+    "{input_path}",
+    "--output_path",
+    "{output_path}"
+  ]
+}

@@ -1,0 +1,81 @@
+{
+  "name": "alphanumeric_filter",
+  "version": "1.0.0",
+  "description": "字母数字比例过滤器。过滤文本中字母/数字比例不在指定范围内的样本。 当用户提到文本过滤、比例筛选、字母比例、数字比例、清理乱码文本等需求时使用此skill。 即使用户没有明确说出\"过滤\"，只要任务涉及根据文本中字母或数字的比例来筛选数据， 就应该使用此skill。",
+  "language": "python",
+  "script_path": "scripts/run_alphanumeric_filter.py",
+  "entrypoint": "python scripts/run_alphanumeric_filter.py",
+  "input_params": [
+    {
+      "name": "input",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "输入JSON文件路径"
+    },
+    {
+      "name": "output",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "输出JSON文件路径"
+    },
+    {
+      "name": "min_ratio",
+      "role": "data",
+      "type": "float",
+      "required": false,
+      "description": "最小字母数字比例",
+      "default": 0.25
+    },
+    {
+      "name": "max_ratio",
+      "role": "data",
+      "type": "float",
+      "required": false,
+      "description": "最大字母数字比例",
+      "default": 1.0
+    },
+    {
+      "name": "tokenization",
+      "role": "data",
+      "type": "bool",
+      "required": false,
+      "description": "是否使用tokenization计算比例",
+      "default": false
+    },
+    {
+      "name": "text_key",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "文本字段的键名",
+      "default": "text"
+    }
+  ],
+  "output_params": [
+    {
+      "name": "output",
+      "role": "output_data",
+      "type": "json_file",
+      "default": "alphanumeric_filter_output.json",
+      "description": "过滤后的JSON文件，包含保留的样本数据"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input",
+    "{input}",
+    "--output",
+    "{output}",
+    "--min_ratio",
+    "{min_ratio}",
+    "--max_ratio",
+    "{max_ratio}",
+    "--tokenization",
+    "{tokenization}",
+    "--text_key",
+    "{text_key}"
+  ]
+}

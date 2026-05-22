@@ -3,6 +3,7 @@ name: xlsx_pack
 description: 将解压的XML目录重新打包为XLSX文件
 version: 1.0.0
 category: spreadsheet_processing
+name_zh: 将解压的XML目录重新打包为XLSX文件算子
 input_params:
   - name: input_dir
     type: directory
@@ -15,6 +16,7 @@ output_params:
     type: xlsx_file
     description: 打包后的XLSX文件
 tag: 输入
+
 ---
 
 # xlsx_pack 技能

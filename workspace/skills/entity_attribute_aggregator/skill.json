@@ -1,0 +1,125 @@
+{
+  "name": "entity_attribute_aggregator",
+  "version": "1.0.0",
+  "description": "实体属性聚合工具。从多个文档中提取并总结给定实体的特定属性信息。 当用户提到从文档中提取实体信息、总结人物属性、聚合实体特征、提取文档中的实体信息、 根据文档总结实体属性（如总结某人物的主要经历、身份背景、成就等）等需求时使用此skill。 即使用户没有明确说出\"聚合\"或\"实体\"，只要任务涉及从多个文档中提取和总结某个主题/人物/实体的 特定属性，就应该使用此skill。",
+  "language": "python",
+  "script_path": "scripts/run_entity_attribute_aggregator.py",
+  "entrypoint": "python scripts/run_entity_attribute_aggregator.py",
+  "input_params": [
+    {
+      "name": "input",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "输入JSON文件路径"
+    },
+    {
+      "name": "output",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "输出JSON文件路径"
+    },
+    {
+      "name": "api_model",
+      "role": "data",
+      "type": "string",
+      "required": true,
+      "description": "API模型名称（如 qwen2.5-72b-instruct, gpt-4o）"
+    },
+    {
+      "name": "entity",
+      "role": "data",
+      "type": "string",
+      "required": true,
+      "description": "要提取属性的实体名称"
+    },
+    {
+      "name": "attribute",
+      "role": "data",
+      "type": "string",
+      "required": true,
+      "description": "要提取的属性名称（如身份背景、主要经历）"
+    },
+    {
+      "name": "input_key",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "输入文档的键名",
+      "default": "event_description"
+    },
+    {
+      "name": "output_key",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "输出结果的键名",
+      "default": "entity_attribute"
+    },
+    {
+      "name": "word_limit",
+      "role": "data",
+      "type": "int",
+      "required": false,
+      "description": "输出字数限制",
+      "default": 100
+    },
+    {
+      "name": "max_token_num",
+      "role": "data",
+      "type": "int",
+      "required": false,
+      "description": "输入文档的最大token数"
+    },
+    {
+      "name": "api_endpoint",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "API端点URL"
+    },
+    {
+      "name": "example_prompt",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "示例提示词"
+    }
+  ],
+  "output_params": [
+    {
+      "name": "output",
+      "role": "output_data",
+      "type": "json_file",
+      "default": "entity_attribute_aggregator_output.json",
+      "description": "聚合后的实体属性JSON文件"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input",
+    "{input}",
+    "--output",
+    "{output}",
+    "--api_model",
+    "{api_model}",
+    "--entity",
+    "{entity}",
+    "--attribute",
+    "{attribute}",
+    "--input_key",
+    "{input_key}",
+    "--output_key",
+    "{output_key}",
+    "--word_limit",
+    "{word_limit}",
+    "--max_token_num",
+    "{max_token_num}",
+    "--api_endpoint",
+    "{api_endpoint}",
+    "--example_prompt",
+    "{example_prompt}"
+  ]
+}

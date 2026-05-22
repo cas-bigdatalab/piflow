@@ -1,0 +1,41 @@
+{
+  "name": "xlsx_pack",
+  "version": "1.0.0",
+  "description": "将解压的XML目录重新打包为XLSX文件",
+  "language": "python",
+  "script_path": "scripts/run_xlsx_pack.py",
+  "entrypoint": "python scripts/run_xlsx_pack.py",
+  "input_params": [
+    {
+      "name": "input_dir",
+      "role": "data",
+      "type": "directory",
+      "required": false,
+      "description": "解压的XML目录路径"
+    },
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "xlsx_file",
+      "required": false,
+      "description": "输出XLSX文件路径"
+    }
+  ],
+  "output_params": [
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "xlsx_file",
+      "default": "xlsx_pack_output.xlsx",
+      "description": "打包后的XLSX文件"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input_dir",
+    "{input_dir}",
+    "--output_path",
+    "{output_path}"
+  ]
+}

@@ -1,0 +1,77 @@
+{
+  "name": "meta_tags_aggregator",
+  "version": "1.0.0",
+  "description": "元标签聚合工具。合并意思相近的元标签，将多个相似标签归类到统一的标签下。 当用户提到标签聚合、合并标签、归类标签、标签映射、标签合并、整理标签等需求时使用此skill。 即使用户没有明确说出\"聚合\"或\"合并\"，只要任务涉及将多个相似标签归类统一， 就应该使用此skill。",
+  "language": "python",
+  "script_path": "scripts/run_meta_tags_aggregator.py",
+  "entrypoint": "python scripts/run_meta_tags_aggregator.py",
+  "input_params": [
+    {
+      "name": "input",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "输入JSON文件路径"
+    },
+    {
+      "name": "output",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "输出JSON文件路径"
+    },
+    {
+      "name": "api_model",
+      "role": "data",
+      "type": "string",
+      "required": true,
+      "description": "API模型名称"
+    },
+    {
+      "name": "meta_tag_key",
+      "role": "data",
+      "type": "string",
+      "required": true,
+      "description": "元数据标签的键名"
+    },
+    {
+      "name": "target_tags",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "目标标签列表，逗号分隔（不指定则自动生成）"
+    },
+    {
+      "name": "api_endpoint",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "API端点URL"
+    }
+  ],
+  "output_params": [
+    {
+      "name": "output",
+      "role": "output_data",
+      "type": "json_file",
+      "default": "meta_tags_aggregator_output.json",
+      "description": "标签聚合后的JSON文件，包含合并后的标签"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input",
+    "{input}",
+    "--output",
+    "{output}",
+    "--api_model",
+    "{api_model}",
+    "--meta_tag_key",
+    "{meta_tag_key}",
+    "--target_tags",
+    "{target_tags}",
+    "--api_endpoint",
+    "{api_endpoint}"
+  ]
+}

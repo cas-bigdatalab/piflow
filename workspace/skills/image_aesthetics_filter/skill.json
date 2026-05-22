@@ -1,0 +1,91 @@
+{
+  "name": "image_aesthetics_filter",
+  "version": "1.0.0",
+  "description": "图像美学过滤器。过滤美学评分不在指定范围内的图像样本。 当用户提到图像美学、图像质量过滤、图片评分筛选、图像质量评估、过滤低质量图像等需求时使用此skill。 即使用户没有明确说出\"美学评分\"，只要任务涉及根据图像美学质量来筛选数据， 就应该使用此skill。",
+  "language": "python",
+  "script_path": "scripts/run_image_aesthetics_filter.py",
+  "entrypoint": "python scripts/run_image_aesthetics_filter.py",
+  "input_params": [
+    {
+      "name": "input",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "输入JSON文件路径"
+    },
+    {
+      "name": "output",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "输出JSON文件路径"
+    },
+    {
+      "name": "hf_scorer_model",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "美学评分模型",
+      "default": "shunk031/aesthetics-predictor-v2-sac-logos-ava1-l14-linearMSE"
+    },
+    {
+      "name": "min_score",
+      "role": "data",
+      "type": "float",
+      "required": false,
+      "description": "最小美学评分",
+      "default": 0.5
+    },
+    {
+      "name": "max_score",
+      "role": "data",
+      "type": "float",
+      "required": false,
+      "description": "最大美学评分",
+      "default": 1.0
+    },
+    {
+      "name": "any_or_all",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "多图像过滤策略（any/all）",
+      "default": "any"
+    },
+    {
+      "name": "image_key",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "图像字段的键名",
+      "default": "images"
+    }
+  ],
+  "output_params": [
+    {
+      "name": "output",
+      "role": "output_data",
+      "type": "json_file",
+      "default": "image_aesthetics_filter_output.json",
+      "description": "过滤后的JSON文件，包含美学评分在指定范围内的图像样本"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input",
+    "{input}",
+    "--output",
+    "{output}",
+    "--hf_scorer_model",
+    "{hf_scorer_model}",
+    "--min_score",
+    "{min_score}",
+    "--max_score",
+    "{max_score}",
+    "--any_or_all",
+    "{any_or_all}",
+    "--image_key",
+    "{image_key}"
+  ]
+}

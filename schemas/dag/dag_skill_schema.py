@@ -6,6 +6,7 @@ class DagSkill:
         skill_id: str,
         skill_name: str,
         version: str = "1.0.0",
+        name_zh: str = None,
         description: str = None,
         skill_path: str = None,
         file_path: str = None,
@@ -24,6 +25,7 @@ class DagSkill:
         self.skill_id = skill_id
         self.skill_name = skill_name
         self.version = version
+        self.name_zh = name_zh
         self.description = description
         self.skill_path = skill_path
         self.file_path = file_path

@@ -1,0 +1,50 @@
+{
+  "name": "v1_FormatConsistency",
+  "version": "1.0.0",
+  "description": "格式一致性校验工具。读取被检验表和标准化数据模式表，比对两者的表头结构（字段名、字段数量）是否一致， 校验通过后输出数据文件。当用户提到格式一致性校验、表头校验、数据结构比对、字段一致性检查等需求时使用此skill。 即使用户没有明确说出\"格式一致性\"，只要任务涉及比对数据表结构与标准模式结构，就应该使用此skill。",
+  "language": "python",
+  "script_path": "scripts/v1_FormatConsistency.py",
+  "entrypoint": "python scripts/v1_FormatConsistency.py",
+  "input_params": [
+    {
+      "name": "original_path",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "被检验表文件路径（需要校验的文件）"
+    },
+    {
+      "name": "standard_path",
+      "role": "data",
+      "type": "string",
+      "required": true,
+      "description": "标准化数据模式表路径（包含正确字段结构）"
+    },
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "校验通过后输出文件路径"
+    }
+  ],
+  "output_params": [
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "csv_file",
+      "default": "v1_FormatConsistency_output.csv",
+      "description": "格式一致性校验通过后的结构化数据文件"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--original_path",
+    "{original_path}",
+    "--standard_path",
+    "{standard_path}",
+    "--output_path",
+    "{output_path}"
+  ]
+}

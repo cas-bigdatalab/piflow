@@ -1,0 +1,73 @@
+{
+  "name": "remote_formatter",
+  "version": "1.0.0",
+  "description": "远程格式化器。用于从huggingface hub的存储库加载数据集。 本SKILL使用依赖data_juicer，请在调用前安装好python环境并安装data_juicer，你可用以下指令进行安装： pip install py-data-juicer  当用户提到加载HuggingFace数据集、远程数据集加载、HuggingFace Hub等需求时使用此skill。",
+  "language": "python",
+  "script_path": "scripts/run_remote_formatter.py",
+  "entrypoint": "python scripts/run_remote_formatter.py",
+  "input_params": [
+    {
+      "name": "dataset_path",
+      "role": "data",
+      "type": "string",
+      "required": true,
+      "description": "HuggingFace数据集路径（如 \"rotten_tomatoes\"）"
+    },
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "输出JSONL文件路径"
+    },
+    {
+      "name": "text_keys",
+      "role": "data",
+      "type": "list",
+      "required": false,
+      "description": "文本字段名列表",
+      "default": [
+        "text"
+      ]
+    },
+    {
+      "name": "split",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "数据集划分",
+      "default": "train"
+    },
+    {
+      "name": "num_proc",
+      "role": "data",
+      "type": "int",
+      "required": false,
+      "description": "并行处理的进程数",
+      "default": 1
+    }
+  ],
+  "output_params": [
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "jsonl_file",
+      "default": "remote_formatter_output.jsonl",
+      "description": "输出的JSONL格式数据集文件"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--dataset_path",
+    "{dataset_path}",
+    "--output_path",
+    "{output_path}",
+    "--text_keys",
+    "{text_keys}",
+    "--split",
+    "{split}",
+    "--num_proc",
+    "{num_proc}"
+  ]
+}

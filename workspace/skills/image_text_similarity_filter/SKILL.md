@@ -7,6 +7,7 @@ description: |
   
   当用户提到图像文本相似度过滤、图片文字相似度、文图相似度检测、图文相关性过滤等需求时使用此skill。
 
+name_zh: 图像文本相似度过滤器算子
 input_params:
   - name: input_path
     type: string
@@ -71,6 +72,7 @@ output_params:
     type: jsonl_file
     description: 过滤后的JSONL文件，包含图像文本相似度在指定范围内的样本
 tag: 过滤与筛选
+
 ---
 
 ## 功能概述

@@ -6,6 +6,7 @@ description: |
   当用户提到添加ID、添加自增ID、添加序号、添加行号等需求时使用此skill。
   即使用户没有明确说出"添加ID"，只要任务涉及给数据添加自增ID，就应该使用此skill。
 
+name_zh: Pi_添加单调递增ID算子
 input_params:
   - name: input_path
     type: string
@@ -28,6 +29,7 @@ output_params:
     type: csv_file
     description: 添加了单调递增ID的结构化数据文件
 tag: 增强
+
 ---
 
 # Pi_AddMonotonicallyIncreasingID 添加单调递增ID Skill

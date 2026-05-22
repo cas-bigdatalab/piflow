@@ -1,0 +1,68 @@
+{
+  "name": "random_selector",
+  "version": "1.0.0",
+  "description": "从CSV数据集中随机抽取样本。支持按比例（0-1）或固定数量抽取，当两者同时提供时取较小值。",
+  "language": "python",
+  "script_path": "scripts/random_selector.py",
+  "entrypoint": "python scripts/random_selector.py",
+  "input_params": [
+    {
+      "name": "input_file",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "输入CSV文件路径"
+    },
+    {
+      "name": "output_file",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "输出CSV文件路径"
+    },
+    {
+      "name": "select_ratio",
+      "role": "data",
+      "type": "float",
+      "required": false,
+      "description": "抽取比例（0-1），与select_num同时提供时取较小值"
+    },
+    {
+      "name": "select_num",
+      "role": "data",
+      "type": "int",
+      "required": false,
+      "description": "抽取数量，与select_ratio同时提供时取较小值"
+    },
+    {
+      "name": "seed",
+      "role": "data",
+      "type": "int",
+      "required": false,
+      "description": "随机种子"
+    }
+  ],
+  "output_params": [
+    {
+      "name": "output_file",
+      "role": "output_data",
+      "type": "csv_file",
+      "default": "random_selector_output.csv",
+      "description": "随机采样后的CSV文件"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input_file",
+    "{input_file}",
+    "--output_file",
+    "{output_file}",
+    "--select_ratio",
+    "{select_ratio}",
+    "--select_num",
+    "{select_num}",
+    "--seed",
+    "{seed}"
+  ]
+}

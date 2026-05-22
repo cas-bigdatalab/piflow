@@ -1,0 +1,51 @@
+{
+  "name": "chinese_convert_mapper",
+  "version": "1.0.0",
+  "description": "在繁体中文、简体中文和日语汉字之间转换中文。当用户提到中文繁简转换、中文转换、简体转繁体、繁体转简体、中日文转换等需求时使用此skill。 即使用户没有明确说出\"转换\"，只要任务涉及中文繁简转换或中日文转换，就应该使用此skill。",
+  "language": "python",
+  "script_path": "scripts/run_chinese_convert_mapper.py",
+  "entrypoint": "python scripts/run_chinese_convert_mapper.py",
+  "input_params": [
+    {
+      "name": "input_path",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "输入JSON文件路径"
+    },
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "输出JSON文件路径"
+    },
+    {
+      "name": "mode",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "转换模式，如 s2t、t2s、s2tw、t2jp 等",
+      "default": "s2t"
+    }
+  ],
+  "output_params": [
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "json_file",
+      "default": "chinese_convert_mapper_output.json",
+      "description": "转换后的JSON文件，包含转换后的text字段"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input_path",
+    "{input_path}",
+    "--output_path",
+    "{output_path}",
+    "--mode",
+    "{mode}"
+  ]
+}

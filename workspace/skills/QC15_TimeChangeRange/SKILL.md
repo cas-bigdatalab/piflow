@@ -6,6 +6,7 @@ description: |
   当用户提到最大变化范围检验、变化范围检验、时间序列波动检验、窗口变化检测等需求时使用此skill。
   即使用户没有说出"最大变化范围"，只要任务涉及检查时间序列数据在时间窗口内的变化幅度是否异常，就应该使用此skill。
 
+name_zh: QC15_最大变化范围检验算子
 input_params:
   - name: input_path
     type: string
@@ -49,6 +50,7 @@ output_params:
     type: csv_file
     description: 最大变化范围检验后的结构化数据文件，带质控标识
 tag: 校验
+
 ---
 
 # QC15_TimeChangeRange 最大变化范围检验Skill

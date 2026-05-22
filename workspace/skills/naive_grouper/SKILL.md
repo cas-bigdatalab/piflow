@@ -4,6 +4,7 @@ description: |
   将所有样本分组为一批样品。当用户提到样本合并、合并所有样本、一批分组、全部聚合等需求时使用此skill。
   即使用户没有明确说出"合并"，只要任务涉及将多个样本合并为单个批次，就应该使用此skill。
 
+name_zh: 将所有样本分组为一批样品算子
 input_params:
   - name: input_path
     type: string
@@ -20,6 +21,7 @@ output_params:
     type: json_file
     description: 合并后的JSON文件，所有样本合并为一个批次
 tag: 增强
+
 ---
 
 # Naive Grouper

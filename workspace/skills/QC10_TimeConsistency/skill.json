@@ -1,0 +1,113 @@
+{
+  "name": "QC10_TimeConsistency",
+  "version": "1.0.0",
+  "description": "时间一致性检查工具。读取被检验表，按时间序列检查数据的时间一致性， 判断相邻时间点的数据变化是否在合理范围内，识别并标记异常数据，最后输出为相同格式的文件。 当用户提到时间一致性检查、时间序列校验、数据变化检查、时序一致性等需求时使用此skill。 即使用户没有说出\"时间一致性\"，只要任务涉及检查数据的时间序列一致性，就应该使用此skill。",
+  "language": "python",
+  "script_path": "scripts/QC10_TimeConsistency.py",
+  "entrypoint": "python scripts/QC10_TimeConsistency.py",
+  "input_params": [
+    {
+      "name": "input_path",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "输入文件路径"
+    },
+    {
+      "name": "origin_output_path",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "处理后数据输出路径"
+    },
+    {
+      "name": "field_name",
+      "role": "data",
+      "type": "string",
+      "required": true,
+      "description": "一致性检查字段名"
+    },
+    {
+      "name": "range_of_change",
+      "role": "data",
+      "type": "float",
+      "required": true,
+      "description": "年变化量（允许的变化阈值）"
+    },
+    {
+      "name": "change_type",
+      "role": "data",
+      "type": "string",
+      "required": true,
+      "description": "变化类型（正值/负值/绝对值）"
+    },
+    {
+      "name": "qc_mark",
+      "role": "data",
+      "type": "string",
+      "required": true,
+      "description": "质控标识"
+    },
+    {
+      "name": "error_output_path",
+      "role": "output_data",
+      "type": "string",
+      "required": false,
+      "description": "异常数据输出路径（可选）"
+    },
+    {
+      "name": "mark_field_name",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "质控标识字段名",
+      "default": "QC0000"
+    },
+    {
+      "name": "id_field_name",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "唯一ID字段名",
+      "default": "ID0000"
+    }
+  ],
+  "output_params": [
+    {
+      "name": "origin_output_path",
+      "role": "output_data",
+      "type": "csv_file",
+      "default": "QC10_TimeConsistency_output.csv",
+      "description": "处理后原始数据文件，带质控标识"
+    },
+    {
+      "name": "error_output_path",
+      "role": "output_data",
+      "type": "csv_file",
+      "default": "QC10_TimeConsistency_output.csv",
+      "description": "异常数据文件（可选），包含时间一致性检查不通过的记录"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input_path",
+    "{input_path}",
+    "--origin_output_path",
+    "{origin_output_path}",
+    "--field_name",
+    "{field_name}",
+    "--range_of_change",
+    "{range_of_change}",
+    "--change_type",
+    "{change_type}",
+    "--qc_mark",
+    "{qc_mark}",
+    "--error_output_path",
+    "{error_output_path}",
+    "--mark_field_name",
+    "{mark_field_name}",
+    "--id_field_name",
+    "{id_field_name}"
+  ]
+}

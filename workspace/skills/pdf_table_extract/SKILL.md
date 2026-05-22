@@ -3,6 +3,7 @@ name: pdf_table_extract
 description: 从PDF文件中提取表格数据，输出为JSON格式。当用户需要从PDF中提取表格时使用此skill。
 license: Proprietary. LICENSE.txt has complete terms
 
+name_zh: 从PDF文件中提取表格数据，输出为JSON格式算子
 input_params:
   - name: input_path
     type: string
@@ -24,6 +25,7 @@ output_params:
     type: json_file
     description: 提取的表格JSON文件
 tag: 输入
+
 ---
 
 # pdf_table_extract 技能

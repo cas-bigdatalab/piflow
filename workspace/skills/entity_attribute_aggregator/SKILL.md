@@ -7,6 +7,7 @@ description: |
   即使用户没有明确说出"聚合"或"实体"，只要任务涉及从多个文档中提取和总结某个主题/人物/实体的
   特定属性，就应该使用此skill。
 
+name_zh: 实体属性聚合算子
 input_params:
   - name: input
     type: string
@@ -71,6 +72,7 @@ output_params:
     type: json_file
     description: 聚合后的实体属性JSON文件
 tag: 增强
+
 ---
 
 # Entity Attribute Aggregator 实体属性聚合 Skill

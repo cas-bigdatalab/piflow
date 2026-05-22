@@ -1,0 +1,52 @@
+{
+  "name": "chemdb_search",
+  "version": "1.0.0",
+  "description": "用于检索化学物质详细信息的技能。当用户希望检索化学物质详细信息、查看化学物质详细信息、检索化学物质基础数据库等情况时触发。该技能通过输入化学分子式（必要参数）以及分页（可选参数）、分页大小（可选参数）调用外部化学物质基础数据库搜索服务，并按字段含义格式化展示查询结果以及SVG化学分子式结构。",
+  "language": "python",
+  "script_path": "scripts/chemdb_search.py",
+  "entrypoint": "python scripts/chemdb_search.py",
+  "input_params": [
+    {
+      "name": "text",
+      "role": "data",
+      "type": "string",
+      "required": true,
+      "description": "化学分子式（如 C6H6、C12H12）"
+    },
+    {
+      "name": "page",
+      "role": "data",
+      "type": "int",
+      "required": false,
+      "description": "分页页码（从1开始）",
+      "default": 1
+    },
+    {
+      "name": "page_size",
+      "role": "data",
+      "type": "int",
+      "required": false,
+      "description": "每页返回的化学物质数量",
+      "default": 10
+    }
+  ],
+  "output_params": [
+    {
+      "name": "search_result",
+      "role": "output_data",
+      "type": "json_file",
+      "default": "chemdb_search_output.json",
+      "description": "化学物质详细信息JSON，包含化学物质列表、分子结构（SVG）等"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--text",
+    "{text}",
+    "--page",
+    "{page}",
+    "--page_size",
+    "{page_size}"
+  ]
+}

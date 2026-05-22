@@ -6,6 +6,7 @@ description: |
   即使用户没有明确说出"嵌套"或"聚合"，只要任务涉及将多个短文档整合成一个总结，
   就应该使用此skill。
 
+name_zh: 嵌套聚合算子
 input_params:
   - name: input
     type: string
@@ -48,6 +49,7 @@ output_params:
     type: json_file
     description: 聚合后的JSON文件，包含整合后的文档总结
 tag: 增强
+
 ---
 
 # Nested Aggregator 嵌套聚合 Skill

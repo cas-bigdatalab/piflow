@@ -1,0 +1,41 @@
+{
+  "name": "pdf_merge",
+  "version": "1.0.0",
+  "description": "将多个PDF文件合并为一个PDF文件。当用户需要合并PDF文档时使用此skill。",
+  "language": "python",
+  "script_path": "scripts/run_pdf_merge.py",
+  "entrypoint": "python scripts/run_pdf_merge.py",
+  "input_params": [
+    {
+      "name": "input_paths",
+      "role": "data",
+      "type": "list",
+      "required": true,
+      "description": "输入PDF文件路径列表（多个以空格分隔）"
+    },
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "输出PDF文件路径"
+    }
+  ],
+  "output_params": [
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "string",
+      "default": "pdf_merge_output",
+      "description": "合并后的PDF文件"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input_paths",
+    "{input_paths}",
+    "--output_path",
+    "{output_path}"
+  ]
+}

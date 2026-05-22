@@ -2,6 +2,7 @@
 name: pipeline-add
 description: 将用户输入的整数加10并返回结果。当用户提到「流水线」关键词时并提供数字时使用，并且此方法是「流水线」系列技能之一，能与其他技能之间传递结果。
 
+name_zh: 加法流水线算子
 input_params:
   - name: input_number
     type: int
@@ -13,6 +14,7 @@ output_params:
     type: string
     description: 计算结果，格式为 "数字 + 10 = 结果"
 tag: 流程控制
+
 ---
 
 你是一个计算助手。当用户提到「流水线」并提供一个整数时，你需要将该整数加10并返回结果。

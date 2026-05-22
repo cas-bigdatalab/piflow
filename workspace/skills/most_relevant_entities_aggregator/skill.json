@@ -1,0 +1,106 @@
+{
+  "name": "most_relevant_entities_aggregator",
+  "version": "1.0.0",
+  "description": "最相关实体聚合工具。从文档中提取与给定实体最相关的指定类型实体，并按重要性排序。 当用户提到提取相关人物、查找相关实体、排序实体、分析实体关系、提取主要角色等需求时使用此skill。 即使用户没有明确说出\"最相关实体\"，只要任务涉及从文档中分析并提取与目标相关的实体， 就应该使用此skill。",
+  "language": "python",
+  "script_path": "scripts/run_most_relevant_entities_aggregator.py",
+  "entrypoint": "python scripts/run_most_relevant_entities_aggregator.py",
+  "input_params": [
+    {
+      "name": "input",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "输入JSON文件路径"
+    },
+    {
+      "name": "output",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "输出JSON文件路径"
+    },
+    {
+      "name": "api_model",
+      "role": "data",
+      "type": "string",
+      "required": true,
+      "description": "API模型名称"
+    },
+    {
+      "name": "entity",
+      "role": "data",
+      "type": "string",
+      "required": true,
+      "description": "要查询的实体名称"
+    },
+    {
+      "name": "query_entity_type",
+      "role": "data",
+      "type": "string",
+      "required": true,
+      "description": "要查询的相关实体类型（如人物、地点、组织）"
+    },
+    {
+      "name": "input_key",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "输入文档的键名",
+      "default": "event_description"
+    },
+    {
+      "name": "output_key",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "输出结果的键名",
+      "default": "most_relevant_entities"
+    },
+    {
+      "name": "max_token_num",
+      "role": "data",
+      "type": "int",
+      "required": false,
+      "description": "输入文档的最大token数"
+    },
+    {
+      "name": "api_endpoint",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "API端点URL"
+    }
+  ],
+  "output_params": [
+    {
+      "name": "output",
+      "role": "output_data",
+      "type": "json_file",
+      "default": "most_relevant_entities_aggregator_output.json",
+      "description": "实体聚合后的JSON文件，包含按重要性排序的相关实体列表"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input",
+    "{input}",
+    "--output",
+    "{output}",
+    "--api_model",
+    "{api_model}",
+    "--entity",
+    "{entity}",
+    "--query_entity_type",
+    "{query_entity_type}",
+    "--input_key",
+    "{input_key}",
+    "--output_key",
+    "{output_key}",
+    "--max_token_num",
+    "{max_token_num}",
+    "--api_endpoint",
+    "{api_endpoint}"
+  ]
+}

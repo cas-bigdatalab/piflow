@@ -3,6 +3,7 @@ name: docx_pack
 description: 将解压的XML目录重新打包为DOCX文件
 version: 1.0.0
 category: document_processing
+name_zh: 将解压的XML目录重新打包为DOCX文件算子
 input_params:
   - name: input_dir
     type: directory
@@ -22,6 +23,7 @@ output_params:
     type: docx_file
     description: 打包后的DOCX文件
 tag: 输入
+
 ---
 
 # docx_pack 技能

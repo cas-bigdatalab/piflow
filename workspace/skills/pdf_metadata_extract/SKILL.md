@@ -3,6 +3,7 @@ name: pdf_metadata_extract
 description: 提取PDF文件的元数据（标题、作者、主题、页数等），输出为JSON格式。当用户需要查看PDF文档信息时使用此skill。
 license: Proprietary. LICENSE.txt has complete terms
 
+name_zh: 提取PDF文件的元数据（标题、作者、主题、页数等），输出为JSON格式算子
 input_params:
   - name: input_path
     type: string
@@ -19,6 +20,7 @@ output_params:
     type: json_file
     description: PDF元数据JSON文件
 tag: 输入
+
 ---
 
 # pdf_metadata_extract 技能

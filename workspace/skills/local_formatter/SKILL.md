@@ -7,6 +7,7 @@ description: |
   
   当用户提到加载本地数据集、读取本地文件、格式化本地数据、数据集加载等需求时使用此skill。
 
+name_zh: 本地格式化器算子
 input_params:
   - name: input_path
     type: string
@@ -46,6 +47,7 @@ output_params:
     type: jsonl_file
     description: 格式化后的JSONL数据集文件
 tag: 格式转换
+
 ---
 
 ## 功能概述

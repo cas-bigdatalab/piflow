@@ -2,6 +2,7 @@
 name: "QC3_NumericDataThresholdCheck"
 description: "数值数据阈值检验工具。读取结构化数据文件（CSV、TSV、Excel等），检查数值字段是否在指定的门限范围内，不允许超出门限值之外，最后输出为同格式的文件。当用户需要对数据进行阈值检验、数值范围检查、数据质量控制等操作时使用此skill。"
 
+name_zh: QC3_数值数据阈值检验算子
 input_params:
   - name: input_path
     type: string
@@ -64,6 +65,7 @@ output_params:
     type: csv_file
     description: 错误数据文件（可选），包含超出阈值范围的记录
 tag: 校验
+
 ---
 
 # QC3_NumericDataThresholdCheck

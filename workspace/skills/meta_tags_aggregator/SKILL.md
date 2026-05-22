@@ -6,6 +6,7 @@ description: |
   即使用户没有明确说出"聚合"或"合并"，只要任务涉及将多个相似标签归类统一，
   就应该使用此skill。
 
+name_zh: 元标签聚合算子
 input_params:
   - name: input
     type: string
@@ -42,6 +43,7 @@ output_params:
     type: json_file
     description: 标签聚合后的JSON文件，包含合并后的标签
 tag: 增强
+
 ---
 
 # Meta Tags Aggregator 元标签聚合 Skill

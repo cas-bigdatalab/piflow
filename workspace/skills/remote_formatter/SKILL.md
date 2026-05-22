@@ -7,6 +7,7 @@ description: |
   
   当用户提到加载HuggingFace数据集、远程数据集加载、HuggingFace Hub等需求时使用此skill。
 
+name_zh: 远程格式化器算子
 input_params:
   - name: dataset_path
     type: string
@@ -41,6 +42,7 @@ output_params:
     type: jsonl_file
     description: 输出的JSONL格式数据集文件
 tag: 格式转换
+
 ---
 
 ## 功能概述

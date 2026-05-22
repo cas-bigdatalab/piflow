@@ -7,6 +7,7 @@ description: |
   
   当用户提到文本对相似度过滤、文本对过滤、双文本相似度、文本配对过滤等需求时使用此skill。
 
+name_zh: 文本对相似度过滤器算子
 input_params:
   - name: input_path
     type: string
@@ -58,6 +59,7 @@ output_params:
     type: jsonl_file
     description: 过滤后的JSONL格式数据文件
 tag: 过滤与筛选
+
 ---
 
 ## 功能概述

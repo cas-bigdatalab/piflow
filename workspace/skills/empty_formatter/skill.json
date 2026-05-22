@@ -1,0 +1,52 @@
+{
+  "name": "empty_formatter",
+  "version": "1.0.0",
+  "description": "空数据格式化器。用于创建空数据。 本SKILL使用依赖data_juicer，请在调用前安装好python环境并安装data_juicer，你可用以下指令进行安装： pip install py-data-juicer  当用户提到创建空数据集、生成空数据、初始化数据集、测试用空数据等需求时使用此skill。",
+  "language": "python",
+  "script_path": "scripts/run_empty_formatter.py",
+  "entrypoint": "python scripts/run_empty_formatter.py",
+  "input_params": [
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "输出JSONL文件路径"
+    },
+    {
+      "name": "length",
+      "role": "data",
+      "type": "int",
+      "required": false,
+      "description": "空数据集长度",
+      "default": 0
+    },
+    {
+      "name": "feature_keys",
+      "role": "data",
+      "type": "list",
+      "required": false,
+      "description": "字段名列表",
+      "default": "[]"
+    }
+  ],
+  "output_params": [
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "jsonl_file",
+      "default": "empty_formatter_output.jsonl",
+      "description": "空数据集JSONL文件"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--output_path",
+    "{output_path}",
+    "--length",
+    "{length}",
+    "--feature_keys",
+    "{feature_keys}"
+  ]
+}

@@ -5,6 +5,7 @@ description: |
   校验通过后输出数据文件。当用户提到格式一致性校验、表头校验、数据结构比对、字段一致性检查等需求时使用此skill。
   即使用户没有明确说出"格式一致性"，只要任务涉及比对数据表结构与标准模式结构，就应该使用此skill。
 
+name_zh: v1_格式一致性校验算子
 input_params:
   - name: original_path
     type: string
@@ -26,6 +27,7 @@ output_params:
     type: csv_file
     description: 格式一致性校验通过后的结构化数据文件
 tag: 校验
+
 ---
 
 # v1_FormatConsistency 格式一致性校验Skill

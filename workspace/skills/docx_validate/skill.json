@@ -1,0 +1,32 @@
+{
+  "name": "docx_validate",
+  "version": "1.0.0",
+  "description": "验证DOCX文件格式有效性",
+  "language": "python",
+  "script_path": "scripts/run_docx_validate.py",
+  "entrypoint": "python scripts/run_docx_validate.py",
+  "input_params": [
+    {
+      "name": "input_path",
+      "role": "input_data",
+      "type": "docx_file",
+      "required": false,
+      "description": "输入DOCX文件路径"
+    }
+  ],
+  "output_params": [
+    {
+      "name": "output",
+      "role": "output_data",
+      "type": "json_file",
+      "default": "docx_validate_output.json",
+      "description": "验证结果JSON文件"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input_path",
+    "{input_path}"
+  ]
+}

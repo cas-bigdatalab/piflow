@@ -4,6 +4,7 @@ description: |
   基于参考文本校准问答对中的响应。当用户提到校准回答、校准响应、语言风格校准、回答优化等需求时使用此skill。
   即使用户没有明确说出"校准"，只要任务涉及根据参考文本调整问答对中的回答，就应该使用此skill。
 
+name_zh: 基于参考文本校准问答对中的响应算子
 input_params:
   - name: input_path
     type: string
@@ -36,6 +37,7 @@ output_params:
     type: json_file
     description: 校准后的JSON文件，包含校准后的response字段
 tag: 标准化
+
 ---
 
 # Calibrate Response Mapper

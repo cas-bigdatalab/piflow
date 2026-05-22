@@ -5,7 +5,8 @@ from security.auth_dependency import (
     get_current_user,
 )
 from services.dag_panel_service import get_user_dag_tasks, save_dag_panel, get_panel_dag_json, \
-    get_skill_info_by_id, get_dag_skills_by_condition, create_dag_task, update_dag_task, remove_dag_task
+    get_skill_info_by_id, get_dag_skills_by_condition, create_dag_task, update_dag_task, remove_dag_task, \
+    get_dag_json_by_message_id
 
 router = APIRouter()
 
@@ -190,8 +191,8 @@ async def get_skill_info_api(
 @router.get("/dag/skill/listSkills")
 async def list_skills_api(
     current_user=Depends(get_current_user),
-    page: int = 1,
-    page_size: int = 20,
+    page: int = None,
+    page_size: int = None,
     keyword: str = None,
     skill_type: str = None,
     version: str = None,
@@ -203,6 +204,30 @@ async def list_skills_api(
             keyword=keyword,
             skill_type=skill_type,
             version=version,
+        )
+
+        return {
+            "message": "success",
+            "result": result,
+            "code": 200,
+        }
+    except Exception as e:
+        return {
+            "message": str(e),
+            "result": None,
+            "code": 500,
+        }
+
+
+@router.get("/dag/panel/getDSLJsonByMessageId")
+async def get_json_by_message_id(
+    message_id: str,
+    current_user=Depends(get_current_user),
+):
+    try:
+        result = get_dag_json_by_message_id(
+            create_user_id=current_user["user_id"],
+            message_id=message_id,
         )
 
         return {

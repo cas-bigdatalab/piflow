@@ -6,6 +6,7 @@ description: |
   即使用户没有明确说出"过滤"，只要任务涉及根据文本中字母或数字的比例来筛选数据，
   就应该使用此skill。
 
+name_zh: 字母数字比例过滤器算子
 input_params:
   - name: input
     type: string
@@ -46,6 +47,7 @@ output_params:
     type: json_file
     description: 过滤后的JSON文件，包含保留的样本数据
 tag: 过滤与筛选
+
 ---
 
 # Alphanumeric Filter 字母数字比例过滤 Skill
