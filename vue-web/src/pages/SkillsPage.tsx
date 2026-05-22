@@ -224,7 +224,7 @@ export function SkillsPage() {
   }, [page, totalPages]);
 
   return (
-    <div className="w-full px-4 py-8 sm:px-6 lg:px-[8vw] xl:px-[10vw]">
+    <div className="w-full px-4 py-8 sm:px-6 lg:px-[20px] xl:px-[20px]">
       <div className="mb-8 flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
         <div>
           <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">

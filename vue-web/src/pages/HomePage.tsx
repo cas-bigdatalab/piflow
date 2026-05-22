@@ -9,6 +9,7 @@ import {
   streamChat,
   uploadWorkspaceFile,
   getLogin,
+  getDrawInfoBymegId,
   type MessageAttachment,
   type ThreadMessage,
 } from "../lib/api";
@@ -196,6 +197,8 @@ export function HomePage() {
   // 画板相关状态
   const [showCanvas, setShowCanvas] = useState(false);
   const [canvasPipelineData, setCanvasPipelineData] = useState<PipelineData | null>(null);
+  const [canvasMessageId, setCanvasMessageId] = useState<string>('');
+  const [savedDrawData, setSavedDrawData] = useState<any>(null);
   
   const abortRef = useRef<AbortController | null>(null);
   const transcriptRef = useRef<HTMLDivElement | null>(null);
@@ -208,8 +211,24 @@ export function HomePage() {
   const isExpanded = hasMessages || sending || Boolean(loadError);
   
   // 处理打开画板
-  const handleOpenCanvas = (data: PipelineData) => {
+  // 处理打开画板
+  const handleOpenCanvas = async (data: PipelineData, msgId?: string) => {
     setCanvasPipelineData(data);
+    setCanvasMessageId(msgId || '');
+    // 先请求已保存的画板信息
+    let drawData = null;
+    if (msgId) {
+      try {
+        const res = await getDrawInfoBymegId(msgId);
+        console.log('getDrawInfoBymegId返回:', res);
+        if (res.code === 200 && res.result) {
+          drawData = res.result;
+        }
+      } catch (e) {
+        console.log('获取已保存画板信息失败，使用会话数据:', e);
+      }
+    }
+    setSavedDrawData(drawData);
     setShowCanvas(true);
   };
   
@@ -217,6 +236,7 @@ export function HomePage() {
   const handleCloseCanvas = () => {
     setShowCanvas(false);
     setCanvasPipelineData(null);
+    setSavedDrawData(null);
   };
 
   // 页面加载时请求登录接口
@@ -274,10 +294,22 @@ export function HomePage() {
 
     window.addEventListener("flow:new-chat", handleNewChat);
     window.addEventListener("flow:select-thread", handleSelectThread as EventListener);
+    
+    // 监听画板发送的消息事件
+    const handleSendMessage = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      const { threadId: eventThreadId, messageId, content } = customEvent.detail || {};
+      if (eventThreadId && messageId && content) {
+        // 使用现有的 send 逻辑处理流式响应
+        send(content, { threadId: eventThreadId });
+      }
+    };
+    window.addEventListener("flow:send-message", handleSendMessage as EventListener);
 
     return () => {
       window.removeEventListener("flow:new-chat", handleNewChat);
       window.removeEventListener("flow:select-thread", handleSelectThread as EventListener);
+      window.removeEventListener("flow:send-message", handleSendMessage as EventListener);
     };
   }, []);
 
@@ -669,6 +701,7 @@ export function HomePage() {
               松开以上传文件
             </div>
           </div>
+          
         ) : null}
         {pendingFiles.length > 0 ? (
           <div className="flex flex-wrap gap-2 border-b border-slate-100 px-5 py-3">
@@ -702,7 +735,7 @@ export function HomePage() {
             event.currentTarget.scrollTop = event.currentTarget.scrollHeight;
           }}
           onKeyDown={(event) => {
-            if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
+            if (event.key === "Enter" && !event.shiftKey) {
               event.preventDefault();
               send().catch(() => {});
             }
@@ -849,25 +882,25 @@ export function HomePage() {
 
                           {isAssistant ? (
                             <div className="rounded-[28px] bg-transparent px-1 py-1">
-                              <MarkdownMessage content={message.content} pending={sending} />
-
-                              {sending && message.id === activeAssistantId ? (
-                                <div className="mt-3 w-fit rounded-full bg-white px-3 py-1 text-[11px] text-slate-500 shadow-sm ring-1 ring-slate-200">
-                                  {streamStatus || "处理中..."}
-                                </div>
-                              ) : null}
-                              {!sending && (() => {
+                              {(() => {
                                 try {
                                   const c = message.content || '';
                                   const pipelineData = extractPipelineJson(c);
-                                  if (pipelineData) {
-                                    return <PipelinePreview data={pipelineData} threadId={threadId} onOpenCanvas={handleOpenCanvas} />;
+                                  if (pipelineData && !sending) {
+                                    return <PipelinePreview data={pipelineData} threadId={threadId} onOpenCanvas={handleOpenCanvas} messageId={message.id} />;
                                   }
                                 } catch (err) {
                                   console.error('[PipelineDebug] Error:', err);
                                 }
                                 return null;
                               })()}
+                              <MarkdownMessage content={(() => { try { let c = message.content || ''; const pd = extractPipelineJson(c); if (pd) { c = c.replace(/\{[\s\S]*?"task"[\s\S]*?"nodes"[\s\S]*\}/, '').trim(); } c = c.replace(/我手动修改了任务流程[\s\S]*?不要执行。[\s\S]*?\n?/, '').trim(); c = c.replace(/我手动修改了任务流程[\s\S]*?不要执行。/, '').trim(); return c; } catch { return message.content; } })()} pending={sending} />
+
+                              {sending && message.id === activeAssistantId ? (
+                                <div className="mt-3 w-fit rounded-full bg-white px-3 py-1 text-[11px] text-slate-500 shadow-sm ring-1 ring-slate-200">
+                                  {streamStatus || "处理中..."}
+                                </div>
+                              ) : null}
                               {isAssistant && message.reasoning ? (
                                 <details
                                   className="mt-4 rounded-2xl border border-emerald-100 bg-emerald-50/70 p-3"
@@ -921,7 +954,12 @@ export function HomePage() {
                               ) : null}
                               <div className="inline-block w-fit max-w-full rounded-[24px] bg-slate-100 px-4 py-3 text-slate-900">
                                 <pre className="custom-scrollbar max-h-60 overflow-auto whitespace-pre-wrap break-words font-sans text-sm leading-7 text-slate-900">
-                                  {message.content}
+                                  {(() => {
+                                    let c = message.content || '';
+                                    // 过滤掉画板发送消息的前缀
+                                    c = c.replace(/我手动修改了任务流程[\s\S]*?不要执行。[\s\S]*?\{/, '{').trim();
+                                    return c;
+                                  })()}
                                 </pre>
                               </div>
                             </div>
@@ -944,8 +982,8 @@ export function HomePage() {
 
             {/* 右侧画板区域 */}
             {showCanvas && canvasPipelineData && (
-              <div className="w-1/2">
-                <FlowEditor initialPipelineData={canvasPipelineData as unknown as InitialPipelineData} onClose={handleCloseCanvas} threadId={threadId} />
+              <div className="w-1/2 h-screen overflow-hidden">
+                <FlowEditor initialPipelineData={canvasPipelineData as unknown as InitialPipelineData} onClose={handleCloseCanvas} threadId={threadId} messageId={canvasMessageId} savedDrawData={savedDrawData} />
               </div>
             )}
           </div>

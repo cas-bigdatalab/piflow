@@ -265,14 +265,14 @@ export function RunHistoryPage() {
                   <td className="status-cell">{getStatusBadge(record.status)}</td>
                   <td className="progress-cell">{getProgressBar(record.status, record.progress)}</td>
                   <td className="action-cell">
-                    <button className="action-btn">
+                    {/* <button className="action-btn">
                       <Icon icon="fa-solid:project-diagram" width="14" />
                       <span>溯源流水线</span>
                     </button>
                     <button className="action-btn">
                       <Icon icon="fa-solid:robot" width="14" />
                       <span>溯源至 AI</span>
-                    </button>
+                    </button> */}
                     <button className="icon-btn">
                       <Icon icon="fa-solid:eye" width="14" />
                     </button>
