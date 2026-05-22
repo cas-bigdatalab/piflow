@@ -6,6 +6,7 @@ description: |
   即使用户没有明确说出"图像去重"，只要任务涉及从包含图像的数据中删除重复图片，
   就应该使用此skill。
 
+name_zh: 图像去重算子
 input_params:
   - name: input
     type: string
@@ -46,6 +47,7 @@ output_params:
     type: json_file
     description: 去重后的JSON文件，包含去重后的图像样本
 tag: 去重
+
 ---
 
 # Image Deduplicator 图像去重 Skill

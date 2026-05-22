@@ -7,6 +7,7 @@ description: |
   
   当用户提到token数量过滤、文本token数筛选、按token数过滤、文本分词过滤等需求时使用此skill。
 
+name_zh: Token数量过滤器算子
 input_params:
   - name: input_path
     type: string
@@ -46,6 +47,7 @@ output_params:
     type: jsonl_file
     description: 过滤后的JSONL格式数据文件
 tag: 过滤与筛选
+
 ---
 
 ## 功能概述

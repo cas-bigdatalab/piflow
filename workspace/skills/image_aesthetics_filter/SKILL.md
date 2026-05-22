@@ -6,6 +6,7 @@ description: |
   即使用户没有明确说出"美学评分"，只要任务涉及根据图像美学质量来筛选数据，
   就应该使用此skill。
 
+name_zh: 图像美学过滤器算子
 input_params:
   - name: input
     type: string
@@ -52,6 +53,7 @@ output_params:
     type: json_file
     description: 过滤后的JSON文件，包含美学评分在指定范围内的图像样本
 tag: 过滤与筛选
+
 ---
 
 # Image Aesthetics Filter 图像美学过滤 Skill

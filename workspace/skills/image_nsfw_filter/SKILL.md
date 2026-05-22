@@ -7,6 +7,7 @@ description: |
   
   当用户提到图片安全检测、NSFW过滤、不良内容过滤、图片审核、图像内容过滤等需求时使用此skill。
 
+name_zh: 图像NSFW内容检测过滤器算子
 input_params:
   - name: input_path
     type: string
@@ -47,6 +48,7 @@ output_params:
     type: jsonl_file
     description: 过滤后的JSONL文件，包含NSFW分数低于阈值的样本
 tag: 过滤与筛选
+
 ---
 
 ## 功能概述

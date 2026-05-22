@@ -4,6 +4,7 @@ description: |
   清除文本示例中的IPv4和IPv6地址。当用户提到清理IP、删除IP地址、去除IP、清理网络地址等需求时使用此skill。
   即使用户没有明确说出"IP"，只要任务涉及从文本中删除或替换IP地址，就应该使用此skill。
 
+name_zh: 清除文本示例中的IPv4和IPv6地址算子
 input_params:
   - name: input_path
     type: string
@@ -26,6 +27,7 @@ output_params:
     type: json_file
     description: 清理IP地址后的JSON文件
 tag: 标准化
+
 ---
 
 # Clean IP Mapper

@@ -5,6 +5,7 @@ description: |
   然后输出为相同格式的文件。当用户提到四舍五入、数字取整、保留小数位、数据舍入等需求时使用此skill。
   即使用户没有明确说出"四舍五入"，只要任务涉及根据配置文件对数据进行舍入处理，就应该使用此skill。
 
+name_zh: DC3_四舍五入数据处理算子
 input_params:
   - name: origin_path
     type: string
@@ -38,6 +39,7 @@ output_params:
     type: csv_file
     description: 四舍五入处理后的结构化数据文件
 tag: 清洗
+
 ---
 
 # DC3_RoundOff 四舍五入处理Skill

@@ -4,6 +4,7 @@ description: |
   在繁体中文、简体中文和日语汉字之间转换中文。当用户提到中文繁简转换、中文转换、简体转繁体、繁体转简体、中日文转换等需求时使用此skill。
   即使用户没有明确说出"转换"，只要任务涉及中文繁简转换或中日文转换，就应该使用此skill。
 
+name_zh: 在繁体中文、简体中文和日语汉字之间转换中文算子
 input_params:
   - name: input_path
     type: string
@@ -26,6 +27,7 @@ output_params:
     type: json_file
     description: 转换后的JSON文件，包含转换后的text字段
 tag: 标准化
+
 ---
 
 # Chinese Convert Mapper

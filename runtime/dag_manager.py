@@ -174,6 +174,7 @@ def init_dag_db():
             id BIGSERIAL PRIMARY KEY,
             skill_id VARCHAR(128) NOT NULL,
             skill_name VARCHAR(255) NOT NULL,
+            name_zh TEXT,
             description TEXT,
             skill_path TEXT,
             file_path TEXT,
@@ -593,7 +594,7 @@ def get_dag_skill(skill_id: str) -> Optional[DagSkill]:
             with conn.cursor(cursor_factory=RealDictCursor) as cursor:
                 cursor.execute(
                     """
-                    SELECT id, skill_id, skill_name, description, skill_path, file_path,
+                    SELECT id, skill_id, skill_name, name_zh, description, skill_path, file_path,
                            input_params, output_params, skill_type,
                            language, command, icon_path, version,
                            create_time, update_time, is_deleted
@@ -608,6 +609,7 @@ def get_dag_skill(skill_id: str) -> Optional[DagSkill]:
                 return DagSkill(
                     skill_id=row["skill_id"],
                     skill_name=row["skill_name"],
+                    name_zh=row.get("name_zh"),
                     version=row.get("version", "1.0.0"),
                     description=row.get("description"),
                     skill_path=row.get("skill_path"),
@@ -662,7 +664,7 @@ def list_dag_skills(
                 offset = (page - 1) * page_size
                 cursor.execute(
                     f"""
-                    SELECT id, skill_id, skill_name, description, skill_path, file_path,
+                    SELECT id, skill_id, skill_name, name_zh, description, skill_path, file_path,
                            input_params, output_params, skill_type,
                            language, command, icon_path, version,
                            create_time, update_time, is_deleted
@@ -679,6 +681,7 @@ def list_dag_skills(
                     DagSkill(
                         skill_id=row["skill_id"],
                         skill_name=row["skill_name"],
+                        name_zh=row.get("name_zh"),
                         version=row.get("version", "1.0.0"),
                         description=row.get("description"),
                         skill_path=row.get("skill_path"),
@@ -744,7 +747,7 @@ def list_dag_skills_by_type(
                     offset = (page - 1) * page_size
                     cursor.execute(
                         f"""
-                        SELECT id, skill_id, skill_name, description, skill_path, file_path,
+                        SELECT id, skill_id, skill_name, name_zh, description, skill_path, file_path,
                                input_params, output_params, skill_type,
                                language, command, icon_path, version,
                                create_time, update_time, is_deleted
@@ -758,7 +761,7 @@ def list_dag_skills_by_type(
                 else:
                     cursor.execute(
                         f"""
-                        SELECT id, skill_id, skill_name, description, skill_path, file_path,
+                        SELECT id, skill_id, skill_name, name_zh, description, skill_path, file_path,
                                input_params, output_params, skill_type,
                                language, command, icon_path, version,
                                create_time, update_time, is_deleted
@@ -779,6 +782,7 @@ def list_dag_skills_by_type(
                         DagSkill(
                             skill_id=row["skill_id"],
                             skill_name=row["skill_name"],
+                            name_zh=row.get("name_zh"),
                             version=row.get("version", "1.0.0"),
                             description=row.get("description"),
                             skill_path=row.get("skill_path"),
@@ -821,7 +825,7 @@ def get_dag_node_by_node_id(node_id: str) -> Optional[DagNode]:
                     """
                     SELECT n.id, n.node_id, n.dag_task_id, n.skill_id, n.node_name,
                            n.input_params AS node_input, n.node_type, n.position_x, n.position_y,
-                           s.skill_name, s.version, s.description,
+                           s.skill_name, s.version, s.name_zh, s.description,
                            s.skill_path, s.file_path, s.input_params AS skill_input, s.output_params,
                            s.skill_type, s.language, s.command, s.icon_path,
                            s.create_time AS skill_create_time,
@@ -840,6 +844,7 @@ def get_dag_node_by_node_id(node_id: str) -> Optional[DagNode]:
                 skill = DagSkill(
                     skill_id=row["skill_id"],
                     skill_name=row.get("skill_name") or row["skill_id"],
+                    name_zh=row.get("name_zh"),
                     version=row.get("version", "1.0.0"),
                     description=row.get("description"),
                     skill_path=row.get("skill_path"),
@@ -876,7 +881,7 @@ def get_dag_nodes_by_task_id(dag_task_id: str) -> List[DagNode]:
                     """
                     SELECT n.id, n.node_id, n.dag_task_id, n.skill_id, n.node_name,
                            n.input_params AS node_input, n.node_type, n.position_x, n.position_y,
-                           s.skill_name, s.version, s.description,
+                           s.skill_name, s.version, s.name_zh, s.description,
                            s.skill_path, s.file_path, s.input_params AS skill_input, s.output_params,
                            s.skill_type, s.language, s.command, s.icon_path,
                            s.create_time AS skill_create_time,
@@ -896,6 +901,7 @@ def get_dag_nodes_by_task_id(dag_task_id: str) -> List[DagNode]:
                     skill = DagSkill(
                         skill_id=row["skill_id"],
                         skill_name=row.get("skill_name") or row["skill_id"],
+                        name_zh=row.get("name_zh"),
                         version=row.get("version", "1.0.0"),
                         description=row.get("description"),
                         skill_path=row.get("skill_path"),

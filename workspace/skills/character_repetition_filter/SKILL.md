@@ -6,6 +6,7 @@ description: |
   即使用户没有明确说出"字符重复"，只要任务涉及根据文本中字符重复的程度来筛选数据，
   就应该使用此skill。
 
+name_zh: 字符重复比例过滤器算子
 input_params:
   - name: input
     type: string
@@ -46,6 +47,7 @@ output_params:
     type: json_file
     description: 过滤后的JSON文件，包含字符重复比例在指定范围内的样本
 tag: 过滤与筛选
+
 ---
 
 # Character Repetition Filter 字符重复比例过滤 Skill

@@ -6,6 +6,7 @@ description: |
   即使用户没有明确说出"最相关实体"，只要任务涉及从文档中分析并提取与目标相关的实体，
   就应该使用此skill。
 
+name_zh: 最相关实体聚合算子
 input_params:
   - name: input
     type: string
@@ -59,6 +60,7 @@ output_params:
     type: json_file
     description: 实体聚合后的JSON文件，包含按重要性排序的相关实体列表
 tag: 增强
+
 ---
 
 # Most Relevant Entities Aggregator 最相关实体聚合 Skill

@@ -2,6 +2,7 @@
 name: read_file_and_add
 description: add all numbers in a text file by 10 and save to a new file. Use when user mentions read a file add numbers by 10, process number file, batch calculation.
 
+name_zh: 文档数据加法算子
 input_params:
   - name: input_file
     type: string
@@ -18,6 +19,7 @@ output_params:
     type: csv_file
     description: 处理后的文本文件
 tag: 流程控制
+
 ---
 
 # Add Numbers by 10

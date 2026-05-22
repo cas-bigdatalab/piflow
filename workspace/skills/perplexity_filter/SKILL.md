@@ -7,6 +7,7 @@ description: |
   
   当用户提到困惑度过滤、文本困惑度检测、语言模型分数过滤、文本质量过滤等需求时使用此skill。
 
+name_zh: 困惑度过滤器算子
 input_params:
   - name: input_path
     type: string
@@ -47,6 +48,7 @@ output_params:
     type: jsonl_file
     description: 过滤后的JSONL文件，包含困惑度低于阈值的样本
 tag: 过滤与筛选
+
 ---
 
 ## 功能概述

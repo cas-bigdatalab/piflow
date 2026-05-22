@@ -5,6 +5,7 @@ compatibility:
   - python
   - requests
 
+name_zh: 单细胞测序细胞类型注释算子
 input_params:
   - name: input_file
     type: string
@@ -30,6 +31,7 @@ output_params:
     type: csv_file
     description: 下载的细胞类型注释结果CSV文件
 tag: 其他
+
 ---
 
 

@@ -3,6 +3,7 @@ name: xlsx_unpack
 description: 将XLSX文件解压为XML目录
 version: 1.0.0
 category: spreadsheet_processing
+name_zh: 将XLSX文件解压为XML目录算子
 input_params:
   - name: input_path
     type: xlsx_file
@@ -15,6 +16,7 @@ output_params:
     type: directory
     description: 解压后的XML目录
 tag: 输入
+
 ---
 
 # xlsx_unpack 技能

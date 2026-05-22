@@ -3,6 +3,7 @@ name: docx_text_extract
 description: 从DOCX文件中提取文本内容
 version: 1.0.0
 category: document_processing
+name_zh: 从DOCX文件中提取文本内容算子
 input_params:
   - name: input_path
     type: docx_file
@@ -12,6 +13,7 @@ output_params:
     type: text_file
     description: 提取的文本文件(.txt)
 tag: 输入
+
 ---
 
 # docx_text_extract 技能

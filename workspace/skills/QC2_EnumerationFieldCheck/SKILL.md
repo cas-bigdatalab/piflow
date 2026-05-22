@@ -6,6 +6,7 @@ description: |
   当用户提到枚举校验、枚举值检查、属性项校验、词表校验等需求时使用此skill。
   即使用户没有明确说出"枚举校验"，只要任务涉及将被检验数据与标准词典进行比对，就应该使用此skill。
 
+name_zh: QC2_公共基础项枚举校验算子
 input_params:
   - name: origin_file_path
     type: string
@@ -58,6 +59,7 @@ output_params:
     type: csv_file
     description: 处理后原始数据文件，带质控标识
 tag: 校验
+
 ---
 
 # QC2_EnumerationFieldCheck 枚举校验Skill

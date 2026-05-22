@@ -214,6 +214,7 @@ def get_skills_grouped_by_type() -> List[Dict]:
 def insert_dag_skill(
     skill_name: str,
     description: str,
+    name_zh: str = None,
     skill_path: str = "",
     file_path: str = "",
     input_params: dict = None,
@@ -233,17 +234,18 @@ def insert_dag_skill(
                     cursor.execute(
                         """
                         INSERT INTO dag_skills (
-                            skill_id, skill_name, description, skill_path, file_path,
+                            skill_id, skill_name, name_zh, description, skill_path, file_path,
                             input_params, output_params, skill_type,
                             language, command, icon_path, version
                         )
-                        VALUES (%s, %s, %s, %s, %s, %s::jsonb, %s::jsonb, %s, %s, %s, %s, %s)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s::jsonb, %s::jsonb, %s, %s, %s, %s, %s)
                         
                         
                         ON CONFLICT (skill_name, version)
 
                         DO UPDATE SET
                             skill_name = EXCLUDED.skill_name,
+                            name_zh = EXCLUDED.name_zh,
                             description = EXCLUDED.description,
                             skill_path = EXCLUDED.skill_path,
                             file_path = EXCLUDED.file_path,
@@ -258,7 +260,7 @@ def insert_dag_skill(
                         RETURNING id, skill_id
                         """,
                         (
-                            skill_id, skill_name, description, skill_path or "", file_path or "",
+                            skill_id, skill_name, name_zh, description, skill_path or "", file_path or "",
                             psycopg2.extras.Json(input_params or {}),
                             psycopg2.extras.Json(output_params or {}),
                             skill_type, language or "", command or "", icon_path, version,
@@ -327,6 +329,7 @@ def _parse_dag_skill_frontmatter(skill_dir: Path) -> Optional[dict]:
 
         return {
             "name": name,
+            "name_zh": frontmatter.get("name_zh", ""),
             "description": description,
             "tag": tag,
             "input_params": input_params,
@@ -394,6 +397,7 @@ def init_dag_skills_to_database() -> int:
             continue
 
         skill_name = info["name"]
+        name_zh = info.get("name_zh", "")
         description = info["description"]
         skill_type = info["tag"]
         input_params = info["input_params"]
@@ -411,6 +415,7 @@ def init_dag_skills_to_database() -> int:
 
         insert_dag_skill(
             skill_name=skill_name,
+            name_zh=name_zh,
             description=description,
             skill_path=skill_path,
             file_path=file_path,

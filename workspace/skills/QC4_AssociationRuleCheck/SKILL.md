@@ -6,6 +6,7 @@ description: |
   当用户提到关联规则校验、数据约束校验、自定义规则校验、条件表达式校验等需求时使用此skill。
   即使用户没有说出"关联规则"，只要任务涉及根据自定义条件表达式进行数据校验，就应该使用此skill。
 
+name_zh: QC4_数值关联规则校验算子
 input_params:
   - name: input_path
     type: string
@@ -58,6 +59,7 @@ output_params:
     type: csv_file
     description: 异常数据文件（可选），包含不满足约束条件的记录
 tag: 校验
+
 ---
 
 # QC4_AssociationRuleCheck 关联规则校验Skill

@@ -6,6 +6,7 @@ description: |
   当用户提到时序完整性检查、时间序列缺失检查、时间点完整性、数据遗漏检验等需求时使用此skill。
   即使用户没有说出"时序完整性"，只要任务涉及检查时间序列数据是否有遗漏或多余的时间点，就应该使用此skill。
 
+name_zh: QC16_数据时序完整性检查算子
 input_params:
   - name: input_path
     type: string
@@ -52,6 +53,7 @@ output_params:
     type: csv_file
     description: 异常数据文件，包含缺失/多余时间点记录
 tag: 校验
+
 ---
 
 # QC16_TimeMissing 数据时序完整性检查Skill

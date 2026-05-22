@@ -7,6 +7,7 @@ description: |
   即使用户没有明确说出"去重"，只要任务涉及从多个文档中识别和删除重复内容，
   就应该使用此skill。
 
+name_zh: 文档去重算子
 input_params:
   - name: input
     type: string
@@ -41,6 +42,7 @@ output_params:
     type: json_file
     description: 去重后的文件（json或txt格式）
 tag: 去重
+
 ---
 
 # Document Deduplicator 文档去重 Skill

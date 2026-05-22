@@ -7,6 +7,7 @@ description: |
   
   当用户提到混合数据集、合并多个数据集、数据集混合、数据融合等需求时使用此skill。
 
+name_zh: 混合格式化器算子
 input_params:
   - name: dataset_path
     type: string
@@ -51,6 +52,7 @@ output_params:
     type: jsonl_file
     description: 混合后的JSONL数据集文件
 tag: 格式转换
+
 ---
 
 ## 功能概述

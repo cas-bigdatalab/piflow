@@ -3,6 +3,7 @@ name: docx_unpack
 description: 将DOCX文件解压为XML目录
 version: 1.0.0
 category: document_processing
+name_zh: 将DOCX文件解压为XML目录算子
 input_params:
   - name: input_path
     type: docx_file
@@ -19,6 +20,7 @@ output_params:
     type: directory
     description: 解压后的XML目录
 tag: 输入
+
 ---
 
 # docx_unpack 技能

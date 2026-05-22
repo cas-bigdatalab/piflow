@@ -4,6 +4,7 @@ description: |
   清理版权注释开头的文本样本。当用户提到清理版权、删除版权注释、清理代码注释、去除版权信息等需求时使用此skill。
   即使用户没有明确说出"版权"，只要任务涉及清理文本开头的注释或版权信息，就应该使用此skill。
 
+name_zh: 清理版权注释开头的文本样本算子
 input_params:
   - name: input_path
     type: string
@@ -20,6 +21,7 @@ output_params:
     type: json_file
     description: 清理版权注释后的JSON文件
 tag: 标准化
+
 ---
 
 # Clean Copyright Mapper

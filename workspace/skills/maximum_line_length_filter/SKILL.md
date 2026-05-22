@@ -7,6 +7,7 @@ description: |
   
   当用户提到最大行长度过滤、文本行长筛选、最长行过滤、按行长度过滤等需求时使用此skill。
 
+name_zh: 最大行长度过滤器算子
 input_params:
   - name: input_path
     type: string
@@ -47,6 +48,7 @@ output_params:
     type: jsonl_file
     description: 过滤后的JSONL文件，包含最大行长度在指定范围内的样本
 tag: 过滤与筛选
+
 ---
 
 ## 功能概述

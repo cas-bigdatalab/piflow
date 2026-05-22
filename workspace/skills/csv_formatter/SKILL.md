@@ -7,6 +7,7 @@ description: |
   
   当用户提到CSV格式化、CSV数据加载、读取CSV文件、CSV转JSONL等需求时使用此skill。
 
+name_zh: CSV格式化器算子
 input_params:
   - name: input_path
     type: string
@@ -41,6 +42,7 @@ output_params:
     type: jsonl_file
     description: 格式化后的JSONL文件
 tag: 格式转换
+
 ---
 
 ## 功能概述

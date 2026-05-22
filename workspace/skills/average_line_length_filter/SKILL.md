@@ -6,6 +6,7 @@ description: |
   即使用户没有明确说出"平均行长度"，只要任务涉及根据文本中每行的平均长度来筛选数据，
   就应该使用此skill。
 
+name_zh: 平均行长度过滤器算子
 input_params:
   - name: input
     type: string
@@ -39,6 +40,7 @@ output_params:
     type: json_file
     description: 过滤后的JSON文件，包含平均行长度在指定范围内的样本
 tag: 过滤与筛选
+
 ---
 
 # Average Line Length Filter 平均行长度过滤 Skill

@@ -6,6 +6,7 @@ description: |
   当用户提到单字段阈值检验、多条件阈值检验、单字段多条件检查等需求时使用此skill。
   即使用户没有说出"单字段多条件"，只要任务涉及根据多个条件进行单字段阈值校验，就应该使用此skill。
 
+name_zh: QC6_单字段多条件阈值检验算子
 input_params:
   - name: original_file
     type: string
@@ -58,6 +59,7 @@ output_params:
     type: csv_file
     description: 异常数据文件（可选），包含不满足阈值条件的记录
 tag: 校验
+
 ---
 
 # QC6_SingleFieldMultiThresholdCheck 单字段多条件阈值检验Skill

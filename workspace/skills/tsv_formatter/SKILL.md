@@ -7,6 +7,7 @@ description: |
   
   当用户提到TSV格式化、TSV数据加载、读取TSV文件、TSV转JSONL等需求时使用此skill。
 
+name_zh: TSV格式化器算子
 input_params:
   - name: input_path
     type: string
@@ -41,6 +42,7 @@ output_params:
     type: jsonl_file
     description: 输出的JSONL格式数据集文件
 tag: 格式转换
+
 ---
 
 ## 功能概述

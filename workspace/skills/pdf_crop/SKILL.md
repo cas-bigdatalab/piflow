@@ -3,6 +3,7 @@ name: pdf_crop
 description: 裁剪PDF页面边距。通过指定边界坐标(left,bottom,right,top)来裁剪页面区域。当用户需要裁剪PDF页面时使用此skill。
 license: Proprietary. LICENSE.txt has complete terms
 
+name_zh: 裁剪PDF页面边距算子
 input_params:
   - name: input_path
     type: string
@@ -29,6 +30,7 @@ output_params:
     type: pdf_file
     description: 裁剪后的PDF文件
 tag: 输入
+
 ---
 
 # pdf_crop 技能

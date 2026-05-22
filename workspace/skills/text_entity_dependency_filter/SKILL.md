@@ -7,6 +7,7 @@ description: |
   
   当用户提到实体依赖过滤、文本实体检测、依存关系过滤、实体独立性过滤等需求时使用此skill。
 
+name_zh: 文本实体依赖过滤器算子
 input_params:
   - name: input_path
     type: string
@@ -47,6 +48,7 @@ output_params:
     type: jsonl_file
     description: 过滤后的JSONL格式数据文件
 tag: 过滤与筛选
+
 ---
 
 ## 功能概述

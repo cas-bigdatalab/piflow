@@ -4,6 +4,7 @@ description: |
   基于参考文本校准问答对。当用户提到问答校准、校准QA、语言风格校准、问答对优化等需求时使用此skill。
   即使用户没有明确说出"校准"，只要任务涉及根据参考文本调整问答对使其更符合特定风格，就应该使用此skill。
 
+name_zh: 基于参考文本校准问答对算子
 input_params:
   - name: input_path
     type: string
@@ -54,6 +55,7 @@ output_params:
     type: json_file
     description: 校准后的问答对JSON文件，包含校准后的query和response
 tag: 标准化
+
 ---
 
 # Calibrate QA Mapper

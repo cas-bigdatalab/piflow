@@ -5,6 +5,7 @@ compatibility:
   - python
   - requests
 
+name_zh: 单细胞测序数据集检索算子
 input_params:
   - name: organism
     type: string
@@ -63,6 +64,7 @@ output_params:
     type: json_file
     description: 检索结果JSON，包含数据集列表和总数等信息
 tag: 其他
+
 ---
 
 # bdbe_homo Skill

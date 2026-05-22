@@ -7,6 +7,7 @@ description: |
   
   当用户提到停用词过滤、停用词比例过滤、文本质量过滤、停用词占比检测等需求时使用此skill。
 
+name_zh: 停用词过滤器算子
 input_params:
   - name: input_path
     type: string
@@ -53,6 +54,7 @@ output_params:
     type: jsonl_file
     description: 过滤后的JSONL格式数据文件
 tag: 过滤与筛选
+
 ---
 
 ## 功能概述

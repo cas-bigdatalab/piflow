@@ -5,6 +5,7 @@ description: |
   以及通过JSON配置内容结构（标题、段落、表格等）。当用户需要生成PDF报告、文档时使用此skill。
 license: Proprietary. LICENSE.txt has complete terms
 
+name_zh: 从零创建PDF文件算子
 input_params:
   - name: output_path
     type: string
@@ -37,6 +38,7 @@ output_params:
     type: csv_file
     description: 生成的PDF文件
 tag: 输入
+
 ---
 
 # pdf_create 技能

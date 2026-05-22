@@ -6,6 +6,7 @@ description: |
   即使用户没有明确说出"敏感词"，只要任务涉及过滤包含特定敏感词的文本内容，
   就应该使用此skill。
 
+name_zh: 敏感词过滤器算子
 input_params:
   - name: input
     type: string
@@ -52,6 +53,7 @@ output_params:
     type: json_file
     description: 过滤敏感词后的JSON文件
 tag: 过滤与筛选
+
 ---
 
 # Flagged Words Filter 敏感词过滤 Skill

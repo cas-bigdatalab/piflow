@@ -3,6 +3,7 @@ name: pdf_split
 description: 将PDF按指定页码范围拆分为独立的PDF文件。当用户需要拆分PDF文档时使用此skill。
 license: Proprietary. LICENSE.txt has complete terms
 
+name_zh: 将PDF按指定页码范围拆分为独立的PDF文件算子
 input_params:
   - name: input_path
     type: string
@@ -24,6 +25,7 @@ output_params:
     type: pdf_file
     description: 拆分后的PDF文件
 tag: 输入
+
 ---
 
 # pdf_split 技能
