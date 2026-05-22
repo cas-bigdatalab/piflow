@@ -7,6 +7,7 @@ description: |
   
   当用户提到特殊字符过滤、特殊字符比例过滤、文本特殊字符检测、清理乱码文本等需求时使用此skill。
 
+name_zh: 特殊字符过滤器算子
 input_params:
   - name: input_path
     type: string
@@ -47,6 +48,7 @@ output_params:
     type: jsonl_file
     description: 过滤后的JSONL格式数据文件
 tag: 过滤与筛选
+
 ---
 
 ## 功能概述

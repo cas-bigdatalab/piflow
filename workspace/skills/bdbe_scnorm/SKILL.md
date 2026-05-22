@@ -5,6 +5,7 @@ compatibility:
   - python
   - requests
 
+name_zh: 单细胞测序数据预处理算子
 input_params:
   - name: input_file
     type: string
@@ -30,6 +31,7 @@ output_params:
     type: json_file
     description: 辅助文件，包含state.json、dataset_info.json等
 tag: 其他
+
 ---
 
 # bdbe_scnorm Skill

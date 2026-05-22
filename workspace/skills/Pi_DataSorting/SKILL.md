@@ -5,6 +5,7 @@ description: |
   当用户提到数据排序、升序排列、降序排列、按某字段排序等需求时使用此skill。
   即使用户没有明确说出"排序"，只要任务涉及对数据进行排序，就应该使用此skill。
 
+name_zh: Pi_数据排序算子
 input_params:
   - name: input_path
     type: string
@@ -32,6 +33,7 @@ output_params:
     type: csv_file
     description: 排序后的结构化数据文件
 tag: 增强
+
 ---
 
 # Pi_DataSorting 数据排序Skill

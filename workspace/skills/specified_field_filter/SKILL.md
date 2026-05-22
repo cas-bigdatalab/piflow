@@ -7,6 +7,7 @@ description: |
   
   当用户提到字段过滤、字段值筛选、元数据过滤、指定字段过滤、按字段值过滤等需求时使用此skill。
 
+name_zh: 指定字段过滤器算子
 input_params:
   - name: input_path
     type: string
@@ -39,6 +40,7 @@ output_params:
     type: jsonl_file
     description: 过滤后的JSONL格式数据文件，保持原始字段结构
 tag: 过滤与筛选
+
 ---
 
 ## 功能概述

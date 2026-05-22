@@ -4,6 +4,7 @@ description: 山洪/水文敏感度计算算子。用户提到山洪敏感度、
 allowed-tools:
   - emit_operator
 
+name_zh: 山洪/水文敏感度计算算子
 input_params: []
 
 output_params:
@@ -11,6 +12,7 @@ output_params:
     type: json_file
     description: 水文敏感度算子的标准JSON片段，包含算子配置和数据源依赖
 tag: 其他
+
 ---
 
 # hydro_susceptibility_operator

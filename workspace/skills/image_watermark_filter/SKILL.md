@@ -7,6 +7,7 @@ description: |
   
   当用户提到图像水印检测、图片无水印过滤、水印去除、检测图片水印等需求时使用此skill。
 
+name_zh: 图像水印过滤器算子
 input_params:
   - name: input_path
     type: string
@@ -47,6 +48,7 @@ output_params:
     type: jsonl_file
     description: 过滤后的JSONL文件，包含无水印或水印概率低于阈值的样本
 tag: 过滤与筛选
+
 ---
 
 ## 功能概述

@@ -4,6 +4,7 @@ description: |
   将批处理的样本拆分为独立样本。当用户提到样本拆分、拆分批次、批处理展开、反向分组等需求时使用此skill。
   即使用户没有明确说出"拆分"，只要任务涉及将批处理数据（字段值为数组）展开为独立样本，就应该使用此skill。
 
+name_zh: 将批处理的样本拆分为独立样本算子
 input_params:
   - name: input_path
     type: string
@@ -25,6 +26,7 @@ output_params:
     type: json_file
     description: 拆分后的JSON文件，每个数组元素展开为独立样本
 tag: 增强
+
 ---
 
 # Naive Reverse Grouper

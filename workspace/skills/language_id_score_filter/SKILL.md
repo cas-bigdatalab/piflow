@@ -7,6 +7,7 @@ description: |
   
   当用户提到语言识别过滤、语言检测、文本语言筛选、按语言过滤等需求时使用此skill。
 
+name_zh: 语言识别分数过滤器算子
 input_params:
   - name: input_path
     type: string
@@ -41,6 +42,7 @@ output_params:
     type: jsonl_file
     description: 过滤后的JSONL文件，包含指定语言且置信度达标的样本
 tag: 过滤与筛选
+
 ---
 
 ## 功能概述

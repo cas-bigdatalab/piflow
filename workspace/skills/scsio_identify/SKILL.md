@@ -5,6 +5,7 @@ compatibility:
   - python
   - requests
 
+name_zh: 用于识别海洋生物的技能算子
 input_params:
   - name: image_file
     type: string
@@ -22,6 +23,7 @@ output_params:
     type: string
     description: 海洋生物识别结果（文本格式）
 tag: 其他
+
 ---
 
 # scsio_identify Skill

@@ -5,6 +5,7 @@ compatibility:
   - python
   - requests
 
+name_zh: 单细胞样本性别判定算子
 input_params:
   - name: input_file
     type: string
@@ -26,6 +27,7 @@ output_params:
     type: csv_file
     description: 性别判定结果CSV文件，包含每个样本的性别标签
 tag: 其他
+
 ---
 
 

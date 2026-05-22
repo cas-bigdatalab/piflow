@@ -4,6 +4,7 @@ description: |
   根据给定键中的值将样本分组为批处理样本。当用户提到样本分组、按键值分组、批处理样本、按键聚合、分组聚合等需求时使用此skill。
   即使用户没有明确说出"分组"，只要任务涉及将多个样本按某个字段/键的值进行归类合并，就应该使用此skill。
 
+name_zh: 根据给定键中的值将样本分组为批处理样本算子
 input_params:
   - name: input_path
     type: string
@@ -26,6 +27,7 @@ output_params:
     type: json_file
     description: 分组后的JSON文件，每组样本的字段值为数组
 tag: 增强
+
 ---
 
 # Key Value Grouper

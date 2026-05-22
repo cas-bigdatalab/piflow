@@ -5,6 +5,7 @@ compatibility:
   - python
   - requests
 
+name_zh: 用于检索化学物质详细信息的技能算子
 input_params:
   - name: text
     type: string
@@ -28,6 +29,7 @@ output_params:
     type: json_file
     description: 化学物质详细信息JSON，包含化学物质列表、分子结构（SVG）等
 tag: 其他
+
 ---
 
 # chemdb_search 技能

@@ -6,6 +6,7 @@ description: |
   即使用户没有明确说出"Ray"或"分布式"，只要任务涉及大规模文档去重处理，
   就应该使用此skill。
 
+name_zh: Ray分布式文档去重算子
 input_params:
   - name: input
     type: string
@@ -52,6 +53,7 @@ output_params:
     type: jsonl_file
     description: 去重后的JSON文件
 tag: 去重
+
 ---
 
 # Ray Document Deduplicator Ray分布式文档去重 Skill

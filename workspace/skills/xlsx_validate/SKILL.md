@@ -3,6 +3,7 @@ name: xlsx_validate
 description: 验证XLSX文件格式有效性
 version: 1.0.0
 category: spreadsheet_processing
+name_zh: 验证XLSX文件格式有效性算子
 input_params:
   - name: input_path
     type: xlsx_file
@@ -12,6 +13,7 @@ output_params:
     type: json_file
     description: 验证结果JSON文件
 tag: 校验
+
 ---
 
 # xlsx_validate 技能

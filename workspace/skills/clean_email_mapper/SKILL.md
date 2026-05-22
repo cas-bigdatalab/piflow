@@ -4,6 +4,7 @@ description: |
   清理文本样本中的电子邮件。当用户提到清理邮件、删除邮箱、去除邮件地址、清理个人信息等需求时使用此skill。
   即使用户没有明确说出"邮件"，只要任务涉及从文本中删除或替换邮箱地址，就应该使用此skill。
 
+name_zh: 清理文本样本中的电子邮件算子
 input_params:
   - name: input_path
     type: string
@@ -31,6 +32,7 @@ output_params:
     type: json_file
     description: 清理邮件后的JSON文件
 tag: 标准化
+
 ---
 
 # Clean Email Mapper

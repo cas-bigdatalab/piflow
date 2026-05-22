@@ -7,6 +7,7 @@ description: |
   
   当用户提到图像文件大小过滤、图片大小筛选、图像尺寸KB/MB过滤、按文件大小过滤等需求时使用此skill。
 
+name_zh: 图像文件大小过滤器算子
 input_params:
   - name: input_path
     type: string
@@ -47,6 +48,7 @@ output_params:
     type: jsonl_file
     description: 过滤后的JSONL文件，包含文件大小在指定范围内的样本
 tag: 过滤与筛选
+
 ---
 
 ## 功能概述

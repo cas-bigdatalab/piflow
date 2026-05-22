@@ -5,6 +5,7 @@ description: |
   当用户提到尖峰检验、连续剧烈变化检测、峰值检测、时间序列突变检查等需求时使用此skill。
   即使用户没有说出"尖峰检验"，只要任务涉及检查时间序列数据的剧烈变化，就应该使用此skill。
 
+name_zh: QC14_尖峰检验（连续剧烈变化检测）算子
 input_params:
   - name: input_path
     type: string
@@ -48,6 +49,7 @@ output_params:
     type: csv_file
     description: 尖峰检验后的结构化数据文件，带质控标识
 tag: 校验
+
 ---
 
 # QC14_TimePeakValue 尖峰检验Skill

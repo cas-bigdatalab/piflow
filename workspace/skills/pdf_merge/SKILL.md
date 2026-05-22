@@ -3,6 +3,7 @@ name: pdf_merge
 description: 将多个PDF文件合并为一个PDF文件。当用户需要合并PDF文档时使用此skill。
 license: Proprietary. LICENSE.txt has complete terms
 
+name_zh: 将多个PDF文件合并为一个PDF文件算子
 input_params:
   - name: input_paths
     type: list
@@ -19,6 +20,7 @@ output_params:
     type: pdf_file
     description: 合并后的PDF文件
 tag: 输入
+
 ---
 
 # pdf_merge 技能

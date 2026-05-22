@@ -7,6 +7,7 @@ description: |
   
   当用户提到过滤图片、识别人脸、人脸数量检测、图片人脸筛选、按人脸数量过滤等需求时使用此skill。
 
+name_zh: 图像人脸数量过滤器算子
 input_params:
   - name: input_path
     type: string
@@ -47,6 +48,7 @@ output_params:
     type: jsonl_file
     description: 过滤后的JSONL文件，包含人脸数量在指定范围内的样本
 tag: 过滤与筛选
+
 ---
 
 ## 功能概述

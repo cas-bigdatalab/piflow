@@ -6,6 +6,7 @@ description: |
   即使用户没有明确说出"长宽比"，只要任务涉及根据图像宽高比来筛选数据，
   就应该使用此skill。
 
+name_zh: 图像长宽比过滤器算子
 input_params:
   - name: input
     type: string
@@ -46,6 +47,7 @@ output_params:
     type: json_file
     description: 过滤后的JSON文件，包含长宽比在指定范围内的图像样本
 tag: 过滤与筛选
+
 ---
 
 # Image Aspect Ratio Filter 图像长宽比过滤 Skill

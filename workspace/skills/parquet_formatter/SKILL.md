@@ -7,6 +7,7 @@ description: |
   
   当用户提到Parquet格式化、Parquet数据加载、读取Parquet文件、Parquet转JSONL等需求时使用此skill。
 
+name_zh: Parquet格式化器算子
 input_params:
   - name: input_path
     type: string
@@ -41,6 +42,7 @@ output_params:
     type: jsonl_file
     description: 格式化后的JSONL文件
 tag: 格式转换
+
 ---
 
 ## 功能概述

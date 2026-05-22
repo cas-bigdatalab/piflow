@@ -7,6 +7,7 @@ description: |
   
   当用户提到图像尺寸过滤、图片宽高筛选、图像分辨率过滤、按图片大小过滤、图像形状限制等需求时使用此skill。
 
+name_zh: 图像形状过滤器算子
 input_params:
   - name: input_path
     type: string
@@ -59,6 +60,7 @@ output_params:
     type: jsonl_file
     description: 过滤后的JSONL文件，包含图像尺寸在指定范围内的样本
 tag: 过滤与筛选
+
 ---
 
 ## 功能概述

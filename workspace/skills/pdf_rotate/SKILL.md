@@ -3,6 +3,7 @@ name: pdf_rotate
 description: 旋转PDF页面方向。支持顺时针90度、180度、270度旋转。当用户需要旋转PDF页面方向时使用此skill。
 license: Proprietary. LICENSE.txt has complete terms
 
+name_zh: 旋转PDF页面方向算子
 input_params:
   - name: input_path
     type: string
@@ -30,6 +31,7 @@ output_params:
     type: pdf_file
     description: 旋转后的PDF文件
 tag: 输入
+
 ---
 
 # pdf_rotate 技能

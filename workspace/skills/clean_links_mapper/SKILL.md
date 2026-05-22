@@ -4,6 +4,7 @@ description: |
   清理文本中的链接（HTTP/HTTPS/FTP）。当用户提到清理链接、删除URL、去除超链接、清理网页链接等需求时使用此skill。
   即使用户没有明确说出"链接"，只要任务涉及从文本中删除或替换URL链接，就应该使用此skill。
 
+name_zh: 清理文本中的链接（HTTP/HTTPS/FTP）算子
 input_params:
   - name: input_path
     type: string
@@ -26,6 +27,7 @@ output_params:
     type: json_file
     description: 清理链接后的JSON文件
 tag: 标准化
+
 ---
 
 # Clean Links Mapper

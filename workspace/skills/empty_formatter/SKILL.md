@@ -7,6 +7,7 @@ description: |
   
   当用户提到创建空数据集、生成空数据、初始化数据集、测试用空数据等需求时使用此skill。
 
+name_zh: 空数据格式化器算子
 input_params:
   - name: output_path
     type: string
@@ -30,6 +31,7 @@ output_params:
     type: jsonl_file
     description: 空数据集JSONL文件
 tag: 格式转换
+
 ---
 
 ## 功能概述

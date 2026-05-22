@@ -4,6 +4,7 @@ description: |
   清理文本示例中的HTML代码。当用户提到清理HTML、去除HTML标签、HTML转文本、提取网页文本等需求时使用此skill。
   即使用户没有明确说出"HTML"，只要任务涉及从HTML代码中提取纯文本，就应该使用此skill。
 
+name_zh: 清理文本示例中的HTML代码算子
 input_params:
   - name: input_path
     type: string
@@ -20,6 +21,7 @@ output_params:
     type: json_file
     description: 清理HTML后的JSON文件
 tag: 标准化
+
 ---
 
 # Clean HTML Mapper

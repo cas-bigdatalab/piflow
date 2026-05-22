@@ -3,6 +3,7 @@ name: pdf_text_extract
 description: 从PDF文件中提取文本内容，保存为txt文件。当用户需要从PDF中提取文字时使用此skill。
 license: Proprietary. LICENSE.txt has complete terms
 
+name_zh: 从PDF文件中提取文本内容，保存为txt文件算子
 input_params:
   - name: input_path
     type: string
@@ -24,6 +25,7 @@ output_params:
     type: text_file
     description: 提取的文本文件(.txt)
 tag: 输入
+
 ---
 
 # pdf_text_extract 技能

@@ -6,6 +6,7 @@ description: |
   即使用户没有明确说出"视频去重"，只要任务涉及从包含视频的数据中删除重复视频，
   就应该使用此skill。
 
+name_zh: 视频去重算子
 input_params:
   - name: input
     type: string
@@ -40,6 +41,7 @@ output_params:
     type: jsonl_file
     description: 去重后的JSON文件
 tag: 去重
+
 ---
 
 # Video Deduplicator 视频去重 Skill
