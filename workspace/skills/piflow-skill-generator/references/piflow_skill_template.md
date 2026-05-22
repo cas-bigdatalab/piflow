@@ -9,6 +9,7 @@
 ```yaml
 ---
 name: <skill_name>
+name_zh: <技能中文名>
 description: <说明技能能力，并包含触发语义>
 version: 1.0.0
 category: <业务分类或技能域>
@@ -30,6 +31,7 @@ output_params:
 字段规则：
 
 - `name` 必须与目录名一致。
+- `name_zh` 必须与中文名一致。
 - `description` 必须包含“做什么”和“何时使用”。
 - `version` 默认 `1.0.0`。
 - `category` 表示技能中心或业务域分类。

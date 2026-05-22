@@ -2,6 +2,7 @@
 name: piflow-skill-generator
 description: |
   PiFlow 技能生成器。根据当前 workspace/skills 的本地约定和 references/piflow_skill_template.md 通用模板创建、更新或校验 PiFlow-compatible skill，包括 UTF-8 编码的 SKILL.md、DAG 可读的 input_params/output_params、version/category/tag 元数据、skill.json、scripts/references/assets 资源目录、可选 agents/openai.yaml，以及本地校验脚本。用户提到创建技能、生成 skill、封装算子、补齐技能元数据、按模板生成技能、实现技能闭包或校验技能格式时使用此 skill。
+name_zh: PiFlow 技能生成器
 version: 1.1.0
 category: skill_generation
 tag: 技能生成
