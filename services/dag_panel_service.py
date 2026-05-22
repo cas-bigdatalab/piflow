@@ -75,8 +75,8 @@ def get_skill_info_by_id(skill_id:str)->DagSkill:
     return result
 
 def get_dag_skills_by_condition(
-    page: int = 1,
-    page_size: int = 20,
+    page: int = None,
+    page_size: int = None,
     keyword: str = None,
     skill_type: str = None,
     version: str = None,

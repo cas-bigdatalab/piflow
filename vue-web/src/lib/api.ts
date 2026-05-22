@@ -35,8 +35,8 @@ export type SkillTypeStat = {
   type: string;
   count: number;
 };
-const DEFAULT_BASE = "http://localhost:8081";
-// const DEFAULT_BASE = "http://10.0.87.112:8081";
+// const DEFAULT_BASE = "http://localhost:8081";
+const DEFAULT_BASE = "http://10.0.87.111:8081";
 export function apiBase() {
   return (import.meta as any).env?.VITE_API_BASE || DEFAULT_BASE;
 }
