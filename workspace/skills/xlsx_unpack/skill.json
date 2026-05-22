@@ -1,0 +1,41 @@
+{
+  "name": "xlsx_unpack",
+  "version": "1.0.0",
+  "description": "将XLSX文件解压为XML目录",
+  "language": "python",
+  "script_path": "scripts/run_xlsx_unpack.py",
+  "entrypoint": "python scripts/run_xlsx_unpack.py",
+  "input_params": [
+    {
+      "name": "input_path",
+      "role": "input_data",
+      "type": "xlsx_file",
+      "required": false,
+      "description": "输入XLSX文件路径"
+    },
+    {
+      "name": "output_dir",
+      "role": "output_data",
+      "type": "directory",
+      "required": false,
+      "description": "输出目录路径"
+    }
+  ],
+  "output_params": [
+    {
+      "name": "output_dir",
+      "role": "output_data",
+      "type": "directory",
+      "default": "xlsx_unpack_output",
+      "description": "解压后的XML目录"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input_path",
+    "{input_path}",
+    "--output_dir",
+    "{output_dir}"
+  ]
+}

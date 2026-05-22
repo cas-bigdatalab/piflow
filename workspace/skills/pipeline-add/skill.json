@@ -1,0 +1,27 @@
+{
+  "name": "pipeline-add",
+  "version": "1.0.0",
+  "description": "将用户输入的整数加10并返回结果。当用户提到「流水线」关键词时并提供数字时使用，并且此方法是「流水线」系列技能之一，能与其他技能之间传递结果。",
+  "language": "python",
+  "script_path": "",
+  "entrypoint": "",
+  "input_params": [
+    {
+      "name": "input_number",
+      "role": "data",
+      "type": "int",
+      "required": true,
+      "description": "用户输入的整数（由其他Skill传递或用户直接提供）"
+    }
+  ],
+  "output_params": [
+    {
+      "name": "result",
+      "role": "output_data",
+      "type": "string",
+      "default": "pipeline-add_output",
+      "description": "计算结果，格式为 \"数字 + 10 = 结果\""
+    }
+  ],
+  "command_template": []
+}

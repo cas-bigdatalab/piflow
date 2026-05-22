@@ -1,0 +1,41 @@
+{
+  "name": "read_file_and_minus",
+  "version": "1.0.0",
+  "description": "Minus all numbers in a text file by 5 and save to a new file. Use when user mentions read a file minus numbers by 15, process number file, batch calculation.",
+  "language": "python",
+  "script_path": "scripts/process_numbers.py",
+  "entrypoint": "python scripts/process_numbers.py",
+  "input_params": [
+    {
+      "name": "input_file",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "输入文件路径（包含数字的文本文件）"
+    },
+    {
+      "name": "output_file",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "输出文件路径"
+    }
+  ],
+  "output_params": [
+    {
+      "name": "output_file",
+      "role": "output_data",
+      "type": "csv_file",
+      "default": "read_file_and_minus_output.csv",
+      "description": "处理后的文本文件"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input_file",
+    "{input_file}",
+    "--output_file",
+    "{output_file}"
+  ]
+}

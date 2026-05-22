@@ -1,0 +1,60 @@
+{
+  "name": "clean_email_mapper",
+  "version": "1.0.0",
+  "description": "清理文本样本中的电子邮件。当用户提到清理邮件、删除邮箱、去除邮件地址、清理个人信息等需求时使用此skill。 即使用户没有明确说出\"邮件\"，只要任务涉及从文本中删除或替换邮箱地址，就应该使用此skill。",
+  "language": "python",
+  "script_path": "scripts/run_clean_email_mapper.py",
+  "entrypoint": "python scripts/run_clean_email_mapper.py",
+  "input_params": [
+    {
+      "name": "input_path",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "输入JSON文件路径"
+    },
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "输出JSON文件路径"
+    },
+    {
+      "name": "pattern",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "正则表达式模式（默认使用邮箱正则）"
+    },
+    {
+      "name": "repl",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "替换字符串（默认为空，即删除）",
+      "default": ""
+    }
+  ],
+  "output_params": [
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "json_file",
+      "default": "clean_email_mapper_output.json",
+      "description": "清理邮件后的JSON文件"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input_path",
+    "{input_path}",
+    "--output_path",
+    "{output_path}",
+    "--pattern",
+    "{pattern}",
+    "--repl",
+    "{repl}"
+  ]
+}

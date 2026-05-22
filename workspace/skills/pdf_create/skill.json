@@ -1,0 +1,69 @@
+{
+  "name": "pdf_create",
+  "version": "1.0.0",
+  "description": "从零创建PDF文件工具。使用reportlab库生成专业PDF文档，支持自定义页面大小、标题、作者、 以及通过JSON配置内容结构（标题、段落、表格等）。当用户需要生成PDF报告、文档时使用此skill。",
+  "language": "python",
+  "script_path": "scripts/run_pdf_create.py",
+  "entrypoint": "python scripts/run_pdf_create.py",
+  "input_params": [
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "输出PDF文件路径"
+    },
+    {
+      "name": "title",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "文档标题"
+    },
+    {
+      "name": "pagesize",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "页面大小（letter/a4）",
+      "default": "letter"
+    },
+    {
+      "name": "author",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "作者名称"
+    },
+    {
+      "name": "content",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "内容JSON字符串，定义文档结构"
+    }
+  ],
+  "output_params": [
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "csv_file",
+      "default": "pdf_create_output.csv",
+      "description": "生成的PDF文件"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--output_path",
+    "{output_path}",
+    "--title",
+    "{title}",
+    "--pagesize",
+    "{pagesize}",
+    "--author",
+    "{author}",
+    "--content",
+    "{content}"
+  ]
+}

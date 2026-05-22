@@ -1,0 +1,78 @@
+{
+  "name": "specified_numeric_field_filter",
+  "version": "1.0.0",
+  "description": "指定数值字段过滤器。根据指定的数值字段信息进行筛选。 本SKILL使用依赖data_juicer，请在调用前安装好python环境并安装data_juicer，你可用以下指令进行安装： pip install py-data-juicer  当用户提到数值字段过滤、字段范围筛选、数值范围过滤、元数据数值过滤、按数值过滤等需求时使用此skill。",
+  "language": "python",
+  "script_path": "scripts/run_specified_numeric_field_filter.py",
+  "entrypoint": "python scripts/run_specified_numeric_field_filter.py",
+  "input_params": [
+    {
+      "name": "input_path",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "输入数据文件路径 (JSON/JSONL格式)"
+    },
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "输出数据文件路径 (JSONL格式)"
+    },
+    {
+      "name": "field_key",
+      "role": "data",
+      "type": "string",
+      "required": true,
+      "description": "字段路径，用点号分隔，如 'meta.star'"
+    },
+    {
+      "name": "min_value",
+      "role": "data",
+      "type": "float",
+      "required": false,
+      "description": "最小值（默认不限）"
+    },
+    {
+      "name": "max_value",
+      "role": "data",
+      "type": "float",
+      "required": false,
+      "description": "最大值（默认不限）"
+    },
+    {
+      "name": "num_proc",
+      "role": "data",
+      "type": "int",
+      "required": false,
+      "description": "并行处理的进程数",
+      "default": 1
+    }
+  ],
+  "output_params": [
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "jsonl_file",
+      "default": "specified_numeric_field_filter_output.jsonl",
+      "description": "过滤后的JSONL格式数据文件，保持原始字段结构"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input_path",
+    "{input_path}",
+    "--output_path",
+    "{output_path}",
+    "--field_key",
+    "{field_key}",
+    "--min_value",
+    "{min_value}",
+    "--max_value",
+    "{max_value}",
+    "--num_proc",
+    "{num_proc}"
+  ]
+}

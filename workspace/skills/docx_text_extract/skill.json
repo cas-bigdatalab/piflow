@@ -1,0 +1,32 @@
+{
+  "name": "docx_text_extract",
+  "version": "1.0.0",
+  "description": "从DOCX文件中提取文本内容",
+  "language": "python",
+  "script_path": "scripts/run_docx_text_extract.py",
+  "entrypoint": "python scripts/run_docx_text_extract.py",
+  "input_params": [
+    {
+      "name": "input_path",
+      "role": "input_data",
+      "type": "docx_file",
+      "required": false,
+      "description": "输入DOCX文件路径"
+    }
+  ],
+  "output_params": [
+    {
+      "name": "output",
+      "role": "output_data",
+      "type": "text_file",
+      "default": "docx_text_extract_output.txt",
+      "description": "提取的文本文件(.txt)"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input_path",
+    "{input_path}"
+  ]
+}

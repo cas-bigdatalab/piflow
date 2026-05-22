@@ -1,0 +1,88 @@
+{
+  "name": "QC12_ConstantFieldCheck",
+  "version": "1.0.0",
+  "description": "特定字段恒定下的其他字段不一致检查工具。读取被检验表，当某些字段（恒定字段）的值相同时， 检查其他指定字段（差异字段）是否存在多个不同的值，如果存在则标记为异常数据，最后输出为相同格式的文件。 当用户提到恒定字段检查、字段一致性检查、分组内差异检查等需求时使用此skill。 即使用户没有说出\"恒定字段\"，只要任务涉及检查分组内字段是否存在不一致，就应该使用此skill。",
+  "language": "python",
+  "script_path": "scripts/QC12_ConstantFieldCheck.py",
+  "entrypoint": "python scripts/QC12_ConstantFieldCheck.py",
+  "input_params": [
+    {
+      "name": "input_path",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "输入文件路径"
+    },
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "输出文件路径"
+    },
+    {
+      "name": "constantFieldsNames",
+      "role": "data",
+      "type": "string",
+      "required": true,
+      "description": "恒定字段，逗号分隔（如：field1,field2）"
+    },
+    {
+      "name": "diffFieldsNames",
+      "role": "data",
+      "type": "string",
+      "required": true,
+      "description": "差异字段，逗号分隔（如：field3,field4）"
+    },
+    {
+      "name": "QcMark",
+      "role": "data",
+      "type": "string",
+      "required": true,
+      "description": "质控标识"
+    },
+    {
+      "name": "markFieldName",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "质控标识字段名",
+      "default": "QC0000"
+    },
+    {
+      "name": "idFieldName",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "唯一ID字段名",
+      "default": "ID0000"
+    }
+  ],
+  "output_params": [
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "csv_file",
+      "default": "QC12_ConstantFieldCheck_output.csv",
+      "description": "恒定字段一致性检查后的结构化数据文件，带质控标识"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input_path",
+    "{input_path}",
+    "--output_path",
+    "{output_path}",
+    "--constantFieldsNames",
+    "{constantFieldsNames}",
+    "--diffFieldsNames",
+    "{diffFieldsNames}",
+    "--QcMark",
+    "{QcMark}",
+    "--markFieldName",
+    "{markFieldName}",
+    "--idFieldName",
+    "{idFieldName}"
+  ]
+}

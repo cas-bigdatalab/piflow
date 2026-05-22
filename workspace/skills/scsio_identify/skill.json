@@ -1,0 +1,42 @@
+{
+  "name": "scsio_identify",
+  "version": "1.0.0",
+  "description": "用于识别海洋生物的技能。当用户希望识别海洋生物、上传图片识别图中海洋生物等情况时触发。",
+  "language": "python",
+  "script_path": "scripts/scsio_identify.py",
+  "entrypoint": "python scripts/scsio_identify.py",
+  "input_params": [
+    {
+      "name": "image_file",
+      "role": "data",
+      "type": "string",
+      "required": true,
+      "description": "图片文件路径"
+    },
+    {
+      "name": "threshold",
+      "role": "data",
+      "type": "float",
+      "required": false,
+      "description": "相似度阈值，用于筛选高置信度结果",
+      "default": 0.1
+    }
+  ],
+  "output_params": [
+    {
+      "name": "result",
+      "role": "output_data",
+      "type": "string",
+      "default": "scsio_identify_output",
+      "description": "海洋生物识别结果（文本格式）"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--image_file",
+    "{image_file}",
+    "--threshold",
+    "{threshold}"
+  ]
+}

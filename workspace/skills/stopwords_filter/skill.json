@@ -1,0 +1,91 @@
+{
+  "name": "stopwords_filter",
+  "version": "1.0.0",
+  "description": "停用词过滤器。过滤以保持停止词比率大于特定最小值的样本。 本SKILL使用依赖data_juicer，请在调用前安装好python环境并安装data_juicer，你可用以下指令进行安装： pip install py-data-juicer  当用户提到停用词过滤、停用词比例过滤、文本质量过滤、停用词占比检测等需求时使用此skill。",
+  "language": "python",
+  "script_path": "scripts/run_stopwords_filter.py",
+  "entrypoint": "python scripts/run_stopwords_filter.py",
+  "input_params": [
+    {
+      "name": "input_path",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "输入数据文件路径 (JSON/JSONL格式)"
+    },
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "输出数据文件路径 (JSONL格式)"
+    },
+    {
+      "name": "lang",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "语言代码（支持 en, zh, all 等）",
+      "default": "en"
+    },
+    {
+      "name": "tokenization",
+      "role": "data",
+      "type": "bool",
+      "required": false,
+      "description": "是否使用模型进行分词（中文建议开启）",
+      "default": false
+    },
+    {
+      "name": "min_ratio",
+      "role": "data",
+      "type": "float",
+      "required": false,
+      "description": "最小停用词比例",
+      "default": 0.3
+    },
+    {
+      "name": "use_words_aug",
+      "role": "data",
+      "type": "bool",
+      "required": false,
+      "description": "是否使用词语增强（中文建议开启）",
+      "default": false
+    },
+    {
+      "name": "num_proc",
+      "role": "data",
+      "type": "int",
+      "required": false,
+      "description": "并行处理的进程数",
+      "default": 1
+    }
+  ],
+  "output_params": [
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "jsonl_file",
+      "default": "stopwords_filter_output.jsonl",
+      "description": "过滤后的JSONL格式数据文件"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input_path",
+    "{input_path}",
+    "--output_path",
+    "{output_path}",
+    "--lang",
+    "{lang}",
+    "--tokenization",
+    "{tokenization}",
+    "--min_ratio",
+    "{min_ratio}",
+    "--use_words_aug",
+    "{use_words_aug}",
+    "--num_proc",
+    "{num_proc}"
+  ]
+}
