@@ -1,0 +1,63 @@
+{
+  "name": "example_utf8_mapper",
+  "title": "Example UTF-8 Mapper",
+  "description": "示例UTF-8映射器，用于验证中文元数据和脚本生成。",
+  "version": "1.0.0",
+  "triggers": ["中文处理", "UTF-8技能生成", "示例映射"],
+  "category": "mapper",
+  "tag": "示例",
+  "language": "python",
+  "input_params": [
+    {
+      "name": "input_path",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "输入JSON文件路径"
+    },
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "输出JSON文件路径"
+    },
+    {
+      "name": "text_key",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "default": "text",
+      "description": "文本字段名"
+    }
+  ],
+  "output_params": [
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "json_file",
+      "description": "处理后的JSON文件"
+    }
+  ],
+  "script": {
+    "path": "scripts/run_example_utf8_mapper.py"
+  },
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input_path",
+    "{input_path}",
+    "--output_path",
+    "{output_path}",
+    "--text_key",
+    "{text_key}"
+  ],
+  "dependencies": ["Python 3.x"],
+  "examples": [
+    {
+      "title": "基本调用",
+      "command": "python scripts/run_example_utf8_mapper.py --input_path input.json --output_path output.json"
+    }
+  ],
+  "agents_openai": true
+}
