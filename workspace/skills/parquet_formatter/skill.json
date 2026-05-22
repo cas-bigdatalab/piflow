@@ -1,0 +1,71 @@
+{
+  "name": "parquet_formatter",
+  "version": "1.0.0",
+  "description": "Parquet格式化器。用于加载和格式化parquet类型的文件。 本SKILL使用依赖data_juicer，请在调用前安装好python环境并安装data_juicer，你可用以下指令进行安装： pip install py-data-juicer  当用户提到Parquet格式化、Parquet数据加载、读取Parquet文件、Parquet转JSONL等需求时使用此skill。",
+  "language": "python",
+  "script_path": "scripts/run_parquet_formatter.py",
+  "entrypoint": "python scripts/run_parquet_formatter.py",
+  "input_params": [
+    {
+      "name": "input_path",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "输入Parquet文件路径或目录"
+    },
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "输出JSONL文件路径"
+    },
+    {
+      "name": "text_keys",
+      "role": "data",
+      "type": "list",
+      "required": false,
+      "description": "文本字段名列表",
+      "default": "['text']"
+    },
+    {
+      "name": "add_suffix",
+      "role": "data",
+      "type": "bool",
+      "required": false,
+      "description": "是否添加文件后缀信息",
+      "default": false
+    },
+    {
+      "name": "num_proc",
+      "role": "data",
+      "type": "int",
+      "required": false,
+      "description": "并行处理的进程数",
+      "default": 1
+    }
+  ],
+  "output_params": [
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "jsonl_file",
+      "default": "parquet_formatter_output.jsonl",
+      "description": "格式化后的JSONL文件"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input_path",
+    "{input_path}",
+    "--output_path",
+    "{output_path}",
+    "--text_keys",
+    "{text_keys}",
+    "--add_suffix",
+    "{add_suffix}",
+    "--num_proc",
+    "{num_proc}"
+  ]
+}

@@ -1,0 +1,91 @@
+{
+  "name": "flagged_words_filter",
+  "version": "1.0.0",
+  "description": "敏感词过滤器。过滤文本中包含敏感词/标记词比例超过指定阈值的样本。 当用户提到敏感词过滤、脏词过滤、违禁词过滤、内容审核、敏感词检测等需求时使用此skill。 即使用户没有明确说出\"敏感词\"，只要任务涉及过滤包含特定敏感词的文本内容， 就应该使用此skill。",
+  "language": "python",
+  "script_path": "scripts/run_flagged_words_filter.py",
+  "entrypoint": "python scripts/run_flagged_words_filter.py",
+  "input_params": [
+    {
+      "name": "input",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "输入JSON文件路径"
+    },
+    {
+      "name": "output",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "输出JSON文件路径"
+    },
+    {
+      "name": "lang",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "语言（en/zh/all）",
+      "default": "en"
+    },
+    {
+      "name": "max_ratio",
+      "role": "data",
+      "type": "float",
+      "required": false,
+      "description": "最大敏感词比例",
+      "default": 0.045
+    },
+    {
+      "name": "tokenization",
+      "role": "data",
+      "type": "bool",
+      "required": false,
+      "description": "是否使用模型分词",
+      "default": false
+    },
+    {
+      "name": "use_words_aug",
+      "role": "data",
+      "type": "bool",
+      "required": false,
+      "description": "是否使用词语增强",
+      "default": false
+    },
+    {
+      "name": "text_key",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "文本字段的键名",
+      "default": "text"
+    }
+  ],
+  "output_params": [
+    {
+      "name": "output",
+      "role": "output_data",
+      "type": "json_file",
+      "default": "flagged_words_filter_output.json",
+      "description": "过滤敏感词后的JSON文件"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input",
+    "{input}",
+    "--output",
+    "{output}",
+    "--lang",
+    "{lang}",
+    "--max_ratio",
+    "{max_ratio}",
+    "--tokenization",
+    "{tokenization}",
+    "--use_words_aug",
+    "{use_words_aug}",
+    "--text_key",
+    "{text_key}"
+  ]
+}

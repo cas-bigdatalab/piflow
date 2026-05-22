@@ -1,0 +1,71 @@
+{
+  "name": "language_id_score_filter",
+  "version": "1.0.0",
+  "description": "语言识别分数过滤器。过滤器以保留置信度得分大于特定最小值的特定语言的样本。 本SKILL使用依赖data_juicer，请在调用前安装好python环境并安装data_juicer，你可用以下指令进行安装： pip install py-data-juicer  当用户提到语言识别过滤、语言检测、文本语言筛选、按语言过滤等需求时使用此skill。",
+  "language": "python",
+  "script_path": "scripts/run_language_id_score_filter.py",
+  "entrypoint": "python scripts/run_language_id_score_filter.py",
+  "input_params": [
+    {
+      "name": "input_path",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "输入数据文件路径（JSON/JSONL格式）"
+    },
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "输出数据文件路径（JSONL格式）"
+    },
+    {
+      "name": "lang",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "指定语言代码，可重复指定多个（为空则保留所有语言）",
+      "default": ""
+    },
+    {
+      "name": "min_score",
+      "role": "data",
+      "type": "float",
+      "required": false,
+      "description": "最小语言识别置信度分数",
+      "default": 0.8
+    },
+    {
+      "name": "num_proc",
+      "role": "data",
+      "type": "int",
+      "required": false,
+      "description": "并行处理的进程数",
+      "default": 1
+    }
+  ],
+  "output_params": [
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "jsonl_file",
+      "default": "language_id_score_filter_output.jsonl",
+      "description": "过滤后的JSONL文件，包含指定语言且置信度达标的样本"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input_path",
+    "{input_path}",
+    "--output_path",
+    "{output_path}",
+    "--lang",
+    "{lang}",
+    "--min_score",
+    "{min_score}",
+    "--num_proc",
+    "{num_proc}"
+  ]
+}

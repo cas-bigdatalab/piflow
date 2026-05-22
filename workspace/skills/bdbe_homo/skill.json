@@ -1,0 +1,115 @@
+{
+  "name": "bdbe_homo",
+  "version": "1.0.0",
+  "description": "根据多维度筛选条件检索单细胞测序相关的预训练数据集，支持分页查询，返回符合条件的数据集详情，并格式化展示查询结果。",
+  "language": "python",
+  "script_path": "scripts/bdbe_homo.py",
+  "entrypoint": "python scripts/bdbe_homo.py",
+  "input_params": [
+    {
+      "name": "organism",
+      "role": "data",
+      "type": "string",
+      "required": true,
+      "description": "生物物种（必填参数）"
+    },
+    {
+      "name": "organ",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "组织/器官"
+    },
+    {
+      "name": "class",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "分类"
+    },
+    {
+      "name": "time",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "发育/采样时间"
+    },
+    {
+      "name": "gender",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "性别"
+    },
+    {
+      "name": "cell_line",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "细胞系"
+    },
+    {
+      "name": "organoid",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "类器官"
+    },
+    {
+      "name": "tumor",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "肿瘤相关"
+    },
+    {
+      "name": "page_num",
+      "role": "data",
+      "type": "int",
+      "required": false,
+      "description": "分页页码（从1开始）",
+      "default": 1
+    },
+    {
+      "name": "page_size",
+      "role": "data",
+      "type": "int",
+      "required": false,
+      "description": "每页返回数据集数量",
+      "default": 10
+    }
+  ],
+  "output_params": [
+    {
+      "name": "query_result",
+      "role": "output_data",
+      "type": "json_file",
+      "default": "bdbe_homo_output.json",
+      "description": "检索结果JSON，包含数据集列表和总数等信息"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--organism",
+    "{organism}",
+    "--organ",
+    "{organ}",
+    "--class",
+    "{class}",
+    "--time",
+    "{time}",
+    "--gender",
+    "{gender}",
+    "--cell_line",
+    "{cell_line}",
+    "--organoid",
+    "{organoid}",
+    "--tumor",
+    "{tumor}",
+    "--page_num",
+    "{page_num}",
+    "--page_size",
+    "{page_size}"
+  ]
+}

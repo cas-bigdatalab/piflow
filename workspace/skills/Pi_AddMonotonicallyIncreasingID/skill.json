@@ -1,0 +1,51 @@
+{
+  "name": "Pi_AddMonotonicallyIncreasingID",
+  "version": "1.0.0",
+  "description": "添加单调递增ID工具。读取结构化数据文件，检查是否存在指定的ID字段（默认为ID0000）， 如果不存在则添加从1开始的单调递增ID字段，并将其放在第一列，最后输出为相同格式的文件。 当用户提到添加ID、添加自增ID、添加序号、添加行号等需求时使用此skill。 即使用户没有明确说出\"添加ID\"，只要任务涉及给数据添加自增ID，就应该使用此skill。",
+  "language": "python",
+  "script_path": "scripts/Pi_AddMonotonicallyIncreasingID.py",
+  "entrypoint": "python scripts/Pi_AddMonotonicallyIncreasingID.py",
+  "input_params": [
+    {
+      "name": "input_path",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "输入文件路径（支持CSV/TSV/Excel等）"
+    },
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "输出文件路径（处理后的文件）"
+    },
+    {
+      "name": "id_field_name",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "ID字段名",
+      "default": "ID0000"
+    }
+  ],
+  "output_params": [
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "csv_file",
+      "default": "Pi_AddMonotonicallyIncreasingID_output.csv",
+      "description": "添加了单调递增ID的结构化数据文件"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input_path",
+    "{input_path}",
+    "--output_path",
+    "{output_path}",
+    "--id_field_name",
+    "{id_field_name}"
+  ]
+}

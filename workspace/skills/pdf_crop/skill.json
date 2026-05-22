@@ -1,0 +1,59 @@
+{
+  "name": "pdf_crop",
+  "version": "1.0.0",
+  "description": "裁剪PDF页面边距。通过指定边界坐标(left,bottom,right,top)来裁剪页面区域。当用户需要裁剪PDF页面时使用此skill。",
+  "language": "python",
+  "script_path": "scripts/run_pdf_crop.py",
+  "entrypoint": "python scripts/run_pdf_crop.py",
+  "input_params": [
+    {
+      "name": "input_path",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "输入PDF文件路径"
+    },
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "输出PDF文件路径"
+    },
+    {
+      "name": "bbox",
+      "role": "data",
+      "type": "string",
+      "required": true,
+      "description": "裁剪边界\"left,bottom,right,top\"（PDF坐标单位）"
+    },
+    {
+      "name": "pages",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "页码范围，如\"1-3,5\"（可选，默认全部页面）"
+    }
+  ],
+  "output_params": [
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "string",
+      "default": "pdf_crop_output",
+      "description": "裁剪后的PDF文件"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input_path",
+    "{input_path}",
+    "--output_path",
+    "{output_path}",
+    "--bbox",
+    "{bbox}",
+    "--pages",
+    "{pages}"
+  ]
+}

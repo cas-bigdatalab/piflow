@@ -1,0 +1,81 @@
+{
+  "name": "image_deduplicator",
+  "version": "1.0.0",
+  "description": "图像去重工具。使用图像哈希精确匹配在文档级别删除包含重复图像的样本。 当用户提到图像去重、删除重复图片、图片去重、清理重复图像等需求时使用此skill。 即使用户没有明确说出\"图像去重\"，只要任务涉及从包含图像的数据中删除重复图片， 就应该使用此skill。",
+  "language": "python",
+  "script_path": "scripts/run_image_deduplicator.py",
+  "entrypoint": "python scripts/run_image_deduplicator.py",
+  "input_params": [
+    {
+      "name": "input",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "输入JSON文件路径"
+    },
+    {
+      "name": "output",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "输出JSON文件路径"
+    },
+    {
+      "name": "method",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "图像哈希方法（phash/dhash/whash/ahash）",
+      "default": "phash"
+    },
+    {
+      "name": "consider_text",
+      "role": "data",
+      "type": "bool",
+      "required": false,
+      "description": "是否同时考虑文本哈希进行去重",
+      "default": false
+    },
+    {
+      "name": "image_key",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "图像字段的键名",
+      "default": "images"
+    },
+    {
+      "name": "text_key",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "文本字段的键名",
+      "default": "text"
+    }
+  ],
+  "output_params": [
+    {
+      "name": "output",
+      "role": "output_data",
+      "type": "json_file",
+      "default": "image_deduplicator_output.json",
+      "description": "去重后的JSON文件，包含去重后的图像样本"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input",
+    "{input}",
+    "--output",
+    "{output}",
+    "--method",
+    "{method}",
+    "--consider_text",
+    "{consider_text}",
+    "--image_key",
+    "{image_key}",
+    "--text_key",
+    "{text_key}"
+  ]
+}

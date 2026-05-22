@@ -1,0 +1,104 @@
+{
+  "name": "QC6_SingleFieldMultiThresholdCheck",
+  "version": "1.0.0",
+  "description": "单字段多条件阈值检验工具。读取被检验表和阈值表，将指定字段的属性项值与阈值表中定义的多条件门限进行比对， 检查是否在门限范围内，不允许超出门限值（包括上限和下限）。不满足条件的数据会标记质控标识并输出异常数据。 当用户提到单字段阈值检验、多条件阈值检验、单字段多条件检查等需求时使用此skill。 即使用户没有说出\"单字段多条件\"，只要任务涉及根据多个条件进行单字段阈值校验，就应该使用此skill。",
+  "language": "python",
+  "script_path": "scripts/QC6_SingleFieldMultiThresholdCheck.py",
+  "entrypoint": "python scripts/QC6_SingleFieldMultiThresholdCheck.py",
+  "input_params": [
+    {
+      "name": "original_file",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "被检验数据文件路径"
+    },
+    {
+      "name": "threshold_file",
+      "role": "data",
+      "type": "string",
+      "required": true,
+      "description": "阈值表文件路径"
+    },
+    {
+      "name": "origin_output",
+      "role": "data",
+      "type": "string",
+      "required": true,
+      "description": "处理后原始数据输出路径"
+    },
+    {
+      "name": "field_name",
+      "role": "data",
+      "type": "string",
+      "required": true,
+      "description": "阈值检测字段名"
+    },
+    {
+      "name": "qc_mark",
+      "role": "data",
+      "type": "string",
+      "required": true,
+      "description": "质控标识"
+    },
+    {
+      "name": "error_output",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "异常数据输出路径（可选）"
+    },
+    {
+      "name": "mark_field_name",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "质控标识字段名",
+      "default": "QC0000"
+    },
+    {
+      "name": "id_field_name",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "唯一ID字段名",
+      "default": "ID0000"
+    }
+  ],
+  "output_params": [
+    {
+      "name": "origin_output",
+      "role": "output_data",
+      "type": "csv_file",
+      "default": "QC6_SingleFieldMultiThresholdCheck_output.csv",
+      "description": "处理后原始数据文件，带质控标识"
+    },
+    {
+      "name": "error_output",
+      "role": "output_data",
+      "type": "csv_file",
+      "default": "QC6_SingleFieldMultiThresholdCheck_output.csv",
+      "description": "异常数据文件（可选），包含不满足阈值条件的记录"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--original_file",
+    "{original_file}",
+    "--threshold_file",
+    "{threshold_file}",
+    "--origin_output",
+    "{origin_output}",
+    "--field_name",
+    "{field_name}",
+    "--qc_mark",
+    "{qc_mark}",
+    "--error_output",
+    "{error_output}",
+    "--mark_field_name",
+    "{mark_field_name}",
+    "--id_field_name",
+    "{id_field_name}"
+  ]
+}

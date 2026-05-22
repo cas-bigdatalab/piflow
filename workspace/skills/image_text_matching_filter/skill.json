@@ -1,0 +1,121 @@
+{
+  "name": "image_text_matching_filter",
+  "version": "1.0.0",
+  "description": "图像文本匹配过滤器。过滤器将图像和文本之间的匹配分数保持在特定范围内。 本SKILL使用依赖data_juicer，请在调用前安装好python环境并安装data_juicer，你可用以下指令进行安装： pip install py-data-juicer  当用户提到图像文本匹配过滤、图片文字匹配度、文图匹配检测、图像文本相关性过滤等需求时使用此skill。",
+  "language": "python",
+  "script_path": "scripts/run_image_text_matching_filter.py",
+  "entrypoint": "python scripts/run_image_text_matching_filter.py",
+  "input_params": [
+    {
+      "name": "input_path",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "输入数据文件路径（JSON/JSONL格式）"
+    },
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "输出数据文件路径（JSONL格式）"
+    },
+    {
+      "name": "hf_blip",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "HuggingFace上的BLIP模型",
+      "default": "Salesforce/blip-itm-base-coco"
+    },
+    {
+      "name": "min_score",
+      "role": "data",
+      "type": "float",
+      "required": false,
+      "description": "最小匹配分数",
+      "default": 0.003
+    },
+    {
+      "name": "max_score",
+      "role": "data",
+      "type": "float",
+      "required": false,
+      "description": "最大匹配分数",
+      "default": 1.0
+    },
+    {
+      "name": "horizontal_flip",
+      "role": "data",
+      "type": "bool",
+      "required": false,
+      "description": "是否水平翻转图像",
+      "default": false
+    },
+    {
+      "name": "vertical_flip",
+      "role": "data",
+      "type": "bool",
+      "required": false,
+      "description": "是否垂直翻转图像",
+      "default": false
+    },
+    {
+      "name": "reduce_mode",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "多图聚合模式（avg/max/min）",
+      "default": "avg"
+    },
+    {
+      "name": "any_or_all",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "过滤策略（any/all）",
+      "default": "any"
+    },
+    {
+      "name": "num_proc",
+      "role": "data",
+      "type": "int",
+      "required": false,
+      "description": "并行处理的进程数",
+      "default": 1
+    }
+  ],
+  "output_params": [
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "jsonl_file",
+      "default": "image_text_matching_filter_output.jsonl",
+      "description": "过滤后的JSONL文件，包含图像文本匹配分数在指定范围内的样本"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input_path",
+    "{input_path}",
+    "--output_path",
+    "{output_path}",
+    "--hf_blip",
+    "{hf_blip}",
+    "--min_score",
+    "{min_score}",
+    "--max_score",
+    "{max_score}",
+    "--horizontal_flip",
+    "{horizontal_flip}",
+    "--vertical_flip",
+    "{vertical_flip}",
+    "--reduce_mode",
+    "{reduce_mode}",
+    "--any_or_all",
+    "{any_or_all}",
+    "--num_proc",
+    "{num_proc}"
+  ]
+}

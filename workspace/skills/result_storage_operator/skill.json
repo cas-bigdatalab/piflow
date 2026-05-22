@@ -1,0 +1,22 @@
+{
+  "name": "result_storage_operator",
+  "version": "1.0.0",
+  "description": "分析结果落盘算子。用户提到结果保存、导出CSV、结果存储时调用。",
+  "language": "python",
+  "script_path": "scripts/result_storage_operator.py",
+  "entrypoint": "python scripts/result_storage_operator.py",
+  "input_params": [],
+  "output_params": [
+    {
+      "name": "operator_definition",
+      "role": "output_data",
+      "type": "json_file",
+      "default": "result_storage_operator_output.json",
+      "description": "结果存储算子的标准JSON定义，用于作为DAG的sink节点"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}"
+  ]
+}

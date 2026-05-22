@@ -1,0 +1,51 @@
+{
+  "name": "v9_MarkFieldCheck",
+  "version": "1.0.0",
+  "description": "标识符字段检查工具。读取结构化数据文件，检查是否存在指定的质量标识符字段（默认为QC0000）， 如果不存在则添加该字段，最后输出为相同格式的文件。当用户提到标识符字段检查、添加质量标识符、QC字段检查等需求时使用此skill。 即使用户没有明确说出\"标识符字段\"，只要任务涉及检查或添加质量标识符字段，就应该使用此skill。",
+  "language": "python",
+  "script_path": "scripts/v9_MarkFieldCheck.py",
+  "entrypoint": "python scripts/v9_MarkFieldCheck.py",
+  "input_params": [
+    {
+      "name": "input_path",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "输入文件路径"
+    },
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "输出文件路径"
+    },
+    {
+      "name": "mark_field_name",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "质量标识符字段名",
+      "default": "QC0000"
+    }
+  ],
+  "output_params": [
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "csv_file",
+      "default": "v9_MarkFieldCheck_output.csv",
+      "description": "处理后结构化数据文件，包含质量标识符字段"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input_path",
+    "{input_path}",
+    "--output_path",
+    "{output_path}",
+    "--mark_field_name",
+    "{mark_field_name}"
+  ]
+}

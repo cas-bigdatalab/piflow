@@ -1,0 +1,71 @@
+{
+  "name": "video_deduplicator",
+  "version": "1.0.0",
+  "description": "视频去重工具。使用精确匹配（MD5哈希）在文档级别删除重复视频样本。 当用户提到视频去重、删除重复视频、清理重复视频等需求时使用此skill。 即使用户没有明确说出\"视频去重\"，只要任务涉及从包含视频的数据中删除重复视频， 就应该使用此skill。",
+  "language": "python",
+  "script_path": "scripts/run_video_deduplicator.py",
+  "entrypoint": "python scripts/run_video_deduplicator.py",
+  "input_params": [
+    {
+      "name": "input",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "输入JSON文件路径"
+    },
+    {
+      "name": "output",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "输出JSON文件路径"
+    },
+    {
+      "name": "consider_text",
+      "role": "data",
+      "type": "bool",
+      "required": false,
+      "description": "是否同时考虑文本哈希进行去重",
+      "default": false
+    },
+    {
+      "name": "video_key",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "视频字段的键名",
+      "default": "videos"
+    },
+    {
+      "name": "text_key",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "文本字段的键名",
+      "default": "text"
+    }
+  ],
+  "output_params": [
+    {
+      "name": "output",
+      "role": "output_data",
+      "type": "jsonl_file",
+      "default": "video_deduplicator_output.jsonl",
+      "description": "去重后的JSON文件"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input",
+    "{input}",
+    "--output",
+    "{output}",
+    "--consider_text",
+    "{consider_text}",
+    "--video_key",
+    "{video_key}",
+    "--text_key",
+    "{text_key}"
+  ]
+}

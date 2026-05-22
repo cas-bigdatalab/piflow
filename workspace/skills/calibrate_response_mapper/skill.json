@@ -1,0 +1,69 @@
+{
+  "name": "calibrate_response_mapper",
+  "version": "1.0.0",
+  "description": "基于参考文本校准问答对中的响应。当用户提到校准回答、校准响应、语言风格校准、回答优化等需求时使用此skill。 即使用户没有明确说出\"校准\"，只要任务涉及根据参考文本调整问答对中的回答，就应该使用此skill。",
+  "language": "python",
+  "script_path": "scripts/run_calibrate_response_mapper.py",
+  "entrypoint": "python scripts/run_calibrate_response_mapper.py",
+  "input_params": [
+    {
+      "name": "input_path",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "输入JSON文件路径"
+    },
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "输出JSON文件路径"
+    },
+    {
+      "name": "api_model",
+      "role": "data",
+      "type": "string",
+      "required": true,
+      "description": "LLM模型名称，如 'qwen2.5-72b-instruct'"
+    },
+    {
+      "name": "api_endpoint",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "API端点URL"
+    },
+    {
+      "name": "response_path",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "响应内容路径",
+      "default": "choices.0.message.content"
+    }
+  ],
+  "output_params": [
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "json_file",
+      "default": "calibrate_response_mapper_output.json",
+      "description": "校准后的JSON文件，包含校准后的response字段"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input_path",
+    "{input_path}",
+    "--output_path",
+    "{output_path}",
+    "--api_model",
+    "{api_model}",
+    "--api_endpoint",
+    "{api_endpoint}",
+    "--response_path",
+    "{response_path}"
+  ]
+}

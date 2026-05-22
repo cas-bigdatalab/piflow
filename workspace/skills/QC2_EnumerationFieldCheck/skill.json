@@ -1,0 +1,104 @@
+{
+  "name": "QC2_EnumerationFieldCheck",
+  "version": "1.0.0",
+  "description": "公共基础项枚举校验工具。读取被检验表和标准词典文件，将被检验表中的属性项值与标准词典进行比对， 检查是否超出词典规定的固有词表枚举值范围，超出范围的记录会标记质控标识并输出异常数据。 当用户提到枚举校验、枚举值检查、属性项校验、词表校验等需求时使用此skill。 即使用户没有明确说出\"枚举校验\"，只要任务涉及将被检验数据与标准词典进行比对，就应该使用此skill。",
+  "language": "python",
+  "script_path": "scripts/QC2_EnumerationFieldCheck.py",
+  "entrypoint": "python scripts/QC2_EnumerationFieldCheck.py",
+  "input_params": [
+    {
+      "name": "origin_file_path",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "被检验数据文件路径"
+    },
+    {
+      "name": "standard_file_path",
+      "role": "data",
+      "type": "string",
+      "required": true,
+      "description": "标准词典文件路径"
+    },
+    {
+      "name": "error_output_path",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "异常数据输出路径"
+    },
+    {
+      "name": "origin_output_path",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "处理后原始数据输出路径"
+    },
+    {
+      "name": "comparison_field",
+      "role": "data",
+      "type": "string",
+      "required": true,
+      "description": "对比字段，格式：原字段1,原字段2:标准字段1,标准字段2"
+    },
+    {
+      "name": "qc_mark",
+      "role": "data",
+      "type": "string",
+      "required": true,
+      "description": "质控标识（如QC2_ERROR）"
+    },
+    {
+      "name": "mark_field_name",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "质控标识字段名",
+      "default": "QC0000"
+    },
+    {
+      "name": "id_field_name",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "唯一ID字段名",
+      "default": "ID0000"
+    }
+  ],
+  "output_params": [
+    {
+      "name": "error_output_path",
+      "role": "output_data",
+      "type": "csv_file",
+      "default": "QC2_EnumerationFieldCheck_output.csv",
+      "description": "异常数据文件，包含不在标准词典范围内的记录"
+    },
+    {
+      "name": "origin_output_path",
+      "role": "output_data",
+      "type": "csv_file",
+      "default": "QC2_EnumerationFieldCheck_output.csv",
+      "description": "处理后原始数据文件，带质控标识"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--origin_file_path",
+    "{origin_file_path}",
+    "--standard_file_path",
+    "{standard_file_path}",
+    "--error_output_path",
+    "{error_output_path}",
+    "--origin_output_path",
+    "{origin_output_path}",
+    "--comparison_field",
+    "{comparison_field}",
+    "--qc_mark",
+    "{qc_mark}",
+    "--mark_field_name",
+    "{mark_field_name}",
+    "--id_field_name",
+    "{id_field_name}"
+  ]
+}

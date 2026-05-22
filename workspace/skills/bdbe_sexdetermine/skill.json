@@ -1,0 +1,50 @@
+{
+  "name": "bdbe_sexdetermine",
+  "version": "1.0.0",
+  "description": "本skill是用于单细胞样本性别判定的专用技能，首先需要用户上传需要处理的单细胞样本数据，再判定未标注性别的样本，或纠正标注错误的性别信息，生成最后的修正文件。",
+  "language": "python",
+  "script_path": "scripts/bdbe_sexdetermine.py",
+  "entrypoint": "python scripts/bdbe_sexdetermine.py",
+  "input_params": [
+    {
+      "name": "input_file",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "输入单细胞样本数据文件路径（CSV格式）"
+    },
+    {
+      "name": "species",
+      "role": "data",
+      "type": "string",
+      "required": true,
+      "description": "物种类型，如 mouse、human 等"
+    },
+    {
+      "name": "output_dir",
+      "role": "output_data",
+      "type": "string",
+      "required": false,
+      "description": "输出目录，默认在上传文件所在目录"
+    }
+  ],
+  "output_params": [
+    {
+      "name": "output_dir",
+      "role": "output_data",
+      "type": "csv_file",
+      "default": "bdbe_sexdetermine_output.csv",
+      "description": "性别判定结果CSV文件，包含每个样本的性别标签"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input_file",
+    "{input_file}",
+    "--species",
+    "{species}",
+    "--output_dir",
+    "{output_dir}"
+  ]
+}

@@ -1,0 +1,104 @@
+{
+  "name": "QC4_AssociationRuleCheck",
+  "version": "1.0.0",
+  "description": "数值关联规则校验工具。读取被检验表，根据用户自定义的条件表达式（类似Hive SQL规则）进行数据校验， 具有关联关系的数据项需满足特定约束条件。不满足条件的数据会标记质控标识并输出异常数据。 当用户提到关联规则校验、数据约束校验、自定义规则校验、条件表达式校验等需求时使用此skill。 即使用户没有说出\"关联规则\"，只要任务涉及根据自定义条件表达式进行数据校验，就应该使用此skill。",
+  "language": "python",
+  "script_path": "scripts/QC4_AssociationRuleCheck.py",
+  "entrypoint": "python scripts/QC4_AssociationRuleCheck.py",
+  "input_params": [
+    {
+      "name": "input_path",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "输入文件路径"
+    },
+    {
+      "name": "origin_output_path",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "处理后原始数据输出路径"
+    },
+    {
+      "name": "expression",
+      "role": "data",
+      "type": "string",
+      "required": true,
+      "description": "条件表达式（pandas eval语法）"
+    },
+    {
+      "name": "filter_type",
+      "role": "data",
+      "type": "string",
+      "required": true,
+      "description": "yes=满足表达式为正确数据，not=满足表达式为异常数据"
+    },
+    {
+      "name": "qc_mark",
+      "role": "data",
+      "type": "string",
+      "required": true,
+      "description": "质控标识"
+    },
+    {
+      "name": "error_output_path",
+      "role": "output_data",
+      "type": "string",
+      "required": false,
+      "description": "异常数据输出路径（可选）"
+    },
+    {
+      "name": "mark_field_name",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "质控标识字段名",
+      "default": "QC0000"
+    },
+    {
+      "name": "id_field_name",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "唯一ID字段名",
+      "default": "ID0000"
+    }
+  ],
+  "output_params": [
+    {
+      "name": "origin_output_path",
+      "role": "output_data",
+      "type": "csv_file",
+      "default": "QC4_AssociationRuleCheck_output.csv",
+      "description": "处理后原始数据文件，带质控标识"
+    },
+    {
+      "name": "error_output_path",
+      "role": "output_data",
+      "type": "csv_file",
+      "default": "QC4_AssociationRuleCheck_output.csv",
+      "description": "异常数据文件（可选），包含不满足约束条件的记录"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input_path",
+    "{input_path}",
+    "--origin_output_path",
+    "{origin_output_path}",
+    "--expression",
+    "{expression}",
+    "--filter_type",
+    "{filter_type}",
+    "--qc_mark",
+    "{qc_mark}",
+    "--error_output_path",
+    "{error_output_path}",
+    "--mark_field_name",
+    "{mark_field_name}",
+    "--id_field_name",
+    "{id_field_name}"
+  ]
+}

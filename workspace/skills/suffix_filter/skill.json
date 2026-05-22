@@ -1,0 +1,61 @@
+{
+  "name": "suffix_filter",
+  "version": "1.0.0",
+  "description": "后缀过滤器。过滤器以保留具有指定后缀的样本。 本SKILL使用依赖data_juicer，请在调用前安装好python环境并安装data_juicer，你可用以下指令进行安装： pip install py-data-juicer  当用户提到后缀过滤、文件类型过滤、按文件后缀筛选等需求时使用此skill。",
+  "language": "python",
+  "script_path": "scripts/run_suffix_filter.py",
+  "entrypoint": "python scripts/run_suffix_filter.py",
+  "input_params": [
+    {
+      "name": "input_path",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "输入数据文件路径 (JSON/JSONL格式)"
+    },
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "输出数据文件路径 (JSONL格式)"
+    },
+    {
+      "name": "suffixes",
+      "role": "data",
+      "type": "list",
+      "required": false,
+      "description": "目标后缀列表，如 ['.txt', '.pdf']",
+      "default": []
+    },
+    {
+      "name": "num_proc",
+      "role": "data",
+      "type": "int",
+      "required": false,
+      "description": "并行处理的进程数",
+      "default": 1
+    }
+  ],
+  "output_params": [
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "jsonl_file",
+      "default": "suffix_filter_output.jsonl",
+      "description": "过滤后的JSONL格式数据文件，保持原始字段结构"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input_path",
+    "{input_path}",
+    "--output_path",
+    "{output_path}",
+    "--suffixes",
+    "{suffixes}",
+    "--num_proc",
+    "{num_proc}"
+  ]
+}
