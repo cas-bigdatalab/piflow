@@ -190,8 +190,8 @@ async def get_skill_info_api(
 @router.get("/dag/skill/listSkills")
 async def list_skills_api(
     current_user=Depends(get_current_user),
-    page: int = 1,
-    page_size: int = 20,
+    page: int = None,
+    page_size: int = None,
     keyword: str = None,
     skill_type: str = None,
     version: str = None,

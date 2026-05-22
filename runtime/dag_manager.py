@@ -708,8 +708,8 @@ def list_dag_skills(
 
 
 def list_dag_skills_by_type(
-    page: int = 1,
-    page_size: int = 20,
+    page: int = None,
+    page_size: int = None,
     keyword: str = None,
     skill_type: str = None,
     version: str = None,
@@ -740,20 +740,34 @@ def list_dag_skills_by_type(
                 )
                 total = cursor.fetchone()["total"]
 
-                offset = (page - 1) * page_size
-                cursor.execute(
-                    f"""
-                    SELECT id, skill_id, skill_name, description, skill_path, file_path,
-                           input_params, output_params, skill_type,
-                           language, command, icon_path, version,
-                           create_time, update_time, is_deleted
-                    FROM dag_skills
-                    WHERE {where}
-                    ORDER BY skill_type, skill_name
-                    LIMIT %s OFFSET %s
-                    """,
-                    params + [page_size, offset],
-                )
+                if page is not None and page_size is not None:
+                    offset = (page - 1) * page_size
+                    cursor.execute(
+                        f"""
+                        SELECT id, skill_id, skill_name, description, skill_path, file_path,
+                               input_params, output_params, skill_type,
+                               language, command, icon_path, version,
+                               create_time, update_time, is_deleted
+                        FROM dag_skills
+                        WHERE {where}
+                        ORDER BY skill_type, skill_name
+                        LIMIT %s OFFSET %s
+                        """,
+                        params + [page_size, offset],
+                    )
+                else:
+                    cursor.execute(
+                        f"""
+                        SELECT id, skill_id, skill_name, description, skill_path, file_path,
+                               input_params, output_params, skill_type,
+                               language, command, icon_path, version,
+                               create_time, update_time, is_deleted
+                        FROM dag_skills
+                        WHERE {where}
+                        ORDER BY skill_type, skill_name
+                        """,
+                        params,
+                    )
                 rows = cursor.fetchall()
 
                 groups = {}
@@ -787,12 +801,14 @@ def list_dag_skills_by_type(
                     for t, skills in groups.items()
                 ]
 
-                return {
+                result = {
                     "total": total,
-                    "page": page,
-                    "page_size": page_size,
                     "data": group_list,
                 }
+                if page is not None and page_size is not None:
+                    result["page"] = page
+                    result["page_size"] = page_size
+                return result
     except Exception as e:
         raise RuntimeError("list_dag_skills_by_type failed") from e
 
