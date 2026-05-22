@@ -1,23 +1,29 @@
 ---
 name: piflow-skill-generator
 description: |
-  PiFlow 技能生成器。根据当前 workspace/skills 的本地约定创建、更新或校验 PiFlow-compatible skill，包括 UTF-8 编码的 SKILL.md、DAG 可读的 input_params/output_params、version/category/tag 元数据、skill.json、scripts/references/assets 资源目录、可选 agents/openai.yaml，以及本地校验脚本。用户提到创建技能、生成 skill、封装算子、补齐技能元数据、实现技能闭包或校验技能格式时使用此 skill。
+  PiFlow 技能生成器。根据当前 workspace/skills 的本地约定和 references/piflow_skill_template.md 通用模板创建、更新或校验 PiFlow-compatible skill，包括 UTF-8 编码的 SKILL.md、DAG 可读的 input_params/output_params、version/category/tag 元数据、skill.json、scripts/references/assets 资源目录、可选 agents/openai.yaml，以及本地校验脚本。用户提到创建技能、生成 skill、封装算子、补齐技能元数据、按模板生成技能、实现技能闭包或校验技能格式时使用此 skill。
+version: 1.1.0
+category: skill_generation
+tag: 技能生成
 allowed-tools:
   - process
 
 input_params:
   - name: spec_path
+    role: input_data
     type: string
     required: true
     description: 技能规格 JSON 文件路径，必须使用 UTF-8 编码
 
   - name: output_root
+    role: output_data
     type: string
     required: false
-    default: flow-deepagents/workspace/skills
-    description: 新技能输出根目录
+    default: skills
+    description: 输出根目录；deepagent 虚拟文件环境，默认写入 workspace/skills
 
   - name: overwrite
+    role: data
     type: bool
     required: false
     default: false
@@ -25,10 +31,12 @@ input_params:
 
 output_params:
   - name: skill_dir
+    role: output_data
     type: directory
     description: 生成后的技能目录
 
   - name: skill_md
+    role: output_data
     type: markdown_file
     description: 生成后的 SKILL.md
 ---
@@ -40,6 +48,19 @@ output_params:
 生成能被 PiFlow 理解的技能目录。所有文本文件必须以 UTF-8 读写，尤其是中文内容；Python 读写文件时显式使用 `encoding="utf-8"`，JSON/YAML 输出使用 `ensure_ascii=False`。
 
 按库内技能的粒度控制内容：`SKILL.md` 只放触发、流程和必要契约；可执行逻辑放 `scripts/`；较长规则、字段说明和领域资料放 `references/`；模板、图标、示例素材放 `assets/`。
+
+生成正文时优先参照 `references/piflow_skill_template.md`。当 spec 中提供 `core_features`、`trigger_conditions`、`processing_logic`、`supported_formats`、`output_structure`、`output_examples` 等字段时，将它们填入模板对应章节。
+
+本技能必须能在没有其他技能辅助的环境中独立生成可靠技能：只依赖当前技能目录内的 `SKILL.md`、`references/piflow_skill_template.md`、`scripts/generate_piflow_skill.py` 和 `scripts/validate_piflow_skill.py`。生成时不要假设另一个 skill 会补全文档、脚本或元数据。
+
+## 路径规则
+
+deepagent 的虚拟文件环境以 `workspace` 为根。生成的技能必须放在 `workspace/skills/<skill-name>`，这样 PiFlow 才能发现。
+
+- 默认 `output_root` 使用 `skills`，表示 `<workspace>/skills`。
+- 如果用户传入旧路径 `workspace/skills` 或 `flow-deepagents/workspace/skills`，脚本会归一化为当前 deepagent workspace 下的 `skills`。
+- `spec_path`、`icon`、`script.source`、`references[].source`、`assets[].source` 可以使用相对路径；脚本会先按当前工作目录解析，再按 deepagent workspace 根解析。
+- 不要把生成目录写到仓库外层、`flow-deepagents/workspace/workspace/skills` 或 `workspace/skills/skills`。
 
 ## PiFlow 技能结构
 
@@ -127,7 +148,7 @@ interface:
 1. 明确具体用例。优先收集用户会怎样调用技能、输入输出文件长什么样、是否需要脚本、是否有字段规则或外部依赖。
 2. 规划资源分层。重复且要求稳定的逻辑进入 `scripts/`；长规则进入 `references/`；图标和模板进入 `assets/`。
 3. 规范命名。已有业务技能名可保留大小写和下划线，例如 `QC3_NumericDataThresholdCheck`、`Pi_DataSorting`；新通用技能优先使用 lowercase `snake_case` 或 `hyphen-case`；目录名必须等于 `name`。
-4. 生成 `SKILL.md`。正文按库内技能常见格式组织：功能概述、适用场景、核心参数、输出参数、使用方法、输入输出格式、实现说明、依赖、示例、注意事项。
+4. 生成 `SKILL.md`。正文按 `references/piflow_skill_template.md` 的章节顺序组织：功能说明、触发条件、核心功能、处理逻辑、支持的文件格式、使用方法、参数说明、输出参数、示例、输出格式/输出结构、依赖、注意事项。
 5. 生成资源目录。只有在 spec 提供或任务需要时写入脚本、引用资料和素材；若有 icon，复制为 `assets/icon.png`。
 6. 生成 `agents/openai.yaml`。当 spec 设置 `agents_openai: true` 或提供 `agents_openai` 对象时生成，并保证 UI 文案来自技能本身。
 7. 校验并迭代。运行 `validate_piflow_skill.py`，检查 UTF-8、YAML、参数契约、目录名、资源布局和 UI metadata。
@@ -152,6 +173,7 @@ interface:
 - `assets`：可选列表，支持 `path` + `content` 或 `source`；`icon` 会复制为 `assets/icon.png`。
 - `dependencies`：可选，正文依赖列表。
 - `examples`：可选，正文示例列表。
+- `core_features`、`trigger_conditions`、`processing_logic`、`supported_formats`、`output_structure`、`output_examples`：可选，填入通用模板对应章节。
 - `body_sections`：可选，自定义正文段落。
 - `agents_openai`：可选，布尔值或对象；对象可提供 `display_name`、`short_description`、`default_prompt`、`brand_color`。
 - `skill_json`：可选，默认 `true`；设为 `false` 时不生成 `skill.json`。
@@ -161,7 +183,13 @@ interface:
 生成技能：
 
 ```bash
-python scripts/generate_piflow_skill.py --spec path/to/spec.json --output-root flow-deepagents/workspace/skills
+python scripts/generate_piflow_skill.py --spec path/to/spec.json
+```
+
+也可以显式传 `--output-root skills`：
+
+```bash
+python scripts/generate_piflow_skill.py --spec path/to/spec.json --output-root skills
 ```
 
 仅在明确要替换生成目录时使用：
@@ -173,7 +201,7 @@ python scripts/generate_piflow_skill.py --spec path/to/spec.json --overwrite
 校验技能：
 
 ```bash
-python scripts/validate_piflow_skill.py flow-deepagents/workspace/skills/<skill-name>
+python scripts/validate_piflow_skill.py skills/<skill-name>
 ```
 
 ## Spec 示例
@@ -218,7 +246,7 @@ python scripts/validate_piflow_skill.py flow-deepagents/workspace/skills/<skill-
 
 完成前确认：
 
-- `workspace/skills/<name>/SKILL.md` 可被 PiFlow 发现。
+- `<workspace>/skills/<name>/SKILL.md` 可被 PiFlow 发现；在 deepagent 环境中不要生成到其他根目录。
 - `name` 与目录名一致，`description` 包含触发语义。
 - 暴露机器可读的 `version`、`category`、`tag`、`input_params` 和 `output_params`。
 - 生成的 `skill.json` 包含 `entrypoint`、`script_path`、`command_template` 和带 `role` 的参数元数据。

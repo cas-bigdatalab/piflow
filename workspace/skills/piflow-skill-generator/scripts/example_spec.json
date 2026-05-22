@@ -7,6 +7,20 @@
   "category": "mapper",
   "tag": "示例",
   "language": "python",
+  "trigger_conditions": [
+    "当任务需要验证 PiFlow 技能生成器的 UTF-8 中文处理时使用此技能。"
+  ],
+  "core_features": [
+    "读取 JSON 输入文件",
+    "按指定文本字段执行示例映射",
+    "将处理结果写入 JSON 输出文件"
+  ],
+  "processing_logic": [
+    "读取 input_path 指向的 JSON 文件",
+    "定位 text_key 指定的文本字段",
+    "写入 output_path 指向的输出文件"
+  ],
+  "supported_formats": ["JSON"],
   "input_params": [
     {
       "name": "input_path",
@@ -53,6 +67,11 @@
     "{text_key}"
   ],
   "dependencies": ["Python 3.x"],
+  "output_format": [
+    {
+      "text": "处理后的文本内容"
+    }
+  ],
   "examples": [
     {
       "title": "基本调用",

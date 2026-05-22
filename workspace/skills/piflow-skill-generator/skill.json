@@ -1,0 +1,57 @@
+{
+  "name": "piflow-skill-generator",
+  "version": "1.1.0",
+  "description": "PiFlow 技能生成器。根据当前 workspace/skills 的本地约定和通用模板创建、更新或校验 PiFlow-compatible skill。",
+  "language": "python",
+  "script_path": "scripts/generate_piflow_skill.py",
+  "entrypoint": "python scripts/generate_piflow_skill.py",
+  "input_params": [
+    {
+      "name": "spec_path",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "技能规格 JSON 文件路径，必须使用 UTF-8 编码"
+    },
+    {
+      "name": "output_root",
+      "role": "output_data",
+      "type": "string",
+      "required": false,
+      "default": "skills",
+      "description": "新技能输出根目录；deepagent 虚拟文件环境以 workspace 为根，默认写入 workspace/skills"
+    },
+    {
+      "name": "overwrite",
+      "role": "data",
+      "type": "bool",
+      "required": false,
+      "default": false,
+      "description": "是否覆盖已存在的技能目录"
+    }
+  ],
+  "output_params": [
+    {
+      "name": "skill_dir",
+      "role": "output_data",
+      "type": "directory",
+      "description": "生成后的技能目录"
+    },
+    {
+      "name": "skill_md",
+      "role": "output_data",
+      "type": "markdown_file",
+      "description": "生成后的 SKILL.md"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--spec",
+    "{spec_path}",
+    "--output-root",
+    "{output_root}"
+  ],
+  "category": "skill_generation",
+  "tag": "技能生成"
+}

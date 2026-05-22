@@ -1,6 +1,6 @@
 interface:
-  display_name: "PiFlow Skill Generator"
-  short_description: "Generate PiFlow-compatible skills"
+  display_name: "PiFlow 技能生成器"
+  short_description: "按 PiFlow 模板生成 SKILL.md 与 skill.json"
   icon_small: "./assets/icon.png"
   icon_large: "./assets/icon.png"
-  default_prompt: "Use $piflow-skill-generator to create a UTF-8 PiFlow skill with metadata and validation."
+  default_prompt: "Use $piflow-skill-generator to create a UTF-8 PiFlow skill from a JSON spec using the built-in template."

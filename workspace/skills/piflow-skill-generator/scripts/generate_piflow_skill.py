@@ -6,7 +6,10 @@ import shutil
 from pathlib import Path
 
 
-PIFLOW_FRONTMATTER_KEYS = {
+DEFAULT_OUTPUT_ROOT = "skills"
+LEGACY_OUTPUT_ROOTS = {"workspace/skills", "flow-deepagents/workspace/skills"}
+PARAM_ROLES = {"input_data", "output_data", "data"}
+FRONTMATTER_KEYS = {
     "name",
     "description",
     "version",
@@ -19,6 +22,34 @@ PIFLOW_FRONTMATTER_KEYS = {
     "license",
     "metadata",
 }
+
+
+def workspace_root() -> Path:
+    # This script lives in <workspace>/skills/piflow-skill-generator/scripts.
+    return Path(__file__).resolve().parents[3]
+
+
+def resolve_source_path(raw_path: str) -> Path:
+    path = Path(str(raw_path))
+    if path.is_absolute():
+        return path
+    for candidate in (Path.cwd() / path, workspace_root() / path):
+        if candidate.exists():
+            return candidate
+    return Path.cwd() / path
+
+
+def resolve_output_root(raw_output_root: str | None) -> Path:
+    raw = (raw_output_root or DEFAULT_OUTPUT_ROOT).strip().replace("\\", "/")
+    if raw in LEGACY_OUTPUT_ROOTS:
+        raw = DEFAULT_OUTPUT_ROOT
+    path = Path(raw)
+    if path.is_absolute():
+        return path
+    if raw == DEFAULT_OUTPUT_ROOT or raw.startswith(f"{DEFAULT_OUTPUT_ROOT}/"):
+        return workspace_root() / path
+    return Path.cwd() / path
+
 
 def read_json(path: Path) -> dict:
     with path.open("r", encoding="utf-8") as f:
@@ -33,7 +64,125 @@ def write_text(path: Path, text: str) -> None:
     path.write_text(text, encoding="utf-8", newline="\n")
 
 
-def quote_scalar(value):
+def safe_rel_path(raw_path: str, field_name: str) -> Path:
+    path = Path(str(raw_path or ""))
+    if not str(path) or path.is_absolute() or any(part in {"..", ""} for part in path.parts):
+        raise ValueError(f"{field_name} must be a safe relative path: {raw_path}")
+    return path
+
+
+def as_list(value) -> list:
+    if value is None:
+        return []
+    return value if isinstance(value, list) else [value]
+
+
+def normalize_description(spec: dict) -> str:
+    description = str(spec.get("description", "")).strip()
+    triggers = [str(t).strip() for t in spec.get("triggers", []) if str(t).strip()]
+    if triggers and all(token not in description for token in ("当用户", "触发", "Use when")):
+        description = f"{description} 当用户提到{'、'.join(triggers)}等需求时使用此 skill。"
+    return description
+
+
+def normalize_param(param: dict, *, is_input: bool) -> dict:
+    item = dict(param)
+    item["name"] = str(item.get("name", "")).strip()
+    item["type"] = str(item.get("type", "string")).strip()
+    item["description"] = str(item.get("description", "")).strip()
+    item["role"] = item.get("role") or infer_role(item, is_input)
+    if is_input:
+        item["required"] = bool(item.get("required", False))
+    return item
+
+
+def infer_role(param: dict, is_input: bool) -> str:
+    if not is_input:
+        return "output_data"
+    name = str(param.get("name", "")).lower()
+    param_type = str(param.get("type", "")).lower()
+    if name.startswith("output") or "output" in name:
+        return "output_data"
+    if name.startswith("input") or "input" in name:
+        return "input_data"
+    if param_type in {"file", "directory", "csv_file", "json_file", "xlsx_file", "pdf_file", "text_file"}:
+        return "input_data"
+    return "data"
+
+
+def validate_spec(spec: dict) -> None:
+    name = str(spec.get("name", "")).strip()
+    if not name or "/" in name or "\\" in name or name in {".", ".."}:
+        raise ValueError("spec.name must be a safe folder name")
+    if len(name) > 128:
+        raise ValueError("spec.name is too long for PiFlow use")
+    if not normalize_description(spec):
+        raise ValueError("spec.description is required")
+
+    for field_name, is_input in (("input_params", True), ("output_params", False)):
+        params = spec.get(field_name, [])
+        if not isinstance(params, list):
+            raise ValueError(f"spec.{field_name} must be a list")
+        for index, raw in enumerate(params):
+            if not isinstance(raw, dict):
+                raise ValueError(f"spec.{field_name}[{index}] must be an object")
+            param = normalize_param(raw, is_input=is_input)
+            for key in ("name", "type", "description"):
+                if not param[key]:
+                    raise ValueError(f"spec.{field_name}[{index}] missing {key}")
+            if is_input and "required" not in raw:
+                raise ValueError(f"spec.{field_name}[{index}] missing required")
+            if param["role"] not in PARAM_ROLES:
+                raise ValueError(f"spec.{field_name}[{index}].role must be one of {sorted(PARAM_ROLES)}")
+
+
+def normalize_spec(spec: dict) -> dict:
+    validate_spec(spec)
+    normalized = dict(spec)
+    normalized["description"] = normalize_description(spec)
+    normalized["version"] = str(spec.get("version", "1.0.0"))
+    normalized["input_params"] = [normalize_param(p, is_input=True) for p in spec.get("input_params", [])]
+    normalized["output_params"] = [normalize_param(p, is_input=False) for p in spec.get("output_params", [])]
+    normalized["script_path"] = str(spec.get("script_path") or first_script_path(spec))
+    normalized["command"] = str(spec.get("command") or command_from_spec(normalized)).strip()
+    return normalized
+
+
+def first_script_path(spec: dict) -> str:
+    script = spec.get("script")
+    if isinstance(script, dict) and script.get("path"):
+        return str(script["path"])
+    scripts = spec.get("scripts") or []
+    if scripts and isinstance(scripts[0], dict) and scripts[0].get("path"):
+        return str(scripts[0]["path"])
+    return ""
+
+
+def command_from_spec(spec: dict) -> str:
+    script_path = spec.get("script_path") or first_script_path(spec)
+    if not script_path:
+        return ""
+    tokens = ["python", script_path]
+    for param in spec.get("input_params", []):
+        name = param["name"]
+        token = f"--{name} <{name}>"
+        tokens.append(token if param.get("required") else f"[{token}]")
+    return " ".join(tokens)
+
+
+def command_template(spec: dict) -> list[str]:
+    explicit = spec.get("command_template")
+    if isinstance(explicit, list) and explicit:
+        return [str(item) for item in explicit]
+    if not spec.get("script_path"):
+        return []
+    tokens = ["python", "{script_path}"]
+    for param in spec.get("input_params", []):
+        tokens.extend([f"--{param['name']}", f"{{{param['name']}}}"])
+    return tokens
+
+
+def yaml_scalar(value) -> str:
     if isinstance(value, bool):
         return "true" if value else "false"
     if value is None:
@@ -41,505 +190,262 @@ def quote_scalar(value):
     if isinstance(value, (int, float)):
         return str(value)
     text = str(value)
-    if text == "":
-        return '""'
-    if re.fullmatch(r"[A-Za-z0-9_./:@+\-]+", text) and text.lower() not in {"true", "false", "null"}:
+    if text and re.fullmatch(r"[A-Za-z0-9_./:@+\-]+", text) and text.lower() not in {"true", "false", "null"}:
         return text
     return json.dumps(text, ensure_ascii=False)
 
 
-def emit_yaml(value, indent=0) -> list[str]:
+def yaml_lines(value, indent: int = 0) -> list[str]:
     pad = " " * indent
-    lines = []
     if isinstance(value, dict):
+        lines = []
         for key, item in value.items():
             if isinstance(item, (dict, list)):
                 lines.append(f"{pad}{key}:")
-                lines.extend(emit_yaml(item, indent + 2))
+                lines.extend(yaml_lines(item, indent + 2))
             else:
-                lines.append(f"{pad}{key}: {quote_scalar(item)}")
-    elif isinstance(value, list):
-        if not value:
-            lines.append(f"{pad}[]")
+                lines.append(f"{pad}{key}: {yaml_scalar(item)}")
+        return lines
+    if isinstance(value, list):
+        lines = []
         for item in value:
             if isinstance(item, dict):
-                name = item.get("name")
-                if name is not None:
-                    lines.append(f"{pad}- name: {quote_scalar(name)}")
-                    remaining = [(key, val) for key, val in item.items() if key != "name"]
-                else:
-                    lines.append(f"{pad}-")
-                    remaining = list(item.items())
-                child_indent = indent + (2 if name is None else 2)
-                for key, val in remaining:
+                lines.append(f"{pad}- name: {yaml_scalar(item.get('name', ''))}")
+                for key, val in item.items():
+                    if key == "name":
+                        continue
+                    child = " " * (indent + 2)
                     if isinstance(val, (dict, list)):
-                        lines.append(f"{' ' * child_indent}{key}:")
-                        lines.extend(emit_yaml(val, child_indent + 2))
+                        lines.append(f"{child}{key}:")
+                        lines.extend(yaml_lines(val, indent + 4))
                     else:
-                        lines.append(f"{' ' * child_indent}{key}: {quote_scalar(val)}")
-            elif isinstance(item, list):
-                lines.append(f"{pad}-")
-                lines.extend(emit_yaml(item, indent + 2))
+                        lines.append(f"{child}{key}: {yaml_scalar(val)}")
             else:
-                lines.append(f"{pad}- {quote_scalar(item)}")
-    else:
-        lines.append(f"{pad}{quote_scalar(value)}")
-    return lines
+                lines.append(f"{pad}- {yaml_scalar(item)}")
+        return lines or [f"{pad}[]"]
+    return [f"{pad}{yaml_scalar(value)}"]
 
 
-def safe_relative_path(raw_path: str, field_name: str) -> Path:
-    if not raw_path or not str(raw_path).strip():
-        raise ValueError(f"{field_name} path is required")
-    path = Path(str(raw_path))
-    if path.is_absolute() or any(part in {"..", ""} for part in path.parts):
-        raise ValueError(f"{field_name} must be a safe relative path: {raw_path}")
-    return path
-
-
-def normalize_description(spec: dict) -> str:
-    description = str(spec.get("description", "")).strip()
-    triggers = [str(t).strip() for t in spec.get("triggers", []) if str(t).strip()]
-    if triggers:
-        trigger_text = "、".join(triggers)
-        if "当用户" not in description and "触发" not in description and "Use when" not in description:
-            description = f"{description} 当用户提到{trigger_text}等需求时使用此 skill。"
-    return description
-
-
-def validate_name(name: str) -> None:
-    if not name or "/" in name or "\\" in name or name in {".", ".."}:
-        raise ValueError("spec.name must be a safe folder name")
-    if len(name) > 128:
-        raise ValueError("spec.name is too long for PiFlow use")
-
-
-def validate_params(params, field_name: str) -> None:
-    if params is None:
-        return
-    if not isinstance(params, list):
-        raise ValueError(f"spec.{field_name} must be a list")
-    for index, item in enumerate(params):
-        if not isinstance(item, dict):
-            raise ValueError(f"spec.{field_name}[{index}] must be an object")
-        for required_key in ("name", "type", "description"):
-            if not str(item.get(required_key, "")).strip():
-                raise ValueError(f"spec.{field_name}[{index}] missing {required_key}")
-        if field_name == "input_params" and "required" not in item:
-            raise ValueError(f"spec.{field_name}[{index}] missing required")
-        if "role" in item and str(item["role"]) not in {"input_data", "output_data", "data"}:
-            raise ValueError(f"spec.{field_name}[{index}].role must be input_data, output_data, or data")
-
-
-def validate_spec(spec: dict) -> None:
-    if "name" not in spec:
-        raise ValueError("spec.name is required")
-    if not normalize_description(spec):
-        raise ValueError("spec.description is required")
-    validate_name(str(spec["name"]))
-    validate_params(spec.get("input_params", []), "input_params")
-    validate_params(spec.get("output_params", []), "output_params")
-
-
-def frontmatter_for(spec: dict) -> dict:
-    fm = {
+def frontmatter(spec: dict) -> str:
+    data = {
         "name": spec["name"],
-        "description": normalize_description(spec),
+        "description": spec["description"],
+        "version": spec["version"],
     }
-    for key in ("version", "category", "tag"):
-        if key in spec:
-            fm[key] = spec[key]
-    for src, dst in (("allowed_tools", "allowed-tools"), ("allowed-tools", "allowed-tools")):
+    for key in ("category", "tag", "allowed-tools", "compatibility", "license", "metadata"):
+        src = "allowed_tools" if key == "allowed-tools" and "allowed_tools" in spec else key
         if src in spec:
-            fm[dst] = spec[src]
+            data[key] = spec[src]
+    if spec.get("category"):
+        metadata = dict(data.get("metadata") or {})
+        metadata.setdefault("category", spec["category"])
+        data["metadata"] = metadata
+    data["input_params"] = spec["input_params"]
+    data["output_params"] = spec["output_params"]
 
-    metadata = {}
-    if isinstance(spec.get("metadata"), dict):
-        metadata.update(spec["metadata"])
-    if spec.get("category") and "category" not in metadata:
-        metadata["category"] = spec["category"]
-
-    for key in ("compatibility", "license"):
-        if key in spec:
-            fm[key] = spec[key]
-    if metadata:
-        fm["metadata"] = metadata
-
-    fm["input_params"] = spec.get("input_params", [])
-    fm["output_params"] = spec.get("output_params", [])
-    return fm
-
-
-def render_frontmatter(fm: dict) -> str:
-    unexpected = set(fm) - PIFLOW_FRONTMATTER_KEYS
+    unexpected = set(data) - FRONTMATTER_KEYS
     if unexpected:
         raise ValueError(f"unexpected frontmatter keys: {', '.join(sorted(unexpected))}")
-    return "---\n" + "\n".join(emit_yaml(fm)) + "\n---\n"
+    return "---\n" + "\n".join(yaml_lines(data)) + "\n---\n"
 
 
 def md_escape(value) -> str:
-    text = str(value)
-    return text.replace("|", "\\|").replace("\n", " ")
+    return str(value).replace("|", "\\|").replace("\n", " ")
 
 
-def param_table(params: list[dict], include_required: bool = True) -> str:
+def param_table(params: list[dict], *, include_required: bool) -> str:
     if not params:
-        return "无。\n"
+        return "无。"
     if include_required:
-        has_role = any("role" in p for p in params)
-        if has_role:
-            rows = ["| 参数 | 类型 | 角色 | 必填 | 默认值 | 说明 |", "|------|------|------|------|--------|------|"]
-        else:
-            rows = ["| 参数 | 类型 | 必填 | 默认值 | 说明 |", "|------|------|------|--------|------|"]
+        rows = ["| 参数 | 类型 | 角色 | 必填 | 默认值 | 说明 |", "|------|------|------|------|--------|------|"]
         for p in params:
-            required = "是" if p.get("required") else "否"
-            default = p.get("default", "-")
-            if has_role:
-                rows.append(
-                    f"| {md_escape(p.get('name', ''))} | {md_escape(p.get('type', ''))} | {md_escape(p.get('role', '-'))} | {required} | {md_escape(default)} | {md_escape(p.get('description', ''))} |"
-                )
-            else:
-                rows.append(
-                    f"| {md_escape(p.get('name', ''))} | {md_escape(p.get('type', ''))} | {required} | {md_escape(default)} | {md_escape(p.get('description', ''))} |"
-                )
+            rows.append(
+                f"| {md_escape(p['name'])} | {md_escape(p['type'])} | {md_escape(p['role'])} | {'是' if p.get('required') else '否'} | {md_escape(p.get('default', '-'))} | {md_escape(p['description'])} |"
+            )
     else:
-        has_role = any("role" in p or "default" in p for p in params)
-        if has_role:
-            rows = ["| 参数 | 类型 | 角色 | 默认值 | 说明 |", "|------|------|------|--------|------|"]
-        else:
-            rows = ["| 参数 | 类型 | 说明 |", "|------|------|------|"]
+        rows = ["| 参数 | 类型 | 角色 | 默认值 | 说明 |", "|------|------|------|--------|------|"]
         for p in params:
-            if has_role:
-                rows.append(
-                    f"| {md_escape(p.get('name', ''))} | {md_escape(p.get('type', ''))} | {md_escape(p.get('role', '-'))} | {md_escape(p.get('default', '-'))} | {md_escape(p.get('description', ''))} |"
-                )
-            else:
-                rows.append(
-                    f"| {md_escape(p.get('name', ''))} | {md_escape(p.get('type', ''))} | {md_escape(p.get('description', ''))} |"
-                )
-    return "\n".join(rows) + "\n"
+            rows.append(
+                f"| {md_escape(p['name'])} | {md_escape(p['type'])} | {md_escape(p['role'])} | {md_escape(p.get('default', '-'))} | {md_escape(p['description'])} |"
+            )
+    return "\n".join(rows)
 
 
-def command_from_spec(spec: dict) -> str:
-    if spec.get("command"):
-        return str(spec["command"]).strip()
-    script = spec.get("script") or {}
-    script_path = script.get("path") if isinstance(script, dict) else None
-    scripts = spec.get("scripts") or []
-    if not script_path and scripts and isinstance(scripts[0], dict):
-        script_path = scripts[0].get("path")
-    if not script_path:
-        return ""
-    required = []
-    optional = []
-    for p in spec.get("input_params", []):
-        flag = f"--{p.get('name')}"
-        token = f"<{p.get('name')}>"
-        if p.get("required"):
-            required.append(f"{flag} {token}")
-        else:
-            optional.append(f"[{flag} {token}]")
-    return "python " + script_path + (" " + " ".join(required + optional) if required or optional else "")
-
-
-def script_path_from_spec(spec: dict) -> str:
-    script = spec.get("script") or {}
-    if isinstance(script, dict) and script.get("path"):
-        return str(script["path"])
-    scripts = spec.get("scripts") or []
-    if scripts and isinstance(scripts[0], dict) and scripts[0].get("path"):
-        return str(scripts[0]["path"])
-    command = command_from_spec(spec)
-    match = re.search(r"python\s+([^\s]+\.py)", command)
-    return match.group(1) if match else ""
-
-
-def command_template_from_spec(spec: dict, script_path: str) -> list[str]:
-    template = spec.get("command_template")
-    if isinstance(template, list) and template:
-        return [str(item) for item in template]
-    if not script_path:
-        return []
-    tokens = ["python", "{script_path}"]
-    for param in spec.get("input_params", []):
-        name = param.get("name")
-        if not name:
-            continue
-        tokens.extend([f"--{name}", f"{{{name}}}"])
-    return tokens
-
-
-def render_format_block(value, default_format: str = "json") -> list[str]:
+def json_block(value) -> list[str]:
     if value is None:
         return []
     if isinstance(value, (dict, list)):
-        return [f"```{default_format}", json.dumps(value, ensure_ascii=False, indent=2), "```"]
+        return ["```json", json.dumps(value, ensure_ascii=False, indent=2), "```"]
     text = str(value).strip()
-    if not text:
+    return [text] if text else []
+
+
+def add_bullets(lines: list[str], heading: str, items) -> None:
+    values = [str(item).strip() for item in as_list(items) if str(item).strip()]
+    if values:
+        lines.extend([f"## {heading}", "", *[f"- {item}" for item in values], ""])
+
+
+def add_text(lines: list[str], heading: str, content) -> None:
+    block = json_block(content)
+    if block:
+        lines.extend([f"## {heading}", "", *block, ""])
+
+
+def render_examples(examples) -> list[str]:
+    if not examples:
         return []
-    return [text]
-
-
-def resource_paths(spec: dict, key: str) -> list[str]:
-    resources = spec.get(key) or []
-    if isinstance(resources, dict):
-        resources = [resources]
-    paths = []
-    for item in resources:
-        if isinstance(item, dict) and item.get("path"):
-            paths.append(str(item["path"]))
-    return paths
+    lines = ["## 示例", ""]
+    for example in examples:
+        if not isinstance(example, dict):
+            lines.extend([str(example).strip(), ""])
+            continue
+        if example.get("title"):
+            lines.append(f"### {example['title']}")
+        if example.get("description"):
+            lines.extend(["", str(example["description"]).strip()])
+        if example.get("command"):
+            lines.extend(["", "```bash", str(example["command"]).strip(), "```"])
+        if example.get("input"):
+            lines.extend(["", "输入：", *json_block(example["input"])])
+        if example.get("output"):
+            lines.extend(["", "输出：", *json_block(example["output"])])
+        lines.append("")
+    return lines
 
 
 def render_body(spec: dict) -> str:
-    title = spec.get("title") or spec["name"]
-    overview = spec.get("overview") or spec.get("description", "")
-    triggers = [str(t).strip() for t in spec.get("triggers", []) if str(t).strip()]
-    body_sections = spec.get("body_sections") or []
-    dependencies = spec.get("dependencies") or []
-    examples = spec.get("examples") or []
-    command = command_from_spec(spec)
-    reference_paths = resource_paths(spec, "references")
+    lines = [
+        f"# {spec.get('title') or spec['name']} 技能",
+        "",
+        "## 功能说明",
+        "",
+        str(spec.get("overview") or spec["description"]).strip(),
+        "",
+    ]
 
-    lines = [f"# {title}", "", "## 功能概述", "", str(overview).strip(), ""]
+    triggers = [f"当用户提到“{t}”时优先考虑使用此技能。" for t in spec.get("triggers", [])]
+    trigger_lines = []
+    if spec.get("category"):
+        trigger_lines.append(f"技能类别：{spec['category']}")
+    if spec.get("tag"):
+        trigger_lines.append(f"DAG 类型：{spec['tag']}")
+    trigger_lines.extend(triggers)
+    trigger_lines.extend(str(t).strip() for t in as_list(spec.get("trigger_conditions")) if str(t).strip())
+    add_bullets(lines, "触发条件", trigger_lines)
 
-    if triggers or spec.get("category"):
-        lines.extend(["## 适用场景", ""])
-        if spec.get("category"):
-            lines.append(f"- 技能类别：{spec['category']}")
-        for trigger in triggers:
-            lines.append(f"- 当用户提到“{trigger}”时优先考虑使用此技能。")
-        lines.append("")
+    add_bullets(lines, "核心功能", spec.get("core_features"))
+    add_bullets(lines, "处理逻辑", spec.get("processing_logic"))
+    add_bullets(lines, "支持的文件格式", spec.get("supported_formats"))
 
-    lines.extend(
-        [
-            "## 核心参数",
-            "",
-            param_table(spec.get("input_params", [])).rstrip(),
-            "",
-            "## 输出参数",
-            "",
-            param_table(spec.get("output_params", []), include_required=False).rstrip(),
-            "",
-        ]
-    )
+    if spec.get("command"):
+        lines.extend(["## 使用方法", "", "```bash", spec["command"], "```", ""])
 
-    if command:
-        lines.extend(["## 使用方法", "", "```bash", command, "```", ""])
+    lines.extend([
+        "## 参数说明",
+        "",
+        param_table(spec["input_params"], include_required=True),
+        "",
+        "## 输出参数",
+        "",
+        param_table(spec["output_params"], include_required=False),
+        "",
+    ])
 
-    if spec.get("input_format") or spec.get("output_format"):
-        lines.extend(["## 输入输出格式", ""])
-        if spec.get("input_format"):
-            lines.extend(["### 输入格式", "", *render_format_block(spec.get("input_format")), ""])
-        if spec.get("output_format"):
-            lines.extend(["### 输出格式", "", *render_format_block(spec.get("output_format")), ""])
+    lines.extend(render_examples(spec.get("examples")))
+    add_text(lines, "输入格式", spec.get("input_format"))
+    add_text(lines, "输出结构", spec.get("output_structure"))
+    if not spec.get("output_structure"):
+        add_text(lines, "输出格式", spec.get("output_format"))
+    add_text(lines, "输出示例", spec.get("output_examples"))
 
-    if reference_paths:
-        lines.extend(["## 参考资料", ""])
-        for path in reference_paths:
-            lines.append(f"- 需要详细规则或字段说明时读取 `{path}`。")
-        lines.append("")
+    refs = [str(item["path"]) for item in as_list(spec.get("references")) if isinstance(item, dict) and item.get("path")]
+    add_bullets(lines, "参考资料", [f"需要详细规则或字段说明时读取 `{path}`。" for path in refs])
+    add_text(lines, "实现说明", spec.get("implementation") or spec.get("implementation_notes"))
+    add_bullets(lines, "依赖", spec.get("dependencies"))
 
-    implementation = spec.get("implementation") or spec.get("implementation_notes")
-    if implementation:
-        lines.extend(["## 实现说明", "", str(implementation).strip(), ""])
-
-    if examples:
-        lines.extend(["## 示例", ""])
-        for item in examples:
-            if not isinstance(item, dict):
-                lines.extend(["### 示例", "", str(item).strip(), ""])
-                continue
-            lines.append(f"### {item.get('title', '示例')}")
-            if item.get("description"):
-                lines.extend(["", str(item["description"]).strip()])
-            if item.get("command"):
-                lines.extend(["", "```bash", str(item["command"]).strip(), "```"])
-            if item.get("input"):
-                lines.extend(["", "输入：", "```json", json.dumps(item["input"], ensure_ascii=False, indent=2), "```"])
-            if item.get("output"):
-                lines.extend(["", "输出：", "```json", json.dumps(item["output"], ensure_ascii=False, indent=2), "```"])
-            lines.append("")
-
-    if dependencies:
-        lines.extend(["## 依赖", ""])
-        for dep in dependencies:
-            lines.append(f"- {dep}")
-        lines.append("")
-
-    for section in body_sections:
+    for section in as_list(spec.get("body_sections")):
         if isinstance(section, dict):
-            heading = section.get("heading", "说明")
-            content = section.get("content", "")
+            add_text(lines, section.get("heading", "说明"), section.get("content", ""))
         else:
-            heading = "说明"
-            content = section
-        lines.extend([f"## {heading}", "", str(content).strip(), ""])
+            add_text(lines, "说明", section)
 
-    notes = spec.get("notes") or []
-    lines.extend(["## 注意事项", ""])
-    if notes:
-        for note in notes:
-            lines.append(f"- {note}")
-    else:
-        lines.extend(
-            [
-                "- 所有中文内容按 UTF-8 处理。",
-                "- 调用脚本时只传入用户明确提供或有默认值的参数。",
-                "- 输出文件路径应写入 PiFlow 工作区可访问的位置。",
-            ]
-        )
-    lines.append("")
-    return "\n".join(lines)
+    notes = spec.get("notes") or [
+        "所有中文内容按 UTF-8 处理。",
+        "调用脚本时只传入用户明确提供或有默认值的参数。",
+        "输出文件路径应写入 PiFlow 工作区可访问的位置。",
+    ]
+    add_bullets(lines, "注意事项", notes)
+    return "\n".join(lines).rstrip() + "\n"
 
 
-def agents_config(spec: dict) -> dict:
+def render_skill_json(spec: dict) -> str:
+    data = {
+        "name": spec["name"],
+        "version": spec["version"],
+        "description": spec["description"],
+        "language": spec.get("language") or ("python" if spec.get("script_path", "").endswith(".py") else ""),
+        "script_path": spec.get("script_path", ""),
+        "entrypoint": spec.get("entrypoint") or (f"python {spec['script_path']}" if spec.get("script_path") else ""),
+        "input_params": spec["input_params"],
+        "output_params": spec["output_params"],
+    }
+    template = command_template(spec)
+    if template:
+        data["command_template"] = template
+    for key in ("category", "tag"):
+        if spec.get(key):
+            data[key] = spec[key]
+    return json.dumps(data, ensure_ascii=False, indent=2) + "\n"
+
+
+def render_agents_yaml(skill_dir: Path, spec: dict) -> str:
     raw = spec.get("agents_openai")
-    if isinstance(raw, dict):
-        config = dict(raw)
-    else:
-        config = {}
-    for key in ("display_name", "short_description", "default_prompt", "brand_color"):
-        if key in spec and key not in config:
-            config[key] = spec[key]
-    return config
-
-
-def write_agents_openai(skill_dir: Path, spec: dict) -> None:
-    config = agents_config(spec)
-    display_name = config.get("display_name") or spec.get("title") or spec["name"]
-    short_description = config.get("short_description") or normalize_description(spec)[:84]
+    config = dict(raw) if isinstance(raw, dict) else {}
     default_prompt = config.get("default_prompt") or f"Use ${spec['name']} to complete the requested PiFlow task."
     if f"${spec['name']}" not in default_prompt:
         default_prompt = f"Use ${spec['name']} to {default_prompt}"
 
     interface = {
-        "display_name": display_name,
-        "short_description": short_description,
+        "display_name": config.get("display_name") or spec.get("title") or spec["name"],
+        "short_description": config.get("short_description") or spec["description"][:84],
+        "default_prompt": default_prompt,
     }
     if (skill_dir / "assets" / "icon.png").exists() or spec.get("icon"):
         interface["icon_small"] = "./assets/icon.png"
         interface["icon_large"] = "./assets/icon.png"
     if config.get("brand_color"):
         interface["brand_color"] = config["brand_color"]
-    interface["default_prompt"] = default_prompt
 
-    lines = ["interface:"]
-    for key, value in interface.items():
-        lines.append(f"  {key}: {json.dumps(str(value), ensure_ascii=False)}")
-    write_text(skill_dir / "agents" / "openai.yaml", "\n".join(lines) + "\n")
+    return "interface:\n" + "\n".join(
+        f"  {key}: {json.dumps(str(value), ensure_ascii=False)}" for key, value in interface.items()
+    ) + "\n"
 
 
-def skill_json_param(param: dict, is_input: bool) -> dict:
-    item = {
-        "name": param.get("name", ""),
-        "role": param.get("role") or infer_param_role(param, is_input),
-        "type": param.get("type", "string"),
-        "description": param.get("description", ""),
-    }
-    if is_input:
-        item["required"] = bool(param.get("required", False))
-    if "default" in param:
-        item["default"] = param["default"]
-    return item
+def resource_items(spec: dict, key: str) -> list[dict]:
+    value = spec.get(key)
+    if not value:
+        return []
+    items = [value] if isinstance(value, dict) else value
+    if not isinstance(items, list) or not all(isinstance(item, dict) for item in items):
+        raise ValueError(f"spec.{key} must be an object or list of objects")
+    return items
 
 
-def infer_param_role(param: dict, is_input: bool) -> str:
-    if not is_input:
-        return "output_data"
-    name = str(param.get("name", "")).lower()
-    param_type = str(param.get("type", "")).lower()
-    if name.startswith("output") or "output" in name or param_type.endswith("_file"):
-        return "output_data"
-    if name.startswith("input") or "input" in name or param_type in {"file", "csv_file", "json_file", "xlsx_file", "pdf_file", "text_file", "directory"}:
-        return "input_data"
-    return "data"
-
-
-def write_skill_json(skill_dir: Path, spec: dict) -> None:
-    script_path = spec.get("script_path") or script_path_from_spec(spec)
-    entrypoint = spec.get("entrypoint") or (f"python {script_path}" if script_path else command_from_spec(spec))
-    command_template = command_template_from_spec(spec, script_path)
-    data = {
-        "name": spec["name"],
-        "version": str(spec.get("version", "1.0.0")),
-        "description": normalize_description(spec),
-        "language": spec.get("language") or ("python" if script_path.endswith(".py") else ""),
-        "script_path": script_path,
-        "entrypoint": entrypoint,
-        "input_params": [skill_json_param(p, True) for p in spec.get("input_params", [])],
-        "output_params": [skill_json_param(p, False) for p in spec.get("output_params", [])],
-    }
-    if command_template:
-        data["command_template"] = command_template
-    if spec.get("category"):
-        data["category"] = spec["category"]
-    if spec.get("tag"):
-        data["tag"] = spec["tag"]
-    write_text(skill_dir / "skill.json", json.dumps(data, ensure_ascii=False, indent=2) + "\n")
-
-
-def copy_or_write_file(skill_dir: Path, item: dict, field_name: str) -> None:
-    rel_path = safe_relative_path(item.get("path"), field_name)
+def copy_or_write(skill_dir: Path, item: dict, field_name: str, fallback_content: str | None = None) -> None:
+    rel_path = safe_rel_path(item.get("path"), field_name)
     target = skill_dir / rel_path
     if item.get("source"):
-        source = Path(item["source"])
+        source = resolve_source_path(item["source"])
         if not source.exists():
             raise FileNotFoundError(f"{field_name} source not found: {source}")
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(source, target)
-    elif "content" in item:
-        write_text(target, str(item["content"]))
-    else:
-        raise ValueError(f"{field_name} item requires source or content: {item.get('path')}")
-
-
-def normalize_items(spec: dict, key: str) -> list[dict]:
-    value = spec.get(key)
-    if not value:
-        return []
-    if isinstance(value, dict):
-        return [value]
-    if isinstance(value, list):
-        if not all(isinstance(item, dict) for item in value):
-            raise ValueError(f"spec.{key} must contain objects")
-        return value
-    raise ValueError(f"spec.{key} must be an object or list")
-
-
-def copy_or_write_resources(skill_dir: Path, spec: dict) -> None:
-    if spec.get("icon") or spec.get("assets"):
-        (skill_dir / "assets").mkdir(parents=True, exist_ok=True)
-
-    icon = spec.get("icon")
-    if icon:
-        icon_path = Path(icon)
-        if icon_path.exists():
-            shutil.copy2(icon_path, skill_dir / "assets" / "icon.png")
-        else:
-            raise FileNotFoundError(f"icon not found: {icon}")
-
-    script = spec.get("script")
-    if isinstance(script, dict) and script.get("path"):
-        item = dict(script)
-        if "content" not in item and "source" not in item:
-            item["content"] = script_template(spec)
-        copy_or_write_file(skill_dir, item, "script")
-
-    for item in normalize_items(spec, "scripts"):
-        if "content" not in item and "source" not in item:
-            item = dict(item)
-            item["content"] = script_template(spec)
-        copy_or_write_file(skill_dir, item, "scripts")
-
-    for item in normalize_items(spec, "references"):
-        copy_or_write_file(skill_dir, item, "references")
-
-    for item in normalize_items(spec, "assets"):
-        copy_or_write_file(skill_dir, item, "assets")
-
-
-def py_string(value) -> str:
-    return json.dumps(str(value), ensure_ascii=False)
+        return
+    if "content" in item or fallback_content is not None:
+        write_text(target, str(item.get("content", fallback_content)))
+        return
+    raise ValueError(f"{field_name} item requires source or content: {item.get('path')}")
 
 
 def script_template(spec: dict) -> str:
@@ -549,59 +455,72 @@ def script_template(spec: dict) -> str:
         "",
         "",
         "def main():",
-        f"    parser = argparse.ArgumentParser(description={py_string(spec.get('description', spec['name']))})",
+        f"    parser = argparse.ArgumentParser(description={json.dumps(spec['description'], ensure_ascii=False)})",
     ]
-    for p in spec.get("input_params", []):
-        required = "True" if p.get("required") else "False"
-        default = p.get("default")
-        default_part = "" if default is None else f", default={py_string(default)}"
+    for param in spec["input_params"]:
+        default = "" if "default" not in param else f", default={json.dumps(param['default'], ensure_ascii=False)}"
         lines.append(
-            f"    parser.add_argument('--{p.get('name')}', required={required}{default_part}, help={py_string(p.get('description', ''))})"
+            f"    parser.add_argument('--{param['name']}', required={str(bool(param.get('required')))}, help={json.dumps(param['description'], ensure_ascii=False)}{default})"
         )
-    lines.extend(
-        [
-            "    args = parser.parse_args()",
-            "    _ = args",
-            f"    raise NotImplementedError({py_string('Implement ' + str(spec['name']) + ' operator logic here.')})",
-            "",
-            "",
-            'if __name__ == "__main__":',
-            "    main()",
-            "",
-        ]
-    )
+    lines.extend([
+        "    args = parser.parse_args()",
+        "    _ = args",
+        f"    raise NotImplementedError({json.dumps('Implement ' + spec['name'] + ' operator logic here.', ensure_ascii=False)})",
+        "",
+        "",
+        'if __name__ == "__main__":',
+        "    main()",
+        "",
+    ])
     return "\n".join(lines)
+
+
+def write_resources(skill_dir: Path, spec: dict) -> None:
+    if spec.get("icon") or spec.get("assets"):
+        (skill_dir / "assets").mkdir(parents=True, exist_ok=True)
+    if spec.get("icon"):
+        icon = resolve_source_path(spec["icon"])
+        if not icon.exists():
+            raise FileNotFoundError(f"icon not found: {spec['icon']}")
+        shutil.copy2(icon, skill_dir / "assets" / "icon.png")
+
+    if isinstance(spec.get("script"), dict) and spec["script"].get("path"):
+        copy_or_write(skill_dir, spec["script"], "script", script_template(spec))
+    for item in resource_items(spec, "scripts"):
+        copy_or_write(skill_dir, item, "scripts", script_template(spec))
+    for key in ("references", "assets"):
+        for item in resource_items(spec, key):
+            copy_or_write(skill_dir, item, key)
+
+
+def generate(spec: dict, output_root: Path, overwrite: bool) -> dict:
+    spec = normalize_spec(spec)
+    skill_dir = output_root / spec["name"]
+    if skill_dir.exists():
+        if not overwrite:
+            raise FileExistsError(f"skill already exists: {skill_dir}")
+        shutil.rmtree(skill_dir)
+    skill_dir.mkdir(parents=True)
+
+    write_text(skill_dir / "SKILL.md", frontmatter(spec) + "\n" + render_body(spec))
+    write_resources(skill_dir, spec)
+    if spec.get("skill_json", True):
+        write_text(skill_dir / "skill.json", render_skill_json(spec))
+    if spec.get("agents_openai"):
+        write_text(skill_dir / "agents" / "openai.yaml", render_agents_yaml(skill_dir, spec))
+    return {"skill_dir": str(skill_dir), "skill_md": str(skill_dir / "SKILL.md")}
 
 
 def main():
     parser = argparse.ArgumentParser(description="Generate a PiFlow-compatible skill from a UTF-8 JSON spec.")
     parser.add_argument("--spec", required=True, help="UTF-8 JSON spec path")
-    parser.add_argument("--output-root", default="flow-deepagents/workspace/skills", help="Skill output root")
+    parser.add_argument("--output-root", default=DEFAULT_OUTPUT_ROOT, help="Skill output root relative to workspace")
     parser.add_argument("--overwrite", action="store_true")
     args = parser.parse_args()
 
-    spec_path = Path(args.spec)
-    spec = read_json(spec_path)
-    validate_spec(spec)
-
-    output_root = Path(args.output_root)
-    skill_dir = output_root / spec["name"]
-    if skill_dir.exists():
-        if not args.overwrite:
-            raise FileExistsError(f"skill already exists: {skill_dir}")
-        shutil.rmtree(skill_dir)
-    skill_dir.mkdir(parents=True)
-
-    fm = frontmatter_for(spec)
-    content = render_frontmatter(fm) + "\n" + render_body(spec)
-    write_text(skill_dir / "SKILL.md", content)
-    copy_or_write_resources(skill_dir, spec)
-    if spec.get("skill_json", True):
-        write_skill_json(skill_dir, spec)
-    if spec.get("agents_openai"):
-        write_agents_openai(skill_dir, spec)
-
-    print(json.dumps({"skill_dir": str(skill_dir), "skill_md": str(skill_dir / "SKILL.md")}, ensure_ascii=False, indent=2))
+    spec = read_json(resolve_source_path(args.spec))
+    result = generate(spec, resolve_output_root(args.output_root), args.overwrite)
+    print(json.dumps(result, ensure_ascii=False, indent=2))
 
 
 if __name__ == "__main__":
