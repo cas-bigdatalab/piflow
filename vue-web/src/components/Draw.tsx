@@ -477,8 +477,9 @@ const edgeTypes = {
 // 节点间距配置
 const NODE_WIDTH = 285;
 const NODE_GAP = 60;
+const NODE_HEIGHT = 140;
 const START_X = 50;
-const START_Y = 200;
+const START_Y = 50;
 
 // 默认节点数据 - 水平排列
 const defaultNodes: Node<NodeData>[] = [
@@ -764,7 +765,7 @@ export interface FlowEditorProps {
 // ==================== 主画布组件 ====================
 
 const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClose, threadId, messageId: messageIdProp, savedDrawData }) => {
-  const [nodes, setNodes, onNodesChange] = useNodesState<Node<NodeData>>([]);
+  const [nodes, setNodes, onNodesChange] = useNodesState<Node<NodeData>>(defaultNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [isOperatorLibraryOpen, setIsOperatorLibraryOpen] = useState(false);
   const [edgeType, setEdgeType] = useState<'bezier' | 'straight'>('bezier');
@@ -793,13 +794,72 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
   const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
   const isFirstRender = useRef(true);
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
-  const { zoomIn, zoomOut, fitView, screenToFlowPosition } = useReactFlow();
+  const { zoomIn, zoomOut, fitView, setViewport, screenToFlowPosition } = useReactFlow();
+
+  // 组件挂载时调整视口为靠左、垂直居中
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (nodes.length > 0) {
+        fitNodesToViewLeft();
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // 计算垂直居中 Y 坐标
+  const getVerticalCenterY = () => {
+    const containerEl = reactFlowWrapper.current;
+    const containerHeight = containerEl?.clientHeight || 800;
+    return Math.max((containerHeight - NODE_HEIGHT) / 2, 50);
+  };
+
+  // 将视口调整为节点靠左、垂直居中显示
+  const fitNodesToViewLeft = useCallback(() => {
+    if (nodes.length === 0) return;
+    const wrapper = reactFlowWrapper.current;
+    if (!wrapper) return;
+
+    const w = wrapper.clientWidth;
+    const h = wrapper.clientHeight;
+
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    nodes.forEach(n => {
+      minX = Math.min(minX, n.position.x);
+      maxX = Math.max(maxX, n.position.x + (NODE_WIDTH));
+      minY = Math.min(minY, n.position.y);
+      maxY = Math.max(maxY, n.position.y + NODE_HEIGHT);
+    });
+
+    const graphW = maxX - minX;
+    const graphH = maxY - minY;
+    const padding = 40;
+    const zoom = Math.min(
+      (w - padding * 2) / graphW,
+      (h - padding * 2) / graphH,
+      1.2
+    );
+
+    setViewport({
+      x: padding - minX * zoom,
+      y: (h - graphH * zoom) / 2 - minY * zoom,
+      zoom,
+    });
+  }, [nodes, setViewport]);
 
   // 获取选中的节点
   const selectedNode = nodes.find((m) => m.id === selectedNodeId);
 
   // 关闭配置面板
   const closeConfigPanel = () => setSelectedNodeId(null);
+
+  // 监听 nodes 变化，自动调整视口为靠左、垂直居中
+  useEffect(() => {
+    if (nodes.length > 0 && isInitialized.current) {
+      setTimeout(() => {
+        fitNodesToViewLeft();
+      }, 100);
+    }
+  }, [nodes, fitNodesToViewLeft]);
 
   // 切换连线类型时更新所有现有连线
   useEffect(() => {
@@ -920,7 +980,7 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
         setEdges(loadedEdges);
         setIsLoading(false);
         isInitialized.current = true;
-        setTimeout(() => { fitView({ padding: 0.2 }); }, 200);
+        setTimeout(() => { fitNodesToViewLeft(); }, 200);
         return;
       }
 
@@ -939,17 +999,19 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
         const pNode = pipelineNodes[i];
         let skillId = pNode.skill_id || '';
         const skillName = pNode.skill_name;
-
+        let nodesName='';
         // 获取算子详情信息
         let inputParams = undefined;
         let outputParams = undefined;
         try {
           const res = await getAllSkills(skillName);
+          console.log('666666666666666666');
           console.log('res算子列表',res);
           if (res.result.data && res.result.data.length>0) {
             inputParams = res.result.data[0].DagSkillInfoList[0].input_params;
             outputParams = res.result.data[0].DagSkillInfoList[0].output_params;
             skillId = res.result.data[0].DagSkillInfoList[0].skill_id;
+            nodesName=res.result.data[0].DagSkillInfoList[0].name_zh;
           }
         } catch (error) {
           console.error('获取算子库失败:', error);
@@ -964,7 +1026,7 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
             y: START_Y,
           },
           data: {
-            label: skillName,
+            label: nodesName,
             icon: skillId,
             operatorId: skillId,
             description: '',
@@ -1016,7 +1078,7 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
       isInitialized.current = true;
 
       setTimeout(() => {
-        fitView({ padding: 0.2 });
+        fitNodesToViewLeft();
       }, 200);
     };
 
@@ -1687,6 +1749,8 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
             <span>保存</span>
           </button> */}
           <button className="config-panel-close" onClick={async () => {
+            console.log('=== 点击×关闭画板 ===');
+            console.log('threadId from props:', threadId);
             const pipelineNodes = nodes.map((node) => {
               const nodeData = node.data;
               let inputValue = nodeData.params?.input || '';
@@ -1719,6 +1783,7 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
 
             try {
               // 1. 在原有会话中创建消息（不创建新会话）
+              console.log('Sending message with threadId:', targetThreadId);
               const created = await createMessage(DEFAULT_USER_ID, targetThreadId, fullMessage);
               const msgId = created.message.id;
               setMessageId(msgId);
@@ -1765,7 +1830,6 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
             onConnect={onConnect}
             nodeTypes={nodeTypes}
             edgeTypes={edgeTypes}
-            fitView
           >
             <Background variant={BackgroundVariant.Dots} gap={12} size={1} />
           </ReactFlow>

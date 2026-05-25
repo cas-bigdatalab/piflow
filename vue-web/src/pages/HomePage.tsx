@@ -1,4 +1,4 @@
-﻿import { Icon } from "@iconify/react";
+import { Icon } from "@iconify/react";
 import { type DragEvent, useEffect, useRef, useState } from "react";
 import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 import {
@@ -770,7 +770,7 @@ export function HomePage() {
               type="button"
             >
               <Icon icon="ri:flashlight-line" width="15" />
-              <span>技能</span>
+              <span>算子</span>
             </button>
           </div>
 
@@ -851,7 +851,7 @@ export function HomePage() {
         <section className="flex min-h-0 flex-1 flex-col">
           <div className="flex flex-1">
             {/* 左侧对话区域 */}
-            <div className={`flex flex-col ${showCanvas ? 'w-1/2 border-r border-slate-200' : 'w-full'} max-w-5xl`}>
+            <div className={`flex flex-col ${showCanvas ? 'w-1/2 h-screen' : 'w-full'} max-w-5xl`}>
               <div className="mx-auto flex min-h-0 w-full flex-1 flex-col px-8 pt-6">
                 {loadError ? (
                   <div className="mb-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
@@ -982,7 +982,7 @@ export function HomePage() {
 
             {/* 右侧画板区域 */}
             {showCanvas && canvasPipelineData && (
-              <div className="w-1/2 h-screen overflow-hidden">
+              <div className="w-1/2 h-screen overflow-hidden border-l border-slate-200 shadow-[-2px_0_12px_rgba(0,0,0,0.04)] animate-slide-in-right">
                 <FlowEditor initialPipelineData={canvasPipelineData as unknown as InitialPipelineData} onClose={handleCloseCanvas} threadId={threadId} messageId={canvasMessageId} savedDrawData={savedDrawData} />
               </div>
             )}

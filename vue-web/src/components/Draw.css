@@ -9,21 +9,38 @@
 .flow-canvas-container {
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  height: 100%;
   width: 100%;
-  background: #f5f5f5;
+  background: #f8f9fb;
+}
+
+/* ==================== 入场动画 ==================== */
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.animate-slide-in-right {
+  animation: slideInRight 0.25s ease-out;
 }
 
 /* ==================== Header 样式 ==================== */
 
 .flow-header {
-  height: 56px;
+  height: 52px;
   background: #fff;
   border-bottom: 1px solid #e8e8e8;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 24px;
+  padding: 0 20px;
   flex-shrink: 0;
 }
 
@@ -84,7 +101,11 @@
 }
 
 .reactflow-wrapper .react-flow {
-  background: #fafafa;
+  background: #ffffff;
+}
+
+.reactflow-wrapper .react-flow__background {
+  background: #ffffff;
 }
 
 .reactflow-wrapper .react-flow__node {
@@ -98,24 +119,25 @@
 .floating-toolbar {
   position: absolute;
   bottom: 24px;
-  left: 24px;
+  left: 50%;
   transform: translateX(-50%);
   display: flex;
   align-items: center;
   gap: 4px;
   background: #fff;
   border-radius: 12px;
-  padding: 8px 12px;
+  padding: 6px 10px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
   z-index: 1000;
+  border: 1px solid #e8e8e8;
 }
 
 .toolbar-btn {
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
   border: none;
   background: transparent;
-  color: #333;
+  color: #555;
   cursor: pointer;
   display: flex;
   align-items: center;
