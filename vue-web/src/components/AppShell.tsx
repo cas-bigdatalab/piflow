@@ -1,4 +1,5 @@
 import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
+import { ToastContainer } from "./Toast";
 import { apiBase } from "../lib/api";
 import { ThreadsSidebar } from "./ThreadsSidebar";
 
@@ -26,6 +27,7 @@ export function AppShell() {
   const isHome = true;
   return (
     <div className="flex h-screen flex-col bg-[radial-gradient(circle_at_top,_rgba(226,232,240,0.45),_transparent_32%),linear-gradient(180deg,_#fff_0%,_#f8fafc_100%)]">
+      <ToastContainer />
       {/* <header className="z-50 flex-shrink-0 border-b border-slate-200/80 bg-white/90 backdrop-blur">
         <div className="flex h-16 items-center justify-between px-6">
           <Logo />

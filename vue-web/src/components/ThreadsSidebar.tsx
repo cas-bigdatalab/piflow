@@ -54,14 +54,15 @@ const menuArr = [{
   id:3,
   title:'算子库',
   icon:'fa-solid:coins',
-  path:'/'
+  path:'/skills'
 },
-{
-  id:4,
-  title:'定时调度',
-  icon:'fa-solid:chart-bar',
-  path:'/'
-}];
+// {
+//   id:4,
+//   title:'定时调度',
+//   icon:'fa-solid:chart-bar',
+//   path:'/'
+// }
+];
 
 export function ThreadsSidebar() {
   const [threads, setThreads] = useState<ThreadTitle[]>([]);
@@ -163,7 +164,7 @@ export function ThreadsSidebar() {
               className="flex w-full items-center justify-center gap-2 rounded-xl bg-black px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-slate-800"
               onClick={() => {
                 setSelectedThreadId("default");
-                window.dispatchEvent(new CustomEvent("flow:new-chat"));
+                navigate("/");
               }}
             >
               <Icon icon="ri:add-line" />

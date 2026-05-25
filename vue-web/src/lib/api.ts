@@ -35,10 +35,8 @@ export type SkillTypeStat = {
   type: string;
   count: number;
 };
-// const DEFAULT_BASE = "http://localhost:8081";
-const DEFAULT_BASE = "http://10.0.87.111:8081";
 export function apiBase() {
-  return (import.meta as any).env?.VITE_API_BASE || DEFAULT_BASE;
+  return import.meta.env.VITE_API_BASE;
 }
 // 登录
 export async function getLogin(params:any) {
@@ -177,7 +175,7 @@ export async function getAllSkills(keyword = "") {
     total: number;
     current_count: number;
     message?: string;
-  }>(`/dag/skill/listSkills?keyword=${keyword}`);
+  }>(keyword ? `/dag/skill/listSkills?keyword=${keyword}` : `/dag/skill/listSkills`);
 }
 export function downloadWorkspaceUrl(path: string) {
   const sp = new URLSearchParams({ path });
@@ -293,4 +291,84 @@ export async function sendMessages(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ user_id, thread_id, message_id, attachments,message }),
   });
+}
+
+// ==================== 任务管理 API ====================
+
+export interface Task {
+  id: number;
+  dag_task_id: string;
+  dag_task_name: string;
+  description: string;
+  create_user_id: string | null;
+  create_time: string;
+  message_id?: string;
+  dag_task_type?: number;
+  is_deleted?: number;
+  update_time?: string;
+}
+
+export interface TaskListResponse {
+  code: number;
+  message: string;
+  result: {
+    total: number;
+    page: number;
+    page_size: number;
+    data: Task[];
+  };
+}
+
+// 查询任务列表
+export async function getTasks(page: number, page_size: number, keyword?: string) {
+  const params = new URLSearchParams();
+  params.set('page', String(page));
+  params.set('page_size', String(page_size));
+  if (keyword && keyword.trim()) {
+    params.set('keyword', keyword.trim());
+  }
+  return apiFetch<TaskListResponse>(`/dag/task/getTasks?${params.toString()}`);
+}
+
+// 创建任务
+export async function createTask(params:object) {
+  return apiFetch("/dag/task/createTask", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(params)
+  });
+}
+
+// 更新任务
+export async function updateTask(dag_task_id: string, dag_name: string, description: string) {
+  const params = new URLSearchParams();
+  params.set('dag_task_id', dag_task_id);
+  params.set('dag_name', dag_name);
+  params.set('description', description);
+  return apiFetch<{ code: number; message: string }>(`/dag/task/updateTask?${params.toString()}`);
+}
+
+// 删除任务
+export async function deleteTask(dag_task_id: string) {
+ let params = {dag_task_id:dag_task_id};
+  return apiFetch<{ attachments: MessageAttachment[] }>("/dag/task/deleteTask", {
+    method: "POST",
+    body: JSON.stringify(params)
+  });
+}
+
+// 获取画板内容
+export async function getDrawTaskContent(dag_task_id: string) {
+  return apiFetch(`/dag/panel/getDSLJson?dag_task_id=${dag_task_id.toString()}`, {
+    method: "POST",
+    body: JSON.stringify({dag_task_id:dag_task_id})
+  });
+}
+// 根据消息id请求查看是否有画板信息
+export async function getDrawInfoBymegId(message_id:string) {
+  return apiFetch<{
+    code: number;
+    result: Object;
+    message?: string;
+  }>(`/dag/panel/getDSLJsonByMessageId?message_id=${message_id.toString()}`);
 }

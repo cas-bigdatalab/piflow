@@ -1,105 +1,14 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Icon } from '@iconify/react';
+import { getTasks, createTask, updateTask, deleteTask, Task } from '../lib/api';
+import { toast } from '../components/Toast';
 import './TaskManagePage.css';
-
-// ==================== 模拟后端接口 ====================
-
-interface Task {
-  id: string;
-  name: string;
-  description: string;
-  creator: string;
-  createTime: string;
-}
-
-interface ApiResponse {
-  code: number;
-  message: string;
-  data: {
-    total: number;
-    list: Task[];
-  };
-}
-
-const taskNames = [
-  'Financial_ETL_Core', 'User_Behavior_Analysis', 'Sales_Data_Sync',
-  'Inventory_Update', 'Customer_ETL_Pipeline', 'Log_Analysis_Job',
-  'Data_Migration_v2', 'Report_Generation', 'Email_Campaign_Analytics',
-  'Payment_Processing', 'Fraud_Detection', 'Recommendation_Engine',
-];
-const descriptions = [
-  '处理每日金融交易流水，包含多维清洗与风险校验流程...',
-  '分析移动端用户点击流数据，生成实时热力图...',
-  '同步各渠道销售数据至中央数据仓库...',
-  '实时更新库存状态，触发补货预警...',
-  '客户数据清洗与标准化处理流程...',
-  '系统日志聚合分析，异常检测...',
-];
-const creators = ['Admin_System', 'Data_Scientist', 'ETL_Engineer', 'Data_Analyst'];
-
-// 模拟后端 API 请求 - 支持搜索
-function fetchTaskListApi(page: number, pageSize: number, keyword?: string): Promise<ApiResponse> {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      const allTasks: Task[] = [];
-      const total = 421;
-      // 生成所有数据
-      for (let i = 0; i < total; i++) {
-        const day = String(14 - Math.floor(i / 30)).padStart(2, '0');
-        const hour = String(9 + (i % 12)).padStart(2, '0');
-        const minute = String((i * 7) % 60).padStart(2, '0');
-        const second = String((i * 13) % 60).padStart(2, '0');
-        allTasks.push({
-          id: `PL_${String(i + 1).padStart(6, '0')}`,
-          name: taskNames[i % taskNames.length],
-          description: descriptions[i % descriptions.length],
-          creator: creators[i % creators.length],
-          createTime: `2026-04-${day} ${hour}:${minute}:${second}`,
-        });
-      }
-      // 搜索过滤
-      let filtered = allTasks;
-      if (keyword && keyword.trim()) {
-        const kw = keyword.toLowerCase();
-        filtered = allTasks.filter(t => 
-          t.name.toLowerCase().includes(kw) || 
-          t.id.toLowerCase().includes(kw)
-        );
-      }
-      // 分页
-      const start = (page - 1) * pageSize;
-      const records = filtered.slice(start, start + pageSize);
-      resolve({
-        code: 200,
-        message: 'success',
-        data: { total: filtered.length, list: records },
-      });
-    }, 400);
-  });
-}
-
-
-// 模拟创建任务 API
-function createTaskApi(name: string, description: string): Promise<{ code: number; message: string }> {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve({ code: 200, message: '创建成功' });
-    }, 800);
-  });
-}
-
-// 模拟删除任务 API
-function deleteTaskApi(taskId: string): Promise<{ code: number; message: string }> {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve({ code: 200, message: '删除成功' });
-    }, 600);
-  });
-}
 
 // ==================== 页面组件 ====================
 
 export function TaskManagePage() {
+  const navigate = useNavigate();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -112,6 +21,11 @@ export function TaskManagePage() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Task | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editTarget, setEditTarget] = useState<Task | null>(null);
+  const [editTaskName, setEditTaskName] = useState('');
+  const [editTaskDesc, setEditTaskDesc] = useState('');
+  const [updating, setUpdating] = useState(false);
   const pageSize = 10;
   const totalPages = Math.ceil(total / pageSize);
 
@@ -119,10 +33,10 @@ export function TaskManagePage() {
   const loadData = async (page: number, keyword?: string) => {
     setLoading(true);
     try {
-      const res = await fetchTaskListApi(page, pageSize, keyword);
+      const res = await getTasks(page, pageSize, keyword);
       if (res.code === 200) {
-        setTasks(res.data.list);
-        setTotal(res.data.total);
+        setTasks(res.result.data);
+        setTotal(res.result.total);
       }
     } catch (err) {
       console.error('请求失败:', err);
@@ -140,21 +54,36 @@ export function TaskManagePage() {
   }, [currentPage, searchKeyword]);
 
   // 创建任务
-  const handleCreateTask = () => {
-    const name = newTaskName.trim();
-    if (!name) return;
+  const handleCreateTask = async () => {
+    if (!newTaskName) return;
     setSubmitting(true);
-    createTaskApi(name, newTaskDesc).then((res) => {
+    try {
+      let params={
+        task_name:newTaskName,
+        description:newTaskDesc
+      }
+      let res = await createTask(params);
       if (res.code === 200) {
         setShowCreateModal(false);
         setNewTaskName('');
         setNewTaskDesc('');
+        toast.success('创建成功');
+        // 跳转到画板页面
+        if (res.result?.dag_task_id) {
+          navigate(`/task-draw?taskId=${res.result.dag_task_id}&taskName=${encodeURIComponent(newTaskName)}`);
+        } else {
+          // 刷新列表
+          await loadData(1, searchKeyword);
+        }
+      } else {
+        toast.error(res.message || '创建失败');
       }
+    } catch (err) {
+      console.error('创建失败:', err);
+      toast.error('创建失败，请稍后重试');
+    } finally {
       setSubmitting(false);
-      setCurrentPage(1);
-    }).catch(() => {
-      setSubmitting(false);
-    });
+    }
   };
 
   // 打开删除确认弹窗
@@ -164,20 +93,60 @@ export function TaskManagePage() {
   };
 
   // 确认删除
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = async () => {
     if (!deleteTarget) return;
     setDeleting(true);
-    deleteTaskApi(deleteTarget.id).then((res) => {
+    try {
+      const res = await deleteTask(deleteTarget.dag_task_id);
       if (res.code === 200) {
         setShowDeleteModal(false);
         setDeleteTarget(null);
-        setDeleting(false);
         // 刷新当前页数据
-        loadData(currentPage, searchKeyword);
+        await loadData(currentPage, searchKeyword);
+      } else {
+        // 显示接口返回的错误消息
+        toast.error(res.message || '删除失败');
       }
-    }).catch(() => {
+    } catch (err) {
+      console.error('删除失败:', err);
+      toast.error('删除失败，请稍后重试');
+    } finally {
       setDeleting(false);
-    });
+    }
+  };
+
+  // 打开编辑弹窗
+  const handleEditClick = (task: Task) => {
+    setEditTarget(task);
+    setEditTaskName(task.dag_task_name);
+    setEditTaskDesc(task.description || '');
+    setShowEditModal(true);
+  };
+
+  // 确认编辑
+  const handleConfirmEdit = async () => {
+    if (!editTarget) return;
+    const name = editTaskName.trim();
+    if (!name) return;
+    setUpdating(true);
+    try {
+      const res = await updateTask(editTarget.dag_task_id, name, editTaskDesc);
+      if (res.code === 200) {
+        setShowEditModal(false);
+        setEditTarget(null);
+        setEditTaskName('');
+        setEditTaskDesc('');
+        // 刷新当前页数据
+        await loadData(currentPage, searchKeyword);
+      } else {
+        toast.error(res.message || '更新失败');
+      }
+    } catch (err) {
+      console.error('更新失败:', err);
+      toast.error('更新失败，请稍后重试');
+    } finally {
+      setUpdating(false);
+    }
   };
 
   // 生成分页按钮
@@ -242,19 +211,19 @@ export function TaskManagePage() {
             </thead>
             <tbody>
               {tasks.map((task) => (
-                <tr key={task.id}>
+                <tr key={task.dag_task_id}>
                   <td className="name-cell">
-                    <div className="task-name">{task.name}</div>
-                    <div className="task-id">ID: {task.id}</div>
+                    <div className="task-name">{task.dag_task_name}</div>
+                    <div className="task-id">ID: {task.dag_task_id}</div>
                   </td>
-                  <td className="desc-cell">{task.description}</td>
-                  <td className="creator-cell">{task.creator}</td>
-                  <td className="time-cell">{task.createTime}</td>
+                  <td className="desc-cell">{task.description || '-'}</td>
+                  <td className="creator-cell">{task.create_user_id || 'System'}</td>
+                  <td className="time-cell">{task.create_time}</td>
                   <td className="action-cell">
                     <button className="icon-btn" title="查看" onClick={() => window.location.href = '/run-details'}>
                       <Icon icon="fa-solid:eye" width="14" />
                     </button>
-                    <button className="icon-btn" title="编辑">
+                    <button className="icon-btn" title="编辑" onClick={() => navigate(`/task-draw?taskId=${task.dag_task_id}&taskName=${encodeURIComponent(task.dag_task_name)}&isEdit=true`)}>
                       <Icon icon="fa-solid:edit" width="14" />
                     </button>
                     <button className="icon-btn" title="删除" onClick={() => handleDeleteClick(task)} style={{color: '#ef4444'}}>
@@ -316,8 +285,8 @@ export function TaskManagePage() {
 
       {/* 新建任务弹窗 */}
       {showCreateModal && (
-        <div className="modal-overlay" onClick={() => setShowCreateModal(false)}>
-          <div className="task-modal-content" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-overlay">
+          <div className="task-modal-content">
             <div className="modal-header">
               <h3>新建任务</h3>
               <button className="modal-close" onClick={() => setShowCreateModal(false)}>
@@ -366,7 +335,7 @@ export function TaskManagePage() {
               </div>
               <h3 className="delete-title">确认删除</h3>
               <p className="delete-desc">
-                您确定要删除任务 <strong>{deleteTarget.name}</strong> 吗？此操作不可逆，将同步移除关联的定时调度任务。
+                您确定要删除任务 <strong>{deleteTarget.dag_task_name}</strong> 吗？此操作不可逆，将同步移除关联的定时调度任务。
               </p>
             </div>
             <div className="delete-modal-footer">
@@ -376,6 +345,48 @@ export function TaskManagePage() {
               <button className={`btn-danger ${deleting ? 'is-loading' : ''}`} onClick={handleConfirmDelete} disabled={deleting}>
                 {deleting && <span className="btn-spinner"></span>}
                 {deleting ? '删除中...' : '确认删除'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* 编辑任务弹窗 */}
+      {showEditModal && editTarget && (
+        <div className="modal-overlay">
+          <div className="task-modal-content">
+            <div className="modal-header">
+              <h3>编辑任务</h3>
+              <button className="modal-close" onClick={() => setShowEditModal(false)}>
+                <Icon icon="fa-solid:times" width="16" />
+              </button>
+            </div>
+            <div className="modal-body">
+              <div className="form-group">
+                <label>任务名称</label>
+                <input
+                  type="text"
+                  placeholder="请输入名称"
+                  value={editTaskName}
+                  onChange={(e) => setEditTaskName(e.target.value)}
+                />
+              </div>
+              <div className="form-group">
+                <label>描述信息</label>
+                <textarea
+                  rows={4}
+                  placeholder="描述此流水线的主要功能..."
+                  value={editTaskDesc}
+                  onChange={(e) => setEditTaskDesc(e.target.value)}
+                />
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn-cancel" onClick={() => setShowEditModal(false)} disabled={updating}>
+                取消
+              </button>
+              <button className={`btn-confirm ${updating ? 'is-loading' : ''}`} onClick={handleConfirmEdit} disabled={updating}>
+                {updating && <span className="btn-spinner"></span>}
+                {updating ? '保存中...' : '保存'}
               </button>
             </div>
           </div>

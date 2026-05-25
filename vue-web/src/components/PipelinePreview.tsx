@@ -89,10 +89,10 @@ function generateEdges(nodes: PipelineNode[]): PipelineEdge[] {
 interface PipelinePreviewProps {
   data: PipelineData;
   threadId: string;
-  onOpenCanvas?: (data: PipelineData) => void;  // 新增：打开画板的回调
+  onOpenCanvas?: (data: PipelineData, messageId?: string) => void;
 }
 
-export default function PipelinePreview({ data, threadId, onOpenCanvas }: PipelinePreviewProps) {
+export default function PipelinePreview({ data, threadId, onOpenCanvas, messageId }: PipelinePreviewProps) {
   const navigate = useNavigate();
   const { task, nodes } = data;
 
@@ -108,7 +108,7 @@ export default function PipelinePreview({ data, threadId, onOpenCanvas }: Pipeli
   const handleEdit = () => {
     // 调用回调打开画板，而不是跳转页面
     if (onOpenCanvas) {
-      onOpenCanvas(data);
+      onOpenCanvas(data, messageId);
     } else {
       // 兼容：如果没有回调，使用原来的方式
       sessionStorage.setItem("pendingPipeline", JSON.stringify(data));
