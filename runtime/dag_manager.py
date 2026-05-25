@@ -724,7 +724,8 @@ def list_dag_skills_by_type(
                 params = []
 
                 if keyword:
-                    conditions.append("skill_name LIKE %s")
+                    conditions.append("(skill_name LIKE %s OR name_zh LIKE %s)")
+                    params.append(f"%{keyword}%")
                     params.append(f"%{keyword}%")
 
                 if skill_type:
