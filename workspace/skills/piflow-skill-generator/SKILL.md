@@ -3,7 +3,7 @@ name: piflow-skill-generator
 description: |
   PiFlow 技能生成器。根据当前 workspace/skills 的本地约定和 references/piflow_skill_template.md 通用模板创建、更新或校验 PiFlow-compatible skill，包括 UTF-8 编码的 SKILL.md、DAG 可读的 input_params/output_params、version/category/tag 元数据、skill.json、scripts/references/assets 资源目录、可选 agents/openai.yaml，以及本地校验脚本。用户提到创建技能、生成 skill、封装算子、补齐技能元数据、按模板生成技能、实现技能闭包或校验技能格式时使用此 skill。
 name_zh: PiFlow 技能生成器
-version: 1.1.0
+version: 1.1.1
 category: skill_generation
 tag: 技能生成
 allowed-tools:
@@ -46,6 +46,8 @@ output_params:
 
 ## 核心规则
 
+除去对运行/测试时的产物进行分析，其他工作应尽量提前计划和生成，避免在安装或测试阶段才发现文档不完整、脚本缺失或资源错误。技能生成器的目标是一次性生成一个完整、可靠、符合约定的技能目录，能直接被 PiFlow 识别和使用。
+
 生成能被 PiFlow 理解的技能目录。所有文本文件必须以 UTF-8 读写，尤其是中文内容；Python 读写文件时显式使用 `encoding="utf-8"`，JSON/YAML 输出使用 `ensure_ascii=False`。
 
 按库内技能的粒度控制内容：`SKILL.md` 只放触发、流程和必要契约；可执行逻辑放 `scripts/`；较长规则、字段说明和领域资料放 `references/`；模板、图标、示例素材放 `assets/`。
@@ -53,6 +55,10 @@ output_params:
 生成正文时优先参照 `references/piflow_skill_template.md`。当 spec 中提供 `core_features`、`trigger_conditions`、`processing_logic`、`supported_formats`、`output_structure`、`output_examples` 等字段时，将它们填入模板对应章节。
 
 本技能必须能在没有其他技能辅助的环境中独立生成可靠技能：只依赖当前技能目录内的 `SKILL.md`、`references/piflow_skill_template.md`、`scripts/generate_piflow_skill.py` 和 `scripts/validate_piflow_skill.py`。生成时不要假设另一个 skill 会补全文档、脚本或元数据。
+
+在涉及安装、环境准备或可执行脚本验证时，优先完成最小必要依赖，再运行一个简单冒烟测试确认关键入口可执行、基础参数可解析、输出路径可写。若安装或测试失败，允许自动重试，单个阶段最多重试 5 次；若 5 次后仍失败，停止流程并把失败原因、失败步骤和最后一次错误返回给用户。
+
+安装依赖或配置前置环境时，若不明确安装的流程或操作，需要调用网络工具获取安装指南或官方文档，或者直接调用搜索查询安装步骤，不要假设已经知道如何安装或配置。
 
 ## 路径规则
 
@@ -153,6 +159,8 @@ interface:
 5. 生成资源目录。只有在 spec 提供或任务需要时写入脚本、引用资料和素材；若有 icon，复制为 `assets/icon.png`。
 6. 生成 `agents/openai.yaml`。当 spec 设置 `agents_openai: true` 或提供 `agents_openai` 对象时生成，并保证 UI 文案来自技能本身。
 7. 校验并迭代。运行 `validate_piflow_skill.py`，检查 UTF-8、YAML、参数契约、目录名、资源布局和 UI metadata。
+8. 安装后冒烟测试。若该技能需要额外依赖或运行时环境，在环境配置完成后先执行一个最小可运行示例或健康检查脚本，确认关键入口能正常启动并完成一次基础输入输出。
+9. 失败重试与兜底。安装与冒烟测试过程中若失败，先重试再继续；单阶段最多 5 次。若 5 次都失败，停止自动化流程并向用户反馈错误摘要、失败步骤与建议的下一步排查方向。
 
 ## Spec 字段
 
@@ -257,3 +265,5 @@ python scripts/validate_piflow_skill.py skills/<skill-name>
 - 可执行脚本已明确生成、复制或有意省略。
 - 若生成 `agents/openai.yaml`，其中 `default_prompt` 包含 `$skill-name`。
 - 技能通过 `validate_piflow_skill.py`。
+- 需要运行时依赖的技能，在环境就绪后已完成一次轻量冒烟测试。
+- 安装或测试失败时已进行重试；若达到 5 次仍失败，则已向用户反馈明确错误。
