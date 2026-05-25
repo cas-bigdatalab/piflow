@@ -1,7 +1,7 @@
 ---
 name: piflow-skill-generator
 description: |
-  PiFlow 技能生成器。根据当前 workspace/skills 的本地约定和 references/piflow_skill_template.md 通用模板创建、更新或校验 PiFlow-compatible skill，包括 UTF-8 编码的 SKILL.md、DAG 可读的 input_params/output_params、version/category/tag 元数据、skill.json、scripts/references/assets 资源目录、可选 agents/openai.yaml，以及本地校验脚本。用户提到创建技能、生成 skill、封装算子、补齐技能元数据、按模板生成技能、实现技能闭包或校验技能格式时使用此 skill。
+  PiFlow 技能生成器。根据当前 workspace/skills 的本地约定和 references/piflow_skill_template.md 通用模板创建、更新或校验 PiFlow-compatible skill，包括 UTF-8 编码的 SKILL.md、DAG 可读的 input_params/output_params、version/category/tag 元数据、skill.json、scripts/references/assets 资源目录、可选 agents/openai.yaml，以及本地校验脚本。仅在用户明确要求生成或保存 skill，或某次数据处理任务已经完成并需要把已验证成功的操作流程沉淀为 skill 时使用；默认不要因为“可能需要 skill”或“当前能力不足”而优先触发此 skill。
 name_zh: PiFlow 技能生成器
 version: 1.1.1
 category: skill_generation
@@ -46,7 +46,7 @@ output_params:
 
 ## 核心规则
 
-除去对运行/测试时的产物进行分析，其他工作应尽量提前计划和生成，避免在安装或测试阶段才发现文档不完整、脚本缺失或资源错误。技能生成器的目标是一次性生成一个完整、可靠、符合约定的技能目录，能直接被 PiFlow 识别和使用。
+除去对运行/测试时的产物进行分析，其他工作应尽量提前计划和生成，避免在安装或测试阶段才发现文档不完整、脚本缺失或资源错误。技能生成器的目标是一次性生成一个完整、可靠、符合约定的技能目录，能直接被 PiFlow 识别和使用，但它不是默认优先入口。
 
 生成能被 PiFlow 理解的技能目录。所有文本文件必须以 UTF-8 读写，尤其是中文内容；Python 读写文件时显式使用 `encoding="utf-8"`，JSON/YAML 输出使用 `ensure_ascii=False`。
 
@@ -54,7 +54,9 @@ output_params:
 
 生成正文时优先参照 `references/piflow_skill_template.md`。当 spec 中提供 `core_features`、`trigger_conditions`、`processing_logic`、`supported_formats`、`output_structure`、`output_examples` 等字段时，将它们填入模板对应章节。
 
-本技能必须能在没有其他技能辅助的环境中独立生成可靠技能：只依赖当前技能目录内的 `SKILL.md`、`references/piflow_skill_template.md`、`scripts/generate_piflow_skill.py` 和 `scripts/validate_piflow_skill.py`。生成时不要假设另一个 skill 会补全文档、脚本或元数据。
+本技能必须能在没有其他技能辅助的环境中独立生成可靠技能：只依赖当前技能目录内的 `SKILL.md`、`references/piflow_skill_template.md`、`scripts/generate_piflow_skill.py` 和 `scripts/validate_piflow_skill.py`。生成时不要假设另一个 skill 会补全文档、脚本或元数据，也不要把“当前能力不足”作为优先切换到本技能的理由；应先完成当前数据处理任务，再决定是否沉淀为 skill。
+
+本技能的触发优先级应降低到“任务完成后的沉淀动作”或“用户手动指定动作”。如果当前任务本质是数据清洗、转换、分析、抽取、校验、聚合、导入导出或其他处理流程，应先直接完成任务本身；只有当流程已经跑通、结果已验证，且用户明确要求生成 skill，或系统在任务完成后询问用户是否要把本次成功流程保存为 skill 时，才进入技能生成阶段。
 
 在涉及安装、环境准备或可执行脚本验证时，优先完成最小必要依赖，再运行一个简单冒烟测试确认关键入口可执行、基础参数可解析、输出路径可写。若安装或测试失败，允许自动重试，单个阶段最多重试 5 次；若 5 次后仍失败，停止流程并把失败原因、失败步骤和最后一次错误返回给用户。
 
@@ -129,7 +131,7 @@ skill-name/
 
 ### agents/openai.yaml
 
-当需要技能列表、快捷入口或 UI chip 时生成。字符串必须加引号，`default_prompt` 必须明确包含 `$skill-name`。
+当需要技能列表、快捷入口或 UI chip 时生成。字符串必须加引号，`default_prompt` 必须明确包含 `$skill-name`，并体现“仅在手动指定或任务完成后沉淀”为前提。
 
 ```yaml
 interface:
@@ -152,15 +154,17 @@ interface:
 
 ## 生成流程
 
-1. 明确具体用例。优先收集用户会怎样调用技能、输入输出文件长什么样、是否需要脚本、是否有字段规则或外部依赖。
-2. 规划资源分层。重复且要求稳定的逻辑进入 `scripts/`；长规则进入 `references/`；图标和模板进入 `assets/`。
-3. 规范命名。已有业务技能名可保留大小写和下划线，例如 `QC3_NumericDataThresholdCheck`、`Pi_DataSorting`；新通用技能优先使用 lowercase `snake_case` 或 `hyphen-case`；目录名必须等于 `name`。
-4. 生成 `SKILL.md`。正文按 `references/piflow_skill_template.md` 的章节顺序组织：功能说明、触发条件、核心功能、处理逻辑、支持的文件格式、使用方法、参数说明、输出参数、示例、输出格式/输出结构、依赖、注意事项。
-5. 生成资源目录。只有在 spec 提供或任务需要时写入脚本、引用资料和素材；若有 icon，复制为 `assets/icon.png`。
-6. 生成 `agents/openai.yaml`。当 spec 设置 `agents_openai: true` 或提供 `agents_openai` 对象时生成，并保证 UI 文案来自技能本身。
-7. 校验并迭代。运行 `validate_piflow_skill.py`，检查 UTF-8、YAML、参数契约、目录名、资源布局和 UI metadata。
-8. 安装后冒烟测试。若该技能需要额外依赖或运行时环境，在环境配置完成后先执行一个最小可运行示例或健康检查脚本，确认关键入口能正常启动并完成一次基础输入输出。
-9. 失败重试与兜底。安装与冒烟测试过程中若失败，先重试再继续；单阶段最多 5 次。若 5 次都失败，停止自动化流程并向用户反馈错误摘要、失败步骤与建议的下一步排查方向。
+1. 先判断是否应该触发本技能。若用户只是要完成当前数据处理、分析或转换任务，则先完成任务本身，不要提前进入 skill 生成。只有在用户手动指定生成或保存 skill，或任务已完成且流程经过验证后，才进入后续步骤。
+2. 明确具体用例。优先收集用户会怎样调用技能、输入输出文件长什么样、是否需要脚本、是否有字段规则或外部依赖。
+3. 规划资源分层。重复且要求稳定的逻辑进入 `scripts/`；长规则进入 `references/`；图标和模板进入 `assets/`。
+4. 规范命名。已有业务技能名可保留大小写和下划线，例如 `QC3_NumericDataThresholdCheck`、`Pi_DataSorting`；新通用技能优先使用 lowercase `snake_case` 或 `hyphen-case`；目录名必须等于 `name`。
+5. 生成 `SKILL.md`。正文按 `references/piflow_skill_template.md` 的章节顺序组织：功能说明、触发条件、核心功能、处理逻辑、支持的文件格式、使用方法、参数说明、输出参数、示例、输出格式/输出结构、依赖、注意事项。
+6. 生成资源目录。只有在 spec 提供或任务需要时写入脚本、引用资料和素材；若有 icon，复制为 `assets/icon.png`。
+7. 生成 `agents/openai.yaml`。当 spec 设置 `agents_openai: true` 或提供 `agents_openai` 对象时生成，并保证 UI 文案来自技能本身，且不把本技能写成默认优先入口。
+8. 校验并迭代。运行 `validate_piflow_skill.py`，检查 UTF-8、YAML、参数契约、目录名、资源布局和 UI metadata。
+9. 安装后冒烟测试。若该技能需要额外依赖或运行时环境，在环境配置完成后先执行一个最小可运行示例或健康检查脚本，确认关键入口能正常启动并完成一次基础输入输出。
+10. 任务完成后再决定是否沉淀。若这次 skill 来自一次真实的数据处理流程，应该在流程成功、结果可信后，再向用户确认是否将该流程保存为 skill；不要在流程未完成前抢先生成。
+11. 失败重试与兜底。安装与冒烟测试过程中若失败，先重试再继续；单阶段最多 5 次。若 5 次都失败，停止自动化流程并向用户反馈错误摘要、失败步骤与建议的下一步排查方向。
 
 ## Spec 字段
 
@@ -168,9 +172,9 @@ interface:
 
 - `name`：必填，技能目录名和 frontmatter 名称。
 - `title`：可选，正文标题和 UI 显示名的候选值。
-- `description`：必填，技能能力说明。
+- `description`：必填，技能能力说明。仅在用户明确要求生成/保存 skill，或任务完成后需要沉淀成功流程时描述 skill 生成能力；不要把宽泛的数据处理诉求直接写成触发词。
 - `version`：可选，默认 `1.0.0`。
-- `triggers`：可选，触发短语列表，会并入 frontmatter description。
+- `triggers`：可选，触发短语列表，会并入 frontmatter description。触发短语应收敛为“生成 skill”“保存为 skill”“把这次流程沉淀成 skill”等手动或收尾场景，不要把“数据清洗”“数据分析”“处理文件”等本应先直接执行的任务写成优先触发短语。
 - `category`：可选，写入 frontmatter、`metadata.category` 和 `skill.json`。
 - `tag`：可选，写入 frontmatter 和 `skill.json`，用于 DAG 技能类型。
 - `language`：可选，写入 `skill.json`，默认按脚本推断为 `python`。
@@ -267,3 +271,4 @@ python scripts/validate_piflow_skill.py skills/<skill-name>
 - 技能通过 `validate_piflow_skill.py`。
 - 需要运行时依赖的技能，在环境就绪后已完成一次轻量冒烟测试。
 - 安装或测试失败时已进行重试；若达到 5 次仍失败，则已向用户反馈明确错误。
+- 触发表达已经改写为“仅手动指定或任务完成后沉淀”语义，没有把本技能写成默认优先入口。

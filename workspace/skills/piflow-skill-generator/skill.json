@@ -1,7 +1,7 @@
 {
   "name": "piflow-skill-generator",
   "version": "1.1.0",
-  "description": "PiFlow 技能生成器。根据当前 workspace/skills 的本地约定和通用模板创建、更新或校验 PiFlow-compatible skill。",
+  "description": "PiFlow 技能生成器。仅在用户明确要求生成或保存 skill，或任务完成后需要把已验证成功的流程沉淀为 PiFlow-compatible skill 时使用。",
   "language": "python",
   "script_path": "scripts/generate_piflow_skill.py",
   "entrypoint": "python scripts/generate_piflow_skill.py",
