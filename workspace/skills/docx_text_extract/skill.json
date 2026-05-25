@@ -10,13 +10,20 @@
       "name": "input_path",
       "role": "input_data",
       "type": "docx_file",
-      "required": false,
+      "required": true,
+      "description": "输入DOCX文件路径"
+    },
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "docx_file",
+      "required": true,
       "description": "输入DOCX文件路径"
     }
   ],
   "output_params": [
     {
-      "name": "output",
+      "name": "output_path",
       "role": "output_data",
       "type": "text_file",
       "default": "docx_text_extract_output.txt",
@@ -27,6 +34,8 @@
     "python",
     "{script_path}",
     "--input_path",
-    "{input_path}"
+    "{input_path}",
+    "--output_path",
+    "{output_path}"
   ]
 }

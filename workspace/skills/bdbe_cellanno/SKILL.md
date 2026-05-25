@@ -27,9 +27,6 @@ output_params:
     type: json_file
     description: 细胞类型注释结果JSON，包含每个细胞的类型标签及分布统计
 
-  - name: result_file
-    type: csv_file
-    description: 下载的细胞类型注释结果CSV文件
 tag: 其他
 
 ---

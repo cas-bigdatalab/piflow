@@ -18,7 +18,7 @@ input_params:
     description: 输出文件路径（清理后的文件）
 
 output_params:
-  - name: output
+  - name: output_path
     type: csv_file
     description: 清理空格后的结构化数据文件
 tag: 清洗
