@@ -7,6 +7,7 @@ from security.auth_dependency import (
 from services.dag_panel_service import get_user_dag_tasks, save_dag_panel, get_panel_dag_json, \
     get_skill_info_by_id, get_dag_skills_by_condition, create_dag_task, update_dag_task, remove_dag_task, \
     get_dag_json_by_message_id
+from runtime.dag_manager import get_skill_type_counts
 
 router = APIRouter()
 
@@ -240,4 +241,20 @@ async def get_json_by_message_id(
             "message": str(e),
             "result": None,
             "code": 500,
+        }
+
+
+@router.get("/dag/skill/getSkillTypeCounts")
+async def get_skill_type_counts_api():
+    try:
+        data = get_skill_type_counts()
+        return {
+            "code": 200,
+            "data": data,
+            "total": len(data),
+        }
+    except Exception as e:
+        return {
+            "code": 500,
+            "message": str(e),
         }
