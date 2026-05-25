@@ -23,7 +23,7 @@ input_params:
     description: 输出目录，默认在上传文件所在目录
 
 output_params:
-  - name: gender_result
+  - name: output_dir
     type: csv_file
     description: 性别判定结果CSV文件，包含每个样本的性别标签
 tag: 其他

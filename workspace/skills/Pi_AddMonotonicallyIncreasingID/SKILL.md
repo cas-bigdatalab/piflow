@@ -25,7 +25,7 @@ input_params:
     description: ID字段名
 
 output_params:
-  - name: output
+  - name: output_path
     type: csv_file
     description: 添加了单调递增ID的结构化数据文件
 tag: 增强

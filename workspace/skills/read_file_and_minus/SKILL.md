@@ -15,7 +15,7 @@ input_params:
     description: 输出文件路径
 
 output_params:
-  - name: output
+  - name: output_file
     type: csv_file
     description: 处理后的文本文件
 tag: 流程控制

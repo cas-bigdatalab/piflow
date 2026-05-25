@@ -22,7 +22,7 @@ input_params:
     description: 可选，导出批次元数据到JSONL文件
 
 output_params:
-  - name: output
+  - name: output_path
     type: json_file
     description: 拆分后的JSON文件，每个数组元素展开为独立样本
 tag: 增强

@@ -28,7 +28,7 @@ input_params:
     description: 替换字符串（默认为空，即删除）
 
 output_params:
-  - name: output
+  - name: output_path
     type: json_file
     description: 清理邮件后的JSON文件
 tag: 标准化

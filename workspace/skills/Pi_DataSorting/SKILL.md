@@ -29,7 +29,7 @@ input_params:
     description: 排序方式（asc升序/desc降序）
 
 output_params:
-  - name: output
+  - name: output_path
     type: csv_file
     description: 排序后的结构化数据文件
 tag: 增强
