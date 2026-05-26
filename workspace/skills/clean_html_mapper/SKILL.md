@@ -17,7 +17,7 @@ input_params:
     description: 输出JSON文件路径
 
 output_params:
-  - name: output
+  - name: output_path
     type: json_file
     description: 清理HTML后的JSON文件
 tag: 标准化

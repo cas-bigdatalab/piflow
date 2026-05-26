@@ -45,11 +45,11 @@ input_params:
     description: 质控标识字段名
 
 output_params:
-  - name: origin_output
+  - name: origin_output_path
     type: csv_file
     description: 处理后原始数据文件，带质控标识
 
-  - name: error_output
+  - name: error_output_path
     type: csv_file
     description: 异常数据文件，包含缺失/多余时间点记录
 tag: 校验

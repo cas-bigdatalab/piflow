@@ -27,7 +27,7 @@ input_params:
     description: 页码范围，如"1-3,5"（可选，默认全部页面）
 
 output_params:
-  - name: output
+  - name: output_path
     type: pdf_file
     description: 旋转后的PDF文件
 tag: 输入

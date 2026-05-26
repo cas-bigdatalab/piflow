@@ -16,7 +16,7 @@ input_params:
     description: 是否合并相邻的文本运行
     default: true
 output_params:
-  - name: output
+  - name: output_dir
     type: directory
     description: 解压后的XML目录
 tag: 输入

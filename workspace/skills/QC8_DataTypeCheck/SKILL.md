@@ -35,7 +35,7 @@ input_params:
     description: 质控标识字段名
 
 output_params:
-  - name: output
+  - name: output_path
     type: csv_file
     description: 数据类型检查后的结构化数据文件，带质控标识
 tag: 校验

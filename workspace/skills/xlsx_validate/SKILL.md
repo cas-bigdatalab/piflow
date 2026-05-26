@@ -8,8 +8,11 @@ input_params:
   - name: input_path
     type: xlsx_file
     description: 输入XLSX文件路径
+  - name: output_path
+    type: xlsx_file
+    description: 输出XLSX文件路径
 output_params:
-  - name: output
+  - name: output_path
     type: json_file
     description: 验证结果JSON文件
 tag: 校验

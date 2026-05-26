@@ -19,7 +19,7 @@ input_params:
     description: 是否启用自动修复
     default: true
 output_params:
-  - name: output
+  - name: output_path
     type: docx_file
     description: 打包后的DOCX文件
 tag: 输入
