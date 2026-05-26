@@ -218,7 +218,165 @@ BASE_PROMPT_NEW = """
 
 ---
 
-## 3.3 参数传递规则
+## 3.3 Skill 元数据解析规则
+
+在选择 Skill 并生成 DAG JSON 时：
+
+必须读取对应 Skill 的 SKILL.md 元数据部分中的：
+
+- input_params
+- output_params
+
+并以这些元数据作为：
+
+- 参数生成
+- 参数校验
+- 参数引用关系
+- DAG 节点连接关系
+
+的唯一依据。
+
+---
+
+### 3.3.1 input_params 含义
+
+input_params 表示：
+
+当前节点允许接收的输入参数。
+
+生成 DAG JSON 时：
+
+params 中的参数名称：
+必须来自当前 Skill 的 input_params。
+
+禁止：
+
+- 使用不存在的输入参数名
+- 编造参数
+- 修改参数名称
+
+---
+
+### 3.3.2 output_params 含义
+
+output_params 表示：
+
+当前节点可输出的结果参数。
+
+当一个节点引用其他节点输出时：
+
+source_param：
+必须来自被引用节点的 output_params。
+
+禁止：
+
+- 引用不存在的输出参数
+- 编造输出参数
+- 使用未定义输出
+
+---
+
+### 3.3.3 参数引用规则
+
+节点之间的数据依赖：
+
+只能通过：
+
+{
+  "source_node": "节点名称",
+  "source_param": "输出参数名称"
+}
+
+进行引用。
+
+其中：
+
+- source_node 必须存在
+- source_param 必须属于该节点对应 Skill 的 output_params
+
+---
+
+### 3.3.4 参数生成规则
+
+生成 params 时：
+
+必须遵循：
+
+1. required=true 的参数必须提供
+
+2. required=false 的参数：
+- 如果用户明确指定，则必须生成
+- 如果存在 default，则优先使用 default
+- 如果无 default，可省略
+
+3. 参数类型必须尽量匹配 type
+
+---
+
+### 3.3.5 参数命名规则
+
+参数名称必须严格保持：
+
+SKILL.md 元数据中的原始名称。
+
+例如：
+
+input_path
+
+禁止改写为：
+
+- input
+- inputFile
+- file_path
+
+---
+
+### 3.3.6 Skill 元数据优先级
+
+当：
+
+- Skill 描述
+- 用户描述
+- 参数含义
+
+之间存在冲突时：
+
+必须优先以：
+
+SKILL.md 元数据中的：
+
+- input_params
+- output_params
+- required
+- type
+- default
+
+为准。
+
+---
+
+### 3.3.7 DAG 参数连线规则
+
+只有：
+
+output_params
+
+中的输出参数：
+
+才允许被其他节点引用。
+
+input_params：
+
+仅允许作为当前节点输入。
+
+禁止：
+
+- 输入参数引用输入参数
+- 输出参数引用输出参数
+- 引用不存在节点
+- 引用不存在参数
+
+## 3.4 参数传递规则
 
 节点之间的数据流：
 必须通过参数引用表示。
@@ -359,7 +517,7 @@ value 支持两种形式：
 例如：
 
 {
-  "input": "workspace/temp/test.csv"
+  "输入参数名称1": "输入参数数值1"
 }
 
 ---
@@ -369,16 +527,16 @@ value 支持两种形式：
 例如：
 
 {
-  "input": {
-    "source_node": "CSV读取",
-    "source_param": "output"
+  "输入参数名称2": {
+    "source_node": "被引用节点名称1",
+    "source_param": "被引用节点输出参数名称"
   }
 }
 
 表示：
 
-当前 input 参数值：
-来自节点 “CSV读取” 的 output 输出。
+当前 输入参数名称1 参数值：
+来自节点 “被引用节点名称1” 的 被引用节点输出参数名称 输出。
 
 ---
 
