@@ -1,4 +1,4 @@
-import React, { useCallback, useState, useRef, memo, useEffect, useMemo } from 'react';
+﻿import React, { useCallback, useState, useRef, memo, useEffect, useMemo } from 'react';
 import { shortId } from '../lib/ids';
 import { saveDrawInfo, getAllSkills, listSkillsDetails, getDrawTaskContent, apiBase } from "../lib/api";
 
@@ -225,6 +225,13 @@ const CustomNode: React.FC<NodeProps<NodeData>> = ({ id, data, selected }) => {
             {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
           </button>
         <div className="node-header-left">
+          <div className="node-icon-wrapper-small">
+            <img
+              src={resolveIconUrl(data.icon)}
+              alt={data.label}
+              className="node-icon-small"
+            />
+          </div>
           <span
             className="node-title-text"
             onClick={(e) => { e.stopPropagation(); data.onSelect?.(id); }}
@@ -428,10 +435,9 @@ const CustomEdge: React.FC<EdgeProps<CustomEdgeType>> = ({
       {/* 贝塞尔曲线 */}
       <path
         d={edgePath}
-        stroke={isHovered ? '#1890ff' : '#b8b8b8'}
+        stroke="#94A3B8"
         strokeWidth={2}
         fill="none"
-        style={{ transition: 'stroke 0.2s' }}
       />
 
       {/* 箭头 */}
@@ -446,8 +452,7 @@ const CustomEdge: React.FC<EdgeProps<CustomEdgeType>> = ({
         >
           <polygon
             points="0 0, 8 4, 0 8"
-            fill={isHovered ? '#1890ff' : '#b8b8b8'}
-            style={{ transition: 'fill 0.2s' }}
+            fill="#94A3B8"
           />
         </marker>
       </defs>
@@ -859,13 +864,14 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
   const [saveMessage, setSaveMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);  // 添加：加载状态
   const [operatorList, setOperatorList] = useState(operatorCategories);
-  const [referenceOptions, setReferenceOptions] = useState<{ name: string; type: string; description: string }[]>([]);  // 来源下拉选项
+  const [referenceOptions, setReferenceOptions] = useState<{ name: string; type: string; description: string; nodeId: string; nodeName: string }[]>([]);  // 来源下拉选项
   const [isLoadingReferences, setIsLoadingReferences] = useState(false);   // 加载来源状态
   const [taskId, setTaskId] = useState<string>('');
   const [isEditingNodeName, setIsEditingNodeName] = useState(false);
   const [editingNodeName, setEditingNodeName] = useState('');
   const [isDescExpanded, setIsDescExpanded] = useState(false);
   const [showOperatorModal, setShowOperatorModal] = useState(false);  // 任务ID，保存后获取
+  const [taskDescription, setTaskDescription] = useState<string>('');  // 任务描述
   const isInitialized = useRef(false);
   const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
   const isFirstRender = useRef(true);
@@ -935,6 +941,7 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
             // Get skill details - use skill_id
             let inputParams = undefined;
             let outputParams = undefined;
+            let skillIconPath = '';
             const skillId = n.skill?.skill_id || n.skill_id;
             
             if (skillId) {
@@ -944,6 +951,7 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
                 if (skillRes.result) {
                   inputParams = skillRes.result.input_params;
                   outputParams = skillRes.result.output_params;
+                  skillIconPath = skillRes.result.icon_path || '';
                 }
               } catch(e) { console.error('获取算子详情失败:', e); }
             }
@@ -959,11 +967,12 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
                 ...inputParams,
                 params: inputParams.params.map((tp: any) => {
                   const saved = savedParamsMap[tp.name];
+                  const isReference = saved?.value_mode === 'reference';
                   return {
                     ...tp,
-                    _refType: saved?.value_mode === 'reference' ? 'reference' : 'manual',
-                    _value: saved?.param_value || tp.param_value || '',
-                    _refValue: saved?.binding_id || '',
+                    _refType: isReference ? 'reference' : 'manual',
+                    _value: isReference ? '' : (saved?.param_value || tp.param_value || ''),
+                    _refValue: isReference ? (saved?.param_value || '') : '',
                   };
                 }),
               };
@@ -977,7 +986,7 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
               position: n.position || { x: START_X + (NODE_WIDTH + NODE_GAP) * i, y: START_Y },
               data: {
                 label: n.node_name || n.skill?.skill_name || '未命名节点',
-                icon: skillId || '',
+                icon: n.icon_path || skillIconPath || '',
                 operatorId: skillId || '',
                 description: '',
                 params: {},
@@ -1014,6 +1023,12 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
           nodeIdCounter.current = loadedNodes.length;
           setNodes(loadedNodes);
           setEdges(loadedEdges);
+          
+          // 获取任务描述
+          if (dsl.task && dsl.task.description) {
+            setTaskDescription(dsl.task.description);
+          }
+          
           isInitialized.current = true;
           setTimeout(() => { fitView({ padding: 0.2 }); }, 200);
         }
@@ -1275,12 +1290,12 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
     [setEdges, edgeType]
   );
 
-  // 获取引用类型的数据源列表（根据上游节点的算子ID请求算子详情接口）
+  // 获取引用类型的数据源列表（直接从上游节点的 output_params 获取）
   const fetchReferenceOptions = useCallback(async (currentNodeId: string) => {
     setIsLoadingReferences(true);
     setReferenceOptions([]);
 
-    // 找到指向当前节点的所有上游节点（通过 edges 的 target 找 source）
+    // 找到指向当前节点的所有上游节点（通过 edges 的 target 和 source）
     const upstreamNodeIds = edges
       .filter((e) => e.target === currentNodeId)
       .map((e) => e.source);
@@ -1290,35 +1305,27 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
       return;
     }
 
-    // 获取所有上游节点的算子ID
+    // 直接从上游节点的 output_params 获取出参
     const upstreamNodes = nodes.filter((n) => upstreamNodeIds.includes(n.id));
-    const operatorIds = upstreamNodes.map((n) => n.data.operatorId);
+    const allOutputParams: { name: string; type: string; description: string; nodeId: string; nodeName: string }[] = [];
+    
+    upstreamNodes.forEach((upstreamNode) => {
+      if (upstreamNode.data.output_params?.params) {
+        upstreamNode.data.output_params.params.forEach((param: any) => {
+          allOutputParams.push({
+            name: param.name || param.param_name || '',
+            type: param.type || param.param_type || 'string',
+            description: param.description || '',
+            nodeId: upstreamNode.id,
+            nodeName: upstreamNode.data.label || '',
+          });
+        });
+      }
+    });
 
-    // 去重
-    const uniqueOperatorIds = [...new Set(operatorIds)];
-
-    // 并行请求所有上游算子的详情
-    try {
-      const results = await Promise.all(
-        uniqueOperatorIds.map((opId) => listSkillsDetails(opId))
-      );
-
-      // 提取所有出参
-      const allOutputParams: { name: string; type: string; description: string }[] = [];
-      results.forEach((resSkillsDetails) => {
-        if (resSkillsDetails.result?.output_params?.params) {
-          allOutputParams.push(...resSkillsDetails.result.output_params.params);
-        }
-      });
-
-      setReferenceOptions(allOutputParams);
-      console.log('引用变量选项:', allOutputParams);
-    } catch (error) {
-      console.error('获取算子详情失败:', error);
-      setReferenceOptions([]);
-    } finally {
-      setIsLoadingReferences(false);
-    }
+    setReferenceOptions(allOutputParams);
+    console.log('引用变量选项:', allOutputParams);
+    setIsLoadingReferences(false);
   }, [edges, nodes]);
 
   // 当选中节点时，获取上游节点的出参数据（用于来源下拉）
@@ -1351,11 +1358,13 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
       // 请求算子详情获取 input_params 和 output_params
       let inputParams = undefined;
       let outputParams = undefined;
+      let operatorIconPath = operator.icon_path;
       try {
         const res = await listSkillsDetails(operator.skill_id);
         if (res.result) {
           inputParams = res.result.input_params;
           outputParams = res.result.output_params;
+          operatorIconPath = res.result.icon_path || operatorIconPath;
         }
       } catch (error) {
         console.error('获取算子详情失败:', error);
@@ -1369,7 +1378,7 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
         },
         data: {
           label: uniqueLabel,
-          icon: operator.icon_path,
+          icon: operatorIconPath,
           operatorId: operator.skill_id,
           description: operator.description || getOperatorDescription(operator.skill_id),
           params: getDefaultParams(operator.skill_id),
@@ -1506,6 +1515,7 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
               node_id: n.id,
               node_name: n.data.label,
               node_type: 'default',
+              icon_path: n.data.icon || '',
               skill: {
                 skill_id: n.data.operatorId,
                 version: '1.0',
@@ -1526,7 +1536,7 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
                     value_mode: isRef ? 'reference' : 'manual',
                     param_type: p.type || '',
                     value_source: 'default',
-                    param_value: isRef ? '' : (p._value || p.param_value || ''),
+                    param_value: isRef ? (p._refValue || '') : (p._value || p.param_value || ''),
                     binding_id: isRef ? crypto.randomUUID() : '',
                   };
                 });
@@ -1686,7 +1696,7 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
       <div className="flow-header">
         <div className="header-left">
           <h2>{taskName}</h2>
-          <span className="header-desc">任务ID: {taskIdProp}</span>
+          <span className="header-desc">{taskDescription}</span>
         </div>
         <div className="header-right">
           <span className="auto-save-status">
@@ -1793,6 +1803,14 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
             <div className="config-panel">
               <div className="config-panel-header">
                 <h3>参数配置</h3>
+                {/* <div className="config-panel-task-info">
+                  <div className="config-task-name">
+                    <span className="config-task-value">{taskName}</span>
+                  </div>
+                  <div className="config-task-desc">
+                    <span className="config-task-value">{taskDescription}</span>
+                  </div>
+                </div> */}
                 <button className="config-panel-close" onClick={closeConfigPanel}>
                   <X size={20} />
                 </button>
@@ -1800,15 +1818,8 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
               {(() => {
                 return (
               <div className="config-panel-body">
-                {/* 节点名称 + 图标 + 编辑按钮 */}
+                {/* 节点名称 + 编辑按钮 */}
                 <div className="config-node-header">
-                  <div className="config-node-icon">
-                    <img
-                      src={resolveIconUrl(selectedNode.data.icon)}
-                      alt={selectedNode.data.label}
-                      style={{ width: '32px', height: '32px', objectFit: 'contain' }}
-                    />
-                  </div>
                   <div className="config-node-info">
                     {isEditingNodeName ? (
                       <input
@@ -1896,11 +1907,14 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
                                   onChange={(e) => {
                                     const newRefType = e.target.value;
                                     const newParams = [...selectedNode.data.input_params.params];
+                                    // 只有当从引用类型改为其他类型时才清空引用值
+                                    // 如果是改为引用类型，保留原有的引用值
+                                    const isChangingToReference = newRefType === 'reference' && param._refType !== 'reference';
                                     newParams[index] = {
                                       ...newParams[index],
                                       _refType: newRefType,
-                                      _value: '',
-                                      _refValue: ''
+                                      _value: newRefType === 'reference' ? '' : (param._value || param.param_value || ''),
+                                      _refValue: isChangingToReference ? (referenceOptions.length > 0 ? referenceOptions[0].name : '') : (newRefType === 'reference' ? param._refValue || '' : '')
                                     };
 
                                     // 如果选择引用，但 referenceOptions 为空，提示用户
@@ -1942,8 +1956,23 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
                                       className="config-param-select ref-select"
                                       value={param._refValue || ''}
                                     onChange={(e) => {
+                                      const selectedOpt = referenceOptions.find(opt => opt.name === e.target.value);
+                                      const refValue = e.target.value;
                                       const newParams = [...selectedNode.data.input_params.params];
-                                      newParams[index] = { ...newParams[index], _refValue: e.target.value };
+                                      newParams[index] = { 
+                                        ...newParams[index], 
+                                        _refValue: refValue,
+                                        _sourceNodeId: selectedOpt?.nodeId || '',
+                                        _sourceNodeName: selectedOpt?.nodeName || '',
+                                        _sourceParamName: selectedOpt?.name || '',
+                                      };
+                                      console.log('选择引用值:', {
+                                        paramName: newParams[index].name,
+                                        _refValue: refValue,
+                                        _sourceNodeId: selectedOpt?.nodeId,
+                                        _sourceNodeName: selectedOpt?.nodeName,
+                                        _sourceParamName: selectedOpt?.name,
+                                      });
                                       setNodes((nds) =>
                                         nds.map((n) => {
                                           if (n.id === selectedNodeId) {
@@ -1961,7 +1990,7 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
                                     }}
                                   >
                                     {referenceOptions.map((opt) => (
-                                      <option key={opt.name} value={opt.name}>
+                                      <option key={`${opt.nodeId}_${opt.name}`} value={opt.name}>
                                         {opt.name}
                                       </option>
                                     ))}
