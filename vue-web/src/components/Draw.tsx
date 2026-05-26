@@ -1025,8 +1025,20 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
       // 优先使用已保存的画板数据
       if (savedDrawData && savedDrawData.nodes && savedDrawData.nodes.length > 0) {
         console.log('使用已保存的画板数据:', savedDrawData);
+        console.log('会话JSON数据:', initialPipelineData);
         const loadedNodes: Node<NodeData>[] = [];
         const loadedEdges: Edge[] = [];
+
+        // 构建会话JSON中的节点参数映射（用于合并）
+        const pipelineParamsMap: Record<string, Record<string, any>> = {};
+        if (initialPipelineData && initialPipelineData.nodes) {
+          initialPipelineData.nodes.forEach(pNode => {
+            if (pNode.node_name && pNode.params) {
+              pipelineParamsMap[pNode.node_name] = pNode.params;
+            }
+          });
+        }
+        console.log('会话JSON参数映射:', pipelineParamsMap);
 
         for (let i = 0; i < savedDrawData.nodes.length; i++) {
           const n = savedDrawData.nodes[i];
@@ -1048,24 +1060,115 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
             } catch(e) { console.error(e); }
           }
 
-          // 合并已保存的参数据
+          // 获取该节点的会话JSON参数（用于合并）
+          const nodeName = n.node_name || '未命名节点';
+          const pipelineParams = pipelineParamsMap[nodeName] || {};
+          console.log(`节点 ${nodeName} 的会话JSON参数:`, pipelineParams);
+
+          // 合并已保存的参数据和会话JSON参数
           let mergedInputParams = inputParams;
-          if (inputParams?.params && n.input_params && Array.isArray(n.input_params)) {
+          if (inputParams?.params && Array.isArray(inputParams.params)) {
+            // 构建已保存参数映射
             const savedParamsMap: Record<string, any> = {};
-            n.input_params.forEach((sp: any) => { savedParamsMap[sp.param_name] = sp; });
+            if (n.input_params && Array.isArray(n.input_params)) {
+              n.input_params.forEach((sp: any) => { savedParamsMap[sp.param_name] = sp; });
+            }
+            
             mergedInputParams = {
               ...inputParams,
               params: inputParams.params.map((tp: any) => {
-                const saved = savedParamsMap[tp.name];
+                const paramName = tp.name || tp.param_name;
+                
+                // 尝试匹配会话JSON中的参数（支持别名匹配）
+                let pipelineValue = undefined;
+                let matchedParamKey = undefined;
+                
+                // 参数名映射表（处理常见的参数名差异）
+                const paramNameMap: Record<string, string[]> = {
+                  'input': ['input', 'input_path', 'input_file', 'filePath'],
+                  'output': ['output', 'output_path', 'output_file'],
+                  'sort_field': ['sort_field', 'id_field_name', 'field', 'column'],
+                  'sort_order': ['sort_order', 'order', 'sort'],
+                };
+                
+                // 先尝试精确匹配
+                if (pipelineParams[paramName] !== undefined) {
+                  matchedParamKey = paramName;
+                  pipelineValue = pipelineParams[paramName];
+                } else {
+                  // 再尝试参数名映射匹配
+                  for (const [jsonParam, targets] of Object.entries(paramNameMap)) {
+                    if (pipelineParams[jsonParam] !== undefined && targets.includes(paramName)) {
+                      matchedParamKey = jsonParam;
+                      pipelineValue = pipelineParams[jsonParam];
+                      break;
+                    }
+                  }
+                  // 最后尝试模糊匹配
+                  if (!matchedParamKey) {
+                    matchedParamKey = Object.keys(pipelineParams).find(key => {
+                      if (paramName.includes(key) || key.includes(paramName)) return true;
+                      return false;
+                    });
+                    if (matchedParamKey) {
+                      pipelineValue = pipelineParams[matchedParamKey];
+                    }
+                  }
+                }
+                
+
+                
+                // 其次使用已保存的参数值
+                const saved = savedParamsMap[paramName];
+                
+                console.log(`节点 ${nodeName} 参数 ${paramName}:`, {
+                  matchedKey: matchedParamKey,
+                  pipelineValue,
+                  savedValue: saved?.param_value,
+                  defaultValue: tp.param_value,
+                });
+                
+                // 如果会话JSON中有这个参数，使用会话JSON的值
+                if (pipelineValue !== undefined) {
+                  console.log(`使用会话JSON的值: ${paramName} = ${pipelineValue} (匹配键: ${matchedParamKey})`);
+                  if (typeof pipelineValue === 'object' && pipelineValue !== null && 'source_node' in pipelineValue) {
+                    // 引用类型
+                    return {
+                      ...tp,
+                      param_value: '',
+                      _refType: 'reference',
+                      _value: '',
+                      _refValue: '',
+                      _sourceNodeName: pipelineValue.source_node,
+                      _sourceParamName: pipelineValue.source_param,
+                    };
+                  } else {
+                    // 手动类型
+                    const valueStr = String(pipelineValue);
+                    return {
+                      ...tp,
+                      param_value: valueStr,
+                      _refType: 'manual',
+                      _value: valueStr,
+                      _refValue: '',
+                    };
+                  }
+                }
+                
+                // 否则使用已保存的值
                 const isReference = saved?.value_mode === 'reference';
+                const finalValue = isReference ? '' : (saved?.param_value || tp.param_value || '');
+                console.log(`使用已保存/默认值: ${paramName} = ${finalValue}`);
                 return {
                   ...tp,
+                  param_value: isReference ? (saved?.param_value || '') : (saved?.param_value || tp.param_value || ''),
                   _refType: isReference ? 'reference' : 'manual',
-                  _value: isReference ? '' : (saved?.param_value || tp.param_value || ''),
+                  _value: finalValue,
                   _refValue: isReference ? (saved?.param_value || '') : '',
                 };
               }),
             };
+            console.log(`节点 ${nodeName} 合并后的参数:`, mergedInputParams);
           }
 
           loadedNodes.push({
