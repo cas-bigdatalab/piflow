@@ -1,6 +1,22 @@
-﻿import React, { useCallback, useState, useRef, memo, useEffect, useMemo } from 'react';
+import React, { useCallback, useState, useRef, memo, useEffect, useMemo } from 'react';
 import { shortId } from '../lib/ids';
-import { saveDrawInfo, getAllSkills, listSkillsDetails, getDrawTaskContent } from "../lib/api";
+import { saveDrawInfo, getAllSkills, listSkillsDetails, getDrawTaskContent, apiBase } from "../lib/api";
+
+const DEFAULT_SKILL_ICON = "/storage/common/common.png";
+
+function resolveIconUrl(icon?: string) {
+  const rawIcon = (icon || "").trim();
+  
+  if (!rawIcon) {
+    return apiBase() + DEFAULT_SKILL_ICON;
+  }
+  
+  if (/^(https?:|data:)/.test(rawIcon)) {
+    return rawIcon;
+  }
+  
+  return apiBase() + rawIcon;
+}
 import { useNavigate } from 'react-router-dom';
 import {
   ReactFlow,
@@ -153,7 +169,6 @@ let operatorCategories: {
 const CustomNode: React.FC<NodeProps<NodeData>> = ({ id, data, selected }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const Icon = getIcon(data.icon);
 
   const toggleExpand = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -210,9 +225,6 @@ const CustomNode: React.FC<NodeProps<NodeData>> = ({ id, data, selected }) => {
             {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
           </button>
         <div className="node-header-left">
-          <div className="node-icon-wrapper" onClick={(e) => { e.stopPropagation(); data.onSelect?.(id); }} style={{ cursor: 'pointer' }}>
-            <Icon size={18} className="node-icon" />
-          </div>
           <span
             className="node-title-text"
             onClick={(e) => { e.stopPropagation(); data.onSelect?.(id); }}
@@ -639,6 +651,7 @@ const OperatorLibraryModal: React.FC<OperatorLibraryModalProps> = ({ isOpen, onC
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(
     new Set(['input', 'process', 'output'])
   );
+  const [hoveredOperator, setHoveredOperator] = useState<{ operator: typeof operatorList[0]['DagSkillInfoList'][0]; x: number; y: number } | null>(null);
 
   if (!isOpen) return null;
 
@@ -665,6 +678,8 @@ const OperatorLibraryModal: React.FC<OperatorLibraryModalProps> = ({ isOpen, onC
 
   // 处理拖拽开始
   const handleDragStart = (e: React.DragEvent, operator: { skill_id: string; skill_name: string; name_zh: string; icon_path: string; skill_type: string; description?: string }) => {
+    // 拖拽开始时隐藏 tooltip
+    setHoveredOperator(null);
     e.dataTransfer.effectAllowed = 'copy';
     e.dataTransfer.setData('application/json', JSON.stringify(operator));
     // 设置拖拽时的自定义图标
@@ -680,6 +695,65 @@ const OperatorLibraryModal: React.FC<OperatorLibraryModalProps> = ({ isOpen, onC
     document.body.appendChild(dragImage);
     e.dataTransfer.setDragImage(dragImage, 0, 0);
     setTimeout(() => document.body.removeChild(dragImage), 0);
+  };
+
+  // 处理鼠标悬停
+  const handleMouseEnter = (e: React.MouseEvent, operator: typeof operatorList[0]['DagSkillInfoList'][0]) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const tooltipWidth = 300;
+    const tooltipHeight = 280;
+    
+    let x = rect.right + 10;
+    let y = rect.top;
+    
+    if (x + tooltipWidth > window.innerWidth) {
+      x = rect.left - tooltipWidth - 10;
+    }
+    
+    if (y + tooltipHeight > window.innerHeight) {
+      y = rect.top - tooltipHeight + rect.height;
+      if (y < 10) {
+        y = 10;
+      }
+    }
+    
+    setHoveredOperator({
+      operator,
+      x,
+      y
+    });
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (hoveredOperator) {
+      const tooltipWidth = 300;
+      const tooltipHeight = 280;
+      
+      let x = e.clientX + 10;
+      let y = e.clientY - 50;
+      
+      if (x + tooltipWidth > window.innerWidth) {
+        x = e.clientX - tooltipWidth - 10;
+      }
+      
+      if (y + tooltipHeight > window.innerHeight) {
+        y = window.innerHeight - tooltipHeight - 10;
+      }
+      
+      if (y < 10) {
+        y = 10;
+      }
+      
+      setHoveredOperator(prev => prev ? {
+        ...prev,
+        x,
+        y
+      } : null);
+    }
+  };
+
+  const handleMouseLeave = () => {
+    setHoveredOperator(null);
   };
 
   return (
@@ -715,7 +789,6 @@ const OperatorLibraryModal: React.FC<OperatorLibraryModalProps> = ({ isOpen, onC
             {expandedCategories.has(category.groupName) && (
               <div className="modal-operators">
                 {category.DagSkillInfoList.map((operator) => {
-                  const Icon = getIcon(operator.icon_path);
                   return (
                     <div
                       key={operator.skill_id}
@@ -726,10 +799,17 @@ const OperatorLibraryModal: React.FC<OperatorLibraryModalProps> = ({ isOpen, onC
                         onAddNode(operator);
                         onClose();
                       }}
+                      onMouseEnter={(e) => handleMouseEnter(e, operator)}
+                      onMouseMove={handleMouseMove}
+                      onMouseLeave={handleMouseLeave}
                       style={{ cursor: 'grab' }}
                     >
                       <div className="modal-operator-icon">
-                        <Icon size={20} />
+                        <img
+                          src={resolveIconUrl(operator.icon_path)}
+                          alt={operator.name_zh}
+                          style={{ width: '24px', height: '24px', objectFit: 'contain' }}
+                        />
                       </div>
                       <span className="modal-operator-name">{operator.name_zh}</span>
                     </div>
@@ -740,6 +820,19 @@ const OperatorLibraryModal: React.FC<OperatorLibraryModalProps> = ({ isOpen, onC
           </div>
         ))}
       </div>
+
+      {hoveredOperator && hoveredOperator.operator.description && (
+        <div
+          className="operator-tooltip"
+          style={{
+            left: `${hoveredOperator.x}px`,
+            top: `${hoveredOperator.y}px`
+          }}
+        >
+          <div className="tooltip-header">{hoveredOperator.operator.name_zh}</div>
+          <div className="tooltip-description">{hoveredOperator.operator.description}</div>
+        </div>
+      )}
     </div>
   );
 };
@@ -1434,10 +1527,14 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
                     param_type: p.type || '',
                     value_source: 'default',
                     param_value: isRef ? '' : (p._value || p.param_value || ''),
-                    binding_id: isRef ? (p._refValue || p.binding_id || '') : '',
+                    binding_id: isRef ? crypto.randomUUID() : '',
                   };
                 });
               })(),
+              out_params: n.data.output_params?.params?.map(p => ({
+                param_name: p.name || p.param_name || '',
+                param_type: p.type || p.param_type || 'string',
+              })) || [],
             })),
           edges: edges.map(e => ({
             edge_id: e.id,
@@ -1701,13 +1798,16 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
                 </button>
               </div>
               {(() => {
-                const Icon = getIcon(selectedNode.data.icon);
                 return (
               <div className="config-panel-body">
                 {/* 节点名称 + 图标 + 编辑按钮 */}
                 <div className="config-node-header">
                   <div className="config-node-icon">
-                    {getIcon && <Icon size={24} className="config-node-icon-svg" />}
+                    <img
+                      src={resolveIconUrl(selectedNode.data.icon)}
+                      alt={selectedNode.data.label}
+                      style={{ width: '32px', height: '32px', objectFit: 'contain' }}
+                    />
                   </div>
                   <div className="config-node-info">
                     {isEditingNodeName ? (
