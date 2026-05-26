@@ -142,8 +142,8 @@ const EXAMPLES: cards[] = [
       "请检查文档的格式有效性，并转换成markdown格式的文档。",
     attachments: [
       {
-        path: "/temp/Marxist_Average_Rate_of_Profit_DOCUMENTATION.docx",
-        name: "Marxist_Average_Rate_of_Profit_DOCUMENTATION.docx",
+        path: "/temp/Marxist.docx",
+        name: "Marxist.docx",
       },
     ],
     image: svgToDataUri(`
