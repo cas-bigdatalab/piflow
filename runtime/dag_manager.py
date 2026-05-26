@@ -1300,7 +1300,7 @@ def get_skill_type_counts() -> list:
                     FROM dag_skills
                     WHERE is_deleted = 0
                     GROUP BY skill_type
-                    ORDER BY skill_type
+                    ORDER BY count desc
                     """,
                 )
                 rows = cursor.fetchall()

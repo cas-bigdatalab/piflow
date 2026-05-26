@@ -107,7 +107,7 @@ const EXAMPLES: ExampleCard[] = [
     `),
   },
   {
-    title: "元数据提取与摘要生成",
+    title: "元数据提取与文本提取",
     description: "「请对文档进行以下处理：1、提取文档元数据 2、提取pdf文档文本内容」",
     prompt:
       "请对文档进行以下处理：1、提取文档元数据 2、提取pdf文档文本内容",
@@ -141,9 +141,9 @@ const EXAMPLES: ExampleCard[] = [
   },
   {
     title: "文档规范化处理",
-    description: "「请检查文档中的格式问题（如标题层级、表格式内容），最后生成一份格式规范后的 markdown格式的文档。」",
+    description: "「请检查文档中的格式有效性，最后生成一份格式规范后的 markdown格式的文档。」",
     prompt:
-      "请检查文档中的格式问题（如标题层级、表格式内容），最后生成一份格式规范后的 markdown格式的文档。",
+      "请检查文档中的格式有效性，最后生成一份格式规范后的 markdown格式的文档。",
     attachments: [
       {
         path: "/temp/Marxist_Average_Rate_of_Profit_DOCUMENTATION.docx",
