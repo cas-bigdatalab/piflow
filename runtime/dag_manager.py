@@ -801,10 +801,14 @@ def list_dag_skills_by_type(
                         )
                     )
 
-                group_list = [
-                    {"groupName": t, "DagSkillInfoList": skills}
-                    for t, skills in groups.items()
-                ]
+                group_list = sorted(
+                    [
+                        {"groupName": t, "DagSkillInfoList": skills}
+                        for t, skills in groups.items()
+                    ],
+                    key=lambda g: len(g["DagSkillInfoList"]),
+                    reverse=True,
+                )
 
                 result = {
                     "total": total,

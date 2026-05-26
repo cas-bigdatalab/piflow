@@ -1,0 +1,49 @@
+{
+  "name": "docx_to_markdown",
+
+  "version": "1.0.0",
+
+  "description": "将DOCX文档转换为Markdown格式，支持提取文本内容、标题样式、表格等元素。",
+
+  "language": "python",
+
+  "script_path": "scripts/run_docx_to_markdown.py",
+
+  "entrypoint": "python scripts/run_docx_to_markdown.py",
+
+  "input_params": [
+    {
+      "name": "input_path",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "输入DOCX文件路径"
+    },
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "输出Markdown文件路径"
+    }
+  ],
+
+  "output_params": [
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "markdown_file",
+      "default": "docx_to_markdown_output.md",
+      "description": "输出的Markdown文件(.md)"
+    }
+  ],
+
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input_path",
+    "{input_path}",
+    "--output_path",
+    "{output_path}"
+  ]
+}
