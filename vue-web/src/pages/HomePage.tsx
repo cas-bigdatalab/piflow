@@ -188,9 +188,9 @@ const EXAMPLES: ExampleCard[] = [
   },
   {
     title: "文档规范化处理",
-    description: "「请检查文档中的格式有效性，最后生成一份格式规范后的 markdown格式的文档。」",
+    description: "「请检查文档的格式有效性，并转换成markdown格式的文档。」",
     prompt:
-      "请检查文档中的格式有效性，最后生成一份格式规范后的 markdown格式的文档。",
+      "请检查文档的格式有效性，并转换成markdown格式的文档。",
     attachments: [
       {
         path: "/temp/Marxist_Average_Rate_of_Profit_DOCUMENTATION.docx",
