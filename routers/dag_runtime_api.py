@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Body, Depends, HTTPException
+from fastapi import APIRouter, Body, Depends, HTTPException, logger
 
 from security.auth_dependency import get_current_user
 from services.dag_runtime_service import (
@@ -18,6 +18,11 @@ async def run_dag_runtime_api(
     current_user=Depends(get_current_user),
     dag_task_id: str = Body(..., description="任务id"),
 ):
+    user_id_temp = current_user["user_id"]
+    logger.info(f"get json from dag_task_id:{dag_task_id}")
+    logger.info(f"get json from user_id_temp {user_id_temp}")
+    print(f"get json from dag_task_id:{dag_task_id}")
+    print(f"get json from user_id_temp {user_id_temp}")
     try:
         result = run_dag_task(
             create_user_id=current_user["user_id"],
@@ -53,7 +58,6 @@ async def get_dag_runtime_execution_detail_api(
 
 @router.get("/dag/runtime/executions")
 async def get_dag_runtime_executions_api(
-    current_user=Depends(get_current_user),
     dag_task_id: str = "",
     page: int = 1,
     page_size: int = 20,
@@ -83,7 +87,6 @@ async def get_dag_runtime_executions_api(
 
 @router.get("/dag/runtime/processes")
 async def get_dag_runtime_processes_api(
-    current_user=Depends(get_current_user),
     page: int = 1,
     page_size: int = 20,
     status: str | None = None,
