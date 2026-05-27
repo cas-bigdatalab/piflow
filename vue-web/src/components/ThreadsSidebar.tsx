@@ -5,8 +5,15 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { deleteThread, getThreads, type ThreadTitle } from "../lib/api";
 import './ThreadsSidebar.css';
 function Logo({ compact }: { compact?: boolean }) {
+  const navigate = useNavigate();
+  
+  const handleLogoClick = () => {
+    navigate("/");
+    window.dispatchEvent(new CustomEvent("flow:new-chat"));
+  };
+  
   return (
-    <Link className="flex items-center gap-3" to="/">
+    <div className="flex items-center gap-3 cursor-pointer" onClick={handleLogoClick}>
       {!compact ? (
         <div className="flex h-9 w-9 items-center overflow-hidden rounded-xl bg-black shadow-[0_10px_30px_rgba(15,23,42,0.15)]">
           <img
@@ -19,7 +26,7 @@ function Logo({ compact }: { compact?: boolean }) {
       <span className="text-xl font-bold tracking-tight text-slate-950">
         πFlow AI
       </span>
-    </Link>
+    </div>
   );
 }
 const DEFAULT_USER_ID = "default_user";
@@ -138,11 +145,15 @@ export function ThreadsSidebar() {
     }
   }
   return (
-    <div className="leftCon">
-      
-      <aside style={{maxWidth:'280px'}} className="flex h-screen w-[280px] flex-shrink-0 flex-col border-r border-slate-200/80 bg-slate-50/85 backdrop-blur">
+    <aside 
+      className={`flex h-screen flex-shrink-0 flex-col border-r border-slate-200/80 bg-slate-50/85 backdrop-blur transition-all duration-300 ${isShow ? 'w-[280px]' : 'w-[60px]'}`}
+    >
         <div className="topIcon">
-        {isShow ? (<Link className="flex items-center gap-3" to="/">
+        {isShow ? (<div className="flex items-center gap-3 cursor-pointer" onClick={() => {
+              setSelectedThreadId("default");
+              navigate("/");
+              window.dispatchEvent(new CustomEvent("flow:new-chat"));
+            }}>
             
               <div style={{display:'flex',alignItems:'center'}}>
                 <img
@@ -155,7 +166,19 @@ export function ThreadsSidebar() {
                 </span>
               </div>
             
-          </Link>) : null}
+          </div>) : (
+            <div className="flex items-center justify-center py-3 cursor-pointer" onClick={() => {
+              setSelectedThreadId("default");
+              navigate("/");
+              window.dispatchEvent(new CustomEvent("flow:new-chat"));
+            }}>
+              <img
+                alt="πFlow AI"
+                style={{width:'24px',height:'24px'}}
+                src={`${apiBase().replace(/\/+$/, "")}/storage/icon/logo.png`}
+              />
+            </div>
+          )}
           {isShow ? <Icon icon="fa-solid:align-right" width="16" className="topIcons" onClick={()=>{showMenu('1')}} /> : <Icon icon="fa-solid:align-left" width="16" className="topIcons" onClick={()=>{showMenu('0')}} />}
         </div>
         {isShow ? (
@@ -166,6 +189,7 @@ export function ThreadsSidebar() {
               onClick={() => {
                 setSelectedThreadId("default");
                 navigate("/");
+                window.dispatchEvent(new CustomEvent("flow:new-chat"));
               }}
             >
               <Icon icon="ri:add-line" />
@@ -215,9 +239,12 @@ export function ThreadsSidebar() {
                     }
                     onClick={() => {
                       setSelectedThreadId(thread.thread_id);
-                      window.dispatchEvent(
-                        new CustomEvent("flow:select-thread", { detail: { thread_id: thread.thread_id } }),
-                      );
+                      navigate("/");
+                      setTimeout(() => {
+                        window.dispatchEvent(
+                          new CustomEvent("flow:select-thread", { detail: { thread_id: thread.thread_id } }),
+                        );
+                      }, 100);
                     }}
                   >
                     <div className="flex items-start justify-between gap-3">
@@ -258,10 +285,20 @@ export function ThreadsSidebar() {
           </div>
           </div>
         ) : (
-          <div></div>
+          <div className="flex flex-1 flex-col items-center py-4 gap-4">
+            {menuArr.map((item, index) => (
+              <div 
+                className={`${item.id === activeMenuId ? 'bg-slate-200' : ''} p-2 rounded-xl cursor-pointer hover:bg-slate-200 transition-colors`} 
+                key={item.id} 
+                onClick={ ()=>{navRouter(item.id,item.path)} }
+                title={item.title}
+              >
+                <Icon icon={item.icon} width="20" className="text-slate-600" />
+              </div>
+            ))}
+          </div>
         )}
       </aside>
-    </div>
     
   );
 }

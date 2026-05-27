@@ -23,7 +23,7 @@ input_params:
     description: 校验通过后输出文件路径
 
 output_params:
-  - name: output
+  - name: output_path
     type: csv_file
     description: 格式一致性校验通过后的结构化数据文件
 tag: 校验

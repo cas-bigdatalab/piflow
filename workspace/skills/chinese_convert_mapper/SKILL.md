@@ -23,7 +23,7 @@ input_params:
     description: 转换模式，如 s2t、t2s、s2tw、t2jp 等
 
 output_params:
-  - name: output
+  - name: output_path
     type: json_file
     description: 转换后的JSON文件，包含转换后的text字段
 tag: 标准化

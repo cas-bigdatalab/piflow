@@ -726,7 +726,8 @@ def list_dag_skills_by_type(
                 params = []
 
                 if keyword:
-                    conditions.append("skill_name LIKE %s")
+                    conditions.append("(skill_name LIKE %s OR name_zh LIKE %s)")
+                    params.append(f"%{keyword}%")
                     params.append(f"%{keyword}%")
 
                 if skill_type:
@@ -802,10 +803,14 @@ def list_dag_skills_by_type(
                         )
                     )
 
-                group_list = [
-                    {"groupName": t, "DagSkillInfoList": skills}
-                    for t, skills in groups.items()
-                ]
+                group_list = sorted(
+                    [
+                        {"groupName": t, "DagSkillInfoList": skills}
+                        for t, skills in groups.items()
+                    ],
+                    key=lambda g: len(g["DagSkillInfoList"]),
+                    reverse=True,
+                )
 
                 result = {
                     "total": total,
@@ -1301,7 +1306,7 @@ def get_skill_type_counts() -> list:
                     FROM dag_skills
                     WHERE is_deleted = 0
                     GROUP BY skill_type
-                    ORDER BY skill_type
+                    ORDER BY count desc
                     """,
                 )
                 rows = cursor.fetchall()

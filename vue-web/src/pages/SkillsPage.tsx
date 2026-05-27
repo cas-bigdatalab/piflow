@@ -132,7 +132,7 @@ export function SkillsPage() {
           <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">
             Skills Hub
           </div>
-          <h1 className="text-3xl font-bold tracking-tight text-slate-950">技能中心</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-slate-950">算子库</h1>
           <p className="mt-3 text-sm leading-7 text-slate-500">
             探索多样化的科研数据加工技能
           </p>

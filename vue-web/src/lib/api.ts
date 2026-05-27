@@ -236,7 +236,7 @@ export async function getSkillTypes() {
     data: SkillTypeStat[];
     total: number;
     message?: string;
-  }>("/skills/types");
+  }>("/dag/skill/getSkillTypeCounts");
 }
 
 // 获取分组的算子列表

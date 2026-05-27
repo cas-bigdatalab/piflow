@@ -45,6 +45,53 @@ type ExampleCard = {
 
 const WORKSPACE_FILE_PATTERN = /\/(?:outputs|artifacts)\/[^\s"'`)\]}>,，。；：！？]+/g;
 
+// 彻底清理文本中的所有 JSON 对象和数组
+function removeAllJson(text: string): string {
+  if (!text) return text;
+  
+  let result = text;
+  
+  // 首先移除特定的标记文本
+  result = result.replace(/我手动修改了任务流程[\s\S]*?不要执行。[\s\S]*?\n?/g, '').trim();
+  result = result.replace(/我手动修改了任务流程[\s\S]*?不要执行。/g, '').trim();
+  
+  // 使用栈来匹配嵌套的 JSON 结构
+  let i = 0;
+  let stack: string[] = [];
+  let startIndices: number[] = [];
+  let partsToRemove: [number, number][] = [];
+  
+  while (i < result.length) {
+    const char = result[i];
+    
+    if (char === '{' || char === '[') {
+      stack.push(char);
+      if (stack.length === 1) {
+        startIndices.push(i);
+      }
+    } else if (char === '}' || char === ']') {
+      if (stack.length > 0) {
+        const last = stack[stack.length - 1];
+        if ((char === '}' && last === '{') || (char === ']' && last === '[')) {
+          stack.pop();
+          if (stack.length === 0 && startIndices.length > 0) {
+            partsToRemove.push([startIndices.pop()!, i + 1]);
+          }
+        }
+      }
+    }
+    i++;
+  }
+  
+  // 从后往前移除部分，避免索引问题
+  for (let j = partsToRemove.length - 1; j >= 0; j--) {
+    const [start, end] = partsToRemove[j];
+    result = result.substring(0, start) + result.substring(end);
+  }
+  
+  return result.trim();
+}
+
 function extractWorkspaceLinks(text: string) {
   return Array.from(new Set((text.match(WORKSPACE_FILE_PATTERN) || []).filter(Boolean)));
 }
@@ -107,7 +154,7 @@ const EXAMPLES: ExampleCard[] = [
     `),
   },
   {
-    title: "元数据提取与摘要生成",
+    title: "元数据提取与文本提取",
     description: "「请对文档进行以下处理：1、提取文档元数据 2、提取pdf文档文本内容」",
     prompt:
       "请对文档进行以下处理：1、提取文档元数据 2、提取pdf文档文本内容",
@@ -141,13 +188,13 @@ const EXAMPLES: ExampleCard[] = [
   },
   {
     title: "文档规范化处理",
-    description: "「请检查文档中的格式问题（如标题层级、表格式内容），最后生成一份格式规范后的 markdown格式的文档。」",
+    description: "「请检查文档的格式有效性，并转换成markdown格式的文档。」",
     prompt:
-      "请检查文档中的格式问题（如标题层级、表格式内容），最后生成一份格式规范后的 markdown格式的文档。",
+      "请检查文档的格式有效性，并转换成markdown格式的文档。",
     attachments: [
       {
-        path: "/temp/Marxist_Average_Rate_of_Profit_DOCUMENTATION.docx",
-        name: "Marxist_Average_Rate_of_Profit_DOCUMENTATION.docx",
+        path: "/temp/Marxist.docx",
+        name: "Marxist.docx",
       },
     ],
     image: svgToDataUri(`
@@ -321,6 +368,11 @@ export function HomePage() {
     setActiveAssistantId(null);
     setLoadError("");
     setPendingFiles([]);
+    setInput("");
+    setShowCanvas(false);
+    setCanvasPipelineData(null);
+    setCanvasMessageId("");
+    setSavedDrawData(null);
 
     try {
       const response = await getThreadMessages(DEFAULT_USER_ID, nextThreadId, 200);
@@ -848,11 +900,11 @@ export function HomePage() {
           </div>
         </section>
       ) : (
-        <section className="flex min-h-0 flex-1 flex-col">
-          <div className="flex flex-1">
+        <section className="flex min-h-screen max-h-screen flex-1 flex-col overflow-hidden">
+          <div className="flex flex-1 min-w-0">
             {/* 左侧对话区域 */}
-            <div className={`flex flex-col ${showCanvas ? 'w-1/2 h-screen' : 'w-full'} max-w-5xl`}>
-              <div className="mx-auto flex min-h-0 w-full flex-1 flex-col px-8 pt-6">
+            <div className={`flex max-h-screen flex-col ${showCanvas ? 'w-1/2' : 'w-full'} min-w-0 transition-all duration-300`}>
+              <div className="flex h-full min-h-0 w-full flex-1 flex-col px-8 pt-6">
                 {loadError ? (
                   <div className="mb-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
                     加载对话失败：{loadError}
@@ -894,7 +946,9 @@ export function HomePage() {
                                 }
                                 return null;
                               })()}
-                              <MarkdownMessage content={(() => { try { let c = message.content || ''; const pd = extractPipelineJson(c); if (pd) { c = c.replace(/\{[\s\S]*?"task"[\s\S]*?"nodes"[\s\S]*\}/, '').trim(); } c = c.replace(/我手动修改了任务流程[\s\S]*?不要执行。[\s\S]*?\n?/, '').trim(); c = c.replace(/我手动修改了任务流程[\s\S]*?不要执行。/, '').trim(); return c; } catch { return message.content; } })()} pending={sending} />
+                              <MarkdownMessage content={(() => { try { 
+                                return removeAllJson(message.content || '');
+                              } catch { return message.content; } })()} pending={sending} />
 
                               {sending && message.id === activeAssistantId ? (
                                 <div className="mt-3 w-fit rounded-full bg-white px-3 py-1 text-[11px] text-slate-500 shadow-sm ring-1 ring-slate-200">
@@ -953,14 +1007,10 @@ export function HomePage() {
                                 </div>
                               ) : null}
                               <div className="inline-block w-fit max-w-full rounded-[24px] bg-slate-100 px-4 py-3 text-slate-900">
-                                <pre className="custom-scrollbar max-h-60 overflow-auto whitespace-pre-wrap break-words font-sans text-sm leading-7 text-slate-900">
-                                  {(() => {
-                                    let c = message.content || '';
-                                    // 过滤掉画板发送消息的前缀
-                                    c = c.replace(/我手动修改了任务流程[\s\S]*?不要执行。[\s\S]*?\{/, '{').trim();
-                                    return c;
-                                  })()}
-                                </pre>
+                                {(() => {
+                                  let c = removeAllJson(message.content || '');
+                                  return c ? <pre className="whitespace-pre-wrap break-words font-sans text-sm leading-7 text-slate-900">{c}</pre> : null;
+                                })()}
                               </div>
                             </div>
                           )}
@@ -982,7 +1032,7 @@ export function HomePage() {
 
             {/* 右侧画板区域 */}
             {showCanvas && canvasPipelineData && (
-              <div className="w-1/2 h-screen overflow-hidden border-l border-slate-200 shadow-[-2px_0_12px_rgba(0,0,0,0.04)] animate-slide-in-right">
+              <div className="w-1/2 h-screen overflow-hidden border-l border-slate-200 shadow-[-2px_0_12px_rgba(0,0,0,0.04)] animate-slide-in-right flex-shrink-0">
                 <FlowEditor initialPipelineData={canvasPipelineData as unknown as InitialPipelineData} onClose={handleCloseCanvas} threadId={threadId} messageId={canvasMessageId} savedDrawData={savedDrawData} />
               </div>
             )}

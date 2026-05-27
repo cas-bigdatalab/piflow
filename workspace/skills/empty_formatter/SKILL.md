@@ -27,7 +27,7 @@ input_params:
     description: 字段名列表
 
 output_params:
-  - name: output
+  - name: output_path
     type: jsonl_file
     description: 空数据集JSONL文件
 tag: 格式转换

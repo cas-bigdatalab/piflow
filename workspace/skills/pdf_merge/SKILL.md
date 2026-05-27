@@ -16,7 +16,7 @@ input_params:
     description: 输出PDF文件路径
 
 output_params:
-  - name: output
+  - name: output_path
     type: pdf_file
     description: 合并后的PDF文件
 tag: 输入

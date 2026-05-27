@@ -12,7 +12,7 @@ input_params:
     type: directory
     description: 输出目录路径
 output_params:
-  - name: output
+  - name: output_dir
     type: directory
     description: 解压后的XML目录
 tag: 输入

@@ -17,6 +17,7 @@ export function TaskManagePage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newTaskName, setNewTaskName] = useState('');
   const [newTaskDesc, setNewTaskDesc] = useState('');
+  const [newTaskNameError, setNewTaskNameError] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Task | null>(null);
@@ -25,6 +26,7 @@ export function TaskManagePage() {
   const [editTarget, setEditTarget] = useState<Task | null>(null);
   const [editTaskName, setEditTaskName] = useState('');
   const [editTaskDesc, setEditTaskDesc] = useState('');
+  const [editTaskNameError, setEditTaskNameError] = useState(false);
   const [updating, setUpdating] = useState(false);
   const pageSize = 10;
   const totalPages = Math.ceil(total / pageSize);
@@ -55,11 +57,16 @@ export function TaskManagePage() {
 
   // 创建任务
   const handleCreateTask = async () => {
-    if (!newTaskName) return;
+    const trimmedName = newTaskName.trim();
+    if (!trimmedName) {
+      setNewTaskNameError(true);
+      return;
+    }
+    setNewTaskNameError(false);
     setSubmitting(true);
     try {
       let params={
-        task_name:newTaskName,
+        task_name:trimmedName,
         description:newTaskDesc
       }
       let res = await createTask(params);
@@ -67,10 +74,11 @@ export function TaskManagePage() {
         setShowCreateModal(false);
         setNewTaskName('');
         setNewTaskDesc('');
+        setNewTaskNameError(false);
         toast.success('创建成功');
         // 跳转到画板页面
         if (res.result?.dag_task_id) {
-          navigate(`/task-draw?taskId=${res.result.dag_task_id}&taskName=${encodeURIComponent(newTaskName)}`);
+          navigate(`/task-draw?taskId=${res.result.dag_task_id}&taskName=${encodeURIComponent(trimmedName)}`);
         } else {
           // 刷新列表
           await loadData(1, searchKeyword);
@@ -127,7 +135,11 @@ export function TaskManagePage() {
   const handleConfirmEdit = async () => {
     if (!editTarget) return;
     const name = editTaskName.trim();
-    if (!name) return;
+    if (!name) {
+      setEditTaskNameError(true);
+      return;
+    }
+    setEditTaskNameError(false);
     setUpdating(true);
     try {
       const res = await updateTask(editTarget.dag_task_id, name, editTaskDesc);
@@ -136,6 +148,7 @@ export function TaskManagePage() {
         setEditTarget(null);
         setEditTaskName('');
         setEditTaskDesc('');
+        setEditTaskNameError(false);
         // 刷新当前页数据
         await loadData(currentPage, searchKeyword);
       } else {
@@ -289,19 +302,32 @@ export function TaskManagePage() {
           <div className="task-modal-content">
             <div className="modal-header">
               <h3>新建任务</h3>
-              <button className="modal-close" onClick={() => setShowCreateModal(false)}>
+              <button 
+                className="modal-close" 
+                onClick={() => {
+                  setShowCreateModal(false);
+                  setNewTaskNameError(false);
+                }}
+              >
                 <Icon icon="fa-solid:times" width="16" />
               </button>
             </div>
             <div className="modal-body">
               <div className="form-group">
-                <label>任务名称</label>
+                <label><span className="required-mark">*</span> 任务名称</label>
                 <input
                   type="text"
                   placeholder="请输入名称，例如：数据同步_核心库"
                   value={newTaskName}
-                  onChange={(e) => setNewTaskName(e.target.value)}
+                  onChange={(e) => {
+                    setNewTaskName(e.target.value);
+                    if (newTaskNameError && e.target.value.trim()) {
+                      setNewTaskNameError(false);
+                    }
+                  }}
+                  className={newTaskNameError ? 'error' : ''}
                 />
+                {newTaskNameError && <div className="error-message">请输入任务名称</div>}
               </div>
               <div className="form-group">
                 <label>描述信息</label>
@@ -314,10 +340,21 @@ export function TaskManagePage() {
               </div>
             </div>
             <div className="modal-footer">
-              <button className="btn-cancel" onClick={() => setShowCreateModal(false)} disabled={submitting}>
+              <button 
+                className="btn-cancel" 
+                onClick={() => {
+                  setShowCreateModal(false);
+                  setNewTaskNameError(false);
+                }}
+                disabled={submitting}
+              >
                 取消
               </button>
-              <button className={`btn-confirm ${submitting ? 'is-loading' : ''}`} onClick={handleCreateTask} disabled={submitting}>
+              <button 
+                className={`btn-confirm ${submitting ? 'is-loading' : ''}`} 
+                onClick={handleCreateTask} 
+                disabled={submitting}
+              >
                 {submitting && <span className="btn-spinner"></span>}
                 {submitting ? '创建中...' : '确定创建'}
               </button>
@@ -356,19 +393,32 @@ export function TaskManagePage() {
           <div className="task-modal-content">
             <div className="modal-header">
               <h3>编辑任务</h3>
-              <button className="modal-close" onClick={() => setShowEditModal(false)}>
+              <button 
+                className="modal-close" 
+                onClick={() => {
+                  setShowEditModal(false);
+                  setEditTaskNameError(false);
+                }}
+              >
                 <Icon icon="fa-solid:times" width="16" />
               </button>
             </div>
             <div className="modal-body">
               <div className="form-group">
-                <label>任务名称</label>
+                <label><span className="required-mark">*</span> 任务名称</label>
                 <input
                   type="text"
                   placeholder="请输入名称"
                   value={editTaskName}
-                  onChange={(e) => setEditTaskName(e.target.value)}
+                  onChange={(e) => {
+                    setEditTaskName(e.target.value);
+                    if (editTaskNameError && e.target.value.trim()) {
+                      setEditTaskNameError(false);
+                    }
+                  }}
+                  className={editTaskNameError ? 'error' : ''}
                 />
+                {editTaskNameError && <div className="error-message">请输入任务名称</div>}
               </div>
               <div className="form-group">
                 <label>描述信息</label>
@@ -381,10 +431,21 @@ export function TaskManagePage() {
               </div>
             </div>
             <div className="modal-footer">
-              <button className="btn-cancel" onClick={() => setShowEditModal(false)} disabled={updating}>
+              <button 
+                className="btn-cancel" 
+                onClick={() => {
+                  setShowEditModal(false);
+                  setEditTaskNameError(false);
+                }}
+                disabled={updating}
+              >
                 取消
               </button>
-              <button className={`btn-confirm ${updating ? 'is-loading' : ''}`} onClick={handleConfirmEdit} disabled={updating}>
+              <button 
+                className={`btn-confirm ${updating ? 'is-loading' : ''}`} 
+                onClick={handleConfirmEdit} 
+                disabled={updating}
+              >
                 {updating && <span className="btn-spinner"></span>}
                 {updating ? '保存中...' : '保存'}
               </button>

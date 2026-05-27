@@ -51,11 +51,11 @@ input_params:
     description: 唯一ID字段名
 
 output_params:
-  - name: origin_output
+  - name: origin_output_path
     type: csv_file
     description: 处理后原始数据文件，带质控标识
 
-  - name: error_output
+  - name: error_output_path
     type: csv_file
     description: 异常数据文件（可选），包含不满足约束条件的记录
 tag: 校验
