@@ -33,6 +33,7 @@ from runtime.workspace_manager import WorkspaceManager
 
 from routers.auth_router import router as auth_router
 from routers.dag_panel_api import router as dag_router
+from routers.dag_runtime_api import router as dag_runtime_router
 from routers.user_router import router as user_router
 
 log = logging.getLogger("flow.api")
@@ -82,6 +83,7 @@ app = FastAPI(lifespan=lifespan)
 
 app.include_router(auth_router)
 app.include_router(dag_router)
+app.include_router(dag_runtime_router)
 app.include_router(user_router)
 
 STORAGE_DIR.mkdir(parents=True, exist_ok=True)

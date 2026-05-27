@@ -58,7 +58,8 @@ def init_dag_db():
         "CREATE INDEX IF NOT EXISTS idx_dag_definition_current ON dag_definition(dag_task_id, is_current)",
         "CREATE INDEX IF NOT EXISTS idx_dag_definition_user ON dag_definition(create_user_id)",
 
-        # dag_execution_node 存节点执行记录
+        # Deprecated: legacy execution-node tracking. New DAG runs use
+        # piflow_stop_job_run managed by piflow-python.
         """
         CREATE TABLE IF NOT EXISTS dag_execution_node (
             id BIGSERIAL PRIMARY KEY,
@@ -150,7 +151,8 @@ def init_dag_db():
         "CREATE INDEX IF NOT EXISTS idx_dag_edge_from_node ON dag_edge(from_node_id)",
         "CREATE INDEX IF NOT EXISTS idx_dag_edge_to_node ON dag_edge(to_node_id)",
 
-        # dag_task_execution_history
+        # Deprecated: legacy task execution history. New DAG runs use
+        # piflow_flow_run managed by piflow-python.
         """
         CREATE TABLE IF NOT EXISTS dag_task_execution_history (
             id BIGSERIAL PRIMARY KEY,
