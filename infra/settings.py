@@ -75,6 +75,11 @@ class DatabaseConfig(BaseModel):
     password: str = ""
     name: str = "flow_agent"
 
+class DefaultUserConfig(BaseModel):
+    name: str
+    password: str
+    nickname: str
+
 
 class Settings(BaseModel):
     app: AppConfig = Field(default_factory=AppConfig)
@@ -89,3 +94,4 @@ class Settings(BaseModel):
     mcp: MCPConfig = Field(default_factory=MCPConfig)
     policy: PolicyConfig = Field(default_factory=PolicyConfig)
     database: DatabaseConfig = Field(default_factory=DatabaseConfig)
+    default_user: DefaultUserConfig = Field(default_factory=DefaultUserConfig)
