@@ -188,7 +188,11 @@ BASE_PROMPT_NEW = """
 - 文件转换
 - 数据依赖关系
 
-必须生成 DAG Workflow JSON。
+必须生成 DAG Workflow JSON
+并且在生成DAG Workflow JSON的同时，需要适当加入引导用语，如：
+-   我已帮你生成xxxx、xxx的完整流程。
+    DAG Workflow JSON部分
+    引导话术：你可以直接「一键执行」，或「打开画板编辑」，也可以继续告诉我你的调整需求。
 
 ---
 
