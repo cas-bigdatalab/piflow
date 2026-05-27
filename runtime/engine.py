@@ -12,6 +12,7 @@ from runtime.dag_manager import init_dag_db
 from runtime.piflow_adapter import init_piflow_run_tracking_db
 from runtime.skill_manage import init_dag_skills_to_database
 from runtime.workspace_manager import WorkspaceManager
+from services.user_service import init_default_user
 from tools.core.registry import registry
 
 log = logging.getLogger("flow.engine")
@@ -298,6 +299,7 @@ class AgentEngine:
         init_dag_db()
         init_piflow_run_tracking_db()
         init_dag_skills_to_database()
+        init_default_user()
         log.info("initializing database complete")
 
         self.agent = AgentFactory.create_agent()
