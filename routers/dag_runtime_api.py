@@ -3,7 +3,12 @@ from __future__ import annotations
 from fastapi import APIRouter, Body, Depends, HTTPException
 
 from security.auth_dependency import get_current_user
-from services.dag_runtime_service import get_dag_run_detail, run_dag_task
+from services.dag_runtime_service import (
+    get_dag_run_detail,
+    get_dag_run_executions,
+    get_dag_runtime_processes,
+    run_dag_task,
+)
 
 router = APIRouter()
 
@@ -42,5 +47,65 @@ async def get_dag_runtime_execution_detail_api(
         }
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/dag/runtime/executions")
+async def get_dag_runtime_executions_api(
+    current_user=Depends(get_current_user),
+    dag_task_id: str = "",
+    page: int = 1,
+    page_size: int = 20,
+    status: str | None = None,
+):
+    try:
+        if not dag_task_id:
+            raise HTTPException(status_code=400, detail="dag_task_id is required")
+        result = get_dag_run_executions(
+            dag_task_id=dag_task_id,
+            page=page,
+            page_size=page_size,
+            status=status,
+        )
+        return {
+            "message": "success",
+            "result": result,
+            "code": 200,
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/dag/runtime/processes")
+async def get_dag_runtime_processes_api(
+    current_user=Depends(get_current_user),
+    page: int = 1,
+    page_size: int = 20,
+    status: str | None = None,
+    dag_task_id: str | None = None,
+    running_only: bool | None = None,
+    keyword: str | None = None,
+):
+    try:
+        result = get_dag_runtime_processes(
+            page=page,
+            page_size=page_size,
+            status=status,
+            dag_task_id=dag_task_id,
+            running_only=running_only,
+            keyword=keyword,
+        )
+        return {
+            "message": "success",
+            "result": result,
+            "code": 200,
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
