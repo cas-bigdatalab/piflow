@@ -3,9 +3,10 @@ from __future__ import annotations
 from typing import Any
 
 from services.dag_panel_service import get_panel_dag_json
-from runtime.piflow_adapter import submit_frontend_dag
+from runtime.piflow_adapter import stop_registered_process, submit_frontend_dag
 from runtime.piflow_run_query import (
     get_piflow_run_detail,
+    get_piflow_run_progress,
     list_piflow_processes,
     list_piflow_runs_by_task_id,
 )
@@ -43,6 +44,16 @@ def get_dag_run_detail(
     process_id: str,
 ) -> dict[str, Any]:
     result = get_piflow_run_detail(process_id)
+    if result is None:
+        raise ValueError(f"piflow run not found: {process_id}")
+    return result
+
+
+def get_dag_run_progress(
+    *,
+    process_id: str,
+) -> dict[str, Any]:
+    result = get_piflow_run_progress(process_id)
     if result is None:
         raise ValueError(f"piflow run not found: {process_id}")
     return result
@@ -88,3 +99,29 @@ def get_dag_runtime_processes(
         running_only=running_only,
         keyword=keyword,
     )
+
+
+def stop_dag_run(
+    *,
+    process_id: str,
+) -> dict[str, Any]:
+    run = get_piflow_run_progress(process_id)
+    if run is None:
+        raise ValueError(f"piflow run not found: {process_id}")
+
+    if run.get("finished_at") is not None:
+        return {
+            "process_id": process_id,
+            "status": run.get("status"),
+            "message": "process already finished",
+        }
+
+    stopped = stop_registered_process(process_id)
+    if not stopped:
+        raise ValueError(f"running process not found in local registry: {process_id}")
+
+    return {
+        "process_id": process_id,
+        "status": "CANCELLED",
+        "message": "stop requested",
+    }

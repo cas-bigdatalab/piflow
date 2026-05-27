@@ -6,8 +6,10 @@ from security.auth_dependency import get_current_user
 from services.dag_runtime_service import (
     get_dag_run_detail,
     get_dag_run_executions,
+    get_dag_run_progress,
     get_dag_runtime_processes,
     run_dag_task,
+    stop_dag_run,
 )
 
 router = APIRouter()
@@ -19,8 +21,8 @@ async def run_dag_runtime_api(
     dag_task_id: str = Body(..., description="任务id"),
 ):
     user_id_temp = current_user["user_id"]
-    logger.info(f"get json from dag_task_id:{dag_task_id}")
-    logger.info(f"get json from user_id_temp {user_id_temp}")
+    logger.logger.info(f"get json from dag_task_id:{dag_task_id}")
+    logger.logger.info(f"get json from user_id_temp {user_id_temp}")
     print(f"get json from dag_task_id:{dag_task_id}")
     print(f"get json from user_id_temp {user_id_temp}")
     try:
@@ -45,6 +47,23 @@ async def get_dag_runtime_execution_detail_api(
 ):
     try:
         result = get_dag_run_detail(process_id=process_id)
+        return {
+            "message": "success",
+            "result": result,
+            "code": 200,
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/dag/runtime/execution/progress")
+async def get_dag_runtime_execution_progress_api(
+    process_id: str,
+):
+    try:
+        result = get_dag_run_progress(process_id=process_id)
         return {
             "message": "success",
             "result": result,
@@ -110,5 +129,22 @@ async def get_dag_runtime_processes_api(
         }
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/dag/runtime/stop")
+async def stop_dag_runtime_api(
+    process_id: str = Body(..., description="运行实例ID"),
+):
+    try:
+        result = stop_dag_run(process_id=process_id)
+        return {
+            "message": "success",
+            "result": result,
+            "code": 200,
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

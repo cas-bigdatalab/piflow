@@ -160,6 +160,39 @@ def get_piflow_run_detail(process_id: str) -> dict[str, Any] | None:
     }
 
 
+def get_piflow_run_progress(process_id: str) -> dict[str, Any] | None:
+    with closing(get_connection()) as conn:
+        with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+            cursor.execute(
+                """
+                SELECT
+                    process_id,
+                    flow_uuid,
+                    flow_name,
+                    status,
+                    progress,
+                    total_stop_count,
+                    success_stop_count,
+                    failed_stop_count,
+                    skipped_stop_count,
+                    error_message,
+                    started_at,
+                    finished_at,
+                    created_at,
+                    updated_at
+                FROM piflow_flow_run
+                WHERE process_id = %s
+                """,
+                (process_id,),
+            )
+            flow_run = cursor.fetchone()
+
+    if flow_run is None:
+        return None
+
+    return _serialize_flow_run_summary(flow_run)
+
+
 def list_piflow_runs_by_task_id(
     dag_task_id: str,
     *,
