@@ -441,62 +441,62 @@ async def download_workspace_file(path: str):
     )
 
 
-@app.get("/skills/list")
-async def list_skills_api(
-    page: int = 1, page_size: int = 20, keyword: str = "", type: str = ""
-):
-    try:
-        offset = (page - 1) * page_size
-        result = list_skills(limit=page_size, offset=offset, keyword=keyword, type=type)
-
-        data = []
-        for r in result.get("data", []):
-            if not r:
-                continue
-            data.append(
-                {
-                    "name": r.get("name"),
-                    "description": r.get("description"),
-                    "icon": r.get("icon_path"),
-                    "version": r.get("version"),
-                    "type": r.get("type"),
-                }
-            )
-
-        return {
-            "code": 200,
-            "data": data,
-            "total": result.get("total", 0),
-            "current_count": len(data),
-        }
-    except Exception as exc:
-        log.error("failed to get skills list: %s", exc)
-        return {
-            "code": 500,
-            "data": [],
-            "total": 0,
-            "current_count": 0,
-            "message": str(exc),
-        }
-
-
-@app.get("/skills/types")
-async def get_skills_types():
-    try:
-        types = get_skills_grouped_by_type()
-        return {
-            "code": 200,
-            "data": types,
-            "total": len(types),
-        }
-    except Exception as exc:
-        log.error("failed to get skills types: %s", exc)
-        return {
-            "code": 500,
-            "data": [],
-            "total": 0,
-            "message": str(exc),
-        }
+# @app.get("/skills/list")
+# async def list_skills_api(
+#     page: int = 1, page_size: int = 20, keyword: str = "", type: str = ""
+# ):
+#     try:
+#         offset = (page - 1) * page_size
+#         result = list_skills(limit=page_size, offset=offset, keyword=keyword, type=type)
+#
+#         data = []
+#         for r in result.get("data", []):
+#             if not r:
+#                 continue
+#             data.append(
+#                 {
+#                     "name": r.get("name"),
+#                     "description": r.get("description"),
+#                     "icon": r.get("icon_path"),
+#                     "version": r.get("version"),
+#                     "type": r.get("type"),
+#                 }
+#             )
+#
+#         return {
+#             "code": 200,
+#             "data": data,
+#             "total": result.get("total", 0),
+#             "current_count": len(data),
+#         }
+#     except Exception as exc:
+#         log.error("failed to get skills list: %s", exc)
+#         return {
+#             "code": 500,
+#             "data": [],
+#             "total": 0,
+#             "current_count": 0,
+#             "message": str(exc),
+#         }
+#
+#
+# @app.get("/skills/types")
+# async def get_skills_types():
+#     try:
+#         types = get_skills_grouped_by_type()
+#         return {
+#             "code": 200,
+#             "data": types,
+#             "total": len(types),
+#         }
+#     except Exception as exc:
+#         log.error("failed to get skills types: %s", exc)
+#         return {
+#             "code": 500,
+#             "data": [],
+#             "total": 0,
+#             "message": str(exc),
+#         }
 
 
 if __name__ == "__main__":
