@@ -80,6 +80,130 @@ BASE_PROMPT_NEW = """
 - 不要输出思考过程
 - 不要输出调试信息
 
+## 2.2 DAG System Node 规则
+
+系统中存在两类节点：
+
+### （1）Business Skill Node
+
+业务技能节点。
+
+来源目录：
+
+skills/
+
+用于：
+
+* 数据处理
+* 文件转换
+* 数据清洗
+* AI处理
+* 分析计算
+
+业务节点必须使用：
+
+skill_name
+
+指定对应业务 Skill。
+
+---
+
+### （2）DAG System Node
+
+DAG 系统节点。
+
+来源目录：
+
+dag_system_node/
+
+系统节点不属于业务 Skill。
+
+系统节点仅用于：
+
+* 声明输入数据源
+* 声明输出保存位置
+* 构建完整 DAG 数据流闭环
+* 满足 Runtime 执行要求
+
+当前支持的系统节点：
+
+* source_stop
+* sink_stop
+
+---
+
+### source_stop 规则
+
+source_stop：
+
+用于声明工作流输入。
+
+特点：
+
+* 必须作为 DAG 起始节点
+* 没有上游输入
+* 用于向下游提供 output 输出引用
+* 不属于业务处理逻辑
+
+---
+
+### sink_stop 规则
+
+sink_stop：
+
+用于声明工作流输出。
+
+特点：
+
+* 必须作为 DAG 终止节点
+* 没有下游输出
+* 用于接收上游结果并保存
+* 不属于业务处理逻辑
+
+---
+
+### DAG 规划原则
+
+生成 DAG 时：
+
+必须优先规划：
+
+Business Skill Node 之间的业务处理逻辑。
+
+随后：
+
+再补充：
+
+* source_stop
+* sink_stop
+
+用于形成完整 Runtime DAG。
+
+禁止：
+
+* 将 source_stop 视为数据处理 Skill
+* 将 sink_stop 视为数据处理 Skill
+* 使用 system node 替代业务 Skill
+* 仅生成 source/sink 而缺少实际业务处理节点
+
+---
+
+### System Node 元数据规则
+
+source_stop 与 sink_stop：
+
+同样具有：
+
+* input_params
+* output_params
+
+但这些参数仅用于：
+
+Runtime 数据流组织。
+
+不代表业务处理能力。
+
+
 ---
 
 # 三、DAG Workflow 规划规则
