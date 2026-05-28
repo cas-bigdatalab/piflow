@@ -1,4 +1,4 @@
-﻿import React, { useCallback, useState, useRef, memo, useEffect, useMemo } from 'react';
+import React, { useCallback, useState, useRef, memo, useEffect, useMemo } from 'react';
 import { shortId } from '../lib/ids';
 import { saveDrawInfo, getAllSkills, listSkillsDetails, createMessage, streamChat,getDrawInfoBymegId, apiBase } from "../lib/api";
 
@@ -1168,13 +1168,24 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
         let inputParams = undefined;
         let outputParams = undefined;
         let iconPath = '';
+        
+        // 处理特殊算子名称，写死 skill_id
+        if (skillName === 'source_stop') {
+          skillId = 'cn.piflow.engine.local.source_file_stop.SourceFileStop';
+        } else if (skillName === 'sink_stop') {
+          skillId = 'cn.piflow.engine.local.file_save_stop.FileSaveStop';
+        }
+        
         try {
           const res = await getAllSkills(skillName);
           console.log(`请求算子详情 skillName=${skillName}:`, res);
           if (res.result.data && res.result.data.length > 0) {
             inputParams = res.result.data[0].DagSkillInfoList[0].input_params;
             outputParams = res.result.data[0].DagSkillInfoList[0].output_params;
-            skillId = res.result.data[0].DagSkillInfoList[0].skill_id;
+            // 如果不是特殊算子名称，才使用接口返回的 skill_id
+            if (skillName !== 'source_stop' && skillName !== 'sink_stop') {
+              skillId = res.result.data[0].DagSkillInfoList[0].skill_id;
+            }
             iconPath = res.result.data[0].DagSkillInfoList[0].icon_path || '';
             // 使用中文名称，如果没有则使用节点名
             const skillZhName = res.result.data[0].DagSkillInfoList[0].name_zh;

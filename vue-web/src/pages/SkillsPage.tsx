@@ -66,11 +66,11 @@ export function SkillsPage() {
         
         const totalCount = categories.reduce((sum, c) => sum + c.count, 0);
         setAllCategories([
-          { name: "全部技能", count: totalCount },
+          { name: "全部算子", count: totalCount },
           ...categories,
         ]);
         
-        setActiveCategory("全部技能");
+        setActiveCategory("全部算子");
       })
       .catch((err) => {
         console.error("加载分类失败:", err);
@@ -79,7 +79,7 @@ export function SkillsPage() {
     return () => { alive = false; };
   }, []);
 
-  // 加载技能列表 - 当分类或关键词变化时
+  // 加载算子列表 - 当分类或关键词变化时
   useEffect(() => {
     if (!activeCategory) return; // 等待分类加载
     
@@ -87,13 +87,13 @@ export function SkillsPage() {
     setLoading(true);
     setError("");
     
-    const skill_type = activeCategory === "全部技能" ? "" : activeCategory;
+    const skill_type = activeCategory === "全部算子" ? "" : activeCategory;
     
     listSkills(1, 200, keyword, skill_type)
       .then((response) => {
         if (!alive) return;
         if (response.code !== 200) {
-          setError(response.message || "技能列表加载失败");
+          setError(response.message || "算子列表加载失败");
           setDisplayGroups([]);
           return;
         }
@@ -122,7 +122,7 @@ export function SkillsPage() {
     return () => { alive = false; };
   }, [activeCategory, keyword]);
 
-  // 计算总技能数
+  // 计算总算子数
   const totalSkills = displayGroups.reduce((sum, group) => sum + group.DagSkillInfoList.length, 0);
 
   return (
@@ -134,7 +134,7 @@ export function SkillsPage() {
           </div>
           <h1 className="text-3xl font-bold tracking-tight text-slate-950">算子库</h1>
           <p className="mt-3 text-sm leading-7 text-slate-500">
-            探索多样化的科研数据加工技能
+            探索多样化的科研数据加工算子
           </p>
         </div>
 
@@ -144,7 +144,7 @@ export function SkillsPage() {
             <input
               className="w-full border-none bg-transparent text-sm text-slate-700 outline-none placeholder:text-slate-400"
               onChange={(event) => setKeyword(event.target.value)}
-              placeholder="搜索技能名、描述或标签"
+              placeholder="搜索算子名、描述或标签"
               type="text"
               value={keyword}
             />
@@ -200,12 +200,12 @@ export function SkillsPage() {
           ) : null}
 
           <div className="mb-4 text-sm text-slate-500">
-            {loading ? "正在加载技能列表..." : `共 ${totalSkills} 个技能`}
+            {loading ? "正在加载算子列表..." : `共 ${totalSkills} 个算子`}
           </div>
 
           {!loading && displayGroups.length === 0 ? (
             <div className="rounded-[28px] border border-dashed border-slate-200 bg-white p-8 text-center text-sm text-slate-400">
-              没有匹配到技能。可以尝试更换关键词重新查看。
+              没有匹配到算子。可以尝试更换关键词重新查看。
             </div>
           ) : (
             <div className="space-y-8">
@@ -227,7 +227,7 @@ export function SkillsPage() {
                           <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl bg-slate-100 text-slate-700">
                             {skill.icon_path ? (
                               <img
-                                alt={(skill as any).name_zh || skill.skill_name || "技能图标"}
+                                alt={(skill as any).name_zh || skill.skill_name || "算子图标"}
                                 className="h-8 w-8 rounded-xl object-cover"
                                 src={resolveIconUrl(skill.icon_path)}
                               />
@@ -238,7 +238,7 @@ export function SkillsPage() {
 
                           <div className="min-w-0 flex-1">
                             <h3 className="break-words text-lg font-semibold leading-7 text-slate-900">
-                              {(skill as any).name_zh || skill.skill_name || "未命名技能"}
+                              {(skill as any).name_zh || skill.skill_name || "未命名算子"}
                             </h3>
                             <div className="mt-2">
                               <span className="inline-flex rounded-full bg-slate-100 px-3 py-1 text-[11px] font-medium tracking-[0.08em] text-slate-500">
@@ -250,7 +250,7 @@ export function SkillsPage() {
 
                         <div className="mt-4 flex-1 rounded-[24px] bg-slate-50 px-4 py-3.5">
                           <p className="line-clamp-4 text-sm leading-7 text-slate-600" title={skill.description}>
-                            {skill.description || "面向科研数据处理流程的可复用技能。"}
+                            {skill.description || "面向科研数据处理流程的可复用算子。"}
                           </p>
                         </div>
 

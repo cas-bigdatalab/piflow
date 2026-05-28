@@ -46,3 +46,11 @@
   font-size:16px;
   color:#4b5563;
 }
+
+/* 折叠状态下的菜单图标样式 */
+.collapsed-menu-icon {
+  width: 24px !important;
+  height: 24px !important;
+  color: #374151 !important;
+  display: block !important;
+}

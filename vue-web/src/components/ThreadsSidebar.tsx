@@ -1,4 +1,4 @@
-import { Icon } from "@iconify/react";
+﻿import { Icon } from "@iconify/react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { apiBase } from "../lib/api";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -29,7 +29,7 @@ function Logo({ compact }: { compact?: boolean }) {
     </div>
   );
 }
-const DEFAULT_USER_ID = "default_user";
+const DEFAULT_USER_ID = localStorage.getItem('userId');
 
 function formatDate(value: string) {
   const date = new Date(value);
@@ -48,25 +48,25 @@ function formatDate(value: string) {
 const menuArr = [{
   id:1,
   title:'编辑任务',
-  icon:'fa-solid:edit',
+  icon:'ri:edit-line',
   path:'/editTask'
 },
 {
   id:2,
   title:'运行历史',
-  icon:'fa-solid:history',
+  icon:'ri:history-line',
   path:'/run-history'
 },
 {
   id:3,
   title:'算子库',
-  icon:'fa-solid:coins',
+  icon:'ri:database-line',
   path:'/skills'
 },
 // {
 //   id:4,
 //   title:'定时调度',
-//   icon:'fa-solid:chart-bar',
+//   icon:'ri:calendar-line',
 //   path:'/'
 // }
 ];
@@ -288,12 +288,11 @@ export function ThreadsSidebar() {
           <div className="flex flex-1 flex-col items-center py-4 gap-4">
             {menuArr.map((item, index) => (
               <div 
-                className={`${item.id === activeMenuId ? 'bg-slate-200' : ''} p-2 rounded-xl cursor-pointer hover:bg-slate-200 transition-colors`} 
+                className={`${item.id === activeMenuId ? 'bg-blue-100' : ''} p-3 rounded-xl cursor-pointer hover:bg-slate-200 transition-colors w-full flex items-center justify-center`} 
                 key={item.id} 
                 onClick={ ()=>{navRouter(item.id,item.path)} }
                 title={item.title}
               >
-                <Icon icon={item.icon} width="20" className="text-slate-600" />
               </div>
             ))}
           </div>
