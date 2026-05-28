@@ -650,7 +650,7 @@ workspace/artifacts/
   },
   "nodes": [
     {
-        "node_name":"输入文件1",
+        "node_name":"输入文件节点1",
         "skill_name":"source_stop",
         "params": {
             "file_path": "workspace/temp/test.csv",
@@ -661,31 +661,31 @@ workspace/artifacts/
       "node_name": "空行清洗",
       "skill_name": "remove_blank_lines",
       "params": {
-        "input": {
-            "source_node": "输入文件1",
+        "input_path": {
+            "source_node": "输入文件节点1",
             "source_param": "output"
         },
-        "output": ""
+        "output_path": ""
       }
     },
     {
       "node_name": "字段空格清洗",
       "skill_name": "trim_field_spaces",
       "params": {
-        "input": {
+        "input_path": {
           "source_node": "空行清洗",
-          "source_param": "output"
+          "source_param": "output_path"
         },
-        "output": ""
+        "output_path": ""
       }
     },
     {
-        "node_name":"输出文件1",
+        "node_name":"输出文件节点1",
         "skill_name":"sink_stop",
         "params": {
             "input": {
                 "source_node": "字段空格清洗",
-                "source_param": "output"
+                "source_param": "output_path"
             },
             "path": "workspace/outputs/final.csv",
             "overwrite": true
@@ -707,7 +707,7 @@ workspace/artifacts/
   },
   "nodes": [
     {
-      "node_name": "输入文件1",
+      "node_name": "输入文件节点1",
       "skill_name": "source_stop",
       "params": {
         "file_path": "workspace/temp/input.csv",
@@ -715,23 +715,24 @@ workspace/artifacts/
       }
     },
     {
-      "node_name": "空行清洗",
-      "skill_name": "remove_blank_lines",
+      "node_name": "处理节点1",
+      "skill_name": "skill名称1",
       "params": {
-        "input": {
-          "source_node": "输入文件1",
+        "输入参数名1": {
+          "source_node": "输入文件节点1",
           "source_param": "output"
         },
-        "output": ""
+        "输入参数名2": "输入参数数值2",
+        "输出参数名1": ""
       }
     },
     {
-      "node_name": "输出文件1",
+      "node_name": "输出文件节点1",
       "skill_name": "sink_stop",
       "params": {
         "input": {
-          "source_node": "空行清洗",
-          "source_param": "output"
+          "source_node": "处理节点1",
+          "source_param": "输出参数名1"
         },
         "path": "workspace/outputs/result.csv",
         "overwrite": true
