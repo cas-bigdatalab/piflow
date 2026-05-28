@@ -3,8 +3,160 @@ from pathlib import Path
 from infra.config_loader import get_settings, resolve_workspace_root
 from runtime.dag_manager import get_dag_skill
 
-example_json = """{"task": {"task_id": "b3691c8a124d4c619a77904f7422465e", "task_name": "csv空行、空格清洗任务", "message_id": "test_message_id_123", "description": "对csv文件的空行和字段值前后空格进行清洗"}, "edges": [{"edge_id": "e666d658c2614f5085ce112707647965", "to_node_id": "593a473d01ef4f5da0c93db24441a1cc", "from_node_id": "e1f6a960c5454e1b92d7e1bdb2a680e8"}], "nodes": [{"skill": {"version": "1.0.0", "skill_id": "42a28dca61f44455b789cde5b0b4eb21"}, "node_id": "e1f6a960c5454e1b92d7e1bdb2a680e8", "position": {"x": 100.0, "y": 200.0}, "node_name": "空行清洗节点", "node_type": "default", "input_params": [{"param_name": "input", "param_type": "String", "value_mode": "manual", "param_value": "workspace/temp/森林每木调查数据-blank-line-space.csv", "value_source": "local_file"}, {"param_name": "output", "param_type": "String", "value_mode": "manual", "param_value": "workspace/outputs/森林每木调查数据-blank-space.csv", "value_source": "local_file"}]}, {"skill": {"version": "1.0.0", "skill_id": "40f751e3cec24c4f8d5d5b45a97a2ccb"}, "node_id": "593a473d01ef4f5da0c93db24441a1cc", "position": {"x": 400.0, "y": 200.0}, "node_name": "空格清洗节点", "node_type": "default", "input_params": [{"binding_id": "c3bfd56347804535889f84300c437816", "param_name": "input_path", "param_type": "String", "value_mode": "reference"}, {"param_name": "output_path", "param_type": "String", "value_mode": "manual", "param_value": "workspace/outputs/森林每木调查数据-clean.csv", "value_source": "local_file"}]}], "bindings": [{"binding_id": "c3bfd56347804535889f84300c437816", "to_node_id": "593a473d01ef4f5da0c93db24441a1cc", "from_node_id": "e1f6a960c5454e1b92d7e1bdb2a680e8", "to_param_name": "input_path", "from_param_name": "output"}], "dsl_version": "1.0"}"""
+example_json = """{
+    "task": {
+        "dag_task_id": "47b35de7a1c843c3a4d89961948172fc",
+        "dag_task_name": "科研数据清洗与排序"
+    },
+    "edges": [
+        {
+            "edge_id": "edge-node-1-node-2",
+            "to_node_id": "node-2",
+            "from_node_id": "node-1"
+        },
+        {
+            "edge_id": "edge-node-2-node-3",
+            "to_node_id": "node-3",
+            "from_node_id": "node-2"
+        }
+    ],
+    "nodes": [
+        {
+            "skill": {
+                "version": "1.0",
+                "skill_id": "b8855438d57442c98b6d9d1a28257e1e"
+            },
+            "node_id": "node-1",
+            "position": {
+                "x": 50,
+                "y": 50
+            },
+            "icon_path": "/storage/skills/DC1_Blank_Line_Clean.png",
+            "node_name": "DC1_空行清洗算子",
+            "node_type": "default",
+            "out_params": [
+                {
+                    "param_name": "output",
+                    "param_type": "csv_file"
+                }
+            ],
+            "input_params": [
+                {
+                    "binding_id": "",
+                    "param_name": "input",
+                    "param_type": "string",
+                    "value_mode": "manual",
+                    "param_value": "/temp/森林每木调查数据-blank-line-space.csv",
+                    "value_source": "default"
+                },
+                {
+                    "binding_id": "",
+                    "param_name": "output",
+                    "param_type": "string",
+                    "value_mode": "manual",
+                    "param_value": "/workspace/artifacts/no_blank_lines.csv",
+                    "value_source": "default"
+                }
+            ]
+        },
+        {
+            "skill": {
+                "version": "1.0",
+                "skill_id": "67a4fe930be84d2992fd426dbc9914e6"
+            },
+            "node_id": "node-2",
+            "position": {
+                "x": 395,
+                "y": 50
+            },
+            "icon_path": "/storage/skills/DC2_SpaceCleaning.png",
+            "node_name": "DC2_字符串空格清理算子",
+            "node_type": "default",
+            "out_params": [
+                {
+                    "param_name": "output_path",
+                    "param_type": "csv_file"
+                }
+            ],
+            "input_params": [
+                {
+                    "binding_id": "",
+                    "param_name": "input_path",
+                    "param_type": "string",
+                    "value_mode": "manual",
+                    "param_value": "",
+                    "value_source": "default"
+                },
+                {
+                    "binding_id": "",
+                    "param_name": "output_path",
+                    "param_type": "string",
+                    "value_mode": "manual",
+                    "param_value": "",
+                    "value_source": "default"
+                }
+            ]
+        },
+        {
+            "skill": {
+                "version": "1.0",
+                "skill_id": "16165c4f75e74a9c88206317258c1029"
+            },
+            "node_id": "node-3",
+            "position": {
+                "x": 740,
+                "y": 50
+            },
+            "icon_path": "/storage/skills/Pi_DataSorting.png",
+            "node_name": "Pi_数据排序算子",
+            "node_type": "default",
+            "out_params": [
+                {
+                    "param_name": "output_path",
+                    "param_type": "csv_file"
+                }
+            ],
+            "input_params": [
+                {
+                    "binding_id": "",
+                    "param_name": "input_path",
+                    "param_type": "string",
+                    "value_mode": "manual",
+                    "param_value": "",
+                    "value_source": "default"
+                },
+                {
+                    "binding_id": "",
+                    "param_name": "output_path",
+                    "param_type": "string",
+                    "value_mode": "manual",
+                    "param_value": "",
+                    "value_source": "default"
+                },
+                {
+                    "binding_id": "",
+                    "param_name": "id_field_name",
+                    "param_type": "string",
+                    "value_mode": "manual",
+                    "param_value": "",
+                    "value_source": "default"
+                },
+                {
+                    "binding_id": "",
+                    "param_name": "sort_order",
+                    "param_type": "string",
+                    "value_mode": "manual",
+                    "param_value": "",
+                    "value_source": "default"
+                }
+            ]
+        }
+    ],
+    "bindings": [
 
+    ],
+    "dsl_version": "1.0"
+}"""
 settings = get_settings()
 
 workspace_root = settings.workspace.root
