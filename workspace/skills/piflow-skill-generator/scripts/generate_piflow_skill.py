@@ -99,6 +99,22 @@ def read_json(path: Path) -> dict:
     return data
 
 
+def read_spec_input(*, spec_path: Path | None = None, flow_path: Path | None = None, restored_spec_path: Path | None = None) -> dict:
+    if spec_path and flow_path:
+        raise ValueError("provide either spec_path or flow_path, not both")
+    if not spec_path and not flow_path:
+        raise ValueError("either spec_path or flow_path is required")
+
+    if spec_path:
+        return read_json(spec_path)
+
+    flow = read_json(flow_path)
+    spec = restore_spec_from_flow(flow)
+    if restored_spec_path:
+        write_text(restored_spec_path, json.dumps(spec, ensure_ascii=False, indent=2) + "\n")
+    return spec
+
+
 def write_text(path: Path, text: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text, encoding="utf-8", newline="\n")
@@ -129,12 +145,160 @@ def non_empty_text(value) -> str:
     return str(value or "").strip()
 
 
+def slugify_name(value: str, default: str = "restored_skill") -> str:
+    text = re.sub(r"[^A-Za-z0-9_-]+", "_", str(value or "").strip())
+    text = re.sub(r"_+", "_", text).strip("._-")
+    return text or default
+
+
 def normalize_description(spec: dict) -> str:
     description = str(spec.get("description", "")).strip()
     triggers = [str(t).strip() for t in spec.get("triggers", []) if str(t).strip()]
     if triggers and all(token not in description for token in ("当用户", "触发", "Use when")):
         description = f"{description} 当用户提到{'、'.join(triggers)}等需求时使用此 skill。"
     return description
+
+
+def normalize_restored_params(items, *, is_input: bool) -> list[dict]:
+    params = []
+    for item in as_list(items):
+        if not isinstance(item, dict):
+            continue
+        name = non_empty_text(item.get("name"))
+        description = non_empty_text(item.get("description")) or ("输入参数" if is_input else "输出参数")
+        param = {
+            "name": name,
+            "type": non_empty_text(item.get("type")) or ("string" if is_input else "json_file"),
+            "role": non_empty_text(item.get("role")) or ("input_data" if is_input else "output_data"),
+            "description": description,
+        }
+        if is_input:
+            param["required"] = bool(item.get("required", True))
+            if "default" in item:
+                param["default"] = item["default"]
+        params.append(param)
+    return params
+
+
+def flow_task_block(flow: dict) -> dict:
+    task = flow.get("task")
+    return task if isinstance(task, dict) else {}
+
+
+def flow_text(flow: dict, *keys: str) -> str:
+    task = flow_task_block(flow)
+    for key in keys:
+        if key.startswith("task."):
+            value = task.get(key.split(".", 1)[1])
+        else:
+            value = flow.get(key)
+        text = non_empty_text(value)
+        if text:
+            return text
+    return ""
+
+
+def flow_list(flow: dict, *keys: str):
+    task = flow_task_block(flow)
+    for key in keys:
+        if key.startswith("task."):
+            value = task.get(key.split(".", 1)[1])
+        else:
+            value = flow.get(key)
+        if value:
+            return value
+    return []
+
+
+def normalize_restored_scripts(flow: dict) -> list[dict]:
+    script_items = []
+    primary_script = flow.get("script")
+    if isinstance(primary_script, dict) and primary_script.get("path"):
+        script_items.append(primary_script)
+    for item in as_list(flow.get("scripts")):
+        if isinstance(item, dict) and item.get("path"):
+            script_items.append(item)
+    return script_items
+
+
+def normalize_processing_steps(flow: dict) -> list[str]:
+    steps = [str(step).strip() for step in as_list(flow_list(flow, "processing_steps", "steps")) if str(step).strip()]
+    nodes = [node for node in as_list(flow.get("nodes")) if isinstance(node, dict)]
+    if nodes:
+        node_steps = []
+        for node in nodes:
+            node_name = non_empty_text(node.get("node_name") or node.get("name"))
+            skill_name = non_empty_text(node.get("skill_name"))
+            if node_name or skill_name:
+                summary = " / ".join(part for part in (node_name, skill_name) if part)
+                node_steps.append(f"节点：{summary}")
+        steps.extend(node_steps)
+    return steps
+
+
+def normalize_success_evidence(flow: dict):
+    return flow.get("success_evidence") or flow.get("validation") or flow.get("output_structure") or {}
+
+
+def restore_spec_from_flow(flow: dict) -> dict:
+    if not isinstance(flow, dict):
+        raise ValueError("flow summary must be a JSON object")
+
+    name = slugify_name(flow_text(flow, "skill_name", "name", "task_name", "task.name"))
+    title = flow_text(flow, "title", "task_name", "task.name") or name
+    name_zh = non_empty_text(flow.get("skill_name_zh") or flow.get("name_zh") or title or name)
+    task_description = flow_text(flow, "task_description", "description", "task.description")
+    processing_steps = normalize_processing_steps(flow)
+    script_items = normalize_restored_scripts(flow)
+    references = [item for item in as_list(flow.get("references")) if isinstance(item, dict) and item.get("path")]
+    examples = [item for item in as_list(flow.get("examples")) if isinstance(item, dict)]
+    success_evidence = normalize_success_evidence(flow)
+
+    description = task_description or f"基于已验证成功的处理流程恢复 {name} skill 草稿。"
+    trigger_conditions = [
+        "当一次真实处理流程已经跑通，并且用户希望将其封装为可复用 skill 时使用此技能。",
+        "当现有技能库无法直接满足需求，但已经通过脚本或步骤成功完成任务，并希望回调式沉淀为 skill 时使用此技能。"
+    ]
+    if non_empty_text(flow.get("manual_trigger_hint")):
+        trigger_conditions.insert(0, non_empty_text(flow["manual_trigger_hint"]))
+
+    metadata = dict(flow.get("metadata") or {})
+    metadata.update(
+        {
+            "restored_from_flow": True,
+            "flow_task_name": flow_text(flow, "task_name", "task.name"),
+            "flow_success_evidence": success_evidence or {},
+        }
+    )
+
+    spec = {
+        "name": name,
+        "name_zh": name_zh,
+        "title": title,
+        "description": description,
+        "version": non_empty_text(flow.get("version")) or "1.0.0",
+        "category": non_empty_text(flow.get("category")) or "restored_flow",
+        "tag": non_empty_text(flow.get("tag")) or "其他",
+        "triggers": [item for item in as_list(flow.get("triggers")) if str(item).strip()],
+        "trigger_conditions": trigger_conditions,
+        "input_params": normalize_restored_params(flow_list(flow, "inputs", "input_params"), is_input=True),
+        "output_params": normalize_restored_params(flow_list(flow, "outputs", "output_params"), is_input=False),
+        "scripts": script_items,
+        "references": references,
+        "examples": examples,
+        "processing_logic": processing_steps,
+        "core_features": [str(item).strip() for item in as_list(flow.get("core_features")) if str(item).strip()],
+        "supported_formats": [str(item).strip() for item in as_list(flow.get("supported_formats")) if str(item).strip()],
+        "output_structure": flow.get("output_structure") or success_evidence or {},
+        "output_examples": flow.get("output_examples") or success_evidence or {},
+        "dependencies": [str(item).strip() for item in as_list(flow.get("dependencies")) if str(item).strip()],
+        "metadata": metadata,
+        "notes": [
+            "本 skill 草稿由已验证成功的处理流程恢复生成，建议人工补齐命名、图标与触发表达。",
+            "在回调式沉淀链路中，应优先复用已有脚本和成功证据，而不是重新手写实现。",
+        ],
+    }
+    return spec
 
 
 def parse_classification_sections(text: str) -> list[tuple[str, list[tuple[str, str]]]]:
@@ -763,12 +927,18 @@ def generate(spec: dict, output_root: Path, overwrite: bool) -> dict:
 
 def main():
     parser = argparse.ArgumentParser(description="Generate a PiFlow-compatible skill from a UTF-8 JSON spec.")
-    parser.add_argument("--spec", required=True, help="UTF-8 JSON spec path")
+    parser.add_argument("--spec", help="UTF-8 JSON spec path")
+    parser.add_argument("--flow", help="UTF-8 JSON successful workflow summary path")
+    parser.add_argument("--restored-spec-out", help="Optional path to write restored spec when using --flow")
     parser.add_argument("--output-root", default=DEFAULT_OUTPUT_ROOT, help="Skill output root relative to workspace")
     parser.add_argument("--overwrite", action="store_true")
     args = parser.parse_args()
 
-    spec = read_json(resolve_source_path(args.spec))
+    spec = read_spec_input(
+        spec_path=resolve_source_path(args.spec) if args.spec else None,
+        flow_path=resolve_source_path(args.flow) if args.flow else None,
+        restored_spec_path=resolve_source_path(args.restored_spec_out) if args.restored_spec_out else None,
+    )
     result = generate(spec, resolve_output_root(args.output_root), args.overwrite)
     print(json.dumps(result, ensure_ascii=False, indent=2))
 

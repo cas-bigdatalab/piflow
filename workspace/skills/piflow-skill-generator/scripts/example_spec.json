@@ -1,24 +1,24 @@
 {
-  "name": "example=-utf8-mapper",
-  "title": "Example UTF-8 Mapper",
-  "description": "示例UTF-8映射器，用于验证中文元数据和脚本生成。",
+  "name": "example_mapper",
+  "title": "Example Mapper",
+  "description": "用于说明 PiFlow skill spec 基本字段结构的示例配置，展示名称、参数、脚本路径和示例命令等常见字段的写法。",
   "version": "1.0.0",
-  "triggers": ["中文处理", "UTF-8技能生成", "示例映射"],
+  "triggers": ["示例配置", "参数说明"],
   "category": "mapper",
-  "tag": "示例",
+  "tag": "其他",
   "language": "python",
   "trigger_conditions": [
-    "当任务需要验证 PiFlow 技能生成器的 UTF-8 中文处理时使用此技能。"
+    "此文件仅用于展示 spec 字段结构，不表示真实业务触发条件。"
   ],
   "core_features": [
-    "读取 JSON 输入文件",
-    "按指定文本字段执行示例映射",
-    "将处理结果写入 JSON 输出文件"
+    "展示必填与可选字段的组织方式",
+    "展示输入输出参数的声明格式",
+    "展示脚本路径、命令模板和示例写法"
   ],
   "processing_logic": [
-    "读取 input_path 指向的 JSON 文件",
-    "定位 text_key 指定的文本字段",
-    "写入 output_path 指向的输出文件"
+    "读取 input_path 指向的示例输入",
+    "根据 text_key 演示一个占位处理步骤",
+    "将结果写入 output_path 指向的位置"
   ],
   "supported_formats": ["JSON"],
   "input_params": [
@@ -27,14 +27,14 @@
       "role": "input_data",
       "type": "string",
       "required": true,
-      "description": "输入JSON文件路径"
+      "description": "输入 JSON 文件路径"
     },
     {
       "name": "output_path",
       "role": "output_data",
       "type": "string",
       "required": true,
-      "description": "输出JSON文件路径"
+      "description": "输出 JSON 文件路径"
     },
     {
       "name": "text_key",
@@ -42,7 +42,7 @@
       "type": "string",
       "required": false,
       "default": "text",
-      "description": "文本字段名"
+      "description": "示例文本字段名"
     }
   ],
   "output_params": [
@@ -50,11 +50,11 @@
       "name": "output_path",
       "role": "output_data",
       "type": "json_file",
-      "description": "处理后的JSON文件"
+      "description": "示例输出 JSON 文件"
     }
   ],
   "script": {
-    "path": "scripts/run_example_utf8_mapper.py"
+    "path": "scripts/run_example_mapper.py"
   },
   "command_template": [
     "python",
@@ -69,13 +69,17 @@
   "dependencies": ["Python 3.x"],
   "output_format": [
     {
-      "text": "处理后的文本内容"
+      "text": "示例输出文本"
     }
   ],
   "examples": [
     {
-      "title": "基本调用",
-      "command": "python scripts/run_example_utf8_mapper.py --input_path input.json --output_path output.json"
+      "title": "示例调用格式",
+      "command": "python scripts/run_example_mapper.py --input_path input.json --output_path output.json"
     }
-  ]
+  ],
+  "metadata": {
+    "example_only": true,
+    "entry_chain": "manual_generation"
+  }
 }

@@ -1,0 +1,63 @@
+{
+  "task_name": "示例流程",
+  "task_description": "用于说明成功流程摘要如何恢复为 draft spec 的示例数据。",
+  "skill_name": "example_restored_skill",
+  "skill_name_zh": "示例回调恢复算子",
+  "category": "document_processing",
+  "tag": "输入",
+  "triggers": [
+    "流程沉淀示例",
+    "回调恢复示例"
+  ],
+  "inputs": [
+    {
+      "name": "input_path",
+      "type": "string",
+      "role": "input_data",
+      "required": true,
+      "description": "示例输入路径"
+    }
+  ],
+  "outputs": [
+    {
+      "name": "output_path",
+      "type": "json_file",
+      "role": "output_data",
+      "description": "示例输出路径"
+    }
+  ],
+  "scripts": [
+    {
+      "path": "scripts/run_pdf_metadata_extract.py",
+      "source": "flow-deepagents/workspace/skills/pdf_metadata_extract/scripts/run_pdf_metadata_extract.py"
+    }
+  ],
+  "processing_steps": [
+    "读取输入文件",
+    "执行一个示例处理步骤",
+    "输出结果文件"
+  ],
+  "core_features": [
+    "展示成功流程摘要的字段结构",
+    "展示脚本来源如何写入摘要",
+    "展示回调式恢复 draft spec 的最小字段集合"
+  ],
+  "supported_formats": [
+    "输入：任意示例文件",
+    "输出：.json"
+  ],
+  "success_evidence": {
+    "output_path": "workspace/outputs/example_output.json"
+  },
+  "examples": [
+    {
+      "title": "示例流程命令记录",
+      "command": "python scripts/run_example_mapper.py --input_path workspace/temp/input.json --output_path workspace/outputs/example_output.json"
+    }
+  ],
+  "metadata": {
+    "example_only": true,
+    "entry_chain": "callback_distillation",
+    "verified": true
+  }
+}
