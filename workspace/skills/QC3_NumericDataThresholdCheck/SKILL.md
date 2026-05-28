@@ -57,11 +57,11 @@ input_params:
     description: ID字段名
 
 output_params:
-  - name: origin_output
+  - name: origin_output_path
     type: csv_file
     description: 阈值检验后的结构化数据文件，带质控标记
 
-  - name: error_output
+  - name: error_output_path
     type: csv_file
     description: 错误数据文件（可选），包含超出阈值范围的记录
 tag: 校验

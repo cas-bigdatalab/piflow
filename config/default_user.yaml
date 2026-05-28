@@ -1,0 +1,4 @@
+default_user:
+  name: admin
+  password: admin123
+  nickname: admin

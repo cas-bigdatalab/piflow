@@ -315,6 +315,11 @@
   margin-bottom: 8px
 }
 
+.required-mark {
+  color: #ef4444;
+  margin-right: 4px
+}
+
 .form-group input,
 .form-group textarea {
   width: 100%;
@@ -329,6 +334,17 @@
 .form-group input:focus,
 .form-group textarea:focus {
   border-color: #1890ff
+}
+
+.form-group input.error,
+.form-group textarea.error {
+  border-color: #ef4444
+}
+
+.error-message {
+  color: #ef4444;
+  font-size: 14px;
+  margin-top: 6px
 }
 
 .form-group textarea {

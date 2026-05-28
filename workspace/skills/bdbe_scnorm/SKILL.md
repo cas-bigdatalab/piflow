@@ -23,7 +23,7 @@ input_params:
     description: 输出目录，默认在上传文件所在目录
 
 output_params:
-  - name: normalized_data
+  - name: output_dir
     type: h5ad_file
     description: 标准化后的单细胞数据集文件（h5ad格式）
 

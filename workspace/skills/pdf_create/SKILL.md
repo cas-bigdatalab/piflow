@@ -34,7 +34,7 @@ input_params:
     description: 内容JSON字符串，定义文档结构
 
 output_params:
-  - name: output
+  - name: output_path
     type: csv_file
     description: 生成的PDF文件
 tag: 输入

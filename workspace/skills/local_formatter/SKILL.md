@@ -43,7 +43,7 @@ input_params:
     description: 并行处理的进程数
 
 output_params:
-  - name: output
+  - name: output_path
     type: jsonl_file
     description: 格式化后的JSONL数据集文件
 tag: 格式转换

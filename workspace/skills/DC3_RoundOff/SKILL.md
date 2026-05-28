@@ -35,7 +35,7 @@ input_params:
     description: 流水线内要处理的文件名称（可选，用于筛选配置）
 
 output_params:
-  - name: output
+  - name: output_path
     type: csv_file
     description: 四舍五入处理后的结构化数据文件
 tag: 清洗

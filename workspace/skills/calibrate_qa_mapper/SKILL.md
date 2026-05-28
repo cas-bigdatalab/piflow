@@ -51,7 +51,7 @@ input_params:
     description: 回答字段名
 
 output_params:
-  - name: output
+  - name: output_path
     type: json_file
     description: 校准后的问答对JSON文件，包含校准后的query和response
 tag: 标准化

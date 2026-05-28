@@ -39,6 +39,7 @@
 - **remote_formatter**: 远程格式化器
 - **empty_formatter**: 空数据格式化器
 - **mixture_formatter**: 混合格式化器
+- **docx_to_markdown**: DOCX文档转Markdown格式
 
 ## 标准化
 - **chinese_convert_mapper**: 中文繁简转换

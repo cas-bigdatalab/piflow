@@ -24,7 +24,7 @@ input_params:
     description: 质量标识符字段名
 
 output_params:
-  - name: output
+  - name: output_path
     type: csv_file
     description: 处理后结构化数据文件，包含质量标识符字段
 tag: 校验

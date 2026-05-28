@@ -23,7 +23,7 @@ input_params:
     description: 分组键，逗号分隔，支持嵌套键如 "meta.language"
 
 output_params:
-  - name: output
+  - name: output_path
     type: json_file
     description: 分组后的JSON文件，每组样本的字段值为数组
 tag: 增强

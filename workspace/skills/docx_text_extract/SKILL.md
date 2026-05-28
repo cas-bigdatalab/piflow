@@ -8,8 +8,11 @@ input_params:
   - name: input_path
     type: docx_file
     description: 输入DOCX文件路径
+  - name: output_path
+    type: docx_file
+    description: 输出DOCX文件路径
 output_params:
-  - name: output
+  - name: output_path
     type: text_file
     description: 提取的文本文件(.txt)
 tag: 输入

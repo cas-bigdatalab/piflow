@@ -35,6 +35,29 @@ export type SkillTypeStat = {
   type: string;
   count: number;
 };
+
+export type DagSkillInfo = {
+  id?: number;
+  skill_id?: string;
+  skill_name?: string;
+  version?: string;
+  description?: string;
+  file_path?: string;
+  input_params?: any;
+  output_params?: any;
+  skill_type?: string;
+  language?: string;
+  command?: string;
+  icon_path?: string;
+  create_time?: string;
+  update_time?: string;
+  is_deleted?: number;
+};
+
+export type SkillGroup = {
+  groupName: string;
+  DagSkillInfoList: DagSkillInfo[];
+};
 export function apiBase() {
   return import.meta.env.VITE_API_BASE;
 }
@@ -182,13 +205,13 @@ export function downloadWorkspaceUrl(path: string) {
   return `${apiBase()}/workspace/download?${sp.toString()}`;
 }
 
-export async function listSkills(page = 1, page_size = 20, keyword = "", type = "") {
+export async function listSkills(page = 1, page_size = 20, keyword = "", skill_type = "") {
   const sp = new URLSearchParams();
   sp.set("page", String(page));
   sp.set("page_size", String(page_size));
   sp.set("keyword", keyword);
-  if (type) {
-    sp.set("type", type);
+  if (skill_type) {
+    sp.set("skill_type", skill_type);
   }
   return apiFetch<{
     code: number;
@@ -196,7 +219,7 @@ export async function listSkills(page = 1, page_size = 20, keyword = "", type = 
     total: number;
     current_count: number;
     message?: string;
-  }>(`/skills/list?${sp.toString()}`);
+  }>(`/dag/skill/listSkills?${sp.toString()}`);
 }
 // 请求算子详情信息
 export async function listSkillsDetails(skill_id:string) {
@@ -213,7 +236,16 @@ export async function getSkillTypes() {
     data: SkillTypeStat[];
     total: number;
     message?: string;
-  }>("/skills/types");
+  }>("/dag/skill/getSkillTypeCounts");
+}
+
+// 获取分组的算子列表
+export async function getSkillGroups() {
+  return apiFetch<{
+    code: number;
+    data: SkillGroup[];
+    message?: string;
+  }>("/dag/skill/listSkills");
 }
 
 export type SseEvent = Record<string, any> & { type?: string };

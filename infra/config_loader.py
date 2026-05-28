@@ -23,6 +23,7 @@ def load_settings() -> Settings:
     mcp_config = load_yaml(CONFIG_DIR / "mcp_servers.yaml")
     policy_config = load_yaml(CONFIG_DIR / "policy.yaml")
     database_config = load_yaml(CONFIG_DIR / "database.yaml")
+    default_user_config = load_yaml(CONFIG_DIR / "default_user.yaml")
     workspace_config = app_config.get("workspace", {})
 
     config = {
@@ -30,6 +31,7 @@ def load_settings() -> Settings:
         **llm_config,
         "workspace": workspace_config,
         "mcp": mcp_config,
+        **default_user_config,
         "policy": PolicyConfig(**policy_config.get("policy", {})),
         "database": DatabaseConfig(**database_config),
     }
