@@ -1,0 +1,34 @@
+{
+  "name": "sink_stop",
+  "version": "1.0.0",
+  "description": "DAG 输出终止算子。用于接收上游算子的输出，并将结果保存到指定路径。该算子没有下游输出，必须作为 DAG 的终止节点使用。",
+  "language": "",
+  "script_path": "",
+  "entrypoint": "",
+  "input_params": [
+    {
+      "name": "input",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "上游算子的输出引用"
+    },
+    {
+      "name": "path",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "文件保存路径"
+    },
+    {
+      "name": "overwrite",
+      "role": "data",
+      "type": "bool",
+      "required": false,
+      "default": false,
+      "description": "是否允许覆盖已有文件"
+    }
+  ],
+  "output_params": [],
+  "command_template": []
+}
