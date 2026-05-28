@@ -76,14 +76,14 @@ interface PipelineEdge {
   target: string;
 }
 
-// 从nodes生成边
+// 从nodes生成边（使用节点ID）
 function generateEdges(nodes: PipelineNode[]): PipelineEdge[] {
   const edges: PipelineEdge[] = [];
   for (let i = 0; i < nodes.length - 1; i++) {
     edges.push({
       id: `e${i}-${i + 1}`,
-      source: nodes[i].node_name,
-      target: nodes[i + 1].node_name,
+      source: `node-${i}`,
+      target: `node-${i + 1}`,
     });
   }
   return edges;
@@ -108,6 +108,27 @@ export default function PipelinePreview({ data, threadId, onOpenCanvas, messageI
     
     try {
       let drawData: any;
+      
+      // 缓存：按 skill_name 缓存算子查询结果
+      const skillsCache: Record<string, any> = {};
+      
+      // 根据 skill_name 获取算子信息（带缓存）
+      const getSkillInfoByName = async (skillName: string): Promise<any | null> => {
+        if (skillsCache[skillName]) {
+          return skillsCache[skillName];
+        }
+        
+        try {
+          const res = await getAllSkills(skillName);
+          console.log(`根据 skill_name="${skillName}" 查询算子:`, res);
+          skillsCache[skillName] = res;
+          return res;
+        } catch (error) {
+          console.error(`获取算子 ${skillName} 失败`, error);
+          skillsCache[skillName] = null;
+          return null;
+        }
+      };
       
       // 优先从已保存的画板获取数据
       if (messageId) {
@@ -146,28 +167,74 @@ export default function PipelinePreview({ data, threadId, onOpenCanvas, messageI
                 } else if (skillNameToSearch === 'sink_stop') {
                   skillId = 'cn.piflow.engine.local.file_save_stop.FileSaveStop';
                 } else if (skillNameToSearch) {
-                  // 如果不是特殊算子名称，从算子列表中查找
-                  try {
-                    const res = await getAllSkills();
-                    if (res.result.data && res.result.data.length > 0) {
-                      for (const group of res.result.data) {
-                        if (group.DagSkillInfoList && group.DagSkillInfoList.length > 0) {
-                          for (const skillInfo of group.DagSkillInfoList) {
-                            if (skillInfo.skill_name === skillNameToSearch || skillInfo.name_zh === node.node_name) {
-                              skillId = skillInfo.skill_id || '';
-                              iconPath = skillInfo.icon_path || '';
-                              console.log('为已保存节点找到 skill_id:', skillId);
-                              break;
-                            }
+                  // 根据 skill_name 去查询算子信息
+                  const skillRes = await getSkillInfoByName(skillNameToSearch);
+                  if (skillRes && skillRes.result.data && skillRes.result.data.length > 0) {
+                    for (const group of skillRes.result.data) {
+                      if (group.DagSkillInfoList && group.DagSkillInfoList.length > 0) {
+                        for (const skillInfo of group.DagSkillInfoList) {
+                          if (skillInfo.skill_name === skillNameToSearch || skillInfo.name_zh === node.node_name) {
+                            skillId = skillInfo.skill_id || '';
+                            iconPath = skillInfo.icon_path || '';
+                            console.log('为已保存节点找到 skill_id:', skillId);
+                            break;
                           }
                         }
-                        if (skillId) break;
                       }
+                      if (skillId) break;
                     }
-                  } catch (error) {
-                    console.error('获取算子库失败', error);
                   }
                 }
+              }
+              
+              // 获取算子详情来获取 output_params（如果没有的话）
+              let outParams = [];
+              if (skillId && (!node.out_params || node.out_params.length === 0)) {
+                // 从已查询过的算子信息中查找（通过遍历缓存）
+                for (const cachedSkillName of Object.keys(skillsCache)) {
+                  const cachedResult = skillsCache[cachedSkillName];
+                  if (cachedResult && cachedResult.result.data && cachedResult.result.data.length > 0) {
+                    for (const group of cachedResult.result.data) {
+                      if (group.DagSkillInfoList && group.DagSkillInfoList.length > 0) {
+                        for (const skillInfo of group.DagSkillInfoList) {
+                          if (skillInfo.skill_id === skillId) {
+                            const outputParams = skillInfo.output_params?.params || [];
+                            outParams = outputParams.map((p: any) => ({
+                              param_name: p.name || p.param_name || '',
+                              param_type: p.type || p.param_type || 'string'
+                            }));
+                            break;
+                          }
+                        }
+                      }
+                      if (outParams.length > 0) break;
+                    }
+                  }
+                  if (outParams.length > 0) break;
+                }
+              } else if (node.out_params) {
+                outParams = (node.out_params.params || node.out_params).map((p: any) => ({
+                  param_name: p.param_name || p.name || '',
+                  param_type: p.param_type || p.type || 'string'
+                }));
+              }
+              
+              // 处理 input_params
+              let inputParams = [];
+              if (node.input_params?.params) {
+                inputParams = node.input_params.params.map((p: any) => ({
+                  param_name: p.name || p.param_name || '',
+                  param_value: p.value || p.param_value || '',
+                  value_mode: p._refType === 'reference' ? 'reference' : (p.value_mode || 'manual'),
+                  binding_id: p.binding_id || ''
+                }));
+              } else if (node.input_params && Array.isArray(node.input_params)) {
+                inputParams = node.input_params.map((p: any) => ({
+                  param_name: p.name || p.param_name || '',
+                  param_value: p.value || p.param_value || '',
+                  value_mode: p._refType === 'reference' ? 'reference' : (p.value_mode || 'manual'),
+                  binding_id: p.binding_id || ''
+                }));
               }
               
               processedSavedNodes.push({
@@ -180,16 +247,8 @@ export default function PipelinePreview({ data, threadId, onOpenCanvas, messageI
                   version: '1.0'
                 },
                 position: node.position || { x: 0, y: 0 },
-                input_params: (node.input_params?.params || []).map((p: any) => ({
-                  param_name: p.name || p.param_name || '',
-                  param_value: p.value || p.param_value || '',
-                  value_mode: p.value_mode || 'manual',
-                  binding_id: p.binding_id || ''
-                })),
-                out_params: (node.out_params || []).map((p: any) => ({
-                  param_name: p.param_name || p.name || '',
-                  param_type: p.param_type || 'string'
-                }))
+                input_params: inputParams,
+                out_params: outParams
               });
             }
             
@@ -238,32 +297,112 @@ export default function PipelinePreview({ data, threadId, onOpenCanvas, messageI
           } else if (skillName === 'sink_stop') {
             skillId = 'cn.piflow.engine.local.file_save_stop.FileSaveStop';
           } else if (skillName) {
-            // 如果不是特殊算子名称，从算子列表中查找
-            try {
-              const res = await getAllSkills();
-              console.log(`获取全部算子列表:`, res);
-              
-              if (res.result.data && res.result.data.length > 0) {
-                for (const group of res.result.data) {
-                  if (group.DagSkillInfoList && group.DagSkillInfoList.length > 0) {
-                    for (const skillInfo of group.DagSkillInfoList) {
-                      if (skillInfo.skill_name === skillName || skillInfo.name_zh === skillName) {
-                        skillId = skillInfo.skill_id || '';
-                        iconPath = skillInfo.icon_path || '';
-                        console.log(`找到匹配的算子:`, skillInfo);
-                        break;
-                      }
+            // 根据 skill_name 去查询算子信息（带缓存）
+            const skillRes = await getSkillInfoByName(skillName);
+            if (skillRes && skillRes.result.data && skillRes.result.data.length > 0) {
+              for (const group of skillRes.result.data) {
+                if (group.DagSkillInfoList && group.DagSkillInfoList.length > 0) {
+                  for (const skillInfo of group.DagSkillInfoList) {
+                    if (skillInfo.skill_name === skillName || skillInfo.name_zh === skillName) {
+                      skillId = skillInfo.skill_id || '';
+                      iconPath = skillInfo.icon_path || '';
+                      console.log(`找到匹配的算子:`, skillInfo);
+                      break;
                     }
                   }
-                  if (skillId) break;
                 }
+                if (skillId) break;
               }
-            } catch (error) {
-              console.error('获取算子库失败', error);
             }
           }
           
           console.log(`节点 ${index} 获取到的 skill_id:`, skillId);
+          
+          // 获取算子详情来获取 input_params 和 output_params
+          let inputParams: any[] = [];
+          let outputParams: any[] = [];
+          
+          if (skillId) {
+            // 从已查询过的算子信息中查找（通过遍历缓存）
+            for (const cachedSkillName of Object.keys(skillsCache)) {
+              const cachedResult = skillsCache[cachedSkillName];
+              if (cachedResult && cachedResult.result.data && cachedResult.result.data.length > 0) {
+                for (const group of cachedResult.result.data) {
+                  if (group.DagSkillInfoList && group.DagSkillInfoList.length > 0) {
+                    for (const skillInfo of group.DagSkillInfoList) {
+                      if (skillInfo.skill_id === skillId) {
+                        inputParams = skillInfo.input_params?.params || [];
+                        outputParams = skillInfo.output_params?.params || [];
+                        break;
+                      }
+                    }
+                  }
+                  if (inputParams.length > 0) break;
+                }
+              }
+              if (inputParams.length > 0) break;
+            }
+          }
+          
+          // 合并节点参数到 input_params，处理引用类型
+          const mergedInputParams = inputParams.map((paramDef: any) => {
+            const paramName = paramDef.name || paramDef.param_name;
+            const paramValue = (node.params || {})[paramName];
+            
+            if (paramValue !== undefined) {
+              if (typeof paramValue === 'object' && paramValue !== null && 'source_node' in paramValue) {
+                // 引用类型
+                return {
+                  param_name: paramName,
+                  param_value: paramValue.source_param || '',
+                  value_mode: 'reference',
+                  binding_id: ''
+                };
+              } else {
+                // 手动类型
+                return {
+                  param_name: paramName,
+                  param_value: String(paramValue),
+                  value_mode: 'manual',
+                  binding_id: ''
+                };
+              }
+            }
+            
+            return {
+              param_name: paramName,
+              param_value: paramDef.param_value || '',
+              value_mode: 'manual',
+              binding_id: ''
+            };
+          });
+          
+          // 如果没有从算子详情获取到 input_params，但节点有参数，直接使用节点参数
+          if (mergedInputParams.length === 0 && Object.keys(node.params || {}).length > 0) {
+            Object.entries(node.params || {}).forEach(([key, value]: any) => {
+              if (typeof value === 'object' && value !== null && 'source_node' in value) {
+                mergedInputParams.push({
+                  param_name: key,
+                  param_value: value.source_param || '',
+                  value_mode: 'reference',
+                  binding_id: ''
+                });
+              } else {
+                mergedInputParams.push({
+                  param_name: key,
+                  param_value: String(value),
+                  value_mode: 'manual',
+                  binding_id: ''
+                });
+              }
+            });
+          }
+          
+          // 转换 output_params 格式
+          const outParams = outputParams.map((p: any) => ({
+            param_name: p.name || p.param_name || '',
+            param_type: p.type || p.param_type || 'string'
+          }));
           
           processedNodes.push({
             node_id: `node-${index}`,
@@ -275,15 +414,39 @@ export default function PipelinePreview({ data, threadId, onOpenCanvas, messageI
               version: '1.0'
             },
             position: { x: 100 + index * 200, y: 200 },
-            input_params: Object.entries(node.params || {}).map(([key, p]: any) => ({
-              param_name: p.name || p.param_name || key || '',
-              param_value: p.value || p.param_value || '',
-              value_mode: 'manual',
-              binding_id: ''
-            })),
-            out_params: []
+            input_params: mergedInputParams,
+            out_params: outParams
           });
         }
+        
+        // 生成 bindings：根据引用类型参数和边关系
+        const generatedBindings: any[] = [];
+        const nodeNameToIdMap: Record<string, string> = {};
+        processedNodes.forEach((n, idx) => {
+          nodeNameToIdMap[n.node_name] = `node-${idx}`;
+        });
+        
+        processedNodes.forEach((node, index) => {
+          if (index === 0) return; // 第一个节点没有上游
+          
+          node.input_params.forEach((param: any) => {
+            if (param.value_mode === 'reference' && param.param_value) {
+              // 找到上游节点（通过边关系）
+              const upstreamEdge = edges.find((e: any) => e.target === `node-${index}`);
+              if (upstreamEdge) {
+                generatedBindings.push({
+                  binding_id: `binding-${index}-${param.param_name}`,
+                  from_node_id: upstreamEdge.source,
+                  from_param_name: param.param_value,
+                  to_node_id: `node-${index}`,
+                  to_param_name: param.param_name
+                });
+              }
+            }
+          });
+        });
+        
+        console.log('生成的 bindings:', generatedBindings);
         
         drawData = {
           dsl_version: "1.0",
@@ -299,7 +462,7 @@ export default function PipelinePreview({ data, threadId, onOpenCanvas, messageI
             from_node_id: e.source,
             to_node_id: e.target
           })),
-          bindings: []
+          bindings: generatedBindings
         };
       }
       
