@@ -44,13 +44,13 @@ function formatDate(value: string) {
     .format(date)
     .replace(/\//g, ".");
 }
-
-const menuArr = [{
-  id:1,
-  title:'编辑任务',
-  icon:'ri:edit-line',
-  path:'/editTask'
-},
+// {
+//   id:1,
+//   title:'编辑任务',
+//   icon:'ri:edit-line',
+//   path:'/editTask'
+// },
+const menuArr = [
 {
   id:2,
   title:'运行历史',

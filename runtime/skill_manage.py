@@ -14,6 +14,7 @@ from infra.config_loader import resolve_workspace_root
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 WORKSPACE_ROOT = resolve_workspace_root()
 SKILLS_DIR = WORKSPACE_ROOT / "skills"
+DAG_SYSTEM_NODE_DIR = WORKSPACE_ROOT / "dag_system_node"
 STORAGE_DIR = PROJECT_ROOT / "storage"
 STORAGE_SKILLS_DIR = STORAGE_DIR / "skills"
 DEFAULT_COMMON_ICON = "/storage/common/common.png"
@@ -381,12 +382,12 @@ def _extract_command_from_skill_md(skill_dir: Path, skill_name: str, input_param
     return ""
 
 
-def init_dag_skills_to_database() -> int:
-    if not SKILLS_DIR.exists():
+def _process_skill_dirs(base_dir: Path, path_prefix: str) -> int:
+    if not base_dir.exists():
         return 0
 
     count = 0
-    for skill_dir in sorted(SKILLS_DIR.iterdir()):
+    for skill_dir in sorted(base_dir.iterdir()):
         if not skill_dir.is_dir():
             continue
         if skill_dir.name == "__init__":
@@ -403,7 +404,7 @@ def init_dag_skills_to_database() -> int:
         input_params = info["input_params"]
         output_params = info["output_params"]
 
-        skill_path = f"skills/{skill_dir.name}"
+        skill_path = f"{path_prefix}/{skill_dir.name}"
 
         file_path = _find_skill_script_path(skill_dir)
 
@@ -411,7 +412,7 @@ def init_dag_skills_to_database() -> int:
 
         command = _extract_command_from_skill_md(skill_dir, skill_name, input_params)
 
-        icon_path = _public_skill_icon_path(skill_dir.name)
+        icon_path = f"/storage/{path_prefix}/{skill_dir.name}.png"
 
         insert_dag_skill(
             skill_name=skill_name,
@@ -429,4 +430,10 @@ def init_dag_skills_to_database() -> int:
         )
         count += 1
 
+    return count
+
+
+def init_dag_skills_to_database() -> int:
+    count = _process_skill_dirs(SKILLS_DIR, "skills")
+    count += _process_skill_dirs(DAG_SYSTEM_NODE_DIR, "dag_system_node")
     return count
