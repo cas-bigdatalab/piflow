@@ -348,6 +348,15 @@
   color: #f87171
 }
 
+.icon-btn.stop {
+  color: #f97316
+}
+
+.icon-btn.stop:hover {
+  background: #fff7ed;
+  color: #ea580c
+}
+
 .loading-state {
   padding: 40px;
   text-align: center;
@@ -436,4 +445,251 @@
   padding: 6px 8px;
   color: #94a3b8;
   font-size: 13px
+}
+
+/* 详情弹窗样式 */
+.detail-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.detail-modal {
+  background: white;
+  border-radius: 8px;
+  width: 90%;
+  max-width: 900px;
+  max-height: 85vh;
+  overflow-y: auto;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.detail-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.detail-modal-header h2 {
+  margin: 0;
+  font-size: 18px;
+  color: #1e293b;
+}
+
+.detail-modal-header .close-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  color: #64748b;
+  transition: color 0.2s;
+}
+
+.detail-modal-header .close-btn:hover {
+  color: #1e293b;
+}
+
+.detail-modal-content {
+  padding: 24px;
+}
+
+.detail-modal-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px;
+  gap: 16px;
+  color: #64748b;
+}
+
+.detail-section {
+  margin-bottom: 24px;
+}
+
+.detail-section h3 {
+  font-size: 16px;
+  color: #1e293b;
+  margin: 0 0 16px 0;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+.detail-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.detail-label {
+  color: #64748b;
+  font-size: 14px;
+  min-width: 80px;
+}
+
+.detail-value {
+  color: #1e293b;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+
+.stat-item {
+  background: #f8fafc;
+  padding: 16px;
+  border-radius: 6px;
+  text-align: center;
+}
+
+.stat-item .stat-label {
+  display: block;
+  color: #64748b;
+  font-size: 13px;
+  margin-bottom: 8px;
+}
+
+.stat-item .stat-value {
+  display: block;
+  font-size: 24px;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.stat-item.success .stat-value {
+  color: #10b981;
+}
+
+.stat-item.failed .stat-value {
+  color: #ef4444;
+}
+
+.stat-item.skipped .stat-value {
+  color: #f59e0b;
+}
+
+.detail-section.error {
+  background: #fef2f2;
+  padding: 16px;
+  border-radius: 6px;
+  border: 1px solid #fecaca;
+}
+
+.detail-section.error h3 {
+  color: #dc2626;
+  border-bottom-color: #fecaca;
+}
+
+.error-message {
+  color: #dc2626;
+  font-size: 14px;
+  line-height: 1.6;
+  word-break: break-word;
+}
+
+.log-path {
+  background: #f8fafc;
+  padding: 12px;
+  border-radius: 6px;
+  font-family: monospace;
+  font-size: 13px;
+  color: #64748b;
+  word-break: break-all;
+}
+
+.stops-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.stop-item {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 16px;
+}
+
+.stop-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.stop-name {
+  font-weight: 600;
+  color: #1e293b;
+  font-size: 14px;
+}
+
+.stop-status-badge {
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.stop-status-badge.success {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.stop-status-badge.failed {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.stop-status-badge.running {
+  background: #dbeafe;
+  color: #2563eb;
+}
+
+.stop-status-badge.unknown {
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.stop-details {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.stop-detail-item {
+  display: flex;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.stop-detail-label {
+  color: #64748b;
+  min-width: 80px;
+}
+
+.stop-detail-value {
+  color: #1e293b;
+}
+
+.stop-detail-item.error .stop-detail-value {
+  color: #dc2626;
 }

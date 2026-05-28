@@ -1,4 +1,4 @@
-import { Icon } from "@iconify/react";
+﻿import { Icon } from "@iconify/react";
 import { type DragEvent, useEffect, useRef, useState } from "react";
 import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 import {
@@ -17,8 +17,9 @@ import { MarkdownMessage } from "../components/MarkdownMessage";
 import { shortId } from "../lib/ids";
 import PipelinePreview, { extractPipelineJson, PipelineData } from "../components/PipelinePreview";
 import FlowEditor, { InitialPipelineData } from "../components/Draw";
+import { appConfig } from "../config/appConfig";
 
-const DEFAULT_USER_ID = "default_user";
+const DEFAULT_USER_ID = localStorage.getItem('userId');
 
 type UiMsg = {
   id: string;
@@ -256,8 +257,7 @@ export function HomePage() {
 
   const uploading = uploadingCount > 0;
   const isExpanded = hasMessages || sending || Boolean(loadError);
-  
-  // 处理打开画板
+
   // 处理打开画板
   const handleOpenCanvas = async (data: PipelineData, msgId?: string) => {
     setCanvasPipelineData(data);
@@ -290,9 +290,10 @@ export function HomePage() {
   useEffect(() => {
     const login = async () => {
       try {
-        let params={ username:'admin',password:'admin123' };
+        let params={ username:appConfig.username,password:appConfig.password };
         let loginRes=await getLogin(params);
         localStorage.setItem('token',loginRes.access_token);
+        localStorage.setItem('userId',loginRes.user_id);
         console.log('登录了')
       } catch (error) {
         console.error('登录失败:', error);
@@ -847,7 +848,7 @@ export function HomePage() {
   }
 
   return (
-    <div className="flex min-h-full flex-1 flex-col">
+    <div className="flex min-h-full flex-1 flex-col" style={{marginTop:'50px'}}>
       {!isExpanded ? (
         <section className="px-8 pb-16 pt-6">
           <div className="mx-auto flex max-w-5xl flex-col">
@@ -938,17 +939,65 @@ export function HomePage() {
                                 try {
                                   const c = message.content || '';
                                   const pipelineData = extractPipelineJson(c);
+                                  const cleanedContent = removeAllJson(c);
+                                  
+                                  // 判断是否是执行结果（包含特定关键词如"已完成"、"执行成功"等）
+                                  const isExecutionResult = cleanedContent.includes('已完成') || 
+                                                          cleanedContent.includes('执行成功') || 
+                                                          cleanedContent.includes('运行完成') ||
+                                                          cleanedContent.includes('处理完成');
+                                  
+                                  // 如果有 pipelineData，先显示文本内容，再显示流程图
                                   if (pipelineData && !sending) {
-                                    return <PipelinePreview data={pipelineData} threadId={threadId} onOpenCanvas={handleOpenCanvas} messageId={message.id} />;
+                                    return (
+                                      <>
+                                        {/* 文本内容放在流程图上面 */}
+                                        {cleanedContent && (
+                                          <MarkdownMessage content={cleanedContent} pending={sending} />
+                                        )}
+                                        <PipelinePreview data={pipelineData} threadId={threadId} onOpenCanvas={handleOpenCanvas} messageId={message.id} />
+                                        {/* 只有执行结果才显示文件 */}
+                                        {isExecutionResult && message.artifacts && message.artifacts.length > 0 && (
+                                          <div className="mt-4 flex flex-wrap gap-2 pt-1">
+                                            {message.artifacts.map((path) => (
+                                              <a
+                                                key={path}
+                                                className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-700 transition-colors hover:border-black hover:text-black"
+                                                href={downloadWorkspaceUrl(path)}
+                                                rel="noreferrer"
+                                                target="_blank"
+                                              >
+                                                <Icon icon="ri:download-2-line" width="14" />
+                                                <span>{path.split("/").pop() || "下载产物"}</span>
+                                              </a>
+                                            ))}
+                                          </div>
+                                        )}
+                                      </>
+                                    );
                                   }
                                 } catch (err) {
                                   console.error('[PipelineDebug] Error:', err);
                                 }
                                 return null;
                               })()}
-                              <MarkdownMessage content={(() => { try { 
-                                return removeAllJson(message.content || '');
-                              } catch { return message.content; } })()} pending={sending} />
+                              
+                              {/* 如果没有 pipelineData，正常显示文本 */}
+                              {(() => {
+                                try {
+                                  const c = message.content || '';
+                                  const pipelineData = extractPipelineJson(c);
+                                  if (!pipelineData) {
+                                    const cleanedContent = removeAllJson(c);
+                                    if (cleanedContent) {
+                                      return <MarkdownMessage content={cleanedContent} pending={sending} />;
+                                    }
+                                  }
+                                } catch {
+                                  return <MarkdownMessage content={message.content || ''} pending={sending} />;
+                                }
+                                return null;
+                              })()}
 
                               {sending && message.id === activeAssistantId ? (
                                 <div className="mt-3 w-fit rounded-full bg-white px-3 py-1 text-[11px] text-slate-500 shadow-sm ring-1 ring-slate-200">
@@ -969,22 +1018,41 @@ export function HomePage() {
                                 </details>
                               ) : null}
 
-                              {isAssistant && message.artifacts && message.artifacts.length > 0 ? (
-                                <div className="mt-4 flex flex-wrap gap-2 pt-1">
-                                  {message.artifacts.map((path) => (
-                                    <a
-                                      key={path}
-                                      className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-700 transition-colors hover:border-black hover:text-black"
-                                      href={downloadWorkspaceUrl(path)}
-                                      rel="noreferrer"
-                                      target="_blank"
-                                    >
-                                      <Icon icon="ri:download-2-line" width="14" />
-                                      <span>{path.split("/").pop() || "下载产物"}</span>
-                                    </a>
-                                  ))}
-                                </div>
-                              ) : null}
+                              {/* 非流程图消息的文件显示（只有执行结果才显示） */}
+                              {(() => {
+                                try {
+                                  const c = message.content || '';
+                                  const pipelineData = extractPipelineJson(c);
+                                  if (!pipelineData) {
+                                    const cleanedContent = removeAllJson(c);
+                                    const isExecutionResult = cleanedContent.includes('已完成') || 
+                                                            cleanedContent.includes('执行成功') || 
+                                                            cleanedContent.includes('运行完成') ||
+                                                            cleanedContent.includes('处理完成');
+                                    if (isExecutionResult && message.artifacts && message.artifacts.length > 0) {
+                                      return (
+                                        <div className="mt-4 flex flex-wrap gap-2 pt-1">
+                                          {message.artifacts.map((path) => (
+                                            <a
+                                              key={path}
+                                              className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-700 transition-colors hover:border-black hover:text-black"
+                                              href={downloadWorkspaceUrl(path)}
+                                              rel="noreferrer"
+                                              target="_blank"
+                                            >
+                                              <Icon icon="ri:download-2-line" width="14" />
+                                              <span>{path.split("/").pop() || "下载产物"}</span>
+                                            </a>
+                                          ))}
+                                        </div>
+                                      );
+                                    }
+                                  }
+                                } catch {
+                                  // ignore
+                                }
+                                return null;
+                              })()}
                             </div>
                           ) : (
                             <div
