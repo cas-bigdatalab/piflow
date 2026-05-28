@@ -429,6 +429,28 @@ export default function PipelinePreview({ data, threadId, onOpenCanvas, messageI
           <Icon icon="ri:edit-line" width={16} />
           打开画板编辑
         </button>
+        <button
+          onClick={() => {
+            if (data) {
+              const jsonStr = JSON.stringify(data, null, 2);
+              const blob = new Blob([jsonStr], { type: 'application/json' });
+              const url = URL.createObjectURL(blob);
+              const link = document.createElement('a');
+              link.href = url;
+              link.download = `${task.name || 'dag'}_${Date.now()}.json`;
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+              URL.revokeObjectURL(url);
+            } else {
+              alert('没有可导出的JSON数据');
+            }
+          }}
+          className="flex items-center gap-2 rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-600"
+        >
+          <Icon icon="ri:download-line" width={16} />
+          导出JSON
+        </button>
       </div>
     </div>
   );

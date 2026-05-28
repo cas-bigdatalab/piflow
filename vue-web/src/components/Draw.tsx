@@ -2020,6 +2020,29 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
           </div>
         </div>
         <div className="header-right">
+          {/* <button 
+            className="export-btn"
+            onClick={() => {
+              if (initialPipelineData) {
+                const jsonStr = JSON.stringify(initialPipelineData, null, 2);
+                const blob = new Blob([jsonStr], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `${taskName || 'dag'}_${Date.now()}.json`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+              } else {
+                alert('没有可导出的JSON数据');
+              }
+            }}
+            title="导出JSON"
+          >
+            <Download size={16} />
+            <span>导出JSON</span>
+          </button> */}
           <button className="close-btn" onClick={() => {
             // 构造完整的画板JSON数据
             const drawData = {
