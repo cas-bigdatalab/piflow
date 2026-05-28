@@ -576,6 +576,38 @@ def sync_storage_skill_icon(skill_dir: Path, spec: dict) -> None:
         shutil.copy2(fallback, category_icon_path)
 
 
+def backup_path(path: Path) -> Path:
+    return path.with_name(f"{path.name}.__backup__")
+
+
+def prepare_file_backup(path: Path) -> Path | None:
+    backup = backup_path(path)
+    if backup.exists():
+        if backup.is_dir():
+            shutil.rmtree(backup)
+        else:
+            backup.unlink()
+
+    if path.exists():
+        backup.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(path, backup)
+        return backup
+    return None
+
+
+def restore_file_backup(path: Path, backup: Path | None) -> None:
+    if path.exists():
+        path.unlink()
+    if backup and backup.exists():
+        path.parent.mkdir(parents=True, exist_ok=True)
+        shutil.move(str(backup), str(path))
+
+
+def cleanup_file_backup(backup: Path | None) -> None:
+    if backup and backup.exists():
+        backup.unlink()
+
+
 def resource_items(spec: dict, key: str) -> list[dict]:
     value = spec.get(key)
     if not value:
@@ -650,18 +682,54 @@ def write_resources(skill_dir: Path, spec: dict) -> None:
 def generate(spec: dict, output_root: Path, overwrite: bool) -> dict:
     spec = normalize_spec(spec)
     skill_dir = output_root / spec["name"]
+    backup_dir: Path | None = None
+    classification_backup: Path | None = None
+    skill_icon_backup: Path | None = None
+    category_icon_backup: Path | None = None
+
+    classification_path = classification_file()
+    storage_dir = storage_skills_dir()
+    skill_icon_path = storage_dir / f"{spec['name']}.png"
+    category_icon_path = storage_dir / category_icon_filename(spec["classification"])
+
     if skill_dir.exists():
         if not overwrite:
             raise FileExistsError(f"skill already exists: {skill_dir}")
-        shutil.rmtree(skill_dir)
-    skill_dir.mkdir(parents=True)
+        backup_dir = skill_dir.with_name(f"{skill_dir.name}.__backup__")
+        if backup_dir.exists():
+            shutil.rmtree(backup_dir)
+        shutil.move(str(skill_dir), str(backup_dir))
 
-    write_text(skill_dir / "SKILL.md", frontmatter(spec) + "\n" + render_body(spec))
-    write_resources(skill_dir, spec)
-    if spec.get("skill_json", True):
-        write_text(skill_dir / "skill.json", render_skill_json(spec))
-    update_classification_registry(spec)
-    sync_storage_skill_icon(skill_dir, spec)
+    try:
+        classification_backup = prepare_file_backup(classification_path)
+        skill_icon_backup = prepare_file_backup(skill_icon_path)
+        category_icon_backup = prepare_file_backup(category_icon_path)
+
+        skill_dir.mkdir(parents=True)
+
+        write_text(skill_dir / "SKILL.md", frontmatter(spec) + "\n" + render_body(spec))
+        write_resources(skill_dir, spec)
+        if spec.get("skill_json", True):
+            write_text(skill_dir / "skill.json", render_skill_json(spec))
+        update_classification_registry(spec)
+        sync_storage_skill_icon(skill_dir, spec)
+    except Exception:
+        if skill_dir.exists():
+            shutil.rmtree(skill_dir)
+        restore_file_backup(classification_path, classification_backup)
+        restore_file_backup(skill_icon_path, skill_icon_backup)
+        restore_file_backup(category_icon_path, category_icon_backup)
+        if backup_dir and backup_dir.exists():
+            shutil.move(str(backup_dir), str(skill_dir))
+        raise
+
+    cleanup_file_backup(classification_backup)
+    cleanup_file_backup(skill_icon_backup)
+    cleanup_file_backup(category_icon_backup)
+
+    if backup_dir and backup_dir.exists():
+        shutil.rmtree(backup_dir)
+
     return {"skill_dir": str(skill_dir), "skill_md": str(skill_dir / "SKILL.md")}
 
 
