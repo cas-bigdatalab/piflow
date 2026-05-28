@@ -14,6 +14,7 @@ except ImportError:
 
 ALLOWED_KEYS = {
     "name",
+    "name_zh",
     "description",
     "version",
     "category",
@@ -24,6 +25,24 @@ ALLOWED_KEYS = {
     "compatibility",
     "license",
     "metadata",
+}
+PROJECT_ROOT = Path(__file__).resolve().parents[4]
+CLASSIFICATION_FILE = PROJECT_ROOT / "docs" / "skill分类.txt"
+STORAGE_SKILLS_DIR = PROJECT_ROOT / "storage" / "skills"
+DEFAULT_CATEGORY_ICON = "Other.png"
+TAG_ICON_FILENAMES = {
+    "清洗": "data-cleansing.png",
+    "校验": "quality-control.png",
+    "去重": "data-Aggregation.png",
+    "格式转换": "simple-data-format.png",
+    "标准化": "Mapping & Conversion.png",
+    "过滤与筛选": "Text Analysis.png",
+    "增强": "data-Aggregation.png",
+    "流程控制": "Workflow & Pipeline.png",
+    "输出": "Document Processing.png",
+    "设计创作": "Design & Creative.png",
+    "输入": "Document Processing.png",
+    "其他": "Other.png",
 }
 
 TEXT_SUFFIXES = {
@@ -42,11 +61,18 @@ def fail(message: str) -> tuple[bool, str]:
     return False, message
 
 
+def read_utf8_text(path: Path) -> str:
+    try:
+        return path.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        return path.read_text(encoding="utf-8-sig")
+
+
 def load_yaml_file(path: Path) -> tuple[bool, str | dict]:
     if yaml is None:
         return fail("PyYAML is required for validation")
     try:
-        text = path.read_text(encoding="utf-8")
+        text = read_utf8_text(path)
     except UnicodeDecodeError as exc:
         return fail(f"{path} is not valid UTF-8: {exc}")
     try:
@@ -60,7 +86,7 @@ def load_yaml_file(path: Path) -> tuple[bool, str | dict]:
 
 def load_frontmatter(skill_md: Path) -> tuple[bool, str | dict]:
     try:
-        content = skill_md.read_text(encoding="utf-8")
+        content = read_utf8_text(skill_md)
     except UnicodeDecodeError as exc:
         return fail(f"SKILL.md is not valid UTF-8: {exc}")
 
@@ -114,7 +140,7 @@ def validate_params(params, field_name: str) -> tuple[bool, str]:
 
 def load_json_file(path: Path) -> tuple[bool, str | dict]:
     try:
-        text = path.read_text(encoding="utf-8")
+        text = read_utf8_text(path)
     except UnicodeDecodeError as exc:
         return fail(f"{path} is not valid UTF-8: {exc}")
     try:
@@ -126,47 +152,37 @@ def load_json_file(path: Path) -> tuple[bool, str | dict]:
     return True, data
 
 
-def validate_agents_openai(skill_dir: Path, skill_name: str) -> tuple[bool, str]:
-    agents = skill_dir / "agents" / "openai.yaml"
-    if not agents.exists():
-        return True, "ok"
-
-    ok, data_or_message = load_yaml_file(agents)
-    if not ok:
-        return False, str(data_or_message)
-    data = data_or_message
-
-    interface = data.get("interface")
-    if not isinstance(interface, dict):
-        return fail("agents/openai.yaml must contain interface mapping")
-
-    for key in ("display_name", "short_description", "default_prompt"):
-        if key not in interface or not isinstance(interface[key], str) or not interface[key].strip():
-            return fail(f"agents/openai.yaml interface.{key} must be a non-empty string")
-
-    if f"${skill_name}" not in interface["default_prompt"]:
-        return fail(f"agents/openai.yaml interface.default_prompt must mention ${skill_name}")
-
-    for icon_key in ("icon_small", "icon_large"):
-        if icon_key in interface:
-            icon_path = skill_dir / interface[icon_key]
-            if not icon_path.exists():
-                return fail(f"agents/openai.yaml interface.{icon_key} target does not exist: {interface[icon_key]}")
-
-    brand_color = interface.get("brand_color")
-    if brand_color is not None and not re.fullmatch(r"#[0-9A-Fa-f]{6}", str(brand_color)):
-        return fail("agents/openai.yaml interface.brand_color must be a #RRGGBB value")
-
-    return True, "ok"
-
-
 def validate_text_files_utf8(skill_dir: Path) -> tuple[bool, str]:
     for path in skill_dir.rglob("*"):
         if path.is_file() and path.suffix.lower() in TEXT_SUFFIXES:
             try:
-                path.read_text(encoding="utf-8")
+                read_utf8_text(path)
             except UnicodeDecodeError as exc:
                 return fail(f"{path.relative_to(skill_dir)} is not valid UTF-8: {exc}")
+    return True, "ok"
+
+
+def validate_classification_registry(skill_dir: Path, frontmatter: dict) -> tuple[bool, str]:
+    if not CLASSIFICATION_FILE.exists():
+        return True, "ok"
+
+    try:
+        content = read_utf8_text(CLASSIFICATION_FILE)
+    except UnicodeDecodeError:
+        return True, "ok"
+
+    pattern = re.compile(rf"^- \*\*{re.escape(frontmatter['name'])}\*\*: ", re.MULTILINE)
+    if not pattern.search(content):
+        print(f"warning: docs/skill分类.txt missing registration for {frontmatter['name']}", file=sys.stderr)
+    return True, "ok"
+
+
+def validate_storage_icon(skill_dir: Path, frontmatter: dict) -> tuple[bool, str]:
+    icon = STORAGE_SKILLS_DIR / f"{skill_dir.name}.png"
+    category_icon_name = TAG_ICON_FILENAMES.get(frontmatter.get("tag", "其他"), DEFAULT_CATEGORY_ICON)
+    category_icon = STORAGE_SKILLS_DIR / category_icon_name
+    if not icon.exists() and not category_icon.exists():
+        return fail(f"storage icon not found for skill or tag: {icon.name}, {category_icon.name}")
     return True, "ok"
 
 
@@ -261,6 +277,8 @@ def validate(skill_dir: Path) -> tuple[bool, str]:
     for key in ("version", "category", "tag"):
         if key in data and (not isinstance(data[key], str) or not data[key].strip()):
             return fail(f"{key} must be a non-empty string when present")
+    if "name_zh" in data and (not isinstance(data["name_zh"], str) or not data["name_zh"].strip()):
+        return fail("name_zh must be a non-empty string when present")
 
     if data["name"] != skill_dir.name:
         return fail(f"frontmatter name must match folder name: {skill_dir.name}")
@@ -281,11 +299,15 @@ def validate(skill_dir: Path) -> tuple[bool, str]:
         if not ok:
             return False, message
 
-    ok, message = validate_agents_openai(skill_dir, data["name"])
+    ok, message = validate_skill_json(skill_dir, data)
     if not ok:
         return False, message
 
-    ok, message = validate_skill_json(skill_dir, data)
+    ok, message = validate_classification_registry(skill_dir, data)
+    if not ok:
+        return False, message
+
+    ok, message = validate_storage_icon(skill_dir, data)
     if not ok:
         return False, message
 

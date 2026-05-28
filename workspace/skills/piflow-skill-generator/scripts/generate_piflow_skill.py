@@ -4,6 +4,7 @@ import json
 import re
 import shutil
 from pathlib import Path
+from typing import Iterable
 
 
 DEFAULT_OUTPUT_ROOT = "skills"
@@ -11,6 +12,7 @@ LEGACY_OUTPUT_ROOTS = {"workspace/skills", "flow-deepagents/workspace/skills"}
 PARAM_ROLES = {"input_data", "output_data", "data"}
 FRONTMATTER_KEYS = {
     "name",
+    "name_zh",
     "description",
     "version",
     "category",
@@ -22,11 +24,50 @@ FRONTMATTER_KEYS = {
     "license",
     "metadata",
 }
+CLASSIFICATION_FILE = Path(__file__).resolve().parents[4] / "docs" / "skill分类.txt"
+STORAGE_SKILLS_DIR = Path(__file__).resolve().parents[4] / "storage" / "skills"
+DEFAULT_CATEGORY = "其他"
+DEFAULT_CATEGORY_ICON = "Other.png"
+TAG_TO_CLASSIFICATION = {
+    "清洗": "清洗",
+    "校验": "校验",
+    "去重": "去重",
+    "格式转换": "格式转换",
+    "标准化": "标准化",
+    "过滤与筛选": "过滤与筛选",
+    "增强": "增强",
+    "流程控制": "流程控制",
+    "输出": "输出",
+    "设计创作": "设计创作",
+    "输入": "输入",
+    "其他": "其他",
+}
+CLASSIFICATION_ICON_ALIASES = {
+    "清洗": "data-cleansing.png",
+    "校验": "quality-control.png",
+    "去重": "data-Aggregation.png",
+    "格式转换": "simple-data-format.png",
+    "标准化": "Mapping & Conversion.png",
+    "过滤与筛选": "Text Analysis.png",
+    "增强": "data-Aggregation.png",
+    "流程控制": "Workflow & Pipeline.png",
+    "输出": "Document Processing.png",
+    "设计创作": "Design & Creative.png",
+    "输入": "Document Processing.png",
+    "其他": "Other.png",
+}
 
 
 def workspace_root() -> Path:
     # This script lives in <workspace>/skills/piflow-skill-generator/scripts.
     return Path(__file__).resolve().parents[3]
+
+
+def read_text(path: Path) -> str:
+    try:
+        return path.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        return path.read_text(encoding="utf-8-sig")
 
 
 def resolve_source_path(raw_path: str) -> Path:
@@ -52,8 +93,7 @@ def resolve_output_root(raw_output_root: str | None) -> Path:
 
 
 def read_json(path: Path) -> dict:
-    with path.open("r", encoding="utf-8") as f:
-        data = json.load(f)
+    data = json.loads(read_text(path))
     if not isinstance(data, dict):
         raise ValueError("spec must be a JSON object")
     return data
@@ -71,10 +111,22 @@ def safe_rel_path(raw_path: str, field_name: str) -> Path:
     return path
 
 
+def classification_file() -> Path:
+    return CLASSIFICATION_FILE
+
+
+def storage_skills_dir() -> Path:
+    return STORAGE_SKILLS_DIR
+
+
 def as_list(value) -> list:
     if value is None:
         return []
     return value if isinstance(value, list) else [value]
+
+
+def non_empty_text(value) -> str:
+    return str(value or "").strip()
 
 
 def normalize_description(spec: dict) -> str:
@@ -83,6 +135,62 @@ def normalize_description(spec: dict) -> str:
     if triggers and all(token not in description for token in ("当用户", "触发", "Use when")):
         description = f"{description} 当用户提到{'、'.join(triggers)}等需求时使用此 skill。"
     return description
+
+
+def parse_classification_sections(text: str) -> list[tuple[str, list[tuple[str, str]]]]:
+    sections: list[tuple[str, list[tuple[str, str]]]] = []
+    current_name = ""
+    current_items: list[tuple[str, str]] = []
+    item_pattern = re.compile(r"^- \*\*(.+?)\*\*: (.+)$")
+
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        if line.startswith("## "):
+            if current_name:
+                sections.append((current_name, current_items))
+            current_name = line[3:].strip()
+            current_items = []
+            continue
+        match = item_pattern.match(line)
+        if match and current_name:
+            current_items.append((match.group(1).strip(), match.group(2).strip()))
+
+    if current_name:
+        sections.append((current_name, current_items))
+    return sections
+
+
+def load_classification_sections() -> list[tuple[str, list[tuple[str, str]]]]:
+    path = classification_file()
+    if not path.exists():
+        return []
+    return parse_classification_sections(read_text(path))
+
+
+def known_classifications(sections: Iterable[tuple[str, list[tuple[str, str]]]]) -> set[str]:
+    return {name for name, _ in sections if name}
+
+
+def category_icon_filename(classification: str) -> str:
+    return CLASSIFICATION_ICON_ALIASES.get(classification, DEFAULT_CATEGORY_ICON)
+
+
+def infer_classification(spec: dict) -> str:
+    sections = load_classification_sections()
+    available = known_classifications(sections)
+    candidates = [
+        non_empty_text(spec.get("classification")),
+        non_empty_text(spec.get("classification_name")),
+        non_empty_text(spec.get("tag")),
+        non_empty_text(spec.get("category")),
+    ]
+    for candidate in candidates:
+        if candidate in available:
+            return candidate
+        mapped = TAG_TO_CLASSIFICATION.get(candidate)
+        if mapped and (not available or mapped in available):
+            return mapped
+    return DEFAULT_CATEGORY if DEFAULT_CATEGORY in available or not available else sorted(available)[0]
 
 
 def normalize_param(param: dict, *, is_input: bool) -> dict:
@@ -141,10 +249,12 @@ def normalize_spec(spec: dict) -> dict:
     normalized = dict(spec)
     normalized["description"] = normalize_description(spec)
     normalized["version"] = str(spec.get("version", "1.0.0"))
+    normalized["name_zh"] = non_empty_text(spec.get("name_zh"))
     normalized["input_params"] = [normalize_param(p, is_input=True) for p in spec.get("input_params", [])]
     normalized["output_params"] = [normalize_param(p, is_input=False) for p in spec.get("output_params", [])]
     normalized["script_path"] = str(spec.get("script_path") or first_script_path(spec))
     normalized["command"] = str(spec.get("command") or command_from_spec(normalized)).strip()
+    normalized["classification"] = infer_classification(normalized)
     return normalized
 
 
@@ -232,14 +342,12 @@ def frontmatter(spec: dict) -> str:
         "description": spec["description"],
         "version": spec["version"],
     }
+    if spec.get("name_zh"):
+        data["name_zh"] = spec["name_zh"]
     for key in ("category", "tag", "allowed-tools", "compatibility", "license", "metadata"):
         src = "allowed_tools" if key == "allowed-tools" and "allowed_tools" in spec else key
         if src in spec:
             data[key] = spec[src]
-    if spec.get("category"):
-        metadata = dict(data.get("metadata") or {})
-        metadata.setdefault("category", spec["category"])
-        data["metadata"] = metadata
     data["input_params"] = spec["input_params"]
     data["output_params"] = spec["output_params"]
 
@@ -399,27 +507,73 @@ def render_skill_json(spec: dict) -> str:
     return json.dumps(data, ensure_ascii=False, indent=2) + "\n"
 
 
-def render_agents_yaml(skill_dir: Path, spec: dict) -> str:
-    raw = spec.get("agents_openai")
-    config = dict(raw) if isinstance(raw, dict) else {}
-    default_prompt = config.get("default_prompt") or f"Use ${spec['name']} to complete the requested PiFlow task."
-    if f"${spec['name']}" not in default_prompt:
-        default_prompt = f"Use ${spec['name']} to {default_prompt}"
+def skill_display_description(spec: dict) -> str:
+    return non_empty_text(spec.get("title_zh") or spec.get("name_zh") or spec.get("title") or spec["name"])
 
-    interface = {
-        "display_name": config.get("display_name") or spec.get("title") or spec["name"],
-        "short_description": config.get("short_description") or spec["description"][:84],
-        "default_prompt": default_prompt,
-    }
-    if (skill_dir / "assets" / "icon.png").exists() or spec.get("icon"):
-        interface["icon_small"] = "./assets/icon.png"
-        interface["icon_large"] = "./assets/icon.png"
-    if config.get("brand_color"):
-        interface["brand_color"] = config["brand_color"]
 
-    return "interface:\n" + "\n".join(
-        f"  {key}: {json.dumps(str(value), ensure_ascii=False)}" for key, value in interface.items()
-    ) + "\n"
+def update_classification_registry(spec: dict) -> None:
+    path = classification_file()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    sections = load_classification_sections()
+    section_name = spec["classification"]
+    skill_name = spec["name"]
+    description = skill_display_description(spec)
+
+    if not sections:
+        sections = [(section_name, [])]
+
+    target_index = None
+    for index, (name, _) in enumerate(sections):
+        if name == section_name:
+            target_index = index
+            break
+    if target_index is None:
+        sections.append((section_name, []))
+        target_index = len(sections) - 1
+
+    # Remove existing registrations so the skill only appears once.
+    cleaned_sections: list[tuple[str, list[tuple[str, str]]]] = []
+    for name, items in sections:
+        filtered = [(existing_name, existing_desc) for existing_name, existing_desc in items if existing_name != skill_name]
+        cleaned_sections.append((name, filtered))
+    sections = cleaned_sections
+
+    section_items = list(sections[target_index][1])
+    section_items.append((skill_name, description))
+    section_items.sort(key=lambda item: item[0].lower())
+    sections[target_index] = (section_name, section_items)
+
+    lines: list[str] = []
+    for index, (name, items) in enumerate(sections):
+        if index:
+            lines.append("")
+        lines.append(f"## {name}")
+        for item_name, item_desc in items:
+            lines.append(f"- **{item_name}**: {item_desc}")
+    write_text(path, "\n".join(lines).rstrip() + "\n")
+
+
+def sync_storage_skill_icon(skill_dir: Path, spec: dict) -> None:
+    storage_dir = storage_skills_dir()
+    storage_dir.mkdir(parents=True, exist_ok=True)
+
+    skill_icon = skill_dir / "assets" / "icon.png"
+    if skill_icon.exists():
+        shutil.copy2(skill_icon, storage_dir / f"{spec['name']}.png")
+
+    section_name = spec["classification"]
+    category_icon_path = storage_dir / category_icon_filename(section_name)
+    if category_icon_path.exists():
+        return
+
+    alias_path = storage_dir / DEFAULT_CATEGORY_ICON
+    if alias_path.exists():
+        shutil.copy2(alias_path, category_icon_path)
+        return
+
+    fallback = storage_dir / DEFAULT_CATEGORY_ICON
+    if fallback.exists():
+        shutil.copy2(fallback, category_icon_path)
 
 
 def resource_items(spec: dict, key: str) -> list[dict]:
@@ -506,8 +660,8 @@ def generate(spec: dict, output_root: Path, overwrite: bool) -> dict:
     write_resources(skill_dir, spec)
     if spec.get("skill_json", True):
         write_text(skill_dir / "skill.json", render_skill_json(spec))
-    if spec.get("agents_openai"):
-        write_text(skill_dir / "agents" / "openai.yaml", render_agents_yaml(skill_dir, spec))
+    update_classification_registry(spec)
+    sync_storage_skill_icon(skill_dir, spec)
     return {"skill_dir": str(skill_dir), "skill_md": str(skill_dir / "SKILL.md")}
 
 

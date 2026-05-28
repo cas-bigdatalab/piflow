@@ -13,7 +13,6 @@ name_zh: <技能中文名>
 description: <说明技能能力，并包含收敛后的触发语义；仅写用户明确指定或任务完成后需要沉淀的触发场景>
 version: 1.0.0
 category: <业务分类或技能域>
-tag: <DAG 面板技能类型>
 input_params:
   - name: input_path
     role: input_data
@@ -25,6 +24,7 @@ output_params:
     role: output_data
     type: json_file
     description: 输出文件路径
+tag: <DAG 面板技能类型>
 ---
 ```
 
@@ -130,9 +130,7 @@ python scripts/<script>.py --input_path input.json --output_path output.json
     "{input_path}",
     "--output_path",
     "{output_path}"
-  ],
-  "category": "<业务分类>",
-  "tag": "<DAG 技能类型>"
+  ]
 }
 ```
 

@@ -77,6 +77,5 @@
       "title": "基本调用",
       "command": "python scripts/run_example_utf8_mapper.py --input_path input.json --output_path output.json"
     }
-  ],
-  "agents_openai": true
+  ]
 }
