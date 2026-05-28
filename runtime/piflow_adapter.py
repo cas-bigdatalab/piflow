@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sys
+import threading
 from pathlib import Path
 from typing import Any
 
@@ -8,6 +9,31 @@ from tools.excutor.excutor_utils import resolve_dag_definition_skills
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_PIFLOW_WORKSPACE_ROOT = PROJECT_ROOT / ".piflow" / "workspace"
+_PROCESS_REGISTRY: dict[str, Any] = {}
+_PROCESS_REGISTRY_LOCK = threading.Lock()
+
+
+def register_running_process(process: Any) -> None:
+    with _PROCESS_REGISTRY_LOCK:
+        _PROCESS_REGISTRY[process.pid()] = process
+
+
+def unregister_running_process(process_id: str) -> None:
+    with _PROCESS_REGISTRY_LOCK:
+        _PROCESS_REGISTRY.pop(process_id, None)
+
+
+def get_registered_process(process_id: str) -> Any | None:
+    with _PROCESS_REGISTRY_LOCK:
+        return _PROCESS_REGISTRY.get(process_id)
+
+
+def stop_registered_process(process_id: str) -> bool:
+    process = get_registered_process(process_id)
+    if process is None:
+        return False
+    process.stop()
+    return True
 
 
 def init_piflow_run_tracking_db() -> None:
@@ -49,18 +75,21 @@ def submit_frontend_dag(
             try:
                 super().on_process_completed(ctx)
             finally:
+                unregister_running_process(ctx.get_process().pid())
                 self._closing_run_store.close()
 
         def on_process_failed(self, ctx, error: Exception) -> None:
             try:
                 super().on_process_failed(ctx, error)
             finally:
+                unregister_running_process(ctx.get_process().pid())
                 self._closing_run_store.close()
 
         def on_process_aborted(self, ctx) -> None:
             try:
                 super().on_process_aborted(ctx)
             finally:
+                unregister_running_process(ctx.get_process().pid())
                 self._closing_run_store.close()
 
     resolve_dag_json = resolve_dag_definition_skills(definition_json)
@@ -83,5 +112,6 @@ def submit_frontend_dag(
             run_logger=run_logger,
         )
     )
-
-    return runner.start(flow)
+    process = runner.start(flow)
+    register_running_process(process)
+    return process
