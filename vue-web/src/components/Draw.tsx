@@ -1028,48 +1028,142 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
         const loadedNodes: Node<NodeData>[] = [];
         const loadedEdges: Edge[] = [];
 
+        // 构建 nodeId -> output_params 的映射，用于后续查找引用
+        const outputParamsMap: Record<string, any[]> = {};
+        const nodeIdMap: Record<string, string> = {};
+        for (let i = 0; i < savedDrawData.nodes.length; i++) {
+          const n = savedDrawData.nodes[i];
+          const nodeId = n.node_id || `node-${i+1}`;
+          nodeIdMap[n.node_name || nodeId] = nodeId;
+          
+          // 统一处理 n.output_params 的不同格式
+          let paramsArray: any[] = [];
+          if (n.output_params?.params) {
+            paramsArray = n.output_params.params;
+          } else if (Array.isArray(n.output_params)) {
+            paramsArray = n.output_params;
+          }
+          
+          if (paramsArray.length > 0) {
+            outputParamsMap[nodeId] = paramsArray;
+          }
+        }
+
+        // 构建 bindingsMap：${to_node_id}|${to_param_name} -> binding
+        const bindingsMap: Record<string, any> = {};
+        if (savedDrawData.bindings && Array.isArray(savedDrawData.bindings)) {
+          for (const binding of savedDrawData.bindings) {
+            const key = `${binding.to_node_id}|${binding.to_param_name}`;
+            bindingsMap[key] = binding;
+          }
+        }
+        console.log('=== bindingsMap ===', bindingsMap);
+
         for (let i = 0; i < savedDrawData.nodes.length; i++) {
           const n = savedDrawData.nodes[i];
           let inputParams = undefined;
           let outputParams = undefined;
           let nodeIconPath = n.icon_path || '';
           const skillId = n.skill?.skill_id || n.skill_id;
+          const nodeId = n.node_id || `node-${i+1}`;
 
+          // 检查 savedDrawData 中是否已经有完整的参数信息
+          const hasSavedInputParams = n.input_params && Array.isArray(n.input_params) && n.input_params.length > 0;
+          const hasSavedOutputParams = n.output_params && (Array.isArray(n.output_params) || n.output_params.params?.length > 0);
+          const hasSavedIconPath = n.icon_path && n.icon_path !== '';
+          
+          console.log(`节点 ${i} (${n.node_name}):`, {
+            hasSavedInputParams,
+            hasSavedOutputParams,
+            hasSavedIconPath,
+            n_output_params: n.output_params,
+          });
+          
+          // 优先从 savedDrawData 里读取 output_params
+          if (hasSavedOutputParams) {
+            if (Array.isArray(n.output_params)) {
+              outputParams = { params: n.output_params };
+            } else {
+              outputParams = n.output_params;
+            }
+            console.log(`节点 ${i}: 从 savedDrawData 读取 outputParams:`, outputParams);
+          }
+          
+          // 不管怎么样，先尝试请求算子详情，确保我们有完整的 output_params！
           if (skillId) {
             try {
               const skillRes = await listSkillsDetails(skillId);
               if (skillRes.result) {
-                inputParams = skillRes.result.input_params;
-                outputParams = skillRes.result.output_params;
-                // 优先使用保存的 icon_path，如果没有则从算子详情获取
-                nodeIconPath = n.icon_path || skillRes.result.icon_path || '';
-                console.log(`节点 ${i} 图标加载:`, { saved: n.icon_path, fromDetail: skillRes.result.icon_path, final: nodeIconPath });
+                if (!hasSavedInputParams) {
+                  inputParams = skillRes.result.input_params;
+                }
+                if (!hasSavedOutputParams) {
+                  outputParams = skillRes.result.output_params;
+                  console.log(`节点 ${i}: 从算子详情获取 outputParams:`, outputParams);
+                }
+                if (!hasSavedIconPath) {
+                  nodeIconPath = skillRes.result.icon_path || '';
+                }
               }
             } catch(e) { console.error(e); }
+          }
+          
+          console.log(`节点 ${i} 最终 outputParams:`, outputParams);
+
+          // 确保outputParamsMap里有当前节点的output_params
+          if (outputParams?.params) {
+            outputParamsMap[nodeId] = outputParams.params;
           }
 
           // 合并已保存的参数据
           let mergedInputParams = inputParams;
-          if (inputParams?.params && n.input_params && Array.isArray(n.input_params)) {
-            const savedParamsMap: Record<string, any> = {};
-            n.input_params.forEach((sp: any) => { savedParamsMap[sp.param_name] = sp; });
+          
+          // 优先使用已保存的参数数据
+          if (n.input_params && Array.isArray(n.input_params)) {
             mergedInputParams = {
-              ...inputParams,
-              params: inputParams.params.map((tp: any) => {
-                const saved = savedParamsMap[tp.name];
-                const isReference = saved?.value_mode === 'reference';
+              params: n.input_params.map((sp: any) => {
+                const paramName = sp.param_name || '';
+                // 检查是否有对应的binding
+                const bindingKey = `${nodeId}|${paramName}`;
+                const binding = bindingsMap[bindingKey];
+                const isReference = sp.value_mode === 'reference' || !!binding;
+                
+                let _refValue = '';
+                if (isReference && binding) {
+                  // 从上游节点的output_params中获取参数信息
+                  const fromNodeId = binding.from_node_id;
+                  let fromParamName = binding.from_param_name;
+                  
+                  // 如果fromParamName可能是nodeId_paramName格式，需要提取最后一部分
+                  if (fromParamName.includes('_')) {
+                    const parts = fromParamName.split('_');
+                    fromParamName = parts[parts.length - 1];
+                  }
+                  
+                  // _refValue是纯参数名，和option.value匹配
+                  _refValue = fromParamName;
+                  console.log(`节点 ${nodeId} 参数 ${paramName} 的引用信息:`, {
+                    binding,
+                    _refValue
+                  });
+                }
+                
                 return {
-                  ...tp,
+                  name: paramName,
+                  param_value: sp.param_value || '',
+                  type: sp.param_type || '',
                   _refType: isReference ? 'reference' : 'manual',
-                  _value: isReference ? '' : (saved?.param_value || tp.param_value || ''),
-                  _refValue: isReference ? (saved?.param_value || '') : '',
+                  _value: isReference ? '' : (sp.param_value || ''),
+                  _refValue: isReference ? _refValue : '',
                 };
               }),
             };
+          } else if (inputParams?.params) {
+            mergedInputParams = inputParams;
           }
 
           loadedNodes.push({
-            id: n.node_id || `node-${i+1}`,
+            id: nodeId,
             type: 'custom',
             position: n.position || { x: START_X + (NODE_WIDTH + NODE_GAP) * i, y: START_Y },
             data: {
@@ -1149,25 +1243,15 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
 
       // 创建节点名称到节点ID的映射（用于解析引用关系）
       const nodeNameToIdMap: Record<string, string> = {};
+      const nodeIdToOutputParamsMap: Record<string, any> = {};
 
-      // 第一步：创建所有节点（不带参数），建立名称映射
-      for (let i = 0; i < pipelineNodes.length; i++) {
-        const pNode = pipelineNodes[i];
-        const nodeId = `node-${i + 1}`;
-        nodeNameToIdMap[pNode.node_name] = nodeId;
-      }
-
-      // 第二步：遍历创建完整节点，处理参数引用
+      // 第一步：先获取所有节点的算子信息，建立基础映射，收集output_params
       for (let i = 0; i < pipelineNodes.length; i++) {
         const pNode = pipelineNodes[i];
         let skillId = pNode.skill_id || '';
         const skillName = pNode.skill_name;
-        let nodeName = pNode.node_name || '未命名节点';
-        
-        // 获取算子详情信息
-        let inputParams = undefined;
-        let outputParams = undefined;
-        let iconPath = '';
+        const nodeId = `node-${i + 1}`;
+        nodeNameToIdMap[pNode.node_name] = nodeId;
         
         // 处理特殊算子名称，写死 skill_id
         if (skillName === 'source_stop') {
@@ -1180,8 +1264,41 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
           const res = await getAllSkills(skillName);
           console.log(`请求算子详情 skillName=${skillName}:`, res);
           if (res.result.data && res.result.data.length > 0) {
+            const outputParams = res.result.data[0].DagSkillInfoList[0].output_params;
+            nodeIdToOutputParamsMap[nodeId] = outputParams;
+          }
+        } catch (error) {
+          console.error('获取算子库失败', error);
+        }
+      }
+
+      // 第二步：遍历创建完整节点，处理参数引用
+      for (let i = 0; i < pipelineNodes.length; i++) {
+        const pNode = pipelineNodes[i];
+        let skillId = pNode.skill_id || '';
+        const skillName = pNode.skill_name;
+        let nodeName = pNode.node_name || '未命名节点';
+        
+        // 获取算子详情信息
+        let inputParams = undefined;
+        let outputParams = nodeIdToOutputParamsMap[`node-${i + 1}`];
+        let iconPath = '';
+        
+        // 处理特殊算子名称，写死 skill_id
+        if (skillName === 'source_stop') {
+          skillId = 'cn.piflow.engine.local.source_file_stop.SourceFileStop';
+        } else if (skillName === 'sink_stop') {
+          skillId = 'cn.piflow.engine.local.file_save_stop.FileSaveStop';
+        }
+        
+        try {
+          const res = await getAllSkills(skillName);
+          if (res.result.data && res.result.data.length > 0) {
             inputParams = res.result.data[0].DagSkillInfoList[0].input_params;
-            outputParams = res.result.data[0].DagSkillInfoList[0].output_params;
+            // 如果outputParams已经有了，就不用再次获取
+            if (!outputParams) {
+              outputParams = res.result.data[0].DagSkillInfoList[0].output_params;
+            }
             // 如果不是特殊算子名称，才使用接口返回的 skill_id
             if (skillName !== 'source_stop' && skillName !== 'sink_stop') {
               skillId = res.result.data[0].DagSkillInfoList[0].skill_id;
@@ -1204,6 +1321,7 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
 
         console.log(`节点 ${nodeName} 的 DAG 参数:`, dagParams);
         console.log(`节点 ${nodeName} 的算子 input_params:`, inputParams);
+        console.log(`节点 ${nodeName} 的 output_params:`, outputParams);
 
         // 构建 mergedInputParams：合并DAG 参数到算子的 input_params
         let mergedInputParams = inputParams;
@@ -1223,11 +1341,14 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
                   const sourceParamName = paramValue.source_param;
                   const sourceNodeId = nodeNameToIdMap[sourceNodeName];
                   
+                  // _refValue是纯参数名，和option.value匹配
+                  let refValue = sourceParamName;
+                  
                   return {
                     ...paramDef,
                     _refType: 'reference',
                     _value: '',
-                    _refValue: sourceNodeId ? `${sourceNodeId}_${sourceParamName}` : '',
+                    _refValue: refValue,
                     _sourceNodeName: sourceNodeName,
                     _sourceParamName: sourceParamName,
                   };
@@ -1258,6 +1379,10 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
               const sourceNodeName = value.source_node;
               const sourceParamName = value.source_param;
               const sourceNodeId = nodeNameToIdMap[sourceNodeName];
+              
+              // _refValue是纯参数名，和option.value匹配
+              let refValue = sourceParamName;
+              
               return {
                 name: name,
                 type: 'string',
@@ -1266,7 +1391,7 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
                 param_value: '',
                 _refType: 'reference',
                 _value: '',
-                _refValue: sourceNodeId ? `${sourceNodeId}_${sourceParamName}` : '',
+                _refValue: refValue,
                 _sourceNodeName: sourceNodeName,
                 _sourceParamName: sourceParamName,
               };
@@ -1632,10 +1757,18 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
     setIsLoadingReferences(true);
     setReferenceOptions([]);
 
+    console.log('=== fetchReferenceOptions 被调用 ===', {
+      currentNodeId,
+      nodes: nodes.map(n => ({ id: n.id, label: n.data.label, has_output_params: !!n.data.output_params?.params })),
+      edges,
+    });
+
     // 找到指向当前节点的所有上游节点（通过 edges 的 target 和 source）
     const upstreamNodeIds = edges
       .filter((e) => e.target === currentNodeId)
       .map((e) => e.source);
+
+    console.log('上游节点ID:', upstreamNodeIds);
 
     if (upstreamNodeIds.length === 0) {
       setIsLoadingReferences(false);
@@ -1644,19 +1777,55 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
 
     // 直接从上游节点的 output_params 获取出参
     const upstreamNodes = nodes.filter((n) => upstreamNodeIds.includes(n.id));
+    console.log('上游节点:', upstreamNodes.map(n => ({ id: n.id, output_params: n.data.output_params })));
+    
     const allOutputParams: { name: string; type: string; description: string; nodeId: string; nodeName: string }[] = [];
     
     upstreamNodes.forEach((upstreamNode) => {
-      if (upstreamNode.data.output_params?.params) {
+      console.log(`检查上游节点 ${upstreamNode.id} 的 output_params:`, upstreamNode.data.output_params);
+      
+      // 优先从 output_params 获取
+      if (upstreamNode.data.output_params?.params && upstreamNode.data.output_params.params.length > 0) {
         upstreamNode.data.output_params.params.forEach((param: any) => {
+          const paramName = param.name || param.param_name || '';
+          const paramType = param.type || param.param_type || 'string';
           allOutputParams.push({
-            name: param.name || param.param_name || '',
-            type: param.type || param.param_type || 'string',
+            name: paramName,
+            type: paramType,
             description: param.description || '',
             nodeId: upstreamNode.id,
             nodeName: upstreamNode.data.label || '',
           });
         });
+      } else {
+        // 如果没有 output_params，检查 input_params（处理 source_stop 等特殊算子）
+        console.log(`上游节点 ${upstreamNode.id} 没有 output_params，检查 input_params:`, upstreamNode.data.input_params);
+        if (upstreamNode.data.input_params?.params) {
+          // 查找名为 "output" 的参数
+          const outputParam = upstreamNode.data.input_params.params.find(
+            (p: any) => (p.name || p.param_name) === 'output'
+          );
+          if (outputParam) {
+            const paramName = outputParam.name || outputParam.param_name || 'output';
+            const paramType = outputParam.type || outputParam.param_type || 'string';
+            allOutputParams.push({
+              name: paramName,
+              type: paramType,
+              description: outputParam.description || '',
+              nodeId: upstreamNode.id,
+              nodeName: upstreamNode.data.label || '',
+            });
+          } else {
+            // 如果也找不到 output 参数，创建一个默认的 output 参数
+            allOutputParams.push({
+              name: 'output',
+              type: 'string',
+              description: '',
+              nodeId: upstreamNode.id,
+              nodeName: upstreamNode.data.label || '',
+            });
+          }
+        }
       }
     });
 
@@ -1948,7 +2117,7 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
                   // 找到上游节点（通过 edges 找到指向当前节点的边）
                   const upstreamEdge = edges.find(e => e.target === node.id);
                   if (upstreamEdge) {
-                    // _refValue 的格式可能是 "paramName（type）"，需要提取参数名
+                    // _refValue 的格式可能是 "paramName（type）" 或 "nodeId_paramName"，需要提取参数名
                     // 如果 _refValue 为空，使用上游节点的第一个出参名称
                     let refParamName = param._refValue;
                     if (!refParamName) {
@@ -1957,6 +2126,10 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
                       refParamName = upstreamNode?.data.output_params?.params?.[0]?.name || '';
                     } else if (refParamName.includes('（')) {
                       refParamName = refParamName.split('（')[0];
+                    } else if (refParamName.includes('_')) {
+                      // 处理 nodeId_paramName 格式，取最后一部分
+                      const parts = refParamName.split('_');
+                      refParamName = parts[parts.length - 1];
                     }
 
                     const binding = {
@@ -2318,7 +2491,7 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
                                     >
                                       {referenceOptions.map((opt) => (
                                         <option key={`${opt.nodeId}_${opt.name}`} value={opt.name}>
-                                          {opt.name}
+                                          {`${opt.name}（${opt.type}）`}
                                         </option>
                                       ))}
                                     </select>
