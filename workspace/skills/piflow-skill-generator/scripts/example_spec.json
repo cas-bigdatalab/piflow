@@ -1,5 +1,5 @@
 {
-  "name": "example_utf8_mapper",
+  "name": "example=-utf8-mapper",
   "title": "Example UTF-8 Mapper",
   "description": "示例UTF-8映射器，用于验证中文元数据和脚本生成。",
   "version": "1.0.0",

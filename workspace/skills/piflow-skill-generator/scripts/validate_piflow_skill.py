@@ -256,7 +256,7 @@ def validate_skill_json(skill_dir: Path, frontmatter: dict) -> tuple[bool, str]:
     return True, "ok"
 
 
-def validate(skill_dir: Path) -> tuple[bool, str]:
+def validate(skill_dir: Path, mode: str = "registered") -> tuple[bool, str]:
     skill_md = skill_dir / "SKILL.md"
     if not skill_md.exists():
         return fail("SKILL.md not found")
@@ -303,26 +303,35 @@ def validate(skill_dir: Path) -> tuple[bool, str]:
     if not ok:
         return False, message
 
-    ok, message = validate_classification_registry(skill_dir, data)
-    if not ok:
-        return False, message
+    if mode == "registered":
+        ok, message = validate_classification_registry(skill_dir, data)
+        if not ok:
+            return False, message
 
-    ok, message = validate_storage_icon(skill_dir, data)
-    if not ok:
-        return False, message
+        ok, message = validate_storage_icon(skill_dir, data)
+        if not ok:
+            return False, message
 
     icon = skill_dir / "assets" / "icon.png"
     if not icon.exists():
         print("warning: assets/icon.png not found; PiFlow will use the common icon", file=sys.stderr)
 
+    if mode == "files-only":
+        return True, "PiFlow skill files are valid"
     return True, "PiFlow skill is valid"
 
 
 def main():
     parser = argparse.ArgumentParser(description="Validate a PiFlow-compatible skill folder.")
     parser.add_argument("skill_dir")
+    parser.add_argument(
+        "--mode",
+        choices=("files-only", "registered"),
+        default="registered",
+        help="Validation scope: files-only checks generated skill files, registered also checks classification registry and storage icons.",
+    )
     args = parser.parse_args()
-    ok, message = validate(Path(args.skill_dir))
+    ok, message = validate(Path(args.skill_dir), mode=args.mode)
     print(message)
     sys.exit(0 if ok else 1)
 

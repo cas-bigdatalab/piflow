@@ -679,18 +679,10 @@ def write_resources(skill_dir: Path, spec: dict) -> None:
             copy_or_write(skill_dir, item, key)
 
 
-def generate(spec: dict, output_root: Path, overwrite: bool) -> dict:
+def generate_skill_files(spec: dict, output_root: Path, overwrite: bool) -> dict:
     spec = normalize_spec(spec)
     skill_dir = output_root / spec["name"]
     backup_dir: Path | None = None
-    classification_backup: Path | None = None
-    skill_icon_backup: Path | None = None
-    category_icon_backup: Path | None = None
-
-    classification_path = classification_file()
-    storage_dir = storage_skills_dir()
-    skill_icon_path = storage_dir / f"{spec['name']}.png"
-    category_icon_path = storage_dir / category_icon_filename(spec["classification"])
 
     if skill_dir.exists():
         if not overwrite:
@@ -701,36 +693,72 @@ def generate(spec: dict, output_root: Path, overwrite: bool) -> dict:
         shutil.move(str(skill_dir), str(backup_dir))
 
     try:
-        classification_backup = prepare_file_backup(classification_path)
-        skill_icon_backup = prepare_file_backup(skill_icon_path)
-        category_icon_backup = prepare_file_backup(category_icon_path)
-
         skill_dir.mkdir(parents=True)
 
         write_text(skill_dir / "SKILL.md", frontmatter(spec) + "\n" + render_body(spec))
         write_resources(skill_dir, spec)
         if spec.get("skill_json", True):
             write_text(skill_dir / "skill.json", render_skill_json(spec))
-        update_classification_registry(spec)
-        sync_storage_skill_icon(skill_dir, spec)
     except Exception:
         if skill_dir.exists():
             shutil.rmtree(skill_dir)
+        if backup_dir and backup_dir.exists():
+            shutil.move(str(backup_dir), str(skill_dir))
+        raise
+
+    if backup_dir and backup_dir.exists():
+        shutil.rmtree(backup_dir)
+
+    return {
+        "skill_dir": str(skill_dir),
+        "skill_md": str(skill_dir / "SKILL.md"),
+        "skill_json": str(skill_dir / "skill.json") if spec.get("skill_json", True) else "",
+    }
+
+
+def register_skill_artifacts(spec: dict, skill_dir: Path) -> dict:
+    spec = normalize_spec(spec)
+    classification_backup: Path | None = None
+    skill_icon_backup: Path | None = None
+    category_icon_backup: Path | None = None
+
+    classification_path = classification_file()
+    storage_dir = storage_skills_dir()
+    skill_icon_path = storage_dir / f"{spec['name']}.png"
+    category_icon_path = storage_dir / category_icon_filename(spec["classification"])
+
+    try:
+        classification_backup = prepare_file_backup(classification_path)
+        skill_icon_backup = prepare_file_backup(skill_icon_path)
+        category_icon_backup = prepare_file_backup(category_icon_path)
+
+        update_classification_registry(spec)
+        sync_storage_skill_icon(skill_dir, spec)
+    except Exception:
         restore_file_backup(classification_path, classification_backup)
         restore_file_backup(skill_icon_path, skill_icon_backup)
         restore_file_backup(category_icon_path, category_icon_backup)
-        if backup_dir and backup_dir.exists():
-            shutil.move(str(backup_dir), str(skill_dir))
         raise
 
     cleanup_file_backup(classification_backup)
     cleanup_file_backup(skill_icon_backup)
     cleanup_file_backup(category_icon_backup)
 
-    if backup_dir and backup_dir.exists():
-        shutil.rmtree(backup_dir)
+    return {
+        "classification_file": str(classification_path),
+        "skill_icon_path": str(skill_icon_path),
+        "category_icon_path": str(category_icon_path),
+    }
 
-    return {"skill_dir": str(skill_dir), "skill_md": str(skill_dir / "SKILL.md")}
+
+def generate(spec: dict, output_root: Path, overwrite: bool) -> dict:
+    spec = normalize_spec(spec)
+    file_result = generate_skill_files(spec, output_root, overwrite)
+    registration_result = register_skill_artifacts(spec, Path(file_result["skill_dir"]))
+    return {
+        **file_result,
+        **registration_result,
+    }
 
 
 def main():

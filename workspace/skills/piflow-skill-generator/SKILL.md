@@ -54,7 +54,7 @@ tag: 算子生成
 
 生成正文时优先参照 `references/piflow_skill_template.md`。当 spec 中提供 `core_features`、`trigger_conditions`、`processing_logic`、`supported_formats`、`output_structure`、`output_examples` 等字段时，将它们填入模板对应章节。
 
-本技能必须能在没有其他技能辅助的环境中独立生成可靠技能：只依赖当前技能目录内的 `SKILL.md`、`references/piflow_skill_template.md`、`scripts/generate_piflow_skill.py` 和 `scripts/validate_piflow_skill.py`。生成时不要假设另一个 skill 会补全文档、脚本或元数据，也不要把“当前能力不足”作为优先切换到本技能的理由；应先完成当前数据处理任务，再决定是否沉淀为 skill。
+本技能必须能在没有其他技能辅助的环境中独立生成可靠技能：只依赖当前技能目录内的 `SKILL.md`、`references/piflow_skill_template.md`、`scripts/generate_piflow_skill.py`、`scripts/generate_skill_files.py`、`scripts/register_skill_artifacts.py` 和 `scripts/validate_piflow_skill.py`。生成时不要假设另一个 skill 会补全文档、脚本或元数据，也不要把“当前能力不足”作为优先切换到本技能的理由；应先完成当前数据处理任务，再决定是否沉淀为 skill。
 
 本技能的触发优先级应降低到“任务完成后的沉淀动作”或“用户手动指定动作”。如果当前任务本质是数据清洗、转换、分析、抽取、校验、聚合、导入导出或其他处理流程，应先直接完成任务本身；只有当流程已经跑通、结果已验证，且用户明确要求生成 skill，或系统在任务完成后询问用户是否要把本次成功流程保存为 skill 时，才进入技能生成阶段。
 
@@ -82,7 +82,7 @@ skill-name/
 ├── scripts/               # 推荐，稳定可执行逻辑
 ├── references/            # 可选，按需读取的长文档
 └── assets/
-    └── icon.png           # 推荐，技能中心图标
+    └── icon.png           # 必须选定的主图标；若没有自定义图标，需明确兜底到分类图标
 ```
 
 ### SKILL.md
@@ -134,7 +134,7 @@ skill-name/
 
 - `scripts/`：放确定性脚本、算子封装、批处理逻辑。脚本应可通过 `python scripts/<name>.py ...` 调用，并使用 UTF-8 读写。
 - `references/`：放长规则、字段字典、API 说明、数据 schema、复杂示例。正文中必须说明何时读取哪个引用文件。
-- `assets/`：放图标、模板、示例素材、字体或输出需要复制的资源。PiFlow 技能中心优先寻找 `assets/icon.png`。
+- `assets/`：放图标、模板、示例素材、字体或输出需要复制的资源。每个 skill 在生成阶段都应明确一个主图标方案：优先提供 `assets/icon.png`；若暂时没有自定义图标，也必须在设计与交付时明确兜底使用对应分类图标，不要让图标策略处于未定义状态。
 
 不要生成与执行无关的 `README.md`、安装指南、变更日志或重复说明文档；这些内容会稀释技能目录的信号。
 
@@ -142,14 +142,44 @@ skill-name/
 
 1. 先判断是否应该触发本技能。若用户只是要完成当前数据处理、分析或转换任务，则先完成任务本身，不要提前进入 skill 生成。只有在用户手动指定生成或保存 skill，或任务已完成且流程经过验证后，才进入后续步骤。
 2. 明确具体用例。优先收集用户会怎样调用技能、输入输出文件长什么样、是否需要脚本、是否有字段规则或外部依赖。
-3. 规划资源分层。重复且要求稳定的逻辑进入 `scripts/`；长规则进入 `references/`；图标和模板进入 `assets/`。
+3. 规划资源分层。重复且要求稳定的逻辑进入 `scripts/`；长规则进入 `references/`；图标和模板进入 `assets/`。这一阶段同时确定图标策略：选一个主图标来源，并明确一个兜底图标。
 4. 规范命名。已有业务技能名可保留大小写和下划线，例如 `QC3_NumericDataThresholdCheck`、`Pi_DataSorting`；新通用技能优先使用 lowercase `snake_case` 或 `hyphen-case`；目录名必须等于 `name`。
 5. 生成 `SKILL.md`。正文按 `references/piflow_skill_template.md` 的章节顺序组织：功能说明、触发条件、核心功能、处理逻辑、支持的文件格式、使用方法、参数说明、输出参数、示例、输出格式/输出结构、依赖、注意事项。
-6. 生成资源目录。只有在 spec 提供或任务需要时写入脚本、引用资料和素材；若有 icon，复制为 `assets/icon.png`。
+6. 生成资源目录。只有在 spec 提供或任务需要时写入脚本、引用资料和素材；图标必须有明确结论：若 spec 提供 `icon`，复制为 `assets/icon.png` 作为主图标；若未提供自定义图标，则记录并验证可兜底到分类图标。
 7. 校验并迭代。运行 `validate_piflow_skill.py`，检查 UTF-8、YAML、参数契约、目录名、资源布局和 UI metadata。
 8. 安装后冒烟测试。若该技能需要额外依赖或运行时环境，在环境配置完成后先执行一个最小可运行示例或健康检查脚本，确认关键入口能正常启动并完成一次基础输入输出。
 9. 任务完成后再决定是否沉淀。若这次 skill 来自一次真实的数据处理流程，应该在流程成功、结果可信后，再向用户确认是否将该流程保存为 skill；不要在流程未完成前抢先生成。
 10. 失败重试与兜底。安装与冒烟测试过程中若失败，先重试再继续；单阶段最多 5 次。若 5 次都失败，停止自动化流程并向用户反馈错误摘要、失败步骤与建议的下一步排查方向。
+
+## 两层调用模型
+
+当前实现按职责拆成两层，并保留一个一键封装入口：
+
+1. 生成层
+   负责把 spec 落成技能目录本身，包括 `SKILL.md`、`skill.json`、`scripts/`、`references/`、`assets/` 等内容。
+   对应脚本：`scripts/generate_skill_files.py`
+
+2. 注册层
+   负责把已生成好的技能接入 PiFlow 可见索引，包括更新 `docs/skill分类.txt`，以及同步 `storage/skills` 下的技能图标与分类图标。
+   对应脚本：`scripts/register_skill_artifacts.py`
+
+3. 一键封装层
+   按顺序调用“生成层 -> 注册层”，适合默认使用。
+   对应脚本：`scripts/generate_piflow_skill.py`
+
+### 调用建议
+
+- 当你需要“先生成草稿、再人工检查、最后再发布/注册”时：
+  先调用生成层，再调用 `validate_piflow_skill.py --mode files-only`，确认通过后再调用注册层。
+
+- 当你需要“一次性生成并接入系统可见列表”时：
+  直接调用一键封装层。
+
+- 当你只是想更新技能正文、脚本、资源，但暂时不希望污染全局分类列表或图标存储时：
+  只调用生成层，不调用注册层。
+
+- 当技能目录已经存在，只是因为分类列表或图标丢失，需要补注册时：
+  只调用注册层。
 
 ## Spec 字段
 
@@ -168,7 +198,7 @@ skill-name/
 - `command`：可选，显式命令；缺省时根据 `script.path` 和输入参数生成。
 - `script`：可选对象，支持 `path`、`content`、`source`；也可用 `scripts` 列表生成多个脚本。
 - `references`：可选列表，支持 `path` + `content` 或 `source`。
-- `assets`：可选列表，支持 `path` + `content` 或 `source`；`icon` 会复制为 `assets/icon.png`。
+- `assets`：可选列表，支持 `path` + `content` 或 `source`；`icon` 会复制为 `assets/icon.png`。无论是否提供自定义 `icon`，都必须在生成时明确一个兜底图标方案，默认可回退到分类图标。
 - `dependencies`：可选，正文依赖列表。
 - `examples`：可选，正文示例列表。
 - `core_features`、`trigger_conditions`、`processing_logic`、`supported_formats`、`output_structure`、`output_examples`：可选，填入通用模板对应章节。
@@ -177,7 +207,7 @@ skill-name/
 
 ## 命令
 
-生成技能：
+一键生成并注册技能：
 
 ```bash
 python scripts/generate_piflow_skill.py --spec path/to/spec.json
@@ -195,10 +225,28 @@ python scripts/generate_piflow_skill.py --spec path/to/spec.json --output-root s
 python scripts/generate_piflow_skill.py --spec path/to/spec.json --overwrite
 ```
 
+仅生成技能文件，不注册列表和图标：
+
+```bash
+python scripts/generate_skill_files.py --spec path/to/spec.json --output-root skills
+```
+
+仅注册已有技能目录的列表和图标：
+
+```bash
+python scripts/register_skill_artifacts.py --spec path/to/spec.json --skill-dir skills/<skill-name>
+```
+
 校验技能：
 
 ```bash
 python scripts/validate_piflow_skill.py skills/<skill-name>
+```
+
+仅校验生成层产物：
+
+```bash
+python scripts/validate_piflow_skill.py skills/<skill-name> --mode files-only
 ```
 
 ## Spec 示例
