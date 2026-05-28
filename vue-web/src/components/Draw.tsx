@@ -1053,8 +1053,23 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
         const bindingsMap: Record<string, any> = {};
         if (savedDrawData.bindings && Array.isArray(savedDrawData.bindings)) {
           for (const binding of savedDrawData.bindings) {
-            const key = `${binding.to_node_id}|${binding.to_param_name}`;
-            bindingsMap[key] = binding;
+            // 转换节点名称为节点ID
+            let fromNodeId = binding.from_node_id;
+            let toNodeId = binding.to_node_id;
+            
+            if (!fromNodeId.startsWith('node-')) {
+              fromNodeId = nodeIdMap[fromNodeId] || fromNodeId;
+            }
+            if (!toNodeId.startsWith('node-')) {
+              toNodeId = nodeIdMap[toNodeId] || toNodeId;
+            }
+            
+            const key = `${toNodeId}|${binding.to_param_name}`;
+            bindingsMap[key] = {
+              ...binding,
+              from_node_id: fromNodeId,
+              to_node_id: toNodeId
+            };
           }
         }
         console.log('=== bindingsMap ===', bindingsMap);
@@ -1189,10 +1204,22 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
         }
 
         for (const e of (savedDrawData.edges || [])) {
+          // 使用 nodeIdMap 将节点名称转换为节点ID
+          let sourceId = e.from_node_id;
+          let targetId = e.to_node_id;
+          
+          // 如果 sourceId 看起来是节点名称而不是节点ID，尝试转换
+          if (!sourceId.startsWith('node-')) {
+            sourceId = nodeIdMap[sourceId] || sourceId;
+          }
+          if (!targetId.startsWith('node-')) {
+            targetId = nodeIdMap[targetId] || targetId;
+          }
+          
           loadedEdges.push({
-            id: e.edge_id || e.from_node_id + '-' + e.to_node_id,
-            source: e.from_node_id,
-            target: e.to_node_id,
+            id: e.edge_id || sourceId + '-' + targetId,
+            source: sourceId,
+            target: targetId,
             type: 'custom',
             data: { edgeType: 'bezier', onDelete: (delId: string) => { setEdges((eds) => eds.filter((ee) => ee.id !== delId)); } },
           });
@@ -1326,51 +1353,95 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
         // 构建 mergedInputParams：合并DAG 参数到算子的 input_params
         let mergedInputParams = inputParams;
         if (inputParams?.params && Array.isArray(inputParams.params)) {
-          // 将 DAG 参数合并到算子的 input_params 中
-          mergedInputParams = {
-            ...inputParams,
-            params: inputParams.params.map((paramDef: any) => {
-              const paramValue = dagParams[paramDef.name];
-              
-              // 如果 DAG 参数中有这个参数，则使用 DAG 参数的值
-              if (paramValue !== undefined) {
-                // 判断参数值类型
-                if (typeof paramValue === 'object' && paramValue !== null && 'source_node' in paramValue) {
-                  // 引用类型：{source_node: "节点名", source_param: "输出参数名"}
-                  const sourceNodeName = paramValue.source_node;
-                  const sourceParamName = paramValue.source_param;
-                  const sourceNodeId = nodeNameToIdMap[sourceNodeName];
-                  
-                  // _refValue是纯参数名，和option.value匹配
-                  let refValue = sourceParamName;
-                  
-                  return {
-                    ...paramDef,
-                    _refType: 'reference',
-                    _value: '',
-                    _refValue: refValue,
-                    _sourceNodeName: sourceNodeName,
-                    _sourceParamName: sourceParamName,
-                  };
-                } else {
-                  // 手动类型：字符串、数字、布尔等
-                  return {
-                    ...paramDef,
-                    _refType: 'manual',
-                    _value: String(paramValue),
-                    _refValue: '',
-                  };
-                }
+          // 先构建算子参数的 map，方便查找
+          const paramDefMap: Record<string, any> = {};
+          inputParams.params.forEach((paramDef: any) => {
+            paramDefMap[paramDef.name] = paramDef;
+          });
+          
+          const newParamsList: any[] = [];
+          
+          // 先处理算子中定义的参数
+          inputParams.params.forEach((paramDef: any) => {
+            const paramValue = dagParams[paramDef.name];
+            
+            // 如果 DAG 参数中有这个参数，则使用 DAG 参数的值
+            if (paramValue !== undefined) {
+              // 判断参数值类型
+              if (typeof paramValue === 'object' && paramValue !== null && 'source_node' in paramValue) {
+                // 引用类型：{source_node: "节点名", source_param: "输出参数名"}
+                const sourceNodeName = paramValue.source_node;
+                const sourceParamName = paramValue.source_param;
+                
+                // 使用 JSON 中原始的 source_param 值作为引用值
+                // 不进行转换，保持与 JSON 内容一致
+                const refValue = sourceParamName;
+                
+                newParamsList.push({
+                  ...paramDef,
+                  _refType: 'reference',
+                  _value: '',
+                  _refValue: refValue,
+                  _sourceNodeName: sourceNodeName,
+                  _sourceParamName: sourceParamName,
+                });
+              } else {
+                // 手动类型：字符串、数字、布尔等
+                newParamsList.push({
+                  ...paramDef,
+                  _refType: 'manual',
+                  _value: String(paramValue),
+                  _refValue: '',
+                });
               }
-              
+            } else {
               // DAG 参数中没有这个参数，使用默认值
-              return {
+              newParamsList.push({
                 ...paramDef,
                 _refType: 'manual',
                 _value: paramDef.param_value || '',
                 _refValue: '',
-              };
-            }),
+              });
+            }
+          });
+          
+          // 再处理 DAG 中有但算子中没有的参数（比如 source_stop 的 output）
+          Object.entries(dagParams).forEach(([name, value]) => {
+            if (!paramDefMap[name]) {
+              if (typeof value === 'object' && value !== null && 'source_node' in value) {
+                const sourceNodeName = value.source_node;
+                const sourceParamName = value.source_param;
+                
+                newParamsList.push({
+                  name: name,
+                  type: 'string',
+                  param_name: name,
+                  param_type: 'String',
+                  param_value: '',
+                  _refType: 'reference',
+                  _value: '',
+                  _refValue: sourceParamName,
+                  _sourceNodeName: sourceNodeName,
+                  _sourceParamName: sourceParamName,
+                });
+              } else {
+                newParamsList.push({
+                  name: name,
+                  type: 'string',
+                  param_name: name,
+                  param_type: 'String',
+                  param_value: '',
+                  _refType: 'manual',
+                  _value: String(value),
+                  _refValue: '',
+                });
+              }
+            }
+          });
+          
+          mergedInputParams = {
+            ...inputParams,
+            params: newParamsList,
           };
         } else if (Object.keys(dagParams).length > 0) {
           // 如果算子没有定义 input_params，但 DAG 有参数，则创建 input_params
@@ -1378,7 +1449,6 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
             if (typeof value === 'object' && value !== null && 'source_node' in value) {
               const sourceNodeName = value.source_node;
               const sourceParamName = value.source_param;
-              const sourceNodeId = nodeNameToIdMap[sourceNodeName];
               
               // _refValue是纯参数名，和option.value匹配
               let refValue = sourceParamName;
@@ -2126,10 +2196,13 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
                       refParamName = upstreamNode?.data.output_params?.params?.[0]?.name || '';
                     } else if (refParamName.includes('（')) {
                       refParamName = refParamName.split('（')[0];
-                    } else if (refParamName.includes('_')) {
-                      // 处理 nodeId_paramName 格式，取最后一部分
+                    } else if (refParamName.includes('_') && !refParamName.startsWith('node-')) {
+                      // 只有当格式是 nodeId_paramName 时才分割
+                      // 如果是普通的带下划线的参数名（如 output_path），不分割
                       const parts = refParamName.split('_');
-                      refParamName = parts[parts.length - 1];
+                      if (parts.length > 1 && parts[0].startsWith('node-')) {
+                        refParamName = parts[parts.length - 1];
+                      }
                     }
 
                     const binding = {
