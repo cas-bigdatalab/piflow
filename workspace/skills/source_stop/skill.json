@@ -1,0 +1,26 @@
+{
+  "name": "source_stop",
+  "version": "1.0.0",
+  "description": "DAG 输入源算子。用于声明工作流的输入文件，并为下游算子提供数据源引用。该算子没有上游输入，必须作为 DAG 的起始节点使用。",
+  "language": "",
+  "script_path": "",
+  "entrypoint": "",
+  "input_params": [
+    {
+      "name": "file_path",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "输入文件路径"
+    }
+  ],
+  "output_params": [
+    {
+      "name": "output",
+      "role": "output_data",
+      "type": "string",
+      "description": "提供给下游算子引用的数据源输出占位"
+    }
+  ],
+  "command_template": []
+}

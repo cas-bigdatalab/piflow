@@ -14,7 +14,7 @@ import { MarkdownMessage } from "../components/MarkdownMessage";
 import { shortId } from "../lib/ids";
 import Draw from '../components/Draw'; // 引入画板组件
 import RunDetails from '../components/RunDetails'; // 引入流程运行详情组件
-const DEFAULT_USER_ID = "default_user";
+const DEFAULT_USER_ID = localStorage.getItem('userId');
 
 type UiMsg = {
   id: string;

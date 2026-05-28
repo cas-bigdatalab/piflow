@@ -278,7 +278,7 @@ export async function streamChat(
     body: JSON.stringify({
       message: req.message,
       thread_id: req.thread_id ?? "default",
-      user_id: req.user_id ?? "default_user",
+      user_id: req.user_id ?? localStorage.getItem('userId'),
       attachments: req.attachments ?? [],
       message_id: req.message_id ?? null,
     }),
@@ -403,4 +403,171 @@ export async function getDrawInfoBymegId(message_id:string) {
     result: Object;
     message?: string;
   }>(`/dag/panel/getDSLJsonByMessageId?message_id=${message_id.toString()}`);
+}
+
+// ==================== DAG 运行 API ====================
+
+export interface RunDAGResponse {
+  code: number;
+  message: string;
+  result: {
+    dag_task_id: string;
+    process_id: string;
+    status: string;
+  };
+}
+
+export interface StopDAGResponse {
+  code: number;
+  message: string;
+  result: {
+    process_id: string;
+    status: string;
+  };
+}
+
+export async function runDAGTask(dag_task_id: string) {
+  return apiFetch<RunDAGResponse>("/dag/runtime/run", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(dag_task_id)
+  });
+}
+
+export async function stopDAGTask(process_id: string) {
+  return apiFetch<StopDAGResponse>("/dag/runtime/stop", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(process_id)
+  });
+}
+
+// ==================== 执行详情 API ====================
+
+export interface StopInfo {
+  job_id: string;
+  stop_name: string;
+  stop_uuid: string | null;
+  bundle: string | null;
+  status: string;
+  input_ports: any[];
+  output_ports: any[];
+  workspace_path: string | null;
+  log_path: string | null;
+  stdout_log_path: string | null;
+  stderr_log_path: string | null;
+  error_message: string | null;
+  started_at: string | null;
+  finished_at: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface ExecutionDetailResponse {
+  code: number;
+  message: string;
+  result: {
+    process_id: string;
+    flow_uuid: string | null;
+    flow_name: string;
+    status: string;
+    progress: number | null;
+    total_stop_count: number;
+    success_stop_count: number;
+    failed_stop_count: number;
+    skipped_stop_count: number;
+    workspace_path: string | null;
+    log_path: string | null;
+    error_message: string | null;
+    started_at: string | null;
+    finished_at: string | null;
+    created_at: string | null;
+    updated_at: string | null;
+    stops: StopInfo[];
+  };
+}
+
+// 查询执行详情
+export async function getExecutionDetail(process_id: string) {
+  const params = new URLSearchParams();
+  params.set('process_id', process_id);
+  return apiFetch<ExecutionDetailResponse>(`/dag/runtime/execution/detail?${params.toString()}`);
+}
+
+// ==================== 运行历史 API ====================
+
+export interface ExecutionItem {
+  process_id: string;
+  dag_task_id: string | null;
+  flow_uuid: string | null;
+  flow_name: string | null;
+  status: string | null;
+  progress: number | null;
+  total_stop_count: number;
+  success_stop_count: number;
+  failed_stop_count: number;
+  skipped_stop_count: number;
+  error_message: string | null;
+  started_at: string | null;
+  finished_at: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface ExecutionsResponse {
+  code: number;
+  message: string;
+  result: {
+    dag_task_id: string;
+    page: number;
+    page_size: number;
+    total: number;
+    items: ExecutionItem[];
+  };
+}
+
+// 按任务查询运行历史
+export async function getExecutions(dag_task_id: string, page: number = 1, page_size: number = 20, status?: string) {
+  const params = new URLSearchParams();
+  params.set('dag_task_id', dag_task_id);
+  params.set('page', String(page));
+  params.set('page_size', String(page_size));
+  if (status) {
+    params.set('status', status);
+  }
+  return apiFetch<ExecutionsResponse>(`/dag/runtime/executions?${params.toString()}`);
+}
+
+// 全局分页查询运行实例
+export async function getProcesses(page: number = 1, page_size: number = 20, options?: {
+  status?: string;
+  dag_task_id?: string;
+  running_only?: boolean;
+  keyword?: string;
+}) {
+  const params = new URLSearchParams();
+  params.set('page', String(page));
+  params.set('page_size', String(page_size));
+  if (options?.status) {
+    params.set('status', options.status);
+  }
+  if (options?.dag_task_id) {
+    params.set('dag_task_id', options.dag_task_id);
+  }
+  if (options?.running_only) {
+    params.set('running_only', 'true');
+  }
+  if (options?.keyword) {
+    params.set('keyword', options.keyword);
+  }
+  return apiFetch<{
+    code: number;
+    message: string;
+    result: {
+      page: number;
+      page_size: number;
+      total: number;
+      items: ExecutionItem[];
+    };
+  }>(`/dag/runtime/processes?${params.toString()}`);
 }
