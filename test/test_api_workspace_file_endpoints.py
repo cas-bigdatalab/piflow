@@ -26,8 +26,14 @@ class FakeWorkspaceManager:
         if not raw:
             raise ValueError("workspace path is empty")
 
-        relative = raw.lstrip("/")
-        resolved = (self.root / relative).resolve()
+        input_path = Path(raw)
+        if input_path.is_absolute():
+            candidate = input_path
+        else:
+            relative = raw.lstrip("/")
+            candidate = self.root / relative
+
+        resolved = candidate.resolve()
         root_resolved = self.root.resolve()
 
         try:
@@ -125,6 +131,19 @@ def test_download_workspace_file_returns_file_contents(client):
     assert response.status_code == 200
     assert response.content == b"id,value\n1,ok\n"
     assert 'attachment; filename="result.csv"' in response.headers["content-disposition"]
+
+
+def test_download_workspace_file_supports_absolute_workspace_path(client):
+    test_client, workspace_root = client
+    download_file = workspace_root / "outputs" / "absolute-result.csv"
+    download_file.parent.mkdir(parents=True, exist_ok=True)
+    download_file.write_text("id,value\n2,absolute\n", encoding="utf-8")
+
+    response = test_client.get("/workspace/download", params={"path": str(download_file)})
+
+    assert response.status_code == 200
+    assert response.content == b"id,value\n2,absolute\n"
+    assert 'attachment; filename="absolute-result.csv"' in response.headers["content-disposition"]
 
 
 def test_download_workspace_file_rejects_invalid_or_missing_path(client):

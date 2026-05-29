@@ -43,8 +43,13 @@ class WorkspaceManager:
         if not raw:
             raise ValueError("workspace path is empty")
 
-        relative = raw.lstrip("/")
-        candidate = self.root / relative
+        input_path = Path(raw)
+        if input_path.is_absolute():
+            candidate = input_path
+        else:
+            relative = raw.lstrip("/")
+            candidate = self.root / relative
+
         resolved = candidate.resolve()
         root_resolved = self.root.resolve()
 
