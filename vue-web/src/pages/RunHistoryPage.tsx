@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { Icon } from '@iconify/react';
-import { getProcesses, getExecutionDetail, stopDAGTask, getProcessStatusCounts, downloadWorkspaceUrl, ExecutionItem, ExecutionDetailResponse, StopInfo, StatusCountsResponse } from '../lib/api';
+import { getProcesses, getExecutionDetail, stopDAGTask, getProcessStatusCounts, downloadWorkspaceUrl2, ExecutionItem, ExecutionDetailResponse, StopInfo, StatusCountsResponse } from '../lib/api';
 import './RunHistoryPage.css';
 
 export function RunHistoryPage() {
@@ -476,36 +476,54 @@ export function RunHistoryPage() {
                   </div>
                 </div>
 
-                <div className="detail-section">
+                <div className="detail-section detail-progress-section">
                   <h3>执行进度</h3>
-                  <div className="progress-container">
-                    <div className="progress-bar">
-                      <div className="progress-container-inner">
-                        {(() => {
-                          let displayProgress = 0;
-                          if (executionDetail.status === 'SUCCESS') {
-                            displayProgress = 100;
-                          } else if (executionDetail.progress !== null && executionDetail.progress > 0) {
-                            displayProgress = executionDetail.progress;
-                          } else if (executionDetail.total_stop_count > 0) {
-                            displayProgress = Math.round((executionDetail.success_stop_count / executionDetail.total_stop_count) * 100);
-                          }
-                          return (
-                            <>
-                              <div 
-                                className={`progress-fill ${displayProgress > 0 && displayProgress <= 5 ? 'minimal' : ''}`} 
-                                style={{ 
-                                  width: `${displayProgress}%`, 
-                                  minWidth: displayProgress > 0 && displayProgress <= 5 ? '8px' : '0' 
-                                }}
-                              />
-                              <span className="progress-text">{displayProgress}%</span>
-                            </>
-                          );
-                        })()}
-                      </div>
-                    </div>
-                  </div>
+                  {(() => {
+                    let displayProgress = 0;
+                    const isCompleted = executionDetail.status === 'SUCCESS';
+                    const isFailed = executionDetail.status === 'FAILED';
+                    
+                    if (isCompleted) {
+                      displayProgress = 100;
+                    } else if (executionDetail.progress !== null && executionDetail.progress > 0) {
+                      displayProgress = Math.round(executionDetail.progress * 100);
+                    } else if (executionDetail.total_stop_count > 0) {
+                      displayProgress = Math.round((executionDetail.success_stop_count / executionDetail.total_stop_count) * 100);
+                    }
+                    
+                    let progressClass = 'running';
+                    let statusLabel = '执行中...';
+                    if (isCompleted) {
+                      progressClass = 'completed';
+                      statusLabel = '已完成';
+                    } else if (isFailed) {
+                      progressClass = 'failed';
+                      statusLabel = '执行失败';
+                    }
+                    
+                    return (
+                      <>
+                        <div className="progress-stats-row">
+                          <span className={`progress-status-label ${progressClass}`}>{statusLabel}</span>
+                          <span className="progress-value">{displayProgress}%</span>
+                        </div>
+                        <div className="progress-track">
+                          <div 
+                            className={`progress-fill-detail ${progressClass} ${displayProgress > 0 && displayProgress <= 5 ? 'minimal' : ''}`}
+                            style={{ width: `${displayProgress}%` }}
+                          />
+                        </div>
+                        <div className="progress-detail-row">
+                          <span className="progress-detail-text">
+                            节点: 总计 <strong>{executionDetail.total_stop_count}</strong> 
+                            {executionDetail.success_stop_count > 0 && <span>, 成功 <strong className="text-success">{executionDetail.success_stop_count}</strong></span>}
+                            {executionDetail.failed_stop_count > 0 && <span>, 失败 <strong className="text-danger">{executionDetail.failed_stop_count}</strong></span>}
+                            {executionDetail.skipped_stop_count > 0 && <span>, 跳过 <strong className="text-warning">{executionDetail.skipped_stop_count}</strong></span>}
+                          </span>
+                        </div>
+                      </>
+                    );
+                  })()}
                 </div>
 
                 <div className="detail-section">
@@ -515,7 +533,7 @@ export function RunHistoryPage() {
                       {executionDetail.final_output_paths.map((file, index) => (
                         <a 
                           key={index} 
-                          href={downloadWorkspaceUrl(file)} 
+                          href={downloadWorkspaceUrl2(file)} 
                           className="result-file-btn"
                           target="_blank"
                           rel="noopener noreferrer"

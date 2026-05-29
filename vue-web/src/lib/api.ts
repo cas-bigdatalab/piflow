@@ -201,10 +201,21 @@ export async function getAllSkills(keyword = "") {
   }>(keyword ? `/dag/skill/listSkills?keyword=${keyword}` : `/dag/skill/listSkills`);
 }
 export function downloadWorkspaceUrl(path: string) {
-  const sp = new URLSearchParams({ path });
+  const token = localStorage.getItem('token') || '';
+  const sp = new URLSearchParams({ 
+    path: encodeURIComponent(path),
+    token 
+  });
   return `${apiBase()}/workspace/download?${sp.toString()}`;
 }
-
+export function downloadWorkspaceUrl2(path: string) {
+  // const token = localStorage.getItem('token') || '';
+  // const sp = new URLSearchParams({ 
+  //   path: encodeURIComponent(path),
+  //   token 
+  // });
+  return `${apiBase()}/workspace/download?path=${path}`;
+}
 export async function listSkills(page = 1, page_size = 20, keyword = "", skill_type = "") {
   const sp = new URLSearchParams();
   sp.set("page", String(page));
