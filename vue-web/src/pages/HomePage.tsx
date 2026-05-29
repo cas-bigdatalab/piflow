@@ -1,4 +1,4 @@
-﻿import { Icon } from "@iconify/react";
+import { Icon } from "@iconify/react";
 import { type DragEvent, useEffect, useRef, useState } from "react";
 import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 import {
@@ -261,12 +261,17 @@ export function HomePage() {
   // 处理打开画板
   const handleOpenCanvas = async (data: PipelineData, msgId?: string) => {
     setCanvasPipelineData(data);
-    setCanvasMessageId(msgId || '');
+    // 如果已经有保存的 canvasMessageId（来自 createMessage 返回），就使用它，不覆盖
+    // 这样可以确保保存画板时使用正确的 message_id
+    if (!canvasMessageId) {
+      setCanvasMessageId(msgId || '');
+    }
     // 先请求已保存的画板信息
     let drawData = null;
-    if (msgId) {
+    const effectiveMsgId = canvasMessageId || msgId;
+    if (effectiveMsgId) {
       try {
-        const res = await getDrawInfoBymegId(msgId);
+        const res = await getDrawInfoBymegId(effectiveMsgId);
         console.log('getDrawInfoBymegId返回:', res);
         if (res.code === 200 && res.result) {
           drawData = res.result;
@@ -466,6 +471,9 @@ export function HomePage() {
       };
 
       setMessages((current) => [...current, userMessage, assistantMessage]);
+      
+      // 保存创建消息时返回的原始 messageId，用于后续画板保存
+      setCanvasMessageId(String(messageId));
       setStreamStatus("正在连接智能体...");
 
       await streamChat(

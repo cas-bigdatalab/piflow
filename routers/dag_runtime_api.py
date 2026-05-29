@@ -7,6 +7,7 @@ from services.dag_runtime_service import (
     get_dag_run_detail,
     get_dag_run_executions,
     get_dag_run_progress,
+    get_dag_runtime_process_status_counts,
     get_dag_runtime_processes,
     run_dag_task,
     stop_dag_run,
@@ -120,6 +121,27 @@ async def get_dag_runtime_processes_api(
             status=status,
             dag_task_id=dag_task_id,
             running_only=running_only,
+            keyword=keyword,
+        )
+        return {
+            "message": "success",
+            "result": result,
+            "code": 200,
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/dag/runtime/processes/status-counts")
+async def get_dag_runtime_process_status_counts_api(
+    dag_task_id: str | None = None,
+    keyword: str | None = None,
+):
+    try:
+        result = get_dag_runtime_process_status_counts(
+            dag_task_id=dag_task_id,
             keyword=keyword,
         )
         return {
