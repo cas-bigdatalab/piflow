@@ -28,6 +28,14 @@
       "required": false,
       "default": false,
       "description": "是否覆盖已存在的技能目录"
+    },
+    {
+      "name": "rewrite_followup_hint",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "default": "",
+      "description": "可选提示语；当 skill 生成完成后，如用户随后给出新的流程，可提示是否进入生成器内部改写链路继续改写"
     }
   ],
   "output_params": [
