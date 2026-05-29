@@ -484,6 +484,7 @@ export interface ExecutionDetailResponse {
     created_at: string | null;
     updated_at: string | null;
     stops: StopInfo[];
+    final_output_paths: string[];
   };
 }
 
@@ -523,6 +524,19 @@ export interface ExecutionsResponse {
     page_size: number;
     total: number;
     items: ExecutionItem[];
+  };
+}
+
+export interface StatusCountsResponse {
+  code: number;
+  message: string;
+  result: {
+    keyword: string | null;
+    dag_task_id: string | null;
+    total: number;
+    running_count: number;
+    completed_count: number;
+    failed_count: number;
   };
 }
 
@@ -570,4 +584,8 @@ export async function getProcesses(page: number = 1, page_size: number = 20, opt
       items: ExecutionItem[];
     };
   }>(`/dag/runtime/processes?${params.toString()}`);
+}
+
+export async function getProcessStatusCounts() {
+  return apiFetch<StatusCountsResponse>('/dag/runtime/processes/status-counts');
 }

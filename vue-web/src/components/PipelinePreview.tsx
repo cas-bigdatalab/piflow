@@ -69,25 +69,7 @@ export function extractPipelineJson(text: string): PipelineData | null {
   return null;
 }
 
-// 边类型定义
-interface PipelineEdge {
-  id: string;
-  source: string;
-  target: string;
-}
 
-// 从nodes生成边（使用节点ID）
-function generateEdges(nodes: PipelineNode[]): PipelineEdge[] {
-  const edges: PipelineEdge[] = [];
-  for (let i = 0; i < nodes.length - 1; i++) {
-    edges.push({
-      id: `e${i}-${i + 1}`,
-      source: `node-${i}`,
-      target: `node-${i + 1}`,
-    });
-  }
-  return edges;
-}
 
 interface PipelinePreviewProps {
   data: PipelineData;
@@ -96,10 +78,31 @@ interface PipelinePreviewProps {
   messageId?: number;
 }
 
+// 边类型定义（仅用于 UI 显示）
+interface PipelineEdge {
+  id: string;
+  source: string;
+  target: string;
+}
+
+// 从nodes生成边（仅用于 UI 显示，从 node-1 开始）
+function generateEdges(nodes: PipelineNode[]): PipelineEdge[] {
+  const edges: PipelineEdge[] = [];
+  for (let i = 0; i < nodes.length - 1; i++) {
+    edges.push({
+      id: `e${i + 1}-${i + 2}`,
+      source: `node-${i + 1}`,
+      target: `node-${i + 2}`,
+    });
+  }
+  return edges;
+}
+
 export default function PipelinePreview({ data, threadId, onOpenCanvas, messageId }: PipelinePreviewProps) {
   const navigate = useNavigate();
   const { task, nodes } = data;
 
+  // 仅用于 UI 显示的边
   const edges = useMemo(() => generateEdges(nodes), [nodes]);
 
   const handleRun = async () => {
@@ -279,6 +282,9 @@ export default function PipelinePreview({ data, threadId, onOpenCanvas, messageI
         console.log('没有已保存的画板数据，使用会话JSON信息');
         console.log('节点原始数据:', nodes);
         
+        // 节点名称到节点ID的映射
+        const nodeNameToIdMap: Record<string, string> = {};
+        
         // 先处理所有节点，通过 skill_name 查找 skill_id
         const processedNodes = [];
         for (let index = 0; index < nodes.length; index++) {
@@ -316,31 +322,30 @@ export default function PipelinePreview({ data, threadId, onOpenCanvas, messageI
             }
           }
           
-          console.log(`节点 ${index} 获取到的 skill_id:`, skillId);
+          console.log(`节点 ${index} 获取到的 skill_id:`, skillId, `skill_name:`, skillName);
           
-          // 获取算子详情来获取 input_params 和 output_params
+          // 获取算子 input_params 和 output_params
           let inputParams: any[] = [];
           let outputParams: any[] = [];
           
-          if (skillId) {
-            // 从已查询过的算子信息中查找（通过遍历缓存）
-            for (const cachedSkillName of Object.keys(skillsCache)) {
-              const cachedResult = skillsCache[cachedSkillName];
-              if (cachedResult && cachedResult.result.data && cachedResult.result.data.length > 0) {
-                for (const group of cachedResult.result.data) {
-                  if (group.DagSkillInfoList && group.DagSkillInfoList.length > 0) {
-                    for (const skillInfo of group.DagSkillInfoList) {
-                      if (skillInfo.skill_id === skillId) {
-                        inputParams = skillInfo.input_params?.params || [];
-                        outputParams = skillInfo.output_params?.params || [];
-                        break;
-                      }
+          if (skillName) {
+            // 使用 getAllSkills 接口获取算子信息（带缓存）
+            const skillRes = await getSkillInfoByName(skillName);
+            if (skillRes && skillRes.result.data && skillRes.result.data.length > 0) {
+              for (const group of skillRes.result.data) {
+                if (group.DagSkillInfoList && group.DagSkillInfoList.length > 0) {
+                  for (const skillInfo of group.DagSkillInfoList) {
+                    // 使用 skill_name 匹配，因为接口返回的 skill_id 和写死的格式不同
+                    if (skillInfo.skill_name === skillName || skillInfo.name_zh === skillName) {
+                      inputParams = skillInfo.input_params?.params || [];
+                      outputParams = skillInfo.output_params?.params || [];
+                      console.log(`节点 ${index}: 从 getAllSkills 获取参数信息:`, { inputParams, outputParams });
+                      break;
                     }
                   }
-                  if (inputParams.length > 0) break;
                 }
+                if (inputParams.length > 0) break;
               }
-              if (inputParams.length > 0) break;
             }
           }
           
@@ -377,26 +382,10 @@ export default function PipelinePreview({ data, threadId, onOpenCanvas, messageI
             };
           });
           
-          // 如果没有从算子详情获取到 input_params，但节点有参数，直接使用节点参数
-          if (mergedInputParams.length === 0 && Object.keys(node.params || {}).length > 0) {
-            Object.entries(node.params || {}).forEach(([key, value]: any) => {
-              if (typeof value === 'object' && value !== null && 'source_node' in value) {
-                mergedInputParams.push({
-                  param_name: key,
-                  param_value: value.source_param || '',
-                  value_mode: 'reference',
-                  binding_id: ''
-                });
-              } else {
-                mergedInputParams.push({
-                  param_name: key,
-                  param_value: String(value),
-                  value_mode: 'manual',
-                  binding_id: ''
-                });
-              }
-            });
-          }
+          // 如果算子接口返回了input_params，则只保留算子params中存在的参数
+          // 如果算子接口没有返回input_params（inputParams为空），则不添加任何参数
+          // 这样可以确保只合并算子定义中存在的参数，去掉JSON模型会话中多余的参数
+          // 注意：output_params不参与参数合并
           
           // 转换 output_params 格式
           const outParams = outputParams.map((p: any) => ({
@@ -404,8 +393,10 @@ export default function PipelinePreview({ data, threadId, onOpenCanvas, messageI
             param_type: p.type || p.param_type || 'string'
           }));
           
+          // 节点ID从 node-1 开始，与 Draw.tsx 保持一致
+          const nodeId = `node-${index + 1}`;
           processedNodes.push({
-            node_id: `node-${index}`,
+            node_id: nodeId,
             node_name: node.node_name,
             node_type: 'default',
             icon_path: iconPath,
@@ -417,35 +408,53 @@ export default function PipelinePreview({ data, threadId, onOpenCanvas, messageI
             input_params: mergedInputParams,
             out_params: outParams
           });
+          
+          // 构建节点名称到ID的映射
+          nodeNameToIdMap[node.node_name] = nodeId;
         }
         
-        // 生成 bindings：根据引用类型参数和边关系
+        // 生成 edges 和 bindings：根据原始节点的 params 中的 source_node 引用关系
+        const generatedEdges: any[] = [];
         const generatedBindings: any[] = [];
-        const nodeNameToIdMap: Record<string, string> = {};
-        processedNodes.forEach((n, idx) => {
-          nodeNameToIdMap[n.node_name] = `node-${idx}`;
-        });
         
         processedNodes.forEach((node, index) => {
-          if (index === 0) return; // 第一个节点没有上游
+          const originalNode = nodes[index];
+          const dagParams = originalNode.params || {};
           
-          node.input_params.forEach((param: any) => {
-            if (param.value_mode === 'reference' && param.param_value) {
-              // 找到上游节点（通过边关系）
-              const upstreamEdge = edges.find((e: any) => e.target === `node-${index}`);
-              if (upstreamEdge) {
+          // 遍历节点的每个参数，查找引用关系
+          Object.entries(dagParams).forEach(([paramName, paramValue]: any) => {
+            if (typeof paramValue === 'object' && paramValue !== null && 'source_node' in paramValue) {
+              const sourceNodeName = paramValue.source_node;
+              const sourceParamName = paramValue.source_param;
+              const sourceNodeId = nodeNameToIdMap[sourceNodeName];
+              
+              if (sourceNodeId && sourceNodeId !== node.node_id) {
+                // 生成边（避免重复）
+                const edgeExists = generatedEdges.some(
+                  e => e.from_node_id === sourceNodeId && e.to_node_id === node.node_id
+                );
+                if (!edgeExists) {
+                  generatedEdges.push({
+                    edge_id: `edge-${sourceNodeId}-${node.node_id}`,
+                    from_node_id: sourceNodeId,
+                    to_node_id: node.node_id
+                  });
+                }
+                
+                // 生成 binding
                 generatedBindings.push({
-                  binding_id: `binding-${index}-${param.param_name}`,
-                  from_node_id: upstreamEdge.source,
-                  from_param_name: param.param_value,
-                  to_node_id: `node-${index}`,
-                  to_param_name: param.param_name
+                  binding_id: `binding-${node.node_id}-${paramName}`,
+                  from_node_id: sourceNodeId,
+                  from_param_name: sourceParamName,
+                  to_node_id: node.node_id,
+                  to_param_name: paramName
                 });
               }
             }
           });
         });
         
+        console.log('生成的 edges:', generatedEdges);
         console.log('生成的 bindings:', generatedBindings);
         
         drawData = {
@@ -457,11 +466,7 @@ export default function PipelinePreview({ data, threadId, onOpenCanvas, messageI
             message_id: messageId ? String(messageId) : ''
           },
           nodes: processedNodes,
-          edges: edges.map((e, index) => ({
-            edge_id: `edge-${index}`,
-            from_node_id: e.source,
-            to_node_id: e.target
-          })),
+          edges: generatedEdges,
           bindings: generatedBindings
         };
       }
