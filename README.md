@@ -16,30 +16,58 @@ A research data processing prototype built on DeepAgents, FastAPI, skill integra
 ## Repository Structure
 
 ```text
-flow-deepagents-0408/
+flow-deepagents/
 ├── server.py                  # FastAPI entrypoint
 ├── main_cli.py                # CLI entrypoint
+├── deep_agent_main.py         # Deep agent entrypoint
 ├── requirements.txt           # Python dependencies
 ├── README.md
 ├── README.zh-CN.md
-├── docs/
-│   └── workspace_file_api.md  # Workspace file API notes
+├── .env                       # Environment variables
 ├── config/
 │   ├── app.yaml
 │   ├── database.yaml
 │   ├── llm.yaml
-│   └── mcp_servers.yaml
-├── infra/                     # config, env, logging
-├── runtime/                   # engine, chat store, workspace runtime
-├── agents/                    # agent factory, prompts, middleware, tools
-├── tools/                     # tool abstraction and adapters
-├── mcp_runtime/               # MCP lifecycle and registration
-├── workspace/                 # workspace root
-├── storage/                   # static storage mount
+│   ├── mcp_servers.yaml
+│   └── default_user.yaml
+├── docs/
+│   └── workspace_file_api.md  # Workspace file API notes
+├── infra/                     # Config, env, logging, settings
+├── agents/                    # Agent factory, prompts, middleware, tools
+├── runtime/                   # Engine, chat store, DAG manager, skill manager, piflow bridge
+├── tools/
+│   ├── core/                  # Tool base, naming, registry
+│   ├── adapters/              # DeepAgents & MCP adapters
+│   └── excutor/               # Executor utilities
+├── mcp_runtime/               # MCP lifecycle, health, reconnect, schema cache
+├── services/                  # Business logic layer (auth, DAG panel, DAG runtime, user)
+├── routers/                   # FastAPI routers (auth, DAG panel, DAG runtime, user)
+├── schemas/
+│   ├── auth_schema.py
+│   ├── user_schema.py
+│   └── dag/                   # DAG definitions: node, edge, skill, task, binding, obs
+├── database/                  # PostgreSQL connection manager
+├── repositories/              # Data access layer (user)
+├── security/                  # JWT, password handler, auth dependency
+├── storage/                   # Static assets, skill icons, conversation history
+├── workspace/                 # Runtime workspace root
+│   ├── skills/                # Skill definitions with SKILL.md
+│   ├── dag_system_node/       # System DAG node operators
+│   ├── artifacts/
+│   ├── outputs/
+│   ├── temp/
+│   └── logs/
 ├── test/                      # Python tests
+├── scripts/                   # Release scripts
+├── lib/                       # Vendored wheels (piflow)
+├── third_party/               # Third-party packages
 └── vue-web/
     ├── package.json
-    ├── README.md
+    ├── postcss.config.cjs
+    ├── tailwind.config.cjs
+    ├── tsconfig.json
+    ├── vite.config.ts
+    ├── index.html
     └── src/
         ├── components/
         ├── lib/
@@ -52,7 +80,13 @@ flow-deepagents-0408/
 
 Python 3.10+ is recommended.
 
-Install backend dependencies:
+Install the bundled PiFlow Python engine first:
+
+```bash
+pip install ./third_party/piflow/piflow_python-0.1.1-py3-none-any.whl
+```
+
+Then install backend dependencies:
 
 ```bash
 pip install -r requirements.txt
