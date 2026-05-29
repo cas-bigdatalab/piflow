@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { Icon } from '@iconify/react';
-import { getProcesses, getExecutionDetail, stopDAGTask, getProcessStatusCounts, ExecutionItem, ExecutionDetailResponse, StopInfo, StatusCountsResponse } from '../lib/api';
+import { getProcesses, getExecutionDetail, stopDAGTask, getProcessStatusCounts, downloadWorkspaceUrl2, ExecutionItem, ExecutionDetailResponse, StopInfo, StatusCountsResponse } from '../lib/api';
 import './RunHistoryPage.css';
 
 export function RunHistoryPage() {
@@ -13,6 +13,7 @@ export function RunHistoryPage() {
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [searchKeyword, setSearchKeyword] = useState('');
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
+  const listPollingRef = useRef<NodeJS.Timeout | null>(null);
   
   const pageSize = 10;
   const totalPages = Math.ceil(stats.total / pageSize);
@@ -44,7 +45,19 @@ export function RunHistoryPage() {
   const loadData = async (page: number, tab: string, keyword?: string) => {
     setLoading(true);
     try {
-      const status = tab === 'all' ? undefined : tab;
+      // 把 tab 名称映射到接口需要的 status 值
+      let status: string | undefined;
+      if (tab === 'all') {
+        status = undefined;
+      } else if (tab === 'running') {
+        status = 'RUNNING';
+      } else if (tab === 'completed') {
+        status = 'SUCCESS';
+      } else if (tab === 'failed') {
+        status = 'FAILED';
+      } else {
+        status = tab;
+      }
       const res = await getProcesses(page, pageSize, { status, running_only: tab === 'running', keyword });
       
       if (res.code === 200 && res.result) {
@@ -135,12 +148,30 @@ export function RunHistoryPage() {
       if (pollingRef.current) {
         clearTimeout(pollingRef.current);
       }
+      if (listPollingRef.current) {
+        clearInterval(listPollingRef.current);
+      }
     };
   }, []);
 
   useEffect(() => {
     loadData(currentPage, activeTab, searchKeyword);
     loadStatusCounts();
+    
+    // 启动列表轮询，每隔2秒刷新一次
+    if (listPollingRef.current) {
+      clearInterval(listPollingRef.current);
+    }
+    listPollingRef.current = setInterval(() => {
+      loadData(currentPage, activeTab, searchKeyword);
+      loadStatusCounts();
+    }, 2000);
+    
+    return () => {
+      if (listPollingRef.current) {
+        clearInterval(listPollingRef.current);
+      }
+    };
   }, [currentPage, activeTab, searchKeyword]);
 
   const handleTabChange = (tab: string) => {
@@ -445,19 +476,54 @@ export function RunHistoryPage() {
                   </div>
                 </div>
 
-                <div className="detail-section">
+                <div className="detail-section detail-progress-section">
                   <h3>执行进度</h3>
-                  <div className="progress-container">
-                    <div className="progress-bar">
-                      <div className="progress-container-inner">
-                        <div 
-                          className={`progress-fill ${executionDetail.progress !== null && executionDetail.progress <= 5 ? 'minimal' : ''}`} 
-                          style={{ width: `${executionDetail.progress || 0}%`, minWidth: executionDetail.progress !== null && executionDetail.progress <= 5 ? '8px' : '0' }}
-                        />
-                      </div>
-                      <span className="progress-text">{Math.round(executionDetail.progress || 0)}%</span>
-                    </div>
-                  </div>
+                  {(() => {
+                    let displayProgress = 0;
+                    const isCompleted = executionDetail.status === 'SUCCESS';
+                    const isFailed = executionDetail.status === 'FAILED';
+                    
+                    if (isCompleted) {
+                      displayProgress = 100;
+                    } else if (executionDetail.progress !== null && executionDetail.progress > 0) {
+                      displayProgress = Math.round(executionDetail.progress * 100);
+                    } else if (executionDetail.total_stop_count > 0) {
+                      displayProgress = Math.round((executionDetail.success_stop_count / executionDetail.total_stop_count) * 100);
+                    }
+                    
+                    let progressClass = 'running';
+                    let statusLabel = '执行中...';
+                    if (isCompleted) {
+                      progressClass = 'completed';
+                      statusLabel = '已完成';
+                    } else if (isFailed) {
+                      progressClass = 'failed';
+                      statusLabel = '执行失败';
+                    }
+                    
+                    return (
+                      <>
+                        <div className="progress-stats-row">
+                          <span className={`progress-status-label ${progressClass}`}>{statusLabel}</span>
+                          <span className="progress-value">{displayProgress}%</span>
+                        </div>
+                        <div className="progress-track">
+                          <div 
+                            className={`progress-fill-detail ${progressClass} ${displayProgress > 0 && displayProgress <= 5 ? 'minimal' : ''}`}
+                            style={{ width: `${displayProgress}%` }}
+                          />
+                        </div>
+                        <div className="progress-detail-row">
+                          <span className="progress-detail-text">
+                            节点: 总计 <strong>{executionDetail.total_stop_count}</strong> 
+                            {executionDetail.success_stop_count > 0 && <span>, 成功 <strong className="text-success">{executionDetail.success_stop_count}</strong></span>}
+                            {executionDetail.failed_stop_count > 0 && <span>, 失败 <strong className="text-danger">{executionDetail.failed_stop_count}</strong></span>}
+                            {executionDetail.skipped_stop_count > 0 && <span>, 跳过 <strong className="text-warning">{executionDetail.skipped_stop_count}</strong></span>}
+                          </span>
+                        </div>
+                      </>
+                    );
+                  })()}
                 </div>
 
                 <div className="detail-section">
@@ -465,10 +531,16 @@ export function RunHistoryPage() {
                   {executionDetail.status === 'SUCCESS' && executionDetail.final_output_paths && executionDetail.final_output_paths.length > 0 ? (
                     <div className="result-files">
                       {executionDetail.final_output_paths.map((file, index) => (
-                        <button key={index} className="result-file-btn">
+                        <a 
+                          key={index} 
+                          href={downloadWorkspaceUrl2(file)} 
+                          className="result-file-btn"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
                           <Icon icon="fa-solid:download" width="14" />
                           <span>{file.split('/').pop() || file}</span>
-                        </button>
+                        </a>
                       ))}
                     </div>
                   ) : (

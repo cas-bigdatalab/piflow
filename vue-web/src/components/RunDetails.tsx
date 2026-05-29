@@ -37,7 +37,7 @@ import {
   CheckCircle2,
   Loader2,
 } from 'lucide-react';
-import { getExecutionDetail, stopDAGTask } from '../lib/api';
+import { getExecutionDetail, stopDAGTask, downloadWorkspaceUrl2 } from '../lib/api';
 import './RunDetails.css';
 
 // 字段类型定义
@@ -556,17 +556,52 @@ const ExecutionDetailPanel: React.FC<ExecutionDetailPanelProps> = ({ data, onClo
         </div>
       </div>
 
-      <div className="detail-section">
+      <div className="detail-section progress-section">
         <h3>执行进度</h3>
-        <div className="progress-container">
-          <div className="progress-bar">
-            <div 
-              className={`progress-fill ${data.progress !== null && data.progress <= 5 ? 'minimal' : ''}`} 
-              style={{ width: `${data.progress || 0}%`, minWidth: data.progress !== null && data.progress <= 5 ? '4px' : '0' }}
-            />
-          </div>
-          <span className="progress-text">{Math.round(data.progress || 0)}%</span>
-        </div>
+        {(() => {
+          let displayProgress = 0;
+          const isFailed = data.status === 'FAILED';
+          if (isCompleted) {
+            displayProgress = 100;
+          } else if (data.progress !== null && data.progress > 0) {
+            displayProgress = data.progress;
+          } else if (data.total_stop_count > 0) {
+            displayProgress = Math.round((data.success_stop_count / data.total_stop_count) * 100);
+          }
+          
+          let progressClass = 'running';
+          let statusLabel = '执行中...';
+          if (isCompleted) {
+            progressClass = 'completed';
+            statusLabel = '已完成';
+          } else if (isFailed) {
+            progressClass = 'failed';
+            statusLabel = '执行失败';
+          }
+          
+          return (
+            <>
+              <div className="progress-stats-row">
+                <span className={`progress-status-label ${progressClass}`}>{statusLabel}</span>
+                <span className="progress-value">{displayProgress}%</span>
+              </div>
+              <div className="progress-track">
+                <div 
+                  className={`progress-fill ${progressClass} ${displayProgress > 0 && displayProgress <= 5 ? 'minimal' : ''}`}
+                  style={{ width: `${displayProgress}%` }}
+                />
+              </div>
+              <div className="progress-detail-row">
+                <span className="progress-detail-text">
+                  节点: 总计 <strong>{data.total_stop_count}</strong> 
+                  {data.success_stop_count > 0 && <span>, 成功 <strong className="text-success">{data.success_stop_count}</strong></span>}
+                  {data.failed_stop_count > 0 && <span>, 失败 <strong className="text-danger">{data.failed_stop_count}</strong></span>}
+                  {data.skipped_stop_count > 0 && <span>, 跳过 <strong className="text-warning">{data.skipped_stop_count}</strong></span>}
+                </span>
+              </div>
+            </>
+          );
+        })()}
       </div>
 
       <div className="detail-section">
@@ -574,10 +609,16 @@ const ExecutionDetailPanel: React.FC<ExecutionDetailPanelProps> = ({ data, onClo
         {isCompleted && data.final_output_paths && data.final_output_paths.length > 0 ? (
           <div className="result-files">
             {data.final_output_paths.map((file: string, index: number) => (
-              <button key={index} className="result-file-btn">
+              <a 
+                key={index} 
+                href={downloadWorkspaceUrl2(file)} 
+                className="result-file-btn"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
                 <Download size={14} />
                 <span>{file.split('/').pop() || file}</span>
-              </button>
+              </a>
             ))}
           </div>
         ) : (
