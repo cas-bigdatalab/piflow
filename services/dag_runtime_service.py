@@ -7,6 +7,7 @@ from runtime.piflow_adapter import stop_registered_process, submit_frontend_dag
 from runtime.piflow_run_query import (
     get_piflow_run_detail,
     get_piflow_run_progress,
+    get_piflow_process_status_counts,
     list_piflow_processes,
     list_piflow_runs_by_task_id,
 )
@@ -97,6 +98,17 @@ def get_dag_runtime_processes(
         status=status,
         dag_task_id=dag_task_id,
         running_only=running_only,
+        keyword=keyword,
+    )
+
+
+def get_dag_runtime_process_status_counts(
+    *,
+    dag_task_id: str | None = None,
+    keyword: str | None = None,
+) -> dict[str, Any]:
+    return get_piflow_process_status_counts(
+        dag_task_id=dag_task_id,
         keyword=keyword,
     )
 

@@ -314,3 +314,39 @@ def list_piflow_processes(
         "total": total,
         "items": [_serialize_flow_run_summary(row) for row in rows],
     }
+
+
+def get_piflow_process_status_counts(
+    *,
+    dag_task_id: str | None = None,
+    keyword: str | None = None,
+) -> dict[str, Any]:
+    where_clause, params = _build_flow_run_filters(
+        dag_task_id=dag_task_id,
+        keyword=keyword,
+    )
+
+    with closing(get_connection()) as conn:
+        with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+            cursor.execute(
+                f"""
+                SELECT
+                    COUNT(*) AS total,
+                    COUNT(*) FILTER (WHERE status IN ('PENDING', 'RUNNING')) AS running_count,
+                    COUNT(*) FILTER (WHERE status = 'SUCCESS') AS completed_count,
+                    COUNT(*) FILTER (WHERE status = 'FAILED') AS failed_count
+                FROM piflow_flow_run
+                {where_clause}
+                """,
+                params,
+            )
+            row = cursor.fetchone()
+
+    return {
+        "dag_task_id": dag_task_id,
+        "keyword": keyword,
+        "total": row.get("total", 0) if row else 0,
+        "running_count": row.get("running_count", 0) if row else 0,
+        "completed_count": row.get("completed_count", 0) if row else 0,
+        "failed_count": row.get("failed_count", 0) if row else 0,
+    }
