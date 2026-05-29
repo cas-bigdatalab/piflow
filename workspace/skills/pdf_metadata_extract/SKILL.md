@@ -16,7 +16,7 @@ input_params:
     description: 输出JSON文件路径
 
 output_params:
-  - name: output
+  - name: output_path
     type: json_file
     description: PDF元数据JSON文件
 tag: 输入
