@@ -157,6 +157,15 @@ const paramDisplayValues: Record<string, Record<string, Record<string, string>>>
 
 // ==================== 算子分类 ====================
 
+// 生成 UUID 的兼容函数
+const generateUUID = () => {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+};
+
 // 算子分类数据（从后端接口获取后赋值）
 let operatorCategories: {
   groupName: string;
@@ -973,7 +982,7 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
       y: (h - graphH * zoom) / 2 - minY * zoom,
       zoom,
     });
-  }, [nodes, setViewport]);
+  }, [setViewport]);
 
   // 获取选中的节点
   const selectedNode = nodes.find((m) => m.id === selectedNodeId);
@@ -981,14 +990,15 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
   // 关闭配置面板
   const closeConfigPanel = () => setSelectedNodeId(null);
 
-  // 监听 nodes 变化，自动调整视口为靠左、垂直居中
+  // 监听 nodes 数量变化，自动调整视口为靠左、垂直居中
+  // 只在节点数量变化时调整，避免节点展开/收缩时触发
   useEffect(() => {
     if (nodes.length > 0 && isInitialized.current) {
       setTimeout(() => {
         fitNodesToViewLeft();
       }, 100);
     }
-  }, [nodes, fitNodesToViewLeft]);
+  }, [nodes.length, fitNodesToViewLeft]);
 
   // 切换连线类型时更新所有现有连线
   useEffect(() => {
@@ -1130,48 +1140,57 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
             outputParamsMap[nodeId] = outputParams.params;
           }
 
-          // 合并已保存的参数据
+          // 合并已保存的参数数据
           let mergedInputParams = inputParams;
           
-          // 优先使用已保存的参数数据
-          if (n.input_params && Array.isArray(n.input_params)) {
+          // 优先使用已保存的参数数据，但只保留算子接口中存在的参数
+          if (n.input_params && Array.isArray(n.input_params) && inputParams?.params) {
+            // 获取算子接口返回的参数名称列表
+            const operatorParamNames = new Set(inputParams.params.map(p => p.name || p.param_name));
+            
             mergedInputParams = {
-              params: n.input_params.map((sp: any) => {
-                const paramName = sp.param_name || '';
-                // 检查是否有对应的binding
-                const bindingKey = `${nodeId}|${paramName}`;
-                const binding = bindingsMap[bindingKey];
-                const isReference = sp.value_mode === 'reference' || !!binding;
-                
-                let _refValue = '';
-                if (isReference && binding) {
-                  // 从上游节点的output_params中获取参数信息
-                  const fromNodeId = binding.from_node_id;
-                  let fromParamName = binding.from_param_name;
+              params: n.input_params
+                // 过滤：只保留算子接口中存在的参数
+                .filter((sp: any) => {
+                  const paramName = sp.param_name || '';
+                  return operatorParamNames.has(paramName);
+                })
+                .map((sp: any) => {
+                  const paramName = sp.param_name || '';
+                  // 检查是否有对应的binding
+                  const bindingKey = `${nodeId}|${paramName}`;
+                  const binding = bindingsMap[bindingKey];
+                  const isReference = sp.value_mode === 'reference' || !!binding;
                   
-                  // 如果fromParamName可能是nodeId_paramName格式，需要提取最后一部分
-                  if (fromParamName.includes('_')) {
-                    const parts = fromParamName.split('_');
-                    fromParamName = parts[parts.length - 1];
+                  let _refValue = '';
+                  if (isReference && binding) {
+                    // 从上游节点的output_params中获取参数信息
+                    const fromNodeId = binding.from_node_id;
+                    let fromParamName = binding.from_param_name;
+                    
+                    // 如果fromParamName可能是nodeId_paramName格式，需要提取最后一部分
+                    if (fromParamName.includes('_')) {
+                      const parts = fromParamName.split('_');
+                      fromParamName = parts[parts.length - 1];
+                    }
+                    
+                    // _refValue是纯参数名，和option.value匹配
+                    _refValue = fromParamName;
+                    console.log(`节点 ${nodeId} 参数 ${paramName} 的引用信息:`, {
+                      binding,
+                      _refValue
+                    });
                   }
                   
-                  // _refValue是纯参数名，和option.value匹配
-                  _refValue = fromParamName;
-                  console.log(`节点 ${nodeId} 参数 ${paramName} 的引用信息:`, {
-                    binding,
-                    _refValue
-                  });
-                }
-                
-                return {
-                  name: paramName,
-                  param_value: sp.param_value || '',
-                  type: sp.param_type || '',
-                  _refType: isReference ? 'reference' : 'manual',
-                  _value: isReference ? '' : (sp.param_value || ''),
-                  _refValue: isReference ? _refValue : '',
-                };
-              }),
+                  return {
+                    name: paramName,
+                    param_value: sp.param_value || '',
+                    type: sp.param_type || '',
+                    _refType: isReference ? 'reference' : 'manual',
+                    _value: isReference ? '' : (sp.param_value || ''),
+                    _refValue: isReference ? _refValue : '',
+                  };
+                }),
             };
           } else if (inputParams?.params) {
             mergedInputParams = inputParams;
@@ -1405,39 +1424,8 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
             }
           });
           
-          // 再处理 DAG 中有但算子中没有的参数（比如 source_stop 的 output）
-          Object.entries(dagParams).forEach(([name, value]) => {
-            if (!paramDefMap[name]) {
-              if (typeof value === 'object' && value !== null && 'source_node' in value) {
-                const sourceNodeName = value.source_node;
-                const sourceParamName = value.source_param;
-                
-                newParamsList.push({
-                  name: name,
-                  type: 'string',
-                  param_name: name,
-                  param_type: 'String',
-                  param_value: '',
-                  _refType: 'reference',
-                  _value: '',
-                  _refValue: sourceParamName,
-                  _sourceNodeName: sourceNodeName,
-                  _sourceParamName: sourceParamName,
-                });
-              } else {
-                newParamsList.push({
-                  name: name,
-                  type: 'string',
-                  param_name: name,
-                  param_type: 'String',
-                  param_value: '',
-                  _refType: 'manual',
-                  _value: String(value),
-                  _refValue: '',
-                });
-              }
-            }
-          });
+          // 不再处理DAG中有但算子中没有的参数
+          // 只保留算子定义中存在的参数，DAG中多余的参数将被忽略
           
           mergedInputParams = {
             ...inputParams,
@@ -2147,7 +2135,7 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
                   param_name: p.name,
                   param_value: savedValue,
                   value_mode: isReference ? 'reference' : 'manual',
-                  binding_id: isReference ? crypto.randomUUID() : '',
+                  binding_id: isReference ? generateUUID() : '',
                 };
               }) || [],
               out_params: n.data.output_params?.params?.map(p => ({
@@ -2206,7 +2194,7 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
                     }
 
                     const binding = {
-                      binding_id: crypto.randomUUID(),
+                      binding_id: generateUUID(),
                       from_node_id: upstreamEdge.source,
                       from_param_name: refParamName.trim() || param.name,
                       to_node_id: node.id,
@@ -2320,7 +2308,7 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
                       param_name: p.name,
                       param_value: isReference ? '' : (p._value || ''),
                       value_mode: isReference ? 'reference' : 'manual',
-                      binding_id: isReference ? crypto.randomUUID() : '',
+                      binding_id: isReference ? generateUUID() : '',
                     };
                   }) || [],
                   out_params: n.data.output_params?.params?.map(p => ({
@@ -2340,7 +2328,7 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
               detail: { 
                 threadId, 
                 messageId, 
-                content: '我手动修改了任务流程，需要重新执行。不要执行。' + JSON.stringify(drawData)
+                content: '我手动修改了任务流程，请按标准重新生成完整的DAG JSON，请帮我继续分析，不要执行' + JSON.stringify(drawData)
               } 
             }));
             onClose();
@@ -2363,7 +2351,6 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
         defaultViewport={{ zoom: 1, x: 0, y: 0 }}
         minZoom={0.2}
         maxZoom={2}
-        fitView
       >
         <Background variant={BackgroundVariant.Dots} gap={12} size={1} />
       </ReactFlow>
