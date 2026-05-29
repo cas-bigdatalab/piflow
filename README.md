@@ -52,7 +52,13 @@ flow-deepagents-0408/
 
 Python 3.10+ is recommended.
 
-Install backend dependencies:
+Install the bundled PiFlow Python engine first:
+
+```bash
+pip install ./third_party/piflow/piflow_python-0.1.1-py3-none-any.whl
+```
+
+Then install backend dependencies:
 
 ```bash
 pip install -r requirements.txt
