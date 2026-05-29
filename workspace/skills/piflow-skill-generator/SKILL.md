@@ -12,8 +12,8 @@ input_params:
   - name: spec_path
     role: input_data
     type: string
-    required: true
-    description: 技能规格 JSON 文件路径，必须使用 UTF-8 编码
+    required: false
+    description: 技能规格 JSON 文件路径，必须使用 UTF-8 编码；与 flow_path 二选一
 
   - name: output_root
     role: output_data
@@ -29,6 +29,25 @@ input_params:
     default: false
     description: 是否覆盖已存在的技能目录
 
+  - name: flow_path
+    role: input_data
+    type: string
+    required: false
+    description: 已验证成功的流程摘要 JSON 路径；与 spec_path 二选一
+
+  - name: restored_spec_out
+    role: output_data
+    type: string
+    required: false
+    description: 使用 flow_path 时恢复出的 spec 草稿输出路径
+
+  - name: rewrite_followup_hint
+    role: data
+    type: string
+    required: false
+    default: ""
+    description: 可选提示语；当 skill 生成完成后，如用户随后给出新的流程，可提示是否进入生成器内部改写链路继续改写
+
 output_params:
   - name: skill_dir
     role: output_data
@@ -39,6 +58,11 @@ output_params:
     role: output_data
     type: markdown_file
     description: 生成后的 SKILL.md
+
+  - name: rewrite_followup_suggestion
+    role: output_data
+    type: json_file
+    description: 生成完成后的改写 follow-up 建议信息
 tag: 算子生成
 ---
 
@@ -54,15 +78,18 @@ tag: 算子生成
 
 生成正文时优先参照 `references/piflow_skill_template.md`。当 spec 中提供 `core_features`、`trigger_conditions`、`processing_logic`、`supported_formats`、`output_structure`、`output_examples` 等字段时，将它们填入模板对应章节。
 
-本技能必须能在没有其他技能辅助的环境中独立生成可靠技能：只依赖当前技能目录内的 `SKILL.md`、`references/piflow_skill_template.md`、`scripts/generate_piflow_skill.py`、`scripts/generate_skill_files.py`、`scripts/register_skill_artifacts.py` 和 `scripts/validate_piflow_skill.py`。生成时不要假设另一个 skill 会补全文档、脚本或元数据。本技能负责 skill 化与沉淀，不负责代替用户完成所有真实处理任务本身。
+本技能必须能在没有其他技能辅助的环境中独立生成可靠技能：只依赖当前技能目录内的 `SKILL.md`、`references/piflow_skill_template.md`、`references/rewrite_followup_internal.md`、`scripts/generate_piflow_skill.py`、`scripts/generate_skill_files.py`、`scripts/register_skill_artifacts.py`、`scripts/rewrite_piflow_skill.py` 和 `scripts/validate_piflow_skill.py`。生成时不要假设另一个 skill 会补全文档、脚本或元数据。本技能负责 skill 化与沉淀，不负责代替用户完成所有真实处理任务本身。
 
-本技能支持两条触发链路：
+本技能支持三条触发链路：
 
 1. 手动生成链路
    当用户明确要求“生成 skill”“保存为 skill”“封装为 skill”“创建自定义技能”时，直接进入 skill 生成阶段，行为与当前链路一致。
 
 2. 回调式沉淀链路
    当现有技能库无法直接满足需求时，应先在 skill 层面声明当前没有可直接复用的现成 skill，并优先引导大模型先帮助用户解决问题本身，例如生成脚本、处理流程、输入输出约定、验证步骤等。只有在这些处理流程已经跑通、结果已验证后，才回调进入本技能，并提示用户是否根据之前的成功操作流程将其封装为 skill。
+   
+3. 生成后改写链路
+   当一个 skill 已经生成完成并经过基础校验后，如果用户随后又提供了一个新的成功流程、更新后的脚本或更合理的输入输出设计，不要默认忽略这些新信息；应主动询问用户，是否要以这个新的流程为指引，对刚生成的 skill 做一次最小改写；若用户确认，则优先进入生成器内部改写链路，以“保留原 skill 名称 + overwrite 重建”的方式做最小改写，而不是要求用户重新生成一个同义的新 skill。
 
 因此，本技能不是默认优先入口，但也不再只局限于“任务完全结束后人工另起一轮对话”；它可以作为缺 skill 场景下的回调式沉淀终点。
 
@@ -185,9 +212,9 @@ skill-name/
 4. 改写时默认复用原 skill 名称和目录位置，避免生成第二个含义重复的新 skill。
 5. 改写完成后，继续执行与主技能一致的校验和注册逻辑。
 
-## 两层调用模型
+## 三层调用模型
 
-当前实现按职责拆成两层，并保留一个一键封装入口：
+当前实现按职责拆成三层，并保留一个一键封装入口：
 
 1. 生成层
    负责把 spec 落成技能目录本身，包括 `SKILL.md`、`skill.json`、`scripts/`、`references/`、`assets/` 等内容。
@@ -247,6 +274,7 @@ skill-name/
 - `body_sections`：可选，自定义正文段落。
 - `skill_json`：可选，默认 `true`；设为 `false` 时不生成 `skill.json`。
 - `metadata`：可选；若来自回调式沉淀链路，可用于记录流程来源、验证摘要、沉淀时间或回调上下文。
+- `rewrite_followup_hint`：可选；用于在生成结果中覆盖默认的改写 follow-up 提示语。
 
 ## 命令
 

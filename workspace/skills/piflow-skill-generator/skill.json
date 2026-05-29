@@ -10,8 +10,8 @@
       "name": "spec_path",
       "role": "input_data",
       "type": "string",
-      "required": true,
-      "description": "技能规格 JSON 文件路径，必须使用 UTF-8 编码"
+      "required": false,
+      "description": "技能规格 JSON 文件路径；与 flow_path 二选一"
     },
     {
       "name": "output_root",
@@ -28,6 +28,20 @@
       "required": false,
       "default": false,
       "description": "是否覆盖已存在的技能目录"
+    },
+    {
+      "name": "flow_path",
+      "role": "input_data",
+      "type": "string",
+      "required": false,
+      "description": "已验证成功的流程摘要 JSON 路径；与 spec_path 二选一"
+    },
+    {
+      "name": "restored_spec_out",
+      "role": "output_data",
+      "type": "string",
+      "required": false,
+      "description": "使用 flow_path 时恢复出的 spec 草稿输出路径"
     },
     {
       "name": "rewrite_followup_hint",
@@ -50,15 +64,13 @@
       "role": "output_data",
       "type": "markdown_file",
       "description": "生成后的 SKILL.md"
+    },
+    {
+      "name": "rewrite_followup_suggestion",
+      "role": "output_data",
+      "type": "json_file",
+      "description": "生成完成后的改写 follow-up 建议信息"
     }
-  ],
-  "command_template": [
-    "python",
-    "{script_path}",
-    "--spec",
-    "{spec_path}",
-    "--output-root",
-    "{output_root}"
   ],
   "category": "skill_generation",
   "tag": "算子生成"

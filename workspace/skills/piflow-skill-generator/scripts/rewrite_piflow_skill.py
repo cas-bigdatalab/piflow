@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import argparse
 import json
+import re
 from pathlib import Path
 
 from generate_piflow_skill import (
@@ -14,6 +15,9 @@ from generate_piflow_skill import (
 )
 
 
+FRONTMATTER_RE = re.compile(r"^---\n(.*?)\n---\n?", re.DOTALL)
+
+
 def load_existing_skill_name(skill_dir: Path) -> str:
     skill_md = skill_dir / "SKILL.md"
     if not skill_md.exists():
@@ -25,8 +29,104 @@ def load_existing_skill_name(skill_dir: Path) -> str:
     return skill_dir.name
 
 
+def parse_simple_frontmatter(skill_dir: Path) -> dict:
+    skill_md = skill_dir / "SKILL.md"
+    if not skill_md.exists():
+        return {}
+
+    match = FRONTMATTER_RE.match(read_text(skill_md))
+    if not match:
+        return {}
+
+    data: dict[str, object] = {}
+    current_key: str | None = None
+    current_list: list[dict] | None = None
+    current_item: dict | None = None
+
+    for raw_line in match.group(1).splitlines():
+        if not raw_line.strip():
+            continue
+        if raw_line.startswith("  - ") and current_key in {"input_params", "output_params"}:
+            current_item = {}
+            current_list = data.setdefault(current_key, [])
+            current_list.append(current_item)
+            line = raw_line[4:]
+            if ":" in line:
+                key, value = line.split(":", 1)
+                current_item[key.strip()] = value.strip().strip("\"'")
+            continue
+        if raw_line.startswith("    ") and current_item is not None:
+            line = raw_line.strip()
+            if ":" in line:
+                key, value = line.split(":", 1)
+                parsed = value.strip().strip("\"'")
+                if parsed == "true":
+                    current_item[key.strip()] = True
+                elif parsed == "false":
+                    current_item[key.strip()] = False
+                else:
+                    current_item[key.strip()] = parsed
+            continue
+        current_item = None
+        current_list = None
+        line = raw_line.strip()
+        if ":" in line:
+            key, value = line.split(":", 1)
+            key = key.strip()
+            value = value.strip().strip("\"'")
+            if value:
+                data[key] = value
+            else:
+                data[key] = []
+                current_key = key
+                continue
+        current_key = None
+    return data
+
+
+def load_existing_skill_state(skill_dir: Path) -> dict:
+    state = parse_simple_frontmatter(skill_dir)
+    skill_json = skill_dir / "skill.json"
+    if skill_json.exists():
+        data = json.loads(read_text(skill_json))
+        for key in (
+            "name",
+            "version",
+            "description",
+            "language",
+            "script_path",
+            "entrypoint",
+            "input_params",
+            "output_params",
+            "category",
+            "tag",
+            "command_template",
+        ):
+            if key in data and data[key]:
+                state[key] = data[key]
+    return state
+
+
+def merge_rewrite_spec(existing: dict, incoming: dict) -> dict:
+    merged = dict(existing)
+    default_like_pairs = {
+        ("category", "restored_flow"),
+        ("tag", "其他"),
+        ("version", "1.0.0"),
+    }
+    for key, value in incoming.items():
+        if value in ("", None, [], {}):
+            continue
+        if isinstance(value, (str, int, float, bool)) and (key, value) in default_like_pairs and existing.get(key):
+            continue
+        merged[key] = value
+    return merged
+
+
 def restore_rewrite_spec_from_flow(skill_dir: Path, flow: dict) -> dict:
-    spec = restore_spec_from_flow(flow)
+    existing = load_existing_skill_state(skill_dir)
+    restored = restore_spec_from_flow(flow)
+    spec = merge_rewrite_spec(existing, restored)
     existing_name = load_existing_skill_name(skill_dir)
     spec["name"] = existing_name
 
@@ -48,8 +148,15 @@ def restore_rewrite_spec_from_flow(skill_dir: Path, flow: dict) -> dict:
 
 
 def read_rewrite_input(*, skill_dir: Path, spec_path: Path | None = None, flow_path: Path | None = None, restored_spec_path: Path | None = None) -> dict:
+    if spec_path and flow_path:
+        raise ValueError("provide either spec_path or flow_path, not both")
+    if not spec_path and not flow_path:
+        raise ValueError("either spec_path or flow_path is required")
+
+    existing = load_existing_skill_state(skill_dir)
     if spec_path:
-        spec = read_spec_input(spec_path=spec_path)
+        incoming = read_spec_input(spec_path=spec_path)
+        spec = merge_rewrite_spec(existing, incoming)
         spec["name"] = load_existing_skill_name(skill_dir)
         metadata = dict(spec.get("metadata") or {})
         metadata.update(

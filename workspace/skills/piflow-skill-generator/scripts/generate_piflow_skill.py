@@ -422,6 +422,22 @@ def normalize_spec(spec: dict) -> dict:
     return normalized
 
 
+def build_rewrite_followup_suggestion(*, skill_name: str, skill_dir: str, rewrite_followup_hint: str = "") -> dict:
+    message = non_empty_text(rewrite_followup_hint) or (
+        "如果用户在 skill 生成完成后又提供了新的成功流程，可以询问是否要以新的流程为指引继续改写当前 skill。"
+    )
+    return {
+        "skill_name": skill_name,
+        "skill_dir": skill_dir,
+        "message": message,
+        "command": (
+            f"python scripts/rewrite_piflow_skill.py --skill-dir {skill_dir} "
+            "--flow path/to/new-flow-summary.json --restored-spec-out workspace/artifacts/rewrite-spec.json"
+        ),
+        "reference": "references/rewrite_followup_internal.md",
+    }
+
+
 def first_script_path(spec: dict) -> str:
     script = spec.get("script")
     if isinstance(script, dict) and script.get("path"):
@@ -919,9 +935,15 @@ def generate(spec: dict, output_root: Path, overwrite: bool) -> dict:
     spec = normalize_spec(spec)
     file_result = generate_skill_files(spec, output_root, overwrite)
     registration_result = register_skill_artifacts(spec, Path(file_result["skill_dir"]))
+    followup = build_rewrite_followup_suggestion(
+        skill_name=spec["name"],
+        skill_dir=file_result["skill_dir"],
+        rewrite_followup_hint=non_empty_text(spec.get("rewrite_followup_hint")),
+    )
     return {
         **file_result,
         **registration_result,
+        "rewrite_followup_suggestion": followup,
     }
 
 
