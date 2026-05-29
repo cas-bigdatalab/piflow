@@ -5,10 +5,9 @@ import threading
 from pathlib import Path
 from typing import Any
 
+from infra.config_loader import resolve_workspace_root
 from tools.excutor.excutor_utils import resolve_dag_definition_skills
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_PIFLOW_WORKSPACE_ROOT = PROJECT_ROOT / ".piflow" / "workspace"
 _PROCESS_REGISTRY: dict[str, Any] = {}
 _PROCESS_REGISTRY_LOCK = threading.Lock()
 
@@ -96,7 +95,7 @@ def submit_frontend_dag(
     piflow_json = convert_frontend_dag_to_piflow(resolve_dag_json)
     flow = FlowBean.from_dict(piflow_json).construct_flow()
 
-    workspace = Path(workspace_root or DEFAULT_PIFLOW_WORKSPACE_ROOT).resolve()
+    workspace = resolve_workspace_root(workspace_root)
     workspace.mkdir(parents=True, exist_ok=True)
 
     run_store = PostgresRunStore(connection=get_connection())

@@ -159,6 +159,7 @@ sink_stop：
 * 没有下游输出
 * 用于接收上游结果并保存
 * 不属于业务处理逻辑
+* 接收的上游节点输出必须来自业务 Skill 节点，并且要符合参数引用规则（名称对应）
 
 ---
 
@@ -326,6 +327,7 @@ source_param：
 
 - source_node 必须存在
 - source_param 必须属于该节点对应 Skill 的 output_params
+- 特别注意sink_stop节点的输入参数必须引用业务 Skill 节点的输出参数，且名称必须对应
 
 ---
 

@@ -105,6 +105,7 @@ def get_piflow_run_detail(process_id: str) -> dict[str, Any] | None:
                     log_path,
                     stdout_log_path,
                     stderr_log_path,
+                    final_output_path,
                     error_message,
                     started_at,
                     finished_at,
@@ -117,6 +118,12 @@ def get_piflow_run_detail(process_id: str) -> dict[str, Any] | None:
                 (flow_run["id"],),
             )
             stop_runs = cursor.fetchall()
+
+    final_output_paths = [
+        str(row["final_output_path"])
+        for row in stop_runs
+        if row.get("final_output_path")
+    ]
 
     return {
         "process_id": flow_run["process_id"],
@@ -136,6 +143,7 @@ def get_piflow_run_detail(process_id: str) -> dict[str, Any] | None:
         "finished_at": flow_run.get("finished_at"),
         "created_at": flow_run.get("created_at"),
         "updated_at": flow_run.get("updated_at"),
+        "final_output_paths": final_output_paths,
         "stops": [
             {
                 "job_id": row["job_id"],
@@ -149,6 +157,7 @@ def get_piflow_run_detail(process_id: str) -> dict[str, Any] | None:
                 "log_path": row.get("log_path"),
                 "stdout_log_path": row.get("stdout_log_path"),
                 "stderr_log_path": row.get("stderr_log_path"),
+                "final_output_path": row.get("final_output_path"),
                 "error_message": row.get("error_message"),
                 "started_at": row.get("started_at"),
                 "finished_at": row.get("finished_at"),
@@ -313,4 +322,40 @@ def list_piflow_processes(
         "page_size": page_size,
         "total": total,
         "items": [_serialize_flow_run_summary(row) for row in rows],
+    }
+
+
+def get_piflow_process_status_counts(
+    *,
+    dag_task_id: str | None = None,
+    keyword: str | None = None,
+) -> dict[str, Any]:
+    where_clause, params = _build_flow_run_filters(
+        dag_task_id=dag_task_id,
+        keyword=keyword,
+    )
+
+    with closing(get_connection()) as conn:
+        with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+            cursor.execute(
+                f"""
+                SELECT
+                    COUNT(*) AS total,
+                    COUNT(*) FILTER (WHERE status IN ('PENDING', 'RUNNING')) AS running_count,
+                    COUNT(*) FILTER (WHERE status = 'SUCCESS') AS completed_count,
+                    COUNT(*) FILTER (WHERE status = 'FAILED') AS failed_count
+                FROM piflow_flow_run
+                {where_clause}
+                """,
+                params,
+            )
+            row = cursor.fetchone()
+
+    return {
+        "dag_task_id": dag_task_id,
+        "keyword": keyword,
+        "total": row.get("total", 0) if row else 0,
+        "running_count": row.get("running_count", 0) if row else 0,
+        "completed_count": row.get("completed_count", 0) if row else 0,
+        "failed_count": row.get("failed_count", 0) if row else 0,
     }

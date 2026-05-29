@@ -47,18 +47,18 @@ def init_db():
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
         """,
-        """
-        CREATE TABLE IF NOT EXISTS skills (
-            id SERIAL PRIMARY KEY,
-            name TEXT UNIQUE,
-            description TEXT,
-            icon_path TEXT,
-            type TEXT,
-            version TEXT DEFAULT '1.0.0',
-            update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            deleted BOOLEAN DEFAULT FALSE
-        )
-        """,
+        # """
+        # CREATE TABLE IF NOT EXISTS skills (
+        #     id SERIAL PRIMARY KEY,
+        #     name TEXT UNIQUE,
+        #     description TEXT,
+        #     icon_path TEXT,
+        #     type TEXT,
+        #     version TEXT DEFAULT '1.0.0',
+        #     update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        #     deleted BOOLEAN DEFAULT FALSE
+        # )
+        # """,
         """
         CREATE TABLE IF NOT EXISTS chat_files (
             file_id SERIAL PRIMARY KEY,
@@ -74,7 +74,7 @@ def init_db():
         "CREATE INDEX IF NOT EXISTS idx_messages_thread_id ON messages(thread_id)",
         "CREATE INDEX IF NOT EXISTS idx_messages_user_id ON messages(user_id)",
         "CREATE INDEX IF NOT EXISTS idx_chat_threads_user_id ON chat_threads(user_id)",
-        "CREATE INDEX IF NOT EXISTS idx_skills_name ON skills(name)",
+        # "CREATE INDEX IF NOT EXISTS idx_skills_name ON skills(name)",
         "CREATE INDEX IF NOT EXISTS idx_chat_files_user_id ON chat_files(user_id)",
         "CREATE INDEX IF NOT EXISTS idx_chat_files_thread_id ON chat_files(thread_id)",
         "CREATE INDEX IF NOT EXISTS idx_chat_files_message_id ON chat_files(message_id)",
@@ -103,7 +103,7 @@ def init_db():
         cursor.execute("DELETE FROM skills")
         cursor.close()
         conn.commit()
-        init_skills_to_database()
+        # init_skills_to_database()
 
     conn.close()
 
