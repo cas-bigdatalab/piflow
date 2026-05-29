@@ -16,30 +16,58 @@
 ## 项目结构
 
 ```text
-flow-deepagents-0408/
+flow-deepagents/
 ├── server.py                  # FastAPI 入口
 ├── main_cli.py                # CLI 入口
+├── deep_agent_main.py         # Deep Agent 入口
 ├── requirements.txt           # Python 依赖
 ├── README.md
 ├── README.zh-CN.md
-├── docs/
-│   └── workspace_file_api.md  # 工作区文件接口说明（需按当前实现理解）
+├── .env                       # 环境变量
 ├── config/
 │   ├── app.yaml
 │   ├── database.yaml
 │   ├── llm.yaml
-│   └── mcp_servers.yaml
-├── infra/                     # 配置、日志、环境变量加载
-├── runtime/                   # Agent 运行编排、会话存储、工作区管理
-├── agents/                    # agent factory、prompt、middleware、tools
-├── tools/                     # 工具抽象层和 adapter
-├── mcp_runtime/               # MCP client 生命周期与注册
-├── workspace/                 # 工作区根目录
-├── storage/                   # FastAPI 静态挂载目录
+│   ├── mcp_servers.yaml
+│   └── default_user.yaml
+├── docs/
+│   └── workspace_file_api.md  # 工作区文件接口说明
+├── infra/                     # 配置加载、环境变量、日志、设置
+├── agents/                    # Agent factory、prompts、middleware、tools
+├── runtime/                   # 引擎、会话存储、DAG 管理、技能管理、piflow 桥接
+├── tools/
+│   ├── core/                  # 工具基类、命名、注册
+│   ├── adapters/              # DeepAgents 和 MCP 适配器
+│   └── excutor/               # 执行器工具
+├── mcp_runtime/               # MCP 生命周期、健康检查、重连、schema 缓存
+├── services/                  # 业务逻辑层（认证、DAG 面板、DAG 运行时、用户）
+├── routers/                   # FastAPI 路由（认证、DAG 面板、DAG 运行时、用户）
+├── schemas/
+│   ├── auth_schema.py
+│   ├── user_schema.py
+│   └── dag/                   # DAG 定义：节点、边、技能、任务、绑定、观测
+├── database/                  # PostgreSQL 连接管理
+├── repositories/              # 数据访问层（用户）
+├── security/                  # JWT、密码处理、认证依赖
+├── storage/                   # 静态资源、技能图标、会话历史
+├── workspace/                 # 运行时工作区根目录
+│   ├── skills/                # 算子定义（含 SKILL.md）
+│   ├── dag_system_node/       # 系统 DAG 节点算子
+│   ├── artifacts/
+│   ├── outputs/
+│   ├── temp/
+│   └── logs/
 ├── test/                      # Python 测试
-└── vue-web/
+├── scripts/                   # 打包脚本
+├── lib/                       # 内置 wheel 包（piflow）
+├── third_party/               # 第三方包
+└── vue-web/                   # 前端工程
     ├── package.json
-    ├── README.md
+    ├── postcss.config.cjs
+    ├── tailwind.config.cjs
+    ├── tsconfig.json
+    ├── vite.config.ts
+    ├── index.html
     └── src/
         ├── components/
         ├── lib/
