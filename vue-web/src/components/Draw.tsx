@@ -157,6 +157,15 @@ const paramDisplayValues: Record<string, Record<string, Record<string, string>>>
 
 // ==================== 算子分类 ====================
 
+// 生成 UUID 的兼容函数
+const generateUUID = () => {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+};
+
 // 算子分类数据（从后端接口获取后赋值）
 let operatorCategories: {
   groupName: string;
@@ -973,7 +982,7 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
       y: (h - graphH * zoom) / 2 - minY * zoom,
       zoom,
     });
-  }, [nodes, setViewport]);
+  }, [setViewport]);
 
   // 获取选中的节点
   const selectedNode = nodes.find((m) => m.id === selectedNodeId);
@@ -981,14 +990,15 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
   // 关闭配置面板
   const closeConfigPanel = () => setSelectedNodeId(null);
 
-  // 监听 nodes 变化，自动调整视口为靠左、垂直居中
+  // 监听 nodes 数量变化，自动调整视口为靠左、垂直居中
+  // 只在节点数量变化时调整，避免节点展开/收缩时触发
   useEffect(() => {
     if (nodes.length > 0 && isInitialized.current) {
       setTimeout(() => {
         fitNodesToViewLeft();
       }, 100);
     }
-  }, [nodes, fitNodesToViewLeft]);
+  }, [nodes.length, fitNodesToViewLeft]);
 
   // 切换连线类型时更新所有现有连线
   useEffect(() => {
@@ -1022,9 +1032,9 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
     const loadInitialPipeline = async () => {
       setIsLoading(true);
 
-      // 优先使用已保存的画板数据
+      // 优先使用已保存的画板数据（来自 getDSLJsonByMessageId 接口）
       if (savedDrawData && savedDrawData.nodes && savedDrawData.nodes.length > 0) {
-        console.log('使用已保存的画板数据:', savedDrawData);
+        console.log('使用已保存的画板数据（来自接口）:', savedDrawData);
         const loadedNodes: Node<NodeData>[] = [];
         const loadedEdges: Edge[] = [];
 
@@ -1104,23 +1114,87 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
             console.log(`节点 ${i}: 从 savedDrawData 读取 outputParams:`, outputParams);
           }
           
-          // 不管怎么样，先尝试请求算子详情，确保我们有完整的 output_params！
-          if (skillId) {
-            try {
-              const skillRes = await listSkillsDetails(skillId);
-              if (skillRes.result) {
-                if (!hasSavedInputParams) {
-                  inputParams = skillRes.result.input_params;
-                }
-                if (!hasSavedOutputParams) {
-                  outputParams = skillRes.result.output_params;
-                  console.log(`节点 ${i}: 从算子详情获取 outputParams:`, outputParams);
-                }
-                if (!hasSavedIconPath) {
-                  nodeIconPath = skillRes.result.icon_path || '';
-                }
-              }
-            } catch(e) { console.error(e); }
+          // 对于source_stop和sink_stop这两个特殊算子，不要请求接口，使用固定的参数
+          const isSpecialSkill = skillId === 'cn.piflow.engine.local.source_file_stop.SourceFileStop' || 
+                                  skillId === 'cn.piflow.engine.local.file_save_stop.FileSaveStop';
+          
+          if (isSpecialSkill) {
+            console.log(`节点 ${i}: 特殊算子，不请求接口`);
+            
+            // 特殊算子总是使用固定的参数定义，不依赖保存的数据
+            if (skillId === 'cn.piflow.engine.local.source_file_stop.SourceFileStop') {
+              // source_stop的固定输入参数（只有file_path）
+              inputParams = {
+                params: [
+                  {
+                    name: "file_path",
+                    type: "string",
+                    param_name: "file_path",
+                    param_type: "String",
+                    value_mode: "manual",
+                    param_value: "",
+                    value_source: "local_file"
+                  }
+                ]
+              };
+              // source_stop的输出参数
+              outputParams = {
+                params: [{
+                  name: "output",
+                  type: "string",
+                  param_name: "output",
+                  param_type: "String"
+                }]
+              };
+            } else {
+              // sink_stop的固定输入参数
+              inputParams = {
+                params: [
+                  {
+                    name: "input",
+                    type: "string",
+                    param_name: "input",
+                    param_type: "String",
+                    value_mode: "manual",
+                    param_value: "",
+                    value_source: "local_file"
+                  },
+                  {
+                    name: "path",
+                    type: "string",
+                    param_name: "path",
+                    param_type: "String",
+                    value_mode: "manual",
+                    param_value: "",
+                    value_source: "local_file"
+                  },
+                  {
+                    name: "overwrite",
+                    type: "boolean",
+                    param_name: "overwrite",
+                    param_type: "Boolean",
+                    value_mode: "manual",
+                    param_value: true,
+                    value_source: "local_file"
+                  }
+                ]
+              };
+              // sink_stop没有输出参数
+              outputParams = { params: [] };
+            }
+          } else {
+            // 普通算子，有 savedDrawData 时不请求接口，直接使用已保存数据
+            console.log(`节点 ${i}: 普通算子，使用已保存数据，不请求接口`);
+            
+            // 如果 savedDrawData 中有 input_params，直接使用
+            if (hasSavedInputParams) {
+              inputParams = { params: n.input_params };
+              console.log(`节点 ${i}: 从 savedDrawData 读取 inputParams:`, inputParams);
+            }
+            // 如果 savedDrawData 中有 icon_path，直接使用
+            if (hasSavedIconPath) {
+              nodeIconPath = n.icon_path;
+            }
           }
           
           console.log(`节点 ${i} 最终 outputParams:`, outputParams);
@@ -1130,32 +1204,42 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
             outputParamsMap[nodeId] = outputParams.params;
           }
 
-          // 合并已保存的参数据
+          // 合并已保存的参数数据
           let mergedInputParams = inputParams;
           
-          // 优先使用已保存的参数数据
-          if (n.input_params && Array.isArray(n.input_params)) {
+          // 如果有inputParams定义，以inputParams为基础，用savedDrawData中的值覆盖
+          if (inputParams?.params) {
+            // 构建保存的参数map
+            const savedParamsMap: Record<string, any> = {};
+            if (n.input_params && Array.isArray(n.input_params)) {
+              n.input_params.forEach((sp: any) => {
+                const paramName = sp.param_name || sp.name || '';
+                if (paramName) {
+                  savedParamsMap[paramName] = sp;
+                }
+              });
+            }
+            
             mergedInputParams = {
-              params: n.input_params.map((sp: any) => {
-                const paramName = sp.param_name || '';
+              params: inputParams.params.map((paramDef: any) => {
+                const paramName = paramDef.name || paramDef.param_name || '';
+                const savedParam = savedParamsMap[paramName];
+                
                 // 检查是否有对应的binding
                 const bindingKey = `${nodeId}|${paramName}`;
                 const binding = bindingsMap[bindingKey];
-                const isReference = sp.value_mode === 'reference' || !!binding;
+                const isReference = (savedParam?.value_mode === 'reference') || !!binding;
                 
                 let _refValue = '';
                 if (isReference && binding) {
-                  // 从上游节点的output_params中获取参数信息
                   const fromNodeId = binding.from_node_id;
                   let fromParamName = binding.from_param_name;
                   
-                  // 如果fromParamName可能是nodeId_paramName格式，需要提取最后一部分
                   if (fromParamName.includes('_')) {
                     const parts = fromParamName.split('_');
                     fromParamName = parts[parts.length - 1];
                   }
                   
-                  // _refValue是纯参数名，和option.value匹配
                   _refValue = fromParamName;
                   console.log(`节点 ${nodeId} 参数 ${paramName} 的引用信息:`, {
                     binding,
@@ -1163,18 +1247,19 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
                   });
                 }
                 
+                const paramValue = savedParam?.param_value;
+                
                 return {
+                  ...paramDef,
                   name: paramName,
-                  param_value: sp.param_value || '',
-                  type: sp.param_type || '',
+                  param_value: paramValue !== undefined ? String(paramValue) : (paramDef.param_value || ''),
+                  type: savedParam?.param_type || paramDef.type || '',
                   _refType: isReference ? 'reference' : 'manual',
-                  _value: isReference ? '' : (sp.param_value || ''),
+                  _value: isReference ? '' : (paramValue !== undefined ? String(paramValue) : (paramDef.param_value || '')),
                   _refValue: isReference ? _refValue : '',
                 };
               }),
             };
-          } else if (inputParams?.params) {
-            mergedInputParams = inputParams;
           }
 
           loadedNodes.push({
@@ -1271,6 +1356,94 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
       // 创建节点名称到节点ID的映射（用于解析引用关系）
       const nodeNameToIdMap: Record<string, string> = {};
       const nodeIdToOutputParamsMap: Record<string, any> = {};
+      
+      // 第一步：先拓扑排序，确定节点的层次位置
+      // 1.1 构建节点关系图
+      const nodeIndexToNodeName: string[] = [];
+      const nodeNameToIndexMap: Record<string, number> = {};
+      pipelineNodes.forEach((node, index) => {
+        nodeIndexToNodeName.push(node.node_name);
+        nodeNameToIndexMap[node.node_name] = index;
+      });
+      
+      // 1.2 计算每个节点的入度和边关系
+      const inDegree: number[] = new Array(pipelineNodes.length).fill(0);
+      const nodeOutEdges: number[][] = new Array(pipelineNodes.length).fill(null).map(() => []);
+      
+      // 遍历所有节点的参数，构建图关系
+      pipelineNodes.forEach((pNode, targetIndex) => {
+        const dagParams = pNode.params || {};
+        Object.values(dagParams).forEach((paramValue: any) => {
+          if (typeof paramValue === 'object' && paramValue !== null && 'source_node' in paramValue) {
+            const sourceNodeName = paramValue.source_node;
+            const sourceIndex = nodeNameToIndexMap[sourceNodeName];
+            
+            if (sourceIndex !== undefined && sourceIndex !== targetIndex) {
+              inDegree[targetIndex]++;
+              nodeOutEdges[sourceIndex].push(targetIndex);
+            }
+          }
+        });
+      });
+      
+      // 1.3 拓扑排序，分层
+      const levels: number[][] = [];
+      const tempInDegree = [...inDegree];
+      const processed = new Set<number>();
+      
+      // 找出起始节点（入度为0的节点）
+      let currentLevel: number[] = [];
+      for (let i = 0; i < pipelineNodes.length; i++) {
+        if (tempInDegree[i] === 0 && !processed.has(i)) {
+          currentLevel.push(i);
+          processed.add(i);
+        }
+      }
+      
+      while (currentLevel.length > 0) {
+        levels.push(currentLevel);
+        
+        // 处理下一层
+        const nextLevel: number[] = [];
+        currentLevel.forEach(index => {
+          nodeOutEdges[index].forEach(targetIndex => {
+            if (!processed.has(targetIndex)) {
+              tempInDegree[targetIndex]--;
+              if (tempInDegree[targetIndex] === 0) {
+                nextLevel.push(targetIndex);
+                processed.add(targetIndex);
+              }
+            }
+          });
+        });
+        
+        currentLevel = nextLevel;
+      }
+      
+      // 处理未处理的节点（处理有环或其他情况）
+      if (processed.size < pipelineNodes.length) {
+        for (let i = 0; i < pipelineNodes.length; i++) {
+          if (!processed.has(i)) {
+            levels.push([i]);
+          }
+        }
+      }
+      
+      // 1.4 构建节点索引到位置的映射
+      const nodeIndexToPositionMap: Record<number, { x: number; y: number }> = {};
+      
+      // 计算每层的位置
+      levels.forEach((level, levelIndex) => {
+        const levelWidth = level.length * (NODE_WIDTH + NODE_GAP) - NODE_GAP;
+        const startX = START_X;
+        
+        level.forEach((nodeIndex, nodeInLevelIndex) => {
+          nodeIndexToPositionMap[nodeIndex] = {
+            x: startX + (NODE_WIDTH + NODE_GAP) * nodeInLevelIndex,
+            y: START_Y + (NODE_HEIGHT + 100) * levelIndex
+          };
+        });
+      });
 
       // 第一步：先获取所有节点的算子信息，建立基础映射，收集output_params
       for (let i = 0; i < pipelineNodes.length; i++) {
@@ -1283,19 +1456,31 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
         // 处理特殊算子名称，写死 skill_id
         if (skillName === 'source_stop') {
           skillId = 'cn.piflow.engine.local.source_file_stop.SourceFileStop';
+          // source_stop 有输出参数，不调用接口
+          nodeIdToOutputParamsMap[nodeId] = {
+            params: [{
+              name: 'output',
+              type: 'string',
+              param_name: 'output',
+              param_type: 'String'
+            }]
+          };
         } else if (skillName === 'sink_stop') {
           skillId = 'cn.piflow.engine.local.file_save_stop.FileSaveStop';
-        }
-        
-        try {
-          const res = await getAllSkills(skillName);
-          console.log(`请求算子详情 skillName=${skillName}:`, res);
-          if (res.result.data && res.result.data.length > 0) {
-            const outputParams = res.result.data[0].DagSkillInfoList[0].output_params;
-            nodeIdToOutputParamsMap[nodeId] = outputParams;
+          // sink_stop 没有输出参数，不调用接口
+          nodeIdToOutputParamsMap[nodeId] = { params: [] };
+        } else {
+          // 普通算子，调用接口获取信息
+          try {
+            const res = await getAllSkills(skillName);
+            console.log(`请求算子详情 skillName=${skillName}:`, res);
+            if (res.result.data && res.result.data.length > 0) {
+              const outputParams = res.result.data[0].DagSkillInfoList[0].output_params;
+              nodeIdToOutputParamsMap[nodeId] = outputParams;
+            }
+          } catch (error) {
+            console.error('获取算子库失败', error);
           }
-        } catch (error) {
-          console.error('获取算子库失败', error);
         }
       }
 
@@ -1311,108 +1496,259 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
         let outputParams = nodeIdToOutputParamsMap[`node-${i + 1}`];
         let iconPath = '';
         
-        // 处理特殊算子名称，写死 skill_id
-        if (skillName === 'source_stop') {
-          skillId = 'cn.piflow.engine.local.source_file_stop.SourceFileStop';
-        } else if (skillName === 'sink_stop') {
-          skillId = 'cn.piflow.engine.local.file_save_stop.FileSaveStop';
-        }
-        
-        try {
-          const res = await getAllSkills(skillName);
-          if (res.result.data && res.result.data.length > 0) {
-            inputParams = res.result.data[0].DagSkillInfoList[0].input_params;
-            // 如果outputParams已经有了，就不用再次获取
-            if (!outputParams) {
-              outputParams = res.result.data[0].DagSkillInfoList[0].output_params;
-            }
-            // 如果不是特殊算子名称，才使用接口返回的 skill_id
-            if (skillName !== 'source_stop' && skillName !== 'sink_stop') {
-              skillId = res.result.data[0].DagSkillInfoList[0].skill_id;
-            }
-            iconPath = res.result.data[0].DagSkillInfoList[0].icon_path || '';
-            // 使用中文名称，如果没有则使用节点名
-            const skillZhName = res.result.data[0].DagSkillInfoList[0].name_zh;
-            if (skillZhName && !nodeName.includes(skillZhName)) {
-              nodeName = skillZhName;
-            }
-          }
-        } catch (error) {
-          console.error('获取算子库失败', error);
-        }
-
         // 处理 DAG 节点的参数
         // params中每个属性是参数名，值可能是字符串或引用对象
         const dagParams = pNode.params || {};
         const nodeId = `node-${i + 1}`;
 
         console.log(`节点 ${nodeName} 的 DAG 参数:`, dagParams);
-        console.log(`节点 ${nodeName} 的算子 input_params:`, inputParams);
-        console.log(`节点 ${nodeName} 的 output_params:`, outputParams);
-
-        // 构建 mergedInputParams：合并DAG 参数到算子的 input_params
-        let mergedInputParams = inputParams;
-        if (inputParams?.params && Array.isArray(inputParams.params)) {
-          // 先构建算子参数的 map，方便查找
-          const paramDefMap: Record<string, any> = {};
-          inputParams.params.forEach((paramDef: any) => {
-            paramDefMap[paramDef.name] = paramDef;
-          });
+        
+        // 构建 mergedInputParams
+        let mergedInputParams;
+        
+        // 对于 source_stop 和 sink_stop 特殊算子，使用fixArr中定义的参数结构，然后填入值
+        if (skillName === 'source_stop') {
+          skillId = 'cn.piflow.engine.local.source_file_stop.SourceFileStop';
           
-          const newParamsList: any[] = [];
+          // source_stop的输入参数只有file_path
+          const sourceStopInputParams = [
+            {
+              name: "file_path",
+              type: "string",
+              param_name: "file_path",
+              param_type: "String",
+              value_mode: "manual",
+              param_value: "",
+              value_source: "local_file"
+            }
+          ];
           
-          // 先处理算子中定义的参数
-          inputParams.params.forEach((paramDef: any) => {
+          // 把DAG中的参数值填进去
+          const newInputParamsList = sourceStopInputParams.map((paramDef) => {
             const paramValue = dagParams[paramDef.name];
             
-            // 如果 DAG 参数中有这个参数，则使用 DAG 参数的值
             if (paramValue !== undefined) {
-              // 判断参数值类型
               if (typeof paramValue === 'object' && paramValue !== null && 'source_node' in paramValue) {
-                // 引用类型：{source_node: "节点名", source_param: "输出参数名"}
                 const sourceNodeName = paramValue.source_node;
                 const sourceParamName = paramValue.source_param;
                 
-                // 使用 JSON 中原始的 source_param 值作为引用值
-                // 不进行转换，保持与 JSON 内容一致
-                const refValue = sourceParamName;
-                
-                newParamsList.push({
+                return {
                   ...paramDef,
                   _refType: 'reference',
                   _value: '',
-                  _refValue: refValue,
+                  param_value: '',
+                  _refValue: sourceParamName,
                   _sourceNodeName: sourceNodeName,
                   _sourceParamName: sourceParamName,
-                });
+                };
               } else {
-                // 手动类型：字符串、数字、布尔等
-                newParamsList.push({
+                return {
                   ...paramDef,
                   _refType: 'manual',
                   _value: String(paramValue),
+                  param_value: String(paramValue),
                   _refValue: '',
-                });
+                };
               }
             } else {
-              // DAG 参数中没有这个参数，使用默认值
-              newParamsList.push({
+              return {
                 ...paramDef,
                 _refType: 'manual',
                 _value: paramDef.param_value || '',
+                param_value: paramDef.param_value || '',
                 _refValue: '',
-              });
+              };
             }
           });
           
-          // 再处理 DAG 中有但算子中没有的参数（比如 source_stop 的 output）
-          Object.entries(dagParams).forEach(([name, value]) => {
-            if (!paramDefMap[name]) {
+          mergedInputParams = { params: newInputParamsList };
+          
+          // source_stop的输出参数是output
+          outputParams = {
+            params: [{
+              name: 'output',
+              type: 'string',
+              param_name: 'output',
+              param_type: 'String'
+            }]
+          };
+          
+          console.log(`节点 ${nodeName}: source_stop 特殊算子，使用fixArr定义的参数结构:`, mergedInputParams);
+        } else if (skillName === 'sink_stop') {
+          skillId = 'cn.piflow.engine.local.file_save_stop.FileSaveStop';
+          
+          // 使用fixArr中定义的sink_stop参数结构
+          const sinkStopParamDefs = [
+            {
+              name: "input",
+              type: "string",
+              param_name: "input",
+              param_type: "String",
+              value_mode: "manual",
+              param_value: "",
+              value_source: "local_file"
+            },
+            {
+              name: "path",
+              type: "string",
+              param_name: "path",
+              param_type: "String",
+              value_mode: "manual",
+              param_value: "",
+              value_source: "local_file"
+            },
+            {
+              name: "overwrite",
+              type: "boolean",
+              param_name: "overwrite",
+              param_type: "Boolean",
+              value_mode: "manual",
+              param_value: true,
+              value_source: "local_file"
+            }
+          ];
+          
+          // 把DAG中的参数值填进去
+          const newParamsList = sinkStopParamDefs.map((paramDef) => {
+            const paramValue = dagParams[paramDef.name];
+            
+            if (paramValue !== undefined) {
+              if (typeof paramValue === 'object' && paramValue !== null && 'source_node' in paramValue) {
+                const sourceNodeName = paramValue.source_node;
+                const sourceParamName = paramValue.source_param;
+                
+                return {
+                  ...paramDef,
+                  _refType: 'reference',
+                  _value: '',
+                  param_value: '', // 节点显示用
+                  _refValue: sourceParamName,
+                  _sourceNodeName: sourceNodeName,
+                  _sourceParamName: sourceParamName,
+                };
+              } else {
+                return {
+                  ...paramDef,
+                  _refType: 'manual',
+                  _value: String(paramValue),
+                  param_value: String(paramValue), // 节点显示用
+                  _refValue: '',
+                };
+              }
+            } else {
+              return {
+                ...paramDef,
+                _refType: 'manual',
+                _value: paramDef.param_value || '',
+                param_value: paramDef.param_value || '', // 节点显示用
+                _refValue: '',
+              };
+            }
+          });
+          
+          mergedInputParams = { params: newParamsList };
+          
+          console.log(`节点 ${nodeName}: sink_stop 特殊算子，使用fixArr定义的参数结构:`, mergedInputParams);
+        } else {
+          // 普通算子，调用接口获取参数信息并合并
+          // 处理特殊算子名称，写死 skill_id（这里不会执行到，因为前面已经处理了）
+          
+          try {
+            const res = await getAllSkills(skillName);
+            if (res.result.data && res.result.data.length > 0) {
+              inputParams = res.result.data[0].DagSkillInfoList[0].input_params;
+              // 如果outputParams已经有了，就不用再次获取
+              if (!outputParams) {
+                outputParams = res.result.data[0].DagSkillInfoList[0].output_params;
+              }
+              skillId = res.result.data[0].DagSkillInfoList[0].skill_id;
+              iconPath = res.result.data[0].DagSkillInfoList[0].icon_path || '';
+              // 使用中文名称，如果没有则使用节点名
+              const skillZhName = res.result.data[0].DagSkillInfoList[0].name_zh;
+              if (skillZhName && !nodeName.includes(skillZhName)) {
+                nodeName = skillZhName;
+              }
+            }
+          } catch (error) {
+            console.error('获取算子库失败', error);
+          }
+
+          console.log(`节点 ${nodeName} 的算子 input_params:`, inputParams);
+          console.log(`节点 ${nodeName} 的 output_params:`, outputParams);
+
+          // 构建 mergedInputParams：合并DAG 参数到算子的 input_params
+          mergedInputParams = inputParams;
+          if (inputParams?.params && Array.isArray(inputParams.params)) {
+            // 先构建算子参数的 map，方便查找
+            const paramDefMap: Record<string, any> = {};
+            inputParams.params.forEach((paramDef: any) => {
+              paramDefMap[paramDef.name] = paramDef;
+            });
+            
+            const newParamsList: any[] = [];
+            
+            // 先处理算子中定义的参数
+            inputParams.params.forEach((paramDef: any) => {
+              const paramValue = dagParams[paramDef.name];
+              
+              // 如果 DAG 参数中有这个参数，则使用 DAG 参数的值
+              if (paramValue !== undefined) {
+                // 判断参数值类型
+                if (typeof paramValue === 'object' && paramValue !== null && 'source_node' in paramValue) {
+                  // 引用类型：{source_node: "节点名", source_param: "输出参数名"}
+                  const sourceNodeName = paramValue.source_node;
+                  const sourceParamName = paramValue.source_param;
+                  
+                  // 使用 JSON 中原始的 source_param 值作为引用值
+                  // 不进行转换，保持与 JSON 内容一致
+                  const refValue = sourceParamName;
+                  
+                  newParamsList.push({
+                    ...paramDef,
+                    _refType: 'reference',
+                    _value: '',
+                    _refValue: refValue,
+                    _sourceNodeName: sourceNodeName,
+                    _sourceParamName: sourceParamName,
+                  });
+                } else {
+                  // 手动类型：字符串、数字、布尔等
+                  newParamsList.push({
+                    ...paramDef,
+                    _refType: 'manual',
+                    _value: String(paramValue),
+                    _refValue: '',
+                  });
+                }
+              } else {
+                // DAG 参数中没有这个参数，使用默认值
+                newParamsList.push({
+                  ...paramDef,
+                  _refType: 'manual',
+                  _value: paramDef.param_value || '',
+                  _refValue: '',
+                });
+              }
+            });
+            
+            // 不再处理DAG中有但算子中没有的参数
+            // 只保留算子定义中存在的参数，DAG中多余的参数将被忽略
+            
+            mergedInputParams = {
+              ...inputParams,
+              params: newParamsList,
+            };
+          } else if (Object.keys(dagParams).length > 0) {
+            // 如果算子没有定义 input_params，但 DAG 有参数，则创建 input_params
+            const dagParamsList = Object.entries(dagParams).map(([name, value]) => {
               if (typeof value === 'object' && value !== null && 'source_node' in value) {
                 const sourceNodeName = value.source_node;
                 const sourceParamName = value.source_param;
                 
-                newParamsList.push({
+                // _refValue是纯参数名，和option.value匹配
+                let refValue = sourceParamName;
+                
+                return {
                   name: name,
                   type: 'string',
                   param_name: name,
@@ -1420,12 +1756,12 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
                   param_value: '',
                   _refType: 'reference',
                   _value: '',
-                  _refValue: sourceParamName,
+                  _refValue: refValue,
                   _sourceNodeName: sourceNodeName,
                   _sourceParamName: sourceParamName,
-                });
+                };
               } else {
-                newParamsList.push({
+                return {
                   name: name,
                   type: 'string',
                   param_name: name,
@@ -1434,57 +1770,17 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
                   _refType: 'manual',
                   _value: String(value),
                   _refValue: '',
-                });
+                };
               }
-            }
-          });
-          
-          mergedInputParams = {
-            ...inputParams,
-            params: newParamsList,
-          };
-        } else if (Object.keys(dagParams).length > 0) {
-          // 如果算子没有定义 input_params，但 DAG 有参数，则创建 input_params
-          const dagParamsList = Object.entries(dagParams).map(([name, value]) => {
-            if (typeof value === 'object' && value !== null && 'source_node' in value) {
-              const sourceNodeName = value.source_node;
-              const sourceParamName = value.source_param;
-              
-              // _refValue是纯参数名，和option.value匹配
-              let refValue = sourceParamName;
-              
-              return {
-                name: name,
-                type: 'string',
-                param_name: name,
-                param_type: 'String',
-                param_value: '',
-                _refType: 'reference',
-                _value: '',
-                _refValue: refValue,
-                _sourceNodeName: sourceNodeName,
-                _sourceParamName: sourceParamName,
-              };
-            } else {
-              return {
-                name: name,
-                type: 'string',
-                param_name: name,
-                param_type: 'String',
-                param_value: '',
-                _refType: 'manual',
-                _value: String(value),
-                _refValue: '',
-              };
-            }
-          });
-          mergedInputParams = { params: dagParamsList };
+            });
+            mergedInputParams = { params: dagParamsList };
+          }
         }
 
         const newNode: Node<NodeData> = {
           id: nodeId,
           type: 'custom',
-          position: {
+          position: nodeIndexToPositionMap[i] || {
             x: START_X + (NODE_WIDTH + NODE_GAP) * i,
             y: START_Y,
           },
@@ -2147,7 +2443,7 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
                   param_name: p.name,
                   param_value: savedValue,
                   value_mode: isReference ? 'reference' : 'manual',
-                  binding_id: isReference ? crypto.randomUUID() : '',
+                  binding_id: isReference ? generateUUID() : '',
                 };
               }) || [],
               out_params: n.data.output_params?.params?.map(p => ({
@@ -2206,7 +2502,7 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
                     }
 
                     const binding = {
-                      binding_id: crypto.randomUUID(),
+                      binding_id: generateUUID(),
                       from_node_id: upstreamEdge.source,
                       from_param_name: refParamName.trim() || param.name,
                       to_node_id: node.id,
@@ -2320,7 +2616,7 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
                       param_name: p.name,
                       param_value: isReference ? '' : (p._value || ''),
                       value_mode: isReference ? 'reference' : 'manual',
-                      binding_id: isReference ? crypto.randomUUID() : '',
+                      binding_id: isReference ? generateUUID() : '',
                     };
                   }) || [],
                   out_params: n.data.output_params?.params?.map(p => ({
@@ -2335,12 +2631,13 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
               })),
             };
             
-            // 发送消息给AI
+            // 发送消息给AI（带隐藏标记）
             window.dispatchEvent(new CustomEvent('flow:send-message', { 
               detail: { 
                 threadId, 
                 messageId, 
-                content: '我手动修改了任务流程，需要重新执行。不要执行。' + JSON.stringify(drawData)
+                content: '[HIDDEN]' + JSON.stringify(drawData),
+                hidden: true
               } 
             }));
             onClose();
@@ -2363,7 +2660,6 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
         defaultViewport={{ zoom: 1, x: 0, y: 0 }}
         minZoom={0.2}
         maxZoom={2}
-        fitView
       >
         <Background variant={BackgroundVariant.Dots} gap={12} size={1} />
       </ReactFlow>

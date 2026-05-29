@@ -19,7 +19,6 @@ import {
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import {
-  Play,
   X,
   Upload,
   Eraser,
@@ -38,6 +37,7 @@ import {
   CheckCircle2,
   Loader2,
 } from 'lucide-react';
+import { getExecutionDetail, stopDAGTask, downloadWorkspaceUrl2 } from '../lib/api';
 import './RunDetails.css';
 
 // 字段类型定义
@@ -449,13 +449,254 @@ const FloatingToolbar: React.FC<FloatingToolbarProps> = ({
   );
 };
 
-// ==================== 主画布组件 ====================
+// 计算执行时长
+const calculateDuration = (startTime: string | null, endTime: string | null): string => {
+  if (!startTime) return '-';
+  const start = new Date(startTime).getTime();
+  const end = endTime ? new Date(endTime).getTime() : Date.now();
+  const duration = Math.floor((end - start) / 1000);
+  
+  if (duration < 60) return `${duration}s`;
+  if (duration < 3600) return `${Math.floor(duration / 60)}m ${duration % 60}s`;
+  return `${Math.floor(duration / 3600)}h ${Math.floor((duration % 3600) / 60)}m`;
+};
 
-const FlowEditorInner: React.FC = () => {
+// ==================== 执行详情面板组件 ====================
+
+interface ExecutionDetailPanelProps {
+  data: any;
+  onClose?: () => void;
+}
+
+const ExecutionDetailPanel: React.FC<ExecutionDetailPanelProps> = ({ data, onClose }) => {
+  if (!data) {
+    return (
+      <div className="execution-detail-panel">
+        <div className="detail-header">
+          <span>执行详情</span>
+          {onClose && (
+            <button className="close-btn" onClick={onClose}>
+              <X size={16} />
+            </button>
+          )}
+        </div>
+        <div className="loading-state">
+          <div className="loading-spinner"></div>
+          <span>加载中...</span>
+        </div>
+      </div>
+    );
+  }
+
+  const isRunning = data.status === 'RUNNING';
+  const isCompleted = data.status === 'SUCCESS';
+
+  return (
+    <div className="execution-detail-panel">
+      <div className="detail-header">
+        <span>执行详情</span>
+        {onClose && (
+          <button className="close-btn" onClick={onClose}>
+            <X size={16} />
+          </button>
+        )}
+      </div>
+
+      <div className="detail-section">
+        <h3>基本信息</h3>
+        <div className="info-grid">
+          <div className="info-item">
+            <span className="info-label">实例ID:</span>
+            <span className="info-value">{data.process_id}</span>
+          </div>
+          <div className="info-item">
+            <span className="info-label">任务ID (flow_id):</span>
+            <span className="info-value">{data.flow_uuid || '-'}</span>
+          </div>
+          <div className="info-item">
+            <span className="info-label">所属任务 (flow_name):</span>
+            <span className="info-value">{data.flow_name || '-'}</span>
+          </div>
+          <div className="info-item">
+            <span className="info-label">状态:</span>
+            <span className={`info-value status-badge ${data.status.toLowerCase()}`}>
+              {isRunning ? '执行中' : isCompleted ? '已完成' : data.status}
+            </span>
+          </div>
+          <div className="info-item">
+            <span className="info-label">开始时间:</span>
+            <span className="info-value">{data.started_at ? new Date(data.started_at).toLocaleString() : '-'}</span>
+          </div>
+          <div className="info-item">
+            <span className="info-label">结束时间:</span>
+            <span className="info-value">{data.finished_at ? new Date(data.finished_at).toLocaleString() : '-'}</span>
+          </div>
+          <div className="info-item">
+            <span className="info-label">执行时长:</span>
+            <span className="info-value">{isRunning ? '-' : calculateDuration(data.started_at, data.finished_at)}</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="detail-section">
+        <h3>统计信息</h3>
+        <div className="stats-grid">
+          <div className="stat-item">
+            <span className="stat-label">节点总数</span>
+            <span className="stat-value">{data.total_stop_count}</span>
+          </div>
+          <div className="stat-item success">
+            <span className="stat-label">成功</span>
+            <span className="stat-value">{data.success_stop_count}</span>
+          </div>
+          <div className="stat-item failed">
+            <span className="stat-label">失败</span>
+            <span className="stat-value">{data.failed_stop_count}</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="detail-section progress-section">
+        <h3>执行进度</h3>
+        {(() => {
+          let displayProgress = 0;
+          const isFailed = data.status === 'FAILED';
+          if (isCompleted) {
+            displayProgress = 100;
+          } else if (data.progress !== null && data.progress > 0) {
+            displayProgress = data.progress;
+          } else if (data.total_stop_count > 0) {
+            displayProgress = Math.round((data.success_stop_count / data.total_stop_count) * 100);
+          }
+          
+          let progressClass = 'running';
+          let statusLabel = '执行中...';
+          if (isCompleted) {
+            progressClass = 'completed';
+            statusLabel = '已完成';
+          } else if (isFailed) {
+            progressClass = 'failed';
+            statusLabel = '执行失败';
+          }
+          
+          return (
+            <>
+              <div className="progress-stats-row">
+                <span className={`progress-status-label ${progressClass}`}>{statusLabel}</span>
+                <span className="progress-value">{displayProgress}%</span>
+              </div>
+              <div className="progress-track">
+                <div 
+                  className={`progress-fill ${progressClass} ${displayProgress > 0 && displayProgress <= 5 ? 'minimal' : ''}`}
+                  style={{ width: `${displayProgress}%` }}
+                />
+              </div>
+              <div className="progress-detail-row">
+                <span className="progress-detail-text">
+                  节点: 总计 <strong>{data.total_stop_count}</strong> 
+                  {data.success_stop_count > 0 && <span>, 成功 <strong className="text-success">{data.success_stop_count}</strong></span>}
+                  {data.failed_stop_count > 0 && <span>, 失败 <strong className="text-danger">{data.failed_stop_count}</strong></span>}
+                  {data.skipped_stop_count > 0 && <span>, 跳过 <strong className="text-warning">{data.skipped_stop_count}</strong></span>}
+                </span>
+              </div>
+            </>
+          );
+        })()}
+      </div>
+
+      <div className="detail-section">
+        <h3>结果数据 (final_output_paths)</h3>
+        {isCompleted && data.final_output_paths && data.final_output_paths.length > 0 ? (
+          <div className="result-files">
+            {data.final_output_paths.map((file: string, index: number) => (
+              <a 
+                key={index} 
+                href={downloadWorkspaceUrl2(file)} 
+                className="result-file-btn"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <Download size={14} />
+                <span>{file.split('/').pop() || file}</span>
+              </a>
+            ))}
+          </div>
+        ) : (
+          <div className="no-result">
+            <span>暂无结果</span>
+          </div>
+        )}
+      </div>
+
+      {data.stops && data.stops.length > 0 && (
+        <div className="detail-section">
+          <h3>节点详情</h3>
+          <div className="nodes-detail">
+            {data.stops.map((stop: any, index: number) => (
+              <div key={index} className="node-detail-item">
+                <div className="node-header">
+                  <span className="node-name">{stop.stop_name}</span>
+                  <span className={`node-status ${stop.status.toLowerCase()}`}>
+                    {stop.status === 'SUCCESS' ? '已完成' : 
+                     stop.status === 'RUNNING' ? '执行中' : 
+                     stop.status === 'FAILED' ? '失败' : stop.status}
+                  </span>
+                </div>
+                <div className="node-info">
+                  <span>Job ID: {stop.job_id}</span>
+                  {stop.started_at && (
+                    <span>开始时间: {new Date(stop.started_at).toLocaleString()}</span>
+                  )}
+                  {stop.finished_at && (
+                    <span>结束时间: {new Date(stop.finished_at).toLocaleString()}</span>
+                  )}
+                  {stop.error_message && (
+                    <span className="error-text">错误: {stop.error_message}</span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+interface FlowEditorInnerProps {
+  processId: string;
+  onClose?: () => void;
+}
+
+const FlowEditorInner: React.FC<FlowEditorInnerProps> = ({ processId, onClose }) => {
   const [nodes, setNodes, onNodesChange] = useNodesState<Node<NodeData>>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
+  const [executionData, setExecutionData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
   const isInitialized = useRef(false);
+  const pollingRef = useRef<NodeJS.Timeout | null>(null);
   const { zoomIn, zoomOut, fitView } = useReactFlow();
+
+  // 加载执行详情
+  const loadExecutionDetail = useCallback(async () => {
+    try {
+      const response = await getExecutionDetail(processId);
+      if (response.code === 200 && response.result) {
+        setExecutionData(response.result);
+        
+        // 如果运行中，继续轮询
+        if (response.result.status === 'RUNNING' || response.result.status === 'SUBMITTED') {
+          pollingRef.current = setTimeout(() => {
+            loadExecutionDetail();
+          }, 3000);
+        }
+      }
+    } catch (error) {
+      console.error('加载执行详情失败:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [processId]);
 
   // 初始化默认节点
   useEffect(() => {
@@ -485,7 +726,16 @@ const FlowEditorInner: React.FC = () => {
       setEdges(edgesWithCallbacks);
       isInitialized.current = true;
     }
-  }, [setNodes, setEdges]);
+
+    // 加载执行详情
+    loadExecutionDetail();
+
+    return () => {
+      if (pollingRef.current) {
+        clearTimeout(pollingRef.current);
+      }
+    };
+  }, [setNodes, setEdges, loadExecutionDetail]);
 
   const onConnect = useCallback(
     (connection: Connection) => {
@@ -504,75 +754,93 @@ const FlowEditorInner: React.FC = () => {
     [setEdges]
   );
 
+  // 停止执行
+  const handleStopExecution = async () => {
+    try {
+      await stopDAGTask(processId);
+      alert('已停止执行');
+      loadExecutionDetail();
+    } catch (error) {
+      console.error('停止执行失败:', error);
+      alert('停止执行失败');
+    }
+  };
+
   return (
     <div className="flow-canvas-container">
       {/* Header */}
       <div className="flow-header">
         <div className="header-left">
-          <h2>科研数据清洗与排序</h2>
-          <span className="header-desc">对科研文献数据进行空行清洗、空格清洗、按年份升序排序</span>
+          <h2>{executionData?.flow_name || '执行详情'}</h2>
+          <span className="header-desc">实例ID: {processId}</span>
         </div>
         <div className="header-right">
-          <button className="stop-btn">
-            <Square size={14} fill="currentColor" />
-            <span>停止执行</span>
-          </button>
+          {executionData?.status === 'RUNNING' && (
+            <button className="stop-btn" onClick={handleStopExecution}>
+              <Square size={14} fill="currentColor" />
+              <span>停止执行</span>
+            </button>
+          )}
+          {onClose && (
+            <button className="close-view-btn" onClick={onClose}>
+              <X size={16} />
+              <span>关闭</span>
+            </button>
+          )}
         </div>
       </div>
 
       {/* Main Content */}
       <div className="flow-content">
         <div className="reactflow-wrapper">
-          <ReactFlow
-            nodes={nodes}
-            edges={edges}
-            onNodesChange={onNodesChange}
-            onEdgesChange={onEdgesChange}
-            onConnect={onConnect}
-            nodeTypes={nodeTypes}
-            edgeTypes={edgeTypes}
-            fitView
-            attributionPosition="bottom-left"
-          >
-            <Background variant={BackgroundVariant.Dots} gap={12} size={1} />
-          </ReactFlow>
+          {loading ? (
+            <div className="loading-state">
+              <div className="loading-spinner"></div>
+              <span>加载中...</span>
+            </div>
+          ) : (
+            <ReactFlow
+              nodes={nodes}
+              edges={edges}
+              onNodesChange={onNodesChange}
+              onEdgesChange={onEdgesChange}
+              onConnect={onConnect}
+              nodeTypes={nodeTypes}
+              edgeTypes={edgeTypes}
+              fitView
+              attributionPosition="bottom-left"
+            >
+              <Background variant={BackgroundVariant.Dots} gap={12} size={1} />
+            </ReactFlow>
+          )}
 
           {/* Floating Toolbar */}
-          <FloatingToolbar
-            zoom={1}
-            onZoomIn={zoomIn}
-            onZoomOut={zoomOut}
-            onResetView={fitView}
-          />
+          {!loading && (
+            <FloatingToolbar
+              zoom={1}
+              onZoomIn={zoomIn}
+              onZoomOut={zoomOut}
+              onResetView={fitView}
+            />
+          )}
         </div>
 
-        {/* 右侧日志面板 */}
-        <LogPanel />
+        {/* 右侧执行详情面板 */}
+        <ExecutionDetailPanel data={executionData} onClose={onClose} />
       </div>
     </div>
   );
 };
 
-// 辅助函数
-const getOperatorDescription = (id: string): string => {
-  const descriptions: Record<string, string> = {
-    'file-upload': 'CSV文件',
-    'empty-clean': '去除空行',
-    'space-clean': '去除多余空格',
-    'year-sort': '按年份升序',
-    'mysql-source': 'MySQL',
-    'kafka-reader': 'Kafka',
-    'data-filter': 'Filter',
-    'data-transformer': 'Transform',
-    'file-uploader': 'File Output',
-  };
-  return descriptions[id] || '';
-};
+interface FlowEditorProps {
+  processId: string;
+  onClose?: () => void;
+}
 
-const FlowEditor: React.FC = () => {
+const FlowEditor: React.FC<FlowEditorProps> = ({ processId, onClose }) => {
   return (
     <ReactFlowProvider>
-      <FlowEditorInner />
+      <FlowEditorInner processId={processId} onClose={onClose} />
     </ReactFlowProvider>
   );
 };

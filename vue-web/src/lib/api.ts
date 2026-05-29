@@ -201,10 +201,21 @@ export async function getAllSkills(keyword = "") {
   }>(keyword ? `/dag/skill/listSkills?keyword=${keyword}` : `/dag/skill/listSkills`);
 }
 export function downloadWorkspaceUrl(path: string) {
-  const sp = new URLSearchParams({ path });
+  const token = localStorage.getItem('token') || '';
+  const sp = new URLSearchParams({ 
+    path: encodeURIComponent(path),
+    token 
+  });
   return `${apiBase()}/workspace/download?${sp.toString()}`;
 }
-
+export function downloadWorkspaceUrl2(path: string) {
+  // const token = localStorage.getItem('token') || '';
+  // const sp = new URLSearchParams({ 
+  //   path: encodeURIComponent(path),
+  //   token 
+  // });
+  return `${apiBase()}/workspace/download?path=${path}`;
+}
 export async function listSkills(page = 1, page_size = 20, keyword = "", skill_type = "") {
   const sp = new URLSearchParams();
   sp.set("page", String(page));
@@ -484,6 +495,7 @@ export interface ExecutionDetailResponse {
     created_at: string | null;
     updated_at: string | null;
     stops: StopInfo[];
+    final_output_paths: string[];
   };
 }
 
@@ -523,6 +535,19 @@ export interface ExecutionsResponse {
     page_size: number;
     total: number;
     items: ExecutionItem[];
+  };
+}
+
+export interface StatusCountsResponse {
+  code: number;
+  message: string;
+  result: {
+    keyword: string | null;
+    dag_task_id: string | null;
+    total: number;
+    running_count: number;
+    completed_count: number;
+    failed_count: number;
   };
 }
 
@@ -570,4 +595,8 @@ export async function getProcesses(page: number = 1, page_size: number = 20, opt
       items: ExecutionItem[];
     };
   }>(`/dag/runtime/processes?${params.toString()}`);
+}
+
+export async function getProcessStatusCounts() {
+  return apiFetch<StatusCountsResponse>('/dag/runtime/processes/status-counts');
 }

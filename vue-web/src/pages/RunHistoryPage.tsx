@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { Icon } from '@iconify/react';
-import { getProcesses, getExecutionDetail, stopDAGTask, ExecutionItem, ExecutionDetailResponse, StopInfo } from '../lib/api';
+import { getProcesses, getExecutionDetail, stopDAGTask, getProcessStatusCounts, downloadWorkspaceUrl2, ExecutionItem, ExecutionDetailResponse, StopInfo, StatusCountsResponse } from '../lib/api';
 import './RunHistoryPage.css';
 
 export function RunHistoryPage() {
@@ -11,7 +11,9 @@ export function RunHistoryPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [executionDetail, setExecutionDetail] = useState<ExecutionDetailResponse['result'] | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
+  const [searchKeyword, setSearchKeyword] = useState('');
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
+  const listPollingRef = useRef<NodeJS.Timeout | null>(null);
   
   const pageSize = 10;
   const totalPages = Math.ceil(stats.total / pageSize);
@@ -40,27 +42,75 @@ export function RunHistoryPage() {
     return statusMap[status] || status;
   };
 
-  const loadData = async (page: number, tab: string) => {
+  const loadData = async (page: number, tab: string, keyword?: string) => {
     setLoading(true);
     try {
-      const status = tab === 'all' ? undefined : tab;
-      const res = await getProcesses(page, pageSize, { status, running_only: tab === 'running' });
+      // 把 tab 名称映射到接口需要的 status 值
+      let status: string | undefined;
+      if (tab === 'all') {
+        status = undefined;
+      } else if (tab === 'running') {
+        status = 'RUNNING';
+      } else if (tab === 'completed') {
+        status = 'SUCCESS';
+      } else if (tab === 'failed') {
+        status = 'FAILED';
+      } else {
+        status = tab;
+      }
+      const res = await getProcesses(page, pageSize, { status, running_only: tab === 'running', keyword });
       
       if (res.code === 200 && res.result) {
         setRecords(res.result.items);
-        setStats({
-          total: res.result.total,
-          running: res.result.items.filter(item => item.status === 'RUNNING').length,
-          completed: res.result.items.filter(item => item.status === 'SUCCESS').length,
-          failed: res.result.items.filter(item => item.status === 'FAILED').length,
-          successRate: res.result.total > 0 ? 
-            Number.parseFloat(((res.result.items.filter(item => item.status === 'SUCCESS').length / res.result.total) * 100).toFixed(1)) : 0
-        });
       }
     } catch (err) {
       console.error('请求失败:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // 轮询刷新时不显示 loading，避免闪烁
+  const refreshData = async (page: number, tab: string, keyword?: string) => {
+    try {
+      let status: string | undefined;
+      if (tab === 'all') {
+        status = undefined;
+      } else if (tab === 'running') {
+        status = 'RUNNING';
+      } else if (tab === 'completed') {
+        status = 'SUCCESS';
+      } else if (tab === 'failed') {
+        status = 'FAILED';
+      } else {
+        status = tab;
+      }
+      const res = await getProcesses(page, pageSize, { status, running_only: tab === 'running', keyword });
+      
+      if (res.code === 200 && res.result) {
+        setRecords(res.result.items);
+      }
+    } catch (err) {
+      console.error('请求失败:', err);
+    }
+  };
+
+  const loadStatusCounts = async () => {
+    try {
+      const res = await getProcessStatusCounts();
+      if (res.code === 200 && res.result) {
+        const { total, running_count, completed_count, failed_count } = res.result;
+        setStats({
+          total,
+          running: running_count,
+          completed: completed_count,
+          failed: failed_count,
+          successRate: total > 0 ? 
+            Number.parseFloat(((completed_count / total) * 100).toFixed(1)) : 0
+        });
+      }
+    } catch (err) {
+      console.error('获取状态统计失败:', err);
     }
   };
 
@@ -123,16 +173,45 @@ export function RunHistoryPage() {
       if (pollingRef.current) {
         clearTimeout(pollingRef.current);
       }
+      if (listPollingRef.current) {
+        clearInterval(listPollingRef.current);
+      }
     };
   }, []);
 
   useEffect(() => {
-    loadData(currentPage, activeTab);
-  }, [currentPage, activeTab]);
+    loadData(currentPage, activeTab, searchKeyword);
+    loadStatusCounts();
+    
+    // 启动列表轮询，每隔10秒静默刷新一次
+    if (listPollingRef.current) {
+      clearInterval(listPollingRef.current);
+    }
+    listPollingRef.current = setInterval(() => {
+      refreshData(currentPage, activeTab, searchKeyword);
+      loadStatusCounts();
+    }, 10000);
+    
+    return () => {
+      if (listPollingRef.current) {
+        clearInterval(listPollingRef.current);
+      }
+    };
+  }, [currentPage, activeTab, searchKeyword]);
 
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);
     setCurrentPage(1);
+  };
+
+  const handleSearch = () => {
+    setCurrentPage(1);
+  };
+
+  const handleSearchKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleSearch();
+    }
   };
 
   const getStatusBadge = (status: string | null) => {
@@ -162,10 +241,12 @@ export function RunHistoryPage() {
     
     return (
       <div className="progress-bar">
-        <div
-          className={`progress-fill ${statusClass}`}
-          style={{ width: `${progressValue}%` }}
-        />
+        <div className="progress-container-inner">
+          <div
+            className={`progress-fill ${statusClass}`}
+            style={{ width: `${progressValue}%` }}
+          />
+        </div>
         <span className="progress-text">{progressValue}%</span>
       </div>
     );
@@ -236,9 +317,15 @@ export function RunHistoryPage() {
         <div className="page-actions">
           <div className="search-box">
             <Icon icon="fa-solid:search" width="16" className="search-icon" />
-            <input type="text" placeholder="按任务或实例ID搜索..." />
+            <input 
+              type="text" 
+              placeholder="按任务或实例ID搜索..." 
+              value={searchKeyword}
+              onChange={(e) => setSearchKeyword(e.target.value)}
+              onKeyDown={handleSearchKeyDown}
+            />
           </div>
-          <button className="filter-btn">
+          <button className="filter-btn" onClick={handleSearch}>
             <Icon icon="fa-solid:filter" width="16" />
           </button>
         </div>
@@ -368,7 +455,7 @@ export function RunHistoryPage() {
                       <span className="detail-value">{executionDetail.process_id}</span>
                     </div>
                     <div className="detail-item">
-                      <span className="detail-label">流程名称:</span>
+                      <span className="detail-label">所属任务:</span>
                       <span className="detail-value">{executionDetail.flow_name || '-'}</span>
                     </div>
                     <div className="detail-item">
@@ -390,7 +477,7 @@ export function RunHistoryPage() {
                     <div className="detail-item">
                       <span className="detail-label">执行时长:</span>
                       <span className="detail-value">
-                        {calculateDuration(executionDetail.started_at, executionDetail.finished_at)}
+                        {executionDetail.status === 'RUNNING' ? '-' : calculateDuration(executionDetail.started_at, executionDetail.finished_at)}
                       </span>
                     </div>
                   </div>
@@ -411,29 +498,87 @@ export function RunHistoryPage() {
                       <span className="stat-label">失败</span>
                       <span className="stat-value">{executionDetail.failed_stop_count}</span>
                     </div>
-                    <div className="stat-item skipped">
-                      <span className="stat-label">跳过</span>
-                      <span className="stat-value">{executionDetail.skipped_stop_count}</span>
-                    </div>
                   </div>
                 </div>
 
-                <div className="detail-section">
+                <div className="detail-section detail-progress-section">
                   <h3>执行进度</h3>
-                  {getProgressBar(executionDetail.status, executionDetail.progress)}
+                  {(() => {
+                    let displayProgress = 0;
+                    const isCompleted = executionDetail.status === 'SUCCESS';
+                    const isFailed = executionDetail.status === 'FAILED';
+                    
+                    if (isCompleted) {
+                      displayProgress = 100;
+                    } else if (executionDetail.progress !== null && executionDetail.progress > 0) {
+                      displayProgress = Math.round(executionDetail.progress * 100);
+                    } else if (executionDetail.total_stop_count > 0) {
+                      displayProgress = Math.round((executionDetail.success_stop_count / executionDetail.total_stop_count) * 100);
+                    }
+                    
+                    let progressClass = 'running';
+                    let statusLabel = '执行中...';
+                    if (isCompleted) {
+                      progressClass = 'completed';
+                      statusLabel = '已完成';
+                    } else if (isFailed) {
+                      progressClass = 'failed';
+                      statusLabel = '执行失败';
+                    }
+                    
+                    return (
+                      <>
+                        <div className="progress-stats-row">
+                          <span className={`progress-status-label ${progressClass}`}>{statusLabel}</span>
+                          <span className="progress-value">{displayProgress}%</span>
+                        </div>
+                        <div className="progress-track">
+                          <div 
+                            className={`progress-fill-detail ${progressClass} ${displayProgress > 0 && displayProgress <= 5 ? 'minimal' : ''}`}
+                            style={{ width: `${displayProgress}%` }}
+                          />
+                        </div>
+                        <div className="progress-detail-row">
+                          <span className="progress-detail-text">
+                            节点: 总计 <strong>{executionDetail.total_stop_count}</strong> 
+                            {executionDetail.success_stop_count > 0 && <span>, 成功 <strong className="text-success">{executionDetail.success_stop_count}</strong></span>}
+                            {executionDetail.failed_stop_count > 0 && <span>, 失败 <strong className="text-danger">{executionDetail.failed_stop_count}</strong></span>}
+                            {executionDetail.skipped_stop_count > 0 && <span>, 跳过 <strong className="text-warning">{executionDetail.skipped_stop_count}</strong></span>}
+                          </span>
+                        </div>
+                      </>
+                    );
+                  })()}
+                </div>
+
+                <div className="detail-section">
+                  <h3>结果数据</h3>
+                  {executionDetail.status === 'SUCCESS' && executionDetail.final_output_paths && executionDetail.final_output_paths.length > 0 ? (
+                    <div className="result-files">
+                      {executionDetail.final_output_paths.map((file, index) => (
+                        <a 
+                          key={index} 
+                          href={downloadWorkspaceUrl2(file)} 
+                          className="result-file-btn"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          <Icon icon="fa-solid:download" width="14" />
+                          <span>{file.split('/').pop() || file}</span>
+                        </a>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="no-result">
+                      <span>暂无结果</span>
+                    </div>
+                  )}
                 </div>
 
                 {executionDetail.error_message && (
                   <div className="detail-section error">
                     <h3>错误信息</h3>
                     <div className="error-message">{executionDetail.error_message}</div>
-                  </div>
-                )}
-
-                {executionDetail.log_path && (
-                  <div className="detail-section">
-                    <h3>日志文件</h3>
-                    <div className="log-path">{executionDetail.log_path}</div>
                   </div>
                 )}
 

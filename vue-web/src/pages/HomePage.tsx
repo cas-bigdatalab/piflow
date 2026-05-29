@@ -15,7 +15,7 @@ import {
 } from "../lib/api";
 import { MarkdownMessage } from "../components/MarkdownMessage";
 import { shortId } from "../lib/ids";
-import PipelinePreview, { extractPipelineJson, PipelineData } from "../components/PipelinePreview";
+import PipelinePreview, { extractAndCleanPipelineJson, PipelineData } from "../components/PipelinePreview";
 import FlowEditor, { InitialPipelineData } from "../components/Draw";
 import { appConfig } from "../config/appConfig";
 
@@ -46,6 +46,71 @@ type ExampleCard = {
 
 const WORKSPACE_FILE_PATTERN = /\/(?:outputs|artifacts)\/[^\s"'`)\]}>,，。；：！？]+/g;
 
+// 移除JSON字符串（处理 \"json {...} 或 \"json [...] 格式）
+function removeJsonBlock(text: string): string {
+  let result = text;
+  
+  // 匹配 \"json 后面跟着 { 或 [ 的模式
+  // 在JavaScript中，\\\"json 表示匹配字面上的 \ 和 " 两个字符后跟 json
+  // 页面上显示的 \"json 实际上是存储的 \ 和 " 两个字符
+  const jsonPattern = /\\"json\s*([{\[])/g;
+  let match;
+  
+  while ((match = jsonPattern.exec(result)) !== null) {
+    const startIndex = match.index;
+    const openChar = match[1];
+    const closeChar = openChar === '{' ? '}' : ']';
+    
+    // 使用栈来找到匹配的闭合括号，处理转义的引号
+    let stack = 1;
+    let endIndex = startIndex + match[0].length;
+    let inString = false;
+    let escapeCount = 0;
+    
+    while (endIndex < result.length && stack > 0) {
+      const char = result[endIndex];
+      
+      // 计算连续的反斜杠数量
+      if (char === '\\') {
+        escapeCount++;
+        endIndex++;
+        continue;
+      }
+      
+      // 处理引号
+      if (char === '"') {
+        // 如果前面有奇数个反斜杠，说明是转义的引号（在字符串内）
+        // 如果前面有偶数个反斜杠（包括0），说明是字符串边界
+        if (escapeCount % 2 === 0) {
+          inString = !inString;
+        }
+      }
+      
+      // 只有不在字符串中时才处理括号
+      if (!inString) {
+        if (char === openChar) {
+          stack++;
+        } else if (char === closeChar) {
+          stack--;
+        }
+      }
+      
+      escapeCount = 0;
+      endIndex++;
+    }
+    
+    // 如果找到了匹配的闭合括号，或者到了字符串末尾，移除这段内容
+    const before = result.substring(0, startIndex);
+    const after = result.substring(endIndex);
+    result = before + after;
+    
+    // 重置正则表达式位置，重新搜索
+    jsonPattern.lastIndex = 0;
+  }
+  
+  return result;
+}
+
 // 彻底清理文本中的所有 JSON 对象和数组
 function removeAllJson(text: string): string {
   if (!text) return text;
@@ -55,6 +120,16 @@ function removeAllJson(text: string): string {
   // 首先移除特定的标记文本
   result = result.replace(/我手动修改了任务流程[\s\S]*?不要执行。[\s\S]*?\n?/g, '').trim();
   result = result.replace(/我手动修改了任务流程[\s\S]*?不要执行。/g, '').trim();
+  
+  // 移除代码块格式的 JSON（包括 ```json ... ``` 和 ``` ... ```）
+  result = result.replace(/```(json)?\s*[\s\S]*?```/g, '').trim();
+  
+  // 移除行内代码格式的 JSON（`...`）
+  result = result.replace(/`([^`]*\{[^`]*\}[^`]*)`/g, '').trim();
+  result = result.replace(/`([^`]*\[[^`]*\][^`]*)`/g, '').trim();
+  
+  // 移除JSON字符串格式（"json {...} 或 "json [...]）
+  result = removeJsonBlock(result);
   
   // 使用栈来匹配嵌套的 JSON 结构
   let i = 0;
@@ -89,6 +164,10 @@ function removeAllJson(text: string): string {
     const [start, end] = partsToRemove[j];
     result = result.substring(0, start) + result.substring(end);
   }
+  
+  // 移除可能残留的空行和多余空格
+  result = result.replace(/\n{3,}/g, '\n\n').trim();
+  result = result.replace(/\s{2,}/g, ' ').trim();
   
   return result.trim();
 }
@@ -351,10 +430,10 @@ export function HomePage() {
     // 监听画板发送的消息事件
     const handleSendMessage = (e: Event) => {
       const customEvent = e as CustomEvent;
-      const { threadId: eventThreadId, messageId, content } = customEvent.detail || {};
+      const { threadId: eventThreadId, messageId, content, hidden } = customEvent.detail || {};
       if (eventThreadId && messageId && content) {
         // 使用现有的 send 逻辑处理流式响应
-        send(content, { threadId: eventThreadId });
+        send(content, { threadId: eventThreadId, hidden });
       }
     };
     window.addEventListener("flow:send-message", handleSendMessage as EventListener);
@@ -394,6 +473,7 @@ export function HomePage() {
     options?: {
       threadId?: string;
       presetAttachments?: Array<Pick<MessageAttachment, "path" | "name">>;
+      hidden?: boolean;
     },
   ) {
     const prompt = (overridePrompt ?? input).trim();
@@ -402,6 +482,7 @@ export function HomePage() {
     }
     const targetThreadId = options?.threadId ?? threadId;
     const presetAttachments = options?.presetAttachments || [];
+    const hidden = options?.hidden || false;
 
     abortRef.current?.abort();
     const controller = new AbortController();
@@ -468,9 +549,15 @@ export function HomePage() {
         role: "user",
         content: prompt,
         attachments: [...attachedPresetFiles, ...uploadedAttachments],
+        hidden: hidden,
       };
 
-      setMessages((current) => [...current, userMessage, assistantMessage]);
+      // 如果是隐藏消息，只添加助手消息，不添加用户消息
+      if (hidden) {
+        setMessages((current) => [...current, assistantMessage]);
+      } else {
+        setMessages((current) => [...current, userMessage, assistantMessage]);
+      }
       
       // 保存创建消息时返回的原始 messageId，用于后续画板保存
       setCanvasMessageId(String(messageId));
@@ -945,26 +1032,23 @@ export function HomePage() {
                             <div className="rounded-[28px] bg-transparent px-1 py-1">
                               {(() => {
                                 try {
-                                  const c = message.content || '';
-                                  const pipelineData = extractPipelineJson(c);
-                                  const cleanedContent = removeAllJson(c);
+                                  const { data: pipelineData, cleanedText } = extractAndCleanPipelineJson(message.content || '');
                                   
-                                  // 判断是否是执行结果（包含特定关键词如"已完成"、"执行成功"等）
-                                  const isExecutionResult = cleanedContent.includes('已完成') || 
-                                                          cleanedContent.includes('执行成功') || 
-                                                          cleanedContent.includes('运行完成') ||
-                                                          cleanedContent.includes('处理完成');
+                                  // 检查是否是执行结果，同时检查原始内容和清理后的内容
+                                  const isExecutionResult = (cleanedText.includes('已完成') || 
+                                                          cleanedText.includes('执行成功') || 
+                                                          cleanedText.includes('运行完成') ||
+                                                          cleanedText.includes('处理完成') ||
+                                                          (message.content || '').includes('已完成') || 
+                                                          (message.content || '').includes('执行成功') || 
+                                                          (message.content || '').includes('运行完成') ||
+                                                          (message.content || '').includes('处理完成'));
                                   
-                                  // 如果有 pipelineData，先显示文本内容，再显示流程图
                                   if (pipelineData && !sending) {
                                     return (
                                       <>
-                                        {/* 文本内容放在流程图上面 */}
-                                        {cleanedContent && (
-                                          <MarkdownMessage content={cleanedContent} pending={sending} />
-                                        )}
+                                        {cleanedText && <MarkdownMessage content={cleanedText} pending={sending} />}
                                         <PipelinePreview data={pipelineData} threadId={threadId} onOpenCanvas={handleOpenCanvas} messageId={message.id} />
-                                        {/* 只有执行结果才显示文件 */}
                                         {isExecutionResult && message.artifacts && message.artifacts.length > 0 && (
                                           <div className="mt-4 flex flex-wrap gap-2 pt-1">
                                             {message.artifacts.map((path) => (
@@ -987,24 +1071,9 @@ export function HomePage() {
                                 } catch (err) {
                                   console.error('[PipelineDebug] Error:', err);
                                 }
-                                return null;
-                              })()}
-                              
-                              {/* 如果没有 pipelineData，正常显示文本 */}
-                              {(() => {
-                                try {
-                                  const c = message.content || '';
-                                  const pipelineData = extractPipelineJson(c);
-                                  if (!pipelineData) {
-                                    const cleanedContent = removeAllJson(c);
-                                    if (cleanedContent) {
-                                      return <MarkdownMessage content={cleanedContent} pending={sending} />;
-                                    }
-                                  }
-                                } catch {
-                                  return <MarkdownMessage content={message.content || ''} pending={sending} />;
-                                }
-                                return null;
+                                
+                                // 如果没有pipelineData，直接渲染原内容
+                                return <MarkdownMessage content={message.content || ''} pending={sending} />;
                               })()}
 
                               {sending && message.id === activeAssistantId ? (
@@ -1030,13 +1099,12 @@ export function HomePage() {
                               {(() => {
                                 try {
                                   const c = message.content || '';
-                                  const pipelineData = extractPipelineJson(c);
+                                  const { data: pipelineData, cleanedText } = extractAndCleanPipelineJson(c);
                                   if (!pipelineData) {
-                                    const cleanedContent = removeAllJson(c);
-                                    const isExecutionResult = cleanedContent.includes('已完成') || 
-                                                            cleanedContent.includes('执行成功') || 
-                                                            cleanedContent.includes('运行完成') ||
-                                                            cleanedContent.includes('处理完成');
+                                    const isExecutionResult = cleanedText.includes('已完成') || 
+                                                            cleanedText.includes('执行成功') || 
+                                                            cleanedText.includes('运行完成') ||
+                                                            cleanedText.includes('处理完成');
                                     if (isExecutionResult && message.artifacts && message.artifacts.length > 0) {
                                       return (
                                         <div className="mt-4 flex flex-wrap gap-2 pt-1">
