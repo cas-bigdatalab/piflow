@@ -21,7 +21,7 @@ input_params:
     description: 页码范围，如"1-3,5"（可选，默认全部页面）
 
 output_params:
-  - name: output
+  - name: output_path
     type: text_file
     description: 提取的文本文件(.txt)
 tag: 输入
