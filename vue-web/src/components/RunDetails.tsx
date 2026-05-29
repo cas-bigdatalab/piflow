@@ -37,7 +37,7 @@ import {
   CheckCircle2,
   Loader2,
 } from 'lucide-react';
-import { getExecutionDetail, stopDAGTask } from '../lib/api';
+import { getExecutionDetail, stopDAGTask, downloadWorkspaceUrl } from '../lib/api';
 import './RunDetails.css';
 
 // 字段类型定义
@@ -557,27 +557,52 @@ const ExecutionDetailPanel: React.FC<ExecutionDetailPanelProps> = ({ data, onClo
       </div>
 
       <div className="detail-section">
-        <h3>执行进度</h3>
-        <div className="progress-container">
-          <div className="progress-bar">
-            <div 
-              className={`progress-fill ${data.progress !== null && data.progress <= 5 ? 'minimal' : ''}`} 
-              style={{ width: `${data.progress || 0}%`, minWidth: data.progress !== null && data.progress <= 5 ? '4px' : '0' }}
-            />
-          </div>
-          <span className="progress-text">{Math.round(data.progress || 0)}%</span>
-        </div>
-      </div>
+                  <h3>执行进度</h3>
+                  <div className="progress-container">
+                    <div className="progress-bar">
+                      <div className="progress-container-inner">
+                        {(() => {
+                          let displayProgress = 0;
+                          if (isCompleted) {
+                            displayProgress = 100;
+                          } else if (data.progress !== null && data.progress > 0) {
+                            displayProgress = data.progress;
+                          } else if (data.total_stop_count > 0) {
+                            displayProgress = Math.round((data.success_stop_count / data.total_stop_count) * 100);
+                          }
+                          return (
+                            <>
+                              <div 
+                                className={`progress-fill ${displayProgress > 0 && displayProgress <= 5 ? 'minimal' : ''}`} 
+                                style={{ 
+                                  width: `${displayProgress}%`, 
+                                  minWidth: displayProgress > 0 && displayProgress <= 5 ? '4px' : '0' 
+                                }}
+                              />
+                              <span className="progress-text">{displayProgress}%</span>
+                            </>
+                          );
+                        })()}
+                      </div>
+                    </div>
+                  </div>
+                </div>
 
       <div className="detail-section">
         <h3>结果数据 (final_output_paths)</h3>
         {isCompleted && data.final_output_paths && data.final_output_paths.length > 0 ? (
           <div className="result-files">
             {data.final_output_paths.map((file: string, index: number) => (
-              <button key={index} className="result-file-btn">
+              <a 
+                key={index} 
+                href={downloadWorkspaceUrl(file)} 
+                className="result-file-btn"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
                 <Download size={14} />
                 <span>{file.split('/').pop() || file}</span>
-              </button>
+              </a>
             ))}
           </div>
         ) : (

@@ -22,51 +22,144 @@ export interface PipelineData {
   nodes: PipelineNode[];
 }
 
+interface ExtractionResult {
+  data: PipelineData | null;
+  cleanedText: string;
+}
+
 function tryParseAsPipeline(obj: unknown): PipelineData | null {
   if (!obj || typeof obj !== "object") return null;
   const record = obj as Record<string, unknown>;
-  const task = record.task;
-  if (!task || typeof task !== "object") return null;
+  
+  let task = record.task;
+  if (!task || typeof task !== "object") {
+    // 如果没有task，尝试直接从顶层找nodes
+    if (Array.isArray(record.nodes) && record.nodes.length > 0) {
+      return { 
+        task: { name: "Pipeline" }, 
+        nodes: record.nodes as PipelineNode[] 
+      };
+    }
+    return null;
+  }
+  
   const taskRecord = task as Record<string, unknown>;
-  if (typeof taskRecord.name !== "string") return null;
+  const taskName = typeof taskRecord.name === "string" ? taskRecord.name : "Pipeline";
+  
   let nodes: unknown[] | undefined;
   if (Array.isArray(record.nodes) && record.nodes.length > 0) {
     nodes = record.nodes;
   } else if (Array.isArray(taskRecord.nodes) && taskRecord.nodes.length > 0) {
     nodes = taskRecord.nodes;
   }
+  
+  if (!nodes) {
+    // 尝试在其他可能的字段名
+    if (Array.isArray(record.steps) && record.steps.length > 0) {
+      nodes = record.steps;
+    } else if (Array.isArray(taskRecord.steps) && taskRecord.steps.length > 0) {
+      nodes = taskRecord.steps;
+    }
+  }
+  
   if (!nodes) return null;
-  return { task: taskRecord as PipelineTask, nodes: nodes as PipelineNode[] };
+  return { task: { name: taskName, ...taskRecord } as PipelineData, nodes: nodes as PipelineNode[] };
 }
 
 export function extractPipelineJson(text: string): PipelineData | null {
-  if (!text || typeof text !== "string") return null;
+  if (!text || typeof text !== "string") {
+    return null;
+  }
+  
   const trimmed = text.trim();
+  
+  try {
+    const parsed = JSON.parse(trimmed);
+    return tryParseAsPipeline(parsed);
+  } catch {}
+  
+  if (trimmed.startsWith('"') && trimmed.endsWith('"')) {
+    try {
+      const inner = JSON.parse(trimmed) as string;
+      if (typeof inner === "string") {
+        return tryParseAsPipeline(JSON.parse(inner));
+      }
+    } catch {}
+  }
+  
+  const codeBlockRegex = /```[\s\S]*?\n?([\s\S]*?)```/g;
+  let match;
+  let lastValidMatch: { match: RegExpExecArray; parsed: PipelineData } | null = null;
+  
+  while ((match = codeBlockRegex.exec(text)) !== null) {
+    try {
+      const parsed = JSON.parse(match[1].trim());
+      const result = tryParseAsPipeline(parsed);
+      if (result) {
+        lastValidMatch = { match, parsed: result };
+      }
+    } catch {}
+  }
+  
+  return lastValidMatch?.parsed || null;
+}
+
+export function extractAndCleanPipelineJson(text: string): ExtractionResult {
+  if (!text || typeof text !== "string") {
+    return { data: null, cleanedText: text || '' };
+  }
+  
+  const trimmed = text.trim();
+  
   try {
     const parsed = JSON.parse(trimmed);
     const result = tryParseAsPipeline(parsed);
-    if (result) return result;
+    if (result) {
+      return { data: result, cleanedText: '' };
+    }
   } catch {}
+  
   if (trimmed.startsWith('"') && trimmed.endsWith('"')) {
     try {
       const inner = JSON.parse(trimmed) as string;
       if (typeof inner === "string") {
         const innerParsed = JSON.parse(inner);
         const result = tryParseAsPipeline(innerParsed);
-        if (result) return result;
+        if (result) {
+          return { data: result, cleanedText: '' };
+        }
       }
     } catch {}
   }
-  const codeBlockRegex = /```[\s\S]*?\n([\s\S]*?)```/g;
+  
+  // 更通用的代码块匹配，支持任何语言标识
+  const codeBlockRegex = /```[^\n]*\n?([\s\S]*?)```/g;
   let match;
+  let lastValidMatch: { match: RegExpExecArray; parsed: PipelineData } | null = null;
+  
   while ((match = codeBlockRegex.exec(text)) !== null) {
     try {
-      const parsed = JSON.parse(match[1].trim());
+      const jsonContent = match[1].trim();
+      // 尝试解析
+      const parsed = JSON.parse(jsonContent);
       const result = tryParseAsPipeline(parsed);
-      if (result) return result;
+      if (result) {
+        lastValidMatch = { match, parsed: result };
+      }
     } catch {}
   }
-  return null;
+  
+  if (lastValidMatch) {
+    const { match: matched, parsed } = lastValidMatch;
+    const before = text.substring(0, matched.index);
+    const after = text.substring(matched.index + matched[0].length);
+    return { 
+      data: parsed, 
+      cleanedText: (before + after).trim() 
+    };
+  }
+  
+  return { data: null, cleanedText: text };
 }
 
 
@@ -85,16 +178,55 @@ interface PipelineEdge {
   target: string;
 }
 
-// 从nodes生成边（仅用于 UI 显示，从 node-1 开始）
+// 从nodes生成边（仅用于 UI 显示，根据参数引用关系生成）
 function generateEdges(nodes: PipelineNode[]): PipelineEdge[] {
   const edges: PipelineEdge[] = [];
-  for (let i = 0; i < nodes.length - 1; i++) {
-    edges.push({
-      id: `e${i + 1}-${i + 2}`,
-      source: `node-${i + 1}`,
-      target: `node-${i + 2}`,
+  const nodeNameToIdMap: Record<string, string> = {};
+  
+  // 先构建节点名称到ID的映射
+  nodes.forEach((node, index) => {
+    nodeNameToIdMap[node.node_name] = `node-${index + 1}`;
+  });
+  
+  // 遍历每个节点，查找参数中的引用关系
+  nodes.forEach((node, targetIndex) => {
+    const targetNodeId = `node-${targetIndex + 1}`;
+    const params = node.params || {};
+    
+    Object.values(params).forEach((paramValue: any) => {
+      if (typeof paramValue === 'object' && paramValue !== null && 'source_node' in paramValue) {
+        const sourceNodeName = paramValue.source_node;
+        const sourceNodeId = nodeNameToIdMap[sourceNodeName];
+        
+        if (sourceNodeId && sourceNodeId !== targetNodeId) {
+          // 检查边是否已存在
+          const edgeExists = edges.some(
+            e => e.source === sourceNodeId && e.target === targetNodeId
+          );
+          
+          if (!edgeExists) {
+            edges.push({
+              id: `e${sourceNodeId}-${targetNodeId}`,
+              source: sourceNodeId,
+              target: targetNodeId,
+            });
+          }
+        }
+      }
     });
+  });
+  
+  // 如果没有找到任何引用关系，回退到顺序连接
+  if (edges.length === 0) {
+    for (let i = 0; i < nodes.length - 1; i++) {
+      edges.push({
+        id: `e${i + 1}-${i + 2}`,
+        source: `node-${i + 1}`,
+        target: `node-${i + 2}`,
+      });
+    }
   }
+  
   return edges;
 }
 
@@ -328,33 +460,14 @@ export default function PipelinePreview({ data, threadId, onOpenCanvas, messageI
           let inputParams: any[] = [];
           let outputParams: any[] = [];
           
-          if (skillName) {
-            // 使用 getAllSkills 接口获取算子信息（带缓存）
-            const skillRes = await getSkillInfoByName(skillName);
-            if (skillRes && skillRes.result.data && skillRes.result.data.length > 0) {
-              for (const group of skillRes.result.data) {
-                if (group.DagSkillInfoList && group.DagSkillInfoList.length > 0) {
-                  for (const skillInfo of group.DagSkillInfoList) {
-                    // 使用 skill_name 匹配，因为接口返回的 skill_id 和写死的格式不同
-                    if (skillInfo.skill_name === skillName || skillInfo.name_zh === skillName) {
-                      inputParams = skillInfo.input_params?.params || [];
-                      outputParams = skillInfo.output_params?.params || [];
-                      console.log(`节点 ${index}: 从 getAllSkills 获取参数信息:`, { inputParams, outputParams });
-                      break;
-                    }
-                  }
-                }
-                if (inputParams.length > 0) break;
-              }
-            }
-          }
+          // 对于 source_stop 和 sink_stop 特殊算子，直接使用会话返回的参数，不调用接口
+          let mergedInputParams: any[] = [];
+          let outParams: any[] = [];
           
-          // 合并节点参数到 input_params，处理引用类型
-          const mergedInputParams = inputParams.map((paramDef: any) => {
-            const paramName = paramDef.name || paramDef.param_name;
-            const paramValue = (node.params || {})[paramName];
-            
-            if (paramValue !== undefined) {
+          if (skillName === 'source_stop' || skillName === 'sink_stop') {
+            // 特殊算子，直接使用会话返回的参数
+            const nodeParams = node.params || {};
+            mergedInputParams = Object.entries(nodeParams).map(([paramName, paramValue]: any) => {
               if (typeof paramValue === 'object' && paramValue !== null && 'source_node' in paramValue) {
                 // 引用类型
                 return {
@@ -372,26 +485,81 @@ export default function PipelinePreview({ data, threadId, onOpenCanvas, messageI
                   binding_id: ''
                 };
               }
+            });
+            
+            // source_stop 有输出参数，sink_stop 没有输出参数
+            if (skillName === 'source_stop') {
+              outParams = [{
+                param_name: 'output',
+                param_type: 'string'
+              }];
+            } else {
+              outParams = [];
             }
             
-            return {
-              param_name: paramName,
-              param_value: paramDef.param_value || '',
-              value_mode: 'manual',
-              binding_id: ''
-            };
-          });
-          
-          // 如果算子接口返回了input_params，则只保留算子params中存在的参数
-          // 如果算子接口没有返回input_params（inputParams为空），则不添加任何参数
-          // 这样可以确保只合并算子定义中存在的参数，去掉JSON模型会话中多余的参数
-          // 注意：output_params不参与参数合并
-          
-          // 转换 output_params 格式
-          const outParams = outputParams.map((p: any) => ({
-            param_name: p.name || p.param_name || '',
-            param_type: p.type || p.param_type || 'string'
-          }));
+            console.log(`节点 ${index}: 特殊算子，直接使用会话返回的参数:`, { mergedInputParams, outParams });
+          } else {
+            // 普通算子，调用接口获取参数信息并合并
+            if (skillName) {
+              // 使用 getAllSkills 接口获取算子信息（带缓存）
+              const skillRes = await getSkillInfoByName(skillName);
+              if (skillRes && skillRes.result.data && skillRes.result.data.length > 0) {
+                for (const group of skillRes.result.data) {
+                  if (group.DagSkillInfoList && group.DagSkillInfoList.length > 0) {
+                    for (const skillInfo of group.DagSkillInfoList) {
+                      // 使用 skill_name 匹配，因为接口返回的 skill_id 和写死的格式不同
+                      if (skillInfo.skill_name === skillName || skillInfo.name_zh === skillName) {
+                        inputParams = skillInfo.input_params?.params || [];
+                        outputParams = skillInfo.output_params?.params || [];
+                        console.log(`节点 ${index}: 从 getAllSkills 获取参数信息:`, { inputParams, outputParams });
+                        break;
+                      }
+                    }
+                  }
+                  if (inputParams.length > 0) break;
+                }
+              }
+            }
+            
+            // 合并节点参数到 input_params，处理引用类型
+            mergedInputParams = inputParams.map((paramDef: any) => {
+              const paramName = paramDef.name || paramDef.param_name;
+              const paramValue = (node.params || {})[paramName];
+              
+              if (paramValue !== undefined) {
+                if (typeof paramValue === 'object' && paramValue !== null && 'source_node' in paramValue) {
+                  // 引用类型
+                  return {
+                    param_name: paramName,
+                    param_value: paramValue.source_param || '',
+                    value_mode: 'reference',
+                    binding_id: ''
+                  };
+                } else {
+                  // 手动类型
+                  return {
+                    param_name: paramName,
+                    param_value: String(paramValue),
+                    value_mode: 'manual',
+                    binding_id: ''
+                  };
+                }
+              }
+              
+              return {
+                param_name: paramName,
+                param_value: paramDef.param_value || '',
+                value_mode: 'manual',
+                binding_id: ''
+              };
+            });
+            
+            // 转换 output_params 格式
+            outParams = outputParams.map((p: any) => ({
+              param_name: p.name || p.param_name || '',
+              param_type: p.type || p.param_type || 'string'
+            }));
+          }
           
           // 节点ID从 node-1 开始，与 Draw.tsx 保持一致
           const nodeId = `node-${index + 1}`;
@@ -506,10 +674,8 @@ export default function PipelinePreview({ data, threadId, onOpenCanvas, messageI
       const response = await runDAGTask(taskId);
       console.log('运行 DAG 返回结果:', response);
       if (response.code === 200 && response.result) {
-        sessionStorage.setItem("pendingProcessId", response.result.process_id);
-        sessionStorage.setItem("pendingPipeline", JSON.stringify(data));
-        sessionStorage.setItem("pipelineThreadId", threadId);
-        navigate("/run-history");
+        const processId = response.result.process_id;
+        alert(`任务已提交运行，请前往【运行历史】查看执行状态。执行实例ID：${processId}`);
         return;
       } else {
         console.error('运行 DAG 失败:', response.message);
@@ -558,27 +724,128 @@ export default function PipelinePreview({ data, threadId, onOpenCanvas, messageI
         </div>
       </div>
 
-      {/* 简易流程图 */}
-      <div className="mb-4 flex items-center gap-2 overflow-x-auto rounded-lg bg-slate-50 p-3">
-        {nodes.map((node, index) => (
-          <div key={index} className="flex items-center gap-2">
-            <div className="flex flex-col items-center">
-              <div className="flex h-10 w-32 items-center justify-center rounded-lg border border-slate-200 bg-white px-2 shadow-sm">
-                <div className="truncate text-center text-sm font-medium text-slate-700">
-                  {node.node_name}
+      {/* 简易DAG图 - 拓扑分层显示，每个节点只出现一次 */}
+      <div className="mb-4 overflow-x-auto rounded-lg bg-slate-50 p-3">
+        {(() => {
+          // 解析节点引用关系，构建图结构
+          const nodeNameToIndexMap: Record<string, number> = {};
+          nodes.forEach((node, index) => {
+            nodeNameToIndexMap[node.node_name] = index;
+          });
+          
+          const inDegree: number[] = new Array(nodes.length).fill(0);
+          const nodeOutEdges: number[][] = new Array(nodes.length).fill(null).map(() => []);
+          
+          nodes.forEach((pNode, targetIndex) => {
+            const dagParams = pNode.params || {};
+            Object.values(dagParams).forEach((paramValue: any) => {
+              if (typeof paramValue === 'object' && paramValue !== null && 'source_node' in paramValue) {
+                const sourceNodeName = paramValue.source_node;
+                const sourceIndex = nodeNameToIndexMap[sourceNodeName];
+                
+                if (sourceIndex !== undefined && sourceIndex !== targetIndex) {
+                  const edgeAlreadyExists = nodeOutEdges[sourceIndex].includes(targetIndex);
+                  if (!edgeAlreadyExists) {
+                    inDegree[targetIndex]++;
+                    nodeOutEdges[sourceIndex].push(targetIndex);
+                  }
+                }
+              }
+            });
+          });
+          
+          if (nodeOutEdges.every(edges => edges.length === 0)) {
+            for (let i = 0; i < nodes.length - 1; i++) {
+              nodeOutEdges[i].push(i + 1);
+            }
+          }
+          
+          // 拓扑排序分层
+          const levels: number[][] = [];
+          const tempInDegree = [...inDegree];
+          const processed = new Set<number>();
+          
+          let currentLevel: number[] = [];
+          for (let i = 0; i < nodes.length; i++) {
+            if (tempInDegree[i] === 0 && !processed.has(i)) {
+              currentLevel.push(i);
+              processed.add(i);
+            }
+          }
+          
+          while (currentLevel.length > 0) {
+            levels.push(currentLevel);
+            const nextLevel: number[] = [];
+            currentLevel.forEach(index => {
+              nodeOutEdges[index].forEach(targetIndex => {
+                if (!processed.has(targetIndex)) {
+                  tempInDegree[targetIndex]--;
+                  if (tempInDegree[targetIndex] === 0) {
+                    nextLevel.push(targetIndex);
+                    processed.add(targetIndex);
+                  }
+                }
+              });
+            });
+            currentLevel = nextLevel;
+          }
+          
+          if (processed.size < nodes.length) {
+            for (let i = 0; i < nodes.length; i++) {
+              if (!processed.has(i)) {
+                levels.push([i]);
+              }
+            }
+          }
+          
+          // 设置每个level的最大宽度，让所有节点居中
+          const maxNodesInLevel = Math.max(...levels.map(l => l.length));
+          
+          // 渲染
+          return (
+            <div className="flex flex-col items-center gap-1">
+              {levels.map((level, levelIndex) => (
+                <div key={levelIndex} className="flex flex-col items-center w-full">
+                  {/* 当前层节点 */}
+                  <div className="flex gap-4 justify-center items-center">
+                    {level.map((nodeIndex) => {
+                      const node = nodes[nodeIndex];
+                      return (
+                        <div key={nodeIndex} className="flex flex-col items-center">
+                          <div className="flex h-9 w-32 items-center justify-center rounded-lg border border-slate-200 bg-white px-2 shadow-sm">
+                            <div className="truncate text-center text-xs font-medium text-slate-700">
+                              {node.node_name}
+                            </div>
+                          </div>
+                          {node.skill_name && (
+                            <div className="mt-0.5 truncate text-[10px] text-slate-400">
+                              {node.skill_name}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  
+                  {/* 层级之间的连接箭头 */}
+                  {levelIndex < levels.length - 1 && (
+                    <div className="flex justify-center items-center py-1" style={{ minHeight: '24px' }}>
+                      {level.map((nodeIndex) => {
+                        const targets = nodeOutEdges[nodeIndex];
+                        if (targets.length === 0) return null;
+                        return (
+                          <div key={nodeIndex} className="flex items-center justify-center" style={{ width: '128px' }}>
+                            <Icon icon="ri:arrow-down-s-line" className="text-slate-400" width={20} />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
-              </div>
-              {node.skill_name && (
-                <div className="mt-1 truncate text-xs text-slate-400">
-                  {node.skill_name}
-                </div>
-              )}
+              ))}
             </div>
-            {index < nodes.length - 1 && (
-              <Icon icon="ri:arrow-right-s-line" className="text-slate-400 flex-shrink-0" width={20} />
-            )}
-          </div>
-        ))}
+          );
+        })()}
       </div>
 
       {/* 按钮组 */}
