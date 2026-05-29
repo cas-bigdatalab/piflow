@@ -70,6 +70,31 @@ export function RunHistoryPage() {
     }
   };
 
+  // 轮询刷新时不显示 loading，避免闪烁
+  const refreshData = async (page: number, tab: string, keyword?: string) => {
+    try {
+      let status: string | undefined;
+      if (tab === 'all') {
+        status = undefined;
+      } else if (tab === 'running') {
+        status = 'RUNNING';
+      } else if (tab === 'completed') {
+        status = 'SUCCESS';
+      } else if (tab === 'failed') {
+        status = 'FAILED';
+      } else {
+        status = tab;
+      }
+      const res = await getProcesses(page, pageSize, { status, running_only: tab === 'running', keyword });
+      
+      if (res.code === 200 && res.result) {
+        setRecords(res.result.items);
+      }
+    } catch (err) {
+      console.error('请求失败:', err);
+    }
+  };
+
   const loadStatusCounts = async () => {
     try {
       const res = await getProcessStatusCounts();
@@ -158,14 +183,14 @@ export function RunHistoryPage() {
     loadData(currentPage, activeTab, searchKeyword);
     loadStatusCounts();
     
-    // 启动列表轮询，每隔2秒刷新一次
+    // 启动列表轮询，每隔10秒静默刷新一次
     if (listPollingRef.current) {
       clearInterval(listPollingRef.current);
     }
     listPollingRef.current = setInterval(() => {
-      loadData(currentPage, activeTab, searchKeyword);
+      refreshData(currentPage, activeTab, searchKeyword);
       loadStatusCounts();
-    }, 2000);
+    }, 10000);
     
     return () => {
       if (listPollingRef.current) {
