@@ -43,15 +43,27 @@ class WorkspaceManager:
         if not raw:
             raise ValueError("workspace path is empty")
 
+        root_resolved = self.root.resolve()
         input_path = Path(raw)
-        if input_path.is_absolute():
+
+        # Backward compatible virtual paths like /temp/a.csv should still map to
+        # the workspace root. Only absolute paths already under the workspace
+        # root are treated as real filesystem absolute paths.
+        if raw.startswith("/"):
+            first_part = Path(raw.lstrip("/")).parts[:1]
+            if first_part and first_part[0] in self.ALLOWED_DIRS:
+                candidate = self.root / raw.lstrip("/")
+            elif input_path.is_absolute() and str(input_path.resolve()).startswith(str(root_resolved)):
+                candidate = input_path
+            else:
+                candidate = input_path
+        elif input_path.is_absolute():
             candidate = input_path
         else:
             relative = raw.lstrip("/")
             candidate = self.root / relative
 
         resolved = candidate.resolve()
-        root_resolved = self.root.resolve()
 
         try:
             resolved.relative_to(root_resolved)
