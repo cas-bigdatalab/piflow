@@ -8,7 +8,6 @@ import {
   getThreadMessages,
   streamChat,
   uploadWorkspaceFile,
-  getLogin,
   getDrawInfoBymegId,
   type MessageAttachment,
   type ThreadMessage,
@@ -17,7 +16,7 @@ import { MarkdownMessage } from "../components/MarkdownMessage";
 import { shortId } from "../lib/ids";
 import PipelinePreview, { extractAndCleanPipelineJson, PipelineData } from "../components/PipelinePreview";
 import FlowEditor, { InitialPipelineData } from "../components/Draw";
-import { appConfig } from "../config/appConfig";
+// import { appConfig } from "../config/appConfig";
 
 const DEFAULT_USER_ID = localStorage.getItem('userId');
 
@@ -370,23 +369,6 @@ export function HomePage() {
     setSavedDrawData(null);
   };
 
-  // 页面加载时请求登录接口
-  useEffect(() => {
-    const login = async () => {
-      try {
-        let params={ username:appConfig.username,password:appConfig.password };
-        let loginRes=await getLogin(params);
-        localStorage.setItem('token',loginRes.access_token);
-        localStorage.setItem('userId',loginRes.user_id);
-        console.log('登录了')
-      } catch (error) {
-        console.error('登录失败:', error);
-      }
-    };
-    
-    login();
-  }, []);
-  
   useEffect(() => {
     if (!transcriptRef.current) {
       return;
@@ -1047,7 +1029,7 @@ export function HomePage() {
                                   if (pipelineData && !sending) {
                                     return (
                                       <>
-                                        {cleanedText && <MarkdownMessage content={cleanedText} pending={sending} />}
+                                        {cleanedText && <MarkdownMessage content={removeAllJson(cleanedText)} pending={sending} />}
                                         <PipelinePreview data={pipelineData} threadId={threadId} onOpenCanvas={handleOpenCanvas} messageId={message.id} />
                                         {isExecutionResult && message.artifacts && message.artifacts.length > 0 && (
                                           <div className="mt-4 flex flex-wrap gap-2 pt-1">
@@ -1072,8 +1054,12 @@ export function HomePage() {
                                   console.error('[PipelineDebug] Error:', err);
                                 }
                                 
-                                // 如果没有pipelineData，直接渲染原内容
-                                return <MarkdownMessage content={message.content || ''} pending={sending} />;
+                                // 如果没有pipelineData，移除JSON后渲染
+                                let displayText = message.content || '';
+                                if (sending) {
+                                  displayText = displayText.replace(/```(?:json)?[\s\S]*$/g, '').trim();
+                                }
+                                return <MarkdownMessage content={removeAllJson(displayText)} pending={sending} />;
                               })()}
 
                               {sending && message.id === activeAssistantId ? (

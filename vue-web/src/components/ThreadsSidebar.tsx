@@ -1,8 +1,9 @@
-﻿import { Icon } from "@iconify/react";
+import { Icon } from "@iconify/react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { apiBase } from "../lib/api";
+import { apiBase, getLogin } from "../lib/api";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { deleteThread, getThreads, type ThreadTitle } from "../lib/api";
+import { appConfig } from "../config/appConfig";
 import './ThreadsSidebar.css';
 function Logo({ compact }: { compact?: boolean }) {
   const navigate = useNavigate();
@@ -87,6 +88,24 @@ export function ThreadsSidebar() {
       })),
     [threads],
   );
+
+  // 页面加载时请求登录接口
+  useEffect(() => {
+    const login = async () => {
+      try {
+        let params = { username: appConfig.username, password: appConfig.password };
+        let loginRes = await getLogin(params);
+        localStorage.setItem('token', loginRes.access_token);
+        localStorage.setItem('userId', loginRes.user_id);
+        console.log('登录了');
+      } catch (error) {
+        console.error('登录失败:', error);
+      }
+    };
+    
+    login();
+  }, []);
+
   async function refresh() {
     setLoading(true);
     setError("");
