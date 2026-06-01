@@ -693,10 +693,6 @@ export default function PipelinePreview({ data, threadId, onOpenCanvas, messageI
     // 调用回调打开画板，而不是跳转页面
     if (onOpenCanvas) {
       onOpenCanvas(data, messageId);
-    } else {
-      // 兼容：如果没有回调，使用原来的方式
-      sessionStorage.setItem("pendingPipeline", JSON.stringify(data));
-      navigate("/dialogue");
     }
   };
 
