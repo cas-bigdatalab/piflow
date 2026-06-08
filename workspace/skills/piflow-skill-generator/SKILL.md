@@ -1,7 +1,7 @@
 ---
 name: piflow-skill-generator
 description: |
-  PiFlow 技能生成器。根据当前 workspace/skills 的本地约定和 references/piflow_skill_template.md 通用模板创建、更新或校验 PiFlow-compatible skill，包括 UTF-8 编码的 SKILL.md、DAG 可读的 input_params/output_params、version/category/tag 元数据、skill.json、scripts/references/assets 资源目录，以及本地校验脚本。仅在用户明确要求生成或保存 skill，或某次数据处理任务已经完成并需要把已验证成功的操作流程沉淀为 skill 时使用；默认不要因为“可能需要 skill”或“当前能力不足”而优先触发此 skill。
+  PiFlow 技能生成器。当用户完成了一次完整并成功的数据处理任务时调用，根据当前 workspace/skills 的本地约定和 references/piflow_skill_template.md 通用模板创建、更新或校验 PiFlow-compatible skill，包括 UTF-8 编码的 SKILL.md、DAG 可读的 input_params/output_params、version/category/tag 元数据、skill.json、scripts/references/assets 资源目录，以及本地校验脚本。仅在用户明确要求生成或保存 skill，或某次数据处理任务已经完成并需要把已验证成功的操作流程沉淀为 skill 时使用；默认不要因为“可能需要 skill”或“当前能力不足”而优先触发此 skill。
 name_zh: PiFlow 算子生成器
 version: 1.1.2
 category: skill_generation
@@ -393,7 +393,7 @@ python scripts/validate_piflow_skill.py skills/<skill-name> --mode files-only
 }
 ```
 
-## 收尾检查
+## 必要的测试
 
 完成前确认：
 
@@ -412,7 +412,7 @@ python scripts/validate_piflow_skill.py skills/<skill-name> --mode files-only
 - 如果 skill 生成后用户又提供了新的成功流程，已考虑是否提示进入内部改写链路继续做最小改写。
 - 如果 skill 声明了报告文件或类似结果工件，则失败路径也已实测验证：脚本会优先落盘最小失败摘要和问题清单，再以非零状态码结束，而不是未经兜底直接抛异常退出。
 
-## 新增约束：失败路径可观测
+## 失败路径可观测性约束
 
 复盘结论：对于会生成报告文件或其他结果工件的 skill，不能只设计成功路径；失败路径也必须可观测、可追溯。入口脚本应优先捕获异常、尽可能落盘最小失败摘要与问题清单，明确失败步骤、原因和上下文，再以非零状态码结束；不要在核心流程中未经兜底地直接抛出异常后退出。
 
@@ -421,8 +421,13 @@ python scripts/validate_piflow_skill.py skills/<skill-name> --mode files-only
 - 若 spec 定义了摘要、问题清单、报告或其他结果工件，脚本必须同时实现成功和失败两条输出路径。
 - `strict_mode` 或其他失败条件触发时，不应在关键失败产物尚未落盘前直接中断。
 - 若只能生成部分结果，也应先写出部分结果，并在失败摘要中标明失败阶段、最后一次错误和未完成项。
+> 不要记录以下内容（这些会变成长期存在的自我约束，并在环境变化后反过来带来影响）：
+>>  环境相关故障：缺失二进制文件、全新安装错误、迁移后路径不匹配、command not found、未配置凭据、未安装软件包等。用户可以修复这些问题，它们不是持久规则。
+>>  关于工具或功能的负面断言：如“浏览器工具无法工作”、“X 工具已损坏”、“远程资源不包含 Y”等。这些会固化成长期拒绝理由，即使实际问题早已被修复。
+>>  会话中已经解决的临时错误。如果重试后成功了，应记录重试模式，而不是原始失败。
+>>  一次性任务叙述。用户要求“总结今天的市场”或“分析这个 PR”，并不构成一个值得创建技能的工作类别。
 
-## 更有效的自测引导
+## 自测引导
 
 除 `validate_piflow_skill.py` 外，生成中等及以上复杂度 skill 时，至少执行以下自测：
 
