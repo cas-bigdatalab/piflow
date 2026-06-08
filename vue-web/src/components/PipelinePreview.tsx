@@ -611,7 +611,7 @@ export default function PipelinePreview({ data, threadId, onOpenCanvas, messageI
                 
                 // 生成 binding
                 generatedBindings.push({
-                  binding_id: `binding-${node.node_id}-${paramName}`,
+                  binding_id: crypto.randomUUID(),
                   from_node_id: sourceNodeId,
                   from_param_name: sourceParamName,
                   to_node_id: node.node_id,
@@ -693,17 +693,47 @@ export default function PipelinePreview({ data, threadId, onOpenCanvas, messageI
     // 调用回调打开画板，而不是跳转页面
     if (onOpenCanvas) {
       onOpenCanvas(data, messageId);
-    } else {
-      // 兼容：如果没有回调，使用原来的方式
-      sessionStorage.setItem("pendingPipeline", JSON.stringify(data));
-      navigate("/dialogue");
     }
   };
 
   return (
     <div className="mt-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <style>{`
+        @keyframes pipelineFadeIn {
+          from { opacity: 0; transform: translateY(12px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes pipelineSlideIn {
+          from { opacity: 0; transform: translateY(16px) scale(0.95); }
+          to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        @keyframes pipelineArrowIn {
+          from { opacity: 0; transform: scaleY(0); }
+          to { opacity: 1; transform: scaleY(1); }
+        }
+        @keyframes pipelineStaggerIn {
+          from { opacity: 0; transform: translateY(-8px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .pipeline-container {
+          animation: pipelineFadeIn 0.4s ease-out both;
+        }
+        .pipeline-title {
+          animation: pipelineFadeIn 0.3s ease-out 0.1s both;
+        }
+        .pipeline-level {
+          animation: pipelineSlideIn 0.45s ease-out both;
+        }
+        .pipeline-arrow {
+          animation: pipelineArrowIn 0.3s ease-out both;
+          transform-origin: top center;
+        }
+        .pipeline-buttons {
+          animation: pipelineFadeIn 0.5s ease-out both;
+        }
+      `}</style>
       {/* 标题和状态 */}
-      <div className="mb-3 flex items-center justify-between">
+      <div className="mb-3 flex items-center justify-between pipeline-title">
         <div className="flex items-center gap-2">
           <Icon icon="ri:flow-chart" className="text-blue-600" width={20} />
           <span className="font-medium text-slate-900">{task.name}</span>
@@ -801,24 +831,88 @@ export default function PipelinePreview({ data, threadId, onOpenCanvas, messageI
           // 设置每个level的最大宽度，让所有节点居中
           const maxNodesInLevel = Math.max(...levels.map(l => l.length));
           
+          // 颜色配置 - 根据节点索引分配不同颜色
+          const nodeColors = [
+            { bg: '#f3e8ff', border: '#a855f7', dot: '#c084fc' },  // 紫色
+            { bg: '#e0f2fe', border: '#0ea5e9', dot: '#38bdf8' },  // 青色
+            { bg: '#fef3c7', border: '#f59e0b', dot: '#fbbf24' },  // 橙色
+            { bg: '#dcfce7', border: '#22c55e', dot: '#4ade80' },  // 绿色
+            { bg: '#fce7f3', border: '#ec4899', dot: '#f472b6' },  // 粉色
+            { bg: '#e0e7ff', border: '#6366f1', dot: '#818cf8' },  // 靛蓝
+            { bg: '#fed7aa', border: '#f97316', dot: '#fb923c' },  // 琥珀色
+            { bg: '#d1fae5', border: '#10b981', dot: '#34d399' },  // 翡翠色
+          ];
+          
+          const getNodeColor = (index: number) => {
+            return nodeColors[index % nodeColors.length];
+          };
+          
+          // 判断是否为分支节点
+          const isForkNode = (node: PipelineNode) => {
+            return node.skill_name?.toLowerCase().includes('fork') || 
+                   node.node_name?.toLowerCase().includes('分支');
+          };
+          
+          const isMergeNode = (node: PipelineNode) => {
+            return node.skill_name?.toLowerCase().includes('merge') || 
+                   node.node_name?.toLowerCase().includes('合并');
+          };
+          
           // 渲染
           return (
-            <div className="flex flex-col items-center gap-1">
+            <div className="flex flex-col items-center gap-2 pipeline-container">
               {levels.map((level, levelIndex) => (
                 <div key={levelIndex} className="flex flex-col items-center w-full">
                   {/* 当前层节点 */}
-                  <div className="flex gap-4 justify-center items-center">
+                  <div className="flex gap-6 justify-center items-center pipeline-level" style={{ animationDelay: `${0.15 + levelIndex * 0.2}s` }}>
                     {level.map((nodeIndex) => {
                       const node = nodes[nodeIndex];
+                      const color = getNodeColor(nodeIndex);
+                      const fork = isForkNode(node);
+                      const merge = isMergeNode(node);
+                      
                       return (
                         <div key={nodeIndex} className="flex flex-col items-center">
-                          <div className="flex h-9 w-32 items-center justify-center rounded-lg border border-slate-200 bg-white px-2 shadow-sm">
-                            <div className="truncate text-center text-xs font-medium text-slate-700">
-                              {node.node_name}
+                          {/* 菱形节点 - Fork/Merge */}
+                          {fork || merge ? (
+                            <div 
+                              className="flex items-center justify-center p-2"
+                              style={{ 
+                                width: '90px', 
+                                height: '50px',
+                                backgroundColor: '#fef3c7',
+                                border: `2px solid #f59e0b`,
+                                clipPath: 'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)'
+                              }}
+                            >
+                              <div className="text-xs font-bold text-orange-600 text-center">
+                                {fork ? '分支' : '合并'}
+                              </div>
                             </div>
-                          </div>
-                          {node.skill_name && (
-                            <div className="mt-0.5 truncate text-[10px] text-slate-400">
+                          ) : (
+                            // 圆角矩形节点
+                            <div 
+                              className="flex items-center gap-2 px-4 py-2 rounded-full"
+                              style={{ 
+                                backgroundColor: color.bg,
+                                border: `2px solid ${color.border}`,
+                                minWidth: '120px'
+                              }}
+                            >
+                              {/* 小圆点 */}
+                              <div 
+                                className="w-3 h-3 rounded-full flex-shrink-0"
+                                style={{ backgroundColor: color.dot }}
+                              />
+                              {/* 节点名称 */}
+                              <div className="text-sm font-medium text-slate-700 whitespace-nowrap">
+                                {node.node_name}
+                              </div>
+                            </div>
+                          )}
+                          {/* 技能名称 */}
+                          {node.skill_name && !fork && !merge && (
+                            <div className="mt-1 text-xs text-slate-400">
                               {node.skill_name}
                             </div>
                           )}
@@ -829,13 +923,32 @@ export default function PipelinePreview({ data, threadId, onOpenCanvas, messageI
                   
                   {/* 层级之间的连接箭头 */}
                   {levelIndex < levels.length - 1 && (
-                    <div className="flex justify-center items-center py-1" style={{ minHeight: '24px' }}>
+                    <div className="flex justify-center items-center py-2 pipeline-arrow" style={{ minHeight: '32px', animationDelay: `${0.35 + levelIndex * 0.2}s` }}>
                       {level.map((nodeIndex) => {
                         const targets = nodeOutEdges[nodeIndex];
                         if (targets.length === 0) return null;
                         return (
-                          <div key={nodeIndex} className="flex items-center justify-center" style={{ width: '128px' }}>
-                            <Icon icon="ri:arrow-down-s-line" className="text-slate-400" width={20} />
+                          <div key={nodeIndex} className="flex items-center justify-center" style={{ width: '136px' }}>
+                            <div className="relative">
+                              {/* 箭头线 */}
+                              <div className="w-px h-6 bg-slate-300 mx-auto"></div>
+                              {/* 箭头 */}
+                              <svg 
+                                width="16" 
+                                height="16" 
+                                viewBox="0 0 24 24" 
+                                fill="none" 
+                                className="absolute left-1/2 -translate-x-1/2 -translate-y-1"
+                              >
+                                <path 
+                                  d="M12 19V5M8 11l4 4 4-4" 
+                                  stroke="#9ca3af" 
+                                  strokeWidth="2" 
+                                  strokeLinecap="round" 
+                                  strokeLinejoin="round"
+                                />
+                              </svg>
+                            </div>
                           </div>
                         );
                       })}
@@ -849,7 +962,7 @@ export default function PipelinePreview({ data, threadId, onOpenCanvas, messageI
       </div>
 
       {/* 按钮组 */}
-      <div className="flex gap-2">
+      <div className="flex gap-2 pipeline-buttons" style={{ animationDelay: `1.2s` }}>
         <button
           onClick={handleRun}
           className="flex items-center gap-2 rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-slate-800"
