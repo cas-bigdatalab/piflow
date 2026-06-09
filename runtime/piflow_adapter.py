@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import sys
 import threading
 from pathlib import Path
@@ -10,6 +11,7 @@ from tools.excutor.excutor_utils import resolve_dag_definition_skills
 
 _PROCESS_REGISTRY: dict[str, Any] = {}
 _PROCESS_REGISTRY_LOCK = threading.Lock()
+log = logging.getLogger("flow.engine")
 
 
 def register_running_process(process: Any) -> None:
@@ -38,7 +40,17 @@ def stop_registered_process(process_id: str) -> bool:
 def init_piflow_run_tracking_db() -> None:
     """Initialize PiFlow's canonical run tracking tables."""
     from database.postgres import get_connection
-    from cn.piflow.runtime.store.postgres.schema import initialize_postgres_schema
+
+    try:
+        from cn.piflow.runtime.store.postgres.schema import initialize_postgres_schema
+    except ModuleNotFoundError as exc:
+        if exc.name == "cn" or (exc.name or "").startswith("cn."):
+            log.warning(
+                "skip PiFlow run tracking schema initialization because reserved module is unavailable: %s",
+                exc,
+            )
+            return
+        raise
 
     conn = get_connection()
     try:
