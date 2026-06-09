@@ -461,8 +461,8 @@ class AgentEngine:
             "context_text": context_text,
         }
 
-    def _should_use_summary_subagent(self, message: str) -> bool:
-        return is_conversation_summary_request(message)
+    async def _should_use_summary_subagent(self, message: str) -> bool:
+        return await is_conversation_summary_request(message)
 
     def _build_summary_subagent_input(
         self,
@@ -820,7 +820,7 @@ class AgentEngine:
             }
         }
 
-        if self._should_use_summary_subagent(message):
+        if await self._should_use_summary_subagent(message):
             log.info(
                 "subagent route selected request_id=%s thread_id=%s user_id=%s task=%s",
                 request_id,
@@ -925,7 +925,7 @@ class AgentEngine:
             "user_id": user_id,
         }
 
-        if self._should_use_summary_subagent(message):
+        if await self._should_use_summary_subagent(message):
             log.info(
                 "subagent route selected request_id=%s thread_id=%s user_id=%s task=%s",
                 request_id,

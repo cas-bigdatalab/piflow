@@ -22,6 +22,18 @@ from .tools import exec_shell
 
 
 class AgentFactory:
+    @staticmethod
+    def _ensure_builtin_tools_registered() -> None:
+        if registry.has("shell.exec_shell"):
+            return
+
+        spec = ToolSpec(
+            name="shell.exec_shell",
+            description="执行终端命令",
+            func=exec_shell,
+            args_schema=exec_shell.args_schema
+        )
+        registry.register(spec, exec_shell)
 
     # 生成 tool 能力描述
     @staticmethod
@@ -95,13 +107,7 @@ class AgentFactory:
         # 加载工具
         # -----------------------------
 
-        spec = ToolSpec(
-            name="shell.exec_shell",
-            description="执行终端命令",
-            func=exec_shell,
-            args_schema=exec_shell.args_schema  # @tool 装饰器会自动生成
-        )
-        registry.register(spec, exec_shell)
+        AgentFactory._ensure_builtin_tools_registered()
 
         tools = [
             exec_shell
