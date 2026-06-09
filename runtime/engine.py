@@ -1,6 +1,7 @@
 ﻿import asyncio
 import logging
 import time
+import uuid
 from typing import Any, AsyncIterator, Awaitable, Callable
 
 from agents.factory import AgentFactory
@@ -17,6 +18,12 @@ from runtime.events import (
     emit_subagent_finished,
     emit_subagent_progress as emit_subagent_progress_event,
     emit_subagent_started,
+)
+from runtime.subagent import (
+    CONVERSATION_SUMMARY_TASK,
+    build_conversation_summary_system_prompt,
+    build_transient_thread_id,
+    is_conversation_summary_request,
 )
 from services.user_service import init_default_user
 from tools.core.registry import registry
@@ -283,6 +290,16 @@ def _summarize_event(event: Any) -> dict[str, Any]:
     }
 
 
+def _copy_messages(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [
+        {
+            "role": item.get("role", ""),
+            "content": item.get("content", ""),
+        }
+        for item in messages
+    ]
+
+
 class AgentEngine:
 
     def __init__(self, agent=None):
@@ -444,6 +461,290 @@ class AgentEngine:
             "context_text": context_text,
         }
 
+    def _should_use_summary_subagent(self, message: str) -> bool:
+        return is_conversation_summary_request(message)
+
+    def _build_summary_subagent_input(
+        self,
+        messages: list[dict[str, Any]],
+    ) -> dict[str, Any]:
+        return {
+            "messages": _copy_messages(messages),
+        }
+
+    async def _run_summary_subagent(
+        self,
+        *,
+        parent_thread_id: str,
+        user_id: str,
+        request_id: str,
+        messages: list[dict[str, Any]],
+        on_event: Callable[[dict[str, Any]], Awaitable[None]] | None = None,
+    ) -> tuple[str, dict[str, Any] | None]:
+        task_name = CONVERSATION_SUMMARY_TASK
+        subagent_thread_id = build_transient_thread_id("summary")
+        subagent_request_id = f"{request_id}:{uuid.uuid4().hex[:8]}"
+        system_prompt = build_conversation_summary_system_prompt()
+        context = self.build_subagent_context(
+            parent_thread_id=parent_thread_id,
+            user_id=user_id,
+            request_id=request_id,
+            fork_reason="user_requested_conversation_summary",
+            context_text=f"Parent thread id: {parent_thread_id}\nSubagent thread id: {subagent_thread_id}",
+        )
+
+        async def _emit(event: dict[str, Any]) -> None:
+            if on_event is not None:
+                await on_event(event)
+
+        log.info(
+            "subagent preparing request_id=%s parent_thread_id=%s subagent_thread_id=%s task=%s",
+            subagent_request_id,
+            parent_thread_id,
+            subagent_thread_id,
+            task_name,
+        )
+        self.emit_subagent_progress(
+            task_name,
+            "preparing",
+            trace_id=subagent_request_id,
+            parent_thread_id=parent_thread_id,
+            subagent_thread_id=subagent_thread_id,
+        )
+        await _emit(
+            {
+                "type": "subagent_status",
+                "request_id": request_id,
+                "task_name": task_name,
+                "stage": "preparing",
+                "parent_thread_id": parent_thread_id,
+                "subagent_thread_id": subagent_thread_id,
+            }
+        )
+
+        subagent = AgentFactory.create_subagent(
+            system_prompt_override=system_prompt,
+            context_text=context.get("context_text"),
+        )
+        subagent_input = self._build_summary_subagent_input(messages)
+        subagent_config = {
+            "configurable": {
+                "thread_id": subagent_thread_id,
+                "user_id": user_id,
+            }
+        }
+        latest_answer = ""
+        latest_reasoning = ""
+        token_usage = None
+        update_events: list[Any] = []
+        event_count = 0
+        start_stream = time.time()
+
+        async def _runner() -> tuple[str, dict[str, Any] | None]:
+            nonlocal latest_answer, latest_reasoning, token_usage, event_count
+
+            log.info(
+                "subagent started request_id=%s parent_thread_id=%s subagent_thread_id=%s task=%s message_count=%s",
+                subagent_request_id,
+                parent_thread_id,
+                subagent_thread_id,
+                task_name,
+                len(messages),
+            )
+            self.emit_subagent_progress(
+                task_name,
+                "running",
+                trace_id=subagent_request_id,
+                parent_thread_id=parent_thread_id,
+                subagent_thread_id=subagent_thread_id,
+            )
+            await _emit(
+                {
+                    "type": "subagent_status",
+                    "request_id": request_id,
+                    "task_name": task_name,
+                    "stage": "running",
+                    "parent_thread_id": parent_thread_id,
+                    "subagent_thread_id": subagent_thread_id,
+                }
+            )
+
+            async for stream_part in subagent.astream(
+                subagent_input,
+                config=subagent_config,
+                stream_mode=["messages", "updates"],
+            ):
+                mode, payload = _split_stream_part(stream_part)
+
+                if mode == "updates":
+                    update_events.append(payload)
+                    event_count += 1
+                    summary = self._log_stream_event(subagent_request_id, event_count, payload)
+                    self.emit_subagent_progress(
+                        task_name,
+                        "event",
+                        trace_id=subagent_request_id,
+                        parent_thread_id=parent_thread_id,
+                        subagent_thread_id=subagent_thread_id,
+                        index=event_count,
+                        preview=summary["preview"],
+                    )
+                    await _emit(
+                        {
+                            "type": "subagent_event",
+                            "request_id": request_id,
+                            "task_name": task_name,
+                            "index": event_count,
+                            "parent_thread_id": parent_thread_id,
+                            "subagent_thread_id": subagent_thread_id,
+                            "nodes": summary["nodes"],
+                            "message_types": summary["message_types"],
+                            "tool_calls": summary["tool_calls"],
+                            "preview": summary["preview"],
+                        }
+                    )
+                    continue
+
+                if mode != "messages":
+                    continue
+
+                if not isinstance(payload, tuple) or len(payload) != 2:
+                    continue
+
+                sub_message, metadata = payload
+                if not _is_ai_message(sub_message):
+                    continue
+
+                response_metadata = getattr(sub_message, "response_metadata", None) or {}
+                current_token_usage = response_metadata.get("token_usage")
+                if current_token_usage:
+                    token_usage = current_token_usage
+
+                reasoning_piece = _extract_reasoning_text(sub_message)
+                reasoning_delta, latest_reasoning = _merge_text_delta(
+                    latest_reasoning,
+                    reasoning_piece,
+                )
+                if reasoning_delta:
+                    self.emit_subagent_progress(
+                        task_name,
+                        "reasoning",
+                        trace_id=subagent_request_id,
+                        parent_thread_id=parent_thread_id,
+                        subagent_thread_id=subagent_thread_id,
+                        preview=_preview_text(reasoning_delta),
+                    )
+                    await _emit(
+                        {
+                            "type": "subagent_reasoning_delta",
+                            "request_id": request_id,
+                            "task_name": task_name,
+                            "delta": reasoning_delta,
+                            "content": latest_reasoning,
+                            "parent_thread_id": parent_thread_id,
+                            "subagent_thread_id": subagent_thread_id,
+                            "node": metadata.get("langgraph_node") if isinstance(metadata, dict) else None,
+                        }
+                    )
+
+                if getattr(sub_message, "tool_call_chunks", None) or getattr(sub_message, "tool_calls", None):
+                    continue
+
+                answer_piece = _message_content_text(getattr(sub_message, "content", ""))
+                answer_delta, latest_answer = _merge_text_delta(latest_answer, answer_piece)
+                if answer_delta:
+                    self.emit_subagent_progress(
+                        task_name,
+                        "summarizing",
+                        trace_id=subagent_request_id,
+                        parent_thread_id=parent_thread_id,
+                        subagent_thread_id=subagent_thread_id,
+                        preview=_preview_text(answer_delta),
+                    )
+                    await _emit(
+                        {
+                            "type": "subagent_message_delta",
+                            "request_id": request_id,
+                            "task_name": task_name,
+                            "delta": answer_delta,
+                            "content": latest_answer,
+                            "parent_thread_id": parent_thread_id,
+                            "subagent_thread_id": subagent_thread_id,
+                            "node": metadata.get("langgraph_node") if isinstance(metadata, dict) else None,
+                        }
+                    )
+
+            if update_events:
+                if not latest_reasoning:
+                    latest_reasoning = _extract_reasoning_from_event(update_events[-1])
+                if not latest_answer:
+                    latest_answer, update_token_usage = _extract_final_response(update_events)
+                    if update_token_usage and not token_usage:
+                        token_usage = update_token_usage
+
+            log.info(
+                "subagent completed request_id=%s parent_thread_id=%s subagent_thread_id=%s task=%s cost=%.2fs answer_chars=%s",
+                subagent_request_id,
+                parent_thread_id,
+                subagent_thread_id,
+                task_name,
+                time.time() - start_stream,
+                len(latest_answer),
+            )
+            self.emit_subagent_progress(
+                task_name,
+                "completed",
+                trace_id=subagent_request_id,
+                parent_thread_id=parent_thread_id,
+                subagent_thread_id=subagent_thread_id,
+                answer_chars=len(latest_answer),
+            )
+            await _emit(
+                {
+                    "type": "subagent_status",
+                    "request_id": request_id,
+                    "task_name": task_name,
+                    "stage": "completed",
+                    "parent_thread_id": parent_thread_id,
+                    "subagent_thread_id": subagent_thread_id,
+                    "answer_chars": len(latest_answer),
+                }
+            )
+            return latest_answer, token_usage
+
+        task = await self.spawn_background_subagent(
+            task_name,
+            _runner,
+            trace_id=subagent_request_id,
+        )
+        try:
+            return await task
+        finally:
+            log.info(
+                "subagent destroyed request_id=%s parent_thread_id=%s subagent_thread_id=%s task=%s",
+                subagent_request_id,
+                parent_thread_id,
+                subagent_thread_id,
+                task_name,
+            )
+            self.emit_subagent_progress(
+                task_name,
+                "destroyed",
+                trace_id=subagent_request_id,
+                parent_thread_id=parent_thread_id,
+                subagent_thread_id=subagent_thread_id,
+            )
+            await _emit(
+                {
+                    "type": "subagent_status",
+                    "request_id": request_id,
+                    "task_name": task_name,
+                    "stage": "destroyed",
+                    "parent_thread_id": parent_thread_id,
+                    "subagent_thread_id": subagent_thread_id,
+                }
+            )
+
     async def spawn_background_subagent(
         self,
         task_name: str,
@@ -518,6 +819,26 @@ class AgentEngine:
                 "user_id": user_id,
             }
         }
+
+        if self._should_use_summary_subagent(message):
+            log.info(
+                "subagent route selected request_id=%s thread_id=%s user_id=%s task=%s",
+                request_id,
+                thread_id,
+                user_id,
+                CONVERSATION_SUMMARY_TASK,
+            )
+            final_answer, token_usage = await self._run_summary_subagent(
+                parent_thread_id=thread_id,
+                user_id=user_id,
+                request_id=request_id,
+                messages=input_message["messages"],
+            )
+            save_message(user_id, thread_id, "assistant", final_answer)
+
+            latency = time.time() - start_total
+            self._log_request_finish(request_id, final_answer, token_usage, latency)
+            return final_answer
 
         agent = self.agent
         assert agent is not None
@@ -603,6 +924,56 @@ class AgentEngine:
             "thread_id": thread_id,
             "user_id": user_id,
         }
+
+        if self._should_use_summary_subagent(message):
+            log.info(
+                "subagent route selected request_id=%s thread_id=%s user_id=%s task=%s",
+                request_id,
+                thread_id,
+                user_id,
+                CONVERSATION_SUMMARY_TASK,
+            )
+            passthrough_events: asyncio.Queue[dict[str, Any] | None] = asyncio.Queue()
+
+            async def _push_event(event: dict[str, Any]) -> None:
+                await passthrough_events.put(event)
+
+            summary_task = asyncio.create_task(
+                self._run_summary_subagent(
+                    parent_thread_id=thread_id,
+                    user_id=user_id,
+                    request_id=request_id,
+                    messages=input_message["messages"],
+                    on_event=_push_event,
+                )
+            )
+
+            while True:
+                if summary_task.done() and passthrough_events.empty():
+                    break
+
+                try:
+                    event = await asyncio.wait_for(passthrough_events.get(), timeout=0.1)
+                except asyncio.TimeoutError:
+                    continue
+
+                if event is None:
+                    continue
+                yield event
+
+            final_answer, token_usage = await summary_task
+            save_message(user_id, thread_id, "assistant", final_answer)
+
+            latency = time.time() - start_total
+            self._log_request_finish(request_id, final_answer, token_usage, latency)
+            yield {
+                "type": "done",
+                "request_id": request_id,
+                "content": final_answer,
+                "token_usage": token_usage,
+                "latency_sec": round(latency, 3),
+            }
+            return
 
         start_stream = time.time()
         event_count = 0
