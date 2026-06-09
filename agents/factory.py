@@ -3,6 +3,7 @@ import os
 from deepagents import create_deep_agent
 from deepagents.backends import CompositeBackend, StoreBackend, StateBackend
 from langchain_openai import ChatOpenAI
+import agents.factory as factory_module
 
 from tools import ToolSpec
 from tools.core.registry import registry
@@ -12,6 +13,7 @@ from .middleware import install_registry_hooks
 
 from runtime.workspace_manager import WorkspaceManager
 from deepagents.backends.filesystem import FilesystemBackend
+from runtime.subagent import override_factory_prompt
 
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.store.memory import InMemoryStore
@@ -178,3 +180,15 @@ class AgentFactory:
         )
 
         return agent
+
+    @staticmethod
+    def create_subagent(
+        system_prompt_override: str,
+        context_text: str | None = None,
+    ):
+        with override_factory_prompt(
+            factory_module,
+            system_prompt_override=system_prompt_override,
+            context_text=context_text,
+        ):
+            return AgentFactory.create_agent()

@@ -65,3 +65,19 @@ class EventBus:
 
 
 event_bus = EventBus()
+
+SUBAGENT_STARTED = "subagent.started"
+SUBAGENT_PROGRESS = "subagent.progress"
+SUBAGENT_FINISHED = "subagent.finished"
+
+
+def emit_subagent_started(payload: Optional[Dict[str, Any]] = None, trace_id: Optional[str] = None):
+    event_bus.emit(SUBAGENT_STARTED, payload, trace_id)
+
+
+def emit_subagent_progress(payload: Optional[Dict[str, Any]] = None, trace_id: Optional[str] = None):
+    event_bus.emit(SUBAGENT_PROGRESS, payload, trace_id)
+
+
+def emit_subagent_finished(payload: Optional[Dict[str, Any]] = None, trace_id: Optional[str] = None):
+    event_bus.emit(SUBAGENT_FINISHED, payload, trace_id)

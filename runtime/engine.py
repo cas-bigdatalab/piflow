@@ -1,6 +1,7 @@
-﻿import logging
+﻿import asyncio
+import logging
 import time
-from typing import Any, AsyncIterator
+from typing import Any, AsyncIterator, Awaitable, Callable
 
 from agents.factory import AgentFactory
 from infra.config_loader import get_settings
@@ -12,6 +13,11 @@ from runtime.dag_manager import init_dag_db
 from runtime.piflow_adapter import init_piflow_run_tracking_db
 from runtime.skill_manage import init_dag_skills_to_database
 from runtime.workspace_manager import WorkspaceManager
+from runtime.events import (
+    emit_subagent_finished,
+    emit_subagent_progress as emit_subagent_progress_event,
+    emit_subagent_started,
+)
 from services.user_service import init_default_user
 from tools.core.registry import registry
 
@@ -422,6 +428,70 @@ class AgentEngine:
                 latency,
             )
 
+    def build_subagent_context(
+        self,
+        parent_thread_id: str,
+        user_id: str,
+        request_id: str,
+        fork_reason: str | None = None,
+        context_text: str | None = None,
+    ) -> dict[str, Any]:
+        return {
+            "parent_thread_id": parent_thread_id,
+            "user_id": user_id,
+            "request_id": request_id,
+            "fork_reason": fork_reason,
+            "context_text": context_text,
+        }
+
+    async def spawn_background_subagent(
+        self,
+        task_name: str,
+        runner: Callable[[], Awaitable[Any]],
+        trace_id: str | None = None,
+    ) -> asyncio.Task[Any]:
+        async def _wrapped():
+            emit_subagent_started({"task_name": task_name}, trace_id=trace_id)
+            try:
+                result = await runner()
+                emit_subagent_finished(
+                    {
+                        "task_name": task_name,
+                        "success": True,
+                    },
+                    trace_id=trace_id,
+                )
+                return result
+            except Exception as exc:
+                emit_subagent_finished(
+                    {
+                        "task_name": task_name,
+                        "success": False,
+                        "error": str(exc),
+                    },
+                    trace_id=trace_id,
+                )
+                raise
+
+        task = asyncio.create_task(_wrapped(), name=task_name)
+        return task
+
+    def emit_subagent_progress(
+        self,
+        task_name: str,
+        stage: str,
+        trace_id: str | None = None,
+        **payload: Any,
+    ) -> None:
+        emit_subagent_progress_event(
+            {
+                "task_name": task_name,
+                "stage": stage,
+                **payload,
+            },
+            trace_id=trace_id,
+        )
+
     async def run(
         self,
         message: str,
@@ -449,12 +519,15 @@ class AgentEngine:
             }
         }
 
+        agent = self.agent
+        assert agent is not None
+
         events = []
         start_stream = time.time()
         event_count = 0
 
         try:
-            async for event in self.agent.astream(input_message, config=config):
+            async for event in agent.astream(input_message, config=config):
                 events.append(event)
                 event_count += 1
                 self._log_stream_event(request_id, event_count, event)
@@ -520,6 +593,9 @@ class AgentEngine:
             }
         }
 
+        agent = self.agent
+        assert agent is not None
+
         yield {
             "type": "status",
             "stage": "started",
@@ -536,7 +612,7 @@ class AgentEngine:
         update_events: list[Any] = []
 
         try:
-            async for stream_part in self.agent.astream(
+            async for stream_part in agent.astream(
                 input_message,
                 config=config,
                 stream_mode=["messages", "updates"],
@@ -672,7 +748,10 @@ class AgentEngine:
             ]
         }
 
-        async for event in self.agent.astream(input_message, config=config):
+        agent = self.agent
+        assert agent is not None
+
+        async for event in agent.astream(input_message, config=config):
             yield event
 
     async def shutdown(self):
