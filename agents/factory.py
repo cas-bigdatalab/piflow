@@ -13,7 +13,10 @@ from .middleware import install_registry_hooks
 
 from runtime.workspace_manager import WorkspaceManager
 from deepagents.backends.filesystem import FilesystemBackend
-from runtime.subagent import override_factory_prompt
+from runtime.subagent import (
+    build_summary_route_prompt_block,
+    override_factory_prompt,
+)
 
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.store.memory import InMemoryStore
@@ -119,7 +122,9 @@ class AgentFactory:
         tool_prompt = AgentFactory.build_tool_prompt()
 
         # 把工具能力注入 system prompt
-        system_prompt = build_system_prompt()
+        system_prompt = build_system_prompt(
+            extra_sections=[build_summary_route_prompt_block()]
+        )
 
         # -----------------------------
         # 创建 DeepAgent

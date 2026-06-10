@@ -1,42 +1,22 @@
-import asyncio
-from types import SimpleNamespace
-from unittest.mock import AsyncMock, patch
-
-from runtime.subagent import is_conversation_summary_request
-
-
-def test_summary_route_returns_true_when_router_says_yes():
-    fake_llm = SimpleNamespace(
-        ainvoke=AsyncMock(return_value=SimpleNamespace(content="YES"))
-    )
-
-    with patch("runtime.subagent._build_router_llm", return_value=fake_llm):
-        result = asyncio.run(
-            is_conversation_summary_request("帮我总结一下我们刚才这段对话")
-        )
-
-    assert result is True
+from agents.prompts import build_system_prompt
+from runtime.subagent import (
+    build_summary_route_prompt_block,
+    is_summary_route_marker,
+    SUMMARY_ROUTE_MARKER,
+)
 
 
-def test_summary_route_returns_false_when_router_says_no():
-    fake_llm = SimpleNamespace(
-        ainvoke=AsyncMock(return_value=SimpleNamespace(content="NO"))
-    )
-
-    with patch("runtime.subagent._build_router_llm", return_value=fake_llm):
-        result = asyncio.run(
-            is_conversation_summary_request("帮我总结这个 PDF 的内容")
-        )
-
-    assert result is False
+def test_summary_route_marker_matches_exact_contract():
+    assert is_summary_route_marker(SUMMARY_ROUTE_MARKER) is True
+    assert is_summary_route_marker(f"  {SUMMARY_ROUTE_MARKER}\n") is True
+    assert is_summary_route_marker("帮我总结一下我们刚才这段对话") is False
 
 
-def test_summary_route_fails_closed_when_router_errors():
-    fake_llm = SimpleNamespace(ainvoke=AsyncMock(side_effect=RuntimeError("boom")))
+def test_summary_route_prompt_block_is_composable():
+    prompt_block = build_summary_route_prompt_block()
+    system_prompt = build_system_prompt(extra_sections=[prompt_block])
 
-    with patch("runtime.subagent._build_router_llm", return_value=fake_llm):
-        result = asyncio.run(
-            is_conversation_summary_request("总结一下当前对话")
-        )
-
-    assert result is False
+    assert "会话总结路由规则" in prompt_block
+    assert SUMMARY_ROUTE_MARKER in prompt_block
+    assert "只输出该标记" in prompt_block
+    assert prompt_block in system_prompt

@@ -23,7 +23,7 @@ from runtime.subagent import (
     CONVERSATION_SUMMARY_TASK,
     build_conversation_summary_system_prompt,
     build_transient_thread_id,
-    is_conversation_summary_request,
+    is_summary_route_marker,
 )
 from services.user_service import init_default_user
 from tools.core.registry import registry
@@ -300,6 +300,18 @@ def _copy_messages(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
     ]
 
 
+def _build_summary_handoff_message(summary_text: str) -> dict[str, str]:
+    return {
+        "role": "system",
+        "content": (
+            "Conversation summary reference for the current parent thread:\n"
+            f"{summary_text}\n\n"
+            "Use this summary only as additional context for the current user request. "
+            "Answer as the main agent, and do not mention subagents, hidden routing, or internal handoff steps."
+        ),
+    }
+
+
 class AgentEngine:
 
     def __init__(self, agent=None):
@@ -462,7 +474,10 @@ class AgentEngine:
         }
 
     async def _should_use_summary_subagent(self, message: str) -> bool:
-        return await is_conversation_summary_request(message)
+        return False
+
+    def _is_summary_route_response(self, content: Any) -> bool:
+        return is_summary_route_marker(_message_content_text(content))
 
     def _build_summary_subagent_input(
         self,
@@ -470,6 +485,17 @@ class AgentEngine:
     ) -> dict[str, Any]:
         return {
             "messages": _copy_messages(messages),
+        }
+
+    def _build_summary_handoff_input(
+        self,
+        messages: list[dict[str, Any]],
+        summary_text: str,
+    ) -> dict[str, Any]:
+        handoff_messages = _copy_messages(messages)
+        handoff_messages.insert(0, _build_summary_handoff_message(summary_text))
+        return {
+            "messages": handoff_messages,
         }
 
     async def _run_summary_subagent(
@@ -529,7 +555,7 @@ class AgentEngine:
         subagent_input = self._build_summary_subagent_input(messages)
         subagent_config = {
             "configurable": {
-                "thread_id": subagent_thread_id,
+                "thread_id": parent_thread_id,
                 "user_id": user_id,
             }
         }
@@ -820,26 +846,6 @@ class AgentEngine:
             }
         }
 
-        if await self._should_use_summary_subagent(message):
-            log.info(
-                "subagent route selected request_id=%s thread_id=%s user_id=%s task=%s",
-                request_id,
-                thread_id,
-                user_id,
-                CONVERSATION_SUMMARY_TASK,
-            )
-            final_answer, token_usage = await self._run_summary_subagent(
-                parent_thread_id=thread_id,
-                user_id=user_id,
-                request_id=request_id,
-                messages=input_message["messages"],
-            )
-            save_message(user_id, thread_id, "assistant", final_answer)
-
-            latency = time.time() - start_total
-            self._log_request_finish(request_id, final_answer, token_usage, latency)
-            return final_answer
-
         agent = self.agent
         assert agent is not None
 
@@ -881,6 +887,50 @@ class AgentEngine:
             )
 
         final_answer, token_usage = _extract_final_response(events)
+        if self._is_summary_route_response(final_answer):
+            log.info(
+                "subagent route selected request_id=%s thread_id=%s user_id=%s task=%s",
+                request_id,
+                thread_id,
+                user_id,
+                CONVERSATION_SUMMARY_TASK,
+            )
+            summary_text, summary_token_usage = await self._run_summary_subagent(
+                parent_thread_id=thread_id,
+                user_id=user_id,
+                request_id=request_id,
+                messages=input_message["messages"],
+            )
+            handoff_input = self._build_summary_handoff_input(
+                input_message["messages"],
+                summary_text,
+            )
+            events = []
+            event_count = 0
+            start_stream = time.time()
+            try:
+                async for event in agent.astream(handoff_input, config=config):
+                    events.append(event)
+                    event_count += 1
+                    self._log_stream_event(request_id, event_count, event)
+            except Exception:
+                log.exception(
+                    "agent handoff stream failed request_id=%s thread_id=%s user_id=%s",
+                    request_id,
+                    thread_id,
+                    user_id,
+                )
+                raise
+
+            log.info(
+                "agent handoff stream finished request_id=%s cost=%.2fs event_count=%s",
+                request_id,
+                time.time() - start_stream,
+                event_count,
+            )
+            final_answer, token_usage = _extract_final_response(events)
+            if not token_usage:
+                token_usage = summary_token_usage
         save_message(user_id, thread_id, "assistant", final_answer)
 
         latency = time.time() - start_total
@@ -924,56 +974,6 @@ class AgentEngine:
             "thread_id": thread_id,
             "user_id": user_id,
         }
-
-        if await self._should_use_summary_subagent(message):
-            log.info(
-                "subagent route selected request_id=%s thread_id=%s user_id=%s task=%s",
-                request_id,
-                thread_id,
-                user_id,
-                CONVERSATION_SUMMARY_TASK,
-            )
-            passthrough_events: asyncio.Queue[dict[str, Any] | None] = asyncio.Queue()
-
-            async def _push_event(event: dict[str, Any]) -> None:
-                await passthrough_events.put(event)
-
-            summary_task = asyncio.create_task(
-                self._run_summary_subagent(
-                    parent_thread_id=thread_id,
-                    user_id=user_id,
-                    request_id=request_id,
-                    messages=input_message["messages"],
-                    on_event=_push_event,
-                )
-            )
-
-            while True:
-                if summary_task.done() and passthrough_events.empty():
-                    break
-
-                try:
-                    event = await asyncio.wait_for(passthrough_events.get(), timeout=0.1)
-                except asyncio.TimeoutError:
-                    continue
-
-                if event is None:
-                    continue
-                yield event
-
-            final_answer, token_usage = await summary_task
-            save_message(user_id, thread_id, "assistant", final_answer)
-
-            latency = time.time() - start_total
-            self._log_request_finish(request_id, final_answer, token_usage, latency)
-            yield {
-                "type": "done",
-                "request_id": request_id,
-                "content": final_answer,
-                "token_usage": token_usage,
-                "latency_sec": round(latency, 3),
-            }
-            return
 
         start_stream = time.time()
         event_count = 0
@@ -1043,7 +1043,7 @@ class AgentEngine:
 
                 answer_piece = _message_content_text(getattr(message, "content", ""))
                 answer_delta, latest_answer = _merge_text_delta(latest_answer, answer_piece)
-                if answer_delta:
+                if answer_delta and not self._is_summary_route_response(latest_answer):
                     yield {
                         "type": "message_delta",
                         "request_id": request_id,
@@ -1074,6 +1074,150 @@ class AgentEngine:
                 latest_answer, update_token_usage = _extract_final_response(update_events)
                 if update_token_usage and not token_usage:
                     token_usage = update_token_usage
+
+        if self._is_summary_route_response(latest_answer):
+            log.info(
+                "subagent route selected request_id=%s thread_id=%s user_id=%s task=%s",
+                request_id,
+                thread_id,
+                user_id,
+                CONVERSATION_SUMMARY_TASK,
+            )
+            passthrough_events: asyncio.Queue[dict[str, Any] | None] = asyncio.Queue()
+
+            async def _push_event(event: dict[str, Any]) -> None:
+                await passthrough_events.put(event)
+
+            summary_task = asyncio.create_task(
+                self._run_summary_subagent(
+                    parent_thread_id=thread_id,
+                    user_id=user_id,
+                    request_id=request_id,
+                    messages=input_message["messages"],
+                    on_event=_push_event,
+                )
+            )
+
+            while True:
+                if summary_task.done() and passthrough_events.empty():
+                    break
+
+                try:
+                    event = await asyncio.wait_for(passthrough_events.get(), timeout=0.1)
+                except asyncio.TimeoutError:
+                    continue
+
+                if event is None:
+                    continue
+                yield event
+
+            summary_text, summary_token_usage = await summary_task
+            handoff_input = self._build_summary_handoff_input(
+                input_message["messages"],
+                summary_text,
+            )
+            latest_answer = ""
+            latest_reasoning = ""
+            token_usage = summary_token_usage
+            update_events = []
+            event_count = 0
+
+            try:
+                async for stream_part in agent.astream(
+                    handoff_input,
+                    config=config,
+                    stream_mode=["messages", "updates"],
+                ):
+                    mode, payload = _split_stream_part(stream_part)
+
+                    if mode == "updates":
+                        update_events.append(payload)
+                        event_count += 1
+                        summary = self._log_stream_event(request_id, event_count, payload)
+
+                        yield {
+                            "type": "agent_event",
+                            "request_id": request_id,
+                            "index": event_count,
+                            "nodes": summary["nodes"],
+                            "message_types": summary["message_types"],
+                            "tool_calls": summary["tool_calls"],
+                            "preview": summary["preview"],
+                        }
+                        continue
+
+                    if mode != "messages":
+                        continue
+
+                    if not isinstance(payload, tuple) or len(payload) != 2:
+                        continue
+
+                    message, metadata = payload
+                    if not _is_ai_message(message):
+                        continue
+
+                    response_metadata = getattr(message, "response_metadata", None) or {}
+                    current_token_usage = response_metadata.get("token_usage")
+                    if current_token_usage:
+                        token_usage = current_token_usage
+
+                    reasoning_piece = _extract_reasoning_text(message)
+                    reasoning_delta, latest_reasoning = _merge_text_delta(
+                        latest_reasoning,
+                        reasoning_piece,
+                    )
+                    if reasoning_delta:
+                        yield {
+                            "type": "reasoning_delta",
+                            "request_id": request_id,
+                            "delta": reasoning_delta,
+                            "content": latest_reasoning,
+                            "node": metadata.get("langgraph_node") if isinstance(metadata, dict) else None,
+                        }
+
+                    if getattr(message, "tool_call_chunks", None) or getattr(message, "tool_calls", None):
+                        continue
+
+                    answer_piece = _message_content_text(getattr(message, "content", ""))
+                    answer_delta, latest_answer = _merge_text_delta(latest_answer, answer_piece)
+                    if answer_delta:
+                        yield {
+                            "type": "message_delta",
+                            "request_id": request_id,
+                            "delta": answer_delta,
+                            "content": latest_answer,
+                            "node": metadata.get("langgraph_node") if isinstance(metadata, dict) else None,
+                        }
+            except Exception:
+                log.exception(
+                    "agent handoff stream failed request_id=%s thread_id=%s user_id=%s",
+                    request_id,
+                    thread_id,
+                    user_id,
+                )
+                raise
+
+            if update_events:
+                if not latest_reasoning:
+                    latest_reasoning = _extract_reasoning_from_event(update_events[-1])
+                if not latest_answer:
+                    latest_answer, update_token_usage = _extract_final_response(update_events)
+                    if update_token_usage and not token_usage:
+                        token_usage = update_token_usage
+
+            final_answer = latest_answer
+            save_message(user_id, thread_id, "assistant", final_answer)
+
+            latency = time.time() - start_total
+            self._log_request_finish(request_id, final_answer, token_usage, latency)
+            yield {
+                "type": "done",
+                "request_id": request_id,
+                "content": final_answer,
+                "token_usage": token_usage,
+                "latency_sec": round(latency, 3),
+            }
+            return
 
         new_files = workspace.detect_changed_downloadables(before_outputs)
         if new_files:

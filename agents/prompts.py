@@ -1032,6 +1032,15 @@ SUMMARY_PROMPT = """
 ...
 """
 
-def build_system_prompt(skills=None) -> str:
-    prompt = BASE_PROMPT_NEW.strip()
-    return prompt
+def build_system_prompt(
+    skills=None,
+    extra_sections: list[str] | None = None,
+) -> str:
+    parts = [BASE_PROMPT_NEW.strip()]
+
+    for section in extra_sections or []:
+        text = str(section).strip()
+        if text:
+            parts.append(text)
+
+    return "\n\n".join(parts)
