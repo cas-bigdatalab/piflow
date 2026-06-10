@@ -66,6 +66,14 @@
       "required": false,
       "description": "并行处理的进程数",
       "default": 1
+    },
+    {
+      "name": "text_key",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "要操作的文本字段名",
+      "default": "text"
     }
   ],
   "output_params": [
@@ -95,6 +103,8 @@
     "--batch_size",
     "{batch_size}",
     "--num_proc",
-    "{num_proc}"
+    "{num_proc}",
+    "--text_key",
+    "{text_key}"
   ]
 }

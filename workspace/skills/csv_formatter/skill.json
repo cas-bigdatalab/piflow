@@ -43,6 +43,14 @@
       "required": false,
       "description": "并行处理的进程数",
       "default": 1
+    },
+    {
+      "name": "encoding",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "CSV文件编码格式",
+      "default": "utf-8"
     }
   ],
   "output_params": [
@@ -66,6 +74,8 @@
     "--add_suffix",
     "{add_suffix}",
     "--num_proc",
-    "{num_proc}"
+    "{num_proc}",
+    "--encoding",
+    "{encoding}"
   ]
 }

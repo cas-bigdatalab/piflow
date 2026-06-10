@@ -12,7 +12,8 @@ def run_token_num_filter(input_path: str, output_path: str,
                     hf_tokenizer: str = 'EleutherAI/pythia-6.9b-deduped',
                     min_num: int = 10,
                     max_num: int = sys.maxsize,
-                    num_proc: int = 1):
+                    num_proc: int = 1,
+                         text_key: str = "text"):
     """
     运行Token数量过滤算子
 
@@ -44,7 +45,8 @@ def run_token_num_filter(input_path: str, output_path: str,
     op = TokenNumFilter(
         hf_tokenizer=hf_tokenizer,
         min_num=min_num,
-        max_num=max_num
+        max_num=max_num,
+        text_key=text_key,
     )
 
     # 处理数据
@@ -53,13 +55,13 @@ def run_token_num_filter(input_path: str, output_path: str,
                                       column=[{}] * dataset.num_rows)
     dataset = dataset.map(op.compute_stats, num_proc=num_proc)
     dataset = dataset.filter(op.process, num_proc=num_proc)
-    dataset = dataset.select_columns(column_names=['text'])
 
     # 保存结果
     res_list = dataset.to_list()
     os.makedirs(os.path.dirname(output_path) or '.', exist_ok=True)
     with open(output_path, 'w', encoding='utf-8') as f:
         for item in res_list:
+            item.pop(Fields.stats, None)
             f.write(json.dumps(item, ensure_ascii=False) + '\n')
 
     print(f"处理完成: 输入 {len(ds_list)} 条 -> 输出 {len(res_list)} 条")
@@ -83,6 +85,8 @@ def main():
                         help='最大token数量 (默认: 不限制)')
     parser.add_argument('--num_proc', type=int, default=1,
                         help='并行进程数 (默认: 1)')
+    parser.add_argument('--text_key', type=str, default='text',
+                        help='要操作的文本字段名 (默认: text)')
 
     args = parser.parse_args()
 
@@ -92,7 +96,8 @@ def main():
         hf_tokenizer=args.hf_tokenizer,
         min_num=args.min_num,
         max_num=args.max_num,
-        num_proc=args.num_proc
+        num_proc=args.num_proc,
+        text_key=args.text_key,
     )
 
 

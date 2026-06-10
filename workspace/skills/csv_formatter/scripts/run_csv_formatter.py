@@ -9,7 +9,8 @@ def run_csv_formatter(input_path: str,
                       output_path: str,
                       text_keys: list = None,
                       add_suffix: bool = False,
-                      num_proc: int = 1):
+                      num_proc: int = 1,
+                      encoding: str = 'utf-8'):
     """
     运行CSV格式化算子
 
@@ -27,7 +28,8 @@ def run_csv_formatter(input_path: str,
     formatter = CsvFormatter(
         dataset_path=input_path,
         text_keys=text_keys,
-        add_suffix=add_suffix
+        add_suffix=add_suffix,
+        encoding=encoding
     )
 
     # 加载数据集
@@ -57,6 +59,8 @@ def main():
                         help='是否添加文件后缀信息')
     parser.add_argument('--num_proc', type=int, default=1,
                         help='并行进程数 (默认: 1)')
+    parser.add_argument('--encoding', type=str, default='utf-8',
+                        help='CSV文件编码 (默认: utf-8)')
 
     args = parser.parse_args()
 
@@ -65,7 +69,8 @@ def main():
         output_path=args.output_path,
         text_keys=args.text_keys,
         add_suffix=args.add_suffix,
-        num_proc=args.num_proc
+        num_proc=args.num_proc,
+        encoding=args.encoding
     )
 
 

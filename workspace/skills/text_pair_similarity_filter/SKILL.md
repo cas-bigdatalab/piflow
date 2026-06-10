@@ -54,6 +54,12 @@ input_params:
     default: 1
     description: 并行处理的进程数
 
+  - name: text_key
+    type: string
+    required: false
+    default: text
+    description: 要操作的文本字段名
+
 output_params:
   - name: output_path
     type: jsonl_file
@@ -117,6 +123,7 @@ python scripts/run_text_pair_similarity_filter.py \
 - `--text_key_second`: 第二个文本字段名（必填）
 - `--any_or_all`: 过滤策略，默认any
 - `--num_proc`: 并行进程数，默认1
+- `--text_key`: 要操作的文本字段名（默认text）
 
 ## 注意事项
 

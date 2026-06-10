@@ -4,6 +4,7 @@ import os
 
 from data_juicer.core.data import NestedDataset as Dataset
 from data_juicer.ops.filter.specified_field_filter import SpecifiedFieldFilter
+from data_juicer.utils.constant import Fields
 
 
 def run_specified_field_filter(input_path: str, output_path: str,
@@ -42,7 +43,10 @@ def run_specified_field_filter(input_path: str, output_path: str,
         target_value=target_value
     )
 
-    # 处理数据（不需要计算统计信息）
+    # 处理数据
+    if Fields.stats not in dataset.features:
+        dataset = dataset.add_column(name=Fields.stats,
+                                     column=[{}] * dataset.num_rows)
     dataset = dataset.map(op.compute_stats)
     dataset = dataset.filter(op.process, num_proc=num_proc)
 
@@ -51,6 +55,7 @@ def run_specified_field_filter(input_path: str, output_path: str,
     os.makedirs(os.path.dirname(output_path) or '.', exist_ok=True)
     with open(output_path, 'w', encoding='utf-8') as f:
         for item in res_list:
+            item.pop(Fields.stats, None)
             f.write(json.dumps(item, ensure_ascii=False) + '\n')
 
     print(f"处理完成: 输入 {len(ds_list)} 条 -> 输出 {len(res_list)} 条")

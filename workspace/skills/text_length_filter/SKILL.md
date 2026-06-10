@@ -41,6 +41,12 @@ input_params:
     required: false
     default: 1
     description: 并行处理的进程数
+  - name: text_key
+    type: string
+    required: false
+    default: text
+    description: 要操作的文本字段名
+
 
 output_params:
   - name: output_path
@@ -64,13 +70,14 @@ tag: 过滤与筛选
 | max_len | int | 否 | 2147483647 | 最大文本长度 |
 | batch_size | int | 否 | 1 | 批处理大小 |
 | num_proc | int | 否 | 1 | 并行处理的进程数 |
+| text_key | string | 否 | text | 要操作的文本字段名 |
 
 ## 输入数据格式
 
-输入文件应为 JSON 或 JSONL 格式，每行包含一个样本，样本需包含 `text` 字段：
+输入文件应为 JSON 或 JSONL 格式，每行包含一个样本，样本需包含 `text_key` 指定的字段（默认 `text`）：
 
 ```json
-{"text": "这是一段需要检测长度的文本内容"}
+{"<text_key>": "这是一段需要检测长度的文本内容"}
 ```
 
 ## 输出数据格式
@@ -97,6 +104,7 @@ python scripts/run_text_length_filter.py \
 - `--max_len`: 最大文本长度（默认不限制）
 - `--batch_size`: 批处理大小（默认1）
 - `--num_proc`: 并行进程数，默认1
+- `--text_key`: 要操作的文本字段名（默认text）
 
 ## 注意事项
 
