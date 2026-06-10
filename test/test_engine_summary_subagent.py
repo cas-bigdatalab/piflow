@@ -265,3 +265,192 @@ def test_summary_subagent_reuses_parent_thread_id_for_execution_context():
     assert captured["config"]["configurable"]["thread_id"] == "parent-thread-1"
     assert captured["config"]["configurable"]["user_id"] == "user-1"
     assert any(event.get("subagent_thread_id") == "summary-thread-xyz" for event in emitted)
+
+
+def test_run_falls_back_to_summary_text_when_handoff_agent_returns_marker_again():
+    seen_inputs = []
+
+    async def fake_astream(input_payload, config=None):  # noqa: ANN001
+        seen_inputs.append(input_payload)
+        yield {
+            "planner": {
+                "messages": [_make_ai_message(SUMMARY_ROUTE_MARKER)],
+            }
+        }
+
+    engine = AgentEngine(agent=SimpleNamespace(astream=fake_astream))
+    fake_workspace = MagicMock()
+    fake_workspace.detect_changed_downloadables.return_value = []
+
+    with patch.object(
+        engine,
+        "_prepare_request",
+        return_value=(
+            {
+                "messages": [
+                    {"role": "user", "content": "第一轮"},
+                    {"role": "assistant", "content": "第二轮"},
+                    {"role": "user", "content": "请总结对话"},
+                ]
+            },
+            fake_workspace,
+            {},
+        ),
+    ), patch.object(
+        engine,
+        "_run_summary_subagent",
+        new=AsyncMock(return_value=("这是 summary agent 的最终总结", {"total_tokens": 12})),
+    ), patch("runtime.engine.save_message") as fake_save_message:
+        result = asyncio.run(
+            engine.run(
+                "请总结对话",
+                thread_id="thread-3",
+                user_id="user-3",
+                request_id="req-3",
+            )
+        )
+
+    assert result == "这是 summary agent 的最终总结"
+    assert len(seen_inputs) == 2
+    fake_save_message.assert_called_once_with("user-3", "thread-3", "assistant", "这是 summary agent 的最终总结")
+
+
+def test_stream_chat_does_not_emit_or_finish_with_marker_after_handoff():
+    seen_inputs = []
+
+    async def fake_astream(input_payload, config=None, stream_mode=None):  # noqa: ANN001
+        seen_inputs.append(input_payload)
+        yield (
+            "messages",
+            (
+                _make_ai_message(SUMMARY_ROUTE_MARKER),
+                {"langgraph_node": "planner"},
+            ),
+        )
+
+    engine = AgentEngine(agent=SimpleNamespace(astream=fake_astream))
+    fake_workspace = MagicMock()
+    fake_workspace.detect_changed_downloadables.return_value = []
+
+    async def fake_summary_runner(**kwargs):
+        await kwargs["on_event"](
+            {
+                "type": "subagent_status",
+                "request_id": kwargs["request_id"],
+                "task_name": "conversation_summary",
+                "stage": "running",
+            }
+        )
+        return "这是 summary agent 的最终总结", {"total_tokens": 9}
+
+    async def collect_events():
+        items = []
+        async for event in engine.stream_chat(
+            "请总结对话",
+            thread_id="thread-4",
+            user_id="user-4",
+            request_id="req-4",
+        ):
+            items.append(event)
+        return items
+
+    with patch.object(
+        engine,
+        "_prepare_request",
+        return_value=(
+            {
+                "messages": [
+                    {"role": "user", "content": "A"},
+                    {"role": "assistant", "content": "B"},
+                    {"role": "user", "content": "请总结对话"},
+                ]
+            },
+            fake_workspace,
+            {},
+        ),
+    ), patch.object(
+        engine,
+        "_run_summary_subagent",
+        new=AsyncMock(side_effect=fake_summary_runner),
+    ), patch("runtime.engine.save_message"):
+        events = asyncio.run(collect_events())
+
+    message_deltas = [item for item in events if item["type"] == "message_delta"]
+    assert all(item["content"] != SUMMARY_ROUTE_MARKER for item in message_deltas)
+    assert events[-1]["type"] == "done"
+    assert events[-1]["content"] == "这是 summary agent 的最终总结"
+
+
+def test_stream_chat_suppresses_partial_route_marker_chunks_before_handoff():
+    seen_inputs = []
+
+    async def fake_astream(input_payload, config=None, stream_mode=None):  # noqa: ANN001
+        seen_inputs.append(input_payload)
+        if len(seen_inputs) == 1:
+            yield (
+                "messages",
+                (
+                    _make_ai_message("__ROUTE_TO_CONVERSATION_"),
+                    {"langgraph_node": "planner"},
+                ),
+            )
+            yield (
+                "messages",
+                (
+                    _make_ai_message("__ROUTE_TO_CONVERSATION_SUMMARY__"),
+                    {"langgraph_node": "planner"},
+                ),
+            )
+            return
+
+        yield (
+            "messages",
+            (
+                _make_ai_message(SUMMARY_ROUTE_MARKER),
+                {"langgraph_node": "planner"},
+            ),
+        )
+
+    engine = AgentEngine(agent=SimpleNamespace(astream=fake_astream))
+    fake_workspace = MagicMock()
+    fake_workspace.detect_changed_downloadables.return_value = []
+
+    async def fake_summary_runner(**kwargs):
+        return "这是 summary agent 的最终总结", {"total_tokens": 9}
+
+    async def collect_events():
+        items = []
+        async for event in engine.stream_chat(
+            "请总结对话",
+            thread_id="thread-5",
+            user_id="user-5",
+            request_id="req-5",
+        ):
+            items.append(event)
+        return items
+
+    with patch.object(
+        engine,
+        "_prepare_request",
+        return_value=(
+            {
+                "messages": [
+                    {"role": "user", "content": "A"},
+                    {"role": "assistant", "content": "B"},
+                    {"role": "user", "content": "请总结对话"},
+                ]
+            },
+            fake_workspace,
+            {},
+        ),
+    ), patch.object(
+        engine,
+        "_run_summary_subagent",
+        new=AsyncMock(side_effect=fake_summary_runner),
+    ), patch("runtime.engine.save_message"):
+        events = asyncio.run(collect_events())
+
+    message_deltas = [item["content"] for item in events if item["type"] == "message_delta"]
+    assert all("__ROUTE_TO_CONVERSATION_SUMMARY__" not in content for content in message_deltas)
+    assert all("__ROUTE_TO_CONVERSATION_" not in content for content in message_deltas)
+    assert events[-1]["content"] == "这是 summary agent 的最终总结"

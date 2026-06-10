@@ -21,6 +21,7 @@ from runtime.events import (
 )
 from runtime.subagent import (
     CONVERSATION_SUMMARY_TASK,
+    SUMMARY_ROUTE_MARKER,
     build_conversation_summary_system_prompt,
     build_transient_thread_id,
     is_summary_route_marker,
@@ -306,10 +307,29 @@ def _build_summary_handoff_message(summary_text: str) -> dict[str, str]:
         "content": (
             "Conversation summary reference for the current parent thread:\n"
             f"{summary_text}\n\n"
-            "Use this summary only as additional context for the current user request. "
-            "Answer as the main agent, and do not mention subagents, hidden routing, or internal handoff steps."
+            "The summary-routing step has already completed. "
+            "Do not output the summary route marker again. "
+            "Do not mention subagents, hidden routing, or internal handoff steps. "
+            "Use this summary as additional context and answer the user directly as the main agent."
         ),
     }
+
+
+def _resolve_handoff_final_answer(candidate_text: str, fallback_text: str) -> str:
+    if is_summary_route_marker(candidate_text):
+        return fallback_text
+    return candidate_text
+
+
+def _is_summary_route_prefix(candidate_text: str | None) -> bool:
+    if candidate_text is None:
+        return False
+
+    text = str(candidate_text).strip()
+    if not text:
+        return False
+
+    return SUMMARY_ROUTE_MARKER.startswith(text)
 
 
 class AgentEngine:
@@ -478,6 +498,9 @@ class AgentEngine:
 
     def _is_summary_route_response(self, content: Any) -> bool:
         return is_summary_route_marker(_message_content_text(content))
+
+    def _is_summary_route_stream_artifact(self, content: Any) -> bool:
+        return _is_summary_route_prefix(_message_content_text(content))
 
     def _build_summary_subagent_input(
         self,
@@ -929,6 +952,7 @@ class AgentEngine:
                 event_count,
             )
             final_answer, token_usage = _extract_final_response(events)
+            final_answer = _resolve_handoff_final_answer(final_answer, summary_text)
             if not token_usage:
                 token_usage = summary_token_usage
         save_message(user_id, thread_id, "assistant", final_answer)
@@ -1043,7 +1067,7 @@ class AgentEngine:
 
                 answer_piece = _message_content_text(getattr(message, "content", ""))
                 answer_delta, latest_answer = _merge_text_delta(latest_answer, answer_piece)
-                if answer_delta and not self._is_summary_route_response(latest_answer):
+                if answer_delta and not self._is_summary_route_stream_artifact(latest_answer):
                     yield {
                         "type": "message_delta",
                         "request_id": request_id,
@@ -1180,7 +1204,7 @@ class AgentEngine:
 
                     answer_piece = _message_content_text(getattr(message, "content", ""))
                     answer_delta, latest_answer = _merge_text_delta(latest_answer, answer_piece)
-                    if answer_delta:
+                    if answer_delta and not self._is_summary_route_stream_artifact(latest_answer):
                         yield {
                             "type": "message_delta",
                             "request_id": request_id,
@@ -1205,7 +1229,7 @@ class AgentEngine:
                     if update_token_usage and not token_usage:
                         token_usage = update_token_usage
 
-            final_answer = latest_answer
+            final_answer = _resolve_handoff_final_answer(latest_answer, summary_text)
             save_message(user_id, thread_id, "assistant", final_answer)
 
             latency = time.time() - start_total
