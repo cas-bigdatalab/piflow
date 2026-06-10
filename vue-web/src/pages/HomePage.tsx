@@ -116,9 +116,9 @@ function removeAllJson(text: string): string {
   
   let result = text;
   
-  // 首先移除特定的标记文本
-  result = result.replace(/我手动修改了任务流程[\s\S]*?不要执行。[\s\S]*?\n?/g, '').trim();
-  result = result.replace(/我手动修改了任务流程[\s\S]*?不要执行。/g, '').trim();
+  // 首先移除特定的标记文本  请根据任务流程重新生成dag JSON，不要执行
+  result = result.replace(/我手动修改了任务流程，请根据任务流程重新生成dag JSON[\s\S]*?不要执行。[\s\S]*?\n?/g, '').trim();
+  result = result.replace(/我手动修改了任务流程，请根据任务流程重新生成dag JSON[\s\S]*?不要执行。/g, '').trim();
   
   // 移除代码块格式的 JSON（包括 ```json ... ``` 和 ``` ... ```）
   result = result.replace(/```(json)?\s*[\s\S]*?```/g, '').trim();

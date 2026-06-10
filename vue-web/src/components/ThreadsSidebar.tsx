@@ -30,7 +30,9 @@ function Logo({ compact }: { compact?: boolean }) {
     </div>
   );
 }
-const DEFAULT_USER_ID = localStorage.getItem('userId');
+function getUserId() {
+  return localStorage.getItem('userId') || '';
+}
 
 function formatDate(value: string) {
   const date = new Date(value);
@@ -89,28 +91,33 @@ export function ThreadsSidebar() {
     [threads],
   );
 
-  // 页面加载时请求登录接口
+  // 页面加载时先登录，再请求会话列表
   useEffect(() => {
-    const login = async () => {
+    let cancelled = false;
+    const init = async () => {
       try {
         let params = { username: appConfig.username, password: appConfig.password };
         let loginRes = await getLogin(params);
         localStorage.setItem('token', loginRes.access_token);
         localStorage.setItem('userId', loginRes.user_id);
         console.log('登录了');
+        if (!cancelled) {
+          await refresh();
+        }
       } catch (error) {
         console.error('登录失败:', error);
       }
     };
     
-    login();
+    init();
+    return () => { cancelled = true; };
   }, []);
 
   async function refresh() {
     setLoading(true);
     setError("");
     try {
-      const response = await getThreads(DEFAULT_USER_ID);
+      const response = await getThreads(getUserId());
       setThreads(response.threads || []);
     } catch (err: any) {
       setError(String(err?.message || err));
@@ -127,9 +134,6 @@ export function ThreadsSidebar() {
     }
     setActiveMenuId(ids);
   }, [navigate]);
-  useEffect(() => {
-    refresh().catch(() => {});
-  }, []);
 
   useEffect(() => {
     const onNewChat = () => setSelectedThreadId("default");
@@ -283,7 +287,7 @@ export function ThreadsSidebar() {
                         type="button"
                         onClick={(event) => {
                           event.stopPropagation();
-                          deleteThread(DEFAULT_USER_ID, thread.thread_id)
+                          deleteThread(getUserId(), thread.thread_id)
                             .then(() => {
                               if (selectedThreadId === thread.thread_id) {
                                 setSelectedThreadId("default");
