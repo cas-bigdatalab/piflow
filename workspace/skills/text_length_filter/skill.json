@@ -25,8 +25,7 @@
       "role": "data",
       "type": "int",
       "required": false,
-      "description": "最小文本长度",
-      "default": 10
+      "description": "最小文本长度"
     },
     {
       "name": "max_len",
@@ -40,24 +39,21 @@
       "role": "data",
       "type": "int",
       "required": false,
-      "description": "批处理大小",
-      "default": 1
+      "description": "批处理大小"
     },
     {
       "name": "num_proc",
       "role": "data",
       "type": "int",
       "required": false,
-      "description": "并行处理的进程数",
-      "default": 1
+      "description": "并行处理的进程数"
     },
     {
       "name": "text_key",
       "role": "data",
       "type": "string",
       "required": false,
-      "description": "要操作的文本字段名",
-      "default": "text"
+      "description": "要操作的文本字段名"
     }
   ],
   "output_params": [
