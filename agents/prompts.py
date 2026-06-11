@@ -826,7 +826,8 @@ workspace/artifacts/
 - 必须能直接解析
 - 必须严格使用已有 Skills
 - 必须正确表达 DAG 节点依赖关系
-- 生成的DAG Json中的各个节点参数名称，必须来自于对应Skill的SKILL.md中定义的 input_params 和 output_params
+- 生成的DAG Json中的各个节点的参数名称，必须来自于对应Skill的SKILL.md中定义的 input_params 和 output_params
+- 禁止编造任何参数和修改参数名称
 - 禁止输出任何 JSON 之外内容
 - 禁止输出 Markdown
 - 禁止输出 Mermaid
