@@ -2,6 +2,8 @@ import { Icon } from "@iconify/react";
 import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { runDAGTask, saveDrawInfo, getDrawInfoBymegId, getAllSkills } from "../lib/api";
+import { generateUUID } from "../lib/ids";
+import { toast } from "./Toast";
 
 interface PipelineNode {
   node_name: string;
@@ -611,7 +613,7 @@ export default function PipelinePreview({ data, threadId, onOpenCanvas, messageI
                 
                 // 生成 binding
                 generatedBindings.push({
-                  binding_id: crypto.randomUUID(),
+                  binding_id: generateUUID(),
                   from_node_id: sourceNodeId,
                   from_param_name: sourceParamName,
                   to_node_id: node.node_id,
@@ -675,16 +677,16 @@ export default function PipelinePreview({ data, threadId, onOpenCanvas, messageI
       console.log('运行 DAG 返回结果:', response);
       if (response.code === 200 && response.result) {
         const processId = response.result.process_id;
-        alert(`任务已提交运行，请前往【运行历史】查看执行状态。执行实例ID：${processId}`);
+        toast.success(`任务已提交运行，请前往【运行历史】查看执行状态。执行实例ID：${processId}`);
         return;
       } else {
         console.error('运行 DAG 失败:', response.message);
-        alert('运行失败: ' + (response.message || '未知错误'));
+        toast.error('运行失败: ' + (response.message || '未知错误'));
         return;
       }
     } catch (error) {
       console.error('操作失败:', error);
-      alert('操作失败: ' + (error instanceof Error ? error.message : '未知错误'));
+      toast.error('操作失败: ' + (error instanceof Error ? error.message : '未知错误'));
       return;
     }
   };

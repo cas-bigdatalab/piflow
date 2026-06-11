@@ -2455,9 +2455,9 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
       const params = {
         dsl_version: "1.0",
         task: {
-          dag_task_id: taskId || '',  // 使用保存后返回的task_id
-          dag_task_name: '科研数据清洗与排序',
-          description: '',
+          dag_task_id: taskId || '',
+          dag_task_name: taskName,
+          description: taskDescription,
           message_id: messageId || ''
         },
         nodes: nodesToSave,
@@ -2591,8 +2591,8 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
               dsl_version: "1.0",
               task: {
                 dag_task_id: taskId || '',
-                dag_task_name: '科研数据清洗与排序',
-                description: '',
+                dag_task_name: taskName,
+                description: taskDescription,
                 message_id: messageId || ''
               },
               nodes: nodes
@@ -2642,7 +2642,7 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
             }));
             onClose();
           }}>
-            <X size={18} />
+            同步并返回对话
           </button>
         </div>
       </div>
