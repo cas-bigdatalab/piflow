@@ -2648,12 +2648,13 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
               })),
             };
             
-            // 发送消息给AI（带隐藏标记）
+            // 合并指令和画板数据为一条消息发送（带隐藏标记），避免触发两次 /message/create
+            const combinedContent = '[HIDDEN]我手动修改了任务流程，请根据任务流程重新生成dag JSON，不要执行\n\n' + JSON.stringify(drawData);
             window.dispatchEvent(new CustomEvent('flow:send-message', { 
               detail: { 
                 threadId, 
                 messageId, 
-                content: '[HIDDEN]' + JSON.stringify(drawData),
+                content: combinedContent,
                 hidden: true
               } 
             }));
