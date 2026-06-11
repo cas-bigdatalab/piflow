@@ -31,14 +31,6 @@ BASE_PROMPT_NEW = """
 - 而不是 Runtime DAG
 - 也不是前端画板 JSON
 
-系统会基于你生成的 DAG JSON：
-- 自动生成 node_id
-- 自动生成 edge_id
-- 自动生成 binding_id
-- 自动生成 skill_id
-- 自动进行画板布局
-- 自动转换为 Runtime DSL
-
 ---
 
 # 二、核心执行规则
@@ -47,7 +39,7 @@ BASE_PROMPT_NEW = """
 
 1. 所有结论必须基于：
 - 用户输入
-- Skills 元数据
+- Skills 的SKILL.md以及SKILL.md的元数据
 - 系统提供的信息
 
 禁止凭空编造。
@@ -59,6 +51,7 @@ BASE_PROMPT_NEW = """
 - 禁止虚构 Skill
 - 禁止修改已有 Skill 名称
 - skill_name 必须严格来自系统提供的 Skills
+- 生成的DAG Json中参数名称 必须严格来自系统提供的 Skills的SKILL.md中的 input_params 和 output_params 中的参数名称
 
 4. 禁止重复实现已有功能
 如果已有 Skill 能完成任务：
@@ -311,7 +304,7 @@ Runtime 数据流组织。
 
 3. 正确规划节点顺序
 
-4. 节点中出现的参数名称必须严格来自 SKILL.md 中的 元数据部分的 input_params 和 output_params对应参数名称
+4. 节点中出现的任何输入、输出参数名称必须严格来自 SKILL.md 中的 元数据部分的 input_params 和 output_params中对应参数名称
 
 5. 正确建立参数依赖关系
 
@@ -620,7 +613,7 @@ DAG 节点数组。
 类型：
 Object
 
-key 为参数名称。
+key 为参数名称,key必须来自所属skill的SKILL.md元数据的input_params中对应的参数名称。
 
 value 支持两种形式：
 
@@ -833,14 +826,15 @@ workspace/artifacts/
 - 必须能直接解析
 - 必须严格使用已有 Skills
 - 必须正确表达 DAG 节点依赖关系
+- 生成的DAG Json中的各个节点参数名称，必须来自于对应Skill的SKILL.md中定义的 input_params 和 output_params
 - 禁止输出任何 JSON 之外内容
 - 禁止输出 Markdown
 - 禁止输出 Mermaid
 - 禁止输出解释说明
-- DAG 的起始节点必须是 tag=输入类型节点，每个独立输入资源必须对应一个 `source_stop` 节点
-- DAG 的终止节点必须是 tag=输出类型节点，每个输出文件必须对应一个 `sink_stop` 节点
-- 所有中间节点的输入参数，必须引用其上游节点的输出；如果某个输入没有上游节点提供，则必须补充 source 节点作为该输入来源
-- 所有中间节点的输出结果，必须被下游节点的输入参数引用；如果某个输出没有下游节点消费，则必须补充 sink 节点作为该输出去向
+- DAG 的起始节点必须是 tag=输入类型节点，每个独立输入资源必须对应一个 输入类型节点 节点
+- DAG 的终止节点必须是 tag=输出类型节点，每个输出文件必须对应一个 输出类型节点 节点
+- 所有中间节点的输入参数，必须引用其上游节点的输出；如果某个输入没有上游节点提供，则必须补充 输入类型 节点作为该输入来源
+- 所有中间节点的输出结果，必须被下游节点的输入参数引用；如果某个输出没有下游节点消费，则必须补充 输出类型 节点作为该输出去向
 - 对于节点的输出参数，value 可以使用空字符串 `""` 作为占位；输出参数的关键在于参数名本身必须存在，并能被下游通过 `source_param` 正确引用
 - 生成 DAG JSON 时，不要为输出参数编造真实值；输出参数主要用于声明可引用的输出槽位
 - 只要某个输出参数会被下游引用，该输出参数键必须出现在上游节点的 params 中，即使其值只是空字符串 `""`
