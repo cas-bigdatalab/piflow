@@ -32,3 +32,4 @@ datasets~=4.6.1
 passlib[bcrypt]~=1.7.4
 pyjwt~=2.11.0
 bcrypt==4.0.1
+minio~=7.2.7
