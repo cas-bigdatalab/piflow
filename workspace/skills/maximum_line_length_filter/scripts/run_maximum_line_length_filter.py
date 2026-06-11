@@ -23,6 +23,7 @@ def run_max_line_length_filter(input_path: str, output_path: str,
     :param max_len: 最大行长度
     :param batch_size: 批处理大小
     :param num_proc: 并行进程数
+    :param text_key: 要操作的文本字段名
     """
     # 读取输入数据
     if input_path.endswith('.jsonl'):
