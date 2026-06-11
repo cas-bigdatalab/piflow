@@ -884,6 +884,11 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
   // 键盘Delete键删除选中节点
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      const tagName = target.tagName;
+      if (tagName === 'INPUT' || tagName === 'TEXTAREA' || tagName === 'SELECT' || target.isContentEditable) {
+        return;
+      }
       if ((e.key === 'Delete' || e.key === 'Backspace') && selectedNodeId) {
         e.preventDefault();
         setShowDeleteModal(true);
@@ -1144,7 +1149,8 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
                     param_type: "String",
                     value_mode: "manual",
                     param_value: "",
-                    value_source: "local_file"
+                    value_source: "local_file",
+                    required: true
                   }
                 ]
               };
@@ -1168,7 +1174,8 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
                     param_type: "String",
                     value_mode: "manual",
                     param_value: "",
-                    value_source: "local_file"
+                    value_source: "local_file",
+                    required: true
                   },
                   {
                     name: "path",
@@ -1177,7 +1184,8 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
                     param_type: "String",
                     value_mode: "manual",
                     param_value: "",
-                    value_source: "local_file"
+                    value_source: "local_file",
+                    required: true
                   },
                   {
                     name: "overwrite",
@@ -1186,7 +1194,8 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
                     param_type: "Boolean",
                     value_mode: "manual",
                     param_value: true,
-                    value_source: "local_file"
+                    value_source: "local_file",
+                    required: true
                   }
                 ]
               };
@@ -1194,15 +1203,47 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
               outputParams = { params: [] };
             }
           } else {
-            // 普通算子，有 savedDrawData 时不请求接口，直接使用已保存数据
-            console.log(`节点 ${i}: 普通算子，使用已保存数据，不请求接口`);
-            
-            // 如果 savedDrawData 中有 input_params，直接使用
-            if (hasSavedInputParams) {
-              inputParams = { params: n.input_params };
-              console.log(`节点 ${i}: 从 savedDrawData 读取 inputParams:`, inputParams);
+            // 普通算子：先请求接口获取参数模板（含 required 字段）
+            if (skillId) {
+              try {
+                const skillRes = await listSkillsDetails(skillId);
+                if (skillRes.result) {
+                  inputParams = skillRes.result.input_params;
+                  outputParams = skillRes.result.output_params || outputParams;
+                  nodeIconPath = skillRes.result.icon_path || nodeIconPath;
+                  console.log(`节点 ${i}: 从 listSkillsDetails 获取参数模板:`, inputParams);
+                }
+              } catch (error) {
+                console.error(`节点 ${i}: 获取算子详情失败:`, error);
+              }
             }
-            // 如果 savedDrawData 中有 icon_path，直接使用
+            
+            // 检查是否有 required 字段，没有的话再用 getAllSkills 获取
+            const hasRequiredField = inputParams?.params?.some((p: any) => p.required !== undefined);
+            if (!hasRequiredField) {
+              try {
+                const nodeName = n.node_name || n.skill?.skill_name || '';
+                const listRes = await getAllSkills(nodeName);
+                if (listRes.result?.data && listRes.result.data.length > 0) {
+                  const skillData = listRes.result.data[0].DagSkillInfoList?.find((s: any) =>
+                    s.skill_id === skillId || s.skill_name === nodeName
+                  ) || listRes.result.data[0].DagSkillInfoList[0];
+                  if (skillData?.input_params?.params?.some((p: any) => p.required !== undefined)) {
+                    inputParams = skillData.input_params;
+                    outputParams = skillData.output_params || outputParams;
+                    nodeIconPath = skillData.icon_path || nodeIconPath;
+                    console.log(`节点 ${i}: 从 getAllSkills 获取参数模板 (含 required):`, inputParams);
+                  }
+                }
+              } catch (e) { console.error(`节点 ${i}: getAllSkills 失败:`, e); }
+            }
+            
+            // 如果 API 都没返回，回退使用已保存数据
+            if (!inputParams?.params && hasSavedInputParams) {
+              inputParams = { params: n.input_params };
+              console.log(`节点 ${i}: 回退使用 savedDrawData 的 inputParams:`, inputParams);
+            }
+            // 如果 savedDrawData 中有 icon_path，优先使用
             if (hasSavedIconPath) {
               nodeIconPath = n.icon_path;
             }
@@ -2277,6 +2318,25 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
         console.error('获取算子详情失败:', error);
       }
       
+      // 检查是否有 required 字段，没有的话用 getAllSkills 回退
+      const hasRequiredField = inputParams?.params?.some((p: any) => p.required !== undefined);
+      if (!hasRequiredField) {
+        try {
+          const listRes = await getAllSkills(operator.skill_name);
+          if (listRes.result?.data && listRes.result.data.length > 0) {
+            const skillData = listRes.result.data[0].DagSkillInfoList?.find((s: any) =>
+              s.skill_id === operator.skill_id || s.skill_name === operator.skill_name
+            ) || listRes.result.data[0].DagSkillInfoList[0];
+            if (skillData?.input_params?.params?.some((p: any) => p.required !== undefined)) {
+              inputParams = skillData.input_params;
+              outputParams = skillData.output_params || outputParams;
+              operatorIconPath = skillData.icon_path || operatorIconPath;
+              console.log('handleAddNode: 使用 getAllSkills 参数模板 (含 required):', inputParams);
+            }
+          }
+        } catch (e) { console.error('handleAddNode: getAllSkills 失败:', e); }
+      }
+      
       // 计算新节点的位置
       let newPosition = position;
       if (!newPosition) {
@@ -2504,24 +2564,30 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
                 x: n.position.x,
                 y: n.position.y,
               },
-              input_params: n.data.input_params?.params?.map(p => {
-                const isReference = p._refType === 'reference';
-                const savedValue = isReference ? (p._refValue || '') : (p._value || '');
-                console.log('保存参数:', {
-                  param_name: p.name,
-                  _refType: p._refType,
-                  _refValue: p._refValue,
-                  _value: p._value,
-                  isReference,
-                  savedValue
-                });
-                return {
-                  param_name: p.name,
-                  param_value: savedValue,
-                  value_mode: isReference ? 'reference' : 'manual',
-                  binding_id: isReference ? generateUUID() : '',
-                };
-              }) || [],
+              input_params: (n.data.input_params?.params || [])
+                .filter(p => {
+                  if (p._refType === 'reference') return true;
+                  const val = p._value || p.param_value || '';
+                  return val.trim() !== '';
+                })
+                .map(p => {
+                  const isReference = p._refType === 'reference';
+                  const savedValue = isReference ? (p._refValue || '') : (p._value || '');
+                  console.log('保存参数:', {
+                    param_name: p.name,
+                    _refType: p._refType,
+                    _refValue: p._refValue,
+                    _value: p._value,
+                    isReference,
+                    savedValue
+                  });
+                  return {
+                    param_name: p.name,
+                    param_value: savedValue,
+                    value_mode: isReference ? 'reference' : 'manual',
+                    binding_id: isReference ? generateUUID() : '',
+                  };
+                }),
               out_params: n.data.output_params?.params?.map(p => ({
                 param_name: p.name || p.param_name || '',
                 param_type: p.type || p.param_type || 'string',
@@ -2662,6 +2728,22 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
             <span>导出JSON</span>
           </button> */}
           <button className="sync-back-btn" onClick={() => {
+            // 校验必填参数
+            for (const n of nodes) {
+              if (n.type === 'comment') continue;
+              const params = n.data.input_params?.params || [];
+              console.log('params',params)
+              for (const p of params) {
+                if (p.required) {
+                  const val = p._value || p.param_value || p._refValue || p.value || '';
+                  if (!val.trim()) {
+                    alert(`节点「${n.data.label}」的必填参数「${p.name}」未填写，请完善后再同步`);
+                    return;
+                  }
+                }
+              }
+            }
+
             // 构造完整的画板JSON数据
             const drawData = {
               dsl_version: "1.0",
@@ -2686,15 +2768,21 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
                     x: n.position.x,
                     y: n.position.y,
                   },
-                  input_params: n.data.input_params?.params?.map(p => {
-                    const isReference = p._refType === 'reference';
-                    return {
-                      param_name: p.name,
-                      param_value: isReference ? '' : (p._value || ''),
-                      value_mode: isReference ? 'reference' : 'manual',
-                      binding_id: isReference ? generateUUID() : '',
-                    };
-                  }) || [],
+                  input_params: (n.data.input_params?.params || [])
+                    .filter(p => {
+                      if (p._refType === 'reference') return true;
+                      const val = p._value || p.param_value || '';
+                      return val.trim() !== '';
+                    })
+                    .map(p => {
+                      const isReference = p._refType === 'reference';
+                      return {
+                        param_name: p.name,
+                        param_value: isReference ? '' : (p._value || ''),
+                        value_mode: isReference ? 'reference' : 'manual',
+                        binding_id: isReference ? generateUUID() : '',
+                      };
+                    }),
                   out_params: n.data.output_params?.params?.map(p => ({
                     param_name: p.name || p.param_name || '',
                     param_type: p.type || p.param_type || 'string',
@@ -2875,7 +2963,10 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
                           {selectedNode.data.input_params.params.map((param: any, index: number) => (
                             <tr key={`input-${index}`}>
                               <td className="col-param-name">
-                                <span className="param-name-text">{param.name}</span>
+                                <span className="param-name-text">
+                                  {param.required && <span className="required-asterisk">*</span>}
+                                  {param.name}
+                                </span>
                               </td>
                               <td className="col-ref">
                                 <select
@@ -2890,7 +2981,7 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
                                     newParams[index] = {
                                       ...newParams[index],
                                       _refType: newRefType,
-                                      _value: newRefType === 'reference' ? '' : (param._value || param.param_value || ''),
+                                      _value: newRefType === 'reference' ? '' : (param._value || param.param_value || param._refValue || ''),
                                       _refValue: isChangingToReference ? (referenceOptions.length > 0 ? referenceOptions[0].name : '') : (newRefType === 'reference' ? param._refValue || '' : '')
                                     };
 

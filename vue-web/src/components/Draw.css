@@ -1617,3 +1617,10 @@ select:focus {
   border-bottom: 1px solid #e8e8e8;
   padding-bottom: 4px;
 }
+
+/* 必填参数红色星号 */
+.required-asterisk {
+  color: #ff4d4f;
+  margin-right: 2px;
+  font-weight: bold;
+}
