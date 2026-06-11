@@ -1,11 +1,11 @@
 ---
 name: text_length_filter
 description: |
-  文本长度过滤器。过滤以保持文本总长度在特定范围内的样本。
+  文本长度过滤器。过滤以保持文本总长度在特定范围内的样本,也支持针对特定字段长度进行过滤。
   本SKILL使用依赖data_juicer，请在调用前安装好python环境并安装data_juicer，你可用以下指令进行安装：
   pip install py-data-juicer
   
-  当用户提到文本长度过滤、文本字数筛选、按文本长度过滤、按字数过滤等需求时使用此skill。
+  当用户提到文本长度过滤、文本字数筛选、按文本长度过滤、按字数过滤、按特定字段长度过滤等需求时使用此skill。
 
 name_zh: 文本长度过滤器算子
 input_params:
