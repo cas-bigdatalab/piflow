@@ -245,6 +245,8 @@ Runtime 数据流组织。
 - 最合理 DAG
 - 最少节点 DAG
 
+7. Skills中的参数名称必须严格来自 SKILL.md 中的 元数据部分的 input_params 和 output_params
+
 避免：
 - 重复节点
 - 无意义节点
