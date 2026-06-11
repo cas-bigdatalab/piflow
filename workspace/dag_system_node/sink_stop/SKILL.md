@@ -18,6 +18,7 @@ input_params:
     description: 是否允许覆盖已有文件
 output_params: []
 tag: 输出
+node_category: system
 ---
 
 # sink_stop

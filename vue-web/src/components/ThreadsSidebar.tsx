@@ -91,21 +91,30 @@ export function ThreadsSidebar() {
     [threads],
   );
 
-  // 页面加载时先登录，再请求会话列表
+  // 页面加载时先判断URL是否有传参token和userId，有则保存到本地，否则请求登录接口
   useEffect(() => {
     let cancelled = false;
     const init = async () => {
-      try {
-        let params = { username: appConfig.username, password: appConfig.password };
-        let loginRes = await getLogin(params);
-        localStorage.setItem('token', loginRes.access_token);
-        localStorage.setItem('userId', loginRes.user_id);
-        console.log('登录了');
-        if (!cancelled) {
-          await refresh();
+      const params = new URLSearchParams(window.location.search);
+      const urlToken = params.get('token');
+      const urlUserId = params.get('userId');
+      if (urlToken && urlUserId) {
+        localStorage.setItem('token', urlToken);
+        localStorage.setItem('userId', urlUserId);
+        console.log('从URL参数获取token和userId');
+      } else {
+        try {
+          let loginParams = { username: appConfig.username, password: appConfig.password };
+          let loginRes = await getLogin(loginParams);
+          localStorage.setItem('token', loginRes.access_token);
+          localStorage.setItem('userId', loginRes.user_id);
+          console.log('登录了');
+        } catch (error) {
+          console.error('登录失败:', error);
         }
-      } catch (error) {
-        console.error('登录失败:', error);
+      }
+      if (!cancelled) {
+        await refresh();
       }
     };
     
