@@ -1,4 +1,4 @@
-import React, { useCallback, useState, useRef, memo, useEffect, useMemo } from 'react';
+﻿import React, { useCallback, useState, useRef, memo, useEffect, useMemo } from 'react';
 import { shortId, generateUUID } from '../lib/ids';
 import { saveDrawInfo, getAllSkills, listSkillsDetails, getDrawTaskContent, apiBase } from "../lib/api";
 
@@ -73,6 +73,8 @@ interface NodeData {
   label: string;
   icon: string;
   operatorId: string;
+  operatorName?: string;
+  operatorType?: string;
   description?: string;
   params?: Record<string, any>;
   inputVar?: string;
@@ -232,12 +234,17 @@ const CustomNode: React.FC<NodeProps<NodeData>> = ({ id, data, selected }) => {
               className="node-icon-small"
             />
           </div>
-          <span
-            className="node-title-text"
-            onClick={(e) => { e.stopPropagation(); data.onSelect?.(id); }}
-          >
-            {data.label}
-          </span>
+          <div className="node-title-wrapper">
+            <span
+              className="node-title-text"
+              onClick={(e) => { e.stopPropagation(); data.onSelect?.(id); }}
+            >
+              {data.label}
+            </span>
+            {data.operatorName && (
+              <span className="node-operator-info">{data.operatorName}{data.operatorType ? ` | ${data.operatorType}` : ''}</span>
+            )}
+          </div>
         </div>
         <div className="node-header-right">
           <button className="node-delete-btn" onClick={handleDeleteClick} title="删除节点">
@@ -988,6 +995,8 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
                 label: n.node_name || n.skill?.skill_name || '未命名节点',
                 icon: n.icon_path || skillIconPath || '',
                 operatorId: skillId || '',
+                operatorName: n.skill?.skill_name || '',
+                operatorType: n.skill?.skill_type || '',
                 description: '',
                 params: {},
                 inputVar: 'input_data',
@@ -1380,6 +1389,8 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
           label: uniqueLabel,
           icon: operatorIconPath,
           operatorId: operator.skill_id,
+          operatorName: operator.skill_name || '',
+          operatorType: operator.skill_type || '',
           description: operator.description || getOperatorDescription(operator.skill_id),
           params: getDefaultParams(operator.skill_id),
           inputVar: 'input_data',
