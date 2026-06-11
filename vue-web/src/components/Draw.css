@@ -196,6 +196,51 @@
   color: #333;
 }
 
+.sync-back-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 120px;
+  padding: 8px 16px;
+  margin-left: 12px;
+  background: #059669;
+  color: #ffffff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.sync-back-btn:hover {
+  background: #047857;
+}
+
+.only-back-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100px;
+  padding: 8px 16px;
+  margin-left: 12px;
+  background: #ffffff;
+  color: #666666;
+  border: 1px solid #e8e8e8;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.only-back-btn:hover {
+  background: #f5f5f5;
+  border-color: #d0d0d0;
+}
+
 /* ==================== Main Content 样式 ==================== */
 
 .flow-content {

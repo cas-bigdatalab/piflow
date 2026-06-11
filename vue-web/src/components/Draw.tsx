@@ -2455,9 +2455,9 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
       const params = {
         dsl_version: "1.0",
         task: {
-          dag_task_id: taskId || '',  // 使用保存后返回的task_id
-          dag_task_name: '科研数据清洗与排序',
-          description: '',
+          dag_task_id: taskId || '',
+          dag_task_name: taskName,
+          description: taskDescription,
           message_id: messageId || ''
         },
         nodes: nodesToSave,
@@ -2585,14 +2585,14 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
             <Download size={16} />
             <span>导出JSON</span>
           </button> */}
-          <button className="close-btn" onClick={() => {
+          <button className="sync-back-btn" onClick={() => {
             // 构造完整的画板JSON数据
             const drawData = {
               dsl_version: "1.0",
               task: {
                 dag_task_id: taskId || '',
-                dag_task_name: '科研数据清洗与排序',
-                description: '',
+                dag_task_name: taskName,
+                description: taskDescription,
                 message_id: messageId || ''
               },
               nodes: nodes
@@ -2642,7 +2642,14 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
             }));
             onClose();
           }}>
-            <X size={18} />
+            同步并返回对话
+          </button>
+          <button className="only-back-btn" onClick={() => {
+            setNodes([]);
+            setEdges([]);
+            onClose();
+          }}>
+            仅返回对话
           </button>
         </div>
       </div>
