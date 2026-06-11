@@ -1,4 +1,4 @@
-import { Icon } from "@iconify/react";
+﻿import { Icon } from "@iconify/react";
 import { type DragEvent, useEffect, useRef, useState } from "react";
 import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 import {
@@ -200,14 +200,14 @@ function svgToDataUri(svg: string) {
 
 const EXAMPLES: ExampleCard[] = [
   {
-    title: "数据清洗与排序",
-    description: "「请对上传数据分别进行空行清洗、空格清洗，并根据fa0116字段进行升序排序。」",
+    title: "语料格式转换与过滤",
+    description: "「请对上传数据csv文件转换为jsonl格式，再对这个jsonl的'fa0114'字段进行最大长度过滤，要求最大长度在40以内；再对'fa0112'字段筛选过滤出包含'多花山矾'的数据」",
     prompt:
-      "请对上传数据分别进行空行清洗、空格清洗，并根据fa0116字段进行升序排序。",
+      "请对上传数据csv文件转换为jsonl格式，再对这个jsonl的'fa0114'字段进行最大长度过滤，要求最大长度在40以内；再对'fa0112'字段筛选过滤出包含'多花山矾'的数据",
     attachments: [
       {
-        path: "/temp/森林每木调查数据-blank-line-space.csv",
-        name: "森林每木调查数据-blank-line-space.csv",
+        path: "/temp/森林每木调查数据.csv",
+        name: "森林每木调查数据.csv",
       },
     ],
     image: svgToDataUri(`
