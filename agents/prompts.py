@@ -311,16 +311,18 @@ Runtime 数据流组织。
 
 3. 正确规划节点顺序
 
-4. 正确建立参数依赖关系
+4. 节点中出现的参数名称必须严格来自 SKILL.md 中的 元数据部分的 input_params 和 output_params对应参数名称
 
-5. 保证 DAG 无循环依赖
+5. 正确建立参数依赖关系
 
-6. 尽量生成：
+6. 保证 DAG 无循环依赖
+
+7. 尽量生成：
 - 最简洁 DAG
 - 最合理 DAG
 - 最少节点 DAG
 
-7. Skills中的参数名称必须严格来自 SKILL.md 中的 元数据部分的 input_params 和 output_params
+
 
 避免：
 - 重复节点
@@ -358,7 +360,7 @@ input_params 表示：
 生成 DAG JSON 时：
 
 params 中的参数名称：
-必须来自当前 Skill 的 input_params。
+必须来自当前 Skill 的 input_params的参数名称。
 
 禁止：
 
