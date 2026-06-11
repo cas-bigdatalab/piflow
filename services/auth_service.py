@@ -33,4 +33,5 @@ def login(username: str, password: str):
         "access_token": token,
         "token_type": "bearer",
         "user_id": user["user_id"],
+        "user_name": user["username"],
     }
