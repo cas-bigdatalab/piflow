@@ -1,6 +1,6 @@
 import React, { useCallback, useState, useRef, memo, useEffect, useMemo } from 'react';
 import { shortId } from '../lib/ids';
-import { saveDrawInfo, getAllSkills, listSkillsDetails, createMessage, streamChat,getDrawInfoBymegId, apiBase } from "../lib/api";
+import { saveDrawInfo, getAllSkills, listSkillsDetails, createMessage, streamChat, apiBase } from "../lib/api";
 
 const DEFAULT_SKILL_ICON = "/storage/common/common.png";
 
@@ -72,6 +72,8 @@ interface NodeData {
   label: string;
   icon: string;
   operatorId: string;
+  operatorName?: string;
+  operatorType?: string;
   description?: string;
   params?: Record<string, any>;
   inputVar?: string;
@@ -166,6 +168,7 @@ const generateUUID = () => {
   });
 };
 
+
 // 算子分类数据（从后端接口获取后赋值）
 let operatorCategories: {
   groupName: string;
@@ -240,12 +243,17 @@ const CustomNode: React.FC<NodeProps<NodeData>> = ({ id, data, selected }) => {
               className="node-icon-small"
             />
           </div>
-          <span
-            className="node-title-text"
-            onClick={(e) => { e.stopPropagation(); data.onSelect?.(id); }}
-          >
-            {data.label}
-          </span>
+          <div className="node-title-wrapper">
+            <span
+              className="node-title-text"
+              onClick={(e) => { e.stopPropagation(); data.onSelect?.(id); }}
+            >
+              {data.label}
+            </span>
+            {data.operatorName && (
+              <span className="node-operator-info">{data.operatorName}{data.operatorType ? ` | ${data.operatorType}` : ''}</span>
+            )}
+          </div>
         </div>
         <div className="node-header-right">
           <button className="node-delete-btn" onClick={handleDeleteClick} title="删除节点">
@@ -515,6 +523,8 @@ const defaultNodes: Node<NodeData>[] = [
       label: '文件上传',
       icon: 'Upload',
       operatorId: 'file-upload',
+      operatorName: 'file-upload',
+      operatorType: 'input',
       description: 'CSV文件',
       params: {
         filePath: '/data/input.csv',
@@ -532,6 +542,8 @@ const defaultNodes: Node<NodeData>[] = [
       label: '空行清理',
       icon: 'Eraser',
       operatorId: 'empty-clean',
+      operatorName: 'empty-clean',
+      operatorType: 'process',
       description: '移除空行',
       params: {
         cleanMode: 'all',
@@ -548,6 +560,8 @@ const defaultNodes: Node<NodeData>[] = [
       label: '空格清理',
       icon: 'Type',
       operatorId: 'space-clean',
+      operatorName: 'space-clean',
+      operatorType: 'process',
       description: '移除多余空格',
       params: {
         spaceMode: 'trim',
@@ -564,6 +578,8 @@ const defaultNodes: Node<NodeData>[] = [
       label: '年份排序',
       icon: 'Calendar',
       operatorId: 'year-sort',
+      operatorName: 'year-sort',
+      operatorType: 'process',
       description: '按年份升序',
       params: {
         sortField: 'year',
@@ -894,35 +910,16 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
     }
   }, [messageIdProp]);
 
-  // 获取任务名称和描述
+  // 获取任务名称和描述（从 props 中提取，无需再调用接口）
   useEffect(() => {
-    if (messageId) {
-      getDrawInfoBymegId(messageId).then(response => {
-        if (response && response.result) {
-          const result = response.result as any;
-          if (result && result.task) {
-            setTaskName(result.task.dag_task_name || '');
-            setTaskDescription(result.task.description || '');
-          }
-        } else {
-          // 如果接口返回 null，从 initialPipelineData 中提取
-          if (initialPipelineData && initialPipelineData.task) {
-            setTaskName(initialPipelineData.task.name || initialPipelineData.task.dag_task_name || '');
-            setTaskDescription(initialPipelineData.task.description || '');
-          }
-        }
-      }).catch(() => {
-        // 如果接口调用失败，从 initialPipelineData 中提取
-        if (initialPipelineData && initialPipelineData.task) {
-          setTaskName(initialPipelineData.task.name || initialPipelineData.task.dag_task_name || '');
-          setTaskDescription(initialPipelineData.task.description || '');
-        }
-      });
-    } else if (initialPipelineData && initialPipelineData.task) {
+    if (savedDrawData?.task) {
+      setTaskName(savedDrawData.task.dag_task_name || '');
+      setTaskDescription(savedDrawData.task.description || '');
+    } else if (initialPipelineData?.task) {
       setTaskName(initialPipelineData.task.name || initialPipelineData.task.dag_task_name || '');
       setTaskDescription(initialPipelineData.task.description || '');
     }
-  }, [messageId, initialPipelineData]);
+  }, [savedDrawData, initialPipelineData]);
 
   const [isEditingNodeName, setIsEditingNodeName] = useState(false);
   const [editingNodeName, setEditingNodeName] = useState('');
@@ -1275,6 +1272,9 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
             };
           }
 
+          const operatorName = n.skill?.skill_name || '';
+          const operatorType = n.skill?.skill_type || n.skill_type || '';
+
           loadedNodes.push({
             id: nodeId,
             type: 'custom',
@@ -1283,6 +1283,8 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
               label: n.node_name || '未命名节点',
               icon: nodeIconPath,
               operatorId: skillId || '',
+              operatorName,
+              operatorType,
               description: '',
               params: {},
               inputVar: 'input_data',
@@ -1507,6 +1509,8 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
         let skillId = pNode.skill_id || '';
         const skillName = pNode.skill_name;
         let nodeName = pNode.node_name || '未命名节点';
+        let nodeNameForOperator = pNode.skill_name || '';
+        let nodeTypeForOperator = '';
         
         // 获取算子详情信息
         let inputParams = undefined;
@@ -1526,6 +1530,8 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
         // 对于 source_stop 和 sink_stop 特殊算子，使用fixArr中定义的参数结构，然后填入值
         if (skillName === 'source_stop') {
           skillId = 'cn.piflow.engine.local.source_file_stop.SourceFileStop';
+          nodeNameForOperator = 'SourceFileStop';
+          nodeTypeForOperator = 'input';
           
           // source_stop的输入参数只有file_path
           const sourceStopInputParams = [
@@ -1593,6 +1599,8 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
           console.log(`节点 ${nodeName}: source_stop 特殊算子，使用fixArr定义的参数结构:`, mergedInputParams);
         } else if (skillName === 'sink_stop') {
           skillId = 'cn.piflow.engine.local.file_save_stop.FileSaveStop';
+          nodeNameForOperator = 'FileSaveStop';
+          nodeTypeForOperator = 'output';
           
           // 使用fixArr中定义的sink_stop参数结构
           const sinkStopParamDefs = [
@@ -1673,17 +1681,25 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
           try {
             const res = await getAllSkills(skillName);
             if (res.result.data && res.result.data.length > 0) {
-              inputParams = res.result.data[0].DagSkillInfoList[0].input_params;
+              const skillData = res.result.data[0].DagSkillInfoList[0];
+              inputParams = skillData.input_params;
               // 如果outputParams已经有了，就不用再次获取
               if (!outputParams) {
-                outputParams = res.result.data[0].DagSkillInfoList[0].output_params;
+                outputParams = skillData.output_params;
               }
-              skillId = res.result.data[0].DagSkillInfoList[0].skill_id;
-              iconPath = res.result.data[0].DagSkillInfoList[0].icon_path || '';
+              skillId = skillData.skill_id;
+              iconPath = skillData.icon_path || '';
               // 使用中文名称，如果没有则使用节点名
-              const skillZhName = res.result.data[0].DagSkillInfoList[0].name_zh;
+              const skillZhName = skillData.name_zh;
               if (skillZhName && !nodeName.includes(skillZhName)) {
                 nodeName = skillZhName;
+              }
+              // 从API响应中提取 skill_name 和 skill_type
+              if (skillData.skill_name) {
+                nodeNameForOperator = skillData.skill_name;
+              }
+              if (skillData.skill_type) {
+                nodeTypeForOperator = skillData.skill_type;
               }
             }
           } catch (error) {
@@ -1805,6 +1821,8 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
             label: nodeName,
             icon: iconPath,
             operatorId: skillId,
+            operatorName: nodeNameForOperator || '',
+            operatorType: nodeTypeForOperator,
             description: '',
             params: dagParams,
             inputVar: 'input_data',
@@ -2286,6 +2304,8 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
           label: uniqueLabel,
           icon: operatorIconPath,
           operatorId: operator.skill_id,
+          operatorName: operator.skill_name || '',
+          operatorType: operator.skill_type || '',
           description: operator.description || '',
           params: {},
           inputVar: 'input_data',

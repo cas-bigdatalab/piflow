@@ -614,16 +614,34 @@
   letter-spacing: 0.5px;
 }
 
+.node-title-wrapper {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
 .node-title-text {
   font-size: 14px;
   font-weight: 600;
   color: #333;
   cursor: pointer;
   transition: color 0.2s;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .node-title-text:hover {
   color: #1890ff;
+}
+
+.node-operator-info {
+  font-size: 11px;
+  color: #999;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.3;
 }
 .node-title {
   font-size: 16px;
