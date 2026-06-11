@@ -270,21 +270,48 @@ def list_piflow_processes(
     dag_task_id: str | None = None,
     running_only: bool | None = None,
     keyword: str | None = None,
+    user_id: str | None = None,
 ) -> dict[str, Any]:
-    where_clause, params = _build_flow_run_filters(
-        dag_task_id=dag_task_id,
-        status=status,
-        running_only=running_only,
-        keyword=keyword,
-    )
-    offset = (page - 1) * page_size
-
     with closing(get_connection()) as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+            conditions: list[str] = []
+            params: list[Any] = []
+
+            if user_id:
+                base_from = """
+                FROM piflow_flow_run fr
+                JOIN dag_task dt
+                  ON dt.dag_task_id = fr.flow_uuid
+                 AND dt.create_user_id = %s
+                 AND dt.is_deleted = 0
+                """
+                params.append(user_id)
+            else:
+                base_from = "FROM piflow_flow_run fr"
+
+            if dag_task_id:
+                conditions.append("fr.flow_uuid = %s")
+                params.append(dag_task_id)
+
+            if status:
+                conditions.append("fr.status = %s")
+                params.append(status)
+
+            if running_only:
+                conditions.append("fr.finished_at IS NULL")
+
+            if keyword:
+                like_value = f"%{keyword}%"
+                conditions.append("(fr.process_id ILIKE %s OR fr.flow_name ILIKE %s OR fr.flow_uuid ILIKE %s)")
+                params.extend([like_value, like_value, like_value])
+
+            where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+            offset = (page - 1) * page_size
+
             cursor.execute(
                 f"""
                 SELECT COUNT(*) AS total
-                FROM piflow_flow_run
+                {base_from}
                 {where_clause}
                 """,
                 params,
@@ -294,23 +321,23 @@ def list_piflow_processes(
             cursor.execute(
                 f"""
                 SELECT
-                    process_id,
-                    flow_uuid,
-                    flow_name,
-                    status,
-                    progress,
-                    total_stop_count,
-                    success_stop_count,
-                    failed_stop_count,
-                    skipped_stop_count,
-                    error_message,
-                    started_at,
-                    finished_at,
-                    created_at,
-                    updated_at
-                FROM piflow_flow_run
+                    fr.process_id,
+                    fr.flow_uuid,
+                    fr.flow_name,
+                    fr.status,
+                    fr.progress,
+                    fr.total_stop_count,
+                    fr.success_stop_count,
+                    fr.failed_stop_count,
+                    fr.skipped_stop_count,
+                    fr.error_message,
+                    fr.started_at,
+                    fr.finished_at,
+                    fr.created_at,
+                    fr.updated_at
+                {base_from}
                 {where_clause}
-                ORDER BY created_at DESC, process_id DESC
+                ORDER BY fr.created_at DESC, fr.process_id DESC
                 LIMIT %s OFFSET %s
                 """,
                 [*params, page_size, offset],
@@ -329,14 +356,36 @@ def get_piflow_process_status_counts(
     *,
     dag_task_id: str | None = None,
     keyword: str | None = None,
+    user_id: str | None = None,
 ) -> dict[str, Any]:
-    where_clause, params = _build_flow_run_filters(
-        dag_task_id=dag_task_id,
-        keyword=keyword,
-    )
-
     with closing(get_connection()) as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+            conditions: list[str] = []
+            params: list[Any] = []
+
+            if user_id:
+                base_from = """
+                FROM piflow_flow_run fr
+                JOIN dag_task dt
+                  ON dt.dag_task_id = fr.flow_uuid
+                 AND dt.create_user_id = %s
+                 AND dt.is_deleted = 0
+                """
+                params.append(user_id)
+            else:
+                base_from = "FROM piflow_flow_run fr"
+
+            if dag_task_id:
+                conditions.append("fr.flow_uuid = %s")
+                params.append(dag_task_id)
+
+            if keyword:
+                like_value = f"%{keyword}%"
+                conditions.append("(fr.process_id ILIKE %s OR fr.flow_name ILIKE %s OR fr.flow_uuid ILIKE %s)")
+                params.extend([like_value, like_value, like_value])
+
+            where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+
             cursor.execute(
                 f"""
                 SELECT
@@ -344,7 +393,7 @@ def get_piflow_process_status_counts(
                     COUNT(*) FILTER (WHERE status IN ('PENDING', 'RUNNING')) AS running_count,
                     COUNT(*) FILTER (WHERE status = 'SUCCESS') AS completed_count,
                     COUNT(*) FILTER (WHERE status = 'FAILED') AS failed_count
-                FROM piflow_flow_run
+                {base_from}
                 {where_clause}
                 """,
                 params,
