@@ -1,7 +1,7 @@
 ---
 name: maximum_line_length_filter
 description: |
-  最大行长度过滤器。过滤器将最大行长度的样本保持在特定范围内。支持JSON/JSONL格式。
+  最大行长度过滤器。过滤器将最大行长度的样本保持在特定范围内。支持对JSONL格式数据指定字段进行过滤。
   本SKILL使用依赖data_juicer，请在调用前安装好python环境并安装data_juicer，你可用以下指令进行安装：
   pip install py-data-juicer
   

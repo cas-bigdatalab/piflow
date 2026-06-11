@@ -424,7 +424,7 @@ source_param：
 
 参数名称必须严格保持：
 
-SKILL.md 元数据中的原始名称。
+SKILL.md 元数据中 input_params 与 output_params的原始名称。
 
 例如：
 
@@ -435,6 +435,12 @@ input_path
 - input
 - inputFile
 - file_path
+
+field_key
+
+禁止改写为：
+- field_value
+- field_target
 
 ---
 

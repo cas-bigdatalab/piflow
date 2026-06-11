@@ -1,7 +1,7 @@
 ---
 name: specified_field_filter
 description: |
-  指定字段过滤器。根据指定的字段信息进行筛选。支持JSON/JSONL格式。
+  指定字段过滤器。根据指定的字段信息进行筛选。支持对JSONL格式数据指定字段进行过滤。
   本SKILL使用依赖data_juicer，请在调用前安装好python环境并安装data_juicer，你可用以下指令进行安装：
   pip install py-data-juicer
   
