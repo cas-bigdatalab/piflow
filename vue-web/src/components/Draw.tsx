@@ -500,10 +500,10 @@ const edgeTypes = {
 
 // 节点间距配置
 const NODE_WIDTH = 285;
-const NODE_GAP = 60;
+const NODE_GAP = 120;
 const NODE_HEIGHT = 140;
-const START_X = 50;
-const START_Y = 50;
+const START_X = 80;
+const START_Y = 80;
 
 // 默认节点数据 - 水平排列
 const defaultNodes: Node<NodeData>[] = [
@@ -1084,6 +1084,19 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
         }
         console.log('=== bindingsMap ===', bindingsMap);
 
+        // 为 savedDrawData 中的节点计算新的布局位置，避免重叠
+        const savedNodePositions: Record<string, { x: number; y: number }> = {};
+        const savedNodesCount = savedDrawData.nodes.length;
+        
+        // 使用水平布局，每个节点依次排列
+        savedDrawData.nodes.forEach((n, index) => {
+          const nodeId = n.node_id || `node-${index + 1}`;
+          savedNodePositions[nodeId] = {
+            x: START_X + (NODE_WIDTH + NODE_GAP) * index,
+            y: START_Y + (NODE_HEIGHT + 100) * Math.floor(index / 3)
+          };
+        });
+
         for (let i = 0; i < savedDrawData.nodes.length; i++) {
           const n = savedDrawData.nodes[i];
           let inputParams = undefined;
@@ -1265,7 +1278,7 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
           loadedNodes.push({
             id: nodeId,
             type: 'custom',
-            position: n.position || { x: START_X + (NODE_WIDTH + NODE_GAP) * i, y: START_Y },
+            position: savedNodePositions[nodeId] || { x: START_X + (NODE_WIDTH + NODE_GAP) * i, y: START_Y },
             data: {
               label: n.node_name || '未命名节点',
               icon: nodeIconPath,
@@ -1432,15 +1445,19 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
       // 1.4 构建节点索引到位置的映射
       const nodeIndexToPositionMap: Record<number, { x: number; y: number }> = {};
       
-      // 计算每层的位置
+      // 计算每层中最多节点数，用于居中
+      const maxNodesInLayer = Math.max(...levels.map(l => l.length), 1);
+      const maxLevelWidth = maxNodesInLayer * (NODE_WIDTH + NODE_GAP) - NODE_GAP;
+      
+      // 计算每层的位置（每层水平居中）
       levels.forEach((level, levelIndex) => {
         const levelWidth = level.length * (NODE_WIDTH + NODE_GAP) - NODE_GAP;
-        const startX = START_X;
+        const startX = START_X + (maxLevelWidth - levelWidth) / 2;
         
         level.forEach((nodeIndex, nodeInLevelIndex) => {
           nodeIndexToPositionMap[nodeIndex] = {
             x: startX + (NODE_WIDTH + NODE_GAP) * nodeInLevelIndex,
-            y: START_Y + (NODE_HEIGHT + 100) * levelIndex
+            y: START_Y + (NODE_HEIGHT + 120) * levelIndex
           };
         });
       });
