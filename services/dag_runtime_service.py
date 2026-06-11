@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from services.dag_panel_service import get_panel_dag_json
+from runtime.dag_manager import get_dag_task
 from runtime.piflow_adapter import stop_registered_process, submit_frontend_dag
 from runtime.piflow_run_query import (
     get_piflow_run_detail,
@@ -11,6 +12,38 @@ from runtime.piflow_run_query import (
     list_piflow_processes,
     list_piflow_runs_by_task_id,
 )
+
+
+def get_dag_task_identity_by_process_id(
+    *,
+    process_id: str,
+) -> dict[str, Any] | None:
+    result = get_piflow_run_progress(process_id)
+    if result is None:
+        return None
+
+    flow_uuid = result.get("flow_uuid") or result.get("dag_task_id")
+    return {
+        **result,
+        "process_id": process_id,
+        "dag_task_id": flow_uuid,
+        "flow_uuid": flow_uuid,
+    }
+
+
+def is_dag_task_owned_by_user(
+    *,
+    dag_task_id: str,
+    user_id: str,
+) -> bool:
+    if not dag_task_id or not user_id:
+        return False
+
+    dag_task = get_dag_task(dag_task_id)
+    if dag_task is None:
+        return False
+
+    return dag_task.create_user_id == user_id
 
 
 def run_dag_task(
@@ -87,6 +120,7 @@ def get_dag_runtime_processes(
     dag_task_id: str | None = None,
     running_only: bool | None = None,
     keyword: str | None = None,
+    user_id: str | None = None,
 ) -> dict[str, Any]:
     if page < 1:
         raise ValueError("page must be >= 1")
@@ -99,6 +133,7 @@ def get_dag_runtime_processes(
         dag_task_id=dag_task_id,
         running_only=running_only,
         keyword=keyword,
+        user_id=user_id,
     )
 
 
@@ -106,18 +141,21 @@ def get_dag_runtime_process_status_counts(
     *,
     dag_task_id: str | None = None,
     keyword: str | None = None,
+    user_id: str | None = None,
 ) -> dict[str, Any]:
     return get_piflow_process_status_counts(
         dag_task_id=dag_task_id,
         keyword=keyword,
+        user_id=user_id,
     )
 
 
 def stop_dag_run(
     *,
     process_id: str,
+    run_progress: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    run = get_piflow_run_progress(process_id)
+    run = run_progress or get_piflow_run_progress(process_id)
     if run is None:
         raise ValueError(f"piflow run not found: {process_id}")
 
