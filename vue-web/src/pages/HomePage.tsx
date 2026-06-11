@@ -1026,7 +1026,7 @@ export function HomePage() {
                                                           (message.content || '').includes('运行完成') ||
                                                           (message.content || '').includes('处理完成'));
                                   
-                                  if (pipelineData && !sending) {
+                                  if (pipelineData && (!sending || message.id !== activeAssistantId)) {
                                     return (
                                       <>
                                         {cleanedText && <MarkdownMessage content={removeAllJson(cleanedText)} pending={sending} />}
