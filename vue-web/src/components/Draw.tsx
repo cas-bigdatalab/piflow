@@ -2642,7 +2642,7 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
             }));
             onClose();
           }}>
-            同步并返回对话
+            <X size={18} />
           </button>
         </div>
       </div>
