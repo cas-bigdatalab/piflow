@@ -1,5 +1,5 @@
 ﻿import React, { useCallback, useState, useRef, memo, useEffect, useMemo } from 'react';
-import { shortId } from '../lib/ids';
+import { shortId, generateUUID } from '../lib/ids';
 import { saveDrawInfo, getAllSkills, listSkillsDetails, getDrawTaskContent, apiBase } from "../lib/api";
 
 const DEFAULT_SKILL_ICON = "/storage/common/common.png";
@@ -1537,7 +1537,7 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
                     param_type: p.type || '',
                     value_source: 'default',
                     param_value: isRef ? (p._refValue || '') : (p._value || p.param_value || ''),
-                    binding_id: isRef ? crypto.randomUUID() : '',
+                    binding_id: isRef ? generateUUID() : '',
                   };
                 });
               })(),
@@ -1581,7 +1581,7 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
 
                       const binding = {
                         // binding_id: param._refValue || `binding_${upstreamEdge.source}_${node.id}_${param.name}`,
-                        binding_id: crypto.randomUUID(),
+                        binding_id: generateUUID(),
                         from_node_id: upstreamEdge.source,
                         from_param_name: refParamName.trim() || param.name,
                         to_node_id: node.id,

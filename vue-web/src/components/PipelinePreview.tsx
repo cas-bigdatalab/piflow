@@ -2,6 +2,7 @@ import { Icon } from "@iconify/react";
 import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { runDAGTask, saveDrawInfo, getDrawInfoBymegId, getAllSkills } from "../lib/api";
+import { generateUUID } from "../lib/ids";
 
 interface PipelineNode {
   node_name: string;
@@ -611,7 +612,7 @@ export default function PipelinePreview({ data, threadId, onOpenCanvas, messageI
                 
                 // 生成 binding
                 generatedBindings.push({
-                  binding_id: crypto.randomUUID(),
+                  binding_id: generateUUID(),
                   from_node_id: sourceNodeId,
                   from_param_name: sourceParamName,
                   to_node_id: node.node_id,
