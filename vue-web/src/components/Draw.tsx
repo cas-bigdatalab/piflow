@@ -1087,18 +1087,75 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
         }
         console.log('=== bindingsMap ===', bindingsMap);
 
-        // 为 savedDrawData 中的节点计算新的布局位置，避免重叠
+        // 为 savedDrawData 中的节点计算新的布局位置，避免重叠（带分层展示）
         const savedNodePositions: Record<string, { x: number; y: number }> = {};
         const savedNodesCount = savedDrawData.nodes.length;
         
-        // 使用水平布局，所有节点横向排列
+        // 使用分层布局：从 edges 计算拓扑层级
+        const savedNodeIdToIndex: Record<string, number> = {};
         savedDrawData.nodes.forEach((n, index) => {
-          const nodeId = n.node_id || `node-${index + 1}`;
-          savedNodePositions[nodeId] = {
-            x: START_X + (NODE_WIDTH + NODE_GAP) * index,
-            y: START_Y
-          };
+          const nodeId = n.node_id || n.id || `node-${index + 1}`;
+          savedNodeIdToIndex[nodeId] = index;
         });
+        
+        const savedInDegree: number[] = new Array(savedNodesCount).fill(0);
+        const savedOutEdges: number[][] = new Array(savedNodesCount).fill(null).map(() => []);
+        
+        for (const e of (savedDrawData.edges || [])) {
+          const sourceIdx = savedNodeIdToIndex[e.from_node_id];
+          const targetIdx = savedNodeIdToIndex[e.to_node_id];
+          if (sourceIdx !== undefined && targetIdx !== undefined) {
+            savedInDegree[targetIdx]++;
+            savedOutEdges[sourceIdx].push(targetIdx);
+          }
+        }
+        
+        const savedLevels: number[][] = [];
+        const savedTempInDegree = [...savedInDegree];
+        const savedProcessed = new Set<number>();
+        
+        let savedCurrentLevel: number[] = [];
+        for (let i = 0; i < savedNodesCount; i++) {
+          if (savedTempInDegree[i] === 0 && !savedProcessed.has(i)) {
+            savedCurrentLevel.push(i);
+            savedProcessed.add(i);
+          }
+        }
+        
+        while (savedCurrentLevel.length > 0) {
+          savedLevels.push(savedCurrentLevel);
+          const savedNextLevel: number[] = [];
+          savedCurrentLevel.forEach(idx => {
+            savedOutEdges[idx].forEach(targetIdx => {
+              if (!savedProcessed.has(targetIdx)) {
+                savedTempInDegree[targetIdx]--;
+                if (savedTempInDegree[targetIdx] === 0) {
+                  savedNextLevel.push(targetIdx);
+                  savedProcessed.add(targetIdx);
+                }
+              }
+            });
+          });
+          savedCurrentLevel = savedNextLevel;
+        }
+        
+        for (let i = 0; i < savedNodesCount; i++) {
+          if (!savedProcessed.has(i)) {
+            savedLevels.push([i]);
+          }
+        }
+        
+        for (let levelIdx = 0; levelIdx < savedLevels.length; levelIdx++) {
+          const level = savedLevels[levelIdx];
+          level.forEach((nodeIndex, nodeInLevelIdx) => {
+            const n = savedDrawData.nodes[nodeIndex];
+            const nodeId = n.node_id || n.id || `node-${nodeIndex + 1}`;
+            savedNodePositions[nodeId] = {
+              x: START_X + levelIdx * (NODE_WIDTH + NODE_GAP),
+              y: START_Y + nodeInLevelIdx * (NODE_HEIGHT + NODE_GAP)
+            };
+          });
+        }
 
         for (let i = 0; i < savedDrawData.nodes.length; i++) {
           const n = savedDrawData.nodes[i];
@@ -1486,19 +1543,18 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
         }
       }
       
-      // 1.4 构建节点索引到位置的映射 - 横向布局
+      // 1.4 构建节点索引到位置的映射 - 分层布局
       const nodeIndexToPositionMap: Record<number, { x: number; y: number }> = {};
       
-      // 使用横向布局，所有节点在同一行排列
-      let currentX = START_X;
-      const totalNodes = pipelineNodes.length;
-      
-      for (let i = 0; i < totalNodes; i++) {
-        nodeIndexToPositionMap[i] = {
-          x: currentX,
-          y: START_Y
-        };
-        currentX += NODE_WIDTH + NODE_GAP;
+      // 使用分层布局：按拓扑层级水平排列，同一层内多个节点（分支）垂直排列
+      for (let levelIdx = 0; levelIdx < levels.length; levelIdx++) {
+        const level = levels[levelIdx];
+        level.forEach((nodeIndex, nodeInLevelIdx) => {
+          nodeIndexToPositionMap[nodeIndex] = {
+            x: START_X + levelIdx * (NODE_WIDTH + NODE_GAP),
+            y: START_Y + nodeInLevelIdx * (NODE_HEIGHT + NODE_GAP)
+          };
+        });
       }
 
       // 第一步：先获取所有节点的算子信息，建立基础映射，收集output_params
