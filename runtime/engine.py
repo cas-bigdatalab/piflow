@@ -305,9 +305,9 @@ def _build_summary_handoff_message(summary_text: str) -> dict[str, str]:
     return {
         "role": "system",
         "content": (
-            "Conversation summary reference for the current parent thread:\n"
+            "Conversation skill-generating reference for the current parent thread:\n"
             f"{summary_text}\n\n"
-            "The summary-routing step has already completed. "
+            "The skill-generating step has already completed. "
             "Do not output the summary route marker again. "
             "Do not mention subagents, hidden routing, or internal handoff steps. "
             "Use this summary as additional context and answer the user directly as the main agent."

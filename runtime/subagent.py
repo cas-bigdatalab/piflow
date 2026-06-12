@@ -25,12 +25,12 @@ CONVERSATION_SUMMARY_TASK = "conversation_summary"
 _PROMPT_OVERRIDE_LOCK = threading.RLock()
 SUMMARY_ROUTE_MARKER = "__ROUTE_TO_CONVERSATION_SUMMARY__"
 SUMMARY_ROUTE_PROMPT_BLOCK = """
-## 会话总结路由规则
+## 总结路由规则
 
-- 如果用户的主要意图是要求系统总结、概括、回顾、整理、交接当前对话、当前会话、上文讨论或刚才这段聊天内容，不要直接完成总结。
+- 如果用户需要处理一系列数据处理或清洗任务，除非用户直接说明，始终应该在用户指定的这次任务结束时输出标记。
+- 如果上述场景命中了skill 列表内类似的功能时，优先输出这个标记。
 - 命中上述场景时，只输出该标记：`__ROUTE_TO_CONVERSATION_SUMMARY__`
 - 除这个标记外不要输出任何解释、前后缀、JSON、Markdown 或其它文字。
-- 如果用户要总结的是文档、代码、日志、PDF、网页、需求、方案、报告等对象，而不是当前对话本身，则继续按正常主流程响应，不要输出该标记。
 - 如果用户只是在询问总结功能、触发方式、工作原理，或表达仍然含糊，也继续按正常主流程响应，不要输出该标记。
 """.strip()
 
