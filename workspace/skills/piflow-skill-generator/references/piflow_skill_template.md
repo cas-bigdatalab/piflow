@@ -1,6 +1,6 @@
 # PiFlow Skill 通用模板
 
-生成新技能时优先参照此模板。模板用于保持 `workspace/skills` 内技能的元数据、正文结构和 `skill.json` 结构一致。
+生成新技能时优先参照此模板。模板用于保持 `workspace/skills/generated` 内技能的元数据、正文结构和 `skill.json` 结构一致。
 
 路径约定：deepagent 虚拟文件环境以 `workspace` 为根，新技能目录必须位于 `<workspace>/skills/<skill_name>`。生成命令默认使用 `--output-root skills`，不要把技能写入仓库外层或重复嵌套的 workspace 路径。
 

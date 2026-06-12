@@ -7,8 +7,8 @@ from pathlib import Path
 from typing import Iterable
 
 
-DEFAULT_OUTPUT_ROOT = "skills"
-LEGACY_OUTPUT_ROOTS = {"workspace/skills", "flow-deepagents/workspace/skills"}
+DEFAULT_OUTPUT_ROOT = "skills/generated"
+LEGACY_OUTPUT_ROOTS = {"workspace/skills/generated", "flow-deepagents/workspace/skills/generated"}
 PARAM_ROLES = {"input_data", "output_data", "data"}
 FRONTMATTER_KEYS = {
     "name",

@@ -19,7 +19,7 @@
       "type": "string",
       "required": false,
       "default": "skills",
-      "description": "新技能输出根目录；deepagent 虚拟文件环境以 workspace 为根，默认写入 workspace/skills"
+      "description": "新技能输出根目录；deepagent 虚拟文件环境以 workspace 为根，默认写入 workspace/skills/generated"
     },
     {
       "name": "overwrite",

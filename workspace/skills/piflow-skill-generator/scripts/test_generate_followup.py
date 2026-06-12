@@ -12,19 +12,19 @@ class GenerateFollowupTests(unittest.TestCase):
     def test_build_rewrite_followup_suggestion_uses_default_message(self):
         result = build_rewrite_followup_suggestion(
             skill_name="demo_skill",
-            skill_dir="workspace/skills/demo_skill",
+            skill_dir="workspace/skills/generated/demo_skill",
             rewrite_followup_hint="",
         )
 
         self.assertEqual(result["skill_name"], "demo_skill")
-        self.assertEqual(result["skill_dir"], "workspace/skills/demo_skill")
+        self.assertEqual(result["skill_dir"], "workspace/skills/generated/demo_skill")
         self.assertIn("新的成功流程", result["message"])
         self.assertIn("rewrite_piflow_skill.py", result["command"])
 
     def test_build_rewrite_followup_suggestion_prefers_custom_hint(self):
         result = build_rewrite_followup_suggestion(
             skill_name="demo_skill",
-            skill_dir="workspace/skills/demo_skill",
+            skill_dir="workspace/skills/generated/demo_skill",
             rewrite_followup_hint="如果后续流程更合适，可以继续按新流程改写。",
         )
 
