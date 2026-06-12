@@ -45,6 +45,36 @@ type ExampleCard = {
 
 const WORKSPACE_FILE_PATTERN = /\/(?:outputs|artifacts)\/[^\s"'`)\]}>,，。；：！？]+/g;
 
+function buildSubagentStatus(event: Record<string, any>) {
+  const taskName = typeof event.task_name === "string" && event.task_name ? event.task_name : "子智能体";
+  const stage = typeof event.stage === "string" ? event.stage : "";
+  const tools = Array.isArray(event.tool_calls) ? event.tool_calls.filter(Boolean).join("、") : "";
+  const nodes = Array.isArray(event.nodes) ? event.nodes.filter(Boolean).join(" / ") : "";
+
+  if (event.type === "subagent_event") {
+    if (tools) return `${taskName} 正在调用工具：${tools}`;
+    if (nodes) return `${taskName} 正在执行节点：${nodes}`;
+    return `${taskName} 正在处理中...`;
+  }
+
+  if (event.type === "subagent_reasoning_delta") {
+    return `${taskName} 正在整理思路...`;
+  }
+
+  if (event.type === "subagent_message_delta") {
+    return `${taskName} 正在生成内容...`;
+  }
+
+  if (event.type === "subagent_status") {
+    if (stage === "preparing") return `${taskName} 准备中...`;
+    if (stage === "running") return `${taskName} 执行中...`;
+    if (stage === "completed") return `${taskName} 已完成，正在整理结果...`;
+    if (stage === "failed") return `${taskName} 执行失败`;
+  }
+
+  return `${taskName} 正在处理中...`;
+}
+
 // 移除JSON字符串（处理 \"json {...} 或 \"json [...] 格式）
 function removeJsonBlock(text: string): string {
   let result = text;
@@ -569,6 +599,47 @@ export function HomePage() {
             } else {
               setStreamStatus("正在生成回答...");
             }
+            return;
+          }
+
+          if (
+            event.type === "subagent_status" ||
+            event.type === "subagent_event" ||
+            event.type === "subagent_reasoning_delta" ||
+            event.type === "subagent_message_delta"
+          ) {
+            setStreamStatus(buildSubagentStatus(event));
+
+            if (event.type === "subagent_reasoning_delta" && typeof event.delta === "string") {
+              assistantReasoning += event.delta;
+              setMessages((current) =>
+                current.map((message) =>
+                  message.id === assistantId
+                    ? { ...message, reasoning: assistantReasoning, artifacts: assistantArtifacts }
+                    : message,
+                ),
+              );
+              return;
+            }
+
+            if (event.type === "subagent_message_delta" && typeof event.delta === "string") {
+              assistantContent += event.delta;
+              assistantArtifacts = mergeArtifacts(assistantArtifacts, extractWorkspaceLinks(assistantContent));
+              setMessages((current) =>
+                current.map((message) =>
+                  message.id === assistantId
+                    ? {
+                        ...message,
+                        content: assistantContent,
+                        reasoning: assistantReasoning,
+                        artifacts: assistantArtifacts,
+                      }
+                    : message,
+                ),
+              );
+              return;
+            }
+
             return;
           }
 
