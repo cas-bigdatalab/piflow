@@ -39,8 +39,7 @@
       "role": "data",
       "type": "int",
       "required": false,
-      "description": "并行处理的进程数",
-      "default": 1
+      "description": "并行处理的进程数"
     }
   ],
   "output_params": [

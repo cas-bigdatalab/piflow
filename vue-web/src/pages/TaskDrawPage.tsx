@@ -1,5 +1,5 @@
 ﻿import React, { useCallback, useState, useRef, memo, useEffect, useMemo } from 'react';
-import { shortId } from '../lib/ids';
+import { shortId, generateUUID } from '../lib/ids';
 import { saveDrawInfo, getAllSkills, listSkillsDetails, getDrawTaskContent, apiBase } from "../lib/api";
 
 const DEFAULT_SKILL_ICON = "/storage/common/common.png";
@@ -73,6 +73,8 @@ interface NodeData {
   label: string;
   icon: string;
   operatorId: string;
+  operatorName?: string;
+  operatorType?: string;
   description?: string;
   params?: Record<string, any>;
   inputVar?: string;
@@ -232,12 +234,17 @@ const CustomNode: React.FC<NodeProps<NodeData>> = ({ id, data, selected }) => {
               className="node-icon-small"
             />
           </div>
-          <span
-            className="node-title-text"
-            onClick={(e) => { e.stopPropagation(); data.onSelect?.(id); }}
-          >
-            {data.label}
-          </span>
+          <div className="node-title-wrapper">
+            <span
+              className="node-title-text"
+              onClick={(e) => { e.stopPropagation(); data.onSelect?.(id); }}
+            >
+              {data.label}
+            </span>
+            {data.operatorName && (
+              <span className="node-operator-info">{data.operatorName}{data.operatorType ? ` | ${data.operatorType}` : ''}</span>
+            )}
+          </div>
         </div>
         <div className="node-header-right">
           <button className="node-delete-btn" onClick={handleDeleteClick} title="删除节点">
@@ -955,6 +962,26 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
                 }
               } catch(e) { console.error('获取算子详情失败:', e); }
             }
+            
+            // 检查是否有 required 字段，没有的话再用 getAllSkills 获取
+            const hasRequiredField = inputParams?.params?.some((p: any) => p.required !== undefined);
+            if (!hasRequiredField) {
+              try {
+                const skillName = n.skill?.skill_name || n.skill_name || n.node_name || '';
+                const listRes = await getAllSkills(skillName);
+                if (listRes.result?.data && listRes.result.data.length > 0) {
+                  const skillData = listRes.result.data[0].DagSkillInfoList?.find((s: any) =>
+                    s.skill_id === skillId || s.skill_name === skillName
+                  ) || listRes.result.data[0].DagSkillInfoList[0];
+                  if (skillData?.input_params?.params?.some((p: any) => p.required !== undefined)) {
+                    console.log('使用 getAllSkills 获取参数模板 (含 required):', skillData.input_params);
+                    inputParams = skillData.input_params;
+                    outputParams = skillData.output_params || outputParams;
+                    skillIconPath = skillData.icon_path || skillIconPath;
+                  }
+                }
+              } catch(e) { console.error('getAllSkills 失败:', e); }
+            }
 
             // 合并后端保存的参数值到算子模板参数中
             let mergedInputParams = inputParams;
@@ -988,6 +1015,8 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
                 label: n.node_name || n.skill?.skill_name || '未命名节点',
                 icon: n.icon_path || skillIconPath || '',
                 operatorId: skillId || '',
+                operatorName: n.skill?.skill_name || '',
+                operatorType: n.skill?.skill_type || '',
                 description: '',
                 params: {},
                 inputVar: 'input_data',
@@ -1369,6 +1398,25 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
       } catch (error) {
         console.error('获取算子详情失败:', error);
       }
+      
+      // 检查是否有 required 字段，没有的话用 getAllSkills 回退
+      const hasRequiredField = inputParams?.params?.some((p: any) => p.required !== undefined);
+      if (!hasRequiredField) {
+        try {
+          const listRes = await getAllSkills(operator.skill_name);
+          if (listRes.result?.data && listRes.result.data.length > 0) {
+            const skillData = listRes.result.data[0].DagSkillInfoList?.find((s: any) =>
+              s.skill_id === operator.skill_id || s.skill_name === operator.skill_name
+            ) || listRes.result.data[0].DagSkillInfoList[0];
+            if (skillData?.input_params?.params?.some((p: any) => p.required !== undefined)) {
+              inputParams = skillData.input_params;
+              outputParams = skillData.output_params || outputParams;
+              operatorIconPath = skillData.icon_path || operatorIconPath;
+              console.log('handleAddNode: 使用 getAllSkills 参数模板 (含 required):', inputParams);
+            }
+          }
+        } catch (e) { console.error('handleAddNode: getAllSkills 失败:', e); }
+      }
       const newNode: Node<NodeData> = {
         id: `node-${nodeIdCounter.current}`,
         type: 'custom',
@@ -1380,6 +1428,8 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
           label: uniqueLabel,
           icon: operatorIconPath,
           operatorId: operator.skill_id,
+          operatorName: operator.skill_name || '',
+          operatorType: operator.skill_type || '',
           description: operator.description || getOperatorDescription(operator.skill_id),
           params: getDefaultParams(operator.skill_id),
           inputVar: 'input_data',
@@ -1528,7 +1578,13 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
                 console.log('=== 节点参数保存 ===');
                 console.log('节点ID:', n.id, '节点名:', n.data.label);
                 console.log('input_params原始数据:', JSON.stringify(n.data.input_params?.params, null, 2));
-                return (n.data.input_params?.params || []).map((p: any) => {
+                return (n.data.input_params?.params || [])
+                  .filter((p: any) => {
+                    if (p._refType === 'reference') return true;
+                    const val = p._value || p.param_value || '';
+                    return val.trim() !== '';
+                  })
+                  .map((p: any) => {
                   console.log('参数:', p.name, '_value:', p._value, '_refType:', p._refType, '_refValue:', p._refValue);
                   const isRef = p._refType === 'reference';
                   return {
@@ -1537,7 +1593,7 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
                     param_type: p.type || '',
                     value_source: 'default',
                     param_value: isRef ? (p._refValue || '') : (p._value || p.param_value || ''),
-                    binding_id: isRef ? crypto.randomUUID() : '',
+                    binding_id: isRef ? generateUUID() : '',
                   };
                 });
               })(),
@@ -1581,7 +1637,7 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
 
                       const binding = {
                         // binding_id: param._refValue || `binding_${upstreamEdge.source}_${node.id}_${param.name}`,
-                        binding_id: crypto.randomUUID(),
+                        binding_id: generateUUID(),
                         from_node_id: upstreamEdge.source,
                         from_param_name: refParamName.trim() || param.name,
                         to_node_id: node.id,
@@ -1898,7 +1954,10 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
                           {selectedNode.data.input_params.params.map((param, index) => (
                             <tr key={`input-${index}`}>
                               <td className="col-param-name">
-                                <span className="param-name-text">{param.name}</span>
+                                <span className="param-name-text">
+                                  {param.required && <span className="required-asterisk">*</span>}
+                                  {param.name}
+                                </span>
                               </td>
                               <td className="col-ref">
                                 <select
@@ -1913,7 +1972,7 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
                                     newParams[index] = {
                                       ...newParams[index],
                                       _refType: newRefType,
-                                      _value: newRefType === 'reference' ? '' : (param._value || param.param_value || ''),
+                                      _value: newRefType === 'reference' ? '' : (param._value || param.param_value || param._refValue || ''),
                                       _refValue: isChangingToReference ? (referenceOptions.length > 0 ? referenceOptions[0].name : '') : (newRefType === 'reference' ? param._refValue || '' : '')
                                     };
 
@@ -1999,7 +2058,7 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
                                 ) : (
                                   <input
                                     className="config-param-input"
-                                    value={param._value || ''}
+                                    value={param._value || param.param_value || ''}
                                     placeholder={param._refType === 'dataSource' ? '数据源' : '值'}
                                     onChange={(e) => {
                                       const newParams = [...selectedNode.data.input_params.params];

@@ -26,6 +26,14 @@ class WorkspaceConfig(BaseModel):
     dirs: WorkspaceDirs = Field(default_factory=WorkspaceDirs)
 
 
+class MinIOConfig(BaseModel):
+    endpoint: str = ""
+    access_key: str = ""
+    secret_key: str = ""
+    secure: bool = False
+    base_prefix: str = "corpus/output/piflow"
+
+
 class MCPServer(BaseModel):
     name: str
     url: str
@@ -84,6 +92,7 @@ class DefaultUserConfig(BaseModel):
 class Settings(BaseModel):
     app: AppConfig = Field(default_factory=AppConfig)
     workspace: WorkspaceConfig = Field(default_factory=WorkspaceConfig)
+    minio: MinIOConfig = Field(default_factory=MinIOConfig)
     llm: LLMConfig = Field(
         default_factory=lambda: LLMConfig(
             provider="dashscope",

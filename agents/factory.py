@@ -181,7 +181,7 @@ class AgentFactory:
             backend=backend,
             store = store,
             checkpointer=memory,
-            skills = ["/skills/"],
+            skills = ["/skills/", "/dag_system_node/"],
             interrupt_on = {
                 "write_file": False,
                 "read_file": False,

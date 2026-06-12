@@ -11,7 +11,7 @@
   flex-direction: column;
   height: 100%;
   width: 100%;
-  background: #f8f9fb;
+  background: #E6ECF1;
   position: relative;
   overflow: hidden;
 }
@@ -56,7 +56,7 @@
   flex-direction: column;
   height: 100%;
   width: 100%;
-  background: #f8f9fb;
+  background: #E6ECF1;
 }
 
 /* ==================== 入场动画 ==================== */
@@ -196,6 +196,51 @@
   color: #333;
 }
 
+.sync-back-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 120px;
+  padding: 8px 16px;
+  margin-left: 12px;
+  background: #059669;
+  color: #ffffff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.sync-back-btn:hover {
+  background: #047857;
+}
+
+.only-back-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100px;
+  padding: 8px 16px;
+  margin-left: 12px;
+  background: #ffffff;
+  color: #666666;
+  border: 1px solid #e8e8e8;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.only-back-btn:hover {
+  background: #f5f5f5;
+  border-color: #d0d0d0;
+}
+
 /* ==================== Main Content 样式 ==================== */
 
 .flow-content {
@@ -211,11 +256,11 @@
 }
 
 .reactflow-wrapper .react-flow {
-  background: #ffffff;
+  background: #E6ECF1;
 }
 
 .reactflow-wrapper .react-flow__background {
-  background: #ffffff;
+  background: #E6ECF1;
 }
 
 .reactflow-wrapper .react-flow__node {
@@ -479,11 +524,13 @@
   background: #fff;
   border: 1px solid #E2E8F0;
   border-radius: 12px;
-  padding: 8px 0;
-  width: 285px;
+  padding: 16px 20px;
+  width: 280px;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  min-height: 56px;
+  min-height: 120px;
+  position: relative;
+  overflow: visible;
 }
 
 .custom-node:hover {
@@ -508,8 +555,10 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 4px 8px;
-  border-bottom: 1px solid #f0f0f0;
+  padding: 0;
+  border-bottom: none;
+  height: 100%;
+  cursor: pointer;
 }
 .config-node-info{
   margin-left:4px;
@@ -541,9 +590,9 @@
 }
 
 .node-icon-wrapper-small {
-  width: 24px;
-  height: 24px;
-  border-radius: 6px;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
   background: #f0f5ff;
   display: flex;
   align-items: center;
@@ -559,8 +608,11 @@
 
 .node-header-left {
   display: flex;
-  align-items: center;
-  gap: 6px;
+  align-items: flex-start;
+  gap: 10px;
+  flex: 1;
+  height: 100%;
+  cursor: pointer;
 }
 .config-params-title-text {
   font-size: 13px;
@@ -569,16 +621,47 @@
   letter-spacing: 0.5px;
 }
 
+.node-title-wrapper {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+  max-width: 220px;
+  cursor: pointer;
+}
+
+.node-operator-type {
+  font-size: 10px;
+  font-weight: 600;
+  color: #059669;
+  background: #d1fae5;
+  padding: 3px 10px;
+  border-radius: 4px;
+  width: fit-content;
+  margin-bottom: 8px;
+  letter-spacing: 0.5px;
+}
+
 .node-title-text {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
   color: #333;
   cursor: pointer;
   transition: color 0.2s;
+  line-height: 1.4;
+  word-break: break-all;
 }
 
 .node-title-text:hover {
   color: #1890ff;
+}
+
+.node-operator-info {
+  font-size: 11px;
+  color: #999;
+  line-height: 1.3;
+  margin-top: 6px;
+  word-break: break-all;
 }
 .node-title {
   font-size: 16px;
@@ -985,19 +1068,20 @@ select:focus {
   color: #595959;
   font-size: 14px;
   line-height: 1.6;
+  text-align: center;
 }
 
 .delete-confirm-footer {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
-  padding: 16px 24px;
-  border-top: 1px solid #f0f0f0;
+  justify-content: center;
+  padding: 16px 24px 24px;
 }
 
 .delete-confirm-actions {
   display: flex;
-  gap: 8px;
+  justify-content: center;
+  gap: 16px;
 }
 
 .delete-confirm-cancel {
@@ -1251,14 +1335,15 @@ select:focus {
 /* 参数详情面板 */
 .node-params-panel {
   box-sizing: border-box;
-  padding: 4px 10px;
+  padding: 8px 14px;
   background: #ffffff;
+  margin-top: 8px;
 }
 .nodeParams{
   font-size:14px;
-  margin-top:2px;
+  margin-top:8px;
   box-sizing: border-box;
-  padding: 4px 10px;
+  padding: 10px 14px;
   border-radius: 8px;
   background: #F9F9FB;
 }
@@ -1266,13 +1351,15 @@ select:focus {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  margin-bottom: 8px;
 }
 .labelText{
-  font-size:12px;
+  font-size:13px;
   color:#333333;
+  font-weight: 500;
 }
 .valueText{
-  font-size:12px;
+  font-size:13px;
   color:#999999;
 }
 .node-param-section {
@@ -1405,6 +1492,8 @@ select:focus {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  padding: 6px 0;
+  gap: 20px;
 }
 .config-node-name-row{
   display: flex;
@@ -1527,4 +1616,11 @@ select:focus {
 .config-param-underlined {
   border-bottom: 1px solid #e8e8e8;
   padding-bottom: 4px;
+}
+
+/* 必填参数红色星号 */
+.required-asterisk {
+  color: #ff4d4f;
+  margin-right: 2px;
+  font-weight: bold;
 }

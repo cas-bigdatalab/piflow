@@ -16,3 +16,10 @@ workspace:
     outputs: outputs
     temp: temp
     logs: logs
+
+minio:
+  endpoint: "10.0.82.141:9998"
+  access_key: "6wrkUf48t46XJd8KV1c8"
+  secret_key: "PoFt8Dm2VcPQq6VqRPZIDewQTajXgdjWfa6d9a2S"
+  secure: false
+  base_prefix: "corpus/output/piflow"

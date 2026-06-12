@@ -37,6 +37,12 @@ input_params:
     default: 1
     description: 并行处理的进程数
 
+  - name: encoding
+    type: string
+    required: false
+    default: utf-8
+    description: CSV文件编码格式
+
 output_params:
   - name: output_path
     type: jsonl_file
@@ -58,6 +64,7 @@ tag: 格式转换
 | text_keys | list | 否 | ['text'] | 文本字段名列表 |
 | add_suffix | bool | 否 | False | 是否添加文件后缀信息 |
 | num_proc | int | 否 | 1 | 并行处理的进程数 |
+| encoding | string | 否 | utf-8 | CSV文件编码格式 |
 
 ## 输入数据格式
 
@@ -91,6 +98,12 @@ python scripts/run_csv_formatter.py \
   --input_path /path/to/csv_directory \
   --output_path /path/to/output.jsonl \
   --add_suffix
+
+# 指定编码格式（如GBK）
+python scripts/run_csv_formatter.py \
+  --input_path /path/to/input.csv \
+  --output_path /path/to/output.jsonl \
+  --encoding gbk
 ```
 
 ### 参数说明
@@ -100,6 +113,7 @@ python scripts/run_csv_formatter.py \
 - `--text_keys`: 文本字段名，可重复指定多个（默认 ['text']）
 - `--add_suffix`: 是否添加文件后缀信息
 - `--num_proc`: 并行进程数，默认1
+- `--encoding`: CSV文件编码格式，默认utf-8，如GBK文件可指定 --encoding gbk
 
 ## 注意事项
 

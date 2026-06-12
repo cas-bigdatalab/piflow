@@ -1,6 +1,6 @@
 import React, { useCallback, useState, useRef, memo, useEffect, useMemo } from 'react';
 import { shortId } from '../lib/ids';
-import { saveDrawInfo, getAllSkills, listSkillsDetails, createMessage, streamChat,getDrawInfoBymegId, apiBase } from "../lib/api";
+import { saveDrawInfo, getAllSkills, listSkillsDetails, createMessage, streamChat, apiBase } from "../lib/api";
 
 const DEFAULT_SKILL_ICON = "/storage/common/common.png";
 
@@ -72,6 +72,8 @@ interface NodeData {
   label: string;
   icon: string;
   operatorId: string;
+  operatorName?: string;
+  operatorType?: string;
   description?: string;
   params?: Record<string, any>;
   inputVar?: string;
@@ -166,6 +168,7 @@ const generateUUID = () => {
   });
 };
 
+
 // 算子分类数据（从后端接口获取后赋值）
 let operatorCategories: {
   groupName: string;
@@ -176,7 +179,6 @@ let operatorCategories: {
 
 const CustomNode: React.FC<NodeProps<NodeData>> = ({ id, data, selected }) => {
   const [isExpanded, setIsExpanded] = useState(false);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const toggleExpand = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -185,12 +187,10 @@ const CustomNode: React.FC<NodeProps<NodeData>> = ({ id, data, selected }) => {
 
   const handleDeleteClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setShowDeleteConfirm(true);
-  };
-
-  const handleConfirmDelete = () => {
-    data.onDelete?.(id);
-    setShowDeleteConfirm(false);
+    e.preventDefault();
+    if (data.onDelete) {
+      data.onDelete(id);
+    }
   };
 
   // 获取参数显示值
@@ -219,17 +219,17 @@ const CustomNode: React.FC<NodeProps<NodeData>> = ({ id, data, selected }) => {
   };
 
   return (
-    <div className={`custom-node ${selected ? 'selected' : ''}`}>
+    <div className={`custom-node ${selected ? 'selected' : ''}`} onClick={(e) => { e.stopPropagation(); data.onSelect?.(id); }}>
       <Handle
         type="target"
         position={Position.Left}
         className="node-handle"
-        style={{ top: '50%' }}
+        style={{ top: '60px' }}
       />
 
       {/* 节点顶部 */}
       <div className="node-header">
-          <button className="node-expand-icon-btn" onClick={toggleExpand} title={isExpanded ? '收起参数' : '展开参数'}>
+          <button className="node-expand-icon-btn" onClick={(e) => { e.stopPropagation(); toggleExpand(); }} title={isExpanded ? '收起参数' : '展开参数'}>
             {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
           </button>
         <div className="node-header-left">
@@ -240,15 +240,28 @@ const CustomNode: React.FC<NodeProps<NodeData>> = ({ id, data, selected }) => {
               className="node-icon-small"
             />
           </div>
-          <span
-            className="node-title-text"
-            onClick={(e) => { e.stopPropagation(); data.onSelect?.(id); }}
-          >
-            {data.label}
-          </span>
+          <div className="node-title-wrapper">
+            {data.operatorType && (
+              <span className="node-operator-type">{data.operatorType.toUpperCase()}</span>
+            )}
+            <span className="node-title-text">
+              {data.label}
+            </span>
+            {data.operatorName && (
+              <span className="node-operator-info">{data.operatorName}</span>
+            )}
+          </div>
         </div>
         <div className="node-header-right">
-          <button className="node-delete-btn" onClick={handleDeleteClick} title="删除节点">
+          <button 
+            className="node-delete-btn" 
+            onClick={(e: React.MouseEvent) => { 
+              e.stopPropagation(); 
+              e.preventDefault();
+              handleDeleteClick(e); 
+            }} 
+            title="删除节点"
+          >
             <Trash2 size={14} />
           </button>
         </div>
@@ -295,36 +308,8 @@ const CustomNode: React.FC<NodeProps<NodeData>> = ({ id, data, selected }) => {
         type="source"
         position={Position.Right}
         className="node-handle"
-        style={{ top: '50%' }}
+        style={{ top: '60px' }}
       />
-
-      {/* 删除确认弹窗 */}
-      {showDeleteConfirm && (
-        <div className="delete-confirm-overlay" onClick={() => setShowDeleteConfirm(false)}>
-          <div className="delete-confirm-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="delete-confirm-header">
-              <div className="delete-confirm-icon">!</div>
-              <h3>确认删除此节点？</h3>
-              <button className="delete-confirm-close" onClick={() => setShowDeleteConfirm(false)}>
-                <X size={20} />
-              </button>
-            </div>
-            <div className="delete-confirm-body">
-              <p>删除节点后会影响您当前组件的运行结果，请谨慎操作。</p>
-            </div>
-            <div className="delete-confirm-footer">
-              <div className="delete-confirm-actions">
-                <button className="delete-confirm-cancel" onClick={() => setShowDeleteConfirm(false)}>
-                  取消
-                </button>
-                <button className="delete-confirm-confirm" onClick={handleConfirmDelete}>
-                  删除
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
@@ -499,11 +484,11 @@ const edgeTypes = {
 };
 
 // 节点间距配置
-const NODE_WIDTH = 285;
-const NODE_GAP = 60;
-const NODE_HEIGHT = 140;
-const START_X = 50;
-const START_Y = 50;
+const NODE_WIDTH = 280;
+const NODE_GAP = 80;
+const NODE_HEIGHT = 120;
+const START_X = 60;
+const START_Y = 80;
 
 // 默认节点数据 - 水平排列
 const defaultNodes: Node<NodeData>[] = [
@@ -515,6 +500,8 @@ const defaultNodes: Node<NodeData>[] = [
       label: '文件上传',
       icon: 'Upload',
       operatorId: 'file-upload',
+      operatorName: 'file-upload',
+      operatorType: 'input',
       description: 'CSV文件',
       params: {
         filePath: '/data/input.csv',
@@ -532,6 +519,8 @@ const defaultNodes: Node<NodeData>[] = [
       label: '空行清理',
       icon: 'Eraser',
       operatorId: 'empty-clean',
+      operatorName: 'empty-clean',
+      operatorType: 'process',
       description: '移除空行',
       params: {
         cleanMode: 'all',
@@ -548,6 +537,8 @@ const defaultNodes: Node<NodeData>[] = [
       label: '空格清理',
       icon: 'Type',
       operatorId: 'space-clean',
+      operatorName: 'space-clean',
+      operatorType: 'process',
       description: '移除多余空格',
       params: {
         spaceMode: 'trim',
@@ -564,6 +555,8 @@ const defaultNodes: Node<NodeData>[] = [
       label: '年份排序',
       icon: 'Calendar',
       operatorId: 'year-sort',
+      operatorName: 'year-sort',
+      operatorType: 'process',
       description: '按年份升序',
       params: {
         sortField: 'year',
@@ -886,6 +879,35 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
   const [messageId, setMessageId] = useState<string>(messageIdProp || '');
   const [taskName, setTaskName] = useState<string>('');
   const [taskDescription, setTaskDescription] = useState<string>('');
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+
+  // 键盘Delete键删除选中节点
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      const tagName = target.tagName;
+      if (tagName === 'INPUT' || tagName === 'TEXTAREA' || tagName === 'SELECT' || target.isContentEditable) {
+        return;
+      }
+      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedNodeId) {
+        e.preventDefault();
+        setShowDeleteModal(true);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedNodeId]);
+
+  // 删除节点
+  const handleDeleteNode = () => {
+    if (selectedNodeId) {
+      setNodes((nds) => nds.filter((n) => n.id !== selectedNodeId));
+      setEdges((eds) => eds.filter((e) => e.source !== selectedNodeId && e.target !== selectedNodeId));
+      setSelectedNodeId(null);
+    }
+    setShowDeleteModal(false);
+  };
 
   // 当 messageId prop 变化时更新 state
   useEffect(() => {
@@ -894,35 +916,16 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
     }
   }, [messageIdProp]);
 
-  // 获取任务名称和描述
+  // 获取任务名称和描述（从 props 中提取，无需再调用接口）
   useEffect(() => {
-    if (messageId) {
-      getDrawInfoBymegId(messageId).then(response => {
-        if (response && response.result) {
-          const result = response.result as any;
-          if (result && result.task) {
-            setTaskName(result.task.dag_task_name || '');
-            setTaskDescription(result.task.description || '');
-          }
-        } else {
-          // 如果接口返回 null，从 initialPipelineData 中提取
-          if (initialPipelineData && initialPipelineData.task) {
-            setTaskName(initialPipelineData.task.name || initialPipelineData.task.dag_task_name || '');
-            setTaskDescription(initialPipelineData.task.description || '');
-          }
-        }
-      }).catch(() => {
-        // 如果接口调用失败，从 initialPipelineData 中提取
-        if (initialPipelineData && initialPipelineData.task) {
-          setTaskName(initialPipelineData.task.name || initialPipelineData.task.dag_task_name || '');
-          setTaskDescription(initialPipelineData.task.description || '');
-        }
-      });
-    } else if (initialPipelineData && initialPipelineData.task) {
+    if (savedDrawData?.task) {
+      setTaskName(savedDrawData.task.dag_task_name || '');
+      setTaskDescription(savedDrawData.task.description || '');
+    } else if (initialPipelineData?.task) {
       setTaskName(initialPipelineData.task.name || initialPipelineData.task.dag_task_name || '');
       setTaskDescription(initialPipelineData.task.description || '');
     }
-  }, [messageId, initialPipelineData]);
+  }, [savedDrawData, initialPipelineData]);
 
   const [isEditingNodeName, setIsEditingNodeName] = useState(false);
   const [editingNodeName, setEditingNodeName] = useState('');
@@ -970,11 +973,11 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
 
     const graphW = maxX - minX;
     const graphH = maxY - minY;
-    const padding = 40;
+    const padding = 60;
     const zoom = Math.min(
-      (w - padding * 2) / graphW,
-      (h - padding * 2) / graphH,
-      1.2
+      Math.max((w - padding * 2) / graphW, 1),
+      Math.max((h - padding * 2) / graphH, 1),
+      1.5
     );
 
     setViewport({
@@ -982,7 +985,7 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
       y: (h - graphH * zoom) / 2 - minY * zoom,
       zoom,
     });
-  }, [setViewport]);
+  }, [nodes, setViewport]);
 
   // 获取选中的节点
   const selectedNode = nodes.find((m) => m.id === selectedNodeId);
@@ -1084,6 +1087,76 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
         }
         console.log('=== bindingsMap ===', bindingsMap);
 
+        // 为 savedDrawData 中的节点计算新的布局位置，避免重叠（带分层展示）
+        const savedNodePositions: Record<string, { x: number; y: number }> = {};
+        const savedNodesCount = savedDrawData.nodes.length;
+        
+        // 使用分层布局：从 edges 计算拓扑层级
+        const savedNodeIdToIndex: Record<string, number> = {};
+        savedDrawData.nodes.forEach((n, index) => {
+          const nodeId = n.node_id || n.id || `node-${index + 1}`;
+          savedNodeIdToIndex[nodeId] = index;
+        });
+        
+        const savedInDegree: number[] = new Array(savedNodesCount).fill(0);
+        const savedOutEdges: number[][] = new Array(savedNodesCount).fill(null).map(() => []);
+        
+        for (const e of (savedDrawData.edges || [])) {
+          const sourceIdx = savedNodeIdToIndex[e.from_node_id];
+          const targetIdx = savedNodeIdToIndex[e.to_node_id];
+          if (sourceIdx !== undefined && targetIdx !== undefined) {
+            savedInDegree[targetIdx]++;
+            savedOutEdges[sourceIdx].push(targetIdx);
+          }
+        }
+        
+        const savedLevels: number[][] = [];
+        const savedTempInDegree = [...savedInDegree];
+        const savedProcessed = new Set<number>();
+        
+        let savedCurrentLevel: number[] = [];
+        for (let i = 0; i < savedNodesCount; i++) {
+          if (savedTempInDegree[i] === 0 && !savedProcessed.has(i)) {
+            savedCurrentLevel.push(i);
+            savedProcessed.add(i);
+          }
+        }
+        
+        while (savedCurrentLevel.length > 0) {
+          savedLevels.push(savedCurrentLevel);
+          const savedNextLevel: number[] = [];
+          savedCurrentLevel.forEach(idx => {
+            savedOutEdges[idx].forEach(targetIdx => {
+              if (!savedProcessed.has(targetIdx)) {
+                savedTempInDegree[targetIdx]--;
+                if (savedTempInDegree[targetIdx] === 0) {
+                  savedNextLevel.push(targetIdx);
+                  savedProcessed.add(targetIdx);
+                }
+              }
+            });
+          });
+          savedCurrentLevel = savedNextLevel;
+        }
+        
+        for (let i = 0; i < savedNodesCount; i++) {
+          if (!savedProcessed.has(i)) {
+            savedLevels.push([i]);
+          }
+        }
+        
+        for (let levelIdx = 0; levelIdx < savedLevels.length; levelIdx++) {
+          const level = savedLevels[levelIdx];
+          level.forEach((nodeIndex, nodeInLevelIdx) => {
+            const n = savedDrawData.nodes[nodeIndex];
+            const nodeId = n.node_id || n.id || `node-${nodeIndex + 1}`;
+            savedNodePositions[nodeId] = {
+              x: START_X + levelIdx * (NODE_WIDTH + NODE_GAP),
+              y: START_Y + nodeInLevelIdx * (NODE_HEIGHT + NODE_GAP)
+            };
+          });
+        }
+
         for (let i = 0; i < savedDrawData.nodes.length; i++) {
           const n = savedDrawData.nodes[i];
           let inputParams = undefined;
@@ -1133,7 +1206,8 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
                     param_type: "String",
                     value_mode: "manual",
                     param_value: "",
-                    value_source: "local_file"
+                    value_source: "local_file",
+                    required: true
                   }
                 ]
               };
@@ -1157,7 +1231,8 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
                     param_type: "String",
                     value_mode: "manual",
                     param_value: "",
-                    value_source: "local_file"
+                    value_source: "local_file",
+                    required: true
                   },
                   {
                     name: "path",
@@ -1166,7 +1241,8 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
                     param_type: "String",
                     value_mode: "manual",
                     param_value: "",
-                    value_source: "local_file"
+                    value_source: "local_file",
+                    required: true
                   },
                   {
                     name: "overwrite",
@@ -1175,7 +1251,8 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
                     param_type: "Boolean",
                     value_mode: "manual",
                     param_value: true,
-                    value_source: "local_file"
+                    value_source: "local_file",
+                    required: true
                   }
                 ]
               };
@@ -1183,15 +1260,47 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
               outputParams = { params: [] };
             }
           } else {
-            // 普通算子，有 savedDrawData 时不请求接口，直接使用已保存数据
-            console.log(`节点 ${i}: 普通算子，使用已保存数据，不请求接口`);
-            
-            // 如果 savedDrawData 中有 input_params，直接使用
-            if (hasSavedInputParams) {
-              inputParams = { params: n.input_params };
-              console.log(`节点 ${i}: 从 savedDrawData 读取 inputParams:`, inputParams);
+            // 普通算子：先请求接口获取参数模板（含 required 字段）
+            if (skillId) {
+              try {
+                const skillRes = await listSkillsDetails(skillId);
+                if (skillRes.result) {
+                  inputParams = skillRes.result.input_params;
+                  outputParams = skillRes.result.output_params || outputParams;
+                  nodeIconPath = skillRes.result.icon_path || nodeIconPath;
+                  console.log(`节点 ${i}: 从 listSkillsDetails 获取参数模板:`, inputParams);
+                }
+              } catch (error) {
+                console.error(`节点 ${i}: 获取算子详情失败:`, error);
+              }
             }
-            // 如果 savedDrawData 中有 icon_path，直接使用
+            
+            // 检查是否有 required 字段，没有的话再用 getAllSkills 获取
+            const hasRequiredField = inputParams?.params?.some((p: any) => p.required !== undefined);
+            if (!hasRequiredField) {
+              try {
+                const nodeName = n.node_name || n.skill?.skill_name || '';
+                const listRes = await getAllSkills(nodeName);
+                if (listRes.result?.data && listRes.result.data.length > 0) {
+                  const skillData = listRes.result.data[0].DagSkillInfoList?.find((s: any) =>
+                    s.skill_id === skillId || s.skill_name === nodeName
+                  ) || listRes.result.data[0].DagSkillInfoList[0];
+                  if (skillData?.input_params?.params?.some((p: any) => p.required !== undefined)) {
+                    inputParams = skillData.input_params;
+                    outputParams = skillData.output_params || outputParams;
+                    nodeIconPath = skillData.icon_path || nodeIconPath;
+                    console.log(`节点 ${i}: 从 getAllSkills 获取参数模板 (含 required):`, inputParams);
+                  }
+                }
+              } catch (e) { console.error(`节点 ${i}: getAllSkills 失败:`, e); }
+            }
+            
+            // 如果 API 都没返回，回退使用已保存数据
+            if (!inputParams?.params && hasSavedInputParams) {
+              inputParams = { params: n.input_params };
+              console.log(`节点 ${i}: 回退使用 savedDrawData 的 inputParams:`, inputParams);
+            }
+            // 如果 savedDrawData 中有 icon_path，优先使用
             if (hasSavedIconPath) {
               nodeIconPath = n.icon_path;
             }
@@ -1262,14 +1371,19 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
             };
           }
 
+          const operatorName = n.skill?.skill_name || '';
+          const operatorType = n.skill?.skill_type || n.skill_type || '';
+
           loadedNodes.push({
             id: nodeId,
             type: 'custom',
-            position: n.position || { x: START_X + (NODE_WIDTH + NODE_GAP) * i, y: START_Y },
+            position: savedNodePositions[nodeId] || { x: START_X + (NODE_WIDTH + NODE_GAP) * i, y: START_Y },
             data: {
               label: n.node_name || '未命名节点',
               icon: nodeIconPath,
               operatorId: skillId || '',
+              operatorName,
+              operatorType,
               description: '',
               params: {},
               inputVar: 'input_data',
@@ -1277,8 +1391,8 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
               input_params: mergedInputParams,
               output_params: outputParams,
               onDelete: (delId: string) => {
-                setNodes((nds) => nds.filter((nn) => nn.id !== delId));
-                setEdges((eds) => eds.filter((e) => e.source !== delId && e.target !== delId));
+                setSelectedNodeId(delId);
+                setShowDeleteModal(true);
               },
               onUpdateParams: (updId: string, params: Record<string, any>) => {
                 setNodes((nds) => nds.map((nn) => nn.id === updId ? { ...nn, data: { ...nn.data, params } } : nn));
@@ -1429,21 +1543,19 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
         }
       }
       
-      // 1.4 构建节点索引到位置的映射
+      // 1.4 构建节点索引到位置的映射 - 分层布局
       const nodeIndexToPositionMap: Record<number, { x: number; y: number }> = {};
       
-      // 计算每层的位置
-      levels.forEach((level, levelIndex) => {
-        const levelWidth = level.length * (NODE_WIDTH + NODE_GAP) - NODE_GAP;
-        const startX = START_X;
-        
-        level.forEach((nodeIndex, nodeInLevelIndex) => {
+      // 使用分层布局：按拓扑层级水平排列，同一层内多个节点（分支）垂直排列
+      for (let levelIdx = 0; levelIdx < levels.length; levelIdx++) {
+        const level = levels[levelIdx];
+        level.forEach((nodeIndex, nodeInLevelIdx) => {
           nodeIndexToPositionMap[nodeIndex] = {
-            x: startX + (NODE_WIDTH + NODE_GAP) * nodeInLevelIndex,
-            y: START_Y + (NODE_HEIGHT + 100) * levelIndex
+            x: START_X + levelIdx * (NODE_WIDTH + NODE_GAP),
+            y: START_Y + nodeInLevelIdx * (NODE_HEIGHT + NODE_GAP)
           };
         });
-      });
+      }
 
       // 第一步：先获取所有节点的算子信息，建立基础映射，收集output_params
       for (let i = 0; i < pipelineNodes.length; i++) {
@@ -1490,6 +1602,8 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
         let skillId = pNode.skill_id || '';
         const skillName = pNode.skill_name;
         let nodeName = pNode.node_name || '未命名节点';
+        let nodeNameForOperator = pNode.skill_name || '';
+        let nodeTypeForOperator = '';
         
         // 获取算子详情信息
         let inputParams = undefined;
@@ -1509,6 +1623,8 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
         // 对于 source_stop 和 sink_stop 特殊算子，使用fixArr中定义的参数结构，然后填入值
         if (skillName === 'source_stop') {
           skillId = 'cn.piflow.engine.local.source_file_stop.SourceFileStop';
+          nodeNameForOperator = 'SourceFileStop';
+          nodeTypeForOperator = 'input';
           
           // source_stop的输入参数只有file_path
           const sourceStopInputParams = [
@@ -1576,6 +1692,8 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
           console.log(`节点 ${nodeName}: source_stop 特殊算子，使用fixArr定义的参数结构:`, mergedInputParams);
         } else if (skillName === 'sink_stop') {
           skillId = 'cn.piflow.engine.local.file_save_stop.FileSaveStop';
+          nodeNameForOperator = 'FileSaveStop';
+          nodeTypeForOperator = 'output';
           
           // 使用fixArr中定义的sink_stop参数结构
           const sinkStopParamDefs = [
@@ -1656,17 +1774,25 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
           try {
             const res = await getAllSkills(skillName);
             if (res.result.data && res.result.data.length > 0) {
-              inputParams = res.result.data[0].DagSkillInfoList[0].input_params;
+              const skillData = res.result.data[0].DagSkillInfoList[0];
+              inputParams = skillData.input_params;
               // 如果outputParams已经有了，就不用再次获取
               if (!outputParams) {
-                outputParams = res.result.data[0].DagSkillInfoList[0].output_params;
+                outputParams = skillData.output_params;
               }
-              skillId = res.result.data[0].DagSkillInfoList[0].skill_id;
-              iconPath = res.result.data[0].DagSkillInfoList[0].icon_path || '';
+              skillId = skillData.skill_id;
+              iconPath = skillData.icon_path || '';
               // 使用中文名称，如果没有则使用节点名
-              const skillZhName = res.result.data[0].DagSkillInfoList[0].name_zh;
+              const skillZhName = skillData.name_zh;
               if (skillZhName && !nodeName.includes(skillZhName)) {
                 nodeName = skillZhName;
+              }
+              // 从API响应中提取 skill_name 和 skill_type
+              if (skillData.skill_name) {
+                nodeNameForOperator = skillData.skill_name;
+              }
+              if (skillData.skill_type) {
+                nodeTypeForOperator = skillData.skill_type;
               }
             }
           } catch (error) {
@@ -1788,6 +1914,8 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
             label: nodeName,
             icon: iconPath,
             operatorId: skillId,
+            operatorName: nodeNameForOperator || '',
+            operatorType: nodeTypeForOperator,
             description: '',
             params: dagParams,
             inputVar: 'input_data',
@@ -1795,8 +1923,8 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
             input_params: mergedInputParams,
             output_params: outputParams,
             onDelete: (delId: string) => {
-              setNodes((nds) => nds.filter((n) => n.id !== delId));
-              setEdges((eds) => eds.filter((e) => e.source !== delId && e.target !== delId));
+              setSelectedNodeId(delId);
+              setShowDeleteModal(true);
             },
             onUpdateParams: (updId: string, params: Record<string, any>) => {
               setNodes((nds) =>
@@ -2246,19 +2374,78 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
         console.error('获取算子详情失败:', error);
       }
       
-      // 计算新节点的位置 - 使用当前视图中心
+      // 检查是否有 required 字段，没有的话用 getAllSkills 回退
+      const hasRequiredField = inputParams?.params?.some((p: any) => p.required !== undefined);
+      if (!hasRequiredField) {
+        try {
+          const listRes = await getAllSkills(operator.skill_name);
+          if (listRes.result?.data && listRes.result.data.length > 0) {
+            const skillData = listRes.result.data[0].DagSkillInfoList?.find((s: any) =>
+              s.skill_id === operator.skill_id || s.skill_name === operator.skill_name
+            ) || listRes.result.data[0].DagSkillInfoList[0];
+            if (skillData?.input_params?.params?.some((p: any) => p.required !== undefined)) {
+              inputParams = skillData.input_params;
+              outputParams = skillData.output_params || outputParams;
+              operatorIconPath = skillData.icon_path || operatorIconPath;
+              console.log('handleAddNode: 使用 getAllSkills 参数模板 (含 required):', inputParams);
+            }
+          }
+        } catch (e) { console.error('handleAddNode: getAllSkills 失败:', e); }
+      }
+      
+      // 计算新节点的位置
       let newPosition = position;
       if (!newPosition) {
         // 获取当前视图信息
         const currentViewport = getViewport();
+        const wrapperEl = reactFlowWrapper.current;
+        const containerW = wrapperEl?.clientWidth || window.innerWidth;
+        const containerH = wrapperEl?.clientHeight || window.innerHeight;
         // 计算视图中心在画布上的坐标
-        const viewCenterX = (window.innerWidth / 2 - currentViewport.x) / currentViewport.zoom;
-        const viewCenterY = (window.innerHeight / 2 - currentViewport.y) / currentViewport.zoom;
-        // 新节点放在视图中心，调整一下位置让节点居中显示
-        newPosition = {
-          x: viewCenterX - NODE_WIDTH / 2,
-          y: viewCenterY - 70,
-        };
+        const viewCenterX = (containerW / 2 - currentViewport.x) / currentViewport.zoom;
+        const viewCenterY = (containerH / 2 - currentViewport.y) / currentViewport.zoom;
+        
+        // 检查是否会与现有节点重叠，如果重叠则偏移
+        let offsetX = 0;
+        let offsetY = 0;
+        let attempt = 0;
+        const maxAttempts = 50;
+        
+        while (attempt < maxAttempts) {
+          const testX = viewCenterX - NODE_WIDTH / 2 + offsetX;
+          const testY = viewCenterY - 70 + offsetY;
+          
+          // 检查是否与现有节点重叠
+          const overlaps = nodes.some(node => {
+            const nodeRight = node.position.x + NODE_WIDTH;
+            const nodeBottom = node.position.y + NODE_HEIGHT;
+            const testRight = testX + NODE_WIDTH;
+            const testBottom = testY + NODE_HEIGHT;
+            
+            return !(testRight < node.position.x || testX > nodeRight || 
+                     testBottom < node.position.y || testY > nodeBottom);
+          });
+          
+          if (!overlaps) {
+            newPosition = { x: testX, y: testY };
+            break;
+          }
+          
+          // 螺旋式偏移
+          offsetX += (attempt % 2 === 0 ? 1 : -1) * (NODE_GAP * Math.floor(attempt / 2 + 1));
+          if (attempt % 2 === 1) {
+            offsetY += NODE_GAP;
+          }
+          attempt++;
+        }
+        
+        // 如果所有尝试都失败，使用原始位置
+        if (!newPosition) {
+          newPosition = {
+            x: viewCenterX - NODE_WIDTH / 2,
+            y: viewCenterY - 70,
+          };
+        }
       }
       
       const newNode: Node<NodeData> = {
@@ -2269,6 +2456,8 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
           label: uniqueLabel,
           icon: operatorIconPath,
           operatorId: operator.skill_id,
+          operatorName: operator.skill_name || '',
+          operatorType: operator.skill_type || '',
           description: operator.description || '',
           params: {},
           inputVar: 'input_data',
@@ -2328,12 +2517,15 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
       // 自动调整视图，将新节点放到视野中心（保持当前缩放级别）
       setTimeout(() => {
         const currentViewport = getViewport();
+        const wrapperEl = reactFlowWrapper.current;
+        const containerW = wrapperEl?.clientWidth || window.innerWidth;
+        const containerH = wrapperEl?.clientHeight || window.innerHeight;
         // 计算新节点的中心点
         const nodeCenterX = newPosition.x + NODE_WIDTH / 2;
         const nodeCenterY = newPosition.y + 70;
         // 计算需要移动的偏移量
-        const targetX = window.innerWidth / 2 - nodeCenterX * currentViewport.zoom;
-        const targetY = window.innerHeight / 2 - nodeCenterY * currentViewport.zoom;
+        const targetX = containerW / 2 - nodeCenterX * currentViewport.zoom;
+        const targetY = containerH / 2 - nodeCenterY * currentViewport.zoom;
         // 使用 setViewport 移动视图，保持当前的缩放级别
         setViewport(
           {
@@ -2428,24 +2620,30 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
                 x: n.position.x,
                 y: n.position.y,
               },
-              input_params: n.data.input_params?.params?.map(p => {
-                const isReference = p._refType === 'reference';
-                const savedValue = isReference ? (p._refValue || '') : (p._value || '');
-                console.log('保存参数:', {
-                  param_name: p.name,
-                  _refType: p._refType,
-                  _refValue: p._refValue,
-                  _value: p._value,
-                  isReference,
-                  savedValue
-                });
-                return {
-                  param_name: p.name,
-                  param_value: savedValue,
-                  value_mode: isReference ? 'reference' : 'manual',
-                  binding_id: isReference ? generateUUID() : '',
-                };
-              }) || [],
+              input_params: (n.data.input_params?.params || [])
+                .filter(p => {
+                  if (p._refType === 'reference') return true;
+                  const val = p._value || p.param_value || '';
+                  return val.trim() !== '';
+                })
+                .map(p => {
+                  const isReference = p._refType === 'reference';
+                  const savedValue = isReference ? (p._refValue || '') : (p._value || '');
+                  console.log('保存参数:', {
+                    param_name: p.name,
+                    _refType: p._refType,
+                    _refValue: p._refValue,
+                    _value: p._value,
+                    isReference,
+                    savedValue
+                  });
+                  return {
+                    param_name: p.name,
+                    param_value: savedValue,
+                    value_mode: isReference ? 'reference' : 'manual',
+                    binding_id: isReference ? generateUUID() : '',
+                  };
+                }),
               out_params: n.data.output_params?.params?.map(p => ({
                 param_name: p.name || p.param_name || '',
                 param_type: p.type || p.param_type || 'string',
@@ -2455,9 +2653,9 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
       const params = {
         dsl_version: "1.0",
         task: {
-          dag_task_id: taskId || '',  // 使用保存后返回的task_id
-          dag_task_name: '科研数据清洗与排序',
-          description: '',
+          dag_task_id: taskId || '',
+          dag_task_name: taskName,
+          description: taskDescription,
           message_id: messageId || ''
         },
         nodes: nodesToSave,
@@ -2585,14 +2783,30 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
             <Download size={16} />
             <span>导出JSON</span>
           </button> */}
-          <button className="close-btn" onClick={() => {
+          <button className="sync-back-btn" onClick={() => {
+            // 校验必填参数
+            for (const n of nodes) {
+              if (n.type === 'comment') continue;
+              const params = n.data.input_params?.params || [];
+              console.log('params',params)
+              for (const p of params) {
+                if (p.required) {
+                  const val = p._value || p.param_value || p._refValue || p.value || '';
+                  if (!val.trim()) {
+                    alert(`节点「${n.data.label}」的必填参数「${p.name}」未填写，请完善后再同步`);
+                    return;
+                  }
+                }
+              }
+            }
+
             // 构造完整的画板JSON数据
             const drawData = {
               dsl_version: "1.0",
               task: {
                 dag_task_id: taskId || '',
-                dag_task_name: '科研数据清洗与排序',
-                description: '',
+                dag_task_name: taskName,
+                description: taskDescription,
                 message_id: messageId || ''
               },
               nodes: nodes
@@ -2610,15 +2824,21 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
                     x: n.position.x,
                     y: n.position.y,
                   },
-                  input_params: n.data.input_params?.params?.map(p => {
-                    const isReference = p._refType === 'reference';
-                    return {
-                      param_name: p.name,
-                      param_value: isReference ? '' : (p._value || ''),
-                      value_mode: isReference ? 'reference' : 'manual',
-                      binding_id: isReference ? generateUUID() : '',
-                    };
-                  }) || [],
+                  input_params: (n.data.input_params?.params || [])
+                    .filter(p => {
+                      if (p._refType === 'reference') return true;
+                      const val = p._value || p.param_value || '';
+                      return val.trim() !== '';
+                    })
+                    .map(p => {
+                      const isReference = p._refType === 'reference';
+                      return {
+                        param_name: p.name,
+                        param_value: isReference ? '' : (p._value || ''),
+                        value_mode: isReference ? 'reference' : 'manual',
+                        binding_id: isReference ? generateUUID() : '',
+                      };
+                    }),
                   out_params: n.data.output_params?.params?.map(p => ({
                     param_name: p.name || p.param_name || '',
                     param_type: p.type || p.param_type || 'string',
@@ -2631,18 +2851,26 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
               })),
             };
             
-            // 发送消息给AI（带隐藏标记）
+            // 合并指令和画板数据为一条消息发送（带隐藏标记），避免触发两次 /message/create
+            const combinedContent = '[HIDDEN]我手动修改了任务流程，请根据任务流程重新生成dag JSON，不要执行\n\n' + JSON.stringify(drawData);
             window.dispatchEvent(new CustomEvent('flow:send-message', { 
               detail: { 
                 threadId, 
                 messageId, 
-                content: '[HIDDEN]' + JSON.stringify(drawData),
+                content: combinedContent,
                 hidden: true
               } 
             }));
             onClose();
           }}>
-            <X size={18} />
+            同步并返回对话
+          </button>
+          <button className="only-back-btn" onClick={() => {
+            setNodes([]);
+            setEdges([]);
+            onClose();
+          }}>
+            仅返回对话
           </button>
         </div>
       </div>
@@ -2660,6 +2888,23 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
         defaultViewport={{ zoom: 1, x: 0, y: 0 }}
         minZoom={0.2}
         maxZoom={2}
+        onDrop={(e) => {
+          e.preventDefault();
+          const operatorData = e.dataTransfer.getData('application/json');
+          if (operatorData) {
+            try {
+              const operator = JSON.parse(operatorData);
+              const position = screenToFlowPosition({ x: e.clientX, y: e.clientY });
+              handleAddNode(operator, position);
+            } catch (error) {
+              console.error('解析拖拽数据失败:', error);
+            }
+          }
+        }}
+        onDragOver={(e) => {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'copy';
+        }}
       >
         <Background variant={BackgroundVariant.Dots} gap={12} size={1} />
       </ReactFlow>
@@ -2774,7 +3019,10 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
                           {selectedNode.data.input_params.params.map((param: any, index: number) => (
                             <tr key={`input-${index}`}>
                               <td className="col-param-name">
-                                <span className="param-name-text">{param.name}</span>
+                                <span className="param-name-text">
+                                  {param.required && <span className="required-asterisk">*</span>}
+                                  {param.name}
+                                </span>
                               </td>
                               <td className="col-ref">
                                 <select
@@ -2789,7 +3037,7 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
                                     newParams[index] = {
                                       ...newParams[index],
                                       _refType: newRefType,
-                                      _value: newRefType === 'reference' ? '' : (param._value || param.param_value || ''),
+                                      _value: newRefType === 'reference' ? '' : (param._value || param.param_value || param._refValue || ''),
                                       _refValue: isChangingToReference ? (referenceOptions.length > 0 ? referenceOptions[0].name : '') : (newRefType === 'reference' ? param._refValue || '' : '')
                                     };
 
@@ -2945,6 +3193,34 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
           onAddNode={handleAddNode}
           operatorList={operatorList}
         />
+      )}
+
+      {/* Delete键删除确认弹窗 */}
+      {showDeleteModal && (
+        <div className="delete-confirm-overlay" onClick={() => setShowDeleteModal(false)}>
+          <div className="delete-confirm-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="delete-confirm-header">
+              <div className="delete-confirm-icon">!</div>
+              <h3>确认删除此节点？</h3>
+              <button className="delete-confirm-close" onClick={() => setShowDeleteModal(false)}>
+                <X size={20} />
+              </button>
+            </div>
+            <div className="delete-confirm-body">
+              <p>删除后将无法恢复，确定要删除该节点吗？</p>
+            </div>
+            <div className="delete-confirm-footer">
+              <div className="delete-confirm-actions">
+                <button className="delete-confirm-cancel" onClick={() => setShowDeleteModal(false)}>
+                  取消
+                </button>
+                <button className="delete-confirm-confirm" onClick={handleDeleteNode}>
+                  删除
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       {saveMessage && (

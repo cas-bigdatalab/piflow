@@ -1,4 +1,4 @@
-import { Icon } from "@iconify/react";
+﻿import { Icon } from "@iconify/react";
 import { type DragEvent, useEffect, useRef, useState } from "react";
 import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 import {
@@ -116,9 +116,9 @@ function removeAllJson(text: string): string {
   
   let result = text;
   
-  // 首先移除特定的标记文本
-  result = result.replace(/我手动修改了任务流程[\s\S]*?不要执行。[\s\S]*?\n?/g, '').trim();
-  result = result.replace(/我手动修改了任务流程[\s\S]*?不要执行。/g, '').trim();
+  // 首先移除特定的标记文本  请根据任务流程重新生成dag JSON，不要执行
+  result = result.replace(/我手动修改了任务流程，请根据任务流程重新生成dag JSON[\s\S]*?不要执行。[\s\S]*?\n?/g, '').trim();
+  result = result.replace(/我手动修改了任务流程，请根据任务流程重新生成dag JSON[\s\S]*?不要执行。/g, '').trim();
   
   // 移除代码块格式的 JSON（包括 ```json ... ``` 和 ``` ... ```）
   result = result.replace(/```(json)?\s*[\s\S]*?```/g, '').trim();
@@ -200,14 +200,14 @@ function svgToDataUri(svg: string) {
 
 const EXAMPLES: ExampleCard[] = [
   {
-    title: "数据清洗与排序",
-    description: "「请对上传数据分别进行空行清洗、空格清洗，并根据fa0116字段进行升序排序。」",
+    title: "语料格式转换与过滤",
+    description: "「请对上传数据csv文件转换为jsonl格式，再对这个jsonl的'fa0114'字段进行最大长度过滤，要求最大长度在40以内；再对'fa0112'字段筛选过滤出包含'多花山矾'的数据」",
     prompt:
-      "请对上传数据分别进行空行清洗、空格清洗，并根据fa0116字段进行升序排序。",
+      "请对上传数据csv文件转换为jsonl格式，再对这个jsonl的'fa0114'字段进行最大长度过滤，要求最大长度在40以内；再对'fa0112'字段筛选过滤出包含'多花山矾'的数据",
     attachments: [
       {
-        path: "/temp/森林每木调查数据-blank-line-space.csv",
-        name: "森林每木调查数据-blank-line-space.csv",
+        path: "/temp/森林每木调查数据.csv",
+        name: "森林每木调查数据.csv",
       },
     ],
     image: svgToDataUri(`
@@ -1026,7 +1026,7 @@ export function HomePage() {
                                                           (message.content || '').includes('运行完成') ||
                                                           (message.content || '').includes('处理完成'));
                                   
-                                  if (pipelineData && !sending) {
+                                  if (pipelineData && (!sending || message.id !== activeAssistantId)) {
                                     return (
                                       <>
                                         {cleanedText && <MarkdownMessage content={removeAllJson(cleanedText)} pending={sending} />}

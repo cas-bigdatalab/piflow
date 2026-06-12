@@ -8,12 +8,13 @@ from data_juicer.utils.constant import Fields
 
 
 def run_text_pair_similarity_filter(input_path: str, output_path: str,
-                              text_key_second: str,
-                              hf_clip: str = 'openai/clip-vit-base-patch32',
-                              min_score: float = 0.1,
-                              max_score: float = 1.0,
-                              any_or_all: str = 'any',
-                              num_proc: int = 1):
+                               text_key_second: str,
+                               hf_clip: str = 'openai/clip-vit-base-patch32',
+                               min_score: float = 0.1,
+                               max_score: float = 1.0,
+                               any_or_all: str = 'any',
+                               num_proc: int = 1,
+                               text_key: str = "text"):
     """
     运行文本对相似度过滤算子
 
@@ -49,7 +50,8 @@ def run_text_pair_similarity_filter(input_path: str, output_path: str,
         min_score=min_score,
         max_score=max_score,
         text_key_second=text_key_second,
-        any_or_all=any_or_all
+        any_or_all=any_or_all,
+        text_key=text_key,
     )
 
     # 处理数据
@@ -60,13 +62,13 @@ def run_text_pair_similarity_filter(input_path: str, output_path: str,
                           num_proc=num_proc,
                           with_rank=True)
     dataset = dataset.filter(op.process, num_proc=num_proc)
-    dataset = dataset.select_columns(column_names=['text', text_key_second])
 
     # 保存结果
     res_list = dataset.to_list()
     os.makedirs(os.path.dirname(output_path) or '.', exist_ok=True)
     with open(output_path, 'w', encoding='utf-8') as f:
         for item in res_list:
+            item.pop(Fields.stats, None)
             f.write(json.dumps(item, ensure_ascii=False) + '\n')
 
     print(f"处理完成: 输入 {len(ds_list)} 条 -> 输出 {len(res_list)} 条")
@@ -95,6 +97,8 @@ def main():
                         help='过滤策略: any=任意一个符合保留, all=所有都符合保留 (默认: any)')
     parser.add_argument('--num_proc', type=int, default=1,
                         help='并行进程数 (默认: 1)')
+    parser.add_argument('--text_key', type=str, default='text',
+                        help='要操作的文本字段名 (默认: text)')
 
     args = parser.parse_args()
 
@@ -106,7 +110,8 @@ def main():
         min_score=args.min_score,
         max_score=args.max_score,
         any_or_all=args.any_or_all,
-        num_proc=args.num_proc
+        num_proc=args.num_proc,
+        text_key=args.text_key,
     )
 
 

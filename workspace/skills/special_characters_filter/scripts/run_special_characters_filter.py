@@ -11,7 +11,8 @@ def run_special_characters_filter(input_path: str, output_path: str,
                                 min_ratio: float = 0.0,
                                 max_ratio: float = 0.25,
                                 batch_size: int = 1,
-                                num_proc: int = 1):
+                                num_proc: int = 1,
+                                text_key: str = "text"):
     """
     运行特殊字符过滤算子
 
@@ -43,7 +44,8 @@ def run_special_characters_filter(input_path: str, output_path: str,
     op = SpecialCharactersFilter(
         min_ratio=min_ratio,
         max_ratio=max_ratio,
-        batch_size=batch_size
+        batch_size=batch_size,
+        text_key=text_key,
     )
 
     # 处理数据
@@ -52,13 +54,13 @@ def run_special_characters_filter(input_path: str, output_path: str,
                                       column=[{}] * dataset.num_rows)
     dataset = dataset.map(op.compute_stats, batch_size=batch_size)
     dataset = dataset.filter(op.process, batch_size=batch_size)
-    dataset = dataset.select_columns(column_names=['text'])
 
     # 保存结果
     res_list = dataset.to_list()
     os.makedirs(os.path.dirname(output_path) or '.', exist_ok=True)
     with open(output_path, 'w', encoding='utf-8') as f:
         for item in res_list:
+            item.pop(Fields.stats, None)
             f.write(json.dumps(item, ensure_ascii=False) + '\n')
 
     print(f"处理完成: 输入 {len(ds_list)} 条 -> 输出 {len(res_list)} 条")
@@ -81,6 +83,8 @@ def main():
                         help='批处理大小 (默认: 1)')
     parser.add_argument('--num_proc', type=int, default=1,
                         help='并行进程数 (默认: 1)')
+    parser.add_argument('--text_key', type=str, default='text',
+                        help='要操作的文本字段名 (默认: text)')
 
     args = parser.parse_args()
 
@@ -90,7 +94,8 @@ def main():
         min_ratio=args.min_ratio,
         max_ratio=args.max_ratio,
         batch_size=args.batch_size,
-        num_proc=args.num_proc
+        num_proc=args.num_proc,
+        text_key=args.text_key,
     )
 
 

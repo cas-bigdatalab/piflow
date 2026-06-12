@@ -1,7 +1,7 @@
 ---
 name: maximum_line_length_filter
 description: |
-  最大行长度过滤器。过滤器将最大行长度的样本保持在特定范围内。
+  最大行长度过滤器。过滤器将最大行长度的样本保持在特定范围内。支持对JSONL格式数据指定字段进行过滤。
   本SKILL使用依赖data_juicer，请在调用前安装好python环境并安装data_juicer，你可用以下指令进行安装：
   pip install py-data-juicer
   
@@ -42,6 +42,12 @@ input_params:
     required: false
     default: 1
     description: 并行处理的进程数
+  - name: text_key
+    type: string
+    required: false
+    default: text
+    description: 要操作的文本字段名
+
 
 output_params:
   - name: output_path
@@ -65,13 +71,14 @@ tag: 过滤与筛选
 | max_len | int | 否 | 2147483647 | 最大行长度（字符数） |
 | batch_size | int | 否 | 1 | 批处理大小 |
 | num_proc | int | 否 | 1 | 并行处理的进程数 |
+| text_key | string | 否 | text | 要操作的文本字段名 |
 
 ## 输入数据格式
 
-输入文件应为 JSON 或 JSONL 格式，每行包含一个样本，样本需包含 `text` 字段：
+输入文件应为 JSON 或 JSONL 格式，每行包含一个样本，样本需包含 `text_key` 指定的字段（默认 `text`）：
 
 ```json
-{"text": "第一行文本\n第二行文本\n第三行文本"}
+{"<text_key>": "第一行文本\n第二行文本\n第三行文本"}
 ```
 
 ## 输出数据格式
@@ -98,6 +105,7 @@ python scripts/run_maximum_line_length_filter.py \
 - `--max_len`: 最大行长度（默认不限制）
 - `--batch_size`: 批处理大小（默认1）
 - `--num_proc`: 并行进程数，默认1
+- `--text_key`: 要操作的文本字段名（默认text）
 
 ## 注意事项
 

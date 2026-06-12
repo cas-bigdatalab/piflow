@@ -36,6 +36,12 @@ input_params:
     required: false
     default: 1
     description: 并行处理的进程数
+  - name: text_key
+    type: string
+    required: false
+    default: text
+    description: 要操作的文本字段名
+
 
 output_params:
   - name: output_path
@@ -58,13 +64,14 @@ tag: 过滤与筛选
 | lang | string | 否 | 'en' | 语言代码：'en' 或 'zh' |
 | min_action_num | int | 否 | 1 | 最小动作词数量 |
 | num_proc | int | 否 | 1 | 并行处理的进程数 |
+| text_key | string | 否 | text | 要操作的文本字段名 |
 
 ## 输入数据格式
 
-输入文件应为 JSON 或 JSONL 格式，每行包含一个样本，样本需包含 `text` 字段：
+输入文件应为 JSON 或 JSONL 格式，每行包含一个样本，样本需包含 `text_key` 指定的字段（默认 `text`）：
 
 ```json
-{"text": "Tom is playing piano."}
+{"<text_key>": "Tom is playing piano."}
 ```
 
 ## 输出数据格式
@@ -98,6 +105,7 @@ python scripts/run_text_action_filter.py \
 - `--lang`: 语言代码（默认 en，仅支持 en 和 zh）
 - `--min_action_num`: 最小动作词数量（默认1）
 - `--num_proc`: 并行进程数，默认1
+- `--text_key`: 要操作的文本字段名（默认text）
 
 ## 注意事项
 

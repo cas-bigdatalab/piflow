@@ -1,7 +1,9 @@
 import { Icon } from "@iconify/react";
 import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { runDAGTask, saveDrawInfo, getDrawInfoBymegId, getAllSkills } from "../lib/api";
+import { runDAGTask, saveDrawInfo, getDrawInfoBymegId, getAllSkills, listSkillsDetails } from "../lib/api";
+import { generateUUID } from "../lib/ids";
+import { toast } from "./Toast";
 
 interface PipelineNode {
   node_name: string;
@@ -357,19 +359,31 @@ export default function PipelinePreview({ data, threadId, onOpenCanvas, messageI
               // 处理 input_params
               let inputParams = [];
               if (node.input_params?.params) {
-                inputParams = node.input_params.params.map((p: any) => ({
-                  param_name: p.name || p.param_name || '',
-                  param_value: p.value || p.param_value || '',
-                  value_mode: p._refType === 'reference' ? 'reference' : (p.value_mode || 'manual'),
-                  binding_id: p.binding_id || ''
-                }));
+                inputParams = node.input_params.params
+                  .filter((p: any) => {
+                    if (p._refType === 'reference') return true;
+                    const val = p._value || p.value || p.param_value || '';
+                    return val.trim() !== '';
+                  })
+                  .map((p: any) => ({
+                    param_name: p.name || p.param_name || '',
+                    param_value: p._value || p.value || p.param_value || '',
+                    value_mode: p._refType === 'reference' ? 'reference' : (p.value_mode || 'manual'),
+                    binding_id: p.binding_id || ''
+                  }));
               } else if (node.input_params && Array.isArray(node.input_params)) {
-                inputParams = node.input_params.map((p: any) => ({
-                  param_name: p.name || p.param_name || '',
-                  param_value: p.value || p.param_value || '',
-                  value_mode: p._refType === 'reference' ? 'reference' : (p.value_mode || 'manual'),
-                  binding_id: p.binding_id || ''
-                }));
+                inputParams = node.input_params
+                  .filter((p: any) => {
+                    if (p._refType === 'reference') return true;
+                    const val = p._value || p.value || p.param_value || '';
+                    return val.trim() !== '';
+                  })
+                  .map((p: any) => ({
+                    param_name: p.name || p.param_name || '',
+                    param_value: p._value || p.value || p.param_value || '',
+                    value_mode: p._refType === 'reference' ? 'reference' : (p.value_mode || 'manual'),
+                    binding_id: p.binding_id || ''
+                  }));
               }
               
               processedSavedNodes.push({
@@ -467,25 +481,33 @@ export default function PipelinePreview({ data, threadId, onOpenCanvas, messageI
           if (skillName === 'source_stop' || skillName === 'sink_stop') {
             // 特殊算子，直接使用会话返回的参数
             const nodeParams = node.params || {};
-            mergedInputParams = Object.entries(nodeParams).map(([paramName, paramValue]: any) => {
-              if (typeof paramValue === 'object' && paramValue !== null && 'source_node' in paramValue) {
-                // 引用类型
-                return {
-                  param_name: paramName,
-                  param_value: paramValue.source_param || '',
-                  value_mode: 'reference',
-                  binding_id: ''
-                };
-              } else {
-                // 手动类型
-                return {
-                  param_name: paramName,
-                  param_value: String(paramValue),
-                  value_mode: 'manual',
-                  binding_id: ''
-                };
-              }
-            });
+            mergedInputParams = Object.entries(nodeParams)
+              .map(([paramName, paramValue]: any) => {
+                if (typeof paramValue === 'object' && paramValue !== null && 'source_node' in paramValue) {
+                  // 引用类型
+                  return {
+                    param_name: paramName,
+                    param_value: paramValue.source_param || '',
+                    value_mode: 'reference',
+                    binding_id: '',
+                    _refType: 'reference'
+                  };
+                } else {
+                  // 手动类型
+                  return {
+                    param_name: paramName,
+                    param_value: String(paramValue),
+                    value_mode: 'manual',
+                    binding_id: '',
+                    _refType: 'manual'
+                  };
+                }
+              })
+              .filter((p: any) => {
+                if (p._refType === 'reference') return true;
+                const val = p.param_value || '';
+                return val.trim() !== '';
+              });
             
             // source_stop 有输出参数，sink_stop 没有输出参数
             if (skillName === 'source_stop') {
@@ -522,37 +544,46 @@ export default function PipelinePreview({ data, threadId, onOpenCanvas, messageI
             }
             
             // 合并节点参数到 input_params，处理引用类型
-            mergedInputParams = inputParams.map((paramDef: any) => {
-              const paramName = paramDef.name || paramDef.param_name;
-              const paramValue = (node.params || {})[paramName];
-              
-              if (paramValue !== undefined) {
-                if (typeof paramValue === 'object' && paramValue !== null && 'source_node' in paramValue) {
-                  // 引用类型
-                  return {
-                    param_name: paramName,
-                    param_value: paramValue.source_param || '',
-                    value_mode: 'reference',
-                    binding_id: ''
-                  };
-                } else {
-                  // 手动类型
-                  return {
-                    param_name: paramName,
-                    param_value: String(paramValue),
-                    value_mode: 'manual',
-                    binding_id: ''
-                  };
+            mergedInputParams = inputParams
+              .map((paramDef: any) => {
+                const paramName = paramDef.name || paramDef.param_name;
+                const paramValue = (node.params || {})[paramName];
+                
+                if (paramValue !== undefined) {
+                  if (typeof paramValue === 'object' && paramValue !== null && 'source_node' in paramValue) {
+                    // 引用类型
+                    return {
+                      param_name: paramName,
+                      param_value: paramValue.source_param || '',
+                      value_mode: 'reference',
+                      binding_id: '',
+                      _refType: 'reference'
+                    };
+                  } else {
+                    // 手动类型
+                    return {
+                      param_name: paramName,
+                      param_value: String(paramValue),
+                      value_mode: 'manual',
+                      binding_id: '',
+                      _refType: 'manual'
+                    };
+                  }
                 }
-              }
-              
-              return {
-                param_name: paramName,
-                param_value: paramDef.param_value || '',
-                value_mode: 'manual',
-                binding_id: ''
-              };
-            });
+                
+                return {
+                  param_name: paramName,
+                  param_value: paramDef.param_value || '',
+                  value_mode: 'manual',
+                  binding_id: '',
+                  _refType: 'manual'
+                };
+              })
+              .filter((p: any) => {
+                if (p._refType === 'reference') return true;
+                const val = p.param_value || '';
+                return val.trim() !== '';
+              });
             
             // 转换 output_params 格式
             outParams = outputParams.map((p: any) => ({
@@ -611,7 +642,7 @@ export default function PipelinePreview({ data, threadId, onOpenCanvas, messageI
                 
                 // 生成 binding
                 generatedBindings.push({
-                  binding_id: crypto.randomUUID(),
+                  binding_id: generateUUID(),
                   from_node_id: sourceNodeId,
                   from_param_name: sourceParamName,
                   to_node_id: node.node_id,
@@ -642,8 +673,37 @@ export default function PipelinePreview({ data, threadId, onOpenCanvas, messageI
       // 检查是否已经有 dag_task_id
       const hasExistingTaskId = drawData.task.dag_task_id && drawData.task.dag_task_id !== '';
       
-      // 保存画板
+      // 保存画板前校验必填参数
       console.log('保存画板数据:', drawData);
+      const skillInfoMap: Record<string, any> = {};
+      for (const node of drawData.nodes || []) {
+        const skillId = node.skill?.skill_id || node.skill_id || '';
+        if (skillId && !skillInfoMap[skillId]) {
+          try {
+            const res = await listSkillsDetails(skillId);
+            if (res.result?.input_params?.params) {
+              skillInfoMap[skillId] = res.result.input_params.params;
+            }
+          } catch (e) { /* ignore */ }
+        }
+      }
+      for (const node of drawData.nodes || []) {
+        const skillId = node.skill?.skill_id || node.skill_id || '';
+        const paramDefs = skillInfoMap[skillId] || [];
+        const nodeInputParams = node.input_params || [];
+        for (const def of paramDefs) {
+          if (def.required) {
+            const paramName = def.name || def.param_name || '';
+            const savedParam = nodeInputParams.find((p: any) => (p.param_name || '') === paramName);
+            const val = savedParam?.param_value || '';
+            if (!val.trim()) {
+              toast.error(`节点「${node.node_name}」的必填参数「${paramName}」未填写，请先到画板中完善参数`);
+              return;
+            }
+          }
+        }
+      }
+
       let saveResponse = await saveDrawInfo(drawData);
       console.log('保存画板返回:', saveResponse);
       
@@ -675,16 +735,16 @@ export default function PipelinePreview({ data, threadId, onOpenCanvas, messageI
       console.log('运行 DAG 返回结果:', response);
       if (response.code === 200 && response.result) {
         const processId = response.result.process_id;
-        alert(`任务已提交运行，请前往【运行历史】查看执行状态。执行实例ID：${processId}`);
+        toast.success(`任务已提交运行，请前往【运行历史】查看执行状态。执行实例ID：${processId}`);
         return;
       } else {
         console.error('运行 DAG 失败:', response.message);
-        alert('运行失败: ' + (response.message || '未知错误'));
+        toast.error('运行失败: ' + (response.message || '未知错误'));
         return;
       }
     } catch (error) {
       console.error('操作失败:', error);
-      alert('操作失败: ' + (error instanceof Error ? error.message : '未知错误'));
+      toast.error('操作失败: ' + (error instanceof Error ? error.message : '未知错误'));
       return;
     }
   };

@@ -25,24 +25,28 @@
       "role": "data",
       "type": "list",
       "required": false,
-      "description": "文本字段名列表",
-      "default": "['text']"
+      "description": "文本字段名列表"
     },
     {
       "name": "add_suffix",
       "role": "data",
       "type": "bool",
       "required": false,
-      "description": "是否添加文件后缀信息",
-      "default": false
+      "description": "是否添加文件后缀信息"
     },
     {
       "name": "num_proc",
       "role": "data",
       "type": "int",
       "required": false,
-      "description": "并行处理的进程数",
-      "default": 1
+      "description": "并行处理的进程数"
+    },
+    {
+      "name": "encoding",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "CSV文件编码格式"
     }
   ],
   "output_params": [
@@ -66,6 +70,8 @@
     "--add_suffix",
     "{add_suffix}",
     "--num_proc",
-    "{num_proc}"
+    "{num_proc}",
+    "--encoding",
+    "{encoding}"
   ]
 }
