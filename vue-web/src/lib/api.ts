@@ -479,6 +479,7 @@ export interface ExecutionDetailResponse {
   message: string;
   result: {
     process_id: string;
+    dag_task_id?: string;
     flow_uuid: string | null;
     flow_name: string;
     status: string;
