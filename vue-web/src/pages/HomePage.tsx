@@ -1154,7 +1154,7 @@ export function HomePage() {
                   )}
                 </div>
 
-                <div className="sticky bottom-0 pt-2">
+                <div className="sticky bottom-3 pt-2">
                   {renderComposer({ compact: false })}
                 </div>
               </div>
