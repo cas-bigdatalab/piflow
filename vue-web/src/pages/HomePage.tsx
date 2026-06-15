@@ -925,7 +925,7 @@ export function HomePage() {
   }
 
   return (
-    <div className="flex min-h-full flex-1 flex-col" style={{marginTop:'50px'}}>
+    <div className="flex min-h-full flex-1 flex-col">
       {!isExpanded ? (
         <section className="px-8 pb-16 pt-6">
           <div className="mx-auto flex max-w-5xl flex-col">
