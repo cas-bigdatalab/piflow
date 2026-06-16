@@ -269,6 +269,14 @@
   padding: 0;
 }
 
+.reactflow-wrapper .react-flow__node-default.selected,
+.reactflow-wrapper .react-flow__node-default:focus,
+.reactflow-wrapper .react-flow__node-default:focus-visible {
+  border: none;
+  outline: none;
+  box-shadow: none;
+}
+
 /* ==================== 悬浮工具栏样式 ==================== */
 
 .floating-toolbar {
@@ -539,7 +547,7 @@
 }
 
 .custom-node.selected {
-  border: 1.5px solid #35A882;
+  border: 2.5px solid #35A882 !important;
   box-shadow: 0 0 0 3px rgba(53, 168, 130, 0.14), var(--shadow-node-hover);
   transform: translateY(-2px);
 }

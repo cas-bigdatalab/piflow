@@ -213,7 +213,7 @@ const CustomNode: React.FC<NodeProps<NodeData>> = ({ id, data, selected }) => {
   };
 
   return (
-    <div className={`custom-node ${selected ? 'selected' : ''}`} onClick={(e) => { e.stopPropagation(); data.onSelect?.(id); }}>
+    <div className={`custom-node ${selected ? 'selected' : ''}`} onClick={() => { data.onSelect?.(id); }}>
       <Handle
         type="target"
         position={Position.Left}
@@ -867,6 +867,7 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
   const [isOperatorLibraryOpen, setIsOperatorLibraryOpen] = useState(false);
   const [edgeType, setEdgeType] = useState<'bezier' | 'straight'>('bezier');
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState('');
@@ -892,7 +893,38 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
   const selectedNode = nodes.find((m) => m.id === selectedNodeId);
 
   // 关闭配置面板
-  const closeConfigPanel = () => setSelectedNodeId(null);
+  const closeConfigPanel = () => {
+    setNodes((nds) => nds.map((n) => ({ ...n, selected: false })));
+    setSelectedNodeId(null);
+  };
+
+  // 删除选中节点
+  const handleDeleteNode = () => {
+    if (selectedNodeId) {
+      setNodes((nds) => nds.filter((n) => n.id !== selectedNodeId));
+      setEdges((eds) => eds.filter((e) => e.source !== selectedNodeId && e.target !== selectedNodeId));
+      setSelectedNodeId(null);
+    }
+    setShowDeleteModal(false);
+  };
+
+  // 键盘Delete键删除选中节点
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      const tagName = target.tagName;
+      if (tagName === 'INPUT' || tagName === 'TEXTAREA' || tagName === 'SELECT' || target.isContentEditable) {
+        return;
+      }
+      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedNodeId) {
+        e.preventDefault();
+        setShowDeleteModal(true);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedNodeId]);
 
   // Set initial taskId from props
   useEffect(() => {
@@ -1908,6 +1940,7 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
             nodeTypes={nodeTypes}
             edgeTypes={edgeTypes}
             fitView
+            deleteKeyCode={null}
             onViewportChange={(viewport: any) => setZoomLevel(viewport.zoom)}
           >
             <Background variant={BackgroundVariant.Dots} gap={36} size={1.5} />
@@ -2248,6 +2281,34 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
                     ))}
                   </div>
                 )}
+              </div>
+            </div>
+          )}
+
+          {/* 删除确认弹窗 */}
+          {showDeleteModal && (
+            <div className="delete-confirm-overlay" onClick={() => setShowDeleteModal(false)}>
+              <div className="delete-confirm-modal" onClick={(e) => e.stopPropagation()}>
+                <div className="delete-confirm-header">
+                  <div className="delete-confirm-icon">!</div>
+                  <h3>确认删除此节点？</h3>
+                  <button className="delete-confirm-close" onClick={() => setShowDeleteModal(false)}>
+                    <X size={20} />
+                  </button>
+                </div>
+                <div className="delete-confirm-body">
+                  <p>删除后将无法恢复，确定要删除该节点吗？</p>
+                </div>
+                <div className="delete-confirm-footer">
+                  <div className="delete-confirm-actions">
+                    <button className="delete-confirm-cancel" onClick={() => setShowDeleteModal(false)}>
+                      取消
+                    </button>
+                    <button className="delete-confirm-confirm" onClick={handleDeleteNode}>
+                      删除
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           )}

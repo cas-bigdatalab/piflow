@@ -221,7 +221,7 @@ const CustomNode: React.FC<NodeProps<NodeData>> = ({ id, data, selected }) => {
   };
 
   return (
-    <div className={`custom-node ${selected ? 'selected' : ''}`} onClick={(e) => { e.stopPropagation(); data.onSelect?.(id); }}>
+    <div className={`custom-node ${selected ? 'selected' : ''}`} onClick={() => { data.onSelect?.(id); }}>
       <Handle
         type="target"
         position={Position.Left}
@@ -1021,7 +1021,10 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
   const selectedNode = nodes.find((m) => m.id === selectedNodeId);
 
   // 关闭配置面板
-  const closeConfigPanel = () => setSelectedNodeId(null);
+  const closeConfigPanel = () => {
+    setNodes((nds) => nds.map((n) => ({ ...n, selected: false })));
+    setSelectedNodeId(null);
+  };
 
   // 监听 nodes 数量变化，自动调整视口为靠左、垂直居中
   // 只在节点数量变化时调整，避免节点展开/收缩时触发
@@ -2998,6 +3001,7 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
         defaultViewport={{ zoom: 1, x: 0, y: 0 }}
         minZoom={0.2}
         maxZoom={2}
+        deleteKeyCode={null}
         onDrop={(e) => {
           e.preventDefault();
           const operatorData = e.dataTransfer.getData('application/json');
