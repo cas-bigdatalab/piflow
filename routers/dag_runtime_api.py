@@ -10,6 +10,7 @@ from services.dag_runtime_service import (
     get_dag_run_progress,
     get_dag_runtime_process_status_counts,
     get_dag_runtime_processes,
+    get_stop_log_paths_by_job_id,
     is_dag_task_owned_by_user,
     run_dag_task,
     stop_dag_run,
@@ -222,6 +223,33 @@ async def stop_dag_runtime_api(
         }
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/dag/runtime/stop/log-paths")
+async def get_dag_runtime_stop_log_paths_api(
+    job_id: str,
+    current_user=Depends(get_current_user),
+):
+    try:
+        result = get_stop_log_paths_by_job_id(job_id=job_id)
+        if result is None:
+            raise HTTPException(status_code=404, detail=f"piflow stop job not found: {job_id}")
+        if not is_dag_task_owned_by_user(
+            dag_task_id=result["dag_task_id"],
+            user_id=current_user["user_id"],
+        ):
+            raise HTTPException(status_code=403, detail="no permission to access this stop log")
+        return {
+            "message": "success",
+            "result": result,
+            "code": 200,
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except HTTPException:
         raise
     except Exception as e:

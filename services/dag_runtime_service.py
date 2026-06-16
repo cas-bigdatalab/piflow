@@ -6,12 +6,14 @@ from services.dag_panel_service import get_panel_dag_json
 from runtime.dag_manager import get_dag_task
 from runtime.piflow_adapter import stop_registered_process, submit_frontend_dag
 from runtime.piflow_run_query import (
+    get_piflow_stop_log_paths_by_job_id,
     get_piflow_run_detail,
     get_piflow_run_progress,
     get_piflow_process_status_counts,
     list_piflow_processes,
     list_piflow_runs_by_task_id,
 )
+from runtime.workspace_manager import WorkspaceManager
 
 
 def get_dag_task_identity_by_process_id(
@@ -44,6 +46,35 @@ def is_dag_task_owned_by_user(
         return False
 
     return dag_task.create_user_id == user_id
+
+
+def get_stop_log_paths_by_job_id(
+    *,
+    job_id: str,
+) -> dict[str, Any] | None:
+    result = get_piflow_stop_log_paths_by_job_id(job_id)
+    if result is None:
+        return None
+
+    workspace = WorkspaceManager()
+    root = workspace.root.resolve()
+
+    def _to_workspace_relative(raw_path: str | None) -> str | None:
+        if not raw_path:
+            return None
+        path = workspace.resolve_virtual_path(raw_path)
+        return str(path.resolve().relative_to(root)).replace("\\", "/")
+
+    return {
+        "process_id": result.get("process_id"),
+        "dag_task_id": result.get("dag_task_id"),
+        "flow_uuid": result.get("flow_uuid"),
+        "job_id": result.get("job_id"),
+        "stop_name": result.get("stop_name"),
+        "log_path": _to_workspace_relative(result.get("log_path")),
+        "stdout_log_path": _to_workspace_relative(result.get("stdout_log_path")),
+        "stderr_log_path": _to_workspace_relative(result.get("stderr_log_path")),
+    }
 
 
 def run_dag_task(
