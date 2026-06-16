@@ -83,7 +83,7 @@ Python 3.10+ is recommended.
 Install the bundled PiFlow Python engine first:
 
 ```bash
-pip install ./third_party/piflow/piflow_python-0.1.1-py3-none-any.whl
+pip install ./third_party/piflow/piflow_engine-0.1.1-py3-none-any.whl
 ```
 
 Then install backend dependencies:
