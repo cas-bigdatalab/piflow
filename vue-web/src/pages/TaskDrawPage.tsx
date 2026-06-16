@@ -2221,8 +2221,12 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
                                             setExpandedRefDropdowns(expandedRefDropdowns.filter(id => id !== `${selectedNodeId}-${param.name}`));
                                           }}
                                         >
+                                          <span className="draw-config-ref-item-dot"></span>
                                           <span className="draw-config-ref-item-operator">{opt.nodeName || opt.nodeId}</span>
-                                          <span className="draw-config-ref-item-param">{opt.name}</span>
+                                          <div className="draw-config-ref-item-param-wrapper">
+                                            <span className="draw-config-ref-item-param">{opt.name}</span>
+                                            <span className="draw-config-ref-item-type">{opt.type}</span>
+                                          </div>
                                         </div>
                                       ))
                                     )}
