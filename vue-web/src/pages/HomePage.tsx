@@ -1061,7 +1061,7 @@ export function HomePage() {
                                     return (
                                       <>
                                         {cleanedText && <MarkdownMessage content={removeAllJson(cleanedText)} pending={sending} />}
-                                        <PipelinePreview data={pipelineData} threadId={threadId} onOpenCanvas={handleOpenCanvas} messageId={message.id} />
+                                        <PipelinePreview data={pipelineData} threadId={threadId} onOpenCanvas={handleOpenCanvas} messageId={message.id} disabled={showCanvas} />
                                         {isExecutionResult && message.artifacts && message.artifacts.length > 0 && (
                                           <div className="mt-4 flex flex-wrap gap-2 pt-1">
                                             {message.artifacts.map((path) => (

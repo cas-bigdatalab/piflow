@@ -101,14 +101,18 @@ const RunFlowNode: React.FC<NodeProps<RunNodeType>> = ({ id, data, selected }) =
       className={`custom-node ${selected ? 'selected' : ''} ${isCompleted ? 'completed-node' : ''} ${isRunningStop ? 'running-node' : ''}`}
       style={{
         border: `2px solid ${stopStatus.borderColor}`,
-        boxShadow: isCompleted ? `0 4px 16px ${stopStatus.color}25` : isRunningStop ? '0 4px 16px rgba(0,0,0,0.1)' : '0 4px 16px rgba(0,0,0,0.06)',
+        boxShadow: isCompleted ? `0 4px 12px ${stopStatus.color}25` : isRunningStop ? '0 4px 12px rgba(0,0,0,0.1)' : '0 4px 12px rgba(0,0,0,0.06)',
         position: 'relative',
-        width: '160px',
-        minWidth: '160px',
+        width: '140px',
+        minWidth: '140px',
         backgroundColor: '#ffffff',
-        borderRadius: '8px',
-        padding: '8px 12px',
+        borderRadius: '6px',
+        padding: '6px 10px',
         boxSizing: 'border-box',
+        height: '105px',
+        minHeight: '105px',
+        display: 'flex',
+        flexDirection: 'column',
         animation: isCompleted ? 'nodeBorderPulse 2s ease-in-out infinite' : undefined,
       }}
     >
@@ -119,29 +123,29 @@ const RunFlowNode: React.FC<NodeProps<RunNodeType>> = ({ id, data, selected }) =
         style={{ top: '50%' }}
       />
 
-      <div className="node-header" style={{ paddingBottom: '4px' }}>
+      <div className="node-header" style={{ flex: 1, overflow: 'hidden' }}>
         <div className="node-header-left">
           <div className="node-title-wrapper">
             {data.operatorType && (
-              <span className="node-operator-type" style={{ fontSize: '9px' }}>{data.operatorType.toUpperCase()}</span>
+              <span className="node-operator-type" style={{ fontSize: '8px' }}>{data.operatorType.toUpperCase()}</span>
             )}
-            <span className="node-title-text" style={{ fontSize: '12px' }}>{data.label}</span>
+            <span className="node-title-text" style={{ fontSize: '11px' }}>{data.label}</span>
             {data.operatorName && (
-              <span className="node-operator-info" style={{ fontSize: '10px' }}>{data.operatorName}</span>
+              <span className="node-operator-info" style={{ fontSize: '9px' }}>{data.operatorName}</span>
             )}
           </div>
         </div>
       </div>
 
       <div style={{
-        padding: '4px 0 0',
+        paddingTop: '2px',
         display: 'flex',
-        alignItems: 'flex-start',
+        alignItems: 'center',
         justifyContent: 'flex-start',
       }}>
         {data.progress != null && (
           <span style={{
-            fontSize: '11px', fontWeight: 500,
+            fontSize: '10px', fontWeight: 500,
             color: isCompleted ? '#22c55e' : isRunningStop ? '#1f2937' : isFailed ? '#ef4444' : '#9ca3af'
           }}>
             {isCompleted ? `已完成 ${data.progress}%` :
@@ -152,19 +156,19 @@ const RunFlowNode: React.FC<NodeProps<RunNodeType>> = ({ id, data, selected }) =
       </div>
 
       <div style={{
-        position: 'absolute', top: '-8px', right: '-8px',
-        width: '20px', height: '20px',
+        position: 'absolute', top: '-6px', right: '-6px',
+        width: '16px', height: '16px',
         borderRadius: '50%',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        backgroundColor: isPending ? '#9CA3AF' : '#10B981',
+        backgroundColor: isFailed ? '#ef4444' : isPending ? '#9CA3AF' : isRunningStop ? '#1f2937' : '#10B981',
         border: '2px solid #ffffff',
-        boxShadow: isPending ? '0 2px 8px rgba(156, 163, 175, 0.4)' : '0 2px 8px rgba(16, 185, 129, 0.4)',
+        boxShadow: isFailed ? '0 2px 6px rgba(239, 68, 68, 0.4)' : isPending ? '0 2px 6px rgba(156, 163, 175, 0.4)' : isRunningStop ? '0 2px 6px rgba(31, 41, 55, 0.4)' : '0 2px 6px rgba(16, 185, 129, 0.4)',
         animation: isCompleted ? 'statusGlow 1.5s ease-in-out infinite' : undefined,
       }}>
-        {isCompleted && <Check size={11} style={{ color: '#ffffff' }} />}
-        {isRunningStop && <Play size={11} style={{ color: '#ffffff' }} />}
-        {isFailed && <X size={11} style={{ color: '#ffffff' }} />}
-        {isPending && <div style={{ width: '7px', height: '7px', borderRadius: '50%', backgroundColor: '#ffffff' }} />}
+        {isCompleted && <Check size={9} style={{ color: '#ffffff' }} />}
+        {isRunningStop && <Play size={9} style={{ color: '#ffffff' }} />}
+        {isFailed && <X size={9} style={{ color: '#ffffff' }} />}
+        {isPending && <div style={{ width: '5px', height: '5px', borderRadius: '50%', backgroundColor: '#ffffff' }} />}
       </div>
 
       <Handle
@@ -193,35 +197,46 @@ const RunCustomEdge: React.FC<EdgeProps<Edge<RunEdgeData>>> = ({
   data,
 }) => {
   const [edgePath] = useMemo(() => {
+    const padding = 8;
+    const dx = targetX - sourceX;
+    const dy = targetY - sourceY;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    
+    let adjustedSourceX = sourceX;
+    let adjustedSourceY = sourceY;
+    let adjustedTargetX = targetX;
+    let adjustedTargetY = targetY;
+    
+    if (distance > 0) {
+      const nx = dx / distance;
+      const ny = dy / distance;
+      adjustedSourceX = sourceX + nx * padding;
+      adjustedSourceY = sourceY + ny * padding;
+      adjustedTargetX = targetX - nx * padding;
+      adjustedTargetY = targetY - ny * padding;
+    }
+    
     return getStraightPath({
-      sourceX,
-      sourceY,
-      targetX,
-      targetY,
+      sourceX: adjustedSourceX,
+      sourceY: adjustedSourceY,
+      targetX: adjustedTargetX,
+      targetY: adjustedTargetY,
     });
   }, [sourceX, sourceY, targetX, targetY]);
 
-  const sourceStatus = data?.sourceStatus as string;
-  const targetStatus = data?.targetStatus as string;
+  const sourceStatus = (data?.sourceStatus as string) || 'PENDING';
+  const targetStatus = (data?.targetStatus as string) || 'PENDING';
   
   const isCompleted = sourceStatus === 'SUCCESS' && targetStatus === 'SUCCESS';
   const isRunning = sourceStatus === 'RUNNING' || targetStatus === 'RUNNING';
-  const isFailed = sourceStatus === 'FAILED' || targetStatus === 'FAILED';
+  // 源节点失败则下游边显示为灰色（与等待执行一致）
+  const sourceIsFailed = sourceStatus === 'FAILED';
+  const isFailed = !sourceIsFailed && targetStatus === 'FAILED';
 
-  const edgeColor = isCompleted ? '#22c55e' : isFailed ? '#ef4444' : isRunning ? '#1f2937' : '#94A3B8';
+  const edgeColor = isCompleted ? '#171F31' : isFailed ? '#ef4444' : isRunning ? '#171F31' : '#94A3B8';
 
   return (
     <g>
-      {/* 主连接线 - 浅色背景 */}
-      <path
-        d={edgePath}
-        stroke={isCompleted ? '#d1fae5' : isFailed ? '#fee2e2' : '#e2e8f0'}
-        strokeWidth="4"
-        fill="none"
-        strokeLinecap="round"
-        strokeDasharray="6,4"
-      />
-      
       {/* 带箭头的线 */}
       <defs>
         <marker
@@ -231,163 +246,48 @@ const RunCustomEdge: React.FC<EdgeProps<Edge<RunEdgeData>>> = ({
           refX="9"
           refY="6"
           orient="auto"
-          markerUnits="strokeWidth"
+          markerUnits="userSpaceOnUse"
         >
           <polygon
             points="0 0, 12 6, 0 12"
             fill={edgeColor}
             stroke={edgeColor}
             strokeWidth={1}
-          >
-            {(isCompleted || isRunning) && (
-              <animate
-                attributeName="opacity"
-                values="0.7;1;0.7"
-                dur="0.8s"
-                repeatCount="indefinite"
-              />
-            )}
-          </polygon>
+          />
         </marker>
-        <marker
-          id={`arrowhead-pulse-${id}`}
-          markerWidth="16"
-          markerHeight="16"
-          refX="12"
-          refY="8"
-          orient="auto"
-          markerUnits="strokeWidth"
-        >
-          <polygon
-            points="0 0, 16 8, 0 16"
-            fill={edgeColor}
-            opacity="0.4"
-          >
-            {(isCompleted || isRunning) && (
-              <animate
-                attributeName="opacity"
-                values="0;0.6;0"
-                dur="1s"
-                repeatCount="indefinite"
-              />
-            )}
-          </polygon>
-        </marker>
-        <filter id={`glow-${id}`} x="-50%" y="-50%" width="200%" height="200%">
-          <feGaussianBlur stdDeviation="2" result="coloredBlur" />
-          <feMerge>
-            <feMergeNode in="coloredBlur" />
-            <feMergeNode in="SourceGraphic" />
-          </feMerge>
-        </filter>
       </defs>
       
-      {/* 主箭头线 */}
+      {/* 主连接线 - 浅色背景线 */}
+      <path
+        d={edgePath}
+        stroke={'#e2e8f0'}
+        strokeWidth="3"
+        fill="none"
+        strokeLinecap="round"
+        strokeDasharray="8,6"
+        opacity="0.6"
+      />
+      
+      {/* 主箭头线 - 流动虚线动画 */}
       <path
         d={edgePath}
         stroke={edgeColor}
         strokeWidth="2"
         fill="none"
         strokeLinecap="round"
-        strokeDasharray="6,4"
+        strokeDasharray="8,6"
         markerEnd={`url(#arrowhead-${id})`}
-        style={{
-          filter: isCompleted ? `url(#glow-${id})` : undefined,
-        }}
-      />
-
-      {/* 箭头脉冲效果 */}
-      {(isCompleted || isRunning) && (
-        <path
-          d={edgePath}
-          stroke="transparent"
-          strokeWidth={2}
-          fill="none"
-          markerEnd={`url(#arrowhead-pulse-${id})`}
-        />
-      )}
-
-      {/* 流动动画效果 - 小横线流动（跟随路径方向旋转） */}
-      {(isCompleted || isRunning) && (
-        <g>
-          <g>
-            <line x1="-10" y1="0" x2="10" y2="0" stroke={edgeColor} strokeWidth="2" strokeLinecap="round" filter={`url(#glow-${id})`}>
-              <animateMotion
-                dur="1.5s"
-                repeatCount="indefinite"
-                path={edgePath}
-                rotate="auto"
-              />
-              <animate
-                attributeName="opacity"
-                values="1;0.3;1"
-                dur="1.5s"
-                repeatCount="indefinite"
-              />
-              <animate
-                attributeName="stroke-width"
-                values="2;3;2"
-                dur="1.5s"
-                repeatCount="indefinite"
-              />
-            </line>
-          </g>
-          <g>
-            <line x1="-10" y1="0" x2="10" y2="0" stroke={edgeColor} strokeWidth="2" strokeLinecap="round" opacity="0.8">
-              <animateMotion
-                dur="1.5s"
-                repeatCount="indefinite"
-                path={edgePath}
-                rotate="auto"
-                begin="0.3s"
-              />
-              <animate
-                attributeName="opacity"
-                values="0.8;0.2;0.8"
-                dur="1.5s"
-                repeatCount="indefinite"
-                begin="0.3s"
-              />
-            </line>
-          </g>
-          <g>
-            <line x1="-10" y1="0" x2="10" y2="0" stroke={edgeColor} strokeWidth="2" strokeLinecap="round" opacity="0.6">
-              <animateMotion
-                dur="1.5s"
-                repeatCount="indefinite"
-                path={edgePath}
-                rotate="auto"
-                begin="0.6s"
-              />
-              <animate
-                attributeName="opacity"
-                values="0.6;0.1;0.6"
-                dur="1.5s"
-                repeatCount="indefinite"
-                begin="0.6s"
-              />
-            </line>
-          </g>
-          <g>
-            <line x1="-10" y1="0" x2="10" y2="0" stroke={edgeColor} strokeWidth="2" strokeLinecap="round" opacity="0.4">
-              <animateMotion
-                dur="1.5s"
-                repeatCount="indefinite"
-                path={edgePath}
-                rotate="auto"
-                begin="0.9s"
-              />
-              <animate
-                attributeName="opacity"
-                values="0.4;0;0.4"
-                dur="1.5s"
-                repeatCount="indefinite"
-                begin="0.9s"
-              />
-            </line>
-          </g>
-        </g>
-      )}
+      >
+        {(isCompleted || isRunning) && (
+          <animate
+            attributeName="stroke-dashoffset"
+            from="0"
+            to="-28"
+            dur="1s"
+            repeatCount="indefinite"
+          />
+        )}
+      </path>
     </g>
   );
 };
@@ -518,7 +418,7 @@ const RunDetails: React.FC<{ processId: string }> = ({ processId }) => {
           levelToNodes[lvl].push(id);
         });
 
-        const LEVEL_GAP = 320; // 横向间距
+        const LEVEL_GAP = 220; // 横向间距
         const ROW_GAP = 180;  // 纵向间距
         const START_X = 100;
         const START_Y = 180;
@@ -527,9 +427,13 @@ const RunDetails: React.FC<{ processId: string }> = ({ processId }) => {
           const nodesAtLevel = levelToNodes[level];
           const count = nodesAtLevel.length;
           nodesAtLevel.forEach((nodeId, rowIdx) => {
+            const node = idToNode[nodeId];
+            // 优先使用接口返回的坐标，否则使用计算布局
+            const x = node.x !== undefined ? node.x : (START_X + level * LEVEL_GAP);
+            const y = node.y !== undefined ? node.y : (START_Y + rowIdx * ROW_GAP);
             nodePositionMap[nodeId] = {
-              x: START_X + level * LEVEL_GAP,
-              y: START_Y + rowIdx * ROW_GAP,
+              x,
+              y,
             };
           });
         });

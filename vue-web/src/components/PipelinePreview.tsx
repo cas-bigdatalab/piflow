@@ -171,6 +171,7 @@ interface PipelinePreviewProps {
   threadId: string;
   onOpenCanvas?: (data: PipelineData, messageId?: string) => void;
   messageId?: number;
+  disabled?: boolean;
 }
 
 // 边类型定义（仅用于 UI 显示）
@@ -232,7 +233,7 @@ function generateEdges(nodes: PipelineNode[]): PipelineEdge[] {
   return edges;
 }
 
-export default function PipelinePreview({ data, threadId, onOpenCanvas, messageId }: PipelinePreviewProps) {
+export default function PipelinePreview({ data, threadId, onOpenCanvas, messageId, disabled = false }: PipelinePreviewProps) {
   const navigate = useNavigate();
   const { task, nodes } = data;
 
@@ -1025,7 +1026,12 @@ export default function PipelinePreview({ data, threadId, onOpenCanvas, messageI
       <div className="flex gap-2 pipeline-buttons" style={{ animationDelay: `1.2s` }}>
         <button
           onClick={handleRun}
-          className="flex items-center gap-2 rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-slate-800"
+          disabled={disabled}
+          className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+            disabled
+              ? 'bg-slate-300 text-slate-500 cursor-not-allowed'
+              : 'bg-slate-900 text-white hover:bg-slate-800'
+          }`}
         >
           <Icon icon="ri:play-fill" width={16} />
           一键运行
