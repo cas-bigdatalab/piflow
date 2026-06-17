@@ -1727,7 +1727,7 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
                 return (n.data.input_params?.params || [])
                   .filter((p: any) => {
                     if (p._refType === 'reference') return true;
-                    const val = String(p._value || p.param_value || '');
+                    const val = String(p._value ?? p.param_value ?? '');
                     return val.trim() !== '';
                   })
                   .map((p: any) => {
@@ -1774,18 +1774,16 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
                       // 如果 _refValue 为空，使用上游节点的第一个出参名称
                       let refParamName = param._refValue;
                       if (!refParamName) {
-                        // 从上游节点的 output_params 中获取第一个参数名
                         const upstreamNode = nodes.find(n => n.id === upstreamEdge.source);
                         refParamName = upstreamNode?.data.output_params?.params?.[0]?.name || '';
-                      } else if (refParamName.includes('（')) {
-                        refParamName = refParamName.split('（')[0];
+                      } else if (String(refParamName).includes('（')) {
+                        refParamName = String(refParamName).split('（')[0];
                       }
 
                       const binding = {
-                        // binding_id: param._refValue || `binding_${upstreamEdge.source}_${node.id}_${param.name}`,
                         binding_id: generateUUID(),
                         from_node_id: upstreamEdge.source,
-                        from_param_name: refParamName.trim() || param.name,
+                        from_param_name: String(refParamName ?? '').trim() || param.name,
                         to_node_id: node.id,
                         to_param_name: param.name || '',
                       };
@@ -2024,7 +2022,7 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
                       value={editingNodeName}
                       onChange={(e) => setEditingNodeName(e.target.value)}
                       onBlur={() => {
-                        const trimmedName = editingNodeName.trim();
+                        const trimmedName = String(editingNodeName ?? '').trim();
                         if (trimmedName && trimmedName !== selectedNode.data.label) {
                           const uniqueName = generateUniqueLabel(trimmedName);
                           setNodes((nds) =>

@@ -103,14 +103,14 @@ const RunFlowNode: React.FC<NodeProps<RunNodeType>> = ({ id, data, selected }) =
         border: `2px solid ${stopStatus.borderColor}`,
         boxShadow: isCompleted ? `0 4px 12px ${stopStatus.color}25` : isRunningStop ? '0 4px 12px rgba(0,0,0,0.1)' : '0 4px 12px rgba(0,0,0,0.06)',
         position: 'relative',
-        width: '140px',
-        minWidth: '140px',
+        width: '280px',
+        minWidth: '280px',
         backgroundColor: '#ffffff',
-        borderRadius: '6px',
-        padding: '6px 10px',
+        borderRadius: '14px',
+        padding: '16px 20px',
         boxSizing: 'border-box',
-        height: '105px',
-        minHeight: '105px',
+        height: '120px',
+        minHeight: '120px',
         display: 'flex',
         flexDirection: 'column',
         animation: isCompleted ? 'nodeBorderPulse 2s ease-in-out infinite' : undefined,
@@ -418,10 +418,10 @@ const RunDetails: React.FC<{ processId: string }> = ({ processId }) => {
           levelToNodes[lvl].push(id);
         });
 
-        const LEVEL_GAP = 220; // 横向间距
-        const ROW_GAP = 180;  // 纵向间距
-        const START_X = 100;
-        const START_Y = 180;
+        const LEVEL_GAP = 380; // 横向间距（大于节点宽度280px，留出足够间隙）
+        const ROW_GAP = 260;  // 纵向间距
+        const START_X = 120;
+        const START_Y = 200;
 
         Object.keys(levelToNodes).map(k => parseInt(k)).sort((a, b) => a - b).forEach((level) => {
           const nodesAtLevel = levelToNodes[level];
@@ -429,8 +429,8 @@ const RunDetails: React.FC<{ processId: string }> = ({ processId }) => {
           nodesAtLevel.forEach((nodeId, rowIdx) => {
             const node = idToNode[nodeId];
             // 优先使用接口返回的坐标，否则使用计算布局
-            const x = node.x !== undefined ? node.x : (START_X + level * LEVEL_GAP);
-            const y = node.y !== undefined ? node.y : (START_Y + rowIdx * ROW_GAP);
+            const x = node.x != null ? node.x : (START_X + level * LEVEL_GAP);
+            const y = node.y != null ? node.y : (START_Y + rowIdx * ROW_GAP);
             nodePositionMap[nodeId] = {
               x,
               y,
@@ -689,7 +689,7 @@ const RunDetails: React.FC<{ processId: string }> = ({ processId }) => {
                 edges={flowEdges}
                 nodeTypes={runNodeTypes}
                 edgeTypes={runEdgeTypes}
-                fitView
+                defaultViewport={{ zoom: 1, x: 0, y: 0 }}
                 nodesDraggable={false}
                 nodesConnectable={false}
                 elementsSelectable={false}

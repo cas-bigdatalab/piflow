@@ -363,7 +363,7 @@ export default function PipelinePreview({ data, threadId, onOpenCanvas, messageI
                 inputParams = node.input_params.params
                   .filter((p: any) => {
                     if (p._refType === 'reference') return true;
-                    const val = p._value || p.value || p.param_value || '';
+                    const val = String(p._value ?? p.value ?? p.param_value ?? '');
                     return val.trim() !== '';
                   })
                   .map((p: any) => ({
@@ -376,7 +376,7 @@ export default function PipelinePreview({ data, threadId, onOpenCanvas, messageI
                 inputParams = node.input_params
                   .filter((p: any) => {
                     if (p._refType === 'reference') return true;
-                    const val = p._value || p.value || p.param_value || '';
+                    const val = String(p._value ?? p.value ?? p.param_value ?? '');
                     return val.trim() !== '';
                   })
                   .map((p: any) => ({
@@ -506,7 +506,7 @@ export default function PipelinePreview({ data, threadId, onOpenCanvas, messageI
               })
               .filter((p: any) => {
                 if (p._refType === 'reference') return true;
-                const val = p.param_value || '';
+                const val = String(p.param_value ?? '');
                 return val.trim() !== '';
               });
             
@@ -582,7 +582,7 @@ export default function PipelinePreview({ data, threadId, onOpenCanvas, messageI
               })
               .filter((p: any) => {
                 if (p._refType === 'reference') return true;
-                const val = p.param_value || '';
+                const val = String(p.param_value ?? '');
                 return val.trim() !== '';
               });
             
@@ -696,7 +696,7 @@ export default function PipelinePreview({ data, threadId, onOpenCanvas, messageI
           if (def.required) {
             const paramName = def.name || def.param_name || '';
             const savedParam = nodeInputParams.find((p: any) => (p.param_name || '') === paramName);
-            const val = savedParam?.param_value || '';
+            const val = String(savedParam?.param_value ?? '');
             if (!val.trim()) {
               toast.error(`节点「${node.node_name}」的必填参数「${paramName}」未填写，请先到画板中完善参数`);
               return;

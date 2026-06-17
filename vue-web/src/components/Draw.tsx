@@ -2759,10 +2759,10 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
                 if (!refParamName) {
                   const upstreamNode = nodes.find(n => n.id === upstreamEdge.source);
                   refParamName = upstreamNode?.data.output_params?.params?.[0]?.name || '';
-                } else if (refParamName.includes('（')) {
-                  refParamName = refParamName.split('（')[0];
-                } else if (refParamName.includes('_') && !refParamName.startsWith('node-')) {
-                  const parts = refParamName.split('_');
+                } else if (String(refParamName).includes('（')) {
+                  refParamName = String(refParamName).split('（')[0];
+                } else if (String(refParamName).includes('_') && !String(refParamName).startsWith('node-')) {
+                  const parts = String(refParamName).split('_');
                   if (parts.length > 1 && parts[0].startsWith('node-')) {
                     refParamName = parts[parts.length - 1];
                   }
@@ -2772,7 +2772,7 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
                 bindingMap[key] = {
                   binding_id: bid,
                   from_node_id: upstreamEdge.source,
-                  from_param_name: refParamName.trim() || param.name,
+                  from_param_name: String(refParamName ?? '').trim() || param.name,
                   to_node_id: node.id,
                   to_param_name: param.name || '',
                 };
@@ -2803,7 +2803,7 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
               input_params: (n.data.input_params?.params || [])
                 .filter(p => {
                   if (p._refType === 'reference') return true;
-                  const val = String(p._value || p.param_value || '');
+                  const val = String(p._value ?? p.param_value ?? '');
                   return val.trim() !== '';
                 })
                 .map(p => {
@@ -2915,7 +2915,7 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
               console.log('params',params)
               for (const p of params) {
                 if (p.required) {
-                  const val = p._value || p.param_value || p._refValue || p.value || '';
+                  const val = String(p._value ?? p.param_value ?? p._refValue ?? p.value ?? '');
                   if (!val.trim()) {
                     alert(`节点「${n.data.label}」的必填参数「${p.name}」未填写，请完善后再同步`);
                     return;
@@ -2951,7 +2951,7 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
                   input_params: (n.data.input_params?.params || [])
                     .filter(p => {
                       if (p._refType === 'reference') return true;
-                      const val = String(p._value || p.param_value || '');
+                      const val = String(p._value ?? p.param_value ?? '');
                       return val.trim() !== '';
                     })
                     .map(p => {
@@ -3070,7 +3070,7 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
                   value={editingNodeName}
                   onChange={(e) => setEditingNodeName(e.target.value)}
                   onBlur={() => {
-                    const trimmedName = editingNodeName.trim();
+                    const trimmedName = String(editingNodeName ?? '').trim();
                     if (trimmedName && trimmedName !== selectedNode.data.label) {
                       const uniqueName = generateUniqueLabel(trimmedName);
                       setNodes((nds) =>
