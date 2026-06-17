@@ -665,7 +665,7 @@
 }
 
 .node-operator-info {
-  font-size: 13px;
+  font-size: 15px;
   color: #999;
   line-height: 1.3;
   margin-top: 6px;
@@ -1351,7 +1351,7 @@ select:focus {
   padding: 8px 0;
   background: #ffffff;
   margin-top: 8px;
-  overflow: hidden;
+  overflow: visible;
 }
 .nodeParams{
   font-size:14px;
@@ -1368,12 +1368,12 @@ select:focus {
   margin-bottom: 8px;
 }
 .labelText{
-  font-size:13px;
+  font-size:14px;
   color:#333333;
   font-weight: 500;
 }
 .valueText{
-  font-size:13px;
+  font-size:14px;
   color:#999999;
 }
 .node-param-section {
@@ -1388,7 +1388,7 @@ select:focus {
 }
 
 .node-param-label {
-  font-size: 12px;
+  font-size: 14px;
   color: #333;
   font-weight: 500;
   word-break: break-all;
@@ -1396,7 +1396,7 @@ select:focus {
 }
 
 .node-param-value {
-  font-size: 12px;
+  font-size: 14px;
   color: #333;
   text-align: right;
   white-space: nowrap;
@@ -1535,7 +1535,17 @@ select:focus {
   align-items: center;
   justify-content: space-between;
   padding: 6px 0;
-  gap: 20px;
+  gap: 12px;
+  min-width: 0;
+}
+.oneParams .node-param-value {
+  flex: 1;
+  min-width: 0;
+  max-width: 180px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: right;
 }
 .config-node-name-row{
   display: flex;
@@ -1824,7 +1834,11 @@ select:focus {
 .draw-config-body {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 8px 24px 40px 24px;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: #94a3b8 transparent;
 }
 
 /* 算子描述区域 */
@@ -1855,7 +1869,7 @@ select:focus {
 }
 
 .draw-config-desc-title {
-  font-size: 13px;
+  font-size: 14px;
   color: #35A882;
   font-weight: 500;
 }
@@ -1864,7 +1878,7 @@ select:focus {
   padding: 10px 14px;
   background: #f8fafc;
   border-radius: 6px;
-  font-size: 12px;
+  font-size: 14px;
   color: #475569;
   line-height: 1.6;
   margin-left: 16px;
@@ -1888,7 +1902,7 @@ select:focus {
 }
 
 .draw-config-section-text {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
   color: #0f172a;
 }
@@ -1922,7 +1936,7 @@ select:focus {
 }
 
 .draw-config-param-name {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 500;
   color: #0f172a;
 }
@@ -1930,7 +1944,7 @@ select:focus {
 .draw-config-param-required {
   color: #ef4444;
   font-weight: 700;
-  font-size: 14px;
+  font-size: 15px;
 }
 
 .draw-config-param-tooltip {
@@ -1943,7 +1957,7 @@ select:focus {
   border-radius: 50%;
   background: #e2e8f0;
   color: #64748b;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 600;
   cursor: help;
   transition: all 0.15s ease;
@@ -1964,7 +1978,7 @@ select:focus {
   color: #ffffff;
   padding: 8px 12px;
   border-radius: 6px;
-  font-size: 12px;
+  font-size: 13px;
   white-space: nowrap;
   z-index: 1000;
   max-width: 280px;
@@ -1986,7 +2000,7 @@ select:focus {
 
 /* 参数类型标签 */
 .draw-config-param-type-tag {
-  font-size: 11px;
+  font-size: 13px;
   padding: 3px 8px;
   background: #F2F3F4;
   color: #64748b;
@@ -2007,7 +2021,7 @@ select:focus {
   flex-shrink: 0;
   width: 100px;
   padding: 8px 12px;
-  font-size: 13px;
+  font-size: 14px;
   border: 1px solid #e2e8f0;
   border-radius: 8px;
   background: #ffffff;
@@ -2036,7 +2050,7 @@ select:focus {
 .draw-config-value-input {
   flex: 1;
   padding: 7px 12px;
-  font-size: 13px;
+  font-size: 14px;
   border: 1px solid #e2e8f0;
   border-radius: 6px;
   background: #ffffff;
@@ -2076,7 +2090,7 @@ select:focus {
   padding: 6px 12px;
   background: #f8fafc;
   border-bottom: 1px solid #e2e8f0;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 500;
   color: #64748b;
 }
@@ -2093,7 +2107,7 @@ select:focus {
 .draw-config-ref-select {
   width: 100%;
   padding: 6px 12px;
-  font-size: 13px;
+  font-size: 14px;
   border: none;
   background: #ffffff;
   color: #0f172a;
@@ -2119,7 +2133,7 @@ select:focus {
 
 .draw-config-ref-select option {
   padding: 4px 12px;
-  font-size: 12px;
+  font-size: 13px;
   background: #ffffff;
   font-family: 'SF Mono', 'JetBrains Mono', Consolas, monospace;
 }
@@ -2133,7 +2147,7 @@ select:focus {
 
 /* 滚动条美化 */
 .draw-config-body::-webkit-scrollbar {
-  width: 6px;
+  width: 8px;
 }
 
 .draw-config-body::-webkit-scrollbar-track {
@@ -2141,12 +2155,16 @@ select:focus {
 }
 
 .draw-config-body::-webkit-scrollbar-thumb {
-  background: #e2e8f0;
-  border-radius: 3px;
+  background: #cbd5e1;
+  border-radius: 4px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
 }
 
 .draw-config-body::-webkit-scrollbar-thumb:hover {
-  background: #cbd5e1;
+  background: #94a3b8;
+  background-clip: padding-box;
+  border: 2px solid transparent;
 }
 
 /* ======= 引用类型下拉框样式 ======= */
@@ -2158,7 +2176,7 @@ select:focus {
 .draw-config-ref-trigger {
   width: 100%;
   padding: 8px 12px;
-  font-size: 13px;
+  font-size: 14px;
   border: 2px solid #22c55e;
   border-radius: 8px;
   background: #ffffff;
@@ -2191,7 +2209,7 @@ select:focus {
 }
 
 .draw-config-ref-arrow {
-  font-size: 10px;
+  font-size: 12px;
   color: #94a3b8;
   transition: transform 0.2s ease;
   flex-shrink: 0;
@@ -2215,7 +2233,7 @@ select:focus {
   padding: 8px 14px;
   background: #f8fafc;
   border-bottom: 1px solid #e2e8f0;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 500;
   color: #64748b;
   align-items: center;
@@ -2225,7 +2243,7 @@ select:focus {
 .draw-config-ref-back {
   color: #3b82f6;
   cursor: pointer;
-  font-size: 12px;
+  font-size: 13px;
   transition: color 0.15s ease;
 }
 
@@ -2243,7 +2261,7 @@ select:focus {
 }
 
 .draw-config-ref-item-count {
-  font-size: 11px;
+  font-size: 12px;
   color: #94a3b8;
   background: #f1f5f9;
   padding: 2px 6px;
@@ -2299,7 +2317,7 @@ select:focus {
 
 .draw-config-ref-item-operator {
   flex: 1;
-  font-size: 13px;
+  font-size: 14px;
   color: #1e293b;
   font-weight: 400;
   padding-right: 12px;
@@ -2317,7 +2335,7 @@ select:focus {
 }
 
 .draw-config-ref-item-param {
-  font-size: 12px;
+  font-size: 13px;
   color: #64748b;
   font-family: 'SF Mono', 'JetBrains Mono', Consolas, monospace;
   white-space: nowrap;
@@ -2327,7 +2345,7 @@ select:focus {
 }
 
 .draw-config-ref-item-type {
-  font-size: 10px;
+  font-size: 12px;
   color: #94a3b8;
   background: #f1f5f9;
   padding: 2px 6px;

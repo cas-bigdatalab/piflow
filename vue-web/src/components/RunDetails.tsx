@@ -127,11 +127,11 @@ const RunFlowNode: React.FC<NodeProps<RunNodeType>> = ({ id, data, selected }) =
         <div className="node-header-left">
           <div className="node-title-wrapper">
             {data.operatorType && (
-              <span className="node-operator-type" style={{ fontSize: '8px' }}>{data.operatorType.toUpperCase()}</span>
+              <span className="node-operator-type" style={{ fontSize: '10px' }}>{data.operatorType.toUpperCase()}</span>
             )}
-            <span className="node-title-text" style={{ fontSize: '11px' }}>{data.label}</span>
+            <span className="node-title-text" style={{ fontSize: '15px' }}>{data.label}</span>
             {data.operatorName && (
-              <span className="node-operator-info" style={{ fontSize: '9px' }}>{data.operatorName}</span>
+              <span className="node-operator-info" style={{ fontSize: '15px' }}>{data.operatorName}</span>
             )}
           </div>
         </div>
@@ -145,7 +145,7 @@ const RunFlowNode: React.FC<NodeProps<RunNodeType>> = ({ id, data, selected }) =
       }}>
         {data.progress != null && (
           <span style={{
-            fontSize: '10px', fontWeight: 500,
+            fontSize: '13px', fontWeight: 500,
             color: isCompleted ? '#22c55e' : isRunningStop ? '#1f2937' : isFailed ? '#ef4444' : '#9ca3af'
           }}>
             {isCompleted ? `已完成 ${data.progress}%` :

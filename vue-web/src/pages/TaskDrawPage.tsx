@@ -1,4 +1,5 @@
 import React, { useCallback, useState, useRef, memo, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { shortId, generateUUID } from '../lib/ids';
 import { saveDrawInfo, getAllSkills, listSkillsDetails, getDrawTaskContent, apiBase } from "../lib/api";
 
@@ -168,6 +169,88 @@ let operatorCategories: {
 
 // ==================== 自定义节点组件 ====================
 
+interface NodeTooltipProps {
+  text: string;
+  target: HTMLElement | null;
+  visible: boolean;
+}
+
+const NodeTooltip: React.FC<NodeTooltipProps> = ({ text, target, visible }) => {
+  if (!visible || !target) return null;
+  const rect = target.getBoundingClientRect();
+  const style: React.CSSProperties = {
+    position: 'fixed',
+    top: rect.top - 8,
+    left: rect.right,
+    transform: 'translate(-100%, -100%)',
+    background: 'rgba(0, 0, 0, 0.88)',
+    color: '#fff',
+    padding: '6px 10px',
+    borderRadius: 6,
+    fontSize: 12,
+    lineHeight: 1.4,
+    whiteSpace: 'normal',
+    wordBreak: 'break-all',
+    maxWidth: 300,
+    zIndex: 100000,
+    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.25)',
+    pointerEvents: 'none',
+  };
+  return createPortal(<div className="node-param-tooltip" style={style}>{text}</div>, document.body);
+};
+
+const ParamValue: React.FC<{ value: string }> = ({ value }) => {
+  const ref = useRef<HTMLDivElement | null>(null);
+  const [hovered, setHovered] = useState(false);
+  const [isOverflow, setIsOverflow] = useState(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    setIsOverflow(el.scrollWidth > el.clientWidth);
+  }, [value]);
+
+  return (
+    <>
+      <div
+        ref={ref}
+        className="node-param-value"
+        data-tooltip={String(value)}
+        onMouseEnter={() => { if (isOverflow) setHovered(true); }}
+        onMouseLeave={() => setHovered(false)}
+        onClick={(e) => e.stopPropagation()}
+      >{value}</div>
+      <NodeTooltip text={String(value)} target={ref.current} visible={hovered && isOverflow} />
+    </>
+  );
+};
+
+const ParamValueSpan: React.FC<{ value: string }> = ({ value }) => {
+  const ref = useRef<HTMLSpanElement | null>(null);
+  const [hovered, setHovered] = useState(false);
+  const [isOverflow, setIsOverflow] = useState(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    setIsOverflow(el.scrollWidth > el.clientWidth);
+  }, [value]);
+
+  return (
+    <>
+      <span
+        ref={ref}
+        className="node-param-value"
+        data-tooltip={String(value)}
+        onMouseEnter={() => { if (isOverflow) setHovered(true); }}
+        onMouseLeave={() => setHovered(false)}
+        onClick={(e) => e.stopPropagation()}
+      >{value}</span>
+      <NodeTooltip text={String(value)} target={ref.current} visible={hovered && isOverflow} />
+    </>
+  );
+};
+
 const CustomNode: React.FC<NodeProps<NodeData>> = ({ id, data, selected }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -207,7 +290,7 @@ const CustomNode: React.FC<NodeProps<NodeData>> = ({ id, data, selected }) => {
     return Object.entries(data.params).map(([key, value]) => (
       <div key={key} className="node-param-item">
         <span className="node-param-label">{getParamLabel(data.operatorId, key)}:</span>
-        <span className="node-param-value">{getDisplayValue(key, value)}</span>
+        <ParamValueSpan value={String(getDisplayValue(key, value))} />
       </div>
     ));
   };
@@ -269,7 +352,7 @@ const CustomNode: React.FC<NodeProps<NodeData>> = ({ id, data, selected }) => {
               {data.input_params.params.map((inputItem, index) => (
                 <div key={`input-${index}`} className="oneParams">
                   <div className="node-param-label">{inputItem.name}</div>
-                  <div className="node-param-value">{inputItem.param_value || '-'}</div>
+                  <ParamValue value={String(inputItem.param_value || '-')} />
                 </div>
               ))}
             </div>
@@ -285,7 +368,7 @@ const CustomNode: React.FC<NodeProps<NodeData>> = ({ id, data, selected }) => {
               {data.output_params.params.map((outputItem, index) => (
                 <div key={`output-${index}`} className="oneParams">
                   <div className="node-param-label">{outputItem.name}</div>
-                  <div className="node-param-value">{outputItem.type}</div>
+                  <ParamValue value={String(outputItem.type)} />
                 </div>
               ))}
             </div>
@@ -2274,6 +2357,7 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
                               className="draw-config-value-input"
                               value={param._value || param.param_value || ''}
                               placeholder={param._refType === 'dataSource' ? '数据源' : '请输入值'}
+                              title={param._value || param.param_value || ''}
                               onChange={(e) => {
                                 const newParams = [...selectedNode.data.input_params.params];
                                 newParams[index] = { ...newParams[index], _value: e.target.value };
