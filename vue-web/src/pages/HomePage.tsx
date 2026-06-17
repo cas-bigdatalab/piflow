@@ -511,6 +511,7 @@ export function HomePage() {
 
     const filesToUpload = [...pendingFiles];
     setSending(true);
+    window.dispatchEvent(new CustomEvent("flow:sending-start"));
     setActiveAssistantId(assistantId);
     setInput("");
     setPendingFiles([]);
@@ -728,6 +729,7 @@ export function HomePage() {
         controller.signal,
       );
 
+      // 流结束后刷新对话历史列表
       window.dispatchEvent(new CustomEvent("flow:threads-refresh"));
     } catch (error: any) {
       const message = String(error?.message || error);
@@ -763,6 +765,7 @@ export function HomePage() {
       setSending(false);
       setUploadingCount(0);
       abortRef.current = null;
+      window.dispatchEvent(new CustomEvent("flow:sending-end"));
     }
   }
 
@@ -783,6 +786,11 @@ export function HomePage() {
       threadId: nextThreadId,
       presetAttachments: card.attachments || [],
     }).catch(() => {});
+
+    // 点击卡片后延迟2秒刷新对话历史
+    setTimeout(() => {
+      window.dispatchEvent(new CustomEvent("flow:threads-refresh"));
+    }, 2000);
   }
 
   async function handleFiles(files: File[]) {
