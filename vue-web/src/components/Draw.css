@@ -203,7 +203,7 @@
   width: 120px;
   padding: 8px 16px;
   margin-left: 12px;
-  background: #059669;
+  background: #10B981;
   color: #ffffff;
   border: none;
   border-radius: 4px;
@@ -215,7 +215,7 @@
 }
 
 .sync-back-btn:hover {
-  background: #047857;
+  background: #10B981;
 }
 
 .only-back-btn {
@@ -345,7 +345,7 @@
   align-items: center;
   gap: 6px;
   padding: 8px 16px;
-  background: #52c41a;
+  background: #10B981;
   color: #fff;
   border: none;
   border-radius: 8px;
@@ -357,11 +357,11 @@
 }
 
 .toolbar-operator-btn:hover {
-  background: #45a816;
+  background: #10B981;
 }
 
 .toolbar-operator-btn:active {
-  background: #3d9613;
+  background: #10B981;
 }
 .toolbar-divider {
   width: 1px;
@@ -712,18 +712,23 @@
   cursor: pointer;
   display: flex;
   align-items: center;
-  color: #999;
-  border-radius: 4px;
-  transition: all 0.2s;
+  justify-content: center;
+  color: #64748b;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  margin-right: 8px;
 }
 
 .node-expand-icon-btn:hover {
-  background: #f0f0f0;
-  color: #666;
+  background: #f1f5f9;
+  color: #334155;
 }
 
 .node-expand-icon-btn:active {
-  background: #e0e0e0;
+  background: #e2e8f0;
 }
 
 .node-expand-btn {
@@ -1343,9 +1348,10 @@ select:focus {
 /* 参数详情面板 */
 .node-params-panel {
   box-sizing: border-box;
-  padding: 8px 14px;
+  padding: 8px 0;
   background: #ffffff;
   margin-top: 8px;
+  overflow: hidden;
 }
 .nodeParams{
   font-size:14px;
@@ -1385,11 +1391,39 @@ select:focus {
   font-size: 12px;
   color: #333;
   font-weight: 500;
+  word-break: break-all;
+  overflow-wrap: break-word;
 }
 
 .node-param-value {
   font-size: 12px;
   color: #333;
+  text-align: right;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 140px;
+  cursor: pointer;
+  position: relative;
+}
+
+/* 参数值悬浮提示 - 黑色背景 */
+.node-param-value:hover::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 8px);
+  right: 0;
+  background: rgba(0, 0, 0, 0.85);
+  color: #fff;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  white-space: normal;
+  word-break: break-all;
+  max-width: 300px;
+  z-index: 1000;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  pointer-events: none;
 }
 
 
@@ -2184,6 +2218,19 @@ select:focus {
   font-size: 12px;
   font-weight: 500;
   color: #64748b;
+  align-items: center;
+  gap: 8px;
+}
+
+.draw-config-ref-back {
+  color: #3b82f6;
+  cursor: pointer;
+  font-size: 12px;
+  transition: color 0.15s ease;
+}
+
+.draw-config-ref-back:hover {
+  color: #2563eb;
 }
 
 .draw-config-ref-dropdown-operator {
@@ -2193,6 +2240,14 @@ select:focus {
 .draw-config-ref-dropdown-param {
   flex: 1;
   text-align: right;
+}
+
+.draw-config-ref-item-count {
+  font-size: 11px;
+  color: #94a3b8;
+  background: #f1f5f9;
+  padding: 2px 6px;
+  border-radius: 4px;
 }
 
 .draw-config-ref-dropdown-list {

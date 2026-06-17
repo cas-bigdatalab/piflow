@@ -215,7 +215,7 @@ const CustomNode: React.FC<NodeProps<NodeData>> = ({ id, data, selected }) => {
     return Object.entries(data.params).map(([key, value]) => (
       <div key={key} className="node-param-item">
         <span className="node-param-label">{getParamLabel(data.operatorId, key)}:</span>
-        <span className="node-param-value">{getDisplayValue(key, value)}</span>
+        <span className="node-param-value" data-tooltip={String(getDisplayValue(key, value))}>{getDisplayValue(key, value)}</span>
       </div>
     ));
   };
@@ -275,7 +275,7 @@ const CustomNode: React.FC<NodeProps<NodeData>> = ({ id, data, selected }) => {
               {data.input_params.params.map((inputItem, index) => (
                 <div key={`input-${index}`} className="oneParams">
                   <div className="node-param-label">{inputItem.name}</div>
-                  <div className="node-param-value">{inputItem.param_value || '-'}</div>
+                  <div className="node-param-value" data-tooltip={String(inputItem.param_value || '-')}>{inputItem.param_value || '-'}</div>
                 </div>
               ))}
             </div>
@@ -291,7 +291,7 @@ const CustomNode: React.FC<NodeProps<NodeData>> = ({ id, data, selected }) => {
               {data.output_params.params.map((outputItem, index) => (
                 <div key={`output-${index}`} className="oneParams">
                   <div className="node-param-label">{outputItem.name}</div>
-                  <div className="node-param-value">{outputItem.type}</div>
+                  <div className="node-param-value" data-tooltip={String(outputItem.type)}>{outputItem.type}</div>
                 </div>
               ))}
             </div>
@@ -876,6 +876,7 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
   const [taskName, setTaskName] = useState<string>('');
   const [taskDescription, setTaskDescription] = useState<string>('');
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const prevNodesLengthRef = useRef<number>(nodes.length);
 
   // 键盘Delete键删除选中节点
   useEffect(() => {
@@ -959,6 +960,7 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
   const [editingNodeName, setEditingNodeName] = useState('');
   const [isDescExpanded, setIsDescExpanded] = useState(false);
   const [expandedRefDropdowns, setExpandedRefDropdowns] = useState<string[]>([]);
+  const [selectedOperatorForRef, setSelectedOperatorForRef] = useState<string>('');  // 两级选择：当前选中的算子
   const [showOperatorModal, setShowOperatorModal] = useState(false);  // 任务ID，保存后获取
   const isInitialized = useRef(false);
   const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -984,11 +986,20 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
     return Math.max((containerHeight - NODE_HEIGHT) / 2, 50);
   };
 
-  // 将视口调整为节点靠左、垂直居中显示
+  // 将视口调整为节点靠左、垂直居中显示（只在删除节点时自动调整）
   const fitNodesToViewLeft = useCallback(() => {
     if (nodes.length === 0) return;
     const wrapper = reactFlowWrapper.current;
     if (!wrapper) return;
+
+    // 只在节点数量减少时自动调整视口
+    if (nodes.length >= prevNodesLengthRef.current) {
+      prevNodesLengthRef.current = nodes.length;
+      return;
+    }
+
+    // 更新ref
+    prevNodesLengthRef.current = nodes.length;
 
     const w = wrapper.clientWidth;
     const h = wrapper.clientHeight;
@@ -3191,12 +3202,15 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
                               className="draw-config-ref-trigger"
                               onClick={() => {
                                 // 切换展开状态
+                                const dropdownKey = `${selectedNodeId}-${param.name}`;
                                 const newExpandedRefs = [...expandedRefDropdowns];
-                                const idx = newExpandedRefs.indexOf(`${selectedNodeId}-${param.name}`);
+                                const idx = newExpandedRefs.indexOf(dropdownKey);
                                 if (idx > -1) {
+                                  // 关闭时重置选中的算子
                                   newExpandedRefs.splice(idx, 1);
+                                  setSelectedOperatorForRef('');
                                 } else {
-                                  newExpandedRefs.push(`${selectedNodeId}-${param.name}`);
+                                  newExpandedRefs.push(dropdownKey);
                                 }
                                 setExpandedRefDropdowns(newExpandedRefs);
                               }}
@@ -3220,52 +3234,84 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
 
                             {expandedRefDropdowns.includes(`${selectedNodeId}-${param.name}`) && (
                               <div className="draw-config-ref-dropdown-content">
-                                <div className="draw-config-ref-dropdown-header">
-                                  <span className="draw-config-ref-dropdown-operator">算子</span>
-                                  <span className="draw-config-ref-dropdown-param">参数</span>
-                                </div>
-                                <div className="draw-config-ref-dropdown-list">
-                                  {referenceOptions.map((opt) => (
-                                    <div
-                                      key={`${opt.nodeId}_${opt.name}`}
-                                      className={`draw-config-ref-dropdown-item ${param._refValue === opt.name ? 'selected' : ''}`}
-                                      onClick={() => {
-                                        const refValue = opt.name;
-                                        const newParams = [...selectedNode.data.input_params.params];
-                                        newParams[index] = {
-                                          ...newParams[index],
-                                          _refValue: refValue,
-                                          _sourceNodeId: opt.nodeId || '',
-                                          _sourceNodeName: opt.nodeName || '',
-                                          _sourceParamName: opt.name || '',
-                                        };
-                                        setNodes((nds) =>
-                                          nds.map((n) => {
-                                            if (n.id === selectedNodeId) {
-                                              return {
-                                                ...n,
-                                                data: {
-                                                  ...n.data,
-                                                  input_params: { ...n.data.input_params, params: newParams },
-                                                },
-                                              };
-                                            }
-                                            return n;
-                                          })
-                                        );
-                                        // 关闭下拉
-                                        setExpandedRefDropdowns(expandedRefDropdowns.filter(id => id !== `${selectedNodeId}-${param.name}`));
-                                      }}
-                                    >
-                                      <span className="draw-config-ref-item-dot"></span>
-                                      <span className="draw-config-ref-item-operator">{opt.nodeName || opt.nodeId}</span>
-                                      <div className="draw-config-ref-item-param-wrapper">
-                                        <span className="draw-config-ref-item-param">{opt.name}</span>
-                                        <span className="draw-config-ref-item-type">{opt.type}</span>
-                                      </div>
+                                {/* 第一级：算子列表 */}
+                                {!selectedOperatorForRef && (
+                                  <>
+                                    <div className="draw-config-ref-dropdown-header">
+                                      <span className="draw-config-ref-dropdown-operator">选择算子</span>
                                     </div>
-                                  ))}
-                                </div>
+                                    <div className="draw-config-ref-dropdown-list">
+                                      {/* 按算子分组显示 */}
+                                      {Array.from(new Set(referenceOptions.map(o => o.nodeId))).map((nodeId) => {
+                                        const nodeOpts = referenceOptions.filter(o => o.nodeId === nodeId);
+                                        const nodeName = nodeOpts[0]?.nodeName || nodeId;
+                                        return (
+                                          <div
+                                            key={nodeId}
+                                            className={`draw-config-ref-dropdown-item ${param._sourceNodeId === nodeId ? 'selected' : ''}`}
+                                            onClick={() => {
+                                              setSelectedOperatorForRef(nodeId);
+                                            }}
+                                            title={nodeName}
+                                          >
+                                            <span className="draw-config-ref-item-dot"></span>
+                                            <span className="draw-config-ref-item-operator" style={{ flex: 1 }}>{nodeName}</span>
+                                            <span className="draw-config-ref-item-count">{nodeOpts.length}个参数</span>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  </>
+                                )}
+                                {/* 第二级：参数列表 */}
+                                {selectedOperatorForRef && (
+                                  <>
+                                    <div className="draw-config-ref-dropdown-header">
+                                      <span className="draw-config-ref-back" onClick={() => setSelectedOperatorForRef('')}>← 返回</span>
+                                      <span className="draw-config-ref-dropdown-param">选择参数</span>
+                                    </div>
+                                    <div className="draw-config-ref-dropdown-list">
+                                      {referenceOptions.filter(o => o.nodeId === selectedOperatorForRef).map((opt) => (
+                                        <div
+                                          key={`${opt.nodeId}_${opt.name}`}
+                                          className={`draw-config-ref-dropdown-item ${param._refValue === opt.name ? 'selected' : ''}`}
+                                          onClick={() => {
+                                            const refValue = opt.name;
+                                            const newParams = [...selectedNode.data.input_params.params];
+                                            newParams[index] = {
+                                              ...newParams[index],
+                                              _refValue: refValue,
+                                              _sourceNodeId: opt.nodeId || '',
+                                              _sourceNodeName: opt.nodeName || '',
+                                              _sourceParamName: opt.name || '',
+                                            };
+                                            setNodes((nds) =>
+                                              nds.map((n) => {
+                                                if (n.id === selectedNodeId) {
+                                                  return {
+                                                    ...n,
+                                                    data: {
+                                                      ...n.data,
+                                                      input_params: { ...n.data.input_params, params: newParams },
+                                                    },
+                                                  };
+                                                }
+                                                return n;
+                                              })
+                                            );
+                                            // 关闭下拉并重置选中的算子
+                                            setExpandedRefDropdowns(expandedRefDropdowns.filter(id => id !== `${selectedNodeId}-${param.name}`));
+                                            setSelectedOperatorForRef('');
+                                          }}
+                                        >
+                                          <span className="draw-config-ref-item-dot"></span>
+                                          <span className="draw-config-ref-item-param" style={{ flex: 1 }}>{opt.name}</span>
+                                          <span className="draw-config-ref-item-type">{opt.type}</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </>
+                                )}
                               </div>
                             )}
                           </div>
