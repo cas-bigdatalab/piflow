@@ -2998,6 +2998,10 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
               console.log('params',params)
               for (const p of params) {
                 if (p.required) {
+                  // 如果是引用模式（_refType === 'reference'），则认为已填写
+                  if (p._refType === 'reference' || (p.value_mode === 'reference' && p.binding_id)) {
+                    continue;
+                  }
                   const val = String(p._value ?? p.param_value ?? p._refValue ?? p.value ?? '');
                   if (!val.trim()) {
                     alert(`节点「${n.data.label}」的必填参数「${p.name}」未填写，请完善后再同步`);
