@@ -14,6 +14,7 @@ from infra.config_loader import resolve_workspace_root
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 WORKSPACE_ROOT = resolve_workspace_root()
 SKILLS_DIR = WORKSPACE_ROOT / "skills"
+GENERATED_SKILLS_DIR = SKILLS_DIR / "generated"
 DAG_SYSTEM_NODE_DIR = WORKSPACE_ROOT / "dag_system_node"
 STORAGE_DIR = PROJECT_ROOT / "storage"
 STORAGE_SKILLS_DIR = STORAGE_DIR / "skills"
@@ -112,15 +113,19 @@ def get_all_skills_list() -> List[Dict[str, Optional[str]]]:
 
     results = []
 
-    for skill_dir in SKILLS_DIR.iterdir():
-        if not skill_dir.is_dir():
+    for base_dir in (SKILLS_DIR, GENERATED_SKILLS_DIR):
+        if not base_dir.exists():
             continue
 
-        skill_info = _parse_skill_info(skill_dir)
-        if skill_info is None:
-            continue
+        for skill_dir in base_dir.iterdir():
+            if not skill_dir.is_dir():
+                continue
 
-        results.append(skill_info)
+            skill_info = _parse_skill_info(skill_dir)
+            if skill_info is None:
+                continue
+
+            results.append(skill_info)
 
     return results
 
@@ -440,5 +445,6 @@ def _process_skill_dirs(base_dir: Path, path_prefix: str) -> int:
 
 def init_dag_skills_to_database() -> int:
     count = _process_skill_dirs(SKILLS_DIR, "skills")
+    count += _process_skill_dirs(GENERATED_SKILLS_DIR, "skills/generated")
     count += _process_skill_dirs(DAG_SYSTEM_NODE_DIR, "dag_system_node")
     return count

@@ -14,6 +14,7 @@ from .middleware import install_registry_hooks
 from runtime.workspace_manager import WorkspaceManager
 from deepagents.backends.filesystem import FilesystemBackend
 from runtime.deepagents_compat import install_deepagents_filesystem_utf8_compat
+from runtime.skills_compat import install_deepagents_skills_refresh_compat
 from runtime.subagent import (
     build_summary_route_prompt_block,
     override_factory_prompt,
@@ -66,6 +67,7 @@ class AgentFactory:
 
         settings = get_settings()
         install_deepagents_filesystem_utf8_compat()
+        install_deepagents_skills_refresh_compat()
 
         llm_cfg = settings.llm
         provider_name = llm_cfg.provider
@@ -183,7 +185,7 @@ class AgentFactory:
             backend=backend,
             store = store,
             checkpointer=memory,
-            skills = ["/skills/", "/dag_system_node/"],
+            skills = ["/skills/", "/skills/generated/", "/dag_system_node/"],
             interrupt_on = {
                 "write_file": False,
                 "read_file": False,
