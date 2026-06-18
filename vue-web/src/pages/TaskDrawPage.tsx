@@ -1,4 +1,5 @@
-﻿import React, { useCallback, useState, useRef, memo, useEffect, useMemo } from 'react';
+import React, { useCallback, useState, useRef, memo, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { shortId, generateUUID } from '../lib/ids';
 import { saveDrawInfo, getAllSkills, listSkillsDetails, getDrawTaskContent, apiBase } from "../lib/api";
 
@@ -168,6 +169,88 @@ let operatorCategories: {
 
 // ==================== 自定义节点组件 ====================
 
+interface NodeTooltipProps {
+  text: string;
+  target: HTMLElement | null;
+  visible: boolean;
+}
+
+const NodeTooltip: React.FC<NodeTooltipProps> = ({ text, target, visible }) => {
+  if (!visible || !target) return null;
+  const rect = target.getBoundingClientRect();
+  const style: React.CSSProperties = {
+    position: 'fixed',
+    top: rect.top - 8,
+    left: rect.right,
+    transform: 'translate(-100%, -100%)',
+    background: 'rgba(0, 0, 0, 0.88)',
+    color: '#fff',
+    padding: '6px 10px',
+    borderRadius: 6,
+    fontSize: 12,
+    lineHeight: 1.4,
+    whiteSpace: 'normal',
+    wordBreak: 'break-all',
+    maxWidth: 300,
+    zIndex: 100000,
+    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.25)',
+    pointerEvents: 'none',
+  };
+  return createPortal(<div className="node-param-tooltip" style={style}>{text}</div>, document.body);
+};
+
+const ParamValue: React.FC<{ value: string }> = ({ value }) => {
+  const ref = useRef<HTMLDivElement | null>(null);
+  const [hovered, setHovered] = useState(false);
+  const [isOverflow, setIsOverflow] = useState(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    setIsOverflow(el.scrollWidth > el.clientWidth);
+  }, [value]);
+
+  return (
+    <>
+      <div
+        ref={ref}
+        className="node-param-value"
+        data-tooltip={String(value)}
+        onMouseEnter={() => { if (isOverflow) setHovered(true); }}
+        onMouseLeave={() => setHovered(false)}
+        onClick={(e) => e.stopPropagation()}
+      >{value}</div>
+      <NodeTooltip text={String(value)} target={ref.current} visible={hovered && isOverflow} />
+    </>
+  );
+};
+
+const ParamValueSpan: React.FC<{ value: string }> = ({ value }) => {
+  const ref = useRef<HTMLSpanElement | null>(null);
+  const [hovered, setHovered] = useState(false);
+  const [isOverflow, setIsOverflow] = useState(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    setIsOverflow(el.scrollWidth > el.clientWidth);
+  }, [value]);
+
+  return (
+    <>
+      <span
+        ref={ref}
+        className="node-param-value"
+        data-tooltip={String(value)}
+        onMouseEnter={() => { if (isOverflow) setHovered(true); }}
+        onMouseLeave={() => setHovered(false)}
+        onClick={(e) => e.stopPropagation()}
+      >{value}</span>
+      <NodeTooltip text={String(value)} target={ref.current} visible={hovered && isOverflow} />
+    </>
+  );
+};
+
 const CustomNode: React.FC<NodeProps<NodeData>> = ({ id, data, selected }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -207,18 +290,18 @@ const CustomNode: React.FC<NodeProps<NodeData>> = ({ id, data, selected }) => {
     return Object.entries(data.params).map(([key, value]) => (
       <div key={key} className="node-param-item">
         <span className="node-param-label">{getParamLabel(data.operatorId, key)}:</span>
-        <span className="node-param-value">{getDisplayValue(key, value)}</span>
+        <ParamValueSpan value={String(getDisplayValue(key, value))} />
       </div>
     ));
   };
 
   return (
-    <div className={`custom-node ${selected ? 'selected' : ''}`}>
+    <div className={`custom-node ${selected ? 'selected' : ''}`} onClick={() => { data.onSelect?.(id); }}>
       <Handle
         type="target"
         position={Position.Left}
         className="node-handle"
-        style={{ top: '50%' }}
+        style={{ top: '60px' }}
       />
 
       {/* 节点顶部 */}
@@ -227,27 +310,28 @@ const CustomNode: React.FC<NodeProps<NodeData>> = ({ id, data, selected }) => {
             {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
           </button>
         <div className="node-header-left">
-          <div className="node-icon-wrapper-small">
-            <img
-              src={resolveIconUrl(data.icon)}
-              alt={data.label}
-              className="node-icon-small"
-            />
-          </div>
           <div className="node-title-wrapper">
-            <span
-              className="node-title-text"
-              onClick={(e) => { e.stopPropagation(); data.onSelect?.(id); }}
-            >
+            {data.operatorType && (
+              <span className="node-operator-type">{data.operatorType.toUpperCase()}</span>
+            )}
+            <span className="node-title-text">
               {data.label}
             </span>
             {data.operatorName && (
-              <span className="node-operator-info">{data.operatorName}{data.operatorType ? ` | ${data.operatorType}` : ''}</span>
+              <span className="node-operator-info">{data.operatorName}</span>
             )}
           </div>
         </div>
         <div className="node-header-right">
-          <button className="node-delete-btn" onClick={handleDeleteClick} title="删除节点">
+          <button 
+            className="node-delete-btn" 
+            onClick={(e: React.MouseEvent) => { 
+              e.stopPropagation(); 
+              e.preventDefault();
+              handleDeleteClick(e); 
+            }} 
+            title="删除节点"
+          >
             <Trash2 size={14} />
           </button>
         </div>
@@ -268,7 +352,7 @@ const CustomNode: React.FC<NodeProps<NodeData>> = ({ id, data, selected }) => {
               {data.input_params.params.map((inputItem, index) => (
                 <div key={`input-${index}`} className="oneParams">
                   <div className="node-param-label">{inputItem.name}</div>
-                  <div className="node-param-value">{inputItem.param_value || '-'}</div>
+                  <ParamValue value={String(inputItem.param_value || '-')} />
                 </div>
               ))}
             </div>
@@ -284,7 +368,7 @@ const CustomNode: React.FC<NodeProps<NodeData>> = ({ id, data, selected }) => {
               {data.output_params.params.map((outputItem, index) => (
                 <div key={`output-${index}`} className="oneParams">
                   <div className="node-param-label">{outputItem.name}</div>
-                  <div className="node-param-value">{outputItem.type}</div>
+                  <ParamValue value={String(outputItem.type)} />
                 </div>
               ))}
             </div>
@@ -866,6 +950,7 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
   const [isOperatorLibraryOpen, setIsOperatorLibraryOpen] = useState(false);
   const [edgeType, setEdgeType] = useState<'bezier' | 'straight'>('bezier');
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState('');
@@ -877,8 +962,11 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
   const [isEditingNodeName, setIsEditingNodeName] = useState(false);
   const [editingNodeName, setEditingNodeName] = useState('');
   const [isDescExpanded, setIsDescExpanded] = useState(false);
+  const [expandedRefDropdowns, setExpandedRefDropdowns] = useState<string[]>([]);
+  const [selectedOperatorForRef, setSelectedOperatorForRef] = useState<string>('');  // 两级选择：当前选中的算子
   const [showOperatorModal, setShowOperatorModal] = useState(false);  // 任务ID，保存后获取
   const [taskDescription, setTaskDescription] = useState<string>('');  // 任务描述
+  const [zoomLevel, setZoomLevel] = useState(1);
   const isInitialized = useRef(false);
   const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
   const isFirstRender = useRef(true);
@@ -889,7 +977,38 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
   const selectedNode = nodes.find((m) => m.id === selectedNodeId);
 
   // 关闭配置面板
-  const closeConfigPanel = () => setSelectedNodeId(null);
+  const closeConfigPanel = () => {
+    setNodes((nds) => nds.map((n) => ({ ...n, selected: false })));
+    setSelectedNodeId(null);
+  };
+
+  // 删除选中节点
+  const handleDeleteNode = () => {
+    if (selectedNodeId) {
+      setNodes((nds) => nds.filter((n) => n.id !== selectedNodeId));
+      setEdges((eds) => eds.filter((e) => e.source !== selectedNodeId && e.target !== selectedNodeId));
+      setSelectedNodeId(null);
+    }
+    setShowDeleteModal(false);
+  };
+
+  // 键盘Delete键删除选中节点
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      const tagName = target.tagName;
+      if (tagName === 'INPUT' || tagName === 'TEXTAREA' || tagName === 'SELECT' || target.isContentEditable) {
+        return;
+      }
+      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedNodeId) {
+        e.preventDefault();
+        setShowDeleteModal(true);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedNodeId]);
 
   // Set initial taskId from props
   useEffect(() => {
@@ -949,41 +1068,152 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
             let inputParams = undefined;
             let outputParams = undefined;
             let skillIconPath = '';
+            let skillDescription = '';
             const skillId = n.skill?.skill_id || n.skill_id;
             
-            if (skillId) {
-              try {
-                const skillRes = await listSkillsDetails(skillId);
-                console.log('算子详情:', skillRes);
-                if (skillRes.result) {
-                  inputParams = skillRes.result.input_params;
-                  outputParams = skillRes.result.output_params;
-                  skillIconPath = skillRes.result.icon_path || '';
-                }
-              } catch(e) { console.error('获取算子详情失败:', e); }
-            }
+            // 对于source_stop和sink_stop这两个特殊算子，不要请求接口，使用固定的参数
+            const isSpecialSkill = skillId === 'cn.piflow.engine.local.source_file_stop.SourceFileStop' || 
+                                    skillId === 'cn.piflow.engine.local.file_save_stop.FileSaveStop';
             
-            // 检查是否有 required 字段，没有的话再用 getAllSkills 获取
-            const hasRequiredField = inputParams?.params?.some((p: any) => p.required !== undefined);
-            if (!hasRequiredField) {
-              try {
-                const skillName = n.skill?.skill_name || n.skill_name || n.node_name || '';
-                const listRes = await getAllSkills(skillName);
-                if (listRes.result?.data && listRes.result.data.length > 0) {
-                  const skillData = listRes.result.data[0].DagSkillInfoList?.find((s: any) =>
-                    s.skill_id === skillId || s.skill_name === skillName
-                  ) || listRes.result.data[0].DagSkillInfoList[0];
-                  if (skillData?.input_params?.params?.some((p: any) => p.required !== undefined)) {
-                    console.log('使用 getAllSkills 获取参数模板 (含 required):', skillData.input_params);
-                    inputParams = skillData.input_params;
-                    outputParams = skillData.output_params || outputParams;
-                    skillIconPath = skillData.icon_path || skillIconPath;
+            if (isSpecialSkill) {
+              console.log(`节点 ${i}: 特殊算子，不请求接口`);
+              
+              if (skillId === 'cn.piflow.engine.local.source_file_stop.SourceFileStop') {
+                n.skill = n.skill || {};
+                n.skill.name_zh = '文件源';
+                n.skill.skill_name = 'source_stop';
+                n.skill.skill_type = 'source';
+                // source_stop的固定输入参数（只有file_path）
+                inputParams = {
+                  params: [
+                    {
+                      name: "file_path",
+                      type: "string",
+                      param_name: "file_path",
+                      param_type: "String",
+                      value_mode: "manual",
+                      param_value: "",
+                      value_source: "local_file",
+                      required: true
+                    }
+                  ]
+                };
+                // source_stop的输出参数
+                outputParams = {
+                  params: [{
+                    name: "output",
+                    type: "string",
+                    param_name: "output",
+                    param_type: "String"
+                  }]
+                };
+              } else {
+                n.skill = n.skill || {};
+                n.skill.name_zh = '文件保存';
+                n.skill.skill_name = 'sink_stop';
+                n.skill.skill_type = 'sink';
+                // sink_stop的固定输入参数
+                inputParams = {
+                  params: [
+                    {
+                      name: "input",
+                      type: "string",
+                      param_name: "input",
+                      param_type: "String",
+                      value_mode: "manual",
+                      param_value: "",
+                      value_source: "local_file",
+                      required: true
+                    },
+                    {
+                      name: "path",
+                      type: "string",
+                      param_name: "path",
+                      param_type: "String",
+                      value_mode: "manual",
+                      param_value: "",
+                      value_source: "local_file",
+                      required: true
+                    },
+                    {
+                      name: "overwrite",
+                      type: "boolean",
+                      param_name: "overwrite",
+                      param_type: "Boolean",
+                      value_mode: "manual",
+                      param_value: true,
+                      value_source: "local_file",
+                      required: true
+                    }
+                  ]
+                };
+                // sink_stop没有输出参数
+                outputParams = { params: [] };
+              }
+            } else {
+              if (skillId) {
+                try {
+                  const skillRes = await listSkillsDetails(skillId);
+                  console.log('算子详情:', skillRes);
+                  if (skillRes.result) {
+                    inputParams = skillRes.result.input_params;
+                    outputParams = skillRes.result.output_params;
+                    skillIconPath = skillRes.result.icon_path || '';
+                    skillDescription = skillRes.result.description || '';
+                    // 获取 skill_name、skill_type 和 name_zh
+                    if (skillRes.result.skill_name) {
+                      n.skill = n.skill || {};
+                      n.skill.skill_name = skillRes.result.skill_name;
+                    }
+                    if (skillRes.result.skill_type) {
+                      n.skill = n.skill || {};
+                      n.skill.skill_type = skillRes.result.skill_type;
+                    }
+                    if (skillRes.result.name_zh) {
+                      n.skill = n.skill || {};
+                      n.skill.name_zh = skillRes.result.name_zh;
+                    }
                   }
-                }
-              } catch(e) { console.error('getAllSkills 失败:', e); }
+                } catch(e) { console.error('获取算子详情失败:', e); }
+              }
+              
+              // 检查是否有 required 字段，没有的话再用 getAllSkills 获取
+              const hasRequiredField = inputParams?.params?.some((p: any) => p.required !== undefined);
+              if (!hasRequiredField) {
+                try {
+                  const skillName = n.skill?.skill_name || n.skill_name || n.node_name || '';
+                  const listRes = await getAllSkills(skillName);
+                  if (listRes.result?.data && listRes.result.data.length > 0) {
+                    const skillData = listRes.result.data[0].DagSkillInfoList?.find((s: any) =>
+                      s.skill_id === skillId || s.skill_name === skillName
+                    ) || listRes.result.data[0].DagSkillInfoList[0];
+                    if (skillData?.input_params?.params?.some((p: any) => p.required !== undefined)) {
+                      console.log('使用 getAllSkills 获取参数模板 (含 required):', skillData.input_params);
+                      inputParams = skillData.input_params;
+                      outputParams = skillData.output_params || outputParams;
+                      skillIconPath = skillData.icon_path || skillIconPath;
+                      skillDescription = skillData.description || skillDescription;
+                      // 获取 skill_name、skill_type 和 name_zh
+                      if (skillData.skill_name) {
+                        n.skill = n.skill || {};
+                        n.skill.skill_name = skillData.skill_name;
+                      }
+                      if (skillData.skill_type) {
+                        n.skill = n.skill || {};
+                        n.skill.skill_type = skillData.skill_type;
+                      }
+                      if (skillData.name_zh) {
+                        n.skill = n.skill || {};
+                        n.skill.name_zh = skillData.name_zh;
+                      }
+                    }
+                  }
+                } catch(e) { console.error('getAllSkills 失败:', e); }
+              }
             }
 
             // 合并后端保存的参数值到算子模板参数中
+            const nodeId = n.node_id || `node-${i+1}`;
             let mergedInputParams = inputParams;
             if (inputParams?.params && n.input_params && Array.isArray(n.input_params)) {
               const savedParamsMap: Record<string, any> = {};
@@ -1006,7 +1236,6 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
               console.log('合并后参数:', JSON.stringify(mergedInputParams, null, 2));
             }
 
-            const nodeId = n.node_id || `node-${i+1}`;
             loadedNodes.push({
               id: nodeId,
               type: 'custom',
@@ -1017,7 +1246,7 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
                 operatorId: skillId || '',
                 operatorName: n.skill?.skill_name || '',
                 operatorType: n.skill?.skill_type || '',
-                description: '',
+                description: skillDescription,
                 params: {},
                 inputVar: 'input_data',
                 outputVar: 'output_data',
@@ -1581,7 +1810,7 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
                 return (n.data.input_params?.params || [])
                   .filter((p: any) => {
                     if (p._refType === 'reference') return true;
-                    const val = p._value || p.param_value || '';
+                    const val = String(p._value ?? p.param_value ?? '');
                     return val.trim() !== '';
                   })
                   .map((p: any) => {
@@ -1628,18 +1857,16 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
                       // 如果 _refValue 为空，使用上游节点的第一个出参名称
                       let refParamName = param._refValue;
                       if (!refParamName) {
-                        // 从上游节点的 output_params 中获取第一个参数名
                         const upstreamNode = nodes.find(n => n.id === upstreamEdge.source);
                         refParamName = upstreamNode?.data.output_params?.params?.[0]?.name || '';
-                      } else if (refParamName.includes('（')) {
-                        refParamName = refParamName.split('（')[0];
+                      } else if (String(refParamName).includes('（')) {
+                        refParamName = String(refParamName).split('（')[0];
                       }
 
                       const binding = {
-                        // binding_id: param._refValue || `binding_${upstreamEdge.source}_${node.id}_${param.name}`,
                         binding_id: generateUUID(),
                         from_node_id: upstreamEdge.source,
-                        from_param_name: refParamName.trim() || param.name,
+                        from_param_name: String(refParamName ?? '').trim() || param.name,
                         to_node_id: node.id,
                         to_param_name: param.name || '',
                       };
@@ -1795,8 +2022,10 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
             nodeTypes={nodeTypes}
             edgeTypes={edgeTypes}
             fitView
+            deleteKeyCode={null}
+            onViewportChange={(viewport: any) => setZoomLevel(viewport.zoom)}
           >
-            <Background variant={BackgroundVariant.Dots} gap={12} size={1} />
+            <Background variant={BackgroundVariant.Dots} gap={36} size={1.5} />
           </ReactFlow>
 
           {/* 拖拽时的视觉反馈遮罩 */}
@@ -1846,7 +2075,7 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
           <FloatingToolbar
             onOpenOperatorLibrary={() => setIsOperatorLibraryOpen(true)}
             onAddComment={handleAddComment}
-            zoom={1}
+            zoom={zoomLevel}
             onZoomIn={zoomIn}
             onZoomOut={zoomOut}
             onResetView={fitView}
@@ -1854,277 +2083,356 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
             onEdgeTypeChange={setEdgeType}
           />
 
-          {/* 右侧参数配置面板 */}
+          {/* 右侧参数配置面板 - 新样式 */}
           {selectedNode && (
-            <div className="config-panel">
-              <div className="config-panel-header">
-                <h3>参数配置</h3>
-                {/* <div className="config-panel-task-info">
-                  <div className="config-task-name">
-                    <span className="config-task-value">{taskName}</span>
+            <div className="draw-config-panel">
+              {/* 关闭按钮 */}
+              <div className="closeCon">
+                <div className="draw-config-close">
+                  <X size={18} onClick={closeConfigPanel} />
+                </div>
+              </div>
+              
+              {/* 头部：中文名称 + 编辑图标 */}
+              <div className="draw-config-header">
+                <div className="draw-config-title-row">
+                  <div className="draw-config-icon-wrapper">
+                    <span style={{ fontSize: '16px', color: '#0f172a' }}>◆</span>
                   </div>
-                  <div className="config-task-desc">
-                    <span className="config-task-value">{taskDescription}</span>
-                  </div>
-                </div> */}
-                <button className="config-panel-close" onClick={closeConfigPanel}>
-                  <X size={20} />
+                  {isEditingNodeName ? (
+                    <input
+                      className="draw-config-title-input"
+                      value={editingNodeName}
+                      onChange={(e) => setEditingNodeName(e.target.value)}
+                      onBlur={() => {
+                        const trimmedName = String(editingNodeName ?? '').trim();
+                        if (trimmedName && trimmedName !== selectedNode.data.label) {
+                          const uniqueName = generateUniqueLabel(trimmedName);
+                          setNodes((nds) =>
+                            nds.map((n) => {
+                              if (n.id === selectedNodeId) {
+                                return { ...n, data: { ...n.data, label: uniqueName } };
+                              }
+                              return n;
+                            })
+                          );
+                        }
+                        setIsEditingNodeName(false);
+                      }}
+                      autoFocus
+                    />
+                  ) : (
+                    <span className="draw-config-title">{selectedNode.data.label}</span>
+                  )}
+                </div>
+                <button
+                  className="draw-config-edit-btn"
+                  onClick={() => {
+                    setIsEditingNodeName(true);
+                    setEditingNodeName(selectedNode.data.label);
+                  }}
+                  title="编辑节点名称"
+                >
+                  <Edit3 size={14} />
                 </button>
               </div>
-              {(() => {
-                return (
-              <div className="config-panel-body">
-                {/* 节点名称 + 编辑按钮 */}
-                <div className="config-node-header">
-                  <div className="config-node-info">
-                    {isEditingNodeName ? (
-                      <input
-                        className="config-node-name-input"
-                        value={editingNodeName}
-                        onChange={(e) => setEditingNodeName(e.target.value)}
-                        onBlur={() => {
-                          const trimmedName = editingNodeName.trim();
-                          if (trimmedName && trimmedName !== selectedNode.data.label) {
-                            const uniqueName = generateUniqueLabel(trimmedName);
-                            setNodes((nds) =>
-                              nds.map((n) => {
-                                if (n.id === selectedNodeId) {
-                                  return { ...n, data: { ...n.data, label: uniqueName } };
-                                }
-                                return n;
-                              })
-                            );
-                          }
-                          setIsEditingNodeName(false);
-                        }}
-                        autoFocus
-                      />
-                    ) : (
-                      <span className="config-node-name">{selectedNode.data.label}</span>
-                    )}
-                    <button
-                      className="edit-name-btn"
-                      onClick={() => {
-                        setIsEditingNodeName(true);
-                        setEditingNodeName(selectedNode.data.label);
-                      }}
-                      title="编辑节点名称"
-                    >
-                      <Edit3 size={14} />
+
+              {/* 英文名称 + 类型 + 连接状态 */}
+              <div className="draw-config-meta">
+                <span className="draw-config-meta-name">{selectedNode.data.operatorName || selectedNode.data.operatorId || ''}</span>
+                {selectedNode.data.operatorType && (
+                  <span className="draw-config-meta-type">{selectedNode.data.operatorType}</span>
+                )}
+              </div>
+
+              {/* 算子描述 - 可折叠（在英文名称下方） */}
+              {selectedNode.data.description && (
+                <div className="draw-config-desc-section">
+                  <div
+                    className="draw-config-desc-header"
+                    onClick={() => setIsDescExpanded(!isDescExpanded)}
+                  >
+                    {/* <ChevronDown className={`draw-config-desc-arrow ${isDescExpanded ? 'expanded' : ''}`} size={14} /> */}
+                    <span className={`draw-config-desc-arrow ${isDescExpanded ? 'expanded' : ''}`}>▼</span>
+                    <span className="draw-config-desc-title">算子描述</span>
+                  </div>
+                  {isDescExpanded && (
+                    <div className="draw-config-desc-content">
+                      {selectedNode.data.description}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div className="draw-config-body">
+
+                {/* 输入参数 */}
+                {selectedNode.data.input_params?.params && selectedNode.data.input_params.params.length > 0 && (
+                  <div className="draw-config-params-section">
+                    <div className="draw-config-section-title">
+                      <span className="draw-config-section-bar"></span>
+                      <span className="draw-config-section-text">输入参数</span>
+                    </div>
+
+                    {selectedNode.data.input_params.params.map((param: any, index: number) => (
+                      <div key={`input-${index}`} className="draw-config-param-card">
+                        {/* 第一行：参数名称 + 必填星号 + 问号tooltip + 类型标签 */}
+                        <div className="draw-config-param-header">
+                          <div className="draw-config-param-name-row">
+                            <span className="draw-config-param-name">{param.name}</span>
+                            {param.required && <span className="draw-config-param-required">*</span>}
+                            {param.description && (
+                              <div className="draw-config-param-tooltip" title={param.description}>
+                                ?
+                              </div>
+                            )}
+                          </div>
+                          <span className="draw-config-param-type-tag">{param.type || '-'}</span>
+                        </div>
+
+                        {/* 第二行：来源 + 值 */}
+                        <div className="draw-config-param-value-row">
+                          <select
+                            className="draw-config-source-select"
+                            value={param._refType || 'manual'}
+                            onChange={(e) => {
+                              const newRefType = e.target.value;
+                              const newParams = [...selectedNode.data.input_params.params];
+                              const isChangingToReference = newRefType === 'reference' && param._refType !== 'reference';
+                              newParams[index] = {
+                                ...newParams[index],
+                                _refType: newRefType,
+                                _value: newRefType === 'reference' ? '' : (param._value || param.param_value || param._refValue || ''),
+                                _refValue: isChangingToReference ? (referenceOptions.length > 0 ? referenceOptions[0].name : '') : (newRefType === 'reference' ? param._refValue || '' : '')
+                              };
+
+                              if (newRefType === 'reference' && referenceOptions.length === 0) {
+                                alert('没有可用的引用选项，请确保有上游节点连接');
+                              }
+
+                              setNodes((nds) =>
+                                nds.map((n) => {
+                                  if (n.id === selectedNodeId) {
+                                    return {
+                                      ...n,
+                                      data: {
+                                        ...n.data,
+                                        input_params: { ...n.data.input_params, params: newParams },
+                                      },
+                                    };
+                                  }
+                                  return n;
+                                })
+                              );
+                            }}
+                          >
+                            <option value="manual">手动</option>
+                            <option value="reference">引用</option>
+                            <option value="dataSource">数据源</option>
+                          </select>
+
+                          {param._refType === 'reference' ? (
+                            <div className="draw-config-ref-wrapper">
+                              <div className="draw-config-ref-dropdown">
+                                <button
+                                  className="draw-config-ref-trigger"
+                                  onClick={() => {
+                                    const dropdownKey = `${selectedNodeId}-${param.name}`;
+                                    const newExpandedRefs = [...expandedRefDropdowns];
+                                    const idx = newExpandedRefs.indexOf(dropdownKey);
+                                    if (idx > -1) {
+                                      // 关闭时重置选中的算子
+                                      newExpandedRefs.splice(idx, 1);
+                                      setSelectedOperatorForRef('');
+                                    } else {
+                                      newExpandedRefs.push(dropdownKey);
+                                    }
+                                    setExpandedRefDropdowns(newExpandedRefs);
+                                  }}
+                                >
+                                  {param._refValue ? (
+                                    <span className="draw-config-ref-selected">
+                                      {(function() {
+                                        const matchedOpt = referenceOptions.find(o => o.name === param._refValue);
+                                        const fallbackOpt = !matchedOpt
+                                          ? referenceOptions.find(o => param._refValue?.endsWith(o.name) || o.name.endsWith(param._refValue || ''))
+                                          : null;
+                                        const nodeName = matchedOpt?.nodeName || fallbackOpt?.nodeName || param._sourceNodeName || '未知';
+                                        return nodeName + ' / ' + (matchedOpt?.name || fallbackOpt?.name || param._refValue);
+                                      })()}
+                                    </span>
+                                  ) : (
+                                    <span className="draw-config-ref-placeholder">选择算子 / 参数...</span>
+                                  )}
+                                  <span className="draw-config-ref-arrow">▼</span>
+                                </button>
+
+                                {expandedRefDropdowns.includes(`${selectedNodeId}-${param.name}`) && (
+                                  <div className="draw-config-ref-dropdown-content">
+                                    {/* 第一级：算子列表 */}
+                                    {!selectedOperatorForRef && (
+                                      <>
+                                        <div className="draw-config-ref-dropdown-header">
+                                          <span className="draw-config-ref-dropdown-operator">选择算子</span>
+                                        </div>
+                                        <div className="draw-config-ref-dropdown-list">
+                                          {referenceOptions.length === 0 ? (
+                                            <div className="draw-config-ref-dropdown-empty">暂无可用引用</div>
+                                          ) : (
+                                            Array.from(new Set(referenceOptions.map(o => o.nodeId))).map((nodeId) => {
+                                              const nodeOpts = referenceOptions.filter(o => o.nodeId === nodeId);
+                                              const nodeName = nodeOpts[0]?.nodeName || nodeId;
+                                              return (
+                                                <div
+                                                  key={nodeId}
+                                                  className={`draw-config-ref-dropdown-item ${param._sourceNodeId === nodeId ? 'selected' : ''}`}
+                                                  onClick={() => {
+                                                    setSelectedOperatorForRef(nodeId);
+                                                  }}
+                                                  title={nodeName}
+                                                >
+                                                  <span className="draw-config-ref-item-dot"></span>
+                                                  <span className="draw-config-ref-item-operator" style={{ flex: 1 }}>{nodeName}</span>
+                                                  <span className="draw-config-ref-item-count">{nodeOpts.length}个参数</span>
+                                                </div>
+                                              );
+                                            })
+                                          )}
+                                        </div>
+                                      </>
+                                    )}
+                                    {/* 第二级：参数列表 */}
+                                    {selectedOperatorForRef && (
+                                      <>
+                                        <div className="draw-config-ref-dropdown-header">
+                                          <span className="draw-config-ref-back" onClick={() => setSelectedOperatorForRef('')}>← 返回</span>
+                                          <span className="draw-config-ref-dropdown-param">选择参数</span>
+                                        </div>
+                                        <div className="draw-config-ref-dropdown-list">
+                                          {referenceOptions.filter(o => o.nodeId === selectedOperatorForRef).map((opt) => (
+                                            <div
+                                              key={`${opt.nodeId}_${opt.name}`}
+                                              className={`draw-config-ref-dropdown-item ${param._refValue === opt.name ? 'selected' : ''}`}
+                                              onClick={() => {
+                                                const newParams = [...selectedNode.data.input_params.params];
+                                                newParams[index] = {
+                                                  ...newParams[index],
+                                                  _refValue: opt.name,
+                                                  _sourceNodeId: opt.nodeId || '',
+                                                  _sourceNodeName: opt.nodeName || '',
+                                                  _sourceParamName: opt.name || '',
+                                                };
+                                                setNodes((nds) =>
+                                                  nds.map((n) => {
+                                                    if (n.id === selectedNodeId) {
+                                                      return {
+                                                        ...n,
+                                                        data: {
+                                                          ...n.data,
+                                                          input_params: { ...n.data.input_params, params: newParams },
+                                                        },
+                                                      };
+                                                    }
+                                                    return n;
+                                                  })
+                                                );
+                                                setExpandedRefDropdowns(expandedRefDropdowns.filter(id => id !== `${selectedNodeId}-${param.name}`));
+                                                setSelectedOperatorForRef('');
+                                              }}
+                                            >
+                                              <span className="draw-config-ref-item-dot"></span>
+                                              <span className="draw-config-ref-item-param" style={{ flex: 1 }}>{opt.name}</span>
+                                              <span className="draw-config-ref-item-type">{opt.type}</span>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          ) : (
+                            <input
+                              className="draw-config-value-input"
+                              value={param._value || param.param_value || ''}
+                              placeholder={param._refType === 'dataSource' ? '数据源' : '请输入值'}
+                              title={param._value || param.param_value || ''}
+                              onChange={(e) => {
+                                const newParams = [...selectedNode.data.input_params.params];
+                                newParams[index] = { ...newParams[index], _value: e.target.value };
+                                setNodes((nds) =>
+                                  nds.map((n) => {
+                                    if (n.id === selectedNodeId) {
+                                      return {
+                                        ...n,
+                                        data: {
+                                          ...n.data,
+                                          input_params: { ...n.data.input_params, params: newParams },
+                                        },
+                                      };
+                                    }
+                                    return n;
+                                  })
+                                );
+                              }}
+                            />
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* 输出参数 */}
+                {selectedNode.data.output_params?.params && selectedNode.data.output_params.params.length > 0 && (
+                  <div className="draw-config-params-section">
+                    <div className="draw-config-section-title">
+                      <span className="draw-config-section-bar"></span>
+                      <span className="draw-config-section-text">输出参数</span>
+                    </div>
+
+                    {selectedNode.data.output_params.params.map((param: any, index: number) => (
+                      <div key={`output-${index}`} className="draw-config-param-card output-card">
+                        <div className="draw-config-param-header">
+                          <div className="draw-config-param-name-row">
+                            <span className="draw-config-param-name">{param.name}</span>
+                          </div>
+                          <span className="draw-config-param-type-tag">{param.type || '-'}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* 删除确认弹窗 */}
+          {showDeleteModal && (
+            <div className="delete-confirm-overlay" onClick={() => setShowDeleteModal(false)}>
+              <div className="delete-confirm-modal" onClick={(e) => e.stopPropagation()}>
+                <div className="delete-confirm-header">
+                  <div className="delete-confirm-icon">!</div>
+                  <h3>确认删除此节点？</h3>
+                  <button className="delete-confirm-close" onClick={() => setShowDeleteModal(false)}>
+                    <X size={20} />
+                  </button>
+                </div>
+                <div className="delete-confirm-body">
+                  <p>删除后将无法恢复，确定要删除该节点吗？</p>
+                </div>
+                <div className="delete-confirm-footer">
+                  <div className="delete-confirm-actions">
+                    <button className="delete-confirm-cancel" onClick={() => setShowDeleteModal(false)}>
+                      取消
+                    </button>
+                    <button className="delete-confirm-confirm" onClick={handleDeleteNode}>
+                      删除
                     </button>
                   </div>
                 </div>
-
-                {/* 节点描述 */}
-                {selectedNode.data.description && (
-                  <div className="config-node-desc">
-                    <div
-                      className={`config-desc-text ${!isDescExpanded && selectedNode.data.description.length > 100 ? 'collapsed' : ''}`}
-                      onClick={() => {
-                        if (selectedNode.data.description.length > 100) {
-                          setIsDescExpanded(!isDescExpanded);
-                        }
-                      }}
-                    >
-                      {isDescExpanded || selectedNode.data.description.length <= 100
-                        ? selectedNode.data.description
-                        : selectedNode.data.description.slice(0, 100) + '...'}
-                    </div>
-                  </div>
-                )}
-
-                {/* 输入参数表格 */}
-                {selectedNode.data.input_params?.params && selectedNode.data.input_params.params.length > 0 && (
-                  <div className="config-params-section" >
-                    <div className="config-params-title" style={{marginTop:'10px'}}>
-                      <span className="config-params-title-text">输入</span>
-                      {/* <span className="config-params-title-count">{selectedNode.data.input_params.params.length}</span> */}
-                    </div>
-                    <div className="config-params-table-wrapper">
-                      <table className="config-params-table">
-                        <thead>
-                          <tr>
-                            <th className="col-param-name" style={{color:'#999999'}}>参数名</th>
-                            <th className="col-ref" style={{color:'#999999'}}>来源</th>
-                            <th className="col-value" style={{color:'#999999'}}>值</th>
-                            <th className="col-type" style={{color:'#999999'}}>类型</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {selectedNode.data.input_params.params.map((param, index) => (
-                            <tr key={`input-${index}`}>
-                              <td className="col-param-name">
-                                <span className="param-name-text">
-                                  {param.required && <span className="required-asterisk">*</span>}
-                                  {param.name}
-                                </span>
-                              </td>
-                              <td className="col-ref">
-                                <select
-                                  className="config-param-select"
-                                  value={param._refType || 'manual'}
-                                  onChange={(e) => {
-                                    const newRefType = e.target.value;
-                                    const newParams = [...selectedNode.data.input_params.params];
-                                    // 只有当从引用类型改为其他类型时才清空引用值
-                                    // 如果是改为引用类型，保留原有的引用值
-                                    const isChangingToReference = newRefType === 'reference' && param._refType !== 'reference';
-                                    newParams[index] = {
-                                      ...newParams[index],
-                                      _refType: newRefType,
-                                      _value: newRefType === 'reference' ? '' : (param._value || param.param_value || param._refValue || ''),
-                                      _refValue: isChangingToReference ? (referenceOptions.length > 0 ? referenceOptions[0].name : '') : (newRefType === 'reference' ? param._refValue || '' : '')
-                                    };
-
-                                    // 如果选择引用，但 referenceOptions 为空，提示用户
-                                    if (newRefType === 'reference' && referenceOptions.length === 0) {
-                                      alert('没有可用的引用选项，请确保有上游节点连接');
-                                    }
-
-                                    setNodes((nds) =>
-                                      nds.map((n) => {
-                                        if (n.id === selectedNodeId) {
-                                          return {
-                                            ...n,
-                                            data: {
-                                              ...n.data,
-                                              input_params: { ...n.data.input_params, params: newParams },
-                                            },
-                                          };
-                                        }
-                                        return n;
-                                      })
-                                    );
-                                  }}
-                                >
-                                  <option value="manual">手动</option>
-                                  <option value="reference">引用</option>
-                                  <option value="dataSource">数据源</option>
-                                </select>
-                              </td>
-                              <td className="col-value">
-                                {param._refType === 'reference' ? (
-                                  <>
-                                    {console.log('渲染来源下拉框:', {
-                                      paramName: param.name,
-                                      refValue: param._refValue,
-                                      referenceOptionsCount: referenceOptions.length,
-                                      referenceOptions: referenceOptions
-                                    })}
-                                    <select
-                                      className="config-param-select ref-select"
-                                      value={param._refValue || ''}
-                                    onChange={(e) => {
-                                      const selectedOpt = referenceOptions.find(opt => opt.name === e.target.value);
-                                      const refValue = e.target.value;
-                                      const newParams = [...selectedNode.data.input_params.params];
-                                      newParams[index] = { 
-                                        ...newParams[index], 
-                                        _refValue: refValue,
-                                        _sourceNodeId: selectedOpt?.nodeId || '',
-                                        _sourceNodeName: selectedOpt?.nodeName || '',
-                                        _sourceParamName: selectedOpt?.name || '',
-                                      };
-                                      console.log('选择引用值:', {
-                                        paramName: newParams[index].name,
-                                        _refValue: refValue,
-                                        _sourceNodeId: selectedOpt?.nodeId,
-                                        _sourceNodeName: selectedOpt?.nodeName,
-                                        _sourceParamName: selectedOpt?.name,
-                                      });
-                                      setNodes((nds) =>
-                                        nds.map((n) => {
-                                          if (n.id === selectedNodeId) {
-                                            return {
-                                              ...n,
-                                              data: {
-                                                ...n.data,
-                                                input_params: { ...n.data.input_params, params: newParams },
-                                              },
-                                            };
-                                          }
-                                          return n;
-                                        })
-                                      );
-                                    }}
-                                  >
-                                    {referenceOptions.map((opt) => (
-                                      <option key={`${opt.nodeId}_${opt.name}`} value={opt.name}>
-                                        {opt.name}
-                                      </option>
-                                    ))}
-                                  </select>
-                                  </>
-                                ) : (
-                                  <input
-                                    className="config-param-input"
-                                    value={param._value || param.param_value || ''}
-                                    placeholder={param._refType === 'dataSource' ? '数据源' : '值'}
-                                    onChange={(e) => {
-                                      const newParams = [...selectedNode.data.input_params.params];
-                                      newParams[index] = { ...newParams[index], _value: e.target.value };
-                                      setNodes((nds) =>
-                                        nds.map((n) => {
-                                          if (n.id === selectedNodeId) {
-                                            return {
-                                              ...n,
-                                              data: {
-                                                ...n.data,
-                                                input_params: { ...n.data.input_params, params: newParams },
-                                              },
-                                            };
-                                          }
-                                          return n;
-                                        })
-                                      );
-                                    }}
-                                  />
-                                )}
-                              </td>
-                              <td className="col-type">
-                                <span className="param-type-text">{param.type || '-'}</span>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                )}
-
-                {/* 输出参数表格 */}
-                {selectedNode.data.output_params?.params && selectedNode.data.output_params.params.length > 0 && (
-                  <div className="config-params-section">
-                    <div className="config-params-title" style={{marginTop:'10px'}}>
-                      <span className="config-params-title-text">输出</span>
-                    </div>
-                    <div className="config-params-table-wrapper">
-                      <table className="config-params-table output-table">
-                        <thead>
-                          <tr>
-                            <th className="col-param-name" style={{color:'#999999',width:'100px'}}>参数名</th>
-                            <th className="col-type" style={{color:'#999999',width:'100px'}}>类型</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {selectedNode.data.output_params.params.map((param, index) => (
-                            <tr key={`output-${index}`}>
-                              <td className="col-param-name">
-                                <span className="param-name-text">{param.name}</span>
-                              </td>
-                              <td className="col-type">
-                                <span className="param-type-text">{param.type || '-'}</span>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                )}
               </div>
-              );
-              })()}
             </div>
           )}
         </div>

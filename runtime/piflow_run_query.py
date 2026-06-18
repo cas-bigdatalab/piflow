@@ -202,6 +202,43 @@ def get_piflow_run_progress(process_id: str) -> dict[str, Any] | None:
     return _serialize_flow_run_summary(flow_run)
 
 
+def get_piflow_stop_log_paths_by_job_id(job_id: str) -> dict[str, Any] | None:
+    with closing(get_connection()) as conn:
+        with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+            cursor.execute(
+                """
+                SELECT
+                    fr.process_id,
+                    fr.flow_uuid,
+                    sjr.job_id,
+                    sjr.stop_name,
+                    sjr.log_path,
+                    sjr.stdout_log_path,
+                    sjr.stderr_log_path
+                FROM piflow_stop_job_run sjr
+                JOIN piflow_flow_run fr
+                  ON sjr.flow_run_id = fr.id
+                WHERE sjr.job_id = %s
+                """,
+                (job_id,),
+            )
+            row = cursor.fetchone()
+
+    if row is None:
+        return None
+
+    return {
+        "process_id": row.get("process_id"),
+        "dag_task_id": row.get("flow_uuid"),
+        "flow_uuid": row.get("flow_uuid"),
+        "job_id": row.get("job_id"),
+        "stop_name": row.get("stop_name"),
+        "log_path": row.get("log_path"),
+        "stdout_log_path": row.get("stdout_log_path"),
+        "stderr_log_path": row.get("stderr_log_path"),
+    }
+
+
 def list_piflow_runs_by_task_id(
     dag_task_id: str,
     *,

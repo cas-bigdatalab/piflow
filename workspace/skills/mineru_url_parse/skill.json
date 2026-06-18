@@ -1,0 +1,88 @@
+{
+  "name": "mineru_url_parse",
+
+  "version": "1.0.0",
+
+  "description": "MinerU URL解析算子。通过远程调用MinerU接口，解析在线文档URL（支持PDF、DOC、PPT、Excel、图片等格式），获取文件解析结果（内容、公式、图片等），最终返回ZIP压缩包。",
+
+  "language": "python",
+
+  "script_path": "scripts/run_mineru_url_parse.py",
+
+  "entrypoint": "python scripts/run_mineru_url_parse.py",
+
+  "input_params": [
+    {
+      "name": "api_key",
+      "role": "data",
+      "type": "string",
+      "required": true,
+      "description": "MinerU API密钥"
+    },
+    {
+      "name": "url",
+      "role": "data",
+      "type": "string",
+      "required": true,
+      "description": "在线文档URL，支持PDF、DOC、PPT、Excel、图片等格式"
+    },
+    {
+      "name": "output_zip",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "输出ZIP压缩包路径"
+    },
+    {
+      "name": "model_version",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "default": "vlm",
+      "description": "模型版本，默认vlm"
+    },
+    {
+      "name": "poll_interval",
+      "role": "data",
+      "type": "int",
+      "required": false,
+      "default": 5,
+      "description": "轮询间隔（秒），默认5秒"
+    },
+    {
+      "name": "timeout",
+      "role": "data",
+      "type": "int",
+      "required": false,
+      "default": 1800,
+      "description": "超时时间（秒），默认1800秒（30分钟）"
+    }
+  ],
+
+  "output_params": [
+    {
+      "name": "output_zip",
+      "role": "output_data",
+      "type": "file",
+      "default": "mineru_url_parse_output.zip",
+      "description": "解析结果ZIP压缩包"
+    }
+  ],
+
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--api_key",
+    "{api_key}",
+    "--url",
+    "{url}",
+    "--output_zip",
+    "{output_zip}",
+    "--model_version",
+    "{model_version}",
+    "--poll_interval",
+    "{poll_interval}",
+    "--timeout",
+    "{timeout}"
+  ]
+}

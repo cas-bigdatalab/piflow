@@ -47,31 +47,32 @@ function formatDate(value: string) {
     .format(date)
     .replace(/\//g, ".");
 }
-// {
-//   id:1,
-//   title:'编辑任务',
-//   icon:'ri:edit-line',
-//   path:'/editTask'
-// },
+
 const menuArr = [
-{
-  id:2,
-  title:'运行历史',
-  icon:'ri:history-line',
-  path:'/run-history'
-},
-{
-  id:3,
-  title:'算子库',
-  icon:'ri:database-line',
-  path:'/skills'
-},
-// {
-//   id:4,
-//   title:'定时调度',
-//   icon:'ri:calendar-line',
-//   path:'/'
-// }
+  // {
+  //   id:1,
+  //   title:'编辑任务',
+  //   icon:'ri:edit-line',
+  //   path:'/editTask'
+  // },
+  {
+    id:2,
+    title:'运行历史',
+    icon:'ri:history-line',
+    path:'/run-history'
+  },
+  {
+    id:3,
+    title:'算子库',
+    icon:'ri:database-line',
+    path:'/skills'
+  },
+  // {
+  //   id:4,
+  //   title:'定时调度',
+  //   icon:'ri:calendar-line',
+  //   path:'/'
+  // }
 ];
 
 export function ThreadsSidebar() {
@@ -81,6 +82,7 @@ export function ThreadsSidebar() {
   const [activeMenuId, setActiveMenuId] = useState(0);
   const [selectedThreadId, setSelectedThreadId] = useState<string>("default");
   const [error, setError] = useState("");
+  const [isSending, setIsSending] = useState(false);
 
   const items = useMemo(
     () =>
@@ -155,15 +157,21 @@ export function ThreadsSidebar() {
     const onRefresh = () => {
       refresh().catch(() => {});
     };
+    const onSendingStart = () => setIsSending(true);
+    const onSendingEnd = () => setIsSending(false);
 
     window.addEventListener("flow:new-chat", onNewChat);
     window.addEventListener("flow:select-thread", onSelectThread as EventListener);
     window.addEventListener("flow:threads-refresh", onRefresh);
+    window.addEventListener("flow:sending-start", onSendingStart);
+    window.addEventListener("flow:sending-end", onSendingEnd);
 
     return () => {
       window.removeEventListener("flow:new-chat", onNewChat);
       window.removeEventListener("flow:select-thread", onSelectThread as EventListener);
       window.removeEventListener("flow:threads-refresh", onRefresh);
+      window.removeEventListener("flow:sending-start", onSendingStart);
+      window.removeEventListener("flow:sending-end", onSendingEnd);
     };
   }, []);
   // 左边菜单栏显示隐藏的操作方法
@@ -177,9 +185,12 @@ export function ThreadsSidebar() {
     }
   }
   return (
-    <aside 
-      className={`flex h-screen flex-shrink-0 flex-col border-r border-slate-200/80 bg-slate-50/85 backdrop-blur transition-all duration-300 ${isShow ? 'w-[280px]' : 'w-[60px]'}`}
+    <aside
+      className={`relative z-20 flex h-screen flex-shrink-0 flex-col border-r border-slate-200/80 bg-slate-50/85 backdrop-blur transition-all duration-300 ${isShow ? 'w-[280px]' : 'w-[60px]'}`}
     >
+      {isSending && (
+        <div className="absolute inset-0 z-[100] cursor-not-allowed bg-white/20" />
+      )}
         <div className="topIcon">
         {isShow ? (<div className="flex items-center gap-3 cursor-pointer" onClick={() => {
               setSelectedThreadId("default");

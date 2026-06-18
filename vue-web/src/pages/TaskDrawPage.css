@@ -163,3 +163,16 @@
   margin: 4px 0;
   color: #475569;
 }
+
+/* 节点选中样式 */
+.custom-node.selected {
+  border: 2.5px solid #35A882 !important;
+  box-shadow: 0 0 0 3px rgba(53, 168, 130, 0.14), 0 8px 24px rgba(53, 168, 130, 0.2);
+  transform: translateY(-2px);
+}
+
+@keyframes nodePulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.02); }
+  100% { transform: scale(1); }
+}

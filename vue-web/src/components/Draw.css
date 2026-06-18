@@ -203,7 +203,7 @@
   width: 120px;
   padding: 8px 16px;
   margin-left: 12px;
-  background: #059669;
+  background: #10B981;
   color: #ffffff;
   border: none;
   border-radius: 4px;
@@ -215,7 +215,7 @@
 }
 
 .sync-back-btn:hover {
-  background: #047857;
+  background: #10B981;
 }
 
 .only-back-btn {
@@ -267,6 +267,14 @@
   border: none;
   background: transparent;
   padding: 0;
+}
+
+.reactflow-wrapper .react-flow__node-default.selected,
+.reactflow-wrapper .react-flow__node-default:focus,
+.reactflow-wrapper .react-flow__node-default:focus-visible {
+  border: none;
+  outline: none;
+  box-shadow: none;
 }
 
 /* ==================== 悬浮工具栏样式 ==================== */
@@ -337,7 +345,7 @@
   align-items: center;
   gap: 6px;
   padding: 8px 16px;
-  background: #52c41a;
+  background: #10B981;
   color: #fff;
   border: none;
   border-radius: 8px;
@@ -349,11 +357,11 @@
 }
 
 .toolbar-operator-btn:hover {
-  background: #45a816;
+  background: #10B981;
 }
 
 .toolbar-operator-btn:active {
-  background: #3d9613;
+  background: #10B981;
 }
 .toolbar-divider {
   width: 1px;
@@ -522,11 +530,11 @@
 
 .custom-node {
   background: #fff;
-  border: 1px solid #E2E8F0;
-  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  border-radius: 14px;
   padding: 16px 20px;
   width: 280px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 2px 12px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.05), inset 0 1px 0 rgba(255,255,255,0.9);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   min-height: 120px;
   position: relative;
@@ -539,9 +547,9 @@
 }
 
 .custom-node.selected {
-  border-color: #93A2B7;
-  box-shadow: 0 0 0 2px rgba(147, 162, 183, 0.3), 0 8px 24px rgba(147, 162, 183, 0.2);
-  animation: nodePulse 0.3s ease-out;
+  border: 2.5px solid #35A882 !important;
+  box-shadow: 0 0 0 3px rgba(53, 168, 130, 0.14), var(--shadow-node-hover);
+  transform: translateY(-2px);
 }
 
 @keyframes nodePulse {
@@ -657,7 +665,7 @@
 }
 
 .node-operator-info {
-  font-size: 11px;
+  font-size: 15px;
   color: #999;
   line-height: 1.3;
   margin-top: 6px;
@@ -704,18 +712,23 @@
   cursor: pointer;
   display: flex;
   align-items: center;
-  color: #999;
-  border-radius: 4px;
-  transition: all 0.2s;
+  justify-content: center;
+  color: #64748b;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  margin-right: 8px;
 }
 
 .node-expand-icon-btn:hover {
-  background: #f0f0f0;
-  color: #666;
+  background: #f1f5f9;
+  color: #334155;
 }
 
 .node-expand-icon-btn:active {
-  background: #e0e0e0;
+  background: #e2e8f0;
 }
 
 .node-expand-btn {
@@ -1335,9 +1348,10 @@ select:focus {
 /* 参数详情面板 */
 .node-params-panel {
   box-sizing: border-box;
-  padding: 8px 14px;
+  padding: 8px 0;
   background: #ffffff;
   margin-top: 8px;
+  overflow: visible;
 }
 .nodeParams{
   font-size:14px;
@@ -1354,12 +1368,12 @@ select:focus {
   margin-bottom: 8px;
 }
 .labelText{
-  font-size:13px;
+  font-size:14px;
   color:#333333;
   font-weight: 500;
 }
 .valueText{
-  font-size:13px;
+  font-size:14px;
   color:#999999;
 }
 .node-param-section {
@@ -1374,14 +1388,42 @@ select:focus {
 }
 
 .node-param-label {
-  font-size: 12px;
+  font-size: 14px;
   color: #333;
   font-weight: 500;
+  word-break: break-all;
+  overflow-wrap: break-word;
 }
 
 .node-param-value {
-  font-size: 12px;
+  font-size: 14px;
   color: #333;
+  text-align: right;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 140px;
+  cursor: pointer;
+  position: relative;
+}
+
+/* 参数值悬浮提示 - 黑色背景 */
+.node-param-value:hover::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 8px);
+  right: 0;
+  background: rgba(0, 0, 0, 0.85);
+  color: #fff;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  white-space: normal;
+  word-break: break-all;
+  max-width: 300px;
+  z-index: 1000;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  pointer-events: none;
 }
 
 
@@ -1493,7 +1535,17 @@ select:focus {
   align-items: center;
   justify-content: space-between;
   padding: 6px 0;
-  gap: 20px;
+  gap: 12px;
+  min-width: 0;
+}
+.oneParams .node-param-value {
+  flex: 1;
+  min-width: 0;
+  max-width: 180px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: right;
 }
 .config-node-name-row{
   display: flex;
@@ -1623,4 +1675,680 @@ select:focus {
   color: #ff4d4f;
   margin-right: 2px;
   font-weight: bold;
+}
+
+/* ======= 新参数配置面板样式 ======= */
+
+/* 面板整体容器 */
+.draw-config-panel {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 420px;
+  height: 100%;
+  background: #F9FCFD;
+  box-shadow: -4px 0 20px rgba(0, 0, 0, 0.08);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  z-index: 50;
+}
+.closeCon{
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-top:12px;
+  padding-right:16px;
+}
+.draw-config-close{
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #8A9BAB;
+  border-radius: 7px;
+  background-color: rgba(0, 0, 0, 0.04);
+  border: 1px solid rgba(0, 0, 0, 0.07);
+  transition: all .15s;
+  padding: 0;
+}
+/* 头部区域 */
+.draw-config-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 16px 12px 24px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.draw-config-title-row {
+  width: 245px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  overflow: hidden;
+}
+
+.draw-config-icon-wrapper {
+  width: 28px;
+  height: 28px;
+  background: linear-gradient(135deg, #dbeafe 0%, #e0e7ff 100%);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.draw-config-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #0f172a;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.draw-config-title-input {
+  font-size: 18px;
+  font-weight: 600;
+  color: #0f172a;
+  border: 1px solid #3b82f6;
+  border-radius: 6px;
+  outline: none;
+  background: #ffffff;
+  width: 245px;
+}
+
+.draw-config-edit-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  color: #64748b;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.draw-config-edit-btn:hover {
+  background: #f1f5f9;
+  color: #3b82f6;
+}
+
+.draw-config-close:hover {
+  cursor: pointer;
+}
+
+/* Meta 信息行（英文名称 + 类型 + 连接状态） */
+.draw-config-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  font-size: 12px;
+  color: #94a3b8;
+  border-bottom: 1px solid #f8fafc;
+}
+
+.draw-config-meta-name {
+  color: #64748b;
+  font-family: 'SF Mono', 'JetBrains Mono', Consolas, monospace;
+  padding: 4px 10px;
+  background: #F2F3F4;
+  border-radius: 4px;
+  border: 1px solid #e5e6e8;
+}
+
+.draw-config-meta-type {
+  padding: 4px 10px;
+  background: #F2F3F4;
+  border-radius: 4px;
+  color: #475569;
+  text-transform: capitalize;
+  border: 1px solid #e5e6e8;
+}
+
+.draw-config-meta-connected {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  color: #10b981;
+  font-weight: 500;
+}
+
+.draw-config-connected-dot {
+  width: 6px;
+  height: 6px;
+  background: #10b981;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+/* 主体内容区 */
+.draw-config-body {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 8px 24px 40px 24px;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: #94a3b8 transparent;
+}
+
+/* 算子描述区域 */
+.draw-config-desc-section {
+  margin-bottom: 8px;
+  padding: 0 24px;
+}
+
+.draw-config-desc-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  padding: 6px 0;
+  user-select: none;
+}
+
+.draw-config-desc-arrow {
+  font-size: 10px;
+  color: #35A882;
+  transition: transform 0.2s ease;
+  display: inline-block;
+  font-weight: bold;
+}
+
+.draw-config-desc-arrow.expanded {
+  transform: rotate(-180deg);
+}
+
+.draw-config-desc-title {
+  font-size: 14px;
+  color: #35A882;
+  font-weight: 500;
+}
+
+.draw-config-desc-content {
+  padding: 10px 14px;
+  background: #f8fafc;
+  border-radius: 6px;
+  font-size: 14px;
+  color: #475569;
+  line-height: 1.6;
+  margin-left: 16px;
+  margin-top: 4px;
+}
+
+/* 分区标题 */
+.draw-config-section-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+  margin-top: 8px;
+}
+
+.draw-config-section-bar {
+  width: 3px;
+  height: 14px;
+  background: linear-gradient(180deg, #22c55e 0%, #16a34a 100%);
+  border-radius: 2px;
+}
+
+.draw-config-section-text {
+  font-size: 15px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+/* 参数卡片 */
+.draw-config-params-section {
+  margin-bottom: 20px;
+}
+
+.draw-config-param-card {
+  margin-bottom: 10px;
+  padding: 12px 13px;
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(0, 0, 0, 0.07);
+  border-radius: 11px;
+  transition: border-color .18s, box-shadow .18s;
+}
+
+/* 参数卡片头部 */
+.draw-config-param-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.draw-config-param-name-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.draw-config-param-name {
+  font-size: 15px;
+  font-weight: 500;
+  color: #0f172a;
+}
+
+.draw-config-param-required {
+  color: #ef4444;
+  font-weight: 700;
+  font-size: 15px;
+}
+
+.draw-config-param-tooltip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: #e2e8f0;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: help;
+  transition: all 0.15s ease;
+}
+
+.draw-config-param-tooltip:hover {
+  background: #1a1a1a;
+  color: #ffffff;
+}
+
+.draw-config-param-tooltip:hover::after {
+  content: attr(title);
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: #1a1a1a;
+  color: #ffffff;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  white-space: nowrap;
+  z-index: 1000;
+  max-width: 280px;
+  word-wrap: break-word;
+  line-height: 1.5;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.draw-config-param-tooltip:hover::before {
+  content: '';
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: 50%;
+  transform: translateX(-50%);
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 6px solid #1a1a1a;
+}
+
+/* 参数类型标签 */
+.draw-config-param-type-tag {
+  font-size: 13px;
+  padding: 3px 8px;
+  background: #F2F3F4;
+  color: #64748b;
+  border-radius: 4px;
+  border: 1px solid rgba(0, 0, 0, 0.07);
+  font-weight: 500;
+  text-transform: capitalize;
+}
+
+/* 值行 - 来源 + 值 */
+.draw-config-param-value-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.draw-config-source-select {
+  flex-shrink: 0;
+  width: 100px;
+  padding: 8px 12px;
+  font-size: 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #334155;
+  outline: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  padding-right: 28px;
+}
+
+.draw-config-source-select:hover {
+  border-color: #cbd5e1;
+}
+
+.draw-config-source-select:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* 值输入框 */
+.draw-config-value-input {
+  flex: 1;
+  padding: 7px 12px;
+  font-size: 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #0f172a;
+  outline: none;
+  transition: all 0.15s ease;
+  font-family: inherit;
+}
+
+.draw-config-value-input::placeholder {
+  color: #94a3b8;
+}
+
+.draw-config-value-input:hover {
+  border-color: #cbd5e1;
+}
+
+.draw-config-value-input:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* 引用下拉容器 */
+.draw-config-ref-wrapper {
+  flex: 1;
+}
+
+.draw-config-ref-select-wrapper {
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #ffffff;
+}
+
+.draw-config-ref-select-header {
+  display: flex;
+  padding: 6px 12px;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+  font-size: 13px;
+  font-weight: 500;
+  color: #64748b;
+}
+
+.draw-config-ref-header-operator {
+  flex: 1;
+}
+
+.draw-config-ref-header-param {
+  flex: 1;
+  text-align: right;
+}
+
+.draw-config-ref-select {
+  width: 100%;
+  padding: 6px 12px;
+  font-size: 14px;
+  border: none;
+  background: #ffffff;
+  color: #0f172a;
+  outline: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  padding-right: 28px;
+  font-family: 'SF Mono', 'JetBrains Mono', Consolas, monospace;
+}
+
+.draw-config-ref-select:hover {
+  background: #f8fafc;
+}
+
+.draw-config-ref-select:focus {
+  background: #ffffff;
+}
+
+.draw-config-ref-select option {
+  padding: 4px 12px;
+  font-size: 13px;
+  background: #ffffff;
+  font-family: 'SF Mono', 'JetBrains Mono', Consolas, monospace;
+}
+
+/* 输出参数卡片简化样式 */
+.draw-config-param-card.output-card {
+  padding: 10px 16px;
+  background: #f8fafc;
+  border: 1px dashed #e2e8f0;
+}
+
+/* 滚动条美化 */
+.draw-config-body::-webkit-scrollbar {
+  width: 8px;
+}
+
+.draw-config-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.draw-config-body::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+.draw-config-body::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+  background-clip: padding-box;
+  border: 2px solid transparent;
+}
+
+/* ======= 引用类型下拉框样式 ======= */
+.draw-config-ref-dropdown {
+  position: relative;
+  width: 100%;
+}
+
+.draw-config-ref-trigger {
+  width: 100%;
+  padding: 8px 12px;
+  font-size: 14px;
+  border: 2px solid #22c55e;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #334155;
+  outline: none;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: all 0.15s ease;
+  text-align: left;
+}
+
+.draw-config-ref-trigger:hover {
+  border-color: #16a34a;
+}
+
+.draw-config-ref-trigger:focus {
+  border-color: #15803d;
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.1);
+}
+
+.draw-config-ref-selected {
+  color: #0f172a;
+  font-family: 'SF Mono', 'JetBrains Mono', Consolas, monospace;
+}
+
+.draw-config-ref-placeholder {
+  color: #94a3b8;
+}
+
+.draw-config-ref-arrow {
+  font-size: 12px;
+  color: #94a3b8;
+  transition: transform 0.2s ease;
+  flex-shrink: 0;
+}
+
+.draw-config-ref-dropdown-content {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  z-index: 100;
+  overflow: hidden;
+}
+
+.draw-config-ref-dropdown-header {
+  display: flex;
+  padding: 8px 14px;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+  font-size: 13px;
+  font-weight: 500;
+  color: #64748b;
+  align-items: center;
+  gap: 8px;
+}
+
+.draw-config-ref-back {
+  color: #3b82f6;
+  cursor: pointer;
+  font-size: 13px;
+  transition: color 0.15s ease;
+}
+
+.draw-config-ref-back:hover {
+  color: #2563eb;
+}
+
+.draw-config-ref-dropdown-operator {
+  flex: 1;
+}
+
+.draw-config-ref-dropdown-param {
+  flex: 1;
+  text-align: right;
+}
+
+.draw-config-ref-item-count {
+  font-size: 12px;
+  color: #94a3b8;
+  background: #f1f5f9;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.draw-config-ref-dropdown-list {
+  max-height: 240px;
+  overflow-y: auto;
+  padding: 4px;
+}
+
+.draw-config-ref-dropdown-item {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border-radius: 6px;
+  margin-bottom: 2px;
+  background: #ffffff;
+  border: 1px solid transparent;
+}
+
+.draw-config-ref-dropdown-item:hover {
+  background: #F5F5F5;
+}
+
+.draw-config-ref-dropdown-item.selected {
+  background: #ffffff;
+  color: #35A882;
+}
+
+.draw-config-ref-dropdown-item.selected .draw-config-ref-item-operator,
+.draw-config-ref-dropdown-item.selected .draw-config-ref-item-param {
+  color: #35A882;
+}
+
+.draw-config-ref-item-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #cbd5e1;
+  margin-right: 8px;
+  flex-shrink: 0;
+  transition: background 0.15s ease;
+}
+
+.draw-config-ref-dropdown-item.selected .draw-config-ref-item-dot,
+.draw-config-ref-dropdown-item:hover .draw-config-ref-item-dot {
+  background: #35A882;
+}
+
+.draw-config-ref-item-operator {
+  flex: 1;
+  font-size: 14px;
+  color: #1e293b;
+  font-weight: 400;
+  padding-right: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.draw-config-ref-item-param-wrapper {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.draw-config-ref-item-param {
+  font-size: 13px;
+  color: #64748b;
+  font-family: 'SF Mono', 'JetBrains Mono', Consolas, monospace;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 80px;
+}
+
+.draw-config-ref-item-type {
+  font-size: 12px;
+  color: #94a3b8;
+  background: #f1f5f9;
+  padding: 2px 6px;
+  border-radius: 3px;
+  flex-shrink: 0;
 }

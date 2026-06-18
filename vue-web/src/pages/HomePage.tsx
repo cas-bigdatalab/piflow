@@ -1,4 +1,4 @@
-﻿import { Icon } from "@iconify/react";
+import { Icon } from "@iconify/react";
 import { type DragEvent, useEffect, useRef, useState } from "react";
 import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 import {
@@ -355,6 +355,8 @@ export function HomePage() {
   const [canvasPipelineData, setCanvasPipelineData] = useState<PipelineData | null>(null);
   const [canvasMessageId, setCanvasMessageId] = useState<string>('');
   const [savedDrawData, setSavedDrawData] = useState<any>(null);
+  const [canvasWidth, setCanvasWidth] = useState(50); // 画板宽度百分比
+  const isDraggingRef = useRef(false);
   
   const abortRef = useRef<AbortController | null>(null);
   const transcriptRef = useRef<HTMLDivElement | null>(null);
@@ -457,6 +459,34 @@ export function HomePage() {
     };
   }, []);
 
+  // 画板拖拽调整宽度
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isDraggingRef.current || !showCanvas) return;
+      const container = document.querySelector('.canvas-split-container');
+      if (!container) return;
+      const rect = container.getBoundingClientRect();
+      let newWidth = ((rect.right - e.clientX) / rect.width) * 100;
+      newWidth = Math.max(30, Math.min(70, newWidth));
+      setCanvasWidth(newWidth);
+    };
+
+    const handleMouseUp = () => {
+      if (isDraggingRef.current) {
+        isDraggingRef.current = false;
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+      }
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [showCanvas]);
+
   async function loadThread(nextThreadId: string) {
     abortRef.current?.abort();
     abortRef.current = null;
@@ -511,6 +541,7 @@ export function HomePage() {
 
     const filesToUpload = [...pendingFiles];
     setSending(true);
+    window.dispatchEvent(new CustomEvent("flow:sending-start"));
     setActiveAssistantId(assistantId);
     setInput("");
     setPendingFiles([]);
@@ -769,6 +800,7 @@ export function HomePage() {
         controller.signal,
       );
 
+      // 流结束后刷新对话历史列表
       window.dispatchEvent(new CustomEvent("flow:threads-refresh"));
     } catch (error: any) {
       const message = String(error?.message || error);
@@ -804,6 +836,7 @@ export function HomePage() {
       setSending(false);
       setUploadingCount(0);
       abortRef.current = null;
+      window.dispatchEvent(new CustomEvent("flow:sending-end"));
     }
   }
 
@@ -824,6 +857,11 @@ export function HomePage() {
       threadId: nextThreadId,
       presetAttachments: card.attachments || [],
     }).catch(() => {});
+
+    // 点击卡片后延迟2秒刷新对话历史
+    setTimeout(() => {
+      window.dispatchEvent(new CustomEvent("flow:threads-refresh"));
+    }, 2000);
   }
 
   async function handleFiles(files: File[]) {
@@ -996,7 +1034,7 @@ export function HomePage() {
   }
 
   return (
-    <div className="flex min-h-full flex-1 flex-col" style={{marginTop:'50px'}}>
+    <div className="flex min-h-full flex-1 flex-col">
       {!isExpanded ? (
         <section className="px-8 pb-16 pt-6">
           <div className="mx-auto flex max-w-5xl flex-col">
@@ -1050,9 +1088,10 @@ export function HomePage() {
         </section>
       ) : (
         <section className="flex min-h-screen max-h-screen flex-1 flex-col overflow-hidden">
-          <div className="flex flex-1 min-w-0">
+          <div className="flex flex-1 min-w-0 canvas-split-container">
             {/* 左侧对话区域 */}
-            <div className={`flex max-h-screen flex-col ${showCanvas ? 'w-1/2' : 'w-full'} min-w-0 transition-all duration-300`}>
+            <div className={`flex max-h-screen flex-col min-w-0`}
+              style={{ width: showCanvas ? `${100 - canvasWidth}%` : '100%' }}>
               <div className="flex h-full min-h-0 w-full flex-1 flex-col px-8 pt-6">
                 {loadError ? (
                   <div className="mb-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
@@ -1101,7 +1140,7 @@ export function HomePage() {
                                     return (
                                       <>
                                         {cleanedText && <MarkdownMessage content={removeAllJson(cleanedText)} pending={sending} />}
-                                        <PipelinePreview data={pipelineData} threadId={threadId} onOpenCanvas={handleOpenCanvas} messageId={message.id} />
+                                        <PipelinePreview data={pipelineData} threadId={threadId} onOpenCanvas={handleOpenCanvas} messageId={message.id} disabled={showCanvas} />
                                         {isExecutionResult && message.artifacts && message.artifacts.length > 0 && (
                                           <div className="mt-4 flex flex-wrap gap-2 pt-1">
                                             {message.artifacts.map((path) => (
@@ -1225,7 +1264,7 @@ export function HomePage() {
                   )}
                 </div>
 
-                <div className="sticky bottom-0 pt-2">
+                <div className="sticky bottom-3 pt-2">
                   {renderComposer({ compact: false })}
                 </div>
               </div>
@@ -1233,9 +1272,22 @@ export function HomePage() {
 
             {/* 右侧画板区域 */}
             {showCanvas && canvasPipelineData && (
-              <div className="w-1/2 h-screen overflow-hidden border-l border-slate-200 shadow-[-2px_0_12px_rgba(0,0,0,0.04)] animate-slide-in-right flex-shrink-0">
-                <FlowEditor initialPipelineData={canvasPipelineData as unknown as InitialPipelineData} onClose={handleCloseCanvas} threadId={threadId} messageId={canvasMessageId} savedDrawData={savedDrawData} />
-              </div>
+              <>
+                {/* 拖拽分隔条 */}
+                <div
+                  className="canvas-drag-handle flex-shrink-0 cursor-col-resize hover:bg-sky-400/50 active:bg-sky-500/70 transition-colors"
+                  style={{ width: '4px' }}
+                  onMouseDown={() => {
+                    isDraggingRef.current = true;
+                    document.body.style.cursor = 'col-resize';
+                    document.body.style.userSelect = 'none';
+                  }}
+                />
+                <div className="h-screen overflow-hidden border-l border-slate-200 shadow-[-2px_0_12px_rgba(0,0,0,0.04)] animate-slide-in-right flex-shrink-0"
+                  style={{ width: `${canvasWidth}%` }}>
+                  <FlowEditor initialPipelineData={canvasPipelineData as unknown as InitialPipelineData} onClose={handleCloseCanvas} threadId={threadId} messageId={canvasMessageId} savedDrawData={savedDrawData} />
+                </div>
+              </>
             )}
           </div>
         </section>
