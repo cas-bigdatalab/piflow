@@ -13,13 +13,6 @@
 
   "input_params": [
     {
-      "name": "api_key",
-      "role": "data",
-      "type": "string",
-      "required": true,
-      "description": "MinerU API密钥"
-    },
-    {
       "name": "file_path",
       "role": "input_data",
       "type": "string",
@@ -72,8 +65,6 @@
   "command_template": [
     "python",
     "{script_path}",
-    "--api_key",
-    "{api_key}",
     "--file_path",
     "{file_path}",
     "--output_zip",

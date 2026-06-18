@@ -7,6 +7,10 @@ from pathlib import Path
 
 import requests
 
+from infra.config_loader import get_settings
+
+mineru_settings = get_settings()
+api_key = mineru_settings.mineru.api_key
 
 def download_file(url: str, output_path: str):
     resp = requests.get(
@@ -23,7 +27,6 @@ def download_file(url: str, output_path: str):
 
 
 def run_mineru_file_parse(
-    api_key: str,
     file_path: str,
     output_zip: str,
     model_version: str = "vlm",
@@ -166,11 +169,6 @@ def main():
     )
 
     parser.add_argument(
-        "--api_key",
-        required=True,
-    )
-
-    parser.add_argument(
         "--file_path",
         required=True,
     )
@@ -201,7 +199,6 @@ def main():
 
     try:
         result = run_mineru_file_parse(
-            api_key=args.api_key,
             file_path=args.file_path,
             output_zip=args.output_zip,
             model_version=args.model_version,

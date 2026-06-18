@@ -26,6 +26,7 @@ def load_settings() -> Settings:
     default_user_config = load_yaml(CONFIG_DIR / "default_user.yaml")
     workspace_config = app_config.get("workspace", {})
     minio_config = app_config.get("minio", {})
+    mineru_config = load_yaml(CONFIG_DIR / "mineru.yaml")
 
     config = {
         **app_config,
@@ -36,6 +37,7 @@ def load_settings() -> Settings:
         **default_user_config,
         "policy": PolicyConfig(**policy_config.get("policy", {})),
         "database": DatabaseConfig(**database_config),
+        "mineru": mineru_config,
     }
 
     return Settings(**config)
