@@ -13,6 +13,7 @@ from .middleware import install_registry_hooks
 
 from runtime.workspace_manager import WorkspaceManager
 from deepagents.backends.filesystem import FilesystemBackend
+# from runtime.deepagents_compat import install_deepagents_filesystem_utf8_compat
 from runtime.subagent import (
     build_summary_route_prompt_block,
     override_factory_prompt,
@@ -64,6 +65,7 @@ class AgentFactory:
     def create_agent():
 
         settings = get_settings()
+        # install_deepagents_filesystem_utf8_compat()
 
         llm_cfg = settings.llm
         provider_name = llm_cfg.provider

@@ -63,6 +63,13 @@ def workspace_root() -> Path:
     return Path(__file__).resolve().parents[3]
 
 
+def workspace_relative_path(path: Path) -> str:
+    try:
+        return path.resolve().relative_to(workspace_root().resolve()).as_posix()
+    except ValueError:
+        return path.as_posix()
+
+
 def read_text(path: Path) -> str:
     try:
         return path.read_text(encoding="utf-8")
@@ -803,14 +810,15 @@ def copy_or_write(skill_dir: Path, item: dict, field_name: str, fallback_content
     target = skill_dir / rel_path
     if item.get("source"):
         source = resolve_source_path(item["source"])
-        if not source.exists():
-            raise FileNotFoundError(f"{field_name} source not found: {source}")
-        target.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(source, target)
-        return
+        if source.exists():
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(source, target)
+            return
     if "content" in item or fallback_content is not None:
         write_text(target, str(item.get("content", fallback_content)))
         return
+    if item.get("source"):
+        raise FileNotFoundError(f"{field_name} source not found: {source}")
     raise ValueError(f"{field_name} item requires source or content: {item.get('path')}")
 
 
@@ -890,9 +898,9 @@ def generate_skill_files(spec: dict, output_root: Path, overwrite: bool) -> dict
         shutil.rmtree(backup_dir)
 
     return {
-        "skill_dir": str(skill_dir),
-        "skill_md": str(skill_dir / "SKILL.md"),
-        "skill_json": str(skill_dir / "skill.json") if spec.get("skill_json", True) else "",
+        "skill_dir": workspace_relative_path(skill_dir),
+        "skill_md": workspace_relative_path(skill_dir / "SKILL.md"),
+        "skill_json": workspace_relative_path(skill_dir / "skill.json") if spec.get("skill_json", True) else "",
     }
 
 
@@ -934,7 +942,8 @@ def register_skill_artifacts(spec: dict, skill_dir: Path) -> dict:
 def generate(spec: dict, output_root: Path, overwrite: bool) -> dict:
     spec = normalize_spec(spec)
     file_result = generate_skill_files(spec, output_root, overwrite)
-    registration_result = register_skill_artifacts(spec, Path(file_result["skill_dir"]))
+    skill_dir = output_root / spec["name"]
+    registration_result = register_skill_artifacts(spec, skill_dir)
     followup = build_rewrite_followup_suggestion(
         skill_name=spec["name"],
         skill_dir=file_result["skill_dir"],
