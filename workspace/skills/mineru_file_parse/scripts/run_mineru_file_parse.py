@@ -7,6 +7,13 @@ from pathlib import Path
 
 import requests
 
+import sys
+from pathlib import Path
+
+# 获取当前脚本所在文件夹的上级（项目根目录）
+root_path = Path(__file__).parent.parent.parent.parent.parent
+sys.path.append(str(root_path))
+
 from infra.config_loader import get_settings
 
 mineru_settings = get_settings()
