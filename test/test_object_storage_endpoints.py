@@ -7,9 +7,6 @@ import server
 
 
 class FakeWorkspaceManager:
-
-    ALLOWED_DIRS = {"artifacts", "outputs", "temp", "logs"}
-
     def __init__(self, root: Path):
         self.root = root
         self.artifacts = self.root / "artifacts"
@@ -29,13 +26,10 @@ class FakeWorkspaceManager:
         root_resolved = self.root.resolve()
         input_path = Path(raw)
         if raw.startswith("/"):
-            first_part = Path(raw.lstrip("/")).parts[:1]
-            if first_part and first_part[0] in self.ALLOWED_DIRS:
-                candidate = self.root / raw.lstrip("/")
-            elif input_path.is_absolute() and str(input_path.resolve()).startswith(str(root_resolved)):
+            if input_path.is_absolute() and str(input_path.resolve()).startswith(str(root_resolved)):
                 candidate = input_path
             else:
-                candidate = input_path
+                candidate = self.root / raw.lstrip("/")
         elif input_path.is_absolute():
             candidate = input_path
         else:
@@ -50,10 +44,6 @@ class FakeWorkspaceManager:
         parts = resolved.relative_to(root_resolved).parts
         if not parts:
             raise ValueError("workspace root path is not allowed")
-        if parts[0] not in self.ALLOWED_DIRS:
-            raise ValueError(
-                f"top-level workspace dir must be one of: {sorted(self.ALLOWED_DIRS)}"
-            )
 
         if create_parent:
             resolved.parent.mkdir(parents=True, exist_ok=True)
