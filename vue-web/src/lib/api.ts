@@ -601,3 +601,20 @@ export async function getProcesses(page: number = 1, page_size: number = 20, opt
 export async function getProcessStatusCounts() {
   return apiFetch<StatusCountsResponse>('/dag/runtime/processes/status-counts');
 }
+
+export interface LogPathsResponse {
+  code: number;
+  message: string;
+  result: {
+    job_id: string;
+    stdout_path?: string;
+    stderr_path?: string;
+    log_content?: string;
+  };
+}
+
+export async function getStopLogPaths(job_id: string) {
+  const params = new URLSearchParams();
+  params.set('job_id', job_id);
+  return apiFetch<LogPathsResponse>(`/dag/runtime/stop/log-paths?${params.toString()}`);
+}
