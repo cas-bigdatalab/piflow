@@ -57,13 +57,11 @@ def get_stop_log_paths_by_job_id(
         return None
 
     workspace = WorkspaceManager()
-    root = workspace.root.resolve()
 
     def _to_workspace_relative(raw_path: str | None) -> str | None:
         if not raw_path:
             return None
-        path = workspace.resolve_virtual_path(raw_path)
-        return str(path.resolve().relative_to(root)).replace("\\", "/")
+        return workspace.to_workspace_relative_path(raw_path)
 
     return {
         "process_id": result.get("process_id"),

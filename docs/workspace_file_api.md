@@ -87,15 +87,7 @@
 }
 ```
 
-2. 目录非法
-
-```json
-{
-  "detail": "top-level workspace dir must be one of: ['artifacts', 'logs', 'outputs', 'temp']"
-}
-```
-
-3. 路径逃逸工作区
+2. 路径逃逸工作区
 
 ```json
 {
@@ -194,14 +186,6 @@ async function handleDrop(event) {
 ```json
 {
   "detail": "path escapes workspace: /../secret.txt"
-}
-```
-
-或：
-
-```json
-{
-  "detail": "top-level workspace dir must be one of: ['artifacts', 'logs', 'outputs', 'temp']"
 }
 ```
 
