@@ -1,4 +1,4 @@
-import { Icon } from "@iconify/react";
+﻿import { Icon } from "@iconify/react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { apiBase, getLogin } from "../lib/api";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -31,7 +31,7 @@ function Logo({ compact }: { compact?: boolean }) {
   );
 }
 function getUserId() {
-  return localStorage.getItem('userId') || '';
+  return localStorage.getItem('ylk_userId') || '';
 }
 
 function formatDate(value: string) {
@@ -93,23 +93,41 @@ export function ThreadsSidebar() {
     [threads],
   );
 
-  // 页面加载时先判断URL是否有传参token和userId，有则保存到本地，否则请求登录接口
+  // 页面加载时先判断URL是否有传参ylk_token、ylk_userId、ylk_userName，ylk_toolId,ylk_desktopId,有则保存到本地并移除URL参数，否则请求登录接口
   useEffect(() => {
     let cancelled = false;
     const init = async () => {
       const params = new URLSearchParams(window.location.search);
-      const urlToken = params.get('token');
-      const urlUserId = params.get('userId');
-      if (urlToken && urlUserId) {
-        localStorage.setItem('token', urlToken);
-        localStorage.setItem('userId', urlUserId);
-        console.log('从URL参数获取token和userId');
+      const urlToken = params.get('ylk_token');
+      const urlUserId = params.get('ylk_userId');
+      const urlUserName = params.get('ylk_userName');
+      const urlToolId = params.get('ylk_toolId');
+      const urlDesktopId = params.get('ylk_desktopId');
+      if (urlToken && urlUserId && urlUserName && urlToolId && urlDesktopId) {
+        localStorage.setItem('ylk_token', urlToken);
+        localStorage.setItem('ylk_userId', urlUserId);
+        localStorage.setItem('ylk_userName', urlUserName);
+        localStorage.setItem('ylk_toolId', urlToolId);
+        localStorage.setItem('ylk_desktopId', urlDesktopId);
+
+        // 从URL中移除token、userId、userName参数
+        params.delete('ylk_token');
+        params.delete('ylk_userId');
+        params.delete('ylk_userName');
+        params.delete('ylk_toolId');
+        params.delete('ylk_desktopId');
+        const newSearch = params.toString();
+        const newUrl = newSearch
+          ? `${window.location.pathname}?${newSearch}${window.location.hash}`
+          : `${window.location.pathname}${window.location.hash}`;
+        window.history.replaceState({}, document.title, newUrl);
       } else {
         try {
           let loginParams = { username: appConfig.username, password: appConfig.password };
           let loginRes = await getLogin(loginParams);
-          localStorage.setItem('token', loginRes.access_token);
-          localStorage.setItem('userId', loginRes.user_id);
+          localStorage.setItem('ylk_token', loginRes.access_token);
+          localStorage.setItem('ylk_userId', loginRes.user_id);
+          localStorage.setItem('ylk_userName', loginRes.user_name);
           console.log('登录了');
         } catch (error) {
           console.error('登录失败:', error);
