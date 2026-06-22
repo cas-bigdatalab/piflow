@@ -7,6 +7,17 @@ from pathlib import Path
 
 import requests
 
+import sys
+from pathlib import Path
+
+# 获取当前脚本所在文件夹的上级（项目根目录）
+root_path = Path(__file__).parent.parent.parent.parent.parent
+sys.path.append(str(root_path))
+
+from infra.config_loader import get_settings
+
+mineru_settings = get_settings()
+api_key = mineru_settings.mineru.api_key
 
 def download_file(url: str, output_path: str):
     resp = requests.get(
@@ -23,7 +34,6 @@ def download_file(url: str, output_path: str):
 
 
 def run_mineru_file_parse(
-    api_key: str,
     file_path: str,
     output_zip: str,
     model_version: str = "vlm",
@@ -166,11 +176,6 @@ def main():
     )
 
     parser.add_argument(
-        "--api_key",
-        required=True,
-    )
-
-    parser.add_argument(
         "--file_path",
         required=True,
     )
@@ -201,7 +206,6 @@ def main():
 
     try:
         result = run_mineru_file_parse(
-            api_key=args.api_key,
             file_path=args.file_path,
             output_zip=args.output_zip,
             model_version=args.model_version,
