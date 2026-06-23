@@ -852,13 +852,12 @@ const RunDetails: React.FC<{ processId: string }> = ({ processId }) => {
             )}
           </div>
 
-          {isShowingNodeLogs && (
-            <div style={{
-              width: '440px', background: '#0f172a', borderRadius: '16px',
-              display: 'flex', flexDirection: 'column', overflow: 'hidden',
-              flexShrink: 0,
-              boxShadow: '0 8px 32px rgba(0,0,0,0.15)'
-            }}>
+          <div style={{
+            width: '440px', background: '#0f172a', borderRadius: '16px',
+            display: 'flex', flexDirection: 'column', overflow: 'hidden',
+            flexShrink: 0,
+            boxShadow: '0 8px 32px rgba(0,0,0,0.15)'
+          }}>
             <div style={{
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
               padding: '20px 24px', background: '#1e293b', borderBottom: '1px solid #334155'
@@ -869,28 +868,30 @@ const RunDetails: React.FC<{ processId: string }> = ({ processId }) => {
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 {isRunning && <span style={{ fontSize: '12px', color: '#22c55e', fontWeight: 500 }}>实时同步中...</span>}
-                <button
-                  onClick={() => {
-                    setIsShowingNodeLogs(false);
-                    setCurrentNodeName(null);
-                    setNodeLogs([]);
-                  }}
-                  style={{
-                    padding: '4px',
-                    borderRadius: '4px',
-                    border: 'none',
-                    backgroundColor: 'transparent',
-                    color: '#9ca3af',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    transition: 'color 0.2s',
-                  }}
-                  title="关闭日志面板"
-                >
-                  <X size={16} />
-                </button>
+                {isShowingNodeLogs && (
+                  <button
+                    onClick={() => {
+                      setIsShowingNodeLogs(false);
+                      setCurrentNodeName(null);
+                      setNodeLogs([]);
+                    }}
+                    style={{
+                      padding: '4px',
+                      borderRadius: '4px',
+                      border: 'none',
+                      backgroundColor: 'transparent',
+                      color: '#9ca3af',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      transition: 'color 0.2s',
+                    }}
+                    title="返回流程日志"
+                  >
+                    <X size={16} />
+                  </button>
+                )}
               </div>
             </div>
             <div ref={logContainerRef} style={{ flex: 1, overflowY: 'auto', padding: '20px 24px' }}>
@@ -949,8 +950,7 @@ const RunDetails: React.FC<{ processId: string }> = ({ processId }) => {
                 </div>
               )}
             </div>
-          </div>
-          )}
+          )</div>
         </div>
 
         <div style={{
