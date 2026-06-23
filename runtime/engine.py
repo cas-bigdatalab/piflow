@@ -332,6 +332,61 @@ def _is_summary_route_prefix(candidate_text: str | None) -> bool:
     return SUMMARY_ROUTE_MARKER.startswith(text)
 
 
+def _coerce_subagent_event_to_agent_event(event: dict[str, Any]) -> dict[str, Any] | None:
+    event_type = str(event.get("type") or "")
+    task_name = str(event.get("task_name") or "subagent")
+
+    if event_type == "subagent_event":
+        nodes = event.get("nodes") if isinstance(event.get("nodes"), list) else []
+        tool_calls = event.get("tool_calls") if isinstance(event.get("tool_calls"), list) else []
+        preview = event.get("preview")
+        return {
+            "type": "agent_event",
+            "request_id": event.get("request_id"),
+            "index": event.get("index"),
+            "nodes": [task_name, *nodes] if task_name not in nodes else nodes,
+            "message_types": event.get("message_types") if isinstance(event.get("message_types"), list) else [],
+            "tool_calls": tool_calls,
+            "preview": _preview_text(preview or task_name),
+        }
+
+    if event_type == "subagent_status":
+        stage = str(event.get("stage") or "running")
+        return {
+            "type": "agent_event",
+            "request_id": event.get("request_id"),
+            "index": event.get("index"),
+            "nodes": [task_name, stage],
+            "message_types": [],
+            "tool_calls": [],
+            "preview": f"{task_name}:{stage}",
+        }
+
+    if event_type == "subagent_reasoning_delta":
+        return {
+            "type": "agent_event",
+            "request_id": event.get("request_id"),
+            "index": event.get("index"),
+            "nodes": [task_name, "reasoning"],
+            "message_types": [],
+            "tool_calls": [],
+            "preview": f"{task_name}:reasoning",
+        }
+
+    if event_type == "subagent_message_delta":
+        return {
+            "type": "agent_event",
+            "request_id": event.get("request_id"),
+            "index": event.get("index"),
+            "nodes": [task_name, "summarizing"],
+            "message_types": [],
+            "tool_calls": [],
+            "preview": f"{task_name}:summarizing",
+        }
+
+    return event
+
+
 class AgentEngine:
 
     def __init__(self, agent=None):
@@ -1110,7 +1165,9 @@ class AgentEngine:
             passthrough_events: asyncio.Queue[dict[str, Any] | None] = asyncio.Queue()
 
             async def _push_event(event: dict[str, Any]) -> None:
-                await passthrough_events.put(event)
+                normalized_event = _coerce_subagent_event_to_agent_event(event)
+                if normalized_event is not None:
+                    await passthrough_events.put(normalized_event)
 
             summary_task = asyncio.create_task(
                 self._run_summary_subagent(
