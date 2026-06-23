@@ -409,7 +409,7 @@ const RunDetails: React.FC<{ processId: string }> = ({ processId }) => {
     try {
       const url = downloadWorkspaceUrl2(path);
       console.log('workspace/download URL:', url);
-      const token = localStorage.getItem('ylk_token') || '';
+      const token = localStorage.getItem('token') || '';
       const response = await fetch(url, {
         headers: {
           'Authorization': token ? `Bearer ${token}` : '',
