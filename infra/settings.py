@@ -88,6 +88,9 @@ class DefaultUserConfig(BaseModel):
     password: str
     nickname: str
 
+class MineruConfig(BaseModel):
+    api_key: str
+
 
 class Settings(BaseModel):
     app: AppConfig = Field(default_factory=AppConfig)
@@ -104,3 +107,4 @@ class Settings(BaseModel):
     policy: PolicyConfig = Field(default_factory=PolicyConfig)
     database: DatabaseConfig = Field(default_factory=DatabaseConfig)
     default_user: DefaultUserConfig = Field(default_factory=DefaultUserConfig)
+    mineru: MineruConfig = Field(default_factory=MineruConfig)

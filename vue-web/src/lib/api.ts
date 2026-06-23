@@ -75,7 +75,7 @@ export async function getLogin(params:any) {
 
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   // 从 localStorage 获取 token
-  const token = localStorage.getItem('token') || '';
+  const token = localStorage.getItem('ylk_token') || '';
   
   // 合并 headers，添加 token
   let headers2=init ? init.headers : {};
@@ -201,7 +201,7 @@ export async function getAllSkills(keyword = "") {
   }>(keyword ? `/dag/skill/listSkills?keyword=${keyword}` : `/dag/skill/listSkills`);
 }
 export function downloadWorkspaceUrl(path: string) {
-  const token = localStorage.getItem('token') || '';
+  const token = localStorage.getItem('ylk_token') || '';
   const sp = new URLSearchParams({ 
     path: encodeURIComponent(path),
     token 
@@ -209,7 +209,7 @@ export function downloadWorkspaceUrl(path: string) {
   return `${apiBase()}/workspace/download?${sp.toString()}`;
 }
 export function downloadWorkspaceUrl2(path: string) {
-  // const token = localStorage.getItem('token') || '';
+  // const token = localStorage.getItem('ylk_token') || '';
   // const sp = new URLSearchParams({ 
   //   path: encodeURIComponent(path),
   //   token 
@@ -289,7 +289,7 @@ export async function streamChat(
     body: JSON.stringify({
       message: req.message,
       thread_id: req.thread_id ?? "default",
-      user_id: req.user_id ?? localStorage.getItem('userId'),
+      user_id: req.user_id ?? localStorage.getItem('ylk_userId'),
       attachments: req.attachments ?? [],
       message_id: req.message_id ?? null,
     }),
@@ -600,4 +600,21 @@ export async function getProcesses(page: number = 1, page_size: number = 20, opt
 
 export async function getProcessStatusCounts() {
   return apiFetch<StatusCountsResponse>('/dag/runtime/processes/status-counts');
+}
+
+export interface LogPathsResponse {
+  code: number;
+  message: string;
+  result: {
+    job_id: string;
+    stdout_path?: string;
+    stderr_path?: string;
+    log_content?: string;
+  };
+}
+
+export async function getStopLogPaths(job_id: string) {
+  const params = new URLSearchParams();
+  params.set('job_id', job_id);
+  return apiFetch<LogPathsResponse>(`/dag/runtime/stop/log-paths?${params.toString()}`);
 }

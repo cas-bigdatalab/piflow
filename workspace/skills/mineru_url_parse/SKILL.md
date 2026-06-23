@@ -7,11 +7,6 @@ description: |
 
 name_zh: MinerU URL解析算子
 input_params:
-  - name: api_key
-    type: string
-    required: true
-    description: MinerU API密钥
-
   - name: url
     type: string
     required: true
@@ -64,7 +59,6 @@ tag: 文件解析
 
 | 参数 | 类型 | 必填 | 默认值 | 说明 |
 |------|------|------|--------|------|
-| api_key | string | 是 | - | MinerU API密钥 |
 | url | string | 是 | - | 在线文档URL |
 | output_zip | string | 是 | - | 输出ZIP压缩包路径 |
 | model_version | string | 否 | vlm | 模型版本 |
@@ -78,13 +72,11 @@ tag: 文件解析
 ```bash
 # 基础用法
 python scripts/run_mineru_url_parse.py \
-  --api_key your_api_key_here \
   --url https://example.com/document.pdf \
   --output_zip /path/to/output.zip
 
 # 指定模型版本和轮询参数
 python scripts/run_mineru_url_parse.py \
-  --api_key your_api_key_here \
   --url https://example.com/document.docx \
   --output_zip /path/to/output.zip \
   --model_version vlm \
@@ -94,7 +86,6 @@ python scripts/run_mineru_url_parse.py \
 
 ### 参数说明
 
-- `--api_key`: MinerU平台的API密钥，用于身份认证
 - `--url`: 需要解析的在线文档URL
 - `--output_zip`: 解析结果ZIP压缩包的输出路径
 - `--model_version`: 选择使用的模型版本，默认vlm
@@ -111,7 +102,7 @@ python scripts/run_mineru_url_parse.py \
 
 ## 注意事项
 
-1. 需要有效的MinerU API密钥才能使用
+1. 需要有效的MinerU API密钥才能使用(系统内配置)
 2. 网络连接必须正常，能够访问MinerU服务和目标URL
 3. 目标URL必须是可公开访问的文档链接
 4. 大文件解析可能需要较长时间，请适当调整timeout参数

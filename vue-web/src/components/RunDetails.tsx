@@ -1,7 +1,7 @@
 import React, { useCallback, useState, useEffect, useRef, memo, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, Database, Filter, Square, Download, ArrowLeft, Check, Play, X, ChevronUp, ChevronDown } from 'lucide-react';
-import { getExecutionDetail, stopDAGTask, downloadWorkspaceUrl2, getDrawTaskContent } from '../lib/api';
+import { ArrowRight, Database, Filter, Square, Download, ArrowLeft, Check, Play, X, ChevronUp, ChevronDown, AlertCircle, CheckCircle } from 'lucide-react';
+import { getExecutionDetail, stopDAGTask, downloadWorkspaceUrl2, getDrawTaskContent, getStopLogPaths } from '../lib/api';
 import {
   ReactFlow,
   Background,
@@ -63,6 +63,10 @@ type RunNodeData = Record<string, unknown> & {
   operatorType?: string;
   runStatus?: string;
   progress?: number;
+  jobId?: string;
+  stderrPath?: string;
+  stdoutPath?: string;
+  onShowLogs?: (path: string, nodeName: string, logType: string) => void;
 };
 
 const statusConfig: Record<string, { label: string; color: string; bgColor: string; borderColor: string }> = {
@@ -89,12 +93,38 @@ const calculateDuration = (startTime: string | null, endTime: string | null): st
 
 type RunNodeType = Node<RunNodeData>;
 
-const RunFlowNode: React.FC<NodeProps<RunNodeType>> = ({ id, data, selected }) => {
+interface RunFlowNodeProps extends NodeProps<RunNodeType> {
+  onShowLogs?: (path: string, nodeName: string, logType: string) => void;
+}
+
+const RunFlowNode: React.FC<RunFlowNodeProps> = ({ id, data, selected, onShowLogs }) => {
   const stopStatus = getStatusInfo(data.runStatus || 'PENDING');
   const isCompleted = data.runStatus === 'SUCCESS';
   const isRunningStop = data.runStatus === 'RUNNING';
   const isFailed = data.runStatus === 'FAILED';
   const isPending = !data.runStatus || data.runStatus === 'PENDING' || data.runStatus === 'SUBMITTED';
+
+  const handleStderrClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    console.log('stderr 按钮被点击, data:', data);
+    console.log('stderrPath:', data.stderrPath);
+    if (data.stderrPath && onShowLogs) {
+      console.log('调用 onShowLogs');
+      onShowLogs(data.stderrPath, data.label, 'stderr');
+    }
+  };
+
+  const handleStdoutClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    console.log('stdout 按钮被点击, data:', data);
+    console.log('stdoutPath:', data.stdoutPath);
+    if (data.stdoutPath && onShowLogs) {
+      console.log('调用 onShowLogs');
+      onShowLogs(data.stdoutPath, data.label, 'stdout');
+    }
+  };
 
   return (
     <div
@@ -141,7 +171,7 @@ const RunFlowNode: React.FC<NodeProps<RunNodeType>> = ({ id, data, selected }) =
         paddingTop: '2px',
         display: 'flex',
         alignItems: 'center',
-        justifyContent: 'flex-start',
+        justifyContent: 'space-between',
       }}>
         {data.progress != null && (
           <span style={{
@@ -153,6 +183,60 @@ const RunFlowNode: React.FC<NodeProps<RunNodeType>> = ({ id, data, selected }) =
              isFailed ? '执行失败' : '等待执行'}
           </span>
         )}
+        {(data.stderrPath && data.stderrPath.length > 0) || (data.stdoutPath && data.stdoutPath.length > 0) ? (
+          <div className="nodrag" style={{ display: 'flex', gap: '6px', zIndex: 1000, position: 'relative' }}>
+            {data.stderrPath && data.stderrPath.length > 0 && (
+              <button
+                onClick={handleStderrClick}
+                style={{
+                  padding: '4px 10px',
+                  borderRadius: '6px',
+                  border: 'none',
+                  backgroundColor: '#ef4444',
+                  color: '#ffffff',
+                  fontSize: '12px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  transition: 'background-color 0.2s',
+                  zIndex: 1001,
+                  position: 'relative',
+                  pointerEvents: 'auto',
+                }}
+                title="查看 stderr 日志"
+              >
+                <AlertCircle size={12} />
+                stderr
+              </button>
+            )}
+            {data.stdoutPath && data.stdoutPath.length > 0 && (
+              <button
+                onClick={handleStdoutClick}
+                style={{
+                  padding: '4px 10px',
+                  borderRadius: '6px',
+                  border: 'none',
+                  backgroundColor: '#22c55e',
+                  color: '#ffffff',
+                  fontSize: '12px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  transition: 'background-color 0.2s',
+                  zIndex: 1001,
+                  position: 'relative',
+                  pointerEvents: 'auto',
+                }}
+                title="查看 stdout 日志"
+              >
+                <CheckCircle size={12} />
+                stdout
+              </button>
+            )}
+          </div>
+        ) : null}
       </div>
 
       <div style={{
@@ -294,10 +378,6 @@ const RunCustomEdge: React.FC<EdgeProps<Edge<RunEdgeData>>> = ({
 
 const MemoizedRunCustomEdge = memo(RunCustomEdge);
 
-const runNodeTypes = {
-  custom: MemoizedRunFlowNode,
-};
-
 const runEdgeTypes = {
   'run-edge': MemoizedRunCustomEdge,
 };
@@ -307,6 +387,10 @@ const RunDetails: React.FC<{ processId: string }> = ({ processId }) => {
   const [executionData, setExecutionData] = useState<ExecutionDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [logs, setLogs] = useState<LogEntry[]>([]);
+  const [nodeLogs, setNodeLogs] = useState<string[]>([]);
+  const [currentNodeName, setCurrentNodeName] = useState<string | null>(null);
+  const [isShowingNodeLogs, setIsShowingNodeLogs] = useState(false);
+  const [nodeLogsLoading, setNodeLogsLoading] = useState(false);
   const logContainerRef = useRef<HTMLDivElement>(null);
   const pollingRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -317,7 +401,42 @@ const RunDetails: React.FC<{ processId: string }> = ({ processId }) => {
   const handleBack = () => navigate('/run-history');
   const loadingRef = useRef(false);
 
-  const loadDSL = useCallback(async (dagTaskId: string, stops: StopInfo[]) => {
+  const handleShowLogs = useCallback(async (path: string, nodeName: string, logType: string) => {
+    console.log('handleShowLogs 被调用:', { path, nodeName, logType });
+    setNodeLogsLoading(true);
+    setCurrentNodeName(`${nodeName} (${logType})`);
+    setIsShowingNodeLogs(true);
+    try {
+      const url = downloadWorkspaceUrl2(path);
+      console.log('workspace/download URL:', url);
+      const token = localStorage.getItem('ylk_token') || '';
+      const response = await fetch(url, {
+        headers: {
+          'Authorization': token ? `Bearer ${token}` : '',
+        },
+      });
+      console.log('下载响应:', response.status);
+      if (response.ok) {
+        const content = await response.text();
+        setNodeLogs(content.split('\n').filter(line => line.trim()));
+      } else {
+        setNodeLogs(['获取日志失败:', `HTTP ${response.status}`]);
+      }
+    } catch (error) {
+      console.error('获取节点日志失败:', error);
+      setNodeLogs(['获取日志失败:', String(error)]);
+    } finally {
+      setNodeLogsLoading(false);
+    }
+  }, []);
+
+  const nodeTypes = useMemo(() => ({
+    custom: (props: NodeProps<RunNodeType>) => (
+      <RunFlowNode {...props} onShowLogs={handleShowLogs} />
+    ),
+  }), [handleShowLogs]);
+
+  const loadDSL = useCallback(async (dagTaskId: string, stops: StopInfo[], pathMap: Record<string, { stderr: string; stdout: string }> = {}) => {
     setDslLoading(true);
     try {
       const res: any = await getDrawTaskContent(dagTaskId);
@@ -327,9 +446,16 @@ const RunDetails: React.FC<{ processId: string }> = ({ processId }) => {
 
         const stopStatusMap: Record<string, string> = {};
         const stopProgressMap: Record<string, number> = {};
+        const stopJobIdMap: Record<string, string> = {};
+        const stopStderrPathMap: Record<string, string> = {};
+        const stopStdoutPathMap: Record<string, string> = {};
         stops.forEach((s) => {
           stopStatusMap[s.stop_name] = s.status;
           stopProgressMap[s.stop_name] = s.progress || (s.status === 'SUCCESS' ? 100 : 0);
+          stopJobIdMap[s.stop_name] = s.job_id;
+          const paths = pathMap[s.stop_name] || {};
+          stopStderrPathMap[s.stop_name] = paths.stderr || '';
+          stopStdoutPathMap[s.stop_name] = paths.stdout || '';
         });
 
         const nodesList: any[] = dsl.nodes || [];
@@ -446,6 +572,10 @@ const RunDetails: React.FC<{ processId: string }> = ({ processId }) => {
           const runStatus = stopStatusMap[nodeName] || 'PENDING';
           const progress = stopProgressMap[nodeName] || 0;
           const pos = nodePositionMap[nodeId] || { x: START_X, y: START_Y };
+          const stderrPath = stopStderrPathMap[nodeName] || '';
+          const stdoutPath = stopStdoutPathMap[nodeName] || '';
+          
+          console.log(`构建节点: ${nodeName}, stderrPath: ${stderrPath}, stdoutPath: ${stdoutPath}`);
 
           loadedNodes.push({
             id: nodeId,
@@ -457,6 +587,9 @@ const RunDetails: React.FC<{ processId: string }> = ({ processId }) => {
               operatorType: n.skill?.skill_type || '',
               runStatus,
               progress,
+              jobId: stopJobIdMap[nodeName],
+              stderrPath,
+              stdoutPath,
             },
           });
         });
@@ -497,22 +630,33 @@ const RunDetails: React.FC<{ processId: string }> = ({ processId }) => {
       const response = await getExecutionDetail(processId);
       if (response.code === 200 && response.result) {
         setExecutionData(response.result);
-        const newLogs: LogEntry[] = response.result.stops.map((stop: StopInfo) => {
-          const startTime = stop.started_at ? new Date(stop.started_at) : null;
-          const timeStr = startTime ? startTime.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '';
-          if (stop.status === 'SUCCESS') {
-            return { time: timeStr, node: stop.stop_name, message: `Done: ${stop.processed_records || stop.total_records || 'N/A'} recs` };
-          } else if (stop.status === 'RUNNING') {
-            return { time: timeStr, node: stop.stop_name, message: `Progress updated: ${stop.processed_records || 0} recs.` };
-          } else if (stop.status === 'FAILED') {
-            return { time: timeStr, node: stop.stop_name, message: `Error: ${stop.error_message || 'Unknown error'}` };
-          }
-          return null;
-        }).filter((log): log is LogEntry => log !== null);
-        setLogs(newLogs);
+        console.log('执行详情 stops:', response.result.stops);
+        response.result.stops.forEach((s: StopInfo) => {
+          console.log('Stop:', s.stop_name, 'job_id:', s.job_id, 'status:', s.status);
+        });
 
         if (response.result.dag_task_id) {
-          loadDSL(response.result.dag_task_id, response.result.stops);
+          const pathMap: Record<string, { stderr: string; stdout: string }> = {};
+          const stopsWithJobId = response.result.stops.filter((s: StopInfo) => s.job_id && s.job_id.length > 0);
+          console.log('需要获取日志路径的stops:', stopsWithJobId);
+          for (const stop of stopsWithJobId) {
+            try {
+              console.log(`调用 getStopLogPaths, job_id: ${stop.job_id}, stop_name: ${stop.stop_name}`);
+              const logResponse = await getStopLogPaths(stop.job_id);
+              console.log(`getStopLogPaths 返回:`, logResponse);
+              if (logResponse.code === 200 && logResponse.result) {
+                pathMap[stop.stop_name] = {
+                  stderr: logResponse.result.stderr_log_path || logResponse.result.stderr_path || '',
+                  stdout: logResponse.result.stdout_log_path || logResponse.result.stdout_path || '',
+                };
+                console.log(`设置 ${stop.stop_name} 的日志路径:`, pathMap[stop.stop_name]);
+              }
+            } catch (error) {
+              console.error(`获取 ${stop.stop_name} 的日志路径失败:`, error);
+            }
+          }
+          console.log('最终pathMap:', pathMap);
+          loadDSL(response.result.dag_task_id, response.result.stops, pathMap);
         }
 
         if (response.result.status === 'RUNNING' || response.result.status === 'SUBMITTED') {
@@ -542,6 +686,8 @@ const RunDetails: React.FC<{ processId: string }> = ({ processId }) => {
   useEffect(() => {
     if (logContainerRef.current) logContainerRef.current.scrollTop = logContainerRef.current.scrollHeight;
   }, [logs]);
+
+  
 
   const handleStopExecution = async () => {
     if (!window.confirm('确定要停止执行吗？')) return;
@@ -687,7 +833,7 @@ const RunDetails: React.FC<{ processId: string }> = ({ processId }) => {
               <ReactFlow
                 nodes={flowNodes}
                 edges={flowEdges}
-                nodeTypes={runNodeTypes}
+                nodeTypes={nodeTypes}
                 edgeTypes={runEdgeTypes}
                 defaultViewport={{ zoom: 1, x: 0, y: 0 }}
                 nodesDraggable={false}
@@ -720,10 +866,72 @@ const RunDetails: React.FC<{ processId: string }> = ({ processId }) => {
                 <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#22c55e', boxShadow: '0 0 8px #22c55e' }} />
                 <span style={{ fontSize: '15px', fontWeight: 600, color: '#f1f5f9' }}>运行日志</span>
               </div>
-              {isRunning && <span style={{ fontSize: '12px', color: '#22c55e', fontWeight: 500 }}>实时同步中...</span>}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                {isRunning && <span style={{ fontSize: '12px', color: '#22c55e', fontWeight: 500 }}>实时同步中...</span>}
+                {isShowingNodeLogs && (
+                  <button
+                    onClick={() => {
+                      setIsShowingNodeLogs(false);
+                      setCurrentNodeName(null);
+                      setNodeLogs([]);
+                    }}
+                    style={{
+                      padding: '4px',
+                      borderRadius: '4px',
+                      border: 'none',
+                      backgroundColor: 'transparent',
+                      color: '#9ca3af',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      transition: 'color 0.2s',
+                    }}
+                    title="返回流程日志"
+                  >
+                    <X size={16} />
+                  </button>
+                )}
+              </div>
             </div>
             <div ref={logContainerRef} style={{ flex: 1, overflowY: 'auto', padding: '20px 24px' }}>
-              {logs.length > 0 ? (
+              {nodeLogsLoading ? (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+                  <span style={{ color: '#64748b' }}>加载日志中...</span>
+                </div>
+              ) : isShowingNodeLogs ? (
+                <>
+                  <div style={{
+                    display: 'flex', alignItems: 'center', gap: '8px',
+                    marginBottom: '16px', paddingBottom: '12px',
+                    borderBottom: '1px solid #334155'
+                  }}>
+                    <Database size={14} style={{ color: '#3b82f6' }} />
+                    <span style={{ fontSize: '13px', fontWeight: 600, color: '#f1f5f9' }}>{currentNodeName} 的日志</span>
+                  </div>
+                  {nodeLogs.length > 0 ? (
+                    nodeLogs.map((line, index) => (
+                      <div key={index} style={{
+                        padding: '8px 12px',
+                        marginBottom: '4px',
+                        background: '#1e293b',
+                        borderRadius: '6px',
+                        fontFamily: "'JetBrains Mono', 'Fira Code', Consolas, monospace",
+                        fontSize: '12px',
+                        lineHeight: 1.6,
+                        color: '#e2e8f0',
+                        wordBreak: 'break-word'
+                      }}>
+                        {line}
+                      </div>
+                    ))
+                  ) : (
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#475569' }}>
+                      <span>暂无日志信息</span>
+                    </div>
+                  )}
+                </>
+              ) : logs.length > 0 ? (
                 logs.map((log, index) => (
                   <div key={index} style={{
                     display: 'flex', flexWrap: 'wrap', gap: '10px',
@@ -742,7 +950,7 @@ const RunDetails: React.FC<{ processId: string }> = ({ processId }) => {
                 </div>
               )}
             </div>
-          </div>
+          )</div>
         </div>
 
         <div style={{

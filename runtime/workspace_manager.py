@@ -4,9 +4,6 @@ from infra.config_loader import get_settings, resolve_workspace_root
 
 
 class WorkspaceManager:
-
-    ALLOWED_DIRS = {"artifacts", "outputs", "temp", "logs"}
-
     def __init__(self):
 
         settings = get_settings()
@@ -36,8 +33,7 @@ class WorkspaceManager:
     def get_root(self):
         return str(self.root.resolve())
 
-    def resolve_virtual_path(self, virtual_path: str, create_parent: bool = False) -> Path:
-
+    def _resolve_workspace_path(self, virtual_path: str) -> Path:
         raw = (virtual_path or "").strip()
 
         if not raw:
@@ -50,20 +46,22 @@ class WorkspaceManager:
         # the workspace root. Only absolute paths already under the workspace
         # root are treated as real filesystem absolute paths.
         if raw.startswith("/"):
-            first_part = Path(raw.lstrip("/")).parts[:1]
-            if first_part and first_part[0] in self.ALLOWED_DIRS:
-                candidate = self.root / raw.lstrip("/")
-            elif input_path.is_absolute() and str(input_path.resolve()).startswith(str(root_resolved)):
+            if input_path.is_absolute() and str(input_path.resolve()).startswith(str(root_resolved)):
                 candidate = input_path
             else:
-                candidate = input_path
+                candidate = self.root / raw.lstrip("/")
         elif input_path.is_absolute():
             candidate = input_path
         else:
             relative = raw.lstrip("/")
             candidate = self.root / relative
 
-        resolved = candidate.resolve()
+        return candidate.resolve()
+
+    def resolve_virtual_path(self, virtual_path: str, create_parent: bool = False) -> Path:
+
+        root_resolved = self.root.resolve()
+        resolved = self._resolve_workspace_path(virtual_path)
 
         try:
             resolved.relative_to(root_resolved)
@@ -74,15 +72,25 @@ class WorkspaceManager:
         if not parts:
             raise ValueError("workspace root path is not allowed")
 
-        if parts[0] not in self.ALLOWED_DIRS:
-            raise ValueError(
-                f"top-level workspace dir must be one of: {sorted(self.ALLOWED_DIRS)}"
-            )
-
         if create_parent:
             resolved.parent.mkdir(parents=True, exist_ok=True)
 
         return resolved
+
+    def to_workspace_relative_path(self, virtual_path: str) -> str:
+
+        root_resolved = self.root.resolve()
+        resolved = self._resolve_workspace_path(virtual_path)
+
+        try:
+            relative = resolved.relative_to(root_resolved)
+        except ValueError as exc:
+            raise ValueError(f"path escapes workspace: {virtual_path}") from exc
+
+        if not relative.parts:
+            raise ValueError("workspace root path is not allowed")
+
+        return str(relative).replace("\\", "/")
 
 # -----------------------------
 # outputs 管理
