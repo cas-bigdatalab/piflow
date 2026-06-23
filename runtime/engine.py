@@ -548,9 +548,6 @@ class AgentEngine:
             "context_text": context_text,
         }
 
-    async def _should_use_summary_subagent(self, message: str) -> bool:
-        return False
-
     def _is_summary_route_response(self, content: Any) -> bool:
         return is_summary_route_marker(_message_content_text(content))
 
