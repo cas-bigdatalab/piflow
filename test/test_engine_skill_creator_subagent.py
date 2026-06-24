@@ -3,8 +3,10 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from agents.factory import AgentFactory
+from agents.subagent.skill_creator.factory import SkillCreatorAgentFactory
+from agents.subagent.skill_creator.prompt import SKILL_CREATOR_ROUTE_MARKER
 from runtime.engine import AgentEngine
-from runtime.subagent import SKILL_CREATOR_ROUTE_MARKER
+from services.subagent.skill_creator.service import SkillCreatorService
 from tools.core.registry import registry
 
 
@@ -39,6 +41,9 @@ def test_run_uses_skill_creator_subagent_when_user_requests_conversation_summary
         }
 
     engine = AgentEngine(agent=SimpleNamespace(astream=fake_astream))
+    engine.skill_creator_service = SimpleNamespace(
+        run=AsyncMock(return_value=("这是给主agent参考的对话总结", {"total_tokens": 12}))
+    )
     fake_workspace = MagicMock()
     fake_workspace.detect_changed_downloadables.return_value = []
 
@@ -56,11 +61,7 @@ def test_run_uses_skill_creator_subagent_when_user_requests_conversation_summary
             fake_workspace,
             {},
         ),
-    ), patch.object(
-        engine,
-        "_run_skill_creator_subagent",
-        new=AsyncMock(return_value=("这是给主agent参考的对话总结", {"total_tokens": 12})),
-    ) as fake_skill_creator_runner, patch(
+    ), patch(
         "runtime.engine.save_message"
     ) as fake_save_message:
         result = asyncio.run(
@@ -78,7 +79,7 @@ def test_run_uses_skill_creator_subagent_when_user_requests_conversation_summary
     assert handoff_messages[0]["role"] == "system"
     assert "这是给主agent参考的对话总结" in handoff_messages[0]["content"]
     assert SKILL_CREATOR_ROUTE_MARKER in seen_inputs[0]["messages"][-1]["content"] or True
-    fake_skill_creator_runner.assert_awaited_once()
+    engine.skill_creator_service.run.assert_awaited_once()
     fake_save_message.assert_called_once_with("user-1", "thread-1", "assistant", "这是主agent基于总结后的最终回答")
 
 
@@ -129,6 +130,10 @@ def test_stream_chat_hides_subagent_events_for_conversation_summary():
         )
         return "给主agent参考的最终总结", {"total_tokens": 9}
 
+    engine.skill_creator_service = SimpleNamespace(
+        run=AsyncMock(side_effect=fake_skill_creator_runner)
+    )
+
     async def collect_events():
         items = []
         async for event in engine.stream_chat(
@@ -154,10 +159,6 @@ def test_stream_chat_hides_subagent_events_for_conversation_summary():
             fake_workspace,
             {},
         ),
-    ), patch.object(
-        engine,
-        "_run_skill_creator_subagent",
-        new=AsyncMock(side_effect=fake_skill_creator_runner),
     ), patch(
         "runtime.engine.save_message"
     ):
@@ -175,7 +176,7 @@ def test_stream_chat_hides_subagent_events_for_conversation_summary():
     assert "给主agent参考的最终总结" in seen_inputs[1]["messages"][0]["content"]
 
 
-def test_create_subagent_does_not_reregister_builtin_tools():
+def test_skill_creator_agent_factory_does_not_reregister_builtin_tools():
     fake_settings = SimpleNamespace(
         llm=SimpleNamespace(
             provider="openai",
@@ -208,7 +209,7 @@ def test_create_subagent_does_not_reregister_builtin_tools():
             fake_workspace_manager.return_value.ensure_workspace.return_value = None
 
             main_agent = AgentFactory.create_agent()
-            sub_agent = AgentFactory.create_subagent(
+            sub_agent = SkillCreatorAgentFactory.create_agent(
                 system_prompt_override="summary prompt",
                 context_text="ctx",
             )
@@ -222,8 +223,7 @@ def test_create_subagent_does_not_reregister_builtin_tools():
         registry.clear()
 
 
-def test_skill_creator_subagent_reuses_parent_thread_id_for_execution_context():
-    engine = AgentEngine(agent=MagicMock())
+def test_skill_creator_service_reuses_parent_thread_id_for_execution_context():
     captured: dict[str, object] = {}
     emitted: list[dict[str, object]] = []
 
@@ -244,8 +244,23 @@ def test_skill_creator_subagent_reuses_parent_thread_id_for_execution_context():
     async def on_event(event):  # noqa: ANN001
         emitted.append(event)
 
+    service = SkillCreatorService(
+        skill_creator_agent=fake_subagent,
+        emit_subagent_progress=lambda *args, **kwargs: None,
+        spawn_background_subagent=_spawn_immediate_task,
+        log_stream_event=lambda request_id, event_count, payload: {"nodes": [], "message_types": [], "tool_calls": [], "preview": ""},
+        split_stream_part=_split_stream_part_for_test,
+        is_ai_message=lambda message: True,
+        extract_reasoning_text=lambda message: "",
+        merge_text_delta=_merge_text_delta_for_test,
+        message_content_text=lambda content: content if isinstance(content, str) else "",
+        extract_reasoning_from_event=lambda event: "",
+        extract_final_response=lambda events: ("", None),
+        preview_text=lambda value: str(value),
+    )
+
     async def collect_result():
-        return await engine._run_skill_creator_subagent(
+        return await service.run(
             parent_thread_id="parent-thread-1",
             user_id="user-1",
             request_id="req-1",
@@ -256,17 +271,13 @@ def test_skill_creator_subagent_reuses_parent_thread_id_for_execution_context():
             on_event=on_event,
         )
 
-    with patch("runtime.engine.AgentFactory.create_subagent", return_value=fake_subagent), patch(
-        "runtime.engine.build_transient_thread_id",
-        return_value="skill-creator-thread-xyz",
-    ):
-        answer, token_usage = asyncio.run(collect_result())
+    answer, token_usage = asyncio.run(collect_result())
 
     assert answer == "子agent总结结果"
     assert token_usage == {"total_tokens": 7}
     assert captured["config"]["configurable"]["thread_id"] == "parent-thread-1"
     assert captured["config"]["configurable"]["user_id"] == "user-1"
-    assert any(event.get("subagent_thread_id") == "skill-creator-thread-xyz" for event in emitted)
+    assert any(str(event.get("subagent_thread_id") or "").startswith("skill_creator_") for event in emitted)
 
 
 def test_run_falls_back_to_summary_text_when_handoff_agent_returns_marker_again():
@@ -281,6 +292,9 @@ def test_run_falls_back_to_summary_text_when_handoff_agent_returns_marker_again(
         }
 
     engine = AgentEngine(agent=SimpleNamespace(astream=fake_astream))
+    engine.skill_creator_service = SimpleNamespace(
+        run=AsyncMock(return_value=("这是 summary agent 的最终总结", {"total_tokens": 12}))
+    )
     fake_workspace = MagicMock()
     fake_workspace.detect_changed_downloadables.return_value = []
 
@@ -298,10 +312,6 @@ def test_run_falls_back_to_summary_text_when_handoff_agent_returns_marker_again(
             fake_workspace,
             {},
         ),
-    ), patch.object(
-        engine,
-        "_run_skill_creator_subagent",
-        new=AsyncMock(return_value=("这是 summary agent 的最终总结", {"total_tokens": 12})),
     ), patch("runtime.engine.save_message") as fake_save_message:
         result = asyncio.run(
             engine.run(
@@ -345,6 +355,10 @@ def test_stream_chat_does_not_emit_or_finish_with_marker_after_handoff():
         )
         return "这是 summary agent 的最终总结", {"total_tokens": 9}
 
+    engine.skill_creator_service = SimpleNamespace(
+        run=AsyncMock(side_effect=fake_skill_creator_runner)
+    )
+
     async def collect_events():
         items = []
         async for event in engine.stream_chat(
@@ -370,10 +384,6 @@ def test_stream_chat_does_not_emit_or_finish_with_marker_after_handoff():
             fake_workspace,
             {},
         ),
-    ), patch.object(
-        engine,
-        "_run_skill_creator_subagent",
-        new=AsyncMock(side_effect=fake_skill_creator_runner),
     ), patch("runtime.engine.save_message"):
         events = asyncio.run(collect_events())
 
@@ -440,6 +450,10 @@ def test_stream_chat_maps_subagent_progress_to_plain_agent_events():
         )
         return "给主agent参考的最终总结", {"total_tokens": 9}
 
+    engine.skill_creator_service = SimpleNamespace(
+        run=AsyncMock(side_effect=fake_skill_creator_runner)
+    )
+
     async def collect_events():
         items = []
         async for event in engine.stream_chat(
@@ -465,10 +479,6 @@ def test_stream_chat_maps_subagent_progress_to_plain_agent_events():
             fake_workspace,
             {},
         ),
-    ), patch.object(
-        engine,
-        "_run_skill_creator_subagent",
-        new=AsyncMock(side_effect=fake_skill_creator_runner),
     ), patch("runtime.engine.save_message"):
         events = asyncio.run(collect_events())
 
@@ -520,6 +530,10 @@ def test_stream_chat_suppresses_partial_route_marker_chunks_before_handoff():
     async def fake_skill_creator_runner(**kwargs):
         return "这是 summary agent 的最终总结", {"total_tokens": 9}
 
+    engine.skill_creator_service = SimpleNamespace(
+        run=AsyncMock(side_effect=fake_skill_creator_runner)
+    )
+
     async def collect_events():
         items = []
         async for event in engine.stream_chat(
@@ -545,10 +559,6 @@ def test_stream_chat_suppresses_partial_route_marker_chunks_before_handoff():
             fake_workspace,
             {},
         ),
-    ), patch.object(
-        engine,
-        "_run_skill_creator_subagent",
-        new=AsyncMock(side_effect=fake_skill_creator_runner),
     ), patch("runtime.engine.save_message"):
         events = asyncio.run(collect_events())
 
@@ -556,3 +566,77 @@ def test_stream_chat_suppresses_partial_route_marker_chunks_before_handoff():
     assert all("__ROUTE_TO_SKILL_CREATOR__" not in content for content in message_deltas)
     assert all("__ROUTE_TO_SKILL_" not in content for content in message_deltas)
     assert events[-1]["content"] == "这是 summary agent 的最终总结"
+
+
+def test_initialize_builds_skill_creator_service_from_dedicated_modules():
+    engine = AgentEngine(agent=MagicMock())
+    fake_main_agent = MagicMock(name="main_agent")
+    fake_skill_creator_agent = MagicMock(name="skill_creator_agent")
+    fake_skill_creator_service = MagicMock(name="skill_creator_service")
+    fake_workflow_advisor_agent = MagicMock(name="workflow_advisor_agent")
+    fake_workflow_advisor_service = MagicMock(name="workflow_advisor_service")
+
+    with patch("runtime.engine.init_logging"), patch("runtime.engine.load_dotenv_file"), patch(
+        "runtime.engine.init_db"
+    ), patch("runtime.engine.init_dag_db"), patch(
+        "runtime.engine.init_piflow_run_tracking_db"
+    ), patch(
+        "runtime.engine.init_dag_skills_to_database"
+    ), patch(
+        "runtime.engine.init_default_user"
+    ), patch(
+        "runtime.engine.AgentFactory.create_agent", return_value=fake_main_agent
+    ), patch(
+        "runtime.engine.SkillCreatorAgentFactory.create_agent", return_value=fake_skill_creator_agent
+    ) as fake_skill_creator_factory, patch(
+        "runtime.engine.SkillCreatorService",
+        return_value=fake_skill_creator_service,
+    ) as fake_skill_creator_service_cls, patch(
+        "runtime.engine.AdvisorAgentFactory.create_agent", return_value=fake_workflow_advisor_agent
+    ), patch(
+        "runtime.engine.WorkflowAdvisorService",
+        return_value=fake_workflow_advisor_service,
+    ):
+        asyncio.run(engine.initialize())
+
+    fake_skill_creator_factory.assert_called_once_with()
+    fake_skill_creator_service_cls.assert_called_once()
+    assert fake_skill_creator_service_cls.call_args.kwargs["skill_creator_agent"] is fake_skill_creator_agent
+    assert engine.skill_creator_agent is fake_skill_creator_agent
+    assert engine.skill_creator_service is fake_skill_creator_service
+
+
+def test_skill_creator_factory_no_longer_depends_on_runtime_subagent_module():
+    from agents.subagent.skill_creator import factory as skill_creator_factory_module
+
+    source = skill_creator_factory_module.__file__
+    assert source is not None
+    content = open(source, "r", encoding="utf-8").read()
+
+    assert "runtime.subagent" not in content
+
+
+def test_agent_factory_no_longer_exposes_create_subagent():
+    assert hasattr(AgentFactory, "create_subagent") is False
+
+
+def _split_stream_part_for_test(stream_part):
+    if not isinstance(stream_part, tuple):
+        return None, stream_part
+    if len(stream_part) == 2:
+        return str(stream_part[0]), stream_part[1]
+    if len(stream_part) == 3:
+        return str(stream_part[1]), stream_part[2]
+    return None, stream_part
+
+
+def _merge_text_delta_for_test(current_text: str, incoming_text: str):
+    if not incoming_text:
+        return "", current_text
+    if incoming_text.startswith(current_text):
+        return incoming_text[len(current_text):], incoming_text
+    return incoming_text, current_text + incoming_text
+
+
+async def _spawn_immediate_task(task_name, runner, trace_id=None):  # noqa: ANN001
+    return asyncio.create_task(runner(), name=task_name)

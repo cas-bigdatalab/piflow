@@ -15,10 +15,8 @@ from runtime.workspace_manager import WorkspaceManager
 from deepagents.backends.filesystem import FilesystemBackend
 from runtime.deepagents_compat import install_deepagents_filesystem_utf8_compat
 from runtime.skills_compat import install_deepagents_skills_refresh_compat
-from runtime.subagent import (
-    build_skill_creator_route_prompt_block,
-    override_factory_prompt,
-)
+from agents.subagent.skill_creator.factory import override_factory_prompt
+from agents.subagent.skill_creator.prompt import build_skill_creator_route_prompt_block
 
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.store.memory import InMemoryStore
@@ -195,15 +193,3 @@ class AgentFactory:
         )
 
         return agent
-
-    @staticmethod
-    def create_subagent(
-        system_prompt_override: str,
-        context_text: str | None = None,
-    ):
-        with override_factory_prompt(
-            factory_module,
-            system_prompt_override=system_prompt_override,
-            context_text=context_text,
-        ):
-            return AgentFactory.create_agent()

@@ -1,10 +1,10 @@
-from agents.prompts import build_system_prompt
-from runtime.subagent import (
+from agents.subagent.skill_creator.prompt import (
     SKILL_CREATOR_ROUTE_MARKER,
     build_skill_creator_route_prompt_block,
     build_skill_creator_system_prompt,
     is_skill_creator_route_marker,
 )
+from agents.prompts import build_system_prompt
 
 
 def test_skill_creator_route_marker_matches_exact_contract():

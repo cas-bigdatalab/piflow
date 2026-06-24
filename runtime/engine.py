@@ -5,6 +5,11 @@ import uuid
 from typing import Any, AsyncIterator, Awaitable, Callable
 
 from agents.factory import AgentFactory
+from agents.subagent.skill_creator.factory import (
+    SkillCreatorAgentFactory,
+    build_transient_thread_id,
+)
+from agents.subagent.skill_creator.prompt import is_skill_creator_route_marker
 from agents.subagent.workflow_advisor.factory import AdvisorAgentFactory
 from infra.config_loader import get_settings
 from infra.env_loader import load_dotenv_file
@@ -20,14 +25,14 @@ from runtime.events import (
     emit_subagent_progress as emit_subagent_progress_event,
     emit_subagent_started,
 )
-from runtime.subagent import (
-    SKILL_CREATOR_TASK,
-    SKILL_CREATOR_ROUTE_MARKER,
-    build_skill_creator_system_prompt,
-    build_transient_thread_id,
-    is_skill_creator_route_marker,
-)
 from services.dag_panel_service import get_skill_info_by_id
+from services.subagent.skill_creator.handoff import (
+    build_skill_creator_handoff_message,
+    coerce_subagent_event_to_agent_event,
+    is_skill_creator_route_prefix,
+    resolve_handoff_final_answer,
+)
+from services.subagent.skill_creator.service import SKILL_CREATOR_TASK, SkillCreatorService
 from services.subagent.workflow_advisor.advisor_service import WorkflowAdvisorService
 from services.user_service import init_default_user
 from tools.core.registry import registry
@@ -304,92 +309,6 @@ def _copy_messages(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
     ]
 
 
-def _build_skill_creator_handoff_message(summary_text: str) -> dict[str, str]:
-    return {
-        "role": "system",
-        "content": (
-            "Conversation skill-generating reference for the current parent thread:\n"
-            f"{summary_text}\n\n"
-            "The skill-generating step has already completed. "
-            "Do not output the skill creator route marker again. "
-            "Do not mention subagents, hidden routing, or internal handoff steps. "
-            "Use this skill draft as additional context and answer the user directly as the main agent."
-        ),
-    }
-
-
-def _resolve_handoff_final_answer(candidate_text: str, fallback_text: str) -> str:
-    if is_skill_creator_route_marker(candidate_text):
-        return fallback_text
-    return candidate_text
-
-
-def _is_skill_creator_route_prefix(candidate_text: str | None) -> bool:
-    if candidate_text is None:
-        return False
-
-    text = str(candidate_text).strip()
-    if not text:
-        return False
-
-    return SKILL_CREATOR_ROUTE_MARKER.startswith(text)
-
-
-def _coerce_subagent_event_to_agent_event(event: dict[str, Any]) -> dict[str, Any] | None:
-    event_type = str(event.get("type") or "")
-    task_name = str(event.get("task_name") or "subagent")
-
-    if event_type == "subagent_event":
-        nodes = event.get("nodes") if isinstance(event.get("nodes"), list) else []
-        tool_calls = event.get("tool_calls") if isinstance(event.get("tool_calls"), list) else []
-        preview = event.get("preview")
-        return {
-            "type": "agent_event",
-            "request_id": event.get("request_id"),
-            "index": event.get("index"),
-            "nodes": [task_name, *nodes] if task_name not in nodes else nodes,
-            "message_types": event.get("message_types") if isinstance(event.get("message_types"), list) else [],
-            "tool_calls": tool_calls,
-            "preview": _preview_text(preview or task_name),
-        }
-
-    if event_type == "subagent_status":
-        stage = str(event.get("stage") or "running")
-        return {
-            "type": "agent_event",
-            "request_id": event.get("request_id"),
-            "index": event.get("index"),
-            "nodes": [task_name, stage],
-            "message_types": [],
-            "tool_calls": [],
-            "preview": f"{task_name}:{stage}",
-        }
-
-    if event_type == "subagent_reasoning_delta":
-        return {
-            "type": "agent_event",
-            "request_id": event.get("request_id"),
-            "index": event.get("index"),
-            "nodes": [task_name, "reasoning"],
-            "message_types": [],
-            "tool_calls": [],
-            "preview": f"{task_name}:reasoning",
-        }
-
-    if event_type == "subagent_message_delta":
-        return {
-            "type": "agent_event",
-            "request_id": event.get("request_id"),
-            "index": event.get("index"),
-            "nodes": [task_name, "summarizing"],
-            "message_types": [],
-            "tool_calls": [],
-            "preview": f"{task_name}:summarizing",
-        }
-
-    return event
-
-
 class AgentEngine:
 
     def __init__(self, agent=None):
@@ -397,6 +316,8 @@ class AgentEngine:
         self.initialized = False
         self.settings = get_settings()
         self.mcp_runtime = MCPRuntime(self.settings.mcp)
+        self.skill_creator_agent = None
+        self.skill_creator_service = None
         self.workflow_advisor_agent = None
         self.workflow_advisor_service = None
 
@@ -419,6 +340,23 @@ class AgentEngine:
         log.info("initializing database complete")
 
         self.agent = AgentFactory.create_agent()
+
+        self.skill_creator_agent = SkillCreatorAgentFactory.create_agent()
+        self.skill_creator_service = SkillCreatorService(
+            skill_creator_agent=self.skill_creator_agent,
+            build_transient_thread_id=build_transient_thread_id,
+            emit_subagent_progress=self.emit_subagent_progress,
+            spawn_background_subagent=self.spawn_background_subagent,
+            log_stream_event=self._log_stream_event,
+            split_stream_part=_split_stream_part,
+            is_ai_message=_is_ai_message,
+            extract_reasoning_text=_extract_reasoning_text,
+            merge_text_delta=_merge_text_delta,
+            message_content_text=_message_content_text,
+            extract_reasoning_from_event=_extract_reasoning_from_event,
+            extract_final_response=_extract_final_response,
+            preview_text=_preview_text,
+        )
 
         # 初始化 WorkflowAdvisorAgent
         self.workflow_advisor_agent = AdvisorAgentFactory.create_agent()
@@ -566,299 +504,7 @@ class AgentEngine:
         return is_skill_creator_route_marker(_message_content_text(content))
 
     def _is_skill_creator_route_stream_artifact(self, content: Any) -> bool:
-        return _is_skill_creator_route_prefix(_message_content_text(content))
-
-    def _build_skill_creator_subagent_input(
-        self,
-        messages: list[dict[str, Any]],
-    ) -> dict[str, Any]:
-        return {
-            "messages": _copy_messages(messages),
-        }
-
-    def _build_skill_creator_handoff_input(
-        self,
-        messages: list[dict[str, Any]],
-        skill_creator_text: str,
-    ) -> dict[str, Any]:
-        handoff_messages = _copy_messages(messages)
-        handoff_messages.insert(0, _build_skill_creator_handoff_message(skill_creator_text))
-        return {
-            "messages": handoff_messages,
-        }
-
-    async def _run_skill_creator_subagent(
-        self,
-        *,
-        parent_thread_id: str,
-        user_id: str,
-        request_id: str,
-        messages: list[dict[str, Any]],
-        on_event: Callable[[dict[str, Any]], Awaitable[None]] | None = None,
-    ) -> tuple[str, dict[str, Any] | None]:
-        task_name = SKILL_CREATOR_TASK
-        subagent_thread_id = build_transient_thread_id("skill_creator")
-        subagent_request_id = f"{request_id}:{uuid.uuid4().hex[:8]}"
-        system_prompt = build_skill_creator_system_prompt()
-        context = self.build_subagent_context(
-            parent_thread_id=parent_thread_id,
-            user_id=user_id,
-            request_id=request_id,
-            fork_reason="user_requested_skill_creator",
-            context_text=f"Parent thread id: {parent_thread_id}\nSubagent thread id: {subagent_thread_id}",
-        )
-
-        async def _emit(event: dict[str, Any]) -> None:
-            if on_event is not None:
-                await on_event(event)
-
-        log.info(
-            "subagent preparing request_id=%s parent_thread_id=%s subagent_thread_id=%s task=%s",
-            subagent_request_id,
-            parent_thread_id,
-            subagent_thread_id,
-            task_name,
-        )
-        self.emit_subagent_progress(
-            task_name,
-            "preparing",
-            trace_id=subagent_request_id,
-            parent_thread_id=parent_thread_id,
-            subagent_thread_id=subagent_thread_id,
-        )
-        await _emit(
-            {
-                "type": "subagent_status",
-                "request_id": request_id,
-                "task_name": task_name,
-                "stage": "preparing",
-                "parent_thread_id": parent_thread_id,
-                "subagent_thread_id": subagent_thread_id,
-            }
-        )
-
-        subagent = AgentFactory.create_subagent(
-            system_prompt_override=system_prompt,
-            context_text=context.get("context_text"),
-        )
-        subagent_input = self._build_skill_creator_subagent_input(messages)
-        subagent_config = {
-            "configurable": {
-                "thread_id": parent_thread_id,
-                "user_id": user_id,
-            }
-        }
-        latest_answer = ""
-        latest_reasoning = ""
-        token_usage = None
-        update_events: list[Any] = []
-        event_count = 0
-        start_stream = time.time()
-
-        async def _runner() -> tuple[str, dict[str, Any] | None]:
-            nonlocal latest_answer, latest_reasoning, token_usage, event_count
-
-            log.info(
-                "subagent started request_id=%s parent_thread_id=%s subagent_thread_id=%s task=%s message_count=%s",
-                subagent_request_id,
-                parent_thread_id,
-                subagent_thread_id,
-                task_name,
-                len(messages),
-            )
-            self.emit_subagent_progress(
-                task_name,
-                "running",
-                trace_id=subagent_request_id,
-                parent_thread_id=parent_thread_id,
-                subagent_thread_id=subagent_thread_id,
-            )
-            await _emit(
-                {
-                    "type": "subagent_status",
-                    "request_id": request_id,
-                    "task_name": task_name,
-                    "stage": "running",
-                    "parent_thread_id": parent_thread_id,
-                    "subagent_thread_id": subagent_thread_id,
-                }
-            )
-
-            async for stream_part in subagent.astream(
-                subagent_input,
-                config=subagent_config,
-                stream_mode=["messages", "updates"],
-            ):
-                mode, payload = _split_stream_part(stream_part)
-
-                if mode == "updates":
-                    update_events.append(payload)
-                    event_count += 1
-                    summary = self._log_stream_event(subagent_request_id, event_count, payload)
-                    self.emit_subagent_progress(
-                        task_name,
-                        "event",
-                        trace_id=subagent_request_id,
-                        parent_thread_id=parent_thread_id,
-                        subagent_thread_id=subagent_thread_id,
-                        index=event_count,
-                        preview=summary["preview"],
-                    )
-                    await _emit(
-                        {
-                            "type": "subagent_event",
-                            "request_id": request_id,
-                            "task_name": task_name,
-                            "index": event_count,
-                            "parent_thread_id": parent_thread_id,
-                            "subagent_thread_id": subagent_thread_id,
-                            "nodes": summary["nodes"],
-                            "message_types": summary["message_types"],
-                            "tool_calls": summary["tool_calls"],
-                            "preview": summary["preview"],
-                        }
-                    )
-                    continue
-
-                if mode != "messages":
-                    continue
-
-                if not isinstance(payload, tuple) or len(payload) != 2:
-                    continue
-
-                sub_message, metadata = payload
-                if not _is_ai_message(sub_message):
-                    continue
-
-                response_metadata = getattr(sub_message, "response_metadata", None) or {}
-                current_token_usage = response_metadata.get("token_usage")
-                if current_token_usage:
-                    token_usage = current_token_usage
-
-                reasoning_piece = _extract_reasoning_text(sub_message)
-                reasoning_delta, latest_reasoning = _merge_text_delta(
-                    latest_reasoning,
-                    reasoning_piece,
-                )
-                if reasoning_delta:
-                    self.emit_subagent_progress(
-                        task_name,
-                        "reasoning",
-                        trace_id=subagent_request_id,
-                        parent_thread_id=parent_thread_id,
-                        subagent_thread_id=subagent_thread_id,
-                        preview=_preview_text(reasoning_delta),
-                    )
-                    await _emit(
-                        {
-                            "type": "subagent_reasoning_delta",
-                            "request_id": request_id,
-                            "task_name": task_name,
-                            "delta": reasoning_delta,
-                            "content": latest_reasoning,
-                            "parent_thread_id": parent_thread_id,
-                            "subagent_thread_id": subagent_thread_id,
-                            "node": metadata.get("langgraph_node") if isinstance(metadata, dict) else None,
-                        }
-                    )
-
-                if getattr(sub_message, "tool_call_chunks", None) or getattr(sub_message, "tool_calls", None):
-                    continue
-
-                answer_piece = _message_content_text(getattr(sub_message, "content", ""))
-                answer_delta, latest_answer = _merge_text_delta(latest_answer, answer_piece)
-                if answer_delta:
-                    self.emit_subagent_progress(
-                        task_name,
-                        "summarizing",
-                        trace_id=subagent_request_id,
-                        parent_thread_id=parent_thread_id,
-                        subagent_thread_id=subagent_thread_id,
-                        preview=_preview_text(answer_delta),
-                    )
-                    await _emit(
-                        {
-                            "type": "subagent_message_delta",
-                            "request_id": request_id,
-                            "task_name": task_name,
-                            "delta": answer_delta,
-                            "content": latest_answer,
-                            "parent_thread_id": parent_thread_id,
-                            "subagent_thread_id": subagent_thread_id,
-                            "node": metadata.get("langgraph_node") if isinstance(metadata, dict) else None,
-                        }
-                    )
-
-            if update_events:
-                if not latest_reasoning:
-                    latest_reasoning = _extract_reasoning_from_event(update_events[-1])
-                if not latest_answer:
-                    latest_answer, update_token_usage = _extract_final_response(update_events)
-                    if update_token_usage and not token_usage:
-                        token_usage = update_token_usage
-
-            log.info(
-                "subagent completed request_id=%s parent_thread_id=%s subagent_thread_id=%s task=%s cost=%.2fs answer_chars=%s",
-                subagent_request_id,
-                parent_thread_id,
-                subagent_thread_id,
-                task_name,
-                time.time() - start_stream,
-                len(latest_answer),
-            )
-            self.emit_subagent_progress(
-                task_name,
-                "completed",
-                trace_id=subagent_request_id,
-                parent_thread_id=parent_thread_id,
-                subagent_thread_id=subagent_thread_id,
-                answer_chars=len(latest_answer),
-            )
-            await _emit(
-                {
-                    "type": "subagent_status",
-                    "request_id": request_id,
-                    "task_name": task_name,
-                    "stage": "completed",
-                    "parent_thread_id": parent_thread_id,
-                    "subagent_thread_id": subagent_thread_id,
-                    "answer_chars": len(latest_answer),
-                }
-            )
-            return latest_answer, token_usage
-
-        task = await self.spawn_background_subagent(
-            task_name,
-            _runner,
-            trace_id=subagent_request_id,
-        )
-        try:
-            return await task
-        finally:
-            log.info(
-                "subagent destroyed request_id=%s parent_thread_id=%s subagent_thread_id=%s task=%s",
-                subagent_request_id,
-                parent_thread_id,
-                subagent_thread_id,
-                task_name,
-            )
-            self.emit_subagent_progress(
-                task_name,
-                "destroyed",
-                trace_id=subagent_request_id,
-                parent_thread_id=parent_thread_id,
-                subagent_thread_id=subagent_thread_id,
-            )
-            await _emit(
-                {
-                    "type": "subagent_status",
-                    "request_id": request_id,
-                    "task_name": task_name,
-                    "stage": "destroyed",
-                    "parent_thread_id": parent_thread_id,
-                    "subagent_thread_id": subagent_thread_id,
-                }
-            )
+        return is_skill_creator_route_prefix(_message_content_text(content))
 
     async def spawn_background_subagent(
         self,
@@ -984,16 +630,16 @@ class AgentEngine:
                 user_id,
                 SKILL_CREATOR_TASK,
             )
-            summary_text, summary_token_usage = await self._run_skill_creator_subagent(
+            assert self.skill_creator_service is not None
+            skill_creator_text, skill_creator_token_usage = await self.skill_creator_service.run(
                 parent_thread_id=thread_id,
                 user_id=user_id,
                 request_id=request_id,
                 messages=input_message["messages"],
             )
-            handoff_input = self._build_skill_creator_handoff_input(
-                input_message["messages"],
-                summary_text,
-            )
+            handoff_messages = _copy_messages(input_message["messages"])
+            handoff_messages.insert(0, build_skill_creator_handoff_message(skill_creator_text))
+            handoff_input = {"messages": handoff_messages}
             events = []
             event_count = 0
             start_stream = time.time()
@@ -1018,9 +664,9 @@ class AgentEngine:
                 event_count,
             )
             final_answer, token_usage = _extract_final_response(events)
-            final_answer = _resolve_handoff_final_answer(final_answer, summary_text)
+            final_answer = resolve_handoff_final_answer(final_answer, skill_creator_text)
             if not token_usage:
-                token_usage = summary_token_usage
+                token_usage = skill_creator_token_usage
         save_message(user_id, thread_id, "assistant", final_answer)
 
         latency = time.time() - start_total
@@ -1176,12 +822,15 @@ class AgentEngine:
             passthrough_events: asyncio.Queue[dict[str, Any] | None] = asyncio.Queue()
 
             async def _push_event(event: dict[str, Any]) -> None:
-                normalized_event = _coerce_subagent_event_to_agent_event(event)
+                normalized_event = coerce_subagent_event_to_agent_event(
+                    event,
+                    preview_text=_preview_text,
+                )
                 if normalized_event is not None:
                     await passthrough_events.put(normalized_event)
 
-            summary_task = asyncio.create_task(
-                self._run_skill_creator_subagent(
+            skill_creator_task = asyncio.create_task(
+                self.skill_creator_service.run(
                     parent_thread_id=thread_id,
                     user_id=user_id,
                     request_id=request_id,
@@ -1191,7 +840,7 @@ class AgentEngine:
             )
 
             while True:
-                if summary_task.done() and passthrough_events.empty():
+                if skill_creator_task.done() and passthrough_events.empty():
                     break
 
                 try:
@@ -1203,14 +852,13 @@ class AgentEngine:
                     continue
                 yield event
 
-            summary_text, summary_token_usage = await summary_task
-            handoff_input = self._build_skill_creator_handoff_input(
-                input_message["messages"],
-                summary_text,
-            )
+            skill_creator_text, skill_creator_token_usage = await skill_creator_task
+            handoff_messages = _copy_messages(input_message["messages"])
+            handoff_messages.insert(0, build_skill_creator_handoff_message(skill_creator_text))
+            handoff_input = {"messages": handoff_messages}
             latest_answer = ""
             latest_reasoning = ""
-            token_usage = summary_token_usage
+            token_usage = skill_creator_token_usage
             update_events = []
             event_count = 0
 
@@ -1297,7 +945,7 @@ class AgentEngine:
                     if update_token_usage and not token_usage:
                         token_usage = update_token_usage
 
-            final_answer = _resolve_handoff_final_answer(latest_answer, summary_text)
+            final_answer = resolve_handoff_final_answer(latest_answer, skill_creator_text)
             save_message(user_id, thread_id, "assistant", final_answer)
 
             latency = time.time() - start_total
