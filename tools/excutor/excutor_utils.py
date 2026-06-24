@@ -162,6 +162,25 @@ settings = get_settings()
 workspace_root = settings.workspace.root
 
 
+def _resolve_skill_json_path_by_name(workspace_root: Path, skill_name: str) -> Path | None:
+    normalized_name = str(skill_name or "").strip()
+    if not normalized_name:
+        return None
+
+    candidates = [
+        workspace_root / "skills" / normalized_name / "skill.json",
+        workspace_root / "skills" / "generated" / normalized_name / "skill.json",
+        workspace_root / "dag_system_node" / normalized_name / "skill.json",
+    ]
+
+    for candidate in candidates:
+        resolved = candidate.resolve()
+        if resolved.exists():
+            return resolved
+
+    return None
+
+
 def _resolve_skill_json_path(workspace_root: Path, skill_path: str) -> Path:
     primary = (workspace_root / skill_path / "skill.json").resolve()
     if primary.exists():
@@ -184,14 +203,21 @@ def resolve_dag_definition_skills(dag_definition: dict) -> dict:
             return node
 
         skill_id = skill.get("skill_id")
-        if not skill_id:
-            return node
+        skill_name = str(skill.get("skill_name", "")).strip()
 
-        dag_skill = get_dag_skill(skill_id)
-        if not dag_skill or not dag_skill.skill_path:
-            return node
+        skill_json_path: str | None = None
+        if skill_id:
+            dag_skill = get_dag_skill(skill_id)
+            if dag_skill and dag_skill.skill_path:
+                skill_json_path = str(_resolve_skill_json_path(_workspace_root, dag_skill.skill_path))
 
-        skill_json_path = str(_resolve_skill_json_path(_workspace_root, dag_skill.skill_path))
+        if not skill_json_path and skill_name:
+            resolved_by_name = _resolve_skill_json_path_by_name(_workspace_root, skill_name)
+            if resolved_by_name is not None:
+                skill_json_path = str(resolved_by_name)
+
+        if not skill_json_path:
+            return node
 
         updated_skill = {**skill, "skill_id": skill_json_path}
         return {**node, "skill": updated_skill}

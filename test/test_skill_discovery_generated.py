@@ -1,5 +1,6 @@
 from pathlib import Path
 from types import SimpleNamespace
+import inspect
 
 from runtime import skill_manage
 from runtime.skills_compat import install_deepagents_skills_refresh_compat
@@ -86,3 +87,38 @@ def test_resolve_dag_definition_skills_falls_back_to_generated_skill_json(tmp_pa
     resolved = excutor_utils.resolve_dag_definition_skills(dag_definition)
 
     assert resolved["nodes"][0]["skill"]["skill_id"] == str(skill_json.resolve())
+
+
+def test_resolve_dag_definition_skills_uses_skill_name_when_skill_id_is_stale(tmp_path, monkeypatch):
+    workspace_root = tmp_path / "workspace"
+    generated_skill_dir = workspace_root / "skills" / "generated" / "epub_metadata_cleaner"
+    generated_skill_dir.mkdir(parents=True, exist_ok=True)
+    skill_json = generated_skill_dir / "skill.json"
+    skill_json.write_text('{"name":"epub_metadata_cleaner"}', encoding="utf-8")
+
+    monkeypatch.setattr(excutor_utils, "resolve_workspace_root", lambda: workspace_root)
+    monkeypatch.setattr(excutor_utils, "get_dag_skill", lambda skill_id: None)
+
+    dag_definition = {
+        "nodes": [
+            {
+                "node_id": "node-1",
+                "skill": {
+                    "skill_id": "stale-generated-skill-id",
+                    "skill_name": "epub_metadata_cleaner",
+                    "version": "1.0.0",
+                },
+            }
+        ]
+    }
+
+    resolved = excutor_utils.resolve_dag_definition_skills(dag_definition)
+
+    assert resolved["nodes"][0]["skill"]["skill_id"] == str(skill_json.resolve())
+
+
+def test_insert_dag_skill_upsert_preserves_existing_skill_id():
+    source = inspect.getsource(skill_manage.insert_dag_skill)
+
+    assert "ON CONFLICT (skill_name, version)" in source
+    assert "skill_id = EXCLUDED.skill_id" not in source

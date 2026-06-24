@@ -344,7 +344,6 @@ class AgentEngine:
         self.skill_creator_agent = SkillCreatorAgentFactory.create_agent()
         self.skill_creator_service = SkillCreatorService(
             skill_creator_agent=self.skill_creator_agent,
-            build_transient_thread_id=build_transient_thread_id,
             emit_subagent_progress=self.emit_subagent_progress,
             spawn_background_subagent=self.spawn_background_subagent,
             log_stream_event=self._log_stream_event,
