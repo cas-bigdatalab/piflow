@@ -162,6 +162,19 @@ settings = get_settings()
 workspace_root = settings.workspace.root
 
 
+def _resolve_skill_json_path(workspace_root: Path, skill_path: str) -> Path:
+    primary = (workspace_root / skill_path / "skill.json").resolve()
+    if primary.exists():
+        return primary
+
+    skill_name = Path(skill_path).name
+    generated = (workspace_root / "skills" / "generated" / skill_name / "skill.json").resolve()
+    if generated.exists():
+        return generated
+
+    return primary
+
+
 def resolve_dag_definition_skills(dag_definition: dict) -> dict:
     _workspace_root = resolve_workspace_root()
 
@@ -178,9 +191,7 @@ def resolve_dag_definition_skills(dag_definition: dict) -> dict:
         if not dag_skill or not dag_skill.skill_path:
             return node
 
-        skill_json_path = str(
-            (_workspace_root / dag_skill.skill_path / "skill.json").resolve()
-        )
+        skill_json_path = str(_resolve_skill_json_path(_workspace_root, dag_skill.skill_path))
 
         updated_skill = {**skill, "skill_id": skill_json_path}
         return {**node, "skill": updated_skill}

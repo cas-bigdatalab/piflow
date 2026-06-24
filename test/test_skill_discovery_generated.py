@@ -3,6 +3,7 @@ from types import SimpleNamespace
 
 from runtime import skill_manage
 from runtime.skills_compat import install_deepagents_skills_refresh_compat
+from tools.excutor import excutor_utils
 
 
 def test_get_all_skills_list_includes_generated_skills(tmp_path, monkeypatch):
@@ -54,3 +55,34 @@ def test_skills_refresh_compat_forces_reload_each_request():
 
     assert captured["has_key"] is False
     assert result == {"skills_metadata": [{"name": "new-skill"}]}
+
+
+def test_resolve_dag_definition_skills_falls_back_to_generated_skill_json(tmp_path, monkeypatch):
+    workspace_root = tmp_path / "workspace"
+    generated_skill_dir = workspace_root / "skills" / "generated" / "docx_to_markdown"
+    generated_skill_dir.mkdir(parents=True, exist_ok=True)
+    skill_json = generated_skill_dir / "skill.json"
+    skill_json.write_text('{"name":"docx_to_markdown"}', encoding="utf-8")
+
+    monkeypatch.setattr(excutor_utils, "resolve_workspace_root", lambda: workspace_root)
+    monkeypatch.setattr(
+        excutor_utils,
+        "get_dag_skill",
+        lambda skill_id: SimpleNamespace(skill_path="skills/docx_to_markdown"),
+    )
+
+    dag_definition = {
+        "nodes": [
+            {
+                "node_id": "node-1",
+                "skill": {
+                    "skill_id": "legacy-docx-skill-id",
+                    "version": "1.0.0",
+                },
+            }
+        ]
+    }
+
+    resolved = excutor_utils.resolve_dag_definition_skills(dag_definition)
+
+    assert resolved["nodes"][0]["skill"]["skill_id"] == str(skill_json.resolve())
