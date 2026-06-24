@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from agents.factory import AgentFactory
 from runtime.engine import AgentEngine
-from runtime.subagent import SUMMARY_ROUTE_MARKER
+from runtime.subagent import SKILL_CREATOR_ROUTE_MARKER
 from tools.core.registry import registry
 
 
@@ -19,7 +19,7 @@ def _make_ai_message(content: str, token_usage: dict | None = None):
     )
 
 
-def test_run_uses_summary_subagent_when_user_requests_conversation_summary():
+def test_run_uses_skill_creator_subagent_when_user_requests_conversation_summary():
     seen_inputs = []
 
     async def fake_astream(input_payload, config=None):  # noqa: ANN001
@@ -27,7 +27,7 @@ def test_run_uses_summary_subagent_when_user_requests_conversation_summary():
         if len(seen_inputs) == 1:
             yield {
                 "planner": {
-                    "messages": [_make_ai_message(SUMMARY_ROUTE_MARKER)],
+                    "messages": [_make_ai_message(SKILL_CREATOR_ROUTE_MARKER)],
                 }
             }
             return
@@ -58,9 +58,9 @@ def test_run_uses_summary_subagent_when_user_requests_conversation_summary():
         ),
     ), patch.object(
         engine,
-        "_run_summary_subagent",
+        "_run_skill_creator_subagent",
         new=AsyncMock(return_value=("这是给主agent参考的对话总结", {"total_tokens": 12})),
-    ) as fake_summary_runner, patch(
+    ) as fake_skill_creator_runner, patch(
         "runtime.engine.save_message"
     ) as fake_save_message:
         result = asyncio.run(
@@ -77,8 +77,8 @@ def test_run_uses_summary_subagent_when_user_requests_conversation_summary():
     handoff_messages = seen_inputs[1]["messages"]
     assert handoff_messages[0]["role"] == "system"
     assert "这是给主agent参考的对话总结" in handoff_messages[0]["content"]
-    assert SUMMARY_ROUTE_MARKER in seen_inputs[0]["messages"][-1]["content"] or True
-    fake_summary_runner.assert_awaited_once()
+    assert SKILL_CREATOR_ROUTE_MARKER in seen_inputs[0]["messages"][-1]["content"] or True
+    fake_skill_creator_runner.assert_awaited_once()
     fake_save_message.assert_called_once_with("user-1", "thread-1", "assistant", "这是主agent基于总结后的最终回答")
 
 
@@ -91,7 +91,7 @@ def test_stream_chat_hides_subagent_events_for_conversation_summary():
             yield (
                 "messages",
                 (
-                    _make_ai_message(SUMMARY_ROUTE_MARKER),
+                    _make_ai_message(SKILL_CREATOR_ROUTE_MARKER),
                     {"langgraph_node": "planner"},
                 ),
             )
@@ -109,12 +109,12 @@ def test_stream_chat_hides_subagent_events_for_conversation_summary():
     fake_workspace = MagicMock()
     fake_workspace.detect_changed_downloadables.return_value = []
 
-    async def fake_summary_runner(**kwargs):
+    async def fake_skill_creator_runner(**kwargs):
         await kwargs["on_event"](
             {
                 "type": "subagent_status",
                 "request_id": kwargs["request_id"],
-                "task_name": "conversation_summary",
+                "task_name": "skill_creator",
                 "stage": "running",
             }
         )
@@ -122,7 +122,7 @@ def test_stream_chat_hides_subagent_events_for_conversation_summary():
             {
                 "type": "subagent_message_delta",
                 "request_id": kwargs["request_id"],
-                "task_name": "conversation_summary",
+                "task_name": "skill_creator",
                 "delta": "总结片段",
                 "content": "总结片段",
             }
@@ -156,8 +156,8 @@ def test_stream_chat_hides_subagent_events_for_conversation_summary():
         ),
     ), patch.object(
         engine,
-        "_run_summary_subagent",
-        new=AsyncMock(side_effect=fake_summary_runner),
+        "_run_skill_creator_subagent",
+        new=AsyncMock(side_effect=fake_skill_creator_runner),
     ), patch(
         "runtime.engine.save_message"
     ):
@@ -222,7 +222,7 @@ def test_create_subagent_does_not_reregister_builtin_tools():
         registry.clear()
 
 
-def test_summary_subagent_reuses_parent_thread_id_for_execution_context():
+def test_skill_creator_subagent_reuses_parent_thread_id_for_execution_context():
     engine = AgentEngine(agent=MagicMock())
     captured: dict[str, object] = {}
     emitted: list[dict[str, object]] = []
@@ -235,7 +235,7 @@ def test_summary_subagent_reuses_parent_thread_id_for_execution_context():
             "messages",
             (
                 _make_ai_message("子agent总结结果", {"total_tokens": 7}),
-                {"langgraph_node": "summary"},
+                {"langgraph_node": "skill_creator"},
             ),
         )
 
@@ -245,7 +245,7 @@ def test_summary_subagent_reuses_parent_thread_id_for_execution_context():
         emitted.append(event)
 
     async def collect_result():
-        return await engine._run_summary_subagent(
+        return await engine._run_skill_creator_subagent(
             parent_thread_id="parent-thread-1",
             user_id="user-1",
             request_id="req-1",
@@ -258,7 +258,7 @@ def test_summary_subagent_reuses_parent_thread_id_for_execution_context():
 
     with patch("runtime.engine.AgentFactory.create_subagent", return_value=fake_subagent), patch(
         "runtime.engine.build_transient_thread_id",
-        return_value="summary-thread-xyz",
+        return_value="skill-creator-thread-xyz",
     ):
         answer, token_usage = asyncio.run(collect_result())
 
@@ -266,7 +266,7 @@ def test_summary_subagent_reuses_parent_thread_id_for_execution_context():
     assert token_usage == {"total_tokens": 7}
     assert captured["config"]["configurable"]["thread_id"] == "parent-thread-1"
     assert captured["config"]["configurable"]["user_id"] == "user-1"
-    assert any(event.get("subagent_thread_id") == "summary-thread-xyz" for event in emitted)
+    assert any(event.get("subagent_thread_id") == "skill-creator-thread-xyz" for event in emitted)
 
 
 def test_run_falls_back_to_summary_text_when_handoff_agent_returns_marker_again():
@@ -276,7 +276,7 @@ def test_run_falls_back_to_summary_text_when_handoff_agent_returns_marker_again(
         seen_inputs.append(input_payload)
         yield {
             "planner": {
-                "messages": [_make_ai_message(SUMMARY_ROUTE_MARKER)],
+                "messages": [_make_ai_message(SKILL_CREATOR_ROUTE_MARKER)],
             }
         }
 
@@ -300,7 +300,7 @@ def test_run_falls_back_to_summary_text_when_handoff_agent_returns_marker_again(
         ),
     ), patch.object(
         engine,
-        "_run_summary_subagent",
+        "_run_skill_creator_subagent",
         new=AsyncMock(return_value=("这是 summary agent 的最终总结", {"total_tokens": 12})),
     ), patch("runtime.engine.save_message") as fake_save_message:
         result = asyncio.run(
@@ -325,7 +325,7 @@ def test_stream_chat_does_not_emit_or_finish_with_marker_after_handoff():
         yield (
             "messages",
             (
-                _make_ai_message(SUMMARY_ROUTE_MARKER),
+                _make_ai_message(SKILL_CREATOR_ROUTE_MARKER),
                 {"langgraph_node": "planner"},
             ),
         )
@@ -334,12 +334,12 @@ def test_stream_chat_does_not_emit_or_finish_with_marker_after_handoff():
     fake_workspace = MagicMock()
     fake_workspace.detect_changed_downloadables.return_value = []
 
-    async def fake_summary_runner(**kwargs):
+    async def fake_skill_creator_runner(**kwargs):
         await kwargs["on_event"](
             {
                 "type": "subagent_status",
                 "request_id": kwargs["request_id"],
-                "task_name": "conversation_summary",
+                "task_name": "skill_creator",
                 "stage": "running",
             }
         )
@@ -372,13 +372,13 @@ def test_stream_chat_does_not_emit_or_finish_with_marker_after_handoff():
         ),
     ), patch.object(
         engine,
-        "_run_summary_subagent",
-        new=AsyncMock(side_effect=fake_summary_runner),
+        "_run_skill_creator_subagent",
+        new=AsyncMock(side_effect=fake_skill_creator_runner),
     ), patch("runtime.engine.save_message"):
         events = asyncio.run(collect_events())
 
     message_deltas = [item for item in events if item["type"] == "message_delta"]
-    assert all(item["content"] != SUMMARY_ROUTE_MARKER for item in message_deltas)
+    assert all(item["content"] != SKILL_CREATOR_ROUTE_MARKER for item in message_deltas)
     assert events[-1]["type"] == "done"
     assert events[-1]["content"] == "这是 summary agent 的最终总结"
 
@@ -392,7 +392,7 @@ def test_stream_chat_maps_subagent_progress_to_plain_agent_events():
             yield (
                 "messages",
                 (
-                    _make_ai_message(SUMMARY_ROUTE_MARKER),
+                    _make_ai_message(SKILL_CREATOR_ROUTE_MARKER),
                     {"langgraph_node": "planner"},
                 ),
             )
@@ -410,12 +410,12 @@ def test_stream_chat_maps_subagent_progress_to_plain_agent_events():
     fake_workspace = MagicMock()
     fake_workspace.detect_changed_downloadables.return_value = []
 
-    async def fake_summary_runner(**kwargs):
+    async def fake_skill_creator_runner(**kwargs):
         await kwargs["on_event"](
             {
                 "type": "subagent_status",
                 "request_id": kwargs["request_id"],
-                "task_name": "conversation_summary",
+                "task_name": "skill_creator",
                 "stage": "preparing",
             }
         )
@@ -423,8 +423,8 @@ def test_stream_chat_maps_subagent_progress_to_plain_agent_events():
             {
                 "type": "subagent_event",
                 "request_id": kwargs["request_id"],
-                "task_name": "conversation_summary",
-                "nodes": ["summary"],
+                "task_name": "skill_creator",
+                "nodes": ["skill_creator"],
                 "tool_calls": [],
                 "preview": "正在整理历史对话",
             }
@@ -433,7 +433,7 @@ def test_stream_chat_maps_subagent_progress_to_plain_agent_events():
             {
                 "type": "subagent_message_delta",
                 "request_id": kwargs["request_id"],
-                "task_name": "conversation_summary",
+                "task_name": "skill_creator",
                 "delta": "中间总结",
                 "content": "中间总结",
             }
@@ -467,8 +467,8 @@ def test_stream_chat_maps_subagent_progress_to_plain_agent_events():
         ),
     ), patch.object(
         engine,
-        "_run_summary_subagent",
-        new=AsyncMock(side_effect=fake_summary_runner),
+        "_run_skill_creator_subagent",
+        new=AsyncMock(side_effect=fake_skill_creator_runner),
     ), patch("runtime.engine.save_message"):
         events = asyncio.run(collect_events())
 
@@ -478,7 +478,7 @@ def test_stream_chat_maps_subagent_progress_to_plain_agent_events():
     assert all(item["type"] != "subagent_event" for item in events)
     assert all(item["type"] != "subagent_message_delta" for item in events)
     assert all(item["type"] != "subagent_reasoning_delta" for item in events)
-    assert any("conversation_summary" in (item.get("preview") or "") for item in agent_events)
+    assert any("skill_creator" in (item.get("preview") or "") for item in agent_events)
     assert events[-1]["type"] == "done"
     assert events[-1]["content"] == "最终主回答"
 
@@ -492,14 +492,14 @@ def test_stream_chat_suppresses_partial_route_marker_chunks_before_handoff():
             yield (
                 "messages",
                 (
-                    _make_ai_message("__ROUTE_TO_CONVERSATION_"),
+                    _make_ai_message("__ROUTE_TO_SKILL_"),
                     {"langgraph_node": "planner"},
                 ),
             )
             yield (
                 "messages",
                 (
-                    _make_ai_message("__ROUTE_TO_CONVERSATION_SUMMARY__"),
+                    _make_ai_message("__ROUTE_TO_SKILL_CREATOR__"),
                     {"langgraph_node": "planner"},
                 ),
             )
@@ -508,7 +508,7 @@ def test_stream_chat_suppresses_partial_route_marker_chunks_before_handoff():
         yield (
             "messages",
             (
-                _make_ai_message(SUMMARY_ROUTE_MARKER),
+                _make_ai_message(SKILL_CREATOR_ROUTE_MARKER),
                 {"langgraph_node": "planner"},
             ),
         )
@@ -517,7 +517,7 @@ def test_stream_chat_suppresses_partial_route_marker_chunks_before_handoff():
     fake_workspace = MagicMock()
     fake_workspace.detect_changed_downloadables.return_value = []
 
-    async def fake_summary_runner(**kwargs):
+    async def fake_skill_creator_runner(**kwargs):
         return "这是 summary agent 的最终总结", {"total_tokens": 9}
 
     async def collect_events():
@@ -547,12 +547,12 @@ def test_stream_chat_suppresses_partial_route_marker_chunks_before_handoff():
         ),
     ), patch.object(
         engine,
-        "_run_summary_subagent",
-        new=AsyncMock(side_effect=fake_summary_runner),
+        "_run_skill_creator_subagent",
+        new=AsyncMock(side_effect=fake_skill_creator_runner),
     ), patch("runtime.engine.save_message"):
         events = asyncio.run(collect_events())
 
     message_deltas = [item["content"] for item in events if item["type"] == "message_delta"]
-    assert all("__ROUTE_TO_CONVERSATION_SUMMARY__" not in content for content in message_deltas)
-    assert all("__ROUTE_TO_CONVERSATION_" not in content for content in message_deltas)
+    assert all("__ROUTE_TO_SKILL_CREATOR__" not in content for content in message_deltas)
+    assert all("__ROUTE_TO_SKILL_" not in content for content in message_deltas)
     assert events[-1]["content"] == "这是 summary agent 的最终总结"

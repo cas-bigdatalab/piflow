@@ -16,7 +16,7 @@ from deepagents.backends.filesystem import FilesystemBackend
 from runtime.deepagents_compat import install_deepagents_filesystem_utf8_compat
 from runtime.skills_compat import install_deepagents_skills_refresh_compat
 from runtime.subagent import (
-    build_summary_route_prompt_block,
+    build_skill_creator_route_prompt_block,
     override_factory_prompt,
 )
 
@@ -127,7 +127,7 @@ class AgentFactory:
 
         # 把工具能力注入 system prompt
         system_prompt = build_system_prompt(
-            extra_sections=[build_summary_route_prompt_block()]
+            extra_sections=[build_skill_creator_route_prompt_block()]
         )
 
         # -----------------------------

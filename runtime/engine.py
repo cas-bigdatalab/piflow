@@ -21,11 +21,11 @@ from runtime.events import (
     emit_subagent_started,
 )
 from runtime.subagent import (
-    CONVERSATION_SUMMARY_TASK,
-    SUMMARY_ROUTE_MARKER,
-    build_conversation_summary_system_prompt,
+    SKILL_CREATOR_TASK,
+    SKILL_CREATOR_ROUTE_MARKER,
+    build_skill_creator_system_prompt,
     build_transient_thread_id,
-    is_summary_route_marker,
+    is_skill_creator_route_marker,
 )
 from services.dag_panel_service import get_skill_info_by_id
 from services.subagent.workflow_advisor.advisor_service import WorkflowAdvisorService
@@ -304,27 +304,27 @@ def _copy_messages(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
     ]
 
 
-def _build_summary_handoff_message(summary_text: str) -> dict[str, str]:
+def _build_skill_creator_handoff_message(summary_text: str) -> dict[str, str]:
     return {
         "role": "system",
         "content": (
             "Conversation skill-generating reference for the current parent thread:\n"
             f"{summary_text}\n\n"
             "The skill-generating step has already completed. "
-            "Do not output the summary route marker again. "
+            "Do not output the skill creator route marker again. "
             "Do not mention subagents, hidden routing, or internal handoff steps. "
-            "Use this summary as additional context and answer the user directly as the main agent."
+            "Use this skill draft as additional context and answer the user directly as the main agent."
         ),
     }
 
 
 def _resolve_handoff_final_answer(candidate_text: str, fallback_text: str) -> str:
-    if is_summary_route_marker(candidate_text):
+    if is_skill_creator_route_marker(candidate_text):
         return fallback_text
     return candidate_text
 
 
-def _is_summary_route_prefix(candidate_text: str | None) -> bool:
+def _is_skill_creator_route_prefix(candidate_text: str | None) -> bool:
     if candidate_text is None:
         return False
 
@@ -332,7 +332,7 @@ def _is_summary_route_prefix(candidate_text: str | None) -> bool:
     if not text:
         return False
 
-    return SUMMARY_ROUTE_MARKER.startswith(text)
+    return SKILL_CREATOR_ROUTE_MARKER.startswith(text)
 
 
 def _coerce_subagent_event_to_agent_event(event: dict[str, Any]) -> dict[str, Any] | None:
@@ -562,13 +562,13 @@ class AgentEngine:
             "context_text": context_text,
         }
 
-    def _is_summary_route_response(self, content: Any) -> bool:
-        return is_summary_route_marker(_message_content_text(content))
+    def _is_skill_creator_route_response(self, content: Any) -> bool:
+        return is_skill_creator_route_marker(_message_content_text(content))
 
-    def _is_summary_route_stream_artifact(self, content: Any) -> bool:
-        return _is_summary_route_prefix(_message_content_text(content))
+    def _is_skill_creator_route_stream_artifact(self, content: Any) -> bool:
+        return _is_skill_creator_route_prefix(_message_content_text(content))
 
-    def _build_summary_subagent_input(
+    def _build_skill_creator_subagent_input(
         self,
         messages: list[dict[str, Any]],
     ) -> dict[str, Any]:
@@ -576,18 +576,18 @@ class AgentEngine:
             "messages": _copy_messages(messages),
         }
 
-    def _build_summary_handoff_input(
+    def _build_skill_creator_handoff_input(
         self,
         messages: list[dict[str, Any]],
-        summary_text: str,
+        skill_creator_text: str,
     ) -> dict[str, Any]:
         handoff_messages = _copy_messages(messages)
-        handoff_messages.insert(0, _build_summary_handoff_message(summary_text))
+        handoff_messages.insert(0, _build_skill_creator_handoff_message(skill_creator_text))
         return {
             "messages": handoff_messages,
         }
 
-    async def _run_summary_subagent(
+    async def _run_skill_creator_subagent(
         self,
         *,
         parent_thread_id: str,
@@ -596,15 +596,15 @@ class AgentEngine:
         messages: list[dict[str, Any]],
         on_event: Callable[[dict[str, Any]], Awaitable[None]] | None = None,
     ) -> tuple[str, dict[str, Any] | None]:
-        task_name = CONVERSATION_SUMMARY_TASK
-        subagent_thread_id = build_transient_thread_id("summary")
+        task_name = SKILL_CREATOR_TASK
+        subagent_thread_id = build_transient_thread_id("skill_creator")
         subagent_request_id = f"{request_id}:{uuid.uuid4().hex[:8]}"
-        system_prompt = build_conversation_summary_system_prompt()
+        system_prompt = build_skill_creator_system_prompt()
         context = self.build_subagent_context(
             parent_thread_id=parent_thread_id,
             user_id=user_id,
             request_id=request_id,
-            fork_reason="user_requested_conversation_summary",
+            fork_reason="user_requested_skill_creator",
             context_text=f"Parent thread id: {parent_thread_id}\nSubagent thread id: {subagent_thread_id}",
         )
 
@@ -641,7 +641,7 @@ class AgentEngine:
             system_prompt_override=system_prompt,
             context_text=context.get("context_text"),
         )
-        subagent_input = self._build_summary_subagent_input(messages)
+        subagent_input = self._build_skill_creator_subagent_input(messages)
         subagent_config = {
             "configurable": {
                 "thread_id": parent_thread_id,
@@ -976,21 +976,21 @@ class AgentEngine:
             )
 
         final_answer, token_usage = _extract_final_response(events)
-        if self._is_summary_route_response(final_answer):
+        if self._is_skill_creator_route_response(final_answer):
             log.info(
                 "subagent route selected request_id=%s thread_id=%s user_id=%s task=%s",
                 request_id,
                 thread_id,
                 user_id,
-                CONVERSATION_SUMMARY_TASK,
+                SKILL_CREATOR_TASK,
             )
-            summary_text, summary_token_usage = await self._run_summary_subagent(
+            summary_text, summary_token_usage = await self._run_skill_creator_subagent(
                 parent_thread_id=thread_id,
                 user_id=user_id,
                 request_id=request_id,
                 messages=input_message["messages"],
             )
-            handoff_input = self._build_summary_handoff_input(
+            handoff_input = self._build_skill_creator_handoff_input(
                 input_message["messages"],
                 summary_text,
             )
@@ -1133,7 +1133,7 @@ class AgentEngine:
 
                 answer_piece = _message_content_text(getattr(message, "content", ""))
                 answer_delta, latest_answer = _merge_text_delta(latest_answer, answer_piece)
-                if answer_delta and not self._is_summary_route_stream_artifact(latest_answer):
+                if answer_delta and not self._is_skill_creator_route_stream_artifact(latest_answer):
                     yield {
                         "type": "message_delta",
                         "request_id": request_id,
@@ -1165,13 +1165,13 @@ class AgentEngine:
                 if update_token_usage and not token_usage:
                     token_usage = update_token_usage
 
-        if self._is_summary_route_response(latest_answer):
+        if self._is_skill_creator_route_response(latest_answer):
             log.info(
                 "subagent route selected request_id=%s thread_id=%s user_id=%s task=%s",
                 request_id,
                 thread_id,
                 user_id,
-                CONVERSATION_SUMMARY_TASK,
+                SKILL_CREATOR_TASK,
             )
             passthrough_events: asyncio.Queue[dict[str, Any] | None] = asyncio.Queue()
 
@@ -1181,7 +1181,7 @@ class AgentEngine:
                     await passthrough_events.put(normalized_event)
 
             summary_task = asyncio.create_task(
-                self._run_summary_subagent(
+                self._run_skill_creator_subagent(
                     parent_thread_id=thread_id,
                     user_id=user_id,
                     request_id=request_id,
@@ -1204,7 +1204,7 @@ class AgentEngine:
                 yield event
 
             summary_text, summary_token_usage = await summary_task
-            handoff_input = self._build_summary_handoff_input(
+            handoff_input = self._build_skill_creator_handoff_input(
                 input_message["messages"],
                 summary_text,
             )
@@ -1272,7 +1272,7 @@ class AgentEngine:
 
                     answer_piece = _message_content_text(getattr(message, "content", ""))
                     answer_delta, latest_answer = _merge_text_delta(latest_answer, answer_piece)
-                    if answer_delta and not self._is_summary_route_stream_artifact(latest_answer):
+                    if answer_delta and not self._is_skill_creator_route_stream_artifact(latest_answer):
                         yield {
                             "type": "message_delta",
                             "request_id": request_id,
@@ -1365,3 +1365,4 @@ class AgentEngine:
         log.info("shutting down Agent Runtime")
         await self.mcp_runtime.shutdown()
         log.info("shutdown complete")
+

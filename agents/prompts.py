@@ -1089,7 +1089,7 @@ python scripts/<script>.py --input_path input.json --output_path output.json
 - 最终 DAG 必须形成 `输入节点 -> ... -> 输出节点` 的完整闭环数据流
 """
 
-SUMMARY_PROMPT = """
+SKILL_CREATOR_PROMPT = """
 你是一个临时创建的 PiFlow skill 生成 subagent。
 
 你的唯一任务是基于输入中的完整父对话消息，生成一份可直接用于创建 skill 的清晰草案。

@@ -5,7 +5,7 @@ from dataclasses import dataclass
 import logging
 from types import ModuleType
 
-from agents.prompts import SUMMARY_PROMPT
+from agents.prompts import SKILL_CREATOR_PROMPT
 import threading
 import uuid
 
@@ -21,16 +21,16 @@ class SubagentContext:
     context_text: str | None = None
 
 
-CONVERSATION_SUMMARY_TASK = "conversation_summary"
+SKILL_CREATOR_TASK = "skill_creator"
 _PROMPT_OVERRIDE_LOCK = threading.RLock()
-SUMMARY_ROUTE_MARKER = "__ROUTE_TO_CONVERSATION_SUMMARY__"
-SUMMARY_ROUTE_PROMPT_BLOCK = """
+SKILL_CREATOR_ROUTE_MARKER = "__ROUTE_TO_SKILL_CREATOR__"
+SKILL_CREATOR_ROUTE_PROMPT_BLOCK = """
 ## skill生成路由规则
 **如果对话需要生成json等特殊格式，忽略以下规则**
 
 - 如果用户处理一了数据处理或清洗任务，始终应该在你认为用户指定的这次任务结束时询问用户是否生成对应skill，用户同意则输出标记。
 - 如果上述场景没有命中skill内存在的功能时，优先输出这个标记。
-- 命中上述场景时，只输出该标记：`__ROUTE_TO_CONVERSATION_SUMMARY__`
+- 命中上述场景时，只输出该标记：`__ROUTE_TO_SKILL_CREATOR__`
 - 除这个标记外不要输出任何解释、前后缀、JSON、Markdown 或其它文字。
 - 如果用户只是在询问总结功能、触发方式、工作原理，或表达仍然含糊，也继续按正常主流程响应，不要输出该标记。
 """.strip()
@@ -56,18 +56,18 @@ def build_transient_thread_id(prefix: str = "tmp") -> str:
     return f"{prefix}_{uuid.uuid4().hex[:12]}"
 
 
-def build_summary_route_prompt_block() -> str:
-    return SUMMARY_ROUTE_PROMPT_BLOCK
+def build_skill_creator_route_prompt_block() -> str:
+    return SKILL_CREATOR_ROUTE_PROMPT_BLOCK
 
 
-def is_summary_route_marker(message: str | None) -> bool:
+def is_skill_creator_route_marker(message: str | None) -> bool:
     if message is None:
         return False
-    return str(message).strip() == SUMMARY_ROUTE_MARKER
+    return str(message).strip() == SKILL_CREATOR_ROUTE_MARKER
 
 
-def build_conversation_summary_system_prompt() -> str:
-    return SUMMARY_PROMPT.strip()
+def build_skill_creator_system_prompt() -> str:
+    return SKILL_CREATOR_PROMPT.strip()
 
 
 @contextmanager
