@@ -17,7 +17,9 @@ def build_skill_creator_handoff_message(skill_creator_text: str) -> dict[str, st
             "The skill-generating step has already completed. "
             "Do not output the skill creator route marker again. "
             "Do not mention subagents, hidden routing, or internal handoff steps. "
-            "Use this skill draft as additional context and answer the user directly as the main agent."
+            "Use this skill draft as additional context and answer the user directly as the main agent. "
+            "Re-evaluate whether the current request is now satisfiable with the generated skill. "
+            "If it is, produce or update the appropriate DAG using that skill."
         ),
     }
 
