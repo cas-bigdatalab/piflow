@@ -22,7 +22,6 @@ input_params:
   - name: text_keys
     type: list
     required: false
-    default: "['text']"
     description: 文本字段名列表
 
   - name: add_suffix
