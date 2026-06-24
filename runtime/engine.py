@@ -3,6 +3,7 @@ import time
 from typing import Any, AsyncIterator
 
 from agents.factory import AgentFactory
+from agents.subagent.workflow_advisor.factory import AdvisorAgentFactory
 from infra.config_loader import get_settings
 from infra.env_loader import load_dotenv_file
 from infra.logging import init_logging
@@ -12,6 +13,8 @@ from runtime.dag_manager import init_dag_db
 from runtime.piflow_adapter import init_piflow_run_tracking_db
 from runtime.skill_manage import init_dag_skills_to_database
 from runtime.workspace_manager import WorkspaceManager
+from services.dag_panel_service import get_skill_info_by_id
+from services.subagent.workflow_advisor.advisor_service import WorkflowAdvisorService
 from services.user_service import init_default_user
 from tools.core.registry import registry
 
@@ -284,6 +287,9 @@ class AgentEngine:
         self.initialized = False
         self.settings = get_settings()
         self.mcp_runtime = MCPRuntime(self.settings.mcp)
+        self.workflow_advisor_agent = None
+        self.workflow_advisor_service = None
+
 
     async def initialize(self):
         if self.initialized:
@@ -303,6 +309,14 @@ class AgentEngine:
         log.info("initializing database complete")
 
         self.agent = AgentFactory.create_agent()
+
+        # 初始化 WorkflowAdvisorAgent
+        self.workflow_advisor_agent = AdvisorAgentFactory.create_agent()
+
+        self.workflow_advisor_service = WorkflowAdvisorService(
+            advisor_agent=self.workflow_advisor_agent,
+            skill_resolver=get_skill_info_by_id,
+        )
 
         self.initialized = True
         log.info("Agent Runtime initialized")

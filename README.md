@@ -29,6 +29,7 @@ flow-deepagents/
 │   ├── database.yaml
 │   ├── llm.yaml
 │   ├── mcp_servers.yaml
+│   ├── mineru.yaml
 │   └── default_user.yaml
 ├── docs/
 │   └── workspace_file_api.md  # Workspace file API notes
@@ -136,6 +137,16 @@ Example:
 ```bash
 DASHSCOPE_API_KEY=your_key
 OPENAI_API_KEY=your_key
+```
+
+### MinerU Configuration
+
+If you want to use the MinerU skill, you need to configure the MinerU API key :
+- [config/mineru.yaml](/Users/renhao/PycharmProjects/flow-deepagents-0408/config/mineru.yaml)
+- `api_key` for your MinerU API key
+
+```bash
+api_key: 'your mineru api key'
 ```
 
 ### Optional dependency
