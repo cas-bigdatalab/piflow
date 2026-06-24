@@ -14,6 +14,7 @@ from pydantic import BaseModel
 
 from infra.config_loader import get_settings
 from infra.logging import init_logging
+from routers.subagent.workflow_advisor import workflow_advisor_router
 from runtime.chat_store import (
     create_thread,
     delete_thread,
@@ -36,6 +37,7 @@ from routers.auth_router import router as auth_router
 from routers.dag_panel_api import router as dag_router
 from routers.dag_runtime_api import router as dag_runtime_router
 from routers.user_router import router as user_router
+from routers.subagent.workflow_advisor.workflow_advisor_router import router as workflow_advisor_router
 
 log = logging.getLogger("flow.api")
 PROJECT_ROOT = Path(__file__).resolve().parent
@@ -86,6 +88,7 @@ app.include_router(auth_router)
 app.include_router(dag_router)
 app.include_router(dag_runtime_router)
 app.include_router(user_router)
+app.include_router(workflow_advisor_router)
 
 STORAGE_DIR.mkdir(parents=True, exist_ok=True)
 

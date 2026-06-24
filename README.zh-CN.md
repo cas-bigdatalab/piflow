@@ -29,6 +29,7 @@ flow-deepagents/
 │   ├── database.yaml
 │   ├── llm.yaml
 │   ├── mcp_servers.yaml
+│   ├── mineru.yaml
 │   └── default_user.yaml
 ├── docs/
 │   └── workspace_file_api.md  # 工作区文件接口说明
@@ -140,7 +141,21 @@ DASHSCOPE_API_KEY=your_key
 OPENAI_API_KEY=your_key
 ```
 
-### 5. 可选依赖
+### 5. MinerU 配置
+
+如果您想使用MinerU解析功能，请在 `config/mineru.yaml` 中添加 MinerU API Key：
+
+- [config/mineru.yaml](/Users/renhao/PycharmProjects/flow-deepagents-0408/config/mineru.yaml)
+
+在 `mineru.yaml` 中添加：
+```bash
+api_key: 'your mineru api key'
+```
+
+
+```bash
+
+### 6. 可选依赖
 
 如需更完整的文档转换能力，建议安装 `pandoc`。
 

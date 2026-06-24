@@ -18,7 +18,7 @@ import PipelinePreview, { extractAndCleanPipelineJson, PipelineData } from "../c
 import FlowEditor, { InitialPipelineData } from "../components/Draw";
 // import { appConfig } from "../config/appConfig";
 
-const DEFAULT_USER_ID = localStorage.getItem('ylk_userId');
+const DEFAULT_USER_ID = localStorage.getItem('userId');
 
 type UiMsg = {
   id: string;

@@ -409,7 +409,7 @@ const RunDetails: React.FC<{ processId: string }> = ({ processId }) => {
     try {
       const url = downloadWorkspaceUrl2(path);
       console.log('workspace/download URL:', url);
-      const token = localStorage.getItem('ylk_token') || '';
+      const token = localStorage.getItem('token') || '';
       const response = await fetch(url, {
         headers: {
           'Authorization': token ? `Bearer ${token}` : '',
@@ -615,6 +615,24 @@ const RunDetails: React.FC<{ processId: string }> = ({ processId }) => {
 
         setFlowNodes(loadedNodes);
         setFlowEdges(loadedEdges);
+
+        const defaultLogs: LogEntry[] = stops.map((s: StopInfo) => {
+          const statusText = s.status === 'SUCCESS' ? '已完成' : s.status === 'RUNNING' ? '运行中' : s.status === 'FAILED' ? '失败' : s.status;
+          const progressText = s.progress !== undefined ? `进度: ${s.progress}%` : '';
+          const formatTime = (t: string) => {
+            try {
+              return new Date(t).toLocaleString('zh-CN');
+            } catch {
+              return t;
+            }
+          };
+          return {
+            time: formatTime(s.finished_at || s.start_time || '-'),
+            node: s.stop_name,
+            message: `${statusText} ${progressText}`.trim()
+          };
+        });
+        setLogs(defaultLogs);
       }
     } catch (error) {
       console.error('加载DSL数据失败:', error);
@@ -876,20 +894,22 @@ const RunDetails: React.FC<{ processId: string }> = ({ processId }) => {
                       setNodeLogs([]);
                     }}
                     style={{
-                      padding: '4px',
-                      borderRadius: '4px',
+                      padding: '6px 12px',
+                      borderRadius: '6px',
                       border: 'none',
-                      backgroundColor: 'transparent',
-                      color: '#9ca3af',
+                      backgroundColor: '#334155',
+                      color: '#e2e8f0',
+                      fontSize: '12px',
+                      fontWeight: 500,
                       cursor: 'pointer',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      transition: 'color 0.2s',
+                      transition: 'background-color 0.2s',
                     }}
                     title="返回流程日志"
                   >
-                    <X size={16} />
+                    返回
                   </button>
                 )}
               </div>
