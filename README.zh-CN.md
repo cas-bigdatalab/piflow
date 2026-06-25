@@ -84,7 +84,7 @@ flow-deepagents/
 请先安装随项目提供的 PiFlow Python 执行引擎：
 
 ```bash
-pip install ./third_party/piflow/piflow_python-0.1.1-py3-none-any.whl
+pip install ./third_party/piflow/piflow_engine-0.1.1-py3-none-any.whl
 ```
 
 再安装项目依赖：
