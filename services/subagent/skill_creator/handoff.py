@@ -12,14 +12,14 @@ def build_skill_creator_handoff_message(skill_creator_text: str) -> dict[str, st
     return {
         "role": "system",
         "content": (
-            "当前父线程可参考的 skill 生成结果如下：\n"
+            "当前父线程可参考的 skill 创建收集结果如下：\n"
             f"{skill_creator_text}\n\n"
             "skill 生成步骤已经完成。"
             "不要再次输出 skill creator 路由标记。"
             "不要提及 subagent、隐藏路由或内部 handoff 过程。"
-            "将这份 skill 草案作为补充参考，并以主 agent 的身份直接回复用户。"
-            "重新判断缺失的需求是否已经可以借助该 skill 满足。"
-            "如果可以，使用刚生成的 skill 生成或更新相应的 DAG。"
+            "将这份收集结果仅作为补充参考，并以主 agent 的身份直接回复用户。"
+            "不要把其中未确认的信息当成已经存在的 skill、脚本、目录或 DAG 能力。"
+            "如果关键信息仍然缺失，继续向用户追问或明确说明当前还不能生成 skill，也不能假设 skill 已可用于 DAG。"
         ),
     }
 

@@ -78,8 +78,8 @@ def test_run_uses_skill_creator_subagent_when_user_requests_conversation_summary
     handoff_messages = seen_inputs[1]["messages"]
     assert handoff_messages[0]["role"] == "system"
     assert "这是给主agent参考的对话总结" in handoff_messages[0]["content"]
-    assert "Re-evaluate whether the current request is now satisfiable with the generated skill." in handoff_messages[0]["content"]
-    assert "produce or update the appropriate DAG using that skill" in handoff_messages[0]["content"]
+    assert "不要把其中未确认的信息当成已经存在的 skill、脚本、目录或 DAG 能力。" in handoff_messages[0]["content"]
+    assert "如果关键信息仍然缺失" in handoff_messages[0]["content"]
     assert SKILL_CREATOR_ROUTE_MARKER in seen_inputs[0]["messages"][-1]["content"] or True
     engine.skill_creator_service.run.assert_awaited_once()
     fake_save_message.assert_called_once_with("user-1", "thread-1", "assistant", "这是主agent基于总结后的最终回答")
@@ -176,7 +176,7 @@ def test_stream_chat_hides_subagent_events_for_conversation_summary():
     assert events[-1]["content"] == "这是主agent吸收总结后的最终回答"
     assert len(seen_inputs) == 2
     assert "给主agent参考的最终总结" in seen_inputs[1]["messages"][0]["content"]
-    assert "Re-evaluate whether the current request is now satisfiable with the generated skill." in seen_inputs[1]["messages"][0]["content"]
+    assert "不要把其中未确认的信息当成已经存在的 skill、脚本、目录或 DAG 能力。" in seen_inputs[1]["messages"][0]["content"]
 
 
 def test_skill_creator_agent_factory_does_not_reregister_builtin_tools():

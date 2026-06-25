@@ -115,6 +115,61 @@ def test_resolve_dag_definition_skills_uses_skill_name_when_skill_id_is_stale(tm
     resolved = excutor_utils.resolve_dag_definition_skills(dag_definition)
 
     assert resolved["nodes"][0]["skill"]["skill_id"] == str(skill_json.resolve())
+    assert resolved["nodes"][0]["skill"]["skill_name"] == "epub_metadata_cleaner"
+
+
+def test_resolve_dag_definition_skills_promotes_top_level_skill_name(tmp_path, monkeypatch):
+    workspace_root = tmp_path / "workspace"
+    skill_dir = workspace_root / "skills" / "generated" / "docx_to_markdown"
+    skill_dir.mkdir(parents=True, exist_ok=True)
+    skill_json = skill_dir / "skill.json"
+    skill_json.write_text('{"name":"docx_to_markdown"}', encoding="utf-8")
+
+    monkeypatch.setattr(excutor_utils, "resolve_workspace_root", lambda: workspace_root)
+    monkeypatch.setattr(excutor_utils, "get_dag_skill", lambda skill_id: None)
+
+    dag_definition = {
+        "nodes": [
+            {
+                "node_id": "node-1",
+                "node_name": "DOCX转Markdown",
+                "skill_name": "docx_to_markdown",
+            }
+        ]
+    }
+
+    resolved = excutor_utils.resolve_dag_definition_skills(dag_definition)
+
+    assert resolved["nodes"][0]["skill"]["skill_id"] == str(skill_json.resolve())
+    assert resolved["nodes"][0]["skill"]["skill_name"] == "docx_to_markdown"
+
+
+def test_resolve_dag_definition_skills_fills_builtin_stop_bundle_without_skill_block(monkeypatch):
+    monkeypatch.setattr(excutor_utils, "resolve_workspace_root", lambda: Path("/tmp/workspace"))
+    monkeypatch.setattr(excutor_utils, "get_dag_skill", lambda skill_id: None)
+
+    dag_definition = {
+        "nodes": [
+            {
+                "node_id": "node-1",
+                "node_name": "输入文件节点1",
+                "skill_name": "source_stop",
+            },
+            {
+                "node_id": "node-2",
+                "node_name": "输出文件节点1",
+                "skill_name": "sink_stop",
+            },
+        ]
+    }
+
+    resolved = excutor_utils.resolve_dag_definition_skills(dag_definition)
+
+    assert (
+        resolved["nodes"][0]["skill"]["skill_id"]
+        == "cn.piflow.engine.local.source_file_stop.SourceFileStop"
+    )
+    assert resolved["nodes"][1]["skill"]["skill_id"] == "cn.piflow.engine.local.file_save_stop.FileSaveStop"
 
 
 def test_insert_dag_skill_upsert_preserves_existing_skill_id():

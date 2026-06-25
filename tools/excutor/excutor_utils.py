@@ -196,14 +196,26 @@ def _resolve_skill_json_path(workspace_root: Path, skill_path: str) -> Path:
 
 def resolve_dag_definition_skills(dag_definition: dict) -> dict:
     _workspace_root = resolve_workspace_root()
+    builtin_skill_ids = {
+        "source_stop": "cn.piflow.engine.local.source_file_stop.SourceFileStop",
+        "sink_stop": "cn.piflow.engine.local.file_save_stop.FileSaveStop",
+    }
 
     def _resolve_node_skill(node: dict) -> dict:
-        skill = node.get("skill")
-        if not skill:
-            return node
+        raw_skill = node.get("skill")
+        skill = dict(raw_skill) if isinstance(raw_skill, dict) else {}
+        top_level_skill_name = str(node.get("skill_name", "")).strip()
+        skill_name = str(skill.get("skill_name", "")).strip() or top_level_skill_name
+        node_name = str(node.get("node_name", "")).strip()
+
+        if not skill_name and node_name in builtin_skill_ids:
+            skill_name = node_name
 
         skill_id = skill.get("skill_id")
-        skill_name = str(skill.get("skill_name", "")).strip()
+        if not skill_id and skill_name in builtin_skill_ids:
+            skill_id = builtin_skill_ids[skill_name]
+        if not skill_id and isinstance(raw_skill, str) and raw_skill.strip():
+            skill_id = raw_skill.strip()
 
         skill_json_path: str | None = None
         if skill_id:
@@ -216,10 +228,16 @@ def resolve_dag_definition_skills(dag_definition: dict) -> dict:
             if resolved_by_name is not None:
                 skill_json_path = str(resolved_by_name)
 
-        if not skill_json_path:
+        resolved_skill_id = skill_json_path or skill_id or ""
+        if not resolved_skill_id:
             return node
 
-        updated_skill = {**skill, "skill_id": skill_json_path}
+        updated_skill = {
+            **skill,
+            "skill_id": resolved_skill_id,
+        }
+        if skill_name:
+            updated_skill["skill_name"] = skill_name
         return {**node, "skill": updated_skill}
 
     nodes = [_resolve_node_skill(n) for n in dag_definition.get("nodes", [])]
