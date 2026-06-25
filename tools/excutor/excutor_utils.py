@@ -181,6 +181,35 @@ def _resolve_skill_json_path_by_name(workspace_root: Path, skill_name: str) -> P
     return None
 
 
+def _resolve_skill_json_path_by_name_zh(workspace_root: Path, name_zh: str) -> Path | None:
+    """按 name_zh（中文名）在所有技能目录中查找 skill.json。"""
+    normalized = str(name_zh or "").strip()
+    if not normalized:
+        return None
+
+    from runtime.skill_manage import _parse_dag_skill_frontmatter
+
+    for base_dir in [
+        workspace_root / "skills",
+        workspace_root / "skills" / "generated",
+        workspace_root / "dag_system_node",
+    ]:
+        if not base_dir.exists():
+            continue
+        for skill_dir in base_dir.iterdir():
+            if not skill_dir.is_dir():
+                continue
+            info = _parse_dag_skill_frontmatter(skill_dir)
+            if info is None:
+                continue
+            if info.get("name_zh") == normalized:
+                skill_json = skill_dir / "skill.json"
+                if skill_json.exists():
+                    return skill_json.resolve()
+
+    return None
+
+
 def _resolve_skill_json_path(workspace_root: Path, skill_path: str) -> Path:
     primary = (workspace_root / skill_path / "skill.json").resolve()
     if primary.exists():
@@ -227,6 +256,18 @@ def resolve_dag_definition_skills(dag_definition: dict) -> dict:
             resolved_by_name = _resolve_skill_json_path_by_name(_workspace_root, skill_name)
             if resolved_by_name is not None:
                 skill_json_path = str(resolved_by_name)
+
+        # 兜底：用 node_name 尝试查找 skill.json
+        if not skill_json_path and not skill_name and node_name:
+            # 1. 按目录名直接查找
+            resolved_by_node = _resolve_skill_json_path_by_name(_workspace_root, node_name)
+            # 2. 没找到则按 name_zh（中文名）扫描查找
+            if resolved_by_node is None:
+                resolved_by_node = _resolve_skill_json_path_by_name_zh(_workspace_root, node_name)
+            if resolved_by_node is not None:
+                skill_json_path = str(resolved_by_node)
+                # 从路径中提取实际的 skill_name，供后续使用
+                skill_name = Path(resolved_by_node).parent.name
 
         resolved_skill_id = skill_json_path or skill_id or ""
         if not resolved_skill_id:
