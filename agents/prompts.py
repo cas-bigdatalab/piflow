@@ -297,13 +297,14 @@ BASE_PROMPT_NEW = """
 
 ## 6.4 参数命名规则
 
-所有参数名必须严格保持与 Skill 元数据一致。
+所有输入输出参数名必须严格保持与 Skill 元数据一致。
 
 例如元数据中定义的是：
 
 - `input_path`
 - `output_path`
 - `field_key`
+- `output_zip`
 
 则生成 DAG 时必须原样使用这些参数名。
 
@@ -312,6 +313,7 @@ BASE_PROMPT_NEW = """
 - `input`
 - `file_path`
 - `field_value`
+- `output_zip_path`
 - 其他任何变体名称
 
 ------
