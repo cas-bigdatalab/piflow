@@ -12,14 +12,14 @@ def build_skill_creator_handoff_message(skill_creator_text: str) -> dict[str, st
     return {
         "role": "system",
         "content": (
-            "Conversation skill-generating reference for the current parent thread:\n"
+            "当前父线程可参考的 skill 生成结果如下：\n"
             f"{skill_creator_text}\n\n"
-            "The skill-generating step has already completed. "
-            "Do not output the skill creator route marker again. "
-            "Do not mention subagents, hidden routing, or internal handoff steps. "
-            "Use this skill draft as additional context and answer the user directly as the main agent. "
-            "Re-evaluate whether the current request is now satisfiable with the generated skill. "
-            "If it is, produce or update the appropriate DAG using that skill."
+            "skill 生成步骤已经完成。"
+            "不要再次输出 skill creator 路由标记。"
+            "不要提及 subagent、隐藏路由或内部 handoff 过程。"
+            "将这份 skill 草案作为补充参考，并以主 agent 的身份直接回复用户。"
+            "重新判断缺失的需求是否已经可以借助该 skill 满足。"
+            "如果可以，使用刚生成的 skill 生成或更新相应的 DAG。"
         ),
     }
 

@@ -93,15 +93,15 @@ def _build_attachment_context(attachments: list[str] | None) -> str:
         return ""
 
     lines = [
-        "Uploaded files for this request:",
-        "Use these files as the primary inputs for the current task.",
-        "Do not scan the whole workspace or ask which file to use unless the request is truly ambiguous.",
+        "本次请求上传的文件：",
+        "优先将这些文件作为当前任务的主要输入。",
+        "除非用户请求确实存在歧义，否则不要扫描整个 workspace，也不要追问该使用哪个文件。",
     ]
     lines.extend(f"- {path}" for path in valid)
     if len(valid) == 1:
-        lines.append(f'If the user says "this file", "that file", or "uploaded file", resolve it to: {valid[0]}')
+        lines.append(f'如果用户说“这个文件”“那个文件”或“上传的文件”，默认指向：{valid[0]}')
     else:
-        lines.append("If the user refers to an uploaded file, resolve it from the list above before asking a follow-up question.")
+        lines.append("如果用户提到某个上传文件，先从上面的列表中解析，再决定是否需要追问。")
     return "\n".join(lines)
 
 def _append_reasoning_part(parts: list[str], seen: set[str], value: Any) -> None:
