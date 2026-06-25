@@ -14,12 +14,15 @@ def build_skill_creator_handoff_message(skill_creator_text: str) -> dict[str, st
         "content": (
             "当前父线程可参考的 skill 创建收集结果如下：\n"
             f"{skill_creator_text}\n\n"
-            "skill 生成步骤已经完成。"
+            "spec 收集阶段已经完成。现在你必须根据收集结果实际创建 skill 文件，步骤为：\n"
+            "1. 在 workspace/skills/generated/<skill_name>/ 下创建 SKILL.md（含 yaml 元数据）\n"
+            "2. 在相同目录下创建 skill.json\n"
+            "3. 如有脚本则在 scripts/ 下创建对应的脚本文件\n"
+            "4. 所有参数名必须与收集结果中确认的名称一致\n"
+            "只有文件创建完成后，这个 skill 才能用于 DAG。\n"
             "不要再次输出 skill creator 路由标记。"
             "不要提及 subagent、隐藏路由或内部 handoff 过程。"
-            "将这份收集结果仅作为补充参考，并以主 agent 的身份直接回复用户。"
-            "不要把其中未确认的信息当成已经存在的 skill、脚本、目录或 DAG 能力。"
-            "如果关键信息仍然缺失，继续向用户追问或明确说明当前还不能生成 skill，也不能假设 skill 已可用于 DAG。"
+            "如果关键信息仍然缺失，继续向用户追问或明确说明当前还不能创建 skill。"
         ),
     }
 

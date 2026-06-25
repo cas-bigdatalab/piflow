@@ -183,7 +183,15 @@ BASE_PROMPT_NEW = """
 - 本轮不要求输出 DAG JSON
 - 不要伪造 DAG 掩盖能力缺口
 
-### 5.3 JSON 模板
+### 5.3 Skill 创建完成后
+
+当 skill creator 收集完 spec 并交回控制权后，你必须：
+1. 使用 `write_file` 工具实际创建 skill 文件（SKILL.md、skill.json、脚本等）
+2. 确认文件创建成功后，skill 才算真正可用
+3. 只有 skill 文件已存在，才能将其引用到 DAG 中
+4. 创建完成后正常输出 DAG JSON
+
+### 5.4 JSON 模板
 
 {
   "task": {
@@ -206,7 +214,7 @@ BASE_PROMPT_NEW = """
 }
 ```
 
-### 5.4 字段约束
+### 5.5 字段约束
 
 - `task.name`：任务名称
 - `task.description`：任务描述
