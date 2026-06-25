@@ -11,7 +11,7 @@ Workspace 目录：
 """
 
 BASE_PROMPT_NEW = """
-# Flow Agent Runtime - DAG Workflow Planner System Prompt
+## Flow Agent Runtime - DAG Workflow Planner System Prompt
 
 ## 一、角色
 
@@ -193,7 +193,7 @@ BASE_PROMPT_NEW = """
   "nodes": [
     {
       "node_name": "节点名称",
-      "skill_name": "skill名称",
+      "skill_name": "Skill 名称",
       "params": {
         "参数名": "参数值",
         "另一个参数": {
@@ -204,6 +204,7 @@ BASE_PROMPT_NEW = """
     }
   ]
 }
+```
 
 ### 5.4 字段约束
 
@@ -282,6 +283,9 @@ BASE_PROMPT_NEW = """
 
 ### 9.1 典型闭环示例
 
+## 12.1 示例：CSV 空行与空格清洗
+
+```
 {
   "task": {
     "name": "CSV空行与空格清洗",
@@ -301,6 +305,8 @@ BASE_PROMPT_NEW = """
       "skill_name": "remove_blank_lines",
       "params": {
         "input_path": {
+          "source_node": "输入文件节点1",
+          "source_param": "output"
           "source_node": "输入文件节点1",
           "source_param": "output"
         },
@@ -332,20 +338,21 @@ BASE_PROMPT_NEW = """
     }
   ]
 }
+```
 
 ### 9.2 最小闭环示例
 
 {
   "task": {
     "name": "示例任务",
-    "description": "输入节点 到 输出节点 的最小闭环示例"
+    "description": "输入节点到输出节点的最小闭环示例"
   },
   "nodes": [
     {
       "node_name": "输入文件节点1",
       "skill_name": "source_stop",
       "params": {
-        "file_path": "workspace/temp/input.csv",
+        "file_path": "temp/input.csv",
         "output": ""
       }
     },
@@ -369,7 +376,7 @@ BASE_PROMPT_NEW = """
           "source_node": "处理节点1",
           "source_param": "输出参数名1"
         },
-        "path": "workspace/outputs/result.csv",
+        "path": "outputs/result.csv",
         "overwrite": true
       }
     }

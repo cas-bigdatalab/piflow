@@ -40,11 +40,15 @@ def run_csv_formatter(input_path: str,
                 encoding=enc,
             )
             dataset = formatter.load_dataset(num_proc=num_proc)
+            # 验证数据可正常读取（延迟加载场景下编码错误可能在迭代时才暴露）
+            if len(dataset) > 0:
+                _ = dataset.to_list()[0]
             if enc != encoding:
                 print(f"指定编码 {encoding} 读取失败，使用编码 {enc} 读取成功")
             break
         except Exception as e:
             last_error = e
+            dataset = None
             continue
 
     if dataset is None:
@@ -53,10 +57,13 @@ def run_csv_formatter(input_path: str,
         )
 
     # 保存为 JSONL 格式
-    os.makedirs(os.path.dirname(output_path) or '.', exist_ok=True)
-    with open(output_path, 'w', encoding='utf-8') as f:
-        for item in dataset.to_list():
-            f.write(json.dumps(item, ensure_ascii=False) + '\n')
+    try:
+        os.makedirs(os.path.dirname(output_path) or '.', exist_ok=True)
+        with open(output_path, 'w', encoding='utf-8') as f:
+            for item in dataset.to_list():
+                f.write(json.dumps(item, ensure_ascii=False) + '\n')
+    except Exception as e:
+        raise RuntimeError(f"写入输出文件失败: {e}")
 
     print(f"处理完成: 共 {len(dataset)} 条数据")
     print(f"结果已保存至: {output_path}")
