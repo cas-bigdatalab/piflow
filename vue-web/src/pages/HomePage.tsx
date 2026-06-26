@@ -327,7 +327,9 @@ export function HomePage() {
   const [canvasMessageId, setCanvasMessageId] = useState<string>('');
   const [savedDrawData, setSavedDrawData] = useState<any>(null);
   const [canvasWidth, setCanvasWidth] = useState(50); // 画板宽度百分比
+  const [canvasKey, setCanvasKey] = useState(0); // 用于强制重新挂载FlowEditor
   const isDraggingRef = useRef(false);
+  const canvasMessageIdRef = useRef(''); // 用于解决闭包过期问题
   
   const abortRef = useRef<AbortController | null>(null);
   const transcriptRef = useRef<HTMLDivElement | null>(null);
@@ -350,14 +352,14 @@ export function HomePage() {
   // 处理打开画板
   const handleOpenCanvas = async (data: PipelineData, msgId?: string) => {
     setCanvasPipelineData(data);
-    // 如果已经有保存的 canvasMessageId（来自 createMessage 返回），就使用它，不覆盖
-    // 这样可以确保保存画板时使用正确的 message_id
-    if (!canvasMessageId) {
+    const currentMsgId = canvasMessageIdRef.current;
+    if (!currentMsgId) {
+      canvasMessageIdRef.current = msgId || '';
       setCanvasMessageId(msgId || '');
     }
     // 先请求已保存的画板信息
     let drawData = null;
-    const effectiveMsgId = canvasMessageId || msgId;
+    const effectiveMsgId = canvasMessageIdRef.current || msgId;
     if (effectiveMsgId) {
       try {
         const res = await getDrawInfoBymegId(effectiveMsgId);
@@ -370,6 +372,7 @@ export function HomePage() {
       }
     }
     setSavedDrawData(drawData);
+    setCanvasKey(prev => prev + 1);
     setShowCanvas(true);
   };
   
@@ -378,6 +381,8 @@ export function HomePage() {
     setShowCanvas(false);
     setCanvasPipelineData(null);
     setSavedDrawData(null);
+    canvasMessageIdRef.current = '';
+    setCanvasMessageId('');
   };
 
   useEffect(() => {
@@ -408,6 +413,11 @@ export function HomePage() {
       setStreamStatus("");
       setActiveAssistantId(null);
       setLoadError("");
+      setShowCanvas(false);
+      setCanvasPipelineData(null);
+      setCanvasMessageId("");
+      setSavedDrawData(null);
+      canvasMessageIdRef.current = '';
     };
 
     const handleSelectThread = (event: Event) => {
@@ -981,10 +991,10 @@ export function HomePage() {
   return (
     <div className="flex min-h-full flex-1 flex-col">
       {/* 右上角用户手册下载按钮 */}
-      <div className="flex justify-end px-8 pt-6">
+      <div className="fixed right-1 top-1 z-1">
         <button
           onClick={() => handleDownload()}
-          className="inline-flex items-center gap-1.5 rounded-full bg-[color:var(--color-primary)] px-3 py-1.5 text-xs font-medium text-[color:var(--color-primary-foreground)] hover:opacity-90 transition-opacity cursor-pointer"
+          className="inline-flex items-center gap-1 rounded-full bg-[color:var(--color-primary)] px-2 py-1 text-[11px] font-medium text-[color:var(--color-primary-foreground)] hover:opacity-90 transition-opacity cursor-pointer shadow-md"
           title="Download"
         >
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -1259,7 +1269,7 @@ export function HomePage() {
                 />
                 <div className="h-screen overflow-hidden border-l border-slate-200 shadow-[-2px_0_12px_rgba(0,0,0,0.04)] animate-slide-in-right flex-shrink-0"
                   style={{ width: `${canvasWidth}%` }}>
-                  <FlowEditor initialPipelineData={canvasPipelineData as unknown as InitialPipelineData} onClose={handleCloseCanvas} threadId={threadId} messageId={canvasMessageId} savedDrawData={savedDrawData} />
+                  <FlowEditor key={canvasKey} initialPipelineData={canvasPipelineData as unknown as InitialPipelineData} onClose={handleCloseCanvas} threadId={threadId} messageId={canvasMessageId} savedDrawData={savedDrawData} />
                 </div>
               </>
             )}

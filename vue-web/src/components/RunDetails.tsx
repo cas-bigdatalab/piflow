@@ -1,7 +1,7 @@
 import React, { useCallback, useState, useEffect, useRef, memo, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowRight, Database, Filter, Square, Download, ArrowLeft, Check, Play, X, ChevronUp, ChevronDown, AlertCircle, CheckCircle } from 'lucide-react';
-import { getExecutionDetail, stopDAGTask, downloadWorkspaceUrl2, getDrawTaskContent, getStopLogPaths } from '../lib/api';
+import { getExecutionDetail, stopDAGTask, downloadWorkspaceUrl2, downloadWorkspaceUrl3, getDrawTaskContent, getStopLogPaths } from '../lib/api';
 import {
   ReactFlow,
   Background,
@@ -407,7 +407,7 @@ const RunDetails: React.FC<{ processId: string }> = ({ processId }) => {
     setCurrentNodeName(`${nodeName} (${logType})`);
     setIsShowingNodeLogs(true);
     try {
-      const url = downloadWorkspaceUrl2(path);
+      const url = downloadWorkspaceUrl3(path);
       console.log('workspace/download URL:', url);
       const token = localStorage.getItem('token') || '';
       const response = await fetch(url, {
