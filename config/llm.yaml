@@ -10,7 +10,7 @@
 
 llm:
   provider: dashscope
-  model: qwen3.5-plus
+  model: gpt-5.4
   temperature: 0
 
 #llm:

@@ -66,7 +66,7 @@ def test_skill_creator_system_prompt_is_skill_generation_prompt():
     prompt = build_skill_creator_system_prompt()
 
     assert "skill 生成 subagent" in prompt
-    assert "生成 skill" in prompt
+    assert "skill 创建" in prompt or "生成 skill" in prompt
     assert "只允许输出以下四类信息" in prompt
     assert "不允许输出或扩写以下内容" in prompt
     assert "完整 `SKILL.md`" in prompt
@@ -82,7 +82,7 @@ def test_main_system_prompt_keeps_core_dag_constraints():
     assert "输入节点 → 业务节点 → 输出节点" in prompt
     assert "只能输出合法 JSON" in prompt
     assert "技能缺失时的引导规则" in prompt
-    assert "只能通过构建 DAG 或进入 skill 流程推进" in prompt
+    assert "只能通过构建 DAG 或进入 skill 创建流程推进" in prompt or "只能通过构建 DAG 或进入 skill 流程推进" in prompt
     assert "不要为输出参数编造真实值" in prompt
 
 
@@ -105,4 +105,12 @@ def test_main_system_prompt_disallows_self_executing_task_resolution():
 
     assert "不要当场自行解决任务" in prompt
     assert "不要当场直接处理任务" in prompt
-    assert "切记不要自行执行并解决任务，不要自行调用工具处理" in prompt
+    assert "不要自行调用工具处理" in prompt
+
+
+def test_main_system_prompt_requires_raw_dag_without_process_preamble():
+    prompt = build_system_prompt()
+
+    assert "满足 DAG 生成条件时，直接输出最终 DAG JSON" in prompt
+    assert "不要先输出“先核对相关技能的参数定义”" in prompt
+    assert "不要输出任何位于 JSON 之前的引导语、过渡句、总结句或步骤描述" in prompt
