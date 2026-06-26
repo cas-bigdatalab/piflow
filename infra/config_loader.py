@@ -25,6 +25,7 @@ def load_settings() -> Settings:
     database_config = load_yaml(CONFIG_DIR / "database.yaml")
     default_user_config = load_yaml(CONFIG_DIR / "default_user.yaml")
     workspace_config = app_config.get("workspace", {})
+    piflow_engine_config = app_config.get("piflow_engine", {})
     minio_config = app_config.get("minio", {})
     mineru_config = load_yaml(CONFIG_DIR / "mineru.yaml")
 
@@ -32,6 +33,7 @@ def load_settings() -> Settings:
         **app_config,
         **llm_config,
         "workspace": workspace_config,
+        "piflow_engine": piflow_engine_config,
         "minio": minio_config,
         "mcp": mcp_config,
         **default_user_config,

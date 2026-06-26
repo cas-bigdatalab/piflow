@@ -666,6 +666,25 @@ async def download_workspace_file(user_id: str, path: str):
     )
 
 
+@app.get("/workspace/download/root")
+async def download_workspace_root_file(path: str):
+    workspace = WorkspaceManager()
+    try:
+        workspace.ensure_workspace()
+        source = workspace.resolve_virtual_path(path)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    if not source.exists() or not source.is_file():
+        raise HTTPException(status_code=404, detail="file not found")
+
+    return FileResponse(
+        path=source,
+        filename=source.name,
+        media_type="application/octet-stream",
+    )
+
+
 @app.post("/storage/save")
 async def save_storage_file(req: SaveStorageFileRequest):
     service = ObjectStorageService()
