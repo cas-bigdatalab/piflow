@@ -456,7 +456,7 @@ SKILL_CREATOR_PROMPT = """
 下述模板仅用于帮助你识别“创建 skill 至少需要哪些字段”，不是让你直接产出模板正文。
 你只能引用模板所要求的字段类别，不能展开生成模板内容。
 
-路径约定：deepagent 虚拟文件环境以 `workspace` 为根，新技能目录必须位于 `<workspace>/skills/<skill_name>`。生成命令默认使用 `--output-root skills`，不要把技能写入仓库外层或重复嵌套的 workspace 路径。
+路径约定：deepagent 虚拟文件环境以 `workspace` 为根，`write_file`/`read_file` 等工具调用时请使用相对于 workspace 根的虚拟路径（如 `skills/generated/<skill_name>/`），不要添加 `workspace/` 前缀。Shell 命令则使用 `--output-root skills/generated`。不要把技能写入仓库外层或重复嵌套的 workspace 路径。
 
 ## 创建 skill 需要确认的字段类别
 

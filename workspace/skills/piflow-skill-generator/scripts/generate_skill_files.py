@@ -2,7 +2,7 @@
 import argparse
 import json
 
-from generate_piflow_skill import read_spec_input, resolve_output_root, resolve_source_path, generate_skill_files
+from generate_piflow_skill import DEFAULT_OUTPUT_ROOT, read_spec_input, resolve_output_root, resolve_source_path, generate_skill_files
 
 
 def main():
@@ -12,7 +12,7 @@ def main():
     parser.add_argument("--spec", help="UTF-8 JSON spec path")
     parser.add_argument("--flow", help="UTF-8 JSON successful workflow summary path")
     parser.add_argument("--restored-spec-out", help="Optional path to write restored spec when using --flow")
-    parser.add_argument("--output-root", default="skills", help="Skill output root relative to workspace")
+    parser.add_argument("--output-root", default=DEFAULT_OUTPUT_ROOT, help="Skill output root relative to workspace")
     parser.add_argument("--overwrite", action="store_true")
     args = parser.parse_args()
 

@@ -19,7 +19,7 @@ input_params:
     role: output_data
     type: string
     required: false
-    default: skills
+    default: skills/generated
     description: 输出根目录；deepagent 虚拟文件环境，默认写入 workspace/skills/generated
 
   - name: overwrite
@@ -109,6 +109,8 @@ tag: 算子生成
 deepagent 的虚拟文件环境以 `workspace` 为根。生成的技能必须放在 `workspace/skills/generated/<skill-name>`，这样 PiFlow 才能发现。
 
 - 默认 `output_root` 使用 `skills/generated`，表示 `<workspace>/skills/generated`。
+- `write_file`/`read_file` 等工具调用时使用相对于 workspace 根的虚拟路径（如 `skills/generated/<skill_name>/`），**不要带 `workspace/` 前缀**。
+- Shell 命令中使用 `--output-root skills/generated`。
 - 如果用户传入旧路径 `workspace/skills` 或 `flow-deepagents/workspace/skills`，脚本会归一化为当前 deepagent workspace 下的 `skills/generated`。
 - `spec_path`、`icon`、`script.source`、`references[].source`、`assets[].source` 可以使用相对路径；脚本会先按当前工作目录解析，再按 deepagent workspace 根解析。
 - 不要把生成目录写到仓库外层、`flow-deepagents/workspace/workspace/skills` 或 `workspace/skills/skills`。

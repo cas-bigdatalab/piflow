@@ -8,7 +8,12 @@ from typing import Iterable
 
 
 DEFAULT_OUTPUT_ROOT = "skills/generated"
-LEGACY_OUTPUT_ROOTS = {"workspace/skills/generated", "flow-deepagents/workspace/skills/generated"}
+LEGACY_OUTPUT_ROOTS = {
+    "workspace/skills",
+    "workspace/skills/generated",
+    "flow-deepagents/workspace/skills",
+    "flow-deepagents/workspace/skills/generated",
+}
 PARAM_ROLES = {"input_data", "output_data", "data"}
 FRONTMATTER_KEYS = {
     "name",
@@ -94,9 +99,16 @@ def resolve_output_root(raw_output_root: str | None) -> Path:
     path = Path(raw)
     if path.is_absolute():
         return path
+    # Normalize: strip "workspace/" prefix if user accidentally included it
+    for prefix in ("workspace/", "flow-deepagents/workspace/"):
+        if raw.startswith(prefix) and raw != prefix.strip("/"):
+            raw = raw[len(prefix):]
+            path = Path(raw)
+            break
     if raw == DEFAULT_OUTPUT_ROOT or raw.startswith(f"{DEFAULT_OUTPUT_ROOT}/"):
         return workspace_root() / path
-    return Path.cwd() / path
+    # Any other relative path: resolve against workspace root
+    return workspace_root() / path
 
 
 def read_json(path: Path) -> dict:
