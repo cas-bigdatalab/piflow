@@ -3,9 +3,14 @@
 #  model: qwen3-max
 #  temperature: 0
 
+#llm:
+#  provider: dashscope
+#  model: gpt-5.4
+#  temperature: 0
+
 llm:
   provider: dashscope
-  model: gpt-5.4
+  model: qwen3.5-plus
   temperature: 0
 
 #llm:

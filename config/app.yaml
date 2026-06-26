@@ -6,7 +6,7 @@ app:
   log_file: app.log
   log_max_bytes: 5242880
   log_backup_count: 5
-  port: 8081
+  port: 8084
 
 workspace:
   root: ./workspace
