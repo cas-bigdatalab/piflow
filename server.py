@@ -78,7 +78,7 @@ async def lifespan(app: FastAPI):
     try:
         yield
     finally:
-        engine = getattr(app.state, "piflow_engine", None)
+        engine = getattr(app.state, "engine", None)
         if engine is None:
             return
         await engine.shutdown()
@@ -166,9 +166,9 @@ class MoveWorkspaceTempFilesRequest(BaseModel):
 
 
 def get_engine(request: Request) -> AgentEngine:
-    engine = getattr(request.app.state, "piflow_engine", None)
+    engine = getattr(request.app.state, "engine", None)
     if engine is None:
-        raise HTTPException(status_code=503, detail="agent piflow_engine is not initialized")
+        raise HTTPException(status_code=503, detail="agent engine is not initialized")
     return engine
 
 
