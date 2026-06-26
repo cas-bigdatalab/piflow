@@ -483,9 +483,9 @@ def command_template(spec: dict) -> list[str]:
     explicit = spec.get("command_template")
     if isinstance(explicit, list) and explicit:
         return [str(item) for item in explicit]
-    if not spec.get("script_path"):
-        return []
-    tokens = ["python", "{script_path}"]
+    tokens = []
+    if spec.get("script_path"):
+        tokens = ["python", "{script_path}"]
     for param in spec.get("input_params", []):
         tokens.extend([f"--{param['name']}", f"{{{param['name']}}}"])
     return tokens
@@ -697,9 +697,9 @@ def render_skill_json(spec: dict) -> str:
         "input_params": spec["input_params"],
         "output_params": spec["output_params"],
     }
-    template = command_template(spec)
-    if template:
-        data["command_template"] = template
+    if spec.get("name_zh"):
+        data["name_zh"] = spec["name_zh"]
+    data["command_template"] = command_template(spec)
     for key in ("category", "tag"):
         if spec.get(key):
             data[key] = spec[key]

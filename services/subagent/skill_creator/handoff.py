@@ -5,6 +5,7 @@ from typing import Any
 from agents.subagent.skill_creator.prompt import (
     SKILL_CREATOR_ROUTE_MARKER,
     is_skill_creator_route_marker,
+    strip_route_marker,
 )
 
 
@@ -23,6 +24,7 @@ def build_skill_creator_handoff_message(skill_creator_text: str) -> dict[str, st
             "不要再次输出 skill creator 路由标记。"
             "不要提及 subagent、隐藏路由或内部 handoff 过程。"
             "如果关键信息仍然缺失，继续向用户追问或明确说明当前还不能创建 skill。"
+            "**当生成的skill满足了缺失的需求，询问用户是否生成DAG，只有用户明确同意后，才直接输出DAG，切记只能生成DAG，不要输出其他内容。**"
         ),
     }
 
@@ -30,7 +32,9 @@ def build_skill_creator_handoff_message(skill_creator_text: str) -> dict[str, st
 def resolve_handoff_final_answer(candidate_text: str, fallback_text: str) -> str:
     if is_skill_creator_route_marker(candidate_text):
         return fallback_text
-    return candidate_text
+    # 兜底：即使检测失败，也确保标记不会泄露到用户
+    sanitized = strip_route_marker(candidate_text)
+    return sanitized if sanitized else fallback_text
 
 
 def is_skill_creator_route_prefix(candidate_text: str | None) -> bool:
@@ -41,7 +45,16 @@ def is_skill_creator_route_prefix(candidate_text: str | None) -> bool:
     if not text:
         return False
 
-    return SKILL_CREATOR_ROUTE_MARKER.startswith(text)
+    # 如果标记已完整出现在文本中，视为路由前缀（兼容文本+标记混排）
+    if SKILL_CREATOR_ROUTE_MARKER in text:
+        return True
+
+    # 流式场景：检查当前累积文本是否以标记的前缀结尾
+    for i in range(1, len(SKILL_CREATOR_ROUTE_MARKER)):
+        if text.endswith(SKILL_CREATOR_ROUTE_MARKER[:i]):
+            return True
+
+    return False
 
 
 def coerce_subagent_event_to_agent_event(

@@ -172,6 +172,63 @@ def test_resolve_dag_definition_skills_fills_builtin_stop_bundle_without_skill_b
     assert resolved["nodes"][1]["skill"]["skill_id"] == "cn.piflow.engine.local.file_save_stop.FileSaveStop"
 
 
+def test_resolve_dag_definition_skills_preserves_builtin_stop_bundle_when_db_points_to_system_node(
+    tmp_path, monkeypatch
+):
+    workspace_root = tmp_path / "workspace"
+    source_dir = workspace_root / "dag_system_node" / "source_stop"
+    sink_dir = workspace_root / "dag_system_node" / "sink_stop"
+    source_dir.mkdir(parents=True, exist_ok=True)
+    sink_dir.mkdir(parents=True, exist_ok=True)
+    (source_dir / "skill.json").write_text('{"name":"source_stop"}', encoding="utf-8")
+    (sink_dir / "skill.json").write_text('{"name":"sink_stop"}', encoding="utf-8")
+
+    monkeypatch.setattr(excutor_utils, "resolve_workspace_root", lambda: workspace_root)
+
+    def fake_get_dag_skill(skill_id):
+        mapping = {
+            "cn.piflow.engine.local.source_file_stop.SourceFileStop": "dag_system_node/source_stop",
+            "cn.piflow.engine.local.file_save_stop.FileSaveStop": "dag_system_node/sink_stop",
+        }
+        skill_path = mapping.get(skill_id)
+        if skill_path is None:
+            return None
+        return SimpleNamespace(skill_path=skill_path)
+
+    monkeypatch.setattr(excutor_utils, "get_dag_skill", fake_get_dag_skill)
+
+    dag_definition = {
+        "nodes": [
+            {
+                "node_id": "node-1",
+                "node_name": "输入文件节点 1",
+                "skill": {
+                    "skill_id": "cn.piflow.engine.local.source_file_stop.SourceFileStop",
+                    "skill_name": "source_stop",
+                    "version": "1.0.0",
+                },
+            },
+            {
+                "node_id": "node-2",
+                "node_name": "输出文件节点 1",
+                "skill": {
+                    "skill_id": "cn.piflow.engine.local.file_save_stop.FileSaveStop",
+                    "skill_name": "sink_stop",
+                    "version": "1.0.0",
+                },
+            },
+        ]
+    }
+
+    resolved = excutor_utils.resolve_dag_definition_skills(dag_definition)
+
+    assert (
+        resolved["nodes"][0]["skill"]["skill_id"]
+        == "cn.piflow.engine.local.source_file_stop.SourceFileStop"
+    )
+    assert resolved["nodes"][1]["skill"]["skill_id"] == "cn.piflow.engine.local.file_save_stop.FileSaveStop"
+
+
 def test_insert_dag_skill_upsert_preserves_existing_skill_id():
     source = inspect.getsource(skill_manage.insert_dag_skill)
 

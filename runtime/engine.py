@@ -9,7 +9,7 @@ from agents.subagent.skill_creator.factory import (
     SkillCreatorAgentFactory,
     build_transient_thread_id,
 )
-from agents.subagent.skill_creator.prompt import is_skill_creator_route_marker
+from agents.subagent.skill_creator.prompt import is_skill_creator_route_marker, strip_route_marker
 from agents.subagent.workflow_advisor.factory import AdvisorAgentFactory
 from infra.config_loader import get_settings
 from infra.env_loader import load_dotenv_file
@@ -779,11 +779,17 @@ class AgentEngine:
                 answer_piece = _message_content_text(getattr(message, "content", ""))
                 answer_delta, latest_answer = _merge_text_delta(latest_answer, answer_piece)
                 if answer_delta and not self._is_skill_creator_route_stream_artifact(latest_answer):
+                    # 兜底过滤：防止路由标记泄露到用户消息中
+                    safe_delta = strip_route_marker(answer_delta)
+                    safe_content = strip_route_marker(latest_answer)
+                    if not safe_delta:
+                        latest_answer = safe_content
+                        continue
                     yield {
                         "type": "message_delta",
                         "request_id": request_id,
-                        "delta": answer_delta,
-                        "content": latest_answer,
+                        "delta": safe_delta,
+                        "content": safe_content,
                         "node": metadata.get("langgraph_node") if isinstance(metadata, dict) else None,
                     }
         except Exception:
@@ -920,11 +926,17 @@ class AgentEngine:
                     answer_piece = _message_content_text(getattr(message, "content", ""))
                     answer_delta, latest_answer = _merge_text_delta(latest_answer, answer_piece)
                     if answer_delta and not self._is_skill_creator_route_stream_artifact(latest_answer):
+                        # 兜底过滤：防止路由标记泄露到用户消息中
+                        safe_delta = strip_route_marker(answer_delta)
+                        safe_content = strip_route_marker(latest_answer)
+                        if not safe_delta:
+                            latest_answer = safe_content
+                            continue
                         yield {
                             "type": "message_delta",
                             "request_id": request_id,
-                            "delta": answer_delta,
-                            "content": latest_answer,
+                            "delta": safe_delta,
+                            "content": safe_content,
                             "node": metadata.get("langgraph_node") if isinstance(metadata, dict) else None,
                         }
             except Exception:

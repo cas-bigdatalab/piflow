@@ -3,6 +3,48 @@ from pathlib import Path
 from infra.config_loader import get_settings, resolve_workspace_root
 from runtime.dag_manager import get_dag_skill
 
+
+def _register_skill_from_disk(workspace_root: Path, skill_name: str, skill_path: Path) -> None:
+    """将磁盘上的 skill 注册到 dag_skills 表（如果尚未注册）。"""
+    try:
+        from runtime.skill_manage import _parse_dag_skill_frontmatter, insert_dag_skill
+    except ImportError:
+        return
+
+    skill_dir = skill_path.parent
+    info = _parse_dag_skill_frontmatter(skill_dir)
+    if info is None:
+        return
+
+    rel_path = skill_dir.relative_to(workspace_root).as_posix()
+    file_path = ""
+    for script_candidate in (
+        skill_dir / "scripts",
+    ):
+        if script_candidate.is_dir():
+            scripts = sorted(script_candidate.iterdir())
+            if scripts:
+                file_path = str(scripts[0])
+            break
+
+    input_params = info.get("input_params", [])
+    output_params = info.get("output_params", [])
+
+    insert_dag_skill(
+        skill_name=info["name"],
+        name_zh=info.get("name_zh", ""),
+        description=info["description"],
+        skill_path=rel_path,
+        file_path=file_path,
+        input_params={"params": input_params},
+        output_params={"params": output_params},
+        skill_type=info.get("tag", ""),
+        language="Python",
+        command="",
+        icon_path=f"/storage/{rel_path}/{skill_name}.png",
+        version=info.get("version", "1.0.0"),
+    )
+
 example_json = """{
     "task": {
         "dag_task_id": "47b35de7a1c843c3a4d89961948172fc",
@@ -229,6 +271,7 @@ def resolve_dag_definition_skills(dag_definition: dict) -> dict:
         "source_stop": "cn.piflow.engine.local.source_file_stop.SourceFileStop",
         "sink_stop": "cn.piflow.engine.local.file_save_stop.FileSaveStop",
     }
+    builtin_skill_id_values = set(builtin_skill_ids.values())
 
     def _resolve_node_skill(node: dict) -> dict:
         raw_skill = node.get("skill")
@@ -246,28 +289,59 @@ def resolve_dag_definition_skills(dag_definition: dict) -> dict:
         if not skill_id and isinstance(raw_skill, str) and raw_skill.strip():
             skill_id = raw_skill.strip()
 
+        # PiFlow 内置 stop 必须保留 class bundle，不能被 dag_system_node/skill.json 覆盖。
+        if skill_id in builtin_skill_id_values:
+            updated_skill = {
+                **skill,
+                "skill_id": skill_id,
+            }
+            if skill_name:
+                updated_skill["skill_name"] = skill_name
+            return {**node, "skill": updated_skill}
+
         skill_json_path: str | None = None
+
+        # 路径1: 通过 skill_id 查 dag_skills 表
         if skill_id:
             dag_skill = get_dag_skill(skill_id)
             if dag_skill and dag_skill.skill_path:
                 skill_json_path = str(_resolve_skill_json_path(_workspace_root, dag_skill.skill_path))
 
+        # 路径2: 按 skill_name 在文件系统查找（覆盖 DB 查不到的情况）
         if not skill_json_path and skill_name:
             resolved_by_name = _resolve_skill_json_path_by_name(_workspace_root, skill_name)
+            if resolved_by_name is None:
+                resolved_by_name = _resolve_skill_json_path_by_name_zh(_workspace_root, skill_name)
             if resolved_by_name is not None:
                 skill_json_path = str(resolved_by_name)
+                skill_name = Path(resolved_by_name).parent.name
 
-        # 兜底：用 node_name 尝试查找 skill.json
+        # 路径3: 按 node_name 兜底（覆盖前端未保留 skill_name 的情况）
         if not skill_json_path and not skill_name and node_name:
-            # 1. 按目录名直接查找
             resolved_by_node = _resolve_skill_json_path_by_name(_workspace_root, node_name)
-            # 2. 没找到则按 name_zh（中文名）扫描查找
             if resolved_by_node is None:
                 resolved_by_node = _resolve_skill_json_path_by_name_zh(_workspace_root, node_name)
             if resolved_by_node is not None:
                 skill_json_path = str(resolved_by_node)
-                # 从路径中提取实际的 skill_name，供后续使用
                 skill_name = Path(resolved_by_node).parent.name
+
+        # 路径4: 用 skill_name 或 node_name 扫描所有技能目录（兜底中的兜底）
+        if not skill_json_path:
+            search_names = [n for n in [skill_name, node_name] if n]
+            for search_name in search_names:
+                resolved = _resolve_skill_json_path_by_name(_workspace_root, search_name)
+                if resolved is None:
+                    resolved = _resolve_skill_json_path_by_name_zh(_workspace_root, search_name)
+                if resolved is not None:
+                    skill_json_path = str(resolved)
+                    skill_name = Path(resolved).parent.name
+                    break
+
+        # 文件系统解析成功但 DB 中无记录 → 自动注册
+        if skill_json_path and skill_name:
+            resolved_path = Path(skill_json_path)
+            if resolved_path.exists():
+                _register_skill_from_disk(_workspace_root, skill_name, resolved_path)
 
         resolved_skill_id = skill_json_path or skill_id or ""
         if not resolved_skill_id:

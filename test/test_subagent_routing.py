@@ -3,14 +3,52 @@ from agents.subagent.skill_creator.prompt import (
     build_skill_creator_route_prompt_block,
     build_skill_creator_system_prompt,
     is_skill_creator_route_marker,
+    strip_route_marker,
 )
 from agents.prompts import BASE_PROMPT_NEW, build_system_prompt
+from services.subagent.skill_creator.handoff import is_skill_creator_route_prefix
 
 
 def test_skill_creator_route_marker_matches_exact_contract():
+    # 纯标记
     assert is_skill_creator_route_marker(SKILL_CREATOR_ROUTE_MARKER) is True
+    # 标记带空白
     assert is_skill_creator_route_marker(f"  {SKILL_CREATOR_ROUTE_MARKER}\n") is True
+    # 标记嵌入在文本中（新行为）
+    assert is_skill_creator_route_marker(f"缺少.sofa校验技能。{SKILL_CREATOR_ROUTE_MARKER}") is True
+    # 标记在文本开头
+    assert is_skill_creator_route_marker(f"{SKILL_CREATOR_ROUTE_MARKER}然后输出其他内容") is True
+    # 无关文本
     assert is_skill_creator_route_marker("帮我总结一下我们刚才这段对话") is False
+
+
+def test_strip_route_marker():
+    # 纯标记
+    assert strip_route_marker(SKILL_CREATOR_ROUTE_MARKER) == ""
+    # 标记前后有文本
+    assert strip_route_marker(f"前文{SKILL_CREATOR_ROUTE_MARKER}") == "前文"
+    assert strip_route_marker(f"{SKILL_CREATOR_ROUTE_MARKER}后文") == "后文"
+    assert strip_route_marker(f"前{SKILL_CREATOR_ROUTE_MARKER}后") == "前后"
+    # 多次出现
+    result = strip_route_marker(f"{SKILL_CREATOR_ROUTE_MARKER}{SKILL_CREATOR_ROUTE_MARKER}")
+    assert result == ""
+    # 无标记的文本不受影响
+    assert strip_route_marker("正常回复内容") == "正常回复内容"
+
+
+def test_skill_creator_route_prefix():
+    # 纯标记前缀（流式场景）
+    assert is_skill_creator_route_prefix("_") is True
+    assert is_skill_creator_route_prefix("__R") is True
+    assert is_skill_creator_route_prefix(SKILL_CREATOR_ROUTE_MARKER) is True
+    # 标记嵌入在文本中（兼容文本+标记混排）
+    assert is_skill_creator_route_prefix(f"缺少校验技能。{SKILL_CREATOR_ROUTE_MARKER}") is True
+    assert is_skill_creator_route_prefix(f"应进入skill生成路径。{SKILL_CREATOR_ROUTE_MARKER[:5]}") is True
+    # 无关文本
+    assert is_skill_creator_route_prefix("正常回复内容") is False
+    # 空/None
+    assert is_skill_creator_route_prefix(None) is False
+    assert is_skill_creator_route_prefix("") is False
 
 
 def test_skill_creator_route_prompt_block_is_composable():
@@ -20,6 +58,7 @@ def test_skill_creator_route_prompt_block_is_composable():
     assert "skill生成路由规则" in prompt_block
     assert SKILL_CREATOR_ROUTE_MARKER in prompt_block
     assert "只输出该标记" in prompt_block
+    assert "消息开头" in prompt_block
     assert prompt_block in system_prompt
 
 
