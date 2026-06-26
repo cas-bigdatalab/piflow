@@ -94,6 +94,27 @@ class FakeWorkspaceManager:
     def to_user_relative_path(self, user_id: str, virtual_path: str) -> str:
         return "/" + self._normalize_user_relative_path(user_id, virtual_path)
 
+    def resolve_virtual_path(self, virtual_path: str, create_parent: bool = False) -> Path:
+        raw = (virtual_path or "").strip()
+        if not raw:
+            raise ValueError("workspace path is empty")
+
+        if raw.startswith("/"):
+            candidate = self.root / raw.lstrip("/")
+        else:
+            candidate = self.root / raw.lstrip("/")
+
+        resolved = candidate.resolve()
+        try:
+            resolved.relative_to(self.root.resolve())
+        except ValueError as exc:
+            raise ValueError(f"path escapes workspace: {virtual_path}") from exc
+
+        if create_parent:
+            resolved.parent.mkdir(parents=True, exist_ok=True)
+
+        return resolved
+
 
 @pytest.fixture
 def client(tmp_path, monkeypatch):
@@ -172,6 +193,21 @@ def test_download_workspace_file_supports_user_relative_and_prefixed_paths(clien
     )
     assert prefixed_response.status_code == 200
     assert prefixed_response.content == b"id,value\n1,ok\n"
+
+
+def test_download_workspace_root_file_resolves_from_workspace_root(client):
+    test_client, workspace_root = client
+    download_file = workspace_root / "temp" / "Akcay.pdf"
+    download_file.parent.mkdir(parents=True, exist_ok=True)
+    download_file.write_bytes(b"%PDF-1.4")
+
+    response = test_client.get(
+        "/workspace/download/root",
+        params={"path": "/temp/Akcay.pdf"},
+    )
+
+    assert response.status_code == 200
+    assert response.content == b"%PDF-1.4"
 
 
 def test_attach_message_files_stores_relative_path_and_validates_user_workspace(client):
