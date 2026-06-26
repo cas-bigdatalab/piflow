@@ -78,6 +78,7 @@ class WorkspaceManager:
 
         user_root = self.get_user_root(normalized_user_id).resolve()
         user_prefix = f"/users/{normalized_user_id}"
+        workspace_prefixes = ("/workspace/", "workspace/")
         if raw == user_prefix:
             raise ValueError("user workspace root path is not allowed")
 
@@ -95,7 +96,12 @@ class WorkspaceManager:
                     raise ValueError("user workspace path is invalid")
                 return "/".join(relative.parts)
 
-        if raw.startswith(user_prefix + "/"):
+        if raw.startswith(workspace_prefixes):
+            workspace_relative = raw.removeprefix("/").removeprefix("workspace/").lstrip("/")
+            if not workspace_relative:
+                raise ValueError("workspace root path is not allowed")
+            raw = "/" + workspace_relative
+        elif raw.startswith(user_prefix + "/"):
             raw = raw[len(user_prefix):]
         elif raw.startswith("/users/"):
             parts = Path(raw.lstrip("/")).parts

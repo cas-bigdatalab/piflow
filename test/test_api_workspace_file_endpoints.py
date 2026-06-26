@@ -48,9 +48,15 @@ class FakeWorkspaceManager:
             raise ValueError("workspace path is empty")
 
         prefix = f"/users/{normalized_user_id}"
+        workspace_prefixes = ("/workspace/", "workspace/")
         if raw == prefix:
             raise ValueError("user workspace root path is not allowed")
-        if raw.startswith(prefix + "/"):
+        if raw.startswith(workspace_prefixes):
+            workspace_relative = raw.removeprefix("/").removeprefix("workspace/").lstrip("/")
+            if not workspace_relative:
+                raise ValueError("workspace root path is not allowed")
+            raw = "/" + workspace_relative
+        elif raw.startswith(prefix + "/"):
             raw = raw[len(prefix):]
         elif raw.startswith("/users/"):
             parts = Path(raw.lstrip("/")).parts
@@ -195,5 +201,36 @@ def test_attach_message_files_stores_relative_path_and_validates_user_workspace(
             "file_id": 1,
             "path": "/temp/chat_001/12_report.csv",
             "name": "report.csv",
+        }
+    ]
+
+
+def test_attach_message_files_supports_workspace_prefixed_paths(client):
+    test_client, workspace_root = client
+    attach_file = workspace_root / "users" / "alice" / "temp" / "Akcay.pdf"
+    attach_file.parent.mkdir(parents=True, exist_ok=True)
+    attach_file.write_bytes(b"%PDF-1.4")
+
+    response = test_client.post(
+        "/message/attach",
+        json={
+            "user_id": "alice",
+            "thread_id": "chat_001",
+            "message_id": 12,
+            "attachments": [
+                {
+                    "path": "/workspace/temp/Akcay.pdf",
+                    "name": "Akcay.pdf",
+                }
+            ],
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["attachments"] == [
+        {
+            "file_id": 1,
+            "path": "/temp/Akcay.pdf",
+            "name": "Akcay.pdf",
         }
     ]
