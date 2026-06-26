@@ -1,8 +1,36 @@
 import argparse
 import json
 import os
+import sys
+
+# 解决 Windows 下多进程子线程读取输出时的 gbk 解码报错
+if sys.platform == 'win32':
+    os.environ['PYTHONIOENCODING'] = 'utf-8'
 
 from data_juicer.format.formatter import LocalFormatter
+
+
+_SUFFIX_TYPE_MAP = {
+    '.json': 'json',
+    '.jsonl': 'json',
+    '.csv': 'csv',
+    '.tsv': 'csv',
+    '.parquet': 'parquet',
+    '.txt': 'text',
+}
+
+
+def _infer_type(input_path: str, suffixes: list = None) -> str:
+    if suffixes:
+        for sf in suffixes:
+            typ = _SUFFIX_TYPE_MAP.get(sf.lower())
+            if typ:
+                return typ
+    ext = os.path.splitext(input_path)[1].lower()
+    typ = _SUFFIX_TYPE_MAP.get(ext)
+    if typ:
+        return typ
+    return 'json'
 
 
 def run_local_formatter(input_path: str,
@@ -25,10 +53,13 @@ def run_local_formatter(input_path: str,
     if text_keys is None:
         text_keys = ['text']
 
+    # 从后缀或文件名推断数据集类型
+    dataset_type = _infer_type(input_path, suffixes)
+
     # 初始化格式化器
     formatter = LocalFormatter(
         dataset_path=input_path,
-        type=None,
+        type=dataset_type,
         suffixes=suffixes,
         text_keys=text_keys,
         add_suffix=add_suffix

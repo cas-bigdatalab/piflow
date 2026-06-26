@@ -970,7 +970,7 @@ export function HomePage() {
             <div className="border-b border-slate-200/70 bg-white/40 px-8 pb-14 pt-10 text-center">
               <div className="mx-auto max-w-4xl">
                 <h1 className="mb-5 text-[38px] font-bold tracking-tight text-slate-950">
-                  πFlow AI：面向科学数据加工处理的智能工作台
+                  πFlow：面向科学数据加工处理的智能工作台
                 </h1>
                 <p className="mx-auto max-w-2xl text-[15px] leading-7 text-slate-500">
                   专注科学数据治理，赋能科学语料构建
