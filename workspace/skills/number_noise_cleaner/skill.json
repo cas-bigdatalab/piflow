@@ -1,0 +1,121 @@
+{
+  "name": "number_noise_cleaner",
+  "version": "1.1.0",
+  "tag": "清洗",
+  "description": "无用数字字符清理工具。读取结构化数据文件，对指定或全部文本字段移除无语义的独立数字字符，输出清理后的结构化文件。当用户提到无用数字字符清理、数字噪声删除、文本中的杂散数字清理等需求时使用此skill。即使用户没有明确说出number_noise_cleaner，只要任务涉及从文本中删除无业务意义的数字字符，就应该使用此skill。不负责数值规整、字段校验或通用正则替换。",
+  "language": "python",
+  "script_path": "scripts/number_noise_cleaner.py",
+  "entrypoint": "python scripts/number_noise_cleaner.py",
+  "input_params": [
+    {
+      "name": "input_path",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "输入文件路径（支持CSV/TSV/Excel等data_io支持的格式）"
+    },
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "输出文件路径（清理后的文件）"
+    },
+    {
+      "name": "text_columns",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "需清洗的文本列，逗号分隔；不填则默认所有字符串列"
+    },
+    {
+      "name": "preserve_years",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "default": "True",
+      "description": "是否保留年份"
+    },
+    {
+      "name": "year_min",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "default": "1900",
+      "description": "年份保留下限"
+    },
+    {
+      "name": "year_max",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "default": "2099",
+      "description": "年份保留上限"
+    },
+    {
+      "name": "preserve_identifiers",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "default": "True",
+      "description": "是否保留编号/版本号等标识"
+    },
+    {
+      "name": "identifier_markers",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "default": "ID,No.,No,编号,样本,批次,版本,实验,试验",
+      "description": "编号上下文标记，逗号分隔"
+    },
+    {
+      "name": "preserve_measurements",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "default": "True",
+      "description": "是否保留实验数值/单位数值"
+    },
+    {
+      "name": "measurement_units",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "default": "%,mg,g,kg,ug,μg,mL,ml,L,℃,°C,mol,mm,cm,m,h,s,min",
+      "description": "实验数值单位，逗号分隔"
+    }
+  ],
+  "output_params": [
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "csv_file",
+      "default": "number_noise_cleaner_output.csv",
+      "description": "无用数字字符清理后的结构化数据文件"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input_path",
+    "{input_path}",
+    "--output_path",
+    "{output_path}",
+    "--text_columns",
+    "{text_columns}",
+    "--preserve_years",
+    "{preserve_years}",
+    "--year_min",
+    "{year_min}",
+    "--year_max",
+    "{year_max}",
+    "--preserve_identifiers",
+    "{preserve_identifiers}",
+    "--identifier_markers",
+    "{identifier_markers}",
+    "--preserve_measurements",
+    "{preserve_measurements}",
+    "--measurement_units",
+    "{measurement_units}"
+  ]
+}

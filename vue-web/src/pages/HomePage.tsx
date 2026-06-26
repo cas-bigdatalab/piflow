@@ -9,6 +9,7 @@ import {
   streamChat,
   uploadWorkspaceFile,
   getDrawInfoBymegId,
+  copyDefaultFiles,
   type MessageAttachment,
   type ThreadMessage,
 } from "../lib/api";
@@ -201,9 +202,9 @@ function svgToDataUri(svg: string) {
 const EXAMPLES: ExampleCard[] = [
   {
     title: "语料格式转换与过滤",
-    description: "「请对上传数据csv文件转换为jsonl格式，再对这个jsonl的'fa0114'字段进行最大长度过滤，要求最大长度在40以内；再对'fa0112'字段筛选过滤出包含'多花山矾'的数据」",
+    description: "「请对上传数据csv文件转换为jsonl格式，再对这个jsonl的'fa0114'字段进行最大长度过滤，要求最大长度在40以内；再对'fa0112'字段筛选过滤出是'多花山矾'的数据」",
     prompt:
-      "请对上传数据csv文件转换为jsonl格式，再对这个jsonl的'fa0114'字段进行最大长度过滤，要求最大长度在40以内；再对'fa0112'字段筛选过滤出包含'多花山矾'的数据",
+      "请对上传数据csv文件转换为jsonl格式，再对这个jsonl的'fa0114'字段进行最大长度过滤，要求最大长度在40以内；再对'fa0112'字段筛选过滤出是'多花山矾'的数据",
     attachments: [
       {
         path: "/temp/森林每木调查数据.csv",
@@ -337,7 +338,15 @@ export function HomePage() {
 
   const uploading = uploadingCount > 0;
   const isExpanded = hasMessages || sending || Boolean(loadError);
-
+    const handleDownload = () => {
+    const zipName = "用户手册";
+    const link = document.createElement("a");
+    link.href = "./downloadFile/用户手册.pdf";
+    link.download = "用户手册";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
   // 处理打开画板
   const handleOpenCanvas = async (data: PipelineData, msgId?: string) => {
     setCanvasPipelineData(data);
@@ -533,7 +542,7 @@ export function HomePage() {
           messageId,
           presetAttachments,
         );
-        attachedPresetFiles = attached.attachments || [];
+        attachedPresetFiles = (attached.attachments || []).map(f => ({ ...f, _isPreset: true }));
       }
 
       const uploadedAttachments: MessageAttachment[] = [];
@@ -769,9 +778,16 @@ export function HomePage() {
     }
   }
 
-  function startExample(card: ExampleCard) {
+  async function startExample(card: ExampleCard) {
     abortRef.current?.abort();
     abortRef.current = null;
+
+    const userId = localStorage.getItem('userId') || '';
+    try {
+      await copyDefaultFiles(userId);
+    } catch (e) {
+      console.error('复制默认文件失败:', e);
+    }
 
     const nextThreadId = `t_${shortId()}`;
     setThreadId(nextThreadId);
@@ -964,13 +980,28 @@ export function HomePage() {
 
   return (
     <div className="flex min-h-full flex-1 flex-col">
+      {/* 右上角用户手册下载按钮 */}
+      <div className="flex justify-end px-8 pt-6">
+        <button
+          onClick={() => handleDownload()}
+          className="inline-flex items-center gap-1.5 rounded-full bg-[color:var(--color-primary)] px-3 py-1.5 text-xs font-medium text-[color:var(--color-primary-foreground)] hover:opacity-90 transition-opacity cursor-pointer"
+          title="Download"
+        >
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+            <polyline points="7 10 12 15 17 10" />
+            <line x1="12" y1="15" x2="12" y2="3" />
+          </svg>
+          <span>用户手册下载</span>
+        </button>
+      </div>
       {!isExpanded ? (
         <section className="px-8 pb-16 pt-6">
           <div className="mx-auto flex max-w-5xl flex-col">
             <div className="border-b border-slate-200/70 bg-white/40 px-8 pb-14 pt-10 text-center">
               <div className="mx-auto max-w-4xl">
                 <h1 className="mb-5 text-[38px] font-bold tracking-tight text-slate-950">
-                  πFlow AI：面向科学数据加工处理的智能工作台
+                  πFlow：面向科学数据加工处理的智能工作台
                 </h1>
                 <p className="mx-auto max-w-2xl text-[15px] leading-7 text-slate-500">
                   专注科学数据治理，赋能科学语料构建
@@ -1161,18 +1192,32 @@ export function HomePage() {
                             >
                               {message.attachments && message.attachments.length > 0 ? (
                                 <div className="absolute right-0 top-0 z-10 flex max-w-full flex-wrap justify-end gap-2">
-                                  {message.attachments.map((file) => (
-                                    <a
-                                      key={`${message.id}-${file.path}`}
-                                      className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-700 shadow-sm transition-colors hover:border-black hover:text-black"
-                                      href={downloadWorkspaceUrl(file.path)}
-                                      rel="noreferrer"
-                                      target="_blank"
-                                    >
-                                      <Icon icon="ri:file-2-line" width="14" />
-                                      <span>{file.name}</span>
-                                    </a>
-                                  ))}
+                                  {message.attachments.map((file) => {
+                                    const isPreset = (file as any)._isPreset;
+                                    if (isPreset) {
+                                      return (
+                                        <span
+                                          key={`${message.id}-${file.path}`}
+                                          className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-500 shadow-sm cursor-default"
+                                        >
+                                          <Icon icon="ri:file-2-line" width="14" />
+                                          <span>{file.name}</span>
+                                        </span>
+                                      );
+                                    }
+                                    return (
+                                      <a
+                                        key={`${message.id}-${file.path}`}
+                                        className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-700 shadow-sm transition-colors hover:border-black hover:text-black"
+                                        href={downloadWorkspaceUrl(file.path)}
+                                        rel="noreferrer"
+                                        target="_blank"
+                                      >
+                                        <Icon icon="ri:file-2-line" width="14" />
+                                        <span>{file.name}</span>
+                                      </a>
+                                    );
+                                  })}
                                 </div>
                               ) : null}
                               <div className="inline-block w-fit max-w-full rounded-[24px] bg-slate-100 px-4 py-3 text-slate-900">

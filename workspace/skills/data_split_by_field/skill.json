@@ -1,0 +1,91 @@
+{
+  "name": "data_split_by_field",
+  "version": "1.0.0",
+  "description": "按字段拆分数据工具。读取CSV、TSV或Excel表格，按指定字段值拆成多个文件，每个唯一值对应一个输出文件。 当用户提到数据拆分、按字段分组导出、分类导出、数据分片、按某列值分割文件等需求时使用此skill。 即使用户没有明确说出\"拆分\"，只要任务涉及将结构化表格按某字段值分成多个文件，就应该使用此skill。 不负责字段聚合统计、行级过滤或跨表关联合并。",
+  "language": "python",
+  "script_path": "scripts/run_data_split_by_field.py",
+  "entrypoint": "python scripts/run_data_split_by_field.py",
+  "input_params": [
+    {
+      "name": "input",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "输入文件路径"
+    },
+    {
+      "name": "output_dir",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "输出目录路径"
+    },
+    {
+      "name": "split_field",
+      "role": "data",
+      "type": "string",
+      "required": true,
+      "description": "用于拆分的字段名"
+    },
+    {
+      "name": "output_prefix",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "输出文件名前缀",
+      "default": "split"
+    },
+    {
+      "name": "output_format",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "输出格式（csv/tsv/xlsx/parquet）",
+      "default": "csv"
+    },
+    {
+      "name": "use_dask",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "是否使用Dask处理大数据",
+      "default": "False"
+    },
+    {
+      "name": "blocksize",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "Dask分块大小",
+      "default": "64MB"
+    }
+  ],
+  "output_params": [
+    {
+      "name": "output_dir",
+      "role": "output_data",
+      "type": "directory",
+      "default": "split_output",
+      "description": "包含拆分后文件的目录"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input",
+    "{input}",
+    "--output_dir",
+    "{output_dir}",
+    "--split_field",
+    "{split_field}",
+    "--output_prefix",
+    "{output_prefix}",
+    "--output_format",
+    "{output_format}",
+    "--use_dask",
+    "{use_dask}",
+    "--blocksize",
+    "{blocksize}"
+  ],
+  "tag": "切分与采样"
+}

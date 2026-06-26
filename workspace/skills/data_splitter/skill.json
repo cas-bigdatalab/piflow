@@ -1,0 +1,82 @@
+{
+  "name": "data_splitter",
+  "version": "1.0.0",
+  "description": "数据分割工具。将JSONL数据集按比例拆分为多个子集，支持随机切分和按字段分层切分。当用户提到数据分割、训练集验证集测试集拆分、分层切分等需求时使用此skill。即使用户没有明确说出\"切分\"，只要任务涉及把一份JSONL数据按比例拆成多个子集，就应该使用此skill。不负责按固定条数均匀分块，也不负责按字段导出分组文件。",
+  "language": "python",
+  "script_path": "scripts/run_data_splitter.py",
+  "entrypoint": "python scripts/run_data_splitter.py",
+  "input_params": [
+    {
+      "name": "input",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "输入JSONL文件路径"
+    },
+    {
+      "name": "outputs",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "输出文件路径，逗号分隔"
+    },
+    {
+      "name": "ratios",
+      "type": "string",
+      "required": true,
+      "description": "分割比例，逗号分隔（如0.7,0.2,0.1）"
+    },
+    {
+      "name": "stratify_field",
+      "type": "string",
+      "required": false,
+      "default": "",
+      "description": "分层字段（用于分层分割）"
+    },
+    {
+      "name": "seed",
+      "type": "string",
+      "required": false,
+      "default": "42",
+      "description": "随机种子"
+    },
+    {
+      "name": "log_file",
+      "type": "string",
+      "required": false,
+      "default": "",
+      "description": "日志文件路径"
+    }
+  ],
+  "output_params": [
+    {
+      "name": "outputs",
+      "type": "list",
+      "default": [],
+      "description": "分割后的数据子集"
+    },
+    {
+      "name": "split_stats",
+      "type": "object",
+      "default": {},
+      "description": "分割统计信息"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input",
+    "{input}",
+    "--outputs",
+    "{outputs}",
+    "--ratios",
+    "{ratios}",
+    "--stratify_field",
+    "{stratify_field}",
+    "--seed",
+    "{seed}",
+    "--log_file",
+    "{log_file}"
+  ],
+  "tag": "切分与采样"
+}

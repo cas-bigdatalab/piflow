@@ -92,6 +92,7 @@ def run_dag_task(
     process = submit_frontend_dag(
         definition_json=definition_json,
         workspace_root=workspace_root,
+        user_id=create_user_id,
         python_home=python_home,
     )
 

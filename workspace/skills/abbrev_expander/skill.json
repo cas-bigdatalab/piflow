@@ -1,0 +1,70 @@
+{
+  "name": "abbrev_expander",
+  "version": "1.0.0",
+  "description": "领域缩略语展开：按词典将缩略语替换为全称，可选保留原缩写。支持 json/csv/tsv 词典。",
+  "tag": "清洗",
+  "language": "python",
+  "script_path": "scripts/abbrev_expander.py",
+  "entrypoint": "python scripts/abbrev_expander.py",
+  "input_params": [
+    {
+      "name": "input_path",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "输入文件路径"
+    },
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "输出文件路径"
+    },
+    {
+      "name": "text_columns",
+      "role": "config",
+      "type": "string",
+      "required": false,
+      "description": "处理的文本列，逗号分隔；默认全部字符串列"
+    },
+    {
+      "name": "dict_path",
+      "role": "config",
+      "type": "string",
+      "required": false,
+      "description": "缩略语词典路径，支持 json/csv/tsv"
+    },
+    {
+      "name": "keep_abbr",
+      "role": "config",
+      "type": "string",
+      "required": false,
+      "description": "是否在全称后保留原缩写"
+    }
+  ],
+  "output_params": [
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "default": "DC27_abbrev_expander_output.csv",
+      "description": "展开后的文件"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input_path",
+    "{input_path}",
+    "--output_path",
+    "{output_path}",
+    "--text_columns",
+    "{text_columns}",
+    "--dict_path",
+    "{dict_path}",
+    "--keep_abbr",
+    "{keep_abbr}"
+  ]
+}

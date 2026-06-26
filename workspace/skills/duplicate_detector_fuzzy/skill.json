@@ -1,0 +1,71 @@
+{
+  "name": "duplicate_detector_fuzzy",
+  "version": "1.0.0",
+  "description": "模糊去重工具。使用标准库相似度匹配检测并处理数据集中的近似重复记录。当用户提到模糊去重、近似重复检测时使用此skill。",
+  "language": "python",
+  "script_path": "scripts/run_duplicate_detector_fuzzy.py",
+  "entrypoint": "python scripts/run_duplicate_detector_fuzzy.py",
+  "input_params": [
+    {
+      "name": "input",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "输入文件路径"
+    },
+    {
+      "name": "output",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "输出文件路径"
+    },
+    {
+      "name": "subset",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "用于比对相似度的文本字段"
+    },
+    {
+      "name": "similarity_threshold",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "相似度阈值（0-1）",
+      "default": "0.9"
+    },
+    {
+      "name": "keep",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "保留策略（first/last/none/mark）",
+      "default": "first"
+    }
+  ],
+  "output_params": [
+    {
+      "name": "output",
+      "role": "output_data",
+      "type": "csv_file",
+      "default": "duplicate_detector_fuzzy_output.csv",
+      "description": "去重后的数据文件"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input",
+    "{input}",
+    "--output",
+    "{output}",
+    "--subset",
+    "{subset}",
+    "--similarity_threshold",
+    "{similarity_threshold}",
+    "--keep",
+    "{keep}"
+  ],
+  "tag": "去重"
+}

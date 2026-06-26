@@ -1,0 +1,7 @@
+{
+  "left_input": "left_table.csv",
+  "right_input": "right_table.csv",
+  "output": "joined.csv",
+  "on": "id",
+  "how": "inner"
+}

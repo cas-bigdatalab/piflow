@@ -1,0 +1,83 @@
+{
+  "name": "table_collector",
+  "name_zh": "表格类数据采集接入算子",
+  "description": "表格文件采集工具。读取单个表格文件或目录中的csv、tsv、xlsx、xls文件，执行行记录采集，输出统一结构化表格记录文件。当用户提到表格采集、读取科研数据表、汇总CSV/TSV/Excel表格、把本地表格文件转成结构化记录等需求时使用此skill。即使用户没有明确说出\"表格采集\"，只要任务涉及把本地结构化表格文件内容收集成统一记录，就应该使用此skill。不负责表格清洗、空行删除、字段去空格、格式校验、字段过滤或格式转换。",
+  "input_params": [
+    {
+      "name": "input",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "输入表格文件或目录路径"
+    },
+    {
+      "name": "output",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "输出文件路径"
+    },
+    {
+      "name": "encoding",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "default": "auto",
+      "description": "CSV/TSV 文件编码，默认 auto 自动检测"
+    },
+    {
+      "name": "recursive",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "default": "False",
+      "description": "是否递归采集子目录中的表格文件"
+    },
+    {
+      "name": "add_metadata",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "default": "True",
+      "description": "是否为每行记录添加来源文件元信息"
+    },
+    {
+      "name": "output_format",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "default": "jsonl",
+      "description": "输出格式，支持 jsonl/json/csv/auto"
+    }
+  ],
+  "output_params": [
+    {
+      "name": "output",
+      "role": "output_data",
+      "type": "jsonl_file",
+      "default": "table_collector_output.jsonl",
+      "description": "采集后的结构化表格记录文件"
+    }
+  ],
+  "tag": "采集",
+  "script_path": "scripts/run_table_collector.py",
+  "entrypoint": "python scripts/run_table_collector.py",
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input",
+    "{input}",
+    "--output",
+    "{output}",
+    "--encoding",
+    "{encoding}",
+    "--recursive",
+    "{recursive}",
+    "--add_metadata",
+    "{add_metadata}",
+    "--output_format",
+    "{output_format}"
+  ],
+  "version": "1.0.0",
+  "language": "python"
+}

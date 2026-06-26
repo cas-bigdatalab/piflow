@@ -1,0 +1,27 @@
+{
+  "name": "smart_quote_normalizer",
+  "version": "1.0.0",
+  "description": "智能引号/排版字符规范化：将弯引号（“ ” ' '）转为直引号，长破折号（—）转双连字符（--），省略号（…）转三个点（...），统一排版字符为ASCII标准形式，适配Word/PDF/网页文本的后处理清洗。",
+  "tag": "清洗",
+  "language": "python",
+  "script_path": "scripts/smart_quote_normalizer.py",
+  "entrypoint": "python scripts/smart_quote_normalizer.py",
+  "input_params": [
+    {"name": "input_path", "role": "input_data", "type": "string", "required": true, "description": "输入文件路径"},
+    {"name": "output_path", "role": "output_data", "type": "string", "required": true, "description": "输出文件路径"},
+    {"name": "text_columns", "role": "config", "type": "string", "required": false, "default": "", "description": "处理的文本列，逗号分隔；默认全部字符串列"}
+  ],
+  "output_params": [
+    {"name": "output_path", "role": "output_data", "type": "string", "required": true, "default": "smart_quote_normalizer_output.csv", "description": "规范化后的文件"}
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input_path",
+    "{input_path}",
+    "--output_path",
+    "{output_path}",
+    "--text_columns",
+    "{text_columns}"
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "input": "corpus.jsonl",
+  "output": "stripped.jsonl",
+  "text_field": "text",
+  "strip_html": true,
+  "strip_urls": true,
+  "strip_emails": true
+}

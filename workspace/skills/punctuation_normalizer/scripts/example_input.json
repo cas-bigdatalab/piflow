@@ -1,0 +1,10 @@
+{
+  "input": "raw_text.jsonl",
+  "output": "normalized_text.jsonl",
+  "merge_repeated": true,
+  "max_repeat": 1,
+  "normalize_width": "auto",
+  "normalize_quotes": true,
+  "quote_style": "chinese",
+  "text_field": "text"
+}

@@ -214,7 +214,7 @@ export function downloadWorkspaceUrl2(path: string) {
   //   path: encodeURIComponent(path),
   //   token 
   // });
-  return `${apiBase()}/workspace/download?path=${path}`;
+  return `${apiBase()}/workspace/download?path=${path}&user_id=${localStorage.getItem('userName')}`;
 }
 export async function listSkills(page = 1, page_size = 20, keyword = "", skill_type = "") {
   const sp = new URLSearchParams();
@@ -617,4 +617,56 @@ export async function getStopLogPaths(job_id: string) {
   const params = new URLSearchParams();
   params.set('job_id', job_id);
   return apiFetch<LogPathsResponse>(`/dag/runtime/stop/log-paths?${params.toString()}`);
+}
+
+// ==================== 存储文件 API ====================
+
+export interface StorageItem {
+  name: string;
+  type: 'directory' | 'file';
+  path: string;
+  size: number | null;
+  last_modified: string | null;
+}
+
+export interface StorageListResponse {
+  user_id: string;
+  dir_path: string;
+  items: StorageItem[];
+}
+
+export interface SaveToStorageResponse {
+  code: number;
+  message: string;
+  result: {
+    path: string;
+  };
+}
+
+export async function listStorage(user_id: string, dir_path?: string) {
+  const body: Record<string, string> = { user_id };
+  if (dir_path) {
+    body.dir_path = dir_path;
+  }
+  return apiFetch<StorageListResponse>("/workspace/list", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body)
+  });
+}
+
+export async function copyDefaultFiles(user_id: string) {
+  return apiFetch<{ success: boolean; message: string }>("/workspace/temp/copy-default-files", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ user_id })
+  });
+}
+
+export async function saveToStorage(user_id: string, target_path: string, local_path: string) {
+  return apiFetch<SaveToStorageResponse>("/storage/save", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ user_id, target_path, local_path })
+  });
 }

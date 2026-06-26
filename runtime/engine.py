@@ -38,7 +38,7 @@ from services.subagent.workflow_advisor.advisor_service import WorkflowAdvisorSe
 from services.user_service import init_default_user
 from tools.core.registry import registry
 
-log = logging.getLogger("flow.engine")
+log = logging.getLogger("flow.piflow_engine")
 
 
 def _preview_text(value: Any, limit: int = 120) -> str:
@@ -152,14 +152,92 @@ def _normalize_pipeline_answer_for_ui(text: str) -> str:
     return "\n\n".join(part for part in [prefix, fenced, suffix] if part)
 
 
-def _build_attachment_context(attachments: list[str] | None) -> str:
-    valid = []
+def _try_extract_pipeline_json_object(text: str) -> str | None:
+    for start, ch in enumerate(text):
+        if ch != "{":
+            continue
+
+        depth = 0
+        in_string = False
+        escaped = False
+
+        for end in range(start, len(text)):
+            current = text[end]
+            if in_string:
+                if escaped:
+                    escaped = False
+                elif current == "\\":
+                    escaped = True
+                elif current == '"':
+                    in_string = False
+                continue
+
+            if current == '"':
+                in_string = True
+                continue
+
+            if current == "{":
+                depth += 1
+            elif current == "}":
+                depth -= 1
+                if depth == 0:
+                    candidate = text[start : end + 1].strip()
+                    try:
+                        parsed = json.loads(candidate)
+                    except Exception:
+                        break
+                    if (
+                        isinstance(parsed, dict)
+                        and isinstance(parsed.get("task"), dict)
+                        and isinstance(parsed.get("nodes"), list)
+                    ):
+                        return candidate
+                    break
+    return None
+
+
+def _normalize_pipeline_answer_for_ui(text: str) -> str:
+    content = str(text or "").strip()
+    if not content:
+        return content
+
+    try:
+        parsed = json.loads(content)
+    except Exception:
+        parsed = None
+
+    if isinstance(parsed, dict) and isinstance(parsed.get("task"), dict) and isinstance(parsed.get("nodes"), list):
+        return content
+
+    if "```" in content:
+        return content
+
+    pipeline_json = _try_extract_pipeline_json_object(content)
+    if not pipeline_json:
+        return content
+
+    prefix, suffix = content.split(pipeline_json, 1)
+    prefix = prefix.strip()
+    suffix = suffix.strip()
+    fenced = f"```json\n{pipeline_json}\n```"
+    return "\n\n".join(part for part in [prefix, fenced, suffix] if part)
+
+
+def _build_attachment_context(
+    attachments: list[str] | None,
+    user_id: str,
+    workspace: WorkspaceManager,
+) -> str:
+    valid: list[str] = []
     for item in attachments or []:
         if not isinstance(item, str):
             continue
         path = item.strip()
         if path:
-            valid.append(path)
+            try:
+                valid.append(workspace.to_user_virtual_path(user_id, path))
+            except ValueError:
+                continue
 
     if not valid:
         return ""
@@ -473,7 +551,20 @@ class AgentEngine:
 
         update_thread_time(thread_id)
 
-        attachment_context = _build_attachment_context(attachments)
+        workspace = WorkspaceManager()
+        normalized_attachments: list[str] = []
+        for item in attachments or []:
+            if not isinstance(item, str):
+                continue
+            path = item.strip()
+            if not path:
+                continue
+            try:
+                normalized_attachments.append(workspace.to_user_virtual_path(user_id, path))
+            except ValueError:
+                continue
+
+        attachment_context = _build_attachment_context(normalized_attachments, user_id, workspace)
         input_content = message
         if attachment_context:
             input_content = f"{message}\n\n{attachment_context}"
@@ -481,8 +572,8 @@ class AgentEngine:
                 "attachments injected request_id=%s thread_id=%s attachment_count=%s attachments=%s",
                 request_id,
                 thread_id,
-                len(attachments or []),
-                ",".join(attachments or []),
+                len(normalized_attachments),
+                ",".join(normalized_attachments),
             )
 
         messages = []
@@ -505,7 +596,6 @@ class AgentEngine:
             })
             save_message(user_id, thread_id, "user", message)
 
-        workspace = WorkspaceManager()
         before_outputs = workspace.snapshot_downloadables()
 
         return {

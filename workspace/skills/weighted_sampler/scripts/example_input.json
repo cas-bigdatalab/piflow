@@ -1,0 +1,8 @@
+{
+  "input": "data.jsonl",
+  "output": "sampled.jsonl",
+  "weight_field": "priority_score",
+  "sample_size": 1000,
+  "with_replacement": false,
+  "seed": 42
+}

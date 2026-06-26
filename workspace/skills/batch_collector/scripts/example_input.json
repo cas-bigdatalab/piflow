@@ -1,0 +1,8 @@
+{
+  "input": ["./papers/", "./tables/", "./images/"],
+  "output": "./batch_result.jsonl",
+  "recursive": false,
+  "file_types": ["txt", "csv", "pdf", "jpg"],
+  "batch_size": 50,
+  "output_format": "jsonl"
+}

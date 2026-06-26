@@ -9,10 +9,12 @@ import RunDetails from "./components/RunDetails";
 
 function TaskDrawPageWrapper() {
   const [searchParams] = useSearchParams();
+  const descriptionParam = searchParams.get('description');
   return (
     <TaskDrawPage
       taskId={searchParams.get('taskId') || ''}
       taskName={searchParams.get('taskName') || ''}
+      description={descriptionParam === 'null' ? '' : descriptionParam || ''}
       isEdit={searchParams.get('isEdit') === 'true'}
     />
   );

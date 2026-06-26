@@ -14,43 +14,85 @@ class FakeWorkspaceManager:
         self.temp = self.root / "temp"
         self.logs = self.root / "logs"
 
+    @staticmethod
+    def _normalize_user_id(user_id: str) -> str:
+        raw = (user_id or "").strip()
+        if not raw:
+            raise ValueError("user_id is required")
+        if raw.startswith("/") or "\\" in raw:
+            raise ValueError("user_id is invalid")
+        parts = Path(raw).parts
+        if len(parts) != 1 or parts[0] in {"", ".", ".."}:
+            raise ValueError("user_id is invalid")
+        return parts[0]
+
     def ensure_workspace(self):
         for path in (self.root, self.artifacts, self.outputs, self.temp, self.logs):
             path.mkdir(parents=True, exist_ok=True)
 
-    def resolve_virtual_path(self, virtual_path: str, create_parent: bool = False) -> Path:
+    def ensure_user_workspace(self, user_id: str):
+        user_root = self.root / "users" / self._normalize_user_id(user_id)
+        for path in (
+            user_root,
+            user_root / "artifacts",
+            user_root / "outputs",
+            user_root / "temp",
+            user_root / "logs",
+        ):
+            path.mkdir(parents=True, exist_ok=True)
+
+    def _normalize_user_relative_path(self, user_id: str, virtual_path: str) -> str:
+        normalized_user_id = self._normalize_user_id(user_id)
         raw = (virtual_path or "").strip()
         if not raw:
             raise ValueError("workspace path is empty")
 
-        root_resolved = self.root.resolve()
-        input_path = Path(raw)
-        if raw.startswith("/"):
-            if input_path.is_absolute() and str(input_path.resolve()).startswith(str(root_resolved)):
-                candidate = input_path
+        prefix = f"/users/{normalized_user_id}"
+        workspace_prefixes = ("/workspace/", "workspace/")
+        if raw == prefix:
+            raise ValueError("user workspace root path is not allowed")
+        if raw.startswith(workspace_prefixes):
+            workspace_relative = raw.removeprefix("/").removeprefix("workspace/").lstrip("/")
+            if not workspace_relative:
+                raise ValueError("workspace root path is not allowed")
+            raw = "/" + workspace_relative
+        elif raw.startswith(prefix + "/"):
+            raw = raw[len(prefix):]
+        elif raw.startswith("/users/"):
+            parts = Path(raw.lstrip("/")).parts
+            if len(parts) >= 2 and parts[1] != normalized_user_id:
+                raise ValueError("path belongs to another user")
+            if len(parts) >= 2 and parts[1] == normalized_user_id:
+                raw = "/" + "/".join(parts[2:])
             else:
-                candidate = self.root / raw.lstrip("/")
-        elif input_path.is_absolute():
-            candidate = input_path
-        else:
-            relative = raw.lstrip("/")
-            candidate = self.root / relative
+                raw = raw.lstrip("/")
+        elif raw.startswith("/"):
+            raw = raw.lstrip("/")
 
-        resolved = candidate.resolve()
+        relative = raw.lstrip("/")
+        if not relative:
+            raise ValueError("user workspace root path is not allowed")
 
+        parts = Path(relative).parts
+        if any(part in ("..", "") for part in parts):
+            raise ValueError("user workspace path is invalid")
+
+        return "/".join(parts)
+
+    def resolve_user_virtual_path(self, user_id: str, virtual_path: str, create_parent: bool = False) -> Path:
+        user_root = (self.root / "users" / self._normalize_user_id(user_id)).resolve()
+        relative = self._normalize_user_relative_path(user_id, virtual_path)
+        resolved = (user_root / relative).resolve()
         try:
-            resolved.relative_to(root_resolved)
+            resolved.relative_to(user_root)
         except ValueError as exc:
-            raise ValueError(f"path escapes workspace: {virtual_path}") from exc
-
-        parts = resolved.relative_to(root_resolved).parts
-        if not parts:
-            raise ValueError("workspace root path is not allowed")
-
+            raise ValueError(f"path escapes user workspace: {virtual_path}") from exc
         if create_parent:
             resolved.parent.mkdir(parents=True, exist_ok=True)
-
         return resolved
+
+    def to_user_relative_path(self, user_id: str, virtual_path: str) -> str:
+        return "/" + self._normalize_user_relative_path(user_id, virtual_path)
 
 
 @pytest.fixture
@@ -61,6 +103,23 @@ def client(tmp_path, monkeypatch):
         return FakeWorkspaceManager(workspace_root)
 
     monkeypatch.setattr(server, "WorkspaceManager", fake_workspace_manager)
+    monkeypatch.setattr(
+        server,
+        "save_chat_file",
+        lambda **kwargs: {
+            "file_id": 1,
+            "user_id": kwargs["user_id"],
+            "thread_id": kwargs["thread_id"],
+            "message_id": kwargs["message_id"],
+            "virtual_path": kwargs["virtual_path"],
+            "original_filename": kwargs["original_filename"],
+        },
+    )
+    monkeypatch.setattr(
+        server,
+        "get_user_threads",
+        lambda user_id: [{"thread_id": "chat_001", "title": "chat_001", "updated_at": "now"}],
+    )
 
     original_startup = list(server.app.router.on_startup)
     server.app.router.on_startup.clear()
@@ -71,92 +130,156 @@ def client(tmp_path, monkeypatch):
     server.app.router.on_startup[:] = original_startup
 
 
-def test_upload_workspace_file_saves_to_temp_by_default(client):
+def test_upload_workspace_file_stores_relative_path_under_user_workspace(client):
     test_client, workspace_root = client
 
     response = test_client.post(
         "/workspace/upload",
-        files={"file": ("sample.txt", b"hello workspace", "text/plain")},
+        data={
+            "user_id": "alice",
+            "thread_id": "chat_001",
+            "message_id": "12",
+        },
+        files={"file": ("report.csv", b"a,b\n1,2\n", "text/csv")},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["path"] == "/temp/chat_001/12_report.csv"
+    assert response.json()["original_filename"] == "report.csv"
+    assert response.json()["user_id"] == "alice"
+
+    assert (workspace_root / "users" / "alice" / "temp" / "chat_001" / "12_report.csv").read_text(
+        encoding="utf-8"
+    ) == "a,b\n1,2\n"
+
+
+def test_download_workspace_file_supports_user_relative_and_prefixed_paths(client):
+    test_client, workspace_root = client
+    download_file = workspace_root / "users" / "alice" / "outputs" / "result.csv"
+    download_file.parent.mkdir(parents=True, exist_ok=True)
+    download_file.write_text("id,value\n1,ok\n", encoding="utf-8")
+
+    relative_response = test_client.get(
+        "/workspace/download",
+        params={"user_id": "alice", "path": "/outputs/result.csv"},
+    )
+    assert relative_response.status_code == 200
+    assert relative_response.content == b"id,value\n1,ok\n"
+
+    prefixed_response = test_client.get(
+        "/workspace/download",
+        params={"user_id": "alice", "path": "/users/alice/outputs/result.csv"},
+    )
+    assert prefixed_response.status_code == 200
+    assert prefixed_response.content == b"id,value\n1,ok\n"
+
+
+def test_attach_message_files_stores_relative_path_and_validates_user_workspace(client):
+    test_client, workspace_root = client
+    attach_file = workspace_root / "users" / "alice" / "temp" / "chat_001" / "12_report.csv"
+    attach_file.parent.mkdir(parents=True, exist_ok=True)
+    attach_file.write_text("a,b\n1,2\n", encoding="utf-8")
+
+    response = test_client.post(
+        "/message/attach",
+        json={
+            "user_id": "alice",
+            "thread_id": "chat_001",
+            "message_id": 12,
+            "attachments": [
+                {
+                    "path": "/users/alice/temp/chat_001/12_report.csv",
+                    "name": "report.csv",
+                }
+            ],
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["attachments"] == [
+        {
+            "file_id": 1,
+            "path": "/temp/chat_001/12_report.csv",
+            "name": "report.csv",
+        }
+    ]
+
+
+def test_attach_message_files_supports_workspace_prefixed_paths(client):
+    test_client, workspace_root = client
+    attach_file = workspace_root / "users" / "alice" / "temp" / "Akcay.pdf"
+    attach_file.parent.mkdir(parents=True, exist_ok=True)
+    attach_file.write_bytes(b"%PDF-1.4")
+
+    response = test_client.post(
+        "/message/attach",
+        json={
+            "user_id": "alice",
+            "thread_id": "chat_001",
+            "message_id": 12,
+            "attachments": [
+                {
+                    "path": "/workspace/temp/Akcay.pdf",
+                    "name": "Akcay.pdf",
+                }
+            ],
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["attachments"] == [
+        {
+            "file_id": 1,
+            "path": "/temp/Akcay.pdf",
+            "name": "Akcay.pdf",
+        }
+    ]
+
+
+def test_copy_default_workspace_temp_files_copies_fixed_files_into_user_temp(client):
+    test_client, workspace_root = client
+    source_files = {
+        "Akcay.pdf": b"%PDF-1.4",
+        "森林每木调查数据.csv": "col1,col2\n1,2\n".encode("utf-8"),
+        "Marxist.docx": b"docx-bytes",
+    }
+
+    for filename, content in source_files.items():
+        path = workspace_root / "temp" / filename
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(content)
+
+    response = test_client.post(
+        "/workspace/temp/copy-default-files",
+        json={"user_id": "alice"},
     )
 
     assert response.status_code == 200
     assert response.json() == {
-        "path": "/temp/sample.txt",
-        "filename": "sample.txt",
-        "size": 15,
-        "content_type": "text/plain",
+        "user_id": "alice",
+        "target_dir": "/temp",
+        "items": [
+            {
+                "source_path": "/temp/Akcay.pdf",
+                "target_path": "/temp/Akcay.pdf",
+                "filename": "Akcay.pdf",
+                "status": "copied",
+            },
+            {
+                "source_path": "/temp/森林每木调查数据.csv",
+                "target_path": "/temp/森林每木调查数据.csv",
+                "filename": "森林每木调查数据.csv",
+                "status": "copied",
+            },
+            {
+                "source_path": "/temp/Marxist.docx",
+                "target_path": "/temp/Marxist.docx",
+                "filename": "Marxist.docx",
+                "status": "copied",
+            },
+        ],
     }
-    assert (workspace_root / "temp" / "sample.txt").read_bytes() == b"hello workspace"
 
-
-def test_upload_workspace_file_supports_custom_target_dir_and_filename(client):
-    test_client, workspace_root = client
-
-    response = test_client.post(
-        "/workspace/upload",
-        data={"target_dir": "outputs", "filename": "../report.csv"},
-        files={"file": ("ignored-name.csv", b"a,b\n1,2\n", "text/csv")},
-    )
-
-    assert response.status_code == 200
-    assert response.json()["path"] == "/outputs/report.csv"
-    assert response.json()["filename"] == "report.csv"
-    assert (workspace_root / "outputs" / "report.csv").read_text(encoding="utf-8") == "a,b\n1,2\n"
-
-
-def test_upload_workspace_file_supports_non_whitelisted_target_dir(client):
-    test_client, workspace_root = client
-
-    response = test_client.post(
-        "/workspace/upload",
-        data={"target_dir": "skills"},
-        files={"file": ("sample.txt", b"hello", "text/plain")},
-    )
-
-    assert response.status_code == 200
-    assert response.json()["path"] == "/skills/sample.txt"
-    assert (workspace_root / "skills" / "sample.txt").read_bytes() == b"hello"
-
-
-def test_download_workspace_file_returns_file_contents(client):
-    test_client, workspace_root = client
-    download_file = workspace_root / "outputs" / "result.csv"
-    download_file.parent.mkdir(parents=True, exist_ok=True)
-    download_file.write_text("id,value\n1,ok\n", encoding="utf-8")
-
-    response = test_client.get("/workspace/download", params={"path": "/outputs/result.csv"})
-
-    assert response.status_code == 200
-    assert response.content == b"id,value\n1,ok\n"
-    assert 'attachment; filename="result.csv"' in response.headers["content-disposition"]
-
-
-def test_download_workspace_file_supports_absolute_workspace_path(client):
-    test_client, workspace_root = client
-    download_file = workspace_root / "outputs" / "absolute-result.csv"
-    download_file.parent.mkdir(parents=True, exist_ok=True)
-    download_file.write_text("id,value\n2,absolute\n", encoding="utf-8")
-
-    response = test_client.get("/workspace/download", params={"path": str(download_file)})
-
-    assert response.status_code == 200
-    assert response.content == b"id,value\n2,absolute\n"
-    assert 'attachment; filename="absolute-result.csv"' in response.headers["content-disposition"]
-
-
-def test_download_workspace_file_rejects_invalid_or_missing_path(client):
-    test_client, _ = client
-
-    invalid_response = test_client.get(
-        "/workspace/download",
-        params={"path": "/../secrets.txt"},
-    )
-    assert invalid_response.status_code == 400
-    assert "path escapes workspace" in invalid_response.json()["detail"]
-
-    missing_response = test_client.get(
-        "/workspace/download",
-        params={"path": "/outputs/missing.csv"},
-    )
-    assert missing_response.status_code == 404
-    assert missing_response.json()["detail"] == "file not found"
+    for filename, content in source_files.items():
+        assert (workspace_root / "temp" / filename).read_bytes() == content
+        assert (workspace_root / "users" / "alice" / "temp" / filename).read_bytes() == content

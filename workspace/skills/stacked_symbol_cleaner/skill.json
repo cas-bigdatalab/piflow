@@ -1,0 +1,61 @@
+{
+  "name": "stacked_symbol_cleaner",
+  "version": "1.0.0",
+  "description": "堆叠符号清洗：去除纯符号装饰行（====、****、----、~~~~、# # # # 等），适配论坛帖子、邮件、旧文档中符号分隔线的清理。",
+  "tag": "清洗",
+  "language": "python",
+  "script_path": "scripts/stacked_symbol_cleaner.py",
+  "entrypoint": "python scripts/stacked_symbol_cleaner.py",
+  "input_params": [
+    {
+      "name": "input_path",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "输入文件路径"
+    },
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "输出文件路径"
+    },
+    {
+      "name": "text_columns",
+      "role": "config",
+      "type": "string",
+      "required": false,
+      "description": "处理的文本列，逗号分隔；默认全部字符串列"
+    },
+    {
+      "name": "min_repeat",
+      "role": "config",
+      "type": "string",
+      "required": false,
+      "description": "最小连续重复次数（默认4），低于此值不视为装饰行"
+    }
+  ],
+  "output_params": [
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "default": "stacked_symbol_cleaner_output.csv",
+      "description": "清洗后的文件"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input_path",
+    "{input_path}",
+    "--output_path",
+    "{output_path}",
+    "--text_columns",
+    "{text_columns}",
+    "--min_repeat",
+    "{min_repeat}"
+  ]
+}
