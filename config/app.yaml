@@ -17,6 +17,9 @@ workspace:
     temp: temp
     logs: logs
 
+piflow_engine:
+  sandbox_enabled: false
+
 minio:
   endpoint: "10.0.82.141:9998"
   access_key: "6wrkUf48t46XJd8KV1c8"

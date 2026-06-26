@@ -26,6 +26,10 @@ class WorkspaceConfig(BaseModel):
     dirs: WorkspaceDirs = Field(default_factory=WorkspaceDirs)
 
 
+class PiFlowEngineConfig(BaseModel):
+    sandbox_enabled: bool = False
+
+
 class MinIOConfig(BaseModel):
     endpoint: str = ""
     access_key: str = ""
@@ -95,6 +99,7 @@ class MineruConfig(BaseModel):
 class Settings(BaseModel):
     app: AppConfig = Field(default_factory=AppConfig)
     workspace: WorkspaceConfig = Field(default_factory=WorkspaceConfig)
+    piflow_engine: PiFlowEngineConfig = Field(default_factory=PiFlowEngineConfig)
     minio: MinIOConfig = Field(default_factory=MinIOConfig)
     llm: LLMConfig = Field(
         default_factory=lambda: LLMConfig(

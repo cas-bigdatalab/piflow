@@ -5,6 +5,7 @@ import threading
 from pathlib import Path
 from typing import Any
 
+from infra.config_loader import get_settings
 from infra.config_loader import resolve_workspace_root
 from tools.excutor.excutor_utils import resolve_dag_definition_skills
 
@@ -59,6 +60,7 @@ def submit_frontend_dag(
     from piflow_engine.cn.piflow.core.runner import Runner
     from piflow_engine.cn.piflow.engine.local.constants import (
         RUNNER_CONTEXT_PYTHON_HOME,
+        RUNNER_CONTEXT_SANDBOX_BACKEND,
         RUNNER_CONTEXT_WORKSPACE_ROOT,
         RUNNER_CONTEXT_USER_ID,
     )
@@ -99,6 +101,8 @@ def submit_frontend_dag(
 
     workspace = resolve_workspace_root(workspace_root)
     workspace.mkdir(parents=True, exist_ok=True)
+    settings = get_settings()
+    sandbox_backend = "docker" if settings.piflow_engine.sandbox_enabled else "local"
 
     run_store = PostgresRunStore(connection=get_connection())
     run_logger = RunLogger(workspace)
@@ -107,6 +111,7 @@ def submit_frontend_dag(
         .bind(RUNNER_CONTEXT_WORKSPACE_ROOT, str(workspace))
         .bind(RUNNER_CONTEXT_USER_ID, user_id or "")
         .bind(RUNNER_CONTEXT_PYTHON_HOME, python_home or sys.executable)
+        .bind(RUNNER_CONTEXT_SANDBOX_BACKEND, sandbox_backend)
     )
     runner.add_listener(
         ClosingRunTrackingListener(
