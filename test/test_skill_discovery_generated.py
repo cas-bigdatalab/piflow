@@ -2,6 +2,7 @@ from pathlib import Path
 from types import SimpleNamespace
 import inspect
 
+from services import dag_panel_service
 from runtime import skill_manage
 from runtime.skills_compat import install_deepagents_skills_refresh_compat
 from tools.excutor import excutor_utils
@@ -144,6 +145,38 @@ def test_resolve_dag_definition_skills_promotes_top_level_skill_name(tmp_path, m
     assert resolved["nodes"][0]["skill"]["skill_name"] == "docx_to_markdown"
 
 
+def test_resolve_dag_definition_skills_falls_back_to_nested_workspace_generated_skill(tmp_path, monkeypatch):
+    workspace_root = tmp_path / "workspace"
+    nested_skill_dir = (
+        workspace_root
+        / "workspace"
+        / "skills"
+        / "generated"
+        / "sofa_validate"
+    )
+    nested_skill_dir.mkdir(parents=True, exist_ok=True)
+    skill_json = nested_skill_dir / "skill.json"
+    skill_json.write_text('{"name":"sofa_validate"}', encoding="utf-8")
+
+    monkeypatch.setattr(excutor_utils, "resolve_workspace_root", lambda: workspace_root)
+    monkeypatch.setattr(excutor_utils, "get_dag_skill", lambda skill_id: None)
+
+    dag_definition = {
+        "nodes": [
+            {
+                "node_id": "node-1",
+                "node_name": "SOFA 校验",
+                "skill_name": "sofa_validate",
+            }
+        ]
+    }
+
+    resolved = excutor_utils.resolve_dag_definition_skills(dag_definition)
+
+    assert resolved["nodes"][0]["skill"]["skill_id"] == str(skill_json.resolve())
+    assert resolved["nodes"][0]["skill"]["skill_name"] == "sofa_validate"
+
+
 def test_resolve_dag_definition_skills_fills_builtin_stop_bundle_without_skill_block(monkeypatch):
     monkeypatch.setattr(excutor_utils, "resolve_workspace_root", lambda: Path("/tmp/workspace"))
     monkeypatch.setattr(excutor_utils, "get_dag_skill", lambda skill_id: None)
@@ -234,3 +267,65 @@ def test_insert_dag_skill_upsert_preserves_existing_skill_id():
 
     assert "ON CONFLICT (skill_name, version)" in source
     assert "skill_id = EXCLUDED.skill_id" not in source
+
+
+def test_save_dag_panel_normalizes_definition_before_persist(monkeypatch):
+    captured = {}
+
+    class DummyConn:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def close(self):
+            return None
+
+    monkeypatch.setattr(dag_panel_service, "get_connection", lambda: DummyConn())
+    monkeypatch.setattr(dag_panel_service, "create_or_update_task", lambda conn, task, create_user_id: "task-1")
+    monkeypatch.setattr(dag_panel_service, "get_next_revision", lambda conn, task_id, create_user_id: 1)
+    monkeypatch.setattr(dag_panel_service, "disable_current_definition", lambda conn, task_id, create_user_id: None)
+
+    def fake_insert(conn, task_id, create_user_id, revision, definition_json):
+        captured["definition_json"] = definition_json
+        return "definition-1"
+
+    monkeypatch.setattr(dag_panel_service, "insert_dag_definition", fake_insert)
+    monkeypatch.setattr(
+        dag_panel_service,
+        "resolve_dag_definition_skills",
+        lambda definition_json: {
+            **definition_json,
+            "nodes": [
+                {
+                    **definition_json["nodes"][0],
+                    "skill": {
+                        "skill_id": "/resolved/workspace/skills/generated/sofa_to_csv/skill.json",
+                        "skill_name": "sofa_to_csv",
+                    },
+                }
+            ],
+        },
+    )
+
+    raw_definition = {
+        "dsl_version": "1.0",
+        "task": {"dag_task_id": "", "dag_task_name": "SOFA 转 CSV", "description": "", "message_id": ""},
+        "nodes": [
+            {
+                "node_id": "node-1",
+                "node_name": "SOFA导出CSV",
+                "skill_name": "sofa_to_csv",
+                "skill": {"skill_id": "", "version": "1.0"},
+            }
+        ],
+        "edges": [],
+        "bindings": [],
+    }
+
+    result = dag_panel_service.save_dag_panel(raw_definition, "user-1")
+
+    assert result == {"task_id": "task-1", "definition_id": "definition-1", "revision": 1}
+    assert captured["definition_json"]["nodes"][0]["skill"]["skill_id"] == "/resolved/workspace/skills/generated/sofa_to_csv/skill.json"
+    assert captured["definition_json"]["nodes"][0]["skill"]["skill_name"] == "sofa_to_csv"

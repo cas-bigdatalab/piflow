@@ -8,6 +8,7 @@ from runtime.dag_manager import list_dag_tasks, create_or_update_task, get_next_
     insert_dag_definition, get_dag_definition_json, get_dag_skill, list_dag_skills, delete_dag_task, list_dag_skills_by_type, \
     get_dag_task_id_by_message_id
 from schemas.dag.dag_skill_schema import DagSkill
+from tools.excutor.excutor_utils import resolve_dag_definition_skills
 
 
 def get_user_dag_tasks(
@@ -29,8 +30,9 @@ def save_dag_panel(
     definition_json:dict,
     create_user_id:str
 ):
+    normalized_definition = resolve_dag_definition_skills(definition_json)
 
-    task=definition_json["task"]
+    task=normalized_definition["task"]
 
     with closing(get_connection()) as conn:
         with conn:
@@ -58,7 +60,7 @@ def save_dag_panel(
                 task_id,
                 create_user_id,
                 revision,
-                definition_json,
+                normalized_definition,
             )
 
             return {

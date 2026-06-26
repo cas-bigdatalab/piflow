@@ -204,21 +204,30 @@ settings = get_settings()
 workspace_root = settings.workspace.root
 
 
+def _candidate_workspace_roots(workspace_root: Path) -> list[Path]:
+    roots: list[Path] = []
+    for candidate in (workspace_root, workspace_root / "workspace"):
+        resolved = candidate.resolve()
+        if resolved not in roots:
+            roots.append(resolved)
+    return roots
+
+
 def _resolve_skill_json_path_by_name(workspace_root: Path, skill_name: str) -> Path | None:
     normalized_name = str(skill_name or "").strip()
     if not normalized_name:
         return None
 
-    candidates = [
-        workspace_root / "skills" / normalized_name / "skill.json",
-        workspace_root / "skills" / "generated" / normalized_name / "skill.json",
-        workspace_root / "dag_system_node" / normalized_name / "skill.json",
-    ]
-
-    for candidate in candidates:
-        resolved = candidate.resolve()
-        if resolved.exists():
-            return resolved
+    for root in _candidate_workspace_roots(workspace_root):
+        candidates = [
+            root / "skills" / normalized_name / "skill.json",
+            root / "skills" / "generated" / normalized_name / "skill.json",
+            root / "dag_system_node" / normalized_name / "skill.json",
+        ]
+        for candidate in candidates:
+            resolved = candidate.resolve()
+            if resolved.exists():
+                return resolved
 
     return None
 
@@ -231,38 +240,41 @@ def _resolve_skill_json_path_by_name_zh(workspace_root: Path, name_zh: str) -> P
 
     from runtime.skill_manage import _parse_dag_skill_frontmatter
 
-    for base_dir in [
-        workspace_root / "skills",
-        workspace_root / "skills" / "generated",
-        workspace_root / "dag_system_node",
-    ]:
-        if not base_dir.exists():
-            continue
-        for skill_dir in base_dir.iterdir():
-            if not skill_dir.is_dir():
+    for root in _candidate_workspace_roots(workspace_root):
+        for base_dir in [
+            root / "skills",
+            root / "skills" / "generated",
+            root / "dag_system_node",
+        ]:
+            if not base_dir.exists():
                 continue
-            info = _parse_dag_skill_frontmatter(skill_dir)
-            if info is None:
-                continue
-            if info.get("name_zh") == normalized:
-                skill_json = skill_dir / "skill.json"
-                if skill_json.exists():
-                    return skill_json.resolve()
+            for skill_dir in base_dir.iterdir():
+                if not skill_dir.is_dir():
+                    continue
+                info = _parse_dag_skill_frontmatter(skill_dir)
+                if info is None:
+                    continue
+                if info.get("name_zh") == normalized:
+                    skill_json = skill_dir / "skill.json"
+                    if skill_json.exists():
+                        return skill_json.resolve()
 
     return None
 
 
 def _resolve_skill_json_path(workspace_root: Path, skill_path: str) -> Path:
-    primary = (workspace_root / skill_path / "skill.json").resolve()
-    if primary.exists():
-        return primary
-
     skill_name = Path(skill_path).name
-    generated = (workspace_root / "skills" / "generated" / skill_name / "skill.json").resolve()
-    if generated.exists():
-        return generated
 
-    return primary
+    for root in _candidate_workspace_roots(workspace_root):
+        primary = (root / skill_path / "skill.json").resolve()
+        if primary.exists():
+            return primary
+
+        generated = (root / "skills" / "generated" / skill_name / "skill.json").resolve()
+        if generated.exists():
+            return generated
+
+    return (workspace_root / skill_path / "skill.json").resolve()
 
 
 def resolve_dag_definition_skills(dag_definition: dict) -> dict:
