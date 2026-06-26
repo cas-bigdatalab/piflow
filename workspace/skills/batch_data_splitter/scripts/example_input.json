@@ -1,0 +1,8 @@
+{
+  "input": "corpus.jsonl",
+  "output_dir": "./splits",
+  "num_splits": 10,
+  "output_prefix": "split",
+  "shuffle": false,
+  "random_seed": 42
+}

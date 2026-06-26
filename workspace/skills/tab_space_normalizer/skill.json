@@ -1,0 +1,82 @@
+{
+  "name": "tab_space_normalizer",
+  "version": "1.0.0",
+  "description": "Tab/空格规范化：将制表符转换为空格（可配置缩进宽度）、去除行尾多余空格、可选去除公共前导空格（de-indent），统一代码/文本的空白字符表达。",
+  "tag": "清洗",
+  "language": "python",
+  "script_path": "scripts/tab_space_normalizer.py",
+  "entrypoint": "python scripts/tab_space_normalizer.py",
+  "input_params": [
+    {
+      "name": "input_path",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "输入文件路径"
+    },
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "输出文件路径"
+    },
+    {
+      "name": "text_columns",
+      "role": "config",
+      "type": "string",
+      "required": false,
+      "description": "处理的文本列，逗号分隔"
+    },
+    {
+      "name": "tab_width",
+      "role": "config",
+      "type": "string",
+      "required": false,
+      "default": "4",
+      "description": "Tab替换为空格的数量（默认4）"
+    },
+    {
+      "name": "strip_trailing",
+      "role": "config",
+      "type": "string",
+      "required": false,
+      "default": "True",
+      "description": "去除行尾多余空格（默认开启）"
+    },
+    {
+      "name": "dedent",
+      "role": "config",
+      "type": "string",
+      "required": false,
+      "default": "False",
+      "description": "去除公共前导空格"
+    }
+  ],
+  "output_params": [
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "default": "tab_space_normalizer_output.csv",
+      "description": "规范化后的文件"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input_path",
+    "{input_path}",
+    "--output_path",
+    "{output_path}",
+    "--text_columns",
+    "{text_columns}",
+    "--tab_width",
+    "{tab_width}",
+    "--strip_trailing",
+    "{strip_trailing}",
+    "--dedent",
+    "{dedent}"
+  ]
+}

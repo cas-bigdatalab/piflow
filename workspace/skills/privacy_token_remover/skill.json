@@ -1,0 +1,93 @@
+{
+  "name": "privacy_token_remover",
+  "version": "1.0.0",
+  "name_zh": "隐私标识清理算子",
+  "description": "隐私标识移除工具。读取结构化文本数据，按用户选择的类别删除或替换邮箱、IPv4 地址、电话号码等文本中的隐私标识。当用户提到移除邮箱、清洗 IP、替换电话、从文本里剔除隐私 token 等需求时使用此skill。它只处理文本中的 token 清理，不做字段级遮蔽，也不负责图片脱敏、音频脱敏、结构化字段加密或假数据生成。",
+  "tag": "清洗",
+  "language": "python",
+  "script_path": "scripts/run_privacy_token_remover.py",
+  "entrypoint": "python scripts/run_privacy_token_remover.py",
+  "input_params": [
+    {
+      "name": "input_path",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "输入文件路径"
+    },
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "输出文件路径"
+    },
+    {
+      "name": "text_columns",
+      "role": "config",
+      "type": "string",
+      "required": false,
+      "description": "处理的文本列，逗号分隔；默认全部字符串列"
+    },
+    {
+      "name": "remove_email",
+      "role": "config",
+      "type": "string",
+      "required": false,
+      "default": "False",
+      "description": "是否移除邮箱；默认关闭，用户按需显式开启"
+    },
+    {
+      "name": "remove_ip",
+      "role": "config",
+      "type": "string",
+      "required": false,
+      "default": "False",
+      "description": "是否移除 IPv4 地址；默认关闭，用户按需显式开启"
+    },
+    {
+      "name": "remove_phone",
+      "role": "config",
+      "type": "string",
+      "required": false,
+      "default": "False",
+      "description": "是否移除电话号码；默认关闭，用户按需显式开启"
+    },
+    {
+      "name": "replace_token",
+      "role": "config",
+      "type": "string",
+      "required": false,
+      "default": "",
+      "description": "替换占位符；默认空字符串表示直接删除"
+    }
+  ],
+  "output_params": [
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "default": "privacy_token_remover_output.csv",
+      "description": "清理后的文件"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input_path",
+    "{input_path}",
+    "--output_path",
+    "{output_path}",
+    "--text_columns",
+    "{text_columns}",
+    "--replace_token",
+    "{replace_token}",
+    "--remove_email",
+    "{remove_email}",
+    "--remove_ip",
+    "{remove_ip}",
+    "--remove_phone",
+    "{remove_phone}"
+  ]
+}

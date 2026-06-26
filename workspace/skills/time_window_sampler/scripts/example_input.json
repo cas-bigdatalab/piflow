@@ -1,0 +1,7 @@
+{
+  "input": "data.jsonl",
+  "output": "sampled.jsonl",
+  "time_field": "created_at",
+  "window_size": "1d",
+  "sample_per_window": 2
+}

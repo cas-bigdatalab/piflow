@@ -1,0 +1,29 @@
+{
+  "input": "data.csv",
+  "output": "validation_report.json",
+  "schema": {
+    "fields": {
+      "id": {
+        "type": "int",
+        "required": true,
+        "unique": true
+      },
+      "name": {
+        "type": "str",
+        "required": true,
+        "min_length": 1,
+        "max_length": 100
+      },
+      "email": {
+        "type": "str",
+        "pattern": "^[\\w.-]+@[\\w.-]+\\.\\w+$"
+      },
+      "age": {
+        "type": "int",
+        "min": 0,
+        "max": 150
+      }
+    }
+  },
+  "output_invalid": "invalid_rows.csv"
+}

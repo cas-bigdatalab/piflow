@@ -1,0 +1,68 @@
+{
+  "name": "ingest_archive_zip_extractor",
+  "version": "1.0.0",
+  "description": "ZIP 压缩包解压工具。递归扫描目录内 .zip 文件及分卷（.z01/.z02 等），合并分卷后解压并输出解压清单。当用户需要批量解压 zip 或分卷 zip 时使用此 skill。不负责 7z、rar 等其他格式的解压。",
+  "language": "python",
+  "script_path": "scripts/run_ingest_archive_zip_extractor.py",
+  "entrypoint": "python scripts/run_ingest_archive_zip_extractor.py",
+  "input_params": [
+    {
+      "name": "input_dir",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "待解压目录（递归扫描）"
+    },
+    {
+      "name": "output_dir",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "解压输出根目录"
+    },
+    {
+      "name": "report",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "解压报告 JSON"
+    },
+    {
+      "name": "max_entries",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "default": "0",
+      "description": "单包最大解压文件数（0 不限）"
+    }
+  ],
+  "output_params": [
+    {
+      "name": "output_dir",
+      "role": "output_data",
+      "type": "directory",
+      "default": "ingest_archive_zip_extractor_output",
+      "description": "解压输出根目录"
+    },
+    {
+      "name": "report",
+      "role": "output_data",
+      "type": "json_file",
+      "default": "ingest_archive_zip_extractor_report.json",
+      "description": "解压报告"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input_dir",
+    "{input_dir}",
+    "--output_dir",
+    "{output_dir}",
+    "--report",
+    "{report}",
+    "--max_entries",
+    "{max_entries}"
+  ],
+  "tag": "采集"
+}

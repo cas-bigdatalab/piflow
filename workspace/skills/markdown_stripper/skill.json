@@ -1,0 +1,73 @@
+{
+  "name": "markdown_stripper",
+  "version": "1.0.0",
+  "description": "Markdown标记清除：读取Markdown/纯文本文件，去除Markdown语法标记（标题#、加粗**、斜体*、链接[]()、代码块```、引用>、列表标记等），输出纯文本文件。",
+  "tag": "清洗",
+  "language": "python",
+  "script_path": "scripts/markdown_stripper.py",
+  "entrypoint": "python scripts/markdown_stripper.py",
+  "input_params": [
+    {
+      "name": "input_path",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "输入文件路径（.md / .txt）"
+    },
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "输出文件路径（纯文本）"
+    },
+    {
+      "name": "no_code_blocks",
+      "role": "config",
+      "type": "string",
+      "required": false,
+      "default": "False",
+      "description": "删除代码块内容（默认保留）"
+    },
+    {
+      "name": "no_images",
+      "role": "config",
+      "type": "string",
+      "required": false,
+      "default": "False",
+      "description": "删除图片alt文本（默认保留）"
+    },
+    {
+      "name": "no_tables",
+      "role": "config",
+      "type": "string",
+      "required": false,
+      "default": "False",
+      "description": "删除表格（默认转为纯文本）"
+    }
+  ],
+  "output_params": [
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "default": "markdown_stripper_output.txt",
+      "description": "清洗后的纯文本文件"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input_path",
+    "{input_path}",
+    "--output_path",
+    "{output_path}",
+    "--no_code_blocks",
+    "{no_code_blocks}",
+    "--no_images",
+    "{no_images}",
+    "--no_tables",
+    "{no_tables}"
+  ]
+}

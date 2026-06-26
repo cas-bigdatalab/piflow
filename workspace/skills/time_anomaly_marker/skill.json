@@ -1,0 +1,71 @@
+{
+  "name": "time_anomaly_marker",
+  "version": "1.0.0",
+  "tag": "清洗",
+  "description": "时序/数值异常标记工具。对指定或全部数值列进行Z-Score异常与差分突变检测，输出标记列和原因列，不删除数据，适用于时序稳态/突变异常识别。",
+  "language": "python",
+  "script_path": "scripts/time_anomaly_marker.py",
+  "entrypoint": "python scripts/time_anomaly_marker.py",
+  "input_params": [
+    {
+      "name": "input_path",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "输入文件路径（支持CSV/TSV/Excel等data_io支持的格式）"
+    },
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "输出文件路径（标记后的文件）"
+    },
+    {
+      "name": "numeric_columns",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "需检测的数值列，逗号分隔；不填则默认所有数值列"
+    },
+    {
+      "name": "z_threshold",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "Z-Score 阈值，默认 3.0",
+      "default": "3.0"
+    },
+    {
+      "name": "diff_threshold",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "差分突变阈值(倍数标准差)，默认 3.0",
+      "default": "3.0"
+    }
+  ],
+  "output_params": [
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "csv_file",
+      "default": "time_anomaly_marker_output.csv",
+      "description": "包含 anomaly_flag 与 anomaly_reasons 的标记后文件"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input_path",
+    "{input_path}",
+    "--output_path",
+    "{output_path}",
+    "--numeric_columns",
+    "{numeric_columns}",
+    "--z_threshold",
+    "{z_threshold}",
+    "--diff_threshold",
+    "{diff_threshold}"
+  ]
+}

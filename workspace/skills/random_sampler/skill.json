@@ -1,0 +1,97 @@
+{
+  "name": "random_sampler",
+  "version": "1.0.0",
+  "description": "JSONL 随机采样工具。读取 JSONL 数据集，按抽样数量或抽样比例无放回抽取样本，输出保留原字段结构的采样结果。当用户提到随机采样、按数量抽样、按比例抽样、JSONL 抽样筛查等需求时使用此 skill。即使用户没有明确说出 random_sampler，只要任务涉及对 JSONL 记录做无放回随机抽取，就应该使用此 skill。不负责分层采样、领域均衡采样、表格采样或其他格式转换。",
+  "language": "python",
+  "script_path": "scripts/run_random_sampler.py",
+  "entrypoint": "python scripts/run_random_sampler.py",
+  "input_params": [
+    {
+      "name": "input",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "输入 JSONL 文件路径"
+    },
+    {
+      "name": "output",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "输出 JSONL 文件路径"
+    },
+    {
+      "name": "method",
+      "role": "data",
+      "type": "string",
+      "required": true,
+      "description": "采样方式：count/ratio"
+    },
+    {
+      "name": "count",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "default": "0",
+      "description": "采样数量（method=count 时使用）"
+    },
+    {
+      "name": "ratio",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "default": "0",
+      "description": "采样比例 0-1（method=ratio 时使用）"
+    },
+    {
+      "name": "seed",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "default": "42",
+      "description": "随机种子"
+    },
+    {
+      "name": "log_file",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "日志文件路径"
+    }
+  ],
+  "output_params": [
+    {
+      "name": "output",
+      "role": "output_data",
+      "type": "list",
+      "default": [],
+      "description": "采样后的数据列表"
+    },
+    {
+      "name": "sample_count",
+      "role": "data",
+      "type": "integer",
+      "default": 0,
+      "description": "采样数量"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input",
+    "{input}",
+    "--output",
+    "{output}",
+    "--method",
+    "{method}",
+    "--count",
+    "{count}",
+    "--ratio",
+    "{ratio}",
+    "--seed",
+    "{seed}",
+    "--log_file",
+    "{log_file}"
+  ],
+  "tag": "切分与采样"
+}

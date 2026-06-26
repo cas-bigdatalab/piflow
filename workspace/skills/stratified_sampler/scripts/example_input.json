@@ -1,0 +1,7 @@
+{
+  "input": "data.jsonl",
+  "output": "sampled.jsonl",
+  "strata_field": "category",
+  "sample_size": 1000,
+  "seed": 42
+}

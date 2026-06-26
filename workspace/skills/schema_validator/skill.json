@@ -1,0 +1,68 @@
+{
+  "name": "schema_validator",
+  "version": "1.0.0",
+  "description": "显式 schema 校验工具。读取结构化数据与用户提供的 schema，检查字段存在性、类型、枚举、范围、长度、正则格式、日期格式、表级行数与缺失率约束等规则，并输出校验报告。当用户提到 schema 校验、结构校验、模式校验、字段存在性检查、字段类型检查、枚举校验、范围校验、格式校验、表头结构校验等需求时使用此 skill。",
+  "language": "python",
+  "script_path": "scripts/run_schema_validator.py",
+  "entrypoint": "python scripts/run_schema_validator.py",
+  "input_params": [
+    {
+      "name": "input",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "输入文件路径"
+    },
+    {
+      "name": "output",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "验证报告输出路径"
+    },
+    {
+      "name": "schema",
+      "role": "data",
+      "type": "string",
+      "required": true,
+      "description": "schema 定义（JSON 字符串或文件路径，必须包含 fields，可选 table_constraints）"
+    },
+    {
+      "name": "output_invalid",
+      "role": "output_data",
+      "type": "string",
+      "required": false,
+      "default": "",
+      "description": "无效数据输出路径（可选）"
+    }
+  ],
+  "output_params": [
+    {
+      "name": "output",
+      "role": "output_data",
+      "type": "json_file",
+      "default": "schema_validator_report.json",
+      "description": "验证报告文件"
+    },
+    {
+      "name": "output_invalid",
+      "role": "output_data",
+      "type": "file",
+      "default": "",
+      "description": "无效数据输出文件"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input",
+    "{input}",
+    "--output",
+    "{output}",
+    "--schema",
+    "{schema}",
+    "--output_invalid",
+    "{output_invalid}"
+  ],
+  "tag": "校验"
+}

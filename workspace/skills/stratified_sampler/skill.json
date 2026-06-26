@@ -1,0 +1,114 @@
+{
+  "name": "stratified_sampler",
+  "version": "1.0.0",
+  "description": "结构化数据分层采样工具。读取 JSONL、JSON、CSV、TSV、XLSX、XLS 等结构化数据，按指定字段分层后无放回抽取样本，输出保留原字段结构的采样结果。当用户提到分层采样、类别平衡采样、按标签抽样、训练集分层划分等需求时使用此 skill。即使用户没有明确说出 stratified_sampler，只要任务涉及按字段分层并进行代表性抽样，就应该使用此 skill。不负责随机采样、领域均衡采样、批量切分、时间窗口抽样或格式转换。",
+  "language": "python",
+  "script_path": "scripts/run_stratified_sampler.py",
+  "entrypoint": "python scripts/run_stratified_sampler.py",
+  "input_params": [
+    {
+      "name": "input",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "输入结构化数据文件路径"
+    },
+    {
+      "name": "output",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "输出结构化数据文件路径"
+    },
+    {
+      "name": "strata_field",
+      "role": "data",
+      "type": "string",
+      "required": true,
+      "description": "分层字段（如 category, label 等）"
+    },
+    {
+      "name": "sample_size",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "总采样数量（与 sample_ratio、sample_num 三选一）"
+    },
+    {
+      "name": "sample_ratio",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "每层采样比例（与 sample_size、sample_num 三选一）"
+    },
+    {
+      "name": "sample_num",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "每层固定采样数量（与 sample_size、sample_ratio 三选一）"
+    },
+    {
+      "name": "min_samples",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "default": "0",
+      "description": "每层最小采样数量，仅用于 sample_size 和 sample_ratio 模式"
+    },
+    {
+      "name": "seed",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "default": "42",
+      "description": "随机种子"
+    },
+    {
+      "name": "log_file",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "日志文件路径"
+    }
+  ],
+  "output_params": [
+    {
+      "name": "output",
+      "role": "output_data",
+      "type": "file",
+      "default": "stratified_sampler_output.jsonl",
+      "description": "分层采样后的结果文件"
+    },
+    {
+      "name": "strata_stats",
+      "role": "data",
+      "type": "object",
+      "default": {},
+      "description": "各层采样统计"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input",
+    "{input}",
+    "--output",
+    "{output}",
+    "--strata_field",
+    "{strata_field}",
+    "--sample_size",
+    "{sample_size}",
+    "--sample_ratio",
+    "{sample_ratio}",
+    "--sample_num",
+    "{sample_num}",
+    "--min_samples",
+    "{min_samples}",
+    "--seed",
+    "{seed}",
+    "--log_file",
+    "{log_file}"
+  ],
+  "tag": "切分与采样"
+}

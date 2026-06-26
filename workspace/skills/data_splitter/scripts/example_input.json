@@ -1,0 +1,7 @@
+{
+  "input": "data.jsonl",
+  "outputs": "train.jsonl,valid.jsonl,test.jsonl",
+  "ratios": "0.7,0.2,0.1",
+  "stratify_field": "category",
+  "seed": 42
+}

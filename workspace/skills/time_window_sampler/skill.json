@@ -1,0 +1,82 @@
+{
+  "name": "time_window_sampler",
+  "version": "1.0.0",
+  "description": "时间窗口采样算子。读取JSONL时间序列记录，按指定时间窗口分组后在每个窗口内均匀抽取样本。 当用户提到按天抽样、按小时抽样、周期性抽样、时间窗口采样等需求时使用此skill。 即使用户没有明确说出\"时间窗口采样\"，只要任务涉及按时间粒度分组后抽样，就应该使用此skill。 不负责时间字段清洗、时间聚合统计或异常检测。",
+  "language": "python",
+  "script_path": "scripts/run_time_window_sampler.py",
+  "entrypoint": "python scripts/run_time_window_sampler.py",
+  "input_params": [
+    {
+      "name": "input",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "输入JSONL文件路径"
+    },
+    {
+      "name": "output",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "输出JSONL文件路径"
+    },
+    {
+      "name": "time_field",
+      "type": "string",
+      "required": true,
+      "description": "时间字段名"
+    },
+    {
+      "name": "window_size",
+      "type": "string",
+      "required": true,
+      "description": "窗口大小（如1d, 2h, 1m, 1w）"
+    },
+    {
+      "name": "time_format",
+      "type": "string",
+      "required": false,
+      "description": "时间格式字符串"
+    },
+    {
+      "name": "sample_per_window",
+      "type": "string",
+      "required": false,
+      "default": "1",
+      "description": "每个窗口采样数量"
+    },
+    {
+      "name": "log_file",
+      "type": "string",
+      "required": false,
+      "description": "日志文件路径"
+    }
+  ],
+  "output_params": [
+    {
+      "name": "output",
+      "type": "jsonl_file",
+      "default": "time_window_sampler_output.jsonl",
+      "description": "时间窗口采样后的数据"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input",
+    "{input}",
+    "--output",
+    "{output}",
+    "--time_field",
+    "{time_field}",
+    "--window_size",
+    "{window_size}",
+    "--time_format",
+    "{time_format}",
+    "--sample_per_window",
+    "{sample_per_window}",
+    "--log_file",
+    "{log_file}"
+  ],
+  "tag": "切分与采样"
+}
