@@ -10,7 +10,7 @@
 
 llm:
   provider: dashscope
-  model: gpt-5.4
+  model: qwen3.5-plus
   temperature: 0
 
 #llm:
@@ -36,7 +36,7 @@ llm:
 
 providers:
   dashscope:
-    base_url: https://api.sisct2.xyz/v1
+    base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
     api_key_env: DASHSCOPE_API_KEY
 
   cstcloud:

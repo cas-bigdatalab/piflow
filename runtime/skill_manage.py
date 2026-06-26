@@ -21,6 +21,35 @@ STORAGE_SKILLS_DIR = STORAGE_DIR / "skills"
 DEFAULT_COMMON_ICON = "/storage/common/common.png"
 
 
+def _normalize_param_container(raw_params) -> Dict[str, List[Dict]]:
+    """归一化技能参数容器，兼容历史坏数据与生成器误产出的对象形状。"""
+    if not raw_params:
+        return {"params": []}
+
+    if isinstance(raw_params, list):
+        return {"params": [item for item in raw_params if isinstance(item, dict)]}
+
+    if not isinstance(raw_params, dict):
+        return {"params": []}
+
+    params = raw_params.get("params", raw_params)
+    normalized: List[Dict] = []
+
+    if isinstance(params, list):
+        normalized = [item for item in params if isinstance(item, dict)]
+    elif isinstance(params, dict):
+        # 历史脏数据可能是 {"params": {...}} 或 {"params": {"foo": {...}}}
+        if isinstance(params.get("name"), str):
+            normalized = [params]
+        else:
+            for name, value in params.items():
+                if isinstance(value, dict):
+                    entry = dict(value)
+                    entry.setdefault("name", str(name))
+                    normalized.append(entry)
+    return {"params": normalized}
+
+
 def ensure_storage_dirs():
     STORAGE_SKILLS_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -338,8 +367,8 @@ def _parse_dag_skill_frontmatter(skill_dir: Path) -> Optional[dict]:
             "name_zh": frontmatter.get("name_zh", ""),
             "description": description,
             "tag": tag,
-            "input_params": input_params,
-            "output_params": output_params,
+            "input_params": _normalize_param_container(input_params),
+            "output_params": _normalize_param_container(output_params),
         }
     except Exception:
         return None

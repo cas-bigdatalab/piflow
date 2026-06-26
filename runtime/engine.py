@@ -165,6 +165,16 @@ def _normalize_pipeline_answer_for_ui(text: str) -> str:
     return "\n\n".join(part for part in [prefix, fenced, suffix] if part)
 
 
+def _normalized_stream_delta(previous_text: str, current_text: str) -> tuple[str, str]:
+    previous_visible = strip_route_marker(_normalize_pipeline_answer_for_ui(previous_text))
+    current_visible = strip_route_marker(_normalize_pipeline_answer_for_ui(current_text))
+
+    if current_visible.startswith(previous_visible):
+        return current_visible[len(previous_visible):], current_visible
+
+    return current_visible, current_visible
+
+
 def _build_attachment_context(
     attachments: list[str] | None,
     user_id: str,
@@ -884,10 +894,9 @@ class AgentEngine:
                 answer_delta, latest_answer = _merge_text_delta(latest_answer, answer_piece)
                 if answer_delta and not self._is_skill_creator_route_stream_artifact(latest_answer):
                     # 兜底过滤：防止路由标记泄露到用户消息中
-                    safe_delta = strip_route_marker(answer_delta)
-                    safe_content = strip_route_marker(latest_answer)
+                    previous_answer = latest_answer[:-len(answer_piece)] if answer_piece else latest_answer
+                    safe_delta, safe_content = _normalized_stream_delta(previous_answer, latest_answer)
                     if not safe_delta:
-                        latest_answer = safe_content
                         continue
                     yield {
                         "type": "message_delta",
@@ -1031,10 +1040,9 @@ class AgentEngine:
                     answer_delta, latest_answer = _merge_text_delta(latest_answer, answer_piece)
                     if answer_delta and not self._is_skill_creator_route_stream_artifact(latest_answer):
                         # 兜底过滤：防止路由标记泄露到用户消息中
-                        safe_delta = strip_route_marker(answer_delta)
-                        safe_content = strip_route_marker(latest_answer)
+                        previous_answer = latest_answer[:-len(answer_piece)] if answer_piece else latest_answer
+                        safe_delta, safe_content = _normalized_stream_delta(previous_answer, latest_answer)
                         if not safe_delta:
-                            latest_answer = safe_content
                             continue
                         yield {
                             "type": "message_delta",

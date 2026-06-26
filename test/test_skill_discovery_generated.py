@@ -5,6 +5,7 @@ import inspect
 from services import dag_panel_service
 from runtime import skill_manage
 from runtime.skills_compat import install_deepagents_skills_refresh_compat
+from schemas.dag.dag_skill_schema import DagSkill
 from tools.excutor import excutor_utils
 
 
@@ -178,6 +179,85 @@ def test_register_skill_from_disk_preserves_single_level_param_shape(tmp_path, m
                 "name": "output_path",
                 "type": "string",
                 "description": "",
+            }
+        ]
+    }
+
+
+def test_normalize_param_container_converts_mapping_shape_from_generated_skill():
+    normalized = skill_manage._normalize_param_container(
+        {
+            "params": {
+                "input_path": {
+                    "type": "string",
+                    "description": "输入文件路径",
+                    "required": True,
+                },
+                "output_path": {
+                    "type": "json_file",
+                    "description": "输出文件路径",
+                    "required": True,
+                },
+            }
+        }
+    )
+
+    assert normalized == {
+        "params": [
+            {
+                "name": "input_path",
+                "type": "string",
+                "description": "输入文件路径",
+                "required": True,
+            },
+            {
+                "name": "output_path",
+                "type": "json_file",
+                "description": "输出文件路径",
+                "required": True,
+            },
+        ]
+    }
+
+
+def test_dag_skill_normalizes_single_param_object_shape_for_api_payload():
+    skill = DagSkill(
+        skill_id="demo-skill-id",
+        skill_name="demo_skill",
+        input_params={
+            "params": {
+                "name": "input_path",
+                "type": "string",
+                "description": "输入文件路径",
+                "required": True,
+            }
+        },
+        output_params={
+            "params": {
+                "result_path": {
+                    "type": "json_file",
+                    "description": "输出结果路径",
+                }
+            }
+        },
+    )
+
+    assert skill.input_params == {
+        "params": [
+            {
+                "name": "input_path",
+                "type": "string",
+                "description": "输入文件路径",
+                "required": True,
+            }
+        ]
+    }
+    assert skill.output_params == {
+        "params": [
+            {
+                "name": "result_path",
+                "type": "json_file",
+                "description": "输出结果路径",
             }
         ]
     }

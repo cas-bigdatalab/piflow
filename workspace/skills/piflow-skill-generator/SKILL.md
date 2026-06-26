@@ -265,6 +265,7 @@ skill-name/
 - `language`：可选，写入 `skill.json`，默认按脚本推断为 `python`。
 - `script_path`、`entrypoint`、`command_template`：可选，写入 `skill.json`；缺省时由脚本路径和参数推断。
 - `input_params`、`output_params`：PiFlow 参数契约。参数项可包含 `role`。
+- `input_params`、`output_params` 在 `SKILL.md` frontmatter 和 `skill.json` 中都必须是“参数对象数组”，禁止写成 `{ params: {...} }`、`{input_path: {...}}` 或任何对象映射形状；每个参数必须独立占一个数组元素。
 - `command`：可选，显式命令；缺省时根据 `script.path` 和输入参数生成。
 - `script`：可选对象，支持 `path`、`content`、`source`；也可用 `scripts` 列表生成多个脚本。
 - `script` / `scripts`：在回调式沉淀链路中，优先从之前成功运行的脚本、流程文件或实现产物恢复，而不是重新凭空编写。
