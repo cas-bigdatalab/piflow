@@ -337,7 +337,15 @@ export function HomePage() {
 
   const uploading = uploadingCount > 0;
   const isExpanded = hasMessages || sending || Boolean(loadError);
-
+    const handleDownload = () => {
+    const zipName = "用户手册";
+    const link = document.createElement("a");
+    link.href = "./downloadFile/用户手册.pdf";
+    link.download = "用户手册";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
   // 处理打开画板
   const handleOpenCanvas = async (data: PipelineData, msgId?: string) => {
     setCanvasPipelineData(data);
@@ -964,6 +972,21 @@ export function HomePage() {
 
   return (
     <div className="flex min-h-full flex-1 flex-col">
+      {/* 右上角用户手册下载按钮 */}
+      <div className="flex justify-end px-8 pt-6">
+        <button
+          onClick={() => handleDownload()}
+          className="inline-flex items-center gap-1.5 rounded-full bg-[color:var(--color-primary)] px-3 py-1.5 text-xs font-medium text-[color:var(--color-primary-foreground)] hover:opacity-90 transition-opacity cursor-pointer"
+          title="Download"
+        >
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+            <polyline points="7 10 12 15 17 10" />
+            <line x1="12" y1="15" x2="12" y2="3" />
+          </svg>
+          <span>用户手册下载</span>
+        </button>
+      </div>
       {!isExpanded ? (
         <section className="px-8 pb-16 pt-6">
           <div className="mx-auto flex max-w-5xl flex-col">

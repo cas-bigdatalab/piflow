@@ -78,7 +78,7 @@ export function TaskManagePage() {
         toast.success('创建成功');
         // 跳转到画板页面
         if (res.result?.dag_task_id) {
-          navigate(`/task-draw?taskId=${res.result.dag_task_id}&taskName=${encodeURIComponent(trimmedName)}`);
+          navigate(`/task-draw?taskId=${res.result.dag_task_id}&taskName=${encodeURIComponent(trimmedName)}&description=${encodeURIComponent(newTaskDesc)}`);
         } else {
           // 刷新列表
           await loadData(1, searchKeyword);
@@ -236,7 +236,7 @@ export function TaskManagePage() {
                     <button className="icon-btn" title="查看" onClick={() => window.location.href = '/run-details'}>
                       <Icon icon="fa-solid:eye" width="14" />
                     </button>
-                    <button className="icon-btn" title="编辑" onClick={() => navigate(`/task-draw?taskId=${task.dag_task_id}&taskName=${encodeURIComponent(task.dag_task_name)}&isEdit=true`)}>
+                    <button className="icon-btn" title="编辑" onClick={() => navigate(`/task-draw?taskId=${task.dag_task_id}&taskName=${encodeURIComponent(task.dag_task_name)}&description=${encodeURIComponent(task.description || '')}&isEdit=true`)}>
                       <Icon icon="fa-solid:edit" width="14" />
                     </button>
                     <button className="icon-btn" title="删除" onClick={() => handleDeleteClick(task)} style={{color: '#ef4444'}}>
