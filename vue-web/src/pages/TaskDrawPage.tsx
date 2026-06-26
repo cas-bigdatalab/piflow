@@ -1,4 +1,4 @@
-import React, { useCallback, useState, useRef, memo, useEffect, useMemo } from 'react';
+﻿import React, { useCallback, useState, useRef, memo, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { shortId, generateUUID } from '../lib/ids';
 import { saveDrawInfo, getAllSkills, listSkillsDetails, getDrawTaskContent, apiBase, listStorage, downloadWorkspaceUrl2 } from "../lib/api";
@@ -1095,13 +1095,13 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
             const skillId = n.skill?.skill_id || n.skill_id;
             
             // 对于source_stop和sink_stop这两个特殊算子，不要请求接口，使用固定的参数
-            const isSpecialSkill = skillId === 'cn.piflow.piflow_engine.local.source_file_stop.SourceFileStop' ||
-                                    skillId === 'cn.piflow.piflow_engine.local.file_save_stop.FileSaveStop';
+            const isSpecialSkill = skillId === 'piflow_engine.cn.piflow.engine.local.source_file_stop.SourceFileStop' ||
+                                    skillId === 'piflow_engine.cn.piflow.engine.local.file_save_stop.FileSaveStop';
             
             if (isSpecialSkill) {
               console.log(`节点 ${i}: 特殊算子，不请求接口`);
               
-              if (skillId === 'cn.piflow.piflow_engine.local.source_file_stop.SourceFileStop') {
+              if (skillId === 'piflow_engine.cn.piflow.engine.local.source_file_stop.SourceFileStop') {
                 n.skill = n.skill || {};
                 n.skill.name_zh = '文件源';
                 n.skill.skill_name = 'source_stop';
@@ -1458,7 +1458,7 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
               "DagSkillInfoList": [
                   {
                       id: 9999999999998,
-                      skill_id: "cn.piflow.piflow_engine.local.source_file_stop.SourceFileStop",
+                      skill_id: "piflow_engine.cn.piflow.engine.local.source_file_stop.SourceFileStop",
                       skill_name: "文件源",
                       name_zh: "文件源",
                       version: "1.0.0",
@@ -1501,7 +1501,7 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
                   },
                   {
                       id: 9999999999999,
-                      skill_id: "cn.piflow.piflow_engine.local.file_save_stop.FileSaveStop",
+                      skill_id: "piflow_engine.cn.piflow.engine.local.file_save_stop.FileSaveStop",
                       skill_name: "文件保存",
                       name_zh: "文件保存",
                       version: "1.0.0",
