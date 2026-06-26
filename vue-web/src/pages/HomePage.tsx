@@ -202,9 +202,9 @@ function svgToDataUri(svg: string) {
 const EXAMPLES: ExampleCard[] = [
   {
     title: "语料格式转换与过滤",
-    description: "「请对上传数据csv文件转换为jsonl格式，再对这个jsonl的'fa0114'字段进行最大长度过滤，要求最大长度在40以内；再对'fa0112'字段筛选过滤出包含'多花山矾'的数据」",
+    description: "「请对上传数据csv文件转换为jsonl格式，再对这个jsonl的'fa0114'字段进行最大长度过滤，要求最大长度在40以内；再对'fa0112'字段筛选过滤出是'多花山矾'的数据」",
     prompt:
-      "请对上传数据csv文件转换为jsonl格式，再对这个jsonl的'fa0114'字段进行最大长度过滤，要求最大长度在40以内；再对'fa0112'字段筛选过滤出包含'多花山矾'的数据",
+      "请对上传数据csv文件转换为jsonl格式，再对这个jsonl的'fa0114'字段进行最大长度过滤，要求最大长度在40以内；再对'fa0112'字段筛选过滤出是'多花山矾'的数据",
     attachments: [
       {
         path: "/temp/森林每木调查数据.csv",
