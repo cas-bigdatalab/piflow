@@ -1,4 +1,5 @@
 from datetime import datetime
+from runtime.skill_manage import _normalize_param_container
 
 class DagSkill:
     def __init__(
@@ -29,8 +30,8 @@ class DagSkill:
         self.description = description
         self.skill_path = skill_path
         self.file_path = file_path
-        self.input_params = input_params or {}
-        self.output_params = output_params or {}
+        self.input_params = _normalize_param_container(input_params)
+        self.output_params = _normalize_param_container(output_params)
         self.skill_type = skill_type
         self.language = language
         self.command = command

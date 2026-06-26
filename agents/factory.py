@@ -3,6 +3,7 @@ import os
 from deepagents import create_deep_agent
 from deepagents.backends import CompositeBackend, StoreBackend, StateBackend
 from langchain_openai import ChatOpenAI
+import agents.factory as factory_module
 
 from tools import ToolSpec
 from tools.core.registry import registry
@@ -12,6 +13,10 @@ from .middleware import install_registry_hooks
 
 from runtime.workspace_manager import WorkspaceManager
 from deepagents.backends.filesystem import FilesystemBackend
+from runtime.deepagents_compat import install_deepagents_filesystem_utf8_compat
+from runtime.skills_compat import install_deepagents_skills_refresh_compat
+from agents.subagent.skill_creator.factory import override_factory_prompt
+from agents.subagent.skill_creator.prompt import build_skill_creator_route_prompt_block
 
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.store.memory import InMemoryStore
@@ -20,6 +25,18 @@ from .tools import exec_shell
 
 
 class AgentFactory:
+    @staticmethod
+    def _ensure_builtin_tools_registered() -> None:
+        if registry.has("shell.exec_shell"):
+            return
+
+        spec = ToolSpec(
+            name="shell.exec_shell",
+            description="执行终端命令",
+            func=exec_shell,
+            args_schema=exec_shell.args_schema
+        )
+        registry.register(spec, exec_shell)
 
     # 生成 tool 能力描述
     @staticmethod
@@ -47,6 +64,8 @@ class AgentFactory:
     def create_agent():
 
         settings = get_settings()
+        install_deepagents_filesystem_utf8_compat()
+        install_deepagents_skills_refresh_compat()
 
         llm_cfg = settings.llm
         provider_name = llm_cfg.provider
@@ -93,13 +112,7 @@ class AgentFactory:
         # 加载工具
         # -----------------------------
 
-        spec = ToolSpec(
-            name="shell.exec_shell",
-            description="执行终端命令",
-            func=exec_shell,
-            args_schema=exec_shell.args_schema  # @tool 装饰器会自动生成
-        )
-        registry.register(spec, exec_shell)
+        AgentFactory._ensure_builtin_tools_registered()
 
         tools = [
             exec_shell
@@ -111,7 +124,9 @@ class AgentFactory:
         tool_prompt = AgentFactory.build_tool_prompt()
 
         # 把工具能力注入 system prompt
-        system_prompt = build_system_prompt()
+        system_prompt = build_system_prompt(
+            extra_sections=[build_skill_creator_route_prompt_block()]
+        )
 
         # -----------------------------
         # 创建 DeepAgent
@@ -168,7 +183,7 @@ class AgentFactory:
             backend=backend,
             store = store,
             checkpointer=memory,
-            skills = ["/skills/", "/dag_system_node/"],
+            skills = ["/skills/", "/skills/generated/", "/dag_system_node/"],
             interrupt_on = {
                 "write_file": False,
                 "read_file": False,

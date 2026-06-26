@@ -5,7 +5,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from minio import Minio
+# from minio import Minio
 
 from infra.config_loader import get_settings
 from runtime.workspace_manager import WorkspaceManager
@@ -71,12 +71,13 @@ class ObjectStorageService:
         settings = get_settings()
         self.config = settings.minio
         self.workspace = workspace or WorkspaceManager()
-        self.client = client or Minio(
-            self.config.endpoint,
-            access_key=self.config.access_key,
-            secret_key=self.config.secret_key,
-            secure=self.config.secure,
-        )
+        self.client = client
+        # or Minio(
+        #     self.config.endpoint,
+        #     access_key=self.config.access_key,
+        #     secret_key=self.config.secret_key,
+        #     secure=self.config.secure,
+        # )
 
     def resolve_local_file(self, local_path: str) -> Path:
         raw = (local_path or "").strip()

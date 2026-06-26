@@ -1,8 +1,13 @@
-﻿import logging
+﻿import asyncio
+import json
+import logging
 import time
-from typing import Any, AsyncIterator
+import uuid
+from typing import Any, AsyncIterator, Awaitable, Callable
 
 from agents.factory import AgentFactory
+from agents.subagent.skill_creator.factory import SkillCreatorAgentFactory
+from agents.subagent.skill_creator.prompt import is_skill_creator_route_marker, strip_route_marker
 from agents.subagent.workflow_advisor.factory import AdvisorAgentFactory
 from infra.config_loader import get_settings
 from infra.env_loader import load_dotenv_file
@@ -13,7 +18,19 @@ from runtime.dag_manager import init_dag_db
 from runtime.piflow_adapter import init_piflow_run_tracking_db
 from runtime.skill_manage import init_dag_skills_to_database
 from runtime.workspace_manager import WorkspaceManager
+from runtime.events import (
+    emit_subagent_finished,
+    emit_subagent_progress as emit_subagent_progress_event,
+    emit_subagent_started,
+)
 from services.dag_panel_service import get_skill_info_by_id
+from services.subagent.skill_creator.handoff import (
+    build_skill_creator_handoff_message,
+    coerce_subagent_event_to_agent_event,
+    is_skill_creator_route_prefix,
+    resolve_handoff_final_answer,
+)
+from services.subagent.skill_creator.service import SKILL_CREATOR_TASK, SkillCreatorService
 from services.subagent.workflow_advisor.advisor_service import WorkflowAdvisorService
 from services.user_service import init_default_user
 from tools.core.registry import registry
@@ -61,6 +78,103 @@ def _message_content_preview(content: Any) -> str:
     return _preview_text(_message_content_text(content))
 
 
+def _is_pipeline_payload(parsed: Any) -> bool:
+    if not isinstance(parsed, dict):
+        return False
+
+    task = parsed.get("task")
+    top_level_nodes = parsed.get("nodes")
+
+    if isinstance(task, dict):
+        if isinstance(top_level_nodes, list) and len(top_level_nodes) > 0:
+            return True
+        if isinstance(task.get("nodes"), list) and len(task.get("nodes")) > 0:
+            return True
+        if isinstance(parsed.get("steps"), list) and len(parsed.get("steps")) > 0:
+            return True
+        if isinstance(task.get("steps"), list) and len(task.get("steps")) > 0:
+            return True
+
+    return isinstance(top_level_nodes, list) and len(top_level_nodes) > 0
+
+
+def _try_extract_pipeline_json_object(text: str) -> str | None:
+    for start, ch in enumerate(text):
+        if ch != "{":
+            continue
+
+        depth = 0
+        in_string = False
+        escaped = False
+
+        for end in range(start, len(text)):
+            current = text[end]
+            if in_string:
+                if escaped:
+                    escaped = False
+                elif current == "\\":
+                    escaped = True
+                elif current == '"':
+                    in_string = False
+                continue
+
+            if current == '"':
+                in_string = True
+                continue
+
+            if current == "{":
+                depth += 1
+            elif current == "}":
+                depth -= 1
+                if depth == 0:
+                    candidate = text[start : end + 1].strip()
+                    try:
+                        parsed = json.loads(candidate)
+                    except Exception:
+                        break
+                    if _is_pipeline_payload(parsed):
+                        return candidate
+                    break
+    return None
+
+
+def _normalize_pipeline_answer_for_ui(text: str) -> str:
+    content = str(text or "").strip()
+    if not content:
+        return content
+
+    try:
+        parsed = json.loads(content)
+    except Exception:
+        parsed = None
+
+    if _is_pipeline_payload(parsed):
+        return content
+
+    if "```" in content:
+        return content
+
+    pipeline_json = _try_extract_pipeline_json_object(content)
+    if not pipeline_json:
+        return content
+
+    prefix, suffix = content.split(pipeline_json, 1)
+    prefix = prefix.strip()
+    suffix = suffix.strip()
+    fenced = f"```json\n{pipeline_json}\n```"
+    return "\n\n".join(part for part in [prefix, fenced, suffix] if part)
+
+
+def _normalized_stream_delta(previous_text: str, current_text: str) -> tuple[str, str]:
+    previous_visible = strip_route_marker(_normalize_pipeline_answer_for_ui(previous_text))
+    current_visible = strip_route_marker(_normalize_pipeline_answer_for_ui(current_text))
+
+    if current_visible.startswith(previous_visible):
+        return current_visible[len(previous_visible):], current_visible
+
+    return current_visible, current_visible
+
+
 def _build_attachment_context(
     attachments: list[str] | None,
     user_id: str,
@@ -81,15 +195,15 @@ def _build_attachment_context(
         return ""
 
     lines = [
-        "Uploaded files for this request:",
-        "Use these files as the primary inputs for the current task.",
-        "Do not scan the whole workspace or ask which file to use unless the request is truly ambiguous.",
+        "本次请求上传的文件：",
+        "优先将这些文件作为当前任务的主要输入。",
+        "除非用户请求确实存在歧义，否则不要扫描整个 workspace，也不要追问该使用哪个文件。",
     ]
     lines.extend(f"- {path}" for path in valid)
     if len(valid) == 1:
-        lines.append(f'If the user says "this file", "that file", or "uploaded file", resolve it to: {valid[0]}')
+        lines.append(f'如果用户说“这个文件”“那个文件”或“上传的文件”，默认指向：{valid[0]}')
     else:
-        lines.append("If the user refers to an uploaded file, resolve it from the list above before asking a follow-up question.")
+        lines.append("如果用户提到某个上传文件，先从上面的列表中解析，再决定是否需要追问。")
     return "\n".join(lines)
 
 def _append_reasoning_part(parts: list[str], seen: set[str], value: Any) -> None:
@@ -287,6 +401,16 @@ def _summarize_event(event: Any) -> dict[str, Any]:
     }
 
 
+def _copy_messages(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [
+        {
+            "role": item.get("role", ""),
+            "content": item.get("content", ""),
+        }
+        for item in messages
+    ]
+
+
 class AgentEngine:
 
     def __init__(self, agent=None):
@@ -294,6 +418,8 @@ class AgentEngine:
         self.initialized = False
         self.settings = get_settings()
         self.mcp_runtime = MCPRuntime(self.settings.mcp)
+        self.skill_creator_agent = None
+        self.skill_creator_service = None
         self.workflow_advisor_agent = None
         self.workflow_advisor_service = None
 
@@ -316,6 +442,22 @@ class AgentEngine:
         log.info("initializing database complete")
 
         self.agent = AgentFactory.create_agent()
+
+        self.skill_creator_agent = SkillCreatorAgentFactory.create_agent()
+        self.skill_creator_service = SkillCreatorService(
+            skill_creator_agent=self.skill_creator_agent,
+            emit_subagent_progress=self.emit_subagent_progress,
+            spawn_background_subagent=self.spawn_background_subagent,
+            log_stream_event=self._log_stream_event,
+            split_stream_part=_split_stream_part,
+            is_ai_message=_is_ai_message,
+            extract_reasoning_text=_extract_reasoning_text,
+            merge_text_delta=_merge_text_delta,
+            message_content_text=_message_content_text,
+            extract_reasoning_from_event=_extract_reasoning_from_event,
+            extract_final_response=_extract_final_response,
+            preview_text=_preview_text,
+        )
 
         # 初始化 WorkflowAdvisorAgent
         self.workflow_advisor_agent = AdvisorAgentFactory.create_agent()
@@ -455,6 +597,76 @@ class AgentEngine:
                 latency,
             )
 
+    def build_subagent_context(
+        self,
+        parent_thread_id: str,
+        user_id: str,
+        request_id: str,
+        fork_reason: str | None = None,
+        context_text: str | None = None,
+    ) -> dict[str, Any]:
+        return {
+            "parent_thread_id": parent_thread_id,
+            "user_id": user_id,
+            "request_id": request_id,
+            "fork_reason": fork_reason,
+            "context_text": context_text,
+        }
+
+    def _is_skill_creator_route_response(self, content: Any) -> bool:
+        return is_skill_creator_route_marker(_message_content_text(content))
+
+    def _is_skill_creator_route_stream_artifact(self, content: Any) -> bool:
+        return is_skill_creator_route_prefix(_message_content_text(content))
+
+    async def spawn_background_subagent(
+        self,
+        task_name: str,
+        runner: Callable[[], Awaitable[Any]],
+        trace_id: str | None = None,
+    ) -> asyncio.Task[Any]:
+        async def _wrapped():
+            emit_subagent_started({"task_name": task_name}, trace_id=trace_id)
+            try:
+                result = await runner()
+                emit_subagent_finished(
+                    {
+                        "task_name": task_name,
+                        "success": True,
+                    },
+                    trace_id=trace_id,
+                )
+                return result
+            except Exception as exc:
+                emit_subagent_finished(
+                    {
+                        "task_name": task_name,
+                        "success": False,
+                        "error": str(exc),
+                    },
+                    trace_id=trace_id,
+                )
+                raise
+
+        task = asyncio.create_task(_wrapped(), name=task_name)
+        return task
+
+    def emit_subagent_progress(
+        self,
+        task_name: str,
+        stage: str,
+        trace_id: str | None = None,
+        **payload: Any,
+    ) -> None:
+        emit_subagent_progress_event(
+            {
+                "task_name": task_name,
+                "stage": stage,
+                **payload,
+            },
+            trace_id=trace_id,
+        )
+
     async def run(
         self,
         message: str,
@@ -482,12 +694,15 @@ class AgentEngine:
             }
         }
 
+        agent = self.agent
+        assert agent is not None
+
         events = []
         start_stream = time.time()
         event_count = 0
 
         try:
-            async for event in self.agent.astream(input_message, config=config):
+            async for event in agent.astream(input_message, config=config):
                 events.append(event)
                 event_count += 1
                 self._log_stream_event(request_id, event_count, event)
@@ -520,6 +735,51 @@ class AgentEngine:
             )
 
         final_answer, token_usage = _extract_final_response(events)
+        if self._is_skill_creator_route_response(final_answer):
+            log.info(
+                "subagent route selected request_id=%s thread_id=%s user_id=%s task=%s",
+                request_id,
+                thread_id,
+                user_id,
+                SKILL_CREATOR_TASK,
+            )
+            assert self.skill_creator_service is not None
+            skill_creator_text, skill_creator_token_usage = await self.skill_creator_service.run(
+                parent_thread_id=thread_id,
+                user_id=user_id,
+                request_id=request_id,
+                messages=input_message["messages"],
+            )
+            handoff_messages = _copy_messages(input_message["messages"])
+            handoff_messages.insert(0, build_skill_creator_handoff_message(skill_creator_text))
+            handoff_input = {"messages": handoff_messages}
+            events = []
+            event_count = 0
+            start_stream = time.time()
+            try:
+                async for event in agent.astream(handoff_input, config=config):
+                    events.append(event)
+                    event_count += 1
+                    self._log_stream_event(request_id, event_count, event)
+            except Exception:
+                log.exception(
+                    "agent handoff stream failed request_id=%s thread_id=%s user_id=%s",
+                    request_id,
+                    thread_id,
+                    user_id,
+                )
+                raise
+
+            log.info(
+                "agent handoff stream finished request_id=%s cost=%.2fs event_count=%s",
+                request_id,
+                time.time() - start_stream,
+                event_count,
+            )
+            final_answer, token_usage = _extract_final_response(events)
+            final_answer = resolve_handoff_final_answer(final_answer, skill_creator_text)
+            if not token_usage:
+                token_usage = skill_creator_token_usage
         save_message(user_id, thread_id, "assistant", final_answer)
 
         latency = time.time() - start_total
@@ -553,6 +813,9 @@ class AgentEngine:
             }
         }
 
+        agent = self.agent
+        assert agent is not None
+
         yield {
             "type": "status",
             "stage": "started",
@@ -569,7 +832,7 @@ class AgentEngine:
         update_events: list[Any] = []
 
         try:
-            async for stream_part in self.agent.astream(
+            async for stream_part in agent.astream(
                 input_message,
                 config=config,
                 stream_mode=["messages", "updates"],
@@ -629,12 +892,17 @@ class AgentEngine:
 
                 answer_piece = _message_content_text(getattr(message, "content", ""))
                 answer_delta, latest_answer = _merge_text_delta(latest_answer, answer_piece)
-                if answer_delta:
+                if answer_delta and not self._is_skill_creator_route_stream_artifact(latest_answer):
+                    # 兜底过滤：防止路由标记泄露到用户消息中
+                    previous_answer = latest_answer[:-len(answer_piece)] if answer_piece else latest_answer
+                    safe_delta, safe_content = _normalized_stream_delta(previous_answer, latest_answer)
+                    if not safe_delta:
+                        continue
                     yield {
                         "type": "message_delta",
                         "request_id": request_id,
-                        "delta": answer_delta,
-                        "content": latest_answer,
+                        "delta": safe_delta,
+                        "content": safe_content,
                         "node": metadata.get("langgraph_node") if isinstance(metadata, dict) else None,
                     }
         except Exception:
@@ -661,6 +929,167 @@ class AgentEngine:
                 if update_token_usage and not token_usage:
                     token_usage = update_token_usage
 
+        if self._is_skill_creator_route_response(latest_answer):
+            log.info(
+                "subagent route selected request_id=%s thread_id=%s user_id=%s task=%s",
+                request_id,
+                thread_id,
+                user_id,
+                SKILL_CREATOR_TASK,
+            )
+            passthrough_events: asyncio.Queue[dict[str, Any] | None] = asyncio.Queue()
+
+            async def _push_event(event: dict[str, Any]) -> None:
+                normalized_event = coerce_subagent_event_to_agent_event(
+                    event,
+                    preview_text=_preview_text,
+                )
+                if normalized_event is not None:
+                    await passthrough_events.put(normalized_event)
+
+            skill_creator_task = asyncio.create_task(
+                self.skill_creator_service.run(
+                    parent_thread_id=thread_id,
+                    user_id=user_id,
+                    request_id=request_id,
+                    messages=input_message["messages"],
+                    on_event=_push_event,
+                )
+            )
+
+            while True:
+                if skill_creator_task.done() and passthrough_events.empty():
+                    break
+
+                try:
+                    event = await asyncio.wait_for(passthrough_events.get(), timeout=0.1)
+                except asyncio.TimeoutError:
+                    continue
+
+                if event is None:
+                    continue
+                yield event
+
+            skill_creator_text, skill_creator_token_usage = await skill_creator_task
+            handoff_messages = _copy_messages(input_message["messages"])
+            handoff_messages.insert(0, build_skill_creator_handoff_message(skill_creator_text))
+            handoff_input = {"messages": handoff_messages}
+            latest_answer = ""
+            latest_reasoning = ""
+            token_usage = skill_creator_token_usage
+            update_events = []
+            event_count = 0
+
+            try:
+                async for stream_part in agent.astream(
+                    handoff_input,
+                    config=config,
+                    stream_mode=["messages", "updates"],
+                ):
+                    mode, payload = _split_stream_part(stream_part)
+
+                    if mode == "updates":
+                        update_events.append(payload)
+                        event_count += 1
+                        summary = self._log_stream_event(request_id, event_count, payload)
+
+                        yield {
+                            "type": "agent_event",
+                            "request_id": request_id,
+                            "index": event_count,
+                            "nodes": summary["nodes"],
+                            "message_types": summary["message_types"],
+                            "tool_calls": summary["tool_calls"],
+                            "preview": summary["preview"],
+                        }
+                        continue
+
+                    if mode != "messages":
+                        continue
+
+                    if not isinstance(payload, tuple) or len(payload) != 2:
+                        continue
+
+                    message, metadata = payload
+                    if not _is_ai_message(message):
+                        continue
+
+                    response_metadata = getattr(message, "response_metadata", None) or {}
+                    current_token_usage = response_metadata.get("token_usage")
+                    if current_token_usage:
+                        token_usage = current_token_usage
+
+                    reasoning_piece = _extract_reasoning_text(message)
+                    reasoning_delta, latest_reasoning = _merge_text_delta(
+                        latest_reasoning,
+                        reasoning_piece,
+                    )
+                    if reasoning_delta:
+                        yield {
+                            "type": "reasoning_delta",
+                            "request_id": request_id,
+                            "delta": reasoning_delta,
+                            "content": latest_reasoning,
+                            "node": metadata.get("langgraph_node") if isinstance(metadata, dict) else None,
+                        }
+
+                    if getattr(message, "tool_call_chunks", None) or getattr(message, "tool_calls", None):
+                        continue
+
+                    answer_piece = _message_content_text(getattr(message, "content", ""))
+                    answer_delta, latest_answer = _merge_text_delta(latest_answer, answer_piece)
+                    if answer_delta and not self._is_skill_creator_route_stream_artifact(latest_answer):
+                        # 兜底过滤：防止路由标记泄露到用户消息中
+                        previous_answer = latest_answer[:-len(answer_piece)] if answer_piece else latest_answer
+                        safe_delta, safe_content = _normalized_stream_delta(previous_answer, latest_answer)
+                        if not safe_delta:
+                            continue
+                        yield {
+                            "type": "message_delta",
+                            "request_id": request_id,
+                            "delta": safe_delta,
+                            "content": safe_content,
+                            "node": metadata.get("langgraph_node") if isinstance(metadata, dict) else None,
+                        }
+            except Exception:
+                log.exception(
+                    "agent handoff stream failed request_id=%s thread_id=%s user_id=%s",
+                    request_id,
+                    thread_id,
+                    user_id,
+                )
+                raise
+
+            if update_events:
+                if not latest_reasoning:
+                    latest_reasoning = _extract_reasoning_from_event(update_events[-1])
+                if not latest_answer:
+                    latest_answer, update_token_usage = _extract_final_response(update_events)
+                    if update_token_usage and not token_usage:
+                        token_usage = update_token_usage
+
+            final_answer = _normalize_pipeline_answer_for_ui(
+                resolve_handoff_final_answer(latest_answer, skill_creator_text)
+            )
+            if final_answer != latest_answer:
+                yield {
+                    "type": "message",
+                    "request_id": request_id,
+                    "content": final_answer,
+                }
+            save_message(user_id, thread_id, "assistant", final_answer)
+
+            latency = time.time() - start_total
+            self._log_request_finish(request_id, final_answer, token_usage, latency)
+            yield {
+                "type": "done",
+                "request_id": request_id,
+                "content": final_answer,
+                "token_usage": token_usage,
+                "latency_sec": round(latency, 3),
+            }
+            return
+
         new_files = workspace.detect_changed_downloadables(before_outputs)
         if new_files:
             log.info(
@@ -674,6 +1103,14 @@ class AgentEngine:
                 "files": new_files,
             }
 
+        normalized_answer = _normalize_pipeline_answer_for_ui(latest_answer)
+        if normalized_answer != latest_answer:
+            yield {
+                "type": "message",
+                "request_id": request_id,
+                "content": normalized_answer,
+            }
+        latest_answer = normalized_answer
         save_message(user_id, thread_id, "assistant", latest_answer)
 
         latency = time.time() - start_total
@@ -705,10 +1142,14 @@ class AgentEngine:
             ]
         }
 
-        async for event in self.agent.astream(input_message, config=config):
+        agent = self.agent
+        assert agent is not None
+
+        async for event in agent.astream(input_message, config=config):
             yield event
 
     async def shutdown(self):
         log.info("shutting down Agent Runtime")
         await self.mcp_runtime.shutdown()
         log.info("shutdown complete")
+
