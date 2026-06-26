@@ -9,14 +9,14 @@ import { ThreadsSidebar } from "./ThreadsSidebar";
 //       {!compact ? (
 //         <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-xl bg-black shadow-[0_10px_30px_rgba(15,23,42,0.15)]">
 //           <img
-//             alt="πFlow AI"
+//             alt="πFlow"
 //             className="h-full w-full object-cover"
 //             src={`${apiBase().replace(/\/+$/, "")}/storage/icon/logo.png`}
 //           />
 //         </div>
 //       ) : null}
 //       <span className="text-xl font-bold tracking-tight text-slate-950">
-//         πFlow AI
+//         πFlow
 //       </span>
 //     </Link>
 //   );
