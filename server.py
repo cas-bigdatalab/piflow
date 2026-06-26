@@ -594,8 +594,8 @@ async def upload_user_workspace_file(
     }
 
 
-@app.post("/workspace/temp/move-default-files")
-async def move_default_workspace_temp_files(req: MoveWorkspaceTempFilesRequest):
+@app.post("/workspace/temp/copy-default-files")
+async def copy_default_workspace_temp_files(req: MoveWorkspaceTempFilesRequest):
     workspace = WorkspaceManager()
     user_id = req.user_id.strip()
 
@@ -619,7 +619,7 @@ async def move_default_workspace_temp_files(req: MoveWorkspaceTempFilesRequest):
     for virtual_path in source_paths:
         source = workspace.resolve_virtual_path(virtual_path)
         destination = (target_dir / source.name).resolve()
-        status = "moved"
+        status = "copied"
 
         if not source.exists():
             status = "missing"
@@ -627,7 +627,7 @@ async def move_default_workspace_temp_files(req: MoveWorkspaceTempFilesRequest):
             status = "not_file"
         else:
             destination.parent.mkdir(parents=True, exist_ok=True)
-            shutil.move(str(source), str(destination))
+            shutil.copy2(str(source), str(destination))
 
         results.append({
             "source_path": virtual_path,
