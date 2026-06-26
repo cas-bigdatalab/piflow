@@ -1,4 +1,5 @@
 ﻿import asyncio
+import json
 import logging
 import time
 import uuid
@@ -78,6 +79,77 @@ def _message_content_text(content: Any) -> str:
 
 def _message_content_preview(content: Any) -> str:
     return _preview_text(_message_content_text(content))
+
+
+def _try_extract_pipeline_json_object(text: str) -> str | None:
+    for start, ch in enumerate(text):
+        if ch != "{":
+            continue
+
+        depth = 0
+        in_string = False
+        escaped = False
+
+        for end in range(start, len(text)):
+            current = text[end]
+            if in_string:
+                if escaped:
+                    escaped = False
+                elif current == "\\":
+                    escaped = True
+                elif current == '"':
+                    in_string = False
+                continue
+
+            if current == '"':
+                in_string = True
+                continue
+
+            if current == "{":
+                depth += 1
+            elif current == "}":
+                depth -= 1
+                if depth == 0:
+                    candidate = text[start : end + 1].strip()
+                    try:
+                        parsed = json.loads(candidate)
+                    except Exception:
+                        break
+                    if (
+                        isinstance(parsed, dict)
+                        and isinstance(parsed.get("task"), dict)
+                        and isinstance(parsed.get("nodes"), list)
+                    ):
+                        return candidate
+                    break
+    return None
+
+
+def _normalize_pipeline_answer_for_ui(text: str) -> str:
+    content = str(text or "").strip()
+    if not content:
+        return content
+
+    try:
+        parsed = json.loads(content)
+    except Exception:
+        parsed = None
+
+    if isinstance(parsed, dict) and isinstance(parsed.get("task"), dict) and isinstance(parsed.get("nodes"), list):
+        return content
+
+    if "```" in content:
+        return content
+
+    pipeline_json = _try_extract_pipeline_json_object(content)
+    if not pipeline_json:
+        return content
+
+    prefix, suffix = content.split(pipeline_json, 1)
+    prefix = prefix.strip()
+    suffix = suffix.strip()
+    fenced = f"```json\n{pipeline_json}\n```"
+    return "\n\n".join(part for part in [prefix, fenced, suffix] if part)
 
 
 def _build_attachment_context(attachments: list[str] | None) -> str:
@@ -956,7 +1028,15 @@ class AgentEngine:
                     if update_token_usage and not token_usage:
                         token_usage = update_token_usage
 
-            final_answer = resolve_handoff_final_answer(latest_answer, skill_creator_text)
+            final_answer = _normalize_pipeline_answer_for_ui(
+                resolve_handoff_final_answer(latest_answer, skill_creator_text)
+            )
+            if final_answer != latest_answer:
+                yield {
+                    "type": "message",
+                    "request_id": request_id,
+                    "content": final_answer,
+                }
             save_message(user_id, thread_id, "assistant", final_answer)
 
             latency = time.time() - start_total
@@ -983,6 +1063,14 @@ class AgentEngine:
                 "files": new_files,
             }
 
+        normalized_answer = _normalize_pipeline_answer_for_ui(latest_answer)
+        if normalized_answer != latest_answer:
+            yield {
+                "type": "message",
+                "request_id": request_id,
+                "content": normalized_answer,
+            }
+        latest_answer = normalized_answer
         save_message(user_id, thread_id, "assistant", latest_answer)
 
         latency = time.time() - start_total
