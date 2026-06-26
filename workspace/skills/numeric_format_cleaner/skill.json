@@ -1,0 +1,108 @@
+{
+  "name": "numeric_format_cleaner",
+  "version": "1.0.0",
+  "description": "数值格式清洗工具。读取 JSONL 结构化数据，按字段规则统一单位、数值格式、范围和空值表达，输出规整后的 JSONL 和统计文件。 当用户提到数值格式化、单位统一、千分位、科学计数法、空值填充、数值规整等需求时使用此skill。 即使用户没有明确说出\"数值格式清洗\"，只要任务涉及按字段规则整理数值表达，就应该使用此skill。 不负责文本去重、标点清洗、字段校验或非数值内容整理。",
+  "language": "python",
+  "script_path": "scripts/run_numeric_format_cleaner.py",
+  "entrypoint": "python scripts/run_numeric_format_cleaner.py",
+  "input_params": [
+    {
+      "name": "input",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "输入JSONL文件路径"
+    },
+    {
+      "name": "output",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "输出JSONL文件路径"
+    },
+    {
+      "name": "field_rules",
+      "role": "data",
+      "type": "string",
+      "required": true,
+      "description": "字段清洗规则（JSON格式，见示例）"
+    },
+    {
+      "name": "conversion_rules",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "default": "",
+      "description": "单位转换规则（JSON格式，如{\"kg::g\": 1000}）"
+    },
+    {
+      "name": "decimal_places",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "default": "2",
+      "description": "默认小数位数"
+    },
+    {
+      "name": "fill_null",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "default": "",
+      "description": "空值填充值（如\"N/A\"或\"0\"）"
+    },
+    {
+      "name": "mark_cleaned",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "default": "True",
+      "description": "是否标记已清洗样本"
+    },
+    {
+      "name": "stats_output",
+      "role": "output_data",
+      "type": "string",
+      "required": false,
+      "default": "numeric_format_cleaner_stats.json",
+      "description": "统计输出文件路径"
+    }
+  ],
+  "output_params": [
+    {
+      "name": "output",
+      "role": "output_data",
+      "type": "jsonl_file",
+      "default": "numeric_format_cleaner_output.jsonl",
+      "description": "清洗后的JSONL文件"
+    },
+    {
+      "name": "stats_output",
+      "role": "output_data",
+      "type": "json_file",
+      "default": "numeric_format_cleaner_stats.json",
+      "description": "清洗统计文件"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input",
+    "{input}",
+    "--output",
+    "{output}",
+    "--field_rules",
+    "{field_rules}",
+    "--conversion_rules",
+    "{conversion_rules}",
+    "--decimal_places",
+    "{decimal_places}",
+    "--fill_null",
+    "{fill_null}",
+    "--mark_cleaned",
+    "{mark_cleaned}",
+    "--stats_output",
+    "{stats_output}"
+  ],
+  "tag": "清洗"
+}

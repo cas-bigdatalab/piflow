@@ -1,0 +1,7 @@
+{
+  "input": "data.csv",
+  "output": "outliers_detected.csv",
+  "method": "zscore",
+  "fields": "value",
+  "threshold": 3.0
+}

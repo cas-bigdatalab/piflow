@@ -1,0 +1,61 @@
+{
+  "name": "invisible_char_cleaner",
+  "version": "1.0.0",
+  "description": "不可见字符清洗：移除零宽空格、BOM、软连字符、双向文本控制符、C0控制字符等肉眼不可见但干扰文本处理的字符，适配多来源数据的底层字符清洗。",
+  "tag": "清洗",
+  "language": "python",
+  "script_path": "scripts/invisible_char_cleaner.py",
+  "entrypoint": "python scripts/invisible_char_cleaner.py",
+  "input_params": [
+    {
+      "name": "input_path",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "输入文件路径"
+    },
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "输出文件路径"
+    },
+    {
+      "name": "text_columns",
+      "role": "config",
+      "type": "string",
+      "required": false,
+      "description": "处理的文本列，逗号分隔；默认全部字符串列"
+    },
+    {
+      "name": "keep_format",
+      "role": "config",
+      "type": "string",
+      "required": false,
+      "description": "保留零宽连接符/非连接符（ZWJ/ZWNJ），用于保留阿拉伯文/梵文等连字格式"
+    }
+  ],
+  "output_params": [
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "default": "invisible_char_cleaner_output.csv",
+      "description": "清洗后的文件"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input_path",
+    "{input_path}",
+    "--output_path",
+    "{output_path}",
+    "--text_columns",
+    "{text_columns}",
+    "--keep_format",
+    "{keep_format}"
+  ]
+}

@@ -1,0 +1,60 @@
+{
+  "name": "text_fragment_remover",
+  "version": "1.0.0",
+  "description": "指定文本片段删除工具。读取结构化数据中的文本字段，按用户显式给出的片段删除内容并保留其他字段不变。当用户提到删除固定词、固定占位符、固定水印短语时使用此skill。",
+  "language": "python",
+  "script_path": "scripts/run_text_fragment_remover.py",
+  "entrypoint": "python scripts/run_text_fragment_remover.py",
+  "input_params": [
+    {
+      "name": "input",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "输入文件路径"
+    },
+    {
+      "name": "output",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "输出文件路径"
+    },
+    {
+      "name": "text_field",
+      "role": "data",
+      "type": "string",
+      "required": true,
+      "description": "文本字段名"
+    },
+    {
+      "name": "remove_texts",
+      "role": "data",
+      "type": "string",
+      "required": true,
+      "description": "要删除的文本片段，支持用 || 或换行分隔多个片段"
+    }
+  ],
+  "output_params": [
+    {
+      "name": "output",
+      "role": "output_data",
+      "type": "csv_file",
+      "default": "text_fragment_remover_output.csv",
+      "description": "处理后的数据文件"
+    }
+  ],
+  "tag": "清洗",
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input",
+    "{input}",
+    "--output",
+    "{output}",
+    "--text_field",
+    "{text_field}",
+    "--remove_texts",
+    "{remove_texts}"
+  ]
+}

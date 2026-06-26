@@ -1,0 +1,9 @@
+{
+  "input": "data.csv",
+  "output": "masked_output.csv",
+  "masking_rules": "phone:phone,idcard:idcard,name:name,email:email",
+  "mask_char": "*",
+  "use_faker": false,
+  "use_dask": false,
+  "blocksize": "64MB"
+}

@@ -1,0 +1,90 @@
+{
+  "name": "systematic_sampler",
+  "version": "1.0.0",
+  "description": "系统采样算子。按照固定间隔从数据中进行系统采样，适用于时间序列数据或需要均匀分布样本的场景。支持指定间隔或根据目标数量自动计算间隔。当用户提到系统采样、等距抽样、按间隔取样、均匀抽样等需求时使用此skill。即使用户没有明确说出\"系统采样\"，只要任务涉及从有序数据中按固定步长抽取样本，就应该使用此skill。不负责分层采样或随机采样。",
+  "language": "python",
+  "script_path": "scripts/run_systematic_sampler.py",
+  "entrypoint": "python scripts/run_systematic_sampler.py",
+  "input_params": [
+    {
+      "name": "input",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "输入JSONL文件路径"
+    },
+    {
+      "name": "output",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "输出JSONL文件路径"
+    },
+    {
+      "name": "method",
+      "type": "string",
+      "required": true,
+      "description": "采样方式：interval/count"
+    },
+    {
+      "name": "interval",
+      "type": "string",
+      "required": false,
+      "default": "0",
+      "description": "采样间隔（method=interval时）"
+    },
+    {
+      "name": "count",
+      "type": "string",
+      "required": false,
+      "default": "0",
+      "description": "目标采样数量（method=count时）"
+    },
+    {
+      "name": "start_offset",
+      "type": "string",
+      "required": false,
+      "default": "0",
+      "description": "起始偏移量"
+    },
+    {
+      "name": "log_file",
+      "type": "string",
+      "required": false,
+      "description": "日志文件路径"
+    }
+  ],
+  "output_params": [
+    {
+      "name": "output",
+      "type": "list",
+      "default": [],
+      "description": "系统采样后的数据"
+    },
+    {
+      "name": "sample_count",
+      "type": "integer",
+      "default": 0,
+      "description": "采样数量"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input",
+    "{input}",
+    "--output",
+    "{output}",
+    "--method",
+    "{method}",
+    "--interval",
+    "{interval}",
+    "--count",
+    "{count}",
+    "--start_offset",
+    "{start_offset}",
+    "--log_file",
+    "{log_file}"
+  ],
+  "tag": "切分与采样"
+}

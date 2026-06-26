@@ -1,0 +1,61 @@
+{
+  "name": "data_masking",
+  "version": "1.0.0",
+  "description": "数据脱敏工具。对结构化数据中指定字段进行字符遮蔽脱敏，按手机号、身份证、姓名、邮箱、银行卡等类型保留字段位置并替换为遮蔽字符。当用户提到数据脱敏、隐私保护、敏感字段遮蔽、PII 处理等需求时使用此skill。它只做字段级遮蔽，不在文本中搜索邮箱/IP 等 token，也不负责生成假数据。",
+  "language": "python",
+  "script_path": "scripts/run_data_masking.py",
+  "entrypoint": "python scripts/run_data_masking.py",
+  "input_params": [
+    {
+      "name": "input",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "输入文件路径"
+    },
+    {
+      "name": "output",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "输出文件路径"
+    },
+    {
+      "name": "masking_rules",
+      "role": "data",
+      "type": "string",
+      "required": true,
+      "description": "脱敏规则，格式：字段名:类型，多个用逗号分隔"
+    },
+    {
+      "name": "mask_char",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "脱敏字符",
+      "default": "*"
+    }
+  ],
+  "output_params": [
+    {
+      "name": "output",
+      "role": "output_data",
+      "type": "csv_file",
+      "default": "data_masking_output.csv",
+      "description": "脱敏后的数据文件"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input",
+    "{input}",
+    "--output",
+    "{output}",
+    "--masking_rules",
+    "{masking_rules}",
+    "--mask_char",
+    "{mask_char}"
+  ],
+  "tag": "清洗"
+}

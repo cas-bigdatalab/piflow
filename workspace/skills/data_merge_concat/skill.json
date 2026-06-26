@@ -1,0 +1,72 @@
+{
+  "name": "data_merge_concat",
+  "version": "1.0.0",
+  "description": "数据纵向拼接工具。读取多个具有相同列结构的结构化数据文件，执行按行纵向追加合并（concat），输出单一合并文件。当用户提到数据拼接、纵向合并、行合并、数据追加、文件合并等需求时使用此skill。即使用户没有明确说出\"拼接\"，只要任务涉及将多个同构数据文件上下合并为一个，就应该使用此skill。不负责横向关联（join/merge on key）、字段级合并或非结构化文档聚合。",
+  "language": "python",
+  "script_path": "scripts/run_data_merge_concat.py",
+  "entrypoint": "python scripts/run_data_merge_concat.py",
+  "input_params": [
+    {
+      "name": "input_files",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "输入文件路径列表，逗号分隔"
+    },
+    {
+      "name": "output",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "输出文件路径"
+    },
+    {
+      "name": "ignore_index",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "是否忽略原索引",
+      "default": "True"
+    },
+    {
+      "name": "use_dask",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "是否使用Dask处理大数据",
+      "default": "False"
+    },
+    {
+      "name": "blocksize",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "Dask分块大小",
+      "default": "64MB"
+    }
+  ],
+  "output_params": [
+    {
+      "name": "output",
+      "role": "output_data",
+      "type": "csv_file",
+      "default": "data_merge_concat_output.csv",
+      "description": "拼接后的数据文件"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input_files",
+    "{input_files}",
+    "--output",
+    "{output}",
+    "--ignore_index",
+    "{ignore_index}",
+    "--use_dask",
+    "{use_dask}",
+    "--blocksize",
+    "{blocksize}"
+  ],
+  "tag": "增强"
+}

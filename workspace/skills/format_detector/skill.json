@@ -1,0 +1,63 @@
+{
+  "name": "format_detector",
+  "name_zh": "采集基础格式识别算子",
+  "description": "接入资源格式识别工具。读取单个文件或目录中的接入资源，识别文本、表格、文档、图像、HTML、数据或未知类型，输出带推荐处理路由的格式识别结果文件。当用户提到格式识别、资源类型预判、采集入口分流、为文本/表格/文档/图像/HTML选择后续处理路径等需求时使用此skill。即使用户没有明确说出\"格式识别\"，只要任务涉及在采集入口判断文件类型并分配推荐处理路由，就应该使用此skill。不负责读取正文内容、提取图像元信息、表格采集、文档解析、格式转换或实际执行后续处理。",
+  "input_params": [
+    {
+      "name": "input",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "输入文件或目录路径"
+    },
+    {
+      "name": "output",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "输出文件路径（格式识别结果）"
+    },
+    {
+      "name": "recursive",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "default": "False",
+      "description": "是否递归扫描子目录"
+    },
+    {
+      "name": "output_format",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "default": "jsonl",
+      "description": "输出格式，支持 jsonl/json/csv/auto"
+    }
+  ],
+  "output_params": [
+    {
+      "name": "output",
+      "role": "output_data",
+      "type": "jsonl_file",
+      "default": "format_detector_output.jsonl",
+      "description": "格式识别结果文件"
+    }
+  ],
+  "tag": "采集",
+  "script_path": "scripts/run_format_detector.py",
+  "entrypoint": "python scripts/run_format_detector.py",
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input",
+    "{input}",
+    "--output",
+    "{output}",
+    "--recursive",
+    "{recursive}",
+    "--output_format",
+    "{output_format}"
+  ],
+  "version": "1.0.0",
+  "language": "python"
+}

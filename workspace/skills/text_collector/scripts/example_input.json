@@ -1,0 +1,8 @@
+{
+  "input": "./papers/",
+  "output": "./output/text_collected.jsonl",
+  "encoding": "auto",
+  "recursive": false,
+  "add_metadata": true,
+  "output_format": "jsonl"
+}

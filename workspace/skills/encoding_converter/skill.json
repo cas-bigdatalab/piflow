@@ -1,0 +1,116 @@
+{
+  "name": "encoding_converter",
+  "version": "1.0.0",
+  "description": "多编码文本统一转换工具。读取文本文件或目录，自动识别源编码并转换为目标编码（默认 UTF-8），输出转换后的文件。 当用户提到编码转换、乱码修复、GBK 转 UTF-8、统一文件编码等需求时使用此 skill。 即使用户没有明确说出\"编码转换\"，只要任务涉及把文本文件转成指定编码，就应该使用此 skill。 不负责非文本二进制文件处理、内容清洗或格式转换。",
+  "language": "python",
+  "script_path": "scripts/run_encoding_converter.py",
+  "entrypoint": "python scripts/run_encoding_converter.py",
+  "input_params": [
+    {
+      "name": "input",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "输入文件或目录路径"
+    },
+    {
+      "name": "output",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "输出文件或目录路径"
+    },
+    {
+      "name": "target_encoding",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "default": "utf-8",
+      "description": "目标编码（utf-8/gbk/gb2312/gb18030/latin-1 等）"
+    },
+    {
+      "name": "source_encoding",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "default": "auto",
+      "description": "源编码（auto=自动检测，或指定具体编码）"
+    },
+    {
+      "name": "recursive",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "default": "False",
+      "description": "是否递归处理子目录"
+    },
+    {
+      "name": "file_extensions",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "default": ".txt,.md,.csv,.json,.jsonl",
+      "description": "要处理的文件扩展名，逗号分隔"
+    },
+    {
+      "name": "error_handling",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "default": "replace",
+      "description": "编码错误处理方式（strict=严格报错, replace=替换为?, ignore=忽略）"
+    },
+    {
+      "name": "add_bom",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "default": "False",
+      "description": "是否添加 UTF-8 BOM 头"
+    }
+  ],
+  "output_params": [
+    {
+      "name": "output",
+      "role": "output_data",
+      "type": "string",
+      "default": "converted_output",
+      "description": "输出文件或目录路径"
+    },
+    {
+      "name": "converted_count",
+      "role": "output_data",
+      "type": "integer",
+      "default": 0,
+      "description": "成功转换的文件数量"
+    },
+    {
+      "name": "failed_count",
+      "role": "output_data",
+      "type": "integer",
+      "default": 0,
+      "description": "转换失败的文件数量"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input",
+    "{input}",
+    "--output",
+    "{output}",
+    "--target_encoding",
+    "{target_encoding}",
+    "--source_encoding",
+    "{source_encoding}",
+    "--recursive",
+    "{recursive}",
+    "--file_extensions",
+    "{file_extensions}",
+    "--error_handling",
+    "{error_handling}",
+    "--add_bom",
+    "{add_bom}"
+  ],
+  "tag": "格式转换"
+}

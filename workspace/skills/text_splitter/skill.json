@@ -1,0 +1,180 @@
+{
+  "name": "text_splitter",
+  "version": "1.1.0",
+  "name_zh": "长文本规则切分算子",
+  "description": "长文本规则切分工具。将超长文本按照段落、句子、固定字符长度、非空行或科研论文章节标题进行自动切分，生成粒度均匀的短文本片段。 当用户提到文本切分、长文本拆分、按段落分割、按句子分割、文本分块、论文章节切分等需求时使用此skill。 适用于科研论文、实验综述、长篇文稿等资料的粒度拆分需求；不负责采样、清洗、格式转换或PDF解析。",
+  "language": "python",
+  "script_path": "scripts/run_text_splitter.py",
+  "entrypoint": "python scripts/run_text_splitter.py",
+  "input_params": [
+    {
+      "name": "input",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "输入文件路径（支持txt/md/json/jsonl等文本文件）"
+    },
+    {
+      "name": "output",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "输出文件路径"
+    },
+    {
+      "name": "split_mode",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "default": "paragraph",
+      "description": "切分模式（paragraph=按段落, sentence=按句子, length=按字符长度, line=按非空行, section=按科研论文章节标题）"
+    },
+    {
+      "name": "max_length",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "default": "1000",
+      "description": "切分模式为length时的最大字符数"
+    },
+    {
+      "name": "overlap",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "default": "0",
+      "description": "切分片段之间的重叠字符数（仅length模式有效）"
+    },
+    {
+      "name": "min_length",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "default": "10",
+      "description": "最小片段长度，低于此长度的片段将被合并或丢弃"
+    },
+    {
+      "name": "separator",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "default": "auto",
+      "description": "自定义分隔符（auto=自动检测，或指定如\\n\\n、。等）"
+    },
+    {
+      "name": "output_format",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "default": "jsonl",
+      "description": "输出格式（jsonl=每行一个JSON对象, txt=纯文本分隔, json=JSON数组）"
+    },
+    {
+      "name": "keep_metadata",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "default": "True",
+      "description": "是否保留元信息（片段序号、原始位置等）"
+    },
+    {
+      "name": "text_field",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "default": "text",
+      "description": "JSON/JSONL输入时的文本字段名"
+    },
+    {
+      "name": "language",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "default": "auto",
+      "description": "论文章节切分时的论文语言（auto/zh/en/mixed）"
+    },
+    {
+      "name": "custom_sections",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "default": "",
+      "description": "论文章节切分时的自定义章节标题，逗号分隔"
+    },
+    {
+      "name": "include_default",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "default": "True",
+      "description": "论文章节切分时是否包含默认章节关键词"
+    },
+    {
+      "name": "keep_title",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "default": "True",
+      "description": "论文章节切分时是否在章节内容中保留标题"
+    },
+    {
+      "name": "min_section_length",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "default": "50",
+      "description": "论文章节切分时最小章节长度，低于此长度的章节将被合并"
+    }
+  ],
+  "output_params": [
+    {
+      "name": "output",
+      "role": "output_data",
+      "type": "file",
+      "default": "text_splitter_output.jsonl",
+      "description": "切分后的文本文件"
+    },
+    {
+      "name": "split_count",
+      "role": "output_data",
+      "type": "integer",
+      "default": 0,
+      "description": "切分后的片段数量"
+    }
+  ],
+  "tag": "切分与采样",
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input",
+    "{input}",
+    "--output",
+    "{output}",
+    "--split_mode",
+    "{split_mode}",
+    "--max_length",
+    "{max_length}",
+    "--overlap",
+    "{overlap}",
+    "--min_length",
+    "{min_length}",
+    "--separator",
+    "{separator}",
+    "--output_format",
+    "{output_format}",
+    "--keep_metadata",
+    "{keep_metadata}",
+    "--text_field",
+    "{text_field}",
+    "--language",
+    "{language}",
+    "--custom_sections",
+    "{custom_sections}",
+    "--include_default",
+    "{include_default}",
+    "--keep_title",
+    "{keep_title}",
+    "--min_section_length",
+    "{min_section_length}"
+  ]
+}

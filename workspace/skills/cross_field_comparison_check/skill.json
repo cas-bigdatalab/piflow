@@ -1,0 +1,69 @@
+{
+  "name": "cross_field_comparison_check",
+  "version": "1.0.0",
+  "description": "跨字段比较校验：检查两个字段间的逻辑约束关系（如 start<end、min≤max、price>=cost），支持六种比较运算符，标记违反约束的数据行。",
+  "tag": "校验",
+  "language": "python",
+  "script_path": "scripts/cross_field_comparison_check.py",
+  "entrypoint": "python scripts/cross_field_comparison_check.py",
+  "input_params": [
+    {
+      "name": "input_path",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "输入文件"
+    },
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "输出文件"
+    },
+    {
+      "name": "constraints",
+      "role": "config",
+      "type": "string",
+      "required": true,
+      "description": "约束表达式，逗号分隔。格式：左字段,运算符,右字段。如 start,<,end 或 min,<=,max"
+    },
+    {
+      "name": "qc_mark",
+      "role": "config",
+      "type": "string",
+      "required": true,
+      "description": "质控标识"
+    },
+    {
+      "name": "mark_field_name",
+      "role": "config",
+      "type": "string",
+      "required": false,
+      "description": "质控标识字段名（默认QC0000）"
+    }
+  ],
+  "output_params": [
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "default": "cross_field_comparison_check_output_path.csv"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input_path",
+    "{input_path}",
+    "--output_path",
+    "{output_path}",
+    "--constraints",
+    "{constraints}",
+    "--qc_mark",
+    "{qc_mark}",
+    "--mark_field_name",
+    "{mark_field_name}"
+  ]
+}

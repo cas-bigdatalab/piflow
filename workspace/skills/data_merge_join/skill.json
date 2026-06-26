@@ -1,0 +1,81 @@
+{
+  "name": "data_merge_join",
+  "version": "1.0.0",
+  "description": "数据横向关联工具。将多个数据文件按指定键进行横向关联（JOIN），支持inner/left/right/outer。当用户提到数据关联、表连接等需求时使用此skill。",
+  "language": "python",
+  "script_path": "scripts/run_data_merge_join.py",
+  "entrypoint": "python scripts/run_data_merge_join.py",
+  "input_params": [
+    {
+      "name": "input_files",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "输入文件路径列表，逗号分隔"
+    },
+    {
+      "name": "output",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "输出文件路径"
+    },
+    {
+      "name": "join_key",
+      "role": "data",
+      "type": "string",
+      "required": true,
+      "description": "关联键字段名"
+    },
+    {
+      "name": "join_how",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "关联方式（inner/left/right/outer）",
+      "default": "inner"
+    },
+    {
+      "name": "use_dask",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "是否使用Dask处理大数据",
+      "default": "False"
+    },
+    {
+      "name": "blocksize",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "Dask分块大小",
+      "default": "64MB"
+    }
+  ],
+  "output_params": [
+    {
+      "name": "output",
+      "role": "output_data",
+      "type": "csv_file",
+      "default": "data_merge_join_output.csv",
+      "description": "关联后的数据文件"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input_files",
+    "{input_files}",
+    "--output",
+    "{output}",
+    "--join_key",
+    "{join_key}",
+    "--join_how",
+    "{join_how}",
+    "--use_dask",
+    "{use_dask}",
+    "--blocksize",
+    "{blocksize}"
+  ],
+  "tag": "增强"
+}

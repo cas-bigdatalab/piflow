@@ -1,0 +1,9 @@
+{
+  "input": "academic_paper.jsonl",
+  "output": "cleaned_paper.jsonl",
+  "citation_styles": "all",
+  "remove_inline_refs": true,
+  "remove_reference_section": false,
+  "preserve_context": true,
+  "text_field": "text"
+}

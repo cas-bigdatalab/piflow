@@ -1,0 +1,71 @@
+{
+  "name": "missing_value_remover",
+  "version": "1.0.0",
+  "description": "缺失值删除工具。读取结构化表格或 JSONL 数据，删除包含缺失值的行或删除缺失比例过高的列；不负责缺失值填充。",
+  "language": "python",
+  "script_path": "scripts/run_missing_value_remover.py",
+  "entrypoint": "python scripts/run_missing_value_remover.py",
+  "input_params": [
+    {
+      "name": "input",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "输入文件路径"
+    },
+    {
+      "name": "output",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "输出文件路径"
+    },
+    {
+      "name": "columns",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "要处理的字段，逗号分隔"
+    },
+    {
+      "name": "strategy",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "删除策略（drop/drop_cols）",
+      "default": "drop"
+    },
+    {
+      "name": "threshold",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "删除阈值（缺失比例超过此值则删除该列）",
+      "default": "0.5"
+    }
+  ],
+  "output_params": [
+    {
+      "name": "output",
+      "role": "output_data",
+      "type": "csv_file",
+      "default": "missing_value_remover_output.csv",
+      "description": "删除缺失值后的数据文件"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input",
+    "{input}",
+    "--output",
+    "{output}",
+    "--columns",
+    "{columns}",
+    "--strategy",
+    "{strategy}",
+    "--threshold",
+    "{threshold}"
+  ],
+  "tag": "清洗"
+}

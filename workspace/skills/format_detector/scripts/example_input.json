@@ -1,0 +1,6 @@
+{
+  "input": "./raw_data/",
+  "output": "./format_report.jsonl",
+  "recursive": false,
+  "output_format": "jsonl"
+}

@@ -1,0 +1,102 @@
+{
+  "name": "statistical_outlier_detector",
+  "version": "1.0.0",
+  "description": "统计与机器学习异常值检测工具。读取结构化表格数据，使用 IQR、Z-score、IsolationForest 或分组标准差一致性方法识别异常值，输出带异常标记、删除异常行或裁剪异常值后的结果文件。",
+  "language": "python",
+  "script_path": "scripts/run_statistical_outlier_detector.py",
+  "entrypoint": "python scripts/run_statistical_outlier_detector.py",
+  "input_params": [
+    {
+      "name": "input",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "输入文件路径"
+    },
+    {
+      "name": "output",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "输出文件路径"
+    },
+    {
+      "name": "columns",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "default": "",
+      "description": "要检测的数值字段，逗号分隔；留空时使用所有数值字段"
+    },
+    {
+      "name": "method",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "default": "iqr",
+      "description": "检测方法（iqr/zscore/isolation_forest/group_zscore）"
+    },
+    {
+      "name": "threshold",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "default": "1.5",
+      "description": "阈值（IQR倍数或Z-score标准差倍数）"
+    },
+    {
+      "name": "contamination",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "default": "0.05",
+      "description": "IsolationForest异常比例"
+    },
+    {
+      "name": "group_columns",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "default": "",
+      "description": "分组字段，group_zscore方法必填，多个字段用逗号分隔"
+    },
+    {
+      "name": "action",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "default": "mark",
+      "description": "处理方式（mark/remove/clip）"
+    }
+  ],
+  "output_params": [
+    {
+      "name": "output",
+      "role": "output_data",
+      "type": "csv_file",
+      "default": "statistical_outlier_detector_output.csv",
+      "description": "处理后的数据文件"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input",
+    "{input}",
+    "--output",
+    "{output}",
+    "--columns",
+    "{columns}",
+    "--method",
+    "{method}",
+    "--threshold",
+    "{threshold}",
+    "--contamination",
+    "{contamination}",
+    "--group_columns",
+    "{group_columns}",
+    "--action",
+    "{action}"
+  ],
+  "tag": "校验"
+}

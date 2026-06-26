@@ -1,0 +1,11 @@
+{
+  "input": "./data.jsonl",
+  "output": "./cleaned.jsonl",
+  "text_field": "text",
+  "min_fragment_length": 10,
+  "max_fragment_length": 100,
+  "similarity_threshold": 0.9,
+  "keep_first": true,
+  "mark_cleaned": true,
+  "log_file": "./removed_fragments.json"
+}

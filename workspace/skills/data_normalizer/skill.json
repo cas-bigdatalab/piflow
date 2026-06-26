@@ -1,0 +1,97 @@
+{
+  "name": "data_normalizer",
+  "version": "1.0.0",
+  "description": "数值标准化工具。读取JSONL数据，按指定字段执行Z-score或Min-Max标准化，并保留原始值与变更标记。 当用户提到数值标准化、归一化、字段规整、范围映射等需求时使用此skill。 即使用户没有明确说出\"data_normalizer\"，只要任务涉及对某个数值字段做标准化处理，就应该使用此skill。 不负责四舍五入/小数位统一（见DC3_RoundOff）、文本清洗、类别编码或多字段联合统计分析。",
+  "language": "python",
+  "script_path": "scripts/run_data_normalizer.py",
+  "entrypoint": "python scripts/run_data_normalizer.py",
+  "input_params": [
+    {
+      "name": "input",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "输入JSONL文件路径"
+    },
+    {
+      "name": "output",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "输出JSONL文件路径"
+    },
+    {
+      "name": "field",
+      "role": "data",
+      "type": "string",
+      "required": true,
+      "description": "要标准化的字段名"
+    },
+    {
+      "name": "method",
+      "role": "data",
+      "type": "string",
+      "required": true,
+      "description": "标准化方法：z_score/min_max"
+    },
+    {
+      "name": "new_min",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "default": "0",
+      "description": "min_max的目标最小值"
+    },
+    {
+      "name": "new_max",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "default": "1",
+      "description": "min_max的目标最大值"
+    },
+    {
+      "name": "log_file",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "default": "data_normalizer_log.json",
+      "description": "日志文件路径"
+    }
+  ],
+  "output_params": [
+    {
+      "name": "output",
+      "role": "output_data",
+      "type": "jsonl_file",
+      "default": "data_normalizer_output.jsonl",
+      "description": "标准化后的JSONL文件"
+    },
+    {
+      "name": "log_file",
+      "role": "output_data",
+      "type": "json_file",
+      "default": "data_normalizer_log.json",
+      "description": "可选日志文件"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input",
+    "{input}",
+    "--output",
+    "{output}",
+    "--field",
+    "{field}",
+    "--method",
+    "{method}",
+    "--new_min",
+    "{new_min}",
+    "--new_max",
+    "{new_max}",
+    "--log_file",
+    "{log_file}"
+  ],
+  "tag": "标准化"
+}
