@@ -44,3 +44,26 @@ def test_normalize_pipeline_answer_produces_content_change_for_mixed_text_json()
 
     assert normalized != raw
     assert normalized.count("```json") == 1
+
+
+def test_normalize_pipeline_answer_wraps_task_scoped_nodes_payload():
+    dag = {
+        "task": {
+            "name": "demo",
+            "description": "demo",
+            "nodes": [
+                {
+                    "node_name": "n1",
+                    "skill_name": "source_stop",
+                    "params": {"file_path": "/tmp/a.csv", "output": ""},
+                }
+            ],
+        }
+    }
+    raw = "下面是规划结果：" + json.dumps(dag, ensure_ascii=False)
+
+    normalized = _normalize_pipeline_answer_for_ui(raw)
+
+    assert normalized.startswith("下面是规划结果：")
+    assert "```json" in normalized
+    assert json.dumps(dag, ensure_ascii=False) in normalized

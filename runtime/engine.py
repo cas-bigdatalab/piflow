@@ -6,10 +6,7 @@ import uuid
 from typing import Any, AsyncIterator, Awaitable, Callable
 
 from agents.factory import AgentFactory
-from agents.subagent.skill_creator.factory import (
-    SkillCreatorAgentFactory,
-    build_transient_thread_id,
-)
+from agents.subagent.skill_creator.factory import SkillCreatorAgentFactory
 from agents.subagent.skill_creator.prompt import is_skill_creator_route_marker, strip_route_marker
 from agents.subagent.workflow_advisor.factory import AdvisorAgentFactory
 from infra.config_loader import get_settings
@@ -81,75 +78,24 @@ def _message_content_preview(content: Any) -> str:
     return _preview_text(_message_content_text(content))
 
 
-def _try_extract_pipeline_json_object(text: str) -> str | None:
-    for start, ch in enumerate(text):
-        if ch != "{":
-            continue
+def _is_pipeline_payload(parsed: Any) -> bool:
+    if not isinstance(parsed, dict):
+        return False
 
-        depth = 0
-        in_string = False
-        escaped = False
+    task = parsed.get("task")
+    top_level_nodes = parsed.get("nodes")
 
-        for end in range(start, len(text)):
-            current = text[end]
-            if in_string:
-                if escaped:
-                    escaped = False
-                elif current == "\\":
-                    escaped = True
-                elif current == '"':
-                    in_string = False
-                continue
+    if isinstance(task, dict):
+        if isinstance(top_level_nodes, list) and len(top_level_nodes) > 0:
+            return True
+        if isinstance(task.get("nodes"), list) and len(task.get("nodes")) > 0:
+            return True
+        if isinstance(parsed.get("steps"), list) and len(parsed.get("steps")) > 0:
+            return True
+        if isinstance(task.get("steps"), list) and len(task.get("steps")) > 0:
+            return True
 
-            if current == '"':
-                in_string = True
-                continue
-
-            if current == "{":
-                depth += 1
-            elif current == "}":
-                depth -= 1
-                if depth == 0:
-                    candidate = text[start : end + 1].strip()
-                    try:
-                        parsed = json.loads(candidate)
-                    except Exception:
-                        break
-                    if (
-                        isinstance(parsed, dict)
-                        and isinstance(parsed.get("task"), dict)
-                        and isinstance(parsed.get("nodes"), list)
-                    ):
-                        return candidate
-                    break
-    return None
-
-
-def _normalize_pipeline_answer_for_ui(text: str) -> str:
-    content = str(text or "").strip()
-    if not content:
-        return content
-
-    try:
-        parsed = json.loads(content)
-    except Exception:
-        parsed = None
-
-    if isinstance(parsed, dict) and isinstance(parsed.get("task"), dict) and isinstance(parsed.get("nodes"), list):
-        return content
-
-    if "```" in content:
-        return content
-
-    pipeline_json = _try_extract_pipeline_json_object(content)
-    if not pipeline_json:
-        return content
-
-    prefix, suffix = content.split(pipeline_json, 1)
-    prefix = prefix.strip()
-    suffix = suffix.strip()
-    fenced = f"```json\n{pipeline_json}\n```"
-    return "\n\n".join(part for part in [prefix, fenced, suffix] if part)
+    return isinstance(top_level_nodes, list) and len(top_level_nodes) > 0
 
 
 def _try_extract_pipeline_json_object(text: str) -> str | None:
@@ -186,11 +132,7 @@ def _try_extract_pipeline_json_object(text: str) -> str | None:
                         parsed = json.loads(candidate)
                     except Exception:
                         break
-                    if (
-                        isinstance(parsed, dict)
-                        and isinstance(parsed.get("task"), dict)
-                        and isinstance(parsed.get("nodes"), list)
-                    ):
+                    if _is_pipeline_payload(parsed):
                         return candidate
                     break
     return None
@@ -206,7 +148,7 @@ def _normalize_pipeline_answer_for_ui(text: str) -> str:
     except Exception:
         parsed = None
 
-    if isinstance(parsed, dict) and isinstance(parsed.get("task"), dict) and isinstance(parsed.get("nodes"), list):
+    if _is_pipeline_payload(parsed):
         return content
 
     if "```" in content:
