@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import shutil
 import uuid
 from datetime import datetime
 from contextlib import asynccontextmanager
@@ -158,6 +159,10 @@ class ListStorageFilesRequest(BaseModel):
 class ListUserWorkspaceRequest(BaseModel):
     user_id: str
     dir_path: str = ""
+
+
+class MoveWorkspaceTempFilesRequest(BaseModel):
+    user_id: str
 
 
 def get_engine(request: Request) -> AgentEngine:
@@ -586,6 +591,55 @@ async def upload_user_workspace_file(
         "original_filename": safe_name,
         "size": len(content),
         "content_type": file.content_type,
+    }
+
+
+@app.post("/workspace/temp/move-default-files")
+async def move_default_workspace_temp_files(req: MoveWorkspaceTempFilesRequest):
+    workspace = WorkspaceManager()
+    user_id = req.user_id.strip()
+
+    if not user_id:
+        raise HTTPException(status_code=400, detail="user_id is required")
+
+    try:
+        workspace.ensure_workspace()
+        workspace.ensure_user_workspace(user_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    source_paths = [
+        "/temp/Akcay.pdf",
+        "/temp/森林每木调查数据.csv",
+        "/temp/Marxist.docx",
+    ]
+    target_dir = _resolve_user_directory(workspace, user_id, "/temp", create=True)
+    results: list[dict[str, object]] = []
+
+    for virtual_path in source_paths:
+        source = workspace.resolve_virtual_path(virtual_path)
+        destination = (target_dir / source.name).resolve()
+        status = "moved"
+
+        if not source.exists():
+            status = "missing"
+        elif not source.is_file():
+            status = "not_file"
+        else:
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.move(str(source), str(destination))
+
+        results.append({
+            "source_path": virtual_path,
+            "target_path": f"/temp/{source.name}",
+            "filename": source.name,
+            "status": status,
+        })
+
+    return {
+        "user_id": user_id,
+        "target_dir": "/temp",
+        "items": results,
     }
 
 

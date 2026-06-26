@@ -234,3 +234,52 @@ def test_attach_message_files_supports_workspace_prefixed_paths(client):
             "name": "Akcay.pdf",
         }
     ]
+
+
+def test_move_default_workspace_temp_files_moves_fixed_files_into_user_temp(client):
+    test_client, workspace_root = client
+    source_files = {
+        "Akcay.pdf": b"%PDF-1.4",
+        "森林每木调查数据.csv": "col1,col2\n1,2\n".encode("utf-8"),
+        "Marxist.docx": b"docx-bytes",
+    }
+
+    for filename, content in source_files.items():
+        path = workspace_root / "temp" / filename
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(content)
+
+    response = test_client.post(
+        "/workspace/temp/move-default-files",
+        json={"user_id": "alice"},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "user_id": "alice",
+        "target_dir": "/temp",
+        "items": [
+            {
+                "source_path": "/temp/Akcay.pdf",
+                "target_path": "/temp/Akcay.pdf",
+                "filename": "Akcay.pdf",
+                "status": "moved",
+            },
+            {
+                "source_path": "/temp/森林每木调查数据.csv",
+                "target_path": "/temp/森林每木调查数据.csv",
+                "filename": "森林每木调查数据.csv",
+                "status": "moved",
+            },
+            {
+                "source_path": "/temp/Marxist.docx",
+                "target_path": "/temp/Marxist.docx",
+                "filename": "Marxist.docx",
+                "status": "moved",
+            },
+        ],
+    }
+
+    for filename, content in source_files.items():
+        assert not (workspace_root / "temp" / filename).exists()
+        assert (workspace_root / "users" / "alice" / "temp" / filename).read_bytes() == content
