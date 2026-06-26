@@ -301,9 +301,9 @@ export default function PipelinePreview({ data, threadId, onOpenCanvas, messageI
                 
                 // 处理特殊算子名称，写死 skill_id
                 if (skillNameToSearch === 'source_stop') {
-                  skillId = 'cn.piflow.engine.local.source_file_stop.SourceFileStop';
+                  skillId = 'cn.piflow.piflow_engine.local.source_file_stop.SourceFileStop';
                 } else if (skillNameToSearch === 'sink_stop') {
-                  skillId = 'cn.piflow.engine.local.file_save_stop.FileSaveStop';
+                  skillId = 'cn.piflow.piflow_engine.local.file_save_stop.FileSaveStop';
                 } else if (skillNameToSearch) {
                   // 根据 skill_name 去查询算子信息
                   const skillRes = await getSkillInfoByName(skillNameToSearch);
@@ -446,9 +446,9 @@ export default function PipelinePreview({ data, threadId, onOpenCanvas, messageI
           
           // 处理特殊算子名称，写死 skill_id
           if (skillName === 'source_stop') {
-            skillId = 'cn.piflow.engine.local.source_file_stop.SourceFileStop';
+            skillId = 'cn.piflow.piflow_engine.local.source_file_stop.SourceFileStop';
           } else if (skillName === 'sink_stop') {
-            skillId = 'cn.piflow.engine.local.file_save_stop.FileSaveStop';
+            skillId = 'cn.piflow.piflow_engine.local.file_save_stop.FileSaveStop';
           } else if (skillName) {
             // 根据 skill_name 去查询算子信息（带缓存）
             const skillRes = await getSkillInfoByName(skillName);

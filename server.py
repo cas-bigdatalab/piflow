@@ -2,6 +2,7 @@ import json
 import logging
 import os
 import uuid
+from datetime import datetime
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -76,7 +77,7 @@ async def lifespan(app: FastAPI):
     try:
         yield
     finally:
-        engine = getattr(app.state, "engine", None)
+        engine = getattr(app.state, "piflow_engine", None)
         if engine is None:
             return
         await engine.shutdown()
@@ -154,11 +155,80 @@ class ListStorageFilesRequest(BaseModel):
     dir_path: str = ""
 
 
+class ListUserWorkspaceRequest(BaseModel):
+    user_id: str
+    dir_path: str = ""
+
+
 def get_engine(request: Request) -> AgentEngine:
-    engine = getattr(request.app.state, "engine", None)
+    engine = getattr(request.app.state, "piflow_engine", None)
     if engine is None:
-        raise HTTPException(status_code=503, detail="agent engine is not initialized")
+        raise HTTPException(status_code=503, detail="agent piflow_engine is not initialized")
     return engine
+
+
+def _resolve_user_directory(
+    workspace: WorkspaceManager,
+    user_id: str,
+    dir_path: str,
+    *,
+    create: bool = False,
+) -> Path:
+    normalized_user_id = user_id.strip()
+    if not normalized_user_id:
+        raise HTTPException(status_code=400, detail="user_id is required")
+
+    try:
+        workspace.ensure_user_workspace(normalized_user_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    raw_dir = (dir_path or "").strip()
+    user_root = workspace.get_user_root(normalized_user_id).resolve()
+
+    if not raw_dir or raw_dir in {".", "/"}:
+        resolved_dir = user_root
+    else:
+        try:
+            resolved_dir = workspace.resolve_user_virtual_path(
+                normalized_user_id,
+                raw_dir,
+                create_parent=create,
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    try:
+        resolved_dir.relative_to(user_root)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="directory escapes user workspace") from exc
+
+    if create:
+        resolved_dir.mkdir(parents=True, exist_ok=True)
+
+    return resolved_dir
+
+
+def _build_user_workspace_path(workspace: WorkspaceManager, user_id: str, path: Path) -> str:
+    user_root = workspace.get_user_root(user_id).resolve()
+    relative = path.resolve().relative_to(user_root)
+    return "/" + "/".join(relative.parts)
+
+
+def _serialize_user_directory_entry(
+    workspace: WorkspaceManager,
+    user_id: str,
+    entry: Path,
+) -> dict[str, object]:
+    stat = entry.stat()
+    entry_type = "directory" if entry.is_dir() else "file"
+    return {
+        "name": entry.name,
+        "path": _build_user_workspace_path(workspace, user_id, entry),
+        "type": entry_type,
+        "size": None if entry.is_dir() else stat.st_size,
+        "last_modified": datetime.fromtimestamp(stat.st_mtime).isoformat(),
+    }
 
 
 @app.post("/chat")
@@ -344,7 +414,10 @@ async def attach_message_files_api(req: AttachMessageFilesRequest):
         return {"attachments": []}
 
     workspace = WorkspaceManager()
-    workspace.ensure_workspace()
+    try:
+        workspace.ensure_user_workspace(user_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     allowed = {t["thread_id"] for t in get_user_threads(user_id)}
     if thread_id not in allowed:
@@ -361,15 +434,18 @@ async def attach_message_files_api(req: AttachMessageFilesRequest):
             raise HTTPException(status_code=400, detail="attachment name is required")
 
         try:
-            workspace.resolve_virtual_path(path)
+            source = workspace.resolve_user_virtual_path(user_id, path)
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+        if not source.exists() or not source.is_file():
+            raise HTTPException(status_code=404, detail="attachment file not found")
 
         record = save_chat_file(
             user_id=user_id,
             thread_id=thread_id,
             message_id=message_id,
-            virtual_path=path,
+            virtual_path=workspace.to_user_relative_path(user_id, path),
             original_filename=name,
         )
         if record:
@@ -390,8 +466,6 @@ async def upload_workspace_file(
     file: UploadFile = File(...),
 ):
     workspace = WorkspaceManager()
-    workspace.ensure_workspace()
-
     normalized_user_id = user_id.strip()
     safe_thread_id = Path(thread_id.strip()).name
     safe_message_id = Path(message_id.strip()).name
@@ -406,20 +480,30 @@ async def upload_workspace_file(
     if not safe_name:
         raise HTTPException(status_code=400, detail="filename is required")
 
+    try:
+        workspace.ensure_user_workspace(normalized_user_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
     virtual_path = f"/temp/{safe_thread_id}/{safe_message_id}_{safe_name}"
 
     try:
-        destination = workspace.resolve_virtual_path(virtual_path, create_parent=True)
+        destination = workspace.resolve_user_virtual_path(
+            normalized_user_id,
+            virtual_path,
+            create_parent=True,
+        )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     content = await file.read()
     destination.write_bytes(content)
+    saved_virtual_path = workspace.to_user_relative_path(normalized_user_id, virtual_path)
     record = save_chat_file(
         user_id=normalized_user_id,
         thread_id=safe_thread_id,
         message_id=safe_message_id,
-        virtual_path=virtual_path,
+        virtual_path=saved_virtual_path,
         original_filename=safe_name,
     )
 
@@ -428,7 +512,76 @@ async def upload_workspace_file(
         "user_id": normalized_user_id,
         "thread_id": safe_thread_id,
         "message_id": safe_message_id,
-        "path": virtual_path,
+        "path": saved_virtual_path,
+        "original_filename": safe_name,
+        "size": len(content),
+        "content_type": file.content_type,
+    }
+
+
+@app.post("/workspace/list")
+async def list_user_workspace(req: ListUserWorkspaceRequest):
+    workspace = WorkspaceManager()
+    user_id = req.user_id.strip()
+    directory = _resolve_user_directory(workspace, user_id, req.dir_path)
+
+    if not directory.exists():
+        raise HTTPException(status_code=404, detail="directory not found")
+    if not directory.is_dir():
+        raise HTTPException(status_code=400, detail="path is not a directory")
+
+    user_root = workspace.get_user_root(user_id).resolve()
+    relative_dir = directory.relative_to(user_root)
+    display_dir_path = "/" + "/".join(relative_dir.parts) if relative_dir.parts else ""
+
+    entries = sorted(
+        directory.iterdir(),
+        key=lambda item: (not item.is_dir(), item.name.lower()),
+    )
+
+    return {
+        "user_id": user_id,
+        "dir_path": display_dir_path,
+        "items": [
+            _serialize_user_directory_entry(workspace, user_id, entry)
+            for entry in entries
+        ],
+    }
+
+
+@app.post("/workspace/upload/path")
+async def upload_user_workspace_file(
+    user_id: str = Form(...),
+    dir_path: str = Form(""),
+    file: UploadFile = File(...),
+):
+    workspace = WorkspaceManager()
+    normalized_user_id = user_id.strip()
+    safe_name = Path(file.filename or "").name.strip()
+
+    if not normalized_user_id:
+        raise HTTPException(status_code=400, detail="user_id is required")
+    if not safe_name:
+        raise HTTPException(status_code=400, detail="filename is required")
+
+    target_dir = _resolve_user_directory(workspace, normalized_user_id, dir_path, create=True)
+    destination = (target_dir / safe_name).resolve()
+
+    user_root = workspace.get_user_root(normalized_user_id).resolve()
+    try:
+        destination.relative_to(user_root)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="file path escapes user workspace") from exc
+
+    content = await file.read()
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    destination.write_bytes(content)
+
+    relative_path = "/" + "/".join(destination.relative_to(user_root).parts)
+    return {
+        "user_id": normalized_user_id,
+        "dir_path": dir_path.strip(),
+        "path": relative_path,
         "original_filename": safe_name,
         "size": len(content),
         "content_type": file.content_type,
@@ -436,12 +589,15 @@ async def upload_workspace_file(
 
 
 @app.get("/workspace/download")
-async def download_workspace_file(path: str):
+async def download_workspace_file(user_id: str, path: str):
     workspace = WorkspaceManager()
-    workspace.ensure_workspace()
+    try:
+        workspace.ensure_user_workspace(user_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     try:
-        source = workspace.resolve_virtual_path(path)
+        source = workspace.resolve_user_virtual_path(user_id, path)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 

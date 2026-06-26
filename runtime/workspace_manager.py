@@ -17,6 +17,21 @@ class WorkspaceManager:
         self.temp = self.root / cfg.dirs.temp
         self.logs = self.root / cfg.dirs.logs
 
+    @staticmethod
+    def _normalize_user_id(user_id: str) -> str:
+        raw = (user_id or "").strip()
+        if not raw:
+            raise ValueError("user_id is required")
+
+        if raw.startswith("/") or "\\" in raw:
+            raise ValueError("user_id is invalid")
+
+        parts = Path(raw).parts
+        if len(parts) != 1 or parts[0] in {"", ".", ".."}:
+            raise ValueError("user_id is invalid")
+
+        return parts[0]
+
     def ensure_workspace(self):
 
         dirs = [
@@ -32,6 +47,76 @@ class WorkspaceManager:
 
     def get_root(self):
         return str(self.root.resolve())
+
+    def get_user_root(self, user_id: str) -> Path:
+        normalized_user_id = self._normalize_user_id(user_id)
+        return (self.root / "users" / normalized_user_id).resolve()
+
+    def ensure_user_workspace(self, user_id: str):
+
+        settings = get_settings()
+        cfg = settings.workspace
+        user_root = self.get_user_root(user_id)
+
+        dirs = [
+            user_root,
+            user_root / cfg.dirs.artifacts,
+            user_root / cfg.dirs.outputs,
+            user_root / cfg.dirs.temp,
+            user_root / cfg.dirs.logs,
+        ]
+
+        for d in dirs:
+            d.mkdir(parents=True, exist_ok=True)
+
+    def _normalize_user_relative_path(self, user_id: str, virtual_path: str) -> str:
+        normalized_user_id = self._normalize_user_id(user_id)
+        raw = (virtual_path or "").strip()
+
+        if not raw:
+            raise ValueError("workspace path is empty")
+
+        user_root = self.get_user_root(normalized_user_id).resolve()
+        user_prefix = f"/users/{normalized_user_id}"
+        if raw == user_prefix:
+            raise ValueError("user workspace root path is not allowed")
+
+        input_path = Path(raw)
+        if input_path.is_absolute():
+            resolved = input_path.resolve()
+            try:
+                relative = resolved.relative_to(user_root)
+            except ValueError:
+                relative = None
+            else:
+                if not relative.parts:
+                    raise ValueError("user workspace root path is not allowed")
+                if any(part in ("..", "") for part in relative.parts):
+                    raise ValueError("user workspace path is invalid")
+                return "/".join(relative.parts)
+
+        if raw.startswith(user_prefix + "/"):
+            raw = raw[len(user_prefix):]
+        elif raw.startswith("/users/"):
+            parts = Path(raw.lstrip("/")).parts
+            if len(parts) >= 2 and parts[1] != normalized_user_id:
+                raise ValueError("path belongs to another user")
+            if len(parts) >= 2 and parts[1] == normalized_user_id:
+                raw = "/" + "/".join(parts[2:])
+            else:
+                raw = raw.lstrip("/")
+        elif raw.startswith("/"):
+            raw = raw.lstrip("/")
+
+        relative = raw.lstrip("/")
+        if not relative:
+            raise ValueError("user workspace root path is not allowed")
+
+        parts = Path(relative).parts
+        if any(part in ("..", "") for part in parts):
+            raise ValueError("user workspace path is invalid")
+
+        return "/".join(parts)
 
     def _resolve_workspace_path(self, virtual_path: str) -> Path:
         raw = (virtual_path or "").strip()
@@ -57,6 +142,40 @@ class WorkspaceManager:
             candidate = self.root / relative
 
         return candidate.resolve()
+
+    def resolve_user_virtual_path(
+        self,
+        user_id: str,
+        virtual_path: str,
+        create_parent: bool = False,
+    ) -> Path:
+        user_root = self.get_user_root(user_id).resolve()
+        relative = self._normalize_user_relative_path(user_id, virtual_path)
+        resolved = (user_root / relative).resolve()
+
+        try:
+            resolved.relative_to(user_root)
+        except ValueError as exc:
+            raise ValueError(f"path escapes user workspace: {virtual_path}") from exc
+
+        parts = resolved.relative_to(user_root).parts
+        if not parts:
+            raise ValueError("user workspace root path is not allowed")
+
+        if create_parent:
+            resolved.parent.mkdir(parents=True, exist_ok=True)
+
+        return resolved
+
+    def to_user_relative_path(self, user_id: str, virtual_path: str) -> str:
+        relative = self._normalize_user_relative_path(user_id, virtual_path)
+        return "/" + relative.replace("\\", "/")
+
+    def to_user_virtual_path(self, user_id: str, virtual_path: str) -> str:
+        relative = self._normalize_user_relative_path(user_id, virtual_path)
+        normalized_user_id = self._normalize_user_id(user_id)
+        normalized_relative = relative.replace("\\", "/")
+        return f"/users/{normalized_user_id}/{normalized_relative}"
 
     def resolve_virtual_path(self, virtual_path: str, create_parent: bool = False) -> Path:
 
