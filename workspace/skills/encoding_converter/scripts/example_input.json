@@ -1,0 +1,7 @@
+{
+  "input": "gbk_encoded_file.txt",
+  "output": "utf8_output.txt",
+  "target_encoding": "utf-8",
+  "source_encoding": "auto",
+  "error_handling": "replace"
+}

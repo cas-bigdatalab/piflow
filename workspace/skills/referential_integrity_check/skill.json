@@ -1,0 +1,89 @@
+{
+  "name": "referential_integrity_check",
+  "version": "1.0.0",
+  "description": "引用完整性校验：检查字段值是否在参考列或外部参考表中存在（外键约束），标记孤立/无引用的数据行，输出带质控标识的结果。",
+  "tag": "校验",
+  "language": "python",
+  "script_path": "scripts/referential_integrity_check.py",
+  "entrypoint": "python scripts/referential_integrity_check.py",
+  "input_params": [
+    {
+      "name": "input_path",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "输入文件"
+    },
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "输出文件"
+    },
+    {
+      "name": "check_field",
+      "role": "config",
+      "type": "string",
+      "required": true,
+      "description": "子表检查字段"
+    },
+    {
+      "name": "reference_path",
+      "role": "config",
+      "type": "string",
+      "required": false,
+      "description": "外部参考表路径；不指定则使用同表中的 reference_column"
+    },
+    {
+      "name": "reference_column",
+      "role": "config",
+      "type": "string",
+      "required": true,
+      "description": "参考列名"
+    },
+    {
+      "name": "qc_mark",
+      "role": "config",
+      "type": "string",
+      "required": true,
+      "description": "质控标识"
+    },
+    {
+      "name": "mark_field_name",
+      "role": "config",
+      "type": "string",
+      "required": false,
+      "default": "QC0000",
+      "description": "质控标识字段名"
+    }
+  ],
+  "output_params": [
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "csv_file",
+      "required": true,
+      "default": "referential_integrity_check_output.csv",
+      "description": "带质控标识的输出文件"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input_path",
+    "{input_path}",
+    "--output_path",
+    "{output_path}",
+    "--check_field",
+    "{check_field}",
+    "--reference_column",
+    "{reference_column}",
+    "--qc_mark",
+    "{qc_mark}",
+    "--mark_field_name",
+    "{mark_field_name}",
+    "--reference_path",
+    "{reference_path}"
+  ]
+}

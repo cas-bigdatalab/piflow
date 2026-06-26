@@ -1,0 +1,10 @@
+{
+  "input": "./collected.jsonl",
+  "output": "./parsed.jsonl",
+  "parse_mode": "auto",
+  "extract_title": true,
+  "extract_paragraphs": true,
+  "clean_whitespace": true,
+  "min_paragraph_length": 10,
+  "output_format": "jsonl"
+}

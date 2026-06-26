@@ -1,0 +1,83 @@
+{
+  "name": "text_collector",
+  "name_zh": "文本类数据采集接入算子",
+  "description": "纯文本文件采集工具。读取单个文本文件或目录中的txt、md、rst、log、text文件，执行文件正文采集，输出结构化文本记录文件。当用户提到文本文件采集、读取纯文本语料、汇总Markdown/RST/日志文本、把本地文本文件转成结构化记录等需求时使用此skill。即使用户没有明确说出\"文本采集\"，只要任务涉及把本地纯文本文件内容收集成统一记录，就应该使用此skill。不负责文档解析、图片解析、表格读取、文本清洗或质量过滤。",
+  "input_params": [
+    {
+      "name": "input",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "输入文件或目录路径"
+    },
+    {
+      "name": "output",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "输出文件路径"
+    },
+    {
+      "name": "encoding",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "default": "auto",
+      "description": "文件编码，默认auto自动检测"
+    },
+    {
+      "name": "recursive",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "default": "False",
+      "description": "是否递归处理子目录"
+    },
+    {
+      "name": "add_metadata",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "default": "True",
+      "description": "是否添加文件元信息"
+    },
+    {
+      "name": "output_format",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "default": "jsonl",
+      "description": "输出格式，支持jsonl/json/csv/auto"
+    }
+  ],
+  "output_params": [
+    {
+      "name": "output",
+      "role": "output_data",
+      "type": "jsonl_file",
+      "default": "text_collector_output.jsonl",
+      "description": "采集后的结构化文本记录文件"
+    }
+  ],
+  "tag": "采集",
+  "script_path": "scripts/run_text_collector.py",
+  "entrypoint": "python scripts/run_text_collector.py",
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input",
+    "{input}",
+    "--output",
+    "{output}",
+    "--encoding",
+    "{encoding}",
+    "--recursive",
+    "{recursive}",
+    "--add_metadata",
+    "{add_metadata}",
+    "--output_format",
+    "{output_format}"
+  ],
+  "version": "1.0.0",
+  "language": "python"
+}

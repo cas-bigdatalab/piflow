@@ -1,0 +1,83 @@
+{
+  "name": "content_parser",
+  "name_zh": "接入内容解析预处理算子",
+  "description": "内容解析预处理工具。读取采集后的JSONL、JSON或TXT文本记录，执行轻量内容解析，输出带标题、段落结构和内容类型的统一解析记录文件。当用户提到接入内容解析、采集后预处理、提取标题和段落、识别plain/markdown/html内容结构等需求时使用此skill。即使用户没有明确说出\"内容解析\"，只要任务涉及把已采集文本内容解析成统一结构，就应该使用此skill。不负责文件采集、表格抽取、内容清洗、质量校验、过滤筛选或格式转换。",
+  "input_params": [
+    {
+      "name": "input",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "输入文件路径，支持 jsonl/json/txt"
+    },
+    {
+      "name": "output",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "输出文件路径"
+    },
+    {
+      "name": "parse_mode",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "default": "auto",
+      "description": "解析模式，支持 auto/plain/markdown/html"
+    },
+    {
+      "name": "extract_title",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "default": "True",
+      "description": "是否提取标题"
+    },
+    {
+      "name": "extract_paragraphs",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "default": "True",
+      "description": "是否提取段落列表"
+    },
+    {
+      "name": "output_format",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "default": "jsonl",
+      "description": "输出格式，支持 jsonl/json/auto"
+    }
+  ],
+  "output_params": [
+    {
+      "name": "output",
+      "role": "output_data",
+      "type": "jsonl_file",
+      "default": "content_parser_output.jsonl",
+      "description": "解析后的结构化内容记录文件"
+    }
+  ],
+  "tag": "采集",
+  "script_path": "scripts/run_content_parser.py",
+  "entrypoint": "python scripts/run_content_parser.py",
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input",
+    "{input}",
+    "--output",
+    "{output}",
+    "--parse_mode",
+    "{parse_mode}",
+    "--extract_title",
+    "{extract_title}",
+    "--extract_paragraphs",
+    "{extract_paragraphs}",
+    "--output_format",
+    "{output_format}"
+  ],
+  "version": "1.0.0",
+  "language": "python"
+}

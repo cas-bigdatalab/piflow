@@ -1,0 +1,70 @@
+{
+  "name": "spelling_variant_normalizer",
+  "version": "1.0.0",
+  "description": "拼写变体标准化：统一英美拼写差异（colour→color、analyse→analyze 等），内置常见变体词典，支持自定义词典扩展，适配多来源英文学术语料规整。",
+  "tag": "清洗",
+  "language": "python",
+  "script_path": "scripts/spelling_variant_normalizer.py",
+  "entrypoint": "python scripts/spelling_variant_normalizer.py",
+  "input_params": [
+    {
+      "name": "input_path",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "输入文件路径"
+    },
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "输出文件路径"
+    },
+    {
+      "name": "text_columns",
+      "role": "config",
+      "type": "string",
+      "required": false,
+      "description": "处理的文本列，逗号分隔；默认全部字符串列"
+    },
+    {
+      "name": "direction",
+      "role": "config",
+      "type": "string",
+      "required": false,
+      "description": "转换方向：british_to_american（默认）或 american_to_british"
+    },
+    {
+      "name": "custom_dict",
+      "role": "config",
+      "type": "string",
+      "required": false,
+      "description": "自定义词典文件路径（JSON/CSV/TSV）"
+    }
+  ],
+  "output_params": [
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "default": "spelling_variant_normalizer_output.csv",
+      "description": "规范化后的文件"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input_path",
+    "{input_path}",
+    "--output_path",
+    "{output_path}",
+    "--text_columns",
+    "{text_columns}",
+    "--direction",
+    "{direction}",
+    "--custom_dict",
+    "{custom_dict}"
+  ]
+}

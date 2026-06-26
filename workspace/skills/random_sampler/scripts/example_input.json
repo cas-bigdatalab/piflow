@@ -1,0 +1,7 @@
+{
+  "input": "data.jsonl",
+  "output": "sampled.jsonl",
+  "method": "count",
+  "count": 1000,
+  "seed": 42
+}

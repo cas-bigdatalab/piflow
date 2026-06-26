@@ -1,0 +1,52 @@
+{
+  "name": "bracket_normalizer",
+  "version": "1.0.0",
+  "description": "括号类型统一：将中文/全角括号映射为对应的 ASCII 半角括号，统一文本中的括号表达，仅处理括号类符号本身。",
+  "tag": "清洗",
+  "language": "python",
+  "script_path": "scripts/bracket_normalizer.py",
+  "entrypoint": "python scripts/bracket_normalizer.py",
+  "input_params": [
+    {
+      "name": "input_path",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "输入文件路径"
+    },
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "输出文件路径"
+    },
+    {
+      "name": "text_columns",
+      "role": "config",
+      "type": "string",
+      "required": false,
+      "description": "处理的文本列，逗号分隔"
+    }
+  ],
+  "output_params": [
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "default": "bracket_normalizer_output.csv",
+      "description": "规范化后的文件"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input_path",
+    "{input_path}",
+    "--output_path",
+    "{output_path}",
+    "--text_columns",
+    "{text_columns}"
+  ]
+}

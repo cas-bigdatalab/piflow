@@ -1,0 +1,9 @@
+{
+  "input": "./data.jsonl",
+  "output": "./cleaned.jsonl",
+  "text_field": "text",
+  "expand_abbreviations": true,
+  "fix_spelling": true,
+  "normalize_case": false,
+  "mark_cleaned": true
+}

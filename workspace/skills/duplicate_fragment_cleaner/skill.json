@@ -1,0 +1,134 @@
+{
+  "name": "duplicate_fragment_cleaner",
+  "version": "1.1.1",
+  "name_zh": "重复文本片段模糊清理算子",
+  "description": "文本内部重复片段模糊清理工具。读取JSONL文本数据，按文本字段删除近似重复的段落、句子或连续片段，保留首次出现内容并输出清理后的样本。当用户提到清理重复片段、删除重复段落、去掉近似重复内容等需求时使用此skill。即使用户没有明确说出 duplicate_fragment_cleaner，只要任务涉及同一文本内部的重复片段清理，就应该使用此skill。不负责跨记录去重、摘要改写或语义重写。",
+  "language": "python",
+  "script_path": "scripts/run_duplicate_fragment_cleaner.py",
+  "entrypoint": "python scripts/run_duplicate_fragment_cleaner.py",
+  "input_params": [
+    {
+      "name": "input",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "输入JSONL文件路径"
+    },
+    {
+      "name": "output",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "输出JSONL文件路径"
+    },
+    {
+      "name": "text_field",
+      "type": "string",
+      "required": false,
+      "default": "text",
+      "description": "文本字段名"
+    },
+    {
+      "name": "min_fragment_length",
+      "type": "string",
+      "required": false,
+      "default": "30",
+      "description": "候选重复片段的最小字符长度"
+    },
+    {
+      "name": "max_fragment_length",
+      "type": "string",
+      "required": false,
+      "default": "500",
+      "description": "候选重复片段的最大字符长度"
+    },
+    {
+      "name": "similarity_threshold",
+      "type": "string",
+      "required": false,
+      "default": "0.88",
+      "description": "判定为近似重复的相似度阈值"
+    },
+    {
+      "name": "keep_first",
+      "type": "string",
+      "required": false,
+      "default": "True",
+      "description": "保留第一次出现的重复片段"
+    },
+    {
+      "name": "mark_cleaned",
+      "type": "string",
+      "required": false,
+      "default": "True",
+      "description": "是否标记已清洗样本"
+    },
+    {
+      "name": "log_file",
+      "type": "string",
+      "required": false,
+      "default": "",
+      "description": "删除片段日志文件路径"
+    }
+  ],
+  "output_params": [
+    {
+      "name": "output",
+      "role": "output_data",
+      "type": "jsonl_file",
+      "default": "duplicate_fragment_cleaner_output.jsonl",
+      "description": "清理后的JSONL文件"
+    },
+    {
+      "name": "total_samples",
+      "role": "output_data",
+      "type": "integer",
+      "default": 0,
+      "description": "总样本数"
+    },
+    {
+      "name": "cleaned_samples",
+      "role": "output_data",
+      "type": "integer",
+      "default": 0,
+      "description": "清洗样本数"
+    },
+    {
+      "name": "fragments_removed",
+      "role": "output_data",
+      "type": "integer",
+      "default": 0,
+      "description": "删除片段总数"
+    },
+    {
+      "name": "unique_fragments",
+      "role": "output_data",
+      "type": "integer",
+      "default": 0,
+      "description": "唯一片段数"
+    }
+  ],
+  "tag": "清洗",
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input",
+    "{input}",
+    "--output",
+    "{output}",
+    "--text_field",
+    "{text_field}",
+    "--min_fragment_length",
+    "{min_fragment_length}",
+    "--max_fragment_length",
+    "{max_fragment_length}",
+    "--similarity_threshold",
+    "{similarity_threshold}",
+    "--keep_first",
+    "{keep_first}",
+    "--mark_cleaned",
+    "{mark_cleaned}",
+    "--log_file",
+    "{log_file}"
+  ]
+}

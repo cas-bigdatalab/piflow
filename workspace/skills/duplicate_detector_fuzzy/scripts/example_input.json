@@ -1,0 +1,7 @@
+{
+  "input": "data.csv",
+  "output": "deduplicated.csv",
+  "field": "content",
+  "threshold": 0.85,
+  "algorithm": "simhash"
+}

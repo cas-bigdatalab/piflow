@@ -1,0 +1,10 @@
+{
+  "input": "./data.jsonl",
+  "output": "./cleaned.jsonl",
+  "field_rules": "{\"distance\":{\"target_unit\":\"m\",\"decimal_places\":2,\"format_type\":\"standard\"},\"weight\":{\"target_unit\":\"kg\",\"decimal_places\":3,\"fill_null\":0},\"percentage\":{\"format_type\":\"percent\",\"decimal_places\":1}}",
+  "conversion_rules": "{\"km::m\":1000,\"g::kg\":0.001}",
+  "decimal_places": 2,
+  "fill_null": "N/A",
+  "mark_cleaned": true,
+  "stats_output": "./clean_stats.json"
+}

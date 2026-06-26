@@ -1,0 +1,71 @@
+{
+  "name": "duplicate_row_check",
+  "version": "1.0.0",
+  "description": "结构化表格重复行检测工具。仅检查CSV/TSV/Excel等表格型数据中的完全重复记录或指定列子集重复，标记后续重复行并保留首次出现；不处理文本片段清理、文档去重或其他字段质控。",
+  "tag": "校验",
+  "language": "python",
+  "script_path": "scripts/duplicate_row_check.py",
+  "entrypoint": "python scripts/duplicate_row_check.py",
+  "input_params": [
+    {
+      "name": "input_path",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "输入文件"
+    },
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "输出文件"
+    },
+    {
+      "name": "dup_columns",
+      "role": "config",
+      "type": "string",
+      "required": false,
+      "description": "检测列，逗号分隔；不指定则全列比较"
+    },
+    {
+      "name": "qc_mark",
+      "role": "config",
+      "type": "string",
+      "required": true,
+      "description": "质控标识"
+    },
+    {
+      "name": "mark_field_name",
+      "role": "config",
+      "type": "string",
+      "required": false,
+      "description": "质控标识字段名",
+      "default": "QC0000"
+    }
+  ],
+  "output_params": [
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "带质控标识的输出",
+      "default": "duplicate_row_check_output.csv"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input_path",
+    "{input_path}",
+    "--output_path",
+    "{output_path}",
+    "--qc_mark",
+    "{qc_mark}",
+    "--mark_field_name",
+    "{mark_field_name}",
+    "--dup_columns",
+    "{dup_columns}"
+  ]
+}

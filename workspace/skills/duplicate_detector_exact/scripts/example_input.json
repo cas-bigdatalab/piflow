@@ -1,0 +1,6 @@
+{
+  "input": "data.csv",
+  "output": "deduplicated.csv",
+  "fields": "title,content",
+  "keep": "first"
+}

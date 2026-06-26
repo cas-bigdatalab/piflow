@@ -1,0 +1,7 @@
+{
+  "input": "data.jsonl",
+  "output": "sampled.jsonl",
+  "method": "interval",
+  "interval": 10,
+  "start_offset": 0
+}

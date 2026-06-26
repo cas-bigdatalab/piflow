@@ -1,0 +1,100 @@
+{
+  "name": "pdf_ocr_artifact_cleaner",
+  "version": "1.0.0",
+  "description": "PDF/OCR伪影清洗：修复断行连字符拼接（dehyphenation）、去除页眉页脚页码、归一化Unicode连字（ligature），适配学术论文PDF提取文本的后处理清洗。",
+  "tag": "清洗",
+  "language": "python",
+  "script_path": "scripts/pdf_ocr_artifact_cleaner.py",
+  "entrypoint": "python scripts/pdf_ocr_artifact_cleaner.py",
+  "input_params": [
+    {
+      "name": "input_path",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "输入文件路径"
+    },
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "输出文件路径"
+    },
+    {
+      "name": "text_columns",
+      "role": "config",
+      "type": "string",
+      "required": false,
+      "description": "处理的文本列，逗号分隔"
+    },
+    {
+      "name": "no_dehyphenate",
+      "role": "config",
+      "type": "string",
+      "required": false,
+      "description": "关闭断行连字符修复（默认开启）",
+      "default": "False"
+    },
+    {
+      "name": "no_strip_page_numbers",
+      "role": "config",
+      "type": "string",
+      "required": false,
+      "description": "关闭独立页码行去除（默认开启）",
+      "default": "False"
+    },
+    {
+      "name": "no_normalize_ligatures",
+      "role": "config",
+      "type": "string",
+      "required": false,
+      "description": "关闭Unicode连字归一化（默认开启）",
+      "default": "False"
+    },
+    {
+      "name": "header_pattern",
+      "role": "config",
+      "type": "string",
+      "required": false,
+      "description": "匹配页眉行的正则表达式"
+    },
+    {
+      "name": "footer_pattern",
+      "role": "config",
+      "type": "string",
+      "required": false,
+      "description": "匹配页脚行的正则表达式"
+    }
+  ],
+  "output_params": [
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "default": "pdf_ocr_artifact_cleaner_output.csv",
+      "description": "清洗后的文件"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input_path",
+    "{input_path}",
+    "--output_path",
+    "{output_path}",
+    "--text_columns",
+    "{text_columns}",
+    "--no_dehyphenate",
+    "{no_dehyphenate}",
+    "--no_strip_page_numbers",
+    "{no_strip_page_numbers}",
+    "--no_normalize_ligatures",
+    "{no_normalize_ligatures}",
+    "--header_pattern",
+    "{header_pattern}",
+    "--footer_pattern",
+    "{footer_pattern}"
+  ]
+}

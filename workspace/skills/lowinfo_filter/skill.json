@@ -1,0 +1,92 @@
+{
+  "name": "lowinfo_filter",
+  "version": "1.0.0",
+  "tag": "清洗",
+  "description": "低信息量过滤工具。同时校验字符总数与行数两个维度，对指定文本列过滤低/高信息样本，输出过滤后的合规行。与words_num_filter、token_num_filter、maximum_line_length_filter、average_line_length_filter的区别在于：本skill同时校验字符数与行数双维度，原生支持CSV/TSV/Excel多列，不依赖data_juicer。",
+  "language": "python",
+  "script_path": "scripts/lowinfo_filter.py",
+  "entrypoint": "python scripts/lowinfo_filter.py",
+  "input_params": [
+    {
+      "name": "input_path",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "输入文件路径（支持CSV/TSV/Excel等data_io支持的格式）"
+    },
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "输出文件路径（过滤后的文件）"
+    },
+    {
+      "name": "text_columns",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "default": "",
+      "description": "需检测的文本列，逗号分隔；不填默认全部字符串列"
+    },
+    {
+      "name": "min_chars",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "最小字符数，默认 10",
+      "default": "10"
+    },
+    {
+      "name": "max_chars",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "最大字符数（0 表示不限），默认 2000",
+      "default": "2000"
+    },
+    {
+      "name": "min_lines",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "最小行数，默认 1",
+      "default": "1"
+    },
+    {
+      "name": "max_lines",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "最大行数（0 表示不限），默认 200",
+      "default": "200"
+    }
+  ],
+  "output_params": [
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "csv_file",
+      "default": "lowinfo_filter_output.csv",
+      "description": "过滤后的结构化数据文件"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input_path",
+    "{input_path}",
+    "--output_path",
+    "{output_path}",
+    "--text_columns",
+    "{text_columns}",
+    "--min_chars",
+    "{min_chars}",
+    "--max_chars",
+    "{max_chars}",
+    "--min_lines",
+    "{min_lines}",
+    "--max_lines",
+    "{max_lines}"
+  ]
+}

@@ -1,0 +1,121 @@
+{
+  "name": "numeric_distribution_check",
+  "version": "1.0.0",
+  "description": "字段分布校验：检查数值字段统计特征或分类字段频率分布是否在合理范围内，可用于检测分布偏移、类别倾斜和异常批量数据。",
+  "tag": "校验",
+  "language": "python",
+  "script_path": "scripts/numeric_distribution_check.py",
+  "entrypoint": "python scripts/numeric_distribution_check.py",
+  "input_params": [
+    {
+      "name": "input_path",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "输入文件"
+    },
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "输出文件"
+    },
+    {
+      "name": "mode",
+      "role": "config",
+      "type": "string",
+      "required": false,
+      "default": "numeric",
+      "description": "校验模式：numeric 或 categorical"
+    },
+    {
+      "name": "value_field",
+      "role": "config",
+      "type": "string",
+      "required": false,
+      "default": "",
+      "description": "数值字段"
+    },
+    {
+      "name": "stat_constraints",
+      "role": "config",
+      "type": "string",
+      "required": false,
+      "default": "",
+      "description": "统计约束，格式：统计量,min,max；如 mean,0,100 或 std,0,50，支持 mean/median/std/min/max/p25/p75"
+    },
+    {
+      "name": "category_field",
+      "role": "config",
+      "type": "string",
+      "required": false,
+      "default": "",
+      "description": "分类字段"
+    },
+    {
+      "name": "max_categories",
+      "role": "config",
+      "type": "string",
+      "required": false,
+      "default": "0",
+      "description": "最大类别数（超过标记）"
+    },
+    {
+      "name": "max_single_ratio",
+      "role": "config",
+      "type": "string",
+      "required": false,
+      "default": "0",
+      "description": "单类最大占比 0~1（超过标记数据倾斜行）"
+    },
+    {
+      "name": "qc_mark",
+      "role": "config",
+      "type": "string",
+      "required": true,
+      "description": "质控标识"
+    },
+    {
+      "name": "mark_field_name",
+      "role": "config",
+      "type": "string",
+      "required": false,
+      "default": "QC0000",
+      "description": "质控标识字段名（默认QC0000）"
+    }
+  ],
+  "output_params": [
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "default": "numeric_distribution_check_output_path.csv"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input_path",
+    "{input_path}",
+    "--output_path",
+    "{output_path}",
+    "--mode",
+    "{mode}",
+    "--value_field",
+    "{value_field}",
+    "--stat_constraints",
+    "{stat_constraints}",
+    "--category_field",
+    "{category_field}",
+    "--max_categories",
+    "{max_categories}",
+    "--max_single_ratio",
+    "{max_single_ratio}",
+    "--qc_mark",
+    "{qc_mark}",
+    "--mark_field_name",
+    "{mark_field_name}"
+  ]
+}

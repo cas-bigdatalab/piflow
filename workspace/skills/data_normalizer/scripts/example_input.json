@@ -1,0 +1,8 @@
+{
+  "input": "data.jsonl",
+  "output": "normalized.jsonl",
+  "field": "score",
+  "method": "min_max",
+  "new_min": 0,
+  "new_max": 100
+}
