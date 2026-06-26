@@ -51,18 +51,20 @@ def submit_frontend_dag(
     definition_json: dict[str, Any],
     *,
     workspace_root: str | Path | None = None,
+    user_id: str | None = None,
     python_home: str | None = None,
 ) -> Any:
-    from cn.piflow.core.flow_bean import FlowBean
-    from cn.piflow.core.frontend_dag_converter import convert_frontend_dag_to_piflow
-    from cn.piflow.core.runner import Runner
-    from cn.piflow.engine.local.constants import (
+    from piflow_engine.cn.piflow.core.flow_bean import FlowBean
+    from piflow_engine.cn.piflow.core.frontend_dag_converter import convert_frontend_dag_to_piflow
+    from piflow_engine.cn.piflow.core.runner import Runner
+    from piflow_engine.cn.piflow.engine.local.constants import (
         RUNNER_CONTEXT_PYTHON_HOME,
         RUNNER_CONTEXT_WORKSPACE_ROOT,
+        RUNNER_CONTEXT_USER_ID,
     )
-    from cn.piflow.runtime.logging import RunLogger
-    from cn.piflow.runtime.run_tracking_listener import RunTrackingListener
-    from cn.piflow.runtime.store.postgres.PostgresRunStore import PostgresRunStore
+    from piflow_engine.cn.piflow.runtime.logging import RunLogger
+    from piflow_engine.cn.piflow.runtime.run_tracking_listener import RunTrackingListener
+    from piflow_engine.cn.piflow.runtime.store.postgres.PostgresRunStore import PostgresRunStore
     from database.postgres import get_connection
 
     class ClosingRunTrackingListener(RunTrackingListener):
@@ -103,6 +105,7 @@ def submit_frontend_dag(
     runner = (
         Runner.create()
         .bind(RUNNER_CONTEXT_WORKSPACE_ROOT, str(workspace))
+        .bind(RUNNER_CONTEXT_USER_ID, user_id or "")
         .bind(RUNNER_CONTEXT_PYTHON_HOME, python_home or sys.executable)
     )
     runner.add_listener(

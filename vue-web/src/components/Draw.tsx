@@ -1322,15 +1322,15 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
           }
           
           // 对于source_stop和sink_stop这两个特殊算子，不要请求接口，使用固定的参数
-          const isSpecialSkill = skillId === 'cn.piflow.engine.local.source_file_stop.SourceFileStop' || 
-                                  skillId === 'cn.piflow.engine.local.file_save_stop.FileSaveStop';
+          const isSpecialSkill = skillId === 'cn.piflow.piflow_engine.local.source_file_stop.SourceFileStop' ||
+                                  skillId === 'cn.piflow.piflow_engine.local.file_save_stop.FileSaveStop';
           let skillDescription = '';
           
           if (isSpecialSkill) {
             console.log(`节点 ${i}: 特殊算子，不请求接口`);
             
             // 特殊算子总是使用固定的参数定义，不依赖保存的数据
-            if (skillId === 'cn.piflow.engine.local.source_file_stop.SourceFileStop') {
+            if (skillId === 'cn.piflow.piflow_engine.local.source_file_stop.SourceFileStop') {
               n.skill = n.skill || {};
               n.skill.name_zh = '文件源';
               // source_stop的固定输入参数（只有file_path）
@@ -1742,7 +1742,7 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
         
         // 处理特殊算子名称，写死 skill_id
         if (skillName === 'source_stop') {
-          skillId = 'cn.piflow.engine.local.source_file_stop.SourceFileStop';
+          skillId = 'cn.piflow.piflow_engine.local.source_file_stop.SourceFileStop';
           nodeNameToZhName[pNode.node_name] = '文件源';
           nodeNameToZhName['source_stop'] = '文件源';
           // source_stop 有输出参数，不调用接口
@@ -1755,7 +1755,7 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
             }]
           };
         } else if (skillName === 'sink_stop') {
-          skillId = 'cn.piflow.engine.local.file_save_stop.FileSaveStop';
+          skillId = 'cn.piflow.piflow_engine.local.file_save_stop.FileSaveStop';
           nodeNameToZhName[pNode.node_name] = '文件保存';
           nodeNameToZhName['sink_stop'] = '文件保存';
           // sink_stop 没有输出参数，不调用接口
@@ -1817,7 +1817,7 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
         
         // 对于 source_stop 和 sink_stop 特殊算子，使用fixArr中定义的参数结构，然后填入值
         if (skillName === 'source_stop') {
-          skillId = 'cn.piflow.engine.local.source_file_stop.SourceFileStop';
+          skillId = 'cn.piflow.piflow_engine.local.source_file_stop.SourceFileStop';
           nodeTypeForOperator = 'input';
           
           // source_stop的输入参数只有file_path
@@ -1891,7 +1891,7 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
           
           console.log(`节点 ${nodeName}: source_stop 特殊算子，使用fixArr定义的参数结构:`, mergedInputParams);
         } else if (skillName === 'sink_stop') {
-          skillId = 'cn.piflow.engine.local.file_save_stop.FileSaveStop';
+          skillId = 'cn.piflow.piflow_engine.local.file_save_stop.FileSaveStop';
           nodeTypeForOperator = 'output';
           
           // 使用fixArr中定义的sink_stop参数结构
@@ -2353,7 +2353,7 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
               "DagSkillInfoList": [
                   {
                       id: 9999999999998,
-                      skill_id: "cn.piflow.engine.local.source_file_stop.SourceFileStop",
+                      skill_id: "cn.piflow.piflow_engine.local.source_file_stop.SourceFileStop",
                       skill_name: "文件源",
                       name_zh: "文件源",
                       version: "1.0.0",
@@ -2396,7 +2396,7 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
                   },
                   {
                       id: 9999999999999,
-                      skill_id: "cn.piflow.engine.local.file_save_stop.FileSaveStop",
+                      skill_id: "cn.piflow.piflow_engine.local.file_save_stop.FileSaveStop",
                       skill_name: "文件保存",
                       name_zh: "文件保存",
                       version: "1.0.0",

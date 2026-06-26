@@ -11,7 +11,7 @@ async def test_engine_initialize():
 
     with patch("agents.factory.AgentFactory.create_agent", return_value=fake_agent), \
          patch("tools.loader.load_all_tools"), \
-         patch("runtime.engine.registry") as fake_registry:
+         patch("runtime.piflow_engine.registry") as fake_registry:
 
         fake_registry.list_records.return_value = []
 

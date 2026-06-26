@@ -15,7 +15,7 @@ from runtime.workspace_manager import WorkspaceManager
 from services.user_service import init_default_user
 from tools.core.registry import registry
 
-log = logging.getLogger("flow.engine")
+log = logging.getLogger("flow.piflow_engine")
 
 
 def _preview_text(value: Any, limit: int = 120) -> str:
@@ -58,14 +58,21 @@ def _message_content_preview(content: Any) -> str:
     return _preview_text(_message_content_text(content))
 
 
-def _build_attachment_context(attachments: list[str] | None) -> str:
-    valid = []
+def _build_attachment_context(
+    attachments: list[str] | None,
+    user_id: str,
+    workspace: WorkspaceManager,
+) -> str:
+    valid: list[str] = []
     for item in attachments or []:
         if not isinstance(item, str):
             continue
         path = item.strip()
         if path:
-            valid.append(path)
+            try:
+                valid.append(workspace.to_user_virtual_path(user_id, path))
+            except ValueError:
+                continue
 
     if not valid:
         return ""
@@ -340,7 +347,20 @@ class AgentEngine:
 
         update_thread_time(thread_id)
 
-        attachment_context = _build_attachment_context(attachments)
+        workspace = WorkspaceManager()
+        normalized_attachments: list[str] = []
+        for item in attachments or []:
+            if not isinstance(item, str):
+                continue
+            path = item.strip()
+            if not path:
+                continue
+            try:
+                normalized_attachments.append(workspace.to_user_virtual_path(user_id, path))
+            except ValueError:
+                continue
+
+        attachment_context = _build_attachment_context(normalized_attachments, user_id, workspace)
         input_content = message
         if attachment_context:
             input_content = f"{message}\n\n{attachment_context}"
@@ -348,8 +368,8 @@ class AgentEngine:
                 "attachments injected request_id=%s thread_id=%s attachment_count=%s attachments=%s",
                 request_id,
                 thread_id,
-                len(attachments or []),
-                ",".join(attachments or []),
+                len(normalized_attachments),
+                ",".join(normalized_attachments),
             )
 
         messages = []
@@ -372,7 +392,6 @@ class AgentEngine:
             })
             save_message(user_id, thread_id, "user", message)
 
-        workspace = WorkspaceManager()
         before_outputs = workspace.snapshot_downloadables()
 
         return {
