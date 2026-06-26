@@ -439,8 +439,7 @@ async def attach_message_files_api(req: AttachMessageFilesRequest):
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
         if not source.exists() or not source.is_file():
-            log.info(f"attachment path {path} is not a file")
-            print(f"attachment path {path} is not a file")
+            log.info(f"attachment path {source.resolve()} is not a file")
             raise HTTPException(status_code=404, detail="attachment file not found")
 
         record = save_chat_file(
