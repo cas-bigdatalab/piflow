@@ -1,0 +1,140 @@
+{
+  "name": "punctuation_normalizer",
+  "name_zh": "文本标点规范化算子",
+  "version": "1.0.0",
+  "description": "文本标点规范化工具。只处理标点本身：合并重复标点、统一中英文标点与引号样式、规范省略号和标点周围空格；不处理 HTML、表情、数字或拼写清理。",
+  "tag": "清洗",
+  "language": "python",
+  "script_path": "scripts/run_punctuation_normalizer.py",
+  "entrypoint": "python scripts/run_punctuation_normalizer.py",
+  "input_params": [
+    {
+      "name": "input",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "输入文件路径，支持 txt/json/jsonl/csv"
+    },
+    {
+      "name": "output",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "输出文件路径"
+    },
+    {
+      "name": "merge_repeated",
+      "role": "config",
+      "type": "string",
+      "required": false,
+      "default": "True",
+      "description": "是否合并重复标点"
+    },
+    {
+      "name": "max_repeat",
+      "role": "config",
+      "type": "string",
+      "required": false,
+      "default": "1",
+      "description": "允许的最大重复次数"
+    },
+    {
+      "name": "normalize_width",
+      "role": "config",
+      "type": "string",
+      "required": false,
+      "default": "auto",
+      "description": "全半角规范化模式（auto、full、half、none）"
+    },
+    {
+      "name": "normalize_quotes",
+      "role": "config",
+      "type": "string",
+      "required": false,
+      "default": "True",
+      "description": "是否规范化引号"
+    },
+    {
+      "name": "quote_style",
+      "role": "config",
+      "type": "string",
+      "required": false,
+      "default": "chinese",
+      "description": "引号风格（chinese 或 english）"
+    },
+    {
+      "name": "normalize_ellipsis",
+      "role": "config",
+      "type": "string",
+      "required": false,
+      "default": "True",
+      "description": "是否规范化省略号"
+    },
+    {
+      "name": "remove_space_around_punct",
+      "role": "config",
+      "type": "string",
+      "required": false,
+      "default": "True",
+      "description": "是否移除标点周围的多余空格"
+    },
+    {
+      "name": "text_field",
+      "role": "config",
+      "type": "string",
+      "required": false,
+      "default": "text",
+      "description": "JSON/JSONL 输入时的文本字段名"
+    }
+  ],
+  "output_params": [
+    {
+      "name": "output",
+      "role": "output_data",
+      "type": "file",
+      "required": true,
+      "default": "output.csv",
+      "description": "规范化后的文件"
+    },
+    {
+      "name": "total_count",
+      "role": "output_data",
+      "type": "integer",
+      "required": true,
+      "default": 0,
+      "description": "处理的样本总数"
+    },
+    {
+      "name": "modified_count",
+      "role": "output_data",
+      "type": "integer",
+      "required": true,
+      "default": 0,
+      "description": "被修改的样本数"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input",
+    "{input}",
+    "--output",
+    "{output}",
+    "--merge_repeated",
+    "{merge_repeated}",
+    "--max_repeat",
+    "{max_repeat}",
+    "--normalize_width",
+    "{normalize_width}",
+    "--normalize_quotes",
+    "{normalize_quotes}",
+    "--quote_style",
+    "{quote_style}",
+    "--normalize_ellipsis",
+    "{normalize_ellipsis}",
+    "--remove_space_around_punct",
+    "{remove_space_around_punct}",
+    "--text_field",
+    "{text_field}"
+  ]
+}

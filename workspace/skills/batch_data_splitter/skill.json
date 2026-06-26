@@ -1,0 +1,87 @@
+{
+  "name": "batch_data_splitter",
+  "version": "1.0.0",
+  "description": "批量数据均匀分割工具。面向大容量批量数据集进行均等分割，将整体数据集均匀划分为多组子数据集。当用户提到数据分割、批量拆分、数据分片、均匀划分等需求时使用此skill。即使用户没有明确说出\"分割\"，只要任务涉及把一份批量数据按份数或按固定条数拆成多个子数据文件，就应该使用此skill。不负责按字段分组导出或随机采样。",
+  "language": "python",
+  "script_path": "scripts/run_batch_data_splitter.py",
+  "entrypoint": "python scripts/run_batch_data_splitter.py",
+  "input_params": [
+    {
+      "name": "input",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "输入文件路径"
+    },
+    {
+      "name": "output_dir",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "输出目录路径"
+    },
+    {
+      "name": "num_splits",
+      "type": "string",
+      "required": false,
+      "default": "0",
+      "description": "分割份数（0表示按chunk_size分割）"
+    },
+    {
+      "name": "chunk_size",
+      "type": "string",
+      "required": false,
+      "default": "1000",
+      "description": "每份样本数量"
+    },
+    {
+      "name": "output_prefix",
+      "type": "string",
+      "required": false,
+      "default": "split",
+      "description": "输出文件名前缀"
+    },
+    {
+      "name": "shuffle",
+      "type": "string",
+      "required": false,
+      "default": "False",
+      "description": "是否打乱顺序后分割"
+    },
+    {
+      "name": "random_seed",
+      "type": "string",
+      "required": false,
+      "default": "42",
+      "description": "随机种子"
+    }
+  ],
+  "output_params": [
+    {
+      "name": "output_dir",
+      "role": "output_data",
+      "type": "file",
+      "default": "output_manifest.json",
+      "description": "分割结果清单文件路径（JSON，含 splits_dir/output_files/total_count/actual_num_splits/samples_per_split）"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input",
+    "{input}",
+    "--output_dir",
+    "{output_dir}",
+    "--num_splits",
+    "{num_splits}",
+    "--chunk_size",
+    "{chunk_size}",
+    "--output_prefix",
+    "{output_prefix}",
+    "--shuffle",
+    "{shuffle}",
+    "--random_seed",
+    "{random_seed}"
+  ],
+  "tag": "切分与采样"
+}

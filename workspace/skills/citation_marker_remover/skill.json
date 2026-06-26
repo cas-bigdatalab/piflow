@@ -1,0 +1,99 @@
+{
+  "name": "citation_marker_remover",
+  "version": "1.0.0",
+  "name_zh": "文献引用标记移除算子",
+  "description": "文献引用标记移除工具。移除科研文本中的引用标记，如[1]、[1,2]、(Smith, 2020)等。",
+  "language": "python",
+  "script_path": "scripts/run_citation_marker_remover.py",
+  "entrypoint": "python scripts/run_citation_marker_remover.py",
+  "input_params": [
+    {
+      "name": "input",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "输入文件路径（支持txt/json/jsonl/csv等）"
+    },
+    {
+      "name": "output",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "输出文件路径"
+    },
+    {
+      "name": "citation_styles",
+      "type": "string",
+      "required": false,
+      "default": "all",
+      "description": "要移除的引用格式（all=全部, numeric=数字型[1], author_year=作者年份型, superscript=上标型）"
+    },
+    {
+      "name": "remove_inline_refs",
+      "type": "string",
+      "required": false,
+      "default": "True",
+      "description": "是否移除行内引用标记"
+    },
+    {
+      "name": "remove_reference_section",
+      "type": "string",
+      "required": false,
+      "default": "False",
+      "description": "是否移除参考文献章节"
+    },
+    {
+      "name": "preserve_context",
+      "type": "string",
+      "required": false,
+      "default": "True",
+      "description": "是否保留引用周围的上下文"
+    },
+    {
+      "name": "text_field",
+      "type": "string",
+      "required": false,
+      "default": "text",
+      "description": "JSON/JSONL输入时的文本字段名"
+    }
+  ],
+  "output_params": [
+    {
+      "name": "output",
+      "type": "file",
+      "default": "citation_marker_remover_output.jsonl",
+      "description": "清理后的文件"
+    },
+    {
+      "name": "total_count",
+      "type": "integer",
+      "default": 0,
+      "description": "处理的样本总数"
+    },
+    {
+      "name": "citations_removed",
+      "type": "integer",
+      "default": 0,
+      "description": "移除的引用标记数量"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input",
+    "{input}",
+    "--output",
+    "{output}",
+    "--citation_styles",
+    "{citation_styles}",
+    "--remove_inline_refs",
+    "{remove_inline_refs}",
+    "--remove_reference_section",
+    "{remove_reference_section}",
+    "--preserve_context",
+    "{preserve_context}",
+    "--text_field",
+    "{text_field}"
+  ],
+  "tag": "清洗"
+}

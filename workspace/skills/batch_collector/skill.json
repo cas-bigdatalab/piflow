@@ -1,0 +1,104 @@
+{
+  "name": "batch_collector",
+  "version": "1.0.0",
+  "description": "批量文件清单采集器。扫描一个或多个本地文件/目录，或从任务列表加载路径，按支持的扩展名生成文件元信息清单，供后续文本、表格、文档、图像等采集流程继续处理。当用户需要批量盘点待采集文件、生成本地文件 manifest、统计输入文件类型或为后续采集算子准备文件清单时使用此 skill。",
+  "language": "python",
+  "script_path": "scripts/run_batch_collector.py",
+  "entrypoint": "python scripts/run_batch_collector.py",
+  "input_params": [
+    {
+      "name": "input",
+      "role": "input_data",
+      "type": "string",
+      "required": false,
+      "description": "输入文件或目录路径列表，与 task_list 二选一"
+    },
+    {
+      "name": "task_list",
+      "role": "input_data",
+      "type": "string",
+      "required": false,
+      "description": "任务列表文件路径，支持 json 或 txt，与 input 二选一"
+    },
+    {
+      "name": "output",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "输出文件路径"
+    },
+    {
+      "name": "recursive",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "default": "False",
+      "description": "是否递归扫描子目录"
+    },
+    {
+      "name": "file_types",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "指定允许采集的扩展名，如 txt csv pdf；不填时使用脚本默认支持类型"
+    },
+    {
+      "name": "batch_size",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "default": "0",
+      "description": "进度报告间隔，0 表示不按批次报告"
+    },
+    {
+      "name": "output_format",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "default": "jsonl",
+      "description": "输出格式：jsonl、json、csv 或 auto"
+    }
+  ],
+  "output_params": [
+    {
+      "name": "output",
+      "role": "output_data",
+      "type": "jsonl_file",
+      "default": "batch_collector_output.jsonl",
+      "description": "文件元信息清单；每条记录包含 file_path、filename、extension、file_size、collected_at、task_index、total_tasks"
+    },
+    {
+      "name": "total_files",
+      "role": "data",
+      "type": "integer",
+      "default": 0,
+      "description": "采集到的文件总数"
+    },
+    {
+      "name": "type_counts",
+      "role": "data",
+      "type": "object",
+      "default": {},
+      "description": "按扩展名统计的文件数量分布"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input",
+    "{input}",
+    "--output",
+    "{output}",
+    "--recursive",
+    "{recursive}",
+    "--file_types",
+    "{file_types}",
+    "--batch_size",
+    "{batch_size}",
+    "--output_format",
+    "{output_format}",
+    "--task_list",
+    "{task_list}"
+  ],
+  "tag": "采集"
+}

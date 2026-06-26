@@ -1,0 +1,73 @@
+{
+  "name": "fullwidth_halfwidth_normalizer",
+  "version": "1.0.0",
+  "description": "全角/半角字符规范化：将结构化数据文本列中的全角ASCII字符（字母、数字、标点）转换为半角，并可选执行指定 Unicode 正规化。适用于中日韩混排科研文本的统一预处理，不负责空白行删除、拼写纠错或标点重复合并。",
+  "tag": "清洗",
+  "language": "python",
+  "script_path": "scripts/fullwidth_halfwidth_normalizer.py",
+  "entrypoint": "python scripts/fullwidth_halfwidth_normalizer.py",
+  "input_params": [
+    {
+      "name": "input_path",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "输入文件路径"
+    },
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "输出文件路径"
+    },
+    {
+      "name": "text_columns",
+      "role": "config",
+      "type": "string",
+      "required": false,
+      "default": "",
+      "description": "处理的文本列，逗号分隔；默认全部字符串列"
+    },
+    {
+      "name": "norm_form",
+      "role": "config",
+      "type": "string",
+      "required": false,
+      "default": "",
+      "description": "Unicode正规化形式：NFC/NFD/NFKC/NFKD；默认不执行"
+    },
+    {
+      "name": "keep_newlines",
+      "role": "config",
+      "type": "string",
+      "required": false,
+      "default": "False",
+      "description": "保留换行符，默认折叠换行为空格"
+    }
+  ],
+  "output_params": [
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "default": "fullwidth_halfwidth_normalizer_output.csv",
+      "description": "规范化后的文件"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input_path",
+    "{input_path}",
+    "--output_path",
+    "{output_path}",
+    "--text_columns",
+    "{text_columns}",
+    "--norm_form",
+    "{norm_form}",
+    "--keep_newlines",
+    "{keep_newlines}"
+  ]
+}

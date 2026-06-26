@@ -1,0 +1,129 @@
+{
+  "name": "en_text_cleaner",
+  "version": "1.0.0",
+  "name_zh": "英文文本清洗优化算子",
+  "description": "英文文本基础清洗工具。读取英文科研文本，展开常见缩写、修正常见拼写错误并可选规范大小写，输出整理后的 JSONL 数据。适合外文论文、英文实验记录的基础规整，不负责翻译、语法改写或跨语言语义修复。",
+  "language": "python",
+  "script_path": "scripts/run_en_text_cleaner.py",
+  "entrypoint": "python scripts/run_en_text_cleaner.py",
+  "input_params": [
+    {
+      "name": "input",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "输入JSONL文件路径"
+    },
+    {
+      "name": "output",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "输出JSONL文件路径"
+    },
+    {
+      "name": "text_field",
+      "type": "string",
+      "required": false,
+      "default": "text",
+      "description": "文本字段名"
+    },
+    {
+      "name": "expand_abbreviations",
+      "type": "string",
+      "required": false,
+      "default": "True",
+      "description": "是否展开缩写"
+    },
+    {
+      "name": "fix_spelling",
+      "type": "string",
+      "required": false,
+      "default": "True",
+      "description": "是否纠正拼写"
+    },
+    {
+      "name": "normalize_case",
+      "type": "string",
+      "required": false,
+      "default": "False",
+      "description": "是否规范化大小写"
+    },
+    {
+      "name": "mark_cleaned",
+      "type": "string",
+      "required": false,
+      "default": "True",
+      "description": "是否标记已清洗样本"
+    },
+    {
+      "name": "custom_abbreviations",
+      "type": "string",
+      "required": false,
+      "default": "",
+      "description": "自定义缩写词典JSON文件路径"
+    },
+    {
+      "name": "custom_spellings",
+      "type": "string",
+      "required": false,
+      "default": "",
+      "description": "自定义拼写词典JSON文件路径"
+    }
+  ],
+  "output_params": [
+    {
+      "name": "output",
+      "type": "jsonl_file",
+      "default": "en_text_cleaner_output.jsonl",
+      "description": "清洗后的JSONL文件"
+    },
+    {
+      "name": "total_samples",
+      "type": "integer",
+      "default": 0,
+      "description": "总样本数"
+    },
+    {
+      "name": "processed_samples",
+      "type": "integer",
+      "default": 0,
+      "description": "处理样本数"
+    },
+    {
+      "name": "abbreviations_expanded",
+      "type": "integer",
+      "default": 0,
+      "description": "缩写展开次数"
+    },
+    {
+      "name": "spelling_fixed",
+      "type": "integer",
+      "default": 0,
+      "description": "拼写纠正次数"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input",
+    "{input}",
+    "--output",
+    "{output}",
+    "--text_field",
+    "{text_field}",
+    "--expand_abbreviations",
+    "{expand_abbreviations}",
+    "--fix_spelling",
+    "{fix_spelling}",
+    "--normalize_case",
+    "{normalize_case}",
+    "--mark_cleaned",
+    "{mark_cleaned}",
+    "--custom_abbreviations",
+    "{custom_abbreviations}",
+    "--custom_spellings",
+    "{custom_spellings}"
+  ],
+  "tag": "清洗"
+}

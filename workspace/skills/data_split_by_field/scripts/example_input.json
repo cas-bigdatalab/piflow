@@ -1,0 +1,9 @@
+{
+  "input": "data.csv",
+  "output_dir": "./split_output",
+  "split_field": "category",
+  "output_prefix": "split",
+  "output_format": "csv",
+  "use_dask": false,
+  "blocksize": "64MB"
+}

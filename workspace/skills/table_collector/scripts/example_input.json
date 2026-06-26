@@ -1,0 +1,8 @@
+{
+  "input": "./tables/",
+  "output": "./output/table_collected.jsonl",
+  "encoding": "auto",
+  "recursive": false,
+  "add_metadata": true,
+  "output_format": "jsonl"
+}

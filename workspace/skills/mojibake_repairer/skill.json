@@ -1,0 +1,70 @@
+{
+  "name": "mojibake_repairer",
+  "version": "1.0.0",
+  "description": "乱码修复器：自动检测并修复因编码错误解释导致的乱码文本（Mojibake），支持 GBK/UTF-8、Latin-1/UTF-8、Big5、Shift_JIS 等多编码链修复，通过字符合理度评分自动选择最佳结果。",
+  "tag": "清洗",
+  "language": "python",
+  "script_path": "scripts/mojibake_repairer.py",
+  "entrypoint": "python scripts/mojibake_repairer.py",
+  "input_params": [
+    {
+      "name": "input_path",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "输入文件路径"
+    },
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "输出文件路径"
+    },
+    {
+      "name": "text_columns",
+      "role": "config",
+      "type": "string",
+      "required": false,
+      "description": "处理的文本列，逗号分隔；默认全部字符串列"
+    },
+    {
+      "name": "min_score",
+      "role": "config",
+      "type": "string",
+      "required": false,
+      "description": "最小修复评分阈值(0-1)，低于此值不替换原文（默认0.6）"
+    },
+    {
+      "name": "chain",
+      "role": "config",
+      "type": "string",
+      "required": false,
+      "description": "手动指定编码修复链，如 gbk:utf-8；不指定则自动检测"
+    }
+  ],
+  "output_params": [
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "default": "mojibake_repairer_output.csv",
+      "description": "修复后的文件"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input_path",
+    "{input_path}",
+    "--output_path",
+    "{output_path}",
+    "--text_columns",
+    "{text_columns}",
+    "--min_score",
+    "{min_score}",
+    "--chain",
+    "{chain}"
+  ]
+}

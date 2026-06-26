@@ -1,0 +1,89 @@
+{
+  "name": "weighted_sampler",
+  "version": "1.0.0",
+  "description": "加权采样算子。读取JSONL记录，按数值型权重字段执行随机采样，支持有放回和无放回两种模式。 当用户提到加权抽样、按权重抽样、优先级采样、重要性重采样等需求时使用此skill。 即使用户没有明确说出\"加权采样\"，只要任务涉及按记录权重选择样本，就应该使用此skill。 不负责按类别分层均衡、普通随机采样或文本内容过滤。",
+  "language": "python",
+  "script_path": "scripts/run_weighted_sampler.py",
+  "entrypoint": "python scripts/run_weighted_sampler.py",
+  "input_params": [
+    {
+      "name": "input",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "输入JSONL文件路径"
+    },
+    {
+      "name": "output",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "输出JSONL文件路径"
+    },
+    {
+      "name": "weight_field",
+      "role": "data",
+      "type": "string",
+      "required": true,
+      "description": "权重字段名"
+    },
+    {
+      "name": "sample_size",
+      "role": "data",
+      "type": "string",
+      "required": true,
+      "description": "采样数量"
+    },
+    {
+      "name": "with_replacement",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "有放回采样",
+      "default": "False"
+    },
+    {
+      "name": "seed",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "随机种子",
+      "default": "42"
+    },
+    {
+      "name": "log_file",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "日志文件路径"
+    }
+  ],
+  "output_params": [
+    {
+      "name": "output",
+      "role": "output_data",
+      "type": "jsonl_file",
+      "default": "weighted_sampler_output.jsonl",
+      "description": "加权采样结果JSONL文件"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input",
+    "{input}",
+    "--output",
+    "{output}",
+    "--weight_field",
+    "{weight_field}",
+    "--sample_size",
+    "{sample_size}",
+    "--with_replacement",
+    "{with_replacement}",
+    "--seed",
+    "{seed}",
+    "--log_file",
+    "{log_file}"
+  ],
+  "tag": "切分与采样"
+}

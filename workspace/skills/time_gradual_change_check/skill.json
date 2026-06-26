@@ -1,0 +1,115 @@
+{
+  "name": "time_gradual_change_check",
+  "version": "1.0.0",
+  "description": "时序平缓性检测：检测时序数据是否符合渐变规律，包括突变跳点检测（相邻点变化超阈值）和方向振荡检测（窗口内反复升降），识别不符合平缓变化特征的异常数据点。对应功能说明(八)时序稳态异常校验模块中的平缓性检测维度，与QC13（恒定值检测）互补。",
+  "tag": "校验",
+  "language": "python",
+  "script_path": "scripts/time_gradual_change_check.py",
+  "entrypoint": "python scripts/time_gradual_change_check.py",
+  "input_params": [
+    {
+      "name": "input_path",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "输入文件路径"
+    },
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "输出文件路径"
+    },
+    {
+      "name": "check_field",
+      "role": "config",
+      "type": "string",
+      "required": true,
+      "description": "检测字段名"
+    },
+    {
+      "name": "time_field",
+      "role": "config",
+      "type": "string",
+      "required": true,
+      "description": "时间字段名"
+    },
+    {
+      "name": "time_format",
+      "role": "config",
+      "type": "string",
+      "required": true,
+      "description": "时间格式（如 %Y-%m-%d %H:%M:%S）"
+    },
+    {
+      "name": "jump_threshold",
+      "role": "config",
+      "type": "string",
+      "required": false,
+      "description": "突变跳点阈值（相邻变化绝对值上限），默认不限制"
+    },
+    {
+      "name": "window_size",
+      "role": "config",
+      "type": "string",
+      "required": false,
+      "description": "振荡检测窗口大小（默认5），窗口内方向反转次数超限即标记"
+    },
+    {
+      "name": "oscillation_limit",
+      "role": "config",
+      "type": "string",
+      "required": false,
+      "description": "窗口内允许的最大方向反转次数（默认2）"
+    },
+    {
+      "name": "qc_mark",
+      "role": "config",
+      "type": "string",
+      "required": true,
+      "description": "质控标识"
+    },
+    {
+      "name": "mark_field_name",
+      "role": "config",
+      "type": "string",
+      "required": false,
+      "description": "质控标识字段名（默认QC0000）"
+    }
+  ],
+  "output_params": [
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "带质控标识的输出文件",
+      "default": "time_gradual_change_check_output_path.csv"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input_path",
+    "{input_path}",
+    "--output_path",
+    "{output_path}",
+    "--check_field",
+    "{check_field}",
+    "--time_field",
+    "{time_field}",
+    "--time_format",
+    "{time_format}",
+    "--qc_mark",
+    "{qc_mark}",
+    "--mark_field_name",
+    "{mark_field_name}",
+    "--jump_threshold",
+    "{jump_threshold}",
+    "--window_size",
+    "{window_size}",
+    "--oscillation_limit",
+    "{oscillation_limit}"
+  ]
+}

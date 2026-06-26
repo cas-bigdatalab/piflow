@@ -1,0 +1,79 @@
+{
+  "name": "quality_flag_field_check",
+  "version": "1.0.0",
+  "description": "质量标识字段检测：检查数据表是否配置质量标识字段，验证标识字段的存在性、值规范性（是否为预定义合法值）、非空完整性，标记不合格数据。对应功能说明(二)字段基础合规校验模块中的标识符检测需求。",
+  "tag": "校验",
+  "language": "python",
+  "script_path": "scripts/quality_flag_field_check.py",
+  "entrypoint": "python scripts/quality_flag_field_check.py",
+  "input_params": [
+    {
+      "name": "input_path",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "输入文件路径"
+    },
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "输出文件路径"
+    },
+    {
+      "name": "flag_field_name",
+      "role": "config",
+      "type": "string",
+      "required": true,
+      "description": "质量标识字段名"
+    },
+    {
+      "name": "valid_values",
+      "role": "config",
+      "type": "string",
+      "required": false,
+      "description": "合法标识值列表，逗号分隔（如：PASS,FAIL,WARN）；为空则只检查存在性和非空"
+    },
+    {
+      "name": "qc_mark",
+      "role": "config",
+      "type": "string",
+      "required": true,
+      "description": "质控标识"
+    },
+    {
+      "name": "mark_field_name",
+      "role": "config",
+      "type": "string",
+      "required": false,
+      "description": "质控标识字段名（默认QC0000）"
+    }
+  ],
+  "output_params": [
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "带质控标识的输出文件",
+      "default": "quality_flag_field_check_output_path.csv"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input_path",
+    "{input_path}",
+    "--output_path",
+    "{output_path}",
+    "--flag_field_name",
+    "{flag_field_name}",
+    "--qc_mark",
+    "{qc_mark}",
+    "--mark_field_name",
+    "{mark_field_name}",
+    "--valid_values",
+    "{valid_values}"
+  ]
+}

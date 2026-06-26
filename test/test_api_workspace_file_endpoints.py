@@ -48,9 +48,15 @@ class FakeWorkspaceManager:
             raise ValueError("workspace path is empty")
 
         prefix = f"/users/{normalized_user_id}"
+        workspace_prefixes = ("/workspace/", "workspace/")
         if raw == prefix:
             raise ValueError("user workspace root path is not allowed")
-        if raw.startswith(prefix + "/"):
+        if raw.startswith(workspace_prefixes):
+            workspace_relative = raw.removeprefix("/").removeprefix("workspace/").lstrip("/")
+            if not workspace_relative:
+                raise ValueError("workspace root path is not allowed")
+            raw = "/" + workspace_relative
+        elif raw.startswith(prefix + "/"):
             raw = raw[len(prefix):]
         elif raw.startswith("/users/"):
             parts = Path(raw.lstrip("/")).parts
@@ -197,3 +203,83 @@ def test_attach_message_files_stores_relative_path_and_validates_user_workspace(
             "name": "report.csv",
         }
     ]
+
+
+def test_attach_message_files_supports_workspace_prefixed_paths(client):
+    test_client, workspace_root = client
+    attach_file = workspace_root / "users" / "alice" / "temp" / "Akcay.pdf"
+    attach_file.parent.mkdir(parents=True, exist_ok=True)
+    attach_file.write_bytes(b"%PDF-1.4")
+
+    response = test_client.post(
+        "/message/attach",
+        json={
+            "user_id": "alice",
+            "thread_id": "chat_001",
+            "message_id": 12,
+            "attachments": [
+                {
+                    "path": "/workspace/temp/Akcay.pdf",
+                    "name": "Akcay.pdf",
+                }
+            ],
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["attachments"] == [
+        {
+            "file_id": 1,
+            "path": "/temp/Akcay.pdf",
+            "name": "Akcay.pdf",
+        }
+    ]
+
+
+def test_copy_default_workspace_temp_files_copies_fixed_files_into_user_temp(client):
+    test_client, workspace_root = client
+    source_files = {
+        "Akcay.pdf": b"%PDF-1.4",
+        "森林每木调查数据.csv": "col1,col2\n1,2\n".encode("utf-8"),
+        "Marxist.docx": b"docx-bytes",
+    }
+
+    for filename, content in source_files.items():
+        path = workspace_root / "temp" / filename
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(content)
+
+    response = test_client.post(
+        "/workspace/temp/copy-default-files",
+        json={"user_id": "alice"},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "user_id": "alice",
+        "target_dir": "/temp",
+        "items": [
+            {
+                "source_path": "/temp/Akcay.pdf",
+                "target_path": "/temp/Akcay.pdf",
+                "filename": "Akcay.pdf",
+                "status": "copied",
+            },
+            {
+                "source_path": "/temp/森林每木调查数据.csv",
+                "target_path": "/temp/森林每木调查数据.csv",
+                "filename": "森林每木调查数据.csv",
+                "status": "copied",
+            },
+            {
+                "source_path": "/temp/Marxist.docx",
+                "target_path": "/temp/Marxist.docx",
+                "filename": "Marxist.docx",
+                "status": "copied",
+            },
+        ],
+    }
+
+    for filename, content in source_files.items():
+        assert (workspace_root / "temp" / filename).read_bytes() == content
+        assert (workspace_root / "users" / "alice" / "temp" / filename).read_bytes() == content

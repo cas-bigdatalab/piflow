@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import shutil
 import uuid
 from datetime import datetime
 from contextlib import asynccontextmanager
@@ -77,7 +78,7 @@ async def lifespan(app: FastAPI):
     try:
         yield
     finally:
-        engine = getattr(app.state, "piflow_engine", None)
+        engine = getattr(app.state, "engine", None)
         if engine is None:
             return
         await engine.shutdown()
@@ -160,10 +161,14 @@ class ListUserWorkspaceRequest(BaseModel):
     dir_path: str = ""
 
 
+class MoveWorkspaceTempFilesRequest(BaseModel):
+    user_id: str
+
+
 def get_engine(request: Request) -> AgentEngine:
-    engine = getattr(request.app.state, "piflow_engine", None)
+    engine = getattr(request.app.state, "engine", None)
     if engine is None:
-        raise HTTPException(status_code=503, detail="agent piflow_engine is not initialized")
+        raise HTTPException(status_code=503, detail="agent engine is not initialized")
     return engine
 
 
@@ -439,6 +444,7 @@ async def attach_message_files_api(req: AttachMessageFilesRequest):
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
         if not source.exists() or not source.is_file():
+            log.info(f"attachment path {source.resolve()} is not a file")
             raise HTTPException(status_code=404, detail="attachment file not found")
 
         record = save_chat_file(
@@ -585,6 +591,55 @@ async def upload_user_workspace_file(
         "original_filename": safe_name,
         "size": len(content),
         "content_type": file.content_type,
+    }
+
+
+@app.post("/workspace/temp/copy-default-files")
+async def copy_default_workspace_temp_files(req: MoveWorkspaceTempFilesRequest):
+    workspace = WorkspaceManager()
+    user_id = req.user_id.strip()
+
+    if not user_id:
+        raise HTTPException(status_code=400, detail="user_id is required")
+
+    try:
+        workspace.ensure_workspace()
+        workspace.ensure_user_workspace(user_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    source_paths = [
+        "/temp/Akcay.pdf",
+        "/temp/森林每木调查数据.csv",
+        "/temp/Marxist.docx",
+    ]
+    target_dir = _resolve_user_directory(workspace, user_id, "/temp", create=True)
+    results: list[dict[str, object]] = []
+
+    for virtual_path in source_paths:
+        source = workspace.resolve_virtual_path(virtual_path)
+        destination = (target_dir / source.name).resolve()
+        status = "copied"
+
+        if not source.exists():
+            status = "missing"
+        elif not source.is_file():
+            status = "not_file"
+        else:
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(str(source), str(destination))
+
+        results.append({
+            "source_path": virtual_path,
+            "target_path": f"/temp/{source.name}",
+            "filename": source.name,
+            "status": status,
+        })
+
+    return {
+        "user_id": user_id,
+        "target_dir": "/temp",
+        "items": results,
     }
 
 

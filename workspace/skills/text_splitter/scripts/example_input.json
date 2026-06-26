@@ -1,0 +1,9 @@
+{
+  "input": "sample_text.txt",
+  "output": "output_chunks.jsonl",
+  "split_mode": "paragraph",
+  "max_length": 1000,
+  "overlap": 100,
+  "min_length": 10,
+  "output_format": "jsonl"
+}

@@ -1,0 +1,7 @@
+{
+  "input": "data.csv",
+  "output": "converted_output.csv",
+  "conversions": "age:int,score:float,date:datetime",
+  "date_format": "%Y-%m-%d",
+  "errors": "coerce"
+}
