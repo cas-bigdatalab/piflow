@@ -655,6 +655,14 @@ export async function listStorage(user_id: string, dir_path?: string) {
   });
 }
 
+export async function copyDefaultFiles(user_id: string) {
+  return apiFetch<{ success: boolean; message: string }>("/workspace/temp/copy-default-files", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ user_id })
+  });
+}
+
 export async function saveToStorage(user_id: string, target_path: string, local_path: string) {
   return apiFetch<SaveToStorageResponse>("/storage/save", {
     method: "POST",

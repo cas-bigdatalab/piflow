@@ -1,7 +1,7 @@
 import React, { useCallback, useState, useRef, memo, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { shortId } from '../lib/ids';
-import { saveDrawInfo, getAllSkills, listSkillsDetails, createMessage, streamChat, apiBase } from "../lib/api";
+import { saveDrawInfo, getAllSkills, listSkillsDetails, createMessage, streamChat, apiBase, listStorage, downloadWorkspaceUrl2 } from "../lib/api";
 
 const DEFAULT_SKILL_ICON = "/storage/common/common.png";
 
@@ -65,6 +65,10 @@ import {
   ChevronDown,
   ChevronUp,
   Edit3,
+  Folder,
+  FolderOpen,
+  FileText,
+  ChevronRight,
 } from 'lucide-react';
 import './Draw.css';
 
@@ -959,6 +963,12 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
   const [taskName, setTaskName] = useState<string>('');
   const [taskDescription, setTaskDescription] = useState<string>('');
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showFileModal, setShowFileModal] = useState(false);
+  const [fileSystemItems, setFileSystemItems] = useState<any[]>([]);
+  const [currentDirPath, setCurrentDirPath] = useState<string>('');
+  const [isLoadingFiles, setIsLoadingFiles] = useState(false);
+  const [uploadingFile, setUploadingFile] = useState(false);
+  const [fileSelectParamIndex, setFileSelectParamIndex] = useState<number | null>(null);
   const prevNodesLengthRef = useRef<number>(nodes.length);
 
   // 键盘Delete键删除选中节点
@@ -988,6 +998,115 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
     }
     setShowDeleteModal(false);
   };
+
+  const loadDirectories = useCallback(async (dir_path?: string) => {
+    setIsLoadingFiles(true);
+    try {
+      const userId = localStorage.getItem('userId') || '';
+      const res = await listStorage(userId, dir_path);
+      setFileSystemItems((res as any).items || []);
+      setCurrentDirPath((res as any).dir_path || dir_path || '');
+    } catch (err) {
+      console.error('加载目录失败:', err);
+      setFileSystemItems([]);
+    } finally {
+      setIsLoadingFiles(false);
+    }
+  }, []);
+
+  const handleNavigateDir = useCallback(async (path: string) => {
+    await loadDirectories(path);
+  }, [loadDirectories]);
+
+  const handleGoBack = useCallback(async () => {
+    if (!currentDirPath) return;
+    const parentPath = currentDirPath.substring(0, currentDirPath.lastIndexOf('/'));
+    await loadDirectories(parentPath || undefined);
+  }, [currentDirPath, loadDirectories]);
+
+  const handleDownloadFile = useCallback(async (filePath: string) => {
+    try {
+      const url = downloadWorkspaceUrl2(filePath);
+      const response = await fetch(url);
+      if (!response.ok) {
+        const errData = await response.json().catch(() => null);
+        console.error('文件下载失败:', errData?.message || '未知错误');
+        return;
+      }
+      const blob = await response.blob();
+      const contentDisposition = response.headers.get('Content-Disposition');
+      let filename = filePath.split('/').pop() || 'download';
+      if (contentDisposition) {
+        const match = contentDisposition.match(/filename[^;=\\n]*=((['\"]).*?\2|[^;\\n]*)/);
+        if (match && match[1]) {
+          filename = match[1].replace(/['\"]/g, '');
+        }
+      }
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(downloadUrl);
+    } catch (error) {
+      console.error('文件下载失败:', error);
+    }
+  }, []);
+
+  const handleUploadFile = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingFile(true);
+    try {
+      const userId = localStorage.getItem('userId') || '';
+      const form = new FormData();
+      form.append('user_id', userId);
+      form.append('dir_path', currentDirPath);
+      form.append('file', file);
+      const res = await fetch(`${apiBase()}/workspace/upload/path`, {
+        method: 'POST',
+        body: form
+      });
+      if (res.ok) {
+        await loadDirectories(currentDirPath);
+      }
+    } catch (err) {
+      console.error('文件上传失败:', err);
+    } finally {
+      setUploadingFile(false);
+      e.target.value = '';
+    }
+  }, [currentDirPath, loadDirectories]);
+
+  const handleSelectFileForParam = useCallback((filePath: string) => {
+    if (fileSelectParamIndex === null || !selectedNodeId) {
+      setShowFileModal(false);
+      setFileSelectParamIndex(null);
+      return;
+    }
+    setNodes((nds) =>
+      nds.map((n) => {
+        if (n.id === selectedNodeId) {
+          const newParams = [...(n.data.input_params?.params || [])];
+          if (newParams[fileSelectParamIndex]) {
+            newParams[fileSelectParamIndex] = { ...newParams[fileSelectParamIndex], _value: filePath };
+          }
+          return {
+            ...n,
+            data: {
+              ...n.data,
+              input_params: { ...n.data.input_params, params: newParams },
+            },
+          };
+        }
+        return n;
+      })
+    );
+    setShowFileModal(false);
+    setFileSelectParamIndex(null);
+  }, [fileSelectParamIndex, selectedNodeId]);
 
   // 当 messageId prop 变化时更新 state
   useEffect(() => {
@@ -1322,15 +1441,15 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
           }
           
           // 对于source_stop和sink_stop这两个特殊算子，不要请求接口，使用固定的参数
-          const isSpecialSkill = skillId === 'cn.piflow.piflow_engine.local.source_file_stop.SourceFileStop' ||
-                                  skillId === 'cn.piflow.piflow_engine.local.file_save_stop.FileSaveStop';
+          const isSpecialSkill = skillId === 'piflow_engine.cn.piflow.engine.local.source_file_stop.SourceFileStop' ||
+                                  skillId === 'piflow_engine.cn.piflow.engine.local.file_save_stop.FileSaveStop';
           let skillDescription = '';
           
           if (isSpecialSkill) {
             console.log(`节点 ${i}: 特殊算子，不请求接口`);
             
             // 特殊算子总是使用固定的参数定义，不依赖保存的数据
-            if (skillId === 'cn.piflow.piflow_engine.local.source_file_stop.SourceFileStop') {
+            if (skillId === 'piflow_engine.cn.piflow.engine.local.source_file_stop.SourceFileStop') {
               n.skill = n.skill || {};
               n.skill.name_zh = '文件源';
               // source_stop的固定输入参数（只有file_path）
@@ -1742,7 +1861,7 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
         
         // 处理特殊算子名称，写死 skill_id
         if (skillName === 'source_stop') {
-          skillId = 'cn.piflow.piflow_engine.local.source_file_stop.SourceFileStop';
+          skillId = 'piflow_engine.cn.piflow.engine.local.source_file_stop.SourceFileStop';
           nodeNameToZhName[pNode.node_name] = '文件源';
           nodeNameToZhName['source_stop'] = '文件源';
           // source_stop 有输出参数，不调用接口
@@ -1755,7 +1874,7 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
             }]
           };
         } else if (skillName === 'sink_stop') {
-          skillId = 'cn.piflow.piflow_engine.local.file_save_stop.FileSaveStop';
+          skillId = 'piflow_engine.cn.piflow.engine.local.file_save_stop.FileSaveStop';
           nodeNameToZhName[pNode.node_name] = '文件保存';
           nodeNameToZhName['sink_stop'] = '文件保存';
           // sink_stop 没有输出参数，不调用接口
@@ -1817,7 +1936,7 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
         
         // 对于 source_stop 和 sink_stop 特殊算子，使用fixArr中定义的参数结构，然后填入值
         if (skillName === 'source_stop') {
-          skillId = 'cn.piflow.piflow_engine.local.source_file_stop.SourceFileStop';
+          skillId = 'piflow_engine.cn.piflow.engine.local.source_file_stop.SourceFileStop';
           nodeTypeForOperator = 'input';
           
           // source_stop的输入参数只有file_path
@@ -1891,7 +2010,7 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
           
           console.log(`节点 ${nodeName}: source_stop 特殊算子，使用fixArr定义的参数结构:`, mergedInputParams);
         } else if (skillName === 'sink_stop') {
-          skillId = 'cn.piflow.piflow_engine.local.file_save_stop.FileSaveStop';
+          skillId = 'piflow_engine.cn.piflow.engine.local.file_save_stop.FileSaveStop';
           nodeTypeForOperator = 'output';
           
           // 使用fixArr中定义的sink_stop参数结构
@@ -2353,7 +2472,7 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
               "DagSkillInfoList": [
                   {
                       id: 9999999999998,
-                      skill_id: "cn.piflow.piflow_engine.local.source_file_stop.SourceFileStop",
+                      skill_id: "piflow_engine.cn.piflow.engine.local.source_file_stop.SourceFileStop",
                       skill_name: "文件源",
                       name_zh: "文件源",
                       version: "1.0.0",
@@ -2396,7 +2515,7 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
                   },
                   {
                       id: 9999999999999,
-                      skill_id: "cn.piflow.piflow_engine.local.file_save_stop.FileSaveStop",
+                      skill_id: "piflow_engine.cn.piflow.engine.local.file_save_stop.FileSaveStop",
                       skill_name: "文件保存",
                       name_zh: "文件保存",
                       version: "1.0.0",
@@ -3404,30 +3523,46 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
                           </div>
                         </div>
                       ) : (
-                        <input
-                          className="draw-config-value-input"
-                          value={param._value || param.param_value || ''}
-                          placeholder={param._refType === 'dataSource' ? '数据源' : '请输入值'}
-                          title={param._value || param.param_value || ''}
-                          onChange={(e) => {
-                            const newParams = [...selectedNode.data.input_params.params];
-                            newParams[index] = { ...newParams[index], _value: e.target.value };
-                            setNodes((nds) =>
-                              nds.map((n) => {
-                                if (n.id === selectedNodeId) {
-                                  return {
-                                    ...n,
-                                    data: {
-                                      ...n.data,
-                                      input_params: { ...n.data.input_params, params: newParams },
-                                    },
-                                  };
-                                }
-                                return n;
-                              })
-                            );
-                          }}
-                        />
+                        param.name === 'file_path' && param._refType === 'manual' ? (
+                          <input
+                            className="draw-config-value-input"
+                            value={param._value || param.param_value || ''}
+                            placeholder="请选择文件"
+                            title={param._value || param.param_value || ''}
+                            readOnly
+                            style={{ cursor: 'pointer', backgroundColor: '#f8fafc' }}
+                            onClick={async () => {
+                              setFileSelectParamIndex(index);
+                              await loadDirectories();
+                              setShowFileModal(true);
+                            }}
+                          />
+                        ) : (
+                          <input
+                            className="draw-config-value-input"
+                            value={param._value || param.param_value || ''}
+                            placeholder={param._refType === 'dataSource' ? '数据源' : '请输入值'}
+                            title={param._value || param.param_value || ''}
+                            onChange={(e) => {
+                              const newParams = [...selectedNode.data.input_params.params];
+                              newParams[index] = { ...newParams[index], _value: e.target.value };
+                              setNodes((nds) =>
+                                nds.map((n) => {
+                                  if (n.id === selectedNodeId) {
+                                    return {
+                                      ...n,
+                                      data: {
+                                        ...n.data,
+                                        input_params: { ...n.data.input_params, params: newParams },
+                                      },
+                                    };
+                                  }
+                                  return n;
+                                })
+                              );
+                            }}
+                          />
+                        )
                       )}
                     </div>
                   </div>
@@ -3491,6 +3626,121 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
                   删除
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 文件系统弹窗 */}
+      {showFileModal && (
+        <div className="file-system-overlay" onClick={() => { setShowFileModal(false); setFileSelectParamIndex(null); }}>
+          <div className="file-system-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="file-system-header">
+              <div className="file-system-title">
+                <FolderOpen size={18} />
+                <span>{fileSelectParamIndex !== null ? '选择文件' : '文件系统'}</span>
+              </div>
+              <button className="file-system-close" onClick={() => { setShowFileModal(false); setFileSelectParamIndex(null); }}>
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="file-system-path-bar">
+              <button 
+                className="file-system-back-btn" 
+                onClick={handleGoBack}
+                disabled={!currentDirPath}
+              >
+                <ChevronRight size={14} style={{ transform: 'rotate(180deg)' }} />
+              </button>
+              <div className="file-system-path">
+                {currentDirPath ? (
+                  <span>{currentDirPath}</span>
+                ) : (
+                  <span>根目录</span>
+                )}
+              </div>
+            </div>
+
+            <div className="file-system-actions">
+              {fileSelectParamIndex === null && (
+                <label className="file-system-upload-btn">
+                  <Upload size={14} />
+                  <span>{uploadingFile ? '上传中...' : '上传文件'}</span>
+                  <input
+                    type="file"
+                    onChange={handleUploadFile}
+                    className="file-system-upload-input"
+                    disabled={uploadingFile}
+                  />
+                </label>
+              )}
+              {fileSelectParamIndex !== null && (
+                <span className="file-system-hint">双击文件或点击"选择"按钮选中文件</span>
+              )}
+            </div>
+
+            <div className="file-system-content">
+              {isLoadingFiles ? (
+                <div className="file-system-loading">
+                  <span>加载中...</span>
+                </div>
+              ) : fileSystemItems.length === 0 ? (
+                <div className="file-system-empty">
+                  <Folder size={48} style={{ color: '#94a3b8' }} />
+                  <span>该目录为空</span>
+                </div>
+              ) : (
+                <div className="file-system-list">
+                  {fileSystemItems.map((item, index) => (
+                    <div
+                      key={index}
+                      className={`file-system-item ${item.type}`}
+                      onClick={() => {
+                        if (item.type === 'directory') {
+                          handleNavigateDir(item.path);
+                        }
+                      }}
+                      onDoubleClick={() => {
+                        if (item.type === 'file' && fileSelectParamIndex !== null) {
+                          handleSelectFileForParam(item.path);
+                        }
+                      }}
+                    >
+                      <div className="file-system-item-icon">
+                        {item.type === 'directory' ? (
+                          <Folder size={18} style={{ color: '#3b82f6' }} />
+                        ) : (
+                          <FileText size={18} style={{ color: '#64748b' }} />
+                        )}
+                      </div>
+                      <span className="file-system-item-name">{item.name}</span>
+                      {item.type === 'file' && fileSelectParamIndex === null && (
+                        <button
+                          className="file-system-download-btn"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDownloadFile(item.path);
+                          }}
+                        >
+                          <Download size={14} />
+                        </button>
+                      )}
+                      {item.type === 'file' && fileSelectParamIndex !== null && (
+                        <button
+                          className="file-system-select-btn"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleSelectFileForParam(item.path);
+                          }}
+                        >
+                          选择
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>
