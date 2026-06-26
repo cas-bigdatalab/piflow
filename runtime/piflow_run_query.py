@@ -1,11 +1,36 @@
 from __future__ import annotations
 
 from contextlib import closing
+from pathlib import Path
 from typing import Any
 
 from psycopg2.extras import RealDictCursor
 
 from database.postgres import get_connection
+from runtime.workspace_manager import WorkspaceManager
+
+
+def _to_user_relative_output_path(raw_path: str | None) -> str | None:
+    if not raw_path:
+        return raw_path
+
+    try:
+        resolved = Path(str(raw_path)).expanduser().resolve()
+    except OSError:
+        return raw_path
+
+    workspace = WorkspaceManager()
+    users_root = (workspace.root / "users").resolve()
+    try:
+        relative = resolved.relative_to(users_root)
+    except ValueError:
+        return raw_path
+
+    parts = relative.parts
+    if len(parts) < 2:
+        return raw_path
+
+    return "/" + "/".join(parts[1:])
 
 
 def _serialize_flow_run_summary(flow_run: dict[str, Any]) -> dict[str, Any]:
@@ -120,7 +145,7 @@ def get_piflow_run_detail(process_id: str) -> dict[str, Any] | None:
             stop_runs = cursor.fetchall()
 
     final_output_paths = [
-        str(row["final_output_path"])
+        _to_user_relative_output_path(str(row["final_output_path"]))
         for row in stop_runs
         if row.get("final_output_path")
     ]
@@ -157,7 +182,7 @@ def get_piflow_run_detail(process_id: str) -> dict[str, Any] | None:
                 "log_path": row.get("log_path"),
                 "stdout_log_path": row.get("stdout_log_path"),
                 "stderr_log_path": row.get("stderr_log_path"),
-                "final_output_path": row.get("final_output_path"),
+                "final_output_path": _to_user_relative_output_path(row.get("final_output_path")),
                 "error_message": row.get("error_message"),
                 "started_at": row.get("started_at"),
                 "finished_at": row.get("finished_at"),
