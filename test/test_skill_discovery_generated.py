@@ -119,6 +119,70 @@ def test_resolve_dag_definition_skills_uses_skill_name_when_skill_id_is_stale(tm
     assert resolved["nodes"][0]["skill"]["skill_name"] == "epub_metadata_cleaner"
 
 
+def test_register_skill_from_disk_preserves_single_level_param_shape(tmp_path, monkeypatch):
+    workspace_root = tmp_path / "workspace"
+    skill_dir = workspace_root / "skills" / "generated" / "demo_skill"
+    scripts_dir = skill_dir / "scripts"
+    scripts_dir.mkdir(parents=True, exist_ok=True)
+    (scripts_dir / "run_demo_skill.py").write_text("print('ok')", encoding="utf-8")
+    (skill_dir / "SKILL.md").write_text(
+        (
+            "---\n"
+            "name: demo_skill\n"
+            "name_zh: 演示技能\n"
+            "description: 演示\n"
+            "tag: 转换\n"
+            "input_params:\n"
+            "  - name: input_path\n"
+            "    type: string\n"
+            "    required: true\n"
+            "output_params:\n"
+            "  - name: output_path\n"
+            "    type: string\n"
+            "---\n"
+        ),
+        encoding="utf-8",
+    )
+    skill_json = skill_dir / "skill.json"
+    skill_json.write_text('{"name":"demo_skill"}', encoding="utf-8")
+
+    captured = {}
+
+    def fake_insert_dag_skill(**kwargs):
+        captured.update(kwargs)
+
+    monkeypatch.setattr(excutor_utils, "resolve_workspace_root", lambda: workspace_root)
+
+    import sys
+    fake_skill_manage = SimpleNamespace(
+        _parse_dag_skill_frontmatter=skill_manage._parse_dag_skill_frontmatter,
+        insert_dag_skill=fake_insert_dag_skill,
+    )
+    monkeypatch.setitem(sys.modules, "runtime.skill_manage", fake_skill_manage)
+
+    excutor_utils._register_skill_from_disk(workspace_root, "demo_skill", skill_json)
+
+    assert captured["input_params"] == {
+        "params": [
+            {
+                "name": "input_path",
+                "type": "string",
+                "description": "",
+                "required": True,
+            }
+        ]
+    }
+    assert captured["output_params"] == {
+        "params": [
+            {
+                "name": "output_path",
+                "type": "string",
+                "description": "",
+            }
+        ]
+    }
+
+
 def test_resolve_dag_definition_skills_promotes_top_level_skill_name(tmp_path, monkeypatch):
     workspace_root = tmp_path / "workspace"
     skill_dir = workspace_root / "skills" / "generated" / "docx_to_markdown"

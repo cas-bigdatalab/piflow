@@ -27,8 +27,8 @@ def _register_skill_from_disk(workspace_root: Path, skill_name: str, skill_path:
                 file_path = str(scripts[0])
             break
 
-    input_params = info.get("input_params", [])
-    output_params = info.get("output_params", [])
+    input_params = info.get("input_params") or {"params": []}
+    output_params = info.get("output_params") or {"params": []}
 
     insert_dag_skill(
         skill_name=info["name"],
@@ -36,8 +36,8 @@ def _register_skill_from_disk(workspace_root: Path, skill_name: str, skill_path:
         description=info["description"],
         skill_path=rel_path,
         file_path=file_path,
-        input_params={"params": input_params},
-        output_params={"params": output_params},
+        input_params=input_params,
+        output_params=output_params,
         skill_type=info.get("tag", ""),
         language="Python",
         command="",
