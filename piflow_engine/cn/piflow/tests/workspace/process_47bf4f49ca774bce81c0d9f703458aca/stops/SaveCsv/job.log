@@ -1,0 +1,1 @@
+{"time": "2026-06-18T08:19:33.546776+00:00", "level": "INFO", "event": "STOP_INITIALIZED", "message": "", "process_id": "process_47bf4f49ca774bce81c0d9f703458aca", "job_id": "job_4cccd94d37694c798d032a269839f3b4", "stop_name": "SaveCsv", "payload": {"stop_uuid": "save-001", "stop_name": "SaveCsv", "bundle": "cn.piflow.engine.local.file_save_stop.FileSaveStop"}}

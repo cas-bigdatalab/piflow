@@ -89,6 +89,7 @@ class OpenAICompatibleLLMClient:
 
         return _extract_text_response(response_payload)
 
+OUTPUT_PORT = "output"
 
 class LLMFileTransformStop(ConfigurableStop):
     author_email = ""
@@ -167,7 +168,7 @@ class LLMFileTransformStop(ConfigurableStop):
         output_path.write_text(cleaned, encoding="utf-8")
 
         ctx.put(RUN_CONTEXT_FINAL_OUTPUT_PATH, str(output_path))
-        outputs.write(FileArtifact(path=str(output_path)))
+        outputs.write(FileArtifact(path=str(output_path)), OUTPUT_PORT)
 
     def _create_client(self) -> LLMClient:
         factory = type(self).client_factory

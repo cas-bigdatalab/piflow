@@ -1,0 +1,7 @@
+[OK] Using encoding utf-8 successfully read CSV file
+鎴愬姛璇诲彇鏂囦欢: /workspace/process_e61550465ef9429e8fd06352231a11ec/PdfMetadataToCsv_job_1bdf3d528b4a4331b5346f7fcec21f3d_45b47544/output/metadata.csv锛屾暟鎹舰鐘? (1, 12)
+鎴愬姛鍐欏叆鏂囦欢: /workspace/process_e61550465ef9429e8fd06352231a11ec/BlankLineClean_job_e8dbcb98ed514701a7aba6b468ca1071_595de300/output/cleaned_output.csv
+[OK] Blank line cleaning completed!
+   输入文件：/workspace/process_e61550465ef9429e8fd06352231a11ec/PdfMetadataToCsv_job_1bdf3d528b4a4331b5346f7fcec21f3d_45b47544/output/metadata.csv
+   输出文件：/workspace/process_e61550465ef9429e8fd06352231a11ec/BlankLineClean_job_e8dbcb98ed514701a7aba6b468ca1071_595de300/output/cleaned_output.csv
+   清洗前行数：1 | 清洗后行数：1

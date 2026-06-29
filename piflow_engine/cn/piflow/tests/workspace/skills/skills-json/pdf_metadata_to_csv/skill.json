@@ -1,0 +1,49 @@
+{
+  "name": "pdf_metadata_to_csv",
+
+  "version": "1.0.0",
+
+  "description": "将PDF元数据JSON文件转换为CSV文件。",
+
+  "language": "python",
+
+  "script_path": "scripts/run_pdf_metadata_to_csv.py",
+
+  "entrypoint": "python scripts/run_pdf_metadata_to_csv.py",
+
+  "input_params": [
+    {
+      "name": "metadata_path",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "PDF元数据JSON文件路径"
+    },
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "输出CSV文件路径"
+    }
+  ],
+
+  "output_params": [
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "csv_file",
+      "default": "metadata.csv",
+      "description": "PDF元数据CSV文件"
+    }
+  ],
+
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--metadata_path",
+    "{metadata_path}",
+    "--output_path",
+    "{output_path}"
+  ]
+}

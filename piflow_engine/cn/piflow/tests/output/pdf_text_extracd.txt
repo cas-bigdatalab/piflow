@@ -1,0 +1,393 @@
+--- Page 1 ---
+BA YESIAN SKIP-AUTOENCODERS FOR UNSUPERVISED HYPERINTENSE ANOMALY
+DETECTION IN HIGH RESOLUTION BRAIN MRI
+Christoph Baur⋆ Benedikt Wiestler§ Shadi Albarqouni⋆‡ Nassir Navab⋆†
+⋆ Computer Aided Medical Procedures (CAMP), TU Munich, Germany
+† Whiting School of Engineering, Johns Hopkins University, Baltimore, United States
+‡ Computer Vision Lab, ETH Zurich, Switzerland
+§ Dept. of Diagnostic and Interventional Neuroradiology, Klinikum r. d. Isar, TU Munich, Germany
+ABSTRACT
+Autoencoder-based approaches for Unsupervised Anomaly
+Detection (UAD) in brain MRI have recently gained a lot
+of attention and have shown promising performance. How-
+ever, brain MR images are particularly complex and require
+large model capacity for learning a proper reconstruction,
+which existing methods encounter by restricting themselves
+to downsampled data or anatomical subregions. In this work,
+we show that models with limited capacity can be trained
+and used for UAD in full brain MR images at their native
+resolution by introducing skip-connections, a concept which
+has already proven beneﬁcial for biomedical image segmen-
+tation and image-to-image translation, and a dropout-based
+mechanism to prevent the model from learning an identity
+mapping. In an ablative study on two different pathologies
+we show considerable improvements over State-of-the-Art
+Autoencoder-based UAD models. The stochastic nature of
+the model also allows to investigate epistemic uncertainty in
+our so-called Skip-Autoencoder, which is brieﬂy portrayed.
+Index Terms— Anomaly Detection, Skip-Autoencoders,
+Uncertainty
+1. INTRODUCTION
+Deep unsupervised representation learning and deep genera-
+tive modeling have recently turned out to be promising tools
+for Unsupervised Anomaly Detection (UAD) in 2D and 3D
+data. Autoencoders (AEs) and Generative models such as
+GANs or V AEs, respectively, have been successfully used to
+model normal anatomy. Since such models have only seen
+normality, anomalies will not properly be reconstructed and
+thus can be detected directly in image-space from high recon-
+struction errors. In general, UAD in brain MRI is of great
+interest for the Medical Image Analysis community, as it re-
+lieves from the need for pixel-level annotations—an impor-
+tant, but expensive and often scarce prerequisite for super-
+vised training of deep neural networks—and allows to detect
+arbitrary pathologies without a-priori knowing about their ap-
+pearance.
+In the medical ﬁeld, numerous works have been devoted
+to UAD in different modalities. In initial work, Schlegl et
+al. [1] proposed GANs for detecting anomalies in retinal
+OCT data, however at a level of small image patches. Baur et
+al. [2] introduced a feed-forward solution for UAD in brain
+MRI at high resolution with a combination of spatial AEs and
+GANs. While this method showed the ability to detect small
+MS lesions in high resolution data, it was limited to a narrow
+ﬁeld of view centered around the axial midline. Another in-
+teresting concept based on bayesian convolutional AEs was
+proposed by Pawlowski et al. [3] to detect anomalies in head
+CT images, but their approach was again limited to few mid-
+axial slices. Zimmerer et al. [4] recently formulated UAD
+as an inpainting problem with their context variational AE,
+but validated their method at a resolution of only 64× 64px.
+Chen et al. [5] proposed constrained adversarial AEs for de-
+tecting large lesions in brain MR images, and there have also
+been ﬁrst results on UAD in volumetric head CT data using
+3D AEs [6]. However, both approaches were also limited
+to low resolution, which comes at the cost of information
+loss. This might be critical in the presence of small anoma-
+lous structures such as MS lesions. We hypothesize that the
+restriction to low-resolution and anatomical subregions are
+coping mechanisms to trade-off the limited model capacity,
+in particularly the dimensionality of the latent space, and the
+high complexity of brain MR data. For example, in brain
+MRI it is especially important to properly reconstruct ﬁne
+details such as gyri und sulci, as they would otherwise falsely
+be recognized as anomalies.
+Contribution: Motivated by their success in supervised
+biomedical image segmentation [7, 8] and image-to-image
+translation [9], we propose skip-connections in AEs to en-
+able high ﬁdelity reconstructions of complex, high resolution
+medical data. To prevent the model from learning an identity
+mapping and simply bypassing lower levels of the AE, we in-
+troduce a dropout-based identity mitigation mechanism. In an
+ablative study involving two different pathologies (Multiple
+Sclerosis and Glioblastoma), we show considerable improve-
+ments over standard AE architectures in the task of detecting
+2020 IEEE 17th International Symposium on Biomedical Imaging (ISBI)
+April 3-7, 2020, Iowa City, Iowa, USA
+978-1-5386-9330-8/20/$31.00 ©2020 IEEE 1905
+Authorized licensed use limited to: INSTITUTE OF AUTOMATION CAS. Downloaded on September 09,2020 at 07:49:23 UTC from IEEE Xplore.  Restrictions apply. 
+
+--- Page 2 ---
+Fig. 1. The proposed Skip-Autoencoder architecture at a glance.
+hyperintense anomalies in full resolution brain MR data
+purely from reconstruction errors. Further, since the model
+effectively is a Bayesian Neural Network, we brieﬂy depict
+its epistemic uncertainty on normal and abnormal tissue.
+2. METHODOLOGY
+2.1. Modeling healthy anatomy with Skip-Autoencoders
+Similar to previous work, we aim to model normal brain
+anatomy with an Autoencoder (AE) and detect anomalies
+from reconstruction residuals directly in 2D image space. To
+achieve this for complex medical data such as MRI without
+imposing constraints on resolution or ﬁeld-of-view, we pro-
+pose the so-called Skip-Autoencoder (skipAE): We introduce
+skip-connections in AEs (see Fig. 1) and train a model fθ(x)
+to compress and reconstruct only anomaly-free data x∈X N .
+We optimize the model’s parametersθ with the loss
+L(x, ˆ x) = ℓ1(x, ˆ x) + gdl(x, ˆ x) (1)
+where ℓ1 is the ℓ1-distance between the input x and
+its reconstruction ˆ x, and gdl(·,·) is the gradient difference
+loss which forces the model to reconstruct image gradients
+well [10].
+Skip-connections have proven very useful in biomedical
+image segmentation [7] and image restoration [11] as they
+enhance gradient ﬂow and provide a view on image features
+at multiple scales, leveraging both local and global features
+in the segmentation process. Their importance has been thor-
+oughly studied in [8]. Recently, they have also proven beneﬁ-
+cial in GAN-based image-to-image translation [9]. There, the
+authors employed a stochastic U-Net like architecture as the
+generator and identiﬁed skip-connections as a key component
+to obtain high ﬁdelity results.
+2.2. Mitigating Identity
+The introduction of skip-connections in AEs theoretically al-
+lows the optimization to bypass the compressed representa-
+tion of data and instead to learn an identity mapping. This
+would give rise to perfect reconstructions for any kind of data,
+which is not desirable for reconstruction-based UAD. With
+convolutional kernels of size k×k,k > 0 and a bias term
+b, an identity mapping is achieved if for every value xi of an
+input feature map x the following equation holds
+w⌊ k
+2 ⌋,⌊ k
+2 ⌋xi +b =xi (2)
+withw⌊ k
+2 ⌋,⌊ k
+2 ⌋ being the central weight of the kernel andb
+being the bias. The trivial solution to this isw⌊ k
+2 ⌋,⌊ k
+2 ⌋ = 1 and
+b = 0, while all the other weights of the kernel are set to zero.
+To mitigate this, we i) initialize the weights randomly and ii)
+apply dropout to every skip-connection with a dropout-rated,
+such that the central weight of a kernel is likely to be dropped
+every once in a while and the contribution of the other weights
+is enforced.
+2.3. Bayesian Skip-Autoencoders
+By applying dropout, we implicitly place a Bernoulli distribu-
+tion over the network parametersθ, i.e.θ∼B (p) with proba-
+bilityp =d as our prior, which turns it into a bayesian neural
+network. Using MC Dropout [12], the stochastic nature of
+the resulting model can then be leveraged during inference to
+model the epistemic uncertainty of the network. For a pixel i
+of a testing input sample x, this uncertainty can be quantiﬁed
+as the pixel-wise variance overn MC samples:
+Vari(x)≈ 1
+n
+n∑
+k=1
+f (x)2
+i− ( 1
+n
+n∑
+m=1
+f (x)i)2 (3)
+, wheref (x)i is the models response for pixeli.
+1906
+Authorized licensed use limited to: INSTITUTE OF AUTOMATION CAS. Downloaded on September 09,2020 at 07:49:23 UTC from IEEE Xplore.  Restrictions apply. 
+
+--- Page 3 ---
+Fig. 2. Heatmap display for residuals and uncertainties. A1:
+input slice with MS lesions; A2: corresponding ground-truth
+segmentation; A3: the skipAE(#3) residual; A4: the skipBAE
+residual computed on the predictive mean; A5: the skipBAE
+pixel-wise uncertainty. B1-B5: The same for Glioblastoma.
+2.4. Anomaly Detection
+To leverage a trained non-bayesian model for UAD, we sim-
+ply compute the residuals r = |x− ˆ x| for all axial slices
+of a testing subject. For our bayesian Skip-Autoencoder, we
+ﬁrst aggregate a predictive mean ofn MC reconstructions be-
+fore the residuals are computed. Then, thresholding can be
+applied to produce a binary delineation. To reduce False Pos-
+itives and to provide the physician with a smooth Precision-
+Recall-Curve from which an operating pointt can be chosen,
+we further apply 3D bilateral ﬁltering to the volume of resid-
+ual images.
+3. EXPERIMENTS AND RESULTS
+3.1. Dataset
+In our experiments we use a non-public dataset containing
+FLAIR and T1-weighted MR images of 50 healthy subjects,
+49 subjects with MS lesions and 26 subjects with Glioblas-
+toma. All data were acquired with a Philips Achieva 3T
+MR scanner and annotated by expert Neuro-radiologists. In-
+formed consent was waived. In preparation, the T1 images
+were used for brain extraction using ROBEX [13] and for
+co-registration to bring all subjects and scans to the SRI24
+ATLAS [14] space. For our experiments, we then only use
+co-registered FLAIR images, normalized into[−1; 1]. We uti-
+lize all non-empty axial FLAIR slices of the healthy subjects
+to train the models, where non-empty slices are determined
+from the brain extraction. From each pathology, we randomly
+pick three validation subjects each to determine an Operating
+Point (OP) for assessment and use all others for testing.
+3.2. Metrics
+For evaluation we compute the Precision-Recall-Curve (PRC)
+over all testing data and quantitatively compare methods
+by their area under this curve (AUPRC) as well as the
+patient-wise DICE-Score (determined at the most optimal
+OP for the validation samples) across all testing patients.
+The AUPRC provides a meaningful measure for delineation
+(and thus detection) performance in the presence of heavy
+class-imbalance, which is apparent in both pathologies we
+experiment with.
+3.3. Experiment A: Investigating Dropout
+First, we trained three skipAEs with complete skip-connectivity
+at different rates of dropout d∈{ 0, 0.1, 0.5} for 150 epochs
+to investigate the effect on identity-mitigation and UAD per-
+formance. We witness only subtle variation among their
+PRCs (see Fig. 3.3c), which implies that an identity mapping
+is not learned, regardless of dropout. Apparently, random
+weight initialization is enough to prevent identity.
+3.4. Experiment B: Exploring Skip-Connections
+Afterwards, we trained a variety of skipAEs with different
+combinations of skip-connections at ﬁxed d, again for 150
+epochs. Since results from experiment A indicate that there
+is no necessity for dropout, we set d = 0 .0. As a base-
+line, we ﬁrst trained a spatial Autoencoder [2] (sAE) based
+on our skipAE architecture with all the skip-connections re-
+moved. To that, we compare models with either one, two or
+all skip-connections. Further, to determine if lower levels of
+the skipAE are not simply bypassed, we trained a model with
+skip-connections, but no bottleneck (z and d3 removed, see
+Table 1, #2), and a model which purely consists of only the
+ﬁrst skip-connection (see Table 1, #6). We also compare to
+the skipBAE, i.e. the bayesian variant of our model following
+the work in [3]. The skipBAE aggregates a predictive mean
+from 100 MC samples at a dropout probability p = 0.1. All
+results are reported in Table 1. The best performance on MS
+was obtained with a single skip-connection close to the bot-
+tleneck (see Table. 1, #3). With increasingly excessive use
+of skip-connections, the performance on MS slightly drops,
+and slightly increases for Glioblastoma. In comparison to the
+sAE, the best skipAE yields an absolute improvement of 55%
+in AUPRC for detecting MS lesions and 17% for Glioblas-
+toma. While still considerably better than the sAE, removal
+of the bottleneck (skipAE w/o z) leads to a reduction of per-
+formance in all measures for all pathologies. Interestingly,
+the skipBAE does not perform as good as the non-bayesian
+model.
+3.5. Model Uncertainty in Bayesian Skip-Autoencoders
+As a brief excursus, we leverage the stochastic nature of the
+skipBAE to compute the pixel-wise variance (see Eq. 3) on
+all testing slices and conduct a brief qualitative assessment of
+the uncertainty associated with anomalous pixels and normal
+tissue. Fig. 2 shows some heatmap displays of residuals pro-
+duced by a skipAE (A3, B3), a skipBAE (A4, B4) as well as
+the pixel-wise variance for the latter (A5, B5). Blue depicts
+1907
+Authorized licensed use limited to: INSTITUTE OF AUTOMATION CAS. Downloaded on September 09,2020 at 07:49:23 UTC from IEEE Xplore.  Restrictions apply. 
+
+--- Page 4 ---
+Table 1. skipAE against alterations and baselines.
+MS lesions Glioblastoma
+# Model Skip-Con. AUPRC DICE (µ±σ) AUPRC DICE (µ±σ)
+1 sAE[2] - 0.0956 0.1936± 0.1177 0.0933 0.2043± 0.1928
+2 skipAE w/o z s3 0.3139 0.4000± 0.1738 0.2760 0.3020± 0.2065
+3 skipAE s3 0.6398 0.5822± 0.1937 0.2924 0.3057± 0.1765
+4 skipAE s2,s3 0.6102 0.5714± 0.1852 0.2988 0.3067± 0.1733
+5 skipAE s0,s1,s2,s3 0.5909 0.5520± 0.1857 0.3056 0.3147± 0.1663
+6 skipAE s0 0.5906 0.5461± 0.1893 0.2899 0.3269± 0.1905
+7 skipBAE[3] s3 0.6275 0.5539± 0.2103 0.2767 0.3171± 0.1720
+a) PRCs on MS lesion testing set
+ b) PRCs on Glioblastoma testing set
+ c) PRCs on MS at different dropout rates
+Fig. 3. PRCs of the sAE vs. skipAE(#3) on two different pathologies and among skipAEs(#5) with different dropout rates.
+low and yellow/orange/red reﬂects high uncertainty. Close in-
+spection reveals that pixels of hyperintense anomalies (such
+as MS lesions) have low variance compared to normal tissue.
+It is highest around sharp boundaries and complex anatomical
+structures such as gyri and sulci.
+3.6. Discussion
+Our ablative study shows that skip-connections in AEs are
+very helpful for UAD, in particular for the detection of hyper-
+intense anomalies such as MS lesions. Our skipAE outper-
+forms the spatial AE by a large margin on both pathologies.
+At the same time, we also show that sacriﬁcing the bottleneck
+or any lower layers of the skipAE impairs UAD performance,
+which implies that it beneﬁts heavily from the multi-scale fea-
+ture extraction. The number of skip-connections needs to be
+carefully selected, as their excessive use enables the recon-
+struction of anomalies as well, though. On hyperintense le-
+sions, we ﬁnd the skipBAE to be inferior to the skipAE, be-
+cause averaging over the MC samples induces slight blurri-
+ness in the reconstructions. Unfortunately, the AE-based de-
+tection of Glioblastoma does not work as good as the detec-
+tion of MS lesions. Glioblastoma are morphologically and
+intensity-wise much more diverse than purely hyperintense
+lesions and thus beneﬁt from more skip-connections, but the
+non-hyperintense tumor areas are often reconstructed too well
+to be recognized from the residuals.
+4. CONCLUSION
+In conclusion, we showed that skip-connections in AEs lead
+to considerable improvements in hyperintense anomaly de-
+tection in brain MR data. The skip-connections enable high
+ﬁdelity reconstructions, which are key for UAD in brain MRI.
+At no time, an identity mapping was learned, even if dropout
+was disabled. However, if dropout is active, the resulting
+model allows to estimate epistemic uncertainty. Our brief ex-
+cursus to epistemic uncertainty revealed that residuals vary
+mainly for healthy tissue, and hyperintense anomalous areas
+tend to have low uncertainty. We leave more thorough inves-
+tigations of the role of uncertainty in UAD to future work,
+though.
+Acknowledgments
+The work leading to this publication was partially supported
+by the PRIME programme of the German Academic Ex-
+change Service (DAAD) with funds from the German Federal
+Ministry of Education and Research (BMBF).
+5. REFERENCES
+[1] Thomas Schlegl, Philipp Seeb ¨ock, Sebastian M Wald-
+stein, Ursula Schmidt-Erfurth, and Georg Langs, “Un-
+supervised anomaly detection with generative adversar-
+ial networks to guide marker discovery,” in Interna-
+1908
+Authorized licensed use limited to: INSTITUTE OF AUTOMATION CAS. Downloaded on September 09,2020 at 07:49:23 UTC from IEEE Xplore.  Restrictions apply. 
+
+--- Page 5 ---
+tional Conference on Information Processing in Medical
+Imaging. Springer, 2017, pp. 146–157.
+[2] Christoph Baur, Benedikt Wiestler, Shadi Albarqouni,
+and Nassir Navab, “Deep autoencoding models for un-
+supervised anomaly segmentation in brain mr images,”
+arXiv preprint arXiv:1804.04488, 2018.
+[3] Nick Pawlowski, Matthew CH Lee, Martin Rajchl,
+Steven McDonagh, Enzo Ferrante, Konstantinos Kam-
+nitsas, Sam Cooke, Susan Stevenson, Aneesh Khetani,
+Tom Newman, et al., “Unsupervised lesion detection
+in brain ct using bayesian convolutional autoencoders,”
+2018.
+[4] David Zimmerer, Simon AA Kohl, Jens Petersen,
+Fabian Isensee, and Klaus H Maier-Hein, “Context-
+encoding variational autoencoder for unsupervised
+anomaly detection,” arXiv preprint arXiv:1812.05941 ,
+2018.
+[5] Xiaoran Chen and Ender Konukoglu, “Unsupervised de-
+tection of lesions in brain mri using constrained adver-
+sarial auto-encoders,” arXiv preprint arXiv:1806.04972,
+2018.
+[6] Daisuke Sato, Shouhei Hanaoka, Yukihiro Nomura, To-
+momi Takenaga, Soichiro Miki, Takeharu Yoshikawa,
+Naoto Hayashi, and Osamu Abe, “A primitive study
+on unsupervised anomaly detection with an autoencoder
+in emergency head ct volumes,” in Medical Imaging
+2018: Computer-Aided Diagnosis. International Society
+for Optics and Photonics, 2018, vol. 10575, p. 105751P.
+[7] Olaf Ronneberger, Philipp Fischer, and Thomas Brox,
+“U-net: Convolutional networks for biomedical image
+segmentation,” in International Conference on Med-
+ical image computing and computer-assisted interven-
+tion. Springer, 2015, pp. 234–241.
+[8] Michal Drozdzal, Eugene V orontsov, Gabriel Chartrand,
+Samuel Kadoury, and Chris Pal, “The importance of
+skip connections in biomedical image segmentation,” in
+Deep Learning and Data Labeling for Medical Applica-
+tions, pp. 179–187. Springer, 2016.
+[9] Phillip Isola, Jun-Yan Zhu, Tinghui Zhou, and Alexei A
+Efros, “Image-to-image translation with conditional ad-
+versarial networks,” in Proceedings of the IEEE confer-
+ence on computer vision and pattern recognition , 2017,
+pp. 1125–1134.
+[10] Michael Mathieu, Camille Couprie, and Yann LeCun,
+“Deep multi-scale video prediction beyond mean square
+error,” arXiv preprint arXiv:1511.05440, 2015.
+[11] Xiaojiao Mao, Chunhua Shen, and Yu-Bin Yang, “Im-
+age restoration using very deep convolutional encoder-
+decoder networks with symmetric skip connections,”
+in Advances in neural information processing systems ,
+2016, pp. 2802–2810.
+[12] Alex Kendall and Yarin Gal, “What uncertainties do we
+need in bayesian deep learning for computer vision?,”
+in Advances in neural information processing systems ,
+2017, pp. 5574–5584.
+[13] J E Iglesias, Cheng-Yi Liu, P M Thompson, and
+Zhuowen Tu, “Robust Brain Extraction Across Datasets
+and Comparison With Publicly Available Methods,”
+IEEE Transactions on Medical Imaging , vol. 30, no. 9,
+pp. 1617–1634, 2011.
+[14] Torsten Rohlﬁng, Natalie M Zahr, Edith V Sullivan, and
+Adolf Pfefferbaum, “The SRI24 multichannel atlas of
+normal adult human brain structure,” Human Brain
+Mapping, vol. 31, no. 5, pp. 798–819, Dec. 2009.
+1909
+Authorized licensed use limited to: INSTITUTE OF AUTOMATION CAS. Downloaded on September 09,2020 at 07:49:23 UTC from IEEE Xplore.  Restrictions apply. 
+

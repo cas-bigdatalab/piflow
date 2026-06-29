@@ -1,0 +1,3 @@
+{"time": "2026-06-18T08:38:14.951674+00:00", "level": "INFO", "event": "FLOW_SUBMITTED", "message": "", "process_id": "process_e61550465ef9429e8fd06352231a11ec", "job_id": "", "stop_name": "", "payload": {"flow_name": "source-pdf-metadata-clean-save-flow", "total": 5}}
+{"time": "2026-06-18T08:38:15.036117+00:00", "level": "INFO", "event": "FLOW_STARTED", "message": "", "process_id": "process_e61550465ef9429e8fd06352231a11ec", "job_id": "", "stop_name": "", "payload": {}}
+{"time": "2026-06-18T08:38:18.796908+00:00", "level": "INFO", "event": "FLOW_COMPLETED", "message": "", "process_id": "process_e61550465ef9429e8fd06352231a11ec", "job_id": "", "stop_name": "", "payload": {}}

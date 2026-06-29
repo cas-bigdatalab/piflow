@@ -1,0 +1,58 @@
+{
+  "name": "pdf_metadata_extract",
+
+  "version": "1.0.0",
+
+  "description": "提取PDF文件的元数据（标题、作者、主题、页数等），输出为JSON格式。",
+
+  "language": "python",
+
+  "script_path": "scripts/run_pdf_metadata_extract.py",
+
+  "entrypoint": "python scripts/run_pdf_metadata_extract.py",
+
+  "input_params": [
+    {
+      "name": "input_path",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "输入PDF文件路径"
+    },
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "输出JSON文件路径"
+    },
+    {
+      "name": "num_proc",
+      "role": "data",
+      "type": "int",
+      "required": false,
+      "description": "并行处理的进程数"
+    }
+  ],
+
+  "output_params": [
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "json_file",
+      "default": "metadata.json",
+      "description": "PDF元数据JSON文件"
+    }
+  ],
+
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input_path",
+    "{input_path}",
+    "--num_proc",
+    "{num_proc}",
+    "--output_path",
+    "{output_path}"
+  ]
+}
