@@ -1,0 +1,116 @@
+from agents.subagent.skill_creator.prompt import (
+    SKILL_CREATOR_ROUTE_MARKER,
+    build_skill_creator_route_prompt_block,
+    build_skill_creator_system_prompt,
+    is_skill_creator_route_marker,
+    strip_route_marker,
+)
+from agents.prompts import BASE_PROMPT_NEW, build_system_prompt
+from services.subagent.skill_creator.handoff import is_skill_creator_route_prefix
+
+
+def test_skill_creator_route_marker_matches_exact_contract():
+    # 纯标记
+    assert is_skill_creator_route_marker(SKILL_CREATOR_ROUTE_MARKER) is True
+    # 标记带空白
+    assert is_skill_creator_route_marker(f"  {SKILL_CREATOR_ROUTE_MARKER}\n") is True
+    # 标记嵌入在文本中（新行为）
+    assert is_skill_creator_route_marker(f"缺少.sofa校验技能。{SKILL_CREATOR_ROUTE_MARKER}") is True
+    # 标记在文本开头
+    assert is_skill_creator_route_marker(f"{SKILL_CREATOR_ROUTE_MARKER}然后输出其他内容") is True
+    # 无关文本
+    assert is_skill_creator_route_marker("帮我总结一下我们刚才这段对话") is False
+
+
+def test_strip_route_marker():
+    # 纯标记
+    assert strip_route_marker(SKILL_CREATOR_ROUTE_MARKER) == ""
+    # 标记前后有文本
+    assert strip_route_marker(f"前文{SKILL_CREATOR_ROUTE_MARKER}") == "前文"
+    assert strip_route_marker(f"{SKILL_CREATOR_ROUTE_MARKER}后文") == "后文"
+    assert strip_route_marker(f"前{SKILL_CREATOR_ROUTE_MARKER}后") == "前后"
+    # 多次出现
+    result = strip_route_marker(f"{SKILL_CREATOR_ROUTE_MARKER}{SKILL_CREATOR_ROUTE_MARKER}")
+    assert result == ""
+    # 无标记的文本不受影响
+    assert strip_route_marker("正常回复内容") == "正常回复内容"
+
+
+def test_skill_creator_route_prefix():
+    # 纯标记前缀（流式场景）
+    assert is_skill_creator_route_prefix("_") is True
+    assert is_skill_creator_route_prefix("__R") is True
+    assert is_skill_creator_route_prefix(SKILL_CREATOR_ROUTE_MARKER) is True
+    # 标记嵌入在文本中（兼容文本+标记混排）
+    assert is_skill_creator_route_prefix(f"缺少校验技能。{SKILL_CREATOR_ROUTE_MARKER}") is True
+    assert is_skill_creator_route_prefix(f"应进入skill生成路径。{SKILL_CREATOR_ROUTE_MARKER[:5]}") is True
+    # 无关文本
+    assert is_skill_creator_route_prefix("正常回复内容") is False
+    # 空/None
+    assert is_skill_creator_route_prefix(None) is False
+    assert is_skill_creator_route_prefix("") is False
+
+
+def test_skill_creator_route_prompt_block_is_composable():
+    prompt_block = build_skill_creator_route_prompt_block()
+    system_prompt = build_system_prompt(extra_sections=[prompt_block])
+
+    assert "skill生成路由规则" in prompt_block
+    assert SKILL_CREATOR_ROUTE_MARKER in prompt_block
+    assert "只输出该标记" in prompt_block
+    assert "消息开头" in prompt_block
+    assert prompt_block in system_prompt
+
+
+def test_skill_creator_system_prompt_is_skill_generation_prompt():
+    prompt = build_skill_creator_system_prompt()
+
+    assert "skill 生成 subagent" in prompt
+    assert "skill 创建" in prompt or "生成 skill" in prompt
+    assert "只允许输出以下四类信息" in prompt
+    assert "不允许输出或扩写以下内容" in prompt
+    assert "完整 `SKILL.md`" in prompt
+    assert "完整 `skill.json`" in prompt
+    assert "run_*.py" in prompt
+    assert "处理链、编排链、后续 DAG 建议" in prompt
+    assert "你必须停在收集单和追问" in prompt
+
+
+def test_main_system_prompt_keeps_core_dag_constraints():
+    prompt = build_system_prompt()
+
+    assert "输入节点 → 业务节点 → 输出节点" in prompt
+    assert "只能输出合法 JSON" in prompt
+    assert "技能缺失时的引导规则" in prompt
+    assert "只能通过构建 DAG 或进入 skill 创建流程推进" in prompt or "只能通过构建 DAG 或进入 skill 流程推进" in prompt
+    assert "不要为输出参数编造真实值" in prompt
+
+
+def test_main_system_prompt_removes_known_conflicting_wording():
+    assert "在生成DAG Workflow JSON的同时，需要适当加入引导用语" not in BASE_PROMPT_NEW
+    assert "节点输入参数。" not in BASE_PROMPT_NEW
+
+
+def test_main_system_prompt_disallows_direct_problem_solving_path():
+    prompt = build_system_prompt()
+
+    assert "直接解决链路" not in prompt
+    assert "临时脚本" not in prompt
+    assert "脚本方案" not in prompt
+    assert "不要直接给出替代解决方案或临时流程绕过问题" in prompt
+
+
+def test_main_system_prompt_disallows_self_executing_task_resolution():
+    prompt = build_system_prompt()
+
+    assert "不要当场自行解决任务" in prompt
+    assert "不要当场直接处理任务" in prompt
+    assert "不要自行调用工具处理" in prompt
+
+
+def test_main_system_prompt_requires_raw_dag_without_process_preamble():
+    prompt = build_system_prompt()
+
+    assert "满足 DAG 生成条件时，直接输出最终 DAG JSON" in prompt
+    assert "不要先输出“先核对相关技能的参数定义”" in prompt
+    assert "不要输出任何位于 JSON 之前的引导语、过渡句、总结句或步骤描述" in prompt

@@ -1,4 +1,5 @@
 import os
+import uuid
 from typing import List, Dict
 
 import psycopg2
@@ -124,6 +125,16 @@ def create_thread(user_id: str, thread_id: str, title: str = "新对话"):
     conn.commit()
     cursor.close()
     conn.close()
+
+
+def create_transient_thread(user_id: str, title: str = "临时对话") -> str:
+    thread_id = f"tmp_{uuid.uuid4().hex[:12]}"
+    create_thread(user_id, thread_id, title)
+    return thread_id
+
+
+def delete_transient_thread(user_id: str, thread_id: str):
+    delete_thread(user_id, thread_id)
 
 
 def update_thread_time(thread_id: str):

@@ -3,6 +3,11 @@
 #  model: qwen3-max
 #  temperature: 0
 
+#llm:
+#  provider: dashscope
+#  model: gpt-5.4
+#  temperature: 0
+
 llm:
   provider: dashscope
   model: qwen3.5-plus
@@ -24,6 +29,11 @@ llm:
 #  model: qwen3.5
 #  temperature: 0
 
+#llm:
+#  provider: deepseek
+#  model: deepseek-v4-flash
+#  temperature: 0
+
 providers:
   dashscope:
     base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
@@ -36,3 +46,7 @@ providers:
   openai:
     base_url: https://open.bigmodel.cn/api/paas/v4
     api_key_env: GLM_API_KEY
+  
+  deepseek:
+    base_url: https://api.deepseek.com/v1
+    api_key_env: DEEPSEEK_API_KEY
