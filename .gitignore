@@ -9,3 +9,5 @@
 vue-web/node_modules
 ./vue-web/package-lock.json
 vue-web/package-lock.json
+__pycache__/
+*.pyc
