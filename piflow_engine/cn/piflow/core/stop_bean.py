@@ -56,7 +56,7 @@ class StopBean:
         stop_class = getattr(module, class_name)
         stop = stop_class()
 
-        if not isinstance(stop, ConfigurableStop) and not self._is_compatible_configurable_stop(stop):
+        if not isinstance(stop, ConfigurableStop):
             raise TypeError(
                 f"stop class '{self.bundle}' must inherit from ConfigurableStop"
             )
@@ -72,9 +72,3 @@ class StopBean:
     def _looks_like_command_bundle(self) -> bool:
         bundle_path = Path(self.bundle)
         return bundle_path.suffix.lower() == ".json" or bundle_path.exists()
-
-    @staticmethod
-    def _is_compatible_configurable_stop(stop: object) -> bool:
-        # TEMP production patch: remove after all runtime imports consistently
-        # resolve `ConfigurableStop` from a single module namespace.
-        return any(cls.__name__ == "ConfigurableStop" for cls in type(stop).__mro__)

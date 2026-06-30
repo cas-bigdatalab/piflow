@@ -65,6 +65,7 @@ class ProvidersConfig(BaseModel):
     openai: Optional[ProviderConfig] = None
     ollama: Optional[ProviderConfig] = None
     cstcloud: Optional[ProviderConfig] = None
+    deepseek: Optional[ProviderConfig] = None
 
 
 class LLMConfig(BaseModel):

@@ -73,6 +73,8 @@ python scripts/<script>.py --input_path <输入> --output_path <输出>
 |------|------|------|------|--------|------|
 | input_path | string | input_data | 是 | - | 输入文件路径 |
 
+** 务必记住采用下划线而非连字符作为参数名称，且参数名称必须与 `skill.json` 中的 `input_params`、`output_params` 保持一致。**
+
 ## 示例
 
 ```bash

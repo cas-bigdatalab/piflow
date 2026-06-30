@@ -21,35 +21,6 @@ STORAGE_SKILLS_DIR = STORAGE_DIR / "skills"
 DEFAULT_COMMON_ICON = "/storage/common/common.png"
 
 
-def _normalize_param_container(raw_params) -> Dict[str, List[Dict]]:
-    """归一化技能参数容器，兼容历史坏数据与生成器误产出的对象形状。"""
-    if not raw_params:
-        return {"params": []}
-
-    if isinstance(raw_params, list):
-        return {"params": [item for item in raw_params if isinstance(item, dict)]}
-
-    if not isinstance(raw_params, dict):
-        return {"params": []}
-
-    params = raw_params.get("params", raw_params)
-    normalized: List[Dict] = []
-
-    if isinstance(params, list):
-        normalized = [item for item in params if isinstance(item, dict)]
-    elif isinstance(params, dict):
-        # 历史脏数据可能是 {"params": {...}} 或 {"params": {"foo": {...}}}
-        if isinstance(params.get("name"), str):
-            normalized = [params]
-        else:
-            for name, value in params.items():
-                if isinstance(value, dict):
-                    entry = dict(value)
-                    entry.setdefault("name", str(name))
-                    normalized.append(entry)
-    return {"params": normalized}
-
-
 def ensure_storage_dirs():
     STORAGE_SKILLS_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -342,7 +313,6 @@ def _parse_dag_skill_frontmatter(skill_dir: Path) -> Optional[dict]:
         raw_outputs = frontmatter.get("output_params") or []
 
         input_params = {"params": []}
-        promoted_output_params = []
         for p in raw_inputs:
             role = p.get("role", "data")
             entry = {
@@ -354,16 +324,7 @@ def _parse_dag_skill_frontmatter(skill_dir: Path) -> Optional[dict]:
             }
             if "default" in p:
                 entry["default_value"] = p["default"]
-            if role == "output_data":
-                promoted_output_params.append(
-                    {
-                        "name": entry["name"],
-                        "type": entry["type"],
-                        "role": "output_data",
-                        "description": entry["description"],
-                    }
-                )
-            else:
+            if role != "output_data":
                 input_params["params"].append(entry)
 
         output_params = {"params": []}
@@ -375,18 +336,14 @@ def _parse_dag_skill_frontmatter(skill_dir: Path) -> Optional[dict]:
                 "description": p.get("description", ""),
             }
             output_params["params"].append(entry)
-        existing_output_names = {p["name"] for p in output_params["params"]}
-        for entry in promoted_output_params:
-            if entry["name"] not in existing_output_names:
-                output_params["params"].append(entry)
 
         return {
             "name": name,
             "name_zh": frontmatter.get("name_zh", ""),
             "description": description,
             "tag": tag,
-            "input_params": _normalize_param_container(input_params),
-            "output_params": _normalize_param_container(output_params),
+            "input_params": input_params,
+            "output_params": output_params,
         }
     except Exception:
         return None

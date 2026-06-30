@@ -121,72 +121,6 @@ def test_resolve_dag_definition_skills_uses_skill_name_when_skill_id_is_stale(tm
     assert resolved["nodes"][0]["skill"]["skill_name"] == "epub_metadata_cleaner"
 
 
-def test_register_skill_from_disk_preserves_single_level_param_shape(tmp_path, monkeypatch):
-    workspace_root = tmp_path / "workspace"
-    skill_dir = workspace_root / "skills" / "generated" / "demo_skill"
-    scripts_dir = skill_dir / "scripts"
-    scripts_dir.mkdir(parents=True, exist_ok=True)
-    (scripts_dir / "run_demo_skill.py").write_text("print('ok')", encoding="utf-8")
-    (skill_dir / "SKILL.md").write_text(
-        (
-            "---\n"
-            "name: demo_skill\n"
-            "name_zh: 演示技能\n"
-            "description: 演示\n"
-            "tag: 转换\n"
-            "input_params:\n"
-            "  - name: input_path\n"
-            "    type: string\n"
-            "    required: true\n"
-            "output_params:\n"
-            "  - name: output_path\n"
-            "    type: string\n"
-            "---\n"
-        ),
-        encoding="utf-8",
-    )
-    skill_json = skill_dir / "skill.json"
-    skill_json.write_text('{"name":"demo_skill"}', encoding="utf-8")
-
-    captured = {}
-
-    def fake_insert_dag_skill(**kwargs):
-        captured.update(kwargs)
-
-    monkeypatch.setattr(excutor_utils, "resolve_workspace_root", lambda: workspace_root)
-
-    import sys
-    fake_skill_manage = SimpleNamespace(
-        _parse_dag_skill_frontmatter=skill_manage._parse_dag_skill_frontmatter,
-        insert_dag_skill=fake_insert_dag_skill,
-    )
-    monkeypatch.setitem(sys.modules, "runtime.skill_manage", fake_skill_manage)
-
-    excutor_utils._register_skill_from_disk(workspace_root, "demo_skill", skill_json)
-
-    assert captured["input_params"] == {
-        "params": [
-            {
-                "name": "input_path",
-                "type": "string",
-                "role": "data",
-                "description": "",
-                "required": True,
-            }
-        ]
-    }
-    assert captured["output_params"] == {
-        "params": [
-            {
-                "name": "output_path",
-                "type": "string",
-                "role": "output_data",
-                "description": "",
-            }
-        ]
-    }
-
-
 def test_parse_dag_skill_frontmatter_preserves_roles_and_keeps_output_data_out_of_input_params(tmp_path, monkeypatch):
     workspace_root = tmp_path / "workspace"
     skills_dir = workspace_root / "skills"
@@ -245,42 +179,6 @@ def test_parse_dag_skill_frontmatter_preserves_roles_and_keeps_output_data_out_o
                 "role": "output_data",
                 "description": "",
             }
-        ]
-    }
-
-
-def test_normalize_param_container_converts_mapping_shape_from_generated_skill():
-    normalized = skill_manage._normalize_param_container(
-        {
-            "params": {
-                "input_path": {
-                    "type": "string",
-                    "description": "输入文件路径",
-                    "required": True,
-                },
-                "output_path": {
-                    "type": "json_file",
-                    "description": "输出文件路径",
-                    "required": True,
-                },
-            }
-        }
-    )
-
-    assert normalized == {
-        "params": [
-            {
-                "name": "input_path",
-                "type": "string",
-                "description": "输入文件路径",
-                "required": True,
-            },
-            {
-                "name": "output_path",
-                "type": "json_file",
-                "description": "输出文件路径",
-                "required": True,
-            },
         ]
     }
 
@@ -526,7 +424,7 @@ def test_insert_dag_skill_upsert_preserves_existing_skill_id():
     assert "skill_id = EXCLUDED.skill_id" not in source
 
 
-def test_save_dag_panel_normalizes_definition_before_persist(monkeypatch):
+def test_save_dag_panel_persists_original_definition_without_local_skill_resolution(monkeypatch):
     captured = {}
 
     class DummyConn:
@@ -549,23 +447,6 @@ def test_save_dag_panel_normalizes_definition_before_persist(monkeypatch):
         return "definition-1"
 
     monkeypatch.setattr(dag_panel_service, "insert_dag_definition", fake_insert)
-    monkeypatch.setattr(
-        dag_panel_service,
-        "resolve_dag_definition_skills",
-        lambda definition_json: {
-            **definition_json,
-            "nodes": [
-                {
-                    **definition_json["nodes"][0],
-                    "skill": {
-                        "skill_id": "/resolved/workspace/skills/generated/sofa_to_csv/skill.json",
-                        "skill_name": "sofa_to_csv",
-                    },
-                }
-            ],
-        },
-    )
-
     raw_definition = {
         "dsl_version": "1.0",
         "task": {"dag_task_id": "", "dag_task_name": "SOFA 转 CSV", "description": "", "message_id": ""},
@@ -584,41 +465,6 @@ def test_save_dag_panel_normalizes_definition_before_persist(monkeypatch):
     result = dag_panel_service.save_dag_panel(raw_definition, "user-1")
 
     assert result == {"task_id": "task-1", "definition_id": "definition-1", "revision": 1}
-    assert captured["definition_json"]["nodes"][0]["skill"]["skill_id"] == "/resolved/workspace/skills/generated/sofa_to_csv/skill.json"
-    assert captured["definition_json"]["nodes"][0]["skill"]["skill_name"] == "sofa_to_csv"
+    assert captured["definition_json"] == raw_definition
 
 
-def test_normalize_frontend_runtime_paths_keeps_outputs_inside_workspace(tmp_path):
-    workspace_root = tmp_path / "workspace"
-    workspace_root.mkdir(parents=True, exist_ok=True)
-
-    definition = {
-        "task": {"dag_task_id": "demo"},
-        "nodes": [
-            {
-                "node_name": "输入文件节点1",
-                "skill": {"skill_name": "source_stop", "skill_id": "cn.piflow.engine.local.source_file_stop.SourceFileStop"},
-                "input_params": [
-                    {"param_name": "file_path", "param_value": "/users/u1/temp/a.mid", "value_mode": "manual"}
-                ],
-            },
-            {
-                "node_name": "输出文件节点1",
-                "skill": {"skill_name": "sink_stop", "skill_id": "cn.piflow.engine.local.file_save_stop.FileSaveStop"},
-                "input_params": [
-                    {"param_name": "input", "param_value": "output_file", "value_mode": "reference"},
-                    {"param_name": "path", "param_value": "outputs/result.txt", "value_mode": "manual"},
-                ],
-            },
-        ],
-    }
-
-    normalized = piflow_adapter._normalize_frontend_runtime_paths(
-        definition,
-        workspace_root=workspace_root,
-        user_id="u1",
-    )
-
-    sink_params = normalized["nodes"][1]["input_params"]
-    path_param = next(item for item in sink_params if item["param_name"] == "path")
-    assert path_param["param_value"] == str((workspace_root / "users" / "u1" / "outputs" / "result.txt").resolve())
