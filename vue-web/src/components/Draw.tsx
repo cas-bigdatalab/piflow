@@ -893,6 +893,7 @@ const OperatorLibraryModal: React.FC<OperatorLibraryModalProps> = ({ isOpen, onC
                       style={{ cursor: 'grab' }}
                     >
                       <div className="modal-operator-icon">
+                        {resolveIconUrl(operator.icon_path)}
                         <img
                           src={resolveIconUrl(operator.icon_path)}
                           alt={operator.name_zh}
