@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Icon } from '@iconify/react';
-import { getTasks, createTask, updateTask, deleteTask, Task } from '../lib/api';
+import { getTasks, createTask, updateTask, deleteTask, Task,runDAGTask } from '../lib/api';
 import { toast } from '../components/Toast';
 import './TaskManagePage.css';
 
@@ -30,6 +30,23 @@ export function TaskManagePage() {
   const [updating, setUpdating] = useState(false);
   const pageSize = 10;
   const totalPages = Math.ceil(total / pageSize);
+
+
+  // 在 TaskManagePage.tsx 中，替换 handleRun 为：
+  const handleRun = async (taskId: string, taskName: string) => {
+    try {
+      const response = await runDAGTask(taskId);
+      if (response.code === 200 && response.result) {
+        const processId = response.result.process_id;
+        toast.success(`任务「${taskName}」已提交运行，请前往【运行历史】查看执行状态。执行实例ID：${processId}`);
+      } else {
+        toast.error('运行失败: ' + (response.message || '未知错误'));
+      }
+    } catch (error) {
+      console.error('运行任务失败:', error);
+      toast.error('操作失败: ' + (error instanceof Error ? error.message : '未知错误'));
+    }
+  };
 
   // 请求后端数据
   const loadData = async (page: number, keyword?: string) => {
@@ -242,7 +259,11 @@ export function TaskManagePage() {
                     <button className="icon-btn" title="删除" onClick={() => handleDeleteClick(task)} style={{color: '#ef4444'}}>
                       <Icon icon="fa-solid:trash" width="14" />
                     </button>
-                    <button className="icon-btn primary" title="运行">
+                    <button
+                        className="icon-btn primary" 
+                        title="运行" 
+                        onClick={() => handleRun(task.dag_task_id, task.dag_task_name)}
+                      >
                       <Icon icon="fa-solid:play" width="14" />
                     </button>
                   </td>

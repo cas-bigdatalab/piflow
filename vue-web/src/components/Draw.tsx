@@ -307,6 +307,7 @@ const CustomNode: React.FC<NodeProps<NodeData>> = ({ id, data, selected }) => {
     ));
   };
 
+
   return (
     <div className={`custom-node ${selected ? 'selected' : ''}`} onClick={() => { data.onSelect?.(id); }}>
       <Handle
@@ -892,6 +893,7 @@ const OperatorLibraryModal: React.FC<OperatorLibraryModalProps> = ({ isOpen, onC
                       style={{ cursor: 'grab' }}
                     >
                       <div className="modal-operator-icon">
+                        {resolveIconUrl(operator.icon_path)}
                         <img
                           src={resolveIconUrl(operator.icon_path)}
                           alt={operator.name_zh}
@@ -1418,6 +1420,7 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
           const skillId = n.skill?.skill_id || n.skill_id;
           const nodeId = n.node_id || `node-${i+1}`;
 
+          console.log(skillId, '我是skillId的各个值，请你来看——————————————————————————————',n,'是保存数据的savedDrawData.node各个项')
           // 检查 savedDrawData 中是否已经有完整的参数信息
           const hasSavedInputParams = n.input_params && Array.isArray(n.input_params) && n.input_params.length > 0;
           const hasSavedOutputParams = n.output_params && (Array.isArray(n.output_params) || n.output_params.params?.length > 0);
@@ -1441,81 +1444,134 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
           }
           
           // 对于source_stop和sink_stop这两个特殊算子，不要请求接口，使用固定的参数
-          const isSpecialSkill = skillId === 'piflow_engine.cn.piflow.engine.local.source_file_stop.SourceFileStop' ||
-                                  skillId === 'piflow_engine.cn.piflow.engine.local.file_save_stop.FileSaveStop';
+         const isSpecialSkill = 
+            skillId === 'piflow_engine.cn.piflow.engine.local.source_file_stop.SourceFileStop' ||
+            skillId === 'piflow_engine.cn.piflow.engine.local.file_save_stop.FileSaveStop' ||
+            skillId === 'piflow_engine.cn.piflow.engine.local.llm_file_transform_stop.LLMFileTransformStop';
           let skillDescription = '';
-          
           if (isSpecialSkill) {
-            console.log(`节点 ${i}: 特殊算子，不请求接口`);
-            
-            // 特殊算子总是使用固定的参数定义，不依赖保存的数据
+            console.log(`节点 ${i}: 特殊算子，不请求接口1111111111111111111111111111111111112749832943284982094832`);
+
             if (skillId === 'piflow_engine.cn.piflow.engine.local.source_file_stop.SourceFileStop') {
+                n.skill = n.skill || {};
+                n.skill.name_zh = '文件源';
+                n.skill.skill_name = 'source_stop';
+                n.skill.skill_type = 'source';
+                // source_stop的固定输入参数（只有file_path）
+                inputParams = {
+                  params: [
+                    {
+                      name: "file_path",
+                      type: "string",
+                      param_name: "file_path",
+                      param_type: "String",
+                      value_mode: "manual",
+                      param_value: "",
+                      value_source: "local_file",
+                      required: true
+                    }
+                  ]
+                };
+                // source_stop的输出参数
+                outputParams={ params: [] }
+            } else if (skillId === 'piflow_engine.cn.piflow.engine.local.file_save_stop.FileSaveStop') {
               n.skill = n.skill || {};
-              n.skill.name_zh = '文件源';
-              // source_stop的固定输入参数（只有file_path）
+                n.skill.name_zh = '文件保存';
+                n.skill.skill_name = 'sink_stop';
+                n.skill.skill_type = 'sink';
+                // sink_stop的固定输入参数
+                inputParams = {
+                  params: [
+                    {
+                      name: "input",
+                      type: "string",
+                      param_name: "input",
+                      param_type: "String",
+                      value_mode: "manual",
+                      param_value: "",
+                      value_source: "local_file",
+                      required: true
+                    },
+                    {
+                      name: "path",
+                      type: "string",
+                      param_name: "path",
+                      param_type: "String",
+                      value_mode: "manual",
+                      param_value: "",
+                      value_source: "local_file",
+                      required: true
+                    },
+                    {
+                      name: "overwrite",
+                      type: "boolean",
+                      param_name: "overwrite",
+                      param_type: "Boolean",
+                      value_mode: "manual",
+                      param_value: true,
+                      value_source: "local_file",
+                      required: true
+                    }
+                  ]
+                };
+                // sink_stop没有输出参数
+                outputParams = { params: [] };
+            } else if (skillId === 'piflow_engine.cn.piflow.engine.local.llm_file_transform_stop.LLMFileTransformStop') {
+              n.skill = n.skill || {};
+              n.skill.name_zh = 'llm算子';
+              n.skill.skill_name = 'llm_chat';
+              n.skill.skill_type = 'chat';
+
+              // 固定输入参数（请根据实际需求调整字段）
               inputParams = {
                 params: [
                   {
-                    name: "file_path",
+                    name: "input_file_path",
                     type: "string",
-                    param_name: "file_path",
+                    param_name: "input_file_path",
                     param_type: "String",
                     value_mode: "manual",
                     param_value: "",
-                    value_source: "local_file",
                     required: true
+                  },
+                  {
+                    name: "prompt_template",
+                    type: "string",
+                    param_name: "prompt_template",
+                    param_type: "String",
+                    value_mode: "manual",
+                    param_value: "",
+                    required: false
+                  },
+                  {
+                    name: "model_name",
+                    type: "string",
+                    param_name: "model_name",
+                    param_type: "String",
+                    value_mode: "manual",
+                    param_value: "gpt-4",
+                    required: false
                   }
+                  // 可继续添加其他必要参数
                 ]
               };
-              // source_stop的输出参数
+
+              // 固定输出参数：只有一个 out_path
               outputParams = {
-                params: [{
-                  name: "output",
-                  type: "string",
-                  param_name: "output",
-                  param_type: "String"
-                }]
-              };
-            } else {
-              n.skill = n.skill || {};
-              n.skill.name_zh = '文件保存';
-              // sink_stop的固定输入参数
-              inputParams = {
                 params: [
                   {
-                    name: "input",
+                    name: "out_path",
                     type: "string",
-                    param_name: "input",
-                    param_type: "String",
-                    value_mode: "manual",
-                    param_value: "",
-                    value_source: "local_file",
-                    required: true
-                  },
-                  {
-                    name: "path",
-                    type: "string",
-                    param_name: "path",
-                    param_type: "String",
-                    value_mode: "manual",
-                    param_value: "",
-                    value_source: "local_file",
-                    required: true
-                  },
-                  {
-                    name: "overwrite",
-                    type: "boolean",
-                    param_name: "overwrite",
-                    param_type: "Boolean",
-                    value_mode: "manual",
-                    param_value: true,
-                    value_source: "local_file",
-                    required: true
+                    param_name: "out_path",
+                    param_type: "String"
                   }
                 ]
               };
-              // sink_stop没有输出参数
-              outputParams = { params: [] };
+
+              nodeIdToOutputParamsMap[nodeId] = outputParams;
+              nodeNameToZhName[pNode.node_name] = '文件转换';
+              nodeNameToZhName[skillName] = '文件转换';
+              nodeTypeForOperator = 'transform'; // 可选：用于 UI 分类
             }
           } else {
             // 普通算子：先请求接口获取参数模板（含 required 字段）
@@ -2466,99 +2522,167 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
       console.log('getAllSkills 返回结果:', resAllSkills);
       if(resAllSkills.code === 200){
         console.log('resAllSkills.result.data:', resAllSkills.result.data);
-       let fixArr=[
-           {
-              groupName: "基础",
-              "DagSkillInfoList": [
-                  {
-                      id: 9999999999998,
-                      skill_id: "piflow_engine.cn.piflow.engine.local.source_file_stop.SourceFileStop",
-                      skill_name: "文件源",
-                      name_zh: "文件源",
-                      version: "1.0.0",
-                      description: "本skill是用于文件源",
-                      file_path: "",
-                      input_params: {
-                          params: [
-                              {
-                                  name: "filePath",
-                                  type: "string",
-                                  param_name: "filePath",
-                                  param_type: "String",
-                                  value_mode: "manual",
-                                  param_value: "workspace/temp/森林每木调查数据-blank-line-space.csv",
-                                  value_source: "local_file"
-                              },
-                              {
-                                  name: "output",
-                                  type: "string",
-                                  param_name: "filePath",
-                                  param_type: "String",
-                                  value_mode: "manual",
-                                  param_value: "workspace/outputs/森林每木调查数据-blank-space.csv",
-                                  value_source: "local_file"
-                              }
-                          ]
-                      },
-                      output_params: {
-                          params: [
-
-                          ]
-                      },
-                      skill_type: "",
-                      language: "",
-                      command: "",
-                      icon_path: "",
-                      create_time: "",
-                      update_time: "",
-                      is_deleted: 0
-                  },
-                  {
-                      id: 9999999999999,
-                      skill_id: "piflow_engine.cn.piflow.engine.local.file_save_stop.FileSaveStop",
-                      skill_name: "文件保存",
-                      name_zh: "文件保存",
-                      version: "1.0.0",
-                      description: "本skill是用于文件保存",
-                      file_path: "",
-                      input_params: {
-                          params: [
-                              {
-                                  name: "path",
-                                  type: "string",
-                                  param_name: "path",
-                                  param_type: "String",
-                                  value_mode: "manual",
-                                  param_value: "workspace/temp/森林每木调查数据-blank-line-space.csv",
-                                  value_source: "local_file"
-                              },
-                              {
-                                  name: "overwrite",
-                                  type: "boolean",
-                                  param_name: "overwrite",
-                                  param_type: "Boolean",
-                                  value_mode: "manual",
-                                  param_value: true,
-                                  value_source: "local_file"
-                              }
-                          ]
-                      },
-                      output_params: {
-                          params: [
-
-                          ]
-                      },
-                      skill_type: "",
-                      language: "",
-                      command: "",
-                      icon_path: "",
-                      create_time: "",
-                      update_time: "",
-                      is_deleted: 0
-                  }
-              ]
+        let fixArr = [
+          {
+            groupName: "基础",
+            DagSkillInfoList: [
+              {
+                id: 9999999999998,
+                skill_id: "piflow_engine.cn.piflow.engine.local.source_file_stop.SourceFileStop",
+                skill_name: "文件源",
+                name_zh: "文件源",
+                version: "1.0.0",
+                description: "本skill是用于文件源",
+                file_path: "",
+                input_params: {
+                  params: [
+                    {
+                      name: "filePath",
+                      type: "string",
+                      param_name: "filePath",
+                      param_type: "String",
+                      value_mode: "manual",
+                      param_value: "",
+                      value_source: "local_file"
+                    },
+                    {
+                      name: "output",
+                      type: "string",
+                      param_name: "filePath",
+                      param_type: "String",
+                      value_mode: "manual",
+                      param_value: "workspace/outputs/森林每木调查数据-blank-space.csv",
+                      value_source: "local_file"
+                    }
+                  ]
+                },
+                output_params: { params: [] },
+                skill_type: "",
+                language: "",
+                command: "",
+                icon_path: "",
+                create_time: "",
+                update_time: "",
+                is_deleted: 0
+              },
+              {
+                id: 9999999999999,
+                skill_id: "piflow_engine.cn.piflow.engine.local.file_save_stop.FileSaveStop",
+                skill_name: "文件保存",
+                name_zh: "文件保存",
+                version: "1.0.0",
+                description: "本skill是用于文件保存",
+                file_path: "",
+                input_params: {
+                  params: [
+                    {
+                      name: "path",
+                      type: "string",
+                      param_name: "path",
+                      param_type: "String",
+                      value_mode: "manual",
+                      param_value: "",
+                      value_source: "local_file"
+                    },
+                    {
+                      name: "overwrite",
+                      type: "boolean",
+                      param_name: "overwrite",
+                      param_type: "Boolean",
+                      value_mode: "manual",
+                      param_value: true,
+                      value_source: "local_file"
+                    }
+                  ]
+                },
+                output_params: { params: [] },
+                skill_type: "",
+                language: "",
+                command: "",
+                icon_path: "",
+                create_time: "",
+                update_time: "",
+                is_deleted: 0
+              }
+            ]
+          },
+          {
+            groupName: "LLM类",
+            DagSkillInfoList: [
+              // 新增：LLM算子
+              {
+                id: 9999999999997,
+                skill_id: "piflow_engine.cn.piflow.engine.local.llm_file_transform_stop.LLMFileTransformStop",
+                skill_name: "llm_chat",
+                name_zh: "LLM算子",
+                version: "1.0.0",
+                description: "调用大语言模型进行文本生成",
+                file_path: "",
+                input_params: {
+                  params: [
+                    {
+                      name: "instruction",
+                      type: "string",
+                      param_name: "instruction",
+                      param_type: "String",
+                      value_mode: "manual",
+                      param_value: "",
+                      value_source: "user_input",
+                      required: true
+                    },
+                    {
+                      name: "model",
+                      type: "string",
+                      param_name: "model",
+                      param_type: "String",
+                      value_mode: "manual",
+                      param_value: "gpt-4o",
+                      value_source: "user_input",
+                      required: true
+                    },
+                    {
+                      name: "api_key",
+                      type: "string",
+                      param_name: "api_key",
+                      param_type: "string",
+                      value_mode: "manual",
+                      param_value: "",
+                      value_source: "user_input",
+                      required: true
+                    },
+                    {
+                      name: "base_url",
+                      type: "string",
+                      param_name: "base_url",
+                      param_type: "string",
+                      value_mode: "manual",
+                      param_value: "",
+                      value_source: "user_input",
+                      required: true
+                    }
+                  ]
+                },
+                output_params: {
+                  params: [
+                    {
+                      name: "response",
+                      type: "string",
+                      param_name: "response",
+                      param_type: "String"
+                    }
+                  ]
+                },
+                // skill_type: "llm",
+                language: "python",
+                command: "",
+                icon_path: "/storage/common/llm.png",
+                create_time: "",
+                update_time: "",
+                is_deleted: 0
+              }
+            ]
           }
-        ]
+        ];
         const finalList = fixArr.concat(resAllSkills.result.data);
         console.log('设置 operatorList，finalList:', finalList);
         // 打印第一个算子的信息
@@ -2695,17 +2819,333 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
     return newLabel;
   }, [nodes]);
 
-  const handleAddNode = useCallback(
-    async (operator: { skill_id: string; skill_name: string; name_zh: string; icon_path: string; skill_type: string; description?: string }, position?: { x: number; y: number }) => {
-      console.log('handleAddNode 被调用，operator 数据:', operator);
-      nodeIdCounter.current += 1;
-      const uniqueLabel = generateUniqueLabel(operator.name_zh);
+  // const handleAddNode = useCallback(
+  //   async (operator: { skill_id: string; skill_name: string; name_zh: string; icon_path: string; skill_type: string; description?: string }, position?: { x: number; y: number }) => {
+  //     console.log('handleAddNode 被调用，operator 数据:', operator);
+  //     nodeIdCounter.current += 1;
+  //     const uniqueLabel = generateUniqueLabel(operator.name_zh);
 
-      // 请求算子详情获取 input_params 和 output_params
-      let inputParams = undefined;
-      let outputParams = undefined;
-      let operatorIconPath = operator.icon_path;
-      let operatorDescription = operator.description || '';
+  //     // 请求算子详情获取 input_params 和 output_params
+  //     let inputParams = undefined;
+  //     let outputParams = undefined;
+  //     let operatorIconPath = operator.icon_path;
+  //     let operatorDescription = operator.description || '';
+  //     try {
+  //       console.log('请求算子详情，skill_id:', operator.skill_id);
+  //       const res = await listSkillsDetails(operator.skill_id);
+  //       console.log('算子详情返回结果:', res);
+  //       if (res.result) {
+  //         inputParams = res.result.input_params;
+  //         outputParams = res.result.output_params;
+  //         operatorIconPath = res.result.icon_path || operatorIconPath;
+  //         operatorDescription = res.result.description || operatorDescription;
+  //         console.log('最终使用的图标路径:', operatorIconPath);
+  //         console.log('最终使用的描述:', operatorDescription);
+  //       }
+  //     } catch (error) {
+  //       console.error('获取算子详情失败:', error);
+  //     }
+      
+  //     // 检查是否有 required 字段，没有的话用 getAllSkills 回退
+  //     const hasRequiredField = inputParams?.params?.some((p: any) => p.required !== undefined);
+  //     if (!hasRequiredField) {
+  //       try {
+  //         const listRes = await getAllSkills(operator.skill_name);
+  //         const skillData = extractSkillBySkillName(listRes, operator.skill_name) || extractSkillBySkillName(listRes, operator.skill_id);
+  //         if (skillData?.input_params?.params?.some((p: any) => p.required !== undefined)) {
+  //           inputParams = skillData.input_params;
+  //           outputParams = skillData.output_params || outputParams;
+  //           operatorIconPath = skillData.icon_path || operatorIconPath;
+  //           console.log('handleAddNode: 使用 getAllSkills 参数模板 (含 required):', inputParams);
+  //         }
+  //       } catch (e) { console.error('handleAddNode: getAllSkills 失败:', e); }
+  //     }
+      
+  //     // 计算新节点的位置
+  //     let newPosition = position;
+  //     if (!newPosition) {
+  //       // 获取当前视图信息
+  //       const currentViewport = getViewport();
+  //       const wrapperEl = reactFlowWrapper.current;
+  //       const containerW = wrapperEl?.clientWidth || window.innerWidth;
+  //       const containerH = wrapperEl?.clientHeight || window.innerHeight;
+  //       // 计算视图中心在画布上的坐标
+  //       const viewCenterX = (containerW / 2 - currentViewport.x) / currentViewport.zoom;
+  //       const viewCenterY = (containerH / 2 - currentViewport.y) / currentViewport.zoom;
+        
+  //       // 检查是否会与现有节点重叠，如果重叠则偏移
+  //       let offsetX = 0;
+  //       let offsetY = 0;
+  //       let attempt = 0;
+  //       const maxAttempts = 50;
+        
+  //       while (attempt < maxAttempts) {
+  //         const testX = viewCenterX - NODE_WIDTH / 2 + offsetX;
+  //         const testY = viewCenterY - 70 + offsetY;
+          
+  //         // 检查是否与现有节点重叠
+  //         const overlaps = nodes.some(node => {
+  //           const nodeRight = node.position.x + NODE_WIDTH;
+  //           const nodeBottom = node.position.y + NODE_HEIGHT;
+  //           const testRight = testX + NODE_WIDTH;
+  //           const testBottom = testY + NODE_HEIGHT;
+            
+  //           return !(testRight < node.position.x || testX > nodeRight || 
+  //                    testBottom < node.position.y || testY > nodeBottom);
+  //         });
+          
+  //         if (!overlaps) {
+  //           newPosition = { x: testX, y: testY };
+  //           break;
+  //         }
+          
+  //         // 螺旋式偏移
+  //         offsetX += (attempt % 2 === 0 ? 1 : -1) * (NODE_GAP * Math.floor(attempt / 2 + 1));
+  //         if (attempt % 2 === 1) {
+  //           offsetY += NODE_GAP;
+  //         }
+  //         attempt++;
+  //       }
+        
+  //       // 如果所有尝试都失败，使用原始位置
+  //       if (!newPosition) {
+  //         newPosition = {
+  //           x: viewCenterX - NODE_WIDTH / 2,
+  //           y: viewCenterY - 70,
+  //         };
+  //       }
+  //     }
+      
+  //     const newNode: Node<NodeData> = {
+  //       id: `node-${nodeIdCounter.current}`,
+  //       type: 'custom',
+  //       position: newPosition,
+  //       data: {
+  //         label: uniqueLabel,
+  //         icon: operatorIconPath,
+  //         operatorId: operator.skill_id,
+  //         operatorName: operator.skill_name || '',
+  //         operatorZh: operator.name_zh || '',
+  //         operatorType: operator.skill_type || '',
+  //         description: operatorDescription,
+  //         params: {},
+  //         inputVar: 'input_data',
+  //         outputVar: 'output_data',
+  //         input_params: inputParams,
+  //         output_params: outputParams,
+  //         onDelete: (id: string) => {
+  //           setNodes((nds) => nds.filter((n) => n.id !== id));
+  //           setEdges((eds) => eds.filter((e) => e.source !== id && e.target !== id));
+  //         },
+  //         onUpdateParams: (id: string, params: Record<string, any>) => {
+  //           setNodes((nds) =>
+  //             nds.map((n) => {
+  //               if (n.id === id) {
+  //                 return {
+  //                   ...n,
+  //                   data: { ...n.data, params },
+  //                 };
+  //               }
+  //               return n;
+  //             })
+  //           );
+  //         },
+  //         onSelect: (id: string) => {
+  //           setSelectedNodeId(id);
+  //           setShowOperatorModal(false);
+  //         },
+  //         onUpdateLabel: (id: string, label: string) => {
+  //           // 获取当前节点以外的所有节点标签
+  //           const otherLabels = nodes.filter(n => n.id !== id).map(n => n.data.label);
+
+  //           // 生成唯一名称（如果冲突则添加后缀）
+  //           let finalLabel = label;
+  //           if (otherLabels.includes(label)) {
+  //             let counter = 1;
+  //             while (otherLabels.includes(`${label}_${counter}`)) {
+  //               counter++;
+  //             }
+  //             finalLabel = `${label}_${counter}`;
+  //           }
+
+  //           setNodes((nds) =>
+  //             nds.map((n) => {
+  //               if (n.id === id) {
+  //                 return { ...n, data: { ...n.data, label: finalLabel } };
+  //               }
+  //               return n;
+  //             })
+  //           );
+  //         },
+  //       },
+  //     };
+      
+  //     // 添加新节点
+  //     setNodes((nds) => [...nds, newNode]);
+      
+  //     // 自动调整视图，将新节点放到视野中心（保持当前缩放级别）
+  //     setTimeout(() => {
+  //       const currentViewport = getViewport();
+  //       const wrapperEl = reactFlowWrapper.current;
+  //       const containerW = wrapperEl?.clientWidth || window.innerWidth;
+  //       const containerH = wrapperEl?.clientHeight || window.innerHeight;
+  //       // 计算新节点的中心点
+  //       const nodeCenterX = newPosition.x + NODE_WIDTH / 2;
+  //       const nodeCenterY = newPosition.y + 70;
+  //       // 计算需要移动的偏移量
+  //       const targetX = containerW / 2 - nodeCenterX * currentViewport.zoom;
+  //       const targetY = containerH / 2 - nodeCenterY * currentViewport.zoom;
+  //       // 使用 setViewport 移动视图，保持当前的缩放级别
+  //       setViewport(
+  //         {
+  //           x: targetX,
+  //           y: targetY,
+  //           zoom: currentViewport.zoom,
+  //         },
+  //         { duration: 500 }
+  //       );
+  //     }, 100);
+  //   },
+  //   [setNodes, setEdges, nodes, generateUniqueLabel, getViewport, setViewport]
+  // );
+
+   // ==================== 添加节点 ====================
+const handleAddNode = useCallback(
+  async (
+    operator: {
+      skill_id: string;
+      skill_name: string;
+      name_zh: string;
+      icon_path: string;
+      skill_type: string;
+      description?: string;
+    },
+    position?: { x: number; y: number }
+  ) => {
+    console.log('handleAddNode 被调用，operator 数据:', operator);
+    nodeIdCounter.current += 1;
+    const uniqueLabel = generateUniqueLabel(operator.name_zh);
+
+    // 请求算子详情获取 input_params 和 output_params
+    let inputParams = undefined;
+    let outputParams = undefined;
+    let operatorIconPath = operator.icon_path;
+    let operatorDescription = operator.description || '';
+
+    // 新增：对 LLM 算子、文件源和文件保存做特殊处理
+    if (operator.skill_id === 'piflow_engine.cn.piflow.engine.local.llm_file_transform_stop.LLMFileTransformStop') {
+      inputParams = {
+        params: [
+          {
+            name: "instruction",
+            type: "string",
+            param_name: "instruction",
+            param_type: "String",
+            value_mode: "manual",
+            param_value: "",
+            value_source: "user_input",
+            required: true
+          },
+          {
+            name: "model",
+            type: "string",
+            param_name: "model",
+            param_type: "String",
+            value_mode: "manual",
+            param_value: "",
+            value_source: "user_input",
+            required: true
+          },
+          {
+            name: "api_key",
+            type: "String",
+            param_name: "api_key",
+            param_type: "String",
+            value_mode: "manual",
+            param_value: "",
+            value_source: "user_input",
+            required: true
+          },
+          {
+            name: "base_url",
+            type: "String",
+            param_name: "base_url",
+            param_type: "String",
+            value_mode: "manual",
+            param_value: "",
+            value_source: "user_input",
+            required: true
+          }
+        ]
+      };
+      outputParams = {
+        params: [
+          { name: "output", type: "string", param_name: "output", param_type: "String" }
+        ]
+      };
+      operatorIconPath = operator.icon_path || "/storage/common/llm.png";
+      operatorDescription = operator.description || "调用大语言模型进行文本生成";
+    } else if (operator.skill_id === 'piflow_engine.cn.piflow.engine.local.source_file_stop.SourceFileStop') {
+        inputParams = {
+                  params: [
+                    {
+                      name: "file_path",
+                      type: "string",
+                      param_name: "file_path",
+                      param_type: "String",
+                      value_mode: "manual",
+                      param_value: "",
+                      value_source: "local_file",
+                      required: true
+                    }
+                  ]
+        };
+        // source_stop的输出参数
+        outputParams = {
+          params: [{
+            name: "output",
+            type: "string",
+            param_name: "output",
+            param_type: "String"
+          }]
+        };
+    } else if (operator.skill_id === 'piflow_engine.cn.piflow.engine.local.file_save_stop.FileSaveStop') {
+      inputParams = {
+        params: [
+          {
+            name: "input",
+            type: "string",
+            param_name: "input",
+            param_type: "String",
+            value_mode: "manual",
+            param_value: "", // 可设为空或示例值
+            value_source: "local_file",
+            required: true
+          },
+          {
+            name: "path",
+            type: "string",
+            param_name: "path",
+            param_type: "String",
+            value_mode: "manual",
+            param_value: "", // 默认保存路径
+            value_source: "local_file",
+            required: true
+          },
+          {
+            name: "overwrite",
+            type: "boolean",
+            param_name: "overwrite",
+            param_type: "Boolean",
+            value_mode: "manual",
+            param_value: true, // 默认覆盖
+            value_source: "local_file"
+          }
+        ]
+      };
+      outputParams = { params: [] };
+    } else {
+      // 原有逻辑：尝试从 API 获取
       try {
         console.log('请求算子详情，skill_id:', operator.skill_id);
         const res = await listSkillsDetails(operator.skill_id);
@@ -2721,7 +3161,7 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
       } catch (error) {
         console.error('获取算子详情失败:', error);
       }
-      
+
       // 检查是否有 required 字段，没有的话用 getAllSkills 回退
       const hasRequiredField = inputParams?.params?.some((p: any) => p.required !== undefined);
       if (!hasRequiredField) {
@@ -2734,156 +3174,135 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
             operatorIconPath = skillData.icon_path || operatorIconPath;
             console.log('handleAddNode: 使用 getAllSkills 参数模板 (含 required):', inputParams);
           }
-        } catch (e) { console.error('handleAddNode: getAllSkills 失败:', e); }
+        } catch (e) {
+          console.error('handleAddNode: getAllSkills 失败:', e);
+        }
       }
-      
-      // 计算新节点的位置
-      let newPosition = position;
+    }
+
+    // 计算新节点的位置
+    let newPosition = position;
+    if (!newPosition) {
+      // 获取当前视图信息
+      const currentViewport = getViewport();
+      const wrapperEl = reactFlowWrapper.current;
+      const containerW = wrapperEl?.clientWidth || window.innerWidth;
+      const containerH = wrapperEl?.clientHeight || window.innerHeight;
+      // 计算视图中心在画布上的坐标
+      const viewCenterX = (containerW / 2 - currentViewport.x) / currentViewport.zoom;
+      const viewCenterY = (containerH / 2 - currentViewport.y) / currentViewport.zoom;
+
+      // 检查是否会与现有节点重叠，如果重叠则偏移
+      let offsetX = 0;
+      let offsetY = 0;
+      let attempt = 0;
+      const maxAttempts = 50;
+
+      while (attempt < maxAttempts) {
+        const testX = viewCenterX - NODE_WIDTH / 2 + offsetX;
+        const testY = viewCenterY - 70 + offsetY;
+
+        // 检查是否与现有节点重叠
+        const overlaps = nodes.some((node) => {
+          const nodeRight = node.position.x + NODE_WIDTH;
+          const nodeBottom = node.position.y + NODE_HEIGHT;
+          const testRight = testX + NODE_WIDTH;
+          const testBottom = testY + NODE_HEIGHT;
+          return (
+            testX < nodeRight &&
+            testRight > node.position.x &&
+            testY < nodeBottom &&
+            testBottom > node.position.y
+          );
+        });
+
+        if (!overlaps) {
+          newPosition = { x: testX, y: testY };
+          break;
+        }
+
+        // 尝试偏移
+        offsetX = (Math.random() - 0.5) * 200;
+        offsetY = (Math.random() - 0.5) * 200;
+        attempt++;
+      }
+
       if (!newPosition) {
-        // 获取当前视图信息
-        const currentViewport = getViewport();
-        const wrapperEl = reactFlowWrapper.current;
-        const containerW = wrapperEl?.clientWidth || window.innerWidth;
-        const containerH = wrapperEl?.clientHeight || window.innerHeight;
-        // 计算视图中心在画布上的坐标
-        const viewCenterX = (containerW / 2 - currentViewport.x) / currentViewport.zoom;
-        const viewCenterY = (containerH / 2 - currentViewport.y) / currentViewport.zoom;
-        
-        // 检查是否会与现有节点重叠，如果重叠则偏移
-        let offsetX = 0;
-        let offsetY = 0;
-        let attempt = 0;
-        const maxAttempts = 50;
-        
-        while (attempt < maxAttempts) {
-          const testX = viewCenterX - NODE_WIDTH / 2 + offsetX;
-          const testY = viewCenterY - 70 + offsetY;
-          
-          // 检查是否与现有节点重叠
-          const overlaps = nodes.some(node => {
-            const nodeRight = node.position.x + NODE_WIDTH;
-            const nodeBottom = node.position.y + NODE_HEIGHT;
-            const testRight = testX + NODE_WIDTH;
-            const testBottom = testY + NODE_HEIGHT;
-            
-            return !(testRight < node.position.x || testX > nodeRight || 
-                     testBottom < node.position.y || testY > nodeBottom);
-          });
-          
-          if (!overlaps) {
-            newPosition = { x: testX, y: testY };
-            break;
-          }
-          
-          // 螺旋式偏移
-          offsetX += (attempt % 2 === 0 ? 1 : -1) * (NODE_GAP * Math.floor(attempt / 2 + 1));
-          if (attempt % 2 === 1) {
-            offsetY += NODE_GAP;
-          }
-          attempt++;
-        }
-        
-        // 如果所有尝试都失败，使用原始位置
-        if (!newPosition) {
-          newPosition = {
-            x: viewCenterX - NODE_WIDTH / 2,
-            y: viewCenterY - 70,
-          };
-        }
+        newPosition = { x: viewCenterX - NODE_WIDTH / 2, y: viewCenterY - 70 };
       }
-      
-      const newNode: Node<NodeData> = {
-        id: `node-${nodeIdCounter.current}`,
-        type: 'custom',
-        position: newPosition,
-        data: {
-          label: uniqueLabel,
-          icon: operatorIconPath,
-          operatorId: operator.skill_id,
-          operatorName: operator.skill_name || '',
-          operatorZh: operator.name_zh || '',
-          operatorType: operator.skill_type || '',
-          description: operatorDescription,
-          params: {},
-          inputVar: 'input_data',
-          outputVar: 'output_data',
-          input_params: inputParams,
-          output_params: outputParams,
-          onDelete: (id: string) => {
-            setNodes((nds) => nds.filter((n) => n.id !== id));
-            setEdges((eds) => eds.filter((e) => e.source !== id && e.target !== id));
-          },
-          onUpdateParams: (id: string, params: Record<string, any>) => {
-            setNodes((nds) =>
-              nds.map((n) => {
-                if (n.id === id) {
-                  return {
-                    ...n,
-                    data: { ...n.data, params },
-                  };
-                }
-                return n;
-              })
-            );
-          },
-          onSelect: (id: string) => {
-            setSelectedNodeId(id);
-            setShowOperatorModal(false);
-          },
-          onUpdateLabel: (id: string, label: string) => {
-            // 获取当前节点以外的所有节点标签
-            const otherLabels = nodes.filter(n => n.id !== id).map(n => n.data.label);
+    }
 
-            // 生成唯一名称（如果冲突则添加后缀）
-            let finalLabel = label;
-            if (otherLabels.includes(label)) {
-              let counter = 1;
-              while (otherLabels.includes(`${label}_${counter}`)) {
-                counter++;
-              }
-              finalLabel = `${label}_${counter}`;
-            }
-
-            setNodes((nds) =>
-              nds.map((n) => {
-                if (n.id === id) {
-                  return { ...n, data: { ...n.data, label: finalLabel } };
-                }
-                return n;
-              })
-            );
-          },
+    const newNode: Node<NodeData> = {
+      id: `node-${nodeIdCounter.current}`,
+      type: 'custom',
+      position: newPosition,
+      data: {
+        label: uniqueLabel,
+        icon: operatorIconPath,
+        operatorId: operator.skill_id,
+        operatorName: operator.skill_name,
+        operatorZh: operator.name_zh,
+        operatorType: operator.skill_type,
+        description: operatorDescription,
+        params: {},
+        inputVar: 'input_data',
+        outputVar: 'output_data',
+        input_params: inputParams,
+        output_params: outputParams,
+        onDelete: (delId: string) => {
+          setSelectedNodeId(delId);
+          setShowDeleteModal(true);
         },
-      };
-      
-      // 添加新节点
-      setNodes((nds) => [...nds, newNode]);
-      
-      // 自动调整视图，将新节点放到视野中心（保持当前缩放级别）
-      setTimeout(() => {
-        const currentViewport = getViewport();
-        const wrapperEl = reactFlowWrapper.current;
-        const containerW = wrapperEl?.clientWidth || window.innerWidth;
-        const containerH = wrapperEl?.clientHeight || window.innerHeight;
-        // 计算新节点的中心点
-        const nodeCenterX = newPosition.x + NODE_WIDTH / 2;
-        const nodeCenterY = newPosition.y + 70;
-        // 计算需要移动的偏移量
-        const targetX = containerW / 2 - nodeCenterX * currentViewport.zoom;
-        const targetY = containerH / 2 - nodeCenterY * currentViewport.zoom;
-        // 使用 setViewport 移动视图，保持当前的缩放级别
-        setViewport(
-          {
-            x: targetX,
-            y: targetY,
-            zoom: currentViewport.zoom,
-          },
-          { duration: 500 }
-        );
-      }, 100);
-    },
-    [setNodes, setEdges, nodes, generateUniqueLabel, getViewport, setViewport]
-  );
+        onUpdateParams: (updId: string, params: Record<string, any>) => {
+          setNodes((nds) =>
+            nds.map((n) => {
+              if (n.id === updId) {
+                return { ...n, data: { ...n.data, params } };
+              }
+              return n;
+            })
+          );
+        },
+        onSelect: (selId: string) => {
+          setSelectedNodeId(selId);
+          setShowOperatorModal(false);
+        },
+      },
+    };
+
+    // 添加新节点
+    setNodes((nds) => [...nds, newNode]);
+
+    // 自动调整视图，将新节点放到视野中心（保持当前缩放级别）
+    setTimeout(() => {
+      const currentViewport = getViewport();
+      const wrapperEl = reactFlowWrapper.current;
+      const containerW = wrapperEl?.clientWidth || window.innerWidth;
+      const containerH = wrapperEl?.clientHeight || window.innerHeight;
+      // 计算新节点的中心点
+      const nodeCenterX = newPosition.x + NODE_WIDTH / 2;
+      const nodeCenterY = newPosition.y + 70;
+      // 计算需要移动的偏移量
+      const targetX = containerW / 2 - nodeCenterX * currentViewport.zoom;
+      const targetY = containerH / 2 - nodeCenterY * currentViewport.zoom;
+      setViewport({ x: targetX, y: targetY, zoom: currentViewport.zoom });
+    }, 100);
+  },
+  [
+    nodes,
+    generateUniqueLabel,
+    getViewport,
+    setViewport,
+    setNodes,
+    setSelectedNodeId,
+    setShowDeleteModal,
+    setShowOperatorModal,
+    extractSkillBySkillName,
+  ]
+);
+
+
+
 
   // 添加注释
   const handleAddComment = useCallback(() => {

@@ -1173,7 +1173,73 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
                 // sink_stop没有输出参数
                 outputParams = { params: [] };
               }
-            } else {
+            } else if (skillId === 'piflow_engine.cn.piflow.engine.local.llm_file_transform_stop.LLMFileTransformStop'){
+              
+              
+              n.skill = n.skill || {};
+              n.skill.name_zh = 'llm算子';
+              n.skill.skill_name = 'llm_chat';
+              n.skill.skill_type = 'chat';
+
+                // 固定输入参数（请根据实际需求调整字段）
+                inputParams={
+                  params: [
+                    {
+                      name: "instruction",
+                      type: "string",
+                      param_name: "instruction",
+                      param_type: "String",
+                      value_mode: "manual",
+                      param_value: "",
+                      value_source: "user_input",
+                      required: true
+                    },
+                    {
+                      name: "model",
+                      type: "string",
+                      param_name: "model",
+                      param_type: "String",
+                      value_mode: "manual",
+                      param_value: "gpt-4o",
+                      value_source: "user_input",
+                      required: true
+                    },
+                    {
+                      name: "api_key",
+                      type: "string",
+                      param_name: "api_key",
+                      param_type: "string",
+                      value_mode: "manual",
+                      param_value: "",
+                      value_source: "user_input",
+                      required: true
+                    },
+                    {
+                      name: "base_url",
+                      type: "string",
+                      param_name: "base_url",
+                      param_type: "string",
+                      value_mode: "manual",
+                      param_value: "",
+                      value_source: "user_input",
+                      required: true
+                    }
+                  ]
+                },
+
+                // 固定输出参数：只有一个 out_path
+                outputParams = {
+                  params: [
+                    {
+                      name: "out_path",
+                      type: "string",
+                      param_name: "out_path",
+                      param_type: "String"
+                    }
+                  ]
+                };
+
+            }else {
               if (skillId) {
                 try {
                   const skillRes = await listSkillsDetails(skillId);
@@ -1453,7 +1519,7 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
     getAllSkills().then(resAllSkills=>{
       if(resAllSkills.code === 200){
         let fixArr=[
-           {
+          {
               groupName: "基础",
               "DagSkillInfoList": [
                   {
@@ -1543,6 +1609,82 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
                       is_deleted: 0
                   }
               ]
+          },
+          {
+            groupName: "LLM类",
+            DagSkillInfoList: [
+              // 新增：LLM算子
+              {
+                id: 9999999999997,
+                skill_id: "piflow_engine.cn.piflow.engine.local.llm_file_transform_stop.LLMFileTransformStop",
+                skill_name: "llm_chat",
+                name_zh: "LLM算子",
+                version: "1.0.0",
+                description: "调用大语言模型进行文本生成",
+                file_path: "",
+                input_params: {
+                  params: [
+                    {
+                      name: "instruction",
+                      type: "string",
+                      param_name: "instruction",
+                      param_type: "String",
+                      value_mode: "manual",
+                      param_value: "",
+                      value_source: "user_input",
+                      required: true
+                    },
+                    {
+                      name: "model",
+                      type: "string",
+                      param_name: "model",
+                      param_type: "String",
+                      value_mode: "manual",
+                      param_value: "gpt-4o",
+                      value_source: "user_input",
+                      required: true
+                    },
+                    {
+                      name: "api_key",
+                      type: "string",
+                      param_name: "api_key",
+                      param_type: "string",
+                      value_mode: "manual",
+                      param_value: "",
+                      value_source: "user_input",
+                      required: true
+                    },
+                    {
+                      name: "base_url",
+                      type: "string",
+                      param_name: "base_url",
+                      param_type: "string",
+                      value_mode: "manual",
+                      param_value: "",
+                      value_source: "user_input",
+                      required: true
+                    }
+                  ]
+                },
+                output_params: {
+                  params: [
+                    {
+                      name: "response",
+                      type: "string",
+                      param_name: "response",
+                      param_type: "String"
+                    }
+                  ]
+                },
+                // skill_type: "llm",
+                language: "python",
+                command: "",
+                icon_path: "/storage/common/llm.png",
+                create_time: "",
+                update_time: "",
+                is_deleted: 0
+              }
+            ]
           }
         ]
         setOperatorList(fixArr.concat(resAllSkills.result.data));
@@ -1629,14 +1771,133 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
   }, [nodes]);
 
   const handleAddNode = useCallback(
-    async (operator: { skill_id: string; skill_name: string; name_zh: string; icon_path: string; skill_type: string; description?: string }, position?: { x: number; y: number }) => {
-      nodeIdCounter.current += 1;
-      const uniqueLabel = generateUniqueLabel(operator.name_zh);
+  async (operator: { skill_id: string; skill_name: string; name_zh: string; icon_path: string; skill_type: string; description?: string }, position?: { x: number; y: number }) => {
+    nodeIdCounter.current += 1;
+    const uniqueLabel = generateUniqueLabel(operator.name_zh);
 
-      // 请求算子详情获取 input_params 和 output_params
-      let inputParams = undefined;
-      let outputParams = undefined;
-      let operatorIconPath = operator.icon_path;
+    // === 特殊算子：硬编码 input/output params ===
+    let inputParams = undefined;
+    let outputParams = undefined;
+    let operatorIconPath = operator.icon_path;
+
+    const isSourceStop = operator.skill_id === 'piflow_engine.cn.piflow.engine.local.source_file_stop.SourceFileStop';
+    const isSinkStop = operator.skill_id === 'piflow_engine.cn.piflow.engine.local.file_save_stop.FileSaveStop';
+    const isLLMStop = operator.skill_id === 'piflow_engine.cn.piflow.engine.local.llm_file_transform_stop.LLMFileTransformStop';
+
+    if (isSourceStop) {
+      inputParams = {
+        params: [
+          {
+            name: "file_path",
+            type: "string",
+            param_name: "file_path",
+            param_type: "String",
+            value_mode: "manual",
+            param_value: "",
+            value_source: "local_file",
+            required: true
+          }
+        ]
+      };
+      outputParams = {
+        params: [{
+          name: "output",
+          type: "string",
+          param_name: "output",
+          param_type: "String"
+        }]
+      };
+      operatorIconPath = operatorIconPath || "/storage/common/file-source.png";
+    } else if (isSinkStop) {
+      inputParams = {
+        params: [
+          {
+            name: "input",
+            type: "string",
+            param_name: "input",
+            param_type: "String",
+            value_mode: "manual",
+            param_value: "",
+            value_source: "local_file",
+            required: true
+          },
+          {
+            name: "path",
+            type: "string",
+            param_name: "path",
+            param_type: "String",
+            value_mode: "manual",
+            param_value: "",
+            value_source: "local_file",
+            required: true
+          },
+          {
+            name: "overwrite",
+            type: "boolean",
+            param_name: "overwrite",
+            param_type: "Boolean",
+            value_mode: "manual",
+            param_value: true,
+            value_source: "local_file",
+            required: true
+          }
+        ]
+      };
+      outputParams = { params: [] };
+      operatorIconPath = operatorIconPath || "/storage/common/file-sink.png";
+    } else if (isLLMStop) {
+       inputParams = {
+        params: [
+          {
+            name: "instruction",
+            type: "string",
+            param_name: "instruction",
+            param_type: "String",
+            value_mode: "manual",
+            param_value: "",
+            value_source: "user_input",
+            required: true
+          },
+          {
+            name: "model",
+            type: "string",
+            param_name: "model",
+            param_type: "String",
+            value_mode: "manual",
+            param_value: "",
+            value_source: "user_input",
+            required: true
+          },
+          {
+            name: "api_key",
+            type: "String",
+            param_name: "api_key",
+            param_type: "String",
+            value_mode: "manual",
+            param_value: "",
+            value_source: "user_input",
+            required: true
+          },
+          {
+            name: "base_url",
+            type: "String",
+            param_name: "base_url",
+            param_type: "String",
+            value_mode: "manual",
+            param_value: "",
+            value_source: "user_input",
+            required: true
+          }
+        ]
+      };
+      outputParams = {
+        params: [
+          { name: "output", type: "string", param_name: "output", param_type: "String" }
+        ]
+      };
+      operatorIconPath = operator.icon_path || "/storage/common/llm.png";
+    } else {
+      // 非特殊算子：走原有逻辑
       try {
         const res = await listSkillsDetails(operator.skill_id);
         if (res.result) {
@@ -1647,8 +1908,8 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
       } catch (error) {
         console.error('获取算子详情失败:', error);
       }
-      
-      // 检查是否有 required 字段，没有的话用 getAllSkills 回退
+
+      // fallback 到 getAllSkills（如果缺少 required）
       const hasRequiredField = inputParams?.params?.some((p: any) => p.required !== undefined);
       if (!hasRequiredField) {
         try {
@@ -1664,77 +1925,194 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
               console.log('handleAddNode: 使用 getAllSkills 参数模板 (含 required):', inputParams);
             }
           }
-        } catch (e) { console.error('handleAddNode: getAllSkills 失败:', e); }
+        } catch (e) {
+          console.error('handleAddNode: getAllSkills 失败:', e);
+        }
       }
-      const newNode: Node<NodeData> = {
-        id: `node-${nodeIdCounter.current}`,
-        type: 'custom',
-        position: position || {
-          x: START_X + (NODE_WIDTH + NODE_GAP) * (nodes.length),
-          y: START_Y,
-        },
-        data: {
-          label: uniqueLabel,
-          icon: operatorIconPath,
-          operatorId: operator.skill_id,
-          operatorName: operator.skill_name || '',
-          operatorType: operator.skill_type || '',
-          description: operator.description || getOperatorDescription(operator.skill_id),
-          params: getDefaultParams(operator.skill_id),
-          inputVar: 'input_data',
-          outputVar: 'output_data',
-          input_params: inputParams,
-          output_params: outputParams,
-          onDelete: (id: string) => {
-            setNodes((nds) => nds.filter((n) => n.id !== id));
-            setEdges((eds) => eds.filter((e) => e.source !== id && e.target !== id));
-          },
-          onUpdateParams: (id: string, params: Record<string, any>) => {
-            setNodes((nds) =>
-              nds.map((n) => {
-                if (n.id === id) {
-                  return {
-                    ...n,
-                    data: { ...n.data, params },
-                  };
-                }
-                return n;
-              })
-            );
-          },
-          onSelect: (id: string) => {
-            setSelectedNodeId(id);
-            setShowOperatorModal(false);
-          },
-          onUpdateLabel: (id: string, label: string) => {
-            // 获取当前节点以外的所有节点标签
-            const otherLabels = nodes.filter(n => n.id !== id).map(n => n.data.label);
+    }
 
-            // 生成唯一名称（如果冲突则添加后缀）
-            let finalLabel = label;
-            if (otherLabels.includes(label)) {
-              let counter = 1;
-              while (otherLabels.includes(`${label}_${counter}`)) {
-                counter++;
+    // ... [后续创建 newNode 的代码保持不变] ...
+    const newNode: Node<NodeData> = {
+      id: `node-${nodeIdCounter.current}`,
+      type: 'custom',
+      position: position || {
+        x: START_X + (NODE_WIDTH + NODE_GAP) * (nodes.length),
+        y: START_Y,
+      },
+      data: {
+        label: uniqueLabel,
+        icon: operatorIconPath,
+        operatorId: operator.skill_id,
+        operatorName: operator.skill_name || '',
+        operatorType: operator.skill_type || '',
+        description: operator.description || getOperatorDescription(operator.skill_id),
+        params: getDefaultParams(operator.skill_id),
+        inputVar: 'input_data',
+        outputVar: 'output_data',
+        input_params: inputParams,
+        output_params: outputParams,
+        onDelete: (id: string) => {
+          setNodes((nds) => nds.filter((n) => n.id !== id));
+          setEdges((eds) => eds.filter((e) => e.source !== id && e.target !== id));
+        },
+        onUpdateParams: (id: string, params: Record<string, any>) => {
+          setNodes((nds) =>
+            nds.map((n) => {
+              if (n.id === id) {
+                return {
+                  ...n,
+                  data: { ...n.data, params },
+                };
               }
-              finalLabel = `${label}_${counter}`;
-            }
-
-            setNodes((nds) =>
-              nds.map((n) => {
-                if (n.id === id) {
-                  return { ...n, data: { ...n.data, label: finalLabel } };
-                }
-                return n;
-              })
-            );
-          },
+              return n;
+            })
+          );
         },
-      };
-      setNodes((nds) => [...nds, newNode]);
-    },
-    [setNodes, setEdges, nodes.length, generateUniqueLabel]
-  );
+        onSelect: (id: string) => {
+          setSelectedNodeId(id);
+          setShowOperatorModal(false);
+        },
+        onUpdateLabel: (id: string, label: string) => {
+          // 获取当前节点以外的所有节点标签
+          const otherLabels = nodes.filter(n => n.id !== id).map(n => n.data.label);
+
+          // 生成唯一名称（如果冲突则添加后缀）
+          let finalLabel = label;
+          if (otherLabels.includes(label)) {
+            let counter = 1;
+            while (otherLabels.includes(`${label}_${counter}`)) {
+              counter++;
+            }
+            finalLabel = `${label}_${counter}`;
+          }
+
+          setNodes((nds) =>
+            nds.map((n) => {
+              if (n.id === id) {
+                return { ...n, data: { ...n.data, label: finalLabel } };
+              }
+              return n;
+            })
+          );
+        },
+      },
+    };
+    setNodes((nds) => [...nds, newNode]);
+  },
+  [setNodes, setEdges, nodes.length, generateUniqueLabel]
+);
+
+
+  // const handleAddNode = useCallback(
+  //   async (operator: { skill_id: string; skill_name: string; name_zh: string; icon_path: string; skill_type: string; description?: string }, position?: { x: number; y: number }) => {
+  //     nodeIdCounter.current += 1;
+  //     const uniqueLabel = generateUniqueLabel(operator.name_zh);
+
+  //     // 请求算子详情获取 input_params 和 output_params
+  //     let inputParams = undefined;
+  //     let outputParams = undefined;
+  //     let operatorIconPath = operator.icon_path;
+
+
+  //     // 新加
+  //     try {
+  //       const res = await listSkillsDetails(operator.skill_id);
+  //       if (res.result) {
+  //         inputParams = res.result.input_params;
+  //         outputParams = res.result.output_params;
+  //         operatorIconPath = res.result.icon_path || operatorIconPath;
+  //       }
+  //     } catch (error) {
+  //       console.error('获取算子详情失败:', error);
+  //     }
+      
+  //     // 检查是否有 required 字段，没有的话用 getAllSkills 回退
+  //     const hasRequiredField = inputParams?.params?.some((p: any) => p.required !== undefined);
+  //     if (!hasRequiredField) {
+  //       try {
+  //         const listRes = await getAllSkills(operator.skill_name);
+  //         if (listRes.result?.data && listRes.result.data.length > 0) {
+  //           const skillData = listRes.result.data[0].DagSkillInfoList?.find((s: any) =>
+  //             s.skill_id === operator.skill_id || s.skill_name === operator.skill_name
+  //           ) || listRes.result.data[0].DagSkillInfoList[0];
+  //           if (skillData?.input_params?.params?.some((p: any) => p.required !== undefined)) {
+  //             inputParams = skillData.input_params;
+  //             outputParams = skillData.output_params || outputParams;
+  //             operatorIconPath = skillData.icon_path || operatorIconPath;
+  //             console.log('handleAddNode: 使用 getAllSkills 参数模板 (含 required):', inputParams);
+  //           }
+  //         }
+  //       } catch (e) { console.error('handleAddNode: getAllSkills 失败:', e); }
+  //     }
+  //     const newNode: Node<NodeData> = {
+  //       id: `node-${nodeIdCounter.current}`,
+  //       type: 'custom',
+  //       position: position || {
+  //         x: START_X + (NODE_WIDTH + NODE_GAP) * (nodes.length),
+  //         y: START_Y,
+  //       },
+  //       data: {
+  //         label: uniqueLabel,
+  //         icon: operatorIconPath,
+  //         operatorId: operator.skill_id,
+  //         operatorName: operator.skill_name || '',
+  //         operatorType: operator.skill_type || '',
+  //         description: operator.description || getOperatorDescription(operator.skill_id),
+  //         params: getDefaultParams(operator.skill_id),
+  //         inputVar: 'input_data',
+  //         outputVar: 'output_data',
+  //         input_params: inputParams,
+  //         output_params: outputParams,
+  //         onDelete: (id: string) => {
+  //           setNodes((nds) => nds.filter((n) => n.id !== id));
+  //           setEdges((eds) => eds.filter((e) => e.source !== id && e.target !== id));
+  //         },
+  //         onUpdateParams: (id: string, params: Record<string, any>) => {
+  //           setNodes((nds) =>
+  //             nds.map((n) => {
+  //               if (n.id === id) {
+  //                 return {
+  //                   ...n,
+  //                   data: { ...n.data, params },
+  //                 };
+  //               }
+  //               return n;
+  //             })
+  //           );
+  //         },
+  //         onSelect: (id: string) => {
+  //           setSelectedNodeId(id);
+  //           setShowOperatorModal(false);
+  //         },
+  //         onUpdateLabel: (id: string, label: string) => {
+  //           // 获取当前节点以外的所有节点标签
+  //           const otherLabels = nodes.filter(n => n.id !== id).map(n => n.data.label);
+
+  //           // 生成唯一名称（如果冲突则添加后缀）
+  //           let finalLabel = label;
+  //           if (otherLabels.includes(label)) {
+  //             let counter = 1;
+  //             while (otherLabels.includes(`${label}_${counter}`)) {
+  //               counter++;
+  //             }
+  //             finalLabel = `${label}_${counter}`;
+  //           }
+
+  //           setNodes((nds) =>
+  //             nds.map((n) => {
+  //               if (n.id === id) {
+  //                 return { ...n, data: { ...n.data, label: finalLabel } };
+  //               }
+  //               return n;
+  //             })
+  //           );
+  //         },
+  //       },
+  //     };
+  //     setNodes((nds) => [...nds, newNode]);
+  //   },
+  //   [setNodes, setEdges, nodes.length, generateUniqueLabel]
+  // );
 
   // 添加注释
   const handleAddComment = useCallback(() => {

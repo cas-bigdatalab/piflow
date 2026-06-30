@@ -307,7 +307,10 @@ export default function PipelinePreview({ data, threadId, onOpenCanvas, messageI
                   skillId = 'piflow_engine.cn.piflow.engine.local.source_file_stop.SourceFileStop';
                 } else if (skillNameToSearch === 'sink_stop') {
                   skillId = 'piflow_engine.cn.piflow.engine.local.file_save_stop.FileSaveStop';
-                } else if (skillNameToSearch) {
+                } else if (skillNameToSearch === 'llm_chat') {
+                  skillId = 'piflow_engine.cn.piflow.engine.local.llm_file_transform_stop.LLMFileTransformStop';
+                }
+                 else if (skillNameToSearch) {
                   // 根据 skill_name 去查询算子信息
                   const skillRes = await getSkillInfoByName(skillNameToSearch);
                   if (skillRes && skillRes.result.data && skillRes.result.data.length > 0) {
@@ -1062,6 +1065,7 @@ export default function PipelinePreview({ data, threadId, onOpenCanvas, messageI
               const jsonStr = JSON.stringify(data, null, 2);
               const blob = new Blob([jsonStr], { type: 'application/json' });
               const url = URL.createObjectURL(blob);
+              console.log("下载的路径为1111111111111",url);
               const link = document.createElement('a');
               link.href = url;
               link.download = `${task.name || 'dag'}_${Date.now()}.json`;
