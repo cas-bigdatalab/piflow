@@ -861,7 +861,7 @@ const OperatorLibraryModal: React.FC<OperatorLibraryModalProps> = ({ isOpen, onC
   return (
     <div className="operator-modal">
       <div className="modal-header">
-        <h3>算子库1</h3>
+        <h3>算子库</h3>
         <button className="modal-close" onClick={onClose}>
           <X size={18} />
         </button>
