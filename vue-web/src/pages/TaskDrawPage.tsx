@@ -17,6 +17,7 @@ function resolveIconUrl(icon?: string) {
     return rawIcon;
   }
   
+  console.log('resolveIconUrl12312_________________________________',icon,apiBase() + rawIcon)
   return apiBase() + rawIcon;
 }
 import { useNavigate } from 'react-router-dom';
@@ -906,6 +907,7 @@ const OperatorLibraryModal: React.FC<OperatorLibraryModalProps> = ({ isOpen, onC
                       style={{ cursor: 'grab' }}
                     >
                       <div className="modal-operator-icon">
+                        
                         <img
                           src={resolveIconUrl(operator.icon_path)}
                           alt={operator.name_zh}
@@ -974,6 +976,54 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
   const [taskDescription, setTaskDescription] = useState<string>(descriptionProp || '');  // 任务描述
   const [zoomLevel, setZoomLevel] = useState(1);
   
+
+ // ====== 新增：本地文件选择器相关 ======
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const handleLocalFileSelect = (index: number) => {
+      setFileSelectParamIndex(index);
+      console.log('fileInputRef.current:', fileInputRef.current); // 应该不是 null
+      fileInputRef.current?.click();
+    };
+
+    const onLocalFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file || !selectedNodeId || fileSelectParamIndex === null) {
+        e.target.value = '';
+        return;
+      }
+
+      const fileName = file.name;
+
+      setNodes((nds) =>
+        nds.map((n) => {
+          if (n.id === selectedNodeId) {
+            const newParams = [...(n.data.input_params?.params || [])];
+            if (newParams[fileSelectParamIndex]) {
+              newParams[fileSelectParamIndex] = {
+                ...newParams[fileSelectParamIndex],
+                _value: fileName,
+                param_value: fileName,
+              };
+            }
+            return {
+              ...n,
+              data: {
+                ...n.data,
+                input_params: { ...n.data.input_params, params: newParams },
+              },
+            };
+          }
+          return n;
+        })
+      );
+
+      // 重置 input，确保下次能再次选择相同文件
+      e.target.value = '';
+    };
+
+
+
   // 文件系统弹窗状态
   const [showFileModal, setShowFileModal] = useState(false);
   const [fileSystemItems, setFileSystemItems] = useState<{ name: string; type: 'directory' | 'file'; path: string; size?: number }[]>([]);
@@ -1663,7 +1713,17 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
                       param_value: "",
                       value_source: "user_input",
                       required: true
-                    }
+                    },
+                    {
+                      name: "input",
+                      type: "string",
+                      param_name: "input",
+                      param_type: "String",
+                      value_mode: "manual",
+                      param_value: "",
+                      value_source: "local_file",
+                      required: true
+                    },
                   ]
                 },
                 output_params: {
@@ -1793,6 +1853,7 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
             param_name: "file_path",
             param_type: "String",
             value_mode: "manual",
+            _refType: 'manual', //能弹出用户自己本地文件夹
             param_value: "",
             value_source: "local_file",
             required: true
@@ -1887,7 +1948,17 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
             param_value: "",
             value_source: "user_input",
             required: true
-          }
+          },
+          {
+            name: "input",
+            type: "string",
+            param_name: "input",
+            param_type: "String",
+            value_mode: "manual",
+            param_value: "",
+            value_source: "local_file",
+            required: true
+          },
         ]
       };
       outputParams = {
@@ -1895,7 +1966,7 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
           { name: "output", type: "string", param_name: "output", param_type: "String" }
         ]
       };
-      operatorIconPath = operator.icon_path || "/storage/common/llm.png";
+      operatorIconPath = operator.icon_path || "/storage/common/common.png";
     } else {
       // 非特殊算子：走原有逻辑
       try {
@@ -2295,7 +2366,7 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
         }
 
         setIsSaving(false);
-        setSaveMessage('已自动保存');
+        // setSaveMessage('已自动保存');
       } catch (error) {
         console.error('保存失败:', error);
         setIsSaving(false);
@@ -2526,6 +2597,10 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
           <button className="only-back-btn" onClick={() => navigate(-1)}>
             <span>返回</span>
           </button>
+          {/* 将提示成功信息修改一下位置，避免遮挡 */}
+          {saveMessage && (
+            <div className="save-message fixed top-[90px] right-4 z-50" >{'保存成功！'}</div>
+          )}
         </div>
       </div>
 
@@ -2557,6 +2632,15 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
           >
             <Background variant={BackgroundVariant.Dots} gap={36} size={1.5} />
           </ReactFlow>
+        {/* 新加弹出本地的文件夹 */}
+              <input
+                type="file"
+                ref={fileInputRef}
+                style={{ display: 'none' }}
+                onChange={onLocalFileChange}
+              />
+
+
 
           {/* 拖拽时的视觉反馈遮罩 */}
           {isDragOver && (
@@ -2883,19 +2967,30 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
                               </div>
                             </div>
                           ) : (
+                            // param.name === 'file_path' && param._refType === 'manual' ? (
+                            //   <input
+                            //     className="draw-config-value-input"
+                            //     value={param._value || param.param_value || ''}
+                            //     placeholder="请选择文件"
+                            //     title={param._value || param.param_value || ''}
+                            //     readOnly
+                            //     style={{ cursor: 'pointer', backgroundColor: '#f8fafc' }}
+                            //     onClick={async () => {
+                            //       setFileSelectParamIndex(index);
+                            //       await loadDirectories();
+                            //       setShowFileModal(true);
+                            //     }}
+                            //   />
+                            // 替换为
                             param.name === 'file_path' && param._refType === 'manual' ? (
-                              <input
+                             <input
                                 className="draw-config-value-input"
                                 value={param._value || param.param_value || ''}
                                 placeholder="请选择文件"
                                 title={param._value || param.param_value || ''}
                                 readOnly
                                 style={{ cursor: 'pointer', backgroundColor: '#f8fafc' }}
-                                onClick={async () => {
-                                  setFileSelectParamIndex(index);
-                                  await loadDirectories();
-                                  setShowFileModal(true);
-                                }}
+                                onClick={() => handleLocalFileSelect(index)}
                               />
                             ) : (
                               <input
@@ -3018,12 +3113,14 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
                     <label className="file-system-upload-btn">
                       <Upload size={14} />
                       <span>{uploadingFile ? '上传中...' : '上传文件'}</span>
-                      <input
+                      {/* <input
                         type="file"
                         onChange={handleUploadFile}
                         className="file-system-upload-input"
                         disabled={uploadingFile}
-                      />
+                      /> */}
+                      {/* 替换为 */}
+                      
                     </label>
                   )}
                   {fileSelectParamIndex !== null && (

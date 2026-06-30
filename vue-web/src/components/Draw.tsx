@@ -893,7 +893,6 @@ const OperatorLibraryModal: React.FC<OperatorLibraryModalProps> = ({ isOpen, onC
                       style={{ cursor: 'grab' }}
                     >
                       <div className="modal-operator-icon">
-                        {resolveIconUrl(operator.icon_path)}
                         <img
                           src={resolveIconUrl(operator.icon_path)}
                           alt={operator.name_zh}
@@ -972,6 +971,51 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
   const [uploadingFile, setUploadingFile] = useState(false);
   const [fileSelectParamIndex, setFileSelectParamIndex] = useState<number | null>(null);
   const prevNodesLengthRef = useRef<number>(nodes.length);
+
+  // ====== 新增：本地文件选择器相关 ======
+const fileInputRef = useRef<HTMLInputElement>(null);
+
+const handleLocalFileSelect = (index: number) => {
+  setFileSelectParamIndex(index);
+  fileInputRef.current?.click();
+};
+
+const onLocalFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const file = e.target.files?.[0];
+  if (!file || !selectedNodeId || fileSelectParamIndex === null) {
+    e.target.value = '';
+    return;
+  }
+
+  const fileName = file.name;
+
+  setNodes((nds) =>
+    nds.map((n) => {
+      if (n.id === selectedNodeId) {
+        const newParams = [...(n.data.input_params?.params || [])];
+        if (newParams[fileSelectParamIndex]) {
+          newParams[fileSelectParamIndex] = {
+            ...newParams[fileSelectParamIndex],
+            _value: fileName,
+            param_value: fileName,
+          };
+        }
+        return {
+          ...n,
+          data: {
+            ...n.data,
+            input_params: { ...n.data.input_params, params: newParams },
+          },
+        };
+      }
+      return n;
+    })
+  );
+
+  // 重置 input，确保下次能再次选择相同文件
+  e.target.value = '';
+};
+
 
   // 键盘Delete键删除选中节点
   useEffect(() => {
@@ -2621,13 +2665,13 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
                 input_params: {
                   params: [
                     {
-                      name: "instruction",
+                      name: "input",
                       type: "string",
-                      param_name: "instruction",
+                      param_name: "input",
                       param_type: "String",
                       value_mode: "manual",
                       param_value: "",
-                      value_source: "user_input",
+                      value_source: "local_file",
                       required: true
                     },
                     {
@@ -2654,6 +2698,16 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
                       name: "base_url",
                       type: "string",
                       param_name: "base_url",
+                      param_type: "string",
+                      value_mode: "manual",
+                      param_value: "",
+                      value_source: "user_input",
+                      required: true
+                    },
+                    {
+                      name: "input",
+                      type: "string",
+                      param_name: "input",
                       param_type: "string",
                       value_mode: "manual",
                       param_value: "",
@@ -3075,7 +3129,17 @@ const handleAddNode = useCallback(
             param_value: "",
             value_source: "user_input",
             required: true
-          }
+          },
+          {
+            name: "input",
+            type: "string",
+            param_name: "input",
+            param_type: "String",
+            value_mode: "manual",
+            param_value: "",
+            value_source: "local_file",
+            required: true
+          },
         ]
       };
       outputParams = {
@@ -3095,6 +3159,7 @@ const handleAddNode = useCallback(
                       param_type: "String",
                       value_mode: "manual",
                       param_value: "",
+                      _refType: 'manual', //能弹出用户自己本地文件夹
                       value_source: "local_file",
                       required: true
                     }
@@ -3467,6 +3532,7 @@ const handleAddNode = useCallback(
         if (res.code === 200) {
           setTaskId(res.result?.dag_task_id || '');
           setSaveMessage('保存成功！');
+          // 修改成功信息，遮挡返回按钮了
           setTimeout(() => setSaveMessage(''), 2000);
         } else {
           setSaveMessage('保存失败：' + (res.message || '未知错误'));
@@ -3658,6 +3724,14 @@ const handleAddNode = useCallback(
       >
         <Background variant={BackgroundVariant.Dots} gap={36} size={1.5} />
       </ReactFlow>
+{/* 新加弹出本地的文件夹 */}
+      <input
+        type="file"
+        ref={fileInputRef}
+        style={{ display: 'none' }}
+        onChange={onLocalFileChange}
+      />
+
 
       <FloatingToolbar
         onOpenOperatorLibrary={() => setIsOperatorLibraryOpen(true)}
@@ -3942,20 +4016,31 @@ const handleAddNode = useCallback(
                           </div>
                         </div>
                       ) : (
-                        param.name === 'file_path' && param._refType === 'manual' ? (
-                          <input
-                            className="draw-config-value-input"
-                            value={param._value || param.param_value || ''}
-                            placeholder="请选择文件"
-                            title={param._value || param.param_value || ''}
-                            readOnly
-                            style={{ cursor: 'pointer', backgroundColor: '#f8fafc' }}
-                            onClick={async () => {
-                              setFileSelectParamIndex(index);
-                              await loadDirectories();
-                              setShowFileModal(true);
-                            }}
-                          />
+                        // param.name === 'file_path' && param._refType === 'manual' ? (
+                        //   <input
+                        //     className="draw-config-value-input"
+                        //     value={param._value || param.param_value || ''}
+                        //     placeholder="请选择文件"
+                        //     title={param._value || param.param_value || ''}
+                        //     readOnly
+                        //     style={{ cursor: 'pointer', backgroundColor: '#f8fafc' }}
+                        //     onClick={async () => {
+                        //       setFileSelectParamIndex(index);
+                        //       await loadDirectories();
+                        //       setShowFileModal(true);
+                        //     }}
+                        //   />
+                        // 替换为
+                          param.name === 'file_path' && param._refType === 'manual' ? (
+                             <input
+                                className="draw-config-value-input"
+                                value={param._value || param.param_value || ''}
+                                placeholder="请选择文件"
+                                title={param._value || param.param_value || ''}
+                                readOnly
+                                style={{ cursor: 'pointer', backgroundColor: '#f8fafc' }}
+                                onClick={() => handleLocalFileSelect(index)}
+                              />
                         ) : (
                           <input
                             className="draw-config-value-input"
@@ -4086,12 +4171,12 @@ const handleAddNode = useCallback(
                 <label className="file-system-upload-btn">
                   <Upload size={14} />
                   <span>{uploadingFile ? '上传中...' : '上传文件'}</span>
-                  <input
+                  {/* <input
                     type="file"
                     onChange={handleUploadFile}
                     className="file-system-upload-input"
                     disabled={uploadingFile}
-                  />
+                  /> */}
                 </label>
               )}
               {fileSelectParamIndex !== null && (
@@ -4164,9 +4249,9 @@ const handleAddNode = useCallback(
           </div>
         </div>
       )}
-
+      {/* 将提示成功信息修改一下位置，避免遮挡 */}
       {saveMessage && (
-        <div className="save-message">{saveMessage}</div>
+        <div className="save-message fixed top-[90px] right-4 z-50" >{saveMessage}</div>
       )}
     </div>
   );
