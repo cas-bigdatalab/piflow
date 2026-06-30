@@ -861,7 +861,7 @@ const OperatorLibraryModal: React.FC<OperatorLibraryModalProps> = ({ isOpen, onC
   return (
     <div className="operator-modal">
       <div className="modal-header">
-        <h3>算子库</h3>
+        <h3>算子库1</h3>
         <button className="modal-close" onClick={onClose}>
           <X size={18} />
         </button>
@@ -1188,6 +1188,17 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
                 // 固定输入参数（请根据实际需求调整字段）
                 inputParams={
                   params: [
+                    
+                    {
+                      name: "input",
+                      type: "string",
+                      param_name: "input",
+                      param_type: "string",
+                      value_mode: "manual",
+                      param_value: "",
+                      value_source: "user_input",
+                      required: true
+                    },
                     {
                       name: "instruction",
                       type: "string",

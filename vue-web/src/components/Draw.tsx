@@ -1526,55 +1526,73 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
               n.skill.skill_type = 'chat';
 
               // 固定输入参数（请根据实际需求调整字段）
-              inputParams = {
-                params: [
-                  {
-                    name: "input_file_path",
-                    type: "string",
-                    param_name: "input_file_path",
-                    param_type: "String",
-                    value_mode: "manual",
-                    param_value: "",
-                    required: true
-                  },
-                  {
-                    name: "prompt_template",
-                    type: "string",
-                    param_name: "prompt_template",
-                    param_type: "String",
-                    value_mode: "manual",
-                    param_value: "",
-                    required: false
-                  },
-                  {
-                    name: "model_name",
-                    type: "string",
-                    param_name: "model_name",
-                    param_type: "String",
-                    value_mode: "manual",
-                    param_value: "gpt-4",
-                    required: false
-                  }
-                  // 可继续添加其他必要参数
-                ]
-              };
+              inputParams={
+                  params: [
+                    
+                    {
+                      name: "input",
+                      type: "string",
+                      param_name: "input",
+                      param_type: "string",
+                      value_mode: "manual",
+                      param_value: "",
+                      value_source: "user_input",
+                      required: true
+                    },
+                    {
+                      name: "instruction",
+                      type: "string",
+                      param_name: "instruction",
+                      param_type: "String",
+                      value_mode: "manual",
+                      param_value: "",
+                      value_source: "user_input",
+                      required: true
+                    },
+                    {
+                      name: "model",
+                      type: "string",
+                      param_name: "model",
+                      param_type: "String",
+                      value_mode: "manual",
+                      param_value: "gpt-4o",
+                      value_source: "user_input",
+                      required: true
+                    },
+                    {
+                      name: "api_key",
+                      type: "string",
+                      param_name: "api_key",
+                      param_type: "string",
+                      value_mode: "manual",
+                      param_value: "",
+                      value_source: "user_input",
+                      required: true
+                    },
+                    {
+                      name: "base_url",
+                      type: "string",
+                      param_name: "base_url",
+                      param_type: "string",
+                      value_mode: "manual",
+                      param_value: "",
+                      value_source: "user_input",
+                      required: true
+                    }
+                  ]
+                },
 
-              // 固定输出参数：只有一个 out_path
-              outputParams = {
-                params: [
-                  {
-                    name: "out_path",
-                    type: "string",
-                    param_name: "out_path",
-                    param_type: "String"
-                  }
-                ]
-              };
-
-              nodeIdToOutputParamsMap[nodeId] = outputParams;
-              nodeNameToZhName[pNode.node_name] = '文件转换';
-              nodeNameToZhName[skillName] = '文件转换';
-              nodeTypeForOperator = 'transform'; // 可选：用于 UI 分类
+                // 固定输出参数：只有一个 out_path
+                outputParams = {
+                  params: [
+                    {
+                      name: "out_path",
+                      type: "string",
+                      param_name: "out_path",
+                      param_type: "String"
+                    }
+                  ]
+                };
             }
           } else {
             // 普通算子：先请求接口获取参数模板（含 required 字段）
