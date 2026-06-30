@@ -1586,9 +1586,9 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
                 outputParams = {
                   params: [
                     {
-                      name: "out_path",
+                      name: "output",
                       type: "string",
-                      param_name: "out_path",
+                      param_name: "output",
                       param_type: "String"
                     }
                   ]
@@ -2696,9 +2696,9 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
                 output_params: {
                   params: [
                     {
-                      name: "response",
+                      name: "output",
                       type: "string",
-                      param_name: "response",
+                      param_name: "output",
                       param_type: "String"
                     }
                   ]
