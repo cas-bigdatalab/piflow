@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -20,6 +21,7 @@ class CommandInvocation:
 
 
 _SKIP_TOKEN = object()
+_STRINGIFIED_FILE_ARTIFACT_PATH_PATTERN = re.compile(r"path='([^']+)'")
 
 
 class CommandInvocationParser:
@@ -96,6 +98,8 @@ class CommandInvocationParser:
 
         artifact = inputs.read(parameter.name)
         path = getattr(artifact, "path", "") or str(getattr(artifact, "value", ""))
+        if isinstance(path, str):
+            path = self._coerce_stringified_file_artifact_path(path)
         if not path:
             raise ValueError(f"input artifact for port '{parameter.name}' has no file path")
         return path
@@ -169,6 +173,18 @@ class CommandInvocationParser:
                     f"parameter '{parameter.name}' must match command_template "
                     f"tokens '{option}' and '{placeholder}'"
                 )
+
+    @staticmethod
+    def _coerce_stringified_file_artifact_path(value: str) -> str:
+        # TEMP production patch: remove after the DAG/runtime path always passes
+        # real FileArtifact.path values instead of `str(FileArtifact(...))`.
+        if not value.startswith("FileArtifact("):
+            return value
+
+        match = _STRINGIFIED_FILE_ARTIFACT_PATH_PATTERN.search(value)
+        if match is None:
+            return value
+        return match.group(1)
 
 
 def _role(parameter: ParameterSpec) -> str:

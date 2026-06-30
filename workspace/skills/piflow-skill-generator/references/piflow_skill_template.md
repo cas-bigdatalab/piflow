@@ -1,6 +1,6 @@
 # PiFlow Skill 通用模板
 
-生成新技能时优先参照此模板。模板用于保持 `workspace/skills/generated` 内技能的元数据、正文结构和 `skill.json` 结构一致。
+生成新技能时优先参照此模板。模板用于保持 `skills/generated`（相对于 workspace 根）内技能的元数据、正文结构和 `skill.json` 结构一致。
 
 路径约定：deepagent 虚拟文件环境以 `workspace` 为根。`write_file`/`read_file` 等工具调用时使用相对于 workspace 根的虚拟路径（如 `skills/generated/<skill_name>/`），不要添加 `workspace/` 前缀。Shell 命令默认使用 `--output-root skills/generated`。不要把技能写入仓库外层或重复嵌套的 workspace 路径。
 

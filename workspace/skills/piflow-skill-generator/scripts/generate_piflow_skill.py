@@ -3,6 +3,7 @@ import argparse
 import json
 import re
 import shutil
+import sys
 from pathlib import Path
 from typing import Iterable
 
@@ -94,6 +95,8 @@ def resolve_source_path(raw_path: str) -> Path:
 
 def resolve_output_root(raw_output_root: str | None) -> Path:
     raw = (raw_output_root or DEFAULT_OUTPUT_ROOT).strip().replace("\\", "/")
+    if raw.count("workspace/") >= 2 or raw.startswith("workspace/workspace/"):
+        raise ValueError(f"output_root must not contain nested workspace prefixes: {raw_output_root}")
     if raw in LEGACY_OUTPUT_ROOTS:
         raw = DEFAULT_OUTPUT_ROOT
     path = Path(raw)
@@ -451,7 +454,7 @@ def build_rewrite_followup_suggestion(*, skill_name: str, skill_dir: str, rewrit
         "message": message,
         "command": (
             f"python scripts/rewrite_piflow_skill.py --skill-dir {skill_dir} "
-            "--flow path/to/new-flow-summary.json --restored-spec-out workspace/artifacts/rewrite-spec.json"
+            "--flow path/to/new-flow-summary.json --restored-spec-out artifacts/rewrite-spec.json"
         ),
         "reference": "references/rewrite_followup_internal.md",
     }
@@ -482,13 +485,43 @@ def command_from_spec(spec: dict) -> str:
 def command_template(spec: dict) -> list[str]:
     explicit = spec.get("command_template")
     if isinstance(explicit, list) and explicit:
-        return [str(item) for item in explicit]
+        tokens = [str(item) for item in explicit]
+        validate_command_template_contract(tokens, spec.get("input_params", []))
+        return tokens
     tokens = []
     if spec.get("script_path"):
         tokens = ["python", "{script_path}"]
     for param in spec.get("input_params", []):
         tokens.extend([f"--{param['name']}", f"{{{param['name']}}}"])
     return tokens
+
+
+def validate_command_template_contract(tokens: list[str], input_params: list[dict]) -> None:
+    token_set = set(tokens)
+    for param in input_params or []:
+        name = str(param.get("name", "")).strip()
+        if not name:
+            continue
+        option = f"--{name}"
+        placeholder = f"{{{name}}}"
+        if option not in token_set or placeholder not in token_set:
+            raise ValueError(
+                f"parameter '{name}' must match command_template tokens "
+                f"'{option}' and '{placeholder}'"
+            )
+
+
+def validate_runtime_command_contract(skill_json_path: Path) -> None:
+    project_root = Path(__file__).resolve().parents[4]
+    if str(project_root) not in sys.path:
+        sys.path.insert(0, str(project_root))
+
+    from piflow_engine.cn.piflow.engine.local.command_invocation_parser import CommandInvocationParser
+    from piflow_engine.cn.piflow.engine.local.resolver import FileBundleResolver
+
+    resolver = FileBundleResolver()
+    spec = resolver.resolve(str(skill_json_path.resolve()))
+    CommandInvocationParser(spec)
 
 
 def yaml_scalar(value) -> str:
@@ -599,6 +632,33 @@ def add_text(lines: list[str], heading: str, content) -> None:
         lines.extend([f"## {heading}", "", *block, ""])
 
 
+def dependency_install_lines(dependencies) -> list[str]:
+    packages: list[str] = []
+    for item in as_list(dependencies):
+        text = str(item).strip().strip("`")
+        if not text:
+            continue
+        lowered = text.lower()
+        if lowered.startswith("python "):
+            continue
+        if "pip install" in lowered:
+            packages.append(text.split("pip install", 1)[1].strip())
+            continue
+        if re.fullmatch(r"[A-Za-z0-9_.-]+", text):
+            packages.append(text)
+
+    deduped: list[str] = []
+    for pkg in packages:
+        if pkg and pkg not in deduped:
+            deduped.append(pkg)
+
+    if not deduped:
+        return []
+
+    command = "pip install " + " ".join(deduped)
+    return ["## 安装依赖", "", "```bash", command, "```", ""]
+
+
 def render_examples(examples) -> list[str]:
     if not examples:
         return []
@@ -670,6 +730,7 @@ def render_body(spec: dict) -> str:
     add_bullets(lines, "参考资料", [f"需要详细规则或字段说明时读取 `{path}`。" for path in refs])
     add_text(lines, "实现说明", spec.get("implementation") or spec.get("implementation_notes"))
     add_bullets(lines, "依赖", spec.get("dependencies"))
+    lines.extend(dependency_install_lines(spec.get("dependencies")))
 
     for section in as_list(spec.get("body_sections")):
         if isinstance(section, dict):
@@ -898,7 +959,9 @@ def generate_skill_files(spec: dict, output_root: Path, overwrite: bool) -> dict
         write_text(skill_dir / "SKILL.md", frontmatter(spec) + "\n" + render_body(spec))
         write_resources(skill_dir, spec)
         if spec.get("skill_json", True):
-            write_text(skill_dir / "skill.json", render_skill_json(spec))
+            skill_json_path = skill_dir / "skill.json"
+            write_text(skill_json_path, render_skill_json(spec))
+            validate_runtime_command_contract(skill_json_path)
     except Exception:
         if skill_dir.exists():
             shutil.rmtree(skill_dir)

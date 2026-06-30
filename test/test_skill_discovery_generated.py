@@ -6,6 +6,7 @@ from services import dag_panel_service
 from runtime import skill_manage
 from runtime.skills_compat import install_deepagents_skills_refresh_compat
 from schemas.dag.dag_skill_schema import DagSkill
+from runtime import piflow_adapter
 from tools.excutor import excutor_utils
 
 
@@ -168,6 +169,7 @@ def test_register_skill_from_disk_preserves_single_level_param_shape(tmp_path, m
             {
                 "name": "input_path",
                 "type": "string",
+                "role": "data",
                 "description": "",
                 "required": True,
             }
@@ -178,6 +180,69 @@ def test_register_skill_from_disk_preserves_single_level_param_shape(tmp_path, m
             {
                 "name": "output_path",
                 "type": "string",
+                "role": "output_data",
+                "description": "",
+            }
+        ]
+    }
+
+
+def test_parse_dag_skill_frontmatter_preserves_roles_and_keeps_output_data_out_of_input_params(tmp_path, monkeypatch):
+    workspace_root = tmp_path / "workspace"
+    skills_dir = workspace_root / "skills"
+    generated_dir = skills_dir / "generated"
+    skill_dir = generated_dir / "ttf_to_otf_converter"
+    skill_dir.mkdir(parents=True, exist_ok=True)
+
+    monkeypatch.setattr(skill_manage, "WORKSPACE_ROOT", workspace_root)
+    monkeypatch.setattr(skill_manage, "SKILLS_DIR", skills_dir)
+    monkeypatch.setattr(skill_manage, "GENERATED_SKILLS_DIR", generated_dir)
+
+    (skill_dir / "SKILL.md").write_text(
+        (
+            "---\n"
+            "name: ttf_to_otf_converter\n"
+            "name_zh: TTF转OTF字体转换工具\n"
+            "description: test skill\n"
+            "tag: 业务\n"
+            "input_params:\n"
+            "  - name: input_path\n"
+            "    type: string\n"
+            "    role: input_data\n"
+            "    required: true\n"
+            "  - name: output_path\n"
+            "    type: string\n"
+            "    role: output_data\n"
+            "    required: false\n"
+            "output_params:\n"
+            "  - name: output_path\n"
+            "    type: string\n"
+            "    role: output_data\n"
+            "---\n"
+        ),
+        encoding="utf-8",
+    )
+
+    parsed = skill_manage._parse_dag_skill_frontmatter(skill_dir)
+
+    assert parsed is not None
+    assert parsed["input_params"] == {
+        "params": [
+            {
+                "name": "input_path",
+                "type": "string",
+                "role": "input_data",
+                "description": "",
+                "required": True,
+            }
+        ]
+    }
+    assert parsed["output_params"] == {
+        "params": [
+            {
+                "name": "output_path",
+                "type": "string",
+                "role": "output_data",
                 "description": "",
             }
         ]
@@ -406,6 +471,54 @@ def test_resolve_dag_definition_skills_preserves_builtin_stop_bundle_when_db_poi
     assert resolved["nodes"][1]["skill"]["skill_id"] == "cn.piflow.engine.local.file_save_stop.FileSaveStop"
 
 
+def test_resolve_dag_definition_skills_rewrites_system_node_skill_json_paths_to_builtin_bundles(
+    tmp_path, monkeypatch
+):
+    workspace_root = tmp_path / "workspace"
+    source_dir = workspace_root / "dag_system_node" / "source_stop"
+    sink_dir = workspace_root / "dag_system_node" / "sink_stop"
+    source_dir.mkdir(parents=True, exist_ok=True)
+    sink_dir.mkdir(parents=True, exist_ok=True)
+    source_json = source_dir / "skill.json"
+    sink_json = sink_dir / "skill.json"
+    source_json.write_text('{"name":"source_stop"}', encoding="utf-8")
+    sink_json.write_text('{"name":"sink_stop"}', encoding="utf-8")
+
+    monkeypatch.setattr(excutor_utils, "resolve_workspace_root", lambda: workspace_root)
+    monkeypatch.setattr(excutor_utils, "get_dag_skill", lambda skill_id: None)
+
+    dag_definition = {
+        "nodes": [
+            {
+                "node_id": "node-1",
+                "node_name": "输入文件节点1",
+                "skill": {
+                    "skill_id": str(source_json.resolve()),
+                    "skill_name": "source_stop",
+                    "version": "1.0.0",
+                },
+            },
+            {
+                "node_id": "node-2",
+                "node_name": "输出文件节点1",
+                "skill": {
+                    "skill_id": str(sink_json.resolve()),
+                    "skill_name": "sink_stop",
+                    "version": "1.0.0",
+                },
+            },
+        ]
+    }
+
+    resolved = excutor_utils.resolve_dag_definition_skills(dag_definition)
+
+    assert (
+        resolved["nodes"][0]["skill"]["skill_id"]
+        == "cn.piflow.engine.local.source_file_stop.SourceFileStop"
+    )
+    assert resolved["nodes"][1]["skill"]["skill_id"] == "cn.piflow.engine.local.file_save_stop.FileSaveStop"
+
+
 def test_insert_dag_skill_upsert_preserves_existing_skill_id():
     source = inspect.getsource(skill_manage.insert_dag_skill)
 
@@ -473,3 +586,39 @@ def test_save_dag_panel_normalizes_definition_before_persist(monkeypatch):
     assert result == {"task_id": "task-1", "definition_id": "definition-1", "revision": 1}
     assert captured["definition_json"]["nodes"][0]["skill"]["skill_id"] == "/resolved/workspace/skills/generated/sofa_to_csv/skill.json"
     assert captured["definition_json"]["nodes"][0]["skill"]["skill_name"] == "sofa_to_csv"
+
+
+def test_normalize_frontend_runtime_paths_keeps_outputs_inside_workspace(tmp_path):
+    workspace_root = tmp_path / "workspace"
+    workspace_root.mkdir(parents=True, exist_ok=True)
+
+    definition = {
+        "task": {"dag_task_id": "demo"},
+        "nodes": [
+            {
+                "node_name": "输入文件节点1",
+                "skill": {"skill_name": "source_stop", "skill_id": "cn.piflow.engine.local.source_file_stop.SourceFileStop"},
+                "input_params": [
+                    {"param_name": "file_path", "param_value": "/users/u1/temp/a.mid", "value_mode": "manual"}
+                ],
+            },
+            {
+                "node_name": "输出文件节点1",
+                "skill": {"skill_name": "sink_stop", "skill_id": "cn.piflow.engine.local.file_save_stop.FileSaveStop"},
+                "input_params": [
+                    {"param_name": "input", "param_value": "output_file", "value_mode": "reference"},
+                    {"param_name": "path", "param_value": "outputs/result.txt", "value_mode": "manual"},
+                ],
+            },
+        ],
+    }
+
+    normalized = piflow_adapter._normalize_frontend_runtime_paths(
+        definition,
+        workspace_root=workspace_root,
+        user_id="u1",
+    )
+
+    sink_params = normalized["nodes"][1]["input_params"]
+    path_param = next(item for item in sink_params if item["param_name"] == "path")
+    assert path_param["param_value"] == str((workspace_root / "users" / "u1" / "outputs" / "result.txt").resolve())

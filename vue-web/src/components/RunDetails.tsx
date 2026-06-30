@@ -1012,7 +1012,12 @@ const RunDetails: React.FC<{ processId: string }> = ({ processId }) => {
               </div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
                 {executionData.final_output_paths.map((file: string, index: number) => (
-                  <a key={index} href={downloadWorkspaceUrl2(file)} target="_blank" rel="noopener noreferrer" style={{
+                  <a
+                    key={index}
+                    href={file.startsWith('/users/') ? downloadWorkspaceUrl2(file) : downloadWorkspaceUrl3(file)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
                     display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px',
                     background: '#ffffff', color: '#2563eb', textDecoration: 'none',
                     borderRadius: '8px', fontSize: '13px', fontWeight: 500,

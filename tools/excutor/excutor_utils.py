@@ -300,6 +300,18 @@ def resolve_dag_definition_skills(dag_definition: dict) -> dict:
             skill_id = builtin_skill_ids[skill_name]
         if not skill_id and isinstance(raw_skill, str) and raw_skill.strip():
             skill_id = raw_skill.strip()
+        if (
+            skill_name in builtin_skill_ids
+            and isinstance(skill_id, str)
+            and skill_id.strip().lower().endswith(f"dag_system_node\\{skill_name}\\skill.json".lower())
+        ):
+            skill_id = builtin_skill_ids[skill_name]
+        if (
+            skill_name in builtin_skill_ids
+            and isinstance(skill_id, str)
+            and skill_id.strip().replace("/", "\\").lower().endswith(f"dag_system_node\\{skill_name}\\skill.json".lower())
+        ):
+            skill_id = builtin_skill_ids[skill_name]
 
         # PiFlow 内置 stop 必须保留 class bundle，不能被 dag_system_node/skill.json 覆盖。
         if skill_id in builtin_skill_id_values:

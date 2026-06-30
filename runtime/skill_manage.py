@@ -342,25 +342,43 @@ def _parse_dag_skill_frontmatter(skill_dir: Path) -> Optional[dict]:
         raw_outputs = frontmatter.get("output_params") or []
 
         input_params = {"params": []}
+        promoted_output_params = []
         for p in raw_inputs:
+            role = p.get("role", "data")
             entry = {
                 "name": p.get("name", ""),
                 "type": p.get("type", "String"),
+                "role": role,
                 "description": p.get("description", ""),
                 "required": p.get("required", False),
             }
             if "default" in p:
                 entry["default_value"] = p["default"]
-            input_params["params"].append(entry)
+            if role == "output_data":
+                promoted_output_params.append(
+                    {
+                        "name": entry["name"],
+                        "type": entry["type"],
+                        "role": "output_data",
+                        "description": entry["description"],
+                    }
+                )
+            else:
+                input_params["params"].append(entry)
 
         output_params = {"params": []}
         for p in raw_outputs:
             entry = {
                 "name": p.get("name", ""),
                 "type": p.get("type", "String"),
+                "role": p.get("role", "output_data"),
                 "description": p.get("description", ""),
             }
             output_params["params"].append(entry)
+        existing_output_names = {p["name"] for p in output_params["params"]}
+        for entry in promoted_output_params:
+            if entry["name"] not in existing_output_names:
+                output_params["params"].append(entry)
 
         return {
             "name": name,

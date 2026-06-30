@@ -210,6 +210,21 @@ def test_download_workspace_root_file_resolves_from_workspace_root(client):
     assert response.content == b"%PDF-1.4"
 
 
+def test_download_workspace_root_file_supports_absolute_workspace_path(client):
+    test_client, workspace_root = client
+    download_file = workspace_root / "outputs" / "result.txt"
+    download_file.parent.mkdir(parents=True, exist_ok=True)
+    download_file.write_text("ok\n", encoding="utf-8")
+
+    response = test_client.get(
+        "/workspace/download/root",
+        params={"path": str(download_file.resolve())},
+    )
+
+    assert response.status_code == 200
+    assert response.content == b"ok\n"
+
+
 def test_attach_message_files_stores_relative_path_and_validates_user_workspace(client):
     test_client, workspace_root = client
     attach_file = workspace_root / "users" / "alice" / "temp" / "chat_001" / "12_report.csv"

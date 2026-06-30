@@ -7,10 +7,12 @@ from typing import Any
 
 from infra.config_loader import get_settings
 from infra.config_loader import resolve_workspace_root
+from runtime.workspace_manager import WorkspaceManager
 from tools.excutor.excutor_utils import resolve_dag_definition_skills
 
 _PROCESS_REGISTRY: dict[str, Any] = {}
 _PROCESS_REGISTRY_LOCK = threading.Lock()
+_PATH_LIKE_PARAM_SUFFIXES = ("_path", "_file", "_dir")
 
 
 def register_running_process(process: Any) -> None:
@@ -46,6 +48,91 @@ def init_piflow_run_tracking_db() -> None:
         initialize_postgres_schema(conn)
     finally:
         conn.close()
+
+
+def _looks_like_path_param(param_name: str) -> bool:
+    normalized = (param_name or "").strip().lower()
+    return normalized.endswith(_PATH_LIKE_PARAM_SUFFIXES) or normalized in {
+        "path",
+        "file_path",
+        "input_path",
+        "output_path",
+        "input_file",
+        "output_file",
+        "input_dir",
+        "output_dir",
+    }
+
+
+def _normalize_manual_runtime_path(
+    raw_value: str,
+    *,
+    param_name: str,
+    workspace: WorkspaceManager,
+    user_id: str | None,
+) -> str:
+    value = str(raw_value or "").strip()
+    if not value or not _looks_like_path_param(param_name):
+        return value
+
+    path_obj = Path(value)
+    if path_obj.is_absolute():
+        try:
+            return str(workspace.resolve_virtual_path(value))
+        except ValueError:
+            if user_id:
+                try:
+                    return str(workspace.resolve_user_virtual_path(user_id, value))
+                except ValueError as exc:
+                    raise ValueError(f"path escapes workspace: {value}") from exc
+            raise
+
+    if user_id:
+        return str(workspace.resolve_user_virtual_path(user_id, value))
+    return str(workspace.resolve_virtual_path(value))
+
+
+def _normalize_frontend_runtime_paths(
+    definition_json: dict[str, Any],
+    *,
+    workspace_root: str | Path | None,
+    user_id: str | None,
+) -> dict[str, Any]:
+    workspace = WorkspaceManager()
+    workspace.root = resolve_workspace_root(workspace_root)
+    workspace.artifacts = workspace.root / "artifacts"
+    workspace.outputs = workspace.root / "outputs"
+    workspace.temp = workspace.root / "temp"
+    workspace.logs = workspace.root / "logs"
+
+    normalized_nodes = []
+    for node in definition_json.get("nodes", []):
+        skill = node.get("skill") or {}
+        skill_name = str(skill.get("skill_name") or node.get("skill_name") or "").strip()
+        input_params = []
+        for param in node.get("input_params", []) or []:
+            updated = dict(param)
+            if str(updated.get("value_mode", "")).strip() == "manual":
+                param_name = str(updated.get("param_name") or "").strip()
+                param_value = updated.get("param_value", "")
+                if skill_name == "sink_stop" and param_name == "path":
+                    updated["param_value"] = _normalize_manual_runtime_path(
+                        param_value,
+                        param_name="output_path",
+                        workspace=workspace,
+                        user_id=user_id,
+                    )
+                else:
+                    updated["param_value"] = _normalize_manual_runtime_path(
+                        param_value,
+                        param_name=param_name,
+                        workspace=workspace,
+                        user_id=user_id,
+                    )
+            input_params.append(updated)
+        normalized_nodes.append({**node, "input_params": input_params})
+
+    return {**definition_json, "nodes": normalized_nodes}
 
 
 def submit_frontend_dag(
@@ -95,7 +182,12 @@ def submit_frontend_dag(
                 unregister_running_process(ctx.get_process().pid())
                 self._closing_run_store.close()
 
-    resolve_dag_json = resolve_dag_definition_skills(definition_json)
+    normalized_definition = _normalize_frontend_runtime_paths(
+        definition_json,
+        workspace_root=workspace_root,
+        user_id=user_id,
+    )
+    resolve_dag_json = resolve_dag_definition_skills(normalized_definition)
     piflow_json = convert_frontend_dag_to_piflow(resolve_dag_json)
     flow = FlowBean.from_dict(piflow_json).construct_flow()
 
