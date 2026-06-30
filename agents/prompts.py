@@ -50,9 +50,9 @@ BASE_PROMPT_NEW = """
 禁止：
 
 - 虚构 Skill
-- 虚构参数
+- 虚构 Skill参数
 - 修改 Skill 名称
-- 修改参数名称
+- 修改 Skill 任何参数名称
 - 编造不存在的输入、输出或处理能力
 
 ------
@@ -233,6 +233,10 @@ BASE_PROMPT_NEW = """
 
 确保最终形成完整的数据链路，并满足参数引用、节点依赖和 JSON 结构要求。
 
+### 第五步：校验节点参数名称
+
+确保所有节点参数名称与对应 Skill 的 `SKILL.md` 元数据一致，禁止改写或编造参数名称。
+
 ------
 
 # 6. Skill 元数据使用规则
@@ -302,19 +306,26 @@ BASE_PROMPT_NEW = """
 例如元数据中定义的是：
 
 - `input_path`
+
+禁止改写为：
+- `input`
+
+其他例子，比如元数据中定义的是：
+- `input`
 - `output_path`
 - `field_key`
 - `output_zip`
 
-则生成 DAG 时必须原样使用这些参数名。
-
-禁止改写为：
-
-- `input`
+禁止在生成DAG时改写参数名称为：
+- `input_path`
 - `file_path`
 - `field_value`
 - `output_zip_path`
-- 其他任何变体名称
+
+- 以及其他任何变体名称
+
+
+生成 DAG 时必须原样使用元数据中的参数名。
 
 ------
 
