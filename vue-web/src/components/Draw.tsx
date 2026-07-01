@@ -4128,6 +4128,7 @@ const handleAddNode = useCallback(
             <div className="file-system-actions">
               {fileSelectParamIndex === null && (
                 <label className="file-system-upload-btn">
+                  
                   <Upload size={14} />
                   <span>{uploadingFile ? '上传中...' : '上传文件'}</span>
                   <input

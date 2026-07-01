@@ -401,10 +401,11 @@ export async function updateTask(dag_task_id: string, dag_name: string, descript
 
 // 删除任务
 export async function deleteTask(dag_task_id: string) {
- let params = {dag_task_id:dag_task_id};
+//  let params = {dag_task_id:dag_task_id};
   return apiFetch<{ attachments: MessageAttachment[] }>("/dag/task/deleteTask", {
     method: "POST",
-    body: JSON.stringify(params)
+    // body: JSON.stringify(params)
+    body: dag_task_id, // 直接传字符串，不 JSON.stringify
   });
 }
 

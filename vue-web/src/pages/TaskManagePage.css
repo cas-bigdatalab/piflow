@@ -495,3 +495,8 @@
   opacity: .6;
   cursor: not-allowed
 }
+.icon-btn.primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background-color: #007bff !important; /* 或者使用更浅的颜色 */
+}

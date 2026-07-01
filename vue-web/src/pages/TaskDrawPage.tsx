@@ -1,8 +1,9 @@
 ﻿import React, { useCallback, useState, useRef, memo, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { shortId, generateUUID } from '../lib/ids';
-import { saveDrawInfo, getAllSkills, listSkillsDetails, getDrawTaskContent, apiBase, listStorage, downloadWorkspaceUrl2 } from "../lib/api";
+import { saveDrawInfo, getAllSkills, listSkillsDetails, getDrawTaskContent, apiBase, listStorage, downloadWorkspaceUrl2,runDAGTask } from "../lib/api";
 import { toast } from '../components/Toast';
+import { Icon } from "@iconify/react";
 
 const DEFAULT_SKILL_ICON = "/storage/common/common.png";
 
@@ -164,6 +165,8 @@ const paramDisplayValues: Record<string, Record<string, Record<string, string>>>
     sortOrder: { asc: '升序', desc: '降序' },
   },
 };
+
+
 
 // ==================== 算子分类 ====================
 
@@ -857,6 +860,11 @@ const OperatorLibraryModal: React.FC<OperatorLibraryModalProps> = ({ isOpen, onC
   const handleMouseLeave = () => {
     setHoveredOperator(null);
   };
+  
+
+  
+
+
 
   return (
     <div className="operator-modal">
@@ -976,7 +984,7 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
   const [taskDescription, setTaskDescription] = useState<string>(descriptionProp || '');  // 任务描述
   const [zoomLevel, setZoomLevel] = useState(1);
 
-
+  
 
   // 文件系统弹窗状态
   const [showFileModal, setShowFileModal] = useState(false);
@@ -995,6 +1003,44 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
 
   // 获取选中的节点
   const selectedNode = nodes.find((m) => m.id === selectedNodeId);
+
+  
+  const [showRunSuccessModal, setShowRunSuccessModal] = useState(false);
+  const [runSuccessInfo, setRunSuccessInfo] = useState<{ taskName: string; processId: string } | null>(null);
+  // 失败提示弹框
+  const [showRunErrorModal, setShowRunErrorModal] = useState(false);
+  const [runErrorInfo, setRunErrorInfo] = useState<{ taskName: string; message: string } | null>(null);
+  const [isRunning, setIsRunning] = useState(false);
+
+  const handleRun = async () => {
+    if (!taskId) {
+      toast.error('任务ID不存在，无法运行');
+      return;
+    }
+    setIsRunning(true); //  loading
+    try {
+      const response = await runDAGTask(taskId);
+      if (response.code === 200 && response.result) {
+        const processId = response.result.process_id;
+        setRunSuccessInfo({ taskName: taskName, processId });
+        setShowRunSuccessModal(true);
+      } else {
+        const errorMsg = response.message || '未知错误';
+        setRunErrorInfo({ taskName: taskName, message: errorMsg });
+        setShowRunErrorModal(true);
+      }
+    } catch (error) {
+      console.error('运行任务失败:', error);
+      const errorMsg = error instanceof Error ? error.message : '未知错误';
+      setRunErrorInfo({ taskName: taskName, message: errorMsg });
+      setShowRunErrorModal(true);
+    } finally {
+      
+      setIsRunning(false); //  无论成功失败，关闭 loading
+    }
+  };
+
+
 
   // 关闭配置面板
   const closeConfigPanel = () => {
@@ -2453,7 +2499,7 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
     if (!file) return;
     
     setUploadingFile(true);
-    const userId = localStorage.getItem('userName') || '';
+    const userId = localStorage.getItem('userId') || '';
     
     try {
       const formData = new FormData();
@@ -2559,6 +2605,24 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
             {!isSaving && saveMessage && <span className="save-message">{saveMessage}</span>}
             {!isSaving && !saveMessage && <span className="save-idle">已保存</span>}
           </span>
+          <button
+            onClick={handleRun}
+            disabled={!taskId || isRunning} // 👈 禁用状态包含 isRunning
+            className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+              !taskId || isRunning
+                ? 'bg-slate-300 text-slate-500 cursor-not-allowed opacity-60'
+                : 'bg-slate-700 text-white hover:bg-slate-800 cursor-pointer'
+            }`}
+          >
+            {isRunning ? (
+              <>
+                <span className="flow-loading-spinner inline-block w-4 h-4 border-t-2 border-white rounded-full animate-spin"></span>
+                提交中...
+              </>
+            ) : (
+              '一键运行'
+            )}
+          </button>
           <button className="only-back-btn" onClick={() => navigate(-1)}>
             <span>返回</span>
           </button>
@@ -3135,6 +3199,88 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
                       ))}
                     </div>
                   )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 运行成功提示弹窗 */}
+          {showRunSuccessModal && runSuccessInfo && (
+            <div 
+              className="modal-overlay" 
+              onClick={() => setShowRunSuccessModal(false)}
+            >
+              <div 
+                className="task-modal-content" 
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="modal-header">
+                  <h3>任务提交成功</h3>
+                  <button 
+                    className="modal-close" 
+                    onClick={() => setShowRunSuccessModal(false)}
+                  >
+                    <Icon icon="fa-solid:times" width="16" />
+                  </button>
+                </div>
+                <div className="modal-body">
+                  <p>
+                    任务「{runSuccessInfo.taskName}」已提交运行，请前往【运行历史】查看执行状态。
+                  </p>
+                  <p>
+                    <strong>执行实例ID：</strong>
+                    <code style={{ backgroundColor: '#f0f0f0', padding: '2px 6px', borderRadius: '4px' }}>
+                      {runSuccessInfo.processId}
+                    </code>
+                  </p>
+                </div>
+                <div className="modal-footer">
+                  <button 
+                    className="btn-confirm" 
+                    onClick={() => setShowRunSuccessModal(false)}
+                  >
+                    确定
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+          {/* 运行失败提示弹窗 */}
+          {showRunErrorModal && runErrorInfo && (
+            <div 
+              className="modal-overlay" 
+              onClick={() => setShowRunErrorModal(false)}
+            >
+              <div 
+                className="task-modal-content" 
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="modal-header">
+                  <h3 style={{ color: '#ef4444' }}>任务运行失败</h3>
+                  <button 
+                    className="modal-close" 
+                    onClick={() => setShowRunErrorModal(false)}
+                  >
+                    <Icon icon="fa-solid:times" width="16" />
+                  </button>
+                </div>
+                <div className="modal-body">
+                  <p>
+                    任务「{runErrorInfo.taskName}」提交失败：
+                  </p>
+                  <p style={{ color: '#ef4444', marginTop: '8px' }}>
+                    <strong>错误信息：</strong>
+                    {runErrorInfo.message}
+                  </p>
+                </div>
+                <div className="modal-footer">
+                  <button 
+                    className="btn-confirm" 
+                    style={{ backgroundColor: '#ef4444' }}
+                    onClick={() => setShowRunErrorModal(false)}
+                  >
+                    确定
+                  </button>
                 </div>
               </div>
             </div>

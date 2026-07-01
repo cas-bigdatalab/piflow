@@ -129,12 +129,12 @@ export function SkillsPage() {
     <div className="w-full px-4 py-4 sm:px-6 lg:px-[20px] xl:px-[20px]">
       <div className="mb-8 flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
         <div>
-          <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">
+          {/* <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">
             Skills Hub
-          </div>
-          <h1 className="text-3xl font-bold tracking-tight text-slate-950">算子库</h1>
+          </div> */}
+          <h1 className="page-title">算子库</h1>
           <p className="mt-3 text-sm leading-7 text-slate-500">
-            探索多样化的科研数据加工算子
+            探索多样化的科学数据加工算子 
           </p>
         </div>
 
@@ -229,7 +229,7 @@ export function SkillsPage() {
                               <img
                                 alt={(skill as any).name_zh || skill.skill_name || "算子图标"}
                                 className="h-8 w-8 rounded-xl object-cover"
-                                src={resolveIconUrl(skill.icon_path || '/storage/common/common.png')}
+                                src={resolveIconUrl(skill.icon_path)}
                               />
                             ) : (
                               <Icon icon="ri:flashlight-line" width="22" />

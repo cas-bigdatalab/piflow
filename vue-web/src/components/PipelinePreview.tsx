@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { runDAGTask, saveDrawInfo, getDrawInfoBymegId, getAllSkills, listSkillsDetails } from "../lib/api";
 import { generateUUID } from "../lib/ids";
 import { toast } from "./Toast";
+import {  useState } from 'react';
 
 interface PipelineNode {
   node_name: string;
@@ -28,7 +29,6 @@ interface ExtractionResult {
   data: PipelineData | null;
   cleanedText: string;
 }
-
 function tryParseAsPipeline(obj: unknown): PipelineData | null {
   if (!obj || typeof obj !== "object") return null;
   const record = obj as Record<string, unknown>;
@@ -236,14 +236,19 @@ function generateEdges(nodes: PipelineNode[]): PipelineEdge[] {
 export default function PipelinePreview({ data, threadId, onOpenCanvas, messageId, disabled = false }: PipelinePreviewProps) {
   const navigate = useNavigate();
   const { task, nodes } = data;
-
+  
+  const [showRunSuccessModal, setShowRunSuccessModal] = useState(false);
+  const [runSuccessInfo, setRunSuccessInfo] = useState<{ taskName: string; processId: string } | null>(null);
+  // 失败提示弹框
+  const [showRunErrorModal, setShowRunErrorModal] = useState(false);
+  const [runErrorInfo, setRunErrorInfo] = useState<{ taskName: string; message: string } | null>(null);
+  const [isRunning, setIsRunning] = useState(false);
   // 仅用于 UI 显示的边
   const edges = useMemo(() => generateEdges(nodes), [nodes]);
 
   const handleRun = async () => {
-    console.log('点击一键运行');
-    console.log('会话返回的任务数据:', data);
-    
+    if (isRunning) return; // 防止重复点击
+    setIsRunning(true); // 🔒 开始时禁用按钮
     try {
       let drawData: any;
       
@@ -685,6 +690,7 @@ export default function PipelinePreview({ data, threadId, onOpenCanvas, messageI
           edges: generatedEdges,
           bindings: generatedBindings
         };
+        const taskName = task.name;
       }
       
       // 检查是否已经有 dag_task_id
@@ -747,22 +753,42 @@ export default function PipelinePreview({ data, threadId, onOpenCanvas, messageI
         console.log('已有 dag_task_id，跳过第二次保存');
       }
       
-      // 调用运行接口
-      const response = await runDAGTask(taskId);
-      console.log('运行 DAG 返回结果:', response);
-      if (response.code === 200 && response.result) {
-        const processId = response.result.process_id;
-        toast.success(`任务已提交运行，请前往【运行历史】查看执行状态。执行实例ID：${processId}`);
-        return;
-      } else {
-        console.error('运行 DAG 失败:', response.message);
-        toast.error('运行失败: ' + (response.message || '未知错误'));
-        return;
+      // 调用运行接口替换为下面没注释的内容(增加确定按钮，在接口调取成功后)
+      // const response = await runDAGTask(taskId);
+      // console.log('运行 DAG 返回结果:', response); 
+      // if (response.code === 200 && response.result) {
+      //   const processId = response.result.process_id;
+      //   toast.success(`任务已提交运行，请前往【运行历史】查看执行状态。执行实例ID：${processId}`);
+      //   return;
+      // } else {
+      //   console.error('运行 DAG 失败:', response.message);
+      //   toast.error('运行失败: ' + (response.message || '未知错误'));
+      //   return;
+      // }
+      try {
+        const response = await runDAGTask(taskId);
+        if (response.code === 200 && response.result) {
+          const processId = response.result.process_id;
+          setRunSuccessInfo({ taskName: task.name,processId });
+          setShowRunSuccessModal(true);
+        } else {
+          // 使用错误弹窗替代 toast
+          const errorMsg = response.message || '未知错误';
+          setRunErrorInfo({ taskName: task.name, message: errorMsg });
+          setShowRunErrorModal(true);
+        }
+      } catch (error) {
+        console.error('运行任务失败:', error);
+        const errorMsg = error instanceof Error ? error.message : '未知错误';
+        setRunErrorInfo({ taskName: task.name,message: errorMsg });
+        setShowRunErrorModal(true);
       }
     } catch (error) {
       console.error('操作失败:', error);
       toast.error('操作失败: ' + (error instanceof Error ? error.message : '未知错误'));
       return;
+    } finally {
+      setIsRunning(false); // 🔓 无论成功失败，都恢复按钮
     }
   };
 
@@ -1042,15 +1068,24 @@ export default function PipelinePreview({ data, threadId, onOpenCanvas, messageI
       <div className="flex gap-2 pipeline-buttons" style={{ animationDelay: `1.2s` }}>
         <button
           onClick={handleRun}
-          disabled={disabled}
+          disabled={disabled || isRunning}
           className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
             disabled
               ? 'bg-slate-300 text-slate-500 cursor-not-allowed'
               : 'bg-slate-900 text-white hover:bg-slate-800'
           }`}
         >
-          <Icon icon="ri:play-fill" width={16} />
-          一键运行
+          {isRunning ? (
+            <>
+              <Icon icon="ri:loader-2-fill" className="animate-spin" width={16} />
+              运行中...
+            </>
+          ) : (
+            <>
+              <Icon icon="ri:play-fill" width={16} />
+              一键运行
+            </>
+          )}
         </button>
         <button
           onClick={handleEdit}
@@ -1083,6 +1118,88 @@ export default function PipelinePreview({ data, threadId, onOpenCanvas, messageI
           导出JSON
         </button>
       </div>
+
+         {/* 运行成功提示弹窗 */}
+      {showRunSuccessModal && runSuccessInfo && (
+        <div 
+          className="modal-overlay" 
+          onClick={() => setShowRunSuccessModal(false)}
+        >
+          <div 
+            className="task-modal-content" 
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="modal-header">
+              <h3>任务提交成功</h3>
+              <button 
+                className="modal-close" 
+                onClick={() => setShowRunSuccessModal(false)}
+              >
+                <Icon icon="fa-solid:times" width="16" />
+              </button>
+            </div>
+            <div className="modal-body">
+              <p>
+                任务「{runSuccessInfo.taskName}」已提交运行，请前往【运行历史】查看执行状态。
+              </p>
+              <p>
+                <strong>执行实例ID：</strong>
+                <code style={{ backgroundColor: '#f0f0f0', padding: '2px 6px', borderRadius: '4px' }}>
+                  {runSuccessInfo.processId}
+                </code>
+              </p>
+            </div>
+            <div className="modal-footer">
+              <button 
+                className="btn-confirm" 
+                onClick={() => setShowRunSuccessModal(false)}
+              >
+                确定
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* 运行失败提示弹窗 */}
+      {showRunErrorModal && runErrorInfo && (
+        <div 
+          className="modal-overlay" 
+          onClick={() => setShowRunErrorModal(false)}
+        >
+          <div 
+            className="task-modal-content" 
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="modal-header">
+              <h3 style={{ color: '#ef4444' }}>任务运行失败</h3>
+              <button 
+                className="modal-close" 
+                onClick={() => setShowRunErrorModal(false)}
+              >
+                <Icon icon="fa-solid:times" width="16" />
+              </button>
+            </div>
+            <div className="modal-body">
+              <p>
+                任务「{runErrorInfo.taskName}」提交失败：
+              </p>
+              <p style={{ color: '#ef4444', marginTop: '8px' }}>
+                <strong>错误信息：</strong>
+                {runErrorInfo.message}
+              </p>
+            </div>
+            <div className="modal-footer">
+              <button 
+                className="btn-confirm" 
+                style={{ backgroundColor: '#ef4444' }}
+                onClick={() => setShowRunErrorModal(false)}
+              >
+                确定
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
