@@ -246,7 +246,6 @@ export default function PipelinePreview({ data, threadId, onOpenCanvas, messageI
   const edges = useMemo(() => generateEdges(nodes), [nodes]);
 
   const handleRun = async () => {
-    setRunLoading(true); // 开始加载
     try {
       let drawData: any;
       
@@ -771,9 +770,8 @@ export default function PipelinePreview({ data, threadId, onOpenCanvas, messageI
     } catch (error) {
       console.error('操作失败:', error);
       toast.error('操作失败: ' + (error instanceof Error ? error.message : '未知错误'));
-      
+      return;
     } finally {
-      setRunLoading(false);
     }
   };
 
