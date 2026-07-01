@@ -21,35 +21,6 @@ STORAGE_SKILLS_DIR = STORAGE_DIR / "skills"
 DEFAULT_COMMON_ICON = "/storage/common/common.png"
 
 
-def _normalize_param_container(raw_params) -> Dict[str, List[Dict]]:
-    """归一化技能参数容器，兼容历史坏数据与生成器误产出的对象形状。"""
-    if not raw_params:
-        return {"params": []}
-
-    if isinstance(raw_params, list):
-        return {"params": [item for item in raw_params if isinstance(item, dict)]}
-
-    if not isinstance(raw_params, dict):
-        return {"params": []}
-
-    params = raw_params.get("params", raw_params)
-    normalized: List[Dict] = []
-
-    if isinstance(params, list):
-        normalized = [item for item in params if isinstance(item, dict)]
-    elif isinstance(params, dict):
-        # 历史脏数据可能是 {"params": {...}} 或 {"params": {"foo": {...}}}
-        if isinstance(params.get("name"), str):
-            normalized = [params]
-        else:
-            for name, value in params.items():
-                if isinstance(value, dict):
-                    entry = dict(value)
-                    entry.setdefault("name", str(name))
-                    normalized.append(entry)
-    return {"params": normalized}
-
-
 def ensure_storage_dirs():
     STORAGE_SKILLS_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -343,21 +314,25 @@ def _parse_dag_skill_frontmatter(skill_dir: Path) -> Optional[dict]:
 
         input_params = {"params": []}
         for p in raw_inputs:
+            role = p.get("role", "data")
             entry = {
                 "name": p.get("name", ""),
                 "type": p.get("type", "String"),
+                "role": role,
                 "description": p.get("description", ""),
                 "required": p.get("required", False),
             }
             if "default" in p:
                 entry["default_value"] = p["default"]
-            input_params["params"].append(entry)
+            if role != "output_data":
+                input_params["params"].append(entry)
 
         output_params = {"params": []}
         for p in raw_outputs:
             entry = {
                 "name": p.get("name", ""),
                 "type": p.get("type", "String"),
+                "role": p.get("role", "output_data"),
                 "description": p.get("description", ""),
             }
             output_params["params"].append(entry)
@@ -367,8 +342,8 @@ def _parse_dag_skill_frontmatter(skill_dir: Path) -> Optional[dict]:
             "name_zh": frontmatter.get("name_zh", ""),
             "description": description,
             "tag": tag,
-            "input_params": _normalize_param_container(input_params),
-            "output_params": _normalize_param_container(output_params),
+            "input_params": input_params,
+            "output_params": output_params,
         }
     except Exception:
         return None
@@ -416,64 +391,113 @@ def _extract_command_from_skill_md(skill_dir: Path, skill_name: str, input_param
     return ""
 
 
-def _process_skill_dirs(base_dir: Path, path_prefix: str) -> int:
-    if not base_dir.exists():
-        return 0
+def _process_single_skill_dir(skill_dir: Path, path_prefix: str) -> dict | None:
+    if not skill_dir.exists() or not skill_dir.is_dir():
+        return None
+    if skill_dir.name == "__init__":
+        return None
 
-    count = 0
-    for skill_dir in sorted(base_dir.iterdir()):
-        if not skill_dir.is_dir():
-            continue
-        if skill_dir.name == "__init__":
-            continue
+    info = _parse_dag_skill_frontmatter(skill_dir)
+    if info is None:
+        return None
 
-        info = _parse_dag_skill_frontmatter(skill_dir)
-        if info is None:
-            continue
-
-        skill_name = info["name"]
-        name_zh = info.get("name_zh", "")
-        description = info["description"]
-        skill_type = info["tag"]
-        input_params = info["input_params"]
-        output_params = info["output_params"]
-
-        output_names = {p["name"] for p in output_params.get("params", [])}
-        input_params["params"] = [
+    skill_name = info["name"]
+    name_zh = info.get("name_zh", "")
+    description = info["description"]
+    skill_type = info["tag"]
+    input_params = info["input_params"]
+    output_params = info["output_params"]
+    
+    output_names = {p["name"] for p in output_params.get("params", [])}
+    input_params["params"] = [
             p for p in input_params.get("params", []) if p["name"] not in output_names
         ]
 
-        skill_path = f"{path_prefix}/{skill_dir.name}"
+    skill_path = f"{path_prefix}/{skill_dir.name}"
+    file_path = _find_skill_script_path(skill_dir)
+    language = "Python" if file_path else ""
+    command = _extract_command_from_skill_md(skill_dir, skill_name, input_params)
+    icon_path = f"/storage/{path_prefix}/{skill_dir.name}.png"
 
-        file_path = _find_skill_script_path(skill_dir)
+    return insert_dag_skill(
+        skill_name=skill_name,
+        name_zh=name_zh,
+        description=description,
+        skill_path=skill_path,
+        file_path=file_path,
+        input_params=input_params,
+        output_params=output_params,
+        skill_type=skill_type,
+        language=language,
+        command=command,
+        icon_path=icon_path,
+        version="1.0.0",
+    )
 
-        language = "Python" if file_path else ""
 
-        command = _extract_command_from_skill_md(skill_dir, skill_name, input_params)
+def _process_skill_dirs(base_dir: Path, path_prefix: str) -> dict:
+    if not base_dir.exists():
+        return {"count": 0, "skills": []}
 
-        icon_path = f"/storage/{path_prefix}/{skill_dir.name}.png"
+    skills = []
+    for skill_dir in sorted(base_dir.iterdir()):
+        result = _process_single_skill_dir(skill_dir, path_prefix)
+        if result:
+            skills.append(result)
 
-        insert_dag_skill(
-            skill_name=skill_name,
-            name_zh=name_zh,
-            description=description,
-            skill_path=skill_path,
-            file_path=file_path,
-            input_params=input_params,
-            output_params=output_params,
-            skill_type=skill_type,
-            language=language,
-            command=command,
-            icon_path=icon_path,
-            version="1.0.0",
-        )
-        count += 1
-
-    return count
+    return {
+        "count": len(skills),
+        "skills": skills,
+    }
 
 
 def init_dag_skills_to_database() -> int:
-    count = _process_skill_dirs(SKILLS_DIR, "skills")
-    count += _process_skill_dirs(GENERATED_SKILLS_DIR, "skills/generated")
-    count += _process_skill_dirs(DAG_SYSTEM_NODE_DIR, "dag_system_node")
-    return count
+    regular = _process_skill_dirs(SKILLS_DIR, "skills")
+    generated = _process_skill_dirs(GENERATED_SKILLS_DIR, "skills/generated")
+    system = _process_skill_dirs(DAG_SYSTEM_NODE_DIR, "dag_system_node")
+    return regular["count"] + generated["count"] + system["count"]
+
+def _resolve_generated_skill_dir(skill_name: str | None = None, skill_dir: str | Path | None = None) -> Optional[Path]:
+    if skill_dir:
+        candidate = Path(skill_dir)
+        if not candidate.is_absolute():
+            candidate = (WORKSPACE_ROOT / candidate).resolve()
+        else:
+            candidate = candidate.resolve()
+        if candidate.is_file():
+            candidate = candidate.parent
+        return candidate
+
+    if skill_name:
+        return GENERATED_SKILLS_DIR / str(skill_name).strip()
+
+    return None
+
+
+def update_generated_dag_skills_in_database(
+    *,
+    skill_name: str | None = None,
+    skill_dir: str | Path | None = None,
+) -> dict:
+    """
+    更新 workspace/skills/generated 下的技能到数据库。
+
+    - 不传参数：全量同步 generated 目录
+    - 传 skill_name 或 skill_dir：仅定向同步一个用户生成 skill
+    """
+    target_dir = _resolve_generated_skill_dir(skill_name=skill_name, skill_dir=skill_dir)
+    if target_dir is None:
+        return _process_skill_dirs(GENERATED_SKILLS_DIR, "skills/generated")
+
+    try:
+        relative = target_dir.resolve().relative_to(GENERATED_SKILLS_DIR.resolve())
+    except ValueError as exc:
+        raise ValueError(f"generated skill dir must stay under {GENERATED_SKILLS_DIR}") from exc
+
+    if len(relative.parts) != 1:
+        raise ValueError("generated skill dir must point to a single skill directory")
+
+    result = _process_single_skill_dir(target_dir, "skills/generated")
+    if not result:
+        return {"count": 0, "skills": []}
+    return {"count": 1, "skills": [result]}

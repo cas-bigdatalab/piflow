@@ -290,6 +290,8 @@ export default function PipelinePreview({ data, threadId, onOpenCanvas, messageI
               console.log('单个已保存节点数据:', node);
               
               let skillId = node.skill?.skill_id || node.skill_id || '';
+              let resolvedSkillName = node.skill?.skill_name || node.skill_name || '';
+              let resolvedSkillDisplayName = node.skill?.name_zh || node.name_zh || '';
               let iconPath = node.icon_path || '';
               let skillNameToSearch = '';
               
@@ -301,6 +303,7 @@ export default function PipelinePreview({ data, threadId, onOpenCanvas, messageI
                 const originalNode = nodes.find((n: any) => n.node_name === node.node_name);
                 if (originalNode && originalNode.skill_name) {
                   skillNameToSearch = originalNode.skill_name;
+                  resolvedSkillName = resolvedSkillName || originalNode.skill_name;
                   console.log('从原始数据中找到 skill_name:', skillNameToSearch);
                 }
                 
@@ -321,6 +324,8 @@ export default function PipelinePreview({ data, threadId, onOpenCanvas, messageI
                         for (const skillInfo of group.DagSkillInfoList) {
                           if (skillInfo.skill_name === skillNameToSearch || skillInfo.name_zh === node.node_name) {
                             skillId = skillInfo.skill_id || '';
+                            resolvedSkillName = skillInfo.skill_name || resolvedSkillName || skillNameToSearch;
+                            resolvedSkillDisplayName = skillInfo.name_zh || resolvedSkillDisplayName || '';
                             iconPath = skillInfo.icon_path || '';
                             console.log('为已保存节点找到 skill_id:', skillId);
                             break;
@@ -402,6 +407,8 @@ export default function PipelinePreview({ data, threadId, onOpenCanvas, messageI
                 icon_path: iconPath,
                 skill: {
                   skill_id: skillId,
+                  skill_name: resolvedSkillName,
+                  name_zh: resolvedSkillDisplayName,
                   version: '1.0'
                 },
                 position: node.position || { x: 0, y: 0 },
@@ -448,9 +455,11 @@ export default function PipelinePreview({ data, threadId, onOpenCanvas, messageI
           
           let skillId = '';
           let iconPath = '';
+          let resolvedSkillDisplayName = '';
           
           // 尝试通过 skill_name 查找 skill_id
           let skillName = node.skill_name || '';
+          let resolvedSkillName = skillName;
           
           // 处理特殊算子名称，写死 skill_id
           if (skillName === 'source_stop') {
@@ -466,6 +475,8 @@ export default function PipelinePreview({ data, threadId, onOpenCanvas, messageI
                   for (const skillInfo of group.DagSkillInfoList) {
                     if (skillInfo.skill_name === skillName || skillInfo.name_zh === skillName) {
                       skillId = skillInfo.skill_id || '';
+                      resolvedSkillName = skillInfo.skill_name || resolvedSkillName || skillName;
+                      resolvedSkillDisplayName = skillInfo.name_zh || resolvedSkillDisplayName || '';
                       iconPath = skillInfo.icon_path || '';
                       console.log(`找到匹配的算子:`, skillInfo);
                       break;
@@ -610,6 +621,8 @@ export default function PipelinePreview({ data, threadId, onOpenCanvas, messageI
             icon_path: iconPath,
             skill: {
               skill_id: skillId,
+              skill_name: resolvedSkillName,
+              name_zh: resolvedSkillDisplayName,
               version: '1.0'
             },
             position: { x: 100 + index * 200, y: 200 },
@@ -702,7 +715,7 @@ export default function PipelinePreview({ data, threadId, onOpenCanvas, messageI
         const paramDefs = skillInfoMap[skillId] || [];
         const nodeInputParams = node.input_params || [];
         for (const def of paramDefs) {
-          if (def.required) {
+          if (def.required && def.role !== 'output_data') {
             const paramName = def.name || def.param_name || '';
             const savedParam = nodeInputParams.find((p: any) => (p.param_name || '') === paramName);
             const val = String(savedParam?.param_value ?? '');

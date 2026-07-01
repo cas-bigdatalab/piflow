@@ -78,7 +78,7 @@
 4. 若用户同意，调用：
 
 ```bash
-python scripts/rewrite_piflow_skill.py --skill-dir skills/<skill-name> --flow path/to/new-flow-summary.json --restored-spec-out workspace/artifacts/rewrite-spec.json
+python scripts/rewrite_piflow_skill.py --skill-dir skills/<skill-name> --flow path/to/new-flow-summary.json --restored-spec-out artifacts/rewrite-spec.json
 ```
 
 5. 改写完成后，执行：

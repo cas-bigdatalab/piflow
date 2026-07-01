@@ -1,6 +1,6 @@
 # PiFlow Skill 通用模板
 
-生成新技能时优先参照此模板。模板用于保持 `workspace/skills/generated` 内技能的元数据、正文结构和 `skill.json` 结构一致。
+生成新技能时优先参照此模板。模板用于保持 `skills/generated`（相对于 workspace 根）内技能的元数据、正文结构和 `skill.json` 结构一致。
 
 路径约定：deepagent 虚拟文件环境以 `workspace` 为根。`write_file`/`read_file` 等工具调用时使用相对于 workspace 根的虚拟路径（如 `skills/generated/<skill_name>/`），不要添加 `workspace/` 前缀。Shell 命令默认使用 `--output-root skills/generated`。不要把技能写入仓库外层或重复嵌套的 workspace 路径。
 
@@ -37,6 +37,12 @@ tag: <DAG 面板技能类型>
 - `category` 表示技能中心或业务域分类。
 - `tag` 表示 DAG 面板中的技能类型，当前入库逻辑会读取为 `skill_type`。
 - 参数 `role` 使用 `input_data`、`output_data` 或 `data`。
+- 优先根据参数的 `type`、`name` 和 `description` 判断 `role`。
+- 不要仅根据参数位于 `input_params` 或 `output_params` 的位置机械填写。
+- `input_path`、`source_dir` 这类输入数据文件或目录通常使用 `input_data`。
+- `output_path`、`report_path` 这类输出落盘路径通常使用 `output_data`，即使它们出现在 `input_params` 中作为脚本入参传入也一样。
+- `output_format`、`threshold`、`max_rows` 这类配置项通常使用 `data`，不要因为名字中带 `output` 就误判。
+- 若某个输出参数只是标量结果、统计值、状态位或普通文本摘要，而不是文件/目录/报告工件，通常使用 `data`。
 
 ## SKILL.md Body
 
@@ -72,6 +78,8 @@ python scripts/<script>.py --input_path <输入> --output_path <输出>
 | 参数 | 类型 | 角色 | 必填 | 默认值 | 说明 |
 |------|------|------|------|--------|------|
 | input_path | string | input_data | 是 | - | 输入文件路径 |
+
+** 务必记住采用下划线而非连字符作为参数名称，且参数名称必须与 `skill.json` 中的 `input_params`、`output_params` 保持一致。**
 
 ## 示例
 
