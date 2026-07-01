@@ -35,6 +35,8 @@ export function TaskManagePage() {
   // 失败提示弹框
   const [showRunErrorModal, setShowRunErrorModal] = useState(false);
   const [runErrorInfo, setRunErrorInfo] = useState<{ taskName: string; message: string } | null>(null);
+  const [runningTaskId, setRunningTaskId] = useState<string | null>(null);
+ 
   // 在 TaskManagePage.tsx 中，替换 handleRun 为：
   // const handleRun = async (taskId: string, taskName: string) => {
   //   try {
@@ -52,6 +54,7 @@ export function TaskManagePage() {
   // };
 
 const handleRun = async (taskId: string, taskName: string) => {
+  setRunningTaskId(taskId); // 开始运行
   try {
     const response = await runDAGTask(taskId);
     if (response.code === 200 && response.result) {
@@ -59,7 +62,6 @@ const handleRun = async (taskId: string, taskName: string) => {
       setRunSuccessInfo({ taskName, processId });
       setShowRunSuccessModal(true);
     } else {
-      // 使用错误弹窗替代 toast
       const errorMsg = response.message || '未知错误';
       setRunErrorInfo({ taskName, message: errorMsg });
       setShowRunErrorModal(true);
@@ -69,6 +71,8 @@ const handleRun = async (taskId: string, taskName: string) => {
     const errorMsg = error instanceof Error ? error.message : '未知错误';
     setRunErrorInfo({ taskName, message: errorMsg });
     setShowRunErrorModal(true);
+  } finally {
+    setRunningTaskId(null); // 结束 loading
   }
 };
 
@@ -285,10 +289,11 @@ const handleRun = async (taskId: string, taskName: string) => {
                       <Icon icon="fa-solid:trash" width="14" />
                     </button>
                     <button
-                        className="icon-btn primary" 
-                        title="运行" 
-                        onClick={() => handleRun(task.dag_task_id, task.dag_task_name)}
-                      >
+                      className="icon-btn primary"
+                      title="运行"
+                      onClick={() => handleRun(task.dag_task_id, task.dag_task_name)}
+                      disabled={runningTaskId === task.dag_task_id}
+                    >
                       <Icon icon="fa-solid:play" width="14" />
                     </button>
                   </td>
