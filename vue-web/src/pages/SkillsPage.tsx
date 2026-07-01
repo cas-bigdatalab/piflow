@@ -229,7 +229,7 @@ export function SkillsPage() {
                               <img
                                 alt={(skill as any).name_zh || skill.skill_name || "算子图标"}
                                 className="h-8 w-8 rounded-xl object-cover"
-                                src={resolveIconUrl(skill.icon_path || '/storage/common/common.png')}
+                                src={resolveIconUrl(skill.icon_path)}
                               />
                             ) : (
                               <Icon icon="ri:flashlight-line" width="22" />

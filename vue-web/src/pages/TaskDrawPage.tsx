@@ -2453,7 +2453,7 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
     if (!file) return;
     
     setUploadingFile(true);
-    const userId = localStorage.getItem('userName') || '';
+    const userId = localStorage.getItem('userId') || '';
     
     try {
       const formData = new FormData();

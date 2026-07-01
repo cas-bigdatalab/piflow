@@ -30,23 +30,47 @@ export function TaskManagePage() {
   const [updating, setUpdating] = useState(false);
   const pageSize = 10;
   const totalPages = Math.ceil(total / pageSize);
-
-
+  const [showRunSuccessModal, setShowRunSuccessModal] = useState(false);
+  const [runSuccessInfo, setRunSuccessInfo] = useState<{ taskName: string; processId: string } | null>(null);
+  // 失败提示弹框
+  const [showRunErrorModal, setShowRunErrorModal] = useState(false);
+  const [runErrorInfo, setRunErrorInfo] = useState<{ taskName: string; message: string } | null>(null);
   // 在 TaskManagePage.tsx 中，替换 handleRun 为：
-  const handleRun = async (taskId: string, taskName: string) => {
-    try {
-      const response = await runDAGTask(taskId);
-      if (response.code === 200 && response.result) {
-        const processId = response.result.process_id;
-        toast.success(`任务「${taskName}」已提交运行，请前往【运行历史】查看执行状态。执行实例ID：${processId}`);
-      } else {
-        toast.error('运行失败: ' + (response.message || '未知错误'));
-      }
-    } catch (error) {
-      console.error('运行任务失败:', error);
-      toast.error('操作失败: ' + (error instanceof Error ? error.message : '未知错误'));
+  // const handleRun = async (taskId: string, taskName: string) => {
+  //   try {
+  //     const response = await runDAGTask(taskId);
+  //     if (response.code === 200 && response.result) {
+  //       const processId = response.result.process_id;
+  //       toast.success(`任务「${taskName}」已提交运行，请前往【运行历史】查看执行状态。执行实例ID：${processId}`);
+  //     } else {
+  //       toast.error('运行失败: ' + (response.message || '未知错误'));
+  //     }
+  //   } catch (error) {
+  //     console.error('运行任务失败:', error);
+  //     toast.error('操作失败: ' + (error instanceof Error ? error.message : '未知错误'));
+  //   }
+  // };
+
+const handleRun = async (taskId: string, taskName: string) => {
+  try {
+    const response = await runDAGTask(taskId);
+    if (response.code === 200 && response.result) {
+      const processId = response.result.process_id;
+      setRunSuccessInfo({ taskName, processId });
+      setShowRunSuccessModal(true);
+    } else {
+      // 使用错误弹窗替代 toast
+      const errorMsg = response.message || '未知错误';
+      setRunErrorInfo({ taskName, message: errorMsg });
+      setShowRunErrorModal(true);
     }
-  };
+  } catch (error) {
+    console.error('运行任务失败:', error);
+    const errorMsg = error instanceof Error ? error.message : '未知错误';
+    setRunErrorInfo({ taskName, message: errorMsg });
+    setShowRunErrorModal(true);
+  }
+};
 
   // 请求后端数据
   const loadData = async (page: number, keyword?: string) => {
@@ -122,7 +146,8 @@ export function TaskManagePage() {
     if (!deleteTarget) return;
     setDeleting(true);
     try {
-      const res = await deleteTask(deleteTarget.dag_task_id);
+      const id = deleteTarget.dag_task_id;
+      const res = await deleteTask(id);
       if (res.code === 200) {
         setShowDeleteModal(false);
         setDeleteTarget(null);
@@ -250,9 +275,9 @@ export function TaskManagePage() {
                   <td className="creator-cell">{task.create_user_id || 'System'}</td>
                   <td className="time-cell">{task.create_time}</td>
                   <td className="action-cell">
-                    <button className="icon-btn" title="查看" onClick={() => window.location.href = '/run-details'}>
+                    {/* <button className="icon-btn" title="查看" onClick={() => window.location.href = '/run-details'}>
                       <Icon icon="fa-solid:eye" width="14" />
-                    </button>
+                    </button> */}
                     <button className="icon-btn" title="编辑" onClick={() => navigate(`/task-draw?taskId=${task.dag_task_id}&taskName=${encodeURIComponent(task.dag_task_name)}&description=${encodeURIComponent(task.description || '')}&isEdit=true`)}>
                       <Icon icon="fa-solid:edit" width="14" />
                     </button>
@@ -469,6 +494,87 @@ export function TaskManagePage() {
               >
                 {updating && <span className="btn-spinner"></span>}
                 {updating ? '保存中...' : '保存'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* 运行成功提示弹窗 */}
+      {showRunSuccessModal && runSuccessInfo && (
+        <div 
+          className="modal-overlay" 
+          onClick={() => setShowRunSuccessModal(false)}
+        >
+          <div 
+            className="task-modal-content" 
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="modal-header">
+              <h3>任务提交成功</h3>
+              <button 
+                className="modal-close" 
+                onClick={() => setShowRunSuccessModal(false)}
+              >
+                <Icon icon="fa-solid:times" width="16" />
+              </button>
+            </div>
+            <div className="modal-body">
+              <p>
+                任务「{runSuccessInfo.taskName}」已提交运行，请前往【运行历史】查看执行状态。
+              </p>
+              <p>
+                <strong>执行实例ID：</strong>
+                <code style={{ backgroundColor: '#f0f0f0', padding: '2px 6px', borderRadius: '4px' }}>
+                  {runSuccessInfo.processId}
+                </code>
+              </p>
+            </div>
+            <div className="modal-footer">
+              <button 
+                className="btn-confirm" 
+                onClick={() => setShowRunSuccessModal(false)}
+              >
+                确定
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* 运行失败提示弹窗 */}
+      {showRunErrorModal && runErrorInfo && (
+        <div 
+          className="modal-overlay" 
+          onClick={() => setShowRunErrorModal(false)}
+        >
+          <div 
+            className="task-modal-content" 
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="modal-header">
+              <h3 style={{ color: '#ef4444' }}>任务运行失败</h3>
+              <button 
+                className="modal-close" 
+                onClick={() => setShowRunErrorModal(false)}
+              >
+                <Icon icon="fa-solid:times" width="16" />
+              </button>
+            </div>
+            <div className="modal-body">
+              <p>
+                任务「{runErrorInfo.taskName}」提交失败：
+              </p>
+              <p style={{ color: '#ef4444', marginTop: '8px' }}>
+                <strong>错误信息：</strong>
+                {runErrorInfo.message}
+              </p>
+            </div>
+            <div className="modal-footer">
+              <button 
+                className="btn-confirm" 
+                style={{ backgroundColor: '#ef4444' }}
+                onClick={() => setShowRunErrorModal(false)}
+              >
+                确定
               </button>
             </div>
           </div>
