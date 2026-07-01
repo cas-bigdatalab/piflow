@@ -242,10 +242,13 @@ export default function PipelinePreview({ data, threadId, onOpenCanvas, messageI
   // 失败提示弹框
   const [showRunErrorModal, setShowRunErrorModal] = useState(false);
   const [runErrorInfo, setRunErrorInfo] = useState<{ taskName: string; message: string } | null>(null);
+  const [isRunning, setIsRunning] = useState(false);
   // 仅用于 UI 显示的边
   const edges = useMemo(() => generateEdges(nodes), [nodes]);
 
   const handleRun = async () => {
+    if (isRunning) return; // 防止重复点击
+    setIsRunning(true); // 🔒 开始时禁用按钮
     try {
       let drawData: any;
       
@@ -772,6 +775,7 @@ export default function PipelinePreview({ data, threadId, onOpenCanvas, messageI
       toast.error('操作失败: ' + (error instanceof Error ? error.message : '未知错误'));
       return;
     } finally {
+      setIsRunning(false); // 🔓 无论成功失败，都恢复按钮
     }
   };
 
@@ -1051,15 +1055,24 @@ export default function PipelinePreview({ data, threadId, onOpenCanvas, messageI
       <div className="flex gap-2 pipeline-buttons" style={{ animationDelay: `1.2s` }}>
         <button
           onClick={handleRun}
-          disabled={disabled}
+          disabled={disabled || isRunning}
           className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
             disabled
               ? 'bg-slate-300 text-slate-500 cursor-not-allowed'
               : 'bg-slate-900 text-white hover:bg-slate-800'
           }`}
         >
-          <Icon icon="ri:play-fill" width={16} />
-          一键运行
+          {isRunning ? (
+            <>
+              <Icon icon="ri:loader-2-fill" className="animate-spin" width={16} />
+              运行中...
+            </>
+          ) : (
+            <>
+              <Icon icon="ri:play-fill" width={16} />
+              一键运行
+            </>
+          )}
         </button>
         <button
           onClick={handleEdit}
