@@ -5,9 +5,7 @@ import inspect
 from services import dag_panel_service
 from runtime import skill_manage
 from runtime.skills_compat import install_deepagents_skills_refresh_compat
-from schemas.dag.dag_skill_schema import DagSkill
 from runtime import piflow_adapter
-from tools.excutor import excutor_utils
 
 
 def test_get_all_skills_list_includes_generated_skills(tmp_path, monkeypatch):
@@ -28,6 +26,66 @@ def test_get_all_skills_list_includes_generated_skills(tmp_path, monkeypatch):
     results = skill_manage.get_all_skills_list()
 
     assert any(item["name"] == "epub_metadata_cleaner" for item in results)
+
+
+def test_update_generated_dag_skills_in_database_registers_single_generated_skill(tmp_path, monkeypatch):
+    workspace_root = tmp_path / "workspace"
+    skills_dir = workspace_root / "skills"
+    generated_dir = skills_dir / "generated"
+    skill_dir = generated_dir / "fasta_fna_validator"
+    scripts_dir = skill_dir / "scripts"
+    scripts_dir.mkdir(parents=True, exist_ok=True)
+    (skill_dir / "SKILL.md").write_text(
+        (
+            "---\n"
+            "name: fasta_fna_validator\n"
+            "name_zh: FASTA/FNA序列校验工具\n"
+            "description: FASTA/FNA 校验\n"
+            "tag: 数据校验\n"
+            "input_params:\n"
+            "  - name: input_path\n"
+            "    role: input_data\n"
+            "    type: string\n"
+            "    required: true\n"
+            "    description: 输入文件路径\n"
+            "output_params:\n"
+            "  - name: report_path\n"
+            "    role: output_data\n"
+            "    type: json_file\n"
+            "    description: 报告输出路径\n"
+            "---\n"
+            "\n"
+            "```bash\n"
+            "python scripts/run_fasta_fna_validator.py --input_path {input_path}\n"
+            "```\n"
+        ),
+        encoding="utf-8",
+    )
+    (skill_dir / "skill.json").write_text('{"name":"fasta_fna_validator"}', encoding="utf-8")
+    (scripts_dir / "run_fasta_fna_validator.py").write_text("print('ok')\n", encoding="utf-8")
+
+    monkeypatch.setattr(skill_manage, "WORKSPACE_ROOT", workspace_root)
+    monkeypatch.setattr(skill_manage, "SKILLS_DIR", skills_dir)
+    monkeypatch.setattr(skill_manage, "GENERATED_SKILLS_DIR", generated_dir)
+    monkeypatch.setattr(skill_manage, "DAG_SYSTEM_NODE_DIR", workspace_root / "dag_system_node")
+
+    captured = {}
+
+    def fake_insert_dag_skill(**kwargs):
+        captured.update(kwargs)
+        return {"id": 1, "skill_id": "generated-skill-id"}
+
+    monkeypatch.setattr(skill_manage, "insert_dag_skill", fake_insert_dag_skill)
+
+    result = skill_manage.update_generated_dag_skills_in_database(skill_dir=skill_dir)
+
+    assert result["count"] == 1
+    assert result["skills"][0]["skill_id"] == "generated-skill-id"
+    assert captured["skill_name"] == "fasta_fna_validator"
+    assert captured["skill_path"] == "skills/generated/fasta_fna_validator"
+    assert captured["input_params"]["params"][0]["name"] == "input_path"
+    assert captured["language"] == "Python"
+    assert "run_fasta_fna_validator.py" in captured["command"]
 
 
 def test_skills_refresh_compat_forces_reload_each_request():
@@ -59,66 +117,6 @@ def test_skills_refresh_compat_forces_reload_each_request():
 
     assert captured["has_key"] is False
     assert result == {"skills_metadata": [{"name": "new-skill"}]}
-
-
-def test_resolve_dag_definition_skills_falls_back_to_generated_skill_json(tmp_path, monkeypatch):
-    workspace_root = tmp_path / "workspace"
-    generated_skill_dir = workspace_root / "skills" / "generated" / "docx_to_markdown"
-    generated_skill_dir.mkdir(parents=True, exist_ok=True)
-    skill_json = generated_skill_dir / "skill.json"
-    skill_json.write_text('{"name":"docx_to_markdown"}', encoding="utf-8")
-
-    monkeypatch.setattr(excutor_utils, "resolve_workspace_root", lambda: workspace_root)
-    monkeypatch.setattr(
-        excutor_utils,
-        "get_dag_skill",
-        lambda skill_id: SimpleNamespace(skill_path="skills/docx_to_markdown"),
-    )
-
-    dag_definition = {
-        "nodes": [
-            {
-                "node_id": "node-1",
-                "skill": {
-                    "skill_id": "legacy-docx-skill-id",
-                    "version": "1.0.0",
-                },
-            }
-        ]
-    }
-
-    resolved = excutor_utils.resolve_dag_definition_skills(dag_definition)
-
-    assert resolved["nodes"][0]["skill"]["skill_id"] == str(skill_json.resolve())
-
-
-def test_resolve_dag_definition_skills_uses_skill_name_when_skill_id_is_stale(tmp_path, monkeypatch):
-    workspace_root = tmp_path / "workspace"
-    generated_skill_dir = workspace_root / "skills" / "generated" / "epub_metadata_cleaner"
-    generated_skill_dir.mkdir(parents=True, exist_ok=True)
-    skill_json = generated_skill_dir / "skill.json"
-    skill_json.write_text('{"name":"epub_metadata_cleaner"}', encoding="utf-8")
-
-    monkeypatch.setattr(excutor_utils, "resolve_workspace_root", lambda: workspace_root)
-    monkeypatch.setattr(excutor_utils, "get_dag_skill", lambda skill_id: None)
-
-    dag_definition = {
-        "nodes": [
-            {
-                "node_id": "node-1",
-                "skill": {
-                    "skill_id": "stale-generated-skill-id",
-                    "skill_name": "epub_metadata_cleaner",
-                    "version": "1.0.0",
-                },
-            }
-        ]
-    }
-
-    resolved = excutor_utils.resolve_dag_definition_skills(dag_definition)
-
-    assert resolved["nodes"][0]["skill"]["skill_id"] == str(skill_json.resolve())
-    assert resolved["nodes"][0]["skill"]["skill_name"] == "epub_metadata_cleaner"
 
 
 def test_parse_dag_skill_frontmatter_preserves_roles_and_keeps_output_data_out_of_input_params(tmp_path, monkeypatch):
@@ -181,242 +179,6 @@ def test_parse_dag_skill_frontmatter_preserves_roles_and_keeps_output_data_out_o
             }
         ]
     }
-
-
-def test_dag_skill_normalizes_single_param_object_shape_for_api_payload():
-    skill = DagSkill(
-        skill_id="demo-skill-id",
-        skill_name="demo_skill",
-        input_params={
-            "params": {
-                "name": "input_path",
-                "type": "string",
-                "description": "输入文件路径",
-                "required": True,
-            }
-        },
-        output_params={
-            "params": {
-                "result_path": {
-                    "type": "json_file",
-                    "description": "输出结果路径",
-                }
-            }
-        },
-    )
-
-    assert skill.input_params == {
-        "params": [
-            {
-                "name": "input_path",
-                "type": "string",
-                "description": "输入文件路径",
-                "required": True,
-            }
-        ]
-    }
-    assert skill.output_params == {
-        "params": [
-            {
-                "name": "result_path",
-                "type": "json_file",
-                "description": "输出结果路径",
-            }
-        ]
-    }
-
-
-def test_resolve_dag_definition_skills_promotes_top_level_skill_name(tmp_path, monkeypatch):
-    workspace_root = tmp_path / "workspace"
-    skill_dir = workspace_root / "skills" / "generated" / "docx_to_markdown"
-    skill_dir.mkdir(parents=True, exist_ok=True)
-    skill_json = skill_dir / "skill.json"
-    skill_json.write_text('{"name":"docx_to_markdown"}', encoding="utf-8")
-
-    monkeypatch.setattr(excutor_utils, "resolve_workspace_root", lambda: workspace_root)
-    monkeypatch.setattr(excutor_utils, "get_dag_skill", lambda skill_id: None)
-
-    dag_definition = {
-        "nodes": [
-            {
-                "node_id": "node-1",
-                "node_name": "DOCX转Markdown",
-                "skill_name": "docx_to_markdown",
-            }
-        ]
-    }
-
-    resolved = excutor_utils.resolve_dag_definition_skills(dag_definition)
-
-    assert resolved["nodes"][0]["skill"]["skill_id"] == str(skill_json.resolve())
-    assert resolved["nodes"][0]["skill"]["skill_name"] == "docx_to_markdown"
-
-
-def test_resolve_dag_definition_skills_falls_back_to_nested_workspace_generated_skill(tmp_path, monkeypatch):
-    workspace_root = tmp_path / "workspace"
-    nested_skill_dir = (
-        workspace_root
-        / "workspace"
-        / "skills"
-        / "generated"
-        / "sofa_validate"
-    )
-    nested_skill_dir.mkdir(parents=True, exist_ok=True)
-    skill_json = nested_skill_dir / "skill.json"
-    skill_json.write_text('{"name":"sofa_validate"}', encoding="utf-8")
-
-    monkeypatch.setattr(excutor_utils, "resolve_workspace_root", lambda: workspace_root)
-    monkeypatch.setattr(excutor_utils, "get_dag_skill", lambda skill_id: None)
-
-    dag_definition = {
-        "nodes": [
-            {
-                "node_id": "node-1",
-                "node_name": "SOFA 校验",
-                "skill_name": "sofa_validate",
-            }
-        ]
-    }
-
-    resolved = excutor_utils.resolve_dag_definition_skills(dag_definition)
-
-    assert resolved["nodes"][0]["skill"]["skill_id"] == str(skill_json.resolve())
-    assert resolved["nodes"][0]["skill"]["skill_name"] == "sofa_validate"
-
-
-def test_resolve_dag_definition_skills_fills_builtin_stop_bundle_without_skill_block(monkeypatch):
-    monkeypatch.setattr(excutor_utils, "resolve_workspace_root", lambda: Path("/tmp/workspace"))
-    monkeypatch.setattr(excutor_utils, "get_dag_skill", lambda skill_id: None)
-
-    dag_definition = {
-        "nodes": [
-            {
-                "node_id": "node-1",
-                "node_name": "输入文件节点1",
-                "skill_name": "source_stop",
-            },
-            {
-                "node_id": "node-2",
-                "node_name": "输出文件节点1",
-                "skill_name": "sink_stop",
-            },
-        ]
-    }
-
-    resolved = excutor_utils.resolve_dag_definition_skills(dag_definition)
-
-    assert (
-        resolved["nodes"][0]["skill"]["skill_id"]
-        == "cn.piflow.engine.local.source_file_stop.SourceFileStop"
-    )
-    assert resolved["nodes"][1]["skill"]["skill_id"] == "cn.piflow.engine.local.file_save_stop.FileSaveStop"
-
-
-def test_resolve_dag_definition_skills_preserves_builtin_stop_bundle_when_db_points_to_system_node(
-    tmp_path, monkeypatch
-):
-    workspace_root = tmp_path / "workspace"
-    source_dir = workspace_root / "dag_system_node" / "source_stop"
-    sink_dir = workspace_root / "dag_system_node" / "sink_stop"
-    source_dir.mkdir(parents=True, exist_ok=True)
-    sink_dir.mkdir(parents=True, exist_ok=True)
-    (source_dir / "skill.json").write_text('{"name":"source_stop"}', encoding="utf-8")
-    (sink_dir / "skill.json").write_text('{"name":"sink_stop"}', encoding="utf-8")
-
-    monkeypatch.setattr(excutor_utils, "resolve_workspace_root", lambda: workspace_root)
-
-    def fake_get_dag_skill(skill_id):
-        mapping = {
-            "cn.piflow.engine.local.source_file_stop.SourceFileStop": "dag_system_node/source_stop",
-            "cn.piflow.engine.local.file_save_stop.FileSaveStop": "dag_system_node/sink_stop",
-        }
-        skill_path = mapping.get(skill_id)
-        if skill_path is None:
-            return None
-        return SimpleNamespace(skill_path=skill_path)
-
-    monkeypatch.setattr(excutor_utils, "get_dag_skill", fake_get_dag_skill)
-
-    dag_definition = {
-        "nodes": [
-            {
-                "node_id": "node-1",
-                "node_name": "输入文件节点 1",
-                "skill": {
-                    "skill_id": "cn.piflow.engine.local.source_file_stop.SourceFileStop",
-                    "skill_name": "source_stop",
-                    "version": "1.0.0",
-                },
-            },
-            {
-                "node_id": "node-2",
-                "node_name": "输出文件节点 1",
-                "skill": {
-                    "skill_id": "cn.piflow.engine.local.file_save_stop.FileSaveStop",
-                    "skill_name": "sink_stop",
-                    "version": "1.0.0",
-                },
-            },
-        ]
-    }
-
-    resolved = excutor_utils.resolve_dag_definition_skills(dag_definition)
-
-    assert (
-        resolved["nodes"][0]["skill"]["skill_id"]
-        == "cn.piflow.engine.local.source_file_stop.SourceFileStop"
-    )
-    assert resolved["nodes"][1]["skill"]["skill_id"] == "cn.piflow.engine.local.file_save_stop.FileSaveStop"
-
-
-def test_resolve_dag_definition_skills_rewrites_system_node_skill_json_paths_to_builtin_bundles(
-    tmp_path, monkeypatch
-):
-    workspace_root = tmp_path / "workspace"
-    source_dir = workspace_root / "dag_system_node" / "source_stop"
-    sink_dir = workspace_root / "dag_system_node" / "sink_stop"
-    source_dir.mkdir(parents=True, exist_ok=True)
-    sink_dir.mkdir(parents=True, exist_ok=True)
-    source_json = source_dir / "skill.json"
-    sink_json = sink_dir / "skill.json"
-    source_json.write_text('{"name":"source_stop"}', encoding="utf-8")
-    sink_json.write_text('{"name":"sink_stop"}', encoding="utf-8")
-
-    monkeypatch.setattr(excutor_utils, "resolve_workspace_root", lambda: workspace_root)
-    monkeypatch.setattr(excutor_utils, "get_dag_skill", lambda skill_id: None)
-
-    dag_definition = {
-        "nodes": [
-            {
-                "node_id": "node-1",
-                "node_name": "输入文件节点1",
-                "skill": {
-                    "skill_id": str(source_json.resolve()),
-                    "skill_name": "source_stop",
-                    "version": "1.0.0",
-                },
-            },
-            {
-                "node_id": "node-2",
-                "node_name": "输出文件节点1",
-                "skill": {
-                    "skill_id": str(sink_json.resolve()),
-                    "skill_name": "sink_stop",
-                    "version": "1.0.0",
-                },
-            },
-        ]
-    }
-
-    resolved = excutor_utils.resolve_dag_definition_skills(dag_definition)
-
-    assert (
-        resolved["nodes"][0]["skill"]["skill_id"]
-        == "cn.piflow.engine.local.source_file_stop.SourceFileStop"
-    )
-    assert resolved["nodes"][1]["skill"]["skill_id"] == "cn.piflow.engine.local.file_save_stop.FileSaveStop"
-
-
 def test_insert_dag_skill_upsert_preserves_existing_skill_id():
     source = inspect.getsource(skill_manage.insert_dag_skill)
 

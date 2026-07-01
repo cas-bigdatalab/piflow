@@ -37,6 +37,12 @@ tag: <DAG 面板技能类型>
 - `category` 表示技能中心或业务域分类。
 - `tag` 表示 DAG 面板中的技能类型，当前入库逻辑会读取为 `skill_type`。
 - 参数 `role` 使用 `input_data`、`output_data` 或 `data`。
+- 优先根据参数的 `type`、`name` 和 `description` 判断 `role`。
+- 不要仅根据参数位于 `input_params` 或 `output_params` 的位置机械填写。
+- `input_path`、`source_dir` 这类输入数据文件或目录通常使用 `input_data`。
+- `output_path`、`report_path` 这类输出落盘路径通常使用 `output_data`，即使它们出现在 `input_params` 中作为脚本入参传入也一样。
+- `output_format`、`threshold`、`max_rows` 这类配置项通常使用 `data`，不要因为名字中带 `output` 就误判。
+- 若某个输出参数只是标量结果、统计值、状态位或普通文本摘要，而不是文件/目录/报告工件，通常使用 `data`。
 
 ## SKILL.md Body
 

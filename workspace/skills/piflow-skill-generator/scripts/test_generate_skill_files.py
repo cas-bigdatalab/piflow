@@ -8,7 +8,9 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from generate_piflow_skill import (
+    generate,
     generate_skill_files,
+    register_generated_dag_skill,
     resolve_output_root,
     validate_runtime_command_contract,
     workspace_root,
@@ -173,6 +175,31 @@ class GenerateSkillFilesTests(unittest.TestCase):
 
         self.assertIn("## 安装依赖", text)
         self.assertIn("pip install mido", text)
+
+    def test_register_generated_dag_skill_returns_registered_skill_id(self):
+        skill_dir = self.temp_dir / "skills" / "generated" / "fasta_fna_validator"
+        skill_dir.mkdir(parents=True, exist_ok=True)
+
+        import types
+
+        fake_module = types.SimpleNamespace(
+            update_generated_dag_skills_in_database=lambda *, skill_dir: {
+                "count": 1,
+                "skills": [{"id": 1, "skill_id": "generated-skill-id"}],
+            }
+        )
+        original_runtime_module = sys.modules.get("runtime.skill_manage")
+        sys.modules["runtime.skill_manage"] = fake_module
+        try:
+            result = register_generated_dag_skill(skill_dir)
+        finally:
+            if original_runtime_module is None:
+                del sys.modules["runtime.skill_manage"]
+            else:
+                sys.modules["runtime.skill_manage"] = original_runtime_module
+
+        self.assertEqual(result["dag_skill_registration_count"], 1)
+        self.assertEqual(result["dag_skill_id"], "generated-skill-id")
 
 
 if __name__ == "__main__":

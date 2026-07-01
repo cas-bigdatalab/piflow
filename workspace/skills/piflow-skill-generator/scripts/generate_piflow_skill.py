@@ -16,6 +16,65 @@ LEGACY_OUTPUT_ROOTS = {
     "flow-deepagents/workspace/skills/generated",
 }
 PARAM_ROLES = {"input_data", "output_data", "data"}
+PATH_LIKE_PARAM_TYPES = {
+    "file",
+    "directory",
+    "csv_file",
+    "json_file",
+    "jsonl_file",
+    "xlsx_file",
+    "xls_file",
+    "pdf_file",
+    "text_file",
+    "markdown_file",
+    "binary_file",
+    "image_file",
+    "audio_file",
+    "video_file",
+    "xml_file",
+    "yaml_file",
+    "html_file",
+    "parquet_file",
+    "directory_path",
+    "file_path",
+}
+PATH_LIKE_NAME_RE = re.compile(
+    r"(^|_)(path|file|dir|directory|folder|report|summary|manifest|artifact|archive|export|result)($|_)",
+    re.IGNORECASE,
+)
+OUTPUT_HINT_RE = re.compile(
+    r"(^|_)(output|out|result|report|save|dest|destination|target|export|artifact|summary|manifest)($|_)",
+    re.IGNORECASE,
+)
+INPUT_HINT_RE = re.compile(
+    r"(^|_)(input|in|source|src|raw|from)($|_)",
+    re.IGNORECASE,
+)
+CONFIG_HINT_RE = re.compile(
+    r"(^|_)(format|mode|type|config|option|flag|threshold|max|min|limit|count|size|pattern|strategy)($|_)",
+    re.IGNORECASE,
+)
+PATH_LIKE_DESCRIPTION_HINTS = (
+    "文件路径",
+    "输出路径",
+    "输入路径",
+    "目录路径",
+    "保存路径",
+    "写入路径",
+    "输入文件",
+    "输出文件",
+    "输入目录",
+    "输出目录",
+    "报告路径",
+    "清单路径",
+    "result path",
+    "output path",
+    "input path",
+    "file path",
+    "directory path",
+    "report path",
+    "manifest path",
+)
 FRONTMATTER_KEYS = {
     "name",
     "name_zh",
@@ -191,9 +250,9 @@ def normalize_restored_params(items, *, is_input: bool) -> list[dict]:
         param = {
             "name": name,
             "type": non_empty_text(item.get("type")) or ("string" if is_input else "json_file"),
-            "role": non_empty_text(item.get("role")) or ("input_data" if is_input else "output_data"),
             "description": description,
         }
+        param["role"] = non_empty_text(item.get("role")) or infer_role(param, is_input)
         if is_input:
             param["required"] = bool(item.get("required", True))
             if "default" in item:
@@ -390,16 +449,56 @@ def normalize_param(param: dict, *, is_input: bool) -> dict:
     return item
 
 
+def is_path_like_param(param: dict) -> bool:
+    param_type = str(param.get("type", "")).strip().lower()
+    name = str(param.get("name", "")).strip().lower()
+    description = str(param.get("description", "")).strip().lower()
+    if param_type in PATH_LIKE_PARAM_TYPES:
+        return True
+    if PATH_LIKE_NAME_RE.search(name):
+        return True
+    return any(token in description for token in PATH_LIKE_DESCRIPTION_HINTS)
+
+
+def looks_like_config_param(param: dict) -> bool:
+    name = str(param.get("name", "")).strip().lower()
+    description = str(param.get("description", "")).strip().lower()
+    if CONFIG_HINT_RE.search(name):
+        return True
+    config_description_hints = (
+        "输出格式",
+        "输入格式",
+        "格式类型",
+        "阈值",
+        "上限",
+        "下限",
+        "数量限制",
+        "模式",
+        "配置",
+        "选项",
+        "format",
+        "threshold",
+        "limit",
+        "mode",
+        "config",
+        "option",
+        "flag",
+    )
+    return any(token in description for token in config_description_hints)
+
+
 def infer_role(param: dict, is_input: bool) -> str:
-    if not is_input:
-        return "output_data"
     name = str(param.get("name", "")).lower()
-    param_type = str(param.get("type", "")).lower()
-    if name.startswith("output") or "output" in name:
-        return "output_data"
-    if name.startswith("input") or "input" in name:
-        return "input_data"
-    if param_type in {"file", "directory", "csv_file", "json_file", "xlsx_file", "pdf_file", "text_file"}:
+    is_path_like = is_path_like_param(param)
+    if not is_input:
+        return "output_data" if is_path_like else "data"
+    if looks_like_config_param(param) and not is_path_like:
+        return "data"
+    if is_path_like:
+        if OUTPUT_HINT_RE.search(name):
+            return "output_data"
+        if INPUT_HINT_RE.search(name):
+            return "input_data"
         return "input_data"
     return "data"
 
@@ -1014,11 +1113,28 @@ def register_skill_artifacts(spec: dict, skill_dir: Path) -> dict:
     }
 
 
+def register_generated_dag_skill(skill_dir: Path) -> dict:
+    project_root = Path(__file__).resolve().parents[4]
+    if str(project_root) not in sys.path:
+        sys.path.insert(0, str(project_root))
+
+    from runtime.skill_manage import update_generated_dag_skills_in_database
+
+    result = update_generated_dag_skills_in_database(skill_dir=skill_dir)
+    skills = result.get("skills", []) if isinstance(result, dict) else []
+    first_skill = skills[0] if skills else {}
+    return {
+        "dag_skill_registration_count": result.get("count", 0) if isinstance(result, dict) else 0,
+        "dag_skill_id": first_skill.get("skill_id"),
+    }
+
+
 def generate(spec: dict, output_root: Path, overwrite: bool) -> dict:
     spec = normalize_spec(spec)
     file_result = generate_skill_files(spec, output_root, overwrite)
     skill_dir = output_root / spec["name"]
     registration_result = register_skill_artifacts(spec, skill_dir)
+    dag_skill_result = register_generated_dag_skill(skill_dir)
     followup = build_rewrite_followup_suggestion(
         skill_name=spec["name"],
         skill_dir=file_result["skill_dir"],
@@ -1027,6 +1143,7 @@ def generate(spec: dict, output_root: Path, overwrite: bool) -> dict:
     return {
         **file_result,
         **registration_result,
+        **dag_skill_result,
         "rewrite_followup_suggestion": followup,
     }
 
