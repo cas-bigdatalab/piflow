@@ -17,6 +17,7 @@ function resolveIconUrl(icon?: string) {
     return rawIcon;
   }
   
+  console.log('resolveIconUrl12312_________________________________',icon,apiBase() + rawIcon)
   return apiBase() + rawIcon;
 }
 import { useNavigate } from 'react-router-dom';
@@ -906,6 +907,7 @@ const OperatorLibraryModal: React.FC<OperatorLibraryModalProps> = ({ isOpen, onC
                       style={{ cursor: 'grab' }}
                     >
                       <div className="modal-operator-icon">
+                        
                         <img
                           src={resolveIconUrl(operator.icon_path)}
                           alt={operator.name_zh}
@@ -973,7 +975,9 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
   const [showOperatorModal, setShowOperatorModal] = useState(false);  // 任务ID，保存后获取
   const [taskDescription, setTaskDescription] = useState<string>(descriptionProp || '');  // 任务描述
   const [zoomLevel, setZoomLevel] = useState(1);
-  
+
+
+
   // 文件系统弹窗状态
   const [showFileModal, setShowFileModal] = useState(false);
   const [fileSystemItems, setFileSystemItems] = useState<{ name: string; type: 'directory' | 'file'; path: string; size?: number }[]>([]);
@@ -1184,6 +1188,17 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
                 // 固定输入参数（请根据实际需求调整字段）
                 inputParams={
                   params: [
+                    
+                    {
+                      name: "input",
+                      type: "string",
+                      param_name: "input",
+                      param_type: "string",
+                      value_mode: "manual",
+                      param_value: "",
+                      value_source: "user_input",
+                      required: true
+                    },
                     {
                       name: "instruction",
                       type: "string",
@@ -1231,9 +1246,9 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
                 outputParams = {
                   params: [
                     {
-                      name: "out_path",
+                      name: "output",
                       type: "string",
-                      param_name: "out_path",
+                      param_name: "output",
                       param_type: "String"
                     }
                   ]
@@ -1625,6 +1640,16 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
                 input_params: {
                   params: [
                     {
+                      name: "input",
+                      type: "string",
+                      param_name: "input",
+                      param_type: "String",
+                      value_mode: "manual",
+                      param_value: "",
+                      value_source: "local_file",
+                      required: true
+                    },
+                    {
                       name: "instruction",
                       type: "string",
                       param_name: "instruction",
@@ -1669,9 +1694,9 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
                 output_params: {
                   params: [
                     {
-                      name: "response",
+                      name: "output",
                       type: "string",
-                      param_name: "response",
+                      param_name: "output",
                       param_type: "String"
                     }
                   ]
@@ -1793,6 +1818,7 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
             param_name: "file_path",
             param_type: "String",
             value_mode: "manual",
+            _refType: 'manual', //能弹出用户自己本地文件夹
             param_value: "",
             value_source: "local_file",
             required: true
@@ -1849,6 +1875,16 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
        inputParams = {
         params: [
           {
+            name: "input",
+            type: "string",
+            param_name: "input",
+            param_type: "String",
+            value_mode: "manual",
+            param_value: "",
+            value_source: "local_file",
+            required: true
+          },
+          {
             name: "instruction",
             type: "string",
             param_name: "instruction",
@@ -1895,7 +1931,7 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
           { name: "output", type: "string", param_name: "output", param_type: "String" }
         ]
       };
-      operatorIconPath = operator.icon_path || "/storage/common/llm.png";
+      operatorIconPath = operator.icon_path || "/storage/common/common.png";
     } else {
       // 非特殊算子：走原有逻辑
       try {
@@ -2295,7 +2331,7 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
         }
 
         setIsSaving(false);
-        setSaveMessage('已自动保存');
+        // setSaveMessage('已自动保存');
       } catch (error) {
         console.error('保存失败:', error);
         setIsSaving(false);
@@ -2318,7 +2354,7 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
 
   // 文件系统相关函数
   const loadDirectories = useCallback(async (dirPath?: string) => {
-    const userId = localStorage.getItem('userName') || '';
+    const userId = localStorage.getItem('userId') || '';
     setIsLoadingFiles(true);
     try {
       const res: any = await listStorage(userId, dirPath);
@@ -2526,6 +2562,10 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
           <button className="only-back-btn" onClick={() => navigate(-1)}>
             <span>返回</span>
           </button>
+          {/* 将提示成功信息修改一下位置，避免遮挡 */}
+          {saveMessage && (
+            <div className="save-message fixed top-[90px] right-4 z-50" >{'保存成功！'}</div>
+          )}
         </div>
       </div>
 
@@ -2897,6 +2937,7 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
                                   setShowFileModal(true);
                                 }}
                               />
+                           
                             ) : (
                               <input
                                 className="draw-config-value-input"
@@ -3024,6 +3065,7 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
                         className="file-system-upload-input"
                         disabled={uploadingFile}
                       />
+                      
                     </label>
                   )}
                   {fileSelectParamIndex !== null && (

@@ -893,7 +893,6 @@ const OperatorLibraryModal: React.FC<OperatorLibraryModalProps> = ({ isOpen, onC
                       style={{ cursor: 'grab' }}
                     >
                       <div className="modal-operator-icon">
-                        {resolveIconUrl(operator.icon_path)}
                         <img
                           src={resolveIconUrl(operator.icon_path)}
                           alt={operator.name_zh}
@@ -973,6 +972,8 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
   const [fileSelectParamIndex, setFileSelectParamIndex] = useState<number | null>(null);
   const prevNodesLengthRef = useRef<number>(nodes.length);
 
+
+
   // 键盘Delete键删除选中节点
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -1003,8 +1004,10 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
 
   const loadDirectories = useCallback(async (dir_path?: string) => {
     setIsLoadingFiles(true);
+    // 修改传参
     try {
       const userId = localStorage.getItem('userId') || '';
+      console.log('userId缓存里的数据为11111111111111',userId)
       const res = await listStorage(userId, dir_path);
       setFileSystemItems((res as any).items || []);
       setCurrentDirPath((res as any).dir_path || dir_path || '');
@@ -1523,55 +1526,73 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
               n.skill.skill_type = 'chat';
 
               // 固定输入参数（请根据实际需求调整字段）
-              inputParams = {
-                params: [
-                  {
-                    name: "input_file_path",
-                    type: "string",
-                    param_name: "input_file_path",
-                    param_type: "String",
-                    value_mode: "manual",
-                    param_value: "",
-                    required: true
-                  },
-                  {
-                    name: "prompt_template",
-                    type: "string",
-                    param_name: "prompt_template",
-                    param_type: "String",
-                    value_mode: "manual",
-                    param_value: "",
-                    required: false
-                  },
-                  {
-                    name: "model_name",
-                    type: "string",
-                    param_name: "model_name",
-                    param_type: "String",
-                    value_mode: "manual",
-                    param_value: "gpt-4",
-                    required: false
-                  }
-                  // 可继续添加其他必要参数
-                ]
-              };
+              inputParams={
+                  params: [
+                    
+                    {
+                      name: "input",
+                      type: "string",
+                      param_name: "input",
+                      param_type: "string",
+                      value_mode: "manual",
+                      param_value: "",
+                      value_source: "user_input",
+                      required: true
+                    },
+                    {
+                      name: "instruction",
+                      type: "string",
+                      param_name: "instruction",
+                      param_type: "String",
+                      value_mode: "manual",
+                      param_value: "",
+                      value_source: "user_input",
+                      required: true
+                    },
+                    {
+                      name: "model",
+                      type: "string",
+                      param_name: "model",
+                      param_type: "String",
+                      value_mode: "manual",
+                      param_value: "gpt-4o",
+                      value_source: "user_input",
+                      required: true
+                    },
+                    {
+                      name: "api_key",
+                      type: "string",
+                      param_name: "api_key",
+                      param_type: "string",
+                      value_mode: "manual",
+                      param_value: "",
+                      value_source: "user_input",
+                      required: true
+                    },
+                    {
+                      name: "base_url",
+                      type: "string",
+                      param_name: "base_url",
+                      param_type: "string",
+                      value_mode: "manual",
+                      param_value: "",
+                      value_source: "user_input",
+                      required: true
+                    }
+                  ]
+                },
 
-              // 固定输出参数：只有一个 out_path
-              outputParams = {
-                params: [
-                  {
-                    name: "out_path",
-                    type: "string",
-                    param_name: "out_path",
-                    param_type: "String"
-                  }
-                ]
-              };
-
-              nodeIdToOutputParamsMap[nodeId] = outputParams;
-              nodeNameToZhName[pNode.node_name] = '文件转换';
-              nodeNameToZhName[skillName] = '文件转换';
-              nodeTypeForOperator = 'transform'; // 可选：用于 UI 分类
+                // 固定输出参数：只有一个 out_path
+                outputParams = {
+                  params: [
+                    {
+                      name: "output",
+                      type: "string",
+                      param_name: "output",
+                      param_type: "String"
+                    }
+                  ]
+                };
             }
           } else {
             // 普通算子：先请求接口获取参数模板（含 required 字段）
@@ -2621,13 +2642,13 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
                 input_params: {
                   params: [
                     {
-                      name: "instruction",
+                      name: "input",
                       type: "string",
-                      param_name: "instruction",
+                      param_name: "input",
                       param_type: "String",
                       value_mode: "manual",
                       param_value: "",
-                      value_source: "user_input",
+                      value_source: "local_file",
                       required: true
                     },
                     {
@@ -2659,15 +2680,25 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
                       param_value: "",
                       value_source: "user_input",
                       required: true
+                    },
+                    {
+                      name: "input",
+                      type: "string",
+                      param_name: "input",
+                      param_type: "string",
+                      value_mode: "manual",
+                      param_value: "",
+                      value_source: "user_input",
+                      required: true
                     }
                   ]
                 },
                 output_params: {
                   params: [
                     {
-                      name: "response",
+                      name: "output",
                       type: "string",
-                      param_name: "response",
+                      param_name: "output",
                       param_type: "String"
                     }
                   ]
@@ -3075,7 +3106,17 @@ const handleAddNode = useCallback(
             param_value: "",
             value_source: "user_input",
             required: true
-          }
+          },
+          {
+            name: "input",
+            type: "string",
+            param_name: "input",
+            param_type: "String",
+            value_mode: "manual",
+            param_value: "",
+            value_source: "local_file",
+            required: true
+          },
         ]
       };
       outputParams = {
@@ -3095,6 +3136,7 @@ const handleAddNode = useCallback(
                       param_type: "String",
                       value_mode: "manual",
                       param_value: "",
+                      _refType: 'manual', //能弹出用户自己本地文件夹
                       value_source: "local_file",
                       required: true
                     }
@@ -3467,6 +3509,7 @@ const handleAddNode = useCallback(
         if (res.code === 200) {
           setTaskId(res.result?.dag_task_id || '');
           setSaveMessage('保存成功！');
+          // 修改成功信息，遮挡返回按钮了
           setTimeout(() => setSaveMessage(''), 2000);
         } else {
           setSaveMessage('保存失败：' + (res.message || '未知错误'));
@@ -3658,6 +3701,7 @@ const handleAddNode = useCallback(
       >
         <Background variant={BackgroundVariant.Dots} gap={36} size={1.5} />
       </ReactFlow>
+
 
       <FloatingToolbar
         onOpenOperatorLibrary={() => setIsOperatorLibraryOpen(true)}
@@ -4164,9 +4208,9 @@ const handleAddNode = useCallback(
           </div>
         </div>
       )}
-
+      {/* 将提示成功信息修改一下位置，避免遮挡 */}
       {saveMessage && (
-        <div className="save-message">{saveMessage}</div>
+        <div className="save-message fixed top-[90px] right-4 z-50" >{saveMessage}</div>
       )}
     </div>
   );
