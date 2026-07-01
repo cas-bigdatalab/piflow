@@ -407,6 +407,11 @@ def _process_single_skill_dir(skill_dir: Path, path_prefix: str) -> dict | None:
     skill_type = info["tag"]
     input_params = info["input_params"]
     output_params = info["output_params"]
+    
+    output_names = {p["name"] for p in output_params.get("params", [])}
+    input_params["params"] = [
+            p for p in input_params.get("params", []) if p["name"] not in output_names
+        ]
 
     skill_path = f"{path_prefix}/{skill_dir.name}"
     file_path = _find_skill_script_path(skill_dir)
