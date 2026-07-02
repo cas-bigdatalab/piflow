@@ -185,6 +185,8 @@ export DASHSCOPE_API_KEY=your_key
 docker compose -f docker/docker-compose.yml up -d --build
 ```
 
+`docker/config/database.yaml` 和 `docker/config/llm.yaml` 可在宿主机修改，重启容器后生效。
+
 停止服务：
 
 ```bash

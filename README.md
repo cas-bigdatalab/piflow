@@ -179,6 +179,8 @@ Start services:
 docker compose -f docker/docker-compose.yml up -d --build
 ```
 
+`docker/config/database.yaml` and `docker/config/llm.yaml` can be edited on the host, and changes take effect after restarting the containers.
+
 Stop services:
 
 ```bash
