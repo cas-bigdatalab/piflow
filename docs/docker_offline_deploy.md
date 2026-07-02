@@ -9,7 +9,7 @@
 ```text
 piflow/
 ├── images/
-│   ├── piflow-app.tar
+│   ├── piflow-2.0.0.tar
 │   └── postgres-15.tar
 ├── docker/
 │   ├── docker-compose.yml
@@ -23,7 +23,7 @@ piflow/
 
 说明：
 
-- `piflow-app.tar`：应用镜像离线包
+- `piflow-2.0.0.tar`：应用镜像离线包，对应镜像 `piflow:2.0.0`
 - `postgres-15.tar`：PostgreSQL 官方镜像离线包
 - `docker/docker-compose.yml`：Docker 启动配置
 - `docker/config/database.yaml`：数据库配置，可在宿主机修改
@@ -47,7 +47,7 @@ mkdir -p images docker/config workspace storage logs
 
 将以下文件复制到目标机器对应目录：
 
-- `images/piflow-app.tar`
+- `images/piflow-2.0.0.tar`
 - `images/postgres-15.tar`
 - `docker/docker-compose.yml`
 - `docker/config/database.yaml`
@@ -60,14 +60,14 @@ mkdir -p images docker/config workspace storage logs
 在 `piflow` 目录执行：
 
 ```bash
-docker load -i images/piflow-app.tar
+docker load -i images/piflow-2.0.0.tar
 docker load -i images/postgres-15.tar
 ```
 
 导入完成后可检查：
 
 ```bash
-docker images | grep -E 'piflow-app|postgres'
+docker images | grep -E 'piflow|postgres'
 ```
 
 ### 2.4 修改配置文件
@@ -123,7 +123,7 @@ docker compose -f docker/docker-compose.yml up -d --no-build
 说明：
 
 - `--no-build`：强制使用已导入的本地镜像
-- `docker-compose.yml` 中已经声明了 `piflow-app` 和 `postgres:15`
+- `docker-compose.yml` 中已经声明了 `piflow:2.0.0` 和 `postgres:15`
 
 ## 3. 验证部署
 
@@ -182,7 +182,7 @@ docker compose -f docker/docker-compose.yml up -d --no-build
 
 ### 6.1 为什么离线部署不建议现场构建
 
-因为 `piflow-app` 镜像依赖较多，现场构建时可能遇到：
+因为 `piflow:2.0.0` 镜像依赖较多，现场构建时可能遇到：
 
 - 拉取基础镜像慢
 - Python 依赖下载慢

@@ -16,7 +16,7 @@ services:
       - piflow_postgres_data:/var/lib/postgresql/data
 
   app:
-    image: piflow-app
+    image: piflow:2.0.0
     build:
       context: ..
       dockerfile: docker/Dockerfile.app
