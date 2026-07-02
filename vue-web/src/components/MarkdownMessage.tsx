@@ -10,11 +10,20 @@ type MarkdownMessageProps = {
 
 const markdownComponents: Components = {
   a({ href, children, ...props }) {
+    let resolvedHref = href;
+    if (
+      href &&
+      typeof window !== "undefined" &&
+      href.startsWith("/workspace/download")
+    ) {
+      resolvedHref = `${window.location.origin}${href}`;
+    }
+
     return (
       <a
         {...props}
         className="markdown-link"
-        href={href}
+        href={resolvedHref}
         rel="noreferrer"
         target="_blank"
       >
