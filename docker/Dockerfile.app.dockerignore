@@ -1,0 +1,17 @@
+.git
+.venv311
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache
+node_modules
+vue-web/node_modules
+vue-web/dist
+release
+logs
+workspace/logs
+workspace/process_*
+workspace/temp/t_*
+storage
+.piflow

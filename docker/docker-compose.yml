@@ -1,0 +1,43 @@
+services:
+  postgres:
+    image: postgres:15
+    container_name: flowagent-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: flow_agent
+      POSTGRES_USER: flowagent
+      POSTGRES_PASSWORD: flowagent123
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U flowagent -d flow_agent"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  app:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.app
+    container_name: flowagent-app
+    command: ["/start-app.sh"]
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DASHSCOPE_API_KEY: ${DASHSCOPE_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      CSTCLOUD_API_KEY: ${CSTCLOUD_API_KEY:-}
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      GLM_API_KEY: ${GLM_API_KEY:-}
+    ports:
+      - "5174:5174"
+    volumes:
+      - ../workspace:/app/workspace
+      - ../storage:/app/storage
+      - ../logs:/app/logs
+      - ./config/database.yaml:/app/config/database.yaml:ro
+
+volumes:
+  postgres_data:

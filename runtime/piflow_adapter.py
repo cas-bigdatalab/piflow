@@ -39,7 +39,7 @@ def stop_registered_process(process_id: str) -> bool:
 def init_piflow_run_tracking_db() -> None:
     """Initialize PiFlow's canonical run tracking tables."""
     from database.postgres import get_connection
-    from cn.piflow.runtime.store.postgres.schema import initialize_postgres_schema
+    from piflow_engine.cn.piflow.runtime.store.postgres.schema import initialize_postgres_schema
 
     conn = get_connection()
     try:
