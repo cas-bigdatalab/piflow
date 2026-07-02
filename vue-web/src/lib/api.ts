@@ -61,6 +61,17 @@ export type SkillGroup = {
 export function apiBase() {
   return import.meta.env.VITE_API_BASE;
 }
+
+function absoluteApiBase() {
+  const configured = (apiBase() || "").trim().replace(/\/+$/, "");
+  if (configured) {
+    return configured;
+  }
+  if (typeof window !== "undefined" && window.location?.origin) {
+    return window.location.origin.replace(/\/+$/, "");
+  }
+  return "";
+}
 // 登录
 export async function getLogin(params:any) {
   let loginForm = new FormData();
@@ -206,7 +217,7 @@ export function downloadWorkspaceUrl(path: string) {
     path: encodeURIComponent(path),
     token 
   });
-  return `${apiBase()}/workspace/download?${sp.toString()}`;
+  return `${absoluteApiBase()}/workspace/download?${sp.toString()}`;
 }
 export function downloadWorkspaceUrl2(path: string) {
   // const token = localStorage.getItem('token') || '';
@@ -214,7 +225,7 @@ export function downloadWorkspaceUrl2(path: string) {
   //   path: encodeURIComponent(path),
   //   token 
   // });
-  return `${apiBase()}/workspace/download?path=${path}&user_id=${localStorage.getItem('userId')}`;
+  return `${absoluteApiBase()}/workspace/download?path=${path}&user_id=${localStorage.getItem('userId')}`;
 }
 export function downloadWorkspaceUrl3(path: string) {
   // const token = localStorage.getItem('token') || '';
@@ -222,7 +233,7 @@ export function downloadWorkspaceUrl3(path: string) {
   //   path: encodeURIComponent(path),
   //   token 
   // });
-  return `${apiBase()}/workspace/download/?path=${path}&user_id=${localStorage.getItem('userId')}`;
+  return `${absoluteApiBase()}/workspace/download/?path=${path}&user_id=${localStorage.getItem('userId')}`;
 }
 export async function listSkills(page = 1, page_size = 20, keyword = "", skill_type = "") {
   const sp = new URLSearchParams();
