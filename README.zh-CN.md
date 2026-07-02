@@ -159,6 +159,50 @@ api_key: 'your mineru api key'
 
 如需更完整的文档转换能力，建议安装 `pandoc`。
 
+## Docker 部署
+
+请先确保本机已安装：
+
+- Docker
+- Docker Compose Plugin
+
+检查命令：
+
+```bash
+docker --version
+docker compose version
+```
+
+启动前先配置 API Key：
+
+```bash
+export DASHSCOPE_API_KEY=your_key
+```
+
+启动服务：
+
+```bash
+docker compose -f docker/docker-compose.yml up -d --build
+```
+
+停止服务：
+
+```bash
+docker compose -f docker/docker-compose.yml down
+```
+
+查看日志：
+
+```bash
+docker logs -f piflow-app
+```
+
+快速验证：
+
+```bash
+curl http://127.0.0.1:5174/
+```
+
 ## 启动方式
 
 ### 方式一：启动后端 API

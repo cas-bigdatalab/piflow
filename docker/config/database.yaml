@@ -1,5 +1,5 @@
 host: "postgres"
 port: 5432
-user: "flowagent"
-password: "flowagent123"
-name: "flow_agent"
+user: "piflow"
+password: "piflow123"
+name: "piflow"

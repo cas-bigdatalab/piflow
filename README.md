@@ -153,6 +153,50 @@ api_key: 'your mineru api key'
 
 Install `pandoc` if you need more complete document conversion support.
 
+## Docker Deployment
+
+Make sure these are installed first:
+
+- Docker
+- Docker Compose Plugin
+
+Check:
+
+```bash
+docker --version
+docker compose version
+```
+
+Set the API key before startup:
+
+```bash
+export DASHSCOPE_API_KEY=your_key
+```
+
+Start services:
+
+```bash
+docker compose -f docker/docker-compose.yml up -d --build
+```
+
+Stop services:
+
+```bash
+docker compose -f docker/docker-compose.yml down
+```
+
+View logs:
+
+```bash
+docker logs -f piflow-app
+```
+
+Quick check:
+
+```bash
+curl http://127.0.0.1:5174/
+```
+
 ## Run the Project
 
 ### Start the backend API
