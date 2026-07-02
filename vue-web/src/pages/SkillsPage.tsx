@@ -31,7 +31,12 @@ function resolveIconUrl(icon?: string) {
     return rawIcon;
   }
 
-  return new URL(normalizedPath.replace(/^\/+/, ""), `${apiBase().replace(/\/+$/, "")}/`).toString();
+  const base = (apiBase() || "").trim().replace(/\/+$/, "");
+  if (!base) {
+    return normalizedPath;
+  }
+
+  return new URL(normalizedPath.replace(/^\/+/, ""), `${base}/`).toString();
 }
 
 type SkillGroup = {
