@@ -972,49 +972,6 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
   const [fileSelectParamIndex, setFileSelectParamIndex] = useState<number | null>(null);
   const prevNodesLengthRef = useRef<number>(nodes.length);
 
-  // ====== 新增：本地文件选择器相关 ======
-const fileInputRef = useRef<HTMLInputElement>(null);
-
-const handleLocalFileSelect = (index: number) => {
-  setFileSelectParamIndex(index);
-  fileInputRef.current?.click();
-};
-
-const onLocalFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-  const file = e.target.files?.[0];
-  if (!file || !selectedNodeId || fileSelectParamIndex === null) {
-    e.target.value = '';
-    return;
-  }
-
-  const fileName = file.name;
-
-  setNodes((nds) =>
-    nds.map((n) => {
-      if (n.id === selectedNodeId) {
-        const newParams = [...(n.data.input_params?.params || [])];
-        if (newParams[fileSelectParamIndex]) {
-          newParams[fileSelectParamIndex] = {
-            ...newParams[fileSelectParamIndex],
-            _value: fileName,
-            param_value: fileName,
-          };
-        }
-        return {
-          ...n,
-          data: {
-            ...n.data,
-            input_params: { ...n.data.input_params, params: newParams },
-          },
-        };
-      }
-      return n;
-    })
-  );
-
-  // 重置 input，确保下次能再次选择相同文件
-  e.target.value = '';
-};
 
 
   // 键盘Delete键删除选中节点
@@ -1047,8 +1004,10 @@ const onLocalFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
 
   const loadDirectories = useCallback(async (dir_path?: string) => {
     setIsLoadingFiles(true);
+    // 修改传参
     try {
       const userId = localStorage.getItem('userId') || '';
+      console.log('userId缓存里的数据为11111111111111',userId)
       const res = await listStorage(userId, dir_path);
       setFileSystemItems((res as any).items || []);
       setCurrentDirPath((res as any).dir_path || dir_path || '');
@@ -1567,55 +1526,73 @@ const onLocalFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
               n.skill.skill_type = 'chat';
 
               // 固定输入参数（请根据实际需求调整字段）
-              inputParams = {
-                params: [
-                  {
-                    name: "input_file_path",
-                    type: "string",
-                    param_name: "input_file_path",
-                    param_type: "String",
-                    value_mode: "manual",
-                    param_value: "",
-                    required: true
-                  },
-                  {
-                    name: "prompt_template",
-                    type: "string",
-                    param_name: "prompt_template",
-                    param_type: "String",
-                    value_mode: "manual",
-                    param_value: "",
-                    required: false
-                  },
-                  {
-                    name: "model_name",
-                    type: "string",
-                    param_name: "model_name",
-                    param_type: "String",
-                    value_mode: "manual",
-                    param_value: "gpt-4",
-                    required: false
-                  }
-                  // 可继续添加其他必要参数
-                ]
-              };
+              inputParams={
+                  params: [
+                    
+                    {
+                      name: "input",
+                      type: "string",
+                      param_name: "input",
+                      param_type: "string",
+                      value_mode: "manual",
+                      param_value: "",
+                      value_source: "user_input",
+                      required: true
+                    },
+                    {
+                      name: "instruction",
+                      type: "string",
+                      param_name: "instruction",
+                      param_type: "String",
+                      value_mode: "manual",
+                      param_value: "",
+                      value_source: "user_input",
+                      required: true
+                    },
+                    {
+                      name: "model",
+                      type: "string",
+                      param_name: "model",
+                      param_type: "String",
+                      value_mode: "manual",
+                      param_value: "gpt-4o",
+                      value_source: "user_input",
+                      required: true
+                    },
+                    {
+                      name: "api_key",
+                      type: "string",
+                      param_name: "api_key",
+                      param_type: "string",
+                      value_mode: "manual",
+                      param_value: "",
+                      value_source: "user_input",
+                      required: true
+                    },
+                    {
+                      name: "base_url",
+                      type: "string",
+                      param_name: "base_url",
+                      param_type: "string",
+                      value_mode: "manual",
+                      param_value: "",
+                      value_source: "user_input",
+                      required: true
+                    }
+                  ]
+                },
 
-              // 固定输出参数：只有一个 out_path
-              outputParams = {
-                params: [
-                  {
-                    name: "out_path",
-                    type: "string",
-                    param_name: "out_path",
-                    param_type: "String"
-                  }
-                ]
-              };
-
-              nodeIdToOutputParamsMap[nodeId] = outputParams;
-              nodeNameToZhName[pNode.node_name] = '文件转换';
-              nodeNameToZhName[skillName] = '文件转换';
-              nodeTypeForOperator = 'transform'; // 可选：用于 UI 分类
+                // 固定输出参数：只有一个 out_path
+                outputParams = {
+                  params: [
+                    {
+                      name: "output",
+                      type: "string",
+                      param_name: "output",
+                      param_type: "String"
+                    }
+                  ]
+                };
             }
           } else {
             // 普通算子：先请求接口获取参数模板（含 required 字段）
@@ -2719,9 +2696,9 @@ const onLocalFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
                 output_params: {
                   params: [
                     {
-                      name: "response",
+                      name: "output",
                       type: "string",
-                      param_name: "response",
+                      param_name: "output",
                       param_type: "String"
                     }
                   ]
@@ -3724,13 +3701,6 @@ const handleAddNode = useCallback(
       >
         <Background variant={BackgroundVariant.Dots} gap={36} size={1.5} />
       </ReactFlow>
-{/* 新加弹出本地的文件夹 */}
-      <input
-        type="file"
-        ref={fileInputRef}
-        style={{ display: 'none' }}
-        onChange={onLocalFileChange}
-      />
 
 
       <FloatingToolbar
@@ -4016,31 +3986,20 @@ const handleAddNode = useCallback(
                           </div>
                         </div>
                       ) : (
-                        // param.name === 'file_path' && param._refType === 'manual' ? (
-                        //   <input
-                        //     className="draw-config-value-input"
-                        //     value={param._value || param.param_value || ''}
-                        //     placeholder="请选择文件"
-                        //     title={param._value || param.param_value || ''}
-                        //     readOnly
-                        //     style={{ cursor: 'pointer', backgroundColor: '#f8fafc' }}
-                        //     onClick={async () => {
-                        //       setFileSelectParamIndex(index);
-                        //       await loadDirectories();
-                        //       setShowFileModal(true);
-                        //     }}
-                        //   />
-                        // 替换为
-                          param.name === 'file_path' && param._refType === 'manual' ? (
-                             <input
-                                className="draw-config-value-input"
-                                value={param._value || param.param_value || ''}
-                                placeholder="请选择文件"
-                                title={param._value || param.param_value || ''}
-                                readOnly
-                                style={{ cursor: 'pointer', backgroundColor: '#f8fafc' }}
-                                onClick={() => handleLocalFileSelect(index)}
-                              />
+                        param.name === 'file_path' && param._refType === 'manual' ? (
+                          <input
+                            className="draw-config-value-input"
+                            value={param._value || param.param_value || ''}
+                            placeholder="请选择文件"
+                            title={param._value || param.param_value || ''}
+                            readOnly
+                            style={{ cursor: 'pointer', backgroundColor: '#f8fafc' }}
+                            onClick={async () => {
+                              setFileSelectParamIndex(index);
+                              await loadDirectories();
+                              setShowFileModal(true);
+                            }}
+                          />
                         ) : (
                           <input
                             className="draw-config-value-input"
@@ -4169,14 +4128,15 @@ const handleAddNode = useCallback(
             <div className="file-system-actions">
               {fileSelectParamIndex === null && (
                 <label className="file-system-upload-btn">
+                  
                   <Upload size={14} />
                   <span>{uploadingFile ? '上传中...' : '上传文件'}</span>
-                  {/* <input
+                  <input
                     type="file"
                     onChange={handleUploadFile}
                     className="file-system-upload-input"
                     disabled={uploadingFile}
-                  /> */}
+                  />
                 </label>
               )}
               {fileSelectParamIndex !== null && (

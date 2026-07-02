@@ -201,39 +201,6 @@ function svgToDataUri(svg: string) {
 
 const EXAMPLES: ExampleCard[] = [
   {
-    title: "语料格式转换与过滤",
-    description: "「请对上传数据csv文件转换为jsonl格式，再对这个jsonl的'fa0114'字段进行最大长度过滤，要求最大长度在40以内；再对'fa0112'字段筛选过滤出是'多花山矾'的数据」",
-    prompt:
-      "请对上传数据csv文件转换为jsonl格式，再对这个jsonl的'fa0114'字段进行最大长度过滤，要求最大长度在40以内；再对'fa0112'字段筛选过滤出是'多花山矾'的数据",
-    attachments: [
-      {
-        path: "/temp/森林每木调查数据.csv",
-        name: "森林每木调查数据.csv",
-      },
-    ],
-    image: svgToDataUri(`
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 180" fill="none">
-        <rect width="320" height="180" fill="#EFF6FF"/>
-        <g transform="translate(62 0) scale(1.62)">
-          <path d="M20 45L60 25L100 45L60 65L20 45Z" fill="#3B82F6" fill-opacity="0.1" stroke="#3B82F6"/>
-          <path d="M20 52L60 32L100 52L60 72L20 52Z" fill="#3B82F6" fill-opacity="0.15" stroke="#3B82F6"/>
-          <path d="M20 59L60 39L100 59L60 79L20 59Z" fill="#3B82F6" fill-opacity="0.2" stroke="#3B82F6"/>
-          <path d="M20 59V64L60 84V79L20 59Z" fill="#2563EB" fill-opacity="0.3"/>
-          <path d="M100 59V64L60 84V79L100 59Z" fill="#1D4ED8" fill-opacity="0.3"/>
-          <path d="M45 45L60 37.5L75 45L60 52.5L45 45Z" fill="#60A5FA" fill-opacity="0.6"/>
-          <path d="M35 50L50 42.5L65 50L50 57.5L35 50Z" fill="#93C5FD" fill-opacity="0.4"/>
-          <g transform="translate(75 25)">
-            <circle cx="15" cy="15" r="14" fill="white"/>
-            <path d="M11 12L15 8L19 12M15 8V22M11 18L15 22L19 18" stroke="#1D4ED8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-          </g>
-          <g transform="translate(25 20)">
-            <path d="M4 6H20L14 13V19L10 21V13L4 6Z" fill="#3B82F6" fill-opacity="0.8" stroke="white"/>
-          </g>
-        </g>
-      </svg>
-    `),
-  },
-  {
     title: "元数据提取与文本提取",
     description: "「请对文档进行以下处理：1、提取文档元数据 2、提取pdf文档文本内容」",
     prompt:
@@ -297,6 +264,39 @@ const EXAMPLES: ExampleCard[] = [
       </svg>
     `),
   },
+  {
+    title: "语料格式转换与过滤",
+    description: "「请对上传数据csv文件转换为jsonl格式，再对这个jsonl的'fa0114'字段进行最大长度过滤，要求最大长度在40以内；再对'fa0112'字段筛选过滤出是'多花山矾'的数据」",
+    prompt:
+      "请对上传数据csv文件转换为jsonl格式，再对这个jsonl的'fa0114'字段进行最大长度过滤，要求最大长度在40以内；再对'fa0112'字段筛选过滤出是'多花山矾'的数据",
+    attachments: [
+      {
+        path: "/temp/森林每木调查数据.csv",
+        name: "森林每木调查数据.csv",
+      },
+    ],
+    image: svgToDataUri(`
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 180" fill="none">
+        <rect width="320" height="180" fill="#EFF6FF"/>
+        <g transform="translate(62 0) scale(1.62)">
+          <path d="M20 45L60 25L100 45L60 65L20 45Z" fill="#3B82F6" fill-opacity="0.1" stroke="#3B82F6"/>
+          <path d="M20 52L60 32L100 52L60 72L20 52Z" fill="#3B82F6" fill-opacity="0.15" stroke="#3B82F6"/>
+          <path d="M20 59L60 39L100 59L60 79L20 59Z" fill="#3B82F6" fill-opacity="0.2" stroke="#3B82F6"/>
+          <path d="M20 59V64L60 84V79L20 59Z" fill="#2563EB" fill-opacity="0.3"/>
+          <path d="M100 59V64L60 84V79L100 59Z" fill="#1D4ED8" fill-opacity="0.3"/>
+          <path d="M45 45L60 37.5L75 45L60 52.5L45 45Z" fill="#60A5FA" fill-opacity="0.6"/>
+          <path d="M35 50L50 42.5L65 50L50 57.5L35 50Z" fill="#93C5FD" fill-opacity="0.4"/>
+          <g transform="translate(75 25)">
+            <circle cx="15" cy="15" r="14" fill="white"/>
+            <path d="M11 12L15 8L19 12M15 8V22M11 18L15 22L19 18" stroke="#1D4ED8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+          </g>
+          <g transform="translate(25 20)">
+            <path d="M4 6H20L14 13V19L10 21V13L4 6Z" fill="#3B82F6" fill-opacity="0.8" stroke="white"/>
+          </g>
+        </g>
+      </svg>
+    `),
+  }
 ];
 
 function toUiMessage(threadId: string, message: ThreadMessage, index: number): UiMsg {
@@ -1009,9 +1009,9 @@ export function HomePage() {
         <section className="px-8 pb-16 pt-6">
           <div className="mx-auto flex max-w-5xl flex-col">
             <div className="border-b border-slate-200/70 bg-white/40 px-8 pb-14 pt-10 text-center">
-              <div className="mx-auto max-w-4xl">
+              <div className="mx-auto max-w-5xl">
                 <h1 className="mb-5 text-[38px] font-bold tracking-tight text-slate-950">
-                  πFlow：面向科学数据加工处理的智能工作台
+                  πFlow：面向高质量科学数据加工处理的智能工作流平台
                 </h1>
                 <p className="mx-auto max-w-2xl text-[15px] leading-7 text-slate-500">
                   专注科学数据治理，赋能科学语料构建

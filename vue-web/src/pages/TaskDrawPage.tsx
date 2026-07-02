@@ -1,8 +1,9 @@
 ﻿import React, { useCallback, useState, useRef, memo, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { shortId, generateUUID } from '../lib/ids';
-import { saveDrawInfo, getAllSkills, listSkillsDetails, getDrawTaskContent, apiBase, listStorage, downloadWorkspaceUrl2 } from "../lib/api";
+import { saveDrawInfo, getAllSkills, listSkillsDetails, getDrawTaskContent, apiBase, listStorage, downloadWorkspaceUrl2,runDAGTask } from "../lib/api";
 import { toast } from '../components/Toast';
+import { Icon } from "@iconify/react";
 
 const DEFAULT_SKILL_ICON = "/storage/common/common.png";
 
@@ -164,6 +165,8 @@ const paramDisplayValues: Record<string, Record<string, Record<string, string>>>
     sortOrder: { asc: '升序', desc: '降序' },
   },
 };
+
+
 
 // ==================== 算子分类 ====================
 
@@ -857,6 +860,11 @@ const OperatorLibraryModal: React.FC<OperatorLibraryModalProps> = ({ isOpen, onC
   const handleMouseLeave = () => {
     setHoveredOperator(null);
   };
+  
+
+  
+
+
 
   return (
     <div className="operator-modal">
@@ -975,54 +983,8 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
   const [showOperatorModal, setShowOperatorModal] = useState(false);  // 任务ID，保存后获取
   const [taskDescription, setTaskDescription] = useState<string>(descriptionProp || '');  // 任务描述
   const [zoomLevel, setZoomLevel] = useState(1);
+
   
-
- // ====== 新增：本地文件选择器相关 ======
-    const fileInputRef = useRef<HTMLInputElement>(null);
-
-    const handleLocalFileSelect = (index: number) => {
-      setFileSelectParamIndex(index);
-      console.log('fileInputRef.current:', fileInputRef.current); // 应该不是 null
-      fileInputRef.current?.click();
-    };
-
-    const onLocalFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (!file || !selectedNodeId || fileSelectParamIndex === null) {
-        e.target.value = '';
-        return;
-      }
-
-      const fileName = file.name;
-
-      setNodes((nds) =>
-        nds.map((n) => {
-          if (n.id === selectedNodeId) {
-            const newParams = [...(n.data.input_params?.params || [])];
-            if (newParams[fileSelectParamIndex]) {
-              newParams[fileSelectParamIndex] = {
-                ...newParams[fileSelectParamIndex],
-                _value: fileName,
-                param_value: fileName,
-              };
-            }
-            return {
-              ...n,
-              data: {
-                ...n.data,
-                input_params: { ...n.data.input_params, params: newParams },
-              },
-            };
-          }
-          return n;
-        })
-      );
-
-      // 重置 input，确保下次能再次选择相同文件
-      e.target.value = '';
-    };
-
-
 
   // 文件系统弹窗状态
   const [showFileModal, setShowFileModal] = useState(false);
@@ -1041,6 +1003,44 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
 
   // 获取选中的节点
   const selectedNode = nodes.find((m) => m.id === selectedNodeId);
+
+  
+  const [showRunSuccessModal, setShowRunSuccessModal] = useState(false);
+  const [runSuccessInfo, setRunSuccessInfo] = useState<{ taskName: string; processId: string } | null>(null);
+  // 失败提示弹框
+  const [showRunErrorModal, setShowRunErrorModal] = useState(false);
+  const [runErrorInfo, setRunErrorInfo] = useState<{ taskName: string; message: string } | null>(null);
+  const [isRunning, setIsRunning] = useState(false);
+
+  const handleRun = async () => {
+    if (!taskId) {
+      toast.error('任务ID不存在，无法运行');
+      return;
+    }
+    setIsRunning(true); //  loading
+    try {
+      const response = await runDAGTask(taskId);
+      if (response.code === 200 && response.result) {
+        const processId = response.result.process_id;
+        setRunSuccessInfo({ taskName: taskName, processId });
+        setShowRunSuccessModal(true);
+      } else {
+        const errorMsg = response.message || '未知错误';
+        setRunErrorInfo({ taskName: taskName, message: errorMsg });
+        setShowRunErrorModal(true);
+      }
+    } catch (error) {
+      console.error('运行任务失败:', error);
+      const errorMsg = error instanceof Error ? error.message : '未知错误';
+      setRunErrorInfo({ taskName: taskName, message: errorMsg });
+      setShowRunErrorModal(true);
+    } finally {
+      
+      setIsRunning(false); //  无论成功失败，关闭 loading
+    }
+  };
+
+
 
   // 关闭配置面板
   const closeConfigPanel = () => {
@@ -1234,6 +1234,17 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
                 // 固定输入参数（请根据实际需求调整字段）
                 inputParams={
                   params: [
+                    
+                    {
+                      name: "input",
+                      type: "string",
+                      param_name: "input",
+                      param_type: "string",
+                      value_mode: "manual",
+                      param_value: "",
+                      value_source: "user_input",
+                      required: true
+                    },
                     {
                       name: "instruction",
                       type: "string",
@@ -1281,9 +1292,9 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
                 outputParams = {
                   params: [
                     {
-                      name: "out_path",
+                      name: "output",
                       type: "string",
-                      param_name: "out_path",
+                      param_name: "output",
                       param_type: "String"
                     }
                   ]
@@ -1675,6 +1686,16 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
                 input_params: {
                   params: [
                     {
+                      name: "input",
+                      type: "string",
+                      param_name: "input",
+                      param_type: "String",
+                      value_mode: "manual",
+                      param_value: "",
+                      value_source: "local_file",
+                      required: true
+                    },
+                    {
                       name: "instruction",
                       type: "string",
                       param_name: "instruction",
@@ -1713,25 +1734,15 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
                       param_value: "",
                       value_source: "user_input",
                       required: true
-                    },
-                    {
-                      name: "input",
-                      type: "string",
-                      param_name: "input",
-                      param_type: "String",
-                      value_mode: "manual",
-                      param_value: "",
-                      value_source: "local_file",
-                      required: true
-                    },
+                    }
                   ]
                 },
                 output_params: {
                   params: [
                     {
-                      name: "response",
+                      name: "output",
                       type: "string",
-                      param_name: "response",
+                      param_name: "output",
                       param_type: "String"
                     }
                   ]
@@ -1910,6 +1921,16 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
        inputParams = {
         params: [
           {
+            name: "input",
+            type: "string",
+            param_name: "input",
+            param_type: "String",
+            value_mode: "manual",
+            param_value: "",
+            value_source: "local_file",
+            required: true
+          },
+          {
             name: "instruction",
             type: "string",
             param_name: "instruction",
@@ -1948,17 +1969,7 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
             param_value: "",
             value_source: "user_input",
             required: true
-          },
-          {
-            name: "input",
-            type: "string",
-            param_name: "input",
-            param_type: "String",
-            value_mode: "manual",
-            param_value: "",
-            value_source: "local_file",
-            required: true
-          },
+          }
         ]
       };
       outputParams = {
@@ -2389,7 +2400,7 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
 
   // 文件系统相关函数
   const loadDirectories = useCallback(async (dirPath?: string) => {
-    const userId = localStorage.getItem('userName') || '';
+    const userId = localStorage.getItem('userId') || '';
     setIsLoadingFiles(true);
     try {
       const res: any = await listStorage(userId, dirPath);
@@ -2488,7 +2499,7 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
     if (!file) return;
     
     setUploadingFile(true);
-    const userId = localStorage.getItem('userName') || '';
+    const userId = localStorage.getItem('userId') || '';
     
     try {
       const formData = new FormData();
@@ -2594,6 +2605,24 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
             {!isSaving && saveMessage && <span className="save-message">{saveMessage}</span>}
             {!isSaving && !saveMessage && <span className="save-idle">已保存</span>}
           </span>
+          <button
+            onClick={handleRun}
+            disabled={!taskId || isRunning} // 👈 禁用状态包含 isRunning
+            className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+              !taskId || isRunning
+                ? 'bg-slate-300 text-slate-500 cursor-not-allowed opacity-60'
+                : 'bg-slate-700 text-white hover:bg-slate-800 cursor-pointer'
+            }`}
+          >
+            {isRunning ? (
+              <>
+                <span className="flow-loading-spinner inline-block w-4 h-4 border-t-2 border-white rounded-full animate-spin"></span>
+                提交中...
+              </>
+            ) : (
+              '一键运行'
+            )}
+          </button>
           <button className="only-back-btn" onClick={() => navigate(-1)}>
             <span>返回</span>
           </button>
@@ -2632,15 +2661,6 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
           >
             <Background variant={BackgroundVariant.Dots} gap={36} size={1.5} />
           </ReactFlow>
-        {/* 新加弹出本地的文件夹 */}
-              <input
-                type="file"
-                ref={fileInputRef}
-                style={{ display: 'none' }}
-                onChange={onLocalFileChange}
-              />
-
-
 
           {/* 拖拽时的视觉反馈遮罩 */}
           {isDragOver && (
@@ -2967,31 +2987,21 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
                               </div>
                             </div>
                           ) : (
-                            // param.name === 'file_path' && param._refType === 'manual' ? (
-                            //   <input
-                            //     className="draw-config-value-input"
-                            //     value={param._value || param.param_value || ''}
-                            //     placeholder="请选择文件"
-                            //     title={param._value || param.param_value || ''}
-                            //     readOnly
-                            //     style={{ cursor: 'pointer', backgroundColor: '#f8fafc' }}
-                            //     onClick={async () => {
-                            //       setFileSelectParamIndex(index);
-                            //       await loadDirectories();
-                            //       setShowFileModal(true);
-                            //     }}
-                            //   />
-                            // 替换为
                             param.name === 'file_path' && param._refType === 'manual' ? (
-                             <input
+                              <input
                                 className="draw-config-value-input"
                                 value={param._value || param.param_value || ''}
                                 placeholder="请选择文件"
                                 title={param._value || param.param_value || ''}
                                 readOnly
                                 style={{ cursor: 'pointer', backgroundColor: '#f8fafc' }}
-                                onClick={() => handleLocalFileSelect(index)}
+                                onClick={async () => {
+                                  setFileSelectParamIndex(index);
+                                  await loadDirectories();
+                                  setShowFileModal(true);
+                                }}
                               />
+                           
                             ) : (
                               <input
                                 className="draw-config-value-input"
@@ -3113,13 +3123,12 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
                     <label className="file-system-upload-btn">
                       <Upload size={14} />
                       <span>{uploadingFile ? '上传中...' : '上传文件'}</span>
-                      {/* <input
+                      <input
                         type="file"
                         onChange={handleUploadFile}
                         className="file-system-upload-input"
                         disabled={uploadingFile}
-                      /> */}
-                      {/* 替换为 */}
+                      />
                       
                     </label>
                   )}
@@ -3190,6 +3199,88 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
                       ))}
                     </div>
                   )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 运行成功提示弹窗 */}
+          {showRunSuccessModal && runSuccessInfo && (
+            <div 
+              className="modal-overlay" 
+              onClick={() => setShowRunSuccessModal(false)}
+            >
+              <div 
+                className="task-modal-content" 
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="modal-header">
+                  <h3>任务提交成功</h3>
+                  <button 
+                    className="modal-close" 
+                    onClick={() => setShowRunSuccessModal(false)}
+                  >
+                    <Icon icon="fa-solid:times" width="16" />
+                  </button>
+                </div>
+                <div className="modal-body">
+                  <p>
+                    任务「{runSuccessInfo.taskName}」已提交运行，请前往【运行历史】查看执行状态。
+                  </p>
+                  <p>
+                    <strong>执行实例ID：</strong>
+                    <code style={{ backgroundColor: '#f0f0f0', padding: '2px 6px', borderRadius: '4px' }}>
+                      {runSuccessInfo.processId}
+                    </code>
+                  </p>
+                </div>
+                <div className="modal-footer">
+                  <button 
+                    className="btn-confirm" 
+                    onClick={() => setShowRunSuccessModal(false)}
+                  >
+                    确定
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+          {/* 运行失败提示弹窗 */}
+          {showRunErrorModal && runErrorInfo && (
+            <div 
+              className="modal-overlay" 
+              onClick={() => setShowRunErrorModal(false)}
+            >
+              <div 
+                className="task-modal-content" 
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="modal-header">
+                  <h3 style={{ color: '#ef4444' }}>任务运行失败</h3>
+                  <button 
+                    className="modal-close" 
+                    onClick={() => setShowRunErrorModal(false)}
+                  >
+                    <Icon icon="fa-solid:times" width="16" />
+                  </button>
+                </div>
+                <div className="modal-body">
+                  <p>
+                    任务「{runErrorInfo.taskName}」提交失败：
+                  </p>
+                  <p style={{ color: '#ef4444', marginTop: '8px' }}>
+                    <strong>错误信息：</strong>
+                    {runErrorInfo.message}
+                  </p>
+                </div>
+                <div className="modal-footer">
+                  <button 
+                    className="btn-confirm" 
+                    style={{ backgroundColor: '#ef4444' }}
+                    onClick={() => setShowRunErrorModal(false)}
+                  >
+                    确定
+                  </button>
                 </div>
               </div>
             </div>

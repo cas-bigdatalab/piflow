@@ -11,6 +11,8 @@ try:
 except ImportError:
     yaml = None
 
+from generate_piflow_skill import validate_runtime_command_contract
+
 
 ALLOWED_KEYS = {
     "name",
@@ -252,6 +254,22 @@ def validate_skill_json(skill_dir: Path, frontmatter: dict) -> tuple[bool, str]:
     if command_template is not None:
         if not isinstance(command_template, list) or not all(isinstance(item, str) for item in command_template):
             return fail("skill.json command_template must be a list of strings")
+        token_set = set(command_template)
+        for item in data.get("input_params", []):
+            name = str(item.get("name", "")).strip()
+            if not name:
+                continue
+            option = f"--{name}"
+            placeholder = f"{{{name}}}"
+            if option not in token_set or placeholder not in token_set:
+                return fail(
+                    f"parameter '{name}' must match command_template tokens "
+                    f"'{option}' and '{placeholder}'"
+                )
+        try:
+            validate_runtime_command_contract(skill_json)
+        except Exception as exc:
+            return fail(f"skill.json fails PiFlow runtime command parsing: {exc}")
 
     return True, "ok"
 

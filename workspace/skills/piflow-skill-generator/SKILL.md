@@ -1,7 +1,7 @@
 ---
 name: piflow-skill-generator
 description: |
-  PiFlow 技能生成器。当用户完成了一次完整并成功的数据处理任务时调用，根据当前 workspace/skills 的本地约定和 references/piflow_skill_template.md 通用模板创建、更新或校验 PiFlow-compatible skill，包括 UTF-8 编码的 SKILL.md、DAG 可读的 input_params/output_params、version/category/tag 元数据、skill.json、scripts/references/assets 资源目录，以及本地校验脚本。仅在用户明确要求生成或保存 skill，或某次数据处理任务已经完成并需要把已验证成功的操作流程沉淀为 skill 时使用；默认不要因为“可能需要 skill”或“当前能力不足”而优先触发此 skill。
+  PiFlow 技能生成器。当用户完成了一次完整并成功的数据处理任务时调用，根据当前 skills/generated 的本地约定和 references/piflow_skill_template.md 通用模板创建、更新或校验 PiFlow-compatible skill，包括 UTF-8 编码的 SKILL.md、DAG 可读的 input_params/output_params、version/category/tag 元数据、skill.json、scripts/references/assets 资源目录，以及本地校验脚本。仅在用户明确要求生成或保存 skill，或某次数据处理任务已经完成并需要把已验证成功的操作流程沉淀为 skill 时使用；默认不要因为“可能需要 skill”或“当前能力不足”而优先触发此 skill。
 name_zh: PiFlow 算子生成器
 version: 1.1.2
 category: skill_generation
@@ -20,7 +20,7 @@ input_params:
     type: string
     required: false
     default: skills/generated
-    description: 输出根目录；deepagent 虚拟文件环境，默认写入 workspace/skills/generated
+    description: 输出根目录；deepagent 虚拟文件环境默认写入 skills/generated（相对于 workspace 根）
 
   - name: overwrite
     role: data
@@ -106,7 +106,7 @@ tag: 算子生成
 
 ## 路径规则
 
-deepagent 的虚拟文件环境以 `workspace` 为根。生成的技能必须放在 `workspace/skills/generated/<skill-name>`，这样 PiFlow 才能发现。
+deepagent 的虚拟文件环境以 `workspace` 为根。生成的技能必须放在 `skills/generated/<skill-name>`（相对于 workspace 根），这样 PiFlow 才能发现。
 
 - 默认 `output_root` 使用 `skills/generated`，表示 `<workspace>/skills/generated`。
 - `write_file`/`read_file` 等工具调用时使用相对于 workspace 根的虚拟路径（如 `skills/generated/<skill_name>/`），**不要带 `workspace/` 前缀**。
@@ -158,6 +158,12 @@ skill-name/
 - `input_data`：输入数据文件或目录。
 - `output_data`：输出数据文件或目录。
 - `data`：普通配置参数。
+- 优先根据参数的 `type`、`name` 和 `description` 判断 `role`。
+- 不要仅根据参数位于 `input_params` 或 `output_params` 的位置机械填写。
+- `input_path`、`source_dir` 这类输入数据文件或目录通常使用 `input_data`。
+- `output_path`、`report_path` 这类输出落盘路径通常使用 `output_data`，即使它们出现在 `input_params` 中作为脚本入参传入也一样。
+- `output_format`、`threshold`、`max_rows` 这类配置项通常使用 `data`，不要因为名字中带 `output` 就误判。
+- 若某个输出参数只是标量结果、统计值、状态位或普通文本摘要，而不是文件/目录/报告工件，通常使用 `data`。
 
 ### skill.json
 
@@ -302,7 +308,7 @@ python scripts/generate_piflow_skill.py --flow path/to/flow-summary.json --resto
 若 skill 已生成完成，且用户随后提供了新的流程作为改写指引：
 
 ```bash
-python scripts/rewrite_piflow_skill.py --skill-dir skills/<skill-name> --flow path/to/new-flow-summary.json --restored-spec-out workspace/artifacts/rewrite-spec.json
+python scripts/rewrite_piflow_skill.py --skill-dir skills/<skill-name> --flow path/to/new-flow-summary.json --restored-spec-out artifacts/rewrite-spec.json
 ```
 
 改写链路的依赖说明与边界约束见：
