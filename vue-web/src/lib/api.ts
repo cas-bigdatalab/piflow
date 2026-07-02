@@ -222,7 +222,7 @@ export function downloadWorkspaceUrl3(path: string) {
   //   path: encodeURIComponent(path),
   //   token 
   // });
-  return `${apiBase()}/workspace/download/root?path=${path}&user_id=${localStorage.getItem('userId')}`;
+  return `${apiBase()}/workspace/download/?path=${path}&user_id=${localStorage.getItem('userId')}`;
 }
 export async function listSkills(page = 1, page_size = 20, keyword = "", skill_type = "") {
   const sp = new URLSearchParams();
