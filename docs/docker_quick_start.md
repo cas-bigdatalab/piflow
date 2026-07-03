@@ -52,7 +52,7 @@ docker compose -f docker/docker-compose.yml up -d --build
 首次启动会：
 
 - 拉起 PostgreSQL
-- 构建单一 `app` 镜像
+- 构建应用镜像 `registry.cn-hangzhou.aliyuncs.com/cnic-piflow/piflow:2.0.0`
 - 在一个容器里同时启动后端与前端 Nginx
 
 ## 4. 查看状态

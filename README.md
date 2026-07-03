@@ -179,6 +179,8 @@ Start services:
 docker compose -f docker/docker-compose.yml up -d --build
 ```
 
+The current application image is `registry.cn-hangzhou.aliyuncs.com/cnic-piflow/piflow:2.0.0`.
+
 `docker/config/database.yaml` and `docker/config/llm.yaml` can be edited on the host, and changes take effect after restarting the containers.
 
 Stop services:
