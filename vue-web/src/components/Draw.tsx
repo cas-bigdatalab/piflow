@@ -994,7 +994,15 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [selectedNodeId]);
+  // 在 FlowEditorInner 组件内，放在其他 useEffect 附近
 
+  // 👇 把你的 useEffect 放在这里（合法位置）
+  useEffect(() => {
+    if (taskId) {
+      console.log("taskId 已经成功更新为:", taskId);
+      // 执行后续逻辑，比如加载任务详情等
+    }
+  }, [taskId]);
   // 删除节点
   const handleDeleteNode = () => {
     if (selectedNodeId) {
@@ -3386,6 +3394,195 @@ const handleAddNode = useCallback(
   }, [setNodes]);
 
   // 自动保存画板数据
+  // useEffect(() => {
+  //   // 跳过首次渲染（初始化时不需要保存）
+  //   if (isFirstRender.current) {
+  //     isFirstRender.current = false;
+  //     return;
+  //   }
+
+  //   // 跳过未初始化的状态
+  //   if (!isInitialized.current) return;
+
+  //   // 防抖：清除上一次的定时器
+  //   if (autoSaveTimerRef.current) {
+  //     clearTimeout(autoSaveTimerRef.current);
+  //   }
+
+  //   // 设置新的定时器，800ms 后执行保存
+  //   autoSaveTimerRef.current = setTimeout(async () => {
+  //     // 检查nodes 中是否有引用类型的参数
+  //     console.log('=== 保存前检查===');
+  //     console.log('edges 数量:', edges.length);
+  //     console.log('edges:', edges);
+  //     console.log('nodes:', nodes.map(n => ({ id: n.id, label: n.data.label })));
+      
+  //     console.log('=== 保存前检查nodes ===');
+  //     nodes.forEach(node => {
+  //       console.log('Node:', node.id, 'Icon:', node.data.icon);
+  //       if (node.data.input_params?.params) {
+  //         node.data.input_params.params.forEach(param => {
+  //           console.log('Node:', node.id, 'Param:', param.name, '_refType:', param._refType, '_refValue:', param._refValue);
+  //         });
+  //       }
+  //     });
+      
+  //     // 预生成所有引用参数的 binding 映射：nodeId|paramName -> binding 对象
+  //     const bindingMap: Record<string, any> = {};
+  //     nodes.forEach(node => {
+  //       if (node.data.input_params?.params) {
+  //         node.data.input_params.params.forEach(param => {
+  //           if (param._refType === 'reference') {
+  //             const upstreamEdge = edges.find(e => e.target === node.id);
+  //             if (upstreamEdge) {
+  //               let refParamName = param._refValue;
+  //               if (!refParamName) {
+  //                 const upstreamNode = nodes.find(n => n.id === upstreamEdge.source);
+  //                 refParamName = upstreamNode?.data.output_params?.params?.[0]?.name || '';
+  //               } else if (String(refParamName).includes('（')) {
+  //                 refParamName = String(refParamName).split('（')[0];
+  //               } else if (String(refParamName).includes('_') && !String(refParamName).startsWith('node-')) {
+  //                 const parts = String(refParamName).split('_');
+  //                 if (parts.length > 1 && parts[0].startsWith('node-')) {
+  //                   refParamName = parts[parts.length - 1];
+  //                 }
+  //               }
+  //               const bid = generateUUID();
+  //               const key = `${node.id}|${param.name}`;
+  //               bindingMap[key] = {
+  //                 binding_id: bid,
+  //                 from_node_id: upstreamEdge.source,
+  //                 from_param_name: String(refParamName ?? '').trim() || param.name,
+  //                 to_node_id: node.id,
+  //                 to_param_name: param.name || '',
+  //               };
+  //             }
+  //           }
+  //         });
+  //       }
+  //     });
+      
+  //     // 构造请求参数（按照接口文档结构）
+  //     const nodesToSave = nodes
+  //           .filter(n => n.type !== 'comment')
+  //           .map(n => ({
+  //             node_id: n.id,
+  //             node_name: n.data.label,
+  //             node_type: 'default',
+  //             icon_path: n.data.icon || '',
+  //             skill: {
+  //               skill_id: n.data.operatorId,
+  //               skill_name: n.data.operatorName || '',
+  //               name_zh: n.data.operatorZh || '',
+  //               version: '1.0',
+  //             },
+  //             position: {
+  //               x: n.position.x,
+  //               y: n.position.y,
+  //             },
+  //             input_params: (n.data.input_params?.params || [])
+  //               .filter(p => {
+  //                 if (p._refType === 'reference') return true;
+  //                 const val = String(p._value ?? p.param_value ?? '');
+  //                 return val.trim() !== '';
+  //               })
+  //               .map(p => {
+  //                 const isReference = p._refType === 'reference';
+  //                 const savedValue = isReference ? (p._refValue || '') : (p._value || '');
+  //                 const bindingKey = `${n.id}|${p.name}`;
+  //                 const existingBinding = bindingMap[bindingKey];
+  //                 return {
+  //                   param_name: p.name,
+  //                   param_value: savedValue,
+  //                   value_mode: isReference ? 'reference' : 'manual',
+  //                   binding_id: isReference ? (existingBinding?.binding_id || generateUUID()) : '',
+  //                 };
+  //               }),
+  //             out_params: n.data.output_params?.params?.map(p => ({
+  //               param_name: p.name || p.param_name || '',
+  //               param_type: p.type || p.param_type || 'string',
+  //             })) || [],
+  //           }));
+  //     console.log('准备保存的 nodes 数据:', nodesToSave);
+      
+      
+
+  //     try {
+  //       const actualTaskId = taskIdFromRes || taskId; 
+  //       const params = {
+  //         dsl_version: "1.0",
+  //         task: {
+  //           dag_task_id: taskId || '',
+  //           dag_task_name: taskName,
+  //           description: taskDescription,
+  //           message_id: messageId || ''
+  //         },
+  //         nodes: nodesToSave,
+  //         edges: edges.map(e => ({
+  //           edge_id: e.id,
+  //           from_node_id: e.source,
+  //           to_node_id: e.target,
+  //         })),
+  //         bindings: Object.values(bindingMap)
+  //       };
+  //       const res = await saveDrawInfo(params);
+  //       const taskIdFromRes = res.result?.task_id;
+  //       if (taskIdFromRes) {
+  //         setTaskId(taskIdFromRes);
+  //       }
+        
+  //       console.log("我是在draw.tsx文件中触发的342342343",res.result,taskId)
+  //       if (isSaved && taskIdFromRes){
+  //         params.task.dag_task_id = taskIdFromRes; 
+  //         const resSec = await saveDrawInfo(params);
+  //         return;
+  //       }
+  //       if (res.code === 200) {
+  //         setTaskId(res.result?.dag_task_id || '');
+  //         setSaveMessage('保存成功！');
+  //         // 修改成功信息，遮挡返回按钮了
+  //         setTimeout(() => setSaveMessage(''), 2000);
+  //       } else {
+  //         setSaveMessage('保存失败：' + (res.message || '未知错误'));
+  //         setTimeout(() => setSaveMessage(''), 3000);
+  //       }
+  //     } catch (error) {
+  //       console.error('保存失败:', error);
+  //       setSaveMessage('保存失败：网络错误');
+  //       setTimeout(() => setSaveMessage(''), 3000);
+  //     }
+      
+
+  //     //再次进行保存接口
+  //     // if (isSaved){
+  //     //   debugger
+  //     //     params.task.dag_task_id = newTaskId; 
+  //     //     try {
+  //     //     const res = await saveDrawInfo(params);
+  //     //     if (res.code === 200) {
+  //     //       setSaveMessage('保存成功！');
+  //     //       // 修改成功信息，遮挡返回按钮了
+  //     //       setTimeout(() => setSaveMessage(''), 2000);
+  //     //     } else {
+  //     //       setSaveMessage('保存失败：' + (res.message || '未知错误'));
+  //     //       setTimeout(() => setSaveMessage(''), 3000);
+  //     //     }
+  //     //   } catch (error) {
+  //     //     console.error('保存失败:', error);
+  //     //     setSaveMessage('保存失败：网络错误');
+  //     //     setTimeout(() => setSaveMessage(''), 3000);
+  //     //   }
+  //     // } else {
+  //     //   params.task.dag_task_id = taskId;
+  //     // }
+
+      
+  //     setIsSaving(false);
+  //   }, 800);
+  // }, [nodes, edges, taskId, messageId]);
+  // 新的自动保存画板数据
+
+  // 自动保存画板数据
   useEffect(() => {
     // 跳过首次渲染（初始化时不需要保存）
     if (isFirstRender.current) {
@@ -3407,99 +3604,142 @@ const handleAddNode = useCallback(
       console.log('=== 保存前检查===');
       console.log('edges 数量:', edges.length);
       console.log('edges:', edges);
-      console.log('nodes:', nodes.map(n => ({ id: n.id, label: n.data.label })));
-      
-      console.log('=== 保存前检查nodes ===');
-      nodes.forEach(node => {
-        console.log('Node:', node.id, 'Icon:', node.data.icon);
-        if (node.data.input_params?.params) {
-          node.data.input_params.params.forEach(param => {
-            console.log('Node:', node.id, 'Param:', param.name, '_refType:', param._refType, '_refValue:', param._refValue);
-          });
+
+      // ========== 开始：替换的核心逻辑 ==========
+      // 1. 准备 nodesToSave 和 bindingMap (这部分保持不变)
+      const nodesToSave = nodes.map(node => {
+        if (node.type === 'comment') {
+          return {
+            node_id: node.id,
+            node_name: node.data.label,
+            node_type: 'comment',
+            position: node.position,
+            skill: null,
+            input_params: [],
+            output_params: []
+          };
         }
+
+        const inputParams = (node.data.input_params?.params || []).map((p: any) => {
+          let finalParamValue = p.param_value;
+          if (p._refType === 'reference' && p._refValue) {
+            // 引用模式：构造 {source_node, source_param} 对象
+            finalParamValue = {
+              source_node: p._sourceNodeName || '',
+              source_param: p._refValue
+            };
+          } else {
+            // 手动模式：使用 _value
+            finalParamValue = p._value !== undefined ? p._value : p.param_value;
+          }
+          return {
+            name: p.name,
+            param_name: p.param_name || p.name,
+            param_type: p.param_type || p.type || 'string',
+            param_value: finalParamValue,
+            value_mode: p._refType === 'reference' ? 'reference' : 'manual',
+            value_source: p.value_source || 'user_input',
+            required: p.required || false
+          };
+        });
+
+        const outputParams = (node.data.output_params?.params || []).map((p: any) => ({
+          name: p.name,
+          param_type: p.param_type || p.type || 'string'
+        }));
+
+        return {
+          node_id: node.id,
+          node_name: node.data.label,
+          node_type: 'operator',
+          position: node.position,
+          skill: {
+            skill_id: node.data.operatorId,
+            skill_name: node.data.operatorName,
+            name_zh: node.data.operatorZh,
+            skill_type: node.data.operatorType,
+            icon_path: node.data.icon,
+            description: node.data.description
+          },
+          input_params: inputParams,
+          output_params: outputParams
+        };
       });
-      
-      // 预生成所有引用参数的 binding 映射：nodeId|paramName -> binding 对象
+
       const bindingMap: Record<string, any> = {};
       nodes.forEach(node => {
-        if (node.data.input_params?.params) {
-          node.data.input_params.params.forEach(param => {
-            if (param._refType === 'reference') {
-              const upstreamEdge = edges.find(e => e.target === node.id);
-              if (upstreamEdge) {
-                let refParamName = param._refValue;
-                if (!refParamName) {
-                  const upstreamNode = nodes.find(n => n.id === upstreamEdge.source);
-                  refParamName = upstreamNode?.data.output_params?.params?.[0]?.name || '';
-                } else if (String(refParamName).includes('（')) {
-                  refParamName = String(refParamName).split('（')[0];
-                } else if (String(refParamName).includes('_') && !String(refParamName).startsWith('node-')) {
-                  const parts = String(refParamName).split('_');
-                  if (parts.length > 1 && parts[0].startsWith('node-')) {
-                    refParamName = parts[parts.length - 1];
-                  }
-                }
-                const bid = generateUUID();
-                const key = `${node.id}|${param.name}`;
-                bindingMap[key] = {
-                  binding_id: bid,
-                  from_node_id: upstreamEdge.source,
-                  from_param_name: String(refParamName ?? '').trim() || param.name,
-                  to_node_id: node.id,
-                  to_param_name: param.name || '',
-                };
+        if (node.type === 'comment') return;
+        const params = node.data.input_params?.params || [];
+        params.forEach((param: any) => {
+          if (param._refType === 'reference' && param._refValue) {
+            const key = `${node.id}|${param.name}`;
+            bindingMap[key] = {
+              binding_id: shortId(),
+              from_node_id: '', // 这里需要根据 _sourceNodeName 找到对应的 nodeId
+              from_param_name: param._refValue,
+              to_node_id: node.id,
+              to_param_name: param.name
+            };
+
+            // 根据 _sourceNodeName 查找上游节点ID
+            const upstreamNode = nodes.find(n => 
+              n.data.operatorZh === param._sourceNodeName || 
+              n.data.operatorName === param._sourceNodeName ||
+              n.data.label === param._sourceNodeName
+            );
+            if (upstreamNode) {
+              bindingMap[key].from_node_id = upstreamNode.id;
+              // 如果 from_param_name 是 node-xxx_output 形式，只保留 output
+              if (bindingMap[key].from_param_name.includes('_') && bindingMap[key].from_param_name.split('_')[0]?.startsWith('node-')) {
+                const parts = bindingMap[key].from_param_name.split('_');
+                bindingMap[key].from_param_name = parts[parts.length - 1];
               }
             }
-          });
-        }
+          }
+        });
       });
-      
-      // 构造请求参数（按照接口文档结构）
-      const nodesToSave = nodes
-            .filter(n => n.type !== 'comment')
-            .map(n => ({
-              node_id: n.id,
-              node_name: n.data.label,
-              node_type: 'default',
-              icon_path: n.data.icon || '',
-              skill: {
-                skill_id: n.data.operatorId,
-                skill_name: n.data.operatorName || '',
-                name_zh: n.data.operatorZh || '',
-                version: '1.0',
-              },
-              position: {
-                x: n.position.x,
-                y: n.position.y,
-              },
-              input_params: (n.data.input_params?.params || [])
-                .filter(p => {
-                  if (p._refType === 'reference') return true;
-                  const val = String(p._value ?? p.param_value ?? '');
-                  return val.trim() !== '';
-                })
-                .map(p => {
-                  const isReference = p._refType === 'reference';
-                  const savedValue = isReference ? (p._refValue || '') : (p._value || '');
-                  const bindingKey = `${n.id}|${p.name}`;
-                  const existingBinding = bindingMap[bindingKey];
-                  return {
-                    param_name: p.name,
-                    param_value: savedValue,
-                    value_mode: isReference ? 'reference' : 'manual',
-                    binding_id: isReference ? (existingBinding?.binding_id || generateUUID()) : '',
-                  };
-                }),
-              out_params: n.data.output_params?.params?.map(p => ({
-                param_name: p.name || p.param_name || '',
-                param_type: p.type || p.param_type || 'string',
-              })) || [],
-            }));
-      console.log('准备保存的 nodes 数据:', nodesToSave);
-      const params = {
+
+      // 2. 确定要使用的 taskId
+      // 先尝试使用已有的 taskId
+      let currentTaskId = taskId;
+
+      // 如果没有 taskId，先调用 saveDrawInfo 获取一个
+      if (!currentTaskId) {
+        const tempParams = {
+          dsl_version: "1.0",
+          task: {
+            dag_task_id: '', // 初始为空
+            dag_task_name: taskName,
+            description: taskDescription,
+            message_id: messageId || ''
+          },
+          nodes: nodesToSave,
+          edges: edges.map(e => ({
+            edge_id: e.id,
+            from_node_id: e.source,
+            to_node_id: e.target,
+          })),
+          bindings: Object.values(bindingMap)
+        };
+
+        try {
+          const res = await saveDrawInfo(tempParams);
+          const taskIdFromRes = res.result?.dag_task_id || res.result?.task_id;
+          if (taskIdFromRes) {
+            setTaskId(taskIdFromRes); // 更新状态
+            currentTaskId = taskIdFromRes; // 立即用于本次保存
+          }
+        } catch (error) {
+          console.error('初次保存获取 taskId 失败:', error);
+          // 如果失败，继续使用空字符串，由后端处理
+        }
+      }
+
+      // 3. 使用确定的 currentTaskId 进行最终保存
+      const finalParams = {
         dsl_version: "1.0",
         task: {
-          dag_task_id: taskId || '',
+          dag_task_id: currentTaskId, // ✅ 关键：这里保证有值
           dag_task_name: taskName,
           description: taskDescription,
           message_id: messageId || ''
@@ -3514,19 +3754,11 @@ const handleAddNode = useCallback(
       };
 
       try {
-        const res = await saveDrawInfo(params);
-        const taskIdFromRes = res.result?.task_id;
-        setNewTaskId(taskIdFromRes);
-        console.log("我是在draw.tsx文件中触发的",res.result,isSaved,taskIdFromRes)
-        if (isSaved && taskIdFromRes){
-          params.task.dag_task_id = taskIdFromRes; 
-          await saveDrawInfo(params);
-          return;
-        }
+        const res = await saveDrawInfo(finalParams);
+        console.log("我是在draw.tsx文件中触发的342342343", res.result, currentTaskId);
+
         if (res.code === 200) {
-          setTaskId(res.result?.dag_task_id || '');
           setSaveMessage('保存成功！');
-          // 修改成功信息，遮挡返回按钮了
           setTimeout(() => setSaveMessage(''), 2000);
         } else {
           setSaveMessage('保存失败：' + (res.message || '未知错误'));
@@ -3537,35 +3769,9 @@ const handleAddNode = useCallback(
         setSaveMessage('保存失败：网络错误');
         setTimeout(() => setSaveMessage(''), 3000);
       }
-      
-
-      //再次进行保存接口
-      // if (isSaved){
-      //   debugger
-      //     params.task.dag_task_id = newTaskId; 
-      //     try {
-      //     const res = await saveDrawInfo(params);
-      //     if (res.code === 200) {
-      //       setSaveMessage('保存成功！');
-      //       // 修改成功信息，遮挡返回按钮了
-      //       setTimeout(() => setSaveMessage(''), 2000);
-      //     } else {
-      //       setSaveMessage('保存失败：' + (res.message || '未知错误'));
-      //       setTimeout(() => setSaveMessage(''), 3000);
-      //     }
-      //   } catch (error) {
-      //     console.error('保存失败:', error);
-      //     setSaveMessage('保存失败：网络错误');
-      //     setTimeout(() => setSaveMessage(''), 3000);
-      //   }
-      // } else {
-      //   params.task.dag_task_id = taskId;
-      // }
-
-      
-      setIsSaving(false);
+      // ========== 结束：替换的核心逻辑 ==========
     }, 800);
-  }, [nodes, edges, taskId, messageId]);
+  }, [nodes, edges, taskName, taskDescription, messageId, taskId, isInitialized.current]);
 
   return (
     <div className="draw-container">
