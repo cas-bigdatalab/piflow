@@ -940,12 +940,13 @@ export interface InitialPipelineData {
 
 export interface FlowEditorProps {
   initialPipelineData?: InitialPipelineData | null;
+  isSaved?: boolean; // 👈 声明为可选 boolean
   onClose?: () => void;
 }
 
 // ==================== 主画布组件====================
 
-const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClose, threadId, messageId: messageIdProp, savedDrawData }) => {
+const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClose, threadId, messageId: messageIdProp, savedDrawData,isSaved }) => {
   const [nodes, setNodes, onNodesChange] = useNodesState<Node<NodeData>>(defaultNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [isOperatorLibraryOpen, setIsOperatorLibraryOpen] = useState(false);
@@ -960,6 +961,7 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
   const [referenceOptions, setReferenceOptions] = useState<{ name: string; type: string; description: string; nodeId: string; nodeName: string }[]>([]);  // 来源下拉选项
   const [isLoadingReferences, setIsLoadingReferences] = useState(false);   // 加载来源状态
   const [taskId, setTaskId] = useState<string>('');
+  const [newTaskId, setNewTaskId] = useState<string>('');
   const [messageId, setMessageId] = useState<string>(messageIdProp || '');
   const [taskName, setTaskName] = useState<string>('');
   const [taskDescription, setTaskDescription] = useState<string>('');
@@ -972,8 +974,9 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
   const [fileSelectParamIndex, setFileSelectParamIndex] = useState<number | null>(null);
   const prevNodesLengthRef = useRef<number>(nodes.length);
 
-
-
+  //新增一个变量，节点中是否村子missing_skill_stop节点
+  const [hasMissingSkillStop, setHasMissingSkillStop] = useState(false);
+  const [isMissingSkillStop,setIsMissingSkillStop] = useState(false);
   // 键盘Delete键删除选中节点
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -1154,6 +1157,7 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
 
   // 获取任务名称和描述（从 props 中提取，无需再调用接口）
   useEffect(() => {
+    console.log("传输过来画板的内容",initialPipelineData)
     if (savedDrawData?.task) {
       setTaskName(savedDrawData.task.dag_task_name || '');
       setTaskDescription(savedDrawData.task.description || '');
@@ -1423,7 +1427,6 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
           const skillId = n.skill?.skill_id || n.skill_id;
           const nodeId = n.node_id || `node-${i+1}`;
 
-          console.log(skillId, '我是skillId的各个值，请你来看——————————————————————————————',n,'是保存数据的savedDrawData.node各个项')
           // 检查 savedDrawData 中是否已经有完整的参数信息
           const hasSavedInputParams = n.input_params && Array.isArray(n.input_params) && n.input_params.length > 0;
           const hasSavedOutputParams = n.output_params && (Array.isArray(n.output_params) || n.output_params.params?.length > 0);
@@ -1443,7 +1446,6 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
             } else {
               outputParams = n.output_params;
             }
-            console.log(`节点 ${i}: 从 savedDrawData 读取 outputParams:`, outputParams);
           }
           
           // 对于source_stop和sink_stop这两个特殊算子，不要请求接口，使用固定的参数
@@ -1797,6 +1799,7 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
         // 保存 dag_task_id
         if (savedDrawData.task?.dag_task_id) {
           setTaskId(savedDrawData.task.dag_task_id);
+          console.log(savedDrawData.task.dag_task_id,"1732987482739472937487328_______________________________")
         }
 
         nodeIdCounter.current = loadedNodes.length;
@@ -1831,12 +1834,14 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
         console.log(`    params:`, JSON.stringify(node.params || {}, null, 4));
       });
       console.log('========================================');
-
       const pipelineNodes = initialPipelineData.nodes;
-
       const createdNodes: Node<NodeData>[] = [];
       const createdEdges: Edge[] = [];
 
+      //新增节点中有missing_skill_stop的节点
+      if (initialPipelineData.task.workflow_status){
+        setIsMissingSkillStop(true);
+      }
       // 创建节点名称到节点ID的映射（用于解析引用关系）
       const nodeNameToIdMap: Record<string, string> = {};
       const nodeIdToOutputParamsMap: Record<string, any> = {};
@@ -1846,8 +1851,12 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
       const nodeIndexToNodeName: string[] = [];
       const nodeNameToIndexMap: Record<string, number> = {};
       pipelineNodes.forEach((node, index) => {
-        nodeIndexToNodeName.push(node.node_name);
         nodeNameToIndexMap[node.node_name] = index;
+
+        //新增节点中有missing_skill_stop的节点
+        if (node.skill_name === 'missing_skill_stop'){
+          setHasMissingSkillStop(true);
+        }
       });
       
       // 1.2 计算每个节点的入度和边关系
@@ -3506,6 +3515,14 @@ const handleAddNode = useCallback(
 
       try {
         const res = await saveDrawInfo(params);
+        const taskIdFromRes = res.result?.task_id;
+        setNewTaskId(taskIdFromRes);
+        console.log("我是在draw.tsx文件中触发的",res.result,isSaved,taskIdFromRes)
+        if (isSaved && taskIdFromRes){
+          params.task.dag_task_id = taskIdFromRes; 
+          await saveDrawInfo(params);
+          return;
+        }
         if (res.code === 200) {
           setTaskId(res.result?.dag_task_id || '');
           setSaveMessage('保存成功！');
@@ -3520,6 +3537,31 @@ const handleAddNode = useCallback(
         setSaveMessage('保存失败：网络错误');
         setTimeout(() => setSaveMessage(''), 3000);
       }
+      
+
+      //再次进行保存接口
+      // if (isSaved){
+      //   debugger
+      //     params.task.dag_task_id = newTaskId; 
+      //     try {
+      //     const res = await saveDrawInfo(params);
+      //     if (res.code === 200) {
+      //       setSaveMessage('保存成功！');
+      //       // 修改成功信息，遮挡返回按钮了
+      //       setTimeout(() => setSaveMessage(''), 2000);
+      //     } else {
+      //       setSaveMessage('保存失败：' + (res.message || '未知错误'));
+      //       setTimeout(() => setSaveMessage(''), 3000);
+      //     }
+      //   } catch (error) {
+      //     console.error('保存失败:', error);
+      //     setSaveMessage('保存失败：网络错误');
+      //     setTimeout(() => setSaveMessage(''), 3000);
+      //   }
+      // } else {
+      //   params.task.dag_task_id = taskId;
+      // }
+
       
       setIsSaving(false);
     }, 800);

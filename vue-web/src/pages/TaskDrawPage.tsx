@@ -2369,7 +2369,7 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
       try {
         // 调用保存接口
         const res = await saveDrawInfo(params);
-        console.log('保存接口返回:', res);
+        console.log("taskDraw页面.tsx文件中触发的")
 
         // 如果返回了任务ID，保存起来
         if (res?.result?.dag_task_id) {

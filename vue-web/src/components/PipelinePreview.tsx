@@ -245,6 +245,10 @@ export default function PipelinePreview({ data, threadId, onOpenCanvas, messageI
   const [isRunning, setIsRunning] = useState(false);
   // 仅用于 UI 显示的边
   const edges = useMemo(() => generateEdges(nodes), [nodes]);
+  // 改为 useMemo 计算（放在 edges 声明下方）
+  const hasMissingSkillStop = useMemo(() => {
+    return nodes.some(node => node.skill_name === 'missing_skill_stop');
+  }, [nodes]);
 
   const handleRun = async () => {
     if (isRunning) return; // 防止重复点击
@@ -275,9 +279,8 @@ export default function PipelinePreview({ data, threadId, onOpenCanvas, messageI
       
       // 优先从已保存的画板获取数据
       if (messageId) {
-        console.log('调用 getDrawInfoBymegId 获取已保存的画板信息');
         const savedResponse = await getDrawInfoBymegId(String(messageId));
-        console.log('已保存画板数据:', savedResponse);
+        console.log('我是在pipeline页面触发的:', savedResponse);
         
         if (savedResponse.code === 200 && savedResponse.result) {
           const savedResult = savedResponse.result as any;
@@ -442,7 +445,7 @@ export default function PipelinePreview({ data, threadId, onOpenCanvas, messageI
       // 如果没有已保存的画板数据，使用会话JSON信息
       if (!drawData) {
         console.log('没有已保存的画板数据，使用会话JSON信息');
-        console.log('节点原始数据:', nodes);
+        console.log('节点原始数据3421343214213434213421341234223:', nodes);
         
         // 节点名称到节点ID的映射
         const nodeNameToIdMap: Record<string, string> = {};
@@ -728,7 +731,7 @@ export default function PipelinePreview({ data, threadId, onOpenCanvas, messageI
       }
 
       let saveResponse = await saveDrawInfo(drawData);
-      console.log('保存画板返回:', saveResponse);
+        console.log("我是在pipeline.tsx文件中触发的")
       
       // 从保存响应中获取 task_id
       let taskId = '';
@@ -858,6 +861,7 @@ export default function PipelinePreview({ data, threadId, onOpenCanvas, messageI
       </div>
 
       {/* 简易DAG图 - 拓扑分层显示，每个节点只出现一次 */}
+      {/* 新修改的，当存在missing_skill_stop算子节点将节点的样式修改为错误红色样式 */}
       <div className="mb-4 overflow-x-auto rounded-lg bg-slate-50 p-3">
         {(() => {
           // 解析节点引用关系，构建图结构
@@ -865,17 +869,17 @@ export default function PipelinePreview({ data, threadId, onOpenCanvas, messageI
           nodes.forEach((node, index) => {
             nodeNameToIndexMap[node.node_name] = index;
           });
-          
+
           const inDegree: number[] = new Array(nodes.length).fill(0);
           const nodeOutEdges: number[][] = new Array(nodes.length).fill(null).map(() => []);
-          
+
           nodes.forEach((pNode, targetIndex) => {
             const dagParams = pNode.params || {};
             Object.values(dagParams).forEach((paramValue: any) => {
               if (typeof paramValue === 'object' && paramValue !== null && 'source_node' in paramValue) {
                 const sourceNodeName = paramValue.source_node;
                 const sourceIndex = nodeNameToIndexMap[sourceNodeName];
-                
+
                 if (sourceIndex !== undefined && sourceIndex !== targetIndex) {
                   const edgeAlreadyExists = nodeOutEdges[sourceIndex].includes(targetIndex);
                   if (!edgeAlreadyExists) {
@@ -886,18 +890,18 @@ export default function PipelinePreview({ data, threadId, onOpenCanvas, messageI
               }
             });
           });
-          
+
           if (nodeOutEdges.every(edges => edges.length === 0)) {
             for (let i = 0; i < nodes.length - 1; i++) {
               nodeOutEdges[i].push(i + 1);
             }
           }
-          
+
           // 拓扑排序分层
           const levels: number[][] = [];
           const tempInDegree = [...inDegree];
           const processed = new Set<number>();
-          
+
           let currentLevel: number[] = [];
           for (let i = 0; i < nodes.length; i++) {
             if (tempInDegree[i] === 0 && !processed.has(i)) {
@@ -905,7 +909,7 @@ export default function PipelinePreview({ data, threadId, onOpenCanvas, messageI
               processed.add(i);
             }
           }
-          
+
           while (currentLevel.length > 0) {
             levels.push(currentLevel);
             const nextLevel: number[] = [];
@@ -922,7 +926,7 @@ export default function PipelinePreview({ data, threadId, onOpenCanvas, messageI
             });
             currentLevel = nextLevel;
           }
-          
+
           if (processed.size < nodes.length) {
             for (let i = 0; i < nodes.length; i++) {
               if (!processed.has(i)) {
@@ -930,10 +934,10 @@ export default function PipelinePreview({ data, threadId, onOpenCanvas, messageI
               }
             }
           }
-          
+
           // 设置每个level的最大宽度，让所有节点居中
           const maxNodesInLevel = Math.max(...levels.map(l => l.length));
-          
+
           // 颜色配置 - 根据节点索引分配不同颜色
           const nodeColors = [
             { bg: '#f3e8ff', border: '#a855f7', dot: '#c084fc' },  // 紫色
@@ -945,22 +949,22 @@ export default function PipelinePreview({ data, threadId, onOpenCanvas, messageI
             { bg: '#fed7aa', border: '#f97316', dot: '#fb923c' },  // 琥珀色
             { bg: '#d1fae5', border: '#10b981', dot: '#34d399' },  // 翡翠色
           ];
-          
+
           const getNodeColor = (index: number) => {
             return nodeColors[index % nodeColors.length];
           };
-          
+
           // 判断是否为分支节点
           const isForkNode = (node: PipelineNode) => {
-            return node.skill_name?.toLowerCase().includes('fork') || 
-                   node.node_name?.toLowerCase().includes('分支');
+            return node.skill_name?.toLowerCase().includes('fork') ||
+              node.node_name?.toLowerCase().includes('分支');
           };
-          
+
           const isMergeNode = (node: PipelineNode) => {
-            return node.skill_name?.toLowerCase().includes('merge') || 
-                   node.node_name?.toLowerCase().includes('合并');
+            return node.skill_name?.toLowerCase().includes('merge') ||
+              node.node_name?.toLowerCase().includes('合并');
           };
-          
+
           // 渲染
           return (
             <div className="flex flex-col items-center gap-2 pipeline-container">
@@ -973,15 +977,18 @@ export default function PipelinePreview({ data, threadId, onOpenCanvas, messageI
                       const color = getNodeColor(nodeIndex);
                       const fork = isForkNode(node);
                       const merge = isMergeNode(node);
-                      
+
+                      // 判断是否为 missing_skill_stop 错误节点
+                      const isMissingSkillStop = node.skill_name === 'missing_skill_stop';
+                    
                       return (
                         <div key={nodeIndex} className="flex flex-col items-center">
                           {/* 菱形节点 - Fork/Merge */}
                           {fork || merge ? (
-                            <div 
+                            <div
                               className="flex items-center justify-center p-2"
-                              style={{ 
-                                width: '90px', 
+                              style={{
+                                width: '90px',
                                 height: '50px',
                                 backgroundColor: '#fef3c7',
                                 border: `2px solid #f59e0b`,
@@ -994,28 +1001,38 @@ export default function PipelinePreview({ data, threadId, onOpenCanvas, messageI
                             </div>
                           ) : (
                             // 圆角矩形节点
-                            <div 
+                            <div
                               className="flex items-center gap-2 px-4 py-2 rounded-full"
-                              style={{ 
-                                backgroundColor: color.bg,
-                                border: `2px solid ${color.border}`,
+                              style={{
+                                backgroundColor: isMissingSkillStop ? '#fee2e2' : color.bg,
+                                border: `2px solid ${isMissingSkillStop ? '#ef4444' : color.border}`,
                                 minWidth: '120px'
                               }}
                             >
-                              {/* 小圆点 */}
-                              <div 
-                                className="w-3 h-3 rounded-full flex-shrink-0"
-                                style={{ backgroundColor: color.dot }}
-                              />
+                            {/* 小圆点 改为内置的×图标并改为红色*/}
+                              {isMissingSkillStop ? (
+                                  <Icon
+                                    icon="ri:close-circle-fill"
+                                    width={19}
+                                    height={19}
+                                    color="#f87171"
+                                    className="flex-shrink-0"
+                                  />
+                                ) : (
+                                  <div
+                                    className="w-3 h-3 rounded-full flex-shrink-0"
+                                    style={{ backgroundColor: color.dot }}
+                                  />
+                              )}
                               {/* 节点名称 */}
-                              <div className="text-sm font-medium text-slate-700 whitespace-nowrap">
+                              <div className={`text-sm font-medium whitespace-nowrap ${isMissingSkillStop ? 'text-red-700' : 'text-slate-700'}`}>
                                 {node.node_name}
                               </div>
                             </div>
                           )}
                           {/* 技能名称 */}
                           {node.skill_name && !fork && !merge && (
-                            <div className="mt-1 text-xs text-slate-400">
+                            <div className={`mt-1 text-xs ${isMissingSkillStop ? 'text-red-500 font-medium' : 'text-slate-400'}`}>
                               {node.skill_name}
                             </div>
                           )}
@@ -1023,7 +1040,7 @@ export default function PipelinePreview({ data, threadId, onOpenCanvas, messageI
                       );
                     })}
                   </div>
-                  
+
                   {/* 层级之间的连接箭头 */}
                   {levelIndex < levels.length - 1 && (
                     <div className="flex justify-center items-center py-2 pipeline-arrow" style={{ minHeight: '32px', animationDelay: `${0.35 + levelIndex * 0.2}s` }}>
@@ -1036,18 +1053,18 @@ export default function PipelinePreview({ data, threadId, onOpenCanvas, messageI
                               {/* 箭头线 */}
                               <div className="w-px h-6 bg-slate-300 mx-auto"></div>
                               {/* 箭头 */}
-                              <svg 
-                                width="16" 
-                                height="16" 
-                                viewBox="0 0 24 24" 
-                                fill="none" 
+                              <svg
+                                width="16"
+                                height="16"
+                                viewBox="0 0 24 24"
+                                fill="none"
                                 className="absolute left-1/2 -translate-x-1/2 -translate-y-1"
                               >
-                                <path 
-                                  d="M12 19V5M8 11l4 4 4-4" 
-                                  stroke="#9ca3af" 
-                                  strokeWidth="2" 
-                                  strokeLinecap="round" 
+                                <path
+                                  d="M12 19V5M8 11l4 4 4-4"
+                                  stroke="#9ca3af"
+                                  strokeWidth="2"
+                                  strokeLinecap="round"
                                   strokeLinejoin="round"
                                 />
                               </svg>
@@ -1066,34 +1083,39 @@ export default function PipelinePreview({ data, threadId, onOpenCanvas, messageI
 
       {/* 按钮组 */}
       <div className="flex gap-2 pipeline-buttons" style={{ animationDelay: `1.2s` }}>
-        <button
-          onClick={handleRun}
-          disabled={disabled || isRunning}
-          className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-            disabled
-              ? 'bg-slate-300 text-slate-500 cursor-not-allowed'
-              : 'bg-slate-900 text-white hover:bg-slate-800'
-          }`}
-        >
-          {isRunning ? (
-            <>
-              <Icon icon="ri:loader-2-fill" className="animate-spin" width={16} />
-              运行中...
-            </>
-          ) : (
-            <>
-              <Icon icon="ri:play-fill" width={16} />
-              一键运行
-            </>
-          )}
-        </button>
-        <button
-          onClick={handleEdit}
-          className="flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
-        >
-          <Icon icon="ri:edit-line" width={16} />
-          打开画板编辑
-        </button>
+       {!hasMissingSkillStop && (
+          <button
+            onClick={handleRun}
+            disabled={disabled || isRunning}
+            className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+              disabled
+                ? 'bg-slate-300 text-slate-500 cursor-not-allowed'
+                : 'bg-slate-900 text-white hover:bg-slate-800'
+            }`}
+          >
+            {isRunning ? (
+              <>
+                <Icon icon="ri:loader-2-fill" className="animate-spin" width={16} />
+                运行中...
+              </>
+            ) : (
+              <>
+                <Icon icon="ri:play-fill" width={16} />
+                一键运行
+              </>
+            )}
+          </button>
+        )}
+
+        {!hasMissingSkillStop && (
+          <button
+            onClick={handleEdit}
+            className="flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
+          >
+            <Icon icon="ri:edit-line" width={16} />
+            打开画板编辑
+          </button>
+        )}
         <button
           onClick={() => {
             if (data) {

@@ -340,6 +340,8 @@ export function HomePage() {
 
   const uploading = uploadingCount > 0;
   const isExpanded = hasMessages || sending || Boolean(loadError);
+  //新增一个状态
+  const [isSaved, setIsSaved] = useState(false);
     const handleDownload = () => {
     const zipName = "用户手册";
     const link = document.createElement("a");
@@ -351,6 +353,7 @@ export function HomePage() {
   };
   // 处理打开画板
   const handleOpenCanvas = async (data: PipelineData, msgId?: string) => {
+    console.log("初始画板中的数据",canvasPipelineData)
     setCanvasPipelineData(data);
     const currentMsgId = canvasMessageIdRef.current;
     if (!currentMsgId) {
@@ -359,13 +362,17 @@ export function HomePage() {
     }
     // 先请求已保存的画板信息
     let drawData = null;
+    let currentIsSaved = false;  //默认是第一次进入画板
     const effectiveMsgId = canvasMessageIdRef.current || msgId;
     if (effectiveMsgId) {
       try {
         const res = await getDrawInfoBymegId(effectiveMsgId);
-        console.log('getDrawInfoBymegId返回:', res);
-        if (res.code === 200 && res.result) {
+        console.log('我是home页面触发的:', res);
+        if (res.code === 200 && res.result) { //判断详情中是否有值，如返回值有值，在保存的时候传taskId
           drawData = res.result;
+          currentIsSaved = true; //第二次进入画板
+        } else  {
+           currentIsSaved = false; //第一次进入画板
         }
       } catch (e) {
         console.log('获取已保存画板信息失败，使用会话数据:', e);
@@ -374,6 +381,7 @@ export function HomePage() {
     setSavedDrawData(drawData);
     setCanvasKey(prev => prev + 1);
     setShowCanvas(true);
+    setIsSaved(currentIsSaved);
   };
   
   // 关闭画板
@@ -384,6 +392,13 @@ export function HomePage() {
     canvasMessageIdRef.current = '';
     setCanvasMessageId('');
   };
+
+  useEffect(() => {
+    if (canvasPipelineData) {
+      console.log("画板数据已更新:", canvasPipelineData);
+    }
+  }, [canvasPipelineData]);
+
 
   useEffect(() => {
     if (!transcriptRef.current) {
@@ -683,6 +698,7 @@ export function HomePage() {
               ),
             );
             setStreamStatus("正在生成最终回答...");
+    console.log("初始画板中的数据",canvasPipelineData)
             return;
           }
 
@@ -750,6 +766,8 @@ export function HomePage() {
 
       // 流结束后刷新对话历史列表
       window.dispatchEvent(new CustomEvent("flow:threads-refresh"));
+      
+    
     } catch (error: any) {
       const message = String(error?.message || error);
       setMessages((current) => {
@@ -933,7 +951,7 @@ export function HomePage() {
               event.preventDefault();
               send().catch(() => {});
             }
-          }}
+          }} 
           placeholder="输入你的科学数据处理需求，例如：请提取文中的材料名称、实验条件和结果指标。"
           rows={1}
           value={input}
@@ -1256,9 +1274,10 @@ export function HomePage() {
 
             {/* 右侧画板区域 */}
             {showCanvas && canvasPipelineData && (
+              
               <>
                 {/* 拖拽分隔条 */}
-                <div
+                <div 
                   className="canvas-drag-handle flex-shrink-0 cursor-col-resize hover:bg-sky-400/50 active:bg-sky-500/70 transition-colors"
                   style={{ width: '4px' }}
                   onMouseDown={() => {
@@ -1269,7 +1288,8 @@ export function HomePage() {
                 />
                 <div className="h-screen overflow-hidden border-l border-slate-200 shadow-[-2px_0_12px_rgba(0,0,0,0.04)] animate-slide-in-right flex-shrink-0"
                   style={{ width: `${canvasWidth}%` }}>
-                  <FlowEditor key={canvasKey} initialPipelineData={canvasPipelineData as unknown as InitialPipelineData} onClose={handleCloseCanvas} threadId={threadId} messageId={canvasMessageId} savedDrawData={savedDrawData} />
+                  <FlowEditor key={canvasKey} initialPipelineData={canvasPipelineData as unknown as InitialPipelineData} onClose={handleCloseCanvas} threadId={threadId} messageId={canvasMessageId} savedDrawData={savedDrawData}
+                    isSaved={isSaved} />
                 </div>
               </>
             )}
