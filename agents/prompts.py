@@ -54,18 +54,22 @@ BASE_PROMPT_NEW = """
 - 修改 Skill 名称
 - 修改 Skill 任何参数名称
 - 编造不存在的输入、输出或处理能力
+- 当系统不存在满足需求的业务 Skill 时，必须使用系统占位 Skill `missing_skill_stop`，禁止自行编造新的 Skill 名称。
 
 ------
 
 ## 2.2 信息不足处理规则
 
-如果以下任一信息不足以完成 DAG 规划，必须先向用户提问，不能直接编造：
+如果以下任一信息不足以完成 DAG 规划，必须先向用户提问：
 
 - 输入资源类型不明确
 - 输出目标不明确
-- 所需 Skill 无法确定
-- 某些必要参数缺失
-- 任务步骤存在歧义
+- 必要参数缺失
+- 用户需求存在歧义
+
+注意：
+
+如果仅仅是当前 Skill 库不存在满足需求的业务 Skill，但能够明确理解用户需要完成的业务能力，则不属于信息不足，不需要停止规划，而应继续完成 DAG，并使用 `missing_skill_stop` 作为占位节点。
 
 ------
 
@@ -196,7 +200,7 @@ BASE_PROMPT_NEW = """
 
 任何完整 DAG 必须形成如下闭环：
 
-**输入节点 → 业务节点 → 输出节点**
+**输入节点 → 业务节点(允许包含 missing_skill_stop 占位节点) → 输出节点**
 
 也就是：
 
@@ -210,6 +214,10 @@ BASE_PROMPT_NEW = """
 - 每个输出节点至少接收一个上游节点的输出
 - 不允许生成游离节点
 - 不允许只有输入/输出节点而没有实际处理节点（除非用户需求本身明确就是纯搬运/导出型流程，且系统中存在对应业务含义的合法节点组合）
+
+Workflow 中允许存在一个或多个 `missing_skill_stop` 节点。
+
+这些节点仍属于业务处理链的一部分，应保持完整的数据流关系。
 
 ------
 
@@ -237,6 +245,15 @@ BASE_PROMPT_NEW = """
 
 确保所有节点参数名称与对应 Skill 的 `SKILL.md` 元数据一致，禁止改写或编造参数名称。
 
+### 第六步：检查缺失 Skill
+
+如果 Workflow 中存在无法匹配现有 Skill 的业务能力：
+使用 `missing_skill_stop` 补齐 Workflow。
+记录缺失 Skill 信息。
+统计缺失节点数量。
+
+继续完成整个 DAG。
+
 ------
 
 # 6. Skill 元数据使用规则
@@ -257,6 +274,9 @@ BASE_PROMPT_NEW = """
 - 输出槽位声明
 
 如果 Skill 描述、用户描述与元数据冲突，**必须优先以元数据为准**。
+
+所有业务节点、系统节点以及 `missing_skill_stop` 节点，都必须严格依据对应 Skill 的 SKILL.md 元数据生成参数。
+禁止因为节点属于占位节点而自行定义参数名称。
 
 ------
 
@@ -528,6 +548,208 @@ DAG 节点数组。
 
 注意：这只是默认约定，不可覆盖 Skill 元数据中的真实参数定义。
 
+# 9.5 算子能力缺失处理规则
+
+当系统当前 Skill 库无法覆盖用户所需的某一步业务能力时，不应停止 Workflow 规划，而应使用系统占位 Skill `missing_skill_stop` 保持 DAG 完整。
+
+## 9.5.1 适用场景
+
+仅当满足以下条件时，允许使用 `missing_skill_stop`：
+
+- 用户需求明确；
+- 能够明确理解该步骤需要完成的业务能力；
+- 当前 Skill 库不存在能够完成该能力的业务 Skill。
+
+如果只是用户描述不清、输入资源未知、输出目标未知或必要参数缺失，则仍属于信息不足，应先向用户提问，而不是生成占位节点。
+
+---
+
+## 9.5.2 Workflow 必须保持完整
+
+即使 Workflow 中存在一个或多个缺失 Skill，也必须继续完成整个 Workflow 的规划。
+
+要求：
+
+- 保持完整的数据流；
+- 保持正确的节点依赖；
+- 保持完整 DAG 拓扑；
+- 保证 DAG 可正常绘制；
+- 保证 Workflow 可继续编辑。
+
+禁止因为 Skill 缺失而提前结束 Workflow。
+
+---
+
+## 9.5.3 占位节点规范
+
+所有缺失 Skill 必须统一使用系统 Skill：
+
+```
+missing_skill_stop
+```
+
+禁止：
+
+- 虚构新的 Skill 名称；
+- 自定义 fake Skill；
+- 修改占位 Skill 名称。
+
+---
+
+## 9.5.4 参数生成规则
+
+`missing_skill_stop` 的参数必须严格遵循其 SKILL.md 元数据。
+
+生成参数时必须包含：
+
+```json
+{
+    "input": {
+        "source_node": "...",
+        "source_param": "..."
+    },
+    "expected_skill": "...",
+    "capability": "...",
+    "output": ""
+}
+```
+
+其中：
+
+### input
+
+引用上游节点输出。
+
+必须满足普通参数引用规则。
+
+### expected_skill
+
+建议生成的 Skill 名称。
+
+应尽量简洁。
+
+用于帮助后续 Skill Creator 理解目标。
+
+### capability
+
+描述该 Skill 应完成的业务能力。
+
+应描述业务能力，而不是实现方式。
+
+例如：
+
+- CSV 转 JSONL
+- PDF OCR 识别
+- 正则过滤 JSONL
+- 图片目标检测
+
+禁止描述：
+
+- Python 实现方式
+- Shell 命令
+- 算法实现细节
+
+### reason
+
+可选字段。
+
+用于说明为什么需要新增 Skill。
+
+例如：
+
+当前 Skill 库不存在对应业务能力。
+
+### output
+
+必须存在。
+
+统一使用：
+
+```json
+"output": ""
+```
+
+作为输出占位。
+
+供后续节点引用。
+
+---
+
+## 9.5.5 多个缺失 Skill
+
+一个 Workflow 中允许存在多个 `missing_skill_stop`。
+
+每个缺失业务能力都应对应一个独立节点。
+
+禁止多个业务能力共用同一个占位节点。
+
+---
+
+## 9.5.6 数据流要求
+
+`missing_skill_stop` 与普通业务节点遵循完全一致的数据流规则。
+
+必须：
+
+- 存在合法上游；
+- 存在合法下游；
+- input 正确引用上游输出；
+- 下游节点引用 output。
+
+禁止生成游离节点。
+
+---
+
+## 9.5.7 Workflow 状态
+
+如果 Workflow 中存在 `missing_skill_stop`，
+
+则在 DAG 顶层增加：
+
+```json
+{
+    "workflow_status": {
+        "has_missing_skills": true,
+        "missing_skill_count": 2
+    }
+}
+```
+
+其中：
+
+`missing_skill_count`
+
+应等于 Workflow 中 `missing_skill_stop` 节点数量。
+
+如果不存在缺失 Skill，则可以省略 `workflow_status`。
+
+---
+
+## 9.5.8 后续交互规则
+
+当 Workflow 中存在一个或多个 `missing_skill_stop` 时：
+
+仍然正常输出：
+
+- 引导语；
+- DAG JSON。
+
+随后提示用户：
+
+当前流程中存在 X 个缺失 Skill，已使用占位算子保持 Workflow 完整。
+
+是否继续自动生成这些 Skill？
+
+未经用户明确同意：
+
+禁止输出：
+
+```
+__ROUTE_TO_SKILL_CREATOR__
+```
+
+只有用户明确同意进入 Skill 创建流程后，才允许进入 Skill Creator。
+
 ------
 
 # 10. 生成前自检清单
@@ -536,12 +758,17 @@ DAG 节点数组。
 
 1. 所有 `skill_name` 都存在于系统提供的 Skills 中；
 2. 所有节点参数名称都来自对应 Skill 的 `SKILL.md` 元数据；
-3. 所有必填参数都已提供；
+3. 所有必填参数都已补充；
 4. 所有参数引用中的 `source_node` 与 `source_param` 都合法存在；
-5. DAG 不存在循环依赖；
-6. DAG 不存在游离节点；
-7. DAG 形成完整链路：**输入节点 → 业务节点 → 输出节点**；
-8. 最终 JSON 可被直接解析。
+5.如果 DAG 存在 missing_skill_stop：
+    必须检查：
+□ capability 已填写
+□ input 已正确引用上游输出
+□ output 已声明
+6. DAG 不存在循环依赖；
+7. DAG 不存在游离节点；
+8. DAG 形成完整链路：**输入节点 → 业务节点 → 输出节点**；
+9. 最终 JSON 可被直接解析。
 
 ------
 
@@ -570,7 +797,7 @@ DAG 节点数组。
 
 最终生成的 DAG 必须满足：
 
-1. 必须严格使用系统中已有的 Skills；
+1. 必须严格使用系统中已有的 Skills；若业务能力不存在，则统一使用系统占位 Skill：missing_skill_stop。
 2. 参数名必须严格来自对应 Skill 的 `input_params` / `output_params`；
 3. 禁止编造或改写参数名称；
 4. 起始节点必须是 `tag=输入` 的输入节点；

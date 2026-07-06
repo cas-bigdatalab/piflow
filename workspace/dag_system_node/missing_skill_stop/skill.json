@@ -1,0 +1,47 @@
+{
+  "name": "missing_skill_stop",
+  "version": "1.0.0",
+  "description": "DAG 占位算子， 当系统缺失符合用户需求的 DAG 中规划的算子能力时，使用此占位算子保证DAG结构完整。",
+  "language": "",
+  "script_path": "",
+  "entrypoint": "",
+  "input_params": [
+    {
+      "name": "input",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "引用上游节点输出"
+    },
+    {
+      "name": "expected_skill",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "需要补齐的算子名称"
+    },
+    {
+      "name": "capability",
+      "role": "data",
+      "type": "string",
+      "required": true,
+      "description": "需要补齐的算子能力描述"
+    },
+    {
+      "name": "reason",
+      "role": "data",
+      "type": "string",
+      "required": true,
+      "description": "需要补齐的算子无法满足用户需求的原因描述"
+    }
+  ],
+  "output_params": [
+    {
+      "name": "output",
+      "role": "output_data",
+      "type": "string",
+      "description": "供下游节点引用的输出占位参数"
+    }
+  ],
+  "command_template": []
+}
