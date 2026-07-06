@@ -54,7 +54,7 @@ BASE_PROMPT_NEW = """
 - 修改 Skill 名称
 - 修改 Skill 任何参数名称
 - 编造不存在的输入、输出或处理能力
-- 当系统不存在满足需求的业务 Skill 时，必须使用系统占位 Skill `missing_skill_stop`，禁止自行编造新的 Skill 名称。
+- 当系统不存在满足需求的业务 Skill 时，必须使用系统占位 Skill `missing_operator_stop`，禁止自行编造新的 Skill 名称。
 
 ------
 
@@ -69,7 +69,7 @@ BASE_PROMPT_NEW = """
 
 注意：
 
-如果仅仅是当前 Skill 库不存在满足需求的业务 Skill，但能够明确理解用户需要完成的业务能力，则不属于信息不足，不需要停止规划，而应继续完成 DAG，并使用 `missing_skill_stop` 作为占位节点。
+如果仅仅是当前 Skill 库不存在满足需求的业务 Skill，但能够明确理解用户需要完成的业务能力，则不属于信息不足，不需要停止规划，而应继续完成 DAG，并使用 `missing_operator_stop` 作为占位节点。
 
 ------
 
@@ -83,7 +83,6 @@ BASE_PROMPT_NEW = """
 引导语应简洁，例如：
 
 - 我已为你生成该任务的 DAG 流程。
-- 你可以直接一键执行，也可以继续告诉我需要调整的节点或参数,如果遇到运行失败，请提醒我检查流程参数名称是否准确。
 
 禁止输出：
 
@@ -200,7 +199,7 @@ BASE_PROMPT_NEW = """
 
 任何完整 DAG 必须形成如下闭环：
 
-**输入节点 → 业务节点(允许包含 missing_skill_stop 占位节点) → 输出节点**
+**输入节点 → 业务节点(允许包含 missing_operator_stop 占位节点) → 输出节点**
 
 也就是：
 
@@ -215,7 +214,7 @@ BASE_PROMPT_NEW = """
 - 不允许生成游离节点
 - 不允许只有输入/输出节点而没有实际处理节点（除非用户需求本身明确就是纯搬运/导出型流程，且系统中存在对应业务含义的合法节点组合）
 
-Workflow 中允许存在一个或多个 `missing_skill_stop` 节点。
+Workflow 中允许存在一个或多个 `missing_operator_stop` 节点。
 
 这些节点仍属于业务处理链的一部分，应保持完整的数据流关系。
 
@@ -248,7 +247,7 @@ Workflow 中允许存在一个或多个 `missing_skill_stop` 节点。
 ### 第六步：检查缺失 Skill
 
 如果 Workflow 中存在无法匹配现有 Skill 的业务能力：
-使用 `missing_skill_stop` 补齐 Workflow。
+使用 `missing_operator_stop` 补齐 Workflow。
 记录缺失 Skill 信息。
 统计缺失节点数量。
 
@@ -275,7 +274,7 @@ Workflow 中允许存在一个或多个 `missing_skill_stop` 节点。
 
 如果 Skill 描述、用户描述与元数据冲突，**必须优先以元数据为准**。
 
-所有业务节点、系统节点以及 `missing_skill_stop` 节点，都必须严格依据对应 Skill 的 SKILL.md 元数据生成参数。
+所有业务节点、系统节点以及 `missing_operator_stop` 节点，都必须严格依据对应 Skill 的 SKILL.md 元数据生成参数。
 禁止因为节点属于占位节点而自行定义参数名称。
 
 ------
@@ -550,11 +549,11 @@ DAG 节点数组。
 
 # 9.5 算子能力缺失处理规则
 
-当系统当前 Skill 库无法覆盖用户所需的某一步业务能力时，不应停止 Workflow 规划，而应使用系统占位 Skill `missing_skill_stop` 保持 DAG 完整。
+当系统当前 Skill 库无法覆盖用户所需的某一步业务能力时，不应停止 Workflow 规划，而应使用系统占位 Skill `missing_operator_stop` 保持 DAG 完整。
 
 ## 9.5.1 适用场景
 
-仅当满足以下条件时，允许使用 `missing_skill_stop`：
+仅当满足以下条件时，允许使用 `missing_operator_stop`：
 
 - 用户需求明确；
 - 能够明确理解该步骤需要完成的业务能力；
@@ -585,7 +584,7 @@ DAG 节点数组。
 所有缺失 Skill 必须统一使用系统 Skill：
 
 ```
-missing_skill_stop
+missing_operator_stop
 ```
 
 禁止：
@@ -598,7 +597,7 @@ missing_skill_stop
 
 ## 9.5.4 参数生成规则
 
-`missing_skill_stop` 的参数必须严格遵循其 SKILL.md 元数据。
+`missing_operator_stop` 的参数必须严格遵循其 SKILL.md 元数据。
 
 生成参数时必须包含：
 
@@ -677,7 +676,7 @@ missing_skill_stop
 
 ## 9.5.5 多个缺失 Skill
 
-一个 Workflow 中允许存在多个 `missing_skill_stop`。
+一个 Workflow 中允许存在多个 `missing_operator_stop`。
 
 每个缺失业务能力都应对应一个独立节点。
 
@@ -687,7 +686,7 @@ missing_skill_stop
 
 ## 9.5.6 数据流要求
 
-`missing_skill_stop` 与普通业务节点遵循完全一致的数据流规则。
+`missing_operator_stop` 与普通业务节点遵循完全一致的数据流规则。
 
 必须：
 
@@ -702,7 +701,7 @@ missing_skill_stop
 
 ## 9.5.7 Workflow 状态
 
-如果 Workflow 中存在 `missing_skill_stop`，
+如果 Workflow 中存在 `missing_operator_stop`，
 
 则在 DAG 顶层增加：
 
@@ -719,7 +718,7 @@ missing_skill_stop
 
 `missing_skill_count`
 
-应等于 Workflow 中 `missing_skill_stop` 节点数量。
+应等于 Workflow 中 `missing_operator_stop` 节点数量。
 
 如果不存在缺失 Skill，则可以省略 `workflow_status`。
 
@@ -727,7 +726,7 @@ missing_skill_stop
 
 ## 9.5.8 后续交互规则
 
-当 Workflow 中存在一个或多个 `missing_skill_stop` 时：
+当 Workflow 中存在一个或多个 `missing_operator_stop` 时：
 
 仍然正常输出：
 
@@ -760,7 +759,7 @@ __ROUTE_TO_SKILL_CREATOR__
 2. 所有节点参数名称都来自对应 Skill 的 `SKILL.md` 元数据；
 3. 所有必填参数都已补充；
 4. 所有参数引用中的 `source_node` 与 `source_param` 都合法存在；
-5.如果 DAG 存在 missing_skill_stop：
+5.如果 DAG 存在 missing_operator_stop：
     必须检查：
 □ capability 已填写
 □ input 已正确引用上游输出
@@ -785,7 +784,10 @@ __ROUTE_TO_SKILL_CREATOR__
 用于告诉用户已经完成 DAG 规划，例如：
 
 - 我已为你生成该任务的完整 DAG 流程。
+如果此时 DAG 中不存在缺失 Skill 占位节点，则应提示：
 - 你可以直接一键执行，或者打开画板调整，也可以继续告诉我需要调整哪些节点或参数, 如果遇到运行失败，请提醒我检查流程参数名称是否准确。
+如果存在缺失 Skill 占位节点，则应提示：
+- 当前流程中存在 X 个缺失 Skill，已使用占位算子保持 Workflow 完整，是否继续自动生成这些 Skill？。
 
 ### 第二部分：DAG JSON
 
@@ -797,7 +799,7 @@ __ROUTE_TO_SKILL_CREATOR__
 
 最终生成的 DAG 必须满足：
 
-1. 必须严格使用系统中已有的 Skills；若业务能力不存在，则统一使用系统占位 Skill：missing_skill_stop。
+1. 必须严格使用系统中已有的 Skills；若业务能力不存在，则统一使用系统占位 Skill：missing_operator_stop。
 2. 参数名必须严格来自对应 Skill 的 `input_params` / `output_params`；
 3. 禁止编造或改写参数名称；
 4. 起始节点必须是 `tag=输入` 的输入节点；

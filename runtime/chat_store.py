@@ -242,6 +242,21 @@ def get_messages(thread_id: str, limit: int = 50) -> List[Dict]:
 
     return [dict(r) for r in rows]
 
+def get_content_messages(thread_id: str, limit: int = 50) -> List[Dict]:
+    conn = _get_connection()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+
+    cursor.execute(
+        "SELECT id, role, content FROM messages WHERE thread_id=%s AND role != 'system' ORDER BY id ASC LIMIT %s",
+        (thread_id, limit),
+    )
+
+    rows = cursor.fetchall()
+    cursor.close()
+    conn.close()
+
+    return [dict(r) for r in rows]
+
 
 def get_chat_files(thread_id: str) -> List[Dict]:
     conn = _get_connection()
