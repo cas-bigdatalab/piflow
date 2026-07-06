@@ -247,7 +247,7 @@ export default function PipelinePreview({ data, threadId, onOpenCanvas, messageI
   const edges = useMemo(() => generateEdges(nodes), [nodes]);
   // 改为 useMemo 计算（放在 edges 声明下方）
   const hasMissingSkillStop = useMemo(() => {
-    return nodes.some(node => node.skill_name === 'missing_skill_stop');
+    return nodes.some(node => node.skill_name === 'missing_operator_stop');
   }, [nodes]);
 
   const handleRun = async () => {
@@ -861,7 +861,7 @@ export default function PipelinePreview({ data, threadId, onOpenCanvas, messageI
       </div>
 
       {/* 简易DAG图 - 拓扑分层显示，每个节点只出现一次 */}
-      {/* 新修改的，当存在missing_skill_stop算子节点将节点的样式修改为错误红色样式 */}
+      {/* 新修改的，当存在missing_operator_stop算子节点将节点的样式修改为错误红色样式 */}
       <div className="mb-4 overflow-x-auto rounded-lg bg-slate-50 p-3">
         {(() => {
           // 解析节点引用关系，构建图结构
@@ -978,8 +978,8 @@ export default function PipelinePreview({ data, threadId, onOpenCanvas, messageI
                       const fork = isForkNode(node);
                       const merge = isMergeNode(node);
 
-                      // 判断是否为 missing_skill_stop 错误节点
-                      const isMissingSkillStop = node.skill_name === 'missing_skill_stop';
+                      // 判断是否为 missing_operator_stop 错误节点
+                      const isMissingSkillStop = node.skill_name === 'missing_operator_stop';
                     
                       return (
                         <div key={nodeIndex} className="flex flex-col items-center">
