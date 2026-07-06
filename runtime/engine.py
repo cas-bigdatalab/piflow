@@ -13,7 +13,8 @@ from infra.config_loader import get_settings
 from infra.env_loader import load_dotenv_file
 from infra.logging import init_logging
 from mcp_runtime.mcp_runtime import MCPRuntime
-from runtime.chat_store import create_thread, get_messages, save_message, update_thread_time, init_db
+from runtime.chat_store import create_thread, get_messages, save_message, update_thread_time, init_db, \
+    get_content_messages
 from runtime.dag_manager import init_dag_db
 from runtime.piflow_adapter import init_piflow_run_tracking_db
 from runtime.skill_manage import init_dag_skills_to_database
@@ -490,7 +491,8 @@ class AgentEngine:
             _preview_text(message),
         )
 
-        history = get_messages(thread_id)
+        # history = get_messages(thread_id)
+        history = get_content_messages(thread_id)
         log.info(
             "history loaded request_id=%s thread_id=%s message_count=%s",
             request_id,

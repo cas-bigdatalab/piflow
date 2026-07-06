@@ -1,5 +1,5 @@
 {
-  "name": "missing_skill_stop",
+  "name": "missing_operator_stop",
   "version": "1.0.0",
   "description": "DAG 占位算子， 当系统缺失符合用户需求的 DAG 中规划的算子能力时，使用此占位算子保证DAG结构完整。",
   "language": "",
