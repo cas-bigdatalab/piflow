@@ -15,7 +15,8 @@ async def main():
     engine = AgentEngine()
     await engine.initialize()
 
-    print("DeepAgent CLI 已启动 (exit退出)\n")
+    active_agent_name = type(engine.agent).__name__ if engine.agent is not None else "UnknownAgent"
+    print(f"DeepAgent CLI 已启动，当前主链路 Agent: {active_agent_name} (exit退出)\n")
 
     while True:
         question = input("User: ")

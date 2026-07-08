@@ -1,0 +1,85 @@
+{
+  "name": "example_mapper",
+  "title": "Example Mapper",
+  "description": "用于说明 PiFlow skill spec 基本字段结构的示例配置，展示名称、参数、脚本路径和示例命令等常见字段的写法。",
+  "version": "1.0.0",
+  "triggers": ["示例配置", "参数说明"],
+  "category": "mapper",
+  "tag": "其他",
+  "language": "python",
+  "trigger_conditions": [
+    "此文件仅用于展示 spec 字段结构，不表示真实业务触发条件。"
+  ],
+  "core_features": [
+    "展示必填与可选字段的组织方式",
+    "展示输入输出参数的声明格式",
+    "展示脚本路径、命令模板和示例写法"
+  ],
+  "processing_logic": [
+    "读取 input_path 指向的示例输入",
+    "根据 text_key 演示一个占位处理步骤",
+    "将结果写入 output_path 指向的位置"
+  ],
+  "supported_formats": ["JSON"],
+  "input_params": [
+    {
+      "name": "input_path",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "输入 JSON 文件路径"
+    },
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "输出 JSON 文件路径"
+    },
+    {
+      "name": "text_key",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "default": "text",
+      "description": "示例文本字段名"
+    }
+  ],
+  "output_params": [
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "json_file",
+      "description": "示例输出 JSON 文件"
+    }
+  ],
+  "script": {
+    "path": "scripts/run_example_mapper.py"
+  },
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input_path",
+    "{input_path}",
+    "--output_path",
+    "{output_path}",
+    "--text_key",
+    "{text_key}"
+  ],
+  "dependencies": ["Python 3.x"],
+  "output_format": [
+    {
+      "text": "示例输出文本"
+    }
+  ],
+  "examples": [
+    {
+      "title": "示例调用格式",
+      "command": "python scripts/run_example_mapper.py --input_path input.json --output_path output.json"
+    }
+  ],
+  "metadata": {
+    "example_only": true,
+    "entry_chain": "manual_generation"
+  }
+}

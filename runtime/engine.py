@@ -6,6 +6,7 @@ import uuid
 from typing import Any, AsyncIterator, Awaitable, Callable
 
 from agents.factory import AgentFactory
+from agents.skill_planner.factory import SkillPlannerAgentFactory
 from agents.subagent.skill_creator.factory import SkillCreatorAgentFactory
 from agents.subagent.skill_creator.prompt import is_skill_creator_route_marker, strip_route_marker
 from agents.subagent.workflow_advisor.factory import AdvisorAgentFactory
@@ -443,6 +444,8 @@ class AgentEngine:
         log.info("initializing database complete")
 
         self.agent = AgentFactory.create_agent()
+        # planner agent
+        # self.agent = SkillPlannerAgentFactory.create_agent()
 
         self.skill_creator_agent = SkillCreatorAgentFactory.create_agent()
         self.skill_creator_service = SkillCreatorService(
