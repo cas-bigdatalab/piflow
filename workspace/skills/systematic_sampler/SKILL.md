@@ -49,7 +49,7 @@ output_params:
 - name: sample_count
   type: integer
   description: 采样数量
-tag: 切分与采样
+tag: 数据筛选
 ---
 
 # SystematicSampler - 系统采样算子

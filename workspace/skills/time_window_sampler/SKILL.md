@@ -44,7 +44,7 @@ output_params:
 - name: output
   type: jsonl_file
   description: 时间窗口采样后的数据
-tag: 切分与采样
+tag: 数据筛选
 ---
 
 # TimeWindowSampler - 时间窗口采样算子

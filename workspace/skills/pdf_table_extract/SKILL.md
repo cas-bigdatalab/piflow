@@ -24,7 +24,7 @@ output_params:
   - name: output_path
     type: json_file
     description: 提取的表格JSON文件
-tag: 输入
+tag: 数据解析
 
 ---
 

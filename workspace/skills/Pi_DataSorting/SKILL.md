@@ -32,7 +32,7 @@ output_params:
   - name: output_path
     type: csv_file
     description: 排序后的结构化数据文件
-tag: 增强
+tag: 数据衍生
 
 ---
 

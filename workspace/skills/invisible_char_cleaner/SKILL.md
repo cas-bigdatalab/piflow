@@ -25,7 +25,7 @@ output_params:
   - name: output_path
     type: csv_file
     description: 清洗后的结构化数据文件
-tag: 清洗
+tag: 数据清洗
 ---
 
 # invisible_char_cleaner 不可见字符清洗Skill

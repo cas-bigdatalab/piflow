@@ -41,7 +41,7 @@ output_params:
   - name: output_path
     type: jsonl_file
     description: 输出的JSONL格式数据集文件
-tag: 格式转换
+tag: 数据转换
 
 ---
 

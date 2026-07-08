@@ -22,7 +22,7 @@ output_params:
   - name: output_path
     type: docx_file
     description: 打包后的DOCX文件
-tag: 输入
+tag: 数据转换
 
 ---
 

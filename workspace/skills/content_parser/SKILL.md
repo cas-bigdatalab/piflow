@@ -44,7 +44,7 @@ output_params:
   - name: output
     type: jsonl_file
     description: 解析后的结构化内容记录文件
-tag: 采集
+tag: 数据筛选
 ---
 
 # Content Parser 内容解析预处理 Skill

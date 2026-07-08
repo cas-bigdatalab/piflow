@@ -32,7 +32,7 @@ output_params:
   - name: output
     type: csv_file
     description: 处理后的数据文件
-tag: 清洗
+tag: 数据清洗
 ---
 
 # Text Fragment Remover 文本片段删除 Skill

@@ -6,7 +6,7 @@ description: |
   适用于科研论文、学术文档的文本清洗，不负责参考文献章节重写、文献内容解析或非引用括号内容的系统抽取。
 
 name_zh: 文献引用标记移除算子
-tag: 清洗
+tag: 数据清洗
 input_params:
   - name: input
     type: string
@@ -61,7 +61,7 @@ output_params:
     type: integer
     description: 移除的引用标记数量
 
-tag: 清洗
+tag: 数据清洗
 
 ---
 

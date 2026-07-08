@@ -10,7 +10,7 @@ description: '数值格式清洗工具。读取 JSONL 结构化数据，按字�
 
   '
 name_zh: 数值格式清洗算子
-tag: 清洗
+tag: 数据清洗
 input_params:
 - name: input
   type: string

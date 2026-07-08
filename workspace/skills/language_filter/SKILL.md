@@ -29,7 +29,7 @@ output_params:
   - name: output_path
     type: csv_file
     description: 语种过滤后的结构化数据文件（含 detected_lang）
-tag: 清洗
+tag: 数据清洗
 ---
 
 # language_filter 语种过滤

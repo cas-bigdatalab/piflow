@@ -8,7 +8,7 @@ description: '隐私标识移除工具。读取结构化文本数据，按用户
   它只处理文本中的 token 清理，不做字段级遮蔽，也不负责图片脱敏、音频脱敏、结构化字段加密或假数据生成。
 
   '
-tag: 清洗
+tag: 数据清洗
 input_params:
 - name: input_path
   type: string

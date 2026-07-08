@@ -99,57 +99,6 @@ def init_dag_db():
         ON dag_execution_node(status);
         """
 
-        # dag_node
-        """
-        CREATE TABLE IF NOT EXISTS dag_node (
-            id BIGSERIAL PRIMARY KEY,
-            node_id VARCHAR(128) NOT NULL,
-            dag_task_id VARCHAR(128) NOT NULL,
-            skill_id VARCHAR(128) NOT NULL,
-            node_name VARCHAR(255) NOT NULL,
-            input_params JSONB NOT NULL DEFAULT '{}'::jsonb,
-            node_type VARCHAR(64) NOT NULL DEFAULT 'default',
-            position_x DOUBLE PRECISION NOT NULL DEFAULT 0,
-            position_y DOUBLE PRECISION NOT NULL DEFAULT 0
-        )
-        """,
-        "CREATE UNIQUE INDEX IF NOT EXISTS idx_dag_node_node_id ON dag_node(node_id)",
-        "CREATE INDEX IF NOT EXISTS idx_dag_node_task_id ON dag_node(dag_task_id)",
-        "CREATE INDEX IF NOT EXISTS idx_dag_node_skill_id ON dag_node(skill_id)",
-
-        # dag_param_binding
-        """
-        CREATE TABLE IF NOT EXISTS dag_param_binding (
-            id BIGSERIAL PRIMARY KEY,
-            binding_id VARCHAR(128) NOT NULL,
-            dag_task_id VARCHAR(128) NOT NULL,
-            from_node_id VARCHAR(128) NOT NULL,
-            from_param_name VARCHAR(255) NOT NULL,
-            to_node_id VARCHAR(128) NOT NULL,
-            to_param_name VARCHAR(255) NOT NULL
-        )
-        """,
-        "CREATE UNIQUE INDEX IF NOT EXISTS idx_dag_param_binding_binding_id ON dag_param_binding(binding_id)",
-        "CREATE INDEX IF NOT EXISTS idx_dag_param_binding_task_id ON dag_param_binding(dag_task_id)",
-        "CREATE INDEX IF NOT EXISTS idx_dag_param_binding_from_node ON dag_param_binding(from_node_id)",
-        "CREATE INDEX IF NOT EXISTS idx_dag_param_binding_to_node ON dag_param_binding(to_node_id)",
-
-        # dag_edge
-        """
-        CREATE TABLE IF NOT EXISTS dag_edge (
-            id BIGSERIAL PRIMARY KEY,
-            edge_id VARCHAR(128) NOT NULL,
-            dag_task_id VARCHAR(128) NOT NULL,
-            from_node_id VARCHAR(128) NOT NULL,
-            to_node_id VARCHAR(128) NOT NULL,
-            from_port VARCHAR(128),
-            to_port VARCHAR(128)
-        )
-        """,
-        "CREATE UNIQUE INDEX IF NOT EXISTS idx_dag_edge_edge_id ON dag_edge(edge_id)",
-        "CREATE INDEX IF NOT EXISTS idx_dag_edge_task_id ON dag_edge(dag_task_id)",
-        "CREATE INDEX IF NOT EXISTS idx_dag_edge_from_node ON dag_edge(from_node_id)",
-        "CREATE INDEX IF NOT EXISTS idx_dag_edge_to_node ON dag_edge(to_node_id)",
 
         # Deprecated: legacy task execution history. New DAG runs use
         # piflow_flow_run managed by piflow-python.
@@ -187,6 +136,7 @@ def init_dag_db():
             command TEXT,
             icon_path TEXT,
             version VARCHAR(64),
+            disciplinary_field VARCHAR(255),
             create_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
             update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
             is_deleted INT NOT NULL DEFAULT 0
@@ -259,190 +209,6 @@ def insert_dag_task(
                     return {"id": row[0], "dag_task_id": row[1]}
     except Exception as e:
         raise RuntimeError("insert_dag_task failed") from e
-
-
-def insert_dag_node(
-    dag_task_id: str,
-    skill_id: str,
-    node_name: str,
-    input_params: dict = None,
-    node_type: str = "default",
-    position_x: float = 0,
-    position_y: float = 0,
-):
-    node_id = uuid.uuid4().hex
-
-    try:
-        with closing(get_connection()) as conn:
-            with conn:
-                with conn.cursor() as cursor:
-                    cursor.execute(
-                        """
-                        INSERT INTO dag_node (
-                            node_id, dag_task_id, skill_id, node_name,
-                            input_params, node_type, position_x, position_y
-                        )
-                        VALUES (%s, %s, %s, %s, %s::jsonb, %s, %s, %s)
-                        RETURNING id, node_id
-                        """,
-                        (
-                            node_id, dag_task_id, skill_id, node_name,
-                            psycopg2.extras.Json(input_params),
-                            node_type, position_x, position_y,
-                        ),
-                    )
-                    row = cursor.fetchone()
-                    if not row:
-                        return None
-                    return {"id": row[0], "node_id": row[1]}
-    except Exception as e:
-        raise RuntimeError("insert_dag_node failed") from e
-
-
-def update_dag_node(
-    node_id: str,
-    dag_task_id: str = None,
-    skill_id: str = None,
-    node_name: str = None,
-    input_params: dict = None,
-    node_type: str = None,
-    position_x: float = None,
-    position_y: float = None,
-):
-    updates = []
-    set_clauses = []
-    params = []
-
-    if dag_task_id is not None:
-        updates.append((
-            "dag_task_id = %s",
-            dag_task_id,
-        ))
-
-    if skill_id is not None:
-        updates.append((
-            "skill_id = %s",
-            skill_id,
-        ))
-
-    if node_name is not None:
-        updates.append((
-            "node_name = %s",
-            node_name,
-        ))
-
-    if input_params is not None:
-        updates.append((
-            "input_params = %s::jsonb",
-            psycopg2.extras.Json(input_params),
-        ))
-
-    if node_type is not None:
-        updates.append((
-            "node_type = %s",
-            node_type,
-        ))
-
-    if position_x is not None:
-        updates.append((
-            "position_x = %s",
-            position_x,
-        ))
-
-    if position_y is not None:
-        updates.append((
-            "position_y = %s",
-            position_y,
-        ))
-
-    set_clauses = [x[0] for x in updates]
-    params = [x[1] for x in updates]
-
-    if not set_clauses:
-        return None
-
-    params.append(node_id)
-
-    sql = f"""
-        UPDATE dag_node
-        SET {', '.join(set_clauses)}
-        WHERE node_id = %s
-        """
-
-    try:
-        with closing(get_connection()) as conn:
-            with conn:
-                with conn.cursor() as cursor:
-                    cursor.execute(sql, params)
-                    return cursor.rowcount > 0
-    except Exception as e:
-        raise RuntimeError("update_dag_node failed") from e
-
-
-def insert_dag_param_binding(
-    dag_task_id: str,
-    from_node_id: str,
-    from_param_name: str,
-    to_node_id: str,
-    to_param_name: str,
-):
-    binding_id = uuid.uuid4().hex
-
-    try:
-        with closing(get_connection()) as conn:
-            with conn:
-                with conn.cursor() as cursor:
-                    cursor.execute(
-                        """
-                        INSERT INTO dag_param_binding (
-                            binding_id, dag_task_id,
-                            from_node_id, from_param_name,
-                            to_node_id, to_param_name
-                        )
-                        VALUES (%s, %s, %s, %s, %s, %s)
-                        RETURNING id, binding_id
-                        """,
-                        (binding_id, dag_task_id, from_node_id, from_param_name, to_node_id, to_param_name),
-                    )
-                    row = cursor.fetchone()
-                    if not row:
-                        return None
-                    return {"id": row[0], "binding_id": row[1]}
-    except Exception as e:
-        raise RuntimeError("insert_dag_param_binding failed") from e
-
-
-def insert_dag_edge(
-    dag_task_id: str,
-    from_node_id: str,
-    to_node_id: str,
-    from_port: str = None,
-    to_port: str = None,
-):
-    edge_id = uuid.uuid4().hex
-
-    try:
-        with closing(get_connection()) as conn:
-            with conn:
-                with conn.cursor() as cursor:
-                    cursor.execute(
-                        """
-                        INSERT INTO dag_edge (
-                            edge_id, dag_task_id,
-                            from_node_id, to_node_id,
-                            from_port, to_port
-                        )
-                        VALUES (%s, %s, %s, %s, %s, %s)
-                        RETURNING id, edge_id
-                        """,
-                        (edge_id, dag_task_id, from_node_id, to_node_id, from_port, to_port),
-                    )
-                    row = cursor.fetchone()
-                    if not row:
-                        return None
-                    return {"id": row[0], "edge_id": row[1]}
-    except Exception as e:
-        raise RuntimeError("insert_dag_edge failed") from e
 
 # 画板记录新增
 def insert_dag_definition(
@@ -599,6 +365,7 @@ def get_dag_skill(skill_id: str) -> Optional[DagSkill]:
                     SELECT id, skill_id, skill_name, name_zh, description, skill_path, file_path,
                            input_params, output_params, skill_type,
                            language, command, icon_path, version,
+                           disciplinary_field,
                            create_time, update_time, is_deleted
                     FROM dag_skills
                     WHERE skill_id = %s AND is_deleted = 0
@@ -622,6 +389,7 @@ def get_dag_skill(skill_id: str) -> Optional[DagSkill]:
                     language=row.get("language"),
                     command=row.get("command"),
                     icon_path=row.get("icon_path"),
+                    disciplinary_field=row.get("disciplinary_field"),
                     db_id=row["id"],
                     create_time=row.get("create_time"),
                     update_time=row.get("update_time"),
@@ -669,6 +437,7 @@ def list_dag_skills(
                     SELECT id, skill_id, skill_name, name_zh, description, skill_path, file_path,
                            input_params, output_params, skill_type,
                            language, command, icon_path, version,
+                           disciplinary_field,
                            create_time, update_time, is_deleted
                     FROM dag_skills
                     WHERE {where}
@@ -694,6 +463,7 @@ def list_dag_skills(
                         language=row.get("language"),
                         command=row.get("command"),
                         icon_path=row.get("icon_path"),
+                        disciplinary_field=row.get("disciplinary_field"),
                         db_id=row["id"],
                         create_time=row.get("create_time"),
                         update_time=row.get("update_time"),
@@ -753,6 +523,7 @@ def list_dag_skills_by_type(
                         SELECT id, skill_id, skill_name, name_zh, description, skill_path, file_path,
                                input_params, output_params, skill_type,
                                language, command, icon_path, version,
+                               disciplinary_field,
                                create_time, update_time, is_deleted
                         FROM dag_skills
                         WHERE {where}
@@ -767,6 +538,7 @@ def list_dag_skills_by_type(
                         SELECT id, skill_id, skill_name, name_zh, description, skill_path, file_path,
                                input_params, output_params, skill_type,
                                language, command, icon_path, version,
+                               disciplinary_field,
                                create_time, update_time, is_deleted
                         FROM dag_skills
                         WHERE {where}
@@ -796,6 +568,7 @@ def list_dag_skills_by_type(
                             language=row.get("language"),
                             command=row.get("command"),
                             icon_path=row.get("icon_path"),
+                            disciplinary_field=row.get("disciplinary_field"),
                             db_id=row["id"],
                             create_time=row.get("create_time"),
                             update_time=row.get("update_time"),
@@ -823,261 +596,6 @@ def list_dag_skills_by_type(
     except Exception as e:
         raise RuntimeError("list_dag_skills_by_type failed") from e
 
-
-def get_dag_node_by_node_id(node_id: str) -> Optional[DagNode]:
-    try:
-        with closing(get_connection()) as conn:
-            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
-                cursor.execute(
-                    """
-                    SELECT n.id, n.node_id, n.dag_task_id, n.skill_id, n.node_name,
-                           n.input_params AS node_input, n.node_type, n.position_x, n.position_y,
-                           s.skill_name, s.version, s.name_zh, s.description,
-                           s.skill_path, s.file_path, s.input_params AS skill_input, s.output_params,
-                           s.skill_type, s.language, s.command, s.icon_path,
-                           s.create_time AS skill_create_time,
-                           s.update_time AS skill_update_time,
-                           s.is_deleted AS skill_is_deleted
-                    FROM dag_node n
-                    LEFT JOIN dag_skills s ON n.skill_id = s.skill_id AND s.is_deleted = 0
-                    WHERE n.node_id = %s
-                    """,
-                    (node_id,),
-                )
-                row = cursor.fetchone()
-                if row is None:
-                    return None
-
-                skill = DagSkill(
-                    skill_id=row["skill_id"],
-                    skill_name=row.get("skill_name") or row["skill_id"],
-                    name_zh=row.get("name_zh"),
-                    version=row.get("version", "1.0.0"),
-                    description=row.get("description"),
-                    skill_path=row.get("skill_path"),
-                    file_path=row.get("file_path"),
-                    input_params=row.get("skill_input"),
-                    output_params=row.get("output_params"),
-                    skill_type=row.get("skill_type"),
-                    language=row.get("language"),
-                    command=row.get("command"),
-                    icon_path=row.get("icon_path"),
-                ) if row.get("skill_name") else None
-
-                return DagNode(
-                    node_id=row["node_id"],
-                    node_name=row["node_name"],
-                    skill_id=row["skill_id"],
-                    node_type=row["node_type"],
-                    position_x=row["position_x"],
-                    position_y=row["position_y"],
-                    input_params=_parse_input_params_from_db(row.get("node_input")),
-                    skill=skill,
-                    db_id=row["id"],
-                    dag_task_id=row["dag_task_id"],
-                    update_time=row.get("update_time"),
-                )
-    except Exception as e:
-        raise RuntimeError("get_dag_node_by_node_id failed") from e
-
-def get_dag_nodes_by_task_id(dag_task_id: str) -> List[DagNode]:
-    try:
-        with closing(get_connection()) as conn:
-            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
-                cursor.execute(
-                    """
-                    SELECT n.id, n.node_id, n.dag_task_id, n.skill_id, n.node_name,
-                           n.input_params AS node_input, n.node_type, n.position_x, n.position_y,
-                           s.skill_name, s.version, s.name_zh, s.description,
-                           s.skill_path, s.file_path, s.input_params AS skill_input, s.output_params,
-                           s.skill_type, s.language, s.command, s.icon_path,
-                           s.create_time AS skill_create_time,
-                           s.update_time AS skill_update_time,
-                           s.is_deleted AS skill_is_deleted
-                    FROM dag_node n
-                    LEFT JOIN dag_skills s ON n.skill_id = s.skill_id AND s.is_deleted = 0
-                    WHERE n.dag_task_id = %s
-                    ORDER BY n.id
-                    """,
-                    (dag_task_id,),
-                )
-                rows = cursor.fetchall()
-
-                nodes = []
-                for row in rows:
-                    skill = DagSkill(
-                        skill_id=row["skill_id"],
-                        skill_name=row.get("skill_name") or row["skill_id"],
-                        name_zh=row.get("name_zh"),
-                        version=row.get("version", "1.0.0"),
-                        description=row.get("description"),
-                        skill_path=row.get("skill_path"),
-                        file_path=row.get("file_path"),
-                        input_params=row.get("skill_input"),
-                        output_params=row.get("output_params"),
-                        skill_type=row.get("skill_type"),
-                        language=row.get("language"),
-                        command=row.get("command"),
-                        icon_path=row.get("icon_path"),
-                    ) if row.get("skill_name") else None
-
-                    nodes.append(DagNode(
-                        node_id=row["node_id"],
-                        node_name=row["node_name"],
-                        skill_id=row["skill_id"],
-                        node_type=row["node_type"],
-                        position_x=row["position_x"],
-                        position_y=row["position_y"],
-                        input_params=_parse_input_params_from_db(row.get("node_input")),
-                        skill=skill,
-                        db_id=row["id"],
-                        dag_task_id=row["dag_task_id"],
-                        update_time=row.get("update_time"),
-                    ))
-                return nodes
-    except Exception as e:
-        raise RuntimeError("get_dag_nodes_by_task_id failed") from e
-
-def get_dag_edge_by_edge_id(edge_id: str) -> Optional[DagEdge]:
-    try:
-        with closing(get_connection()) as conn:
-            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
-                cursor.execute(
-                    """
-                    SELECT id, edge_id, dag_task_id,
-                           from_node_id, to_node_id, from_port, to_port
-                    FROM dag_edge
-                    WHERE edge_id = %s
-                    """,
-                    (edge_id,),
-                )
-                row = cursor.fetchone()
-                if row is None:
-                    return None
-                return DagEdge(
-                    edge_id=row["edge_id"],
-                    from_node_id=row["from_node_id"],
-                    to_node_id=row["to_node_id"],
-                    from_port=row.get("from_port"),
-                    to_port=row.get("to_port"),
-                    db_id=row["id"],
-                    dag_task_id=row["dag_task_id"],
-                )
-    except Exception as e:
-        raise RuntimeError("get_dag_edge_by_edge_id failed") from e
-
-def get_dag_edges_by_task_id(dag_task_id: str) -> List[DagEdge]:
-    try:
-        with closing(get_connection()) as conn:
-            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
-                cursor.execute(
-                    """
-                    SELECT id, edge_id, dag_task_id,
-                           from_node_id, to_node_id, from_port, to_port
-                    FROM dag_edge
-                    WHERE dag_task_id = %s
-                    ORDER BY id
-                    """,
-                    (dag_task_id,),
-                )
-                rows = cursor.fetchall()
-                return [
-                    DagEdge(
-                        edge_id=row["edge_id"],
-                        from_node_id=row["from_node_id"],
-                        to_node_id=row["to_node_id"],
-                        from_port=row.get("from_port"),
-                        to_port=row.get("to_port"),
-                        db_id=row["id"],
-                        dag_task_id=row["dag_task_id"],
-                    )
-                    for row in rows
-                ]
-    except Exception as e:
-        raise RuntimeError("get_dag_edges_by_task_id failed") from e
-
-def get_dag_param_binding_by_binding_id(binding_id: str) -> Optional[DagParamBinding]:
-    try:
-        with closing(get_connection()) as conn:
-            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
-                cursor.execute(
-                    """
-                    SELECT id, binding_id, dag_task_id,
-                           from_node_id, from_param_name,
-                           to_node_id, to_param_name, create_time
-                    FROM dag_param_binding
-                    WHERE binding_id = %s
-                    """,
-                    (binding_id,),
-                )
-                row = cursor.fetchone()
-                if row is None:
-                    return None
-                return DagParamBinding(
-                    binding_id=row["binding_id"],
-                    from_node_id=row["from_node_id"],
-                    from_param_name=row["from_param_name"],
-                    to_node_id=row["to_node_id"],
-                    to_param_name=row["to_param_name"],
-                    db_id=row["id"],
-                    dag_task_id=row["dag_task_id"],
-                    create_time=row.get("create_time"),
-                )
-    except Exception as e:
-        raise RuntimeError("get_dag_param_binding_by_binding_id failed") from e
-
-def get_dag_bindings_by_task_id(dag_task_id: str) -> List[DagParamBinding]:
-    try:
-        with closing(get_connection()) as conn:
-            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
-                cursor.execute(
-                    """
-                    SELECT id, binding_id, dag_task_id,
-                           from_node_id, from_param_name,
-                           to_node_id, to_param_name, create_time
-                    FROM dag_param_binding
-                    WHERE dag_task_id = %s
-                    ORDER BY id
-                    """,
-                    (dag_task_id,),
-                )
-                rows = cursor.fetchall()
-                return [
-                    DagParamBinding(
-                        binding_id=row["binding_id"],
-                        from_node_id=row["from_node_id"],
-                        from_param_name=row["from_param_name"],
-                        to_node_id=row["to_node_id"],
-                        to_param_name=row["to_param_name"],
-                        db_id=row["id"],
-                        dag_task_id=row["dag_task_id"],
-                        create_time=row.get("create_time"),
-                    )
-                    for row in rows
-                ]
-    except Exception as e:
-        raise RuntimeError("get_dag_bindings_by_task_id failed") from e
-
-def generate_dag_json(dag_task_id: str) -> dict:
-    """
-    根据 dag_task_id 查询相关的节点、边和参数绑定，生成 DAG 的 JSON 表示。
-    """
-
-    # 首先查询task信息
-    dag_task = get_dag_task(dag_task_id)
-
-    # 根据 task_id 查询所有节点
-    dag_nodes = get_dag_nodes_by_task_id(dag_task_id)
-
-    # 根据 task_id 查询所有边
-    dag_edges = get_dag_edges_by_task_id(dag_task_id)
-
-    # 根据 task_id 查询所有参数绑定
-    dag_bindings = get_dag_bindings_by_task_id(dag_task_id)
-
-    # 生成 DAG JSON
-    dag_json = DagObs(task=dag_task,nodes=dag_nodes,edges=dag_edges,bindings=dag_bindings).to_json()
-    print("生成的 DAG JSON:", json.dumps(dag_json, ensure_ascii=False, indent=2))
 
 # 创建或更新任务信息
 def create_or_update_task(
@@ -1275,7 +793,6 @@ def get_dag_definition_json(create_user_id: str, dag_task_id: str):
     except Exception as e:
         raise RuntimeError("get_dag_definition_json failed") from e
 
-
 def get_dag_task_id_by_message_id(message_id: str) -> Optional[str]:
     try:
         with closing(get_connection()) as conn:
@@ -1294,7 +811,6 @@ def get_dag_task_id_by_message_id(message_id: str) -> Optional[str]:
                 return row["dag_task_id"]
     except Exception as e:
         raise RuntimeError("get_dag_task_id_by_message_id failed") from e
-
 
 def get_skill_type_counts() -> list:
     try:
@@ -1319,385 +835,6 @@ def get_skill_type_counts() -> list:
                 ]
     except Exception as e:
         raise RuntimeError("get_skill_type_counts failed") from e
-
-# def test_insert_skills():
-#     insert_dag_skill(
-#         "DC1_Blank_Line_Clean",
-#         "本skill用于读取结构化数据文件，删除其中所有列为空的行（空行），然后输出为相同格式的文件。",
-#         "workspace/skills/DC1_Blank_Line_Clean/scripts/DC1_Blank_Line_Clean.py",
-#         {"params": [
-#             {
-#                 "name": "input",
-#                 "type": "String",
-#                 "description": "需要清洗文件的路径",
-#                 "required": True
-#             },
-#             {
-#                 "name": "output",
-#                 "type": "String",
-#                 "description": "清洗后文件的输出路径",
-#                 "required": True
-#             }
-#         ]},
-#         {"params": [
-#             {
-#                 "name": "output",
-#                 "type": "String",
-#                 "description": "清洗后文件的输出路径",
-#                 "required": True
-#             }
-#         ]},
-#         skill_type="清洗",
-#         language="Python",
-#         command="python DC1_Blank_Line_Clean.py --input <输入文件路径> --output <输出文件路径>",
-#         icon_path="storage/skills/DC1_Blank_Line_Clean.png",
-#         version="1.0.0",
-#     )
-#
-#     insert_dag_skill(
-#         "DC2_SpaceCleaning",
-#         "本skill用于读取结构化数据文件，检查所有字符串类型（object类型）字段，删除字段值前后多余的空格，然后输出为相同格式的文件。",
-#         "workspace/skills/DC2_SpaceCleaning/scripts/DC2_SpaceCleaning.py",
-#         {"params": [
-#             {
-#                 "name": "input_path",
-#                 "type": "String",
-#                 "description": "输入文件路径（需要清理的文件）",
-#                 "required": True
-#             },
-#             {
-#                 "name": "output_path",
-#                 "type": "String",
-#                 "description": "输出文件路径（清理后的文件）",
-#                 "required": True
-#             }
-#         ]},
-#         {"params": [
-#             {
-#                 "name": "output_path",
-#                 "type": "String",
-#                 "description": "输出文件路径（清理后的文件）",
-#                 "required": True
-#             }
-#         ]},
-#         skill_type="清洗",
-#         language="Python",
-#         command="python DC2_SpaceCleaning.py --input_path <输入文件路径> --output_path <输出文件路径>",
-#         icon_path="storage/skills/DC2_SpaceCleaning.png",
-#         version="1.0.0",
-#     )
-
-# def test_insert_skills():
-#     insert_dag_skill(
-#         "chinese_convert_mapper",
-#         "在繁体中文、简体中文和日语汉字之间转换中文。当用户提到中文繁简转换、中文转换、简体转繁体、繁体转简体、中日文转换等需求时使用此skill。",
-#         "workspace/skills/chinese_convert_mapper/scripts/run_chinese_convert_mapper.py",
-#         {"params": [
-#             {
-#                 "name": "input_path ",
-#                 "type": "String",
-#                 "description": "输入JSON文件路径",
-#                 "required": True
-#             },
-#             {
-#                 "name": "output_path",
-#                 "type": "String",
-#                 "description": "输出JSON文件路径",
-#                 "required": True
-#             },
-#             {
-#                 "name": "mode ",
-#                 "type": "String",
-#                 "description": "转换模式",
-#                 "required": False,
-#                 "default_value": "s2t",
-#             }
-#         ]},
-#         {"params": [
-#             {
-#                 "name": "output_path",
-#                 "type": "String",
-#                 "description": "输出JSON文件路径",
-#                 "required": True
-#             }
-#         ]},
-#         skill_type="标准化",
-#         language="Python",
-#         command="python scripts/run_chinese_convert_mapper.py --input_path <input_path> --output_path <output_path> [--mode <mode>]",
-#         icon_path="storage/skills/chinese_convert_mapper.png",
-#         version="1.0.0",
-#     )
-#
-#     insert_dag_skill(
-#         "parquet_formatter",
-#         "  Parquet格式化器。用于加载和格式化parquet类型的文件。本SKILL使用依赖data_juicer，请在调用前安装好python环境并安装data_juicer，你可用以下指令进行安装：pip install py-data-juicer",
-#         "workspace/skills/parquet_formatter/scripts/run_parquet_formatter.py",
-#         {"params": [
-#             {
-#                 "name": "input_path",
-#                 "type": "String",
-#                 "description": "输入Parquet文件路径或目录",
-#                 "required": True
-#             },
-#             {
-#                 "name": "output_path",
-#                 "type": "String",
-#                 "description": "输出JSONL文件路径",
-#                 "required": True
-#             },
-#             {
-#                 "name": "text_keys",
-#                 "type": "list",
-#                 "description": "文本字段名列表",
-#                 "required": False,
-#                 "default_value": ['text']
-#             },
-#             {
-#                 "name": "add_suffix",
-#                 "type": "bool",
-#                 "description": "是否添加文件后缀信息",
-#                 "required": False,
-#                 "default_value": False
-#             },
-#             {
-#                 "name": "num_proc",
-#                 "type": "int",
-#                 "description": "并行处理的进程数",
-#                 "required": False,
-#                 "default_value": 1
-#             }
-#         ]},
-#         {"params": [
-#             {
-#                 "name": "output_path",
-#                 "type": "String",
-#                 "description": "输出JSONL文件路径",
-#                 "required": True
-#             }
-#         ]},
-#         skill_type="格式转换",
-#         language="Python",
-#         command="""# 加载单个Parquet文件
-# python scripts/run_parquet_formatter.py \
-# --input_path /path/to/input.parquet \
-# --output_path /path/to/output.jsonl
-#
-# # 指定文本字段
-# python scripts/run_parquet_formatter.py \
-# --input_path /path/to/input.parquet \
-# --output_path /path/to/output.jsonl \
-# --text_keys text
-#
-# # 加载目录中的所有Parquet文件
-# python scripts/run_parquet_formatter.py \
-# --input_path /path/to/parquet_directory \
-# --output_path /path/to/output.jsonl \
-# --add_suffix""",
-#         icon_path="storage/skills/parquet_formatter.png",
-#         version="1.0.0",
-#     )
-
-# def test_insert_task():
-#     insert_dag_task(
-#         dag_task_name="csv空行、空格清洗任务",
-#         message_id="test_message_id_123",
-#         description="对csv文件的空行和字段值前后空格进行清洗",
-#         create_user_id="test_user_id",
-#     )
-#
-# # 模拟创建节点，连线,填写参数，绑定参数的全过程
-# def test_insert_node_edge_and_binding():
-#     dag_task_id = "b3691c8a124d4c619a77904f7422465e"
-#
-#     # 先创建节点
-#     # 节点1的参数：全部手动填写
-#     node1_params = DagNodeInputParamSet()
-#     node1_params.add_param(DagNodeManualParam("input", "String", "workspace/temp/森林每木调查数据-blank-line-space.csv","local_file"))
-#     node1_params.add_param(DagNodeManualParam("output", "String", "workspace/outputs/森林每木调查数据-blank-space.csv","local_file"))
-#
-#     node1_info = insert_dag_node(
-#         dag_task_id=dag_task_id,
-#         skill_id="5b80cadba9c44ac0b7fe0c136291d0e4",
-#         node_name="空行清洗节点",
-#         input_params=node1_params.to_json_dict(),
-#         node_type="default",
-#         position_x=100,
-#         position_y=200,
-#     )
-#
-#     # 节点2的参数：一个引用（临时占位），一个手动填写
-#     node2_params = DagNodeInputParamSet()
-#     node2_params.add_param(DagNodeReferenceParam("input_path", ""))
-#     node2_params.add_param(DagNodeManualParam("output_path", "String", "workspace/outputs/森林每木调查数据-clean.csv","local_file"))
-#
-#     node2_info = insert_dag_node(
-#         dag_task_id=dag_task_id,
-#         skill_id="485ecf9d51814566a1b8ab93423ce3c8",
-#         node_name="空格清洗节点",
-#         input_params=node2_params.to_json_dict(),
-#         node_type="default",
-#         position_x=400,
-#         position_y=200,
-#     )
-#
-#     edge_info = insert_dag_edge(
-#         dag_task_id=dag_task_id,
-#         from_node_id=node1_info["node_id"],
-#         to_node_id=node2_info["node_id"]
-#     )
-#
-#     # 创建参数绑定关系
-#     binding_info = insert_dag_param_binding(
-#         dag_task_id=dag_task_id,
-#         from_node_id=node1_info["node_id"],
-#         from_param_name="output",
-#         to_node_id=node2_info["node_id"],
-#         to_param_name="input_path",
-#     )
-#
-#     # 更新节点2的 binding_id 为真实值
-#     node2_update_params = DagNodeInputParamSet()
-#     node2_update_params.add_param(DagNodeReferenceParam("input_path", binding_info["binding_id"]))
-#     node2_update_params.add_param(DagNodeManualParam("output_path", "String", "workspace/outputs/森林每木调查数据-clean.csv","local_file"))
-#
-#     update_dag_node(
-#         node_id=node2_info["node_id"],
-#         input_params=node2_update_params.to_json_dict(),
-#     )
-#
-# test_task_id = "b3691c8a124d4c619a77904f7422465e"
-#
-# def test_get_dag_task():
-#     task = get_dag_task(test_task_id)
-#     print(task.to_json() if task else "Task not found")
-#
-# def test_get_dag_skill():
-#     skill = get_dag_skill("5b80cadba9c44ac0b7fe0c136291d0e4")
-#     print(skill.to_json() if skill else "Skill not found")
-#
-# def test_get_dag_node_by_node_id():
-#     node1 = get_dag_node_by_node_id("ce210222c87f45908f53f96e51837c0f")
-#     print(node1.to_json() if node1 else "Node1 not found")
-#
-#     node2 = get_dag_node_by_node_id("e40864c715e84cebb1c6aa240141a659")
-#     print(node2.to_json() if node2 else "Node2 not found")
-#
-# def test_get_dag_node_by_task_id():
-#     nodes = get_dag_nodes_by_task_id(test_task_id)
-#     for node in nodes:
-#         print(node.to_json())
-#
-# def test_get_dag_edge_by_edge_id():
-#     edge = get_dag_edge_by_edge_id("30770092489045e0971b278df883b835")
-#     print(edge.to_json() if edge else "Edge not found")
-#
-# def test_get_dag_edges_by_task_id():
-#     edges = get_dag_edges_by_task_id(test_task_id)
-#     for edge in edges:
-#         print(edge.to_json())
-#
-# def test_get_dag_binding_by_binding_id():
-#     binding = get_dag_param_binding_by_binding_id("fb117d7c547b4245be28ace6fd745c7a")
-#     print(binding.to_json() if binding else "Binding not found")
-#
-# def test_get_dag_bindings_by_task_id():
-#     bindings = get_dag_bindings_by_task_id(test_task_id)
-#     for binding in bindings:
-#         print(binding.to_json())
-#
-# def test_get_dag_json():
-#     generate_dag_json(test_task_id)
-
-# def test_insert_dag_definition():
-#     insert_dag_definition(
-#         dag_task_id="b3691c8a124d4c619a77904f7422465e",
-#         create_user_id="52d1f9857e2946f8aa9994a4a3f05bb3",
-#         revision=1,
-#         definition_json={
-#   "dsl_version":"1.0",
-#   "task": {
-#     "task_id": "b3691c8a124d4c619a77904f7422465e",
-#     "task_name": "csv空行、空格清洗任务",
-#     "description": "对csv文件的空行和字段值前后空格进行清洗",
-#     "message_id": "test_message_id_123"
-#   },
-#   "nodes": [
-#     {
-#       "node_id": "e1f6a960c5454e1b92d7e1bdb2a680e8",
-#       "node_name": "空行清洗节点",
-#       "node_type": "default",
-#       "skill": {
-#         "skill_id": "5b80cadba9c44ac0b7fe0c136291d0e4",
-#         "version": "1.0.0"
-#       },
-#       "position": {
-#         "x": 100.0,
-#         "y": 200.0
-#       },
-#       "input_params": [
-#         {
-#           "param_name": "input",
-#           "value_mode": "manual",
-#           "param_type": "String",
-#           "value_source": "local_file",
-#           "param_value": "workspace/temp/森林每木调查数据-blank-line-space.csv"
-#         },
-#         {
-#           "param_name": "output",
-#           "value_mode": "manual",
-#           "param_type": "String",
-#           "value_source": "local_file",
-#           "param_value": "workspace/outputs/森林每木调查数据-blank-space.csv"
-#         }
-#       ]
-#     },
-#     {
-#       "node_id": "593a473d01ef4f5da0c93db24441a1cc",
-#       "node_name": "空格清洗节点",
-#       "node_type": "default",
-#       "skill": {
-#         "skill_id": "485ecf9d51814566a1b8ab93423ce3c8",
-#         "version": "1.0.0"
-#       },
-#       "position": {
-#         "x": 400.0,
-#         "y": 200.0
-#       },
-#       "input_params": [
-#         {
-#           "param_name": "input_path",
-#           "value_mode": "reference",
-#           "param_type": "String",
-#           "binding_id": "c3bfd56347804535889f84300c437816"
-#         },
-#         {
-#           "param_name": "output_path",
-#           "value_mode": "manual",
-#           "param_type": "String",
-#           "value_source": "local_file",
-#           "param_value": "workspace/outputs/森林每木调查数据-clean.csv"
-#         }
-#       ]
-#     }
-#   ],
-#   "edges": [
-#     {
-#       "edge_id": "e666d658c2614f5085ce112707647965",
-#       "from_node_id": "e1f6a960c5454e1b92d7e1bdb2a680e8",
-#       "to_node_id": "593a473d01ef4f5da0c93db24441a1cc",
-#     }
-#   ],
-#   "bindings": [
-#     {
-#       "binding_id": "c3bfd56347804535889f84300c437816",
-#       "from_node_id": "e1f6a960c5454e1b92d7e1bdb2a680e8",
-#       "from_param_name": "output",
-#       "to_node_id": "593a473d01ef4f5da0c93db24441a1cc",
-#       "to_param_name": "input_path"
-#     }
-#   ]
-# },
-#     )
 
 if __name__ == '__main__':
     try:

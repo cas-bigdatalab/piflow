@@ -52,7 +52,7 @@ output_params:
   - name: output
     type: json_file
     description: 过滤敏感词后的JSON文件
-tag: 过滤与筛选
+tag: 数据筛选
 
 ---
 

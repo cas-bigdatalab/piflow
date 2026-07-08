@@ -23,7 +23,7 @@ output_params:
   - name: output_path
     type: csv_file
     description: 规范化后的结构化数据文件
-tag: 清洗
+tag: 数据清洗
 ---
 
 # bracket_normalizer 括号类型统一Skill

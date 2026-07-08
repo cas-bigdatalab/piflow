@@ -28,7 +28,7 @@ output_params:
 - name: output
   type: csv_file
   description: 去重后的数据文件
-tag: 去重
+tag: 数据清洗
 ---
 
 # Duplicate Detector Exact 精确去重 Skill

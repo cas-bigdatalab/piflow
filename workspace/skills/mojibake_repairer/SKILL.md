@@ -31,7 +31,7 @@ output_params:
   - name: output_path
     type: csv_file
     description: 乱码修复后的结构化数据文件
-tag: 清洗
+tag: 数据清洗
 ---
 
 # mojibake_repairer 乱码修复Skill

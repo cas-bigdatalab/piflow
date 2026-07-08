@@ -58,7 +58,7 @@ output_params:
   - name: error_output
     type: csv_file
     description: 异常数据文件（可选），包含不满足阈值条件的记录
-tag: 校验
+tag: 数据校验
 
 ---
 

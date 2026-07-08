@@ -10,7 +10,7 @@ description: 'Tab/空格规范化工具。读取结构化数据文件，执行�
 
   '
 name_zh: tab_space_normalizer_空白规范化算子
-tag: 清洗
+tag: 数据清洗
 input_params:
 - name: input_path
   type: string

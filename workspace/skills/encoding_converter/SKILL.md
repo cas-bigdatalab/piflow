@@ -59,7 +59,7 @@ output_params:
 - name: failed_count
   type: integer
   description: 转换失败的文件数量
-tag: 格式转换
+tag: 数据转换
 ---
 
 # Encoding Converter 多编码文本统一转换 Skill

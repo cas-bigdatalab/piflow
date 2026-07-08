@@ -34,7 +34,7 @@ output_params:
   - name: output_path
     type: csv_file
     description: 带质控标识的输出文件
-tag: 校验
+tag: 数据校验
 ---
 
 # unique_constraint_check 唯一性约束校验Skill

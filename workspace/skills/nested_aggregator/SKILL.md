@@ -48,7 +48,7 @@ output_params:
   - name: output
     type: json_file
     description: 聚合后的JSON文件，包含整合后的文档总结
-tag: 增强
+tag: 数据衍生
 
 ---
 

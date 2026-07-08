@@ -44,7 +44,7 @@ output_params:
   - name: output
     type: jsonl_file
     description: 采集后的结构化文本记录文件
-tag: 采集
+tag: 数据筛选
 ---
 
 # Text Collector 文本采集 Skill

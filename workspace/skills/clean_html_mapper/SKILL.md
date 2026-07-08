@@ -20,7 +20,7 @@ output_params:
   - name: output_path
     type: json_file
     description: 清理HTML后的JSON文件
-tag: 标准化
+tag: 数据转换
 
 ---
 

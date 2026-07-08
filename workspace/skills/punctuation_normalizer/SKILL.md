@@ -5,7 +5,7 @@ description: |
   当用户提到标点规范化、标点清理、合并重复标点、全半角转换等需求时使用此skill。
   适用于科研文本中标点混乱、重复符号过多的场景，不负责 HTML、表情、数字或拼写清理。
 name_zh: 文本标点规范化算子
-tag: 清洗
+tag: 数据清洗
 input_params:
   - name: input
     type: string
@@ -78,7 +78,7 @@ output_params:
     type: integer
     description: 被修改的样本数
 
-tag: 清洗
+tag: 数据清洗
 ---
 
 # Punctuation Normalizer 文本标点规范化 Skill

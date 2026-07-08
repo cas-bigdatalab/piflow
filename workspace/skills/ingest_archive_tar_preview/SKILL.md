@@ -33,7 +33,7 @@ output_params:
 - name: output
   type: json_file
   description: TAR 压缩包预览报告
-tag: 采集
+tag: 数据筛选
 ---
 
 # ingest_archive_tar_preview — TAR 压缩包预览

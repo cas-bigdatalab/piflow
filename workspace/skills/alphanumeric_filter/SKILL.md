@@ -46,7 +46,7 @@ output_params:
   - name: output
     type: json_file
     description: 过滤后的JSON文件，包含保留的样本数据
-tag: 过滤与筛选
+tag: 数据筛选
 
 ---
 

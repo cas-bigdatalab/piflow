@@ -54,7 +54,7 @@ output_params:
     default: output_manifest.json
     description: 分割结果清单文件路径（JSON，含 splits_dir/output_files/total_count/actual_num_splits/samples_per_split）
 
-tag: 切分与采样
+tag: 数据筛选
 ---
 
 # Batch Data Splitter 批量数据均匀分割 Skill

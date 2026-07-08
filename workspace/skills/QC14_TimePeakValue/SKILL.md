@@ -48,7 +48,7 @@ output_params:
   - name: output_path
     type: csv_file
     description: 尖峰检验后的结构化数据文件，带质控标识
-tag: 校验
+tag: 数据校验
 
 ---
 

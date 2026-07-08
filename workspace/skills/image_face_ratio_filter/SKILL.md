@@ -47,7 +47,7 @@ output_params:
   - name: output_path
     type: jsonl_file
     description: 过滤后的JSONL文件，包含人脸面积比例在指定范围内的样本
-tag: 过滤与筛选
+tag: 数据筛选
 
 ---
 

@@ -38,7 +38,7 @@ output_params:
   - name: output_path
     type: csv_file
     description: 四舍五入处理后的结构化数据文件
-tag: 清洗
+tag: 数据清洗
 
 ---
 

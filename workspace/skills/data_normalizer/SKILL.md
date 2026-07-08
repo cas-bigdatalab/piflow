@@ -48,7 +48,7 @@ output_params:
 - name: log_file
   type: json_file
   description: 可选日志文件
-tag: 标准化
+tag: 数据转换
 ---
 
 # data_normalizer 数据标准化 Skill

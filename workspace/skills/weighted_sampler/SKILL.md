@@ -37,7 +37,7 @@ output_params:
 - name: output
   type: jsonl_file
   description: 加权采样结果JSONL文件
-tag: 切分与采样
+tag: 数据筛选
 ---
 
 # WeightedSampler - 加权采样算子

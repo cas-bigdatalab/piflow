@@ -6,7 +6,7 @@ description: |
   即使用户没有明确说出"低信息量"，只要任务涉及同时按字符数和行数两个维度过滤文本行，就应该使用此skill。
   不负责按单词数过滤（用words_num_filter）、按token数过滤（用token_num_filter）、按最长单行长度过滤（用maximum_line_length_filter）或按平均行长度过滤（用average_line_length_filter）。与这些skill的关键区别在于：本skill同时校验字符总数与行数两个维度，且原生支持CSV/TSV/Excel多列输入、不依赖data_juicer。
 name_zh: 低信息量过滤算子
-tag: 清洗
+tag: 数据清洗
 input_params:
   - name: input_path
     type: string
@@ -40,7 +40,7 @@ output_params:
   - name: output_path
     type: csv_file
     description: 过滤后的结构化数据文件
-tag: 清洗
+tag: 数据清洗
 ---
 
 # lowinfo_filter 低信息量过滤

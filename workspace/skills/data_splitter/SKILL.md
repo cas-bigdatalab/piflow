@@ -45,7 +45,7 @@ output_params:
 - name: split_stats
   type: object
   description: 分割统计信息
-tag: 切分与采样
+tag: 数据筛选
 ---
 
 # Data Splitter 数据分割 Skill
