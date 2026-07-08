@@ -4,7 +4,7 @@ description: "提取 PDF 文件元数据并输出 JSON 结果。 当用户提到
 version: 1.0.0
 name_zh: "PDF 元数据提取回调算子"
 category: document_processing
-tag: "输入"
+tag: 数据解析
 metadata:
   entry_chain: callback_distillation
   verified: true

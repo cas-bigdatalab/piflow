@@ -38,7 +38,7 @@ output_params:
   - name: output
     type: csv_file
     description: 转换后的数据文件
-tag: 格式转换
+tag: 数据转换
 
 ---
 

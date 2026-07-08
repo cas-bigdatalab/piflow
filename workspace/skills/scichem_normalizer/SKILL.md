@@ -4,7 +4,7 @@ description: |
   科学公式/化学式规整 Skill：统一文本列中的数学符号、Unicode 上下标、化学反应箭头、全角 ASCII 和多余空格。
   适用于实验记录、论文摘录、化学反应式和科学公式文本；不负责公式语义解析、单位换算或化学配平。
 name_zh: 科学公式化学式规整
-tag: 清洗
+tag: 数据清洗
 input_params:
   - name: input_path
     type: string

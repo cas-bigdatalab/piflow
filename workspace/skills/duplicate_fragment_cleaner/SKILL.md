@@ -10,7 +10,7 @@ description: '文本内部重复片段模糊清理工具。读取 JSONL 文本�
 
   '
 name_zh: 重复文本片段模糊清理算子
-tag: 清洗
+tag: 数据清洗
 input_params:
 - name: input
   type: string

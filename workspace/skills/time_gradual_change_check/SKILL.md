@@ -53,7 +53,7 @@ output_params:
   - name: output_path
     type: csv_file
     description: 带质控标识的输出文件
-tag: 校验
+tag: 数据校验
 ---
 
 # time_gradual_change_check 时序平缓性检测Skill

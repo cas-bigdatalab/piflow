@@ -53,7 +53,7 @@ output_params:
 - name: output
   type: csv_file
   description: 处理后的数据文件
-tag: 校验
+tag: 数据校验
 ---
 
 # Statistical Outlier Detector 统计与机器学习异常值检测 Skill

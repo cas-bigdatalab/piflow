@@ -58,7 +58,7 @@ output_params:
   - name: origin_output_path
     type: csv_file
     description: 处理后原始数据文件，带质控标识
-tag: 校验
+tag: 数据校验
 
 ---
 

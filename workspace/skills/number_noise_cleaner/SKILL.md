@@ -10,7 +10,7 @@ description: '无用数字字符清理工具。读取结构化文本数据，对
 
   '
 name_zh: 无用数字字符清理算子
-tag: 清洗
+tag: 数据清洗
 input_params:
 - name: input_path
   type: string

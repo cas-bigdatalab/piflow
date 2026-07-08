@@ -71,7 +71,7 @@ output_params:
   - name: output
     type: json_file
     description: 聚合后的实体属性JSON文件
-tag: 增强
+tag: 数据衍生
 
 ---
 

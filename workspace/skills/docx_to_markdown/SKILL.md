@@ -15,7 +15,7 @@ output_params:
   - name: output_path
     type: markdown_file
     description: 输出Markdown文件(.md)
-tag: 格式转换
+tag: 数据转换
 ---
 
 # docx_to_markdown 技能

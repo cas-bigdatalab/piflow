@@ -31,7 +31,7 @@ output_params:
   - name: output_path
     type: file
     description: 去除Markdown标记后的纯文本文件
-tag: 清洗
+tag: 数据清洗
 ---
 
 # markdown_stripper Markdown标记清除Skill

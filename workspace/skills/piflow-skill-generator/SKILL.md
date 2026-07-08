@@ -63,7 +63,7 @@ output_params:
     role: output_data
     type: json_file
     description: 生成完成后的改写 follow-up 建议信息
-tag: 算子生成
+tag: AI处理
 ---
 
 # PiFlow Skill Generator

@@ -19,7 +19,7 @@ output_params:
   - name: output_path
     type: json_file
     description: PDF元数据JSON文件
-tag: 输入
+tag: 数据解析
 
 ---
 

@@ -40,7 +40,7 @@ output_params:
   - name: output
     type: csv_file
     description: 拼接后的数据文件
-tag: 增强
+tag: 数据衍生
 
 ---
 

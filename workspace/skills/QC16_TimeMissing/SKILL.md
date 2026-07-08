@@ -52,7 +52,7 @@ output_params:
   - name: error_output_path
     type: csv_file
     description: 异常数据文件，包含缺失/多余时间点记录
-tag: 校验
+tag: 数据校验
 
 ---
 

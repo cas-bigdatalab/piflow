@@ -26,7 +26,7 @@ output_params:
   - name: output_path
     type: json_file
     description: 转换后的JSON文件，包含转换后的text字段
-tag: 标准化
+tag: 数据转换
 
 ---
 

@@ -32,7 +32,7 @@ output_params:
   - name: output
     type: jsonl_file
     description: 格式识别结果文件
-tag: 采集
+tag: 数据筛选
 ---
 
 # Format Detector 格式识别 Skill

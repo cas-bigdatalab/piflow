@@ -10,7 +10,7 @@ description: '时间/货币归一工具。读取结构化文本数据，将常�
   不负责汇率换算、时区转换或非前缀货币单位解析。
 
   '
-tag: 清洗
+tag: 数据清洗
 input_params:
 - name: input_path
   type: string

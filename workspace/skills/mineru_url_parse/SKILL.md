@@ -40,7 +40,7 @@ output_params:
     type: zip_file
     description: 解析结果ZIP压缩包
 
-tag: 文件解析
+tag: 数据解析
 ---
 
 ## 功能概述

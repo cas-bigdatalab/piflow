@@ -26,7 +26,7 @@ output_params:
   - name: output_dir
     type: csv_file
     description: 性别判定结果CSV文件，包含每个样本的性别标签
-tag: 其他
+tag: 科学计算
 
 ---
 

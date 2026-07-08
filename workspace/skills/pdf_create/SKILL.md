@@ -37,7 +37,7 @@ output_params:
   - name: output_path
     type: csv_file
     description: 生成的PDF文件
-tag: 输入
+tag: 数据转换
 
 ---
 

@@ -8,7 +8,7 @@ description: '英文文本基础清洗工具。读取英文科研文本，展开
 
   '
 name_zh: 英文文本清洗优化算子
-tag: 清洗
+tag: 数据清洗
 input_params:
 - name: input
   type: string

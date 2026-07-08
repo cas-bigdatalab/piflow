@@ -46,7 +46,7 @@ output_params:
   - name: output_path
     type: jsonl_file
     description: 格式化后的JSONL文件
-tag: 格式转换
+tag: 数据转换
 
 ---
 

@@ -30,7 +30,7 @@ output_params:
   - name: output_path
     type: csv_file
     description: 全角转半角后的结构化数据文件
-tag: 清洗
+tag: 数据清洗
 ---
 
 # fullwidth_halfwidth_normalizer 全角半角规范化Skill

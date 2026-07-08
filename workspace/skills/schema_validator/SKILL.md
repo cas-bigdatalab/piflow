@@ -35,7 +35,7 @@ output_params:
 - name: output_invalid
   type: file
   description: 无效数据输出文件
-tag: 校验
+tag: 数据校验
 ---
 
 # Schema Validator 显式 schema 校验 Skill

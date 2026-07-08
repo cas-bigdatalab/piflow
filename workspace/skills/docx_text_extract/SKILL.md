@@ -15,7 +15,7 @@ output_params:
   - name: output_path
     type: text_file
     description: 提取的文本文件(.txt)
-tag: 输入
+tag: 数据解析
 
 ---
 

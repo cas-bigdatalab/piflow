@@ -24,7 +24,7 @@ output_params:
   - name: output_path
     type: pdf_file
     description: 拆分后的PDF文件
-tag: 输入
+tag: 数据转换
 
 ---
 

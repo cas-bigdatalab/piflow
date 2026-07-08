@@ -16,6 +16,7 @@ class DagSkill:
         language: str = None,
         command: str = None,
         icon_path: str = None,
+        disciplinary_field: str = None,
         db_id: int = None,
         create_time: datetime = None,
         update_time: datetime = None,
@@ -35,6 +36,7 @@ class DagSkill:
         self.language = language
         self.command = command
         self.icon_path = icon_path
+        self.disciplinary_field = disciplinary_field
         self.create_time = create_time
         self.update_time = update_time
         self.is_deleted = is_deleted

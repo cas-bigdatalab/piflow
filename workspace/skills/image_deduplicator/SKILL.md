@@ -46,7 +46,7 @@ output_params:
   - name: output
     type: json_file
     description: 去重后的JSON文件，包含去重后的图像样本
-tag: 去重
+tag: 数据清洗
 
 ---
 

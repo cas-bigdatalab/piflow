@@ -6,7 +6,7 @@ description: |
   适用于科研表格和结构化数据的缺失清理，不负责插值、补值、均值填充或其他修复操作。
 
 name_zh: 缺失值删除算子
-tag: 清洗
+tag: 数据清洗
 input_params:
   - name: input
     type: string
@@ -39,7 +39,7 @@ output_params:
   - name: output
     type: csv_file
     description: 删除缺失值后的数据文件
-tag: 清洗
+tag: 数据清洗
 
 ---
 

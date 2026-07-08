@@ -21,7 +21,7 @@ output_params:
   - name: output
     type: csv_file
     description: 清洗空行后的结构化数据文件
-tag: 清洗
+tag: 数据清洗
 
 ---
 

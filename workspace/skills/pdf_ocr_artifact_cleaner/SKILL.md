@@ -5,7 +5,7 @@ description: |
   页码去除、Unicode连字归一化（ﬁ→fi）、页眉页脚去除。
   当用户提到PDF文本清洗、OCR伪影处理、断行修复、连字符拼接等需求时使用此skill。
 name_zh: pdf_ocr_artifact_cleaner_PDF/OCR伪影清洗算子
-tag: 清洗
+tag: 数据清洗
 input_params:
   - name: input_path
     type: string
@@ -46,7 +46,7 @@ output_params:
   - name: output_path
     type: csv_file
     description: 清洗后的结构化数据文件
-tag: 清洗
+tag: 数据清洗
 ---
 
 # pdf_ocr_artifact_cleaner PDF/OCR伪影清洗Skill

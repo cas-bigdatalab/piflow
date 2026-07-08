@@ -35,7 +35,7 @@ output_params:
   - name: output_file
     type: csv_file
     description: 随机采样后的CSV文件
-tag: 过滤与筛选
+tag: 数据筛选
 
 ---
 

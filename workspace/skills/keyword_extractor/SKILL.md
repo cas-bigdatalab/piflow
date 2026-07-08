@@ -37,7 +37,7 @@ output_params:
 - name: output
   type: csv_file
   description: 关键词提取后的数据文件
-tag: 增强
+tag: 数据衍生
 ---
 
 # Keyword Extractor 关键词提取 Skill

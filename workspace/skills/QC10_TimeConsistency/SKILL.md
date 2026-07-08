@@ -63,7 +63,7 @@ output_params:
   - name: error_output_path
     type: csv_file
     description: 异常数据文件（可选），包含时间一致性检查不通过的记录
-tag: 校验
+tag: 数据校验
 
 ---
 

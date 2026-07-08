@@ -91,7 +91,7 @@ output_params:
 - name: split_count
   type: integer
   description: 切分后的片段数量
-tag: 切分与采样
+tag: 数据筛选
 ---
 
 # Text Splitter 长文本规则切分 Skill

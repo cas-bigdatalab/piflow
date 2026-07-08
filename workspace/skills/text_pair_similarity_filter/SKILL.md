@@ -64,7 +64,7 @@ output_params:
   - name: output_path
     type: jsonl_file
     description: 过滤后的JSONL格式数据文件
-tag: 过滤与筛选
+tag: 数据筛选
 
 ---
 

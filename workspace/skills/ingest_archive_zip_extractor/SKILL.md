@@ -30,7 +30,7 @@ output_params:
 - name: report
   type: json_file
   description: 解压报告
-tag: 采集
+tag: 数据筛选
 ---
 
 # ingest_archive_zip_extractor — ZIP 压缩包解压

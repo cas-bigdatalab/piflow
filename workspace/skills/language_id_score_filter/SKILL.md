@@ -41,7 +41,7 @@ output_params:
   - name: output_path
     type: jsonl_file
     description: 过滤后的JSONL文件，包含指定语言且置信度达标的样本
-tag: 过滤与筛选
+tag: 数据筛选
 
 ---
 

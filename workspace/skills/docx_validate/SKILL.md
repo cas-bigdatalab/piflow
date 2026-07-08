@@ -15,7 +15,7 @@ output_params:
   - name: output_path
     type: json_file
     description: 验证结果JSON文件
-tag: 校验
+tag: 数据校验
 
 ---
 

@@ -4,7 +4,7 @@ description: |
   领域缩略语展开 Skill：按内置或外部词典将独立缩略语替换为全称，可选在全称后保留原缩写。
   适用于技术文本、论文摘要和业务记录中的缩写清洗；不负责模糊缩写消歧或大小写无关替换。
 name_zh: 缩略语展开
-tag: 清洗
+tag: 数据清洗
 input_params:
   - name: input_path
     type: string

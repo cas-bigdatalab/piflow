@@ -56,7 +56,7 @@ output_params:
 - name: strata_stats
   type: object
   description: 各层采样统计
-tag: 切分与采样
+tag: 数据筛选
 ---
 
 # Stratified Sampler 分层采样 Skill
