@@ -24,8 +24,7 @@ class RestoreFlowSpecTests(unittest.TestCase):
             "task_description": "清洗一批 EPUB 的元数据并输出报告。",
             "skill_name": "epub_metadata_cleaner_from_flow",
             "skill_name_zh": "EPUB 元数据清洗算子",
-            "category": "document_processing",
-            "tag": "清洗",
+            "tag": "数据清洗",
             "inputs": [
                 {
                     "name": "input_dir",

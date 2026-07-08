@@ -48,8 +48,7 @@ class RewriteFlowSpecTests(unittest.TestCase):
                             "description": "已有输出",
                         }
                     ],
-                    "category": "existing_category",
-                    "tag": "清洗",
+                    "tag": "数据清洗",
                 },
                 ensure_ascii=False,
                 indent=2,
@@ -100,8 +99,7 @@ class RewriteFlowSpecTests(unittest.TestCase):
         self.assertEqual(spec["input_params"][0]["name"], "existing_input")
         self.assertEqual(spec["output_params"][0]["name"], "existing_output")
         self.assertEqual(spec["script_path"], "scripts/run_demo.py")
-        self.assertEqual(spec["category"], "existing_category")
-        self.assertEqual(spec["tag"], "清洗")
+        self.assertEqual(spec["tag"], "数据清洗")
 
     def test_read_rewrite_input_rejects_spec_and_flow_together(self):
         spec_path = self.temp_dir / "rewrite-spec.json"

@@ -1,10 +1,9 @@
 ---
 name: piflow-skill-generator_planner
 description: |
-  PiFlow 技能生成器。当用户完成了一次完整并成功的数据处理任务时调用，根据当前 skills/generated 的本地约定和 references/piflow_skill_template.md 通用模板创建、更新或校验 PiFlow-compatible skill，包括 UTF-8 编码的 SKILL.md、DAG 可读的 input_params/output_params、version/category/tag 元数据、skill.json、scripts/references/assets 资源目录，以及本地校验脚本。仅在用户明确要求生成或保存 skill，或某次数据处理任务已经完成并需要把已验证成功的操作流程沉淀为 skill 时使用；默认不要因为“可能需要 skill”或“当前能力不足”而优先触发此 skill。
+  PiFlow 技能生成器。当用户完成了一次完整并成功的数据处理任务时调用，根据当前 skills/generated 的本地约定和 references/piflow_skill_template.md 通用模板创建、更新或校验 PiFlow-compatible skill，包括 UTF-8 编码的 SKILL.md、DAG 可读的 input_params/output_params、version/tag 元数据、skill.json、scripts/references/assets 资源目录，以及本地校验脚本。仅在用户明确要求生成或保存 skill，或某次数据处理任务已经完成并需要把已验证成功的操作流程沉淀为 skill 时使用；默认不要因为“可能需要 skill”或“当前能力不足”而优先触发此 skill。
 name_zh: PiFlow 算子生成器_planner
 version: 1.1.2
-category: skill_generation
 allowed-tools:
   - process
 
@@ -136,7 +135,6 @@ skill-name/
 - `name`：必须与目录名完全一致。
 - `description`：主要触发入口。必须同时说明技能做什么、用户在什么表达或场景下应触发。触发信息写在这里，不要只写在正文。
 - `version`：技能版本，默认 `1.0.0`。
-- `category`：面向技能中心或业务域的分类。
 - `input_params`：PiFlow DAG 面板读取的输入参数列表，必须保留。
 - `output_params`：PiFlow DAG 面板读取的输出参数列表，必须保留。
 - `allowed-tools`、`compatibility`、`license`、`metadata`：仅在确实需要时添加。
@@ -175,7 +173,7 @@ skill-name/
 - `entrypoint`
 - `input_params`、`output_params`，其中参数包含 `role`
 - `command_template`
-- 可选 `category`、`tag`
+- 可选 `tag`
 
 
 只在用户或 spec 明确提供时写入 `dependencies` 或 `policy` 等扩展字段。
@@ -266,7 +264,6 @@ skill-name/
 - `description`：必填，技能能力说明。若来自手动生成链路，描述用户如何显式触发此 skill；若来自回调式沉淀链路，描述应收敛为“成功流程完成后可封装为 skill”这类收尾触发，而不要把原始任务诉求直接写成默认优先入口。
 - `version`：可选，默认 `1.0.0`。
 - `triggers`：可选，触发短语列表，会并入 frontmatter description。触发短语应收敛为“生成 skill”“保存为 skill”“把这次流程沉淀成 skill”等手动或收尾场景，不要把“数据清洗”“数据分析”“处理文件”等本应先直接执行的任务写成优先触发短语。
-- `category`：可选，写入 frontmatter、`metadata.category` 和 `skill.json`。
 - `tag`：可选，写入 frontmatter 和 `skill.json`，用于 DAG 技能类型。
 - `language`：可选，写入 `skill.json`，默认按脚本推断为 `python`。
 - `script_path`、`entrypoint`、`command_template`：可选，写入 `skill.json`；缺省时由脚本路径和参数推断。
@@ -369,12 +366,11 @@ python scripts/validate_piflow_skill.py skills/<skill-name> --mode files-only
 
 ```json
 {
-  "name": "clean_example_mapper",
-  "title": "Clean Example Mapper",
+  "name": "clean_example_transformer",
+  "title": "Clean Example Transformer",
   "description": "清理文本中的示例片段。",
   "version": "1.0.0",
   "triggers": ["清理示例", "删除示例片段"],
-  "category": "mapper",
   "tag": "数据清洗",
   "language": "python",
   "input_params": [
@@ -385,7 +381,7 @@ python scripts/validate_piflow_skill.py skills/<skill-name> --mode files-only
     {"name": "output_path", "role": "output_data", "type": "json_file", "description": "清理后的 JSON 文件"}
   ],
   "script": {
-    "path": "scripts/run_clean_example_mapper.py",
+    "path": "scripts/run_clean_example_transformer.py",
     "content": "import argparse\n\n# TODO: implement operator\n"
   },
   "command_template": ["python", "{script_path}", "--input_path", "{input_path}", "--output_path", "{output_path}"],
@@ -396,7 +392,7 @@ python scripts/validate_piflow_skill.py skills/<skill-name> --mode files-only
   "examples": [
     {
       "title": "基本调用",
-      "command": "python scripts/run_clean_example_mapper.py --input_path input.json --output_path output.json"
+      "command": "python scripts/run_clean_example_transformer.py --input_path input.json --output_path output.json"
     }
   ]
 }
@@ -408,7 +404,7 @@ python scripts/validate_piflow_skill.py skills/<skill-name> --mode files-only
 
 - `<workspace>/skills/<name>/SKILL.md` 可被 PiFlow 发现；在 deepagent 环境中不要生成到其他根目录。
 - `name` 与目录名一致，`description` 包含触发语义。
-- 暴露机器可读的 `version`、`category`、`tag`、`input_params` 和 `output_params`。
+- 暴露机器可读的 `version`、`tag`、`input_params` 和 `output_params`。
 - 生成的 `skill.json` 包含 `entrypoint`、`script_path`、`command_template` 和带 `role` 的参数元数据。
 - 正文足够让另一个 agent 调用或继续实现技能，不依赖隐含上下文。
 - 长规则没有塞进正文，而是放入 `references/` 并在正文指明何时读取。

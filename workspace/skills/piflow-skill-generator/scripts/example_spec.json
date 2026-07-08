@@ -1,11 +1,10 @@
 {
-  "name": "example_mapper",
-  "title": "Example Mapper",
+  "name": "example_transformer",
+  "title": "Example Transformer",
   "description": "用于说明 PiFlow skill spec 基本字段结构的示例配置，展示名称、参数、脚本路径和示例命令等常见字段的写法。",
   "version": "1.0.0",
   "triggers": ["示例配置", "参数说明"],
-  "category": "mapper",
-  "tag": "其他",
+  "tag": "数据转换",
   "language": "python",
   "trigger_conditions": [
     "此文件仅用于展示 spec 字段结构，不表示真实业务触发条件。"
@@ -54,7 +53,7 @@
     }
   ],
   "script": {
-    "path": "scripts/run_example_mapper.py"
+    "path": "scripts/run_example_transformer.py"
   },
   "command_template": [
     "python",
@@ -75,7 +74,7 @@
   "examples": [
     {
       "title": "示例调用格式",
-      "command": "python scripts/run_example_mapper.py --input_path input.json --output_path output.json"
+      "command": "python scripts/run_example_transformer.py --input_path input.json --output_path output.json"
     }
   ],
   "metadata": {

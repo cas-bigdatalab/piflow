@@ -12,7 +12,6 @@ name: <skill_name>
 name_zh: <技能中文名>
 description: <说明技能能力，并包含收敛后的触发语义；仅写用户明确指定或任务完成后需要沉淀的触发场景>
 version: 1.0.0
-category: <业务分类或技能域>
 input_params:
   - name: input_path
     role: input_data
@@ -34,7 +33,6 @@ tag: <DAG 面板技能类型>
 - `name_zh` 必须与中文名一致。
 - `description` 必须包含“做什么”和“何时使用”，且“何时使用”应收敛到手动指定或任务完成后的沉淀场景。
 - `version` 默认 `1.0.0`。
-- `category` 表示技能中心或业务域分类。
 - `tag` 表示 DAG 面板中的技能类型，当前入库逻辑会读取为 `skill_type`。
 - 参数 `role` 使用 `input_data`、`output_data` 或 `data`。
 - 优先根据参数的 `type`、`name` 和 `description` 判断 `role`。

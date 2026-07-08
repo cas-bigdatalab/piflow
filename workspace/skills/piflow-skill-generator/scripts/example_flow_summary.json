@@ -3,8 +3,7 @@
   "task_description": "用于说明成功流程摘要如何恢复为 draft spec 的示例数据。",
   "skill_name": "example_restored_skill",
   "skill_name_zh": "示例回调恢复算子",
-  "category": "document_processing",
-  "tag": "输入",
+  "tag": "流程控制",
   "triggers": [
     "流程沉淀示例",
     "回调恢复示例"
@@ -52,7 +51,7 @@
   "examples": [
     {
       "title": "示例流程命令记录",
-      "command": "python scripts/run_example_mapper.py --input_path workspace/temp/input.json --output_path workspace/outputs/example_output.json"
+      "command": "python scripts/run_example_transformer.py --input_path workspace/temp/input.json --output_path workspace/outputs/example_output.json"
     }
   ],
   "metadata": {

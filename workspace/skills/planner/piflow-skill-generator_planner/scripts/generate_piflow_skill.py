@@ -80,7 +80,6 @@ FRONTMATTER_KEYS = {
     "name_zh",
     "description",
     "version",
-    "category",
     "tag",
     "input_params",
     "output_params",
@@ -91,35 +90,46 @@ FRONTMATTER_KEYS = {
 }
 CLASSIFICATION_FILE = Path(__file__).resolve().parents[4] / "docs" / "skill分类.txt"
 STORAGE_SKILLS_DIR = Path(__file__).resolve().parents[4] / "storage" / "skills"
-DEFAULT_CATEGORY = "其他"
+DEFAULT_CATEGORY = "数据转换"
 DEFAULT_CATEGORY_ICON = "Other.png"
 TAG_TO_CLASSIFICATION = {
-    "清洗": "清洗",
-    "校验": "校验",
-    "去重": "去重",
-    "格式转换": "格式转换",
-    "标准化": "标准化",
-    "过滤与筛选": "过滤与筛选",
-    "增强": "增强",
+    "数据清洗": "数据清洗",
+    "清洗": "数据清洗",
+    "数据校验": "数据校验",
+    "校验": "数据校验",
+    "数据转换": "数据转换",
+    "格式转换": "数据转换",
+    "标准化": "数据转换",
+    "数据解析": "数据解析",
+    "解析": "数据解析",
+    "数据筛选": "数据筛选",
+    "过滤": "数据筛选",
+    "过滤与筛选": "数据筛选",
+    "筛选": "数据筛选",
+    "去重": "数据清洗",
+    "数据衍生": "数据衍生",
+    "增强": "数据衍生",
+    "聚合": "数据衍生",
+    "科学计算": "科学计算",
+    "AI处理": "AI处理",
+    "设计创作": "AI处理",
     "流程控制": "流程控制",
-    "输出": "输出",
-    "设计创作": "设计创作",
-    "输入": "输入",
-    "其他": "其他",
+    "输入": "流程控制",
+    "输出": "数据输出",
+    "数据输出": "数据输出",
+    "其他": "数据转换",
 }
 CLASSIFICATION_ICON_ALIASES = {
-    "清洗": "data-cleansing.png",
-    "校验": "quality-control.png",
-    "去重": "data-Aggregation.png",
-    "格式转换": "simple-data-format.png",
-    "标准化": "Mapping & Conversion.png",
-    "过滤与筛选": "Text Analysis.png",
-    "增强": "data-Aggregation.png",
+    "数据清洗": "data-cleansing.png",
+    "数据校验": "quality-control.png",
+    "数据转换": "simple-data-format.png",
+    "数据解析": "Document Processing.png",
+    "数据筛选": "Text Analysis.png",
+    "数据衍生": "data-Aggregation.png",
+    "科学计算": "Workflow & Pipeline.png",
+    "AI处理": "Design & Creative.png",
     "流程控制": "Workflow & Pipeline.png",
-    "输出": "Document Processing.png",
-    "设计创作": "Design & Creative.png",
-    "输入": "Document Processing.png",
-    "其他": "Other.png",
+    "数据输出": "Document Processing.png",
 }
 
 
@@ -358,7 +368,6 @@ def restore_spec_from_flow(flow: dict) -> dict:
         "title": title,
         "description": description,
         "version": non_empty_text(flow.get("version")) or "1.0.0",
-        "category": non_empty_text(flow.get("category")) or "restored_flow",
         "tag": non_empty_text(flow.get("tag")) or "其他",
         "triggers": [item for item in as_list(flow.get("triggers")) if str(item).strip()],
         "trigger_conditions": trigger_conditions,
@@ -427,7 +436,6 @@ def infer_classification(spec: dict) -> str:
         non_empty_text(spec.get("classification")),
         non_empty_text(spec.get("classification_name")),
         non_empty_text(spec.get("tag")),
-        non_empty_text(spec.get("category")),
     ]
     for candidate in candidates:
         if candidate in available:
@@ -675,7 +683,7 @@ def frontmatter(spec: dict) -> str:
     }
     if spec.get("name_zh"):
         data["name_zh"] = spec["name_zh"]
-    for key in ("category", "tag", "allowed-tools", "compatibility", "license", "metadata"):
+    for key in ("tag", "allowed-tools", "compatibility", "license", "metadata"):
         src = "allowed_tools" if key == "allowed-tools" and "allowed_tools" in spec else key
         if src in spec:
             data[key] = spec[src]
@@ -792,8 +800,6 @@ def render_body(spec: dict) -> str:
 
     triggers = [f"当用户提到“{t}”时优先考虑使用此技能。" for t in spec.get("triggers", [])]
     trigger_lines = []
-    if spec.get("category"):
-        trigger_lines.append(f"技能类别：{spec['category']}")
     if spec.get("tag"):
         trigger_lines.append(f"DAG 类型：{spec['tag']}")
     trigger_lines.extend(triggers)
@@ -860,9 +866,8 @@ def render_skill_json(spec: dict) -> str:
     if spec.get("name_zh"):
         data["name_zh"] = spec["name_zh"]
     data["command_template"] = command_template(spec)
-    for key in ("category", "tag"):
-        if spec.get(key):
-            data[key] = spec[key]
+    if spec.get("tag"):
+        data["tag"] = spec["tag"]
     return json.dumps(data, ensure_ascii=False, indent=2) + "\n"
 
 

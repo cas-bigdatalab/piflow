@@ -19,7 +19,6 @@ ALLOWED_KEYS = {
     "name_zh",
     "description",
     "version",
-    "category",
     "tag",
     "input_params",
     "output_params",
@@ -292,7 +291,7 @@ def validate(skill_dir: Path, mode: str = "registered") -> tuple[bool, str]:
         if key not in data or not isinstance(data[key], str) or not data[key].strip():
             return fail(f"{key} must be a non-empty string")
 
-    for key in ("version", "category", "tag"):
+    for key in ("version", "tag"):
         if key in data and (not isinstance(data[key], str) or not data[key].strip()):
             return fail(f"{key} must be a non-empty string when present")
     if "name_zh" in data and (not isinstance(data["name_zh"], str) or not data["name_zh"].strip()):

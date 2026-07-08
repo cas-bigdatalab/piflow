@@ -98,7 +98,6 @@ def load_existing_skill_state(skill_dir: Path) -> dict:
             "entrypoint",
             "input_params",
             "output_params",
-            "category",
             "tag",
             "command_template",
         ):
@@ -110,7 +109,6 @@ def load_existing_skill_state(skill_dir: Path) -> dict:
 def merge_rewrite_spec(existing: dict, incoming: dict) -> dict:
     merged = dict(existing)
     default_like_pairs = {
-        ("category", "restored_flow"),
         ("tag", "其他"),
         ("version", "1.0.0"),
     }

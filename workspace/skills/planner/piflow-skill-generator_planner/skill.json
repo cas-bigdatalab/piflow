@@ -72,6 +72,5 @@
       "description": "生成完成后的改写 follow-up 建议信息"
     }
   ],
-  "category": "skill_generation",
   "tag": "算子生成"
 }
