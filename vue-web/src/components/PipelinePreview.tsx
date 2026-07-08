@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { runDAGTask, saveDrawInfo, getDrawInfoBymegId, getAllSkills, listSkillsDetails } from "../lib/api";
 import { generateUUID } from "../lib/ids";
 import { toast } from "./Toast";
-import {  useState } from 'react';
+import {  useState,useRef,useEffect } from 'react';
 
 interface PipelineNode {
   node_name: string;
@@ -249,6 +249,7 @@ export default function PipelinePreview({ data, threadId, onOpenCanvas, messageI
   const hasMissingSkillStop = useMemo(() => {
     return nodes.some(node => node.skill_name === 'missing_operator_stop');
   }, [nodes]);
+
 
   const handleRun = async () => {
     if (isRunning) return; // 防止重复点击
@@ -949,6 +950,19 @@ export default function PipelinePreview({ data, threadId, onOpenCanvas, messageI
             { bg: '#fed7aa', border: '#f97316', dot: '#fb923c' },  // 琥珀色
             { bg: '#d1fae5', border: '#10b981', dot: '#34d399' },  // 翡翠色
           ];
+          // 新增连线问题的修复代码
+          // 1. 新增：用于存储每个节点的 DOM 引用
+          const nodeRefs = useRef<(HTMLDivElement | null)[]>([]);
+          // 2. 新增：用于触发重绘连线的状态
+          const [isLayoutReady, setIsLayoutReady] = useState(false);
+
+          // 3. 新增：在数据解析完成后（levels 计算完后），触发一次连线绘制
+          useEffect(() => {
+              // 使用 setTimeout 确保 DOM 渲染完成后再获取坐标
+              const timer = setTimeout(() => setIsLayoutReady(true), 100);
+              return () => clearTimeout(timer);
+          }, [nodes]); // 当 nodes 变化时重新计算
+
 
           const getNodeColor = (index: number) => {
             return nodeColors[index % nodeColors.length];
@@ -982,7 +996,9 @@ export default function PipelinePreview({ data, threadId, onOpenCanvas, messageI
                       const isMissingSkillStop = node.skill_name === 'missing_operator_stop';
                     
                       return (
-                        <div key={nodeIndex} className="flex flex-col items-center">
+                        <div key={nodeIndex} className="flex flex-col items-center relative z-10"
+                          ref={(el) => (nodeRefs.current[nodeIndex] = el)} 
+                        >
                           {/* 菱形节点 - Fork/Merge */}
                           {fork || merge ? (
                             <div
@@ -1002,7 +1018,7 @@ export default function PipelinePreview({ data, threadId, onOpenCanvas, messageI
                           ) : (
                             // 圆角矩形节点
                             <div
-                              className="flex items-center gap-2 px-4 py-2 rounded-full"
+                              className="flex items-center gap-2 px-4 py-2 rounded-md"
                               style={{
                                 backgroundColor: isMissingSkillStop ? '#fee2e2' : color.bg,
                                 border: `2px solid ${isMissingSkillStop ? '#ef4444' : color.border}`,
@@ -1044,15 +1060,27 @@ export default function PipelinePreview({ data, threadId, onOpenCanvas, messageI
                   {/* 层级之间的连接箭头 */}
                   {levelIndex < levels.length - 1 && (
                     <div className="flex justify-center items-center py-2 pipeline-arrow" style={{ minHeight: '32px', animationDelay: `${0.35 + levelIndex * 0.2}s` }}>
-                      {level.map((nodeIndex) => {
-                        const targets = nodeOutEdges[nodeIndex];
-                        if (targets.length === 0) return null;
-                        return (
-                          <div key={nodeIndex} className="flex items-center justify-center" style={{ width: '136px' }}>
+                      {nodeOutEdges.map((targets, sourceNodeIndex) => {
+                        // 只处理从当前层级发出的连线
+                        if (!levels[levelIndex].includes(sourceNodeIndex)) return null;
+                        
+                        // 如果没有目标节点，返回一个透明占位符以保持布局对齐
+                        if (targets.length === 0) {
+                          return <div key={`empty-${sourceNodeIndex}`} style={{ width: '136px' }} />;
+                        }
+
+                        // 【修改点】去掉 Fragment，直接遍历 targets 并返回带 key 的 div
+                        return targets.map((targetNodeIndex) => (
+                          <div 
+                            key={`${sourceNodeIndex}-${targetNodeIndex}`} 
+                            className="flex items-center justify-center" 
+                            style={{ width: '136px' }}
+                          >
                             <div className="relative">
-                              {/* 箭头线 */}
+                              {/* 箭头线 - 保持原有样式 */}
                               <div className="w-px h-6 bg-slate-300 mx-auto"></div>
-                              {/* 箭头 */}
+                              
+                              {/* 箭头图标 - 保持原有样式 */}
                               <svg
                                 width="16"
                                 height="16"
@@ -1070,7 +1098,7 @@ export default function PipelinePreview({ data, threadId, onOpenCanvas, messageI
                               </svg>
                             </div>
                           </div>
-                        );
+                        ));
                       })}
                     </div>
                   )}
