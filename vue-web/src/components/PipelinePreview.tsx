@@ -1185,7 +1185,7 @@ export default function PipelinePreview({ data, threadId, onOpenCanvas, messageI
                 className="modal-close" 
                 onClick={() => setShowRunSuccessModal(false)}
               >
-                <Icon icon="fa-solid:times" width="16" />
+                <Icon icon="ri:close-line" width={16} />
               </button>
             </div>
             <div className="modal-body">
