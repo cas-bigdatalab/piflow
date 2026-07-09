@@ -42,7 +42,7 @@ output_params:
     type: jsonl_file
     description: 输出的JSONL格式数据集文件
 tag: 数据转换
-
+publisher: COMMUNITY
 ---
 
 ## 功能概述

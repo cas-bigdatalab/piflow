@@ -35,6 +35,7 @@ output_params:
     type: csv_file
     description: 带质控标识的输出文件
 tag: 数据校验
+publisher: COMMUNITY
 ---
 
 # unique_constraint_check 唯一性约束校验Skill

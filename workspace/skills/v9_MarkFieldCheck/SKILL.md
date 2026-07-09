@@ -28,7 +28,7 @@ output_params:
     type: csv_file
     description: 处理后结构化数据文件，包含质量标识符字段
 tag: 数据校验
-
+publisher: COMMUNITY
 ---
 
 # v9_MarkFieldCheck 标识符字段检查Skill

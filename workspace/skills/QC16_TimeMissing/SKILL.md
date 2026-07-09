@@ -53,7 +53,7 @@ output_params:
     type: csv_file
     description: 异常数据文件，包含缺失/多余时间点记录
 tag: 数据校验
-
+publisher: COMMUNITY
 ---
 
 # QC16_TimeMissing 数据时序完整性检查Skill

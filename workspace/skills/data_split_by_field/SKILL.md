@@ -48,6 +48,7 @@ output_params:
   type: directory
   description: 包含拆分后文件的目录
 tag: 数据筛选
+publisher: COMMUNITY
 ---
 
 # Data Split By Field 按字段拆分数据 Skill

@@ -23,7 +23,7 @@ output_params:
     type: string
     description: 海洋生物识别结果（文本格式）
 tag: 科学计算
-
+publisher: COMMUNITY
 ---
 
 # scsio_identify Skill

@@ -19,7 +19,7 @@ output_params:
     type: csv_file
     description: 处理后的文本文件
 tag: 流程控制
-
+publisher: COMMUNITY
 ---
 
 # Add Numbers by 10

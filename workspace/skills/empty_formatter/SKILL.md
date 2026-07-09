@@ -31,7 +31,7 @@ output_params:
     type: jsonl_file
     description: 空数据集JSONL文件
 tag: 数据转换
-
+publisher: COMMUNITY
 ---
 
 ## 功能概述

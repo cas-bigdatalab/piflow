@@ -32,7 +32,7 @@ output_params:
     type: json_file
     description: 清理邮件后的JSON文件
 tag: 数据转换
-
+publisher: COMMUNITY
 ---
 
 # Clean Email Mapper

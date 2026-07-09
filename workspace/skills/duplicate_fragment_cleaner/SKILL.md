@@ -70,6 +70,7 @@ output_params:
 - name: unique_fragments
   type: integer
   description: 唯一片段数
+publisher: COMMUNITY
 ---
 
 # Duplicate Fragment Cleaner 文本内部重复片段模糊清理 Skill

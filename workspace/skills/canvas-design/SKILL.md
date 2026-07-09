@@ -5,6 +5,7 @@ license: Complete terms in LICENSE.txt
 tag: AI处理
 
 name_zh: 画布设计算子
+publisher: COMMUNITY
 ---
 
 These are instructions for creating design philosophies - aesthetic movements that are then EXPRESSED VISUALLY. Output only .md files, .pdf files, and .png files.

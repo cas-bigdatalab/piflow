@@ -49,6 +49,7 @@ output_params:
   type: json_file
   description: 可选日志文件
 tag: 数据转换
+publisher: COMMUNITY
 ---
 
 # data_normalizer 数据标准化 Skill

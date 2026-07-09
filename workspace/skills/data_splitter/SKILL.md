@@ -46,6 +46,7 @@ output_params:
   type: object
   description: 分割统计信息
 tag: 数据筛选
+publisher: COMMUNITY
 ---
 
 # Data Splitter 数据分割 Skill

@@ -41,7 +41,7 @@ output_params:
     type: csv_file
     description: 拼接后的数据文件
 tag: 数据衍生
-
+publisher: COMMUNITY
 ---
 
 # Data Merge Concat 数据纵向拼接 Skill

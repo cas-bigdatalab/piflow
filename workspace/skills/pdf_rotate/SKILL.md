@@ -31,7 +31,7 @@ output_params:
     type: pdf_file
     description: 旋转后的PDF文件
 tag: 数据转换
-
+publisher: COMMUNITY
 ---
 
 # pdf_rotate 技能

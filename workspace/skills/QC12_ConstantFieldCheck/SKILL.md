@@ -50,7 +50,7 @@ output_params:
     type: csv_file
     description: 恒定字段一致性检查后的结构化数据文件，带质控标识
 tag: 数据校验
-
+publisher: COMMUNITY
 ---
 
 # QC12_ConstantFieldCheck 恒定字段一致性检查Skill

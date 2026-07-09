@@ -20,7 +20,7 @@ output_params:
     type: json_file
     description: PDF元数据JSON文件
 tag: 数据解析
-
+publisher: COMMUNITY
 ---
 
 # pdf_metadata_extract 技能

@@ -34,6 +34,7 @@ output_params:
   type: json_file
   description: 7z 压缩包预览报告
 tag: 数据筛选
+publisher: COMMUNITY
 ---
 
 # ingest_archive_7z_preview — 7z 压缩包预览

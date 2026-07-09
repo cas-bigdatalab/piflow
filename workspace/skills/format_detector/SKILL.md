@@ -33,6 +33,7 @@ output_params:
     type: jsonl_file
     description: 格式识别结果文件
 tag: 数据筛选
+publisher: COMMUNITY
 ---
 
 # Format Detector 格式识别 Skill

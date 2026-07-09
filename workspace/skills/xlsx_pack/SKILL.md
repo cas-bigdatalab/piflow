@@ -16,7 +16,7 @@ output_params:
     type: xlsx_file
     description: 打包后的XLSX文件
 tag: 数据转换
-
+publisher: COMMUNITY
 ---
 
 # xlsx_pack 技能

@@ -4,6 +4,7 @@ description: Guide users through a structured workflow for co-authoring document
 tag: AI处理
 
 name_zh: 文档协作算子
+publisher: COMMUNITY
 ---
 
 # Doc Co-Authoring Workflow

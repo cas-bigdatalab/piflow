@@ -16,7 +16,7 @@ output_params:
     type: text_file
     description: 提取的文本文件(.txt)
 tag: 数据解析
-
+publisher: COMMUNITY
 ---
 
 # docx_text_extract 技能

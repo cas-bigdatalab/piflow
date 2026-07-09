@@ -55,6 +55,7 @@ output_params:
     type: object
     description: 按扩展名统计的文件数量分布
 tag: 数据筛选
+publisher: COMMUNITY
 ---
 
 # Batch Collector 批量文件清单采集器

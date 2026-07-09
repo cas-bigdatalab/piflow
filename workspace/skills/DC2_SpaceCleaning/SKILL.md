@@ -22,7 +22,7 @@ output_params:
     type: csv_file
     description: 清理空格后的结构化数据文件
 tag: 数据清洗
-
+publisher: COMMUNITY
 ---
 
 # DC2_SpaceCleaning 空格清理Skill

@@ -21,7 +21,7 @@ output_params:
     type: json_file
     description: 合并后的JSON文件，所有样本合并为一个批次
 tag: 数据衍生
-
+publisher: COMMUNITY
 ---
 
 # Naive Grouper

@@ -27,7 +27,7 @@ output_params:
     type: csv_file
     description: 格式一致性校验通过后的结构化数据文件
 tag: 数据校验
-
+publisher: COMMUNITY
 ---
 
 # table_schema_structure_check 格式一致性校验Skill

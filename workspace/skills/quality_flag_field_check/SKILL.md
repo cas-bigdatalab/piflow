@@ -36,6 +36,7 @@ output_params:
     type: csv_file
     description: 带质控标识的输出文件
 tag: 数据校验
+publisher: COMMUNITY
 ---
 
 # quality_flag_field_check 质量标识字段检测Skill

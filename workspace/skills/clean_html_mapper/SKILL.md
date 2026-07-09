@@ -21,7 +21,7 @@ output_params:
     type: json_file
     description: 清理HTML后的JSON文件
 tag: 数据转换
-
+publisher: COMMUNITY
 ---
 
 # Clean HTML Mapper

@@ -47,7 +47,7 @@ output_params:
     type: json_file
     description: 过滤后的JSON文件，包含保留的样本数据
 tag: 数据筛选
-
+publisher: COMMUNITY
 ---
 
 # Alphanumeric Filter 字母数字比例过滤 Skill

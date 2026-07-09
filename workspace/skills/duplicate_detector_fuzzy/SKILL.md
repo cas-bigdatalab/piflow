@@ -34,6 +34,7 @@ output_params:
   type: csv_file
   description: 去重后的数据文件
 tag: 数据清洗
+publisher: COMMUNITY
 ---
 
 # Duplicate Detector Fuzzy 模糊去重 Skill

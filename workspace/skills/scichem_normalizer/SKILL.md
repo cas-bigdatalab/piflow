@@ -22,6 +22,7 @@ output_params:
   - name: output_path
     type: string
     description: 科学/化学符号规整后的结构化文件
+publisher: COMMUNITY
 ---
 
 # SciChem Normalizer 科学公式化学式规整 Skill

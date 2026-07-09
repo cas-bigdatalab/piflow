@@ -45,6 +45,7 @@ output_params:
     type: jsonl_file
     description: 解析后的结构化内容记录文件
 tag: 数据筛选
+publisher: COMMUNITY
 ---
 
 # Content Parser 内容解析预处理 Skill
