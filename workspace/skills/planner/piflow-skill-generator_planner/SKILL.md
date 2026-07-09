@@ -69,13 +69,24 @@ tag: 算子生成
 
 ## 核心规则
 
-除去对运行/测试时的产物进行分析，其他工作应尽量提前计划和生成，避免在安装或测试阶段才发现文档不完整、脚本缺失或资源错误。技能生成器的目标是一次性生成一个完整、可靠、符合约定的技能目录，能直接被 PiFlow 识别和使用，但它不是默认优先入口。
+本技能是一个**模板驱动的 PiFlow skill 生成器**。它的职责不是找一个相似 skill 来改改，而是基于统一模板，把用户明确提供的信息、已经验证成功的流程、已有脚本和必要资源，整理成一个结构清晰、参数契约稳定、可被 PiFlow 直接识别的技能目录。
 
-生成能被 PiFlow 理解的技能目录。所有文本文件必须以 UTF-8 读写，尤其是中文内容；Python 读写文件时显式使用 `encoding="utf-8"`，JSON 输出使用 `ensure_ascii=False`。
+生成目标始终是一次性产出完整、可靠、符合约定的 skill 目录，包括 UTF-8 编码的 `SKILL.md`、DAG 可读的 `input_params` / `output_params`、`skill.json`、`scripts/`、`references/`、`assets/`，以及必要的校验与注册结果。但它不是默认优先入口；只有在用户明确要“生成/保存为 skill”，或某个流程已经真实跑通并值得沉淀时，才进入这条链路。
 
-按库内技能的粒度控制内容：`SKILL.md` 只放触发、流程和必要契约；可执行逻辑放 `scripts/`；较长规则、字段说明和领域资料放 `references/`；模板、图标、示例素材放 `assets/`。
+所有文本文件必须使用 UTF-8 读写，尤其是中文内容；Python 读写文件时显式使用 `encoding="utf-8"`，JSON 输出使用 `ensure_ascii=False`。
 
-生成正文时优先参照 `references/piflow_skill_template.md`。当 spec 中提供 `core_features`、`trigger_conditions`、`processing_logic`、`supported_formats`、`output_structure`、`output_examples` 等字段时，将它们填入模板对应章节。
+目录内容按职责分层：
+- `SKILL.md`：只放触发条件、处理流程、参数契约和必要说明；
+- `scripts/`：放稳定、可执行、可测试的入口脚本或处理逻辑；
+- `references/`：放长规则、字段字典、复杂 schema、补充说明；
+- `assets/`：放图标、模板、示例素材或需要随技能一起交付的资源。
+
+本技能的实现指引遵循同一条主线：**模板优先，参考次之，禁止默认整体仿写**。
+- 先以 `references/piflow_skill_template.md` 作为 `SKILL.md`、`skill.json`、参数组织方式、脚本入口形状和资源分层的统一骨架；
+- 再把用户确认的信息、成功流程、已有脚本、现有 skill 中真正有用的规则和参数事实，填回模板对应位置；
+-当 spec 中提供 `core_features`、`trigger_conditions`、`processing_logic`、`supported_formats`、`output_structure`、`output_examples` 等字段时，将它们填入模板对应章节
+
+因此，无论是手动生成、回调式沉淀，还是生成后的再次改写，最终输出都必须回到模板定义的结构，而不是回到某个历史 skill 的结构。
 
 本技能必须能在没有其他技能辅助的环境中独立生成可靠技能：只依赖当前技能目录内的 `SKILL.md`、`references/piflow_skill_template.md`、`references/rewrite_followup_internal.md`、`scripts/generate_piflow_skill.py`、`scripts/generate_skill_files.py`、`scripts/register_skill_artifacts.py`、`scripts/rewrite_piflow_skill.py` 和 `scripts/validate_piflow_skill.py`。生成时不要假设另一个 skill 会补全文档、脚本或元数据。本技能负责 skill 化与沉淀，不负责代替用户完成所有真实处理任务本身。
 
@@ -192,10 +203,10 @@ skill-name/
 
 1. 先判断用户是否明确要求生成或保存 skill。若是，则直接进入本链路。
 2. 明确具体用例。优先收集用户会怎样调用技能、输入输出文件长什么样、是否需要脚本、是否有字段规则或外部依赖。
-3. 规划资源分层。重复且要求稳定的逻辑进入 `scripts/`；长规则进入 `references/`；图标和模板进入 `assets/`。这一阶段同时确定图标策略：选一个主图标来源，并明确一个兜底图标。
+3. 规划资源分层。重复且要求稳定的逻辑进入 `scripts/`；长规则进入 `references/`；图标和模板素材进入 `assets/`。这一阶段同时确定图标策略：选一个主图标来源，并明确一个兜底图标。
 4. 规范命名。已有业务技能名可保留大小写和下划线，例如 `QC3_NumericDataThresholdCheck`、`Pi_DataSorting`；新通用技能优先使用 lowercase `snake_case` 或 `hyphen-case`；目录名必须等于 `name`。
-5. 生成 `SKILL.md`。正文按 `references/piflow_skill_template.md` 的章节顺序组织：功能说明、触发条件、核心功能、处理逻辑、支持的文件格式、使用方法、参数说明、输出参数、示例、输出格式/输出结构、依赖、注意事项。
-6. 生成资源目录。只有在 spec 提供或任务需要时写入脚本、引用资料和素材；图标必须有明确结论：若 spec 提供 `icon`，复制为 `assets/icon.png` 作为主图标；若未提供自定义图标，则记录并验证可兜底到分类图标。
+5. 先按 `references/piflow_skill_template.md` 搭骨架，再填内容。正文章节顺序、frontmatter 结构、`skill.json` 参数契约、脚本入口和资源目录都应先服从模板；随后再把用户确认的信息、成功流程信息、脚本信息和必要规则填入对应章节。不要先挑一个相似 skill 作为底稿整体改写。
+6. 生成资源目录。只有在 spec 提供或任务确实需要时才写入脚本、引用资料和素材；图标必须有明确结论：若 spec 提供 `icon`，复制为 `assets/icon.png` 作为主图标；若未提供自定义图标，则记录并验证可兜底到分类图标。
 7. 校验并迭代。运行 `validate_piflow_skill.py`，检查 UTF-8、YAML、参数契约、目录名、资源布局和 UI metadata。
 8. 安装后冒烟测试。若该技能需要额外依赖或运行时环境，在环境配置完成后先执行一个最小可运行示例或健康检查脚本，确认关键入口能正常启动并完成一次基础输入输出。
 9. 失败重试与兜底。安装与冒烟测试过程中若失败，先重试再继续；单阶段最多 5 次。若 5 次都失败，停止自动化流程并把失败原因、失败步骤和最后一次错误返回给用户。
@@ -270,8 +281,8 @@ skill-name/
 - `input_params`、`output_params`：PiFlow 参数契约。参数项可包含 `role`。
 - `input_params`、`output_params` 在 `SKILL.md` frontmatter 和 `skill.json` 中都必须是“参数对象数组”，禁止写成 `{ params: {...} }`、`{input_path: {...}}` 或任何对象映射形状；每个参数必须独立占一个数组元素。
 - `command`：可选，显式命令；缺省时根据 `script.path` 和输入参数生成。
-- `script`：可选对象，支持 `path`、`content`、`source`；也可用 `scripts` 列表生成多个脚本。
-- `script` / `scripts`：在回调式沉淀链路中，优先从之前成功运行的脚本、流程文件或实现产物恢复，而不是重新凭空编写。
+- `script`：可选对象，支持 `path`、`content`、`source`；也可用 `scripts` 列表生成多个脚本。若来自成功流程或旧实现，优先恢复其可执行事实，但最终脚本路径、入口命名、参数契约和目录组织仍要服从模板，而不是服从原始样例的偶然结构。
+- `script` / `scripts`：在回调式沉淀链路中，优先从之前成功运行的脚本、流程文件或实现产物恢复，再将这些内容回填进模板约定的目录结构、参数契约和资源分层；不要因为参考了旧脚本或旧 skill，就偏离模板去整体复刻旧实现。
 - `references`：可选列表，支持 `path` + `content` 或 `source`。
 - `assets`：可选列表，支持 `path` + `content` 或 `source`；`icon` 会复制为 `assets/icon.png`。无论是否提供自定义 `icon`，都必须在生成时明确一个兜底图标方案，默认可回退到分类图标。
 - `dependencies`：可选，正文依赖列表。
@@ -408,12 +419,13 @@ python scripts/validate_piflow_skill.py skills/<skill-name> --mode files-only
 - 生成的 `skill.json` 包含 `entrypoint`、`script_path`、`command_template` 和带 `role` 的参数元数据。
 - 正文足够让另一个 agent 调用或继续实现技能，不依赖隐含上下文。
 - 长规则没有塞进正文，而是放入 `references/` 并在正文指明何时读取。
-- 脚本、JSON和 Markdown 都能 UTF-8 往返，中文不转义、不乱码。
+- 脚本、JSON 和 Markdown 都能 UTF-8 往返，中文不转义、不乱码。
 - 可执行脚本已明确生成、复制或有意省略。
+- 输出结构以 `references/piflow_skill_template.md` 为主骨架；即使引用了旧脚本、旧 skill 或成功流程，也没有退化为对相似 skill 的整体复刻。
 - 技能通过 `validate_piflow_skill.py`。
-- 需要运行时依赖的技能，在环境就绪后已完成一次轻量冒烟测试。
+- 需要运行时依赖的技能，已在环境就绪后做过最小冒烟测试。
 - 安装或测试失败时已进行重试；若达到 5 次仍失败，则已向用户反馈明确错误。
-- 触发表达已经改写为“仅手动指定或任务完成后沉淀”语义，没有把本技能写成默认优先入口。
+- 触发表达已经收敛为“仅手动指定或任务完成后沉淀”，没有把本技能写成默认优先入口。
 - 如果 skill 生成后用户又提供了新的成功流程，已考虑是否提示进入内部改写链路继续做最小改写。
 - 如果 skill 声明了报告文件或类似结果工件，则失败路径也已实测验证：脚本会优先落盘最小失败摘要和问题清单，再以非零状态码结束，而不是未经兜底直接抛异常退出。
 

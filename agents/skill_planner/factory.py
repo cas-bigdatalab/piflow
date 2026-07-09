@@ -7,7 +7,6 @@ from langchain_openai import ChatOpenAI
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.store.memory import InMemoryStore
 
-from agents.subagent.skill_creator.prompt import build_skill_creator_route_prompt_block
 from agents.tools import exec_shell
 from infra.config_loader import get_settings
 from runtime.workspace_manager import WorkspaceManager
@@ -69,7 +68,7 @@ class SkillPlannerAgentFactory:
         install_registry_hooks(registry)
 
         system_prompt = build_skill_planner_system_prompt(
-            extra_sections=[build_skill_creator_route_prompt_block()]
+            extra_sections=[]
         )
 
         workspace = WorkspaceManager()
