@@ -72,7 +72,7 @@ output_params:
     type: jsonl_file
     description: 过滤后的JSONL文件，包含图像文本相似度在指定范围内的样本
 tag: 数据筛选
-
+publisher: COMMUNITY
 ---
 
 ## 功能概述

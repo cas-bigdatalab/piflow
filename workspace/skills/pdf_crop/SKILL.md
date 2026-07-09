@@ -30,7 +30,7 @@ output_params:
     type: pdf_file
     description: 裁剪后的PDF文件
 tag: 数据转换
-
+publisher: COMMUNITY
 ---
 
 # pdf_crop 技能

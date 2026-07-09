@@ -31,6 +31,7 @@ output_params:
   type: json_file
   description: 解压报告
 tag: 数据筛选
+publisher: COMMUNITY
 ---
 
 # ingest_archive_7z_extractor — 7z 压缩包解压

@@ -231,6 +231,7 @@ def insert_dag_skill(
     icon_path: str = None,
     version: str = None,
     disciplinary_field: str = "基础",
+    publisher: str = "PRIVATE",
 ):
     skill_id = uuid.uuid4().hex
 
@@ -244,9 +245,9 @@ def insert_dag_skill(
                             skill_id, skill_name, name_zh, description, skill_path, file_path,
                             input_params, output_params, skill_type,
                             language, command, icon_path, version,
-                            disciplinary_field
+                            disciplinary_field, publisher
                         )
-                        VALUES (%s, %s, %s, %s, %s, %s, %s::jsonb, %s::jsonb, %s, %s, %s, %s, %s, %s)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s::jsonb, %s::jsonb, %s, %s, %s, %s, %s, %s, %s)
 
 
                         ON CONFLICT (skill_name, version)
@@ -273,7 +274,7 @@ def insert_dag_skill(
                             psycopg2.extras.Json(input_params or {}),
                             psycopg2.extras.Json(output_params or {}),
                             skill_type, language or "", command or "", icon_path, version,
-                            disciplinary_field,
+                            disciplinary_field, publisher,
                         ),
                     )
                     row = cursor.fetchone()
@@ -313,6 +314,7 @@ def _parse_dag_skill_frontmatter(skill_dir: Path) -> Optional[dict]:
         description = frontmatter.get("description", "")
         tag = frontmatter.get("tag", "")
         disciplinary_field = frontmatter.get("disciplinary_field", "基础")
+        publisher = frontmatter.get("publisher", "PRIVATE")
 
         raw_inputs = frontmatter.get("input_params") or []
         raw_outputs = frontmatter.get("output_params") or []
@@ -348,6 +350,7 @@ def _parse_dag_skill_frontmatter(skill_dir: Path) -> Optional[dict]:
             "description": description,
             "tag": tag,
             "disciplinary_field": disciplinary_field,
+            "publisher": publisher,
             "input_params": input_params,
             "output_params": output_params,
         }
@@ -412,6 +415,7 @@ def _process_single_skill_dir(skill_dir: Path, path_prefix: str) -> dict | None:
     description = info["description"]
     skill_type = info["tag"]
     disciplinary_field = info.get("disciplinary_field", "基础")
+    publisher = info.get("publisher", "PRIVATE")
     input_params = info["input_params"]
     output_params = info["output_params"]
     
@@ -440,6 +444,7 @@ def _process_single_skill_dir(skill_dir: Path, path_prefix: str) -> dict | None:
         icon_path=icon_path,
         version="1.0.0",
         disciplinary_field=disciplinary_field,
+        publisher=publisher,
     )
 
 

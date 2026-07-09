@@ -45,6 +45,7 @@ output_params:
     type: jsonl_file
     description: 采集后的结构化表格记录文件
 tag: 数据筛选
+publisher: COMMUNITY
 ---
 
 # Table Collector 表格采集 Skill

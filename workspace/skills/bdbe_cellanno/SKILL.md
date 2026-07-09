@@ -28,7 +28,7 @@ output_params:
     description: 细胞类型注释结果JSON，包含每个细胞的类型标签及分布统计
 
 tag: 科学计算
-
+publisher: COMMUNITY
 ---
 
 

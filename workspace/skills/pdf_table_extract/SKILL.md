@@ -25,7 +25,7 @@ output_params:
     type: json_file
     description: 提取的表格JSON文件
 tag: 数据解析
-
+publisher: COMMUNITY
 ---
 
 # pdf_table_extract 技能

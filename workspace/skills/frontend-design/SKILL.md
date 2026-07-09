@@ -5,6 +5,7 @@ license: Complete terms in LICENSE.txt
 tag: AI处理
 
 name_zh: 前端设计算子
+publisher: COMMUNITY
 ---
 
 This skill guides creation of distinctive, production-grade frontend interfaces that avoid generic "AI slop" aesthetics. Implement real working code with exceptional attention to aesthetic details and creative choices.

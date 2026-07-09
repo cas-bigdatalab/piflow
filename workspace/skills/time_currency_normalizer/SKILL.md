@@ -36,6 +36,7 @@ output_params:
 - name: output_path
   type: string
   description: 日期/货币归一后的结构化文件
+publisher: COMMUNITY
 ---
 
 # Time Currency Normalizer 时间货币归一 Skill

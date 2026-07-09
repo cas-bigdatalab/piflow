@@ -41,6 +41,7 @@ output_params:
     type: csv_file
     description: 过滤后的结构化数据文件
 tag: 数据清洗
+publisher: COMMUNITY
 ---
 
 # lowinfo_filter 低信息量过滤

@@ -13,6 +13,7 @@ output_params:
     description: 提供给下游算子引用的数据源输出占位
 tag: 输入
 node_category: system
+publisher: COMMUNITY
 ---
 
 # source_stop

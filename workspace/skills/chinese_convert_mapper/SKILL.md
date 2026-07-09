@@ -27,7 +27,7 @@ output_params:
     type: json_file
     description: 转换后的JSON文件，包含转换后的text字段
 tag: 数据转换
-
+publisher: COMMUNITY
 ---
 
 # Chinese Convert Mapper

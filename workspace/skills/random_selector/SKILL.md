@@ -36,7 +36,7 @@ output_params:
     type: csv_file
     description: 随机采样后的CSV文件
 tag: 数据筛选
-
+publisher: COMMUNITY
 ---
 
 # random_selector

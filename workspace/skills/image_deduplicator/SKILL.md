@@ -47,7 +47,7 @@ output_params:
     type: json_file
     description: 去重后的JSON文件，包含去重后的图像样本
 tag: 数据清洗
-
+publisher: COMMUNITY
 ---
 
 # Image Deduplicator 图像去重 Skill

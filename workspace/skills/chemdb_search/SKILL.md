@@ -29,7 +29,7 @@ output_params:
     type: json_file
     description: 化学物质详细信息JSON，包含化学物质列表、分子结构（SVG）等
 tag: 科学计算
-
+publisher: COMMUNITY
 ---
 
 # chemdb_search 技能

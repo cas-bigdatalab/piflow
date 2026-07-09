@@ -14,7 +14,7 @@ output_params:
     type: string
     description: 计算结果，格式为 "数字 - 5 = 结果"
 tag: 流程控制
-
+publisher: COMMUNITY
 ---
 
 你是一个计算助手。当用户提到「流水线」并提供一个整数时，你需要将该整数减去5并返回结果。

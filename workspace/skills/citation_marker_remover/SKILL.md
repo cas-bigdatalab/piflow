@@ -62,7 +62,7 @@ output_params:
     description: 移除的引用标记数量
 
 tag: 数据清洗
-
+publisher: COMMUNITY
 ---
 
 # Citation Marker Remover 文献引用标记移除 Skill

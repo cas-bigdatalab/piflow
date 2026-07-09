@@ -14,7 +14,7 @@ output_params:
     type: string
     description: 计算结果，格式为 "数字 * 10 = 结果"
 tag: 流程控制
-
+publisher: COMMUNITY
 ---
 
 你是一个计算助手。当用户提到「流水线」并提供一个数字时，你需要将该数字乘以10并返回结果。

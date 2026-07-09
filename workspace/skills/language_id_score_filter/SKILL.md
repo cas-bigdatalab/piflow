@@ -42,7 +42,7 @@ output_params:
     type: jsonl_file
     description: 过滤后的JSONL文件，包含指定语言且置信度达标的样本
 tag: 数据筛选
-
+publisher: COMMUNITY
 ---
 
 ## 功能概述

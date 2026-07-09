@@ -12,7 +12,7 @@ output_params:
     type: json_file
     description: 结果存储算子的标准JSON定义，用于作为DAG的sink节点
 tag: 数据输出
-
+publisher: COMMUNITY
 ---
 
 # result_storage_operator

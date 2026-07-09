@@ -39,7 +39,7 @@ output_params:
     type: csv_file
     description: 批量阈值检验后的结构化数据文件，带质控标识
 tag: 数据校验
-
+publisher: COMMUNITY
 ---
 
 # QC5_BatchThresholdCheck 批量阈值检验Skill

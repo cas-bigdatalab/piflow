@@ -92,6 +92,7 @@ output_params:
   type: integer
   description: 切分后的片段数量
 tag: 数据筛选
+publisher: COMMUNITY
 ---
 
 # Text Splitter 长文本规则切分 Skill

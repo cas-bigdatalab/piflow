@@ -41,6 +41,7 @@ output_params:
     description: 解析结果ZIP压缩包
 
 tag: 数据解析
+publisher: COMMUNITY
 ---
 
 ## 功能概述

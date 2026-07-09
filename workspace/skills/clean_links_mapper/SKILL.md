@@ -27,7 +27,7 @@ output_params:
     type: json_file
     description: 清理链接后的JSON文件
 tag: 数据转换
-
+publisher: COMMUNITY
 ---
 
 # Clean Links Mapper

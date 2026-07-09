@@ -31,6 +31,7 @@ output_params:
   type: csv_file
   description: 脱敏后的结构化数据文件
 tag: 数据清洗
+publisher: COMMUNITY
 ---
 
 # Data Masking 数据脱敏 Skill

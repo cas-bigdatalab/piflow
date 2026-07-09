@@ -30,6 +30,7 @@ output_params:
     type: csv_file
     description: 包含 anomaly_flag 与 anomaly_reasons 的标记后文件
 tag: 数据清洗
+publisher: COMMUNITY
 ---
 
 # time_anomaly_marker 时序/数值异常标记

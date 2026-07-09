@@ -43,6 +43,7 @@ output_params:
 - name: output_path
   type: csv_file
   description: 规范化后的结构化数据文件
+publisher: COMMUNITY
 ---
 
 # tab_space_normalizer Tab空格规范化Skill

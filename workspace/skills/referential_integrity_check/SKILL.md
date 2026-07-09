@@ -45,6 +45,7 @@ output_params:
   type: csv_file
   description: 带质控标识的输出文件
 tag: 数据校验
+publisher: COMMUNITY
 ---
 
 # Referential Integrity Check 引用完整性校验 Skill

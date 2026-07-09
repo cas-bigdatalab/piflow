@@ -39,7 +39,7 @@ output_params:
     type: csv_file
     description: 带质控标识的输出文件
 tag: 数据校验
-
+publisher: COMMUNITY
 ---
 
 # cross_field_comparison_check 跨字段比较校验Skill

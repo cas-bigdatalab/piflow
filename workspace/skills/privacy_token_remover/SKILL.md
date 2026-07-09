@@ -42,6 +42,7 @@ output_params:
 - name: output_path
   type: string
   description: 清理后的结构化数据文件
+publisher: COMMUNITY
 ---
 
 # Privacy Token Remover 隐私标识清理 Skill

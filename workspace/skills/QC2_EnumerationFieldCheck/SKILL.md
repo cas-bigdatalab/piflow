@@ -59,7 +59,7 @@ output_params:
     type: csv_file
     description: 处理后原始数据文件，带质控标识
 tag: 数据校验
-
+publisher: COMMUNITY
 ---
 
 # QC2_EnumerationFieldCheck 枚举校验Skill

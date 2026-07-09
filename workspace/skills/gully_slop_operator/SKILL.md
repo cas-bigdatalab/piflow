@@ -12,7 +12,7 @@ output_params:
     type: json_file
     description: 沟道坡度算子的标准JSON片段，包含算子配置和数据源依赖
 tag: 科学计算
-
+publisher: COMMUNITY
 ---
 
 # gully_slop_operator

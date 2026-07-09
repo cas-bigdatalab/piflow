@@ -36,6 +36,7 @@ output_params:
   type: file
   description: 无效数据输出文件
 tag: 数据校验
+publisher: COMMUNITY
 ---
 
 # Schema Validator 显式 schema 校验 Skill

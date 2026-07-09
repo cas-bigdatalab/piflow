@@ -12,7 +12,7 @@ output_params:
     type: json_file
     description: 几何识别算子的标准JSON片段，包含算子配置和数据源依赖
 tag: 科学计算
-
+publisher: COMMUNITY
 ---
 
 # geotrans_main_operator

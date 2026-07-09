@@ -64,6 +64,7 @@ output_params:
     type: csv_file
     description: 带质控标识的输出文件
 tag: 数据校验
+publisher: COMMUNITY
 ---
 
 # numeric_distribution_check 字段分布校验Skill

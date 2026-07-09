@@ -65,7 +65,7 @@ output_params:
     type: csv_file
     description: 错误数据文件（可选），包含超出阈值范围的记录
 tag: 数据校验
-
+publisher: COMMUNITY
 ---
 
 # QC3_NumericDataThresholdCheck

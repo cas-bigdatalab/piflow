@@ -16,6 +16,7 @@ output_params:
     type: markdown_file
     description: 输出Markdown文件(.md)
 tag: 数据转换
+publisher: COMMUNITY
 ---
 
 # docx_to_markdown 技能

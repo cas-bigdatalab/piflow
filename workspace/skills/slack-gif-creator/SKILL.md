@@ -5,6 +5,7 @@ license: Complete terms in LICENSE.txt
 tag: AI处理
 
 name_zh: Slack动画GIF创建算子
+publisher: COMMUNITY
 ---
 
 # Slack GIF Creator

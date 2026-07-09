@@ -37,7 +37,7 @@ output_params:
     type: json_file
     description: 校准后的JSON文件，包含校准后的query字段
 tag: 数据转换
-
+publisher: COMMUNITY
 ---
 
 # Calibrate Query Mapper
