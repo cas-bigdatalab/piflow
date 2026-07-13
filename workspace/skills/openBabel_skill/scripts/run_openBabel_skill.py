@@ -127,7 +127,7 @@ def main():
         print(json.dumps(error_output, ensure_ascii=False))
         sys.exit(1)
     
-    expected_ext = args.outType
+    expected_ext = args.outType.lstrip('.')
     actual_ext = primary_output_path.suffix[1:] if primary_output_path.suffix else ''
     
     if actual_ext.lower() != expected_ext.lower():
@@ -179,7 +179,7 @@ def main():
         with open(log_path, 'a', encoding='utf-8') as log_f:
             log_f.write("Trying pybel module...\n")
         
-        if convert_with_pybel(input_path, primary_output_path, args.outType, args.isGen3d, log_path):
+        if convert_with_pybel(input_path, primary_output_path, expected_ext, args.isGen3d, log_path):
             success = True
             print("Success: converted with pybel")
         else:

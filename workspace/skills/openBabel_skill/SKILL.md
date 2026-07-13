@@ -38,10 +38,6 @@ input_params:
     description: 其他输出文件压缩包完整路径
 
 output_params:
-  - name: outputDir
-    type: string
-    description: 本次运行目录
-
   - name: primaryOutputPath
     type: string
     description: 主输出文件

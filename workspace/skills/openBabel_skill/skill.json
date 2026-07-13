@@ -51,22 +51,18 @@
   ],
   "output_params": [
     {
-      "name": "outputDir",
-      "role": "output_data",
-      "type": "string",
-      "description": "本次运行目录"
-    },
-    {
       "name": "primaryOutputPath",
       "role": "output_data",
       "type": "string",
-      "description": "主输出文件"
+      "description": "主输出文件",
+      "default": "acetic.xyz"
     },
     {
       "name": "compressedOutputPath",
       "role": "output_data",
       "type": "string",
-      "description": "其他输出文件压缩包路径"
+      "description": "其他输出文件压缩包路径",
+      "default": "acetic.zip"
     }
   ],
   "command_template": [
