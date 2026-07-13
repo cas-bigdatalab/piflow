@@ -675,6 +675,11 @@ def yaml_lines(value, indent: int = 0) -> list[str]:
     return [f"{pad}{yaml_scalar(value)}"]
 
 
+def frontmatter_params(params: list[dict]) -> list[dict]:
+    """Render SKILL.md parameters without DAG-only role metadata."""
+    return [{key: value for key, value in param.items() if key != "role"} for param in params]
+
+
 def frontmatter(spec: dict) -> str:
     data = {
         "name": spec["name"],
@@ -687,8 +692,8 @@ def frontmatter(spec: dict) -> str:
         src = "allowed_tools" if key == "allowed-tools" and "allowed_tools" in spec else key
         if src in spec:
             data[key] = spec[src]
-    data["input_params"] = spec["input_params"]
-    data["output_params"] = spec["output_params"]
+    data["input_params"] = frontmatter_params(spec["input_params"])
+    data["output_params"] = frontmatter_params(spec["output_params"])
 
     unexpected = set(data) - FRONTMATTER_KEYS
     if unexpected:
@@ -704,16 +709,16 @@ def param_table(params: list[dict], *, include_required: bool) -> str:
     if not params:
         return "无。"
     if include_required:
-        rows = ["| 参数 | 类型 | 角色 | 必填 | 默认值 | 说明 |", "|------|------|------|------|--------|------|"]
+        rows = ["| 参数 | 类型 | 必填 | 默认值 | 说明 |", "|------|------|------|--------|------|"]
         for p in params:
             rows.append(
-                f"| {md_escape(p['name'])} | {md_escape(p['type'])} | {md_escape(p['role'])} | {'是' if p.get('required') else '否'} | {md_escape(p.get('default', '-'))} | {md_escape(p['description'])} |"
+                f"| {md_escape(p['name'])} | {md_escape(p['type'])} | {'是' if p.get('required') else '否'} | {md_escape(p.get('default', '-'))} | {md_escape(p['description'])} |"
             )
     else:
-        rows = ["| 参数 | 类型 | 角色 | 默认值 | 说明 |", "|------|------|------|--------|------|"]
+        rows = ["| 参数 | 类型 | 默认值 | 说明 |", "|------|------|--------|------|"]
         for p in params:
             rows.append(
-                f"| {md_escape(p['name'])} | {md_escape(p['type'])} | {md_escape(p['role'])} | {md_escape(p.get('default', '-'))} | {md_escape(p['description'])} |"
+                f"| {md_escape(p['name'])} | {md_escape(p['type'])} | {md_escape(p.get('default', '-'))} | {md_escape(p['description'])} |"
             )
     return "\n".join(rows)
 

@@ -19,13 +19,11 @@ description: <说明技能能力，并包含收敛后的触发语义；仅写用
 version: 1.0.0
 input_params:
   - name: input_path
-    role: input_data
     type: string
     required: true
     description: 输入文件路径
 output_params:
   - name: output_path
-    role: output_data
     type: json_file
     description: 输出文件路径
 tag: <DAG 面板技能类型>
@@ -39,9 +37,9 @@ tag: <DAG 面板技能类型>
 - `description` 必须包含“做什么”和“何时使用”，且“何时使用”应收敛到手动指定或任务完成后的沉淀场景。
 - `version` 默认 `1.0.0`。
 - `tag` 表示 DAG 面板中的技能类型，当前入库逻辑会读取为 `skill_type`。
-- 参数 `role` 使用 `input_data`、`output_data` 或 `data`。
-- 优先根据参数的 `type`、`name` 和 `description` 判断 `role`。
-- 不要仅根据参数位于 `input_params` 或 `output_params` 的位置机械填写。
+- `SKILL.md` frontmatter 的参数只包含 `name`、`type`、`required`、`default` 和 `description` 等文档契约字段，禁止包含 `role`。
+- `role` 是 `skill.json` 的 DAG 元数据，必须保留并使用 `input_data`、`output_data` 或 `data`。
+- 生成 `skill.json` 时，根据参数的 `type`、`name` 和 `description` 推断 `role`；不要仅根据参数所在数组的位置机械填写。
 - `input_path`、`source_dir` 这类输入数据文件或目录通常使用 `input_data`。
 - `output_path`、`report_path` 这类输出落盘路径通常使用 `output_data`，即使它们出现在 `input_params` 中作为脚本入参传入也一样。
 - `output_format`、`threshold`、`max_rows` 这类配置项通常使用 `data`，不要因为名字中带 `output` 就误判。
@@ -78,9 +76,9 @@ python scripts/<script>.py --input_path <输入> --output_path <输出>
 
 ## 参数说明
 
-| 参数 | 类型 | 角色 | 必填 | 默认值 | 说明 |
-|------|------|------|------|--------|------|
-| input_path | string | input_data | 是 | - | 输入文件路径 |
+| 参数 | 类型 | 必填 | 默认值 | 说明 |
+|------|------|------|--------|------|
+| input_path | string | 是 | - | 输入文件路径 |
 
 ** 务必记住采用下划线而非连字符作为参数名称，且参数名称必须与 `skill.json` 中的 `input_params`、`output_params` 保持一致。**
 
@@ -174,4 +172,4 @@ python scripts/<script>.py --input_path input.json --output_path output.json
 }
 ```
 
-`skill.json` 应与 `SKILL.md` 中的 `name`、`version`、参数名称和参数角色保持一致。生成后目录应位于 `<workspace>/skills/<skill_name>`，并包含 `SKILL.md` 与 `skill.json`。
+`skill.json` 应与 `SKILL.md` 中的 `name`、`version` 和参数名称保持一致；`role` 仅保留在 `skill.json`。生成后目录应位于 `<workspace>/skills/<skill_name>`，并包含 `SKILL.md` 与 `skill.json`。

@@ -134,8 +134,8 @@ def validate_params(params, field_name: str) -> tuple[bool, str]:
                 return fail(f"{field_name}[{index}] missing required")
             if not isinstance(item["required"], bool):
                 return fail(f"{field_name}[{index}].required must be boolean")
-        if "role" in item and str(item["role"]) not in {"input_data", "output_data", "data"}:
-            return fail(f"{field_name}[{index}].role must be input_data, output_data, or data")
+        if "role" in item:
+            return fail(f"{field_name}[{index}] must not include role; role belongs in skill.json only")
     return True, "ok"
 
 

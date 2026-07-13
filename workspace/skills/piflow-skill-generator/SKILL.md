@@ -9,39 +9,33 @@ allowed-tools:
 
 input_params:
   - name: spec_path
-    role: input_data
     type: string
     required: false
     description: 技能规格 JSON 文件路径，必须使用 UTF-8 编码；与 flow_path 二选一
 
   - name: output_root
-    role: output_data
     type: string
     required: false
     default: skills/generated
     description: 输出根目录；deepagent 虚拟文件环境默认写入 skills/generated（相对于 workspace 根）
 
   - name: overwrite
-    role: data
     type: bool
     required: false
     default: false
     description: 是否覆盖已存在的技能目录
 
   - name: flow_path
-    role: input_data
     type: string
     required: false
     description: 已验证成功的流程摘要 JSON 路径；与 spec_path 二选一
 
   - name: restored_spec_out
-    role: output_data
     type: string
     required: false
     description: 使用 flow_path 时恢复出的 spec 草稿输出路径
 
   - name: rewrite_followup_hint
-    role: data
     type: string
     required: false
     default: ""
@@ -49,17 +43,14 @@ input_params:
 
 output_params:
   - name: skill_dir
-    role: output_data
     type: directory
     description: 生成后的技能目录
 
   - name: skill_md
-    role: output_data
     type: markdown_file
     description: 生成后的 SKILL.md
 
   - name: rewrite_followup_suggestion
-    role: output_data
     type: json_file
     description: 生成完成后的改写 follow-up 建议信息
 tag: AI处理
@@ -146,23 +137,12 @@ skill-name/
 ```yaml
 - name: input_path
   type: string
-  role: input_data
   required: true
   default: optional-default
   description: 输入文件路径
 ```
 
-参数 `role` 可选，建议在 DAG 技能中填写：
-
-- `input_data`：输入数据文件或目录。
-- `output_data`：输出数据文件或目录。
-- `data`：普通配置参数。
-- 优先根据参数的 `type`、`name` 和 `description` 判断 `role`。
-- 不要仅根据参数位于 `input_params` 或 `output_params` 的位置机械填写。
-- `input_path`、`source_dir` 这类输入数据文件或目录通常使用 `input_data`。
-- `output_path`、`report_path` 这类输出落盘路径通常使用 `output_data`，即使它们出现在 `input_params` 中作为脚本入参传入也一样。
-- `output_format`、`threshold`、`max_rows` 这类配置项通常使用 `data`，不要因为名字中带 `output` 就误判。
-- 若某个输出参数只是标量结果、统计值、状态位或普通文本摘要，而不是文件/目录/报告工件，通常使用 `data`。
+`SKILL.md` frontmatter 的参数项禁止包含 `role`。`role` 是 DAG 专用元数据，只应写入 `skill.json`；生成器会依据参数的 `type`、`name` 和 `description` 在 JSON 中推断 `input_data`、`output_data` 或 `data`。
 
 ### skill.json
 
@@ -172,7 +152,7 @@ skill-name/
 - `language`
 - `script_path`
 - `entrypoint`
-- `input_params`、`output_params`，其中参数包含 `role`
+- `input_params`、`output_params`，其中参数保留 `role`
 - `command_template`
 - 可选 `tag`
 
