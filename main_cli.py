@@ -3,6 +3,7 @@ import logging
 
 from infra.logging import init_logging
 from runtime.engine import AgentEngine
+from runtime.planner_engine import PlannerEngine
 
 
 log = logging.getLogger("flow.cli")
@@ -12,20 +13,31 @@ async def main():
     init_logging()
     log.info("starting CLI mode")
 
-    engine = AgentEngine()
-    await engine.initialize()
+    main_engine = AgentEngine()
+    planner_engine = PlannerEngine()
+    await main_engine.initialize()
+    await planner_engine.initialize()
 
-    active_agent_name = type(engine.agent).__name__ if engine.agent is not None else "UnknownAgent"
-    print(f"DeepAgent CLI 已启动，当前主链路 Agent: {active_agent_name} (exit退出)\n")
+    print("DeepAgent CLI 已启动。输入 main 或 planner 选择 Agent；exit 退出。\n")
+    try:
+        while True:
+            selected = input("Agent [main/planner]: ").strip().lower()
+            if selected == "exit":
+                break
+            if selected not in {"main", "planner"}:
+                print("请输入 main、planner 或 exit。")
+                continue
 
-    while True:
-        question = input("User: ")
+            question = input("User: ")
+            if question == "exit":
+                break
 
-        if question == "exit":
-            break
-
-        result = await engine.run(question)
-        print(result)
+            engine = main_engine if selected == "main" else planner_engine
+            result = await engine.run(question)
+            print(result)
+    finally:
+        await planner_engine.shutdown()
+        await main_engine.shutdown()
 
 
 if __name__ == "__main__":
