@@ -40,7 +40,7 @@ output_params:
     type: csv_file
     description: 删除缺失值后的数据文件
 tag: 数据清洗
-
+publisher: COMMUNITY
 ---
 
 # Missing Value Remover 缺失值删除 Skill

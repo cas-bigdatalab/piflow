@@ -88,6 +88,8 @@ def get_dag_skills_by_condition(
     keyword: str = None,
     skill_type: str = None,
     version: str = None,
+    disciplinary_field: str = None,
+    publisher: str = None,
 ) -> dict:
     result = list_dag_skills_by_type(
         page=page,
@@ -95,6 +97,8 @@ def get_dag_skills_by_condition(
         keyword=keyword,
         skill_type=skill_type,
         version=version,
+        disciplinary_field=disciplinary_field,
+        publisher=publisher,
     )
     return result
 

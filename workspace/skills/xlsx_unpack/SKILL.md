@@ -16,7 +16,7 @@ output_params:
     type: directory
     description: 解压后的XML目录
 tag: 数据转换
-
+publisher: COMMUNITY
 ---
 
 # xlsx_unpack 技能

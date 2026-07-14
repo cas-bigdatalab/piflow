@@ -38,7 +38,7 @@ output_params:
     type: csv_file
     description: 生成的PDF文件
 tag: 数据转换
-
+publisher: COMMUNITY
 ---
 
 # pdf_create 技能

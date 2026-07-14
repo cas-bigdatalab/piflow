@@ -79,6 +79,7 @@ output_params:
     description: 被修改的样本数
 
 tag: 数据清洗
+publisher: COMMUNITY
 ---
 
 # Punctuation Normalizer 文本标点规范化 Skill

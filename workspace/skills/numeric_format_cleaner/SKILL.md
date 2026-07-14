@@ -56,6 +56,7 @@ output_params:
 - name: stats_output
   type: json_file
   description: 清洗统计文件
+publisher: COMMUNITY
 ---
 
 # Numeric Format Cleaner 数值格式清洗 Skill

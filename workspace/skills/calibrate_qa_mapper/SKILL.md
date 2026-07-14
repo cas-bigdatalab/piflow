@@ -55,7 +55,7 @@ output_params:
     type: json_file
     description: 校准后的问答对JSON文件，包含校准后的query和response
 tag: 数据转换
-
+publisher: COMMUNITY
 ---
 
 # Calibrate QA Mapper

@@ -23,6 +23,7 @@ output_params:
     type: json_file
     role: output_data
     description: "输出 JSON 文件路径"
+publisher: COMMUNITY
 ---
 
 # PDF 元数据提取 技能

@@ -49,6 +49,7 @@ output_params:
     description: 转换后生成的新文本文件引用
 tag: LLM
 node_category: system
+publisher: COMMUNITY
 ---
 
 # llm_file_transform_stop

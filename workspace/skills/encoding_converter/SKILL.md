@@ -60,6 +60,7 @@ output_params:
   type: integer
   description: 转换失败的文件数量
 tag: 数据转换
+publisher: COMMUNITY
 ---
 
 # Encoding Converter 多编码文本统一转换 Skill

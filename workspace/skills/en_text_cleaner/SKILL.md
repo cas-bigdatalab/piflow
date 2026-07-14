@@ -69,6 +69,7 @@ output_params:
 - name: spelling_fixed
   type: integer
   description: 拼写纠正次数
+publisher: COMMUNITY
 ---
 
 # EnTextCleaner - 英文文本清洗优化算子

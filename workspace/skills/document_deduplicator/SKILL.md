@@ -42,7 +42,7 @@ output_params:
     type: json_file
     description: 去重后的文件（json或txt格式）
 tag: 数据清洗
-
+publisher: COMMUNITY
 ---
 
 # Document Deduplicator 文档去重 Skill

@@ -30,6 +30,7 @@ output_params:
   - name: output_path
     type: string
     description: 缩略语展开后的结构化文件
+publisher: COMMUNITY
 ---
 
 # abbrev_expander 缩略语展开 Skill

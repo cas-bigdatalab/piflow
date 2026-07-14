@@ -30,6 +30,7 @@ output_params:
     type: csv_file
     description: 语种过滤后的结构化数据文件（含 detected_lang）
 tag: 数据清洗
+publisher: COMMUNITY
 ---
 
 # language_filter 语种过滤

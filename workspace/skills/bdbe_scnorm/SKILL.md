@@ -31,7 +31,7 @@ output_params:
     type: json_file
     description: 辅助文件，包含state.json、dataset_info.json等
 tag: 科学计算
-
+publisher: COMMUNITY
 ---
 
 # bdbe_scnorm Skill

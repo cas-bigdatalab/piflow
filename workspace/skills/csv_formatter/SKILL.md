@@ -47,7 +47,7 @@ output_params:
     type: jsonl_file
     description: 格式化后的JSONL文件
 tag: 数据转换
-
+publisher: COMMUNITY
 ---
 
 ## 功能概述

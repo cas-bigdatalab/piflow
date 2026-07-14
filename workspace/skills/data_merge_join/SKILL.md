@@ -46,7 +46,7 @@ output_params:
     type: csv_file
     description: 关联后的数据文件
 tag: 数据衍生
-
+publisher: COMMUNITY
 ---
 
 # Data Merge Join 数据横向关联 Skill

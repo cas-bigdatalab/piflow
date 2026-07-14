@@ -53,7 +53,7 @@ output_params:
     type: json_file
     description: 过滤敏感词后的JSON文件
 tag: 数据筛选
-
+publisher: COMMUNITY
 ---
 
 # Flagged Words Filter 敏感词过滤 Skill

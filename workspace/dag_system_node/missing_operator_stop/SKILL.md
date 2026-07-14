@@ -25,6 +25,7 @@ output_params:
     description: 供下游节点引用的输出占位参数
 tag: 占位
 node_category: system
+publisher: COMMUNITY
 ---
 
 # missing_operator_stop

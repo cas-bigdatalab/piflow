@@ -47,7 +47,7 @@ output_params:
     type: json_file
     description: 过滤后的JSON文件，包含字符重复比例在指定范围内的样本
 tag: 数据筛选
-
+publisher: COMMUNITY
 ---
 
 # Character Repetition Filter 字符重复比例过滤 Skill

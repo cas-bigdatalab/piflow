@@ -33,6 +33,7 @@ output_params:
   type: csv_file
   description: 带质控标识的输出文件
 tag: 数据校验
+publisher: COMMUNITY
 ---
 
 # Duplicate Row Check 重复行检测 Skill

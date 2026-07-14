@@ -20,7 +20,7 @@ output_params:
     type: pdf_file
     description: 合并后的PDF文件
 tag: 数据转换
-
+publisher: COMMUNITY
 ---
 
 # pdf_merge 技能

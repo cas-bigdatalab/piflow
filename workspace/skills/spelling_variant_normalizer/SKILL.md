@@ -32,6 +32,7 @@ output_params:
     type: csv_file
     description: 拼写规范化后的结构化数据文件
 tag: 数据清洗
+publisher: COMMUNITY
 ---
 
 # spelling_variant_normalizer 拼写变体标准化Skill

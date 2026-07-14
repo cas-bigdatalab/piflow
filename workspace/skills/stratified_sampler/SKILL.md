@@ -57,6 +57,7 @@ output_params:
   type: object
   description: 各层采样统计
 tag: 数据筛选
+publisher: COMMUNITY
 ---
 
 # Stratified Sampler 分层采样 Skill

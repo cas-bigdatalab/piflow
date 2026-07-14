@@ -39,7 +39,7 @@ output_params:
     type: csv_file
     description: 转换后的数据文件
 tag: 数据转换
-
+publisher: COMMUNITY
 ---
 
 # Data Type Converter 数据类型转换 Skill

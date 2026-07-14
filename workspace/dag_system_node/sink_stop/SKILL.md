@@ -19,6 +19,7 @@ input_params:
 output_params: []
 tag: 输出
 node_category: system
+publisher: COMMUNITY
 ---
 
 # sink_stop

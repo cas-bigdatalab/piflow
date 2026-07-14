@@ -137,6 +137,7 @@ def init_dag_db():
             icon_path TEXT,
             version VARCHAR(64),
             disciplinary_field VARCHAR(255),
+            publisher VARCHAR(32) NOT NULL DEFAULT 'PRIVATE',
             create_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
             update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
             is_deleted INT NOT NULL DEFAULT 0
@@ -174,10 +175,37 @@ def init_dag_db():
     for ddl in ddl_statements:
         cursor.execute(ddl)
 
+    # 执行数据库迁移
+    migrate_dag_skills(cursor)
+
     conn.commit()
     cursor.close()
     conn.close()
 
+def migrate_dag_skills(cursor):
+    """
+    对 dag_skills 表进行增量迁移。
+    可重复执行，不会影响已迁移的数据库。
+    """
+
+    # 新增 disciplinary_field
+    cursor.execute("""
+        ALTER TABLE dag_skills
+        ADD COLUMN IF NOT EXISTS disciplinary_field VARCHAR(255);
+    """)
+
+    # 新增 publisher
+    cursor.execute("""
+        ALTER TABLE dag_skills
+        ADD COLUMN IF NOT EXISTS publisher VARCHAR(32)
+        NOT NULL DEFAULT 'PRIVATE';
+    """)
+
+    # （可选）确保 publisher 默认值正确
+    cursor.execute("""
+        ALTER TABLE dag_skills
+        ALTER COLUMN publisher SET DEFAULT 'PRIVATE';
+    """)
 
 def insert_dag_task(
     dag_task_name: str,
@@ -365,7 +393,7 @@ def get_dag_skill(skill_id: str) -> Optional[DagSkill]:
                     SELECT id, skill_id, skill_name, name_zh, description, skill_path, file_path,
                            input_params, output_params, skill_type,
                            language, command, icon_path, version,
-                           disciplinary_field,
+                           disciplinary_field, publisher,
                            create_time, update_time, is_deleted
                     FROM dag_skills
                     WHERE skill_id = %s AND is_deleted = 0
@@ -390,6 +418,7 @@ def get_dag_skill(skill_id: str) -> Optional[DagSkill]:
                     command=row.get("command"),
                     icon_path=row.get("icon_path"),
                     disciplinary_field=row.get("disciplinary_field"),
+                    publisher=row.get("publisher"),
                     db_id=row["id"],
                     create_time=row.get("create_time"),
                     update_time=row.get("update_time"),
@@ -437,7 +466,7 @@ def list_dag_skills(
                     SELECT id, skill_id, skill_name, name_zh, description, skill_path, file_path,
                            input_params, output_params, skill_type,
                            language, command, icon_path, version,
-                           disciplinary_field,
+                           disciplinary_field, publisher,
                            create_time, update_time, is_deleted
                     FROM dag_skills
                     WHERE {where}
@@ -464,6 +493,7 @@ def list_dag_skills(
                         command=row.get("command"),
                         icon_path=row.get("icon_path"),
                         disciplinary_field=row.get("disciplinary_field"),
+                        publisher=row.get("publisher"),
                         db_id=row["id"],
                         create_time=row.get("create_time"),
                         update_time=row.get("update_time"),
@@ -488,6 +518,8 @@ def list_dag_skills_by_type(
     keyword: str = None,
     skill_type: str = None,
     version: str = None,
+    disciplinary_field: str = None,
+    publisher: str = None,
 ) -> dict:
     try:
         with closing(get_connection()) as conn:
@@ -508,6 +540,14 @@ def list_dag_skills_by_type(
                     conditions.append("version = %s")
                     params.append(version)
 
+                if disciplinary_field:
+                    conditions.append("disciplinary_field = %s")
+                    params.append(disciplinary_field)
+
+                if publisher:
+                    conditions.append("publisher = %s")
+                    params.append(publisher)
+
                 where = " AND ".join(conditions)
 
                 cursor.execute(
@@ -523,7 +563,7 @@ def list_dag_skills_by_type(
                         SELECT id, skill_id, skill_name, name_zh, description, skill_path, file_path,
                                input_params, output_params, skill_type,
                                language, command, icon_path, version,
-                               disciplinary_field,
+                               disciplinary_field, publisher,
                                create_time, update_time, is_deleted
                         FROM dag_skills
                         WHERE {where}
@@ -538,7 +578,7 @@ def list_dag_skills_by_type(
                         SELECT id, skill_id, skill_name, name_zh, description, skill_path, file_path,
                                input_params, output_params, skill_type,
                                language, command, icon_path, version,
-                               disciplinary_field,
+                               disciplinary_field, publisher,
                                create_time, update_time, is_deleted
                         FROM dag_skills
                         WHERE {where}
@@ -569,6 +609,7 @@ def list_dag_skills_by_type(
                             command=row.get("command"),
                             icon_path=row.get("icon_path"),
                             disciplinary_field=row.get("disciplinary_field"),
+                            publisher=row.get("publisher"),
                             db_id=row["id"],
                             create_time=row.get("create_time"),
                             update_time=row.get("update_time"),

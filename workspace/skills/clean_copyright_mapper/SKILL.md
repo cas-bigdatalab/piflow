@@ -21,7 +21,7 @@ output_params:
     type: json_file
     description: 清理版权注释后的JSON文件
 tag: 数据转换
-
+publisher: COMMUNITY
 ---
 
 # Clean Copyright Mapper

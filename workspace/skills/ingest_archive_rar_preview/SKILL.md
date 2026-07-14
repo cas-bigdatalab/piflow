@@ -34,6 +34,7 @@ output_params:
   type: json_file
   description: RAR 压缩包预览报告
 tag: 数据筛选
+publisher: COMMUNITY
 ---
 
 # ingest_archive_rar_preview — RAR 压缩包预览

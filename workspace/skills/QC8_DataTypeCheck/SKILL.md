@@ -39,7 +39,7 @@ output_params:
     type: csv_file
     description: 数据类型检查后的结构化数据文件，带质控标识
 tag: 数据校验
-
+publisher: COMMUNITY
 ---
 
 # QC8_DataTypeCheck 数据类型检查Skill

@@ -33,7 +33,7 @@ output_params:
     type: csv_file
     description: 排序后的结构化数据文件
 tag: 数据衍生
-
+publisher: COMMUNITY
 ---
 
 # Pi_DataSorting 数据排序Skill

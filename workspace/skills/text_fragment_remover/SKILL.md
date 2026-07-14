@@ -33,6 +33,7 @@ output_params:
     type: csv_file
     description: 处理后的数据文件
 tag: 数据清洗
+publisher: COMMUNITY
 ---
 
 # Text Fragment Remover 文本片段删除 Skill

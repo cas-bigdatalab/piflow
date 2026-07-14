@@ -53,7 +53,7 @@ output_params:
     type: jsonl_file
     description: 去重后的JSON文件
 tag: 数据清洗
-
+publisher: COMMUNITY
 ---
 
 # Ray Image Deduplicator Ray分布式图像去重 Skill

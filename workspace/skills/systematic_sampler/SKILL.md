@@ -50,6 +50,7 @@ output_params:
   type: integer
   description: 采样数量
 tag: 数据筛选
+publisher: COMMUNITY
 ---
 
 # SystematicSampler - 系统采样算子

@@ -64,7 +64,7 @@ output_params:
     type: json_file
     description: 检索结果JSON，包含数据集列表和总数等信息
 tag: 科学计算
-
+publisher: COMMUNITY
 ---
 
 # bdbe_homo Skill

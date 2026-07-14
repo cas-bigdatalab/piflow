@@ -60,7 +60,7 @@ output_params:
     type: json_file
     description: 实体聚合后的JSON文件，包含按重要性排序的相关实体列表
 tag: 数据衍生
-
+publisher: COMMUNITY
 ---
 
 # Most Relevant Entities Aggregator 最相关实体聚合 Skill

@@ -34,6 +34,7 @@ output_params:
   type: json_file
   description: ZIP 压缩包预览报告
 tag: 数据筛选
+publisher: COMMUNITY
 ---
 
 # ingest_archive_zip_preview — ZIP 压缩包预览

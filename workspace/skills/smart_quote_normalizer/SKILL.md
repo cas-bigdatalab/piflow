@@ -23,6 +23,7 @@ output_params:
     type: csv_file
     description: 规范化后的结构化数据文件
 tag: 数据清洗
+publisher: COMMUNITY
 ---
 
 # smart_quote_normalizer 智能引号规范化Skill

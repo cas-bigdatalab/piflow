@@ -63,6 +63,7 @@ output_params:
 - name: output_path
   type: csv_file
   description: 无用数字字符清理后的结构化数据文件
+publisher: COMMUNITY
 ---
 
 # number_noise_cleaner 无用数字字符清理

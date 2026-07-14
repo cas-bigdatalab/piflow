@@ -16,7 +16,7 @@ output_params:
     type: json_file
     description: 验证结果JSON文件
 tag: 数据校验
-
+publisher: COMMUNITY
 ---
 
 # docx_validate 技能
