@@ -66,7 +66,7 @@ class AgentFactory:
         llm_cfg = settings.llm
         provider_name = llm_cfg.provider
 
-        provider_cfg = getattr(settings.providers, provider_name, None)
+        provider_cfg = settings.providers.get(provider_name)
 
         if provider_cfg is None:
             raise ValueError(f"Provider config not found: {provider_name}")
@@ -93,15 +93,17 @@ class AgentFactory:
         # 创建 LLM
         # -----------------------------
 
+        model_kwargs = {}
+        if provider_cfg.parallel_tool_calls is not None:
+            model_kwargs["parallel_tool_calls"] = provider_cfg.parallel_tool_calls
+
         llm = ChatOpenAI(
             model=llm_cfg.model,
             temperature=llm_cfg.temperature,
             api_key=api_key,
             base_url=provider_cfg.base_url,
             max_retries=5,
-            model_kwargs={
-                "parallel_tool_calls": True,
-            },
+            model_kwargs=model_kwargs,
         )
 
         # -----------------------------

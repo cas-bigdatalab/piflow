@@ -1,0 +1,85 @@
+{
+  "name": "openBabel_skill",
+  "version": "1.0.0",
+  "description": "分子格式转换工具。支持在 .smi、.mol、.xyz、.gjf、.sdf 等格式之间转换，并可从 SMILES 或 2D 结构生成带坐标的 3D 结构。当用户提到分子格式转换、3D构象生成、openbabel等需求时使用此skill。",
+  "language": "python",
+  "script_path": "scripts/run_openBabel_skill.py",
+  "entrypoint": "python scripts/run_openBabel_skill.py",
+  "input_params": [
+    {
+      "name": "inputPath",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "输入文件完整路径，例如 /work/jobs/acetic/acetic.smi"
+    },
+    {
+      "name": "outType",
+      "role": "data",
+      "type": "string",
+      "required": true,
+      "description": "输出格式，例如 xyz、mol、gjf、sdf"
+    },
+    {
+      "name": "isGen3d",
+      "role": "data",
+      "type": "bool",
+      "required": true,
+      "description": "是否生成3D构象"
+    },
+    {
+      "name": "outputDir",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "本次任务输出的工作目录"
+    },
+    {
+      "name": "primaryOutputPath",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "主输出文件完整路径"
+    },
+    {
+      "name": "compressedOutputPath",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "其他输出文件压缩包完整路径"
+    }
+  ],
+  "output_params": [
+    {
+      "name": "primaryOutputPath",
+      "role": "output_data",
+      "type": "string",
+      "description": "主输出文件",
+      "default": "acetic.xyz"
+    },
+    {
+      "name": "compressedOutputPath",
+      "role": "output_data",
+      "type": "string",
+      "description": "其他输出文件压缩包路径",
+      "default": "acetic.zip"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--inputPath",
+    "{inputPath}",
+    "--outType",
+    "{outType}",
+    "--isGen3d",
+    "{isGen3d}",
+    "--outputDir",
+    "{outputDir}",
+    "--primaryOutputPath",
+    "{primaryOutputPath}",
+    "--compressedOutputPath",
+    "{compressedOutputPath}"
+  ],
+  "tag": "数据转换"
+}

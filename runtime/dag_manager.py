@@ -175,10 +175,37 @@ def init_dag_db():
     for ddl in ddl_statements:
         cursor.execute(ddl)
 
+    # 执行数据库迁移
+    migrate_dag_skills(cursor)
+
     conn.commit()
     cursor.close()
     conn.close()
 
+def migrate_dag_skills(cursor):
+    """
+    对 dag_skills 表进行增量迁移。
+    可重复执行，不会影响已迁移的数据库。
+    """
+
+    # 新增 disciplinary_field
+    cursor.execute("""
+        ALTER TABLE dag_skills
+        ADD COLUMN IF NOT EXISTS disciplinary_field VARCHAR(255);
+    """)
+
+    # 新增 publisher
+    cursor.execute("""
+        ALTER TABLE dag_skills
+        ADD COLUMN IF NOT EXISTS publisher VARCHAR(32)
+        NOT NULL DEFAULT 'PRIVATE';
+    """)
+
+    # （可选）确保 publisher 默认值正确
+    cursor.execute("""
+        ALTER TABLE dag_skills
+        ALTER COLUMN publisher SET DEFAULT 'PRIVATE';
+    """)
 
 def insert_dag_task(
     dag_task_name: str,
