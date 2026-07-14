@@ -329,26 +329,68 @@ def main():
             print(json.dumps(error_output, ensure_ascii=False))
             sys.exit(1)
     else:
-        g16root = os.environ.get('g16root', '$HOME/gaussian')
-        gauss_exedir = os.environ.get('GAUSS_EXEDIR', f'{g16root}/g16')
-        gauss_scrdir = os.environ.get('GAUSS_SCRDIR', f'{g16root}/scr')
+        env = os.environ.copy()
         
-        shell_command = f"source ~/.bashrc; export g16root={g16root}; export GAUSS_EXEDIR={gauss_exedir}; export GAUSS_SCRDIR={gauss_scrdir}; {gauss_exedir}/g16 < {args.input_path} > {args.log_output_path}; {gauss_exedir}/formchk {input_without_ext}.chk"
-        print(f"$$command: {shell_command}")
-        
+        bashrc_env = {}
         try:
             result = subprocess.run(
-                shell_command,
-                shell=True,
+                ['bash', '-c', 'source ~/.bashrc && env'],
                 capture_output=True,
                 text=True,
                 check=True
             )
-            if result.stdout:
-                print("STDOUT:", result.stdout)
+            for line in result.stdout.split('\n'):
+                if '=' in line:
+                    key, value = line.split('=', 1)
+                    bashrc_env[key] = value
+            env.update(bashrc_env)
+        except Exception:
+            pass
+        
+        g16root = env.get('g16root', '$HOME/gaussian')
+        gauss_exedir = env.get('GAUSS_EXEDIR', f'{g16root}/g16')
+        gauss_scrdir = env.get('GAUSS_SCRDIR', f'{g16root}/scr')
+        
+        env['g16root'] = g16root
+        env['GAUSS_EXEDIR'] = gauss_exedir
+        env['GAUSS_SCRDIR'] = gauss_scrdir
+        
+        os.makedirs(gauss_scrdir, exist_ok=True)
+        
+        g16_cmd = [f"{gauss_exedir}/g16"]
+        print(f"$$command: {' '.join(g16_cmd)}")
+        
+        try:
+            with open(args.input_path, 'r') as f_in, open(args.log_output_path, 'w') as f_out:
+                result = subprocess.run(
+                    g16_cmd,
+                    stdin=f_in,
+                    stdout=f_out,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                    check=True,
+                    env=env
+                )
+            
             if result.stderr:
                 print("STDERR:", result.stderr, file=sys.stderr)
-                stderr_content += "shell STDERR:\n" + result.stderr + "\n"
+                stderr_content += "g16 STDERR:\n" + result.stderr + "\n"
+            
+            chk_file = input_without_ext.with_suffix('.chk')
+            if chk_file.exists():
+                formchk_cmd = [f"{gauss_exedir}/formchk", str(chk_file)]
+                print(f"$$command: {' '.join(formchk_cmd)}")
+                formchk_result = subprocess.run(
+                    formchk_cmd,
+                    capture_output=True,
+                    text=True,
+                    env=env
+                )
+                if formchk_result.stdout:
+                    print("formchk STDOUT:", formchk_result.stdout)
+                if formchk_result.stderr:
+                    print("formchk STDERR:", formchk_result.stderr, file=sys.stderr)
+                    stderr_content += "formchk STDERR:\n" + formchk_result.stderr + "\n"
         except subprocess.CalledProcessError as e:
             stderr_content += f"Error executing Gaussian command: {e}\n"
             if e.stdout:
