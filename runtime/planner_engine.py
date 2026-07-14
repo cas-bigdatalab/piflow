@@ -4,6 +4,7 @@ from typing import Any, AsyncIterator
 
 from agents.skill_planner.factory import SkillPlannerAgentFactory
 from runtime.engine import (
+    _build_attachment_context,
     _extract_final_response,
     _extract_reasoning_text,
     _is_ai_message,
@@ -12,6 +13,7 @@ from runtime.engine import (
     _split_stream_part,
     _summarize_event,
 )
+from runtime.workspace_manager import WorkspaceManager
 
 
 log = logging.getLogger("flow.planner_engine")
@@ -30,8 +32,47 @@ class PlannerEngine:
         self.initialized = True
         log.info("Planner Runtime initialized")
 
-    def _input(self, message: str) -> dict[str, list[dict[str, str]]]:
-        return {"messages": [{"role": "user", "content": message}]}
+    def _prepare_request(
+        self,
+        message: str,
+        thread_id: str,
+        user_id: str,
+        request_id: str,
+        attachments: list[str] | None = None,
+    ) -> tuple[dict[str, list[dict[str, str]]], WorkspaceManager, dict[str, tuple[int, int]]]:
+        workspace = WorkspaceManager()
+        normalized_attachments: list[str] = []
+        for item in attachments or []:
+            if not isinstance(item, str):
+                continue
+            path = item.strip()
+            if not path:
+                continue
+            try:
+                normalized_attachments.append(workspace.to_user_virtual_path(user_id, path))
+            except ValueError:
+                continue
+
+        attachment_context = _build_attachment_context(normalized_attachments, user_id, workspace)
+        input_content = message
+        if attachment_context:
+            input_content = f"{message}\n\n{attachment_context}"
+            log.info(
+                "planner attachments injected request_id=%s thread_id=%s attachment_count=%s attachments=%s",
+                request_id,
+                thread_id,
+                len(normalized_attachments),
+                ",".join(normalized_attachments),
+            )
+
+        # PlannerEngine intentionally does not persist planner chats.
+        # history = get_content_messages(thread_id)
+        # if not history:
+        #     create_thread(user_id, thread_id, message[:30])
+        # update_thread_time(thread_id)
+        # save_message(user_id, thread_id, "user", message)
+
+        return {"messages": [{"role": "user", "content": input_content}]}, workspace, workspace.snapshot_downloadables()
 
     @staticmethod
     def _config(thread_id: str, user_id: str) -> dict[str, dict[str, str]]:
@@ -47,17 +88,27 @@ class PlannerEngine:
         message: str,
         thread_id: str = "default",
         user_id: str = "default_user",
+        attachments: list[str] | None = None,
         request_id: str | None = None,
     ) -> str:
         request_id = request_id or "-"
+        input_message, workspace, before_outputs = self._prepare_request(
+            message, thread_id, user_id, request_id, attachments
+        )
         events: list[Any] = []
         agent = self._require_agent()
 
         log.info("planner request started request_id=%s thread_id=%s user_id=%s", request_id, thread_id, user_id)
-        async for event in agent.astream(self._input(message), config=self._config(thread_id, user_id)):
+        async for event in agent.astream(input_message, config=self._config(thread_id, user_id)):
             events.append(event)
 
+        changed_files = workspace.detect_changed_downloadables(before_outputs)
+        if changed_files:
+            log.info("planner artifacts detected request_id=%s files=%s", request_id, ",".join(changed_files))
+
         answer, _ = _extract_final_response(events)
+        # PlannerEngine intentionally does not persist planner chats.
+        # save_message(user_id, thread_id, "assistant", answer)
         log.info("planner request finished request_id=%s answer_chars=%s", request_id, len(answer))
         return answer
 
@@ -66,9 +117,13 @@ class PlannerEngine:
         message: str,
         thread_id: str = "default",
         user_id: str = "default_user",
+        attachments: list[str] | None = None,
         request_id: str | None = None,
     ) -> AsyncIterator[dict[str, Any]]:
         request_id = request_id or "-"
+        input_message, workspace, before_outputs = self._prepare_request(
+            message, thread_id, user_id, request_id, attachments
+        )
         agent = self._require_agent()
         started = time.time()
         latest_answer = ""
@@ -86,7 +141,7 @@ class PlannerEngine:
         }
 
         async for stream_part in agent.astream(
-            self._input(message),
+            input_message,
             config=self._config(thread_id, user_id),
             stream_mode=["messages", "updates"],
         ):
@@ -149,6 +204,17 @@ class PlannerEngine:
             latest_answer, fallback_usage = _extract_final_response(update_events)
             token_usage = token_usage or fallback_usage
 
+        changed_files = workspace.detect_changed_downloadables(before_outputs)
+        if changed_files:
+            log.info("planner artifacts detected request_id=%s files=%s", request_id, ",".join(changed_files))
+            yield {
+                "type": "artifact",
+                "request_id": request_id,
+                "files": changed_files,
+            }
+
+        # PlannerEngine intentionally does not persist planner chats.
+        # save_message(user_id, thread_id, "assistant", latest_answer)
         yield {
             "type": "done",
             "request_id": request_id,

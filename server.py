@@ -300,6 +300,7 @@ async def planner_chat(req: ChatRequest, request: Request):
         req.message,
         req.thread_id,
         req.user_id,
+        attachments=req.attachments,
         request_id=request_id,
     )
     return {"events": result}
@@ -316,6 +317,7 @@ async def planner_chat_stream(req: ChatRequest, request: Request):
                 req.message,
                 req.thread_id,
                 req.user_id,
+                attachments=req.attachments,
                 request_id=request_id,
             ):
                 yield _encode_sse(event, event.get("type"))
