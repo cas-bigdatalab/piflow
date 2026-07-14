@@ -1,0 +1,90 @@
+{
+  "name": "gaussian_executor",
+  "version": "1.0.0",
+  "description": "使用 Gaussian 软件执行量子化学计算，包括 DFT 结构优化、频率分析和单点能计算。生成 .log 和 .chk 文件，并将所有输出打包为 zip 压缩包。",
+  "language": "python",
+  "script_path": "scripts/run_gaussian_executor.py",
+  "entrypoint": "python scripts/run_gaussian_executor.py",
+  "input_params": [
+    {
+      "name": "input_path",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "输入 .gjf 文件路径"
+    },
+    {
+      "name": "output_dir",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "输出工作目录"
+    },
+    {
+      "name": "log_output_path",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "log 文件输出路径"
+    },
+    {
+      "name": "chk_output_path",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "chk 文件输出路径"
+    },
+    {
+      "name": "compressed_output_path",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "输出文件压缩包路径"
+    },
+    {
+      "name": "other_param",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "default": "",
+      "description": "额外参数"
+    }
+  ],
+  "output_params": [
+    {
+      "name": "log_output_path",
+      "role": "output_data",
+      "type": "string",
+      "description": "log 文件输出路径"
+    },
+    {
+      "name": "chk_output_path",
+      "role": "output_data",
+      "type": "string",
+      "description": "chk 文件输出路径"
+    },
+    {
+      "name": "compressed_output_path",
+      "role": "output_data",
+      "type": "string",
+      "description": "输出文件压缩包路径"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input_path",
+    "{input_path}",
+    "--output_dir",
+    "{output_dir}",
+    "--log_output_path",
+    "{log_output_path}",
+    "--chk_output_path",
+    "{chk_output_path}",
+    "--compressed_output_path",
+    "{compressed_output_path}",
+    "--other_param",
+    "{other_param}"
+  ],
+  "tag": "量子化学计算"
+}
