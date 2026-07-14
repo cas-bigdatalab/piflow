@@ -3606,7 +3606,6 @@ const handleAddNode = useCallback(
       console.log('edges:', edges);
 
       // ========== 开始：替换的核心逻辑 ==========
-      // 1. 准备 nodesToSave 和 bindingMap (这部分保持不变)
       const nodesToSave = nodes.map(node => {
         if (node.type === 'comment') {
           return {
@@ -3699,7 +3698,6 @@ const handleAddNode = useCallback(
         });
       });
 
-      // 2. 确定要使用的 taskId
       // 先尝试使用已有的 taskId
       let currentTaskId = taskId;
 
@@ -4459,7 +4457,7 @@ const handleAddNode = useCallback(
       )}
       {/* 将提示成功信息修改一下位置，避免遮挡 */}
       {saveMessage && (
-        <div className="save-message fixed top-[90px] right-4 z-50" >{saveMessage}</div>
+        <div className="save-message fixed top-[120px] right-4 z-50" >{saveMessage}</div>
       )}
     </div>
   );

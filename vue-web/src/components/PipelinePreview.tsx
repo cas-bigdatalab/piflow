@@ -800,6 +800,9 @@ export default function PipelinePreview({ data, threadId, onOpenCanvas, messageI
     // 调用回调打开画板，而不是跳转页面
     if (onOpenCanvas) {
       onOpenCanvas(data, messageId);
+      
+      // 👇 派发事件，通知 ThreadsSidebar 折叠
+      window.dispatchEvent(new CustomEvent("flow:sidebar-collapse"));
     }
   };
 
@@ -1059,44 +1062,38 @@ export default function PipelinePreview({ data, threadId, onOpenCanvas, messageI
 
                   {/* 层级之间的连接箭头 */}
                   {levelIndex < levels.length - 1 && (
-                    <div className="flex justify-center items-center py-2 pipeline-arrow" style={{ minHeight: '32px', animationDelay: `${0.35 + levelIndex * 0.2}s` }}>
-                      {nodeOutEdges.map((targets, sourceNodeIndex) => {
-                        // 只处理从当前层级发出的连线
-                        if (!levels[levelIndex].includes(sourceNodeIndex)) return null;
-                        
-                        // 如果没有目标节点，返回一个透明占位符以保持布局对齐
+                    <div 
+                      className="flex justify-center items-start py-3 pipeline-arrow" 
+                      style={{ minHeight: '40px', animationDelay: `${0.35 + levelIndex * 0.2}s` }}
+                    >
+                      {levels[levelIndex].map((sourceNodeIndex) => {
+                        const targets = nodeOutEdges[sourceNodeIndex];
                         if (targets.length === 0) {
                           return <div key={`empty-${sourceNodeIndex}`} style={{ width: '136px' }} />;
                         }
-
-                        // 【修改点】去掉 Fragment，直接遍历 targets 并返回带 key 的 div
                         return targets.map((targetNodeIndex) => (
                           <div 
                             key={`${sourceNodeIndex}-${targetNodeIndex}`} 
                             className="flex items-center justify-center" 
                             style={{ width: '136px' }}
                           >
-                            <div className="relative">
-                              {/* 箭头线 - 保持原有样式 */}
-                              <div className="w-px h-6 bg-slate-300 mx-auto"></div>
-                              
-                              {/* 箭头图标 - 保持原有样式 */}
-                              <svg
-                                width="16"
-                                height="16"
-                                viewBox="0 0 24 24"
+                            <svg width="20" height="36" viewBox="0 0 20 36" className="mx-auto">
+                              <path
+                                d="M10 4 L10 32"
+                                stroke="rgba(156, 163, 175, 0.7)"
+                                strokeWidth="2"
                                 fill="none"
-                                className="absolute left-1/2 -translate-x-1/2 -translate-y-1"
-                              >
-                                <path
-                                  d="M12 19V5M8 11l4 4 4-4"
-                                  stroke="#9ca3af"
-                                  strokeWidth="2"
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                />
-                              </svg>
-                            </div>
+                                strokeLinecap="round"
+                              />
+                              <path
+                                d="M6 28 L10 32 L14 28"
+                                stroke="rgba(156, 163, 175, 0.7)"
+                                strokeWidth="2"
+                                fill="none"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              />
+                            </svg>
                           </div>
                         ));
                       })}
