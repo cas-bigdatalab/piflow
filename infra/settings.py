@@ -58,14 +58,7 @@ class MCPConfig(BaseModel):
 class ProviderConfig(BaseModel):
     base_url: str
     api_key_env: Optional[str] = None
-
-
-class ProvidersConfig(BaseModel):
-    dashscope: Optional[ProviderConfig] = None
-    openai: Optional[ProviderConfig] = None
-    ollama: Optional[ProviderConfig] = None
-    cstcloud: Optional[ProviderConfig] = None
-    deepseek: Optional[ProviderConfig] = None
+    parallel_tool_calls: Optional[bool] = True
 
 
 class LLMConfig(BaseModel):
@@ -108,7 +101,7 @@ class Settings(BaseModel):
             model="qwen-max",
         )
     )
-    providers: ProvidersConfig = Field(default_factory=ProvidersConfig)
+    providers: Dict[str, ProviderConfig] = Field(default_factory=dict)
     mcp: MCPConfig = Field(default_factory=MCPConfig)
     policy: PolicyConfig = Field(default_factory=PolicyConfig)
     database: DatabaseConfig = Field(default_factory=DatabaseConfig)
