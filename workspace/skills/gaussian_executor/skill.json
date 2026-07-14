@@ -55,19 +55,22 @@
       "name": "log_output_path",
       "role": "output_data",
       "type": "string",
-      "description": "log 文件输出路径"
+      "description": "log 文件输出路径",
+      "default": "acetic.log"
     },
     {
       "name": "chk_output_path",
       "role": "output_data",
       "type": "string",
-      "description": "chk 文件输出路径"
+      "description": "chk 文件输出路径",
+      "default": "acetic.chk"
     },
     {
       "name": "compressed_output_path",
       "role": "output_data",
       "type": "string",
-      "description": "输出文件压缩包路径"
+      "description": "输出文件压缩包路径",
+      "default": "acetic.zip"
     }
   ],
   "command_template": [
