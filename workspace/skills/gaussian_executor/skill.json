@@ -46,7 +46,6 @@
       "role": "data",
       "type": "string",
       "required": false,
-      "default": "",
       "description": "额外参数"
     }
   ],
