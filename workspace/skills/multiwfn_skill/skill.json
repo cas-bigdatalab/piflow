@@ -1,0 +1,94 @@
+{
+  "name": "multiwfn_skill",
+  "version": "1.0.0",
+  "description": "使用 Multiwfn 波函数分析程序读取 Gaussian 生成的 .fchk 文件，提取 HOMO/LUMO、原子电荷、分子表面分析等信息。",
+  "language": "python",
+  "script_path": "scripts/run_multiwfn_skill.py",
+  "entrypoint": "python",
+  "tag": "计算化学",
+  "input_params": [
+    {
+      "name": "input_path",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "输入文件路径（.fchk, .wfn, .wfx 等）"
+    },
+    {
+      "name": "other_param",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "Multiwfn 命令序列（多行字符串）"
+    },
+    {
+      "name": "threads",
+      "role": "data",
+      "type": "int",
+      "required": false,
+      "description": "计算线程数（默认 32）"
+    },
+    {
+      "name": "multiwfn_path",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "Multiwfn 安装路径"
+    },
+    {
+      "name": "output_dir",
+      "role": "data",
+      "type": "string",
+      "required": true,
+      "description": "输出工作目录"
+    },
+    {
+      "name": "mout_output_path",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "Multiwfn 主输出日志路径"
+    },
+    {
+      "name": "compressed_output_path",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "其他输出文件压缩包路径"
+    }
+  ],
+  "output_params": [
+    {
+      "name": "mout_output_path",
+      "role": "output_data",
+      "type": "string",
+      "description": "Multiwfn 主输出日志路径",
+      "default": "acetic.mout"
+    },
+    {
+      "name": "compressed_output_path",
+      "role": "output_data",
+      "type": "string",
+      "description": "其他输出文件压缩包路径",
+      "default": "acetic_mout.zip"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input_path",
+    "{input_path}",
+    "--other_param",
+    "{other_param}",
+    "--threads",
+    "{threads}",
+    "--multiwfn_path",
+    "{multiwfn_path}",
+    "--output_dir",
+    "{output_dir}",
+    "--mout_output_path",
+    "{mout_output_path}",
+    "--compressed_output_path",
+    "{compressed_output_path}"
+  ]
+}

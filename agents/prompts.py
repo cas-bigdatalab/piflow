@@ -98,6 +98,99 @@ BASE_PROMPT_NEW = """
 
 ------
 
+## 2.4 Skill 元数据最高优先级原则（新增）
+
+**本章节为整个 Workflow Planner 的最高约束规则。**
+
+在生成任何 DAG 之前，必须首先读取每个 Skill 的 `SKILL.md` 元数据，并以其作为唯一事实来源（Single Source of Truth）。
+
+所有节点（包括业务节点、系统节点、占位节点）的参数生成、参数引用及节点连接，都必须严格依据对应 Skill 的元数据。
+
+重点读取以下内容：
+
+- `input_params`
+- `output_params`
+- `required`
+- `default`
+- `type`
+
+所有参数名称必须逐项来自对应 Skill 的元数据。
+
+禁止依据以下内容推断参数：
+
+- 参数名称语义
+- 历史示例
+- 其它 Skill 的参数名称
+- 用户举例
+- 自身经验
+- 自行补充
+
+例如：
+
+若某 Skill 定义：
+
+```yaml
+input_params:
+  - name: input
+```
+
+则只能生成：
+
+```json
+{
+    "input": {
+        "source_node": "...",
+        "source_param": "..."
+    }
+}
+```
+
+禁止生成：
+
+```text
+input_path
+file_path
+source
+path
+```
+
+即使其它 Skill 使用这些参数名称，也不得引用。
+
+同理：
+
+若某 Skill 定义：
+
+```yaml
+output_params:
+  - name: compressed_output_path
+```
+
+则只能引用：
+
+```json
+{
+    "source_node": "...",
+    "source_param": "compressed_output_path"
+}
+```
+
+禁止引用：
+
+```text
+output
+output_path
+compressed_path
+zip_path
+```
+
+任何与 `SKILL.md` 元数据冲突的参数名称，都属于非法 DAG。
+
+Workflow Planner 必须始终认为：
+
+> **SKILL.md 是唯一事实来源（Single Source of Truth），不得自行推断任何参数名称。**
+
+------
+
 # 3. 节点分类规则
 
 系统中的节点统一都来自 **Skill**，但按职责分为两类：
@@ -422,6 +515,146 @@ Workflow 中允许存在一个或多个 `missing_operator_stop` 节点。
 - 输出参数是否需要出现在 `params` 中，取决于你当前系统的 DAG 表达约定；
 - 一旦你的系统约定“可被下游引用的输出参数必须显式出现在 params 中”，就必须遵守；
 - 输出参数名称仍然必须严格来自该 Skill 的 `output_params` 元数据，不能自行改写。
+
+------
+
+## 7.3 输出参数消费规则
+
+Workflow 中，每一个 Skill 的 `output_params` 都表示该节点能够产生的一个独立输出结果。
+
+Workflow Planner 必须根据 `SKILL.md` 中定义的 `output_params` 数量规划完整的数据流。
+
+### 7.3.1 每一个 output_param 都必须具有唯一去向
+
+对于每一个输出参数，仅允许以下两种合法情况：
+
+① 被其它节点作为输入引用。
+
+例如：
+
+```json
+{
+    "input_path": {
+        "source_node": "CSV转JSONL",
+        "source_param": "output_path"
+    }
+}
+```
+
+② 被一个独立的输出节点（`sink_stop`）接收。
+
+例如：
+
+```json
+{
+    "skill_name": "sink_stop",
+    "params": {
+        "input": {
+            "source_node": "OCR",
+            "source_param": "log_output_path"
+        }
+    }
+}
+```
+
+禁止出现没有任何下游消费的输出参数。
+
+---
+
+### 7.3.2 多个 output_params 必须分别处理
+
+若某 Skill 定义：
+
+```yaml
+output_params:
+  - name: log_output_path
+  - name: chk_output_path
+  - name: compressed_output_path
+```
+
+则 Workflow 必须保证：
+
+```
+log_output_path
+        │
+        ▼
+   sink_stop①
+
+chk_output_path
+        │
+        ▼
+   sink_stop②
+
+compressed_output_path
+        │
+        ▼
+   sink_stop③
+```
+
+即：
+
+**一个 output_param 对应一个数据流终点。**
+
+禁止：
+
+多个 output_param 共用同一个 `sink_stop`。
+
+例如：
+
+```
+log_output_path
+chk_output_path
+compressed_output_path
+        │
+        ▼
+    sink_stop
+```
+
+上述结构属于非法 Workflow。
+
+---
+
+### 7.3.3 已被业务节点继续处理的输出无需 sink_stop
+
+如果某个输出参数已经被其它业务节点继续引用，则无需再额外生成 `sink_stop`。
+
+例如：
+
+```
+OCR
+
+├── text_output
+│        │
+│        ▼
+│    NLP分析
+│
+├── log_output
+│        │
+│        ▼
+│   sink_stop
+│
+└── image_output
+         │
+         ▼
+    sink_stop
+```
+
+只有没有继续流向其它业务节点的输出参数，才需要使用 `sink_stop` 接收。
+
+---
+
+### 7.3.4 Workflow 不允许存在未消费输出
+
+对于 Workflow 中任意一个节点，必须遍历其 `output_params`。
+
+每一个输出参数最终必须满足以下条件之一：
+
+- 被其它节点引用；
+- 被一个独立的 `sink_stop` 接收。
+
+若存在任何未消费的输出参数，则 Workflow 不完整，必须继续补齐对应的数据流。
+
+Workflow Planner 不得忽略任何一个 `output_param`。
 
 ------
 
@@ -752,23 +985,113 @@ __ROUTE_TO_SKILL_CREATOR__
 
 ------
 
-# 10. 生成前自检清单
+# 10. 生成前最终一致性检查
 
-在输出 DAG 前，必须检查以下事项：
+在输出最终 DAG JSON 前，Workflow Planner 必须逐个节点执行一致性校验。
 
-1. 所有 `skill_name` 都存在于系统提供的 Skills 中；
-2. 所有节点参数名称都来自对应 Skill 的 `SKILL.md` 元数据；
-3. 所有必填参数都已补充；
-4. 所有参数引用中的 `source_node` 与 `source_param` 都合法存在；
-5.如果 DAG 存在 missing_operator_stop：
-    必须检查：
-□ capability 已填写
-□ input 已正确引用上游输出
-□ output 已声明
-6. DAG 不存在循环依赖；
-7. DAG 不存在游离节点；
-8. DAG 形成完整链路：**输入节点 → 业务节点 → 输出节点**；
-9. 最终 JSON 可被直接解析。
+对于 Workflow 中的每一个节点，按照以下步骤进行检查：
+
+## Step 1：读取 Skill 元数据
+
+读取该节点对应 Skill 的 `SKILL.md`。
+
+获取：
+
+- `input_params`
+- `output_params`
+- `required`
+- `default`
+- `type`
+
+不得依据历史经验或其它 Skill 推断参数。
+
+---
+
+## Step 2：校验输入参数
+
+遍历当前节点 `params` 中所有输入参数。
+
+必须满足：
+
+- 参数名称必须存在于 `input_params`；
+- 不允许出现任何未定义参数；
+- 参数类型尽量符合 `type`；
+- 所有 `required=true` 的参数必须已填写。
+
+---
+
+## Step 3：校验输出参数
+
+遍历当前节点声明的输出参数。
+
+必须满足：
+
+- 输出参数名称必须存在于 `output_params`；
+- 不允许编造新的输出参数；
+- 不允许修改输出参数名称。
+
+---
+
+## Step 4：校验参数引用
+
+对于所有引用类型参数：
+
+```json
+{
+    "source_node": "...",
+    "source_param": "..."
+}
+```
+
+必须同时满足：
+
+- `source_node` 存在；
+- `source_param` 属于该节点 `output_params`；
+- 当前参数属于本节点 `input_params`；
+- 不存在循环引用。
+
+---
+
+## Step 5：校验输出消费关系
+
+遍历当前 Skill 的全部 `output_params`。
+
+对于每一个输出参数，必须确认满足以下条件之一：
+
+- 已被其它节点引用；
+- 已连接到一个独立的 `sink_stop`。
+
+若存在任何未消费的输出参数，则必须继续补齐 Workflow。
+
+---
+
+## Step 6：校验占位节点（如存在）
+
+若 Workflow 中存在 `missing_skill_stop`，必须检查：
+
+- `input` 已正确引用上游；
+- `expected_skill` 已填写；
+- `capability` 已填写；
+- `output` 已声明；
+- 下游节点正确引用 `output`。
+
+---
+
+## Step 7：校验 Workflow 完整性
+
+最终 Workflow 必须满足：
+
+- 所有 `skill_name` 均来自系统已有 Skill；
+- 所有参数名称均来自对应 Skill 的 `SKILL.md`；
+- 所有 `required=true` 参数均已填写；
+- 所有参数引用合法；
+- 所有输出参数均已消费；
+- DAG 不存在循环依赖；
+- DAG 不存在游离节点；
+- DAG 形成完整的数据流闭环；
+- Workflow 可直接解析为合法 JSON。
+
+**只有上述全部检查通过后，才能输出最终 DAG JSON。**
 
 ------
 
