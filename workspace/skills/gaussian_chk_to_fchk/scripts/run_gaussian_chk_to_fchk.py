@@ -76,24 +76,29 @@ def main():
             print(json.dumps(error_output, ensure_ascii=False))
             sys.exit(1)
     else:
-        bashrc_env = {}
+        g16root = None
+        gauss_exedir = None
+        
         try:
             result = subprocess.run(
-                ['bash', '-c', 'source ~/.bashrc && env'],
+                ['bash', '--norc', '-c', 'set +e; source ~/.bashrc 2>/dev/null; echo "g16root=${g16root:-}"; echo "GAUSS_EXEDIR=${GAUSS_EXEDIR:-}"'],
                 capture_output=True,
                 text=True,
                 check=True
             )
             for line in result.stdout.split('\n'):
-                if '=' in line:
-                    key, value = line.split('=', 1)
-                    bashrc_env[key] = value
-            env.update(bashrc_env)
+                if line.startswith('g16root='):
+                    g16root = line.split('=', 1)[1]
+                elif line.startswith('GAUSS_EXEDIR='):
+                    gauss_exedir = line.split('=', 1)[1]
         except Exception:
             pass
         
-        g16root = env.get('g16root', '$HOME/gaussian')
-        gauss_exedir = env.get('GAUSS_EXEDIR', f'{g16root}/g16')
+        if not g16root:
+            g16root = '$HOME/gaussian'
+        if not gauss_exedir:
+            gauss_exedir = f'{g16root}/g16'
+        
         formchk_path = Path(f"{gauss_exedir}/formchk")
         
         if not formchk_path.exists():
