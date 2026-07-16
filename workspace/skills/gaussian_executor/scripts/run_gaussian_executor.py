@@ -448,6 +448,8 @@ def main():
     input_basename = input_path.stem
     possible_chk_paths = [
         input_without_ext.with_suffix('.chk'),
+        input_path.parent / f"{input_basename}.chk",
+        Path(os.environ.get('GAUSS_SCRDIR', '')) / f"{input_basename}.chk",
         Path.cwd() / f"{input_basename}.chk",
         output_dir / f"{input_basename}.chk",
         log_output_path.parent / f"{input_basename}.chk"
@@ -458,10 +460,25 @@ def main():
             chk_source = candidate
             break
     
+    if chk_source is None:
+        chk_pattern = f"{input_basename}.chk"
+        for search_dir in [input_path.parent, Path(os.environ.get('GAUSS_SCRDIR', '')), Path.cwd(), output_dir]:
+            if search_dir and search_dir.exists():
+                for file in search_dir.iterdir():
+                    if file.name.endswith('.chk'):
+                        possible_chk_paths.append(file)
+        
+        for candidate in possible_chk_paths:
+            if candidate.exists():
+                chk_source = candidate
+                break
+    
     if chk_source is not None:
         shutil.move(str(chk_source), str(chk_output_path))
     else:
-        stderr_content += "chk file not generated\n"
+        stderr_content += f"chk file not generated. Searched paths:\n"
+        for p in possible_chk_paths:
+            stderr_content += f"  - {p} (exists: {p.exists()})\n"
         with open(stderr_log_path, 'w', encoding='utf-8') as f:
             f.write(stderr_content)
         
@@ -476,7 +493,7 @@ def main():
             "log_output_path": str(log_output_path),
             "chk_output_path": "",
             "compressed_output_path": str(compressed_output_path),
-            "errorMessage": "chk file not generated"
+            "errorMessage": f"chk file not generated. Input file: {input_path.name}, expected chk: {input_basename}.chk. Searched in: {', '.join(str(p.parent) for p in possible_chk_paths)}"
         }
         print(json.dumps(error_output, ensure_ascii=False))
         sys.exit(1)
