@@ -79,6 +79,16 @@ def init_db():
         "CREATE INDEX IF NOT EXISTS idx_chat_files_user_id ON chat_files(user_id)",
         "CREATE INDEX IF NOT EXISTS idx_chat_files_thread_id ON chat_files(thread_id)",
         "CREATE INDEX IF NOT EXISTS idx_chat_files_message_id ON chat_files(message_id)",
+        """
+        CREATE TABLE IF NOT EXISTS generating_skills (
+            thread_id   VARCHAR(64) PRIMARY KEY,
+            skill_name  VARCHAR(255) NOT NULL,
+            skill_path  TEXT NOT NULL,
+            status      VARCHAR(32) NOT NULL DEFAULT 'SUCCESS',
+            created_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )
+        """,
     ]
 
     for ddl in ddl_statements:

@@ -1,0 +1,67 @@
+{
+  "name": "gaussian_chk_to_fchk",
+  "version": "1.0.0",
+  "description": "使用 Gaussian 的 formchk 工具将 chk 检查点文件转换为 fchk 波函数文本文件。",
+  "language": "python",
+  "script_path": "scripts/run_gaussian_chk_to_fchk.py",
+  "entrypoint": "python",
+  "tag": "计算化学",
+  "input_params": [
+    {
+      "name": "input_path",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "输入 chk 文件路径"
+    },
+    {
+      "name": "other_param",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "额外参数"
+    },
+    {
+      "name": "fchk_output_path",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "转换后的 fchk 文件路径"
+    },
+    {
+      "name": "compressed_output_path",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "输出文件压缩包路径"
+    }
+  ],
+  "output_params": [
+    {
+      "name": "fchk_output_path",
+      "role": "output_data",
+      "type": "string",
+      "description": "转换后的 fchk 文件路径",
+      "default": "acetic.fchk"
+    },
+    {
+      "name": "compressed_output_path",
+      "role": "output_data",
+      "type": "string",
+      "description": "输出文件压缩包路径",
+       "default": "acetic_fchk.zip"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input_path",
+    "{input_path}",
+    "--other_param",
+    "{other_param}",
+    "--fchk_output_path",
+    "{fchk_output_path}",
+    "--compressed_output_path",
+    "{compressed_output_path}"
+  ]
+}

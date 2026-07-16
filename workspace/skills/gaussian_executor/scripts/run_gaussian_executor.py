@@ -329,26 +329,76 @@ def main():
             print(json.dumps(error_output, ensure_ascii=False))
             sys.exit(1)
     else:
-        g16root = os.environ.get('g16root', '$HOME/gaussian')
-        gauss_exedir = os.environ.get('GAUSS_EXEDIR', f'{g16root}/g16')
-        gauss_scrdir = os.environ.get('GAUSS_SCRDIR', f'{g16root}/scr')
+        env = os.environ.copy()
         
-        shell_command = f"source ~/.bashrc; export g16root={g16root}; export GAUSS_EXEDIR={gauss_exedir}; export GAUSS_SCRDIR={gauss_scrdir}; {gauss_exedir}/g16 < {args.input_path} > {args.log_output_path}; {gauss_exedir}/formchk {input_without_ext}.chk"
-        print(f"$$command: {shell_command}")
+        g16root = None
+        gauss_exedir = None
+        gauss_scrdir = None
         
         try:
             result = subprocess.run(
-                shell_command,
-                shell=True,
+                ['bash', '--norc', '-c', 'set +e; source ~/.bashrc 2>/dev/null; echo "g16root=${g16root:-}"; echo "GAUSS_EXEDIR=${GAUSS_EXEDIR:-}"; echo "GAUSS_SCRDIR=${GAUSS_SCRDIR:-}"'],
                 capture_output=True,
                 text=True,
                 check=True
             )
-            if result.stdout:
-                print("STDOUT:", result.stdout)
+            for line in result.stdout.split('\n'):
+                if line.startswith('g16root='):
+                    g16root = line.split('=', 1)[1]
+                elif line.startswith('GAUSS_EXEDIR='):
+                    gauss_exedir = line.split('=', 1)[1]
+                elif line.startswith('GAUSS_SCRDIR='):
+                    gauss_scrdir = line.split('=', 1)[1]
+        except Exception:
+            pass
+        
+        if not g16root:
+            g16root = '$HOME/gaussian'
+        if not gauss_exedir:
+            gauss_exedir = f'{g16root}/g16'
+        if not gauss_scrdir:
+            gauss_scrdir = f'{g16root}/scr'
+        
+        env['g16root'] = g16root
+        env['GAUSS_EXEDIR'] = gauss_exedir
+        env['GAUSS_SCRDIR'] = gauss_scrdir
+        
+        os.makedirs(gauss_scrdir, exist_ok=True)
+        
+        g16_cmd = [f"{gauss_exedir}/g16"]
+        print(f"$$command: {' '.join(g16_cmd)}")
+        
+        try:
+            with open(args.input_path, 'r') as f_in, open(args.log_output_path, 'w') as f_out:
+                result = subprocess.run(
+                    g16_cmd,
+                    stdin=f_in,
+                    stdout=f_out,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                    check=True,
+                    env=env
+                )
+            
             if result.stderr:
                 print("STDERR:", result.stderr, file=sys.stderr)
-                stderr_content += "shell STDERR:\n" + result.stderr + "\n"
+                stderr_content += "g16 STDERR:\n" + result.stderr + "\n"
+            
+            chk_file = input_without_ext.with_suffix('.chk')
+            if chk_file.exists():
+                formchk_cmd = [f"{gauss_exedir}/formchk", str(chk_file)]
+                print(f"$$command: {' '.join(formchk_cmd)}")
+                formchk_result = subprocess.run(
+                    formchk_cmd,
+                    capture_output=True,
+                    text=True,
+                    env=env
+                )
+                if formchk_result.stdout:
+                    print("formchk STDOUT:", formchk_result.stdout)
+                if formchk_result.stderr:
+                    print("formchk STDERR:", formchk_result.stderr, file=sys.stderr)
+                    stderr_content += "formchk STDERR:\n" + formchk_result.stderr + "\n"
         except subprocess.CalledProcessError as e:
             stderr_content += f"Error executing Gaussian command: {e}\n"
             if e.stdout:
@@ -398,6 +448,8 @@ def main():
     input_basename = input_path.stem
     possible_chk_paths = [
         input_without_ext.with_suffix('.chk'),
+        input_path.parent / f"{input_basename}.chk",
+        Path(os.environ.get('GAUSS_SCRDIR', '')) / f"{input_basename}.chk",
         Path.cwd() / f"{input_basename}.chk",
         output_dir / f"{input_basename}.chk",
         log_output_path.parent / f"{input_basename}.chk"
@@ -408,10 +460,25 @@ def main():
             chk_source = candidate
             break
     
+    if chk_source is None:
+        chk_pattern = f"{input_basename}.chk"
+        for search_dir in [input_path.parent, Path(os.environ.get('GAUSS_SCRDIR', '')), Path.cwd(), output_dir]:
+            if search_dir and search_dir.exists():
+                for file in search_dir.iterdir():
+                    if file.name.endswith('.chk'):
+                        possible_chk_paths.append(file)
+        
+        for candidate in possible_chk_paths:
+            if candidate.exists():
+                chk_source = candidate
+                break
+    
     if chk_source is not None:
         shutil.move(str(chk_source), str(chk_output_path))
     else:
-        stderr_content += "chk file not generated\n"
+        stderr_content += f"chk file not generated. Searched paths:\n"
+        for p in possible_chk_paths:
+            stderr_content += f"  - {p} (exists: {p.exists()})\n"
         with open(stderr_log_path, 'w', encoding='utf-8') as f:
             f.write(stderr_content)
         
@@ -426,7 +493,7 @@ def main():
             "log_output_path": str(log_output_path),
             "chk_output_path": "",
             "compressed_output_path": str(compressed_output_path),
-            "errorMessage": "chk file not generated"
+            "errorMessage": f"chk file not generated. Input file: {input_path.name}, expected chk: {input_basename}.chk. Searched in: {', '.join(str(p.parent) for p in possible_chk_paths)}"
         }
         print(json.dumps(error_output, ensure_ascii=False))
         sys.exit(1)
