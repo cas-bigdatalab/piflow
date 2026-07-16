@@ -2,6 +2,7 @@ import re
 import shutil
 import uuid
 from contextlib import closing
+from datetime import datetime
 import psycopg2
 from psycopg2.extras import RealDictCursor
 import yaml
@@ -514,3 +515,79 @@ def update_generated_dag_skills_in_database(
     if not result:
         return {"count": 0, "skills": []}
     return {"count": 1, "skills": [result]}
+
+
+def upsert_generating_skill(
+    skill_name: str,
+    skill_path: str,
+    status: str = "SUCCESS",
+    thread_id: str = "",
+) -> Optional[Dict]:
+    now = datetime.now()
+    try:
+        with closing(get_connection()) as conn:
+            with conn:
+                with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                    if not thread_id:
+                        cursor.execute(
+                            """
+                            INSERT INTO generating_skills (skill_name, skill_path, status, created_at, updated_at)
+                            VALUES (%s, %s, %s, %s, %s)
+                            RETURNING thread_id, skill_name, skill_path, status, created_at, updated_at
+                            """,
+                            (skill_name, skill_path, status, now, now),
+                        )
+                    else:
+                        cursor.execute(
+                            """
+                            SELECT 1 FROM generating_skills WHERE thread_id = %s
+                            """,
+                            (thread_id,),
+                        )
+                        exists = cursor.fetchone()
+
+                        if exists:
+                            cursor.execute(
+                                """
+                                UPDATE generating_skills
+                                SET skill_name = %s, skill_path = %s, status = %s, updated_at = %s
+                                WHERE thread_id = %s
+                                RETURNING thread_id, skill_name, skill_path, status, created_at, updated_at
+                                """,
+                                (skill_name, skill_path, status, now, thread_id),
+                            )
+                        else:
+                            cursor.execute(
+                                """
+                                INSERT INTO generating_skills (thread_id, skill_name, skill_path, status, created_at, updated_at)
+                                VALUES (%s, %s, %s, %s, %s, %s)
+                                RETURNING thread_id, skill_name, skill_path, status, created_at, updated_at
+                                """,
+                                (thread_id, skill_name, skill_path, status, now, now),
+                            )
+
+                    row = cursor.fetchone()
+                    return dict(row) if row else None
+
+    except Exception as e:
+        raise RuntimeError("upsert_generating_skill failed") from e
+
+
+def get_generating_skill_by_thread_id(thread_id: str) -> Optional[Dict]:
+    try:
+        with closing(get_connection()) as conn:
+            with conn:
+                with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                    cursor.execute(
+                        """
+                        SELECT thread_id, skill_name, skill_path, status, created_at, updated_at
+                        FROM generating_skills
+                        WHERE thread_id = %s
+                        """,
+                        (thread_id,),
+                    )
+                    row = cursor.fetchone()
+                    return dict(row) if row else None
+
+    except Exception as e:
+        raise RuntimeError("get_generating_skill_by_thread_id failed") from e
