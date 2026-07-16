@@ -1,6 +1,7 @@
 ---
 name: multiwfn_skill
 description: "使用 Multiwfn 波函数分析程序读取 Gaussian 生成的 .fchk 文件，提取 HOMO/LUMO、原子电荷、分子表面分析等信息。"
+name_zh: 波函数分析算子
 version: "1.0.0"
 tag: "科学计算"
 input_params:

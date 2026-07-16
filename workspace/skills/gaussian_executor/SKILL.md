@@ -1,6 +1,7 @@
 ---
 name: gaussian_executor
 description: "使用 Gaussian 软件执行量子化学计算，包括 DFT 结构优化、频率分析和单点能计算。生成 .log 和 .chk 文件，并将所有输出打包为 zip 压缩包。"
+name_zh: 量子化学计算算子
 version: 1.0.0
 tag: "科学计算"
 input_params:

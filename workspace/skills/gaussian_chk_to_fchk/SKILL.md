@@ -1,6 +1,7 @@
 ---
 name: gaussian_chk_to_fchk
 description: "使用 Gaussian 的 formchk 工具将 chk 检查点文件转换为 fchk 波函数文本文件。"
+name_zh: Gaussian检查点转换算子
 version: "1.0.0"
 tag: "科学计算"
 input_params:
