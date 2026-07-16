@@ -331,25 +331,33 @@ def main():
     else:
         env = os.environ.copy()
         
-        bashrc_env = {}
+        g16root = None
+        gauss_exedir = None
+        gauss_scrdir = None
+        
         try:
             result = subprocess.run(
-                ['bash', '-c', 'source ~/.bashrc && env'],
+                ['bash', '--norc', '-c', 'set +e; source ~/.bashrc 2>/dev/null; echo "g16root=${g16root:-}"; echo "GAUSS_EXEDIR=${GAUSS_EXEDIR:-}"; echo "GAUSS_SCRDIR=${GAUSS_SCRDIR:-}"'],
                 capture_output=True,
                 text=True,
                 check=True
             )
             for line in result.stdout.split('\n'):
-                if '=' in line:
-                    key, value = line.split('=', 1)
-                    bashrc_env[key] = value
-            env.update(bashrc_env)
+                if line.startswith('g16root='):
+                    g16root = line.split('=', 1)[1]
+                elif line.startswith('GAUSS_EXEDIR='):
+                    gauss_exedir = line.split('=', 1)[1]
+                elif line.startswith('GAUSS_SCRDIR='):
+                    gauss_scrdir = line.split('=', 1)[1]
         except Exception:
             pass
         
-        g16root = env.get('g16root', '$HOME/gaussian')
-        gauss_exedir = env.get('GAUSS_EXEDIR', f'{g16root}/g16')
-        gauss_scrdir = env.get('GAUSS_SCRDIR', f'{g16root}/scr')
+        if not g16root:
+            g16root = '$HOME/gaussian'
+        if not gauss_exedir:
+            gauss_exedir = f'{g16root}/g16'
+        if not gauss_scrdir:
+            gauss_scrdir = f'{g16root}/scr'
         
         env['g16root'] = g16root
         env['GAUSS_EXEDIR'] = gauss_exedir
