@@ -294,11 +294,32 @@ async def chat_stream(req: ChatRequest, request: Request):
 
     async def event_generator():
         try:
+            message = req.message
+
+            if req.attachments:
+                attachment_desc = "\n".join(
+                    f"- {path}" for path in req.attachments
+                )
+
+                message += f"""
+
+            以下是用户上传的输入资源，仅作为 规划 DAG Workflow 输入资源引用。
+
+            请注意：
+
+            1. 不需要读取这些文件内容。
+            2. 仅将这些路径作为输入节点(source_stop)的 file_path 等参数使用。
+            3. Workflow 中如果需要引用输入文件，请直接引用这些路径。
+
+            上传文件：
+            {attachment_desc}
+            """
+
             async for event in engine.stream_chat(
-                req.message,
+                message,
                 req.thread_id,
                 req.user_id,
-                attachments=req.attachments,
+                attachments=[],
                 request_id=request_id,
                 message_id=req.message_id,
             ):

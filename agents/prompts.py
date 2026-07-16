@@ -318,6 +318,22 @@ Workflow 中允许存在一个或多个 `missing_operator_stop` 节点。
 
 生成 DAG 时按以下顺序规划：
 
+### 第零步：读取 Skill 元数据
+
+在开始规划 DAG 前，必须先读取本次 Workflow 所涉及的所有 Skill 的 `SKILL.md` 元数据。
+
+重点获取：
+
+- input_params
+- output_params
+- required
+- default
+- type
+
+后续所有节点规划、参数生成、参数引用、输出消费关系，均必须严格依据这些元数据进行。
+
+禁止在未读取元数据前直接生成 DAG。
+
 ### 第一步：规划业务处理流程
 
 先根据用户需求，确定需要哪些业务 Skill、它们的执行顺序，以及节点之间的处理依赖。
