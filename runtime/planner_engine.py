@@ -66,6 +66,9 @@ def _generate_planner_skill(spec: dict[str, Any], thread_id: str) -> dict[str, A
 
 
 def _format_execution_result(result: dict[str, Any]) -> str:
+    followup_prompt = result.get("followup_prompt")
+    if isinstance(followup_prompt, str) and followup_prompt.strip():
+        return followup_prompt
     return "\n".join(
         part
         for part in (
@@ -76,7 +79,6 @@ def _format_execution_result(result: dict[str, Any]) -> str:
         )
         if part
     )
-
 
 class PlannerEngine:
     def __init__(self) -> None:

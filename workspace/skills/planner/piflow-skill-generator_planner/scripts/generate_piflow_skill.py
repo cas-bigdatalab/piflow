@@ -4,6 +4,7 @@ import json
 import re
 import shutil
 import sys
+from contextlib import closing
 from pathlib import Path
 from typing import Iterable
 
@@ -1136,6 +1137,40 @@ def register_skill_artifacts(spec: dict, skill_dir: Path) -> dict:
     }
 
 
+def get_existing_skill_publisher(skill_name: str) -> str | None:
+    """Look up an active DAG skill name without exposing this policy to runtime."""
+    project_root = Path(__file__).resolve().parents[5]
+    if str(project_root) not in sys.path:
+        sys.path.insert(0, str(project_root))
+
+    from database.postgres import get_connection
+
+    with closing(get_connection()) as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT publisher FROM dag_skills
+                WHERE skill_name = %s AND is_deleted = 0
+                ORDER BY CASE WHEN publisher = 'COMMUNITY' THEN 0 ELSE 1 END
+                LIMIT 1
+                """,
+                (skill_name,),
+            )
+            row = cursor.fetchone()
+    return str(row[0]).upper() if row else None
+
+
+def community_name_followup(skill_name: str) -> dict:
+    return {
+        "followup_prompt": (
+            f"DAG skills 库中已有 publisher=COMMUNITY 的 skill_name `{skill_name}`，不得覆盖或复用该名称。"
+            "请对当前待生成产物做全局改名：同时修改 name、name_zh（如需要）、目录名、script.path、"
+            "script_path、entrypoint 和所有 name 相关引用。新 name 必须是不同的安全英文名称。"
+            "只输出 __PIFLOW_PLANNER_EXECUTE_SPEC__ 后接完整 JSON spec。"
+        )
+    }
+
+
 def register_generated_dag_skill(skill_dir: Path) -> dict:
     project_root = Path(__file__).resolve().parents[4]
     if str(project_root) not in sys.path:
@@ -1168,6 +1203,12 @@ def register_generating_skill(thread_id: str, skill_name: str, skill_dir: Path) 
 
 def generate(spec: dict, output_root: Path, overwrite: bool, thread_id: str | None = None) -> dict:
     spec = normalize_spec(spec)
+    existing_publisher = get_existing_skill_publisher(spec["name"])
+    if existing_publisher == "COMMUNITY":
+        return community_name_followup(spec["name"])
+    if existing_publisher == "PRIVATE":
+        overwrite = True
+
     file_result = generate_skill_files(spec, output_root, overwrite)
     skill_dir = output_root / spec["name"]
     registration_result = register_skill_artifacts(spec, skill_dir)

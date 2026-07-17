@@ -12,6 +12,7 @@ from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from generate_piflow_skill import (
+    community_name_followup,
     generate,
     generate_skill_files,
     register_generated_dag_skill,
@@ -271,6 +272,46 @@ class GenerateSkillFilesTests(unittest.TestCase):
             "skill_path": "skills/generated/fasta_fna_validator",
         })
         self.assertEqual(result["thread_id"], "thread-123")
+
+    def test_community_name_conflict_returns_skill_owned_rename_prompt(self):
+        output_root = self.temp_dir / "skills" / "generated"
+        spec = {
+            "name": "community_skill",
+            "description": "A generated skill with a community name conflict.",
+            "input_params": [],
+            "output_params": [],
+        }
+
+        with patch("generate_piflow_skill.get_existing_skill_publisher", return_value="COMMUNITY"), patch(
+            "generate_piflow_skill.generate_skill_files"
+        ) as generate_files:
+            result = generate(spec, output_root, overwrite=False)
+
+        generate_files.assert_not_called()
+        self.assertEqual(result, community_name_followup("community_skill"))
+
+    def test_private_name_conflict_forces_content_overwrite(self):
+        output_root = self.temp_dir / "skills" / "generated"
+        spec = {
+            "name": "private_skill",
+            "description": "A generated skill that replaces a private skill.",
+            "input_params": [],
+            "output_params": [],
+        }
+        file_result = {
+            "skill_dir": "skills/generated/private_skill",
+            "skill_md": "skills/generated/private_skill/SKILL.md",
+            "skill_json": "skills/generated/private_skill/skill.json",
+        }
+
+        with patch("generate_piflow_skill.get_existing_skill_publisher", return_value="PRIVATE"), patch(
+            "generate_piflow_skill.generate_skill_files", return_value=file_result
+        ) as generate_files, patch("generate_piflow_skill.register_skill_artifacts", return_value={}), patch(
+            "generate_piflow_skill.register_generated_dag_skill", return_value={}
+        ):
+            generate(spec, output_root, overwrite=False)
+
+        self.assertTrue(generate_files.call_args.args[2])
 
     def test_register_generated_dag_skill_returns_registered_skill_id(self):
         skill_dir = self.temp_dir / "skills" / "generated" / "fasta_fna_validator"
