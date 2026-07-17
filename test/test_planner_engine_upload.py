@@ -127,6 +127,38 @@ async def test_planner_executes_confirmed_skill_spec(tmp_path: Path):
 
 
 @pytest.mark.asyncio
+async def test_planner_loads_skill_followup_as_llm_context(tmp_path: Path):
+    class FollowupPlannerAgent:
+        def __init__(self):
+            self.calls = []
+
+        async def astream(self, input_message, config=None, stream_mode=None):  # noqa: ANN001
+            content = input_message["messages"][0]["content"]
+            self.calls.append(content)
+            answer = (
+                "已根据冲突规则改为 xlsx-validate-private。"
+                if len(self.calls) == 2
+                else f'{PLANNER_EXECUTE_SPEC_MARKER}\n{{"name":"xlsx_validate","description":"validate"}}'
+            )
+            message = SimpleNamespace(type="ai", content=answer, tool_calls=[], response_metadata={})
+            yield {"planner": {"messages": [message]}}
+
+    engine = PlannerEngine()
+    engine.agent = FollowupPlannerAgent()
+    engine.initialized = True
+    followup = "内部参考：`xlsx_validate` 名称不可用，请改名。"
+
+    with patch("runtime.planner_engine.WorkspaceManager", return_value=TemporaryWorkspace(tmp_path)), patch(
+        "runtime.planner_engine._generate_planner_skill", return_value={"followup_prompt": followup}
+    ):
+        answer = await engine.run("生成 xlsx 校验 skill", thread_id="thread-followup")
+
+    assert answer == "已根据冲突规则改为 xlsx-validate-private。"
+    assert followup in engine.agent.calls[1]
+    assert "以下是工具执行后的参考上下文" in engine.agent.calls[1]
+
+
+@pytest.mark.asyncio
 async def test_planner_reports_existing_skill_without_crashing(tmp_path: Path):
     engine = PlannerEngine()
     engine.agent = ConfirmedPlannerAgent()

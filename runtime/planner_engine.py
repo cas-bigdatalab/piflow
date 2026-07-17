@@ -66,9 +66,6 @@ def _generate_planner_skill(spec: dict[str, Any], thread_id: str) -> dict[str, A
 
 
 def _format_execution_result(result: dict[str, Any]) -> str:
-    followup_prompt = result.get("followup_prompt")
-    if isinstance(followup_prompt, str) and followup_prompt.strip():
-        return followup_prompt
     return "\n".join(
         part
         for part in (
@@ -79,6 +76,12 @@ def _format_execution_result(result: dict[str, Any]) -> str:
         )
         if part
     )
+
+
+def _skill_followup_prompt(result: dict[str, Any]) -> str:
+    prompt = result.get("followup_prompt")
+    return prompt.strip() if isinstance(prompt, str) else ""
+
 
 class PlannerEngine:
     def __init__(self) -> None:
@@ -144,6 +147,20 @@ class PlannerEngine:
             raise RuntimeError("planner agent is not initialized")
         return self.agent
 
+    async def _reply_with_skill_context(self, reference: str, thread_id: str, user_id: str) -> str:
+        """Let the planner interpret a skill-provided continuation without owning its policy."""
+        events: list[Any] = []
+        input_message = {
+            "messages": [{
+                "role": "user",
+                "content": f"以下是工具执行后的参考上下文，请据此继续回复当前请求：\n\n{reference}",
+            }]
+        }
+        async for event in self._require_agent().astream(input_message, config=self._config(thread_id, user_id)):
+            events.append(event)
+        answer, _ = _extract_final_response(events)
+        return answer
+
     async def run(
         self,
         message: str,
@@ -194,7 +211,17 @@ class PlannerEngine:
                 )
                 raise
             else:
-                answer = _format_execution_result(result)
+                followup = _skill_followup_prompt(result)
+                if followup:
+                    log.info("planner skill requested followup request_id=%s", request_id)
+                    answer = await self._reply_with_skill_context(followup, thread_id, user_id)
+                    retry_spec = _extract_execution_spec(answer)
+                    if retry_spec is not None:
+                        result = await asyncio.to_thread(_generate_planner_skill, retry_spec, thread_id)
+                        retry_followup = _skill_followup_prompt(result)
+                        answer = retry_followup or _format_execution_result(result)
+                else:
+                    answer = _format_execution_result(result)
                 log.info(
                     "planner skill execution finished request_id=%s skill_dir=%s",
                     request_id,
@@ -314,7 +341,23 @@ class PlannerEngine:
             except FileExistsError as exc:
                 latest_answer = f"{exc}\n如需替换它，请回复“覆盖生成”。"
             else:
-                latest_answer = _format_execution_result(result)
+                followup = _skill_followup_prompt(result)
+                if followup:
+                    yield {
+                        "type": "status",
+                        "stage": "following_up",
+                        "request_id": request_id,
+                        "thread_id": thread_id,
+                        "user_id": user_id,
+                    }
+                    latest_answer = await self._reply_with_skill_context(followup, thread_id, user_id)
+                    retry_spec = _extract_execution_spec(latest_answer)
+                    if retry_spec is not None:
+                        result = await asyncio.to_thread(_generate_planner_skill, retry_spec, thread_id)
+                        retry_followup = _skill_followup_prompt(result)
+                        latest_answer = retry_followup or _format_execution_result(result)
+                else:
+                    latest_answer = _format_execution_result(result)
         elif not latest_answer:
             latest_answer = "未收到可执行的 skill 规格，请重新确认生成请求。"
 
