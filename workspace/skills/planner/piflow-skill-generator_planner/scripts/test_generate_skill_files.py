@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
+import json
 import shutil
+import subprocess
 import tempfile
+import types
 import unittest
 from pathlib import Path
 import sys
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
@@ -11,6 +15,7 @@ from generate_piflow_skill import (
     generate,
     generate_skill_files,
     register_generated_dag_skill,
+    register_generating_skill,
     resolve_output_root,
     validate_runtime_command_contract,
     workspace_root,
@@ -46,8 +51,46 @@ class GenerateSkillFilesTests(unittest.TestCase):
 
         script_path = output_root / "epub_metadata_cleaner" / "scripts" / "run_epub_metadata_cleanup.py"
         self.assertTrue(script_path.exists())
-        self.assertIn("NotImplementedError", script_path.read_text(encoding="utf-8"))
+        self.assertIn("json.dumps", script_path.read_text(encoding="utf-8"))
+        completed = subprocess.run(
+            [sys.executable, str(script_path), "--input_dir", "input"],
+            capture_output=True,
+            check=True,
+            text=True,
+            encoding="utf-8",
+        )
+        self.assertEqual(json.loads(completed.stdout)["status"], "ok")
         self.assertEqual(result["skill_dir"], output_root.joinpath("epub_metadata_cleaner").as_posix())
+
+    def test_missing_script_creates_executable_python_entrypoint(self):
+        output_root = self.temp_dir / "skills" / "generated"
+        spec = {
+            "name": "plain_text_summarizer",
+            "description": "Summarize text when a concise overview is needed.",
+            "input_params": [
+                {"name": "text", "type": "string", "description": "Input text", "required": True}
+            ],
+            "output_params": [
+                {"name": "summary", "type": "string", "description": "Summary text"}
+            ],
+        }
+
+        result = generate_skill_files(spec, output_root, overwrite=False)
+        script_path = output_root / "plain_text_summarizer" / "scripts" / "run_plain_text_summarizer.py"
+        skill_json = json.loads((output_root / "plain_text_summarizer" / "skill.json").read_text(encoding="utf-8"))
+
+        self.assertTrue(script_path.is_file())
+        self.assertEqual(skill_json["script_path"], "scripts/run_plain_text_summarizer.py")
+        self.assertEqual(skill_json["entrypoint"], "python scripts/run_plain_text_summarizer.py")
+        completed = subprocess.run(
+            [sys.executable, str(script_path), "--text", "hello"],
+            capture_output=True,
+            check=True,
+            text=True,
+            encoding="utf-8",
+        )
+        self.assertEqual(json.loads(completed.stdout)["inputs"], {"text": "hello"})
+        self.assertEqual(result["skill_dir"], output_root.joinpath("plain_text_summarizer").as_posix())
 
     def test_workspace_output_returns_workspace_relative_paths(self):
         skill_root = workspace_root() / "skills" / "generated"
@@ -175,6 +218,59 @@ class GenerateSkillFilesTests(unittest.TestCase):
 
         self.assertIn("## 安装依赖", text)
         self.assertIn("pip install mido", text)
+
+    def test_generate_records_skill_for_provided_thread(self):
+        output_root = self.temp_dir / "skills" / "generated"
+        spec = {
+            "name": "demo_skill",
+            "description": "Demo skill.",
+            "input_params": [],
+            "output_params": [],
+        }
+        file_result = {
+            "skill_dir": "skills/generated/demo_skill",
+            "skill_md": "skills/generated/demo_skill/SKILL.md",
+            "skill_json": "skills/generated/demo_skill/skill.json",
+        }
+
+        with patch("generate_piflow_skill.generate_skill_files", return_value=file_result), patch(
+            "generate_piflow_skill.register_skill_artifacts", return_value={}
+        ), patch("generate_piflow_skill.register_generated_dag_skill", return_value={}), patch(
+            "generate_piflow_skill.register_generating_skill",
+            return_value={"thread_id": "thread-123", "skill_name": "demo_skill"},
+        ) as register_record:
+            result = generate(spec, output_root, overwrite=False, thread_id="thread-123")
+
+        register_record.assert_called_once_with("thread-123", "demo_skill", output_root / "demo_skill")
+        self.assertEqual(result["generating_skill"]["thread_id"], "thread-123")
+
+    def test_register_generating_skill_records_workspace_relative_path(self):
+        skill_dir = workspace_root() / "skills" / "generated" / "fasta_fna_validator"
+        captured = {}
+
+        fake_module = types.SimpleNamespace(
+            upsert_generating_skill=lambda skill_name, skill_path, *, thread_id="": captured.update(
+                thread_id=thread_id,
+                skill_name=skill_name,
+                skill_path=skill_path,
+            ) or {"thread_id": thread_id, "skill_name": skill_name, "skill_path": skill_path}
+        )
+        original_runtime_module = sys.modules.get("runtime.skill_manage")
+        sys.modules["runtime.skill_manage"] = fake_module
+        try:
+            result = register_generating_skill("thread-123", "fasta_fna_validator", skill_dir)
+        finally:
+            if original_runtime_module is None:
+                del sys.modules["runtime.skill_manage"]
+            else:
+                sys.modules["runtime.skill_manage"] = original_runtime_module
+
+        self.assertEqual(captured, {
+            "thread_id": "thread-123",
+            "skill_name": "fasta_fna_validator",
+            "skill_path": "skills/generated/fasta_fna_validator",
+        })
+        self.assertEqual(result["thread_id"], "thread-123")
 
     def test_register_generated_dag_skill_returns_registered_skill_id(self):
         skill_dir = self.temp_dir / "skills" / "generated" / "fasta_fna_validator"

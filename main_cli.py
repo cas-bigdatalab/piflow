@@ -18,23 +18,26 @@ async def main():
     await main_engine.initialize()
     await planner_engine.initialize()
 
-    print("DeepAgent CLI 已启动。输入 main 或 planner 选择 Agent；exit 退出。\n")
+    print("DeepAgent CLI 已启动。请选择一次 Agent；之后直接输入问题，exit 退出。\n")
     try:
         while True:
             selected = input("Agent [main/planner]: ").strip().lower()
             if selected == "exit":
+                return
+            if selected in {"main", "planner"}:
                 break
-            if selected not in {"main", "planner"}:
-                print("请输入 main、planner 或 exit。")
-                continue
+            print("请输入 main、planner 或 exit。")
 
-            question = input("User: ")
+        engine = main_engine if selected == "main" else planner_engine
+        while True:
+            question = input("\nUser: ").strip()
             if question == "exit":
                 break
+            if not question:
+                continue
 
-            engine = main_engine if selected == "main" else planner_engine
             result = await engine.run(question)
-            print(result)
+            print(f"\nAssistant: {result}\n")
     finally:
         await planner_engine.shutdown()
         await main_engine.shutdown()

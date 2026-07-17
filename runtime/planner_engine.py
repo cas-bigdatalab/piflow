@@ -1,4 +1,8 @@
+import asyncio
+import importlib.util
+import json
 import logging
+from pathlib import Path
 import time
 from typing import Any, AsyncIterator
 
@@ -17,6 +21,61 @@ from runtime.workspace_manager import WorkspaceManager
 
 
 log = logging.getLogger("flow.planner_engine")
+
+PLANNER_EXECUTE_SPEC_MARKER = "__PIFLOW_PLANNER_EXECUTE_SPEC__"
+_PLANNER_SKILL_SCRIPT = (
+    Path(__file__).resolve().parents[1]
+    / "workspace"
+    / "skills"
+    / "planner"
+    / "piflow-skill-generator_planner"
+    / "scripts"
+    / "generate_piflow_skill.py"
+)
+
+
+def _extract_execution_spec(answer: str) -> dict[str, Any] | None:
+    if PLANNER_EXECUTE_SPEC_MARKER not in answer:
+        return None
+
+    _, raw_spec = answer.split(PLANNER_EXECUTE_SPEC_MARKER, 1)
+    raw_spec = raw_spec.strip()
+    if raw_spec.startswith("```json"):
+        raw_spec = raw_spec.removeprefix("```json").strip()
+    if raw_spec.endswith("```"):
+        raw_spec = raw_spec[:-3].strip()
+
+    spec = json.loads(raw_spec)
+    if not isinstance(spec, dict):
+        raise ValueError("planner execution spec must be a JSON object")
+    return spec
+
+
+def _generate_planner_skill(spec: dict[str, Any], thread_id: str) -> dict[str, Any]:
+    if not _PLANNER_SKILL_SCRIPT.is_file():
+        raise FileNotFoundError(f"planner skill entrypoint not found: {_PLANNER_SKILL_SCRIPT}")
+
+    module_spec = importlib.util.spec_from_file_location("piflow_planner_skill", _PLANNER_SKILL_SCRIPT)
+    if module_spec is None or module_spec.loader is None:
+        raise RuntimeError("unable to load planner skill entrypoint")
+
+    module = importlib.util.module_from_spec(module_spec)
+    module_spec.loader.exec_module(module)
+    output_root = module.resolve_output_root(str(spec.get("output_root") or module.DEFAULT_OUTPUT_ROOT))
+    return module.generate(spec, output_root, bool(spec.get("overwrite", False)), thread_id)
+
+
+def _format_execution_result(result: dict[str, Any]) -> str:
+    return "\n".join(
+        part
+        for part in (
+            "Skill 已生成并注册。",
+            f"- 目录：{result.get('skill_dir', '')}",
+            f"- 定义：{result.get('skill_md', '')}",
+            f"- DAG skill ID：{result.get('dag_skill_id') or '未返回'}",
+        )
+        if part
+    )
 
 
 class PlannerEngine:
@@ -107,6 +166,41 @@ class PlannerEngine:
             log.info("planner artifacts detected request_id=%s files=%s", request_id, ",".join(changed_files))
 
         answer, _ = _extract_final_response(events)
+        execution_spec = _extract_execution_spec(answer)
+        if execution_spec is not None:
+            log.info(
+                "planner skill execution started request_id=%s thread_id=%s skill_name=%s",
+                request_id,
+                thread_id,
+                execution_spec.get("name", "-"),
+            )
+            try:
+                result = await asyncio.to_thread(_generate_planner_skill, execution_spec, thread_id)
+            except FileExistsError as exc:
+                log.info(
+                    "planner skill already exists request_id=%s thread_id=%s path=%s",
+                    request_id,
+                    thread_id,
+                    exc,
+                )
+                answer = f"{exc}\n如需替换它，请回复“覆盖生成”。"
+            except Exception:
+                log.exception(
+                    "planner skill execution failed request_id=%s thread_id=%s",
+                    request_id,
+                    thread_id,
+                )
+                raise
+            else:
+                answer = _format_execution_result(result)
+                log.info(
+                    "planner skill execution finished request_id=%s skill_dir=%s",
+                    request_id,
+                    result.get("skill_dir", "-"),
+                )
+
+        if not answer:
+            answer = "未收到可执行的 skill 规格，请重新确认生成请求。"
         # PlannerEngine intentionally does not persist planner chats.
         # save_message(user_id, thread_id, "assistant", answer)
         log.info("planner request finished request_id=%s answer_chars=%s", request_id, len(answer))
@@ -191,7 +285,7 @@ class PlannerEngine:
                 latest_answer,
                 _message_content_text(getattr(response, "content", "")),
             )
-            if answer_delta:
+            if answer_delta and PLANNER_EXECUTE_SPEC_MARKER not in latest_answer:
                 yield {
                     "type": "message_delta",
                     "request_id": request_id,
@@ -203,6 +297,24 @@ class PlannerEngine:
         if not latest_answer and update_events:
             latest_answer, fallback_usage = _extract_final_response(update_events)
             token_usage = token_usage or fallback_usage
+
+        execution_spec = _extract_execution_spec(latest_answer)
+        if execution_spec is not None:
+            yield {
+                "type": "status",
+                "stage": "executing_skill",
+                "request_id": request_id,
+                "thread_id": thread_id,
+                "user_id": user_id,
+            }
+            try:
+                result = await asyncio.to_thread(_generate_planner_skill, execution_spec, thread_id)
+            except FileExistsError as exc:
+                latest_answer = f"{exc}\n如需替换它，请回复“覆盖生成”。"
+            else:
+                latest_answer = _format_execution_result(result)
+        elif not latest_answer:
+            latest_answer = "未收到可执行的 skill 规格，请重新确认生成请求。"
 
         changed_files = workspace.detect_changed_downloadables(before_outputs)
         if changed_files:

@@ -30,6 +30,13 @@
       "description": "是否覆盖已存在的技能目录"
     },
     {
+      "name": "thread_id",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "当前会话 ID；提供后记录生成 skill 供前端预览"
+    },
+    {
       "name": "flow_path",
       "role": "input_data",
       "type": "string",

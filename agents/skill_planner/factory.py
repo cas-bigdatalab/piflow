@@ -7,36 +7,19 @@ from langchain_openai import ChatOpenAI
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.store.memory import InMemoryStore
 
-from agents.tools import exec_shell
 from infra.config_loader import get_settings
 from runtime.workspace_manager import WorkspaceManager
-from tools import ToolSpec
-from tools.core.registry import registry
-from agents.middleware import install_registry_hooks
 from .prompt import build_skill_planner_system_prompt
 
 
 class SkillPlannerAgentFactory:
-    @staticmethod
-    def _ensure_builtin_tools_registered() -> None:
-        if registry.has("shell.exec_shell"):
-            return
-
-        spec = ToolSpec(
-            name="shell.exec_shell",
-            description="执行终端命令",
-            func=exec_shell,
-            args_schema=exec_shell.args_schema,
-        )
-        registry.register(spec, exec_shell)
-
     @staticmethod
     def create_agent():
         settings = get_settings()
 
         llm_cfg = settings.llm
         provider_name = llm_cfg.provider
-        provider_cfg = getattr(settings.providers, provider_name, None)
+        provider_cfg = settings.providers.get(provider_name)
 
         if provider_cfg is None:
             raise ValueError(f"Provider config not found: {provider_name}")
@@ -63,10 +46,8 @@ class SkillPlannerAgentFactory:
             },
         )
 
-        SkillPlannerAgentFactory._ensure_builtin_tools_registered()
-        tools = [exec_shell]
-        install_registry_hooks(registry)
-
+        # PlannerEngine executes the confirmed local skill itself. The planner only
+        # collects a JSON spec, so it must not start an unbounded shell workflow.
         system_prompt = build_skill_planner_system_prompt(
             extra_sections=[]
         )
@@ -93,7 +74,7 @@ class SkillPlannerAgentFactory:
 
         agent = create_deep_agent(
             model=llm,
-            tools=tools,
+            tools=[],
             system_prompt=system_prompt,
             backend=backend,
             store=store,

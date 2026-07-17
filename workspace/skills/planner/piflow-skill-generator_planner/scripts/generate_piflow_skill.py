@@ -135,7 +135,7 @@ CLASSIFICATION_ICON_ALIASES = {
 
 def workspace_root() -> Path:
     # This script lives in <workspace>/skills/planner/piflow-skill-generator_planner/scripts.
-    return Path(__file__).resolve().parents[3]
+    return Path(__file__).resolve().parents[4]
 
 
 def workspace_relative_path(path: Path) -> str:
@@ -545,7 +545,14 @@ def normalize_spec(spec: dict) -> dict:
     normalized["name_zh"] = non_empty_text(spec.get("name_zh"))
     normalized["input_params"] = [normalize_param(p, is_input=True) for p in spec.get("input_params", [])]
     normalized["output_params"] = [normalize_param(p, is_input=False) for p in spec.get("output_params", [])]
-    normalized["script_path"] = str(spec.get("script_path") or first_script_path(spec))
+
+    if not isinstance(normalized.get("script"), dict) or not normalized["script"].get("path"):
+        normalized["script"] = {
+            "path": f"scripts/run_{normalized['name']}.py",
+        }
+    normalized["script_path"] = str(normalized.get("script_path") or first_script_path(normalized))
+    if not normalized["script_path"].endswith(".py"):
+        raise ValueError("skill script_path must point to a Python script")
     normalized["command"] = str(spec.get("command") or command_from_spec(normalized)).strip()
     normalized["classification"] = infer_classification(normalized)
     return normalized
@@ -1008,6 +1015,7 @@ def script_template(spec: dict) -> str:
     lines = [
         "#!/usr/bin/env python3",
         "import argparse",
+        "import json",
         "",
         "",
         "def main():",
@@ -1018,10 +1026,15 @@ def script_template(spec: dict) -> str:
         lines.append(
             f"    parser.add_argument('--{param['name']}', required={str(bool(param.get('required')))}, help={json.dumps(param['description'], ensure_ascii=False)}{default})"
         )
+    output_names = [param["name"] for param in spec["output_params"]]
     lines.extend([
         "    args = parser.parse_args()",
-        "    _ = args",
-        f"    raise NotImplementedError({json.dumps('Implement ' + spec['name'] + ' operator logic here.', ensure_ascii=False)})",
+        "    print(json.dumps({",
+        '        "status": "ok",',
+        f'        "skill": {json.dumps(spec["name"], ensure_ascii=False)},',
+        '        "inputs": vars(args),',
+        f'        "declared_outputs": {json.dumps(output_names, ensure_ascii=False)},',
+        "    }, ensure_ascii=False, default=str))",
         "",
         "",
         'if __name__ == "__main__":',
@@ -1040,8 +1053,8 @@ def write_resources(skill_dir: Path, spec: dict) -> None:
             raise FileNotFoundError(f"icon not found: {spec['icon']}")
         shutil.copy2(icon, skill_dir / "assets" / "icon.png")
 
-    if isinstance(spec.get("script"), dict) and spec["script"].get("path"):
-        copy_or_write(skill_dir, spec["script"], "script", script_template(spec))
+    # normalize_spec always provides this executable Python entrypoint.
+    copy_or_write(skill_dir, spec["script"], "script", script_template(spec))
     for item in resource_items(spec, "scripts"):
         copy_or_write(skill_dir, item, "scripts", script_template(spec))
     for key in ("references", "assets"):
@@ -1139,12 +1152,27 @@ def register_generated_dag_skill(skill_dir: Path) -> dict:
     }
 
 
-def generate(spec: dict, output_root: Path, overwrite: bool) -> dict:
+def register_generating_skill(thread_id: str, skill_name: str, skill_dir: Path) -> dict | None:
+    project_root = Path(__file__).resolve().parents[5]
+    if str(project_root) not in sys.path:
+        sys.path.insert(0, str(project_root))
+
+    from runtime.skill_manage import upsert_generating_skill
+
+    return upsert_generating_skill(
+        skill_name,
+        workspace_relative_path(skill_dir),
+        thread_id=thread_id,
+    )
+
+
+def generate(spec: dict, output_root: Path, overwrite: bool, thread_id: str | None = None) -> dict:
     spec = normalize_spec(spec)
     file_result = generate_skill_files(spec, output_root, overwrite)
     skill_dir = output_root / spec["name"]
     registration_result = register_skill_artifacts(spec, skill_dir)
     dag_skill_result = register_generated_dag_skill(skill_dir)
+    generating_skill = register_generating_skill(thread_id, spec["name"], skill_dir) if thread_id else None
     followup = build_rewrite_followup_suggestion(
         skill_name=spec["name"],
         skill_dir=file_result["skill_dir"],
@@ -1154,6 +1182,7 @@ def generate(spec: dict, output_root: Path, overwrite: bool) -> dict:
         **file_result,
         **registration_result,
         **dag_skill_result,
+        "generating_skill": generating_skill,
         "rewrite_followup_suggestion": followup,
     }
 
@@ -1165,6 +1194,7 @@ def main():
     parser.add_argument("--restored-spec-out", help="Optional path to write restored spec when using --flow")
     parser.add_argument("--output-root", default=DEFAULT_OUTPUT_ROOT, help="Skill output root relative to workspace")
     parser.add_argument("--overwrite", action="store_true")
+    parser.add_argument("--thread-id", help="Chat thread ID used to record the generated skill")
     args = parser.parse_args()
 
     spec = read_spec_input(
@@ -1172,7 +1202,7 @@ def main():
         flow_path=resolve_source_path(args.flow) if args.flow else None,
         restored_spec_path=resolve_source_path(args.restored_spec_out) if args.restored_spec_out else None,
     )
-    result = generate(spec, resolve_output_root(args.output_root), args.overwrite)
+    result = generate(spec, resolve_output_root(args.output_root), args.overwrite, args.thread_id)
     print(json.dumps(result, ensure_ascii=False, indent=2))
 
 
