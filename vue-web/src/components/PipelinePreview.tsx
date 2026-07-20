@@ -279,6 +279,7 @@ export default function PipelinePreview({ data, threadId, onOpenCanvas, messageI
       };
       
       // 优先从已保存的画板获取数据
+      let outParams = [];
       if (messageId) {
         const savedResponse = await getDrawInfoBymegId(String(messageId));
         console.log('我是在pipeline页面触发的:', savedResponse);
@@ -292,8 +293,29 @@ export default function PipelinePreview({ data, threadId, onOpenCanvas, messageI
             const processedSavedNodes = [];
             for (const node of savedResult.nodes) {
               console.log('单个已保存节点数据:', node);
-              
               let skillId = node.skill?.skill_id || node.skill_id || '';
+             // 在 #selectedCode 位置附近（L296-L301）替换或补充如下代码：
+              try {
+                const res = await listSkillsDetails(skillId);
+                if (res.result?.input_params?.params) {
+                  const outputParams = res.result?.output_params?.params || [];
+                  const nodeInputParams = node.input_params || [];
+
+                  // 初始化 outParams 为匹配到的 input_params 子集
+                  outParams = nodeInputParams
+                  .filter((inputParam: any) => {
+                    return outputParams.some(
+                      (outDef: any) => outDef.name === inputParam.param_name
+                    );
+                  })
+                  .map((inputParam: any) => ({
+                    param_name: inputParam.param_name,
+                    param_value: inputParam.param_value, // 或根据实际结构调整字段名
+                    param_type: 'string', // 可选，按需补充
+                  }));
+                }
+              } catch (e) { /* ignore */ }            
+              console.log("我是什么值呢，是outparams中的值",outParams)
               let resolvedSkillName = node.skill?.skill_name || node.skill_name || '';
               let resolvedSkillDisplayName = node.skill?.name_zh || node.name_zh || '';
               let iconPath = node.icon_path || '';
@@ -318,8 +340,7 @@ export default function PipelinePreview({ data, threadId, onOpenCanvas, messageI
                   skillId = 'piflow_engine.cn.piflow.engine.local.file_save_stop.FileSaveStop';
                 } else if (skillNameToSearch === 'llm_chat') {
                   skillId = 'piflow_engine.cn.piflow.engine.local.llm_file_transform_stop.LLMFileTransformStop';
-                }
-                 else if (skillNameToSearch) {
+                }else if (skillNameToSearch) {
                   // 根据 skill_name 去查询算子信息
                   const skillRes = await getSkillInfoByName(skillNameToSearch);
                   if (skillRes && skillRes.result.data && skillRes.result.data.length > 0) {
@@ -343,36 +364,38 @@ export default function PipelinePreview({ data, threadId, onOpenCanvas, messageI
               }
               
               // 获取算子详情来获取 output_params（如果没有的话）
-              let outParams = [];
-              if (skillId && (!node.out_params || node.out_params.length === 0)) {
-                // 从已查询过的算子信息中查找（通过遍历缓存）
-                for (const cachedSkillName of Object.keys(skillsCache)) {
-                  const cachedResult = skillsCache[cachedSkillName];
-                  if (cachedResult && cachedResult.result.data && cachedResult.result.data.length > 0) {
-                    for (const group of cachedResult.result.data) {
-                      if (group.DagSkillInfoList && group.DagSkillInfoList.length > 0) {
-                        for (const skillInfo of group.DagSkillInfoList) {
-                          if (skillInfo.skill_id === skillId) {
-                            const outputParams = skillInfo.output_params?.params || [];
-                            outParams = outputParams.map((p: any) => ({
-                              param_name: p.name || p.param_name || '',
-                              param_type: p.type || p.param_type || 'string'
-                            }));
-                            break;
-                          }
-                        }
-                      }
-                      if (outParams.length > 0) break;
-                    }
-                  }
-                  if (outParams.length > 0) break;
-                }
-              } else if (node.out_params) {
-                outParams = (node.out_params.params || node.out_params).map((p: any) => ({
-                  param_name: p.param_name || p.name || '',
-                  param_type: p.param_type || p.type || 'string'
-                }));
-              }
+              // let outParams = [];
+              // if (skillId && (!node.out_params || node.out_params.length === 0)) {
+              //   // 从已查询过的算子信息中查找（通过遍历缓存）
+              //   for (const cachedSkillName of Object.keys(skillsCache)) {
+              //     const cachedResult = skillsCache[cachedSkillName];
+              //     if (cachedResult && cachedResult.result.data && cachedResult.result.data.length > 0) {
+              //       for (const group of cachedResult.result.data) {
+              //         if (group.DagSkillInfoList && group.DagSkillInfoList.length > 0) {
+              //           for (const skillInfo of group.DagSkillInfoList) {
+              //             if (skillInfo.skill_id === skillId) {
+              //               const outputParams = skillInfo.output_params?.params || [];
+              //               outParams = outputParams.map((p: any) => ({
+              //                 param_name: p.name || p.param_name || '',
+              //                 param_value: p._value || p.value || p.param_value || '',
+              //                 value_mode: p._refType === 'reference' ? 'reference' : (p.value_mode || 'manual'),
+              //                 binding_id: p.binding_id || ''
+              //               }));
+              //               break;
+              //             }
+              //           }
+              //         }
+              //         if (outParams.length > 0) break;
+              //       }
+              //     }
+              //     if (outParams.length > 0) break;
+              //   }
+              // } else if (node.out_params) {
+              //   outParams = (node.out_params.params || node.out_params).map((p: any) => ({
+              //     param_name: p.param_name || p.name || '',
+              //     param_type: p.param_type || p.type || 'string'
+              //   }));
+              // }
               
               // 处理 input_params
               let inputParams = [];
@@ -555,8 +578,11 @@ export default function PipelinePreview({ data, threadId, onOpenCanvas, messageI
                     for (const skillInfo of group.DagSkillInfoList) {
                       // 使用 skill_name 匹配，因为接口返回的 skill_id 和写死的格式不同
                       if (skillInfo.skill_name === skillName || skillInfo.name_zh === skillName) {
-                        inputParams = skillInfo.input_params?.params || [];
-                        outputParams = skillInfo.output_params?.params || [];
+                        inputParams = skillInfo.input_params?.params || [];// 转换 output_params 格式
+                        outParams = outputParams.map((p: any) => ({
+                          param_name: p.name || p.param_name || '',
+                          param_type: p.type || p.param_type || 'string'
+                        }));
                         console.log(`节点 ${index}: 从 getAllSkills 获取参数信息:`, { inputParams, outputParams });
                         break;
                       }
@@ -612,6 +638,7 @@ export default function PipelinePreview({ data, threadId, onOpenCanvas, messageI
             // 转换 output_params 格式
             outParams = outputParams.map((p: any) => ({
               param_name: p.name || p.param_name || '',
+              param_value: paramDef.param_value || '',
               param_type: p.type || p.param_type || 'string'
             }));
           }
