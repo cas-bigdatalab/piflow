@@ -1177,6 +1177,7 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
                     name: "output",
                     type: "string",
                     param_name: "output",
+                    param_value: "",
                     param_type: "String"
                   }]
                 };
@@ -1295,6 +1296,7 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
                       name: "output",
                       type: "string",
                       param_name: "output",
+                      param_value: "",
                       param_type: "String"
                     }
                   ]
@@ -1375,9 +1377,17 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
                 params: inputParams.params.map((tp: any) => {
                   const saved = savedParamsMap[tp.name];
                   const isReference = saved?.value_mode === 'reference';
+                  // return {
+                  //   ...tp,
+                  //   _refType: isReference ? 'reference' : 'manual',
+                  //   _value: isReference ? '' : (saved?.param_value || tp.param_value || ''),
+                  //   _refValue: isReference ? (saved?.param_value || '') : '',
+                  // };
                   return {
                     ...tp,
                     _refType: isReference ? 'reference' : 'manual',
+                    // ✅ 修复：将后端返回的值同时赋给 param_value 和 _value
+                    param_value: isReference ? '' : (saved?.param_value || tp.param_value || ''),
                     _value: isReference ? '' : (saved?.param_value || tp.param_value || ''),
                     _refValue: isReference ? (saved?.param_value || '') : '',
                   };
@@ -1385,6 +1395,34 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
               };
               console.log('合并后参数:', JSON.stringify(mergedInputParams, null, 2));
             }
+            // 新增反填的outParams参数
+            // --- 新增：处理输出参数 (out_params) 的合并逻辑 ---
+            let mergedOutputParams = outputParams;
+
+            // 检查后端返回的节点数据中是否有 out_params
+            if (outputParams?.params && n.out_params && Array.isArray(n.out_params)) {
+              // 1. 将后端返回的 out_params 转换成 Map，方便查找
+              const savedOutParamsMap: Record<string, any> = {};
+              n.out_params.forEach((sp: any) => {
+                savedOutParamsMap[sp.param_name] = sp;
+              });
+
+              // 2. 遍历模板参数，用后端返回的值进行覆盖
+              mergedOutputParams = {
+                ...outputParams,
+                params: outputParams.params.map((tp: any) => {
+                  const saved = savedOutParamsMap[tp.name]; // 根据参数名找到后端保存的值
+                  return {
+                    ...tp,
+                    // 核心修复：将后端返回的 param_value 赋值给 param_value 和 _value
+                    param_value: saved?.param_value || tp.param_value || '',
+                    _value: saved?.param_value || tp.param_value || '',
+                  };
+                }),
+              };
+            }
+            // --- 新增逻辑结束 ---
+
 
             loadedNodes.push({
               id: nodeId,
@@ -1401,7 +1439,7 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
                 inputVar: 'input_data',
                 outputVar: 'output_data',
                 input_params: mergedInputParams,
-                output_params: outputParams,
+                output_params: mergedOutputParams, 
                 onDelete: (delId: string) => {
                   setNodes((nds) => nds.filter((nn) => nn.id !== delId));
                   setEdges((eds) => eds.filter((e) => e.source !== delId && e.target !== delId));
@@ -2306,10 +2344,16 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
                   };
                 });
               })(),
-              out_params: n.data.output_params?.params?.map(p => ({
-                param_name: p.name || p.param_name || '',
-                param_type: p.type || p.param_type || 'string',
-              })) || [],
+              out_params: n.data.output_params?.params?.map(p => {
+                console.log('=== binding32444444444444444444444444444444444444444444 生成 ===');
+                console.log('输出参数详情:', JSON.stringify(p)); // ✅ 加这行
+                return {
+                  param_name: p.name || p.param_name || '',
+                  param_type: p.type || p.param_type || 'string',
+                  // 【关键修改】：优先保存 param_value，如果没有再回退到 _value
+                  param_value: p.param_value || p._value || '',
+                };
+              }) || [],
             })),
           edges: edges.map(e => ({
             edge_id: e.id,
@@ -2888,8 +2932,15 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
                                     <span className="draw-config-ref-selected">
                                       {(function() {
                                         const matchedOpt = referenceOptions.find(o => o.name === param._refValue);
+                                        // const fallbackOpt = !matchedOpt
+                                        //   ? referenceOptions.find(o => param._refValue?.endsWith(o.name) || o.name.endsWith(param._refValue || ''))
+                                        //   : null;
+                                        // 改为
+                                        const refValueStr = typeof param._refValue === 'string' ? param._refValue : String(param._refValue ?? '');
                                         const fallbackOpt = !matchedOpt
-                                          ? referenceOptions.find(o => param._refValue?.endsWith(o.name) || o.name.endsWith(param._refValue || ''))
+                                          ? referenceOptions.find(o => 
+                                              refValueStr.endsWith(o.name) || o.name.endsWith(refValueStr)
+                                            )
                                           : null;
                                         const nodeName = matchedOpt?.nodeName || fallbackOpt?.nodeName || param._sourceNodeName || '未知';
                                         return nodeName + ' / ' + (matchedOpt?.name || fallbackOpt?.name || param._refValue);
@@ -3035,7 +3086,7 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
                   </div>
                 )}
 
-                {/* 输出参数 */}
+                {/* 将输出参数改为 */}
                 {selectedNode.data.output_params?.params && selectedNode.data.output_params.params.length > 0 && (
                   <div className="draw-config-params-section">
                     <div className="draw-config-section-title">
@@ -3047,7 +3098,29 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
                       <div key={`output-${index}`} className="draw-config-param-card output-card">
                         <div className="draw-config-param-header">
                           <div className="draw-config-param-name-row">
-                            <span className="draw-config-param-name">{param.name}</span>
+                            <input
+                              className="draw-config-value-input"
+                              value={param._value || param.param_value || ''}
+                              onChange={(e) => {
+                                const newParams = [...(selectedNode.data.output_params?.params || [])];
+                                newParams[index] = { ...newParams[index], _value: e.target.value };
+                                setNodes((nds) =>
+                                  nds.map((n) => {
+                                    if (n.id === selectedNodeId) {
+                                      return {
+                                        ...n,
+                                        data: {
+                                          ...n.data,
+                                          output_params: { ...n.data.output_params, params: newParams }, // ✅ 修正字段名
+                                        },
+                                      };
+                                    }
+                                    return n;
+                                  })
+                                );
+                              }}
+                              placeholder="请输入内容"
+                            />
                           </div>
                           <span className="draw-config-param-type-tag">{param.type || '-'}</span>
                         </div>

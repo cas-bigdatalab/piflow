@@ -91,7 +91,13 @@ interface NodeData {
   onSelect?: (id: string) => void;
   isSelected?: boolean;
   input_params?: { params: { name: string; param_value: string; type?: string }[] };
-  output_params?: { params: { name: string; type: string }[] };
+  output_params?: { 
+    params: { 
+      name: string; 
+      type: string; 
+      param_value?: string; // 新增：用于存储用户填写的值
+    }[] 
+  };
 }
 
 interface CustomEdgeData {
@@ -360,7 +366,9 @@ const CustomNode: React.FC<NodeProps<NodeData>> = ({ id, data, selected }) => {
                 <div className="labelText">输入</div>
                 <div className="valueText">值</div>
               </div>
-              {data.input_params.params.map((inputItem, index) => (
+              {data.input_params.params.
+                filter(param => !param._hidden)
+                .map((inputItem, index) => (
                 <div key={`input-${index}`} className="oneParams">
                   <div className="node-param-label">{inputItem.name}</div>
                   <ParamValue value={String(inputItem.param_value || '-')} />
@@ -375,11 +383,13 @@ const CustomNode: React.FC<NodeProps<NodeData>> = ({ id, data, selected }) => {
               <div className="topTitle">
                 <div className="labelText">输出</div>
                 <div className="valueText">类型</div>
+                <div className="valueText">值</div> {/* 👈 新增“值”列 */}
               </div>
               {data.output_params.params.map((outputItem, index) => (
                 <div key={`output-${index}`} className="oneParams">
                   <div className="node-param-label">{outputItem.name}</div>
                   <ParamValue value={String(outputItem.type)} />
+                  <ParamValue value={String(outputItem._value || outputItem.param_value || '-')} /> {/* 👈 显示值 */}
                 </div>
               ))}
             </div>
@@ -999,7 +1009,6 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
   // 👇 把你的 useEffect 放在这里（合法位置）
   useEffect(() => {
     if (taskId) {
-      console.log("taskId 已经成功更新为:", taskId);
       // 执行后续逻辑，比如加载任务详情等
     }
   }, [taskId]);
@@ -1018,7 +1027,6 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
     // 修改传参
     try {
       const userId = localStorage.getItem('userId') || '';
-      console.log('userId缓存里的数据为11111111111111',userId)
       const res = await listStorage(userId, dir_path);
       setFileSystemItems((res as any).items || []);
       setCurrentDirPath((res as any).dir_path || dir_path || '');
@@ -1165,7 +1173,6 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
 
   // 获取任务名称和描述（从 props 中提取，无需再调用接口）
   useEffect(() => {
-    console.log("传输过来画板的内容",initialPipelineData)
     if (savedDrawData?.task) {
       setTaskName(savedDrawData.task.dag_task_name || '');
       setTaskDescription(savedDrawData.task.description || '');
@@ -1255,7 +1262,9 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
     setNodes((nds) => nds.map((n) => ({ ...n, selected: false })));
     setSelectedNodeId(null);
   };
-
+// 在组件底部或控制台打印
+useEffect(() => {
+}, [selectedNode]);
   // 监听 nodes 数量变化，自动调整视口为靠左、垂直居中
   // 只在节点数量变化时调整，避免节点展开/收缩时触发
   useEffect(() => {
@@ -1307,9 +1316,9 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
 
       // 优先使用已保存的画板数据（来自 getDSLJsonByMessageId 接口）
       if (savedDrawData && savedDrawData.nodes && savedDrawData.nodes.length > 0) {
-        console.log('使用已保存的画板数据（来自接口）:', savedDrawData);
         const loadedNodes: Node<NodeData>[] = [];
         const loadedEdges: Edge[] = [];
+        isInitialized.current = false;
 
         // 构建 nodeId -> output_params 的映射，用于后续查找引用
         const outputParamsMap: Record<string, any[]> = {};
@@ -1355,7 +1364,6 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
             };
           }
         }
-        console.log('=== bindingsMap ===', bindingsMap);
 
         // 为 savedDrawData 中的节点计算新的布局位置，避免重叠（带分层展示）
         const savedNodePositions: Record<string, { x: number; y: number }> = {};
@@ -1428,6 +1436,65 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
         }
 
         for (let i = 0; i < savedDrawData.nodes.length; i++) {
+
+
+            // --- 新增：参数去重与值转移逻辑 ---
+            const currentNode = savedDrawData.nodes[i];
+
+            // 1. 确保 input_params 和 output_params 都是标准格式 { params: [] }
+            let inputParamsArray = [];
+            let outputParamsArray = [];
+
+            if (currentNode.input_params?.params) {
+              inputParamsArray = currentNode.input_params.params;
+            } else if (Array.isArray(currentNode.input_params)) {
+              inputParamsArray = currentNode.input_params;
+            }
+
+            if (currentNode.output_params?.params) {
+              outputParamsArray = currentNode.output_params.params;
+            } else if (Array.isArray(currentNode.output_params)) {
+              outputParamsArray = currentNode.output_params;
+            }
+
+            // 2. 创建一个输出参数的 Map，方便快速查找
+            const outputParamsMap = new Map();
+            outputParamsArray.forEach((p) => {
+              const paramName = p.name || p.param_name;
+              if (paramName) {
+                outputParamsMap.set(paramName, p);
+              }
+            });
+
+            // 替换原来的 filteredInputParams = inputParamsArray.filter(...)
+          const processedInputParams = inputParamsArray.map((inputParam) => {
+            const inputParamName = inputParam.name || inputParam.param_name;
+            if (!inputParamName) return inputParam; // 无名参数，跳过处理
+
+            const outputParam = outputParamsMap.get(inputParamName);
+            if (outputParam) {
+              // 发现重名：转移值 + 标记隐藏 + required 设为 false
+              const valueToTransfer = 
+                inputParam.param_value !== undefined ? inputParam.param_value : 
+                inputParam.value !== undefined ? inputParam.value : 
+                '';
+
+              // 返回修改后的 inputParam：标记隐藏、非必填
+              return {
+                ...inputParam,
+                required: false,        // 👈 关键：设为非必填
+                _hidden: true,          // 👈 自定义字段，UI 可据此隐藏
+              };
+            }
+
+            return inputParam; // 无冲突，原样返回
+          });
+
+          // 如果你仍希望在 UI 中彻底不渲染这些参数，可以在后续使用时过滤：
+          const filteredInputParams = processedInputParams.filter(param => !param._hidden);
+
+
+
           const n = savedDrawData.nodes[i];
           let inputParams = undefined;
           let outputParams = undefined;
@@ -1439,23 +1506,25 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
           const hasSavedInputParams = n.input_params && Array.isArray(n.input_params) && n.input_params.length > 0;
           const hasSavedOutputParams = n.output_params && (Array.isArray(n.output_params) || n.output_params.params?.length > 0);
           const hasSavedIconPath = n.icon_path && n.icon_path !== '';
-          
-          console.log(`节点 ${i} (${n.node_name}):`, {
-            hasSavedInputParams,
-            hasSavedOutputParams,
-            hasSavedIconPath,
-            n_output_params: n.output_params,
-          });
+        
           
           // 优先从 savedDrawData 里读取 output_params
           if (hasSavedOutputParams) {
-            if (Array.isArray(n.output_params)) {
-              outputParams = { params: n.output_params };
-            } else {
-              outputParams = n.output_params;
-            }
+            // let rawOutputParams = Array.isArray(n.output_params) ? n.output_params : n.output_params?.params || [];
+            // outputParams = {
+            //   params: rawOutputParams.map((p: any) => {
+            //     // 确保 _value 总是有值，优先取 _value，其次取 param_value 或 value
+            //     const value = p._value !== undefined ? p._value : (p.param_value !== undefined ? p.param_value : p.value);
+            //     return {
+            //       ...p,
+            //       _value: String(value) // ✅ 确保 _value 被正确赋值
+            //     };
+            //   })
+            // };
+            
+            outputParams = mapOutputParamsValues(n.output_params);
           }
-          
+                      
           // 对于source_stop和sink_stop这两个特殊算子，不要请求接口，使用固定的参数
          const isSpecialSkill = 
             skillId === 'piflow_engine.cn.piflow.engine.local.source_file_stop.SourceFileStop' ||
@@ -1463,8 +1532,8 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
             skillId === 'piflow_engine.cn.piflow.engine.local.llm_file_transform_stop.LLMFileTransformStop';
           let skillDescription = '';
           if (isSpecialSkill) {
-            console.log(`节点 ${i}: 特殊算子，不请求接口1111111111111111111111111111111111112749832943284982094832`);
-
+            // 特殊节点：强制 output_params 为空
+            outputParams = { params: [] };
             if (skillId === 'piflow_engine.cn.piflow.engine.local.source_file_stop.SourceFileStop') {
                 n.skill = n.skill || {};
                 n.skill.name_zh = '文件源';
@@ -1607,11 +1676,12 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
           } else {
             // 普通算子：先请求接口获取参数模板（含 required 字段）
             if (skillId) {
+              
               try {
                 const skillRes = await listSkillsDetails(skillId);
                 if (skillRes.result) {
                   inputParams = skillRes.result.input_params;
-                  outputParams = skillRes.result.output_params || outputParams;
+                  outputParams = skillRes.result.output_params;
                   nodeIconPath = skillRes.result.icon_path || nodeIconPath;
                   skillDescription = skillRes.result.description || '';
                   // 获取 skill_name、skill_type 和 name_zh
@@ -1627,7 +1697,6 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
                     n.skill = n.skill || {};
                     n.skill.name_zh = skillRes.result.name_zh;
                   }
-                  console.log(`节点 ${i}: 从 listSkillsDetails 获取参数模板:`, inputParams);
                 }
               } catch (error) {
                 console.error(`节点 ${i}: 获取算子详情失败:`, error);
@@ -1658,7 +1727,6 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
                     n.skill = n.skill || {};
                     n.skill.name_zh = skillData.name_zh;
                   }
-                  console.log(`节点 ${i}: 从 getAllSkills 获取参数模板 (含 required):`, inputParams);
                 }
               } catch (e) { console.error(`节点 ${i}: getAllSkills 失败:`, e); }
             }
@@ -1666,7 +1734,6 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
             // 如果 API 都没返回，回退使用已保存数据
             if (!inputParams?.params && hasSavedInputParams) {
               inputParams = { params: n.input_params };
-              console.log(`节点 ${i}: 回退使用 savedDrawData 的 inputParams:`, inputParams);
             }
             // 如果 savedDrawData 中有 icon_path，优先使用
             if (hasSavedIconPath) {
@@ -1674,7 +1741,6 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
             }
           }
           
-          console.log(`节点 ${i} 最终 outputParams:`, outputParams);
 
           // 确保outputParamsMap里有当前节点的output_params
           if (outputParams?.params) {
@@ -1684,6 +1750,38 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
           // 合并已保存的参数数据
           let mergedInputParams = inputParams;
           
+
+          let mergedOutputParams = outputParams;
+          if (outputParams?.params && hasSavedOutputParams) {
+            const savedOutputParamsMap: Record<string, any> = {};
+            const savedRawOutputParams = Array.isArray(n.output_params) 
+              ? n.output_params 
+              : n.output_params?.params || [];
+
+            savedRawOutputParams.forEach((sp: any) => {
+              const paramName = sp.param_name || sp.name || '';
+              if (paramName) {
+                savedOutputParamsMap[paramName] = sp;
+              }
+            });
+
+            mergedOutputParams = {
+              params: outputParams.params.map((paramDef: any) => {
+                const paramName = paramDef.name || paramDef.param_name || '';
+                const savedParam = savedOutputParamsMap[paramName];
+                
+                // 👇 关键：使用 safeInitParamValue
+                const finalValue = safeInitParamValue(savedParam || paramDef);
+                
+                return {
+                  ...paramDef,
+                  _value: finalValue,
+                  param_value: finalValue, // 保持一致
+                };
+              })
+            };
+          }
+
           // 如果有inputParams定义，以inputParams为基础，用savedDrawData中的值覆盖
           if (inputParams?.params) {
             // 构建保存的参数map
@@ -1726,11 +1824,7 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
                     return snId === fromNodeId || snId.endsWith(fromNodeId);
                   });
                   _sourceNodeName = fromNode?.data?.operatorZh || fromNode?.skill?.name_zh || fromNode?.data?.operatorName || fromNode?.skill?.skill_name || fromNode?.skill_name || fromNode?.node_name || fromNode?.data?.label || '';
-                  console.log(`节点 ${nodeId} 参数 ${paramName} 的引用信息:`, {
-                    binding,
-                    _refValue,
-                    _sourceNodeName
-                  });
+                
                 }
                 
                 const paramValue = savedParam?.param_value;
@@ -1769,7 +1863,7 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
               inputVar: 'input_data',
               outputVar: 'output_data',
               input_params: mergedInputParams,
-              output_params: outputParams,
+              output_params: mergedOutputParams,
               onDelete: (delId: string) => {
                 setSelectedNodeId(delId);
                 setShowDeleteModal(true);
@@ -1807,7 +1901,6 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
         // 保存 dag_task_id
         if (savedDrawData.task?.dag_task_id) {
           setTaskId(savedDrawData.task.dag_task_id);
-          console.log(savedDrawData.task.dag_task_id,"1732987482739472937487328_______________________________")
         }
 
         nodeIdCounter.current = loadedNodes.length;
@@ -1821,7 +1914,6 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
 
       // savedDrawData 为 null，使用会话中 DAG JSON
       if (!initialPipelineData || !initialPipelineData.nodes || initialPipelineData.nodes.length === 0) {
-        console.log('savedDrawData 为 null，且 initialPipelineData 也没有数据');
         setIsLoading(false);
         return;
       }
@@ -1829,19 +1921,13 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
       // 打印大模型返回的完整 JSON 数据
       console.log('========================================');
       console.log('=== 大模型返回的 DAG JSON 数据 ===');
-      console.log('========================================');
       console.log('完整数据:', initialPipelineData);
-      console.log('任务名称:', initialPipelineData.task.name);
-      console.log('任务描述:', initialPipelineData.task.description);
-      console.log('节点总数:', initialPipelineData.nodes.length);
-      console.log('节点详情:');
-      initialPipelineData.nodes.forEach((node, index) => {
-        console.log(`  节点 ${index + 1}:`);
-        console.log(`    node_name: ${node.node_name}`);
-        console.log(`    skill_name: ${node.skill_name}`);
-        console.log(`    params:`, JSON.stringify(node.params || {}, null, 4));
-      });
-      console.log('========================================');
+      // initialPipelineData.nodes.forEach((node, index) => {
+      //   console.log(`  节点 ${index + 1}:`);
+      //   console.log(`    node_name: ${node.node_name}`);
+      //   console.log(`    skill_name: ${node.skill_name}`);
+      //   console.log(`    params:`, JSON.stringify(node.params || {}, null, 4));
+      // });
       const pipelineNodes = initialPipelineData.nodes;
       const createdNodes: Node<NodeData>[] = [];
       const createdEdges: Edge[] = [];
@@ -1977,7 +2063,6 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
           // 普通算子，调用接口获取信息
           try {
             const res = await getAllSkills(skillName);
-            console.log(`请求算子详情 skillName=${skillName}:`, res);
             const skillData = extractSkillBySkillName(res, skillName);
             if (skillData) {
               const outputParams = skillData.output_params;
@@ -2004,7 +2089,7 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
       }
 
       // 第二步：遍历创建完整节点，处理参数引用
-        for (let i = 0; i < pipelineNodes.length; i++) {
+      for (let i = 0; i < pipelineNodes.length; i++) {
         const pNode = pipelineNodes[i];
         let skillId = pNode.skill_id || '';
         const skillName = pNode.skill_name;
@@ -2015,14 +2100,27 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
         // 获取算子详情信息
         let inputParams = undefined;
         let outputParams = nodeIdToOutputParamsMap[`node-${i + 1}`];
+
+        // ✅ 关键修复：如果 outputParams 不存在，从算子定义中获取，并初始化 _value
+        if (!outputParams && skillDataFromAPI) {
+          outputParams = skillDataFromAPI.output_params;
+          if (outputParams?.params) {
+            outputParams = {
+              ...outputParams,
+              params: outputParams.params.map(p => ({
+                ...p,
+                _value: p.param_value || p._value || '' // 初始化 _value
+              }))
+            };
+          }
+        }
+
         let iconPath = '';
         
         // 处理 DAG 节点的参数
         // params中每个属性是参数名，值可能是字符串或引用对象
         const dagParams = pNode.params || {};
         const nodeId = `node-${i + 1}`;
-
-        console.log(`节点 ${nodeName} 的 DAG 参数:`, dagParams);
         
         // 构建 mergedInputParams
         let mergedInputParams;
@@ -2093,16 +2191,15 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
           mergedInputParams = { params: newInputParamsList };
           
           // source_stop的输出参数是output
-          outputParams = {
-            params: [{
-              name: 'output',
-              type: 'string',
-              param_name: 'output',
-              param_type: 'String'
-            }]
-          };
-          
-          console.log(`节点 ${nodeName}: source_stop 特殊算子，使用fixArr定义的参数结构:`, mergedInputParams);
+          // outputParams = {
+          //   params: [{
+          //     name: 'output',
+          //     type: 'string',
+          //     param_name: 'output',
+          //     param_type: 'String'
+          //   }]
+          // };
+          outputParams = {params:[]}
         } else if (skillName === 'sink_stop') {
           skillId = 'piflow_engine.cn.piflow.engine.local.file_save_stop.FileSaveStop';
           nodeTypeForOperator = 'output';
@@ -2183,8 +2280,6 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
           });
           
           mergedInputParams = { params: newParamsList };
-          
-          console.log(`节点 ${nodeName}: sink_stop 特殊算子，使用fixArr定义的参数结构:`, mergedInputParams);
         } else {
           // 普通算子，调用接口获取参数信息并合并
           try {
@@ -2194,6 +2289,15 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
               inputParams = skillData.input_params;
               if (!outputParams) {
                 outputParams = skillData.output_params;
+              }
+              if (outputParams?.params) {
+                outputParams = {
+                  ...outputParams,
+                  params: outputParams.params.map(p => ({
+                    ...p,
+                    _value: p._value || p.param_value || ''
+                  }))
+                };
               }
               skillId = skillData.skill_id;
               iconPath = skillData.icon_path || '';
@@ -2217,9 +2321,6 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
             console.error('获取算子库失败', error);
           }
 
-          console.log(`节点 ${nodeName} 的算子 input_params:`, inputParams);
-          console.log(`节点 ${nodeName} 的 output_params:`, outputParams);
-
           // 构建 mergedInputParams：合并DAG 参数到算子的 input_params
           mergedInputParams = inputParams;
           if (inputParams?.params && Array.isArray(inputParams.params)) {
@@ -2229,10 +2330,6 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
               paramDefMap[paramDef.name] = paramDef;
             });
             
-            // 调试日志：打印 DAG 参数和算子参数定义
-            console.log(`[DEBUG] 节点 ${nodeName}: DAG params =`, dagParams);
-            console.log(`[DEBUG] 节点 ${nodeName}: 算子 paramDefs =`, inputParams.params.map((p: any) => ({ name: p.name, default_value: p.default_value, param_value: p.param_value })));
-            
             const newParamsList: any[] = [];
             
             // 先处理算子中定义的参数
@@ -2240,13 +2337,9 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
               // 精确匹配：优先使用 paramDef.name 查找
               let paramValue = dagParams[paramDef.name];
               
-              // 调试日志：显示每个参数的查找结果
-              console.log(`[DEBUG] 节点 ${nodeName}: 参数 "${paramDef.name}" -> dagParams["${paramDef.name}"] =`, paramValue, `(类型:${typeof paramValue})`);
-              
               // 如果找不到，尝试使用 param_name 查找
               if (paramValue === undefined && paramDef.param_name) {
                 paramValue = dagParams[paramDef.param_name];
-                console.log(`[DEBUG] 节点 ${nodeName}: 参数 "${paramDef.name}" 通过 param_name 查找 -> dagParams["${paramDef.param_name}"] =`, paramValue);
               }
               
               // 如果 DAG 参数中有这个参数，则使用 DAG 参数的值
@@ -2270,8 +2363,6 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
                     _sourceParamName: sourceParamName,
                   });
                 } else {
-                  // 手动类型：字符串、数字、布尔等
-                  console.log(`[DEBUG] 节点 ${nodeName}: 参数 "${paramDef.name}" 使用 DAG 值 "${String(paramValue)}"`);
                   newParamsList.push({
                     ...paramDef,
                     _refType: 'manual',
@@ -2280,8 +2371,6 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
                   });
                 }
               } else {
-                // DAG 参数中没有这个参数，使用默认值
-                console.log(`[DEBUG] 节点 ${nodeName}: 参数 "${paramDef.name}" 未在 DAG 中找到，使用默认值 "${paramDef.param_value || paramDef.default_value || ''}"`);
                 newParamsList.push({
                   ...paramDef,
                   _refType: 'manual',
@@ -2337,6 +2426,36 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
           }
         }
 
+
+
+            // --- 新增：参数去重与值转移逻辑 ---
+            const currentNode = pNode;
+
+            // 1. 确保 input_params 和 output_params 都是标准格式 { params: [] }
+            let inputParamsArray = [];
+            let outputParamsArray = [];
+
+            if (currentNode.input_params?.params) {
+              inputParamsArray = currentNode.input_params.params;
+            } else if (Array.isArray(currentNode.input_params)) {
+              inputParamsArray = currentNode.input_params;
+            }
+
+            if (currentNode.output_params?.params) {
+              outputParamsArray = currentNode.output_params.params;
+            } else if (Array.isArray(currentNode.output_params)) {
+              outputParamsArray = currentNode.output_params;
+            }
+
+            // 2. 创建一个输出参数的 Map，方便快速查找
+            const outputParamsMap = new Map();
+            outputParamsArray.forEach((p) => {
+              const paramName = p.name || p.param_name;
+              if (paramName) {
+                outputParamsMap.set(paramName, p);
+              }
+            });
+
         const newNode: Node<NodeData> = {
           id: nodeId,
           type: 'custom',
@@ -2379,7 +2498,6 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
           },
         };
         createdNodes.push(newNode);
-
         // 创建边：根据 params 中的引用关系创建连线
         for (const [paramKey, paramValue] of Object.entries(dagParams)) {
           if (typeof paramValue === 'object' && paramValue !== null && 'source_node' in paramValue) {
@@ -2408,9 +2526,48 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
           }
         }
       }
+      
+      for (let i = 0; i < createdNodes.length; i++) {
+        const node = createdNodes[i];
+        const inputParams = node.data.input_params?.params || [];
+        const outputParams = [...(node.data.output_params?.params || [])]; // 👈 关键：浅拷贝数组
 
-      console.log('创建的节点', createdNodes);
-      console.log('创建的边:', createdEdges);
+        // 构建输入参数的值映射：paramName -> _value
+        const inputValueMap: Record<string, string> = {};
+        inputParams.forEach((param) => {
+          const name = param.name || param.param_name;
+          if (name && (param._value !== undefined || param.param_value !== undefined)) {
+            inputValueMap[name] = String(param._value ?? param.param_value);
+          }
+        });
+
+        // 更新输出参数：若同名，则设置 param_value 和 _value
+        for (let j = 0; j < outputParams.length; j++) {
+          const outParam = outputParams[j];
+          const name = outParam.name || outParam.param_name;
+          if (name && inputValueMap[name] !== undefined) {
+            outputParams[j] = {
+              ...outParam,
+              param_value: inputValueMap[name],
+              _value: inputValueMap[name], // 确保 UI 能显示
+            };
+          }
+        }
+
+        // 更新节点数据（创建新对象以触发 React 更新）
+        if (node.data.output_params) {
+          createdNodes[i] = {
+            ...node,
+            data: {
+              ...node.data,
+              output_params: {
+                ...node.data.output_params,
+                params: outputParams,
+              },
+            },
+          };
+        }
+      }
 
       nodeIdCounter.current = pipelineNodes.length;
       setNodes(createdNodes);
@@ -2428,138 +2585,8 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
 
   // 模拟请求后端接口获取画板数据
   useEffect(() => {
-    // 模拟 API 请求，延迟返回数据
-    // setTimeout(() => {
-    //   // 模拟从后端获取的画板数据
-    //   const fetchedNodes = [
-    //     {
-    //       id: 'node-1',
-    //       type: 'custom',
-    //       position: { x: 50, y: 200 },
-    //       data: {
-    //         label: '文件上传',
-    //         icon: 'Upload',
-    //         operatorId: 'file-upload',
-    //         description: 'CSV文件',
-    //         params: { filePath: '/data/input.csv', encoding: 'utf8' },
-    //         inputVar: undefined,
-    //         outputVar: 'records: 1,204',
-    //       },
-    //     },
-    //     {
-    //       id: 'node-2',
-    //       type: 'custom',
-    //       position: { x: 350, y: 200 },
-    //       data: {
-    //         label: '空行清洗',
-    //         icon: 'Eraser',
-    //         operatorId: 'empty-clean',
-    //         description: '去除空行',
-    //         params: { cleanMode: 'all' },
-    //         inputVar: 'data_stream',
-    //         outputVar: 'cleaned_data',
-    //       },
-    //     },
-    //     {
-    //       id: 'node-3',
-    //       type: 'custom',
-    //       position: { x: 650, y: 200 },
-    //       data: {
-    //         label: '空格清洗',
-    //         icon: 'Type',
-    //         operatorId: 'space-clean',
-    //         description: '去除多余空格',
-    //         params: { spaceMode: 'trim' },
-    //         inputVar: 'cleaned_data',
-    //         outputVar: 'trimmed_data',
-    //       },
-    //     },
-    //     {
-    //       id: 'node-4',
-    //       type: 'custom',
-    //       position: { x: 950, y: 200 },
-    //       data: {
-    //         label: '年份排序',
-    //         icon: 'Calendar',
-    //         operatorId: 'year-sort',
-    //         description: '按年份升序',
-    //         params: { sortField: 'year', sortOrder: 'asc' },
-    //         inputVar: 'trimmed_data',
-    //         outputVar: 'sorted_data',
-    //       },
-    //     },
-    //   ];
-
-    //   const fetchedEdges = [
-    //     { id: 'edge-1', source: 'node-1', target: 'node-2', type: 'custom', data: { edgeType: 'bezier' } },
-    //     { id: 'edge-2', source: 'node-2', target: 'node-3', type: 'custom', data: { edgeType: 'bezier' } },
-    //     { id: 'edge-3', source: 'node-3', target: 'node-4', type: 'custom', data: { edgeType: 'bezier' } },
-    //   ];
-
-    //   console.log('从后端获取画板数据', { nodes: fetchedNodes, edges: fetchedEdges });
-
-    //   // 获取最大节点ID，用于后续新增节点
-    //   nodeIdCounter.current = getMaxNodeId(fetchedNodes);
-
-    //   // 为节点和连线添加回调函数
-    //   const nodesWithCallbacks = fetchedNodes.map((node) => ({
-    //     ...node,
-    //     data: {
-    //       ...node.data,
-    //       onDelete: (id: string) => {
-    //         setNodes((nds) => nds.filter((n) => n.id !== id));
-    //         setEdges((eds) => eds.filter((e) => e.source !== id && e.target !== id));
-    //       },
-    //       onUpdateParams: (id: string, params: Record<string, any>) => {
-    //         setNodes((nds) =>
-    //           nds.map((n) => {
-    //             if (n.id === id) {
-    //               return { ...n, data: { ...n.data, params } };
-    //             }
-    //             return n;
-    //           })
-    //         );
-    //       },
-    //       onSelect: (id: string) => setSelectedNodeId(id),
-    //       onUpdateLabel: (id: string, label: string) => {
-    //         const otherLabels = nodes.filter(n => n.id !== id).map(n => n.data.label);
-    //         let finalLabel = label;
-    //         if (otherLabels.includes(label)) {
-    //           let counter = 1;
-    //           while (otherLabels.includes(`${label}_${counter}`)) {
-    //             counter++;
-    //           }
-    //           finalLabel = `${label}_${counter}`;
-    //         }
-    //         setNodes((nds) =>
-    //           nds.map((n) => {
-    //             if (n.id === id) {
-    //               return { ...n, data: { ...n.data, label: finalLabel } };
-    //             }
-    //             return n;
-    //           })
-    //         );
-    //       },
-    //     },
-    //   }));
-
-    //   const edgesWithCallbacks = fetchedEdges.map((edge) => ({
-    //     ...edge,
-    //     data: {
-    //       edgeType: edge.data?.edgeType || 'bezier',
-    //       onDelete: (id: string) => {
-    //         setEdges((eds) => eds.filter((e) => e.id !== id));
-    //       },
-    //     },
-    //   }));
-
-    //   setNodes(nodesWithCallbacks);
-    //   setEdges(edgesWithCallbacks);
-    // 模拟请求 /suanzi 接口获取算子数据
     getAllSkills().then(resAllSkills=>{
-      console.log('getAllSkills 返回结果:', resAllSkills);
       if(resAllSkills.code === 200){
-        console.log('resAllSkills.result.data:', resAllSkills.result.data);
         let fixArr = [
           {
             groupName: "基础",
@@ -2732,10 +2759,8 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
           }
         ];
         const finalList = fixArr.concat(resAllSkills.result.data);
-        console.log('设置 operatorList，finalList:', finalList);
         // 打印第一个算子的信息
         if(finalList.length > 0 && finalList[0].DagSkillInfoList.length > 0) {
-          console.log('第一个算子信息:', finalList[0].DagSkillInfoList[0]);
         }
         setOperatorList(finalList);
         isInitialized.current = true;
@@ -2765,18 +2790,11 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
     setIsLoadingReferences(true);
     setReferenceOptions([]);
 
-    console.log('=== fetchReferenceOptions 被调用 ===', {
-      currentNodeId,
-      nodes: nodes.map(n => ({ id: n.id, label: n.data.label, has_output_params: !!n.data.output_params?.params })),
-      edges,
-    });
-
     // 找到指向当前节点的所有上游节点（通过 edges 的 target 和 source）
     const upstreamNodeIds = edges
       .filter((e) => e.target === currentNodeId)
       .map((e) => e.source);
 
-    console.log('上游节点ID:', upstreamNodeIds);
 
     if (upstreamNodeIds.length === 0) {
       setIsLoadingReferences(false);
@@ -2785,12 +2803,10 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
 
     // 直接从上游节点的 output_params 获取出参
     const upstreamNodes = nodes.filter((n) => upstreamNodeIds.includes(n.id));
-    console.log('上游节点:', upstreamNodes.map(n => ({ id: n.id, output_params: n.data.output_params })));
     
     const allOutputParams: { name: string; type: string; description: string; nodeId: string; nodeName: string }[] = [];
     
     upstreamNodes.forEach((upstreamNode) => {
-      console.log(`检查上游节点 ${upstreamNode.id} 的 output_params:`, upstreamNode.data.output_params);
 
       // 获取上游节点的中文显示名
       const zhName = upstreamNode.data.operatorZh || upstreamNode.data.operatorName || upstreamNode.data.label || '';
@@ -2809,8 +2825,6 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
           });
         });
       } else {
-        // 如果没有 output_params，检查 input_params（处理 source_stop 等特殊算子）
-        console.log(`上游节点 ${upstreamNode.id} 没有 output_params，检查 input_params:`, upstreamNode.data.input_params);
         if (upstreamNode.data.input_params?.params) {
           // 查找名为 "output" 的参数
           const outputParam = upstreamNode.data.input_params.params.find(
@@ -2841,7 +2855,6 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
     });
 
     setReferenceOptions(allOutputParams);
-    console.log('引用变量选项:', allOutputParams);
     setIsLoadingReferences(false);
   }, [edges, nodes]);
 
@@ -2867,197 +2880,6 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
     return newLabel;
   }, [nodes]);
 
-  // const handleAddNode = useCallback(
-  //   async (operator: { skill_id: string; skill_name: string; name_zh: string; icon_path: string; skill_type: string; description?: string }, position?: { x: number; y: number }) => {
-  //     console.log('handleAddNode 被调用，operator 数据:', operator);
-  //     nodeIdCounter.current += 1;
-  //     const uniqueLabel = generateUniqueLabel(operator.name_zh);
-
-  //     // 请求算子详情获取 input_params 和 output_params
-  //     let inputParams = undefined;
-  //     let outputParams = undefined;
-  //     let operatorIconPath = operator.icon_path;
-  //     let operatorDescription = operator.description || '';
-  //     try {
-  //       console.log('请求算子详情，skill_id:', operator.skill_id);
-  //       const res = await listSkillsDetails(operator.skill_id);
-  //       console.log('算子详情返回结果:', res);
-  //       if (res.result) {
-  //         inputParams = res.result.input_params;
-  //         outputParams = res.result.output_params;
-  //         operatorIconPath = res.result.icon_path || operatorIconPath;
-  //         operatorDescription = res.result.description || operatorDescription;
-  //         console.log('最终使用的图标路径:', operatorIconPath);
-  //         console.log('最终使用的描述:', operatorDescription);
-  //       }
-  //     } catch (error) {
-  //       console.error('获取算子详情失败:', error);
-  //     }
-      
-  //     // 检查是否有 required 字段，没有的话用 getAllSkills 回退
-  //     const hasRequiredField = inputParams?.params?.some((p: any) => p.required !== undefined);
-  //     if (!hasRequiredField) {
-  //       try {
-  //         const listRes = await getAllSkills(operator.skill_name);
-  //         const skillData = extractSkillBySkillName(listRes, operator.skill_name) || extractSkillBySkillName(listRes, operator.skill_id);
-  //         if (skillData?.input_params?.params?.some((p: any) => p.required !== undefined)) {
-  //           inputParams = skillData.input_params;
-  //           outputParams = skillData.output_params || outputParams;
-  //           operatorIconPath = skillData.icon_path || operatorIconPath;
-  //           console.log('handleAddNode: 使用 getAllSkills 参数模板 (含 required):', inputParams);
-  //         }
-  //       } catch (e) { console.error('handleAddNode: getAllSkills 失败:', e); }
-  //     }
-      
-  //     // 计算新节点的位置
-  //     let newPosition = position;
-  //     if (!newPosition) {
-  //       // 获取当前视图信息
-  //       const currentViewport = getViewport();
-  //       const wrapperEl = reactFlowWrapper.current;
-  //       const containerW = wrapperEl?.clientWidth || window.innerWidth;
-  //       const containerH = wrapperEl?.clientHeight || window.innerHeight;
-  //       // 计算视图中心在画布上的坐标
-  //       const viewCenterX = (containerW / 2 - currentViewport.x) / currentViewport.zoom;
-  //       const viewCenterY = (containerH / 2 - currentViewport.y) / currentViewport.zoom;
-        
-  //       // 检查是否会与现有节点重叠，如果重叠则偏移
-  //       let offsetX = 0;
-  //       let offsetY = 0;
-  //       let attempt = 0;
-  //       const maxAttempts = 50;
-        
-  //       while (attempt < maxAttempts) {
-  //         const testX = viewCenterX - NODE_WIDTH / 2 + offsetX;
-  //         const testY = viewCenterY - 70 + offsetY;
-          
-  //         // 检查是否与现有节点重叠
-  //         const overlaps = nodes.some(node => {
-  //           const nodeRight = node.position.x + NODE_WIDTH;
-  //           const nodeBottom = node.position.y + NODE_HEIGHT;
-  //           const testRight = testX + NODE_WIDTH;
-  //           const testBottom = testY + NODE_HEIGHT;
-            
-  //           return !(testRight < node.position.x || testX > nodeRight || 
-  //                    testBottom < node.position.y || testY > nodeBottom);
-  //         });
-          
-  //         if (!overlaps) {
-  //           newPosition = { x: testX, y: testY };
-  //           break;
-  //         }
-          
-  //         // 螺旋式偏移
-  //         offsetX += (attempt % 2 === 0 ? 1 : -1) * (NODE_GAP * Math.floor(attempt / 2 + 1));
-  //         if (attempt % 2 === 1) {
-  //           offsetY += NODE_GAP;
-  //         }
-  //         attempt++;
-  //       }
-        
-  //       // 如果所有尝试都失败，使用原始位置
-  //       if (!newPosition) {
-  //         newPosition = {
-  //           x: viewCenterX - NODE_WIDTH / 2,
-  //           y: viewCenterY - 70,
-  //         };
-  //       }
-  //     }
-      
-  //     const newNode: Node<NodeData> = {
-  //       id: `node-${nodeIdCounter.current}`,
-  //       type: 'custom',
-  //       position: newPosition,
-  //       data: {
-  //         label: uniqueLabel,
-  //         icon: operatorIconPath,
-  //         operatorId: operator.skill_id,
-  //         operatorName: operator.skill_name || '',
-  //         operatorZh: operator.name_zh || '',
-  //         operatorType: operator.skill_type || '',
-  //         description: operatorDescription,
-  //         params: {},
-  //         inputVar: 'input_data',
-  //         outputVar: 'output_data',
-  //         input_params: inputParams,
-  //         output_params: outputParams,
-  //         onDelete: (id: string) => {
-  //           setNodes((nds) => nds.filter((n) => n.id !== id));
-  //           setEdges((eds) => eds.filter((e) => e.source !== id && e.target !== id));
-  //         },
-  //         onUpdateParams: (id: string, params: Record<string, any>) => {
-  //           setNodes((nds) =>
-  //             nds.map((n) => {
-  //               if (n.id === id) {
-  //                 return {
-  //                   ...n,
-  //                   data: { ...n.data, params },
-  //                 };
-  //               }
-  //               return n;
-  //             })
-  //           );
-  //         },
-  //         onSelect: (id: string) => {
-  //           setSelectedNodeId(id);
-  //           setShowOperatorModal(false);
-  //         },
-  //         onUpdateLabel: (id: string, label: string) => {
-  //           // 获取当前节点以外的所有节点标签
-  //           const otherLabels = nodes.filter(n => n.id !== id).map(n => n.data.label);
-
-  //           // 生成唯一名称（如果冲突则添加后缀）
-  //           let finalLabel = label;
-  //           if (otherLabels.includes(label)) {
-  //             let counter = 1;
-  //             while (otherLabels.includes(`${label}_${counter}`)) {
-  //               counter++;
-  //             }
-  //             finalLabel = `${label}_${counter}`;
-  //           }
-
-  //           setNodes((nds) =>
-  //             nds.map((n) => {
-  //               if (n.id === id) {
-  //                 return { ...n, data: { ...n.data, label: finalLabel } };
-  //               }
-  //               return n;
-  //             })
-  //           );
-  //         },
-  //       },
-  //     };
-      
-  //     // 添加新节点
-  //     setNodes((nds) => [...nds, newNode]);
-      
-  //     // 自动调整视图，将新节点放到视野中心（保持当前缩放级别）
-  //     setTimeout(() => {
-  //       const currentViewport = getViewport();
-  //       const wrapperEl = reactFlowWrapper.current;
-  //       const containerW = wrapperEl?.clientWidth || window.innerWidth;
-  //       const containerH = wrapperEl?.clientHeight || window.innerHeight;
-  //       // 计算新节点的中心点
-  //       const nodeCenterX = newPosition.x + NODE_WIDTH / 2;
-  //       const nodeCenterY = newPosition.y + 70;
-  //       // 计算需要移动的偏移量
-  //       const targetX = containerW / 2 - nodeCenterX * currentViewport.zoom;
-  //       const targetY = containerH / 2 - nodeCenterY * currentViewport.zoom;
-  //       // 使用 setViewport 移动视图，保持当前的缩放级别
-  //       setViewport(
-  //         {
-  //           x: targetX,
-  //           y: targetY,
-  //           zoom: currentViewport.zoom,
-  //         },
-  //         { duration: 500 }
-  //       );
-  //     }, 100);
-  //   },
-  //   [setNodes, setEdges, nodes, generateUniqueLabel, getViewport, setViewport]
-  // );
-
-   // ==================== 添加节点 ====================
 const handleAddNode = useCallback(
   async (
     operator: {
@@ -3070,7 +2892,6 @@ const handleAddNode = useCallback(
     },
     position?: { x: number; y: number }
   ) => {
-    console.log('handleAddNode 被调用，operator 数据:', operator);
     nodeIdCounter.current += 1;
     const uniqueLabel = generateUniqueLabel(operator.name_zh);
 
@@ -3206,16 +3027,12 @@ const handleAddNode = useCallback(
     } else {
       // 原有逻辑：尝试从 API 获取
       try {
-        console.log('请求算子详情，skill_id:', operator.skill_id);
         const res = await listSkillsDetails(operator.skill_id);
-        console.log('算子详情返回结果:', res);
         if (res.result) {
           inputParams = res.result.input_params;
           outputParams = res.result.output_params;
           operatorIconPath = res.result.icon_path || operatorIconPath;
           operatorDescription = res.result.description || operatorDescription;
-          console.log('最终使用的图标路径:', operatorIconPath);
-          console.log('最终使用的描述:', operatorDescription);
         }
       } catch (error) {
         console.error('获取算子详情失败:', error);
@@ -3231,7 +3048,6 @@ const handleAddNode = useCallback(
             inputParams = skillData.input_params;
             outputParams = skillData.output_params || outputParams;
             operatorIconPath = skillData.icon_path || operatorIconPath;
-            console.log('handleAddNode: 使用 getAllSkills 参数模板 (含 required):', inputParams);
           }
         } catch (e) {
           console.error('handleAddNode: getAllSkills 失败:', e);
@@ -3360,6 +3176,31 @@ const handleAddNode = useCallback(
   ]
 );
 
+// ==================== 通用工具函数 ====================
+
+// 安全初始化 _value：仅当 _value 不存在时才用 param_value 或 value 填充
+const safeInitParamValue = (p: any): string => {
+  // 如果用户已经编辑过（_value 存在），就保留它
+  if (p._value !== undefined && p._value !== null) {
+    return String(p._value);
+  }
+  // 否则用后端返回的 param_value 或 value 初始化
+  const initVal = p.param_value !== undefined ? p.param_value : p.value;
+  return initVal !== undefined ? String(initVal) : '';
+};
+
+// 通用字段映射函数：确保参数对象中包含组件需要的 _value 字段（仅用于初始化）
+const mapOutputParamsValues = (rawParams) => {
+  if (!rawParams) return { params: [] };
+
+  const paramsArray = Array.isArray(rawParams) ? rawParams : (rawParams.params || []);
+  const mappedParams = paramsArray.map((p) => ({
+    ...p,
+    _value: safeInitParamValue(p), // 👈 关键：不再强制覆盖
+  }));
+
+  return { params: mappedParams };
+};
 
 
 
@@ -3393,193 +3234,7 @@ const handleAddNode = useCallback(
     setNodes((nds) => [...nds, newComment]);
   }, [setNodes]);
 
-  // 自动保存画板数据
-  // useEffect(() => {
-  //   // 跳过首次渲染（初始化时不需要保存）
-  //   if (isFirstRender.current) {
-  //     isFirstRender.current = false;
-  //     return;
-  //   }
-
-  //   // 跳过未初始化的状态
-  //   if (!isInitialized.current) return;
-
-  //   // 防抖：清除上一次的定时器
-  //   if (autoSaveTimerRef.current) {
-  //     clearTimeout(autoSaveTimerRef.current);
-  //   }
-
-  //   // 设置新的定时器，800ms 后执行保存
-  //   autoSaveTimerRef.current = setTimeout(async () => {
-  //     // 检查nodes 中是否有引用类型的参数
-  //     console.log('=== 保存前检查===');
-  //     console.log('edges 数量:', edges.length);
-  //     console.log('edges:', edges);
-  //     console.log('nodes:', nodes.map(n => ({ id: n.id, label: n.data.label })));
-      
-  //     console.log('=== 保存前检查nodes ===');
-  //     nodes.forEach(node => {
-  //       console.log('Node:', node.id, 'Icon:', node.data.icon);
-  //       if (node.data.input_params?.params) {
-  //         node.data.input_params.params.forEach(param => {
-  //           console.log('Node:', node.id, 'Param:', param.name, '_refType:', param._refType, '_refValue:', param._refValue);
-  //         });
-  //       }
-  //     });
-      
-  //     // 预生成所有引用参数的 binding 映射：nodeId|paramName -> binding 对象
-  //     const bindingMap: Record<string, any> = {};
-  //     nodes.forEach(node => {
-  //       if (node.data.input_params?.params) {
-  //         node.data.input_params.params.forEach(param => {
-  //           if (param._refType === 'reference') {
-  //             const upstreamEdge = edges.find(e => e.target === node.id);
-  //             if (upstreamEdge) {
-  //               let refParamName = param._refValue;
-  //               if (!refParamName) {
-  //                 const upstreamNode = nodes.find(n => n.id === upstreamEdge.source);
-  //                 refParamName = upstreamNode?.data.output_params?.params?.[0]?.name || '';
-  //               } else if (String(refParamName).includes('（')) {
-  //                 refParamName = String(refParamName).split('（')[0];
-  //               } else if (String(refParamName).includes('_') && !String(refParamName).startsWith('node-')) {
-  //                 const parts = String(refParamName).split('_');
-  //                 if (parts.length > 1 && parts[0].startsWith('node-')) {
-  //                   refParamName = parts[parts.length - 1];
-  //                 }
-  //               }
-  //               const bid = generateUUID();
-  //               const key = `${node.id}|${param.name}`;
-  //               bindingMap[key] = {
-  //                 binding_id: bid,
-  //                 from_node_id: upstreamEdge.source,
-  //                 from_param_name: String(refParamName ?? '').trim() || param.name,
-  //                 to_node_id: node.id,
-  //                 to_param_name: param.name || '',
-  //               };
-  //             }
-  //           }
-  //         });
-  //       }
-  //     });
-      
-  //     // 构造请求参数（按照接口文档结构）
-  //     const nodesToSave = nodes
-  //           .filter(n => n.type !== 'comment')
-  //           .map(n => ({
-  //             node_id: n.id,
-  //             node_name: n.data.label,
-  //             node_type: 'default',
-  //             icon_path: n.data.icon || '',
-  //             skill: {
-  //               skill_id: n.data.operatorId,
-  //               skill_name: n.data.operatorName || '',
-  //               name_zh: n.data.operatorZh || '',
-  //               version: '1.0',
-  //             },
-  //             position: {
-  //               x: n.position.x,
-  //               y: n.position.y,
-  //             },
-  //             input_params: (n.data.input_params?.params || [])
-  //               .filter(p => {
-  //                 if (p._refType === 'reference') return true;
-  //                 const val = String(p._value ?? p.param_value ?? '');
-  //                 return val.trim() !== '';
-  //               })
-  //               .map(p => {
-  //                 const isReference = p._refType === 'reference';
-  //                 const savedValue = isReference ? (p._refValue || '') : (p._value || '');
-  //                 const bindingKey = `${n.id}|${p.name}`;
-  //                 const existingBinding = bindingMap[bindingKey];
-  //                 return {
-  //                   param_name: p.name,
-  //                   param_value: savedValue,
-  //                   value_mode: isReference ? 'reference' : 'manual',
-  //                   binding_id: isReference ? (existingBinding?.binding_id || generateUUID()) : '',
-  //                 };
-  //               }),
-  //             out_params: n.data.output_params?.params?.map(p => ({
-  //               param_name: p.name || p.param_name || '',
-  //               param_type: p.type || p.param_type || 'string',
-  //             })) || [],
-  //           }));
-  //     console.log('准备保存的 nodes 数据:', nodesToSave);
-      
-      
-
-  //     try {
-  //       const actualTaskId = taskIdFromRes || taskId; 
-  //       const params = {
-  //         dsl_version: "1.0",
-  //         task: {
-  //           dag_task_id: taskId || '',
-  //           dag_task_name: taskName,
-  //           description: taskDescription,
-  //           message_id: messageId || ''
-  //         },
-  //         nodes: nodesToSave,
-  //         edges: edges.map(e => ({
-  //           edge_id: e.id,
-  //           from_node_id: e.source,
-  //           to_node_id: e.target,
-  //         })),
-  //         bindings: Object.values(bindingMap)
-  //       };
-  //       const res = await saveDrawInfo(params);
-  //       const taskIdFromRes = res.result?.task_id;
-  //       if (taskIdFromRes) {
-  //         setTaskId(taskIdFromRes);
-  //       }
-        
-  //       console.log("我是在draw.tsx文件中触发的342342343",res.result,taskId)
-  //       if (isSaved && taskIdFromRes){
-  //         params.task.dag_task_id = taskIdFromRes; 
-  //         const resSec = await saveDrawInfo(params);
-  //         return;
-  //       }
-  //       if (res.code === 200) {
-  //         setTaskId(res.result?.dag_task_id || '');
-  //         setSaveMessage('保存成功！');
-  //         // 修改成功信息，遮挡返回按钮了
-  //         setTimeout(() => setSaveMessage(''), 2000);
-  //       } else {
-  //         setSaveMessage('保存失败：' + (res.message || '未知错误'));
-  //         setTimeout(() => setSaveMessage(''), 3000);
-  //       }
-  //     } catch (error) {
-  //       console.error('保存失败:', error);
-  //       setSaveMessage('保存失败：网络错误');
-  //       setTimeout(() => setSaveMessage(''), 3000);
-  //     }
-      
-
-  //     //再次进行保存接口
-  //     // if (isSaved){
-  //     //   debugger
-  //     //     params.task.dag_task_id = newTaskId; 
-  //     //     try {
-  //     //     const res = await saveDrawInfo(params);
-  //     //     if (res.code === 200) {
-  //     //       setSaveMessage('保存成功！');
-  //     //       // 修改成功信息，遮挡返回按钮了
-  //     //       setTimeout(() => setSaveMessage(''), 2000);
-  //     //     } else {
-  //     //       setSaveMessage('保存失败：' + (res.message || '未知错误'));
-  //     //       setTimeout(() => setSaveMessage(''), 3000);
-  //     //     }
-  //     //   } catch (error) {
-  //     //     console.error('保存失败:', error);
-  //     //     setSaveMessage('保存失败：网络错误');
-  //     //     setTimeout(() => setSaveMessage(''), 3000);
-  //     //   }
-  //     // } else {
-  //     //   params.task.dag_task_id = taskId;
-  //     // }
-
-      
-  //     setIsSaving(false);
-  //   }, 800);
-  // }, [nodes, edges, taskId, messageId]);
+  
   // 新的自动保存画板数据
 
   // 自动保存画板数据
@@ -3601,9 +3256,6 @@ const handleAddNode = useCallback(
     // 设置新的定时器，800ms 后执行保存
     autoSaveTimerRef.current = setTimeout(async () => {
       // 检查nodes 中是否有引用类型的参数
-      console.log('=== 保存前检查===');
-      console.log('edges 数量:', edges.length);
-      console.log('edges:', edges);
 
       // ========== 开始：替换的核心逻辑 ==========
       // 1. 准备 nodesToSave 和 bindingMap (这部分保持不变)
@@ -3615,8 +3267,8 @@ const handleAddNode = useCallback(
             node_type: 'comment',
             position: node.position,
             skill: null,
-            input_params: [],
-            output_params: []
+            input_params: node.data.input_params,
+            output_params: node.data.output_params,
           };
         }
 
@@ -3645,7 +3297,8 @@ const handleAddNode = useCallback(
 
         const outputParams = (node.data.output_params?.params || []).map((p: any) => ({
           name: p.name,
-          param_type: p.param_type || p.type || 'string'
+          param_type: p.type || p.param_type || 'string',
+          param_value: p._value || '', // 确保这里也包含了 _value
         }));
 
         return {
@@ -3662,7 +3315,7 @@ const handleAddNode = useCallback(
             description: node.data.description
           },
           input_params: inputParams,
-          output_params: outputParams
+          output_params: outputParams,
         };
       });
 
@@ -3755,7 +3408,6 @@ const handleAddNode = useCallback(
 
       try {
         const res = await saveDrawInfo(finalParams);
-        console.log("我是在draw.tsx文件中触发的342342343", res.result, currentTaskId);
 
         if (res.code === 200) {
           setSaveMessage('保存成功！');
@@ -3824,7 +3476,6 @@ const handleAddNode = useCallback(
             for (const n of nodes) {
               if (n.type === 'comment') continue;
               const params = n.data.input_params?.params || [];
-              console.log('params',params)
               for (const p of params) {
                 if (p.required) {
                   // 如果是引用模式（_refType === 'reference'），则认为已填写
@@ -3850,44 +3501,42 @@ const handleAddNode = useCallback(
                 message_id: messageId || ''
               },
               nodes: nodes
-                .filter(n => n.type !== 'comment')
-                .map(n => ({
-                  node_id: n.id,
-                  node_name: n.data.label,
-                  node_type: 'default',
-                  icon_path: n.data.icon || '',
-                  skill: {
-                    skill_id: n.data.operatorId,
-                    version: '1.0',
-                  },
-                  position: {
-                    x: n.position.x,
-                    y: n.position.y,
-                  },
-                  input_params: (n.data.input_params?.params || [])
-                    .filter(p => {
-                      if (p._refType === 'reference') return true;
-                      const val = String(p._value ?? p.param_value ?? '');
-                      return val.trim() !== '';
-                    })
-                    .map(p => {
-                      const isReference = p._refType === 'reference';
-                      return {
-                        param_name: p.name,
-                        param_value: isReference ? '' : (p._value || ''),
-                        value_mode: isReference ? 'reference' : 'manual',
-                        binding_id: isReference ? generateUUID() : '',
-                      };
-                    }),
-                  out_params: n.data.output_params?.params?.map(p => ({
-                    param_name: p.name || p.param_name || '',
-                    param_type: p.type || p.param_type || 'string',
-                  })) || [],
-                })),
-              edges: edges.map(e => ({
-                edge_id: e.id,
-                from_node_id: e.source,
-                to_node_id: e.target,
+              .filter(n => n.type !== 'comment')
+              .map(n => ({
+                node_id: n.id,
+                node_name: n.data.label,
+                node_type: 'default',
+                icon_path: n.data.icon || '',
+                skill: {
+                  skill_id: n.data.operatorId,
+                  version: '1.0',
+                },
+                position: { x: n.position.x, y: n.position.y },
+                
+                // --- 修改 input_params 处理 (保持原有逻辑) ---
+                input_params: (n.data.input_params?.params || [])
+                  .filter(p => {
+                    if (p._refType === 'reference') return true;
+                    const val = String(p._value ?? p.param_value ?? '');
+                    return val.trim() !== '';
+                  })
+                  .map(p => {
+                    const isReference = p._refType === 'reference';
+                    return {
+                      param_name: p.name,
+                      param_value: isReference ? '' : (p._value || ''),
+                      value_mode: isReference ? 'reference' : 'manual',
+                      binding_id: isReference ? generateUUID() : '',
+                    };
+                  }),
+                  
+                // --- 修改 output_params 处理 (关键修改点) ---
+                // 将 output_params 中的 _value 映射为 param_value
+                out_params: n.data.output_params?.params?.map(p => ({
+                  param_name: p.name || p.param_name || '',
+                  param_type: p.type || p.param_type || 'string',
+                  param_value: p._value || '', // 将用户填写的值放入 param_value
+                })) || [],
               })),
             };
             
@@ -4049,214 +3698,61 @@ const handleAddNode = useCallback(
 
             {/* 输入参数 */}
             {selectedNode.data.input_params?.params && selectedNode.data.input_params.params.length > 0 && (
-              <div className="draw-config-params-section">
-                <div className="draw-config-section-title">
-                  <span className="draw-config-section-bar"></span>
-                  <span className="draw-config-section-text">输入参数</span>
-                </div>
+              (() => {
+                // 获取所有输出参数的 name 集合（用于快速查找）
+                const outputParamNames = new Set(
+                  (selectedNode.data.output_params?.params || []).map((op: any) => op.name)
+                );
 
-                {selectedNode.data.input_params.params.map((param: any, index: number) => (
-                  <div key={`input-${index}`} className="draw-config-param-card">
-                    {/* 第一行：参数名称 + 必填星号 + 问号tooltip + 类型标签 */}
-                    <div className="draw-config-param-header">
-                      <div className="draw-config-param-name-row">
-                        <span className="draw-config-param-name">{param.name}</span>
-                        {param.required && <span className="draw-config-param-required">*</span>}
-                        {param.description && (
-                          <div className="draw-config-param-tooltip" title={param.description}>
-                            ?
-                          </div>
-                        )}
-                      </div>
-                      <span className="draw-config-param-type-tag">{param.type || '-'}</span>
+                // 过滤输入参数：排除 name 存在于 output_param_names 中的项
+                const filteredInputParams = (selectedNode.data.input_params.params || [])
+                  .filter((param: any) => !outputParamNames.has(param.name));
+
+                if (filteredInputParams.length === 0) return null;
+
+                return (
+                  <div className="draw-config-params-section">
+                    <div className="draw-config-section-title">
+                      <span className="draw-config-section-bar"></span>
+                      <span className="draw-config-section-text">输入参数</span>
                     </div>
 
-                    {/* 第二行：来源 + 值 */}
-                    <div className="draw-config-param-value-row">
-                      <select
-                        className="draw-config-source-select"
-                        value={param._refType || 'manual'}
-                        onChange={(e) => {
-                          const newRefType = e.target.value;
-                          const newParams = [...selectedNode.data.input_params.params];
-                          const isChangingToReference = newRefType === 'reference' && param._refType !== 'reference';
-                          newParams[index] = {
-                            ...newParams[index],
-                            _refType: newRefType,
-                            _value: newRefType === 'reference' ? '' : (param._value || param.param_value || param._refValue || ''),
-                            _refValue: isChangingToReference ? (referenceOptions.length > 0 ? referenceOptions[0].name : '') : (newRefType === 'reference' ? param._refValue || '' : '')
-                          };
-
-                          if (newRefType === 'reference' && referenceOptions.length === 0) {
-                            alert('没有可用的引用选项，请确保有上游节点连接');
-                          }
-
-                          setNodes((nds) =>
-                            nds.map((n) => {
-                              if (n.id === selectedNodeId) {
-                                return {
-                                  ...n,
-                                  data: {
-                                    ...n.data,
-                                    input_params: { ...n.data.input_params, params: newParams },
-                                  },
-                                };
-                              }
-                              return n;
-                            })
-                          );
-                        }}
-                      >
-                        <option value="manual">手动</option>
-                        <option value="reference">引用</option>
-                        <option value="dataSource">数据源</option>
-                      </select>
-
-                      {param._refType === 'reference' ? (
-                        <div className="draw-config-ref-wrapper">
-                          <div className="draw-config-ref-dropdown">
-                            <button
-                              className="draw-config-ref-trigger"
-                              onClick={() => {
-                                // 切换展开状态
-                                const dropdownKey = `${selectedNodeId}-${param.name}`;
-                                const newExpandedRefs = [...expandedRefDropdowns];
-                                const idx = newExpandedRefs.indexOf(dropdownKey);
-                                if (idx > -1) {
-                                  // 关闭时重置选中的算子
-                                  newExpandedRefs.splice(idx, 1);
-                                  setSelectedOperatorForRef('');
-                                } else {
-                                  newExpandedRefs.push(dropdownKey);
-                                }
-                                setExpandedRefDropdowns(newExpandedRefs);
-                              }}
-                            >
-                              {param._refValue ? (
-                                <span className="draw-config-ref-selected">
-                                  {(function() {
-                                    const matchedOpt = referenceOptions.find(o => o.name === param._refValue);
-                                    const fallbackOpt = !matchedOpt
-                                      ? referenceOptions.find(o => param._refValue?.endsWith(o.name) || o.name.endsWith(param._refValue || ''))
-                                      : null;
-                                    const nodeName = matchedOpt?.nodeName || fallbackOpt?.nodeName || param._sourceNodeName || '未知';
-                                    return nodeName + ' / ' + (matchedOpt?.name || fallbackOpt?.name || param._refValue);
-                                  })()}
-                                </span>
-                              ) : (
-                                <span className="draw-config-ref-placeholder">选择算子 / 参数...</span>
-                              )}
-                              <span className="draw-config-ref-arrow">▼</span>
-                            </button>
-
-                            {expandedRefDropdowns.includes(`${selectedNodeId}-${param.name}`) && (
-                              <div className="draw-config-ref-dropdown-content">
-                                {/* 第一级：算子列表 */}
-                                {!selectedOperatorForRef && (
-                                  <>
-                                    <div className="draw-config-ref-dropdown-header">
-                                      <span className="draw-config-ref-dropdown-operator">选择算子</span>
-                                    </div>
-                                    <div className="draw-config-ref-dropdown-list">
-                                      {/* 按算子分组显示 */}
-                                      {Array.from(new Set(referenceOptions.map(o => o.nodeId))).map((nodeId) => {
-                                        const nodeOpts = referenceOptions.filter(o => o.nodeId === nodeId);
-                                        const nodeName = nodeOpts[0]?.nodeName || nodeId;
-                                        return (
-                                          <div
-                                            key={nodeId}
-                                            className={`draw-config-ref-dropdown-item ${param._sourceNodeId === nodeId ? 'selected' : ''}`}
-                                            onClick={() => {
-                                              setSelectedOperatorForRef(nodeId);
-                                            }}
-                                            title={nodeName}
-                                          >
-                                            <span className="draw-config-ref-item-dot"></span>
-                                            <span className="draw-config-ref-item-operator" style={{ flex: 1 }}>{nodeName}</span>
-                                            <span className="draw-config-ref-item-count">{nodeOpts.length}个参数</span>
-                                          </div>
-                                        );
-                                      })}
-                                    </div>
-                                  </>
-                                )}
-                                {/* 第二级：参数列表 */}
-                                {selectedOperatorForRef && (
-                                  <>
-                                    <div className="draw-config-ref-dropdown-header">
-                                      <span className="draw-config-ref-back" onClick={() => setSelectedOperatorForRef('')}>← 返回</span>
-                                      <span className="draw-config-ref-dropdown-param">选择参数</span>
-                                    </div>
-                                    <div className="draw-config-ref-dropdown-list">
-                                      {referenceOptions.filter(o => o.nodeId === selectedOperatorForRef).map((opt) => (
-                                        <div
-                                          key={`${opt.nodeId}_${opt.name}`}
-                                          className={`draw-config-ref-dropdown-item ${param._refValue === opt.name ? 'selected' : ''}`}
-                                          onClick={() => {
-                                            const refValue = opt.name;
-                                            const newParams = [...selectedNode.data.input_params.params];
-                                            newParams[index] = {
-                                              ...newParams[index],
-                                              _refValue: refValue,
-                                              _sourceNodeId: opt.nodeId || '',
-                                              _sourceNodeName: opt.nodeName || '',
-                                              _sourceParamName: opt.name || '',
-                                            };
-                                            setNodes((nds) =>
-                                              nds.map((n) => {
-                                                if (n.id === selectedNodeId) {
-                                                  return {
-                                                    ...n,
-                                                    data: {
-                                                      ...n.data,
-                                                      input_params: { ...n.data.input_params, params: newParams },
-                                                    },
-                                                  };
-                                                }
-                                                return n;
-                                              })
-                                            );
-                                            // 关闭下拉并重置选中的算子
-                                            setExpandedRefDropdowns(expandedRefDropdowns.filter(id => id !== `${selectedNodeId}-${param.name}`));
-                                            setSelectedOperatorForRef('');
-                                          }}
-                                        >
-                                          <span className="draw-config-ref-item-dot"></span>
-                                          <span className="draw-config-ref-item-param" style={{ flex: 1 }}>{opt.name}</span>
-                                          <span className="draw-config-ref-item-type">{opt.type}</span>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  </>
-                                )}
+                    {filteredInputParams.map((param: any, index: number) => (
+                      <div key={`input-${index}`} className="draw-config-param-card">
+                        {/* 第一行：参数名称 + 必填星号 + 问号tooltip + 类型标签 */}
+                        <div className="draw-config-param-header">
+                          <div className="draw-config-param-name-row">
+                            <span className="draw-config-param-name">{param.name}</span>
+                            {param.required && <span className="draw-config-param-required">*</span>}
+                            {param.description && (
+                              <div className="draw-config-param-tooltip" title={param.description}>
+                                ?
                               </div>
                             )}
                           </div>
+                          <span className="draw-config-param-type-tag">{param.type || '-'}</span>
                         </div>
-                      ) : (
-                        param.name === 'file_path' && param._refType === 'manual' ? (
-                          <input
-                            className="draw-config-value-input"
-                            value={param._value || param.param_value || ''}
-                            placeholder="请选择文件"
-                            title={param._value || param.param_value || ''}
-                            readOnly
-                            style={{ cursor: 'pointer', backgroundColor: '#f8fafc' }}
-                            onClick={async () => {
-                              setFileSelectParamIndex(index);
-                              await loadDirectories();
-                              setShowFileModal(true);
-                            }}
-                          />
-                        ) : (
-                          <input
-                            className="draw-config-value-input"
-                            value={param._value || param.param_value || ''}
-                            placeholder={param._refType === 'dataSource' ? '数据源' : '请输入值'}
-                            title={param._value || param.param_value || ''}
+
+                        {/* 第二行：来源 + 值 */}
+                        <div className="draw-config-param-value-row">
+                          <select
+                            className="draw-config-source-select"
+                            value={param._refType || 'manual'}
                             onChange={(e) => {
-                              const newParams = [...selectedNode.data.input_params.params];
-                              newParams[index] = { ...newParams[index], _value: e.target.value };
+                              const newRefType = e.target.value;
+                              const newParams = [...selectedNode.data.input_params.params]; // 注意：这里仍操作原始数组
+                              const isChangingToReference = newRefType === 'reference' && param._refType !== 'reference';
+                              newParams[index] = {
+                                ...newParams[index],
+                                _refType: newRefType,
+                                _value: newRefType === 'reference' ? '' : (param._value || param.param_value || param._refValue || ''),
+                                _refValue: isChangingToReference ? (referenceOptions.length > 0 ? referenceOptions[0].name : '') : (newRefType === 'reference' ? param._refValue || '' : '')
+                              };
+
+                              if (newRefType === 'reference' && referenceOptions.length === 0) {
+                                alert('没有可用的引用选项，请确保有上游节点连接');
+                              }
+
                               setNodes((nds) =>
                                 nds.map((n) => {
                                   if (n.id === selectedNodeId) {
@@ -4272,13 +3768,175 @@ const handleAddNode = useCallback(
                                 })
                               );
                             }}
-                          />
-                        )
-                      )}
-                    </div>
+                          >
+                            <option value="manual">手动</option>
+                            <option value="reference">引用</option>
+                            <option value="dataSource">数据源</option>
+                          </select>
+
+                          {param._refType === 'reference' ? (
+                            <div className="draw-config-ref-wrapper">
+                              <div className="draw-config-ref-dropdown">
+                                <button
+                                  className="draw-config-ref-trigger"
+                                  onClick={() => {
+                                    const dropdownKey = `${selectedNodeId}-${param.name}`;
+                                    const newExpandedRefs = [...expandedRefDropdowns];
+                                    const idx = newExpandedRefs.indexOf(dropdownKey);
+                                    if (idx > -1) {
+                                      newExpandedRefs.splice(idx, 1);
+                                      setSelectedOperatorForRef('');
+                                    } else {
+                                      newExpandedRefs.push(dropdownKey);
+                                    }
+                                    setExpandedRefDropdowns(newExpandedRefs);
+                                  }}
+                                >
+                                  {param._refValue ? (
+                                    <span className="draw-config-ref-selected">
+                                      {(function() {
+                                        const matchedOpt = referenceOptions.find(o => o.name === param._refValue);
+                                        const fallbackOpt = !matchedOpt
+                                          ? referenceOptions.find(o => param._refValue?.endsWith(o.name) || o.name.endsWith(param._refValue || ''))
+                                          : null;
+                                        const nodeName = matchedOpt?.nodeName || fallbackOpt?.nodeName || param._sourceNodeName || '未知';
+                                        return nodeName + ' / ' + (matchedOpt?.name || fallbackOpt?.name || param._refValue);
+                                      })()}
+                                    </span>
+                                  ) : (
+                                    <span className="draw-config-ref-placeholder">选择算子 / 参数...</span>
+                                  )}
+                                  <span className="draw-config-ref-arrow">▼</span>
+                                </button>
+
+                                {expandedRefDropdowns.includes(`${selectedNodeId}-${param.name}`) && (
+                                  <div className="draw-config-ref-dropdown-content">
+                                    {!selectedOperatorForRef && (
+                                      <>
+                                        <div className="draw-config-ref-dropdown-header">
+                                          <span className="draw-config-ref-dropdown-operator">选择算子</span>
+                                        </div>
+                                        <div className="draw-config-ref-dropdown-list">
+                                          {Array.from(new Set(referenceOptions.map(o => o.nodeId))).map((nodeId) => {
+                                            const nodeOpts = referenceOptions.filter(o => o.nodeId === nodeId);
+                                            const nodeName = nodeOpts[0]?.nodeName || nodeId;
+                                            return (
+                                              <div
+                                                key={nodeId}
+                                                className={`draw-config-ref-dropdown-item ${param._sourceNodeId === nodeId ? 'selected' : ''}`}
+                                                onClick={() => {
+                                                  setSelectedOperatorForRef(nodeId);
+                                                }}
+                                                title={nodeName}
+                                              >
+                                                <span className="draw-config-ref-item-dot"></span>
+                                                <span className="draw-config-ref-item-operator" style={{ flex: 1 }}>{nodeName}</span>
+                                                <span className="draw-config-ref-item-count">{nodeOpts.length}个参数</span>
+                                              </div>
+                                            );
+                                          })}
+                                        </div>
+                                      </>
+                                    )}
+                                    {selectedOperatorForRef && (
+                                      <>
+                                        <div className="draw-config-ref-dropdown-header">
+                                          <span className="draw-config-ref-back" onClick={() => setSelectedOperatorForRef('')}>← 返回</span>
+                                          <span className="draw-config-ref-dropdown-param">选择参数</span>
+                                        </div>
+                                        <div className="draw-config-ref-dropdown-list">
+                                          {referenceOptions.filter(o => o.nodeId === selectedOperatorForRef).map((opt) => (
+                                            <div
+                                              key={`${opt.nodeId}_${opt.name}`}
+                                              className={`draw-config-ref-dropdown-item ${param._refValue === opt.name ? 'selected' : ''}`}
+                                              onClick={() => {
+                                                const refValue = opt.name;
+                                                const newParams = [...selectedNode.data.input_params.params];
+                                                newParams[index] = {
+                                                  ...newParams[index],
+                                                  _refValue: refValue,
+                                                  _sourceNodeId: opt.nodeId || '',
+                                                  _sourceNodeName: opt.nodeName || '',
+                                                  _sourceParamName: opt.name || '',
+                                                };
+                                                setNodes((nds) =>
+                                                  nds.map((n) => {
+                                                    if (n.id === selectedNodeId) {
+                                                      return {
+                                                        ...n,
+                                                        data: {
+                                                          ...n.data,
+                                                          input_params: { ...n.data.input_params, params: newParams },
+                                                        },
+                                                      };
+                                                    }
+                                                    return n;
+                                                  })
+                                                );
+                                                setExpandedRefDropdowns(expandedRefDropdowns.filter(id => id !== `${selectedNodeId}-${param.name}`));
+                                                setSelectedOperatorForRef('');
+                                              }}
+                                            >
+                                              <span className="draw-config-ref-item-dot"></span>
+                                              <span className="draw-config-ref-item-param" style={{ flex: 1 }}>{opt.name}</span>
+                                              <span className="draw-config-ref-item-type">{opt.type}</span>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          ) : (
+                            param.name === 'file_path' && param._refType === 'manual' ? (
+                              <input
+                                className="draw-config-value-input"
+                                value={param._value || param.param_value || ''}
+                                placeholder="请选择文件"
+                                title={param._value || param.param_value || ''}
+                                readOnly
+                                style={{ cursor: 'pointer', backgroundColor: '#f8fafc' }}
+                                onClick={async () => {
+                                  setFileSelectParamIndex(index);
+                                  await loadDirectories();
+                                  setShowFileModal(true);
+                                }}
+                              />
+                            ) : (
+                              <input
+                                className="draw-config-value-input"
+                                value={param._value || param.param_value || ''}
+                                placeholder={param._refType === 'dataSource' ? '数据源' : '请输入值'}
+                                title={param._value || param.param_value || ''}
+                                onChange={(e) => {
+                                  const newParams = [...selectedNode.data.input_params.params];
+                                  newParams[index] = { ...newParams[index], _value: e.target.value };
+                                  setNodes((nds) =>
+                                    nds.map((n) => {
+                                      if (n.id === selectedNodeId) {
+                                        return {
+                                          ...n,
+                                          data: {
+                                            ...n.data,
+                                            input_params: { ...n.data.input_params, params: newParams },
+                                          },
+                                        };
+                                      }
+                                      return n;
+                                    })
+                                  );
+                                }}
+                              />
+                            )
+                          )}
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
+                );
+              })()
             )}
 
             {/* 输出参数 */}
@@ -4286,16 +3944,44 @@ const handleAddNode = useCallback(
               <div className="draw-config-params-section">
                 <div className="draw-config-section-title">
                   <span className="draw-config-section-bar"></span>
-                  <span className="draw-config-section-text">输出参数</span>
+                  <span className="draw-config-section-text">输出参数 </span>
                 </div>
-
                 {selectedNode.data.output_params.params.map((param: any, index: number) => (
                   <div key={`output-${index}`} className="draw-config-param-card output-card">
                     <div className="draw-config-param-header">
                       <div className="draw-config-param-name-row">
                         <span className="draw-config-param-name">{param.name}</span>
                       </div>
-                      <span className="draw-config-param-type-tag">{param.type || '-'}</span>
+                      <span className="draw-config-param-type-tag">String</span>
+                    </div>
+                    {/* 新增输入框 */}
+                    <div className="draw-config-param-value-row" style={{ marginTop: '8px' }}>
+                      <input
+                        className="draw-config-value-input"
+                        placeholder="请输入输出值"
+                        // 修改点：强制绑定 _value，或者确保优先读取最新的编辑值
+                        value={param._value || ''} 
+                        onChange={(e) => {
+                          const newParams = [...selectedNode.data.output_params.params];
+                          // 确保这里更新的是 _value
+                          newParams[index] = { ...newParams[index], _value: e.target.value };
+                          
+                          setNodes((nds) =>
+                            nds.map((n) => {
+                              if (n.id === selectedNodeId) {
+                                return {
+                                  ...n,
+                                  data: {
+                                    ...n.data,
+                                    output_params: { ...n.data.output_params, params: newParams },
+                                  },
+                                };
+                              }
+                              return n;
+                            })
+                          );
+                        }}
+                      />
                     </div>
                   </div>
                 ))}
