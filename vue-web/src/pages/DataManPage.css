@@ -1,0 +1,31 @@
+/* src/pages/LoginPage.module.css */
+.container {
+  display: flex;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+}
+
+.illustration {
+  flex: 1;
+  background: linear-gradient(135deg, #1890ff, #0050b3);
+  /* 可替换为实际插画图片：background-image: url(...) */
+}
+
+.formContainer {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  background-color: white;
+}
+
+.logo {
+  font-size: 1.5rem;
+  font-weight: bold;
+  margin-bottom: 2rem;
+  color: #1890ff;
+}
+
