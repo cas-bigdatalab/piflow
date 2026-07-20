@@ -19,6 +19,7 @@ class StopBean:
     name: str = ""
     bundle: str = ""
     properties: dict[str, Any] = field(default_factory=dict)
+    output_properties: dict[str, Any] = field(default_factory=dict)
     customized_properties: dict[str, str] = field(default_factory=dict)
 
     @classmethod
@@ -29,6 +30,9 @@ class StopBean:
             name=str(data.get("name", "")),
             bundle=str(data.get("bundle", "")),
             properties=dict(data.get("properties", {})),
+            output_properties=dict(
+                data.get("outputProperties", data.get("output_properties", {}))
+            ),
             customized_properties=dict(data.get("customizedProperties", {})),
         )
 
@@ -38,6 +42,7 @@ class StopBean:
         setattr(stop, "piflow_stop_name", self.name)
         setattr(stop, "piflow_bundle", self.bundle)
         stop.set_properties(self.properties)
+        stop.set_output_properties(self.output_properties)
         stop.set_customized_properties(self.customized_properties)
         return stop
 

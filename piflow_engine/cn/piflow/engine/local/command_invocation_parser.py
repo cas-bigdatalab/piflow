@@ -32,7 +32,9 @@ class CommandInvocationParser:
         inputs: JobInputStream,
         workspace: Path,
         properties: dict[str, Any],
+        output_properties: dict[str, Any] | None = None,
     ) -> CommandInvocation:
+        resolved_output_properties = output_properties or {}
         values: dict[str, str | object] = {
             "script_path": str((self.spec.base_dir / self.spec.script_path).resolve())
         }
@@ -40,11 +42,6 @@ class CommandInvocationParser:
         output_keys: list[str] = []
         runtime_properties: dict[str, str] = {}
         output_files: dict[str, str] = {}
-        output_params_by_name = {
-            parameter.name: parameter
-            for parameter in self.spec.output_params
-            if _is_output_data(parameter)
-        }
 
         for parameter in self.spec.input_params:
             if _is_input_data(parameter):
@@ -53,12 +50,6 @@ class CommandInvocationParser:
                 continue
 
             if _is_output_data(parameter):
-                output_param = output_params_by_name.get(parameter.name, parameter)
-                output_path = self._output_path(output_param, workspace)
-                values[parameter.name] = output_path
-                output_files[parameter.name] = output_path
-                if parameter.name not in output_keys:
-                    output_keys.append(parameter.name)
                 continue
 
             value = self._runtime_value(parameter, properties, workspace)
@@ -71,7 +62,11 @@ class CommandInvocationParser:
                 continue
             output_path = values.get(parameter.name)
             if output_path is None:
-                output_path = self._output_path(parameter, workspace)
+                output_path = self._output_path(
+                    parameter,
+                    workspace,
+                    resolved_output_properties,
+                )
                 values[parameter.name] = output_path
             output_files[parameter.name] = output_path
             if parameter.name not in output_keys:
@@ -112,17 +107,23 @@ class CommandInvocationParser:
         if parameter.default is not None:
             return str(parameter.default)
 
-        # Backward compatibility for old skill.json files that modelled output
-        # paths as plain data/runtime parameters.
-        if parameter.name.startswith("output"):
-            return self._output_path(parameter, workspace)
-
         if parameter.required:
             raise ValueError(f"missing required parameter: {parameter.name}")
 
         return _SKIP_TOKEN
 
-    def _output_path(self, parameter: ParameterSpec, workspace: Path) -> str:
+    def _output_path(
+        self,
+        parameter: ParameterSpec,
+        workspace: Path,
+        output_properties: dict[str, Any],
+    ) -> str:
+        if parameter.name in output_properties:
+            output_path = Path(str(output_properties[parameter.name]))
+            if output_path.is_absolute():
+                return str(output_path)
+            return str((workspace / output_path).resolve())
+
         if parameter.default:
             output_path = Path(str(parameter.default))
             if output_path.is_absolute():

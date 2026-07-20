@@ -32,6 +32,9 @@ def _convert_node_to_stop(node: dict[str, Any]) -> dict[str, Any]:
             node.get("input_params", []),
             node.get("out_params", []),
         ),
+        "outputProperties": _convert_out_params_to_properties(
+            node.get("out_params", []),
+        ),
     }
 
 
@@ -55,6 +58,20 @@ def _convert_input_params_to_properties(
             continue
         properties[param_name] = param["param_value"]
     return properties
+
+
+def _convert_out_params_to_properties(
+    out_params: list[dict[str, Any]],
+) -> dict[str, Any]:
+    output_properties: dict[str, Any] = {}
+    for param in out_params:
+        if "param_name" not in param:
+            continue
+        value = param.get("param_value")
+        if value in (None, ""):
+            continue
+        output_properties[str(param["param_name"])] = value
+    return output_properties
 
 
 def _convert_binding_to_path(binding: dict[str, Any]) -> dict[str, str]:

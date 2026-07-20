@@ -35,6 +35,7 @@ class ConfigurableStop(Stop, ABC):
     is_data_source: bool = False
 
     def __init__(self) -> None:
+        self.output_properties: dict[str, Any] = {}
         self.customized_properties: dict[str, str] = {}
 
     @abstractmethod
@@ -43,6 +44,9 @@ class ConfigurableStop(Stop, ABC):
 
     def set_customized_properties(self, customized_properties: dict[str, str]) -> None:
         self.customized_properties = dict(customized_properties)
+
+    def set_output_properties(self, output_properties: dict[str, Any]) -> None:
+        self.output_properties = dict(output_properties)
 
     def get_customized(self) -> bool:
         return self.is_customized

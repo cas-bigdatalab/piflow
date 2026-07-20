@@ -43,6 +43,7 @@ class CommandStop(ConfigurableStop):
         self._parser = parser
         self.spec = parser.spec
         self.properties: dict[str, Any] = {}
+        self.output_properties: dict[str, Any] = {}
         self._workspace_root: Path | None = None
         self._python_home: Path | None = None
         self._sandbox_backend = "local"
@@ -52,6 +53,9 @@ class CommandStop(ConfigurableStop):
 
     def set_properties(self, properties: dict[str, Any]) -> None:
         self.properties = dict(properties)
+
+    def set_output_properties(self, output_properties: dict[str, Any]) -> None:
+        self.output_properties = dict(output_properties)
 
     def initialize(self, ctx: ProcessContext) -> None:
         workspace_root = ctx.get(RUNNER_CONTEXT_WORKSPACE_ROOT, ".piflow/workspace")
@@ -90,7 +94,12 @@ class CommandStop(ConfigurableStop):
         ctx: JobContext,
     ) -> None:
         workspace = self._prepare_workspace(ctx)
-        invocation = self._parser.parse(inputs, workspace, self.properties)
+        invocation = self._parser.parse(
+            inputs,
+            workspace,
+            self.properties,
+            self.output_properties,
+        )
         command = list(invocation.command)
         if self._sandbox_backend == "docker":
             self._validate_docker_paths(workspace, invocation.output_files.values())
