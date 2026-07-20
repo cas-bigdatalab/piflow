@@ -3492,56 +3492,110 @@ const mapOutputParamsValues = (rawParams) => {
             }
 
             // 构造完整的画板JSON数据
+            // const drawData = {
+            //   dsl_version: "1.0",
+            //   task: {
+            //     // dag_task_id: taskId || '',
+            //     dag_task_name: taskName,
+            //     description: taskDescription,
+            //     // message_id: messageId || ''
+            //   },
+            //   nodes: nodes
+            //   .filter(n => n.type !== 'comment')
+            //   .map(n => ({
+            //     // node_id: n.id,
+            //     node_name: n.data.label,
+            //     // node_type: 'default',
+            //     icon_path: n.data.icon || '',
+            //     skill: {
+            //       skill_name: n.data.operatorName
+            //       // skill_id: n.data.operatorId,
+            //       // version: '1.0',
+            //     },
+            //     // position: { x: n.position.x, y: n.position.y },
+                
+            //     // --- 修改 input_params 处理 (保持原有逻辑) ---
+            //     input_params: (n.data.input_params?.params || [])
+            //       .filter(p => {
+            //         if (p._refType === 'reference') return true;
+            //         const val = String(p._value ?? p.param_value ?? '');
+            //         return val.trim() !== '';
+            //       })
+            //       .map(p => {
+            //         const isReference = p._refType === 'reference';
+            //         return {
+            //           param_name: p.name,
+            //           param_value: isReference ? '' : (p._value || ''),
+            //           // value_mode: isReference ? 'reference' : 'manual',
+            //           // binding_id: isReference ? generateUUID() : '',
+            //         };
+            //       }),
+                  
+            //     // --- 修改 output_params 处理 (关键修改点) ---
+            //     // 将 output_params 中的 _value 映射为 param_value
+            //     out_params: n.data.output_params?.params?.map(p => ({
+            //       param_name: p.name || p.param_name || '',
+            //       param_type: p.type || p.param_type || 'string',
+            //       param_value: p._value || '', // 将用户填写的值放入 param_value
+            //     })) || [],
+            //   })),
+            // };
             const drawData = {
               dsl_version: "1.0",
               task: {
-                dag_task_id: taskId || '',
                 dag_task_name: taskName,
                 description: taskDescription,
-                message_id: messageId || ''
               },
               nodes: nodes
-              .filter(n => n.type !== 'comment')
-              .map(n => ({
-                node_id: n.id,
-                node_name: n.data.label,
-                node_type: 'default',
-                icon_path: n.data.icon || '',
-                skill: {
-                  skill_id: n.data.operatorId,
-                  version: '1.0',
-                },
-                position: { x: n.position.x, y: n.position.y },
-                
-                // --- 修改 input_params 处理 (保持原有逻辑) ---
-                input_params: (n.data.input_params?.params || [])
-                  .filter(p => {
-                    if (p._refType === 'reference') return true;
-                    const val = String(p._value ?? p.param_value ?? '');
-                    return val.trim() !== '';
-                  })
-                  .map(p => {
-                    const isReference = p._refType === 'reference';
-                    return {
-                      param_name: p.name,
-                      param_value: isReference ? '' : (p._value || ''),
-                      value_mode: isReference ? 'reference' : 'manual',
-                      binding_id: isReference ? generateUUID() : '',
-                    };
-                  }),
-                  
-                // --- 修改 output_params 处理 (关键修改点) ---
-                // 将 output_params 中的 _value 映射为 param_value
-                out_params: n.data.output_params?.params?.map(p => ({
-                  param_name: p.name || p.param_name || '',
-                  param_type: p.type || p.param_type || 'string',
-                  param_value: p._value || '', // 将用户填写的值放入 param_value
-                })) || [],
-              })),
+                .filter(n => n.type !== 'comment')
+                .map(n => {
+                  // --- 提取 output_params 的值映射 ---
+                  const outParamsMap = new Map<string, string>();
+                  (n.data.output_params?.params || []).forEach(p => {
+                    const name = p.name || p.param_name || '';
+                    if (name) {
+                      outParamsMap.set(name, p._value || '');
+                    }
+                  });
+
+                  return {
+                    node_name: n.data.label,
+                    icon_path: n.data.icon || '',
+                    skill: {
+                      skill_name: n.data.operatorName
+                    },
+                    input_params: (n.data.input_params?.params || [])
+                      .filter(p => {
+                        if (p._refType === 'reference') return true;
+                        const val = String(p._value ?? p.param_value ?? '');
+                        return val.trim() !== '';
+                      })
+                      .map(p => {
+                        const isReference = p._refType === 'reference';
+                        const paramName = p.name;
+
+                        // 👇 如果是非引用参数，且 output_params 中有同名参数，则用 output 的值
+                        let finalValue = isReference ? '' : (p._value || '');
+                        if (!isReference && outParamsMap.has(paramName)) {
+                          finalValue = outParamsMap.get(paramName) || finalValue;
+                        }
+
+                        return {
+                          param_name: paramName,
+                          param_value: finalValue,
+                        };
+                      }),
+                    out_params: (n.data.output_params?.params || []).map(p => ({
+                      param_name: p.name || p.param_name || '',
+                      param_type: p.type || p.param_type || 'string',
+                      param_value: p._value || '',
+                    })),
+                  };
+                }),
             };
             
             // 合并指令和画板数据为一条消息发送（带隐藏标记），避免触发两次 /message/create
-            const combinedContent = '[HIDDEN]我手动修改了任务流程，请根据任务流程重新生成dag JSON，不要执行\n\n' + JSON.stringify(drawData);
+            const combinedContent = '[HIDDEN]我手动修改了任务流程，并且修改了部分参数，请根据任务流程和新的参数重新生成dag JSON，不要执行\n\n' + JSON.stringify(drawData);
             window.dispatchEvent(new CustomEvent('flow:send-message', { 
               detail: { 
                 threadId, 
