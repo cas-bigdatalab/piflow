@@ -1,8 +1,8 @@
 ---
-name: piflow-skill-generator
+name: piflow-skill-generator_planner
 description: |
   PiFlow 技能生成器。当用户完成了一次完整并成功的数据处理任务时调用，根据当前 skills/generated 的本地约定和 references/piflow_skill_template.md 通用模板创建、更新或校验 PiFlow-compatible skill，包括 UTF-8 编码的 SKILL.md、DAG 可读的 input_params/output_params、version/tag 元数据、skill.json、scripts/references/assets 资源目录，以及本地校验脚本。仅在用户明确要求生成或保存 skill，或某次数据处理任务已经完成并需要把已验证成功的操作流程沉淀为 skill 时使用；默认不要因为“可能需要 skill”或“当前能力不足”而优先触发此 skill。
-name_zh: PiFlow 算子生成器
+name_zh: PiFlow 算子生成器_planner
 version: 1.1.2
 allowed-tools:
   - process
@@ -24,6 +24,11 @@ input_params:
     required: false
     default: false
     description: 是否覆盖已存在的技能目录
+
+  - name: thread_id
+    type: string
+    required: false
+    description: 当前会话 ID；提供后记录生成 skill 供前端预览
 
   - name: flow_path
     type: string
@@ -53,43 +58,41 @@ output_params:
   - name: rewrite_followup_suggestion
     type: json_file
     description: 生成完成后的改写 follow-up 建议信息
-tag: AI处理
-publisher: COMMUNITY
+tag: 算子生成
 ---
 
-# PiFlow Skill Generator
+# PiFlow Skill Generator Planner
 
 ## 核心规则
 
-除去对运行/测试时的产物进行分析，其他工作应尽量提前计划和生成，避免在安装或测试阶段才发现文档不完整、脚本缺失或资源错误。技能生成器的目标是一次性生成一个完整、可靠、符合约定的技能目录，能直接被 PiFlow 识别和使用，但它不是默认优先入口。
+本技能是一个**模板驱动的 PiFlow skill 生成器**。它的职责不是找一个相似 skill 来改改，而是基于统一模板，把用户明确提供的信息、已经验证成功的流程、已有脚本和必要资源，整理成一个结构清晰、参数契约稳定、可被 PiFlow 直接识别的技能目录。
 
-生成能被 PiFlow 理解的技能目录。所有文本文件必须以 UTF-8 读写，尤其是中文内容；Python 读写文件时显式使用 `encoding="utf-8"`，JSON 输出使用 `ensure_ascii=False`。
+生成目标始终是一次性产出完整、可靠、符合约定的 skill 目录，包括 UTF-8 编码的 `SKILL.md`、DAG 可读的 `input_params` / `output_params`、`skill.json`、`scripts/`、`references/`、`assets/`，以及必要的校验与注册结果。**每个生成的 skill 必须包含一个可执行 Python 入口脚本**：优先复用已验证实现；没有现成实现时也必须生成 `scripts/run_<skill_name>.py`，使其可解析参数并输出结构化运行结果，禁止只生成元数据文件。但它不是默认优先入口；只有在用户明确要“生成/保存为 skill”，或某个流程已经真实跑通并值得沉淀时，才进入这条链路。
 
-按库内技能的粒度控制内容：`SKILL.md` 只放触发、流程和必要契约；可执行逻辑放 `scripts/`；较长规则、字段说明和领域资料放 `references/`；模板、图标、示例素材放 `assets/`。
+所有文本文件必须使用 UTF-8 读写，尤其是中文内容；Python 读写文件时显式使用 `encoding="utf-8"`，JSON 输出使用 `ensure_ascii=False`。
 
-生成正文时优先参照 `references/piflow_skill_template.md`。当 spec 中提供 `core_features`、`trigger_conditions`、`processing_logic`、`supported_formats`、`output_structure`、`output_examples` 等字段时，将它们填入模板对应章节。
+目录内容按职责分层：
+- `SKILL.md`：只放触发条件、处理流程、参数契约和必要说明；
+- `scripts/`：放稳定、可执行、可测试的入口脚本或处理逻辑；
+- `references/`：放长规则、字段字典、复杂 schema、补充说明；
+- `assets/`：放图标、模板、示例素材或需要随技能一起交付的资源。
 
-本技能必须能在没有其他技能辅助的环境中独立生成可靠技能：只依赖当前技能目录内的 `SKILL.md`、`references/piflow_skill_template.md`、`references/rewrite_followup_internal.md`、`scripts/generate_piflow_skill.py`、`scripts/generate_skill_files.py`、`scripts/register_skill_artifacts.py`、`scripts/rewrite_piflow_skill.py` 和 `scripts/validate_piflow_skill.py`。生成时不要假设另一个 skill 会补全文档、脚本或元数据。本技能负责 skill 化与沉淀，不负责代替用户完成所有真实处理任务本身。
+本技能的实现指引遵循同一条主线：**模板优先，参考次之，禁止默认整体仿写**。
+- 先以 `references/piflow_skill_template.md` 作为 `SKILL.md`、`skill.json`、参数组织方式、脚本入口形状和资源分层的统一骨架；
+- 再把用户确认的信息、成功流程、已有脚本、现有 skill 中真正有用的规则和参数事实，填回模板对应位置；
+-当 spec 中提供 `core_features`、`trigger_conditions`、`processing_logic`、`supported_formats`、`output_structure`、`output_examples` 等字段时，将它们填入模板对应章节
 
-本技能支持三条触发链路：
+因此，无论是直接生成、基于已验证流程生成，还是生成后的再次改写，最终输出都必须回到模板定义的结构，而不是回到某个历史 skill 的结构。
 
-1. 手动生成链路
-   当用户明确要求“生成 skill”“保存为 skill”“封装为 skill”“创建自定义技能”时，直接进入 skill 生成阶段，行为与当前链路一致。
+本技能必须能在没有其他技能辅助的环境中独立生成可靠技能：只依赖当前技能目录内的 `SKILL.md`、`references/piflow_skill_template.md`、`scripts/generate_piflow_skill.py`、`scripts/generate_skill_files.py`、`scripts/register_skill_artifacts.py`、`scripts/rewrite_piflow_skill.py` 和 `scripts/validate_piflow_skill.py`。生成时不要假设另一个 skill 会补全文档、脚本或元数据。本技能负责 skill 化与沉淀，不负责代替用户完成所有真实处理任务本身。
 
-2. 回调式沉淀链路
-   当现有技能库无法直接满足需求时，应先在 skill 层面声明当前没有可直接复用的现成 skill，并优先引导大模型先帮助用户解决问题本身，例如生成脚本、处理流程、输入输出约定、验证步骤等。只有在这些处理流程已经跑通、结果已验证后，才回调进入本技能，并提示用户是否根据之前的成功操作流程将其封装为 skill。
-   
-3. 生成后改写链路
-   当一个 skill 已经生成完成并经过基础校验后，如果用户随后又提供了一个新的成功流程、更新后的脚本或更合理的输入输出设计，不要默认忽略这些新信息；应主动询问用户，是否要以这个新的流程为指引，对刚生成的 skill 做一次最小改写；若用户确认，则优先进入生成器内部改写链路，以“保留原 skill 名称 + overwrite 重建”的方式做最小改写，而不是要求用户重新生成一个同义的新 skill。
+本技能支持两种使用方式：
 
-因此，本技能不是默认优先入口，但也不再只局限于“任务完全结束后人工另起一轮对话”；它可以作为缺 skill 场景下的回调式沉淀终点。
+1. 直接生成
+   当用户明确要求“生成 skill”“保存为 skill”“封装为 skill”“创建自定义技能”时，根据已确认的规格生成 skill。
 
-此外，本技能提供一个最小“生成后再改写”的后续触发路径：
-
-- 当一个 skill 已经生成完成后，如果用户随后又给出了新的成功流程、新的输入输出约定或新的脚本实现，可以询问用户：
-- “是否要以这次新的流程作为指引，对刚生成的 skill 再做一次改写？”
-- 若用户同意，则应进入生成器内部改写链路，对刚生成的 skill 做最小重写，而不是要求用户重新生成一个同义的新 skill。
-- 详细依赖与调用关系见 `references/rewrite_followup_internal.md`。
+2. 基于已验证流程生成或改写
+   当用户提供已验证成功的流程、脚本或输入输出约定时，优先复用这些事实生成或最小改写 skill；改写时默认保留原 skill 名称和目录位置，避免生成含义重复的新 skill。
 
 在涉及安装、环境准备或可执行脚本验证时，优先完成最小必要依赖，再运行一个简单冒烟测试确认关键入口可执行、基础参数可解析、输出路径可写。若安装或测试失败，允许自动重试，单个阶段最多重试 5 次；若 5 次后仍失败，停止流程并把失败原因、失败步骤和最后一次错误返回给用户。
 
@@ -161,7 +164,7 @@ skill-name/
 
 ### Bundled Resources
 
-- `scripts/`：放确定性脚本、算子封装、批处理逻辑。脚本应可通过 `python scripts/<name>.py ...` 调用，并使用 UTF-8 读写。
+- `scripts/`：每个 skill 都必须包含一个确定性、可执行的 Python 入口脚本。优先复用已验证逻辑；若没有现成逻辑，生成 `scripts/run_<skill_name>.py`，它必须接受声明的输入参数并输出 JSON 运行摘要。脚本应可通过 `python scripts/<name>.py ...` 调用，并使用 UTF-8 读写。
 - `references/`：放长规则、字段字典、API 说明、数据 schema、复杂示例。正文中必须说明何时读取哪个引用文件。
 - `assets/`：放图标、模板、示例素材、字体或输出需要复制的资源。每个 skill 在生成阶段都应明确一个主图标方案：优先提供 `assets/icon.png`；若暂时没有自定义图标，也必须在设计与交付时明确兜底使用对应分类图标，不要让图标策略处于未定义状态。
 
@@ -173,31 +176,20 @@ skill-name/
 
 1. 先判断用户是否明确要求生成或保存 skill。若是，则直接进入本链路。
 2. 明确具体用例。优先收集用户会怎样调用技能、输入输出文件长什么样、是否需要脚本、是否有字段规则或外部依赖。
-3. 规划资源分层。重复且要求稳定的逻辑进入 `scripts/`；长规则进入 `references/`；图标和模板进入 `assets/`。这一阶段同时确定图标策略：选一个主图标来源，并明确一个兜底图标。
+3. 规划资源分层。重复且要求稳定的逻辑进入 `scripts/`；长规则进入 `references/`；图标和模板素材进入 `assets/`。这一阶段同时确定图标策略：选一个主图标来源，并明确一个兜底图标。
 4. 规范命名。已有业务技能名可保留大小写和下划线，例如 `QC3_NumericDataThresholdCheck`、`Pi_DataSorting`；新通用技能优先使用 lowercase `snake_case` 或 `hyphen-case`；目录名必须等于 `name`。
-5. 生成 `SKILL.md`。正文按 `references/piflow_skill_template.md` 的章节顺序组织：功能说明、触发条件、核心功能、处理逻辑、支持的文件格式、使用方法、参数说明、输出参数、示例、输出格式/输出结构、依赖、注意事项。
-6. 生成资源目录。只有在 spec 提供或任务需要时写入脚本、引用资料和素材；图标必须有明确结论：若 spec 提供 `icon`，复制为 `assets/icon.png` 作为主图标；若未提供自定义图标，则记录并验证可兜底到分类图标。
+5. 先按 `references/piflow_skill_template.md` 搭骨架，再填内容。正文章节顺序、frontmatter 结构、`skill.json` 参数契约、脚本入口和资源目录都应先服从模板；随后再把用户确认的信息、成功流程信息、脚本信息和必要规则填入对应章节。不要先挑一个相似 skill 作为底稿整体改写。
+6. 生成资源目录。必须写入 `scripts/run_<skill_name>.py` 或用户提供的等价 Python 脚本；脚本必须与 `skill.json` 的 `script_path`、`entrypoint` 和 `command_template` 一致。只有引用资料和素材可按需省略；图标必须有明确结论：若 spec 提供 `icon`，复制为 `assets/icon.png` 作为主图标；若未提供自定义图标，则记录并验证可兜底到分类图标。
 7. 校验并迭代。运行 `validate_piflow_skill.py`，检查 UTF-8、YAML、参数契约、目录名、资源布局和 UI metadata。
 8. 安装后冒烟测试。若该技能需要额外依赖或运行时环境，在环境配置完成后先执行一个最小可运行示例或健康检查脚本，确认关键入口能正常启动并完成一次基础输入输出。
 9. 失败重试与兜底。安装与冒烟测试过程中若失败，先重试再继续；单阶段最多 5 次。若 5 次都失败，停止自动化流程并把失败原因、失败步骤和最后一次错误返回给用户。
 
-### B. 回调式沉淀链路
+### B. 基于已验证流程生成或改写
 
-1. 当现有技能库无法直接满足需求时，先明确声明当前没有可直接复用的现成 skill。
-2. 不要立刻要求用户完整填写所有 skill 字段；应先引导大模型帮助用户完成问题本身，例如脚本、流程、步骤、输入输出约定与验证方式。
-3. 在直接解决过程中，持续保留可蒸馏信息，例如成功脚本、关键步骤、参数约定、输出目录结构、样例输入输出和验证结果。
-4. 一旦判断处理流程已经跑通、结果可信，应回调询问用户是否根据之前的成功操作流程封装为 skill。
-5. 若用户同意沉淀，则优先把之前成功流程恢复为 spec 草稿，而不是让用户从头重新描述。
-6. 仅对恢复不出的字段补问，例如技能命名、分类、触发表达、图标策略、依赖说明等。
-7. 然后复用与手动生成链路相同的生成、校验、注册和冒烟测试流程。
-
-### C. 生成后改写链路
-
-1. 当一个 skill 已经生成完成并经过基础校验后，若用户又提供了一个新的成功流程、更新后的脚本或更合理的输入输出设计，不要默认忽略这些新信息。
-2. 应主动询问用户，是否要以这个新的流程为指引，对刚生成的 skill 做一次最小改写。
-3. 若用户确认，则优先进入生成器内部改写链路。
-4. 改写时默认复用原 skill 名称和目录位置，避免生成第二个含义重复的新 skill。
-5. 改写完成后，继续执行与主技能一致的校验和注册逻辑。
+1. 读取用户提供的成功流程、脚本、样例输入输出和验证结果。
+2. 优先将已有事实恢复为 spec 草稿；仅补问无法从现有材料确定的字段。
+3. 使用与直接生成相同的生成、校验、注册和冒烟测试流程。
+4. 若目标 skill 已存在，则复用其名称和目录，通过 `overwrite` 做最小改写。
 
 ## 三层调用模型
 
@@ -210,6 +202,7 @@ skill-name/
 2. 注册层
    负责把已生成好的技能接入 PiFlow 可见索引，包括更新 `docs/skill分类.txt`，以及同步 `storage/skills` 下的技能图标与分类图标。
    对应脚本：`scripts/register_skill_artifacts.py`
+
 
 3. 一键封装层
    按顺序调用“生成层 -> 注册层”，适合默认使用。
@@ -229,11 +222,11 @@ skill-name/
 - 当技能目录已经存在，只是因为分类列表或图标丢失，需要补注册时：
   只调用注册层。
 
-- 当你是从一次成功的真实处理流程回调进入本技能时：
-  优先先恢复流程草稿 spec，再补缺失字段，然后根据是否需要立即可见，选择“只生成”或“一键生成并注册”。
+- 当用户提供一次成功的真实处理流程时：
+  优先恢复流程草稿 spec，再补缺失字段，然后根据是否需要立即可见，选择“只生成”或“一键生成并注册”。
 
-- 当你已经生成完一个 skill，但用户随后提供了新的流程指引时：
-  不要要求重新从零生成；应提示可以进入内部改写链路，以“保留原 skill 名称 + overwrite 重建”的方式做最小改写。
+- 当用户为已生成 skill 提供新的流程指引时：
+  保留原 skill 名称并使用 `overwrite` 重建，避免从零生成同义 skill。
 
 ## Spec 字段
 
@@ -242,17 +235,17 @@ skill-name/
 - `name`：必填，技能目录名和 frontmatter 名称。
 - `title`：可选，正文标题和 UI 显示名的候选值。
 - `description`：必填，技能能力说明。仅在用户明确要求生成/保存 skill，或任务完成后需要沉淀成功流程时描述 skill 生成能力；不要把宽泛的数据处理诉求直接写成触发词。
-- `description`：必填，技能能力说明。若来自手动生成链路，描述用户如何显式触发此 skill；若来自回调式沉淀链路，描述应收敛为“成功流程完成后可封装为 skill”这类收尾触发，而不要把原始任务诉求直接写成默认优先入口。
+- `description`：必填，技能能力说明。描述用户如何显式触发此 skill，不要把宽泛的数据处理诉求写成默认优先入口。
 - `version`：可选，默认 `1.0.0`。
 - `triggers`：可选，触发短语列表，会并入 frontmatter description。触发短语应收敛为“生成 skill”“保存为 skill”“把这次流程沉淀成 skill”等手动或收尾场景，不要把“数据清洗”“数据分析”“处理文件”等本应先直接执行的任务写成优先触发短语。
 - `tag`：可选，写入 frontmatter 和 `skill.json`，用于 DAG 技能类型。
 - `language`：可选，写入 `skill.json`，默认按脚本推断为 `python`。
-- `script_path`、`entrypoint`、`command_template`：可选，写入 `skill.json`；缺省时由脚本路径和参数推断。
+- `script_path`、`entrypoint`、`command_template`：必填，写入 `skill.json`；必须指向 skill 内存在的 Python 脚本，并与输入参数一致。
 - `input_params`、`output_params`：PiFlow 参数契约。参数项可包含 `role`。
 - `input_params`、`output_params` 在 `SKILL.md` frontmatter 和 `skill.json` 中都必须是“参数对象数组”，禁止写成 `{ params: {...} }`、`{input_path: {...}}` 或任何对象映射形状；每个参数必须独立占一个数组元素。
 - `command`：可选，显式命令；缺省时根据 `script.path` 和输入参数生成。
-- `script`：可选对象，支持 `path`、`content`、`source`；也可用 `scripts` 列表生成多个脚本。
-- `script` / `scripts`：在回调式沉淀链路中，优先从之前成功运行的脚本、流程文件或实现产物恢复，而不是重新凭空编写。
+- `script`：必填对象，支持 `path`、`content`、`source`；也可用 `scripts` 列表生成多个脚本。未提供时生成器默认创建 `scripts/run_<name>.py`。若来自成功流程或旧实现，优先恢复其可执行事实，但最终脚本路径、入口命名、参数契约和目录组织仍要服从模板，而不是服从原始样例的偶然结构。
+- `script` / `scripts`：优先从成功运行的脚本、流程文件或实现产物恢复，再将这些内容回填进模板约定的目录结构、参数契约和资源分层；不要因为参考了旧脚本或旧 skill，就偏离模板去整体复刻旧实现。
 - `references`：可选列表，支持 `path` + `content` 或 `source`。
 - `assets`：可选列表，支持 `path` + `content` 或 `source`；`icon` 会复制为 `assets/icon.png`。无论是否提供自定义 `icon`，都必须在生成时明确一个兜底图标方案，默认可回退到分类图标。
 - `dependencies`：可选，正文依赖列表。
@@ -260,7 +253,7 @@ skill-name/
 - `core_features`、`trigger_conditions`、`processing_logic`、`supported_formats`、`output_structure`、`output_examples`：可选，填入通用模板对应章节。
 - `body_sections`：可选，自定义正文段落。
 - `skill_json`：可选，默认 `true`；设为 `false` 时不生成 `skill.json`。
-- `metadata`：可选；若来自回调式沉淀链路，可用于记录流程来源、验证摘要、沉淀时间或回调上下文。
+- `metadata`：可选；可用于记录流程来源、验证摘要和沉淀时间。
 - `rewrite_followup_hint`：可选；用于在生成结果中覆盖默认的改写 follow-up 提示语。
 
 ## 命令
@@ -268,8 +261,10 @@ skill-name/
 一键生成并注册技能：
 
 ```bash
-python scripts/generate_piflow_skill.py --spec path/to/spec.json
+python scripts/generate_piflow_skill.py --spec path/to/spec.json --thread-id <thread_id>
 ```
+
+前端预览生成结果时，传入当前 `thread_id`；生成器会将会话 ID、skill 名称和 workspace 相对目录写入 `generating_skills`。同一会话再次生成时会更新该记录。
 
 也可以显式传 `--output-root skills`：
 
@@ -277,7 +272,7 @@ python scripts/generate_piflow_skill.py --spec path/to/spec.json
 python scripts/generate_piflow_skill.py --spec path/to/spec.json --output-root skills
 ```
 
-如果是从一次已经跑通的成功流程回调式沉淀 skill，也可以直接传流程摘要：
+如果已有一次已经跑通的成功流程，也可以直接传流程摘要：
 
 ```bash
 python scripts/generate_piflow_skill.py --flow path/to/flow-summary.json --restored-spec-out path/to/restored-spec.json --output-root skills
@@ -389,12 +384,13 @@ python scripts/validate_piflow_skill.py skills/<skill-name> --mode files-only
 - 生成的 `skill.json` 包含 `entrypoint`、`script_path`、`command_template` 和带 `role` 的参数元数据。
 - 正文足够让另一个 agent 调用或继续实现技能，不依赖隐含上下文。
 - 长规则没有塞进正文，而是放入 `references/` 并在正文指明何时读取。
-- 脚本、JSON和 Markdown 都能 UTF-8 往返，中文不转义、不乱码。
-- 可执行脚本已明确生成、复制或有意省略。
+- 脚本、JSON 和 Markdown 都能 UTF-8 往返，中文不转义、不乱码。
+- 可执行 Python 脚本已生成或复制，且与 `skill.json` 的入口元数据一致；禁止省略。
+- 输出结构以 `references/piflow_skill_template.md` 为主骨架；即使引用了旧脚本、旧 skill 或成功流程，也没有退化为对相似 skill 的整体复刻。
 - 技能通过 `validate_piflow_skill.py`。
-- 需要运行时依赖的技能，在环境就绪后已完成一次轻量冒烟测试。
+- 需要运行时依赖的技能，已在环境就绪后做过最小冒烟测试。
 - 安装或测试失败时已进行重试；若达到 5 次仍失败，则已向用户反馈明确错误。
-- 触发表达已经改写为“仅手动指定或任务完成后沉淀”语义，没有把本技能写成默认优先入口。
+- 触发表达已经收敛为“仅手动指定或任务完成后沉淀”，没有把本技能写成默认优先入口。
 - 如果 skill 生成后用户又提供了新的成功流程，已考虑是否提示进入内部改写链路继续做最小改写。
 - 如果 skill 声明了报告文件或类似结果工件，则失败路径也已实测验证：脚本会优先落盘最小失败摘要和问题清单，再以非零状态码结束，而不是未经兜底直接抛异常退出。
 

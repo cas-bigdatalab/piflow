@@ -51,6 +51,12 @@
   ],
   "output_params": [
     {
+      "name": "output_dir",
+      "role": "output_data",
+      "type": "string",
+      "description": "输出工作目录"
+    },
+    {
       "name": "log_output_path",
       "role": "output_data",
       "type": "string",

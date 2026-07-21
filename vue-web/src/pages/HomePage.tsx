@@ -114,7 +114,12 @@ function removeJsonBlock(text: string): string {
 // 彻底清理文本中的所有 JSON 对象和数组
 function removeAllJson(text: string): string {
   if (!text) return text;
-  
+  // 新增逻辑：如果包含 [HIDDEN]，直接返回空字符串
+  if (text.includes('[HIDDEN]')) {
+    return '';
+  }
+
+
   let result = text;
   
   // 首先移除特定的标记文本  请根据任务流程重新生成dag JSON，不要执行
@@ -1092,7 +1097,9 @@ export function HomePage() {
                   className="flex-1 space-y-5 overflow-y-auto px-2 py-4 custom-scrollbar"
                 >
                   {hasMessages ? (
-                    messages.map((message) => {
+                    messages
+                    .filter(message => !(message.content || '').includes('[HIDDEN]')) // 👈 新增过滤
+                    .map((message) => {
                       const isAssistant = message.role === "assistant";
                       return (
                         <article

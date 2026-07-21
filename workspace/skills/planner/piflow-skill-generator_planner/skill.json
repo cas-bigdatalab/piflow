@@ -1,5 +1,5 @@
 {
-  "name": "piflow-skill-generator",
+  "name": "piflow-skill-generator_planner",
   "version": "1.1.2",
   "description": "PiFlow 算子生成器。仅在用户明确要求生成或保存 skill，或任务完成后需要把已验证成功的流程沉淀为 PiFlow-compatible skill 时使用。",
   "language": "python",
@@ -28,6 +28,13 @@
       "required": false,
       "default": false,
       "description": "是否覆盖已存在的技能目录"
+    },
+    {
+      "name": "thread_id",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "当前会话 ID；提供后记录生成 skill 供前端预览"
     },
     {
       "name": "flow_path",
