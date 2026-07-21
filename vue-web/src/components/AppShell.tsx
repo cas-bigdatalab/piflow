@@ -93,7 +93,8 @@ const topMenuItems = [
   { id: 1, title: '编辑任务', icon: 'ri:edit-line', path: '/editTask' },
   { id: 2, title: '运行历史', icon: 'ri:history-line', path: '/run-history' },
   { id: 3, title: '算子库', icon: 'ri:database-line', path: '/skills' },
-  { id: 4, title: '工作库', icon: 'ri:calendar-line', path: '/workLib' }
+  { id: 4, title: '工作库', icon: 'ri:calendar-line', path: '/workLib' },
+  { id: 5, title: '数据管理', icon: 'ri:calendar-line', path: '/dataMan' }
 ];
 
 export function AppShell() {

@@ -1,93 +1,68 @@
-// src/pages/LoginPage.tsx
+// src/pages/DataManPage.tsx
 import React, { useState } from 'react';
-import styles from './LoginPage.module.css';
+import './DataManPage.css';
 
-const LoginPage: React.FC = () => {
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [rememberMe, setRememberMe] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
+const DataManPage: React.FC = () => {
+  const [searchTerm, setSearchTerm] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    console.log({ username, password, rememberMe });
-    // TODO: 调用登录 API
-  };
+  const datasetList = [
+    { id: 1, name: '用户行为数据', description: '2024年用户点击日志', createdAt: '2024-06-01' },
+    { id: 2, name: '商品评论数据', description: '电商平台评论数据集', createdAt: '2024-05-28' },
+  ];
 
+  // ... 其他代码不变 ...
   return (
-    <div className={styles.container}>
-      {/* 左侧插画区 */}
-      <div className={styles.illustration}></div>
+    <div className="pageContainer">
+      <div className="mainContent">
+        <h1 className="pageTitle">数据管理</h1>
 
-      {/* 右侧表单区 */}
-      <div className={styles.formContainer}>
-        <div className={styles.logo}>YourLogo</div>
-        <h2 className={styles.title}>欢迎登录</h2>
-        <form onSubmit={handleSubmit} className={styles.form}>
-          {/* 用户名 */}
-          <div className={styles.inputGroup}>
-            <span className={styles.inputIcon}>👤</span>
+        {/* 👇 新增白色卡片容器 */}
+        <div className="contentCard">
+          <div className="toolbar">
             <input
               type="text"
-              placeholder="请输入用户名"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              className={styles.input}
+              placeholder="搜索数据集名称"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="searchInput"
             />
+            <button className="createButton">新建数据集</button>
           </div>
 
-          {/* 密码 */}
-          <div className={styles.inputGroup}>
-            <span className={styles.inputIcon}>🔒</span>
-            <input
-              type={showPassword ? 'text' : 'password'}
-              placeholder="请输入密码"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className={styles.input}
-            />
-            <button
-              type="button"
-              className={styles.togglePassword}
-              onClick={() => setShowPassword(!showPassword)}
-            >
-              {showPassword ? '🙈' : '👁️'}
-            </button>
+          <div className="tableContainer">
+            <table className="dataTable">
+              <thead>
+                <tr>
+                  <th>数据集名称</th>
+                  <th>描述</th>
+                  <th>创建时间</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                {datasetList.map((item) => (
+                  <tr key={item.id}>
+                    <td>{item.name}</td>
+                    <td>{item.description}</td>
+                    <td>{item.createdAt}</td>
+                    <td>
+                      {/* 注意：改为链接样式，非按钮 */}
+                      <span className="editLink">编辑</span>
+                      <span className="deleteLink">删除</span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
 
-          {/* 记住我 + 忘记密码 */}
-          <div className={styles.footerOptions}>
-            <label className={styles.rememberMe}>
-              <input
-                type="checkbox"
-                checked={rememberMe}
-                onChange={(e) => setRememberMe(e.target.checked)}
-              />
-              记住我
-            </label>
-            <a href="#" className={styles.forgotPassword}>
-              忘记密码？
-            </a>
+          <div className="pagination">
+            <span>共 {datasetList.length} 条</span>
           </div>
-
-          {/* 登录按钮 */}
-          <button type="submit" className={styles.loginButton}>
-            登录
-          </button>
-
-          {/* 其他登录方式 */}
-          <div className={styles.otherLogin}>
-            <span>其他方式登录</span>
-            <div className={styles.socialIcons}>
-              <span>微信</span>
-              <span>钉钉</span>
-              <span>企业微信</span>
-            </div>
-          </div>
-        </form>
+        </div> {/* 👈 关闭 contentCard */}
       </div>
     </div>
   );
 };
 
-export default LoginPage;
+export default DataManPage;
