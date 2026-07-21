@@ -31,6 +31,9 @@ input_params:
     default: ""
     description: "额外参数"
 output_params:
+  - name: output_dir
+    type: string
+    description: "输出工作目录"
   - name: log_output_path
     type: string
     description: "log 文件输出路径"
