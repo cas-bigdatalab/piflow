@@ -200,6 +200,28 @@ def test_list_directory_juicefs_uses_root_prefix(tmp_path, monkeypatch):
     assert result["items"][0]["path"] == "task1"
 
 
+def test_list_directory_juicefs_skips_current_directory_placeholder(tmp_path, monkeypatch):
+    fake_client = DummyMinioClient()
+    fake_client.entries = [
+        DummyMinioObject("corpus/bbb/corpus/output/piflow/temp/", is_dir=True),
+        DummyMinioObject("corpus/bbb/corpus/output/piflow/temp/subdir/", is_dir=True),
+        DummyMinioObject(
+            "corpus/bbb/corpus/output/piflow/temp/result.json",
+            is_dir=False,
+            size=8,
+            last_modified=datetime(2026, 6, 11, 8, 0, tzinfo=timezone.utc),
+        ),
+    ]
+    workspace = DummyWorkspace(tmp_path)
+    service = ObjectStorageService(client=fake_client, workspace=workspace)
+    monkeypatch.setattr(service.juicefs_config, "base_prefix", "corpus/output/piflow")
+
+    result = service.list_directory_juicefs("aaa_bbb", "temp")
+
+    assert [item["name"] for item in result["items"]] == ["subdir", "result.json"]
+    assert [item["path"] for item in result["items"]] == ["temp/subdir", "temp/result.json"]
+
+
 def test_mkdir_juicefs_creates_directory_placeholder(tmp_path, monkeypatch):
     fake_client = DummyMinioClient()
     workspace = DummyWorkspace(tmp_path)

@@ -190,7 +190,11 @@ class ObjectStorageService:
             recursive=False,
         )
 
-        items = self._collect_list_items(objects, self._build_juicefs_root_prefix(bucket_name))
+        items = self._collect_juicefs_list_items(
+            objects,
+            root_prefix=self._build_juicefs_root_prefix(bucket_name),
+            current_prefix=prefix,
+        )
         return {
             "user_id": user_id,
             "desktop_id": user_id,
@@ -254,25 +258,41 @@ class ObjectStorageService:
         return prefix if prefix.endswith("/") else f"{prefix}/"
 
     @staticmethod
-    def _collect_list_items(objects: Any, prefix: str) -> list[StorageListItem]:
+    def _collect_juicefs_list_items(
+        objects: Any,
+        root_prefix: str,
+        current_prefix: str,
+    ) -> list[StorageListItem]:
         items: list[StorageListItem] = []
+        normalized_root_prefix = root_prefix.strip().strip("/")
+        normalized_current_prefix = current_prefix.strip().strip("/")
         for entry in objects:
             object_name = (getattr(entry, "object_name", "") or "").strip("/")
             is_dir = bool(getattr(entry, "is_dir", False))
-            display_path = object_name
-            if prefix:
-                normalized_prefix = prefix.strip().strip("/")
-                if normalized_prefix and display_path.startswith(normalized_prefix + "/"):
-                    display_path = display_path[len(normalized_prefix) + 1 :]
-            display_path = display_path.rstrip("/") if is_dir else display_path
-            name = Path(display_path).name if display_path else ""
+
+            # Skip the current directory's own placeholder object.
+            if normalized_current_prefix and object_name == normalized_current_prefix:
+                continue
+
+            full_display_path = object_name
+            if normalized_root_prefix and full_display_path.startswith(normalized_root_prefix + "/"):
+                full_display_path = full_display_path[len(normalized_root_prefix) + 1 :]
+            full_display_path = full_display_path.rstrip("/") if is_dir else full_display_path
+            if not full_display_path:
+                continue
+
+            current_display_path = object_name
+            if normalized_current_prefix and current_display_path.startswith(normalized_current_prefix + "/"):
+                current_display_path = current_display_path[len(normalized_current_prefix) + 1 :]
+            current_display_path = current_display_path.rstrip("/") if is_dir else current_display_path
+            name = Path(current_display_path).name if current_display_path else ""
             if not name:
                 continue
 
             items.append(
                 StorageListItem(
                     name=name,
-                    path=display_path,
+                    path=full_display_path,
                     type="directory" if is_dir else "file",
                     size=None if is_dir else getattr(entry, "size", None),
                     last_modified=getattr(entry, "last_modified", None),
