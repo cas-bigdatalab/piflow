@@ -381,8 +381,9 @@ def test_save_juicefs_file_uses_suffix_bucket_and_prefixed_key(tmp_path, monkeyp
         )
 
         assert response.status_code == 200
-        assert response.json()["object_key"] == "corpus/bbb/corpus/output/piflow/task1/result.json"
-        assert response.json()["desktop_id"] == "aaa_bbb"
+        assert response.json()["code"] == 200
+        assert response.json()["result"]["object_key"] == "corpus/bbb/corpus/output/piflow/task1/result.json"
+        assert response.json()["result"]["desktop_id"] == "aaa_bbb"
     finally:
         _teardown_client(client, original_startup)
 
@@ -399,8 +400,9 @@ def test_list_juicefs_files_returns_prefixed_prefix(tmp_path, monkeypatch):
         )
 
         assert response.status_code == 200
-        assert response.json()["prefix"] == "corpus/bbb/corpus/output/piflow/"
-        assert response.json()["desktop_id"] == "aaa_bbb"
+        assert response.json()["code"] == 200
+        assert response.json()["result"]["prefix"] == "corpus/bbb/corpus/output/piflow/"
+        assert response.json()["result"]["desktop_id"] == "aaa_bbb"
     finally:
         _teardown_client(client, original_startup)
 
@@ -417,7 +419,8 @@ def test_mkdir_juicefs_creates_placeholder_key(tmp_path, monkeypatch):
         )
 
         assert response.status_code == 200
-        assert response.json()["created"] is True
-        assert response.json()["object_key"] == "corpus/bbb/corpus/output/piflow/task1/subdir/"
+        assert response.json()["code"] == 200
+        assert response.json()["result"]["created"] is True
+        assert response.json()["result"]["object_key"] == "corpus/bbb/corpus/output/piflow/task1/subdir/"
     finally:
         _teardown_client(client, original_startup)

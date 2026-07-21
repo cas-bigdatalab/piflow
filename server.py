@@ -854,7 +854,10 @@ async def save_juicefs_file(req: SaveJuicefsFileRequest):
         )
         raise HTTPException(status_code=500, detail="failed to save file to juicefs")
 
-    return result
+    return {
+        "code": 200,
+        "result": result,
+    }
 
 
 @app.post("/storage/juicefs/list")
@@ -876,7 +879,10 @@ async def list_juicefs_files(req: ListJuicefsFilesRequest):
         )
         raise HTTPException(status_code=500, detail="failed to list juicefs directory")
 
-    return result
+    return {
+        "code": 200,
+        "result": result,
+    }
 
 
 @app.post("/storage/juicefs/mkdir")
@@ -898,7 +904,10 @@ async def create_juicefs_directory(req: CreateJuicefsDirectoryRequest):
         )
         raise HTTPException(status_code=500, detail="failed to create juicefs directory")
 
-    return result
+    return {
+        "code": 200,
+        "result": result,
+    }
 
 
 app.mount("/storage", StaticFiles(directory=STORAGE_DIR), name="storage")
