@@ -51,6 +51,12 @@
   ],
   "output_params": [
     {
+      "name": "outputDir",
+      "role": "output_data",
+      "type": "string",
+      "description": "本次任务输出的工作目录"
+    },
+    {
       "name": "primaryOutputPath",
       "role": "output_data",
       "type": "string",

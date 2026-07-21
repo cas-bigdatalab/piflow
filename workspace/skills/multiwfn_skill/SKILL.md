@@ -24,7 +24,7 @@ input_params:
   - name: output_dir
     type: string
     required: true
-    description: "输出工作目录"
+    description: "输出工作目录(输出文件都生成在此路径下)"
   - name: mout_output_path
     type: string
     required: true
@@ -34,6 +34,9 @@ input_params:
     required: true
     description: "其他输出文件压缩包路径"
 output_params:
+  - name: output_dir
+    type: string
+    description: "输出工作目录(输出文件都生成在此路径下)"
   - name: mout_output_path
     type: string
     description: "Multiwfn 主输出日志路径"

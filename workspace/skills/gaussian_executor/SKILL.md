@@ -12,7 +12,7 @@ input_params:
   - name: output_dir
     type: string
     required: true
-    description: "输出工作目录"
+    description: "输出工作目录(输出文件都生成在此路径下)"
   - name: log_output_path
     type: string
     required: true
@@ -33,7 +33,7 @@ input_params:
 output_params:
   - name: output_dir
     type: string
-    description: "输出工作目录"
+    description: "输出工作目录(输出文件都生成在此路径下)"
   - name: log_output_path
     type: string
     description: "log 文件输出路径"

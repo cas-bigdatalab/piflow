@@ -25,7 +25,7 @@ input_params:
   - name: outputDir
     type: string
     required: true
-    description: 本次任务输出的工作目录
+    description: 本次任务输出的工作目录(输出文件都生成在此路径下)
 
   - name: primaryOutputPath
     type: string
@@ -38,6 +38,10 @@ input_params:
     description: 其他输出文件压缩包完整路径
 
 output_params:
+  - name: outputDir
+    type: string
+    description: 本次任务输出的工作目录(输出文件都生成在此路径下)
+    
   - name: primaryOutputPath
     type: string
     description: 主输出文件
