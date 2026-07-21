@@ -26,3 +26,10 @@ minio:
   secret_key: "PoFt8Dm2VcPQq6VqRPZIDewQTajXgdjWfa6d9a2S"
   secure: false
   base_prefix: "corpus/output/piflow"
+
+juicefs:
+  endpoint: "10.0.86.244:9000"
+  access_key: "minioadmin"
+  secret_key: "minioadmin"
+  secure: false
+  base_prefix: "corpus/output/piflow"

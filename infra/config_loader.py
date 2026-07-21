@@ -27,6 +27,7 @@ def load_settings() -> Settings:
     workspace_config = app_config.get("workspace", {})
     piflow_engine_config = app_config.get("piflow_engine", {})
     minio_config = app_config.get("minio", {})
+    juicefs_config = app_config.get("juicefs", {})
     mineru_config = load_yaml(CONFIG_DIR / "mineru.yaml")
 
     config = {
@@ -35,6 +36,7 @@ def load_settings() -> Settings:
         "workspace": workspace_config,
         "piflow_engine": piflow_engine_config,
         "minio": minio_config,
+        "juicefs": juicefs_config,
         "mcp": mcp_config,
         **default_user_config,
         "policy": PolicyConfig(**policy_config.get("policy", {})),

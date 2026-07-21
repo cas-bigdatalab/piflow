@@ -156,6 +156,22 @@ class ListStorageFilesRequest(BaseModel):
     dir_path: str = ""
 
 
+class SaveJuicefsFileRequest(BaseModel):
+    user_id: str
+    target_path: str
+    local_path: str
+
+
+class ListJuicefsFilesRequest(BaseModel):
+    user_id: str
+    dir_path: str = ""
+
+
+class CreateJuicefsDirectoryRequest(BaseModel):
+    user_id: str
+    dir_path: str
+
+
 class ListUserWorkspaceRequest(BaseModel):
     user_id: str
     dir_path: str = ""
@@ -750,6 +766,76 @@ async def list_storage_files(req: ListStorageFilesRequest):
             req.dir_path,
         )
         raise HTTPException(status_code=500, detail="failed to list object storage directory")
+
+    return result
+
+
+@app.post("/storage/juicefs/save")
+async def save_juicefs_file(req: SaveJuicefsFileRequest):
+    service = ObjectStorageService()
+
+    try:
+        result = service.save_local_file_juicefs(
+            user_id=req.user_id,
+            target_path=req.target_path,
+            local_path=req.local_path,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except Exception:
+        log.exception(
+            "failed to save local file to juicefs user_id=%s target_path=%s local_path=%s",
+            req.user_id,
+            req.target_path,
+            req.local_path,
+        )
+        raise HTTPException(status_code=500, detail="failed to save file to juicefs")
+
+    return result
+
+
+@app.post("/storage/juicefs/list")
+async def list_juicefs_files(req: ListJuicefsFilesRequest):
+    service = ObjectStorageService()
+
+    try:
+        result = service.list_directory_juicefs(
+            user_id=req.user_id,
+            dir_path=req.dir_path,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception:
+        log.exception(
+            "failed to list juicefs directory user_id=%s dir_path=%s",
+            req.user_id,
+            req.dir_path,
+        )
+        raise HTTPException(status_code=500, detail="failed to list juicefs directory")
+
+    return result
+
+
+@app.post("/storage/juicefs/mkdir")
+async def create_juicefs_directory(req: CreateJuicefsDirectoryRequest):
+    service = ObjectStorageService()
+
+    try:
+        result = service.mkdir_juicefs(
+            user_id=req.user_id,
+            dir_path=req.dir_path,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception:
+        log.exception(
+            "failed to create juicefs directory user_id=%s dir_path=%s",
+            req.user_id,
+            req.dir_path,
+        )
+        raise HTTPException(status_code=500, detail="failed to create juicefs directory")
 
     return result
 

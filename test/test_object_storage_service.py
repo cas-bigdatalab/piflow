@@ -50,6 +50,7 @@ class DummyMinioClient:
         self.saved = []
         self.list_calls = []
         self.entries = []
+        self.buckets = set()
 
     def fput_object(self, bucket_name, object_key, file_path):
         self.saved.append((bucket_name, object_key, file_path))
@@ -57,6 +58,15 @@ class DummyMinioClient:
     def list_objects(self, bucket_name, prefix, recursive=False):
         self.list_calls.append((bucket_name, prefix, recursive))
         return list(self.entries)
+
+    def put_object(self, bucket_name, object_key, data, length):
+        self.saved.append((bucket_name, object_key, length))
+
+    def bucket_exists(self, bucket_name):
+        return bucket_name in self.buckets
+
+    def make_bucket(self, bucket_name):
+        self.buckets.add(bucket_name)
 
 
 def test_resolve_bucket_name_uses_suffix_or_admin_fallback():
@@ -145,3 +155,74 @@ def test_list_directory_rejects_invalid_dir_path(tmp_path):
 
     with pytest.raises(ValueError, match="dir_path is invalid"):
         service.list_directory("admin", "../secret")
+
+
+def test_save_local_file_juicefs_uses_bucket_suffix_and_juicefs_prefix(tmp_path, monkeypatch):
+    source = tmp_path / "outputs" / "result.json"
+    source.parent.mkdir(parents=True, exist_ok=True)
+    source.write_text('{"ok":true}', encoding="utf-8")
+
+    fake_client = DummyMinioClient()
+    workspace = DummyWorkspace(tmp_path)
+    service = ObjectStorageService(client=fake_client, workspace=workspace)
+    monkeypatch.setattr(service.juicefs_config, "base_prefix", "corpus/output/piflow")
+
+    result = service.save_local_file_juicefs("aaa_bbb", "task1/result.json", str(source))
+
+    assert fake_client.buckets == {"bbb"}
+    assert fake_client.saved == [
+        ("bbb", "corpus/bbb/corpus/output/piflow/task1/result.json", str(source))
+    ]
+    assert result["desktop_id"] == "aaa_bbb"
+    assert result["object_key"] == "corpus/bbb/corpus/output/piflow/task1/result.json"
+
+
+def test_list_directory_juicefs_uses_root_prefix(tmp_path, monkeypatch):
+    fake_client = DummyMinioClient()
+    fake_client.entries = [
+        DummyMinioObject("corpus/bbb/corpus/output/piflow/task1/", is_dir=True),
+        DummyMinioObject(
+            "corpus/bbb/corpus/output/piflow/result.json",
+            is_dir=False,
+            size=12,
+            last_modified=datetime(2026, 6, 11, 8, 0, tzinfo=timezone.utc),
+        ),
+    ]
+    workspace = DummyWorkspace(tmp_path)
+    service = ObjectStorageService(client=fake_client, workspace=workspace)
+    monkeypatch.setattr(service.juicefs_config, "base_prefix", "corpus/output/piflow")
+
+    result = service.list_directory_juicefs("aaa_bbb", "")
+
+    assert fake_client.buckets == {"bbb"}
+    assert fake_client.list_calls == [("bbb", "corpus/bbb/corpus/output/piflow/", False)]
+    assert result["prefix"] == "corpus/bbb/corpus/output/piflow/"
+    assert result["items"][0]["path"] == "task1"
+
+
+def test_mkdir_juicefs_creates_directory_placeholder(tmp_path, monkeypatch):
+    fake_client = DummyMinioClient()
+    workspace = DummyWorkspace(tmp_path)
+    service = ObjectStorageService(client=fake_client, workspace=workspace)
+    monkeypatch.setattr(service.juicefs_config, "base_prefix", "corpus/output/piflow")
+
+    result = service.mkdir_juicefs("aaa_bbb", "task1/subdir")
+
+    assert fake_client.buckets == {"bbb"}
+    assert fake_client.saved == [("bbb", "corpus/bbb/corpus/output/piflow/task1/subdir/", 0)]
+    assert result["created"] is True
+
+
+def test_juicefs_uses_admin_bucket_for_user_without_suffix(tmp_path, monkeypatch):
+    source = tmp_path / "outputs" / "admin.json"
+    source.parent.mkdir(parents=True, exist_ok=True)
+    source.write_text("{}", encoding="utf-8")
+
+    fake_client = DummyMinioClient()
+    workspace = DummyWorkspace(tmp_path)
+    service = ObjectStorageService(client=fake_client, workspace=workspace)
+    monkeypatch.setattr(service.juicefs_config, "base_prefix", "corpus/output/piflow")
+
+    service.save_local_file_juicefs("admin", "task1/admin.json", str(source))
+
+    assert fake_client.buckets == {"admin"}

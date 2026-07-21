@@ -38,6 +38,14 @@ class MinIOConfig(BaseModel):
     base_prefix: str = "corpus/output/piflow"
 
 
+class JuiceFSConfig(BaseModel):
+    endpoint: str = ""
+    access_key: str = ""
+    secret_key: str = ""
+    secure: bool = False
+    base_prefix: str = "corpus/output/piflow"
+
+
 class MCPServer(BaseModel):
     name: str
     url: str
@@ -95,6 +103,7 @@ class Settings(BaseModel):
     workspace: WorkspaceConfig = Field(default_factory=WorkspaceConfig)
     piflow_engine: PiFlowEngineConfig = Field(default_factory=PiFlowEngineConfig)
     minio: MinIOConfig = Field(default_factory=MinIOConfig)
+    juicefs: JuiceFSConfig = Field(default_factory=JuiceFSConfig)
     llm: LLMConfig = Field(
         default_factory=lambda: LLMConfig(
             provider="dashscope",

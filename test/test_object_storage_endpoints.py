@@ -87,6 +87,22 @@ class FakeObjectStorageService:
             "size": source.stat().st_size,
         }
 
+    def save_local_file_juicefs(self, user_id: str, target_path: str, local_path: str):
+        self.saved_calls.append((user_id, target_path, local_path))
+        source = self.workspace.resolve_virtual_path(local_path)
+        if not source.exists() or not source.is_file():
+            raise FileNotFoundError("local file not found")
+
+        bucket = "bbb" if "_" in user_id else "admin"
+        return {
+            "user_id": user_id,
+            "desktop_id": user_id,
+            "path": target_path,
+            "object_key": f"corpus/{bucket}/corpus/output/piflow/{target_path}",
+            "source_path": str(source),
+            "size": source.stat().st_size,
+        }
+
     def list_directory(self, user_id: str, dir_path: str):
         if ".." in dir_path:
             raise ValueError("dir_path is invalid")
@@ -124,6 +140,57 @@ class FakeObjectStorageService:
             "bucket": bucket,
             "dir_path": dir_path,
             "items": items,
+        }
+
+    def list_directory_juicefs(self, user_id: str, dir_path: str):
+        if ".." in dir_path:
+            raise ValueError("dir_path is invalid")
+
+        bucket = "bbb" if "_" in user_id else "admin"
+        prefix = f"corpus/{bucket}/corpus/output/piflow/"
+        if dir_path:
+            prefix = f"{prefix}{dir_path}/"
+
+        if dir_path == "":
+            items = [
+                {
+                    "name": "task1",
+                    "path": "task1",
+                    "type": "directory",
+                    "size": None,
+                    "last_modified": None,
+                }
+            ]
+        else:
+            items = [
+                {
+                    "name": "nested.json",
+                    "path": f"{dir_path}/nested.json",
+                    "type": "file",
+                    "size": 24,
+                    "last_modified": datetime(2026, 6, 11, 9, 0, tzinfo=timezone.utc).isoformat(),
+                }
+            ]
+
+        return {
+            "user_id": user_id,
+            "desktop_id": user_id,
+            "dir_path": dir_path,
+            "prefix": prefix,
+            "items": items,
+        }
+
+    def mkdir_juicefs(self, user_id: str, dir_path: str):
+        if ".." in dir_path or not dir_path:
+            raise ValueError("dir_path is required")
+
+        bucket = "bbb" if "_" in user_id else "admin"
+        return {
+            "user_id": user_id,
+            "desktop_id": user_id,
+            "dir_path": dir_path,
+            "object_key": f"corpus/{bucket}/corpus/output/piflow/{dir_path}/",
+            "created": True,
         }
 
 
@@ -293,5 +360,64 @@ def test_list_storage_files_rejects_invalid_directory_path(tmp_path, monkeypatch
 
         assert response.status_code == 400
         assert response.json()["detail"] == "dir_path is invalid"
+    finally:
+        _teardown_client(client, original_startup)
+
+
+def test_save_juicefs_file_uses_suffix_bucket_and_prefixed_key(tmp_path, monkeypatch):
+    client, workspace_root, _, original_startup = _setup_client(tmp_path, monkeypatch)
+    try:
+        source = workspace_root / "outputs" / "result.json"
+        source.parent.mkdir(parents=True, exist_ok=True)
+        source.write_text('{"ok":true}', encoding="utf-8")
+
+        response = client.post(
+            "/storage/juicefs/save",
+            json={
+                "user_id": "aaa_bbb",
+                "target_path": "task1/result.json",
+                "local_path": "/outputs/result.json",
+            },
+        )
+
+        assert response.status_code == 200
+        assert response.json()["object_key"] == "corpus/bbb/corpus/output/piflow/task1/result.json"
+        assert response.json()["desktop_id"] == "aaa_bbb"
+    finally:
+        _teardown_client(client, original_startup)
+
+
+def test_list_juicefs_files_returns_prefixed_prefix(tmp_path, monkeypatch):
+    client, _, _, original_startup = _setup_client(tmp_path, monkeypatch)
+    try:
+        response = client.post(
+            "/storage/juicefs/list",
+            json={
+                "user_id": "aaa_bbb",
+                "dir_path": "",
+            },
+        )
+
+        assert response.status_code == 200
+        assert response.json()["prefix"] == "corpus/bbb/corpus/output/piflow/"
+        assert response.json()["desktop_id"] == "aaa_bbb"
+    finally:
+        _teardown_client(client, original_startup)
+
+
+def test_mkdir_juicefs_creates_placeholder_key(tmp_path, monkeypatch):
+    client, _, _, original_startup = _setup_client(tmp_path, monkeypatch)
+    try:
+        response = client.post(
+            "/storage/juicefs/mkdir",
+            json={
+                "user_id": "aaa_bbb",
+                "dir_path": "task1/subdir",
+            },
+        )
+
+        assert response.status_code == 200
+        assert response.json()["created"] is True
+        assert response.json()["object_key"] == "corpus/bbb/corpus/output/piflow/task1/subdir/"
     finally:
         _teardown_client(client, original_startup)
