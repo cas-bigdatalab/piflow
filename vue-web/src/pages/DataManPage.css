@@ -1,128 +1,212 @@
-/* src/pages/DataManPage.css */
-
-.pageContainer {
-  width: 100%;
-  padding: 24px;
-  background-color: #f5f7fa; /* 可选：浅灰背景 */
-  box-sizing: border-box;
-}
-
-.mainContent {
-  max-width: 1200px;
+/* MyDataPage.css */
+.my-data-container {
+  max-width: 1440px;
   margin: 0 auto;
+  padding: 32px 40px 56px;
+  background-color: #f8f9fa;;
+  /* min-height: 100vh; */
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 
-.pageTitle {
-  font-size: 24px;
+.page-header {
+  /* margin-bottom: 24px; */
+  margin-bottom:0px;
+}
+
+.page-title {
+  display:inline;
   font-weight: 600;
-  color: #1f2329;
+  color: #333;
+  margin: 0 0 6px 0;
+}
+
+.page-desc {
+  font-size: 13px;
+  color: #8c8c8c;
+  margin: 0;
+}
+
+/* Tabs */
+.tabs-nav {
+  display: flex;
+  border-bottom: 1px solid #f0f0f0;
   margin-bottom: 20px;
 }
 
-/* 👇 新增：白色内容卡片 */
-.contentCard {
-  background: #ffffff;
-  border-radius: 8px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
-  padding: 24px;
+.tab-item {
+  padding: 12px 24px;
+  cursor: pointer;
+  font-size: 15px;
+  color: #595959;
+  position: relative;
+  transition: all 0.3s;
 }
 
-/* 搜索栏 */
+.tab-item:hover {
+  color: #1890ff;
+}
+
+.tab-item.active {
+  color: #1890ff;
+  font-weight: 500;
+}
+
+.tab-item.active::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background-color: #1890ff;
+}
+
+/* Toolbar */
 .toolbar {
   display: flex;
-  gap: 12px;
-  margin-bottom: 20px;
+  justify-content: space-between;
   align-items: center;
+  margin-bottom: 16px;
 }
 
-.searchInput {
-  flex: 1;
-  height: 36px;
-  padding: 0 12px;
-  border: 1px solid #dcdfe6;
+.search-input {
+  width: 300px;
+  height: 32px;
+  padding: 4px 11px;
+  border: 1px solid #d9d9d9;
   border-radius: 4px;
-  font-size: 14px;
   outline: none;
+  transition: all 0.3s;
 }
 
-.searchInput:focus {
-  border-color: #409eff;
-  box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.2);
+.search-input:focus {
+  border-color: #40a9ff;
+  box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
 }
 
-.createButton {
-  height: 36px;
-  padding: 0 16px;
-  background-color: #409eff;
-  color: white;
+.btn-primary {
+  background-color: #10b981; /* 截图中的绿色 */
+  color: #fff;
   border: none;
+  padding: 6px 16px;
   border-radius: 4px;
-  font-size: 14px;
   cursor: pointer;
-  outline: none;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: background 0.3s;
 }
 
-.createButton:hover {
-  background-color: #66b1ff;
+.btn-primary:hover {
+  background-color: #73d13d;
 }
 
-/* 表格 */
-.tableContainer {
-  overflow-x: auto;
-  margin-bottom: 20px;
+/* Table */
+.data-table-wrapper {
+  border: 1px solid #f0f0f0;
+  border-radius: 4px;
 }
 
-.dataTable {
+.data-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 14px;
-  color: #303133;
+  text-align: left;
 }
 
-.dataTable th {
-  background-color: #f5f7fa;
-  color: #606266;
+.data-table th {
+  background-color: #fafafa;
+  color: #595959;
   font-weight: 500;
-  padding: 12px 16px;
-  text-align: left;
-  /* 无 bottom border */
+  padding: 14px 16px;
+  border-bottom: 1px solid #f0f0f0;
+  font-size: 14px;
 }
 
-.dataTable td {
-  padding: 12px 16px;
-  text-align: left;
-  border-bottom: 1px solid #ebeef5; /* 轻微分割线 */
+.data-table td {
+  padding: 14px 16px;
+  border-bottom: 1px solid #f0f0f0;
+  color: #333;
+  font-size: 14px;
+  vertical-align: middle;
 }
 
-.dataTable tbody tr:last-child td {
+.data-table tr:last-child td {
   border-bottom: none;
 }
 
-/* 👇 操作项：改为链接样式 */
-.editLink,
-.deleteLink {
-  font-size: 14px;
+.data-table tr:hover td {
+  background-color: #fafafa;
+}
+
+/* File Name Column */
+.file-name-cell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.file-icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 10px;
+  font-weight: bold;
+  text-transform: uppercase;
+}
+
+.file-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.file-name-text {
+  font-weight: 500;
+  color: #262626;
+}
+
+.file-sub-text {
+  font-size: 12px;
+  color: #8c8c8c;
+  margin-top: 2px;
+}
+
+/* Tags */
+.tag {
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  line-height: 1.5;
+  display: inline-block;
+}
+
+.tag-csv { background: #e6f7ff; color: #1890ff; border: 1px solid #91d5ff; }
+.tag-json { background: #f6ffed; color: #52c41a; border: 1px solid #b7eb8f; }
+.tag-xlsx { background: #f9f0ff; color: #722ed1; border: 1px solid #d3adf7; }
+.tag-mdc { background: #fff1f0; color: #f5222d; border: 1px solid #ffa39e; }
+
+/* Actions */
+.action-btn {
+  background: transparent;
+  border: none;
   cursor: pointer;
-  margin-right: 16px;
-  color: #409eff;
-  text-decoration: none;
-  transition: color 0.2s;
+  color: #8c8c8c;
+  padding: 4px;
+  border-radius: 4px;
+  transition: all 0.3s;
 }
 
-.editLink:hover {
-  color: #66b1ff;
+.action-btn:hover {
+  color: #1890ff;
+  background-color: #e6f7ff;
 }
 
-.deleteLink {
-  color: #f56c6c;
-}
-
-.deleteLink:hover {
-  color: #f78989;
-}
-
-/* 分页 */
-.pagination {
-  font-size: 14px;
-  color: #909399;
+.checkbox-custom {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
 }
