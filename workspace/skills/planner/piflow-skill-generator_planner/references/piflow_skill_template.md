@@ -1,8 +1,13 @@
 # PiFlow Skill 通用模板
 
-生成新技能时优先参照此模板。模板用于保持 `skills/generated`（相对于 workspace 根）内技能的元数据、正文结构和 `skill.json` 结构一致。
+生成新技能时优先参照此模板。模板是技能生成的**第一骨架**：先决定 `SKILL.md`、`skill.json`、参数契约、脚本入口和资源分层，再把用户确认的信息、成功流程、已有脚本或旧 skill 中真正有用的事实填入对应位置。不要把相似 skill 当作默认底稿整体改写。
 
 路径约定：deepagent 虚拟文件环境以 `workspace` 为根。`write_file`/`read_file` 等工具调用时使用相对于 workspace 根的虚拟路径（如 `skills/generated/<skill_name>/`），不要添加 `workspace/` 前缀。Shell 命令默认使用 `--output-root skills/generated`。不要把技能写入仓库外层或重复嵌套的 workspace 路径。
+
+使用本模板时，遵循以下优先级：
+- 第一优先级：模板本身定义的 frontmatter 形状、正文章节顺序、`skill.json` 字段和资源目录分层；
+- 第二优先级：用户明确确认的业务需求、参数、输入输出结构、成功流程和已有脚本；
+- 第三优先级：仅在模板未覆盖必要细节时，局部参考现有 skill 的实现方式。
 
 ## SKILL.md Frontmatter
 
@@ -126,6 +131,8 @@ python scripts/<script>.py --input_path input.json --output_path output.json
 - 先生成草稿，再审核，再注册
 - 只补注册
 - 只重生成内容但不触碰全局状态
+
+无论使用哪一层，生成结果都应先对齐模板结构，再吸收成功流程或现有脚本中的事实；不要从现有 skill 的外观出发倒推模板。
 
 ## skill.json
 

@@ -29,6 +29,7 @@ from runtime.chat_store import (
     update_thread_time,
 )
 from runtime.engine import AgentEngine
+from runtime.planner_engine import PlannerEngine
 from runtime.skill_manage import (
     get_skills_grouped_by_type,
 )
@@ -71,17 +72,23 @@ async def lifespan(app: FastAPI):
     log.info("starting API mode")
 
     engine = AgentEngine()
+    planner_engine = PlannerEngine()
     await engine.initialize()
+    await planner_engine.initialize()
     app.state.engine = engine
+    app.state.planner_engine = planner_engine
 
     log.info("DeepAgent server started")
     try:
         yield
     finally:
+        planner_engine = getattr(app.state, "planner_engine", None)
+        if planner_engine is not None:
+            await planner_engine.shutdown()
+
         engine = getattr(app.state, "engine", None)
-        if engine is None:
-            return
-        await engine.shutdown()
+        if engine is not None:
+            await engine.shutdown()
 
 
 app = FastAPI(lifespan=lifespan)
@@ -169,6 +176,13 @@ def get_engine(request: Request) -> AgentEngine:
     engine = getattr(request.app.state, "engine", None)
     if engine is None:
         raise HTTPException(status_code=503, detail="agent engine is not initialized")
+    return engine
+
+
+def get_planner_engine(request: Request) -> PlannerEngine:
+    engine = getattr(request.app.state, "planner_engine", None)
+    if engine is None:
+        raise HTTPException(status_code=503, detail="planner agent is not initialized")
     return engine
 
 
@@ -276,6 +290,53 @@ async def chat(req: ChatRequest, request: Request):
         len(result),
     )
     return {"events": result}
+
+
+@app.post("/planner/chat")
+async def planner_chat(req: ChatRequest, request: Request):
+    engine = get_planner_engine(request)
+    request_id = uuid.uuid4().hex[:8]
+    result = await engine.run(
+        req.message,
+        req.thread_id,
+        req.user_id,
+        attachments=req.attachments,
+        request_id=request_id,
+    )
+    return {"events": result}
+
+
+@app.post("/planner/chat/stream")
+async def planner_chat_stream(req: ChatRequest, request: Request):
+    engine = get_planner_engine(request)
+    request_id = uuid.uuid4().hex[:8]
+
+    async def event_generator():
+        try:
+            async for event in engine.stream_chat(
+                req.message,
+                req.thread_id,
+                req.user_id,
+                attachments=req.attachments,
+                request_id=request_id,
+            ):
+                yield _encode_sse(event, event.get("type"))
+        except Exception as exc:
+            log.exception("planner stream request failed request_id=%s", request_id)
+            yield _encode_sse(
+                {"type": "error", "request_id": request_id, "message": str(exc)},
+                "error",
+            )
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 @app.post("/chat/stream")
