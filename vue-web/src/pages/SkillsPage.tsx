@@ -212,7 +212,7 @@ const MY_SKILLS_MOCK: SkillGroup[] = [
   // ===========================
 
   return (
-    <div className="w-full px-4 py-4 sm:px-6 lg:px-[40px] xl:px-[40px]">
+    <div className="w-full max-w-[1440px] mx-auto px-4 py-4 sm:px-6 lg:px-[40px] xl:px-[40px]">
       <div className="mb-5 flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
         <div>
           <h1 className="page-title">算子库</h1>
@@ -437,7 +437,7 @@ const MY_SKILLS_MOCK: SkillGroup[] = [
                         if ((e.target as HTMLElement).closest('.batch-checkbox')) return;
                         navigate(`/skill/detail/${encodeURIComponent(skill.skill_name)}`);
                       }}
-                      className="group/skill relative z-0 flex h-full flex-col rounded-[28px] border border-slate-200 bg-white p-5 shadow-[0_20px_60px_rgba(15,23,42,0.04)] transition-all hover:z-20 hover:-translate-y-1 hover:border-black"
+                      className="group/skill relative z-0 flex h-full w-[287px] flex-col rounded-[28px] border border-slate-200 bg-white p-5 shadow-[0_20px_60px_rgba(15,23,42,0.04)] transition-all hover:z-20 hover:-translate-y-1 hover:border-black"
                     >
                       {/* “我的空间”始终显示操作图标；“社区生态”仅在批量模式下显示复选框 */}
                       {activeTab === '我的空间' ? (
