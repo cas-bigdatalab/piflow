@@ -3575,7 +3575,7 @@ const mapOutputParamsValues = (rawParams) => {
                         const paramName = p.name;
 
                         // 👇 如果是非引用参数，且 output_params 中有同名参数，则用 output 的值
-                        let finalValue = isReference ? '' : (p._value || '');
+                        let finalValue = isReference ? '' : (p._value ||p.param_value || '');
                         if (!isReference && outParamsMap.has(paramName)) {
                           finalValue = outParamsMap.get(paramName) || finalValue;
                         }
