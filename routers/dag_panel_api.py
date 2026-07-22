@@ -6,7 +6,7 @@ from security.auth_dependency import (
 )
 from services.dag_panel_service import get_user_dag_tasks, save_dag_panel, get_panel_dag_json, \
     get_skill_info_by_id, get_dag_skills_by_condition, create_dag_task, update_dag_task, remove_dag_task, \
-    get_dag_json_by_message_id
+    get_dag_json_by_message_id, remove_local_skill
 from runtime.dag_manager import get_skill_type_counts
 
 router = APIRouter()
@@ -261,4 +261,30 @@ async def get_skill_type_counts_api():
         return {
             "code": 500,
             "message": str(e),
+        }
+
+
+@router.post("/dag/skill/removeLocalSkill")
+async def remove_local_skill_api(
+    skill_id: str = Body(..., description="dag_skills表中的skill_id"),
+    current_user=Depends(get_current_user),
+):
+    try:
+        result = remove_local_skill(skill_id)
+        if not result.get("success"):
+            return {
+                "message": result.get("message", "remove failed"),
+                "result": None,
+                "code": 500,
+            }
+        return {
+            "message": "success",
+            "result": result,
+            "code": 200,
+        }
+    except Exception as e:
+        return {
+            "message": str(e),
+            "result": None,
+            "code": 500,
         }

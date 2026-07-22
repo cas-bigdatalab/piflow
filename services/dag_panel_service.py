@@ -1,13 +1,23 @@
+import logging
+import shutil
 from contextlib import closing
 from typing import Dict, List
+from pathlib import Path
 
 from psycopg2.extras import RealDictCursor
 
 from database.postgres import get_connection
+from infra.config_loader import resolve_workspace_root
 from runtime.dag_manager import list_dag_tasks, create_or_update_task, get_next_revision, disable_current_definition, \
     insert_dag_definition, get_dag_definition_json, get_dag_skill, list_dag_skills, delete_dag_task, list_dag_skills_by_type, \
     get_dag_task_id_by_message_id
 from schemas.dag.dag_skill_schema import DagSkill
+
+log = logging.getLogger("flow.dag_panel")
+
+WORKSPACE_ROOT = resolve_workspace_root()
+SKILLS_DIR = WORKSPACE_ROOT / "skills"
+GENERATED_SKILLS_DIR = SKILLS_DIR / "generated"
 
 
 def get_user_dag_tasks(
@@ -159,3 +169,57 @@ def remove_dag_task(
                 create_user_id
             )
             return {}
+
+
+def remove_local_skill(skill_id: str) -> dict:
+    with closing(get_connection()) as conn:
+        with conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                cursor.execute(
+                    """
+                    SELECT skill_id, skill_name, version, publisher
+                    FROM dag_skills
+                    WHERE skill_id = %s AND is_deleted = 0
+                    """,
+                    (skill_id,),
+                )
+                row = cursor.fetchone()
+
+                if not row:
+                    return {
+                        "success": False,
+                        "message": f"skill not found: {skill_id}",
+                    }
+
+                skill_name = row["skill_name"]
+                version = row["version"]
+                publisher = row["publisher"]
+
+                cursor.execute(
+                    """
+                    UPDATE dag_skills
+                    SET is_deleted = 1, update_time = CURRENT_TIMESTAMP
+                    WHERE skill_id = %s AND is_deleted = 0
+                    """,
+                    (skill_id,),
+                )
+
+    if publisher == "PRIVATE":
+        generated_dir = GENERATED_SKILLS_DIR / skill_name
+        if generated_dir.exists() and generated_dir.is_dir():
+            shutil.rmtree(generated_dir)
+        else:
+            fallback_dir = SKILLS_DIR / skill_name
+            if fallback_dir.exists() and fallback_dir.is_dir():
+                shutil.rmtree(fallback_dir)
+    elif publisher == "COMMUNITY":
+        skill_dir = SKILLS_DIR / skill_name
+        if skill_dir.exists() and skill_dir.is_dir():
+            shutil.rmtree(skill_dir)
+
+    return {
+        "success": True,
+        "skill_name": skill_name,
+        "version": version,
+        "publisher": publisher,
+    }

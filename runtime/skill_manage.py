@@ -266,8 +266,9 @@ def insert_dag_skill(
                             command = EXCLUDED.command,
                             icon_path = EXCLUDED.icon_path,
                             version = EXCLUDED.version,
-                            disciplinary_field = EXCLUDED.disciplinary_field
-
+                            disciplinary_field = EXCLUDED.disciplinary_field,
+                            update_time = CURRENT_TIMESTAMP,
+                            is_deleted = 0
                         RETURNING id, skill_id
                         """,
                         (

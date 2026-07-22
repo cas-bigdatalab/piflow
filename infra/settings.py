@@ -37,6 +37,8 @@ class MinIOConfig(BaseModel):
     secure: bool = False
     base_prefix: str = "corpus/output/piflow"
 
+class CommunityServerConfig(BaseModel):
+    base_url: str = ""
 
 class JuiceFSConfig(BaseModel):
     endpoint: str = ""
@@ -104,6 +106,7 @@ class Settings(BaseModel):
     piflow_engine: PiFlowEngineConfig = Field(default_factory=PiFlowEngineConfig)
     minio: MinIOConfig = Field(default_factory=MinIOConfig)
     juicefs: JuiceFSConfig = Field(default_factory=JuiceFSConfig)
+    community_server: CommunityServerConfig = Field(default_factory=CommunityServerConfig)
     llm: LLMConfig = Field(
         default_factory=lambda: LLMConfig(
             provider="dashscope",
