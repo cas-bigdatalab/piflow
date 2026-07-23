@@ -30,7 +30,7 @@
     },
     {
       "name": "oldchk",
-      "role": "data",
+      "role": "input_data",
       "type": "string",
       "required": false,
       "default": "",
