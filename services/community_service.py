@@ -10,16 +10,14 @@ from psycopg2.extras import RealDictCursor
 from database.postgres import get_connection
 from infra.config_loader import get_settings, resolve_workspace_root
 from runtime.skill_manage import (
-    _parse_dag_skill_frontmatter,
-    _find_skill_script_path,
-    _extract_command_from_skill_md,
-    insert_dag_skill,
+    init_skill_to_database,
 )
 
 log = logging.getLogger("flow.community")
 
 REQUEST_TIMEOUT = 30
 DOWNLOAD_TIMEOUT = 120
+UPLOAD_TIMEOUT = 120
 
 WORKSPACE_ROOT = resolve_workspace_root()
 TEMP_COMMUNITY_SKILLS_DIR = WORKSPACE_ROOT / "temp_community_skills"
@@ -126,43 +124,6 @@ def _download_skill_zip(skill_id: str, zip_filename: str, user_id: int | None = 
     return zip_path
 
 
-def _init_skill_to_database(skill_dir: Path, version: str) -> dict | None:
-    info = _parse_dag_skill_frontmatter(skill_dir)
-    if info is None:
-        return None
-
-    skill_name = info["name"]
-    name_zh = info.get("name_zh", "")
-    description = info["description"]
-    skill_type = info.get("tag", "")
-    disciplinary_field = info.get("disciplinary_field", "基础")
-    input_params = info["input_params"]
-    output_params = info["output_params"]
-
-    skill_path = f"skills/{skill_dir.name}"
-    file_path = _find_skill_script_path(skill_dir)
-    language = "Python" if file_path else ""
-    command = _extract_command_from_skill_md(skill_dir, skill_name, input_params)
-    icon_path = f"/storage/skills/{skill_dir.name}.png"
-
-    return insert_dag_skill(
-        skill_name=skill_name,
-        name_zh=name_zh,
-        description=description,
-        skill_path=skill_path,
-        file_path=file_path,
-        input_params=input_params,
-        output_params=output_params,
-        skill_type=skill_type,
-        language=language,
-        command=command,
-        icon_path=icon_path,
-        version=version,
-        disciplinary_field=disciplinary_field,
-        publisher="COMMUNITY",
-    )
-
-
 def install_community_skill(skill_id: str, user_id: int | None = None) -> dict:
     detail_resp = get_community_skill_by_id(skill_id)
     if detail_resp.get("code") != 200:
@@ -178,7 +139,7 @@ def install_community_skill(skill_id: str, user_id: int | None = None) -> dict:
     skill_dir = SKILLS_DIR / skill_name
 
     if skill_dir.exists() and skill_dir.is_dir():
-        result = _init_skill_to_database(skill_dir, version)
+        result = init_skill_to_database(skill_dir, version, path_prefix="skills", publisher="COMMUNITY")
         if result:
             return {
                 "success": True,
@@ -209,7 +170,7 @@ def install_community_skill(skill_id: str, user_id: int | None = None) -> dict:
             "message": f"invalid zip file: {e}",
         }
 
-    result = _init_skill_to_database(skill_dir, version)
+    result = init_skill_to_database(skill_dir, version, path_prefix="skills", publisher="COMMUNITY")
     if not result:
         return {
             "success": False,
@@ -276,3 +237,103 @@ def remove_community_skill(skill_id: str) -> dict:
         "skill_name": skill_name,
         "version": version,
     }
+
+
+GENERATED_SKILLS_DIR = SKILLS_DIR / "generated"
+
+
+def upload_community_skill(skill_id: str, author_email: str, uploader_id: str) -> dict:
+    try:
+        with closing(get_connection()) as conn:
+            with conn:
+                with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                    cursor.execute(
+                        """
+                        SELECT skill_id, skill_name, version, publisher
+                        FROM dag_skills
+                        WHERE skill_id = %s AND is_deleted = 0
+                        """,
+                        (skill_id,),
+                    )
+                    row = cursor.fetchone()
+
+                    if not row:
+                        return {
+                            "success": False,
+                            "message": f"skill not found: {skill_id}",
+                        }
+
+                    if row["publisher"] != "PRIVATE":
+                        return {
+                            "success": False,
+                            "message": f"only PRIVATE skills can be uploaded, current publisher: {row['publisher']}",
+                        }
+
+                    skill_name = row["skill_name"]
+                    version = row["version"]
+    except Exception as e:
+        log.exception("upload_community_skill db query failed: skill_id=%s", skill_id)
+        return {
+            "success": False,
+            "message": f"database query failed: {e}",
+        }
+
+    skill_dir = GENERATED_SKILLS_DIR / skill_name
+    if not skill_dir.exists() or not skill_dir.is_dir():
+        return {
+            "success": False,
+            "message": f"skill directory not found in generated: {skill_name}",
+        }
+
+    zip_filename = f"{skill_name}_{version}.zip"
+    TEMP_COMMUNITY_SKILLS_DIR.mkdir(parents=True, exist_ok=True)
+    zip_path = TEMP_COMMUNITY_SKILLS_DIR / zip_filename
+
+    try:
+        with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+            for file in skill_dir.rglob("*"):
+                if file.is_file():
+                    arcname = f"{skill_name}/{file.relative_to(skill_dir)}"
+                    zf.write(file, arcname)
+    except Exception as e:
+        log.exception("upload_community_skill zip failed: %s", skill_dir)
+        return {
+            "success": False,
+            "message": f"failed to create zip: {e}",
+        }
+
+    base_url = _build_base_url()
+    url = f"{base_url}/skills/upload_skill_package"
+
+    try:
+        with open(zip_path, "rb") as f:
+            resp = requests.post(
+                url,
+                data={
+                    "uploader_id": uploader_id,
+                    "author_email": author_email,
+                    "skill_name": skill_name,
+                    "version": version,
+                },
+                files={"file": (zip_filename, f, "application/zip")},
+                timeout=UPLOAD_TIMEOUT,
+            )
+            resp.raise_for_status()
+            body = resp.json()
+            if body.get("code") == 200:
+                return {
+                    "success": True,
+                    "data": body.get("data"),
+                    "message": body.get("message", ""),
+                }
+            else:
+                return {
+                    "success": False,
+                    "message": body.get("message", "unknown error"),
+                }
+    except requests.RequestException as e:
+        log.exception("upload_community_skill request failed: %s", url)
+        return {
+            "success": False,
+            "message": f"community server upload failed: {e}",
+        }

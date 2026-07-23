@@ -1,5 +1,7 @@
+import json
 import logging
 import shutil
+import zipfile
 from contextlib import closing
 from typing import Dict, List
 from pathlib import Path
@@ -11,6 +13,9 @@ from infra.config_loader import resolve_workspace_root
 from runtime.dag_manager import list_dag_tasks, create_or_update_task, get_next_revision, disable_current_definition, \
     insert_dag_definition, get_dag_definition_json, get_dag_skill, list_dag_skills, delete_dag_task, list_dag_skills_by_type, \
     get_dag_task_id_by_message_id
+from runtime.skill_manage import (
+    init_skill_to_database,
+)
 from schemas.dag.dag_skill_schema import DagSkill
 
 log = logging.getLogger("flow.dag_panel")
@@ -18,6 +23,7 @@ log = logging.getLogger("flow.dag_panel")
 WORKSPACE_ROOT = resolve_workspace_root()
 SKILLS_DIR = WORKSPACE_ROOT / "skills"
 GENERATED_SKILLS_DIR = SKILLS_DIR / "generated"
+TEMP_COMMUNITY_SKILLS_DIR = WORKSPACE_ROOT / "temp_community_skills"
 
 
 def get_user_dag_tasks(
@@ -222,4 +228,89 @@ def remove_local_skill(skill_id: str) -> dict:
         "skill_name": skill_name,
         "version": version,
         "publisher": publisher,
+    }
+
+
+def upload_skill_package(file_bytes: bytes, filename: str) -> dict:
+    TEMP_COMMUNITY_SKILLS_DIR.mkdir(parents=True, exist_ok=True)
+    zip_path = TEMP_COMMUNITY_SKILLS_DIR / filename
+    zip_path.write_bytes(file_bytes)
+
+    try:
+        with zipfile.ZipFile(zip_path, "r") as zf:
+            names = zf.namelist()
+            has_skill_md = any(n.endswith("SKILL.md") for n in names)
+            has_skill_json = any(n.endswith("skill.json") for n in names)
+
+            if not has_skill_md or not has_skill_json:
+                return {
+                    "success": False,
+                    "message": "zip must contain both SKILL.md and skill.json",
+                }
+
+            skill_json_name = next(n for n in names if n.endswith("skill.json"))
+            skill_json_data = json.loads(zf.read(skill_json_name))
+            skill_name = skill_json_data.get("name", "")
+            version = skill_json_data.get("version", "1.0.0")
+
+            if not skill_name:
+                return {
+                    "success": False,
+                    "message": "skill.json missing 'name' field",
+                }
+
+            top_levels = set()
+            for n in names:
+                parts = n.split("/")
+                if parts[0]:
+                    top_levels.add(parts[0])
+
+            has_folder_structure = len(top_levels) == 1 and skill_name in top_levels
+            has_flat_structure = "SKILL.md" in names and "skill.json" in names
+
+            if not has_folder_structure and not has_flat_structure:
+                return {
+                    "success": False,
+                    "message": "zip structure must be either <skill_name>/SKILL.md or SKILL.md at root",
+                }
+
+            target_dir = GENERATED_SKILLS_DIR / skill_name
+            if target_dir.exists():
+                return {
+                    "success": False,
+                    "message": f"skill directory already exists: {skill_name}",
+                }
+
+            if has_flat_structure:
+                target_dir.mkdir(parents=True, exist_ok=True)
+                zf.extractall(target_dir)
+            else:
+                zf.extractall(GENERATED_SKILLS_DIR)
+    except zipfile.BadZipFile as e:
+        return {
+            "success": False,
+            "message": f"invalid zip file: {e}",
+        }
+    except Exception as e:
+        log.exception("upload_skill_package failed: %s", filename)
+        return {
+            "success": False,
+            "message": f"failed to process zip: {e}",
+        }
+    finally:
+        if zip_path.exists():
+            zip_path.unlink()
+
+    result = init_skill_to_database(target_dir, version, path_prefix="skills/generated", publisher="PRIVATE")
+    if not result:
+        return {
+            "success": False,
+            "message": "failed to parse SKILL.md or init skill to database",
+        }
+
+    return {
+        "success": True,
+        "skill_name": skill_name,
+        "version": version,
+        "skill_id": result["skill_id"],
     }

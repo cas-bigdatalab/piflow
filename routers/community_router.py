@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Body, Depends, HTTPException, Query
 
 from security.auth_dependency import get_current_user
 from services.community_service import (
@@ -7,6 +7,7 @@ from services.community_service import (
     install_community_skill,
     list_community_skills,
     remove_community_skill,
+    upload_community_skill,
 )
 
 router = APIRouter()
@@ -92,6 +93,24 @@ async def remove_skill(
         result = remove_community_skill(skill_id)
         if not result.get("success"):
             raise HTTPException(status_code=500, detail=result.get("message", "remove failed"))
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/community/skills/upload")
+async def upload_skill(
+    skill_id: str = Body(..., description="dag_skills表中的skill_id"),
+    author_email: str = Body("", description="作者邮箱"),
+    current_user=Depends(get_current_user),
+):
+    try:
+        user_id = str(current_user.get("user_id"))
+        result = upload_community_skill(skill_id, author_email, user_id)
+        if not result.get("success"):
+            raise HTTPException(status_code=500, detail=result.get("message", "upload failed"))
         return result
     except HTTPException:
         raise

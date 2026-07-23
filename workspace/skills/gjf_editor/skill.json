@@ -1,0 +1,119 @@
+{
+  "name": "gjf_editor",
+  "version": "1.0.0",
+  "description": "用于编辑或创建 Gaussian 输入文件（.gjf），支持添加 Link 0 指令、Route 行关键词、电荷和多重度。",
+  "language": "python",
+  "script_path": "scripts/run_gjf_editor.py",
+  "entrypoint": "python scripts/run_gjf_editor.py",
+  "input_params": [
+    {
+      "name": "input_path",
+      "role": "input_data",
+      "type": "string",
+      "required": false,
+      "default": "",
+      "description": "输入 gjf 文件路径，若省略则从零创建新文件"
+    },
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "输出 gjf 文件路径"
+    },
+    {
+      "name": "chk",
+      "role": "data",
+      "type": "string",
+      "required": true,
+      "description": "Gaussian 检查点文件名"
+    },
+    {
+      "name": "oldchk",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "default": "",
+      "description": "上一步计算的检查点文件名，用于 restart 计算"
+    },
+    {
+      "name": "nprocshared",
+      "role": "data",
+      "type": "int",
+      "required": false,
+      "default": 16,
+      "description": "CPU 核数"
+    },
+    {
+      "name": "mem",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "default": "8GB",
+      "description": "内存设置"
+    },
+    {
+      "name": "keywords",
+      "role": "data",
+      "type": "string",
+      "required": true,
+      "description": "Gaussian Route 关键词"
+    },
+    {
+      "name": "charge",
+      "role": "data",
+      "type": "int",
+      "required": false,
+      "default": 0,
+      "description": "分子总电荷"
+    },
+    {
+      "name": "multiplicity",
+      "role": "data",
+      "type": "int",
+      "required": false,
+      "default": 1,
+      "description": "自旋多重度"
+    },
+    {
+      "name": "title",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "default": "Acetic acid opt freq",
+      "description": "Gaussian 标题行"
+    }
+  ],
+  "output_params": [
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "file",
+      "description": "生成的 gjf 文件路径"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input",
+    "{input_path}",
+    "--output",
+    "{output_path}",
+    "--chk",
+    "{chk}",
+    "--oldchk",
+    "{oldchk}",
+    "--nprocshared",
+    "{nprocshared}",
+    "--mem",
+    "{mem}",
+    "--keywords",
+    "{keywords}",
+    "--charge",
+    "{charge}",
+    "--multiplicity",
+    "{multiplicity}",
+    "--title",
+    "{title}"
+  ]
+}
