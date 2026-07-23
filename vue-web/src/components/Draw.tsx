@@ -3319,31 +3319,51 @@ const mapOutputParamsValues = (rawParams) => {
 
       // ========== 开始：替换的核心逻辑 ==========
       // 1. 准备 nodesToSave 和 bindingMap (这部分保持不变)
-      const nodesToSave = nodes.map(node => {
-        if (node.type === 'comment') {
-          return {
-            node_id: node.id,
-            node_name: node.data.label,
-            node_type: 'comment',
-            position: node.position,
-            skill: null,
-            input_params: node.data.input_params,
-            output_params: node.data.output_params,
-          };
-        }
+      // 因为在节点中存在了来源的select选错位，导致了保存的inpuParams参数错误，在这重新保存的时候，把同名的使用outParams给inputParams再保存一次
+     const nodesToSave = nodes.map(node => {
+      if (node.type === 'comment') {
+        return {
+          node_id: node.id,
+          node_name: node.data.label,
+          node_type: 'comment',
+          position: node.position,
+          skill: null,
+          input_params: node.data.input_params,
+          output_params: node.data.output_params,
+        };
+      }
 
+      // 先提取 outputParams 并建立 name -> param_value 的映射
+      const rawOutputParams = node.data.output_params?.params || [];
+      const outputParamValueMap: Record<string, string> = {};
+      rawOutputParams.forEach((p: any) => {
+      const name = p.name || p.param_name;
+      if (name) {
+        // 优先取 _value，其次 param_value，确保字符串化
+        outputParamValueMap[name] = String(p._value ?? p.param_value ?? '');
+      }
+      });
+
+        // 构建 inputParams
         const inputParams = (node.data.input_params?.params || []).map((p: any) => {
           let finalParamValue = p.param_value;
+
+          // 如果是引用模式，保持原逻辑
           if (p._refType === 'reference' && p._refValue) {
-            // 引用模式：构造 {source_node, source_param} 对象
             finalParamValue = {
               source_node: p._sourceNodeName || '',
-              source_param: p._refValue
+              source_param: p._refValue,
             };
           } else {
-            // 手动模式：使用 _value
-            finalParamValue = p._value !== undefined ? p._value : p.param_value;
+            // 手动模式：优先用 _value，但若 output 中有同名参数且非引用，则用 output 的值覆盖
+            const outputValue = outputParamValueMap[p.name || p.param_name];
+            if (outputValue !== undefined && outputValue !== '') {
+              finalParamValue = outputValue;
+            } else {
+              finalParamValue = p._value !== undefined ? p._value : p.param_value;
+            }
           }
+
           return {
             name: p.name,
             param_name: p.param_name || p.name,
@@ -3351,11 +3371,12 @@ const mapOutputParamsValues = (rawParams) => {
             param_value: finalParamValue,
             value_mode: p._refType === 'reference' ? 'reference' : 'manual',
             value_source: p.value_source || 'user_input',
-            required: p.required || false
+            required: p.required || false,
           };
         });
 
-        const outputParams = (node.data.output_params?.params || []).map((p: any) => ({
+        // 构建 outputParams（保持不变）
+        const outputParams = rawOutputParams.map((p: any) => ({
           name: p.name,
           param_type: p.type || p.param_type || 'string',
           param_value: p._value || '', // 确保这里也包含了 _value
@@ -3372,7 +3393,7 @@ const mapOutputParamsValues = (rawParams) => {
             name_zh: node.data.operatorZh,
             skill_type: node.data.operatorType,
             icon_path: node.data.icon,
-            description: node.data.description
+            description: node.data.description,
           },
           input_params: inputParams,
           output_params: outputParams,
@@ -4017,39 +4038,38 @@ const mapOutputParamsValues = (rawParams) => {
                                 />
                               ) : (
                                 // 普通输入框
-                                <input
-                                  className="draw-config-value-input"
-                                  value={param._value || param.param_value || ''}
-                                  placeholder={param._refType === 'dataSource' ? '数据源' : '请输入值'}
-                                  title={param._value || param.param_value || ''}
-                                  onChange={(e) => {
-                                    // ✅ 关键修改 5：普通输入框的 onChange 也改为通过 name 查找
-                                    const newParams = JSON.parse(JSON.stringify(selectedNode.data.input_params.params));
-                                    const targetIdx = newParams.findIndex((p) => p.name === param.name);
+                               <input
+  className="draw-config-value-input"
+  value={param._refType === 'manual' ? (param._value ?? '') : ''}
+  placeholder={param._refType === 'dataSource' ? '数据源' : '请输入值'}
+  title={param._value ?? param.param_value ?? ''}
+  onChange={(e) => {
+    const newParams = JSON.parse(JSON.stringify(selectedNode.data.input_params.params));
+    const targetIdx = newParams.findIndex((p) => p.name === param.name);
 
-                                    if (targetIdx !== -1) {
-                                      newParams[targetIdx] = {
-                                        ...newParams[targetIdx],
-                                        _value: e.target.value,
-                                      };
-                                    }
+    if (targetIdx !== -1) {
+      newParams[targetIdx] = {
+        ...newParams[targetIdx],
+        _value: e.target.value, // 允许设为 ''
+      };
+    }
 
-                                    setNodes((nds) =>
-                                      nds.map((n) => {
-                                        if (n.id === selectedNodeId) {
-                                          return {
-                                            ...n,
-                                            data: {
-                                              ...n.data,
-                                              input_params: { ...n.data.input_params, params: newParams },
-                                            },
-                                          };
-                                        }
-                                        return n;
-                                      })
-                                    );
-                                  }}
-                                />
+    setNodes((nds) =>
+      nds.map((n) => {
+        if (n.id === selectedNodeId) {
+          return {
+            ...n,
+            data: {
+              ...n.data,
+              input_params: { ...n.data.input_params, params: newParams },
+            },
+          };
+        }
+        return n;
+      })
+    );
+  }}
+/>
                               )
                             )}
                           </div>
