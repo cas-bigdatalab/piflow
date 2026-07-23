@@ -5,7 +5,7 @@ from typing import Any
 
 from piflow_engine.cn.piflow.core.artifact import Artifact
 
-DEFAULT_PORT = ""
+DEFAULT_PORT = "output"
 
 
 class JobInputStream(ABC):

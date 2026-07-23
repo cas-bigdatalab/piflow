@@ -16,6 +16,7 @@ from pydantic import BaseModel
 
 from infra.config_loader import get_settings
 from infra.logging import init_logging
+from piflow_engine.cn.piflow.engine.datasource import DataspaceError, DataspaceSource
 from routers.subagent.workflow_advisor import workflow_advisor_router
 from runtime.chat_store import (
     create_thread,
@@ -34,6 +35,13 @@ from runtime.skill_manage import (
     get_skills_grouped_by_type,
 )
 from runtime.workspace_manager import WorkspaceManager
+from services.dataspace_source_service import (
+    create_dataspace_source,
+    get_dataspace_source,
+    list_dataspace_source_directory,
+    list_registered_dataspace_sources,
+    validate_dataspace_source_connection,
+)
 from services.object_storage_service import ObjectStorageService
 
 from routers.auth_router import router as auth_router
@@ -190,6 +198,34 @@ class MoveWorkspaceTempFilesRequest(BaseModel):
     user_id: str
 
 
+class CreateDataspaceSourceRequest(BaseModel):
+    base_url: str
+    app_id: str
+    auth_code: str
+    space_name: str
+    ftp_user: str
+    ftp_password: str
+    logo: str = ""
+
+
+class DataspaceSourceDetailRequest(BaseModel):
+    source_id: str
+
+
+class DataspaceSourceDirectoryListRequest(BaseModel):
+    source_id: str
+    path: str = ""
+
+
+class ValidateDataspaceSourceRequest(BaseModel):
+    base_url: str
+    app_id: str
+    auth_code: str
+    space_name: str
+    ftp_user: str
+    ftp_password: str
+
+
 def get_engine(request: Request) -> AgentEngine:
     engine = getattr(request.app.state, "engine", None)
     if engine is None:
@@ -265,6 +301,33 @@ def _serialize_user_directory_entry(
         "type": entry_type,
         "size": None if entry.is_dir() else stat.st_size,
         "last_modified": datetime.fromtimestamp(stat.st_mtime).isoformat(),
+    }
+
+
+def _mask_secret(value: str) -> str:
+    if not value:
+        return ""
+    if len(value) <= 6:
+        return "*" * len(value)
+    return f"{value[:3]}***{value[-2:]}"
+
+
+def _serialize_dataspace_source(source: DataspaceSource) -> dict[str, object]:
+    return {
+        "source_id": source.source_id,
+        "base_url": source.base_url,
+        "app_id": source.app_id,
+        "auth_code_masked": _mask_secret(source.auth_code),
+        "space_name": source.space_name,
+        "space_id": source.space_id,
+        "ftp_user": source.ftp_user,
+        "ftp_password_masked": _mask_secret(source.ftp_password),
+        "ftp_link": source.ftp_link,
+        "webdav_link": source.webdav_link,
+        "root_path": source.root_path,
+        "logo": source.logo,
+        "created_at": source.created_at.isoformat() if source.created_at else None,
+        "updated_at": source.updated_at.isoformat() if source.updated_at else None,
     }
 
 
@@ -740,6 +803,131 @@ async def copy_default_workspace_temp_files(req: MoveWorkspaceTempFilesRequest):
         "user_id": user_id,
         "target_dir": "/temp",
         "items": results,
+    }
+
+
+@app.post("/dataspace/source/create")
+async def create_dataspace_source_api(req: CreateDataspaceSourceRequest):
+    try:
+        source = create_dataspace_source(
+            base_url=req.base_url.strip(),
+            app_id=req.app_id.strip(),
+            auth_code=req.auth_code.strip(),
+            space_name=req.space_name.strip(),
+            ftp_user=req.ftp_user.strip(),
+            ftp_password=req.ftp_password,
+            logo=req.logo.strip(),
+        )
+    except (ValueError, DataspaceError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception:
+        log.exception(
+            "failed to create dataspace source base_url=%s app_id=%s space_name=%s",
+            req.base_url,
+            req.app_id,
+            req.space_name,
+        )
+        raise HTTPException(status_code=500, detail="failed to create dataspace source")
+
+    return {
+        "code": 200,
+        "result": {
+            "source": _serialize_dataspace_source(source),
+        },
+    }
+
+
+@app.post("/dataspace/source/list")
+async def list_dataspace_sources_api():
+    try:
+        items = list_registered_dataspace_sources()
+    except Exception:
+        log.exception("failed to list dataspace sources")
+        raise HTTPException(status_code=500, detail="failed to list dataspace sources")
+
+    return {
+        "code": 200,
+        "result": {
+            "items": [_serialize_dataspace_source(item) for item in items],
+        },
+    }
+
+
+@app.post("/dataspace/source/detail")
+async def get_dataspace_source_detail_api(req: DataspaceSourceDetailRequest):
+    try:
+        source = get_dataspace_source(req.source_id.strip())
+    except DataspaceError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except Exception:
+        log.exception("failed to get dataspace source detail source_id=%s", req.source_id)
+        raise HTTPException(status_code=500, detail="failed to get dataspace source detail")
+
+    return {
+        "code": 200,
+        "result": {
+            "source": _serialize_dataspace_source(source),
+        },
+    }
+
+
+@app.post("/dataspace/source/directory/list")
+async def list_dataspace_source_directory_api(req: DataspaceSourceDirectoryListRequest):
+    try:
+        result = list_dataspace_source_directory(
+            req.source_id.strip(),
+            relative_path=req.path.strip(),
+        )
+    except DataspaceError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception:
+        log.exception(
+            "failed to list dataspace source directory source_id=%s path=%s",
+            req.source_id,
+            req.path,
+        )
+        raise HTTPException(status_code=500, detail="failed to list dataspace source directory")
+
+    return {
+        "code": 200,
+        "result": result,
+    }
+
+
+@app.post("/dataspace/source/validate")
+async def validate_dataspace_source_api(req: ValidateDataspaceSourceRequest):
+    try:
+        result = validate_dataspace_source_connection(
+            base_url=req.base_url.strip(),
+            app_id=req.app_id.strip(),
+            auth_code=req.auth_code.strip(),
+            space_name=req.space_name.strip(),
+            ftp_user=req.ftp_user.strip(),
+            ftp_password=req.ftp_password,
+            logo="",
+        )
+    except (ValueError, DataspaceError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception:
+        log.exception(
+            "failed to validate dataspace source base_url=%s app_id=%s space_name=%s",
+            req.base_url,
+            req.app_id,
+            req.space_name,
+        )
+        raise HTTPException(status_code=500, detail="failed to validate dataspace source")
+
+    return {
+        "code": 200,
+        "result": {
+            "valid": True,
+            "space_name": result["space_name"],
+            "space_id": result["space_id"],
+            "ftp_link": result["ftp_link"],
+            "webdav_link": result["webdav_link"],
+            "root_path": result["root_path"],
+            "logo": result["logo"],
+        },
     }
 
 

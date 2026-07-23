@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import pytest
 
 from cn.piflow.core.artifact import FileArtifact
 from cn.piflow.core.stream_impl import JobInputStreamImpl
@@ -197,3 +198,65 @@ def test_command_invocation_parser_skips_missing_optional_runtime_parameter(tmp_
     ]
     assert "num_proc" not in invocation.resolved_values
     assert "num_proc" not in invocation.runtime_properties
+
+
+def test_command_invocation_parser_requires_non_output_data_output_named_parameter(
+    tmp_path: Path,
+) -> None:
+    spec = CommandSpec.from_dict(
+        {
+            "name": "legacy_output_name_no_longer_supported",
+            "script_path": "scripts/run_csv_formatter.py",
+            "input_params": [
+                {
+                    "name": "input_path",
+                    "role": "input_data",
+                    "required": True,
+                },
+                {
+                    "name": "output_123",
+                    "role": "data",
+                    "type": "string",
+                    "required": True,
+                },
+            ],
+            "output_params": [],
+            "command_template": [
+                "python",
+                "{script_path}",
+                "--input_path",
+                "{input_path}",
+                "--output_123",
+                "{output_123}",
+            ],
+        },
+        base_dir=tmp_path,
+    )
+    parser = CommandInvocationParser(spec)
+    inputs = JobInputStreamImpl(
+        inputs={"input_path": FileArtifact(path=str(tmp_path / "input.csv"))}
+    )
+
+    with pytest.raises(ValueError, match="missing required parameter: output_123"):
+        parser.parse(inputs, tmp_path, properties={})
+
+
+def test_command_invocation_parser_prefers_output_properties_over_default(
+    tmp_path: Path,
+) -> None:
+    parser = CommandInvocationParser(_csv_formatter_spec())
+    inputs = JobInputStreamImpl(
+        inputs={"input_path": FileArtifact(path=str(tmp_path / "input.csv"))}
+    )
+
+    invocation = parser.parse(
+        inputs,
+        tmp_path,
+        properties={},
+        output_properties={"output_path": "output/custom.jsonl"},
+    )
+
+    expected_output_path = str((tmp_path / "output" / "custom.jsonl").resolve())
+
+    assert invocation.resolved_values["output_path"] == expected_output_path
+    assert invocation.output_files == {"output_path": expected_output_path}

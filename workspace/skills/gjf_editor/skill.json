@@ -95,9 +95,9 @@
   "command_template": [
     "python",
     "{script_path}",
-    "--input",
+    "--input_path",
     "{input_path}",
-    "--output",
+    "--output_path",
     "{output_path}",
     "--chk",
     "{chk}",

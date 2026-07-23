@@ -40,6 +40,9 @@ def test_flow_bean_from_json_constructs_flow() -> None:
                     "properties": {
                         "output_path": "${output_path}/result.json",
                     },
+                    "outputProperties": {
+                        "primaryOutputPath": "output/result.json",
+                    },
                 },
             ],
             "paths": [
@@ -87,6 +90,7 @@ def test_flow_bean_from_json_constructs_flow() -> None:
     assert source_stop.format == "csv"
     assert source_stop.customized_properties == {"owner": "qa"}
     assert sink_stop.output_path == "/tmp/output/result.json"
+    assert sink_stop.output_properties == {"primaryOutputPath": "output/result.json"}
 
 
 def test_flow_bean_routes_paths_internally_by_stop_uuid() -> None:
