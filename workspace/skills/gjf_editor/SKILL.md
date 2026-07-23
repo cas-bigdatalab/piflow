@@ -53,7 +53,8 @@ output_params:
   - name: output_path
     type: file
     description: 生成的 gjf 文件路径
-tag: 计算化学
+tag: 科学计算
+publisher: COMMUNITY
 ---
 
 # gjf_editor 技能
@@ -82,7 +83,7 @@ tag: 计算化学
 ## 使用方法
 
 ```bash
-python scripts/run_gjf_editor.py --input <输入文件> --output <输出文件> --chk <检查点文件> --keywords <关键词>
+python scripts/run_gjf_editor.py --input_path <输入文件> --output_path <输出文件> --chk <检查点文件> --keywords <关键词>
 ```
 
 ## 参数说明
@@ -106,8 +107,8 @@ python scripts/run_gjf_editor.py --input <输入文件> --output <输出文件> 
 
 ```bash
 python scripts/run_gjf_editor.py \
-  -i acetic_no_param.gjf \
-  -o acetic_opt.gjf \
+  --input_path acetic_no_param.gjf \
+  --output_path acetic_opt.gjf \
   --chk acetic_opt.chk \
   --keywords "B3LYP/6-31G(d) opt freq" \
   --nprocshared 16 \
@@ -121,8 +122,8 @@ python scripts/run_gjf_editor.py \
 
 ```bash
 python scripts/run_gjf_editor.py \
-  -i acetic_no_param.gjf \
-  -o acetic_sp.gjf \
+  --input_path acetic_no_param.gjf \
+  --output_path acetic_sp.gjf \
   --oldchk acetic_opt.chk \
   --chk acetic_sp.chk \
   --keywords "B3LYP/6-31G(d) geom=allcheck guess=read" \
@@ -134,7 +135,7 @@ python scripts/run_gjf_editor.py \
 
 ```bash
 python scripts/run_gjf_editor.py \
-  -o new_molecule.gjf \
+  --output_path new_molecule.gjf \
   --chk new_molecule.chk \
   --keywords "B3LYP/6-31G(d) opt"
 ```
