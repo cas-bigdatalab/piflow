@@ -1,0 +1,705 @@
+/* --- 基础变量与重置 --- */
+:root {
+  --color-slate-50: #f8fafc;
+  --color-slate-100: #f1f5f9;
+  --color-slate-200: #e2e8f0;
+  --color-slate-300: #cbd5e1;
+  --color-slate-400: #94a3b8;
+  --color-slate-500: #64748b;
+  --color-slate-800: #1e293b;
+  --color-slate-900: #0f172a;
+  
+  --color-blue-50: #eff6ff;
+  --color-blue-100: #dbe4ff;
+  --color-blue-300: #93c5fd;
+  --color-blue-500: #3b82f6;
+  --color-blue-600: #2563eb;
+  
+  --color-red-50: #fef2f2;
+  --color-red-100: #fee2e2;
+  --color-red-500: #ef4444;
+  --color-red-600: #dc2626;
+  --color-red-700: #b91c1c;
+
+  --color-indigo-50: #eef2ff;
+  --color-indigo-100: #e0e7ff;
+  --color-indigo-600: #4f46e5;
+
+  --color-orange-50: #fff7ed;
+  --color-orange-400: #fb923c;
+  --color-orange-500: #f97316;
+
+  --color-green-50: #f0fdf4;
+  --color-green-600: #16a34a;
+
+  --color-yellow-50: #fefce8;
+  --color-yellow-100: #fef9c3;
+  --color-yellow-500: #eab308;
+
+  --color-purple-50: #f5f3ff;
+  --color-purple-500: #a855f7;
+
+  --color-cyan-50: #ecfeff;
+  --color-cyan-100: #cffafe;
+  --color-cyan-500: #06b6d4;
+
+  --color-emerald-50: #ecfdf5;
+  --color-emerald-100: #d1fae5;
+  --color-emerald-500: #10b981;
+  --color-emerald-600: #059669;
+
+  --color-gray-100: #f3f4f6;
+}
+
+/* --- 页面布局 --- */
+.page-container {
+  min-height: 100vh;
+  background-color: var(--color-slate-50);
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 32px 40px 56px;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.page-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--color-slate-900);
+  margin: 0;
+}
+
+.page-subtitle {
+  font-size: 0.875rem;
+  color: var(--color-slate-500);
+  margin-top: 0.25rem;
+}
+
+.btn-primary {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background-color: var(--color-emerald-500);
+  color: white;
+  font-size: 0.875rem;
+  font-weight: 500;
+  border: none;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.btn-primary:hover {
+  background-color: var(--color-emerald-600);
+}
+
+.page-section {
+  margin-bottom: 2.5rem;
+}
+
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--color-slate-800);
+  margin-bottom: 1rem;
+}
+
+/* --- 网格布局 --- */
+.connections-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+
+
+
+.datasources-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.75rem;
+}
+
+@media (min-width: 640px) {
+  .connections-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .datasources-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (min-width: 768px) {
+  .datasources-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .connections-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .datasources-grid {
+    grid-template-columns: repeat(6, 1fr);
+  }
+}
+
+@media (min-width: 1280px) {
+  .connections-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+  .datasources-grid {
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  }
+}
+
+/* --- 连接卡片 (ConnectionCard) --- */
+.connection-card {
+  background-color: white;
+  border: 1px solid var(--color-slate-200);
+  border-radius: 0.5rem;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  transition: box-shadow 0.2s;
+}
+
+.connection-card:hover {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.card-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.icon-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 0.5rem;
+  flex-shrink: 0;
+}
+
+.icon-base {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.card-title-group {
+  flex: 1;
+  min-width: 0;
+}
+
+.card-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-slate-900);
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.card-type {
+  font-size: 0.75rem;
+  color: var(--color-slate-500);
+  margin: 0.125rem 0 0;
+}
+
+.card-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  margin-bottom: 0.75rem;
+}
+
+.detail-row {
+  display: flex;
+  gap: 6px;
+}
+
+.detail-label {
+  min-width: 40px;
+  color: var(--color-slate-400);
+}
+
+.detail-value {
+  color: var(--color-slate-600);
+  font-family: monospace;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 60%;
+  text-align: right;
+}
+
+.card-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-top: 1px solid var(--color-slate-100);
+  padding-top: 0.75rem;
+  margin-top: auto;
+}
+
+.action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.625rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--color-slate-600);
+  background-color: var(--color-slate-50);
+  border: 1px solid var(--color-slate-200);
+  border-radius: 0.375rem;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.action-btn:hover {
+  background-color: var(--color-slate-100);
+  color: var(--color-slate-800);
+}
+
+.action-btn-edit {
+  color: var(--color-blue-600);
+  background-color: var(--color-blue-50);
+  border-color: var(--color-blue-100);
+}
+
+.action-btn-edit:hover {
+  background-color: var(--color-blue-100);
+  color: var(--color-blue-600);
+}
+
+.action-btn-delete {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: auto;
+  padding: 0.25rem;
+  color: var(--color-slate-400);
+  background: transparent;
+  border: none;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.action-btn-delete:hover {
+  color: var(--color-red-500);
+  background-color: var(--color-red-50);
+}
+
+/* --- 新建连接卡片 --- */
+.add-new-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 10rem;
+  background-color: white;
+  border: 2px dashed var(--color-slate-200);
+  border-radius: 0.5rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.add-new-card:hover {
+  border-color: var(--color-emerald-500);
+  background-color: var(--color-emerald-50);
+}
+
+.add-new-icon-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 9999px;
+  background-color: var(--color-slate-100);
+  color: var(--color-slate-400);
+  transition: all 0.2s;
+}
+
+.add-new-card:hover .add-new-icon-wrapper {
+  background-color: var(--color-emerald-500);
+  color: white;
+}
+
+.add-new-text {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-slate-500);
+  transition: color 0.2s;
+}
+
+.add-new-card:hover .add-new-text {
+  color: var(--color-emerald-600);
+}
+
+/* --- 数据源卡片 (DataSourceCard) --- */
+.datasource-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 20px 18px;
+  background-color: white;
+  border: 1px solid var(--color-slate-200);
+  border-radius: 0.5rem;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.datasource-card:hover {
+  border-color: var(--color-blue-300);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+.datasource-info {
+  min-width: 0;
+}
+
+.datasource-name {
+  font-size: 14px;
+  margin-bottom:4px;
+  font-weight: 600;
+  color: var(--color-slate-800);
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.datasource-desc {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--color-slate-400);
+  margin: 0.125rem 0 0;
+  /* white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis; */
+}
+
+/* --- 特殊图标样式 --- */
+.icon-science {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.icon-science-dot {
+  width: 0.625rem;
+  height: 0.625rem;
+  border-radius: 9999px;
+  background-color: var(--color-purple-500);
+}
+
+.icon-mq-orange {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.625rem;
+  font-weight: 800;
+  color: white;
+  background-color: var(--color-orange-500);
+  padding: 0.125rem 0.25rem;
+  border-radius: 0.25rem;
+}
+
+.icon-mq-cyan {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: white;
+  background-color: var(--color-cyan-500);
+  padding: 0.125rem 0.25rem;
+  border-radius: 0.25rem;
+}
+
+.grid-faiss {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px;
+  width: 1rem;
+  height: 1rem;
+}
+
+.grid-faiss > div {
+  border-radius: 1px;
+}
+
+
+/* --- 基础变量 --- */
+:root {
+  --color-slate-50: #f8fafc;
+  --color-slate-100: #f1f5f9;
+  --color-slate-200: #e2e8f0;
+  --color-slate-300: #cbd5e1;
+  --color-slate-400: #94a3b8;
+  --color-slate-500: #64748b;
+  --color-slate-600: #475569;
+  --color-slate-700: #334155;
+  --color-slate-800: #1e293b;
+  --color-slate-900: #0f172a;
+  
+  --color-primary: #3b82f6;
+  --border-radius-md: 0.5rem;
+  --border-radius-lg: 0.75rem;
+}
+
+/* --- 页面布局 --- */
+.page-container {
+  padding: 1.5rem;
+  background-color: var(--color-slate-50);
+  min-height: 100vh;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+}
+
+.page-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--color-slate-900);
+  margin: 0;
+}
+
+/* --- 按钮通用样式 --- */
+.btn-primary {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background-color: var(--color-primary);
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: var(--border-radius-md);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.btn-primary:hover {
+  opacity: 0.9;
+}
+
+/* --- 弹窗 Overlay --- */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.4); /* 半透明黑色背景 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  backdrop-filter: blur(2px);
+}
+
+/* --- 弹窗主体 --- */
+.modal-container {
+  background-color: white;
+  width: 680px;
+  max-width: 680px;
+  border-radius: var(--border-radius-lg);
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  display: flex;
+  flex-direction: column;
+  max-height: 90vh;
+}
+
+/* 弹窗头部 */
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid var(--color-slate-100);
+}
+
+.modal-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--color-slate-900);
+  margin: 0;
+}
+
+.modal-close-btn {
+  background: transparent;
+  border: none;
+  color: var(--color-slate-400);
+  cursor: pointer;
+  padding: 0.25rem;
+  border-radius: 0.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-close-btn:hover {
+  background-color: var(--color-slate-100);
+  color: var(--color-slate-600);
+}
+
+/* 弹窗内容区 */
+.modal-body {
+  padding: 1.5rem;
+  overflow-y: auto;
+}
+
+.modal-subtitle {
+  font-size: 0.875rem;
+  color: var(--color-slate-500);
+  margin-bottom: 1rem;
+}
+
+/* 网格布局 */
+.source-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr); /* 5列布局 */
+  gap: 6px;
+}
+
+@media (max-width: 768px) {
+  .source-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .source-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* 网格项 */
+.grid-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 6px;
+  border: 1px solid var(--color-slate-200);
+  border-radius: var(--border-radius-md);
+  cursor: pointer;
+  transition: all 0.2s;
+  gap:6px;
+  background-color: white;
+}
+
+.grid-item:hover {
+  border-color: var(--color-primary);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+}
+
+.grid-item-active {
+  border-color: var(--color-primary);
+  background-color: #eff6ff; /* 浅蓝色背景表示选中 */
+}
+
+.item-icon-wrapper {
+  width: 32px;
+  height: 32px;
+  border-radius: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.icon-base {
+  width: 1.75rem;
+  height: 1.75rem;
+}
+
+.item-label {
+  font-size: 0.875rem;
+  color: var(--color-slate-700);
+  font-weight: 500;
+}
+
+/* 弹窗底部 */
+.modal-footer {
+  padding: 1rem 1.5rem;
+  border-top: 1px solid var(--color-slate-100);
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  background-color: var(--color-slate-50);
+  border-bottom-left-radius: var(--border-radius-lg);
+  border-bottom-right-radius: var(--border-radius-lg);
+}
+
+.btn-text {
+  background: transparent;
+  border: none;
+  color: var(--color-slate-600);
+  font-size: 0.875rem;
+  cursor: pointer;
+  padding: 0.5rem 1rem;
+}
+
+.btn-text:hover {
+  color: var(--color-slate-900);
+}
+
+.btn-secondary {
+  background-color: white;
+  border: 1px solid var(--color-slate-300);
+  color: var(--color-slate-700);
+  font-size: 0.875rem;
+  padding: 0.5rem 1rem;
+  border-radius: var(--border-radius-md);
+  cursor: pointer;
+}
+
+.btn-secondary:hover {
+  background-color: var(--color-slate-50);
+}
+
+.btn-primary-gradient {
+  /* 模拟截图中的渐变绿色按钮 */
+  background: linear-gradient(90deg, #84fab0 0%, #8fd3f4 100%); 
+  /* 或者使用截图那种纯淡绿色：background-color: #a7f3d0; */
+  background-color: #6ee7b7; 
+  color: white;
+  border: none;
+  font-size: 0.875rem;
+  padding: 0.5rem 1.25rem;
+  border-radius: var(--border-radius-md);
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.btn-primary-gradient:hover {
+  opacity: 0.9;
+}

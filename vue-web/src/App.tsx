@@ -11,6 +11,7 @@ import RunDetails from "./components/RunDetails";
 import SkillsDetailsPage from "./pages/SkillsDetailsPage"; // 注意：默认导出，不用大括号
 import SkillsCreatePage from "./pages/SkillsCreatePage";
 import DataManPage from "./pages/DataManPage";
+import DataManConnectionsPage from "./pages/DataManConnectionsPage"; // 确保文件名完全匹配
 
 function TaskDrawPageWrapper() {
   const [searchParams] = useSearchParams();
@@ -44,6 +45,7 @@ export default function App() {
         <Route path="/skill/create" element={<SkillsCreatePage />} />
         {/* 新增数据管理页面 */}
         <Route path="/dataMan" element={<DataManPage />} />
+        <Route path="/dataMan-connections" element={<DataManConnectionsPage />} />
         <Route path="/run-history" element={<RunHistoryPage />} />
         <Route path="/run-details" element={<RunDetailsWrapper />} />
         <Route path="/editTask" element={<TaskManagePage />} />

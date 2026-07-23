@@ -318,7 +318,7 @@ const MY_SKILLS_MOCK: SkillGroup[] = [
         </div>
       )}
 
-      <div className="grid gap-8 lg:grid-cols-[220px_minmax(0,1fr)] xl:grid-cols-[240px_minmax(0,1fr)]">
+      <div className="grid gap-8 lg:grid-cols-[220px_minmax(0,1fr)] xl:grid-cols-[200px_minmax(0,1fr)]">
         {/* 左侧分类（仅社区生态显示）*/}
         {activeTab === "社区生态" && (
           <aside className="h-fit rounded-[28px] border border-slate-200 bg-white p-3.5 shadow-[0_24px_60px_rgba(15,23,42,0.04)]">
@@ -437,7 +437,7 @@ const MY_SKILLS_MOCK: SkillGroup[] = [
                         if ((e.target as HTMLElement).closest('.batch-checkbox')) return;
                         navigate(`/skill/detail/${encodeURIComponent(skill.skill_name)}`);
                       }}
-                      className="group/skill relative z-0 flex h-full w-[287px] flex-col rounded-[28px] border border-slate-200 bg-white p-5 shadow-[0_20px_60px_rgba(15,23,42,0.04)] transition-all hover:z-20 hover:-translate-y-1 hover:border-black"
+                      className="group/skill relative z-0 flex h-full w-[280px] flex-col rounded-[28px] border border-slate-200 bg-white p-5 shadow-[0_20px_60px_rgba(15,23,42,0.04)] transition-all hover:z-20 hover:-translate-y-1 hover:border-black px-[18px]"
                     >
                       {/* “我的空间”始终显示操作图标；“社区生态”仅在批量模式下显示复选框 */}
                       {activeTab === '我的空间' ? (
@@ -478,11 +478,11 @@ const MY_SKILLS_MOCK: SkillGroup[] = [
                       ) : null}
 
                       <div className="flex items-start gap-4">
-                        <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl bg-slate-100 text-slate-700">
+                        <div className="flex h-[38px] w-[38px] flex-shrink-0 items-center justify-center rounded-2xl bg-[#e5e7eb] text-slate-700">
                           {skill.icon_path ? (
                             <img
                               alt={(skill as any).name_zh || skill.skill_name || "算子图标"}
-                              className="h-8 w-8 rounded-xl object-cover"
+                              className="h-[30px] w-[30px] rounded-xl object-cover"
                               src={resolveIconUrl(skill.icon_path)}
                             />
                           ) : (
@@ -491,19 +491,19 @@ const MY_SKILLS_MOCK: SkillGroup[] = [
                         </div>
 
                         <div className="min-w-0 flex-1">
-                          <h3 className="break-words text-lg font-semibold leading-7 text-slate-900">
+                          <div className="break-words text-lg font-semibold text-slate-900 text-[14px]">
                             {(skill as any).name_zh || skill.skill_name || "未命名算子"}
-                          </h3>
-                          <div className="mt-2">
-                            <span className="inline-flex rounded-full bg-slate-100 px-3 py-1 text-[11px] font-medium tracking-[0.08em] text-slate-500">
+                          </div>
+                          <div className="mt-[-5px]">
+                            <span className="inline-flex rounded-[4px] bg-slate-100 px-[6px] text-[11px] font-medium tracking-[0.08em] text-slate-500">
                               {skill.skill_type || "未分类"}
                             </span>
                           </div>
                         </div>
                       </div>
 
-                      <div className="mt-4 flex-1 rounded-[24px] bg-slate-50 px-4 py-3.5">
-                        <p className="line-clamp-4 text-sm leading-7 text-slate-600" title={skill.description}>
+                      <div className="mt-[10px] flex-1">
+                        <p className="line-clamp-3 text-sm text-slate-600" title={skill.description}>
                           {skill.description || "面向科研数据处理流程的可复用算子。"}
                         </p>
                       </div>

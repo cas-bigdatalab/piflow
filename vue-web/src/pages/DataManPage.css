@@ -70,11 +70,11 @@
 }
 
 .search-input {
-  width: 300px;
-  height: 32px;
-  padding: 4px 11px;
-  border: 1px solid #d9d9d9;
-  border-radius: 4px;
+  width: 100%;
+  height: 36px;
+  padding: 0 12px 0 34px;
+  border: 0.5px solid #e5e7eb;
+  border-radius: 10px;
   outline: none;
   transition: all 0.3s;
 }
@@ -84,7 +84,7 @@
   box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
 }
 
-.btn-primary {
+.btn-primaryNew {
   background-color: #10b981; /* 截图中的绿色 */
   color: #fff;
   border: none;
@@ -98,7 +98,7 @@
   transition: background 0.3s;
 }
 
-.btn-primary:hover {
+.btn-primaryNew:hover {
   background-color: #73d13d;
 }
 
@@ -188,25 +188,399 @@
 .tag-json { background: #f6ffed; color: #52c41a; border: 1px solid #b7eb8f; }
 .tag-xlsx { background: #f9f0ff; color: #722ed1; border: 1px solid #d3adf7; }
 .tag-mdc { background: #fff1f0; color: #f5222d; border: 1px solid #ffa39e; }
-
+.action-btns{
+   display: flex;
+   gap:6px;
+}
 /* Actions */
-.action-btn {
+.action-btnNew {
   background: transparent;
-  border: none;
   cursor: pointer;
-  color: #8c8c8c;
+  border:0.5px solid #e5e7eb;
+  color: #4b5563;
+  background-color:#f3f4f6;
   padding: 4px;
-  border-radius: 4px;
+  border-radius: 6px;
   transition: all 0.3s;
+  padding:1px 6px;
+  width: 28px;
+  height: 28px;
 }
 
-.action-btn:hover {
+.action-btnNew:hover {
   color: #1890ff;
-  background-color: #e6f7ff;
+  background-color: #e5e7eb;;
 }
 
 .checkbox-custom {
   width: 16px;
   height: 16px;
   cursor: pointer;
+}
+
+/* --- 上传模态框样式 (Upload Modal Styles) --- */
+
+/* 遮罩层：全屏半透明背景 */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.45); /* 深色半透明背景 */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+/* 模态框主体：白色卡片 */
+.upload-modal {
+  background: #ffffff;
+  width: 600px; /* 固定宽度，显得更稳重 */
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: modalFadeIn 0.3s ease;
+}
+
+@keyframes modalFadeIn {
+  from { opacity: 0; transform: translateY(-20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* 头部：标题与关闭按钮 */
+.modal-header {
+  padding: 16px 24px;
+  border-bottom: 1px solid #f0f0f0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.modal-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #333;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 18px;
+  color: #999;
+  padding: 0;
+  line-height: 1;
+}
+
+.close-btn:hover {
+  color: #333;
+}
+
+/* 内容区域 */
+.modal-body {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* 上传区域：核心视觉点 */
+.upload-drop-zone {
+  border: 1px dashed #d9d9d9;
+  background-color: #fafafa;
+  border-radius: 6px;
+  padding: 40px 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.upload-drop-zone:hover, .upload-drop-zone.drag-active {
+  border-color: #1890ff; /* 悬停时变蓝 */
+  background-color: #e6f7ff;
+}
+
+.upload-icon-wrapper {
+  margin-bottom: 12px;
+}
+
+.upload-main-text {
+  font-size: 14px;
+  color: #333;
+  margin-bottom: 8px;
+}
+
+.upload-sub-text {
+  font-size: 12px;
+  color: #999;
+  max-width: 80%;
+  margin: 0 auto;
+  line-height: 1.5;
+}
+
+/* 表单输入组 */
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.form-label {
+  font-size: 14px;
+  color: #666;
+}
+
+.form-input, .form-textarea {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #d9d9d9;
+  border-radius: 4px;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.3s;
+  box-sizing: border-box; /* 确保padding不撑大宽度 */
+}
+
+.form-input:focus, .form-textarea:focus {
+  border-color: #1890ff;
+}
+
+.form-textarea {
+  resize: vertical;
+  min-height: 60px;
+}
+
+/* 底部操作栏 */
+.modal-footer {
+  padding: 16px 24px;
+  border-top: 1px solid #f0f0f0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: #fff;
+}
+
+.footer-hint {
+  font-size: 12px;
+  color: #999;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 12px;
+}
+
+/* 通用按钮样式覆盖 */
+.btn-primaryNew {
+  background-color: #10b981;; /* 图片中的绿色 */
+  color: white;
+  border: #10b981;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.btn-primaryNew:hover {
+  background-color: #00a383;
+}
+
+.btn-secondary {
+  background-color: #e5e7eb;
+  border: 1px solid #e5e7eb;
+  color: #000;
+  padding: 8px 20px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.btn-secondary:hover {
+  color: #000000;
+  border-color: #000000;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  gap: 16px;
+}
+.btn-group{
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.toolbar-buttons {
+  display: flex;
+  gap: 12px;
+}
+
+.btn-secondary {
+  background: #f5f5f5;
+  border: 1px solid #d9d9d9;
+  color: #333;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.btn-secondary:hover:not(.btn-disabled) {
+  background: #e6e6e6;
+}
+
+.btn-disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* 批量管理模态框 */
+.batch-modal {
+  width: 400px;
+  background: white;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
+}
+
+.batch-options {
+  padding: 24px;
+  text-align: center;
+}
+
+.batch-action-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.batch-action-btn {
+  height: 80px;
+  border: 1px solid #eee;
+  border-radius: 8px;
+  background: #fafafa;
+  cursor: pointer;
+  font-size: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.batch-action-btn:hover {
+  background: #f0f0f0;
+  transform: translateY(-2px);
+}
+
+.btn-download {
+  color: #1890ff;
+}
+
+.btn-delete {
+  background: #dc2626;
+  color: #fff;
+  border-color: #dc2626;
+  font-weight: 600;
+  height: 36px;
+  padding: 0 16px;
+  font-size: 13px;
+  border-radius: 10px;
+}
+
+/* 批量操作栏样式 */
+.batch-action-bar {
+  background-color: #111827;
+  border-radius: 10px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: #fff;;
+  font-size: 14px;
+}
+
+.batch-action-buttons {
+  display: flex;
+  gap: 10px;
+}
+
+.batch-action-bar .action-btn {
+  border: none;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.2s;
+}
+
+.batch-action-bar .btn-download {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  border-radius:6px;
+  border:0.5px solid rgba(255, 255, 255, 0.2);
+  font-size:12px;
+}
+
+.batch-action-bar .btn-download:hover {
+  background-color: rgba(255,255,255,0.2);
+  color: #fff;
+}
+
+.batch-action-bar .btn-delete {
+  background-color: rgba(255, 255, 255, 0.1);
+  border:1px solid rgba(248, 16, 16 , 0.4);
+  color: #ff6b6b;
+}
+
+.batch-action-bar .btn-delete:hover {
+  background-color: rgba(255, 77, 77, 0.15);
+  color: #ff6b6b;
+}
+.toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+
+.search-and-filter {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.search-bar{
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.search-input,
+.filter-select {
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid #d9d9d9;
+  border-radius: 6px;
+  font-size: 14px;
+  outline: none;
+}
+
+.filter-select:focus {
+  border-color: #1890ff;
+  box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
 }
