@@ -96,6 +96,7 @@ interface NodeData {
       name: string; 
       type: string; 
       param_value?: string; // 新增：用于存储用户填写的值
+      _value: string;
     }[] 
   };
 }
@@ -1807,12 +1808,15 @@ useEffect(() => {
             outputParamsMap[nodeId] = outputParams.params;
           }
 
-          // 合并已保存的参数数据
-          let mergedInputParams = inputParams;
+       
           
 
+          // 合并已保存的参数数据
+          let mergedInputParams = inputParams;
+
           let mergedOutputParams = outputParams;
-          if (outputParams?.params && hasSavedOutputParams) {
+          if (outputParams?.params) {
+            // 先用 savedDrawData 的值初始化 output_params
             const savedOutputParamsMap: Record<string, any> = {};
             const savedRawOutputParams = Array.isArray(n.output_params) 
               ? n.output_params 
@@ -1825,21 +1829,50 @@ useEffect(() => {
               }
             });
 
+            // 初始化 output_params 的 _value
             mergedOutputParams = {
               params: outputParams.params.map((paramDef: any) => {
                 const paramName = paramDef.name || paramDef.param_name || '';
                 const savedParam = savedOutputParamsMap[paramName];
-                
-                // 👇 关键：使用 safeInitParamValue
                 const finalValue = safeInitParamValue(savedParam || paramDef);
-                
                 return {
                   ...paramDef,
                   _value: finalValue,
-                  param_value: finalValue, // 保持一致
+                  param_value: finalValue,
                 };
               })
             };
+
+            // ===== 新增：从 input_params 中同步同名参数的值 =====
+            if (mergedInputParams?.params) {
+              const inputValueMap: Record<string, string> = {};
+              mergedInputParams.params.forEach(param => {
+                const name = param.name || param.param_name;
+                if (name) {
+                  // 取用户编辑后的值 _value，否则取 param_value
+                  const val = (param._value !== undefined ? param._value : param.param_value);
+                  if (val !== undefined && val !== '') {
+                    inputValueMap[name] = String(val);
+                  }
+                }
+              });
+
+              // 更新 mergedOutputParams
+              mergedOutputParams = {
+                ...mergedOutputParams,
+                params: mergedOutputParams.params.map(outParam => {
+                  const name = outParam.name || outParam.param_name;
+                  if (name && inputValueMap[name] !== undefined) {
+                    return {
+                      ...outParam,
+                      _value: inputValueMap[name],
+                      param_value: inputValueMap[name],
+                    };
+                  }
+                  return outParam;
+                })
+              };
+            }
           }
 
           // 如果有inputParams定义，以inputParams为基础，用savedDrawData中的值覆盖
@@ -1906,7 +1939,6 @@ useEffect(() => {
           const operatorName = n.skill?.skill_name || '';
           const operatorZh = n.skill?.name_zh || '';
           const operatorType = n.skill?.skill_type || n.skill_type || '';
-
           loadedNodes.push({
             id: nodeId,
             type: 'custom',
@@ -4039,37 +4071,37 @@ const mapOutputParamsValues = (rawParams) => {
                               ) : (
                                 // 普通输入框
                                <input
-  className="draw-config-value-input"
-  value={param._refType === 'manual' ? (param._value ?? '') : ''}
-  placeholder={param._refType === 'dataSource' ? '数据源' : '请输入值'}
-  title={param._value ?? param.param_value ?? ''}
-  onChange={(e) => {
-    const newParams = JSON.parse(JSON.stringify(selectedNode.data.input_params.params));
-    const targetIdx = newParams.findIndex((p) => p.name === param.name);
+                                className="draw-config-value-input"
+                                value={param._refType === 'manual' ? (param._value ?? '') : ''}
+                                placeholder={param._refType === 'dataSource' ? '数据源' : '请输入值'}
+                                title={param._value ?? param.param_value ?? ''}
+                                onChange={(e) => {
+                                  const newParams = JSON.parse(JSON.stringify(selectedNode.data.input_params.params));
+                                  const targetIdx = newParams.findIndex((p) => p.name === param.name);
 
-    if (targetIdx !== -1) {
-      newParams[targetIdx] = {
-        ...newParams[targetIdx],
-        _value: e.target.value, // 允许设为 ''
-      };
-    }
+                                  if (targetIdx !== -1) {
+                                    newParams[targetIdx] = {
+                                      ...newParams[targetIdx],
+                                      _value: e.target.value, // 允许设为 ''
+                                    };
+                                  }
 
-    setNodes((nds) =>
-      nds.map((n) => {
-        if (n.id === selectedNodeId) {
-          return {
-            ...n,
-            data: {
-              ...n.data,
-              input_params: { ...n.data.input_params, params: newParams },
-            },
-          };
-        }
-        return n;
-      })
-    );
-  }}
-/>
+                                  setNodes((nds) =>
+                                    nds.map((n) => {
+                                      if (n.id === selectedNodeId) {
+                                        return {
+                                          ...n,
+                                          data: {
+                                            ...n.data,
+                                            input_params: { ...n.data.input_params, params: newParams },
+                                          },
+                                        };
+                                      }
+                                      return n;
+                                    })
+                                  );
+                                }}
+                              />
                               )
                             )}
                           </div>
