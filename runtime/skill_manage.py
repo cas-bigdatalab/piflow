@@ -266,8 +266,9 @@ def insert_dag_skill(
                             command = EXCLUDED.command,
                             icon_path = EXCLUDED.icon_path,
                             version = EXCLUDED.version,
-                            disciplinary_field = EXCLUDED.disciplinary_field
-
+                            disciplinary_field = EXCLUDED.disciplinary_field,
+                            update_time = CURRENT_TIMESTAMP,
+                            is_deleted = 0
                         RETURNING id, skill_id
                         """,
                         (
@@ -591,3 +592,40 @@ def get_generating_skill_by_thread_id(thread_id: str) -> Optional[Dict]:
 
     except Exception as e:
         raise RuntimeError("get_generating_skill_by_thread_id failed") from e
+
+
+def init_skill_to_database(skill_dir: Path, version: str, path_prefix: str = "skills", publisher: str = "PRIVATE") -> dict | None:
+    info = _parse_dag_skill_frontmatter(skill_dir)
+    if info is None:
+        return None
+
+    skill_name = info["name"]
+    name_zh = info.get("name_zh", "")
+    description = info["description"]
+    skill_type = info.get("tag", "")
+    disciplinary_field = info.get("disciplinary_field", "基础")
+    input_params = info["input_params"]
+    output_params = info["output_params"]
+
+    skill_path = f"{path_prefix}/{skill_dir.name}"
+    file_path = _find_skill_script_path(skill_dir)
+    language = "Python" if file_path else ""
+    command = _extract_command_from_skill_md(skill_dir, skill_name, input_params)
+    icon_path = f"/storage/{path_prefix}/{skill_dir.name}.png"
+
+    return insert_dag_skill(
+        skill_name=skill_name,
+        name_zh=name_zh,
+        description=description,
+        skill_path=skill_path,
+        file_path=file_path,
+        input_params=input_params,
+        output_params=output_params,
+        skill_type=skill_type,
+        language=language,
+        command=command,
+        icon_path=icon_path,
+        version=version,
+        disciplinary_field=disciplinary_field,
+        publisher=publisher,
+    )

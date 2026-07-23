@@ -27,6 +27,9 @@ minio:
   secure: false
   base_prefix: "corpus/output/piflow"
 
+community_server:
+  base_url: "10.0.87.111:8099"
+
 juicefs:
   endpoint: "10.0.86.244:9000"
   access_key: "minioadmin"
