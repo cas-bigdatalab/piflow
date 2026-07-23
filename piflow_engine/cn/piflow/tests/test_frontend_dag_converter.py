@@ -39,6 +39,13 @@ def test_convert_frontend_dag_to_piflow_uses_ids_for_paths() -> None:
                         "value_mode": "manual",
                     },
                 ],
+                "out_params": [
+                    {
+                        "param_name": "output",
+                        "param_type": "string",
+                        "param_value": "workspace/outputs/森林每木调查数据-blank-space.csv",
+                    }
+                ],
             },
             {
                 "node_id": "593a473d01ef4f5da0c93db24441a1cc",
@@ -59,6 +66,13 @@ def test_convert_frontend_dag_to_piflow_uses_ids_for_paths() -> None:
                         "value_mode": "manual",
                     },
                 ],
+                "out_params": [
+                    {
+                        "param_name": "output_path",
+                        "param_type": "string",
+                        "param_value": "workspace/outputs/森林每木调查数据-clean.csv",
+                    }
+                ],
             },
         ],
         "bindings": [
@@ -76,8 +90,8 @@ def test_convert_frontend_dag_to_piflow_uses_ids_for_paths() -> None:
     print(piflow_json)
     assert piflow_json == {
         "flow": {
-            "uuid": "b3691c8a124d4c619a77904f7422465e",
-            "name": "csv空行、空格清洗任务",
+            "uuid": "",
+            "name": "",
             "runMode": "RUN",
             "stops": [
                 {
@@ -86,6 +100,8 @@ def test_convert_frontend_dag_to_piflow_uses_ids_for_paths() -> None:
                     "bundle": "42a28dca61f44455b789cde5b0b4eb21",
                     "properties": {
                         "input": "workspace/temp/森林每木调查数据-blank-line-space.csv",
+                    },
+                    "outputProperties": {
                         "output": "workspace/outputs/森林每木调查数据-blank-space.csv",
                     },
                 },
@@ -93,7 +109,8 @@ def test_convert_frontend_dag_to_piflow_uses_ids_for_paths() -> None:
                     "uuid": "593a473d01ef4f5da0c93db24441a1cc",
                     "name": "空格清洗节点",
                     "bundle": "40f751e3cec24c4f8d5d5b45a97a2ccb",
-                    "properties": {
+                    "properties": {},
+                    "outputProperties": {
                         "output_path": "workspace/outputs/森林每木调查数据-clean.csv",
                     },
                 },

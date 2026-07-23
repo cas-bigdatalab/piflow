@@ -1,0 +1,53 @@
+syntax = "proto3";
+
+package piflow.remote;
+
+service RemoteExecutionService {
+  rpc SubmitDag(SubmitDagRequest) returns (SubmitDagResponse);
+  rpc GetRunStatus(GetRunStatusRequest) returns (GetRunStatusResponse);
+  rpc GetRunResultMeta(GetRunResultMetaRequest) returns (GetRunResultMetaResponse);
+  rpc DownloadResult(DownloadResultRequest) returns (stream DownloadResultChunk);
+}
+
+message SubmitDagRequest {
+  string dag_definition_json = 1;
+}
+
+message SubmitDagResponse {
+  string run_id = 1;
+  string status = 2;
+  string message = 3;
+}
+
+message GetRunStatusRequest {
+  string run_id = 1;
+}
+
+message GetRunStatusResponse {
+  string run_id = 1;
+  string status = 2;
+  string message = 3;
+}
+
+message GetRunResultMetaRequest {
+  string run_id = 1;
+  string result_node_id = 2;
+  string result_output_name = 3;
+}
+
+message GetRunResultMetaResponse {
+  string status = 1;
+  string file_name = 2;
+  int64 file_size = 3;
+  string mime_type = 4;
+}
+
+message DownloadResultRequest {
+  string run_id = 1;
+  string result_node_id = 2;
+  string result_output_name = 3;
+}
+
+message DownloadResultChunk {
+  bytes content = 1;
+}
