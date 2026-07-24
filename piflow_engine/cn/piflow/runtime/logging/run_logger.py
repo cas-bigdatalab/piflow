@@ -5,6 +5,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from piflow_engine.cn.piflow.runtime.logging.path_utils import safe_name
+
 
 class RunLogger:
     """
@@ -58,7 +60,7 @@ class RunLogger:
         return self.workspace_root / process_id / "flow.log"
 
     def stop_log_path(self, process_id: str, stop_name: str) -> Path:
-        return self.workspace_root / process_id / "stops" / _safe_name(stop_name) / "job.log"
+        return self.workspace_root / process_id / "stops" / safe_name(stop_name) / "job.log"
 
     def _record(
         self,
@@ -86,7 +88,3 @@ class RunLogger:
         path.parent.mkdir(parents=True, exist_ok=True)
         with path.open("a", encoding="utf-8") as file:
             file.write(json.dumps(record, ensure_ascii=False) + "\n")
-
-
-def _safe_name(value: str) -> str:
-    return value.replace("/", "_").replace("\\", "_").replace(" ", "_")

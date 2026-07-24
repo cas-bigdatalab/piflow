@@ -11,6 +11,7 @@ from piflow_engine.cn.piflow.core.runtime_context import JobContext, ProcessCont
 from piflow_engine.cn.piflow.core.stop import ConfigurableStop
 from piflow_engine.cn.piflow.core.stream import JobInputStream, JobOutputStream
 from piflow_engine.cn.piflow.engine.local.constants import RUNNER_CONTEXT_WORKSPACE_ROOT
+from piflow_engine.cn.piflow.runtime.logging.path_utils import safe_name
 
 
 class RemoteExecutionGateway(Protocol):
@@ -126,7 +127,7 @@ class RemoteSubDagSourceStop(ConfigurableStop):
             raise RuntimeError("workspace root is not initialized")
 
         process_id = ctx.get_process_context().get_process().pid()
-        stop_name = ctx.get_stop_job().get_stop_name()
+        stop_name = safe_name(ctx.get_stop_job().get_stop_name())
         job_id = ctx.get_stop_job().jid()
         output_dir = (
             self._workspace_root
