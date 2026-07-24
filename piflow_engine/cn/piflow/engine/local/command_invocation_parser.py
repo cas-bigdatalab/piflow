@@ -83,11 +83,11 @@ class CommandInvocationParser:
             output_files=output_files,
         )
 
-    def _input_path(self, parameter: ParameterSpec, inputs: JobInputStream) -> str:
+    def _input_path(self, parameter: ParameterSpec, inputs: JobInputStream) -> str | object:
         if not inputs.contains(parameter.name):
             if parameter.required:
                 raise ValueError(f"missing required input data: {parameter.name}")
-            return ""
+            return _SKIP_TOKEN
 
         artifact = inputs.read(parameter.name)
         path = getattr(artifact, "path", "") or str(getattr(artifact, "value", ""))

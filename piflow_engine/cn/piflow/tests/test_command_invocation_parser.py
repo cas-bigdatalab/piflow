@@ -200,6 +200,58 @@ def test_command_invocation_parser_skips_missing_optional_runtime_parameter(tmp_
     assert "num_proc" not in invocation.runtime_properties
 
 
+def test_command_invocation_parser_skips_missing_optional_input_data_parameter(
+    tmp_path: Path,
+) -> None:
+    spec = CommandSpec.from_dict(
+        {
+            "name": "csv_formatter",
+            "script_path": "scripts/run_csv_formatter.py",
+            "input_params": [
+                {
+                    "name": "input_path",
+                    "role": "input_data",
+                    "required": False,
+                },
+                {
+                    "name": "output_path",
+                    "role": "output_data",
+                    "required": True,
+                },
+            ],
+            "output_params": [
+                {
+                    "name": "output_path",
+                    "role": "output_data",
+                    "type": "jsonl_file",
+                    "default": "csv_formatter_output.jsonl",
+                }
+            ],
+            "command_template": [
+                "python",
+                "{script_path}",
+                "--input_path",
+                "{input_path}",
+                "--output_path",
+                "{output_path}",
+            ],
+        },
+        base_dir=tmp_path,
+    )
+    parser = CommandInvocationParser(spec)
+    inputs = JobInputStreamImpl(inputs={})
+
+    invocation = parser.parse(inputs, tmp_path, properties={})
+
+    assert invocation.command == [
+        "python",
+        str((tmp_path / "scripts/run_csv_formatter.py").resolve()),
+        "--output_path",
+        str((tmp_path / "output" / "csv_formatter_output.jsonl").resolve()),
+    ]
+    assert "input_path" not in invocation.resolved_values
+
+
 def test_command_invocation_parser_requires_non_output_data_output_named_parameter(
     tmp_path: Path,
 ) -> None:
