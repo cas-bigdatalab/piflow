@@ -35,6 +35,7 @@ from piflow_engine.cn.piflow.engine.local.sandbox import (
     SandboxResult,
     WorkspacePathMapper,
 )
+from piflow_engine.cn.piflow.runtime.logging.path_utils import safe_name
 
 
 class CommandStop(ConfigurableStop):
@@ -132,7 +133,7 @@ class CommandStop(ConfigurableStop):
             raise RuntimeError("workspace root is not initialized")
 
         process_id = ctx.get_process_context().get_process().pid()
-        stop_name = ctx.get_stop_job().get_stop_name()
+        stop_name = safe_name(ctx.get_stop_job().get_stop_name())
         job_id = ctx.get_stop_job().jid()
         workspace = (
             self._workspace_root

@@ -11,6 +11,7 @@ from piflow_engine.cn.piflow.core.runtime_keys import RUN_CONTEXT_FINAL_OUTPUT_P
 from piflow_engine.cn.piflow.core.stop import ConfigurableStop
 from piflow_engine.cn.piflow.core.stream import DEFAULT_PORT, JobInputStream, JobOutputStream
 from piflow_engine.cn.piflow.engine.local.constants import RUNNER_CONTEXT_WORKSPACE_ROOT
+from piflow_engine.cn.piflow.runtime.logging.path_utils import safe_name
 from services.dataspace_source_service import upload_dataspace_source_directory
 
 
@@ -113,7 +114,7 @@ class DataSpaceFileSinkStop(ConfigurableStop):
             raise RuntimeError("workspace root is not initialized")
 
         process_id = ctx.get_process_context().get_process().pid()
-        stop_name = ctx.get_stop_job().get_stop_name()
+        stop_name = safe_name(ctx.get_stop_job().get_stop_name())
         job_id = ctx.get_stop_job().jid()
         managed_dir = (
             self._workspace_root
