@@ -18,8 +18,10 @@ import { shortId } from "../lib/ids";
 import PipelinePreview, { extractAndCleanPipelineJson, PipelineData } from "../components/PipelinePreview";
 import FlowEditor, { InitialPipelineData } from "../components/Draw";
 // import { appConfig } from "../config/appConfig";
+function getCurrentUserId() {
+  return localStorage.getItem("userId")?.trim() || "";
+}
 
-const DEFAULT_USER_ID = localStorage.getItem('userId');
 
 type UiMsg = {
   id: string;
@@ -509,9 +511,14 @@ export function HomePage() {
     setCanvasPipelineData(null);
     setCanvasMessageId("");
     setSavedDrawData(null);
-
+    const currentUserId = getCurrentUserId();
+    if (!currentUserId) {
+      setMessages([]);
+      setLoadError("用户信息尚未初始化，请刷新页面后重试");
+      return;
+    }
     try {
-      const response = await getThreadMessages(DEFAULT_USER_ID, nextThreadId, 200);
+      const response = await getThreadMessages(currentUserId, nextThreadId, 200);
       setMessages((response.messages || []).map((message, index) => toUiMessage(nextThreadId, message, index)));
     } catch (error: any) {
       setMessages([]);
@@ -531,7 +538,17 @@ export function HomePage() {
     if ((!prompt && pendingFiles.length === 0) || sending || uploading) {
       return;
     }
-    const targetThreadId = options?.threadId ?? threadId;
+    const currentUserId = getCurrentUserId();
+    if (!currentUserId) {
+      setLoadError("用户信息尚未初始化，请刷新页面后重试");
+      return;
+    }
+    let targetThreadId = options?.threadId ?? threadId;
+    if (targetThreadId === "default") {
+      targetThreadId = `t_${shortId()}`;
+      setThreadId(targetThreadId); // 更新状态，避免重复创建
+    }
+    // const targetThreadId = options?.threadId ?? threadId;
     const presetAttachments = options?.presetAttachments || [];
     const hidden = options?.hidden || false;
 
@@ -561,13 +578,13 @@ export function HomePage() {
     let assistantArtifacts: string[] = [];
 
     try {
-      const created = await createMessage(DEFAULT_USER_ID, targetThreadId, prompt);
+      const created = await createMessage(currentUserId, targetThreadId, prompt);
       const messageId = created.message.id;
 
       let attachedPresetFiles: MessageAttachment[] = [];
       if (presetAttachments.length > 0) {
         const attached = await attachMessageFiles(
-          DEFAULT_USER_ID,
+          currentUserId,
           targetThreadId,
           messageId,
           presetAttachments,
@@ -582,7 +599,7 @@ export function HomePage() {
 
         for (const item of filesToUpload) {
           const response = await uploadWorkspaceFile(
-            DEFAULT_USER_ID,
+            currentUserId,
             targetThreadId,
             messageId,
             item.file,
@@ -619,7 +636,7 @@ export function HomePage() {
         {
           message: prompt,
           thread_id: targetThreadId,
-          user_id: DEFAULT_USER_ID,
+          user_id: currentUserId,
           attachments: [...attachedPresetFiles, ...uploadedAttachments].map((file) => file.path),
           message_id: messageId,
         },
@@ -816,6 +833,10 @@ export function HomePage() {
     abortRef.current = null;
 
     const userId = localStorage.getItem('userId') || '';
+    if (!userId) {
+      setLoadError("用户信息尚未初始化，请刷新页面后重试");
+      return;
+    }
     try {
       await copyDefaultFiles(userId);
     } catch (e) {
