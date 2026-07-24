@@ -3653,6 +3653,7 @@ const mapOutputParamsValues = (rawParams) => {
             //     })) || [],
             //   })),
             // };
+            
             const drawData = {
               dsl_version: "1.0",
               task: {
@@ -3678,26 +3679,59 @@ const mapOutputParamsValues = (rawParams) => {
                       skill_name: n.data.operatorName
                     },
                     input_params: (n.data.input_params?.params || [])
-                      .filter(p => {
-                        if (p._refType === 'reference') return true;
-                        const val = String(p._value ?? p.param_value ?? '');
-                        return val.trim() !== '';
-                      })
-                      .map(p => {
-                        const isReference = p._refType === 'reference';
-                        const paramName = p.name;
+                      // .filter(p => {
+                      //   if (p._refType === 'reference') return true;
+                      //   const val = String(p._value ?? p.param_value ?? '');
+                      //   return val.trim() !== '';
+                      // })
 
-                        // 👇 如果是非引用参数，且 output_params 中有同名参数，则用 output 的值
-                        let finalValue = isReference ? '' : (p._value ||p.param_value || '');
-                        if (!isReference && outParamsMap.has(paramName)) {
-                          finalValue = outParamsMap.get(paramName) || finalValue;
-                        }
+                      // .map(p => {
+                      //   const isReference = p._refType === 'reference';
+                      //   const paramName = p.name;
 
+                      //   // 👇 如果是非引用参数，且 output_params 中有同名参数，则用 output 的值
+                      //   let finalValue = isReference ? '' : (p._value ||p.param_value || '');
+                      //   if (!isReference && outParamsMap.has(paramName)) {
+                      //     finalValue = outParamsMap.get(paramName) || finalValue;
+                      //   }
+
+                      //   return {
+                      //     param_name: paramName,
+                      //     param_value: finalValue,
+                      //   };
+                      // }),
+
+
+
+
+                    .filter(p => {
+                      if (p._refType === 'reference') return true;
+                      const val = String(p._value ?? p.param_value ?? '');
+                      return val.trim() !== '';
+                    })
+                    .map(p => {
+                      // 获取参数值（优先使用 _value，其次 param_value）
+                      const paramValue = p._value !== undefined ? p._value : p.param_value;
+                      
+                      if (p._refType === 'manual') {
+                        // manual 模式：直接使用参数值
                         return {
-                          param_name: paramName,
-                          param_value: finalValue,
+                          ...p,
+                          param_value: paramValue
                         };
-                      }),
+                      } else if (p._refType === 'reference') {
+                        // reference 模式：转换为引用对象
+                        // 使用实际的来源节点名称，如果没有则使用默认值
+                        const sourceNodeName = p._sourceNodeName || '文件源';
+                        return {
+                          ...p,
+                          param_value: {
+                            source_node: sourceNodeName,
+                            source_param: paramValue || p._refValue
+                          }
+                        };
+                      }
+                    }),
                     out_params: (n.data.output_params?.params || []).map(p => ({
                       param_name: p.name || p.param_name || '',
                       param_type: p.type || p.param_type || 'string',
@@ -3706,7 +3740,7 @@ const mapOutputParamsValues = (rawParams) => {
                   };
                 }),
             };
-            
+            console.log(drawData.nodes)
             // 合并指令和画板数据为一条消息发送（带隐藏标记），避免触发两次 /message/create
             const combinedContent = '[HIDDEN]我手动修改了任务流程，并且修改了部分参数，请根据任务流程和新的参数重新生成dag JSON，不要执行\n\n' + JSON.stringify(drawData);
             window.dispatchEvent(new CustomEvent('flow:send-message', { 
