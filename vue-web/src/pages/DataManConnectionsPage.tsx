@@ -153,7 +153,12 @@ const ConnectionCard = ({ item }: { item: ConnectionItem }) => (
       </div>
     </div>
     <div className="card-actions">
-      <button className="action-btn">测试</button>
+      <button className="action-btn"
+        onClick={() => {
+          setSingleDeleteId(item.id);
+          setIsBatchModalOpen(true);
+        }}
+      >测试</button>
       <button className="action-btn action-btn-edit">
         <Edit3 className="w-3 h-3" /> 编辑
       </button>
@@ -181,6 +186,8 @@ export default function DataConnectionsPage() {
 const [showNewConnectionModal, setShowNewConnectionModal] = useState(false);
 const [selectedSource, setSelectedSource] = useState<string | null>(null);
 const [connectionConfig, setConnectionConfig] = useState<Record<string, string>>({});
+// 删除弹框状态参数值
+const [singleDeleteId, setSingleDeleteId] = useState<number | null>(null);
 const handleOpenModal = () => setShowNewConnectionModal(true);
     const handleCloseModal = () => {
     setShowNewConnectionModal(false);
@@ -199,7 +206,7 @@ const handleSelectSource = (id: string) => {
           <h1 className="page-title">数据连接</h1>
           <p className="page-subtitle">配置和管理外部数据库连接，支持多种数据库、存储、API和消息队列等数据源</p>
         </div>
-        <button className="btn-primary"
+        <button className="btn-primaryNew"
             onClick={handleOpenModal}
         >
           <Plus className="w-4 h-4" /> 新建连接

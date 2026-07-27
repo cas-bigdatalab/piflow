@@ -3,7 +3,7 @@
   max-width: 1440px;
   margin: 0 auto;
   padding: 32px 40px 56px;
-  background-color: #f8f9fa;;
+  background-color: #f8f9fa;
   /* min-height: 100vh; */
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
@@ -112,6 +112,9 @@
   width: 100%;
   border-collapse: collapse;
   text-align: left;
+  background: #ffffff;
+  border: 0.5px solid #e5e7eb;
+  border-radius: 14px;
 }
 
 .data-table th {

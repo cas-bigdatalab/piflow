@@ -331,7 +331,7 @@ const MyDataPage = () => {
                         onClick={() => {
                           setSingleDeleteId(item.id);
                           setIsBatchModalOpen(true);
-                        }}
+                        }} 
                       >
                         <DeleteIcon />
                       </button>
