@@ -200,6 +200,23 @@ class CreateJuicefsDirectoryRequest(BaseModel):
 class ListUserWorkspaceRequest(BaseModel):
     user_id: str
     dir_path: str = ""
+    page: int | None = None
+    page_size: int | None = None
+
+
+class CreateUserWorkspaceDirectoryRequest(BaseModel):
+    user_id: str
+    dir_path: str
+
+
+class DeleteUserWorkspacePathRequest(BaseModel):
+    user_id: str
+    path: str
+
+
+class BatchDeleteUserWorkspaceRequest(BaseModel):
+    user_id: str
+    paths: list[str]
 
 
 class MoveWorkspaceTempFilesRequest(BaseModel):
@@ -304,6 +321,30 @@ def _build_user_workspace_path(workspace: WorkspaceManager, user_id: str, path: 
     return "/" + "/".join(relative.parts)
 
 
+def _resolve_user_workspace_path(
+    workspace: WorkspaceManager,
+    user_id: str,
+    path: str,
+) -> Path:
+    normalized_user_id = user_id.strip()
+    if not normalized_user_id:
+        raise HTTPException(status_code=400, detail="user_id is required")
+
+    try:
+        workspace.ensure_user_workspace(normalized_user_id)
+        resolved = workspace.resolve_user_virtual_path(normalized_user_id, path)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    user_root = workspace.get_user_root(normalized_user_id).resolve()
+    try:
+        resolved.relative_to(user_root)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="path escapes user workspace") from exc
+
+    return resolved
+
+
 def _serialize_user_directory_entry(
     workspace: WorkspaceManager,
     user_id: str,
@@ -317,6 +358,34 @@ def _serialize_user_directory_entry(
         "type": entry_type,
         "size": None if entry.is_dir() else stat.st_size,
         "last_modified": datetime.fromtimestamp(stat.st_mtime).isoformat(),
+    }
+
+
+def _delete_user_workspace_path(
+    workspace: WorkspaceManager,
+    user_id: str,
+    path: str,
+    *,
+    expect_type: str | None = None,
+) -> dict[str, object]:
+    target = _resolve_user_workspace_path(workspace, user_id, path)
+
+    if not target.exists():
+        raise HTTPException(status_code=404, detail="path not found")
+
+    actual_type = "directory" if target.is_dir() else "file"
+    if expect_type and actual_type != expect_type:
+        raise HTTPException(status_code=400, detail=f"path is not a {expect_type}")
+
+    relative_path = _build_user_workspace_path(workspace, user_id, target)
+    if target.is_dir():
+        shutil.rmtree(target)
+    else:
+        target.unlink()
+
+    return {
+        "path": relative_path,
+        "type": actual_type,
     }
 
 
@@ -723,14 +792,106 @@ async def list_user_workspace(req: ListUserWorkspaceRequest):
         directory.iterdir(),
         key=lambda item: (not item.is_dir(), item.name.lower()),
     )
+    items = [
+        _serialize_user_directory_entry(workspace, user_id, entry)
+        for entry in entries
+    ]
+
+    result = {
+        "user_id": user_id,
+        "dir_path": display_dir_path,
+        "items": items,
+    }
+
+    if req.page is None and req.page_size is None:
+        return result
+
+    if req.page is None or req.page_size is None:
+        raise HTTPException(status_code=400, detail="page and page_size must be provided together")
+    if req.page <= 0:
+        raise HTTPException(status_code=400, detail="page must be greater than 0")
+    if req.page_size <= 0:
+        raise HTTPException(status_code=400, detail="page_size must be greater than 0")
+
+    total = len(items)
+    start = (req.page - 1) * req.page_size
+    end = start + req.page_size
+    paged_items = items[start:end]
+    result["items"] = paged_items
+    result["pagination"] = {
+        "page": req.page,
+        "page_size": req.page_size,
+        "total": total,
+        "total_pages": (total + req.page_size - 1) // req.page_size,
+        "has_more": end < total,
+    }
+    return result
+
+
+@app.post("/workspace/mkdir")
+async def create_user_workspace_directory(req: CreateUserWorkspaceDirectoryRequest):
+    workspace = WorkspaceManager()
+    user_id = req.user_id.strip()
+    target_dir = _resolve_user_workspace_path(workspace, user_id, req.dir_path)
+
+    if target_dir.exists() and not target_dir.is_dir():
+        raise HTTPException(status_code=400, detail="path already exists and is not a directory")
+
+    target_dir.mkdir(parents=True, exist_ok=True)
+    return {
+        "user_id": user_id,
+        "dir_path": _build_user_workspace_path(workspace, user_id, target_dir),
+    }
+
+
+@app.post("/workspace/file/delete")
+async def delete_user_workspace_file(req: DeleteUserWorkspacePathRequest):
+    workspace = WorkspaceManager()
+    user_id = req.user_id.strip()
+    deleted = _delete_user_workspace_path(workspace, user_id, req.path, expect_type="file")
+    return {
+        "user_id": user_id,
+        "deleted": deleted,
+    }
+
+
+@app.post("/workspace/directory/delete")
+async def delete_user_workspace_directory(req: DeleteUserWorkspacePathRequest):
+    workspace = WorkspaceManager()
+    user_id = req.user_id.strip()
+    deleted = _delete_user_workspace_path(workspace, user_id, req.path, expect_type="directory")
+    return {
+        "user_id": user_id,
+        "deleted": deleted,
+    }
+
+
+@app.post("/workspace/delete/batch")
+async def batch_delete_user_workspace_paths(req: BatchDeleteUserWorkspaceRequest):
+    workspace = WorkspaceManager()
+    user_id = req.user_id.strip()
+
+    if not user_id:
+        raise HTTPException(status_code=400, detail="user_id is required")
+    if not req.paths:
+        raise HTTPException(status_code=400, detail="paths is required")
+
+    deleted: list[dict[str, object]] = []
+    failed: list[dict[str, object]] = []
+    for raw_path in req.paths:
+        try:
+            deleted.append(_delete_user_workspace_path(workspace, user_id, raw_path))
+        except HTTPException as exc:
+            failed.append({
+                "path": raw_path,
+                "status_code": exc.status_code,
+                "detail": exc.detail,
+            })
 
     return {
         "user_id": user_id,
-        "dir_path": display_dir_path,
-        "items": [
-            _serialize_user_directory_entry(workspace, user_id, entry)
-            for entry in entries
-        ],
+        "deleted": deleted,
+        "failed": failed,
     }
 
 
