@@ -3710,33 +3710,32 @@ const mapOutputParamsValues = (rawParams) => {
                       return val.trim() !== '';
                     })
                     .map(p => {
-                      // 获取参数值（优先使用 _value，其次 param_value）
+                      const paramName = p.name || p.param_name || ''; // 统一取 name
                       const paramValue = p._value !== undefined ? p._value : p.param_value;
-                      
+
                       if (p._refType === 'manual') {
-                        // manual 模式：直接使用参数值
                         return {
-                          ...p,
+                          name: paramName,
                           param_value: paramValue
                         };
                       } else if (p._refType === 'reference') {
-                        // reference 模式：转换为引用对象
-                        // 使用实际的来源节点名称，如果没有则使用默认值
                         const sourceNodeName = p._sourceNodeName || '文件源';
                         return {
-                          ...p,
+                          name: paramName,
                           param_value: {
                             source_node: sourceNodeName,
                             source_param: paramValue || p._refValue
                           }
                         };
                       }
+                      // fallback（理论上不会走到这里）
+                      return { name: paramName, param_value: paramValue };
                     }),
-                    out_params: (n.data.output_params?.params || []).map(p => ({
-                      param_name: p.name || p.param_name || '',
-                      param_type: p.type || p.param_type || 'string',
-                      param_value: p._value || '',
-                    })),
+
+                  out_params: (n.data.output_params?.params || []).map(p => ({
+                    name: p.name || p.param_name || '',
+                    param_value: p._value || ''
+                  }))
                   };
                 }),
             };
