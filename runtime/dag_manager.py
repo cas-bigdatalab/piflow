@@ -524,7 +524,7 @@ def list_dag_skills_by_type(
     try:
         with closing(get_connection()) as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cursor:
-                conditions = ["is_deleted = 0"]
+                conditions = ["(publisher = 'COMMUNITY' OR is_deleted = 0)"]
                 params = []
 
                 if keyword:

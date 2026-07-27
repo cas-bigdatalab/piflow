@@ -3653,6 +3653,7 @@ const mapOutputParamsValues = (rawParams) => {
             //     })) || [],
             //   })),
             // };
+            
             const drawData = {
               dsl_version: "1.0",
               task: {
@@ -3678,35 +3679,67 @@ const mapOutputParamsValues = (rawParams) => {
                       skill_name: n.data.operatorName
                     },
                     input_params: (n.data.input_params?.params || [])
-                      .filter(p => {
-                        if (p._refType === 'reference') return true;
-                        const val = String(p._value ?? p.param_value ?? '');
-                        return val.trim() !== '';
-                      })
-                      .map(p => {
-                        const isReference = p._refType === 'reference';
-                        const paramName = p.name;
+                      // .filter(p => {
+                      //   if (p._refType === 'reference') return true;
+                      //   const val = String(p._value ?? p.param_value ?? '');
+                      //   return val.trim() !== '';
+                      // })
 
-                        // 👇 如果是非引用参数，且 output_params 中有同名参数，则用 output 的值
-                        let finalValue = isReference ? '' : (p._value ||p.param_value || '');
-                        if (!isReference && outParamsMap.has(paramName)) {
-                          finalValue = outParamsMap.get(paramName) || finalValue;
-                        }
+                      // .map(p => {
+                      //   const isReference = p._refType === 'reference';
+                      //   const paramName = p.name;
 
+                      //   // 👇 如果是非引用参数，且 output_params 中有同名参数，则用 output 的值
+                      //   let finalValue = isReference ? '' : (p._value ||p.param_value || '');
+                      //   if (!isReference && outParamsMap.has(paramName)) {
+                      //     finalValue = outParamsMap.get(paramName) || finalValue;
+                      //   }
+
+                      //   return {
+                      //     param_name: paramName,
+                      //     param_value: finalValue,
+                      //   };
+                      // }),
+
+
+
+
+                    .filter(p => {
+                      if (p._refType === 'reference') return true;
+                      const val = String(p._value ?? p.param_value ?? '');
+                      return val.trim() !== '';
+                    })
+                    .map(p => {
+                      const paramName = p.name || p.param_name || ''; // 统一取 name
+                      const paramValue = p._value !== undefined ? p._value : p.param_value;
+
+                      if (p._refType === 'manual') {
                         return {
-                          param_name: paramName,
-                          param_value: finalValue,
+                          name: paramName,
+                          param_value: paramValue
                         };
-                      }),
-                    out_params: (n.data.output_params?.params || []).map(p => ({
-                      param_name: p.name || p.param_name || '',
-                      param_type: p.type || p.param_type || 'string',
-                      param_value: p._value || '',
-                    })),
+                      } else if (p._refType === 'reference') {
+                        const sourceNodeName = p._sourceNodeName || '文件源';
+                        return {
+                          name: paramName,
+                          param_value: {
+                            source_node: sourceNodeName,
+                            source_param: paramValue || p._refValue
+                          }
+                        };
+                      }
+                      // fallback（理论上不会走到这里）
+                      return { name: paramName, param_value: paramValue };
+                    }),
+
+                  out_params: (n.data.output_params?.params || []).map(p => ({
+                    name: p.name || p.param_name || '',
+                    param_value: p._value || ''
+                  }))
                   };
                 }),
             };
-            
+            console.log(drawData.nodes)
             // 合并指令和画板数据为一条消息发送（带隐藏标记），避免触发两次 /message/create
             const combinedContent = '[HIDDEN]我手动修改了任务流程，并且修改了部分参数，请根据任务流程和新的参数重新生成dag JSON，不要执行\n\n' + JSON.stringify(drawData);
             window.dispatchEvent(new CustomEvent('flow:send-message', { 

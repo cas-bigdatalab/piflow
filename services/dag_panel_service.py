@@ -221,13 +221,66 @@ def remove_local_skill(skill_id: str) -> dict:
     elif publisher == "COMMUNITY":
         skill_dir = SKILLS_DIR / skill_name
         if skill_dir.exists() and skill_dir.is_dir():
-            shutil.rmtree(skill_dir)
+            dest = TEMP_COMMUNITY_SKILLS_DIR / skill_name
+            TEMP_COMMUNITY_SKILLS_DIR.mkdir(parents=True, exist_ok=True)
+            shutil.move(str(skill_dir), str(dest))
 
     return {
         "success": True,
         "skill_name": skill_name,
         "version": version,
         "publisher": publisher,
+    }
+
+
+def enable_local_skill(skill_id: str) -> dict:
+    with closing(get_connection()) as conn:
+        with conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                cursor.execute(
+                    """
+                    SELECT skill_id, skill_name, version, publisher
+                    FROM dag_skills
+                    WHERE skill_id = %s AND is_deleted = 1
+                    """,
+                    (skill_id,),
+                )
+                row = cursor.fetchone()
+
+                if not row:
+                    return {
+                        "success": False,
+                        "message": f"skill not found or already enabled: {skill_id}",
+                    }
+
+                skill_name = row["skill_name"]
+                version = row["version"]
+                publisher = row["publisher"]
+
+                if publisher != "COMMUNITY":
+                    return {
+                        "success": False,
+                        "message": f"only COMMUNITY skills can be enabled, current publisher: {publisher}",
+                    }
+
+                cursor.execute(
+                    """
+                    UPDATE dag_skills
+                    SET is_deleted = 0, update_time = CURRENT_TIMESTAMP
+                    WHERE skill_id = %s AND is_deleted = 1
+                    """,
+                    (skill_id,),
+                )
+
+    temp_dir = TEMP_COMMUNITY_SKILLS_DIR / skill_name
+    if temp_dir.exists() and temp_dir.is_dir():
+        dest = SKILLS_DIR / skill_name
+        shutil.move(str(temp_dir), str(dest))
+
+    return {
+        "success": True,
+        "skill_name": skill_name,
+        "version": version,
     }
 
 
