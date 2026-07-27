@@ -141,6 +141,91 @@ def get_dataspace_source_by_id(source_id: str) -> dict[str, Any] | None:
             return cursor.fetchone()
 
 
+def update_dataspace_source(
+    *,
+    source_id: str,
+    base_url: str,
+    app_id: str,
+    auth_code: str,
+    space_name: str,
+    space_id: str,
+    ftp_user: str,
+    ftp_password: str,
+    ftp_link: str,
+    webdav_link: str,
+    root_path: str,
+    logo: str,
+) -> dict[str, Any] | None:
+    initialize_dataspace_source_schema()
+    with closing(get_connection()) as conn:
+        with conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                cursor.execute(
+                    """
+                    UPDATE piflow_dataspace_source
+                    SET
+                        base_url = %s,
+                        app_id = %s,
+                        auth_code = %s,
+                        space_name = %s,
+                        space_id = %s,
+                        ftp_user = %s,
+                        ftp_password = %s,
+                        ftp_link = %s,
+                        webdav_link = %s,
+                        root_path = %s,
+                        logo = %s,
+                        updated_at = now()
+                    WHERE source_id = %s
+                    RETURNING
+                        source_id,
+                        base_url,
+                        app_id,
+                        auth_code,
+                        space_name,
+                        space_id,
+                        ftp_user,
+                        ftp_password,
+                        ftp_link,
+                        webdav_link,
+                        root_path,
+                        logo,
+                        created_at,
+                        updated_at
+                    """,
+                    (
+                        base_url,
+                        app_id,
+                        auth_code,
+                        space_name,
+                        space_id,
+                        ftp_user,
+                        ftp_password,
+                        ftp_link,
+                        webdav_link,
+                        root_path,
+                        logo,
+                        source_id,
+                    ),
+                )
+                return cursor.fetchone()
+
+
+def delete_dataspace_source(source_id: str) -> bool:
+    initialize_dataspace_source_schema()
+    with closing(get_connection()) as conn:
+        with conn:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    """
+                    DELETE FROM piflow_dataspace_source
+                    WHERE source_id = %s
+                    """,
+                    (source_id,),
+                )
+                return cursor.rowcount > 0
+
+
 def list_dataspace_sources() -> list[dict[str, Any]]:
     initialize_dataspace_source_schema()
     with closing(get_connection()) as conn:
@@ -167,4 +252,3 @@ def list_dataspace_sources() -> list[dict[str, Any]]:
                 """
             )
             return list(cursor.fetchall())
-

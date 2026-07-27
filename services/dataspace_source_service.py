@@ -7,9 +7,11 @@ from urllib.parse import urlparse
 from piflow_engine.cn.piflow.engine.datasource import DataspaceClient, DataspaceError
 from piflow_engine.cn.piflow.engine.datasource.dataspace_source import DataspaceSource
 from repositories.dataspace_source_repository import (
+    delete_dataspace_source as delete_dataspace_source_record,
     get_dataspace_source_by_id,
     insert_dataspace_source,
     list_dataspace_sources,
+    update_dataspace_source as update_dataspace_source_record,
 )
 
 
@@ -47,6 +49,51 @@ def create_dataspace_source(
         logo=resolved["logo"],
     )
     return _build_dataspace_source(record)
+
+
+def update_dataspace_source(
+    *,
+    source_id: str,
+    base_url: str,
+    app_id: str,
+    auth_code: str,
+    space_name: str,
+    ftp_user: str,
+    ftp_password: str,
+    logo: str | None = None,
+) -> DataspaceSource:
+    resolved = validate_dataspace_source_connection(
+        base_url=base_url,
+        app_id=app_id,
+        auth_code=auth_code,
+        space_name=space_name,
+        ftp_user=ftp_user,
+        ftp_password=ftp_password,
+        logo=logo,
+    )
+
+    record = update_dataspace_source_record(
+        source_id=source_id,
+        base_url=base_url,
+        app_id=app_id,
+        auth_code=auth_code,
+        space_name=space_name,
+        space_id=resolved["space_id"],
+        ftp_user=ftp_user,
+        ftp_password=ftp_password,
+        ftp_link=resolved["ftp_link"],
+        webdav_link=resolved["webdav_link"],
+        root_path=resolved["root_path"],
+        logo=resolved["logo"],
+    )
+    if not record:
+        raise DataspaceError(f"dataspace source not found: {source_id}")
+    return _build_dataspace_source(record)
+
+
+def delete_dataspace_source(source_id: str) -> None:
+    if not delete_dataspace_source_record(source_id):
+        raise DataspaceError(f"dataspace source not found: {source_id}")
 
 
 def validate_dataspace_source_connection(

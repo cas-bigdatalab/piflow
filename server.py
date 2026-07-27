@@ -37,11 +37,18 @@ from runtime.skill_manage import (
 from runtime.workspace_manager import WorkspaceManager
 from services.dataspace_source_service import (
     create_dataspace_source,
+    delete_dataspace_source,
     get_dataspace_source,
     list_dataspace_source_directory,
     list_registered_dataspace_sources,
+    update_dataspace_source,
     validate_dataspace_source_connection,
 )
+from services.datasource_catalog_service import (
+    get_datasource_catalog_detail,
+    list_datasource_catalog,
+)
+from repositories.datasource_catalog_repository import initialize_datasource_catalog_schema
 from services.object_storage_service import ObjectStorageService
 
 from routers.auth_router import router as auth_router
@@ -80,6 +87,7 @@ async def lifespan(app: FastAPI):
     init_logging()
     log.info("starting API mode")
 
+    initialize_datasource_catalog_schema()
     engine = AgentEngine()
     planner_engine = PlannerEngine()
     await engine.initialize()
@@ -208,6 +216,10 @@ class CreateDataspaceSourceRequest(BaseModel):
     logo: str = ""
 
 
+class UpdateDataspaceSourceRequest(CreateDataspaceSourceRequest):
+    source_id: str
+
+
 class DataspaceSourceDetailRequest(BaseModel):
     source_id: str
 
@@ -224,6 +236,10 @@ class ValidateDataspaceSourceRequest(BaseModel):
     space_name: str
     ftp_user: str
     ftp_password: str
+
+
+class DatasourceCatalogDetailRequest(BaseModel):
+    type_code: str
 
 
 def get_engine(request: Request) -> AgentEngine:
@@ -837,6 +853,59 @@ async def create_dataspace_source_api(req: CreateDataspaceSourceRequest):
     }
 
 
+@app.post("/dataspace/source/update")
+async def update_dataspace_source_api(req: UpdateDataspaceSourceRequest):
+    try:
+        source = update_dataspace_source(
+            source_id=req.source_id.strip(),
+            base_url=req.base_url.strip(),
+            app_id=req.app_id.strip(),
+            auth_code=req.auth_code.strip(),
+            space_name=req.space_name.strip(),
+            ftp_user=req.ftp_user.strip(),
+            ftp_password=req.ftp_password,
+            logo=req.logo.strip(),
+        )
+    except DataspaceError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception:
+        log.exception(
+            "failed to update dataspace source source_id=%s base_url=%s app_id=%s space_name=%s",
+            req.source_id,
+            req.base_url,
+            req.app_id,
+            req.space_name,
+        )
+        raise HTTPException(status_code=500, detail="failed to update dataspace source")
+
+    return {
+        "code": 200,
+        "result": {
+            "source": _serialize_dataspace_source(source),
+        },
+    }
+
+
+@app.post("/dataspace/source/delete")
+async def delete_dataspace_source_api(req: DataspaceSourceDetailRequest):
+    try:
+        delete_dataspace_source(req.source_id.strip())
+    except DataspaceError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except Exception:
+        log.exception("failed to delete dataspace source source_id=%s", req.source_id)
+        raise HTTPException(status_code=500, detail="failed to delete dataspace source")
+
+    return {
+        "code": 200,
+        "result": {
+            "source_id": req.source_id.strip(),
+        },
+    }
+
+
 @app.post("/dataspace/source/list")
 async def list_dataspace_sources_api():
     try:
@@ -927,6 +996,40 @@ async def validate_dataspace_source_api(req: ValidateDataspaceSourceRequest):
             "webdav_link": result["webdav_link"],
             "root_path": result["root_path"],
             "logo": result["logo"],
+        },
+    }
+
+
+@app.post("/datasource/catalog/list")
+async def list_datasource_catalog_api():
+    try:
+        items = list_datasource_catalog()
+    except Exception:
+        log.exception("failed to list datasource catalog")
+        raise HTTPException(status_code=500, detail="failed to list datasource catalog")
+
+    return {
+        "code": 200,
+        "result": {
+            "items": items,
+        },
+    }
+
+
+@app.post("/datasource/catalog/detail")
+async def get_datasource_catalog_detail_api(req: DatasourceCatalogDetailRequest):
+    try:
+        item = get_datasource_catalog_detail(req.type_code)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except Exception:
+        log.exception("failed to get datasource catalog detail type_code=%s", req.type_code)
+        raise HTTPException(status_code=500, detail="failed to get datasource catalog detail")
+
+    return {
+        "code": 200,
+        "result": {
+            "catalog": item,
         },
     }
 
