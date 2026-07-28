@@ -98,6 +98,36 @@ def get_skill_info_by_id(skill_id:str)->DagSkill:
     result = get_dag_skill(skill_id)
     return result
 
+
+def _build_file_tree(dir_path: Path) -> dict:
+    name = dir_path.name
+    if dir_path.is_file():
+        return {"name": name, "type": "file"}
+    children = []
+    for child in sorted(dir_path.iterdir(), key=lambda p: (p.is_file(), p.name)):
+        children.append(_build_file_tree(child))
+    return {"name": name, "type": "directory", "children": children}
+
+
+def get_skill_info_detail(skill_id: str, with_skill_json: bool = False, with_file_tree: bool = False) -> dict:
+    skill = get_dag_skill(skill_id)
+    if skill is None:
+        return {"success": False, "message": f"skill not found: {skill_id}"}
+
+    result = skill.__dict__
+
+    if with_skill_json and skill.skill_path:
+        skill_json_path = WORKSPACE_ROOT / skill.skill_path / "skill.json"
+        if skill_json_path.exists():
+            result["skill_json"] = json.loads(skill_json_path.read_text(encoding="utf-8"))
+
+    if with_file_tree and skill.skill_path:
+        skill_dir = WORKSPACE_ROOT / skill.skill_path
+        if skill_dir.exists() and skill_dir.is_dir():
+            result["file_tree"] = _build_file_tree(skill_dir)
+
+    return {"success": True, "data": result}
+
 def get_dag_skills_by_condition(
     page: int = None,
     page_size: int = None,
@@ -282,6 +312,47 @@ def enable_local_skill(skill_id: str) -> dict:
         "skill_name": skill_name,
         "version": version,
     }
+
+
+def download_skill_package(skill_id: str) -> dict:
+    with closing(get_connection()) as conn:
+        with conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                cursor.execute(
+                    """
+                    SELECT skill_name, version, skill_path, publisher
+                    FROM dag_skills
+                    WHERE skill_id = %s AND is_deleted = 0
+                    """,
+                    (skill_id,),
+                )
+                row = cursor.fetchone()
+
+                if not row:
+                    return {"success": False, "message": f"skill not found: {skill_id}"}
+
+                skill_name = row["skill_name"]
+                version = row["version"]
+                skill_path = row["skill_path"]
+
+    zip_name = f"{skill_name}_{version}.zip"
+    zip_path = TEMP_COMMUNITY_SKILLS_DIR / zip_name
+
+    if zip_path.exists():
+        return {"success": True, "zip_path": str(zip_path), "filename": zip_name}
+
+    skill_dir = WORKSPACE_ROOT / skill_path
+    if not skill_dir.exists() or not skill_dir.is_dir():
+        return {"success": False, "message": f"skill directory not found: {skill_dir}"}
+
+    TEMP_COMMUNITY_SKILLS_DIR.mkdir(parents=True, exist_ok=True)
+    zip_stem = TEMP_COMMUNITY_SKILLS_DIR / f"{skill_name}_{version}"
+    shutil.make_archive(str(zip_stem), "zip", str(skill_dir.parent), skill_dir.name)
+
+    if not zip_path.exists():
+        return {"success": False, "message": "failed to create zip package"}
+
+    return {"success": True, "zip_path": str(zip_path), "filename": zip_name}
 
 
 def upload_skill_package(file_bytes: bytes, filename: str) -> dict:
