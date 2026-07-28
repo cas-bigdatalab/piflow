@@ -1132,10 +1132,9 @@ async def update_dataspace_source_api(req: UpdateDataspaceSourceRequest):
             ftp_password=req.ftp_password,
             logo=req.logo.strip(),
         )
-    except DataspaceError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except (ValueError, DataspaceError) as exc:
+        status_code = 404 if "dataspace source not found" in str(exc) else 400
+        raise HTTPException(status_code=status_code, detail=str(exc)) from exc
     except Exception:
         log.exception(
             "failed to update dataspace source source_id=%s base_url=%s app_id=%s space_name=%s",

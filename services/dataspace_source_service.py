@@ -4,6 +4,8 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
+from requests import exceptions as requests_exceptions
+
 from piflow_engine.cn.piflow.engine.datasource import DataspaceClient, DataspaceError
 from piflow_engine.cn.piflow.engine.datasource.dataspace_source import DataspaceSource
 from repositories.dataspace_source_repository import (
@@ -106,29 +108,75 @@ def validate_dataspace_source_connection(
     ftp_password: str,
     logo: str | None = None,
 ) -> dict[str, Any]:
-    client = DataspaceClient(
-        base_url=base_url,
-        app_id=app_id,
-        auth_code=auth_code,
-    )
-    space_id = client.get_space_id_by_name(space_name)
-    space_info = client.get_space_info(space_id)
+    try:
+        client = DataspaceClient(
+            base_url=base_url,
+            app_id=app_id,
+            auth_code=auth_code,
+        )
+    except Exception as exc:
+        raise DataspaceError(f"base_url/app_id/auth_code initialization failed: {exc}") from exc
+
+    try:
+        space_id = client.get_space_id_by_name(space_name)
+    except requests_exceptions.ConnectionError as exc:
+        raise DataspaceError(f"base_url is unreachable: {exc}") from exc
+    except requests_exceptions.Timeout as exc:
+        raise DataspaceError(f"base_url request timed out: {exc}") from exc
+    except requests_exceptions.HTTPError as exc:
+        raise DataspaceError(f"base_url request failed: {exc}") from exc
+    except requests_exceptions.RequestException as exc:
+        raise DataspaceError(f"base_url request failed: {exc}") from exc
+    except DataspaceError as exc:
+        if "space not found by name" in str(exc):
+            raise DataspaceError(f"space_name not found: {space_name}") from exc
+        raise DataspaceError(f"failed to resolve space_id from space_name: {exc}") from exc
+
+    try:
+        space_info = client.get_space_info(space_id)
+    except requests_exceptions.ConnectionError as exc:
+        raise DataspaceError(f"base_url is unreachable: {exc}") from exc
+    except requests_exceptions.Timeout as exc:
+        raise DataspaceError(f"base_url request timed out: {exc}") from exc
+    except requests_exceptions.HTTPError as exc:
+        raise DataspaceError(f"space info request failed for space_id={space_id}: {exc}") from exc
+    except requests_exceptions.RequestException as exc:
+        raise DataspaceError(f"space info request failed for space_id={space_id}: {exc}") from exc
+    except DataspaceError as exc:
+        raise DataspaceError(f"space info request failed for space_id={space_id}: {exc}") from exc
+
     space_data = space_info.get("data") or {}
     upload_link = space_data.get("uploadLink") or {}
 
     ftp_link = str(upload_link.get("ftpLink", "")).strip()
     webdav_link = str(upload_link.get("webDavLink", "")).strip()
+    if not ftp_link:
+        raise DataspaceError(f"space info does not contain ftpLink for space_name={space_name}")
     root_path = _resolve_root_path(
         ftp_link=ftp_link,
         space_path=str(upload_link.get("spacePath", "")).strip(),
     )
     resolved_logo = str(logo or "").strip() or str(space_data.get("spaceLogo", "") or "")
-    _ = client.list_ftp_directory(
-        ftp_link,
-        ftp_user,
-        ftp_password,
-        ftp_subpath="",
-    )
+
+    try:
+        _ = client.list_ftp_directory(
+            ftp_link,
+            ftp_user,
+            ftp_password,
+            ftp_subpath="",
+        )
+    except requests_exceptions.ConnectionError as exc:
+        raise DataspaceError(f"ftp_link is unreachable: {exc}") from exc
+    except requests_exceptions.Timeout as exc:
+        raise DataspaceError(f"ftp login timed out: {exc}") from exc
+    except DataspaceError as exc:
+        message = str(exc)
+        if "530" in message or "Login incorrect" in message or "authentication" in message.lower():
+            raise DataspaceError("ftp_user or ftp_password is invalid") from exc
+        if "550" in message or "path=" in message:
+            raise DataspaceError(f"ftp directory not accessible: {message}") from exc
+        raise
+
     return {
         "base_url": base_url,
         "app_id": app_id,
