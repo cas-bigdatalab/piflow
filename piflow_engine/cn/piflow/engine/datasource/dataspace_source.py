@@ -9,6 +9,7 @@ from piflow_engine.cn.piflow.engine.datasource.dataspace_client import Dataspace
 @dataclass(frozen=True)
 class DataspaceSource:
     source_id: str
+    name: str
     base_url: str
     app_id: str
     auth_code: str
@@ -29,4 +30,3 @@ class DataspaceSource:
             app_id=self.app_id,
             auth_code=self.auth_code,
         )
-

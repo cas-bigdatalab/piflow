@@ -19,6 +19,7 @@ from repositories.dataspace_source_repository import (
 
 def create_dataspace_source(
     *,
+    name: str,
     base_url: str,
     app_id: str,
     auth_code: str,
@@ -27,6 +28,9 @@ def create_dataspace_source(
     ftp_password: str,
     logo: str | None = None,
 ) -> DataspaceSource:
+    if not name.strip():
+        raise ValueError("name is required")
+
     resolved = validate_dataspace_source_connection(
         base_url=base_url,
         app_id=app_id,
@@ -38,6 +42,7 @@ def create_dataspace_source(
     )
 
     record = insert_dataspace_source(
+        name=name,
         base_url=base_url,
         app_id=app_id,
         auth_code=auth_code,
@@ -56,6 +61,7 @@ def create_dataspace_source(
 def update_dataspace_source(
     *,
     source_id: str,
+    name: str,
     base_url: str,
     app_id: str,
     auth_code: str,
@@ -64,6 +70,9 @@ def update_dataspace_source(
     ftp_password: str,
     logo: str | None = None,
 ) -> DataspaceSource:
+    if not name.strip():
+        raise ValueError("name is required")
+
     resolved = validate_dataspace_source_connection(
         base_url=base_url,
         app_id=app_id,
@@ -76,6 +85,7 @@ def update_dataspace_source(
 
     record = update_dataspace_source_record(
         source_id=source_id,
+        name=name,
         base_url=base_url,
         app_id=app_id,
         auth_code=auth_code,
@@ -312,6 +322,7 @@ def list_registered_dataspace_sources() -> list[DataspaceSource]:
 def _build_dataspace_source(record: dict[str, Any]) -> DataspaceSource:
     return DataspaceSource(
         source_id=str(record["source_id"]),
+        name=str(record.get("name", "") or record["space_name"]),
         base_url=str(record["base_url"]),
         app_id=str(record["app_id"]),
         auth_code=str(record["auth_code"]),

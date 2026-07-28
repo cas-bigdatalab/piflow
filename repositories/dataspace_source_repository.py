@@ -18,6 +18,7 @@ def initialize_dataspace_source_schema() -> None:
                     CREATE TABLE IF NOT EXISTS piflow_dataspace_source (
                         id BIGSERIAL PRIMARY KEY,
                         source_id TEXT NOT NULL UNIQUE,
+                        name TEXT NOT NULL DEFAULT '',
                         base_url TEXT NOT NULL,
                         app_id TEXT NOT NULL,
                         auth_code TEXT NOT NULL,
@@ -36,6 +37,12 @@ def initialize_dataspace_source_schema() -> None:
                 )
                 cursor.execute(
                     """
+                    ALTER TABLE piflow_dataspace_source
+                    ADD COLUMN IF NOT EXISTS name TEXT NOT NULL DEFAULT ''
+                    """
+                )
+                cursor.execute(
+                    """
                     CREATE INDEX IF NOT EXISTS idx_piflow_dataspace_source_space_name
                     ON piflow_dataspace_source(space_name)
                     """
@@ -44,6 +51,7 @@ def initialize_dataspace_source_schema() -> None:
 
 def insert_dataspace_source(
     *,
+    name: str,
     base_url: str,
     app_id: str,
     auth_code: str,
@@ -65,6 +73,7 @@ def insert_dataspace_source(
                     """
                     INSERT INTO piflow_dataspace_source (
                         source_id,
+                        name,
                         base_url,
                         app_id,
                         auth_code,
@@ -77,9 +86,10 @@ def insert_dataspace_source(
                         root_path,
                         logo
                     )
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     RETURNING
                         source_id,
+                        name,
                         base_url,
                         app_id,
                         auth_code,
@@ -96,6 +106,7 @@ def insert_dataspace_source(
                     """,
                     (
                         source_id,
+                        name,
                         base_url,
                         app_id,
                         auth_code,
@@ -120,6 +131,7 @@ def get_dataspace_source_by_id(source_id: str) -> dict[str, Any] | None:
                 """
                 SELECT
                     source_id,
+                    name,
                     base_url,
                     app_id,
                     auth_code,
@@ -144,6 +156,7 @@ def get_dataspace_source_by_id(source_id: str) -> dict[str, Any] | None:
 def update_dataspace_source(
     *,
     source_id: str,
+    name: str,
     base_url: str,
     app_id: str,
     auth_code: str,
@@ -164,6 +177,7 @@ def update_dataspace_source(
                     """
                     UPDATE piflow_dataspace_source
                     SET
+                        name = %s,
                         base_url = %s,
                         app_id = %s,
                         auth_code = %s,
@@ -179,6 +193,7 @@ def update_dataspace_source(
                     WHERE source_id = %s
                     RETURNING
                         source_id,
+                        name,
                         base_url,
                         app_id,
                         auth_code,
@@ -194,6 +209,7 @@ def update_dataspace_source(
                         updated_at
                     """,
                     (
+                        name,
                         base_url,
                         app_id,
                         auth_code,
@@ -234,6 +250,7 @@ def list_dataspace_sources() -> list[dict[str, Any]]:
                 """
                 SELECT
                     source_id,
+                    name,
                     base_url,
                     app_id,
                     auth_code,

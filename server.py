@@ -230,6 +230,7 @@ class MoveWorkspaceTempFilesRequest(BaseModel):
 
 
 class CreateDataspaceSourceRequest(BaseModel):
+    name: str
     base_url: str
     app_id: str
     auth_code: str
@@ -478,6 +479,7 @@ def _mask_secret(value: str) -> str:
 def _serialize_dataspace_source(source: DataspaceSource) -> dict[str, object]:
     return {
         "source_id": source.source_id,
+        "name": source.name,
         "base_url": source.base_url,
         "app_id": source.app_id,
         "auth_code_masked": _mask_secret(source.auth_code),
@@ -492,6 +494,16 @@ def _serialize_dataspace_source(source: DataspaceSource) -> dict[str, object]:
         "created_at": source.created_at.isoformat() if source.created_at else None,
         "updated_at": source.updated_at.isoformat() if source.updated_at else None,
     }
+
+
+def _serialize_dataspace_source_list_item(source: DataspaceSource) -> dict[str, object]:
+    item = _serialize_dataspace_source(source)
+    item.update({
+        "type_code": "dataspace",
+        "type_name": "DataSpace",
+        "description": "Dataspace 数据空间类型，用于访问空间目录并进行文件下载与上传。",
+    })
+    return item
 
 
 @app.post("/chat")
@@ -1092,6 +1104,7 @@ async def copy_default_workspace_temp_files(req: MoveWorkspaceTempFilesRequest):
 async def create_dataspace_source_api(req: CreateDataspaceSourceRequest):
     try:
         source = create_dataspace_source(
+            name=req.name.strip(),
             base_url=req.base_url.strip(),
             app_id=req.app_id.strip(),
             auth_code=req.auth_code.strip(),
@@ -1124,6 +1137,7 @@ async def update_dataspace_source_api(req: UpdateDataspaceSourceRequest):
     try:
         source = update_dataspace_source(
             source_id=req.source_id.strip(),
+            name=req.name.strip(),
             base_url=req.base_url.strip(),
             app_id=req.app_id.strip(),
             auth_code=req.auth_code.strip(),
@@ -1182,7 +1196,7 @@ async def list_dataspace_sources_api():
     return {
         "code": 200,
         "result": {
-            "items": [_serialize_dataspace_source(item) for item in items],
+            "items": [_serialize_dataspace_source_list_item(item) for item in items],
         },
     }
 
