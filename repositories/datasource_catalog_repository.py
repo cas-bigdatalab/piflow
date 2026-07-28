@@ -103,6 +103,17 @@ def get_datasource_type_by_code(type_code: str) -> dict[str, Any] | None:
 def _seed_builtin_dataspace_type(cursor) -> None:
     init_fields = [
         {
+            "name": "name",
+            "label": "数据源名称",
+            "type": "string",
+            "required": True,
+            "default": "",
+            "placeholder": "请输入数据源实例名称",
+            "secret": False,
+            "options": [],
+            "description": "用于区分不同 Dataspace 数据源实例的自定义名称",
+        },
+        {
             "name": "base_url",
             "label": "服务地址",
             "type": "string",
