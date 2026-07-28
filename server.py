@@ -497,13 +497,16 @@ def _serialize_dataspace_source(source: DataspaceSource) -> dict[str, object]:
 
 
 def _serialize_dataspace_source_list_item(source: DataspaceSource) -> dict[str, object]:
-    item = _serialize_dataspace_source(source)
-    item.update({
+    return {
+        "source_id": source.source_id,
+        "name": source.name,
+        "base_url": source.base_url,
+        "database_name": source.space_name,
+        "logo": source.logo,
+        "created_at": source.created_at.isoformat() if source.created_at else None,
+        "updated_at": source.updated_at.isoformat() if source.updated_at else None,
         "type_code": "dataspace",
-        "type_name": "DataSpace",
-        "description": "Dataspace 数据空间类型，用于访问空间目录并进行文件下载与上传。",
-    })
-    return item
+    }
 
 
 @app.post("/chat")
