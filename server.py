@@ -3,6 +3,7 @@ import logging
 import os
 import shutil
 import uuid
+import zipfile
 from datetime import datetime
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -219,6 +220,11 @@ class BatchDeleteUserWorkspaceRequest(BaseModel):
     paths: list[str]
 
 
+class BatchDownloadUserWorkspaceRequest(BaseModel):
+    user_id: str
+    paths: list[str]
+
+
 class MoveWorkspaceTempFilesRequest(BaseModel):
     user_id: str
 
@@ -387,6 +393,78 @@ def _delete_user_workspace_path(
         "path": relative_path,
         "type": actual_type,
     }
+
+
+def _resolve_user_workspace_download_targets(
+    workspace: WorkspaceManager,
+    user_id: str,
+    paths: list[str],
+) -> list[Path]:
+    if not user_id.strip():
+        raise HTTPException(status_code=400, detail="user_id is required")
+    if not paths:
+        raise HTTPException(status_code=400, detail="paths is required")
+
+    resolved_targets: list[Path] = []
+    seen: set[Path] = set()
+    user_root = workspace.get_user_root(user_id).resolve()
+    for raw_path in paths:
+        target = _resolve_user_workspace_path(workspace, user_id, raw_path)
+        if target == user_root:
+            raise HTTPException(status_code=400, detail="user workspace root path is not allowed")
+        if not target.exists():
+            raise HTTPException(status_code=404, detail=f"path not found: {raw_path}")
+        if target in seen:
+            continue
+        seen.add(target)
+        resolved_targets.append(target)
+
+    return resolved_targets
+
+
+def _add_path_to_zip(
+    zip_file: zipfile.ZipFile,
+    source: Path,
+    arcname: str,
+) -> None:
+    normalized_arcname = arcname.strip("/")
+    if source.is_dir():
+        directory_name = f"{normalized_arcname}/" if normalized_arcname else ""
+        if directory_name:
+            zip_info = zipfile.ZipInfo(directory_name)
+            zip_file.writestr(zip_info, "")
+
+        for child in sorted(source.iterdir(), key=lambda item: (not item.is_dir(), item.name.lower())):
+            child_arcname = f"{normalized_arcname}/{child.name}" if normalized_arcname else child.name
+            _add_path_to_zip(zip_file, child, child_arcname)
+        return
+
+    zip_file.write(source, arcname=normalized_arcname)
+
+
+def _build_user_workspace_download_zip(
+    workspace: WorkspaceManager,
+    user_id: str,
+    targets: list[Path],
+) -> tuple[Path, str]:
+    downloads_dir = _resolve_user_directory(workspace, user_id, "/temp/downloads", create=True)
+    archive_id = uuid.uuid4().hex
+    if len(targets) == 1 and targets[0].is_dir():
+        download_name = f"{targets[0].name}.zip"
+    else:
+        download_name = f"workspace_batch_{archive_id[:8]}.zip"
+
+    zip_path = downloads_dir / f"{archive_id}.zip"
+    user_root = workspace.get_user_root(user_id).resolve()
+    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zip_file:
+        for target in targets:
+            if len(targets) == 1 and target.is_dir():
+                arcname = target.name
+            else:
+                arcname = str(target.relative_to(user_root)).replace("\\", "/")
+            _add_path_to_zip(zip_file, target, arcname)
+
+    return zip_path, download_name
 
 
 def _mask_secret(value: str) -> str:
@@ -932,6 +1010,33 @@ async def upload_user_workspace_file(
         "size": len(content),
         "content_type": file.content_type,
     }
+
+
+@app.post("/workspace/download/batch")
+async def download_user_workspace_batch(req: BatchDownloadUserWorkspaceRequest):
+    workspace = WorkspaceManager()
+    user_id = req.user_id.strip()
+
+    try:
+        workspace.ensure_user_workspace(user_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    targets = _resolve_user_workspace_download_targets(workspace, user_id, req.paths)
+    if len(targets) == 1 and targets[0].is_file():
+        source = targets[0]
+        return FileResponse(
+            path=source,
+            filename=source.name,
+            media_type="application/octet-stream",
+        )
+
+    zip_path, download_name = _build_user_workspace_download_zip(workspace, user_id, targets)
+    return FileResponse(
+        path=zip_path,
+        filename=download_name,
+        media_type="application/zip",
+    )
 
 
 @app.post("/workspace/temp/copy-default-files")

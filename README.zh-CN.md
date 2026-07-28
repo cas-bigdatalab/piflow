@@ -1,8 +1,42 @@
-# πFlow AI
+<h1 align="center">πFlow</h1>
 
-[![English](https://img.shields.io/badge/README-English-blue)](./README.md)
+<p align="center">
+  <img src="./storage/icon/logo.png" alt="πFlow logo" width="200" />
+</p>
 
-基于 DeepAgents、FastAPI、Skill 接入和 React 前端的科研数据处理原型系统。
+<p align="center">
+  基于 DeepAgents、FastAPI、Skill 接入和 React 前端的科研数据处理原型系统。
+</p>
+
+<p align="center">
+  <a href="./README.md">
+    <img src="https://img.shields.io/badge/README-English-blue" alt="English" />
+  </a>
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/python-3.12%2B-3776ab?logo=python&logoColor=white" alt="python 3.12+" />
+  <img src="https://img.shields.io/github/downloads/cas-bigdatalab/piflow/total.svg" alt="GitHub downloads" />
+  <img src="https://img.shields.io/badge/Docker-Ready-2496ED?logo=docker&logoColor=white" alt="Docker Ready" />
+</p>
+
+<p align="center">
+  <a href="https://github.com/cas-bigdatalab/piflow/releases">
+    <img src="https://img.shields.io/github/release/cas-bigdatalab/piflow.svg" alt="GitHub releases" />
+  </a>
+  <a href="https://github.com/cas-bigdatalab/piflow/stargazers">
+    <img src="https://img.shields.io/github/stars/cas-bigdatalab/piflow.svg" alt="GitHub stars" />
+  </a>
+  <a href="https://github.com/cas-bigdatalab/piflow/network">
+    <img src="https://img.shields.io/github/forks/cas-bigdatalab/piflow.svg" alt="GitHub forks" />
+  </a>
+  <a href="https://github.com/cas-bigdatalab/piflow/releases">
+    <img src="https://img.shields.io/github/downloads/cas-bigdatalab/piflow/total.svg" alt="GitHub downloads" />
+  </a>
+  <a href="https://github.com/cas-bigdatalab/piflow/issues">
+    <img src="https://img.shields.io/github/issues/cas-bigdatalab/piflow.svg" alt="GitHub issues" />
+  </a>
+</p>
 
 ## 功能概览
 
