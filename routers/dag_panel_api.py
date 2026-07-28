@@ -1,12 +1,13 @@
 from fastapi import APIRouter, Depends, Body, File, UploadFile
+from fastapi.responses import FileResponse
 
 from schemas.dag.DagDefinition import DagDefinition
 from security.auth_dependency import (
     get_current_user,
 )
 from services.dag_panel_service import get_user_dag_tasks, save_dag_panel, get_panel_dag_json, \
-    get_skill_info_by_id, get_dag_skills_by_condition, create_dag_task, update_dag_task, remove_dag_task, \
-    get_dag_json_by_message_id, remove_local_skill, enable_local_skill, upload_skill_package
+    get_skill_info_by_id, get_skill_info_detail, get_dag_skills_by_condition, create_dag_task, update_dag_task, remove_dag_task, \
+    get_dag_json_by_message_id, remove_local_skill, enable_local_skill, download_skill_package, upload_skill_package
 from runtime.dag_manager import get_skill_type_counts
 
 router = APIRouter()
@@ -171,16 +172,19 @@ async def get_dag_Json_api(
 @router.get("/dag/skill/getSkillInfo")
 async def get_skill_info_api(
     skill_id: str,
+    with_skill_json: bool = False,
+    with_file_tree: bool = False,
     current_user=Depends(get_current_user),
 ):
     try:
-        result = get_skill_info_by_id(skill_id)
+        if with_skill_json or with_file_tree:
+            detail = get_skill_info_detail(skill_id, with_skill_json, with_file_tree)
+            if not detail.get("success"):
+                return {"message": detail.get("message"), "result": None, "code": 500}
+            return {"message": "success", "result": detail["data"], "code": 200}
 
-        return {
-            "message": "success",
-            "result": result,
-            "code": 200,
-        }
+        result = get_skill_info_by_id(skill_id)
+        return {"message": "success", "result": result, "code": 200}
     except Exception as e:
         return {
             "message": str(e),
@@ -308,6 +312,32 @@ async def enable_local_skill_api(
             "result": result,
             "code": 200,
         }
+    except Exception as e:
+        return {
+            "message": str(e),
+            "result": None,
+            "code": 500,
+        }
+
+
+@router.get("/dag/skill/downloadSkillPackage")
+async def download_skill_package_api(
+    skill_id: str,
+    current_user=Depends(get_current_user),
+):
+    try:
+        result = download_skill_package(skill_id)
+        if not result.get("success"):
+            return {
+                "message": result.get("message", "download failed"),
+                "result": None,
+                "code": 500,
+            }
+        return FileResponse(
+            path=result["zip_path"],
+            filename=result["filename"],
+            media_type="application/zip",
+        )
     except Exception as e:
         return {
             "message": str(e),
