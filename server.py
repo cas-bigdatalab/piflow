@@ -44,6 +44,7 @@ from services.dataspace_source_service import (
     list_registered_dataspace_sources,
     update_dataspace_source,
     validate_dataspace_source_connection,
+    validate_registered_dataspace_source,
 )
 from services.datasource_catalog_service import (
     get_datasource_catalog_detail,
@@ -260,6 +261,10 @@ class ValidateDataspaceSourceRequest(BaseModel):
     space_name: str
     ftp_user: str
     ftp_password: str
+
+
+class ValidateRegisteredDataspaceSourceRequest(BaseModel):
+    source_id: str
 
 
 class DatasourceCatalogDetailRequest(BaseModel):
@@ -1272,6 +1277,34 @@ async def validate_dataspace_source_api(req: ValidateDataspaceSourceRequest):
         "code": 200,
         "result": {
             "valid": True,
+            "space_name": result["space_name"],
+            "space_id": result["space_id"],
+            "ftp_link": result["ftp_link"],
+            "webdav_link": result["webdav_link"],
+            "root_path": result["root_path"],
+            "logo": result["logo"],
+        },
+    }
+
+
+@app.post("/dataspace/source/validate/by-id")
+async def validate_registered_dataspace_source_api(req: ValidateRegisteredDataspaceSourceRequest):
+    try:
+        result = validate_registered_dataspace_source(req.source_id.strip())
+    except (ValueError, DataspaceError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception:
+        log.exception(
+            "failed to validate registered dataspace source source_id=%s",
+            req.source_id,
+        )
+        raise HTTPException(status_code=500, detail="failed to validate registered dataspace source")
+
+    return {
+        "code": 200,
+        "result": {
+            "valid": True,
+            "source_id": result["source_id"],
             "space_name": result["space_name"],
             "space_id": result["space_id"],
             "ftp_link": result["ftp_link"],

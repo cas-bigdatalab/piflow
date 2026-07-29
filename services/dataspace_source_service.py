@@ -202,6 +202,23 @@ def validate_dataspace_source_connection(
     }
 
 
+def validate_registered_dataspace_source(source_id: str) -> dict[str, Any]:
+    source = get_dataspace_source(source_id)
+    resolved = validate_dataspace_source_connection(
+        base_url=source.base_url,
+        app_id=source.app_id,
+        auth_code=source.auth_code,
+        space_name=source.space_name,
+        ftp_user=source.ftp_user,
+        ftp_password=source.ftp_password,
+        logo=source.logo,
+    )
+    return {
+        "source_id": source.source_id,
+        **resolved,
+    }
+
+
 def get_dataspace_source(source_id: str) -> DataspaceSource:
     record = get_dataspace_source_by_id(source_id)
     if not record:
