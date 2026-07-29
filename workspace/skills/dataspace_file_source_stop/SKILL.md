@@ -11,15 +11,41 @@ input_params:
     type: string
     required: true
     description: 需要下载的 Dataspace 空间内相对文件路径
+  - name: output
+    type: string
+    required: true
+    description: 下载后的本地文件输出路径
 output_params:
   - name: output
     type: string
     description: 下载后的本地文件引用，提供给下游算子使用
 tag: 输入
-node_category: system
 publisher: COMMUNITY
 ---
 
 # dataspace_file_source_stop
 
 用于作为 DAG 的起始节点，从 Dataspace 空间下载指定文件，并向下游节点暴露 `output` 输出槽位供引用。
+
+## 使用方式
+
+```bash
+python scripts/run_dataspace_file_source_stop.py \
+  --datasource_id <datasource_id> \
+  --relative_path <relative_path> \
+  --output <output>
+```
+
+## 参数说明
+
+| 参数 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| `datasource_id` | string | 是 | Dataspace 数据源实例 ID |
+| `relative_path` | string | 是 | 需要下载的 Dataspace 空间内相对文件路径 |
+| `output` | string | 是 | 下载后的本地文件输出路径 |
+
+## 注意事项
+
+1. 该算子没有上游输入，适合作为流程起点。
+2. 脚本内部会调用服务层完成 Dataspace 文件下载。
+3. `output` 会被强制写出，供下游普通 skill 继续消费。

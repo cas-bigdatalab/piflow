@@ -2,9 +2,9 @@
   "name": "dataspace_file_sink_stop",
   "version": "1.0.0",
   "description": "Dataspace 文件输出终止算子。用于接收上游算子的单个文件输出，按指定相对路径上传到 Dataspace 空间目录中。该算子必须作为 DAG 的终止节点使用。",
-  "language": "",
-  "script_path": "",
-  "entrypoint": "",
+  "language": "python",
+  "script_path": "scripts/run_dataspace_file_sink_stop.py",
+  "entrypoint": "python scripts/run_dataspace_file_sink_stop.py",
   "input_params": [
     {
       "name": "input",
@@ -22,7 +22,7 @@
     },
     {
       "name": "relative_path",
-      "role": "output_data",
+      "role": "data",
       "type": "string",
       "required": true,
       "description": "上传到 Dataspace 时使用的空间内相对文件路径"
@@ -34,6 +34,13 @@
       "required": false,
       "default": false,
       "description": "本地托管目录中存在同名文件时是否允许覆盖"
+    },
+    {
+      "name": "output",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "上传后保留的本地文件输出路径"
     }
   ],
   "output_params": [
@@ -41,8 +48,22 @@
       "name": "output",
       "role": "output_data",
       "type": "string",
+      "default": "dataspace_sink_output",
       "description": "已托管并上传的本地文件引用"
     }
   ],
-  "command_template": []
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input",
+    "{input}",
+    "--datasource_id",
+    "{datasource_id}",
+    "--relative_path",
+    "{relative_path}",
+    "--overwrite",
+    "{overwrite}",
+    "--output",
+    "{output}"
+  ]
 }
