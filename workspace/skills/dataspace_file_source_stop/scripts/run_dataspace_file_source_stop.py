@@ -14,14 +14,17 @@ if str(REPO_ROOT) not in sys.path:
 from services.dataspace_source_service import download_dataspace_source_file
 
 
-def run(datasource_id: str, relative_path: str, output_path: str) -> Path:
+def run(datasource_id: str, input_file_path: str, output_path: str) -> Path:
     output = Path(output_path).expanduser().resolve()
     output.parent.mkdir(parents=True, exist_ok=True)
+    normalized_input_file_path = input_file_path.strip().lstrip("/")
+    if not normalized_input_file_path:
+        raise ValueError("input_file_path must not be empty")
 
     with tempfile.TemporaryDirectory(prefix="dataspace_source_", dir=str(output.parent)) as temp_dir:
         result = download_dataspace_source_file(
             datasource_id,
-            relative_path=relative_path,
+            relative_path=normalized_input_file_path,
             target_dir=temp_dir,
         )
         downloaded_path = Path(result["localPath"]).expanduser().resolve()
@@ -34,16 +37,16 @@ def run(datasource_id: str, relative_path: str, output_path: str) -> Path:
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Download a Dataspace file by datasource instance id and relative path."
+        description="Download a Dataspace file by datasource instance id and input file path."
     )
     parser.add_argument("--datasource_id", required=True, help="Dataspace 数据源实例 ID")
-    parser.add_argument("--relative_path", required=True, help="Dataspace 空间内相对文件路径")
+    parser.add_argument("--input_file_path", required=True, help="需要下载的 Dataspace 空间内文件路径，允许以 / 开头")
     parser.add_argument("--output", required=True, help="下载后的本地文件输出路径")
     args = parser.parse_args()
 
     output = run(
         datasource_id=args.datasource_id,
-        relative_path=args.relative_path,
+        input_file_path=args.input_file_path,
         output_path=args.output,
     )
     print(output)
