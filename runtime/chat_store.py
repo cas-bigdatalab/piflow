@@ -137,6 +137,75 @@ def create_thread(user_id: str, thread_id: str, title: str = "新对话"):
     conn.close()
 
 
+def get_thread(thread_id: str) -> Dict | None:
+    conn = _get_connection()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+
+    cursor.execute(
+        """
+        SELECT thread_id, user_id, title, created_at, updated_at, deleted
+        FROM chat_threads
+        WHERE thread_id = %s
+        """,
+        (thread_id,),
+    )
+    row = cursor.fetchone()
+    cursor.close()
+    conn.close()
+    return dict(row) if row else None
+
+
+def ensure_thread_access(user_id: str, thread_id: str, title: str = "新对话") -> bool:
+    conn = _get_connection()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+
+    cursor.execute(
+        """
+        SELECT thread_id, user_id, title, deleted
+        FROM chat_threads
+        WHERE thread_id = %s
+        """,
+        (thread_id,),
+    )
+    row = cursor.fetchone()
+
+    if row is None:
+        cursor.execute(
+            """
+            INSERT INTO chat_threads (thread_id, user_id, title, deleted)
+            VALUES (%s, %s, %s, FALSE)
+            """,
+            (thread_id, user_id, title),
+        )
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return True
+
+    row = dict(row)
+    if row["user_id"] != user_id:
+        cursor.close()
+        conn.close()
+        return False
+
+    if row.get("deleted"):
+        cursor.execute(
+            """
+            UPDATE chat_threads
+            SET deleted = FALSE,
+                title = COALESCE(NULLIF(title, ''), %s),
+                updated_at = CURRENT_TIMESTAMP
+            WHERE thread_id = %s
+            """,
+            (title, thread_id),
+        )
+        conn.commit()
+
+    cursor.close()
+    conn.close()
+    return True
+
+
 def create_transient_thread(user_id: str, title: str = "临时对话") -> str:
     thread_id = f"tmp_{uuid.uuid4().hex[:12]}"
     create_thread(user_id, thread_id, title)

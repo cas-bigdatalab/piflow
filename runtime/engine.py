@@ -14,7 +14,7 @@ from infra.config_loader import get_settings
 from infra.env_loader import load_dotenv_file
 from infra.logging import init_logging
 from mcp_runtime.mcp_runtime import MCPRuntime
-from runtime.chat_store import create_thread, get_messages, save_message, update_thread_time, init_db, \
+from runtime.chat_store import ensure_thread_access, save_message, update_thread_time, init_db, \
     get_content_messages
 from runtime.dag_manager import init_dag_db
 from runtime.piflow_adapter import init_piflow_run_tracking_db
@@ -503,8 +503,8 @@ class AgentEngine:
             len(history),
         )
 
-        if not history:
-            create_thread(user_id, thread_id, message[:30])
+        if not ensure_thread_access(user_id, thread_id, message[:30]):
+            raise ValueError("thread not found or access denied")
 
         update_thread_time(thread_id)
 
@@ -1157,4 +1157,3 @@ class AgentEngine:
         log.info("shutting down Agent Runtime")
         await self.mcp_runtime.shutdown()
         log.info("shutdown complete")
-
