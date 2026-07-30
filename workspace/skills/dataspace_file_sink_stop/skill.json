@@ -1,7 +1,7 @@
 {
   "name": "dataspace_file_sink_stop",
   "version": "1.0.0",
-  "description": "Dataspace 文件输出终止算子。用于接收上游算子的单个文件输出，按指定相对路径上传到 Dataspace 空间目录中。该算子必须作为 DAG 的终止节点使用。",
+  "description": "Dataspace 文件输出终止算子。用于接收上游算子的单个文件输出，按指定相对目录上传到 Dataspace 空间目录中，实际文件名自动沿用输入文件名。该算子必须作为 DAG 的终止节点使用。",
   "language": "python",
   "script_path": "scripts/run_dataspace_file_sink_stop.py",
   "entrypoint": "python scripts/run_dataspace_file_sink_stop.py",
@@ -25,7 +25,7 @@
       "role": "data",
       "type": "string",
       "required": true,
-      "description": "上传到 Dataspace 时使用的空间内相对文件路径"
+      "description": "上传到 Dataspace 时使用的空间内相对目录，实际文件名自动取 input 的文件名"
     },
     {
       "name": "overwrite",

@@ -1,7 +1,7 @@
 ---
 name: dataspace_file_sink_stop
-description: Dataspace 文件输出终止算子。用于接收上游算子的单个文件输出，按指定相对路径上传到 Dataspace 空间目录中。该算子必须作为 DAG 的终止节点使用。
-name_zh: Dataspace 文件输出终止算子
+description: Dataspace 文件输出终止算子。用于接收上游算子的单个文件输出，按指定相对目录上传到 Dataspace 空间目录中，实际文件名自动沿用输入文件名。该算子必须作为 DAG 的终止节点使用。
+name_zh: Dataspace文件输出算子
 input_params:
   - name: input
     type: string
@@ -14,7 +14,7 @@ input_params:
   - name: relative_path
     type: string
     required: true
-    description: 上传到 Dataspace 时使用的空间内相对文件路径
+    description: 上传到 Dataspace 时使用的空间内相对目录，实际文件名自动取 input 的文件名
   - name: overwrite
     type: bool
     required: false
@@ -53,12 +53,13 @@ python scripts/run_dataspace_file_sink_stop.py \
 | --- | --- | --- | --- |
 | `input` | string | 是 | 上游算子的文件输出引用 |
 | `datasource_id` | string | 是 | Dataspace 数据源实例 ID |
-| `relative_path` | string | 是 | 上传到 Dataspace 时使用的空间内相对文件路径 |
+| `relative_path` | string | 是 | 上传到 Dataspace 时使用的空间内相对目录，实际文件名自动取 `input` 的文件名 |
 | `overwrite` | bool | 否 | 本地托管目录中存在同名文件时是否允许覆盖 |
 | `output` | string | 是 | 上传后保留的本地文件输出路径 |
 
 ## 注意事项
 
 1. 该算子应放在流程末端，用于上传结果文件。
-2. 脚本内部会先在本地托管目录构造目标路径，再整体上传到 Dataspace。
-3. `output` 会保留一份本地文件供流程结果继续引用。
+2. `relative_path` 必须表示目录；脚本会自动把 `input` 的文件名追加到该目录下。
+3. 脚本内部会先在本地托管目录构造目标路径，再整体上传到 Dataspace。
+4. `output` 会保留一份本地文件供流程结果继续引用。

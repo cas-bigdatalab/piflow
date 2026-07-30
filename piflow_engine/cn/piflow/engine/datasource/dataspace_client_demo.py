@@ -16,4 +16,20 @@ if __name__ == '__main__':
         ftp_password="Cc289836256&",
         ftp_subpath=""
     )
+    client.upload_ftp_file(
+        "ftp://10.0.90.47/ITOrktzbo184",
+        "15117913512@126.com",
+        "Cc289836256&",
+        space_id="2073250022174072832",
+        relative_path="test-upload/piflow-test/url1.txt",
+        local_path="/Users/renhao/Desktop/1.txt",
+    )
     print(result)
+
+    # ftp_link: str,
+    # ftp_user: str,
+    # ftp_password: str,
+    # *,
+    # space_id: str | None = None,
+    # relative_path: str,
+    # local_path: str | Path,

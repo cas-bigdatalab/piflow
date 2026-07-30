@@ -1,7 +1,7 @@
 ---
 name: dataspace_file_source_stop
 description: Dataspace 文件输入源算子。用于根据 Dataspace 数据源实例 ID 和空间内相对路径下载单个文件，并将该文件作为工作流输入提供给下游算子。该算子没有上游输入，必须作为 DAG 的起始节点使用。
-name_zh: Dataspace 文件输入源算子
+name_zh: Dataspace文件输入源算子
 input_params:
   - name: datasource_id
     type: string

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from ftplib import FTP, error_perm
 import hashlib
+import logging
 from urllib.parse import urlparse
 from dataclasses import dataclass
 from datetime import datetime
@@ -13,6 +14,7 @@ import requests
 
 DEFAULT_VERSION = "1.0"
 DEFAULT_TIMEOUT_SECONDS = 30
+logger = logging.getLogger(__name__)
 
 
 class DataspaceError(RuntimeError):
@@ -194,7 +196,7 @@ class DataspaceClient:
             timeout_seconds=self.timeout_seconds,
         )
         if space_id:
-            self.refresh_space_file_index(space_id)
+            self._refresh_space_file_index_or_warn(space_id)
         return source_path
 
     def upload_ftp_directory(
@@ -223,7 +225,7 @@ class DataspaceClient:
             timeout_seconds=self.timeout_seconds,
         )
         if space_id:
-            self.refresh_space_file_index(space_id)
+            self._refresh_space_file_index_or_warn(space_id)
         return source_dir
 
     def refresh_space_file_index(
@@ -241,6 +243,16 @@ class DataspaceClient:
         if not params["spaceId"]:
             raise DataspaceError("space_id is required for space file refresh")
         return self._get("/api/ds.open/space/fl.syn", params)
+
+    def _refresh_space_file_index_or_warn(self, space_id: str) -> None:
+        try:
+            self.refresh_space_file_index(space_id)
+        except DataspaceError as exc:
+            logger.warning(
+                "refresh space file index failed for space_id=%s: %s",
+                space_id,
+                exc,
+            )
 
     def get_user_info(
         self,
@@ -566,19 +578,29 @@ class DataspaceClient:
     @staticmethod
     def _ensure_ftp_directory(ftp: FTP, remote_dir: str) -> None:
         normalized = remote_dir.strip() or "/"
-        if normalized == "/":
-            ftp.cwd("/")
+        if normalized in {"/", "."}:
             return
 
-        current = "/"
-        ftp.cwd("/")
-        for segment in [part for part in normalized.split("/") if part]:
-            current = f"{current.rstrip('/')}/{segment}"
+        try:
+            ftp.cwd(normalized)
+            return
+        except error_perm:
+            pass
+
+        if normalized.startswith("/"):
+            parts = [part for part in normalized.split("/") if part]
+        else:
+            parts = [part for part in normalized.split("/") if part and part != "."]
+
+        if not parts:
+            return
+
+        for segment in parts:
             try:
-                ftp.cwd(current)
+                ftp.cwd(segment)
             except error_perm:
-                ftp.mkd(current)
-                ftp.cwd(current)
+                ftp.mkd(segment)
+                ftp.cwd(segment)
 
     @staticmethod
     def _timestamp() -> str:
