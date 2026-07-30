@@ -172,6 +172,14 @@ class AttachMessageFilesRequest(BaseModel):
     attachments: list[AttachmentItem]
 
 
+class BindMessageDirectoryRequest(BaseModel):
+    user_id: str
+    thread_id: str
+    message_id: int
+    dir_path: str
+    recursive: bool = False
+
+
 class SaveStorageFileRequest(BaseModel):
     user_id: str
     target_path: str
@@ -808,6 +816,73 @@ async def attach_message_files_api(req: AttachMessageFilesRequest):
             })
 
     return {"attachments": attached}
+
+
+@app.post("/message/bind-directory")
+async def bind_message_directory_api(req: BindMessageDirectoryRequest):
+    user_id = req.user_id.strip()
+    thread_id = req.thread_id.strip()
+    message_id = str(req.message_id).strip()
+    dir_path = req.dir_path.strip()
+
+    if not user_id:
+        raise HTTPException(status_code=400, detail="user_id is required")
+    if not thread_id:
+        raise HTTPException(status_code=400, detail="thread_id is required")
+    if not message_id:
+        raise HTTPException(status_code=400, detail="message_id is required")
+    if not dir_path:
+        raise HTTPException(status_code=400, detail="dir_path is required")
+
+    workspace = WorkspaceManager()
+    try:
+        workspace.ensure_user_workspace(user_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    allowed = {t["thread_id"] for t in get_user_threads(user_id)}
+    if thread_id not in allowed:
+        raise HTTPException(status_code=403, detail="thread not found or access denied")
+
+    try:
+        source_dir = workspace.resolve_user_virtual_path(user_id, dir_path)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    if not source_dir.exists():
+        raise HTTPException(status_code=404, detail="directory not found")
+    if not source_dir.is_dir():
+        raise HTTPException(status_code=400, detail="dir_path is not a directory")
+
+    iterator = source_dir.rglob("*") if req.recursive else source_dir.iterdir()
+    files = sorted((path for path in iterator if path.is_file()), key=lambda path: str(path).lower())
+
+    attached = []
+    for file_path in files:
+        virtual_path = "/" + "/".join(file_path.relative_to(workspace.get_user_root(user_id).resolve()).parts)
+        display_name = (
+            file_path.relative_to(source_dir).as_posix()
+            if req.recursive
+            else file_path.name
+        )
+        record = save_chat_file(
+            user_id=user_id,
+            thread_id=thread_id,
+            message_id=message_id,
+            virtual_path=virtual_path,
+            original_filename=display_name,
+        )
+        if record:
+            attached.append({
+                "file_id": record.get("file_id"),
+                "path": record.get("virtual_path"),
+                "name": record.get("original_filename"),
+            })
+
+    return {
+        "dir_path": workspace.to_user_relative_path(user_id, dir_path),
+        "attachments": attached,
+    }
 
 
 @app.post("/workspace/upload")
