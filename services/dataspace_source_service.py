@@ -293,6 +293,7 @@ def upload_dataspace_source_file(
         source.ftp_link,
         source.ftp_user,
         source.ftp_password,
+        space_id=source.space_id,
         relative_path=relative_path,
         local_path=local_path,
     )
@@ -320,6 +321,7 @@ def upload_dataspace_source_directory(
         source.ftp_link,
         source.ftp_user,
         source.ftp_password,
+        space_id=source.space_id,
         local_dir=local_dir,
         remote_subpath=remote_relative_path,
     )

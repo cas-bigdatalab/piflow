@@ -42,6 +42,7 @@ from services.dataspace_source_service import (
     get_dataspace_source,
     list_dataspace_source_directory,
     list_registered_dataspace_sources,
+    upload_dataspace_source_file,
     update_dataspace_source,
     validate_dataspace_source_connection,
     validate_registered_dataspace_source,
@@ -279,6 +280,13 @@ class DatasourceCatalogDetailRequest(BaseModel):
     type_code: str
 
 
+class UploadWorkspaceFileToDataspaceRequest(BaseModel):
+    user_id: str
+    source_id: str
+    workspace_path: str
+    target_dir: str = ""
+
+
 def get_engine(request: Request) -> AgentEngine:
     engine = getattr(request.app.state, "engine", None)
     if engine is None:
@@ -461,7 +469,9 @@ def _build_user_workspace_download_zip(
     user_id: str,
     targets: list[Path],
 ) -> tuple[Path, str]:
-    downloads_dir = _resolve_user_directory(workspace, user_id, "/temp/downloads", create=True)
+    workspace.ensure_workspace()
+    downloads_dir = (workspace.temp / "downloads").resolve()
+    downloads_dir.mkdir(parents=True, exist_ok=True)
     archive_id = uuid.uuid4().hex
     if len(targets) == 1 and targets[0].is_dir():
         download_name = f"{targets[0].name}.zip"
@@ -1386,6 +1396,72 @@ async def validate_registered_dataspace_source_api(req: ValidateRegisteredDatasp
             "webdav_link": result["webdav_link"],
             "root_path": result["root_path"],
             "logo": result["logo"],
+        },
+    }
+
+
+@app.post("/dataspace/source/workspace/file/upload")
+async def upload_workspace_file_to_dataspace_api(req: UploadWorkspaceFileToDataspaceRequest):
+    workspace = WorkspaceManager()
+    user_id = req.user_id.strip()
+    source_id = req.source_id.strip()
+    workspace_path = req.workspace_path.strip()
+    target_dir = req.target_dir.strip()
+
+    if not user_id:
+        raise HTTPException(status_code=400, detail="user_id is required")
+    if not source_id:
+        raise HTTPException(status_code=400, detail="source_id is required")
+    if not workspace_path:
+        raise HTTPException(status_code=400, detail="workspace_path is required")
+
+    try:
+        workspace.ensure_user_workspace(user_id)
+        local_file = workspace.resolve_user_virtual_path(user_id, workspace_path)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    if not local_file.exists():
+        raise HTTPException(status_code=404, detail="workspace file not found")
+    if not local_file.is_file():
+        raise HTTPException(status_code=400, detail="workspace_path must be a file")
+
+    normalized_target_dir = target_dir.strip().strip("/")
+    remote_relative_path = (
+        f"{normalized_target_dir}/{local_file.name}"
+        if normalized_target_dir
+        else local_file.name
+    )
+
+    try:
+        result = upload_dataspace_source_file(
+            source_id,
+            relative_path=remote_relative_path,
+            local_path=local_file,
+        )
+    except DataspaceError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception:
+        log.exception(
+            "failed to upload workspace file to dataspace user_id=%s source_id=%s workspace_path=%s target_dir=%s",
+            user_id,
+            source_id,
+            workspace_path,
+            target_dir,
+        )
+        raise HTTPException(
+            status_code=500,
+            detail="failed to upload workspace file to dataspace",
+        )
+
+    return {
+        "code": 200,
+        "result": {
+            "user_id": user_id,
+            "source_id": source_id,
+            "workspace_path": workspace.to_user_relative_path(user_id, workspace_path),
+            "target_dir": f"/{normalized_target_dir}" if normalized_target_dir else "",
+            "uploaded": result,
         },
     }
 

@@ -93,6 +93,13 @@ class ObjectStorageService:
 
         return self.workspace.resolve_virtual_path(raw)
 
+    def resolve_user_local_file(self, user_id: str, local_path: str) -> Path:
+        raw = (local_path or "").strip()
+        if not raw:
+            raise ValueError("local_path is required")
+
+        return self.workspace.resolve_user_virtual_path(user_id, raw)
+
     def save_local_file(self, user_id: str, target_path: str, local_path: str) -> dict[str, Any]:
         bucket_name = resolve_bucket_name(user_id)
         source = self.resolve_local_file(local_path)
@@ -114,7 +121,7 @@ class ObjectStorageService:
     def save_local_file_juicefs(self, user_id: str, target_path: str, local_path: str) -> dict[str, Any]:
         bucket_name = resolve_bucket_name(user_id)
         self._ensure_juicefs_bucket(bucket_name)
-        source = self.resolve_local_file(local_path)
+        source = self.resolve_user_local_file(user_id, local_path)
         if not source.exists() or not source.is_file():
             raise FileNotFoundError("local file not found")
 

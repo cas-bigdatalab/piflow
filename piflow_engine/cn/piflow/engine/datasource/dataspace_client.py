@@ -174,6 +174,7 @@ class DataspaceClient:
         ftp_user: str,
         ftp_password: str,
         *,
+        space_id: str | None = None,
         relative_path: str,
         local_path: str | Path,
     ) -> Path:
@@ -192,6 +193,8 @@ class DataspaceClient:
             local_path=source_path,
             timeout_seconds=self.timeout_seconds,
         )
+        if space_id:
+            self.refresh_space_file_index(space_id)
         return source_path
 
     def upload_ftp_directory(
@@ -200,6 +203,7 @@ class DataspaceClient:
         ftp_user: str,
         ftp_password: str,
         *,
+        space_id: str | None = None,
         local_dir: str | Path,
         remote_subpath: str | None = None,
     ) -> Path:
@@ -218,7 +222,25 @@ class DataspaceClient:
             local_dir=source_dir,
             timeout_seconds=self.timeout_seconds,
         )
+        if space_id:
+            self.refresh_space_file_index(space_id)
         return source_dir
+
+    def refresh_space_file_index(
+        self,
+        space_id: str,
+        *,
+        timestamp: str | None = None,
+    ) -> dict[str, Any]:
+        params = {
+            "appId": self.app_id,
+            "spaceId": str(space_id).strip(),
+            "timestamp": timestamp or self._timestamp(),
+            "version": self.version,
+        }
+        if not params["spaceId"]:
+            raise DataspaceError("space_id is required for space file refresh")
+        return self._get("/api/ds.open/space/fl.syn", params)
 
     def get_user_info(
         self,
