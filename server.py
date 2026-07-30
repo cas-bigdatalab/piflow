@@ -20,10 +20,10 @@ from infra.logging import init_logging
 from piflow_engine.cn.piflow.engine.datasource import DataspaceError, DataspaceSource
 from routers.subagent.workflow_advisor import workflow_advisor_router
 from runtime.chat_store import (
-    create_thread,
     delete_thread,
     get_chat_files,
     get_messages,
+    ensure_thread_access,
     get_user_threads,
     list_skills,
     save_chat_file,
@@ -177,7 +177,8 @@ class BindMessageDirectoryRequest(BaseModel):
     user_id: str
     thread_id: str
     message_id: int
-    dir_path: str
+    dir_path: str = ""
+    file_path: str = ""
     recursive: bool = False
 
 
@@ -755,9 +756,8 @@ async def create_message_api(req: CreateMessageRequest):
     if role not in {"user", "assistant"}:
         raise HTTPException(status_code=400, detail="role must be user or assistant")
 
-    thread_exists = bool(get_messages(thread_id, limit=1))
-    if not thread_exists:
-        create_thread(user_id, thread_id, content[:30])
+    if not ensure_thread_access(user_id, thread_id, content[:30]):
+        raise HTTPException(status_code=403, detail="thread not found or access denied")
     update_thread_time(thread_id)
 
     message = save_message(user_id, thread_id, role, content)
@@ -788,8 +788,7 @@ async def attach_message_files_api(req: AttachMessageFilesRequest):
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
-    allowed = {t["thread_id"] for t in get_user_threads(user_id)}
-    if thread_id not in allowed:
+    if not ensure_thread_access(user_id, thread_id):
         raise HTTPException(status_code=403, detail="thread not found or access denied")
 
     attached = []
@@ -834,6 +833,7 @@ async def bind_message_directory_api(req: BindMessageDirectoryRequest):
     thread_id = req.thread_id.strip()
     message_id = str(req.message_id).strip()
     dir_path = req.dir_path.strip()
+    file_path = req.file_path.strip()
 
     if not user_id:
         raise HTTPException(status_code=400, detail="user_id is required")
@@ -841,8 +841,8 @@ async def bind_message_directory_api(req: BindMessageDirectoryRequest):
         raise HTTPException(status_code=400, detail="thread_id is required")
     if not message_id:
         raise HTTPException(status_code=400, detail="message_id is required")
-    if not dir_path:
-        raise HTTPException(status_code=400, detail="dir_path is required")
+    if not dir_path and not file_path:
+        raise HTTPException(status_code=400, detail="dir_path or file_path is required")
 
     workspace = WorkspaceManager()
     try:
@@ -850,30 +850,41 @@ async def bind_message_directory_api(req: BindMessageDirectoryRequest):
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
-    allowed = {t["thread_id"] for t in get_user_threads(user_id)}
-    if thread_id not in allowed:
+    if not ensure_thread_access(user_id, thread_id):
         raise HTTPException(status_code=403, detail="thread not found or access denied")
 
+    target_path = file_path or dir_path
     try:
-        source_dir = workspace.resolve_user_virtual_path(user_id, dir_path)
+        source_path = workspace.resolve_user_virtual_path(user_id, target_path)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
-    if not source_dir.exists():
-        raise HTTPException(status_code=404, detail="directory not found")
-    if not source_dir.is_dir():
-        raise HTTPException(status_code=400, detail="dir_path is not a directory")
+    if not source_path.exists():
+        raise HTTPException(status_code=404, detail="path not found")
 
-    iterator = source_dir.rglob("*") if req.recursive else source_dir.iterdir()
-    files = sorted((path for path in iterator if path.is_file()), key=lambda path: str(path).lower())
+    if source_path.is_file():
+        files = [source_path]
+        source_dir = source_path.parent
+        bound_path = workspace.to_user_relative_path(user_id, target_path)
+    elif source_path.is_dir():
+        source_dir = source_path
+        iterator = source_dir.rglob("*") if req.recursive else source_dir.iterdir()
+        files = sorted((path for path in iterator if path.is_file()), key=lambda path: str(path).lower())
+        bound_path = workspace.to_user_relative_path(user_id, target_path)
+    else:
+        raise HTTPException(status_code=400, detail="path must be a file or directory")
 
     attached = []
     for file_path in files:
         virtual_path = "/" + "/".join(file_path.relative_to(workspace.get_user_root(user_id).resolve()).parts)
         display_name = (
-            file_path.relative_to(source_dir).as_posix()
-            if req.recursive
-            else file_path.name
+            file_path.name
+            if source_path.is_file()
+            else (
+                file_path.relative_to(source_dir).as_posix()
+                if req.recursive
+                else file_path.name
+            )
         )
         record = save_chat_file(
             user_id=user_id,
@@ -890,7 +901,8 @@ async def bind_message_directory_api(req: BindMessageDirectoryRequest):
             })
 
     return {
-        "dir_path": workspace.to_user_relative_path(user_id, dir_path),
+        "dir_path": bound_path if source_path.is_dir() else "",
+        "file_path": bound_path if source_path.is_file() else "",
         "attachments": attached,
     }
 
