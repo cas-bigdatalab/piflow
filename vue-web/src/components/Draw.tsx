@@ -1,7 +1,7 @@
 import React, { useCallback, useState, useRef, memo, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { shortId } from '../lib/ids';
-import { saveDrawInfo, getAllSkills, listSkillsDetails, createMessage, streamChat, apiBase, listStorage, downloadWorkspaceUrl2 } from "../lib/api";
+import { saveDrawInfo, getAllSkills, listSkillsDetails, createMessage, streamChat, apiBase, listStorage, downloadWorkspaceUrl2,listDataspaceDirecory } from "../lib/api";
 
 const DEFAULT_SKILL_ICON = "/storage/common/common.png";
 
@@ -991,6 +991,70 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
   //新增一个变量，节点中是否村子missing_skill_stop节点
   const [hasMissingSkillStop, setHasMissingSkillStop] = useState(false);
   const [isMissingSkillStop,setIsMissingSkillStop] = useState(false);
+ //新增变量，记录是否为数据源弹框
+  const [dataSources, setDataSources] = useState<{ id: string; name: string }[]>([]);
+  const [isLoadingDataSources, setIsLoadingDataSources] = useState(false);
+  const [selectedFileItem, setSelectedFileItem] = useState<{ } | null>(null);
+  //数据源弹框内容接口
+  const loadDataSources = useCallback(async () => {
+    setIsLoadingDataSources(true);
+    try {
+      const res = await listDataspaceDirecory(); 
+      if (Array.isArray(res.result.items)) { 
+        setDataSources(res.result.items.map(item => ({ source_id: item.source_id, database_name: item.database_name,name:item.name })));
+      }
+    } catch (err) {
+      console.error('加载数据源失败:', err);
+      setDataSources([]);
+    } finally {
+      setIsLoadingDataSources(false);
+    }
+  }, []);
+  useEffect(() => {
+    if (fileSelectParamName === 'datasource_id') {
+      loadDataSources();
+    }
+  }, [fileSelectParamName, loadDataSources]);
+const handleSelectDataSource = useCallback((selectedId: string) => {
+  // 1. 在 dataSources 中查找匹配项
+  const selectedItem = dataSources.find(ds => ds.source_id === selectedId);
+  
+  if (!selectedItem || !selectedNodeId) {
+    setShowFileModal(false);
+    return;
+  }
+
+  // 2. 获取要更新的参数名（假设是 'relative_path'）
+  const targetParamName = 'relative_path'; // 👈 根据实际需求调整
+
+  // 3. 更新节点的 input_params 中对应参数的 _value
+  setNodes((nds) =>
+    nds.map((n) => {
+      if (n.id === selectedNodeId) {
+        const newParams = [...(n.data.input_params?.params || [])];
+        const targetIndex = newParams.findIndex(p => p.name === targetParamName);
+        if (targetIndex !== -1) {
+          newParams[targetIndex] = { 
+            ...newParams[targetIndex], 
+            _value: selectedItem.name, // 👈 赋值 name 到 _value
+            param_value: selectedItem.name, // 可选：也同步到 param_value
+          };
+        }
+        return {
+          ...n,
+          data: {
+            ...n.data,
+            input_params: { ...n.data.input_params, params: newParams },
+          },
+        };
+      }
+      return n;
+    })
+  );
+
+  setShowFileModal(false); // 关闭弹窗
+}, [dataSources, selectedNodeId]);
+  
   // 键盘Delete键删除选中节点
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -2850,51 +2914,7 @@ useEffect(() => {
                 is_deleted: 0
               }
             ]
-          },
-          {
-            groupName: "基础Dataspace",
-            DagSkillInfoList: [
-              {
-                id: 9999999999998,
-                skill_id: "piflow_engine.cn.piflow.engine.local.source_file_stop.SourceFileStop",
-                skill_name: "Dataspace文件输入源",
-                name_zh: "文件源",
-                version: "1.0.0",
-                description: "本skill是用于文件源",
-                file_path: "",
-                input_params: {
-                  params: [
-                    {
-                      name: "filePath",
-                      type: "string",
-                      param_name: "filePath",
-                      param_type: "String",
-                      value_mode: "manual",
-                      param_value: "",
-                      value_source: "local_file"
-                    },
-                    {
-                      name: "output",
-                      type: "string",
-                      param_name: "filePath",
-                      param_type: "String",
-                      value_mode: "manual",
-                      param_value: "workspace/outputs/森林每木调查数据-blank-space.csv",
-                      value_source: "local_file"
-                    }
-                  ]
-                },
-                output_params: { params: [] },
-                skill_type: "",
-                language: "",
-                command: "",
-                icon_path: "",
-                create_time: "",
-                update_time: "",
-                is_deleted: 0
-              }
-            ]
-          },
+          }
         ];
         const finalList = fixArr.concat(resAllSkills.result.data);
         // 打印第一个算子的信息
@@ -4129,7 +4149,7 @@ const mapOutputParamsValues = (rawParams) => {
                               </div>
                             ) : (
                               // 2. 手动输入/数据源模式 UI
-                              param.name === 'file_path' && param._refType === 'manual' ? (
+                              param.name === 'file_path' && param._refType === 'manual' || param.name === 'datasource_id' ? (
                                 // 特殊处理：文件选择器
                                 <input
                                   className="draw-config-value-input"
@@ -4278,8 +4298,8 @@ const mapOutputParamsValues = (rawParams) => {
         </div>
       )}
 
-      {/* 文件系统弹窗 */}
-      {showFileModal && (
+      {/* 文件系统弹窗 修改判断条件*/}
+      {fileSelectParamName !== null && fileSelectParamName !== 'datasource_id' && (
         <div className="file-system-overlay" onClick={() => { setShowFileModal(false); setFileSelectParamName(null); }}>
           <div className="file-system-modal" onClick={(e) => e.stopPropagation()}>
             <div className="file-system-header">
@@ -4388,6 +4408,91 @@ const mapOutputParamsValues = (rawParams) => {
                     </div>
                   ))}
                 </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+      {/* 数据源选择下拉框（仅当 fileSelectParamName === 'datasource_id'） */}
+      {fileSelectParamName === 'datasource_id' && (
+        <div className="file-system-overlay" onClick={() => { setShowFileModal(false); setFileSelectParamName(null); }}>
+          <div className="file-system-modalSource" onClick={(e) => e.stopPropagation()}>
+            <div className="file-system-header">
+              <div className="file-system-title">
+                <Database size={18} />
+                <span>选择数据源</span>
+              </div>
+              <button className="file-system-close" onClick={() => { setShowFileModal(false); setFileSelectParamName(null); }}>
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="file-system-content" style={{ padding: '16px' }}>
+              {isLoadingDataSources ? (
+                <div className="file-system-loading">
+                  <span>加载数据源...</span>
+                </div>
+              ) : (
+                
+                <select
+                  className="datasource-select"
+                  onChange={(e) => {
+                    const selectedId = e.target.value;
+                    handleSelectDataSource(selectedId);
+                    if (selectedId) {
+                      // 将选中的 datasource_id 写入节点参数
+                      setNodes((nds) =>
+                        nds.map((n) => {
+                          if (n.id === selectedNodeId) {
+                            const newParams = [...(n.data.input_params?.params || [])];
+                            const targetIndex = newParams.findIndex(p => p.name === 'datasource_id');
+                            if (targetIndex !== -1) {
+                              newParams[targetIndex] = { 
+                                ...newParams[targetIndex], 
+                                _value: selectedId,
+                                param_value: selectedId,
+                              };
+                            }
+
+                            const rpIndex = newParams.findIndex(p => p.name === 'relative_path');
+                            if (rpIndex !== -1 && selectedFileItem?.name) {
+                              newParams[rpIndex] = {
+                                ...newParams[rpIndex],
+                                _value: selectedFileItem.name,
+                                param_value: selectedFileItem.name,
+                              };
+                            }
+
+                            return {
+                              ...n,
+                              data: {
+                                ...n.data,
+                                input_params: { ...n.data.input_params, params: newParams },
+                              },
+                            };
+                          }
+                          return n;
+                        })
+                      );
+                      setShowFileModal(false);
+                      setFileSelectParamName(null);
+                    }
+                  }}
+                  style={{
+                    width: '100%',
+                    padding: '8px',
+                    fontSize: '14px',
+                    borderRadius: '4px',
+                    border: '1px solid #d1d5db',
+                  }}
+                >
+                  <option value="">请选择数据源</option>
+                  {dataSources.map(ds => (
+                    <option key={ds.source_id} value={ds.source_id} >
+                      {ds.database_name}
+                    </option>
+                  ))}
+                </select>
               )}
             </div>
           </div>

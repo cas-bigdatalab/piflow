@@ -1,5 +1,5 @@
 import { Icon } from "@iconify/react";
-import { type DragEvent, useEffect, useRef, useState } from "react";
+import { type DragEvent, useEffect, useRef, useState,useCallback } from "react";
 import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 import {
   listStorage,
@@ -13,6 +13,7 @@ import {
   uploadWorkSpaceFileNew,
   getDrawInfoBymegId,
   copyDefaultFiles,
+  listDataspaceDirecory,
   type MessageAttachment,
   type ThreadMessage,
 } from "../lib/api";
@@ -21,7 +22,7 @@ import { shortId } from "../lib/ids";
 import PipelinePreview, { extractAndCleanPipelineJson, PipelineData } from "../components/PipelinePreview";
 import FlowEditor, { InitialPipelineData } from "../components/Draw";
 // import { appConfig } from "../config/appConfig";
-import { FolderOpen,X,ChevronRight, Upload,Folder,FileText,Download    } from 'lucide-react';
+import { FolderOpen,X,ChevronRight, Upload,Folder,FileText,Download,Database    } from 'lucide-react';
 const DEFAULT_USER_ID = localStorage.getItem('userId');
 
 type UiMsg = {
@@ -348,14 +349,18 @@ export function HomePage() {
   const [isSaved, setIsSaved] = useState(false);
   
   const [showFileModal, setShowFileModal] = useState(false);
+  const [showFileModalSource,setShowFileModalSource]= useState(false); //数据源的选择
   const [fileSelectParamIndex, setFileSelectParamIndex] = useState<number | null>(null);
   const [currentDirPath, setCurrentDirPath] = useState<string | null>(null);
   const [fileSystemItems, setFileSystemItems] = useState<Array<{ name: string; path: string; type: 'file' | 'directory' }>>([]);
   const [isLoadingFiles, setIsLoadingFiles] = useState(false);
   const [uploadingFile, setUploadingFile] = useState(false);
   // 新增一个判断是数据空间已传文件还是附件上传新文件标志,false默认是初次附件上传，true是数据空间已上传文件
-  const [isUploadingFileShow,setIsUpLoadingFileShow] = useState(false); 
-  // 新加入内容
+  const [isUploadingFileShow,setIsUpLoadingFileShow] = useState(false);
+  
+  //新增变量，记录是否为数据源弹框
+  const [dataSources, setDataSources] = useState<{ id: string; name: string }[]>([]);
+  const [isLoadingDataSources, setIsLoadingDataSources] = useState(false);  // 新加入内容
   const handleGoBack = () => {
     if (!currentDirPath) return;
     const parts = currentDirPath.split('/').filter(Boolean);
@@ -368,6 +373,22 @@ export function HomePage() {
     // 触发重新加载文件列表
     loadFileSystem(currentDirPath ? '/' + parts.join('/') : null);
   };
+
+  //数据源弹框内容接口
+  const loadDataSources = useCallback(async () => {
+    setIsLoadingDataSources(true);
+    try {
+      const res = await listDataspaceDirecory(); 
+      if (Array.isArray(res.result.items)) { 
+        setDataSources(res.result.items.map(item => ({ source_id: item.source_id, database_name: item.database_name,name:item.name })));
+      }
+    } catch (err) {
+      console.error('加载数据源失败:', err);
+      setDataSources([]);
+    } finally {
+      setIsLoadingDataSources(false);
+    }
+  }, []);
   const loadFileSystem = async (path: string | null = currentDirPath) => {
     setIsLoadingFiles(true);
     try {
@@ -1118,7 +1139,19 @@ export function HomePage() {
                 <span>数据空间</span>
               </button>
             </label>
-           
+            {/* <label className="inline-flex cursor-pointer items-center gap-2 rounded-full px-2 py-1.5 transition-colors hover:bg-slate-100 hover:text-slate-900">
+              <button
+                className="inline-flex cursor-pointer items-center gap-2 rounded-full px-2 py-1.5 transition-colors hover:bg-slate-100 hover:text-slate-900"
+                onClick={async () => {
+                  setShowFileModalSource(true);
+                  await loadDataSources();
+                }}
+                type="button"
+              >
+                <Icon icon="ri:add-line" width="15" />
+                <span>数据源</span>
+              </button>
+            </label> */}
             <button
               className="inline-flex items-center gap-2 rounded-full px-2 py-1.5 transition-colors hover:bg-slate-100 hover:text-slate-900"
               onClick={() => (window.location.href = "/skills")}
@@ -1550,6 +1583,92 @@ export function HomePage() {
                     </div>
                   ))}
                 </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+      {/* 数据源弹框 */}
+        {/* 数据源选择下拉框（仅当 fileSelectParamName === 'datasource_id'） */}
+      {showFileModalSource && (
+        <div className="file-system-overlay" onClick={() => { setShowFileModalSource(false); }}>
+          <div className="file-system-modalSource" onClick={(e) => e.stopPropagation()}>
+            <div className="file-system-header">
+              <div className="file-system-title">
+                <Database size={18} />
+                <span>选择数据源</span>
+              </div>
+              <button className="file-system-close" onClick={() => { setShowFileModalSource(false);  }}>
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="file-system-content" style={{ padding: '16px' }}>
+              {isLoadingDataSources ? (
+                <div className="file-system-loading">
+                  <span>加载数据源...</span>
+                </div>
+              ) : (
+                
+                <select
+                  className="datasource-select"
+                  onChange={(e) => {
+                    const selectedId = e.target.value;
+                    handleSelectDataSource(selectedId);
+                    if (selectedId) {
+                      // 将选中的 datasource_id 写入节点参数
+                      setNodes((nds) =>
+                        nds.map((n) => {
+                          if (n.id === selectedNodeId) {
+                            const newParams = [...(n.data.input_params?.params || [])];
+                            const targetIndex = newParams.findIndex(p => p.name === 'datasource_id');
+                            if (targetIndex !== -1) {
+                              newParams[targetIndex] = { 
+                                ...newParams[targetIndex], 
+                                _value: selectedId,
+                                param_value: selectedId,
+                              };
+                            }
+
+                            const rpIndex = newParams.findIndex(p => p.name === 'relative_path');
+                            if (rpIndex !== -1 && selectedFileItem?.name) {
+                              newParams[rpIndex] = {
+                                ...newParams[rpIndex],
+                                _value: selectedFileItem.name,
+                                param_value: selectedFileItem.name,
+                              };
+                            }
+
+                            return {
+                              ...n,
+                              data: {
+                                ...n.data,
+                                input_params: { ...n.data.input_params, params: newParams },
+                              },
+                            };
+                          }
+                          return n;
+                        })
+                      );
+                      setShowFileModal(false);
+                      setFileSelectParamName(null);
+                    }
+                  }}
+                  style={{
+                    width: '100%',
+                    padding: '8px',
+                    fontSize: '14px',
+                    borderRadius: '4px',
+                    border: '1px solid #d1d5db',
+                  }}
+                >
+                  <option value="">请选择数据源</option>
+                  {dataSources.map(ds => (
+                    <option key={ds.source_id} value={ds.source_id} >
+                      {ds.database_name}
+                    </option>
+                  ))}
+                </select>
               )}
             </div>
           </div>
