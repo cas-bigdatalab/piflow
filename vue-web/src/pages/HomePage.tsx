@@ -674,7 +674,7 @@ export function HomePage() {
           
           uploadedAttachments.push({
             file_id: response.file_id,
-            path: response.path,
+            path: response.file_path,
             name: response.original_filename,
           });
           setUploadingCount((current) => Math.max(0, current - 1));
