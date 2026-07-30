@@ -891,31 +891,12 @@ export async function deleteSource(source_id: string) {
 
 
 //首页新建对话中新增中的上传文件接口
-export async function uploadWorkspaceFileNew(
-  user_id: string,
-  thread_id: string,
-  message_id: number | string,
-  dir_path: string,
-) {
-  const form = new FormData();
-  form.append("user_id", user_id);
-  form.append("thread_id", thread_id);
-  form.append("message_id", String(message_id));
-  form.append("dir_path", dir_path);
 
-  const res = await fetch(`${apiBase()}/message/bind-directory`, { method: "POST", body: form });
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(`Upload failed ${res.status}: ${text}`);
-  }
-  return (await res.json()) as {
-    file_id: number;
-    user_id: string;
-    thread_id: string;
-    message_id: string;
-    path: string;
-    original_filename: string;
-    size: number;
-    content_type: string;
-  };
+
+export async function uploadWorkspaceFileNew(user_id: string,thread_id: string,message_id: string,dir_path:string) {
+  return apiFetch<SaveToStorageResponse>("/message/bind-directory", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify( {user_id,thread_id,message_id,dir_path} )
+  });
 }

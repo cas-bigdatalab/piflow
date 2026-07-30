@@ -858,7 +858,7 @@ const OperatorLibraryModal: React.FC<OperatorLibraryModalProps> = ({ isOpen, onC
   return (
     <div className="operator-modal">
       <div className="modal-header">
-        <h3>算子库</h3>
+        <h3>算子库3132</h3>
         <button className="modal-close" onClick={onClose}>
           <X size={18} />
         </button>
@@ -982,7 +982,10 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
   const [currentDirPath, setCurrentDirPath] = useState<string>('');
   const [isLoadingFiles, setIsLoadingFiles] = useState(false);
   const [uploadingFile, setUploadingFile] = useState(false);
-  const [fileSelectParamIndex, setFileSelectParamIndex] = useState<number | null>(null);
+  // 把原来的
+  // const [fileSelectParamIndex, setFileSelectParamIndex] = useState<number | null>(null);
+  // 改为：
+  const [fileSelectParamName, setFileSelectParamName] = useState<string | null>(null);
   const prevNodesLengthRef = useRef<number>(nodes.length);
 
   //新增一个变量，节点中是否村子missing_skill_stop节点
@@ -1166,17 +1169,17 @@ const handleParamChange = (e, targetName) => {
   }, [currentDirPath, loadDirectories]);
 
   const handleSelectFileForParam = useCallback((filePath: string) => {
-    if (fileSelectParamIndex === null || !selectedNodeId) {
+    if (!fileSelectParamName || !selectedNodeId) {
       setShowFileModal(false);
-      setFileSelectParamIndex(null);
       return;
     }
     setNodes((nds) =>
       nds.map((n) => {
         if (n.id === selectedNodeId) {
           const newParams = [...(n.data.input_params?.params || [])];
-          if (newParams[fileSelectParamIndex]) {
-            newParams[fileSelectParamIndex] = { ...newParams[fileSelectParamIndex], _value: filePath };
+          const targetIndex = newParams.findIndex(p => p.name === fileSelectParamName);
+          if (targetIndex !== -1) {
+            newParams[targetIndex] = { ...newParams[targetIndex], _value: filePath };
           }
           return {
             ...n,
@@ -1190,8 +1193,7 @@ const handleParamChange = (e, targetName) => {
       })
     );
     setShowFileModal(false);
-    setFileSelectParamIndex(null);
-  }, [fileSelectParamIndex, selectedNodeId]);
+  }, [fileSelectParamName, selectedNodeId]); // 注意依赖项也改了
 
   // 当 messageId prop 变化时更新 state
   useEffect(() => {
@@ -4136,8 +4138,8 @@ const mapOutputParamsValues = (rawParams) => {
                                   title={param._value || param.param_value || ''}
                                   readOnly
                                   style={{ cursor: 'pointer', backgroundColor: '#f8fafc' }}
-                                  onClick={async () => {
-                                    setFileSelectParamIndex(index); 
+                                  onClick={async () => { 
+                                    setFileSelectParamName(param.name); // ✅ 用 name 代替 index
                                     await loadDirectories();
                                     setShowFileModal(true);
                                   }}
@@ -4278,14 +4280,14 @@ const mapOutputParamsValues = (rawParams) => {
 
       {/* 文件系统弹窗 */}
       {showFileModal && (
-        <div className="file-system-overlay" onClick={() => { setShowFileModal(false); setFileSelectParamIndex(null); }}>
+        <div className="file-system-overlay" onClick={() => { setShowFileModal(false); setFileSelectParamName(null); }}>
           <div className="file-system-modal" onClick={(e) => e.stopPropagation()}>
             <div className="file-system-header">
               <div className="file-system-title">
                 <FolderOpen size={18} />
-                <span>{fileSelectParamIndex !== null ? '选择文件' : '文件系统'}</span>
+                <span>{!fileSelectParamName !== null ? '选择文件' : '文件系统'}</span>
               </div>
-              <button className="file-system-close" onClick={() => { setShowFileModal(false); setFileSelectParamIndex(null); }}>
+              <button className="file-system-close" onClick={() => { setShowFileModal(false); setFileSelectParamName(null); }}>
                 <X size={18} />
               </button>
             </div>
@@ -4308,7 +4310,7 @@ const mapOutputParamsValues = (rawParams) => {
             </div>
 
             <div className="file-system-actions">
-              {fileSelectParamIndex === null && (
+              {!fileSelectParamName === null && (
                 <label className="file-system-upload-btn">
                   
                   <Upload size={14} />
@@ -4321,7 +4323,7 @@ const mapOutputParamsValues = (rawParams) => {
                   />
                 </label>
               )}
-              {fileSelectParamIndex !== null && (
+              {!fileSelectParamName && (
                 <span className="file-system-hint">双击文件或点击"选择"按钮选中文件</span>
               )}
             </div>
@@ -4348,7 +4350,7 @@ const mapOutputParamsValues = (rawParams) => {
                         }
                       }}
                       onDoubleClick={() => {
-                        if (item.type === 'file' && fileSelectParamIndex !== null) {
+                        if (item.type === 'file' && !fileSelectParamName) {
                           handleSelectFileForParam(item.path);
                         }
                       }}
@@ -4361,7 +4363,7 @@ const mapOutputParamsValues = (rawParams) => {
                         )}
                       </div>
                       <span className="file-system-item-name">{item.name}</span>
-                      {item.type === 'file' && fileSelectParamIndex === null && (
+                      {item.type === 'file' && !fileSelectParamName && (
                         <button
                           className="file-system-download-btn"
                           onClick={(e) => {
@@ -4372,7 +4374,7 @@ const mapOutputParamsValues = (rawParams) => {
                           <Download size={14} />
                         </button>
                       )}
-                      {item.type === 'file' && fileSelectParamIndex !== null && (
+                      {item.type === 'file' && !fileSelectParamName && (
                         <button
                           className="file-system-select-btn"
                           onClick={(e) => {

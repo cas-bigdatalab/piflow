@@ -21,10 +21,8 @@ import { shortId } from "../lib/ids";
 import PipelinePreview, { extractAndCleanPipelineJson, PipelineData } from "../components/PipelinePreview";
 import FlowEditor, { InitialPipelineData } from "../components/Draw";
 // import { appConfig } from "../config/appConfig";
-function getCurrentUserId() {
-  return localStorage.getItem("userId")?.trim() || "";
-}
-
+import { FolderOpen,X,ChevronRight, Upload,Folder,FileText,Download    } from 'lucide-react';
+const DEFAULT_USER_ID = localStorage.getItem('userId');
 
 type UiMsg = {
   id: string;
@@ -119,12 +117,7 @@ function removeJsonBlock(text: string): string {
 // 彻底清理文本中的所有 JSON 对象和数组
 function removeAllJson(text: string): string {
   if (!text) return text;
-  // 新增逻辑：如果包含 [HIDDEN]，直接返回空字符串
-  if (text.includes('[HIDDEN]')) {
-    return '';
-  }
-
-
+  
   let result = text;
   
   // 首先移除特定的标记文本  请根据任务流程重新生成dag JSON，不要执行
@@ -597,14 +590,9 @@ export function HomePage() {
     setCanvasPipelineData(null);
     setCanvasMessageId("");
     setSavedDrawData(null);
-    const currentUserId = getCurrentUserId();
-    if (!currentUserId) {
-      setMessages([]);
-      setLoadError("用户信息尚未初始化，请刷新页面后重试");
-      return;
-    }
+
     try {
-      const response = await getThreadMessages(currentUserId, nextThreadId, 200);
+      const response = await getThreadMessages(DEFAULT_USER_ID, nextThreadId, 200);
       setMessages((response.messages || []).map((message, index) => toUiMessage(nextThreadId, message, index)));
     } catch (error: any) {
       setMessages([]);
@@ -625,17 +613,7 @@ export function HomePage() {
     if ((!prompt && pendingFiles.length === 0) || sending || uploading) {
       return;
     }
-    const currentUserId = getCurrentUserId();
-    if (!currentUserId) {
-      setLoadError("用户信息尚未初始化，请刷新页面后重试");
-      return;
-    }
-    let targetThreadId = options?.threadId ?? threadId;
-    if (targetThreadId === "default") {
-      targetThreadId = `t_${shortId()}`;
-      setThreadId(targetThreadId); // 更新状态，避免重复创建
-    }
-    // const targetThreadId = options?.threadId ?? threadId;
+    const targetThreadId = options?.threadId ?? threadId;
     const presetAttachments = options?.presetAttachments || [];
     const hidden = options?.hidden || false;
 
@@ -667,13 +645,13 @@ export function HomePage() {
     let assistantArtifacts: string[] = [];
 
     try {
-      const created = await createMessage(currentUserId, targetThreadId, prompt);
+      const created = await createMessage(DEFAULT_USER_ID, targetThreadId, prompt);
       const messageId = created.message.id;
 
       let attachedPresetFiles: MessageAttachment[] = [];
       if (presetAttachments.length > 0) {
         const attached = await attachMessageFiles(
-          currentUserId,
+          DEFAULT_USER_ID,
           targetThreadId,
           messageId,
           presetAttachments,
@@ -743,7 +721,7 @@ export function HomePage() {
         {
           message: prompt,
           thread_id: targetThreadId,
-          user_id: currentUserId,
+          user_id: DEFAULT_USER_ID,
           attachments: [...attachedPresetFiles, ...uploadedAttachments].map((file) => file.path),
           message_id: messageId,
         },
@@ -940,10 +918,6 @@ export function HomePage() {
     abortRef.current = null;
 
     const userId = localStorage.getItem('userId') || '';
-    if (!userId) {
-      setLoadError("用户信息尚未初始化，请刷新页面后重试");
-      return;
-    }
     try {
       await copyDefaultFiles(userId);
     } catch (e) {
@@ -1261,9 +1235,7 @@ export function HomePage() {
                   className="flex-1 space-y-5 overflow-y-auto px-2 py-4 custom-scrollbar"
                 >
                   {hasMessages ? (
-                    messages
-                    .filter(message => !(message.content || '').includes('[HIDDEN]')) // 👈 新增过滤
-                    .map((message) => {
+                    messages.map((message) => {
                       const isAssistant = message.role === "assistant";
                       return (
                         <article
