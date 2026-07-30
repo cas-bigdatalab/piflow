@@ -1,7 +1,7 @@
 {
   "name": "dataspace_file_source_stop",
   "version": "1.0.0",
-  "description": "Dataspace 文件输入源算子。用于根据 Dataspace 数据源实例 ID 和空间内相对路径下载单个文件，并将该文件作为工作流输入提供给下游算子。该算子没有上游输入，必须作为 DAG 的起始节点使用。",
+  "description": "Dataspace 文件输入源算子。用于根据 Dataspace 数据源实例 ID 和空间内文件路径下载单个文件，并将该文件作为工作流输入提供给下游算子。该算子没有上游输入，必须作为 DAG 的起始节点使用。",
   "language": "python",
   "script_path": "scripts/run_dataspace_file_source_stop.py",
   "entrypoint": "python scripts/run_dataspace_file_source_stop.py",
@@ -14,11 +14,11 @@
       "description": "Dataspace 数据源实例 ID"
     },
     {
-      "name": "relative_path",
+      "name": "input_file_path",
       "role": "data",
       "type": "string",
       "required": true,
-      "description": "需要下载的 Dataspace 空间内相对文件路径"
+      "description": "需要下载的 Dataspace 空间内文件路径，允许以 / 开头"
     },
     {
       "name": "output",
@@ -42,8 +42,8 @@
     "{script_path}",
     "--datasource_id",
     "{datasource_id}",
-    "--relative_path",
-    "{relative_path}",
+    "--input_file_path",
+    "{input_file_path}",
     "--output",
     "{output}"
   ]
