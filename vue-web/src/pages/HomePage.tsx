@@ -21,15 +21,10 @@ import { shortId } from "../lib/ids";
 import PipelinePreview, { extractAndCleanPipelineJson, PipelineData } from "../components/PipelinePreview";
 import FlowEditor, { InitialPipelineData } from "../components/Draw";
 // import { appConfig } from "../config/appConfig";
-<<<<<<< HEAD
 function getCurrentUserId() {
   return localStorage.getItem("userId")?.trim() || "";
 }
 
-=======
-import { FolderOpen,X,ChevronRight, Upload,Folder,FileText,Download    } from 'lucide-react';
-const DEFAULT_USER_ID = localStorage.getItem('userId');
->>>>>>> dev_newSpace
 
 type UiMsg = {
   id: string;
@@ -690,17 +685,10 @@ export function HomePage() {
       if (filesToUpload.length > 0) {
         setUploadingCount(filesToUpload.length);
         setStreamStatus("正在上传附件...");
-<<<<<<< HEAD
-
-        for (const item of filesToUpload) {
-          const response = await uploadWorkspaceFile(
-            currentUserId,
-=======
         // 判断是否为初次上传附件还是数据空间已上传附件
         if (isUploadingFileShow){
           const response = await uploadWorkspaceFileNew(
             DEFAULT_USER_ID,
->>>>>>> dev_newSpace
             targetThreadId,
             messageId,
             pendingFilesNew,

@@ -3394,22 +3394,6 @@ const mapOutputParamsValues = (rawParams) => {
       // 检查nodes 中是否有引用类型的参数
 
       // ========== 开始：替换的核心逻辑 ==========
-<<<<<<< HEAD
-      // 1. 准备 nodesToSave 和 bindingMap (这部分保持不变)
-      // 因为在节点中存在了来源的select选错位，导致了保存的inpuParams参数错误，在这重新保存的时候，把同名的使用outParams给inputParams再保存一次
-     const nodesToSave = nodes.map(node => {
-      if (node.type === 'comment') {
-        return {
-          node_id: node.id,
-          node_name: node.data.label,
-          node_type: 'comment',
-          position: node.position,
-          skill: null,
-          input_params: node.data.input_params,
-          output_params: node.data.output_params,
-        };
-      }
-=======
       const nodesToSave = nodes.map(node => {
         if (node.type === 'comment') {
           return {
@@ -3422,7 +3406,6 @@ const mapOutputParamsValues = (rawParams) => {
             output_params: []
           };
         }
->>>>>>> dev_newSpace
 
       // 先提取 outputParams 并建立 name -> param_value 的映射
       const rawOutputParams = node.data.output_params?.params || [];
