@@ -369,8 +369,9 @@
 }
 
 .datasource-card:hover {
-  border-color: var(--color-blue-300);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  border-color: #d1d5db;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+  transform: translateY(-2px);
 }
 
 .datasource-info {
@@ -391,11 +392,13 @@
 .datasource-desc {
   font-size: 12px;
   line-height: 1.5;
-  color: var(--color-slate-400);
+  color: #9ca3af;
   margin: 0.125rem 0 0;
-  /* white-space: nowrap;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis; */
+  text-overflow: ellipsis;
 }
 
 /* --- 特殊图标样式 --- */
@@ -702,4 +705,38 @@
 
 .btn-primary-gradient:hover {
   opacity: 0.9;
+}
+
+::v-deep .form-label{
+  margin-bottom: 6px!important;
+}
+
+.form-input-file {
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 14px;
+  width: 100%;
+  background-color: white;
+}
+
+.file-upload-wrapper {
+  display: flex;
+  flex-direction: column;
+}
+
+.icon-wrapper-rounded {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #f8fafc; /* 可选背景色 */
+  overflow: hidden;
+}
+
+.logo-image {
+  width: 100%;
+  height: 100%;
 }

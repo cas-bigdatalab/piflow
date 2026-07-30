@@ -1,25 +1,10 @@
-import React, { useState, useMemo } from 'react';
+import  { useState, useMemo,useEffect,useRef } from 'react';
 import './DataManPage.css';
+import { listStorageNew,deleteData,apiBase,downLoadData } from "../lib/api";
+
 
 // --- 模拟数据 (Mock Data) ---
-const MOCK_DATA = [
-  { id: 1, name: '2024年气象观测数据.csv', type: 'csv', size: '45.2 MB', date: '2025-07-10' },
-  { id: 2, name: '实验结果_蛋白质组学.json', type: 'json', size: '12.8 MB', date: '2025-07-08' },
-  { id: 3, name: '全球温度异常数据.xlsx', type: 'xlsx', size: '8.5 MB', date: '2025-07-05' },
-  { id: 4, name: '用户行为日志.log', type: 'mdc', size: '1.2 GB', date: '2025-07-01' },
-  { id: 5, name: '实验结果_蛋白质组学.json', type: 'json', size: '12.8 MB', date: '2025-07-08' },
-  { id: 6, name: '全球温度异常数据.xlsx', type: 'xlsx', size: '8.5 MB', date: '2025-07-05' },
-  { id: 7, name: '用户行为日志.log', type: 'mdc', size: '1.2 GB', date: '2025-07-01' },
-  { id: 8, name: '实验结果_蛋白质组学.json', type: 'json', size: '12.8 MB', date: '2025-07-08' },
-  { id: 9, name: '全球温度异常数据.xlsx', type: 'xlsx', size: '8.5 MB', date: '2025-07-05' },
-  { id: 10, name: '用户行为日志.log', type: 'mdc', size: '1.2 GB', date: '2025-07-01' },
-  
-  { id: 11, name: '全球温度异常数据.xlsx', type: 'xlsx', size: '8.5 MB', date: '2025-07-05' },
-  { id: 12, name: '用户行为日志.log', type: 'mdc', size: '1.2 GB', date: '2025-07-01' },
-  { id: 13, name: '实验结果_蛋白质组学.json', type: 'json', size: '12.8 MB', date: '2025-07-08' },
-  { id: 14, name: '全球温度异常数据.xlsx', type: 'xlsx', size: '8.5 MB', date: '2025-07-05' },
-  { id: 15, name: '用户行为日志.log', type: 'mdc', size: '1.2 GB', date: '2025-07-01' },
-];
+// const MOCK_DATA = [];
 
 // --- 模拟结果数据 (Mock Result Data) ---
 const MOCK_RESULT_DATA = [
@@ -42,6 +27,34 @@ export const DeleteIcon = ({ size = 13 }) => (
     <path d="M3 6h18" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
     <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" stroke="currentColor" strokeWidth="2"/>
     <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" stroke="currentColor" strokeWidth="2"/>
+  </svg>
+);
+
+// 封装“保存到 DataSpace”图标
+export const SaveToDataSpaceIcon = ({ size = 13 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    {/* 云朵形状 */}
+    <path
+      d="M18 10C18 7.23858 15.7614 5 13 5C11.5962 5 10.3103 5.58127 9.3923 6.5C8.47433 5.58127 7.18843 5 5.7846 5C3.02318 5 0.784607 7.23858 0.784607 10C0.784607 11.5962 1.36588 12.8821 2.28461 13.8C3.20333 14.7179 4.48923 15.3 5.89306 15.3H18V10Z"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    {/* 向下的保存箭头 */}
+    <path
+      d="M12 12V18"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+    />
+    <path
+      d="M15 15L12 18L9 15"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
   </svg>
 );
 
@@ -80,41 +93,154 @@ const getTagClass = (type) => {
 const MyDataPage = () => {
   const [activeTab, setActiveTab] = useState('uploaded'); // 'uploaded' | 'results'
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedIds, setSelectedIds] = useState(new Set());
+  // 修改 useState 初始化处，显式指定泛型类型
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [isBatchModalOpen, setIsBatchModalOpen] = useState(false);
   const [isBatchMode, setIsBatchMode] = useState(false);
   const [fileTypeFilter, setFileTypeFilter] = useState('all');
   const [singleDeleteId, setSingleDeleteId] = useState<number | null>(null);
-  const currentData = activeTab === 'uploaded' ? MOCK_DATA : MOCK_RESULT_DATA;
+  // const currentData = activeTab === 'uploaded' ? MOCK_DATA : MOCK_RESULT_DATA;
+  const [fileSystemItems, setFileSystemItems] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 10;
+  const [totalItems, setTotalItems] = useState(0);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
-  // ✅ 先定义 filteredData（关键修复）
-  const filteredData = currentData.filter(item => {
-    const matchesSearch = (activeTab === 'uploaded' ? item.name : item.resultFile)
-      .toLowerCase()
-      .includes(searchTerm.toLowerCase());
-
-    if (fileTypeFilter === 'all') return matchesSearch;
+  // 新增列表内容
+  useEffect(() => {
+  const loadStorageData = async () => {
+      try {
+        setLoading(true); // 开始加载
+        const userId = localStorage.getItem('userId') || '';
+        // 传入搜索关键词（如果需要后端搜索）
+        const res = await listStorageNew(userId, searchTerm, currentPage, pageSize);
+        console.log("其中列表中的内容为", res);
+        setFileSystemItems(res?.items || []);
+        setTotalItems(res?.pagination?.total || 0);
+      } catch (err) {
+        console.error('加载存储数据失败:', err);
+        setFileSystemItems([]);
+        setTotalItems(0);
+      } finally {
+        setLoading(false);
+      }
+    };
 
     if (activeTab === 'uploaded') {
-      return matchesSearch && item.type === fileTypeFilter;
-    } else {
-      const resultExt = item.resultFile.split('.').pop()?.toLowerCase() || '';
-      return matchesSearch && resultExt === fileTypeFilter;
+      loadStorageData();
     }
-  });
+  }, [currentPage, pageSize, searchTerm]); // 注意依赖项
+  // 然后直接使用
+  const paginatedData = fileSystemItems; // 后端已分页
+  // 总页数：使用后端返回的 totalItems
+  const totalPages = Math.ceil(totalItems / pageSize);
+  //删除方法
+  const handleDelete = async (pathsToDelete: string[]) => {
+    try {
+      const userId = localStorage.getItem('userId') || '';
+      if (!userId) {
+          console.error('无法获取用户ID');
+          return;
+      }
+      
+      // 调用从 api.ts 导入的 deleteData 函数
+      await deleteData(userId, pathsToDelete);
+      
+      console.log('删除成功，正在刷新列表...');
+      // 删除成功后，刷新列表      
+      setCurrentPage(1); // 切换到第一页
+      const res = await listStorageNew(userId, searchTerm, currentPage, pageSize);
+      setFileSystemItems(res?.items || []);
+      setTotalItems(res?.pagination?.total || 0);
+      
+      // 清除选中状态
+      setSelectedIds(new Set());
+      setIsBatchMode(false);
+      setSingleDeleteId(null);
+    } catch (err) {
+      console.error('删除失败:', err);
+      alert('删除失败，请稍后重试');
+    }
+  };
+  //上传方法
+  const handleUpload = async () => {
+    // ✅ 修改1：检查 selectedFile 是否存在
+    if (!selectedFile) return;
 
-  // 分页数据
-  const paginatedData = useMemo(() => {
-    const start = (currentPage - 1) * pageSize;
-    return filteredData.slice(start, start + pageSize);
-  }, [filteredData, currentPage, pageSize]);
+    setUploading(true);
+    try {
+      const userId = localStorage.getItem('userId') || '';
+      const formData = new FormData();
+      formData.append('user_id', userId);
+      // ✅ 修改2：上传 selectedFile
+      formData.append('file', selectedFile);
 
-  // 总页数
-  const totalPages = Math.ceil(filteredData.length / pageSize);
+      const res = await fetch(`${apiBase()}/workspace/upload/path`, {
+        method: 'POST',
+        body: formData,
+      });
+      if (res.ok) {
+        alert('上传成功！');
+        setIsUploadModalOpen(false);
+        // ✅ 修改3：上传成功后，清空 selectedFile
+        setSelectedFile(null);
+        setCurrentPage(1); // 跳回第一页
+        await loadStorageData(); //调用刷新列表
+      } else {
+        throw new Error('上传失败');
+      }
+    } catch (err) {
+      // ... 错误处理 ...
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
 
+//下载方法
+const downloadData = async (item: any,useLogo:boolean) => {
+  try {
+    const userId = localStorage.getItem('userId') || '';
+    if (!userId) {
+      alert('用户未登录');
+      return;
+    }
+    if (useLogo){//批量下载
+       const paths = fileSystemItems
+        .filter(item => selectedIds.has(item.name) && item.path)
+        .map(item => item.path);
+      await downLoadData(userId, paths);
+      
+    } else { //单独下载
+      const pathsToDelete = [item.path];
+      await downLoadData(userId, pathsToDelete);
+    }
+  } catch (err) {
+    console.error('下载失败:', err);
+    alert('下载失败，请稍后重试');
+  }
+};
+
+  const filteredData = useMemo(() => {
+    if (activeTab !== 'uploaded') {
+      // 如果未来支持 results tab，再补充逻辑
+      return [];
+    }
+
+    return fileSystemItems.filter(item => {
+      const matchesSearch = item.name
+        .toLowerCase()
+        .includes(searchTerm.toLowerCase());
+
+      if (fileTypeFilter === 'all') return matchesSearch;
+      return matchesSearch && item.type === fileTypeFilter;
+    });
+  }, [fileSystemItems, searchTerm, fileTypeFilter, activeTab]);
+  
   // 处理全选/单选
   const toggleSelect = (id) => {
     const newSelected = new Set(selectedIds);
@@ -126,15 +252,24 @@ const MyDataPage = () => {
     setSelectedIds(newSelected);
   };
 
-  const toggleSelectAll = () => {
-    const currentIds = new Set(filteredData.map(item => item.id));
-    const isAllSelected = filteredData.length > 0 && selectedIds.size === filteredData.length && filteredData.every(item => selectedIds.has(item.id));
-    if (isAllSelected) {
-      setSelectedIds(new Set());
-    } else {
-      setSelectedIds(currentIds);
-    }
-  };
+ const toggleSelectAll = () => {
+  const currentIds = new Set(fileSystemItems.map(item => item.id)); // 当前页
+  const isAllSelected = fileSystemItems.length > 0 && 
+                        fileSystemItems.every(item => selectedIds.has(item.id));
+  if (isAllSelected) {
+    setSelectedIds(prev => {
+      const newSet = new Set(prev);
+      fileSystemItems.forEach(item => newSet.delete(item.id));
+      return newSet;
+    });
+  } else {
+    setSelectedIds(prev => {
+      const newSet = new Set(prev);
+      fileSystemItems.forEach(item => newSet.add(item.id));
+      return newSet;
+    });
+  }
+};
 
   return (
     <div className="my-data-container">
@@ -147,22 +282,34 @@ const MyDataPage = () => {
       </div>
 
       {/* 标签页导航 */}
-      <div className="tabs-nav">
+      {/* <div className="tabs-nav">
         <div className={`tab-item ${activeTab === 'uploaded' ? 'active' : ''}`} onClick={() => setActiveTab('uploaded')}>
           上传的数据
         </div>
         <div className={`tab-item ${activeTab === 'results' ? 'active' : ''}`} onClick={() => setActiveTab('results')}>
           结果数据 (0)
         </div>
-      </div>
+      </div> */}
 
       {/* 批量操作栏 */}
       {isBatchMode && (
         <div className="batch-action-bar">
           <span>已选择 <strong>{selectedIds.size}</strong> 项</span>
           <div className="batch-action-buttons">
-            <button className="action-btn btn-download" title="批量下载">
+            <button className="action-btn btn-download" title="批量下载"
+              onClick={() => {
+                downloadData(selectedIds,true);
+              }}
+            >
               <DownloadIcon /> 批量下载
+            </button>
+             <button
+              className="action-btn btn-accent"
+              title="保存到DataSpace"
+              onClick={() => setIsBatchModalOpen(true)}
+              disabled={selectedIds.size === 0}
+            >
+              <SaveToDataSpaceIcon /> 保存到DataSpace
             </button>
             <button
               className="action-btn btn-delete"
@@ -193,10 +340,12 @@ const MyDataPage = () => {
             type="text"
             className="search-input"
             placeholder="请输入文件名..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            
           />
-          <select
+          {/* value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)} */}
+          {/* 先注释掉 */}
+          {/* <select
             className="filter-select"
             value={fileTypeFilter}
             onChange={(e) => setFileTypeFilter(e.target.value)}
@@ -210,7 +359,7 @@ const MyDataPage = () => {
             <option value="nc">NetCDF</option>
             <option value="tiff">GeoTIFF</option>
             <option value="hdf5">HDF5</option>
-          </select>
+          </select> */}
         </div>
         <div className="btn-group">
           {isBatchMode ? (
@@ -278,20 +427,19 @@ const MyDataPage = () => {
           <tbody>
             {paginatedData.length > 0 ? (
               paginatedData.map((item) => (
-                <tr key={item.id}>
+                <tr key={item.name}>
                   <td>
                     <input
                       type="checkbox"
                       className="checkbox-custom"
-                      checked={selectedIds.has(item.id)}
-                      onChange={() => toggleSelect(item.id)}
+                      checked={selectedIds.has(item.name)}
+                      onChange={() => toggleSelect(item.name)}
                     />
                   </td>
                   {activeTab === 'uploaded' ? (
                     <>
                       <td>
                         <div className="file-name-cell">
-                          <div>{item.type.substring(0, 3).toUpperCase()}</div>
                           <div className="file-info">
                             <span className="file-name-text">{item.name}</span>
                           </div>
@@ -302,8 +450,8 @@ const MyDataPage = () => {
                           {item.type.toUpperCase()}
                         </span>
                       </td>
-                      <td>{item.size}</td>
-                      <td>{item.date}</td>
+                      <td>{item.size  || "暂无数据"}</td>
+                      <td>{item.last_modified}</td>
                     </>
                   ) : (
                     <>
@@ -322,16 +470,25 @@ const MyDataPage = () => {
                   )}
                   <td>
                     <div className="action-btns">
-                      <button className="action-btnNew" title="下载">
+                      <button className="action-btnNew" title="下载"
+                        onClick={() => {
+                          if (item.path) {
+                            downloadData(item,false);
+                          }
+                        }}
+                      >
                         <DownloadIcon />
                       </button>
                       <button
                         className="action-btnNew"
                         title="删除"
-                        onClick={() => {
-                          setSingleDeleteId(item.id);
-                          setIsBatchModalOpen(true);
-                        }} 
+                        onClick={() => { 
+                          // 确保 item.path 存在，然后将其放入一个数组中
+                          if (item.path) {
+                            setSingleDeleteId(item); 
+                            setIsBatchModalOpen(true); 
+                          }
+                        }}
                       >
                         <DeleteIcon />
                       </button>
@@ -417,42 +574,41 @@ const MyDataPage = () => {
               <button className="close-btn" onClick={() => setIsUploadModalOpen(false)}>×</button>
             </div>
             <div className="modal-body">
-              <div
-                className="upload-drop-zone"
-                onDragOver={(e) => e.preventDefault()}
-                onClick={() => document.getElementById('file-upload-input')?.click()}
-              >
-                <div className="upload-icon-wrapper">
-                  <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M4 10C4 8.89543 4.89543 8 6 8H18L22 12H42C43.1046 12 44 12.8954 44 14V38C44 39.1046 43.1046 40 42 40H6C4.89543 40 4 39.1046 4 38V10Z" fill="#FADB14"/>
-                    <path d="M4 14H44V38C44 39.1046 43.1046 40 42 40H6C4.89543 40 4 39.1046 4 38V14Z" fill="#FFF566" fillOpacity="0.5"/>
-                  </svg>
+              {/* ✅ 核心修改：根据 selectedFile 是否存在，显示不同内容 */}
+              {selectedFile ? (
+                // 情况1：如果已选择文件，显示文件信息
+                <div className="selected-file-info" style={{ padding: '16px', border: '1px solid #e8e8e8', borderRadius: '4px', marginBottom: '16px', textAlign: 'center' }}>
+                  <p style={{ margin: '8px 0', fontSize: '16px' }}>
+                    <strong>已选择文件：</strong> {selectedFile.name}
+                  </p>
+                  <p style={{ margin: '8px 0', color: '#666' }}>
+                    <strong>大小：</strong> {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
+                  </p>
                 </div>
-                <p className="upload-main-text">点击或拖拽文件到此处上传</p>
-                <p className="upload-sub-text">
-                  支持 CSV, JSON, Excel, TXT, NetCDF, GeoTIFF, HDF5, 图片等格式，单个文件最大 500MB
-                </p>
-                <input
-                  type="file"
-                  id="file-upload-input"
-                  style={{ display: 'none' }}
-                  onChange={(e) => console.log('Selected file:', e.target.files?.[0])}
-                />
-              </div>
-              <div className="form-group">
-                <label className="form-label">数据描述 (可选)</label>
-                <textarea className="form-textarea" placeholder="为这份数据添加描述，方便后续查找和使用" rows={3}></textarea>
-              </div>
-              <div className="form-group">
-                <label className="form-label">数据标签 (可选)</label>
-                <input type="text" className="form-input" placeholder="多个标签用逗号分隔，如：气象, 2024, 实验数据" />
-              </div>
+              ) : (
+                // 情况2：如果未选择文件，显示原来的上传区域
+                <div className="upload-drop-zone" onDragOver={(e) => e.preventDefault()} onClick={() => fileInputRef.current?.click()}>
+                  <div className="upload-icon-wrapper">
+                    <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M4 10C4 8.89543 4.89543 8 6 8H18L22 12H42C43.1046 12 44 12.8954 44 14V38C44 39.1046 43.1046 40 42 40H6C4.89543 40 4 39.1046 4 38V10Z" fill="#FADB14"/>
+                      <path d="M4 14H44V38C44 39.1046 43.1046 40 42 40H6C4.89543 40 4 39.1046 4 38V14Z" fill="#FFF566" fillOpacity="0.5"/>
+                    </svg>
+                  </div>
+                  <p className="upload-main-text">点击或拖拽文件到此处上传</p>
+                  <p className="upload-sub-text">支持 CSV, JSON, Excel, TXT, NetCDF, GeoTIFF, HDF5, 图片等格式，单个文件最大 500MB</p>
+                </div>
+              )}
             </div>
             <div className="modal-footer">
               <span className="footer-hint">上传后将存储在「我上传的」数据列表中</span>
               <div className="action-buttons">
                 <button className="btn-secondary" onClick={() => setIsUploadModalOpen(false)}>取消</button>
-                <button className="btn-primaryNew">开始上传</button>
+                <button  className="btn-primaryNew" 
+                  onClick={handleUpload}
+                  disabled={uploading}
+                >
+                  {uploading ? '上传中...' : '开始上传'}
+                </button>
               </div>
             </div>
           </div>
@@ -470,7 +626,7 @@ const MyDataPage = () => {
             <div className="modal-body batch-options">
               {singleDeleteId !== null ? (
                 <p>
-                  确定要删除文件 <strong>“{currentData.find(d => d.id === singleDeleteId)?.name || '该文件'}”</strong> 吗？此操作不可撤销。
+                  确定要删除文件 <strong>“{singleDeleteId.name || '该文件'}”</strong> 吗？此操作不可撤销。
                 </p>
               ) : (
                 <p>
@@ -482,16 +638,25 @@ const MyDataPage = () => {
               <button className="btn-secondary" onClick={() => setIsBatchModalOpen(false)}>取消</button>
               <button
                 className="btn-delete"
-                onClick={() => {
+                onClick={async () => {
+                  let paths = [];
                   if (singleDeleteId !== null) {
-                    console.log('删除单个文件:', singleDeleteId);
+                    // 单个删除：获取当前项的 path
+                    if (singleDeleteId.path) {
+                      paths = [singleDeleteId.path];
+                    }
                   } else {
-                    console.log('批量删除:', Array.from(selectedIds));
-                    setSelectedIds(new Set());
+                    // 批量删除：从 fileSystemItems 中找出所有被选中的项，并提取它们的 path
+                    paths = fileSystemItems
+                      .filter(item => selectedIds.has(item.name) && item.path)
+                      .map(item => item.path);
+                  }
+
+                  if (paths.length > 0) {
+                    await handleDelete(paths);
                   }
                   setIsBatchModalOpen(false);
                   setSingleDeleteId(null);
-                  setIsBatchMode(false);
                 }}
               >
                 确认删除
@@ -500,6 +665,16 @@ const MyDataPage = () => {
           </div>
         </div>
       )}
+      <input
+        type="file"
+        ref={fileInputRef}
+        style={{ display: 'none' }}
+        onChange={(e) => {
+          const file = e.target.files?.[0] || null;
+          setSelectedFile(file);
+        }}
+        accept=".csv,.json,.xlsx,.xls,.txt,.nc,.tiff,.tif,.hdf5,.h5,image/*"
+      />
     </div>
   );
 };

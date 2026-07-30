@@ -172,6 +172,7 @@ export async function uploadWorkspaceFile(
   message_id: number | string,
   file: File,
 ) {
+  console.log("✅ uploadWorkspaceFile called with file:", file);
   const form = new FormData();
   form.append("user_id", user_id);
   form.append("thread_id", thread_id);
@@ -194,6 +195,32 @@ export async function uploadWorkspaceFile(
     content_type: string;
   };
 }
+//数据空间上传
+export async function uploadWorkSpaceFileNew(
+  user_id: string,
+  file: File,
+) {
+  const form = new FormData();
+  form.append("user_id", user_id);
+  form.append("file", file);
+
+  const res = await fetch(`${apiBase()}/workspace/upload/path`, { method: "POST", body: form });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`Upload failed ${res.status}: ${text}`);
+  }
+  return (await res.json()) as {
+    file_id: number;
+    user_id: string;
+    thread_id: string;
+    message_id: string;
+    path: string;
+    original_filename: string;
+    size: number;
+    content_type: string;
+  };
+}
+
 // 获取算子库
 export async function getAllSkills(keyword = "") {
   // const sp = new URLSearchParams();
@@ -675,6 +702,97 @@ export async function listStorage(user_id: string, dir_path?: string) {
   });
 }
 
+//我的数据管理页面列表方法
+export async function listStorageNew(
+  user_id: string,
+  dir_path?: string,
+  page?: number,
+  page_size?: number
+) {
+  const body = {
+    user_id,
+    ...(dir_path !== undefined && { dir_path }),
+    ...(page !== undefined && { page }),
+    ...(page_size !== undefined && { page_size }),
+  };
+  return apiFetch<StorageListResponse>("/workspace/list", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+//我的数据管理中删除接口
+export async function deleteData(user_id: string, paths?: string[]) {
+  const body = {
+    user_id,
+    paths: paths ?? [], // 确保 path 是数组，避免 undefined
+  };
+  return apiFetch<StorageListResponse>("/workspace/delete/batch", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+//我的数据下载和批量下载接口共用
+// export async function downLoadData(user_id: string, paths?: string[]) {
+//   const body = {
+//     user_id,
+//     paths: paths ?? [], // 确保 path 是数组，避免 undefined
+//   };
+//   return apiFetch<StorageListResponse>("/workspace/download/batch", {
+//     method: "POST",
+//     headers: { "Content-Type": "application/json" },
+//     body: JSON.stringify(body),
+//   });
+// }
+
+
+// lib/api.ts
+export const downLoadData = async (userId: string, paths: string[]) => {
+  const response = await fetch(`${apiBase()}/workspace/download/batch`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ user_id: userId, paths }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text().catch(() => "未知错误");
+    throw new Error(`下载失败: ${response.status} ${response.statusText} - ${errorText}`);
+  }
+
+  // 尝试从 Content-Disposition 获取文件名
+  const contentDisposition = response.headers.get('Content-Disposition');
+  let fileName = 'download.zip'; // 默认文件名，后端批量下载通常返回 zip
+  if (contentDisposition) {
+    // 支持 RFC 2183 格式，如 filename="xxx.zip" 或 filename*=UTF-8''xxx.zip
+    const utf8Filename = contentDisposition.match(/filename\*=UTF-8''(.+)/i);
+    if (utf8Filename && utf8Filename[1]) {
+      try {
+        fileName = decodeURIComponent(utf8Filename[1]);
+      } catch {
+        fileName = 'download.zip';
+      }
+    } else {
+      const asciiFilename = contentDisposition.match(/filename="?([^"]+)"?/i);
+      if (asciiFilename && asciiFilename[1]) {
+        fileName = asciiFilename[1];
+      }
+    }
+  }
+
+  const blob = await response.blob();
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = fileName; // 确保指定 download 属性
+  document.body.appendChild(a);
+  a.click();
+  // 清理
+  window.URL.revokeObjectURL(url);
+  document.body.removeChild(a);
+};
+
+
 export async function copyDefaultFiles(user_id: string) {
   return apiFetch<{ success: boolean; message: string }>("/workspace/temp/copy-default-files", {
     method: "POST",
@@ -689,4 +807,115 @@ export async function saveToStorage(user_id: string, target_path: string, local_
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ user_id, target_path, local_path })
   });
+}
+
+//新增数据源列表
+export async function listDataspace() {
+  return apiFetch<SaveToStorageResponse>("/datasource/catalog/list", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({})
+  });
+}
+
+//数据源实例列表
+export async function listDataspaceDirecory() {
+  return apiFetch<SaveToStorageResponse>("/dataspace/source/list", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({})
+  });
+}
+
+//单击数据源类型后查询是否新增哪些字段内容
+export async function detailFiled(type_code: string) {
+  return apiFetch<SaveToStorageResponse>("/datasource/catalog/detail", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ type_code })
+  });
+}
+
+//不同数据源下新增实例接口
+export async function detailCreate(forData: any) {
+  return apiFetch<SaveToStorageResponse>("/dataspace/source/create", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify( forData )
+  });
+}
+//不同数据源下新增实例接口
+export async function detailUpdate(forData: any) {
+  return apiFetch<SaveToStorageResponse>("/dataspace/source/update", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify( forData )
+  });
+}
+
+//实例详情接口
+export async function detail(source_id: string) {
+  return apiFetch<SaveToStorageResponse>("/dataspace/source/detail", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify( {source_id} )
+  });
+}
+
+//测试接口未保存
+export async function validate(formData: any) {
+  return apiFetch<SaveToStorageResponse>("/dataspace/source/validate", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify( formData )
+  });
+}
+
+//测试接口保存后
+export async function validateById(source_id: string) {
+  return apiFetch<SaveToStorageResponse>("/dataspace/source/validate/by-id", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify( {source_id} )
+  });
+}
+
+//删除接口
+export async function deleteSource(source_id: string) {
+  return apiFetch<SaveToStorageResponse>("/dataspace/source/delete", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify( {source_id} )
+  });
+}
+
+
+//首页新建对话中新增中的上传文件接口
+export async function uploadWorkspaceFileNew(
+  user_id: string,
+  thread_id: string,
+  message_id: number | string,
+  dir_path: string,
+) {
+  const form = new FormData();
+  form.append("user_id", user_id);
+  form.append("thread_id", thread_id);
+  form.append("message_id", String(message_id));
+  form.append("dir_path", dir_path);
+
+  const res = await fetch(`${apiBase()}/message/bind-directory`, { method: "POST", body: form });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`Upload failed ${res.status}: ${text}`);
+  }
+  return (await res.json()) as {
+    file_id: number;
+    user_id: string;
+    thread_id: string;
+    message_id: string;
+    path: string;
+    original_filename: string;
+    size: number;
+    content_type: string;
+  };
 }

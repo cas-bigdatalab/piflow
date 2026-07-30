@@ -2729,7 +2729,51 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
                 is_deleted: 0
               }
             ]
-          }
+          },
+          {
+            groupName: "基础Dataspace",
+            DagSkillInfoList: [
+              {
+                id: 9999999999998,
+                skill_id: "piflow_engine.cn.piflow.engine.local.source_file_stop.SourceFileStop",
+                skill_name: "Dataspace文件输入源",
+                name_zh: "文件源",
+                version: "1.0.0",
+                description: "本skill是用于文件源",
+                file_path: "",
+                input_params: {
+                  params: [
+                    {
+                      name: "filePath",
+                      type: "string",
+                      param_name: "filePath",
+                      param_type: "String",
+                      value_mode: "manual",
+                      param_value: "",
+                      value_source: "local_file"
+                    },
+                    {
+                      name: "output",
+                      type: "string",
+                      param_name: "filePath",
+                      param_type: "String",
+                      value_mode: "manual",
+                      param_value: "workspace/outputs/森林每木调查数据-blank-space.csv",
+                      value_source: "local_file"
+                    }
+                  ]
+                },
+                output_params: { params: [] },
+                skill_type: "",
+                language: "",
+                command: "",
+                icon_path: "",
+                create_time: "",
+                update_time: "",
+                is_deleted: 0
+              }
+            ]
+          },
         ];
         const finalList = fixArr.concat(resAllSkills.result.data);
         console.log('设置 operatorList，finalList:', finalList);
