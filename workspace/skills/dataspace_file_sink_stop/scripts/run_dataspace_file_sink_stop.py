@@ -39,7 +39,9 @@ def run(
     output.parent.mkdir(parents=True, exist_ok=True)
 
     managed_dir = output.parent / "_dataspace_sink_managed"
-    staged_path = managed_dir / Path(relative_path.strip().lstrip("/"))
+    normalized_dir = relative_path.strip().strip("/")
+    staged_dir = managed_dir if normalized_dir in {"", "."} else managed_dir / Path(normalized_dir)
+    staged_path = staged_dir / source_path.name
     if staged_path.exists() and not overwrite:
         raise FileExistsError(f"managed sink path already exists: {staged_path}")
 
@@ -62,7 +64,7 @@ def main() -> None:
     )
     parser.add_argument("--input", required=True, help="上游算子的文件输出引用")
     parser.add_argument("--datasource_id", required=True, help="Dataspace 数据源实例 ID")
-    parser.add_argument("--relative_path", required=True, help="上传到 Dataspace 时使用的空间内相对文件路径")
+    parser.add_argument("--relative_path", required=True, help="上传到 Dataspace 时使用的空间内相对目录，实际文件名自动取 input 的文件名")
     parser.add_argument("--overwrite", default="false", help="本地托管目录中存在同名文件时是否允许覆盖")
     parser.add_argument("--output", required=True, help="上传后保留的本地文件输出路径")
     args = parser.parse_args()
