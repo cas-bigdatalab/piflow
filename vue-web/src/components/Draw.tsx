@@ -2848,7 +2848,51 @@ useEffect(() => {
                 is_deleted: 0
               }
             ]
-          }
+          },
+          {
+            groupName: "基础Dataspace",
+            DagSkillInfoList: [
+              {
+                id: 9999999999998,
+                skill_id: "piflow_engine.cn.piflow.engine.local.source_file_stop.SourceFileStop",
+                skill_name: "Dataspace文件输入源",
+                name_zh: "文件源",
+                version: "1.0.0",
+                description: "本skill是用于文件源",
+                file_path: "",
+                input_params: {
+                  params: [
+                    {
+                      name: "filePath",
+                      type: "string",
+                      param_name: "filePath",
+                      param_type: "String",
+                      value_mode: "manual",
+                      param_value: "",
+                      value_source: "local_file"
+                    },
+                    {
+                      name: "output",
+                      type: "string",
+                      param_name: "filePath",
+                      param_type: "String",
+                      value_mode: "manual",
+                      param_value: "workspace/outputs/森林每木调查数据-blank-space.csv",
+                      value_source: "local_file"
+                    }
+                  ]
+                },
+                output_params: { params: [] },
+                skill_type: "",
+                language: "",
+                command: "",
+                icon_path: "",
+                create_time: "",
+                update_time: "",
+                is_deleted: 0
+              }
+            ]
+          },
         ];
         const finalList = fixArr.concat(resAllSkills.result.data);
         // 打印第一个算子的信息
@@ -3350,6 +3394,7 @@ const mapOutputParamsValues = (rawParams) => {
       // 检查nodes 中是否有引用类型的参数
 
       // ========== 开始：替换的核心逻辑 ==========
+<<<<<<< HEAD
       // 1. 准备 nodesToSave 和 bindingMap (这部分保持不变)
       // 因为在节点中存在了来源的select选错位，导致了保存的inpuParams参数错误，在这重新保存的时候，把同名的使用outParams给inputParams再保存一次
      const nodesToSave = nodes.map(node => {
@@ -3364,6 +3409,20 @@ const mapOutputParamsValues = (rawParams) => {
           output_params: node.data.output_params,
         };
       }
+=======
+      const nodesToSave = nodes.map(node => {
+        if (node.type === 'comment') {
+          return {
+            node_id: node.id,
+            node_name: node.data.label,
+            node_type: 'comment',
+            position: node.position,
+            skill: null,
+            input_params: [],
+            output_params: []
+          };
+        }
+>>>>>>> dev_newSpace
 
       // 先提取 outputParams 并建立 name -> param_value 的映射
       const rawOutputParams = node.data.output_params?.params || [];
@@ -3465,7 +3524,6 @@ const mapOutputParamsValues = (rawParams) => {
         });
       });
 
-      // 2. 确定要使用的 taskId
       // 先尝试使用已有的 taskId
       let currentTaskId = taskId;
 
@@ -4352,7 +4410,7 @@ const mapOutputParamsValues = (rawParams) => {
       )}
       {/* 将提示成功信息修改一下位置，避免遮挡 */}
       {saveMessage && (
-        <div className="save-message fixed top-[90px] right-4 z-50" >{saveMessage}</div>
+        <div className="save-message fixed top-[120px] right-4 z-50" >{saveMessage}</div>
       )}
     </div>
   );

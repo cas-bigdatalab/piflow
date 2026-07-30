@@ -2,12 +2,15 @@ import { Icon } from "@iconify/react";
 import { type DragEvent, useEffect, useRef, useState } from "react";
 import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 import {
+  listStorage,
   attachMessageFiles,
   createMessage,
   downloadWorkspaceUrl,
   getThreadMessages,
   streamChat,
   uploadWorkspaceFile,
+  uploadWorkspaceFileNew,
+  uploadWorkSpaceFileNew,
   getDrawInfoBymegId,
   copyDefaultFiles,
   type MessageAttachment,
@@ -18,10 +21,15 @@ import { shortId } from "../lib/ids";
 import PipelinePreview, { extractAndCleanPipelineJson, PipelineData } from "../components/PipelinePreview";
 import FlowEditor, { InitialPipelineData } from "../components/Draw";
 // import { appConfig } from "../config/appConfig";
+<<<<<<< HEAD
 function getCurrentUserId() {
   return localStorage.getItem("userId")?.trim() || "";
 }
 
+=======
+import { FolderOpen,X,ChevronRight, Upload,Folder,FileText,Download    } from 'lucide-react';
+const DEFAULT_USER_ID = localStorage.getItem('userId');
+>>>>>>> dev_newSpace
 
 type UiMsg = {
   id: string;
@@ -324,6 +332,7 @@ export function HomePage() {
   const [streamStatus, setStreamStatus] = useState("");
   const [activeAssistantId, setActiveAssistantId] = useState<string | null>(null);
   const [pendingFiles, setPendingFiles] = useState<PendingAttachment[]>([]);
+  const [pendingFilesNew,setPendingFilesNew] = useState("");
   const [uploadingCount, setUploadingCount] = useState(0);
   const [loadError, setLoadError] = useState("");
   const [dragActive, setDragActive] = useState(false);
@@ -349,7 +358,89 @@ export function HomePage() {
   const isExpanded = hasMessages || sending || Boolean(loadError);
   //新增一个状态
   const [isSaved, setIsSaved] = useState(false);
-    const handleDownload = () => {
+  
+  const [showFileModal, setShowFileModal] = useState(false);
+  const [fileSelectParamIndex, setFileSelectParamIndex] = useState<number | null>(null);
+  const [currentDirPath, setCurrentDirPath] = useState<string | null>(null);
+  const [fileSystemItems, setFileSystemItems] = useState<Array<{ name: string; path: string; type: 'file' | 'directory' }>>([]);
+  const [isLoadingFiles, setIsLoadingFiles] = useState(false);
+  const [uploadingFile, setUploadingFile] = useState(false);
+  // 新增一个判断是数据空间已传文件还是附件上传新文件标志,false默认是初次附件上传，true是数据空间已上传文件
+  const [isUploadingFileShow,setIsUpLoadingFileShow] = useState(false); 
+  // 新加入内容
+  const handleGoBack = () => {
+    if (!currentDirPath) return;
+    const parts = currentDirPath.split('/').filter(Boolean);
+    if (parts.length === 0) {
+      setCurrentDirPath(null);
+    } else {
+      parts.pop();
+      setCurrentDirPath(parts.length > 0 ? '/' + parts.join('/') : null);
+    }
+    // 触发重新加载文件列表
+    loadFileSystem(currentDirPath ? '/' + parts.join('/') : null);
+  };
+  const loadFileSystem = async (path: string | null = currentDirPath) => {
+    setIsLoadingFiles(true);
+    try {
+      // 假设你有 API：listWorkspaceFiles(userId, path)
+      const userId = localStorage.getItem('userId') || '';
+      const res = await listStorage(userId, path || '/');
+      setFileSystemItems(res.items || []);
+      setShowFileModal(true)
+    } catch (err) {
+      console.error('加载文件系统失败', err);
+      setFileSystemItems([]);
+    } finally {
+      setIsLoadingFiles(false);
+    }
+  };
+  const handleUploadFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const userId = localStorage.getItem('userId') || '';
+    const uploadPath = currentDirPath || '/';
+      console.log("文件上传成功了吗",uploadPath)
+    setUploadingFile(true);
+    try {
+      await uploadWorkSpaceFileNew(userId, file);
+      await loadFileSystem(currentDirPath); // 刷新
+    } catch (err) {
+      console.error('上传失败', err);
+    } finally {
+      setUploadingFile(false);
+      e.target.value = ''; // 重置 input
+    }
+  };
+  const handleSelectFileForParam = (path: string) => {
+    // 此处逻辑取决于你如何将文件路径回传给画板参数
+    // 假设通过事件通知 FlowEditor
+    window.dispatchEvent(new CustomEvent('flow:select-file-for-param', {
+      detail: { paramIndex: fileSelectParamIndex, filePath: path }
+    }));
+    setShowFileModal(false);
+    setFileSelectParamIndex(null);
+  };
+  // 在 HomePage 中监听自定义事件（类似 flow:send-message）
+  useEffect(() => {
+    const handleOpenFileModal = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      setShowFileModal(true);
+      setFileSelectParamIndex(detail?.paramIndex ?? null);
+      setCurrentDirPath(null);
+      loadFileSystem(null);
+    };
+    window.addEventListener('flow:open-file-modal', handleOpenFileModal as EventListener);
+    return () => {
+      window.removeEventListener('flow:open-file-modal', handleOpenFileModal as EventListener);
+    };
+  }, []);
+  const handleNavigateDir = (path: string) => {
+    setCurrentDirPath(path);
+    loadFileSystem(path);
+  };
+
+  const handleDownload = () => {
     const zipName = "用户手册";
     const link = document.createElement("a");
     link.href = "./downloadFile/用户手册.pdf";
@@ -535,6 +626,7 @@ export function HomePage() {
     },
   ) {
     const prompt = (overridePrompt ?? input).trim();
+    
     if ((!prompt && pendingFiles.length === 0) || sending || uploading) {
       return;
     }
@@ -566,6 +658,8 @@ export function HomePage() {
     };
 
     const filesToUpload = [...pendingFiles];
+    
+      
     setSending(true);
     window.dispatchEvent(new CustomEvent("flow:sending-start"));
     setActiveAssistantId(assistantId);
@@ -596,20 +690,45 @@ export function HomePage() {
       if (filesToUpload.length > 0) {
         setUploadingCount(filesToUpload.length);
         setStreamStatus("正在上传附件...");
+<<<<<<< HEAD
 
         for (const item of filesToUpload) {
           const response = await uploadWorkspaceFile(
             currentUserId,
+=======
+        // 判断是否为初次上传附件还是数据空间已上传附件
+        if (isUploadingFileShow){
+          const response = await uploadWorkspaceFileNew(
+            DEFAULT_USER_ID,
+>>>>>>> dev_newSpace
             targetThreadId,
             messageId,
-            item.file,
+            pendingFilesNew,
           );
+          
           uploadedAttachments.push({
             file_id: response.file_id,
             path: response.path,
             name: response.original_filename,
           });
           setUploadingCount((current) => Math.max(0, current - 1));
+          setIsUpLoadingFileShow(false);
+        } else {
+          for (const item of filesToUpload) {
+            const response = await uploadWorkspaceFile(
+              DEFAULT_USER_ID,
+              targetThreadId,
+              messageId,
+              item.file,
+            );
+            
+            uploadedAttachments.push({
+              file_id: response.file_id,
+              path: response.path,
+              name: response.original_filename,
+            });
+            setUploadingCount((current) => Math.max(0, current - 1));
+          }
         }
       }
 
@@ -864,6 +983,8 @@ export function HomePage() {
   }
 
   async function handleFiles(files: File[]) {
+    setIsUpLoadingFileShow(false) ; //是数据空间已上传文件标志
+    setShowFileModal(false); //关闭弹框
     if (files.length === 0) {
       return;
     }
@@ -877,6 +998,25 @@ export function HomePage() {
       })),
     ]);
   }
+  //新增数据空间中的上传文件接口修改,进行对话create新增的时候也要修改
+  async function handleFilesNew(files: File[]) {
+    setIsUpLoadingFileShow(true) ; //是数据空间已上传文件标志
+    setShowFileModal(false); //关闭弹框
+    if (files.length === 0) {
+      return;
+    }
+    setPendingFiles((current) => [
+      ...current,
+      ...files.map((file) => ({
+        id: shortId(),
+        file,
+        name: file.name,
+      })),
+    ]);
+    // 只需要保存已上传文件的path路径
+    setPendingFilesNew(files[0].path); 
+  }
+  
 
   function removePendingFile(id: string) {
     setPendingFiles((current) => current.filter((file) => file.id !== id));
@@ -1001,7 +1141,22 @@ export function HomePage() {
               <Icon icon="ri:add-line" width="15" />
               <span>附件</span>
             </label>
-
+            <label className="inline-flex cursor-pointer items-center gap-2 rounded-full px-2 py-1.5 transition-colors hover:bg-slate-100 hover:text-slate-900">
+              <button
+                className="inline-flex cursor-pointer items-center gap-2 rounded-full px-2 py-1.5 transition-colors hover:bg-slate-100 hover:text-slate-900"
+                onClick={() => {
+                  setShowFileModal(true);
+                  setFileSelectParamIndex(null); // 表示是通用文件浏览，非参数选择
+                  setCurrentDirPath(null);
+                  loadFileSystem(null);
+                }}
+                type="button"
+              >
+                <Icon icon="ri:history-line" width="15" /> {/* 可选：换一个更合适的图标 */}
+                <span>数据空间</span>
+              </button>
+            </label>
+           
             <button
               className="inline-flex items-center gap-2 rounded-full px-2 py-1.5 transition-colors hover:bg-slate-100 hover:text-slate-900"
               onClick={() => (window.location.href = "/skills")}
@@ -1324,6 +1479,123 @@ export function HomePage() {
           </div>
         </section>
       )}
+      {/* 文件系统弹窗 */}
+      {showFileModal && (
+        <div className="file-system-overlay" onClick={() => { setShowFileModal(false); setFileSelectParamIndex(null); }}>
+          <div className="file-system-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="file-system-header">
+              <div className="file-system-title">
+                <FolderOpen size={18} />
+                <span>{fileSelectParamIndex !== null ? '选择文件' : '文件系统'}</span>
+              </div>
+              <button className="file-system-close" onClick={() => { setShowFileModal(false); setFileSelectParamIndex(null); }}>
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="file-system-path-bar">
+              <button 
+                className="file-system-back-btn" 
+                onClick={handleGoBack}
+                disabled={!currentDirPath}
+              >
+                <ChevronRight size={14} style={{ transform: 'rotate(180deg)' }} />
+              </button>
+              <div className="file-system-path">
+                {currentDirPath ? (
+                  <span>{currentDirPath}</span>
+                ) : (
+                  <span>根目录</span>
+                )}
+              </div>
+            </div>
+
+            <div className="file-system-actions">
+              {fileSelectParamIndex === null && (
+                <label className="file-system-upload-btn">
+                  <Upload size={14} />
+                  <span>{uploadingFile ? '上传中...' : '上传文件'}</span>
+                  <input
+                    type="file"
+                    onChange={handleUploadFile}
+                    className="file-system-upload-input"
+                    disabled={uploadingFile}
+                  />
+                  
+                </label>
+              )}
+              {fileSelectParamIndex !== null && (
+                <span className="file-system-hint">双击文件或点击"选择"按钮选中文件</span>
+              )}
+            </div>
+
+            <div className="file-system-content">
+              {isLoadingFiles ? (
+                <div className="file-system-loading">
+                  <span>加载中...</span>
+                </div>
+              ) : fileSystemItems.length === 0 ? (
+                <div className="file-system-empty">
+                  <Folder size={48} style={{ color: '#94a3b8' }} />
+                  <span>该目录为空</span>
+                </div>
+              ) : (
+                <div className="file-system-list">
+                  {fileSystemItems.map((item, index) => (
+                    <div
+                      key={index}
+                      className={`file-system-item ${item.type}`}
+                      onClick={() => {
+                        if (item.type === 'directory') {
+                          handleNavigateDir(item.path);
+                        }
+                      }}
+                      onDoubleClick={() => {
+                        // 当从参数选择文件弹窗触发时，双击文件将路径赋值给参数
+                        if (item.type === 'file' && fileSelectParamIndex !== null) {
+                          handleSelectFileForParam(item.path);
+                        }
+                      }}
+                    >
+                      <div className="file-system-item-icon">
+                        {item.type === 'directory' ? (
+                          <Folder size={18} style={{ color: '#3b82f6' }} />
+                        ) : (
+                          <FileText size={18} style={{ color: '#64748b' }} />
+                        )}
+                      </div>
+                      <span className="file-system-item-name">{item.name}</span>
+                      {/* {item.type === 'file' && fileSelectParamIndex === null && (
+                        <button
+                          className="file-system-download-btn"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDownloadFile(item.path);
+                          }}
+                        >
+                          <Download size={14} />
+                        </button>
+                      )} */}
+                      {item.type === 'file' && (
+                        <button
+                          className="file-system-select-btn"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleFilesNew([item])
+                          }}
+                        >
+                          选择
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
+    
   );
 }
