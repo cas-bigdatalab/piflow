@@ -312,6 +312,13 @@ class UploadWorkspaceFileToDataspaceRequest(BaseModel):
     target_dir: str = ""
 
 
+class BatchUploadWorkspacePathsToDataspaceRequest(BaseModel):
+    user_id: str
+    source_id: str
+    workspace_paths: list[str]
+    target_dir: str = ""
+
+
 def get_engine(request: Request) -> AgentEngine:
     engine = getattr(request.app.state, "engine", None)
     if engine is None:
@@ -467,6 +474,44 @@ def _resolve_user_workspace_download_targets(
         resolved_targets.append(target)
 
     return resolved_targets
+
+
+def _iter_user_workspace_upload_files(
+    workspace: WorkspaceManager,
+    user_id: str,
+    paths: list[str],
+) -> list[tuple[Path, str]]:
+    if not user_id.strip():
+        raise HTTPException(status_code=400, detail="user_id is required")
+    if not paths:
+        raise HTTPException(status_code=400, detail="workspace_paths is required")
+
+    user_root = workspace.get_user_root(user_id).resolve()
+    files: list[tuple[Path, str]] = []
+    seen: set[Path] = set()
+
+    for raw_path in paths:
+        target = _resolve_user_workspace_path(workspace, user_id, raw_path)
+        if not target.exists():
+            raise HTTPException(status_code=404, detail=f"path not found: {raw_path}")
+        if target.is_file():
+            candidates = [target]
+        elif target.is_dir():
+            candidates = sorted(
+                (item for item in target.rglob("*") if item.is_file()),
+                key=lambda item: str(item).lower(),
+            )
+        else:
+            raise HTTPException(status_code=400, detail=f"path is not a file or directory: {raw_path}")
+
+        for file_path in candidates:
+            if file_path in seen:
+                continue
+            seen.add(file_path)
+            relative_path = file_path.relative_to(user_root).as_posix()
+            files.append((file_path, relative_path))
+
+    return files
 
 
 def _add_path_to_zip(
@@ -1519,6 +1564,77 @@ async def upload_workspace_file_to_dataspace_api(req: UploadWorkspaceFileToDatas
             "workspace_path": workspace.to_user_relative_path(user_id, workspace_path),
             "target_dir": f"/{normalized_target_dir}" if normalized_target_dir else "",
             "uploaded": result,
+        },
+    }
+
+
+@app.post("/dataspace/source/workspace/path/upload")
+async def batch_upload_workspace_paths_to_dataspace_api(req: BatchUploadWorkspacePathsToDataspaceRequest):
+    workspace = WorkspaceManager()
+    user_id = req.user_id.strip()
+    source_id = req.source_id.strip()
+    target_dir = req.target_dir.strip().strip("/")
+
+    if not user_id:
+        raise HTTPException(status_code=400, detail="user_id is required")
+    if not source_id:
+        raise HTTPException(status_code=400, detail="source_id is required")
+
+    try:
+        workspace.ensure_user_workspace(user_id)
+        upload_files = _iter_user_workspace_upload_files(workspace, user_id, req.workspace_paths)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    uploaded: list[dict[str, object]] = []
+    failed: list[dict[str, object]] = []
+    for local_file, workspace_relative_path in upload_files:
+        remote_relative_path = (
+            f"{target_dir}/{workspace_relative_path}"
+            if target_dir
+            else workspace_relative_path
+        )
+        try:
+            result = upload_dataspace_source_file(
+                source_id,
+                relative_path=remote_relative_path,
+                local_path=local_file,
+            )
+        except DataspaceError as exc:
+            failed.append({
+                "workspace_path": f"/{workspace_relative_path}",
+                "target_path": f"/{remote_relative_path}",
+                "detail": str(exc),
+            })
+        except Exception:
+            log.exception(
+                "failed to batch upload workspace path to dataspace user_id=%s source_id=%s workspace_path=%s target_dir=%s",
+                user_id,
+                source_id,
+                workspace_relative_path,
+                target_dir,
+            )
+            failed.append({
+                "workspace_path": f"/{workspace_relative_path}",
+                "target_path": f"/{remote_relative_path}",
+                "detail": "failed to upload workspace file to dataspace",
+            })
+        else:
+            uploaded.append({
+                "workspace_path": f"/{workspace_relative_path}",
+                "target_path": f"/{remote_relative_path}",
+                "uploaded": result,
+            })
+
+    return {
+        "code": 200,
+        "result": {
+            "user_id": user_id,
+            "source_id": source_id,
+            "target_dir": f"/{target_dir}" if target_dir else "",
+            "uploaded": uploaded,
+            "failed": failed,
+            "total": len(upload_files),
         },
     }
 
