@@ -2,7 +2,7 @@ import { Navigate, Route, Routes, useSearchParams } from "react-router-dom";
 import { AppShell } from "./components/AppShell";
 import { HomePage } from "./pages/HomePage";
 import { SkillsPage } from "./pages/SkillsPage";
-import  {WorkLibPage}  from "./pages/WorkLibPage";
+// import  {WorkLibPage}  from "./pages/WorkLibPage";
 import { RunHistoryPage } from "./pages/RunHistoryPage";
 import { TaskManagePage } from "./pages/TaskManagePage";
 import { TaskDrawPage } from "./pages/TaskDrawPage";
@@ -39,7 +39,7 @@ export default function App() {
         <Route path="/" element={<HomePage />} />
         <Route path="/skills" element={<SkillsPage />} />
         {/* 新增工作库页面 */}
-        <Route path="/workLib" element={<WorkLibPage />} />
+        {/* <Route path="/workLib" element={<WorkLibPage />} /> */}
         {/* 新增算子详情页面和添加算子 */}
         <Route path="/skill/detail/:name" element={<SkillsDetailsPage />} />
         <Route path="/skill/create" element={<SkillsCreatePage />} />

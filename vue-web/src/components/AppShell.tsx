@@ -17,9 +17,6 @@ const topMenuItems: MenuItem[] = [
   { id: 1, title: '新建对话', icon: 'ri:add-line', path: '/' },
   { id: 2, title: '编辑任务', icon: 'ri:edit-line', path: '/editTask' },
   { id: 3, title: '运行历史', icon: 'ri:history-line', path: '/run-history' },
-  { id: 4, title: '算子库', icon: 'ri:database-line', path: '/skills' },
-  { id: 5, title: '工作库', icon: 'ri:calendar-line', path: '/workLib' },
-  // 修改点：数据管理增加 children
   { 
     id: 6, 
     title: '数据管理', 
@@ -28,7 +25,10 @@ const topMenuItems: MenuItem[] = [
       { title: '我的数据', path: '/dataMan', icon: 'ri:file-list-line' },
       { title: '数据连接', path: '/dataMan-connections', icon: 'ri:links-line' }
     ]
-  }
+  },
+  { id: 4, title: '算子库', icon: 'ri:database-line', path: '/skills' },
+  // { id: 5, title: '工作库', icon: 'ri:calendar-line', path: '/workLib' },
+  // 修改点：数据管理增加 children
 ];
 
 export function AppShell() {

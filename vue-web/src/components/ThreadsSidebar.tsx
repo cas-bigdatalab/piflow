@@ -67,12 +67,12 @@ const menuArr = [
     icon:'ri:database-line',
     path:'/skills'
   },
-  {
-    id:4,
-    title:'工作库',
-    icon:'ri:calendar-line',
-    path:'/workLib'
-  },
+  // {
+  //   id:4,
+  //   title:'工作库',
+  //   icon:'ri:calendar-line',
+  //   path:'/workLib'
+  // },
   // {
   //   id:4,
   //   title:'定时调度',
