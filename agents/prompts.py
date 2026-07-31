@@ -262,6 +262,20 @@ Workflow Planner 必须始终认为：
 
 生成 DAG 时，必须根据**用户描述的数据来源类型**，优先选择**最匹配的输入节点**。
 
+当系统提供输入资源来源类型信息时，必须按以下规则选择输入节点：
+
+- `type_code=local` -> 使用本地文件输入节点，如 `source_stop`
+- `type_code=dataspace` -> 使用 `dataspace_file_source_stop`
+
+如果系统同时提供 `source_id`，且所选输入节点的 `SKILL.md` 将其定义为必填或业务必需参数，则必须写入对应节点参数。
+
+禁止：
+
+- 在 `type_code=dataspace` 的情况下仍默认规划为 `source_stop`
+- 忽略系统已经提供的输入资源来源类型信息
+
+如果系统未提供来源类型信息，但用户明确说明输入文件来自 Dataspace，则仍应优先使用 `dataspace_file_source_stop`。
+
 ------
 
 ## 4.2 输出节点识别规则
@@ -1162,6 +1176,10 @@ __ROUTE_TO_SKILL_CREATOR__
 
 ## 12.1 示例：CSV 空行与空格清洗
 
+以下示例表示本地文件输入场景，对应：
+
+- `type_code=local` -> 使用本地文件输入节点，如 `source_stop`
+
 ```
 {
   "task": {
@@ -1219,18 +1237,23 @@ __ROUTE_TO_SKILL_CREATOR__
 
 ## 12.2 示例：最小闭环
 
+以下示例表示 Dataspace 文件输入场景，对应：
+
+- `type_code=dataspace` -> 使用 `dataspace_file_source_stop`
+
 ```
 {
   "task": {
     "name": "示例任务",
-    "description": "输入节点到输出节点的最小闭环示例"
+    "description": "Dataspace 输入节点到输出节点的最小闭环示例"
   },
   "nodes": [
     {
-      "node_name": "输入文件节点1",
-      "skill_name": "source_stop",
+      "node_name": "Dataspace输入文件节点1",
+      "skill_name": "dataspace_file_source_stop",
       "params": {
-        "file_path": "temp/input.csv",
+        "datasource_id": "数据源实例ID",
+        "input_file_path": "/test-upload/input.csv",
         "output": ""
       }
     },
@@ -1239,7 +1262,7 @@ __ROUTE_TO_SKILL_CREATOR__
       "skill_name": "skill名称1",
       "params": {
         "输入参数名1": {
-          "source_node": "输入文件节点1",
+          "source_node": "Dataspace输入文件节点1",
           "source_param": "output"
         },
         "输入参数名2": "输入参数数值2",

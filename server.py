@@ -164,6 +164,8 @@ class CreateMessageRequest(BaseModel):
 class AttachmentItem(BaseModel):
     path: str
     name: str
+    type_code: str = "local"
+    source_id: str = ""
 
 
 class AttachMessageFilesRequest(BaseModel):
@@ -180,6 +182,28 @@ class BindMessageDirectoryRequest(BaseModel):
     dir_path: str = ""
     file_path: str = ""
     recursive: bool = False
+
+
+def _normalize_attachment_source(
+    type_code: str | None,
+    source_id: str | None,
+) -> tuple[str, str]:
+    normalized_type_code = (type_code or "local").strip().lower()
+    normalized_source_id = (source_id or "").strip()
+
+    if not normalized_type_code:
+        normalized_type_code = "local"
+
+    if normalized_type_code not in {"local", "dataspace"}:
+        raise HTTPException(status_code=400, detail="unsupported attachment type_code")
+
+    if normalized_type_code == "dataspace" and not normalized_source_id:
+        raise HTTPException(status_code=400, detail="source_id is required for dataspace attachments")
+
+    if normalized_type_code == "local":
+        normalized_source_id = ""
+
+    return normalized_type_code, normalized_source_id
 
 
 class SaveStorageFileRequest(BaseModel):
@@ -652,8 +676,11 @@ async def chat_stream(req: ChatRequest, request: Request):
             请注意：
 
             1. 不需要读取这些文件内容。
-            2. 仅将这些路径作为输入节点(source_stop)的 file_path 等参数使用。
-            3. Workflow 中如果需要引用输入文件，请直接引用这些路径。
+            2. 这些通过聊天接口直接上传的文件默认视为本地资源，应优先使用本地文件输入节点，例如 `source_stop`。
+            3. 如果系统另外提供了附件来源元数据，则必须按来源类型选择输入节点：
+               - `type_code=local` -> 使用本地文件输入节点，如 `source_stop`
+               - `type_code=dataspace` -> 使用 `dataspace_file_source_stop`
+            4. Workflow 中如果需要引用输入文件，请直接引用这些路径。
 
             上传文件：
             {attachment_desc}
@@ -732,6 +759,8 @@ async def thread_messages(req: ThreadMessagesRequest):
             "file_id": row.get("file_id"),
             "path": row.get("virtual_path"),
             "name": row.get("original_filename"),
+            "type_code": row.get("type_code", "local"),
+            "source_id": row.get("source_id", ""),
         })
 
     for message in messages:
@@ -795,6 +824,10 @@ async def attach_message_files_api(req: AttachMessageFilesRequest):
     for item in req.attachments:
         path = item.path.strip()
         name = item.name.strip()
+        type_code, source_id = _normalize_attachment_source(
+            item.type_code,
+            item.source_id,
+        )
 
         if not path:
             raise HTTPException(status_code=400, detail="attachment path is required")
@@ -816,12 +849,16 @@ async def attach_message_files_api(req: AttachMessageFilesRequest):
             message_id=message_id,
             virtual_path=workspace.to_user_relative_path(user_id, path),
             original_filename=name,
+            type_code=type_code,
+            source_id=source_id,
         )
         if record:
             attached.append({
                 "file_id": record.get("file_id"),
                 "path": record.get("virtual_path"),
                 "name": record.get("original_filename"),
+                "type_code": record.get("type_code", "local"),
+                "source_id": record.get("source_id", ""),
             })
 
     return {"attachments": attached}
@@ -892,12 +929,16 @@ async def bind_message_directory_api(req: BindMessageDirectoryRequest):
             message_id=message_id,
             virtual_path=virtual_path,
             original_filename=display_name,
+            type_code="local",
+            source_id="",
         )
         if record:
             attached.append({
                 "file_id": record.get("file_id"),
                 "path": record.get("virtual_path"),
                 "name": record.get("original_filename"),
+                "type_code": record.get("type_code", "local"),
+                "source_id": record.get("source_id", ""),
             })
 
     return {
@@ -954,6 +995,8 @@ async def upload_workspace_file(
         message_id=safe_message_id,
         virtual_path=saved_virtual_path,
         original_filename=safe_name,
+        type_code="local",
+        source_id="",
     )
 
     return {
@@ -963,6 +1006,8 @@ async def upload_workspace_file(
         "message_id": safe_message_id,
         "path": saved_virtual_path,
         "original_filename": safe_name,
+        "type_code": record["type_code"] if record else "local",
+        "source_id": record["source_id"] if record else "",
         "size": len(content),
         "content_type": file.content_type,
     }
