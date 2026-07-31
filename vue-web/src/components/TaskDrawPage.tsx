@@ -2987,7 +2987,7 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
                               </div>
                             </div>
                           ) : (
-                            param.name === 'file_path' && param._refType === 'manual' ? (
+                            param.name === 'file_path' && param._refType === 'manual' || param.name === 'datasource_id'? (
                               <input
                                 className="draw-config-value-input"
                                 value={param._value || param.param_value || ''}

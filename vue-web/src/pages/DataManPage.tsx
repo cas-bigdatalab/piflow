@@ -1,7 +1,7 @@
 import  { useState, useMemo,useEffect,useRef } from 'react';
 import './DataManPage.css';
-import { listStorageNew,deleteData,apiBase,downLoadData } from "../lib/api";
-
+import { listStorageNew,deleteData,apiBase,downLoadData,listDataspaceDirecory,uploadSource } from "../lib/api";
+import { Database, X } from 'lucide-react';
 
 // --- 模拟数据 (Mock Data) ---
 // const MOCK_DATA = [];
@@ -109,7 +109,12 @@ const MyDataPage = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-
+  // ====== 在 useState 区域添加以下状态 ======
+  const [showDataSourceModal, setShowDataSourceModal] = useState(false);
+  const [selectedDataSourceId, setSelectedDataSourceId] = useState<string>('');
+  const [storagePath, setStoragePath] = useState<string>('');
+  const [dataSources, setDataSources] = useState<{ source_id: string; database_name: string }[]>([]);
+  const [isLoadingDataSources, setIsLoadingDataSources] = useState(false);
   // 新增列表内容
   useEffect(() => {
   const loadStorageData = async () => {
@@ -138,6 +143,28 @@ const MyDataPage = () => {
   const paginatedData = fileSystemItems; // 后端已分页
   // 总页数：使用后端返回的 totalItems
   const totalPages = Math.ceil(totalItems / pageSize);
+
+
+// ====== 添加在函数组件内部（useCallback 可选）======
+const loadDataSources = async () => {
+  setIsLoadingDataSources(true);
+  try {
+    const res = await listDataspaceDirecory();
+    if (Array.isArray(res?.result?.items)) {
+      setDataSources(res.result.items.map(item => ({
+        source_id: item.source_id,
+        database_name: item.database_name || item.name,
+      })));
+    } else {
+      setDataSources([]);
+    }
+  } catch (err) {
+    console.error('加载数据源失败:', err);
+    setDataSources([]);
+  } finally {
+    setIsLoadingDataSources(false);
+  }
+};
   //删除方法
   const handleDelete = async (pathsToDelete: string[]) => {
     try {
@@ -200,6 +227,31 @@ const MyDataPage = () => {
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
+  //保存到dataspace
+  const saveFilesToDataSource = async (source_id: string,target_dir: string, workspace_paths: string[] ) =>{
+    if (workspace_paths.length === 0) {
+      throw new Error('没有可保存的文件路径');
+    }
+    const userId = localStorage.getItem('userId') || '';
+    if (!userId) {
+      throw new Error('用户未登录');
+    }
+
+    // const workspace_path = workspace_paths[0]; // 只支持单文件
+
+    try {
+      const res = await uploadSource(userId, source_id, workspace_paths, target_dir);
+      console.log('✅ 文件已成功保存到数据源:', res);
+      
+      alert('文件已成功保存到数据源');
+      return res;
+    } catch (error) {
+      console.error('❌ 保存到数据源失败:', error);
+      
+      alert('保存到数据源失败');
+      throw error; // 向上抛出以便调用者处理
+    }
+  }
 
 //下载方法
 const downloadData = async (item: any,useLogo:boolean) => {
@@ -303,11 +355,14 @@ const downloadData = async (item: any,useLogo:boolean) => {
             >
               <DownloadIcon /> 批量下载
             </button>
-             <button
+            <button
               className="action-btn btn-accent"
               title="保存到DataSpace"
-              onClick={() => setIsBatchModalOpen(true)}
-              disabled={selectedIds.size === 0}
+              onClick={async () => {
+                await loadDataSources(); // 先加载数据源
+                setShowDataSourceModal(true); // 打开数据源选择弹窗
+              }}
+              disabled={selectedIds.size == 0 }
             >
               <SaveToDataSpaceIcon /> 保存到DataSpace
             </button>
@@ -610,6 +665,114 @@ const downloadData = async (item: any,useLogo:boolean) => {
                   {uploading ? '上传中...' : '开始上传'}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+
+      {/* ========== 数据源选择弹窗（复用 HomePage 样式） ========== */}
+      {showDataSourceModal && (
+        <div 
+          className="file-system-overlay" 
+          onClick={() => setShowDataSourceModal(false)}
+        >
+          <div 
+            className="file-system-modalSource" 
+            onClick={(e) => e.stopPropagation()}
+            style={{ maxWidth: '500px', width: '90%' }} // 可选：适配样式
+          >
+            <div className="file-system-header">
+              <div className="file-system-title">
+                <Database size={18} />
+                <span>选择数据源</span>
+              </div>
+              <button 
+                className="file-system-close" 
+                onClick={() => setShowDataSourceModal(false)}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="file-system-content" style={{ padding: '16px' }}>
+              {isLoadingDataSources ? (
+                <div className="file-system-loading">
+                  <span>加载数据源...</span>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">目标数据源</label>
+                    <select
+                      className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      value={selectedDataSourceId}
+                      onChange={(e) => setSelectedDataSourceId(e.target.value)}
+                    >
+                      <option value="">请选择数据源</option>
+                      {dataSources.map((ds) => (
+                        <option key={ds.source_id} value={ds.source_id}>
+                          {ds.database_name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">存储路径</label>
+                    <input
+                      type="text"
+                      placeholder="请输入存储路径"
+                      value={storagePath}
+                      onChange={(e) => setStoragePath(e.target.value)}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+
+                  <div className="flex justify-end gap-3 pt-2">
+                    <button
+                      type="button"
+                      className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-md hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      onClick={() => {
+                        setShowDataSourceModal(false);
+                        setSelectedDataSourceId('');
+                        setStoragePath('');
+                      }}
+                    >
+                      取消
+                    </button>
+                    <button
+                      type="button"
+                      className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50"
+                      disabled={!selectedDataSourceId || !storagePath.trim()}
+                      onClick={async () => {
+                        if (selectedDataSourceId && storagePath) {
+                          // TODO: 调用 API 将 selectedIds 中的文件保存到指定数据源和路径
+                          const paths = fileSystemItems
+                            .filter(item => selectedIds.has(item.name))
+                            .map(item => item.name)
+                            .filter(Boolean);
+
+                          console.log('准备保存以下文件到数据源:', {
+                            dataSourceId: selectedDataSourceId,
+                            storagePath,
+                            files: paths,
+                          });
+
+                          // 👇 这里需要你实现实际的保存 API 调用
+                          saveFilesToDataSource(selectedDataSourceId, storagePath, paths);
+
+                        }
+                        setShowDataSourceModal(false);
+                        setSelectedDataSourceId('');
+                        setStoragePath('');
+                      }}
+                    >
+                      确定
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

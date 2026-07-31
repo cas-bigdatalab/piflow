@@ -891,12 +891,28 @@ export async function deleteSource(source_id: string) {
 
 
 //首页新建对话中新增中的上传文件接口
-
-
 export async function uploadWorkspaceFileNew(user_id: string,thread_id: string,message_id: string,dir_path:string) {
   return apiFetch<SaveToStorageResponse>("/message/bind-directory", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify( {user_id,thread_id,message_id,dir_path} )
+  });
+}
+
+//数据源新增对话上传接口
+export async function uploadWorkspaceFileAttach(user_id: string,thread_id: string,message_id: string,attachments: Array<string>) {
+  return apiFetch<SaveToStorageResponse>("/message/attach", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify( {user_id,thread_id,message_id,attachments} )
+  });
+}
+
+//保存到dataspace数据源接口
+export async function uploadSource(user_id: string,source_id: string,workspace_paths: string[],target_dir:string) {
+  return apiFetch<SaveToStorageResponse>("/dataspace/source/workspace/path/upload", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify( {user_id,source_id,workspace_paths,target_dir} )
   });
 }
