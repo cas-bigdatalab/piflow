@@ -269,10 +269,39 @@ Workflow Planner 必须始终认为：
 
 如果系统同时提供 `source_id`，且所选输入节点的 `SKILL.md` 将其定义为必填或业务必需参数，则必须写入对应节点参数。
 
+当系统把附件表示为 `dataspace://<source_id>/<relative_path>` 时，必须将其解释为一个 Dataspace 文件引用，而不是本地文件路径。
+
+对这种 Dataspace 附件，生成 DAG 时必须遵守下面的强制映射规则：
+
+- 必须生成 `dataspace_file_source_stop`
+- 禁止改写为 `source_stop`
+- 必须把 `<source_id>` 映射到 Dataspace 输入节点的数据源参数，例如 `datasource_id`
+- 必须把 `<relative_path>` 映射到 Dataspace 输入节点的文件路径参数，例如 `input_file_path`
+- 如果一个附件已经被系统明确标记为 `type_code=dataspace`，则不得再询问用户“这是本地文件还是 Dataspace 文件”
+
+例如，若系统提供：
+
+- `dataspace://ad4ac5e9038e464792f4ac5e3e21761b/test-upload/piflow-test/111.txt`
+
+则生成的输入节点必须等价于：
+
+```json
+{
+  "skill_name": "dataspace_file_source_stop",
+  "params": {
+    "datasource_id": "ad4ac5e9038e464792f4ac5e3e21761b",
+    "input_file_path": "/test-upload/piflow-test/111.txt"
+  }
+}
+```
+
 禁止：
 
 - 在 `type_code=dataspace` 的情况下仍默认规划为 `source_stop`
 - 忽略系统已经提供的输入资源来源类型信息
+- 已经提供 `dataspace://<source_id>/<relative_path>` 时丢失 `source_id`
+- 已经提供 `dataspace://<source_id>/<relative_path>` 时丢失远端文件路径
+- 把 `dataspace://<source_id>/<relative_path>` 直接原样填入 `source_stop.file_path`
 
 如果系统未提供来源类型信息，但用户明确说明输入文件来自 Dataspace，则仍应优先使用 `dataspace_file_source_stop`。
 
@@ -1240,6 +1269,7 @@ __ROUTE_TO_SKILL_CREATOR__
 以下示例表示 Dataspace 文件输入场景，对应：
 
 - `type_code=dataspace` -> 使用 `dataspace_file_source_stop`
+- 若附件被表示为 `dataspace://<source_id>/<relative_path>`，则必须拆解为 `datasource_id + input_file_path`
 
 ```
 {
@@ -1252,7 +1282,7 @@ __ROUTE_TO_SKILL_CREATOR__
       "node_name": "Dataspace输入文件节点1",
       "skill_name": "dataspace_file_source_stop",
       "params": {
-        "datasource_id": "数据源实例ID",
+        "datasource_id": "ad4ac5e9038e464792f4ac5e3e21761b",
         "input_file_path": "/test-upload/input.csv",
         "output": ""
       }

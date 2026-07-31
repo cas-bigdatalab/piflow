@@ -37,6 +37,7 @@ from runtime.skill_manage import (
 )
 from runtime.workspace_manager import WorkspaceManager
 from services.dataspace_source_service import (
+    check_dataspace_source_file,
     create_dataspace_source,
     delete_dataspace_source,
     get_dataspace_source,
@@ -204,6 +205,15 @@ def _normalize_attachment_source(
         normalized_source_id = ""
 
     return normalized_type_code, normalized_source_id
+
+
+def _normalize_dataspace_attachment_path(path: str) -> str:
+    normalized_path = (path or "").strip().strip("/")
+    if not normalized_path:
+        raise HTTPException(status_code=400, detail="attachment path is required")
+    if any(part in {"", ".", ".."} for part in Path(normalized_path).parts):
+        raise HTTPException(status_code=400, detail="attachment path is invalid")
+    return normalized_path
 
 
 class SaveStorageFileRequest(BaseModel):
@@ -654,6 +664,7 @@ async def planner_chat(req: ChatRequest, request: Request):
         req.user_id,
         attachments=req.attachments,
         request_id=request_id,
+        message_id=req.message_id,
     )
     return {"events": result}
 
@@ -671,6 +682,7 @@ async def planner_chat_stream(req: ChatRequest, request: Request):
                 req.user_id,
                 attachments=req.attachments,
                 request_id=request_id,
+                message_id=req.message_id,
             ):
                 yield _encode_sse(event, event.get("type"))
         except Exception as exc:
@@ -725,7 +737,9 @@ async def chat_stream(req: ChatRequest, request: Request):
             3. 如果系统另外提供了附件来源元数据，则必须按来源类型选择输入节点：
                - `type_code=local` -> 使用本地文件输入节点，如 `source_stop`
                - `type_code=dataspace` -> 使用 `dataspace_file_source_stop`
-            4. Workflow 中如果需要引用输入文件，请直接引用这些路径。
+            4. 如果附件形如 `dataspace://<source_id>/<relative_path>`，则必须拆解出 `source_id` 和 `relative_path`，并生成 `dataspace_file_source_stop`。
+            5. 对 `dataspace://<source_id>/<relative_path>`，禁止把整串 URI 直接写入 `source_stop.file_path`，也禁止丢失 `source_id`。
+            6. Workflow 中如果需要引用输入文件，请直接引用这些路径。
 
             上传文件：
             {attachment_desc}
@@ -879,20 +893,35 @@ async def attach_message_files_api(req: AttachMessageFilesRequest):
         if not name:
             raise HTTPException(status_code=400, detail="attachment name is required")
 
-        try:
-            source = workspace.resolve_user_virtual_path(user_id, path)
-        except ValueError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        if type_code == "dataspace":
+            normalized_path = _normalize_dataspace_attachment_path(path)
+            try:
+                check_dataspace_source_file(
+                    source_id,
+                    relative_path=normalized_path,
+                )
+            except DataspaceError as exc:
+                detail = str(exc)
+                if "not found" in detail:
+                    raise HTTPException(status_code=404, detail="attachment file not found") from exc
+                raise HTTPException(status_code=400, detail=detail) from exc
+            saved_path = normalized_path
+        else:
+            try:
+                source = workspace.resolve_user_virtual_path(user_id, path)
+            except ValueError as exc:
+                raise HTTPException(status_code=400, detail=str(exc)) from exc
 
-        if not source.exists() or not source.is_file():
-            log.info(f"attachment path {source.resolve()} is not a file")
-            raise HTTPException(status_code=404, detail="attachment file not found")
+            if not source.exists() or not source.is_file():
+                log.info(f"attachment path {source.resolve()} is not a file")
+                raise HTTPException(status_code=404, detail="attachment file not found")
+            saved_path = workspace.to_user_relative_path(user_id, path)
 
         record = save_chat_file(
             user_id=user_id,
             thread_id=thread_id,
             message_id=message_id,
-            virtual_path=workspace.to_user_relative_path(user_id, path),
+            virtual_path=saved_path,
             original_filename=name,
             type_code=type_code,
             source_id=source_id,

@@ -368,6 +368,28 @@ def get_chat_files(thread_id: str) -> List[Dict]:
     return [dict(r) for r in rows]
 
 
+def get_chat_files_by_message(thread_id: str, message_id: str) -> List[Dict]:
+    conn = _get_connection()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+
+    cursor.execute(
+        """
+        SELECT file_id, user_id, thread_id, message_id, virtual_path, original_filename,
+               type_code, source_id, created_at
+        FROM chat_files
+        WHERE thread_id = %s AND message_id = %s AND deleted = FALSE
+        ORDER BY file_id ASC
+        """,
+        (thread_id, message_id),
+    )
+
+    rows = cursor.fetchall()
+    cursor.close()
+    conn.close()
+
+    return [dict(r) for r in rows]
+
+
 def search_threads(user_id: str, limit: int = 5) -> List[str]:
     conn = _get_connection()
     cursor = conn.cursor()
