@@ -3,6 +3,7 @@ import json
 import logging
 import time
 import uuid
+from pathlib import Path
 from typing import Any, AsyncIterator, Awaitable, Callable
 
 from agents.factory import AgentFactory
@@ -15,7 +16,7 @@ from infra.env_loader import load_dotenv_file
 from infra.logging import init_logging
 from mcp_runtime.mcp_runtime import MCPRuntime
 from runtime.chat_store import ensure_thread_access, save_message, update_thread_time, init_db, \
-    get_content_messages
+    get_content_messages, get_chat_files_by_message
 from runtime.dag_manager import init_dag_db
 from runtime.piflow_adapter import init_piflow_run_tracking_db
 from runtime.skill_manage import init_dag_skills_to_database
@@ -177,33 +178,96 @@ def _normalized_stream_delta(previous_text: str, current_text: str) -> tuple[str
     return current_visible, current_visible
 
 
+def _normalize_attachment_records(
+    attachments: list[Any] | None,
+    user_id: str,
+    workspace: WorkspaceManager,
+) -> list[dict[str, str]]:
+    normalized: list[dict[str, str]] = []
+    for item in attachments or []:
+        if isinstance(item, str):
+            path = item.strip()
+            if not path:
+                continue
+            try:
+                normalized.append({
+                    "path": workspace.to_user_relative_path(user_id, path),
+                    "name": Path(path).name or path,
+                    "type_code": "local",
+                    "source_id": "",
+                })
+            except ValueError:
+                continue
+            continue
+
+        if not isinstance(item, dict):
+            continue
+
+        path = str(item.get("path") or item.get("virtual_path") or "").strip()
+        if not path:
+            continue
+        type_code = str(item.get("type_code") or "local").strip().lower() or "local"
+        source_id = str(item.get("source_id") or "").strip()
+        name = str(item.get("name") or item.get("original_filename") or "").strip()
+
+        if type_code == "dataspace":
+            normalized.append({
+                "path": path.strip("/"),
+                "name": name or Path(path).name or path,
+                "type_code": "dataspace",
+                "source_id": source_id,
+            })
+            continue
+
+        try:
+            relative_path = workspace.to_user_relative_path(user_id, path)
+        except ValueError:
+            continue
+        normalized.append({
+            "path": relative_path,
+            "name": name or Path(relative_path).name or relative_path,
+            "type_code": "local",
+            "source_id": "",
+        })
+
+    return normalized
+
+
 def _build_attachment_context(
-    attachments: list[str] | None,
+    attachments: list[Any] | None,
     user_id: str,
     workspace: WorkspaceManager,
 ) -> str:
-    valid: list[str] = []
-    for item in attachments or []:
-        if not isinstance(item, str):
-            continue
-        path = item.strip()
-        if path:
-            try:
-                valid.append(workspace.to_user_virtual_path(user_id, path))
-            except ValueError:
-                continue
-
-    if not valid:
+    normalized = _normalize_attachment_records(attachments, user_id, workspace)
+    if not normalized:
         return ""
 
     lines = [
         "本次请求上传的文件：",
         "优先将这些文件作为当前任务的主要输入。",
         "除非用户请求确实存在歧义，否则不要扫描整个 workspace，也不要追问该使用哪个文件。",
+        "如果附件形如 dataspace://<source_id>/<relative_path>，则必须将其视为 Dataspace 文件，并生成 dataspace_file_source_stop。",
+        "对 dataspace://<source_id>/<relative_path>，必须保留 source_id 与 relative_path，映射到 Dataspace 输入节点参数，禁止改写为 source_stop.file_path。",
     ]
-    lines.extend(f"- {path}" for path in valid)
-    if len(valid) == 1:
-        lines.append(f'如果用户说“这个文件”“那个文件”或“上传的文件”，默认指向：{valid[0]}')
+    for item in normalized:
+        if item["type_code"] == "dataspace":
+            lines.append(
+                f'- dataspace://{item["source_id"]}/{item["path"]} '
+                f'(type_code=dataspace, name={item["name"]})'
+            )
+        else:
+            lines.append(
+                f'- {workspace.to_user_virtual_path(user_id, item["path"])} '
+                f'(type_code=local, name={item["name"]})'
+            )
+    if len(normalized) == 1:
+        only = normalized[0]
+        default_ref = (
+            f'dataspace://{only["source_id"]}/{only["path"]}'
+            if only["type_code"] == "dataspace"
+            else workspace.to_user_virtual_path(user_id, only["path"])
+        )
+        lines.append(f'如果用户说“这个文件”“那个文件”或“上传的文件”，默认指向：{default_ref}')
     else:
         lines.append("如果用户提到某个上传文件，先从上面的列表中解析，再决定是否需要追问。")
     return "\n".join(lines)
@@ -480,7 +544,7 @@ class AgentEngine:
         thread_id: str,
         user_id: str,
         request_id: str,
-        attachments: list[str] | None = None,
+        attachments: list[Any] | None = None,
         message_id: int | None = None,
     ) -> tuple[dict[str, Any], WorkspaceManager, list[str]]:
         registry.begin_request()
@@ -509,18 +573,11 @@ class AgentEngine:
         update_thread_time(thread_id)
 
         workspace = WorkspaceManager()
-        normalized_attachments: list[str] = []
-        for item in attachments or []:
-            if not isinstance(item, str):
-                continue
-            path = item.strip()
-            if not path:
-                continue
-            try:
-                normalized_attachments.append(workspace.to_user_virtual_path(user_id, path))
-            except ValueError:
-                continue
+        resolved_attachments: list[Any] = list(attachments or [])
+        if message_id is not None:
+            resolved_attachments.extend(get_chat_files_by_message(thread_id, str(message_id)))
 
+        normalized_attachments = _normalize_attachment_records(resolved_attachments, user_id, workspace)
         attachment_context = _build_attachment_context(normalized_attachments, user_id, workspace)
         input_content = message
         if attachment_context:
@@ -530,7 +587,14 @@ class AgentEngine:
                 request_id,
                 thread_id,
                 len(normalized_attachments),
-                ",".join(normalized_attachments),
+                ",".join(
+                    (
+                        f'dataspace://{item["source_id"]}/{item["path"]}'
+                        if item["type_code"] == "dataspace"
+                        else workspace.to_user_virtual_path(user_id, item["path"])
+                    )
+                    for item in normalized_attachments
+                ),
             )
 
         messages = []
@@ -677,7 +741,7 @@ class AgentEngine:
         message: str,
         thread_id: str = "default",
         user_id: str = "default_user",
-        attachments: list[str] | None = None,
+        attachments: list[Any] | None = None,
         request_id: str | None = None,
         message_id: int | None = None,
     ):
@@ -796,7 +860,7 @@ class AgentEngine:
         message: str,
         thread_id: str = "default",
         user_id: str = "default_user",
-        attachments: list[str] | None = None,
+        attachments: list[Any] | None = None,
         request_id: str | None = None,
         message_id: int | None = None,
     ) -> AsyncIterator[dict[str, Any]]:

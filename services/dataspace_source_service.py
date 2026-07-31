@@ -278,6 +278,47 @@ def download_dataspace_source_file(
     }
 
 
+def check_dataspace_source_file(
+    source_id: str,
+    *,
+    relative_path: str,
+) -> dict[str, Any]:
+    source = get_dataspace_source(source_id)
+    normalized_relative = relative_path.strip().strip("/")
+    if not normalized_relative:
+        raise DataspaceError("relative_path is required")
+
+    relative_parent = Path(normalized_relative).parent.as_posix()
+    if relative_parent == ".":
+        relative_parent = ""
+    filename = Path(normalized_relative).name
+
+    client = source.to_client()
+    entries = client.list_ftp_directory(
+        source.ftp_link,
+        source.ftp_user,
+        source.ftp_password,
+        ftp_subpath=relative_parent,
+    )
+
+    for entry in entries:
+        entry_name = str(entry.get("name") or "").strip()
+        entry_type = str(entry.get("type") or "").strip().lower()
+        if entry_name != filename:
+            continue
+        if entry_type in {"dir", "cdir", "pdir"}:
+            raise DataspaceError(f"dataspace path is a directory: {normalized_relative}")
+        return {
+            "sourceId": source.source_id,
+            "spaceName": source.space_name,
+            "spaceId": source.space_id,
+            "relativePath": normalized_relative,
+            "remotePath": _join_root_relative(source.root_path, normalized_relative),
+        }
+
+    raise DataspaceError(f"dataspace file not found: {normalized_relative}")
+
+
 def upload_dataspace_source_file(
     source_id: str,
     *,

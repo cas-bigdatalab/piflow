@@ -7,11 +7,13 @@ import time
 from typing import Any, AsyncIterator
 
 from agents.skill_planner.factory import SkillPlannerAgentFactory
+from runtime.chat_store import get_chat_files_by_message
 from runtime.engine import (
     _build_attachment_context,
     _extract_final_response,
     _extract_reasoning_text,
     _is_ai_message,
+    _normalize_attachment_records,
     _merge_text_delta,
     _message_content_text,
     _split_stream_part,
@@ -102,21 +104,14 @@ class PlannerEngine:
         thread_id: str,
         user_id: str,
         request_id: str,
-        attachments: list[str] | None = None,
+        attachments: list[Any] | None = None,
+        message_id: int | None = None,
     ) -> tuple[dict[str, list[dict[str, str]]], WorkspaceManager, dict[str, tuple[int, int]]]:
         workspace = WorkspaceManager()
-        normalized_attachments: list[str] = []
-        for item in attachments or []:
-            if not isinstance(item, str):
-                continue
-            path = item.strip()
-            if not path:
-                continue
-            try:
-                normalized_attachments.append(workspace.to_user_virtual_path(user_id, path))
-            except ValueError:
-                continue
-
+        resolved_attachments: list[Any] = list(attachments or [])
+        if message_id is not None:
+            resolved_attachments.extend(get_chat_files_by_message(thread_id, str(message_id)))
+        normalized_attachments = _normalize_attachment_records(resolved_attachments, user_id, workspace)
         attachment_context = _build_attachment_context(normalized_attachments, user_id, workspace)
         input_content = message
         if attachment_context:
@@ -126,7 +121,14 @@ class PlannerEngine:
                 request_id,
                 thread_id,
                 len(normalized_attachments),
-                ",".join(normalized_attachments),
+                ",".join(
+                    (
+                        f'dataspace://{item["source_id"]}/{item["path"]}'
+                        if item["type_code"] == "dataspace"
+                        else workspace.to_user_virtual_path(user_id, item["path"])
+                    )
+                    for item in normalized_attachments
+                ),
             )
 
         # PlannerEngine intentionally does not persist planner chats.
@@ -166,12 +168,13 @@ class PlannerEngine:
         message: str,
         thread_id: str = "default",
         user_id: str = "default_user",
-        attachments: list[str] | None = None,
+        attachments: list[Any] | None = None,
         request_id: str | None = None,
+        message_id: int | None = None,
     ) -> str:
         request_id = request_id or "-"
         input_message, workspace, before_outputs = self._prepare_request(
-            message, thread_id, user_id, request_id, attachments
+            message, thread_id, user_id, request_id, attachments, message_id
         )
         events: list[Any] = []
         agent = self._require_agent()
@@ -240,12 +243,13 @@ class PlannerEngine:
         message: str,
         thread_id: str = "default",
         user_id: str = "default_user",
-        attachments: list[str] | None = None,
+        attachments: list[Any] | None = None,
         request_id: str | None = None,
+        message_id: int | None = None,
     ) -> AsyncIterator[dict[str, Any]]:
         request_id = request_id or "-"
         input_message, workspace, before_outputs = self._prepare_request(
-            message, thread_id, user_id, request_id, attachments
+            message, thread_id, user_id, request_id, attachments, message_id
         )
         agent = self._require_agent()
         started = time.time()
