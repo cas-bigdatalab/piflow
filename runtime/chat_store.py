@@ -68,6 +68,8 @@ def init_db():
             message_id TEXT NOT NULL,
             virtual_path TEXT NOT NULL,
             original_filename TEXT NOT NULL,
+            type_code TEXT NOT NULL DEFAULT 'local',
+            source_id TEXT NOT NULL DEFAULT '',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             deleted BOOLEAN DEFAULT FALSE
         )
@@ -93,6 +95,13 @@ def init_db():
 
     for ddl in ddl_statements:
         cursor.execute(ddl)
+
+    cursor.execute(
+        "ALTER TABLE chat_files ADD COLUMN IF NOT EXISTS type_code TEXT NOT NULL DEFAULT 'local'"
+    )
+    cursor.execute(
+        "ALTER TABLE chat_files ADD COLUMN IF NOT EXISTS source_id TEXT NOT NULL DEFAULT ''"
+    )
 
     conn.commit()
     cursor.close()
@@ -343,7 +352,8 @@ def get_chat_files(thread_id: str) -> List[Dict]:
 
     cursor.execute(
         """
-        SELECT file_id, user_id, thread_id, message_id, virtual_path, original_filename, created_at
+        SELECT file_id, user_id, thread_id, message_id, virtual_path, original_filename,
+               type_code, source_id, created_at
         FROM chat_files
         WHERE thread_id = %s AND deleted = FALSE
         ORDER BY file_id ASC
@@ -427,17 +437,22 @@ def save_chat_file(
     message_id: str,
     virtual_path: str,
     original_filename: str,
+    type_code: str = "local",
+    source_id: str = "",
 ):
     conn = _get_connection()
     cursor = conn.cursor(cursor_factory=RealDictCursor)
 
     cursor.execute(
         """
-        INSERT INTO chat_files (user_id, thread_id, message_id, virtual_path, original_filename)
-        VALUES (%s, %s, %s, %s, %s)
-        RETURNING file_id, user_id, thread_id, message_id, virtual_path, original_filename, created_at
+        INSERT INTO chat_files (
+            user_id, thread_id, message_id, virtual_path, original_filename, type_code, source_id
+        )
+        VALUES (%s, %s, %s, %s, %s, %s, %s)
+        RETURNING file_id, user_id, thread_id, message_id, virtual_path, original_filename,
+                  type_code, source_id, created_at
         """,
-        (user_id, thread_id, message_id, virtual_path, original_filename),
+        (user_id, thread_id, message_id, virtual_path, original_filename, type_code, source_id),
     )
 
     row = cursor.fetchone()
