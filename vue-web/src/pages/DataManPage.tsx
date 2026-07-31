@@ -153,7 +153,8 @@ const loadDataSources = async () => {
     if (Array.isArray(res?.result?.items)) {
       setDataSources(res.result.items.map(item => ({
         source_id: item.source_id,
-        database_name: item.database_name || item.name,
+        database_name: item.database_name,
+        name: item.name
       })));
     } else {
       setDataSources([]);
@@ -712,7 +713,7 @@ const downloadData = async (item: any,useLogo:boolean) => {
                       <option value="">请选择数据源</option>
                       {dataSources.map((ds) => (
                         <option key={ds.source_id} value={ds.source_id}>
-                          {ds.database_name}
+                          {ds.name}
                         </option>
                       ))}
                     </select>

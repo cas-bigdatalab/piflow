@@ -1707,7 +1707,7 @@ export function HomePage() {
                       <option value="">请选择数据源</option>
                       {dataSources.map((ds) => (
                         <option key={ds.source_id} value={ds.source_id}>
-                          {ds.database_name}
+                          {ds.name}
                         </option>
                       ))}
                     </select>
