@@ -1,7 +1,9 @@
 ﻿import React, { useCallback, useState, useRef, memo, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { shortId, generateUUID } from '../lib/ids';
-import { saveDrawInfo, getAllSkills, listSkillsDetails, getDrawTaskContent, apiBase, listStorage, downloadWorkspaceUrl2,runDAGTask } from "../lib/api";
+import { saveDrawInfo, getAllSkills, listSkillsDetails, getDrawTaskContent, 
+  apiBase, listStorage, downloadWorkspaceUrl2,runDAGTask,listDataspaceDirecory
+} from "../lib/api";
 import { toast } from '../components/Toast';
 import { Icon } from "@iconify/react";
 
@@ -993,8 +995,10 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
   const [isLoadingFiles, setIsLoadingFiles] = useState(false);
   const [uploadingFile, setUploadingFile] = useState(false);
   // 参数文件选择：用于记录当前正在选择文件的参数索引
-  const [fileSelectParamIndex, setFileSelectParamIndex] = useState<number | null>(null);
-  
+  const [fileSelectParamName, setFileSelectParamName] = useState<string | null>(null);
+  const [isLoadingDataSources, setIsLoadingDataSources] = useState(false);
+  const [dataSources, setDataSources] = useState<{ id: string; name: string }[]>([]);
+
   const isInitialized = useRef(false);
   const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
   const isFirstRender = useRef(true);
@@ -1011,6 +1015,7 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
   const [showRunErrorModal, setShowRunErrorModal] = useState(false);
   const [runErrorInfo, setRunErrorInfo] = useState<{ taskName: string; message: string } | null>(null);
   const [isRunning, setIsRunning] = useState(false);
+
 
   const handleRun = async () => {
     if (!taskId) {
@@ -1057,6 +1062,68 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
     }
     setShowDeleteModal(false);
   };
+ 
+
+  
+  //数据源弹框内容接口
+  const loadDataSources = useCallback(async () => {
+    setIsLoadingDataSources(true);
+    try {
+      const res = await listDataspaceDirecory(); 
+      if (Array.isArray(res.result.items)) { 
+        setDataSources(res.result.items.map(item => ({ source_id: item.source_id, database_name: item.database_name,name:item.name })));
+      }
+    } catch (err) {
+      console.error('加载数据源失败:', err);
+      setDataSources([]);
+    } finally {
+      setIsLoadingDataSources(false);
+    }
+  }, []);
+  useEffect(() => {
+    if (fileSelectParamName === 'datasource_id') {
+      loadDataSources();
+    }
+  }, [fileSelectParamName, loadDataSources]);
+ const handleSelectDataSource = useCallback((selectedId: string) => {
+    // 1. 在 dataSources 中查找匹配项
+    const selectedItem = dataSources.find(ds => ds.source_id === selectedId);
+    
+    if (!selectedItem || !selectedNodeId) {
+      setShowFileModal(false);
+      return;
+    }
+
+    // 2. 获取要更新的参数名（假设是 'relative_path'）
+    const targetParamName = 'relative_path'; // 👈 根据实际需求调整
+
+    // 3. 更新节点的 input_params 中对应参数的 _value
+    setNodes((nds) =>
+      nds.map((n) => {
+        if (n.id === selectedNodeId) {
+          const newParams = [...(n.data.input_params?.params || [])];
+          const targetIndex = newParams.findIndex(p => p.name === targetParamName);
+          if (targetIndex !== -1) {
+            newParams[targetIndex] = { 
+              ...newParams[targetIndex], 
+              _value: selectedItem.name, // 👈 赋值 name 到 _value
+              param_value: selectedItem.name, // 可选：也同步到 param_value
+            };
+          }
+          return {
+            ...n,
+            data: {
+              ...n.data,
+              input_params: { ...n.data.input_params, params: newParams },
+            },
+          };
+        }
+        return n;
+      })
+    );
+
+    setShowFileModal(false); // 关闭弹窗
+  }, [dataSources, selectedNodeId]);
 
   // 键盘Delete键删除选中节点
   useEffect(() => {
@@ -2466,17 +2533,17 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
 
   // 当从参数框打开弹窗选择文件后，将文件路径赋值给参数
   const handleSelectFileForParam = useCallback((filePath: string) => {
-    if (fileSelectParamIndex === null || !selectedNodeId) {
+    if (fileSelectParamName === null || !selectedNodeId) {
       setShowFileModal(false);
-      setFileSelectParamIndex(null);
+      setFileSelectParamName(null);
       return;
     }
     setNodes((nds) =>
       nds.map((n) => {
         if (n.id === selectedNodeId) {
           const newParams = [...(n.data.input_params?.params || [])];
-          if (newParams[fileSelectParamIndex]) {
-            newParams[fileSelectParamIndex] = { ...newParams[fileSelectParamIndex], _value: filePath };
+          if (newParams[fileSelectParamName]) {
+            newParams[fileSelectParamName] = { ...newParams[fileSelectParamName], _value: filePath };
           }
           return {
             ...n,
@@ -2490,8 +2557,8 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
       })
     );
     setShowFileModal(false);
-    setFileSelectParamIndex(null);
-  }, [fileSelectParamIndex, selectedNodeId]);
+    setFileSelectParamName(null);
+  }, [fileSelectParamName, selectedNodeId]);
 
   const handleNavigateDir = useCallback(async (path: string) => {
     await loadDirectories(path);
@@ -2647,7 +2714,7 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
           <span className="auto-save-status">
             {isSaving && <span className="save-saving">保存中...</span>}
             {!isSaving && saveMessage && <span className="save-message">{saveMessage}</span>}
-            {!isSaving && !saveMessage && <span className="save-idle">已保存</span>}
+            {!isSaving && !saveMessage && <span className="save-idle">已保存e23423</span>}
           </span>
           <button
             onClick={handleRun}
@@ -3038,7 +3105,7 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
                               </div>
                             </div>
                           ) : (
-                            param.name === 'file_path' && param._refType === 'manual' ? (
+                            param.name === 'file_path' && param._refType === 'manual' || param.name === 'datasource_id' ? (
                               <input
                                 className="draw-config-value-input"
                                 value={param._value || param.param_value || ''}
@@ -3047,7 +3114,7 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
                                 readOnly
                                 style={{ cursor: 'pointer', backgroundColor: '#f8fafc' }}
                                 onClick={async () => {
-                                  setFileSelectParamIndex(index);
+                                  setFileSelectParamName(param.name);
                                   await loadDirectories();
                                   setShowFileModal(true);
                                 }}
@@ -3161,15 +3228,15 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
           )}
 
           {/* 文件系统弹窗 */}
-          {showFileModal && (
-            <div className="file-system-overlay" onClick={() => { setShowFileModal(false); setFileSelectParamIndex(null); }}>
+          {fileSelectParamName !== null && fileSelectParamName !== 'datasource_id' && (
+            <div className="file-system-overlay" onClick={() => { setShowFileModal(false); setFileSelectParamName(null); }}>
               <div className="file-system-modal" onClick={(e) => e.stopPropagation()}>
                 <div className="file-system-header">
                   <div className="file-system-title">
                     <FolderOpen size={18} />
-                    <span>{fileSelectParamIndex !== null ? '选择文件' : '文件系统'}</span>
+                    <span>{fileSelectParamName !== null ? '选择文件' : '文件系统'}</span>
                   </div>
-                  <button className="file-system-close" onClick={() => { setShowFileModal(false); setFileSelectParamIndex(null); }}>
+                  <button className="file-system-close" onClick={() => { setShowFileModal(false); setFileSelectParamName(null); }}>
                     <X size={18} />
                   </button>
                 </div>
@@ -3192,7 +3259,7 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
                 </div>
 
                 <div className="file-system-actions">
-                  {fileSelectParamIndex === null && (
+                  {fileSelectParamName === null && (
                     <label className="file-system-upload-btn">
                       <Upload size={14} />
                       <span>{uploadingFile ? '上传中...' : '上传文件'}</span>
@@ -3205,7 +3272,7 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
                       
                     </label>
                   )}
-                  {fileSelectParamIndex !== null && (
+                  {fileSelectParamName !== null && (
                     <span className="file-system-hint">双击文件或点击"选择"按钮选中文件</span>
                   )}
                 </div>
@@ -3233,7 +3300,7 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
                           }}
                           onDoubleClick={() => {
                             // 当从参数选择文件弹窗触发时，双击文件将路径赋值给参数
-                            if (item.type === 'file' && fileSelectParamIndex !== null) {
+                            if (item.type === 'file' && fileSelectParamName !== null) {
                               handleSelectFileForParam(item.path);
                             }
                           }}
@@ -3246,7 +3313,7 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
                             )}
                           </div>
                           <span className="file-system-item-name">{item.name}</span>
-                          {item.type === 'file' && fileSelectParamIndex === null && (
+                          {item.type === 'file' && fileSelectParamName === null && (
                             <button
                               className="file-system-download-btn"
                               onClick={(e) => {
@@ -3257,7 +3324,7 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
                               <Download size={14} />
                             </button>
                           )}
-                          {item.type === 'file' && fileSelectParamIndex !== null && (
+                          {item.type === 'file' && fileSelectParamName !== null && (
                             <button
                               className="file-system-select-btn"
                               onClick={(e) => {
@@ -3271,6 +3338,91 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
                         </div>
                       ))}
                     </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+          {/* 数据源选择下拉框（仅当 fileSelectParamName === 'datasource_id'） */}
+          {fileSelectParamName === 'datasource_id' && (
+            <div className="file-system-overlay" onClick={() => { setShowFileModal(false); setFileSelectParamName(null); }}>
+              <div className="file-system-modalSource" onClick={(e) => e.stopPropagation()}>
+                <div className="file-system-header">
+                  <div className="file-system-title">
+                    <Database size={18} />
+                    <span>选择数据源</span>
+                  </div>
+                  <button className="file-system-close" onClick={() => { setShowFileModal(false); setFileSelectParamName(null); }}>
+                    <X size={18} />
+                  </button>
+                </div>
+    
+                <div className="file-system-content" style={{ padding: '16px' }}>
+                  {isLoadingDataSources ? (
+                    <div className="file-system-loading">
+                      <span>加载数据源...</span>
+                    </div>
+                  ) : (
+                    
+                    <select
+                      className="datasource-select"
+                      onChange={(e) => {
+                        const selectedId = e.target.value;
+                        handleSelectDataSource(selectedId);
+                        if (selectedId) {
+                          // 将选中的 datasource_id 写入节点参数
+                          setNodes((nds) =>
+                            nds.map((n) => {
+                              if (n.id === selectedNodeId) {
+                                const newParams = [...(n.data.input_params?.params || [])];
+                                const targetIndex = newParams.findIndex(p => p.name === 'datasource_id');
+                                if (targetIndex !== -1) {
+                                  newParams[targetIndex] = { 
+                                    ...newParams[targetIndex], 
+                                    _value: selectedId,
+                                    param_value: selectedId,
+                                  };
+                                }
+    
+                                const rpIndex = newParams.findIndex(p => p.name === 'relative_path');
+                                if (rpIndex !== -1 && selectedFileItem?.name) {
+                                  newParams[rpIndex] = {
+                                    ...newParams[rpIndex],
+                                    _value: selectedFileItem.name,
+                                    param_value: selectedFileItem.name,
+                                  };
+                                }
+    
+                                return {
+                                  ...n,
+                                  data: {
+                                    ...n.data,
+                                    input_params: { ...n.data.input_params, params: newParams },
+                                  },
+                                };
+                              }
+                              return n;
+                            })
+                          );
+                          setShowFileModal(false);
+                          setFileSelectParamName(null);
+                        }
+                      }}
+                      style={{
+                        width: '100%',
+                        padding: '8px',
+                        fontSize: '14px',
+                        borderRadius: '4px',
+                        border: '1px solid #d1d5db',
+                      }}
+                    >
+                      <option value="">请选择数据源</option>
+                      {dataSources.map(ds => (
+                        <option key={ds.source_id} value={ds.source_id} >
+                          {ds.database_name}
+                        </option>
+                      ))}
+                    </select>
                   )}
                 </div>
               </div>

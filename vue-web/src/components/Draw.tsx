@@ -1015,46 +1015,46 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
       loadDataSources();
     }
   }, [fileSelectParamName, loadDataSources]);
-const handleSelectDataSource = useCallback((selectedId: string) => {
-  // 1. 在 dataSources 中查找匹配项
-  const selectedItem = dataSources.find(ds => ds.source_id === selectedId);
-  
-  if (!selectedItem || !selectedNodeId) {
-    setShowFileModal(false);
-    return;
-  }
+  const handleSelectDataSource = useCallback((selectedId: string) => {
+    // 1. 在 dataSources 中查找匹配项
+    const selectedItem = dataSources.find(ds => ds.source_id === selectedId);
+    
+    if (!selectedItem || !selectedNodeId) {
+      setShowFileModal(false);
+      return;
+    }
 
-  // 2. 获取要更新的参数名（假设是 'relative_path'）
-  const targetParamName = 'relative_path'; // 👈 根据实际需求调整
+    // 2. 获取要更新的参数名（假设是 'relative_path'）
+    const targetParamName = 'relative_path'; // 👈 根据实际需求调整
 
-  // 3. 更新节点的 input_params 中对应参数的 _value
-  setNodes((nds) =>
-    nds.map((n) => {
-      if (n.id === selectedNodeId) {
-        const newParams = [...(n.data.input_params?.params || [])];
-        const targetIndex = newParams.findIndex(p => p.name === targetParamName);
-        if (targetIndex !== -1) {
-          newParams[targetIndex] = { 
-            ...newParams[targetIndex], 
-            _value: selectedItem.name, // 👈 赋值 name 到 _value
-            param_value: selectedItem.name, // 可选：也同步到 param_value
+    // 3. 更新节点的 input_params 中对应参数的 _value
+    setNodes((nds) =>
+      nds.map((n) => {
+        if (n.id === selectedNodeId) {
+          const newParams = [...(n.data.input_params?.params || [])];
+          const targetIndex = newParams.findIndex(p => p.name === targetParamName);
+          if (targetIndex !== -1) {
+            newParams[targetIndex] = { 
+              ...newParams[targetIndex], 
+              _value: selectedItem.name, // 👈 赋值 name 到 _value
+              param_value: selectedItem.name, // 可选：也同步到 param_value
+            };
+          }
+          return {
+            ...n,
+            data: {
+              ...n.data,
+              input_params: { ...n.data.input_params, params: newParams },
+            },
           };
         }
-        return {
-          ...n,
-          data: {
-            ...n.data,
-            input_params: { ...n.data.input_params, params: newParams },
-          },
-        };
-      }
-      return n;
-    })
-  );
+        return n;
+      })
+    );
 
-  setShowFileModal(false); // 关闭弹窗
-}, [dataSources, selectedNodeId]);
-  
+    setShowFileModal(false); // 关闭弹窗
+  }, [dataSources, selectedNodeId]);
+    
   // 键盘Delete键删除选中节点
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
