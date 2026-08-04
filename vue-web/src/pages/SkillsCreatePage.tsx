@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-
+import './SkillsCreatePage.css';
 const AddOperatorPage = () => {
   const navigate = useNavigate();
   
@@ -66,7 +66,7 @@ const AddOperatorPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-8 relative">
+    <div className="page-dom">
       {/* 顶部返回导航 */}
       <div className="mb-6">
         <button 
@@ -121,7 +121,7 @@ const AddOperatorPage = () => {
               {/* 选项 B: 算子生成器 */}
               <div 
                 className="group border border-slate-200 rounded-xl p-6 hover:border-blue-500 hover:shadow-md transition-all cursor-pointer bg-white"
-                onClick={() => console.log('Trigger Generator')}
+                onClick={() => navigate('/skills/generator')}
               >
                 <div className="mb-4">
                   <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">

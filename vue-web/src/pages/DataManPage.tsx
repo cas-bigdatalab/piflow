@@ -1,7 +1,7 @@
 import  { useState, useMemo,useEffect,useRef } from 'react';
 import './DataManPage.css';
 import { listStorageNew,deleteData,apiBase,downLoadData,listDataspaceDirecory,uploadSource } from "../lib/api";
-import { Database, X } from 'lucide-react';
+import { Database, X,File, Folder } from 'lucide-react';
 
 // --- 模拟数据 (Mock Data) ---
 // const MOCK_DATA = [];
@@ -495,7 +495,12 @@ const downloadData = async (item: any,useLogo:boolean) => {
                   {activeTab === 'uploaded' ? (
                     <>
                       <td>
-                        <div className="file-name-cell">
+                        <div className="file-name-cell" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          {item.type === 'directory' ? (
+                            <Folder size={16} style={{ color: '#fbbf24' }} />
+                          ) : (
+                            <File size={16} style={{ color: '#3b82f6' }} />
+                          )}
                           <div className="file-info">
                             <span className="file-name-text">{item.name}</span>
                           </div>

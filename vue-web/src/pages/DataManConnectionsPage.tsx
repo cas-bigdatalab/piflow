@@ -43,6 +43,98 @@ interface FieldConfig {
 }
 
 
+// --- LogoUpload 组件 ---
+interface LogoUploadProps {
+  value: string | File | undefined;
+  onChange: (file: File | undefined) => void;
+}
+
+const LogoUpload: React.FC<LogoUploadProps> = ({ value, onChange }) => {
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  const handleUploadClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // 校验文件类型
+    const validTypes = ['image/jpeg', 'image/png', 'image/jpg'];
+    if (!validTypes.includes(file.type)) {
+      alert('仅支持 JPG/PNG 格式的图片！');
+      return;
+    }
+
+    // 校验文件大小（2MB）
+    if (file.size > 2 * 1024 * 1024) {
+      alert('图片大小不能超过 2MB！');
+      return;
+    }
+
+    onChange(file);
+  };
+const handleDelete = (e: React.MouseEvent) => {
+  e.stopPropagation();
+  onChange(undefined);
+  if (fileInputRef.current) {
+    fileInputRef.current.value = '';
+  }
+};
+const getPreviewSrc = () => {
+  if (value instanceof File) {
+    return URL.createObjectURL(value);
+  } else if (typeof value === 'string' && value) {
+    return value;
+  }
+  return null;
+};
+
+const previewSrc = getPreviewSrc();
+  return (
+    <div className="logo-upload-area">
+      <input
+        type="file"
+        accept=".png,.jpg,.jpeg"
+        className="hidden"
+        ref={fileInputRef}
+        onChange={handleFileChange}
+      />
+      <div
+        className={`upload-placeholder relative border-2 border-dashed rounded-lg p-4 cursor-pointer flex items-center justify-center min-h-[120px] transition-colors ${
+          previewSrc ? 'border-transparent' : 'hover:border-blue-400'
+        }`}
+        onClick={handleUploadClick}
+        style={{ background: previewSrc ? '#f8fafc' : 'transparent' }}
+      >
+        {previewSrc ? (
+          <>
+            <img
+              src={previewSrc}
+              alt="Logo 预览"
+              className="max-w-full max-h-full object-contain"
+              style={{ maxHeight: '160px' }}
+            />
+            <button
+              type="button"
+              className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center shadow-md text-xs z-10"
+              onClick={handleDelete}
+            >
+              ×
+            </button>
+          </>
+        ) : (
+          <div className="flex flex-col items-center text-slate-500">
+            <Plus className="w-6 h-6 mb-2 text-slate-400" />
+            <span className="text-sm">点击上传 Logo</span>
+            <span className="text-xs mt-1 text-slate-400">(JPG/PNG, ≤2MB)</span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
 export default function DataManConnectionsPage(){
 
 // 数据源类型列表数组赋值
@@ -57,6 +149,7 @@ const [typeCode,setTypeCode]  = useState("");
 const [detailFileds,setDetailFiled] = useState<FieldConfig[]>([]);
 //编辑数据源类型所返回的字段
 const [editFields,setEditFields] = useState<FieldConfig[]>([]);
+const fileInputRef = React.useRef<HTMLInputElement>(null);
 // 数据源类型列表
 useEffect(() => {
   const fetchDataSources = async () => {
@@ -478,39 +571,46 @@ const handleSelectSource = async (type_code: string) => {
                         <div key={field.name} className="form-field">
                           <label className="form-label">{field.label}</label>
                           {field.label === 'Logo' ? (
-                              <div className="file-upload-wrapper">
-                                <input
-                                  type="file"
-                                  accept=".png,.jpg,.jpeg"
-                                  className="form-input-file"
-                                  onChange={(e) => {
-                                    const file = e.target.files?.[0] || null;
-                                    setConnectionConfig((prev) => ({
-                                      ...prev,
-                                      [field.name]: file,
-                                    }));
-                                  }}
-                                />
-                                {/* 显示当前 logo：优先显示 File 名称，否则显示预览图（如果是 URL） */}
-                                {(() => {
-                                  const currentLogo = connectionConfig[field.name];
-                                  if (currentLogo instanceof File) {
-                                    return <p className="file-name text-sm text-slate-500 mt-1">已选择: {currentLogo.name}</p>;
-                                  } else if (typeof currentLogo === 'string' && currentLogo) {
-                                    return (
-                                      <div className="mt-2">
-                                        <p className="text-sm text-slate-500 mb-1">当前 Logo：</p>
-                                        <img 
-                                          src={currentLogo} 
-                                          alt="当前 Logo" 
-                                          className="w-12 h-12 object-contain border rounded"
-                                        />
-                                      </div>
-                                    );
-                                  }
-                                  return null;
-                                })()}
-                              </div>
+                              // <div className="file-upload-wrapper">
+                              //   <input
+                              //     type="file"
+                              //     accept=".png,.jpg,.jpeg"
+                              //     className="form-input-file"
+                              //     onChange={(e) => {
+                              //       const file = e.target.files?.[0] || null;
+                              //       setConnectionConfig((prev) => ({
+                              //         ...prev,
+                              //         [field.name]: file,
+                              //       }));
+                              //     }}
+                              //   />
+                              //   {/* 显示当前 logo：优先显示 File 名称，否则显示预览图（如果是 URL） */}
+                              //   {(() => {
+                              //     const currentLogo = connectionConfig[field.name];
+                              //     if (currentLogo instanceof File) {
+                              //       return <p className="file-name text-sm text-slate-500 mt-1">已选择: {currentLogo.name}</p>;
+                              //     } else if (typeof currentLogo === 'string' && currentLogo) {
+                              //       return (
+                              //         <div className="mt-2">
+                              //           <p className="text-sm text-slate-500 mb-1">当前 Logo：</p>
+                              //           <img 
+                              //             src={currentLogo} 
+                              //             alt="当前 Logo" 
+                              //             className="w-12 h-12 object-contain border rounded"
+                              //           />
+                              //         </div>
+                              //       );
+                              //     }
+                              //     return null;
+                              //   })()}
+                              // </div>
+                              // 换为ant封装好的图片上传组件
+                              <LogoUpload
+                                value={connectionConfig[field.name]}
+                                onChange={(file) => {
+                                  setConnectionConfig(prev => ({ ...prev, [field.name]: file }));
+                                }}
+                              />
                             ) : (
                             <input
                               type={field.type === 'password' ? 'password' : 'text'}
@@ -583,39 +683,12 @@ const handleSelectSource = async (type_code: string) => {
                       <div key={field.name} className="form-field">
                         <label className="form-label">{field.label}</label>
                         {field.label === 'Logo' ? (
-                          <div className="file-upload-wrapper">
-                            <input
-                              type="file"
-                              accept=".png,.jpg,.jpeg"
-                              className="form-input-file"
-                              onChange={(e) => {
-                                const file = e.target.files?.[0] || null;
-                                setConnectionConfig((prev) => ({
-                                  ...prev,
-                                  [field.name]: file,
-                                }));
-                              }}
-                            />
-                            {/* 👇 完整的预览逻辑 */}
-                            {(() => {
-                              const currentLogo = connectionConfig[field.name];
-                              if (currentLogo instanceof File) {
-                                return <p className="file-name text-sm text-slate-500 mt-1">已选择: {currentLogo.name}</p>;
-                              } else if (typeof currentLogo === 'string' && currentLogo) {
-                                return (
-                                  <div className="mt-2">
-                                    <p className="text-sm text-slate-500 mb-1">当前 Logo：</p>
-                                    <img 
-                                      src={currentLogo} 
-                                      alt="当前 Logo" 
-                                      className="w-12 h-12 object-contain border rounded"
-                                    />
-                                  </div>
-                                );
-                              }
-                              return null;
-                            })()}
-                          </div>
+                          <LogoUpload
+                            value={connectionConfig[field.name]}
+                            onChange={(file) => {
+                              setConnectionConfig(prev => ({ ...prev, [field.name]: file }));
+                            }}
+                          />
                         ) : (
                           <input
                             type={field.type === 'password' ? 'password' : 'text'}
