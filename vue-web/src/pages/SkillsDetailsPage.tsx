@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import React, { useState,useEffect  } from 'react';
+import { useParams, useNavigate,useSearchParams,useLocation  } from 'react-router-dom';
 import { 
   ArrowLeft, Download, Trash2, Star, 
   Clock, User, Code, Layers, FileText, Folder, File, Terminal
 } from 'lucide-react';
-
+import { getSkillInfo,downloadSkillPackage } from "../lib/api";
+import './SkillsDetailsPage.css';
 interface OperatorParam {
   name: string;
   type: string;
@@ -13,50 +14,30 @@ interface OperatorParam {
   desc: string;
 }
 
-interface OperatorData {
-  id: string;
-  name: string;
-  englishName: string;
-  version: string;
-  category: string;
-  author: string;
-  language: string;
-  license: string;
-  env: string;
-  downloads: number;
-  rating: number;
-  description: string;
-  logic: string[];
-  inputs: OperatorParam[];
-  outputs: OperatorParam[];
-  skillJson: any;
-  fileStructure: string[];
-}
-
 // 扩展 MOCK_DATA 包含完整信息
 const MOCK_DATA: OperatorData = {
-  id: 'alphabet-num-ratio-filter',
-  name: '字母数字比例过滤器算子',
-  englishName: 'alphabet-num-ratio-filter',
-  version: 'v1.0.0',
-  category: '过滤与筛选',
+  skill_name: '',
+  name_zh: '',
+  englishName: '',
+  version: '',
+  category: '',
   author: '李明',
-  language: 'Python',
-  license: 'MIT',
-  env: 'Python 3.8+',
-  downloads: 1247,
-  rating: 4.8,
-  description: '过滤文本中字母/数字比例不在指定范围内的样本。当用户提到文本过滤、比例筛选、字母比例、数字比例、清理乱码文本等需求时使用此 skill。支持自定义比例范围阈值和统计粒度，可处理中英文混合文本。',
+  language: '',
+  license: '',
+  env: '',
+  downloads: 0,
+  rating: 0,
+  description: '',
   logic: [
-    '统计文本中字母与数字的字符数',
-    '计算字母占比 = 字母数 / (字母数 + 数字数)',
-    '判断占比是否在 min_ratio ~ max_ratio 范围内',
-    '范围外的样本被过滤掉'
+    '',
+    '',
+    '',
+    ''
   ],
   inputs: [
     {
-      name: 'input_text',
-      type: 'str',
+      name: '',
+      type: '',
       required: true,
       default: null,
       desc: '待处理的原始文本数据'
@@ -136,6 +117,26 @@ const MOCK_DATA: OperatorData = {
     '    └── icon.svg — 算子图标（64×64px）'
   ]
 };
+interface OperatorData {
+  id: string;
+  name_zh: string;
+  englishName: string;
+  version: string;
+  category: string;
+  author: string;
+  language: string;
+  license: string;
+  env: string;
+  downloads: number;
+  rating: number;
+  description: string;
+  logic: string[];
+  inputs: OperatorParam[];
+  outputs: OperatorParam[];
+  skillJson: any;
+  fileStructure: string[];
+}
+
 
 // 相关算子数据
 const RELATED_OPERATORS = [
@@ -159,13 +160,51 @@ const RELATED_OPERATORS = [
   }
 ];
 
+
+
 export default function SkillsDetailsPage() {
-  const { id } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  
+  // ✅ 全部从 searchParams 获取
+  const id = searchParams.get('id');
+  const skillNameFromUrl = searchParams.get('name') || '未知算子';
   
   const [activeTab, setActiveTab] = useState('overview');
   const [isEnabled, setIsEnabled] = useState(true);
-  const data = MOCK_DATA;
+  const [data, setData] = useState<OperatorData | null>(null);
+  const [loading, setLoading] = useState(true);
+  //调用详情接口
+  useEffect(() => {
+    const fetchSkill = async () => {
+      setLoading(true);
+      try {
+        const response = await getSkillInfo(id, true, true);
+        
+        if (response?.code === 200 && response.result) {
+          setData(response.result); // ✅ 成功时设置真实数据
+        } else {
+          setData(MOCK_DATA); // ⚠️ 失败时回退到 mock（不是 null！）
+        }
+      } catch (err) {
+        console.error('接口请求失败:', err);
+        setData(MOCK_DATA); // ⚠️ 异常时也用 mock 保证页面可展示
+      } finally {
+        setLoading(false); // ✅ 只关闭 loading，不碰 data
+      }
+    };
+
+    if (id) {
+      fetchSkill();
+    } else {
+      setData(MOCK_DATA); // 无 id 时直接用 mock
+      setLoading(false);
+    }
+  }, [id]);
+  
+  
+  console.log("打印出接口所返回内容值",data)
+
 
   // 格式化 JSON 字符串用于显示
   const formatJson = (obj: any): string => {
@@ -173,7 +212,7 @@ export default function SkillsDetailsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20">
+    <div className="min-h-screen bg-[#f7f8fa] pb-20">
       {/* 1. 顶部面包屑导航 */}
       <div className="bg-white border-b border-gray-200 px-6 py-3 flex items-center text-sm text-gray-600 sticky top-0 z-10">
         <button onClick={() => navigate(-1)} className="flex items-center hover:text-blue-600 transition-colors mr-4">
@@ -182,7 +221,7 @@ export default function SkillsDetailsPage() {
         <span className="mx-2 text-gray-400">/</span>
         <span className="hover:text-gray-900 cursor-pointer">算子库</span>
         <span className="mx-2 text-gray-400">/</span>
-        <span className="text-gray-900 font-medium truncate">{data.name}</span>
+        <span className="text-gray-900 font-medium truncate">{data?.name_zh}</span>
       </div>
 
       <div className="max-w-7xl mx-auto px-6 py-8">
@@ -192,43 +231,56 @@ export default function SkillsDetailsPage() {
           {/* === 左侧主要内容 (75%) === */}
           <div className="space-y-6">
             {/* 2. 头部概览区域 */}
-            <div className="flex gap-5">
+            <div className="flex gap-5 detail-card">
               <div className="w-16 h-16 bg-blue-50 rounded-lg flex items-center justify-center text-blue-600 shrink-0">
                 <Layers size={32} />
               </div>
               
               <div>
-                <h1 className="text-2xl font-bold text-gray-900 mb-2">{data.name}</h1>
-                
-                <div className="flex items-center gap-3 mb-4">
-                  <code className="px-2 py-0.5 bg-gray-100 text-gray-600 text-xs rounded font-mono border border-gray-200">
-                    {data.englishName}
+                <h1 className="detail-card-title">{data?.name_zh}</h1>
+                <div className="detail-card-slug">
+                  <code className="px-2 py-0.5 text-gray-600 text-xs rounded font-mono">
+                    {data?.skill_name}
                   </code>
-                  <span className="px-2 py-0.5 bg-green-50 text-green-700 text-xs rounded-full border border-green-100">
-                    {data.category}
-                  </span>
-                  <span className="text-gray-400 text-xs">{data.version}</span>
                 </div>
-
-                <p className="text-gray-600 text-sm leading-relaxed max-w-3xl mb-4">
-                  {data.description.split('。')[0]}。
+                <div className="detail-card-tags">
+                  <span className="tag-pill">
+                    {data?.skill_type}
+                  </span>
+                  <span className="text-gray-400 text-xs">v{data?.version}</span>
+                </div>
+                {/* <div className="detail-card-status">
+                  <span className={`text-sm ${isEnabled ? 'text-gray-900' : 'text-gray-400'}`}>
+                    {isEnabled ? '已启用' : '已停用'}
+                  </span>
+                  <button 
+                    onClick={() => setIsEnabled(!isEnabled)}
+                    className={`w-11 h-6 rounded-full relative transition-colors duration-200 ease-in-out focus:outline-none ${isEnabled ? 'bg-green-500' : 'bg-gray-200'}`}
+                  >
+                    <span className={`absolute top-1 left-1 bg-white w-4 h-4 rounded-full shadow transform transition-transform duration-200 ease-in-out ${isEnabled ? 'translate-x-5' : 'translate-x-0'}`} />
+                  </button>
+                </div> */}
+                <p className="detail-card-desc">
+                  {data?.description.split('。')[0]}。
                 </p>
 
                 <div className="flex items-center gap-6 text-xs text-gray-500">
                   <div className="flex items-center gap-1">
                     <div className="w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center text-[10px] text-gray-600 font-bold">
-                      {data.author.slice(0, 1)}
+                      {/* {data?.author.slice(0, 1)} */}
+                      {'李'}
                     </div>
-                    {data.author}
+                    {/* {data?.author} */}
+                      {'李明'}
                   </div>
-                  <div className="flex items-center gap-1"><Clock size={12}/> 发布于 2025-06-15</div>
-                  <div className="flex items-center gap-1"><Clock size={12}/> 最后更新 2025-07-01</div>
-                  <div className="flex items-center gap-1"><Download size={12}/> 下载 {data.downloads.toLocaleString()}</div>
+                  <div className="flex items-center gap-1"><Clock size={12}/> 发布于 {data?.create_time}</div>
+                  <div className="flex items-center gap-1"><Clock size={12}/> 最后更新 {data?.update_time}</div>
+                  {/* <div className="flex items-center gap-1"><Download size={12}/> 下载 {data?.downloads.toLocaleString()}</div> */}
                 </div>
               </div>
             </div>
 
-            <div className="flex flex-col items-end gap-4">
+            {/* <div className="flex flex-col items-end gap-4">
               <div className="flex items-center gap-2">
                   <span className={`text-sm ${isEnabled ? 'text-gray-900' : 'text-gray-400'}`}>
                     {isEnabled ? '已启用' : '已停用'}
@@ -249,7 +301,7 @@ export default function SkillsDetailsPage() {
                   <Trash2 size={16} /> 移除
                 </button>
               </div>
-            </div>
+            </div> */}
 
             {/* Tab 区域 */}
             <div className="space-y-6">
@@ -277,12 +329,12 @@ export default function SkillsDetailsPage() {
 
               {activeTab === 'overview' && (
                 <div className="prose prose-slate max-w-none">
-                  <h3 className="text-lg font-bold text-gray-900 mb-3">{data.name}</h3>
+                  <h3 className="text-lg font-bold text-gray-900 mb-3">{data?.name_zh}</h3>
                   <p className="text-gray-600 mb-6 leading-relaxed">
-                    {data.description}
+                    {data?.description}
                   </p>
 
-                  <div className="bg-white rounded-lg border border-gray-200 p-6">
+                  {/* <div className="bg-white rounded-lg border border-gray-200 p-6">
                     <h4 className="text-base font-semibold text-gray-900 mb-4 flex items-center gap-2">
                       <Code size={18} className="text-blue-500"/> 功能描述
                     </h4>
@@ -292,7 +344,7 @@ export default function SkillsDetailsPage() {
                     
                     <h5 className="text-sm font-medium text-gray-900 mb-2">核心逻辑：</h5>
                     <ul className="list-disc list-inside text-sm text-gray-600 space-y-2 ml-2">
-                      {data.logic.map((item, idx) => (
+                      {data?.logic.map((item, idx) => (
                         <li key={idx}>
                           {item.split(/(\b[a-z_]+\b)/g).map((part, i) => 
                             ['min_ratio', 'max_ratio'].includes(part) ? (
@@ -302,9 +354,9 @@ export default function SkillsDetailsPage() {
                         </li>
                       ))}
                     </ul>
-                  </div>
+                  </div> */}
                   {/* 新增：适用场景 */}
-                    <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
+                    {/* <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
                       <h4 className="text-base font-semibold text-gray-900 mb-2 flex items-center gap-2">
                         <FileText size={18} className="text-green-500"/> 适用场景
                       </h4>
@@ -313,10 +365,10 @@ export default function SkillsDetailsPage() {
                         <li>筛选中英文混合内容中字母/数字比例异常的样本</li>
                         <li>预处理阶段过滤低质量文本（如爬虫噪声）</li>
                       </ul>
-                    </div>
+                    </div> */}
 
                     {/* 新增：使用示例 */}
-                    <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
+                    {/* <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
                       <h4 className="text-base font-semibold text-gray-900 mb-2 flex items-center gap-2">
                         <Terminal size={18} className="text-purple-500"/> 使用示例
                       </h4>
@@ -331,10 +383,10 @@ export default function SkillsDetailsPage() {
                           }
                         }`}
                       </div>
-                    </div>
+                    </div> */}
 
                     {/* 新增：注意事项 */}
-                    <div className="bg-white rounded-lg border border-gray-200 p-6">
+                    {/* <div className="bg-white rounded-lg border border-gray-200 p-6">
                       <h4 className="text-base font-semibold text-gray-900 mb-2 flex items-center gap-2">
                         ⚠️ 注意事项
                       </h4>
@@ -342,7 +394,7 @@ export default function SkillsDetailsPage() {
                         <li>若文本中无字母和数字（如纯标点），默认视为 <code className="bg-gray-100 px-1 rounded text-xs">ratio = 0</code>，可能被过滤</li>
                         <li><code>granularity="word"</code> 模式下，需确保分词逻辑与语言匹配</li>
                       </ul>
-                    </div>
+                    </div> */}
                 </div>
               )}
 
@@ -361,7 +413,7 @@ export default function SkillsDetailsPage() {
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
-                        {data.inputs.map((param, idx) => (
+                        {data?.input_params.params.map((param, idx) => (
                           <tr key={idx} className="hover:bg-gray-50">
                             <td className="px-4 py-3 whitespace-nowrap">
                               <code className="bg-gray-100 text-gray-800 px-2 py-1 rounded text-sm font-mono">{param.name}</code>
@@ -385,7 +437,7 @@ export default function SkillsDetailsPage() {
                                 <span className="text-gray-400">—</span>
                               )}
                             </td>
-                            <td className="px-4 py-3 text-sm text-gray-600">{param.desc}</td>
+                            <td className="px-4 py-3 text-sm text-gray-600">{param.description}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -403,7 +455,7 @@ export default function SkillsDetailsPage() {
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
-                        {data.outputs.map((param, idx) => (
+                        {data?.output_params.params.map((param, idx) => (
                           <tr key={idx} className="hover:bg-gray-50">
                             <td className="px-4 py-3 whitespace-nowrap">
                               <code className="bg-gray-100 text-gray-800 px-2 py-1 rounded text-sm font-mono">{param.name}</code>
@@ -411,7 +463,7 @@ export default function SkillsDetailsPage() {
                             <td className="px-4 py-3 whitespace-nowrap">
                               <code className="bg-gray-100 text-gray-800 px-2 py-1 rounded text-sm font-mono">{param.type}</code>
                             </td>
-                            <td className="px-4 py-3 text-sm text-gray-600">{param.desc}</td>
+                            <td className="px-4 py-3 text-sm text-gray-600">{param.description}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -424,7 +476,7 @@ export default function SkillsDetailsPage() {
                 <div className="prose prose-slate max-w-none">
                   <div className="bg-gray-900 rounded-lg p-4 overflow-x-auto">
                     <pre className="text-sm text-gray-200">
-                      <code>{formatJson(data.skillJson)}</code>
+                      <code>{formatJson(data?.skill_json)}</code>
                     </pre>
                   </div>
                 </div>
@@ -434,7 +486,7 @@ export default function SkillsDetailsPage() {
                 <div className="prose prose-slate max-w-none">
                   <h2 className="text-xl font-bold text-gray-900 mb-4">文件结构</h2>
                   <div className="bg-gray-50 rounded-lg p-4 font-mono text-sm">
-                    {data.fileStructure.map((line, idx) => (
+                    {data?.fileStructure.map((line, idx) => (
                       <div key={idx} className="flex items-start gap-2 mb-1">
                         {line.includes('—') ? (
                           <>
@@ -466,12 +518,12 @@ export default function SkillsDetailsPage() {
                   <h3 className="font-semibold text-gray-900 text-sm">基本信息</h3>
                 </div>
                 <div className="p-5 space-y-4">
-                  <InfoRow label="分类" value={data.category} />
-                  <InfoRow label="版本" value={data.version} />
-                  <InfoRow label="作者" value={data.author} icon={<User size={14}/>} />
-                  <InfoRow label="语言" value={data.language} />
-                  <InfoRow label="许可" value={data.license} />
-                  <InfoRow label="环境" value={data.env} />
+                  <InfoRow label="分类" value={data?.skill_type} />
+                  <InfoRow label="版本" value={data?.version} />
+                  <InfoRow label="作者" value={data?.author} icon={<User size={14}/>} />
+                  <InfoRow label="语言" value={data?.language} />
+                  <InfoRow label="许可" value={data?.license} />
+                  <InfoRow label="环境" value={data?.env} />
                 </div>
               </div>
 
@@ -483,12 +535,12 @@ export default function SkillsDetailsPage() {
                 <div className="p-5 space-y-4">
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-gray-500">下载量</span>
-                    <span className="text-sm font-medium text-gray-900">{data.downloads.toLocaleString()}</span>
+                    {/* <span className="text-sm font-medium text-gray-900">{data?.downloads.toLocaleString()}</span> */}
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-gray-500">评分</span>
                     <div className="flex items-center gap-1">
-                      <span className="text-sm font-bold text-gray-900">{data.rating}</span>
+                      <span className="text-sm font-bold text-gray-900">{data?.rating}</span>
                       <Star size={14} className="fill-yellow-400 text-yellow-400" />
                     </div>
                   </div>
@@ -526,7 +578,27 @@ export default function SkillsDetailsPage() {
               {/* 底部下载按钮 */}
               <button 
                 className="w-full py-2.5 bg-white border border-blue-600 text-blue-600 rounded-lg font-medium hover:bg-blue-50 transition-colors flex items-center justify-center gap-2 shadow-sm"
-                onClick={() => alert('下载算子包（演示）')}
+                onClick={async () => {
+                  if (!id) {
+                    alert('无效的算子 ID');
+                    return;
+                  }
+                  try {
+                    // const blob = await downloadSkillPackage(id);
+                    // const url = window.URL.createObjectURL(blob);
+                    // const a = document.createElement('a');
+                    // a.href = url;
+                    // a.download = `${data?.skill_name || 'skill'}.zip`; // 或其他合适文件名
+                    // document.body.appendChild(a);
+                    // a.click();
+                    // window.URL.revokeObjectURL(url);
+                    // document.body.removeChild(a);
+                      await downloadSkillPackage(id);
+                  } catch (err) {
+                    console.error('下载失败:', err);
+                    alert('下载失败，请稍后重试');
+                  }
+                }}
               >
                 <Download size={18} /> 下载算子包
               </button>

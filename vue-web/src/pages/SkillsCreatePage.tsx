@@ -1,5 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+
+
+import { uploadPackage } from "../lib/api";
 import './SkillsCreatePage.css';
 const AddOperatorPage = () => {
   const navigate = useNavigate();
@@ -12,7 +15,6 @@ const AddOperatorPage = () => {
   
   // 模拟上传的文件状态
   const [uploadedFile, setUploadedFile] = useState(null);
-
   // 处理文件上传逻辑（模拟）
   const handleFileUpload = (e) => {
     const file = e.target.files?.[0];
@@ -20,47 +22,46 @@ const AddOperatorPage = () => {
       setUploadedFile(file);
     }
   };
+  //处理算子上传接口
+  // 上传 zip 文件到后端接口
+const handleZipFileUpload = async (file: File) => {
+
+  try {
+    const response = await uploadPackage(file)
+    if (response.code === 200) {
+      alert('算子包上成功');
+      setCurrentStep(3); // 👈 关键：跳转到第三步
+      setUploadedFile(null); // 可选：清空文件状态
+    }
+  } catch (error) {
+    console.error('上传出错:', error);
+    alert('算子包上传失败，请检查文件格式或网络');
+  }
+};
 
   // 渲染步骤条组件
   const renderStepper = () => {
-    // 定义步骤配置
-    const steps = [
-      { id: 1, label: '选择方式' },
-      { id: 2, label: '上传包' },
-      { id: 3, label: '完成' }
-    ];
-
     return (
-      <div className="flex items-center mb-3  p-8 rounded-xl shadow-sm border border-slate-100 p-8 max-w-5xl mx-auto">
-        {steps.map((step, index) => {
-          const isActive = currentStep === step.id;
-          const isCompleted = currentStep > step.id;
-          
-          return (
-            <React.Fragment key={step.id}>
-              {/* 步骤圆圈与文字 */}
-              <div className={`flex items-center ${isActive || isCompleted ? 'opacity-100' : 'opacity-50'}`}>
-                <div 
-                  className={`w-8 h-8 rounded-full flex items-center justify-center font-medium text-sm transition-colors duration-300
-                    ${isCompleted ? 'bg-green-500 text-white' : ''}
-                    ${isActive ? 'bg-slate-900 text-white' : ''}
-                    ${!isActive && !isCompleted ? 'bg-slate-100 text-slate-500 border border-slate-200' : ''}
-                  `}
-                >
-                  {isCompleted ? '✓' : step.id}
-                </div>
-                <span className={`ml-3 font-medium ${isActive ? 'text-slate-900' : 'text-slate-500'}`}>
-                  {step.label}
-                </span>
-              </div>
+      <div className="og-stepper max-w-5xl mx-auto px-4 mb-8">
+        {/* 步骤 1: 选择方式 */}
+        <div className={`og-step ${currentStep > 1 ? 'completed' : ''} ${currentStep === 1 ? 'active' : ''}`}>
+          <span className="og-step-circle">1</span>
+          <span className="og-step-label">选择方式</span>
+        </div>
+        <div className="og-step-line"></div>
 
-              {/* 连接线 (最后一个元素不显示线) */}
-              {index < steps.length - 1 && (
-                <div className={`flex-1 h-[1px] mx-6 transition-colors duration-300 ${currentStep > step.id ? 'bg-green-500' : 'bg-slate-200'}`}></div>
-              )}
-            </React.Fragment>
-          );
-        })}
+        {/* 步骤 2: 上传包 */}
+        <div className={`og-step ${currentStep > 2 ? 'completed' : ''} ${currentStep === 2 ? 'active' : ''}`}>
+          <span className="og-step-circle">2</span>
+          <span className="og-step-label">上传包</span>
+        </div>
+        <div className="og-step-line"></div>
+
+        {/* 步骤 3: 完成 */}
+        <div className={`og-step ${currentStep > 3 ? 'completed' : ''} ${currentStep === 3 ? 'active' : ''}`}>
+          <span className="og-step-circle">3</span>
+          <span className="og-step-label">完成</span>
+        </div>
       </div>
     );
   };
@@ -121,7 +122,7 @@ const AddOperatorPage = () => {
               {/* 选项 B: 算子生成器 */}
               <div 
                 className="group border border-slate-200 rounded-xl p-6 hover:border-blue-500 hover:shadow-md transition-all cursor-pointer bg-white"
-                onClick={() => navigate('/skills/generator')}
+                onClick={() => navigate('/skill/generator')}
               >
                 <div className="mb-4">
                   <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -203,7 +204,7 @@ const AddOperatorPage = () => {
                  ← 上一步
                </button>
 
-               <button 
+               {/* <button 
                  disabled={!uploadedFile}
                  onClick={() => setCurrentStep(3)}
                  className={`px-6 py-2.5 rounded-lg font-medium text-white shadow-sm transition-all
@@ -213,7 +214,19 @@ const AddOperatorPage = () => {
                  `}
                >
                  预览算子 →
-               </button>
+               </button> */}
+
+              <button 
+                disabled={!uploadedFile}
+                onClick={() => uploadedFile && handleZipFileUpload(uploadedFile)}
+                className={`px-6 py-2.5 rounded-lg font-medium text-white shadow-sm transition-all
+                  ${uploadedFile 
+                    ? 'bg-emerald-500 hover:bg-emerald-600 hover:shadow-md cursor-pointer' 
+                    : 'bg-slate-300 cursor-not-allowed'}
+                `}
+              >
+                上传算子 →
+              </button>
             </div>
           </div>
         )}

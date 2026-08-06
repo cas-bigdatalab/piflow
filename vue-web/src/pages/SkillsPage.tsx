@@ -167,7 +167,7 @@ export function SkillsPage() {
 
     const loadMySkills = () => {
       const skill_type = activeCategory === "全部算子" ? "" : activeCategory;
-      listSkills(1, 200, keyword, skill_type, "private") // 注意：publisher = "private"
+      listSkills(1, 200, keyword, skill_type, "PRIVATE") // 注意：publisher = "PRIVATE"
         .then((response) => {
           if (!alive) return;
           if (response.code !== 200) {
@@ -237,8 +237,24 @@ export function SkillsPage() {
     setIsShareModalOpen(false);
     setCurrentSkill(null);
   };
-  const handleDelete = (skill: DagSkillInfo) => {
-    alert("删除功能待实现");
+  const handleDelete = async (skill: DagSkillInfo) => {
+    if (!window.confirm(`确定要删除算子 "${skill.name_zh || skill.skill_name}" 吗？此操作不可恢复。`)) {
+      return;
+    }
+
+    removeLocalSkill(String(skill.skill_id))
+      .then(res => {
+        if (res.code === 200) {
+          // 刷新列表或更新状态
+          loadMySkills(); // 或使用更细粒度的状态更新
+        } else {
+          alert("删除失败：" + (res.message || ""));
+        }
+      })
+      .catch(err => {
+        console.error("删除出错:", err);
+        alert("删除过程中发生错误，请重试。");
+    });
   };
 
   const handleShare = (skill: DagSkillInfo) => {
@@ -481,9 +497,9 @@ export function SkillsPage() {
                     >
                       {/* “我的空间”始终显示操作图标；“社区生态”仅在批量模式下显示复选框 */}
                       {activeTab === '我的空间' ? (
-                        <div className="absolute top-3 right-3 flex items-center gap-2">
+                        <div className="absolute top-3 right-3 flex items-center">
                           {/* 标记图标 */}
-                          <button
+                          {/* <button
                             className="p-1.5 rounded-full hover:bg-yellow-100 text-slate-400 hover:text-yellow-500 transition-colors"
                             onClick={(e) => {
                               e.stopPropagation();
@@ -491,8 +507,8 @@ export function SkillsPage() {
                             }}
                             title="标记"
                           >
-                            <Icon icon="ri:star-line" width="20" />
-                          </button>
+                            ↗
+                          </button> */}
                           {/* 删除图标 */}
                           <button
                             className="p-1.5 rounded-full hover:bg-rose-100 text-slate-400 hover:text-rose-600 transition-colors"
@@ -532,7 +548,7 @@ export function SkillsPage() {
                           </div>
 
                           <div className="min-w-0 flex-1">
-                            <div className="break-words font-semibold text-slate-900 text-[14px]">
+                            <div className="max-w-[120px] truncate font-semibold text-slate-900 text-[14px]">
                               {(skill as any).name_zh || skill.skill_name || "未命名算子"}
                             </div>
                             <div className="mt-[-5px]">

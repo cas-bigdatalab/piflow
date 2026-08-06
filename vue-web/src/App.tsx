@@ -10,6 +10,7 @@ import RunDetails from "./components/RunDetails";
 
 import SkillsDetailsPage from "./pages/SkillsDetailsPage"; // 注意：默认导出，不用大括号
 import SkillsCreatePage from "./pages/SkillsCreatePage";
+import SkillsGeneratorPage from "./pages/SkillsGeneratorPage";
 import DataManPage from "./pages/DataManPage";
 import DataManConnectionsPage from "./pages/DataManConnectionsPage"; // 确保文件名完全匹配
 
@@ -22,6 +23,17 @@ function TaskDrawPageWrapper() {
       taskName={searchParams.get('taskName') || ''}
       description={descriptionParam === 'null' ? '' : descriptionParam || ''}
       isEdit={searchParams.get('isEdit') === 'true'}
+    />
+  );
+}
+function SkillsDetailsPageWrapper() {
+  const [searchParams] = useSearchParams();
+  const id = searchParams.get('id');
+  const name = searchParams.get('name');
+  return (
+    <SkillsDetailsPage
+      id={searchParams.get('id') || ''}
+      name={searchParams.get('name') || ''}
     />
   );
 }
@@ -41,8 +53,10 @@ export default function App() {
         {/* 新增工作库页面 */}
         {/* <Route path="/workLib" element={<WorkLibPage />} /> */}
         {/* 新增算子详情页面和添加算子 */}
-        <Route path="/skill/detail/:name" element={<SkillsDetailsPage />} />
+        <Route path="/skill/detail" element={<SkillsDetailsPageWrapper />} />
         <Route path="/skill/create" element={<SkillsCreatePage />} />
+        {/* 算子生成器 */}
+        <Route path="/skill/generator" element={<SkillsGeneratorPage />} />
         {/* 新增数据管理页面 */}
         <Route path="/dataMan" element={<DataManPage />} />
         <Route path="/dataMan-connections" element={<DataManConnectionsPage />} />
