@@ -2377,6 +2377,16 @@ select:focus {
   flex-direction: column;
   overflow: hidden;
 }
+.file-system-modalSource {
+  background: #ffffff;
+  border-radius: 12px;
+  width: 560px;
+  height:300px;
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.15);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
 
 .file-system-header {
   display: flex;

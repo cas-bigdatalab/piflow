@@ -1,7 +1,7 @@
 import React, { useCallback, useState, useRef, memo, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { shortId } from '../lib/ids';
-import { saveDrawInfo, getAllSkills, listSkillsDetails, createMessage, streamChat, apiBase, listStorage, downloadWorkspaceUrl2 } from "../lib/api";
+import { saveDrawInfo, getAllSkills, listSkillsDetails, createMessage, streamChat, apiBase, listStorage, downloadWorkspaceUrl2,listDataspaceDirecory } from "../lib/api";
 
 const DEFAULT_SKILL_ICON = "/storage/common/common.png";
 
@@ -858,7 +858,7 @@ const OperatorLibraryModal: React.FC<OperatorLibraryModalProps> = ({ isOpen, onC
   return (
     <div className="operator-modal">
       <div className="modal-header">
-        <h3>算子库</h3>
+        <h3>算子库3132</h3>
         <button className="modal-close" onClick={onClose}>
           <X size={18} />
         </button>
@@ -982,12 +982,79 @@ const FlowEditorInner: React.FC<FlowEditorProps> = ({ initialPipelineData, onClo
   const [currentDirPath, setCurrentDirPath] = useState<string>('');
   const [isLoadingFiles, setIsLoadingFiles] = useState(false);
   const [uploadingFile, setUploadingFile] = useState(false);
-  const [fileSelectParamIndex, setFileSelectParamIndex] = useState<number | null>(null);
+  // 把原来的
+  // const [fileSelectParamIndex, setFileSelectParamIndex] = useState<number | null>(null);
+  // 改为：
+  const [fileSelectParamName, setFileSelectParamName] = useState<string | null>(null);
   const prevNodesLengthRef = useRef<number>(nodes.length);
 
   //新增一个变量，节点中是否村子missing_skill_stop节点
   const [hasMissingSkillStop, setHasMissingSkillStop] = useState(false);
   const [isMissingSkillStop,setIsMissingSkillStop] = useState(false);
+ //新增变量，记录是否为数据源弹框
+  const [dataSources, setDataSources] = useState<{ id: string; name: string }[]>([]);
+  const [isLoadingDataSources, setIsLoadingDataSources] = useState(false);
+  const [selectedFileItem, setSelectedFileItem] = useState<{ } | null>(null);
+  //数据源弹框内容接口
+  const loadDataSources = useCallback(async () => {
+    setIsLoadingDataSources(true);
+    try {
+      const res = await listDataspaceDirecory(); 
+      if (Array.isArray(res.result.items)) { 
+        setDataSources(res.result.items.map(item => ({ source_id: item.source_id, database_name: item.database_name,name:item.name })));
+      }
+    } catch (err) {
+      console.error('加载数据源失败:', err);
+      setDataSources([]);
+    } finally {
+      setIsLoadingDataSources(false);
+    }
+  }, []);
+  useEffect(() => {
+    if (fileSelectParamName === 'datasource_id') {
+      loadDataSources();
+    }
+  }, [fileSelectParamName, loadDataSources]);
+  const handleSelectDataSource = useCallback((selectedId: string) => {
+    // 1. 在 dataSources 中查找匹配项
+    const selectedItem = dataSources.find(ds => ds.source_id === selectedId);
+    
+    if (!selectedItem || !selectedNodeId) {
+      setShowFileModal(false);
+      return;
+    }
+
+    // 2. 获取要更新的参数名（假设是 'relative_path'）
+    const targetParamName = 'relative_path'; // 👈 根据实际需求调整
+
+    // 3. 更新节点的 input_params 中对应参数的 _value
+    setNodes((nds) =>
+      nds.map((n) => {
+        if (n.id === selectedNodeId) {
+          const newParams = [...(n.data.input_params?.params || [])];
+          const targetIndex = newParams.findIndex(p => p.name === targetParamName);
+          if (targetIndex !== -1) {
+            newParams[targetIndex] = { 
+              ...newParams[targetIndex], 
+              _value: selectedItem.name, // 👈 赋值 name 到 _value
+              param_value: selectedItem.name, // 可选：也同步到 param_value
+            };
+          }
+          return {
+            ...n,
+            data: {
+              ...n.data,
+              input_params: { ...n.data.input_params, params: newParams },
+            },
+          };
+        }
+        return n;
+      })
+    );
+
+    setShowFileModal(false); // 关闭弹窗
+  }, [dataSources, selectedNodeId]);
+    
   // 键盘Delete键删除选中节点
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -1166,17 +1233,17 @@ const handleParamChange = (e, targetName) => {
   }, [currentDirPath, loadDirectories]);
 
   const handleSelectFileForParam = useCallback((filePath: string) => {
-    if (fileSelectParamIndex === null || !selectedNodeId) {
+    if (!fileSelectParamName || !selectedNodeId) {
       setShowFileModal(false);
-      setFileSelectParamIndex(null);
       return;
     }
     setNodes((nds) =>
       nds.map((n) => {
         if (n.id === selectedNodeId) {
           const newParams = [...(n.data.input_params?.params || [])];
-          if (newParams[fileSelectParamIndex]) {
-            newParams[fileSelectParamIndex] = { ...newParams[fileSelectParamIndex], _value: filePath };
+          const targetIndex = newParams.findIndex(p => p.name === fileSelectParamName);
+          if (targetIndex !== -1) {
+            newParams[targetIndex] = { ...newParams[targetIndex], _value: filePath };
           }
           return {
             ...n,
@@ -1190,8 +1257,7 @@ const handleParamChange = (e, targetName) => {
       })
     );
     setShowFileModal(false);
-    setFileSelectParamIndex(null);
-  }, [fileSelectParamIndex, selectedNodeId]);
+  }, [fileSelectParamName, selectedNodeId]); // 注意依赖项也改了
 
   // 当 messageId prop 变化时更新 state
   useEffect(() => {
@@ -3350,20 +3416,18 @@ const mapOutputParamsValues = (rawParams) => {
       // 检查nodes 中是否有引用类型的参数
 
       // ========== 开始：替换的核心逻辑 ==========
-      // 1. 准备 nodesToSave 和 bindingMap (这部分保持不变)
-      // 因为在节点中存在了来源的select选错位，导致了保存的inpuParams参数错误，在这重新保存的时候，把同名的使用outParams给inputParams再保存一次
-     const nodesToSave = nodes.map(node => {
-      if (node.type === 'comment') {
-        return {
-          node_id: node.id,
-          node_name: node.data.label,
-          node_type: 'comment',
-          position: node.position,
-          skill: null,
-          input_params: node.data.input_params,
-          output_params: node.data.output_params,
-        };
-      }
+      const nodesToSave = nodes.map(node => {
+        if (node.type === 'comment') {
+          return {
+            node_id: node.id,
+            node_name: node.data.label,
+            node_type: 'comment',
+            position: node.position,
+            skill: null,
+            input_params: [],
+            output_params: []
+          };
+        }
 
       // 先提取 outputParams 并建立 name -> param_value 的映射
       const rawOutputParams = node.data.output_params?.params || [];
@@ -3465,7 +3529,6 @@ const mapOutputParamsValues = (rawParams) => {
         });
       });
 
-      // 2. 确定要使用的 taskId
       // 先尝试使用已有的 taskId
       let currentTaskId = taskId;
 
@@ -4086,7 +4149,7 @@ const mapOutputParamsValues = (rawParams) => {
                               </div>
                             ) : (
                               // 2. 手动输入/数据源模式 UI
-                              param.name === 'file_path' && param._refType === 'manual' ? (
+                              param.name === 'file_path' && param._refType === 'manual' || param.name === 'datasource_id' ? (
                                 // 特殊处理：文件选择器
                                 <input
                                   className="draw-config-value-input"
@@ -4095,8 +4158,8 @@ const mapOutputParamsValues = (rawParams) => {
                                   title={param._value || param.param_value || ''}
                                   readOnly
                                   style={{ cursor: 'pointer', backgroundColor: '#f8fafc' }}
-                                  onClick={async () => {
-                                    setFileSelectParamIndex(index); 
+                                  onClick={async () => { 
+                                    setFileSelectParamName(param.name); // ✅ 用 name 代替 index
                                     await loadDirectories();
                                     setShowFileModal(true);
                                   }}
@@ -4235,16 +4298,16 @@ const mapOutputParamsValues = (rawParams) => {
         </div>
       )}
 
-      {/* 文件系统弹窗 */}
-      {showFileModal && (
-        <div className="file-system-overlay" onClick={() => { setShowFileModal(false); setFileSelectParamIndex(null); }}>
+      {/* 文件系统弹窗 修改判断条件*/}
+      {fileSelectParamName !== null && fileSelectParamName !== 'datasource_id' && (
+        <div className="file-system-overlay" onClick={() => { setShowFileModal(false); setFileSelectParamName(null); }}>
           <div className="file-system-modal" onClick={(e) => e.stopPropagation()}>
             <div className="file-system-header">
               <div className="file-system-title">
                 <FolderOpen size={18} />
-                <span>{fileSelectParamIndex !== null ? '选择文件' : '文件系统'}</span>
+                <span>{!fileSelectParamName !== null ? '选择文件' : '文件系统'}</span>
               </div>
-              <button className="file-system-close" onClick={() => { setShowFileModal(false); setFileSelectParamIndex(null); }}>
+              <button className="file-system-close" onClick={() => { setShowFileModal(false); setFileSelectParamName(null); }}>
                 <X size={18} />
               </button>
             </div>
@@ -4267,7 +4330,7 @@ const mapOutputParamsValues = (rawParams) => {
             </div>
 
             <div className="file-system-actions">
-              {fileSelectParamIndex === null && (
+              {!fileSelectParamName === null && (
                 <label className="file-system-upload-btn">
                   
                   <Upload size={14} />
@@ -4280,7 +4343,7 @@ const mapOutputParamsValues = (rawParams) => {
                   />
                 </label>
               )}
-              {fileSelectParamIndex !== null && (
+              {!fileSelectParamName && (
                 <span className="file-system-hint">双击文件或点击"选择"按钮选中文件</span>
               )}
             </div>
@@ -4307,7 +4370,7 @@ const mapOutputParamsValues = (rawParams) => {
                         }
                       }}
                       onDoubleClick={() => {
-                        if (item.type === 'file' && fileSelectParamIndex !== null) {
+                        if (item.type === 'file' && !fileSelectParamName) {
                           handleSelectFileForParam(item.path);
                         }
                       }}
@@ -4320,7 +4383,7 @@ const mapOutputParamsValues = (rawParams) => {
                         )}
                       </div>
                       <span className="file-system-item-name">{item.name}</span>
-                      {item.type === 'file' && fileSelectParamIndex === null && (
+                      {item.type === 'file' && !fileSelectParamName && (
                         <button
                           className="file-system-download-btn"
                           onClick={(e) => {
@@ -4331,7 +4394,7 @@ const mapOutputParamsValues = (rawParams) => {
                           <Download size={14} />
                         </button>
                       )}
-                      {item.type === 'file' && fileSelectParamIndex !== null && (
+                      {item.type === 'file' && !fileSelectParamName && (
                         <button
                           className="file-system-select-btn"
                           onClick={(e) => {
@@ -4350,9 +4413,94 @@ const mapOutputParamsValues = (rawParams) => {
           </div>
         </div>
       )}
+      {/* 数据源选择下拉框（仅当 fileSelectParamName === 'datasource_id'） */}
+      {fileSelectParamName === 'datasource_id' && (
+        <div className="file-system-overlay" onClick={() => { setShowFileModal(false); setFileSelectParamName(null); }}>
+          <div className="file-system-modalSource" onClick={(e) => e.stopPropagation()}>
+            <div className="file-system-header">
+              <div className="file-system-title">
+                <Database size={18} />
+                <span>选择数据源</span>
+              </div>
+              <button className="file-system-close" onClick={() => { setShowFileModal(false); setFileSelectParamName(null); }}>
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="file-system-content" style={{ padding: '16px' }}>
+              {isLoadingDataSources ? (
+                <div className="file-system-loading">
+                  <span>加载数据源...</span>
+                </div>
+              ) : (
+                
+                <select
+                  className="datasource-select"
+                  onChange={(e) => {
+                    const selectedId = e.target.value;
+                    handleSelectDataSource(selectedId);
+                    if (selectedId) {
+                      // 将选中的 datasource_id 写入节点参数
+                      setNodes((nds) =>
+                        nds.map((n) => {
+                          if (n.id === selectedNodeId) {
+                            const newParams = [...(n.data.input_params?.params || [])];
+                            const targetIndex = newParams.findIndex(p => p.name === 'datasource_id');
+                            if (targetIndex !== -1) {
+                              newParams[targetIndex] = { 
+                                ...newParams[targetIndex], 
+                                _value: selectedId,
+                                param_value: selectedId,
+                              };
+                            }
+
+                            const rpIndex = newParams.findIndex(p => p.name === 'relative_path');
+                            if (rpIndex !== -1 && selectedFileItem?.name) {
+                              newParams[rpIndex] = {
+                                ...newParams[rpIndex],
+                                _value: selectedFileItem.name,
+                                param_value: selectedFileItem.name,
+                              };
+                            }
+
+                            return {
+                              ...n,
+                              data: {
+                                ...n.data,
+                                input_params: { ...n.data.input_params, params: newParams },
+                              },
+                            };
+                          }
+                          return n;
+                        })
+                      );
+                      setShowFileModal(false);
+                      setFileSelectParamName(null);
+                    }
+                  }}
+                  style={{
+                    width: '100%',
+                    padding: '8px',
+                    fontSize: '14px',
+                    borderRadius: '4px',
+                    border: '1px solid #d1d5db',
+                  }}
+                >
+                  <option value="">请选择数据源</option>
+                  {dataSources.map(ds => (
+                    <option key={ds.source_id} value={ds.source_id} >
+                      {ds.database_name}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
       {/* 将提示成功信息修改一下位置，避免遮挡 */}
       {saveMessage && (
-        <div className="save-message fixed top-[90px] right-4 z-50" >{saveMessage}</div>
+        <div className="save-message fixed top-[120px] right-4 z-50" >{saveMessage}</div>
       )}
     </div>
   );

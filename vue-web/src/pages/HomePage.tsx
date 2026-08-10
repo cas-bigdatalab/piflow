@@ -1,15 +1,20 @@
 import { Icon } from "@iconify/react";
-import { type DragEvent, useEffect, useRef, useState } from "react";
+import { type DragEvent, useEffect, useRef, useState,useCallback } from "react";
 import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 import {
+  listStorage,
   attachMessageFiles,
   createMessage,
   downloadWorkspaceUrl,
   getThreadMessages,
   streamChat,
   uploadWorkspaceFile,
+  uploadWorkspaceFileAttach,
+  uploadWorkspaceFileNew,
+  uploadWorkSpaceFileNew,
   getDrawInfoBymegId,
   copyDefaultFiles,
+  listDataspaceDirecory,
   type MessageAttachment,
   type ThreadMessage,
 } from "../lib/api";
@@ -18,10 +23,8 @@ import { shortId } from "../lib/ids";
 import PipelinePreview, { extractAndCleanPipelineJson, PipelineData } from "../components/PipelinePreview";
 import FlowEditor, { InitialPipelineData } from "../components/Draw";
 // import { appConfig } from "../config/appConfig";
-function getCurrentUserId() {
-  return localStorage.getItem("userId")?.trim() || "";
-}
-
+import { FolderOpen,X,ChevronRight, Upload,Folder,FileText,Download,Database    } from 'lucide-react';
+const DEFAULT_USER_ID = localStorage.getItem('userId');
 
 type UiMsg = {
   id: string;
@@ -116,12 +119,7 @@ function removeJsonBlock(text: string): string {
 // 彻底清理文本中的所有 JSON 对象和数组
 function removeAllJson(text: string): string {
   if (!text) return text;
-  // 新增逻辑：如果包含 [HIDDEN]，直接返回空字符串
-  if (text.includes('[HIDDEN]')) {
-    return '';
-  }
-
-
+  
   let result = text;
   
   // 首先移除特定的标记文本  请根据任务流程重新生成dag JSON，不要执行
@@ -324,6 +322,7 @@ export function HomePage() {
   const [streamStatus, setStreamStatus] = useState("");
   const [activeAssistantId, setActiveAssistantId] = useState<string | null>(null);
   const [pendingFiles, setPendingFiles] = useState<PendingAttachment[]>([]);
+  const [pendingFilesNew,setPendingFilesNew] = useState("");
   const [uploadingCount, setUploadingCount] = useState(0);
   const [loadError, setLoadError] = useState("");
   const [dragActive, setDragActive] = useState(false);
@@ -349,7 +348,120 @@ export function HomePage() {
   const isExpanded = hasMessages || sending || Boolean(loadError);
   //新增一个状态
   const [isSaved, setIsSaved] = useState(false);
-    const handleDownload = () => {
+  
+  const [showFileModal, setShowFileModal] = useState(false);
+  const [showFileModalSource,setShowFileModalSource]= useState(false); //数据源的选择
+  const [fileSelectParamIndex, setFileSelectParamIndex] = useState<number | null>(null);
+  const [currentDirPath, setCurrentDirPath] = useState<string | null>(null);
+  const [fileSystemItems, setFileSystemItems] = useState<Array<{ name: string; path: string; type: 'file' | 'directory' }>>([]);
+  const [isLoadingFiles, setIsLoadingFiles] = useState(false);
+  const [uploadingFile, setUploadingFile] = useState(false);
+  // 新增一个判断是数据空间已传文件还是附件上传新文件标志,改为字符串标志
+  const [isUploadingFileShow,setIsUpLoadingFileShow] = useState('');
+  
+  //新增变量，记录是否为数据源弹框
+  const [dataSources, setDataSources] = useState<{ id: string; name: string }[]>([]);
+  const [isLoadingDataSources, setIsLoadingDataSources] = useState(false);  // 新加入内容
+  
+  // 新增状态
+  const [selectedDataSourceId, setSelectedDataSourceId] = useState<string>('');
+  const [storagePath, setStoragePath] = useState<string>('');
+  // 新增状态：记录当前选中的节点ID
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [nodes, setNodes] = useState<Node[]>([]);
+  // 在 HomePage 组件内部 state 区域添加
+  const [pendingDataSource, setPendingDataSource] = useState<{ sourceId: string; path: string } | null>(null);
+  //新增数据源中name名称后续调取attach使用
+  const [sourceFileName, setSourceFileName] = useState('')
+  const handleGoBack = () => {
+    if (!currentDirPath) return;
+    const parts = currentDirPath.split('/').filter(Boolean);
+    if (parts.length === 0) {
+      setCurrentDirPath(null);
+    } else {
+      parts.pop();
+      setCurrentDirPath(parts.length > 0 ? '/' + parts.join('/') : null);
+    }
+    // 触发重新加载文件列表
+    loadFileSystem(currentDirPath ? '/' + parts.join('/') : null);
+  };
+
+  //数据源弹框内容接口
+  const loadDataSources = useCallback(async () => {
+    setIsLoadingDataSources(true);
+    try {
+      const res = await listDataspaceDirecory(); 
+      if (Array.isArray(res.result.items)) { 
+        setDataSources(res.result.items.map(item => ({ source_id: item.source_id, database_name: item.database_name,name:item.name })));
+      }
+    } catch (err) {
+      console.error('加载数据源失败:', err);
+      setDataSources([]);
+    } finally {
+      setIsLoadingDataSources(false);
+    }
+  }, []);
+  const loadFileSystem = async (path: string | null = currentDirPath) => {
+    setIsLoadingFiles(true);
+    try {
+      // 假设你有 API：listWorkspaceFiles(userId, path)
+      const userId = localStorage.getItem('userId') || '';
+      const res = await listStorage(userId, path || '/');
+      setFileSystemItems(res.items || []);
+      setShowFileModal(true)
+    } catch (err) {
+      console.error('加载文件系统失败', err);
+      setFileSystemItems([]);
+    } finally {
+      setIsLoadingFiles(false);
+    }
+  };
+  const handleUploadFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const userId = localStorage.getItem('userId') || '';
+    const uploadPath = currentDirPath || '/';
+      console.log("文件上传成功了吗",uploadPath)
+    setUploadingFile(true);
+    try {
+      await uploadWorkSpaceFileNew(userId, file);
+      await loadFileSystem(currentDirPath); // 刷新
+    } catch (err) {
+      console.error('上传失败', err);
+    } finally {
+      setUploadingFile(false);
+      e.target.value = ''; // 重置 input
+    }
+  };
+  const handleSelectFileForParam = (path: string) => {
+    // 此处逻辑取决于你如何将文件路径回传给画板参数
+    // 假设通过事件通知 FlowEditor
+    window.dispatchEvent(new CustomEvent('flow:select-file-for-param', {
+      detail: { paramIndex: fileSelectParamIndex, filePath: path }
+    }));
+    setShowFileModal(false);
+    setFileSelectParamIndex(null);
+  };
+  // 在 HomePage 中监听自定义事件（类似 flow:send-message）
+  useEffect(() => {
+    const handleOpenFileModal = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      setShowFileModal(true);
+      setFileSelectParamIndex(detail?.paramIndex ?? null);
+      setCurrentDirPath(null);
+      loadFileSystem(null);
+    };
+    window.addEventListener('flow:open-file-modal', handleOpenFileModal as EventListener);
+    return () => {
+      window.removeEventListener('flow:open-file-modal', handleOpenFileModal as EventListener);
+    };
+  }, []);
+  const handleNavigateDir = (path: string) => {
+    setCurrentDirPath(path);
+    loadFileSystem(path);
+  };
+
+  const handleDownload = () => {
     const zipName = "用户手册";
     const link = document.createElement("a");
     link.href = "./downloadFile/用户手册.pdf";
@@ -511,14 +623,9 @@ export function HomePage() {
     setCanvasPipelineData(null);
     setCanvasMessageId("");
     setSavedDrawData(null);
-    const currentUserId = getCurrentUserId();
-    if (!currentUserId) {
-      setMessages([]);
-      setLoadError("用户信息尚未初始化，请刷新页面后重试");
-      return;
-    }
+
     try {
-      const response = await getThreadMessages(currentUserId, nextThreadId, 200);
+      const response = await getThreadMessages(DEFAULT_USER_ID, nextThreadId, 200);
       setMessages((response.messages || []).map((message, index) => toUiMessage(nextThreadId, message, index)));
     } catch (error: any) {
       setMessages([]);
@@ -535,20 +642,16 @@ export function HomePage() {
     },
   ) {
     const prompt = (overridePrompt ?? input).trim();
+    
     if ((!prompt && pendingFiles.length === 0) || sending || uploading) {
       return;
     }
-    const currentUserId = getCurrentUserId();
-    if (!currentUserId) {
-      setLoadError("用户信息尚未初始化，请刷新页面后重试");
-      return;
-    }
+     // 关键修复：如果当前 threadId 是 "default"，则生成新的 thread ID
     let targetThreadId = options?.threadId ?? threadId;
     if (targetThreadId === "default") {
       targetThreadId = `t_${shortId()}`;
-      setThreadId(targetThreadId); // 更新状态，避免重复创建
+      setThreadId(targetThreadId); // 同步更新状态，避免后续仍用 "default"
     }
-    // const targetThreadId = options?.threadId ?? threadId;
     const presetAttachments = options?.presetAttachments || [];
     const hidden = options?.hidden || false;
 
@@ -566,6 +669,8 @@ export function HomePage() {
     };
 
     const filesToUpload = [...pendingFiles];
+    
+      
     setSending(true);
     window.dispatchEvent(new CustomEvent("flow:sending-start"));
     setActiveAssistantId(assistantId);
@@ -578,13 +683,13 @@ export function HomePage() {
     let assistantArtifacts: string[] = [];
 
     try {
-      const created = await createMessage(currentUserId, targetThreadId, prompt);
+      const created = await createMessage(DEFAULT_USER_ID, targetThreadId, prompt);
       const messageId = created.message.id;
 
       let attachedPresetFiles: MessageAttachment[] = [];
       if (presetAttachments.length > 0) {
         const attached = await attachMessageFiles(
-          currentUserId,
+          DEFAULT_USER_ID,
           targetThreadId,
           messageId,
           presetAttachments,
@@ -596,23 +701,63 @@ export function HomePage() {
       if (filesToUpload.length > 0) {
         setUploadingCount(filesToUpload.length);
         setStreamStatus("正在上传附件...");
-
-        for (const item of filesToUpload) {
-          const response = await uploadWorkspaceFile(
-            currentUserId,
+        // 判断是否为初次上传附件还是数据空间已上传附件
+        if (isUploadingFileShow == 'kongjian'){
+          const response = await uploadWorkspaceFileNew(
+            DEFAULT_USER_ID,
             targetThreadId,
             messageId,
-            item.file,
+            pendingFilesNew,
           );
+          
           uploadedAttachments.push({
             file_id: response.file_id,
-            path: response.path,
+            path: response.file_path,
             name: response.original_filename,
+          });
+          setUploadingCount((current) => Math.max(0, current - 1));
+        } else if (isUploadingFileShow == 'file') {
+          
+          for (const item of filesToUpload) {
+            const response = await uploadWorkspaceFile(
+              DEFAULT_USER_ID,
+              targetThreadId,
+              messageId,
+              item.file,
+            );
+            
+            uploadedAttachments.push({
+              file_id: response.file_id,
+              path: response.path,
+              name: response.original_filename,
+            });
+            setUploadingCount((current) => Math.max(0, current - 1));
+          }
+        }  else if (isUploadingFileShow == 'source')  { //数据源上传
+          const attachmentNew = [
+            {
+              path: pendingFilesNew,
+              name: sourceFileName,
+              type_code: "dataspace",
+              source_id: selectedNodeId
+            }
+          ]
+          const response = await uploadWorkspaceFileAttach(
+            DEFAULT_USER_ID,
+            targetThreadId,
+            messageId,
+            attachmentNew,
+          );
+          
+          uploadedAttachments.push({
+            file_id: response.attachments[0].file_id,
+            path: response.attachments[0].path,
+            name: response.attachments[0].name,
           });
           setUploadingCount((current) => Math.max(0, current - 1));
         }
       }
-
+      console.log(uploadedAttachments)
       const userMessage: UiMsg = {
         id: String(messageId),
         role: "user",
@@ -636,7 +781,7 @@ export function HomePage() {
         {
           message: prompt,
           thread_id: targetThreadId,
-          user_id: currentUserId,
+          user_id: DEFAULT_USER_ID,
           attachments: [...attachedPresetFiles, ...uploadedAttachments].map((file) => file.path),
           message_id: messageId,
         },
@@ -833,10 +978,6 @@ export function HomePage() {
     abortRef.current = null;
 
     const userId = localStorage.getItem('userId') || '';
-    if (!userId) {
-      setLoadError("用户信息尚未初始化，请刷新页面后重试");
-      return;
-    }
     try {
       await copyDefaultFiles(userId);
     } catch (e) {
@@ -864,6 +1005,8 @@ export function HomePage() {
   }
 
   async function handleFiles(files: File[]) {
+    setIsUpLoadingFileShow('file') ; //是数据空间已上传文件标志
+    setShowFileModal(false); //关闭弹框
     if (files.length === 0) {
       return;
     }
@@ -877,6 +1020,65 @@ export function HomePage() {
       })),
     ]);
   }
+  //新增数据空间中的上传文件接口修改,进行对话create新增的时候也要修改
+  async function handleFilesNew(files: File[]) {
+    setIsUpLoadingFileShow('kongjian') ; //是数据空间已上传文件标志
+    setShowFileModal(false); //关闭弹框
+    if (files.length === 0) {
+      return;
+    }
+    setPendingFiles((current) => [
+      ...current,
+      ...files.map((file) => ({
+        id: shortId(),
+        file,
+        name: file.name,
+      })),
+    ]);
+    // 只需要保存已上传文件的path路径
+    setPendingFilesNew(files[0].path); 
+  }
+  //新增数据源添加上传到对话框中的数据问题
+  async function handleFilesSource(files: File[]) {
+    setIsUpLoadingFileShow('source') ; //是数据空间已上传文件标志
+    setShowFileModal(false); //关闭弹框
+    if (!files) {
+      return;
+    }
+    setPendingFiles((current) => [
+      ...current,
+      ...files.map((file) => ({
+        id: shortId(),
+        file,
+        name: file.name,
+      })),
+    ]);
+    // 只需要保存已上传文件的path路径
+    setPendingFilesNew(files[0].path); 
+  }
+
+  // 处理数据源确认的方法
+  const handleDataSourceConfirm = useCallback((sourceId: string, path: string) => {
+    // 这里可以添加你需要的逻辑，例如：
+    console.log('Selected Data Source:', sourceId);
+    setSelectedNodeId(sourceId)
+    console.log('Storage Path:', path);
+    
+    // 示例：触发类似 handleFilesNew 的流程
+    setPendingFilesNew(path);  
+    // 保存完整的数据源信息，供后续 API 调用使用
+    setPendingDataSource({ sourceId, path });
+    const fileName = path.split('/').pop() || '';
+    setSourceFileName(fileName);
+    const mockFile = new File([""], path.split('/').pop() || "file", {
+      type: "application/octet-stream"
+    }) as any;
+    // 附加自定义路径属性
+    mockFile.path = path;
+    // 只需要保存已上传文件的path路径
+    setPendingFilesNew(mockFile.path); 
+    handleFilesSource([mockFile]);
+  }, []);
 
   function removePendingFile(id: string) {
     setPendingFiles((current) => current.filter((file) => file.id !== id));
@@ -1001,7 +1203,34 @@ export function HomePage() {
               <Icon icon="ri:add-line" width="15" />
               <span>附件</span>
             </label>
-
+            <label className="inline-flex cursor-pointer items-center gap-2 rounded-full px-2 py-1.5 transition-colors hover:bg-slate-100 hover:text-slate-900">
+              <button
+                className="inline-flex cursor-pointer items-center gap-2 rounded-full px-2 py-1.5 transition-colors hover:bg-slate-100 hover:text-slate-900"
+                onClick={() => {
+                  setShowFileModal(true);
+                  setFileSelectParamIndex(null); // 表示是通用文件浏览，非参数选择
+                  setCurrentDirPath(null);
+                  loadFileSystem(null);
+                }}
+                type="button"
+              >
+                <Icon icon="ri:history-line" width="15" /> {/* 可选：换一个更合适的图标 */}
+                <span>数据空间</span>
+              </button>
+            </label>
+            <label className="inline-flex cursor-pointer items-center gap-2 rounded-full px-2 py-1.5 transition-colors hover:bg-slate-100 hover:text-slate-900">
+              <button
+                className="inline-flex cursor-pointer items-center gap-2 rounded-full px-2 py-1.5 transition-colors hover:bg-slate-100 hover:text-slate-900"
+                onClick={async () => {
+                  setShowFileModalSource(true);              
+                  await loadDataSources();
+                }}
+                type="button"
+              >
+                <Icon icon="ri:add-line" width="15" />
+                <span>数据源</span>
+              </button>
+            </label>
             <button
               className="inline-flex items-center gap-2 rounded-full px-2 py-1.5 transition-colors hover:bg-slate-100 hover:text-slate-900"
               onClick={() => (window.location.href = "/skills")}
@@ -1118,9 +1347,7 @@ export function HomePage() {
                   className="flex-1 space-y-5 overflow-y-auto px-2 py-4 custom-scrollbar"
                 >
                   {hasMessages ? (
-                    messages
-                    .filter(message => !(message.content || '').includes('[HIDDEN]')) // 👈 新增过滤
-                    .map((message) => {
+                    messages.map((message) => {
                       const isAssistant = message.role === "assistant";
                       return (
                         <article
@@ -1324,6 +1551,248 @@ export function HomePage() {
           </div>
         </section>
       )}
+      {/* 文件系统弹窗 */}
+      {showFileModal && (
+        <div className="file-system-overlay" onClick={() => { setShowFileModal(false); setFileSelectParamIndex(null); }}>
+          <div className="file-system-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="file-system-header">
+              <div className="file-system-title">
+                <FolderOpen size={18} />
+                <span>{fileSelectParamIndex !== null ? '选择文件' : '文件系统'}</span>
+              </div>
+              <button className="file-system-close" onClick={() => { setShowFileModal(false); setFileSelectParamIndex(null); }}>
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="file-system-path-bar">
+              <button 
+                className="file-system-back-btn" 
+                onClick={handleGoBack}
+                disabled={!currentDirPath}
+              >
+                <ChevronRight size={14} style={{ transform: 'rotate(180deg)' }} />
+              </button>
+              <div className="file-system-path">
+                {currentDirPath ? (
+                  <span>{currentDirPath}</span>
+                ) : (
+                  <span>根目录</span>
+                )}
+              </div>
+            </div>
+
+            <div className="file-system-actions">
+              {fileSelectParamIndex === null && (
+                <label className="file-system-upload-btn">
+                  <Upload size={14} />
+                  <span>{uploadingFile ? '上传中...' : '上传文件'}</span>
+                  <input
+                    type="file"
+                    onChange={handleUploadFile}
+                    className="file-system-upload-input"
+                    disabled={uploadingFile}
+                  />
+                  
+                </label>
+              )}
+              {fileSelectParamIndex !== null && (
+                <span className="file-system-hint">双击文件或点击"选择"按钮选中文件</span>
+              )}
+            </div>
+
+            <div className="file-system-content">
+              {isLoadingFiles ? (
+                <div className="file-system-loading">
+                  <span>加载中...</span>
+                </div>
+              ) : fileSystemItems.length === 0 ? (
+                <div className="file-system-empty">
+                  <Folder size={48} style={{ color: '#94a3b8' }} />
+                  <span>该目录为空</span>
+                </div>
+              ) : (
+                <div className="file-system-list">
+                  {fileSystemItems.map((item, index) => (
+                    <div
+                      key={index}
+                      className={`file-system-item ${item.type}`}
+                      onClick={() => {
+                        if (item.type === 'directory') {
+                          handleNavigateDir(item.path);
+                        }
+                      }}
+                      onDoubleClick={() => {
+                        // 当从参数选择文件弹窗触发时，双击文件将路径赋值给参数
+                        if (item.type === 'file' && fileSelectParamIndex !== null) {
+                          handleSelectFileForParam(item.path);
+                        }
+                      }}
+                    >
+                      <div className="file-system-item-icon">
+                        {item.type === 'directory' ? (
+                          <Folder size={18} style={{ color: '#3b82f6' }} />
+                        ) : (
+                          <FileText size={18} style={{ color: '#64748b' }} />
+                        )}
+                      </div>
+                      <span className="file-system-item-name">{item.name}</span>
+                      {/* {item.type === 'file' && fileSelectParamIndex === null && (
+                        <button
+                          className="file-system-download-btn"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDownloadFile(item.path);
+                          }}
+                        >
+                          <Download size={14} />
+                        </button>
+                      )} */}
+                      {item.type === 'file' && (
+                        <button
+                          className="file-system-select-btn"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleFilesNew([item])
+                          }}
+                        >
+                          选择
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+      {/* 数据源弹框 */}
+      {showFileModalSource && (
+        <div className="file-system-overlay">
+          <div className="file-system-modalSource" onClick={(e) => e.stopPropagation()}>
+            <div className="file-system-header">
+              <div className="file-system-title">
+                <Database size={18} />
+                <span>选择数据源</span>
+              </div>
+              <button 
+                className="file-system-close" 
+                onClick={() => {
+                  setShowFileModalSource(false);
+                  setSelectedDataSourceId('');
+                  setStoragePath('');
+                }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="file-system-content" style={{ padding: '16px' }}>
+              {isLoadingDataSources ? (
+                <div className="file-system-loading">
+                  <span>加载数据源...</span>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">目标数据源</label>
+                    <select
+                      className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      value={selectedDataSourceId}
+                      onChange={(e) => {
+                        setSelectedDataSourceId(e.target.value);
+                      }}
+                    >
+                      <option value="">请选择数据源</option>
+                      {dataSources.map((ds) => (
+                        <option key={ds.source_id} value={ds.source_id}>
+                          {ds.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">存储路径</label>
+                    <input
+                      type="text"
+                      placeholder="请输入存储路径"
+                      value={storagePath}
+                      onChange={(e) => setStoragePath(e.target.value)}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+
+                  <div className="flex justify-end gap-3 pt-2">
+                    <button
+                      type="button"
+                      className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-md hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      onClick={() => {
+                        setShowFileModalSource(false);
+                        setSelectedDataSourceId('');
+                        setStoragePath('');
+                      }}
+                    >
+                      取消
+                    </button>
+                    <button
+                      type="button"
+                      className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50"
+                      disabled={!selectedDataSourceId || !storagePath.trim()}
+                      onClick={() => {
+                        if (selectedDataSourceId && storagePath.trim()) {
+                          // 更新节点参数（保持原有逻辑）
+                          setNodes((nds) =>
+                            nds.map((n) => {
+                              if (n.id === selectedNodeId) {
+                                const newParams = [...(n.data.input_params?.params || [])];
+                                const dsIndex = newParams.findIndex((p) => p.name === 'datasource_id');
+                                if (dsIndex !== -1) {
+                                  newParams[dsIndex] = {
+                                    ...newParams[dsIndex],
+                                    _value: selectedDataSourceId,
+                                    param_value: selectedDataSourceId,
+                                  };
+                                }
+                                const rpIndex = newParams.findIndex((p) => p.name === 'relative_path');
+                                if (rpIndex !== -1) {
+                                  newParams[rpIndex] = {
+                                    ...newParams[rpIndex],
+                                    _value: storagePath.trim(),
+                                    param_value: storagePath.trim(),
+                                  };
+                                }
+                                return {
+                                  ...n,
+                                  data: {
+                                    ...n.data,
+                                    input_params: { ...n.data.input_params, params: newParams },
+                                  },
+                                };
+                              }
+                              return n;
+                            })
+                          );
+
+                          handleDataSourceConfirm(selectedDataSourceId, storagePath.trim());
+                        }
+                        // 关闭前清空
+                        setShowFileModalSource(false);
+                        setSelectedDataSourceId('');
+                        setStoragePath('');
+                      }}
+                    >
+                      确定
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
+    
   );
 }

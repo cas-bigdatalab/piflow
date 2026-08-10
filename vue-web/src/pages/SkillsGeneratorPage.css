@@ -1,0 +1,324 @@
+/* 全局容器 */
+.og-container {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 20px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  color: #333;
+  background-color: #f5f7fa; /* 浅灰背景 */
+  min-height: 100vh;
+}
+
+/* 顶部导航 */
+.og-header {
+  margin-bottom: 24px;
+}
+
+.og-back-link {
+  background: none;
+  border: none;
+  color: #666;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 0;
+  margin-bottom: 8px;
+}
+
+.og-back-link:hover {
+  color: #00bfa5;
+}
+
+.og-page-title {
+  font-size: 24px;
+  font-weight: bold;
+  margin: 0;
+}
+
+/* 步骤条 */
+.og-stepper {
+  display: flex;
+  align-items: center;
+  margin-bottom: 30px;
+  padding-left: 20px;
+}
+
+.og-step {
+  display: flex;
+  align-items: center;
+  color: #999;
+  font-size: 14px;
+}
+
+.og-step.active {
+  color: #333;
+  font-weight: bold;
+}
+
+.og-step.completed .og-step-circle {
+  background-color: #ccc;
+  border-color: #ccc;
+  color: white;
+}
+
+.og-step.active .og-step-circle {
+  background-color: #333; /* 黑色高亮 */
+  border-color: #333;
+  color: white;
+}
+
+.og-step-circle {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 1px solid #ddd;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 8px;
+  font-size: 12px;
+  background: white;
+}
+
+.og-step-line {
+  width: 60px;
+  height: 1px;
+  background-color: #e0e0e0;
+  margin: 0 12px;
+}
+
+/* 主卡片 */
+.og-card {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  padding: 30px;
+  min-height: 500px;
+  display: flex;
+  flex-direction: column;
+}
+
+.og-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 30px;
+}
+
+.og-card-title {
+  font-size: 18px;
+  margin: 0 0 8px 0;
+}
+
+.og-card-subtitle {
+  color: #666;
+  font-size: 13px;
+  margin: 0;
+}
+
+.og-back-small {
+  background: none;
+  border: none;
+  color: #666;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+/* 聊天区域 */
+.og-chat-area {
+  flex: 1;
+  margin-bottom: 30px;
+}
+
+.og-message-row {
+  display: flex;
+  align-items: flex-start;
+}
+
+.og-avatar {
+  width: 36px;
+  height: 36px;
+  background-color: #f0f2f5;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: bold;
+  color: #555;
+  margin-right: 12px;
+  flex-shrink: 0;
+}
+
+.og-message-bubble {
+  background-color: #f4f5f7; /* 浅灰气泡 */
+  padding: 16px 20px;
+  border-radius: 0 12px 12px 12px;
+  max-width: 80%;
+}
+
+.og-greeting {
+  margin: 0 0 12px 0;
+  font-weight: 500;
+}
+
+.og-instruction {
+  margin: 0 0 12px 0;
+  line-height: 1.5;
+  color: #333;
+}
+
+.og-example {
+  margin: 0;
+  color: #999;
+  font-style: italic;
+  font-size: 13px;
+}
+
+/* 底部操作区 */
+.og-action-area {
+  border-top: 1px solid #eee;
+  padding-top: 20px;
+}
+
+.og-chips-container {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.og-chip {
+  background: #f0f2f5;
+  border: 1px solid transparent;
+  border-radius: 20px;
+  padding: 6px 16px;
+  font-size: 13px;
+  color: #555;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.og-chip:hover {
+  background: #e4e6eb;
+  color: #333;
+}
+
+.og-input-row {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.og-input {
+  flex: 1;
+  padding: 12px 16px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  outline: none;
+  font-size: 14px;
+  transition: border-color 0.2s;
+}
+
+.og-input:focus {
+  border-color: #00bfa5;
+}
+
+.og-btn-send {
+  background-color: #00bfa5; /* 绿色主色调 */
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 0 24px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.og-btn-send:hover {
+  background-color: #00a891;
+}
+
+.og-footer-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.og-btn-preview {
+  background-color: #00bfa5;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 10px 20px;
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.og-btn-preview:hover {
+  background-color: #00a891;
+}
+/* 聊天区域容器 */
+.og-chat-area {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px;
+  height: 300px; /* 或根据设计图调整 */
+  overflow-y: auto;
+}
+
+/* 单条消息行：默认 AI 在左 */
+.og-message-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+/* 用户消息：整体右对齐 */
+.og-message-row.user {
+  flex-direction: row-reverse;
+  text-align: right;
+}
+
+/* 头像通用样式 */
+.og-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  flex-shrink: 0;
+}
+
+.og-avatar.assistant {
+  background-color: #6c5ce7; /* 紫色，对应 OP */
+  color: white;
+}
+
+.og-avatar.user {
+  background-color: #00b894; /* 青绿色，对应 ME */
+  color: white;
+}
+
+/* 消息气泡 */
+.og-message-bubble {
+  max-width: 70%;
+  padding: 12px 16px;
+  border-radius: 18px;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.og-message-bubble.assistant {
+  background-color: #f0f2f5;
+  border-bottom-left-radius: 4px;
+}
+
+.og-message-bubble.user {
+  background-color: #00b894;
+  color: white;
+  border-bottom-right-radius: 4px;
+}

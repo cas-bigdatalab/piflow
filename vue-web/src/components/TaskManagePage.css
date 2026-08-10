@@ -1,0 +1,498 @@
+/* 全局基础样式：统一字体、重置边距 */
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  background: #f8fafc; /* 浅灰背景，减少视觉疲劳 */
+}
+
+
+/* ================= 页面整体布局：占满全屏 ================= */
+.task-manage-page {
+  display: flex;
+  flex-direction: column;
+  height: 100vh; /* 强制占满视口高度 */
+  padding: 24px;
+  gap: 20px; /* 各模块间距统一 */
+}
+
+
+/* ================= 头部区域（标题+操作栏） ================= */
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.page-title {
+  font-size: 24px; /* 标题加大，增强层级 */
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0;
+}
+.page-actions {
+  display: flex;
+  gap: 16px; /* 搜索框与按钮间距加大 */
+  align-items: center;
+}
+
+
+/* 搜索框：增加聚焦动效、圆角更柔和 */
+.search-box {
+  position: relative;
+}
+.search-box input {
+  width: 280px; /* 宽度适当加宽 */
+  padding: 10px 12px 10px 40px; /* 内边距调整，给图标留空间 */
+  border: 1px solid #e2e8f0;
+  border-radius: 8px; /* 圆角从6px→8px，更现代 */
+  font-size: 15px;
+  outline: none;
+  background: #fff;
+  transition: all 0.3s ease; /* 增加过渡动画 */
+}
+.search-box input:focus {
+  border-color: #1890ff;
+  box-shadow: 0 0 0 3px rgba(24, 144, 255, 0.1); /* 聚焦时发光效果 */
+}
+.search-icon {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%); /* 图标垂直居中 */
+  color: #94a3b8;
+}
+
+
+/* 新建按钮：颜色对比度提升，hover更明显 */
+.create-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px; /* 按钮尺寸加大 */
+  background: #1e293b;
+  border: none;
+  border-radius: 8px;
+  font-size: 15px;
+  color: #fff;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+.create-btn:hover {
+  background: #334155;
+  transform: translateY(-1px); /* hover时轻微上浮，增强交互感 */
+  box-shadow: 0 4px 12px rgba(30, 41, 59, 0.2); /* 阴影提升立体感 */
+}
+
+
+/* ================= 表格容器：自动填充剩余空间 ================= */
+.data-table-container {
+  flex: 1; /* 关键！让表格区域自动占满头部和分页之间的空间 */
+  background: #fff;
+  border-radius: 12px; /* 圆角加大，更圆润 */
+  border: 1px solid #e2e8f0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column; /* 内部表格和分页纵向排列 */
+}
+
+
+/* 表格本体：优化行高、字体、hover效果 */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  flex: 1; /* 表格占满容器上半部分 */
+}
+.data-table th {
+  padding: 12px 20px; /* 表头内边距加大 */
+  text-align: center;
+  font-size: 15px;
+  font-weight: 600;
+  color: #1e293b;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+}
+.data-table td {
+  padding: 8px 20px; /* 单元格内边距与表头一致 */
+  font-size: 15px;
+  color: #334155;
+  border-bottom: 1px solid #f1f5f9;
+}
+.data-table tbody tr:hover {
+  background: #f1f5f9; /* hover时背景色更浅，区分度更高 */
+}
+
+
+/* 单元格细节优化 */
+.name-cell .task-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: center;
+  color: #334155;
+}
+.desc-cell {
+  text-align: center;
+  max-width: 350px; /* 描述列宽度适当加宽 */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #64748b;
+}
+.creator-cell {
+  text-align: center;
+  font-family: Consolas, Monaco, monospace;
+  color: #64748b;
+}
+.time-cell {
+  text-align: center;
+  color: #64748b;
+}
+
+
+
+/* 容器保持 flex 居中 */
+.action-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px; /* 间距不用太大，紧凑一点更精致 */
+}
+
+/* 基础按钮样式 */
+.icon-btn {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent; /* 默认透明 */
+  border: none;
+  border-radius: 6px; /* 圆角矩形，比圆形更适合这种小按钮 */
+  cursor: pointer;
+  color: #94a3b8; /* 默认灰色，降低存在感 */
+  transition: all 0.2s ease;
+}
+
+/* 通用 Hover：浅灰背景 + 深色文字 */
+.icon-btn:hover {
+  background: #f1f5f9; 
+  color: #334155;
+}
+
+/* --- 特殊功能色定义 --- */
+
+/* 1. 运行/播放 (Primary)：悬停变蓝 */
+.icon-btn.primary:hover {
+  background: #eff6ff; /* 极浅蓝背景 */
+  color: #2563eb;       /* 亮蓝文字 */
+}
+
+/* 2. 删除 (Danger)：悬停变红，警示感 */
+.icon-btn.danger:hover {
+  background: #fef2f2; /* 极浅红背景 */
+  color: #ef4444;      /* 红色文字 */
+}
+
+/* 3. 编辑 (Edit)：保持通用灰色或悬停变黑即可 */
+
+
+
+
+
+/* 加载/空状态：增加动画和视觉层次 */
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px;
+  gap: 16px;
+  color: #94a3b8;
+  font-size: 16px;
+}
+.loading-spinner {
+  width: 36px; /* 加载动画加大 */
+  height: 36px;
+  border: 3px solid #e2e8f0;
+  border-top-color: #1890ff;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.empty-state {
+  padding: 80px; /* 空状态内边距加大 */
+  text-align: center;
+  color: #94a3b8;
+  font-size: 16px;
+}
+
+
+/* ================= 分页栏：固定在表格容器底部 ================= */
+.pagination {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px; /* 分页内边距与表格一致 */
+  border-top: 1px solid #f1f5f9;
+  background: #fff; /* 确保背景白色，与表格融合 */
+}
+.pagination-info {
+  font-size: 14px; /* 分页信息字号缩小，不抢视觉 */
+  color: #64748b;
+}
+.pagination-controls {
+  display: flex;
+  gap: 6px; /* 分页按钮间距加大 */
+}
+.page-btn {
+  padding: 8px 14px; /* 分页按钮尺寸加大 */
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  border-radius: 6px;
+  font-size: 14px;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+.page-btn:hover:not(:disabled) {
+  border-color: #1890ff;
+  color: #1890ff;
+  transform: translateY(-1px); /* hover时上浮 */
+}
+.page-btn.active {
+  background: #1890ff;
+  border-color: #1890ff;
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(24, 144, 255, 0.3); /* 激活态阴影 */
+}
+.page-btn:disabled {
+  color: #cbd5e1;
+  cursor: not-allowed;
+}
+.page-ellipsis {
+  padding: 8px 10px;
+  color: #94a3b8;
+  font-size: 14px;
+}
+
+
+/* ================= 弹窗样式：优化圆角、阴影、交互 ================= */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+.task-modal-content {
+  width: 700px; /* 弹窗宽度加大 */
+  max-width: 90vw;
+  background: #fff;
+  border-radius: 16px; /* 圆角加大，更柔和 */
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+}
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24px; /* 弹窗头部内边距加大 */
+  border-bottom: 1px solid #f1f5f9;
+}
+.modal-header h3 {
+  margin: 0;
+  font-size: 20px; /* 弹窗标题加大 */
+  font-weight: 700;
+  color: #1e293b;
+}
+.modal-close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #94a3b8;
+  padding: 4px;
+  transition: color 0.3s ease;
+}
+.modal-close:hover {
+  color: #64748b;
+}
+.modal-body {
+  padding: 24px;
+}
+.form-group {
+  margin-bottom: 24px; /* 表单组间距加大 */
+}
+.form-group label {
+  display: block;
+  font-size: 15px;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 10px;
+}
+.required-mark {
+  color: #ef4444;
+  margin-right: 4px;
+}
+.form-group input,
+.form-group textarea {
+  width: 100%;
+  padding: 12px 14px; /* 输入框内边距加大 */
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 15px;
+  outline: none;
+  box-sizing: border-box;
+  transition: all 0.3s ease;
+}
+.form-group input:focus,
+.form-group textarea:focus {
+  border-color: #1890ff;
+  box-shadow: 0 0 0 3px rgba(24, 144, 255, 0.1);
+}
+.form-group input.error,
+.form-group textarea.error {
+  border-color: #ef4444;
+}
+.error-message {
+  color: #ef4444;
+  font-size: 14px;
+  margin-top: 8px;
+}
+.form-group textarea {
+  resize: vertical;
+  min-height: 100px; /* 文本域最小高度加大 */
+}
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 16px;
+  padding: 20px 24px;
+  border-top: 1px solid #f1f5f9;
+}
+.btn-cancel {
+  padding: 10px 24px; /* 取消按钮尺寸加大 */
+  background: #f1f5f9;
+  border: none;
+  border-radius: 8px;
+  font-size: 15px;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+.btn-cancel:hover:not(:disabled) {
+  background: #e2e8f0;
+}
+.btn-confirm {
+  padding: 10px 24px;
+  background: #1e293b;
+  border: none;
+  border-radius: 8px;
+  font-size: 15px;
+  color: #fff;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+.btn-confirm:hover:not(:disabled) {
+  background: #334155;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(30, 41, 59, 0.2);
+}
+.btn-confirm.is-loading {
+  pointer-events: none;
+  position: relative;
+  padding-left: 40px;
+}
+.btn-spinner {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  margin-top: -6px;
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: btnspin 0.6s linear infinite;
+}
+@keyframes btnspin {
+  to { transform: rotate(360deg); }
+}
+
+
+
+
+
+/* 删除弹窗：优化警示感 */
+.delete-modal {
+  width: 460px !important;
+  padding: 0;
+}
+.delete-modal-body {
+  padding: 40px 24px 24px;
+  text-align: center;
+}
+.delete-icon-wrap {
+  width: 64px; /* 删除图标容器加大 */
+  height: 64px;
+  border-radius: 50%;
+  background: #fff1f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 20px;
+  color: #ef4444;
+}
+.delete-title {
+  margin: 0 0 12px;
+  font-size: 20px;
+  font-weight: 700;
+  color: #1e293b;
+}
+.delete-desc {
+  margin: 0;
+  font-size: 15px;
+  color: #64748b;
+  line-height: 1.6;
+}
+.delete-desc strong {
+  color: #1e293b;
+}
+.delete-modal-footer {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  padding: 20px 24px 28px;
+}
+.btn-danger {
+  padding: 10px 24px;
+  background: #ef4444;
+  border: none;
+  border-radius: 8px;
+  font-size: 15px;
+  color: #fff;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+.btn-danger:hover:not(:disabled) {
+  background: #dc2626;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+}
+.btn-danger.is-loading {
+  pointer-events: none;
+  position: relative;
+  padding-left: 40px;
+}
+.btn-danger:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

@@ -1,0 +1,51 @@
+.detail-card {
+    background:#ffffff;
+    border: 1px solid #e2e5ea;
+    border-radius: 12px;
+    padding: 28px;
+    margin-bottom: 28px;
+    position: relative;
+    overflow: hidden;
+}
+
+.detail-card-title {
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: -0.3px;
+    color: #1a1a2e;
+    margin-bottom: 4px;
+}
+.detail-card-tags {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-top: 6px;
+    margin-bottom: 16px;
+}
+
+.detail-card-tags .tag-pill {
+    display: inline-block;
+    font-size: 12px;
+    padding: 3px 10px;
+    border-radius: 20px;
+    background: rgba(16, 185, 129, 0.06);
+    color: #10b981;
+    border: 1px solid rgba(16, 185, 129, 0.25);
+}
+.detail-card-slug {
+    font-size: 13px;
+    color: #9ca3af;
+}
+.detail-card-desc {
+    font-size: 15px;
+    color: var(--text-secondary);
+    line-height: 1.7;
+    margin: 0 0 18px;
+}
+
+.detail-card-status {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+    
