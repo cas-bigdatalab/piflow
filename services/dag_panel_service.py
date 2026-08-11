@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 import shutil
 import zipfile
 from contextlib import closing
@@ -127,6 +128,61 @@ def get_skill_info_detail(skill_id: str, with_skill_json: bool = False, with_fil
             result["file_tree"] = _build_file_tree(skill_dir)
 
     return {"success": True, "data": result}
+
+
+def get_skill_file_content(skill_id: str, path: str) -> dict:
+    with closing(get_connection()) as conn:
+        with conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                cursor.execute(
+                    """
+                    SELECT skill_name, skill_path
+                    FROM dag_skills
+                    WHERE skill_id = %s AND is_deleted = 0
+                    """,
+                    (skill_id,),
+                )
+                row = cursor.fetchone()
+
+                if not row:
+                    return {"success": False, "message": f"skill not found: {skill_id}"}
+
+                skill_path = row["skill_path"]
+
+    if not skill_path:
+        return {"success": False, "message": f"skill has no skill_path: {skill_id}"}
+
+    skill_dir = os.path.realpath(str(WORKSPACE_ROOT / skill_path))
+    target = os.path.realpath(os.path.join(str(WORKSPACE_ROOT), path))
+
+    try:
+        if os.path.commonpath([skill_dir, target]) != skill_dir:
+            return {"success": False, "message": f"file is outside skill directory: {path}"}
+    except ValueError:
+        return {"success": False, "message": f"file is outside skill directory: {path}"}
+
+    if os.path.isdir(target):
+        return {"success": False, "message": f"path is a directory, please pass a file path: {path}"}
+
+    if not os.path.isfile(target):
+        return {"success": False, "message": f"file not found: {path}"}
+
+    try:
+        with open(
+            os.path.join(str(WORKSPACE_ROOT), path),
+            "r",
+            encoding="utf-8",
+        ) as f:
+            content = f.read()
+    except (UnicodeDecodeError, OSError) as e:
+        return {"success": False, "message": f"failed to read file: {e}"}
+
+    return {
+        "success": True,
+        "file_name": os.path.basename(target),
+        "file_suffix": os.path.splitext(target)[1],
+        "content": content,
+    }
 
 def get_dag_skills_by_condition(
     page: int = None,

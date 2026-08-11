@@ -6,7 +6,7 @@ from security.auth_dependency import (
     get_current_user,
 )
 from services.dag_panel_service import get_user_dag_tasks, save_dag_panel, get_panel_dag_json, \
-    get_skill_info_by_id, get_skill_info_detail, get_dag_skills_by_condition, create_dag_task, update_dag_task, remove_dag_task, \
+    get_skill_info_by_id, get_skill_info_detail, get_skill_file_content, get_dag_skills_by_condition, create_dag_task, update_dag_task, remove_dag_task, \
     get_dag_json_by_message_id, remove_local_skill, enable_local_skill, download_skill_package, upload_skill_package
 from runtime.dag_manager import get_skill_type_counts
 
@@ -185,6 +185,33 @@ async def get_skill_info_api(
 
         result = get_skill_info_by_id(skill_id)
         return {"message": "success", "result": result, "code": 200}
+    except Exception as e:
+        return {
+            "message": str(e),
+            "result": None,
+            "code": 500,
+        }
+
+
+@router.get("/dag/skill/getSkillFile")
+async def get_skill_file_api(
+    skill_id: str,
+    path: str,
+    current_user=Depends(get_current_user),
+):
+    try:
+        result = get_skill_file_content(skill_id, path)
+        if not result.get("success"):
+            return {
+                "message": result.get("message", "get file failed"),
+                "result": None,
+                "code": 500,
+            }
+        return {
+            "message": "success",
+            "result": result,
+            "code": 200,
+        }
     except Exception as e:
         return {
             "message": str(e),

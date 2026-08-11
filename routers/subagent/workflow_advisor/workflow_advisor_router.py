@@ -10,6 +10,7 @@ from fastapi.responses import StreamingResponse
 
 from runtime.engine import AgentEngine
 from agents.subagent.workflow_advisor.schema import AdvisorChatRequest
+from runtime.skill_manage import get_generating_skill_by_thread_id
 
 router = APIRouter(prefix="/workflow-advisor", tags=["workflow-advisor"])
 
@@ -66,3 +67,14 @@ async def workflow_advisor_chat_stream(req: AdvisorChatRequest, request: Request
             "X-Accel-Buffering": "no",
         },
     )
+
+
+@router.get("/generating_skill")
+async def get_generating_skill(thread_id: str, request: Request):
+    try:
+        row = get_generating_skill_by_thread_id(thread_id)
+        if row is None:
+            return {"message": "skill not found", "result": None, "code": 404}
+        return {"message": "success", "result": row, "code": 200}
+    except Exception as e:
+        return {"message": str(e), "result": None, "code": 500}
