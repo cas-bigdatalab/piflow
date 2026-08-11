@@ -5,12 +5,13 @@ from __future__ import annotations
 import json
 import uuid
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request, Depends
 from fastapi.responses import StreamingResponse
 
 from runtime.engine import AgentEngine
 from agents.subagent.workflow_advisor.schema import AdvisorChatRequest
 from runtime.skill_manage import get_generating_skill_by_thread_id
+from security.auth_dependency import get_current_user
 from services.dag_panel_service import get_dag_skills_by_condition
 
 router = APIRouter(prefix="/workflow-advisor", tags=["workflow-advisor"])
@@ -71,7 +72,7 @@ async def workflow_advisor_chat_stream(req: AdvisorChatRequest, request: Request
 
 
 @router.get("/generating_skill")
-async def get_generating_skill(thread_id: str, request: Request):
+async def get_generating_skill(thread_id: str, request: Request, current_user=Depends(get_current_user)):
     try:
         row = get_generating_skill_by_thread_id(thread_id)
         if row is None:
