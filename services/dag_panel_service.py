@@ -184,6 +184,57 @@ def get_skill_file_content(skill_id: str, path: str) -> dict:
         "content": content,
     }
 
+
+def save_skill_file_content(skill_id: str, path: str, content: str) -> dict:
+    with closing(get_connection()) as conn:
+        with conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                cursor.execute(
+                    """
+                    SELECT skill_name, skill_path
+                    FROM dag_skills
+                    WHERE skill_id = %s AND is_deleted = 0
+                    """,
+                    (skill_id,),
+                )
+                row = cursor.fetchone()
+
+                if not row:
+                    return {"success": False, "message": f"skill not found: {skill_id}"}
+
+                skill_path = row["skill_path"]
+
+    if not skill_path:
+        return {"success": False, "message": f"skill has no skill_path: {skill_id}"}
+
+    skill_dir = os.path.realpath(str(WORKSPACE_ROOT / skill_path))
+    target = os.path.realpath(os.path.join(str(WORKSPACE_ROOT), path))
+
+    try:
+        if os.path.commonpath([skill_dir, target]) != skill_dir:
+            return {"success": False, "message": f"file is outside skill directory: {path}"}
+    except ValueError:
+        return {"success": False, "message": f"file is outside skill directory: {path}"}
+
+    if not os.path.isfile(target):
+        return {"success": False, "message": f"file not found: {path}"}
+
+    try:
+        with open(
+            target,
+            "w",
+            encoding="utf-8",
+        ) as f:
+            f.write(content)
+    except OSError as e:
+        return {"success": False, "message": f"failed to write file: {e}"}
+
+    return {
+        "success": True,
+        "file_name": os.path.basename(target),
+        "file_suffix": os.path.splitext(target)[1],
+    }
+
 def get_dag_skills_by_condition(
     page: int = None,
     page_size: int = None,

@@ -6,7 +6,7 @@ from security.auth_dependency import (
     get_current_user,
 )
 from services.dag_panel_service import get_user_dag_tasks, save_dag_panel, get_panel_dag_json, \
-    get_skill_info_by_id, get_skill_info_detail, get_skill_file_content, get_dag_skills_by_condition, create_dag_task, update_dag_task, remove_dag_task, \
+    get_skill_info_by_id, get_skill_info_detail, get_skill_file_content, save_skill_file_content, get_dag_skills_by_condition, create_dag_task, update_dag_task, remove_dag_task, \
     get_dag_json_by_message_id, remove_local_skill, enable_local_skill, download_skill_package, upload_skill_package
 from runtime.dag_manager import get_skill_type_counts
 
@@ -204,6 +204,34 @@ async def get_skill_file_api(
         if not result.get("success"):
             return {
                 "message": result.get("message", "get file failed"),
+                "result": None,
+                "code": 500,
+            }
+        return {
+            "message": "success",
+            "result": result,
+            "code": 200,
+        }
+    except Exception as e:
+        return {
+            "message": str(e),
+            "result": None,
+            "code": 500,
+        }
+
+
+@router.post("/dag/skill/saveSkillFile")
+async def save_skill_file_api(
+    skill_id: str = Body(..., description="dag_skills表中的skill_id"),
+    path: str = Body(..., description="基于工作区目录的相对文件路径"),
+    content: str = Body(..., description="文件内容"),
+    current_user=Depends(get_current_user),
+):
+    try:
+        result = save_skill_file_content(skill_id, path, content)
+        if not result.get("success"):
+            return {
+                "message": result.get("message", "save failed"),
                 "result": None,
                 "code": 500,
             }
