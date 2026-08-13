@@ -476,7 +476,7 @@ export default function SkillsDetailsPage() {
               </div>
 
               {/* 卡片 2: 使用统计 */}
-              <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+              {/* <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
                 <div className="px-5 py-3 border-b border-gray-50 bg-gray-50/50">
                   <h3 className="font-semibold text-gray-900 text-sm">使用统计</h3>
                 </div>
@@ -497,10 +497,10 @@ export default function SkillsDetailsPage() {
                     <span className="text-sm font-medium text-gray-900">893</span>
                   </div>
                 </div>
-              </div>
+              </div> */}
 
               {/* 卡片 3: 相关算子 */}
-              <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+              {/* <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
                 <div className="px-5 py-3 border-b border-gray-50 bg-gray-50/50">
                   <h3 className="font-semibold text-gray-900 text-sm">相关算子</h3>
                 </div>
@@ -521,7 +521,7 @@ export default function SkillsDetailsPage() {
                     </div>
                   ))}
                 </div>
-              </div>
+              </div> */}
 
               {/* 底部下载按钮 */}
               <button 

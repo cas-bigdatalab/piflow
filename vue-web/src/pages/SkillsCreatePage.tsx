@@ -1,12 +1,16 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+// 引入下面新建的抽屉组件
+import PreviewDrawer from './PreviewDrawer'; 
 
 
 import { uploadPackage } from "../lib/api";
 import './SkillsCreatePage.css';
 const AddOperatorPage = () => {
+  const [previewData, setPreviewData] = useState(null); // 👈 新增这行
+  const [showPreviewPanel, setShowPreviewPanel] = useState(false);
   const navigate = useNavigate();
-  
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   // 核心状态：控制当前处于哪个步骤 (1: 选择方式, 2: 上传包, 3: 完成)
   const [currentStep, setCurrentStep] = useState(1);
   
@@ -25,13 +29,17 @@ const AddOperatorPage = () => {
   //处理算子上传接口
   // 上传 zip 文件到后端接口
 const handleZipFileUpload = async (file: File) => {
-
   try {
     const response = await uploadPackage(file)
     if (response.code === 200) {
       alert('算子包上成功');
-      setCurrentStep(3); // 👈 关键：跳转到第三步
+      // setCurrentStep(3); // 👈 关键：跳转到第三步
       setUploadedFile(null); // 可选：清空文件状态
+      // 👇 新增：保存接口返回的 result 数据
+      setPreviewData(response.result); 
+      //现将预览算子的页面打开
+      setIsDrawerOpen(true)
+
     }
   } catch (error) {
     console.error('上传出错:', error);
@@ -39,32 +47,34 @@ const handleZipFileUpload = async (file: File) => {
   }
 };
 
-  // 渲染步骤条组件
-  const renderStepper = () => {
-    return (
-      <div className="og-stepper max-w-5xl mx-auto px-4 mb-8">
-        {/* 步骤 1: 选择方式 */}
-        <div className={`og-step ${currentStep > 1 ? 'completed' : ''} ${currentStep === 1 ? 'active' : ''}`}>
-          <span className="og-step-circle">1</span>
-          <span className="og-step-label">选择方式</span>
-        </div>
-        <div className="og-step-line"></div>
-
-        {/* 步骤 2: 上传包 */}
-        <div className={`og-step ${currentStep > 2 ? 'completed' : ''} ${currentStep === 2 ? 'active' : ''}`}>
-          <span className="og-step-circle">2</span>
-          <span className="og-step-label">上传包</span>
-        </div>
-        <div className="og-step-line"></div>
-
-        {/* 步骤 3: 完成 */}
-        <div className={`og-step ${currentStep > 3 ? 'completed' : ''} ${currentStep === 3 ? 'active' : ''}`}>
-          <span className="og-step-circle">3</span>
-          <span className="og-step-label">完成</span>
-        </div>
+// 渲染步骤条组件
+const renderStepper = () => {
+  return (
+    <div className="og-stepper max-w-5xl mx-auto px-4 mb-8">
+      {/* 步骤 1: 选择方式 */}
+      <div className={`og-step ${currentStep > 1 ? 'completed' : ''} ${currentStep === 1 ? 'active' : ''}`}>
+        <span className="og-step-circle">1</span>
+        <span className="og-step-label">选择方式</span>
       </div>
-    );
-  };
+      <div className="og-step-line"></div>
+
+      {/* 步骤 2: 上传包 */}
+      <div className={`og-step ${currentStep > 2 ? 'completed' : ''} ${currentStep === 2 ? 'active' : ''}`}>
+        <span className="og-step-circle">2</span>
+        <span className="og-step-label">上传包</span>
+      </div>
+      <div className="og-step-line"></div>
+
+      {/* 步骤 3: 完成 */}
+      <div className={`og-step ${currentStep > 3 ? 'completed' : ''} ${currentStep === 3 ? 'active' : ''}`}>
+        <span className="og-step-circle">3</span>
+        <span className="og-step-label">完成</span>
+      </div>
+    </div>
+  );
+};
+
+
 
   return (
     <div className="page-dom">
@@ -142,7 +152,7 @@ const handleZipFileUpload = async (file: File) => {
             </div>
 
             {/* 底部辅助链接 */}
-            <div className="mt-10 pt-6 border-t border-slate-100 text-center text-sm text-slate-500">
+            {/* <div className="mt-10 pt-6 border-t border-slate-100 text-center text-sm text-slate-500">
               首次开发？{' '}
               <button 
                 onClick={() => setShowSpecPanel(true)} 
@@ -154,7 +164,7 @@ const handleZipFileUpload = async (file: File) => {
               <a href="#" className="text-blue-600 hover:underline hover:text-blue-700 font-medium">
                 下载示例算子
               </a>
-            </div>
+            </div> */}
           </div>
         )}
 
@@ -204,9 +214,10 @@ const handleZipFileUpload = async (file: File) => {
                  ← 上一步
                </button>
 
-               {/* <button 
+               <button 
                  disabled={!uploadedFile}
-                 onClick={() => setCurrentStep(3)}
+                //  onClick={() => setIsDrawerOpen(true)}
+                onClick={() => uploadedFile && handleZipFileUpload(uploadedFile)}
                  className={`px-6 py-2.5 rounded-lg font-medium text-white shadow-sm transition-all
                    ${uploadedFile 
                      ? 'bg-emerald-500 hover:bg-emerald-600 hover:shadow-md cursor-pointer' 
@@ -214,9 +225,9 @@ const handleZipFileUpload = async (file: File) => {
                  `}
                >
                  预览算子 →
-               </button> */}
+               </button>
 
-              <button 
+              {/* <button 
                 disabled={!uploadedFile}
                 onClick={() => uploadedFile && handleZipFileUpload(uploadedFile)}
                 className={`px-6 py-2.5 rounded-lg font-medium text-white shadow-sm transition-all
@@ -226,8 +237,9 @@ const handleZipFileUpload = async (file: File) => {
                 `}
               >
                 上传算子 →
-              </button>
+              </button> */}
             </div>
+            {/* 👇 删除此处的 PreviewDrawer（原位置） */}
           </div>
         )}
 
@@ -247,6 +259,13 @@ const handleZipFileUpload = async (file: File) => {
 
       </div>
 
+      {/* 👇 新增：将 PreviewDrawer 移到此处（始终渲染） */}
+      <PreviewDrawer 
+        isOpen={isDrawerOpen} 
+        onClose={() => setIsDrawerOpen(false)}
+        previewData={previewData} // 👈 新增 props
+      />
+
       {/* 侧边栏：算子开发规范 (保持不变) */}
       {showSpecPanel && (
         <>
@@ -262,6 +281,54 @@ const handleZipFileUpload = async (file: File) => {
             <div className="space-y-4 p-6 pb-20">
               <p className="text-sm text-slate-600">算子本质上是一个标准文件夹...</p>
               {/* 此处省略具体规范内容，保持原样即可 */}
+            </div>
+          </div>
+        </>
+      )}
+      {/* 右侧预览抽屉 */}
+      {showPreviewPanel && (
+        <>
+          <div 
+            className="fixed inset-0 bg-black bg-opacity-30 z-40"
+            onClick={() => setShowPreviewPanel(false)}
+          />
+          <div className="fixed top-0 right-0 w-full max-w-[540px] h-screen bg-white shadow-lg z-50 overflow-y-auto animate-slide-in-right">
+            <div className="flex justify-between items-center mb-6 border-b p-6 sticky top-0 bg-white z-10">
+              <h2 className="text-xl font-semibold">🔍 算子预览</h2>
+              <button onClick={() => setShowPreviewPanel(false)} className="text-slate-400 hover:text-slate-600 text-2xl">✕</button>
+            </div>
+            <div className="p-6 pb-20 space-y-4">
+              {uploadedFile ? (
+                <>
+                  <div className="bg-slate-50 p-4 rounded-lg">
+                    <h3 className="font-medium text-slate-900 mb-2">已上传文件</h3>
+                    <p className="text-sm text-slate-600">{uploadedFile.name}</p>
+                  </div>
+                  {/* TODO: 这里未来可展示解析出的 skill.json 和 skill.md 内容 */}
+                  <div className="text-sm text-slate-500">
+                    <p>✅ 包含 skill.json</p>
+                    <p>✅ 包含 skill.md</p>
+                    <p className="mt-4 text-slate-400">（注：当前为模拟预览，实际内容需后端解析或前端解压 zip）</p>
+                  </div>
+                </>
+              ) : (
+                <p className="text-slate-500">未选择文件</p>
+              )}
+              
+              {/* 确认上传按钮 */}
+              <div className="mt-6 pt-4 border-t">
+                <button
+                  onClick={() => {
+                    if (uploadedFile) {
+                      handleZipFileUpload(uploadedFile);
+                      setShowPreviewPanel(false);
+                    }
+                  }}
+                  className="w-full bg-emerald-500 hover:bg-emerald-600 text-white py-2.5 rounded-lg font-medium transition-colors"
+                >
+                  确认上传
+                </button>
+              </div>
             </div>
           </div>
         </>

@@ -2,20 +2,26 @@ import React, { useState, useRef, useEffect } from 'react';
 import './SkillsGeneratorPage.css'; // 引入样式文件
 
 import { useNavigate } from 'react-router-dom';
-import { streamChatSkill } from "../lib/api";
+import { generatingSkill,streamMessages } from "../lib/api";
 import { shortId } from "../lib/ids"; 
+// 引入下面新建的抽屉组件
+import PreviewDrawer from './PreviewDrawer'; 
 
 
 
 const OperatorGenerator = () => {
   const [inputValue, setInputValue] = useState('');
   const navigate = useNavigate();
-    
+  const [isLoading, setIsLoading] = useState(false);
+  const [threadId, setThreadId] = useState('');
+  const [previewData, setPreviewData] = useState(null); // 👈 新增这行
+  //预览算子抽屉弹框
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const initialAssistantMessage = {
     id: 'msg_welcome',
     role: 'assistant' as const,
     content: `你好！我是算子生成器 👻\n\n请描述你想要创建的算子功能，我会帮你生成标准的算子文件夹结构。\n\n例如：“帮我做一个过滤文本中 URL 链接的算子，支持白名单域名”`,
-  };
+  }; 
 
   const [messages, setMessages] = useState([
     initialAssistantMessage
@@ -27,9 +33,21 @@ const OperatorGenerator = () => {
       chatAreaRef.current.scrollTop = chatAreaRef.current.scrollHeight;
     }
   }, [messages]);
-
-  const handleSend = () => {
+  //预览算子
+  const handleZipFileUpload = async () => {
+    setThreadId('t_76dc5eeef63448fd'); //先默认写死
+    const res = await generatingSkill('t_76dc5eeef63448fd')
+    console.log('测试出的内容为————————',res)
+    setPreviewData(res.result); 
+    if (res.result){
+      setIsDrawerOpen(true);
+      //打开抽屉弹框并将skill_id内容传输
+    }
+  };
+  const handleSend = async () => {
     if (!inputValue.trim()) return;
+
+    setIsLoading(true); // 启动加载状态
 
     const userMessage = {
       id: 'msg_' + Date.now(),
@@ -37,40 +55,38 @@ const OperatorGenerator = () => {
       content: inputValue.trim(),
     };
 
-    // 先更新 UI：添加用户消息
     setMessages((prev) => [...prev, userMessage]);
 
     const userId = localStorage.getItem('userId') || 'u_default';
     const advisorSessionId = `t_${shortId()}`;
-    // 调用 AI 接口
-    streamChatSkill(
-      {
-        message: inputValue.trim(),
-        user_id: userId,
-        thread_id: advisorSessionId,
-        workflow_id: "",     
-        canvas_dsl: {
-          additionalProp1:{}
-        },       // ← 取消注释
-      selected_node_id: ""
-      },
-      (event) => {
-        if (event.type === 'delta') {
-          // 可选：实时流式更新（需额外状态如 currentAssistantMessage）
-        } else if (event.type === 'done') {
-          const aiMessage = {
-            id: 'msg_' + Date.now(),
-            role: 'assistant' as const,
-            content: event.content,
-          };
-          setMessages((prev) => [...prev, aiMessage]);
-        } else if (event.type === 'error') {
-          console.error('AI 错误:', event.message);
+    setThreadId(advisorSessionId)
+
+    try {
+      const res = await streamMessages(userId, advisorSessionId, inputValue.trim());
+      
+      let aiContent = "✅ 算子生成完成！";
+      if (typeof res === 'object' && res !== null) {
+        if ('content' in res && typeof res.content === 'string') {
+          aiContent = res.content;
+        } else if ('attachments' in res && Array.isArray(res.attachments)) {
+          aiContent += `（共 ${res.attachments.length} 个文件）`;
         }
       }
-    ).catch((err) => {
-      console.error('流式请求失败:', err);
-    });
+
+      const aiMessage = { id: 'msg_' + Date.now(), role: 'assistant' as const, content: aiContent };
+      console.log('请求成功:', res);
+      setMessages((prev) => [...prev, aiMessage]);
+    } catch (err: any) {
+      console.error('请求失败:', err);
+      const errorMsg = {
+        id: 'msg_' + Date.now(),
+        role: 'assistant' as const,
+        content: `❌ 调用失败: ${err.message || '未知错误'}`,
+      };
+      setMessages((prev) => [...prev, errorMsg]);
+    } finally {
+      setIsLoading(false); // 确保无论成功失败都恢复状态
+    }
 
     setInputValue('');
   };
@@ -149,17 +165,31 @@ const OperatorGenerator = () => {
               placeholder="描述算子功能需求..."
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+              onKeyDown={(e) => e.key === 'Enter' && !isLoading && handleSend()}
+              disabled={isLoading} // ← 禁用状态
             />
-            <button className="og-btn-send" onClick={handleSend}>发送</button>
+            <button 
+              className="og-btn-send" 
+              onClick={handleSend}
+              disabled={isLoading} // 可选：防止重复点击
+            >
+              {isLoading ? '生成中…' : '发送'}
+            </button>
           </div>
 
           {/* 底部次要按钮 */}
-          {/* <div className="og-footer-actions">
-            <button className="og-btn-preview">👁️ 预览算子</button>
-          </div> */}
+          <div className="og-footer-actions">
+            <button className="og-btn-preview"
+            onClick={ handleZipFileUpload}
+            > 预览算子</button>
+          </div>
         </div>
       </main>
+       <PreviewDrawer 
+        isOpen={isDrawerOpen} 
+        onClose={() => setIsDrawerOpen(false)}
+        previewData={previewData} // 👈 新增 props
+      />
     </div>
   );
 };

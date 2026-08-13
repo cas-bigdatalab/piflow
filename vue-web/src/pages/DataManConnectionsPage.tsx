@@ -51,7 +51,6 @@ interface LogoUploadProps {
 
 const LogoUpload: React.FC<LogoUploadProps> = ({ value, onChange }) => {
   const fileInputRef = React.useRef<HTMLInputElement>(null);
-
   const handleUploadClick = () => {
     fileInputRef.current?.click();
   };
@@ -150,9 +149,13 @@ const [detailFileds,setDetailFiled] = useState<FieldConfig[]>([]);
 //编辑数据源类型所返回的字段
 const [editFields,setEditFields] = useState<FieldConfig[]>([]);
 const fileInputRef = React.useRef<HTMLInputElement>(null);
+//列表数据加载需要时间，加入一个loading加载
+const [loadingSources, setLoadingSources] = useState(true);
+const [loadingDirectory, setLoadingDirectory] = useState(true);
 // 数据源类型列表
 useEffect(() => {
   const fetchDataSources = async () => {
+    setLoadingSources(true); // 开始加载
     try {
       const res = await listDataspace(); // 假设返回 DataSourceItem[]
       console.log(res);
@@ -160,6 +163,8 @@ useEffect(() => {
     } catch (error) {
       console.error('Failed to fetch data sources:', error);
       // 可选：设置默认值或错误提示
+    } finally {
+      setLoadingSources(false); // 加载完成
     }
   };
   fetchDataSources();
@@ -167,6 +172,7 @@ useEffect(() => {
 // 数据源类型实例列表
 useEffect(() => {
   const fetchDataDirectorySources = async () => {
+    setLoadingDirectory(true); // 开始加载
     try {
       const res = await listDataspaceDirecory(); // 假设返回 DataSourceItem[]
       console.log(res);
@@ -174,17 +180,22 @@ useEffect(() => {
     } catch (error) {
       console.error('Failed to fetch data sources:', error);
       // 可选：设置默认值或错误提示
+    } finally {
+      setLoadingDirectory(false); // 加载完成
     }
   };
   fetchDataDirectorySources();
 }, []);
 //封装一个刷新方法
 const refreshDataSourcesDirectory = async () => {
+  setLoadingDirectory(true);
   try {
     const res = await listDataspaceDirecory();
     setDataSourcesDirectory(res.result.items);
   } catch (error) {
     console.error('Failed to refresh data sources directory:', error);
+  } finally {
+    setLoadingDirectory(false);
   }
 };
 //图片转为base64
@@ -499,27 +510,47 @@ const handleSelectSource = async (type_code: string) => {
         <h2 className="section-title">
           <LinkIcon className="w-4 h-4 text-slate-500" /> 我的连接
         </h2>
-        <div className="connections-grid">
-          {dataSourcesDirectory.map(item => <ConnectionCard key={item.id} item={item} />)}
-          <button className="add-new-card"
-            onClick={handleOpenModal}>
-            <div className="add-new-icon-wrapper"
-            >
-              <Plus className="w-5 h-5" />
-            </div>
-            <span className="add-new-text">新建连接</span>
-          </button>
-        </div>
+        {loadingDirectory ? (
+          <div className="connections-grid">
+            <div className="loading-placeholder">加载中...</div>
+          </div>
+        ) : (
+          <div className="connections-grid">
+            {dataSourcesDirectory.length > 0 ? (
+              <>
+                {dataSourcesDirectory.map(item => <ConnectionCard key={item.id} item={item} />)}
+                <button className="add-new-card" onClick={handleOpenModal}>
+                  <div className="add-new-icon-wrapper">
+                    <Plus className="w-5 h-5" />
+                  </div>
+                  <span className="add-new-text">新建连接</span>
+                </button>
+              </>
+            ) : (
+              <div className="empty-state">暂无连接</div>
+            )}
+          </div>
+        )}
       </section>
 
       {/* Section 2: Supported Data Sources */}
       <section className="page-section">
         <h2 className="section-title">
-          <Database className="w-4 h-4 text-slate-500" /> 支持的数据源（{dataSources.length}种）
+          <Database className="w-4 h-4 text-slate-500" /> 支持的数据源（{loadingSources ? '加载中' : dataSources.length}种）
         </h2>
-        <div className="datasources-grid">
-          {dataSources.map(item => <DataSourceCard item={item} />)}
-        </div>
+        {loadingSources ? (
+          <div className="datasources-grid">
+            <div className="loading-placeholder">加载中...</div>
+          </div>
+        ) : (
+          <div className="datasources-grid">
+            {dataSources.length > 0 ? (
+              dataSources.map(item => <DataSourceCard key={item.type_code} item={item} />)
+            ) : (
+              <div className="empty-state">暂无支持的数据源</div>
+            )}
+          </div>
+        )}
       </section>
 
 

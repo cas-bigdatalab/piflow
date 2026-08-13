@@ -134,7 +134,14 @@ interface OperatorData {
   inputs: OperatorParam[];
   outputs: OperatorParam[];
   skillJson: any;
-  fileStructure: string[];
+  file_tree: FileNode; // 替代原来的 fileStructure: string[]
+}
+
+interface FileNode {
+  name: string;
+  type: 'file' | 'directory';
+  children?: FileNode[];
+  description?: string; // 对应 "— 说明文字"
 }
 
 
@@ -486,23 +493,13 @@ export default function SkillsDetailsPage() {
                 <div className="prose prose-slate max-w-none">
                   <h2 className="text-xl font-bold text-gray-900 mb-4">文件结构</h2>
                   <div className="bg-gray-50 rounded-lg p-4 font-mono text-sm">
-                    {data?.fileStructure.map((line, idx) => (
-                      <div key={idx} className="flex items-start gap-2 mb-1">
-                        {line.includes('—') ? (
-                          <>
-                            <span className="text-gray-400">
-                              {line.includes('scripts/') || line.includes('assets/') ? '├──' : line.includes('skill.') ? '├──' : '└──'}
-                            </span>
-                            <span className="text-gray-600 flex-1">{line.split('—')[0].trim().replace(/[├└]──\s*/, '')}</span>
-                            <span className="text-gray-400">— {line.split('—')[1]}</span>
-                          </>
-                        ) : line.endsWith('/') ? (
-                          <span className="text-blue-600 font-medium">{line}</span>
-                        ) : (
-                          <span className="text-gray-600">{line}</span>
-                        )}
-                      </div>
-                    ))}
+                   {data?.file_tree ? (
+                    <div className="bg-gray-50 rounded-lg p-4 font-mono text-sm">
+                      {renderFileTree(data.file_tree)}
+                    </div>
+                  ) : (
+                    <div className="text-gray-400 text-sm p-4">无文件结构信息</div>
+                  )}
                   </div>
                 </div>
               )}
@@ -528,14 +525,14 @@ export default function SkillsDetailsPage() {
               </div>
 
               {/* 卡片 2: 使用统计 */}
-              <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+              {/* <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
                 <div className="px-5 py-3 border-b border-gray-50 bg-gray-50/50">
                   <h3 className="font-semibold text-gray-900 text-sm">使用统计</h3>
                 </div>
                 <div className="p-5 space-y-4">
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-gray-500">下载量</span>
-                    {/* <span className="text-sm font-medium text-gray-900">{data?.downloads.toLocaleString()}</span> */}
+                  
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-gray-500">评分</span>
@@ -549,10 +546,10 @@ export default function SkillsDetailsPage() {
                     <span className="text-sm font-medium text-gray-900">893</span>
                   </div>
                 </div>
-              </div>
+              </div> */}
 
               {/* 卡片 3: 相关算子 */}
-              <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+              {/* <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
                 <div className="px-5 py-3 border-b border-gray-50 bg-gray-50/50">
                   <h3 className="font-semibold text-gray-900 text-sm">相关算子</h3>
                 </div>
@@ -573,7 +570,7 @@ export default function SkillsDetailsPage() {
                     </div>
                   ))}
                 </div>
-              </div>
+              </div> */}
 
               {/* 底部下载按钮 */}
               <button 
@@ -584,15 +581,6 @@ export default function SkillsDetailsPage() {
                     return;
                   }
                   try {
-                    // const blob = await downloadSkillPackage(id);
-                    // const url = window.URL.createObjectURL(blob);
-                    // const a = document.createElement('a');
-                    // a.href = url;
-                    // a.download = `${data?.skill_name || 'skill'}.zip`; // 或其他合适文件名
-                    // document.body.appendChild(a);
-                    // a.click();
-                    // window.URL.revokeObjectURL(url);
-                    // document.body.removeChild(a);
                       await downloadSkillPackage(id);
                   } catch (err) {
                     console.error('下载失败:', err);
@@ -620,3 +608,33 @@ function InfoRow({ label, value, icon }: { label: string, value: string, icon?: 
     </div>
   );
 }
+
+// 递归渲染文件树
+const renderFileTree = (node: any, depth = 0) => {
+  const isDir = node.type === 'directory';
+  const hasChildren = node.children && node.children.length > 0;
+  const indent = depth * 16; // 每层缩进 16px
+
+  return (
+    <div key={node.name} style={{ paddingLeft: `${indent}px` }} className="mb-1">
+      <div className="flex items-start gap-2">
+        {isDir ? (
+          <Folder size={14} className="text-blue-500 mt-0.5 flex-shrink-0" />
+        ) : (
+          <File size={14} className="text-gray-500 mt-0.5 flex-shrink-0" />
+        )}
+        <span className={`font-mono text-sm ${isDir ? 'text-blue-600 font-medium' : 'text-gray-700'}`}>
+          {node.name}
+        </span>
+        {node.description && (
+          <span className="text-gray-400 text-sm">— {node.description}</span>
+        )}
+      </div>
+      {hasChildren && (
+        <div className="mt-1">
+          {node.children.map((child: any) => renderFileTree(child, depth + 1))}
+        </div>
+      )}
+    </div>
+  );
+};

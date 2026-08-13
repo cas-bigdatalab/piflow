@@ -384,6 +384,85 @@ export async function sendMessages(
   });
 }
 
+//算子生成器对话中接口
+// export async function streamYulan(
+//   user_id: string,
+//   thread_id: string,
+//   message: string
+// ) {
+//   return apiFetch<{ attachments: MessageAttachment[] }>("/planner/chat/stream", {
+//     method: "POST",
+//     headers: { "Content-Type": "application/json" },
+//     body: JSON.stringify({ user_id, thread_id,message }),
+//   });
+// }
+
+//生成器中的预览
+export async function generatingSkill(thread_id: string) {
+  const sp = new URLSearchParams();
+  sp.set('thread_id', thread_id);
+  
+  return apiFetch<{
+    code: number;
+    result: { content: string };
+    message?: string;
+  }>(`/workflow-advisor/generating_skill?${sp.toString()}`);
+}
+
+
+export const streamMessages = async (userId: string, thread_id: string, message: string) => {
+  const response = await fetch(`${apiBase()}/planner/chat/stream`, { // ← 关键修复：加上 apiBase()
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ userId, thread_id, message }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+  }
+
+  const reader = response.body?.getReader();
+  const decoder = new TextDecoder();
+  let fullContent = '';
+  let attachments: any[] = [];
+
+  if (!reader) {
+    throw new Error('ReadableStream not supported');
+  }
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      const chunk = decoder.decode(value, { stream: true });
+      const lines = chunk.split('\n').filter(line => line.startsWith('data: '));
+
+      for (const line of lines) {
+        const dataStr = line.slice(6); // remove 'data: '
+        if (dataStr === '[DONE]') continue;
+
+        try {
+          const parsed = JSON.parse(dataStr);
+          if (parsed.type === 'message_delta') {
+            fullContent += parsed.delta;
+          }
+          // TODO: 处理 attachments（如果后端会发）
+        } catch (e) {
+          console.warn('Failed to parse SSE data:', dataStr, e);
+        }
+      }
+    }
+  } finally {
+    reader.releaseLock();
+  }
+
+  return {
+    content: fullContent,
+    attachments: attachments,
+  };
+};
+
 // ==================== 任务管理 API ====================
 
 export interface Task {
@@ -937,6 +1016,16 @@ export async function enableLocalSkill(skill_id: string) {
   });
 }
 
+
+//保存算子
+export async function saveSkillFile(skill_id: string,path: string,content: string) {
+  return apiFetch<SaveToStorageResponse>("/dag/skill/saveSkillFile", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body:  JSON.stringify( {skill_id,path,content} )
+  });
+}
+
 //算子详情接口
 export async function getSkillInfo(skill_id: string, with_skill_json: boolean, with_file_tree: boolean) {
   const sp = new URLSearchParams();
@@ -1001,6 +1090,19 @@ export const downloadSkillPackage = async (skill_id: string) => {
   window.URL.revokeObjectURL(url);
   document.body.removeChild(a);
 };
+
+//单击文件获取文件content具体内容
+export async function getSkillFile(skill_id: string, path: string) {
+  const sp = new URLSearchParams();
+  sp.set('skill_id', skill_id);
+  sp.set('path', path);
+  
+  return apiFetch<{
+    code: number;
+    result: { content: string };
+    message?: string;
+  }>(`/dag/skill/getSkillFile?${sp.toString()}`);
+}
 
 //上传算子包
 export async function uploadPackage(
