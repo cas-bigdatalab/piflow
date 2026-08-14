@@ -1,5 +1,5 @@
 import { Icon } from "@iconify/react";
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState,Maximize2 } from "react";
 
 type MermaidBlockProps = {
   chart: string;
@@ -382,15 +382,8 @@ export function MermaidBlock({ chart }: MermaidBlockProps) {
               <Icon icon="ri:download-2-line" width="16" />
               <span>下载</span>
             </button>
-            <button
-              type="button"
-              className="mermaid-action wide"
-              onClick={toggleFullscreen}
-              aria-label={isFullscreen ? "退出全屏" : "进入全屏"}
-              title={isFullscreen ? "退出全屏" : "进入全屏"}
-            >
-              <Icon icon={isFullscreen ? "ri:fullscreen-exit-line" : "ri:fullscreen-line"} width="16" />
-              <span>{isFullscreen ? "退出全屏" : "全屏"}</span>
+            <button onClick={toggleFullscreen} className="p-2 hover:bg-gray-100 rounded">
+              <Maximize2 size={16} />
             </button>
           </div>
         )}

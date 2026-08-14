@@ -396,7 +396,7 @@ def get_dag_skill(skill_id: str) -> Optional[DagSkill]:
                            disciplinary_field, publisher,
                            create_time, update_time, is_deleted
                     FROM dag_skills
-                    WHERE skill_id = %s AND is_deleted = 0
+                    WHERE skill_id = %s AND (publisher = 'COMMUNITY' OR is_deleted = 0)
                     """,
                     (skill_id,),
                 )
