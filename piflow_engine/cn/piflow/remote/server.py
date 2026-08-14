@@ -8,8 +8,12 @@ from typing import Iterator
 
 import grpc
 
-from .proto import remote_execution_pb2, remote_execution_pb2_grpc
-from .result_resolver import RemoteExecutionError
+try:
+    from .proto import remote_execution_pb2, remote_execution_pb2_grpc
+    from .result_resolver import RemoteExecutionError
+except ImportError:  # pragma: no cover - compatibility for direct script execution
+    from proto import remote_execution_pb2, remote_execution_pb2_grpc
+    from result_resolver import RemoteExecutionError
 
 if TYPE_CHECKING:
     from .facade import RemoteExecutionFacade
