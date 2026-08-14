@@ -15,6 +15,7 @@ class RemoteSourceStop(SourceFileStop):
     def __init__(self) -> None:
         super().__init__()
         self.node_id = ""
+        self.remote_grpc_target = ""
         self.cpu_cores = 0.0
         self.memory_gb = 0.0
         self.free_disk_gb = 0.0
@@ -27,6 +28,10 @@ class RemoteSourceStop(SourceFileStop):
         self.node_id = raw_node_id.strip()
         if not self.node_id:
             raise ValueError("remote source property 'node_id' must not be empty")
+        raw_remote_grpc_target = properties.get("remote_grpc_target", "")
+        if not isinstance(raw_remote_grpc_target, str):
+            raise TypeError("remote source property 'remote_grpc_target' must be a string")
+        self.remote_grpc_target = raw_remote_grpc_target.strip()
         self.cpu_cores = _read_non_negative_float(
             properties,
             key="cpu_cores",

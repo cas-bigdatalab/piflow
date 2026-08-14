@@ -17,6 +17,8 @@ from piflow_engine.cn.piflow.runtime.logging.path_utils import safe_name
 class RemoteExecutionGateway(Protocol):
     def submit_dag(self, dag_definition_json: str): ...
 
+    def submit_remote_subdag(self, dag_definition_json: str): ...
+
     def get_run_status(self, run_id: str): ...
 
     def get_run_result_meta(
@@ -83,7 +85,7 @@ class RemoteSubDagSourceStop(ConfigurableStop):
     ) -> None:
         client = self._create_client()
         try:
-            submit_resp = client.submit_dag(self.subdag_definition_json)
+            submit_resp = client.submit_remote_subdag(self.subdag_definition_json)
             run_id = str(submit_resp.run_id)
             self._wait_for_success(client, run_id)
             meta = client.get_run_result_meta(
@@ -136,8 +138,8 @@ class RemoteSubDagSourceStop(ConfigurableStop):
             / "output"
         )
         output_dir.mkdir(parents=True, exist_ok=True)
-        safe_name = Path(file_name).name or "remote_result.bin"
-        return output_dir / safe_name
+        output_file_name = Path(file_name).name or "remote_result.bin"
+        return output_dir / output_file_name
 
 
 def _require_non_empty_string(value: Any, *, name: str) -> str:

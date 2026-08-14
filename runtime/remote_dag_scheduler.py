@@ -86,6 +86,7 @@ def schedule_frontend_dag(
         )
         synthetic_node = _build_remote_subdag_source_node(
             source_runtime_node_id=source_runtime_node_id,
+            source_remote_grpc_target=_read_remote_grpc_target(source),
             subdag_definition=subdag,
             source_node=source,
         )
@@ -189,6 +190,7 @@ def _build_subdag(
 def _build_remote_subdag_source_node(
     *,
     source_runtime_node_id: str,
+    source_remote_grpc_target: str,
     subdag_definition: dict[str, Any],
     source_node: dict[str, Any],
 ) -> dict[str, Any]:
@@ -205,7 +207,7 @@ def _build_remote_subdag_source_node(
             "version": "1.0.0",
         },
         "input_params": [
-            _manual_param("remote_grpc_target", source_runtime_node_id),
+            _manual_param("remote_grpc_target", source_remote_grpc_target),
             _manual_param("subdag_definition_json", json.dumps(subdag_definition, ensure_ascii=False)),
         ],
         "out_params": [
@@ -262,6 +264,18 @@ def _read_remote_node_resource(node: dict[str, Any]) -> RemoteNodeResource:
             legacy_keys=("disk", "disk_gb", "available_disk_gb"),
         ),
     )
+
+
+def _read_remote_grpc_target(node: dict[str, Any]) -> str:
+    for param in node.get("input_params", []) or []:
+        if param.get("param_name") == "remote_grpc_target":
+            value = str(param.get("param_value", "") or "").strip()
+            if value:
+                return value
+            break
+    # Backward compatibility for older DAG definitions that only carried
+    # node_id and implicitly reused it as the remote submission target.
+    return _require_remote_node_id(node)
 
 
 def _read_numeric_param(

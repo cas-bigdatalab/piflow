@@ -30,6 +30,9 @@ class _FakeRemoteClient:
     def __init__(self, remote_file: Path):
         self.remote_file = remote_file
 
+    def submit_remote_subdag(self, dag_definition_json: str):
+        return self.submit_dag(dag_definition_json)
+
     def submit_dag(self, dag_definition_json: str):
         assert dag_definition_json == '{"task": {"dag_task_id": "b"}}'
         return _FakeSubmitResponse("process-remote-1")

@@ -61,9 +61,13 @@ def test_remote_execution_client_roundtrip(grpc_target, tmp_path: Path):
     target, result_file = grpc_target
     client = RemoteExecutionClient(target)
     try:
-        submit_resp = client.submit_dag('{"nodes":[]}')
+        submit_resp = client.submit_remote_subdag('{"nodes":[]}')
         assert submit_resp.run_id == "process-1"
         assert submit_resp.status == "SUBMITTED"
+
+        root_submit_resp = client.submit_remote_root_dag('{"nodes":[]}')
+        assert root_submit_resp.run_id == "process-1"
+        assert root_submit_resp.status == "SUBMITTED"
 
         status_resp = client.get_run_status("process-1")
         assert status_resp.status == "SUCCESS"
