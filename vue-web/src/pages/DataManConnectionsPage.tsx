@@ -595,7 +595,7 @@ const handleSelectSource = async (type_code: string) => {
 
               {/* 单击某个数据链接后显示的内容 */}
               {selectedSource && (
-                <div className="form-section mt-6">
+                <div className=" mt-6">
                   {detailFileds.length > 0 ? (
                     <div className="form-fields">
                       {detailFileds.map((field) => (
@@ -707,7 +707,7 @@ const handleSelectSource = async (type_code: string) => {
 
             {/* 弹窗内容 - 表单区 */}
             <div className="modal-body">
-              <div className="form-section mt-6">
+              <div className=" mt-6">
                 {editFields.length > 0 ? (
                   <div className="form-fields">
                     {editFields.map((field) => (

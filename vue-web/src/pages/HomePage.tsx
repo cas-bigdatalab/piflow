@@ -1264,7 +1264,7 @@ export function HomePage() {
   return (
     <div className="flex min-h-full flex-1 flex-col">
       {/* 右上角用户手册下载按钮 */}
-      <div className="fixed right-1 top-1 z-1">
+      <div className="fixed right-1 top-[68px] z-50">
         <button
           onClick={() => handleDownload()}
           className="inline-flex items-center gap-1 rounded-full bg-[color:var(--color-primary)] px-2 py-1 text-[11px] font-medium text-[color:var(--color-primary-foreground)] hover:opacity-90 transition-opacity cursor-pointer shadow-md"
