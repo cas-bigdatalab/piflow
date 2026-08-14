@@ -138,8 +138,8 @@ class RemoteSubDagSourceStop(ConfigurableStop):
             / "output"
         )
         output_dir.mkdir(parents=True, exist_ok=True)
-        safe_name = Path(file_name).name or "remote_result.bin"
-        return output_dir / safe_name
+        output_file_name = Path(file_name).name or "remote_result.bin"
+        return output_dir / output_file_name
 
 
 def _require_non_empty_string(value: Any, *, name: str) -> str:
