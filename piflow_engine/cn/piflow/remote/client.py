@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
+from typing import Literal
 
 import grpc
 
@@ -15,7 +17,47 @@ class RemoteExecutionClient:
     def close(self) -> None:
         self._channel.close()
 
+    def submit_remote_subdag(self, dag_definition_json: str) -> remote_execution_pb2.SubmitDagResponse:
+        # Used by scheduler-generated remote branch execution. Callers are
+        # expected to pass a self-contained sub-DAG whose result will later be
+        # materialized back into the parent flow as a file artifact.
+        return self._submit_remote_dag(
+            dag_definition_json,
+            submission_kind="subdag",
+        )
+
+    def submit_remote_root_dag(self, dag_definition_json: str) -> remote_execution_pb2.SubmitDagResponse:
+        # Used when the scheduled root DAG should execute on a remote primary
+        # node. Node selection and DAG rewriting should already be completed
+        # before this call, so this method only performs remote submission.
+        # The long-term direction is to evolve this root submission path toward
+        # an async run-handle model with richer execution metadata.
+        return self._submit_remote_dag(
+            dag_definition_json,
+            submission_kind="root_dag",
+        )
+
     def submit_dag(self, dag_definition_json: str) -> remote_execution_pb2.SubmitDagResponse:
+        return self._submit_remote_dag(
+            dag_definition_json,
+            submission_kind="generic",
+        )
+
+    def _submit_remote_dag(
+        self,
+        dag_definition_json: str,
+        *,
+        submission_kind: Literal["generic", "subdag", "root_dag"],
+    ) -> remote_execution_pb2.SubmitDagResponse:
+        # The current RPC contract only accepts a raw DAG JSON payload, so all
+        # submission kinds share the same transport today. Keep the semantic
+        # entry points separate so we can later add kind-specific validation,
+        # routing, telemetry, or richer async root-run handling without
+        # changing callers.
+        parsed = json.loads(dag_definition_json)
+        if not isinstance(parsed, dict):
+            raise ValueError("dag_definition_json must decode to a json object")
+
         return self._stub.SubmitDag(
             remote_execution_pb2.SubmitDagRequest(dag_definition_json=dag_definition_json)
         )
