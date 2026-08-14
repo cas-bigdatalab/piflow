@@ -21,6 +21,9 @@ def test_remote_source_stop_outputs_file_artifact(tmp_path: Path):
         {
             "file_path": "workspace/inputs/sample.txt",
             "node_id": "10.0.0.1",
+            "cpu_cores": 8,
+            "memory_gb": 32,
+            "free_disk_gb": 512,
         }
     )
 
@@ -36,3 +39,6 @@ def test_remote_source_stop_outputs_file_artifact(tmp_path: Path):
     artifact = outputs.get_artifact("output")
     assert artifact.path == str(source_file.resolve())
     assert stop.node_id == "10.0.0.1"
+    assert stop.cpu_cores == 8.0
+    assert stop.memory_gb == 32.0
+    assert stop.free_disk_gb == 512.0

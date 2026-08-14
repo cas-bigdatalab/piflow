@@ -1,0 +1,50 @@
+{
+  "name": "s3_file_source_stop",
+  "version": "1.0.0",
+  "description": "S3 文件输入源算子。用于根据 S3 数据源实例 ID 和对象相对路径下载单个文件，并将该文件作为工作流输入提供给下游算子。该算子没有上游输入，必须作为 DAG 的起始节点使用。",
+  "language": "python",
+  "script_path": "scripts/run_s3_file_source_stop.py",
+  "entrypoint": "python scripts/run_s3_file_source_stop.py",
+  "input_params": [
+    {
+      "name": "source_id",
+      "role": "data",
+      "type": "string",
+      "required": true,
+      "description": "S3 数据源实例 ID"
+    },
+    {
+      "name": "input_file_path",
+      "role": "data",
+      "type": "string",
+      "required": true,
+      "description": "需要下载的 S3 对象相对路径，允许以 / 开头"
+    },
+    {
+      "name": "output",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "下载后的本地文件输出路径"
+    }
+  ],
+  "output_params": [
+    {
+      "name": "output",
+      "role": "output_data",
+      "type": "string",
+      "default": "s3_source_output",
+      "description": "下载后的本地文件引用，提供给下游算子使用"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--source_id",
+    "{source_id}",
+    "--input_file_path",
+    "{input_file_path}",
+    "--output",
+    "{output}"
+  ]
+}
