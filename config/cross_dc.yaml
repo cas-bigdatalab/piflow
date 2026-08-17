@@ -1,0 +1,52 @@
+terminology:
+  location_term: 数据源
+
+# 数据源用 IP 唯一标识
+local_source_ip: 10.0.1.10
+default_center_id: 10.0.1.10
+default_grpc_port: 50061
+
+
+sources:
+  - ip: 10.0.1.10
+    name: 北京数据源
+    aliases: ["北京", "京区"]
+  - ip: 10.0.2.10
+    name: 新疆数据源
+    aliases: ["新疆", "疆区"]
+  - ip: 10.0.3.10
+    name: 广州数据源
+    aliases: ["广州", "穗区"]
+
+# 跨域导出产物在远端 workspace 中的落地目录（相对用户工作区）
+export_dir: /artifacts/xdc
+
+# RemoteSubDagSourceStop 等待远端子 DAG 完成的超时（秒）
+subdag_wait_timeout_seconds: 3600
+
+# 副本挑选。副本清单与资源指标由数据源注册提供，这里只决定怎么从中挑一个。
+#
+#   weights 里除 locality 外的每个键，都从副本的 metrics 里按同名取值；
+#   注册方新增指标时只改这里，不用改代码。
+#     locality    数据源 IP 是否与偏好位置一致（保留字，不来自 metrics）
+#     cpu_cores   CPU 核数
+#     memory_gb   内存
+replica_selection:
+  # 视为「可用」的状态。白名单而非黑名单：不在清单里的一律当不可用，
+  # 未知状态宁可少选一个也不选错一个。注册方词表不同时改这里即可。
+  available_statuses: ["AVAILABLE"]
+  weights:
+    locality: 0.40
+    cpu_cores: 0.30
+    memory_gb: 0.30
+  # 指标方向。higher=越大越好，lower=越小越好；未声明按 higher 处理。
+  metric_directions:
+    cpu_cores: higher
+    memory_gb: higher
+
+
+llm:
+  enable_thinking: false
+  model: ""
+  timeout_seconds: 120
+  json_mode: true

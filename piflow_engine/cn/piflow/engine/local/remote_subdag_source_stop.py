@@ -17,8 +17,6 @@ from piflow_engine.cn.piflow.runtime.logging.path_utils import safe_name
 class RemoteExecutionGateway(Protocol):
     def submit_dag(self, dag_definition_json: str): ...
 
-    def submit_remote_subdag(self, dag_definition_json: str): ...
-
     def get_run_status(self, run_id: str): ...
 
     def get_run_result_meta(
@@ -42,6 +40,8 @@ class RemoteExecutionGateway(Protocol):
 
 
 OUTPUT_PORT = "output"
+DEFAULT_WAIT_TIMEOUT_SECONDS = 3600
+POLL_INTERVAL_SECONDS = 1.0
 
 
 class RemoteSubDagSourceStop(ConfigurableStop):
@@ -60,6 +60,9 @@ class RemoteSubDagSourceStop(ConfigurableStop):
         super().__init__()
         self.remote_grpc_target = ""
         self.subdag_definition_json = ""
+        self.result_node_id = ""
+        self.result_output_name = ""
+        self.wait_timeout_seconds = DEFAULT_WAIT_TIMEOUT_SECONDS
         self._workspace_root: Path | None = None
 
     def set_properties(self, properties: dict[str, Any]) -> None:
@@ -70,6 +73,15 @@ class RemoteSubDagSourceStop(ConfigurableStop):
         self.subdag_definition_json = _normalize_json(
             properties.get("subdag_definition_json", ""),
             name="subdag_definition_json",
+        )
+        # Optional: pin the exact remote node whose artifact should be pulled back.
+        # Empty keeps the legacy behaviour of resolving the run's default result.
+        self.result_node_id = str(properties.get("result_node_id", "") or "").strip()
+        self.result_output_name = str(properties.get("result_output_name", "") or "").strip()
+        self.wait_timeout_seconds = _parse_positive_int(
+            properties.get("wait_timeout_seconds", DEFAULT_WAIT_TIMEOUT_SECONDS),
+            name="wait_timeout_seconds",
+            default=DEFAULT_WAIT_TIMEOUT_SECONDS,
         )
 
     def initialize(self, ctx: ProcessContext) -> None:
@@ -85,19 +97,19 @@ class RemoteSubDagSourceStop(ConfigurableStop):
     ) -> None:
         client = self._create_client()
         try:
-            submit_resp = client.submit_remote_subdag(self.subdag_definition_json)
+            submit_resp = client.submit_dag(self.subdag_definition_json)
             run_id = str(submit_resp.run_id)
             self._wait_for_success(client, run_id)
             meta = client.get_run_result_meta(
                 run_id=run_id,
-                result_node_id="",
-                result_output_name="",
+                result_node_id=self.result_node_id,
+                result_output_name=self.result_output_name,
             )
             target_path = self._prepare_output_path(ctx, meta.file_name or "remote_result.bin")
             local_path = client.download_result(
                 run_id=run_id,
-                result_node_id="",
-                result_output_name="",
+                result_node_id=self.result_node_id,
+                result_output_name=self.result_output_name,
                 target_path=target_path,
             )
         finally:
@@ -115,6 +127,7 @@ class RemoteSubDagSourceStop(ConfigurableStop):
         return RemoteExecutionClient(self.remote_grpc_target)
 
     def _wait_for_success(self, client: RemoteExecutionGateway, run_id: str) -> None:
+        deadline = time.monotonic() + self.wait_timeout_seconds
         while True:
             status_resp = client.get_run_status(run_id)
             status = str(status_resp.status or "")
@@ -122,7 +135,12 @@ class RemoteSubDagSourceStop(ConfigurableStop):
                 return
             if status in {"FAILED", "CANCELLED"}:
                 raise RuntimeError(f"remote subdag failed with status {status}: {status_resp.message}")
-            time.sleep(1.0)
+            if time.monotonic() >= deadline:
+                raise TimeoutError(
+                    f"remote subdag {run_id} did not finish within "
+                    f"{self.wait_timeout_seconds}s (last status={status or 'UNKNOWN'})"
+                )
+            time.sleep(POLL_INTERVAL_SECONDS)
 
     def _prepare_output_path(self, ctx: JobContext, file_name: str) -> Path:
         if self._workspace_root is None:
@@ -138,8 +156,11 @@ class RemoteSubDagSourceStop(ConfigurableStop):
             / "output"
         )
         output_dir.mkdir(parents=True, exist_ok=True)
-        output_file_name = Path(file_name).name or "remote_result.bin"
-        return output_dir / output_file_name
+        # NOTE: must not be named `safe_name` -- assigning that name anywhere in this
+        # function would make the module-level `safe_name` function a local variable
+        # for the whole scope, breaking its use above with UnboundLocalError.
+        resolved_name = Path(file_name).name or "remote_result.bin"
+        return output_dir / resolved_name
 
 
 def _require_non_empty_string(value: Any, *, name: str) -> str:
@@ -147,6 +168,18 @@ def _require_non_empty_string(value: Any, *, name: str) -> str:
     if not text:
         raise ValueError(f"{name} must not be empty")
     return text
+
+
+def _parse_positive_int(value: Any, *, name: str, default: int) -> int:
+    if value is None or value == "":
+        return default
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"{name} must be an integer") from exc
+    if parsed <= 0:
+        raise ValueError(f"{name} must be positive")
+    return parsed
 
 
 def _normalize_json(value: Any, *, name: str) -> str:

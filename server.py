@@ -57,6 +57,7 @@ from services.object_storage_service import ObjectStorageService
 
 from routers.auth_router import router as auth_router
 from routers.community_router import router as community_router
+from routers.cross_dag_api import router as cross_dag_router
 from routers.dag_panel_api import router as dag_router
 from routers.dag_runtime_api import router as dag_runtime_router
 from routers.user_router import router as user_router
@@ -116,6 +117,7 @@ app = FastAPI(lifespan=lifespan)
 
 app.include_router(auth_router)
 app.include_router(community_router)
+app.include_router(cross_dag_router)
 app.include_router(dag_router)
 app.include_router(dag_runtime_router)
 app.include_router(user_router)
