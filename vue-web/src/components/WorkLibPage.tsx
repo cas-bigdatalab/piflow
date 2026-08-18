@@ -1,6 +1,6 @@
 import { Icon } from "@iconify/react";
 import { useEffect, useState } from "react";
-import { apiBase, listSkills, getSkillTypes, type DagSkillInfo } from "../lib/api";
+import { apiBase, listSkills, getSkillTypes, type DagSkillInfo,iconBase } from "../lib/api";
 
 import { useNavigate } from 'react-router-dom';
 
@@ -32,7 +32,7 @@ function resolveIconUrl(icon?: string) {
     return rawIcon;
   }
 
-  const base = (apiBase() || "").trim().replace(/\/+$/, "");
+  const base = (iconBase() || "").trim().replace(/\/+$/, "");
   if (!base) {
     return normalizedPath;
   }
