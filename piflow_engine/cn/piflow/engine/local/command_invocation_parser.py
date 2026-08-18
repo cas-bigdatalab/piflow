@@ -7,8 +7,6 @@ from typing import Any
 from piflow_engine.cn.piflow.core.stream import JobInputStream
 from piflow_engine.cn.piflow.engine.local.spec import CommandSpec, ParameterSpec
 
-## 123
-
 @dataclass(frozen=True)
 class CommandInvocation:
     command: list[str]
