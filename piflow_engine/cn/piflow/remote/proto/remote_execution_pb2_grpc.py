@@ -3,7 +3,10 @@
 import grpc
 import warnings
 
-from . import remote_execution_pb2 as remote__execution__pb2
+try:
+    from . import remote_execution_pb2 as remote__execution__pb2
+except ImportError:  # pragma: no cover - compatibility for direct script execution
+    import remote_execution_pb2 as remote__execution__pb2
 
 GRPC_GENERATED_VERSION = '1.82.0'
 GRPC_VERSION = grpc.__version__
@@ -44,6 +47,11 @@ class RemoteExecutionServiceStub:
                 request_serializer=remote__execution__pb2.GetRunStatusRequest.SerializeToString,
                 response_deserializer=remote__execution__pb2.GetRunStatusResponse.FromString,
                 _registered_method=True)
+        self.GetServerResource = channel.unary_unary(
+                '/piflow.remote.RemoteExecutionService/GetServerResource',
+                request_serializer=remote__execution__pb2.GetServerResourceRequest.SerializeToString,
+                response_deserializer=remote__execution__pb2.GetServerResourceResponse.FromString,
+                _registered_method=True)
         self.GetRunResultMeta = channel.unary_unary(
                 '/piflow.remote.RemoteExecutionService/GetRunResultMeta',
                 request_serializer=remote__execution__pb2.GetRunResultMetaRequest.SerializeToString,
@@ -66,6 +74,12 @@ class RemoteExecutionServiceServicer:
         raise NotImplementedError('Method not implemented!')
 
     def GetRunStatus(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetServerResource(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -95,6 +109,11 @@ def add_RemoteExecutionServiceServicer_to_server(servicer, server):
                     servicer.GetRunStatus,
                     request_deserializer=remote__execution__pb2.GetRunStatusRequest.FromString,
                     response_serializer=remote__execution__pb2.GetRunStatusResponse.SerializeToString,
+            ),
+            'GetServerResource': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetServerResource,
+                    request_deserializer=remote__execution__pb2.GetServerResourceRequest.FromString,
+                    response_serializer=remote__execution__pb2.GetServerResourceResponse.SerializeToString,
             ),
             'GetRunResultMeta': grpc.unary_unary_rpc_method_handler(
                     servicer.GetRunResultMeta,
@@ -161,6 +180,33 @@ class RemoteExecutionService:
             '/piflow.remote.RemoteExecutionService/GetRunStatus',
             remote__execution__pb2.GetRunStatusRequest.SerializeToString,
             remote__execution__pb2.GetRunStatusResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetServerResource(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/piflow.remote.RemoteExecutionService/GetServerResource',
+            remote__execution__pb2.GetServerResourceRequest.SerializeToString,
+            remote__execution__pb2.GetServerResourceResponse.FromString,
             options,
             channel_credentials,
             insecure,

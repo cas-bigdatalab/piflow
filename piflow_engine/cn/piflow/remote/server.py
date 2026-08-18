@@ -60,6 +60,18 @@ class RemoteExecutionService(remote_execution_pb2_grpc.RemoteExecutionServiceSer
         except Exception as exc:
             self._abort(context, exc)
 
+    def GetServerResource(self, request, context):
+        try:
+            resource = self._facade.get_server_resource()
+            return remote_execution_pb2.GetServerResourceResponse(
+                cpu_cores=resource.cpu_cores,
+                memory_gb=resource.memory_gb,
+                free_disk_gb=resource.free_disk_gb,
+                hostname=resource.hostname,
+            )
+        except Exception as exc:
+            self._abort(context, exc)
+
     def GetRunResultMeta(self, request, context):
         try:
             meta = self._facade.get_run_result_meta(
