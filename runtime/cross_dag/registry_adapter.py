@@ -142,6 +142,7 @@ def _merge_source_metrics(
         replicas=tuple(merged),
         description=dataset.description,
         tags=dataset.tags,
+        facets=dict(dataset.facets),
     )
 
 

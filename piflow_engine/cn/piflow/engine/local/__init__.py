@@ -15,6 +15,7 @@ from piflow_engine.cn.piflow.engine.local.s3_file_source_stop import (
 )
 from piflow_engine.cn.piflow.engine.local.source_file_stop import SourceFileStop
 from piflow_engine.cn.piflow.engine.local.spec import CommandSpec, ParameterSpec
+from piflow_engine.cn.piflow.engine.local.table_merge_stop import TableMergeStop
 from piflow_engine.cn.piflow.engine.local.text_file_merge_stop import TextFileMergeStop
 
 __all__ = [
@@ -33,5 +34,6 @@ __all__ = [
     "S3DataSourceStop",
     "S3FileSourceStop",
     "SourceFileStop",
+    "TableMergeStop",
     "TextFileMergeStop",
 ]

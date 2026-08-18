@@ -4,10 +4,9 @@ from __future__ import annotations
 
 import json
 
-from fastapi import APIRouter, Body, Depends, HTTPException
+from fastapi import APIRouter, Body, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 
-from runtime.cross_dag.engine import stream_plan_cross_dag
 from runtime.cross_dag.schema import CrossDagError
 from security.auth_dependency import get_current_user
 from services.cross_dag_service import (
@@ -17,6 +16,7 @@ from services.cross_dag_service import (
     get_cross_dag_plan,
     handoff_check_cross_dag_plan,
     list_cross_dag_context,
+    stream_cross_dag_plan,
 )
 from services.cross_dag_trace import trace_cross_dag_plan
 
@@ -36,12 +36,14 @@ async def get_cross_dag_context_api(current_user=Depends(get_current_user)):
 async def create_cross_dag_plan_api(
     current_user=Depends(get_current_user),
     user_request: str = Body(..., embed=True, description="用户自然语言任务"),
+    detail: bool = Body(False, embed=True, description="附带内部完整数据，排障用"),
 ):
-    """只规划不执行，返回意图、绑定、分段、嵌套 DSL 与校验结果。"""
+    """只规划不执行，返回需求理解、覆盖情况与方案（直接获取或 DAG）。"""
     try:
         result = create_cross_dag_plan(
             user_request=user_request,
             user_id=current_user["user_id"],
+            detail=detail,
         )
         return {"message": "success", "result": result, "code": 200}
     except CrossDagError as e:
@@ -71,6 +73,7 @@ async def compile_cross_dag_plan_api(
     current_user=Depends(get_current_user),
     planning_json: dict = Body(..., description="规划态 DAG JSON"),
     dataset_ids: list[str] | None = Body(None, description="留空则从 dataset:// 引用自动扫描"),
+    detail: bool = Body(False, description="附带内部完整数据，排障用"),
 ):
     """跳过 LLM，直接编译规划态 JSON。"""
     try:
@@ -78,6 +81,7 @@ async def compile_cross_dag_plan_api(
             planning_json=planning_json,
             user_id=current_user["user_id"],
             dataset_ids=dataset_ids,
+            detail=detail,
         )
         return {"message": "success", "result": result, "code": 200}
     except CrossDagError as e:
@@ -90,12 +94,17 @@ async def compile_cross_dag_plan_api(
 async def stream_cross_dag_plan_api(
     current_user=Depends(get_current_user),
     user_request: str = Body(..., embed=True, description="用户自然语言任务"),
+    detail: bool = Body(False, embed=True, description="附带内部完整数据，排障用"),
 ):
-    """SSE 逐阶段推送规划过程。"""
+    """SSE 逐阶段推送规划过程，done 事件带最终方案。"""
 
     async def event_source():
         try:
-            async for event in stream_plan_cross_dag(user_request):
+            async for event in stream_cross_dag_plan(
+                user_request=user_request,
+                user_id=current_user["user_id"],
+                detail=detail,
+            ):
                 yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
         except Exception as e:
             payload = {"type": "error", "message": str(e)}
@@ -108,9 +117,11 @@ async def stream_cross_dag_plan_api(
 async def get_cross_dag_plan_api(
     plan_id: str,
     current_user=Depends(get_current_user),
+    detail: bool = Query(False, description="附带内部完整数据，排障用"),
 ):
     try:
-        return {"message": "success", "result": get_cross_dag_plan(plan_id), "code": 200}
+        result = get_cross_dag_plan(plan_id, detail=detail)
+        return {"message": "success", "result": result, "code": 200}
     except CrossDagError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:

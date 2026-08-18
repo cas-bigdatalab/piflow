@@ -108,10 +108,42 @@ def database_param_resolver() -> Callable[[str], SkillParamSpec | None]:
     except Exception:
         log.warning("dag_skills 不可用，跳过参数校验", exc_info=True)
 
+    system = _system_specs()
+
     def _resolve(skill_name: str) -> SkillParamSpec | None:
-        return mapping.get(skill_name)
+        return mapping.get(skill_name) or system.get(skill_name)
 
     return _resolve
+
+
+def _system_specs() -> dict[str, SkillParamSpec]:
+    """系统内置算子的参数契约，直接由算子清单推出来。
+
+    这些算子不在 dag_skills 表里，此前 resolver 一律返回 None，等于对它们完全
+    不做校验 —— 把 absolute_path 绑成上游引用、给 SourceFileStop 接个上游，
+    都要等到运行时拿到空值才暴露。清单本来就写了端口，拿来用即可，
+    不另起一份声明以免两处漂移。
+    """
+    from .intent import SYSTEM_SKILL_CATALOG
+
+    specs: dict[str, SkillParamSpec] = {}
+    for entry in SYSTEM_SKILL_CATALOG:
+        name = str(entry.get("skill_name") or "")
+        params = entry.get("输入参数")
+        if not name or not isinstance(params, dict):
+            continue
+        upstream = entry.get("可接上游的参数")
+        specs[name] = SkillParamSpec(
+            all_params=frozenset(str(k) for k in params),
+            # 空列表是「一路上游都不能接」，和「没声明所以不校验」是两回事，
+            # 不能塌成 None
+            upstream_params=(
+                frozenset(str(x) for x in upstream)
+                if isinstance(upstream, list)
+                else None
+            ),
+        )
+    return specs
 
 
 def _spec_from_skill_json(path: Any) -> SkillParamSpec | None:
@@ -142,6 +174,7 @@ def expand_planning_json(
 
     task = planning_json.get("task") or {}
     task_name = str(task.get("name") or task.get("dag_task_name") or "跨域任务")
+    task_description = str(task.get("description") or "")
 
     node_ids = _assign_node_ids(raw_nodes)
     nodes: list[LogicalNode] = []
@@ -226,6 +259,7 @@ def expand_planning_json(
                 node_id=node_id,
                 node_name=node_name,
                 skill_id=resolver(skill_name),
+                skill_name=skill_name,
                 node_type=str(raw_node.get("node_type") or "default"),
                 data_center=str(raw_node.get("dataCenter") or "").strip(),
                 input_params=input_params,
@@ -241,6 +275,7 @@ def expand_planning_json(
     dag = LogicalDag(
         task_name=task_name,
         task_id=task_id,
+        description=task_description,
         nodes=nodes,
         bindings=bindings,
     )

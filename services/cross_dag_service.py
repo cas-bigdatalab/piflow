@@ -20,7 +20,9 @@ _CACHE_LOCK = threading.Lock()
 _CACHE_LIMIT = 100
 
 
-def create_cross_dag_plan(*, user_request: str, user_id: str) -> dict[str, Any]:
+def create_cross_dag_plan(
+    *, user_request: str, user_id: str, detail: bool = False
+) -> dict[str, Any]:
     """只规划不执行，返回可预览的完整计划。"""
     plan = plan_cross_dag(user_request)
     _remember(plan)
@@ -31,13 +33,14 @@ def create_cross_dag_plan(*, user_request: str, user_id: str) -> dict[str, Any]:
         len(plan.segment_graph.segments),
         plan.validation.ok,
     )
-    return _summarize(plan)
+    return _summarize(plan, detail=detail)
 
 
 def compile_cross_dag_plan(
     *,
     planning_json: dict[str, Any],
     user_id: str,
+    detail: bool = False,
     dataset_ids: list[str] | None = None,
 ) -> dict[str, Any]:
     """跳过 LLM，直接从规划态 JSON 编译。"""
@@ -79,7 +82,12 @@ def compile_cross_dag_plan(
 
     logical = expand_planning_json(planning_json, task_id=plan_id)
 
-    logical_report = validate_logical_dag(logical)
+    config = get_cross_dc_config()
+    logical_report = validate_logical_dag(
+        logical,
+        sink_skills=config.sink_skills,
+        placeholder_skills=config.placeholder_skills,
+    )
     if not logical_report.ok:
         raise CrossDagError("逻辑 DAG 校验失败:\n" + "\n".join(logical_report.errors))
 
@@ -90,7 +98,7 @@ def compile_cross_dag_plan(
         "cross dag compiled plan_id=%s user_id=%s datasets=%s valid=%s",
         plan_id, user_id, [d.dataset_id for d in datasets], plan.validation.ok,
     )
-    return _summarize(plan)
+    return _summarize(plan, detail=detail)
 
 
 def _scan_dataset_ids(planning_json: dict[str, Any]) -> list[str]:
@@ -114,9 +122,24 @@ def handoff_check_cross_dag_plan(plan_id: str) -> dict[str, Any]:
         convert_frontend_dag_to_piflow,
     )
 
+    from runtime.cross_dag.schema import MODE_COMPOSITION
+
     plan = _PLAN_CACHE.get(plan_id)
     if plan is None:
         raise CrossDagError(f"计划不存在或已过期: {plan_id}")
+
+    if plan.mode != MODE_COMPOSITION:
+        return {
+            "plan_id": plan.plan_id,
+            "mode": plan.mode,
+            "ok": True,
+            "层数": 0,
+            "失败层数": 0,
+            "layers": [],
+            "说明": [
+                f"{plan.mode} 计划不生成 DAG，没有需要交给执行引擎的结构，本项自检不适用",
+            ],
+        }
 
     flow_bean = None
     construct_note = ""
@@ -137,7 +160,13 @@ def handoff_check_cross_dag_plan(plan_id: str) -> dict[str, Any]:
         resolver_note = f"skill 解析不可用（{type(exc).__name__}: {exc}），已降级"
 
     layers: list[dict[str, Any]] = []
-    root_center = get_cross_dc_config().local_center_id
+    # 根层的执行位置要从计划里读，不能写死成本地中心：真绑到远端时写死会让
+    # 这份自检报告反过来替错误的计划背书（结构合法 -> 全绿），掩盖真正的问题。
+    local_center = get_cross_dc_config().local_center_id
+    roots = plan.segment_graph.root_segments()
+    root_center = (
+        plan.segment_graph.segments[roots[0]].center_id if len(roots) == 1 else ""
+    )
     for depth, name, center_id, layer in _iter_dsl_layers(plan.nested_dsl, center_id=root_center):
         entry: dict[str, Any] = {
             "depth": depth,
@@ -214,11 +243,21 @@ def handoff_check_cross_dag_plan(plan_id: str) -> dict[str, Any]:
     ]
     if flow_bean is None:
         notes.append("本次只验证到转换层，构图未执行 —— 结论不完整")
+
+    root_mismatch = bool(root_center) and root_center != local_center
+    if root_mismatch:
+        notes.append(
+            f"最外层段绑在 {root_center}，但最外层是在本地 {local_center} 执行的 —— "
+            "DSL 结构合法不代表会跑在对的位置，本计划已被编译期校验拒绝"
+        )
     return {
         "plan_id": plan.plan_id,
-        "ok": not bad,
+        "ok": not bad and not root_mismatch,
         "转换已执行": True,
         "构图已执行": flow_bean is not None,
+        "本地执行位置": local_center,
+        "最外层绑定位置": root_center,
+        "最外层位置正确": not root_mismatch,
         "层数": len(layers),
         "失败层数": len(bad),
         "layers": layers,
@@ -252,26 +291,59 @@ def _iter_dsl_layers(dsl: dict[str, Any], depth: int = 0, center_id: str = ""):
             )
 
 
-def get_cross_dag_plan(plan_id: str) -> dict[str, Any]:
+def get_cross_dag_plan(plan_id: str, *, detail: bool = False) -> dict[str, Any]:
     plan = _PLAN_CACHE.get(plan_id)
     if plan is None:
         raise CrossDagError(f"计划不存在或已过期: {plan_id}")
-    return _summarize(plan)
+    return _summarize(plan, detail=detail)
 
 
 def execute_cross_dag_plan(*, plan_id: str, user_id: str) -> dict[str, Any]:
-    """把最外层嵌套 DSL 交给现有执行链路。"""
-    from services.dag_panel_service import save_dag_panel
-    from services.dag_runtime_service import run_dag_task
+    """把最外层嵌套 DSL 交给现有执行链路。直接获取的计划没有 DAG，只回访问路由。"""
+    from runtime.cross_dag.schema import MODE_DIRECT, MODE_UNAVAILABLE
 
     plan = _PLAN_CACHE.get(plan_id)
     if plan is None:
         raise CrossDagError(f"计划不存在或已过期: {plan_id}")
+
+    if plan.mode == MODE_UNAVAILABLE:
+        missing = plan.satisfaction.missing_values if plan.satisfaction else []
+        raise CrossDagError(
+            "平台当前没有满足该需求的数据，没有可执行的方案"
+            + (f"。缺少：{missing}" if missing else "")
+        )
 
     if not plan.validation.ok:
         raise CrossDagError(
             "计划未通过校验，拒绝执行:\n" + "\n".join(plan.validation.errors)
         )
+
+    if plan.mode == MODE_DIRECT:
+        access = plan.direct_access
+        if access is None or access.replica_decision is None:
+            raise CrossDagError("直接获取的计划缺少访问路由")
+        chosen = access.replica_decision.chosen
+        log.info(
+            "cross dag direct access plan_id=%s dataset=%s replica=%s",
+            plan.plan_id,
+            access.dataset_id,
+            chosen.replica_id if chosen else "",
+        )
+        return {
+            "plan_id": plan.plan_id,
+            "mode": plan.mode,
+            "dataset_id": access.dataset_id,
+            "dataset_name": access.name,
+            "replica_id": chosen.replica_id if chosen else "",
+            "center_id": chosen.center_id if chosen else "",
+            "locator": chosen.locator if chosen else "",
+            "reason": access.replica_decision.reason,
+            "alternatives": list(access.alternatives),
+            "warnings": list(plan.validation.warnings),
+        }
+
+    from services.dag_panel_service import save_dag_panel
+    from services.dag_runtime_service import run_dag_task
 
     saved = save_dag_panel(
         definition_json=plan.nested_dsl,
@@ -292,11 +364,30 @@ def execute_cross_dag_plan(*, plan_id: str, user_id: str) -> dict[str, Any]:
     )
     return {
         "plan_id": plan.plan_id,
+        "mode": plan.mode,
         "dag_task_id": dag_task_id,
         "process_id": result.get("process_id"),
         "status": result.get("status"),
         "warnings": list(plan.validation.warnings),
     }
+
+
+async def stream_cross_dag_plan(
+    *, user_request: str, user_id: str, detail: bool = False
+) -> Any:
+    """SSE 版规划。逐阶段推摘要，done 事件给最终方案。
+
+    必须走 service 层而不是直接用 runtime 的生成器：规划完要把 plan 记进缓存，
+    否则前端从 done 事件里拿到的 plan_id，回头 GET /xdc/plan/{id} 是 404，
+    POST /xdc/execute 也用不了 —— 步骤条能跑完，却什么都点不下去。
+    """
+    from runtime.cross_dag.engine import stream_plan_cross_dag
+
+    plan_id = f"xdc-{uuid.uuid4().hex[:12]}"
+    async for event in stream_plan_cross_dag(
+        user_request, detail=detail, plan_id=plan_id, on_plan=_remember
+    ):
+        yield event
 
 
 def list_cross_dag_context() -> dict[str, Any]:
@@ -310,7 +401,8 @@ def list_cross_dag_context() -> dict[str, Any]:
             {
                 "center_id": center.center_id,
                 "center_name": center.center_name,
-                "grpc_endpoint": center.grpc_endpoint,
+                # grpc_endpoint 不外发：那是中心之间互调的内部地址，
+                # 浏览器用不上，暴露出去等于把内网拓扑贴在页面上
             }
             for center in config.centers.values()
         ],
@@ -318,15 +410,11 @@ def list_cross_dag_context() -> dict[str, Any]:
     }
 
 
-def _summarize(plan: CrossDagPlan) -> dict[str, Any]:
-    payload = plan.to_json()
-    payload["summary"] = {
-        "node_count": len(plan.logical_dag.nodes),
-        "segment_count": len(plan.segment_graph.segments),
-        "cross_edge_count": len(plan.segment_graph.cross_edges),
-        "centers": sorted({s.center_id for s in plan.segment_graph.segments.values()}),
-    }
-    return payload
+def _summarize(plan: CrossDagPlan, *, detail: bool = False) -> dict[str, Any]:
+    """对外只给前端渲染需要的结构。完整数据（嵌套 DSL、打分表、段图）走 detail。"""
+    from runtime.cross_dag.plan_view import build_plan_view
+
+    return build_plan_view(plan, detail=detail, config=get_cross_dc_config())
 
 
 def _remember(plan: CrossDagPlan) -> None:

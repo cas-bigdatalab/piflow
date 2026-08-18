@@ -1,27 +1,47 @@
 """跨数据中心 DAG 规划与嵌套构造。"""
 
+from .satisfaction import analyze_satisfaction
 from .schema import (
+    FACET_COVER_ALL,
+    FACET_MATCH_ALL,
+    MODE_COMPOSITION,
+    MODE_DIRECT,
     BindResult,
     CrossDagPlan,
+    DatasetCoverage,
+    DirectAccess,
+    FacetCoverage,
     IntentDataset,
     IntentSpec,
     LogicalDag,
     LogicalNode,
     Binding,
+    RequirementFacet,
+    SatisfactionReport,
     Segment,
     SegmentGraph,
     ValidationReport,
 )
 
 __all__ = [
+    "FACET_COVER_ALL",
+    "FACET_MATCH_ALL",
+    "MODE_COMPOSITION",
+    "MODE_DIRECT",
     "BindResult",
     "Binding",
     "CrossDagPlan",
+    "DatasetCoverage",
+    "DirectAccess",
+    "FacetCoverage",
     "IntentDataset",
     "IntentSpec",
     "LogicalDag",
     "LogicalNode",
+    "RequirementFacet",
+    "SatisfactionReport",
     "Segment",
     "SegmentGraph",
     "ValidationReport",
+    "analyze_satisfaction",
 ]

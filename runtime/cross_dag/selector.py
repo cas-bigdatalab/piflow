@@ -13,10 +13,13 @@ from .schema import (
 
 LOCALITY = "locality"
 
+# locality 的权重必须大于其余各项之和，否则「数据就近」会被资源指标投票推翻：
+# 跨域副本在资源上拿满分即可盖过本地副本，于是本地明明有一份也要去远端取数。
+# 改这里或改 config/cross_dc.yaml 时都要守住这条不变量，config.py 在加载时会校验。
 DEFAULT_WEIGHTS: dict[str, float] = {
-    LOCALITY: 0.40,
-    "cpu_cores": 0.30,
-    "memory_gb": 0.30,
+    LOCALITY: 0.60,
+    "cpu_cores": 0.20,
+    "memory_gb": 0.20,
 }
 
 DEFAULT_DIRECTIONS: dict[str, str] = {
@@ -25,7 +28,9 @@ DEFAULT_DIRECTIONS: dict[str, str] = {
 }
 
 _LOCALITY_SAME = 1.0
-_LOCALITY_CROSS = 0.2
+# 跨域取数不给任何 locality 分。给正分等于承认「远端也算就近一点」，
+# 而跨域传输是要么发生要么不发生，没有中间状态。
+_LOCALITY_CROSS = 0.0
 
 DEFAULT_AVAILABLE_STATUSES = frozenset({"AVAILABLE"})
 

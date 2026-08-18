@@ -56,6 +56,9 @@ class DatasetRecord:
     replicas: tuple[ReplicaRecord, ...] = ()
     description: str = ""
     tags: tuple[str, ...] = ()
+    # 结构化元数据：维度键 -> 该数据集在这个维度上提供的取值。
+    # 维度键由注册方定义，平台不预设；没声明的维度在需求满足分析里按"无法核实"处理。
+    facets: dict[str, tuple[str, ...]] = field(default_factory=dict)
 
     @property
     def primary(self) -> ReplicaRecord | None:
@@ -82,6 +85,7 @@ class DatasetRecord:
             "name": self.name,
             "description": self.description,
             "tags": list(self.tags),
+            "facets": {k: list(v) for k, v in self.facets.items()},
             "replicas": [r.to_json() for r in self.replicas],
         }
 
@@ -122,12 +126,20 @@ _DEMO_SOURCES: tuple[DataSourceRecord, ...] = (
     ),
 )
 
+# facets 的键由注册方定义，这里用地学场景举例；其他学科用自己的键即可，
+# 平台侧不认识具体含义，只做取值集合的比对。
 _DEMO_DATASETS: tuple[DatasetRecord, ...] = (
     DatasetRecord(
         dataset_id="ds-obs",
         name="地面气象观测原始数据",
-        description="地面气象观测原始记录，含站点号、时间、气温。三个数据源各有一份。",
+        description="地面气象观测原始记录，含站点号、时间、气温、降水。三个数据源各有一份。",
         tags=("观测", "气象", "原始数据"),
+        facets={
+            "variables": ("气温", "降水"),
+            "region": ("长江流域",),
+            "time_range": ("2020-2025",),
+            "temporal_scale": ("日",),
+        },
         replicas=(
             ReplicaRecord("rep-obs-bj", "10.0.1.10", "/data/obs/obs_raw.csv"),
             ReplicaRecord("rep-obs-xj", "10.0.2.10", "/mirror/obs/obs_raw.csv"),
@@ -135,10 +147,59 @@ _DEMO_DATASETS: tuple[DatasetRecord, ...] = (
         ),
     ),
     DatasetRecord(
+        dataset_id="ds-prec",
+        name="长江流域逐日降水数据集",
+        description="长江流域 2020-2025 年逐日降水观测，覆盖流域内主要气象站点。",
+        tags=("气象", "降水", "逐日"),
+        facets={
+            "variables": ("降水",),
+            "region": ("长江流域",),
+            "time_range": ("2020-2025",),
+            "temporal_scale": ("日",),
+        },
+        replicas=(
+            ReplicaRecord("rep-prec-bj", "10.0.1.10", "/data/prec/daily.csv"),
+            ReplicaRecord("rep-prec-xj", "10.0.2.10", "/mirror/prec/daily.csv"),
+        ),
+    ),
+    DatasetRecord(
+        dataset_id="ds-soil",
+        name="长江流域土壤湿度观测数据集",
+        description="长江流域 2020-2025 年逐日土壤湿度观测，含多层深度。",
+        tags=("土壤", "湿度", "逐日"),
+        facets={
+            "variables": ("土壤湿度",),
+            "region": ("长江流域",),
+            "time_range": ("2020-2025",),
+            "temporal_scale": ("日",),
+        },
+        replicas=(
+            ReplicaRecord("rep-soil-bj", "10.0.1.10", "/data/soil/moisture.csv"),
+            ReplicaRecord("rep-soil-xj", "10.0.2.10", "/mirror/soil/moisture.csv"),
+        ),
+    ),
+    DatasetRecord(
+        dataset_id="ds-ndvi",
+        name="长江流域NDVI遥感时序数据集",
+        description="长江流域 2020-2025 年 NDVI 卫星遥感时序，250m 分辨率、16 天合成。",
+        tags=("遥感", "NDVI", "时序"),
+        facets={
+            "variables": ("NDVI",),
+            "region": ("长江流域",),
+            "time_range": ("2020-2025",),
+            "temporal_scale": ("16天",),
+        },
+        replicas=(
+            ReplicaRecord("rep-ndvi-bj", "10.0.1.10", "/data/ndvi/ts.tif"),
+            ReplicaRecord("rep-ndvi-xj", "10.0.2.10", "/mirror/ndvi/ts.tif"),
+        ),
+    ),
+    DatasetRecord(
         dataset_id="ds-meta",
         name="气象站点元信息",
         description="气象站点元信息，含站点号、站名、省份。",
         tags=("站点", "元信息", "台站"),
+        facets={"variables": ("站点元信息",), "region": ("长江流域",)},
         replicas=(
             ReplicaRecord("rep-meta-bj", "10.0.1.10", "/data/meta/station.csv"),
             ReplicaRecord("rep-meta-xj", "10.0.2.10", "/mirror/meta/station.csv"),
@@ -149,6 +210,7 @@ _DEMO_DATASETS: tuple[DatasetRecord, ...] = (
         name="观测质控规则表",
         description="观测数据的质控阈值规则。",
         tags=("质控", "规则"),
+        facets={"variables": ("质控规则",)},
         replicas=(ReplicaRecord("rep-qc-bj", "10.0.1.10", "/data/qc/rules.csv"),),
     ),
 )
@@ -192,6 +254,7 @@ class StubDatasourceRegistry:
             replicas=tuple(merged),
             description=dataset.description,
             tags=dataset.tags,
+            facets=dict(dataset.facets),
         )
 
     def list_sources(self) -> list[DataSourceRecord]:

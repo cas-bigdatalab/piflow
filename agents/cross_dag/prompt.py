@@ -19,6 +19,9 @@ INTENT_SYSTEM_PROMPT = """你是跨{location_term}任务的意图识别器。
 
 {
   "goal": "一句话概括任务目标",
+  "requirements": [
+    {"key": "维度键，必须来自下面的「可用需求维度清单」", "values": ["用户要求的取值"]}
+  ],
   "datasets": [
     {
       "alias": "在后续步骤中引用这份数据的简短别名，如 obs",
@@ -46,7 +49,22 @@ INTENT_SYSTEM_PROMPT = """你是跨{location_term}任务的意图识别器。
    不许静默假设。
 4. `alias` 在整个 JSON 内唯一，用简短的英文小写标识符。
 5. `operations` 按执行先后顺序排列。
-6. **关于执行位置（最容易出错的一条）**：
+6. **`requirements` 与 `operations` 的分界（决定后续走哪条路，务必分清）**：
+   - `requirements` 放**查数据集元数据就能回答**的要求，也就是下面「可用需求
+     维度清单」里的那些维度。这些会被拿去和数据集声明的元数据逐项比对，
+     比对得上就说明现成数据已经满足，不需要再做任何计算。
+   - `operations` 只放**真正需要算一遍**的步骤：清洗、关联、聚合、重采样、格式转换。
+   - 判断方法：这项要求能不能靠「挑一个合适的数据集」解决？能，就是 requirements；
+     必须对数据做变换才能得到，才是 operations。
+   - 举例：用户要某个区域的数据，而维度清单里有「空间范围」这个维度，那就写成
+     `requirements` 里的一条，**不要**写成 `{"op": "筛选"}` —— 那会让系统以为
+     必须跑一个筛选算子，明明有现成的该区域数据集可以直接给他。
+   - 用户没有提出任何加工要求时，`operations` 必须是空数组。
+7. `requirements[].key` 必须来自下面的「可用需求维度清单」，禁止自创维度键。
+   取值尽量沿用清单里「已有取值」的写法，用户用了别的说法就换成清单里的等价写法；
+   清单里确实没有的取值照原样写，系统会告诉用户这项覆盖不了。
+   用户没提到的维度就不要写进 `requirements`。
+8. **关于执行位置（最容易出错的一条）**：
    用户只要提到了下面清单里的任何一个{location_term}（用它的名称、别名
    或 ID 指代都算），就**必须**在 `location_hints` 里逐条记下来，
    `center_id` 取清单里的 ID 原样填写。
@@ -57,6 +75,10 @@ INTENT_SYSTEM_PROMPT = """你是跨{location_term}任务的意图识别器。
    写进 `assumptions` 等于丢弃这条要求。
 
    用户没提位置就让 `location_hints` 为空数组。
+
+## 可用需求维度清单
+
+{facet_catalog}
 
 ## 可用{location_term}清单
 
@@ -108,19 +130,26 @@ PLANNING_SYSTEM_PROMPT = """你是数据处理工作流的规划器。
      其余参数一律给字面值（字符串/数字），绑引用会在运行时拿到空值。
    - **一个参数最多引用一个上游，禁止引用数组**。
      `"input_files": [{"source_node":...}, {"source_node":...}]` 是错的 ——
-     执行引擎一个端口只装一个产物，绑两条会互相覆盖。
-   - **每个算子的「可接上游数」就是它能接几路上游**。当前算子库里
-     绝大多数算子「可接上游数」都是 1，也就是**只能串行链式连接**。
-     需要把两份数据合到一起时，当前算子库和执行引擎**不支持**，
-     请重新组织流程避开它；实在避不开，就在 `task.description` 里
-     说明这一步无法表达，**不要硬凑一个多引用参数**。
-4. **整个 DAG 必须只有一个终点节点**（没有下游消费者的节点只能有一个）。
-   如果有多个分支，必须先汇聚再输出。这是跨域嵌套执行的硬性要求。
-5. 终点节点必须是输出算子
+     一个端口只装一个产物，绑两条会互相覆盖。
+   - **多路上游要靠算子自己声明的多个输入端口**，每个端口写一条引用。
+     算子清单里的「可接上游数」就是它能接几路：为 1 只能串行接一路；
+     大于 1 时把不同的上游分别绑到「可接上游的参数」里列出的不同参数上。
+   - 需要把多份数据合到一起，就必须挑一个「可接上游数」大于 1 的算子。
+     清单里没有这样的算子时，见下面第 4 条，**不要硬凑**。
+4. **算子库表达不了某一步时，用占位算子如实标出来，不要将就**。
+   宁可诚实地说「缺这个能力」，也不要用一个语义不对的算子凑数，或者干脆
+   把某几路数据丢掉不接 —— 那样产出的方案跑起来不报错，结果却是错的。
+{placeholder_guidance}
+5. **每个节点的产出都必须被下游消费，只有输出算子可以作为终点**。
+   读进来却没人用的数据源、算完没人接的中间结果，都是规划错误：
+   它们照样会执行，产出却直接丢弃，最终结果里少了这部分内容。
+   接不进去就说明流程没组织对，或者缺算子（见第 4 条）。
+6. 终点节点用输出算子
    `piflow_engine.cn.piflow.engine.local.file_save_stop.FileSaveStop`，
    参数为 `{"output": {"source_node": "上游节点名", "source_param": "输出参数名"},
             "absolute_path": "/artifacts/<结果文件名>", "overwrite": "true"}`。
-6. 不允许存在未被消费的中间输出。
+   **整个 DAG 最好只有一个输出终点**；多个分支应当先汇聚再输出，
+   否则跨域嵌套执行会失败。
 7. `params` 里的参数名**必须**来自算子清单里该算子的「输入参数」，
    禁止自己发明参数名。标了(必填)的参数必须给值。
 8. **关于 dataCenter（执行位置）—— 最容易出错的一条**：
@@ -151,10 +180,12 @@ def build_intent_prompt(
     dataset_catalog: list[dict[str, Any]],
     center_catalog: list[dict[str, Any]] | None = None,
     location_term: str = DEFAULT_LOCATION_TERM,
+    facet_catalog: list[dict[str, Any]] | None = None,
 ) -> str:
     return (
         INTENT_SYSTEM_PROMPT
         .replace("{location_term}", location_term)
+        .replace("{facet_catalog}", _format_catalog(facet_catalog or []))
         .replace("{center_catalog}", _format_catalog(center_catalog or []))
         .replace("{dataset_catalog}", _format_catalog(dataset_catalog))
     )
@@ -165,13 +196,32 @@ def build_planning_prompt(
     skill_catalog: list[dict[str, Any]],
     center_catalog: list[dict[str, Any]] | None = None,
     location_term: str = DEFAULT_LOCATION_TERM,
+    placeholder_skills: list[str] | None = None,
 ) -> str:
     return (
         PLANNING_SYSTEM_PROMPT
         .replace("{location_term}", location_term)
+        .replace("{placeholder_guidance}", _placeholder_guidance(placeholder_skills))
         .replace("{dataset_catalog}", _format_catalog(dataset_catalog))
         .replace("{skill_catalog}", _format_catalog(skill_catalog))
         .replace("{center_catalog}", _format_catalog(center_catalog or []))
+    )
+
+
+def _placeholder_guidance(placeholder_skills: list[str] | None) -> str:
+    """占位算子的用法说明。没配置占位算子的部署就退化成「写进描述里」。"""
+    names = [str(x).strip() for x in (placeholder_skills or []) if str(x).strip()]
+    if not names:
+        return (
+            "   当前部署没有配置占位算子，请在 `task.description` 里写清楚缺的是"
+            "什么能力，并且**不要**把相关数据源放进 DAG。"
+        )
+    listed = "、".join(f"`{n}`" for n in names)
+    return (
+        f"   本部署提供了占位算子 {listed}。遇到算子库表达不了的步骤时用它，"
+        "并在参数里写清楚缺的是什么：期望的算子名、需要它做什么、为什么现有算子"
+        "不行。系统会在提交前拦下这样的方案，并把你写的说明转达给用户，所以请"
+        "写得具体、可执行 —— 这是让算子库缺口被看见的正规途径。"
     )
 
 

@@ -18,8 +18,11 @@ sources:
     name: 广州数据源
     aliases: ["广州", "穗区"]
 
-# 跨域导出产物在远端 workspace 中的落地目录（相对用户工作区）
-export_dir: /artifacts/xdc
+# 跨域导出产物在远端 workspace 中的落地目录。
+# 必须以 /workspace/ 开头 —— FileSaveStop 只把 /workspace/... 和 /users/... 映射进
+# 工作区根，其他写法一律当成文件系统绝对路径，会写到远端机器的 / 下（Linux 上
+# 通常没权限，而且逃出了工作区沙箱）。
+export_dir: /workspace/artifacts/xdc
 
 # RemoteSubDagSourceStop 等待远端子 DAG 完成的超时（秒）
 subdag_wait_timeout_seconds: 3600
@@ -35,14 +38,56 @@ replica_selection:
   # 视为「可用」的状态。白名单而非黑名单：不在清单里的一律当不可用，
   # 未知状态宁可少选一个也不选错一个。注册方词表不同时改这里即可。
   available_statuses: ["AVAILABLE"]
+  #
+  # locality 的权重必须大于其余各项之和。跨域取数的 locality 得分是 0，
+  # 所以只要 locality 权重占优，本地副本就一定胜出，资源指标只在同一
+  # 数据源内部（或数据集只存在于远端时）起区分作用。
+  # 反过来配（如 0.4 对 0.3+0.3）会让资源指标推翻就近原则：本地有副本
+  # 也会跑去远端取数，凭空多出一次跨域传输。加载时会校验这条不变量。
   weights:
-    locality: 0.40
-    cpu_cores: 0.30
-    memory_gb: 0.30
+    locality: 0.60
+    cpu_cores: 0.20
+    memory_gb: 0.20
   # 指标方向。higher=越大越好，lower=越小越好；未声明按 higher 处理。
   metric_directions:
     cpu_cores: higher
     memory_gb: higher
+
+
+# 产出算子。DAG 的终点只能是这些算子 —— 其余算子如果没有下游消费者，说明它的产出
+# 被丢弃了，那是规划有误，编译期会拦下。接入新的产出算子时在这里补一行即可。
+sink_skills:
+  - piflow_engine.cn.piflow.engine.local.file_save_stop.FileSaveStop
+  - piflow_engine.cn.piflow.engine.local.dataspace_file_sink_stop.DataspaceFileSinkStop
+  - piflow_engine.cn.piflow.engine.local.llm_file_transform_stop.LlmFileTransformStop
+
+# 占位算子。规划器遇到算子库表达不了的步骤时用它占位，并在参数里写明缺什么能力。
+# DAG 里出现占位算子说明这个需求当前算子库满足不了，编译期会拦下并把缺的能力报出来 ——
+# 这比让用户拿到一个跑出错结果的 DAG 要好。留空表示不启用这套机制。
+placeholder_skills:
+  - missing_operator_stop
+
+
+# 需求维度声明。key 与数据源注册提供的 facets 键一一对应，平台不预设维度是什么，
+# 换学科只需换这份声明和注册方的元数据。
+#
+# mode 决定这个维度能不能靠多个数据集分摊：
+#   cover_all   多个数据集各覆盖一部分，合起来满足 —— 只有这类维度会驱动「智能组装」
+#   match_all   每个数据集必须自身满足，组装帮不上忙（默认；未声明的维度按此处理，
+#               宁可退化成组装，也不要把无法核实的维度当成已满足）
+requirement_facets:
+  variables:
+    label: 数据变量
+    mode: cover_all
+  region:
+    label: 空间范围
+    mode: match_all
+  time_range:
+    label: 时间范围
+    mode: match_all
+  temporal_scale:
+    label: 时间尺度
+    mode: match_all
 
 
 llm:

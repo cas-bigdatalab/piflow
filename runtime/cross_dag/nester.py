@@ -78,85 +78,147 @@ def _build_segment_dsl(
     *,
     path: tuple[str, ...],
 ) -> dict[str, Any]:
-    if segment_id in path:
-        raise CrossDagError(f"嵌套构造检测到环: {' -> '.join((*path, segment_id))}")
+    """构造某个执行单元所在层的 DSL。
 
-    ctx.nest_count[segment_id] = ctx.nest_count.get(segment_id, 0) + 1
-    segment = ctx.graph.segments[segment_id]
-    member_ids = set(segment.node_ids)
+    只有真正跨中心的上游才导出成文件、包成远程子 DAG；同中心的上游单元就地内联到本层
+    —— 两端在同一台机器上，没有任何需要传输的东西，套一次远程调用只会凭空多出一次
+    文件导出、一次 gRPC 自调用和一次下载。
+    """
+    center_id = ctx.graph.segments[segment_id].center_id
+    nodes: dict[str, dict[str, Any]] = {}
+    bindings: dict[str, dict[str, str]] = {}
+    absorbed: set[str] = set()
+    remote_of: dict[tuple[str, str], str] = {}
 
-    nodes: list[dict[str, Any]] = [
-        ctx.node_map[node_id].to_dsl() for node_id in segment.node_ids
-    ]
-    bindings: list[dict[str, str]] = [
-        binding.to_dsl()
-        for binding in ctx.dag.bindings
-        if binding.from_node_id in member_ids and binding.to_node_id in member_ids
-    ]
+    def absorb(unit_id: str, chain: tuple[str, ...]) -> None:
+        if unit_id in absorbed:
+            return
+        if unit_id in chain:
+            raise CrossDagError(f"嵌套构造检测到环: {' -> '.join((*chain, unit_id))}")
+        absorbed.add(unit_id)
+        ctx.nest_count[unit_id] = ctx.nest_count.get(unit_id, 0) + 1
 
-    incoming: dict[tuple[str, str], list[Binding]] = {}
-    for binding in ctx.graph.cross_edges:
-        if ctx.graph.segment_of[binding.to_node_id] != segment_id:
-            continue
-        incoming.setdefault((binding.from_node_id, binding.from_param_name), []).append(
-            binding
-        )
+        segment = ctx.graph.segments[unit_id]
+        member_ids = set(segment.node_ids)
+        for node_id in segment.node_ids:
+            nodes[node_id] = ctx.node_map[node_id].to_dsl()
+        for binding in ctx.dag.bindings:
+            if binding.from_node_id in member_ids and binding.to_node_id in member_ids:
+                bindings[binding.binding_id] = binding.to_dsl()
 
-    for (producer_id, producer_param), edges in sorted(incoming.items()):
-        upstream_segment_id = ctx.graph.segment_of[producer_id]
-        upstream_segment = ctx.graph.segments[upstream_segment_id]
+        incoming: dict[tuple[str, str], list[Binding]] = {}
+        for binding in ctx.graph.cross_edges:
+            if ctx.graph.segment_of[binding.to_node_id] != unit_id:
+                continue
+            incoming.setdefault(
+                (binding.from_node_id, binding.from_param_name), []
+            ).append(binding)
 
-        child_dsl = _build_segment_dsl(
-            upstream_segment_id, ctx, path=(*path, segment_id)
-        )
+        for (producer_id, producer_param), edges in sorted(incoming.items()):
+            upstream_id = ctx.graph.segment_of[producer_id]
+            upstream = ctx.graph.segments[upstream_id]
 
-        export_node = _make_export_node(
-            producer_id=producer_id,
-            producer_param=producer_param,
-            segment_id=upstream_segment_id,
-            export_dir=ctx.export_dir,
-            task_id=ctx.task_id,
-        )
-        export_binding = Binding(
-            from_node_id=producer_id,
-            from_param_name=producer_param,
-            to_node_id=export_node.node_id,
-            to_param_name=FILE_SAVE_INPUT_PORT,
-        )
-        child_dsl = build_dsl(
-            task_id=child_dsl["task"]["dag_task_id"],
-            task_name=child_dsl["task"]["dag_task_name"],
-            nodes=[*child_dsl["nodes"], export_node.to_dsl()],
-            bindings=[*child_dsl["bindings"], export_binding.to_dsl()],
-        )
+            if upstream.center_id == center_id:
+                # 同一台机器：把上游单元并进本层，原绑定直接可用。
+                absorb(upstream_id, (*chain, unit_id))
+                for edge in edges:
+                    bindings[edge.binding_id] = edge.to_dsl()
+                continue
 
-        remote_node = _make_remote_node(
-            producer_id=producer_id,
-            producer_param=producer_param,
-            upstream_center_id=upstream_segment.center_id,
-            endpoint=_require_endpoint(ctx, upstream_segment.center_id),
-            child_dsl=child_dsl,
-            result_node_id=export_node.node_id,
-            wait_timeout_seconds=ctx.wait_timeout_seconds,
-        )
-        nodes.append(remote_node.to_dsl())
+            remote_node_id = remote_of.get((producer_id, producer_param))
+            if remote_node_id is None:
+                remote_node_id = _attach_remote_branch(
+                    ctx,
+                    nodes=nodes,
+                    producer_id=producer_id,
+                    producer_param=producer_param,
+                    upstream_id=upstream_id,
+                    upstream_center_id=upstream.center_id,
+                    chain=(*chain, unit_id),
+                )
+                remote_of[(producer_id, producer_param)] = remote_node_id
 
-        for edge in edges:
-            bindings.append(
-                Binding(
-                    from_node_id=remote_node.node_id,
+            for edge in edges:
+                binding = Binding(
+                    from_node_id=remote_node_id,
                     from_param_name=REMOTE_OUTPUT_PORT,
                     to_node_id=edge.to_node_id,
                     to_param_name=edge.to_param_name,
-                ).to_dsl()
-            )
+                )
+                bindings[binding.binding_id] = binding.to_dsl()
+                # 消费端节点是从逻辑 DAG 原样拷来的，它的入参还指着原来那条
+                # 跨中心绑定；这一层里那条绑定已经被换成从远程节点取了。
+                # 不改的话节点声明的 binding_id 在本层的 bindings 里根本不存在，
+                # 谁按 binding_id 去查绑定谁就查不到。
+                _rebind(nodes, edge.to_node_id, edge.to_param_name, binding.binding_id)
+
+    absorb(segment_id, path)
 
     return build_dsl(
         task_id=f"{ctx.task_id}--{segment_id}" if path else ctx.task_id,
         task_name=f"{ctx.task_name} [{segment_id}]" if path else ctx.task_name,
-        nodes=nodes,
-        bindings=bindings,
+        nodes=list(nodes.values()),
+        bindings=list(bindings.values()),
     )
+
+
+def _rebind(
+    nodes: dict[str, dict],
+    node_id: str,
+    param_name: str,
+    binding_id: str,
+) -> None:
+    """把消费端入参的 binding_id 指到本层实际存在的那条绑定上。"""
+    for param in nodes[node_id].get("input_params") or []:
+        if param.get("param_name") == param_name:
+            param["binding_id"] = binding_id
+            return
+
+
+def _attach_remote_branch(
+    ctx: NestContext,
+    *,
+    nodes: dict[str, dict[str, Any]],
+    producer_id: str,
+    producer_param: str,
+    upstream_id: str,
+    upstream_center_id: str,
+    chain: tuple[str, ...],
+) -> str:
+    """把一条真正跨中心的上游分支包成远程子 DAG，挂到当前层，返回远程节点 id。"""
+    child_dsl = _build_segment_dsl(upstream_id, ctx, path=chain)
+
+    export_node = _make_export_node(
+        producer_id=producer_id,
+        producer_param=producer_param,
+        segment_id=upstream_id,
+        export_dir=ctx.export_dir,
+        task_id=ctx.task_id,
+    )
+    export_binding = Binding(
+        from_node_id=producer_id,
+        from_param_name=producer_param,
+        to_node_id=export_node.node_id,
+        to_param_name=FILE_SAVE_INPUT_PORT,
+    )
+    child_dsl = build_dsl(
+        task_id=child_dsl["task"]["dag_task_id"],
+        task_name=child_dsl["task"]["dag_task_name"],
+        nodes=[*child_dsl["nodes"], export_node.to_dsl()],
+        bindings=[*child_dsl["bindings"], export_binding.to_dsl()],
+    )
+
+    remote_node = _make_remote_node(
+        producer_id=producer_id,
+        producer_param=producer_param,
+        upstream_center_id=upstream_center_id,
+        endpoint=_require_endpoint(ctx, upstream_center_id),
+        child_dsl=child_dsl,
+        result_node_id=export_node.node_id,
+        wait_timeout_seconds=ctx.wait_timeout_seconds,
+    )
+    nodes[remote_node.node_id] = remote_node.to_dsl()
+    return remote_node.node_id
 
 
 def _make_export_node(

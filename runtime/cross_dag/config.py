@@ -2,18 +2,31 @@
 
 from __future__ import annotations
 
+import logging
 import threading
 from dataclasses import dataclass, field
 from pathlib import Path
 
+log = logging.getLogger("flow.cross_dag.config")
+
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 CONFIG_PATH = PROJECT_ROOT / "config" / "cross_dc.yaml"
 
-DEFAULT_EXPORT_DIR = "/artifacts/xdc"
+DEFAULT_EXPORT_DIR = "/workspace/artifacts/xdc"
 DEFAULT_WAIT_TIMEOUT_SECONDS = 3600
 
 
 DEFAULT_LOCATION_TERM = "数据中心"
+
+# 配置缺省时的兜底产出算子。放在这里只是为了让缺配置的老部署行为不变；
+# 正式声明在 config/cross_dc.yaml 的 sink_skills 里。
+FALLBACK_SINK_SKILLS = frozenset(
+    {
+        "piflow_engine.cn.piflow.engine.local.file_save_stop.FileSaveStop",
+        "piflow_engine.cn.piflow.engine.local.dataspace_file_sink_stop.DataspaceFileSinkStop",
+        "piflow_engine.cn.piflow.engine.local.llm_file_transform_stop.LlmFileTransformStop",
+    }
+)
 
 
 @dataclass(frozen=True)
@@ -39,6 +52,9 @@ class CrossDcConfig:
     replica_weights: dict[str, float] = field(default_factory=dict)
     available_statuses: frozenset[str] = frozenset()
     metric_directions: dict[str, str] = field(default_factory=dict)
+    requirement_facets: dict[str, dict[str, str]] = field(default_factory=dict)
+    sink_skills: frozenset[str] = FALLBACK_SINK_SKILLS
+    placeholder_skills: frozenset[str] = frozenset()
     llm_model: str = ""
     llm_enable_thinking: bool = False
     llm_timeout_seconds: int = 120
@@ -56,6 +72,15 @@ class CrossDcConfig:
 
     def has_center(self, center_id: str) -> bool:
         return center_id in self.centers
+
+    def facet_label(self, key: str) -> str:
+        return (self.requirement_facets.get(key) or {}).get("label") or key
+
+    def facet_mode(self, key: str) -> str:
+        """未声明的维度按 match_all 处理：不能假设一个不认识的维度可以分摊覆盖。"""
+        from .schema import FACET_MATCH_ALL
+
+        return (self.requirement_facets.get(key) or {}).get("mode") or FACET_MATCH_ALL
 
 
 _cache: CrossDcConfig | None = None
@@ -109,6 +134,25 @@ def load_cross_dc_config(path: str | Path | None = None) -> CrossDcConfig:
         str(k): str(v).strip().lower()
         for k, v in (selection.get("metric_directions") or {}).items()
     }
+    _warn_if_locality_outvoted(replica_weights)
+
+    export_dir = str(raw.get("export_dir", "") or DEFAULT_EXPORT_DIR)
+    _warn_if_export_dir_escapes_workspace(export_dir)
+
+    sink_skills = frozenset(
+        str(x).strip() for x in (raw.get("sink_skills") or []) if str(x).strip()
+    ) or FALLBACK_SINK_SKILLS
+    placeholder_skills = frozenset(
+        str(x).strip() for x in (raw.get("placeholder_skills") or []) if str(x).strip()
+    )
+
+    requirement_facets: dict[str, dict[str, str]] = {}
+    for key, value in (raw.get("requirement_facets") or {}).items():
+        entry = value if isinstance(value, dict) else {}
+        requirement_facets[str(key)] = {
+            "label": str(entry.get("label", "") or key),
+            "mode": str(entry.get("mode", "") or "").strip().lower(),
+        }
 
     llm_raw = raw.get("llm") or {}
 
@@ -116,13 +160,16 @@ def load_cross_dc_config(path: str | Path | None = None) -> CrossDcConfig:
         local_center_id=local_center_id,
         default_center_id=default_center_id,
         centers=centers,
-        export_dir=str(raw.get("export_dir", "") or DEFAULT_EXPORT_DIR),
+        export_dir=export_dir,
         subdag_wait_timeout_seconds=int(
             raw.get("subdag_wait_timeout_seconds") or DEFAULT_WAIT_TIMEOUT_SECONDS
         ),
         replica_weights=replica_weights,
         available_statuses=available_statuses,
         metric_directions=metric_directions,
+        requirement_facets=requirement_facets,
+        sink_skills=sink_skills,
+        placeholder_skills=placeholder_skills,
         llm_model=str(llm_raw.get("model", "") or ""),
         llm_enable_thinking=bool(llm_raw.get("enable_thinking", False)),
         llm_timeout_seconds=int(llm_raw.get("timeout_seconds") or 120),
@@ -130,6 +177,48 @@ def load_cross_dc_config(path: str | Path | None = None) -> CrossDcConfig:
         location_term=str(
             (raw.get("terminology") or {}).get("location_term", "") or DEFAULT_LOCATION_TERM
         ),
+    )
+
+
+def _warn_if_export_dir_escapes_workspace(export_dir: str) -> None:
+    """导出目录必须能映射进远端工作区。
+
+    FileSaveStop 只认 /workspace/... 和 /users/... 两种前缀，其余一律按文件系统
+    绝对路径处理。写成 /artifacts/xdc 看着像工作区内的相对路径，实际会落到远端
+    机器的根目录 —— 本地跑不出问题，跨域一执行才失败，而且报的是权限错误，
+    很难联想到是这里配错了。
+    """
+    path = (export_dir or "").strip()
+    if path.startswith("/workspace/") or path.startswith("/users/") or path.startswith("workspace/"):
+        return
+    log.warning(
+        "export_dir=%s 不会被映射进远端工作区，将写到远端机器的文件系统根目录；"
+        "改成 /workspace/... 开头",
+        export_dir,
+    )
+
+
+def _warn_if_locality_outvoted(weights: dict[str, float]) -> None:
+    """locality 被其余指标之和压过时告警。
+
+    注册方新增打分指标只需改 yaml、不用改代码，这条便利也意味着有人加两个
+    0.2 的指标就能悄悄把「数据就近」变成少数票 —— 后果是本地有副本也跑去
+    远端取数，且全程没有任何报错。加载时喊一声，比事后从 replica_decisions
+    里反推便宜得多。
+    """
+    locality = weights.get("locality")
+    if locality is None:
+        return
+    others = sum(value for key, value in weights.items() if key != "locality")
+    if locality > others:
+        return
+    log.warning(
+        "config/cross_dc.yaml 的 replica_selection.weights 里 locality=%s 未超过"
+        "其余指标之和 %s，资源指标可以推翻「数据就近」：本地有副本时仍可能选中"
+        "远端副本，凭空产生一次跨域传输。建议把 locality 提高到大于 %s",
+        locality,
+        others,
+        others,
     )
 
 

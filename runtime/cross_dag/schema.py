@@ -21,6 +21,16 @@ REMOTE_NODE_PREFIX = "__remote__"
 
 DATASET_URI_PREFIX = "dataset://"
 
+MODE_DIRECT = "direct"
+MODE_COMPOSITION = "composition"
+MODE_UNAVAILABLE = "unavailable"
+
+# 需求维度的两种性质。注册方新增维度只需在 config 里声明性质，不用改代码。
+#   cover_all  可由多个数据集各覆盖一部分，合起来满足 —— 只有这类维度会驱动组装
+#   match_all  每个数据集必须自身满足，组装帮不上忙（如空间范围、时间范围）
+FACET_COVER_ALL = "cover_all"
+FACET_MATCH_ALL = "match_all"
+
 
 @dataclass
 class ReplicaCandidate:
@@ -137,6 +147,186 @@ class ReplicaDecision:
 
 
 @dataclass
+class RequirementFacet:
+    """用户需求在某个维度上的要求。
+
+    key 与数据集元数据里的维度键一一对应。平台不预设维度是什么：地学可能是
+    variables / region / time_range，化学可能是 discipline / language，
+    天文可能是 band / sky_area —— 由注册方的元数据和 config 共同定义。
+    """
+
+    key: str
+    values: list[str] = field(default_factory=list)
+    label: str = ""
+    mode: str = FACET_COVER_ALL
+
+    def to_json(self) -> dict[str, Any]:
+        return {
+            "key": self.key,
+            "label": self.label or self.key,
+            "mode": self.mode,
+            "values": list(self.values),
+        }
+
+    @classmethod
+    def from_json(cls, raw: dict[str, Any]) -> "RequirementFacet":
+        return cls(
+            key=str(raw.get("key", "") or ""),
+            values=[str(v).strip() for v in raw.get("values") or [] if str(v).strip()],
+            label=str(raw.get("label", "") or ""),
+            mode=str(raw.get("mode", "") or FACET_COVER_ALL),
+        )
+
+
+@dataclass
+class FacetCoverage:
+    """某个数据集在某个需求维度上的覆盖情况。"""
+
+    key: str
+    label: str
+    mode: str
+    required: list[str] = field(default_factory=list)
+    covered: list[str] = field(default_factory=list)
+    missing: list[str] = field(default_factory=list)
+    declared: bool = True
+
+    @property
+    def satisfied(self) -> bool:
+        # 数据集没声明这个维度时不算满足 —— 核实不了的事不能替它认下，
+        # 宁可退化成组装，也不要让用户以为需求被满足了。
+        return self.declared and not self.missing
+
+    def to_json(self) -> dict[str, Any]:
+        return {
+            "key": self.key,
+            "label": self.label,
+            "mode": self.mode,
+            "declared": self.declared,
+            "satisfied": self.satisfied,
+            "required": list(self.required),
+            "covered": list(self.covered),
+            "missing": list(self.missing),
+        }
+
+
+@dataclass
+class DatasetCoverage:
+    """一个候选数据集对整体需求的覆盖情况，即覆盖矩阵的一行。"""
+
+    dataset_id: str
+    alias: str = ""
+    name: str = ""
+    facets: list[FacetCoverage] = field(default_factory=list)
+    # 意图识别是否挑中了它。false 表示模型没选，是后端扫目录时补出来的。
+    selected: bool = True
+
+    @property
+    def undeclared_facets(self) -> list[str]:
+        return [f.label or f.key for f in self.facets if not f.declared]
+
+    @property
+    def covered_count(self) -> int:
+        """在可分摊维度上覆盖到的取值个数，用来衡量单集最大覆盖。"""
+        return sum(len(f.covered) for f in self.facets if f.mode == FACET_COVER_ALL)
+
+    @property
+    def required_count(self) -> int:
+        return sum(len(f.required) for f in self.facets if f.mode == FACET_COVER_ALL)
+
+    @property
+    def full_match(self) -> bool:
+        return bool(self.facets) and all(f.satisfied for f in self.facets)
+
+    def to_json(self) -> dict[str, Any]:
+        return {
+            "dataset_id": self.dataset_id,
+            "alias": self.alias,
+            "name": self.name,
+            "selected": self.selected,
+            "full_match": self.full_match,
+            "covered_count": self.covered_count,
+            "required_count": self.required_count,
+            "undeclared_facets": self.undeclared_facets,
+            "facets": [f.to_json() for f in self.facets],
+        }
+
+
+@dataclass
+class SatisfactionReport:
+    """需求满足分析的结论：有没有单个数据集能独立满足需求，决定直接获取还是组装。"""
+
+    facets: list[RequirementFacet] = field(default_factory=list)
+    coverages: list[DatasetCoverage] = field(default_factory=list)
+    mode: str = MODE_COMPOSITION
+    reason: str = ""
+    notes: list[str] = field(default_factory=list)
+    scanned_count: int = 0
+
+    @property
+    def missing_values(self) -> list[str]:
+        """所有候选数据集加起来也覆盖不到的取值 —— 平台确实没有这部分数据。"""
+        covered: set[str] = set()
+        for cover in self.coverages:
+            for facet in cover.facets:
+                covered.update(facet.covered)
+        missing: list[str] = []
+        for facet in self.facets:
+            for value in facet.values:
+                if value not in covered and value not in missing:
+                    missing.append(value)
+        return missing
+
+    @property
+    def full_matches(self) -> list[DatasetCoverage]:
+        return [c for c in self.coverages if c.full_match]
+
+    @property
+    def required_count(self) -> int:
+        return sum(len(f.values) for f in self.facets if f.mode == FACET_COVER_ALL)
+
+    @property
+    def max_coverage(self) -> int:
+        return max((c.covered_count for c in self.coverages), default=0)
+
+    def to_json(self) -> dict[str, Any]:
+        return {
+            "mode": self.mode,
+            "reason": self.reason,
+            "notes": list(self.notes),
+            "required_count": self.required_count,
+            "max_coverage": self.max_coverage,
+            "scanned_count": self.scanned_count,
+            "missing_values": self.missing_values,
+            "full_match_count": len(self.full_matches),
+            "full_match_dataset_ids": [c.dataset_id for c in self.full_matches],
+            "facets": [f.to_json() for f in self.facets],
+            "coverages": [c.to_json() for c in self.coverages],
+        }
+
+
+@dataclass
+class DirectAccess:
+    """直接获取的产物：目标数据集 + 选中的副本 + 其余同样完整匹配的候选。"""
+
+    dataset_id: str
+    name: str = ""
+    alias: str = ""
+    replica_decision: "ReplicaDecision | None" = None
+    alternatives: list[dict[str, Any]] = field(default_factory=list)
+
+    def to_json(self) -> dict[str, Any]:
+        return {
+            "dataset_id": self.dataset_id,
+            "name": self.name,
+            "alias": self.alias,
+            "replica_decision": (
+                self.replica_decision.to_json() if self.replica_decision else None
+            ),
+            "alternatives": list(self.alternatives),
+        }
+
+
+@dataclass
 class IntentDataset:
     """意图里引用的一个逻辑数据集。"""
 
@@ -147,6 +337,7 @@ class IntentDataset:
     locator: str = ""
     name: str = ""
     replicas: list[ReplicaCandidate] = field(default_factory=list)
+    facets: dict[str, list[str]] = field(default_factory=dict)
 
     def replica_by_id(self, replica_id: str) -> ReplicaCandidate | None:
         for item in self.replicas:
@@ -163,6 +354,7 @@ class IntentDataset:
             "locator": self.locator,
             "name": self.name,
             "replicas": [r.to_json() for r in self.replicas],
+            "facets": {k: list(v) for k, v in self.facets.items()},
         }
 
     @classmethod
@@ -175,6 +367,10 @@ class IntentDataset:
             locator=str(raw.get("locator", "") or ""),
             name=str(raw.get("name", "") or ""),
             replicas=[ReplicaCandidate.from_json(r) for r in raw.get("replicas") or []],
+            facets={
+                str(k): [str(x) for x in (v or [])]
+                for k, v in (raw.get("facets") or {}).items()
+            },
         )
 
 
@@ -208,6 +404,13 @@ class IntentSpec:
     assumptions: list[str] = field(default_factory=list)
     unresolved: list[str] = field(default_factory=list)
     user_request: str = ""
+    requirements: list[RequirementFacet] = field(default_factory=list)
+
+    def facet(self, key: str) -> RequirementFacet | None:
+        for item in self.requirements:
+            if item.key == key:
+                return item
+        return None
 
     def dataset_by_alias(self, alias: str) -> IntentDataset | None:
         for item in self.datasets:
@@ -225,6 +428,7 @@ class IntentSpec:
             "output": dict(self.output),
             "assumptions": list(self.assumptions),
             "unresolved": list(self.unresolved),
+            "requirements": [r.to_json() for r in self.requirements],
         }
 
     @classmethod
@@ -240,6 +444,9 @@ class IntentSpec:
             output=dict(raw.get("output") or {}),
             assumptions=[str(x) for x in raw.get("assumptions") or []],
             unresolved=[str(x) for x in raw.get("unresolved") or []],
+            requirements=[
+                RequirementFacet.from_json(r) for r in raw.get("requirements") or []
+            ],
         )
 
 
@@ -275,6 +482,9 @@ class LogicalNode:
     node_id: str
     node_name: str
     skill_id: str
+    # 解析前的算子名。skill_id 可能是注册表分配的 UUID，认不出是哪个算子；
+    # 保留原名才能做占位算子/产出算子这类按名字的判定，前端也才有得展示。
+    skill_name: str = ""
     node_type: str = "default"
     data_center: str = ""
     input_params: list[InputParam] = field(default_factory=list)
@@ -292,7 +502,11 @@ class LogicalNode:
             "node_id": self.node_id,
             "node_name": self.node_name,
             "node_type": self.node_type,
-            "skill": {"skill_id": self.skill_id, "version": "1.0.0"},
+            "skill": {
+                "skill_id": self.skill_id,
+                "skill_name": self.skill_name or self.skill_id,
+                "version": "1.0.0",
+            },
             "position": dict(self.position),
             "input_params": [p.to_json() for p in self.input_params],
             "out_params": [p.to_json() for p in self.out_params],
@@ -327,6 +541,7 @@ class Binding:
 class LogicalDag:
     task_name: str = ""
     task_id: str = ""
+    description: str = ""
     nodes: list[LogicalNode] = field(default_factory=list)
     bindings: list[Binding] = field(default_factory=list)
 
@@ -351,6 +566,7 @@ class LogicalDag:
         return {
             "task_id": self.task_id,
             "task_name": self.task_name,
+            "description": self.description,
             "nodes": [node.to_dsl() for node in self.nodes],
             "bindings": [b.to_dsl() for b in self.bindings],
             "source_node_ids": self.source_node_ids(),
@@ -449,10 +665,16 @@ class CrossDagPlan:
     segment_graph: SegmentGraph
     nested_dsl: dict[str, Any]
     validation: ValidationReport
+    mode: str = MODE_COMPOSITION
+    satisfaction: SatisfactionReport | None = None
+    direct_access: DirectAccess | None = None
 
     def to_json(self) -> dict[str, Any]:
         return {
             "plan_id": self.plan_id,
+            "mode": self.mode,
+            "satisfaction": self.satisfaction.to_json() if self.satisfaction else None,
+            "direct_access": self.direct_access.to_json() if self.direct_access else None,
             "intent": self.intent.to_json(),
             "binding": {
                 "center_of": dict(self.bind_result.center_of),

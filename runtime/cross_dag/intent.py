@@ -16,6 +16,7 @@ from .schema import (
     IntentSpec,
     LocationHint,
     ReplicaCandidate,
+    RequirementFacet,
 )
 
 log = logging.getLogger("flow.cross_dag.intent")
@@ -26,28 +27,105 @@ SYSTEM_SKILL_CATALOG: list[dict[str, Any]] = [
         "描述": "文件输入算子。读取工作区内的一个文件作为数据源。",
         "输入参数": {"file_path": "文件路径"},
         "输出参数": ["output"],
+        "可接上游的参数": [],
+        "可接上游数": 0,
     },
     {
         "skill_name": "piflow_engine.cn.piflow.engine.local.file_save_stop.FileSaveStop",
         "描述": "文件输出算子。把上游产物保存到指定路径，作为 DAG 终点。",
         "输入参数": {"output": "上游产物引用", "absolute_path": "保存路径", "overwrite": "true/false"},
         "输出参数": ["output"],
+        "可接上游的参数": ["output"],
+        "可接上游数": 1,
+    },
+    {
+        "skill_name": "piflow_engine.cn.piflow.engine.local.table_merge_stop.TableMergeStop",
+        "描述": (
+            "多路表格汇聚算子。把 2~8 路上游的 CSV/TSV 合成一张表。"
+            "mode=concat 纵向拼接（行堆叠，列名取并集，缺列留空）；"
+            "mode=join 横向关联（按 join_keys 逐路关联，以 input_1 为基准）。"
+            "需要把多个数据集合到一起时用它。"
+        ),
+        "输入参数": {
+            "input_1": "第 1 路上游产物引用（必填）",
+            "input_2": "第 2 路上游产物引用（必填）",
+            "input_3": "第 3 路上游产物引用",
+            "input_4": "第 4 路上游产物引用",
+            "input_5": "第 5 路上游产物引用",
+            "input_6": "第 6 路上游产物引用",
+            "input_7": "第 7 路上游产物引用",
+            "input_8": "第 8 路上游产物引用",
+            "mode": "concat 或 join，默认 concat",
+            "join_keys": "mode=join 时必填，关联键列名，逗号分隔，如 站点ID,日期",
+            "join_type": "inner/left/outer，默认 inner",
+            "output_file_name": "输出文件名，默认 merged.csv",
+            "delimiter": "分隔符，默认英文逗号",
+            "encoding": "编码，默认 utf-8",
+            "source_column": "concat 时额外记录每行来自哪个端口的列名，留空则不记录",
+        },
+        "输出参数": ["output"],
+        "可接上游的参数": [f"input_{i}" for i in range(1, 9)],
+        "可接上游数": 8,
     },
 ]
 
 
 def build_dataset_catalog(registry: DatasourceRegistry | None = None) -> list[dict[str, Any]]:
     resolved = registry or get_registry()
-    return [
-        {
+    catalog: list[dict[str, Any]] = []
+    for item in resolved.list_datasets():
+        entry: dict[str, Any] = {
             "dataset_id": item.dataset_id,
             "名称": item.name,
             "描述": item.description,
             "locator": item.locator,
             "标签": list(item.tags),
         }
-        for item in resolved.list_datasets()
-    ]
+        if item.facets:
+            entry["维度"] = {k: list(v) for k, v in item.facets.items()}
+        catalog.append(entry)
+    return catalog
+
+
+def build_facet_catalog(
+    registry: DatasourceRegistry | None = None,
+    config: Any = None,
+) -> list[dict[str, Any]]:
+    """可用的需求维度清单。
+
+    维度键取自注册方在数据集上声明的元数据，label / mode 取自 config；
+    平台不预设任何维度，换学科只要注册方换元数据、config 换声明。
+    """
+    from .config import get_cross_dc_config
+
+    resolved_registry = registry or get_registry()
+    resolved_config = config or get_cross_dc_config()
+
+    values_of: dict[str, list[str]] = {}
+    for item in resolved_registry.list_datasets():
+        for key, values in (item.facets or {}).items():
+            bucket = values_of.setdefault(str(key), [])
+            for value in values:
+                text = str(value).strip()
+                if text and text not in bucket:
+                    bucket.append(text)
+
+    for key in resolved_config.requirement_facets:
+        values_of.setdefault(str(key), [])
+
+    catalog: list[dict[str, Any]] = []
+    for key in sorted(values_of):
+        catalog.append(
+            {
+                "key": key,
+                "名称": resolved_config.facet_label(key),
+                "是否可由多个数据集分摊覆盖": (
+                    "是" if resolved_config.facet_mode(key) == "cover_all" else "否"
+                ),
+                "已有取值": values_of[key][:40],
+            }
+        )
+    return catalog
 
 
 def build_skill_catalog(
@@ -147,11 +225,14 @@ def recognize_intent(
     catalog = build_dataset_catalog(resolved_registry)
     config = get_cross_dc_config()
     center_catalog = _center_catalog(config)
+    facet_catalog = build_facet_catalog(resolved_registry, config)
     model = llm or _default_llm()
 
     raw = _invoke_json(
         model,
-        system_prompt=build_intent_prompt(catalog, center_catalog, config.location_term),
+        system_prompt=build_intent_prompt(
+            catalog, center_catalog, config.location_term, facet_catalog
+        ),
         user_prompt=user_request,
         what="意图识别",
     )
@@ -164,6 +245,16 @@ def recognize_intent(
         assumptions=[str(x) for x in raw.get("assumptions") or []],
         unresolved=[str(x) for x in raw.get("unresolved") or []],
     )
+
+    for item in raw.get("requirements") or []:
+        if not isinstance(item, dict):
+            continue
+        facet = RequirementFacet.from_json(item)
+        if not facet.key or not facet.values:
+            continue
+        facet.label = facet.label or config.facet_label(facet.key)
+        facet.mode = config.facet_mode(facet.key)
+        intent.requirements.append(facet)
 
     known_centers = set(config.centers)
     for item in raw.get("location_hints") or []:
@@ -235,7 +326,11 @@ def plan_global_dag(
     planning_json = _invoke_json(
         model,
         system_prompt=build_planning_prompt(
-            dataset_catalog, resolved_catalog, center_catalog, config.location_term
+            dataset_catalog,
+            resolved_catalog,
+            center_catalog,
+            config.location_term,
+            sorted(config.placeholder_skills),
         ),
         user_prompt=json.dumps(
             {
@@ -287,6 +382,7 @@ def _to_intent_dataset(raw: dict[str, Any], record: DatasetRecord) -> IntentData
         locator=record.locator,
         name=record.name,
         replicas=[ReplicaCandidate.from_json(r.to_json()) for r in record.replicas],
+        facets={str(k): [str(x) for x in v] for k, v in (record.facets or {}).items()},
     )
 
 
