@@ -10,6 +10,9 @@ from typing import Any, Callable
 REMOTE_SOURCE_BUNDLE = (
     "piflow_engine.cn.piflow.engine.local.remote_source_stop.RemoteSourceStop"
 )
+CORPUS_DATASET_SOURCE_BUNDLE = (
+    "piflow_engine.cn.piflow.engine.local.corpus_dataset_source_stop.CorpusDatasetSourceStop"
+)
 REMOTE_SUBDAG_SOURCE_BUNDLE = (
     "piflow_engine.cn.piflow.engine.local.remote_subdag_source_stop.RemoteSubDagSourceStop"
 )
@@ -27,6 +30,7 @@ class RemoteNodeResource:
     cpu_cores: float
     memory_gb: float
     free_disk_gb: float
+    remote_grpc_target: str = ""
 
 
 def schedule_frontend_dag(
@@ -45,10 +49,11 @@ def schedule_frontend_dag(
         node for node in nodes if _is_remote_source(node)
     ]
     if not remote_sources:
-        raise ValueError("dag contains no remote_source_stop nodes")
+        raise ValueError("dag contains no supported remote source nodes")
 
     resolver = resource_resolver or _read_remote_node_resource
     candidate_resources = [resolver(node) for node in remote_sources]
+    resource_by_node_id = {resource.node_id: resource for resource in candidate_resources}
     chosen_node_id = execution_node_id or _choose_execution_node_id(
         candidate_resources,
         random_seed=random_seed,
@@ -87,7 +92,11 @@ def schedule_frontend_dag(
         )
         synthetic_node = _build_remote_subdag_source_node(
             source_runtime_node_id=source_runtime_node_id,
-            source_remote_grpc_target=_read_remote_grpc_target(source),
+            source_remote_grpc_target=_require_remote_resource(
+                resource_by_node_id,
+                source_runtime_node_id,
+                node_name=str(source.get("node_name", source["node_id"])),
+            ).remote_grpc_target,
             subdag_definition=subdag,
             source_node=source,
         )
@@ -135,11 +144,6 @@ def schedule_frontend_dag(
         if str(binding.get("from_node_id", "")) not in nodes_to_remove
         and str(binding.get("to_node_id", "")) not in nodes_to_remove
     ] + added_bindings
-
-    for node in definition["nodes"]:
-        if node["node_id"] in node_by_id and _is_remote_source(node):
-            if _require_remote_node_id(node) == chosen_node_id:
-                _ensure_remote_source_bundle(node)
 
     return ScheduledDagPlan(execution_node_id=chosen_node_id, dag_definition=definition)
 
@@ -235,7 +239,12 @@ def _is_remote_source(node: dict[str, Any]) -> bool:
     skill = node.get("skill") or {}
     skill_id = str(skill.get("skill_id", "") or "")
     skill_name = str(skill.get("skill_name", "") or "")
-    return skill_id == REMOTE_SOURCE_BUNDLE or skill_name == "remote_source_stop"
+    return (
+        skill_id == REMOTE_SOURCE_BUNDLE
+        or skill_name == "remote_source_stop"
+        or skill_id == CORPUS_DATASET_SOURCE_BUNDLE
+        or skill_name == "corpus_dataset_source_stop"
+    )
 
 
 def _require_remote_node_id(node: dict[str, Any]) -> str:
@@ -249,6 +258,12 @@ def _require_remote_node_id(node: dict[str, Any]) -> str:
 
 
 def _read_remote_node_resource(node: dict[str, Any]) -> RemoteNodeResource:
+    skill = node.get("skill") or {}
+    skill_id = str(skill.get("skill_id", "") or "")
+    skill_name = str(skill.get("skill_name", "") or "")
+    if skill_id == CORPUS_DATASET_SOURCE_BUNDLE or skill_name == "corpus_dataset_source_stop":
+        return _read_corpus_dataset_source_resource(node)
+
     params = node.get("input_params", []) or []
     values = {
         str(param.get("param_name", "") or ""): param.get("param_value", "")
@@ -264,7 +279,43 @@ def _read_remote_node_resource(node: dict[str, Any]) -> RemoteNodeResource:
             "free_disk_gb",
             legacy_keys=("disk", "disk_gb", "available_disk_gb"),
         ),
+        remote_grpc_target=_read_remote_grpc_target(node),
     )
+
+
+def _read_corpus_dataset_source_resource(node: dict[str, Any]) -> RemoteNodeResource:
+    dataset_id = _read_dataset_id(node)
+    from services.corpus_connector_service import get_dataset_connector_detail_with_resource
+
+    resolved = get_dataset_connector_detail_with_resource(dataset_id)
+    connector = resolved.get("connector") or {}
+    resource = resolved.get("resource") or {}
+    connector_id = str(resolved.get("dataset", {}).get("connectorId", "") or "").strip()
+    remote_grpc_target = str(resolved.get("remote_grpc_target", "") or "").strip()
+    if not connector_id:
+        connector_id = str(connector.get("connectorId", "") or "").strip()
+    if not connector_id:
+        raise ValueError(f"dataset_id {dataset_id} does not resolve to a connectorId")
+    if not remote_grpc_target:
+        raise ValueError(f"dataset_id {dataset_id} does not resolve to a remote_grpc_target")
+
+    return RemoteNodeResource(
+        node_id=connector_id,
+        cpu_cores=float(resource.get("cpu_cores", 0.0) or 0.0),
+        memory_gb=float(resource.get("memory_gb", 0.0) or 0.0),
+        free_disk_gb=float(resource.get("free_disk_gb", 0.0) or 0.0),
+        remote_grpc_target=remote_grpc_target,
+    )
+
+
+def _read_dataset_id(node: dict[str, Any]) -> str:
+    for param in node.get("input_params", []) or []:
+        if param.get("param_name") == "dataset_id":
+            value = str(param.get("param_value", "") or "").strip()
+            if value:
+                return value
+            break
+    raise ValueError(f"corpus dataset source node missing dataset_id param: {node.get('node_id')}")
 
 
 def _read_remote_grpc_target(node: dict[str, Any]) -> str:
@@ -330,8 +381,13 @@ def _choose_execution_node_id(
     return random.Random(random_seed).choice(tied).node_id
 
 
-def _ensure_remote_source_bundle(node: dict[str, Any]) -> None:
-    skill = dict(node.get("skill") or {})
-    skill["skill_id"] = REMOTE_SOURCE_BUNDLE
-    skill.setdefault("skill_name", "remote_source_stop")
-    node["skill"] = skill
+def _require_remote_resource(
+    resource_by_node_id: dict[str, RemoteNodeResource],
+    node_id: str,
+    *,
+    node_name: str,
+) -> RemoteNodeResource:
+    resource = resource_by_node_id.get(node_id)
+    if resource is None:
+        raise ValueError(f"remote source resource not found for node={node_name}, node_id={node_id}")
+    return resource

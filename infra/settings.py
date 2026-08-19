@@ -40,6 +40,11 @@ class MinIOConfig(BaseModel):
 class CommunityServerConfig(BaseModel):
     base_url: str = ""
 
+
+class CorpusRouteConfig(BaseModel):
+    base_url: str = ""
+
+
 class JuiceFSConfig(BaseModel):
     endpoint: str = ""
     access_key: str = ""
@@ -107,6 +112,7 @@ class Settings(BaseModel):
     minio: MinIOConfig = Field(default_factory=MinIOConfig)
     juicefs: JuiceFSConfig = Field(default_factory=JuiceFSConfig)
     community_server: CommunityServerConfig = Field(default_factory=CommunityServerConfig)
+    corpus_route: CorpusRouteConfig = Field(default_factory=CorpusRouteConfig)
     llm: LLMConfig = Field(
         default_factory=lambda: LLMConfig(
             provider="dashscope",

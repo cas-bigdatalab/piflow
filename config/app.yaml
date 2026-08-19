@@ -36,3 +36,6 @@ juicefs:
   secret_key: "minioadmin"
   secure: false
   base_prefix: "corpus/output/piflow"
+
+corpus_route:
+  base_url: "http://10.0.82.213:7003"
