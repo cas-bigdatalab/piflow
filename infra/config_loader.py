@@ -2,7 +2,13 @@ from pathlib import Path
 
 import yaml
 
-from infra.settings import CommunityServerConfig, DatabaseConfig, PolicyConfig, Settings
+from infra.settings import (
+    CommunityServerConfig,
+    CorpusRouteConfig,
+    DatabaseConfig,
+    PolicyConfig,
+    Settings,
+)
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -31,6 +37,7 @@ def load_settings() -> Settings:
     mineru_config = load_yaml(CONFIG_DIR / "mineru.yaml")
 
     community_server_config = app_config.get("community_server", {})
+    corpus_route_config = app_config.get("corpus_route", {})
 
     config = {
         **app_config,
@@ -40,6 +47,7 @@ def load_settings() -> Settings:
         "minio": minio_config,
         "juicefs": juicefs_config,
         "community_server": CommunityServerConfig(**community_server_config),
+        "corpus_route": CorpusRouteConfig(**corpus_route_config),
         "mcp": mcp_config,
         **default_user_config,
         "policy": PolicyConfig(**policy_config.get("policy", {})),

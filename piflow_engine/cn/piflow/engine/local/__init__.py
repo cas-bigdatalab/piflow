@@ -1,4 +1,5 @@
 from piflow_engine.cn.piflow.engine.local.command_stop import CommandStop
+from piflow_engine.cn.piflow.engine.local.corpus_dataset_source_stop import CorpusDatasetSourceStop
 from piflow_engine.cn.piflow.engine.local.dataspace_file_sink_stop import DataSpaceFileSinkStop
 from piflow_engine.cn.piflow.engine.local.dataspace_file_source_stop import (
     DataspaceDataSourceStop,
@@ -21,6 +22,7 @@ __all__ = [
     "BundleResolver",
     "CommandStop",
     "CommandSpec",
+    "CorpusDatasetSourceStop",
     "DataSpaceFileSinkStop",
     "DataspaceDataSourceStop",
     "DataspaceFileSourceStop",
