@@ -4,7 +4,7 @@ import copy
 import json
 import random
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Callable
 
 
 REMOTE_SOURCE_BUNDLE = (
@@ -34,6 +34,7 @@ def schedule_frontend_dag(
     *,
     execution_node_id: str | None = None,
     random_seed: int | None = None,
+    resource_resolver: Callable[[dict[str, Any]], RemoteNodeResource] | None = None,
 ) -> ScheduledDagPlan:
     definition = copy.deepcopy(dag_definition)
     nodes = definition.get("nodes", []) or []
@@ -46,8 +47,8 @@ def schedule_frontend_dag(
     if not remote_sources:
         raise ValueError("dag contains no remote_source_stop nodes")
 
-    candidate_resources = [_read_remote_node_resource(node) for node in remote_sources]
-    candidate_node_ids = [resource.node_id for resource in candidate_resources]
+    resolver = resource_resolver or _read_remote_node_resource
+    candidate_resources = [resolver(node) for node in remote_sources]
     chosen_node_id = execution_node_id or _choose_execution_node_id(
         candidate_resources,
         random_seed=random_seed,

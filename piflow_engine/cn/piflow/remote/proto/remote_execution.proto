@@ -5,6 +5,7 @@ package piflow.remote;
 service RemoteExecutionService {
   rpc SubmitDag(SubmitDagRequest) returns (SubmitDagResponse);
   rpc GetRunStatus(GetRunStatusRequest) returns (GetRunStatusResponse);
+  rpc GetServerResource(GetServerResourceRequest) returns (GetServerResourceResponse);
   rpc GetRunResultMeta(GetRunResultMetaRequest) returns (GetRunResultMetaResponse);
   rpc DownloadResult(DownloadResultRequest) returns (stream DownloadResultChunk);
 }
@@ -27,6 +28,15 @@ message GetRunStatusResponse {
   string run_id = 1;
   string status = 2;
   string message = 3;
+}
+
+message GetServerResourceRequest {}
+
+message GetServerResourceResponse {
+  double cpu_cores = 1;
+  double memory_gb = 2;
+  double free_disk_gb = 3;
+  string hostname = 4;
 }
 
 message GetRunResultMetaRequest {
