@@ -8,6 +8,8 @@ from datetime import datetime
 from contextlib import asynccontextmanager
 from pathlib import Path
 
+from contextlib import asynccontextmanager
+
 import uvicorn
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -56,11 +58,15 @@ from repositories.datasource_catalog_repository import initialize_datasource_cat
 from services.object_storage_service import ObjectStorageService
 
 from routers.auth_router import router as auth_router
+from routers.chat_router import router as chat_router
 from routers.community_router import router as community_router
 from routers.cross_dag_api import router as cross_dag_router
 from routers.dag_panel_api import router as dag_router
 from routers.dag_runtime_api import router as dag_runtime_router
+from routers.dataspace_router import router as dataspace_router
+from routers.storage_router import router as storage_router
 from routers.user_router import router as user_router
+from routers.workspace_router import router as workspace_router
 from routers.subagent.workflow_advisor.workflow_advisor_router import router as workflow_advisor_router
 
 log = logging.getLogger("flow.api")
@@ -122,6 +128,22 @@ app.include_router(dag_router)
 app.include_router(dag_runtime_router)
 app.include_router(user_router)
 app.include_router(workflow_advisor_router)
+# 新建父路由，统一加 /api 前缀
+api_router = APIRouter(prefix="/api/piflow/v1")
+
+api_router.include_router(auth_router)
+api_router.include_router(chat_router)
+api_router.include_router(community_router)
+api_router.include_router(dag_router)
+api_router.include_router(dag_runtime_router)
+api_router.include_router(dataspace_router)
+api_router.include_router(storage_router)
+api_router.include_router(user_router)
+api_router.include_router(workspace_router)
+api_router.include_router(workflow_advisor_router)
+
+# 把父router挂载到app
+app.include_router(api_router)
 
 STORAGE_DIR.mkdir(parents=True, exist_ok=True)
 

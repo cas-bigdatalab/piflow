@@ -1,3 +1,4 @@
+import logging
 import re
 import shutil
 import uuid
@@ -230,11 +231,15 @@ def insert_dag_skill(
     language: str = "",
     command: str = "",
     icon_path: str = None,
-    version: str = None,
+    version: str = '1.0.0',
     disciplinary_field: str = "基础",
     publisher: str = "PRIVATE",
 ):
-    skill_id = uuid.uuid4().hex
+    # skill_id = uuid.uuid4().hex
+    if skill_name=='' or skill_name is None:
+        logging.warn("insert_dag_skill: skill_name is empty, skipping insert")
+        return None
+    skill_id = f'''{skill_name}_{version}'''
 
     try:
         with closing(get_connection()) as conn:

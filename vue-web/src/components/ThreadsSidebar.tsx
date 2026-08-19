@@ -1,6 +1,6 @@
 ﻿import { Icon } from "@iconify/react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { apiBase, getLogin } from "../lib/api";
+import { apiBase, getLogin,iconBase } from "../lib/api";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { deleteThread, getThreads, type ThreadTitle } from "../lib/api";
 import { appConfig } from "../config/appConfig";
@@ -20,7 +20,7 @@ function Logo({ compact }: { compact?: boolean }) {
           <img
             alt="πFlow"
             className="h-full w-full object-cover"
-            src={`${apiBase().replace(/\/+$/, "")}/storage/icon/logo.png`}
+            src={`${iconBase().replace(/\/+$/, "")}/storage/icon/logo.png`}
           />
         </div>
       ) : null}

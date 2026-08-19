@@ -65,6 +65,9 @@ class RemoteExecutionClient:
     def get_run_status(self, run_id: str) -> remote_execution_pb2.GetRunStatusResponse:
         return self._stub.GetRunStatus(remote_execution_pb2.GetRunStatusRequest(run_id=run_id))
 
+    def get_server_resource(self) -> remote_execution_pb2.GetServerResourceResponse:
+        return self._stub.GetServerResource(remote_execution_pb2.GetServerResourceRequest())
+
     def get_run_result_meta(
         self,
         *,

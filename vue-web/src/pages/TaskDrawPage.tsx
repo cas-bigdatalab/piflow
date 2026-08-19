@@ -2,7 +2,7 @@
 import { createPortal } from 'react-dom';
 import { shortId, generateUUID } from '../lib/ids';
 import { saveDrawInfo, getAllSkills, listSkillsDetails, getDrawTaskContent, 
-  apiBase, listStorage, downloadWorkspaceUrl2,runDAGTask,listDataspaceDirecory
+  apiBase, listStorage, downloadWorkspaceUrl2,runDAGTask,listDataspaceDirecory,iconBase
 } from "../lib/api";
 import { toast } from '../components/Toast';
 import { Icon } from "@iconify/react";
@@ -13,15 +13,15 @@ function resolveIconUrl(icon?: string) {
   const rawIcon = (icon || "").trim();
   
   if (!rawIcon) {
-    return apiBase() + DEFAULT_SKILL_ICON;
+    return iconBase() + DEFAULT_SKILL_ICON;
   }
   
   if (/^(https?:|data:)/.test(rawIcon)) {
     return rawIcon;
   }
   
-  console.log('resolveIconUrl12312_________________________________',icon,apiBase() + rawIcon)
-  return apiBase() + rawIcon;
+  console.log('resolveIconUrl12312_________________________________',icon,iconBase() + rawIcon)
+  return iconBase() + rawIcon;
 }
 import { useNavigate } from 'react-router-dom';
 import {

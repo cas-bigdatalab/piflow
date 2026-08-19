@@ -63,6 +63,10 @@ export function apiBase() {
   return import.meta.env.VITE_API_BASE;
 }
 
+export function iconBase() {
+  return import.meta.env.VITE_PREFIX_BASE;
+}
+
 function absoluteApiBase() {
   const configured = (apiBase() || "").trim().replace(/\/+$/, "");
   if (configured) {

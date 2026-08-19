@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from runtime.remote_dag_scheduler import RemoteNodeResource
 from runtime.remote_dag_scheduler import schedule_frontend_dag
 
 
@@ -37,10 +38,12 @@ def submit_cross_domain_dag(
     if not remote_target:
         raise ValueError("remote_grpc_target must not be empty")
 
+    resource_resolver = _build_remote_resource_resolver()
     plan = schedule_frontend_dag(
         definition_json,
         execution_node_id=execution_node_id,
         random_seed=random_seed,
+        resource_resolver=resource_resolver,
     )
 
     # The caller has already decided to use remote submission. This submitter
@@ -61,3 +64,39 @@ def submit_cross_domain_dag(
         remote_grpc_target=remote_target,
         dag_definition=plan.dag_definition,
     )
+
+
+def _build_remote_resource_resolver():
+    resource_cache: dict[str, RemoteNodeResource] = {}
+
+    def resolve(node: dict[str, Any]) -> RemoteNodeResource:
+        from runtime.remote_dag_scheduler import _read_remote_grpc_target
+        from runtime.remote_dag_scheduler import _require_remote_node_id
+
+        node_id = _require_remote_node_id(node)
+        remote_target = _read_remote_grpc_target(node)
+        cached = resource_cache.get(remote_target)
+        if cached is not None:
+            return RemoteNodeResource(
+                node_id=node_id,
+                cpu_cores=cached.cpu_cores,
+                memory_gb=cached.memory_gb,
+                free_disk_gb=cached.free_disk_gb,
+            )
+
+        client = create_remote_execution_client(remote_target)
+        try:
+            resource = client.get_server_resource()
+        finally:
+            client.close()
+
+        resolved = RemoteNodeResource(
+            node_id=node_id,
+            cpu_cores=float(resource.cpu_cores),
+            memory_gb=float(resource.memory_gb),
+            free_disk_gb=float(resource.free_disk_gb),
+        )
+        resource_cache[remote_target] = resolved
+        return resolved
+
+    return resolve

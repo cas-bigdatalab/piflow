@@ -6,6 +6,7 @@ import grpc
 import pytest
 
 from piflow_engine.cn.piflow.remote.client import RemoteExecutionClient
+from piflow_engine.cn.piflow.remote.facade import ServerResource
 from piflow_engine.cn.piflow.remote.result_resolver import RemoteExecutionError, ResultMeta
 from piflow_engine.cn.piflow.remote.server import create_server
 
@@ -22,6 +23,14 @@ class _FakeFacade:
         if run_id != "process-1":
             raise RemoteExecutionError("RUN_NOT_FOUND", "run not found")
         return run_id, "SUCCESS", ""
+
+    def get_server_resource(self):
+        return ServerResource(
+            cpu_cores=8.0,
+            memory_gb=16.0,
+            free_disk_gb=100.0,
+            hostname="test-host",
+        )
 
     def get_run_result_meta(self, *, run_id: str, result_node_id: str, result_output_name: str):
         if run_id != "process-1":
@@ -71,6 +80,12 @@ def test_remote_execution_client_roundtrip(grpc_target, tmp_path: Path):
 
         status_resp = client.get_run_status("process-1")
         assert status_resp.status == "SUCCESS"
+
+        resource_resp = client.get_server_resource()
+        assert resource_resp.cpu_cores == 8.0
+        assert resource_resp.memory_gb == 16.0
+        assert resource_resp.free_disk_gb == 100.0
+        assert resource_resp.hostname == "test-host"
 
         meta_resp = client.get_run_result_meta(
             run_id="process-1",

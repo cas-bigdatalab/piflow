@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react"; // 引入 hooks
 import { Outlet, useLocation, NavLink, useNavigate } from "react-router-dom";
 import { Icon } from "@iconify/react";
 import { ThreadsSidebar } from "./ThreadsSidebar";
-import { apiBase } from "../lib/api";
+import { apiBase,iconBase } from "../lib/api";
 
 // 定义菜单项类型，支持 children 嵌套
 interface MenuItem {
@@ -27,6 +27,7 @@ const topMenuItems: MenuItem[] = [
     ]
   },
   { id: 4, title: '算子库', icon: 'ri:database-line', path: '/skills' },
+  { id: 5, title: '用户管理', icon: 'ri:database-line', path: '/userMan' },
   // { id: 5, title: '工作库', icon: 'ri:calendar-line', path: '/workLib' },
   // 修改点：数据管理增加 children
 ];
@@ -77,7 +78,7 @@ export function AppShell() {
           <img
             alt="πFlow"
             style={{ width: '28px', height: '28px' }}
-            src={`${apiBase().replace(/\/+$/, "")}/storage/icon/logo.png`}
+            src={`${iconBase().replace(/\/+$/, "")}/storage/icon/logo.png`}
           />
           <span className="text-xl font-bold tracking-tight text-slate-950">
             πFlow

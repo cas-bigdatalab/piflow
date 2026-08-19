@@ -34,3 +34,4 @@ pyjwt~=2.11.0
 bcrypt==4.0.1
 minio~=7.2.7
 py-data-juicer
+sentence-transformers

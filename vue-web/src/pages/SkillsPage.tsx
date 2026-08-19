@@ -1,7 +1,7 @@
 // src/pages/SkillsPage.tsx
 import { Icon } from "@iconify/react";
 import { useEffect, useState, useCallback } from "react";
-import { apiBase, listSkills, getSkillTypes, type DagSkillInfo,removeLocalSkill,enableLocalSkill } from "../lib/api";
+import { apiBase, iconBase,listSkills, getSkillTypes, type DagSkillInfo,removeLocalSkill,enableLocalSkill } from "../lib/api";
 import { useNavigate } from 'react-router-dom';
 
 const DEFAULT_SKILL_ICON = "/storage/common/common.png";
@@ -33,7 +33,7 @@ function resolveIconUrl(icon?: string) {
     return rawIcon;
   }
 
-  const base = (apiBase() || "").trim().replace(/\/+$/, "");
+  const base = (iconBase() || "").trim().replace(/\/+$/, "");
   if (!base) {
     return normalizedPath;
   }

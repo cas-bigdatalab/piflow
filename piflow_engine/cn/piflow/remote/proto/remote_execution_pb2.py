@@ -24,7 +24,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x16remote_execution.proto\x12\rpiflow.remote\"/\n\x10SubmitDagRequest\x12\x1b\n\x13\x64\x61g_definition_json\x18\x01 \x01(\t\"D\n\x11SubmitDagResponse\x12\x0e\n\x06run_id\x18\x01 \x01(\t\x12\x0e\n\x06status\x18\x02 \x01(\t\x12\x0f\n\x07message\x18\x03 \x01(\t\"%\n\x13GetRunStatusRequest\x12\x0e\n\x06run_id\x18\x01 \x01(\t\"G\n\x14GetRunStatusResponse\x12\x0e\n\x06run_id\x18\x01 \x01(\t\x12\x0e\n\x06status\x18\x02 \x01(\t\x12\x0f\n\x07message\x18\x03 \x01(\t\"]\n\x17GetRunResultMetaRequest\x12\x0e\n\x06run_id\x18\x01 \x01(\t\x12\x16\n\x0eresult_node_id\x18\x02 \x01(\t\x12\x1a\n\x12result_output_name\x18\x03 \x01(\t\"c\n\x18GetRunResultMetaResponse\x12\x0e\n\x06status\x18\x01 \x01(\t\x12\x11\n\tfile_name\x18\x02 \x01(\t\x12\x11\n\tfile_size\x18\x03 \x01(\x03\x12\x11\n\tmime_type\x18\x04 \x01(\t\"[\n\x15\x44ownloadResultRequest\x12\x0e\n\x06run_id\x18\x01 \x01(\t\x12\x16\n\x0eresult_node_id\x18\x02 \x01(\t\x12\x1a\n\x12result_output_name\x18\x03 \x01(\t\"&\n\x13\x44ownloadResultChunk\x12\x0f\n\x07\x63ontent\x18\x01 \x01(\x0c\x32\x84\x03\n\x16RemoteExecutionService\x12N\n\tSubmitDag\x12\x1f.piflow.remote.SubmitDagRequest\x1a .piflow.remote.SubmitDagResponse\x12W\n\x0cGetRunStatus\x12\".piflow.remote.GetRunStatusRequest\x1a#.piflow.remote.GetRunStatusResponse\x12\x63\n\x10GetRunResultMeta\x12&.piflow.remote.GetRunResultMetaRequest\x1a\'.piflow.remote.GetRunResultMetaResponse\x12\\\n\x0e\x44ownloadResult\x12$.piflow.remote.DownloadResultRequest\x1a\".piflow.remote.DownloadResultChunk0\x01\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x16remote_execution.proto\x12\rpiflow.remote\"/\n\x10SubmitDagRequest\x12\x1b\n\x13\x64\x61g_definition_json\x18\x01 \x01(\t\"D\n\x11SubmitDagResponse\x12\x0e\n\x06run_id\x18\x01 \x01(\t\x12\x0e\n\x06status\x18\x02 \x01(\t\x12\x0f\n\x07message\x18\x03 \x01(\t\"%\n\x13GetRunStatusRequest\x12\x0e\n\x06run_id\x18\x01 \x01(\t\"G\n\x14GetRunStatusResponse\x12\x0e\n\x06run_id\x18\x01 \x01(\t\x12\x0e\n\x06status\x18\x02 \x01(\t\x12\x0f\n\x07message\x18\x03 \x01(\t\"\x1a\n\x18GetServerResourceRequest\"i\n\x19GetServerResourceResponse\x12\x11\n\tcpu_cores\x18\x01 \x01(\x01\x12\x11\n\tmemory_gb\x18\x02 \x01(\x01\x12\x14\n\x0c\x66ree_disk_gb\x18\x03 \x01(\x01\x12\x10\n\x08hostname\x18\x04 \x01(\t\"]\n\x17GetRunResultMetaRequest\x12\x0e\n\x06run_id\x18\x01 \x01(\t\x12\x16\n\x0eresult_node_id\x18\x02 \x01(\t\x12\x1a\n\x12result_output_name\x18\x03 \x01(\t\"c\n\x18GetRunResultMetaResponse\x12\x0e\n\x06status\x18\x01 \x01(\t\x12\x11\n\tfile_name\x18\x02 \x01(\t\x12\x11\n\tfile_size\x18\x03 \x01(\x03\x12\x11\n\tmime_type\x18\x04 \x01(\t\"[\n\x15\x44ownloadResultRequest\x12\x0e\n\x06run_id\x18\x01 \x01(\t\x12\x16\n\x0eresult_node_id\x18\x02 \x01(\t\x12\x1a\n\x12result_output_name\x18\x03 \x01(\t\"&\n\x13\x44ownloadResultChunk\x12\x0f\n\x07\x63ontent\x18\x01 \x01(\x0c\x32\xec\x03\n\x16RemoteExecutionService\x12N\n\tSubmitDag\x12\x1f.piflow.remote.SubmitDagRequest\x1a .piflow.remote.SubmitDagResponse\x12W\n\x0cGetRunStatus\x12\".piflow.remote.GetRunStatusRequest\x1a#.piflow.remote.GetRunStatusResponse\x12\x66\n\x11GetServerResource\x12\'.piflow.remote.GetServerResourceRequest\x1a(.piflow.remote.GetServerResourceResponse\x12\x63\n\x10GetRunResultMeta\x12&.piflow.remote.GetRunResultMetaRequest\x1a\'.piflow.remote.GetRunResultMetaResponse\x12\\\n\x0e\x44ownloadResult\x12$.piflow.remote.DownloadResultRequest\x1a\".piflow.remote.DownloadResultChunk0\x01\x62\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -39,14 +39,18 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_GETRUNSTATUSREQUEST']._serialized_end=197
   _globals['_GETRUNSTATUSRESPONSE']._serialized_start=199
   _globals['_GETRUNSTATUSRESPONSE']._serialized_end=270
-  _globals['_GETRUNRESULTMETAREQUEST']._serialized_start=272
-  _globals['_GETRUNRESULTMETAREQUEST']._serialized_end=365
-  _globals['_GETRUNRESULTMETARESPONSE']._serialized_start=367
-  _globals['_GETRUNRESULTMETARESPONSE']._serialized_end=466
-  _globals['_DOWNLOADRESULTREQUEST']._serialized_start=468
-  _globals['_DOWNLOADRESULTREQUEST']._serialized_end=559
-  _globals['_DOWNLOADRESULTCHUNK']._serialized_start=561
-  _globals['_DOWNLOADRESULTCHUNK']._serialized_end=599
-  _globals['_REMOTEEXECUTIONSERVICE']._serialized_start=602
-  _globals['_REMOTEEXECUTIONSERVICE']._serialized_end=990
+  _globals['_GETSERVERRESOURCEREQUEST']._serialized_start=272
+  _globals['_GETSERVERRESOURCEREQUEST']._serialized_end=298
+  _globals['_GETSERVERRESOURCERESPONSE']._serialized_start=300
+  _globals['_GETSERVERRESOURCERESPONSE']._serialized_end=405
+  _globals['_GETRUNRESULTMETAREQUEST']._serialized_start=407
+  _globals['_GETRUNRESULTMETAREQUEST']._serialized_end=500
+  _globals['_GETRUNRESULTMETARESPONSE']._serialized_start=502
+  _globals['_GETRUNRESULTMETARESPONSE']._serialized_end=601
+  _globals['_DOWNLOADRESULTREQUEST']._serialized_start=603
+  _globals['_DOWNLOADRESULTREQUEST']._serialized_end=694
+  _globals['_DOWNLOADRESULTCHUNK']._serialized_start=696
+  _globals['_DOWNLOADRESULTCHUNK']._serialized_end=734
+  _globals['_REMOTEEXECUTIONSERVICE']._serialized_start=737
+  _globals['_REMOTEEXECUTIONSERVICE']._serialized_end=1229
 # @@protoc_insertion_point(module_scope)

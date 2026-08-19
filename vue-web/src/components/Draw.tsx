@@ -1,7 +1,7 @@
 import React, { useCallback, useState, useRef, memo, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { shortId } from '../lib/ids';
-import { saveDrawInfo, getAllSkills, listSkillsDetails, createMessage, streamChat, apiBase, listStorage, downloadWorkspaceUrl2,listDataspaceDirecory } from "../lib/api";
+import { saveDrawInfo, getAllSkills, listSkillsDetails, createMessage, streamChat, apiBase,iconBase, listStorage, downloadWorkspaceUrl2,listDataspaceDirecory } from "../lib/api";
 
 const DEFAULT_SKILL_ICON = "/storage/common/common.png";
 
@@ -9,14 +9,14 @@ function resolveIconUrl(icon?: string) {
   const rawIcon = (icon || "").trim();
   
   if (!rawIcon) {
-    return apiBase() + DEFAULT_SKILL_ICON;
+    return iconBase() + DEFAULT_SKILL_ICON;
   }
   
   if (/^(https?:|data:)/.test(rawIcon)) {
     return rawIcon;
   }
   
-  return apiBase() + rawIcon;
+  return iconBase() + rawIcon;
 }
 import {
   ReactFlow,
