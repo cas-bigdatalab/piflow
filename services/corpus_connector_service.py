@@ -71,6 +71,7 @@ def list_connector_details_with_resources(
                 "connector": connector,
                 "remote_grpc_target": remote_grpc_target,
                 "resource": resource,
+                "resource_display": _format_resource_display(resource),
             }
         )
 
@@ -315,6 +316,23 @@ def _fetch_remote_resource(remote_grpc_target: str) -> dict[str, Any]:
         "memory_gb": float(resource.memory_gb),
         "free_disk_gb": float(resource.free_disk_gb),
         "hostname": str(resource.hostname),
+    }
+
+
+def _format_resource_display(resource: dict[str, Any]) -> dict[str, Any]:
+    cpu_cores = float(resource.get("cpu_cores", 0.0) or 0.0)
+    memory_gb = float(resource.get("memory_gb", 0.0) or 0.0)
+    free_disk_gb = float(resource.get("free_disk_gb", 0.0) or 0.0)
+    hostname = str(resource.get("hostname", "") or "").strip()
+    return {
+        "hostname": hostname,
+        "cpu": f"{cpu_cores:g} 核",
+        "memory": f"{memory_gb:.2f} GB",
+        "free_disk": f"{free_disk_gb:.2f} GB",
+        "summary": (
+            f"{hostname or 'unknown'} · CPU {cpu_cores:g} 核 · "
+            f"内存 {memory_gb:.2f} GB · 剩余磁盘 {free_disk_gb:.2f} GB"
+        ),
     }
 
 
