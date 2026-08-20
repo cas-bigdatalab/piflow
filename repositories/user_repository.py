@@ -32,6 +32,31 @@ def get_user_by_username(username: str):
             return cursor.fetchone()
 
 
+def get_user_by_user_id(user_id: str):
+    with closing(get_connection()) as conn:
+        with conn.cursor(
+            cursor_factory=RealDictCursor
+        ) as cursor:
+
+            cursor.execute(
+                """
+                SELECT
+                    id,
+                    user_id,
+                    username,
+                    password_hash,
+                    nickname,
+                    is_admin
+                FROM sys_user
+                WHERE user_id = %s
+                  AND is_deleted = 0
+                """,
+                (user_id,),
+            )
+
+            return cursor.fetchone()
+
+
 def insert_user(
     username: str,
     password_hash: str,
