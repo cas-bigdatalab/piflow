@@ -198,9 +198,10 @@ def _fetch_dataset_page(*, page_num: int, page_size: int) -> dict[str, Any]:
 
     url = f"{base_url}/dataset/page"
     try:
-        response = requests.get(
+        response = requests.post(
             url,
             params={"pageNum": page_num, "pageSize": page_size},
+            json={},
             timeout=REQUEST_TIMEOUT,
         )
         response.raise_for_status()
