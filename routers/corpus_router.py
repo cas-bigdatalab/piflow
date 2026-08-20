@@ -1,7 +1,8 @@
 import logging
+from datetime import datetime
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 
 from services.corpus_connector_service import (
     get_dataset_detail,
@@ -16,6 +17,55 @@ router = APIRouter()
 class CorpusPageListRequest(BaseModel):
     pageNum: int = 1
     pageSize: int = 10
+
+
+class CorpusDatasetListRequest(CorpusPageListRequest):
+    model_config = ConfigDict(populate_by_name=True)
+
+    id: str | None = None
+    title: str | None = None
+    titleEn: str | None = None
+    field: str | None = None
+    subject: str | None = None
+    type: str | None = None
+    corpusType: str | None = None
+    keywords: str | None = None
+    keywordsEn: str | None = None
+    description: str | None = None
+    descriptionEn: str | None = None
+    usage: str | None = None
+    cstr: str | None = None
+    doi: str | None = None
+    version: str | None = None
+    fileNumber: int | None = None
+    number: int | None = None
+    size: str | None = None
+    rawFormat: str | None = None
+    publisher: str | None = None
+    author: str | None = None
+    temporal: str | None = None
+    geographicCoverage: str | None = None
+    language: str | None = None
+    source: str | None = None
+    cover: str | None = None
+    fundingProject: str | None = None
+    copyRight: str | None = None
+    sharingMethods: str | None = None
+    publishAt: datetime | None = None
+    receiveAt: datetime | None = None
+    updateAt: datetime | None = None
+    pushAt: datetime | None = None
+    status: int | None = None
+    dataSetId: str | None = None
+    connectorId: str | None = None
+    from_: str | None = Field(default=None, alias="from")
+    fromName: str | None = None
+
+    def to_query_payload(self) -> dict[str, object]:
+        payload = self.model_dump(exclude={"pageNum", "pageSize", "from_"}, exclude_none=True)
+        if self.from_ is not None:
+            payload["from"] = self.from_
+        return payload
 
 
 class CorpusDatasetDetailRequest(BaseModel):
@@ -46,11 +96,12 @@ async def list_corpus_connectors_api(req: CorpusPageListRequest):
 
 
 @router.post("/corpus/dataset/list")
-async def list_corpus_datasets_api(req: CorpusPageListRequest):
+async def list_corpus_datasets_api(req: CorpusDatasetListRequest):
     try:
         result = list_dataset_details(
             page_num=req.pageNum,
             page_size=req.pageSize,
+            filters=req.to_query_payload(),
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

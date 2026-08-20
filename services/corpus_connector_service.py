@@ -136,13 +136,14 @@ def list_dataset_details(
     *,
     page_num: int = 1,
     page_size: int = 10,
+    filters: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     if page_num <= 0:
         raise ValueError("page_num must be positive")
     if page_size <= 0:
         raise ValueError("page_size must be positive")
 
-    payload = _fetch_dataset_page(page_num=page_num, page_size=page_size)
+    payload = _fetch_dataset_page(page_num=page_num, page_size=page_size, filters=filters)
     dataset_items = _extract_page_items(payload, entity_name="dataset")
 
     result_items: list[dict[str, Any]] = []
@@ -192,17 +193,18 @@ def _fetch_dataset_detail(dataset_id: str) -> dict[str, Any]:
     return data
 
 
-def _fetch_dataset_page(*, page_num: int, page_size: int) -> dict[str, Any]:
+def _fetch_dataset_page(*, page_num: int, page_size: int, filters: dict[str, Any] | None = None) -> dict[str, Any]:
     base_url = str(get_settings().corpus_route.base_url or "").strip().rstrip("/")
     if not base_url:
         raise ValueError("settings.corpus_route.base_url must not be empty")
 
     url = f"{base_url}/dataset/page"
+    request_body = _normalize_dataset_filters(filters)
     try:
         response = requests.post(
             url,
             params={"pageNum": page_num, "pageSize": page_size},
-            json={},
+            json=request_body,
             timeout=REQUEST_TIMEOUT,
         )
         response.raise_for_status()
@@ -217,6 +219,26 @@ def _fetch_dataset_page(*, page_num: int, page_size: int) -> dict[str, Any]:
     if int(payload.get("code", 0) or 0) != 200:
         raise ValueError(f"dataset page request failed: {payload.get('message', '')}")
     return payload
+
+
+def _normalize_dataset_filters(filters: dict[str, Any] | None) -> dict[str, Any]:
+    if not filters:
+        return {}
+
+    normalized: dict[str, Any] = {}
+    for key, value in filters.items():
+        if value is None:
+            continue
+        if isinstance(value, str):
+            text = value.strip()
+            if text:
+                normalized[key] = text
+            continue
+        if hasattr(value, "isoformat"):
+            normalized[key] = value.isoformat()
+            continue
+        normalized[key] = value
+    return normalized
 
 
 def _fetch_connector_page(*, page_num: int, page_size: int) -> dict[str, Any]:
