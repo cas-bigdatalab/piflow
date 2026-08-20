@@ -19,6 +19,7 @@ from routers.auth_router import router as auth_router
 from routers.chat_router import router as chat_router
 from routers.community_router import router as community_router
 from routers.corpus_router import router as corpus_router
+from routers.cross_dag_api import router as cross_dag_router
 from routers.dag_panel_api import router as dag_router
 from routers.dag_runtime_api import router as dag_runtime_router
 from routers.dataspace_router import router as dataspace_router
@@ -66,6 +67,7 @@ api_router.include_router(auth_router)
 api_router.include_router(chat_router)
 api_router.include_router(community_router)
 api_router.include_router(corpus_router)
+api_router.include_router(cross_dag_router)
 api_router.include_router(dag_router)
 api_router.include_router(dag_runtime_router)
 api_router.include_router(dataspace_router)
