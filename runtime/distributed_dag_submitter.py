@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable, Collection
 
 from runtime.remote_dag_scheduler import RemoteNodeResource
 from runtime.remote_dag_scheduler import schedule_frontend_dag
@@ -33,17 +33,20 @@ def submit_cross_domain_dag(
     workspace_root: str | Path | None = None,
     user_id: str | None = None,
     python_home: str | None = None,
+    resource_resolver: Callable[[dict[str, Any]], RemoteNodeResource] | None = None,
+    remote_source_node_ids: Collection[str] | None = None,
 ) -> CrossDomainSubmitResult:
     remote_target = str(remote_grpc_target or "").strip()
     if not remote_target:
         raise ValueError("remote_grpc_target must not be empty")
 
-    resource_resolver = _build_remote_resource_resolver()
+    resolved_resource_resolver = resource_resolver or _build_remote_resource_resolver()
     plan = schedule_frontend_dag(
         definition_json,
         execution_node_id=execution_node_id,
         random_seed=random_seed,
-        resource_resolver=resource_resolver,
+        resource_resolver=resolved_resource_resolver,
+        remote_source_node_ids=remote_source_node_ids,
     )
 
     # The caller has already decided to use remote submission. This submitter

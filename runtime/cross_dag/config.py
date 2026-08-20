@@ -150,7 +150,6 @@ def load_cross_dc_config(path: str | Path | None = None) -> CrossDcConfig:
     _warn_if_locality_outvoted(replica_weights)
 
     export_dir = str(raw.get("export_dir", "") or DEFAULT_EXPORT_DIR)
-    _warn_if_export_dir_escapes_workspace(export_dir)
 
     sink_skills = frozenset(
         str(x).strip() for x in (raw.get("sink_skills") or []) if str(x).strip()
@@ -191,24 +190,6 @@ def load_cross_dc_config(path: str | Path | None = None) -> CrossDcConfig:
         location_term=str(
             (raw.get("terminology") or {}).get("location_term", "") or DEFAULT_LOCATION_TERM
         ),
-    )
-
-
-def _warn_if_export_dir_escapes_workspace(export_dir: str) -> None:
-    """导出目录必须能映射进远端工作区。
-
-    FileSaveStop 只认 /workspace/... 和 /users/... 两种前缀，其余一律按文件系统
-    绝对路径处理。写成 /artifacts/xdc 看着像工作区内的相对路径，实际会落到远端
-    机器的根目录 —— 本地跑不出问题，跨域一执行才失败，而且报的是权限错误，
-    很难联想到是这里配错了。
-    """
-    path = (export_dir or "").strip()
-    if path.startswith("/workspace/") or path.startswith("/users/") or path.startswith("workspace/"):
-        return
-    log.warning(
-        "export_dir=%s 不会被映射进远端工作区，将写到远端机器的文件系统根目录；"
-        "改成 /workspace/... 开头",
-        export_dir,
     )
 
 

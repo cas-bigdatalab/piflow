@@ -7,8 +7,8 @@ from typing import Any
 
 from .schema import (
     BUNDLE_FILE_SAVE,
+    BUNDLE_REMOTE_SUBDAG,
     DATASET_URI_PREFIX,
-    EXPORT_NODE_PREFIX,
     REMOTE_NODE_PREFIX,
     LogicalDag,
     SegmentGraph,
@@ -292,7 +292,9 @@ def validate_nested_dsl(dsl: dict[str, Any], *, depth: int = 0) -> ValidationRep
     report = ValidationReport()
     prefix = f"[第{depth}层] "
 
-    for key in ("dsl_version", "task", "nodes", "edges", "bindings"):
+    # dsl_version is an optional extension. The execution-engine contract only
+    # requires the four fields below (and accepts the version when present).
+    for key in ("task", "nodes", "edges", "bindings"):
         if key not in dsl:
             report.error(f"{prefix}DSL 缺少字段 {key}")
     if report.errors:
@@ -339,7 +341,8 @@ def validate_nested_dsl(dsl: dict[str, Any], *, depth: int = 0) -> ValidationRep
 
     for node in nodes:
         node_id = str(node.get("node_id", ""))
-        if not node_id.startswith(REMOTE_NODE_PREFIX):
+        skill_id = str((node.get("skill") or {}).get("skill_id", ""))
+        if skill_id != BUNDLE_REMOTE_SUBDAG and not node_id.startswith(REMOTE_NODE_PREFIX):
             continue
 
         params = {
@@ -365,46 +368,35 @@ def validate_nested_dsl(dsl: dict[str, Any], *, depth: int = 0) -> ValidationRep
         report.merge(child_report)
 
         result_node_id = str(params.get("result_node_id", "") or "")
-        child_node_ids = {str(n.get("node_id", "")) for n in child.get("nodes") or []}
+        result_output_name = str(params.get("result_output_name", "") or "")
+        child_nodes = {
+            str(n.get("node_id", "")): n for n in child.get("nodes") or []
+        }
         if result_node_id:
-            if result_node_id not in child_node_ids:
+            if result_node_id not in child_nodes:
                 report.error(
                     f"{prefix}远程节点 {node_id} 的 result_node_id={result_node_id} "
                     "在子 DAG 中不存在"
+                )
+            elif result_output_name:
+                output_names = {
+                    str(param.get("param_name", ""))
+                    for param in child_nodes[result_node_id].get("out_params") or []
+                }
+                if result_output_name not in output_names:
+                    report.error(
+                        f"{prefix}远程节点 {node_id} 指定的结果 "
+                        f"{result_node_id}.{result_output_name} 在子 DAG 输出中不存在"
+                    )
+            else:
+                report.warn(
+                    f"{prefix}远程节点 {node_id} 已指定 result_node_id，"
+                    "但未指定 result_output_name；多输出算子可能返回错误产物"
                 )
         else:
             report.warn(
                 f"{prefix}远程节点 {node_id} 未指定 result_node_id，"
                 "远端将取最后一个写了 final_output_path 的 stop，多出口时结果不确定"
-            )
-
-        child_report_sink = _check_child_has_export(child, prefix=f"[第{depth + 1}层] ")
-        report.merge(child_report_sink)
-
-    return report
-
-
-def _check_child_has_export(child: dict[str, Any], *, prefix: str) -> ValidationReport:
-    report = ValidationReport()
-    export_nodes = [
-        node
-        for node in child.get("nodes") or []
-        if str(node.get("node_id", "")).startswith(EXPORT_NODE_PREFIX)
-    ]
-    if not export_nodes:
-        report.error(
-            f"{prefix}子 DAG 没有跨域导出节点。"
-            "只有 FileSaveStop / DataspaceFileSinkStop / LlmFileTransformStop 会写 "
-            "final_output_path，缺了它远端 ResultResolver 会抛 RESULT_NOT_FOUND"
-        )
-        return report
-
-    for node in export_nodes:
-        skill_id = str((node.get("skill") or {}).get("skill_id", ""))
-        if skill_id not in SINK_BUNDLES:
-            report.error(
-                f"{prefix}导出节点 {node.get('node_id')} 使用了 {skill_id}，"
-                f"它不会写 final_output_path。必须是: {sorted(SINK_BUNDLES)}"
             )
 
     return report

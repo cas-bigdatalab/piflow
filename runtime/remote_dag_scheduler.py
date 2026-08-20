@@ -4,7 +4,7 @@ import copy
 import json
 import random
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import Any, Callable, Collection
 
 
 REMOTE_SOURCE_BUNDLE = (
@@ -39,21 +39,37 @@ def schedule_frontend_dag(
     execution_node_id: str | None = None,
     random_seed: int | None = None,
     resource_resolver: Callable[[dict[str, Any]], RemoteNodeResource] | None = None,
+    remote_source_node_ids: Collection[str] | None = None,
 ) -> ScheduledDagPlan:
     definition = copy.deepcopy(dag_definition)
     nodes = definition.get("nodes", []) or []
     edges = definition.get("edges", []) or []
     bindings = definition.get("bindings", []) or []
 
-    remote_sources = [
-        node for node in nodes if _is_remote_source(node)
-    ]
+    if remote_source_node_ids is None:
+        remote_sources = [node for node in nodes if _is_remote_source(node)]
+    else:
+        requested_source_ids = {str(node_id) for node_id in remote_source_node_ids}
+        node_ids = {str(node.get("node_id", "")) for node in nodes}
+        missing_source_ids = requested_source_ids - node_ids
+        if missing_source_ids:
+            raise ValueError(
+                f"remote source nodes do not exist in DAG: {sorted(missing_source_ids)}"
+            )
+        remote_sources = [
+            node
+            for node in nodes
+            if str(node.get("node_id", "")) in requested_source_ids
+        ]
     if not remote_sources:
         raise ValueError("dag contains no supported remote source nodes")
 
     resolver = resource_resolver or _read_remote_node_resource
     candidate_resources = [resolver(node) for node in remote_sources]
-    resource_by_node_id = {resource.node_id: resource for resource in candidate_resources}
+    resource_by_source_node_id = {
+        str(source["node_id"]): resource
+        for source, resource in zip(remote_sources, candidate_resources)
+    }
     chosen_node_id = execution_node_id or _choose_execution_node_id(
         candidate_resources,
         random_seed=random_seed,
@@ -75,7 +91,8 @@ def schedule_frontend_dag(
     added_bindings: list[dict[str, Any]] = []
 
     for source in remote_sources:
-        source_runtime_node_id = _require_remote_node_id(source)
+        source_resource = resource_by_source_node_id[str(source["node_id"])]
+        source_runtime_node_id = source_resource.node_id
         if source_runtime_node_id == chosen_node_id:
             continue
 
@@ -92,11 +109,7 @@ def schedule_frontend_dag(
         )
         synthetic_node = _build_remote_subdag_source_node(
             source_runtime_node_id=source_runtime_node_id,
-            source_remote_grpc_target=_require_remote_resource(
-                resource_by_node_id,
-                source_runtime_node_id,
-                node_name=str(source.get("node_name", source["node_id"])),
-            ).remote_grpc_target,
+            source_remote_grpc_target=source_resource.remote_grpc_target,
             subdag_definition=subdag,
             source_node=source,
         )
@@ -257,15 +270,6 @@ def _require_remote_node_id(node: dict[str, Any]) -> str:
     raise ValueError(f"remote source node missing node_id param: {node.get('node_id')}")
 
 
-def _resolve_source_runtime_node_id(node: dict[str, Any]) -> str:
-    skill = node.get("skill") or {}
-    skill_id = str(skill.get("skill_id", "") or "")
-    skill_name = str(skill.get("skill_name", "") or "")
-    if skill_id == CORPUS_DATASET_SOURCE_BUNDLE or skill_name == "corpus_dataset_source_stop":
-        return _read_corpus_dataset_source_resource(node).node_id
-    return _require_remote_node_id(node)
-
-
 def _read_remote_node_resource(node: dict[str, Any]) -> RemoteNodeResource:
     skill = node.get("skill") or {}
     skill_id = str(skill.get("skill_id", "") or "")
@@ -388,15 +392,3 @@ def _choose_execution_node_id(
         )
     ]
     return random.Random(random_seed).choice(tied).node_id
-
-
-def _require_remote_resource(
-    resource_by_node_id: dict[str, RemoteNodeResource],
-    node_id: str,
-    *,
-    node_name: str,
-) -> RemoteNodeResource:
-    resource = resource_by_node_id.get(node_id)
-    if resource is None:
-        raise ValueError(f"remote source resource not found for node={node_name}, node_id={node_id}")
-    return resource

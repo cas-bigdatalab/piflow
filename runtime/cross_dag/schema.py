@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -21,7 +22,7 @@ REMOTE_OUTPUT_PORT = "output"
 FILE_SAVE_INPUT_PORT = "output"
 
 EXPORT_NODE_PREFIX = "__export__"
-REMOTE_NODE_PREFIX = "__remote__"
+REMOTE_NODE_PREFIX = "remote-subdag-source-"
 
 DATASET_URI_PREFIX = "dataset://"
 
@@ -678,11 +679,13 @@ class CrossDagPlan:
     segment_graph: SegmentGraph
     nested_dsl: dict[str, Any]
     validation: ValidationReport
+    execution_dsl: dict[str, Any] = field(default_factory=dict)
     mode: str = MODE_COMPOSITION
     satisfaction: SatisfactionReport | None = None
     direct_access: DirectAccess | None = None
     execution_center_id: str = ""
     execution_grpc_endpoint: str = ""
+    center_endpoints: dict[str, str] = field(default_factory=dict)
 
     def to_json(self) -> dict[str, Any]:
         return {
@@ -693,6 +696,7 @@ class CrossDagPlan:
             "execution": {
                 "center_id": self.execution_center_id,
                 "grpc_endpoint": self.execution_grpc_endpoint,
+                "center_endpoints": dict(self.center_endpoints),
             },
             "intent": self.intent.to_json(),
             "binding": {
@@ -703,6 +707,7 @@ class CrossDagPlan:
                 ],
             },
             "segments": self.segment_graph.to_json(),
+            "execution_dsl": self.execution_dsl,
             "nested_dsl": self.nested_dsl,
             "validation": self.validation.to_json(),
         }
@@ -736,9 +741,80 @@ def build_dsl(
         )
 
     return {
-        "dsl_version": DSL_VERSION,
         "task": {"dag_task_id": task_id, "dag_task_name": task_name},
         "nodes": nodes,
         "edges": edges,
         "bindings": bindings,
     }
+
+
+def build_execution_dsl(
+    dag: LogicalDag,
+    *,
+    task_id: str,
+    task_name: str,
+) -> dict[str, Any]:
+    """Build the flat DAG contract accepted by the scheduling/execution layer."""
+    return build_dsl(
+        task_id=task_id,
+        task_name=task_name,
+        nodes=[logical_node_to_execution_dsl(node) for node in dag.nodes],
+        bindings=[binding.to_dsl() for binding in dag.bindings],
+    )
+
+
+def logical_node_to_execution_dsl(node: LogicalNode) -> dict[str, Any]:
+    """Serialize one logical node without planner-only reference parameters."""
+    input_params: list[dict[str, Any]] = []
+    for param in node.input_params:
+        if param.value_mode == "reference":
+            continue
+        input_params.append(
+            {
+                "binding_id": param.binding_id,
+                "param_name": param.param_name,
+                "param_type": param.param_type,
+                "value_mode": param.value_mode,
+                "param_value": param.param_value,
+                "value_source": "default",
+            }
+        )
+
+    out_params = []
+    for param in node.out_params:
+        param_type = param.param_type
+        if param_type in {"file", "artifact", "file_artifact"}:
+            param_type = "file_artifact"
+        out_params.append(
+            {"param_name": param.param_name, "param_type": param_type}
+        )
+
+    payload: dict[str, Any] = {
+        "node_id": node.node_id,
+        "node_name": node.node_name,
+        "skill": {
+            "skill_id": node.skill_id,
+            "skill_name": _execution_skill_name(node.skill_name or node.skill_id),
+        },
+        "input_params": input_params,
+        "out_params": out_params,
+    }
+    if node.node_type == "synthetic_remote_source":
+        payload.update(
+            {
+                "node_type": node.node_type,
+                "position": dict(node.position),
+                "icon_path": "",
+            }
+        )
+        payload["skill"]["version"] = "1.0.0"
+    return payload
+
+
+def _execution_skill_name(raw_name: str) -> str:
+    leaf = str(raw_name or "").rsplit(".", 1)[-1]
+    if not leaf:
+        return ""
+    if "_" in leaf:
+        return leaf
+    return re.sub(r"(?<!^)(?=[A-Z])", "_", leaf).lower()

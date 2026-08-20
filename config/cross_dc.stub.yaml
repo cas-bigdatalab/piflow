@@ -18,10 +18,8 @@ sources:
     name: 广州数据源
     aliases: ["广州", "穗区"]
 
-# 跨域导出产物在远端 workspace 中的落地目录。
-# 必须以 /workspace/ 开头 —— FileSaveStop 只把 /workspace/... 和 /users/... 映射进
-# 工作区根，其他写法一律当成文件系统绝对路径，会写到远端机器的 / 下（Linux 上
-# 通常没权限，而且逃出了工作区沙箱）。
+# 兼容旧配置。新计划通过 result_node_id/result_output_name 直接定位远端产物，
+# 不再创建跨域 FileSaveStop，因此该字段当前不参与计划生成。
 export_dir: /workspace/artifacts/xdc
 
 # RemoteSubDagSourceStop 等待远端子 DAG 完成的超时（秒）

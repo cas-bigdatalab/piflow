@@ -310,5 +310,6 @@ def _detail(plan: CrossDagPlan) -> dict[str, Any]:
         },
         "segments": plan.segment_graph.to_json(),
         "logical_dag": plan.logical_dag.to_json(),
+        "execution_dsl": plan.execution_dsl,
         "nested_dsl": plan.nested_dsl,
     }

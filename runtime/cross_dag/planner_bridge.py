@@ -55,6 +55,7 @@ class SkillParamSpec:
 
     all_params: frozenset[str]
     upstream_params: frozenset[str] | None = None
+    output_params: frozenset[str] = frozenset()
 
 
 def _spec_from_params(raw: Any) -> SkillParamSpec | None:
@@ -67,6 +68,9 @@ def _spec_from_params(raw: Any) -> SkillParamSpec | None:
     all_names: set[str] = set()
     upstream: set[str] = set()
     for item in raw:
+        if isinstance(item, str) and item.strip():
+            all_names.add(item.strip())
+            continue
         if not isinstance(item, dict):
             continue
         param_name = item.get("name") or item.get("param_name")
@@ -83,6 +87,22 @@ def _spec_from_params(raw: Any) -> SkillParamSpec | None:
         all_params=frozenset(all_names),
         upstream_params=frozenset(upstream) if upstream else None,
     )
+
+
+def _param_names(raw: Any) -> frozenset[str]:
+    if isinstance(raw, dict):
+        raw = raw.get("params")
+    if not isinstance(raw, list):
+        return frozenset()
+    names: set[str] = set()
+    for item in raw:
+        if isinstance(item, str) and item.strip():
+            names.add(item.strip())
+        elif isinstance(item, dict):
+            name = item.get("name") or item.get("param_name")
+            if name:
+                names.add(str(name))
+    return frozenset(names)
 
 
 def database_param_resolver() -> Callable[[str], SkillParamSpec | None]:
@@ -105,6 +125,14 @@ def database_param_resolver() -> Callable[[str], SkillParamSpec | None]:
                 spec = _spec_from_skill_json(workspace_root / skill_path / "skill.json")
             if spec is None:
                 spec = _spec_from_params(getattr(skill, "input_params", None))
+                if spec is not None:
+                    spec = SkillParamSpec(
+                        all_params=spec.all_params,
+                        upstream_params=spec.upstream_params,
+                        output_params=_param_names(
+                            getattr(skill, "output_params", None)
+                        ),
+                    )
             if spec is not None:
                 mapping[str(name)] = spec
     except Exception:
@@ -144,6 +172,9 @@ def _system_specs() -> dict[str, SkillParamSpec]:
                 if isinstance(upstream, list)
                 else None
             ),
+            output_params=frozenset(
+                str(x) for x in (entry.get("输出参数") or []) if str(x)
+            ),
         )
     return specs
 
@@ -156,7 +187,15 @@ def _spec_from_skill_json(path: Any) -> SkillParamSpec | None:
         target = _Path(path)
         if not target.is_file():
             return None
-        return _spec_from_params(_json.loads(target.read_text(encoding="utf-8")).get("input_params"))
+        payload = _json.loads(target.read_text(encoding="utf-8"))
+        spec = _spec_from_params(payload.get("input_params"))
+        if spec is None:
+            return None
+        return SkillParamSpec(
+            all_params=spec.all_params,
+            upstream_params=spec.upstream_params,
+            output_params=_param_names(payload.get("output_params")),
+        )
     except Exception:
         return None
 
@@ -182,6 +221,7 @@ def expand_planning_json(
     nodes: list[LogicalNode] = []
     bindings: list[Binding] = []
     produced_params: dict[str, set[str]] = {}
+    declared_outputs: dict[str, frozenset[str]] = {}
 
     for index, raw_node in enumerate(raw_nodes):
         node_name = str(raw_node.get("node_name") or "").strip()
@@ -196,6 +236,8 @@ def expand_planning_json(
         input_params: list[InputParam] = []
 
         spec = param_resolver(skill_name) if param_resolver else None
+        if spec:
+            declared_outputs[node_id] = spec.output_params
         if spec:
             used = set((raw_node.get("params") or {}).keys())
             unknown = sorted(used - spec.all_params)
@@ -271,7 +313,9 @@ def expand_planning_json(
         )
 
     for node in nodes:
-        for param_name in sorted(produced_params.get(node.node_id, set())):
+        output_names = set(produced_params.get(node.node_id, set()))
+        output_names.update(declared_outputs.get(node.node_id, frozenset()))
+        for param_name in sorted(output_names):
             node.out_params.append(OutParam(param_name=param_name, param_type="file"))
 
     dag = LogicalDag(
@@ -357,16 +401,15 @@ def normalize_dataset_source_contracts(
             warnings.append(warning)
             log.warning(warning)
 
-        referenced_ports = sorted(
-            {
-                binding.from_param_name
-                for binding in dag.bindings
-                if binding.from_node_id == node.node_id
-            }
-        )
+        referenced_ports = {
+            binding.from_param_name
+            for binding in dag.bindings
+            if binding.from_node_id == node.node_id
+        }
+        referenced_ports.add(expected_port)
         node.out_params = [
             OutParam(param_name=param_name, param_type="file")
-            for param_name in referenced_ports
+            for param_name in sorted(referenced_ports)
         ]
 
     return warnings

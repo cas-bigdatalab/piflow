@@ -83,7 +83,8 @@ SYSTEM_SKILL_CATALOG: list[dict[str, Any]] = [
         "skill_name": "piflow_engine.cn.piflow.engine.local.tar_archive_merge_stop.TarArchiveMergeStop",
         "描述": (
             "多路 tar 归档汇聚算子。把 2~8 个语料数据集下载得到的 tar 包合成一个 tar，"
-            "不解包、不改变成员内容。用户要求打包、归档或合并多个 tar 时使用。"
+            "直接复制各归档成员，不落盘解包、不改变成员内容。"
+            "用户要求打包、归档或合并多个 tar 时使用。"
         ),
         "输入参数": {
             **{f"data{i}": f"第 {i} 路上游 tar 产物引用" for i in range(1, 9)},

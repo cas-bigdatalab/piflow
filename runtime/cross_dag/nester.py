@@ -7,10 +7,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from .schema import (
-    BUNDLE_FILE_SAVE,
     BUNDLE_REMOTE_SUBDAG,
-    EXPORT_NODE_PREFIX,
-    FILE_SAVE_INPUT_PORT,
     REMOTE_NODE_PREFIX,
     REMOTE_OUTPUT_PORT,
     Binding,
@@ -21,6 +18,7 @@ from .schema import (
     OutParam,
     SegmentGraph,
     build_dsl,
+    logical_node_to_execution_dsl,
 )
 
 
@@ -29,7 +27,6 @@ class NestContext:
     dag: LogicalDag
     graph: SegmentGraph
     endpoint_of: dict[str, str]
-    export_dir: str
     wait_timeout_seconds: int
     task_id: str
     task_name: str
@@ -48,6 +45,10 @@ def build_nested_dsl(
     wait_timeout_seconds: int = 3600,
 ) -> tuple[dict[str, Any], dict[str, int]]:
     """返回 (最外层 DSL, 每个段被嵌套的次数)。"""
+    # Kept in the public signature for config/backward compatibility. Remote
+    # results are now selected directly by producer node/output, so no
+    # synthetic FileSaveStop or export directory is needed.
+    _ = export_dir
     roots = graph.root_segments()
     if not roots:
         raise CrossDagError("段图没有终点段，无法确定最外层")
@@ -61,7 +62,6 @@ def build_nested_dsl(
         dag=dag,
         graph=graph,
         endpoint_of=endpoint_of,
-        export_dir=export_dir.rstrip("/") or "/artifacts/xdc",
         wait_timeout_seconds=wait_timeout_seconds,
         task_id=task_id,
         task_name=task_name,
@@ -101,7 +101,7 @@ def _build_segment_dsl(
         segment = ctx.graph.segments[unit_id]
         member_ids = set(segment.node_ids)
         for node_id in segment.node_ids:
-            nodes[node_id] = ctx.node_map[node_id].to_dsl()
+            nodes[node_id] = logical_node_to_execution_dsl(ctx.node_map[node_id])
         for binding in ctx.dag.bindings:
             if binding.from_node_id in member_ids and binding.to_node_id in member_ids:
                 bindings[binding.binding_id] = binding.to_dsl()
@@ -146,11 +146,6 @@ def _build_segment_dsl(
                     to_param_name=edge.to_param_name,
                 )
                 bindings[binding.binding_id] = binding.to_dsl()
-                # 消费端节点是从逻辑 DAG 原样拷来的，它的入参还指着原来那条
-                # 跨中心绑定；这一层里那条绑定已经被换成从远程节点取了。
-                # 不改的话节点声明的 binding_id 在本层的 bindings 里根本不存在，
-                # 谁按 binding_id 去查绑定谁就查不到。
-                _rebind(nodes, edge.to_node_id, edge.to_param_name, binding.binding_id)
 
     absorb(segment_id, path)
 
@@ -160,19 +155,6 @@ def _build_segment_dsl(
         nodes=list(nodes.values()),
         bindings=list(bindings.values()),
     )
-
-
-def _rebind(
-    nodes: dict[str, dict],
-    node_id: str,
-    param_name: str,
-    binding_id: str,
-) -> None:
-    """把消费端入参的 binding_id 指到本层实际存在的那条绑定上。"""
-    for param in nodes[node_id].get("input_params") or []:
-        if param.get("param_name") == param_name:
-            param["binding_id"] = binding_id
-            return
 
 
 def _attach_remote_branch(
@@ -188,81 +170,18 @@ def _attach_remote_branch(
     """把一条真正跨中心的上游分支包成远程子 DAG，挂到当前层，返回远程节点 id。"""
     child_dsl = _build_segment_dsl(upstream_id, ctx, path=chain)
 
-    export_node = _make_export_node(
-        producer_id=producer_id,
-        producer_param=producer_param,
-        segment_id=upstream_id,
-        export_dir=ctx.export_dir,
-        task_id=ctx.task_id,
-    )
-    export_binding = Binding(
-        from_node_id=producer_id,
-        from_param_name=producer_param,
-        to_node_id=export_node.node_id,
-        to_param_name=FILE_SAVE_INPUT_PORT,
-    )
-    child_dsl = build_dsl(
-        task_id=child_dsl["task"]["dag_task_id"],
-        task_name=child_dsl["task"]["dag_task_name"],
-        nodes=[*child_dsl["nodes"], export_node.to_dsl()],
-        bindings=[*child_dsl["bindings"], export_binding.to_dsl()],
-    )
-
     remote_node = _make_remote_node(
         producer_id=producer_id,
         producer_param=producer_param,
         upstream_center_id=upstream_center_id,
         endpoint=_require_endpoint(ctx, upstream_center_id),
         child_dsl=child_dsl,
-        result_node_id=export_node.node_id,
+        result_node_id=producer_id,
+        result_output_name=producer_param,
         wait_timeout_seconds=ctx.wait_timeout_seconds,
     )
-    nodes[remote_node.node_id] = remote_node.to_dsl()
+    nodes[remote_node.node_id] = logical_node_to_execution_dsl(remote_node)
     return remote_node.node_id
-
-
-def _make_export_node(
-    *,
-    producer_id: str,
-    producer_param: str,
-    segment_id: str,
-    export_dir: str,
-    task_id: str,
-) -> LogicalNode:
-    """跨域出口必须挂一个 FileSaveStop。"""
-    node_id = f"{EXPORT_NODE_PREFIX}{producer_id}__{producer_param}"
-    safe_segment = segment_id.replace("#", "_")
-    destination = f"{export_dir}/{task_id}/{safe_segment}/{producer_id}__{producer_param}.dat"
-
-    return LogicalNode(
-        node_id=node_id,
-        node_name=f"跨域导出_{producer_id}_{producer_param}",
-        skill_id=BUNDLE_FILE_SAVE,
-        node_type="system",
-        data_center="",
-        input_params=[
-            InputParam(
-                param_name=FILE_SAVE_INPUT_PORT,
-                value_mode="reference",
-                param_value="",
-                param_type="file",
-                binding_id=f"{producer_id}:{producer_param}->{node_id}:{FILE_SAVE_INPUT_PORT}",
-            ),
-            InputParam(
-                param_name="absolute_path",
-                value_mode="manual",
-                param_value=destination,
-                param_type="string",
-            ),
-            InputParam(
-                param_name="overwrite",
-                value_mode="manual",
-                param_value="true",
-                param_type="string",
-            ),
-        ],
-        out_params=[],
-    )
 
 
 def _make_remote_node(
@@ -273,15 +192,18 @@ def _make_remote_node(
     endpoint: str,
     child_dsl: dict[str, Any],
     result_node_id: str,
+    result_output_name: str,
     wait_timeout_seconds: int,
 ) -> LogicalNode:
-    node_id = f"{REMOTE_NODE_PREFIX}{upstream_center_id}__{producer_id}__{producer_param}"
+    output_suffix = "" if producer_param == REMOTE_OUTPUT_PORT else f"-{producer_param}"
+    node_id = f"{REMOTE_NODE_PREFIX}{producer_id}{output_suffix}"
 
     return LogicalNode(
         node_id=node_id,
         node_name=f"跨域执行_{upstream_center_id}",
         skill_id=BUNDLE_REMOTE_SUBDAG,
-        node_type="system",
+        skill_name="remoteSubDagSourceNode",
+        node_type="synthetic_remote_source",
         data_center=upstream_center_id,
         input_params=[
             InputParam(
@@ -303,13 +225,19 @@ def _make_remote_node(
                 param_type="string",
             ),
             InputParam(
+                param_name="result_output_name",
+                value_mode="manual",
+                param_value=result_output_name,
+                param_type="string",
+            ),
+            InputParam(
                 param_name="wait_timeout_seconds",
                 value_mode="manual",
                 param_value=str(wait_timeout_seconds),
                 param_type="string",
             ),
         ],
-        out_params=[OutParam(param_name=REMOTE_OUTPUT_PORT, param_type="file")],
+        out_params=[OutParam(param_name=REMOTE_OUTPUT_PORT, param_type="file_artifact")],
     )
 
 

@@ -14,7 +14,7 @@ from piflow_engine.cn.piflow.engine.local.constants import RUNNER_CONTEXT_WORKSP
 from piflow_engine.cn.piflow.runtime.logging.path_utils import safe_name
 
 
-INPUT_PORTS = ["data1", "data2", "data3"]
+INPUT_PORTS = [f"data{index}" for index in range(1, 9)]
 OUTPUT_PORT = "output"
 
 
@@ -49,12 +49,25 @@ class TarArchiveMergeStop(ConfigurableStop):
         if self._workspace_root is None:
             raise RuntimeError("workspace root is not initialized")
 
-        input_files = [self._read_input_file(inputs, port) for port in INPUT_PORTS]
+        input_ports = sorted(
+            (str(port) for port in inputs.ports()),
+            key=_input_port_sort_key,
+        )
+        if len(input_ports) < 2:
+            raise ValueError(
+                f"tar merge requires at least two input ports, got {input_ports}"
+            )
+        if len(input_ports) > 8:
+            raise ValueError(
+                f"tar merge supports at most eight input ports, got {input_ports}"
+            )
+
+        input_files = [self._read_input_file(inputs, port) for port in input_ports]
         output_path = self._prepare_output_path(ctx)
 
         with tarfile.open(output_path, mode="w") as archive:
             for file_path in input_files:
-                archive.add(file_path, arcname=file_path.name)
+                self._append_input(archive, file_path)
 
         ctx.put(RUN_CONTEXT_FINAL_OUTPUT_PATH, str(output_path))
         outputs.write(
@@ -78,6 +91,23 @@ class TarArchiveMergeStop(ConfigurableStop):
             raise ValueError(f"tar merge input path is not a file: {resolved}")
         return resolved
 
+    @staticmethod
+    def _append_input(output_archive: tarfile.TarFile, input_path: Path) -> None:
+        if not tarfile.is_tarfile(input_path):
+            output_archive.add(input_path, arcname=input_path.name)
+            return
+
+        # Copy archive members directly into the result. Nothing is extracted
+        # to the filesystem, so member paths cannot escape the workspace.
+        with tarfile.open(input_path, mode="r:*") as input_archive:
+            for member in input_archive.getmembers():
+                member_file = input_archive.extractfile(member) if member.isfile() else None
+                try:
+                    output_archive.addfile(member, member_file)
+                finally:
+                    if member_file is not None:
+                        member_file.close()
+
     def _prepare_output_path(self, ctx: JobContext) -> Path:
         if self._workspace_root is None:
             raise RuntimeError("workspace root is not initialized")
@@ -93,3 +123,9 @@ class TarArchiveMergeStop(ConfigurableStop):
         )
         output_dir.mkdir(parents=True, exist_ok=True)
         return output_dir / self.output_file_name
+
+
+def _input_port_sort_key(port_name: str) -> tuple[str, int, str]:
+    prefix = port_name.rstrip("0123456789")
+    suffix = port_name[len(prefix):]
+    return prefix, int(suffix) if suffix else 0, port_name

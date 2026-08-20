@@ -17,6 +17,7 @@ from runtime.cross_dag.registry_stub import (
     StubDatasourceRegistry,
 )
 from runtime.cross_dag.schema import IntentDataset, IntentSpec, ReplicaCandidate
+from runtime.cross_dag.validator import validate_nested_dsl
 from runtime.remote_dag_scheduler import RemoteNodeResource, schedule_frontend_dag
 from piflow_engine.cn.piflow.core.artifact import FileArtifact
 from piflow_engine.cn.piflow.engine.local.tar_archive_merge_stop import TarArchiveMergeStop
@@ -201,8 +202,12 @@ def test_dynamic_registry_builds_topology_and_compiles_nested_plan() -> None:
     assert plan.execution_grpc_endpoint == resolved.endpoint_of(plan.execution_center_id)
     assert len(plan.segment_graph.segments) == 2
     assert any(
-        str(node.get("node_id", "")).startswith("__remote__")
+        str(node.get("node_id", "")).startswith("remote-subdag-source-")
         for node in plan.nested_dsl["nodes"]
+    )
+    assert all(
+        not str(node.get("node_id", "")).startswith("remote-subdag-source-")
+        for node in plan.execution_dsl["nodes"]
     )
 
 
@@ -236,21 +241,74 @@ def test_registered_dataset_output_contract_overrides_planner_port() -> None:
     remote_nodes = [
         node
         for node in plan.nested_dsl["nodes"]
-        if str(node.get("node_id", "")).startswith("__remote__")
+        if str(node.get("node_id", "")).startswith("remote-subdag-source-")
     ]
     assert remote_nodes
-    child_json = next(
-        param["param_value"]
+    remote_params = {
+        param["param_name"]: param["param_value"]
         for param in remote_nodes[0]["input_params"]
-        if param["param_name"] == "subdag_definition_json"
+    }
+    child = json.loads(remote_params["subdag_definition_json"])
+    assert remote_params["result_node_id"] == "source-b"
+    assert remote_params["result_output_name"] == "output"
+    assert all(
+        not str(node["node_id"]).startswith("__export__")
+        for node in child["nodes"]
     )
-    child = json.loads(child_json)
-    export_binding = next(
-        binding
-        for binding in child["bindings"]
-        if str(binding["to_node_id"]).startswith("__export__")
+    source = next(node for node in child["nodes"] if node["node_id"] == "source-b")
+    assert source["out_params"] == [
+        {"param_name": "output", "param_type": "file_artifact"}
+    ]
+
+
+def test_flat_dag_matches_execution_engine_parameter_contract() -> None:
+    plan = plan_cross_dag(
+        "merge them",
+        registry=_registry(),
+        config=CrossDcConfig(
+            local_center_id="",
+            default_center_id="",
+            centers={},
+            sink_skills=frozenset({TAR_MERGE}),
+            available_statuses=frozenset({"AVAILABLE"}),
+        ),
+        intent=_intent(),
+        planning_json=_planning_json(),
+        skill_resolver=lambda name: name,
     )
-    assert export_binding["from_param_name"] == "output"
+
+    assert set(plan.execution_dsl) == {"task", "nodes", "edges", "bindings"}
+    assert {node["node_id"] for node in plan.execution_dsl["nodes"]} == {
+        "source-a",
+        "source-b",
+        "tar-merge",
+    }
+    for node in plan.execution_dsl["nodes"]:
+        assert set(node) == {
+            "node_id",
+            "node_name",
+            "skill",
+            "input_params",
+            "out_params",
+        }
+        assert all(
+            param["value_mode"] == "manual"
+            and param["value_source"] == "default"
+            for param in node["input_params"]
+        )
+        assert all(
+            param["param_type"] != "file" for param in node["out_params"]
+        )
+
+    merge = next(
+        node for node in plan.execution_dsl["nodes"] if node["node_id"] == "tar-merge"
+    )
+    assert [param["param_name"] for param in merge["input_params"]] == [
+        "output_file_name"
+    ]
+    assert merge["out_params"] == [
+        {"param_name": "output", "param_type": "file_artifact"}
+    ]
 
 
 def test_each_new_plan_refreshes_dynamic_registry_snapshot() -> None:
@@ -277,7 +335,7 @@ def test_each_new_plan_refreshes_dynamic_registry_snapshot() -> None:
     assert refresh_calls == ["refresh"]
 
 
-def test_compiled_plan_submits_directly_to_its_root_endpoint(monkeypatch) -> None:
+def test_compiled_plan_submits_flat_execution_dsl(monkeypatch) -> None:
     registry = _registry()
     config = CrossDcConfig(
         local_center_id="",
@@ -297,16 +355,54 @@ def test_compiled_plan_submits_directly_to_its_root_endpoint(monkeypatch) -> Non
 
     calls = []
 
+    def submit(definition_json: dict, **kwargs):
+        calls.append((definition_json, kwargs))
+        return SimpleNamespace(
+            process_id="run-123",
+            status="SUBMITTED",
+            execution_node_id=kwargs["execution_node_id"],
+        )
+
+    monkeypatch.setattr(
+        "runtime.cross_dag.executor.submit_cross_domain_dag",
+        submit,
+    )
+    result = submit_cross_dag_plan(plan)
+
+    assert result.process_id == "run-123"
+    assert result.execution_node_id == plan.execution_center_id
+    assert calls[0][0] == plan.execution_dsl
+    assert calls[0][1]["remote_grpc_target"] == plan.execution_grpc_endpoint
+    assert set(calls[0][1]["remote_source_node_ids"]) == {"source-a", "source-b"}
+
+
+def test_plan_submission_schedules_with_bound_registry_resources(monkeypatch) -> None:
+    plan = plan_cross_dag(
+        "merge them",
+        registry=_registry(),
+        config=CrossDcConfig(
+            local_center_id="",
+            default_center_id="",
+            centers={},
+            sink_skills=frozenset({TAR_MERGE}),
+            available_statuses=frozenset({"AVAILABLE"}),
+        ),
+        intent=_intent(),
+        planning_json=_planning_json(),
+        skill_resolver=lambda name: name,
+    )
+    submitted = []
+
     class Client:
         def __init__(self, target: str):
-            calls.append(("target", target))
+            assert target == plan.execution_grpc_endpoint
 
         def submit_remote_root_dag(self, payload: str):
-            calls.append(("payload", json.loads(payload)))
-            return SimpleNamespace(run_id="run-123", status="SUBMITTED")
+            submitted.append(json.loads(payload))
+            return SimpleNamespace(run_id="run-456", status="SUBMITTED")
 
         def close(self) -> None:
-            calls.append(("closed", True))
+            pass
 
     monkeypatch.setattr(
         "runtime.distributed_dag_submitter.create_remote_execution_client",
@@ -314,14 +410,16 @@ def test_compiled_plan_submits_directly_to_its_root_endpoint(monkeypatch) -> Non
     )
     result = submit_cross_dag_plan(plan)
 
-    assert result.process_id == "run-123"
-    assert result.execution_node_id == plan.execution_center_id
-    assert calls[0] == ("target", plan.execution_grpc_endpoint)
-    assert calls[1][1] == plan.nested_dsl
+    assert result.process_id == "run-456"
+    scheduled_node_ids = {node["node_id"] for node in submitted[0]["nodes"]}
+    assert "source-a" in scheduled_node_ids
+    assert "source-b" not in scheduled_node_ids
+    assert "remote-subdag-source-source-b" in scheduled_node_ids
 
 
 def test_flat_corpus_scheduler_does_not_require_duplicate_node_id_param() -> None:
     dag = {
+        "task": {"dag_task_id": "flat-demo", "dag_task_name": "flat demo"},
         "nodes": [
             {
                 "node_id": "corpus-a",
@@ -374,6 +472,7 @@ def test_flat_corpus_scheduler_does_not_require_duplicate_node_id_param() -> Non
     assert "corpus-a" in node_ids
     assert "corpus-b" not in node_ids
     assert "remote-subdag-source-corpus-b" in node_ids
+    assert validate_nested_dsl(scheduled.dag_definition).ok
 
 
 def test_tar_archive_merge_stop_merges_arbitrary_input_ports(tmp_path) -> None:

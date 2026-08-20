@@ -33,6 +33,7 @@ from .schema import (
     SatisfactionReport,
     SegmentGraph,
     ValidationReport,
+    build_execution_dsl,
 )
 from .segmenter import build_segment_graph
 from .selector import select_replica
@@ -404,12 +405,18 @@ def compile_cross_dag(
         task_name=logical_dag.task_name or "跨域任务",
         wait_timeout_seconds=resolved_config.subdag_wait_timeout_seconds,
     )
+    execution_dsl = build_execution_dsl(
+        logical_dag,
+        task_id=plan_id,
+        task_name=logical_dag.task_name or "跨域任务",
+    )
     emit(
         "nest",
         {
             "status": "finished",
             "depth": _depth_of(nested_dsl),
             "nest_count": dict(nest_count),
+            "execution_dsl": execution_dsl,
             "nested_dsl": nested_dsl,
         },
     )
@@ -422,6 +429,7 @@ def compile_cross_dag(
         )
     )
     report.merge(validate_segmentation(logical_dag, graph, nest_count))
+    report.merge(validate_nested_dsl(execution_dsl))
     report.merge(validate_nested_dsl(nested_dsl))
 
     roots = graph.root_segments()
@@ -451,8 +459,10 @@ def compile_cross_dag(
         segment_graph=graph,
         nested_dsl=nested_dsl,
         validation=report,
+        execution_dsl=execution_dsl,
         execution_center_id=execution_center_id,
         execution_grpc_endpoint=execution_grpc_endpoint,
+        center_endpoints=endpoint_of,
     )
 
 
