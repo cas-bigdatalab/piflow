@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from .config import CrossDcConfig, get_cross_dc_config
+from .config import CrossDcConfig, get_cross_dc_config, resolve_cross_dc_config
 from .schema import MODE_COMPOSITION, MODE_DIRECT, MODE_UNAVAILABLE, CrossDagPlan
 
 
@@ -23,7 +23,12 @@ def build_plan_view(
     detail: bool = False,
     config: CrossDcConfig | None = None,
 ) -> dict[str, Any]:
-    resolved = config or get_cross_dc_config()
+    if config is not None:
+        resolved = config
+    else:
+        from .registry_stub import get_registry
+
+        resolved = resolve_cross_dc_config(get_cross_dc_config(), get_registry())
 
     view: dict[str, Any] = {
         "plan_id": plan.plan_id,
@@ -257,6 +262,7 @@ def _dag(plan: CrossDagPlan, config: CrossDcConfig) -> dict[str, Any]:
         "merge_center_id": (
             plan.segment_graph.segments[roots[0]].center_id if len(roots) == 1 else ""
         ),
+        "execution_center_id": plan.execution_center_id,
     }
 
 

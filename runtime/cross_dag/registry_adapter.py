@@ -45,8 +45,9 @@ class CallbackDatasourceRegistry:
         return list(record.replicas) if record else []
 
     def get_center_of_source(self, source_id: str) -> str | None:
-        """数据源标识就是执行位置标识（都是 IP）。"""
-        return source_id if source_id in self._all_sources() else None
+        """把注册中心业务 ID、别名或位置 ID 解析为规范位置 ID。"""
+        source = _source_index(self._all_sources()).get(str(source_id).strip())
+        return source.center_id if source else None
 
     def search_datasets(self, keywords: list[str], limit: int = 8) -> list[DatasetRecord]:
         """默认按名称/描述/标签做关键词计分。"""
@@ -116,17 +117,18 @@ def _merge_source_metrics(
     dataset: DatasetRecord,
     sources: dict[str, DataSourceRecord],
 ) -> DatasetRecord:
-    """把数据源级的状态与资源指标合并进各副本。"""
+    """把数据源级状态/指标合并进副本，并把业务 ID 规范化为位置 ID。"""
+    source_index = _source_index(sources)
     merged = []
     for replica in dataset.replicas:
-        source = sources.get(replica.source_ip)
+        source = source_index.get(replica.source_ip)
         if source is None:
             merged.append(replica)
             continue
         merged.append(
             ReplicaRecord(
                 replica_id=replica.replica_id,
-                source_ip=replica.source_ip,
+                source_ip=source.center_id,
                 locator=replica.locator,
                 status=(
                     replica.status
@@ -143,7 +145,26 @@ def _merge_source_metrics(
         description=dataset.description,
         tags=dataset.tags,
         facets=dict(dataset.facets),
+        source_skill=dataset.source_skill,
+        source_param=dataset.source_param,
+        source_output_param=dataset.source_output_param,
     )
+
+
+def _source_index(sources: dict[str, DataSourceRecord]) -> dict[str, DataSourceRecord]:
+    """建立注册引用到规范数据源的索引。
+
+    数据集记录通常只带 connectorId，而调度需要主机/位置 ID。适配层统一做这次
+    关联，具体注册实现就不必为了映射一个数据集再请求一遍连接器目录。
+    """
+    index: dict[str, DataSourceRecord] = dict(sources)
+    for source in sources.values():
+        references = (source.source_id, source.name, *source.aliases)
+        for reference in references:
+            key = str(reference or "").strip()
+            if key:
+                index.setdefault(key, source)
+    return index
 
 
 def check_registry(registry: Any, *, scored_metrics: Iterable[str] = ()) -> list[str]:

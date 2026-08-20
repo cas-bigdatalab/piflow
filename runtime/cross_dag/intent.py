@@ -39,6 +39,18 @@ SYSTEM_SKILL_CATALOG: list[dict[str, Any]] = [
         "可接上游数": 1,
     },
     {
+        "skill_name": "piflow_engine.cn.piflow.engine.local.corpus_dataset_source_stop.CorpusDatasetSourceStop",
+        "描述": (
+            "语料数据集输入算子。按 dataset_id 从语料寻址系统取数：查数据集详情拿 cstr，"
+            "再取下载地址并下载到本地。没有上游，只能作为 DAG 的起点。"
+            "读取已注册的语料数据集时用它，不要用文件输入算子。"
+        ),
+        "输入参数": {"dataset_id": "数据集 ID，写成 dataset://<dataset_id>，系统会替换"},
+        "输出参数": ["output"],
+        "可接上游的参数": [],
+        "可接上游数": 0,
+    },
+    {
         "skill_name": "piflow_engine.cn.piflow.engine.local.table_merge_stop.TableMergeStop",
         "描述": (
             "多路表格汇聚算子。把 2~8 路上游的 CSV/TSV 合成一张表。"
@@ -67,6 +79,20 @@ SYSTEM_SKILL_CATALOG: list[dict[str, Any]] = [
         "可接上游的参数": [f"input_{i}" for i in range(1, 9)],
         "可接上游数": 8,
     },
+    {
+        "skill_name": "piflow_engine.cn.piflow.engine.local.tar_archive_merge_stop.TarArchiveMergeStop",
+        "描述": (
+            "多路 tar 归档汇聚算子。把 2~8 个语料数据集下载得到的 tar 包合成一个 tar，"
+            "不解包、不改变成员内容。用户要求打包、归档或合并多个 tar 时使用。"
+        ),
+        "输入参数": {
+            **{f"data{i}": f"第 {i} 路上游 tar 产物引用" for i in range(1, 9)},
+            "output_file_name": "输出归档文件名，默认 result.tar",
+        },
+        "输出参数": ["output"],
+        "可接上游的参数": [f"data{i}" for i in range(1, 9)],
+        "可接上游数": 8,
+    },
 ]
 
 
@@ -80,6 +106,12 @@ def build_dataset_catalog(registry: DatasourceRegistry | None = None) -> list[di
             "描述": item.description,
             "locator": item.locator,
             "标签": list(item.tags),
+            "读取契约": {
+                "skill_name": item.source_skill,
+                "param_name": item.source_param,
+                "param_value": f"{DATASET_URI_PREFIX}{item.dataset_id}",
+                "output_param": item.source_output_param,
+            },
         }
         if item.facets:
             entry["维度"] = {k: list(v) for k, v in item.facets.items()}
@@ -214,6 +246,7 @@ def recognize_intent(
     *,
     llm: Any = None,
     registry: DatasourceRegistry | None = None,
+    config: Any = None,
 ) -> IntentSpec:
     if not user_request.strip():
         raise CrossDagError("用户请求为空")
@@ -223,15 +256,15 @@ def recognize_intent(
 
     resolved_registry = registry or get_registry()
     catalog = build_dataset_catalog(resolved_registry)
-    config = get_cross_dc_config()
-    center_catalog = _center_catalog(config)
-    facet_catalog = build_facet_catalog(resolved_registry, config)
+    resolved_config = config or get_cross_dc_config()
+    center_catalog = _center_catalog(resolved_config)
+    facet_catalog = build_facet_catalog(resolved_registry, resolved_config)
     model = llm or _default_llm()
 
     raw = _invoke_json(
         model,
         system_prompt=build_intent_prompt(
-            catalog, center_catalog, config.location_term, facet_catalog
+            catalog, center_catalog, resolved_config.location_term, facet_catalog
         ),
         user_prompt=user_request,
         what="意图识别",
@@ -252,11 +285,11 @@ def recognize_intent(
         facet = RequirementFacet.from_json(item)
         if not facet.key or not facet.values:
             continue
-        facet.label = facet.label or config.facet_label(facet.key)
-        facet.mode = config.facet_mode(facet.key)
+        facet.label = facet.label or resolved_config.facet_label(facet.key)
+        facet.mode = resolved_config.facet_mode(facet.key)
         intent.requirements.append(facet)
 
-    known_centers = set(config.centers)
+    known_centers = set(resolved_config.centers)
     for item in raw.get("location_hints") or []:
         if not isinstance(item, dict):
             continue
@@ -268,9 +301,9 @@ def recognize_intent(
             continue
         intent.location_hints.append(LocationHint.from_json(item))
 
-    mentioned = _mentioned_locations(user_request, config)
+    mentioned = _mentioned_locations(user_request, resolved_config)
     if mentioned and not intent.location_hints:
-        term = config.location_term
+        term = resolved_config.location_term
         intent.unresolved.append(
             f"用户请求里提到了{term} {mentioned}，但意图识别未产出 location_hints；"
             f"跨{term}要求可能被忽略，请检查规划结果是否退化成单一{term}"
@@ -297,6 +330,7 @@ def plan_global_dag(
     *,
     llm: Any = None,
     skill_catalog: list[dict[str, Any]] | None = None,
+    config: Any = None,
 ) -> dict[str, Any]:
     if not intent.datasets:
         raise CrossDagError(
@@ -308,14 +342,17 @@ def plan_global_dag(
     from .config import get_cross_dc_config
 
     model = llm or _default_llm()
-    config = get_cross_dc_config()
-    center_catalog = _center_catalog(config)
+    resolved_config = config or get_cross_dc_config()
+    center_catalog = _center_catalog(resolved_config)
     dataset_catalog = [
         {
             "alias": item.alias,
             "dataset_id": item.dataset_id,
             "名称": item.name,
             "引用方式": f"{DATASET_URI_PREFIX}{item.dataset_id}",
+            "读取算子": item.source_skill,
+            "读取参数": item.source_param,
+            "输出参数": item.source_output_param,
             "副本数": len(item.replicas),
         }
         for item in intent.datasets
@@ -329,8 +366,8 @@ def plan_global_dag(
             dataset_catalog,
             resolved_catalog,
             center_catalog,
-            config.location_term,
-            sorted(config.placeholder_skills),
+            resolved_config.location_term,
+            sorted(resolved_config.placeholder_skills),
         ),
         user_prompt=json.dumps(
             {
@@ -383,6 +420,9 @@ def _to_intent_dataset(raw: dict[str, Any], record: DatasetRecord) -> IntentData
         name=record.name,
         replicas=[ReplicaCandidate.from_json(r.to_json()) for r in record.replicas],
         facets={str(k): [str(x) for x in v] for k, v in (record.facets or {}).items()},
+        source_skill=record.source_skill,
+        source_param=record.source_param,
+        source_output_param=record.source_output_param,
     )
 
 

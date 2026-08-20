@@ -12,6 +12,10 @@ BUNDLE_REMOTE_SUBDAG = (
 )
 BUNDLE_FILE_SAVE = "piflow_engine.cn.piflow.engine.local.file_save_stop.FileSaveStop"
 BUNDLE_SOURCE_FILE = "piflow_engine.cn.piflow.engine.local.source_file_stop.SourceFileStop"
+BUNDLE_CORPUS_DATASET = (
+    "piflow_engine.cn.piflow.engine.local.corpus_dataset_source_stop."
+    "CorpusDatasetSourceStop"
+)
 
 REMOTE_OUTPUT_PORT = "output"
 FILE_SAVE_INPUT_PORT = "output"
@@ -338,6 +342,9 @@ class IntentDataset:
     name: str = ""
     replicas: list[ReplicaCandidate] = field(default_factory=list)
     facets: dict[str, list[str]] = field(default_factory=dict)
+    source_skill: str = BUNDLE_SOURCE_FILE
+    source_param: str = "file_path"
+    source_output_param: str = "output"
 
     def replica_by_id(self, replica_id: str) -> ReplicaCandidate | None:
         for item in self.replicas:
@@ -355,6 +362,9 @@ class IntentDataset:
             "name": self.name,
             "replicas": [r.to_json() for r in self.replicas],
             "facets": {k: list(v) for k, v in self.facets.items()},
+            "source_skill": self.source_skill,
+            "source_param": self.source_param,
+            "source_output_param": self.source_output_param,
         }
 
     @classmethod
@@ -371,6 +381,9 @@ class IntentDataset:
                 str(k): [str(x) for x in (v or [])]
                 for k, v in (raw.get("facets") or {}).items()
             },
+            source_skill=str(raw.get("source_skill", "") or BUNDLE_SOURCE_FILE),
+            source_param=str(raw.get("source_param", "") or "file_path"),
+            source_output_param=str(raw.get("source_output_param", "") or "output"),
         )
 
 
@@ -668,6 +681,8 @@ class CrossDagPlan:
     mode: str = MODE_COMPOSITION
     satisfaction: SatisfactionReport | None = None
     direct_access: DirectAccess | None = None
+    execution_center_id: str = ""
+    execution_grpc_endpoint: str = ""
 
     def to_json(self) -> dict[str, Any]:
         return {
@@ -675,6 +690,10 @@ class CrossDagPlan:
             "mode": self.mode,
             "satisfaction": self.satisfaction.to_json() if self.satisfaction else None,
             "direct_access": self.direct_access.to_json() if self.direct_access else None,
+            "execution": {
+                "center_id": self.execution_center_id,
+                "grpc_endpoint": self.execution_grpc_endpoint,
+            },
             "intent": self.intent.to_json(),
             "binding": {
                 "center_of": dict(self.bind_result.center_of),

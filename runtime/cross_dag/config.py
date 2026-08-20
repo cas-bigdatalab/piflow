@@ -3,14 +3,18 @@
 from __future__ import annotations
 
 import logging
+import os
 import threading
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
+from typing import Any
 
 log = logging.getLogger("flow.cross_dag.config")
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 CONFIG_PATH = PROJECT_ROOT / "config" / "cross_dc.yaml"
+# 换一套中心/维度配置（演示、联调、单测）用这个环境变量指路，不用改仓库里的正式配置
+CONFIG_PATH_ENV = "CROSS_DC_CONFIG"
 
 DEFAULT_EXPORT_DIR = "/workspace/artifacts/xdc"
 DEFAULT_WAIT_TIMEOUT_SECONDS = 3600
@@ -47,6 +51,7 @@ class CrossDcConfig:
     local_center_id: str
     default_center_id: str
     centers: dict[str, CenterConfig] = field(default_factory=dict)
+    default_grpc_port: int = 50061
     export_dir: str = DEFAULT_EXPORT_DIR
     subdag_wait_timeout_seconds: int = DEFAULT_WAIT_TIMEOUT_SECONDS
     replica_weights: dict[str, float] = field(default_factory=dict)
@@ -91,7 +96,11 @@ def load_cross_dc_config(path: str | Path | None = None) -> CrossDcConfig:
     """从 yaml 读取配置。path 为 None 时读默认路径并缓存。"""
     import yaml
 
-    target = Path(path) if path is not None else CONFIG_PATH
+    if path is not None:
+        target = Path(path)
+    else:
+        override = os.environ.get(CONFIG_PATH_ENV, "").strip()
+        target = Path(override) if override else CONFIG_PATH
     raw: dict = {}
     if target.is_file():
         raw = yaml.safe_load(target.read_text(encoding="utf-8")) or {}
@@ -115,10 +124,14 @@ def load_cross_dc_config(path: str | Path | None = None) -> CrossDcConfig:
     local_center_id = str(
         raw.get("local_source_ip") or raw.get("local_center_id") or ""
     ).strip()
-    if not local_center_id:
+    if local_center_id.lower() == "auto":
+        local_center_id = ""
+    if not local_center_id and centers:
         local_center_id = next(iter(centers), "local")
 
     default_center_id = str(raw.get("default_center_id", "") or "").strip() or local_center_id
+    if default_center_id.lower() == "auto":
+        default_center_id = ""
 
     selection = raw.get("replica_selection") or {}
     replica_weights = {
@@ -160,6 +173,7 @@ def load_cross_dc_config(path: str | Path | None = None) -> CrossDcConfig:
         local_center_id=local_center_id,
         default_center_id=default_center_id,
         centers=centers,
+        default_grpc_port=default_port,
         export_dir=export_dir,
         subdag_wait_timeout_seconds=int(
             raw.get("subdag_wait_timeout_seconds") or DEFAULT_WAIT_TIMEOUT_SECONDS
@@ -229,6 +243,166 @@ def get_cross_dc_config() -> CrossDcConfig:
             if _cache is None:
                 _cache = load_cross_dc_config()
     return _cache
+
+
+def resolve_cross_dc_config(
+    config: CrossDcConfig | None = None,
+    registry: Any = None,
+) -> CrossDcConfig:
+    """把注册表实时拓扑合并进策略配置。
+
+    YAML 只负责策略和可选覆盖，注册表才是数据源清单的事实来源。这样新增、下线、
+    改地址的连接器会自然进入下一次规划，不必把每个 connectorId/IP 再抄一遍到
+    ``cross_dc.yaml``。显式配置仍保留，用于补充非注册表节点和别名。
+    """
+    resolved = config or get_cross_dc_config()
+    if registry is None:
+        from .registry_stub import get_registry
+
+        registry = get_registry()
+
+    try:
+        sources = list(registry.list_sources())
+    except Exception as exc:
+        raise RuntimeError(
+            f"数据源注册表不可用，无法构建跨域拓扑: {type(exc).__name__}: {exc}"
+        ) from exc
+
+    centers = dict(resolved.centers)
+    for source in sources:
+        center_id = str(getattr(source, "center_id", "") or getattr(source, "ip", "")).strip()
+        if not center_id:
+            continue
+        configured = centers.get(center_id)
+        endpoint = str(getattr(source, "grpc_endpoint", "") or "").strip()
+        if not endpoint:
+            endpoint = (
+                configured.grpc_endpoint
+                if configured and configured.grpc_endpoint
+                else f"{center_id}:{resolved.default_grpc_port}"
+            )
+        source_aliases = tuple(
+            str(value).strip()
+            for value in (
+                getattr(source, "source_id", ""),
+                *(getattr(source, "aliases", ()) or ()),
+            )
+            if str(value or "").strip()
+        )
+        configured_aliases = configured.aliases if configured else ()
+        aliases = tuple(dict.fromkeys((*configured_aliases, *source_aliases)))
+        centers[center_id] = CenterConfig(
+            center_id=center_id,
+            center_name=(
+                str(getattr(source, "name", "") or "").strip()
+                or (configured.center_name if configured else center_id)
+            ),
+            grpc_endpoint=endpoint,
+            aliases=aliases,
+        )
+
+    active_ids = [
+        str(getattr(source, "center_id", "") or getattr(source, "ip", "")).strip()
+        for source in sources
+        if str(getattr(source, "center_id", "") or getattr(source, "ip", "")).strip()
+    ]
+    preferred_default = (
+        resolved.default_center_id
+        if resolved.default_center_id in centers
+        else _best_source_id(sources) or next(iter(centers), "")
+    )
+    local_center_id = (
+        resolved.local_center_id
+        if resolved.local_center_id in centers
+        else preferred_default
+    )
+
+    if active_ids and not preferred_default:
+        preferred_default = active_ids[0]
+    return replace(
+        resolved,
+        local_center_id=local_center_id,
+        default_center_id=preferred_default,
+        centers=centers,
+    )
+
+
+def _best_source_id(sources: list[Any]) -> str:
+    """配置未指定默认位置时，按资源选一个稳定的默认汇聚位置。"""
+    available = [
+        source
+        for source in sources
+        if str(getattr(source, "status", "AVAILABLE") or "").upper() == "AVAILABLE"
+    ]
+    if not available:
+        available = list(sources)
+
+    def rank(source: Any) -> tuple[float, float, float]:
+        metrics = getattr(source, "metrics", {}) or {}
+        return (
+            _metric(metrics, "cpu_cores"),
+            _metric(metrics, "memory_gb"),
+            _metric(metrics, "free_disk_gb"),
+        )
+
+    if not available:
+        return ""
+    selected = max(available, key=rank)
+    return str(
+        getattr(selected, "center_id", "") or getattr(selected, "ip", "")
+    ).strip()
+
+
+def _metric(metrics: dict[str, Any], name: str) -> float:
+    try:
+        return float(metrics.get(name, 0.0) or 0.0)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def check_centers_against_registry(registry: Any = None) -> list[str]:
+    """检查动态注册拓扑和可选静态补充，空列表表示可提交。"""
+    if registry is None:
+        from .registry_stub import get_registry
+
+        registry = get_registry()
+
+    config = get_cross_dc_config()
+    try:
+        source_ips = {s.ip for s in registry.list_sources() if s.ip}
+    except Exception as exc:
+        return [f"数据源注册表不可用，无法比对中心清单: {type(exc).__name__}: {exc}"]
+
+    configured = set(config.centers)
+    runtime = resolve_cross_dc_config(config, registry)
+    problems: list[str] = []
+
+    stale = sorted(configured - source_ips)
+    if stale:
+        problems.append(
+            f"config 配了这些中心，但注册表里没有对应数据源：{stale}。"
+            "多半是配置写早了或数据源下线了，规划器会把它们当成可选执行位置"
+        )
+
+    missing_endpoints = sorted(
+        center_id
+        for center_id in source_ips
+        if not runtime.centers.get(center_id)
+        or not runtime.centers[center_id].grpc_endpoint
+    )
+    if missing_endpoints:
+        problems.append(f"这些注册数据源没有可用的 gRPC 地址：{missing_endpoints}")
+
+    if not runtime.default_center_id:
+        problems.append("无法从配置或注册表确定默认执行位置")
+
+    if config.local_center_id and config.local_center_id not in runtime.centers:
+        problems.append(
+            f"local_source_ip={config.local_center_id} 不在 sources 清单里，"
+            "且注册表也没有返回该位置"
+        )
+
+    return problems
 
 
 def set_cross_dc_config(config: CrossDcConfig | None) -> None:

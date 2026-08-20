@@ -117,10 +117,11 @@ PLANNING_SYSTEM_PROMPT = """你是数据处理工作流的规划器。
 ## 硬性约束
 
 1. `skill_name` 必须来自下面的可用算子清单，禁止虚构、禁止改名。
-2. 每个数据集必须有一个输入节点读取它，输入节点使用算子
-   `piflow_engine.cn.piflow.engine.local.source_file_stop.SourceFileStop`，
-   参数为 `{"file_path": "dataset://<dataset_id>"}`。
-   **必须写成 `dataset://` 开头的占位形式，禁止填写具体文件路径。**
+2. 每个数据集必须有一个输入节点读取它。数据集清单已经为每项给出
+   `读取算子`、`读取参数`、`输出参数`，必须逐字使用该契约；参数值使用该项的
+   `引用方式`。例如语料数据集会声明 CorpusDatasetSourceStop + dataset_id，普通
+   文件数据集可以声明 SourceFileStop + file_path，禁止自行互换。
+   **参数值必须写成 `dataset://` 开头的占位形式，禁止填写具体文件路径。**
    一个数据集可能在多个中心各有一份副本，读哪一份由系统按位置、
    新鲜度、传输代价自动挑选，不是你的职责。
 3. **参数引用上游输出 —— 最容易出错，务必逐条对照**：
@@ -147,7 +148,7 @@ PLANNING_SYSTEM_PROMPT = """你是数据处理工作流的规划器。
 6. 终点节点用输出算子
    `piflow_engine.cn.piflow.engine.local.file_save_stop.FileSaveStop`，
    参数为 `{"output": {"source_node": "上游节点名", "source_param": "输出参数名"},
-            "absolute_path": "/artifacts/<结果文件名>", "overwrite": "true"}`。
+            "absolute_path": "/workspace/artifacts/<结果文件名>", "overwrite": "true"}`。
    **整个 DAG 最好只有一个输出终点**；多个分支应当先汇聚再输出，
    否则跨域嵌套执行会失败。
 7. `params` 里的参数名**必须**来自算子清单里该算子的「输入参数」，

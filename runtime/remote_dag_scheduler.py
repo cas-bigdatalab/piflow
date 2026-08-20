@@ -52,14 +52,16 @@ def schedule_frontend_dag(
         raise ValueError("dag contains no supported remote source nodes")
 
     resolver = resource_resolver or _read_remote_node_resource
-    candidate_resources = [resolver(node) for node in remote_sources]
-    resource_by_node_id = {resource.node_id: resource for resource in candidate_resources}
+    source_resources = [
+        (node, resolver(node))
+        for node in remote_sources
+    ]
+    candidate_resources = [resource for _, resource in source_resources]
     chosen_node_id = execution_node_id or _choose_execution_node_id(
         candidate_resources,
         random_seed=random_seed,
     )
 
-    node_by_id = {node["node_id"]: node for node in nodes}
     incoming: dict[str, set[str]] = {node["node_id"]: set() for node in nodes}
     outgoing: dict[str, set[str]] = {node["node_id"]: set() for node in nodes}
     for edge in edges:
@@ -74,8 +76,10 @@ def schedule_frontend_dag(
     added_edges: list[dict[str, Any]] = []
     added_bindings: list[dict[str, Any]] = []
 
-    for source in remote_sources:
-        source_runtime_node_id = _require_remote_node_id(source)
+    for source, source_resource in source_resources:
+        # CorpusDatasetSourceStop 只声明 dataset_id；它的运行节点由注册表解析得到，
+        # 不要求 DAG 再重复携带一个容易过期的 node_id。
+        source_runtime_node_id = source_resource.node_id
         if source_runtime_node_id == chosen_node_id:
             continue
 
@@ -92,11 +96,7 @@ def schedule_frontend_dag(
         )
         synthetic_node = _build_remote_subdag_source_node(
             source_runtime_node_id=source_runtime_node_id,
-            source_remote_grpc_target=_require_remote_resource(
-                resource_by_node_id,
-                source_runtime_node_id,
-                node_name=str(source.get("node_name", source["node_id"])),
-            ).remote_grpc_target,
+            source_remote_grpc_target=source_resource.remote_grpc_target,
             subdag_definition=subdag,
             source_node=source,
         )
@@ -285,19 +285,30 @@ def _read_remote_node_resource(node: dict[str, Any]) -> RemoteNodeResource:
 
 def _read_corpus_dataset_source_resource(node: dict[str, Any]) -> RemoteNodeResource:
     dataset_id = _read_dataset_id(node)
-    from services.corpus_connector_service import get_dataset_connector_detail_with_resource
+    from runtime.cross_dag.config import get_cross_dc_config, resolve_cross_dc_config
+    from runtime.cross_dag.registry_stub import get_registry
 
-    resolved = get_dataset_connector_detail_with_resource(dataset_id)
-    connector = resolved.get("connector") or {}
-    resource = resolved.get("resource") or {}
-    connector_id = str(resolved.get("dataset", {}).get("connectorId", "") or "").strip()
-    remote_grpc_target = str(resolved.get("remote_grpc_target", "") or "").strip()
-    if not connector_id:
-        connector_id = str(connector.get("connectorId", "") or "").strip()
-    if not connector_id:
-        raise ValueError(f"dataset_id {dataset_id} does not resolve to a connectorId")
-    if not remote_grpc_target:
-        raise ValueError(f"dataset_id {dataset_id} does not resolve to a remote_grpc_target")
+    registry = get_registry()
+    dataset = registry.get_dataset(dataset_id)
+    if dataset is None:
+        raise ValueError(f"dataset_id {dataset_id} is not registered")
+    replicas = list(registry.list_replicas(dataset_id))
+    if not replicas:
+        raise ValueError(f"dataset_id {dataset_id} has no registered replica")
+
+    available = [replica for replica in replicas if str(replica.status).upper() == "AVAILABLE"]
+    replica = (available or replicas)[0]
+    sources = {source.center_id: source for source in registry.list_sources()}
+    source = sources.get(replica.source_ip)
+    if source is None:
+        raise ValueError(
+            f"dataset_id {dataset_id} references unknown source {replica.source_ip}"
+        )
+
+    config = resolve_cross_dc_config(get_cross_dc_config(), registry)
+    remote_grpc_target = config.endpoint_of(source.center_id)
+    connector_id = str(source.source_id or source.center_id).strip()
+    resource = {**source.metrics, **replica.metrics}
 
     return RemoteNodeResource(
         node_id=connector_id,
@@ -379,15 +390,3 @@ def _choose_execution_node_id(
         )
     ]
     return random.Random(random_seed).choice(tied).node_id
-
-
-def _require_remote_resource(
-    resource_by_node_id: dict[str, RemoteNodeResource],
-    node_id: str,
-    *,
-    node_name: str,
-) -> RemoteNodeResource:
-    resource = resource_by_node_id.get(node_id)
-    if resource is None:
-        raise ValueError(f"remote source resource not found for node={node_name}, node_id={node_id}")
-    return resource

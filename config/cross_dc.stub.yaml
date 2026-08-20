@@ -1,15 +1,22 @@
 terminology:
   location_term: 数据源
 
-# auto 表示从注册表实时发现位置，并按资源选择默认汇聚位置。某个部署必须固定
-# 根位置时可改成注册表返回的 center_id；无需再复制整份连接器清单。
-local_source_ip: auto
-default_center_id: auto
+# 数据源用 IP 唯一标识
+local_source_ip: 10.0.1.10
+default_center_id: 10.0.1.10
 default_grpc_port: 50061
 
-# 可选静态补充（不在注册表里的通用计算节点也可以放这里）。语料连接器会由
-# runtime/cross_dag/corpus_registry.py 动态加入，注册数量、ID、IP、端口变化无需改配置。
-sources: []
+
+sources:
+  - ip: 10.0.1.10
+    name: 北京数据源
+    aliases: ["北京", "京区"]
+  - ip: 10.0.2.10
+    name: 新疆数据源
+    aliases: ["新疆", "疆区"]
+  - ip: 10.0.3.10
+    name: 广州数据源
+    aliases: ["广州", "穗区"]
 
 # 跨域导出产物在远端 workspace 中的落地目录。
 # 必须以 /workspace/ 开头 —— FileSaveStop 只把 /workspace/... 和 /users/... 映射进
@@ -53,7 +60,6 @@ sink_skills:
   - piflow_engine.cn.piflow.engine.local.file_save_stop.FileSaveStop
   - piflow_engine.cn.piflow.engine.local.dataspace_file_sink_stop.DataspaceFileSinkStop
   - piflow_engine.cn.piflow.engine.local.llm_file_transform_stop.LlmFileTransformStop
-  - piflow_engine.cn.piflow.engine.local.tar_archive_merge_stop.TarArchiveMergeStop
 
 # 占位算子。规划器遇到算子库表达不了的步骤时用它占位，并在参数里写明缺什么能力。
 # DAG 里出现占位算子说明这个需求当前算子库满足不了，编译期会拦下并把缺的能力报出来 ——
@@ -69,22 +75,18 @@ placeholder_skills:
 #   cover_all   多个数据集各覆盖一部分，合起来满足 —— 只有这类维度会驱动「智能组装」
 #   match_all   每个数据集必须自身满足，组装帮不上忙（默认；未声明的维度按此处理，
 #               宁可退化成组装，也不要把无法核实的维度当成已满足）
-# 需求维度。键名必须和数据源注册方在数据集上声明的元数据字段一致 ——
-# 平台不认识这些词的含义，只做取值集合比对。
-#   cover_all  可分摊：多个数据集各覆盖一部分，合起来满足即可（"要哪些数据"）
-#   match_all  不可分摊：每个数据集都得自己满足（筛选条件）
 requirement_facets:
-  field:
-    label: 学科领域
+  variables:
+    label: 数据变量
     mode: cover_all
-  corpusType:
-    label: 语料类型
+  region:
+    label: 空间范围
     mode: match_all
-  language:
-    label: 语种
+  time_range:
+    label: 时间范围
     mode: match_all
-  rawFormat:
-    label: 数据格式
+  temporal_scale:
+    label: 时间尺度
     mode: match_all
 
 

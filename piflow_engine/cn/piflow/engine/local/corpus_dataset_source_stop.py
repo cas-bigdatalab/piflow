@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import tarfile
 import uuid
 from pathlib import Path
 from typing import Any
@@ -21,12 +22,20 @@ except Exception:  # pragma: no cover - optional during isolated unit tests
 
 RUNNER_CONTEXT_WORKSPACE_ROOT = "local.workspace_root"
 
+OUTPUT_PORT = "output"
+MAX_STABLE_PORTS = 8
+
 
 class CorpusDatasetSourceStop(ConfigurableStop):
     author_email = ""
     description = "Download one or more corpus dataset files by dataset id and expose them as FileArtifacts."
     inport_list: list[str] = []
-    outport_list: list[str] = []
+    # 以文件名当端口名对人工画 DAG 够用，但规划器要在执行前就写死 source_param，
+    # 而文件名要下载完才知道。所以额外提供一组稳定端口：
+    #   output          单文件时的约定端口，和 SourceFileStop 保持一致
+    #   file_1..file_N  多文件时按下载顺序编号
+    # 文件名端口保留不动，已有的 DAG 不受影响。
+    outport_list = [OUTPUT_PORT] + [f"file_{i}" for i in range(1, MAX_STABLE_PORTS + 1)]
     is_data_source = True
 
     def __init__(self) -> None:
@@ -77,6 +86,7 @@ class CorpusDatasetSourceStop(ConfigurableStop):
 
         output_dir = self._prepare_output_dir(ctx)
         seen_file_names: set[str] = set()
+        downloaded: list[tuple[str, Path, FileArtifact]] = []
 
         for record in records:
             file_name = record["fileName"]
@@ -99,6 +109,30 @@ class CorpusDatasetSourceStop(ConfigurableStop):
                 size=dataset.get("size"),
             )
             outputs.write(artifact, file_name)
+            downloaded.append((file_name, downloaded_path, artifact))
+            # 稳定端口：单文件写 output，多文件按顺序编号，规划器绑这些
+            index = len(seen_file_names)
+            if index <= MAX_STABLE_PORTS:
+                outputs.write(artifact, f"file_{index}")
+
+        if len(downloaded) == 1:
+            outputs.write(downloaded[0][2], OUTPUT_PORT)
+        else:
+            # output 始终代表整个逻辑数据集。多文件数据集打成一个 tar，避免把
+            # “第一份文件”冒充完整数据；file_1..file_N 仍可供明确的逐文件流程使用。
+            bundle_path = output_dir / f"{safe_name(self.dataset_id)}.tar"
+            with tarfile.open(bundle_path, "w") as archive:
+                for file_name, path, _ in downloaded:
+                    archive.add(path, arcname=file_name, recursive=False)
+            outputs.write(
+                FileArtifact(path=str(bundle_path)).with_metadata(
+                    datasetId=self.dataset_id,
+                    cstr=cstr,
+                    fileCount=len(downloaded),
+                    fileNames=[name for name, _, _ in downloaded],
+                ),
+                OUTPUT_PORT,
+            )
 
     def _fetch_dataset_detail(self, dataset_id: str) -> dict[str, Any]:
         detail_url = f"{self._base_url}/dataset/queryDataset?id={dataset_id}"

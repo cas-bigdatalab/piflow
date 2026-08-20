@@ -7,7 +7,7 @@ import uuid
 from typing import Any, AsyncIterator, Callable
 
 from .binder import bind_centers
-from .config import CrossDcConfig, get_cross_dc_config
+from .config import CrossDcConfig, get_cross_dc_config, resolve_cross_dc_config
 from .intent import plan_global_dag, recognize_intent
 from .nester import build_nested_dsl
 from .planner_bridge import (
@@ -15,7 +15,7 @@ from .planner_bridge import (
     database_skill_resolver,
     expand_planning_json,
 )
-from .registry_stub import DatasourceRegistry, get_registry
+from .registry_stub import DatasourceRegistry, get_registry, refresh_registry
 from .satisfaction import analyze_satisfaction
 from .schema import (
     MODE_COMPOSITION,
@@ -40,7 +40,6 @@ from .validator import (
     validate_location_hints,
     validate_logical_dag,
     validate_nested_dsl,
-    validate_root_segment,
     validate_segmentation,
 )
 
@@ -63,13 +62,20 @@ def plan_cross_dag(
 ) -> CrossDagPlan:
     """完整规划。"""
     resolved_plan_id = plan_id or f"xdc-{uuid.uuid4().hex[:12]}"
-    resolved_config = config or get_cross_dc_config()
-    resolved_registry = registry or get_registry()
+    # One fresh directory snapshot per planning request. The adapter then
+    # caches that snapshot for all reads in this request.
+    resolved_registry = refresh_registry(registry or get_registry())
+    resolved_config = resolve_cross_dc_config(
+        config or get_cross_dc_config(), resolved_registry
+    )
     emit = on_stage or (lambda stage, payload: None)
 
     emit("intent", {"status": "started"})
     resolved_intent = intent or recognize_intent(
-        user_request, llm=llm, registry=resolved_registry
+        user_request,
+        llm=llm,
+        registry=resolved_registry,
+        config=resolved_config,
     )
     emit("intent", {"status": "finished", "intent": resolved_intent.to_json()})
 
@@ -106,7 +112,11 @@ def plan_cross_dag(
         )
 
     emit("planning", {"status": "started"})
-    resolved_planning = planning_json or plan_global_dag(resolved_intent, llm=llm)
+    resolved_planning = planning_json or plan_global_dag(
+        resolved_intent,
+        llm=llm,
+        config=resolved_config,
+    )
     emit("planning", {"status": "finished", "planning_json": resolved_planning})
 
     emit("expand", {"status": "started"})
@@ -323,6 +333,9 @@ def _resolve_intent_dataset(
         name=record.name,
         replicas=[ReplicaCandidate.from_json(r.to_json()) for r in record.replicas],
         facets={str(k): [str(x) for x in v] for k, v in (record.facets or {}).items()},
+        source_skill=record.source_skill,
+        source_param=record.source_param,
+        source_output_param=record.source_output_param,
     )
 
 
@@ -401,13 +414,23 @@ def compile_cross_dag(
             intent, bind_result.center_of, resolved_config.location_term
         )
     )
-    report.merge(
-        validate_root_segment(
-            graph, resolved_config.local_center_id, resolved_config.location_term
-        )
-    )
     report.merge(validate_segmentation(logical_dag, graph, nest_count))
     report.merge(validate_nested_dsl(nested_dsl))
+
+    roots = graph.root_segments()
+    execution_center_id = (
+        graph.segments[roots[0]].center_id if len(roots) == 1 else ""
+    )
+    execution_grpc_endpoint = ""
+    if execution_center_id:
+        try:
+            execution_grpc_endpoint = resolved_config.endpoint_of(execution_center_id)
+        except KeyError as exc:
+            report.error(str(exc))
+    if execution_center_id and not execution_grpc_endpoint:
+        report.error(
+            f"最外层执行位置 {execution_center_id} 没有 gRPC 地址，无法提交执行"
+        )
     emit("validate", {"status": "finished", "report": report.to_json()})
 
     if not report.ok:
@@ -421,6 +444,8 @@ def compile_cross_dag(
         segment_graph=graph,
         nested_dsl=nested_dsl,
         validation=report,
+        execution_center_id=execution_center_id,
+        execution_grpc_endpoint=execution_grpc_endpoint,
     )
 
 

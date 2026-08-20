@@ -16,7 +16,13 @@ from .schema import (
 )
 from .selector import select_replica
 
+# 数据源节点上「指向数据」的参数名。分两类：
+#   路径型 —— 绑定后要写成选中副本的真实访问路径
+#   标识型 —— 算子自己拿 ID 去问数据源要数据，绑定后写回裸 ID
+# 两类都参与「这个节点读的是哪个数据集」的识别。
 _LOCATOR_PARAM_NAMES = ("file_path", "input_file_path", "path", "input", "locator")
+_DATASET_ID_PARAM_NAMES = ("dataset_id", "datasetId")
+_SOURCE_PARAM_NAMES = _LOCATOR_PARAM_NAMES + _DATASET_ID_PARAM_NAMES
 
 
 def bind_centers(
@@ -139,7 +145,7 @@ def _match_dataset(node: LogicalNode, intent: IntentSpec) -> IntentDataset | Non
 
 def _locator_values(node: LogicalNode) -> list[str]:
     values: list[str] = []
-    for name in _LOCATOR_PARAM_NAMES:
+    for name in _SOURCE_PARAM_NAMES:
         param = node.input_param(name)
         if param is None or param.value_mode != "manual":
             continue
@@ -150,8 +156,19 @@ def _locator_values(node: LogicalNode) -> list[str]:
 
 
 def _apply_replica(node: LogicalNode, decision: ReplicaDecision) -> None:
-    """把选中副本的真实访问路径回写到节点参数上。"""
+    """把选中的副本回写到节点参数上。
+
+    路径型参数写副本的访问路径；标识型参数写裸数据集 ID —— 这类算子自己会拿 ID
+    去问数据源要下载地址，写路径进去反而会让它拿一个 ID 当路径去查。
+    副本选择本身仍然有意义：它决定了这个节点在哪个中心执行。
+    """
     if decision.chosen is None:
+        return
+    for name in _DATASET_ID_PARAM_NAMES:
+        param = node.input_param(name)
+        if param is None or param.value_mode != "manual":
+            continue
+        param.param_value = decision.dataset_id
         return
     for name in _LOCATOR_PARAM_NAMES:
         param = node.input_param(name)

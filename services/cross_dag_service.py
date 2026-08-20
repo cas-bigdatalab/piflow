@@ -8,9 +8,9 @@ import threading
 import uuid
 from typing import Any
 
-from runtime.cross_dag.config import get_cross_dc_config
+from runtime.cross_dag.config import get_cross_dc_config, resolve_cross_dc_config
 from runtime.cross_dag.engine import plan_cross_dag
-from runtime.cross_dag.registry_stub import get_registry
+from runtime.cross_dag.registry_stub import get_registry, refresh_registry
 from runtime.cross_dag.schema import CrossDagError, CrossDagPlan
 
 log = logging.getLogger("flow.cross_dag.service")
@@ -50,7 +50,7 @@ def compile_cross_dag_plan(
     from runtime.cross_dag.validator import validate_logical_dag
 
     plan_id = f"xdc-compile-{uuid.uuid4().hex[:8]}"
-    registry = get_registry()
+    registry = refresh_registry(get_registry())
 
     wanted = list(dataset_ids or _scan_dataset_ids(planning_json))
     datasets: list[IntentDataset] = []
@@ -69,6 +69,9 @@ def compile_cross_dag_plan(
                 locator=record.locator,
                 name=record.name,
                 replicas=[ReplicaCandidate.from_json(r.to_json()) for r in record.replicas],
+                source_skill=record.source_skill,
+                source_param=record.source_param,
+                source_output_param=record.source_output_param,
             )
         )
     if missing:
@@ -91,7 +94,13 @@ def compile_cross_dag_plan(
     if not logical_report.ok:
         raise CrossDagError("逻辑 DAG 校验失败:\n" + "\n".join(logical_report.errors))
 
-    plan = compile_cross_dag(logical, intent=intent, plan_id=plan_id)
+    config = resolve_cross_dc_config(get_cross_dc_config(), registry)
+    plan = compile_cross_dag(
+        logical,
+        intent=intent,
+        plan_id=plan_id,
+        config=config,
+    )
     plan.validation.merge(logical_report)
     _remember(plan)
     log.info(
@@ -160,9 +169,6 @@ def handoff_check_cross_dag_plan(plan_id: str) -> dict[str, Any]:
         resolver_note = f"skill 解析不可用（{type(exc).__name__}: {exc}），已降级"
 
     layers: list[dict[str, Any]] = []
-    # 根层的执行位置要从计划里读，不能写死成本地中心：真绑到远端时写死会让
-    # 这份自检报告反过来替错误的计划背书（结构合法 -> 全绿），掩盖真正的问题。
-    local_center = get_cross_dc_config().local_center_id
     roots = plan.segment_graph.root_segments()
     root_center = (
         plan.segment_graph.segments[roots[0]].center_id if len(roots) == 1 else ""
@@ -244,20 +250,13 @@ def handoff_check_cross_dag_plan(plan_id: str) -> dict[str, Any]:
     if flow_bean is None:
         notes.append("本次只验证到转换层，构图未执行 —— 结论不完整")
 
-    root_mismatch = bool(root_center) and root_center != local_center
-    if root_mismatch:
-        notes.append(
-            f"最外层段绑在 {root_center}，但最外层是在本地 {local_center} 执行的 —— "
-            "DSL 结构合法不代表会跑在对的位置，本计划已被编译期校验拒绝"
-        )
     return {
         "plan_id": plan.plan_id,
-        "ok": not bad and not root_mismatch,
+        "ok": not bad,
         "转换已执行": True,
         "构图已执行": flow_bean is not None,
-        "本地执行位置": local_center,
         "最外层绑定位置": root_center,
-        "最外层位置正确": not root_mismatch,
+        "根提交地址已确定": bool(plan.execution_grpc_endpoint),
         "层数": len(layers),
         "失败层数": len(bad),
         "layers": layers,
@@ -342,32 +341,22 @@ def execute_cross_dag_plan(*, plan_id: str, user_id: str) -> dict[str, Any]:
             "warnings": list(plan.validation.warnings),
         }
 
-    from services.dag_panel_service import save_dag_panel
-    from services.dag_runtime_service import run_dag_task
+    from runtime.cross_dag.executor import submit_cross_dag_plan
 
-    saved = save_dag_panel(
-        definition_json=plan.nested_dsl,
-        create_user_id=user_id,
-    )
-    dag_task_id = saved["task_id"]
-
-    result = run_dag_task(
-        create_user_id=user_id,
-        dag_task_id=dag_task_id,
-    )
+    result = submit_cross_dag_plan(plan)
 
     log.info(
-        "cross dag submitted plan_id=%s dag_task_id=%s process_id=%s",
+        "cross dag submitted plan_id=%s center_id=%s process_id=%s",
         plan.plan_id,
-        dag_task_id,
-        result.get("process_id"),
+        result.execution_node_id,
+        result.process_id,
     )
     return {
         "plan_id": plan.plan_id,
         "mode": plan.mode,
-        "dag_task_id": dag_task_id,
-        "process_id": result.get("process_id"),
-        "status": result.get("status"),
+        "execution_center_id": result.execution_node_id,
+        "process_id": result.process_id,
+        "status": result.status,
         "warnings": list(plan.validation.warnings),
     }
 
@@ -393,7 +382,8 @@ async def stream_cross_dag_plan(
 def list_cross_dag_context() -> dict[str, Any]:
     """中心清单 + 数据集清单，供前端展示和排障。"""
     config = get_cross_dc_config()
-    registry = get_registry()
+    registry = refresh_registry(get_registry())
+    config = resolve_cross_dc_config(config, registry)
     return {
         "local_center_id": config.local_center_id,
         "default_center_id": config.default_center_id,
@@ -414,7 +404,8 @@ def _summarize(plan: CrossDagPlan, *, detail: bool = False) -> dict[str, Any]:
     """对外只给前端渲染需要的结构。完整数据（嵌套 DSL、打分表、段图）走 detail。"""
     from runtime.cross_dag.plan_view import build_plan_view
 
-    return build_plan_view(plan, detail=detail, config=get_cross_dc_config())
+    config = resolve_cross_dc_config(get_cross_dc_config(), get_registry())
+    return build_plan_view(plan, detail=detail, config=config)
 
 
 def _remember(plan: CrossDagPlan) -> None:

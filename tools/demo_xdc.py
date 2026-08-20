@@ -22,6 +22,11 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 
+# 演示固定用桩配置和桩数据源：正式配置指向真实连接器，跑演示不该依赖它们在线，
+# 也不该因为线上目录变动就演示不出预期结果。必须在导入 runtime.cross_dag 之前设。
+import os
+os.environ.setdefault("CROSS_DC_CONFIG", str(PROJECT_ROOT / "config" / "cross_dc.stub.yaml"))
+
 from piflow_engine.cn.piflow.core.flow_bean import FlowBean
 from piflow_engine.cn.piflow.core.frontend_dag_converter import convert_frontend_dag_to_piflow
 from piflow_engine.cn.piflow.core.runner import Runner

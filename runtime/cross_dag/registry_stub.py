@@ -2,26 +2,45 @@
 
 from __future__ import annotations
 
+import logging
+
 import threading
 from dataclasses import dataclass, field
 from typing import Protocol
 
+from .schema import BUNDLE_SOURCE_FILE
+
 
 @dataclass(frozen=True)
 class DataSourceRecord:
-    """一个数据源。"""
+    """一个数据源/执行位置。
+
+    ``ip`` 是历史字段名，现作为调度使用的规范位置 ID；它通常是主机名或 IP，
+    但调用方不应假设它一定是 IPv4。``source_id`` 保留注册中心自己的业务 ID，
+    ``grpc_endpoint`` 则是实际提交地址。三者分开后，连接器换 ID、域名或端口都不
+    需要改调度代码。
+    """
 
     ip: str
     name: str = ""
     status: str = "AVAILABLE"
     metrics: dict[str, float] = field(default_factory=dict)
     aliases: tuple[str, ...] = ()
+    source_id: str = ""
+    grpc_endpoint: str = ""
+
+    @property
+    def center_id(self) -> str:
+        return self.ip
 
     def to_json(self) -> dict:
         return {
+            "source_id": self.source_id or self.ip,
+            "center_id": self.center_id,
             "ip": self.ip,
             "name": self.name,
             "status": self.status,
+            "grpc_endpoint": self.grpc_endpoint,
             "metrics": dict(self.metrics),
             "aliases": list(self.aliases),
         }
@@ -59,6 +78,10 @@ class DatasetRecord:
     # 结构化元数据：维度键 -> 该数据集在这个维度上提供的取值。
     # 维度键由注册方定义，平台不预设；没声明的维度在需求满足分析里按"无法核实"处理。
     facets: dict[str, tuple[str, ...]] = field(default_factory=dict)
+    # 读取契约随数据集注册，不由 LLM 猜。不同数据源类型可声明自己的输入算子和端口。
+    source_skill: str = BUNDLE_SOURCE_FILE
+    source_param: str = "file_path"
+    source_output_param: str = "output"
 
     @property
     def primary(self) -> ReplicaRecord | None:
@@ -86,6 +109,11 @@ class DatasetRecord:
             "description": self.description,
             "tags": list(self.tags),
             "facets": {k: list(v) for k, v in self.facets.items()},
+            "access": {
+                "skill": self.source_skill,
+                "param": self.source_param,
+                "output_param": self.source_output_param,
+            },
             "replicas": [r.to_json() for r in self.replicas],
         }
 
@@ -255,6 +283,9 @@ class StubDatasourceRegistry:
             description=dataset.description,
             tags=dataset.tags,
             facets=dict(dataset.facets),
+            source_skill=dataset.source_skill,
+            source_param=dataset.source_param,
+            source_output_param=dataset.source_output_param,
         )
 
     def list_sources(self) -> list[DataSourceRecord]:
@@ -294,6 +325,8 @@ class StubDatasourceRegistry:
 
 
 _registry: DatasourceRegistry | None = None
+log = logging.getLogger("flow.cross_dag.registry")
+
 _lock = threading.Lock()
 
 
@@ -302,8 +335,54 @@ def get_registry() -> DatasourceRegistry:
     if _registry is None:
         with _lock:
             if _registry is None:
-                _registry = StubDatasourceRegistry()
+                _registry = _build_default_registry()
     return _registry
+
+
+def refresh_registry(registry: DatasourceRegistry | None = None) -> DatasourceRegistry:
+    """Refresh a dynamic registry once and return the same registry instance.
+
+    Registry implementations may expose a cached, request-scoped snapshot
+    through ``refresh()``. Keeping this optional preserves the in-memory/test
+    implementations while ensuring a long-running service does not keep using
+    the connector list captured at process startup.
+    """
+    resolved = registry or get_registry()
+    refresh = getattr(resolved, "refresh", None)
+    if callable(refresh):
+        refresh()
+    return resolved
+
+
+def _build_default_registry() -> DatasourceRegistry:
+    """默认注册表：配置里给了语料系统地址就接真表，否则用演示桩。
+
+    单测和演示要用桩，走 set_registry() 显式注入 —— 那是明确的意图表达，
+    不该靠"接不上就退化"这种隐式行为来达成。
+    """
+    try:
+        from infra.config_loader import get_settings
+
+        base_url = str(get_settings().corpus_route.base_url or "").strip()
+    except Exception:
+        base_url = ""
+
+    if not base_url:
+        log.info("未配置 corpus_route.base_url，跨域调度使用演示桩数据源")
+        return StubDatasourceRegistry()
+
+    from .corpus_registry import build_corpus_registry
+
+    # 接不上就抛出去，不回落到桩。
+    # 回落看着"更健壮"，实际是拿演示数据冒充线上目录：用户会收到一份引用了
+    # 不存在数据集的方案，还以为平台真有这些数据。数据源不可用是个诚实的错误，
+    # 假数据不是。只有压根没配 corpus_route 时才用桩（那是演示部署）。
+    registry = build_corpus_registry(base_url=base_url)
+    # Keep construction lazy. The planning entry point refreshes and loads one
+    # coherent snapshot; eagerly counting here would fetch/probe the complete
+    # live directory twice for the first request.
+    log.info("跨域调度已配置语料寻址系统 %s", base_url)
+    return registry
 
 
 def set_registry(registry: DatasourceRegistry | None) -> None:
