@@ -14,6 +14,7 @@ from .planner_bridge import (
     database_param_resolver,
     database_skill_resolver,
     expand_planning_json,
+    normalize_dataset_source_contracts,
 )
 from .registry_stub import DatasourceRegistry, get_registry, refresh_registry
 from .satisfaction import analyze_satisfaction
@@ -126,11 +127,17 @@ def plan_cross_dag(
         param_resolver=database_param_resolver(),
         task_id=resolved_plan_id,
     )
+    contract_warnings = normalize_dataset_source_contracts(
+        logical_dag,
+        resolved_intent,
+    )
     logical_report = validate_logical_dag(
         logical_dag,
         sink_skills=resolved_config.sink_skills,
         placeholder_skills=resolved_config.placeholder_skills,
     )
+    for warning in contract_warnings:
+        logical_report.warn(warning)
     if not logical_report.ok:
         raise CrossDagError("逻辑 DAG 校验失败:\n" + "\n".join(logical_report.errors))
     logical_report.merge(validate_intent_coverage(resolved_intent, logical_dag))

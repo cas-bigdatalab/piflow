@@ -8,9 +8,11 @@ from dataclasses import dataclass
 from typing import Any, Callable
 
 from .schema import (
+    DATASET_URI_PREFIX,
     Binding,
     CrossDagError,
     InputParam,
+    IntentSpec,
     LogicalDag,
     LogicalNode,
     OutParam,
@@ -281,6 +283,93 @@ def expand_planning_json(
     )
     _assert_no_duplicate_bindings(dag)
     return dag
+
+
+def normalize_dataset_source_contracts(
+    dag: LogicalDag,
+    intent: IntentSpec,
+) -> list[str]:
+    """Make registered dataset output contracts authoritative over LLM output.
+
+    A source stop may expose implementation-specific ports in addition to the
+    stable port advertised by the datasource registry.  Planning JSON is LLM
+    output, so a reference such as ``file_2`` cannot be trusted to exist for a
+    particular dataset at runtime.  Rewriting it to the registered output port
+    keeps planning generic while making execution deterministic.
+    """
+    datasets_by_id = {
+        dataset.dataset_id: dataset
+        for dataset in intent.datasets
+        if dataset.dataset_id
+    }
+    datasets_by_alias = {
+        dataset.alias: dataset
+        for dataset in intent.datasets
+        if dataset.alias and dataset.alias not in datasets_by_id
+    }
+    if not datasets_by_id and not datasets_by_alias:
+        return []
+
+    node_map = dag.node_map()
+    warnings: list[str] = []
+
+    for node in dag.nodes:
+        dataset = None
+        for param in node.input_params:
+            if param.value_mode != "manual" or not isinstance(param.param_value, str):
+                continue
+            value = param.param_value.strip()
+            if not value.startswith(DATASET_URI_PREFIX):
+                continue
+            dataset_ref = value[len(DATASET_URI_PREFIX) :].strip().strip("/")
+            dataset = datasets_by_id.get(dataset_ref) or datasets_by_alias.get(
+                dataset_ref
+            )
+            if dataset is not None:
+                break
+
+        if dataset is None:
+            continue
+
+        expected_port = str(dataset.source_output_param or "output").strip() or "output"
+        outgoing = [
+            binding
+            for binding in dag.bindings
+            if binding.from_node_id == node.node_id
+        ]
+        for binding in outgoing:
+            actual_port = binding.from_param_name
+            if actual_port == expected_port:
+                continue
+
+            old_binding_id = binding.binding_id
+            binding.from_param_name = expected_port
+            consumer = node_map.get(binding.to_node_id)
+            if consumer is not None:
+                consumer_param = consumer.input_param(binding.to_param_name)
+                if consumer_param is not None and consumer_param.binding_id == old_binding_id:
+                    consumer_param.binding_id = binding.binding_id
+
+            warning = (
+                f"数据集 {dataset.dataset_id or dataset.alias} 的输出端口已按注册契约从 "
+                f"{actual_port} 修正为 {expected_port}"
+            )
+            warnings.append(warning)
+            log.warning(warning)
+
+        referenced_ports = sorted(
+            {
+                binding.from_param_name
+                for binding in dag.bindings
+                if binding.from_node_id == node.node_id
+            }
+        )
+        node.out_params = [
+            OutParam(param_name=param_name, param_type="file")
+            for param_name in referenced_ports
+        ]
+
+    return warnings
 
 
 def _as_reference(value: Any) -> tuple[str, str] | None:

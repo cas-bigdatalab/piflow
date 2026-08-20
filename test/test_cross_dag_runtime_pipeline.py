@@ -123,6 +123,12 @@ def _planning_json() -> dict:
     }
 
 
+def _planning_json_with_unstable_source_port() -> dict:
+    planning = _planning_json()
+    planning["nodes"][2]["params"]["data2"]["source_param"] = "file_2"
+    return planning
+
+
 def test_corpus_registry_normalizes_connector_reference_without_fixed_ips() -> None:
     sources = [
         {
@@ -198,6 +204,53 @@ def test_dynamic_registry_builds_topology_and_compiles_nested_plan() -> None:
         str(node.get("node_id", "")).startswith("__remote__")
         for node in plan.nested_dsl["nodes"]
     )
+
+
+def test_registered_dataset_output_contract_overrides_planner_port() -> None:
+    plan = plan_cross_dag(
+        "merge them",
+        registry=_registry(),
+        config=CrossDcConfig(
+            local_center_id="",
+            default_center_id="",
+            centers={},
+            sink_skills=frozenset({TAR_MERGE}),
+            available_statuses=frozenset({"AVAILABLE"}),
+        ),
+        intent=_intent(),
+        planning_json=_planning_json_with_unstable_source_port(),
+        skill_resolver=lambda name: name,
+    )
+
+    source_binding = next(
+        binding
+        for binding in plan.logical_dag.bindings
+        if binding.from_node_id == "source-b"
+    )
+    assert source_binding.from_param_name == "output"
+    merge = plan.logical_dag.node_map()["tar-merge"]
+    assert merge.input_param("data2").binding_id == source_binding.binding_id
+    assert plan.logical_dag.node_map()["source-b"].out_params[0].param_name == "output"
+    assert any("注册契约" in warning for warning in plan.validation.warnings)
+
+    remote_nodes = [
+        node
+        for node in plan.nested_dsl["nodes"]
+        if str(node.get("node_id", "")).startswith("__remote__")
+    ]
+    assert remote_nodes
+    child_json = next(
+        param["param_value"]
+        for param in remote_nodes[0]["input_params"]
+        if param["param_name"] == "subdag_definition_json"
+    )
+    child = json.loads(child_json)
+    export_binding = next(
+        binding
+        for binding in child["bindings"]
+        if str(binding["to_node_id"]).startswith("__export__")
+    )
+    assert export_binding["from_param_name"] == "output"
 
 
 def test_each_new_plan_refreshes_dynamic_registry_snapshot() -> None:

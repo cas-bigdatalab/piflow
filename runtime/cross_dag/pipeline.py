@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from runtime.distributed_dag_submitter import CrossDomainSubmitResult
 
@@ -40,6 +40,7 @@ def run_cross_dag_pipeline(
     poll_interval_seconds: float = 1.0,
     timeout_seconds: float | None = None,
     on_stage: Any = None,
+    on_plan: Callable[[CrossDagPlan], None] | None = None,
 ) -> CrossDagPipelineResult:
     """运行完整流水线；所有目录和拓扑信息都来自注入/默认注册表。
 
@@ -55,6 +56,8 @@ def run_cross_dag_pipeline(
         planning_json=planning_json,
         on_stage=on_stage,
     )
+    if on_plan is not None:
+        on_plan(plan)
     if not submit or plan.mode != MODE_COMPOSITION:
         return CrossDagPipelineResult(plan=plan)
 

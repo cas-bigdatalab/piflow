@@ -36,32 +36,39 @@ def main() -> None:
     args = parser.parse_args()
 
     events: list[dict] = []
+    dump_path = Path(args.dump_plan).expanduser().resolve()
 
     def on_stage(stage: str, payload: dict) -> None:
         events.append({"stage": stage, **payload})
         status = payload.get("status", "")
         print(f"[{stage}] {status}")
 
-    result = run_cross_dag_pipeline(
-        args.request,
-        submit=not args.plan_only,
-        wait=not args.plan_only,
-        download_to=None if args.plan_only else args.download_to,
-        poll_interval_seconds=args.poll_interval_seconds,
-        timeout_seconds=args.timeout_seconds,
-        on_stage=on_stage,
-    )
+    def dump_plan(plan) -> None:
+        dump_path.parent.mkdir(parents=True, exist_ok=True)
+        dump_path.write_text(
+            json.dumps(
+                {"plan": plan.to_json(), "events": events},
+                ensure_ascii=False,
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
 
-    dump_path = Path(args.dump_plan).expanduser().resolve()
-    dump_path.parent.mkdir(parents=True, exist_ok=True)
-    dump_path.write_text(
-        json.dumps(
-            {"plan": result.plan.to_json(), "events": events},
-            ensure_ascii=False,
-            indent=2,
-        ),
-        encoding="utf-8",
-    )
+    try:
+        result = run_cross_dag_pipeline(
+            args.request,
+            submit=not args.plan_only,
+            wait=not args.plan_only,
+            download_to=None if args.plan_only else args.download_to,
+            poll_interval_seconds=args.poll_interval_seconds,
+            timeout_seconds=args.timeout_seconds,
+            on_stage=on_stage,
+            on_plan=dump_plan,
+        )
+    except Exception:
+        if dump_path.is_file():
+            print(f"plan_dump: {dump_path}", file=sys.stderr)
+        raise
 
     print(f"plan_id: {result.plan.plan_id}")
     print(f"mode: {result.plan.mode}")
