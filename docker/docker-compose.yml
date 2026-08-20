@@ -40,6 +40,7 @@ services:
       - ../logs:/app/logs
       - ./config/database.yaml:/app/config/database.yaml:ro
       - ./config/llm.yaml:/app/config/llm.yaml:ro
+      - ./config/app.yaml:/app/config/app.yaml:ro
 
 volumes:
   piflow_postgres_data:

@@ -49,6 +49,38 @@ def list_connector_resources(
     return result
 
 
+def list_connector_details_with_resources(
+    *,
+    page_num: int = 1,
+    page_size: int = 10,
+    grpc_port: int = DEFAULT_REMOTE_GRPC_PORT,
+) -> dict[str, Any]:
+    payload = _fetch_connector_page(page_num=page_num, page_size=page_size)
+    items = _extract_connector_page_items(payload)
+
+    result_items: list[dict[str, Any]] = []
+    for item in items:
+        connector = _normalize_connector_detail(item)
+        connector_id = str(connector.get("connectorId", "") or "").strip()
+        if not connector_id:
+            continue
+        remote_grpc_target = _build_remote_grpc_target(connector, grpc_port=grpc_port)
+        resource = _fetch_remote_resource(remote_grpc_target)
+        result_items.append(
+            {
+                "connector": connector,
+                "remote_grpc_target": remote_grpc_target,
+                "resource": resource,
+                "resource_display": _format_resource_display(resource),
+            }
+        )
+
+    return {
+        "items": result_items,
+        "pagination": _extract_pagination(payload, page_num=page_num, page_size=page_size, item_count=len(result_items)),
+    }
+
+
 def get_dataset_connector_resource(
     dataset_id: str,
     *,
@@ -100,6 +132,37 @@ def get_dataset_connector_detail_with_resource(
     }
 
 
+def list_dataset_details(
+    *,
+    page_num: int = 1,
+    page_size: int = 10,
+    filters: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    if page_num <= 0:
+        raise ValueError("page_num must be positive")
+    if page_size <= 0:
+        raise ValueError("page_size must be positive")
+
+    payload = _fetch_dataset_page(page_num=page_num, page_size=page_size, filters=filters)
+    dataset_items = _extract_page_items(payload, entity_name="dataset")
+
+    result_items: list[dict[str, Any]] = []
+    for item in dataset_items:
+        result_items.append(_normalize_dataset_detail(item))
+
+    return {
+        "items": result_items,
+        "pagination": _extract_pagination(payload, page_num=page_num, page_size=page_size, item_count=len(result_items)),
+    }
+
+
+def get_dataset_detail(dataset_id: str) -> dict[str, Any]:
+    normalized_dataset_id = str(dataset_id or "").strip()
+    if not normalized_dataset_id:
+        raise ValueError("dataset_id is required")
+    return _normalize_dataset_detail(_fetch_dataset_detail(normalized_dataset_id))
+
+
 def _fetch_dataset_detail(dataset_id: str) -> dict[str, Any]:
     base_url = str(get_settings().corpus_route.base_url or "").strip().rstrip("/")
     if not base_url:
@@ -130,6 +193,54 @@ def _fetch_dataset_detail(dataset_id: str) -> dict[str, Any]:
     return data
 
 
+def _fetch_dataset_page(*, page_num: int, page_size: int, filters: dict[str, Any] | None = None) -> dict[str, Any]:
+    base_url = str(get_settings().corpus_route.base_url or "").strip().rstrip("/")
+    if not base_url:
+        raise ValueError("settings.corpus_route.base_url must not be empty")
+
+    url = f"{base_url}/dataset/page"
+    request_body = _normalize_dataset_filters(filters)
+    try:
+        response = requests.post(
+            url,
+            params={"pageNum": page_num, "pageSize": page_size},
+            json=request_body,
+            timeout=REQUEST_TIMEOUT,
+        )
+        response.raise_for_status()
+    except requests.RequestException as exc:
+        raise RuntimeError(
+            f"failed to fetch dataset page for pageNum={page_num}, pageSize={page_size}: {exc}"
+        ) from exc
+
+    payload = response.json()
+    if not isinstance(payload, dict):
+        raise ValueError("dataset page response must be a json object")
+    if int(payload.get("code", 0) or 0) != 200:
+        raise ValueError(f"dataset page request failed: {payload.get('message', '')}")
+    return payload
+
+
+def _normalize_dataset_filters(filters: dict[str, Any] | None) -> dict[str, Any]:
+    if not filters:
+        return {}
+
+    normalized: dict[str, Any] = {}
+    for key, value in filters.items():
+        if value is None:
+            continue
+        if isinstance(value, str):
+            text = value.strip()
+            if text:
+                normalized[key] = text
+            continue
+        if hasattr(value, "isoformat"):
+            normalized[key] = value.isoformat()
+            continue
+        normalized[key] = value
+    return normalized
+
+
 def _fetch_connector_page(*, page_num: int, page_size: int) -> dict[str, Any]:
     base_url = str(get_settings().corpus_route.base_url or "").strip().rstrip("/")
     if not base_url:
@@ -157,15 +268,7 @@ def _fetch_connector_page(*, page_num: int, page_size: int) -> dict[str, Any]:
 
 
 def _extract_connector_page_items(payload: dict[str, Any]) -> list[dict[str, Any]]:
-    data = payload.get("data")
-    if isinstance(data, list):
-        return [item for item in data if isinstance(item, dict)]
-    if isinstance(data, dict):
-        for key in ("content", "records", "list", "items"):
-            value = data.get(key)
-            if isinstance(value, list):
-                return [item for item in value if isinstance(item, dict)]
-    raise ValueError("connector page response data does not contain a connector list")
+    return _extract_page_items(payload, entity_name="connector")
 
 
 def _normalize_connector_detail(source: dict[str, Any]) -> dict[str, Any]:
@@ -210,6 +313,20 @@ def _normalize_connector_detail(source: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _normalize_dataset_detail(source: dict[str, Any]) -> dict[str, Any]:
+    if not isinstance(source, dict):
+        raise ValueError("dataset detail must be a json object")
+
+    return {
+        "id": _first_non_empty_string(source.get("id")),
+        "cstr": _first_non_empty_string(source.get("cstr")),
+        "title": _first_non_empty_string(source.get("title"), source.get("name")),
+        "connectorId": _first_non_empty_string(source.get("connectorId")),
+        "fromName": _first_non_empty_string(source.get("fromName")),
+        "raw": source,
+    }
+
+
 def _fetch_remote_resource(remote_grpc_target: str) -> dict[str, Any]:
     client = create_remote_execution_client(remote_grpc_target)
     try:
@@ -221,6 +338,23 @@ def _fetch_remote_resource(remote_grpc_target: str) -> dict[str, Any]:
         "memory_gb": float(resource.memory_gb),
         "free_disk_gb": float(resource.free_disk_gb),
         "hostname": str(resource.hostname),
+    }
+
+
+def _format_resource_display(resource: dict[str, Any]) -> dict[str, Any]:
+    cpu_cores = float(resource.get("cpu_cores", 0.0) or 0.0)
+    memory_gb = float(resource.get("memory_gb", 0.0) or 0.0)
+    free_disk_gb = float(resource.get("free_disk_gb", 0.0) or 0.0)
+    hostname = str(resource.get("hostname", "") or "").strip()
+    return {
+        "hostname": hostname,
+        "cpu": f"{cpu_cores:g} 核",
+        "memory": f"{memory_gb:.2f} GB",
+        "free_disk": f"{free_disk_gb:.2f} GB",
+        "summary": (
+            f"{hostname or 'unknown'} · CPU {cpu_cores:g} 核 · "
+            f"内存 {memory_gb:.2f} GB · 剩余磁盘 {free_disk_gb:.2f} GB"
+        ),
     }
 
 
@@ -260,6 +394,67 @@ def _extract_host(service_url: str) -> str:
         normalized = f"http://{normalized}"
     parsed = urlparse(normalized)
     return str(parsed.hostname or "").strip()
+
+
+def _extract_page_items(payload: dict[str, Any], *, entity_name: str) -> list[dict[str, Any]]:
+    data = payload.get("data")
+    if isinstance(data, list):
+        return [item for item in data if isinstance(item, dict)]
+    if isinstance(data, dict):
+        for key in ("content", "records", "list", "items", "rows", "data"):
+            value = data.get(key)
+            if isinstance(value, list):
+                return [item for item in value if isinstance(item, dict)]
+    raise ValueError(f"{entity_name} page response data does not contain a {entity_name} list")
+
+
+def _extract_pagination(
+    payload: dict[str, Any],
+    *,
+    page_num: int,
+    page_size: int,
+    item_count: int,
+) -> dict[str, int]:
+    data = payload.get("data")
+    raw_total: Any = None
+    raw_page_num: Any = None
+    raw_page_size: Any = None
+
+    if isinstance(data, dict):
+        for key in ("total", "count", "totalCount"):
+            if data.get(key) is not None:
+                raw_total = data.get(key)
+                break
+        for key in ("pageNum", "page", "current"):
+            if data.get(key) is not None:
+                raw_page_num = data.get(key)
+                break
+        for key in ("pageSize", "size", "limit"):
+            if data.get(key) is not None:
+                raw_page_size = data.get(key)
+                break
+
+    total = _safe_positive_int(raw_total, default=item_count, allow_zero=True)
+    resolved_page_num = _safe_positive_int(raw_page_num, default=page_num)
+    resolved_page_size = _safe_positive_int(raw_page_size, default=page_size)
+
+    return {
+        "pageNum": resolved_page_num,
+        "pageSize": resolved_page_size,
+        "total": total,
+    }
+
+
+def _safe_positive_int(value: Any, *, default: int, allow_zero: bool = False) -> int:
+    try:
+        resolved = int(value)
+    except (TypeError, ValueError):
+        return default
+    if allow_zero and resolved == 0:
+        return 0
+    if resolved <= 0:
+        return default
+    return resolved
 
 
 def _first_non_empty_string(*values: Any) -> str:
