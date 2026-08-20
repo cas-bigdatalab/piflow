@@ -1,7 +1,7 @@
 {
   "name": "corpus_dataset_source_stop",
   "version": "1.0.0",
-  "description": "Corpus 数据集输入源算子。用于根据数据集唯一标识 ID 查询数据集详情，取出其中的 cstr，再获取下载地址集合、下载一个或多个数据集 tar 文件，并以 fileName 作为输出 key 提供给下游算子。该算子没有上游输入，必须作为 DAG 的起始节点使用。",
+  "description": "Corpus 数据集输入源算子。用于根据数据集唯一标识 ID 查询数据集详情，取出其中的 cstr，再获取下载地址集合、下载一个数据集 tar 文件，并以固定输出 key output 提供给下游算子。可选 fileName 参数用于指定下载哪一个文件，默认取第一个文件。该算子没有上游输入，必须作为 DAG 的起始节点使用。",
   "language": "python",
   "script_path": "scripts/run_corpus_dataset_source_stop.py",
   "entrypoint": "python scripts/run_corpus_dataset_source_stop.py",
@@ -12,15 +12,22 @@
       "type": "string",
       "required": true,
       "description": "数据集唯一标识 ID"
+    },
+    {
+      "name": "fileName",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "description": "可选，指定要输出的文件名；不传则默认取第一个文件"
     }
   ],
   "output_params": [
     {
-      "name": "<fileName>",
+      "name": "output",
       "role": "output_data",
       "type": "file_artifact",
       "default": "corpus_dataset_source_output",
-      "description": "以 fileName 为输出 key 的本地文件引用，供下游算子使用"
+      "description": "固定输出 key output 对应的本地文件引用，供下游算子使用"
     }
   ],
   "command_template": [
@@ -28,6 +35,8 @@
     "{script_path}",
     "--dataset_id",
     "{dataset_id}",
+    "--fileName",
+    "{fileName}",
     "--output_dir",
     "{output_dir}"
   ]

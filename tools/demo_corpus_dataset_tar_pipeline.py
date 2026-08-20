@@ -43,7 +43,7 @@ def build_demo_dag(dataset_specs: list[dict[str, str]], *, output_file_name: str
                 "input_params": [
                     _manual_param("dataset_id", spec["dataset_id"]),
                 ],
-                "out_params": [{"param_name": spec["file_name"], "param_type": "file_artifact"}],
+                "out_params": [{"param_name": "output", "param_type": "file_artifact"}],
             }
         )
         edges.append(
@@ -57,7 +57,7 @@ def build_demo_dag(dataset_specs: list[dict[str, str]], *, output_file_name: str
             {
                 "binding_id": f"binding-{source_node_id}-merge",
                 "from_node_id": source_node_id,
-                "from_param_name": spec["file_name"],
+                "from_param_name": "output",
                 "to_node_id": "tar-merge",
                 "to_param_name": input_port,
             }
@@ -104,22 +104,10 @@ def _fetch_dataset_spec(dataset_id: str) -> dict[str, str]:
     if not connector_id:
         raise ValueError(f"dataset {dataset_id} missing connectorId")
 
-    urls = _fetch_json(f"{CORPUS_ROUTE_BASE_URL}/dataset/downloadDatasetFileUrls/{cstr}")
-    if int(urls.get("code", 0) or 0) != 200:
-        raise ValueError(f"failed to query dataset urls for {dataset_id}: {urls.get('message', '')}")
-    data = urls.get("data") or []
-    if not isinstance(data, list) or not data:
-        raise ValueError(f"dataset {dataset_id} does not return any download urls")
-    download_url = str(data[0]).strip()
-    file_name = Path(download_url).name
-    if not file_name:
-        raise ValueError(f"dataset {dataset_id} download url has no file name")
-
     return {
         "dataset_id": dataset_id,
         "connector_id": connector_id,
         "cstr": cstr,
-        "file_name": file_name,
     }
 
 

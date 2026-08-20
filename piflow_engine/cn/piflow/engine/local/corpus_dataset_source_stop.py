@@ -24,14 +24,15 @@ RUNNER_CONTEXT_WORKSPACE_ROOT = "local.workspace_root"
 
 class CorpusDatasetSourceStop(ConfigurableStop):
     author_email = ""
-    description = "Download one or more corpus dataset files by dataset id and expose them as FileArtifacts."
+    description = "Download one corpus dataset file by dataset id and expose it as a FileArtifact on output."
     inport_list: list[str] = []
-    outport_list: list[str] = []
+    outport_list: list[str] = ["output"]
     is_data_source = True
 
     def __init__(self) -> None:
         super().__init__()
         self.dataset_id = ""
+        self.file_name = ""
         self._workspace_root: Path | None = None
         self._base_url = ""
 
@@ -42,6 +43,13 @@ class CorpusDatasetSourceStop(ConfigurableStop):
         self.dataset_id = raw_dataset_id.strip()
         if not self.dataset_id:
             raise ValueError("corpus dataset source property 'dataset_id' must not be empty")
+
+        raw_file_name = properties.get("fileName", properties.get("file_name", ""))
+        if raw_file_name is None:
+            raw_file_name = ""
+        if not isinstance(raw_file_name, str):
+            raise TypeError("corpus dataset source property 'fileName' must be a string")
+        self.file_name = raw_file_name.strip()
 
     def initialize(self, ctx: ProcessContext) -> None:
         workspace_root = ctx.get(RUNNER_CONTEXT_WORKSPACE_ROOT, ".piflow/workspace")
@@ -76,29 +84,42 @@ class CorpusDatasetSourceStop(ConfigurableStop):
             raise ValueError(f"no dataset file url found for dataset_id={self.dataset_id}, cstr={cstr}")
 
         output_dir = self._prepare_output_dir(ctx)
-        seen_file_names: set[str] = set()
+        selected_record = self._select_record(records)
+        file_name = selected_record["fileName"]
+        downloaded_path = self._download_file(
+            download_url=selected_record["downloadUrl"],
+            target_path=output_dir / file_name,
+        )
+        artifact = FileArtifact(path=str(downloaded_path)).with_metadata(
+            datasetId=self.dataset_id,
+            cstr=cstr,
+            title=str(dataset.get("title", "")).strip(),
+            connectorId=str(dataset.get("connectorId", "")).strip(),
+            fromName=str(dataset.get("fromName", "")).strip(),
+            fileName=file_name,
+            downloadUrl=selected_record["downloadUrl"],
+            size=dataset.get("size"),
+        )
+        outputs.write(artifact, "output")
 
+    def _select_record(self, records: list[dict[str, Any]]) -> dict[str, Any]:
+        seen_file_names: set[str] = set()
         for record in records:
             file_name = record["fileName"]
             if file_name in seen_file_names:
                 raise ValueError(f"duplicate dataset fileName returned for dataset_id={self.dataset_id}: {file_name}")
             seen_file_names.add(file_name)
 
-            downloaded_path = self._download_file(
-                download_url=record["downloadUrl"],
-                target_path=output_dir / file_name,
-            )
-            artifact = FileArtifact(path=str(downloaded_path)).with_metadata(
-                datasetId=self.dataset_id,
-                cstr=cstr,
-                title=str(dataset.get("title", "")).strip(),
-                connectorId=str(dataset.get("connectorId", "")).strip(),
-                fromName=str(dataset.get("fromName", "")).strip(),
-                fileName=file_name,
-                downloadUrl=record["downloadUrl"],
-                size=dataset.get("size"),
-            )
-            outputs.write(artifact, file_name)
+        if not self.file_name:
+            return records[0]
+
+        for record in records:
+            if record["fileName"] == self.file_name:
+                return record
+
+        raise ValueError(
+            f"requested fileName not found for dataset_id={self.dataset_id}: {self.file_name}"
+        )
 
     def _fetch_dataset_detail(self, dataset_id: str) -> dict[str, Any]:
         detail_url = f"{self._base_url}/dataset/queryDataset?id={dataset_id}"
