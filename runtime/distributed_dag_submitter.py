@@ -46,34 +46,13 @@ def submit_cross_domain_dag(
         resource_resolver=resource_resolver,
     )
 
-    return submit_remote_root_dag(
-        plan.dag_definition,
-        remote_grpc_target=remote_target,
-        execution_node_id=plan.execution_node_id,
-    )
-
-
-def submit_remote_root_dag(
-    definition_json: dict[str, Any],
-    *,
-    remote_grpc_target: str,
-    execution_node_id: str = "",
-) -> CrossDomainSubmitResult:
-    """提交已经完成分段/嵌套的根 DAG，不再做二次调度。
-
-    ``submit_cross_domain_dag`` 保留给旧的平面 DAG demo；cross_dag 编译器已经完成
-    全图绑定和递归嵌套，必须走本函数，否则再次切图会破坏已生成的边界。
-    """
-    remote_target = str(remote_grpc_target or "").strip()
-    if not remote_target:
-        raise ValueError("remote_grpc_target must not be empty")
-    if not isinstance(definition_json, dict):
-        raise TypeError("definition_json must be a dict")
-
+    # The caller has already decided to use remote submission. This submitter
+    # therefore skips local-node checks and directly hands the scheduled root
+    # DAG to the chosen remote client endpoint.
     client = create_remote_execution_client(remote_target)
     try:
         response = client.submit_remote_root_dag(
-            json.dumps(definition_json, ensure_ascii=False)
+            json.dumps(plan.dag_definition, ensure_ascii=False)
         )
     finally:
         client.close()
@@ -81,9 +60,9 @@ def submit_remote_root_dag(
     return CrossDomainSubmitResult(
         process_id=str(response.run_id),
         status=str(response.status),
-        execution_node_id=str(execution_node_id or ""),
+        execution_node_id=plan.execution_node_id,
         remote_grpc_target=remote_target,
-        dag_definition=definition_json,
+        dag_definition=plan.dag_definition,
     )
 
 
@@ -91,13 +70,46 @@ def _build_remote_resource_resolver():
     resource_cache: dict[str, RemoteNodeResource] = {}
 
     def resolve(node: dict[str, Any]) -> RemoteNodeResource:
-        from runtime.remote_dag_scheduler import _read_remote_node_resource
+        from runtime.remote_dag_scheduler import CORPUS_DATASET_SOURCE_BUNDLE
+        from runtime.remote_dag_scheduler import _read_dataset_id
+        from runtime.remote_dag_scheduler import _read_remote_grpc_target
+        from runtime.remote_dag_scheduler import _require_remote_node_id
 
-        declared = _read_remote_node_resource(node)
-        node_id = declared.node_id
-        remote_target = declared.remote_grpc_target
-        if not remote_target:
-            raise ValueError(f"remote source {node.get('node_id')} has no gRPC target")
+        skill = node.get("skill") or {}
+        skill_id = str(skill.get("skill_id", "") or "")
+        skill_name = str(skill.get("skill_name", "") or "")
+
+        if skill_id == CORPUS_DATASET_SOURCE_BUNDLE or skill_name == "corpus_dataset_source_stop":
+            dataset_id = _read_dataset_id(node)
+            cached = resource_cache.get(dataset_id)
+            if cached is not None:
+                return cached
+
+            from services.corpus_connector_service import get_dataset_connector_detail_with_resource
+
+            resolved = get_dataset_connector_detail_with_resource(dataset_id)
+            resource = resolved.get("resource") or {}
+            remote_target = str(resolved.get("remote_grpc_target", "") or "").strip()
+            connector_id = str(resolved.get("dataset", {}).get("connectorId", "") or "").strip()
+            if not connector_id:
+                connector_id = str((resolved.get("connector") or {}).get("connectorId", "") or "").strip()
+            if not connector_id:
+                raise ValueError(f"dataset_id {dataset_id} does not resolve to a connectorId")
+            if not remote_target:
+                raise ValueError(f"dataset_id {dataset_id} does not resolve to a remote_grpc_target")
+
+            resolved_resource = RemoteNodeResource(
+                node_id=connector_id,
+                cpu_cores=float(resource.get("cpu_cores", 0.0) or 0.0),
+                memory_gb=float(resource.get("memory_gb", 0.0) or 0.0),
+                free_disk_gb=float(resource.get("free_disk_gb", 0.0) or 0.0),
+                remote_grpc_target=remote_target,
+            )
+            resource_cache[dataset_id] = resolved_resource
+            return resolved_resource
+
+        node_id = _require_remote_node_id(node)
+        remote_target = _read_remote_grpc_target(node)
         cached = resource_cache.get(remote_target)
         if cached is not None:
             return RemoteNodeResource(
@@ -105,14 +117,19 @@ def _build_remote_resource_resolver():
                 cpu_cores=cached.cpu_cores,
                 memory_gb=cached.memory_gb,
                 free_disk_gb=cached.free_disk_gb,
-                remote_grpc_target=remote_target,
             )
+
+        client = create_remote_execution_client(remote_target)
+        try:
+            resource = client.get_server_resource()
+        finally:
+            client.close()
 
         resolved = RemoteNodeResource(
             node_id=node_id,
-            cpu_cores=declared.cpu_cores,
-            memory_gb=declared.memory_gb,
-            free_disk_gb=declared.free_disk_gb,
+            cpu_cores=float(resource.cpu_cores),
+            memory_gb=float(resource.memory_gb),
+            free_disk_gb=float(resource.free_disk_gb),
             remote_grpc_target=remote_target,
         )
         resource_cache[remote_target] = resolved
