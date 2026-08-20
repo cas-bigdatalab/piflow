@@ -8,7 +8,7 @@ from typing import Any, Callable
 
 from runtime.distributed_dag_submitter import (
     CrossDomainSubmitResult,
-    submit_remote_root_dag,
+    submit_cross_domain_dag,
 )
 
 from .schema import MODE_COMPOSITION, CrossDagError, CrossDagPlan
@@ -37,7 +37,7 @@ def submit_cross_dag_plan(plan: CrossDagPlan) -> CrossDomainSubmitResult:
             f"根执行位置 {plan.execution_center_id} 没有可用的 gRPC 地址"
         )
 
-    return submit_remote_root_dag(
+    return submit_cross_domain_dag(
         plan.nested_dsl,
         remote_grpc_target=plan.execution_grpc_endpoint,
         execution_node_id=plan.execution_center_id,
