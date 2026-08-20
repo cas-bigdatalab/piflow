@@ -75,7 +75,7 @@ def schedule_frontend_dag(
     added_bindings: list[dict[str, Any]] = []
 
     for source in remote_sources:
-        source_runtime_node_id = _require_remote_node_id(source)
+        source_runtime_node_id = _resolve_source_runtime_node_id(source)
         if source_runtime_node_id == chosen_node_id:
             continue
 
@@ -255,6 +255,15 @@ def _require_remote_node_id(node: dict[str, Any]) -> str:
                 return value
             break
     raise ValueError(f"remote source node missing node_id param: {node.get('node_id')}")
+
+
+def _resolve_source_runtime_node_id(node: dict[str, Any]) -> str:
+    skill = node.get("skill") or {}
+    skill_id = str(skill.get("skill_id", "") or "")
+    skill_name = str(skill.get("skill_name", "") or "")
+    if skill_id == CORPUS_DATASET_SOURCE_BUNDLE or skill_name == "corpus_dataset_source_stop":
+        return _read_corpus_dataset_source_resource(node).node_id
+    return _require_remote_node_id(node)
 
 
 def _read_remote_node_resource(node: dict[str, Any]) -> RemoteNodeResource:

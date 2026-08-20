@@ -70,8 +70,43 @@ def _build_remote_resource_resolver():
     resource_cache: dict[str, RemoteNodeResource] = {}
 
     def resolve(node: dict[str, Any]) -> RemoteNodeResource:
+        from runtime.remote_dag_scheduler import CORPUS_DATASET_SOURCE_BUNDLE
+        from runtime.remote_dag_scheduler import _read_dataset_id
         from runtime.remote_dag_scheduler import _read_remote_grpc_target
         from runtime.remote_dag_scheduler import _require_remote_node_id
+
+        skill = node.get("skill") or {}
+        skill_id = str(skill.get("skill_id", "") or "")
+        skill_name = str(skill.get("skill_name", "") or "")
+
+        if skill_id == CORPUS_DATASET_SOURCE_BUNDLE or skill_name == "corpus_dataset_source_stop":
+            dataset_id = _read_dataset_id(node)
+            cached = resource_cache.get(dataset_id)
+            if cached is not None:
+                return cached
+
+            from services.corpus_connector_service import get_dataset_connector_detail_with_resource
+
+            resolved = get_dataset_connector_detail_with_resource(dataset_id)
+            resource = resolved.get("resource") or {}
+            remote_target = str(resolved.get("remote_grpc_target", "") or "").strip()
+            connector_id = str(resolved.get("dataset", {}).get("connectorId", "") or "").strip()
+            if not connector_id:
+                connector_id = str((resolved.get("connector") or {}).get("connectorId", "") or "").strip()
+            if not connector_id:
+                raise ValueError(f"dataset_id {dataset_id} does not resolve to a connectorId")
+            if not remote_target:
+                raise ValueError(f"dataset_id {dataset_id} does not resolve to a remote_grpc_target")
+
+            resolved_resource = RemoteNodeResource(
+                node_id=connector_id,
+                cpu_cores=float(resource.get("cpu_cores", 0.0) or 0.0),
+                memory_gb=float(resource.get("memory_gb", 0.0) or 0.0),
+                free_disk_gb=float(resource.get("free_disk_gb", 0.0) or 0.0),
+                remote_grpc_target=remote_target,
+            )
+            resource_cache[dataset_id] = resolved_resource
+            return resolved_resource
 
         node_id = _require_remote_node_id(node)
         remote_target = _read_remote_grpc_target(node)
@@ -95,6 +130,7 @@ def _build_remote_resource_resolver():
             cpu_cores=float(resource.cpu_cores),
             memory_gb=float(resource.memory_gb),
             free_disk_gb=float(resource.free_disk_gb),
+            remote_grpc_target=remote_target,
         )
         resource_cache[remote_target] = resolved
         return resolved
