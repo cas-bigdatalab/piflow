@@ -163,6 +163,38 @@ def get_dataset_detail(dataset_id: str) -> dict[str, Any]:
     return _normalize_dataset_detail(_fetch_dataset_detail(normalized_dataset_id))
 
 
+def create_corpus_connector(connector: dict[str, Any]) -> dict[str, Any]:
+    return _request_corpus_route("POST", "/dataset.connector.save", json_body=connector)
+
+
+def update_corpus_connector(connector: dict[str, Any]) -> dict[str, Any]:
+    return _request_corpus_route("POST", "/dataset.connector.update", json_body=connector)
+
+
+def delete_corpus_connector(connector_id: str) -> dict[str, Any]:
+    normalized_connector_id = _normalize_required_text(connector_id, field_name="id")
+    return _request_corpus_route("GET", "/dataset.connector.delete", params={"id": normalized_connector_id})
+
+
+def disable_corpus_connector(connector_id: str) -> dict[str, Any]:
+    normalized_connector_id = _normalize_required_text(connector_id, field_name="id")
+    return _request_corpus_route("GET", "/dataset.connector.disable", params={"id": normalized_connector_id})
+
+
+def get_corpus_connector_detail(connector_id: str) -> dict[str, Any]:
+    normalized_connector_id = _normalize_required_text(connector_id, field_name="id")
+    return _request_corpus_route("GET", "/dataset.connector.detail", params={"id": normalized_connector_id})
+
+
+def enable_corpus_connector(connector_id: str) -> dict[str, Any]:
+    normalized_connector_id = _normalize_required_text(connector_id, field_name="id")
+    return _request_corpus_route("GET", "/dataset.connector.enable", params={"id": normalized_connector_id})
+
+
+def get_corpus_connector_tree() -> dict[str, Any]:
+    return _request_corpus_route("GET", "/dataset.connector.tree")
+
+
 def _fetch_dataset_detail(dataset_id: str) -> dict[str, Any]:
     base_url = str(get_settings().corpus_route.base_url or "").strip().rstrip("/")
     if not base_url:
@@ -191,6 +223,48 @@ def _fetch_dataset_detail(dataset_id: str) -> dict[str, Any]:
     if not isinstance(data, dict):
         raise ValueError(f"dataset detail response data must be an object for dataset_id={dataset_id}")
     return data
+
+
+def _request_corpus_route(
+    method: str,
+    path: str,
+    *,
+    params: dict[str, Any] | None = None,
+    json_body: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    base_url = str(get_settings().corpus_route.base_url or "").strip().rstrip("/")
+    if not base_url:
+        raise ValueError("settings.corpus_route.base_url must not be empty")
+
+    normalized_method = str(method or "").strip().upper()
+    if normalized_method not in {"GET", "POST"}:
+        raise ValueError(f"unsupported corpus route method: {method}")
+
+    url = f"{base_url}{path}"
+    normalized_params = _normalize_query_params(params)
+    normalized_json_body = _normalize_json_body(json_body)
+    try:
+        if normalized_method == "GET":
+            response = requests.get(
+                url,
+                params=normalized_params,
+                timeout=REQUEST_TIMEOUT,
+            )
+        else:
+            response = requests.post(
+                url,
+                params=normalized_params,
+                json=normalized_json_body,
+                timeout=REQUEST_TIMEOUT,
+            )
+        response.raise_for_status()
+    except requests.RequestException as exc:
+        raise RuntimeError(f"failed to request corpus route path={path}: {exc}") from exc
+
+    payload = response.json()
+    if not isinstance(payload, dict):
+        raise ValueError(f"corpus route response must be a json object for path={path}")
+    return payload
 
 
 def _fetch_dataset_page(*, page_num: int, page_size: int, filters: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -236,6 +310,38 @@ def _normalize_dataset_filters(filters: dict[str, Any] | None) -> dict[str, Any]
             continue
         if hasattr(value, "isoformat"):
             normalized[key] = value.isoformat()
+            continue
+        normalized[key] = value
+    return normalized
+
+
+def _normalize_query_params(params: dict[str, Any] | None) -> dict[str, Any] | None:
+    if not params:
+        return None
+
+    normalized: dict[str, Any] = {}
+    for key, value in params.items():
+        if value is None:
+            continue
+        if isinstance(value, str):
+            text = value.strip()
+            if text:
+                normalized[key] = text
+            continue
+        normalized[key] = value
+    return normalized or None
+
+
+def _normalize_json_body(payload: dict[str, Any] | None) -> dict[str, Any]:
+    if not payload:
+        return {}
+
+    normalized: dict[str, Any] = {}
+    for key, value in payload.items():
+        if value is None:
+            continue
+        if isinstance(value, str):
+            normalized[key] = value.strip()
             continue
         normalized[key] = value
     return normalized
@@ -463,3 +569,10 @@ def _first_non_empty_string(*values: Any) -> str:
         if text:
             return text
     return ""
+
+
+def _normalize_required_text(value: Any, *, field_name: str) -> str:
+    text = str(value or "").strip()
+    if not text:
+        raise ValueError(f"{field_name} is required")
+    return text
