@@ -8,7 +8,7 @@ import threading
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, AsyncIterator, Callable
 from urllib.parse import urlencode
 
 from infra.config_loader import resolve_workspace_root
@@ -93,6 +93,23 @@ def bind_and_execute_cross_dag_pre_bind(
 ) -> dict[str, Any]:
     """Bind through validation and immediately submit the resulting plan."""
     pre_bind = _get_owned_pre_bind(plan_id=plan_id, user_id=user_id)
+    plan, execution = _finalize_and_execute_pre_bind(
+        pre_bind,
+        user_id=user_id,
+    )
+    return {
+        "plan": _summarize(plan, detail=detail),
+        "execution": execution,
+    }
+
+
+def _finalize_and_execute_pre_bind(
+    pre_bind: CrossDagPreBindPlan,
+    *,
+    user_id: str,
+    on_stage: Callable[[str, dict[str, Any]], None] | None = None,
+) -> tuple[CrossDagPlan, dict[str, Any]]:
+    """Shared second phase used by both JSON and SSE endpoints."""
     if pre_bind.mode == MODE_UNAVAILABLE:
         raise CrossDagError("该预规划没有可用数据，不能进行副本绑定和提交执行")
     if not pre_bind.validation.ok:
@@ -101,13 +118,23 @@ def bind_and_execute_cross_dag_pre_bind(
             + "\n".join(pre_bind.validation.errors)
         )
 
-    plan = finalize_cross_dag_pre_bind(pre_bind)
+    plan = finalize_cross_dag_pre_bind(pre_bind, on_stage=on_stage)
     _remember(plan)
+
+    if on_stage is not None:
+        on_stage("submit", {"status": "started", "mode": plan.mode})
     execution = execute_cross_dag_plan(plan_id=plan.plan_id, user_id=user_id)
-    return {
-        "plan": _summarize(plan, detail=detail),
-        "execution": execution,
-    }
+    if on_stage is not None:
+        on_stage(
+            "submit",
+            {
+                "status": "finished",
+                "mode": plan.mode,
+                "process_id": execution.get("process_id", ""),
+                "submit_status": execution.get("status", ""),
+            },
+        )
+    return plan, execution
 
 
 def compile_cross_dag_plan(
@@ -629,6 +656,269 @@ async def stream_cross_dag_plan(
         user_request, detail=detail, plan_id=plan_id, on_plan=_remember
     ):
         yield event
+
+
+async def stream_cross_dag_pre_bind_plan(
+    *,
+    user_request: str,
+    user_id: str,
+    detail: bool = False,
+) -> AsyncIterator[dict[str, Any]]:
+    """Stream intent through logical expansion and cache the pre-bind result."""
+    from runtime.cross_dag.plan_view import stage_brief
+
+    plan_id = f"xdc-{uuid.uuid4().hex[:12]}"
+    events: list[dict[str, Any]] = []
+    result: list[CrossDagPreBindPlan] = []
+
+    def collect(stage: str, payload: dict[str, Any]) -> None:
+        if detail:
+            events.append({"type": "stage", "stage": stage, **payload})
+        else:
+            events.append({"type": "stage", **stage_brief(stage, payload)})
+
+    def run() -> None:
+        pre_bind = plan_cross_dag_pre_bind(
+            user_request,
+            plan_id=plan_id,
+            on_stage=collect,
+        )
+        _remember_pre_bind(pre_bind, user_id=user_id)
+        result.append(pre_bind)
+
+    yield {"type": "status", "stage": "started"}
+    try:
+        async for event in _stream_worker_events(run, events):
+            yield event
+    except Exception as exc:
+        yield {"type": "error", "message": str(exc)}
+        return
+
+    yield {
+        "type": "done",
+        "result": _summarize_pre_bind(result[0], detail=detail),
+    }
+
+
+async def stream_bind_and_execute_cross_dag_pre_bind(
+    *,
+    plan_id: str,
+    user_id: str,
+    detail: bool = False,
+) -> AsyncIterator[dict[str, Any]]:
+    """Stream replica binding through submission for a cached pre-bind plan."""
+    from runtime.cross_dag.plan_view import stage_brief
+
+    events: list[dict[str, Any]] = []
+    result: list[tuple[CrossDagPlan, dict[str, Any]]] = []
+    pre_bind: list[CrossDagPreBindPlan] = []
+    candidates_emitted = False
+
+    def collect(stage: str, payload: dict[str, Any]) -> None:
+        nonlocal candidates_emitted
+
+        if detail:
+            stage_event = {"type": "stage", "stage": stage, **payload}
+        else:
+            brief = stage_brief(stage, payload)
+            if stage == "submit" and payload.get("status") == "finished":
+                process_id = str(payload.get("process_id") or "")
+                brief["summary"] = (
+                    f"任务已提交 · {process_id}"
+                    if process_id
+                    else "直接访问方案已确定，无需提交 DAG"
+                )
+            stage_event = {"type": "stage", **brief}
+
+        if (
+            stage in {"bind", "access"}
+            and payload.get("status") == "started"
+            and pre_bind
+            and not candidates_emitted
+        ):
+            events.append(stage_event)
+            events.extend(_replica_candidate_events(pre_bind[0], detail=detail))
+            candidates_emitted = True
+            return
+
+        if stage in {"bind", "access"} and payload.get("status") == "finished":
+            events.extend(
+                _replica_selection_events(
+                    pre_bind[0],
+                    stage=stage,
+                    payload=payload,
+                    detail=detail,
+                )
+            )
+        events.append(stage_event)
+
+    def run() -> None:
+        owned = _get_owned_pre_bind(plan_id=plan_id, user_id=user_id)
+        pre_bind.append(owned)
+        result.append(
+            _finalize_and_execute_pre_bind(
+                owned,
+                user_id=user_id,
+                on_stage=collect,
+            )
+        )
+
+    yield {"type": "status", "stage": "started"}
+    try:
+        async for event in _stream_worker_events(run, events):
+            yield event
+    except Exception as exc:
+        yield {"type": "error", "message": str(exc)}
+        return
+
+    plan, execution = result[0]
+    yield {
+        "type": "done",
+        "result": {
+            "plan": _summarize(plan, detail=detail),
+            "execution": execution,
+        },
+    }
+
+
+async def _stream_worker_events(
+    worker: Callable[[], None],
+    events: list[dict[str, Any]],
+) -> AsyncIterator[dict[str, Any]]:
+    """Run blocking planning work in a thread while draining emitted events."""
+    import asyncio
+
+    task = asyncio.get_running_loop().run_in_executor(None, worker)
+    emitted = 0
+    while not task.done() or emitted < len(events):
+        while emitted < len(events):
+            yield events[emitted]
+            emitted += 1
+        if task.done():
+            break
+        await asyncio.sleep(0.05)
+
+    await task
+    while emitted < len(events):
+        yield events[emitted]
+        emitted += 1
+
+
+def _replica_candidate_events(
+    pre_bind: CrossDagPreBindPlan,
+    *,
+    detail: bool,
+) -> list[dict[str, Any]]:
+    events: list[dict[str, Any]] = []
+    for dataset in pre_bind.intent.datasets:
+        if not dataset.replicas:
+            continue
+        candidates = []
+        for replica in dataset.replicas:
+            item: dict[str, Any] = {
+                "replica_id": replica.replica_id,
+                "center_id": replica.center_id,
+                "status": replica.status,
+            }
+            if detail:
+                item["metrics"] = dict(replica.metrics)
+            candidates.append(item)
+        events.append(
+            {
+                "type": "replica",
+                "stage": "bind",
+                "status": "evaluating",
+                "dataset_id": dataset.dataset_id,
+                "dataset_name": dataset.name,
+                "candidate_count": len(candidates),
+                "candidates": candidates,
+            }
+        )
+    return events
+
+
+def _replica_selection_events(
+    pre_bind: CrossDagPreBindPlan,
+    *,
+    stage: str,
+    payload: dict[str, Any],
+    detail: bool,
+) -> list[dict[str, Any]]:
+    decisions = list(payload.get("replica_decisions") or [])
+    if stage == "access":
+        direct_access = payload.get("direct_access") or {}
+        direct_decision = direct_access.get("replica_decision")
+        decisions = [direct_decision] if isinstance(direct_decision, dict) else []
+
+    dataset_by_id = {
+        dataset.dataset_id: dataset for dataset in pre_bind.intent.datasets
+    }
+    events: list[dict[str, Any]] = []
+    for decision in decisions:
+        if not isinstance(decision, dict):
+            continue
+        chosen = decision.get("chosen") or {}
+        if not chosen:
+            continue
+        dataset_id = str(decision.get("dataset_id") or "")
+        dataset = dataset_by_id.get(dataset_id)
+        replica_id = str(chosen.get("replica_id") or "")
+        reason = str(decision.get("reason") or "")
+        event: dict[str, Any] = {
+            "type": "replica",
+            "stage": "bind",
+            "status": "selected",
+            "dataset_id": dataset_id,
+            "dataset_name": dataset.name if dataset else "",
+            "node_id": str(decision.get("node_id") or ""),
+            "candidate_count": len(dataset.replicas) if dataset else 0,
+            "chosen": {
+                "replica_id": replica_id,
+                "center_id": str(chosen.get("center_id") or ""),
+            },
+            "summary": _replica_choice_summary(
+                replica_id=replica_id,
+                reason=reason,
+                candidate_count=(len(dataset.replicas) if dataset else 0),
+            ),
+            # This is the one stable, human-readable scheduling basis that the
+            # ordinary frontend needs. Scores remain opt-in diagnostic data.
+            "reason": reason,
+        }
+        if detail:
+            event["selection_detail"] = {
+                "preferred_center_id": str(
+                    decision.get("preferred_center_id") or ""
+                ),
+                "scores": list(decision.get("scores") or []),
+                "rejects": list(decision.get("rejects") or []),
+            }
+        events.append(event)
+    return events
+
+
+def _replica_choice_summary(
+    *, replica_id: str, reason: str, candidate_count: int
+) -> str:
+    """Return one short sentence for the ordinary replica-selection timeline."""
+    if candidate_count == 1:
+        basis = "它是当前唯一可用的副本"
+    else:
+        clauses = [
+            item.strip().rstrip("。.")
+            for item in reason.replace("\n", " ").replace(";", "；").split("；")
+            if item.strip()
+        ]
+        basis = next(
+            (
+                item
+                for keyword in ("免跨", "一致", "就近", "优势项", "总分")
+                for item in clauses
+                if keyword in item
+            ),
+            "综合位置与资源指标后得分最高",
+        )
+    return f"选择副本 {replica_id}，因为{basis}。"
 
 
 def list_cross_dag_context() -> dict[str, Any]:

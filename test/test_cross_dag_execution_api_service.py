@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -16,6 +17,13 @@ from runtime.cross_dag.schema import (
     ValidationReport,
 )
 from services import cross_dag_service
+
+
+def _collect_events(generator):
+    async def collect():
+        return [event async for event in generator]
+
+    return asyncio.run(collect())
 
 
 class _FakeRemoteClient:
@@ -265,7 +273,7 @@ def test_bind_and_execute_finishes_plan_then_submits(monkeypatch):
     monkeypatch.setattr(
         cross_dag_service,
         "finalize_cross_dag_pre_bind",
-        lambda value: calls.append("bind") or plan,
+        lambda value, **kwargs: calls.append("bind") or plan,
     )
     monkeypatch.setattr(
         cross_dag_service,
@@ -294,3 +302,229 @@ def test_bind_and_execute_finishes_plan_then_submits(monkeypatch):
         "plan": {"plan_id": "xdc-pre-2"},
         "execution": {"process_id": "process-2", "status": "SUBMITTED"},
     }
+
+
+def test_pre_bind_stream_emits_stages_and_caches_result(monkeypatch):
+    pre_bind = SimpleNamespace(plan_id="xdc-stream-pre")
+    cached = {}
+
+    def plan(user_request, *, plan_id, on_stage):
+        assert user_request == "merge datasets"
+        on_stage("intent", {"status": "started"})
+        on_stage(
+            "intent",
+            {"status": "finished", "intent": {"requirements": [], "datasets": [1]}},
+        )
+        on_stage("planning", {"status": "started"})
+        on_stage(
+            "planning",
+            {"status": "finished", "planning_json": {"nodes": [{}, {}]}},
+        )
+        on_stage("expand", {"status": "started"})
+        on_stage(
+            "expand",
+            {"status": "finished", "node_count": 2, "binding_count": 1},
+        )
+        pre_bind.plan_id = plan_id
+        return pre_bind
+
+    monkeypatch.setattr(cross_dag_service, "plan_cross_dag_pre_bind", plan)
+    monkeypatch.setattr(
+        cross_dag_service,
+        "_remember_pre_bind",
+        lambda value, *, user_id: cached.update(plan=value, user_id=user_id),
+    )
+    monkeypatch.setattr(
+        cross_dag_service,
+        "_summarize_pre_bind",
+        lambda value, detail=False: {"plan_id": value.plan_id},
+    )
+
+    events = _collect_events(
+        cross_dag_service.stream_cross_dag_pre_bind_plan(
+            user_request="merge datasets",
+            user_id="user-1",
+        )
+    )
+
+    assert events[0] == {"type": "status", "stage": "started"}
+    assert [event.get("stage") for event in events[1:-1]] == [
+        "intent",
+        "intent",
+        "planning",
+        "planning",
+        "expand",
+        "expand",
+    ]
+    assert events[-1]["type"] == "done"
+    assert events[-1]["result"]["plan_id"].startswith("xdc-")
+    assert cached["plan"] is pre_bind
+    assert cached["user_id"] == "user-1"
+
+
+def test_bind_execute_stream_exposes_candidate_choice_and_reason(monkeypatch):
+    pre_bind = CrossDagPreBindPlan(
+        plan_id="xdc-stream-bind",
+        intent=IntentSpec(
+            datasets=[
+                IntentDataset(
+                    alias="a",
+                    dataset_id="dataset-a",
+                    name="Dataset A",
+                    replicas=[
+                        ReplicaCandidate(
+                            "replica-a1",
+                            "center-a",
+                            "center-a",
+                            "dataset-a",
+                            metrics={"cpu_cores": 8},
+                        ),
+                        ReplicaCandidate(
+                            "replica-a2",
+                            "center-b",
+                            "center-b",
+                            "dataset-a",
+                            metrics={"cpu_cores": 4},
+                        ),
+                    ],
+                )
+            ]
+        ),
+        satisfaction=SatisfactionReport(mode="composition"),
+        logical_dag=LogicalDag(),
+        validation=ValidationReport(),
+    )
+    final_plan = SimpleNamespace(plan_id=pre_bind.plan_id)
+    execution = {
+        "process_id": "process-stream",
+        "status": "SUBMITTED",
+        "status_url": "/status",
+        "download_url": "/download",
+    }
+
+    monkeypatch.setattr(
+        cross_dag_service,
+        "_get_owned_pre_bind",
+        lambda **kwargs: pre_bind,
+    )
+
+    def finish(value, *, user_id, on_stage):
+        on_stage("bind", {"status": "started"})
+        on_stage(
+            "bind",
+            {
+                "status": "finished",
+                "center_of": {"source-a": "center-a"},
+                "replica_decisions": [
+                    {
+                        "dataset_alias": "a",
+                        "dataset_id": "dataset-a",
+                        "node_id": "source-a",
+                        "preferred_center_id": "center-a",
+                        "chosen": {
+                            "replica_id": "replica-a1",
+                            "center_id": "center-a",
+                        },
+                        "reason": "与偏好中心一致，可避免跨域传输",
+                        "scores": [
+                            {
+                                "replica_id": "replica-a1",
+                                "total": 1.0,
+                                "parts": {"locality": 1.0},
+                            }
+                        ],
+                        "rejects": [],
+                    }
+                ],
+            },
+        )
+        on_stage("segment", {"status": "started"})
+        on_stage(
+            "segment",
+            {"status": "finished", "segment_count": 1, "cross_edge_count": 0},
+        )
+        on_stage("nest", {"status": "started"})
+        on_stage("nest", {"status": "finished", "depth": 1})
+        on_stage("validate", {"status": "started"})
+        on_stage(
+            "validate",
+            {"status": "finished", "report": {"ok": True, "errors": []}},
+        )
+        on_stage("submit", {"status": "started", "mode": "composition"})
+        on_stage(
+            "submit",
+            {
+                "status": "finished",
+                "mode": "composition",
+                "process_id": "process-stream",
+                "submit_status": "SUBMITTED",
+            },
+        )
+        return final_plan, execution
+
+    monkeypatch.setattr(
+        cross_dag_service,
+        "_finalize_and_execute_pre_bind",
+        finish,
+    )
+    monkeypatch.setattr(
+        cross_dag_service,
+        "_summarize",
+        lambda value, detail=False: {"plan_id": value.plan_id},
+    )
+
+    events = _collect_events(
+        cross_dag_service.stream_bind_and_execute_cross_dag_pre_bind(
+            plan_id=pre_bind.plan_id,
+            user_id="user-1",
+        )
+    )
+
+    replica_events = [event for event in events if event["type"] == "replica"]
+    assert [event["status"] for event in replica_events] == [
+        "evaluating",
+        "selected",
+    ]
+    assert replica_events[0]["candidate_count"] == 2
+    assert replica_events[1]["chosen"] == {
+        "replica_id": "replica-a1",
+        "center_id": "center-a",
+    }
+    assert replica_events[1]["reason"] == "与偏好中心一致，可避免跨域传输"
+    assert replica_events[1]["summary"] == (
+        "选择副本 replica-a1，因为与偏好中心一致，可避免跨域传输。"
+    )
+    assert "selection_detail" not in replica_events[1]
+    submit_finished = next(
+        event
+        for event in events
+        if event.get("stage") == "submit" and event.get("status") == "finished"
+    )
+    assert "process-stream" in submit_finished["summary"]
+    assert events[-1] == {
+        "type": "done",
+        "result": {
+            "plan": {"plan_id": pre_bind.plan_id},
+            "execution": execution,
+        },
+    }
+
+
+def test_bind_execute_stream_reports_lookup_error_as_sse(monkeypatch):
+    monkeypatch.setattr(
+        cross_dag_service,
+        "_get_owned_pre_bind",
+        lambda **kwargs: (_ for _ in ()).throw(RuntimeError("plan expired")),
+    )
+
+    events = _collect_events(
+        cross_dag_service.stream_bind_and_execute_cross_dag_pre_bind(
+            plan_id="missing",
+            user_id="user-1",
+        )
+    )
+
+    assert events == [
+        {"type": "status", "stage": "started"},
+        {"type": "error", "message": "plan expired"},
+    ]

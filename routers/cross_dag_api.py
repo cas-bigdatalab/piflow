@@ -10,6 +10,11 @@ from fastapi.responses import FileResponse, StreamingResponse
 from starlette.background import BackgroundTask
 
 from runtime.cross_dag.schema import CrossDagError
+from schemas.xdc_session_schema import (
+    XdcSessionCreateRequest,
+    XdcSessionPreBindRequest,
+    XdcTaskBindExecuteRequest,
+)
 from security.auth_dependency import get_current_user
 from services.cross_dag_service import (
     CrossDagExecutionNotFound,
@@ -24,9 +29,24 @@ from services.cross_dag_service import (
     handoff_check_cross_dag_plan,
     list_cross_dag_context,
     prepare_cross_dag_result_download,
+    stream_bind_and_execute_cross_dag_pre_bind,
     stream_cross_dag_plan,
+    stream_cross_dag_pre_bind_plan,
 )
 from services.cross_dag_trace import trace_cross_dag_plan
+from services.xdc_session_service import (
+    XdcSessionConflict,
+    XdcSessionNotFound,
+    XdcTaskNotFound,
+    create_xdc_session,
+    delete_xdc_session,
+    get_xdc_session_detail,
+    get_xdc_task_detail,
+    get_xdc_task_execution_status,
+    list_xdc_sessions,
+    stream_xdc_session_pre_bind,
+    stream_xdc_task_bind_and_execute,
+)
 
 router = APIRouter()
 
@@ -80,6 +100,33 @@ async def create_cross_dag_pre_bind_plan_api(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.post("/xdc/plan/pre-bind/stream")
+async def stream_cross_dag_pre_bind_plan_api(
+    current_user=Depends(get_current_user),
+    user_request: str = Body(..., embed=True, description="用户自然语言任务"),
+    detail: bool = Body(False, embed=True, description="是否附带完整规划详情"),
+):
+    """SSE 推送意图识别到绑定前逻辑 DAG 的生成过程。"""
+
+    async def event_source():
+        try:
+            async for event in stream_cross_dag_pre_bind_plan(
+                user_request=user_request,
+                user_id=current_user["user_id"],
+                detail=detail,
+            ):
+                yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
+        except Exception as e:
+            payload = {"type": "error", "message": str(e)}
+            yield f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
+
+    return StreamingResponse(
+        event_source(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
 @router.post("/xdc/bind-and-execute")
 async def bind_and_execute_cross_dag_pre_bind_api(
     current_user=Depends(get_current_user),
@@ -100,6 +147,33 @@ async def bind_and_execute_cross_dag_pre_bind_api(
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/xdc/bind-and-execute/stream")
+async def stream_bind_and_execute_cross_dag_pre_bind_api(
+    current_user=Depends(get_current_user),
+    plan_id: str = Body(..., embed=True, description="预绑定规划 ID"),
+    detail: bool = Body(False, embed=True, description="是否附带完整规划详情"),
+):
+    """SSE 推送副本选择、跨域编译、校验和提交过程。"""
+
+    async def event_source():
+        try:
+            async for event in stream_bind_and_execute_cross_dag_pre_bind(
+                plan_id=plan_id,
+                user_id=current_user["user_id"],
+                detail=detail,
+            ):
+                yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
+        except Exception as e:
+            payload = {"type": "error", "message": str(e)}
+            yield f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
+
+    return StreamingResponse(
+        event_source(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 @router.post("/xdc/trace")
@@ -269,3 +343,181 @@ async def download_cross_dag_execution_result_api(
 
 def _remove_download_temp_file(path: Path) -> None:
     path.unlink(missing_ok=True)
+
+
+@router.post("/xdc/sessions")
+async def create_xdc_session_api(
+    request: XdcSessionCreateRequest,
+    current_user=Depends(get_current_user),
+):
+    """创建一个属于当前登录用户的智能取数会话。"""
+    try:
+        result = create_xdc_session(
+            user_id=current_user["user_id"],
+            title=request.title,
+        )
+        return {"message": "success", "result": result, "code": 200}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/xdc/sessions")
+async def list_xdc_sessions_api(
+    current_user=Depends(get_current_user),
+    page_num: int = Query(1, alias="pageNum", ge=1),
+    page_size: int = Query(20, alias="pageSize", ge=1, le=100),
+):
+    """分页返回当前用户的会话，供左侧“最近取数”渲染。"""
+    try:
+        result = list_xdc_sessions(
+            user_id=current_user["user_id"],
+            page_num=page_num,
+            page_size=page_size,
+        )
+        return {"message": "success", "result": result, "code": 200}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/xdc/sessions/{session_id}")
+async def get_xdc_session_detail_api(
+    session_id: str,
+    current_user=Depends(get_current_user),
+    after_item_id: int = Query(0, ge=0),
+    item_limit: int = Query(1000, ge=1, le=2000),
+):
+    """恢复一个会话的任务列表和结构化时间线。"""
+    try:
+        result = get_xdc_session_detail(
+            session_id=session_id,
+            user_id=current_user["user_id"],
+            after_item_id=after_item_id,
+            item_limit=item_limit,
+        )
+        return {"message": "success", "result": result, "code": 200}
+    except XdcSessionNotFound as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/xdc/sessions/{session_id}")
+async def delete_xdc_session_api(
+    session_id: str,
+    current_user=Depends(get_current_user),
+):
+    """软删除一个已无运行中任务的会话。"""
+    try:
+        result = delete_xdc_session(
+            session_id=session_id,
+            user_id=current_user["user_id"],
+        )
+        return {"message": "success", "result": result, "code": 200}
+    except XdcSessionNotFound as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except XdcSessionConflict as e:
+        raise HTTPException(status_code=409, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/xdc/tasks/{task_id}")
+async def get_xdc_task_detail_api(
+    task_id: str,
+    current_user=Depends(get_current_user),
+):
+    """查询单个任务、过程项和可供前端展示的快照。"""
+    try:
+        result = get_xdc_task_detail(
+            task_id=task_id,
+            user_id=current_user["user_id"],
+        )
+        return {"message": "success", "result": result, "code": 200}
+    except XdcTaskNotFound as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/xdc/sessions/{session_id}/tasks/plan/pre-bind/stream")
+async def stream_xdc_session_pre_bind_api(
+    session_id: str,
+    request: XdcSessionPreBindRequest,
+    current_user=Depends(get_current_user),
+):
+    """创建会话内任务，动态返回绑定前的规划过程。"""
+
+    async def event_source():
+        try:
+            async for event in stream_xdc_session_pre_bind(
+                session_id=session_id,
+                user_request=request.user_request,
+                user_id=current_user["user_id"],
+                detail=request.detail,
+                parent_task_id=request.parent_task_id,
+            ):
+                yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
+        except Exception as e:
+            payload = {"type": "error", "message": str(e)}
+            yield f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
+
+    return StreamingResponse(
+        event_source(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
+@router.post("/xdc/tasks/{task_id}/bind-and-execute/stream")
+async def stream_xdc_task_bind_and_execute_api(
+    task_id: str,
+    request: XdcTaskBindExecuteRequest,
+    current_user=Depends(get_current_user),
+):
+    """从数据库恢复预绑定计划，动态返回副本选择直至提交执行。"""
+
+    async def event_source():
+        try:
+            async for event in stream_xdc_task_bind_and_execute(
+                task_id=task_id,
+                user_id=current_user["user_id"],
+                detail=request.detail,
+            ):
+                yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
+        except Exception as e:
+            payload = {"type": "error", "message": str(e)}
+            yield f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
+
+    return StreamingResponse(
+        event_source(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
+@router.get("/xdc/tasks/{task_id}/execution/status")
+async def get_xdc_task_execution_status_api(
+    task_id: str,
+    current_user=Depends(get_current_user),
+    result_node_id: str = Query("", description="可选：指定结果节点 ID"),
+    result_output_name: str = Query("", description="可选：指定结果输出端口"),
+):
+    """按会话任务查询执行状态，并把状态和结果同步到会话时间线。"""
+    try:
+        result = get_xdc_task_execution_status(
+            task_id=task_id,
+            user_id=current_user["user_id"],
+            result_node_id=result_node_id,
+            result_output_name=result_output_name,
+        )
+        return {"message": "success", "result": result, "code": 200}
+    except XdcTaskNotFound as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except XdcSessionConflict as e:
+        raise HTTPException(status_code=409, detail=str(e))
+    except CrossDagExecutionNotFound as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"查询远端执行状态失败: {e}")
