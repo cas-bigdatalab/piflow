@@ -119,6 +119,28 @@ def init_dag_db():
         "CREATE INDEX IF NOT EXISTS idx_dag_task_execution_task_id ON dag_task_execution_history(dag_task_id)",
         "CREATE INDEX IF NOT EXISTS idx_dag_task_execution_status ON dag_task_execution_history(status)",
 
+        # Cross-domain root runs execute through a remote gRPC endpoint.  Keep
+        # the endpoint server-side so later HTTP status/download requests only
+        # need the public process_id returned by POST /xdc/execute.
+        """
+        CREATE TABLE IF NOT EXISTS cross_dag_execution (
+            id BIGSERIAL PRIMARY KEY,
+            process_id VARCHAR(128) NOT NULL,
+            plan_id VARCHAR(128) NOT NULL,
+            user_id VARCHAR(128) NOT NULL,
+            execution_center_id VARCHAR(128) NOT NULL,
+            remote_grpc_target TEXT NOT NULL,
+            submit_status VARCHAR(32) NOT NULL,
+            last_status VARCHAR(32) NOT NULL,
+            status_message TEXT NOT NULL DEFAULT '',
+            create_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )
+        """,
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_cross_dag_execution_process_id ON cross_dag_execution(process_id)",
+        "CREATE INDEX IF NOT EXISTS idx_cross_dag_execution_plan_id ON cross_dag_execution(plan_id)",
+        "CREATE INDEX IF NOT EXISTS idx_cross_dag_execution_user_id ON cross_dag_execution(user_id)",
+
         # dag_skills
         """
         CREATE TABLE IF NOT EXISTS dag_skills (

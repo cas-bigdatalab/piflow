@@ -3,19 +3,27 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query
-from fastapi.responses import StreamingResponse
+from fastapi.responses import FileResponse, StreamingResponse
+from starlette.background import BackgroundTask
 
 from runtime.cross_dag.schema import CrossDagError
 from security.auth_dependency import get_current_user
 from services.cross_dag_service import (
+    CrossDagExecutionNotFound,
+    CrossDagExecutionNotReady,
+    bind_and_execute_cross_dag_pre_bind,
     compile_cross_dag_plan,
     create_cross_dag_plan,
+    create_cross_dag_pre_bind_plan,
     execute_cross_dag_plan,
+    get_cross_dag_execution_status,
     get_cross_dag_plan,
     handoff_check_cross_dag_plan,
     list_cross_dag_context,
+    prepare_cross_dag_result_download,
     stream_cross_dag_plan,
 )
 from services.cross_dag_trace import trace_cross_dag_plan
@@ -46,6 +54,48 @@ async def create_cross_dag_plan_api(
             detail=detail,
         )
         return {"message": "success", "result": result, "code": 200}
+    except CrossDagError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/xdc/plan/pre-bind")
+async def create_cross_dag_pre_bind_plan_api(
+    current_user=Depends(get_current_user),
+    user_request: str = Body(..., embed=True, description="用户自然语言任务"),
+    detail: bool = Body(False, embed=True, description="是否附带完整规划详情"),
+):
+    """生成逻辑 DAG 和候选副本，停在副本绑定之前。"""
+    try:
+        result = create_cross_dag_pre_bind_plan(
+            user_request=user_request,
+            user_id=current_user["user_id"],
+            detail=detail,
+        )
+        return {"message": "success", "result": result, "code": 200}
+    except CrossDagError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/xdc/bind-and-execute")
+async def bind_and_execute_cross_dag_pre_bind_api(
+    current_user=Depends(get_current_user),
+    plan_id: str = Body(..., embed=True, description="预绑定规划 ID"),
+    detail: bool = Body(False, embed=True, description="是否附带完整规划详情"),
+):
+    """完成副本绑定、DAG 划分和嵌套校验，并立即提交执行。"""
+    try:
+        result = bind_and_execute_cross_dag_pre_bind(
+            plan_id=plan_id,
+            user_id=current_user["user_id"],
+            detail=detail,
+        )
+        return {"message": "success", "result": result, "code": 200}
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
     except CrossDagError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -159,3 +209,63 @@ async def execute_cross_dag_plan_api(
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/xdc/execution/{process_id}/status")
+async def get_cross_dag_execution_status_api(
+    process_id: str,
+    current_user=Depends(get_current_user),
+    result_node_id: str = Query("", description="可选：指定结果节点 ID"),
+    result_output_name: str = Query("", description="可选：指定结果输出端口"),
+):
+    """查询跨域根任务状态；前端可轮询，SUCCESS 后返回下载信息。"""
+    try:
+        result = get_cross_dag_execution_status(
+            process_id=process_id,
+            user_id=current_user["user_id"],
+            result_node_id=result_node_id,
+            result_output_name=result_output_name,
+        )
+        return {"message": "success", "result": result, "code": 200}
+    except CrossDagExecutionNotFound as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"查询远端执行状态失败: {e}")
+
+
+@router.get("/xdc/execution/{process_id}/download")
+async def download_cross_dag_execution_result_api(
+    process_id: str,
+    current_user=Depends(get_current_user),
+    result_node_id: str = Query("", description="可选：指定结果节点 ID"),
+    result_output_name: str = Query("", description="可选：指定结果输出端口"),
+):
+    """下载执行成功后的最终产物。响应体为文件二进制。"""
+    try:
+        result = prepare_cross_dag_result_download(
+            process_id=process_id,
+            user_id=current_user["user_id"],
+            result_node_id=result_node_id,
+            result_output_name=result_output_name,
+        )
+        return FileResponse(
+            path=result.path,
+            filename=result.file_name,
+            media_type=result.media_type,
+            headers={"Cache-Control": "no-store", "X-XDC-Process-ID": process_id},
+            background=BackgroundTask(_remove_download_temp_file, result.path),
+        )
+    except CrossDagExecutionNotFound as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+    except CrossDagExecutionNotReady as e:
+        raise HTTPException(status_code=409, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"下载远端执行结果失败: {e}")
+
+
+def _remove_download_temp_file(path: Path) -> None:
+    path.unlink(missing_ok=True)

@@ -6,7 +6,11 @@ from types import SimpleNamespace
 
 from runtime.cross_dag.config import CrossDcConfig, resolve_cross_dc_config
 from runtime.cross_dag.corpus_registry import _map_connector, _map_dataset
-from runtime.cross_dag.engine import plan_cross_dag
+from runtime.cross_dag.engine import (
+    finalize_cross_dag_pre_bind,
+    plan_cross_dag,
+    plan_cross_dag_pre_bind,
+)
 from runtime.cross_dag.executor import submit_cross_dag_plan
 from runtime.cross_dag.intent import build_dataset_catalog
 from runtime.cross_dag.registry_adapter import CallbackDatasourceRegistry
@@ -209,6 +213,110 @@ def test_dynamic_registry_builds_topology_and_compiles_nested_plan() -> None:
         not str(node.get("node_id", "")).startswith("remote-subdag-source-")
         for node in plan.execution_dsl["nodes"]
     )
+
+
+def test_pre_bind_phase_stops_before_replica_selection() -> None:
+    registry = _registry()
+    config = CrossDcConfig(
+        local_center_id="",
+        default_center_id="",
+        centers={},
+        sink_skills=frozenset({TAR_MERGE}),
+        available_statuses=frozenset({"AVAILABLE"}),
+    )
+    events: list[str] = []
+
+    pre_bind = plan_cross_dag_pre_bind(
+        "merge them",
+        registry=registry,
+        config=config,
+        intent=_intent(),
+        planning_json=_planning_json(),
+        skill_resolver=lambda name: name,
+        on_stage=lambda stage, payload: events.append(
+            f"{stage}:{payload.get('status', '')}"
+        ),
+    )
+
+    assert pre_bind.validation.ok, pre_bind.validation.errors
+    assert pre_bind.mode == "composition"
+    assert all(node.data_center == "" for node in pre_bind.logical_dag.nodes)
+    assert all(
+        not node.to_dsl().get("dataCenter") for node in pre_bind.logical_dag.nodes
+    )
+    assert (
+        pre_bind.logical_dag.node_map()["source-a"]
+        .input_param("dataset_id")
+        .param_value
+        == "dataset://dynamic-a"
+    )
+    assert events == [
+        "intent:started",
+        "intent:finished",
+        "satisfaction:started",
+        "satisfaction:finished",
+        "planning:started",
+        "planning:finished",
+        "expand:started",
+        "expand:finished",
+    ]
+
+
+def test_finalize_pre_bind_binds_and_preserves_preview_snapshot() -> None:
+    registry = _registry()
+    base = CrossDcConfig(
+        local_center_id="",
+        default_center_id="",
+        centers={},
+        sink_skills=frozenset({TAR_MERGE}),
+        available_statuses=frozenset({"AVAILABLE"}),
+    )
+    pre_bind = plan_cross_dag_pre_bind(
+        "merge them",
+        registry=registry,
+        config=base,
+        intent=_intent(),
+        planning_json=_planning_json(),
+        skill_resolver=lambda name: name,
+    )
+    events: list[str] = []
+
+    plan = finalize_cross_dag_pre_bind(
+        pre_bind,
+        registry=registry,
+        config=resolve_cross_dc_config(base, registry),
+        on_stage=lambda stage, payload: events.append(
+            f"{stage}:{payload.get('status', '')}"
+        ),
+    )
+
+    assert plan.validation.ok, plan.validation.errors
+    assert set(plan.bind_result.center_of.values()) == {
+        "alpha.internal",
+        "beta.internal",
+    }
+    assert {decision.dataset_id for decision in plan.bind_result.replica_decisions} == {
+        "dynamic-a",
+        "dynamic-b",
+    }
+    assert len(plan.segment_graph.segments) == 2
+    assert all(node.data_center == "" for node in pre_bind.logical_dag.nodes)
+    assert (
+        pre_bind.logical_dag.node_map()["source-a"]
+        .input_param("dataset_id")
+        .param_value
+        == "dataset://dynamic-a"
+    )
+    assert events == [
+        "bind:started",
+        "bind:finished",
+        "segment:started",
+        "segment:finished",
+        "nest:started",
+        "nest:finished",
+        "validate:started",
+        "validate:finished",
+    ]
 
 
 def test_registered_dataset_output_contract_overrides_planner_port() -> None:

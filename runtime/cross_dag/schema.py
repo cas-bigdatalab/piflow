@@ -669,6 +669,19 @@ class ValidationReport:
 
 
 @dataclass
+class CrossDagPreBindPlan:
+    """Planning result immediately before replica/center binding."""
+
+    plan_id: str
+    intent: IntentSpec
+    satisfaction: SatisfactionReport
+    logical_dag: LogicalDag
+    validation: ValidationReport
+    mode: str = MODE_COMPOSITION
+    planning_json: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
 class CrossDagPlan:
     """规划的完整产物，可直接落库或提交执行。"""
 

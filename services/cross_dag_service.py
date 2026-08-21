@@ -6,18 +6,47 @@ import json
 import logging
 import threading
 import uuid
+from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
+from urllib.parse import urlencode
 
+from infra.config_loader import resolve_workspace_root
 from runtime.cross_dag.config import get_cross_dc_config, resolve_cross_dc_config
-from runtime.cross_dag.engine import plan_cross_dag
+from runtime.cross_dag.engine import (
+    finalize_cross_dag_pre_bind,
+    plan_cross_dag,
+    plan_cross_dag_pre_bind,
+)
 from runtime.cross_dag.registry_stub import get_registry, refresh_registry
-from runtime.cross_dag.schema import CrossDagError, CrossDagPlan
+from runtime.cross_dag.schema import (
+    MODE_UNAVAILABLE,
+    CrossDagError,
+    CrossDagPlan,
+    CrossDagPreBindPlan,
+)
 
 log = logging.getLogger("flow.cross_dag.service")
 
 _PLAN_CACHE: dict[str, CrossDagPlan] = {}
+_PRE_BIND_CACHE: dict[str, tuple[str, CrossDagPreBindPlan]] = {}
 _CACHE_LOCK = threading.Lock()
 _CACHE_LIMIT = 100
+
+
+class CrossDagExecutionNotFound(LookupError):
+    """The process id has no registered cross-domain execution."""
+
+
+class CrossDagExecutionNotReady(RuntimeError):
+    """The requested result is not downloadable yet."""
+
+
+@dataclass(frozen=True)
+class CrossDagResultDownload:
+    path: Path
+    file_name: str
+    media_type: str
 
 
 def create_cross_dag_plan(
@@ -34,6 +63,51 @@ def create_cross_dag_plan(
         plan.validation.ok,
     )
     return _summarize(plan, detail=detail)
+
+
+def create_cross_dag_pre_bind_plan(
+    *,
+    user_request: str,
+    user_id: str,
+    detail: bool = False,
+) -> dict[str, Any]:
+    """Plan through logical DAG expansion without selecting any replica."""
+    pre_bind = plan_cross_dag_pre_bind(user_request)
+    _remember_pre_bind(pre_bind, user_id=user_id)
+    log.info(
+        "cross dag pre-bind planned plan_id=%s user_id=%s mode=%s nodes=%s valid=%s",
+        pre_bind.plan_id,
+        user_id,
+        pre_bind.mode,
+        len(pre_bind.logical_dag.nodes),
+        pre_bind.validation.ok,
+    )
+    return _summarize_pre_bind(pre_bind, detail=detail)
+
+
+def bind_and_execute_cross_dag_pre_bind(
+    *,
+    plan_id: str,
+    user_id: str,
+    detail: bool = False,
+) -> dict[str, Any]:
+    """Bind through validation and immediately submit the resulting plan."""
+    pre_bind = _get_owned_pre_bind(plan_id=plan_id, user_id=user_id)
+    if pre_bind.mode == MODE_UNAVAILABLE:
+        raise CrossDagError("该预规划没有可用数据，不能进行副本绑定和提交执行")
+    if not pre_bind.validation.ok:
+        raise CrossDagError(
+            "预绑定规划未通过校验，拒绝继续:\n"
+            + "\n".join(pre_bind.validation.errors)
+        )
+
+    plan = finalize_cross_dag_pre_bind(pre_bind)
+    _remember(plan)
+    execution = execute_cross_dag_plan(plan_id=plan.plan_id, user_id=user_id)
+    return {
+        "plan": _summarize(plan, detail=detail),
+        "execution": execution,
+    }
 
 
 def compile_cross_dag_plan(
@@ -345,6 +419,17 @@ def execute_cross_dag_plan(*, plan_id: str, user_id: str) -> dict[str, Any]:
 
     result = submit_cross_dag_plan(plan)
 
+    from runtime.cross_dag.run_store import save_cross_dag_execution
+
+    save_cross_dag_execution(
+        process_id=result.process_id,
+        plan_id=plan.plan_id,
+        user_id=user_id,
+        execution_center_id=result.execution_node_id,
+        remote_grpc_target=result.remote_grpc_target,
+        submit_status=result.status,
+    )
+
     log.info(
         "cross dag submitted plan_id=%s center_id=%s process_id=%s",
         plan.plan_id,
@@ -357,8 +442,175 @@ def execute_cross_dag_plan(*, plan_id: str, user_id: str) -> dict[str, Any]:
         "execution_center_id": result.execution_node_id,
         "process_id": result.process_id,
         "status": result.status,
+        "status_url": f"/api/piflow/v1/xdc/execution/{result.process_id}/status",
+        "download_url": f"/api/piflow/v1/xdc/execution/{result.process_id}/download",
         "warnings": list(plan.validation.warnings),
     }
+
+
+def get_cross_dag_execution_status(
+    *,
+    process_id: str,
+    user_id: str,
+    result_node_id: str = "",
+    result_output_name: str = "",
+) -> dict[str, Any]:
+    """Query the root execution service and expose a frontend-safe status."""
+    record = _require_cross_dag_execution(process_id=process_id, user_id=user_id)
+
+    from piflow_engine.cn.piflow.remote.client import RemoteExecutionClient
+    from runtime.cross_dag.run_store import update_cross_dag_execution_status
+
+    client = RemoteExecutionClient(str(record["remote_grpc_target"]))
+    try:
+        response = client.get_run_status(process_id)
+        status = str(response.status or "").strip().upper()
+        message = str(response.message or "")
+        update_cross_dag_execution_status(
+            process_id,
+            status=status,
+            message=message,
+        )
+
+        result_file = None
+        result_error = ""
+        if status == "SUCCESS":
+            try:
+                meta = client.get_run_result_meta(
+                    run_id=process_id,
+                    result_node_id=result_node_id,
+                    result_output_name=result_output_name,
+                )
+                result_file = {
+                    "file_name": str(meta.file_name or ""),
+                    "file_size": int(meta.file_size or 0),
+                    "mime_type": str(meta.mime_type or "application/octet-stream"),
+                    "download_url": _cross_dag_download_url(
+                        process_id,
+                        result_node_id=result_node_id,
+                        result_output_name=result_output_name,
+                    ),
+                }
+            except Exception as exc:
+                # The run has succeeded even if its selected output is absent.
+                # Keep status polling usable and report the result issue
+                # separately instead of turning the whole request into 500.
+                result_error = str(exc)
+    finally:
+        client.close()
+
+    terminal = status in {"SUCCESS", "FAILED", "CANCELLED"}
+    return {
+        "plan_id": str(record["plan_id"]),
+        "process_id": process_id,
+        "execution_center_id": str(record["execution_center_id"]),
+        "status": status,
+        "message": message,
+        "terminal": terminal,
+        "downloadable": result_file is not None,
+        "result_file": result_file,
+        "result_error": result_error,
+    }
+
+
+def prepare_cross_dag_result_download(
+    *,
+    process_id: str,
+    user_id: str,
+    result_node_id: str = "",
+    result_output_name: str = "",
+) -> CrossDagResultDownload:
+    """Download one remote result to an API-owned temporary file."""
+    record = _require_cross_dag_execution(process_id=process_id, user_id=user_id)
+
+    from piflow_engine.cn.piflow.remote.client import RemoteExecutionClient
+    from runtime.cross_dag.run_store import update_cross_dag_execution_status
+
+    client = RemoteExecutionClient(str(record["remote_grpc_target"]))
+    target: Path | None = None
+    try:
+        response = client.get_run_status(process_id)
+        status = str(response.status or "").strip().upper()
+        message = str(response.message or "")
+        update_cross_dag_execution_status(
+            process_id,
+            status=status,
+            message=message,
+        )
+        if status != "SUCCESS":
+            raise CrossDagExecutionNotReady(
+                f"任务尚不可下载: process_id={process_id}, status={status or 'UNKNOWN'}"
+            )
+
+        meta = client.get_run_result_meta(
+            run_id=process_id,
+            result_node_id=result_node_id,
+            result_output_name=result_output_name,
+        )
+        file_name = Path(str(meta.file_name or "result.bin")).name or "result.bin"
+        download_dir = (resolve_workspace_root() / "temp" / "xdc_downloads").resolve()
+        download_dir.mkdir(parents=True, exist_ok=True)
+        target = (download_dir / f"{uuid.uuid4().hex}_{file_name}").resolve()
+        target.relative_to(download_dir)
+
+        client.download_result(
+            run_id=process_id,
+            result_node_id=result_node_id,
+            result_output_name=result_output_name,
+            target_path=target,
+        )
+        if not target.is_file():
+            raise FileNotFoundError(f"下载结果文件未生成: {file_name}")
+        expected_size = int(meta.file_size or 0)
+        if expected_size and target.stat().st_size != expected_size:
+            raise IOError(
+                f"下载结果大小不一致: expected={expected_size}, actual={target.stat().st_size}"
+            )
+        return CrossDagResultDownload(
+            path=target,
+            file_name=file_name,
+            media_type=str(meta.mime_type or "application/octet-stream"),
+        )
+    except Exception:
+        if target is not None:
+            target.unlink(missing_ok=True)
+        raise
+    finally:
+        client.close()
+
+
+def _require_cross_dag_execution(*, process_id: str, user_id: str) -> dict[str, Any]:
+    from runtime.cross_dag.run_store import get_cross_dag_execution
+
+    normalized_process_id = str(process_id or "").strip()
+    if not normalized_process_id:
+        raise CrossDagExecutionNotFound("process_id 不能为空")
+    record = get_cross_dag_execution(normalized_process_id)
+    if record is None:
+        raise CrossDagExecutionNotFound(
+            f"跨域执行记录不存在: {normalized_process_id}"
+        )
+    if str(record.get("user_id") or "") != str(user_id or ""):
+        raise PermissionError("无权访问该跨域执行记录")
+    return record
+
+
+def _cross_dag_download_url(
+    process_id: str,
+    *,
+    result_node_id: str = "",
+    result_output_name: str = "",
+) -> str:
+    base = f"/api/piflow/v1/xdc/execution/{process_id}/download"
+    query = {
+        key: value
+        for key, value in {
+            "result_node_id": result_node_id,
+            "result_output_name": result_output_name,
+        }.items()
+        if value
+    }
+    return f"{base}?{urlencode(query)}" if query else base
 
 
 async def stream_cross_dag_plan(
@@ -408,9 +660,116 @@ def _summarize(plan: CrossDagPlan, *, detail: bool = False) -> dict[str, Any]:
     return build_plan_view(plan, detail=detail, config=config)
 
 
+def _summarize_pre_bind(
+    pre_bind: CrossDagPreBindPlan,
+    *,
+    detail: bool = False,
+) -> dict[str, Any]:
+    """Frontend view before replica selection; never expose a chosen replica."""
+    config = resolve_cross_dc_config(get_cross_dc_config(), get_registry())
+
+    def center_name(center_id: str) -> str:
+        center = config.centers.get(center_id)
+        return center.center_name if center else center_id
+
+    datasets = []
+    for dataset in pre_bind.intent.datasets:
+        datasets.append(
+            {
+                "dataset_id": dataset.dataset_id,
+                "name": dataset.name,
+                "facets": {key: list(values) for key, values in dataset.facets.items()},
+                "replicas": [
+                    {
+                        "replica_id": replica.replica_id,
+                        "center_id": replica.center_id,
+                        "center_name": center_name(replica.center_id),
+                        "status": replica.status,
+                        "metrics": dict(replica.metrics),
+                    }
+                    for replica in dataset.replicas
+                ],
+            }
+        )
+
+    logical = pre_bind.logical_dag
+    view: dict[str, Any] = {
+        "plan_id": pre_bind.plan_id,
+        "stage": "pre_bind",
+        "binding_status": "PENDING",
+        "mode": pre_bind.mode,
+        "conclusion": pre_bind.satisfaction.reason,
+        "can_continue": (
+            pre_bind.mode != MODE_UNAVAILABLE and pre_bind.validation.ok
+        ),
+        "validation": pre_bind.validation.to_json(),
+        "requirement": {
+            "goal": pre_bind.intent.goal,
+            "user_request": pre_bind.intent.user_request,
+            "operations": list(pre_bind.intent.operations),
+            "assumptions": list(pre_bind.intent.assumptions),
+            "unresolved": list(pre_bind.intent.unresolved),
+        },
+        "datasets": datasets,
+        "logical_dag": {
+            "task_name": logical.task_name,
+            "description": logical.description,
+            "nodes": [
+                {
+                    "id": node.node_id,
+                    "name": node.node_name,
+                    "skill_name": node.skill_name or node.skill_id,
+                }
+                for node in logical.nodes
+            ],
+            "edges": [
+                {
+                    "from": binding.from_node_id,
+                    "from_param": binding.from_param_name,
+                    "to": binding.to_node_id,
+                    "to_param": binding.to_param_name,
+                }
+                for binding in logical.bindings
+            ],
+        },
+        "next_action": {
+            "method": "POST",
+            "url": "/api/piflow/v1/xdc/bind-and-execute",
+            "body": {"plan_id": pre_bind.plan_id},
+        },
+    }
+    if detail:
+        view["detail"] = {
+            "intent": pre_bind.intent.to_json(),
+            "satisfaction": pre_bind.satisfaction.to_json(),
+            "planning_json": pre_bind.planning_json,
+            "logical_dag": pre_bind.logical_dag.to_json(),
+        }
+    return view
+
+
 def _remember(plan: CrossDagPlan) -> None:
     with _CACHE_LOCK:
         if len(_PLAN_CACHE) >= _CACHE_LIMIT:
             for stale in list(_PLAN_CACHE)[: _CACHE_LIMIT // 2]:
                 _PLAN_CACHE.pop(stale, None)
         _PLAN_CACHE[plan.plan_id] = plan
+
+
+def _remember_pre_bind(pre_bind: CrossDagPreBindPlan, *, user_id: str) -> None:
+    with _CACHE_LOCK:
+        if len(_PRE_BIND_CACHE) >= _CACHE_LIMIT:
+            for stale in list(_PRE_BIND_CACHE)[: _CACHE_LIMIT // 2]:
+                _PRE_BIND_CACHE.pop(stale, None)
+        _PRE_BIND_CACHE[pre_bind.plan_id] = (str(user_id or ""), pre_bind)
+
+
+def _get_owned_pre_bind(*, plan_id: str, user_id: str) -> CrossDagPreBindPlan:
+    with _CACHE_LOCK:
+        stored = _PRE_BIND_CACHE.get(plan_id)
+    if stored is None:
+        raise CrossDagError(f"预绑定计划不存在或已过期: {plan_id}")
+    owner_id, pre_bind = stored
+    if owner_id != str(user_id or ""):
+        raise PermissionError("无权访问该预绑定计划")
+    return pre_bind

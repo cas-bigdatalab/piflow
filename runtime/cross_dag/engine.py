@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import logging
 import uuid
 from typing import Any, AsyncIterator, Callable
@@ -25,6 +26,7 @@ from .schema import (
     BindResult,
     CrossDagError,
     CrossDagPlan,
+    CrossDagPreBindPlan,
     DirectAccess,
     IntentDataset,
     IntentSpec,
@@ -72,18 +74,82 @@ def plan_cross_dag(
     )
     emit = on_stage or (lambda stage, payload: None)
 
+    pre_bind = _plan_cross_dag_pre_bind(
+        user_request,
+        plan_id=resolved_plan_id,
+        llm=llm,
+        registry=resolved_registry,
+        config=resolved_config,
+        skill_resolver=skill_resolver,
+        on_stage=emit,
+        intent=intent,
+        planning_json=planning_json,
+    )
+    return finalize_cross_dag_pre_bind(
+        pre_bind,
+        registry=resolved_registry,
+        config=resolved_config,
+        on_stage=emit,
+    )
+
+
+def plan_cross_dag_pre_bind(
+    user_request: str,
+    *,
+    plan_id: str | None = None,
+    llm: Any = None,
+    registry: DatasourceRegistry | None = None,
+    config: CrossDcConfig | None = None,
+    skill_resolver: Callable[[str], str] | None = None,
+    on_stage: StageHook | None = None,
+    intent: IntentSpec | None = None,
+    planning_json: dict[str, Any] | None = None,
+) -> CrossDagPreBindPlan:
+    """Run intent, satisfaction, planning and expansion, stopping before bind."""
+    resolved_plan_id = plan_id or f"xdc-{uuid.uuid4().hex[:12]}"
+    resolved_registry = refresh_registry(registry or get_registry())
+    resolved_config = resolve_cross_dc_config(
+        config or get_cross_dc_config(), resolved_registry
+    )
+    return _plan_cross_dag_pre_bind(
+        user_request,
+        plan_id=resolved_plan_id,
+        llm=llm,
+        registry=resolved_registry,
+        config=resolved_config,
+        skill_resolver=skill_resolver,
+        on_stage=on_stage,
+        intent=intent,
+        planning_json=planning_json,
+    )
+
+
+def _plan_cross_dag_pre_bind(
+    user_request: str,
+    *,
+    plan_id: str,
+    llm: Any,
+    registry: DatasourceRegistry,
+    config: CrossDcConfig,
+    skill_resolver: Callable[[str], str] | None,
+    on_stage: StageHook | None,
+    intent: IntentSpec | None,
+    planning_json: dict[str, Any] | None,
+) -> CrossDagPreBindPlan:
+    emit = on_stage or (lambda stage, payload: None)
+
     emit("intent", {"status": "started"})
     resolved_intent = intent or recognize_intent(
         user_request,
         llm=llm,
-        registry=resolved_registry,
-        config=resolved_config,
+        registry=registry,
+        config=config,
     )
     emit("intent", {"status": "finished", "intent": resolved_intent.to_json()})
 
     emit("satisfaction", {"status": "started"})
     satisfaction = analyze_satisfaction(
-        resolved_intent, config=resolved_config, registry=resolved_registry
+        resolved_intent, config=config, registry=registry
     )
     emit(
         "satisfaction",
@@ -95,29 +161,41 @@ def plan_cross_dag(
         },
     )
 
-    # 平台里根本没有相关数据时，这是一个正常结论，不是错误：直接给结果，
-    # 不要再花一次 LLM 去规划一个注定失败的 DAG。
+    pre_validation = ValidationReport()
+    for note in satisfaction.notes:
+        pre_validation.warn(note)
+
     if satisfaction.mode == MODE_UNAVAILABLE and planning_json is None:
-        return build_unavailable_plan(
-            resolved_intent, satisfaction, plan_id=resolved_plan_id, on_stage=emit
+        return CrossDagPreBindPlan(
+            plan_id=plan_id,
+            intent=resolved_intent,
+            satisfaction=satisfaction,
+            logical_dag=LogicalDag(
+                task_name=resolved_intent.goal or "无可用数据",
+                task_id=plan_id,
+            ),
+            validation=pre_validation,
+            mode=MODE_UNAVAILABLE,
         )
 
-    # 有数据集能独立满足全部需求、且不需要任何加工时，不生成 DAG，直接给访问路由。
     if satisfaction.mode == MODE_DIRECT and planning_json is None:
-        return build_direct_plan(
-            resolved_intent,
-            satisfaction,
-            plan_id=resolved_plan_id,
-            config=resolved_config,
-            registry=resolved_registry,
-            on_stage=emit,
+        return CrossDagPreBindPlan(
+            plan_id=plan_id,
+            intent=resolved_intent,
+            satisfaction=satisfaction,
+            logical_dag=LogicalDag(
+                task_name=resolved_intent.goal or "直接获取",
+                task_id=plan_id,
+            ),
+            validation=pre_validation,
+            mode=MODE_DIRECT,
         )
 
     emit("planning", {"status": "started"})
     resolved_planning = planning_json or plan_global_dag(
         resolved_intent,
         llm=llm,
-        config=resolved_config,
+        config=config,
     )
     emit("planning", {"status": "finished", "planning_json": resolved_planning})
 
@@ -126,7 +204,7 @@ def plan_cross_dag(
         resolved_planning,
         skill_resolver=skill_resolver or database_skill_resolver(),
         param_resolver=database_param_resolver(),
-        task_id=resolved_plan_id,
+        task_id=plan_id,
     )
     contract_warnings = normalize_dataset_source_contracts(
         logical_dag,
@@ -134,14 +212,17 @@ def plan_cross_dag(
     )
     logical_report = validate_logical_dag(
         logical_dag,
-        sink_skills=resolved_config.sink_skills,
-        placeholder_skills=resolved_config.placeholder_skills,
+        sink_skills=config.sink_skills,
+        placeholder_skills=config.placeholder_skills,
     )
     for warning in contract_warnings:
         logical_report.warn(warning)
     if not logical_report.ok:
         raise CrossDagError("逻辑 DAG 校验失败:\n" + "\n".join(logical_report.errors))
     logical_report.merge(validate_intent_coverage(resolved_intent, logical_dag))
+    for warning in pre_validation.warnings:
+        if warning not in logical_report.warnings:
+            logical_report.warn(warning)
     emit(
         "expand",
         {
@@ -155,18 +236,64 @@ def plan_cross_dag(
         },
     )
 
+    return CrossDagPreBindPlan(
+        plan_id=plan_id,
+        intent=resolved_intent,
+        satisfaction=satisfaction,
+        logical_dag=logical_dag,
+        validation=logical_report,
+        mode=MODE_COMPOSITION,
+        planning_json=resolved_planning,
+    )
+
+
+def finalize_cross_dag_pre_bind(
+    pre_bind: CrossDagPreBindPlan,
+    *,
+    registry: DatasourceRegistry | None = None,
+    config: CrossDcConfig | None = None,
+    on_stage: StageHook | None = None,
+) -> CrossDagPlan:
+    """Bind, segment, nest and validate a previously expanded logical DAG."""
+    emit = on_stage or (lambda stage, payload: None)
+    if config is None:
+        resolved_registry = refresh_registry(registry or get_registry())
+        resolved_config = resolve_cross_dc_config(
+            get_cross_dc_config(), resolved_registry
+        )
+    else:
+        resolved_registry = registry or get_registry()
+        resolved_config = config
+
+    if pre_bind.mode == MODE_UNAVAILABLE:
+        return build_unavailable_plan(
+            pre_bind.intent,
+            pre_bind.satisfaction,
+            plan_id=pre_bind.plan_id,
+            on_stage=emit,
+        )
+
+    if pre_bind.mode == MODE_DIRECT:
+        return build_direct_plan(
+            pre_bind.intent,
+            pre_bind.satisfaction,
+            plan_id=pre_bind.plan_id,
+            config=resolved_config,
+            registry=resolved_registry,
+            on_stage=emit,
+        )
+
+    logical_dag = copy.deepcopy(pre_bind.logical_dag)
     plan = compile_cross_dag(
         logical_dag,
-        intent=resolved_intent,
-        plan_id=resolved_plan_id,
+        intent=copy.deepcopy(pre_bind.intent),
+        plan_id=pre_bind.plan_id,
         config=resolved_config,
         on_stage=emit,
     )
-    plan.validation.merge(logical_report)
-    plan.satisfaction = satisfaction
-    # 满足分析的提醒（元数据没声明、需求取值全目录都找不到）统一走校验告警，
-    # 和另外两条分支一致 —— 提示语只在一个地方出现，前端也只需要读一处。
-    for note in satisfaction.notes:
+    plan.validation.merge(pre_bind.validation)
+    plan.satisfaction = copy.deepcopy(pre_bind.satisfaction)
+    for note in pre_bind.satisfaction.notes:
         if note not in plan.validation.warnings:
             plan.validation.warn(note)
     return plan

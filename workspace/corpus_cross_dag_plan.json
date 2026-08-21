@@ -1,6 +1,6 @@
 {
   "plan": {
-    "plan_id": "xdc-ec46ee40cd8b",
+    "plan_id": "xdc-30ac66882dcf",
     "mode": "composition",
     "satisfaction": {
       "mode": "composition",
@@ -19,48 +19,90 @@
     },
     "direct_access": null,
     "execution": {
-      "center_id": "10.0.82.213",
-      "grpc_endpoint": "10.0.82.213:50061"
+      "center_id": "10.0.90.174",
+      "grpc_endpoint": "10.0.90.174:50061",
+      "center_endpoints": {
+        "10.0.82.213": "10.0.82.213:50061",
+        "10.0.90.174": "10.0.90.174:50061",
+        "10.0.90.94": "10.0.90.94:50061"
+      }
     },
     "intent": {
       "goal": "选择三份相关语料并合并为 result.tar",
       "user_request": "选择三份相关语料并合并为result.tar",
       "datasets": [
         {
-          "alias": "mars_geo",
-          "dataset_id": "6a2f700ca3472727522d5376",
+          "alias": "corpus1",
+          "dataset_id": "6a744595d38ea034d388c7b4",
           "source_id": "10.0.82.213",
           "center_id": "10.0.82.213",
-          "locator": "6a2f700ca3472727522d5376",
-          "name": "火星地质地图语料",
+          "locator": "6a744595d38ea034d388c7b4",
+          "name": "1900年以来中国地震目录语料（融合早期历史地震和速报目录）",
           "replicas": [
             {
-              "replica_id": "SA-CORPUS-B035",
+              "replica_id": "ES-CORPUS-B138",
               "source_id": "10.0.82.213",
               "center_id": "10.0.82.213",
-              "locator": "6a2f700ca3472727522d5376",
+              "locator": "6a744595d38ea034d388c7b4",
               "status": "AVAILABLE",
               "metrics": {
                 "cpu_cores": 8.0,
-                "memory_gb": 5.382045745849609,
-                "free_disk_gb": 178.90398025512695
+                "memory_gb": 0.2855224609375,
+                "free_disk_gb": 145.18483352661133
               }
             }
           ],
           "facets": {
             "field": [
-              "天文空间"
+              "地球科学"
             ],
             "corpusType": [
               "基础语料"
             ],
             "language": [
-              "中文",
-              "英文"
+              "中文"
             ],
             "rawFormat": [
-              "JPG",
-              "PNG",
+              "TXT"
+            ]
+          },
+          "source_skill": "piflow_engine.cn.piflow.engine.local.corpus_dataset_source_stop.CorpusDatasetSourceStop",
+          "source_param": "dataset_id",
+          "source_output_param": "output"
+        },
+        {
+          "alias": "corpus2",
+          "dataset_id": "6a6ab4da15840cf004056867",
+          "source_id": "10.0.90.174",
+          "center_id": "10.0.90.174",
+          "locator": "6a6ab4da15840cf004056867",
+          "name": "中国国土资源知识语料库",
+          "replicas": [
+            {
+              "replica_id": "ES-CORPUS-K024",
+              "source_id": "10.0.90.174",
+              "center_id": "10.0.90.174",
+              "locator": "6a6ab4da15840cf004056867",
+              "status": "AVAILABLE",
+              "metrics": {
+                "cpu_cores": 4.0,
+                "memory_gb": 1.1704635620117188,
+                "free_disk_gb": 184.67254638671875
+              }
+            }
+          ],
+          "facets": {
+            "field": [
+              "地球科学"
+            ],
+            "corpusType": [
+              "知识语料"
+            ],
+            "language": [
+              "中文"
+            ],
+            "rawFormat": [
+              "TXT",
               "JSON"
             ]
           },
@@ -69,82 +111,38 @@
           "source_output_param": "output"
         },
         {
-          "alias": "venus_geo",
-          "dataset_id": "6a2f7008a3472727522d5375",
-          "source_id": "10.0.82.213",
-          "center_id": "10.0.82.213",
-          "locator": "6a2f7008a3472727522d5375",
-          "name": "金星地质地图语料",
+          "alias": "corpus3",
+          "dataset_id": "6a6ab4da15840cf004056866",
+          "source_id": "10.0.90.174",
+          "center_id": "10.0.90.174",
+          "locator": "6a6ab4da15840cf004056866",
+          "name": "额济纳三角洲景观类型数据语料",
           "replicas": [
             {
-              "replica_id": "SA-CORPUS-B031",
-              "source_id": "10.0.82.213",
-              "center_id": "10.0.82.213",
-              "locator": "6a2f7008a3472727522d5375",
+              "replica_id": "ES-CORPUS-F018",
+              "source_id": "10.0.90.174",
+              "center_id": "10.0.90.174",
+              "locator": "6a6ab4da15840cf004056866",
               "status": "AVAILABLE",
               "metrics": {
-                "cpu_cores": 8.0,
-                "memory_gb": 5.382045745849609,
-                "free_disk_gb": 178.90398025512695
+                "cpu_cores": 4.0,
+                "memory_gb": 1.1704635620117188,
+                "free_disk_gb": 184.67254638671875
               }
             }
           ],
           "facets": {
             "field": [
-              "天文空间"
+              "地球科学"
             ],
             "corpusType": [
-              "基础语料"
+              "特征语料"
             ],
             "language": [
-              "中文",
-              "英文"
+              "中文"
             ],
             "rawFormat": [
-              "JPG",
-              "PNG",
-              "JSON"
-            ]
-          },
-          "source_skill": "piflow_engine.cn.piflow.engine.local.corpus_dataset_source_stop.CorpusDatasetSourceStop",
-          "source_param": "dataset_id",
-          "source_output_param": "output"
-        },
-        {
-          "alias": "mercury_geo",
-          "dataset_id": "6a2f7004a3472727522d5374",
-          "source_id": "10.0.82.213",
-          "center_id": "10.0.82.213",
-          "locator": "6a2f7004a3472727522d5374",
-          "name": "水星地质地图语料",
-          "replicas": [
-            {
-              "replica_id": "SA-CORPUS-B029",
-              "source_id": "10.0.82.213",
-              "center_id": "10.0.82.213",
-              "locator": "6a2f7004a3472727522d5374",
-              "status": "AVAILABLE",
-              "metrics": {
-                "cpu_cores": 8.0,
-                "memory_gb": 5.382045745849609,
-                "free_disk_gb": 178.90398025512695
-              }
-            }
-          ],
-          "facets": {
-            "field": [
-              "天文空间"
-            ],
-            "corpusType": [
-              "基础语料"
-            ],
-            "language": [
-              "中文",
-              "英文"
-            ],
-            "rawFormat": [
-              "JPG",
-              "PNG",
+              "TIF",
               "JSON"
             ]
           },
@@ -157,7 +155,7 @@
         {
           "op": "格式转换",
           "target": "all",
-          "detail": "将选中的三份行星地质地图语料打包合并为 tar 格式文件"
+          "detail": "将选中的三份语料打包合并为 tar 格式"
         }
       ],
       "location_hints": [],
@@ -166,50 +164,50 @@
         "name": "result.tar"
       },
       "assumptions": [
-        "用户未指定具体的‘相关’标准，假设选择同属‘天文空间’领域且均为‘行星地质地图’类型的三个数据集（火星、金星、水星）作为最相关的组合。",
-        "用户未指定执行节点，假设系统可自动调度或默认在任意可用节点执行。",
-        "假设‘合并’操作在此场景下指将多个数据集文件打包成一个压缩归档文件。"
+        "用户未指定具体哪三份语料，假设选择前三份地球科学领域的语料（地震目录、国土资源知识、额济纳三角洲景观）作为相关语料。",
+        "用户未指定执行位置，假设可在任意可用节点执行。",
+        "假设系统支持将多个数据集打包为 tar 格式的操作。"
       ],
       "unresolved": [],
       "requirements": []
     },
     "binding": {
       "center_of": {
-        "read-mars-geo": "10.0.82.213",
-        "read-mercury-geo": "10.0.82.213",
-        "read-venus-geo": "10.0.82.213",
-        "merge-to-tar": "10.0.82.213",
-        "save-result": "10.0.82.213"
+        "read-corpus1": "10.0.82.213",
+        "read-corpus2": "10.0.90.174",
+        "read-corpus3": "10.0.90.174",
+        "merge-tar": "10.0.90.174",
+        "save-result": "10.0.90.174"
       },
       "reasons": {
-        "read-mars-geo": "数据源节点，副本挑选 -> SA-CORPUS-B035（1 个副本中选中 SA-CORPUS-B035（数据源 10.0.82.213）；总分 1.000；与偏好数据源 10.0.82.213 一致，免跨源传输；优势项：locality=1.00、cpu_cores=1.00）",
-        "read-mercury-geo": "数据源节点，副本挑选 -> SA-CORPUS-B029（1 个副本中选中 SA-CORPUS-B029（数据源 10.0.82.213）；总分 1.000；与偏好数据源 10.0.82.213 一致，免跨源传输；优势项：locality=1.00、cpu_cores=1.00）",
-        "read-venus-geo": "数据源节点，副本挑选 -> SA-CORPUS-B031（1 个副本中选中 SA-CORPUS-B031（数据源 10.0.82.213）；总分 1.000；与偏好数据源 10.0.82.213 一致，免跨源传输；优势项：locality=1.00、cpu_cores=1.00）",
-        "merge-to-tar": "继承上游中心（数据就近）",
+        "read-corpus1": "数据源节点，副本挑选 -> ES-CORPUS-B138（1 个副本中选中 ES-CORPUS-B138（数据源 10.0.82.213）；总分 1.000；与偏好数据源 10.0.82.213 一致，免跨源传输；优势项：locality=1.00、cpu_cores=1.00）",
+        "read-corpus2": "数据源节点，副本挑选 -> ES-CORPUS-K024（1 个副本中选中 ES-CORPUS-K024（数据源 10.0.90.174）；总分 0.400；需从 10.0.90.174 跨源取数（偏好 10.0.82.213）；优势项：cpu_cores=1.00、memory_gb=1.00）",
+        "read-corpus3": "数据源节点，副本挑选 -> ES-CORPUS-F018（1 个副本中选中 ES-CORPUS-F018（数据源 10.0.90.174）；总分 0.400；需从 10.0.90.174 跨源取数（偏好 10.0.82.213）；优势项：cpu_cores=1.00、memory_gb=1.00）",
+        "merge-tar": "继承上游中心（数据就近）",
         "save-result": "继承上游中心（数据就近）"
       },
       "replica_decisions": [
         {
-          "dataset_alias": "mars_geo",
-          "dataset_id": "6a2f700ca3472727522d5376",
-          "node_id": "read-mars-geo",
+          "dataset_alias": "corpus1",
+          "dataset_id": "6a744595d38ea034d388c7b4",
+          "node_id": "read-corpus1",
           "preferred_center_id": "10.0.82.213",
           "chosen": {
-            "replica_id": "SA-CORPUS-B035",
+            "replica_id": "ES-CORPUS-B138",
             "source_id": "10.0.82.213",
             "center_id": "10.0.82.213",
-            "locator": "6a2f700ca3472727522d5376",
+            "locator": "6a744595d38ea034d388c7b4",
             "status": "AVAILABLE",
             "metrics": {
               "cpu_cores": 8.0,
-              "memory_gb": 5.382045745849609,
-              "free_disk_gb": 178.90398025512695
+              "memory_gb": 0.2855224609375,
+              "free_disk_gb": 145.18483352661133
             }
           },
-          "reason": "1 个副本中选中 SA-CORPUS-B035（数据源 10.0.82.213）；总分 1.000；与偏好数据源 10.0.82.213 一致，免跨源传输；优势项：locality=1.00、cpu_cores=1.00",
+          "reason": "1 个副本中选中 ES-CORPUS-B138（数据源 10.0.82.213）；总分 1.000；与偏好数据源 10.0.82.213 一致，免跨源传输；优势项：locality=1.00、cpu_cores=1.00",
           "scores": [
             {
-              "replica_id": "SA-CORPUS-B035",
+              "replica_id": "ES-CORPUS-B138",
               "center_id": "10.0.82.213",
               "total": 1.0,
               "parts": {
@@ -222,30 +220,30 @@
           "rejects": []
         },
         {
-          "dataset_alias": "mercury_geo",
-          "dataset_id": "6a2f7004a3472727522d5374",
-          "node_id": "read-mercury-geo",
+          "dataset_alias": "corpus2",
+          "dataset_id": "6a6ab4da15840cf004056867",
+          "node_id": "read-corpus2",
           "preferred_center_id": "10.0.82.213",
           "chosen": {
-            "replica_id": "SA-CORPUS-B029",
-            "source_id": "10.0.82.213",
-            "center_id": "10.0.82.213",
-            "locator": "6a2f7004a3472727522d5374",
+            "replica_id": "ES-CORPUS-K024",
+            "source_id": "10.0.90.174",
+            "center_id": "10.0.90.174",
+            "locator": "6a6ab4da15840cf004056867",
             "status": "AVAILABLE",
             "metrics": {
-              "cpu_cores": 8.0,
-              "memory_gb": 5.382045745849609,
-              "free_disk_gb": 178.90398025512695
+              "cpu_cores": 4.0,
+              "memory_gb": 1.1704635620117188,
+              "free_disk_gb": 184.67254638671875
             }
           },
-          "reason": "1 个副本中选中 SA-CORPUS-B029（数据源 10.0.82.213）；总分 1.000；与偏好数据源 10.0.82.213 一致，免跨源传输；优势项：locality=1.00、cpu_cores=1.00",
+          "reason": "1 个副本中选中 ES-CORPUS-K024（数据源 10.0.90.174）；总分 0.400；需从 10.0.90.174 跨源取数（偏好 10.0.82.213）；优势项：cpu_cores=1.00、memory_gb=1.00",
           "scores": [
             {
-              "replica_id": "SA-CORPUS-B029",
-              "center_id": "10.0.82.213",
-              "total": 1.0,
+              "replica_id": "ES-CORPUS-K024",
+              "center_id": "10.0.90.174",
+              "total": 0.4,
               "parts": {
-                "locality": 1.0,
+                "locality": 0.0,
                 "cpu_cores": 1.0,
                 "memory_gb": 1.0
               }
@@ -254,30 +252,30 @@
           "rejects": []
         },
         {
-          "dataset_alias": "venus_geo",
-          "dataset_id": "6a2f7008a3472727522d5375",
-          "node_id": "read-venus-geo",
+          "dataset_alias": "corpus3",
+          "dataset_id": "6a6ab4da15840cf004056866",
+          "node_id": "read-corpus3",
           "preferred_center_id": "10.0.82.213",
           "chosen": {
-            "replica_id": "SA-CORPUS-B031",
-            "source_id": "10.0.82.213",
-            "center_id": "10.0.82.213",
-            "locator": "6a2f7008a3472727522d5375",
+            "replica_id": "ES-CORPUS-F018",
+            "source_id": "10.0.90.174",
+            "center_id": "10.0.90.174",
+            "locator": "6a6ab4da15840cf004056866",
             "status": "AVAILABLE",
             "metrics": {
-              "cpu_cores": 8.0,
-              "memory_gb": 5.382045745849609,
-              "free_disk_gb": 178.90398025512695
+              "cpu_cores": 4.0,
+              "memory_gb": 1.1704635620117188,
+              "free_disk_gb": 184.67254638671875
             }
           },
-          "reason": "1 个副本中选中 SA-CORPUS-B031（数据源 10.0.82.213）；总分 1.000；与偏好数据源 10.0.82.213 一致，免跨源传输；优势项：locality=1.00、cpu_cores=1.00",
+          "reason": "1 个副本中选中 ES-CORPUS-F018（数据源 10.0.90.174）；总分 0.400；需从 10.0.90.174 跨源取数（偏好 10.0.82.213）；优势项：cpu_cores=1.00、memory_gb=1.00",
           "scores": [
             {
-              "replica_id": "SA-CORPUS-B031",
-              "center_id": "10.0.82.213",
-              "total": 1.0,
+              "replica_id": "ES-CORPUS-F018",
+              "center_id": "10.0.90.174",
+              "total": 0.4,
               "parts": {
-                "locality": 1.0,
+                "locality": 0.0,
                 "cpu_cores": 1.0,
                 "memory_gb": 1.0
               }
@@ -294,254 +292,443 @@
           "center_id": "10.0.82.213",
           "level": 0,
           "node_ids": [
-            "merge-to-tar",
-            "read-mars-geo",
-            "read-mercury-geo",
-            "read-venus-geo",
+            "read-corpus1"
+          ]
+        },
+        {
+          "segment_id": "10.0.90.174#0",
+          "center_id": "10.0.90.174",
+          "level": 0,
+          "node_ids": [
+            "merge-tar",
+            "read-corpus2",
+            "read-corpus3",
             "save-result"
           ]
         }
       ],
-      "cross_edges": []
+      "cross_edges": [
+        {
+          "binding_id": "read-corpus1:output->merge-tar:data1",
+          "from_node_id": "read-corpus1",
+          "from_param_name": "output",
+          "to_node_id": "merge-tar",
+          "to_param_name": "data1"
+        }
+      ]
     },
-    "nested_dsl": {
-      "dsl_version": "1.0",
+    "execution_dsl": {
       "task": {
-        "dag_task_id": "xdc-ec46ee40cd8b",
-        "dag_task_name": "合并三份行星地质地图语料为 result.tar"
+        "dag_task_id": "xdc-30ac66882dcf",
+        "dag_task_name": "语料合并任务"
       },
       "nodes": [
         {
-          "node_id": "merge-to-tar",
-          "node_name": "merge_to_tar",
-          "node_type": "default",
+          "node_id": "read-corpus1",
+          "node_name": "read_corpus1",
           "skill": {
-            "skill_id": "piflow_engine.cn.piflow.engine.local.tar_archive_merge_stop.TarArchiveMergeStop",
-            "skill_name": "piflow_engine.cn.piflow.engine.local.tar_archive_merge_stop.TarArchiveMergeStop",
-            "version": "1.0.0"
-          },
-          "position": {
-            "x": 780.0,
-            "y": 80.0
+            "skill_id": "piflow_engine.cn.piflow.engine.local.corpus_dataset_source_stop.CorpusDatasetSourceStop",
+            "skill_name": "corpus_dataset_source_stop"
           },
           "input_params": [
             {
-              "param_name": "data1",
+              "binding_id": "",
+              "param_name": "dataset_id",
               "param_type": "string",
-              "value_mode": "reference",
-              "param_value": "",
-              "binding_id": "read-mars-geo:output->merge-to-tar:data1"
-            },
+              "value_mode": "manual",
+              "param_value": "6a744595d38ea034d388c7b4",
+              "value_source": "default"
+            }
+          ],
+          "out_params": [
             {
-              "param_name": "data2",
+              "param_name": "output",
+              "param_type": "file_artifact"
+            }
+          ]
+        },
+        {
+          "node_id": "read-corpus2",
+          "node_name": "read_corpus2",
+          "skill": {
+            "skill_id": "piflow_engine.cn.piflow.engine.local.corpus_dataset_source_stop.CorpusDatasetSourceStop",
+            "skill_name": "corpus_dataset_source_stop"
+          },
+          "input_params": [
+            {
+              "binding_id": "",
+              "param_name": "dataset_id",
               "param_type": "string",
-              "value_mode": "reference",
-              "param_value": "",
-              "binding_id": "read-venus-geo:output->merge-to-tar:data2"
-            },
+              "value_mode": "manual",
+              "param_value": "6a6ab4da15840cf004056867",
+              "value_source": "default"
+            }
+          ],
+          "out_params": [
             {
-              "param_name": "data3",
+              "param_name": "output",
+              "param_type": "file_artifact"
+            }
+          ]
+        },
+        {
+          "node_id": "read-corpus3",
+          "node_name": "read_corpus3",
+          "skill": {
+            "skill_id": "piflow_engine.cn.piflow.engine.local.corpus_dataset_source_stop.CorpusDatasetSourceStop",
+            "skill_name": "corpus_dataset_source_stop"
+          },
+          "input_params": [
+            {
+              "binding_id": "",
+              "param_name": "dataset_id",
               "param_type": "string",
-              "value_mode": "reference",
-              "param_value": "",
-              "binding_id": "read-mercury-geo:output->merge-to-tar:data3"
-            },
+              "value_mode": "manual",
+              "param_value": "6a6ab4da15840cf004056866",
+              "value_source": "default"
+            }
+          ],
+          "out_params": [
             {
+              "param_name": "output",
+              "param_type": "file_artifact"
+            }
+          ]
+        },
+        {
+          "node_id": "merge-tar",
+          "node_name": "merge_tar",
+          "skill": {
+            "skill_id": "piflow_engine.cn.piflow.engine.local.tar_archive_merge_stop.TarArchiveMergeStop",
+            "skill_name": "tar_archive_merge_stop"
+          },
+          "input_params": [
+            {
+              "binding_id": "",
               "param_name": "output_file_name",
               "param_type": "string",
               "value_mode": "manual",
               "param_value": "result.tar",
-              "binding_id": ""
+              "value_source": "default"
             }
           ],
           "out_params": [
             {
               "param_name": "output",
-              "param_type": "file"
+              "param_type": "file_artifact"
             }
-          ],
-          "dataCenter": "10.0.82.213"
-        },
-        {
-          "node_id": "read-mars-geo",
-          "node_name": "read_mars_geo",
-          "node_type": "default",
-          "skill": {
-            "skill_id": "piflow_engine.cn.piflow.engine.local.corpus_dataset_source_stop.CorpusDatasetSourceStop",
-            "skill_name": "piflow_engine.cn.piflow.engine.local.corpus_dataset_source_stop.CorpusDatasetSourceStop",
-            "version": "1.0.0"
-          },
-          "position": {
-            "x": 0.0,
-            "y": 80.0
-          },
-          "input_params": [
-            {
-              "param_name": "dataset_id",
-              "param_type": "string",
-              "value_mode": "manual",
-              "param_value": "6a2f700ca3472727522d5376",
-              "binding_id": ""
-            }
-          ],
-          "out_params": [
-            {
-              "param_name": "output",
-              "param_type": "file"
-            }
-          ],
-          "dataCenter": "10.0.82.213"
-        },
-        {
-          "node_id": "read-mercury-geo",
-          "node_name": "read_mercury_geo",
-          "node_type": "default",
-          "skill": {
-            "skill_id": "piflow_engine.cn.piflow.engine.local.corpus_dataset_source_stop.CorpusDatasetSourceStop",
-            "skill_name": "piflow_engine.cn.piflow.engine.local.corpus_dataset_source_stop.CorpusDatasetSourceStop",
-            "version": "1.0.0"
-          },
-          "position": {
-            "x": 520.0,
-            "y": 80.0
-          },
-          "input_params": [
-            {
-              "param_name": "dataset_id",
-              "param_type": "string",
-              "value_mode": "manual",
-              "param_value": "6a2f7004a3472727522d5374",
-              "binding_id": ""
-            }
-          ],
-          "out_params": [
-            {
-              "param_name": "output",
-              "param_type": "file"
-            }
-          ],
-          "dataCenter": "10.0.82.213"
-        },
-        {
-          "node_id": "read-venus-geo",
-          "node_name": "read_venus_geo",
-          "node_type": "default",
-          "skill": {
-            "skill_id": "piflow_engine.cn.piflow.engine.local.corpus_dataset_source_stop.CorpusDatasetSourceStop",
-            "skill_name": "piflow_engine.cn.piflow.engine.local.corpus_dataset_source_stop.CorpusDatasetSourceStop",
-            "version": "1.0.0"
-          },
-          "position": {
-            "x": 260.0,
-            "y": 80.0
-          },
-          "input_params": [
-            {
-              "param_name": "dataset_id",
-              "param_type": "string",
-              "value_mode": "manual",
-              "param_value": "6a2f7008a3472727522d5375",
-              "binding_id": ""
-            }
-          ],
-          "out_params": [
-            {
-              "param_name": "output",
-              "param_type": "file"
-            }
-          ],
-          "dataCenter": "10.0.82.213"
+          ]
         },
         {
           "node_id": "save-result",
           "node_name": "save_result",
-          "node_type": "default",
           "skill": {
             "skill_id": "piflow_engine.cn.piflow.engine.local.file_save_stop.FileSaveStop",
-            "skill_name": "piflow_engine.cn.piflow.engine.local.file_save_stop.FileSaveStop",
-            "version": "1.0.0"
-          },
-          "position": {
-            "x": 1040.0,
-            "y": 80.0
+            "skill_name": "file_save_stop"
           },
           "input_params": [
             {
-              "param_name": "output",
-              "param_type": "string",
-              "value_mode": "reference",
-              "param_value": "",
-              "binding_id": "merge-to-tar:output->save-result:output"
-            },
-            {
+              "binding_id": "",
               "param_name": "absolute_path",
               "param_type": "string",
               "value_mode": "manual",
               "param_value": "/workspace/artifacts/result.tar",
-              "binding_id": ""
+              "value_source": "default"
             },
             {
+              "binding_id": "",
               "param_name": "overwrite",
               "param_type": "string",
               "value_mode": "manual",
               "param_value": "true",
-              "binding_id": ""
+              "value_source": "default"
             }
           ],
-          "out_params": [],
-          "dataCenter": "10.0.82.213"
+          "out_params": [
+            {
+              "param_name": "output",
+              "param_type": "file_artifact"
+            }
+          ]
         }
       ],
       "edges": [
         {
-          "edge_id": "edge-read-mars-geo-merge-to-tar",
-          "from_node_id": "read-mars-geo",
-          "to_node_id": "merge-to-tar"
+          "edge_id": "edge-read-corpus1-merge-tar",
+          "from_node_id": "read-corpus1",
+          "to_node_id": "merge-tar"
         },
         {
-          "edge_id": "edge-read-venus-geo-merge-to-tar",
-          "from_node_id": "read-venus-geo",
-          "to_node_id": "merge-to-tar"
+          "edge_id": "edge-read-corpus2-merge-tar",
+          "from_node_id": "read-corpus2",
+          "to_node_id": "merge-tar"
         },
         {
-          "edge_id": "edge-read-mercury-geo-merge-to-tar",
-          "from_node_id": "read-mercury-geo",
-          "to_node_id": "merge-to-tar"
+          "edge_id": "edge-read-corpus3-merge-tar",
+          "from_node_id": "read-corpus3",
+          "to_node_id": "merge-tar"
         },
         {
-          "edge_id": "edge-merge-to-tar-save-result",
-          "from_node_id": "merge-to-tar",
+          "edge_id": "edge-merge-tar-save-result",
+          "from_node_id": "merge-tar",
           "to_node_id": "save-result"
         }
       ],
       "bindings": [
         {
-          "binding_id": "read-mars-geo:output->merge-to-tar:data1",
-          "from_node_id": "read-mars-geo",
+          "binding_id": "read-corpus1:output->merge-tar:data1",
+          "from_node_id": "read-corpus1",
           "from_param_name": "output",
-          "to_node_id": "merge-to-tar",
+          "to_node_id": "merge-tar",
           "to_param_name": "data1"
         },
         {
-          "binding_id": "read-venus-geo:output->merge-to-tar:data2",
-          "from_node_id": "read-venus-geo",
+          "binding_id": "read-corpus2:output->merge-tar:data2",
+          "from_node_id": "read-corpus2",
           "from_param_name": "output",
-          "to_node_id": "merge-to-tar",
+          "to_node_id": "merge-tar",
           "to_param_name": "data2"
         },
         {
-          "binding_id": "read-mercury-geo:output->merge-to-tar:data3",
-          "from_node_id": "read-mercury-geo",
+          "binding_id": "read-corpus3:output->merge-tar:data3",
+          "from_node_id": "read-corpus3",
           "from_param_name": "output",
-          "to_node_id": "merge-to-tar",
+          "to_node_id": "merge-tar",
           "to_param_name": "data3"
         },
         {
-          "binding_id": "merge-to-tar:output->save-result:output",
-          "from_node_id": "merge-to-tar",
+          "binding_id": "merge-tar:output->save-result:output",
+          "from_node_id": "merge-tar",
           "from_param_name": "output",
           "to_node_id": "save-result",
           "to_param_name": "output"
+        }
+      ]
+    },
+    "nested_dsl": {
+      "task": {
+        "dag_task_id": "xdc-30ac66882dcf",
+        "dag_task_name": "语料合并任务"
+      },
+      "nodes": [
+        {
+          "node_id": "merge-tar",
+          "node_name": "merge_tar",
+          "skill": {
+            "skill_id": "piflow_engine.cn.piflow.engine.local.tar_archive_merge_stop.TarArchiveMergeStop",
+            "skill_name": "tar_archive_merge_stop"
+          },
+          "input_params": [
+            {
+              "binding_id": "",
+              "param_name": "output_file_name",
+              "param_type": "string",
+              "value_mode": "manual",
+              "param_value": "result.tar",
+              "value_source": "default"
+            }
+          ],
+          "out_params": [
+            {
+              "param_name": "output",
+              "param_type": "file_artifact"
+            }
+          ]
+        },
+        {
+          "node_id": "read-corpus2",
+          "node_name": "read_corpus2",
+          "skill": {
+            "skill_id": "piflow_engine.cn.piflow.engine.local.corpus_dataset_source_stop.CorpusDatasetSourceStop",
+            "skill_name": "corpus_dataset_source_stop"
+          },
+          "input_params": [
+            {
+              "binding_id": "",
+              "param_name": "dataset_id",
+              "param_type": "string",
+              "value_mode": "manual",
+              "param_value": "6a6ab4da15840cf004056867",
+              "value_source": "default"
+            }
+          ],
+          "out_params": [
+            {
+              "param_name": "output",
+              "param_type": "file_artifact"
+            }
+          ]
+        },
+        {
+          "node_id": "read-corpus3",
+          "node_name": "read_corpus3",
+          "skill": {
+            "skill_id": "piflow_engine.cn.piflow.engine.local.corpus_dataset_source_stop.CorpusDatasetSourceStop",
+            "skill_name": "corpus_dataset_source_stop"
+          },
+          "input_params": [
+            {
+              "binding_id": "",
+              "param_name": "dataset_id",
+              "param_type": "string",
+              "value_mode": "manual",
+              "param_value": "6a6ab4da15840cf004056866",
+              "value_source": "default"
+            }
+          ],
+          "out_params": [
+            {
+              "param_name": "output",
+              "param_type": "file_artifact"
+            }
+          ]
+        },
+        {
+          "node_id": "save-result",
+          "node_name": "save_result",
+          "skill": {
+            "skill_id": "piflow_engine.cn.piflow.engine.local.file_save_stop.FileSaveStop",
+            "skill_name": "file_save_stop"
+          },
+          "input_params": [
+            {
+              "binding_id": "",
+              "param_name": "absolute_path",
+              "param_type": "string",
+              "value_mode": "manual",
+              "param_value": "/workspace/artifacts/result.tar",
+              "value_source": "default"
+            },
+            {
+              "binding_id": "",
+              "param_name": "overwrite",
+              "param_type": "string",
+              "value_mode": "manual",
+              "param_value": "true",
+              "value_source": "default"
+            }
+          ],
+          "out_params": [
+            {
+              "param_name": "output",
+              "param_type": "file_artifact"
+            }
+          ]
+        },
+        {
+          "node_id": "remote-subdag-source-read-corpus1",
+          "node_name": "跨域执行_10.0.82.213",
+          "skill": {
+            "skill_id": "piflow_engine.cn.piflow.engine.local.remote_subdag_source_stop.RemoteSubDagSourceStop",
+            "skill_name": "remote_sub_dag_source_node",
+            "version": "1.0.0"
+          },
+          "input_params": [
+            {
+              "binding_id": "",
+              "param_name": "remote_grpc_target",
+              "param_type": "string",
+              "value_mode": "manual",
+              "param_value": "10.0.82.213:50061",
+              "value_source": "default"
+            },
+            {
+              "binding_id": "",
+              "param_name": "subdag_definition_json",
+              "param_type": "string",
+              "value_mode": "manual",
+              "param_value": "{\"task\": {\"dag_task_id\": \"xdc-30ac66882dcf--10.0.82.213#0\", \"dag_task_name\": \"语料合并任务 [10.0.82.213#0]\"}, \"nodes\": [{\"node_id\": \"read-corpus1\", \"node_name\": \"read_corpus1\", \"skill\": {\"skill_id\": \"piflow_engine.cn.piflow.engine.local.corpus_dataset_source_stop.CorpusDatasetSourceStop\", \"skill_name\": \"corpus_dataset_source_stop\"}, \"input_params\": [{\"binding_id\": \"\", \"param_name\": \"dataset_id\", \"param_type\": \"string\", \"value_mode\": \"manual\", \"param_value\": \"6a744595d38ea034d388c7b4\", \"value_source\": \"default\"}], \"out_params\": [{\"param_name\": \"output\", \"param_type\": \"file_artifact\"}]}], \"edges\": [], \"bindings\": []}",
+              "value_source": "default"
+            },
+            {
+              "binding_id": "",
+              "param_name": "result_node_id",
+              "param_type": "string",
+              "value_mode": "manual",
+              "param_value": "read-corpus1",
+              "value_source": "default"
+            },
+            {
+              "binding_id": "",
+              "param_name": "result_output_name",
+              "param_type": "string",
+              "value_mode": "manual",
+              "param_value": "output",
+              "value_source": "default"
+            },
+            {
+              "binding_id": "",
+              "param_name": "wait_timeout_seconds",
+              "param_type": "string",
+              "value_mode": "manual",
+              "param_value": "3600",
+              "value_source": "default"
+            }
+          ],
+          "out_params": [
+            {
+              "param_name": "output",
+              "param_type": "file_artifact"
+            }
+          ],
+          "node_type": "synthetic_remote_source",
+          "position": {
+            "x": 0.0,
+            "y": 0.0
+          },
+          "icon_path": ""
+        }
+      ],
+      "edges": [
+        {
+          "edge_id": "edge-read-corpus2-merge-tar",
+          "from_node_id": "read-corpus2",
+          "to_node_id": "merge-tar"
+        },
+        {
+          "edge_id": "edge-read-corpus3-merge-tar",
+          "from_node_id": "read-corpus3",
+          "to_node_id": "merge-tar"
+        },
+        {
+          "edge_id": "edge-merge-tar-save-result",
+          "from_node_id": "merge-tar",
+          "to_node_id": "save-result"
+        },
+        {
+          "edge_id": "edge-remote-subdag-source-read-corpus1-merge-tar",
+          "from_node_id": "remote-subdag-source-read-corpus1",
+          "to_node_id": "merge-tar"
+        }
+      ],
+      "bindings": [
+        {
+          "binding_id": "read-corpus2:output->merge-tar:data2",
+          "from_node_id": "read-corpus2",
+          "from_param_name": "output",
+          "to_node_id": "merge-tar",
+          "to_param_name": "data2"
+        },
+        {
+          "binding_id": "read-corpus3:output->merge-tar:data3",
+          "from_node_id": "read-corpus3",
+          "from_param_name": "output",
+          "to_node_id": "merge-tar",
+          "to_param_name": "data3"
+        },
+        {
+          "binding_id": "merge-tar:output->save-result:output",
+          "from_node_id": "merge-tar",
+          "from_param_name": "output",
+          "to_node_id": "save-result",
+          "to_param_name": "output"
+        },
+        {
+          "binding_id": "remote-subdag-source-read-corpus1:output->merge-tar:data1",
+          "from_node_id": "remote-subdag-source-read-corpus1",
+          "from_param_name": "output",
+          "to_node_id": "merge-tar",
+          "to_param_name": "data1"
         }
       ]
     },
@@ -566,40 +753,77 @@
         "user_request": "选择三份相关语料并合并为result.tar",
         "datasets": [
           {
-            "alias": "mars_geo",
-            "dataset_id": "6a2f700ca3472727522d5376",
+            "alias": "corpus1",
+            "dataset_id": "6a744595d38ea034d388c7b4",
             "source_id": "10.0.82.213",
             "center_id": "10.0.82.213",
-            "locator": "6a2f700ca3472727522d5376",
-            "name": "火星地质地图语料",
+            "locator": "6a744595d38ea034d388c7b4",
+            "name": "1900年以来中国地震目录语料（融合早期历史地震和速报目录）",
             "replicas": [
               {
-                "replica_id": "SA-CORPUS-B035",
+                "replica_id": "ES-CORPUS-B138",
                 "source_id": "10.0.82.213",
                 "center_id": "10.0.82.213",
-                "locator": "6a2f700ca3472727522d5376",
+                "locator": "6a744595d38ea034d388c7b4",
                 "status": "AVAILABLE",
                 "metrics": {
                   "cpu_cores": 8.0,
-                  "memory_gb": 5.382045745849609,
-                  "free_disk_gb": 178.90398025512695
+                  "memory_gb": 0.2855224609375,
+                  "free_disk_gb": 145.18483352661133
                 }
               }
             ],
             "facets": {
               "field": [
-                "天文空间"
+                "地球科学"
               ],
               "corpusType": [
                 "基础语料"
               ],
               "language": [
-                "中文",
-                "英文"
+                "中文"
               ],
               "rawFormat": [
-                "JPG",
-                "PNG",
+                "TXT"
+              ]
+            },
+            "source_skill": "piflow_engine.cn.piflow.engine.local.corpus_dataset_source_stop.CorpusDatasetSourceStop",
+            "source_param": "dataset_id",
+            "source_output_param": "output"
+          },
+          {
+            "alias": "corpus2",
+            "dataset_id": "6a6ab4da15840cf004056867",
+            "source_id": "10.0.90.174",
+            "center_id": "10.0.90.174",
+            "locator": "6a6ab4da15840cf004056867",
+            "name": "中国国土资源知识语料库",
+            "replicas": [
+              {
+                "replica_id": "ES-CORPUS-K024",
+                "source_id": "10.0.90.174",
+                "center_id": "10.0.90.174",
+                "locator": "6a6ab4da15840cf004056867",
+                "status": "AVAILABLE",
+                "metrics": {
+                  "cpu_cores": 4.0,
+                  "memory_gb": 1.1704635620117188,
+                  "free_disk_gb": 184.67254638671875
+                }
+              }
+            ],
+            "facets": {
+              "field": [
+                "地球科学"
+              ],
+              "corpusType": [
+                "知识语料"
+              ],
+              "language": [
+                "中文"
+              ],
+              "rawFormat": [
+                "TXT",
                 "JSON"
               ]
             },
@@ -608,82 +832,38 @@
             "source_output_param": "output"
           },
           {
-            "alias": "venus_geo",
-            "dataset_id": "6a2f7008a3472727522d5375",
-            "source_id": "10.0.82.213",
-            "center_id": "10.0.82.213",
-            "locator": "6a2f7008a3472727522d5375",
-            "name": "金星地质地图语料",
+            "alias": "corpus3",
+            "dataset_id": "6a6ab4da15840cf004056866",
+            "source_id": "10.0.90.174",
+            "center_id": "10.0.90.174",
+            "locator": "6a6ab4da15840cf004056866",
+            "name": "额济纳三角洲景观类型数据语料",
             "replicas": [
               {
-                "replica_id": "SA-CORPUS-B031",
-                "source_id": "10.0.82.213",
-                "center_id": "10.0.82.213",
-                "locator": "6a2f7008a3472727522d5375",
+                "replica_id": "ES-CORPUS-F018",
+                "source_id": "10.0.90.174",
+                "center_id": "10.0.90.174",
+                "locator": "6a6ab4da15840cf004056866",
                 "status": "AVAILABLE",
                 "metrics": {
-                  "cpu_cores": 8.0,
-                  "memory_gb": 5.382045745849609,
-                  "free_disk_gb": 178.90398025512695
+                  "cpu_cores": 4.0,
+                  "memory_gb": 1.1704635620117188,
+                  "free_disk_gb": 184.67254638671875
                 }
               }
             ],
             "facets": {
               "field": [
-                "天文空间"
+                "地球科学"
               ],
               "corpusType": [
-                "基础语料"
+                "特征语料"
               ],
               "language": [
-                "中文",
-                "英文"
+                "中文"
               ],
               "rawFormat": [
-                "JPG",
-                "PNG",
-                "JSON"
-              ]
-            },
-            "source_skill": "piflow_engine.cn.piflow.engine.local.corpus_dataset_source_stop.CorpusDatasetSourceStop",
-            "source_param": "dataset_id",
-            "source_output_param": "output"
-          },
-          {
-            "alias": "mercury_geo",
-            "dataset_id": "6a2f7004a3472727522d5374",
-            "source_id": "10.0.82.213",
-            "center_id": "10.0.82.213",
-            "locator": "6a2f7004a3472727522d5374",
-            "name": "水星地质地图语料",
-            "replicas": [
-              {
-                "replica_id": "SA-CORPUS-B029",
-                "source_id": "10.0.82.213",
-                "center_id": "10.0.82.213",
-                "locator": "6a2f7004a3472727522d5374",
-                "status": "AVAILABLE",
-                "metrics": {
-                  "cpu_cores": 8.0,
-                  "memory_gb": 5.382045745849609,
-                  "free_disk_gb": 178.90398025512695
-                }
-              }
-            ],
-            "facets": {
-              "field": [
-                "天文空间"
-              ],
-              "corpusType": [
-                "基础语料"
-              ],
-              "language": [
-                "中文",
-                "英文"
-              ],
-              "rawFormat": [
-                "JPG",
-                "PNG",
+                "TIF",
                 "JSON"
               ]
             },
@@ -696,7 +876,7 @@
           {
             "op": "格式转换",
             "target": "all",
-            "detail": "将选中的三份行星地质地图语料打包合并为 tar 格式文件"
+            "detail": "将选中的三份语料打包合并为 tar 格式"
           }
         ],
         "location_hints": [],
@@ -705,9 +885,9 @@
           "name": "result.tar"
         },
         "assumptions": [
-          "用户未指定具体的‘相关’标准，假设选择同属‘天文空间’领域且均为‘行星地质地图’类型的三个数据集（火星、金星、水星）作为最相关的组合。",
-          "用户未指定执行节点，假设系统可自动调度或默认在任意可用节点执行。",
-          "假设‘合并’操作在此场景下指将多个数据集文件打包成一个压缩归档文件。"
+          "用户未指定具体哪三份语料，假设选择前三份地球科学领域的语料（地震目录、国土资源知识、额济纳三角洲景观）作为相关语料。",
+          "用户未指定执行位置，假设可在任意可用节点执行。",
+          "假设系统支持将多个数据集打包为 tar 格式的操作。"
         ],
         "unresolved": [],
         "requirements": []
@@ -747,45 +927,45 @@
       "status": "finished",
       "planning_json": {
         "task": {
-          "name": "合并三份行星地质地图语料为 result.tar",
-          "description": "读取火星、金星、水星三份地质地图语料数据集，将其打包合并为一个名为 result.tar 的归档文件。"
+          "name": "语料合并任务",
+          "description": "选择三份地球科学相关语料并合并为 result.tar"
         },
         "nodes": [
           {
-            "node_name": "read_mars_geo",
+            "node_name": "read_corpus1",
             "skill_name": "piflow_engine.cn.piflow.engine.local.corpus_dataset_source_stop.CorpusDatasetSourceStop",
             "params": {
-              "dataset_id": "dataset://6a2f700ca3472727522d5376"
+              "dataset_id": "dataset://6a744595d38ea034d388c7b4"
             }
           },
           {
-            "node_name": "read_venus_geo",
+            "node_name": "read_corpus2",
             "skill_name": "piflow_engine.cn.piflow.engine.local.corpus_dataset_source_stop.CorpusDatasetSourceStop",
             "params": {
-              "dataset_id": "dataset://6a2f7008a3472727522d5375"
+              "dataset_id": "dataset://6a6ab4da15840cf004056867"
             }
           },
           {
-            "node_name": "read_mercury_geo",
+            "node_name": "read_corpus3",
             "skill_name": "piflow_engine.cn.piflow.engine.local.corpus_dataset_source_stop.CorpusDatasetSourceStop",
             "params": {
-              "dataset_id": "dataset://6a2f7004a3472727522d5374"
+              "dataset_id": "dataset://6a6ab4da15840cf004056866"
             }
           },
           {
-            "node_name": "merge_to_tar",
+            "node_name": "merge_tar",
             "skill_name": "piflow_engine.cn.piflow.engine.local.tar_archive_merge_stop.TarArchiveMergeStop",
             "params": {
               "data1": {
-                "source_node": "read_mars_geo",
+                "source_node": "read_corpus1",
                 "source_param": "output"
               },
               "data2": {
-                "source_node": "read_venus_geo",
+                "source_node": "read_corpus2",
                 "source_param": "output"
               },
               "data3": {
-                "source_node": "read_mercury_geo",
+                "source_node": "read_corpus3",
                 "source_param": "output"
               },
               "output_file_name": "result.tar"
@@ -796,7 +976,7 @@
             "skill_name": "piflow_engine.cn.piflow.engine.local.file_save_stop.FileSaveStop",
             "params": {
               "output": {
-                "source_node": "merge_to_tar",
+                "source_node": "merge_tar",
                 "source_param": "output"
               },
               "absolute_path": "/workspace/artifacts/result.tar",
@@ -817,15 +997,15 @@
       "binding_count": 4,
       "warnings": [],
       "errors": [],
-      "description": "读取火星、金星、水星三份地质地图语料数据集，将其打包合并为一个名为 result.tar 的归档文件。",
+      "description": "选择三份地球科学相关语料并合并为 result.tar",
       "logical_dag": {
-        "task_id": "xdc-ec46ee40cd8b",
-        "task_name": "合并三份行星地质地图语料为 result.tar",
-        "description": "读取火星、金星、水星三份地质地图语料数据集，将其打包合并为一个名为 result.tar 的归档文件。",
+        "task_id": "xdc-30ac66882dcf",
+        "task_name": "语料合并任务",
+        "description": "选择三份地球科学相关语料并合并为 result.tar",
         "nodes": [
           {
-            "node_id": "read-mars-geo",
-            "node_name": "read_mars_geo",
+            "node_id": "read-corpus1",
+            "node_name": "read_corpus1",
             "node_type": "default",
             "skill": {
               "skill_id": "piflow_engine.cn.piflow.engine.local.corpus_dataset_source_stop.CorpusDatasetSourceStop",
@@ -841,7 +1021,7 @@
                 "param_name": "dataset_id",
                 "param_type": "string",
                 "value_mode": "manual",
-                "param_value": "dataset://6a2f700ca3472727522d5376",
+                "param_value": "dataset://6a744595d38ea034d388c7b4",
                 "binding_id": ""
               }
             ],
@@ -853,8 +1033,8 @@
             ]
           },
           {
-            "node_id": "read-venus-geo",
-            "node_name": "read_venus_geo",
+            "node_id": "read-corpus2",
+            "node_name": "read_corpus2",
             "node_type": "default",
             "skill": {
               "skill_id": "piflow_engine.cn.piflow.engine.local.corpus_dataset_source_stop.CorpusDatasetSourceStop",
@@ -870,7 +1050,7 @@
                 "param_name": "dataset_id",
                 "param_type": "string",
                 "value_mode": "manual",
-                "param_value": "dataset://6a2f7008a3472727522d5375",
+                "param_value": "dataset://6a6ab4da15840cf004056867",
                 "binding_id": ""
               }
             ],
@@ -882,8 +1062,8 @@
             ]
           },
           {
-            "node_id": "read-mercury-geo",
-            "node_name": "read_mercury_geo",
+            "node_id": "read-corpus3",
+            "node_name": "read_corpus3",
             "node_type": "default",
             "skill": {
               "skill_id": "piflow_engine.cn.piflow.engine.local.corpus_dataset_source_stop.CorpusDatasetSourceStop",
@@ -899,7 +1079,7 @@
                 "param_name": "dataset_id",
                 "param_type": "string",
                 "value_mode": "manual",
-                "param_value": "dataset://6a2f7004a3472727522d5374",
+                "param_value": "dataset://6a6ab4da15840cf004056866",
                 "binding_id": ""
               }
             ],
@@ -911,8 +1091,8 @@
             ]
           },
           {
-            "node_id": "merge-to-tar",
-            "node_name": "merge_to_tar",
+            "node_id": "merge-tar",
+            "node_name": "merge_tar",
             "node_type": "default",
             "skill": {
               "skill_id": "piflow_engine.cn.piflow.engine.local.tar_archive_merge_stop.TarArchiveMergeStop",
@@ -929,21 +1109,21 @@
                 "param_type": "string",
                 "value_mode": "reference",
                 "param_value": "",
-                "binding_id": "read-mars-geo:output->merge-to-tar:data1"
+                "binding_id": "read-corpus1:output->merge-tar:data1"
               },
               {
                 "param_name": "data2",
                 "param_type": "string",
                 "value_mode": "reference",
                 "param_value": "",
-                "binding_id": "read-venus-geo:output->merge-to-tar:data2"
+                "binding_id": "read-corpus2:output->merge-tar:data2"
               },
               {
                 "param_name": "data3",
                 "param_type": "string",
                 "value_mode": "reference",
                 "param_value": "",
-                "binding_id": "read-mercury-geo:output->merge-to-tar:data3"
+                "binding_id": "read-corpus3:output->merge-tar:data3"
               },
               {
                 "param_name": "output_file_name",
@@ -979,7 +1159,7 @@
                 "param_type": "string",
                 "value_mode": "reference",
                 "param_value": "",
-                "binding_id": "merge-to-tar:output->save-result:output"
+                "binding_id": "merge-tar:output->save-result:output"
               },
               {
                 "param_name": "absolute_path",
@@ -996,43 +1176,48 @@
                 "binding_id": ""
               }
             ],
-            "out_params": []
+            "out_params": [
+              {
+                "param_name": "output",
+                "param_type": "file"
+              }
+            ]
           }
         ],
         "bindings": [
           {
-            "binding_id": "read-mars-geo:output->merge-to-tar:data1",
-            "from_node_id": "read-mars-geo",
+            "binding_id": "read-corpus1:output->merge-tar:data1",
+            "from_node_id": "read-corpus1",
             "from_param_name": "output",
-            "to_node_id": "merge-to-tar",
+            "to_node_id": "merge-tar",
             "to_param_name": "data1"
           },
           {
-            "binding_id": "read-venus-geo:output->merge-to-tar:data2",
-            "from_node_id": "read-venus-geo",
+            "binding_id": "read-corpus2:output->merge-tar:data2",
+            "from_node_id": "read-corpus2",
             "from_param_name": "output",
-            "to_node_id": "merge-to-tar",
+            "to_node_id": "merge-tar",
             "to_param_name": "data2"
           },
           {
-            "binding_id": "read-mercury-geo:output->merge-to-tar:data3",
-            "from_node_id": "read-mercury-geo",
+            "binding_id": "read-corpus3:output->merge-tar:data3",
+            "from_node_id": "read-corpus3",
             "from_param_name": "output",
-            "to_node_id": "merge-to-tar",
+            "to_node_id": "merge-tar",
             "to_param_name": "data3"
           },
           {
-            "binding_id": "merge-to-tar:output->save-result:output",
-            "from_node_id": "merge-to-tar",
+            "binding_id": "merge-tar:output->save-result:output",
+            "from_node_id": "merge-tar",
             "from_param_name": "output",
             "to_node_id": "save-result",
             "to_param_name": "output"
           }
         ],
         "source_node_ids": [
-          "read-mars-geo",
-          "read-venus-geo",
-          "read-mercury-geo"
+          "read-corpus1",
+          "read-corpus2",
+          "read-corpus3"
         ],
         "sink_node_ids": [
           "save-result"
@@ -1047,41 +1232,41 @@
       "stage": "bind",
       "status": "finished",
       "center_of": {
-        "read-mars-geo": "10.0.82.213",
-        "read-mercury-geo": "10.0.82.213",
-        "read-venus-geo": "10.0.82.213",
-        "merge-to-tar": "10.0.82.213",
-        "save-result": "10.0.82.213"
+        "read-corpus1": "10.0.82.213",
+        "read-corpus2": "10.0.90.174",
+        "read-corpus3": "10.0.90.174",
+        "merge-tar": "10.0.90.174",
+        "save-result": "10.0.90.174"
       },
       "reasons": {
-        "read-mars-geo": "数据源节点，副本挑选 -> SA-CORPUS-B035（1 个副本中选中 SA-CORPUS-B035（数据源 10.0.82.213）；总分 1.000；与偏好数据源 10.0.82.213 一致，免跨源传输；优势项：locality=1.00、cpu_cores=1.00）",
-        "read-mercury-geo": "数据源节点，副本挑选 -> SA-CORPUS-B029（1 个副本中选中 SA-CORPUS-B029（数据源 10.0.82.213）；总分 1.000；与偏好数据源 10.0.82.213 一致，免跨源传输；优势项：locality=1.00、cpu_cores=1.00）",
-        "read-venus-geo": "数据源节点，副本挑选 -> SA-CORPUS-B031（1 个副本中选中 SA-CORPUS-B031（数据源 10.0.82.213）；总分 1.000；与偏好数据源 10.0.82.213 一致，免跨源传输；优势项：locality=1.00、cpu_cores=1.00）",
-        "merge-to-tar": "继承上游中心（数据就近）",
+        "read-corpus1": "数据源节点，副本挑选 -> ES-CORPUS-B138（1 个副本中选中 ES-CORPUS-B138（数据源 10.0.82.213）；总分 1.000；与偏好数据源 10.0.82.213 一致，免跨源传输；优势项：locality=1.00、cpu_cores=1.00）",
+        "read-corpus2": "数据源节点，副本挑选 -> ES-CORPUS-K024（1 个副本中选中 ES-CORPUS-K024（数据源 10.0.90.174）；总分 0.400；需从 10.0.90.174 跨源取数（偏好 10.0.82.213）；优势项：cpu_cores=1.00、memory_gb=1.00）",
+        "read-corpus3": "数据源节点，副本挑选 -> ES-CORPUS-F018（1 个副本中选中 ES-CORPUS-F018（数据源 10.0.90.174）；总分 0.400；需从 10.0.90.174 跨源取数（偏好 10.0.82.213）；优势项：cpu_cores=1.00、memory_gb=1.00）",
+        "merge-tar": "继承上游中心（数据就近）",
         "save-result": "继承上游中心（数据就近）"
       },
       "replica_decisions": [
         {
-          "dataset_alias": "mars_geo",
-          "dataset_id": "6a2f700ca3472727522d5376",
-          "node_id": "read-mars-geo",
+          "dataset_alias": "corpus1",
+          "dataset_id": "6a744595d38ea034d388c7b4",
+          "node_id": "read-corpus1",
           "preferred_center_id": "10.0.82.213",
           "chosen": {
-            "replica_id": "SA-CORPUS-B035",
+            "replica_id": "ES-CORPUS-B138",
             "source_id": "10.0.82.213",
             "center_id": "10.0.82.213",
-            "locator": "6a2f700ca3472727522d5376",
+            "locator": "6a744595d38ea034d388c7b4",
             "status": "AVAILABLE",
             "metrics": {
               "cpu_cores": 8.0,
-              "memory_gb": 5.382045745849609,
-              "free_disk_gb": 178.90398025512695
+              "memory_gb": 0.2855224609375,
+              "free_disk_gb": 145.18483352661133
             }
           },
-          "reason": "1 个副本中选中 SA-CORPUS-B035（数据源 10.0.82.213）；总分 1.000；与偏好数据源 10.0.82.213 一致，免跨源传输；优势项：locality=1.00、cpu_cores=1.00",
+          "reason": "1 个副本中选中 ES-CORPUS-B138（数据源 10.0.82.213）；总分 1.000；与偏好数据源 10.0.82.213 一致，免跨源传输；优势项：locality=1.00、cpu_cores=1.00",
           "scores": [
             {
-              "replica_id": "SA-CORPUS-B035",
+              "replica_id": "ES-CORPUS-B138",
               "center_id": "10.0.82.213",
               "total": 1.0,
               "parts": {
@@ -1094,30 +1279,30 @@
           "rejects": []
         },
         {
-          "dataset_alias": "mercury_geo",
-          "dataset_id": "6a2f7004a3472727522d5374",
-          "node_id": "read-mercury-geo",
+          "dataset_alias": "corpus2",
+          "dataset_id": "6a6ab4da15840cf004056867",
+          "node_id": "read-corpus2",
           "preferred_center_id": "10.0.82.213",
           "chosen": {
-            "replica_id": "SA-CORPUS-B029",
-            "source_id": "10.0.82.213",
-            "center_id": "10.0.82.213",
-            "locator": "6a2f7004a3472727522d5374",
+            "replica_id": "ES-CORPUS-K024",
+            "source_id": "10.0.90.174",
+            "center_id": "10.0.90.174",
+            "locator": "6a6ab4da15840cf004056867",
             "status": "AVAILABLE",
             "metrics": {
-              "cpu_cores": 8.0,
-              "memory_gb": 5.382045745849609,
-              "free_disk_gb": 178.90398025512695
+              "cpu_cores": 4.0,
+              "memory_gb": 1.1704635620117188,
+              "free_disk_gb": 184.67254638671875
             }
           },
-          "reason": "1 个副本中选中 SA-CORPUS-B029（数据源 10.0.82.213）；总分 1.000；与偏好数据源 10.0.82.213 一致，免跨源传输；优势项：locality=1.00、cpu_cores=1.00",
+          "reason": "1 个副本中选中 ES-CORPUS-K024（数据源 10.0.90.174）；总分 0.400；需从 10.0.90.174 跨源取数（偏好 10.0.82.213）；优势项：cpu_cores=1.00、memory_gb=1.00",
           "scores": [
             {
-              "replica_id": "SA-CORPUS-B029",
-              "center_id": "10.0.82.213",
-              "total": 1.0,
+              "replica_id": "ES-CORPUS-K024",
+              "center_id": "10.0.90.174",
+              "total": 0.4,
               "parts": {
-                "locality": 1.0,
+                "locality": 0.0,
                 "cpu_cores": 1.0,
                 "memory_gb": 1.0
               }
@@ -1126,30 +1311,30 @@
           "rejects": []
         },
         {
-          "dataset_alias": "venus_geo",
-          "dataset_id": "6a2f7008a3472727522d5375",
-          "node_id": "read-venus-geo",
+          "dataset_alias": "corpus3",
+          "dataset_id": "6a6ab4da15840cf004056866",
+          "node_id": "read-corpus3",
           "preferred_center_id": "10.0.82.213",
           "chosen": {
-            "replica_id": "SA-CORPUS-B031",
-            "source_id": "10.0.82.213",
-            "center_id": "10.0.82.213",
-            "locator": "6a2f7008a3472727522d5375",
+            "replica_id": "ES-CORPUS-F018",
+            "source_id": "10.0.90.174",
+            "center_id": "10.0.90.174",
+            "locator": "6a6ab4da15840cf004056866",
             "status": "AVAILABLE",
             "metrics": {
-              "cpu_cores": 8.0,
-              "memory_gb": 5.382045745849609,
-              "free_disk_gb": 178.90398025512695
+              "cpu_cores": 4.0,
+              "memory_gb": 1.1704635620117188,
+              "free_disk_gb": 184.67254638671875
             }
           },
-          "reason": "1 个副本中选中 SA-CORPUS-B031（数据源 10.0.82.213）；总分 1.000；与偏好数据源 10.0.82.213 一致，免跨源传输；优势项：locality=1.00、cpu_cores=1.00",
+          "reason": "1 个副本中选中 ES-CORPUS-F018（数据源 10.0.90.174）；总分 0.400；需从 10.0.90.174 跨源取数（偏好 10.0.82.213）；优势项：cpu_cores=1.00、memory_gb=1.00",
           "scores": [
             {
-              "replica_id": "SA-CORPUS-B031",
-              "center_id": "10.0.82.213",
-              "total": 1.0,
+              "replica_id": "ES-CORPUS-F018",
+              "center_id": "10.0.90.174",
+              "total": 0.4,
               "parts": {
-                "locality": 1.0,
+                "locality": 0.0,
                 "cpu_cores": 1.0,
                 "memory_gb": 1.0
               }
@@ -1166,8 +1351,8 @@
     {
       "stage": "segment",
       "status": "finished",
-      "segment_count": 1,
-      "cross_edge_count": 0,
+      "segment_count": 2,
+      "cross_edge_count": 1,
       "segments": {
         "segments": [
           {
@@ -1175,15 +1360,30 @@
             "center_id": "10.0.82.213",
             "level": 0,
             "node_ids": [
-              "merge-to-tar",
-              "read-mars-geo",
-              "read-mercury-geo",
-              "read-venus-geo",
+              "read-corpus1"
+            ]
+          },
+          {
+            "segment_id": "10.0.90.174#0",
+            "center_id": "10.0.90.174",
+            "level": 0,
+            "node_ids": [
+              "merge-tar",
+              "read-corpus2",
+              "read-corpus3",
               "save-result"
             ]
           }
         ],
-        "cross_edges": []
+        "cross_edges": [
+          {
+            "binding_id": "read-corpus1:output->merge-tar:data1",
+            "from_node_id": "read-corpus1",
+            "from_param_name": "output",
+            "to_node_id": "merge-tar",
+            "to_param_name": "data1"
+          }
+        ]
       }
     },
     {
@@ -1193,248 +1393,423 @@
     {
       "stage": "nest",
       "status": "finished",
-      "depth": 1,
+      "depth": 2,
       "nest_count": {
+        "10.0.90.174#0": 1,
         "10.0.82.213#0": 1
       },
-      "nested_dsl": {
-        "dsl_version": "1.0",
+      "execution_dsl": {
         "task": {
-          "dag_task_id": "xdc-ec46ee40cd8b",
-          "dag_task_name": "合并三份行星地质地图语料为 result.tar"
+          "dag_task_id": "xdc-30ac66882dcf",
+          "dag_task_name": "语料合并任务"
         },
         "nodes": [
           {
-            "node_id": "merge-to-tar",
-            "node_name": "merge_to_tar",
-            "node_type": "default",
+            "node_id": "read-corpus1",
+            "node_name": "read_corpus1",
             "skill": {
-              "skill_id": "piflow_engine.cn.piflow.engine.local.tar_archive_merge_stop.TarArchiveMergeStop",
-              "skill_name": "piflow_engine.cn.piflow.engine.local.tar_archive_merge_stop.TarArchiveMergeStop",
-              "version": "1.0.0"
-            },
-            "position": {
-              "x": 780.0,
-              "y": 80.0
+              "skill_id": "piflow_engine.cn.piflow.engine.local.corpus_dataset_source_stop.CorpusDatasetSourceStop",
+              "skill_name": "corpus_dataset_source_stop"
             },
             "input_params": [
               {
-                "param_name": "data1",
+                "binding_id": "",
+                "param_name": "dataset_id",
                 "param_type": "string",
-                "value_mode": "reference",
-                "param_value": "",
-                "binding_id": "read-mars-geo:output->merge-to-tar:data1"
-              },
+                "value_mode": "manual",
+                "param_value": "6a744595d38ea034d388c7b4",
+                "value_source": "default"
+              }
+            ],
+            "out_params": [
               {
-                "param_name": "data2",
+                "param_name": "output",
+                "param_type": "file_artifact"
+              }
+            ]
+          },
+          {
+            "node_id": "read-corpus2",
+            "node_name": "read_corpus2",
+            "skill": {
+              "skill_id": "piflow_engine.cn.piflow.engine.local.corpus_dataset_source_stop.CorpusDatasetSourceStop",
+              "skill_name": "corpus_dataset_source_stop"
+            },
+            "input_params": [
+              {
+                "binding_id": "",
+                "param_name": "dataset_id",
                 "param_type": "string",
-                "value_mode": "reference",
-                "param_value": "",
-                "binding_id": "read-venus-geo:output->merge-to-tar:data2"
-              },
+                "value_mode": "manual",
+                "param_value": "6a6ab4da15840cf004056867",
+                "value_source": "default"
+              }
+            ],
+            "out_params": [
               {
-                "param_name": "data3",
+                "param_name": "output",
+                "param_type": "file_artifact"
+              }
+            ]
+          },
+          {
+            "node_id": "read-corpus3",
+            "node_name": "read_corpus3",
+            "skill": {
+              "skill_id": "piflow_engine.cn.piflow.engine.local.corpus_dataset_source_stop.CorpusDatasetSourceStop",
+              "skill_name": "corpus_dataset_source_stop"
+            },
+            "input_params": [
+              {
+                "binding_id": "",
+                "param_name": "dataset_id",
                 "param_type": "string",
-                "value_mode": "reference",
-                "param_value": "",
-                "binding_id": "read-mercury-geo:output->merge-to-tar:data3"
-              },
+                "value_mode": "manual",
+                "param_value": "6a6ab4da15840cf004056866",
+                "value_source": "default"
+              }
+            ],
+            "out_params": [
               {
+                "param_name": "output",
+                "param_type": "file_artifact"
+              }
+            ]
+          },
+          {
+            "node_id": "merge-tar",
+            "node_name": "merge_tar",
+            "skill": {
+              "skill_id": "piflow_engine.cn.piflow.engine.local.tar_archive_merge_stop.TarArchiveMergeStop",
+              "skill_name": "tar_archive_merge_stop"
+            },
+            "input_params": [
+              {
+                "binding_id": "",
                 "param_name": "output_file_name",
                 "param_type": "string",
                 "value_mode": "manual",
                 "param_value": "result.tar",
-                "binding_id": ""
+                "value_source": "default"
               }
             ],
             "out_params": [
               {
                 "param_name": "output",
-                "param_type": "file"
+                "param_type": "file_artifact"
               }
-            ],
-            "dataCenter": "10.0.82.213"
-          },
-          {
-            "node_id": "read-mars-geo",
-            "node_name": "read_mars_geo",
-            "node_type": "default",
-            "skill": {
-              "skill_id": "piflow_engine.cn.piflow.engine.local.corpus_dataset_source_stop.CorpusDatasetSourceStop",
-              "skill_name": "piflow_engine.cn.piflow.engine.local.corpus_dataset_source_stop.CorpusDatasetSourceStop",
-              "version": "1.0.0"
-            },
-            "position": {
-              "x": 0.0,
-              "y": 80.0
-            },
-            "input_params": [
-              {
-                "param_name": "dataset_id",
-                "param_type": "string",
-                "value_mode": "manual",
-                "param_value": "6a2f700ca3472727522d5376",
-                "binding_id": ""
-              }
-            ],
-            "out_params": [
-              {
-                "param_name": "output",
-                "param_type": "file"
-              }
-            ],
-            "dataCenter": "10.0.82.213"
-          },
-          {
-            "node_id": "read-mercury-geo",
-            "node_name": "read_mercury_geo",
-            "node_type": "default",
-            "skill": {
-              "skill_id": "piflow_engine.cn.piflow.engine.local.corpus_dataset_source_stop.CorpusDatasetSourceStop",
-              "skill_name": "piflow_engine.cn.piflow.engine.local.corpus_dataset_source_stop.CorpusDatasetSourceStop",
-              "version": "1.0.0"
-            },
-            "position": {
-              "x": 520.0,
-              "y": 80.0
-            },
-            "input_params": [
-              {
-                "param_name": "dataset_id",
-                "param_type": "string",
-                "value_mode": "manual",
-                "param_value": "6a2f7004a3472727522d5374",
-                "binding_id": ""
-              }
-            ],
-            "out_params": [
-              {
-                "param_name": "output",
-                "param_type": "file"
-              }
-            ],
-            "dataCenter": "10.0.82.213"
-          },
-          {
-            "node_id": "read-venus-geo",
-            "node_name": "read_venus_geo",
-            "node_type": "default",
-            "skill": {
-              "skill_id": "piflow_engine.cn.piflow.engine.local.corpus_dataset_source_stop.CorpusDatasetSourceStop",
-              "skill_name": "piflow_engine.cn.piflow.engine.local.corpus_dataset_source_stop.CorpusDatasetSourceStop",
-              "version": "1.0.0"
-            },
-            "position": {
-              "x": 260.0,
-              "y": 80.0
-            },
-            "input_params": [
-              {
-                "param_name": "dataset_id",
-                "param_type": "string",
-                "value_mode": "manual",
-                "param_value": "6a2f7008a3472727522d5375",
-                "binding_id": ""
-              }
-            ],
-            "out_params": [
-              {
-                "param_name": "output",
-                "param_type": "file"
-              }
-            ],
-            "dataCenter": "10.0.82.213"
+            ]
           },
           {
             "node_id": "save-result",
             "node_name": "save_result",
-            "node_type": "default",
             "skill": {
               "skill_id": "piflow_engine.cn.piflow.engine.local.file_save_stop.FileSaveStop",
-              "skill_name": "piflow_engine.cn.piflow.engine.local.file_save_stop.FileSaveStop",
-              "version": "1.0.0"
-            },
-            "position": {
-              "x": 1040.0,
-              "y": 80.0
+              "skill_name": "file_save_stop"
             },
             "input_params": [
               {
-                "param_name": "output",
-                "param_type": "string",
-                "value_mode": "reference",
-                "param_value": "",
-                "binding_id": "merge-to-tar:output->save-result:output"
-              },
-              {
+                "binding_id": "",
                 "param_name": "absolute_path",
                 "param_type": "string",
                 "value_mode": "manual",
                 "param_value": "/workspace/artifacts/result.tar",
-                "binding_id": ""
+                "value_source": "default"
               },
               {
+                "binding_id": "",
                 "param_name": "overwrite",
                 "param_type": "string",
                 "value_mode": "manual",
                 "param_value": "true",
-                "binding_id": ""
+                "value_source": "default"
               }
             ],
-            "out_params": [],
-            "dataCenter": "10.0.82.213"
+            "out_params": [
+              {
+                "param_name": "output",
+                "param_type": "file_artifact"
+              }
+            ]
           }
         ],
         "edges": [
           {
-            "edge_id": "edge-read-mars-geo-merge-to-tar",
-            "from_node_id": "read-mars-geo",
-            "to_node_id": "merge-to-tar"
+            "edge_id": "edge-read-corpus1-merge-tar",
+            "from_node_id": "read-corpus1",
+            "to_node_id": "merge-tar"
           },
           {
-            "edge_id": "edge-read-venus-geo-merge-to-tar",
-            "from_node_id": "read-venus-geo",
-            "to_node_id": "merge-to-tar"
+            "edge_id": "edge-read-corpus2-merge-tar",
+            "from_node_id": "read-corpus2",
+            "to_node_id": "merge-tar"
           },
           {
-            "edge_id": "edge-read-mercury-geo-merge-to-tar",
-            "from_node_id": "read-mercury-geo",
-            "to_node_id": "merge-to-tar"
+            "edge_id": "edge-read-corpus3-merge-tar",
+            "from_node_id": "read-corpus3",
+            "to_node_id": "merge-tar"
           },
           {
-            "edge_id": "edge-merge-to-tar-save-result",
-            "from_node_id": "merge-to-tar",
+            "edge_id": "edge-merge-tar-save-result",
+            "from_node_id": "merge-tar",
             "to_node_id": "save-result"
           }
         ],
         "bindings": [
           {
-            "binding_id": "read-mars-geo:output->merge-to-tar:data1",
-            "from_node_id": "read-mars-geo",
+            "binding_id": "read-corpus1:output->merge-tar:data1",
+            "from_node_id": "read-corpus1",
             "from_param_name": "output",
-            "to_node_id": "merge-to-tar",
+            "to_node_id": "merge-tar",
             "to_param_name": "data1"
           },
           {
-            "binding_id": "read-venus-geo:output->merge-to-tar:data2",
-            "from_node_id": "read-venus-geo",
+            "binding_id": "read-corpus2:output->merge-tar:data2",
+            "from_node_id": "read-corpus2",
             "from_param_name": "output",
-            "to_node_id": "merge-to-tar",
+            "to_node_id": "merge-tar",
             "to_param_name": "data2"
           },
           {
-            "binding_id": "read-mercury-geo:output->merge-to-tar:data3",
-            "from_node_id": "read-mercury-geo",
+            "binding_id": "read-corpus3:output->merge-tar:data3",
+            "from_node_id": "read-corpus3",
             "from_param_name": "output",
-            "to_node_id": "merge-to-tar",
+            "to_node_id": "merge-tar",
             "to_param_name": "data3"
           },
           {
-            "binding_id": "merge-to-tar:output->save-result:output",
-            "from_node_id": "merge-to-tar",
+            "binding_id": "merge-tar:output->save-result:output",
+            "from_node_id": "merge-tar",
             "from_param_name": "output",
             "to_node_id": "save-result",
             "to_param_name": "output"
+          }
+        ]
+      },
+      "nested_dsl": {
+        "task": {
+          "dag_task_id": "xdc-30ac66882dcf",
+          "dag_task_name": "语料合并任务"
+        },
+        "nodes": [
+          {
+            "node_id": "merge-tar",
+            "node_name": "merge_tar",
+            "skill": {
+              "skill_id": "piflow_engine.cn.piflow.engine.local.tar_archive_merge_stop.TarArchiveMergeStop",
+              "skill_name": "tar_archive_merge_stop"
+            },
+            "input_params": [
+              {
+                "binding_id": "",
+                "param_name": "output_file_name",
+                "param_type": "string",
+                "value_mode": "manual",
+                "param_value": "result.tar",
+                "value_source": "default"
+              }
+            ],
+            "out_params": [
+              {
+                "param_name": "output",
+                "param_type": "file_artifact"
+              }
+            ]
+          },
+          {
+            "node_id": "read-corpus2",
+            "node_name": "read_corpus2",
+            "skill": {
+              "skill_id": "piflow_engine.cn.piflow.engine.local.corpus_dataset_source_stop.CorpusDatasetSourceStop",
+              "skill_name": "corpus_dataset_source_stop"
+            },
+            "input_params": [
+              {
+                "binding_id": "",
+                "param_name": "dataset_id",
+                "param_type": "string",
+                "value_mode": "manual",
+                "param_value": "6a6ab4da15840cf004056867",
+                "value_source": "default"
+              }
+            ],
+            "out_params": [
+              {
+                "param_name": "output",
+                "param_type": "file_artifact"
+              }
+            ]
+          },
+          {
+            "node_id": "read-corpus3",
+            "node_name": "read_corpus3",
+            "skill": {
+              "skill_id": "piflow_engine.cn.piflow.engine.local.corpus_dataset_source_stop.CorpusDatasetSourceStop",
+              "skill_name": "corpus_dataset_source_stop"
+            },
+            "input_params": [
+              {
+                "binding_id": "",
+                "param_name": "dataset_id",
+                "param_type": "string",
+                "value_mode": "manual",
+                "param_value": "6a6ab4da15840cf004056866",
+                "value_source": "default"
+              }
+            ],
+            "out_params": [
+              {
+                "param_name": "output",
+                "param_type": "file_artifact"
+              }
+            ]
+          },
+          {
+            "node_id": "save-result",
+            "node_name": "save_result",
+            "skill": {
+              "skill_id": "piflow_engine.cn.piflow.engine.local.file_save_stop.FileSaveStop",
+              "skill_name": "file_save_stop"
+            },
+            "input_params": [
+              {
+                "binding_id": "",
+                "param_name": "absolute_path",
+                "param_type": "string",
+                "value_mode": "manual",
+                "param_value": "/workspace/artifacts/result.tar",
+                "value_source": "default"
+              },
+              {
+                "binding_id": "",
+                "param_name": "overwrite",
+                "param_type": "string",
+                "value_mode": "manual",
+                "param_value": "true",
+                "value_source": "default"
+              }
+            ],
+            "out_params": [
+              {
+                "param_name": "output",
+                "param_type": "file_artifact"
+              }
+            ]
+          },
+          {
+            "node_id": "remote-subdag-source-read-corpus1",
+            "node_name": "跨域执行_10.0.82.213",
+            "skill": {
+              "skill_id": "piflow_engine.cn.piflow.engine.local.remote_subdag_source_stop.RemoteSubDagSourceStop",
+              "skill_name": "remote_sub_dag_source_node",
+              "version": "1.0.0"
+            },
+            "input_params": [
+              {
+                "binding_id": "",
+                "param_name": "remote_grpc_target",
+                "param_type": "string",
+                "value_mode": "manual",
+                "param_value": "10.0.82.213:50061",
+                "value_source": "default"
+              },
+              {
+                "binding_id": "",
+                "param_name": "subdag_definition_json",
+                "param_type": "string",
+                "value_mode": "manual",
+                "param_value": "{\"task\": {\"dag_task_id\": \"xdc-30ac66882dcf--10.0.82.213#0\", \"dag_task_name\": \"语料合并任务 [10.0.82.213#0]\"}, \"nodes\": [{\"node_id\": \"read-corpus1\", \"node_name\": \"read_corpus1\", \"skill\": {\"skill_id\": \"piflow_engine.cn.piflow.engine.local.corpus_dataset_source_stop.CorpusDatasetSourceStop\", \"skill_name\": \"corpus_dataset_source_stop\"}, \"input_params\": [{\"binding_id\": \"\", \"param_name\": \"dataset_id\", \"param_type\": \"string\", \"value_mode\": \"manual\", \"param_value\": \"6a744595d38ea034d388c7b4\", \"value_source\": \"default\"}], \"out_params\": [{\"param_name\": \"output\", \"param_type\": \"file_artifact\"}]}], \"edges\": [], \"bindings\": []}",
+                "value_source": "default"
+              },
+              {
+                "binding_id": "",
+                "param_name": "result_node_id",
+                "param_type": "string",
+                "value_mode": "manual",
+                "param_value": "read-corpus1",
+                "value_source": "default"
+              },
+              {
+                "binding_id": "",
+                "param_name": "result_output_name",
+                "param_type": "string",
+                "value_mode": "manual",
+                "param_value": "output",
+                "value_source": "default"
+              },
+              {
+                "binding_id": "",
+                "param_name": "wait_timeout_seconds",
+                "param_type": "string",
+                "value_mode": "manual",
+                "param_value": "3600",
+                "value_source": "default"
+              }
+            ],
+            "out_params": [
+              {
+                "param_name": "output",
+                "param_type": "file_artifact"
+              }
+            ],
+            "node_type": "synthetic_remote_source",
+            "position": {
+              "x": 0.0,
+              "y": 0.0
+            },
+            "icon_path": ""
+          }
+        ],
+        "edges": [
+          {
+            "edge_id": "edge-read-corpus2-merge-tar",
+            "from_node_id": "read-corpus2",
+            "to_node_id": "merge-tar"
+          },
+          {
+            "edge_id": "edge-read-corpus3-merge-tar",
+            "from_node_id": "read-corpus3",
+            "to_node_id": "merge-tar"
+          },
+          {
+            "edge_id": "edge-merge-tar-save-result",
+            "from_node_id": "merge-tar",
+            "to_node_id": "save-result"
+          },
+          {
+            "edge_id": "edge-remote-subdag-source-read-corpus1-merge-tar",
+            "from_node_id": "remote-subdag-source-read-corpus1",
+            "to_node_id": "merge-tar"
+          }
+        ],
+        "bindings": [
+          {
+            "binding_id": "read-corpus2:output->merge-tar:data2",
+            "from_node_id": "read-corpus2",
+            "from_param_name": "output",
+            "to_node_id": "merge-tar",
+            "to_param_name": "data2"
+          },
+          {
+            "binding_id": "read-corpus3:output->merge-tar:data3",
+            "from_node_id": "read-corpus3",
+            "from_param_name": "output",
+            "to_node_id": "merge-tar",
+            "to_param_name": "data3"
+          },
+          {
+            "binding_id": "merge-tar:output->save-result:output",
+            "from_node_id": "merge-tar",
+            "from_param_name": "output",
+            "to_node_id": "save-result",
+            "to_param_name": "output"
+          },
+          {
+            "binding_id": "remote-subdag-source-read-corpus1:output->merge-tar:data1",
+            "from_node_id": "remote-subdag-source-read-corpus1",
+            "from_param_name": "output",
+            "to_node_id": "merge-tar",
+            "to_param_name": "data1"
           }
         ]
       }
