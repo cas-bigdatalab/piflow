@@ -1,11 +1,19 @@
 import logging
 from datetime import datetime
+from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Body, HTTPException, Query
 from pydantic import BaseModel, ConfigDict, Field
 
 from services.corpus_connector_service import (
+    create_corpus_connector,
+    delete_corpus_connector,
+    disable_corpus_connector,
     get_dataset_detail,
+    get_corpus_connector_detail,
+    get_corpus_connector_tree,
+    enable_corpus_connector,
+    update_corpus_connector,
     list_connector_details_with_resources,
     list_dataset_details,
 )
@@ -135,3 +143,94 @@ async def get_corpus_dataset_detail_api(req: CorpusDatasetDetailRequest):
             "dataset": result,
         },
     }
+
+
+@router.post("/corpus/connector/save")
+@router.post("/dataset.connector.save", include_in_schema=False)
+async def save_corpus_connector_api(payload: dict[str, Any] = Body(...)):
+    try:
+        result = create_corpus_connector(payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception:
+        log.exception("failed to save corpus connector")
+        raise HTTPException(status_code=500, detail="failed to save corpus connector")
+    return {"code": 200, "result": result}
+
+
+@router.post("/corpus/connector/update")
+@router.post("/dataset.connector.update", include_in_schema=False)
+async def update_corpus_connector_api(payload: dict[str, Any] = Body(...)):
+    try:
+        result = update_corpus_connector(payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception:
+        log.exception("failed to update corpus connector")
+        raise HTTPException(status_code=500, detail="failed to update corpus connector")
+    return {"code": 200, "result": result}
+
+
+@router.get("/corpus/connector/delete")
+@router.get("/dataset.connector.delete", include_in_schema=False)
+async def delete_corpus_connector_api(id: str = Query(...)):
+    try:
+        result = delete_corpus_connector(id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception:
+        log.exception("failed to delete corpus connector id=%s", id)
+        raise HTTPException(status_code=500, detail="failed to delete corpus connector")
+    return {"code": 200, "result": result}
+
+
+@router.get("/corpus/connector/disable")
+@router.get("/dataset.connector.disable", include_in_schema=False)
+async def disable_corpus_connector_api(id: str = Query(...)):
+    try:
+        result = disable_corpus_connector(id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception:
+        log.exception("failed to disable corpus connector id=%s", id)
+        raise HTTPException(status_code=500, detail="failed to disable corpus connector")
+    return {"code": 200, "result": result}
+
+
+@router.get("/corpus/connector/detail")
+@router.get("/dataset.connector.detail", include_in_schema=False)
+async def get_corpus_connector_detail_api(id: str = Query(...)):
+    try:
+        result = get_corpus_connector_detail(id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception:
+        log.exception("failed to get corpus connector detail id=%s", id)
+        raise HTTPException(status_code=500, detail="failed to get corpus connector detail")
+    return {"code": 200, "result": result}
+
+
+@router.get("/corpus/connector/enable")
+@router.get("/dataset.connector.enable", include_in_schema=False)
+async def enable_corpus_connector_api(id: str = Query(...)):
+    try:
+        result = enable_corpus_connector(id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception:
+        log.exception("failed to enable corpus connector id=%s", id)
+        raise HTTPException(status_code=500, detail="failed to enable corpus connector")
+    return {"code": 200, "result": result}
+
+
+@router.get("/corpus/connector/tree")
+@router.get("/dataset.connector.tree", include_in_schema=False)
+async def get_corpus_connector_tree_api():
+    try:
+        result = get_corpus_connector_tree()
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception:
+        log.exception("failed to get corpus connector tree")
+        raise HTTPException(status_code=500, detail="failed to get corpus connector tree")
+    return {"code": 200, "result": result}
