@@ -5,7 +5,10 @@ allowed-tools:
   - emit_operator
 
 name_zh: 几何识别与图像分割结果地理转换算子
-input_params: []
+input_params: 
+  - name: operator_definition
+    type: json_file
+    description: 几何识别算子的标准JSON片段，包含算子配置和数据源依赖
 
 output_params:
   - name: operator_definition
