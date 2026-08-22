@@ -145,10 +145,22 @@ def list_dataset_details(
 
     payload = _fetch_dataset_page(page_num=page_num, page_size=page_size, filters=filters)
     dataset_items = _extract_page_items(payload, entity_name="dataset")
+    connector_ids = {
+        str(item.get("connectorId", "") or "").strip()
+        for item in dataset_items
+        if isinstance(item, dict) and str(item.get("connectorId", "") or "").strip()
+    }
+    connector_lookup = _fetch_connector_details_by_connector_id(connector_ids) if connector_ids else {}
 
     result_items: list[dict[str, Any]] = []
     for item in dataset_items:
-        result_items.append(_normalize_dataset_detail(item))
+        dataset_detail = _normalize_dataset_detail(item)
+        connector_id = dataset_detail["connectorId"]
+        if connector_id:
+            dataset_detail["connectorInstitution"] = _extract_connector_institution(
+                connector_lookup.get(connector_id)
+            )
+        result_items.append(dataset_detail)
 
     return {
         "items": result_items,
@@ -395,6 +407,15 @@ def _normalize_connector_detail(source: dict[str, Any]) -> dict[str, Any]:
     protocol = _first_non_empty_string(
         source.get("protocol"),
     )
+    institution = _first_non_empty_string(
+        source.get("institution"),
+        source.get("institutionName"),
+        source.get("organization"),
+        source.get("organizationName"),
+        source.get("orgName"),
+        source.get("companyName"),
+        source.get("fromName"),
+    )
     host = _first_non_empty_string(
         source.get("host"),
         source.get("ip"),
@@ -412,6 +433,7 @@ def _normalize_connector_detail(source: dict[str, Any]) -> dict[str, Any]:
         "name": connector_name,
         "serviceUrl": service_url,
         "protocol": protocol,
+        "institution": institution,
         "host": host,
         "remoteGrpcTarget": remote_grpc_target,
         "grpcPort": grpc_port,
@@ -445,6 +467,38 @@ def _fetch_remote_resource(remote_grpc_target: str) -> dict[str, Any]:
         "free_disk_gb": float(resource.free_disk_gb),
         "hostname": str(resource.hostname),
     }
+
+
+def _fetch_connector_details_by_connector_id(connector_ids: set[str]) -> dict[str, dict[str, Any]]:
+    remaining_ids = {str(connector_id).strip() for connector_id in connector_ids if str(connector_id).strip()}
+    if not remaining_ids:
+        return {}
+
+    lookup: dict[str, dict[str, Any]] = {}
+    page_num = 1
+    page_size = 100
+
+    while remaining_ids:
+        payload = _fetch_connector_page(page_num=page_num, page_size=page_size)
+        items = _extract_connector_page_items(payload)
+        for item in items:
+            connector = _normalize_connector_detail(item)
+            connector_id = connector.get("connectorId", "")
+            if connector_id and connector_id in remaining_ids:
+                lookup[connector_id] = connector
+                remaining_ids.remove(connector_id)
+
+        if len(items) < page_size:
+            break
+        page_num += 1
+
+    return lookup
+
+
+def _extract_connector_institution(connector: dict[str, Any] | None) -> str:
+    if not connector:
+        return ""
+    return str(connector.get("institution", "") or "").strip()
 
 
 def _format_resource_display(resource: dict[str, Any]) -> dict[str, Any]:
