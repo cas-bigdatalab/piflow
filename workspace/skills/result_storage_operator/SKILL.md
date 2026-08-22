@@ -5,7 +5,10 @@ allowed-tools:
   - emit_operator
 
 name_zh: 分析结果落盘算子
-input_params: []
+input_params: 
+  - name: operator_definition
+    type: json_file
+    description: 结果存储算子的标准JSON定义，用于作为DAG的sink节点
 
 output_params:
   - name: operator_definition
