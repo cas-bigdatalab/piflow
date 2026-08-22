@@ -157,9 +157,11 @@ def list_dataset_details(
         dataset_detail = _normalize_dataset_detail(item)
         connector_id = dataset_detail["connectorId"]
         if connector_id:
-            dataset_detail["connectorInstitution"] = _extract_connector_institution(
+            connector_organization = _extract_connector_organization(
                 connector_lookup.get(connector_id)
             )
+            dataset_detail["connectorOrganization"] = connector_organization
+            dataset_detail["connectorInstitution"] = connector_organization
         result_items.append(dataset_detail)
 
     return {
@@ -408,13 +410,13 @@ def _normalize_connector_detail(source: dict[str, Any]) -> dict[str, Any]:
         source.get("protocol"),
     )
     institution = _first_non_empty_string(
-        source.get("institution"),
-        source.get("institutionName"),
-        source.get("organization"),
-        source.get("organizationName"),
-        source.get("orgName"),
-        source.get("companyName"),
-        source.get("fromName"),
+        _extract_nested_text(source, "institution"),
+        _extract_nested_text(source, "institutionName"),
+        _extract_nested_text(source, "organization"),
+        _extract_nested_text(source, "organizationName"),
+        _extract_nested_text(source, "orgName"),
+        _extract_nested_text(source, "companyName"),
+        _extract_nested_text(source, "fromName"),
     )
     host = _first_non_empty_string(
         source.get("host"),
@@ -496,9 +498,48 @@ def _fetch_connector_details_by_connector_id(connector_ids: set[str]) -> dict[st
 
 
 def _extract_connector_institution(connector: dict[str, Any] | None) -> str:
+    return _extract_connector_organization(connector)
+
+
+def _extract_connector_organization(connector: dict[str, Any] | None) -> str:
     if not connector:
         return ""
-    return str(connector.get("institution", "") or "").strip()
+    return _first_non_empty_string(
+        _extract_nested_text(connector, "organization"),
+        _extract_nested_text(connector, "organizationName"),
+        _extract_nested_text(connector, "institution"),
+        _extract_nested_text(connector, "institutionName"),
+        _extract_nested_text(connector, "orgName"),
+        _extract_nested_text(connector, "companyName"),
+    )
+
+
+def _extract_nested_text(source: dict[str, Any], key: str) -> str:
+    if not isinstance(source, dict) or not key:
+        return ""
+
+    direct_value = source.get(key)
+    if isinstance(direct_value, str):
+        text = direct_value.strip()
+        if text:
+            return text
+    elif direct_value is not None and not isinstance(direct_value, (dict, list)):
+        text = str(direct_value).strip()
+        if text:
+            return text
+
+    for value in source.values():
+        if isinstance(value, dict):
+            nested = _extract_nested_text(value, key)
+            if nested:
+                return nested
+        elif isinstance(value, list):
+            for item in value:
+                if isinstance(item, dict):
+                    nested = _extract_nested_text(item, key)
+                    if nested:
+                        return nested
+    return ""
 
 
 def _format_resource_display(resource: dict[str, Any]) -> dict[str, Any]:
