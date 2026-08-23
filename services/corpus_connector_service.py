@@ -32,7 +32,10 @@ def list_connector_resources(
         raise ValueError("grpc_port must be positive")
 
     payload = _fetch_connector_page(page_num=page_num, page_size=page_size, keyword=keyword)
-    items = _extract_connector_page_items(payload)
+    items = _filter_connector_items(
+        _extract_connector_page_items(payload),
+        keyword=keyword,
+    )
 
     result: dict[str, dict[str, Any]] = {}
     for item in items:
@@ -57,7 +60,10 @@ def list_connector_details_with_resources(
     keyword: str | None = None,
 ) -> dict[str, Any]:
     payload = _fetch_connector_page(page_num=page_num, page_size=page_size, keyword=keyword)
-    items = _extract_connector_page_items(payload)
+    items = _filter_connector_items(
+        _extract_connector_page_items(payload),
+        keyword=keyword,
+    )
 
     result_items: list[dict[str, Any]] = []
     for item in items:
@@ -401,6 +407,34 @@ def _fetch_connector_page(
 
 def _extract_connector_page_items(payload: dict[str, Any]) -> list[dict[str, Any]]:
     return _extract_page_items(payload, entity_name="connector")
+
+
+def _filter_connector_items(
+    items: list[dict[str, Any]],
+    *,
+    keyword: str | None,
+) -> list[dict[str, Any]]:
+    normalized_keyword = str(keyword or "").strip().lower()
+    if not normalized_keyword:
+        return items
+
+    matched_items: list[dict[str, Any]] = []
+    for item in items:
+        searchable_text = " ".join(
+            str(item.get(field, "") or "")
+            for field in (
+                "connectorId",
+                "name",
+                "connectorName",
+                "organization",
+                "organizationName",
+                "description",
+                "remark",
+            )
+        ).lower()
+        if normalized_keyword in searchable_text:
+            matched_items.append(item)
+    return matched_items
 
 
 def _normalize_connector_detail(source: dict[str, Any]) -> dict[str, Any]:
