@@ -22,6 +22,7 @@ def list_connector_resources(
     page_num: int = 1,
     page_size: int = 10,
     grpc_port: int = DEFAULT_REMOTE_GRPC_PORT,
+    keyword: str | None = None,
 ) -> dict[str, dict[str, Any]]:
     if page_num <= 0:
         raise ValueError("page_num must be positive")
@@ -30,7 +31,7 @@ def list_connector_resources(
     if grpc_port <= 0:
         raise ValueError("grpc_port must be positive")
 
-    payload = _fetch_connector_page(page_num=page_num, page_size=page_size)
+    payload = _fetch_connector_page(page_num=page_num, page_size=page_size, keyword=keyword)
     items = _extract_connector_page_items(payload)
 
     result: dict[str, dict[str, Any]] = {}
@@ -53,8 +54,9 @@ def list_connector_details_with_resources(
     page_num: int = 1,
     page_size: int = 10,
     grpc_port: int = DEFAULT_REMOTE_GRPC_PORT,
+    keyword: str | None = None,
 ) -> dict[str, Any]:
-    payload = _fetch_connector_page(page_num=page_num, page_size=page_size)
+    payload = _fetch_connector_page(page_num=page_num, page_size=page_size, keyword=keyword)
     items = _extract_connector_page_items(payload)
 
     result_items: list[dict[str, Any]] = []
@@ -360,7 +362,12 @@ def _normalize_json_body(payload: dict[str, Any] | None) -> dict[str, Any]:
     return normalized
 
 
-def _fetch_connector_page(*, page_num: int, page_size: int) -> dict[str, Any]:
+def _fetch_connector_page(
+    *,
+    page_num: int,
+    page_size: int,
+    keyword: str | None = None,
+) -> dict[str, Any]:
     base_url = str(get_settings().corpus_route.base_url or "").strip().rstrip("/")
     if not base_url:
         raise ValueError("settings.corpus_route.base_url must not be empty")
@@ -369,7 +376,13 @@ def _fetch_connector_page(*, page_num: int, page_size: int) -> dict[str, Any]:
     try:
         response = requests.get(
             url,
-            params={"pageNum": page_num, "pageSize": page_size},
+            params=_normalize_query_params(
+                {
+                    "pageNum": page_num,
+                    "pageSize": page_size,
+                    "keyword": keyword,
+                }
+            ),
             timeout=REQUEST_TIMEOUT,
         )
         response.raise_for_status()

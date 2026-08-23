@@ -27,6 +27,10 @@ class CorpusPageListRequest(BaseModel):
     pageSize: int = 10
 
 
+class CorpusConnectorListRequest(CorpusPageListRequest):
+    keyword: str | None = None
+
+
 class CorpusDatasetListRequest(CorpusPageListRequest):
     model_config = ConfigDict(populate_by_name=True)
 
@@ -81,11 +85,12 @@ class CorpusDatasetDetailRequest(BaseModel):
 
 
 @router.post("/corpus/connector/list")
-async def list_corpus_connectors_api(req: CorpusPageListRequest):
+async def list_corpus_connectors_api(req: CorpusConnectorListRequest):
     try:
         result = list_connector_details_with_resources(
             page_num=req.pageNum,
             page_size=req.pageSize,
+            keyword=req.keyword,
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
