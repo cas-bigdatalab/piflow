@@ -39,8 +39,7 @@ def list_connector_resources(
         connector_id = str(connector.get("connectorId", "") or "").strip()
         if not connector_id:
             continue
-        remote_grpc_target = _build_remote_grpc_target(connector, grpc_port=grpc_port)
-        resource = _fetch_remote_resource(remote_grpc_target)
+        remote_grpc_target, resource = _resolve_remote_resource(connector, grpc_port=grpc_port)
         result[connector_id] = {
             "connector": connector,
             "remote_grpc_target": remote_grpc_target,
@@ -64,8 +63,7 @@ def list_connector_details_with_resources(
         connector_id = str(connector.get("connectorId", "") or "").strip()
         if not connector_id:
             continue
-        remote_grpc_target = _build_remote_grpc_target(connector, grpc_port=grpc_port)
-        resource = _fetch_remote_resource(remote_grpc_target)
+        remote_grpc_target, resource = _resolve_remote_resource(connector, grpc_port=grpc_port)
         result_items.append(
             {
                 "connector": connector,
@@ -156,10 +154,11 @@ def list_dataset_details(
     for item in dataset_items:
         dataset_detail = _normalize_dataset_detail(item)
         connector_id = dataset_detail["connectorId"]
-        if connector_id:
-            connector_organization = _extract_connector_organization(
-                connector_lookup.get(connector_id)
-            )
+        connector = connector_lookup.get(connector_id) if connector_id else None
+        if connector is not None and not _is_connector_enabled(connector):
+            continue
+        if connector is not None:
+            connector_organization = _extract_connector_organization(connector)
             dataset_detail["connectorOrganization"] = connector_organization
             dataset_detail["connectorInstitution"] = connector_organization
         result_items.append(dataset_detail)
@@ -402,6 +401,7 @@ def _normalize_connector_detail(source: dict[str, Any]) -> dict[str, Any]:
         source.get("name"),
         source.get("connectorName"),
     )
+    enabled = source.get("enabled")
     service_url = _first_non_empty_string(
         source.get("serviceUrl"),
         source.get("serverUrl"),
@@ -433,6 +433,7 @@ def _normalize_connector_detail(source: dict[str, Any]) -> dict[str, Any]:
     return {
         "connectorId": connector_id,
         "name": connector_name,
+        "enabled": enabled,
         "serviceUrl": service_url,
         "protocol": protocol,
         "institution": institution,
@@ -471,6 +472,29 @@ def _fetch_remote_resource(remote_grpc_target: str) -> dict[str, Any]:
     }
 
 
+def _resolve_remote_resource(connector: dict[str, Any], *, grpc_port: int) -> tuple[str, dict[str, Any]]:
+    try:
+        remote_grpc_target = _build_remote_grpc_target(connector, grpc_port=grpc_port)
+    except ValueError:
+        return "", _empty_remote_resource()
+
+    try:
+        resource = _fetch_remote_resource(remote_grpc_target)
+    except Exception:
+        return remote_grpc_target, _empty_remote_resource()
+
+    return remote_grpc_target, resource
+
+
+def _empty_remote_resource() -> dict[str, Any]:
+    return {
+        "cpu_cores": None,
+        "memory_gb": None,
+        "free_disk_gb": None,
+        "hostname": None,
+    }
+
+
 def _fetch_connector_details_by_connector_id(connector_ids: set[str]) -> dict[str, dict[str, Any]]:
     remaining_ids = {str(connector_id).strip() for connector_id in connector_ids if str(connector_id).strip()}
     if not remaining_ids:
@@ -499,6 +523,17 @@ def _fetch_connector_details_by_connector_id(connector_ids: set[str]) -> dict[st
 
 def _extract_connector_institution(connector: dict[str, Any] | None) -> str:
     return _extract_connector_organization(connector)
+
+
+def _is_connector_enabled(connector: dict[str, Any]) -> bool:
+    enabled = connector.get("enabled")
+    if isinstance(enabled, bool):
+        return enabled
+    if isinstance(enabled, str):
+        return enabled.strip().lower() not in {"false", "0", "no", "off"}
+    if isinstance(enabled, (int, float)):
+        return enabled != 0
+    return True
 
 
 def _extract_connector_organization(connector: dict[str, Any] | None) -> str:
@@ -543,18 +578,31 @@ def _extract_nested_text(source: dict[str, Any], key: str) -> str:
 
 
 def _format_resource_display(resource: dict[str, Any]) -> dict[str, Any]:
-    cpu_cores = float(resource.get("cpu_cores", 0.0) or 0.0)
-    memory_gb = float(resource.get("memory_gb", 0.0) or 0.0)
-    free_disk_gb = float(resource.get("free_disk_gb", 0.0) or 0.0)
-    hostname = str(resource.get("hostname", "") or "").strip()
+    cpu_cores = resource.get("cpu_cores")
+    memory_gb = resource.get("memory_gb")
+    free_disk_gb = resource.get("free_disk_gb")
+    hostname = resource.get("hostname")
+    if cpu_cores is None and memory_gb is None and free_disk_gb is None and hostname is None:
+        return {
+            "hostname": None,
+            "cpu": None,
+            "memory": None,
+            "free_disk": None,
+            "summary": "",
+        }
+
+    resolved_cpu_cores = float(cpu_cores or 0.0)
+    resolved_memory_gb = float(memory_gb or 0.0)
+    resolved_free_disk_gb = float(free_disk_gb or 0.0)
+    resolved_hostname = str(hostname or "").strip()
     return {
-        "hostname": hostname,
-        "cpu": f"{cpu_cores:g} 核",
-        "memory": f"{memory_gb:.2f} GB",
-        "free_disk": f"{free_disk_gb:.2f} GB",
+        "hostname": resolved_hostname,
+        "cpu": f"{resolved_cpu_cores:g} 核",
+        "memory": f"{resolved_memory_gb:.2f} GB",
+        "free_disk": f"{resolved_free_disk_gb:.2f} GB",
         "summary": (
-            f"{hostname or 'unknown'} · CPU {cpu_cores:g} 核 · "
-            f"内存 {memory_gb:.2f} GB · 剩余磁盘 {free_disk_gb:.2f} GB"
+            f"{resolved_hostname or 'unknown'} · CPU {resolved_cpu_cores:g} 核 · "
+            f"内存 {resolved_memory_gb:.2f} GB · 剩余磁盘 {resolved_free_disk_gb:.2f} GB"
         ),
     }
 
