@@ -108,8 +108,11 @@ def get_dataset_connector_detail_with_resource(
     if grpc_port <= 0:
         raise ValueError("grpc_port must be positive")
 
-    dataset = _fetch_dataset_detail(normalized_dataset_id)
+    dataset = _normalize_dataset_detail(_fetch_dataset_detail(normalized_dataset_id))
+    connectors = dataset.get("connectors", [])
     connector_id = str(dataset.get("connectorId", "") or "").strip()
+    if not connector_id and connectors:
+        connector_id = str(connectors[0].get("connectorId", "") or "").strip()
     if not connector_id:
         raise ValueError(f"dataset detail does not contain connectorId for dataset_id={normalized_dataset_id}")
 
@@ -124,6 +127,7 @@ def get_dataset_connector_detail_with_resource(
             f"connector detail not found in connector page for dataset_id={normalized_dataset_id}, connectorId={connector_id}"
         )
 
+    resolved_connectors = _resolve_enabled_dataset_connectors(connectors, connector_resources)
     return {
         "dataset": {
             "id": str(dataset.get("id", "")).strip(),
@@ -131,6 +135,8 @@ def get_dataset_connector_detail_with_resource(
             "title": str(dataset.get("title", "")).strip(),
             "connectorId": connector_id,
             "fromName": str(dataset.get("fromName", "")).strip(),
+            "connectors": resolved_connectors,
+            "replicaCount": len(resolved_connectors),
         },
         "connector": connector_entry["connector"],
         "remote_grpc_target": str(connector_entry["remote_grpc_target"]),
@@ -152,23 +158,41 @@ def list_dataset_details(
     payload = _fetch_dataset_page(page_num=page_num, page_size=page_size, filters=filters)
     dataset_items = _extract_page_items(payload, entity_name="dataset")
     connector_ids = {
-        str(item.get("connectorId", "") or "").strip()
+        connector_id
         for item in dataset_items
-        if isinstance(item, dict) and str(item.get("connectorId", "") or "").strip()
+        if isinstance(item, dict)
+        for connector_id in _extract_dataset_connector_ids(item)
+        if connector_id
     }
     connector_lookup = _fetch_connector_details_by_connector_id(connector_ids) if connector_ids else {}
 
-    result_items: list[dict[str, Any]] = []
+    grouped_dataset_details: dict[str, dict[str, Any]] = {}
     for item in dataset_items:
         dataset_detail = _normalize_dataset_detail(item)
-        connector_id = dataset_detail["connectorId"]
-        connector = connector_lookup.get(connector_id) if connector_id else None
-        if connector is not None and not _is_connector_enabled(connector):
+        dataset_key = _first_non_empty_string(dataset_detail.get("id"), dataset_detail.get("cstr"))
+        existing_detail = grouped_dataset_details.get(dataset_key)
+        if existing_detail is not None:
+            existing_detail["connectors"] = _merge_dataset_connectors(existing_detail["connectors"], dataset_detail["connectors"])
             continue
-        if connector is not None:
-            connector_organization = _extract_connector_organization(connector)
+        grouped_dataset_details[dataset_key] = dataset_detail
+
+    result_items: list[dict[str, Any]] = []
+    for dataset_detail in grouped_dataset_details.values():
+        connectors = _resolve_enabled_dataset_connectors(dataset_detail["connectors"], connector_lookup)
+        if dataset_detail["connectors"] and not connectors:
+            continue
+        dataset_detail["connectors"] = connectors
+        if connectors:
+            primary_connector = connectors[0]
+            dataset_detail["connectorId"] = primary_connector["connectorId"]
+            dataset_detail["fromName"] = primary_connector["fromName"]
+            connector_organization = _first_non_empty_string(
+                primary_connector.get("connectorOrganization"),
+                primary_connector.get("connectorInstitution"),
+            )
             dataset_detail["connectorOrganization"] = connector_organization
             dataset_detail["connectorInstitution"] = connector_organization
+        dataset_detail["replicaCount"] = len(connectors)
         result_items.append(dataset_detail)
 
     return {
@@ -181,7 +205,29 @@ def get_dataset_detail(dataset_id: str) -> dict[str, Any]:
     normalized_dataset_id = str(dataset_id or "").strip()
     if not normalized_dataset_id:
         raise ValueError("dataset_id is required")
-    return _normalize_dataset_detail(_fetch_dataset_detail(normalized_dataset_id))
+    dataset_detail = _normalize_dataset_detail(_fetch_dataset_detail(normalized_dataset_id))
+    connector_ids = {
+        connector_id
+        for connector_id in _extract_dataset_connector_ids(dataset_detail.get("raw", {}))
+        if connector_id
+    }
+    connector_lookup = _fetch_connector_details_by_connector_id(connector_ids) if connector_ids else {}
+    connectors = _resolve_enabled_dataset_connectors(dataset_detail["connectors"], connector_lookup)
+    if dataset_detail["connectors"] and not connectors:
+        raise ValueError(f"no enabled connector found for dataset_id={normalized_dataset_id}")
+    dataset_detail["connectors"] = connectors
+    if connectors:
+        primary_connector = connectors[0]
+        dataset_detail["connectorId"] = primary_connector["connectorId"]
+        dataset_detail["fromName"] = primary_connector["fromName"]
+        connector_organization = _first_non_empty_string(
+            primary_connector.get("connectorOrganization"),
+            primary_connector.get("connectorInstitution"),
+        )
+        dataset_detail["connectorOrganization"] = connector_organization
+        dataset_detail["connectorInstitution"] = connector_organization
+    dataset_detail["replicaCount"] = len(connectors)
+    return dataset_detail
 
 
 def create_corpus_connector(connector: dict[str, Any]) -> dict[str, Any]:
@@ -495,14 +541,120 @@ def _normalize_dataset_detail(source: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(source, dict):
         raise ValueError("dataset detail must be a json object")
 
+    connectors = _extract_dataset_connectors(source)
+    primary_connector = connectors[0] if connectors else {"connectorId": "", "fromName": ""}
     return {
         "id": _first_non_empty_string(source.get("id")),
         "cstr": _first_non_empty_string(source.get("cstr")),
         "title": _first_non_empty_string(source.get("title"), source.get("name")),
-        "connectorId": _first_non_empty_string(source.get("connectorId")),
-        "fromName": _first_non_empty_string(source.get("fromName")),
+        "connectorId": _first_non_empty_string(source.get("connectorId"), primary_connector.get("connectorId")),
+        "fromName": _first_non_empty_string(source.get("fromName"), primary_connector.get("fromName")),
+        "connectors": connectors,
+        "replicaCount": len(connectors),
         "raw": source,
     }
+
+
+def _extract_dataset_connector_ids(source: dict[str, Any]) -> list[str]:
+    return [
+        connector_id
+        for connector in _extract_dataset_connectors(source)
+        if (connector_id := str(connector.get("connectorId", "") or "").strip())
+    ]
+
+
+def _extract_dataset_connectors(source: dict[str, Any]) -> list[dict[str, str]]:
+    connectors: list[dict[str, str]] = []
+    seen_connector_ids: set[str] = set()
+
+    def append_connector(candidate: Any) -> None:
+        normalized = _normalize_dataset_connector_entry(candidate)
+        connector_id = normalized["connectorId"]
+        if not connector_id or connector_id in seen_connector_ids:
+            return
+        seen_connector_ids.add(connector_id)
+        connectors.append(normalized)
+
+    for key in ("connectors", "connectorList", "replicas", "datasetCopies", "copies"):
+        value = source.get(key)
+        if isinstance(value, list):
+            for item in value:
+                append_connector(item)
+
+    append_connector(source)
+    return connectors
+
+
+def _normalize_dataset_connector_entry(source: Any) -> dict[str, str]:
+    if not isinstance(source, dict):
+        return {"connectorId": "", "fromName": ""}
+
+    nested_connector = source.get("connector")
+    connector_id = _first_non_empty_string(
+        source.get("connectorId"),
+        source.get("from"),
+        source.get("sourceId"),
+        nested_connector.get("connectorId") if isinstance(nested_connector, dict) else "",
+    )
+    from_name = _first_non_empty_string(
+        source.get("fromName"),
+        source.get("name"),
+        source.get("connectorName"),
+        nested_connector.get("fromName") if isinstance(nested_connector, dict) else "",
+        nested_connector.get("name") if isinstance(nested_connector, dict) else "",
+    )
+    return {
+        "connectorId": connector_id,
+        "fromName": from_name,
+    }
+
+
+def _resolve_enabled_dataset_connectors(
+    connectors: list[dict[str, str]],
+    connector_lookup: dict[str, dict[str, Any]],
+) -> list[dict[str, str]]:
+    resolved: list[dict[str, str]] = []
+    for connector_ref in connectors:
+        connector_id = str(connector_ref.get("connectorId", "") or "").strip()
+        connector = connector_lookup.get(connector_id) if connector_id else None
+        if connector is not None and not _is_connector_enabled(connector):
+            continue
+
+        connector_name = _first_non_empty_string(
+            connector_ref.get("fromName"),
+            _extract_nested_text(connector, "name") if connector else "",
+            _extract_nested_text(connector, "connectorName") if connector else "",
+        )
+        connector_organization = _extract_connector_organization(connector)
+        resolved.append(
+            {
+                "connectorId": connector_id,
+                "fromName": connector_name,
+                "connectorOrganization": connector_organization,
+                "connectorInstitution": connector_organization,
+            }
+        )
+    return resolved
+
+
+def _merge_dataset_connectors(
+    left: list[dict[str, str]],
+    right: list[dict[str, str]],
+) -> list[dict[str, str]]:
+    merged: list[dict[str, str]] = []
+    seen_connector_ids: set[str] = set()
+    for connector in [*left, *right]:
+        connector_id = str(connector.get("connectorId", "") or "").strip()
+        if not connector_id or connector_id in seen_connector_ids:
+            continue
+        seen_connector_ids.add(connector_id)
+        merged.append(
+            {
+                "connectorId": connector_id,
+                "fromName": str(connector.get("fromName", "") or "").strip(),
+            }
+        )
+    return merged
 
 
 def _fetch_remote_resource(remote_grpc_target: str) -> dict[str, Any]:
