@@ -1207,24 +1207,34 @@ def _extract_pagination(
     page_size: int,
     item_count: int,
 ) -> dict[str, int]:
-    data = payload.get("data")
+    # Different corpus service versions place pagination beside `data`, inside
+    # a paged `data` object, or inside a `pagination` object.
+    candidates: list[dict[str, Any]] = []
+    for key in ("pagination", "page", "data"):
+        value = payload.get(key)
+        if isinstance(value, dict):
+            candidates.append(value)
+    candidates.append(payload)
+
     raw_total: Any = None
     raw_page_num: Any = None
     raw_page_size: Any = None
-
-    if isinstance(data, dict):
-        for key in ("total", "count", "totalCount"):
-            if data.get(key) is not None:
-                raw_total = data.get(key)
-                break
-        for key in ("pageNum", "page", "current"):
-            if data.get(key) is not None:
-                raw_page_num = data.get(key)
-                break
-        for key in ("pageSize", "size", "limit"):
-            if data.get(key) is not None:
-                raw_page_size = data.get(key)
-                break
+    for candidate in candidates:
+        if raw_total is None:
+            for key in ("total", "count", "totalCount", "totalElements"):
+                if candidate.get(key) is not None:
+                    raw_total = candidate.get(key)
+                    break
+        if raw_page_num is None:
+            for key in ("pageNum", "page", "current", "currentPage"):
+                if candidate.get(key) is not None:
+                    raw_page_num = candidate.get(key)
+                    break
+        if raw_page_size is None:
+            for key in ("pageSize", "size", "limit", "perPage"):
+                if candidate.get(key) is not None:
+                    raw_page_size = candidate.get(key)
+                    break
 
     total = _safe_positive_int(raw_total, default=item_count, allow_zero=True)
     resolved_page_num = _safe_positive_int(raw_page_num, default=page_num)
