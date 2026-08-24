@@ -162,8 +162,7 @@ def list_dataset_details(
     if page_size <= 0:
         raise ValueError("page_size must be positive")
 
-    payload = _fetch_dataset_page(page_num=page_num, page_size=page_size, filters=filters)
-    dataset_items = _extract_page_items(payload, entity_name="dataset")
+    dataset_items = _fetch_all_dataset_items(page_size=page_size, filters=filters)
     connector_ids = {
         connector_id
         for item in dataset_items
@@ -192,6 +191,9 @@ def list_dataset_details(
         connectors = _resolve_dataset_connectors(dataset_detail["connectors"], connector_lookup)
         _mark_recommended_connectors(connectors, connector_lookup)
         dataset_detail["connectors"] = connectors
+        # A dataset is displayable only when at least one replica is available.
+        if not any(connector.get("status") == "可用" for connector in connectors):
+            continue
         if connectors:
             primary_connector = connectors[0]
             dataset_detail["connectorId"] = primary_connector["connectorId"]
@@ -205,9 +207,15 @@ def list_dataset_details(
         dataset_detail["replicaCount"] = len(connectors)
         result_items.append(dataset_detail)
 
+    start = (page_num - 1) * page_size
+    end = start + page_size
     return {
-        "items": result_items,
-        "pagination": _extract_pagination(payload, page_num=page_num, page_size=page_size, item_count=len(result_items)),
+        "items": result_items[start:end],
+        "pagination": {
+            "pageNum": page_num,
+            "pageSize": page_size,
+            "total": len(result_items),
+        },
     }
 
 
@@ -424,6 +432,48 @@ def _fetch_dataset_page(*, page_num: int, page_size: int, filters: dict[str, Any
     if int(payload.get("code", 0) or 0) != 200:
         raise ValueError(f"dataset page request failed: {payload.get('message', '')}")
     return payload
+
+
+def _fetch_all_dataset_items(
+    *,
+    page_size: int,
+    filters: dict[str, Any] | None = None,
+) -> list[dict[str, Any]]:
+    """Fetch all upstream pages so filtering can produce an accurate total."""
+    all_items: list[dict[str, Any]] = []
+    page_num = 1
+    seen_pages: set[tuple[tuple[str, str, str, tuple[str, ...]], ...]] = set()
+
+    while True:
+        payload = _fetch_dataset_page(
+            page_num=page_num,
+            page_size=page_size,
+            filters=filters,
+        )
+        page_items = _extract_page_items(payload, entity_name="dataset")
+        if not page_items:
+            break
+
+        page_signature = tuple(
+            (
+                _first_non_empty_string(item.get("id")),
+                _first_non_empty_string(item.get("cstr")),
+                _first_non_empty_string(item.get("title"), item.get("name")),
+                tuple(_extract_dataset_connector_ids(item)),
+            )
+            for item in page_items
+        )
+        # Protect against an upstream service repeatedly returning page 1.
+        if page_signature in seen_pages:
+            break
+        seen_pages.add(page_signature)
+        all_items.extend(page_items)
+
+        if len(page_items) < page_size:
+            break
+        page_num += 1
+
+    return all_items
 
 
 def _fetch_dataset_file_urls(cstr: str) -> list[dict[str, Any]]:
