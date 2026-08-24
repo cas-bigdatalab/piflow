@@ -489,3 +489,182 @@ def test_unavailable_plan_is_terminal_and_does_not_block_session(
     )
     assert second[-1]["type"] == "done"
     assert len(memory_repository.tasks) == 2
+
+
+def test_direct_bind_submits_process_and_keeps_unified_session_contract(
+    monkeypatch, memory_repository
+):
+    pre_bind = _pre_bind("xdc-direct-plan-1")
+    pre_bind.mode = "direct"
+    pre_bind.satisfaction.mode = "direct"
+    task_id = "task-direct-1"
+    memory_repository.tasks[task_id] = {
+        "task_id": task_id,
+        "session_id": "session-1",
+        "status": "PLANNED",
+        "plan_revision": 1,
+        "mode": "direct",
+    }
+    memory_repository.save_snapshot(
+        task_id=task_id,
+        revision=1,
+        snapshot_type="PRE_BIND_INTERNAL",
+        payload=xdc_session_service.encode_pre_bind_plan(pre_bind),
+    )
+    plan = SimpleNamespace(
+        plan_id=pre_bind.plan_id,
+        mode="direct",
+        to_json=lambda: {"plan_id": pre_bind.plan_id, "mode": "direct"},
+    )
+
+    def finish_direct(value, *, user_id, on_stage):
+        on_stage("access", {"status": "started"})
+        on_stage(
+            "access",
+            {
+                "status": "finished",
+                "dataset_id": "dataset-a",
+                "replica": "replica-a",
+                "direct_access": {
+                    "replica_decision": {
+                        "dataset_id": "dataset-a",
+                        "node_id": "dataset-a",
+                        "chosen": {
+                            "replica_id": "replica-a",
+                            "center_id": "center-a",
+                        },
+                        "reason": "same center, no cross-center transfer",
+                    }
+                },
+            },
+        )
+        on_stage("submit", {"status": "started", "mode": "direct"})
+        on_stage(
+            "submit",
+            {
+                "status": "finished",
+                "mode": "direct",
+                "process_id": "process-direct-1",
+                "submit_status": "SUBMITTED",
+            },
+        )
+        return plan, {
+            "process_id": "process-direct-1",
+            "status": "SUBMITTED",
+            "result_node_id": "direct-dataset-source",
+            "result_output_name": "output",
+            "status_url": (
+                "/api/piflow/v1/xdc/execution/process-direct-1/status"
+                "?result_node_id=direct-dataset-source&result_output_name=output"
+            ),
+            "download_url": (
+                "/api/piflow/v1/xdc/execution/process-direct-1/download"
+                "?result_node_id=direct-dataset-source&result_output_name=output"
+            ),
+        }
+
+    monkeypatch.setattr(
+        xdc_session_service.cross_dag_service,
+        "_finalize_and_execute_direct_pre_bind",
+        finish_direct,
+    )
+    monkeypatch.setattr(
+        xdc_session_service.cross_dag_service,
+        "_finalize_and_execute_pre_bind",
+        lambda *args, **kwargs: pytest.fail("composition helper must not handle direct"),
+    )
+    monkeypatch.setattr(
+        xdc_session_service.cross_dag_service,
+        "_summarize_direct_session",
+        lambda value, detail=False: {
+            "plan_id": value.plan_id,
+            "mode": "direct",
+            "sources": [{"dataset_id": "dataset-a"}],
+            "dag": {"nodes": [{"id": "direct-dataset-source"}], "edges": []},
+        },
+    )
+
+    events = _collect_events(
+        xdc_session_service.stream_xdc_task_bind_and_execute(
+            task_id=task_id,
+            user_id="user-1",
+        )
+    )
+
+    result = events[-1]["result"]
+    assert memory_repository.tasks[task_id]["status"] == "EXECUTING"
+    assert memory_repository.tasks[task_id]["process_id"] == "process-direct-1"
+    assert f"{task_id}:result-card" not in memory_repository.items
+    assert result["plan"]["sources"][0]["dataset_id"] == "dataset-a"
+    assert result["plan"]["dag"]["nodes"][0]["id"] == (
+        "direct-dataset-source"
+    )
+    assert result["execution"]["status_url"] == (
+        f"/api/piflow/v1/xdc/tasks/{task_id}/execution/status"
+        "?result_node_id=direct-dataset-source&result_output_name=output"
+    )
+    assert result["execution"]["process_status_url"].startswith(
+        "/api/piflow/v1/xdc/execution/process-direct-1/status?"
+    )
+
+
+def test_direct_status_restores_result_selector_after_refresh(
+    monkeypatch, memory_repository
+):
+    task_id = "task-direct-1"
+    memory_repository.tasks[task_id] = {
+        "task_id": task_id,
+        "session_id": "session-1",
+        "status": "EXECUTING",
+        "plan_revision": 1,
+        "mode": "direct",
+        "process_id": "process-direct-1",
+    }
+    memory_repository.save_snapshot(
+        task_id=task_id,
+        revision=1,
+        snapshot_type="EXECUTION",
+        payload={
+            "process_id": "process-direct-1",
+            "result_node_id": "direct-dataset-source",
+            "result_output_name": "output",
+        },
+    )
+    captured = {}
+
+    def status(**kwargs):
+        captured.update(kwargs)
+        return {
+            "process_id": "process-direct-1",
+            "status": "SUCCESS",
+            "terminal": True,
+            "downloadable": True,
+            "result_file": {
+                "file_name": "earthquake.csv",
+                "download_url": (
+                    "/api/piflow/v1/xdc/execution/process-direct-1/download"
+                    "?result_node_id=direct-dataset-source"
+                    "&result_output_name=output"
+                ),
+            },
+        }
+
+    monkeypatch.setattr(
+        xdc_session_service.cross_dag_service,
+        "get_cross_dag_execution_status",
+        status,
+    )
+
+    result = xdc_session_service.get_xdc_task_execution_status(
+        task_id=task_id,
+        user_id="user-1",
+    )
+
+    assert captured["result_node_id"] == "direct-dataset-source"
+    assert captured["result_output_name"] == "output"
+    assert result["result_node_id"] == "direct-dataset-source"
+    assert result["result_output_name"] == "output"
+    assert memory_repository.tasks[task_id]["status"] == "COMPLETED"
+    assert memory_repository.items[f"{task_id}:result-card"]["payload"][
+        "file_name"
+    ] == "earthquake.csv"

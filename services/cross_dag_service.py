@@ -137,6 +137,48 @@ def _finalize_and_execute_pre_bind(
     return plan, execution
 
 
+def _finalize_and_execute_direct_pre_bind(
+    pre_bind: CrossDagPreBindPlan,
+    *,
+    user_id: str,
+    on_stage: Callable[[str, dict[str, Any]], None] | None = None,
+) -> tuple[CrossDagPlan, dict[str, Any]]:
+    """Session-only direct path: bind one replica and submit one source node.
+
+    The existing two-phase helper above remains the sole composition path.
+    Keeping this entry point separate also preserves the legacy direct API,
+    which returns an access route without creating an executor process.
+    """
+    from runtime.cross_dag.schema import MODE_DIRECT
+
+    if pre_bind.mode != MODE_DIRECT:
+        raise CrossDagError("direct execution helper only accepts direct plans")
+    if not pre_bind.validation.ok:
+        raise CrossDagError(
+            "预绑定规划未通过校验，拒绝继续\n"
+            + "\n".join(pre_bind.validation.errors)
+        )
+
+    plan = finalize_cross_dag_pre_bind(pre_bind, on_stage=on_stage)
+    if plan.mode != MODE_DIRECT:
+        raise CrossDagError(f"expected direct plan, got {plan.mode}")
+
+    if on_stage is not None:
+        on_stage("submit", {"status": "started", "mode": plan.mode})
+    execution = execute_direct_session_plan(plan=plan, user_id=user_id)
+    if on_stage is not None:
+        on_stage(
+            "submit",
+            {
+                "status": "finished",
+                "mode": plan.mode,
+                "process_id": execution.get("process_id", ""),
+                "submit_status": execution.get("status", ""),
+            },
+        )
+    return plan, execution
+
+
 def compile_cross_dag_plan(
     *,
     planning_json: dict[str, Any],
@@ -471,6 +513,67 @@ def execute_cross_dag_plan(*, plan_id: str, user_id: str) -> dict[str, Any]:
         "status": result.status,
         "status_url": f"/api/piflow/v1/xdc/execution/{result.process_id}/status",
         "download_url": f"/api/piflow/v1/xdc/execution/{result.process_id}/download",
+        "warnings": list(plan.validation.warnings),
+    }
+
+
+def execute_direct_session_plan(
+    *,
+    plan: CrossDagPlan,
+    user_id: str,
+) -> dict[str, Any]:
+    """Submit a direct plan for the session workflow and expose one file result."""
+    from runtime.cross_dag.direct_executor import submit_direct_access_plan
+    from runtime.cross_dag.run_store import save_cross_dag_execution
+
+    submission = submit_direct_access_plan(plan)
+    result = submission.result
+    _remember(plan)
+    save_cross_dag_execution(
+        process_id=result.process_id,
+        plan_id=plan.plan_id,
+        user_id=user_id,
+        execution_center_id=result.execution_node_id,
+        remote_grpc_target=result.remote_grpc_target,
+        submit_status=result.status,
+    )
+
+    access = plan.direct_access
+    decision = access.replica_decision if access is not None else None
+    chosen = decision.chosen if decision is not None else None
+    query = urlencode(
+        {
+            "result_node_id": submission.result_node_id,
+            "result_output_name": submission.result_output_name,
+        }
+    )
+    log.info(
+        "cross dag direct run submitted plan_id=%s center_id=%s process_id=%s",
+        plan.plan_id,
+        result.execution_node_id,
+        result.process_id,
+    )
+    return {
+        "plan_id": plan.plan_id,
+        "mode": plan.mode,
+        "dataset_id": access.dataset_id if access is not None else "",
+        "dataset_name": access.name if access is not None else "",
+        "replica_id": chosen.replica_id if chosen is not None else "",
+        "center_id": chosen.center_id if chosen is not None else "",
+        "locator": chosen.locator if chosen is not None else "",
+        "reason": decision.reason if decision is not None else "",
+        "alternatives": list(access.alternatives) if access is not None else [],
+        "execution_center_id": result.execution_node_id,
+        "process_id": result.process_id,
+        "status": result.status,
+        "result_node_id": submission.result_node_id,
+        "result_output_name": submission.result_output_name,
+        "status_url": (
+            f"/api/piflow/v1/xdc/execution/{result.process_id}/status?{query}"
+        ),
+        "download_url": (
+            f"/api/piflow/v1/xdc/execution/{result.process_id}/download?{query}"
+        ),
         "warnings": list(plan.validation.warnings),
     }
 
@@ -948,6 +1051,18 @@ def _summarize(plan: CrossDagPlan, *, detail: bool = False) -> dict[str, Any]:
 
     config = resolve_cross_dc_config(get_cross_dc_config(), get_registry())
     return build_plan_view(plan, detail=detail, config=config)
+
+
+def _summarize_direct_session(
+    plan: CrossDagPlan,
+    *,
+    detail: bool = False,
+) -> dict[str, Any]:
+    """Direct-only session projection with unified `dag` and `sources` fields."""
+    from runtime.cross_dag.plan_view import build_direct_execution_plan_view
+
+    config = resolve_cross_dc_config(get_cross_dc_config(), get_registry())
+    return build_direct_execution_plan_view(plan, detail=detail, config=config)
 
 
 def _summarize_pre_bind(

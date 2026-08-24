@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 import uuid
 from typing import Any, AsyncIterator, Callable
+from urllib.parse import urlencode
 
 from repositories import xdc_session_repository as repository
 from runtime.cross_dag.engine import plan_cross_dag_pre_bind
@@ -366,12 +367,27 @@ async def stream_xdc_task_bind_and_execute(
 
     def run() -> None:
         try:
-            plan, execution = cross_dag_service._finalize_and_execute_pre_bind(
-                pre_bind,
-                user_id=str(user_id),
-                on_stage=collect,
-            )
-            plan_view = cross_dag_service._summarize(plan, detail=detail)
+            if pre_bind.mode == MODE_DIRECT:
+                plan, execution = (
+                    cross_dag_service._finalize_and_execute_direct_pre_bind(
+                        pre_bind,
+                        user_id=str(user_id),
+                        on_stage=collect,
+                    )
+                )
+                plan_view = cross_dag_service._summarize_direct_session(
+                    plan,
+                    detail=detail,
+                )
+            else:
+                # Preserve the existing composition path byte-for-byte at the
+                # service boundary; only direct tasks use the new helper.
+                plan, execution = cross_dag_service._finalize_and_execute_pre_bind(
+                    pre_bind,
+                    user_id=str(user_id),
+                    on_stage=collect,
+                )
+                plan_view = cross_dag_service._summarize(plan, detail=detail)
             execution_view = dict(execution)
             process_id = str(execution_view.get("process_id") or "")
             if process_id:
@@ -379,8 +395,25 @@ async def stream_xdc_task_bind_and_execute(
                     "status_url",
                     f"/api/piflow/v1/xdc/execution/{process_id}/status",
                 )
-                execution_view["status_url"] = (
+                task_status_url = (
                     f"/api/piflow/v1/xdc/tasks/{task_id}/execution/status"
+                )
+                selector_query = urlencode(
+                    {
+                        key: value
+                        for key, value in {
+                            "result_node_id": execution_view.get("result_node_id"),
+                            "result_output_name": execution_view.get(
+                                "result_output_name"
+                            ),
+                        }.items()
+                        if value
+                    }
+                )
+                execution_view["status_url"] = (
+                    f"{task_status_url}?{selector_query}"
+                    if selector_query
+                    else task_status_url
                 )
             public = {
                 "session_id": session_id,
@@ -412,32 +445,19 @@ async def stream_xdc_task_bind_and_execute(
                 task_id=task_id,
                 role="assistant",
                 item_type="PROCESS",
-                item_status=("completed" if plan.mode == MODE_DIRECT else "executing"),
+                item_status="executing",
                 payload=execution_view,
             )
             if plan.mode == MODE_DIRECT:
-                repository.save_snapshot(
-                    task_id=task_id,
-                    revision=revision,
-                    snapshot_type="RESULT",
-                    payload=execution_view,
-                )
-                repository.save_session_item(
-                    item_key=f"{task_id}:result-card",
-                    session_id=session_id,
-                    task_id=task_id,
-                    role="assistant",
-                    item_type="RESULT_CARD",
-                    item_status="completed",
-                    payload=execution_view,
-                )
+                if not process_id:
+                    raise RuntimeError("direct execution did not return process_id")
                 repository.update_task_state(
                     task_id=task_id,
-                    status="COMPLETED",
-                    current_stage="completed",
+                    status="EXECUTING",
+                    current_stage="execution",
                     mode=plan.mode,
                     plan_id=plan.plan_id,
-                    finished=True,
+                    process_id=process_id,
                 )
             else:
                 repository.update_task_state(
@@ -490,12 +510,35 @@ def get_xdc_task_execution_status(
             }
         raise XdcSessionConflict(f"任务尚未生成 process_id: {task_id}")
 
+    revision = int(task.get("plan_revision") or 1)
+    if not result_node_id or not result_output_name:
+        execution_snapshot = repository.get_snapshot(
+            task_id=task_id,
+            revision=revision,
+            snapshot_type="EXECUTION",
+        )
+        stored_execution = dict(
+            (execution_snapshot or {}).get("payload_json") or {}
+        )
+        if not result_node_id:
+            result_node_id = str(
+                stored_execution.get("result_node_id") or ""
+            )
+        if not result_output_name:
+            result_output_name = str(
+                stored_execution.get("result_output_name") or ""
+            )
+
     status = cross_dag_service.get_cross_dag_execution_status(
         process_id=process_id,
         user_id=str(user_id),
         result_node_id=result_node_id,
         result_output_name=result_output_name,
     )
+    if result_node_id:
+        status["result_node_id"] = result_node_id
+    if result_output_name:
+        status["result_output_name"] = result_output_name
     remote_status = str(status.get("status") or "").upper()
     mapped = {
         "SUCCESS": "COMPLETED",
@@ -505,7 +548,7 @@ def get_xdc_task_execution_status(
     finished = mapped in {"COMPLETED", "FAILED", "CANCELLED"}
     repository.save_snapshot(
         task_id=task_id,
-        revision=int(task.get("plan_revision") or 1),
+        revision=revision,
         snapshot_type="EXECUTION",
         payload=status,
     )
@@ -537,7 +580,7 @@ def get_xdc_task_execution_status(
     if mapped == "COMPLETED" and isinstance(result_file, dict):
         repository.save_snapshot(
             task_id=task_id,
-            revision=int(task.get("plan_revision") or 1),
+            revision=revision,
             snapshot_type="RESULT",
             payload=result_file,
         )

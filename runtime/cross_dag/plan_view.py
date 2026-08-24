@@ -54,6 +54,27 @@ def build_plan_view(
     return view
 
 
+def build_direct_execution_plan_view(
+    plan: CrossDagPlan,
+    *,
+    detail: bool = False,
+    config: CrossDcConfig | None = None,
+) -> dict[str, Any]:
+    """Project a materialized direct run with the composition-style fields."""
+    if plan.mode != MODE_DIRECT:
+        raise ValueError("direct execution view only accepts direct plans")
+    if config is not None:
+        resolved = config
+    else:
+        from .registry_stub import get_registry
+
+        resolved = resolve_cross_dc_config(get_cross_dc_config(), get_registry())
+    view = build_plan_view(plan, detail=detail, config=resolved)
+    view["dag"] = _dag(plan, resolved)
+    view["sources"] = _direct_sources(plan)
+    return view
+
+
 def stage_brief(stage: str, payload: dict[str, Any]) -> dict[str, Any]:
     """把内部阶段事件压成前端步骤条要的一行摘要。
 
@@ -286,6 +307,24 @@ def _sources(plan: CrossDagPlan) -> list[dict[str, Any]]:
             }
         )
     return sources
+
+
+def _direct_sources(plan: CrossDagPlan) -> list[dict[str, Any]]:
+    """Return only the selected full-match dataset for a direct run."""
+    access = plan.direct_access
+    decision = access.replica_decision if access is not None else None
+    chosen = decision.chosen if decision is not None else None
+    if access is None:
+        return []
+    return [
+        {
+            "dataset_id": access.dataset_id,
+            "name": access.name,
+            "replica_id": chosen.replica_id if chosen else "",
+            "center_id": chosen.center_id if chosen else "",
+            "reason": decision.reason if decision else "",
+        }
+    ]
 
 
 def _unavailable(plan: CrossDagPlan) -> dict[str, Any]:
