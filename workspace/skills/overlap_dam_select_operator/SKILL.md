@@ -5,7 +5,10 @@ allowed-tools:
   - emit_operator
 
 name_zh: 淤地坝候选叠加筛选算子
-input_params: []
+input_params: 
+  - name: operator_definition
+    type: json_file
+    description: 淤地坝候选叠加筛选算子的标准JSON片段，包含算子配置和数据源依赖
 
 output_params:
   - name: operator_definition
