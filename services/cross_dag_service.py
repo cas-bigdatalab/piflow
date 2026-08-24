@@ -440,6 +440,25 @@ def get_cross_dag_plan(plan_id: str, *, detail: bool = False) -> dict[str, Any]:
     return _summarize(plan, detail=detail)
 
 
+def get_cross_dag_pre_bind_plan(
+    plan_id: str, *, user_id: str
+) -> dict[str, Any]:
+    """Return the user-owned frontend snapshot before replica binding."""
+    try:
+        pre_bind = _get_owned_pre_bind(plan_id=plan_id, user_id=user_id)
+    except CrossDagError:
+        from repositories import xdc_session_repository
+
+        snapshot = xdc_session_repository.get_pre_bind_view_by_plan_id(
+            plan_id=plan_id,
+            user_id=str(user_id),
+        )
+        if snapshot is None:
+            raise CrossDagError(f"预绑定计划不存在或已过期: {plan_id}")
+        return dict(snapshot.get("payload_json") or {})
+    return _summarize_pre_bind(pre_bind, detail=False)
+
+
 def execute_cross_dag_plan(*, plan_id: str, user_id: str) -> dict[str, Any]:
     """把最外层嵌套 DSL 交给现有执行链路。直接获取的计划没有 DAG，只回访问路由。"""
     from runtime.cross_dag.schema import MODE_DIRECT, MODE_UNAVAILABLE

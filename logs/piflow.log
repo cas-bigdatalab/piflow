@@ -470,3 +470,23 @@
 2026-08-20 12:53:48 INFO [piflow.piflow_engine.cn.piflow.core.stop_job] stop_job.py:59 - executing stop=远端结果源 input_ports=[]
 2026-08-20 12:57:25 INFO [piflow.piflow_engine.cn.piflow.core.stop_job] stop_job.py:59 - executing stop=远端结果源 input_ports=[]
 2026-08-20 12:58:06 INFO [piflow.piflow_engine.cn.piflow.core.stop_job] stop_job.py:59 - executing stop=RemoteSource input_ports=[]
+2026-08-24 17:16:05 INFO [piflow.piflow_engine.cn.piflow.remote.server] server.py:157 - creating remote execution grpc server: max_workers=10 chunk_size=1048576
+2026-08-24 17:16:05 INFO [piflow.piflow_engine.cn.piflow.remote.server] server.py:47 - SubmitDag request received
+2026-08-24 17:16:05 INFO [piflow.piflow_engine.cn.piflow.remote.server] server.py:49 - SubmitDag completed: run_id=process-1 status=SUBMITTED
+2026-08-24 17:16:05 INFO [piflow.piflow_engine.cn.piflow.remote.server] server.py:47 - SubmitDag request received
+2026-08-24 17:16:05 INFO [piflow.piflow_engine.cn.piflow.remote.server] server.py:49 - SubmitDag completed: run_id=process-1 status=SUBMITTED
+2026-08-24 17:16:05 INFO [piflow.piflow_engine.cn.piflow.remote.server] server.py:76 - GetServerResource completed: cpu=8.00 memory=16.00 disk=100.00 host=test-host
+2026-08-24 17:16:05 INFO [piflow.piflow_engine.cn.piflow.remote.server] server.py:118 - DownloadResult request: run_id=process-1 result_node_id= result_output_name=
+2026-08-24 17:16:05 INFO [piflow.piflow_engine.cn.piflow.remote.server] server.py:142 - DownloadResult completed: run_id=process-1 chunks=1
+2026-08-24 17:16:05 INFO [piflow.piflow_engine.cn.piflow.remote.server] server.py:157 - creating remote execution grpc server: max_workers=10 chunk_size=1048576
+2026-08-24 17:16:05 ERROR [piflow.piflow_engine.cn.piflow.remote.server] server.py:113 - GetRunResultMeta failed: run_id=process-1
+Traceback (most recent call last):
+  File "C:\Users\Happy T\Desktop\codex-cnic\intelligent dispatching\flow-deepagents\piflow_engine\cn\piflow\remote\server.py", line 101, in GetRunResultMeta
+    meta = self._facade.get_run_result_meta(
+        run_id=request.run_id,
+        result_node_id=request.result_node_id,
+        result_output_name=request.result_output_name,
+    )
+  File "C:\Users\Happy T\Desktop\codex-cnic\intelligent dispatching\flow-deepagents\piflow_engine\cn\piflow\tests\test_remote_execution.py", line 39, in get_run_result_meta
+    raise RemoteExecutionError("RESULT_NOT_FOUND", "result not found")
+piflow_engine.cn.piflow.remote.result_resolver.RemoteExecutionError: result not found

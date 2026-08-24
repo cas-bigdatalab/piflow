@@ -346,6 +346,38 @@ def get_task(*, task_id: str, user_id: str) -> dict[str, Any] | None:
     return dict(row) if row else None
 
 
+def get_pre_bind_view_by_plan_id(
+    *, plan_id: str, user_id: str
+) -> dict[str, Any] | None:
+    """Return the current frontend pre-bind snapshot owned by ``user_id``."""
+    _ensure_schema()
+    with closing(get_connection()) as conn:
+        with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+            cursor.execute(
+                """
+                SELECT snapshot.task_id, snapshot.revision,
+                       snapshot.schema_version, snapshot.payload_json,
+                       snapshot.create_time, snapshot.update_time
+                FROM xdc_task t
+                JOIN xdc_session s
+                  ON s.session_id = t.session_id
+                JOIN xdc_task_snapshot snapshot
+                  ON snapshot.task_id = t.task_id
+                 AND snapshot.revision = t.plan_revision
+                 AND snapshot.snapshot_type = 'PRE_BIND_VIEW'
+                 AND snapshot.is_current = 1
+                WHERE t.plan_id = %s
+                  AND s.user_id = %s
+                  AND s.is_deleted = 0
+                ORDER BY t.id DESC
+                LIMIT 1
+                """,
+                (plan_id, user_id),
+            )
+            row = cursor.fetchone()
+    return dict(row) if row else None
+
+
 def list_tasks(*, session_id: str, user_id: str) -> list[dict[str, Any]]:
     _ensure_schema()
     with closing(get_connection()) as conn:

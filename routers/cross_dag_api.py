@@ -26,6 +26,7 @@ from services.cross_dag_service import (
     execute_cross_dag_plan,
     get_cross_dag_execution_status,
     get_cross_dag_plan,
+    get_cross_dag_pre_bind_plan,
     handoff_check_cross_dag_plan,
     list_cross_dag_context,
     prepare_cross_dag_result_download,
@@ -235,6 +236,26 @@ async def stream_cross_dag_plan_api(
             yield f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
 
     return StreamingResponse(event_source(), media_type="text/event-stream")
+
+
+@router.get("/xdc/plan/pre-bind/{plan_id}")
+async def get_cross_dag_pre_bind_plan_api(
+    plan_id: str,
+    current_user=Depends(get_current_user),
+):
+    """查询当前用户的副本绑定前方案。"""
+    try:
+        result = get_cross_dag_pre_bind_plan(
+            plan_id,
+            user_id=current_user["user_id"],
+        )
+        return {"message": "success", "result": result, "code": 200}
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+    except CrossDagError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/xdc/plan/{plan_id}")
