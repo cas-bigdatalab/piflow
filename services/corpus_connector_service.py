@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import io
 import json
+import tarfile
+import zipfile
 from typing import Any
 from pathlib import Path
 from urllib.parse import urlparse
@@ -235,12 +238,16 @@ def get_dataset_file_jsonl(cstr: str, *, file_name: str | None = None) -> dict[s
         raise ValueError(f"no dataset file url found for cstr={normalized_cstr}")
 
     selected_record = _select_dataset_file_record(download_urls, file_name=file_name)
-    file_text = _download_text(selected_record["downloadUrl"])
-    parsed_json = _parse_json_or_jsonl(file_text, download_url=selected_record["downloadUrl"])
+    file_bytes = _download_bytes(selected_record["downloadUrl"])
+    parsed_json, content_file_name = _parse_json_file(
+        file_bytes,
+        download_url=selected_record["downloadUrl"],
+    )
     return {
         "cstr": normalized_cstr,
         "fileName": selected_record["fileName"],
         "downloadUrl": selected_record["downloadUrl"],
+        "contentFileName": content_file_name,
         "json": parsed_json,
     }
 
@@ -442,35 +449,95 @@ def _select_dataset_file_record(records: list[dict[str, Any]], *, file_name: str
     raise ValueError(f"requested fileName not found: {normalized_file_name}")
 
 
-def _download_text(download_url: str) -> str:
+def _download_bytes(download_url: str) -> bytes:
     try:
         response = requests.get(download_url, timeout=REQUEST_TIMEOUT)
         response.raise_for_status()
     except requests.RequestException as exc:
         raise RuntimeError(f"failed to download corpus dataset file from {download_url}: {exc}") from exc
-    response.encoding = response.encoding or "utf-8"
-    return response.text
+    return response.content
 
 
-def _parse_json_or_jsonl(payload_text: str, *, download_url: str) -> Any:
-    text = payload_text.strip()
-    if not text:
+def _parse_json_file(payload: bytes, *, download_url: str) -> tuple[Any, str]:
+    if not payload:
         raise ValueError(f"downloaded empty corpus dataset file from {download_url}")
+
+    direct_result = _try_parse_json_or_jsonl(payload)
+    if direct_result is not None:
+        return direct_result, Path(urlparse(download_url).path).name
+
+    archive_result = _parse_json_from_archive(payload, download_url=download_url)
+    if archive_result is not None:
+        return archive_result
+
+    raise ValueError(
+        f"downloaded file is not valid json/jsonl and contains no readable json/jsonl member: {download_url}"
+    )
+
+
+def _try_parse_json_or_jsonl(payload: bytes) -> Any | None:
+    try:
+        text = payload.decode("utf-8").strip()
+    except UnicodeDecodeError:
+        return None
+    if not text:
+        return None
 
     try:
         parsed = json.loads(text)
     except json.JSONDecodeError:
         lines: list[Any] = []
-        for line in text.splitlines():
-            stripped = line.strip()
-            if not stripped:
-                continue
-            lines.append(json.loads(stripped))
-        if not lines:
-            raise ValueError(f"downloaded corpus dataset file is not valid json/jsonl from {download_url}")
-        return lines
+        try:
+            for line in text.splitlines():
+                stripped = line.strip()
+                if not stripped:
+                    continue
+                lines.append(json.loads(stripped))
+        except json.JSONDecodeError:
+            return None
+        return lines or None
 
     return parsed
+
+
+def _parse_json_from_archive(payload: bytes, *, download_url: str) -> tuple[Any, str] | None:
+    archive_stream = io.BytesIO(payload)
+
+    if zipfile.is_zipfile(archive_stream):
+        with zipfile.ZipFile(archive_stream) as archive:
+            members = [
+                info
+                for info in archive.infolist()
+                if not info.is_dir() and _looks_like_json_file(info.filename)
+            ]
+            for member in members:
+                parsed = _try_parse_json_or_jsonl(archive.read(member))
+                if parsed is not None:
+                    return parsed, member.filename
+
+    archive_stream.seek(0)
+    if tarfile.is_tarfile(archive_stream):
+        archive_stream.seek(0)
+        with tarfile.open(fileobj=archive_stream, mode="r:*") as archive:
+            members = [
+                member
+                for member in archive.getmembers()
+                if member.isfile() and _looks_like_json_file(member.name)
+            ]
+            for member in members:
+                extracted = archive.extractfile(member)
+                if extracted is None:
+                    continue
+                parsed = _try_parse_json_or_jsonl(extracted.read())
+                if parsed is not None:
+                    return parsed, member.name
+
+    return None
+
+
+def _looks_like_json_file(file_name: str) -> bool:
+    suffix = Path(file_name).suffix.lower()
+    return suffix in {".json", ".jsonl", ".ndjson"}
 
 
 def _normalize_dataset_filters(filters: dict[str, Any] | None) -> dict[str, Any]:
