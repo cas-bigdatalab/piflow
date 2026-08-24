@@ -13,6 +13,7 @@ from services.corpus_connector_service import (
     get_dataset_file_jsonl,
     get_corpus_connector_detail,
     get_corpus_connector_tree,
+    get_corpus_connector_latency,
     enable_corpus_connector,
     update_corpus_connector,
     list_connector_details_with_resources,
@@ -227,6 +228,19 @@ async def get_corpus_connector_detail_api(id: str = Query(...)):
     except Exception:
         log.exception("failed to get corpus connector detail id=%s", id)
         raise HTTPException(status_code=500, detail="failed to get corpus connector detail")
+    return {"code": 200, "result": result}
+
+
+@router.get("/corpus/connector/latency")
+@router.get("/dataset.connector.latency", include_in_schema=False)
+async def get_corpus_connector_latency_api(id: str = Query(...)):
+    try:
+        result = get_corpus_connector_latency(id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception:
+        log.exception("failed to get corpus connector latency id=%s", id)
+        raise HTTPException(status_code=500, detail="failed to get corpus connector latency")
     return {"code": 200, "result": result}
 
 

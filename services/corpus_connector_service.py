@@ -3,6 +3,7 @@ from __future__ import annotations
 import io
 import json
 import tarfile
+import time
 import zipfile
 from typing import Any
 from pathlib import Path
@@ -86,6 +87,7 @@ def list_connector_details_with_resources(
             }
         )
 
+    _mark_recommended_connector_items(result_items)
     return {
         "items": result_items,
         "pagination": _extract_pagination(payload, page_num=page_num, page_size=page_size, item_count=len(result_items)),
@@ -169,7 +171,11 @@ def list_dataset_details(
         for connector_id in _extract_dataset_connector_ids(item)
         if connector_id
     }
-    connector_lookup = _fetch_connector_details_by_connector_id(connector_ids) if connector_ids else {}
+    connector_lookup = (
+        _fetch_connector_details_with_resources_by_connector_id(connector_ids)
+        if connector_ids
+        else {}
+    )
 
     grouped_dataset_details: dict[str, dict[str, Any]] = {}
     for item in dataset_items:
@@ -184,6 +190,7 @@ def list_dataset_details(
     result_items: list[dict[str, Any]] = []
     for dataset_detail in grouped_dataset_details.values():
         connectors = _resolve_dataset_connectors(dataset_detail["connectors"], connector_lookup)
+        _mark_recommended_connectors(connectors, connector_lookup)
         dataset_detail["connectors"] = connectors
         if connectors:
             primary_connector = connectors[0]
@@ -214,8 +221,13 @@ def get_dataset_detail(dataset_id: str) -> dict[str, Any]:
         for connector_id in _extract_dataset_connector_ids(dataset_detail.get("raw", {}))
         if connector_id
     }
-    connector_lookup = _fetch_connector_details_by_connector_id(connector_ids) if connector_ids else {}
+    connector_lookup = (
+        _fetch_connector_details_with_resources_by_connector_id(connector_ids)
+        if connector_ids
+        else {}
+    )
     connectors = _resolve_dataset_connectors(dataset_detail["connectors"], connector_lookup)
+    _mark_recommended_connectors(connectors, connector_lookup)
     dataset_detail["connectors"] = connectors
     if connectors:
         primary_connector = connectors[0]
@@ -273,6 +285,36 @@ def disable_corpus_connector(connector_id: str) -> dict[str, Any]:
 def get_corpus_connector_detail(connector_id: str) -> dict[str, Any]:
     normalized_connector_id = _normalize_required_text(connector_id, field_name="id")
     return _request_corpus_route("GET", "/dataset.connector.detail", params={"id": normalized_connector_id})
+
+
+def get_corpus_connector_latency(
+    connector_id: str,
+    *,
+    grpc_port: int = DEFAULT_REMOTE_GRPC_PORT,
+) -> dict[str, Any]:
+    normalized_connector_id = _normalize_required_text(connector_id, field_name="id")
+    if grpc_port <= 0:
+        raise ValueError("grpc_port must be positive")
+
+    connector_lookup = _fetch_connector_details_by_connector_id({normalized_connector_id})
+    connector = connector_lookup.get(normalized_connector_id)
+    if connector is None:
+        raise ValueError(f"connector not found: {normalized_connector_id}")
+
+    remote_grpc_target, resource = _resolve_remote_resource(
+        connector,
+        grpc_port=grpc_port,
+    )
+    latency_ms = resource.get("latency_ms")
+    if latency_ms is None:
+        raise RuntimeError(
+            f"failed to probe connector latency for connector_id={normalized_connector_id}"
+        )
+    return {
+        "connectorId": normalized_connector_id,
+        "remote_grpc_target": remote_grpc_target,
+        "latency_ms": latency_ms,
+    }
 
 
 def enable_corpus_connector(connector_id: str) -> dict[str, Any]:
@@ -819,17 +861,20 @@ def _resolve_dataset_connectors(
         )
         connector_organization = _extract_connector_organization(connector)
         enabled = _is_connector_enabled(connector) if connector is not None else False
-        resolved.append(
-            {
-                "connectorId": connector_id,
-                "fromName": connector_name,
-                "connectorOrganization": connector_organization,
-                "name": connector_organization,
-                "status": "可用" if enabled else "不可用",
-                "sync": _first_non_empty_string(connector.get("sync")) if connector else "",
-                "recommended": _normalize_bool(connector.get("recommended"), default=False) if connector else False,
-            }
-        )
+        resolved_connector = {
+            "connectorId": connector_id,
+            "fromName": connector_name,
+            "connectorOrganization": connector_organization,
+            "name": connector_organization,
+            "status": "可用" if enabled else "不可用",
+            "sync": _first_non_empty_string(connector.get("sync")) if connector else "",
+            "recommended": _normalize_bool(connector.get("recommended"), default=False) if connector else False,
+        }
+        resource = connector.get("resource") if connector else None
+        latency_ms = resource.get("latency_ms") if isinstance(resource, dict) else None
+        if latency_ms is not None:
+            resolved_connector["latency_ms"] = latency_ms
+        resolved.append(resolved_connector)
     return resolved
 
 
@@ -869,15 +914,18 @@ def _normalize_bool(value: Any, *, default: bool = False) -> bool:
 
 def _fetch_remote_resource(remote_grpc_target: str) -> dict[str, Any]:
     client = create_remote_execution_client(remote_grpc_target)
+    started_at = time.perf_counter()
     try:
         resource = client.get_server_resource()
     finally:
         client.close()
+    latency_ms = round((time.perf_counter() - started_at) * 1000, 3)
     return {
         "cpu_cores": float(resource.cpu_cores),
         "memory_gb": float(resource.memory_gb),
         "free_disk_gb": float(resource.free_disk_gb),
         "hostname": str(resource.hostname),
+        "latency_ms": latency_ms,
     }
 
 
@@ -901,6 +949,7 @@ def _empty_remote_resource() -> dict[str, Any]:
         "memory_gb": None,
         "free_disk_gb": None,
         "hostname": None,
+        "latency_ms": None,
     }
 
 
@@ -928,6 +977,91 @@ def _fetch_connector_details_by_connector_id(connector_ids: set[str]) -> dict[st
         page_num += 1
 
     return lookup
+
+
+def _fetch_connector_details_with_resources_by_connector_id(
+    connector_ids: set[str],
+) -> dict[str, dict[str, Any]]:
+    lookup = _fetch_connector_details_by_connector_id(connector_ids)
+    for connector_id, connector in lookup.items():
+        remote_grpc_target, resource = _resolve_remote_resource(
+            connector,
+            grpc_port=DEFAULT_REMOTE_GRPC_PORT,
+        )
+        lookup[connector_id] = {
+            **connector,
+            "remote_grpc_target": remote_grpc_target,
+            "resource": resource,
+        }
+    return lookup
+
+
+def _mark_recommended_connector_items(items: list[dict[str, Any]]) -> None:
+    resource_items = [
+        item
+        for item in items
+        if _resource_is_available(item.get("resource"))
+        and _is_connector_enabled(item.get("connector", {}))
+    ]
+    if not resource_items:
+        return
+    recommended_item = max(
+        resource_items,
+        key=lambda item: _resource_sort_key(item["resource"]),
+    )
+    recommended_id = str(
+        recommended_item.get("connector", {}).get("connectorId", "") or ""
+    ).strip()
+    for item in items:
+        connector = item.get("connector")
+        if isinstance(connector, dict):
+            connector["recommended"] = (
+                str(connector.get("connectorId", "") or "").strip() == recommended_id
+            )
+
+
+def _mark_recommended_connectors(
+    connectors: list[dict[str, Any]],
+    connector_lookup: dict[str, dict[str, Any]],
+) -> None:
+    resource_items = [
+        connector
+        for connector in connectors
+        if _resource_is_available(
+            connector_lookup.get(str(connector.get("connectorId", "")).strip(), {}).get("resource")
+        )
+        and connector.get("status") == "可用"
+    ]
+    if not resource_items:
+        return
+    recommended_connector = max(
+        resource_items,
+        key=lambda item: _resource_sort_key(
+            connector_lookup[str(item["connectorId"])]["resource"]
+        ),
+    )
+    recommended_id = str(recommended_connector.get("connectorId", "")).strip()
+    for connector in connectors:
+        connector["recommended"] = (
+            str(connector.get("connectorId", "")).strip() == recommended_id
+        )
+
+
+def _resource_is_available(resource: Any) -> bool:
+    return (
+        isinstance(resource, dict)
+        and resource.get("cpu_cores") is not None
+        and resource.get("memory_gb") is not None
+        and resource.get("free_disk_gb") is not None
+    )
+
+
+def _resource_sort_key(resource: dict[str, Any]) -> tuple[float, float, float]:
+    return (
+        float(resource.get("cpu_cores") or 0.0),
+        float(resource.get("memory_gb") or 0.0),
+        float(resource.get("free_disk_gb") or 0.0),
+    )
 
 
 def _extract_connector_institution(connector: dict[str, Any] | None) -> str:
