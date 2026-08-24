@@ -103,13 +103,6 @@ class CorpusDatasetSourceStop(ConfigurableStop):
         outputs.write(artifact, "output")
 
     def _select_record(self, records: list[dict[str, Any]]) -> dict[str, Any]:
-        seen_file_names: set[str] = set()
-        for record in records:
-            file_name = record["fileName"]
-            if file_name in seen_file_names:
-                raise ValueError(f"duplicate dataset fileName returned for dataset_id={self.dataset_id}: {file_name}")
-            seen_file_names.add(file_name)
-
         if not self.file_name:
             return records[0]
 
@@ -160,22 +153,34 @@ class CorpusDatasetSourceStop(ConfigurableStop):
             raise ValueError(f"download urls response data must be a list for cstr={cstr}")
 
         records: list[dict[str, Any]] = []
-        for download_url in data:
-            if not isinstance(download_url, str):
-                continue
-            normalized = download_url.strip()
-            if not normalized:
-                continue
-            file_name = Path(normalized).name
-            if not file_name:
-                continue
-            records.append(
-                {
-                    "fileName": file_name,
-                    "downloadUrl": normalized,
-                    "dataset": dataset,
-                }
-            )
+        for item in data:
+            download_urls: list[Any]
+            if isinstance(item, str):
+                # Keep compatibility with the old response format:
+                # data: ["https://.../file.tar"].
+                download_urls = [item]
+            elif isinstance(item, dict):
+                raw_download_urls = item.get("downloadUrls") or []
+                download_urls = raw_download_urls if isinstance(raw_download_urls, list) else []
+            else:
+                download_urls = []
+
+            for download_url in download_urls:
+                if not isinstance(download_url, str):
+                    continue
+                normalized = download_url.strip()
+                if not normalized:
+                    continue
+                file_name = Path(normalized).name
+                if not file_name:
+                    continue
+                records.append(
+                    {
+                        "fileName": file_name,
+                        "downloadUrl": normalized,
+                        "dataset": dataset,
+                    }
+                )
         return records
 
     def _download_file(self, *, download_url: str, target_path: Path) -> Path:

@@ -10,8 +10,10 @@ from services.corpus_connector_service import (
     delete_corpus_connector,
     disable_corpus_connector,
     get_dataset_detail,
+    get_dataset_file_jsonl,
     get_corpus_connector_detail,
     get_corpus_connector_tree,
+    get_corpus_connector_latency,
     enable_corpus_connector,
     update_corpus_connector,
     list_connector_details_with_resources,
@@ -150,6 +152,20 @@ async def get_corpus_dataset_detail_api(req: CorpusDatasetDetailRequest):
     }
 
 
+@router.get("/dataset/downloadDatasetFileAsJsonl/{cstr}", include_in_schema=False)
+@router.get("/corpus/dataset/download-file-jsonl/{cstr}")
+async def get_corpus_dataset_file_jsonl_api(cstr: str):
+    try:
+        result = get_dataset_file_jsonl(cstr)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception:
+        log.exception("failed to get corpus dataset file jsonl cstr=%s", cstr)
+        raise HTTPException(status_code=500, detail="failed to get corpus dataset file jsonl")
+
+    return {"code": 200, "result": result}
+
+
 @router.post("/corpus/connector/save")
 @router.post("/dataset.connector.save", include_in_schema=False)
 async def save_corpus_connector_api(payload: dict[str, Any] = Body(...)):
@@ -212,6 +228,19 @@ async def get_corpus_connector_detail_api(id: str = Query(...)):
     except Exception:
         log.exception("failed to get corpus connector detail id=%s", id)
         raise HTTPException(status_code=500, detail="failed to get corpus connector detail")
+    return {"code": 200, "result": result}
+
+
+@router.get("/corpus/connector/latency")
+@router.get("/dataset.connector.latency", include_in_schema=False)
+async def get_corpus_connector_latency_api(id: str = Query(...)):
+    try:
+        result = get_corpus_connector_latency(id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception:
+        log.exception("failed to get corpus connector latency id=%s", id)
+        raise HTTPException(status_code=500, detail="failed to get corpus connector latency")
     return {"code": 200, "result": result}
 
 

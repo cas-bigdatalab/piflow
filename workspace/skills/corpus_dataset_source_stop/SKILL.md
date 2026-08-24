@@ -49,7 +49,22 @@ GET {corpus_route.base_url}/dataset/queryDataset?id={dataset_id}
 GET {corpus_route.base_url}/dataset/downloadDatasetFileUrls/{cstr}
 ```
 
-4. 将返回的 `data` 数组视为该数据集全部下载地址集合，并选择其中一个文件下载。若传入 `fileName`，则优先匹配对应文件；否则默认取第一个文件。每个 URL 的文件名取自 URL 末尾路径：
+4. 解析返回的 `data` 数组。当前响应中每个元素是一个连接器副本对象，下载地址位于 `downloadUrls` 数组中：
+
+```json
+{
+  "data": [
+    {
+      "downloadUrls": [
+        "http://10.0.82.213:7004/corpus.dataset.file.download/ES-CORPUS-B138/es-corpus-b138.tar"
+      ],
+      "name": "连接器节点1"
+    }
+  ]
+}
+```
+
+实现会按 `data` 顺序、再按 `downloadUrls` 顺序展开地址，并选择第一个文件下载。若传入 `fileName`，则优先匹配对应文件；同时兼容旧版直接返回 URL 字符串数组的格式。每个 URL 的文件名取自 URL 末尾路径：
 
 - `fileName`
 - `downloadUrl`
@@ -110,6 +125,6 @@ corpus_route:
 
 1. 该算子是数据源 Stop，没有上游输入，适合作为流程起点。
 2. 不再直接接收 `cstr` 作为输入，而是统一以数据集唯一标识 ID 为入口。
-3. 下载地址来自 `/dataset/downloadDatasetFileUrls/{cstr}` 返回的 URL 集合。
+3. 下载地址来自 `/dataset/downloadDatasetFileUrls/{cstr}` 返回的 `data[*].downloadUrls`，默认取展开后的第一个有效 URL。
 4. `fileName` 只用于选择下载哪一个文件，不再作为输出 key。
 5. 该 Stop 只负责下载，不负责自动解压；解压应由下游专门算子完成。

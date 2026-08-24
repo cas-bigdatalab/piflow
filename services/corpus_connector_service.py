@@ -1,6 +1,12 @@
 from __future__ import annotations
 
+import io
+import json
+import tarfile
+import time
+import zipfile
 from typing import Any
+from pathlib import Path
 from urllib.parse import urlparse
 
 import requests
@@ -81,6 +87,7 @@ def list_connector_details_with_resources(
             }
         )
 
+    _mark_recommended_connector_items(result_items)
     return {
         "items": result_items,
         "pagination": _extract_pagination(payload, page_num=page_num, page_size=page_size, item_count=len(result_items)),
@@ -127,7 +134,7 @@ def get_dataset_connector_detail_with_resource(
             f"connector detail not found in connector page for dataset_id={normalized_dataset_id}, connectorId={connector_id}"
         )
 
-    resolved_connectors = _resolve_enabled_dataset_connectors(connectors, connector_resources)
+    resolved_connectors = _resolve_dataset_connectors(connectors, connector_resources)
     return {
         "dataset": {
             "id": str(dataset.get("id", "")).strip(),
@@ -164,7 +171,11 @@ def list_dataset_details(
         for connector_id in _extract_dataset_connector_ids(item)
         if connector_id
     }
-    connector_lookup = _fetch_connector_details_by_connector_id(connector_ids) if connector_ids else {}
+    connector_lookup = (
+        _fetch_connector_details_with_resources_by_connector_id(connector_ids)
+        if connector_ids
+        else {}
+    )
 
     grouped_dataset_details: dict[str, dict[str, Any]] = {}
     for item in dataset_items:
@@ -178,9 +189,8 @@ def list_dataset_details(
 
     result_items: list[dict[str, Any]] = []
     for dataset_detail in grouped_dataset_details.values():
-        connectors = _resolve_enabled_dataset_connectors(dataset_detail["connectors"], connector_lookup)
-        if dataset_detail["connectors"] and not connectors:
-            continue
+        connectors = _resolve_dataset_connectors(dataset_detail["connectors"], connector_lookup)
+        _mark_recommended_connectors(connectors, connector_lookup)
         dataset_detail["connectors"] = connectors
         if connectors:
             primary_connector = connectors[0]
@@ -188,10 +198,10 @@ def list_dataset_details(
             dataset_detail["fromName"] = primary_connector["fromName"]
             connector_organization = _first_non_empty_string(
                 primary_connector.get("connectorOrganization"),
-                primary_connector.get("connectorInstitution"),
+                primary_connector.get("name"),
             )
             dataset_detail["connectorOrganization"] = connector_organization
-            dataset_detail["connectorInstitution"] = connector_organization
+            dataset_detail["name"] = connector_organization
         dataset_detail["replicaCount"] = len(connectors)
         result_items.append(dataset_detail)
 
@@ -211,10 +221,13 @@ def get_dataset_detail(dataset_id: str) -> dict[str, Any]:
         for connector_id in _extract_dataset_connector_ids(dataset_detail.get("raw", {}))
         if connector_id
     }
-    connector_lookup = _fetch_connector_details_by_connector_id(connector_ids) if connector_ids else {}
-    connectors = _resolve_enabled_dataset_connectors(dataset_detail["connectors"], connector_lookup)
-    if dataset_detail["connectors"] and not connectors:
-        raise ValueError(f"no enabled connector found for dataset_id={normalized_dataset_id}")
+    connector_lookup = (
+        _fetch_connector_details_with_resources_by_connector_id(connector_ids)
+        if connector_ids
+        else {}
+    )
+    connectors = _resolve_dataset_connectors(dataset_detail["connectors"], connector_lookup)
+    _mark_recommended_connectors(connectors, connector_lookup)
     dataset_detail["connectors"] = connectors
     if connectors:
         primary_connector = connectors[0]
@@ -222,12 +235,33 @@ def get_dataset_detail(dataset_id: str) -> dict[str, Any]:
         dataset_detail["fromName"] = primary_connector["fromName"]
         connector_organization = _first_non_empty_string(
             primary_connector.get("connectorOrganization"),
-            primary_connector.get("connectorInstitution"),
+            primary_connector.get("name"),
         )
         dataset_detail["connectorOrganization"] = connector_organization
-        dataset_detail["connectorInstitution"] = connector_organization
+        dataset_detail["name"] = connector_organization
     dataset_detail["replicaCount"] = len(connectors)
     return dataset_detail
+
+
+def get_dataset_file_jsonl(cstr: str, *, file_name: str | None = None) -> dict[str, Any]:
+    normalized_cstr = _normalize_required_text(cstr, field_name="cstr")
+    download_urls = _fetch_dataset_file_urls(normalized_cstr)
+    if not download_urls:
+        raise ValueError(f"no dataset file url found for cstr={normalized_cstr}")
+
+    selected_record = _select_dataset_file_record(download_urls, file_name=file_name)
+    file_bytes = _download_bytes(selected_record["downloadUrl"])
+    parsed_json, content_file_name = _parse_json_file(
+        file_bytes,
+        download_url=selected_record["downloadUrl"],
+    )
+    return {
+        "cstr": normalized_cstr,
+        "fileName": selected_record["fileName"],
+        "downloadUrl": selected_record["downloadUrl"],
+        "contentFileName": content_file_name,
+        "json": parsed_json,
+    }
 
 
 def create_corpus_connector(connector: dict[str, Any]) -> dict[str, Any]:
@@ -251,6 +285,36 @@ def disable_corpus_connector(connector_id: str) -> dict[str, Any]:
 def get_corpus_connector_detail(connector_id: str) -> dict[str, Any]:
     normalized_connector_id = _normalize_required_text(connector_id, field_name="id")
     return _request_corpus_route("GET", "/dataset.connector.detail", params={"id": normalized_connector_id})
+
+
+def get_corpus_connector_latency(
+    connector_id: str,
+    *,
+    grpc_port: int = DEFAULT_REMOTE_GRPC_PORT,
+) -> dict[str, Any]:
+    normalized_connector_id = _normalize_required_text(connector_id, field_name="id")
+    if grpc_port <= 0:
+        raise ValueError("grpc_port must be positive")
+
+    connector_lookup = _fetch_connector_details_by_connector_id({normalized_connector_id})
+    connector = connector_lookup.get(normalized_connector_id)
+    if connector is None:
+        raise ValueError(f"connector not found: {normalized_connector_id}")
+
+    remote_grpc_target, resource = _resolve_remote_resource(
+        connector,
+        grpc_port=grpc_port,
+    )
+    latency_ms = resource.get("latency_ms")
+    if latency_ms is None:
+        raise RuntimeError(
+            f"failed to probe connector latency for connector_id={normalized_connector_id}"
+        )
+    return {
+        "connectorId": normalized_connector_id,
+        "remote_grpc_target": remote_grpc_target,
+        "latency_ms": latency_ms,
+    }
 
 
 def enable_corpus_connector(connector_id: str) -> dict[str, Any]:
@@ -360,6 +424,162 @@ def _fetch_dataset_page(*, page_num: int, page_size: int, filters: dict[str, Any
     if int(payload.get("code", 0) or 0) != 200:
         raise ValueError(f"dataset page request failed: {payload.get('message', '')}")
     return payload
+
+
+def _fetch_dataset_file_urls(cstr: str) -> list[dict[str, Any]]:
+    base_url = str(get_settings().corpus_route.base_url or "").strip().rstrip("/")
+    if not base_url:
+        raise ValueError("settings.corpus_route.base_url must not be empty")
+
+    url = f"{base_url}/dataset/downloadDatasetFileUrls/{cstr}"
+    try:
+        response = requests.get(url, timeout=REQUEST_TIMEOUT)
+        response.raise_for_status()
+    except requests.RequestException as exc:
+        raise RuntimeError(f"failed to fetch corpus dataset download urls for cstr={cstr}: {exc}") from exc
+
+    payload = response.json()
+    if not isinstance(payload, dict):
+        raise ValueError(f"download urls response must be a json object for cstr={cstr}")
+    if int(payload.get("code", 0) or 0) != 200:
+        raise ValueError(f"download urls request failed for cstr={cstr}: {payload.get('message', '')}")
+
+    data = payload.get("data") or []
+    if not isinstance(data, list):
+        raise ValueError(f"download urls response data must be a list for cstr={cstr}")
+
+    records: list[dict[str, Any]] = []
+    for item in data:
+        download_urls: list[Any]
+        if isinstance(item, str):
+            # Keep compatibility with the old response format:
+            # data: ["https://.../file.jsonl"].
+            download_urls = [item]
+        elif isinstance(item, dict):
+            raw_download_urls = item.get("downloadUrls") or []
+            download_urls = raw_download_urls if isinstance(raw_download_urls, list) else []
+        else:
+            download_urls = []
+
+        for download_url in download_urls:
+            if not isinstance(download_url, str):
+                continue
+            normalized = download_url.strip()
+            if not normalized:
+                continue
+            file_name = Path(urlparse(normalized).path).name
+            if not file_name:
+                continue
+            records.append(
+                {
+                    "fileName": file_name,
+                    "downloadUrl": normalized,
+                }
+            )
+    return records
+
+
+def _select_dataset_file_record(records: list[dict[str, Any]], *, file_name: str | None = None) -> dict[str, Any]:
+    normalized_file_name = str(file_name or "").strip()
+    if not normalized_file_name:
+        return records[0]
+
+    for record in records:
+        if str(record.get("fileName", "")).strip() == normalized_file_name:
+            return record
+
+    raise ValueError(f"requested fileName not found: {normalized_file_name}")
+
+
+def _download_bytes(download_url: str) -> bytes:
+    try:
+        response = requests.get(download_url, timeout=REQUEST_TIMEOUT)
+        response.raise_for_status()
+    except requests.RequestException as exc:
+        raise RuntimeError(f"failed to download corpus dataset file from {download_url}: {exc}") from exc
+    return response.content
+
+
+def _parse_json_file(payload: bytes, *, download_url: str) -> tuple[Any, str]:
+    if not payload:
+        raise ValueError(f"downloaded empty corpus dataset file from {download_url}")
+
+    direct_result = _try_parse_json_or_jsonl(payload)
+    if direct_result is not None:
+        return direct_result, Path(urlparse(download_url).path).name
+
+    archive_result = _parse_json_from_archive(payload, download_url=download_url)
+    if archive_result is not None:
+        return archive_result
+
+    raise ValueError(
+        f"downloaded file is not valid json/jsonl and contains no readable json/jsonl member: {download_url}"
+    )
+
+
+def _try_parse_json_or_jsonl(payload: bytes) -> Any | None:
+    try:
+        text = payload.decode("utf-8").strip()
+    except UnicodeDecodeError:
+        return None
+    if not text:
+        return None
+
+    try:
+        parsed = json.loads(text)
+    except json.JSONDecodeError:
+        lines: list[Any] = []
+        try:
+            for line in text.splitlines():
+                stripped = line.strip()
+                if not stripped:
+                    continue
+                lines.append(json.loads(stripped))
+        except json.JSONDecodeError:
+            return None
+        return lines or None
+
+    return parsed
+
+
+def _parse_json_from_archive(payload: bytes, *, download_url: str) -> tuple[Any, str] | None:
+    archive_stream = io.BytesIO(payload)
+
+    if zipfile.is_zipfile(archive_stream):
+        with zipfile.ZipFile(archive_stream) as archive:
+            members = [
+                info
+                for info in archive.infolist()
+                if not info.is_dir() and _looks_like_json_file(info.filename)
+            ]
+            for member in members:
+                parsed = _try_parse_json_or_jsonl(archive.read(member))
+                if parsed is not None:
+                    return parsed, member.filename
+
+    archive_stream.seek(0)
+    if tarfile.is_tarfile(archive_stream):
+        archive_stream.seek(0)
+        with tarfile.open(fileobj=archive_stream, mode="r:*") as archive:
+            members = [
+                member
+                for member in archive.getmembers()
+                if member.isfile() and _looks_like_json_file(member.name)
+            ]
+            for member in members:
+                extracted = archive.extractfile(member)
+                if extracted is None:
+                    continue
+                parsed = _try_parse_json_or_jsonl(extracted.read())
+                if parsed is not None:
+                    return parsed, member.name
+
+    return None
+
+
+def _looks_like_json_file(file_name: str) -> bool:
+    suffix = Path(file_name).suffix.lower()
+    return suffix in {".json", ".jsonl", ".ndjson"}
 
 
 def _normalize_dataset_filters(filters: dict[str, Any] | None) -> dict[str, Any]:
@@ -522,6 +742,15 @@ def _normalize_connector_detail(source: dict[str, Any]) -> dict[str, Any]:
     grpc_port = _first_non_empty_string(
         source.get("grpcPort"),
     )
+    sync = _first_non_empty_string(
+        source.get("sync"),
+        source.get("syncAt"),
+        source.get("lastSyncAt"),
+        source.get("updateAt"),
+        source.get("updatedAt"),
+        source.get("pushAt"),
+    )
+    recommended = _normalize_bool(source.get("recommended"), default=False)
 
     return {
         "connectorId": connector_id,
@@ -533,6 +762,8 @@ def _normalize_connector_detail(source: dict[str, Any]) -> dict[str, Any]:
         "host": host,
         "remoteGrpcTarget": remote_grpc_target,
         "grpcPort": grpc_port,
+        "sync": sync,
+        "recommended": recommended,
         "raw": source,
     }
 
@@ -575,7 +806,7 @@ def _extract_dataset_connectors(source: dict[str, Any]) -> list[dict[str, str]]:
         seen_connector_ids.add(connector_id)
         connectors.append(normalized)
 
-    for key in ("connectors", "connectorList", "replicas", "datasetCopies", "copies"):
+    for key in ("fromList", "connectors", "connectorList", "replicas", "datasetCopies", "copies"):
         value = source.get(key)
         if isinstance(value, list):
             for item in value:
@@ -586,6 +817,11 @@ def _extract_dataset_connectors(source: dict[str, Any]) -> list[dict[str, str]]:
 
 
 def _normalize_dataset_connector_entry(source: Any) -> dict[str, str]:
+    if isinstance(source, str):
+        return {
+            "connectorId": source.strip(),
+            "fromName": "",
+        }
     if not isinstance(source, dict):
         return {"connectorId": "", "fromName": ""}
 
@@ -609,7 +845,7 @@ def _normalize_dataset_connector_entry(source: Any) -> dict[str, str]:
     }
 
 
-def _resolve_enabled_dataset_connectors(
+def _resolve_dataset_connectors(
     connectors: list[dict[str, str]],
     connector_lookup: dict[str, dict[str, Any]],
 ) -> list[dict[str, str]]:
@@ -617,8 +853,6 @@ def _resolve_enabled_dataset_connectors(
     for connector_ref in connectors:
         connector_id = str(connector_ref.get("connectorId", "") or "").strip()
         connector = connector_lookup.get(connector_id) if connector_id else None
-        if connector is not None and not _is_connector_enabled(connector):
-            continue
 
         connector_name = _first_non_empty_string(
             connector_ref.get("fromName"),
@@ -626,14 +860,21 @@ def _resolve_enabled_dataset_connectors(
             _extract_nested_text(connector, "connectorName") if connector else "",
         )
         connector_organization = _extract_connector_organization(connector)
-        resolved.append(
-            {
-                "connectorId": connector_id,
-                "fromName": connector_name,
-                "connectorOrganization": connector_organization,
-                "connectorInstitution": connector_organization,
-            }
-        )
+        enabled = _is_connector_enabled(connector) if connector is not None else False
+        resolved_connector = {
+            "connectorId": connector_id,
+            "fromName": connector_name,
+            "connectorOrganization": connector_organization,
+            "name": connector_organization,
+            "status": "可用" if enabled else "不可用",
+            "sync": _first_non_empty_string(connector.get("sync")) if connector else "",
+            "recommended": _normalize_bool(connector.get("recommended"), default=False) if connector else False,
+        }
+        resource = connector.get("resource") if connector else None
+        latency_ms = resource.get("latency_ms") if isinstance(resource, dict) else None
+        if latency_ms is not None:
+            resolved_connector["latency_ms"] = latency_ms
+        resolved.append(resolved_connector)
     return resolved
 
 
@@ -657,17 +898,34 @@ def _merge_dataset_connectors(
     return merged
 
 
+def _normalize_bool(value: Any, *, default: bool = False) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return value != 0
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in {"true", "1", "yes", "on"}:
+            return True
+        if normalized in {"false", "0", "no", "off"}:
+            return False
+    return default
+
+
 def _fetch_remote_resource(remote_grpc_target: str) -> dict[str, Any]:
     client = create_remote_execution_client(remote_grpc_target)
+    started_at = time.perf_counter()
     try:
         resource = client.get_server_resource()
     finally:
         client.close()
+    latency_ms = round((time.perf_counter() - started_at) * 1000, 3)
     return {
         "cpu_cores": float(resource.cpu_cores),
         "memory_gb": float(resource.memory_gb),
         "free_disk_gb": float(resource.free_disk_gb),
         "hostname": str(resource.hostname),
+        "latency_ms": latency_ms,
     }
 
 
@@ -691,6 +949,7 @@ def _empty_remote_resource() -> dict[str, Any]:
         "memory_gb": None,
         "free_disk_gb": None,
         "hostname": None,
+        "latency_ms": None,
     }
 
 
@@ -718,6 +977,91 @@ def _fetch_connector_details_by_connector_id(connector_ids: set[str]) -> dict[st
         page_num += 1
 
     return lookup
+
+
+def _fetch_connector_details_with_resources_by_connector_id(
+    connector_ids: set[str],
+) -> dict[str, dict[str, Any]]:
+    lookup = _fetch_connector_details_by_connector_id(connector_ids)
+    for connector_id, connector in lookup.items():
+        remote_grpc_target, resource = _resolve_remote_resource(
+            connector,
+            grpc_port=DEFAULT_REMOTE_GRPC_PORT,
+        )
+        lookup[connector_id] = {
+            **connector,
+            "remote_grpc_target": remote_grpc_target,
+            "resource": resource,
+        }
+    return lookup
+
+
+def _mark_recommended_connector_items(items: list[dict[str, Any]]) -> None:
+    resource_items = [
+        item
+        for item in items
+        if _resource_is_available(item.get("resource"))
+        and _is_connector_enabled(item.get("connector", {}))
+    ]
+    if not resource_items:
+        return
+    recommended_item = max(
+        resource_items,
+        key=lambda item: _resource_sort_key(item["resource"]),
+    )
+    recommended_id = str(
+        recommended_item.get("connector", {}).get("connectorId", "") or ""
+    ).strip()
+    for item in items:
+        connector = item.get("connector")
+        if isinstance(connector, dict):
+            connector["recommended"] = (
+                str(connector.get("connectorId", "") or "").strip() == recommended_id
+            )
+
+
+def _mark_recommended_connectors(
+    connectors: list[dict[str, Any]],
+    connector_lookup: dict[str, dict[str, Any]],
+) -> None:
+    resource_items = [
+        connector
+        for connector in connectors
+        if _resource_is_available(
+            connector_lookup.get(str(connector.get("connectorId", "")).strip(), {}).get("resource")
+        )
+        and connector.get("status") == "可用"
+    ]
+    if not resource_items:
+        return
+    recommended_connector = max(
+        resource_items,
+        key=lambda item: _resource_sort_key(
+            connector_lookup[str(item["connectorId"])]["resource"]
+        ),
+    )
+    recommended_id = str(recommended_connector.get("connectorId", "")).strip()
+    for connector in connectors:
+        connector["recommended"] = (
+            str(connector.get("connectorId", "")).strip() == recommended_id
+        )
+
+
+def _resource_is_available(resource: Any) -> bool:
+    return (
+        isinstance(resource, dict)
+        and resource.get("cpu_cores") is not None
+        and resource.get("memory_gb") is not None
+        and resource.get("free_disk_gb") is not None
+    )
+
+
+def _resource_sort_key(resource: dict[str, Any]) -> tuple[float, float, float]:
+    return (
+        float(resource.get("cpu_cores") or 0.0),
+        float(resource.get("memory_gb") or 0.0),
+        float(resource.get("free_disk_gb") or 0.0),
+    )
 
 
 def _extract_connector_institution(connector: dict[str, Any] | None) -> str:
