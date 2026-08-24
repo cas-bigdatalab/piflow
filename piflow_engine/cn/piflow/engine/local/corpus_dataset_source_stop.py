@@ -103,13 +103,6 @@ class CorpusDatasetSourceStop(ConfigurableStop):
         outputs.write(artifact, "output")
 
     def _select_record(self, records: list[dict[str, Any]]) -> dict[str, Any]:
-        seen_file_names: set[str] = set()
-        for record in records:
-            file_name = record["fileName"]
-            if file_name in seen_file_names:
-                raise ValueError(f"duplicate dataset fileName returned for dataset_id={self.dataset_id}: {file_name}")
-            seen_file_names.add(file_name)
-
         if not self.file_name:
             return records[0]
 
