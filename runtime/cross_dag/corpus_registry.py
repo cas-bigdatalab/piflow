@@ -3,7 +3,7 @@
 对应关系是这样定的：
 
     语料系统的「连接器」  ->  我们的「数据源 / 执行位置」
-    语料系统的「数据集」  ->  我们的「数据集」，每个数据集在它所属连接器上有一份
+    语料系统的「数据集」  ->  我们的「数据集」，每个数据集可在多个所属连接器上各有一份
 
 连接器的 serviceUrl 给出主机地址，那就是执行位置标识；资源指标通过各节点的
 gRPC 现场问，用于副本打分。哪些数据集字段作为需求维度由 cross_dc.yaml 声明；
@@ -37,6 +37,21 @@ MAX_PAGES = 200
 # 想增删维度改这里和 config/cross_dc.yaml 的 requirement_facets 即可。
 FACET_FIELDS = ("field", "language", "corpusType", "rawFormat")
 MULTI_VALUE_SEPARATORS = (";", "；", ",", "，")
+CONNECTOR_REFERENCE_KEYS = (
+    "connectorId",
+    "sourceId",
+    "source_id",
+    "centerId",
+    "center_id",
+    "from",
+)
+CONNECTOR_COLLECTION_KEYS = (
+    "connectors",
+    "connectorList",
+    "replicas",
+    "datasetCopies",
+    "copies",
+)
 
 
 def build_corpus_registry(
@@ -201,23 +216,28 @@ def _map_dataset(
     if not dataset_id:
         return None
 
-    connector_id = _first_text(
-        raw, "connectorId", "sourceId", "source_id", "centerId", "center_id"
-    )
+    connector_ids = _connector_ids(raw)
     cstr = _first_text(raw, "cstr", "replicaId", "replica_id")
-    if not connector_id:
+    if not connector_ids:
         log.warning("数据集 %s 没有数据源引用，已跳过", dataset_id)
         return None
 
-    replica = ReplicaRecord(
-        replica_id=cstr or dataset_id,
-        # 这里先保留注册中心业务 ID；CallbackDatasourceRegistry 会通过数据源的
-        # source_id/aliases 把它规范化为实际执行位置，无需再次拉连接器目录。
-        source_ip=connector_id,
-        # corpus 算子按 dataset_id 取数，自己去查下载地址。
-        # 所以「访问路径」就是这个 id，不是文件路径。
-        locator=dataset_id,
-        status=_replica_status(raw),
+    replica_base_id = cstr or dataset_id
+    replicas = tuple(
+        ReplicaRecord(
+            replica_id=(
+                replica_base_id
+                if len(connector_ids) == 1
+                else f"{replica_base_id}@{connector_id}"
+            ),
+            # 这里先保留注册中心业务 ID；CallbackDatasourceRegistry 会把每个
+            # connectorId 分别规范化为实际执行位置，并合并对应节点的资源指标。
+            source_ip=connector_id,
+            # corpus 算子按 dataset_id 取数，所以所有物理副本共享这个 locator。
+            locator=dataset_id,
+            status=_replica_status(raw),
+        )
+        for connector_id in connector_ids
     )
 
     facets = _facets_of(raw, facet_fields=facet_fields)
@@ -228,7 +248,7 @@ def _map_dataset(
             for value in (
                 *(item for values in facets.values() for item in values),
                 _first_text(raw, "publisher", "publisherName"),
-                connector_id,
+                *connector_ids,
             )
             if value
         )
@@ -237,7 +257,7 @@ def _map_dataset(
     return DatasetRecord(
         dataset_id=dataset_id,
         name=_first_text(raw, "title", "name", "datasetName") or dataset_id,
-        replicas=(replica,),
+        replicas=replicas,
         description=_first_text(raw, "description", "summary")[:300],
         tags=tags,
         facets=facets,
@@ -258,6 +278,42 @@ def _facets_of(
         if values:
             facets[key] = values
     return facets
+
+
+def _connector_ids(value: Any) -> tuple[str, ...]:
+    """Normalize one or many connector references into stable unique ids."""
+    out: list[str] = []
+
+    def append(candidate: Any) -> None:
+        if isinstance(candidate, dict):
+            for key in CONNECTOR_REFERENCE_KEYS:
+                if key in candidate:
+                    append(candidate.get(key))
+            nested = candidate.get("connector")
+            if isinstance(nested, dict):
+                append(nested)
+            for key in CONNECTOR_COLLECTION_KEYS:
+                if key in candidate:
+                    append(candidate.get(key))
+            return
+        if isinstance(candidate, (list, tuple, set)):
+            for item in candidate:
+                append(item)
+            return
+
+        text = _text(candidate)
+        if not text:
+            return
+        parts = [text]
+        for separator in MULTI_VALUE_SEPARATORS:
+            parts = [piece for part in parts for piece in part.split(separator)]
+        for part in parts:
+            connector_id = part.strip()
+            if connector_id and connector_id not in out:
+                out.append(connector_id)
+
+    append(value)
+    return tuple(out)
 
 
 def _split_values(value: Any) -> tuple[str, ...]:

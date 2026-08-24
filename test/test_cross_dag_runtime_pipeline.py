@@ -21,6 +21,7 @@ from runtime.cross_dag.registry_stub import (
     StubDatasourceRegistry,
 )
 from runtime.cross_dag.schema import IntentDataset, IntentSpec, ReplicaCandidate
+from runtime.cross_dag.selector import select_replica
 from runtime.cross_dag.validator import validate_nested_dsl
 from runtime.remote_dag_scheduler import RemoteNodeResource, schedule_frontend_dag
 from piflow_engine.cn.piflow.core.artifact import FileArtifact
@@ -165,6 +166,7 @@ def test_corpus_registry_normalizes_connector_reference_without_fixed_ips() -> N
     assert source.center_id == "node.example"
     assert source.grpc_endpoint == "node.example:61234"
     assert dataset.replicas[0].source_ip == "node.example"
+    assert dataset.replicas[0].replica_id == "replica-any"
     assert dataset.facets == {"domain": ("science", "engineering")}
     assert dataset.source_skill == CORPUS
     assert dataset.source_param == "dataset_id"
@@ -177,6 +179,71 @@ def test_corpus_registry_normalizes_connector_reference_without_fixed_ips() -> N
         "param_value": "dataset://dataset-any",
         "output_param": "output",
     }
+
+
+def test_corpus_registry_expands_multi_connector_dataset_into_replicas() -> None:
+    sources = [
+        {
+            "connectorId": "DS-NODE-1",
+            "serviceUrl": "10.0.82.213:7004",
+        },
+        {
+            "connectorId": "DS-NODE-2",
+            "serviceUrl": "10.0.90.174:7004",
+        },
+        {
+            "connectorId": "DS-NODE-3",
+            "serviceUrl": "10.0.90.94:7004",
+        },
+    ]
+    datasets = [
+        {
+            "id": "6a6ab4da15840cf004056867",
+            "title": "China land resources corpus",
+            "cstr": "ES-CORPUS-K024",
+            "connectorId": "DS-NODE-2,DS-NODE-1，DS-NODE-3;DS-NODE-2",
+            "status": 9,
+        }
+    ]
+    registry = CallbackDatasourceRegistry(
+        fetch_sources=lambda: sources,
+        source_mapper=lambda raw: _map_connector(raw, grpc_port=50061, probe=False),
+        fetch_datasets=lambda: datasets,
+        dataset_mapper=lambda raw: _map_dataset(raw, facet_fields=()),
+    )
+
+    dataset = registry.get_dataset("6a6ab4da15840cf004056867")
+
+    assert dataset is not None
+    assert [replica.replica_id for replica in dataset.replicas] == [
+        "ES-CORPUS-K024@DS-NODE-2",
+        "ES-CORPUS-K024@DS-NODE-1",
+        "ES-CORPUS-K024@DS-NODE-3",
+    ]
+    assert [replica.source_ip for replica in dataset.replicas] == [
+        "10.0.90.174",
+        "10.0.82.213",
+        "10.0.90.94",
+    ]
+    assert {replica.locator for replica in dataset.replicas} == {
+        "6a6ab4da15840cf004056867"
+    }
+    intent_dataset = IntentDataset(
+        alias="land",
+        dataset_id=dataset.dataset_id,
+        replicas=[
+            ReplicaCandidate.from_json(replica.to_json())
+            for replica in dataset.replicas
+        ],
+    )
+    decision = select_replica(
+        intent_dataset,
+        preferred_center_id="10.0.90.174",
+        known_centers={"10.0.82.213", "10.0.90.174", "10.0.90.94"},
+        available_statuses={"AVAILABLE"},
+    )
+    assert decision.chosen is not None
+    assert decision.chosen.center_id == "10.0.90.174"
 
 
 def test_dynamic_registry_builds_topology_and_compiles_nested_plan() -> None:
