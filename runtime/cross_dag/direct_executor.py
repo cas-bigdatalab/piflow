@@ -2,8 +2,9 @@
 
 The ordinary direct-access API intentionally returns a replica route without
 submitting a DAG.  Session tasks need a real process and downloadable result,
-so this module materializes that route as one data-source node and submits it
-through the existing distributed execution entry point.
+so this module materializes that route as a data-source node followed by a
+stable result-save node and submits it through the existing distributed
+execution entry point.
 """
 
 from __future__ import annotations
@@ -22,8 +23,11 @@ from .config import CrossDcConfig, get_cross_dc_config, resolve_cross_dc_config
 from .planner_bridge import SkillResolver, database_skill_resolver
 from .registry_stub import DatasourceRegistry, get_registry
 from .schema import (
+    BUNDLE_FILE_SAVE,
+    FILE_SAVE_INPUT_PORT,
     MODE_DIRECT,
     BindResult,
+    Binding,
     CrossDagError,
     CrossDagPlan,
     InputParam,
@@ -39,6 +43,8 @@ from .schema import (
 
 
 DIRECT_SOURCE_NODE_ID = "direct-dataset-source"
+DIRECT_RESULT_NODE_ID = "direct-result-save"
+DIRECT_RESULT_OUTPUT_NAME = "output"
 
 
 @dataclass(frozen=True)
@@ -65,7 +71,7 @@ def materialize_direct_access_plan(
     config: CrossDcConfig | None = None,
     skill_resolver: SkillResolver | None = None,
 ) -> DirectExecutionSpec:
-    """Attach a one-node execution DAG to an already bound direct plan."""
+    """Attach an executable, downloadable DAG to an already bound direct plan."""
     if plan.mode != MODE_DIRECT:
         raise CrossDagError("only direct plans can be materialized as direct runs")
 
@@ -105,17 +111,17 @@ def materialize_direct_access_plan(
         raise CrossDagError(str(exc)) from exc
 
     resolver = skill_resolver or database_skill_resolver()
-    skill_name = _canonical_skill_name(source_skill)
-    skill_id = _resolve_source_skill_id(
+    source_skill_name = _canonical_skill_name(source_skill)
+    source_skill_id = _resolve_source_skill_id(
         source_skill,
-        skill_name=skill_name,
+        skill_name=source_skill_name,
         resolver=resolver,
     )
-    node = LogicalNode(
+    source_node = LogicalNode(
         node_id=DIRECT_SOURCE_NODE_ID,
         node_name="direct_dataset_source",
-        skill_id=skill_id,
-        skill_name=skill_name,
+        skill_id=source_skill_id,
+        skill_name=source_skill_name,
         input_params=[
             InputParam(
                 param_name=source_param,
@@ -126,12 +132,52 @@ def materialize_direct_access_plan(
         ],
         out_params=[OutParam(param_name=source_output_param, param_type="file")],
     )
+    save_skill_name = _canonical_skill_name(BUNDLE_FILE_SAVE)
+    save_node = LogicalNode(
+        node_id=DIRECT_RESULT_NODE_ID,
+        node_name="direct_result_save",
+        skill_id=_resolve_source_skill_id(
+            BUNDLE_FILE_SAVE,
+            skill_name=save_skill_name,
+            resolver=resolver,
+        ),
+        skill_name=save_skill_name,
+        input_params=[
+            InputParam(
+                param_name="absolute_path",
+                param_type="string",
+                value_mode="manual",
+                param_value=_direct_result_path(
+                    export_dir=resolved_config.export_dir,
+                    plan_id=plan.plan_id,
+                    output=plan.intent.output,
+                    dataset_id=access.dataset_id,
+                ),
+            ),
+            InputParam(
+                param_name="overwrite",
+                param_type="string",
+                value_mode="manual",
+                param_value="true",
+            ),
+        ],
+        out_params=[
+            OutParam(param_name=DIRECT_RESULT_OUTPUT_NAME, param_type="file")
+        ],
+    )
+    result_binding = Binding(
+        from_node_id=DIRECT_SOURCE_NODE_ID,
+        from_param_name=source_output_param,
+        to_node_id=DIRECT_RESULT_NODE_ID,
+        to_param_name=FILE_SAVE_INPUT_PORT,
+    )
     task_name = plan.intent.goal or access.name or "Direct dataset access"
     logical_dag = LogicalDag(
         task_id=plan.plan_id,
         task_name=task_name,
         description=f"Access dataset {access.dataset_id} from replica {chosen.replica_id}",
-        nodes=[node],
+        nodes=[source_node, save_node],
+        bindings=[result_binding],
     )
     execution_dsl = build_execution_dsl(
         logical_dag,
@@ -153,8 +199,14 @@ def materialize_direct_access_plan(
     plan.execution_grpc_endpoint = endpoint
     plan.center_endpoints = endpoints
     plan.bind_result = BindResult(
-        center_of={DIRECT_SOURCE_NODE_ID: center_id},
-        reasons={DIRECT_SOURCE_NODE_ID: decision.reason},
+        center_of={
+            DIRECT_SOURCE_NODE_ID: center_id,
+            DIRECT_RESULT_NODE_ID: center_id,
+        },
+        reasons={
+            DIRECT_SOURCE_NODE_ID: decision.reason,
+            DIRECT_RESULT_NODE_ID: "与数据源在同一中心保存最终结果",
+        },
         replica_decisions=list(plan.bind_result.replica_decisions),
     )
     plan.segment_graph = SegmentGraph(
@@ -163,16 +215,19 @@ def materialize_direct_access_plan(
                 segment_id=segment_id,
                 center_id=center_id,
                 level=0,
-                node_ids=[DIRECT_SOURCE_NODE_ID],
+                node_ids=[DIRECT_SOURCE_NODE_ID, DIRECT_RESULT_NODE_ID],
             )
         },
-        segment_of={DIRECT_SOURCE_NODE_ID: segment_id},
+        segment_of={
+            DIRECT_SOURCE_NODE_ID: segment_id,
+            DIRECT_RESULT_NODE_ID: segment_id,
+        },
         levels={segment_id: 0},
     )
 
     return DirectExecutionSpec(
-        result_node_id=DIRECT_SOURCE_NODE_ID,
-        result_output_name=source_output_param,
+        result_node_id=DIRECT_RESULT_NODE_ID,
+        result_output_name=DIRECT_RESULT_OUTPUT_NAME,
     )
 
 
@@ -213,7 +268,7 @@ def submit_direct_access_plan(
         remote_grpc_target=plan.execution_grpc_endpoint,
         execution_node_id=plan.execution_center_id,
         resource_resolver=resolve,
-        remote_source_node_ids={spec.result_node_id},
+        remote_source_node_ids={DIRECT_SOURCE_NODE_ID},
     )
     return DirectExecutionSubmission(
         result=result,
@@ -280,3 +335,24 @@ def _resolve_source_skill_id(
         if resolved and resolved != candidate:
             return resolved
     return str(resolver(source_skill) or source_skill)
+
+
+def _direct_result_path(
+    *,
+    export_dir: str,
+    plan_id: str,
+    output: dict[str, Any],
+    dataset_id: str,
+) -> str:
+    """Build a stable per-plan path for the direct result artifact."""
+    raw_name = str((output or {}).get("name") or "").strip()
+    raw_format = str((output or {}).get("format") or "").strip().lstrip(".")
+    fallback = f"{dataset_id}.{raw_format}" if raw_format else f"{dataset_id}.data"
+
+    file_name = raw_name.replace("\\", "/").rsplit("/", 1)[-1]
+    file_name = re.sub(r'[\x00-\x1f<>:"/\\|?*]', "_", file_name).strip(" .")
+    if not file_name:
+        file_name = fallback
+
+    base = str(export_dir or "/workspace/artifacts/xdc").strip().rstrip("/\\")
+    return f"{base}/{plan_id}/{file_name}"
