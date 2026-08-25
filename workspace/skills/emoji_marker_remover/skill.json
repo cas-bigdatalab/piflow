@@ -1,0 +1,63 @@
+{
+  "name": "emoji_marker_remover",
+  "name_zh": "文本表情标识移除算子",
+  "version": "1.0.0",
+  "description": "文本表情标识移除工具。读取文本或文本字段，移除 Unicode 表情符号、装饰标识和杂项图标，并将清理后的内容写入结果文件。",
+  "language": "python",
+  "script_path": "scripts/run_emoji_marker_remover.py",
+  "entrypoint": "python scripts/run_emoji_marker_remover.py",
+  "input_params": [
+    {
+      "name": "input_path",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "输入文本或数据文件路径，支持 txt、md、csv、tsv、json、jsonl"
+    },
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "清理结果文件路径"
+    },
+    {
+      "name": "text_columns",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "default": "",
+      "description": "CSV 或 TSV 中待处理的文本列，逗号分隔；不填时处理全部列"
+    },
+    {
+      "name": "text_field",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "default": "text",
+      "description": "JSON 或 JSONL 中待处理的文本字段名"
+    }
+  ],
+  "output_params": [
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "file",
+      "required": true,
+      "default": "cleaned_text.txt",
+      "description": "移除表情标识后的结果文件"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input_path",
+    "{input_path}",
+    "--output_path",
+    "{output_path}",
+    "--text_columns",
+    "{text_columns}",
+    "--text_field",
+    "{text_field}"
+  ]
+}
