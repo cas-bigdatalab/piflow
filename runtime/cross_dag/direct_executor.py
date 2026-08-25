@@ -328,13 +328,21 @@ def _resolve_source_skill_id(
     skill_name: str,
     resolver: SkillResolver,
 ) -> str:
-    """Prefer the registered skill_id while retaining class-path fallback."""
+    """Honor an explicit class path; otherwise prefer the registered skill_id."""
+    if _is_python_class_path(source_skill):
+        return source_skill
+
     leaf = source_skill.rsplit(".", 1)[-1]
     for candidate in dict.fromkeys((source_skill, leaf, skill_name)):
         resolved = str(resolver(candidate) or "").strip()
         if resolved and resolved != candidate:
             return resolved
     return str(resolver(source_skill) or source_skill)
+
+
+def _is_python_class_path(value: str) -> bool:
+    parts = str(value or "").split(".")
+    return len(parts) > 1 and all(part.isidentifier() for part in parts)
 
 
 def _direct_result_path(

@@ -116,7 +116,7 @@ def _direct_plan() -> tuple[CrossDagPlan, StubDatasourceRegistry, CrossDcConfig]
     return plan, registry, config
 
 
-def test_materialize_direct_plan_uses_selected_replica_and_registered_skill_id():
+def test_materialize_direct_plan_preserves_explicit_operator_class_paths():
     plan, registry, config = _direct_plan()
 
     def resolve_skill(name: str) -> str:
@@ -144,7 +144,10 @@ def test_materialize_direct_plan_uses_selected_replica_and_registered_skill_id()
     assert len(plan.execution_dsl["nodes"]) == 2
     source_node, save_node = plan.execution_dsl["nodes"]
     assert source_node["skill"] == {
-        "skill_id": "corpus_dataset_source_stop_1.0.0",
+        "skill_id": (
+            "piflow_engine.cn.piflow.engine.local.corpus_dataset_source_stop."
+            "CorpusDatasetSourceStop"
+        ),
         "skill_name": "corpus_dataset_source_stop",
     }
     assert source_node["input_params"][0]["param_value"] == "replica-dataset-a"
@@ -152,7 +155,9 @@ def test_materialize_direct_plan_uses_selected_replica_and_registered_skill_id()
         {"param_name": "output", "param_type": "file_artifact"}
     ]
     assert save_node["skill"] == {
-        "skill_id": "file_save_stop_1.0.0",
+        "skill_id": (
+            "piflow_engine.cn.piflow.engine.local.file_save_stop.FileSaveStop"
+        ),
         "skill_name": "file_save_stop",
     }
     assert save_node["input_params"] == [
@@ -239,3 +244,23 @@ def test_submit_direct_plan_targets_selected_center_and_result_node():
     FlowBean.from_dict(
         convert_frontend_dag_to_piflow(captured["definition"])
     ).construct_flow()
+
+
+def test_materialize_direct_plan_still_resolves_non_class_skill_names():
+    plan, registry, config = _direct_plan()
+    plan.intent.datasets[0].source_skill = "registered_source"
+
+    spec = materialize_direct_access_plan(
+        plan,
+        registry=registry,
+        config=config,
+        skill_resolver=lambda name: (
+            "registered_source_1.0.0" if name == "registered_source" else name
+        ),
+    )
+
+    assert spec.result_node_id == DIRECT_RESULT_NODE_ID
+    assert plan.execution_dsl["nodes"][0]["skill"] == {
+        "skill_id": "registered_source_1.0.0",
+        "skill_name": "registered_source",
+    }
