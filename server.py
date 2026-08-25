@@ -25,6 +25,7 @@ from routers.dataspace_router import router as dataspace_router
 from routers.storage_router import router as storage_router
 from routers.user_router import router as user_router
 from routers.workspace_router import router as workspace_router
+from routers.workflow_template_router import router as workflow_template_router
 from routers.subagent.workflow_advisor.workflow_advisor_router import router as workflow_advisor_router
 
 log = logging.getLogger("flow.api")
@@ -72,6 +73,7 @@ api_router.include_router(dataspace_router)
 api_router.include_router(storage_router)
 api_router.include_router(user_router)
 api_router.include_router(workspace_router)
+api_router.include_router(workflow_template_router)
 api_router.include_router(workflow_advisor_router)
 
 # 把父router挂载到app

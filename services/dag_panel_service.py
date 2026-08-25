@@ -4,7 +4,6 @@ import os
 import shutil
 import zipfile
 from contextlib import closing
-from typing import Dict, List
 from pathlib import Path
 
 from psycopg2.extras import RealDictCursor

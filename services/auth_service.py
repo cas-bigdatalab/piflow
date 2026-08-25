@@ -25,7 +25,7 @@ def login(username: str, password: str):
 
     token = create_access_token({
         "user_id": user["user_id"],
-        "username": user["username"],
+        "user_name": user["username"],
         "is_admin": user["is_admin"],
     })
 
