@@ -6,7 +6,7 @@ from security.jwt_handler import verify_token
 
 
 oauth2_scheme = OAuth2PasswordBearer(
-    tokenUrl="/login"
+    tokenUrl="/api/piflow/v1/login"
 )
 
 
@@ -18,7 +18,7 @@ def get_current_user(
 
         return {
             "user_id": payload["user_id"],
-            "username": payload["username"],
+            "user_name": payload["user_name"],
             "is_admin": payload["is_admin"],
         }
 

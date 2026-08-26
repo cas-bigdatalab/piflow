@@ -20,6 +20,7 @@ from runtime.chat_store import ensure_thread_access, save_message, update_thread
 from runtime.dag_manager import init_dag_db
 from runtime.piflow_adapter import init_piflow_run_tracking_db
 from runtime.skill_manage import init_dag_skills_to_database
+from runtime.workflow_template_manager import init_workflow_template_db
 from runtime.workspace_manager import WorkspaceManager
 from runtime.events import (
     emit_subagent_finished,
@@ -505,6 +506,7 @@ class AgentEngine:
         init_piflow_run_tracking_db()
         init_dag_skills_to_database()
         init_default_user()
+        init_workflow_template_db()
         log.info("initializing database complete")
 
         self.agent = AgentFactory.create_agent()

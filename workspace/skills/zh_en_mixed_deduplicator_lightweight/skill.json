@@ -1,0 +1,71 @@
+{
+  "name": "zh_en_mixed_deduplicator_lightweight",
+  "version": "1.0.0",
+  "description": "轻量中英文混杂去重工具。识别 TXT、JSON 或 JSONL 文档中同一文档或记录内中文句段与英文句段的语义重复内容，删除翻译对照或语义等价句段并保留有效语料。",
+  "language": "python",
+  "script_path": "scripts/run_zh_en_mixed_deduplicator_lightweight.py",
+  "entrypoint": "python scripts/run_zh_en_mixed_deduplicator_lightweight.py",
+  "input_params": [
+    {
+      "name": "input",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "中英文混杂文档路径，支持 TXT、JSON 和 JSONL"
+    },
+    {
+      "name": "output",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "去重后文档的输出路径"
+    },
+    {
+      "name": "text_key",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "default": "text",
+      "description": "JSON 或 JSONL 每条记录中用于保存待去重正文的字段名称；例如输入记录为 {\"content\": \"...\"} 时填写 content。TXT 输入不使用此参数"
+    },
+    {
+      "name": "similarity_threshold",
+      "role": "data",
+      "type": "number",
+      "required": false,
+      "default": 0.75,
+      "description": "跨语种段落判为语义重复的余弦相似度阈值"
+    },
+    {
+      "name": "keep",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "default": "zh",
+      "description": "语义重复段落的保留语种，可选 zh 或 en"
+    }
+  ],
+  "output_params": [
+    {
+      "name": "output",
+      "role": "output_data",
+      "type": "file",
+      "default": "zh_en_mixed_deduplicated_lightweight.txt",
+      "description": "删除中英文语义重复句段后的 TXT、JSON 或 JSONL 文档"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input",
+    "{input}",
+    "--output",
+    "{output}",
+    "--text_key",
+    "{text_key}",
+    "--similarity_threshold",
+    "{similarity_threshold}",
+    "--keep",
+    "{keep}"
+  ]
+}
