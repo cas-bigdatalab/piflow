@@ -7,6 +7,8 @@ import pytest
 
 from runtime.cross_dag.schema import (
     CrossDagPreBindPlan,
+    DatasetCoverage,
+    FacetCoverage,
     IntentDataset,
     IntentSpec,
     LogicalDag,
@@ -497,6 +499,21 @@ def test_direct_bind_submits_process_and_keeps_unified_session_contract(
     pre_bind = _pre_bind("xdc-direct-plan-1")
     pre_bind.mode = "direct"
     pre_bind.satisfaction.mode = "direct"
+    pre_bind.satisfaction.coverages = [
+        DatasetCoverage(
+            dataset_id="dataset-a",
+            name="地震目录",
+            facets=[
+                FacetCoverage(
+                    key="field",
+                    label="学科领域",
+                    mode="match_all",
+                    required=["地球科学"],
+                    covered=["地球科学"],
+                )
+            ],
+        )
+    ]
     task_id = "task-direct-1"
     memory_repository.tasks[task_id] = {
         "task_id": task_id,
@@ -517,7 +534,8 @@ def test_direct_bind_submits_process_and_keeps_unified_session_contract(
         to_json=lambda: {"plan_id": pre_bind.plan_id, "mode": "direct"},
     )
 
-    def finish_direct(value, *, user_id, on_stage):
+    def finish_direct(value, *, user_id, on_stage, selected_dataset_id):
+        assert selected_dataset_id == "dataset-a"
         on_stage("access", {"status": "started"})
         on_stage(
             "access",
@@ -588,6 +606,7 @@ def test_direct_bind_submits_process_and_keeps_unified_session_contract(
         xdc_session_service.stream_xdc_task_bind_and_execute(
             task_id=task_id,
             user_id="user-1",
+            selected_dataset_id="dataset-a",
         )
     )
 
@@ -606,6 +625,103 @@ def test_direct_bind_submits_process_and_keeps_unified_session_contract(
     assert result["execution"]["process_status_url"].startswith(
         "/api/piflow/v1/xdc/execution/process-direct-1/status?"
     )
+
+
+def test_direct_bind_requires_selection_before_claiming_task(
+    memory_repository,
+):
+    pre_bind = _pre_bind("xdc-direct-plan-required")
+    pre_bind.mode = "direct"
+    pre_bind.satisfaction.mode = "direct"
+    pre_bind.satisfaction.coverages = [
+        DatasetCoverage(
+            dataset_id="dataset-a",
+            name="地震目录",
+            facets=[
+                FacetCoverage(
+                    key="field",
+                    label="学科领域",
+                    mode="match_all",
+                    required=["地球科学"],
+                    covered=["地球科学"],
+                )
+            ],
+        )
+    ]
+    task_id = "task-direct-selection-required"
+    memory_repository.tasks[task_id] = {
+        "task_id": task_id,
+        "session_id": "session-1",
+        "status": "PLANNED",
+        "plan_revision": 1,
+        "mode": "direct",
+    }
+    memory_repository.save_snapshot(
+        task_id=task_id,
+        revision=1,
+        snapshot_type="PRE_BIND_INTERNAL",
+        payload=xdc_session_service.encode_pre_bind_plan(pre_bind),
+    )
+
+    events = _collect_events(
+        xdc_session_service.stream_xdc_task_bind_and_execute(
+            task_id=task_id,
+            user_id="user-1",
+        )
+    )
+
+    assert events[0]["type"] == "error"
+    assert events[0]["code"] == "DATASET_SELECTION_REQUIRED"
+    assert memory_repository.tasks[task_id]["status"] == "PLANNED"
+
+
+def test_direct_bind_rejects_non_candidate_before_claiming_task(
+    memory_repository,
+):
+    pre_bind = _pre_bind("xdc-direct-plan-invalid")
+    pre_bind.mode = "direct"
+    pre_bind.satisfaction.mode = "direct"
+    pre_bind.satisfaction.coverages = [
+        DatasetCoverage(
+            dataset_id="dataset-a",
+            name="地震目录",
+            facets=[
+                FacetCoverage(
+                    key="field",
+                    label="学科领域",
+                    mode="match_all",
+                    required=["地球科学"],
+                    covered=["地球科学"],
+                )
+            ],
+        )
+    ]
+    task_id = "task-direct-selection-invalid"
+    memory_repository.tasks[task_id] = {
+        "task_id": task_id,
+        "session_id": "session-1",
+        "status": "PLANNED",
+        "plan_revision": 1,
+        "mode": "direct",
+    }
+    memory_repository.save_snapshot(
+        task_id=task_id,
+        revision=1,
+        snapshot_type="PRE_BIND_INTERNAL",
+        payload=xdc_session_service.encode_pre_bind_plan(pre_bind),
+    )
+
+    events = _collect_events(
+        xdc_session_service.stream_xdc_task_bind_and_execute(
+            task_id=task_id,
+            user_id="user-1",
+            selected_dataset_id="dataset-not-candidate",
+        )
+    )
+
+    assert events[0]["type"] == "error"
+    assert events[0]["code"] == "INVALID_DATASET_SELECTION"
+    assert memory_repository.tasks[task_id]["status"] == "PLANNED"
 
 
 def test_direct_status_restores_result_selector_after_refresh(

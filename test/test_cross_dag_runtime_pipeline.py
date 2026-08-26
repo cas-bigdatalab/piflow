@@ -20,7 +20,17 @@ from runtime.cross_dag.registry_stub import (
     ReplicaRecord,
     StubDatasourceRegistry,
 )
-from runtime.cross_dag.schema import IntentDataset, IntentSpec, ReplicaCandidate
+from runtime.cross_dag.schema import (
+    CrossDagPreBindPlan,
+    DatasetCoverage,
+    FacetCoverage,
+    IntentDataset,
+    IntentSpec,
+    LogicalDag,
+    ReplicaCandidate,
+    SatisfactionReport,
+    ValidationReport,
+)
 from runtime.cross_dag.selector import select_replica
 from runtime.cross_dag.validator import validate_nested_dsl
 from runtime.remote_dag_scheduler import RemoteNodeResource, schedule_frontend_dag
@@ -383,6 +393,64 @@ def test_finalize_pre_bind_binds_and_preserves_preview_snapshot() -> None:
         "nest:finished",
         "validate:started",
         "validate:finished",
+    ]
+
+
+def test_finalize_direct_pre_bind_uses_explicit_dataset_selection() -> None:
+    registry = _registry()
+    base = CrossDcConfig(
+        local_center_id="",
+        default_center_id="",
+        centers={},
+        available_statuses=frozenset({"AVAILABLE"}),
+    )
+    intent = _intent()
+    intent.operations = []
+    satisfaction = SatisfactionReport(
+        mode="direct",
+        reason="两个数据集完整满足需求",
+        coverages=[
+            DatasetCoverage(
+                dataset_id=dataset.dataset_id,
+                alias=dataset.alias,
+                name=dataset.name,
+                selected=index == 0,
+                facets=[
+                    FacetCoverage(
+                        key="field",
+                        label="学科领域",
+                        mode="match_all",
+                        required=["science"],
+                        covered=["science"],
+                    )
+                ],
+            )
+            for index, dataset in enumerate(intent.datasets)
+        ],
+    )
+    pre_bind = CrossDagPreBindPlan(
+        plan_id="xdc-direct-selection",
+        mode="direct",
+        intent=intent,
+        satisfaction=satisfaction,
+        logical_dag=LogicalDag(),
+        validation=ValidationReport(),
+    )
+
+    plan = finalize_cross_dag_pre_bind(
+        pre_bind,
+        registry=registry,
+        config=resolve_cross_dc_config(base, registry),
+        selected_dataset_id="dynamic-b",
+    )
+
+    assert plan.direct_access is not None
+    assert plan.direct_access.dataset_id == "dynamic-b"
+    assert plan.direct_access.replica_decision is not None
+    assert plan.direct_access.replica_decision.chosen is not None
+    assert plan.direct_access.replica_decision.chosen.center_id == "beta.internal"
+    assert [item["dataset_id"] for item in plan.direct_access.alternatives] == [
+        "dynamic-a"
     ]
 
 

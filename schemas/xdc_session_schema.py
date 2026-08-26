@@ -21,3 +21,8 @@ class XdcSessionPreBindRequest(BaseModel):
 
 class XdcTaskBindExecuteRequest(BaseModel):
     detail: bool = Field(default=False, description="是否在 SSE 中附带排障详情")
+    selected_dataset_id: str | None = Field(
+        default=None,
+        max_length=128,
+        description="Direct 模式必填：用户从绑定前候选中选择的数据集 ID",
+    )

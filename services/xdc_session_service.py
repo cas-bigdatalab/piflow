@@ -203,6 +203,8 @@ async def stream_xdc_session_pre_bind(
                 ),
                 "body": {"detail": detail},
             }
+            if pre_bind.mode == MODE_DIRECT:
+                view["next_action"]["body"]["selected_dataset_id"] = None
             repository.save_snapshot(
                 task_id=task_id,
                 revision=revision,
@@ -258,6 +260,7 @@ async def stream_xdc_task_bind_and_execute(
     task_id: str,
     user_id: str,
     detail: bool = False,
+    selected_dataset_id: str | None = None,
 ) -> AsyncIterator[dict[str, Any]]:
     """Resume a persisted pre-bind task and stream binding through submission."""
     try:
@@ -307,6 +310,28 @@ async def stream_xdc_task_bind_and_execute(
         yield {"type": "error", "code": "PLAN_SNAPSHOT_INVALID", "message": str(exc)}
         return
 
+    try:
+        normalized_dataset_id = (
+            cross_dag_service.validate_direct_dataset_selection(
+                pre_bind,
+                selected_dataset_id,
+            )
+        )
+    except cross_dag_service.DirectDatasetSelectionRequired as exc:
+        yield {
+            "type": "error",
+            "code": "DATASET_SELECTION_REQUIRED",
+            "message": str(exc),
+        }
+        return
+    except cross_dag_service.InvalidDirectDatasetSelection as exc:
+        yield {
+            "type": "error",
+            "code": "INVALID_DATASET_SELECTION",
+            "message": str(exc),
+        }
+        return
+
     claimed = repository.claim_task_for_execution(
         task_id=task_id,
         user_id=str(user_id),
@@ -350,7 +375,9 @@ async def stream_xdc_task_bind_and_execute(
         ):
             append(stage_event)
             for event in cross_dag_service._replica_candidate_events(
-                pre_bind, detail=detail
+                pre_bind,
+                detail=detail,
+                dataset_id=(normalized_dataset_id or None),
             ):
                 append(event)
             candidates_emitted = True
@@ -373,6 +400,7 @@ async def stream_xdc_task_bind_and_execute(
                         pre_bind,
                         user_id=str(user_id),
                         on_stage=collect,
+                        selected_dataset_id=normalized_dataset_id,
                     )
                 )
                 plan_view = cross_dag_service._summarize_direct_session(

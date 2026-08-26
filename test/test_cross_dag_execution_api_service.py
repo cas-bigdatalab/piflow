@@ -8,6 +8,8 @@ import pytest
 
 from runtime.cross_dag.schema import (
     CrossDagPreBindPlan,
+    DatasetCoverage,
+    FacetCoverage,
     IntentDataset,
     IntentSpec,
     LogicalDag,
@@ -221,7 +223,6 @@ def test_pre_bind_summary_exposes_candidates_without_a_selection(monkeypatch):
         "resolve_cross_dc_config",
         lambda *args, **kwargs: SimpleNamespace(centers={}),
     )
-
     result = cross_dag_service._summarize_pre_bind(pre_bind)
 
     assert result["stage"] == "pre_bind"
@@ -239,6 +240,93 @@ def test_pre_bind_summary_exposes_candidates_without_a_selection(monkeypatch):
     assert "chosen" not in result["datasets"][0]
     assert "center_id" not in result["logical_dag"]["nodes"][0]
     assert result["next_action"]["body"] == {"plan_id": "xdc-pre-1"}
+
+
+def test_direct_pre_bind_summary_exposes_all_full_match_datasets(monkeypatch):
+    datasets = [
+        IntentDataset(
+            alias=dataset_id,
+            dataset_id=dataset_id,
+            name=name,
+            facets={"field": ["化学化工"], "rawFormat": ["JSON"]},
+            replicas=[
+                ReplicaCandidate(
+                    f"replica-{index}",
+                    "center-a",
+                    "center-a",
+                    dataset_id,
+                )
+            ],
+        )
+        for index, (dataset_id, name) in enumerate(
+            (("dataset-a", "分析化学"), ("dataset-b", "无机化学")),
+            start=1,
+        )
+    ]
+    coverages = [
+        DatasetCoverage(
+            dataset_id=dataset.dataset_id,
+            alias=dataset.alias,
+            name=dataset.name,
+            selected=index == 0,
+            facets=[
+                FacetCoverage(
+                    key="field",
+                    label="学科领域",
+                    mode="match_all",
+                    required=["化学化工"],
+                    covered=["化学化工"],
+                ),
+                FacetCoverage(
+                    key="rawFormat",
+                    label="数据格式",
+                    mode="match_all",
+                    required=["JSON"],
+                    covered=["JSON"],
+                ),
+            ],
+        )
+        for index, dataset in enumerate(datasets)
+    ]
+    pre_bind = CrossDagPreBindPlan(
+        plan_id="xdc-direct-pre",
+        mode="direct",
+        intent=IntentSpec(datasets=datasets),
+        satisfaction=SatisfactionReport(
+            mode="direct",
+            reason="两个数据集完整满足需求",
+            coverages=coverages,
+        ),
+        logical_dag=LogicalDag(),
+        validation=ValidationReport(),
+    )
+    monkeypatch.setattr(
+        cross_dag_service,
+        "resolve_cross_dc_config",
+        lambda *args, **kwargs: SimpleNamespace(centers={}),
+    )
+    monkeypatch.setattr(
+        cross_dag_service,
+        "get_registry",
+        lambda: SimpleNamespace(get_dataset=lambda dataset_id: None),
+    )
+
+    result = cross_dag_service._summarize_pre_bind(pre_bind)
+
+    selection = result["dataset_selection"]
+    assert selection["required"] is True
+    assert selection["selected_dataset_id"] is None
+    assert selection["candidate_count"] == 2
+    assert [item["dataset_id"] for item in selection["candidates"]] == [
+        "dataset-a",
+        "dataset-b",
+    ]
+    assert selection["candidates"][0]["recommended"] is True
+    assert selection["candidates"][1]["coverage"]["full_match"] is True
+    assert result["next_action"]["body"] == {
+        "plan_id": "xdc-direct-pre",
+        "selected_dataset_id": None,
+    }
 
 
 def test_pre_bind_cache_is_scoped_to_user():

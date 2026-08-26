@@ -253,6 +253,7 @@ def finalize_cross_dag_pre_bind(
     registry: DatasourceRegistry | None = None,
     config: CrossDcConfig | None = None,
     on_stage: StageHook | None = None,
+    selected_dataset_id: str | None = None,
 ) -> CrossDagPlan:
     """Bind, segment, nest and validate a previously expanded logical DAG."""
     emit = on_stage or (lambda stage, payload: None)
@@ -281,6 +282,7 @@ def finalize_cross_dag_pre_bind(
             config=resolved_config,
             registry=resolved_registry,
             on_stage=emit,
+            selected_dataset_id=selected_dataset_id,
         )
 
     logical_dag = copy.deepcopy(pre_bind.logical_dag)
@@ -350,6 +352,7 @@ def build_direct_plan(
     config: CrossDcConfig | None = None,
     registry: DatasourceRegistry | None = None,
     on_stage: StageHook | None = None,
+    selected_dataset_id: str | None = None,
 ) -> CrossDagPlan:
     """直接获取：不生成 DAG，只挑数据集和副本。确定性，可单测。"""
     resolved_config = config or get_cross_dc_config()
@@ -362,10 +365,24 @@ def build_direct_plan(
     if not matches:
         raise CrossDagError("直接获取要求存在完整满足需求的数据集，但满足分析没有给出")
 
-    # 目标优先取意图挑中的那个 —— 模型读过描述，它的选择往往比字段比对更贴题；
-    # 模型一个都没挑中时，才用后端扫目录补出来的完整匹配。
+    # 两阶段 Direct 接口会传入用户明确选择的数据集。未传时保留原有排序，供
+    # 一阶段只规划接口继续生成可预览方案；真正提交执行前由 service 强制校验选择。
     ordered = [c for c in matches if c.selected] + [c for c in matches if not c.selected]
-    target = ordered[0]
+    normalized_dataset_id = str(selected_dataset_id or "").strip()
+    if normalized_dataset_id:
+        target = next(
+            (cover for cover in ordered if cover.dataset_id == normalized_dataset_id),
+            None,
+        )
+        if target is None:
+            raise CrossDagError(
+                f"所选数据集 {normalized_dataset_id} 不在 Direct 完整匹配候选中"
+            )
+        ordered = [target] + [
+            cover for cover in ordered if cover.dataset_id != normalized_dataset_id
+        ]
+    else:
+        target = ordered[0]
     dataset = _resolve_intent_dataset(intent, target.dataset_id, resolved_registry)
     if dataset is None:
         raise CrossDagError(

@@ -133,6 +133,11 @@ async def bind_and_execute_cross_dag_pre_bind_api(
     current_user=Depends(get_current_user),
     plan_id: str = Body(..., embed=True, description="预绑定规划 ID"),
     detail: bool = Body(False, embed=True, description="是否附带完整规划详情"),
+    selected_dataset_id: str | None = Body(
+        None,
+        embed=True,
+        description="Direct 模式必填：用户选择的数据集 ID",
+    ),
 ):
     """完成副本绑定、DAG 划分和嵌套校验，并立即提交执行。"""
     try:
@@ -140,6 +145,7 @@ async def bind_and_execute_cross_dag_pre_bind_api(
             plan_id=plan_id,
             user_id=current_user["user_id"],
             detail=detail,
+            selected_dataset_id=selected_dataset_id,
         )
         return {"message": "success", "result": result, "code": 200}
     except PermissionError as e:
@@ -155,6 +161,11 @@ async def stream_bind_and_execute_cross_dag_pre_bind_api(
     current_user=Depends(get_current_user),
     plan_id: str = Body(..., embed=True, description="预绑定规划 ID"),
     detail: bool = Body(False, embed=True, description="是否附带完整规划详情"),
+    selected_dataset_id: str | None = Body(
+        None,
+        embed=True,
+        description="Direct 模式必填：用户选择的数据集 ID",
+    ),
 ):
     """SSE 推送副本选择、跨域编译、校验和提交过程。"""
 
@@ -164,6 +175,7 @@ async def stream_bind_and_execute_cross_dag_pre_bind_api(
                 plan_id=plan_id,
                 user_id=current_user["user_id"],
                 detail=detail,
+                selected_dataset_id=selected_dataset_id,
             ):
                 yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
         except Exception as e:
@@ -503,6 +515,7 @@ async def stream_xdc_task_bind_and_execute_api(
                 task_id=task_id,
                 user_id=current_user["user_id"],
                 detail=request.detail,
+                selected_dataset_id=request.selected_dataset_id,
             ):
                 yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
         except Exception as e:

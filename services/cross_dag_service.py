@@ -20,6 +20,7 @@ from runtime.cross_dag.engine import (
 )
 from runtime.cross_dag.registry_stub import get_registry, refresh_registry
 from runtime.cross_dag.schema import (
+    MODE_DIRECT,
     MODE_UNAVAILABLE,
     CrossDagError,
     CrossDagPlan,
@@ -40,6 +41,41 @@ class CrossDagExecutionNotFound(LookupError):
 
 class CrossDagExecutionNotReady(RuntimeError):
     """The requested result is not downloadable yet."""
+
+
+class DirectDatasetSelectionRequired(CrossDagError):
+    """A direct pre-bind plan must receive an explicit dataset choice."""
+
+
+class InvalidDirectDatasetSelection(CrossDagError):
+    """The selected dataset is not one of the direct full-match candidates."""
+
+
+def validate_direct_dataset_selection(
+    pre_bind: CrossDagPreBindPlan,
+    selected_dataset_id: str | None,
+) -> str:
+    """Validate a Direct dataset choice without changing task or plan state."""
+    if pre_bind.mode != MODE_DIRECT:
+        return ""
+
+    normalized = str(selected_dataset_id or "").strip()
+    candidate_ids = [
+        coverage.dataset_id
+        for coverage in pre_bind.satisfaction.full_matches
+        if coverage.dataset_id
+    ]
+    if not normalized:
+        raise DirectDatasetSelectionRequired(
+            "Direct 模式需要先选择数据集；"
+            f"可选 dataset_id：{candidate_ids}"
+        )
+    if normalized not in candidate_ids:
+        raise InvalidDirectDatasetSelection(
+            f"所选数据集 {normalized} 不在 Direct 完整匹配候选中；"
+            f"可选 dataset_id：{candidate_ids}"
+        )
+    return normalized
 
 
 @dataclass(frozen=True)
@@ -90,12 +126,14 @@ def bind_and_execute_cross_dag_pre_bind(
     plan_id: str,
     user_id: str,
     detail: bool = False,
+    selected_dataset_id: str | None = None,
 ) -> dict[str, Any]:
     """Bind through validation and immediately submit the resulting plan."""
     pre_bind = _get_owned_pre_bind(plan_id=plan_id, user_id=user_id)
     plan, execution = _finalize_and_execute_pre_bind(
         pre_bind,
         user_id=user_id,
+        selected_dataset_id=selected_dataset_id,
     )
     return {
         "plan": _summarize(plan, detail=detail),
@@ -108,6 +146,7 @@ def _finalize_and_execute_pre_bind(
     *,
     user_id: str,
     on_stage: Callable[[str, dict[str, Any]], None] | None = None,
+    selected_dataset_id: str | None = None,
 ) -> tuple[CrossDagPlan, dict[str, Any]]:
     """Shared second phase used by both JSON and SSE endpoints."""
     if pre_bind.mode == MODE_UNAVAILABLE:
@@ -118,7 +157,15 @@ def _finalize_and_execute_pre_bind(
             + "\n".join(pre_bind.validation.errors)
         )
 
-    plan = finalize_cross_dag_pre_bind(pre_bind, on_stage=on_stage)
+    normalized_dataset_id = validate_direct_dataset_selection(
+        pre_bind,
+        selected_dataset_id,
+    )
+    plan = finalize_cross_dag_pre_bind(
+        pre_bind,
+        on_stage=on_stage,
+        selected_dataset_id=normalized_dataset_id or None,
+    )
     _remember(plan)
 
     if on_stage is not None:
@@ -142,6 +189,7 @@ def _finalize_and_execute_direct_pre_bind(
     *,
     user_id: str,
     on_stage: Callable[[str, dict[str, Any]], None] | None = None,
+    selected_dataset_id: str | None = None,
 ) -> tuple[CrossDagPlan, dict[str, Any]]:
     """Session-only direct path: bind one replica and submit one source node.
 
@@ -149,8 +197,6 @@ def _finalize_and_execute_direct_pre_bind(
     Keeping this entry point separate also preserves the legacy direct API,
     which returns an access route without creating an executor process.
     """
-    from runtime.cross_dag.schema import MODE_DIRECT
-
     if pre_bind.mode != MODE_DIRECT:
         raise CrossDagError("direct execution helper only accepts direct plans")
     if not pre_bind.validation.ok:
@@ -159,7 +205,15 @@ def _finalize_and_execute_direct_pre_bind(
             + "\n".join(pre_bind.validation.errors)
         )
 
-    plan = finalize_cross_dag_pre_bind(pre_bind, on_stage=on_stage)
+    normalized_dataset_id = validate_direct_dataset_selection(
+        pre_bind,
+        selected_dataset_id,
+    )
+    plan = finalize_cross_dag_pre_bind(
+        pre_bind,
+        on_stage=on_stage,
+        selected_dataset_id=normalized_dataset_id,
+    )
     if plan.mode != MODE_DIRECT:
         raise CrossDagError(f"expected direct plan, got {plan.mode}")
 
@@ -827,6 +881,7 @@ async def stream_bind_and_execute_cross_dag_pre_bind(
     plan_id: str,
     user_id: str,
     detail: bool = False,
+    selected_dataset_id: str | None = None,
 ) -> AsyncIterator[dict[str, Any]]:
     """Stream replica binding through submission for a cached pre-bind plan."""
     from runtime.cross_dag.plan_view import stage_brief
@@ -859,7 +914,17 @@ async def stream_bind_and_execute_cross_dag_pre_bind(
             and not candidates_emitted
         ):
             events.append(stage_event)
-            events.extend(_replica_candidate_events(pre_bind[0], detail=detail))
+            events.extend(
+                _replica_candidate_events(
+                    pre_bind[0],
+                    detail=detail,
+                    dataset_id=(
+                        selected_dataset_id
+                        if pre_bind[0].mode == MODE_DIRECT
+                        else None
+                    ),
+                )
+            )
             candidates_emitted = True
             return
 
@@ -877,13 +942,20 @@ async def stream_bind_and_execute_cross_dag_pre_bind(
     def run() -> None:
         owned = _get_owned_pre_bind(plan_id=plan_id, user_id=user_id)
         pre_bind.append(owned)
-        result.append(
-            _finalize_and_execute_pre_bind(
+        if owned.mode == MODE_DIRECT:
+            finalized = _finalize_and_execute_pre_bind(
+                owned,
+                user_id=user_id,
+                on_stage=collect,
+                selected_dataset_id=selected_dataset_id,
+            )
+        else:
+            finalized = _finalize_and_execute_pre_bind(
                 owned,
                 user_id=user_id,
                 on_stage=collect,
             )
-        )
+        result.append(finalized)
 
     yield {"type": "status", "stage": "started"}
     try:
@@ -930,16 +1002,25 @@ def _replica_candidate_events(
     pre_bind: CrossDagPreBindPlan,
     *,
     detail: bool,
+    dataset_id: str | None = None,
 ) -> list[dict[str, Any]]:
     events: list[dict[str, Any]] = []
-    for dataset in pre_bind.intent.datasets:
-        if not dataset.replicas:
+    datasets = list(pre_bind.intent.datasets)
+    normalized_dataset_id = str(dataset_id or "").strip()
+    if normalized_dataset_id:
+        resolved = _resolve_pre_bind_dataset(pre_bind, normalized_dataset_id)
+        datasets = [resolved] if resolved is not None else []
+
+    for dataset in datasets:
+        replicas = list(getattr(dataset, "replicas", ()) or ())
+        if not replicas:
             continue
         candidates = []
-        for replica in dataset.replicas:
+        for replica in replicas:
             item: dict[str, Any] = {
                 "replica_id": replica.replica_id,
-                "center_id": replica.center_id,
+                "center_id": getattr(replica, "center_id", "")
+                or getattr(replica, "source_ip", ""),
                 "status": replica.status,
             }
             if detail:
@@ -972,9 +1053,6 @@ def _replica_selection_events(
         direct_decision = direct_access.get("replica_decision")
         decisions = [direct_decision] if isinstance(direct_decision, dict) else []
 
-    dataset_by_id = {
-        dataset.dataset_id: dataset for dataset in pre_bind.intent.datasets
-    }
     events: list[dict[str, Any]] = []
     for decision in decisions:
         if not isinstance(decision, dict):
@@ -983,9 +1061,10 @@ def _replica_selection_events(
         if not chosen:
             continue
         dataset_id = str(decision.get("dataset_id") or "")
-        dataset = dataset_by_id.get(dataset_id)
+        dataset = _resolve_pre_bind_dataset(pre_bind, dataset_id)
         replica_id = str(chosen.get("replica_id") or "")
         reason = str(decision.get("reason") or "")
+        replicas = list(getattr(dataset, "replicas", ()) or ()) if dataset else []
         event: dict[str, Any] = {
             "type": "replica",
             "stage": "bind",
@@ -993,7 +1072,7 @@ def _replica_selection_events(
             "dataset_id": dataset_id,
             "dataset_name": dataset.name if dataset else "",
             "node_id": str(decision.get("node_id") or ""),
-            "candidate_count": len(dataset.replicas) if dataset else 0,
+            "candidate_count": len(replicas),
             "chosen": {
                 "replica_id": replica_id,
                 "center_id": str(chosen.get("center_id") or ""),
@@ -1001,7 +1080,7 @@ def _replica_selection_events(
             "summary": _replica_choice_summary(
                 replica_id=replica_id,
                 reason=reason,
-                candidate_count=(len(dataset.replicas) if dataset else 0),
+                candidate_count=len(replicas),
             ),
             # This is the one stable, human-readable scheduling basis that the
             # ordinary frontend needs. Scores remain opt-in diagnostic data.
@@ -1017,6 +1096,20 @@ def _replica_selection_events(
             }
         events.append(event)
     return events
+
+
+def _resolve_pre_bind_dataset(
+    pre_bind: CrossDagPreBindPlan,
+    dataset_id: str,
+) -> Any | None:
+    """Resolve an intent-selected or catalog-discovered Direct candidate."""
+    normalized = str(dataset_id or "").strip()
+    for dataset in pre_bind.intent.datasets:
+        if dataset.dataset_id == normalized:
+            return dataset
+    if not normalized:
+        return None
+    return get_registry().get_dataset(normalized)
 
 
 def _replica_choice_summary(
@@ -1162,6 +1255,9 @@ def _summarize_pre_bind(
             "body": {"plan_id": pre_bind.plan_id},
         },
     }
+    if pre_bind.mode == MODE_DIRECT:
+        view["dataset_selection"] = _direct_dataset_selection_view(pre_bind)
+        view["next_action"]["body"]["selected_dataset_id"] = None
     if detail:
         view["detail"] = {
             "intent": pre_bind.intent.to_json(),
@@ -1170,6 +1266,69 @@ def _summarize_pre_bind(
             "logical_dag": pre_bind.logical_dag.to_json(),
         }
     return view
+
+
+def _direct_dataset_selection_view(
+    pre_bind: CrossDagPreBindPlan,
+) -> dict[str, Any]:
+    """Return every full-match dataset without selecting one for the user."""
+    registry = get_registry()
+    matches = list(pre_bind.satisfaction.full_matches)
+    ordered = [item for item in matches if item.selected] + [
+        item for item in matches if not item.selected
+    ]
+    intent_by_id = {
+        dataset.dataset_id: dataset for dataset in pre_bind.intent.datasets
+    }
+    candidates: list[dict[str, Any]] = []
+    for index, coverage in enumerate(ordered):
+        record = registry.get_dataset(coverage.dataset_id)
+        dataset = intent_by_id.get(coverage.dataset_id)
+        facets = (
+            {str(key): list(values) for key, values in record.facets.items()}
+            if record is not None
+            else {
+                str(key): list(values)
+                for key, values in (dataset.facets if dataset else {}).items()
+            }
+        )
+        replicas = list(
+            (record.replicas if record is not None else dataset.replicas if dataset else ())
+        )
+        candidates.append(
+            {
+                "dataset_id": coverage.dataset_id,
+                "name": coverage.name
+                or (record.name if record is not None else dataset.name if dataset else ""),
+                "description": record.description if record is not None else "",
+                "tags": list(record.tags) if record is not None else [],
+                "facets": facets,
+                "replica_count": len(replicas),
+                "available_replica_count": sum(
+                    1
+                    for replica in replicas
+                    if str(getattr(replica, "status", "")).upper() == "AVAILABLE"
+                ),
+                "recommended": index == 0,
+                "intent_selected": coverage.selected,
+                "coverage": {
+                    "full_match": coverage.full_match,
+                    "matched_count": sum(
+                        len(facet.covered) for facet in coverage.facets
+                    ),
+                    "required_count": sum(
+                        len(facet.required) for facet in coverage.facets
+                    ),
+                    "facets": [facet.to_json() for facet in coverage.facets],
+                },
+            }
+        )
+    return {
+        "required": True,
+        "selected_dataset_id": None,
+        "candidate_count": len(candidates),
+        "candidates": candidates,
+    }
 
 
 def _remember(plan: CrossDagPlan) -> None:
