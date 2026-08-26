@@ -1,0 +1,42 @@
+{
+  "name": "chemical_expression_normalizer",
+  "version": "1.0.0",
+  "description": "化学表达式规范化：统一化学式元素符号、上下标、电荷、反应箭头与化学键写法。",
+  "language": "python",
+  "script_path": "scripts/chemical_expression_normalizer.py",
+  "entrypoint": "python scripts/chemical_expression_normalizer.py",
+  "input_params": [
+    {
+      "name": "input_path",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "包含化学表达式的 UTF-8 文本文件路径"
+    },
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "规范化文本文件的输出路径"
+    }
+  ],
+  "output_params": [
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "default": "chemical_expression_normalized.txt",
+      "description": "化学表达式规范化后的文本文件"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input_path",
+    "{input_path}",
+    "--output_path",
+    "{output_path}"
+  ]
+}
