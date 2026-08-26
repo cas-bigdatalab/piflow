@@ -1,0 +1,42 @@
+{
+  "name": "scientific_formula_normalizer",
+  "version": "1.0.0",
+  "description": "科学公式格式规整：统一文本内嵌数理公式的上下标、基础运算符、层级括号、冗余空白和不可见干扰字符。",
+  "language": "python",
+  "script_path": "scripts/scientific_formula_normalizer.py",
+  "entrypoint": "python scripts/scientific_formula_normalizer.py",
+  "input_params": [
+    {
+      "name": "input_path",
+      "role": "input_data",
+      "type": "string",
+      "required": true,
+      "description": "包含数理公式的 UTF-8 文本文件路径"
+    },
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "string",
+      "required": true,
+      "description": "规整后文本文件的输出路径"
+    }
+  ],
+  "output_params": [
+    {
+      "name": "output_path",
+      "role": "output_data",
+      "type": "txt_file",
+      "required": true,
+      "default": "scientific_formula_normalized.txt",
+      "description": "科学公式格式规整后的文本文件"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input_path",
+    "{input_path}",
+    "--output_path",
+    "{output_path}"
+  ]
+}

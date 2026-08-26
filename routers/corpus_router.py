@@ -16,7 +16,7 @@ from services.corpus_connector_service import (
     get_corpus_connector_latency,
     enable_corpus_connector,
     update_corpus_connector,
-    list_connector_details_with_resources,
+    list_connector_details,
     list_dataset_details,
 )
 
@@ -89,7 +89,7 @@ class CorpusDatasetDetailRequest(BaseModel):
 @router.post("/corpus/connector/list")
 async def list_corpus_connectors_api(req: CorpusConnectorListRequest):
     try:
-        result = list_connector_details_with_resources(
+        result = list_connector_details(
             page_num=req.pageNum,
             page_size=req.pageSize,
             keyword=req.keyword,

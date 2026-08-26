@@ -1,4 +1,6 @@
 from datetime import datetime
+from typing import Dict, Any
+
 
 class DagTask:
     def __init__(

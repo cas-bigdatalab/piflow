@@ -58,6 +58,30 @@ def list_connector_resources(
     return result
 
 
+def list_connector_details(
+    *,
+    page_num: int = 1,
+    page_size: int = 10,
+    keyword: str | None = None,
+) -> dict[str, Any]:
+    payload = _fetch_connector_page(page_num=page_num, page_size=page_size, keyword=keyword)
+    items = _filter_connector_items(
+        _extract_connector_page_items(payload),
+        keyword=keyword,
+    )
+
+    result_items: list[dict[str, Any]] = []
+    for item in items:
+        connector = _normalize_connector_detail(item)
+        if not str(connector.get("connectorId", "") or "").strip():
+            continue
+        result_items.append({"connector": connector})
+    return {
+        "items": result_items,
+        "pagination": _extract_pagination(payload, page_num=page_num, page_size=page_size, item_count=len(result_items)),
+    }
+
+
 def list_connector_details_with_resources(
     *,
     page_num: int = 1,
@@ -189,13 +213,14 @@ def list_dataset_details(
     result_items: list[dict[str, Any]] = []
     for dataset_detail in grouped_dataset_details.values():
         connectors = _resolve_dataset_connectors(dataset_detail["connectors"], connector_lookup)
-        _mark_recommended_connectors(connectors, connector_lookup)
-        dataset_detail["connectors"] = connectors
+        available_connectors = [connector for connector in connectors if connector.get("status") == "可用"]
+        _mark_recommended_connectors(available_connectors, connector_lookup)
+        dataset_detail["connectors"] = available_connectors
         # A dataset is displayable only when at least one replica is available.
-        if not any(connector.get("status") == "可用" for connector in connectors):
+        if not available_connectors:
             continue
-        if connectors:
-            primary_connector = connectors[0]
+        if available_connectors:
+            primary_connector = available_connectors[0]
             dataset_detail["connectorId"] = primary_connector["connectorId"]
             dataset_detail["fromName"] = primary_connector["fromName"]
             connector_organization = _first_non_empty_string(
@@ -204,7 +229,7 @@ def list_dataset_details(
             )
             dataset_detail["connectorOrganization"] = connector_organization
             dataset_detail["name"] = connector_organization
-        dataset_detail["replicaCount"] = len(connectors)
+        dataset_detail["replicaCount"] = len(available_connectors)
         result_items.append(dataset_detail)
 
     start = (page_num - 1) * page_size
@@ -235,10 +260,11 @@ def get_dataset_detail(dataset_id: str) -> dict[str, Any]:
         else {}
     )
     connectors = _resolve_dataset_connectors(dataset_detail["connectors"], connector_lookup)
-    _mark_recommended_connectors(connectors, connector_lookup)
-    dataset_detail["connectors"] = connectors
-    if connectors:
-        primary_connector = connectors[0]
+    available_connectors = [connector for connector in connectors if connector.get("status") == "可用"]
+    _mark_recommended_connectors(available_connectors, connector_lookup)
+    dataset_detail["connectors"] = available_connectors
+    if available_connectors:
+        primary_connector = available_connectors[0]
         dataset_detail["connectorId"] = primary_connector["connectorId"]
         dataset_detail["fromName"] = primary_connector["fromName"]
         connector_organization = _first_non_empty_string(
@@ -247,7 +273,7 @@ def get_dataset_detail(dataset_id: str) -> dict[str, Any]:
         )
         dataset_detail["connectorOrganization"] = connector_organization
         dataset_detail["name"] = connector_organization
-    dataset_detail["replicaCount"] = len(connectors)
+    dataset_detail["replicaCount"] = len(available_connectors)
     return dataset_detail
 
 
