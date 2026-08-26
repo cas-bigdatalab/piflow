@@ -58,6 +58,30 @@ def list_connector_resources(
     return result
 
 
+def list_connector_details(
+    *,
+    page_num: int = 1,
+    page_size: int = 10,
+    keyword: str | None = None,
+) -> dict[str, Any]:
+    payload = _fetch_connector_page(page_num=page_num, page_size=page_size, keyword=keyword)
+    items = _filter_connector_items(
+        _extract_connector_page_items(payload),
+        keyword=keyword,
+    )
+
+    result_items: list[dict[str, Any]] = []
+    for item in items:
+        connector = _normalize_connector_detail(item)
+        if not str(connector.get("connectorId", "") or "").strip():
+            continue
+        result_items.append({"connector": connector})
+    return {
+        "items": result_items,
+        "pagination": _extract_pagination(payload, page_num=page_num, page_size=page_size, item_count=len(result_items)),
+    }
+
+
 def list_connector_details_with_resources(
     *,
     page_num: int = 1,
