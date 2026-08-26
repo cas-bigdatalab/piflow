@@ -2,19 +2,28 @@ from __future__ import annotations
 
 import io
 import json
+import re
+import secrets
+import string
 import tarfile
 import time
 import zipfile
-from typing import Any
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from typing import Any
 from urllib.parse import urlparse
+from uuid import uuid4
 
 import requests
+from botocore.auth import S3SigV4Auth
+from botocore.awsrequest import AWSRequest
+from botocore.credentials import Credentials
 
 from infra.config_loader import get_settings
 
 REQUEST_TIMEOUT = 30
 DEFAULT_REMOTE_GRPC_PORT = 50061
+_TTL_PATTERN = re.compile(r"^\s*(\d+)\s*([smhdSMHD]?)\s*$")
 
 
 def create_remote_execution_client(remote_grpc_target: str):
@@ -360,6 +369,128 @@ def get_corpus_connector_tree() -> dict[str, Any]:
     return _request_corpus_route("GET", "/dataset.connector.tree")
 
 
+def create_rustfs_temporary_credentials(
+    ttl: str,
+    *,
+    name: str | None = None,
+    description: str | None = None,
+) -> dict[str, Any]:
+    ttl_seconds = _parse_ttl_seconds(ttl)
+    expiration = datetime.now(timezone.utc) + timedelta(seconds=ttl_seconds)
+    expiration_text = expiration.isoformat(timespec="milliseconds").replace("+00:00", "Z")
+    generated_access_key = _generate_rustfs_access_key()
+    generated_secret_key = _generate_rustfs_secret_key()
+
+    payload = {
+        "accessKey": generated_access_key,
+        "secretKey": generated_secret_key,
+        "name": _normalize_optional_text(name) or f"mount-{uuid4().hex[:12]}",
+        "description": _normalize_optional_text(description) or "",
+        "expiration": expiration_text,
+    }
+    response_payload = _request_rustfs_admin(
+        "PUT",
+        "/rustfs/admin/v3/add-service-accounts",
+        json_body=payload,
+    )
+    credentials_payload = response_payload.get("credentials")
+    if isinstance(credentials_payload, dict):
+        response_payload = credentials_payload
+    access_key = _normalize_required_response_text(
+        response_payload.get("accessKey"),
+        field_name="accessKey",
+    )
+    secret_key = _normalize_required_response_text(
+        response_payload.get("secretKey"),
+        field_name="secretKey",
+    )
+    response_expiration = _normalize_required_response_text(
+        response_payload.get("expiration") or response_payload.get("expiry"),
+        field_name="expiration",
+    )
+    return {
+        "credentials": {
+            "accessKey": access_key,
+            "secretKey": secret_key,
+            "expiration": response_expiration,
+        }
+    }
+
+
+def build_rustfs_mount_info(
+    file_name: str,
+    *,
+    ttl: str = "5m",
+) -> dict[str, Any]:
+    normalized_input_file_name = _normalize_required_text(file_name, field_name="fileName")
+    mount_file_name = _normalize_mount_file_name(normalized_input_file_name)
+    mount_dir_name = _derive_mount_dir_name(normalized_input_file_name)
+    mount_path = f"/mnt/corpus/{mount_dir_name}"
+    mount_account_name = _derive_mount_account_name(normalized_input_file_name)
+    credentials_result = create_rustfs_temporary_credentials(
+        ttl,
+        name=mount_account_name,
+        description=f"temporary mount credential for {mount_file_name}",
+    )
+    credentials = credentials_result["credentials"]
+    access_key = _normalize_required_response_text(credentials.get("accessKey"), field_name="accessKey")
+    secret_key = _normalize_required_response_text(credentials.get("secretKey"), field_name="secretKey")
+    expiration = _normalize_required_response_text(credentials.get("expiration"), field_name="expiration")
+
+    install_command = "curl https://rclone.org/install.sh | sudo bash"
+    mkdir_command = f"mkdir -p {mount_path}"
+    mount_command = (
+        "rclone --config /dev/null mount MOUNTTMP:corpus \\\n"
+        f"  {mount_path} \\\n"
+        f"  --include '/{mount_file_name}' \\\n"
+        "  --vfs-cache-mode full \\\n"
+        "  --read-only"
+    )
+    script = "\n".join(
+        [
+            "# CentOS 安装 rclone",
+            install_command,
+            "",
+            "export RCLONE_CONFIG_MOUNTTMP_TYPE='s3'",
+            "export RCLONE_CONFIG_MOUNTTMP_PROVIDER='Other'",
+            f"export RCLONE_CONFIG_MOUNTTMP_ACCESS_KEY_ID='{access_key}'",
+            f"export RCLONE_CONFIG_MOUNTTMP_SECRET_ACCESS_KEY='{secret_key}'",
+            "export RCLONE_CONFIG_MOUNTTMP_ENDPOINT='http://10.0.85.201:9000'",
+            "export RCLONE_CONFIG_MOUNTTMP_REGION='us-east-1'",
+            "",
+            "# 创建本地目录",
+            mkdir_command,
+            "",
+            mount_command,
+        ]
+    )
+    return {
+        "fileName": mount_file_name,
+        "mountDirName": mount_dir_name,
+        "mountPath": mount_path,
+        "ttl": ttl,
+        "credentials": {
+            "accessKey": access_key,
+            "secretKey": secret_key,
+            "expiration": expiration,
+        },
+        "env": {
+            "RCLONE_CONFIG_MOUNTTMP_TYPE": "s3",
+            "RCLONE_CONFIG_MOUNTTMP_PROVIDER": "Other",
+            "RCLONE_CONFIG_MOUNTTMP_ACCESS_KEY_ID": access_key,
+            "RCLONE_CONFIG_MOUNTTMP_SECRET_ACCESS_KEY": secret_key,
+            "RCLONE_CONFIG_MOUNTTMP_ENDPOINT": "http://10.0.85.201:9000",
+            "RCLONE_CONFIG_MOUNTTMP_REGION": "us-east-1",
+        },
+        "commands": {
+            "installRclone": install_command,
+            "mkdir": mkdir_command,
+            "mount": mount_command,
+        },
+        "script": script,
+    }
+
+
 def _fetch_dataset_detail(dataset_id: str) -> dict[str, Any]:
     base_url = str(get_settings().corpus_route.base_url or "").strip().rstrip("/")
     if not base_url:
@@ -388,6 +519,74 @@ def _fetch_dataset_detail(dataset_id: str) -> dict[str, Any]:
     if not isinstance(data, dict):
         raise ValueError(f"dataset detail response data must be an object for dataset_id={dataset_id}")
     return data
+
+
+def _request_rustfs_admin(
+    method: str,
+    path: str,
+    *,
+    json_body: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    settings = get_settings()
+    base_url = str(settings.rustfs_admin.base_url or "").strip().rstrip("/")
+    if not base_url:
+        raise ValueError("settings.rustfs_admin.base_url must not be empty")
+
+    access_key = str(settings.rustfs_admin.access_key or "").strip()
+    secret_key = str(settings.rustfs_admin.secret_key or "").strip()
+    if not access_key or not secret_key:
+        raise ValueError("settings.rustfs_admin.access_key and secret_key must not be empty")
+
+    service = str(settings.rustfs_admin.service or "s3").strip() or "s3"
+    region = str(settings.rustfs_admin.region or "us-east-1").strip() or "us-east-1"
+    session_token = str(settings.rustfs_admin.session_token or "").strip()
+    timeout_seconds = int(settings.rustfs_admin.timeout_seconds or REQUEST_TIMEOUT)
+    if timeout_seconds <= 0:
+        raise ValueError("settings.rustfs_admin.timeout_seconds must be positive")
+
+    url = f"{base_url}{path}"
+    normalized_method = str(method or "").strip().upper()
+    body_text = json.dumps(_normalize_json_body(json_body), ensure_ascii=False, separators=(",", ":"))
+    headers = {
+        "Content-Type": "application/json",
+        "X-Amz-Content-Sha256": "UNSIGNED-PAYLOAD",
+    }
+
+    request = AWSRequest(
+        method=normalized_method,
+        url=url,
+        data=body_text,
+        headers=headers,
+    )
+    request.context["payload_signing_enabled"] = False
+    S3SigV4Auth(
+        Credentials(access_key=access_key, secret_key=secret_key, token=session_token or None),
+        service,
+        region,
+    ).add_auth(request)
+
+    prepared_request = request.prepare()
+    try:
+        response = requests.request(
+            normalized_method,
+            url,
+            data=body_text,
+            headers=dict(prepared_request.headers.items()),
+            timeout=timeout_seconds,
+        )
+    except requests.RequestException as exc:
+        raise RuntimeError(f"failed to request rustfs admin path={path}: {exc}") from exc
+    if int(getattr(response, "status_code", 200) or 200) >= 400:
+        raise RuntimeError(
+            f"rustfs admin request failed path={path} "
+            f"status={getattr(response, 'status_code', 'unknown')} "
+            f"body={getattr(response, 'text', '')}"
+        )
+
+    payload = response.json()
+    if not isinstance(payload, dict):
+        raise ValueError(f"rustfs admin response must be a json object for path={path}")
+    return payload
 
 
 def _request_corpus_route(
@@ -430,6 +629,75 @@ def _request_corpus_route(
     if not isinstance(payload, dict):
         raise ValueError(f"corpus route response must be a json object for path={path}")
     return payload
+
+
+def _parse_ttl_seconds(ttl: str) -> int:
+    normalized_ttl = str(ttl or "").strip()
+    if not normalized_ttl:
+        raise ValueError("ttl is required")
+
+    match = _TTL_PATTERN.fullmatch(normalized_ttl)
+    if match is None:
+        raise ValueError("ttl must look like '30s', '5m', '1h', or '1d'")
+
+    amount = int(match.group(1))
+    if amount <= 0:
+        raise ValueError("ttl must be positive")
+
+    unit = match.group(2).lower() or "s"
+    multiplier = {
+        "s": 1,
+        "m": 60,
+        "h": 3600,
+        "d": 86400,
+    }[unit]
+    ttl_seconds = amount * multiplier
+    if ttl_seconds > 7 * 24 * 3600:
+        raise ValueError("ttl must not exceed 7d")
+    return ttl_seconds
+
+
+def _normalize_mount_file_name(file_name: str) -> str:
+    normalized = _normalize_required_text(file_name, field_name="fileName")
+    if "." not in normalized:
+        return f"{normalized}.tar"
+    return normalized
+
+
+def _derive_mount_dir_name(file_name: str) -> str:
+    normalized = _normalize_required_text(file_name, field_name="fileName")
+    name_without_suffix = Path(normalized).stem if "." in normalized else normalized
+    return name_without_suffix.upper()
+
+
+def _derive_mount_account_name(file_name: str) -> str:
+    normalized = _normalize_required_text(file_name, field_name="fileName")
+    sanitized = re.sub(r"[^a-z0-9]+", "-", normalized.lower()).strip("-")
+    return f"mount-{sanitized or 'temp'}"
+
+
+def _normalize_optional_text(value: Any) -> str | None:
+    if value is None:
+        return None
+    normalized = str(value).strip()
+    return normalized or None
+
+
+def _normalize_required_response_text(value: Any, *, field_name: str) -> str:
+    normalized = _normalize_optional_text(value)
+    if normalized is None:
+        raise ValueError(f"rustfs admin response missing {field_name}")
+    return normalized
+
+
+def _generate_rustfs_access_key(length: int = 20) -> str:
+    alphabet = string.ascii_letters + string.digits
+    return "".join(secrets.choice(alphabet) for _ in range(length))
+
+
+def _generate_rustfs_secret_key(length: int = 40) -> str:
+    alphabet = string.ascii_letters + string.digits
+    return "".join(secrets.choice(alphabet) for _ in range(length))
 
 
 def _fetch_dataset_page(*, page_num: int, page_size: int, filters: dict[str, Any] | None = None) -> dict[str, Any]:

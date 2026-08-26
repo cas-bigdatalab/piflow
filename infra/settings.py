@@ -45,6 +45,16 @@ class CorpusRouteConfig(BaseModel):
     base_url: str = ""
 
 
+class RustFSAdminConfig(BaseModel):
+    base_url: str = ""
+    access_key: str = ""
+    secret_key: str = ""
+    session_token: str = ""
+    service: str = "s3"
+    region: str = "us-east-1"
+    timeout_seconds: int = 30
+
+
 class JuiceFSConfig(BaseModel):
     endpoint: str = ""
     access_key: str = ""
@@ -113,6 +123,7 @@ class Settings(BaseModel):
     juicefs: JuiceFSConfig = Field(default_factory=JuiceFSConfig)
     community_server: CommunityServerConfig = Field(default_factory=CommunityServerConfig)
     corpus_route: CorpusRouteConfig = Field(default_factory=CorpusRouteConfig)
+    rustfs_admin: RustFSAdminConfig = Field(default_factory=RustFSAdminConfig)
     llm: LLMConfig = Field(
         default_factory=lambda: LLMConfig(
             provider="dashscope",

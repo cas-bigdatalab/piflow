@@ -6,6 +6,8 @@ from fastapi import APIRouter, Body, HTTPException, Query
 from pydantic import BaseModel, ConfigDict, Field
 
 from services.corpus_connector_service import (
+    build_rustfs_mount_info,
+    create_rustfs_temporary_credentials,
     create_corpus_connector,
     delete_corpus_connector,
     disable_corpus_connector,
@@ -86,6 +88,16 @@ class CorpusDatasetDetailRequest(BaseModel):
     datasetId: str
 
 
+class RustFSServiceAccountRequest(BaseModel):
+    ttl: str
+    name: str | None = None
+    description: str | None = None
+
+
+class RustFSMountInfoRequest(BaseModel):
+    fileName: str
+
+
 @router.post("/corpus/connector/list")
 async def list_corpus_connectors_api(req: CorpusConnectorListRequest):
     try:
@@ -149,6 +161,42 @@ async def get_corpus_dataset_detail_api(req: CorpusDatasetDetailRequest):
         "result": {
             "dataset": result,
         },
+    }
+
+
+@router.post("/corpus/rustfs/service-account")
+async def create_rustfs_service_account_api(req: RustFSServiceAccountRequest):
+    try:
+        result = create_rustfs_temporary_credentials(
+            req.ttl,
+            name=req.name,
+            description=req.description,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception:
+        log.exception("failed to create rustfs service account")
+        raise HTTPException(status_code=500, detail="failed to create rustfs service account")
+
+    return {
+        "code": 200,
+        "result": result,
+    }
+
+
+@router.post("/corpus/rustfs/mount-info")
+async def get_rustfs_mount_info_api(req: RustFSMountInfoRequest):
+    try:
+        result = build_rustfs_mount_info(req.fileName)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception:
+        log.exception("failed to build rustfs mount info fileName=%s", req.fileName)
+        raise HTTPException(status_code=500, detail="failed to build rustfs mount info")
+
+    return {
+        "code": 200,
+        "result": result,
     }
 
 

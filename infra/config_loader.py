@@ -7,6 +7,7 @@ from infra.settings import (
     CorpusRouteConfig,
     DatabaseConfig,
     PolicyConfig,
+    RustFSAdminConfig,
     Settings,
 )
 
@@ -38,6 +39,7 @@ def load_settings() -> Settings:
 
     community_server_config = app_config.get("community_server", {})
     corpus_route_config = app_config.get("corpus_route", {})
+    rustfs_admin_config = app_config.get("rustfs_admin", {})
 
     config = {
         **app_config,
@@ -48,6 +50,7 @@ def load_settings() -> Settings:
         "juicefs": juicefs_config,
         "community_server": CommunityServerConfig(**community_server_config),
         "corpus_route": CorpusRouteConfig(**corpus_route_config),
+        "rustfs_admin": RustFSAdminConfig(**rustfs_admin_config),
         "mcp": mcp_config,
         **default_user_config,
         "policy": PolicyConfig(**policy_config.get("policy", {})),

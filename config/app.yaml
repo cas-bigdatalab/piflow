@@ -39,3 +39,12 @@ juicefs:
 
 corpus_route:
   base_url: "http://10.0.82.213:7003"
+
+rustfs_admin:
+  base_url: "http://10.0.85.201:9001"
+  access_key: "rustfsadmin"
+  secret_key: "rustfsadmin"
+  session_token: ""
+  service: "s3"
+  region: "us-east-1"
+  timeout_seconds: 30
