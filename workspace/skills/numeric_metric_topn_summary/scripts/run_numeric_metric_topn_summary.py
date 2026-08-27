@@ -267,11 +267,35 @@ def _read_jsonl(payload: bytes) -> list[dict[str, Any]]:
 
 
 def _read_json(payload: bytes) -> list[dict[str, Any]]:
+    text = _decode_text(payload)
     try:
-        value = json.loads(_decode_text(payload))
-    except json.JSONDecodeError as exc:
-        raise ValueError(f"invalid JSON: {exc.msg}") from exc
-    return _expand_json_rows(value)
+        return _expand_json_rows(json.loads(text))
+    except json.JSONDecodeError:
+        # Some corpus exports use a .json suffix while storing one complete
+        # JSON document per line (or several concatenated JSON documents).
+        # JSONDecoder.raw_decode handles both that representation and pretty
+        # printed documents without weakening validation of malformed content.
+        decoder = json.JSONDecoder()
+        records: list[dict[str, Any]] = []
+        cursor = 0
+        document_count = 0
+        while cursor < len(text):
+            while cursor < len(text) and text[cursor].isspace():
+                cursor += 1
+            if cursor >= len(text):
+                break
+            try:
+                value, cursor = decoder.raw_decode(text, cursor)
+            except json.JSONDecodeError as exc:
+                raise ValueError(
+                    f"invalid JSON at line {exc.lineno}, column {exc.colno}: {exc.msg}"
+                ) from exc
+            records.extend(_expand_json_rows(value))
+            document_count += 1
+
+        if document_count == 0:
+            raise ValueError("invalid JSON: no JSON document found")
+        return records
 
 
 def _expand_json_rows(value: Any) -> list[dict[str, Any]]:
