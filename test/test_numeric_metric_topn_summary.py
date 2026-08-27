@@ -97,3 +97,41 @@ def test_json_file_accepts_multiple_json_documents(tmp_path: Path) -> None:
     assert result["mean_value"] == 4.0
     assert result["min_value"] == 3.0
     assert result["max_value"] == 5.0
+
+
+def test_question_answer_corpus_extracts_and_deduplicates_text_metric(tmp_path: Path) -> None:
+    samples = (("A", 45.41), ("B", 72.26), ("C", 10.0))
+    documents = []
+    for sample_name, reduced_bet in samples:
+        description = (
+            f"催化剂样本{sample_name}，还原后BET为{reduced_bet}平方米每克，"
+            "反应后BET为999平方米每克，"
+        )
+        documents.extend(
+            (
+                {"question": description + "请问，CO转化率是多少？", "answer": "10mol%。"},
+                {"question": description + "请问，产物选择性是多少？", "answer": "20mol%。"},
+            )
+        )
+
+    input_path = tmp_path / "qa-corpus.json"
+    input_path.write_text(
+        "\n".join(json.dumps(document, ensure_ascii=False) for document in documents),
+        encoding="utf-8",
+    )
+
+    result = METRIC_MODULE.summarize_numeric_metric(
+        input_path,
+        tmp_path / "qa-summary.csv",
+        dataset_label="catalyst",
+        metric="specific_surface_area",
+        order="desc",
+        top_n=2,
+        target_unit="m2/g",
+    )
+
+    assert result["available_count"] == 3
+    assert result["selected_count"] == 2
+    assert round(result["mean_value"], 6) == 58.835
+    assert result["min_value"] == 45.41
+    assert result["max_value"] == 72.26

@@ -24,6 +24,20 @@ _NUMBER_RE = re.compile(
     r"^[\s~≈<>≤≥]*(?P<number>[+-]?(?:(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?|\.\d+)(?:[eE][+-]?\d+)?)\s*(?P<unit>.*)$"
 )
 _RANGE_RE = re.compile(r"^\s*[+-]?(?:\d+(?:\.\d+)?|\.\d+)\s*[-–—~]\s*\d")
+_TEXT_NUMBER_TOKEN = r"[+-]?(?:(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?|\.\d+)(?:[eE][+-]?\d+)?"
+_SURFACE_AREA_TEXT_RE = re.compile(
+    rf"(?P<label>"
+    rf"还原后\s*BET|反应后\s*BET|"
+    rf"BET\s*(?:比表面积|specific\s+surface\s+area|surface\s+area)?|"
+    rf"specific\s+surface\s+area|surface\s+area|比表面积"
+    rf")\s*(?:为|是|of|is|[:：=])?\s*"
+    rf"(?P<number>[~≈<>≤≥]?\s*{_TEXT_NUMBER_TOKEN})\s*"
+    rf"(?P<unit>"
+    rf"平方米每克|平方厘米每克|平方米每千克|平方厘米每千克|"
+    rf"(?:m|cm)\s*(?:²|2|\^2)\s*(?:/|·)?\s*(?:kg|g)(?:\s*(?:⁻¹|-1))?"
+    rf")?",
+    re.IGNORECASE,
+)
 
 _METRIC_ALIASES: dict[str, set[str]] = {
     "specific_surface_area": {
@@ -54,6 +68,14 @@ _METRIC_ALIASES: dict[str, set[str]] = {
 class ParsedMetric:
     value: float
     assumed_unit: bool
+
+
+@dataclass(frozen=True)
+class MetricMatch:
+    raw_value: Any
+    unit_hint: str
+    record_key: str | None = None
+    variant: str | None = None
 
 
 @dataclass
@@ -488,23 +510,65 @@ def _evaluate_candidate(
     ignored = 0
     assumed = 0
     fields: set[str] = set()
+    text_values: dict[str, list[float]] = {}
+    text_ignored: dict[str, int] = {}
+    text_assumed: dict[str, int] = {}
+    seen_text_records: dict[str, set[str]] = {}
     for row in rows:
         fields.update(_collect_field_names(row))
         match = _best_metric_match(row, aliases)
+        if match is not None:
+            parsed = _parse_metric_value(
+                match.raw_value,
+                unit_hint=match.unit_hint,
+                metric_key=metric_key,
+                target_unit=target_unit,
+            )
+            if parsed is None:
+                ignored += 1
+                continue
+            values.append(parsed.value)
+            assumed += int(parsed.assumed_unit)
+            continue
+
+        match = _best_text_metric_match(row, metric_key)
         if match is None:
             continue
-        raw_value, unit_hint = match
+        variant = match.variant or metric_key
+        if match.record_key is not None:
+            variant_records = seen_text_records.setdefault(variant, set())
+            if match.record_key in variant_records:
+                continue
+            variant_records.add(match.record_key)
         parsed = _parse_metric_value(
-            raw_value,
-            unit_hint=unit_hint,
+            match.raw_value,
+            unit_hint=match.unit_hint,
             metric_key=metric_key,
             target_unit=target_unit,
         )
         if parsed is None:
-            ignored += 1
+            text_ignored[variant] = text_ignored.get(variant, 0) + 1
             continue
-        values.append(parsed.value)
-        assumed += int(parsed.assumed_unit)
+        text_values.setdefault(variant, []).append(parsed.value)
+        text_assumed[variant] = text_assumed.get(variant, 0) + int(parsed.assumed_unit)
+
+    # Do not mix semantically distinct variants such as reduced BET and
+    # post-reaction BET.  Structured columns remain authoritative; for a pure
+    # text corpus choose the consistently extractable variant with the largest
+    # valid coverage across the dataset.
+    if not values and (text_values or text_ignored):
+        variants = set(text_values) | set(text_ignored)
+        chosen_variant = min(
+            variants,
+            key=lambda item: (
+                -len(text_values.get(item, [])),
+                -(len(text_values.get(item, [])) + text_ignored.get(item, 0)),
+                item,
+            ),
+        )
+        values = text_values.get(chosen_variant, [])
+        ignored = text_ignored.get(chosen_variant, 0)
+        assumed = text_assumed.get(chosen_variant, 0)
     return Candidate(name, format_name, values, ignored, assumed, fields)
 
 
@@ -522,7 +586,7 @@ def _collect_field_names(value: Any, *, depth: int = 0) -> set[str]:
     return fields
 
 
-def _best_metric_match(row: dict[str, Any], aliases: set[str]) -> tuple[Any, str] | None:
+def _best_metric_match(row: dict[str, Any], aliases: set[str]) -> MetricMatch | None:
     matches: list[tuple[int, Any, str]] = []
 
     def visit(value: Any, depth: int = 0) -> None:
@@ -577,7 +641,71 @@ def _best_metric_match(row: dict[str, Any], aliases: set[str]) -> tuple[Any, str
     if not matches:
         return None
     _, raw_value, unit_hint = max(matches, key=lambda item: item[0])
-    return raw_value, unit_hint
+    return MetricMatch(raw_value=raw_value, unit_hint=unit_hint)
+
+
+def _best_text_metric_match(row: dict[str, Any], metric_key: str) -> MetricMatch | None:
+    """Extract a metric embedded in question/answer-style corpus text.
+
+    Structured fields always win.  This fallback is intentionally limited to
+    known metric patterns and keeps a record identity so multiple questions
+    generated from one experiment do not duplicate that experiment in Top-N.
+    """
+    if metric_key != "specific_surface_area":
+        return None
+
+    record_key = _text_record_key(row)
+    for _, text in _iter_text_fields(row):
+        matched = _SURFACE_AREA_TEXT_RE.search(text)
+        if matched is None:
+            continue
+        return MetricMatch(
+            raw_value=matched.group("number"),
+            unit_hint=matched.group("unit") or "",
+            record_key=record_key,
+            variant=_text_metric_variant(matched.group("label")),
+        )
+    return None
+
+
+def _text_metric_variant(label: str) -> str:
+    canonical = _canonical(label)
+    if "还原后bet" in canonical:
+        return "reduced_bet"
+    if "反应后bet" in canonical:
+        return "post_reaction_bet"
+    if "bet" in canonical:
+        return "bet_surface_area"
+    return "specific_surface_area"
+
+
+def _iter_text_fields(row: dict[str, Any]) -> Iterator[tuple[str, str]]:
+    preferred = ("question", "prompt", "text", "content", "answer", "response")
+    yielded_keys: set[str] = set()
+    for key in preferred:
+        value = row.get(key)
+        if isinstance(value, str) and value.strip():
+            yielded_keys.add(key)
+            yield key, value
+
+    for key, value in row.items():
+        if key in yielded_keys:
+            continue
+        if isinstance(value, str) and value.strip():
+            yield str(key), value
+
+
+def _text_record_key(row: dict[str, Any]) -> str:
+    for key in ("question", "prompt", "text", "content"):
+        value = row.get(key)
+        if not isinstance(value, str) or not value.strip():
+            continue
+        # Generated QA corpora repeat one experiment for several questions.
+        # The experiment description before the question marker is stable.
+        prefix = re.split(r"请问|问题\s*[:：]", value, maxsplit=1)[0]
+        normalized = unicodedata.normalize("NFKC", prefix)
+        return re.sub(r"\s+", " ", normalized).strip()
+    return json.dumps(row, ensure_ascii=False, sort_keys=True, default=str)
 
 
 def _field_match_score(field_name: str, aliases: set[str]) -> int:
@@ -676,6 +804,8 @@ def _normalize_target_unit(unit: str) -> str:
 
 def _canonical_unit(unit: str) -> str:
     value = unicodedata.normalize("NFKC", str(unit or "")).casefold().strip()
+    value = value.replace("平方米每千克", "m2/kg").replace("平方厘米每千克", "cm2/kg")
+    value = value.replace("平方米每克", "m2/g").replace("平方厘米每克", "cm2/g")
     value = value.replace("㎡", "m2").replace("²", "2")
     value = value.replace("−", "-").replace("–", "-").replace("—", "-")
     value = value.replace("⁻", "-").replace("¹", "1")
