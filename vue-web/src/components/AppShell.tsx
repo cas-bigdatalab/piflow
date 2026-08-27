@@ -27,8 +27,8 @@ const topMenuItems: MenuItem[] = [
     ]
   },
   { id: 4, title: '算子库', icon: 'ri:database-line', path: '/skills' },
-  { id: 5, title: '用户管理', icon: 'ri:database-line', path: '/userMan' },
-  // { id: 5, title: '工作库', icon: 'ri:calendar-line', path: '/workLib' },
+  { id: 5, title: '工作流库', icon: 'ri:flow-chart', path: '/workLib' },
+  { id: 7, title: '用户管理', icon: 'ri:database-line', path: '/userMan' },
   // 修改点：数据管理增加 children
 ];
 

@@ -109,6 +109,63 @@ def insert_workflow_template(
     except Exception as e:
         raise RuntimeError("insert_workflow_template failed") from e
 
+
+def update_workflow_template(
+        db_id: int,
+        user_id: str,
+        user_name: str,
+        template_name: str,
+        description: str,
+        disciplinary_field: str,
+        publisher: str,
+        tags: list,
+        version: str = "1.0.0",
+):
+    if template_name == "" or template_name is None or user_id == "" or user_id is None or db_id is None:
+        raise ValueError("template_name, user_id, db_id is required")
+    template_id = f"{template_name}_{version}_{user_id}"
+    try:
+        with closing(get_connection()) as conn:
+            with conn:
+                with conn.cursor() as cursor:
+                    update_query = """
+                        UPDATE workflow_template SET
+                            template_id = %s,
+                            template_name = %s,
+                            description = %s,
+                            disciplinary_field = %s,
+                            tags = %s,
+                            version = %s,
+                            update_time = CURRENT_TIMESTAMP,
+                            is_deleted = 0
+                            where id = %s
+                        RETURNING id, template_id
+                    """
+                    cursor.execute(
+                        update_query,
+                        (
+                            template_id,
+                            template_name,
+                            description,
+                            disciplinary_field,
+                            Json(tags),
+                            version,
+                            db_id
+                        ),
+                    )
+                    row = cursor.fetchone()
+
+                    if not row:
+                        return None
+
+                    return {
+                        "id": row[0],
+                        "template_id": row[1],
+                    }
+    except Exception as e:
+        raise RuntimeError("update_workflow_template failed") from e
+
+
 def list_workflow_template_by_condition(
         page: int= None,
         page_size: int= None,

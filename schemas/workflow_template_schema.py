@@ -11,3 +11,4 @@ class WorkflowTemplateCreateRequest(BaseModel):
     disciplinary_field: Optional[str] = "基础"
     tags: Optional[list] = None
     version: str = "1.0.0"
+    db_id: Optional[int] = None

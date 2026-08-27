@@ -30,6 +30,7 @@ async def create_workflow_template(
             disciplinary_field=req.disciplinary_field,
             tags=req.tags,
             version=req.version,
+            db_id=req.db_id
         )
         return {
             "code": 200,
