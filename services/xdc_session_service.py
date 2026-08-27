@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import uuid
+from datetime import datetime, timezone
 from typing import Any, AsyncIterator, Callable
 from urllib.parse import urlencode
 
@@ -38,20 +39,24 @@ class XdcSessionConflict(RuntimeError):
 
 def create_xdc_session(*, user_id: str, title: str = "") -> dict[str, Any]:
     normalized_title = " ".join(str(title or "").split())[:255]
-    return repository.create_session(
-        session_id=f"xdc-session-{uuid.uuid4().hex[:16]}",
-        user_id=str(user_id),
-        title=normalized_title,
+    return _public_timestamps(
+        repository.create_session(
+            session_id=f"xdc-session-{uuid.uuid4().hex[:16]}",
+            user_id=str(user_id),
+            title=normalized_title,
+        )
     )
 
 
 def list_xdc_sessions(
     *, user_id: str, page_num: int = 1, page_size: int = 20
 ) -> dict[str, Any]:
-    return repository.list_sessions(
-        user_id=str(user_id),
-        page_num=max(1, int(page_num)),
-        page_size=min(100, max(1, int(page_size))),
+    return _public_timestamps(
+        repository.list_sessions(
+            user_id=str(user_id),
+            page_num=max(1, int(page_num)),
+            page_size=min(100, max(1, int(page_size))),
+        )
     )
 
 
@@ -73,12 +78,14 @@ def get_xdc_session_detail(
             limit=min(2000, max(1, int(item_limit))),
         )
     ]
-    return {
-        "session": session,
-        "tasks": tasks,
-        "items": items,
-        "next_after_item_id": items[-1]["item_id"] if items else after_item_id,
-    }
+    return _public_timestamps(
+        {
+            "session": session,
+            "tasks": tasks,
+            "items": items,
+            "next_after_item_id": items[-1]["item_id"] if items else after_item_id,
+        }
+    )
 
 
 def delete_xdc_session(*, session_id: str, user_id: str) -> dict[str, Any]:
@@ -109,15 +116,17 @@ def get_xdc_task_detail(*, task_id: str, user_id: str) -> dict[str, Any]:
         user_id=str(user_id),
         limit=2000,
     )
-    return {
-        "task": task,
-        "items": [
-            _public_item(item)
-            for item in all_items
-            if item.get("task_id") == task_id
-        ],
-        "snapshots": snapshots,
-    }
+    return _public_timestamps(
+        {
+            "task": task,
+            "items": [
+                _public_item(item)
+                for item in all_items
+                if item.get("task_id") == task_id
+            ],
+            "snapshots": snapshots,
+        }
+    )
 
 
 async def stream_xdc_session_pre_bind(
@@ -648,6 +657,24 @@ def _public_item(item: dict[str, Any]) -> dict[str, Any]:
     payload = public.pop("payload_json", public.get("payload", {}))
     public["payload"] = payload
     return public
+
+
+def _public_timestamps(value: Any) -> Any:
+    """Serialize XDC database timestamps as explicit UTC ISO-8601 values."""
+    if isinstance(value, datetime):
+        aware = value if value.tzinfo is not None else value.replace(tzinfo=timezone.utc)
+        return (
+            aware.astimezone(timezone.utc)
+            .isoformat(timespec="milliseconds")
+            .replace("+00:00", "Z")
+        )
+    if isinstance(value, dict):
+        return {key: _public_timestamps(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_public_timestamps(item) for item in value]
+    if isinstance(value, tuple):
+        return tuple(_public_timestamps(item) for item in value)
+    return value
 
 
 def _stage_event(

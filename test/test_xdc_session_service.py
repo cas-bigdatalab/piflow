@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 
 import pytest
@@ -440,6 +441,37 @@ def test_task_detail_is_user_scoped(memory_repository):
             task_id="task-private",
             user_id="user-2",
         )
+
+
+def test_session_list_serializes_database_times_as_explicit_utc(monkeypatch):
+    monkeypatch.setattr(
+        xdc_session_service.repository,
+        "list_sessions",
+        lambda **kwargs: {
+            "items": [
+                {
+                    "session_id": "session-1",
+                    "create_time": datetime(2026, 8, 26, 8, 11, 6, 549785),
+                    "update_time": datetime(
+                        2026,
+                        8,
+                        26,
+                        16,
+                        36,
+                        53,
+                        649511,
+                        tzinfo=timezone(timedelta(hours=8)),
+                    ),
+                }
+            ],
+            "pagination": {"pageNum": 1, "pageSize": 20, "total": 1},
+        },
+    )
+
+    result = xdc_session_service.list_xdc_sessions(user_id="user-1")
+
+    assert result["items"][0]["create_time"] == "2026-08-26T08:11:06.549Z"
+    assert result["items"][0]["update_time"] == "2026-08-26T08:36:53.649Z"
 
 
 def test_unavailable_plan_is_terminal_and_does_not_block_session(
