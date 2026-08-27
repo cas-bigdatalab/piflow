@@ -106,10 +106,12 @@ def summarize_numeric_metric(
                 target_unit=normalized_target_unit,
             )
             discovered_fields.update(candidate.available_fields)
-            if candidate.values:
+            if candidate.values or candidate.ignored_count:
                 candidates.append(candidate)
 
-    if not candidates:
+    grouped_candidates = _group_candidates_by_format(candidates)
+    valid_candidates = [candidate for candidate in grouped_candidates if candidate.values]
+    if not valid_candidates:
         raise ValueError(
             "METRIC_FIELD_NOT_FOUND: "
             f"dataset={dataset_label!r}, metric={metric_key!r}, "
@@ -118,7 +120,7 @@ def summarize_numeric_metric(
         )
 
     chosen = min(
-        candidates,
+        valid_candidates,
         key=lambda item: (
             -len(item.values),
             _FORMAT_PRIORITY.get(item.format_name, 99),
@@ -142,6 +144,37 @@ def summarize_numeric_metric(
     }
     _write_csv_row(Path(output_path), result)
     return result
+
+
+def _group_candidates_by_format(candidates: list[Candidate]) -> list[Candidate]:
+    """Combine record-oriented files while avoiding duplicate format exports.
+
+    Corpus packages commonly store one logical record per JSON file.  Treating
+    every file as an independent table would select only one record and make a
+    dataset-level Top-N impossible.  Files of the same format are therefore one
+    candidate collection; when a package contains duplicate exports in several
+    formats, the normal candidate ranking still selects only one format.
+    """
+    grouped: dict[str, list[Candidate]] = {}
+    for candidate in candidates:
+        grouped.setdefault(candidate.format_name, []).append(candidate)
+
+    combined: list[Candidate] = []
+    for format_name, items in grouped.items():
+        if len(items) == 1:
+            combined.append(items[0])
+            continue
+        combined.append(
+            Candidate(
+                name=f"{format_name} collection ({len(items)} record groups)",
+                format_name=format_name,
+                values=[value for item in items for value in item.values],
+                ignored_count=sum(item.ignored_count for item in items),
+                assumed_unit_count=sum(item.assumed_unit_count for item in items),
+                available_fields=set().union(*(item.available_fields for item in items)),
+            )
+        )
+    return combined
 
 
 def _iter_supported_artifacts(source: Path) -> Iterator[tuple[str, bytes]]:
@@ -474,11 +507,27 @@ def _best_metric_match(row: dict[str, Any], aliases: set[str]) -> tuple[Any, str
         if isinstance(value, dict):
             logical_name = _first_present(
                 value,
-                ("name", "property_name", "propertyName", "field", "attribute", "label", "key"),
+                (
+                    "name",
+                    "property_name",
+                    "propertyName",
+                    "property-name",
+                    "field",
+                    "attribute",
+                    "label",
+                    "key",
+                ),
             )
             logical_value = _first_present(
                 value,
-                ("value", "property_value", "propertyValue", "raw_value", "content"),
+                (
+                    "value",
+                    "property_value",
+                    "propertyValue",
+                    "property-value",
+                    "raw_value",
+                    "content",
+                ),
             )
             if logical_name is not None and logical_value is not None:
                 score = _field_match_score(str(logical_name), aliases)
