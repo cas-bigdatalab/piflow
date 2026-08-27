@@ -1,0 +1,82 @@
+{
+  "name": "numeric_metric_topn_summary",
+  "version": "1.0.0",
+  "description": "单数据集数值指标 Top-N 统计算子。输入必须直接来自一个数据集读取节点；算子会在 tar/zip/目录/普通文件中自动发现 CSV、TSV、XLSX、JSON、JSONL 表格，按逻辑指标名识别字段、解析并统一单位、过滤无效值、排序取 Top-N，最后一次性输出 count/mean/min/max 标准摘要。该算子输出的是 metric_summary_v1 统计摘要，不是明细表；同一分支只能使用一次，禁止在其后再次连接筛选、排序或统计算子。跨数据集计算应把两个本算子的输出交给 metric_summary_compare。",
+  "language": "python",
+  "script_path": "scripts/run_numeric_metric_topn_summary.py",
+  "entrypoint": "python scripts/run_numeric_metric_topn_summary.py",
+  "input_params": [
+    {
+      "name": "input",
+      "role": "input_data",
+      "type": "file_artifact",
+      "required": true,
+      "description": "单个数据集读取节点输出的数据包或结构化数据文件"
+    },
+    {
+      "name": "dataset_label",
+      "role": "data",
+      "type": "string",
+      "required": true,
+      "description": "写入摘要的数据集名称，使用意图中已选数据集的真实名称"
+    },
+    {
+      "name": "metric",
+      "role": "data",
+      "type": "string",
+      "required": true,
+      "description": "逻辑数值指标名；比表面积统一填写 specific_surface_area，不填写具体表头"
+    },
+    {
+      "name": "order",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "default": "desc",
+      "description": "排序方向，只能是 asc 或 desc"
+    },
+    {
+      "name": "top_n",
+      "role": "data",
+      "type": "int",
+      "required": false,
+      "default": 30,
+      "description": "排序后参与统计的记录数；不足时使用全部有效记录"
+    },
+    {
+      "name": "target_unit",
+      "role": "data",
+      "type": "string",
+      "required": true,
+      "description": "目标单位；比表面积填写 m2/g"
+    }
+  ],
+  "output_params": [
+    {
+      "name": "output",
+      "role": "output_data",
+      "type": "csv_file",
+      "default": "numeric_metric_topn_summary_output.csv",
+      "description": "metric_summary_v1 标准统计摘要，只能交给 metric_summary_compare 或结果保存节点"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input",
+    "{input}",
+    "--output",
+    "{output}",
+    "--dataset_label",
+    "{dataset_label}",
+    "--metric",
+    "{metric}",
+    "--order",
+    "{order}",
+    "--top_n",
+    "{top_n}",
+    "--target_unit",
+    "{target_unit}"
+  ],
+  "tag": "数据统计"
+}

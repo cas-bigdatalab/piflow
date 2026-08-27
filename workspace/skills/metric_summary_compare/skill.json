@@ -1,0 +1,64 @@
+{
+  "name": "metric_summary_compare",
+  "version": "1.0.0",
+  "description": "双数据集数值摘要对比算子。它只接受两路 numeric_metric_topn_summary 产生的 metric_summary_v1 CSV，校验指标和单位一致后计算两组均值的差值与比值，并输出最终对比 CSV。它不读取原始数据、不筛选记录、不重新聚合；input_1 和 input_2 必须各绑定一个不同数据分支，output 只应连接 FileSaveStop。difference_order 优先使用 input_1-input_2 或 input_2-input_1，也兼容 <dataset_label>_minus_<dataset_label>，执行时根据两路摘要的 dataset_name 解析并统一为标准端口表达式。",
+  "language": "python",
+  "script_path": "scripts/run_metric_summary_compare.py",
+  "entrypoint": "python scripts/run_metric_summary_compare.py",
+  "input_params": [
+    {
+      "name": "input_1",
+      "role": "input_data",
+      "type": "csv_file",
+      "required": true,
+      "description": "第一路 numeric_metric_topn_summary 输出的 metric_summary_v1"
+    },
+    {
+      "name": "input_2",
+      "role": "input_data",
+      "type": "csv_file",
+      "required": true,
+      "description": "第二路 numeric_metric_topn_summary 输出的 metric_summary_v1"
+    },
+    {
+      "name": "difference_order",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "default": "input_2-input_1",
+      "description": "差值和比值方向：优先填写 input_2-input_1 或 input_1-input_2；也可填写 <dataset_label>_minus_<dataset_label>，名称必须能唯一匹配两路摘要的 dataset_name"
+    },
+    {
+      "name": "output_file_name",
+      "role": "data",
+      "type": "string",
+      "required": false,
+      "default": "metric_summary_comparison.csv",
+      "description": "结果文件名，用于结果元数据"
+    }
+  ],
+  "output_params": [
+    {
+      "name": "output",
+      "role": "output_data",
+      "type": "csv_file",
+      "default": "metric_summary_compare_output.csv",
+      "description": "包含两组统计值以及均值差值、比值的最终 CSV"
+    }
+  ],
+  "command_template": [
+    "python",
+    "{script_path}",
+    "--input_1",
+    "{input_1}",
+    "--input_2",
+    "{input_2}",
+    "--output",
+    "{output}",
+    "--difference_order",
+    "{difference_order}",
+    "--output_file_name",
+    "{output_file_name}"
+  ],
+  "tag": "数据统计"
+}

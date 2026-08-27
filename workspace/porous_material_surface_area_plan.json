@@ -1,0 +1,5778 @@
+{
+  "plan": {
+    "plan_id": "xdc-405d8fb82675",
+    "mode": "composition",
+    "satisfaction": {
+      "mode": "composition",
+      "reason": "没有任何单个数据集能完整满足需求（需求 1 项，单集最大覆盖 1 项），需要多源组装",
+      "notes": [],
+      "required_count": 1,
+      "max_coverage": 1,
+      "scanned_count": 28,
+      "missing_values": [],
+      "full_match_count": 0,
+      "full_match_dataset_ids": [],
+      "facets": [
+        {
+          "key": "field",
+          "label": "学科领域",
+          "mode": "cover_all",
+          "values": [
+            "化学化工"
+          ]
+        },
+        {
+          "key": "corpusType",
+          "label": "语料类型",
+          "mode": "match_all",
+          "values": [
+            "基础语料",
+            "知识语料"
+          ]
+        },
+        {
+          "key": "rawFormat",
+          "label": "数据格式",
+          "mode": "match_all",
+          "values": [
+            "XLSX",
+            "JSON",
+            "CSV"
+          ]
+        }
+      ],
+      "coverages": [
+        {
+          "dataset_id": "6a2f6e55a3472727522d5372",
+          "alias": "syngas",
+          "name": "合成气催化转化反应过程数据整编语料",
+          "selected": true,
+          "full_match": false,
+          "covered_count": 1,
+          "required_count": 1,
+          "undeclared_facets": [],
+          "facets": [
+            {
+              "key": "field",
+              "label": "学科领域",
+              "mode": "cover_all",
+              "declared": true,
+              "satisfied": true,
+              "required": [
+                "化学化工"
+              ],
+              "covered": [
+                "化学化工"
+              ],
+              "missing": []
+            },
+            {
+              "key": "corpusType",
+              "label": "语料类型",
+              "mode": "match_all",
+              "declared": true,
+              "satisfied": false,
+              "required": [
+                "基础语料",
+                "知识语料"
+              ],
+              "covered": [
+                "基础语料"
+              ],
+              "missing": [
+                "知识语料"
+              ]
+            },
+            {
+              "key": "rawFormat",
+              "label": "数据格式",
+              "mode": "match_all",
+              "declared": true,
+              "satisfied": false,
+              "required": [
+                "XLSX",
+                "JSON",
+                "CSV"
+              ],
+              "covered": [
+                "XLSX",
+                "JSON"
+              ],
+              "missing": [
+                "CSV"
+              ]
+            }
+          ]
+        },
+        {
+          "dataset_id": "6a3206ad0365e61992090643",
+          "alias": "supercap",
+          "name": "超级电容器性能参数",
+          "selected": true,
+          "full_match": false,
+          "covered_count": 1,
+          "required_count": 1,
+          "undeclared_facets": [],
+          "facets": [
+            {
+              "key": "field",
+              "label": "学科领域",
+              "mode": "cover_all",
+              "declared": true,
+              "satisfied": true,
+              "required": [
+                "化学化工"
+              ],
+              "covered": [
+                "化学化工"
+              ],
+              "missing": []
+            },
+            {
+              "key": "corpusType",
+              "label": "语料类型",
+              "mode": "match_all",
+              "declared": true,
+              "satisfied": false,
+              "required": [
+                "基础语料",
+                "知识语料"
+              ],
+              "covered": [
+                "知识语料"
+              ],
+              "missing": [
+                "基础语料"
+              ]
+            },
+            {
+              "key": "rawFormat",
+              "label": "数据格式",
+              "mode": "match_all",
+              "declared": true,
+              "satisfied": false,
+              "required": [
+                "XLSX",
+                "JSON",
+                "CSV"
+              ],
+              "covered": [
+                "JSON",
+                "CSV"
+              ],
+              "missing": [
+                "XLSX"
+              ]
+            }
+          ]
+        },
+        {
+          "dataset_id": "6a8fdfee0f0b1071090ebccd",
+          "alias": "",
+          "name": "材料化学通识问答语料",
+          "selected": false,
+          "full_match": false,
+          "covered_count": 1,
+          "required_count": 1,
+          "undeclared_facets": [],
+          "facets": [
+            {
+              "key": "field",
+              "label": "学科领域",
+              "mode": "cover_all",
+              "declared": true,
+              "satisfied": true,
+              "required": [
+                "化学化工"
+              ],
+              "covered": [
+                "化学化工"
+              ],
+              "missing": []
+            },
+            {
+              "key": "corpusType",
+              "label": "语料类型",
+              "mode": "match_all",
+              "declared": true,
+              "satisfied": false,
+              "required": [
+                "基础语料",
+                "知识语料"
+              ],
+              "covered": [
+                "知识语料"
+              ],
+              "missing": [
+                "基础语料"
+              ]
+            },
+            {
+              "key": "rawFormat",
+              "label": "数据格式",
+              "mode": "match_all",
+              "declared": true,
+              "satisfied": false,
+              "required": [
+                "XLSX",
+                "JSON",
+                "CSV"
+              ],
+              "covered": [
+                "JSON"
+              ],
+              "missing": [
+                "XLSX",
+                "CSV"
+              ]
+            }
+          ]
+        },
+        {
+          "dataset_id": "6a8fdfee0f0b1071090ebccc",
+          "alias": "",
+          "name": "材料化学有思维链语料",
+          "selected": false,
+          "full_match": false,
+          "covered_count": 1,
+          "required_count": 1,
+          "undeclared_facets": [],
+          "facets": [
+            {
+              "key": "field",
+              "label": "学科领域",
+              "mode": "cover_all",
+              "declared": true,
+              "satisfied": true,
+              "required": [
+                "化学化工"
+              ],
+              "covered": [
+                "化学化工"
+              ],
+              "missing": []
+            },
+            {
+              "key": "corpusType",
+              "label": "语料类型",
+              "mode": "match_all",
+              "declared": true,
+              "satisfied": false,
+              "required": [
+                "基础语料",
+                "知识语料"
+              ],
+              "covered": [
+                "知识语料"
+              ],
+              "missing": [
+                "基础语料"
+              ]
+            },
+            {
+              "key": "rawFormat",
+              "label": "数据格式",
+              "mode": "match_all",
+              "declared": true,
+              "satisfied": false,
+              "required": [
+                "XLSX",
+                "JSON",
+                "CSV"
+              ],
+              "covered": [
+                "JSON"
+              ],
+              "missing": [
+                "XLSX",
+                "CSV"
+              ]
+            }
+          ]
+        },
+        {
+          "dataset_id": "6a8fdc690f0b1071090ebccb",
+          "alias": "",
+          "name": "化学工程通识问答语料",
+          "selected": false,
+          "full_match": false,
+          "covered_count": 1,
+          "required_count": 1,
+          "undeclared_facets": [],
+          "facets": [
+            {
+              "key": "field",
+              "label": "学科领域",
+              "mode": "cover_all",
+              "declared": true,
+              "satisfied": true,
+              "required": [
+                "化学化工"
+              ],
+              "covered": [
+                "化学化工"
+              ],
+              "missing": []
+            },
+            {
+              "key": "corpusType",
+              "label": "语料类型",
+              "mode": "match_all",
+              "declared": true,
+              "satisfied": false,
+              "required": [
+                "基础语料",
+                "知识语料"
+              ],
+              "covered": [
+                "知识语料"
+              ],
+              "missing": [
+                "基础语料"
+              ]
+            },
+            {
+              "key": "rawFormat",
+              "label": "数据格式",
+              "mode": "match_all",
+              "declared": true,
+              "satisfied": false,
+              "required": [
+                "XLSX",
+                "JSON",
+                "CSV"
+              ],
+              "covered": [
+                "JSON"
+              ],
+              "missing": [
+                "XLSX",
+                "CSV"
+              ]
+            }
+          ]
+        },
+        {
+          "dataset_id": "6a8fdc690f0b1071090ebcc8",
+          "alias": "",
+          "name": "环境化学通识问答语料",
+          "selected": false,
+          "full_match": false,
+          "covered_count": 1,
+          "required_count": 1,
+          "undeclared_facets": [],
+          "facets": [
+            {
+              "key": "field",
+              "label": "学科领域",
+              "mode": "cover_all",
+              "declared": true,
+              "satisfied": true,
+              "required": [
+                "化学化工"
+              ],
+              "covered": [
+                "化学化工"
+              ],
+              "missing": []
+            },
+            {
+              "key": "corpusType",
+              "label": "语料类型",
+              "mode": "match_all",
+              "declared": true,
+              "satisfied": false,
+              "required": [
+                "基础语料",
+                "知识语料"
+              ],
+              "covered": [
+                "知识语料"
+              ],
+              "missing": [
+                "基础语料"
+              ]
+            },
+            {
+              "key": "rawFormat",
+              "label": "数据格式",
+              "mode": "match_all",
+              "declared": true,
+              "satisfied": false,
+              "required": [
+                "XLSX",
+                "JSON",
+                "CSV"
+              ],
+              "covered": [
+                "JSON"
+              ],
+              "missing": [
+                "XLSX",
+                "CSV"
+              ]
+            }
+          ]
+        },
+        {
+          "dataset_id": "6a8fdc690f0b1071090ebcc7",
+          "alias": "",
+          "name": "化学工程有思维链语料",
+          "selected": false,
+          "full_match": false,
+          "covered_count": 1,
+          "required_count": 1,
+          "undeclared_facets": [],
+          "facets": [
+            {
+              "key": "field",
+              "label": "学科领域",
+              "mode": "cover_all",
+              "declared": true,
+              "satisfied": true,
+              "required": [
+                "化学化工"
+              ],
+              "covered": [
+                "化学化工"
+              ],
+              "missing": []
+            },
+            {
+              "key": "corpusType",
+              "label": "语料类型",
+              "mode": "match_all",
+              "declared": true,
+              "satisfied": false,
+              "required": [
+                "基础语料",
+                "知识语料"
+              ],
+              "covered": [
+                "知识语料"
+              ],
+              "missing": [
+                "基础语料"
+              ]
+            },
+            {
+              "key": "rawFormat",
+              "label": "数据格式",
+              "mode": "match_all",
+              "declared": true,
+              "satisfied": false,
+              "required": [
+                "XLSX",
+                "JSON",
+                "CSV"
+              ],
+              "covered": [
+                "JSON"
+              ],
+              "missing": [
+                "XLSX",
+                "CSV"
+              ]
+            }
+          ]
+        },
+        {
+          "dataset_id": "6a8fdc690f0b1071090ebcc6",
+          "alias": "",
+          "name": "分析化学有思维链语料",
+          "selected": false,
+          "full_match": false,
+          "covered_count": 1,
+          "required_count": 1,
+          "undeclared_facets": [],
+          "facets": [
+            {
+              "key": "field",
+              "label": "学科领域",
+              "mode": "cover_all",
+              "declared": true,
+              "satisfied": true,
+              "required": [
+                "化学化工"
+              ],
+              "covered": [
+                "化学化工"
+              ],
+              "missing": []
+            },
+            {
+              "key": "corpusType",
+              "label": "语料类型",
+              "mode": "match_all",
+              "declared": true,
+              "satisfied": false,
+              "required": [
+                "基础语料",
+                "知识语料"
+              ],
+              "covered": [
+                "知识语料"
+              ],
+              "missing": [
+                "基础语料"
+              ]
+            },
+            {
+              "key": "rawFormat",
+              "label": "数据格式",
+              "mode": "match_all",
+              "declared": true,
+              "satisfied": false,
+              "required": [
+                "XLSX",
+                "JSON",
+                "CSV"
+              ],
+              "covered": [
+                "JSON"
+              ],
+              "missing": [
+                "XLSX",
+                "CSV"
+              ]
+            }
+          ]
+        },
+        {
+          "dataset_id": "6a8fdc690f0b1071090ebcc5",
+          "alias": "",
+          "name": "前沿交叉问答数据",
+          "selected": false,
+          "full_match": false,
+          "covered_count": 0,
+          "required_count": 1,
+          "undeclared_facets": [],
+          "facets": [
+            {
+              "key": "field",
+              "label": "学科领域",
+              "mode": "cover_all",
+              "declared": true,
+              "satisfied": false,
+              "required": [
+                "化学化工"
+              ],
+              "covered": [],
+              "missing": [
+                "化学化工"
+              ]
+            },
+            {
+              "key": "corpusType",
+              "label": "语料类型",
+              "mode": "match_all",
+              "declared": true,
+              "satisfied": false,
+              "required": [
+                "基础语料",
+                "知识语料"
+              ],
+              "covered": [
+                "知识语料"
+              ],
+              "missing": [
+                "基础语料"
+              ]
+            },
+            {
+              "key": "rawFormat",
+              "label": "数据格式",
+              "mode": "match_all",
+              "declared": true,
+              "satisfied": false,
+              "required": [
+                "XLSX",
+                "JSON",
+                "CSV"
+              ],
+              "covered": [
+                "JSON"
+              ],
+              "missing": [
+                "XLSX",
+                "CSV"
+              ]
+            }
+          ]
+        },
+        {
+          "dataset_id": "6a8fdc690f0b1071090ebcc4",
+          "alias": "",
+          "name": "甲烷干重整催化剂知识语料",
+          "selected": false,
+          "full_match": false,
+          "covered_count": 1,
+          "required_count": 1,
+          "undeclared_facets": [],
+          "facets": [
+            {
+              "key": "field",
+              "label": "学科领域",
+              "mode": "cover_all",
+              "declared": true,
+              "satisfied": true,
+              "required": [
+                "化学化工"
+              ],
+              "covered": [
+                "化学化工"
+              ],
+              "missing": []
+            },
+            {
+              "key": "corpusType",
+              "label": "语料类型",
+              "mode": "match_all",
+              "declared": true,
+              "satisfied": false,
+              "required": [
+                "基础语料",
+                "知识语料"
+              ],
+              "covered": [
+                "知识语料"
+              ],
+              "missing": [
+                "基础语料"
+              ]
+            },
+            {
+              "key": "rawFormat",
+              "label": "数据格式",
+              "mode": "match_all",
+              "declared": true,
+              "satisfied": false,
+              "required": [
+                "XLSX",
+                "JSON",
+                "CSV"
+              ],
+              "covered": [
+                "JSON",
+                "CSV"
+              ],
+              "missing": [
+                "XLSX"
+              ]
+            }
+          ]
+        },
+        {
+          "dataset_id": "6a8fdc690f0b1071090ebcc3",
+          "alias": "",
+          "name": "聚合物太阳能电池知识语料",
+          "selected": false,
+          "full_match": false,
+          "covered_count": 1,
+          "required_count": 1,
+          "undeclared_facets": [],
+          "facets": [
+            {
+              "key": "field",
+              "label": "学科领域",
+              "mode": "cover_all",
+              "declared": true,
+              "satisfied": true,
+              "required": [
+                "化学化工"
+              ],
+              "covered": [
+                "化学化工"
+              ],
+              "missing": []
+            },
+            {
+              "key": "corpusType",
+              "label": "语料类型",
+              "mode": "match_all",
+              "declared": true,
+              "satisfied": false,
+              "required": [
+                "基础语料",
+                "知识语料"
+              ],
+              "covered": [
+                "知识语料"
+              ],
+              "missing": [
+                "基础语料"
+              ]
+            },
+            {
+              "key": "rawFormat",
+              "label": "数据格式",
+              "mode": "match_all",
+              "declared": true,
+              "satisfied": false,
+              "required": [
+                "XLSX",
+                "JSON",
+                "CSV"
+              ],
+              "covered": [
+                "JSON",
+                "CSV"
+              ],
+              "missing": [
+                "XLSX"
+              ]
+            }
+          ]
+        },
+        {
+          "dataset_id": "6a8fdc690f0b1071090ebcc2",
+          "alias": "",
+          "name": "空间科学应用术语问答对语料",
+          "selected": false,
+          "full_match": false,
+          "covered_count": 0,
+          "required_count": 1,
+          "undeclared_facets": [],
+          "facets": [
+            {
+              "key": "field",
+              "label": "学科领域",
+              "mode": "cover_all",
+              "declared": true,
+              "satisfied": false,
+              "required": [
+                "化学化工"
+              ],
+              "covered": [],
+              "missing": [
+                "化学化工"
+              ]
+            },
+            {
+              "key": "corpusType",
+              "label": "语料类型",
+              "mode": "match_all",
+              "declared": true,
+              "satisfied": false,
+              "required": [
+                "基础语料",
+                "知识语料"
+              ],
+              "covered": [
+                "知识语料"
+              ],
+              "missing": [
+                "基础语料"
+              ]
+            },
+            {
+              "key": "rawFormat",
+              "label": "数据格式",
+              "mode": "match_all",
+              "declared": true,
+              "satisfied": false,
+              "required": [
+                "XLSX",
+                "JSON",
+                "CSV"
+              ],
+              "covered": [
+                "JSON"
+              ],
+              "missing": [
+                "XLSX",
+                "CSV"
+              ]
+            }
+          ]
+        },
+        {
+          "dataset_id": "6a744595d38ea034d388c7b4",
+          "alias": "",
+          "name": "1900年以来中国地震目录语料（融合早期历史地震和速报目录）",
+          "selected": false,
+          "full_match": false,
+          "covered_count": 0,
+          "required_count": 1,
+          "undeclared_facets": [],
+          "facets": [
+            {
+              "key": "field",
+              "label": "学科领域",
+              "mode": "cover_all",
+              "declared": true,
+              "satisfied": false,
+              "required": [
+                "化学化工"
+              ],
+              "covered": [],
+              "missing": [
+                "化学化工"
+              ]
+            },
+            {
+              "key": "corpusType",
+              "label": "语料类型",
+              "mode": "match_all",
+              "declared": true,
+              "satisfied": false,
+              "required": [
+                "基础语料",
+                "知识语料"
+              ],
+              "covered": [
+                "基础语料"
+              ],
+              "missing": [
+                "知识语料"
+              ]
+            },
+            {
+              "key": "rawFormat",
+              "label": "数据格式",
+              "mode": "match_all",
+              "declared": true,
+              "satisfied": false,
+              "required": [
+                "XLSX",
+                "JSON",
+                "CSV"
+              ],
+              "covered": [],
+              "missing": [
+                "XLSX",
+                "JSON",
+                "CSV"
+              ]
+            }
+          ]
+        },
+        {
+          "dataset_id": "6a6ab4da15840cf004056867",
+          "alias": "",
+          "name": "中国国土资源知识语料库",
+          "selected": false,
+          "full_match": false,
+          "covered_count": 0,
+          "required_count": 1,
+          "undeclared_facets": [],
+          "facets": [
+            {
+              "key": "field",
+              "label": "学科领域",
+              "mode": "cover_all",
+              "declared": true,
+              "satisfied": false,
+              "required": [
+                "化学化工"
+              ],
+              "covered": [],
+              "missing": [
+                "化学化工"
+              ]
+            },
+            {
+              "key": "corpusType",
+              "label": "语料类型",
+              "mode": "match_all",
+              "declared": true,
+              "satisfied": false,
+              "required": [
+                "基础语料",
+                "知识语料"
+              ],
+              "covered": [
+                "知识语料"
+              ],
+              "missing": [
+                "基础语料"
+              ]
+            },
+            {
+              "key": "rawFormat",
+              "label": "数据格式",
+              "mode": "match_all",
+              "declared": true,
+              "satisfied": false,
+              "required": [
+                "XLSX",
+                "JSON",
+                "CSV"
+              ],
+              "covered": [
+                "JSON"
+              ],
+              "missing": [
+                "XLSX",
+                "CSV"
+              ]
+            }
+          ]
+        },
+        {
+          "dataset_id": "6a6ab4da15840cf004056866",
+          "alias": "",
+          "name": "额济纳三角洲景观类型数据语料",
+          "selected": false,
+          "full_match": false,
+          "covered_count": 0,
+          "required_count": 1,
+          "undeclared_facets": [],
+          "facets": [
+            {
+              "key": "field",
+              "label": "学科领域",
+              "mode": "cover_all",
+              "declared": true,
+              "satisfied": false,
+              "required": [
+                "化学化工"
+              ],
+              "covered": [],
+              "missing": [
+                "化学化工"
+              ]
+            },
+            {
+              "key": "corpusType",
+              "label": "语料类型",
+              "mode": "match_all",
+              "declared": true,
+              "satisfied": false,
+              "required": [
+                "基础语料",
+                "知识语料"
+              ],
+              "covered": [],
+              "missing": [
+                "基础语料",
+                "知识语料"
+              ]
+            },
+            {
+              "key": "rawFormat",
+              "label": "数据格式",
+              "mode": "match_all",
+              "declared": true,
+              "satisfied": false,
+              "required": [
+                "XLSX",
+                "JSON",
+                "CSV"
+              ],
+              "covered": [
+                "JSON"
+              ],
+              "missing": [
+                "XLSX",
+                "CSV"
+              ]
+            }
+          ]
+        },
+        {
+          "dataset_id": "6a476945a5b0ded1ab60f0c2",
+          "alias": "",
+          "name": "分析化学通识问答语料",
+          "selected": false,
+          "full_match": false,
+          "covered_count": 1,
+          "required_count": 1,
+          "undeclared_facets": [],
+          "facets": [
+            {
+              "key": "field",
+              "label": "学科领域",
+              "mode": "cover_all",
+              "declared": true,
+              "satisfied": true,
+              "required": [
+                "化学化工"
+              ],
+              "covered": [
+                "化学化工"
+              ],
+              "missing": []
+            },
+            {
+              "key": "corpusType",
+              "label": "语料类型",
+              "mode": "match_all",
+              "declared": true,
+              "satisfied": false,
+              "required": [
+                "基础语料",
+                "知识语料"
+              ],
+              "covered": [
+                "知识语料"
+              ],
+              "missing": [
+                "基础语料"
+              ]
+            },
+            {
+              "key": "rawFormat",
+              "label": "数据格式",
+              "mode": "match_all",
+              "declared": true,
+              "satisfied": false,
+              "required": [
+                "XLSX",
+                "JSON",
+                "CSV"
+              ],
+              "covered": [
+                "JSON"
+              ],
+              "missing": [
+                "XLSX",
+                "CSV"
+              ]
+            }
+          ]
+        },
+        {
+          "dataset_id": "6a476945a5b0ded1ab60f0c1",
+          "alias": "",
+          "name": "无机化学有思维链语料",
+          "selected": false,
+          "full_match": false,
+          "covered_count": 1,
+          "required_count": 1,
+          "undeclared_facets": [],
+          "facets": [
+            {
+              "key": "field",
+              "label": "学科领域",
+              "mode": "cover_all",
+              "declared": true,
+              "satisfied": true,
+              "required": [
+                "化学化工"
+              ],
+              "covered": [
+                "化学化工"
+              ],
+              "missing": []
+            },
+            {
+              "key": "corpusType",
+              "label": "语料类型",
+              "mode": "match_all",
+              "declared": true,
+              "satisfied": false,
+              "required": [
+                "基础语料",
+                "知识语料"
+              ],
+              "covered": [
+                "知识语料"
+              ],
+              "missing": [
+                "基础语料"
+              ]
+            },
+            {
+              "key": "rawFormat",
+              "label": "数据格式",
+              "mode": "match_all",
+              "declared": true,
+              "satisfied": false,
+              "required": [
+                "XLSX",
+                "JSON",
+                "CSV"
+              ],
+              "covered": [
+                "JSON"
+              ],
+              "missing": [
+                "XLSX",
+                "CSV"
+              ]
+            }
+          ]
+        },
+        {
+          "dataset_id": "6a476945a5b0ded1ab60f0c0",
+          "alias": "",
+          "name": "无机化学通识问答语料",
+          "selected": false,
+          "full_match": false,
+          "covered_count": 1,
+          "required_count": 1,
+          "undeclared_facets": [],
+          "facets": [
+            {
+              "key": "field",
+              "label": "学科领域",
+              "mode": "cover_all",
+              "declared": true,
+              "satisfied": true,
+              "required": [
+                "化学化工"
+              ],
+              "covered": [
+                "化学化工"
+              ],
+              "missing": []
+            },
+            {
+              "key": "corpusType",
+              "label": "语料类型",
+              "mode": "match_all",
+              "declared": true,
+              "satisfied": false,
+              "required": [
+                "基础语料",
+                "知识语料"
+              ],
+              "covered": [
+                "知识语料"
+              ],
+              "missing": [
+                "基础语料"
+              ]
+            },
+            {
+              "key": "rawFormat",
+              "label": "数据格式",
+              "mode": "match_all",
+              "declared": true,
+              "satisfied": false,
+              "required": [
+                "XLSX",
+                "JSON",
+                "CSV"
+              ],
+              "covered": [
+                "JSON"
+              ],
+              "missing": [
+                "XLSX",
+                "CSV"
+              ]
+            }
+          ]
+        },
+        {
+          "dataset_id": "6a44ba8ec186d8716800a183",
+          "alias": "",
+          "name": "代谢小分子化合物语料",
+          "selected": false,
+          "full_match": false,
+          "covered_count": 0,
+          "required_count": 1,
+          "undeclared_facets": [],
+          "facets": [
+            {
+              "key": "field",
+              "label": "学科领域",
+              "mode": "cover_all",
+              "declared": true,
+              "satisfied": false,
+              "required": [
+                "化学化工"
+              ],
+              "covered": [],
+              "missing": [
+                "化学化工"
+              ]
+            },
+            {
+              "key": "corpusType",
+              "label": "语料类型",
+              "mode": "match_all",
+              "declared": true,
+              "satisfied": false,
+              "required": [
+                "基础语料",
+                "知识语料"
+              ],
+              "covered": [
+                "知识语料"
+              ],
+              "missing": [
+                "基础语料"
+              ]
+            },
+            {
+              "key": "rawFormat",
+              "label": "数据格式",
+              "mode": "match_all",
+              "declared": true,
+              "satisfied": false,
+              "required": [
+                "XLSX",
+                "JSON",
+                "CSV"
+              ],
+              "covered": [
+                "JSON"
+              ],
+              "missing": [
+                "XLSX",
+                "CSV"
+              ]
+            }
+          ]
+        },
+        {
+          "dataset_id": "6a389e3e3e0635e899d50cd0",
+          "alias": "",
+          "name": "前沿交叉表特征数据",
+          "selected": false,
+          "full_match": false,
+          "covered_count": 0,
+          "required_count": 1,
+          "undeclared_facets": [],
+          "facets": [
+            {
+              "key": "field",
+              "label": "学科领域",
+              "mode": "cover_all",
+              "declared": true,
+              "satisfied": false,
+              "required": [
+                "化学化工"
+              ],
+              "covered": [],
+              "missing": [
+                "化学化工"
+              ]
+            },
+            {
+              "key": "corpusType",
+              "label": "语料类型",
+              "mode": "match_all",
+              "declared": true,
+              "satisfied": false,
+              "required": [
+                "基础语料",
+                "知识语料"
+              ],
+              "covered": [],
+              "missing": [
+                "基础语料",
+                "知识语料"
+              ]
+            },
+            {
+              "key": "rawFormat",
+              "label": "数据格式",
+              "mode": "match_all",
+              "declared": true,
+              "satisfied": false,
+              "required": [
+                "XLSX",
+                "JSON",
+                "CSV"
+              ],
+              "covered": [
+                "JSON"
+              ],
+              "missing": [
+                "XLSX",
+                "CSV"
+              ]
+            }
+          ]
+        },
+        {
+          "dataset_id": "6a2f7233a3472727522d5377",
+          "alias": "",
+          "name": "智能体运行日志语料",
+          "selected": false,
+          "full_match": false,
+          "covered_count": 0,
+          "required_count": 1,
+          "undeclared_facets": [],
+          "facets": [
+            {
+              "key": "field",
+              "label": "学科领域",
+              "mode": "cover_all",
+              "declared": true,
+              "satisfied": false,
+              "required": [
+                "化学化工"
+              ],
+              "covered": [],
+              "missing": [
+                "化学化工"
+              ]
+            },
+            {
+              "key": "corpusType",
+              "label": "语料类型",
+              "mode": "match_all",
+              "declared": true,
+              "satisfied": false,
+              "required": [
+                "基础语料",
+                "知识语料"
+              ],
+              "covered": [
+                "知识语料"
+              ],
+              "missing": [
+                "基础语料"
+              ]
+            },
+            {
+              "key": "rawFormat",
+              "label": "数据格式",
+              "mode": "match_all",
+              "declared": true,
+              "satisfied": false,
+              "required": [
+                "XLSX",
+                "JSON",
+                "CSV"
+              ],
+              "covered": [
+                "JSON"
+              ],
+              "missing": [
+                "XLSX",
+                "CSV"
+              ]
+            }
+          ]
+        },
+        {
+          "dataset_id": "6a2f700ca3472727522d5376",
+          "alias": "",
+          "name": "火星地质地图语料",
+          "selected": false,
+          "full_match": false,
+          "covered_count": 0,
+          "required_count": 1,
+          "undeclared_facets": [],
+          "facets": [
+            {
+              "key": "field",
+              "label": "学科领域",
+              "mode": "cover_all",
+              "declared": true,
+              "satisfied": false,
+              "required": [
+                "化学化工"
+              ],
+              "covered": [],
+              "missing": [
+                "化学化工"
+              ]
+            },
+            {
+              "key": "corpusType",
+              "label": "语料类型",
+              "mode": "match_all",
+              "declared": true,
+              "satisfied": false,
+              "required": [
+                "基础语料",
+                "知识语料"
+              ],
+              "covered": [
+                "基础语料"
+              ],
+              "missing": [
+                "知识语料"
+              ]
+            },
+            {
+              "key": "rawFormat",
+              "label": "数据格式",
+              "mode": "match_all",
+              "declared": true,
+              "satisfied": false,
+              "required": [
+                "XLSX",
+                "JSON",
+                "CSV"
+              ],
+              "covered": [
+                "JSON"
+              ],
+              "missing": [
+                "XLSX",
+                "CSV"
+              ]
+            }
+          ]
+        },
+        {
+          "dataset_id": "6a2f7008a3472727522d5375",
+          "alias": "",
+          "name": "金星地质地图语料",
+          "selected": false,
+          "full_match": false,
+          "covered_count": 0,
+          "required_count": 1,
+          "undeclared_facets": [],
+          "facets": [
+            {
+              "key": "field",
+              "label": "学科领域",
+              "mode": "cover_all",
+              "declared": true,
+              "satisfied": false,
+              "required": [
+                "化学化工"
+              ],
+              "covered": [],
+              "missing": [
+                "化学化工"
+              ]
+            },
+            {
+              "key": "corpusType",
+              "label": "语料类型",
+              "mode": "match_all",
+              "declared": true,
+              "satisfied": false,
+              "required": [
+                "基础语料",
+                "知识语料"
+              ],
+              "covered": [
+                "基础语料"
+              ],
+              "missing": [
+                "知识语料"
+              ]
+            },
+            {
+              "key": "rawFormat",
+              "label": "数据格式",
+              "mode": "match_all",
+              "declared": true,
+              "satisfied": false,
+              "required": [
+                "XLSX",
+                "JSON",
+                "CSV"
+              ],
+              "covered": [
+                "JSON"
+              ],
+              "missing": [
+                "XLSX",
+                "CSV"
+              ]
+            }
+          ]
+        },
+        {
+          "dataset_id": "6a2f7004a3472727522d5374",
+          "alias": "",
+          "name": "水星地质地图语料",
+          "selected": false,
+          "full_match": false,
+          "covered_count": 0,
+          "required_count": 1,
+          "undeclared_facets": [],
+          "facets": [
+            {
+              "key": "field",
+              "label": "学科领域",
+              "mode": "cover_all",
+              "declared": true,
+              "satisfied": false,
+              "required": [
+                "化学化工"
+              ],
+              "covered": [],
+              "missing": [
+                "化学化工"
+              ]
+            },
+            {
+              "key": "corpusType",
+              "label": "语料类型",
+              "mode": "match_all",
+              "declared": true,
+              "satisfied": false,
+              "required": [
+                "基础语料",
+                "知识语料"
+              ],
+              "covered": [
+                "基础语料"
+              ],
+              "missing": [
+                "知识语料"
+              ]
+            },
+            {
+              "key": "rawFormat",
+              "label": "数据格式",
+              "mode": "match_all",
+              "declared": true,
+              "satisfied": false,
+              "required": [
+                "XLSX",
+                "JSON",
+                "CSV"
+              ],
+              "covered": [
+                "JSON"
+              ],
+              "missing": [
+                "XLSX",
+                "CSV"
+              ]
+            }
+          ]
+        },
+        {
+          "dataset_id": "6a2f6fffa3472727522d5373",
+          "alias": "",
+          "name": "月球地质地图语料",
+          "selected": false,
+          "full_match": false,
+          "covered_count": 0,
+          "required_count": 1,
+          "undeclared_facets": [],
+          "facets": [
+            {
+              "key": "field",
+              "label": "学科领域",
+              "mode": "cover_all",
+              "declared": true,
+              "satisfied": false,
+              "required": [
+                "化学化工"
+              ],
+              "covered": [],
+              "missing": [
+                "化学化工"
+              ]
+            },
+            {
+              "key": "corpusType",
+              "label": "语料类型",
+              "mode": "match_all",
+              "declared": true,
+              "satisfied": false,
+              "required": [
+                "基础语料",
+                "知识语料"
+              ],
+              "covered": [
+                "基础语料"
+              ],
+              "missing": [
+                "知识语料"
+              ]
+            },
+            {
+              "key": "rawFormat",
+              "label": "数据格式",
+              "mode": "match_all",
+              "declared": true,
+              "satisfied": false,
+              "required": [
+                "XLSX",
+                "JSON",
+                "CSV"
+              ],
+              "covered": [
+                "JSON"
+              ],
+              "missing": [
+                "XLSX",
+                "CSV"
+              ]
+            }
+          ]
+        },
+        {
+          "dataset_id": "6a27d3b46ff2ee88250cfd9b",
+          "alias": "",
+          "name": "医学知识图谱语料",
+          "selected": false,
+          "full_match": false,
+          "covered_count": 0,
+          "required_count": 1,
+          "undeclared_facets": [],
+          "facets": [
+            {
+              "key": "field",
+              "label": "学科领域",
+              "mode": "cover_all",
+              "declared": true,
+              "satisfied": false,
+              "required": [
+                "化学化工"
+              ],
+              "covered": [],
+              "missing": [
+                "化学化工"
+              ]
+            },
+            {
+              "key": "corpusType",
+              "label": "语料类型",
+              "mode": "match_all",
+              "declared": true,
+              "satisfied": false,
+              "required": [
+                "基础语料",
+                "知识语料"
+              ],
+              "covered": [
+                "知识语料"
+              ],
+              "missing": [
+                "基础语料"
+              ]
+            },
+            {
+              "key": "rawFormat",
+              "label": "数据格式",
+              "mode": "match_all",
+              "declared": true,
+              "satisfied": false,
+              "required": [
+                "XLSX",
+                "JSON",
+                "CSV"
+              ],
+              "covered": [
+                "JSON",
+                "CSV"
+              ],
+              "missing": [
+                "XLSX"
+              ]
+            }
+          ]
+        },
+        {
+          "dataset_id": "6a27d3b16ff2ee88250cfd98",
+          "alias": "",
+          "name": "空间天气知识问答对语料",
+          "selected": false,
+          "full_match": false,
+          "covered_count": 0,
+          "required_count": 1,
+          "undeclared_facets": [],
+          "facets": [
+            {
+              "key": "field",
+              "label": "学科领域",
+              "mode": "cover_all",
+              "declared": true,
+              "satisfied": false,
+              "required": [
+                "化学化工"
+              ],
+              "covered": [],
+              "missing": [
+                "化学化工"
+              ]
+            },
+            {
+              "key": "corpusType",
+              "label": "语料类型",
+              "mode": "match_all",
+              "declared": true,
+              "satisfied": false,
+              "required": [
+                "基础语料",
+                "知识语料"
+              ],
+              "covered": [
+                "知识语料"
+              ],
+              "missing": [
+                "基础语料"
+              ]
+            },
+            {
+              "key": "rawFormat",
+              "label": "数据格式",
+              "mode": "match_all",
+              "declared": true,
+              "satisfied": false,
+              "required": [
+                "XLSX",
+                "JSON",
+                "CSV"
+              ],
+              "covered": [
+                "JSON"
+              ],
+              "missing": [
+                "XLSX",
+                "CSV"
+              ]
+            }
+          ]
+        },
+        {
+          "dataset_id": "6a27d3aa6ff2ee88250cfd93",
+          "alias": "",
+          "name": "钠离子电池正极材料知识语料",
+          "selected": false,
+          "full_match": false,
+          "covered_count": 1,
+          "required_count": 1,
+          "undeclared_facets": [],
+          "facets": [
+            {
+              "key": "field",
+              "label": "学科领域",
+              "mode": "cover_all",
+              "declared": true,
+              "satisfied": true,
+              "required": [
+                "化学化工"
+              ],
+              "covered": [
+                "化学化工"
+              ],
+              "missing": []
+            },
+            {
+              "key": "corpusType",
+              "label": "语料类型",
+              "mode": "match_all",
+              "declared": true,
+              "satisfied": false,
+              "required": [
+                "基础语料",
+                "知识语料"
+              ],
+              "covered": [
+                "知识语料"
+              ],
+              "missing": [
+                "基础语料"
+              ]
+            },
+            {
+              "key": "rawFormat",
+              "label": "数据格式",
+              "mode": "match_all",
+              "declared": true,
+              "satisfied": false,
+              "required": [
+                "XLSX",
+                "JSON",
+                "CSV"
+              ],
+              "covered": [
+                "JSON",
+                "CSV"
+              ],
+              "missing": [
+                "XLSX"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "direct_access": null,
+    "execution": {
+      "center_id": "10.0.82.213",
+      "grpc_endpoint": "10.0.82.213:50061",
+      "center_endpoints": {
+        "10.0.82.213": "10.0.82.213:50061",
+        "10.0.90.174": "10.0.90.174:50061",
+        "10.0.90.94": "10.0.90.94:50061"
+      }
+    },
+    "intent": {
+      "goal": "对比合成气催化转化反应过程数据整编语料与超级电容器性能参数中的 BET 比表面积，筛选各自 Top30 并统一单位后计算统计指标及差异分析",
+      "user_request": "我在做多孔材料的跨场景性能对比，想比较催化材料和超级电容器电极材料的比表面积水平。请从合成气催化转化反应过程数据整编语料中选出BET比表面积最高的30条记录，从超级电容器性能参数中选出比表面积最高的30条记录，统一换算为m²/g，分别计算有效样本数、平均值、最小值和最大值，并计算超级电容器材料相对于催化材料的平均比表面积差值（超级电容器减催化材料）和比值（超级电容器除以催化材料），输出porous_material_surface_area_comparison.csv。",
+      "datasets": [
+        {
+          "alias": "syngas",
+          "dataset_id": "6a2f6e55a3472727522d5372",
+          "source_id": "10.0.82.213",
+          "center_id": "10.0.82.213",
+          "locator": "6a2f6e55a3472727522d5372",
+          "name": "合成气催化转化反应过程数据整编语料",
+          "replicas": [
+            {
+              "replica_id": "CH-CORPUS-B021",
+              "source_id": "10.0.82.213",
+              "center_id": "10.0.82.213",
+              "locator": "6a2f6e55a3472727522d5372",
+              "status": "AVAILABLE",
+              "metrics": {
+                "cpu_cores": 8.0,
+                "memory_gb": 5.954185485839844,
+                "free_disk_gb": 168.7439308166504
+              }
+            }
+          ],
+          "facets": {
+            "field": [
+              "化学化工"
+            ],
+            "corpusType": [
+              "基础语料"
+            ],
+            "language": [
+              "中文",
+              "英文"
+            ],
+            "rawFormat": [
+              "XLSX",
+              "JSON"
+            ]
+          },
+          "source_skill": "piflow_engine.cn.piflow.engine.local.corpus_dataset_source_stop.CorpusDatasetSourceStop",
+          "source_param": "dataset_id",
+          "source_output_param": "output"
+        },
+        {
+          "alias": "supercap",
+          "dataset_id": "6a3206ad0365e61992090643",
+          "source_id": "10.0.90.94",
+          "center_id": "10.0.90.94",
+          "locator": "6a3206ad0365e61992090643",
+          "name": "超级电容器性能参数",
+          "replicas": [
+            {
+              "replica_id": "CHEM-CORPUS-K037",
+              "source_id": "10.0.90.94",
+              "center_id": "10.0.90.94",
+              "locator": "6a3206ad0365e61992090643",
+              "status": "AVAILABLE",
+              "metrics": {
+                "cpu_cores": 4.0,
+                "memory_gb": 3.457378387451172,
+                "free_disk_gb": 189.5034408569336
+              }
+            }
+          ],
+          "facets": {
+            "field": [
+              "化学化工"
+            ],
+            "corpusType": [
+              "知识语料"
+            ],
+            "language": [
+              "英文"
+            ],
+            "rawFormat": [
+              "JSON",
+              "CSV"
+            ]
+          },
+          "source_skill": "piflow_engine.cn.piflow.engine.local.corpus_dataset_source_stop.CorpusDatasetSourceStop",
+          "source_param": "dataset_id",
+          "source_output_param": "output"
+        }
+      ],
+      "operations": [
+        {
+          "op": "过滤",
+          "target": "syngas",
+          "detail": "提取包含 BET 比表面积参数的记录，按数值降序排列取前 30 条"
+        },
+        {
+          "op": "过滤",
+          "target": "supercap",
+          "detail": "提取包含比表面积参数的记录，按数值降序排列取前 30 条"
+        },
+        {
+          "op": "格式转换",
+          "target": "syngas",
+          "detail": "将比表面积单位统一换算为 m²/g"
+        },
+        {
+          "op": "格式转换",
+          "target": "supercap",
+          "detail": "将比表面积单位统一换算为 m²/g"
+        },
+        {
+          "op": "聚合",
+          "target": "syngas",
+          "detail": "计算有效样本数、平均值、最小值、最大值"
+        },
+        {
+          "op": "聚合",
+          "target": "supercap",
+          "detail": "计算有效样本数、平均值、最小值、最大值"
+        },
+        {
+          "op": "关联",
+          "target": "syngas",
+          "detail": "与 supercap 的统计结果进行对齐，计算差值（超级电容器 - 催化材料）和比值（超级电容器 / 催化材料）"
+        }
+      ],
+      "location_hints": [
+        {
+          "center_id": "10.0.82.213",
+          "applies_to": "syngas",
+          "raw": "合成气催化转化反应过程数据整编语料"
+        },
+        {
+          "center_id": "10.0.90.94",
+          "applies_to": "supercap",
+          "raw": "超级电容器性能参数"
+        }
+      ],
+      "output": {
+        "format": "csv",
+        "name": "porous_material_surface_area_comparison.csv"
+      },
+      "assumptions": [
+        "假设两个数据集中的比表面积原始单位不完全一致，需要进行单位换算才能比较",
+        "假设用户提到的'BET 比表面积'在超级电容器数据集中对应通用的'比表面积'字段",
+        "假设数据集中存在足够的有效记录以满足各取 30 条的需求"
+      ],
+      "unresolved": [],
+      "requirements": [
+        {
+          "key": "field",
+          "label": "学科领域",
+          "mode": "cover_all",
+          "values": [
+            "化学化工"
+          ]
+        },
+        {
+          "key": "corpusType",
+          "label": "语料类型",
+          "mode": "match_all",
+          "values": [
+            "基础语料",
+            "知识语料"
+          ]
+        },
+        {
+          "key": "rawFormat",
+          "label": "数据格式",
+          "mode": "match_all",
+          "values": [
+            "XLSX",
+            "JSON",
+            "CSV"
+          ]
+        }
+      ]
+    },
+    "binding": {
+      "center_of": {
+        "read-supercap": "10.0.90.94",
+        "read-syngas": "10.0.82.213",
+        "stat-supercap": "10.0.90.94",
+        "stat-syngas": "10.0.82.213",
+        "compare-results": "10.0.82.213",
+        "save-output": "10.0.82.213"
+      },
+      "reasons": {
+        "read-supercap": "显式标注 dataCenter，数据源节点，副本挑选 -> CHEM-CORPUS-K037（1 个副本中选中 CHEM-CORPUS-K037（数据源 10.0.90.94）；总分 1.000；与偏好数据源 10.0.90.94 一致，免跨源传输；优势项：locality=1.00、cpu_cores=1.00）",
+        "read-syngas": "显式标注 dataCenter，数据源节点，副本挑选 -> CH-CORPUS-B021（1 个副本中选中 CH-CORPUS-B021（数据源 10.0.82.213）；总分 1.000；与偏好数据源 10.0.82.213 一致，免跨源传输；优势项：locality=1.00、cpu_cores=1.00）",
+        "stat-supercap": "继承上游中心（数据就近）",
+        "stat-syngas": "继承上游中心（数据就近）",
+        "compare-results": "继承上游中心（数据就近）",
+        "save-output": "继承上游中心（数据就近）"
+      },
+      "replica_decisions": [
+        {
+          "dataset_alias": "supercap",
+          "dataset_id": "6a3206ad0365e61992090643",
+          "node_id": "read-supercap",
+          "preferred_center_id": "10.0.90.94",
+          "chosen": {
+            "replica_id": "CHEM-CORPUS-K037",
+            "source_id": "10.0.90.94",
+            "center_id": "10.0.90.94",
+            "locator": "6a3206ad0365e61992090643",
+            "status": "AVAILABLE",
+            "metrics": {
+              "cpu_cores": 4.0,
+              "memory_gb": 3.457378387451172,
+              "free_disk_gb": 189.5034408569336
+            }
+          },
+          "reason": "1 个副本中选中 CHEM-CORPUS-K037（数据源 10.0.90.94）；总分 1.000；与偏好数据源 10.0.90.94 一致，免跨源传输；优势项：locality=1.00、cpu_cores=1.00",
+          "scores": [
+            {
+              "replica_id": "CHEM-CORPUS-K037",
+              "center_id": "10.0.90.94",
+              "total": 1.0,
+              "parts": {
+                "locality": 1.0,
+                "cpu_cores": 1.0,
+                "memory_gb": 1.0
+              }
+            }
+          ],
+          "rejects": []
+        },
+        {
+          "dataset_alias": "syngas",
+          "dataset_id": "6a2f6e55a3472727522d5372",
+          "node_id": "read-syngas",
+          "preferred_center_id": "10.0.82.213",
+          "chosen": {
+            "replica_id": "CH-CORPUS-B021",
+            "source_id": "10.0.82.213",
+            "center_id": "10.0.82.213",
+            "locator": "6a2f6e55a3472727522d5372",
+            "status": "AVAILABLE",
+            "metrics": {
+              "cpu_cores": 8.0,
+              "memory_gb": 5.954185485839844,
+              "free_disk_gb": 168.7439308166504
+            }
+          },
+          "reason": "1 个副本中选中 CH-CORPUS-B021（数据源 10.0.82.213）；总分 1.000；与偏好数据源 10.0.82.213 一致，免跨源传输；优势项：locality=1.00、cpu_cores=1.00",
+          "scores": [
+            {
+              "replica_id": "CH-CORPUS-B021",
+              "center_id": "10.0.82.213",
+              "total": 1.0,
+              "parts": {
+                "locality": 1.0,
+                "cpu_cores": 1.0,
+                "memory_gb": 1.0
+              }
+            }
+          ],
+          "rejects": []
+        }
+      ]
+    },
+    "segments": {
+      "segments": [
+        {
+          "segment_id": "10.0.90.94#0",
+          "center_id": "10.0.90.94",
+          "level": 0,
+          "node_ids": [
+            "read-supercap",
+            "stat-supercap"
+          ]
+        },
+        {
+          "segment_id": "10.0.82.213#0",
+          "center_id": "10.0.82.213",
+          "level": 0,
+          "node_ids": [
+            "compare-results",
+            "read-syngas",
+            "save-output",
+            "stat-syngas"
+          ]
+        }
+      ],
+      "cross_edges": [
+        {
+          "binding_id": "stat-supercap:output->compare-results:input_1",
+          "from_node_id": "stat-supercap",
+          "from_param_name": "output",
+          "to_node_id": "compare-results",
+          "to_param_name": "input_1"
+        }
+      ]
+    },
+    "execution_dsl": {
+      "task": {
+        "dag_task_id": "xdc-405d8fb82675",
+        "dag_task_name": "多孔材料比表面积跨场景对比"
+      },
+      "nodes": [
+        {
+          "node_id": "read-syngas",
+          "node_name": "read_syngas",
+          "skill": {
+            "skill_id": "piflow_engine.cn.piflow.engine.local.corpus_dataset_source_stop.CorpusDatasetSourceStop",
+            "skill_name": "corpus_dataset_source_stop"
+          },
+          "input_params": [
+            {
+              "binding_id": "",
+              "param_name": "dataset_id",
+              "param_type": "string",
+              "value_mode": "manual",
+              "param_value": "6a2f6e55a3472727522d5372",
+              "value_source": "default"
+            }
+          ],
+          "out_params": [
+            {
+              "param_name": "output",
+              "param_type": "file_artifact"
+            }
+          ]
+        },
+        {
+          "node_id": "read-supercap",
+          "node_name": "read_supercap",
+          "skill": {
+            "skill_id": "piflow_engine.cn.piflow.engine.local.corpus_dataset_source_stop.CorpusDatasetSourceStop",
+            "skill_name": "corpus_dataset_source_stop"
+          },
+          "input_params": [
+            {
+              "binding_id": "",
+              "param_name": "dataset_id",
+              "param_type": "string",
+              "value_mode": "manual",
+              "param_value": "6a3206ad0365e61992090643",
+              "value_source": "default"
+            }
+          ],
+          "out_params": [
+            {
+              "param_name": "output",
+              "param_type": "file_artifact"
+            }
+          ]
+        },
+        {
+          "node_id": "stat-syngas",
+          "node_name": "stat_syngas",
+          "skill": {
+            "skill_id": "numeric_metric_topn_summary_1.0.0",
+            "skill_name": "numeric_metric_topn_summary"
+          },
+          "input_params": [
+            {
+              "binding_id": "",
+              "param_name": "dataset_label",
+              "param_type": "string",
+              "value_mode": "manual",
+              "param_value": "syngas_catalyst",
+              "value_source": "default"
+            },
+            {
+              "binding_id": "",
+              "param_name": "metric",
+              "param_type": "string",
+              "value_mode": "manual",
+              "param_value": "specific_surface_area",
+              "value_source": "default"
+            },
+            {
+              "binding_id": "",
+              "param_name": "order",
+              "param_type": "string",
+              "value_mode": "manual",
+              "param_value": "desc",
+              "value_source": "default"
+            },
+            {
+              "binding_id": "",
+              "param_name": "top_n",
+              "param_type": "string",
+              "value_mode": "manual",
+              "param_value": 30,
+              "value_source": "default"
+            },
+            {
+              "binding_id": "",
+              "param_name": "target_unit",
+              "param_type": "string",
+              "value_mode": "manual",
+              "param_value": "m2/g",
+              "value_source": "default"
+            }
+          ],
+          "out_params": [
+            {
+              "param_name": "output",
+              "param_type": "file_artifact"
+            }
+          ]
+        },
+        {
+          "node_id": "stat-supercap",
+          "node_name": "stat_supercap",
+          "skill": {
+            "skill_id": "numeric_metric_topn_summary_1.0.0",
+            "skill_name": "numeric_metric_topn_summary"
+          },
+          "input_params": [
+            {
+              "binding_id": "",
+              "param_name": "dataset_label",
+              "param_type": "string",
+              "value_mode": "manual",
+              "param_value": "supercap_electrode",
+              "value_source": "default"
+            },
+            {
+              "binding_id": "",
+              "param_name": "metric",
+              "param_type": "string",
+              "value_mode": "manual",
+              "param_value": "specific_surface_area",
+              "value_source": "default"
+            },
+            {
+              "binding_id": "",
+              "param_name": "order",
+              "param_type": "string",
+              "value_mode": "manual",
+              "param_value": "desc",
+              "value_source": "default"
+            },
+            {
+              "binding_id": "",
+              "param_name": "top_n",
+              "param_type": "string",
+              "value_mode": "manual",
+              "param_value": 30,
+              "value_source": "default"
+            },
+            {
+              "binding_id": "",
+              "param_name": "target_unit",
+              "param_type": "string",
+              "value_mode": "manual",
+              "param_value": "m2/g",
+              "value_source": "default"
+            }
+          ],
+          "out_params": [
+            {
+              "param_name": "output",
+              "param_type": "file_artifact"
+            }
+          ]
+        },
+        {
+          "node_id": "compare-results",
+          "node_name": "compare_results",
+          "skill": {
+            "skill_id": "metric_summary_compare_1.0.0",
+            "skill_name": "metric_summary_compare"
+          },
+          "input_params": [
+            {
+              "binding_id": "",
+              "param_name": "difference_order",
+              "param_type": "string",
+              "value_mode": "manual",
+              "param_value": "input_1-input_2",
+              "value_source": "default"
+            },
+            {
+              "binding_id": "",
+              "param_name": "output_file_name",
+              "param_type": "string",
+              "value_mode": "manual",
+              "param_value": "porous_material_surface_area_comparison.csv",
+              "value_source": "default"
+            }
+          ],
+          "out_params": [
+            {
+              "param_name": "output",
+              "param_type": "file_artifact"
+            }
+          ]
+        },
+        {
+          "node_id": "save-output",
+          "node_name": "save_output",
+          "skill": {
+            "skill_id": "piflow_engine.cn.piflow.engine.local.file_save_stop.FileSaveStop",
+            "skill_name": "file_save_stop"
+          },
+          "input_params": [
+            {
+              "binding_id": "",
+              "param_name": "absolute_path",
+              "param_type": "string",
+              "value_mode": "manual",
+              "param_value": "/workspace/artifacts/porous_material_surface_area_comparison.csv",
+              "value_source": "default"
+            },
+            {
+              "binding_id": "",
+              "param_name": "overwrite",
+              "param_type": "string",
+              "value_mode": "manual",
+              "param_value": "true",
+              "value_source": "default"
+            }
+          ],
+          "out_params": [
+            {
+              "param_name": "output",
+              "param_type": "file_artifact"
+            }
+          ]
+        }
+      ],
+      "edges": [
+        {
+          "edge_id": "edge-read-syngas-stat-syngas",
+          "from_node_id": "read-syngas",
+          "to_node_id": "stat-syngas"
+        },
+        {
+          "edge_id": "edge-read-supercap-stat-supercap",
+          "from_node_id": "read-supercap",
+          "to_node_id": "stat-supercap"
+        },
+        {
+          "edge_id": "edge-stat-supercap-compare-results",
+          "from_node_id": "stat-supercap",
+          "to_node_id": "compare-results"
+        },
+        {
+          "edge_id": "edge-stat-syngas-compare-results",
+          "from_node_id": "stat-syngas",
+          "to_node_id": "compare-results"
+        },
+        {
+          "edge_id": "edge-compare-results-save-output",
+          "from_node_id": "compare-results",
+          "to_node_id": "save-output"
+        }
+      ],
+      "bindings": [
+        {
+          "binding_id": "read-syngas:output->stat-syngas:input",
+          "from_node_id": "read-syngas",
+          "from_param_name": "output",
+          "to_node_id": "stat-syngas",
+          "to_param_name": "input"
+        },
+        {
+          "binding_id": "read-supercap:output->stat-supercap:input",
+          "from_node_id": "read-supercap",
+          "from_param_name": "output",
+          "to_node_id": "stat-supercap",
+          "to_param_name": "input"
+        },
+        {
+          "binding_id": "stat-supercap:output->compare-results:input_1",
+          "from_node_id": "stat-supercap",
+          "from_param_name": "output",
+          "to_node_id": "compare-results",
+          "to_param_name": "input_1"
+        },
+        {
+          "binding_id": "stat-syngas:output->compare-results:input_2",
+          "from_node_id": "stat-syngas",
+          "from_param_name": "output",
+          "to_node_id": "compare-results",
+          "to_param_name": "input_2"
+        },
+        {
+          "binding_id": "compare-results:output->save-output:output",
+          "from_node_id": "compare-results",
+          "from_param_name": "output",
+          "to_node_id": "save-output",
+          "to_param_name": "output"
+        }
+      ]
+    },
+    "nested_dsl": {
+      "task": {
+        "dag_task_id": "xdc-405d8fb82675",
+        "dag_task_name": "多孔材料比表面积跨场景对比"
+      },
+      "nodes": [
+        {
+          "node_id": "compare-results",
+          "node_name": "compare_results",
+          "skill": {
+            "skill_id": "metric_summary_compare_1.0.0",
+            "skill_name": "metric_summary_compare"
+          },
+          "input_params": [
+            {
+              "binding_id": "",
+              "param_name": "difference_order",
+              "param_type": "string",
+              "value_mode": "manual",
+              "param_value": "input_1-input_2",
+              "value_source": "default"
+            },
+            {
+              "binding_id": "",
+              "param_name": "output_file_name",
+              "param_type": "string",
+              "value_mode": "manual",
+              "param_value": "porous_material_surface_area_comparison.csv",
+              "value_source": "default"
+            }
+          ],
+          "out_params": [
+            {
+              "param_name": "output",
+              "param_type": "file_artifact"
+            }
+          ]
+        },
+        {
+          "node_id": "read-syngas",
+          "node_name": "read_syngas",
+          "skill": {
+            "skill_id": "piflow_engine.cn.piflow.engine.local.corpus_dataset_source_stop.CorpusDatasetSourceStop",
+            "skill_name": "corpus_dataset_source_stop"
+          },
+          "input_params": [
+            {
+              "binding_id": "",
+              "param_name": "dataset_id",
+              "param_type": "string",
+              "value_mode": "manual",
+              "param_value": "6a2f6e55a3472727522d5372",
+              "value_source": "default"
+            }
+          ],
+          "out_params": [
+            {
+              "param_name": "output",
+              "param_type": "file_artifact"
+            }
+          ]
+        },
+        {
+          "node_id": "save-output",
+          "node_name": "save_output",
+          "skill": {
+            "skill_id": "piflow_engine.cn.piflow.engine.local.file_save_stop.FileSaveStop",
+            "skill_name": "file_save_stop"
+          },
+          "input_params": [
+            {
+              "binding_id": "",
+              "param_name": "absolute_path",
+              "param_type": "string",
+              "value_mode": "manual",
+              "param_value": "/workspace/artifacts/porous_material_surface_area_comparison.csv",
+              "value_source": "default"
+            },
+            {
+              "binding_id": "",
+              "param_name": "overwrite",
+              "param_type": "string",
+              "value_mode": "manual",
+              "param_value": "true",
+              "value_source": "default"
+            }
+          ],
+          "out_params": [
+            {
+              "param_name": "output",
+              "param_type": "file_artifact"
+            }
+          ]
+        },
+        {
+          "node_id": "stat-syngas",
+          "node_name": "stat_syngas",
+          "skill": {
+            "skill_id": "numeric_metric_topn_summary_1.0.0",
+            "skill_name": "numeric_metric_topn_summary"
+          },
+          "input_params": [
+            {
+              "binding_id": "",
+              "param_name": "dataset_label",
+              "param_type": "string",
+              "value_mode": "manual",
+              "param_value": "syngas_catalyst",
+              "value_source": "default"
+            },
+            {
+              "binding_id": "",
+              "param_name": "metric",
+              "param_type": "string",
+              "value_mode": "manual",
+              "param_value": "specific_surface_area",
+              "value_source": "default"
+            },
+            {
+              "binding_id": "",
+              "param_name": "order",
+              "param_type": "string",
+              "value_mode": "manual",
+              "param_value": "desc",
+              "value_source": "default"
+            },
+            {
+              "binding_id": "",
+              "param_name": "top_n",
+              "param_type": "string",
+              "value_mode": "manual",
+              "param_value": 30,
+              "value_source": "default"
+            },
+            {
+              "binding_id": "",
+              "param_name": "target_unit",
+              "param_type": "string",
+              "value_mode": "manual",
+              "param_value": "m2/g",
+              "value_source": "default"
+            }
+          ],
+          "out_params": [
+            {
+              "param_name": "output",
+              "param_type": "file_artifact"
+            }
+          ]
+        },
+        {
+          "node_id": "remote-subdag-source-stat-supercap",
+          "node_name": "跨域执行_10.0.90.94",
+          "skill": {
+            "skill_id": "piflow_engine.cn.piflow.engine.local.remote_subdag_source_stop.RemoteSubDagSourceStop",
+            "skill_name": "remote_sub_dag_source_node",
+            "version": "1.0.0"
+          },
+          "input_params": [
+            {
+              "binding_id": "",
+              "param_name": "remote_grpc_target",
+              "param_type": "string",
+              "value_mode": "manual",
+              "param_value": "10.0.90.94:50061",
+              "value_source": "default"
+            },
+            {
+              "binding_id": "",
+              "param_name": "subdag_definition_json",
+              "param_type": "string",
+              "value_mode": "manual",
+              "param_value": "{\"task\": {\"dag_task_id\": \"xdc-405d8fb82675--10.0.90.94#0\", \"dag_task_name\": \"多孔材料比表面积跨场景对比 [10.0.90.94#0]\"}, \"nodes\": [{\"node_id\": \"read-supercap\", \"node_name\": \"read_supercap\", \"skill\": {\"skill_id\": \"piflow_engine.cn.piflow.engine.local.corpus_dataset_source_stop.CorpusDatasetSourceStop\", \"skill_name\": \"corpus_dataset_source_stop\"}, \"input_params\": [{\"binding_id\": \"\", \"param_name\": \"dataset_id\", \"param_type\": \"string\", \"value_mode\": \"manual\", \"param_value\": \"6a3206ad0365e61992090643\", \"value_source\": \"default\"}], \"out_params\": [{\"param_name\": \"output\", \"param_type\": \"file_artifact\"}]}, {\"node_id\": \"stat-supercap\", \"node_name\": \"stat_supercap\", \"skill\": {\"skill_id\": \"numeric_metric_topn_summary_1.0.0\", \"skill_name\": \"numeric_metric_topn_summary\"}, \"input_params\": [{\"binding_id\": \"\", \"param_name\": \"dataset_label\", \"param_type\": \"string\", \"value_mode\": \"manual\", \"param_value\": \"supercap_electrode\", \"value_source\": \"default\"}, {\"binding_id\": \"\", \"param_name\": \"metric\", \"param_type\": \"string\", \"value_mode\": \"manual\", \"param_value\": \"specific_surface_area\", \"value_source\": \"default\"}, {\"binding_id\": \"\", \"param_name\": \"order\", \"param_type\": \"string\", \"value_mode\": \"manual\", \"param_value\": \"desc\", \"value_source\": \"default\"}, {\"binding_id\": \"\", \"param_name\": \"top_n\", \"param_type\": \"string\", \"value_mode\": \"manual\", \"param_value\": 30, \"value_source\": \"default\"}, {\"binding_id\": \"\", \"param_name\": \"target_unit\", \"param_type\": \"string\", \"value_mode\": \"manual\", \"param_value\": \"m2/g\", \"value_source\": \"default\"}], \"out_params\": [{\"param_name\": \"output\", \"param_type\": \"file_artifact\"}]}], \"edges\": [{\"edge_id\": \"edge-read-supercap-stat-supercap\", \"from_node_id\": \"read-supercap\", \"to_node_id\": \"stat-supercap\"}], \"bindings\": [{\"binding_id\": \"read-supercap:output->stat-supercap:input\", \"from_node_id\": \"read-supercap\", \"from_param_name\": \"output\", \"to_node_id\": \"stat-supercap\", \"to_param_name\": \"input\"}]}",
+              "value_source": "default"
+            },
+            {
+              "binding_id": "",
+              "param_name": "result_node_id",
+              "param_type": "string",
+              "value_mode": "manual",
+              "param_value": "stat-supercap",
+              "value_source": "default"
+            },
+            {
+              "binding_id": "",
+              "param_name": "result_output_name",
+              "param_type": "string",
+              "value_mode": "manual",
+              "param_value": "output",
+              "value_source": "default"
+            },
+            {
+              "binding_id": "",
+              "param_name": "wait_timeout_seconds",
+              "param_type": "string",
+              "value_mode": "manual",
+              "param_value": "3600",
+              "value_source": "default"
+            }
+          ],
+          "out_params": [
+            {
+              "param_name": "output",
+              "param_type": "file_artifact"
+            }
+          ],
+          "node_type": "synthetic_remote_source",
+          "position": {
+            "x": 0.0,
+            "y": 0.0
+          },
+          "icon_path": ""
+        }
+      ],
+      "edges": [
+        {
+          "edge_id": "edge-read-syngas-stat-syngas",
+          "from_node_id": "read-syngas",
+          "to_node_id": "stat-syngas"
+        },
+        {
+          "edge_id": "edge-stat-syngas-compare-results",
+          "from_node_id": "stat-syngas",
+          "to_node_id": "compare-results"
+        },
+        {
+          "edge_id": "edge-compare-results-save-output",
+          "from_node_id": "compare-results",
+          "to_node_id": "save-output"
+        },
+        {
+          "edge_id": "edge-remote-subdag-source-stat-supercap-compare-results",
+          "from_node_id": "remote-subdag-source-stat-supercap",
+          "to_node_id": "compare-results"
+        }
+      ],
+      "bindings": [
+        {
+          "binding_id": "read-syngas:output->stat-syngas:input",
+          "from_node_id": "read-syngas",
+          "from_param_name": "output",
+          "to_node_id": "stat-syngas",
+          "to_param_name": "input"
+        },
+        {
+          "binding_id": "stat-syngas:output->compare-results:input_2",
+          "from_node_id": "stat-syngas",
+          "from_param_name": "output",
+          "to_node_id": "compare-results",
+          "to_param_name": "input_2"
+        },
+        {
+          "binding_id": "compare-results:output->save-output:output",
+          "from_node_id": "compare-results",
+          "from_param_name": "output",
+          "to_node_id": "save-output",
+          "to_param_name": "output"
+        },
+        {
+          "binding_id": "remote-subdag-source-stat-supercap:output->compare-results:input_1",
+          "from_node_id": "remote-subdag-source-stat-supercap",
+          "from_param_name": "output",
+          "to_node_id": "compare-results",
+          "to_param_name": "input_1"
+        }
+      ]
+    },
+    "validation": {
+      "ok": true,
+      "errors": [],
+      "warnings": []
+    }
+  },
+  "events": [
+    {
+      "stage": "intent",
+      "status": "started"
+    },
+    {
+      "stage": "intent",
+      "status": "finished",
+      "intent": {
+        "goal": "对比合成气催化转化反应过程数据整编语料与超级电容器性能参数中的 BET 比表面积，筛选各自 Top30 并统一单位后计算统计指标及差异分析",
+        "user_request": "我在做多孔材料的跨场景性能对比，想比较催化材料和超级电容器电极材料的比表面积水平。请从合成气催化转化反应过程数据整编语料中选出BET比表面积最高的30条记录，从超级电容器性能参数中选出比表面积最高的30条记录，统一换算为m²/g，分别计算有效样本数、平均值、最小值和最大值，并计算超级电容器材料相对于催化材料的平均比表面积差值（超级电容器减催化材料）和比值（超级电容器除以催化材料），输出porous_material_surface_area_comparison.csv。",
+        "datasets": [
+          {
+            "alias": "syngas",
+            "dataset_id": "6a2f6e55a3472727522d5372",
+            "source_id": "10.0.82.213",
+            "center_id": "10.0.82.213",
+            "locator": "6a2f6e55a3472727522d5372",
+            "name": "合成气催化转化反应过程数据整编语料",
+            "replicas": [
+              {
+                "replica_id": "CH-CORPUS-B021",
+                "source_id": "10.0.82.213",
+                "center_id": "10.0.82.213",
+                "locator": "6a2f6e55a3472727522d5372",
+                "status": "AVAILABLE",
+                "metrics": {
+                  "cpu_cores": 8.0,
+                  "memory_gb": 5.954185485839844,
+                  "free_disk_gb": 168.7439308166504
+                }
+              }
+            ],
+            "facets": {
+              "field": [
+                "化学化工"
+              ],
+              "corpusType": [
+                "基础语料"
+              ],
+              "language": [
+                "中文",
+                "英文"
+              ],
+              "rawFormat": [
+                "XLSX",
+                "JSON"
+              ]
+            },
+            "source_skill": "piflow_engine.cn.piflow.engine.local.corpus_dataset_source_stop.CorpusDatasetSourceStop",
+            "source_param": "dataset_id",
+            "source_output_param": "output"
+          },
+          {
+            "alias": "supercap",
+            "dataset_id": "6a3206ad0365e61992090643",
+            "source_id": "10.0.90.94",
+            "center_id": "10.0.90.94",
+            "locator": "6a3206ad0365e61992090643",
+            "name": "超级电容器性能参数",
+            "replicas": [
+              {
+                "replica_id": "CHEM-CORPUS-K037",
+                "source_id": "10.0.90.94",
+                "center_id": "10.0.90.94",
+                "locator": "6a3206ad0365e61992090643",
+                "status": "AVAILABLE",
+                "metrics": {
+                  "cpu_cores": 4.0,
+                  "memory_gb": 3.457378387451172,
+                  "free_disk_gb": 189.5034408569336
+                }
+              }
+            ],
+            "facets": {
+              "field": [
+                "化学化工"
+              ],
+              "corpusType": [
+                "知识语料"
+              ],
+              "language": [
+                "英文"
+              ],
+              "rawFormat": [
+                "JSON",
+                "CSV"
+              ]
+            },
+            "source_skill": "piflow_engine.cn.piflow.engine.local.corpus_dataset_source_stop.CorpusDatasetSourceStop",
+            "source_param": "dataset_id",
+            "source_output_param": "output"
+          }
+        ],
+        "operations": [
+          {
+            "op": "过滤",
+            "target": "syngas",
+            "detail": "提取包含 BET 比表面积参数的记录，按数值降序排列取前 30 条"
+          },
+          {
+            "op": "过滤",
+            "target": "supercap",
+            "detail": "提取包含比表面积参数的记录，按数值降序排列取前 30 条"
+          },
+          {
+            "op": "格式转换",
+            "target": "syngas",
+            "detail": "将比表面积单位统一换算为 m²/g"
+          },
+          {
+            "op": "格式转换",
+            "target": "supercap",
+            "detail": "将比表面积单位统一换算为 m²/g"
+          },
+          {
+            "op": "聚合",
+            "target": "syngas",
+            "detail": "计算有效样本数、平均值、最小值、最大值"
+          },
+          {
+            "op": "聚合",
+            "target": "supercap",
+            "detail": "计算有效样本数、平均值、最小值、最大值"
+          },
+          {
+            "op": "关联",
+            "target": "syngas",
+            "detail": "与 supercap 的统计结果进行对齐，计算差值（超级电容器 - 催化材料）和比值（超级电容器 / 催化材料）"
+          }
+        ],
+        "location_hints": [
+          {
+            "center_id": "10.0.82.213",
+            "applies_to": "syngas",
+            "raw": "合成气催化转化反应过程数据整编语料"
+          },
+          {
+            "center_id": "10.0.90.94",
+            "applies_to": "supercap",
+            "raw": "超级电容器性能参数"
+          }
+        ],
+        "output": {
+          "format": "csv",
+          "name": "porous_material_surface_area_comparison.csv"
+        },
+        "assumptions": [
+          "假设两个数据集中的比表面积原始单位不完全一致，需要进行单位换算才能比较",
+          "假设用户提到的'BET 比表面积'在超级电容器数据集中对应通用的'比表面积'字段",
+          "假设数据集中存在足够的有效记录以满足各取 30 条的需求"
+        ],
+        "unresolved": [],
+        "requirements": [
+          {
+            "key": "field",
+            "label": "学科领域",
+            "mode": "cover_all",
+            "values": [
+              "化学化工"
+            ]
+          },
+          {
+            "key": "corpusType",
+            "label": "语料类型",
+            "mode": "match_all",
+            "values": [
+              "基础语料",
+              "知识语料"
+            ]
+          },
+          {
+            "key": "rawFormat",
+            "label": "数据格式",
+            "mode": "match_all",
+            "values": [
+              "XLSX",
+              "JSON",
+              "CSV"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "stage": "satisfaction",
+      "status": "started"
+    },
+    {
+      "stage": "satisfaction",
+      "status": "finished",
+      "mode": "composition",
+      "reason": "没有任何单个数据集能完整满足需求（需求 1 项，单集最大覆盖 1 项），需要多源组装",
+      "satisfaction": {
+        "mode": "composition",
+        "reason": "没有任何单个数据集能完整满足需求（需求 1 项，单集最大覆盖 1 项），需要多源组装",
+        "notes": [],
+        "required_count": 1,
+        "max_coverage": 1,
+        "scanned_count": 28,
+        "missing_values": [],
+        "full_match_count": 0,
+        "full_match_dataset_ids": [],
+        "facets": [
+          {
+            "key": "field",
+            "label": "学科领域",
+            "mode": "cover_all",
+            "values": [
+              "化学化工"
+            ]
+          },
+          {
+            "key": "corpusType",
+            "label": "语料类型",
+            "mode": "match_all",
+            "values": [
+              "基础语料",
+              "知识语料"
+            ]
+          },
+          {
+            "key": "rawFormat",
+            "label": "数据格式",
+            "mode": "match_all",
+            "values": [
+              "XLSX",
+              "JSON",
+              "CSV"
+            ]
+          }
+        ],
+        "coverages": [
+          {
+            "dataset_id": "6a2f6e55a3472727522d5372",
+            "alias": "syngas",
+            "name": "合成气催化转化反应过程数据整编语料",
+            "selected": true,
+            "full_match": false,
+            "covered_count": 1,
+            "required_count": 1,
+            "undeclared_facets": [],
+            "facets": [
+              {
+                "key": "field",
+                "label": "学科领域",
+                "mode": "cover_all",
+                "declared": true,
+                "satisfied": true,
+                "required": [
+                  "化学化工"
+                ],
+                "covered": [
+                  "化学化工"
+                ],
+                "missing": []
+              },
+              {
+                "key": "corpusType",
+                "label": "语料类型",
+                "mode": "match_all",
+                "declared": true,
+                "satisfied": false,
+                "required": [
+                  "基础语料",
+                  "知识语料"
+                ],
+                "covered": [
+                  "基础语料"
+                ],
+                "missing": [
+                  "知识语料"
+                ]
+              },
+              {
+                "key": "rawFormat",
+                "label": "数据格式",
+                "mode": "match_all",
+                "declared": true,
+                "satisfied": false,
+                "required": [
+                  "XLSX",
+                  "JSON",
+                  "CSV"
+                ],
+                "covered": [
+                  "XLSX",
+                  "JSON"
+                ],
+                "missing": [
+                  "CSV"
+                ]
+              }
+            ]
+          },
+          {
+            "dataset_id": "6a3206ad0365e61992090643",
+            "alias": "supercap",
+            "name": "超级电容器性能参数",
+            "selected": true,
+            "full_match": false,
+            "covered_count": 1,
+            "required_count": 1,
+            "undeclared_facets": [],
+            "facets": [
+              {
+                "key": "field",
+                "label": "学科领域",
+                "mode": "cover_all",
+                "declared": true,
+                "satisfied": true,
+                "required": [
+                  "化学化工"
+                ],
+                "covered": [
+                  "化学化工"
+                ],
+                "missing": []
+              },
+              {
+                "key": "corpusType",
+                "label": "语料类型",
+                "mode": "match_all",
+                "declared": true,
+                "satisfied": false,
+                "required": [
+                  "基础语料",
+                  "知识语料"
+                ],
+                "covered": [
+                  "知识语料"
+                ],
+                "missing": [
+                  "基础语料"
+                ]
+              },
+              {
+                "key": "rawFormat",
+                "label": "数据格式",
+                "mode": "match_all",
+                "declared": true,
+                "satisfied": false,
+                "required": [
+                  "XLSX",
+                  "JSON",
+                  "CSV"
+                ],
+                "covered": [
+                  "JSON",
+                  "CSV"
+                ],
+                "missing": [
+                  "XLSX"
+                ]
+              }
+            ]
+          },
+          {
+            "dataset_id": "6a8fdfee0f0b1071090ebccd",
+            "alias": "",
+            "name": "材料化学通识问答语料",
+            "selected": false,
+            "full_match": false,
+            "covered_count": 1,
+            "required_count": 1,
+            "undeclared_facets": [],
+            "facets": [
+              {
+                "key": "field",
+                "label": "学科领域",
+                "mode": "cover_all",
+                "declared": true,
+                "satisfied": true,
+                "required": [
+                  "化学化工"
+                ],
+                "covered": [
+                  "化学化工"
+                ],
+                "missing": []
+              },
+              {
+                "key": "corpusType",
+                "label": "语料类型",
+                "mode": "match_all",
+                "declared": true,
+                "satisfied": false,
+                "required": [
+                  "基础语料",
+                  "知识语料"
+                ],
+                "covered": [
+                  "知识语料"
+                ],
+                "missing": [
+                  "基础语料"
+                ]
+              },
+              {
+                "key": "rawFormat",
+                "label": "数据格式",
+                "mode": "match_all",
+                "declared": true,
+                "satisfied": false,
+                "required": [
+                  "XLSX",
+                  "JSON",
+                  "CSV"
+                ],
+                "covered": [
+                  "JSON"
+                ],
+                "missing": [
+                  "XLSX",
+                  "CSV"
+                ]
+              }
+            ]
+          },
+          {
+            "dataset_id": "6a8fdfee0f0b1071090ebccc",
+            "alias": "",
+            "name": "材料化学有思维链语料",
+            "selected": false,
+            "full_match": false,
+            "covered_count": 1,
+            "required_count": 1,
+            "undeclared_facets": [],
+            "facets": [
+              {
+                "key": "field",
+                "label": "学科领域",
+                "mode": "cover_all",
+                "declared": true,
+                "satisfied": true,
+                "required": [
+                  "化学化工"
+                ],
+                "covered": [
+                  "化学化工"
+                ],
+                "missing": []
+              },
+              {
+                "key": "corpusType",
+                "label": "语料类型",
+                "mode": "match_all",
+                "declared": true,
+                "satisfied": false,
+                "required": [
+                  "基础语料",
+                  "知识语料"
+                ],
+                "covered": [
+                  "知识语料"
+                ],
+                "missing": [
+                  "基础语料"
+                ]
+              },
+              {
+                "key": "rawFormat",
+                "label": "数据格式",
+                "mode": "match_all",
+                "declared": true,
+                "satisfied": false,
+                "required": [
+                  "XLSX",
+                  "JSON",
+                  "CSV"
+                ],
+                "covered": [
+                  "JSON"
+                ],
+                "missing": [
+                  "XLSX",
+                  "CSV"
+                ]
+              }
+            ]
+          },
+          {
+            "dataset_id": "6a8fdc690f0b1071090ebccb",
+            "alias": "",
+            "name": "化学工程通识问答语料",
+            "selected": false,
+            "full_match": false,
+            "covered_count": 1,
+            "required_count": 1,
+            "undeclared_facets": [],
+            "facets": [
+              {
+                "key": "field",
+                "label": "学科领域",
+                "mode": "cover_all",
+                "declared": true,
+                "satisfied": true,
+                "required": [
+                  "化学化工"
+                ],
+                "covered": [
+                  "化学化工"
+                ],
+                "missing": []
+              },
+              {
+                "key": "corpusType",
+                "label": "语料类型",
+                "mode": "match_all",
+                "declared": true,
+                "satisfied": false,
+                "required": [
+                  "基础语料",
+                  "知识语料"
+                ],
+                "covered": [
+                  "知识语料"
+                ],
+                "missing": [
+                  "基础语料"
+                ]
+              },
+              {
+                "key": "rawFormat",
+                "label": "数据格式",
+                "mode": "match_all",
+                "declared": true,
+                "satisfied": false,
+                "required": [
+                  "XLSX",
+                  "JSON",
+                  "CSV"
+                ],
+                "covered": [
+                  "JSON"
+                ],
+                "missing": [
+                  "XLSX",
+                  "CSV"
+                ]
+              }
+            ]
+          },
+          {
+            "dataset_id": "6a8fdc690f0b1071090ebcc8",
+            "alias": "",
+            "name": "环境化学通识问答语料",
+            "selected": false,
+            "full_match": false,
+            "covered_count": 1,
+            "required_count": 1,
+            "undeclared_facets": [],
+            "facets": [
+              {
+                "key": "field",
+                "label": "学科领域",
+                "mode": "cover_all",
+                "declared": true,
+                "satisfied": true,
+                "required": [
+                  "化学化工"
+                ],
+                "covered": [
+                  "化学化工"
+                ],
+                "missing": []
+              },
+              {
+                "key": "corpusType",
+                "label": "语料类型",
+                "mode": "match_all",
+                "declared": true,
+                "satisfied": false,
+                "required": [
+                  "基础语料",
+                  "知识语料"
+                ],
+                "covered": [
+                  "知识语料"
+                ],
+                "missing": [
+                  "基础语料"
+                ]
+              },
+              {
+                "key": "rawFormat",
+                "label": "数据格式",
+                "mode": "match_all",
+                "declared": true,
+                "satisfied": false,
+                "required": [
+                  "XLSX",
+                  "JSON",
+                  "CSV"
+                ],
+                "covered": [
+                  "JSON"
+                ],
+                "missing": [
+                  "XLSX",
+                  "CSV"
+                ]
+              }
+            ]
+          },
+          {
+            "dataset_id": "6a8fdc690f0b1071090ebcc7",
+            "alias": "",
+            "name": "化学工程有思维链语料",
+            "selected": false,
+            "full_match": false,
+            "covered_count": 1,
+            "required_count": 1,
+            "undeclared_facets": [],
+            "facets": [
+              {
+                "key": "field",
+                "label": "学科领域",
+                "mode": "cover_all",
+                "declared": true,
+                "satisfied": true,
+                "required": [
+                  "化学化工"
+                ],
+                "covered": [
+                  "化学化工"
+                ],
+                "missing": []
+              },
+              {
+                "key": "corpusType",
+                "label": "语料类型",
+                "mode": "match_all",
+                "declared": true,
+                "satisfied": false,
+                "required": [
+                  "基础语料",
+                  "知识语料"
+                ],
+                "covered": [
+                  "知识语料"
+                ],
+                "missing": [
+                  "基础语料"
+                ]
+              },
+              {
+                "key": "rawFormat",
+                "label": "数据格式",
+                "mode": "match_all",
+                "declared": true,
+                "satisfied": false,
+                "required": [
+                  "XLSX",
+                  "JSON",
+                  "CSV"
+                ],
+                "covered": [
+                  "JSON"
+                ],
+                "missing": [
+                  "XLSX",
+                  "CSV"
+                ]
+              }
+            ]
+          },
+          {
+            "dataset_id": "6a8fdc690f0b1071090ebcc6",
+            "alias": "",
+            "name": "分析化学有思维链语料",
+            "selected": false,
+            "full_match": false,
+            "covered_count": 1,
+            "required_count": 1,
+            "undeclared_facets": [],
+            "facets": [
+              {
+                "key": "field",
+                "label": "学科领域",
+                "mode": "cover_all",
+                "declared": true,
+                "satisfied": true,
+                "required": [
+                  "化学化工"
+                ],
+                "covered": [
+                  "化学化工"
+                ],
+                "missing": []
+              },
+              {
+                "key": "corpusType",
+                "label": "语料类型",
+                "mode": "match_all",
+                "declared": true,
+                "satisfied": false,
+                "required": [
+                  "基础语料",
+                  "知识语料"
+                ],
+                "covered": [
+                  "知识语料"
+                ],
+                "missing": [
+                  "基础语料"
+                ]
+              },
+              {
+                "key": "rawFormat",
+                "label": "数据格式",
+                "mode": "match_all",
+                "declared": true,
+                "satisfied": false,
+                "required": [
+                  "XLSX",
+                  "JSON",
+                  "CSV"
+                ],
+                "covered": [
+                  "JSON"
+                ],
+                "missing": [
+                  "XLSX",
+                  "CSV"
+                ]
+              }
+            ]
+          },
+          {
+            "dataset_id": "6a8fdc690f0b1071090ebcc5",
+            "alias": "",
+            "name": "前沿交叉问答数据",
+            "selected": false,
+            "full_match": false,
+            "covered_count": 0,
+            "required_count": 1,
+            "undeclared_facets": [],
+            "facets": [
+              {
+                "key": "field",
+                "label": "学科领域",
+                "mode": "cover_all",
+                "declared": true,
+                "satisfied": false,
+                "required": [
+                  "化学化工"
+                ],
+                "covered": [],
+                "missing": [
+                  "化学化工"
+                ]
+              },
+              {
+                "key": "corpusType",
+                "label": "语料类型",
+                "mode": "match_all",
+                "declared": true,
+                "satisfied": false,
+                "required": [
+                  "基础语料",
+                  "知识语料"
+                ],
+                "covered": [
+                  "知识语料"
+                ],
+                "missing": [
+                  "基础语料"
+                ]
+              },
+              {
+                "key": "rawFormat",
+                "label": "数据格式",
+                "mode": "match_all",
+                "declared": true,
+                "satisfied": false,
+                "required": [
+                  "XLSX",
+                  "JSON",
+                  "CSV"
+                ],
+                "covered": [
+                  "JSON"
+                ],
+                "missing": [
+                  "XLSX",
+                  "CSV"
+                ]
+              }
+            ]
+          },
+          {
+            "dataset_id": "6a8fdc690f0b1071090ebcc4",
+            "alias": "",
+            "name": "甲烷干重整催化剂知识语料",
+            "selected": false,
+            "full_match": false,
+            "covered_count": 1,
+            "required_count": 1,
+            "undeclared_facets": [],
+            "facets": [
+              {
+                "key": "field",
+                "label": "学科领域",
+                "mode": "cover_all",
+                "declared": true,
+                "satisfied": true,
+                "required": [
+                  "化学化工"
+                ],
+                "covered": [
+                  "化学化工"
+                ],
+                "missing": []
+              },
+              {
+                "key": "corpusType",
+                "label": "语料类型",
+                "mode": "match_all",
+                "declared": true,
+                "satisfied": false,
+                "required": [
+                  "基础语料",
+                  "知识语料"
+                ],
+                "covered": [
+                  "知识语料"
+                ],
+                "missing": [
+                  "基础语料"
+                ]
+              },
+              {
+                "key": "rawFormat",
+                "label": "数据格式",
+                "mode": "match_all",
+                "declared": true,
+                "satisfied": false,
+                "required": [
+                  "XLSX",
+                  "JSON",
+                  "CSV"
+                ],
+                "covered": [
+                  "JSON",
+                  "CSV"
+                ],
+                "missing": [
+                  "XLSX"
+                ]
+              }
+            ]
+          },
+          {
+            "dataset_id": "6a8fdc690f0b1071090ebcc3",
+            "alias": "",
+            "name": "聚合物太阳能电池知识语料",
+            "selected": false,
+            "full_match": false,
+            "covered_count": 1,
+            "required_count": 1,
+            "undeclared_facets": [],
+            "facets": [
+              {
+                "key": "field",
+                "label": "学科领域",
+                "mode": "cover_all",
+                "declared": true,
+                "satisfied": true,
+                "required": [
+                  "化学化工"
+                ],
+                "covered": [
+                  "化学化工"
+                ],
+                "missing": []
+              },
+              {
+                "key": "corpusType",
+                "label": "语料类型",
+                "mode": "match_all",
+                "declared": true,
+                "satisfied": false,
+                "required": [
+                  "基础语料",
+                  "知识语料"
+                ],
+                "covered": [
+                  "知识语料"
+                ],
+                "missing": [
+                  "基础语料"
+                ]
+              },
+              {
+                "key": "rawFormat",
+                "label": "数据格式",
+                "mode": "match_all",
+                "declared": true,
+                "satisfied": false,
+                "required": [
+                  "XLSX",
+                  "JSON",
+                  "CSV"
+                ],
+                "covered": [
+                  "JSON",
+                  "CSV"
+                ],
+                "missing": [
+                  "XLSX"
+                ]
+              }
+            ]
+          },
+          {
+            "dataset_id": "6a8fdc690f0b1071090ebcc2",
+            "alias": "",
+            "name": "空间科学应用术语问答对语料",
+            "selected": false,
+            "full_match": false,
+            "covered_count": 0,
+            "required_count": 1,
+            "undeclared_facets": [],
+            "facets": [
+              {
+                "key": "field",
+                "label": "学科领域",
+                "mode": "cover_all",
+                "declared": true,
+                "satisfied": false,
+                "required": [
+                  "化学化工"
+                ],
+                "covered": [],
+                "missing": [
+                  "化学化工"
+                ]
+              },
+              {
+                "key": "corpusType",
+                "label": "语料类型",
+                "mode": "match_all",
+                "declared": true,
+                "satisfied": false,
+                "required": [
+                  "基础语料",
+                  "知识语料"
+                ],
+                "covered": [
+                  "知识语料"
+                ],
+                "missing": [
+                  "基础语料"
+                ]
+              },
+              {
+                "key": "rawFormat",
+                "label": "数据格式",
+                "mode": "match_all",
+                "declared": true,
+                "satisfied": false,
+                "required": [
+                  "XLSX",
+                  "JSON",
+                  "CSV"
+                ],
+                "covered": [
+                  "JSON"
+                ],
+                "missing": [
+                  "XLSX",
+                  "CSV"
+                ]
+              }
+            ]
+          },
+          {
+            "dataset_id": "6a744595d38ea034d388c7b4",
+            "alias": "",
+            "name": "1900年以来中国地震目录语料（融合早期历史地震和速报目录）",
+            "selected": false,
+            "full_match": false,
+            "covered_count": 0,
+            "required_count": 1,
+            "undeclared_facets": [],
+            "facets": [
+              {
+                "key": "field",
+                "label": "学科领域",
+                "mode": "cover_all",
+                "declared": true,
+                "satisfied": false,
+                "required": [
+                  "化学化工"
+                ],
+                "covered": [],
+                "missing": [
+                  "化学化工"
+                ]
+              },
+              {
+                "key": "corpusType",
+                "label": "语料类型",
+                "mode": "match_all",
+                "declared": true,
+                "satisfied": false,
+                "required": [
+                  "基础语料",
+                  "知识语料"
+                ],
+                "covered": [
+                  "基础语料"
+                ],
+                "missing": [
+                  "知识语料"
+                ]
+              },
+              {
+                "key": "rawFormat",
+                "label": "数据格式",
+                "mode": "match_all",
+                "declared": true,
+                "satisfied": false,
+                "required": [
+                  "XLSX",
+                  "JSON",
+                  "CSV"
+                ],
+                "covered": [],
+                "missing": [
+                  "XLSX",
+                  "JSON",
+                  "CSV"
+                ]
+              }
+            ]
+          },
+          {
+            "dataset_id": "6a6ab4da15840cf004056867",
+            "alias": "",
+            "name": "中国国土资源知识语料库",
+            "selected": false,
+            "full_match": false,
+            "covered_count": 0,
+            "required_count": 1,
+            "undeclared_facets": [],
+            "facets": [
+              {
+                "key": "field",
+                "label": "学科领域",
+                "mode": "cover_all",
+                "declared": true,
+                "satisfied": false,
+                "required": [
+                  "化学化工"
+                ],
+                "covered": [],
+                "missing": [
+                  "化学化工"
+                ]
+              },
+              {
+                "key": "corpusType",
+                "label": "语料类型",
+                "mode": "match_all",
+                "declared": true,
+                "satisfied": false,
+                "required": [
+                  "基础语料",
+                  "知识语料"
+                ],
+                "covered": [
+                  "知识语料"
+                ],
+                "missing": [
+                  "基础语料"
+                ]
+              },
+              {
+                "key": "rawFormat",
+                "label": "数据格式",
+                "mode": "match_all",
+                "declared": true,
+                "satisfied": false,
+                "required": [
+                  "XLSX",
+                  "JSON",
+                  "CSV"
+                ],
+                "covered": [
+                  "JSON"
+                ],
+                "missing": [
+                  "XLSX",
+                  "CSV"
+                ]
+              }
+            ]
+          },
+          {
+            "dataset_id": "6a6ab4da15840cf004056866",
+            "alias": "",
+            "name": "额济纳三角洲景观类型数据语料",
+            "selected": false,
+            "full_match": false,
+            "covered_count": 0,
+            "required_count": 1,
+            "undeclared_facets": [],
+            "facets": [
+              {
+                "key": "field",
+                "label": "学科领域",
+                "mode": "cover_all",
+                "declared": true,
+                "satisfied": false,
+                "required": [
+                  "化学化工"
+                ],
+                "covered": [],
+                "missing": [
+                  "化学化工"
+                ]
+              },
+              {
+                "key": "corpusType",
+                "label": "语料类型",
+                "mode": "match_all",
+                "declared": true,
+                "satisfied": false,
+                "required": [
+                  "基础语料",
+                  "知识语料"
+                ],
+                "covered": [],
+                "missing": [
+                  "基础语料",
+                  "知识语料"
+                ]
+              },
+              {
+                "key": "rawFormat",
+                "label": "数据格式",
+                "mode": "match_all",
+                "declared": true,
+                "satisfied": false,
+                "required": [
+                  "XLSX",
+                  "JSON",
+                  "CSV"
+                ],
+                "covered": [
+                  "JSON"
+                ],
+                "missing": [
+                  "XLSX",
+                  "CSV"
+                ]
+              }
+            ]
+          },
+          {
+            "dataset_id": "6a476945a5b0ded1ab60f0c2",
+            "alias": "",
+            "name": "分析化学通识问答语料",
+            "selected": false,
+            "full_match": false,
+            "covered_count": 1,
+            "required_count": 1,
+            "undeclared_facets": [],
+            "facets": [
+              {
+                "key": "field",
+                "label": "学科领域",
+                "mode": "cover_all",
+                "declared": true,
+                "satisfied": true,
+                "required": [
+                  "化学化工"
+                ],
+                "covered": [
+                  "化学化工"
+                ],
+                "missing": []
+              },
+              {
+                "key": "corpusType",
+                "label": "语料类型",
+                "mode": "match_all",
+                "declared": true,
+                "satisfied": false,
+                "required": [
+                  "基础语料",
+                  "知识语料"
+                ],
+                "covered": [
+                  "知识语料"
+                ],
+                "missing": [
+                  "基础语料"
+                ]
+              },
+              {
+                "key": "rawFormat",
+                "label": "数据格式",
+                "mode": "match_all",
+                "declared": true,
+                "satisfied": false,
+                "required": [
+                  "XLSX",
+                  "JSON",
+                  "CSV"
+                ],
+                "covered": [
+                  "JSON"
+                ],
+                "missing": [
+                  "XLSX",
+                  "CSV"
+                ]
+              }
+            ]
+          },
+          {
+            "dataset_id": "6a476945a5b0ded1ab60f0c1",
+            "alias": "",
+            "name": "无机化学有思维链语料",
+            "selected": false,
+            "full_match": false,
+            "covered_count": 1,
+            "required_count": 1,
+            "undeclared_facets": [],
+            "facets": [
+              {
+                "key": "field",
+                "label": "学科领域",
+                "mode": "cover_all",
+                "declared": true,
+                "satisfied": true,
+                "required": [
+                  "化学化工"
+                ],
+                "covered": [
+                  "化学化工"
+                ],
+                "missing": []
+              },
+              {
+                "key": "corpusType",
+                "label": "语料类型",
+                "mode": "match_all",
+                "declared": true,
+                "satisfied": false,
+                "required": [
+                  "基础语料",
+                  "知识语料"
+                ],
+                "covered": [
+                  "知识语料"
+                ],
+                "missing": [
+                  "基础语料"
+                ]
+              },
+              {
+                "key": "rawFormat",
+                "label": "数据格式",
+                "mode": "match_all",
+                "declared": true,
+                "satisfied": false,
+                "required": [
+                  "XLSX",
+                  "JSON",
+                  "CSV"
+                ],
+                "covered": [
+                  "JSON"
+                ],
+                "missing": [
+                  "XLSX",
+                  "CSV"
+                ]
+              }
+            ]
+          },
+          {
+            "dataset_id": "6a476945a5b0ded1ab60f0c0",
+            "alias": "",
+            "name": "无机化学通识问答语料",
+            "selected": false,
+            "full_match": false,
+            "covered_count": 1,
+            "required_count": 1,
+            "undeclared_facets": [],
+            "facets": [
+              {
+                "key": "field",
+                "label": "学科领域",
+                "mode": "cover_all",
+                "declared": true,
+                "satisfied": true,
+                "required": [
+                  "化学化工"
+                ],
+                "covered": [
+                  "化学化工"
+                ],
+                "missing": []
+              },
+              {
+                "key": "corpusType",
+                "label": "语料类型",
+                "mode": "match_all",
+                "declared": true,
+                "satisfied": false,
+                "required": [
+                  "基础语料",
+                  "知识语料"
+                ],
+                "covered": [
+                  "知识语料"
+                ],
+                "missing": [
+                  "基础语料"
+                ]
+              },
+              {
+                "key": "rawFormat",
+                "label": "数据格式",
+                "mode": "match_all",
+                "declared": true,
+                "satisfied": false,
+                "required": [
+                  "XLSX",
+                  "JSON",
+                  "CSV"
+                ],
+                "covered": [
+                  "JSON"
+                ],
+                "missing": [
+                  "XLSX",
+                  "CSV"
+                ]
+              }
+            ]
+          },
+          {
+            "dataset_id": "6a44ba8ec186d8716800a183",
+            "alias": "",
+            "name": "代谢小分子化合物语料",
+            "selected": false,
+            "full_match": false,
+            "covered_count": 0,
+            "required_count": 1,
+            "undeclared_facets": [],
+            "facets": [
+              {
+                "key": "field",
+                "label": "学科领域",
+                "mode": "cover_all",
+                "declared": true,
+                "satisfied": false,
+                "required": [
+                  "化学化工"
+                ],
+                "covered": [],
+                "missing": [
+                  "化学化工"
+                ]
+              },
+              {
+                "key": "corpusType",
+                "label": "语料类型",
+                "mode": "match_all",
+                "declared": true,
+                "satisfied": false,
+                "required": [
+                  "基础语料",
+                  "知识语料"
+                ],
+                "covered": [
+                  "知识语料"
+                ],
+                "missing": [
+                  "基础语料"
+                ]
+              },
+              {
+                "key": "rawFormat",
+                "label": "数据格式",
+                "mode": "match_all",
+                "declared": true,
+                "satisfied": false,
+                "required": [
+                  "XLSX",
+                  "JSON",
+                  "CSV"
+                ],
+                "covered": [
+                  "JSON"
+                ],
+                "missing": [
+                  "XLSX",
+                  "CSV"
+                ]
+              }
+            ]
+          },
+          {
+            "dataset_id": "6a389e3e3e0635e899d50cd0",
+            "alias": "",
+            "name": "前沿交叉表特征数据",
+            "selected": false,
+            "full_match": false,
+            "covered_count": 0,
+            "required_count": 1,
+            "undeclared_facets": [],
+            "facets": [
+              {
+                "key": "field",
+                "label": "学科领域",
+                "mode": "cover_all",
+                "declared": true,
+                "satisfied": false,
+                "required": [
+                  "化学化工"
+                ],
+                "covered": [],
+                "missing": [
+                  "化学化工"
+                ]
+              },
+              {
+                "key": "corpusType",
+                "label": "语料类型",
+                "mode": "match_all",
+                "declared": true,
+                "satisfied": false,
+                "required": [
+                  "基础语料",
+                  "知识语料"
+                ],
+                "covered": [],
+                "missing": [
+                  "基础语料",
+                  "知识语料"
+                ]
+              },
+              {
+                "key": "rawFormat",
+                "label": "数据格式",
+                "mode": "match_all",
+                "declared": true,
+                "satisfied": false,
+                "required": [
+                  "XLSX",
+                  "JSON",
+                  "CSV"
+                ],
+                "covered": [
+                  "JSON"
+                ],
+                "missing": [
+                  "XLSX",
+                  "CSV"
+                ]
+              }
+            ]
+          },
+          {
+            "dataset_id": "6a2f7233a3472727522d5377",
+            "alias": "",
+            "name": "智能体运行日志语料",
+            "selected": false,
+            "full_match": false,
+            "covered_count": 0,
+            "required_count": 1,
+            "undeclared_facets": [],
+            "facets": [
+              {
+                "key": "field",
+                "label": "学科领域",
+                "mode": "cover_all",
+                "declared": true,
+                "satisfied": false,
+                "required": [
+                  "化学化工"
+                ],
+                "covered": [],
+                "missing": [
+                  "化学化工"
+                ]
+              },
+              {
+                "key": "corpusType",
+                "label": "语料类型",
+                "mode": "match_all",
+                "declared": true,
+                "satisfied": false,
+                "required": [
+                  "基础语料",
+                  "知识语料"
+                ],
+                "covered": [
+                  "知识语料"
+                ],
+                "missing": [
+                  "基础语料"
+                ]
+              },
+              {
+                "key": "rawFormat",
+                "label": "数据格式",
+                "mode": "match_all",
+                "declared": true,
+                "satisfied": false,
+                "required": [
+                  "XLSX",
+                  "JSON",
+                  "CSV"
+                ],
+                "covered": [
+                  "JSON"
+                ],
+                "missing": [
+                  "XLSX",
+                  "CSV"
+                ]
+              }
+            ]
+          },
+          {
+            "dataset_id": "6a2f700ca3472727522d5376",
+            "alias": "",
+            "name": "火星地质地图语料",
+            "selected": false,
+            "full_match": false,
+            "covered_count": 0,
+            "required_count": 1,
+            "undeclared_facets": [],
+            "facets": [
+              {
+                "key": "field",
+                "label": "学科领域",
+                "mode": "cover_all",
+                "declared": true,
+                "satisfied": false,
+                "required": [
+                  "化学化工"
+                ],
+                "covered": [],
+                "missing": [
+                  "化学化工"
+                ]
+              },
+              {
+                "key": "corpusType",
+                "label": "语料类型",
+                "mode": "match_all",
+                "declared": true,
+                "satisfied": false,
+                "required": [
+                  "基础语料",
+                  "知识语料"
+                ],
+                "covered": [
+                  "基础语料"
+                ],
+                "missing": [
+                  "知识语料"
+                ]
+              },
+              {
+                "key": "rawFormat",
+                "label": "数据格式",
+                "mode": "match_all",
+                "declared": true,
+                "satisfied": false,
+                "required": [
+                  "XLSX",
+                  "JSON",
+                  "CSV"
+                ],
+                "covered": [
+                  "JSON"
+                ],
+                "missing": [
+                  "XLSX",
+                  "CSV"
+                ]
+              }
+            ]
+          },
+          {
+            "dataset_id": "6a2f7008a3472727522d5375",
+            "alias": "",
+            "name": "金星地质地图语料",
+            "selected": false,
+            "full_match": false,
+            "covered_count": 0,
+            "required_count": 1,
+            "undeclared_facets": [],
+            "facets": [
+              {
+                "key": "field",
+                "label": "学科领域",
+                "mode": "cover_all",
+                "declared": true,
+                "satisfied": false,
+                "required": [
+                  "化学化工"
+                ],
+                "covered": [],
+                "missing": [
+                  "化学化工"
+                ]
+              },
+              {
+                "key": "corpusType",
+                "label": "语料类型",
+                "mode": "match_all",
+                "declared": true,
+                "satisfied": false,
+                "required": [
+                  "基础语料",
+                  "知识语料"
+                ],
+                "covered": [
+                  "基础语料"
+                ],
+                "missing": [
+                  "知识语料"
+                ]
+              },
+              {
+                "key": "rawFormat",
+                "label": "数据格式",
+                "mode": "match_all",
+                "declared": true,
+                "satisfied": false,
+                "required": [
+                  "XLSX",
+                  "JSON",
+                  "CSV"
+                ],
+                "covered": [
+                  "JSON"
+                ],
+                "missing": [
+                  "XLSX",
+                  "CSV"
+                ]
+              }
+            ]
+          },
+          {
+            "dataset_id": "6a2f7004a3472727522d5374",
+            "alias": "",
+            "name": "水星地质地图语料",
+            "selected": false,
+            "full_match": false,
+            "covered_count": 0,
+            "required_count": 1,
+            "undeclared_facets": [],
+            "facets": [
+              {
+                "key": "field",
+                "label": "学科领域",
+                "mode": "cover_all",
+                "declared": true,
+                "satisfied": false,
+                "required": [
+                  "化学化工"
+                ],
+                "covered": [],
+                "missing": [
+                  "化学化工"
+                ]
+              },
+              {
+                "key": "corpusType",
+                "label": "语料类型",
+                "mode": "match_all",
+                "declared": true,
+                "satisfied": false,
+                "required": [
+                  "基础语料",
+                  "知识语料"
+                ],
+                "covered": [
+                  "基础语料"
+                ],
+                "missing": [
+                  "知识语料"
+                ]
+              },
+              {
+                "key": "rawFormat",
+                "label": "数据格式",
+                "mode": "match_all",
+                "declared": true,
+                "satisfied": false,
+                "required": [
+                  "XLSX",
+                  "JSON",
+                  "CSV"
+                ],
+                "covered": [
+                  "JSON"
+                ],
+                "missing": [
+                  "XLSX",
+                  "CSV"
+                ]
+              }
+            ]
+          },
+          {
+            "dataset_id": "6a2f6fffa3472727522d5373",
+            "alias": "",
+            "name": "月球地质地图语料",
+            "selected": false,
+            "full_match": false,
+            "covered_count": 0,
+            "required_count": 1,
+            "undeclared_facets": [],
+            "facets": [
+              {
+                "key": "field",
+                "label": "学科领域",
+                "mode": "cover_all",
+                "declared": true,
+                "satisfied": false,
+                "required": [
+                  "化学化工"
+                ],
+                "covered": [],
+                "missing": [
+                  "化学化工"
+                ]
+              },
+              {
+                "key": "corpusType",
+                "label": "语料类型",
+                "mode": "match_all",
+                "declared": true,
+                "satisfied": false,
+                "required": [
+                  "基础语料",
+                  "知识语料"
+                ],
+                "covered": [
+                  "基础语料"
+                ],
+                "missing": [
+                  "知识语料"
+                ]
+              },
+              {
+                "key": "rawFormat",
+                "label": "数据格式",
+                "mode": "match_all",
+                "declared": true,
+                "satisfied": false,
+                "required": [
+                  "XLSX",
+                  "JSON",
+                  "CSV"
+                ],
+                "covered": [
+                  "JSON"
+                ],
+                "missing": [
+                  "XLSX",
+                  "CSV"
+                ]
+              }
+            ]
+          },
+          {
+            "dataset_id": "6a27d3b46ff2ee88250cfd9b",
+            "alias": "",
+            "name": "医学知识图谱语料",
+            "selected": false,
+            "full_match": false,
+            "covered_count": 0,
+            "required_count": 1,
+            "undeclared_facets": [],
+            "facets": [
+              {
+                "key": "field",
+                "label": "学科领域",
+                "mode": "cover_all",
+                "declared": true,
+                "satisfied": false,
+                "required": [
+                  "化学化工"
+                ],
+                "covered": [],
+                "missing": [
+                  "化学化工"
+                ]
+              },
+              {
+                "key": "corpusType",
+                "label": "语料类型",
+                "mode": "match_all",
+                "declared": true,
+                "satisfied": false,
+                "required": [
+                  "基础语料",
+                  "知识语料"
+                ],
+                "covered": [
+                  "知识语料"
+                ],
+                "missing": [
+                  "基础语料"
+                ]
+              },
+              {
+                "key": "rawFormat",
+                "label": "数据格式",
+                "mode": "match_all",
+                "declared": true,
+                "satisfied": false,
+                "required": [
+                  "XLSX",
+                  "JSON",
+                  "CSV"
+                ],
+                "covered": [
+                  "JSON",
+                  "CSV"
+                ],
+                "missing": [
+                  "XLSX"
+                ]
+              }
+            ]
+          },
+          {
+            "dataset_id": "6a27d3b16ff2ee88250cfd98",
+            "alias": "",
+            "name": "空间天气知识问答对语料",
+            "selected": false,
+            "full_match": false,
+            "covered_count": 0,
+            "required_count": 1,
+            "undeclared_facets": [],
+            "facets": [
+              {
+                "key": "field",
+                "label": "学科领域",
+                "mode": "cover_all",
+                "declared": true,
+                "satisfied": false,
+                "required": [
+                  "化学化工"
+                ],
+                "covered": [],
+                "missing": [
+                  "化学化工"
+                ]
+              },
+              {
+                "key": "corpusType",
+                "label": "语料类型",
+                "mode": "match_all",
+                "declared": true,
+                "satisfied": false,
+                "required": [
+                  "基础语料",
+                  "知识语料"
+                ],
+                "covered": [
+                  "知识语料"
+                ],
+                "missing": [
+                  "基础语料"
+                ]
+              },
+              {
+                "key": "rawFormat",
+                "label": "数据格式",
+                "mode": "match_all",
+                "declared": true,
+                "satisfied": false,
+                "required": [
+                  "XLSX",
+                  "JSON",
+                  "CSV"
+                ],
+                "covered": [
+                  "JSON"
+                ],
+                "missing": [
+                  "XLSX",
+                  "CSV"
+                ]
+              }
+            ]
+          },
+          {
+            "dataset_id": "6a27d3aa6ff2ee88250cfd93",
+            "alias": "",
+            "name": "钠离子电池正极材料知识语料",
+            "selected": false,
+            "full_match": false,
+            "covered_count": 1,
+            "required_count": 1,
+            "undeclared_facets": [],
+            "facets": [
+              {
+                "key": "field",
+                "label": "学科领域",
+                "mode": "cover_all",
+                "declared": true,
+                "satisfied": true,
+                "required": [
+                  "化学化工"
+                ],
+                "covered": [
+                  "化学化工"
+                ],
+                "missing": []
+              },
+              {
+                "key": "corpusType",
+                "label": "语料类型",
+                "mode": "match_all",
+                "declared": true,
+                "satisfied": false,
+                "required": [
+                  "基础语料",
+                  "知识语料"
+                ],
+                "covered": [
+                  "知识语料"
+                ],
+                "missing": [
+                  "基础语料"
+                ]
+              },
+              {
+                "key": "rawFormat",
+                "label": "数据格式",
+                "mode": "match_all",
+                "declared": true,
+                "satisfied": false,
+                "required": [
+                  "XLSX",
+                  "JSON",
+                  "CSV"
+                ],
+                "covered": [
+                  "JSON",
+                  "CSV"
+                ],
+                "missing": [
+                  "XLSX"
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "stage": "planning",
+      "status": "started"
+    },
+    {
+      "stage": "planning",
+      "status": "finished",
+      "planning_json": {
+        "task": {
+          "name": "多孔材料比表面积跨场景对比",
+          "description": "从合成气催化语料和超级电容器数据集中分别提取 BET 比表面积 Top30 记录，统一单位后计算统计指标及差异分析"
+        },
+        "nodes": [
+          {
+            "node_name": "read_syngas",
+            "skill_name": "piflow_engine.cn.piflow.engine.local.corpus_dataset_source_stop.CorpusDatasetSourceStop",
+            "dataCenter": "10.0.82.213",
+            "params": {
+              "dataset_id": "dataset://6a2f6e55a3472727522d5372"
+            }
+          },
+          {
+            "node_name": "read_supercap",
+            "skill_name": "piflow_engine.cn.piflow.engine.local.corpus_dataset_source_stop.CorpusDatasetSourceStop",
+            "dataCenter": "10.0.90.94",
+            "params": {
+              "dataset_id": "dataset://6a3206ad0365e61992090643"
+            }
+          },
+          {
+            "node_name": "stat_syngas",
+            "skill_name": "numeric_metric_topn_summary",
+            "params": {
+              "input": {
+                "source_node": "read_syngas",
+                "source_param": "output"
+              },
+              "dataset_label": "syngas_catalyst",
+              "metric": "specific_surface_area",
+              "order": "desc",
+              "top_n": 30,
+              "target_unit": "m2/g"
+            }
+          },
+          {
+            "node_name": "stat_supercap",
+            "skill_name": "numeric_metric_topn_summary",
+            "params": {
+              "input": {
+                "source_node": "read_supercap",
+                "source_param": "output"
+              },
+              "dataset_label": "supercap_electrode",
+              "metric": "specific_surface_area",
+              "order": "desc",
+              "top_n": 30,
+              "target_unit": "m2/g"
+            }
+          },
+          {
+            "node_name": "compare_results",
+            "skill_name": "metric_summary_compare",
+            "params": {
+              "input_1": {
+                "source_node": "stat_supercap",
+                "source_param": "output"
+              },
+              "input_2": {
+                "source_node": "stat_syngas",
+                "source_param": "output"
+              },
+              "difference_order": "input_1-input_2",
+              "output_file_name": "porous_material_surface_area_comparison.csv"
+            }
+          },
+          {
+            "node_name": "save_output",
+            "skill_name": "piflow_engine.cn.piflow.engine.local.file_save_stop.FileSaveStop",
+            "params": {
+              "output": {
+                "source_node": "compare_results",
+                "source_param": "output"
+              },
+              "absolute_path": "/workspace/artifacts/porous_material_surface_area_comparison.csv",
+              "overwrite": "true"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "stage": "expand",
+      "status": "started"
+    },
+    {
+      "stage": "expand",
+      "status": "finished",
+      "node_count": 6,
+      "binding_count": 5,
+      "warnings": [],
+      "errors": [],
+      "description": "从合成气催化语料和超级电容器数据集中分别提取 BET 比表面积 Top30 记录，统一单位后计算统计指标及差异分析",
+      "logical_dag": {
+        "task_id": "xdc-405d8fb82675",
+        "task_name": "多孔材料比表面积跨场景对比",
+        "description": "从合成气催化语料和超级电容器数据集中分别提取 BET 比表面积 Top30 记录，统一单位后计算统计指标及差异分析",
+        "nodes": [
+          {
+            "node_id": "read-syngas",
+            "node_name": "read_syngas",
+            "node_type": "default",
+            "skill": {
+              "skill_id": "piflow_engine.cn.piflow.engine.local.corpus_dataset_source_stop.CorpusDatasetSourceStop",
+              "skill_name": "piflow_engine.cn.piflow.engine.local.corpus_dataset_source_stop.CorpusDatasetSourceStop",
+              "version": "1.0.0"
+            },
+            "position": {
+              "x": 0.0,
+              "y": 80.0
+            },
+            "input_params": [
+              {
+                "param_name": "dataset_id",
+                "param_type": "string",
+                "value_mode": "manual",
+                "param_value": "dataset://6a2f6e55a3472727522d5372",
+                "binding_id": ""
+              }
+            ],
+            "out_params": [
+              {
+                "param_name": "output",
+                "param_type": "file"
+              }
+            ],
+            "dataCenter": "10.0.82.213"
+          },
+          {
+            "node_id": "read-supercap",
+            "node_name": "read_supercap",
+            "node_type": "default",
+            "skill": {
+              "skill_id": "piflow_engine.cn.piflow.engine.local.corpus_dataset_source_stop.CorpusDatasetSourceStop",
+              "skill_name": "piflow_engine.cn.piflow.engine.local.corpus_dataset_source_stop.CorpusDatasetSourceStop",
+              "version": "1.0.0"
+            },
+            "position": {
+              "x": 260.0,
+              "y": 80.0
+            },
+            "input_params": [
+              {
+                "param_name": "dataset_id",
+                "param_type": "string",
+                "value_mode": "manual",
+                "param_value": "dataset://6a3206ad0365e61992090643",
+                "binding_id": ""
+              }
+            ],
+            "out_params": [
+              {
+                "param_name": "output",
+                "param_type": "file"
+              }
+            ],
+            "dataCenter": "10.0.90.94"
+          },
+          {
+            "node_id": "stat-syngas",
+            "node_name": "stat_syngas",
+            "node_type": "default",
+            "skill": {
+              "skill_id": "numeric_metric_topn_summary_1.0.0",
+              "skill_name": "numeric_metric_topn_summary",
+              "version": "1.0.0"
+            },
+            "position": {
+              "x": 520.0,
+              "y": 80.0
+            },
+            "input_params": [
+              {
+                "param_name": "input",
+                "param_type": "string",
+                "value_mode": "reference",
+                "param_value": "",
+                "binding_id": "read-syngas:output->stat-syngas:input"
+              },
+              {
+                "param_name": "dataset_label",
+                "param_type": "string",
+                "value_mode": "manual",
+                "param_value": "syngas_catalyst",
+                "binding_id": ""
+              },
+              {
+                "param_name": "metric",
+                "param_type": "string",
+                "value_mode": "manual",
+                "param_value": "specific_surface_area",
+                "binding_id": ""
+              },
+              {
+                "param_name": "order",
+                "param_type": "string",
+                "value_mode": "manual",
+                "param_value": "desc",
+                "binding_id": ""
+              },
+              {
+                "param_name": "top_n",
+                "param_type": "string",
+                "value_mode": "manual",
+                "param_value": 30,
+                "binding_id": ""
+              },
+              {
+                "param_name": "target_unit",
+                "param_type": "string",
+                "value_mode": "manual",
+                "param_value": "m2/g",
+                "binding_id": ""
+              }
+            ],
+            "out_params": [
+              {
+                "param_name": "output",
+                "param_type": "file"
+              }
+            ]
+          },
+          {
+            "node_id": "stat-supercap",
+            "node_name": "stat_supercap",
+            "node_type": "default",
+            "skill": {
+              "skill_id": "numeric_metric_topn_summary_1.0.0",
+              "skill_name": "numeric_metric_topn_summary",
+              "version": "1.0.0"
+            },
+            "position": {
+              "x": 780.0,
+              "y": 80.0
+            },
+            "input_params": [
+              {
+                "param_name": "input",
+                "param_type": "string",
+                "value_mode": "reference",
+                "param_value": "",
+                "binding_id": "read-supercap:output->stat-supercap:input"
+              },
+              {
+                "param_name": "dataset_label",
+                "param_type": "string",
+                "value_mode": "manual",
+                "param_value": "supercap_electrode",
+                "binding_id": ""
+              },
+              {
+                "param_name": "metric",
+                "param_type": "string",
+                "value_mode": "manual",
+                "param_value": "specific_surface_area",
+                "binding_id": ""
+              },
+              {
+                "param_name": "order",
+                "param_type": "string",
+                "value_mode": "manual",
+                "param_value": "desc",
+                "binding_id": ""
+              },
+              {
+                "param_name": "top_n",
+                "param_type": "string",
+                "value_mode": "manual",
+                "param_value": 30,
+                "binding_id": ""
+              },
+              {
+                "param_name": "target_unit",
+                "param_type": "string",
+                "value_mode": "manual",
+                "param_value": "m2/g",
+                "binding_id": ""
+              }
+            ],
+            "out_params": [
+              {
+                "param_name": "output",
+                "param_type": "file"
+              }
+            ]
+          },
+          {
+            "node_id": "compare-results",
+            "node_name": "compare_results",
+            "node_type": "default",
+            "skill": {
+              "skill_id": "metric_summary_compare_1.0.0",
+              "skill_name": "metric_summary_compare",
+              "version": "1.0.0"
+            },
+            "position": {
+              "x": 1040.0,
+              "y": 80.0
+            },
+            "input_params": [
+              {
+                "param_name": "input_1",
+                "param_type": "string",
+                "value_mode": "reference",
+                "param_value": "",
+                "binding_id": "stat-supercap:output->compare-results:input_1"
+              },
+              {
+                "param_name": "input_2",
+                "param_type": "string",
+                "value_mode": "reference",
+                "param_value": "",
+                "binding_id": "stat-syngas:output->compare-results:input_2"
+              },
+              {
+                "param_name": "difference_order",
+                "param_type": "string",
+                "value_mode": "manual",
+                "param_value": "input_1-input_2",
+                "binding_id": ""
+              },
+              {
+                "param_name": "output_file_name",
+                "param_type": "string",
+                "value_mode": "manual",
+                "param_value": "porous_material_surface_area_comparison.csv",
+                "binding_id": ""
+              }
+            ],
+            "out_params": [
+              {
+                "param_name": "output",
+                "param_type": "file"
+              }
+            ]
+          },
+          {
+            "node_id": "save-output",
+            "node_name": "save_output",
+            "node_type": "default",
+            "skill": {
+              "skill_id": "piflow_engine.cn.piflow.engine.local.file_save_stop.FileSaveStop",
+              "skill_name": "piflow_engine.cn.piflow.engine.local.file_save_stop.FileSaveStop",
+              "version": "1.0.0"
+            },
+            "position": {
+              "x": 1300.0,
+              "y": 80.0
+            },
+            "input_params": [
+              {
+                "param_name": "output",
+                "param_type": "string",
+                "value_mode": "reference",
+                "param_value": "",
+                "binding_id": "compare-results:output->save-output:output"
+              },
+              {
+                "param_name": "absolute_path",
+                "param_type": "string",
+                "value_mode": "manual",
+                "param_value": "/workspace/artifacts/porous_material_surface_area_comparison.csv",
+                "binding_id": ""
+              },
+              {
+                "param_name": "overwrite",
+                "param_type": "string",
+                "value_mode": "manual",
+                "param_value": "true",
+                "binding_id": ""
+              }
+            ],
+            "out_params": [
+              {
+                "param_name": "output",
+                "param_type": "file"
+              }
+            ]
+          }
+        ],
+        "bindings": [
+          {
+            "binding_id": "read-syngas:output->stat-syngas:input",
+            "from_node_id": "read-syngas",
+            "from_param_name": "output",
+            "to_node_id": "stat-syngas",
+            "to_param_name": "input"
+          },
+          {
+            "binding_id": "read-supercap:output->stat-supercap:input",
+            "from_node_id": "read-supercap",
+            "from_param_name": "output",
+            "to_node_id": "stat-supercap",
+            "to_param_name": "input"
+          },
+          {
+            "binding_id": "stat-supercap:output->compare-results:input_1",
+            "from_node_id": "stat-supercap",
+            "from_param_name": "output",
+            "to_node_id": "compare-results",
+            "to_param_name": "input_1"
+          },
+          {
+            "binding_id": "stat-syngas:output->compare-results:input_2",
+            "from_node_id": "stat-syngas",
+            "from_param_name": "output",
+            "to_node_id": "compare-results",
+            "to_param_name": "input_2"
+          },
+          {
+            "binding_id": "compare-results:output->save-output:output",
+            "from_node_id": "compare-results",
+            "from_param_name": "output",
+            "to_node_id": "save-output",
+            "to_param_name": "output"
+          }
+        ],
+        "source_node_ids": [
+          "read-syngas",
+          "read-supercap"
+        ],
+        "sink_node_ids": [
+          "save-output"
+        ]
+      }
+    },
+    {
+      "stage": "bind",
+      "status": "started"
+    },
+    {
+      "stage": "bind",
+      "status": "finished",
+      "center_of": {
+        "read-supercap": "10.0.90.94",
+        "read-syngas": "10.0.82.213",
+        "stat-supercap": "10.0.90.94",
+        "stat-syngas": "10.0.82.213",
+        "compare-results": "10.0.82.213",
+        "save-output": "10.0.82.213"
+      },
+      "reasons": {
+        "read-supercap": "显式标注 dataCenter，数据源节点，副本挑选 -> CHEM-CORPUS-K037（1 个副本中选中 CHEM-CORPUS-K037（数据源 10.0.90.94）；总分 1.000；与偏好数据源 10.0.90.94 一致，免跨源传输；优势项：locality=1.00、cpu_cores=1.00）",
+        "read-syngas": "显式标注 dataCenter，数据源节点，副本挑选 -> CH-CORPUS-B021（1 个副本中选中 CH-CORPUS-B021（数据源 10.0.82.213）；总分 1.000；与偏好数据源 10.0.82.213 一致，免跨源传输；优势项：locality=1.00、cpu_cores=1.00）",
+        "stat-supercap": "继承上游中心（数据就近）",
+        "stat-syngas": "继承上游中心（数据就近）",
+        "compare-results": "继承上游中心（数据就近）",
+        "save-output": "继承上游中心（数据就近）"
+      },
+      "replica_decisions": [
+        {
+          "dataset_alias": "supercap",
+          "dataset_id": "6a3206ad0365e61992090643",
+          "node_id": "read-supercap",
+          "preferred_center_id": "10.0.90.94",
+          "chosen": {
+            "replica_id": "CHEM-CORPUS-K037",
+            "source_id": "10.0.90.94",
+            "center_id": "10.0.90.94",
+            "locator": "6a3206ad0365e61992090643",
+            "status": "AVAILABLE",
+            "metrics": {
+              "cpu_cores": 4.0,
+              "memory_gb": 3.457378387451172,
+              "free_disk_gb": 189.5034408569336
+            }
+          },
+          "reason": "1 个副本中选中 CHEM-CORPUS-K037（数据源 10.0.90.94）；总分 1.000；与偏好数据源 10.0.90.94 一致，免跨源传输；优势项：locality=1.00、cpu_cores=1.00",
+          "scores": [
+            {
+              "replica_id": "CHEM-CORPUS-K037",
+              "center_id": "10.0.90.94",
+              "total": 1.0,
+              "parts": {
+                "locality": 1.0,
+                "cpu_cores": 1.0,
+                "memory_gb": 1.0
+              }
+            }
+          ],
+          "rejects": []
+        },
+        {
+          "dataset_alias": "syngas",
+          "dataset_id": "6a2f6e55a3472727522d5372",
+          "node_id": "read-syngas",
+          "preferred_center_id": "10.0.82.213",
+          "chosen": {
+            "replica_id": "CH-CORPUS-B021",
+            "source_id": "10.0.82.213",
+            "center_id": "10.0.82.213",
+            "locator": "6a2f6e55a3472727522d5372",
+            "status": "AVAILABLE",
+            "metrics": {
+              "cpu_cores": 8.0,
+              "memory_gb": 5.954185485839844,
+              "free_disk_gb": 168.7439308166504
+            }
+          },
+          "reason": "1 个副本中选中 CH-CORPUS-B021（数据源 10.0.82.213）；总分 1.000；与偏好数据源 10.0.82.213 一致，免跨源传输；优势项：locality=1.00、cpu_cores=1.00",
+          "scores": [
+            {
+              "replica_id": "CH-CORPUS-B021",
+              "center_id": "10.0.82.213",
+              "total": 1.0,
+              "parts": {
+                "locality": 1.0,
+                "cpu_cores": 1.0,
+                "memory_gb": 1.0
+              }
+            }
+          ],
+          "rejects": []
+        }
+      ]
+    },
+    {
+      "stage": "segment",
+      "status": "started"
+    },
+    {
+      "stage": "segment",
+      "status": "finished",
+      "segment_count": 2,
+      "cross_edge_count": 1,
+      "segments": {
+        "segments": [
+          {
+            "segment_id": "10.0.90.94#0",
+            "center_id": "10.0.90.94",
+            "level": 0,
+            "node_ids": [
+              "read-supercap",
+              "stat-supercap"
+            ]
+          },
+          {
+            "segment_id": "10.0.82.213#0",
+            "center_id": "10.0.82.213",
+            "level": 0,
+            "node_ids": [
+              "compare-results",
+              "read-syngas",
+              "save-output",
+              "stat-syngas"
+            ]
+          }
+        ],
+        "cross_edges": [
+          {
+            "binding_id": "stat-supercap:output->compare-results:input_1",
+            "from_node_id": "stat-supercap",
+            "from_param_name": "output",
+            "to_node_id": "compare-results",
+            "to_param_name": "input_1"
+          }
+        ]
+      }
+    },
+    {
+      "stage": "nest",
+      "status": "started"
+    },
+    {
+      "stage": "nest",
+      "status": "finished",
+      "depth": 2,
+      "nest_count": {
+        "10.0.82.213#0": 1,
+        "10.0.90.94#0": 1
+      },
+      "execution_dsl": {
+        "task": {
+          "dag_task_id": "xdc-405d8fb82675",
+          "dag_task_name": "多孔材料比表面积跨场景对比"
+        },
+        "nodes": [
+          {
+            "node_id": "read-syngas",
+            "node_name": "read_syngas",
+            "skill": {
+              "skill_id": "piflow_engine.cn.piflow.engine.local.corpus_dataset_source_stop.CorpusDatasetSourceStop",
+              "skill_name": "corpus_dataset_source_stop"
+            },
+            "input_params": [
+              {
+                "binding_id": "",
+                "param_name": "dataset_id",
+                "param_type": "string",
+                "value_mode": "manual",
+                "param_value": "6a2f6e55a3472727522d5372",
+                "value_source": "default"
+              }
+            ],
+            "out_params": [
+              {
+                "param_name": "output",
+                "param_type": "file_artifact"
+              }
+            ]
+          },
+          {
+            "node_id": "read-supercap",
+            "node_name": "read_supercap",
+            "skill": {
+              "skill_id": "piflow_engine.cn.piflow.engine.local.corpus_dataset_source_stop.CorpusDatasetSourceStop",
+              "skill_name": "corpus_dataset_source_stop"
+            },
+            "input_params": [
+              {
+                "binding_id": "",
+                "param_name": "dataset_id",
+                "param_type": "string",
+                "value_mode": "manual",
+                "param_value": "6a3206ad0365e61992090643",
+                "value_source": "default"
+              }
+            ],
+            "out_params": [
+              {
+                "param_name": "output",
+                "param_type": "file_artifact"
+              }
+            ]
+          },
+          {
+            "node_id": "stat-syngas",
+            "node_name": "stat_syngas",
+            "skill": {
+              "skill_id": "numeric_metric_topn_summary_1.0.0",
+              "skill_name": "numeric_metric_topn_summary"
+            },
+            "input_params": [
+              {
+                "binding_id": "",
+                "param_name": "dataset_label",
+                "param_type": "string",
+                "value_mode": "manual",
+                "param_value": "syngas_catalyst",
+                "value_source": "default"
+              },
+              {
+                "binding_id": "",
+                "param_name": "metric",
+                "param_type": "string",
+                "value_mode": "manual",
+                "param_value": "specific_surface_area",
+                "value_source": "default"
+              },
+              {
+                "binding_id": "",
+                "param_name": "order",
+                "param_type": "string",
+                "value_mode": "manual",
+                "param_value": "desc",
+                "value_source": "default"
+              },
+              {
+                "binding_id": "",
+                "param_name": "top_n",
+                "param_type": "string",
+                "value_mode": "manual",
+                "param_value": 30,
+                "value_source": "default"
+              },
+              {
+                "binding_id": "",
+                "param_name": "target_unit",
+                "param_type": "string",
+                "value_mode": "manual",
+                "param_value": "m2/g",
+                "value_source": "default"
+              }
+            ],
+            "out_params": [
+              {
+                "param_name": "output",
+                "param_type": "file_artifact"
+              }
+            ]
+          },
+          {
+            "node_id": "stat-supercap",
+            "node_name": "stat_supercap",
+            "skill": {
+              "skill_id": "numeric_metric_topn_summary_1.0.0",
+              "skill_name": "numeric_metric_topn_summary"
+            },
+            "input_params": [
+              {
+                "binding_id": "",
+                "param_name": "dataset_label",
+                "param_type": "string",
+                "value_mode": "manual",
+                "param_value": "supercap_electrode",
+                "value_source": "default"
+              },
+              {
+                "binding_id": "",
+                "param_name": "metric",
+                "param_type": "string",
+                "value_mode": "manual",
+                "param_value": "specific_surface_area",
+                "value_source": "default"
+              },
+              {
+                "binding_id": "",
+                "param_name": "order",
+                "param_type": "string",
+                "value_mode": "manual",
+                "param_value": "desc",
+                "value_source": "default"
+              },
+              {
+                "binding_id": "",
+                "param_name": "top_n",
+                "param_type": "string",
+                "value_mode": "manual",
+                "param_value": 30,
+                "value_source": "default"
+              },
+              {
+                "binding_id": "",
+                "param_name": "target_unit",
+                "param_type": "string",
+                "value_mode": "manual",
+                "param_value": "m2/g",
+                "value_source": "default"
+              }
+            ],
+            "out_params": [
+              {
+                "param_name": "output",
+                "param_type": "file_artifact"
+              }
+            ]
+          },
+          {
+            "node_id": "compare-results",
+            "node_name": "compare_results",
+            "skill": {
+              "skill_id": "metric_summary_compare_1.0.0",
+              "skill_name": "metric_summary_compare"
+            },
+            "input_params": [
+              {
+                "binding_id": "",
+                "param_name": "difference_order",
+                "param_type": "string",
+                "value_mode": "manual",
+                "param_value": "input_1-input_2",
+                "value_source": "default"
+              },
+              {
+                "binding_id": "",
+                "param_name": "output_file_name",
+                "param_type": "string",
+                "value_mode": "manual",
+                "param_value": "porous_material_surface_area_comparison.csv",
+                "value_source": "default"
+              }
+            ],
+            "out_params": [
+              {
+                "param_name": "output",
+                "param_type": "file_artifact"
+              }
+            ]
+          },
+          {
+            "node_id": "save-output",
+            "node_name": "save_output",
+            "skill": {
+              "skill_id": "piflow_engine.cn.piflow.engine.local.file_save_stop.FileSaveStop",
+              "skill_name": "file_save_stop"
+            },
+            "input_params": [
+              {
+                "binding_id": "",
+                "param_name": "absolute_path",
+                "param_type": "string",
+                "value_mode": "manual",
+                "param_value": "/workspace/artifacts/porous_material_surface_area_comparison.csv",
+                "value_source": "default"
+              },
+              {
+                "binding_id": "",
+                "param_name": "overwrite",
+                "param_type": "string",
+                "value_mode": "manual",
+                "param_value": "true",
+                "value_source": "default"
+              }
+            ],
+            "out_params": [
+              {
+                "param_name": "output",
+                "param_type": "file_artifact"
+              }
+            ]
+          }
+        ],
+        "edges": [
+          {
+            "edge_id": "edge-read-syngas-stat-syngas",
+            "from_node_id": "read-syngas",
+            "to_node_id": "stat-syngas"
+          },
+          {
+            "edge_id": "edge-read-supercap-stat-supercap",
+            "from_node_id": "read-supercap",
+            "to_node_id": "stat-supercap"
+          },
+          {
+            "edge_id": "edge-stat-supercap-compare-results",
+            "from_node_id": "stat-supercap",
+            "to_node_id": "compare-results"
+          },
+          {
+            "edge_id": "edge-stat-syngas-compare-results",
+            "from_node_id": "stat-syngas",
+            "to_node_id": "compare-results"
+          },
+          {
+            "edge_id": "edge-compare-results-save-output",
+            "from_node_id": "compare-results",
+            "to_node_id": "save-output"
+          }
+        ],
+        "bindings": [
+          {
+            "binding_id": "read-syngas:output->stat-syngas:input",
+            "from_node_id": "read-syngas",
+            "from_param_name": "output",
+            "to_node_id": "stat-syngas",
+            "to_param_name": "input"
+          },
+          {
+            "binding_id": "read-supercap:output->stat-supercap:input",
+            "from_node_id": "read-supercap",
+            "from_param_name": "output",
+            "to_node_id": "stat-supercap",
+            "to_param_name": "input"
+          },
+          {
+            "binding_id": "stat-supercap:output->compare-results:input_1",
+            "from_node_id": "stat-supercap",
+            "from_param_name": "output",
+            "to_node_id": "compare-results",
+            "to_param_name": "input_1"
+          },
+          {
+            "binding_id": "stat-syngas:output->compare-results:input_2",
+            "from_node_id": "stat-syngas",
+            "from_param_name": "output",
+            "to_node_id": "compare-results",
+            "to_param_name": "input_2"
+          },
+          {
+            "binding_id": "compare-results:output->save-output:output",
+            "from_node_id": "compare-results",
+            "from_param_name": "output",
+            "to_node_id": "save-output",
+            "to_param_name": "output"
+          }
+        ]
+      },
+      "nested_dsl": {
+        "task": {
+          "dag_task_id": "xdc-405d8fb82675",
+          "dag_task_name": "多孔材料比表面积跨场景对比"
+        },
+        "nodes": [
+          {
+            "node_id": "compare-results",
+            "node_name": "compare_results",
+            "skill": {
+              "skill_id": "metric_summary_compare_1.0.0",
+              "skill_name": "metric_summary_compare"
+            },
+            "input_params": [
+              {
+                "binding_id": "",
+                "param_name": "difference_order",
+                "param_type": "string",
+                "value_mode": "manual",
+                "param_value": "input_1-input_2",
+                "value_source": "default"
+              },
+              {
+                "binding_id": "",
+                "param_name": "output_file_name",
+                "param_type": "string",
+                "value_mode": "manual",
+                "param_value": "porous_material_surface_area_comparison.csv",
+                "value_source": "default"
+              }
+            ],
+            "out_params": [
+              {
+                "param_name": "output",
+                "param_type": "file_artifact"
+              }
+            ]
+          },
+          {
+            "node_id": "read-syngas",
+            "node_name": "read_syngas",
+            "skill": {
+              "skill_id": "piflow_engine.cn.piflow.engine.local.corpus_dataset_source_stop.CorpusDatasetSourceStop",
+              "skill_name": "corpus_dataset_source_stop"
+            },
+            "input_params": [
+              {
+                "binding_id": "",
+                "param_name": "dataset_id",
+                "param_type": "string",
+                "value_mode": "manual",
+                "param_value": "6a2f6e55a3472727522d5372",
+                "value_source": "default"
+              }
+            ],
+            "out_params": [
+              {
+                "param_name": "output",
+                "param_type": "file_artifact"
+              }
+            ]
+          },
+          {
+            "node_id": "save-output",
+            "node_name": "save_output",
+            "skill": {
+              "skill_id": "piflow_engine.cn.piflow.engine.local.file_save_stop.FileSaveStop",
+              "skill_name": "file_save_stop"
+            },
+            "input_params": [
+              {
+                "binding_id": "",
+                "param_name": "absolute_path",
+                "param_type": "string",
+                "value_mode": "manual",
+                "param_value": "/workspace/artifacts/porous_material_surface_area_comparison.csv",
+                "value_source": "default"
+              },
+              {
+                "binding_id": "",
+                "param_name": "overwrite",
+                "param_type": "string",
+                "value_mode": "manual",
+                "param_value": "true",
+                "value_source": "default"
+              }
+            ],
+            "out_params": [
+              {
+                "param_name": "output",
+                "param_type": "file_artifact"
+              }
+            ]
+          },
+          {
+            "node_id": "stat-syngas",
+            "node_name": "stat_syngas",
+            "skill": {
+              "skill_id": "numeric_metric_topn_summary_1.0.0",
+              "skill_name": "numeric_metric_topn_summary"
+            },
+            "input_params": [
+              {
+                "binding_id": "",
+                "param_name": "dataset_label",
+                "param_type": "string",
+                "value_mode": "manual",
+                "param_value": "syngas_catalyst",
+                "value_source": "default"
+              },
+              {
+                "binding_id": "",
+                "param_name": "metric",
+                "param_type": "string",
+                "value_mode": "manual",
+                "param_value": "specific_surface_area",
+                "value_source": "default"
+              },
+              {
+                "binding_id": "",
+                "param_name": "order",
+                "param_type": "string",
+                "value_mode": "manual",
+                "param_value": "desc",
+                "value_source": "default"
+              },
+              {
+                "binding_id": "",
+                "param_name": "top_n",
+                "param_type": "string",
+                "value_mode": "manual",
+                "param_value": 30,
+                "value_source": "default"
+              },
+              {
+                "binding_id": "",
+                "param_name": "target_unit",
+                "param_type": "string",
+                "value_mode": "manual",
+                "param_value": "m2/g",
+                "value_source": "default"
+              }
+            ],
+            "out_params": [
+              {
+                "param_name": "output",
+                "param_type": "file_artifact"
+              }
+            ]
+          },
+          {
+            "node_id": "remote-subdag-source-stat-supercap",
+            "node_name": "跨域执行_10.0.90.94",
+            "skill": {
+              "skill_id": "piflow_engine.cn.piflow.engine.local.remote_subdag_source_stop.RemoteSubDagSourceStop",
+              "skill_name": "remote_sub_dag_source_node",
+              "version": "1.0.0"
+            },
+            "input_params": [
+              {
+                "binding_id": "",
+                "param_name": "remote_grpc_target",
+                "param_type": "string",
+                "value_mode": "manual",
+                "param_value": "10.0.90.94:50061",
+                "value_source": "default"
+              },
+              {
+                "binding_id": "",
+                "param_name": "subdag_definition_json",
+                "param_type": "string",
+                "value_mode": "manual",
+                "param_value": "{\"task\": {\"dag_task_id\": \"xdc-405d8fb82675--10.0.90.94#0\", \"dag_task_name\": \"多孔材料比表面积跨场景对比 [10.0.90.94#0]\"}, \"nodes\": [{\"node_id\": \"read-supercap\", \"node_name\": \"read_supercap\", \"skill\": {\"skill_id\": \"piflow_engine.cn.piflow.engine.local.corpus_dataset_source_stop.CorpusDatasetSourceStop\", \"skill_name\": \"corpus_dataset_source_stop\"}, \"input_params\": [{\"binding_id\": \"\", \"param_name\": \"dataset_id\", \"param_type\": \"string\", \"value_mode\": \"manual\", \"param_value\": \"6a3206ad0365e61992090643\", \"value_source\": \"default\"}], \"out_params\": [{\"param_name\": \"output\", \"param_type\": \"file_artifact\"}]}, {\"node_id\": \"stat-supercap\", \"node_name\": \"stat_supercap\", \"skill\": {\"skill_id\": \"numeric_metric_topn_summary_1.0.0\", \"skill_name\": \"numeric_metric_topn_summary\"}, \"input_params\": [{\"binding_id\": \"\", \"param_name\": \"dataset_label\", \"param_type\": \"string\", \"value_mode\": \"manual\", \"param_value\": \"supercap_electrode\", \"value_source\": \"default\"}, {\"binding_id\": \"\", \"param_name\": \"metric\", \"param_type\": \"string\", \"value_mode\": \"manual\", \"param_value\": \"specific_surface_area\", \"value_source\": \"default\"}, {\"binding_id\": \"\", \"param_name\": \"order\", \"param_type\": \"string\", \"value_mode\": \"manual\", \"param_value\": \"desc\", \"value_source\": \"default\"}, {\"binding_id\": \"\", \"param_name\": \"top_n\", \"param_type\": \"string\", \"value_mode\": \"manual\", \"param_value\": 30, \"value_source\": \"default\"}, {\"binding_id\": \"\", \"param_name\": \"target_unit\", \"param_type\": \"string\", \"value_mode\": \"manual\", \"param_value\": \"m2/g\", \"value_source\": \"default\"}], \"out_params\": [{\"param_name\": \"output\", \"param_type\": \"file_artifact\"}]}], \"edges\": [{\"edge_id\": \"edge-read-supercap-stat-supercap\", \"from_node_id\": \"read-supercap\", \"to_node_id\": \"stat-supercap\"}], \"bindings\": [{\"binding_id\": \"read-supercap:output->stat-supercap:input\", \"from_node_id\": \"read-supercap\", \"from_param_name\": \"output\", \"to_node_id\": \"stat-supercap\", \"to_param_name\": \"input\"}]}",
+                "value_source": "default"
+              },
+              {
+                "binding_id": "",
+                "param_name": "result_node_id",
+                "param_type": "string",
+                "value_mode": "manual",
+                "param_value": "stat-supercap",
+                "value_source": "default"
+              },
+              {
+                "binding_id": "",
+                "param_name": "result_output_name",
+                "param_type": "string",
+                "value_mode": "manual",
+                "param_value": "output",
+                "value_source": "default"
+              },
+              {
+                "binding_id": "",
+                "param_name": "wait_timeout_seconds",
+                "param_type": "string",
+                "value_mode": "manual",
+                "param_value": "3600",
+                "value_source": "default"
+              }
+            ],
+            "out_params": [
+              {
+                "param_name": "output",
+                "param_type": "file_artifact"
+              }
+            ],
+            "node_type": "synthetic_remote_source",
+            "position": {
+              "x": 0.0,
+              "y": 0.0
+            },
+            "icon_path": ""
+          }
+        ],
+        "edges": [
+          {
+            "edge_id": "edge-read-syngas-stat-syngas",
+            "from_node_id": "read-syngas",
+            "to_node_id": "stat-syngas"
+          },
+          {
+            "edge_id": "edge-stat-syngas-compare-results",
+            "from_node_id": "stat-syngas",
+            "to_node_id": "compare-results"
+          },
+          {
+            "edge_id": "edge-compare-results-save-output",
+            "from_node_id": "compare-results",
+            "to_node_id": "save-output"
+          },
+          {
+            "edge_id": "edge-remote-subdag-source-stat-supercap-compare-results",
+            "from_node_id": "remote-subdag-source-stat-supercap",
+            "to_node_id": "compare-results"
+          }
+        ],
+        "bindings": [
+          {
+            "binding_id": "read-syngas:output->stat-syngas:input",
+            "from_node_id": "read-syngas",
+            "from_param_name": "output",
+            "to_node_id": "stat-syngas",
+            "to_param_name": "input"
+          },
+          {
+            "binding_id": "stat-syngas:output->compare-results:input_2",
+            "from_node_id": "stat-syngas",
+            "from_param_name": "output",
+            "to_node_id": "compare-results",
+            "to_param_name": "input_2"
+          },
+          {
+            "binding_id": "compare-results:output->save-output:output",
+            "from_node_id": "compare-results",
+            "from_param_name": "output",
+            "to_node_id": "save-output",
+            "to_param_name": "output"
+          },
+          {
+            "binding_id": "remote-subdag-source-stat-supercap:output->compare-results:input_1",
+            "from_node_id": "remote-subdag-source-stat-supercap",
+            "from_param_name": "output",
+            "to_node_id": "compare-results",
+            "to_param_name": "input_1"
+          }
+        ]
+      }
+    },
+    {
+      "stage": "validate",
+      "status": "started"
+    },
+    {
+      "stage": "validate",
+      "status": "finished",
+      "report": {
+        "ok": true,
+        "errors": [],
+        "warnings": []
+      }
+    }
+  ]
+}
