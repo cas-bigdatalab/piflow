@@ -274,6 +274,25 @@ def get_workflow_field_count(user_id: str = None):
     except Exception as e:
         raise RuntimeError("get_workflow_field_count failed") from e
 
+def get_workflow_template_for_run(template_id: str) -> dict:
+    if not template_id:
+        return None
+    try:
+        with closing(get_connection()) as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                cursor.execute(
+                    """
+                    SELECT template_id, template_json, publisher, author_id, is_deleted
+                    FROM workflow_template
+                    WHERE template_id = %s
+                    """,
+                    (template_id,),
+                )
+                row = cursor.fetchone()
+                return row
+    except Exception as e:
+        raise RuntimeError("get_workflow_template_for_run failed") from e
+
 def delete_workflow_template_by_template_id(template_id: str, user_id) -> bool:
     if template_id == "" or template_id is None or user_id == "" or user_id is None:
         return False

@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from fastapi import Depends
+from fastapi import Body, Depends
 from fastapi import HTTPException, Query
 
 from enums.workflow_template_enums import TEMPLATE_TAG_VALUES
@@ -10,6 +10,7 @@ from services.workflow_template_service import list_workflow_templates_by_params
 from services.workflow_template_service import get_workflow_template_fields_info
 from services.workflow_template_service import get_workflow_template_detail_info
 from services.workflow_template_service import remove_workflow_template
+from services.workflow_template_service import run_workflow_template
 
 router = APIRouter()
 
@@ -23,6 +24,7 @@ async def create_workflow_template(
             user_id=current_user["user_id"],
             user_name=current_user["user_name"],
             template_name=req.template_name,
+            dag_task_id=req.dag_task_id,
             description=req.description,
             template_json=req.template_json,
             disciplinary_field=req.disciplinary_field,
@@ -34,6 +36,30 @@ async def create_workflow_template(
             "message": "workflow template created",
             "data": result
         }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/workflow_templates/run")
+async def run_workflow_template_api(
+    current_user=Depends(get_current_user),
+    template_id: str = Body(..., description="流水线模板id"),
+):
+    try:
+        result = run_workflow_template(
+            user_id=current_user["user_id"],
+            template_id=template_id,
+        )
+        return {
+            "message": "success",
+            "result": result,
+            "code": 200,
+        }
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
