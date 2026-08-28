@@ -568,6 +568,33 @@ def list_public_snapshots(*, task_id: str) -> list[dict[str, Any]]:
             return [dict(row) for row in cursor.fetchall()]
 
 
+def list_session_bound_views(
+    *, session_id: str, user_id: str
+) -> list[dict[str, Any]]:
+    """Return each task's current frontend view after replica binding."""
+    _ensure_schema()
+    with closing(get_connection()) as conn:
+        with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+            cursor.execute(
+                """
+                SELECT t.task_id, snapshot.payload_json
+                FROM xdc_task t
+                JOIN xdc_session s ON s.session_id = t.session_id
+                JOIN xdc_task_snapshot snapshot
+                  ON snapshot.task_id = t.task_id
+                 AND snapshot.revision = t.plan_revision
+                 AND snapshot.snapshot_type = 'BOUND_VIEW'
+                 AND snapshot.is_current = 1
+                WHERE t.session_id = %s
+                  AND s.user_id = %s
+                  AND s.is_deleted = 0
+                ORDER BY t.task_order, t.id
+                """,
+                (session_id, user_id),
+            )
+            return [dict(row) for row in cursor.fetchall()]
+
+
 def save_session_item(
     *,
     item_key: str,

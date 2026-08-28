@@ -164,6 +164,20 @@ class _MemoryRepository:
             and kind in {"PRE_BIND_VIEW", "BOUND_VIEW", "EXECUTION", "RESULT"}
         ]
 
+    def list_session_bound_views(self, *, session_id, user_id):
+        if self.get_session(session_id=session_id, user_id=user_id) is None:
+            return []
+        current = []
+        for task in self.tasks.values():
+            if task["session_id"] != session_id:
+                continue
+            snapshot = self.snapshots.get(
+                (task["task_id"], int(task.get("plan_revision") or 1), "BOUND_VIEW")
+            )
+            if snapshot is not None:
+                current.append(dict(snapshot))
+        return current
+
     def save_session_item(self, *, item_key, **values):
         item = {"item_id": len(self.items) + 1, "item_key": item_key, **values}
         if item_key in self.items:
@@ -194,6 +208,7 @@ def memory_repository(monkeypatch):
         "save_snapshot",
         "get_snapshot",
         "list_public_snapshots",
+        "list_session_bound_views",
         "save_session_item",
         "list_session_items",
     )
@@ -441,6 +456,44 @@ def test_task_detail_is_user_scoped(memory_repository):
             task_id="task-private",
             user_id="user-2",
         )
+
+
+def test_session_detail_restores_bound_execution_node_center_names(
+    memory_repository,
+):
+    task_id = "task-bound"
+    memory_repository.tasks[task_id] = {
+        "task_id": task_id,
+        "session_id": "session-1",
+        "status": "COMPLETED",
+        "plan_revision": 1,
+    }
+    memory_repository.save_snapshot(
+        task_id=task_id,
+        revision=1,
+        snapshot_type="BOUND_VIEW",
+        payload={
+            "dag": {
+                "nodes": [
+                    {
+                        "id": "read-corpus",
+                        "center_id": "center-a",
+                        "center_name": "化学化工领域科学数据中心",
+                    }
+                ],
+                "edges": [],
+            }
+        },
+    )
+
+    result = xdc_session_service.get_xdc_session_detail(
+        session_id="session-1",
+        user_id="user-1",
+    )
+
+    assert result["tasks"][0]["execution_dag"]["nodes"][0]["center_name"] == (
+        "化学化工领域科学数据中心"
+    )
 
 
 def test_session_list_serializes_database_times_as_explicit_utc(monkeypatch):
