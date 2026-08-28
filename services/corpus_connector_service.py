@@ -420,7 +420,7 @@ def create_rustfs_temporary_credentials(
 def build_rustfs_mount_info(
     file_name: str,
     *,
-    ttl: str = "5m",
+    ttl: str = "2h",
 ) -> dict[str, Any]:
     normalized_input_file_name = _normalize_required_text(file_name, field_name="fileName")
     mount_file_name = _normalize_mount_file_name(normalized_input_file_name)
