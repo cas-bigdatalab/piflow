@@ -184,14 +184,26 @@ def _map_connector(
             # 直接标成不可用会让本来能跑的任务无处可去。
             log.warning("连接器 %s(%s) 资源探测失败，副本打分将按最差资源计", connector_id, host)
 
-    name = _first_text(raw, "name", "connectorName", "sourceName") or connector_id or host
+    institution = _first_text(
+        raw,
+        "institution",
+        "institutionName",
+        "organization",
+        "organizationName",
+        "orgName",
+        "companyName",
+        "fromName",
+    )
+    connector_name = _first_text(raw, "name", "connectorName", "sourceName")
+    name = institution or connector_name or connector_id or host
     aliases = tuple(
         dict.fromkeys(
             x
             for x in (
                 connector_id,
+                connector_name,
+                institution,
                 name,
-                _first_text(raw, "organization", "organizationName", "orgName"),
             )
             if x
         )

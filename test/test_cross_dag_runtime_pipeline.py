@@ -150,6 +150,7 @@ def test_corpus_registry_normalizes_connector_reference_without_fixed_ips() -> N
         {
             "connectorId": "connector-any",
             "connectorName": "Dynamic",
+            "institution": "Dynamic Institute",
             "serverUrl": "http://node.example:7004/api",
             "grpcPort": 61234,
         }
@@ -174,13 +175,14 @@ def test_corpus_registry_normalizes_connector_reference_without_fixed_ips() -> N
     dataset = registry.list_datasets()[0]
     assert source.source_id == "connector-any"
     assert source.center_id == "node.example"
+    assert source.name == "Dynamic Institute"
+    assert "Dynamic" in source.aliases
     assert source.grpc_endpoint == "node.example:61234"
     assert dataset.replicas[0].source_ip == "node.example"
     assert dataset.replicas[0].replica_id == "replica-any"
     assert dataset.facets == {"domain": ("science", "engineering")}
     assert dataset.source_skill == CORPUS
     assert dataset.source_param == "dataset_id"
-
     catalog = build_dataset_catalog(registry)
     access = catalog[0]["读取契约"]
     assert access == {
@@ -189,6 +191,21 @@ def test_corpus_registry_normalizes_connector_reference_without_fixed_ips() -> N
         "param_value": "dataset://dataset-any",
         "output_param": "output",
     }
+
+
+def test_corpus_registry_uses_connector_name_when_institution_is_missing() -> None:
+    source = _map_connector(
+        {
+            "connectorId": "connector-fallback",
+            "name": "Connector Fallback",
+            "serviceUrl": "http://fallback.example:7004",
+        },
+        grpc_port=50061,
+        probe=False,
+    )
+
+    assert source is not None
+    assert source.name == "Connector Fallback"
 
 
 def test_corpus_registry_expands_multi_connector_dataset_into_replicas() -> None:
