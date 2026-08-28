@@ -44,7 +44,7 @@ class CrossDagExecutionNotReady(RuntimeError):
 
 
 class DirectDatasetSelectionRequired(CrossDagError):
-    """A direct pre-bind plan must receive an explicit dataset choice."""
+    """A direct pre-bind plan has no dataset candidate to execute."""
 
 
 class InvalidDirectDatasetSelection(CrossDagError):
@@ -55,21 +55,26 @@ def validate_direct_dataset_selection(
     pre_bind: CrossDagPreBindPlan,
     selected_dataset_id: str | None,
 ) -> str:
-    """Validate a Direct dataset choice without changing task or plan state."""
+    """Resolve a Direct dataset choice without changing task or plan state."""
     if pre_bind.mode != MODE_DIRECT:
         return ""
 
     normalized = str(selected_dataset_id or "").strip()
+    matches = list(pre_bind.satisfaction.full_matches)
+    ordered = [item for item in matches if item.selected] + [
+        item for item in matches if not item.selected
+    ]
     candidate_ids = [
         coverage.dataset_id
-        for coverage in pre_bind.satisfaction.full_matches
+        for coverage in ordered
         if coverage.dataset_id
     ]
-    if not normalized:
+    if not candidate_ids:
         raise DirectDatasetSelectionRequired(
-            "Direct 模式需要先选择数据集；"
-            f"可选 dataset_id：{candidate_ids}"
+            "Direct 模式没有可执行的完整匹配候选数据集"
         )
+    if not normalized:
+        return candidate_ids[0]
     if normalized not in candidate_ids:
         raise InvalidDirectDatasetSelection(
             f"所选数据集 {normalized} 不在 Direct 完整匹配候选中；"
@@ -1324,7 +1329,8 @@ def _direct_dataset_selection_view(
             }
         )
     return {
-        "required": True,
+        "required": False,
+        "default_dataset_id": candidates[0]["dataset_id"] if candidates else None,
         "selected_dataset_id": None,
         "candidate_count": len(candidates),
         "candidates": candidates,

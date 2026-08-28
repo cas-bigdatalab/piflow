@@ -365,8 +365,7 @@ def build_direct_plan(
     if not matches:
         raise CrossDagError("直接获取要求存在完整满足需求的数据集，但满足分析没有给出")
 
-    # 两阶段 Direct 接口会传入用户明确选择的数据集。未传时保留原有排序，供
-    # 一阶段只规划接口继续生成可预览方案；真正提交执行前由 service 强制校验选择。
+    # 两阶段 Direct 接口可传入用户明确选择的数据集；未传时按候选排序使用第一个。
     ordered = [c for c in matches if c.selected] + [c for c in matches if not c.selected]
     normalized_dataset_id = str(selected_dataset_id or "").strip()
     if normalized_dataset_id:

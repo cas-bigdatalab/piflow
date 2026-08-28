@@ -24,5 +24,5 @@ class XdcTaskBindExecuteRequest(BaseModel):
     selected_dataset_id: str | None = Field(
         default=None,
         max_length=128,
-        description="Direct 模式必填：用户从绑定前候选中选择的数据集 ID",
+        description="Direct 模式可选：不传时默认使用绑定前候选中的第一个数据集",
     )

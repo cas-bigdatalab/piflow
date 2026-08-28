@@ -314,7 +314,15 @@ def test_direct_pre_bind_summary_exposes_all_full_match_datasets(monkeypatch):
     result = cross_dag_service._summarize_pre_bind(pre_bind)
 
     selection = result["dataset_selection"]
-    assert selection["required"] is True
+    assert cross_dag_service.validate_direct_dataset_selection(pre_bind, None) == (
+        "dataset-a"
+    )
+    assert cross_dag_service.validate_direct_dataset_selection(
+        pre_bind,
+        "dataset-b",
+    ) == "dataset-b"
+    assert selection["required"] is False
+    assert selection["default_dataset_id"] == "dataset-a"
     assert selection["selected_dataset_id"] is None
     assert selection["candidate_count"] == 2
     assert [item["dataset_id"] for item in selection["candidates"]] == [

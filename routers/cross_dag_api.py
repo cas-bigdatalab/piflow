@@ -136,7 +136,7 @@ async def bind_and_execute_cross_dag_pre_bind_api(
     selected_dataset_id: str | None = Body(
         None,
         embed=True,
-        description="Direct 模式必填：用户选择的数据集 ID",
+        description="Direct 模式可选：不传时默认使用第一个候选数据集",
     ),
 ):
     """完成副本绑定、DAG 划分和嵌套校验，并立即提交执行。"""
@@ -164,7 +164,7 @@ async def stream_bind_and_execute_cross_dag_pre_bind_api(
     selected_dataset_id: str | None = Body(
         None,
         embed=True,
-        description="Direct 模式必填：用户选择的数据集 ID",
+        description="Direct 模式可选：不传时默认使用第一个候选数据集",
     ),
 ):
     """SSE 推送副本选择、跨域编译、校验和提交过程。"""
