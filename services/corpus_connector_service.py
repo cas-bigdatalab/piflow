@@ -420,7 +420,7 @@ def create_rustfs_temporary_credentials(
 def build_rustfs_mount_info(
     file_name: str,
     *,
-    ttl: str = "5m",
+    ttl: str = "2h",
 ) -> dict[str, Any]:
     normalized_input_file_name = _normalize_required_text(file_name, field_name="fileName")
     mount_file_name = _normalize_mount_file_name(normalized_input_file_name)
@@ -456,7 +456,7 @@ def build_rustfs_mount_info(
             f"export RCLONE_CONFIG_MOUNTTMP_ACCESS_KEY_ID='{access_key}'",
             f"export RCLONE_CONFIG_MOUNTTMP_SECRET_ACCESS_KEY='{secret_key}'",
             "export RCLONE_CONFIG_MOUNTTMP_ENDPOINT='http://10.0.85.201:9000'",
-            "export RCLONE_CONFIG_MOUNTTMP_REGION='us-east-1'",
+            "export RCLONE_CONFIG_MOUNTTMP_REGION='cn-east-1'",
             "",
             "# 创建本地目录",
             mkdir_command,
@@ -480,7 +480,7 @@ def build_rustfs_mount_info(
             "RCLONE_CONFIG_MOUNTTMP_ACCESS_KEY_ID": access_key,
             "RCLONE_CONFIG_MOUNTTMP_SECRET_ACCESS_KEY": secret_key,
             "RCLONE_CONFIG_MOUNTTMP_ENDPOINT": "http://10.0.85.201:9000",
-            "RCLONE_CONFIG_MOUNTTMP_REGION": "us-east-1",
+            "RCLONE_CONFIG_MOUNTTMP_REGION": "cn-east-1",
         },
         "commands": {
             "installRclone": install_command,
