@@ -331,6 +331,24 @@ def test_direct_pre_bind_summary_exposes_all_full_match_datasets(monkeypatch):
     ]
     assert selection["candidates"][0]["recommended"] is True
     assert selection["candidates"][1]["coverage"]["full_match"] is True
+    assert [item["dataset_id"] for item in result["datasets"]] == [
+        "dataset-a",
+        "dataset-b",
+    ]
+    assert result["datasets"][0]["description"] == ""
+    assert result["datasets"][0]["recommended"] is True
+    assert result["datasets"][0]["coverage"]["full_match"] is True
+    assert result["datasets"][0]["replica_count"] == 1
+    assert result["datasets"][0]["available_replica_count"] == 1
+    assert result["datasets"][0]["replicas"] == [
+        {
+            "replica_id": "replica-1",
+            "center_id": "center-a",
+            "center_name": "center-a",
+            "status": "AVAILABLE",
+            "metrics": {},
+        }
+    ]
     assert result["next_action"]["body"] == {
         "plan_id": "xdc-direct-pre",
         "selected_dataset_id": None,
