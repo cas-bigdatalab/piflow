@@ -69,6 +69,19 @@ def get_xdc_session_detail(
 ) -> dict[str, Any]:
     session = _require_session(session_id=session_id, user_id=user_id)
     tasks = repository.list_tasks(session_id=session_id, user_id=str(user_id))
+    bound_views = {
+        str(row["task_id"]): dict(row.get("payload_json") or {})
+        for row in repository.list_session_bound_views(
+            session_id=session_id,
+            user_id=str(user_id),
+        )
+    }
+    for task in tasks:
+        bound_view = bound_views.get(str(task.get("task_id") or ""), {})
+        execution_dag = bound_view.get("dag")
+        task["execution_dag"] = (
+            execution_dag if isinstance(execution_dag, dict) else None
+        )
     items = [
         _public_item(item)
         for item in repository.list_session_items(

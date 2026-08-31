@@ -1194,6 +1194,19 @@ def _summarize_pre_bind(
         center = config.centers.get(center_id)
         return center.center_name if center else center_id
 
+    def replica_view(replica: Any) -> dict[str, Any]:
+        center_id = str(
+            getattr(replica, "center_id", "")
+            or getattr(replica, "source_ip", "")
+        )
+        return {
+            "replica_id": replica.replica_id,
+            "center_id": center_id,
+            "center_name": center_name(center_id),
+            "status": replica.status,
+            "metrics": dict(replica.metrics),
+        }
+
     datasets = []
     for dataset in pre_bind.intent.datasets:
         datasets.append(
@@ -1201,16 +1214,7 @@ def _summarize_pre_bind(
                 "dataset_id": dataset.dataset_id,
                 "name": dataset.name,
                 "facets": {key: list(values) for key, values in dataset.facets.items()},
-                "replicas": [
-                    {
-                        "replica_id": replica.replica_id,
-                        "center_id": replica.center_id,
-                        "center_name": center_name(replica.center_id),
-                        "status": replica.status,
-                        "metrics": dict(replica.metrics),
-                    }
-                    for replica in dataset.replicas
-                ],
+                "replicas": [replica_view(replica) for replica in dataset.replicas],
             }
         )
 
@@ -1261,7 +1265,27 @@ def _summarize_pre_bind(
         },
     }
     if pre_bind.mode == MODE_DIRECT:
-        view["dataset_selection"] = _direct_dataset_selection_view(pre_bind)
+        selection = _direct_dataset_selection_view(pre_bind)
+        view["dataset_selection"] = selection
+        intent_datasets = {
+            dataset.dataset_id: dataset for dataset in pre_bind.intent.datasets
+        }
+        registry = get_registry()
+        direct_datasets = []
+        for candidate in selection["candidates"]:
+            dataset_id = str(candidate.get("dataset_id") or "")
+            dataset = (
+                intent_datasets.get(dataset_id)
+                or registry.get_dataset(dataset_id)
+            )
+            item = dict(candidate)
+            item["replicas"] = (
+                [replica_view(replica) for replica in dataset.replicas]
+                if dataset is not None
+                else []
+            )
+            direct_datasets.append(item)
+        view["datasets"] = direct_datasets
         view["next_action"]["body"]["selected_dataset_id"] = None
     if detail:
         view["detail"] = {

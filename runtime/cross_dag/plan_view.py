@@ -91,7 +91,7 @@ def stage_brief(stage: str, payload: dict[str, Any]) -> dict[str, Any]:
         intent = payload.get("intent") or {}
         summary = (
             f"识别出 {len(intent.get('requirements') or [])} 项需求条件"
-            f" · 命中 {len(intent.get('datasets') or [])} 个数据集"
+            f" · 初步关联 {len(intent.get('datasets') or [])} 个数据集"
         )
     elif stage in ("satisfaction", "unavailable"):
         summary = str(payload.get("reason") or "")
