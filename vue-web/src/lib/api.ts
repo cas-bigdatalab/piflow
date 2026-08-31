@@ -1184,3 +1184,127 @@ export async function streamChatSkill(
     }
   }
 }
+
+// ==================== 工作流模板 API ====================
+
+export interface WorkflowTemplateInfo {
+  id?: number;
+  template_id: string;
+  template_name: string;
+  description?: string;
+  template_json?: any;
+  disciplinary_field?: string;
+  publisher?: string;
+  tags?: string[];
+  author_id?: string;
+  author_name?: string;
+  version?: string;
+  is_deleted?: number;
+  create_time?: string;
+  update_time?: string;
+}
+
+export interface WorkflowTemplateListResponse {
+  code: number;
+  message: string;
+  data: {
+    total: number;
+    page?: number;
+    page_size?: number;
+    data: Array<{
+      disciplinary_field: string;
+      templateList: WorkflowTemplateInfo[];
+    }>;
+  };
+}
+
+export interface WorkflowTemplateFieldsResponse {
+  code: number;
+  message: string;
+  data: Array<{
+    disciplinary_field: string;
+    count: number;
+  }>;
+}
+
+export interface WorkflowTemplateTagsResponse {
+  code: number;
+  message: string;
+  data: string[];
+}
+
+export interface RunWorkflowTemplateResponse {
+  code: number;
+  message: string;
+  result: {
+    dag_task_id: string;
+    process_id: string;
+    status: string;
+  };
+}
+
+export async function listWorkflowTemplates(
+  page?: number,
+  page_size?: number,
+  keyword?: string,
+  disciplinary_field?: string,
+  publisher?: string,
+) {
+  const sp = new URLSearchParams();
+  if (page !== undefined) sp.set('page', String(page));
+  if (page_size !== undefined) sp.set('page_size', String(page_size));
+  if (keyword) sp.set('keyword', keyword);
+  if (disciplinary_field) sp.set('disciplinary_field', disciplinary_field);
+  if (publisher) sp.set('publisher', publisher);
+  return apiFetch<WorkflowTemplateListResponse>(
+    `/workflow_templates/list?${sp.toString()}`
+  );
+}
+
+export async function getWorkflowTemplateFields() {
+  return apiFetch<WorkflowTemplateFieldsResponse>('/workflow_templates/fields');
+}
+
+export async function getWorkflowTemplateTags() {
+  return apiFetch<WorkflowTemplateTagsResponse>('/workflow_templates/get_tags');
+}
+
+export async function createWorkflowTemplate(params: {
+  template_name: string;
+  description?: string;
+  dag_task_id?: string;
+  template_json?: any;
+  disciplinary_field?: string;
+  tags?: string[];
+  version?: string;
+  db_id?: number;
+}) {
+  return apiFetch<{ code: number; message: string; data: any }>(
+    '/workflow_templates/create_template',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(params),
+    }
+  );
+}
+
+export async function deleteWorkflowTemplate(template_id: string) {
+  return apiFetch<{ code: number; message: string; data: any }>(
+    `/workflow_templates/delete/${template_id}`,
+    {
+      method: 'POST',
+    }
+  );
+}
+
+export async function runWorkflowTemplate(template_id: string) {
+  return apiFetch<RunWorkflowTemplateResponse>(
+    '/workflow_templates/run',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(template_id),
+    }
+  );
+}
