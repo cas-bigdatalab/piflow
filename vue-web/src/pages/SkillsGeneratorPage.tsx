@@ -14,6 +14,15 @@ const OperatorGenerator = () => {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [threadId, setThreadId] = useState('');
+  // 页面级 thread_id：仅在组件挂载（进入/刷新页面）时生成一次，
+  // 同一页面内的连续对话始终复用同一个 thread_id，刷新或重新进入才会变化。
+  const threadIdRef = useRef<string>('');
+  if (!threadIdRef.current) {
+    threadIdRef.current = `t_${shortId()}`;
+  }
+  useEffect(() => {
+    setThreadId(threadIdRef.current);
+  }, []);
   const [previewData, setPreviewData] = useState(null); // 👈 新增这行
   //预览算子抽屉弹框
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -58,8 +67,8 @@ const OperatorGenerator = () => {
     setMessages((prev) => [...prev, userMessage]);
 
     const userId = localStorage.getItem('userId') || 'u_default';
-    const advisorSessionId = `t_${shortId()}`;
-    setThreadId(advisorSessionId)
+    // 复用页面级 thread_id，保证同一页面内连续对话使用同一会话
+    const advisorSessionId = threadIdRef.current;
 
     try {
       const res = await streamMessages(userId, advisorSessionId, inputValue.trim());

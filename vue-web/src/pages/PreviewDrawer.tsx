@@ -105,6 +105,7 @@ interface OperatorData {
   outputs: OperatorParam[];
   skillJson: any;
   file_tree: FileNode; // 替代原来的 fileStructure: string[]
+  file_path?: string;  // 算子根目录路径，用于拼接各文件的完整 path
 }
 
 interface RenderTreeOptions {
@@ -190,18 +191,21 @@ const PreviewDrawer = ({ isOpen, onClose, previewData }: PreviewDrawerProps) => 
     setIsDrawerFullscreen(!isDrawerFullscreen);
   };
 
-  const handleFileSelect  = async (fileName: string) => {
+  const handleFileSelect  = async (fileName: string, fullPath: string) => {
     setActiveFile(fileName);
-    
-    if (!previewData?.skill_id || !data?.file_path) {
+
+    if (!previewData?.skill_id || !fullPath) {
       setCodeContent('');
       setOriginalCodeContent('');
       return;
     }
 
+    // 记录当前选中文件的完整路径，供保存等操作复用
+    setFilePath(fullPath);
+
     try {
       setLoading(true);
-      const res = await getSkillFile(previewData.skill_id,filePath);
+      const res = await getSkillFile(previewData.skill_id, fullPath);
       
       if (res?.code === 200 && res.result) {
         const content = res.result.content || '';
@@ -271,7 +275,11 @@ const PreviewDrawer = ({ isOpen, onClose, previewData }: PreviewDrawerProps) => 
                 data.file_tree,
                 0,                     // depth
                 activeFile,            // 当前激活的文件名
-                handleFileSelect       // 文件点击回调
+                handleFileSelect,      // 文件点击回调
+                // 拼接路径的根锚点：取 file_path 的父目录，
+                // 使文件树顶层节点（算子文件夹）重新拼回，得到与后端一致的完整路径，
+                // 例如 skills/generated/xxx/scripts/run.py
+                (data.file_path || filePath).replace(/\/[^/]*$/, '')
               )
             ) : (
               <div className="text-sm text-gray-500 italic">加载中...</div>
@@ -291,7 +299,7 @@ const PreviewDrawer = ({ isOpen, onClose, previewData }: PreviewDrawerProps) => 
                         ? 'bg-[#1e1e2e] border-blue-500 text-white' 
                         : 'border-transparent hover:bg-[#1e1e2e]'
                     }`}
-                    onClick={() => handleFileSelect(tab)}
+                    onClick={() => handleFileSelect(tab, filePath)}
                   >
                     {tab}
                   </div>
@@ -366,14 +374,22 @@ const renderPreviewFileTree = (
   node: any,
   depth: number = 0,
   activeFile: string,
-  onFileClick: (fileName: string) => void
+  onFileClick: (fileName: string, fullPath: string) => void,
+  parentPath: string = ''
 ) => {
   const isDir = node.type === 'directory';
   const hasChildren = node.children && node.children.length > 0;
   const indent = depth * 12 + 8;
 
+  // 计算当前节点的完整路径：
+  // 1) 后端若直接返回 node.path 则优先使用，最贴合服务端预期；
+  // 2) 否则根据树层级拼接（父路径 / 当前节点名）。
+  const currentPath =
+    node.path ||
+    (parentPath ? `${parentPath}/${node.name}` : node.name);
+
   return (
-    <div key={node.name} className="space-y-1">
+    <div key={currentPath} className="space-y-1">
       <div
         className={`flex items-center py-1.5 px-2 rounded cursor-pointer text-sm ${
           node.name === activeFile
@@ -383,7 +399,7 @@ const renderPreviewFileTree = (
         style={{ paddingLeft: `${indent}px` }}
         onClick={() => {
           if (!isDir) {
-            onFileClick(node.name); // ✅ 安全调用
+            onFileClick(node.name, currentPath); // ✅ 传入当前文件的完整路径
           }
         }}
       >
@@ -398,7 +414,7 @@ const renderPreviewFileTree = (
       {hasChildren && (
         <div>
           {node.children.map((child: any) =>
-            renderPreviewFileTree(child, depth + 1, activeFile, onFileClick)
+            renderPreviewFileTree(child, depth + 1, activeFile, onFileClick, currentPath)
           )}
         </div>
       )}

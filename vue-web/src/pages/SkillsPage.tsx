@@ -72,7 +72,9 @@ export function SkillsPage() {
     setLoading(true);
     setError("");
 
-    listSkills(1, 200, keyword, skill_type, "COMMUNITY")
+    // 根据当前所在页签决定请求的 publisher，避免删除后刷新错拿到社区数据
+    const publisher = activeTab === "社区生态" ? "COMMUNITY" : "PRIVATE";
+    listSkills(1, 200, keyword, skill_type, publisher)
       .then((response) => {
         if (response.code !== 200) {
           setError(response.message || "我的算子列表加载失败");
@@ -100,7 +102,7 @@ export function SkillsPage() {
       .finally(() => {
         setLoading(false);
       });
-  }, [activeCategory, keyword]);
+  }, [activeCategory, keyword, activeTab]);
   // 加载分类列表（完全保留你的原始逻辑）
   useEffect(() => {
     let alive = true;
