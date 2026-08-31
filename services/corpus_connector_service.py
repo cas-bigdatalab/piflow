@@ -444,7 +444,8 @@ def build_rustfs_mount_info(
         f"  {mount_path} \\\n"
         f"  --include '/{mount_file_name}' \\\n"
         "  --vfs-cache-mode full \\\n"
-        "  --read-only"
+        "  --read-only \\\n"
+        "  --daemon"
     )
     script = "\n".join(
         [
