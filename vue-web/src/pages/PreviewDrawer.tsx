@@ -86,6 +86,7 @@ interface PreviewDrawerProps {
     isOpen: boolean;
     onClose: () => void;
     previewData: Record<string, any> | null;// 或更具体的类型
+    onSaved?: () => void; // 保存到我的空间成功后的回调（关闭抽屉、推进步骤等）
 }
 interface OperatorData {
   id: string;
@@ -115,7 +116,7 @@ interface RenderTreeOptions {
   onFileClick: (fileName: string) => void;
 }
 
-const PreviewDrawer = ({ isOpen, onClose, previewData }: PreviewDrawerProps) => {
+const PreviewDrawer = ({ isOpen, onClose, previewData, onSaved }: PreviewDrawerProps) => {
   const [isDrawerFullscreen, setIsDrawerFullscreen] = React.useState(false);
   const [isEditing, setIsEditing] = React.useState(false);
   const [activeFile, setActiveFile] = React.useState('skill.md');
@@ -177,6 +178,8 @@ const PreviewDrawer = ({ isOpen, onClose, previewData }: PreviewDrawerProps) => 
         // 保存成功，更新原始内容以清除“未保存”状态
         setOriginalCodeContent(codeContent);
         alert('✅ 保存成功！');
+        // 通知父组件：关闭抽屉并推进到下一步（完成）
+        onSaved?.();
       } else {
         throw new Error(res?.message || '保存失败');
       }
