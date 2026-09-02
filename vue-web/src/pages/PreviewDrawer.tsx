@@ -276,10 +276,11 @@ const PreviewDrawer = ({ isOpen, onClose, previewData }: PreviewDrawerProps) => 
                 0,                     // depth
                 activeFile,            // 当前激活的文件名
                 handleFileSelect,      // 文件点击回调
-                // 拼接路径的根锚点：取 file_path 的父目录，
-                // 使文件树顶层节点（算子文件夹）重新拼回，得到与后端一致的完整路径，
-                // 例如 skills/generated/xxx/scripts/run.py
-                (data.file_path || filePath).replace(/\/[^/]*$/, '')
+                // 拼接路径的根锚点：文件树的根节点本身就是算子文件夹，
+                // 因此锚点应为“算子文件夹所在的父目录”，避免把算子文件夹
+                // 名重复拼接一次（否则会多出一层，导致 SKILL.md 等顶层文件
+                // 被错误地拼到 scripts 层级下）。
+                getTreeRootAnchor(data.file_path, data.file_tree)
               )
             ) : (
               <div className="text-sm text-gray-500 italic">加载中...</div>
@@ -368,6 +369,38 @@ const PreviewDrawer = ({ isOpen, onClose, previewData }: PreviewDrawerProps) => 
 
 
 
+
+// 计算文件树的根锚点（算子文件夹所在的父目录）。
+//
+// 后端返回的 file_path 可能是：
+//   1) 算子根目录，例如 "skills/generated/xxx/content_parser"
+//   2) 某个默认文件的完整路径，例如 "skills/generated/xxx/content_parser/SKILL.md"
+//
+// 而 file_tree 的根节点名称就是算子文件夹本身（如 "content_parser"）。
+// 因此我们不能简单地对 file_path 做“去掉最后一段”的处理——那样在情况 1
+// 下会把算子文件夹当成父目录，导致渲染时根节点把文件夹名重复拼接一次，
+// 使得 SKILL.md / skill.json 等顶层文件被错误地拼到 scripts 子目录层级下。
+//
+// 正确做法：从 file_path 中定位算子文件夹（根节点名）所在的位置，
+// 取其之前的部分作为锚点；若定位不到则退回到去掉文件名的目录。
+const getTreeRootAnchor = (filePath: string | undefined, rootNode: any): string => {
+  const rootName: string = rootNode?.name || '';
+  const normalized = (filePath || '').replace(/\\/g, '/').replace(/\/+$/, '');
+
+  if (!normalized) return '';
+
+  const segments = normalized.split('/');
+  if (rootName) {
+    const rootIdx = segments.lastIndexOf(rootName);
+    if (rootIdx >= 0) {
+      // 锚点 = 算子文件夹之前的所有路径段（可能为空，表示根节点即顶层）
+      return segments.slice(0, rootIdx).join('/');
+    }
+  }
+
+  // 兜底：file_path 未包含根节点名时，退回“去掉最后一段”的父目录逻辑
+  return segments.slice(0, -1).join('/');
+};
 
 // 新增：用于 PreviewDrawer 的可点击文件树渲染
 const renderPreviewFileTree = (

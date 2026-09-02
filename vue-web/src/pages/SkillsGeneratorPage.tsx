@@ -104,7 +104,10 @@ const OperatorGenerator = () => {
     <div className="og-container">
       {/* 顶部导航 */}
       <header className="og-header">
-        <button className="og-back-link">← 返回算子库</button>
+        <button
+          className="og-back-link"
+          onClick={() => navigate('/skills?tab=' + encodeURIComponent('我的空间'))}
+        >← 返回算子库</button>
         <h1 className="og-page-title">添加算子</h1>
       </header>
 
