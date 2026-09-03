@@ -6,6 +6,7 @@ from typing import List, Optional, Dict
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from database.postgres import get_connection
+from runtime.schedule.repository import init_schedule_tables
 from runtime.skill_manage import init_dag_skills_to_database
 from schemas.dag.dag_edge_schema import DagEdge
 from schemas.dag.dag_node_input_param import DagNodeInputParamSet, DagNodeReferenceParam, DagNodeManualParam
@@ -174,6 +175,8 @@ def init_dag_db():
 
     for ddl in ddl_statements:
         cursor.execute(ddl)
+
+    init_schedule_tables(cursor)
 
     # 执行数据库迁移
     migrate_dag_skills(cursor)
