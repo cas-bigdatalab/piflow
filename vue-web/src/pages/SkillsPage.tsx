@@ -2,7 +2,7 @@
 import { Icon } from "@iconify/react";
 import { useEffect, useState, useCallback } from "react";
 import { apiBase, iconBase,listSkills, getSkillTypes, type DagSkillInfo,removeLocalSkill,enableLocalSkill } from "../lib/api";
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 
 const DEFAULT_SKILL_ICON = "/storage/common/common.png";
 
@@ -48,11 +48,15 @@ type SkillGroup = {
 
 export function SkillsPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [keyword, setKeyword] = useState("");
   const [displayGroups, setDisplayGroups] = useState<SkillGroup[]>([]);
   const [activeCategory, setActiveCategory] = useState<string>("");
   const [allCategories, setAllCategories] = useState<{ name: string; count: number }[]>([]);
-  const [activeTab, setActiveTab] = useState<"社区生态" | "我的空间">("社区生态");
+  // 初始页签支持通过 URL 参数 tab 指定（例如从算子生成器返回时定位到“我的空间”）
+  const [activeTab, setActiveTab] = useState<"社区生态" | "我的空间">(
+    searchParams.get("tab") === "我的空间" ? "我的空间" : "社区生态"
+  );
   
   // === 新增状态（不影响原有逻辑）===
   const [batchMode, setBatchMode] = useState(false);
@@ -72,7 +76,9 @@ export function SkillsPage() {
     setLoading(true);
     setError("");
 
-    listSkills(1, 200, keyword, skill_type, "COMMUNITY")
+    // 根据当前所在页签决定请求的 publisher，避免删除后刷新错拿到社区数据
+    const publisher = activeTab === "社区生态" ? "COMMUNITY" : "PRIVATE";
+    listSkills(1, 200, keyword, skill_type, publisher)
       .then((response) => {
         if (response.code !== 200) {
           setError(response.message || "我的算子列表加载失败");
@@ -100,7 +106,7 @@ export function SkillsPage() {
       .finally(() => {
         setLoading(false);
       });
-  }, [activeCategory, keyword]);
+  }, [activeCategory, keyword, activeTab]);
   // 加载分类列表（完全保留你的原始逻辑）
   useEffect(() => {
     let alive = true;
