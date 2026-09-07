@@ -19,7 +19,7 @@ class ScheduleJob:
     interval_seconds: int | None = None
     start_time: datetime | None = None
     end_time: datetime | None = None
-    misfire_policy: str = "FIRE_ONCE"
+    misfire_policy: str = "SKIP"
     max_running_instances: int = 1
     concurrency_policy: str = "SKIP_CURRENT"
     next_fire_time: datetime | None = None

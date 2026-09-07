@@ -19,7 +19,7 @@ class CreateScheduleRequest(BaseModel):
     execute_time: Optional[str] = None  # "HH:MM"，CRON 模式下忽略
     end_date: Optional[date] = None
     timezone: str = "Asia/Shanghai"
-    misfire_policy: str = "FIRE_ONCE"
+    misfire_policy: str = "SKIP"
     max_running_instances: int = 1
     concurrency_policy: str = "SKIP_CURRENT"
     payload_json: Optional[dict] = None
