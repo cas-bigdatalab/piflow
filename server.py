@@ -27,6 +27,8 @@ from routers.user_router import router as user_router
 from routers.workspace_router import router as workspace_router
 from routers.workflow_template_router import router as workflow_template_router
 from routers.subagent.workflow_advisor.workflow_advisor_router import router as workflow_advisor_router
+from routers.schedule_router import router as schedule_router
+from runtime.schedule.daemon import ScheduleDaemon
 
 log = logging.getLogger("flow.api")
 PROJECT_ROOT = Path(__file__).resolve().parent
@@ -45,6 +47,11 @@ async def lifespan(app: FastAPI):
     app.state.engine = engine
     app.state.planner_engine = planner_engine
 
+
+    schedule_daemon = ScheduleDaemon()
+    app.state.schedule_daemon = schedule_daemon
+    schedule_daemon.start()
+
     log.info("DeepAgent server started")
     try:
         yield
@@ -57,6 +64,9 @@ async def lifespan(app: FastAPI):
         if engine is not None:
             await engine.shutdown()
 
+        schedule_daemon = getattr(app.state, "schedule_daemon", None)
+        if schedule_daemon is not None:
+            schedule_daemon.stop()
 
 app = FastAPI(lifespan=lifespan)
 
@@ -75,6 +85,7 @@ api_router.include_router(user_router)
 api_router.include_router(workspace_router)
 api_router.include_router(workflow_template_router)
 api_router.include_router(workflow_advisor_router)
+api_router.include_router(schedule_router)
 
 # 把父router挂载到app
 app.include_router(api_router)

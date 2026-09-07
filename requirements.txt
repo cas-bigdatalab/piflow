@@ -36,3 +36,4 @@ minio~=7.2.7
 py-data-juicer
 sentence-transformers
 apscheduler
+botocore

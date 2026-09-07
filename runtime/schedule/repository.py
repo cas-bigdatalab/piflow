@@ -581,6 +581,7 @@ def start_schedule_job(schedule_job_id: str, *, owner_id: str | None = None) -> 
     next_fire_time = compute_first_fire_time(
         trigger_type=current.trigger_type,
         cron_expression=current.cron_expression,
+        interval_seconds=current.interval_seconds,
         start_time=current.start_time,
         end_time=current.end_time,
         timezone_name=current.timezone,
@@ -706,31 +707,46 @@ def advance_job_schedule(
     job: ScheduleJob,
     planned_fire_time,
     next_fire_time,
+    skip_last_fire: bool = False,
 ) -> ScheduleJob:
     next_status = (
         ScheduleStatus.STARTED
         if next_fire_time is not None
         else ScheduleStatus.EXPIRED
     )
-    cursor.execute(
-        """
-        UPDATE schedule_job
-        SET
-            status = %s,
-            last_fire_time = %s,
-            next_fire_time = %s,
-            updated_at = CURRENT_TIMESTAMP
-        WHERE schedule_job_id = %s
-        """,
-        (
-            next_status,
-            planned_fire_time,
-            next_fire_time,
-            job.schedule_job_id,
-        ),
-    )
+    if skip_last_fire:
+        cursor.execute(
+            """
+            UPDATE schedule_job
+            SET
+                status = %s,
+                next_fire_time = %s,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE schedule_job_id = %s
+            """,
+            (next_status, next_fire_time, job.schedule_job_id),
+        )
+    else:
+        cursor.execute(
+            """
+            UPDATE schedule_job
+            SET
+                status = %s,
+                last_fire_time = %s,
+                next_fire_time = %s,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE schedule_job_id = %s
+            """,
+            (
+                next_status,
+                planned_fire_time,
+                next_fire_time,
+                job.schedule_job_id,
+            ),
+        )
     job.status = next_status
-    job.last_fire_time = planned_fire_time
+    if not skip_last_fire:
+        job.last_fire_time = planned_fire_time
     job.next_fire_time = next_fire_time
     return job
 
@@ -744,6 +760,16 @@ def claim_due_jobs(*, now, limit: int = 100) -> list[tuple[ScheduleJob, Schedule
     with closing(get_connection()) as conn:
         with conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                # 自动过期 end_time 到的任务
+                cursor.execute(
+                    """
+                    UPDATE schedule_job
+                    SET status = %s, next_fire_time = NULL, updated_at = CURRENT_TIMESTAMP
+                    WHERE status = %s AND end_time IS NOT NULL AND end_time < %s
+                    """,
+                    (ScheduleStatus.EXPIRED, ScheduleStatus.STARTED, now),
+                )
+
                 cursor.execute(
                     _schedule_job_select_sql()
                     + """
@@ -764,14 +790,64 @@ def claim_due_jobs(*, now, limit: int = 100) -> list[tuple[ScheduleJob, Schedule
                     if planned_fire_time is None:
                         continue
 
-                    next_fire_time = compute_next_fire_time(
-                        trigger_type=job.trigger_type,
-                        cron_expression=job.cron_expression,
-                        start_time=job.start_time,
-                        end_time=job.end_time,
-                        timezone_name=job.timezone,
-                        after=planned_fire_time,
-                    )
+                    is_overdue = planned_fire_time < now
+
+                    # misfire 策略 - SKIP：跳过过期点，直接推进到未来
+                    if is_overdue and job.misfire_policy == MisfirePolicy.SKIP:
+                        next_fire_time = compute_next_fire_time(
+                            trigger_type=job.trigger_type,
+                            cron_expression=job.cron_expression,
+                            interval_seconds=job.interval_seconds,
+                            start_time=job.start_time,
+                            end_time=job.end_time,
+                            timezone_name=job.timezone,
+                            after=now,
+                        )
+                        advance_job_schedule(
+                            cursor,
+                            job=job,
+                            planned_fire_time=planned_fire_time,
+                            next_fire_time=next_fire_time,
+                            skip_last_fire=True,
+                        )
+                        continue
+
+                    # 并发控制 - SKIP_CURRENT：活跃 run 数达上限时跳过本次触发
+                    if job.max_running_instances > 0:
+                        cursor.execute(
+                            """
+                            SELECT COUNT(*) AS cnt FROM schedule_run
+                            WHERE schedule_job_id = %s
+                              AND status IN (%s, %s, %s)
+                            """,
+                            (
+                                job.schedule_job_id,
+                                ScheduleRunStatus.DISPATCHING,
+                                ScheduleRunStatus.SUBMITTED,
+                                ScheduleRunStatus.RUNNING,
+                            ),
+                        )
+                        active_count = cursor.fetchone()["cnt"]
+                        if active_count >= job.max_running_instances:
+                            next_fire_time = compute_next_fire_time(
+                                trigger_type=job.trigger_type,
+                                cron_expression=job.cron_expression,
+                                interval_seconds=job.interval_seconds,
+                                start_time=job.start_time,
+                                end_time=job.end_time,
+                                timezone_name=job.timezone,
+                                after=planned_fire_time,
+                            )
+                            advance_job_schedule(
+                                cursor,
+                                job=job,
+                                planned_fire_time=planned_fire_time,
+                                next_fire_time=next_fire_time,
+                                skip_last_fire=True,
+                            )
+                            continue
+
+                    # 建 run（FIRE_ONCE / CATCH_UP / 正常触发）
                     schedule_run_id = uuid.uuid4().hex
 
                     cursor.execute(
@@ -819,6 +895,22 @@ def claim_due_jobs(*, now, limit: int = 100) -> list[tuple[ScheduleJob, Schedule
                     if run_row is None:
                         continue
 
+                    # misfire 策略 - FIRE_ONCE：补一次但 next 推到未来
+                    if is_overdue and job.misfire_policy == MisfirePolicy.FIRE_ONCE:
+                        advance_after = now
+                    else:
+                        # CATCH_UP 或正常触发：逐点推进
+                        advance_after = planned_fire_time
+
+                    next_fire_time = compute_next_fire_time(
+                        trigger_type=job.trigger_type,
+                        cron_expression=job.cron_expression,
+                        interval_seconds=job.interval_seconds,
+                        start_time=job.start_time,
+                        end_time=job.end_time,
+                        timezone_name=job.timezone,
+                        after=advance_after,
+                    )
                     advance_job_schedule(
                         cursor,
                         job=job,
@@ -871,7 +963,7 @@ def mark_schedule_run_submitted(
                         ScheduleRunStatus.SUBMITTED,
                         process_id,
                         schedule_run_id,
-                        ScheduleRunStatus.PENDING,
+                        ScheduleRunStatus.DISPATCHING,
                     ),
                 )
                 row = cursor.fetchone()
@@ -896,7 +988,7 @@ def mark_schedule_run_failed(
                         error_message = %s,
                         updated_at = CURRENT_TIMESTAMP
                     WHERE schedule_run_id = %s
-                      AND status = %s
+                      AND status IN (%s, %s)
                     RETURNING
                         schedule_run_id,
                         schedule_job_id,
@@ -919,6 +1011,7 @@ def mark_schedule_run_failed(
                         error_message,
                         schedule_run_id,
                         ScheduleRunStatus.PENDING,
+                        ScheduleRunStatus.DISPATCHING,
                     ),
                 )
                 row = cursor.fetchone()
@@ -1005,3 +1098,259 @@ def create_schedule_run(
                 if row is None:
                     raise RuntimeError("failed to insert schedule_run")
                 return _row_to_schedule_run(row)
+
+
+def list_schedule_runs(
+    *,
+    schedule_job_id: str,
+    owner_id: str | None = None,
+    status: str | None = None,
+    page: int = 1,
+    page_size: int = 20,
+) -> dict:
+    if page < 1:
+        raise ValueError("page must be >= 1")
+    if page_size < 1:
+        raise ValueError("page_size must be >= 1")
+    if status is not None and status not in ScheduleRunStatus.ALL:
+        raise ValueError(f"unsupported schedule run status: {status}")
+
+    conditions = ["schedule_job_id = %s"]
+    params: list = [schedule_job_id]
+    if owner_id is not None:
+        conditions.append("owner_id = %s")
+        params.append(owner_id)
+    if status is not None:
+        conditions.append("status = %s")
+        params.append(status)
+    where_clause = " AND ".join(conditions)
+    offset = (page - 1) * page_size
+
+    with closing(get_connection()) as conn:
+        with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+            cursor.execute(
+                f"SELECT COUNT(*) AS total FROM schedule_run WHERE {where_clause}",
+                tuple(params),
+            )
+            total = cursor.fetchone()["total"]
+            cursor.execute(
+                f"""
+                SELECT
+                    schedule_run_id,
+                    schedule_job_id,
+                    dag_task_id,
+                    definition_id,
+                    owner_id,
+                    planned_fire_time,
+                    actual_fire_time,
+                    process_id,
+                    status,
+                    attempt,
+                    dispatch_owner,
+                    dispatch_lease_until,
+                    error_message,
+                    created_at,
+                    updated_at
+                FROM schedule_run
+                WHERE {where_clause}
+                ORDER BY created_at DESC, schedule_run_id DESC
+                LIMIT %s OFFSET %s
+                """,
+                tuple(params + [page_size, offset]),
+            )
+            items = [_row_to_schedule_run(row) for row in cursor.fetchall()]
+
+    return {
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "items": items,
+    }
+
+
+def get_schedule_run_by_id(
+    schedule_run_id: str,
+    *,
+    owner_id: str | None = None,
+) -> ScheduleRun | None:
+    query = """
+        SELECT
+            schedule_run_id,
+            schedule_job_id,
+            dag_task_id,
+            definition_id,
+            owner_id,
+            planned_fire_time,
+            actual_fire_time,
+            process_id,
+            status,
+            attempt,
+            dispatch_owner,
+            dispatch_lease_until,
+            error_message,
+            created_at,
+            updated_at
+        FROM schedule_run
+        WHERE schedule_run_id = %s
+    """
+    params: list = [schedule_run_id]
+    if owner_id is not None:
+        query += " AND owner_id = %s"
+        params.append(owner_id)
+
+    with closing(get_connection()) as conn:
+        with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+            cursor.execute(query, tuple(params))
+            row = cursor.fetchone()
+
+    if row is None:
+        return None
+    return _row_to_schedule_run(row)
+
+
+def list_runs(**kwargs) -> dict:
+    return list_schedule_runs(**kwargs)
+
+
+def get_run(schedule_run_id: str, *, owner_id: str | None = None) -> ScheduleRun | None:
+    return get_schedule_run_by_id(schedule_run_id, owner_id=owner_id)
+
+
+def mark_run_dispatching(
+    schedule_run_id: str,
+    *,
+    owner_id: str,
+    lease_seconds: int = 30,
+) -> ScheduleRun | None:
+    """PENDING -> DISPATCHING，写 dispatch_owner/lease_until/attempt+1。"""
+    with closing(get_connection()) as conn:
+        with conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                cursor.execute(
+                    """
+                    UPDATE schedule_run
+                    SET
+                        status = %s,
+                        dispatch_owner = %s,
+                        dispatch_lease_until = CURRENT_TIMESTAMP + (%s || ' seconds')::interval,
+                        attempt = attempt + 1,
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE schedule_run_id = %s
+                      AND status = %s
+                    RETURNING
+                        schedule_run_id,
+                        schedule_job_id,
+                        dag_task_id,
+                        definition_id,
+                        owner_id,
+                        planned_fire_time,
+                        actual_fire_time,
+                        process_id,
+                        status,
+                        attempt,
+                        dispatch_owner,
+                        dispatch_lease_until,
+                        error_message,
+                        created_at,
+                        updated_at
+                    """,
+                    (
+                        ScheduleRunStatus.DISPATCHING,
+                        owner_id,
+                        str(lease_seconds),
+                        schedule_run_id,
+                        ScheduleRunStatus.PENDING,
+                    ),
+                )
+                row = cursor.fetchone()
+                if row is None:
+                    return None
+                return _row_to_schedule_run(row)
+
+
+def recover_expired_dispatching_runs(*, now, lease_seconds: int = 60) -> int:
+    """租约过期的 DISPATCHING -> LOST（保守策略，不重试）。"""
+    with closing(get_connection()) as conn:
+        with conn:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    """
+                    UPDATE schedule_run
+                    SET status = %s, error_message = %s, updated_at = CURRENT_TIMESTAMP
+                    WHERE status = %s
+                      AND dispatch_lease_until IS NOT NULL
+                      AND dispatch_lease_until < %s
+                    """,
+                    (
+                        ScheduleRunStatus.LOST,
+                        "dispatch lease expired",
+                        ScheduleRunStatus.DISPATCHING,
+                        now,
+                    ),
+                )
+                return cursor.rowcount
+
+
+def list_submitted_runs(*, limit: int = 50) -> list[ScheduleRun]:
+    """查 SUBMITTED 状态的 run（终态回写低频同步用）。"""
+    with closing(get_connection()) as conn:
+        with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+            cursor.execute(
+                """
+                SELECT
+                    schedule_run_id,
+                    schedule_job_id,
+                    dag_task_id,
+                    definition_id,
+                    owner_id,
+                    planned_fire_time,
+                    actual_fire_time,
+                    process_id,
+                    status,
+                    attempt,
+                    dispatch_owner,
+                    dispatch_lease_until,
+                    error_message,
+                    created_at,
+                    updated_at
+                FROM schedule_run
+                WHERE status = %s
+                ORDER BY updated_at
+                LIMIT %s
+                """,
+                (ScheduleRunStatus.SUBMITTED, limit),
+            )
+            return [_row_to_schedule_run(row) for row in cursor.fetchall()]
+
+
+def mark_run_completed(
+    schedule_run_id: str,
+    *,
+    status: str,
+    error_message: str | None = None,
+) -> int:
+    """回写终态（SUCCESS/FAILED/CANCELLED），返回受影响行数。"""
+    if status not in (
+        ScheduleRunStatus.SUCCESS,
+        ScheduleRunStatus.FAILED,
+        ScheduleRunStatus.CANCELLED,
+    ):
+        raise ValueError(f"unsupported terminal status: {status}")
+    with closing(get_connection()) as conn:
+        with conn:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    """
+                    UPDATE schedule_run
+                    SET status = %s, error_message = %s, updated_at = CURRENT_TIMESTAMP
+                    WHERE schedule_run_id = %s
+                      AND status = %s
+                    """,
+                    (
+                        status,
+                        error_message,
+                        schedule_run_id,
+                        ScheduleRunStatus.SUBMITTED,
+                    ),
+                )
+                return cursor.rowcount

@@ -152,6 +152,7 @@ def validate_trigger(
     *,
     trigger_type: str,
     cron_expression: str | None,
+    interval_seconds: int | None = None,
     start_time: datetime | None,
     end_time: datetime | None,
     timezone_name: str,
@@ -180,13 +181,21 @@ def validate_trigger(
         _parse_cron_expression(cron_expression)
         return
 
-    raise ValueError(f"unsupported trigger_type for stage 2: {trigger_type}")
+    if trigger_type == TriggerType.INTERVAL:
+        if interval_seconds is None or interval_seconds <= 0:
+            raise ValueError("interval_seconds must be > 0 for INTERVAL trigger")
+        if cron_expression is not None:
+            raise ValueError("cron_expression must be empty for INTERVAL trigger")
+        return
+
+    raise ValueError(f"unsupported trigger_type: {trigger_type}")
 
 
 def compute_first_fire_time(
     *,
     trigger_type: str,
     cron_expression: str | None,
+    interval_seconds: int | None = None,
     start_time: datetime | None,
     end_time: datetime | None,
     timezone_name: str,
@@ -195,6 +204,7 @@ def compute_first_fire_time(
     validate_trigger(
         trigger_type=trigger_type,
         cron_expression=cron_expression,
+        interval_seconds=interval_seconds,
         start_time=start_time,
         end_time=end_time,
         timezone_name=timezone_name,
@@ -220,13 +230,30 @@ def compute_first_fire_time(
             after=anchor - timedelta(seconds=1),
         )
 
-    raise ValueError(f"unsupported trigger_type for stage 2: {trigger_type}")
+    if trigger_type == TriggerType.INTERVAL:
+        now = datetime.now(zone)
+        if normalized_start is not None and normalized_start > now:
+            if normalized_end is not None and normalized_start > normalized_end:
+                return None
+            return normalized_start
+        if normalized_start is not None:
+            elapsed = (now - normalized_start).total_seconds()
+            n = int(elapsed // interval_seconds) + 1
+            candidate = normalized_start + timedelta(seconds=n * interval_seconds)
+        else:
+            candidate = now
+        if normalized_end is not None and candidate > normalized_end:
+            return None
+        return candidate
+
+    raise ValueError(f"unsupported trigger_type: {trigger_type}")
 
 
 def compute_next_fire_time(
     *,
     trigger_type: str,
     cron_expression: str | None,
+    interval_seconds: int | None = None,
     start_time: datetime | None,
     end_time: datetime | None,
     timezone_name: str,
@@ -236,6 +263,7 @@ def compute_next_fire_time(
     validate_trigger(
         trigger_type=trigger_type,
         cron_expression=cron_expression,
+        interval_seconds=interval_seconds,
         start_time=start_time,
         end_time=end_time,
         timezone_name=timezone_name,
@@ -275,7 +303,15 @@ def compute_next_fire_time(
 
         return None
 
-    raise ValueError(f"unsupported trigger_type for stage 2: {trigger_type}")
+    if trigger_type == TriggerType.INTERVAL:
+        candidate = normalized_after + timedelta(seconds=interval_seconds)
+        if normalized_start is not None and candidate < normalized_start:
+            candidate = normalized_start
+        if normalized_end is not None and candidate > normalized_end:
+            return None
+        return candidate
+
+    raise ValueError(f"unsupported trigger_type: {trigger_type}")
 
 
 @dataclass(slots=True)
