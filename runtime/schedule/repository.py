@@ -20,6 +20,7 @@ from runtime.schedule.expression import (
 )
 from runtime.schedule.models import ScheduleJob, ScheduleRun
 
+MISFIRE_GRACE_SECONDS = 60
 
 SCHEDULE_DDL_STATEMENTS = [
     """
@@ -790,7 +791,7 @@ def claim_due_jobs(*, now, limit: int = 100) -> list[tuple[ScheduleJob, Schedule
                     if planned_fire_time is None:
                         continue
 
-                    is_overdue = planned_fire_time < now
+                    is_overdue = (now - planned_fire_time).total_seconds() > MISFIRE_GRACE_SECONDS
 
                     # misfire 策略 - SKIP：跳过过期点，直接推进到未来
                     if is_overdue and job.misfire_policy == MisfirePolicy.SKIP:
