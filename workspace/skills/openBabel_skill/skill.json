@@ -87,5 +87,6 @@
     "--compressedOutputPath",
     "{compressedOutputPath}"
   ],
-  "tag": "数据转换"
+  "tag": "数据转换",
+  "required_software": "openbabel"
 }

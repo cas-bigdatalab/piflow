@@ -44,6 +44,7 @@ output_params:
     type: string
     description: "输出文件压缩包路径"
 disciplinary_field: 化工
+required_software: gaussian
 ---
 
 # Gaussian Executor 技能

@@ -52,6 +52,7 @@ output_params:
 
 tag: 数据转换
 disciplinary_field: 化工
+required_software: openbabel
 ---
 
 ## 功能概述

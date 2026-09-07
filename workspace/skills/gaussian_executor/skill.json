@@ -94,5 +94,6 @@
     "--other_param",
     "{other_param}"
   ],
-  "tag": "量子化学计算"
+  "tag": "量子化学计算",
+  "required_software": "gaussian"
 }
