@@ -41,8 +41,8 @@ class UpdateScheduleRequest(BaseModel):
 class TriggerConfigRequest(BaseModel):
     """前端触发模式配置，后端转换成底层 trigger_type + cron/interval。"""
     trigger_mode: Literal["ONCE", "INTERVAL", "DAILY", "WEEKLY", "MONTHLY", "CRON"]
-    # ONCE 模式
-    execute_at: Optional[datetime] = None
+    # ONCE 模式（传 ISO 字符串，后端解析；空串视为未传）
+    execute_at: Optional[str] = None
     # INTERVAL 模式
     interval_value: Optional[int] = None
     interval_unit: Optional[str] = None  # MINUTES / HOURS / DAYS

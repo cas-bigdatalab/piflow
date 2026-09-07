@@ -453,12 +453,20 @@ def preview_trigger_config(req: TriggerConfigRequest) -> TriggerConfigResponse:
     mode = req.trigger_mode
 
     if mode == "ONCE":
-        if req.execute_at is None:
+        if not req.execute_at:
             raise ValueError("execute_at is required for ONCE mode")
+        # 兼容两种输入：日期字符串（YYYY-MM-DD，默认 00:00）或完整 datetime 字符串
+        try:
+            from datetime import datetime as _dt
+            parsed = _dt.fromisoformat(req.execute_at)
+            if parsed.tzinfo is None:
+                parsed = parsed.replace(tzinfo=ZoneInfo(req.timezone))
+        except ValueError as e:
+            raise ValueError(f"invalid execute_at: {req.execute_at} (expected ISO datetime): {e}")
         return TriggerConfigResponse(
             trigger_type=TriggerType.ONCE,
-            start_time=req.execute_at,
-            description=f"执行一次：{req.execute_at.strftime('%Y-%m-%d %H:%M')}",
+            start_time=parsed,
+            description=f"执行一次：{parsed.strftime('%Y-%m-%d %H:%M')}",
         )
 
     if mode == "INTERVAL":
