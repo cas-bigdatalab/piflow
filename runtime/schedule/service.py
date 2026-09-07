@@ -365,15 +365,15 @@ _INTERVAL_UNIT_CN = {
     "DAYS": "天",
 }
 
-# ISO 8601 星期 → cron 文本
+# ISO 8601 星期 → cron 数字（cron: 0=Sunday, 1=Monday...6=Saturday; 0 和 7 都是 Sunday）
 _WEEK_DOW_MAP = {
-    1: "MON",
-    2: "TUE",
-    3: "WED",
-    4: "THU",
-    5: "FRI",
-    6: "SAT",
-    7: "SUN",
+    1: "1",   # MON
+    2: "2",   # TUE
+    3: "3",   # WED
+    4: "4",   # THU
+    5: "5",   # FRI
+    6: "6",   # SAT
+    7: "0",   # SUN
 }
 
 _WEEK_DOW_CN = {
