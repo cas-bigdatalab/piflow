@@ -35,6 +35,20 @@ class FileArtifact(Artifact):
 
 
 @dataclass
+class RemoteFileArtifact(Artifact):
+    path: str = ""
+    target_server: str = ""
+
+    artifact_type: ClassVar[str] = "remote_file"
+
+    def __post_init__(self) -> None:
+        if self.path and self.value is None:
+            self.value = self.path
+        elif self.value is not None and not self.path:
+            self.path = str(self.value)
+
+
+@dataclass
 class TableArtifact(Artifact):
     schema: dict[str, Any] = field(default_factory=dict)
 

@@ -1,0 +1,13 @@
+后端启动：nohup python server.py > run.log 2>&1 &
+
+前端cd 到vue-web下
+npm install
+nohup npm run dev -- --host 0.0.0.0 > npm.log 2>&1 &
+
+
+
+ nohup npx serve . -l 8080 -s > npm.log 2>&1 &
+
+ docker container exec -it pandadb-home-page-db-1 /bin/bash
+
+ mysql --user=wordpress --password  wordpress

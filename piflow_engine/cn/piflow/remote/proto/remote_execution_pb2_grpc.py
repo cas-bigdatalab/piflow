@@ -62,6 +62,11 @@ class RemoteExecutionServiceStub:
                 request_serializer=remote__execution__pb2.DownloadResultRequest.SerializeToString,
                 response_deserializer=remote__execution__pb2.DownloadResultChunk.FromString,
                 _registered_method=True)
+        self.DownloadFile = channel.unary_stream(
+                '/piflow.remote.RemoteExecutionService/DownloadFile',
+                request_serializer=remote__execution__pb2.DownloadFileRequest.SerializeToString,
+                response_deserializer=remote__execution__pb2.DownloadFileChunk.FromString,
+                _registered_method=True)
 
 
 class RemoteExecutionServiceServicer:
@@ -97,6 +102,12 @@ class RemoteExecutionServiceServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def DownloadFile(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_RemoteExecutionServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -124,6 +135,11 @@ def add_RemoteExecutionServiceServicer_to_server(servicer, server):
                     servicer.DownloadResult,
                     request_deserializer=remote__execution__pb2.DownloadResultRequest.FromString,
                     response_serializer=remote__execution__pb2.DownloadResultChunk.SerializeToString,
+            ),
+            'DownloadFile': grpc.unary_stream_rpc_method_handler(
+                    servicer.DownloadFile,
+                    request_deserializer=remote__execution__pb2.DownloadFileRequest.FromString,
+                    response_serializer=remote__execution__pb2.DownloadFileChunk.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -261,6 +277,33 @@ class RemoteExecutionService:
             '/piflow.remote.RemoteExecutionService/DownloadResult',
             remote__execution__pb2.DownloadResultRequest.SerializeToString,
             remote__execution__pb2.DownloadResultChunk.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def DownloadFile(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_stream(
+            request,
+            target,
+            '/piflow.remote.RemoteExecutionService/DownloadFile',
+            remote__execution__pb2.DownloadFileRequest.SerializeToString,
+            remote__execution__pb2.DownloadFileChunk.FromString,
             options,
             channel_credentials,
             insecure,

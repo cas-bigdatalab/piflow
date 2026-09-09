@@ -105,3 +105,22 @@ class RemoteExecutionClient:
                 if chunk.content:
                     fp.write(chunk.content)
         return str(target)
+
+    def download_file(
+        self,
+        *,
+        file_path: str,
+        target_path: str | Path,
+    ) -> str:
+        target = Path(target_path)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        stream = self._stub.DownloadFile(
+            remote_execution_pb2.DownloadFileRequest(
+                file_path=file_path,
+            )
+        )
+        with target.open("wb") as fp:
+            for chunk in stream:
+                if chunk.content:
+                    fp.write(chunk.content)
+        return str(target)
