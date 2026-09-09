@@ -54,6 +54,7 @@ output_params:
     type: file
     description: 生成的 gjf 文件路径
 tag: 科学计算
+disciplinary_field: 化工
 publisher: COMMUNITY
 ---
 
