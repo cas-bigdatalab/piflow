@@ -296,6 +296,13 @@ const handleRun = async (taskId: string, taskName: string) => {
                     >
                       <Icon icon="fa-solid:play" width="14" />
                     </button>
+                    <button
+                      className="icon-btn"
+                      title="批量运行"
+                      onClick={() => navigate(`/batch-run?taskId=${task.dag_task_id}&taskName=${encodeURIComponent(task.dag_task_name)}`)}
+                    >
+                      <Icon icon="fa-solid:layer-group" width="14" />
+                    </button>
                   </td>
                 </tr>
               ))}

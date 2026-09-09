@@ -42,6 +42,68 @@ def _require_text(value: str, field_name: str) -> str:
     return value
 
 
+# cron 数字星期 → 中文
+_CRON_DOW_CN = {
+    "0": "日", "1": "一", "2": "二", "3": "三",
+    "4": "四", "5": "五", "6": "六", "7": "日",
+}
+
+
+def describe_trigger_rule(job) -> str:
+    """根据任务的 trigger_type + cron/interval 生成中文触发规则描述。
+
+    用于前端展示，例如：
+      - ONCE:    "2026年09月10日 10:00 执行一次"
+      - INTERVAL:"每30分钟执行一次" / "每2小时执行一次"
+      - CRON:    "每日10时00分执行一次" / "每周一、周三 10:00 执行一次"
+                 无法识别的 cron 回退为 "按 cron 表达式 '...' 执行"
+    """
+    if not job:
+        return "未知触发规则"
+
+    if job.trigger_type == TriggerType.ONCE:
+        if job.start_time:
+            return f"{job.start_time.strftime('%Y年%m月%d日 %H:%M')} 执行一次"
+        return "执行一次"
+
+    if job.trigger_type == TriggerType.INTERVAL:
+        seconds = job.interval_seconds or 0
+        if seconds <= 0:
+            return "按间隔执行"
+        if seconds >= 86400 and seconds % 86400 == 0:
+            return f"每{seconds // 86400}天执行一次"
+        if seconds >= 3600 and seconds % 3600 == 0:
+            return f"每{seconds // 3600}小时执行一次"
+        if seconds >= 60 and seconds % 60 == 0:
+            return f"每{seconds // 60}分钟执行一次"
+        return f"每{seconds}秒执行一次"
+
+    if job.trigger_type == TriggerType.CRON:
+        cron = job.cron_expression
+        if not cron:
+            return "自定义 cron 表达式"
+        # 6 字段: 秒 分 时 日 月 周
+        parts = cron.split()
+        try:
+            if len(parts) == 6:
+                _sec, minute, hour, dom, month, dow = parts
+                # DAILY: 0 MM HH * * ?
+                if dom == "*" and month == "*" and dow == "?":
+                    return f"每日{hour}时{minute}分执行一次"
+                # WEEKLY: 0 MM HH ? * D1,D2,...
+                if dom == "?" and month == "*" and dow not in ("*", "?"):
+                    days = [_CRON_DOW_CN.get(d, d) for d in dow.split(",")]
+                    return f"每周{'、'.join(days)} {hour}:{minute} 执行一次"
+                # MONTHLY: 0 MM HH DD * ?
+                if month == "*" and dow == "?" and dom not in ("*", "?"):
+                    return f"每月第{dom}日 {hour}时{minute}分执行一次"
+        except Exception:
+            pass
+        return f"按 cron 表达式 '{cron}' 执行"
+
+    return "未知触发规则"
+
+
 def _resolve_definition_binding(
     *,
     dag_task_id: str,

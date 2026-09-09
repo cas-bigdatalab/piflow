@@ -5,14 +5,19 @@ import { SkillsPage } from "./pages/SkillsPage";
 import { WorkLibPage } from "./pages/WorkLibPage";
 import { RunHistoryPage } from "./pages/RunHistoryPage";
 import { TaskManagePage } from "./pages/TaskManagePage";
+// import { AutomationTasks} from "./pages/AutomationTasks";
 import { TaskDrawPage } from "./pages/TaskDrawPage";
 import RunDetails from "./components/RunDetails";
+import BatchRunPage from "./pages/BatchRunPage";
 
 import SkillsDetailsPage from "./pages/SkillsDetailsPage"; // 注意：默认导出，不用大括号
 import SkillsCreatePage from "./pages/SkillsCreatePage";
 import SkillsGeneratorPage from "./pages/SkillsGeneratorPage";
 import DataManPage from "./pages/DataManPage";
 import DataManConnectionsPage from "./pages/DataManConnectionsPage"; // 确保文件名完全匹配
+// import UserManagement from "./pages/UserManagement";
+// import LoginPage from "./pages/login"; // 默认导出，登录页面
+// import PersonalCenter from "./pages/PersonalCenter"
 
 function TaskDrawPageWrapper() {
   const [searchParams] = useSearchParams();
@@ -62,9 +67,18 @@ export default function App() {
         <Route path="/run-history" element={<RunHistoryPage />} />
         <Route path="/run-details" element={<RunDetailsWrapper />} />
         <Route path="/editTask" element={<TaskManagePage />} />
+        {/* <Route path="/automationTasks" element={<AutomationTasks />} /> */}
+        <Route path="/batch-run" element={<BatchRunPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
+        {/* 用户管理页面 */}
+        {/* <Route path="/UserManagement" element={<UserManagement />} /> */}
+        {/* 个人中心页面 */}
+        {/* <Route path="/PersonalCenter" element={<PersonalCenter />} /> */}
+        
       </Route>
       <Route path="/task-draw" element={<TaskDrawPageWrapper />} />
+      {/* 登录页面：独立全屏布局，不套用顶部菜单外壳 */}
+      {/* <Route path="/login" element={<LoginPage />} /> */}
     </Routes>
   );
 }
