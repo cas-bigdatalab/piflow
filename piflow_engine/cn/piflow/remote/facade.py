@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import BinaryIO
 
+from infra.config_loader import resolve_workspace_root
 from runtime.piflow_adapter import submit_frontend_dag
 from runtime.piflow_run_query import get_piflow_run_progress
 
@@ -31,7 +32,9 @@ class RemoteExecutionFacade:
         python_home: str | None = None,
         result_resolver: ResultResolver | None = None,
     ):
-        self._workspace_root = workspace_root
+        self._workspace_root = str(
+            resolve_workspace_root(workspace_root)
+        )
         self._user_id = user_id
         self._python_home = python_home
         self._result_resolver = result_resolver or ResultResolver()

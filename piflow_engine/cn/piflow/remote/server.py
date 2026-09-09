@@ -9,6 +9,8 @@ from typing import Iterator
 
 import grpc
 
+from infra.config_loader import resolve_workspace_root
+
 try:
     from .proto import remote_execution_pb2, remote_execution_pb2_grpc
     from .result_resolver import RemoteExecutionError
@@ -230,7 +232,12 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Start the PiFlow remote execution gRPC server.")
     parser.add_argument("--host", default="0.0.0.0")
     parser.add_argument("--port", type=int, default=50061)
-    parser.add_argument("--workspace-root", default=None)
+    parser.add_argument(
+        "--workspace-root",
+        default=str(resolve_workspace_root()),
+        help="Workspace root for DAG execution and file transfer. "
+        "Defaults to config/app.yaml workspace.root.",
+    )
     parser.add_argument("--user-id", default=None)
     parser.add_argument("--python-home", default=None)
     args = parser.parse_args()
