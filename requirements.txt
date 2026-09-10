@@ -37,3 +37,5 @@ py-data-juicer
 sentence-transformers
 apscheduler
 botocore
+grpcio
+protobuf
