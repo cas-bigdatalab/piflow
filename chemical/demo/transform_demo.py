@@ -25,34 +25,6 @@ DEFAULT_CONFIG_PATH = PROJECT_ROOT / "chemical" / "config.example.yaml"
 DEFAULT_DAG_PATH = PROJECT_ROOT / "chemical" / "乙酸分子量子化学计算与波函数分析流水线.json"
 DEFAULT_SCHEDULED_DAG_PATH = PROJECT_ROOT / "workspace" / "chemical_scheduled_dag.json"
 DEFAULT_WORKSPACE_ROOT = PROJECT_ROOT / "workspace"
-LOCAL_OPENBABEL_SKILL_PATH = (
-    "/Users/renhao/PycharmProjects/flow-deepagents-0408/"
-    "workspace/skills/openBabel_skill/skill.json"
-)
-REMOTE_OPENBABEL_SKILL_PATH = (
-    "/data/flow-deepagent/chemical/flow-deepagents-0408/"
-    "workspace/skills/openBabel_skill/skill.json"
-)
-
-
-def replace_openbabel_skill_path(value: Any) -> int:
-    """Replace the temporary local OpenBabel skill path in a DAG object."""
-
-    if isinstance(value, dict):
-        replaced = 0
-        for key, item in value.items():
-            if isinstance(item, str) and item == LOCAL_OPENBABEL_SKILL_PATH:
-                value[key] = REMOTE_OPENBABEL_SKILL_PATH
-                replaced += 1
-            else:
-                replaced += replace_openbabel_skill_path(item)
-        return replaced
-
-    if isinstance(value, list):
-        return sum(replace_openbabel_skill_path(item) for item in value)
-
-    return 0
-
 
 def submit_scheduled_dag(
     dag_definition: dict,
@@ -112,7 +84,6 @@ def main() -> int:
 
     config = ChemicalConfig.from_file(config_path)
     plan = schedule_chemical_dag_file(dag_path, config=config)
-    replaced_openbabel_paths = replace_openbabel_skill_path(plan.dag_definition)
 
     scheduled_dag_path.parent.mkdir(parents=True, exist_ok=True)
     scheduled_dag_path.write_text(
@@ -130,7 +101,6 @@ def main() -> int:
     )
     print(f"scheduled nodes: {len(plan.decisions)}")
     print(f"remote nodes: {transformed_count}")
-    print(f"replaced OpenBabel skill paths: {replaced_openbabel_paths}")
     print(f"scheduled DAG: {scheduled_dag_path}")
     print(f"local workspace: {workspace_root}")
     print(f"submitted local process_id: {process.pid()}")

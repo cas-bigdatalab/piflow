@@ -194,7 +194,7 @@ def test_scheduler_accepts_resolver_with_absolute_skill_json_path(tmp_path: Path
     )
 
     embedded = plan.dag_definition["nodes"][0]["input_params"][0]["param_value"]
-    assert embedded["skill"]["skill_id"] == str(skill_path.resolve())
+    assert embedded["skill"]["skill_id"] == str(skill_path)
 
 
 def test_scheduler_can_load_dag_from_file(tmp_path: Path) -> None:

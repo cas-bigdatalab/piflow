@@ -53,12 +53,6 @@ class StopBean:
         if self._looks_like_command_bundle():
             return self._load_command_stop()
 
-        if self._looks_like_python_bundle():
-            return self._load_python_stop()
-
-        return self._load_command_stop(self._resolve_command_bundle_path())
-
-    def _load_python_stop(self) -> ConfigurableStop:
         module_name, _, class_name = self.bundle.rpartition(".")
         if not module_name or not class_name:
             raise ValueError(f"invalid stop bundle: {self.bundle}")
@@ -74,80 +68,12 @@ class StopBean:
 
         return stop
 
-    def _load_command_stop(self, bundle: str | None = None) -> ConfigurableStop:
+    def _load_command_stop(self) -> ConfigurableStop:
         resolver = FileBundleResolver()
-        bundle_path = bundle or self._resolve_command_bundle_path()
-        spec = resolver.resolve(bundle_path)
+        spec = resolver.resolve(self.bundle)
         parser = CommandInvocationParser(spec)
         return CommandStop(parser)
-
-    def _resolve_command_bundle_path(self) -> str:
-        """Resolve either a skill.json path or a database-backed skill ID."""
-        if self._looks_like_command_bundle():
-            return self.bundle
-
-        raw_skill_id = self.bundle.strip()
-        if not raw_skill_id:
-            raise ValueError("stop bundle must not be empty")
-
-        try:
-            from infra.config_loader import resolve_workspace_root
-            from runtime.dag_manager import get_dag_skill
-        except ImportError as exc:
-            if self._looks_like_python_bundle():
-                return self.bundle
-            raise ValueError(
-                f"cannot resolve skill ID '{raw_skill_id}': runtime skill lookup is unavailable"
-            ) from exc
-
-        try:
-            dag_skill = get_dag_skill(raw_skill_id)
-        except Exception as exc:
-            if self._looks_like_python_bundle():
-                return self.bundle
-            raise ValueError(
-                f"failed to resolve skill ID '{raw_skill_id}'"
-            ) from exc
-
-        if dag_skill is None:
-            if self._looks_like_python_bundle():
-                return self.bundle
-            raise ValueError(f"skill ID not found: {raw_skill_id}")
-
-        skill_path = str(getattr(dag_skill, "skill_path", "") or "").strip()
-        file_path = str(getattr(dag_skill, "file_path", "") or "").strip()
-        if skill_path:
-            candidate = Path(skill_path).expanduser()
-            if candidate.suffix.lower() != ".json":
-                candidate = candidate / "skill.json"
-            if not candidate.is_absolute():
-                candidate = resolve_workspace_root() / candidate
-            candidate = candidate.resolve()
-            if candidate.is_file():
-                return str(candidate)
-
-        if file_path:
-            candidate = Path(file_path).expanduser()
-            if not candidate.is_absolute():
-                candidate = resolve_workspace_root() / candidate
-            candidate = candidate.resolve()
-            if candidate.is_file() and candidate.suffix.lower() == ".json":
-                return str(candidate)
-
-        raise ValueError(
-            f"skill ID '{raw_skill_id}' does not resolve to an existing skill.json "
-            f"(skill_path={skill_path!r}, file_path={file_path!r})"
-        )
 
     def _looks_like_command_bundle(self) -> bool:
         bundle_path = Path(self.bundle)
         return bundle_path.suffix.lower() == ".json" or bundle_path.exists()
-
-    def _looks_like_python_bundle(self) -> bool:
-        module_name, separator, class_name = self.bundle.rpartition(".")
-        return bool(
-            separator
-            and module_name
-            and class_name
-            and class_name.isidentifier()
-        )

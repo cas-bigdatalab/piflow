@@ -65,7 +65,7 @@ def schedule_chemical_dag(
             continue
 
         skill_id = _node_skill_id(node)
-        skill_json, resolved_skill_path = _resolve_for_schedule(
+        skill_json, _ = _resolve_for_schedule(
             skill_id,
             resolver=skill_json_resolver,
         )
@@ -105,7 +105,6 @@ def schedule_chemical_dag(
             original_node=node,
             target_server=target_server,
             local_server=local_server,
-            resolved_skill_path=resolved_skill_path,
         )
         decisions.append(
             _decision(
@@ -193,14 +192,8 @@ def _remote_pipeline_node(
     original_node: dict[str, Any],
     target_server: str,
     local_server: str,
-    resolved_skill_path: str = "",
 ) -> dict[str, Any]:
     node_definition = copy.deepcopy(original_node)
-    if resolved_skill_path:
-        node_definition["skill"] = {
-            **dict(node_definition.get("skill") or {}),
-            "skill_id": resolved_skill_path,
-        }
     remote_node = copy.deepcopy(original_node)
     remote_node["skill"] = {
         **dict(original_node.get("skill") or {}),
