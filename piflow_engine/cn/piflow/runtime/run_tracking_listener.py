@@ -10,6 +10,7 @@ from piflow_engine.cn.piflow.core.runner_listener import RunnerListener
 from piflow_engine.cn.piflow.core.runtime_context import JobContext, ProcessContext
 from piflow_engine.cn.piflow.core.runtime_keys import (
     RUN_CONTEXT_FINAL_OUTPUT_PATH,
+    RUN_CONTEXT_STOP_WORKSPACE_PATH,
     RUN_CONTEXT_STDERR_LOG_PATH,
     RUN_CONTEXT_STDOUT_LOG_PATH,
 )
@@ -152,6 +153,7 @@ class RunTrackingListener(RunnerListener):
                 log_path=self._stop_log_path(ctx),
                 stdout_log_path="",
                 stderr_log_path="",
+                stop_workspace_path="",
             )
             self._log_stop(ctx, RunEvent.STOP_INITIALIZED, payload=metadata)
 
@@ -193,6 +195,7 @@ class RunTrackingListener(RunnerListener):
                 stdout_log_path=self._context_value(ctx, RUN_CONTEXT_STDOUT_LOG_PATH),
                 stderr_log_path=self._context_value(ctx, RUN_CONTEXT_STDERR_LOG_PATH),
                 final_output_path=self._context_value(ctx, RUN_CONTEXT_FINAL_OUTPUT_PATH),
+                stop_workspace_path=self._context_value(ctx, RUN_CONTEXT_STOP_WORKSPACE_PATH),
                 finished=True,
             )
             self._run_store.update_flow_run(
@@ -231,6 +234,7 @@ class RunTrackingListener(RunnerListener):
                 stdout_log_path=self._context_value(ctx, RUN_CONTEXT_STDOUT_LOG_PATH),
                 stderr_log_path=self._context_value(ctx, RUN_CONTEXT_STDERR_LOG_PATH),
                 final_output_path=self._context_value(ctx, RUN_CONTEXT_FINAL_OUTPUT_PATH),
+                stop_workspace_path=self._context_value(ctx, RUN_CONTEXT_STOP_WORKSPACE_PATH),
                 error_message=str(error),
                 finished=True,
             )

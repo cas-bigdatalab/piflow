@@ -110,14 +110,15 @@ class PostgresRunStore(RunStore):
         stdout_log_path: str = "",
         stderr_log_path: str = "",
         final_output_path: str = "",
+        stop_workspace_path: str = "",
     ) -> Any:
         sql = """
         INSERT INTO piflow_stop_job_run (
             flow_run_id, job_id, stop_name, stop_uuid, bundle,
             status, workspace_path, log_path, stdout_log_path, stderr_log_path,
-            final_output_path
+            final_output_path, stop_workspace_path
         )
-        SELECT id, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+        SELECT id, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
         FROM piflow_flow_run
         WHERE process_id = %s
         ON CONFLICT (flow_run_id, job_id) DO UPDATE SET
@@ -130,6 +131,7 @@ class PostgresRunStore(RunStore):
             stdout_log_path = EXCLUDED.stdout_log_path,
             stderr_log_path = EXCLUDED.stderr_log_path,
             final_output_path = EXCLUDED.final_output_path,
+            stop_workspace_path = EXCLUDED.stop_workspace_path,
             error_message = NULL
         RETURNING id
         """
@@ -146,6 +148,7 @@ class PostgresRunStore(RunStore):
                 stdout_log_path,
                 stderr_log_path,
                 final_output_path,
+                stop_workspace_path,
                 process_id,
             ),
         )[0]
@@ -161,6 +164,7 @@ class PostgresRunStore(RunStore):
         stdout_log_path: str | None = None,
         stderr_log_path: str | None = None,
         final_output_path: str | None = None,
+        stop_workspace_path: str | None = None,
         error_message: str | None = None,
         finished: bool = False,
     ) -> None:
@@ -182,6 +186,9 @@ class PostgresRunStore(RunStore):
         if final_output_path is not None:
             assignments.append("final_output_path = %s")
             params.append(final_output_path)
+        if stop_workspace_path is not None:
+            assignments.append("stop_workspace_path = %s")
+            params.append(stop_workspace_path)
         if error_message is not None:
             assignments.append("error_message = %s")
             params.append(error_message)

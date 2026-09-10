@@ -49,6 +49,7 @@ class RunStore(ABC):
         stdout_log_path: str = "",
         stderr_log_path: str = "",
         final_output_path: str = "",
+        stop_workspace_path: str = "",
     ) -> Any:
         ...
 
@@ -64,6 +65,7 @@ class RunStore(ABC):
         stdout_log_path: str | None = None,
         stderr_log_path: str | None = None,
         final_output_path: str | None = None,
+        stop_workspace_path: str | None = None,
         error_message: str | None = None,
         finished: bool = False,
     ) -> None:

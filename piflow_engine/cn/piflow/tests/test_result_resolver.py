@@ -1,70 +1,82 @@
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
-from piflow_engine.cn.piflow.remote.result_resolver import ResultResolver
+import pytest
+
+from piflow_engine.cn.piflow.remote.result_resolver import (
+    RemoteExecutionError,
+    ResultResolver,
+)
 
 
-def test_result_resolver_falls_back_to_stop_log_output(tmp_path: Path) -> None:
-    output_file = tmp_path / "remote.txt"
-    output_file.write_text("remote artifact", encoding="utf-8")
-    log_path = tmp_path / "job.log"
-    log_path.write_text(
-        json.dumps(
-            {
-                "event": "STOP_COMPLETED",
-                "payload": {
-                    "outputs": {
-                        "output": {
-                            "type": "file",
-                            "path": str(output_file),
-                        }
-                    }
-                },
-            },
-            ensure_ascii=False,
-        )
-        + "\n",
-        encoding="utf-8",
-    )
+def test_result_resolver_archives_directory_to_workspace_temp(tmp_path: Path) -> None:
+    stop_workspace = tmp_path / "stop"
+    output_dir = stop_workspace / "output" / "openbabel"
+    nested_dir = output_dir / "nested"
+    nested_dir.mkdir(parents=True)
+    (output_dir / "primary.gjf").write_text("gjf", encoding="utf-8")
+    (nested_dir / "summary.md").write_text("summary", encoding="utf-8")
 
     resolver = ResultResolver()
-    resolved = resolver._resolve_path_from_stop_log(
-        log_path=str(log_path),
-        result_output_name="",
+    archive_path = resolver._archive_result_directory(
+        output_dir,
+        temp_root=stop_workspace / "temp",
     )
 
-    assert resolved == output_file.resolve()
+    assert archive_path.parent == stop_workspace / "temp"
+    assert archive_path.is_file()
+    assert not archive_path.is_relative_to(output_dir)
+
+    import zipfile
+
+    with zipfile.ZipFile(archive_path) as archive:
+        assert sorted(archive.namelist()) == [
+            "nested/summary.md",
+            "primary.gjf",
+        ]
 
 
-def test_result_resolver_prefers_named_output_from_stop_log(tmp_path: Path) -> None:
-    left_output = tmp_path / "left.txt"
-    right_output = tmp_path / "right.txt"
-    left_output.write_text("left", encoding="utf-8")
-    right_output.write_text("right", encoding="utf-8")
-    log_path = tmp_path / "job.log"
-    log_path.write_text(
-        json.dumps(
-            {
-                "event": "STOP_COMPLETED",
-                "payload": {
-                    "outputs": {
-                        "left": {"type": "file", "path": str(left_output)},
-                        "right": {"type": "file", "path": str(right_output)},
-                    }
-                },
-            },
-            ensure_ascii=False,
-        )
-        + "\n",
-        encoding="utf-8",
-    )
+def test_result_resolver_reuses_stable_directory_archive(tmp_path: Path) -> None:
+    directory = tmp_path / "stop" / "output"
+    directory.mkdir(parents=True)
+    (directory / "result.txt").write_text("result", encoding="utf-8")
+    temp_root = tmp_path / "stop" / "temp"
 
     resolver = ResultResolver()
-    resolved = resolver._resolve_path_from_stop_log(
-        log_path=str(log_path),
-        result_output_name="right",
+    first = resolver._archive_result_directory(directory, temp_root=temp_root)
+    second = resolver._archive_result_directory(directory, temp_root=temp_root)
+
+    assert first == second
+
+
+def test_result_resolver_resolves_relative_output_path(tmp_path: Path) -> None:
+    stop_workspace = tmp_path / "stop"
+    result = stop_workspace / "output" / "outputs" / "openbabel" / "acetic.gjf"
+    result.parent.mkdir(parents=True)
+    result.write_text("gjf", encoding="utf-8")
+
+    resolver = ResultResolver()
+    resolved = resolver._resolve_node_result_path(
+        row={"stop_workspace_path": str(stop_workspace), "stop_uuid": "node-1"},
+        result_output_name="outputs/openbabel/acetic.gjf",
     )
 
-    assert resolved == right_output.resolve()
+    assert resolved == result.resolve()
+
+
+@pytest.mark.parametrize(
+    "result_output_name",
+    ["/tmp/secret.txt", "../secret.txt", "nested/../../secret.txt"],
+)
+def test_result_resolver_rejects_result_path_escape(
+    tmp_path: Path,
+    result_output_name: str,
+) -> None:
+    resolver = ResultResolver()
+
+    with pytest.raises(RemoteExecutionError, match="relative path|stay inside"):
+        resolver._resolve_node_result_path(
+            row={"stop_workspace_path": str(tmp_path / "stop"), "stop_uuid": "node-1"},
+            result_output_name=result_output_name,
+        )

@@ -37,6 +37,7 @@ CREATE TABLE IF NOT EXISTS piflow_stop_job_run (
     stdout_log_path TEXT,
     stderr_log_path TEXT,
     final_output_path TEXT,
+    stop_workspace_path TEXT,
     error_message TEXT,
     started_at TIMESTAMPTZ,
     finished_at TIMESTAMPTZ,

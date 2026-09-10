@@ -129,19 +129,36 @@ class CommandInvocationParser:
         output_properties: dict[str, Any],
     ) -> str:
         if parameter.name in output_properties:
-            output_path = Path(str(output_properties[parameter.name]))
-            if output_path.is_absolute():
-                return str(output_path)
-            return str((workspace / output_path).resolve())
+            relative_path = Path(str(output_properties[parameter.name]))
+        elif parameter.default:
+            relative_path = Path(str(parameter.default))
+        else:
+            suffix = _guess_suffix(parameter.type)
+            relative_path = Path(f"{parameter.name}{suffix}")
 
-        if parameter.default:
-            output_path = Path(str(parameter.default))
-            if output_path.is_absolute():
-                return str(output_path)
-            return str((workspace / "output" / output_path).resolve())
+        if relative_path.is_absolute():
+            raise ValueError(
+                f"output path must be relative to the stop output directory: "
+                f"{parameter.name}={relative_path}"
+            )
 
-        suffix = _guess_suffix(parameter.type)
-        return str((workspace / "output" / f"{parameter.name}{suffix}").resolve())
+        if ".." in relative_path.parts:
+            raise ValueError(
+                f"output path must stay inside the stop output directory: "
+                f"{parameter.name}={relative_path}"
+            )
+
+        output_root = (workspace / "output").resolve()
+        output_path = (output_root / relative_path).resolve()
+        try:
+            output_path.relative_to(output_root)
+        except ValueError as exc:
+            raise ValueError(
+                f"output path must stay inside the stop output directory: "
+                f"{parameter.name}={relative_path}"
+            ) from exc
+
+        return str(output_path)
 
     def _render_command(self, values: dict[str, str | object]) -> list[str]:
         command: list[str] = []

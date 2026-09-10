@@ -338,7 +338,52 @@ def test_command_invocation_parser_prefers_output_properties_over_default(
         output_properties={"output_path": "output/custom.jsonl"},
     )
 
-    expected_output_path = str((tmp_path / "output" / "custom.jsonl").resolve())
+    expected_output_path = str(
+        (tmp_path / "output" / "output" / "custom.jsonl").resolve()
+    )
 
     assert invocation.resolved_values["output_path"] == expected_output_path
     assert invocation.output_files == {"output_path": expected_output_path}
+
+
+def test_command_invocation_parser_keeps_user_output_path_under_output_root(
+    tmp_path: Path,
+) -> None:
+    parser = CommandInvocationParser(_csv_formatter_spec())
+    inputs = JobInputStreamImpl(
+        inputs={"input_path": FileArtifact(path=str(tmp_path / "input.csv"))}
+    )
+
+    invocation = parser.parse(
+        inputs,
+        tmp_path,
+        properties={},
+        output_properties={"output_path": "outputs/openbabel/acetic.gjf"},
+    )
+
+    expected_output_path = str(
+        (tmp_path / "output" / "outputs" / "openbabel" / "acetic.gjf").resolve()
+    )
+    assert invocation.output_files == {"output_path": expected_output_path}
+
+
+@pytest.mark.parametrize(
+    "output_path",
+    ["/tmp/result.jsonl", "../result.jsonl", "nested/../../result.jsonl"],
+)
+def test_command_invocation_parser_rejects_output_path_escape(
+    tmp_path: Path,
+    output_path: str,
+) -> None:
+    parser = CommandInvocationParser(_csv_formatter_spec())
+    inputs = JobInputStreamImpl(
+        inputs={"input_path": FileArtifact(path=str(tmp_path / "input.csv"))}
+    )
+
+    with pytest.raises(ValueError, match="output directory"):
+        parser.parse(
+            inputs,
+            tmp_path,
+            properties={},
+            output_properties={"output_path": output_path},
+        )

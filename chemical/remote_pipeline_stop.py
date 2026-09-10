@@ -9,9 +9,11 @@ import uuid
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Protocol
+from zipfile import ZipFile
 
 from piflow_engine.cn.piflow.core.artifact import Artifact, FileArtifact, RemoteFileArtifact
 from piflow_engine.cn.piflow.core.runtime_context import JobContext, ProcessContext
+from piflow_engine.cn.piflow.core.runtime_keys import RUN_CONTEXT_STOP_WORKSPACE_PATH
 from piflow_engine.cn.piflow.core.stop import ConfigurableStop
 from piflow_engine.cn.piflow.core.stream import JobInputStream, JobOutputStream
 from piflow_engine.cn.piflow.runtime.logging.path_utils import safe_name
@@ -151,34 +153,44 @@ class ChemicalRemotePipelineStop(ConfigurableStop):
         outputs: JobOutputStream,
         ctx: JobContext,
     ) -> None:
+        stop_workspace = self._prepare_stop_workspace(ctx)
+        ctx.put(RUN_CONTEXT_STOP_WORKSPACE_PATH, str(stop_workspace))
         input_specs = self._collect_inputs(inputs)
         dag_definition = self._load_node_definition()
-        dag, result_specs = self._build_dag(dag_definition, input_specs)
+        dag, _ = self._build_dag(dag_definition, input_specs)
         dag_json = json.dumps(dag, ensure_ascii=False)
+        node_id = self._target_node_id(dag_definition)
+        output_specs = self._output_specs(dag_definition)
 
         client = self._create_client()
         try:
             submit_resp = client.submit_dag(dag_json)
             run_id = str(submit_resp.run_id)
             self._wait_for_success(client, run_id)
-            for result_spec in result_specs:
-                meta = client.get_run_result_meta(
-                    run_id=run_id,
-                    result_node_id=result_spec.node_id,
-                    result_output_name=result_spec.output_name,
+            meta = client.get_run_result_meta(
+                run_id=run_id,
+                result_node_id=node_id,
+                result_output_name="",
+            )
+            archive_name = str(getattr(meta, "file_name", "") or "remote_output.zip")
+            archive_path = stop_workspace / "temp" / archive_name
+            client.download_result(
+                run_id=run_id,
+                result_node_id=node_id,
+                result_output_name="",
+                target_path=archive_path,
+            )
+            self._extract_output_archive(
+                archive_path=archive_path,
+                output_root=stop_workspace / "output",
+            )
+            for port, relative_path in output_specs:
+                local_path = self._resolve_output_path(
+                    output_root=stop_workspace / "output",
+                    relative_path=relative_path,
+                    port=port,
                 )
-                target_path = self._prepare_output_path(
-                    ctx,
-                    result_spec.port,
-                    str(getattr(meta, "file_name", "") or f"{result_spec.port}.bin"),
-                )
-                local_path = client.download_result(
-                    run_id=run_id,
-                    result_node_id=result_spec.node_id,
-                    result_output_name=result_spec.output_name,
-                    target_path=target_path,
-                )
-                outputs.write(FileArtifact(path=str(local_path)), result_spec.port)
+                outputs.write(FileArtifact(path=str(local_path)), port)
         finally:
             client.close()
 
@@ -302,6 +314,47 @@ class ChemicalRemotePipelineStop(ConfigurableStop):
                 specs.append(_ResultSpec(port=port, node_id=node_id, output_name=output_name))
         return specs or [_ResultSpec(DEFAULT_OUTPUT_PORT, "", "")]
 
+    def _target_node_id(self, definition: dict[str, Any]) -> str:
+        if "nodes" in definition:
+            terminal_nodes = _terminal_nodes(definition)
+            if len(terminal_nodes) == 1:
+                node_id = str(terminal_nodes[0].get("node_id", "")).strip()
+            else:
+                node_id = ""
+        else:
+            node_id = str(definition.get("node_id", "")).strip()
+
+        if not node_id:
+            raise ValueError("chemical remote pipeline node_id is required")
+        return node_id
+
+    def _output_specs(self, definition: dict[str, Any]) -> list[tuple[str, str]]:
+        if "nodes" in definition:
+            terminal_nodes = _terminal_nodes(definition)
+            if len(terminal_nodes) != 1:
+                raise ValueError(
+                    "chemical remote pipeline must contain exactly one target node"
+                )
+            node = terminal_nodes[0]
+        else:
+            node = definition
+
+        specs: list[tuple[str, str]] = []
+        for param in node.get("out_params", []):
+            if not isinstance(param, dict):
+                continue
+            port = str(param.get("param_name", "")).strip()
+            relative_path = str(param.get("param_value", "")).strip()
+            if port and relative_path:
+                specs.append((port, relative_path))
+
+        if not specs:
+            raise ValueError(
+                "chemical remote pipeline target node must declare output params "
+                "with param_name and param_value"
+            )
+        return specs
+
     def _create_client(self) -> RemoteExecutionGateway:
         factory = getattr(self, "client_factory", None)
         if callable(factory):
@@ -321,22 +374,75 @@ class ChemicalRemotePipelineStop(ConfigurableStop):
                 raise RuntimeError(f"remote chemical pipeline failed with status {status}: {status_resp.message}")
             time.sleep(self.poll_interval_seconds)
 
-    def _prepare_output_path(self, ctx: JobContext, port: str, file_name: str) -> Path:
+    def _prepare_stop_workspace(self, ctx: JobContext) -> Path:
         if self._workspace_root is None:
             raise RuntimeError("workspace root is not initialized")
 
         process_id = ctx.get_process_context().get_process().pid()
         stop_name = safe_name(ctx.get_stop_job().get_stop_name())
         job_id = ctx.get_stop_job().jid()
-        output_dir = (
+        stop_workspace = (
             self._workspace_root
             / process_id
             / f"{stop_name}_{job_id}_{uuid.uuid4().hex[:8]}"
-            / "output"
-            / safe_name(port)
         )
-        output_dir.mkdir(parents=True, exist_ok=True)
-        return output_dir / (Path(file_name).name or "remote_result.bin")
+        for name in ("input", "output", "temp", "meta"):
+            (stop_workspace / name).mkdir(parents=True, exist_ok=True)
+        return stop_workspace
+
+    def _resolve_output_path(
+        self,
+        *,
+        output_root: Path,
+        relative_path: str,
+        port: str,
+    ) -> Path:
+        path = Path(relative_path)
+        if path.is_absolute() or ".." in path.parts:
+            raise ValueError(
+                f"output param '{port}' must be a relative path inside output: "
+                f"{relative_path}"
+            )
+        output_root = output_root.resolve()
+        resolved = (output_root / path).resolve()
+        try:
+            resolved.relative_to(output_root)
+        except ValueError as exc:
+            raise ValueError(
+                f"output param '{port}' escapes output directory: {relative_path}"
+            ) from exc
+        return resolved
+
+    def _extract_output_archive(
+        self,
+        *,
+        archive_path: Path,
+        output_root: Path,
+    ) -> None:
+        output_root = output_root.resolve()
+        output_root.mkdir(parents=True, exist_ok=True)
+        with ZipFile(archive_path, "r") as archive:
+            for member in archive.infolist():
+                member_path = (output_root / member.filename).resolve()
+                try:
+                    member_path.relative_to(output_root)
+                except ValueError as exc:
+                    raise ValueError(
+                        f"remote result archive contains unsafe path: "
+                        f"{member.filename}"
+                    ) from exc
+
+                if member.is_dir():
+                    member_path.mkdir(parents=True, exist_ok=True)
+                    continue
+
+                member_path.parent.mkdir(parents=True, exist_ok=True)
+                with archive.open(member, "r") as source, member_path.open("wb") as target:
+                    while True:
+                        chunk = source.read(1024 * 1024)
+                        if not chunk:
+                            break
+                        target.write(chunk)
 
 
 def _build_source_nodes_for_single_node(
