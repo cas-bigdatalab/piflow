@@ -2542,8 +2542,13 @@ const FlowEditorInner: React.FC<TaskDrawPageProps> = ({ taskId: taskIdProp, task
       nds.map((n) => {
         if (n.id === selectedNodeId) {
           const newParams = [...(n.data.input_params?.params || [])];
-          if (newParams[fileSelectParamName]) {
-            newParams[fileSelectParamName] = { ...newParams[fileSelectParamName], _value: filePath };
+          const targetIndex = newParams.findIndex(p => p.name === fileSelectParamName);
+          if (targetIndex !== -1) {
+            newParams[targetIndex] = {
+              ...newParams[targetIndex],
+              _value: filePath,
+              param_value: filePath,
+            };
           }
           return {
             ...n,
