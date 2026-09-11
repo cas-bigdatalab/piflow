@@ -15,8 +15,46 @@ from services.dag_runtime_service import (
     run_dag_task,
     stop_dag_run,
 )
+from services.piflow_batch_service import get_batch_dag_status, submit_batch_dag
+from schemas.dag.batch_runtime_schema import BatchDagSubmitRequest
 
 router = APIRouter()
+
+
+@router.post("/dag/runtime/batch/run")
+async def run_batch_dag_runtime_api(
+    req: BatchDagSubmitRequest,
+    current_user=Depends(get_current_user),
+):
+    try:
+        result = submit_batch_dag(
+            definition_id=req.definition_id,
+            input_dir=req.input_dir,
+            user_id=current_user["user_id"],
+            max_parallel=req.max_parallel,
+            retry_count=req.retry_count,
+            stop_on_failure=req.stop_on_failure,
+            output_dir=req.output_dir,
+        )
+        return {"message": "success", "result": result, "code": 200}
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@router.get("/dag/runtime/batch/status")
+async def get_batch_dag_runtime_status_api(
+    batch_id: str,
+    current_user=Depends(get_current_user),
+):
+    result = get_batch_dag_status(
+        batch_id=batch_id,
+        user_id=current_user["user_id"],
+    )
+    if result is None:
+        raise HTTPException(status_code=404, detail=f"batch not found: {batch_id}")
+    return {"message": "success", "result": result, "code": 200}
 
 
 @router.post("/dag/runtime/run")
