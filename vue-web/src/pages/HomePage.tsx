@@ -215,8 +215,8 @@ const EXAMPLES: ExampleCard[] = [
     bgGradient: "from-emerald-50/60 to-white",
     attachments: [
       {
-        path: "/temp/森林每木调查数据.csv",
-        name: "森林每木调查数据.csv",
+        path: "/temp/Marxist.docx",
+        name: "Marxist.docx",
       },
     ],
   },
@@ -229,6 +229,12 @@ const EXAMPLES: ExampleCard[] = [
     iconBg: "bg-blue-100",
     iconColor: "text-blue-600",
     bgGradient: "from-blue-50/60 to-white",
+    attachments: [
+      {
+        path: "/temp/森林每木调查数据.csv",
+        name: "森林每木调查数据.csv",
+      },
+    ],
   }
 ];
 
