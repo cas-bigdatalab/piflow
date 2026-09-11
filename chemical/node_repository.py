@@ -35,49 +35,49 @@ def ensure_schema(connection=None) -> None:
     conn = connection or get_connection()
     should_close = connection is None
     try:
-        with conn:
-            with conn.cursor() as cursor:
-                cursor.execute(
-                    f"""
-                    CREATE TABLE IF NOT EXISTS {CHEMICAL_NODE_TABLE} (
-                        id BIGSERIAL PRIMARY KEY,
-                        name TEXT NOT NULL UNIQUE,
-                        ip TEXT NOT NULL,
-                        port INTEGER NOT NULL,
-                        software JSONB NOT NULL DEFAULT '[]'::jsonb,
-                        cpu_cores DOUBLE PRECISION,
-                        memory_gb DOUBLE PRECISION,
-                        free_disk_gb DOUBLE PRECISION,
-                        hostname TEXT NOT NULL DEFAULT '',
-                        status TEXT NOT NULL DEFAULT 'unknown',
-                        error_message TEXT NOT NULL DEFAULT '',
-                        last_refreshed_at TIMESTAMPTZ,
-                        created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                        updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
-                    )
-                    """
+        with conn.cursor() as cursor:
+            cursor.execute(
+                f"""
+                CREATE TABLE IF NOT EXISTS {CHEMICAL_NODE_TABLE} (
+                    id BIGSERIAL PRIMARY KEY,
+                    name TEXT NOT NULL UNIQUE,
+                    ip TEXT NOT NULL,
+                    port INTEGER NOT NULL,
+                    software JSONB NOT NULL DEFAULT '[]'::jsonb,
+                    cpu_cores DOUBLE PRECISION,
+                    memory_gb DOUBLE PRECISION,
+                    free_disk_gb DOUBLE PRECISION,
+                    hostname TEXT NOT NULL DEFAULT '',
+                    status TEXT NOT NULL DEFAULT 'unknown',
+                    error_message TEXT NOT NULL DEFAULT '',
+                    last_refreshed_at TIMESTAMPTZ,
+                    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
                 )
-                cursor.execute(
-                    f"""
-                    CREATE TABLE IF NOT EXISTS {CHEMICAL_NODE_SOFTWARE_INSTANCE_TABLE} (
-                        id BIGSERIAL PRIMARY KEY,
-                        node_name TEXT NOT NULL REFERENCES {CHEMICAL_NODE_TABLE}(name) ON DELETE CASCADE,
-                        software TEXT NOT NULL,
-                        running_count INTEGER NOT NULL DEFAULT 0 CHECK (running_count >= 0),
-                        created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                        updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                        UNIQUE (node_name, software)
-                    )
-                    """
+                """
+            )
+            cursor.execute(
+                f"""
+                CREATE TABLE IF NOT EXISTS {CHEMICAL_NODE_SOFTWARE_INSTANCE_TABLE} (
+                    id BIGSERIAL PRIMARY KEY,
+                    node_name TEXT NOT NULL REFERENCES {CHEMICAL_NODE_TABLE}(name) ON DELETE CASCADE,
+                    software TEXT NOT NULL,
+                    running_count INTEGER NOT NULL DEFAULT 0 CHECK (running_count >= 0),
+                    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE (node_name, software)
                 )
-                cursor.execute(
-                    f"""
-                    CREATE INDEX IF NOT EXISTS idx_{CHEMICAL_NODE_SOFTWARE_INSTANCE_TABLE}_node_name
-                    ON {CHEMICAL_NODE_SOFTWARE_INSTANCE_TABLE}(node_name)
-                    """
-                )
+                """
+            )
+            cursor.execute(
+                f"""
+                CREATE INDEX IF NOT EXISTS idx_{CHEMICAL_NODE_SOFTWARE_INSTANCE_TABLE}_node_name
+                ON {CHEMICAL_NODE_SOFTWARE_INSTANCE_TABLE}(node_name)
+                """
+            )
     finally:
         if should_close:
+            conn.commit()
             conn.close()
 
 
