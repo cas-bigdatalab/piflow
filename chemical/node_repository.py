@@ -290,6 +290,49 @@ def change_running_count(connection, *, node_name: str, software: str, delta: in
             raise ValueError("software instance count must not be negative")
 
 
+def change_running_counts(
+    connection,
+    *,
+    node_name: str,
+    software_names: Iterable[str],
+    delta: int,
+) -> None:
+    """Change several software counters within the caller's transaction."""
+    normalized_names = sorted(
+        {str(name).strip() for name in software_names if str(name).strip()}
+    )
+    for software in normalized_names:
+        change_running_count(
+            connection,
+            node_name=node_name,
+            software=software,
+            delta=delta,
+        )
+
+
+def change_running_bindings(
+    connection,
+    *,
+    bindings: Iterable[tuple[str, str]],
+    delta: int,
+) -> None:
+    """Change software counters for possibly different resource nodes."""
+    normalized = sorted(
+        {
+            (str(node_name).strip(), str(software).strip())
+            for node_name, software in bindings
+            if str(node_name).strip() and str(software).strip()
+        }
+    )
+    for node_name, software in normalized:
+        change_running_count(
+            connection,
+            node_name=node_name,
+            software=software,
+            delta=delta,
+        )
+
+
 def _decode_software_list(value: Any) -> tuple[str, ...]:
     if value is None:
         return ()
