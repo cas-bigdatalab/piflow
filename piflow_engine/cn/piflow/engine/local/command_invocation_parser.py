@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from piflow_engine.cn.piflow.core.artifact_resolver import ArtifactResolver
 from piflow_engine.cn.piflow.core.stream import JobInputStream
 from piflow_engine.cn.piflow.engine.local.spec import CommandSpec, ParameterSpec
 
@@ -40,11 +41,16 @@ class CommandInvocationParser:
         output_keys: list[str] = []
         runtime_properties: dict[str, str] = {}
         output_files: dict[str, str] = {}
+        artifact_resolver = ArtifactResolver(workspace)
 
         for parameter in self.spec.input_params:
             if _is_input_data(parameter):
                 input_keys.append(parameter.name)
-                values[parameter.name] = self._input_path(parameter, inputs)
+                values[parameter.name] = self._input_path(
+                    parameter,
+                    inputs,
+                    artifact_resolver,
+                )
                 continue
 
             if _is_output_data(parameter):
@@ -81,17 +87,23 @@ class CommandInvocationParser:
             output_files=output_files,
         )
 
-    def _input_path(self, parameter: ParameterSpec, inputs: JobInputStream) -> str | object:
+    def _input_path(
+        self,
+        parameter: ParameterSpec,
+        inputs: JobInputStream,
+        artifact_resolver: ArtifactResolver,
+    ) -> str | object:
         if not inputs.contains(parameter.name):
             if parameter.required:
                 raise ValueError(f"missing required input data: {parameter.name}")
             return _SKIP_TOKEN
 
         artifact = inputs.read(parameter.name)
-        path = getattr(artifact, "path", "") or str(getattr(artifact, "value", ""))
-        if not path:
+        try:
+            path = artifact_resolver.resolve_path(artifact)
+        except ValueError as exc:
             raise ValueError(f"input artifact for port '{parameter.name}' has no file path")
-        return path
+        return str(path)
 
     def _runtime_value(
         self,
@@ -117,19 +129,36 @@ class CommandInvocationParser:
         output_properties: dict[str, Any],
     ) -> str:
         if parameter.name in output_properties:
-            output_path = Path(str(output_properties[parameter.name]))
-            if output_path.is_absolute():
-                return str(output_path)
-            return str((workspace / output_path).resolve())
+            relative_path = Path(str(output_properties[parameter.name]))
+        elif parameter.default:
+            relative_path = Path(str(parameter.default))
+        else:
+            suffix = _guess_suffix(parameter.type)
+            relative_path = Path(f"{parameter.name}{suffix}")
 
-        if parameter.default:
-            output_path = Path(str(parameter.default))
-            if output_path.is_absolute():
-                return str(output_path)
-            return str((workspace / "output" / output_path).resolve())
+        if relative_path.is_absolute():
+            raise ValueError(
+                f"output path must be relative to the stop output directory: "
+                f"{parameter.name}={relative_path}"
+            )
 
-        suffix = _guess_suffix(parameter.type)
-        return str((workspace / "output" / f"{parameter.name}{suffix}").resolve())
+        if ".." in relative_path.parts:
+            raise ValueError(
+                f"output path must stay inside the stop output directory: "
+                f"{parameter.name}={relative_path}"
+            )
+
+        output_root = (workspace / "output").resolve()
+        output_path = (output_root / relative_path).resolve()
+        try:
+            output_path.relative_to(output_root)
+        except ValueError as exc:
+            raise ValueError(
+                f"output path must stay inside the stop output directory: "
+                f"{parameter.name}={relative_path}"
+            ) from exc
+
+        return str(output_path)
 
     def _render_command(self, values: dict[str, str | object]) -> list[str]:
         command: list[str] = []

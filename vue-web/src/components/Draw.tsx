@@ -858,7 +858,7 @@ const OperatorLibraryModal: React.FC<OperatorLibraryModalProps> = ({ isOpen, onC
   return (
     <div className="operator-modal">
       <div className="modal-header">
-        <h3>算子库3132</h3>
+        <h3>算子库</h3>
         <button className="modal-close" onClick={onClose}>
           <X size={18} />
         </button>
@@ -1235,6 +1235,7 @@ const handleParamChange = (e, targetName) => {
   const handleSelectFileForParam = useCallback((filePath: string) => {
     if (!fileSelectParamName || !selectedNodeId) {
       setShowFileModal(false);
+      setFileSelectParamName(null);
       return;
     }
     setNodes((nds) =>
@@ -1243,7 +1244,11 @@ const handleParamChange = (e, targetName) => {
           const newParams = [...(n.data.input_params?.params || [])];
           const targetIndex = newParams.findIndex(p => p.name === fileSelectParamName);
           if (targetIndex !== -1) {
-            newParams[targetIndex] = { ...newParams[targetIndex], _value: filePath };
+            newParams[targetIndex] = {
+              ...newParams[targetIndex],
+              _value: filePath,
+              param_value: filePath,
+            };
           }
           return {
             ...n,
@@ -1257,7 +1262,8 @@ const handleParamChange = (e, targetName) => {
       })
     );
     setShowFileModal(false);
-  }, [fileSelectParamName, selectedNodeId]); // 注意依赖项也改了
+    setFileSelectParamName(null);
+  }, [fileSelectParamName, selectedNodeId]);
 
   // 当 messageId prop 变化时更新 state
   useEffect(() => {
@@ -4305,7 +4311,7 @@ const mapOutputParamsValues = (rawParams) => {
             <div className="file-system-header">
               <div className="file-system-title">
                 <FolderOpen size={18} />
-                <span>{!fileSelectParamName !== null ? '选择文件' : '文件系统'}</span>
+                <span>{fileSelectParamName !== null ? '选择文件' : '文件系统'}</span>
               </div>
               <button className="file-system-close" onClick={() => { setShowFileModal(false); setFileSelectParamName(null); }}>
                 <X size={18} />
@@ -4343,7 +4349,7 @@ const mapOutputParamsValues = (rawParams) => {
                   />
                 </label>
               )}
-              {!fileSelectParamName && (
+              {fileSelectParamName && (
                 <span className="file-system-hint">双击文件或点击"选择"按钮选中文件</span>
               )}
             </div>
@@ -4370,7 +4376,8 @@ const mapOutputParamsValues = (rawParams) => {
                         }
                       }}
                       onDoubleClick={() => {
-                        if (item.type === 'file' && !fileSelectParamName) {
+                        // 当从参数选择文件弹窗触发时，双击文件将路径赋值给参数
+                        if (item.type === 'file' && fileSelectParamName !== null) {
                           handleSelectFileForParam(item.path);
                         }
                       }}
@@ -4383,7 +4390,7 @@ const mapOutputParamsValues = (rawParams) => {
                         )}
                       </div>
                       <span className="file-system-item-name">{item.name}</span>
-                      {item.type === 'file' && !fileSelectParamName && (
+                      {item.type === 'file' && fileSelectParamName === null && (
                         <button
                           className="file-system-download-btn"
                           onClick={(e) => {
@@ -4394,7 +4401,7 @@ const mapOutputParamsValues = (rawParams) => {
                           <Download size={14} />
                         </button>
                       )}
-                      {item.type === 'file' && !fileSelectParamName && (
+                      {item.type === 'file' && fileSelectParamName !== null && (
                         <button
                           className="file-system-select-btn"
                           onClick={(e) => {

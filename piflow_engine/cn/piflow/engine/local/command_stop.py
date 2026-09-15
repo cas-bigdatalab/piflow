@@ -9,6 +9,7 @@ from typing import Any
 from piflow_engine.cn.piflow.core.artifact import FileArtifact
 from piflow_engine.cn.piflow.core.runtime_context import JobContext, ProcessContext
 from piflow_engine.cn.piflow.core.runtime_keys import (
+    RUN_CONTEXT_STOP_WORKSPACE_PATH,
     RUN_CONTEXT_STDERR_LOG_PATH,
     RUN_CONTEXT_STDOUT_LOG_PATH,
 )
@@ -95,6 +96,7 @@ class CommandStop(ConfigurableStop):
         ctx: JobContext,
     ) -> None:
         workspace = self._prepare_workspace(ctx)
+        ctx.put(RUN_CONTEXT_STOP_WORKSPACE_PATH, str(workspace))
         invocation = self._parser.parse(
             inputs,
             workspace,

@@ -12,8 +12,9 @@ from piflow_engine.cn.piflow.remote.server import create_server
 
 
 class _FakeFacade:
-    def __init__(self, result_file: Path):
+    def __init__(self, result_file: Path, workspace_root: Path):
         self.result_file = result_file
+        self._workspace_root = str(workspace_root)
 
     def submit_dag(self, dag_definition_json: str):
         assert dag_definition_json == '{"nodes":[]}'
@@ -54,10 +55,12 @@ class _FakeFacade:
 
 @pytest.fixture
 def grpc_target(tmp_path: Path):
-    result_file = tmp_path / "result.txt"
+    workspace_root = tmp_path / "workspace"
+    result_file = workspace_root / "result.txt"
+    workspace_root.mkdir(parents=True, exist_ok=True)
     result_file.write_text("hello remote execution", encoding="utf-8")
 
-    server = create_server(facade=_FakeFacade(result_file))
+    server = create_server(facade=_FakeFacade(result_file, workspace_root))
     port = server.add_insecure_port("127.0.0.1:0")
     server.start()
     try:
@@ -119,5 +122,43 @@ def test_remote_execution_server_maps_not_found(grpc_target):
             )
         assert exc_info.value.code() == grpc.StatusCode.NOT_FOUND
         assert "RESULT_NOT_FOUND" in exc_info.value.details()
+    finally:
+        client.close()
+
+
+def test_remote_execution_client_downloads_file(grpc_target, tmp_path: Path):
+    target, _ = grpc_target
+    remote_file = tmp_path / "workspace" / "remote_dir" / "nested" / "remote.txt"
+    remote_file.parent.mkdir(parents=True, exist_ok=True)
+    remote_file.write_text("remote file content", encoding="utf-8")
+
+    client = RemoteExecutionClient(target)
+    try:
+        local_file = tmp_path / "downloaded" / "remote.txt"
+        downloaded_path = client.download_file(
+            file_path=str(remote_file),
+            target_path=local_file,
+        )
+
+        assert Path(downloaded_path) == local_file
+        assert local_file.read_text(encoding="utf-8") == "remote file content"
+    finally:
+        client.close()
+
+
+def test_remote_execution_client_downloads_file_outside_workspace_rejected(grpc_target, tmp_path: Path):
+    target, _ = grpc_target
+    remote_file = tmp_path / "outside.txt"
+    remote_file.write_text("nope", encoding="utf-8")
+
+    client = RemoteExecutionClient(target)
+    try:
+        with pytest.raises(grpc.RpcError) as exc_info:
+            client.download_file(
+                file_path=str(remote_file),
+                target_path=tmp_path / "downloaded" / "outside.txt",
+            )
+        assert exc_info.value.code() == grpc.StatusCode.PERMISSION_DENIED
+        assert "FILE_OUTSIDE_WORKSPACE" in exc_info.value.details()
     finally:
         client.close()

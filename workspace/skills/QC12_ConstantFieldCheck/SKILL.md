@@ -6,7 +6,7 @@ description: |
   当用户提到恒定字段检查、字段一致性检查、分组内差异检查等需求时使用此skill。
   即使用户没有说出"恒定字段"，只要任务涉及检查分组内字段是否存在不一致，就应该使用此skill。
 
-name_zh: QC12_特定字段恒定下的其他字段不一致检查算子
+name_zh: 质控_特定字段一致性检查算子
 input_params:
   - name: input_path
     type: string
@@ -51,6 +51,7 @@ output_params:
     description: 恒定字段一致性检查后的结构化数据文件，带质控标识
 tag: 数据校验
 publisher: COMMUNITY
+disciplinary_field: 生态
 ---
 
 # QC12_ConstantFieldCheck 恒定字段一致性检查Skill

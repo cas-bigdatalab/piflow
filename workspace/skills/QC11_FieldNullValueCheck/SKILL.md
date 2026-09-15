@@ -6,7 +6,7 @@ description: |
   当用户提到空值检查、字段空值校验、缺失值检查、NULL值检查等需求时使用此skill。
   即使用户没有说出"空值检查"，只要任务涉及检查数据字段是否为空，就应该使用此skill。
 
-name_zh: QC11_字段空值检查算子
+name_zh: 质控_字段空值检查算子
 input_params:
   - name: input_path
     type: string
@@ -47,6 +47,7 @@ output_params:
     description: 空值检查后的结构化数据文件，带质控标识
 tag: 数据校验
 publisher: COMMUNITY
+disciplinary_field: 生态
 ---
 
 # QC11_FieldNullValueCheck 字段空值检查Skill

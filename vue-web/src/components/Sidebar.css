@@ -1,0 +1,461 @@
+/* ===== 侧边栏容器 ===== */
+.sidebar {
+  position: relative;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  height: 100vh;
+  width: 280px;
+  background: #f7f7f9;
+  border-right: 1px solid rgba(203, 213, 225, 0.5);
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+}
+
+.sidebar.collapsed {
+  width: 68px;
+}
+
+.sidebar-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 100;
+  background: rgba(255, 255, 255, 0.2);
+  cursor: not-allowed;
+}
+
+/* ===== 顶部 ===== */
+.sidebar-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 16px 12px;
+  flex-shrink: 0;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  user-select: none;
+  transition: opacity 0.15s;
+}
+.brand:hover {
+  opacity: 0.8;
+}
+
+.brand-logo {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: #10b981;
+}
+.brand-logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.brand-name {
+  font-size: 20px;
+  font-weight: 760;
+  letter-spacing: -0.4px;
+  color: #0f172a;
+  white-space: nowrap;
+}
+
+.collapse-btn {
+  border: 0;
+  background: transparent;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  color: #94a3b8;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  flex-shrink: 0;
+}
+.collapse-btn:hover {
+  background: #e9ecef;
+  color: #0f172a;
+}
+
+/* ===== 主菜单 ===== */
+.nav {
+  flex: none;
+  padding: 4px 12px 8px;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 40px;
+  padding: 0 14px;
+  margin: 2px 0;
+  border-radius: 12px;
+  color: #4b5563;
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: none;
+  transition: all 0.15s ease;
+  cursor: pointer;
+  user-select: none;
+}
+.nav-item:hover {
+  background: rgba(255, 255, 255, 0.7);
+  color: #0f172a;
+}
+.nav-item.active {
+  background: rgba(255, 255, 255, 0.85);
+  color: #0f172a;
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), inset 0 0 0 1px rgba(203, 213, 225, 0.5);
+}
+
+.nav-icon {
+  flex-shrink: 0;
+}
+.nav-label {
+  flex: 1;
+  white-space: nowrap;
+}
+
+.nav-divider {
+  height: 1px;
+  background: #e9eef3;
+  margin: 6px 12px;
+}
+
+/* ===== 历史对话 ===== */
+.history-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 0 12px 8px;
+}
+
+.history-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 4px 8px;
+  flex-shrink: 0;
+}
+.history-header h3 {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.24em;
+  color: #94a3b8;
+  margin: 0;
+}
+
+.history-refresh {
+  border: 0;
+  background: transparent;
+  color: #94a3b8;
+  font-size: 11px;
+  cursor: pointer;
+  transition: color 0.15s;
+  padding: 0 4px;
+}
+.history-refresh:hover {
+  color: #475569;
+}
+
+.thread-list {
+  flex: 1;
+  overflow-y: auto;
+  padding-right: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.thread-list::-webkit-scrollbar {
+  width: 4px;
+}
+.thread-list::-webkit-scrollbar-thumb {
+  background: #d1d9e2;
+  border-radius: 999px;
+}
+
+.thread-loading {
+  padding: 20px 12px;
+  text-align: center;
+  color: #94a3b8;
+  font-size: 12px;
+}
+
+.thread-empty {
+  padding: 28px 12px;
+  text-align: center;
+  color: #94a3b8;
+  font-size: 12px;
+  border: 1px dashed #e2e8f0;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.4);
+}
+
+.thread-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border: 1px solid transparent;
+  position: relative;
+  min-height: 44px;
+}
+.thread-item:hover {
+  background: rgba(255, 255, 255, 0.7);
+  border-color: rgba(203, 213, 225, 0.4);
+}
+.thread-item.active {
+  background: #ffffff;
+  border-color: #d1d9e2;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.06);
+}
+
+.thread-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: #cbd5e1;
+  transition: background 0.15s;
+}
+.thread-item.active .thread-dot {
+  background: #10b981;
+}
+
+.thread-content {
+  flex: 1;
+  min-width: 0;
+}
+.thread-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: #334155;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.thread-meta {
+  font-size: 10px;
+  color: #94a3b8;
+  margin-top: 2px;
+}
+
+.thread-delete {
+  border: 0;
+  background: transparent;
+  color: #cbd5e1;
+  padding: 4px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s;
+  flex-shrink: 0;
+  opacity: 0;
+  display: grid;
+  place-items: center;
+}
+.thread-item:hover .thread-delete {
+  opacity: 1;
+}
+.thread-delete:hover {
+  color: #dc2626;
+  background: #fef2f2;
+}
+
+/* ===== 底部 ===== */
+.sidebar-footer {
+  flex-shrink: 0;
+  border-top: 1px solid #e9eef3;
+  padding: 8px 12px;
+}
+
+.command-mini {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 38px;
+  padding: 0 12px;
+  border-radius: 10px;
+  color: #596579;
+  cursor: pointer;
+  transition: background 0.15s;
+  font-size: 13px;
+}
+.command-mini:hover {
+  background: rgba(255, 255, 255, 0.6);
+}
+
+.keycap {
+  margin-left: auto;
+  border: 1px solid #d5dbe3;
+  background: #ffffff;
+  border-bottom-width: 2px;
+  border-radius: 6px;
+  padding: 1px 6px;
+  font-size: 10px;
+  color: #7c8797;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.user-zone {
+  position: relative;
+  margin-top: 8px;
+}
+
+.user-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.user-card:hover {
+  background: rgba(255, 255, 255, 0.6);
+}
+
+.avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #152033;
+  color: #ffffff;
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.user-name {
+  font-size: 13px;
+  font-weight: 650;
+  color: #0f172a;
+}
+.user-role {
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+.user-menu {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: calc(100% + 4px);
+  background: #ffffff;
+  border: 1px solid #dfe5ec;
+  border-radius: 12px;
+  padding: 5px;
+  box-shadow: 0 18px 60px rgba(15, 23, 42, 0.16);
+  z-index: 50;
+  display: none;
+}
+.user-menu.show {
+  display: block;
+}
+.user-menu button {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  padding: 9px 12px;
+  border-radius: 8px;
+  color: #334155;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.user-menu button:hover {
+  background: #f4f6f8;
+}
+
+/* ===== 折叠状态 ===== */
+.sidebar.collapsed .brand-name {
+  display: none;
+}
+.sidebar.collapsed .nav-label {
+  display: none;
+}
+.sidebar.collapsed .nav-divider {
+  display: none;
+}
+.sidebar.collapsed .history-header {
+  display: none;
+}
+.sidebar.collapsed .thread-item .thread-content {
+  display: none;
+}
+.sidebar.collapsed .thread-item .thread-delete {
+  display: none;
+}
+.sidebar.collapsed .thread-item {
+  padding: 8px;
+  justify-content: center;
+  min-height: 44px;
+  width: 44px;
+  margin: 0 auto;
+}
+.sidebar.collapsed .thread-item .thread-dot {
+  margin: 0;
+}
+.sidebar.collapsed .thread-list {
+  padding: 8px 4px;
+  gap: 4px;
+}
+.sidebar.collapsed .command-mini .nav-label {
+  display: none;
+}
+.sidebar.collapsed .command-mini .keycap {
+  display: none;
+}
+.sidebar.collapsed .command-mini {
+  justify-content: center;
+  padding: 0;
+}
+.sidebar.collapsed .user-meta {
+  display: none;
+}
+.sidebar.collapsed .user-card {
+  justify-content: center;
+  padding: 7px 0;
+}
+.sidebar.collapsed .user-menu {
+  left: 68px;
+  right: auto;
+  width: 190px;
+  bottom: 8px;
+}
+.sidebar.collapsed .nav-item {
+  justify-content: center;
+  padding: 0 8px;
+}
+.sidebar.collapsed .nav-item .nav-icon {
+  margin: 0;
+}
+.sidebar.collapsed .collapse-btn {
+  position: absolute;
+  right: -14px;
+  top: 18px;
+  background: #ffffff;
+  border: 1px solid #dfe5ec;
+  box-shadow: 0 8px 30px rgba(15, 23, 42, 0.06);
+  z-index: 5;
+}

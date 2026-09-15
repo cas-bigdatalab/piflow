@@ -6,7 +6,7 @@ description: |
   当用户提到数据类型检查、数值类型校验、字段类型检查、数据格式校验等需求时使用此skill。
   即使用户没有说出"数据类型检查"，只要任务涉及检查数据字段类型是否正确，就应该使用此skill。
 
-name_zh: QC8_数据类型检查算子
+name_zh: 质控_数据类型检查算子
 input_params:
   - name: input_path
     type: string
@@ -40,6 +40,7 @@ output_params:
     description: 数据类型检查后的结构化数据文件，带质控标识
 tag: 数据校验
 publisher: COMMUNITY
+disciplinary_field: 生态
 ---
 
 # QC8_DataTypeCheck 数据类型检查Skill

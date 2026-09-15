@@ -5,7 +5,7 @@ description: |
   然后输出为相同格式的文件。当用户提到空行清洗、清理空行、删除空行、处理空白行、净化数据文件等需求时使用此skill。
   即使用户没有明确说出"空行清洗"，只要任务涉及读取结构化文件并删除空行，就应该使用此skill。
 
-name_zh: DC1_空行清洗算子
+name_zh: 质控_空行清洗算子
 input_params:
   - name: input
     type: string
@@ -23,6 +23,7 @@ output_params:
     description: 清洗空行后的结构化数据文件
 tag: 数据清洗
 publisher: COMMUNITY
+disciplinary_field: 生态
 ---
 
 # DC1_Blank_Line_Clean 空行清洗Skill

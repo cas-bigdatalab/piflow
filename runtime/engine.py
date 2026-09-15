@@ -19,6 +19,7 @@ from runtime.chat_store import ensure_thread_access, save_message, update_thread
     get_content_messages, get_chat_files_by_message
 from runtime.dag_manager import init_dag_db
 from runtime.piflow_adapter import init_piflow_run_tracking_db
+from runtime.schedule.repository import init_schedule_tables
 from runtime.skill_manage import init_dag_skills_to_database
 from runtime.workflow_template_manager import init_workflow_template_db
 from runtime.workspace_manager import WorkspaceManager
@@ -507,6 +508,7 @@ class AgentEngine:
         init_dag_skills_to_database()
         init_default_user()
         init_workflow_template_db()
+        init_schedule_tables()
         log.info("initializing database complete")
 
         self.agent = AgentFactory.create_agent()

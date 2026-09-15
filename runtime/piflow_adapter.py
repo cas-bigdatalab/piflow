@@ -54,6 +54,8 @@ def submit_frontend_dag(
     workspace_root: str | Path | None = None,
     user_id: str | None = None,
     python_home: str | None = None,
+    additional_listeners: list[Any] | None = None,
+    stop_runtime_metadata: dict[str, dict[str, Any]] | None = None,
 ) -> Any:
     from piflow_engine.cn.piflow.core.flow_bean import FlowBean
     from piflow_engine.cn.piflow.core.frontend_dag_converter import convert_frontend_dag_to_piflow
@@ -98,6 +100,9 @@ def submit_frontend_dag(
     resolve_dag_json = resolve_dag_definition_skills(definition_json)
     piflow_json = convert_frontend_dag_to_piflow(resolve_dag_json)
     flow = FlowBean.from_dict(piflow_json).construct_flow()
+    for stop_id, metadata in (stop_runtime_metadata or {}).items():
+        stop = flow.get_stop(stop_id)
+        setattr(stop, "piflow_runtime_metadata", dict(metadata))
 
     workspace = resolve_workspace_root(workspace_root)
     workspace.mkdir(parents=True, exist_ok=True)
@@ -119,6 +124,8 @@ def submit_frontend_dag(
             run_logger=run_logger,
         )
     )
+    for listener in additional_listeners or []:
+        runner.add_listener(listener)
     process = runner.start(flow)
     register_running_process(process)
     return process

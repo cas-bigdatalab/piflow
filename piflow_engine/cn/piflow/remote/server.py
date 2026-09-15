@@ -3,10 +3,13 @@ from __future__ import annotations
 import argparse
 import time
 from concurrent import futures
+from pathlib import Path
 from typing import TYPE_CHECKING
 from typing import Iterator
 
 import grpc
+
+from infra.config_loader import resolve_workspace_root
 
 try:
     from .proto import remote_execution_pb2, remote_execution_pb2_grpc
@@ -27,6 +30,9 @@ _ERROR_CODE_MAP = {
     "RUN_NOT_FINISHED": grpc.StatusCode.FAILED_PRECONDITION,
     "RESULT_NOT_FOUND": grpc.StatusCode.NOT_FOUND,
     "RESULT_FILE_NOT_FOUND": grpc.StatusCode.NOT_FOUND,
+    "FILE_NOT_FOUND": grpc.StatusCode.NOT_FOUND,
+    "FILE_OUTSIDE_WORKSPACE": grpc.StatusCode.PERMISSION_DENIED,
+    "WORKSPACE_NOT_CONFIGURED": grpc.StatusCode.FAILED_PRECONDITION,
     "INTERNAL_ERROR": grpc.StatusCode.INTERNAL,
 }
 
@@ -141,6 +147,49 @@ class RemoteExecutionService(remote_execution_pb2_grpc.RemoteExecutionServiceSer
                 yield remote_execution_pb2.DownloadResultChunk(content=chunk)
             logger.info("DownloadResult completed: run_id=%s chunks=%s", request.run_id, chunk_count)
 
+    def DownloadFile(
+        self,
+        request,
+        context,
+    ) -> Iterator[remote_execution_pb2.DownloadFileChunk]:
+        try:
+            file_path = str(request.file_path or "").strip()
+            if not file_path:
+                raise RemoteExecutionError("INVALID_ARGUMENT", "file_path is required")
+
+            path = Path(file_path).expanduser().resolve()
+            if not path.exists() or not path.is_file():
+                raise RemoteExecutionError(
+                    "FILE_NOT_FOUND",
+                    f"file not found: {file_path}",
+                )
+
+            workspace_root = getattr(self._facade, "_workspace_root", None)
+            if not workspace_root:
+                raise RemoteExecutionError("WORKSPACE_NOT_CONFIGURED", "workspace root is not configured")
+
+            workspace_root_path = Path(str(workspace_root)).expanduser().resolve()
+            try:
+                path.relative_to(workspace_root_path)
+            except ValueError as exc:
+                raise RemoteExecutionError(
+                    "FILE_OUTSIDE_WORKSPACE",
+                    f"file is outside workspace: {file_path}",
+                ) from exc
+
+            logger.info("DownloadFile request: file_path=%s", path)
+            with path.open("rb") as file_obj:
+                while True:
+                    chunk = file_obj.read(self._chunk_size)
+                    if not chunk:
+                        break
+                    yield remote_execution_pb2.DownloadFileChunk(content=chunk)
+            logger.info("DownloadFile completed: file_path=%s", path)
+        except Exception as exc:
+            logger.exception("DownloadFile failed: file_path=%s", request.file_path)
+            self._abort(context, exc)
+            return
+
     def _abort(self, context, exc: Exception):
         if isinstance(exc, RemoteExecutionError):
             status_code = _ERROR_CODE_MAP.get(exc.code, grpc.StatusCode.UNKNOWN)
@@ -183,7 +232,12 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Start the PiFlow remote execution gRPC server.")
     parser.add_argument("--host", default="0.0.0.0")
     parser.add_argument("--port", type=int, default=50061)
-    parser.add_argument("--workspace-root", default=None)
+    parser.add_argument(
+        "--workspace-root",
+        default=str(resolve_workspace_root()),
+        help="Workspace root for DAG execution and file transfer. "
+        "Defaults to config/app.yaml workspace.root.",
+    )
     parser.add_argument("--user-id", default=None)
     parser.add_argument("--python-home", default=None)
     args = parser.parse_args()

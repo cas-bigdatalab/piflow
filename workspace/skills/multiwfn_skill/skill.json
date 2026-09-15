@@ -96,5 +96,6 @@
     "{mout_output_path}",
     "--compressed_output_path",
     "{compressed_output_path}"
-  ]
+  ],
+  "required_software": "multiwfn"
 }

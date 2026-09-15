@@ -8,6 +8,7 @@ service RemoteExecutionService {
   rpc GetServerResource(GetServerResourceRequest) returns (GetServerResourceResponse);
   rpc GetRunResultMeta(GetRunResultMetaRequest) returns (GetRunResultMetaResponse);
   rpc DownloadResult(DownloadResultRequest) returns (stream DownloadResultChunk);
+  rpc DownloadFile(DownloadFileRequest) returns (stream DownloadFileChunk);
 }
 
 message SubmitDagRequest {
@@ -59,5 +60,13 @@ message DownloadResultRequest {
 }
 
 message DownloadResultChunk {
+  bytes content = 1;
+}
+
+message DownloadFileRequest {
+  string file_path = 1;
+}
+
+message DownloadFileChunk {
   bytes content = 1;
 }
