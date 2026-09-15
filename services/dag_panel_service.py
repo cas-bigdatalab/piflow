@@ -25,7 +25,7 @@ WORKSPACE_ROOT = resolve_workspace_root()
 SKILLS_DIR = WORKSPACE_ROOT / "skills"
 GENERATED_SKILLS_DIR = SKILLS_DIR / "generated"
 TEMP_COMMUNITY_SKILLS_DIR = WORKSPACE_ROOT / "temp_community_skills"
-STORAGE_SKILLS_DIR = WORKSPACE_ROOT.parent / "storage" / "skills"
+STORAGE_SKILLS_DIR = WORKSPACE_ROOT.parent / "storage" / "skills" / "generated"
 
 
 def _unlink_with_retry(path: Path, retries: int = 5, delay: float = 0.2) -> None:
