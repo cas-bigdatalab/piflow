@@ -2,6 +2,7 @@ import json
 import logging
 import os
 import shutil
+import time
 import zipfile
 from contextlib import closing
 from pathlib import Path
@@ -24,6 +25,18 @@ WORKSPACE_ROOT = resolve_workspace_root()
 SKILLS_DIR = WORKSPACE_ROOT / "skills"
 GENERATED_SKILLS_DIR = SKILLS_DIR / "generated"
 TEMP_COMMUNITY_SKILLS_DIR = WORKSPACE_ROOT / "temp_community_skills"
+STORAGE_SKILLS_DIR = WORKSPACE_ROOT.parent / "storage" / "skills"
+
+
+def _unlink_with_retry(path: Path, retries: int = 5, delay: float = 0.2) -> None:
+    for attempt in range(retries):
+        try:
+            path.unlink()
+            return
+        except PermissionError:
+            if attempt == retries - 1:
+                raise
+            time.sleep(delay)
 
 
 def get_user_dag_tasks(
@@ -242,6 +255,7 @@ def get_dag_skills_by_condition(
     version: str = None,
     disciplinary_field: str = None,
     publisher: str = None,
+    is_type_filter = True,
 ) -> dict:
     result = list_dag_skills_by_type(
         page=page,
@@ -251,6 +265,7 @@ def get_dag_skills_by_condition(
         version=version,
         disciplinary_field=disciplinary_field,
         publisher=publisher,
+        is_type_filter=is_type_filter,
     )
     return result
 
@@ -516,6 +531,11 @@ def upload_skill_package(file_bytes: bytes, filename: str) -> dict:
                 zf.extractall(target_dir)
             else:
                 zf.extractall(GENERATED_SKILLS_DIR)
+
+            icon_src = target_dir / "assets" / "icon.png"
+            if icon_src.exists():
+                STORAGE_SKILLS_DIR.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(icon_src, STORAGE_SKILLS_DIR / f"{skill_name}.png")
     except zipfile.BadZipFile as e:
         return {
             "success": False,
@@ -529,7 +549,10 @@ def upload_skill_package(file_bytes: bytes, filename: str) -> dict:
         }
     finally:
         if zip_path.exists():
-            zip_path.unlink()
+            try:
+                _unlink_with_retry(zip_path)
+            except PermissionError:
+                log.warning("failed to remove temp zip after retries: %s", zip_path)
 
     result = init_skill_to_database(target_dir, version, path_prefix="skills/generated", publisher="PRIVATE")
     if not result:

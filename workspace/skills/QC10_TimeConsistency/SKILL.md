@@ -6,7 +6,7 @@ description: |
   当用户提到时间一致性检查、时间序列校验、数据变化检查、时序一致性等需求时使用此skill。
   即使用户没有说出"时间一致性"，只要任务涉及检查数据的时间序列一致性，就应该使用此skill。
 
-name_zh: QC10_时间一致性检查算子
+name_zh: 质控_时间一致性检查算子
 input_params:
   - name: input_path
     type: string
@@ -65,6 +65,7 @@ output_params:
     description: 异常数据文件（可选），包含时间一致性检查不通过的记录
 tag: 数据校验
 publisher: COMMUNITY
+disciplinary_field: 生态
 ---
 
 # QC10_TimeConsistency 时间一致性检查Skill
