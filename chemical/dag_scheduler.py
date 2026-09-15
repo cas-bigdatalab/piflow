@@ -26,6 +26,8 @@ class ChemicalScheduleDecision:
     execution_node_name: str
     transformed: bool
     reason: str
+    resource_node_name: str | None = None
+    resource_bindings: tuple[tuple[str, str], ...] = ()
 
 
 @dataclass(frozen=True)
@@ -57,7 +59,12 @@ def schedule_chemical_dag(
         raise ValueError("dag_definition field 'nodes' must be a list")
 
     local_server = f"{config.main_node.ip}:{config.main_node.port}"
-    local_software = _main_node_software(config)
+    main_resources = _main_node_resources(config)
+    local_software = {
+        software.strip().lower()
+        for resource in main_resources
+        for software in resource.software
+    }
     decisions: list[ChemicalScheduleDecision] = []
 
     for index, node in enumerate(nodes):
@@ -92,6 +99,14 @@ def schedule_chemical_dag(
                     node_name="main_node",
                     transformed=False,
                     reason="required software is available on main node; keep local execution",
+                    resource_node_name=_resource_node_name(
+                        main_resources,
+                        required_software,
+                    ),
+                    resource_bindings=_resource_bindings(
+                        main_resources,
+                        required_software,
+                    ),
                 )
             )
             continue
@@ -114,6 +129,11 @@ def schedule_chemical_dag(
                 node_name=execution_node.name,
                 transformed=True,
                 reason="required software is available on remote chemical node",
+                resource_node_name=execution_node.name,
+                resource_bindings=tuple(
+                    (execution_node.name, software)
+                    for software in required_software
+                ),
             )
         )
 
@@ -278,12 +298,52 @@ def _node_has_all_software(node: ChemicalNode, required_software: tuple[str, ...
 def _main_node_software(config: ChemicalConfig) -> set[str]:
     """Merge software from every configured node sharing the main node IP."""
 
+    return {
+        software.strip().lower()
+        for node in _main_node_resources(config)
+        for software in node.software
+    }
+
+
+def _main_node_resources(config: ChemicalConfig) -> tuple[ChemicalNode, ...]:
     main_ip = config.main_node.ip.strip().lower()
-    software: set[str] = set()
-    for node in config.nodes:
-        if node.ip.strip().lower() == main_ip:
-            software.update(item.strip().lower() for item in node.software)
-    return software
+    return tuple(
+        node
+        for node in config.nodes
+        if node.ip.strip().lower() == main_ip
+    )
+
+
+def _resource_node_name(
+    resources: tuple[ChemicalNode, ...],
+    required_software: tuple[str, ...],
+) -> str | None:
+    bindings = _resource_bindings(resources, required_software)
+    names = {node_name for node_name, _ in bindings}
+    return next(iter(names)) if len(names) == 1 else None
+
+
+def _resource_bindings(
+    resources: tuple[ChemicalNode, ...],
+    required_software: tuple[str, ...],
+) -> tuple[tuple[str, str], ...]:
+    bindings: list[tuple[str, str]] = []
+    for software in dict.fromkeys(item.strip() for item in required_software):
+        candidates = sorted(
+            (
+                resource
+                for resource in resources
+                if software.lower()
+                in {item.strip().lower() for item in resource.software}
+            ),
+            key=lambda resource: resource.name,
+        )
+        if not candidates:
+            raise ValueError(
+                f"main node resource does not provide required software: {software}"
+            )
+        bindings.append((candidates[0].name, software))
+    return tuple(bindings)
 
 
 def _software_set_contains(
@@ -328,6 +388,8 @@ def _decision(
     node_name: str,
     transformed: bool,
     reason: str,
+    resource_node_name: str | None = None,
+    resource_bindings: tuple[tuple[str, str], ...] = (),
 ) -> ChemicalScheduleDecision:
     return ChemicalScheduleDecision(
         node_id=str(node.get("node_id", "")),
@@ -337,6 +399,8 @@ def _decision(
         execution_node_name=node_name,
         transformed=transformed,
         reason=reason,
+        resource_node_name=resource_node_name,
+        resource_bindings=resource_bindings,
     )
 
 

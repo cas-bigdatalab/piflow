@@ -10,6 +10,7 @@ from .config import (
 from .file_source_stop import ChemicalFileSourceStop
 from .node_api import get_chemical_service, router as chemical_router
 from .remote_pipeline_stop import ChemicalRemotePipelineStop
+from .piflow_adapter import submit_chemical_dag
 from .dag_scheduler import (
     ChemicalScheduleDecision,
     ChemicalSchedulePlan,
@@ -30,6 +31,7 @@ __all__ = [
     "ChemicalMainNode",
     "ChemicalFileSourceStop",
     "ChemicalRemotePipelineStop",
+    "submit_chemical_dag",
     "ChemicalScheduleDecision",
     "ChemicalSchedulePlan",
     "ChemicalNode",
