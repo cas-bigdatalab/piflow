@@ -38,7 +38,7 @@ juicefs:
   base_prefix: "corpus/output/piflow"
 
 corpus_route:
-  base_url: "http://10.0.82.213:7003"
+  base_url: "http://172.31.3.81:7005"
 
 rustfs_admin:
   base_url: "http://10.0.85.201:9001"

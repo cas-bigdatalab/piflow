@@ -195,17 +195,22 @@ def list_dataset_details(
     if page_size <= 0:
         raise ValueError("page_size must be positive")
 
-    dataset_items = _fetch_all_dataset_items(page_size=page_size, filters=filters)
-    connector_ids = {
-        connector_id
+    payload = _fetch_dataset_page(
+        page_num=page_num,
+        page_size=page_size,
+        filters=filters,
+    )
+    dataset_items = _extract_page_items(payload, entity_name="dataset")
+    connector_names = {
+        connector_name
         for item in dataset_items
         if isinstance(item, dict)
-        for connector_id in _extract_dataset_connector_ids(item)
-        if connector_id
+        for connector_name in _extract_dataset_connector_names(item)
+        if connector_name
     }
     connector_lookup = (
-        _fetch_connector_details_with_resources_by_connector_id(connector_ids)
-        if connector_ids
+        _fetch_connector_details_with_resources_by_name(connector_names)
+        if connector_names
         else {}
     )
 
@@ -222,34 +227,31 @@ def list_dataset_details(
     result_items: list[dict[str, Any]] = []
     for dataset_detail in grouped_dataset_details.values():
         connectors = _resolve_dataset_connectors(dataset_detail["connectors"], connector_lookup)
-        available_connectors = [connector for connector in connectors if connector.get("status") == "可用"]
-        _mark_recommended_connectors(available_connectors, connector_lookup)
-        dataset_detail["connectors"] = available_connectors
-        # A dataset is displayable only when at least one replica is available.
-        if not available_connectors:
-            continue
-        if available_connectors:
-            primary_connector = available_connectors[0]
+        _mark_recommended_connectors(connectors)
+        dataset_detail["connectors"] = connectors
+        if connectors:
+            primary_connector = connectors[0]
             dataset_detail["connectorId"] = primary_connector["connectorId"]
             dataset_detail["fromName"] = primary_connector["fromName"]
             connector_organization = _first_non_empty_string(
                 primary_connector.get("connectorOrganization"),
-                primary_connector.get("name"),
             )
             dataset_detail["connectorOrganization"] = connector_organization
-            dataset_detail["name"] = connector_organization
-        dataset_detail["replicaCount"] = len(available_connectors)
+            dataset_detail["name"] = _first_non_empty_string(
+                primary_connector.get("name"),
+                connector_organization,
+            )
+        dataset_detail["replicaCount"] = len(connectors)
         result_items.append(dataset_detail)
 
-    start = (page_num - 1) * page_size
-    end = start + page_size
     return {
-        "items": result_items[start:end],
-        "pagination": {
-            "pageNum": page_num,
-            "pageSize": page_size,
-            "total": len(result_items),
-        },
+        "items": result_items,
+        "pagination": _extract_pagination(
+            payload,
+            page_num=page_num,
+            page_size=page_size,
+            item_count=len(result_items),
+        ),
     }
 
 
@@ -258,31 +260,32 @@ def get_dataset_detail(dataset_id: str) -> dict[str, Any]:
     if not normalized_dataset_id:
         raise ValueError("dataset_id is required")
     dataset_detail = _normalize_dataset_detail(_fetch_dataset_detail(normalized_dataset_id))
-    connector_ids = {
-        connector_id
-        for connector_id in _extract_dataset_connector_ids(dataset_detail.get("raw", {}))
-        if connector_id
+    connector_names = {
+        connector_name
+        for connector_name in _extract_dataset_connector_names(dataset_detail.get("raw", {}))
+        if connector_name
     }
     connector_lookup = (
-        _fetch_connector_details_with_resources_by_connector_id(connector_ids)
-        if connector_ids
+        _fetch_connector_details_with_resources_by_name(connector_names)
+        if connector_names
         else {}
     )
     connectors = _resolve_dataset_connectors(dataset_detail["connectors"], connector_lookup)
-    available_connectors = [connector for connector in connectors if connector.get("status") == "可用"]
-    _mark_recommended_connectors(available_connectors, connector_lookup)
-    dataset_detail["connectors"] = available_connectors
-    if available_connectors:
-        primary_connector = available_connectors[0]
+    _mark_recommended_connectors(connectors)
+    dataset_detail["connectors"] = connectors
+    if connectors:
+        primary_connector = connectors[0]
         dataset_detail["connectorId"] = primary_connector["connectorId"]
         dataset_detail["fromName"] = primary_connector["fromName"]
         connector_organization = _first_non_empty_string(
             primary_connector.get("connectorOrganization"),
-            primary_connector.get("name"),
         )
         dataset_detail["connectorOrganization"] = connector_organization
-        dataset_detail["name"] = connector_organization
-    dataset_detail["replicaCount"] = len(available_connectors)
+        dataset_detail["name"] = _first_non_empty_string(
+            primary_connector.get("name"),
+            connector_organization,
+        )
+    dataset_detail["replicaCount"] = len(connectors)
     return dataset_detail
 
 
@@ -706,7 +709,7 @@ def _fetch_dataset_page(*, page_num: int, page_size: int, filters: dict[str, Any
     if not base_url:
         raise ValueError("settings.corpus_route.base_url must not be empty")
 
-    url = f"{base_url}/dataset/page"
+    url = f"{base_url}/dataset.page"
     request_body = _normalize_dataset_filters(filters)
     try:
         response = requests.post(
@@ -1059,7 +1062,8 @@ def _normalize_connector_detail(source: dict[str, Any]) -> dict[str, Any]:
         source.get("name"),
         source.get("connectorName"),
     )
-    enabled = source.get("enabled")
+    raw_status = source.get("status")
+    enabled = _normalize_connector_enabled(source)
     service_url = _first_non_empty_string(
         source.get("serviceUrl"),
         source.get("serverUrl"),
@@ -1101,6 +1105,7 @@ def _normalize_connector_detail(source: dict[str, Any]) -> dict[str, Any]:
         "connectorId": connector_id,
         "name": connector_name,
         "enabled": enabled,
+        "status": raw_status,
         "serviceUrl": service_url,
         "protocol": protocol,
         "institution": institution,
@@ -1125,6 +1130,7 @@ def _normalize_dataset_detail(source: dict[str, Any]) -> dict[str, Any]:
         "title": _first_non_empty_string(source.get("title"), source.get("name")),
         "connectorId": _first_non_empty_string(source.get("connectorId"), primary_connector.get("connectorId")),
         "fromName": _first_non_empty_string(source.get("fromName"), primary_connector.get("fromName")),
+        "source": _first_non_empty_string(source.get("source")),
         "connectors": connectors,
         "replicaCount": len(connectors),
         "raw": source,
@@ -1139,16 +1145,25 @@ def _extract_dataset_connector_ids(source: dict[str, Any]) -> list[str]:
     ]
 
 
+def _extract_dataset_connector_names(source: dict[str, Any]) -> list[str]:
+    return [
+        connector_name
+        for connector in _extract_dataset_connectors(source)
+        if (connector_name := str(connector.get("name", "") or "").strip())
+    ]
+
+
 def _extract_dataset_connectors(source: dict[str, Any]) -> list[dict[str, str]]:
     connectors: list[dict[str, str]] = []
-    seen_connector_ids: set[str] = set()
 
     def append_connector(candidate: Any) -> None:
         normalized = _normalize_dataset_connector_entry(candidate)
-        connector_id = normalized["connectorId"]
-        if not connector_id or connector_id in seen_connector_ids:
+        if not _dataset_connector_ref_has_value(normalized):
             return
-        seen_connector_ids.add(connector_id)
+        for index, existing in enumerate(connectors):
+            if _dataset_connector_refs_match(existing, normalized):
+                connectors[index] = _merge_dataset_connector_ref(existing, normalized)
+                return
         connectors.append(normalized)
 
     for key in ("fromList", "connectors", "connectorList", "replicas", "datasetCopies", "copies"):
@@ -1157,7 +1172,16 @@ def _extract_dataset_connectors(source: dict[str, Any]) -> list[dict[str, str]]:
             for item in value:
                 append_connector(item)
 
-    append_connector(source)
+    append_connector(
+        {
+            "connectorId": source.get("connectorId"),
+            "from": source.get("from"),
+            "sourceId": source.get("sourceId"),
+            "fromName": source.get("fromName"),
+            "source": source.get("source"),
+            "connector": source.get("connector"),
+        }
+    )
     return connectors
 
 
@@ -1166,9 +1190,10 @@ def _normalize_dataset_connector_entry(source: Any) -> dict[str, str]:
         return {
             "connectorId": source.strip(),
             "fromName": "",
+            "name": source.strip(),
         }
     if not isinstance(source, dict):
-        return {"connectorId": "", "fromName": ""}
+        return {"connectorId": "", "fromName": "", "name": ""}
 
     nested_connector = source.get("connector")
     connector_id = _first_non_empty_string(
@@ -1184,9 +1209,17 @@ def _normalize_dataset_connector_entry(source: Any) -> dict[str, str]:
         nested_connector.get("fromName") if isinstance(nested_connector, dict) else "",
         nested_connector.get("name") if isinstance(nested_connector, dict) else "",
     )
+    connector_name = _first_non_empty_string(
+        source.get("source"),
+        source.get("name"),
+        source.get("connectorName"),
+        nested_connector.get("name") if isinstance(nested_connector, dict) else "",
+        from_name,
+    )
     return {
         "connectorId": connector_id,
         "fromName": from_name,
+        "name": connector_name,
     }
 
 
@@ -1196,24 +1229,29 @@ def _resolve_dataset_connectors(
 ) -> list[dict[str, str]]:
     resolved: list[dict[str, str]] = []
     for connector_ref in connectors:
-        connector_id = str(connector_ref.get("connectorId", "") or "").strip()
-        connector = connector_lookup.get(connector_id) if connector_id else None
-
+        connector_name_key = _normalize_lookup_key(connector_ref.get("name"))
+        connector = connector_lookup.get(connector_name_key) if connector_name_key else None
+        connector_id = _first_non_empty_string(
+            connector_ref.get("connectorId"),
+            connector.get("connectorId") if connector else "",
+        )
         connector_name = _first_non_empty_string(
-            connector_ref.get("fromName"),
             _extract_nested_text(connector, "name") if connector else "",
             _extract_nested_text(connector, "connectorName") if connector else "",
+            connector_ref.get("name"),
+            connector_ref.get("fromName"),
         )
+
         connector_organization = _extract_connector_organization(connector)
         enabled = _is_connector_enabled(connector) if connector is not None else False
         resolved_connector = {
             "connectorId": connector_id,
-            "fromName": connector_name,
+            "fromName": _first_non_empty_string(connector_ref.get("fromName"), connector_name),
             "connectorOrganization": connector_organization,
-            "name": connector_organization,
+            "name": connector_name,
             "status": "可用" if enabled else "不可用",
             "sync": _first_non_empty_string(connector.get("sync")) if connector else "",
-            "recommended": _normalize_bool(connector.get("recommended"), default=False) if connector else False,
+            "recommended": False,
         }
         resource = connector.get("resource") if connector else None
         latency_ms = resource.get("latency_ms") if isinstance(resource, dict) else None
@@ -1228,18 +1266,20 @@ def _merge_dataset_connectors(
     right: list[dict[str, str]],
 ) -> list[dict[str, str]]:
     merged: list[dict[str, str]] = []
-    seen_connector_ids: set[str] = set()
     for connector in [*left, *right]:
-        connector_id = str(connector.get("connectorId", "") or "").strip()
-        if not connector_id or connector_id in seen_connector_ids:
+        normalized = {
+            "connectorId": str(connector.get("connectorId", "") or "").strip(),
+            "fromName": str(connector.get("fromName", "") or "").strip(),
+            "name": str(connector.get("name", "") or "").strip(),
+        }
+        if not _dataset_connector_ref_has_value(normalized):
             continue
-        seen_connector_ids.add(connector_id)
-        merged.append(
-            {
-                "connectorId": connector_id,
-                "fromName": str(connector.get("fromName", "") or "").strip(),
-            }
-        )
+        for index, existing in enumerate(merged):
+            if _dataset_connector_refs_match(existing, normalized):
+                merged[index] = _merge_dataset_connector_ref(existing, normalized)
+                break
+        else:
+            merged.append(normalized)
     return merged
 
 
@@ -1341,6 +1381,53 @@ def _fetch_connector_details_with_resources_by_connector_id(
     return lookup
 
 
+def _fetch_connector_details_by_name(connector_names: set[str]) -> dict[str, dict[str, Any]]:
+    remaining_names = {
+        _normalize_lookup_key(connector_name)
+        for connector_name in connector_names
+        if _normalize_lookup_key(connector_name)
+    }
+    if not remaining_names:
+        return {}
+
+    lookup: dict[str, dict[str, Any]] = {}
+    page_num = 1
+    page_size = 100
+
+    while remaining_names:
+        payload = _fetch_connector_page(page_num=page_num, page_size=page_size)
+        items = _extract_connector_page_items(payload)
+        for item in items:
+            connector = _normalize_connector_detail(item)
+            connector_name_key = _normalize_lookup_key(connector.get("name"))
+            if connector_name_key and connector_name_key in remaining_names:
+                lookup[connector_name_key] = connector
+                remaining_names.remove(connector_name_key)
+
+        if len(items) < page_size:
+            break
+        page_num += 1
+
+    return lookup
+
+
+def _fetch_connector_details_with_resources_by_name(
+    connector_names: set[str],
+) -> dict[str, dict[str, Any]]:
+    lookup = _fetch_connector_details_by_name(connector_names)
+    for connector_name, connector in lookup.items():
+        remote_grpc_target, resource = _resolve_remote_resource(
+            connector,
+            grpc_port=DEFAULT_REMOTE_GRPC_PORT,
+        )
+        lookup[connector_name] = {
+            **connector,
+            "remote_grpc_target": remote_grpc_target,
+            "resource": resource,
+        }
+    return lookup
+
+
 def _mark_recommended_connector_items(items: list[dict[str, Any]]) -> None:
     resource_items = [
         item
@@ -1365,30 +1452,34 @@ def _mark_recommended_connector_items(items: list[dict[str, Any]]) -> None:
             )
 
 
-def _mark_recommended_connectors(
-    connectors: list[dict[str, Any]],
-    connector_lookup: dict[str, dict[str, Any]],
-) -> None:
-    resource_items = [
+def _mark_recommended_connectors(connectors: list[dict[str, Any]]) -> None:
+    for connector in connectors:
+        connector["recommended"] = False
+
+    connectors_with_latency = [
         connector
         for connector in connectors
-        if _resource_is_available(
-            connector_lookup.get(str(connector.get("connectorId", "")).strip(), {}).get("resource")
-        )
-        and connector.get("status") == "可用"
+        if connector.get("latency_ms") is not None
     ]
-    if not resource_items:
+    if not connectors_with_latency:
         return
-    recommended_connector = max(
-        resource_items,
-        key=lambda item: _resource_sort_key(
-            connector_lookup[str(item["connectorId"])]["resource"]
+
+    recommended_connector = min(
+        connectors_with_latency,
+        key=lambda item: (
+            float(item.get("latency_ms") or 0.0),
+            str(item.get("connectorId", "") or "").strip(),
+            str(item.get("name", "") or "").strip(),
         ),
     )
-    recommended_id = str(recommended_connector.get("connectorId", "")).strip()
+    recommended_id = str(recommended_connector.get("connectorId", "") or "").strip()
+    recommended_name = str(recommended_connector.get("name", "") or "").strip()
     for connector in connectors:
-        connector["recommended"] = (
-            str(connector.get("connectorId", "")).strip() == recommended_id
+        connector_id = str(connector.get("connectorId", "") or "").strip()
+        connector_name = str(connector.get("name", "") or "").strip()
+        connector["recommended"] = bool(
+            (recommended_id and connector_id == recommended_id)
+            or (recommended_name and connector_name == recommended_name)
         )
 
 
@@ -1414,6 +1505,9 @@ def _extract_connector_institution(connector: dict[str, Any] | None) -> str:
 
 
 def _is_connector_enabled(connector: dict[str, Any]) -> bool:
+    status = connector.get("status")
+    if status is not None:
+        return _normalize_bool(status, default=False)
     enabled = connector.get("enabled")
     if isinstance(enabled, bool):
         return enabled
@@ -1422,6 +1516,14 @@ def _is_connector_enabled(connector: dict[str, Any]) -> bool:
     if isinstance(enabled, (int, float)):
         return enabled != 0
     return True
+
+
+def _normalize_connector_enabled(source: dict[str, Any]) -> Any:
+    if not isinstance(source, dict):
+        return None
+    if source.get("status") is not None:
+        return _normalize_bool(source.get("status"), default=False)
+    return source.get("enabled")
 
 
 def _extract_connector_organization(connector: dict[str, Any] | None) -> str:
@@ -1435,6 +1537,36 @@ def _extract_connector_organization(connector: dict[str, Any] | None) -> str:
         _extract_nested_text(connector, "orgName"),
         _extract_nested_text(connector, "companyName"),
     )
+
+
+def _normalize_lookup_key(value: Any) -> str:
+    return str(value or "").strip().lower()
+
+
+def _dataset_connector_ref_has_value(connector: dict[str, str]) -> bool:
+    return bool(
+        str(connector.get("connectorId", "") or "").strip()
+        or str(connector.get("name", "") or "").strip()
+    )
+
+
+def _dataset_connector_refs_match(left: dict[str, str], right: dict[str, str]) -> bool:
+    left_id = _normalize_lookup_key(left.get("connectorId"))
+    right_id = _normalize_lookup_key(right.get("connectorId"))
+    if left_id and right_id and left_id == right_id:
+        return True
+
+    left_name = _normalize_lookup_key(left.get("name"))
+    right_name = _normalize_lookup_key(right.get("name"))
+    return bool(left_name and right_name and left_name == right_name)
+
+
+def _merge_dataset_connector_ref(left: dict[str, str], right: dict[str, str]) -> dict[str, str]:
+    return {
+        "connectorId": _first_non_empty_string(left.get("connectorId"), right.get("connectorId")),
+        "fromName": _first_non_empty_string(left.get("fromName"), right.get("fromName")),
+        "name": _first_non_empty_string(left.get("name"), right.get("name")),
+    }
 
 
 def _extract_nested_text(source: dict[str, Any], key: str) -> str:

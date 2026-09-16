@@ -213,6 +213,30 @@ class _FailingRemoteExecutionClient:
         type(self).closed = True
 
 
+def _fake_dataset_resolve_remote_resource(connector, *, grpc_port):
+    connector_id = str(connector.get("connectorId", "") or "").strip()
+    latency_map = {
+        "DS-NODE-1": 20.0,
+        "DS-NODE-2": 10.0,
+        "DS-NODE-3": 30.0,
+    }
+    if connector_id not in latency_map:
+        return "", {
+            "cpu_cores": None,
+            "memory_gb": None,
+            "free_disk_gb": None,
+            "hostname": None,
+            "latency_ms": None,
+        }
+    return f"{connector_id.lower()}:50061", {
+        "cpu_cores": 8.0,
+        "memory_gb": 16.0,
+        "free_disk_gb": 128.0,
+        "hostname": connector_id.lower(),
+        "latency_ms": latency_map[connector_id],
+    }
+
+
 def test_get_dataset_file_jsonl_downloads_and_parses_jsonl(monkeypatch):
     seen_urls = []
 
@@ -737,14 +761,16 @@ def test_list_dataset_details_returns_dataset_page(monkeypatch):
                     "id": "dataset-1",
                     "title": "dataset title",
                     "cstr": "ES-CORPUS-B138",
-                    "fromList": ["DS-NODE-1"],
+                    "source": "连接器节点1",
+                    "fromList": [{"connectorId": "DS-NODE-1", "name": "连接器节点1"}],
                 },
                 {
                     "id": "dataset-2",
                     "title": "disabled dataset",
                     "cstr": "ES-CORPUS-B139",
-                    "fromList": ["DS-NODE-2"],
-                }
+                    "source": "连接器节点2",
+                    "fromList": [{"connectorId": "DS-NODE-2", "name": "连接器节点2"}],
+                },
             ],
             "total": 2,
             "pageNum": 1,
@@ -760,18 +786,16 @@ def test_list_dataset_details_returns_dataset_page(monkeypatch):
                     "connectorId": "DS-NODE-1",
                     "name": "连接器节点1",
                     "institutionName": "中国地震台网中心",
-                    "enabled": True,
+                    "status": 1,
                     "sync": "2026-08-07 11:52",
-                    "recommended": True,
                 },
                 {
                     "connectorId": "DS-NODE-2",
                     "name": "连接器节点2",
                     "organization": "不可用机构",
-                    "enabled": False,
+                    "status": 0,
                     "sync": "2026-08-08 09:15",
-                    "recommended": False,
-                }
+                },
             ],
             "total": 2,
             "pageNum": 1,
@@ -780,19 +804,24 @@ def test_list_dataset_details_returns_dataset_page(monkeypatch):
     }
 
     def fake_get(url, params, timeout):
-        if url.endswith("/dataset/page"):
-            return _FakeResponse(dataset_payload)
         if url.endswith("/dataset.connector.page"):
             return _FakeResponse(connector_payload)
+        raise AssertionError(f"unexpected url: {url}")
+
+    def fake_post(url, params, json, timeout):
+        if url.endswith("/dataset.page"):
+            return _FakeResponse(dataset_payload)
         raise AssertionError(f"unexpected url: {url}")
 
     monkeypatch.setattr(
         "services.corpus_connector_service.get_settings",
         lambda: type("Settings", (), {"corpus_route": type("CorpusRoute", (), {"base_url": "http://10.0.82.213:7003"})()})(),
     )
+    monkeypatch.setattr("services.corpus_connector_service.requests.get", fake_get)
+    monkeypatch.setattr("services.corpus_connector_service.requests.post", fake_post)
     monkeypatch.setattr(
-        "services.corpus_connector_service.requests.get",
-        fake_get,
+        "services.corpus_connector_service._resolve_remote_resource",
+        _fake_dataset_resolve_remote_resource,
     )
 
     result = list_dataset_details(page_num=1, page_size=10)
@@ -802,29 +831,30 @@ def test_list_dataset_details_returns_dataset_page(monkeypatch):
     assert result["items"][0]["id"] == "dataset-1"
     assert result["items"][0]["connectorId"] == "DS-NODE-1"
     assert result["items"][0]["title"] == "dataset title"
-    assert result["items"][0]["name"] == "中国地震台网中心"
+    assert result["items"][0]["name"] == "连接器节点1"
     assert result["items"][0]["replicaCount"] == 1
     assert result["items"][0]["connectors"] == [
         {
             "connectorId": "DS-NODE-1",
             "fromName": "连接器节点1",
             "connectorOrganization": "中国地震台网中心",
-            "name": "中国地震台网中心",
+            "name": "连接器节点1",
             "status": "可用",
             "sync": "2026-08-07 11:52",
             "recommended": True,
+            "latency_ms": 20.0,
         }
     ]
-    assert result["items"][1]["id"] == "dataset-2"
     assert result["items"][1]["connectors"] == [
         {
             "connectorId": "DS-NODE-2",
             "fromName": "连接器节点2",
             "connectorOrganization": "不可用机构",
-            "name": "不可用机构",
+            "name": "连接器节点2",
             "status": "不可用",
             "sync": "2026-08-08 09:15",
-            "recommended": False,
+            "recommended": True,
+            "latency_ms": 10.0,
         }
     ]
 
@@ -838,7 +868,8 @@ def test_list_dataset_details_uses_top_level_total_when_data_is_a_list(monkeypat
                 "id": f"dataset-{index}",
                 "title": f"dataset title {index}",
                 "cstr": f"ES-CORPUS-{index:03d}",
-                "fromList": [],
+                "source": f"连接器节点{index}",
+                "fromList": [{"name": f"连接器节点{index}"}],
             }
             for index in range(10)
         ],
@@ -848,7 +879,7 @@ def test_list_dataset_details_uses_top_level_total_when_data_is_a_list(monkeypat
     }
 
     def fake_post(url, params, json, timeout):
-        assert url.endswith("/dataset/page")
+        assert url.endswith("/dataset.page")
         assert params == {"pageNum": 1, "pageSize": 10}
         return _FakeResponse(dataset_payload)
 
@@ -884,7 +915,11 @@ def test_list_dataset_details_returns_multiple_connectors(monkeypatch):
                     "id": "dataset-1",
                     "title": "dataset title",
                     "cstr": "ES-CORPUS-B138",
-                    "fromList": ["DS-NODE-1", "DS-NODE-2"],
+                    "source": "连接器节点1",
+                    "fromList": [
+                        {"connectorId": "DS-NODE-1", "name": "连接器节点1"},
+                        {"connectorId": "DS-NODE-2", "name": "连接器节点2"},
+                    ],
                 }
             ],
             "total": 1,
@@ -901,17 +936,15 @@ def test_list_dataset_details_returns_multiple_connectors(monkeypatch):
                     "connectorId": "DS-NODE-1",
                     "name": "连接器节点1",
                     "institutionName": "中国地震台网中心",
-                    "enabled": True,
+                    "status": 1,
                     "sync": "2026-08-07 11:52",
-                    "recommended": True,
                 },
                 {
                     "connectorId": "DS-NODE-2",
                     "name": "连接器节点2",
                     "institutionName": "国家地球系统科学数据中心",
-                    "enabled": True,
+                    "status": 1,
                     "sync": "2026-08-07 12:10",
-                    "recommended": False,
                 },
             ],
             "total": 2,
@@ -926,7 +959,7 @@ def test_list_dataset_details_returns_multiple_connectors(monkeypatch):
         raise AssertionError(f"unexpected url: {url}")
 
     def fake_post(url, params, json, timeout):
-        if url.endswith("/dataset/page"):
+        if url.endswith("/dataset.page"):
             return _FakeResponse(dataset_payload)
         raise AssertionError(f"unexpected url: {url}")
 
@@ -936,6 +969,10 @@ def test_list_dataset_details_returns_multiple_connectors(monkeypatch):
     )
     monkeypatch.setattr("services.corpus_connector_service.requests.get", fake_get)
     monkeypatch.setattr("services.corpus_connector_service.requests.post", fake_post)
+    monkeypatch.setattr(
+        "services.corpus_connector_service._resolve_remote_resource",
+        _fake_dataset_resolve_remote_resource,
+    )
 
     result = list_dataset_details(page_num=1, page_size=10)
 
@@ -949,25 +986,27 @@ def test_list_dataset_details_returns_multiple_connectors(monkeypatch):
             "connectorId": "DS-NODE-1",
             "fromName": "连接器节点1",
             "connectorOrganization": "中国地震台网中心",
-            "name": "中国地震台网中心",
+            "name": "连接器节点1",
             "status": "可用",
             "sync": "2026-08-07 11:52",
-            "recommended": True,
+            "recommended": False,
+            "latency_ms": 20.0,
         },
         {
             "connectorId": "DS-NODE-2",
             "fromName": "连接器节点2",
             "connectorOrganization": "国家地球系统科学数据中心",
-            "name": "国家地球系统科学数据中心",
+            "name": "连接器节点2",
             "status": "可用",
             "sync": "2026-08-07 12:10",
-            "recommended": False,
+            "recommended": True,
+            "latency_ms": 10.0,
         },
     ]
-    assert result["items"][0]["name"] == "中国地震台网中心"
+    assert result["items"][0]["name"] == "连接器节点1"
 
 
-def test_list_dataset_details_filters_out_unavailable_connectors(monkeypatch):
+def test_list_dataset_details_keeps_unavailable_connectors(monkeypatch):
     dataset_payload = {
         "code": 200,
         "message": "OK",
@@ -977,7 +1016,11 @@ def test_list_dataset_details_filters_out_unavailable_connectors(monkeypatch):
                     "id": "dataset-1",
                     "title": "dataset title",
                     "cstr": "ES-CORPUS-B138",
-                    "fromList": ["DS-NODE-1", "DS-NODE-2"],
+                    "source": "连接器节点1",
+                    "fromList": [
+                        {"connectorId": "DS-NODE-1", "name": "连接器节点1"},
+                        {"connectorId": "DS-NODE-2", "name": "连接器节点2"},
+                    ],
                 }
             ],
             "total": 1,
@@ -994,17 +1037,15 @@ def test_list_dataset_details_filters_out_unavailable_connectors(monkeypatch):
                     "connectorId": "DS-NODE-1",
                     "name": "连接器节点1",
                     "institutionName": "中国地震台网中心",
-                    "enabled": True,
+                    "status": 1,
                     "sync": "2026-08-07 11:52",
-                    "recommended": True,
                 },
                 {
                     "connectorId": "DS-NODE-2",
                     "name": "连接器节点2",
                     "institutionName": "不可用机构",
-                    "enabled": False,
+                    "status": 0,
                     "sync": "2026-08-08 09:15",
-                    "recommended": False,
                 },
             ],
             "total": 2,
@@ -1019,7 +1060,7 @@ def test_list_dataset_details_filters_out_unavailable_connectors(monkeypatch):
         raise AssertionError(f"unexpected url: {url}")
 
     def fake_post(url, params, json, timeout):
-        if url.endswith("/dataset/page"):
+        if url.endswith("/dataset.page"):
             return _FakeResponse(dataset_payload)
         raise AssertionError(f"unexpected url: {url}")
 
@@ -1029,22 +1070,25 @@ def test_list_dataset_details_filters_out_unavailable_connectors(monkeypatch):
     )
     monkeypatch.setattr("services.corpus_connector_service.requests.get", fake_get)
     monkeypatch.setattr("services.corpus_connector_service.requests.post", fake_post)
+    monkeypatch.setattr(
+        "services.corpus_connector_service._resolve_remote_resource",
+        _fake_dataset_resolve_remote_resource,
+    )
 
     result = list_dataset_details(page_num=1, page_size=10)
 
     assert len(result["items"]) == 1
-    assert result["items"][0]["replicaCount"] == 1
-    assert result["items"][0]["connectors"] == [
-        {
-            "connectorId": "DS-NODE-1",
-            "fromName": "连接器节点1",
-            "connectorOrganization": "中国地震台网中心",
-            "name": "中国地震台网中心",
-            "status": "可用",
-            "sync": "2026-08-07 11:52",
-            "recommended": True,
-        }
-    ]
+    assert result["items"][0]["replicaCount"] == 2
+    assert result["items"][0]["connectors"][1] == {
+        "connectorId": "DS-NODE-2",
+        "fromName": "连接器节点2",
+        "connectorOrganization": "不可用机构",
+        "name": "连接器节点2",
+        "status": "不可用",
+        "sync": "2026-08-08 09:15",
+        "recommended": True,
+        "latency_ms": 10.0,
+    }
 
 
 def test_list_dataset_details_merges_duplicate_dataset_rows_from_multiple_connectors(monkeypatch):
@@ -1057,13 +1101,15 @@ def test_list_dataset_details_merges_duplicate_dataset_rows_from_multiple_connec
                     "id": "dataset-1",
                     "title": "dataset title",
                     "cstr": "ES-CORPUS-B138",
-                    "fromList": ["DS-NODE-1"],
+                    "source": "连接器节点1",
+                    "fromList": [{"connectorId": "DS-NODE-1", "name": "连接器节点1"}],
                 },
                 {
                     "id": "dataset-1",
                     "title": "dataset title",
                     "cstr": "ES-CORPUS-B138",
-                    "fromList": ["DS-NODE-2"],
+                    "source": "连接器节点2",
+                    "fromList": [{"connectorId": "DS-NODE-2", "name": "连接器节点2"}],
                 },
             ],
             "total": 2,
@@ -1080,17 +1126,15 @@ def test_list_dataset_details_merges_duplicate_dataset_rows_from_multiple_connec
                     "connectorId": "DS-NODE-1",
                     "name": "连接器节点1",
                     "institutionName": "中国地震台网中心",
-                    "enabled": True,
+                    "status": 1,
                     "sync": "2026-08-07 11:52",
-                    "recommended": True,
                 },
                 {
                     "connectorId": "DS-NODE-2",
                     "name": "连接器节点2",
                     "institutionName": "国家地球系统科学数据中心",
-                    "enabled": True,
+                    "status": 1,
                     "sync": "2026-08-07 12:10",
-                    "recommended": False,
                 },
             ],
             "total": 2,
@@ -1105,7 +1149,7 @@ def test_list_dataset_details_merges_duplicate_dataset_rows_from_multiple_connec
         raise AssertionError(f"unexpected url: {url}")
 
     def fake_post(url, params, json, timeout):
-        if url.endswith("/dataset/page"):
+        if url.endswith("/dataset.page"):
             return _FakeResponse(dataset_payload)
         raise AssertionError(f"unexpected url: {url}")
 
@@ -1115,32 +1159,17 @@ def test_list_dataset_details_merges_duplicate_dataset_rows_from_multiple_connec
     )
     monkeypatch.setattr("services.corpus_connector_service.requests.get", fake_get)
     monkeypatch.setattr("services.corpus_connector_service.requests.post", fake_post)
+    monkeypatch.setattr(
+        "services.corpus_connector_service._resolve_remote_resource",
+        _fake_dataset_resolve_remote_resource,
+    )
 
     result = list_dataset_details(page_num=1, page_size=10)
 
     assert len(result["items"]) == 1
     assert result["items"][0]["id"] == "dataset-1"
     assert result["items"][0]["replicaCount"] == 2
-    assert result["items"][0]["connectors"] == [
-        {
-            "connectorId": "DS-NODE-1",
-            "fromName": "连接器节点1",
-            "connectorOrganization": "中国地震台网中心",
-            "name": "中国地震台网中心",
-            "status": "可用",
-            "sync": "2026-08-07 11:52",
-            "recommended": True,
-        },
-        {
-            "connectorId": "DS-NODE-2",
-            "fromName": "连接器节点2",
-            "connectorOrganization": "国家地球系统科学数据中心",
-            "name": "国家地球系统科学数据中心",
-            "status": "可用",
-            "sync": "2026-08-07 12:10",
-            "recommended": False,
-        },
-    ]
+    assert [item["name"] for item in result["items"][0]["connectors"]] == ["连接器节点1", "连接器节点2"]
 
 
 def test_list_dataset_details_forwards_filters(monkeypatch):
@@ -1184,6 +1213,7 @@ def test_list_dataset_details_forwards_filters(monkeypatch):
         },
     )
 
+    assert seen["url"].endswith("/dataset.page")
     assert seen["params"] == {"pageNum": 2, "pageSize": 20}
     assert seen["json"] == {
         "title": "地震",
@@ -1201,7 +1231,8 @@ def test_get_dataset_detail_returns_single_dataset(monkeypatch):
             "id": "6a744595d38ea034d388c7b4",
             "title": "dataset title",
             "cstr": "ES-CORPUS-B138",
-            "fromList": ["DS-NODE-1"],
+            "source": "连接器节点1",
+            "fromList": [{"connectorId": "DS-NODE-1", "name": "连接器节点1"}],
         },
     }
     connector_payload = {
@@ -1213,9 +1244,8 @@ def test_get_dataset_detail_returns_single_dataset(monkeypatch):
                     "connectorId": "DS-NODE-1",
                     "name": "连接器节点1",
                     "institutionName": "中国地震台网中心",
-                    "enabled": True,
+                    "status": 1,
                     "sync": "2026-08-07 11:52",
-                    "recommended": True,
                 }
             ],
             "total": 1,
@@ -1235,9 +1265,10 @@ def test_get_dataset_detail_returns_single_dataset(monkeypatch):
         "services.corpus_connector_service.get_settings",
         lambda: type("Settings", (), {"corpus_route": type("CorpusRoute", (), {"base_url": "http://10.0.82.213:7003"})()})(),
     )
+    monkeypatch.setattr("services.corpus_connector_service.requests.get", fake_get)
     monkeypatch.setattr(
-        "services.corpus_connector_service.requests.get",
-        fake_get,
+        "services.corpus_connector_service._resolve_remote_resource",
+        _fake_dataset_resolve_remote_resource,
     )
 
     result = get_dataset_detail("6a744595d38ea034d388c7b4")
@@ -1251,15 +1282,16 @@ def test_get_dataset_detail_returns_single_dataset(monkeypatch):
             "connectorId": "DS-NODE-1",
             "fromName": "连接器节点1",
             "connectorOrganization": "中国地震台网中心",
-            "name": "中国地震台网中心",
+            "name": "连接器节点1",
             "status": "可用",
             "sync": "2026-08-07 11:52",
             "recommended": True,
+            "latency_ms": 20.0,
         }
     ]
 
 
-def test_get_dataset_detail_filters_out_unavailable_connectors(monkeypatch):
+def test_get_dataset_detail_keeps_unavailable_connectors(monkeypatch):
     dataset_payload = {
         "code": 200,
         "message": "OK",
@@ -1267,7 +1299,11 @@ def test_get_dataset_detail_filters_out_unavailable_connectors(monkeypatch):
             "id": "6a744595d38ea034d388c7b4",
             "title": "dataset title",
             "cstr": "ES-CORPUS-B138",
-            "fromList": ["DS-NODE-1", "DS-NODE-2"],
+            "source": "连接器节点1",
+            "fromList": [
+                {"connectorId": "DS-NODE-1", "name": "连接器节点1"},
+                {"connectorId": "DS-NODE-2", "name": "连接器节点2"},
+            ],
         },
     }
     connector_payload = {
@@ -1279,17 +1315,15 @@ def test_get_dataset_detail_filters_out_unavailable_connectors(monkeypatch):
                     "connectorId": "DS-NODE-1",
                     "name": "连接器节点1",
                     "institutionName": "中国地震台网中心",
-                    "enabled": True,
+                    "status": 1,
                     "sync": "2026-08-07 11:52",
-                    "recommended": True,
                 },
                 {
                     "connectorId": "DS-NODE-2",
                     "name": "连接器节点2",
                     "institutionName": "不可用机构",
-                    "enabled": False,
+                    "status": 0,
                     "sync": "2026-08-08 09:15",
-                    "recommended": False,
                 },
             ],
             "total": 2,
@@ -1310,21 +1344,24 @@ def test_get_dataset_detail_filters_out_unavailable_connectors(monkeypatch):
         lambda: type("Settings", (), {"corpus_route": type("CorpusRoute", (), {"base_url": "http://10.0.82.213:7003"})()})(),
     )
     monkeypatch.setattr("services.corpus_connector_service.requests.get", fake_get)
+    monkeypatch.setattr(
+        "services.corpus_connector_service._resolve_remote_resource",
+        _fake_dataset_resolve_remote_resource,
+    )
 
     result = get_dataset_detail("6a744595d38ea034d388c7b4")
 
-    assert result["replicaCount"] == 1
-    assert result["connectors"] == [
-        {
-            "connectorId": "DS-NODE-1",
-            "fromName": "连接器节点1",
-            "connectorOrganization": "中国地震台网中心",
-            "name": "中国地震台网中心",
-            "status": "可用",
-            "sync": "2026-08-07 11:52",
-            "recommended": True,
-        }
-    ]
+    assert result["replicaCount"] == 2
+    assert result["connectors"][1] == {
+        "connectorId": "DS-NODE-2",
+        "fromName": "连接器节点2",
+        "connectorOrganization": "不可用机构",
+        "name": "连接器节点2",
+        "status": "不可用",
+        "sync": "2026-08-08 09:15",
+        "recommended": True,
+        "latency_ms": 10.0,
+    }
 
 
 def test_corpus_connector_proxy_requests(monkeypatch):
