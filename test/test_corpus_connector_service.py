@@ -388,7 +388,7 @@ def test_get_dataset_connector_detail_with_resource_joins_by_connector_id(monkey
     }
 
     def fake_get(url, params, timeout):
-        if url.endswith("/dataset/queryDataset"):
+        if url.endswith("/dataset.queryDataset"):
             return _FakeResponse(dataset_payload)
         if url.endswith("/dataset.connector.page"):
             return _FakeResponse(connector_payload)
@@ -441,7 +441,7 @@ def test_get_dataset_connector_resource_prefers_explicit_grpc_target(monkeypatch
     }
 
     def fake_get(url, params, timeout):
-        if url.endswith("/dataset/queryDataset"):
+        if url.endswith("/dataset.queryDataset"):
             return _FakeResponse(dataset_payload)
         if url.endswith("/dataset.connector.page"):
             return _FakeResponse(connector_payload)
@@ -1362,6 +1362,28 @@ def test_get_dataset_detail_keeps_unavailable_connectors(monkeypatch):
         "recommended": True,
         "latency_ms": 10.0,
     }
+
+
+def test_get_dataset_detail_rejects_empty_data(monkeypatch):
+    def fake_get(url, params, timeout):
+        if url.endswith("/dataset.queryDataset"):
+            return _FakeResponse({"code": 200, "message": "OK", "data": {}})
+        raise AssertionError(f"unexpected url: {url}")
+
+    monkeypatch.setattr(
+        "services.corpus_connector_service.get_settings",
+        lambda: type("Settings", (), {"corpus_route": type("CorpusRoute", (), {"base_url": "http://10.0.82.213:7003"})()})(),
+    )
+    monkeypatch.setattr("services.corpus_connector_service.requests.get", fake_get)
+
+    try:
+        get_dataset_detail("dataset-empty")
+        raised = False
+    except ValueError as exc:
+        raised = True
+        assert str(exc) == "dataset detail response data is empty for dataset_id=dataset-empty"
+
+    assert raised is True
 
 
 def test_corpus_connector_proxy_requests(monkeypatch):

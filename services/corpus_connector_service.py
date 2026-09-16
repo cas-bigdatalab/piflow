@@ -500,7 +500,7 @@ def _fetch_dataset_detail(dataset_id: str) -> dict[str, Any]:
     if not base_url:
         raise ValueError("settings.corpus_route.base_url must not be empty")
 
-    url = f"{base_url}/dataset/queryDataset"
+    url = f"{base_url}/dataset.queryDataset"
     try:
         response = requests.get(
             url,
@@ -522,6 +522,8 @@ def _fetch_dataset_detail(dataset_id: str) -> dict[str, Any]:
     data = payload.get("data") or {}
     if not isinstance(data, dict):
         raise ValueError(f"dataset detail response data must be an object for dataset_id={dataset_id}")
+    if not data:
+        raise ValueError(f"dataset detail response data is empty for dataset_id={dataset_id}")
     return data
 
 
