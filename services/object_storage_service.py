@@ -9,6 +9,7 @@ from typing import Any
 from minio import Minio
 
 from infra.config_loader import get_settings
+from services.user_service import get_username_by_user_id
 from runtime.workspace_manager import WorkspaceManager
 
 
@@ -25,6 +26,17 @@ def resolve_bucket_name(user_id: str) -> str:
     if not bucket:
         raise ValueError("bucket suffix is empty")
     return bucket
+
+
+def resolve_user_name(user_id: str) -> str:
+    normalized = (user_id or "").strip()
+    if not normalized:
+        raise ValueError("user_id is required")
+
+    user_name = get_username_by_user_id(normalized)
+    if not user_name:
+        raise ValueError("user_name is required")
+    return user_name
 
 
 def normalize_bucket_relative_path(path: str) -> str:
@@ -119,7 +131,8 @@ class ObjectStorageService:
         }
 
     def save_local_file_juicefs(self, user_id: str, target_path: str, local_path: str) -> dict[str, Any]:
-        bucket_name = resolve_bucket_name(user_id)
+        user_name = resolve_user_name(user_id)
+        bucket_name = resolve_bucket_name(user_name)
         self._ensure_juicefs_bucket(bucket_name)
         source = self.resolve_user_local_file(user_id, local_path)
         if not source.exists() or not source.is_file():
@@ -251,7 +264,7 @@ class ObjectStorageService:
 
     def _build_juicefs_root_prefix(self, bucket_name: str) -> str:
         prefix = (self.juicefs_config.base_prefix or "").strip().strip("/")
-        return f"corpus/{bucket_name}/{prefix}" if prefix else f"corpus/{bucket_name}"
+        return prefix
 
     def _ensure_juicefs_bucket(self, bucket_name: str) -> None:
         if not self.juicefs_client.bucket_exists(bucket_name):

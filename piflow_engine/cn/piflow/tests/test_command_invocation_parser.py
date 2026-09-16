@@ -3,8 +3,9 @@ from __future__ import annotations
 from pathlib import Path
 import pytest
 
-from cn.piflow.core.artifact import FileArtifact
+from cn.piflow.core.artifact import FileArtifact, RemoteFileArtifact
 from cn.piflow.core.stream_impl import JobInputStreamImpl
+import cn.piflow.engine.local.command_invocation_parser as command_invocation_parser_module
 from cn.piflow.engine.local.command_invocation_parser import CommandInvocationParser
 from cn.piflow.engine.local.spec import CommandSpec
 
@@ -252,6 +253,35 @@ def test_command_invocation_parser_skips_missing_optional_input_data_parameter(
     assert "input_path" not in invocation.resolved_values
 
 
+def test_command_invocation_parser_materializes_remote_input_file(tmp_path: Path, monkeypatch) -> None:
+    class _FakeResolver:
+        def __init__(self, workspace: Path):
+            self.workspace = workspace
+
+        def resolve_path(self, artifact) -> Path:
+            assert isinstance(artifact, RemoteFileArtifact)
+            local_file = self.workspace / "input" / "materialized.csv"
+            local_file.parent.mkdir(parents=True, exist_ok=True)
+            local_file.write_text("remote", encoding="utf-8")
+            return local_file
+
+    monkeypatch.setattr(command_invocation_parser_module, "ArtifactResolver", _FakeResolver)
+
+    parser = CommandInvocationParser(_csv_formatter_spec())
+    inputs = JobInputStreamImpl(
+        inputs={
+            "input_path": RemoteFileArtifact(
+                path="/remote/workspace/input.csv",
+                target_server="127.0.0.1:50061",
+            )
+        }
+    )
+
+    invocation = parser.parse(inputs, tmp_path, properties={})
+
+    assert invocation.resolved_values["input_path"] == str(tmp_path / "input" / "materialized.csv")
+
+
 def test_command_invocation_parser_requires_non_output_data_output_named_parameter(
     tmp_path: Path,
 ) -> None:
@@ -308,7 +338,52 @@ def test_command_invocation_parser_prefers_output_properties_over_default(
         output_properties={"output_path": "output/custom.jsonl"},
     )
 
-    expected_output_path = str((tmp_path / "output" / "custom.jsonl").resolve())
+    expected_output_path = str(
+        (tmp_path / "output" / "output" / "custom.jsonl").resolve()
+    )
 
     assert invocation.resolved_values["output_path"] == expected_output_path
     assert invocation.output_files == {"output_path": expected_output_path}
+
+
+def test_command_invocation_parser_keeps_user_output_path_under_output_root(
+    tmp_path: Path,
+) -> None:
+    parser = CommandInvocationParser(_csv_formatter_spec())
+    inputs = JobInputStreamImpl(
+        inputs={"input_path": FileArtifact(path=str(tmp_path / "input.csv"))}
+    )
+
+    invocation = parser.parse(
+        inputs,
+        tmp_path,
+        properties={},
+        output_properties={"output_path": "outputs/openbabel/acetic.gjf"},
+    )
+
+    expected_output_path = str(
+        (tmp_path / "output" / "outputs" / "openbabel" / "acetic.gjf").resolve()
+    )
+    assert invocation.output_files == {"output_path": expected_output_path}
+
+
+@pytest.mark.parametrize(
+    "output_path",
+    ["/tmp/result.jsonl", "../result.jsonl", "nested/../../result.jsonl"],
+)
+def test_command_invocation_parser_rejects_output_path_escape(
+    tmp_path: Path,
+    output_path: str,
+) -> None:
+    parser = CommandInvocationParser(_csv_formatter_spec())
+    inputs = JobInputStreamImpl(
+        inputs={"input_path": FileArtifact(path=str(tmp_path / "input.csv"))}
+    )
+
+    with pytest.raises(ValueError, match="output directory"):
+        parser.parse(
+            inputs,
+            tmp_path,
+            properties={},
+            output_properties={"output_path": output_path},
+        )

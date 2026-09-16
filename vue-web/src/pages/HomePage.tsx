@@ -15,6 +15,7 @@ import {
   getDrawInfoBymegId,
   copyDefaultFiles,
   listDataspaceDirecory,
+  iconBase,
   type MessageAttachment,
   type ThreadMessage,
 } from "../lib/api";
@@ -22,8 +23,11 @@ import { MarkdownMessage } from "../components/MarkdownMessage";
 import { shortId } from "../lib/ids";
 import PipelinePreview, { extractAndCleanPipelineJson, PipelineData } from "../components/PipelinePreview";
 import FlowEditor, { InitialPipelineData } from "../components/Draw";
-// import { appConfig } from "../config/appConfig";
-import { FolderOpen,X,ChevronRight, Upload,Folder,FileText,Download,Database    } from 'lucide-react';
+import { 
+  FolderOpen, X, ChevronRight, Upload, Folder, FileText, Download, Database, 
+  Plus, History, Sparkles, LayoutDashboard, Clock, HardDrive, Blocks, 
+  Users, Server, Search, ChevronLeft, ChevronDown, LayoutTemplate, FileStack
+} from 'lucide-react';
 const DEFAULT_USER_ID = localStorage.getItem('userId');
 
 type UiMsg = {
@@ -45,19 +49,17 @@ type ExampleCard = {
   title: string;
   description: string;
   prompt: string;
-  image: string;
+  icon: React.ReactNode;
+  iconBg: string;
+  iconColor: string;
+  bgGradient: string;
   attachments?: Array<Pick<MessageAttachment, "path" | "name">>;
 };
 
 const WORKSPACE_FILE_PATTERN = /\/(?:outputs|artifacts)\/[^\s"'`)\]}>,，。；：！？]+/g;
 
-// 移除JSON字符串（处理 \"json {...} 或 \"json [...] 格式）
 function removeJsonBlock(text: string): string {
   let result = text;
-  
-  // 匹配 \"json 后面跟着 { 或 [ 的模式
-  // 在JavaScript中，\\\"json 表示匹配字面上的 \ 和 " 两个字符后跟 json
-  // 页面上显示的 \"json 实际上是存储的 \ 和 " 两个字符
   const jsonPattern = /\\"json\s*([{\[])/g;
   let match;
   
@@ -66,7 +68,6 @@ function removeJsonBlock(text: string): string {
     const openChar = match[1];
     const closeChar = openChar === '{' ? '}' : ']';
     
-    // 使用栈来找到匹配的闭合括号，处理转义的引号
     let stack = 1;
     let endIndex = startIndex + match[0].length;
     let inString = false;
@@ -75,23 +76,18 @@ function removeJsonBlock(text: string): string {
     while (endIndex < result.length && stack > 0) {
       const char = result[endIndex];
       
-      // 计算连续的反斜杠数量
       if (char === '\\') {
         escapeCount++;
         endIndex++;
         continue;
       }
       
-      // 处理引号
       if (char === '"') {
-        // 如果前面有奇数个反斜杠，说明是转义的引号（在字符串内）
-        // 如果前面有偶数个反斜杠（包括0），说明是字符串边界
         if (escapeCount % 2 === 0) {
           inString = !inString;
         }
       }
       
-      // 只有不在字符串中时才处理括号
       if (!inString) {
         if (char === openChar) {
           stack++;
@@ -104,39 +100,31 @@ function removeJsonBlock(text: string): string {
       endIndex++;
     }
     
-    // 如果找到了匹配的闭合括号，或者到了字符串末尾，移除这段内容
     const before = result.substring(0, startIndex);
     const after = result.substring(endIndex);
     result = before + after;
     
-    // 重置正则表达式位置，重新搜索
     jsonPattern.lastIndex = 0;
   }
   
   return result;
 }
 
-// 彻底清理文本中的所有 JSON 对象和数组
 function removeAllJson(text: string): string {
   if (!text) return text;
   
   let result = text;
   
-  // 首先移除特定的标记文本  请根据任务流程重新生成dag JSON，不要执行
   result = result.replace(/我手动修改了任务流程，请根据任务流程重新生成dag JSON[\s\S]*?不要执行。[\s\S]*?\n?/g, '').trim();
   result = result.replace(/我手动修改了任务流程，请根据任务流程重新生成dag JSON[\s\S]*?不要执行。/g, '').trim();
   
-  // 移除代码块格式的 JSON（包括 ```json ... ``` 和 ``` ... ```）
   result = result.replace(/```(json)?\s*[\s\S]*?```/g, '').trim();
   
-  // 移除行内代码格式的 JSON（`...`）
   result = result.replace(/`([^`]*\{[^`]*\}[^`]*)`/g, '').trim();
   result = result.replace(/`([^`]*\[[^`]*\][^`]*)`/g, '').trim();
   
-  // 移除JSON字符串格式（"json {...} 或 "json [...]）
   result = removeJsonBlock(result);
   
-  // 使用栈来匹配嵌套的 JSON 结构
   let i = 0;
   let stack: string[] = [];
   let startIndices: number[] = [];
@@ -164,13 +152,11 @@ function removeAllJson(text: string): string {
     i++;
   }
   
-  // 从后往前移除部分，避免索引问题
   for (let j = partsToRemove.length - 1; j >= 0; j--) {
     const [start, end] = partsToRemove[j];
     result = result.substring(0, start) + result.substring(end);
   }
   
-  // 移除可能残留的空行和多余空格
   result = result.replace(/\n{3,}/g, '\n\n').trim();
   result = result.replace(/\s{2,}/g, ' ').trim();
   
@@ -200,107 +186,55 @@ function mergeArtifacts(...groups: Array<string[] | undefined>) {
   return normalizeArtifacts(groups.flatMap((group) => group || []).filter(Boolean));
 }
 
-function svgToDataUri(svg: string) {
-  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
-}
-
+// ============ 示例卡片配置 - 4个卡片，新样式 ============
 const EXAMPLES: ExampleCard[] = [
   {
     title: "元数据提取与文本提取",
     description: "「请对文档进行以下处理：1、提取文档元数据 2、提取pdf文档文本内容」",
     prompt:
       "请对文档进行以下处理：1、提取文档元数据 2、提取pdf文档文本内容",
+    icon: <FileText className="w-5 h-5" />,
+    iconBg: "bg-purple-100",
+    iconColor: "text-purple-600",
+    bgGradient: "from-purple-50/60 to-white",
     attachments: [
       {
         path: "/temp/Akcay.pdf",
         name: "Akcay.pdf",
       },
     ],
-    image: svgToDataUri(`
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 180" fill="none">
-        <rect width="320" height="180" fill="#ECFDF5"/>
-        <g transform="translate(70 -2) scale(1.58)">
-          <rect x="35" y="30" width="45" height="55" rx="2" fill="white" stroke="#10B981" transform="skewY(-10)"/>
-          <rect x="30" y="25" width="45" height="55" rx="2" fill="white" stroke="#10B981" transform="skewY(-10)"/>
-          <g transform="translate(55 45) skewY(-10)">
-            <rect x="0" y="0" width="35" height="25" rx="1" fill="#D1FAE5" stroke="#059669"/>
-            <line x1="0" y1="8" x2="35" y2="8" stroke="#059669" stroke-width="0.8"/>
-            <line x1="0" y1="16" x2="35" y2="16" stroke="#059669" stroke-width="0.8"/>
-            <line x1="12" y1="0" x2="12" y2="25" stroke="#059669" stroke-width="0.8"/>
-          </g>
-          <g transform="translate(20 55)">
-            <path d="M0 5C0 2.23858 2.23858 0 5 0H35C37.7614 0 40 2.23858 40 5V20C40 22.7614 37.7614 25 35 25H15L5 32V25C2.23858 25 0 22.7614 0 20V5Z" fill="#10B981"/>
-            <line x1="8" y1="8" x2="32" y2="8" stroke="white" stroke-width="2" stroke-linecap="round"/>
-            <line x1="8" y1="14" x2="26" y2="14" stroke="white" stroke-width="2" stroke-linecap="round"/>
-            <line x1="8" y1="20" x2="20" y2="20" stroke="white" stroke-width="2" stroke-linecap="round"/>
-          </g>
-        </g>
-      </svg>
-    `),
   },
   {
-    title: "文档规范化处理",
+     title: "文档规范化处理",
     description: "「请检查文档的格式有效性，并转换成markdown格式的文档。」",
     prompt:
       "请检查文档的格式有效性，并转换成markdown格式的文档。",
+    icon: <Database className="w-5 h-5" />,
+    iconBg: "bg-emerald-100",
+    iconColor: "text-emerald-600",
+    bgGradient: "from-emerald-50/60 to-white",
     attachments: [
       {
         path: "/temp/Marxist.docx",
         name: "Marxist.docx",
       },
     ],
-    image: svgToDataUri(`
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 180" fill="none">
-        <rect width="320" height="180" fill="#F5F3FF"/>
-        <g transform="translate(90 28)">
-          <path d="M30 40L70 20L110 40L70 60L30 40Z" fill="#8B5CF6" fill-opacity="0.1" stroke="#8B5CF6"/>
-          <path d="M45 42L65 32M45 48L75 33M45 54L60 46" stroke="#8B5CF6" stroke-width="2" stroke-linecap="round" opacity="0.6"/>
-          <g transform="translate(65 50)">
-            <circle cx="20" cy="20" r="18" fill="white"/>
-            <path d="M12 20L18 26L28 16" stroke="#7C3AED" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-            <path d="M10 10H30M10 30H30" stroke="#DDD6FE" stroke-width="1" stroke-dasharray="2 2"/>
-          </g>
-          <path d="M25 25L30 35L20 30L25 25Z" fill="#C084FC"/>
-          <circle cx="15" cy="15" r="2" fill="#A855F7"/>
-          <circle cx="35" cy="20" r="1.5" fill="#A855F7"/>
-          <path d="M110 40V48L70 68V60L110 40Z" fill="#7C3AED" fill-opacity="0.2"/>
-          <path d="M30 40V48L70 68V60L30 40Z" fill="#6D28D9" fill-opacity="0.2"/>
-        </g>
-      </svg>
-    `),
   },
   {
-    title: "语料格式转换与过滤",
+   title: "语料格式转换与过滤",
     description: "「请对上传数据csv文件转换为jsonl格式，再对这个jsonl的'fa0114'字段进行最大长度过滤，要求最大长度在40以内；再对'fa0112'字段筛选过滤出是'多花山矾'的数据」",
     prompt:
       "请对上传数据csv文件转换为jsonl格式，再对这个jsonl的'fa0114'字段进行最大长度过滤，要求最大长度在40以内；再对'fa0112'字段筛选过滤出是'多花山矾'的数据",
+    icon: <Sparkles className="w-5 h-5" />,
+    iconBg: "bg-blue-100",
+    iconColor: "text-blue-600",
+    bgGradient: "from-blue-50/60 to-white",
     attachments: [
       {
         path: "/temp/森林每木调查数据.csv",
         name: "森林每木调查数据.csv",
       },
     ],
-    image: svgToDataUri(`
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 180" fill="none">
-        <rect width="320" height="180" fill="#EFF6FF"/>
-        <g transform="translate(62 0) scale(1.62)">
-          <path d="M20 45L60 25L100 45L60 65L20 45Z" fill="#3B82F6" fill-opacity="0.1" stroke="#3B82F6"/>
-          <path d="M20 52L60 32L100 52L60 72L20 52Z" fill="#3B82F6" fill-opacity="0.15" stroke="#3B82F6"/>
-          <path d="M20 59L60 39L100 59L60 79L20 59Z" fill="#3B82F6" fill-opacity="0.2" stroke="#3B82F6"/>
-          <path d="M20 59V64L60 84V79L20 59Z" fill="#2563EB" fill-opacity="0.3"/>
-          <path d="M100 59V64L60 84V79L100 59Z" fill="#1D4ED8" fill-opacity="0.3"/>
-          <path d="M45 45L60 37.5L75 45L60 52.5L45 45Z" fill="#60A5FA" fill-opacity="0.6"/>
-          <path d="M35 50L50 42.5L65 50L50 57.5L35 50Z" fill="#93C5FD" fill-opacity="0.4"/>
-          <g transform="translate(75 25)">
-            <circle cx="15" cy="15" r="14" fill="white"/>
-            <path d="M11 12L15 8L19 12M15 8V22M11 18L15 22L19 18" stroke="#1D4ED8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-          </g>
-          <g transform="translate(25 20)">
-            <path d="M4 6H20L14 13V19L10 21V13L4 6Z" fill="#3B82F6" fill-opacity="0.8" stroke="white"/>
-          </g>
-        </g>
-      </svg>
-    `),
   }
 ];
 
@@ -327,15 +261,14 @@ export function HomePage() {
   const [loadError, setLoadError] = useState("");
   const [dragActive, setDragActive] = useState(false);
   
-  // 画板相关状态
   const [showCanvas, setShowCanvas] = useState(false);
   const [canvasPipelineData, setCanvasPipelineData] = useState<PipelineData | null>(null);
   const [canvasMessageId, setCanvasMessageId] = useState<string>('');
   const [savedDrawData, setSavedDrawData] = useState<any>(null);
-  const [canvasWidth, setCanvasWidth] = useState(50); // 画板宽度百分比
-  const [canvasKey, setCanvasKey] = useState(0); // 用于强制重新挂载FlowEditor
+  const [canvasWidth, setCanvasWidth] = useState(50);
+  const [canvasKey, setCanvasKey] = useState(0);
   const isDraggingRef = useRef(false);
-  const canvasMessageIdRef = useRef(''); // 用于解决闭包过期问题
+  const canvasMessageIdRef = useRef('');
   
   const abortRef = useRef<AbortController | null>(null);
   const transcriptRef = useRef<HTMLDivElement | null>(null);
@@ -346,33 +279,29 @@ export function HomePage() {
 
   const uploading = uploadingCount > 0;
   const isExpanded = hasMessages || sending || Boolean(loadError);
-  //新增一个状态
   const [isSaved, setIsSaved] = useState(false);
   
   const [showFileModal, setShowFileModal] = useState(false);
-  const [showFileModalSource,setShowFileModalSource]= useState(false); //数据源的选择
+  const [showFileModalSource,setShowFileModalSource]= useState(false);
   const [fileSelectParamIndex, setFileSelectParamIndex] = useState<number | null>(null);
   const [currentDirPath, setCurrentDirPath] = useState<string | null>(null);
   const [fileSystemItems, setFileSystemItems] = useState<Array<{ name: string; path: string; type: 'file' | 'directory' }>>([]);
   const [isLoadingFiles, setIsLoadingFiles] = useState(false);
   const [uploadingFile, setUploadingFile] = useState(false);
-  // 新增一个判断是数据空间已传文件还是附件上传新文件标志,改为字符串标志
   const [isUploadingFileShow,setIsUpLoadingFileShow] = useState('');
   
-  //新增变量，记录是否为数据源弹框
   const [dataSources, setDataSources] = useState<{ id: string; name: string }[]>([]);
-  const [isLoadingDataSources, setIsLoadingDataSources] = useState(false);  // 新加入内容
+  const [isLoadingDataSources, setIsLoadingDataSources] = useState(false);
   
-  // 新增状态
   const [selectedDataSourceId, setSelectedDataSourceId] = useState<string>('');
   const [storagePath, setStoragePath] = useState<string>('');
-  // 新增状态：记录当前选中的节点ID
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [nodes, setNodes] = useState<Node[]>([]);
-  // 在 HomePage 组件内部 state 区域添加
   const [pendingDataSource, setPendingDataSource] = useState<{ sourceId: string; path: string } | null>(null);
-  //新增数据源中name名称后续调取attach使用
   const [sourceFileName, setSourceFileName] = useState('')
+
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
   const handleGoBack = () => {
     if (!currentDirPath) return;
     const parts = currentDirPath.split('/').filter(Boolean);
@@ -382,11 +311,9 @@ export function HomePage() {
       parts.pop();
       setCurrentDirPath(parts.length > 0 ? '/' + parts.join('/') : null);
     }
-    // 触发重新加载文件列表
     loadFileSystem(currentDirPath ? '/' + parts.join('/') : null);
   };
 
-  //数据源弹框内容接口
   const loadDataSources = useCallback(async () => {
     setIsLoadingDataSources(true);
     try {
@@ -401,10 +328,10 @@ export function HomePage() {
       setIsLoadingDataSources(false);
     }
   }, []);
+
   const loadFileSystem = async (path: string | null = currentDirPath) => {
     setIsLoadingFiles(true);
     try {
-      // 假设你有 API：listWorkspaceFiles(userId, path)
       const userId = localStorage.getItem('userId') || '';
       const res = await listStorage(userId, path || '/');
       setFileSystemItems(res.items || []);
@@ -416,33 +343,32 @@ export function HomePage() {
       setIsLoadingFiles(false);
     }
   };
+
   const handleUploadFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const userId = localStorage.getItem('userId') || '';
     const uploadPath = currentDirPath || '/';
-      console.log("文件上传成功了吗",uploadPath)
     setUploadingFile(true);
     try {
       await uploadWorkSpaceFileNew(userId, file);
-      await loadFileSystem(currentDirPath); // 刷新
+      await loadFileSystem(currentDirPath);
     } catch (err) {
       console.error('上传失败', err);
     } finally {
       setUploadingFile(false);
-      e.target.value = ''; // 重置 input
+      e.target.value = '';
     }
   };
+
   const handleSelectFileForParam = (path: string) => {
-    // 此处逻辑取决于你如何将文件路径回传给画板参数
-    // 假设通过事件通知 FlowEditor
     window.dispatchEvent(new CustomEvent('flow:select-file-for-param', {
       detail: { paramIndex: fileSelectParamIndex, filePath: path }
     }));
     setShowFileModal(false);
     setFileSelectParamIndex(null);
   };
-  // 在 HomePage 中监听自定义事件（类似 flow:send-message）
+
   useEffect(() => {
     const handleOpenFileModal = (e: Event) => {
       const detail = (e as CustomEvent).detail;
@@ -456,13 +382,13 @@ export function HomePage() {
       window.removeEventListener('flow:open-file-modal', handleOpenFileModal as EventListener);
     };
   }, []);
+
   const handleNavigateDir = (path: string) => {
     setCurrentDirPath(path);
     loadFileSystem(path);
   };
 
   const handleDownload = () => {
-    const zipName = "用户手册";
     const link = document.createElement("a");
     link.href = "./downloadFile/用户手册.pdf";
     link.download = "用户手册";
@@ -470,28 +396,25 @@ export function HomePage() {
     link.click();
     document.body.removeChild(link);
   };
-  // 处理打开画板
+
   const handleOpenCanvas = async (data: PipelineData, msgId?: string) => {
-    console.log("初始画板中的数据",canvasPipelineData)
     setCanvasPipelineData(data);
     const currentMsgId = canvasMessageIdRef.current;
     if (!currentMsgId) {
       canvasMessageIdRef.current = msgId || '';
       setCanvasMessageId(msgId || '');
     }
-    // 先请求已保存的画板信息
     let drawData = null;
-    let currentIsSaved = false;  //默认是第一次进入画板
+    let currentIsSaved = false;
     const effectiveMsgId = canvasMessageIdRef.current || msgId;
     if (effectiveMsgId) {
       try {
         const res = await getDrawInfoBymegId(effectiveMsgId);
-        console.log('我是home页面触发的:', res);
-        if (res.code === 200 && res.result) { //判断详情中是否有值，如返回值有值，在保存的时候传taskId
+        if (res.code === 200 && res.result) {
           drawData = res.result;
-          currentIsSaved = true; //第二次进入画板
-        } else  {
-           currentIsSaved = false; //第一次进入画板
+          currentIsSaved = true;
+        } else {
+          currentIsSaved = false;
         }
       } catch (e) {
         console.log('获取已保存画板信息失败，使用会话数据:', e);
@@ -503,7 +426,6 @@ export function HomePage() {
     setIsSaved(currentIsSaved);
   };
   
-  // 关闭画板
   const handleCloseCanvas = () => {
     setShowCanvas(false);
     setCanvasPipelineData(null);
@@ -517,7 +439,6 @@ export function HomePage() {
       console.log("画板数据已更新:", canvasPipelineData);
     }
   }, [canvasPipelineData]);
-
 
   useEffect(() => {
     if (!transcriptRef.current) {
@@ -564,12 +485,10 @@ export function HomePage() {
     window.addEventListener("flow:new-chat", handleNewChat);
     window.addEventListener("flow:select-thread", handleSelectThread as EventListener);
     
-    // 监听画板发送的消息事件
     const handleSendMessage = (e: Event) => {
       const customEvent = e as CustomEvent;
       const { threadId: eventThreadId, messageId, content, hidden } = customEvent.detail || {};
       if (eventThreadId && messageId && content) {
-        // 使用现有的 send 逻辑处理流式响应
         send(content, { threadId: eventThreadId, hidden });
       }
     };
@@ -582,7 +501,6 @@ export function HomePage() {
     };
   }, []);
 
-  // 画板拖拽调整宽度
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       if (!isDraggingRef.current || !showCanvas) return;
@@ -646,11 +564,10 @@ export function HomePage() {
     if ((!prompt && pendingFiles.length === 0) || sending || uploading) {
       return;
     }
-     // 关键修复：如果当前 threadId 是 "default"，则生成新的 thread ID
     let targetThreadId = options?.threadId ?? threadId;
     if (targetThreadId === "default") {
       targetThreadId = `t_${shortId()}`;
-      setThreadId(targetThreadId); // 同步更新状态，避免后续仍用 "default"
+      setThreadId(targetThreadId);
     }
     const presetAttachments = options?.presetAttachments || [];
     const hidden = options?.hidden || false;
@@ -670,7 +587,6 @@ export function HomePage() {
 
     const filesToUpload = [...pendingFiles];
     
-      
     setSending(true);
     window.dispatchEvent(new CustomEvent("flow:sending-start"));
     setActiveAssistantId(assistantId);
@@ -701,7 +617,6 @@ export function HomePage() {
       if (filesToUpload.length > 0) {
         setUploadingCount(filesToUpload.length);
         setStreamStatus("正在上传附件...");
-        // 判断是否为初次上传附件还是数据空间已上传附件
         if (isUploadingFileShow == 'kongjian'){
           const response = await uploadWorkspaceFileNew(
             DEFAULT_USER_ID,
@@ -709,7 +624,6 @@ export function HomePage() {
             messageId,
             pendingFilesNew,
           );
-          
           uploadedAttachments.push({
             file_id: response.file_id,
             path: response.file_path,
@@ -717,7 +631,6 @@ export function HomePage() {
           });
           setUploadingCount((current) => Math.max(0, current - 1));
         } else if (isUploadingFileShow == 'file') {
-          
           for (const item of filesToUpload) {
             const response = await uploadWorkspaceFile(
               DEFAULT_USER_ID,
@@ -725,7 +638,6 @@ export function HomePage() {
               messageId,
               item.file,
             );
-            
             uploadedAttachments.push({
               file_id: response.file_id,
               path: response.path,
@@ -733,7 +645,7 @@ export function HomePage() {
             });
             setUploadingCount((current) => Math.max(0, current - 1));
           }
-        }  else if (isUploadingFileShow == 'source')  { //数据源上传
+        } else if (isUploadingFileShow == 'source') {
           const attachmentNew = [
             {
               path: pendingFilesNew,
@@ -748,7 +660,6 @@ export function HomePage() {
             messageId,
             attachmentNew,
           );
-          
           uploadedAttachments.push({
             file_id: response.attachments[0].file_id,
             path: response.attachments[0].path,
@@ -757,7 +668,6 @@ export function HomePage() {
           setUploadingCount((current) => Math.max(0, current - 1));
         }
       }
-      console.log(uploadedAttachments)
       const userMessage: UiMsg = {
         id: String(messageId),
         role: "user",
@@ -766,14 +676,12 @@ export function HomePage() {
         hidden: hidden,
       };
 
-      // 如果是隐藏消息，只添加助手消息，不添加用户消息
       if (hidden) {
         setMessages((current) => [...current, assistantMessage]);
       } else {
         setMessages((current) => [...current, userMessage, assistantMessage]);
       }
       
-      // 保存创建消息时返回的原始 messageId，用于后续画板保存
       setCanvasMessageId(String(messageId));
       setStreamStatus("正在连接智能体...");
 
@@ -865,7 +773,6 @@ export function HomePage() {
               ),
             );
             setStreamStatus("正在生成最终回答...");
-    console.log("初始画板中的数据",canvasPipelineData)
             return;
           }
 
@@ -931,10 +838,8 @@ export function HomePage() {
         controller.signal,
       );
 
-      // 流结束后刷新对话历史列表
       window.dispatchEvent(new CustomEvent("flow:threads-refresh"));
       
-    
     } catch (error: any) {
       const message = String(error?.message || error);
       setMessages((current) => {
@@ -998,15 +903,14 @@ export function HomePage() {
       presetAttachments: card.attachments || [],
     }).catch(() => {});
 
-    // 点击卡片后延迟2秒刷新对话历史
     setTimeout(() => {
       window.dispatchEvent(new CustomEvent("flow:threads-refresh"));
     }, 2000);
   }
 
   async function handleFiles(files: File[]) {
-    setIsUpLoadingFileShow('file') ; //是数据空间已上传文件标志
-    setShowFileModal(false); //关闭弹框
+    setIsUpLoadingFileShow('file');
+    setShowFileModal(false);
     if (files.length === 0) {
       return;
     }
@@ -1020,10 +924,10 @@ export function HomePage() {
       })),
     ]);
   }
-  //新增数据空间中的上传文件接口修改,进行对话create新增的时候也要修改
+
   async function handleFilesNew(files: File[]) {
-    setIsUpLoadingFileShow('kongjian') ; //是数据空间已上传文件标志
-    setShowFileModal(false); //关闭弹框
+    setIsUpLoadingFileShow('kongjian');
+    setShowFileModal(false);
     if (files.length === 0) {
       return;
     }
@@ -1035,13 +939,12 @@ export function HomePage() {
         name: file.name,
       })),
     ]);
-    // 只需要保存已上传文件的path路径
     setPendingFilesNew(files[0].path); 
   }
-  //新增数据源添加上传到对话框中的数据问题
+
   async function handleFilesSource(files: File[]) {
-    setIsUpLoadingFileShow('source') ; //是数据空间已上传文件标志
-    setShowFileModal(false); //关闭弹框
+    setIsUpLoadingFileShow('source');
+    setShowFileModal(false);
     if (!files) {
       return;
     }
@@ -1053,29 +956,22 @@ export function HomePage() {
         name: file.name,
       })),
     ]);
-    // 只需要保存已上传文件的path路径
     setPendingFilesNew(files[0].path); 
   }
 
-  // 处理数据源确认的方法
   const handleDataSourceConfirm = useCallback((sourceId: string, path: string) => {
-    // 这里可以添加你需要的逻辑，例如：
     console.log('Selected Data Source:', sourceId);
     setSelectedNodeId(sourceId)
     console.log('Storage Path:', path);
     
-    // 示例：触发类似 handleFilesNew 的流程
     setPendingFilesNew(path);  
-    // 保存完整的数据源信息，供后续 API 调用使用
     setPendingDataSource({ sourceId, path });
     const fileName = path.split('/').pop() || '';
     setSourceFileName(fileName);
     const mockFile = new File([""], path.split('/').pop() || "file", {
       type: "application/octet-stream"
     }) as any;
-    // 附加自定义路径属性
     mockFile.path = path;
-    // 只需要保存已上传文件的path路径
     setPendingFilesNew(mockFile.path); 
     handleFilesSource([mockFile]);
   }, []);
@@ -1122,13 +1018,33 @@ export function HomePage() {
     }
   }
 
+  // ========== 侧边栏导航项 ==========
+  const navItems = [
+    { icon: <LayoutDashboard className="w-4 h-4" />, label: "智能编排", active: true },
+    { icon: <Clock className="w-4 h-4" />, label: "任务管理" },
+    { icon: <History className="w-4 h-4" />, label: "运行历史" },
+    { divider: true },
+    { icon: <HardDrive className="w-4 h-4" />, label: "数据管理", subItems: ["我的数据", "数据连接"] },
+    { icon: <Blocks className="w-4 h-4" />, label: "算子管理" },
+    { icon: <LayoutTemplate className="w-4 h-4" />, label: "工作流模板管理" },
+    { divider: true },
+    { icon: <Users className="w-4 h-4" />, label: "组织管理", subItems: ["组织成员", "计算资源管理", "组织信息", "角色权限"] },
+  ];
+
+  const recentChats = [
+    { title: "请批量提取PDF文档的...", date: "2026.09.03" },
+    { title: "请对文档进行以下处..", date: "2026.09.03" },
+    { title: "请对文档进行以下处.", date: "2026.09.01" },
+    { title: "请对文档进行以下处..", date: "2026.08.27" },
+  ];
+
   function renderComposer({ compact }: { compact: boolean }) {
     return (
       <div
         className={
           compact
-            ? `relative w-full overflow-hidden rounded-[28px] border bg-white shadow-[0_24px_80px_rgba(15,23,42,0.08)] ${dragActive ? "border-sky-400 ring-4 ring-sky-100" : "border-slate-200"}`
-            : `relative w-full overflow-hidden rounded-[28px] border bg-white shadow-[0_18px_60px_rgba(15,23,42,0.06)] ${dragActive ? "border-sky-400 ring-4 ring-sky-100" : "border-slate-200"}`
+            ? `relative w-full overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm ${dragActive ? "border-blue-400 ring-4 ring-blue-100" : ""}`
+            : `relative w-full overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm ${dragActive ? "border-blue-400 ring-4 ring-blue-100" : ""}`
         }
         onDragEnter={handleDragEnter}
         onDragLeave={handleDragLeave}
@@ -1136,28 +1052,27 @@ export function HomePage() {
         onDrop={handleDrop}
       >
         {dragActive ? (
-          <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-sky-50/80 backdrop-blur-[1px]">
-            <div className="rounded-full border border-sky-200 bg-white px-5 py-2 text-sm font-medium text-sky-700 shadow-sm">
+          <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-blue-50/80 backdrop-blur-[1px]">
+            <div className="rounded-full border border-blue-200 bg-white px-4 py-1.5 text-xs font-medium text-blue-700 shadow-sm">
               松开以上传文件
             </div>
           </div>
-          
         ) : null}
         {pendingFiles.length > 0 ? (
-          <div className="flex flex-wrap gap-2 border-b border-slate-100 px-5 py-3">
+          <div className="flex flex-wrap gap-1.5 border-b border-slate-100 px-4 py-2.5">
             {pendingFiles.map((file) => (
               <div
                 key={file.id}
-                className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-600"
+                className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-[11px] text-slate-600"
               >
-                <Icon icon="ri:file-2-line" width="14" />
+                <Icon icon="ri:file-2-line" width="13" />
                 <span>{file.name}</span>
                 <button
-                  className="inline-flex h-4 w-4 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-slate-200 hover:text-slate-700"
+                  className="inline-flex h-3.5 w-3.5 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-slate-200 hover:text-slate-700"
                   onClick={() => removePendingFile(file.id)}
                   type="button"
                 >
-                  <Icon icon="ri:close-line" width="12" />
+                  <Icon icon="ri:close-line" width="11" />
                 </button>
               </div>
             ))}
@@ -1167,8 +1082,8 @@ export function HomePage() {
           ref={composerRef}
           className={
             compact
-              ? "min-h-[92px] max-h-[180px] w-full resize-none overflow-y-auto border-none bg-transparent pl-5 pr-36 pt-4 pb-16 text-sm leading-7 text-slate-800 outline-none placeholder:text-slate-400"
-              : "min-h-[116px] max-h-[220px] w-full resize-none overflow-y-auto border-none bg-transparent pl-5 pr-40 pt-4 pb-16 text-sm leading-7 text-slate-800 outline-none placeholder:text-slate-400"
+              ? "min-h-[140px] max-h-[220px] w-full resize-none overflow-y-auto border-none bg-transparent px-6 pt-5 pb-16 text-sm leading-6 text-slate-800 outline-none placeholder:text-slate-400"
+              : "min-h-[140px] max-h-[220px] w-full resize-none overflow-y-auto border-none bg-transparent px-6 pt-5 pb-16 text-sm leading-6 text-slate-800 outline-none placeholder:text-slate-400"
           }
           onChange={(event) => {
             setInput(event.target.value);
@@ -1185,9 +1100,10 @@ export function HomePage() {
           value={input}
         />
 
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-end justify-between px-5 pb-4">
-          <div className="pointer-events-auto flex items-center gap-2 text-xs text-slate-500">
-            <label className="inline-flex cursor-pointer items-center gap-2 rounded-full px-2 py-1.5 transition-colors hover:bg-slate-100 hover:text-slate-900">
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-end justify-between px-6 pb-5">
+          <div className="pointer-events-auto flex items-center gap-2 text-sm text-slate-500">
+            {/* 保留原有的附件、数据空间、数据源、算子按钮 */}
+            <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-600 shadow-sm transition-colors hover:bg-slate-50">
               <input
                 className="hidden"
                 onChange={(event) => {
@@ -1200,60 +1116,56 @@ export function HomePage() {
                 multiple
                 type="file"
               />
-              <Icon icon="ri:add-line" width="15" />
+              <Plus className="w-4 h-4" />
               <span>附件</span>
             </label>
-            <label className="inline-flex cursor-pointer items-center gap-2 rounded-full px-2 py-1.5 transition-colors hover:bg-slate-100 hover:text-slate-900">
-              <button
-                className="inline-flex cursor-pointer items-center gap-2 rounded-full px-2 py-1.5 transition-colors hover:bg-slate-100 hover:text-slate-900"
-                onClick={() => {
-                  setShowFileModal(true);
-                  setFileSelectParamIndex(null); // 表示是通用文件浏览，非参数选择
-                  setCurrentDirPath(null);
-                  loadFileSystem(null);
-                }}
-                type="button"
-              >
-                <Icon icon="ri:history-line" width="15" /> {/* 可选：换一个更合适的图标 */}
-                <span>数据空间</span>
-              </button>
-            </label>
-            <label className="inline-flex cursor-pointer items-center gap-2 rounded-full px-2 py-1.5 transition-colors hover:bg-slate-100 hover:text-slate-900">
-              <button
-                className="inline-flex cursor-pointer items-center gap-2 rounded-full px-2 py-1.5 transition-colors hover:bg-slate-100 hover:text-slate-900"
-                onClick={async () => {
-                  setShowFileModalSource(true);              
-                  await loadDataSources();
-                }}
-                type="button"
-              >
-                <Icon icon="ri:add-line" width="15" />
-                <span>数据源</span>
-              </button>
-            </label>
             <button
-              className="inline-flex items-center gap-2 rounded-full px-2 py-1.5 transition-colors hover:bg-slate-100 hover:text-slate-900"
+              className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-600 shadow-sm transition-colors hover:bg-slate-50"
+              onClick={() => {
+                setShowFileModal(true);
+                setFileSelectParamIndex(null);
+                setCurrentDirPath(null);
+                loadFileSystem(null);
+              }}
+              type="button"
+            >
+              <History className="w-4 h-4" />
+              <span>数据空间</span>
+            </button>
+            <button
+              className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-600 shadow-sm transition-colors hover:bg-slate-50"
+              onClick={async () => {
+                setShowFileModalSource(true);              
+                await loadDataSources();
+              }}
+              type="button"
+            >
+              <Database className="w-4 h-4" />
+              <span>数据源</span>
+            </button>
+            <button
+              className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-600 shadow-sm transition-colors hover:bg-slate-50"
               onClick={() => (window.location.href = "/skills")}
               type="button"
             >
-              <Icon icon="ri:flashlight-line" width="15" />
+              <Sparkles className="w-4 h-4" />
               <span>算子</span>
             </button>
           </div>
 
-          <div className="pointer-events-auto flex items-center gap-3">
+          <div className="pointer-events-auto flex items-center gap-2">
             {!compact ? (
-              <span className="text-xs font-medium text-slate-400">
+              <span className="text-[10px] font-medium text-slate-400">
                 {uploading ? "附件上传中" : sending ? "处理中" : "快速发送"}
               </span>
             ) : null}
             <button
-              className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition-colors hover:bg-black hover:text-white disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-300"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-slate-900 text-white shadow-md transition-colors hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300"
               disabled={sending || uploading || (!input.trim() && pendingFiles.length === 0)}
               onClick={() => send().catch(() => {})}
               type="button"
             >
-              <Icon icon={uploading ? "ri:loader-4-line" : sending ? "ri:stop-fill" : "ri:arrow-right-line"} width="18" />
+              <Icon icon={uploading ? "ri:loader-4-line" : sending ? "ri:stop-fill" : "ri:arrow-up-line"} width="18" />
             </button>
           </div>
         </div>
@@ -1262,537 +1174,548 @@ export function HomePage() {
   }
 
   return (
-    <div className="flex min-h-full flex-1 flex-col">
-      {/* 右上角用户手册下载按钮 */}
-      <div className="fixed right-1 top-[68px] z-50">
-        <button
-          onClick={() => handleDownload()}
-          className="inline-flex items-center gap-1 rounded-full bg-[color:var(--color-primary)] px-2 py-1 text-[11px] font-medium text-[color:var(--color-primary-foreground)] hover:opacity-90 transition-opacity cursor-pointer shadow-md"
-          title="Download"
-        >
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-            <polyline points="7 10 12 15 17 10" />
-            <line x1="12" y1="15" x2="12" y2="3" />
-          </svg>
-          <span>用户手册下载</span>
-        </button>
-      </div>
-      {!isExpanded ? (
-        <section className="px-8 pb-16 pt-6">
-          <div className="mx-auto flex max-w-5xl flex-col">
-            <div className="border-b border-slate-200/70 bg-white/40 px-8 pb-14 pt-10 text-center">
-              <div className="mx-auto max-w-5xl">
-                <h1 className="mb-5 text-[38px] font-bold tracking-tight text-slate-950">
-                  πFlow：面向高质量科学数据加工处理的智能工作流平台
-                </h1>
-                <p className="mx-auto max-w-2xl text-[15px] leading-7 text-slate-500">
-                  专注科学数据治理，赋能科学语料构建
-                </p>
-              </div>
-            </div>
+    <div
+      className="flex min-h-screen"
+      style={{
+        background:
+          "radial-gradient(ellipse 700px 360px at 50% -4px, rgba(49, 155, 0, .105) 0%, rgba(49, 155, 0, .030) 47%, transparent 74%), #ffffff",
+      }}
+    >
 
-            <div className="mx-auto -mt-8 w-full max-w-[760px]">
-              {renderComposer({ compact: true })}
-            </div>
+      {/* ===== 主内容区 ===== */}
+      <main className="flex-1 min-w-0">
+        {/* 右上角用户手册下载按钮 */}
+        <div className="fixed right-6 top-4 z-50">
+          <button
+            onClick={() => handleDownload()}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer shadow-sm border border-slate-200"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+            <span>用户手册下载</span>
+          </button>
+        </div>
 
-            <div className="mt-16">
-              <div className="mb-8 text-center">
-                <h2 className="text-sm font-bold uppercase tracking-[0.24em] text-slate-900">
-                  选择加工流水线示例，一键体验
-                </h2>
-                <div className="mx-auto mt-3 h-0.5 w-12 bg-black" />
-              </div>
-
-              <div className="grid gap-6 md:grid-cols-3">
-                {EXAMPLES.map((card) => (
-                  <button
-                    key={card.title}
-                    className="group overflow-hidden rounded-[26px] border border-slate-200 bg-white text-left shadow-[0_20px_60px_rgba(15,23,42,0.04)] transition-all hover:-translate-y-1 hover:border-black"
-                    onClick={() => startExample(card)}
-                    type="button"
+        {!isExpanded ? (
+          <section className="px-8 pb-16 pt-6">
+            <div className="mx-auto flex max-w-4xl flex-col">
+              {/* 头部区域 */}
+              <div className="px-6 pb-6 pt-8 text-center">
+                <div className="mx-auto max-w-3xl">
+                  <div
+                    style={{
+                      margin: "0 auto 20px",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      position: "relative",
+                      zIndex: 2,
+                    }}
                   >
-                    <div className="aspect-video overflow-hidden bg-slate-100">
-                      <img
-                        alt={card.title}
-                        className="h-full w-full object-cover opacity-90 transition-transform duration-300 group-hover:scale-105"
-                        src={card.image}
-                      />
-                    </div>
-                    <div className="p-5">
-                      <h3 className="text-sm font-bold text-slate-900">{card.title}</h3>
-                      <p className="mt-2 text-xs leading-6 text-slate-500">{card.description}</p>
-                    </div>
-                  </button>
-                ))}
+                    <img
+                      src={`${iconBase().replace(/\/+$/, "")}/storage/icon/logo.png`}
+                      style={{ width: "56px", height: "56px" }}
+                    />
+                  </div>
+                  <h1 className="mb-2 text-3xl font-bold tracking-tight text-slate-900">
+                    今天想完成什么科研任务？
+                  </h1>
+                  <p className="text-sm text-slate-500">
+                    描述科研任务，πFlow 将协助你生成、调整并运行可执行工作流。
+                  </p>
+                  <div className="mx-auto mt-3 h-0.5 w-12 bg-emerald-500 rounded-full" />
+                </div>
+              </div>
+
+              {/* 输入框 */}
+              <div className="mx-auto w-full max-w-3xl">
+                {renderComposer({ compact: true })}
+              </div>
+
+              {/* 示例卡片 - 4个卡片，新样式 */}
+              <div className="mt-12">
+                <div className="mb-5 text-center">
+                  <span className="text-xs font-medium text-slate-400 tracking-wider">
+                    从示例开始
+                  </span>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2 items-stretch">
+                  {EXAMPLES.map((card) => (
+                    <button
+                      key={card.title}
+                      className={`group flex h-full min-h-[168px] flex-col overflow-hidden rounded-xl border border-slate-200/80 bg-gradient-to-br ${card.bgGradient} text-left transition-all hover:-translate-y-1 hover:shadow-md hover:border-slate-300 p-5`}
+                      onClick={() => startExample(card)}
+                      type="button"
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className={`rounded-lg p-2.5 ${card.iconBg} ${card.iconColor} shadow-sm`}>
+                          {card.icon}
+                        </div>
+                        <svg 
+                          className="w-4 h-4 text-slate-300 transition-transform group-hover:translate-x-0.5" 
+                          fill="none" 
+                          stroke="currentColor" 
+                          viewBox="0 0 24 24"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                      </div>
+                      <h3 className="mt-3 text-sm font-semibold text-slate-800">{card.title}</h3>
+                      <p className="mt-1 text-xs leading-5 text-slate-500">{card.description}</p>
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
-          </div>
-        </section>
-      ) : (
-        <section className="flex min-h-screen max-h-screen flex-1 flex-col overflow-hidden">
-          <div className="flex flex-1 min-w-0 canvas-split-container">
-            {/* 左侧对话区域 */}
-            <div className={`flex max-h-screen flex-col min-w-0`}
-              style={{ width: showCanvas ? `${100 - canvasWidth}%` : '100%' }}>
-              <div className="flex h-full min-h-0 w-full flex-1 flex-col px-8 pt-6">
-                {loadError ? (
-                  <div className="mb-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-                    加载对话失败：{loadError}
-                  </div>
-                ) : null}
+          </section>
+        ) : (
+          <section className="flex min-h-screen max-h-screen flex-1 flex-col overflow-hidden bg-[#f8fafc]">
+            <div className="flex flex-1 min-w-0 canvas-split-container">
+              <div className={`flex max-h-screen flex-col min-w-0 bg-[#f8fafc]`}
+                style={{ width: showCanvas ? `${100 - canvasWidth}%` : '100%' }}>
+                <div className="flex h-full min-h-0 w-full flex-1 flex-col px-6 pt-4">
+                  {loadError ? (
+                    <div className="mb-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                      加载对话失败：{loadError}
+                    </div>
+                  ) : null}
 
-                <div
-                  ref={transcriptRef}
-                  className="flex-1 space-y-5 overflow-y-auto px-2 py-4 custom-scrollbar"
-                >
-                  {hasMessages ? (
-                    messages.map((message) => {
-                      const isAssistant = message.role === "assistant";
-                      return (
-                        <article
-                          key={message.id}
-                          className={isAssistant ? "max-w-[82%]" : "ml-auto flex max-w-[70%] flex-col items-end"}
-                        >
-                          <div className="mb-2 flex items-center gap-2 text-[11px] uppercase tracking-[0.22em] text-slate-400">
-                            <span className={isAssistant ? "normal-case" : ""}>
-                              {isAssistant ? "πFlow" : "USER"}
-                            </span>
-                            {isAssistant && message.reasoning ? (
-                              <span className="text-emerald-500">Thinking</span>
-                            ) : null}
-                          </div>
+                  <div
+                    ref={transcriptRef}
+                    className="flex-1 space-y-4 overflow-y-auto px-2 py-3 custom-scrollbar"
+                  >
+                    {hasMessages ? (
+                      messages.map((message) => {
+                        const isAssistant = message.role === "assistant";
+                        return (
+                          <article
+                            key={message.id}
+                            className={isAssistant ? "max-w-[80%]" : "ml-auto flex max-w-[70%] flex-col items-end"}
+                          >
+                            <div className="mb-1.5 flex items-center gap-2 text-[10px] uppercase tracking-[0.18em] text-slate-400">
+                              <span className={isAssistant ? "normal-case font-medium text-slate-600" : "font-medium text-slate-600"}>
+                                {isAssistant ? "πFlow" : "USER"}
+                              </span>
+                              {isAssistant && message.reasoning ? (
+                                <span className="text-emerald-600">Thinking</span>
+                              ) : null}
+                            </div>
 
-                          {isAssistant ? (
-                            <div className="rounded-[28px] bg-transparent px-1 py-1">
-                              {(() => {
-                                try {
-                                  const { data: pipelineData, cleanedText } = extractAndCleanPipelineJson(message.content || '');
+                            {isAssistant ? (
+                              <div className="rounded-2xl bg-white px-5 py-4 shadow-sm border border-slate-100">
+                                {(() => {
+                                  try {
+                                    const { data: pipelineData, cleanedText } = extractAndCleanPipelineJson(message.content || '');
+                                    
+                                    const isExecutionResult = (cleanedText.includes('已完成') || 
+                                                            cleanedText.includes('执行成功') || 
+                                                            cleanedText.includes('运行完成') ||
+                                                            cleanedText.includes('处理完成') ||
+                                                            (message.content || '').includes('已完成') || 
+                                                            (message.content || '').includes('执行成功') || 
+                                                            (message.content || '').includes('运行完成') ||
+                                                            (message.content || '').includes('处理完成'));
+                                    
+                                    if (pipelineData && (!sending || message.id !== activeAssistantId)) {
+                                      return (
+                                        <>
+                                          {cleanedText && <MarkdownMessage content={removeAllJson(cleanedText)} pending={sending} />}
+                                          <PipelinePreview data={pipelineData} threadId={threadId} onOpenCanvas={handleOpenCanvas} messageId={message.id} disabled={showCanvas} />
+                                          {isExecutionResult && message.artifacts && message.artifacts.length > 0 && (
+                                            <div className="mt-3 flex flex-wrap gap-2 pt-1">
+                                              {message.artifacts.map((path) => (
+                                                <a
+                                                  key={path}
+                                                  className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-600 transition-colors hover:border-slate-400 hover:text-slate-800"
+                                                  href={downloadWorkspaceUrl(path)}
+                                                  rel="noreferrer"
+                                                  target="_blank"
+                                                >
+                                                  <Icon icon="ri:download-2-line" width="13" />
+                                                  <span>{path.split("/").pop() || "下载产物"}</span>
+                                                </a>
+                                              ))}
+                                            </div>
+                                          )}
+                                        </>
+                                      );
+                                    }
+                                  } catch (err) {
+                                    console.error('[PipelineDebug] Error:', err);
+                                  }
                                   
-                                  // 检查是否是执行结果，同时检查原始内容和清理后的内容
-                                  const isExecutionResult = (cleanedText.includes('已完成') || 
-                                                          cleanedText.includes('执行成功') || 
-                                                          cleanedText.includes('运行完成') ||
-                                                          cleanedText.includes('处理完成') ||
-                                                          (message.content || '').includes('已完成') || 
-                                                          (message.content || '').includes('执行成功') || 
-                                                          (message.content || '').includes('运行完成') ||
-                                                          (message.content || '').includes('处理完成'));
-                                  
-                                  if (pipelineData && (!sending || message.id !== activeAssistantId)) {
-                                    return (
-                                      <>
-                                        {cleanedText && <MarkdownMessage content={removeAllJson(cleanedText)} pending={sending} />}
-                                        <PipelinePreview data={pipelineData} threadId={threadId} onOpenCanvas={handleOpenCanvas} messageId={message.id} disabled={showCanvas} />
-                                        {isExecutionResult && message.artifacts && message.artifacts.length > 0 && (
-                                          <div className="mt-4 flex flex-wrap gap-2 pt-1">
+                                  let displayText = message.content || '';
+                                  if (sending) {
+                                    displayText = displayText.replace(/```(?:json)?[\s\S]*$/g, '').trim();
+                                  }
+                                  return <MarkdownMessage content={removeAllJson(displayText)} pending={sending} />;
+                                })()}
+
+                                {sending && message.id === activeAssistantId ? (
+                                  <div className="mt-2 w-fit rounded-full bg-slate-100 px-3 py-0.5 text-[10px] text-slate-500">
+                                    {streamStatus || "处理中..."}
+                                  </div>
+                                ) : null}
+                                {isAssistant && message.reasoning ? (
+                                  <details
+                                    className="mt-3 rounded-xl border border-emerald-100 bg-emerald-50/60 p-3"
+                                    open={sending}
+                                  >
+                                    <summary className="cursor-pointer text-[10px] font-semibold uppercase tracking-[0.16em] text-emerald-700">
+                                      思考过程
+                                    </summary>
+                                    <pre className="mt-2 whitespace-pre-wrap break-words font-sans text-xs leading-5 text-emerald-800">
+                                      {message.reasoning}
+                                    </pre>
+                                  </details>
+                                ) : null}
+
+                                {(() => {
+                                  try {
+                                    const c = message.content || '';
+                                    const { data: pipelineData, cleanedText } = extractAndCleanPipelineJson(c);
+                                    if (!pipelineData) {
+                                      const isExecutionResult = cleanedText.includes('已完成') || 
+                                                              cleanedText.includes('执行成功') || 
+                                                              cleanedText.includes('运行完成') ||
+                                                              cleanedText.includes('处理完成');
+                                      if (isExecutionResult && message.artifacts && message.artifacts.length > 0) {
+                                        return (
+                                          <div className="mt-3 flex flex-wrap gap-2 pt-1">
                                             {message.artifacts.map((path) => (
                                               <a
                                                 key={path}
-                                                className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-700 transition-colors hover:border-black hover:text-black"
+                                                className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-600 transition-colors hover:border-slate-400 hover:text-slate-800"
                                                 href={downloadWorkspaceUrl(path)}
                                                 rel="noreferrer"
                                                 target="_blank"
                                               >
-                                                <Icon icon="ri:download-2-line" width="14" />
+                                                <Icon icon="ri:download-2-line" width="13" />
                                                 <span>{path.split("/").pop() || "下载产物"}</span>
                                               </a>
                                             ))}
                                           </div>
-                                        )}
-                                      </>
-                                    );
-                                  }
-                                } catch (err) {
-                                  console.error('[PipelineDebug] Error:', err);
-                                }
-                                
-                                // 如果没有pipelineData，移除JSON后渲染
-                                let displayText = message.content || '';
-                                if (sending) {
-                                  displayText = displayText.replace(/```(?:json)?[\s\S]*$/g, '').trim();
-                                }
-                                return <MarkdownMessage content={removeAllJson(displayText)} pending={sending} />;
-                              })()}
-
-                              {sending && message.id === activeAssistantId ? (
-                                <div className="mt-3 w-fit rounded-full bg-white px-3 py-1 text-[11px] text-slate-500 shadow-sm ring-1 ring-slate-200">
-                                  {streamStatus || "处理中..."}
-                                </div>
-                              ) : null}
-                              {isAssistant && message.reasoning ? (
-                                <details
-                                  className="mt-4 rounded-2xl border border-emerald-100 bg-emerald-50/70 p-3"
-                                  open={sending}
-                                >
-                                  <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">
-                                    思考过程
-                                  </summary>
-                                  <pre className="mt-3 whitespace-pre-wrap break-words font-sans text-xs leading-6 text-emerald-900">
-                                    {message.reasoning}
-                                  </pre>
-                                </details>
-                              ) : null}
-
-                              {/* 非流程图消息的文件显示（只有执行结果才显示） */}
-                              {(() => {
-                                try {
-                                  const c = message.content || '';
-                                  const { data: pipelineData, cleanedText } = extractAndCleanPipelineJson(c);
-                                  if (!pipelineData) {
-                                    const isExecutionResult = cleanedText.includes('已完成') || 
-                                                            cleanedText.includes('执行成功') || 
-                                                            cleanedText.includes('运行完成') ||
-                                                            cleanedText.includes('处理完成');
-                                    if (isExecutionResult && message.artifacts && message.artifacts.length > 0) {
-                                      return (
-                                        <div className="mt-4 flex flex-wrap gap-2 pt-1">
-                                          {message.artifacts.map((path) => (
-                                            <a
-                                              key={path}
-                                              className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-700 transition-colors hover:border-black hover:text-black"
-                                              href={downloadWorkspaceUrl(path)}
-                                              rel="noreferrer"
-                                              target="_blank"
-                                            >
-                                              <Icon icon="ri:download-2-line" width="14" />
-                                              <span>{path.split("/").pop() || "下载产物"}</span>
-                                            </a>
-                                          ))}
-                                        </div>
-                                      );
+                                        );
+                                      }
                                     }
+                                  } catch {
+                                    // ignore
                                   }
-                                } catch {
-                                  // ignore
-                                }
-                                return null;
-                              })()}
-                            </div>
-                          ) : (
-                            <div
-                              className={`relative w-fit max-w-full ${message.attachments && message.attachments.length > 0 ? "pt-8" : ""}`}
-                            >
-                              {message.attachments && message.attachments.length > 0 ? (
-                                <div className="absolute right-0 top-0 z-10 flex max-w-full flex-wrap justify-end gap-2">
-                                  {message.attachments.map((file) => {
-                                    const isPreset = (file as any)._isPreset;
-                                    if (isPreset) {
-                                      return (
-                                        <span
-                                          key={`${message.id}-${file.path}`}
-                                          className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-500 shadow-sm cursor-default"
-                                        >
-                                          <Icon icon="ri:file-2-line" width="14" />
-                                          <span>{file.name}</span>
-                                        </span>
-                                      );
-                                    }
-                                    return (
-                                      <a
-                                        key={`${message.id}-${file.path}`}
-                                        className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-700 shadow-sm transition-colors hover:border-black hover:text-black"
-                                        href={downloadWorkspaceUrl(file.path)}
-                                        rel="noreferrer"
-                                        target="_blank"
-                                      >
-                                        <Icon icon="ri:file-2-line" width="14" />
-                                        <span>{file.name}</span>
-                                      </a>
-                                    );
-                                  })}
-                                </div>
-                              ) : null}
-                              <div className="inline-block w-fit max-w-full rounded-[24px] bg-slate-100 px-4 py-3 text-slate-900">
-                                {(() => {
-                                  let c = removeAllJson(message.content || '');
-                                  return c ? <pre className="whitespace-pre-wrap break-words font-sans text-sm leading-7 text-slate-900">{c}</pre> : null;
+                                  return null;
                                 })()}
                               </div>
-                            </div>
-                          )}
-                        </article>
-                      );
-                    })
+                            ) : (
+                              <div
+                                className={`relative w-fit max-w-full ${message.attachments && message.attachments.length > 0 ? "pt-7" : ""}`}
+                              >
+                                {message.attachments && message.attachments.length > 0 ? (
+                                  <div className="absolute right-0 top-0 z-10 flex max-w-full flex-wrap justify-end gap-1.5">
+                                    {message.attachments.map((file) => {
+                                      const isPreset = (file as any)._isPreset;
+                                      if (isPreset) {
+                                        return (
+                                          <span
+                                            key={`${message.id}-${file.path}`}
+                                            className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2.5 py-0.5 text-[10px] font-medium text-slate-500 shadow-sm cursor-default"
+                                          >
+                                            <Icon icon="ri:file-2-line" width="12" />
+                                            <span>{file.name}</span>
+                                          </span>
+                                        );
+                                      }
+                                      return (
+                                        <a
+                                          key={`${message.id}-${file.path}`}
+                                          className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2.5 py-0.5 text-[10px] font-medium text-slate-600 shadow-sm transition-colors hover:border-slate-400 hover:text-slate-800"
+                                          href={downloadWorkspaceUrl(file.path)}
+                                          rel="noreferrer"
+                                          target="_blank"
+                                        >
+                                          <Icon icon="ri:file-2-line" width="12" />
+                                          <span>{file.name}</span>
+                                        </a>
+                                      );
+                                    })}
+                                  </div>
+                                ) : null}
+                                <div className="inline-block w-fit max-w-full rounded-2xl bg-white px-4 py-3 text-slate-800 shadow-sm border border-slate-100">
+                                  {(() => {
+                                    let c = removeAllJson(message.content || '');
+                                    return c ? <pre className="whitespace-pre-wrap break-words font-sans text-sm leading-6 text-slate-800">{c}</pre> : null;
+                                  })()}
+                                </div>
+                              </div>
+                            )}
+                          </article>
+                        );
+                      })
+                    ) : (
+                      <div className="flex h-full items-center justify-center text-sm text-slate-400">
+                        输入内容后，这里会展开完整对话。
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="sticky bottom-2 pt-2">
+                    {renderComposer({ compact: false })}
+                  </div>
+                </div>
+              </div>
+
+              {showCanvas && canvasPipelineData && (
+                <>
+                  <div 
+                    className="canvas-drag-handle flex-shrink-0 cursor-col-resize hover:bg-slate-300 active:bg-slate-400 transition-colors"
+                    style={{ width: '3px', background: '#e2e8f0' }}
+                    onMouseDown={() => {
+                      isDraggingRef.current = true;
+                      document.body.style.cursor = 'col-resize';
+                      document.body.style.userSelect = 'none';
+                    }}
+                  />
+                  <div className="h-screen overflow-hidden bg-white shadow-[-2px_0_12px_rgba(0,0,0,0.04)] flex-shrink-0"
+                    style={{ width: `${canvasWidth}%` }}>
+                    <FlowEditor key={canvasKey} initialPipelineData={canvasPipelineData as unknown as InitialPipelineData} onClose={handleCloseCanvas} threadId={threadId} messageId={canvasMessageId} savedDrawData={savedDrawData}
+                      isSaved={isSaved} />
+                  </div>
+                </>
+              )}
+            </div>
+          </section>
+        )}
+
+        {/* 文件系统弹窗 */}
+        {showFileModal && (
+          <div className="file-system-overlay" onClick={() => { setShowFileModal(false); setFileSelectParamIndex(null); }}>
+            <div className="file-system-modal" onClick={(e) => e.stopPropagation()}>
+              <div className="file-system-header">
+                <div className="file-system-title">
+                  <FolderOpen size={16} />
+                  <span>{fileSelectParamIndex !== null ? '选择文件' : '文件系统'}</span>
+                </div>
+                <button className="file-system-close" onClick={() => { setShowFileModal(false); setFileSelectParamIndex(null); }}>
+                  <X size={16} />
+                </button>
+              </div>
+
+              <div className="file-system-path-bar">
+                <button 
+                  className="file-system-back-btn" 
+                  onClick={handleGoBack}
+                  disabled={!currentDirPath}
+                >
+                  <ChevronRight size={13} style={{ transform: 'rotate(180deg)' }} />
+                </button>
+                <div className="file-system-path">
+                  {currentDirPath ? (
+                    <span>{currentDirPath}</span>
                   ) : (
-                    <div className="flex h-full items-center justify-center text-sm text-slate-400">
-                      输入内容后，这里会展开完整对话。
-                    </div>
+                    <span>根目录</span>
                   )}
                 </div>
-
-                <div className="sticky bottom-3 pt-2">
-                  {renderComposer({ compact: false })}
-                </div>
               </div>
-            </div>
 
-            {/* 右侧画板区域 */}
-            {showCanvas && canvasPipelineData && (
-              
-              <>
-                {/* 拖拽分隔条 */}
-                <div 
-                  className="canvas-drag-handle flex-shrink-0 cursor-col-resize hover:bg-sky-400/50 active:bg-sky-500/70 transition-colors"
-                  style={{ width: '4px' }}
-                  onMouseDown={() => {
-                    isDraggingRef.current = true;
-                    document.body.style.cursor = 'col-resize';
-                    document.body.style.userSelect = 'none';
-                  }}
-                />
-                <div className="h-screen overflow-hidden border-l border-slate-200 shadow-[-2px_0_12px_rgba(0,0,0,0.04)] animate-slide-in-right flex-shrink-0"
-                  style={{ width: `${canvasWidth}%` }}>
-                  <FlowEditor key={canvasKey} initialPipelineData={canvasPipelineData as unknown as InitialPipelineData} onClose={handleCloseCanvas} threadId={threadId} messageId={canvasMessageId} savedDrawData={savedDrawData}
-                    isSaved={isSaved} />
-                </div>
-              </>
-            )}
-          </div>
-        </section>
-      )}
-      {/* 文件系统弹窗 */}
-      {showFileModal && (
-        <div className="file-system-overlay" onClick={() => { setShowFileModal(false); setFileSelectParamIndex(null); }}>
-          <div className="file-system-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="file-system-header">
-              <div className="file-system-title">
-                <FolderOpen size={18} />
-                <span>{fileSelectParamIndex !== null ? '选择文件' : '文件系统'}</span>
+              <div className="file-system-actions">
+                {fileSelectParamIndex === null && (
+                  <label className="file-system-upload-btn">
+                    <Upload size={13} />
+                    <span>{uploadingFile ? '上传中...' : '上传文件'}</span>
+                    <input
+                      type="file"
+                      onChange={handleUploadFile}
+                      className="file-system-upload-input"
+                      disabled={uploadingFile}
+                    />
+                  </label>
+                )}
+                {fileSelectParamIndex !== null && (
+                  <span className="file-system-hint">双击文件或点击"选择"按钮选中文件</span>
+                )}
               </div>
-              <button className="file-system-close" onClick={() => { setShowFileModal(false); setFileSelectParamIndex(null); }}>
-                <X size={18} />
-              </button>
-            </div>
 
-            <div className="file-system-path-bar">
-              <button 
-                className="file-system-back-btn" 
-                onClick={handleGoBack}
-                disabled={!currentDirPath}
-              >
-                <ChevronRight size={14} style={{ transform: 'rotate(180deg)' }} />
-              </button>
-              <div className="file-system-path">
-                {currentDirPath ? (
-                  <span>{currentDirPath}</span>
+              <div className="file-system-content">
+                {isLoadingFiles ? (
+                  <div className="file-system-loading">
+                    <span>加载中...</span>
+                  </div>
+                ) : fileSystemItems.length === 0 ? (
+                  <div className="file-system-empty">
+                    <Folder size={40} style={{ color: '#94a3b8' }} />
+                    <span>该目录为空</span>
+                  </div>
                 ) : (
-                  <span>根目录</span>
+                  <div className="file-system-list">
+                    {fileSystemItems.map((item, index) => (
+                      <div
+                        key={index}
+                        className={`file-system-item ${item.type}`}
+                        onClick={() => {
+                          if (item.type === 'directory') {
+                            handleNavigateDir(item.path);
+                          }
+                        }}
+                        onDoubleClick={() => {
+                          if (item.type === 'file' && fileSelectParamIndex !== null) {
+                            handleSelectFileForParam(item.path);
+                          }
+                        }}
+                      >
+                        <div className="file-system-item-icon">
+                          {item.type === 'directory' ? (
+                            <Folder size={16} style={{ color: '#3b82f6' }} />
+                          ) : (
+                            <FileText size={16} style={{ color: '#64748b' }} />
+                          )}
+                        </div>
+                        <span className="file-system-item-name">{item.name}</span>
+                        {item.type === 'file' && (
+                          <button
+                            className="file-system-select-btn"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleFilesNew([item])
+                            }}
+                          >
+                            选择
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 )}
               </div>
             </div>
-
-            <div className="file-system-actions">
-              {fileSelectParamIndex === null && (
-                <label className="file-system-upload-btn">
-                  <Upload size={14} />
-                  <span>{uploadingFile ? '上传中...' : '上传文件'}</span>
-                  <input
-                    type="file"
-                    onChange={handleUploadFile}
-                    className="file-system-upload-input"
-                    disabled={uploadingFile}
-                  />
-                  
-                </label>
-              )}
-              {fileSelectParamIndex !== null && (
-                <span className="file-system-hint">双击文件或点击"选择"按钮选中文件</span>
-              )}
-            </div>
-
-            <div className="file-system-content">
-              {isLoadingFiles ? (
-                <div className="file-system-loading">
-                  <span>加载中...</span>
-                </div>
-              ) : fileSystemItems.length === 0 ? (
-                <div className="file-system-empty">
-                  <Folder size={48} style={{ color: '#94a3b8' }} />
-                  <span>该目录为空</span>
-                </div>
-              ) : (
-                <div className="file-system-list">
-                  {fileSystemItems.map((item, index) => (
-                    <div
-                      key={index}
-                      className={`file-system-item ${item.type}`}
-                      onClick={() => {
-                        if (item.type === 'directory') {
-                          handleNavigateDir(item.path);
-                        }
-                      }}
-                      onDoubleClick={() => {
-                        // 当从参数选择文件弹窗触发时，双击文件将路径赋值给参数
-                        if (item.type === 'file' && fileSelectParamIndex !== null) {
-                          handleSelectFileForParam(item.path);
-                        }
-                      }}
-                    >
-                      <div className="file-system-item-icon">
-                        {item.type === 'directory' ? (
-                          <Folder size={18} style={{ color: '#3b82f6' }} />
-                        ) : (
-                          <FileText size={18} style={{ color: '#64748b' }} />
-                        )}
-                      </div>
-                      <span className="file-system-item-name">{item.name}</span>
-                      {/* {item.type === 'file' && fileSelectParamIndex === null && (
-                        <button
-                          className="file-system-download-btn"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDownloadFile(item.path);
-                          }}
-                        >
-                          <Download size={14} />
-                        </button>
-                      )} */}
-                      {item.type === 'file' && (
-                        <button
-                          className="file-system-select-btn"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleFilesNew([item])
-                          }}
-                        >
-                          选择
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
           </div>
-        </div>
-      )}
-      {/* 数据源弹框 */}
-      {showFileModalSource && (
-        <div className="file-system-overlay">
-          <div className="file-system-modalSource" onClick={(e) => e.stopPropagation()}>
-            <div className="file-system-header">
-              <div className="file-system-title">
-                <Database size={18} />
-                <span>选择数据源</span>
+        )}
+
+        {/* 数据源弹窗 */}
+        {showFileModalSource && (
+          <div className="file-system-overlay">
+            <div className="file-system-modalSource" onClick={(e) => e.stopPropagation()}>
+              <div className="file-system-header">
+                <div className="file-system-title">
+                  <Database size={16} />
+                  <span>选择数据源</span>
+                </div>
+                <button 
+                  className="file-system-close" 
+                  onClick={() => {
+                    setShowFileModalSource(false);
+                    setSelectedDataSourceId('');
+                    setStoragePath('');
+                  }}
+                >
+                  <X size={16} />
+                </button>
               </div>
-              <button 
-                className="file-system-close" 
-                onClick={() => {
-                  setShowFileModalSource(false);
-                  setSelectedDataSourceId('');
-                  setStoragePath('');
-                }}
-              >
-                <X size={18} />
-              </button>
-            </div>
 
-            <div className="file-system-content" style={{ padding: '16px' }}>
-              {isLoadingDataSources ? (
-                <div className="file-system-loading">
-                  <span>加载数据源...</span>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">目标数据源</label>
-                    <select
-                      className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      value={selectedDataSourceId}
-                      onChange={(e) => {
-                        setSelectedDataSourceId(e.target.value);
-                      }}
-                    >
-                      <option value="">请选择数据源</option>
-                      {dataSources.map((ds) => (
-                        <option key={ds.source_id} value={ds.source_id}>
-                          {ds.name}
-                        </option>
-                      ))}
-                    </select>
+              <div className="file-system-content" style={{ padding: '16px' }}>
+                {isLoadingDataSources ? (
+                  <div className="file-system-loading">
+                    <span>加载数据源...</span>
                   </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">目标数据源</label>
+                      <select
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                        value={selectedDataSourceId}
+                        onChange={(e) => {
+                          setSelectedDataSourceId(e.target.value);
+                        }}
+                      >
+                        <option value="">请选择数据源</option>
+                        {dataSources.map((ds) => (
+                          <option key={ds.source_id} value={ds.source_id}>
+                            {ds.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">存储路径</label>
-                    <input
-                      type="text"
-                      placeholder="请输入存储路径"
-                      value={storagePath}
-                      onChange={(e) => setStoragePath(e.target.value)}
-                      className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    />
-                  </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">存储路径</label>
+                      <input
+                        type="text"
+                        placeholder="请输入存储路径"
+                        value={storagePath}
+                        onChange={(e) => setStoragePath(e.target.value)}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                      />
+                    </div>
 
-                  <div className="flex justify-end gap-3 pt-2">
-                    <button
-                      type="button"
-                      className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-md hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      onClick={() => {
-                        setShowFileModalSource(false);
-                        setSelectedDataSourceId('');
-                        setStoragePath('');
-                      }}
-                    >
-                      取消
-                    </button>
-                    <button
-                      type="button"
-                      className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50"
-                      disabled={!selectedDataSourceId || !storagePath.trim()}
-                      onClick={() => {
-                        if (selectedDataSourceId && storagePath.trim()) {
-                          // 更新节点参数（保持原有逻辑）
-                          setNodes((nds) =>
-                            nds.map((n) => {
-                              if (n.id === selectedNodeId) {
-                                const newParams = [...(n.data.input_params?.params || [])];
-                                const dsIndex = newParams.findIndex((p) => p.name === 'datasource_id');
-                                if (dsIndex !== -1) {
-                                  newParams[dsIndex] = {
-                                    ...newParams[dsIndex],
-                                    _value: selectedDataSourceId,
-                                    param_value: selectedDataSourceId,
+                    <div className="flex justify-end gap-3 pt-2">
+                      <button
+                        type="button"
+                        className="px-4 py-2 text-sm font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        onClick={() => {
+                          setShowFileModalSource(false);
+                          setSelectedDataSourceId('');
+                          setStoragePath('');
+                        }}
+                      >
+                        取消
+                      </button>
+                      <button
+                        type="button"
+                        className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50"
+                        disabled={!selectedDataSourceId || !storagePath.trim()}
+                        onClick={() => {
+                          if (selectedDataSourceId && storagePath.trim()) {
+                            setNodes((nds) =>
+                              nds.map((n) => {
+                                if (n.id === selectedNodeId) {
+                                  const newParams = [...(n.data.input_params?.params || [])];
+                                  const dsIndex = newParams.findIndex((p) => p.name === 'datasource_id');
+                                  if (dsIndex !== -1) {
+                                    newParams[dsIndex] = {
+                                      ...newParams[dsIndex],
+                                      _value: selectedDataSourceId,
+                                      param_value: selectedDataSourceId,
+                                    };
+                                  }
+                                  const rpIndex = newParams.findIndex((p) => p.name === 'relative_path');
+                                  if (rpIndex !== -1) {
+                                    newParams[rpIndex] = {
+                                      ...newParams[rpIndex],
+                                      _value: storagePath.trim(),
+                                      param_value: storagePath.trim(),
+                                    };
+                                  }
+                                  return {
+                                    ...n,
+                                    data: {
+                                      ...n.data,
+                                      input_params: { ...n.data.input_params, params: newParams },
+                                    },
                                   };
                                 }
-                                const rpIndex = newParams.findIndex((p) => p.name === 'relative_path');
-                                if (rpIndex !== -1) {
-                                  newParams[rpIndex] = {
-                                    ...newParams[rpIndex],
-                                    _value: storagePath.trim(),
-                                    param_value: storagePath.trim(),
-                                  };
-                                }
-                                return {
-                                  ...n,
-                                  data: {
-                                    ...n.data,
-                                    input_params: { ...n.data.input_params, params: newParams },
-                                  },
-                                };
-                              }
-                              return n;
-                            })
-                          );
+                                return n;
+                              })
+                            );
 
-                          handleDataSourceConfirm(selectedDataSourceId, storagePath.trim());
-                        }
-                        // 关闭前清空
-                        setShowFileModalSource(false);
-                        setSelectedDataSourceId('');
-                        setStoragePath('');
-                      }}
-                    >
-                      确定
-                    </button>
+                            handleDataSourceConfirm(selectedDataSourceId, storagePath.trim());
+                          }
+                          setShowFileModalSource(false);
+                          setSelectedDataSourceId('');
+                          setStoragePath('');
+                        }}
+                      >
+                        确定
+                      </button>
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </main>
     </div>
-    
   );
 }

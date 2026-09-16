@@ -6,7 +6,7 @@ description: |
   当用户提到等值检验、连续无变化检查、久无变化检查、时间序列恒定值检查等需求时使用此skill。
   即使用户没有说出"等值检验"，只要任务涉及检查时间序列数据是否长时间保持不变，就应该使用此skill。
 
-name_zh: QC13_等值检验（连续数值无变化检查）算子
+name_zh: 质控_等值检验（连续数值无变化检查）算子
 input_params:
   - name: input_path
     type: string
@@ -51,6 +51,7 @@ output_params:
     description: 等值检验后的结构化数据文件，带质控标识
 tag: 数据校验
 publisher: COMMUNITY
+disciplinary_field: 生态
 ---
 
 # QC13_TimeEquivalentValue 等值检验Skill

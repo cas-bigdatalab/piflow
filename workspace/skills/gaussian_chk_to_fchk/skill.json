@@ -6,6 +6,7 @@
   "script_path": "scripts/run_gaussian_chk_to_fchk.py",
   "entrypoint": "python",
   "tag": "计算化学",
+  "required_software": "gaussian",
   "input_params": [
     {
       "name": "input_path",

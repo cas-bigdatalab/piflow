@@ -6,7 +6,7 @@ description: |
   当用户提到批量阈值检验、阈值表校验、多字段阈值检查、范围校验等需求时使用此skill。
   即使用户没有明确说出"批量阈值"，只要任务涉及根据阈值表进行多字段范围校验，就应该使用此skill。
 
-name_zh: QC5_批量阈值检验算子
+name_zh: 质控_批量阈值检验算子
 input_params:
   - name: original_data_path
     type: string
@@ -40,6 +40,7 @@ output_params:
     description: 批量阈值检验后的结构化数据文件，带质控标识
 tag: 数据校验
 publisher: COMMUNITY
+disciplinary_field: 生态
 ---
 
 # QC5_BatchThresholdCheck 批量阈值检验Skill

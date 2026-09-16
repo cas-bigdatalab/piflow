@@ -44,6 +44,7 @@ output_params:
     type: string
     description: "其他输出文件压缩包路径"
 disciplinary_field: 化工
+required_software: multiwfn
 ---
 
 # Multiwfn Wavefunction Analysis

@@ -5,7 +5,7 @@ description: |
   如果不存在则添加该字段，最后输出为相同格式的文件。当用户提到标识符字段检查、添加质量标识符、QC字段检查等需求时使用此skill。
   即使用户没有明确说出"标识符字段"，只要任务涉及检查或添加质量标识符字段，就应该使用此skill。
 
-name_zh: v9_标识符字段检查算子
+name_zh: 质控_标识符字段检查算子
 input_params:
   - name: input_path
     type: string
@@ -29,6 +29,7 @@ output_params:
     description: 处理后结构化数据文件，包含质量标识符字段
 tag: 数据校验
 publisher: COMMUNITY
+disciplinary_field: 生态
 ---
 
 # v9_MarkFieldCheck 标识符字段检查Skill

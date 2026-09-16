@@ -1,0 +1,76 @@
+{
+    "skill": {
+        "name_zh": "Gaussian gjf 文件编辑器",
+        "version": "1.0",
+        "skill_id": "a89ad2849b734ae3995bfed0e0663061",
+        "skill_name": "gjf_editor"
+    },
+    "node_id": "node-5",
+    "position": {
+        "x": 1860,
+        "y": 80
+    },
+    "icon_path": "",
+    "node_name": "编辑单点能计算 gjf 文件",
+    "node_type": "default",
+    "out_params": [
+        {
+            "param_name": "output_path",
+            "param_type": "string",
+            "param_value": "outputs/gaussian/acetic_sp.gjf"
+        }
+    ],
+    "input_params": [
+        {
+            "binding_id": "",
+            "param_name": "output_path",
+            "value_mode": "manual",
+            "param_value": "outputs/gaussian/acetic_sp.gjf"
+        },
+        {
+            "binding_id": "",
+            "param_name": "chk",
+            "value_mode": "manual",
+            "param_value": "acetic_sp.chk"
+        },
+        {
+            "binding_id": "",
+            "param_name": "oldchk",
+            "value_mode": "reference",
+            "param_value": {
+                "source_node": "文件保存",
+                "source_param": "output"
+            }
+        },
+        {
+            "binding_id": "",
+            "param_name": "nprocshared",
+            "value_mode": "manual",
+            "param_value": "16"
+        },
+        {
+            "binding_id": "",
+            "param_name": "mem",
+            "value_mode": "manual",
+            "param_value": "8GB"
+        },
+        {
+            "binding_id": "",
+            "param_name": "keywords",
+            "value_mode": "manual",
+            "param_value": "B3LYP/6-31G(d) geom=check guess=read"
+        },
+        {
+            "binding_id": "",
+            "param_name": "multiplicity",
+            "value_mode": "manual",
+            "param_value": "1"
+        },
+        {
+            "binding_id": "",
+            "param_name": "title",
+            "value_mode": "manual",
+            "param_value": "Acetic acid single point energy from optimized geometry"
+        }
+    ]
+}

@@ -258,6 +258,7 @@ async def list_skills_api(
     version: str = None,
     disciplinary_field: str = None,
     publisher: str = None,
+    is_type_filter: bool = True,
 ):
     try:
         result = get_dag_skills_by_condition(
@@ -268,6 +269,7 @@ async def list_skills_api(
             version=version,
             disciplinary_field=disciplinary_field,
             publisher=publisher,
+            is_type_filter=is_type_filter,
         )
 
         return {

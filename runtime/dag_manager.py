@@ -197,6 +197,8 @@ def init_dag_db():
     for ddl in ddl_statements:
         cursor.execute(ddl)
 
+    # init_schedule_tables(cursor)
+
     # 执行数据库迁移
     migrate_dag_skills(cursor)
 
@@ -542,6 +544,7 @@ def list_dag_skills_by_type(
     version: str = None,
     disciplinary_field: str = None,
     publisher: str = None,
+    is_type_filter: bool = True,
 ) -> dict:
     try:
         with closing(get_connection()) as conn:
@@ -578,79 +581,77 @@ def list_dag_skills_by_type(
                 )
                 total = cursor.fetchone()["total"]
 
+                if is_type_filter:
+                    order_by = "ORDER BY skill_type, skill_name"
+                else:
+                    order_by = "ORDER BY CASE WHEN disciplinary_field = '生态' THEN 0 ELSE 1 END, skill_name"
+
+                select_cols = """
+                    SELECT id, skill_id, skill_name, name_zh, description, skill_path, file_path,
+                           input_params, output_params, skill_type,
+                           language, command, icon_path, version,
+                           disciplinary_field, publisher,
+                           create_time, update_time, is_deleted
+                """
+
                 if page is not None and page_size is not None:
                     offset = (page - 1) * page_size
                     cursor.execute(
-                        f"""
-                        SELECT id, skill_id, skill_name, name_zh, description, skill_path, file_path,
-                               input_params, output_params, skill_type,
-                               language, command, icon_path, version,
-                               disciplinary_field, publisher,
-                               create_time, update_time, is_deleted
-                        FROM dag_skills
-                        WHERE {where}
-                        ORDER BY skill_type, skill_name
-                        LIMIT %s OFFSET %s
-                        """,
+                        f"{select_cols} FROM dag_skills WHERE {where} {order_by} LIMIT %s OFFSET %s",
                         params + [page_size, offset],
                     )
                 else:
                     cursor.execute(
-                        f"""
-                        SELECT id, skill_id, skill_name, name_zh, description, skill_path, file_path,
-                               input_params, output_params, skill_type,
-                               language, command, icon_path, version,
-                               disciplinary_field, publisher,
-                               create_time, update_time, is_deleted
-                        FROM dag_skills
-                        WHERE {where}
-                        ORDER BY skill_type, skill_name
-                        """,
+                        f"{select_cols} FROM dag_skills WHERE {where} {order_by}",
                         params,
                     )
                 rows = cursor.fetchall()
 
-                groups = {}
-                for row in rows:
-                    st = row["skill_type"] or "未分类"
-                    if st not in groups:
-                        groups[st] = []
-                    groups[st].append(
-                        DagSkill(
-                            skill_id=row["skill_id"],
-                            skill_name=row["skill_name"],
-                            name_zh=row.get("name_zh"),
-                            version=row.get("version", "1.0.0"),
-                            description=row.get("description"),
-                            skill_path=row.get("skill_path"),
-                            file_path=row.get("file_path"),
-                            input_params=row.get("input_params"),
-                            output_params=row.get("output_params"),
-                            skill_type=row["skill_type"],
-                            language=row.get("language"),
-                            command=row.get("command"),
-                            icon_path=row.get("icon_path"),
-                            disciplinary_field=row.get("disciplinary_field"),
-                            publisher=row.get("publisher"),
-                            db_id=row["id"],
-                            create_time=row.get("create_time"),
-                            update_time=row.get("update_time"),
-                            is_deleted=row["is_deleted"],
-                        )
+                def _row_to_dag_skill(row):
+                    return DagSkill(
+                        skill_id=row["skill_id"],
+                        skill_name=row["skill_name"],
+                        name_zh=row.get("name_zh"),
+                        version=row.get("version", "1.0.0"),
+                        description=row.get("description"),
+                        skill_path=row.get("skill_path"),
+                        file_path=row.get("file_path"),
+                        input_params=row.get("input_params"),
+                        output_params=row.get("output_params"),
+                        skill_type=row["skill_type"],
+                        language=row.get("language"),
+                        command=row.get("command"),
+                        icon_path=row.get("icon_path"),
+                        disciplinary_field=row.get("disciplinary_field"),
+                        publisher=row.get("publisher"),
+                        db_id=row["id"],
+                        create_time=row.get("create_time"),
+                        update_time=row.get("update_time"),
+                        is_deleted=row["is_deleted"],
                     )
 
-                group_list = sorted(
-                    [
-                        {"groupName": t, "DagSkillInfoList": skills}
-                        for t, skills in groups.items()
-                    ],
-                    key=lambda g: len(g["DagSkillInfoList"]),
-                    reverse=True,
-                )
+                if not is_type_filter:
+                    data = [_row_to_dag_skill(row) for row in rows]
+                else:
+                    groups = {}
+                    for row in rows:
+                        st = row["skill_type"] or "未分类"
+                        if st not in groups:
+                            groups[st] = []
+                        groups[st].append(_row_to_dag_skill(row))
+
+                    data = sorted(
+                        [
+                            {"groupName": t, "DagSkillInfoList": skills}
+                            for t, skills in groups.items()
+                        ],
+                        key=lambda g: len(g["DagSkillInfoList"]),
+                        reverse=True,
+                    )
 
                 result = {
                     "total": total,
-                    "data": group_list,
+                    "data": data,
                 }
                 if page is not None and page_size is not None:
                     result["page"] = page

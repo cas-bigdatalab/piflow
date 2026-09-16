@@ -86,6 +86,7 @@ interface PreviewDrawerProps {
     isOpen: boolean;
     onClose: () => void;
     previewData: Record<string, any> | null;// 或更具体的类型
+    onSaved?: () => void; // 保存到我的空间成功后的回调（关闭抽屉、推进步骤等）
 }
 interface OperatorData {
   id: string;
@@ -105,6 +106,7 @@ interface OperatorData {
   outputs: OperatorParam[];
   skillJson: any;
   file_tree: FileNode; // 替代原来的 fileStructure: string[]
+  file_path?: string;  // 算子根目录路径，用于拼接各文件的完整 path
 }
 
 interface RenderTreeOptions {
@@ -114,7 +116,7 @@ interface RenderTreeOptions {
   onFileClick: (fileName: string) => void;
 }
 
-const PreviewDrawer = ({ isOpen, onClose, previewData }: PreviewDrawerProps) => {
+const PreviewDrawer = ({ isOpen, onClose, previewData, onSaved }: PreviewDrawerProps) => {
   const [isDrawerFullscreen, setIsDrawerFullscreen] = React.useState(false);
   const [isEditing, setIsEditing] = React.useState(false);
   const [activeFile, setActiveFile] = React.useState('skill.md');
@@ -176,6 +178,8 @@ const PreviewDrawer = ({ isOpen, onClose, previewData }: PreviewDrawerProps) => 
         // 保存成功，更新原始内容以清除“未保存”状态
         setOriginalCodeContent(codeContent);
         alert('✅ 保存成功！');
+        // 通知父组件：关闭抽屉并推进到下一步（完成）
+        onSaved?.();
       } else {
         throw new Error(res?.message || '保存失败');
       }
@@ -190,18 +194,21 @@ const PreviewDrawer = ({ isOpen, onClose, previewData }: PreviewDrawerProps) => 
     setIsDrawerFullscreen(!isDrawerFullscreen);
   };
 
-  const handleFileSelect  = async (fileName: string) => {
+  const handleFileSelect  = async (fileName: string, fullPath: string) => {
     setActiveFile(fileName);
-    
-    if (!previewData?.skill_id || !data?.file_path) {
+
+    if (!previewData?.skill_id || !fullPath) {
       setCodeContent('');
       setOriginalCodeContent('');
       return;
     }
 
+    // 记录当前选中文件的完整路径，供保存等操作复用
+    setFilePath(fullPath);
+
     try {
       setLoading(true);
-      const res = await getSkillFile(previewData.skill_id,filePath);
+      const res = await getSkillFile(previewData.skill_id, fullPath);
       
       if (res?.code === 200 && res.result) {
         const content = res.result.content || '';
@@ -271,7 +278,12 @@ const PreviewDrawer = ({ isOpen, onClose, previewData }: PreviewDrawerProps) => 
                 data.file_tree,
                 0,                     // depth
                 activeFile,            // 当前激活的文件名
-                handleFileSelect       // 文件点击回调
+                handleFileSelect,      // 文件点击回调
+                // 拼接路径的根锚点：文件树的根节点本身就是算子文件夹，
+                // 因此锚点应为“算子文件夹所在的父目录”，避免把算子文件夹
+                // 名重复拼接一次（否则会多出一层，导致 SKILL.md 等顶层文件
+                // 被错误地拼到 scripts 层级下）。
+                getTreeRootAnchor(data.file_path, data.file_tree)
               )
             ) : (
               <div className="text-sm text-gray-500 italic">加载中...</div>
@@ -291,7 +303,7 @@ const PreviewDrawer = ({ isOpen, onClose, previewData }: PreviewDrawerProps) => 
                         ? 'bg-[#1e1e2e] border-blue-500 text-white' 
                         : 'border-transparent hover:bg-[#1e1e2e]'
                     }`}
-                    onClick={() => handleFileSelect(tab)}
+                    onClick={() => handleFileSelect(tab, filePath)}
                   >
                     {tab}
                   </div>
@@ -361,19 +373,59 @@ const PreviewDrawer = ({ isOpen, onClose, previewData }: PreviewDrawerProps) => 
 
 
 
+// 计算文件树的根锚点（算子文件夹所在的父目录）。
+//
+// 后端返回的 file_path 可能是：
+//   1) 算子根目录，例如 "skills/generated/xxx/content_parser"
+//   2) 某个默认文件的完整路径，例如 "skills/generated/xxx/content_parser/SKILL.md"
+//
+// 而 file_tree 的根节点名称就是算子文件夹本身（如 "content_parser"）。
+// 因此我们不能简单地对 file_path 做“去掉最后一段”的处理——那样在情况 1
+// 下会把算子文件夹当成父目录，导致渲染时根节点把文件夹名重复拼接一次，
+// 使得 SKILL.md / skill.json 等顶层文件被错误地拼到 scripts 子目录层级下。
+//
+// 正确做法：从 file_path 中定位算子文件夹（根节点名）所在的位置，
+// 取其之前的部分作为锚点；若定位不到则退回到去掉文件名的目录。
+const getTreeRootAnchor = (filePath: string | undefined, rootNode: any): string => {
+  const rootName: string = rootNode?.name || '';
+  const normalized = (filePath || '').replace(/\\/g, '/').replace(/\/+$/, '');
+
+  if (!normalized) return '';
+
+  const segments = normalized.split('/');
+  if (rootName) {
+    const rootIdx = segments.lastIndexOf(rootName);
+    if (rootIdx >= 0) {
+      // 锚点 = 算子文件夹之前的所有路径段（可能为空，表示根节点即顶层）
+      return segments.slice(0, rootIdx).join('/');
+    }
+  }
+
+  // 兜底：file_path 未包含根节点名时，退回“去掉最后一段”的父目录逻辑
+  return segments.slice(0, -1).join('/');
+};
+
 // 新增：用于 PreviewDrawer 的可点击文件树渲染
 const renderPreviewFileTree = (
   node: any,
   depth: number = 0,
   activeFile: string,
-  onFileClick: (fileName: string) => void
+  onFileClick: (fileName: string, fullPath: string) => void,
+  parentPath: string = ''
 ) => {
   const isDir = node.type === 'directory';
   const hasChildren = node.children && node.children.length > 0;
   const indent = depth * 12 + 8;
 
+  // 计算当前节点的完整路径：
+  // 1) 后端若直接返回 node.path 则优先使用，最贴合服务端预期；
+  // 2) 否则根据树层级拼接（父路径 / 当前节点名）。
+  const currentPath =
+    node.path ||
+    (parentPath ? `${parentPath}/${node.name}` : node.name);
+
   return (
-    <div key={node.name} className="space-y-1">
+    <div key={currentPath} className="space-y-1">
       <div
         className={`flex items-center py-1.5 px-2 rounded cursor-pointer text-sm ${
           node.name === activeFile
@@ -383,7 +435,7 @@ const renderPreviewFileTree = (
         style={{ paddingLeft: `${indent}px` }}
         onClick={() => {
           if (!isDir) {
-            onFileClick(node.name); // ✅ 安全调用
+            onFileClick(node.name, currentPath); // ✅ 传入当前文件的完整路径
           }
         }}
       >
@@ -398,7 +450,7 @@ const renderPreviewFileTree = (
       {hasChildren && (
         <div>
           {node.children.map((child: any) =>
-            renderPreviewFileTree(child, depth + 1, activeFile, onFileClick)
+            renderPreviewFileTree(child, depth + 1, activeFile, onFileClick, currentPath)
           )}
         </div>
       )}

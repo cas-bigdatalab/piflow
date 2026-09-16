@@ -264,6 +264,11 @@ const renderStepper = () => {
         isOpen={isDrawerOpen} 
         onClose={() => setIsDrawerOpen(false)}
         previewData={previewData} // 👈 新增 props
+        onSaved={() => {
+          // 保存到我的空间成功后：关闭抽屉并推进到第三步（完成）
+          setIsDrawerOpen(false);
+          setCurrentStep(3);
+        }}
       />
 
       {/* 侧边栏：算子开发规范 (保持不变) */}
