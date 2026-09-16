@@ -133,6 +133,7 @@ class ForecastWorkflow:
             future = pd.date_range(start=origin, periods=params.horizon_hours * 60 // frequency + 1,
                                    freq=f"{frequency}min")[1:]
             frames, quality, provenance, observations = {}, {}, {}, None
+            model_frames, completed_history, last_observation = {}, False, None
             future_covariates = {}
             for variable in [case.target, *case.covariates]:
                 key = (case_id, variable.name)
@@ -160,27 +161,36 @@ class ForecastWorkflow:
                 history = resample_variable(historical, frequency, variable)
                 values = history.reindex(grid)
                 missing = int(values.isna().sum())
-                if missing / len(grid) > cfg.max_missing_fraction:
+                observed_values = values.copy()
+                completion = self.registry.prepare_history(case_id, variable, history, grid)
+                fill_info = {}
+                if completion is not None:
+                    values, fill_info = completion
+                    completed_history = True
+                remaining = int(values.isna().sum())
+                if remaining / len(grid) > cfg.max_missing_fraction:
                     indices = np.flatnonzero(values.isna())
                     runs = np.split(indices, np.flatnonzero(np.diff(indices) > 1) + 1)
                     longest = max(runs, key=len)
                     raise ForecastError("data_quality",
-                        f"{case_id}/{variable.name} 所需 {context * frequency / 60:g} 小时历史窗口缺测 {missing}/{len(grid)} 点，暂不能预测。"
+                        f"{case_id}/{variable.name} 所需 {context * frequency / 60:g} 小时历史窗口缺测 {remaining}/{len(grid)} 点，暂不能预测。"
                         f"历史检查范围：{local_time(grid[0])} 至 {local_time(grid[-1])}（北京时间）。"
                         f"最长连续缺测：{local_time(grid[longest[0]])} 至 {local_time(grid[longest[-1]])}（北京时间），"
                         f"共 {len(longest)} 点，采样间隔 {frequency} 分钟。请补充这段观测数据后刷新数据源；"
                         "如需验证模型，可明确指定数据完整的历史时段进行回放。", stage="data")
-                if cfg.forward_fill_limit:
+                if completion is None and cfg.forward_fill_limit:
                     values = values.ffill(limit=cfg.forward_fill_limit)
                 if values.isna().any():
                     raise ForecastError("data_quality", f"{case_id}/{variable.name} 缺测无法按固定规则补齐。", stage="data")
                 if ((variable.minimum is not None and (values < variable.minimum).any()) or
                         (variable.maximum is not None and (values > variable.maximum).any())):
                     raise ForecastError("data_quality", f"{case_id}/{variable.name} 历史数据超出已登记的物理范围，请核查单位和数据。", stage="data")
-                frames[variable.name] = values.tolist()
+                model_frames[variable.name] = values.tolist()
+                frames[variable.name] = ([None if pd.isna(v) else float(v) for v in observed_values]
+                                         if completion is not None else values.tolist())
                 quality[variable.name] = {"expected_points": len(grid), "missing_before": missing,
                                           "filled_points": missing, "fill_method": "past-only forward fill",
-                                          "aggregation": variable.aggregation, "unit": variable.unit}
+                                          "aggregation": variable.aggregation, "unit": variable.unit, **fill_info}
                 if values.nunique() == 1:
                     quality[variable.name].update(constant_input=True, constant_value=float(values.iloc[0]))
                 provenance[variable.name] = raw.provenance
@@ -190,6 +200,8 @@ class ForecastWorkflow:
                         raise ForecastError("data_quality", "预测起点之前发布的辅助预报未完整覆盖预测窗口。", stage="data")
                     future_covariates[variable.name] = predicted.tolist()
                 if variable == case.target:
+                    if completion is not None:
+                        last_observation = float(history.loc[:history_end].dropna().iloc[-1])
                     truth = resample_variable(raw.values.loc[raw.values.index > origin], frequency, variable).reindex(future)
                     observations = [None if pd.isna(v) else float(v) for v in truth]
             prepared.append({"case_id": case_id, "label": case.label, "variable": case.target.name,
@@ -199,6 +211,10 @@ class ForecastWorkflow:
                              "quality": quality, "provenance": provenance, "future_covariates": future_covariates,
                              "frequency_minutes": frequency, "scenario": scenario.model_dump(mode="json")})
             prepared[-1]["bounds"] = {"minimum": case.target.minimum, "maximum": case.target.maximum}
+            if completed_history:
+                prepared[-1]["model_input"] = {"target": model_frames.pop(case.target.name), "past_covariates": model_frames}
+            if last_observation is not None:
+                prepared[-1]["last_observation"] = last_observation
             prepared[-1]["metadata"] = {"station_id": case.station_id,
                 **self.registry.display_metadata(case_id),
                 "area": scenario.area,
@@ -226,9 +242,10 @@ class ForecastWorkflow:
             inputs = []
             for _, item in group:
                 known = item.get("future_covariates", {})
-                inputs.append({"target": np.asarray(item["target"], dtype=np.float32),
-                    "past_covariates": {k: np.asarray(v, dtype=np.float32) for k, v in item["past_covariates"].items() if k not in known},
-                    **({"future_covariates": {k: np.asarray(item["past_covariates"][k] + v, dtype=np.float32)
+                model_input = item.get("model_input", item)
+                inputs.append({"target": np.asarray(model_input["target"], dtype=np.float32),
+                    "past_covariates": {k: np.asarray(v, dtype=np.float32) for k, v in model_input["past_covariates"].items() if k not in known},
+                    **({"future_covariates": {k: np.asarray(model_input["past_covariates"][k] + v, dtype=np.float32)
                                               for k, v in known.items()}} if known else {})})
                 for key in ("past_covariates", "future_covariates"):
                     for name in item.get("metadata", {}).get("circular_covariates", []):
@@ -319,17 +336,22 @@ class ForecastWorkflow:
                 q, postprocessing = constrain_forecast(q, source.get("bounds", {}))
                 points = [dict(timestamp=t, q10=float(row[0]), prediction=float(row[1]), q90=float(row[2]))
                           for t, row in zip(source["future"], q, strict=True)]
-                metrics = evaluate(q[:, 1], source["observations"], q[:, 0], q[:, 2], source["target"][-1])
+                last_observation = source.get("last_observation", source["target"][-1])
+                metrics = evaluate(q[:, 1], source["observations"], q[:, 0], q[:, 2], last_observation)
+                history = [dict(timestamp=t, value=v) for t, v in zip(source["timestamps"], source["target"], strict=True)]
+                if "model_input" in source and source["quality"][source["variable"]].get("original_observations_preserved"):
+                    for point, value in zip(history, source["model_input"]["target"], strict=True):
+                        point.update(observed_value=point["value"], imputed=point["value"] is None, value=value)
                 items.append(SeriesResult(
                     case_id=source["case_id"], label=source["label"], variable=source["variable"], unit=source["unit"],
-                    history=[dict(timestamp=t, value=v) for t, v in zip(source["timestamps"], source["target"], strict=True)],
+                    history=history,
                     predictions=points,
                     observations=[dict(timestamp=t, value=v) for t, v in zip(source["future"], source["observations"], strict=True)],
                     quality=source["quality"], provenance=source["provenance"],
                     history_window=source.get("history_window", {}),
                     postprocessing=postprocessing,
                     metadata=source.get("metadata", {}),
-                    summary=summarize(points, source["target"][-1]), evaluation=metrics,
+                    summary=summarize(points, last_observation), evaluation=metrics,
                 ))
             result = ForecastResult(run_id=run_id, task=params, model=state["model"], series=items,
                                     computation_version="1.1")

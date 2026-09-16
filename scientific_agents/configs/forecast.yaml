@@ -1,5 +1,5 @@
 # Runtime only. Relative paths resolve beside this file.
-model_dir: /data/flow-deepagent/science agent-v2/scientific_agents/models/timesfm
+model_dir: /home/cnic/piflow/piflow/scientific_agents/models/timesfm
 data_registry: sources.yaml
 # 项目研究关注标准；设为 null 可停用。不是官方灾害预警信号。
 risk_standard: forecast_risk_standard.yaml

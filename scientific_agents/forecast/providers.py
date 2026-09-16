@@ -266,6 +266,14 @@ class Registry:
         return provider.history_end(case, origin, frequency,
                                     {v.name: cache[(case_id, v.name)] for v in [case.target, *case.covariates]})
 
+    def prepare_history(self, case_id, variable, history, grid):
+        """Optional provider policy, restricted to past model inputs and their owning source."""
+        if variable.future_known:
+            return None
+        origin_id, original = self.bindings.get((case_id, variable.name), (case_id, variable))
+        prepare = getattr(self.providers[origin_id], "prepare_history", None)
+        return prepare(original, history, grid) if prepare else None
+
     @contextmanager
     def read_snapshot(self, case_ids):
         """Live adapters pin one prepared revision across all variables in a task."""

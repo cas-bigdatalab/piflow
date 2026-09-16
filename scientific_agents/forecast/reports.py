@@ -162,7 +162,7 @@ def _figures(result: ForecastResult, directory: Path) -> list[tuple[str, str]]:
             axes = np.atleast_1d(axes)
             recent = hist.tail(min(len(hist), len(pred)))
             axes[0].plot(pd.to_datetime(recent.timestamp, utc=True), recent.value,
-                         color="#64748b", label="近期历史观测" if chinese else "Recent history", linewidth=1.2)
+                         color="#64748b", label="近期历史" if chinese else "Recent history", linewidth=1.2)
             for ax in axes[:2]:
                 ax.fill_between(x, pred.q10.to_numpy(), pred.q90.to_numpy(), color="#1c8a9e", alpha=.18, label="q10–q90")
                 ax.plot(x, pred.prediction, color="#087e91", linewidth=1.6, label="预测中位数" if chinese else "Forecast median")

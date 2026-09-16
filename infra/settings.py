@@ -41,8 +41,13 @@ class CommunityServerConfig(BaseModel):
     base_url: str = ""
 
 
+class CrossDagDatasetFilters(BaseModel):
+    source: List[str] = Field(default_factory=list)
+
+
 class CorpusRouteConfig(BaseModel):
     base_url: str = ""
+    cross_dag_dataset_filters: CrossDagDatasetFilters = Field(default_factory=CrossDagDatasetFilters)
 
 
 class RustFSAdminConfig(BaseModel):

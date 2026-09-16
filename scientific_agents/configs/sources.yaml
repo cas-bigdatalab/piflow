@@ -11,7 +11,7 @@ sources:
     latitude: 26.2540
     longitude: 103.1565
     coordinate_system: WGS84
-  path: /data/flow-deepagent/science agent-v4/scientific_agents/datasets/jiangjia_2025/v1
+  path: /home/cnic/piflow/piflow/scientific_agents/datasets/jiangjia_2025/v1
 - id: ST001-CAMPBELL-B001
   display_name: 青海西宁市共和县光伏观测站
   location:
@@ -21,4 +21,4 @@ sources:
     latitude: 36.28
     longitude: 100.62
     coordinate_system: WGS84
-  path: /data/flow-deepagent/science agent-v4/scientific_agents/datasets/ST001-CAMPBELL-B001
+  path: /mnt/corpus/corpus/ST001-CAMPBELL-B001
