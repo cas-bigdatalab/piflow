@@ -10,4 +10,10 @@ vue-web/node_modules
 ./vue-web/package-lock.json
 vue-web/package-lock.json
 __pycache__/
+scientific_agents/web/node_modules/
+scientific_agents/web/.build/
+scientific_agents/web/.migration-artifacts/
+scientific_agents/web/test-results/
+scientific_agents/web/playwright-report/
 *.pyc
+local_papers/

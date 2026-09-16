@@ -306,19 +306,33 @@ async def chat_stream(req: ChatRequest, request: Request):
 
 
 @router.post("/threads/getTitles")
-async def get_threads(req: ThreadListRequest):
+async def get_threads(req: ThreadListRequest, request: Request):
     threads = get_user_threads(req.user_id)
+    extension = getattr(request.app.state, "scientific_agents", None)
+    if extension:
+        for thread in threads:
+            for agent_id, sessions in getattr(extension, "session_services", {"forecast": extension.sessions}).items():
+                if sessions.lookup(req.user_id, thread["thread_id"]):
+                    extension.check_host_user(req.user_id, request)
+                    thread["agent_id"] = agent_id
+                    break
     return {"threads": threads}
 
 
 @router.post("/thread/delete")
-async def delete_thread_api(req: DeleteThreadRequest):
+async def delete_thread_api(req: DeleteThreadRequest, request: Request):
+    extension = getattr(request.app.state, "scientific_agents", None)
+    if extension and any(s.lookup(req.user_id, req.thread_id) for s in getattr(extension, "session_services", {"forecast": extension.sessions}).values()):
+        await extension.delete_host_session(req.user_id, req.thread_id, request)
     delete_thread(req.user_id, req.thread_id)
     return {"success": True}
 
 
 @router.post("/thread/messages")
-async def thread_messages(req: ThreadMessagesRequest):
+async def thread_messages(req: ThreadMessagesRequest, request: Request):
+    extension = getattr(request.app.state, "scientific_agents", None)
+    if extension and any(s.lookup(req.user_id, req.thread_id) for s in getattr(extension, "session_services", {"forecast": extension.sessions}).values()):
+        extension.check_host_user(req.user_id, request)
     allowed = {t["thread_id"] for t in get_user_threads(req.user_id)}
     if req.thread_id not in allowed:
         raise HTTPException(status_code=403, detail="thread not found or access denied")

@@ -1,0 +1,122 @@
+# 项目研究关注阈值；不是属地预警发布标准或灾害概率模型。
+# 规则数值、单位、窗口与适用边界见 docs/forecast_risk_standard.md。
+version: SRA-1.0
+profiles:
+  - id: rainfall
+    variables: [rainfall_amount, precipitation_amount]
+    units: [mm]
+    aggregations: [sum]
+    reference: 中国气象局预警信号附件中的雨量数值参考；仅抽取量值作研究筛查，未复现发布条件。https://www.cma.gov.cn/gzk/202005/W020220628619402421665.pdf
+    rules:
+      - {id: r1, label: 12小时累计降水研究关注, severity: 1, statistic: sum, window_hours: 12, operator: ge, threshold: 50}
+      - {id: r2, label: 6小时累计降水研究关注, severity: 2, statistic: sum, window_hours: 6, operator: ge, threshold: 50}
+      - {id: r3, label: 3小时强降水研究关注, severity: 3, statistic: sum, window_hours: 3, operator: ge, threshold: 50}
+      - {id: r4, label: 3小时强降水优先核查, severity: 4, statistic: sum, window_hours: 3, operator: ge, threshold: 100}
+  - id: rainfall_6h
+    variables: [precipitation_6h, rainfall_6h]
+    units: [mm]
+    aggregations: [last, mean]
+    semantics: rolling_total
+    window_minutes: 360
+    reference: 项目设定的六小时滑动降水研究阈值；直接比较，禁止再次累加；非正式预警。
+    rules:
+      - {id: r1, label: 六小时降水增多关注, severity: 1, operator: ge, threshold: 25}
+      - {id: r2, label: 六小时强降水关注, severity: 2, operator: ge, threshold: 50}
+      - {id: r3, label: 六小时强降水重点关注, severity: 3, operator: ge, threshold: 100}
+      - {id: r4, label: 六小时强降水优先核查, severity: 4, operator: ge, threshold: 150}
+  - id: hot_air
+    variables: [air_temperature]
+    units: [degC, °C]
+    aggregations: [mean, last]
+    reference: 中国气象局高温量值参考，按采样点筛查；未包含持续日数等正式发布条件。https://www.cma.gov.cn/gzk/202005/W020220628619402421665.pdf
+    rules:
+      - {id: r1, label: 气温偏高研究关注, severity: 1, operator: ge, threshold: 35}
+      - {id: r2, label: 高温研究关注, severity: 2, operator: ge, threshold: 37}
+      - {id: r3, label: 高温重点核查, severity: 3, operator: ge, threshold: 40}
+  - id: cold_air
+    variables: [air_temperature]
+    units: [degC, °C]
+    aggregations: [mean, last]
+    reference: 项目低温筛查值；不等价于霜冻、寒潮或道路结冰判定。
+    rules:
+      - {id: r1, label: 低温研究关注, severity: 1, operator: le, threshold: 0}
+      - {id: r2, label: 低温重点关注, severity: 2, operator: le, threshold: -5}
+      - {id: r3, label: 低温重点核查, severity: 3, operator: le, threshold: -10}
+      - {id: r4, label: 低温优先核查, severity: 4, operator: le, threshold: -20}
+  - id: wind
+    variables: [wind_speed, mean_wind_speed]
+    units: [m/s]
+    aggregations: [mean, last]
+    reference: 项目采样风速筛查值；不等价于阵风等级或官方大风信号；影响依赖设备及作业条件。
+    rules:
+      - {id: r1, label: 风速增大研究关注, severity: 1, operator: ge, threshold: 10}
+      - {id: r2, label: 强风研究关注, severity: 2, operator: ge, threshold: 15}
+      - {id: r3, label: 强风重点关注, severity: 3, operator: ge, threshold: 20}
+      - {id: r4, label: 强风优先核查, severity: 4, operator: ge, threshold: 25}
+  - id: visibility
+    variables: [visibility, horizontal_visibility]
+    units: [m]
+    aggregations: [mean, last]
+    reference: 1000米为项目留意值；500/200/50米参考中国气象局雾能见度量值，不判定成因或正式大雾信号。https://www.cma.gov.cn/gzk/202005/W020220628619402421665.pdf
+    rules:
+      - {id: r1, label: 能见度降低研究关注, severity: 1, operator: lt, threshold: 1000}
+      - {id: r2, label: 低能见度研究关注, severity: 2, operator: lt, threshold: 500}
+      - {id: r3, label: 低能见度重点关注, severity: 3, operator: lt, threshold: 200}
+      - {id: r4, label: 低能见度优先核查, severity: 4, operator: lt, threshold: 50}
+  - id: humidity
+    variables: [relative_humidity]
+    units: ['%']
+    aggregations: [mean, last]
+    reference: 项目湿度筛查值，仅提示干燥或近饱和条件；不能单独判断火险、雾或结露。
+    rules:
+      - {id: dry1, label: 空气干燥研究关注, severity: 1, operator: le, threshold: 30}
+      - {id: dry2, label: 空气干燥重点关注, severity: 2, operator: le, threshold: 20}
+      - {id: dry3, label: 空气干燥重点核查, severity: 3, operator: le, threshold: 10}
+      - {id: wet1, label: 高湿条件研究关注, severity: 1, operator: ge, threshold: 95}
+      - {id: wet2, label: 近饱和湿度研究关注, severity: 2, operator: ge, threshold: 98}
+  - id: pressure_change
+    variables: [air_pressure, atmospheric_pressure]
+    units: [hPa]
+    aggregations: [mean, last]
+    reference: 项目三小时气压变化筛查值；按上升和下降分别判断，不以绝对低压推断台风。
+    rules:
+      - {id: fall1, label: 三小时气压下降关注, severity: 1, statistic: change, window_hours: 3, operator: le, threshold: -3}
+      - {id: fall2, label: 三小时气压明显下降关注, severity: 2, statistic: change, window_hours: 3, operator: le, threshold: -6}
+      - {id: fall3, label: 三小时气压快速下降核查, severity: 3, statistic: change, window_hours: 3, operator: le, threshold: -9}
+      - {id: rise1, label: 三小时气压上升关注, severity: 1, statistic: change, window_hours: 3, operator: ge, threshold: 3}
+      - {id: rise2, label: 三小时气压明显上升关注, severity: 2, statistic: change, window_hours: 3, operator: ge, threshold: 6}
+      - {id: rise3, label: 三小时气压快速上升核查, severity: 3, statistic: change, window_hours: 3, operator: ge, threshold: 9}
+  - id: sea_temperature_change
+    variables: [sea_water_temperature, sea_surface_temperature, seawater_temperature]
+    units: [degC, °C]
+    aggregations: [mean, last]
+    reference: 项目24小时海温变化筛查值；不是海洋热浪定义或物种耐受阈值。
+    rules:
+      - {id: rise1, label: 海温日升幅研究关注, severity: 1, statistic: change, window_hours: 24, operator: ge, threshold: 1}
+      - {id: rise2, label: 海温日升幅重点关注, severity: 2, statistic: change, window_hours: 24, operator: ge, threshold: 2}
+      - {id: rise3, label: 海温日升幅重点核查, severity: 3, statistic: change, window_hours: 24, operator: ge, threshold: 3}
+      - {id: fall1, label: 海温日降幅研究关注, severity: 1, statistic: change, window_hours: 24, operator: le, threshold: -1}
+      - {id: fall2, label: 海温日降幅重点关注, severity: 2, statistic: change, window_hours: 24, operator: le, threshold: -2}
+      - {id: fall3, label: 海温日降幅重点核查, severity: 3, statistic: change, window_hours: 24, operator: le, threshold: -3}
+  - id: salinity_change
+    variables: [sea_water_salinity, salinity]
+    units: [PSU]
+    aggregations: [mean, last]
+    reference: 项目24小时实用盐度变化筛查值；不能混用质量盐度，也不是通用生态灾害阈值。
+    rules:
+      - {id: rise1, label: 盐度日升幅研究关注, severity: 1, statistic: change, window_hours: 24, operator: ge, threshold: 1}
+      - {id: rise2, label: 盐度日升幅重点关注, severity: 2, statistic: change, window_hours: 24, operator: ge, threshold: 2}
+      - {id: rise3, label: 盐度日升幅重点核查, severity: 3, statistic: change, window_hours: 24, operator: ge, threshold: 4}
+      - {id: fall1, label: 盐度日降幅研究关注, severity: 1, statistic: change, window_hours: 24, operator: le, threshold: -1}
+      - {id: fall2, label: 盐度日降幅重点关注, severity: 2, statistic: change, window_hours: 24, operator: le, threshold: -2}
+      - {id: fall3, label: 盐度日降幅重点核查, severity: 3, statistic: change, window_hours: 24, operator: le, threshold: -4}
+  - id: wave_height
+    variables: [significant_wave_height, wind_wave_significant_height, swell_significant_height]
+    units: [m]
+    aggregations: [mean, last]
+    reference: 项目有效波高筛查值；必须确认为有效波高，不套用于最大波高或含义不明的浪高，不推断船舶安全界限。
+    rules:
+      - {id: r1, label: 有效波高增大研究关注, severity: 1, operator: ge, threshold: 2.5}
+      - {id: r2, label: 有效波高研究关注, severity: 2, operator: ge, threshold: 4}
+      - {id: r3, label: 有效波高重点关注, severity: 3, operator: ge, threshold: 6}
+      - {id: r4, label: 有效波高优先核查, severity: 4, operator: ge, threshold: 9}

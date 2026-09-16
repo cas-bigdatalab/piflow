@@ -1,0 +1,24 @@
+# 数据源入口：只在这里维护 ID 和地址，保存后点击“刷新数据源”，无需重启。
+# metadata 仅保留已有案例的编号、单位和回放场景；新增标准数据源无需修改它。
+metadata: source_metadata.yaml
+sources:
+- id: jiangjia_2025
+  display_name: 蒋家沟及小江流域观测数据
+  # 多台站数据源只填写共有地址；精确站点位置填写在 source_metadata.yaml 对应 cases[].location。
+  location:
+    name: 蒋家沟及小江流域
+    address: 蒋家沟及小江流域
+    latitude: 26.2540
+    longitude: 103.1565
+    coordinate_system: WGS84
+  path: /data/flow-deepagent/science agent-v4/scientific_agents/datasets/jiangjia_2025/v1
+- id: ST001-CAMPBELL-B001
+  display_name: 青海西宁市共和县光伏观测站
+  location:
+    name: 青海西宁市共和县光伏观测站
+    address: 青海西宁市共和县光伏观测站
+    # 填入台站实测经纬度后地图才标点，不使用城市/县城中心代替台站。
+    latitude: 36.28
+    longitude: 100.62
+    coordinate_system: WGS84
+  path: /data/flow-deepagent/science agent-v4/scientific_agents/datasets/ST001-CAMPBELL-B001

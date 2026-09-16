@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from infra.config_loader import get_settings
+from scientific_agents.integration import install_scientific_agents
 from infra.logging import init_logging
 from repositories.datasource_catalog_repository import initialize_datasource_catalog_schema
 from runtime.engine import AgentEngine
@@ -80,6 +81,7 @@ api_router.include_router(workflow_advisor_router)
 
 # 把父router挂载到app
 app.include_router(api_router)
+install_scientific_agents(app)
 
 STORAGE_DIR.mkdir(parents=True, exist_ok=True)
 

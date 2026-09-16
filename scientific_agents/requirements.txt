@@ -1,0 +1,21 @@
+# Install into the original service environment; does not replace root requirements.txt.
+fastapi~=0.128.0
+uvicorn~=0.40.0
+pydantic~=2.12.5
+PyYAML~=6.0.3
+numpy~=1.26.4
+pandas~=2.3.3
+httpx~=0.28.1
+langgraph~=1.1.6
+langgraph-checkpoint-sqlite>=3,<4
+langgraph-checkpoint-postgres>=3,<4
+langchain-openai~=1.1.11
+sqlalchemy>=2.0,<2.1
+psycopg[binary]>=3.2,<4
+psycopg2-binary~=2.9.11
+PyJWT~=2.11.0
+matplotlib>=3.9,<3.11
+reportlab>=4.4,<5
+filelock>=3.18,<4
+torch>=2.5,<3
+timesfm @ https://github.com/google-research/timesfm/archive/8cb7eda91c2b416b37e99a979afc50f2a18e1791.zip

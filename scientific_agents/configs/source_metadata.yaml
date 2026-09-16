@@ -1,0 +1,1122 @@
+# Legacy metadata for stable IDs, units, aliases and replay rules. New sources do not require entries here.
+# 数据源、案例与规则统一在此注册。部署时修改 local.directory。
+sources:
+- id: jiangjia_2025
+  kind: local_csv
+  version: v1
+  local:
+    directory: /data/flow-deepagent/science agent-v2/scientific_agents/datasets/jiangjia_2025/v1
+  license: NCDC login-access; attribution and acknowledgment required by supplied documents; no SPDX license supplied
+  citation: 宋东日,钟卫,黎晓宇,魏丽. 云南东川蒋家沟及小江流域雨量观测数据（2025年）. 国家冰川冻土沙漠科学数据中心(http://www.ncdc.ac.cn), 2026. https://www.doi.org/10.12072/ncdc.ddfors.db7463.2026.
+    | 宋东日,钟卫,黎晓宇,魏丽. 云南东川蒋家沟及小江流域气象监测数据（2025年）. 国家冰川冻土沙漠科学数据中心(http://www.ncdc.ac.cn), 2026. https://www.doi.org/10.12072/ncdc.ddfors.db7464.2026.
+    | 宋东日,钟卫,黎晓宇,魏丽. 云南东川蒋家沟土壤水分温度观测数据（2025年）. 国家冰川冻土沙漠科学数据中心(http://www.ncdc.ac.cn), 2026. https://www.doi.org/10.12072/ncdc.ddfors.db7469.2026.
+  cases:
+  - id: jjg2025_observation
+    label: 蒋家沟 · 观测站小时降雨量
+    station_id: observation
+    location:
+      name: 蒋家沟观测站
+      address: 蒋家沟观测站
+      latitude: null
+      longitude: null
+      coordinate_system: WGS84
+    target:
+      name: rainfall_amount
+      aliases: &rainfall_aliases [rainfall, precipitation, "降雨", "降水", "雨量", "降雨量", "降水量"]
+      minimum: 0
+      file: timeseries/rain/observation.csv
+      value_column: rainfall_amount
+      unit: mm
+      aggregation: sum
+      quality_column: rainfall_amount__qc
+      valid_quality_values:
+      - good
+    covariates:
+    - name: air_temperature
+      file: timeseries/weather/observation.csv
+      value_column: air_temperature
+      unit: degC
+      aggregation: last
+      quality_column: air_temperature__qc
+      valid_quality_values:
+      - good
+    - name: relative_humidity
+      file: timeseries/weather/observation.csv
+      value_column: relative_humidity
+      unit: '%'
+      aggregation: last
+      quality_column: relative_humidity__qc
+      valid_quality_values:
+      - good
+    - name: air_pressure
+      file: timeseries/weather/observation.csv
+      value_column: air_pressure
+      unit: hPa
+      aggregation: last
+      quality_column: air_pressure__qc
+      valid_quality_values:
+      - good
+  - id: jjg2025_xiaxincun
+    label: 蒋家沟 · 下新村小时降雨量
+    station_id: xiaxincun
+    target:
+      name: rainfall_amount
+      aliases: *rainfall_aliases
+      minimum: 0
+      file: timeseries/rain/xiaxincun.csv
+      value_column: rainfall_amount
+      unit: mm
+      aggregation: sum
+      quality_column: rainfall_amount__qc
+      valid_quality_values:
+      - good
+    covariates: []
+  - id: jjg2025_mayiping
+    label: 蒋家沟 · 蚂蚁坪小时降雨量
+    station_id: mayiping
+    target:
+      name: rainfall_amount
+      aliases: *rainfall_aliases
+      minimum: 0
+      file: timeseries/rain/mayiping.csv
+      value_column: rainfall_amount
+      unit: mm
+      aggregation: sum
+      quality_column: rainfall_amount__qc
+      valid_quality_values:
+      - good
+    covariates:
+    - name: air_temperature
+      file: timeseries/weather/mayiping.csv
+      value_column: air_temperature
+      unit: degC
+      aggregation: last
+      quality_column: air_temperature__qc
+      valid_quality_values:
+      - good
+    - name: relative_humidity
+      file: timeseries/weather/mayiping.csv
+      value_column: relative_humidity
+      unit: '%'
+      aggregation: last
+      quality_column: relative_humidity__qc
+      valid_quality_values:
+      - good
+    - name: air_pressure
+      file: timeseries/weather/mayiping.csv
+      value_column: air_pressure
+      unit: hPa
+      aggregation: last
+      quality_column: air_pressure__qc
+      valid_quality_values:
+      - good
+  - id: jjg2025_wangjiayakou
+    label: 蒋家沟 · 王家垭口小时降雨量
+    station_id: wangjiayakou
+    target:
+      name: rainfall_amount
+      aliases: *rainfall_aliases
+      minimum: 0
+      file: timeseries/rain/wangjiayakou.csv
+      value_column: rainfall_amount
+      unit: mm
+      aggregation: sum
+      quality_column: rainfall_amount__qc
+      valid_quality_values:
+      - good
+    covariates: []
+  - id: jjg2025_xiaojianfeng
+    label: 蒋家沟 · 小尖风小时降雨量
+    station_id: xiaojianfeng
+    target:
+      name: rainfall_amount
+      aliases: *rainfall_aliases
+      minimum: 0
+      file: timeseries/rain/xiaojianfeng.csv
+      value_column: rainfall_amount
+      unit: mm
+      aggregation: sum
+      quality_column: rainfall_amount__qc
+      valid_quality_values:
+      - good
+    covariates: []
+  - id: jjg2025_lijiayakou
+    label: 蒋家沟 · 李家垭口小时降雨量
+    station_id: lijiayakou
+    target:
+      name: rainfall_amount
+      aliases: *rainfall_aliases
+      minimum: 0
+      file: timeseries/rain/lijiayakou.csv
+      value_column: rainfall_amount
+      unit: mm
+      aggregation: sum
+      quality_column: rainfall_amount__qc
+      valid_quality_values:
+      - good
+    covariates: []
+  - id: jjg2025_huikou
+    label: 蒋家沟 · 蒋家沟汇口小时降雨量
+    station_id: huikou
+    target:
+      name: rainfall_amount
+      aliases: *rainfall_aliases
+      minimum: 0
+      file: timeseries/rain/huikou.csv
+      value_column: rainfall_amount
+      unit: mm
+      aggregation: sum
+      quality_column: rainfall_amount__qc
+      valid_quality_values:
+      - good
+    covariates:
+    - name: air_temperature
+      file: timeseries/weather/huikou.csv
+      value_column: air_temperature
+      unit: degC
+      aggregation: last
+      quality_column: air_temperature__qc
+      valid_quality_values:
+      - good
+    - name: relative_humidity
+      file: timeseries/weather/huikou.csv
+      value_column: relative_humidity
+      unit: '%'
+      aggregation: last
+      quality_column: relative_humidity__qc
+      valid_quality_values:
+      - good
+    - name: air_pressure
+      file: timeseries/weather/huikou.csv
+      value_column: air_pressure
+      unit: hPa
+      aggregation: last
+      quality_column: air_pressure__qc
+      valid_quality_values:
+      - good
+  - id: jjg2025_yiziwa
+    label: 蒋家沟 · 椅子凹小时降雨量
+    station_id: yiziwa
+    target:
+      name: rainfall_amount
+      aliases: *rainfall_aliases
+      minimum: 0
+      file: timeseries/rain/yiziwa.csv
+      value_column: rainfall_amount
+      unit: mm
+      aggregation: sum
+      quality_column: rainfall_amount__qc
+      valid_quality_values:
+      - good
+    covariates: []
+  - id: jjg2025_wanfangzi
+    label: 蒋家沟 · 弯房子小时降雨量
+    station_id: wanfangzi
+    target:
+      name: rainfall_amount
+      aliases: *rainfall_aliases
+      minimum: 0
+      file: timeseries/rain/wanfangzi.csv
+      value_column: rainfall_amount
+      unit: mm
+      aggregation: sum
+      quality_column: rainfall_amount__qc
+      valid_quality_values:
+      - good
+    covariates: []
+  - id: jjg2025_songlingan
+    label: 蒋家沟 · 松林干小时降雨量
+    station_id: songlingan
+    target:
+      name: rainfall_amount
+      aliases: *rainfall_aliases
+      minimum: 0
+      file: timeseries/rain/songlingan.csv
+      value_column: rainfall_amount
+      unit: mm
+      aggregation: sum
+      quality_column: rainfall_amount__qc
+      valid_quality_values:
+      - good
+    covariates: []
+  - id: jjg2025_xiaojianghuikou
+    label: 小江流域 · 小江汇口小时降雨量
+    station_id: xiaojianghuikou
+    target:
+      name: rainfall_amount
+      aliases: *rainfall_aliases
+      minimum: 0
+      file: timeseries/rain/xiaojianghuikou.csv
+      value_column: rainfall_amount
+      unit: mm
+      aggregation: sum
+      quality_column: rainfall_amount__qc
+      valid_quality_values:
+      - good
+    covariates: []
+  - id: jjg2025_dongchuangang
+    label: 小江流域 · 东川港小时降雨量
+    station_id: dongchuangang
+    target:
+      name: rainfall_amount
+      aliases: *rainfall_aliases
+      minimum: 0
+      file: timeseries/rain/dongchuangang.csv
+      value_column: rainfall_amount
+      unit: mm
+      aggregation: sum
+      quality_column: rainfall_amount__qc
+      valid_quality_values:
+      - good
+    covariates: []
+  - id: jjg2025_danaobao
+    label: 小江流域 · 大脑包小时降雨量
+    station_id: danaobao
+    target:
+      name: rainfall_amount
+      aliases: *rainfall_aliases
+      minimum: 0
+      file: timeseries/rain/danaobao.csv
+      value_column: rainfall_amount
+      unit: mm
+      aggregation: sum
+      quality_column: rainfall_amount__qc
+      valid_quality_values:
+      - good
+    covariates: []
+  - id: jjg2025_jilongwa
+    label: 小江流域 · 祭龙凹小时降雨量
+    station_id: jilongwa
+    target:
+      name: rainfall_amount
+      aliases: *rainfall_aliases
+      minimum: 0
+      file: timeseries/rain/jilongwa.csv
+      value_column: rainfall_amount
+      unit: mm
+      aggregation: sum
+      quality_column: rainfall_amount__qc
+      valid_quality_values:
+      - good
+    covariates: []
+  - id: jjg2025_dashan
+    label: 小江流域 · 大山小时降雨量
+    station_id: dashan
+    target:
+      name: rainfall_amount
+      aliases: *rainfall_aliases
+      minimum: 0
+      file: timeseries/rain/dashan.csv
+      value_column: rainfall_amount
+      unit: mm
+      aggregation: sum
+      quality_column: rainfall_amount__qc
+      valid_quality_values:
+      - good
+    covariates: []
+  - id: jjg2025_sanjiacun
+    label: 小江流域 · 三家村小时降雨量
+    station_id: sanjiacun
+    target:
+      name: rainfall_amount
+      aliases: *rainfall_aliases
+      minimum: 0
+      file: timeseries/rain/sanjiacun.csv
+      value_column: rainfall_amount
+      unit: mm
+      aggregation: sum
+      quality_column: rainfall_amount__qc
+      valid_quality_values:
+      - good
+    covariates: []
+  - id: jjg2025_shangpingzi
+    label: 小江流域 · 上坪子村小时降雨量
+    station_id: shangpingzi
+    target:
+      name: rainfall_amount
+      aliases: *rainfall_aliases
+      minimum: 0
+      file: timeseries/rain/shangpingzi.csv
+      value_column: rainfall_amount
+      unit: mm
+      aggregation: sum
+      quality_column: rainfall_amount__qc
+      valid_quality_values:
+      - good
+    covariates:
+    - name: air_temperature
+      file: timeseries/weather/shangpingzi.csv
+      value_column: air_temperature
+      unit: degC
+      aggregation: last
+      quality_column: air_temperature__qc
+      valid_quality_values:
+      - good
+    - name: relative_humidity
+      file: timeseries/weather/shangpingzi.csv
+      value_column: relative_humidity
+      unit: '%'
+      aggregation: last
+      quality_column: relative_humidity__qc
+      valid_quality_values:
+      - good
+    - name: air_pressure
+      file: timeseries/weather/shangpingzi.csv
+      value_column: air_pressure
+      unit: hPa
+      aggregation: last
+      quality_column: air_pressure__qc
+      valid_quality_values:
+      - good
+  - id: jjg2025_zhongliangzi
+    label: 蒋家沟 · 中梁子小时降雨量
+    station_id: zhongliangzi
+    target:
+      name: rainfall_amount
+      aliases: *rainfall_aliases
+      minimum: 0
+      file: timeseries/rain/zhongliangzi.csv
+      value_column: rainfall_amount
+      unit: mm
+      aggregation: sum
+      quality_column: rainfall_amount__qc
+      valid_quality_values:
+      - good
+    covariates: []
+  - id: jjg2025_d3_p1_10cm
+    label: 蒋家沟 · D3断面 d3_p1_10cm土壤水分
+    station_id: d3_p1_10cm
+    target:
+      name: soil_moisture
+      file: timeseries/soil/d3_p1_10cm.csv
+      value_column: soil_moisture
+      unit: '%'
+      aggregation: last
+      quality_column: soil_moisture__qc
+      valid_quality_values:
+      - good
+    covariates:
+    - name: soil_temperature
+      file: timeseries/soil/d3_p1_10cm.csv
+      value_column: soil_temperature
+      unit: degC
+      aggregation: last
+      quality_column: soil_temperature__qc
+      valid_quality_values:
+      - good
+  - id: jjg2025_d3_p1_20cm
+    label: 蒋家沟 · D3断面 d3_p1_20cm土壤水分
+    station_id: d3_p1_20cm
+    target:
+      name: soil_moisture
+      file: timeseries/soil/d3_p1_20cm.csv
+      value_column: soil_moisture
+      unit: '%'
+      aggregation: last
+      quality_column: soil_moisture__qc
+      valid_quality_values:
+      - good
+    covariates:
+    - name: soil_temperature
+      file: timeseries/soil/d3_p1_20cm.csv
+      value_column: soil_temperature
+      unit: degC
+      aggregation: last
+      quality_column: soil_temperature__qc
+      valid_quality_values:
+      - good
+  - id: jjg2025_d3_p1_30cm
+    label: 蒋家沟 · D3断面 d3_p1_30cm土壤水分
+    station_id: d3_p1_30cm
+    target:
+      name: soil_moisture
+      file: timeseries/soil/d3_p1_30cm.csv
+      value_column: soil_moisture
+      unit: '%'
+      aggregation: last
+      quality_column: soil_moisture__qc
+      valid_quality_values:
+      - good
+    covariates:
+    - name: soil_temperature
+      file: timeseries/soil/d3_p1_30cm.csv
+      value_column: soil_temperature
+      unit: degC
+      aggregation: last
+      quality_column: soil_temperature__qc
+      valid_quality_values:
+      - good
+  - id: jjg2025_d3_p2_10cm
+    label: 蒋家沟 · D3断面 d3_p2_10cm土壤水分
+    station_id: d3_p2_10cm
+    target:
+      name: soil_moisture
+      file: timeseries/soil/d3_p2_10cm.csv
+      value_column: soil_moisture
+      unit: '%'
+      aggregation: last
+      quality_column: soil_moisture__qc
+      valid_quality_values:
+      - good
+    covariates:
+    - name: soil_temperature
+      file: timeseries/soil/d3_p2_10cm.csv
+      value_column: soil_temperature
+      unit: degC
+      aggregation: last
+      quality_column: soil_temperature__qc
+      valid_quality_values:
+      - good
+  - id: jjg2025_d3_p2_20cm
+    label: 蒋家沟 · D3断面 d3_p2_20cm土壤水分
+    station_id: d3_p2_20cm
+    target:
+      name: soil_moisture
+      file: timeseries/soil/d3_p2_20cm.csv
+      value_column: soil_moisture
+      unit: '%'
+      aggregation: last
+      quality_column: soil_moisture__qc
+      valid_quality_values:
+      - good
+    covariates:
+    - name: soil_temperature
+      file: timeseries/soil/d3_p2_20cm.csv
+      value_column: soil_temperature
+      unit: degC
+      aggregation: last
+      quality_column: soil_temperature__qc
+      valid_quality_values:
+      - good
+  - id: jjg2025_d3_p2_30cm
+    label: 蒋家沟 · D3断面 d3_p2_30cm土壤水分
+    station_id: d3_p2_30cm
+    target:
+      name: soil_moisture
+      file: timeseries/soil/d3_p2_30cm.csv
+      value_column: soil_moisture
+      unit: '%'
+      aggregation: last
+      quality_column: soil_moisture__qc
+      valid_quality_values:
+      - good
+    covariates:
+    - name: soil_temperature
+      file: timeseries/soil/d3_p2_30cm.csv
+      value_column: soil_temperature
+      unit: degC
+      aggregation: last
+      quality_column: soil_temperature__qc
+      valid_quality_values:
+      - good
+  - id: jjg2025_d3_p3_10cm
+    label: 蒋家沟 · D3断面 d3_p3_10cm土壤水分
+    station_id: d3_p3_10cm
+    target:
+      name: soil_moisture
+      file: timeseries/soil/d3_p3_10cm.csv
+      value_column: soil_moisture
+      unit: '%'
+      aggregation: last
+      quality_column: soil_moisture__qc
+      valid_quality_values:
+      - good
+    covariates:
+    - name: soil_temperature
+      file: timeseries/soil/d3_p3_10cm.csv
+      value_column: soil_temperature
+      unit: degC
+      aggregation: last
+      quality_column: soil_temperature__qc
+      valid_quality_values:
+      - good
+  - id: jjg2025_d3_p3_20cm
+    label: 蒋家沟 · D3断面 d3_p3_20cm土壤水分
+    station_id: d3_p3_20cm
+    target:
+      name: soil_moisture
+      file: timeseries/soil/d3_p3_20cm.csv
+      value_column: soil_moisture
+      unit: '%'
+      aggregation: last
+      quality_column: soil_moisture__qc
+      valid_quality_values:
+      - good
+    covariates:
+    - name: soil_temperature
+      file: timeseries/soil/d3_p3_20cm.csv
+      value_column: soil_temperature
+      unit: degC
+      aggregation: last
+      quality_column: soil_temperature__qc
+      valid_quality_values:
+      - good
+  - id: jjg2025_d3_p3_30cm
+    label: 蒋家沟 · D3断面 d3_p3_30cm土壤水分
+    station_id: d3_p3_30cm
+    target:
+      name: soil_moisture
+      file: timeseries/soil/d3_p3_30cm.csv
+      value_column: soil_moisture
+      unit: '%'
+      aggregation: last
+      quality_column: soil_moisture__qc
+      valid_quality_values:
+      - good
+    covariates:
+    - name: soil_temperature
+      file: timeseries/soil/d3_p3_30cm.csv
+      value_column: soil_temperature
+      unit: degC
+      aggregation: last
+      quality_column: soil_temperature__qc
+      valid_quality_values:
+      - good
+- id: ST001-CAMPBELL-B001
+  kind: campbell_jsonl
+  version: v1
+  license: 用户提供的台站数据；授权范围待数据提供方确认
+  citation: ST001-CAMPBELL-B001 台站实时观测；本地目录 /mnt/corpus/corpus/ST001-CAMPBELL-B001
+  options:
+    # 服务部署在数据所在服务器，直接只读访问本地目录。
+    register_all_variables: true
+    case_prefix: campbell_b001
+    bridge_delayed_observations: true
+    directory: /data/flow-deepagent/science agent-v4/scientific_agents/datasets/ST001-CAMPBELL-B001
+    scan_interval_seconds: 60
+    # 并发扫描时等待本地缓存数据库锁的上限。
+    timeout_seconds: 20
+  cases:
+  - id: campbell_b001_rainfall
+    label: ST001-CAMPBELL-B001 · 降雨量
+    station_id: ST001-CAMPBELL-B001
+    analysis_context:
+      domain: 台站气象观测
+      subject: ST001-CAMPBELL-B001 台站半小时降雨量
+      objective: 结合历史气象辅助变量预测降雨量，分析降雨集中时段和潜在影响。
+      background: >-
+        台站地址见 sources.yaml 的 location。单位和 Asia/Shanghai 时区为接入暂定约定，
+        rain_Tot 暂按截至 timestamp 的前30分钟降雨量（mm）解释，待台站确认。
+        辅助变量只有历史观测，不包含未来气象预报。短期样本不能证明极端降雨预测能力。
+        不将降雨指标直接等同于洪水、滑坡或泥石流发生概率。
+    target:
+      name: rainfall_amount
+      aliases: *rainfall_aliases
+      description: rain_Tot；暂按每半小时降雨量处理，时间戳为区间结束时间，单位待确认。
+      value_column: rain_Tot
+      unit: mm
+      timezone: Asia/Shanghai
+      aggregation: sum
+      minimum: 0
+      attention: high
+    covariates:
+    - name: air_temperature
+      value_column: TA_Avg
+      unit: degC
+      timezone: Asia/Shanghai
+      aggregation: mean
+    - name: relative_humidity
+      value_column: RH_Avg
+      unit: '%'
+      timezone: Asia/Shanghai
+      aggregation: mean
+      minimum: 0
+      maximum: 100
+    - name: air_pressure
+      value_column: BP_Avg
+      unit: hPa
+      timezone: Asia/Shanghai
+      aggregation: mean
+      minimum: 0
+    - name: wind_speed
+      value_column: WS_Avg
+      unit: m/s
+      timezone: Asia/Shanghai
+      aggregation: mean
+      minimum: 0
+    - name: wind_direction
+      value_column: WD_Avg
+      unit: degree
+      timezone: Asia/Shanghai
+      aggregation: mean
+      semantics: circular_degrees
+      minimum: 0
+      maximum: 360
+scenarios:
+- case_id: campbell_b001_rainfall
+  version: campbell-live-1
+  area: ST001-CAMPBELL-B001台站（位置待确认）
+  hazard_type: rainfall
+  aliases: [ST001-CAMPBELL-B001, CAMPBELL-B001, Campbell台站]
+  hazard_aliases: [降雨, 降水, 雨量, 降雨量]
+  mode: current
+  frequency_minutes: 30
+  context_steps: 336
+  horizons_hours: [24, 48, 72]
+  # 预测跨度不足24小时：允许前6小时；24小时及以上：允许前48小时。
+  # max_data_age_minutes 非空时作为固定上限，优先于以下两项。
+  max_data_age_minutes: null
+  hourly_max_data_age_minutes: 360
+  daily_max_data_age_minutes: 2880
+  # 单位和累计口径未获数据方确认前，不自动套用毫米降雨风险阈值。
+  # 确认 target 的单位/时间戳口径后可设为 true，复用 SRA-1.0。
+  use_standard: false
+- case_id: jjg2025_observation
+  default_replay_origin: '2025-07-17T16:00:00+00:00'
+  version: v1
+  area: 蒋家沟 · 观测站
+  hazard_type: debris_flow
+  aliases:
+  - 观测站
+  hazard_aliases:
+  - 泥石流
+  mode: historical_replay
+  frequency_minutes: 60
+  context_steps: 168
+  horizons_hours:
+  - 24
+  - 48
+  - 72
+  rules: []
+- case_id: jjg2025_xiaxincun
+  default_replay_origin: '2025-07-17T16:00:00+00:00'
+  version: v1
+  area: 蒋家沟 · 下新村
+  hazard_type: debris_flow
+  aliases:
+  - 下新村
+  hazard_aliases:
+  - 泥石流
+  mode: historical_replay
+  frequency_minutes: 60
+  context_steps: 168
+  horizons_hours:
+  - 24
+  - 48
+  - 72
+  rules: []
+- case_id: jjg2025_mayiping
+  default_replay_origin: '2025-06-15T19:00:00+00:00'
+  version: v1
+  area: 蒋家沟 · 蚂蚁坪
+  hazard_type: debris_flow
+  aliases:
+  - 蚂蚁坪
+  hazard_aliases:
+  - 泥石流
+  mode: historical_replay
+  frequency_minutes: 60
+  context_steps: 168
+  horizons_hours:
+  - 24
+  - 48
+  - 72
+  rules: []
+- case_id: jjg2025_wangjiayakou
+  default_replay_origin: '2025-07-17T16:00:00+00:00'
+  version: v1
+  area: 蒋家沟 · 王家垭口
+  hazard_type: debris_flow
+  aliases:
+  - 王家垭口
+  hazard_aliases:
+  - 泥石流
+  mode: historical_replay
+  frequency_minutes: 60
+  context_steps: 168
+  horizons_hours:
+  - 24
+  - 48
+  - 72
+  rules: []
+- case_id: jjg2025_xiaojianfeng
+  default_replay_origin: '2025-07-17T16:00:00+00:00'
+  version: v1
+  area: 蒋家沟 · 小尖风
+  hazard_type: debris_flow
+  aliases:
+  - 小尖风
+  hazard_aliases:
+  - 泥石流
+  mode: historical_replay
+  frequency_minutes: 60
+  context_steps: 168
+  horizons_hours:
+  - 24
+  - 48
+  - 72
+  rules: []
+- case_id: jjg2025_lijiayakou
+  default_replay_origin: '2025-07-17T16:00:00+00:00'
+  version: v1
+  area: 蒋家沟 · 李家垭口
+  hazard_type: debris_flow
+  aliases:
+  - 李家垭口
+  hazard_aliases:
+  - 泥石流
+  mode: historical_replay
+  frequency_minutes: 60
+  context_steps: 168
+  horizons_hours:
+  - 24
+  - 48
+  - 72
+  rules: []
+- case_id: jjg2025_huikou
+  default_replay_origin: '2025-07-17T16:00:00+00:00'
+  version: v1
+  area: 蒋家沟 · 蒋家沟汇口
+  hazard_type: debris_flow
+  aliases:
+  - 蒋家沟汇口
+  hazard_aliases:
+  - 泥石流
+  mode: historical_replay
+  frequency_minutes: 60
+  context_steps: 168
+  horizons_hours:
+  - 24
+  - 48
+  - 72
+  rules: []
+- case_id: jjg2025_yiziwa
+  default_replay_origin: '2025-07-17T16:00:00+00:00'
+  version: v1
+  area: 蒋家沟 · 椅子凹
+  hazard_type: debris_flow
+  aliases:
+  - 椅子凹
+  hazard_aliases:
+  - 泥石流
+  mode: historical_replay
+  frequency_minutes: 60
+  context_steps: 168
+  horizons_hours:
+  - 24
+  - 48
+  - 72
+  rules: []
+- case_id: jjg2025_wanfangzi
+  default_replay_origin: '2025-07-17T16:00:00+00:00'
+  version: v1
+  area: 蒋家沟 · 弯房子
+  hazard_type: debris_flow
+  aliases:
+  - 弯房子
+  hazard_aliases:
+  - 泥石流
+  mode: historical_replay
+  frequency_minutes: 60
+  context_steps: 168
+  horizons_hours:
+  - 24
+  - 48
+  - 72
+  rules: []
+- case_id: jjg2025_songlingan
+  default_replay_origin: '2025-07-17T16:00:00+00:00'
+  version: v1
+  area: 蒋家沟 · 松林干
+  hazard_type: debris_flow
+  aliases:
+  - 松林干
+  hazard_aliases:
+  - 泥石流
+  mode: historical_replay
+  frequency_minutes: 60
+  context_steps: 168
+  horizons_hours:
+  - 24
+  - 48
+  - 72
+  rules: []
+- case_id: jjg2025_xiaojianghuikou
+  default_replay_origin: '2025-07-17T16:00:00+00:00'
+  version: v1
+  area: 小江流域 · 小江汇口
+  hazard_type: debris_flow
+  aliases:
+  - 小江汇口
+  hazard_aliases:
+  - 泥石流
+  mode: historical_replay
+  frequency_minutes: 60
+  context_steps: 168
+  horizons_hours:
+  - 24
+  - 48
+  - 72
+  rules: []
+- case_id: jjg2025_dongchuangang
+  default_replay_origin: '2025-07-17T16:00:00+00:00'
+  version: v1
+  area: 小江流域 · 东川港
+  hazard_type: debris_flow
+  aliases:
+  - 东川港
+  hazard_aliases:
+  - 泥石流
+  mode: historical_replay
+  frequency_minutes: 60
+  context_steps: 168
+  horizons_hours:
+  - 24
+  - 48
+  - 72
+  rules: []
+- case_id: jjg2025_danaobao
+  default_replay_origin: '2025-09-07T16:00:00+00:00'
+  version: v1
+  area: 小江流域 · 大脑包
+  hazard_type: debris_flow
+  aliases:
+  - 大脑包
+  hazard_aliases:
+  - 泥石流
+  mode: historical_replay
+  frequency_minutes: 60
+  context_steps: 168
+  horizons_hours:
+  - 24
+  - 48
+  - 72
+  rules: []
+- case_id: jjg2025_jilongwa
+  default_replay_origin: '2025-07-17T16:00:00+00:00'
+  version: v1
+  area: 小江流域 · 祭龙凹
+  hazard_type: debris_flow
+  aliases:
+  - 祭龙凹
+  hazard_aliases:
+  - 泥石流
+  mode: historical_replay
+  frequency_minutes: 60
+  context_steps: 168
+  horizons_hours:
+  - 24
+  - 48
+  - 72
+  rules: []
+- case_id: jjg2025_dashan
+  default_replay_origin: '2025-07-17T16:00:00+00:00'
+  version: v1
+  area: 小江流域 · 大山
+  hazard_type: debris_flow
+  aliases:
+  - 大山
+  hazard_aliases:
+  - 泥石流
+  mode: historical_replay
+  frequency_minutes: 60
+  context_steps: 168
+  horizons_hours:
+  - 24
+  - 48
+  - 72
+  rules: []
+- case_id: jjg2025_sanjiacun
+  default_replay_origin: '2025-07-17T16:00:00+00:00'
+  version: v1
+  area: 小江流域 · 三家村
+  hazard_type: debris_flow
+  aliases:
+  - 三家村
+  hazard_aliases:
+  - 泥石流
+  mode: historical_replay
+  frequency_minutes: 60
+  context_steps: 168
+  horizons_hours:
+  - 24
+  - 48
+  - 72
+  rules: []
+- case_id: jjg2025_shangpingzi
+  default_replay_origin: '2025-04-02T06:00:00+00:00'
+  version: v1
+  area: 小江流域 · 上坪子村
+  hazard_type: debris_flow
+  aliases:
+  - 上坪子村
+  hazard_aliases:
+  - 泥石流
+  mode: historical_replay
+  frequency_minutes: 60
+  context_steps: 168
+  horizons_hours:
+  - 24
+  - 48
+  - 72
+  rules: []
+- case_id: jjg2025_zhongliangzi
+  default_replay_origin: '2025-07-17T16:00:00+00:00'
+  version: v1
+  area: 蒋家沟 · 中梁子
+  hazard_type: debris_flow
+  aliases:
+  - 中梁子
+  hazard_aliases:
+  - 泥石流
+  mode: historical_replay
+  frequency_minutes: 60
+  context_steps: 168
+  horizons_hours:
+  - 24
+  - 48
+  - 72
+  rules: []
+- case_id: jjg2025_d3_p1_10cm
+  default_replay_origin: '2025-06-12T14:00:00+00:00'
+  version: v1
+  area: 蒋家沟 · D3断面 d3_p1_10cm
+  hazard_type: debris_flow
+  aliases:
+  - D3断面 d3_p1_10cm
+  hazard_aliases:
+  - 泥石流
+  mode: historical_replay
+  frequency_minutes: 60
+  context_steps: 168
+  horizons_hours:
+  - 24
+  - 48
+  - 72
+  rules: []
+- case_id: jjg2025_d3_p1_20cm
+  default_replay_origin: '2025-06-12T14:00:00+00:00'
+  version: v1
+  area: 蒋家沟 · D3断面 d3_p1_20cm
+  hazard_type: debris_flow
+  aliases:
+  - D3断面 d3_p1_20cm
+  hazard_aliases:
+  - 泥石流
+  mode: historical_replay
+  frequency_minutes: 60
+  context_steps: 168
+  horizons_hours:
+  - 24
+  - 48
+  - 72
+  rules: []
+- case_id: jjg2025_d3_p1_30cm
+  default_replay_origin: '2025-06-12T14:00:00+00:00'
+  version: v1
+  area: 蒋家沟 · D3断面 d3_p1_30cm
+  hazard_type: debris_flow
+  aliases:
+  - D3断面 d3_p1_30cm
+  hazard_aliases:
+  - 泥石流
+  mode: historical_replay
+  frequency_minutes: 60
+  context_steps: 168
+  horizons_hours:
+  - 24
+  - 48
+  - 72
+  rules: []
+- case_id: jjg2025_d3_p2_10cm
+  default_replay_origin: '2025-06-12T14:00:00+00:00'
+  version: v1
+  area: 蒋家沟 · D3断面 d3_p2_10cm
+  hazard_type: debris_flow
+  aliases:
+  - D3断面 d3_p2_10cm
+  hazard_aliases:
+  - 泥石流
+  mode: historical_replay
+  frequency_minutes: 60
+  context_steps: 168
+  horizons_hours:
+  - 24
+  - 48
+  - 72
+  rules: []
+- case_id: jjg2025_d3_p2_20cm
+  default_replay_origin: '2025-06-12T14:00:00+00:00'
+  version: v1
+  area: 蒋家沟 · D3断面 d3_p2_20cm
+  hazard_type: debris_flow
+  aliases:
+  - D3断面 d3_p2_20cm
+  hazard_aliases:
+  - 泥石流
+  mode: historical_replay
+  frequency_minutes: 60
+  context_steps: 168
+  horizons_hours:
+  - 24
+  - 48
+  - 72
+  rules: []
+- case_id: jjg2025_d3_p2_30cm
+  default_replay_origin: '2025-06-12T14:00:00+00:00'
+  version: v1
+  area: 蒋家沟 · D3断面 d3_p2_30cm
+  hazard_type: debris_flow
+  aliases:
+  - D3断面 d3_p2_30cm
+  hazard_aliases:
+  - 泥石流
+  mode: historical_replay
+  frequency_minutes: 60
+  context_steps: 168
+  horizons_hours:
+  - 24
+  - 48
+  - 72
+  rules: []
+- case_id: jjg2025_d3_p3_10cm
+  default_replay_origin: '2025-06-04T10:00:00+00:00'
+  version: v1
+  area: 蒋家沟 · D3断面 d3_p3_10cm
+  hazard_type: debris_flow
+  aliases:
+  - D3断面 d3_p3_10cm
+  hazard_aliases:
+  - 泥石流
+  mode: historical_replay
+  frequency_minutes: 60
+  context_steps: 168
+  horizons_hours:
+  - 24
+  - 48
+  - 72
+  rules: []
+- case_id: jjg2025_d3_p3_20cm
+  default_replay_origin: '2025-05-19T14:00:00+00:00'
+  version: v1
+  area: 蒋家沟 · D3断面 d3_p3_20cm
+  hazard_type: debris_flow
+  aliases:
+  - D3断面 d3_p3_20cm
+  hazard_aliases:
+  - 泥石流
+  mode: historical_replay
+  frequency_minutes: 60
+  context_steps: 168
+  horizons_hours:
+  - 24
+  - 48
+  - 72
+  rules: []
+- case_id: jjg2025_d3_p3_30cm
+  default_replay_origin: '2025-05-19T13:00:00+00:00'
+  version: v1
+  area: 蒋家沟 · D3断面 d3_p3_30cm
+  hazard_type: debris_flow
+  aliases:
+  - D3断面 d3_p3_30cm
+  hazard_aliases:
+  - 泥石流
+  mode: historical_replay
+  frequency_minutes: 60
+  context_steps: 168
+  horizons_hours:
+  - 24
+  - 48
+  - 72
+  rules: []
