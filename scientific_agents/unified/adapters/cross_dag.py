@@ -37,8 +37,9 @@ class CrossDagAdapter:
 
     async def list_sessions(self, page, size):
         data = await self.call("GET", "/sessions", query={"pageNum": page, "pageSize": size})
+        pagination = data["pagination"]
         return {"items": [session_view(s, self.agent_id) for s in data["items"]],
-                "total": data["total"], "pageNum": page, "pageSize": size}
+                "total": pagination["total"], "pageNum": pagination["pageNum"], "pageSize": pagination["pageSize"]}
 
     def task(self, data):
         actions = [available("execute", "确认执行")] if data.get("status") == "PLANNED" else []
