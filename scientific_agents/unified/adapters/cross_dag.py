@@ -39,6 +39,7 @@ class CrossDagAdapter:
         data = await self.call("GET", "/sessions", query={"pageNum": page, "pageSize": size})
         pagination = data["pagination"]
         return {"items": [session_view(s, self.agent_id) for s in data["items"]],
+                "pagination": dict(pagination),
                 "total": pagination["total"], "pageNum": pagination["pageNum"], "pageSize": pagination["pageSize"]}
 
     def task(self, data):
@@ -128,12 +129,15 @@ class CrossDagAdapter:
         if not isinstance(value, dict):
             return value
         result = {k: self.links(v) for k, v in value.items()}
-        for key in ("status_url", "process_status_url", "download_url"):
-            if isinstance(result.get(key), str):
-                url = urlsplit(result[key])
+        targets = [(result, key) for key in ("status_url", "process_status_url", "download_url")]
+        if isinstance(result.get("next_action"), dict):
+            targets.append((result["next_action"], "url"))
+        for target, key in targets:
+            if isinstance(target.get(key), str):
+                url = urlsplit(target[key])
                 if url.path.startswith(BASE + "/"):
                     path = PREFIX + url.path[len(BASE):]
-                    result[key] = str(self.n.request.base_url).rstrip("/") + urlunsplit(("", "", path, url.query, url.fragment))
+                    target[key] = str(self.n.request.base_url).rstrip("/") + urlunsplit(("", "", path, url.query, url.fragment))
         return result
 
     async def convert(self, source):

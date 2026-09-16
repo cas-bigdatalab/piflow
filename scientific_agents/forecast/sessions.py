@@ -200,14 +200,17 @@ class HostSessions:
     def history(self, user, thread, after=0, limit=100):
         session = session_key(user, thread)
         self.sync(session)
+        created_at = ("m.created_at AT TIME ZONE current_setting('TimeZone')"
+                      if self.store.engine.dialect.name == "postgresql" else "m.created_at")
         with self.store.engine.connect() as conn:
-            rows = conn.execute(text("SELECT m.id, m.role, m.content, d.key AS delivery_key FROM messages m "
+            rows = conn.execute(text(f"SELECT m.id, m.role, m.content, {created_at} AS created_at, d.key AS delivery_key FROM messages m "
                 "JOIN forecast_message_deliveries d ON d.message_id=m.id "
                 "WHERE d.session=:session AND m.id>:after ORDER BY m.id LIMIT :limit"),
                 dict(session=session, after=after, limit=limit)).mappings().all()
         messages = []
         for row in rows:
-            message = dict(row)
+            message = session_times(row)
+            message["create_time"] = message.pop("created_at")
             key, kind = message.pop("delivery_key").rsplit(":", 1)
             message["reply_id"] = ("reply-" if kind == "assistant" else "result-" if kind == "result" else "user-") + key
             if kind == "result":
