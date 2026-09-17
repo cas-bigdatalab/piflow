@@ -195,10 +195,21 @@ def list_dataset_details(
     if page_size <= 0:
         raise ValueError("page_size must be positive")
 
+    # A dataset-list request must see one consistent, freshly loaded connector
+    # view.  The same snapshot is also used below when enriching datasets, so a
+    # request never scans connector pages twice.
+    connector_snapshot = _fetch_all_connector_details()
+    effective_filters = _apply_enabled_connector_sources(
+        filters,
+        connector_snapshot=connector_snapshot,
+    )
+    if effective_filters is None:
+        return _empty_dataset_page(page_num=page_num, page_size=page_size)
+
     payload = _fetch_dataset_page(
         page_num=page_num,
         page_size=page_size,
-        filters=filters,
+        filters=effective_filters,
     )
     dataset_items = _extract_page_items(payload, entity_name="dataset")
     connector_names = {
@@ -208,10 +219,9 @@ def list_dataset_details(
         for connector_name in _extract_dataset_connector_names(item)
         if connector_name
     }
-    connector_lookup = (
-        _fetch_connector_details_with_resources_by_name(connector_names)
-        if connector_names
-        else {}
+    connector_lookup = _add_connector_resources_by_name(
+        connector_snapshot,
+        connector_names=connector_names,
     )
 
     grouped_dataset_details: dict[str, dict[str, Any]] = {}
@@ -1432,6 +1442,102 @@ def _fetch_connector_details_by_connector_id(connector_ids: set[str]) -> dict[st
         page_num += 1
 
     return lookup
+
+
+def _fetch_all_connector_details() -> dict[str, dict[str, Any]]:
+    """Refresh and return the complete connector snapshot, indexed by name."""
+    lookup: dict[str, dict[str, Any]] = {}
+    page_num = 1
+    page_size = 100
+
+    while True:
+        payload = _fetch_connector_page(page_num=page_num, page_size=page_size)
+        items = _extract_connector_page_items(payload)
+        for item in items:
+            connector = _normalize_connector_detail(item)
+            connector_name_key = _normalize_lookup_key(connector.get("name"))
+            if connector_name_key:
+                lookup[connector_name_key] = connector
+
+        if len(items) < page_size:
+            break
+        page_num += 1
+
+    return lookup
+
+
+def _apply_enabled_connector_sources(
+    filters: dict[str, Any] | None,
+    *,
+    connector_snapshot: dict[str, dict[str, Any]],
+) -> dict[str, Any] | None:
+    """Restrict sources only when the refreshed snapshot has disabled nodes.
+
+    ``None`` signals a known-empty result, avoiding a dataset-page request whose
+    empty ``sources`` value might otherwise be interpreted as no filter.
+    """
+    normalized_filters = dict(filters or {})
+    if all(_is_connector_enabled(connector) for connector in connector_snapshot.values()):
+        return normalized_filters
+
+    enabled_names = {
+        str(connector.get("name", "") or "").strip()
+        for connector in connector_snapshot.values()
+        if _is_connector_enabled(connector) and str(connector.get("name", "") or "").strip()
+    }
+    requested_sources = normalized_filters.get("sources")
+    if requested_sources is None:
+        selected_sources = enabled_names
+    elif isinstance(requested_sources, (list, tuple, set)):
+        selected_sources = {
+            str(source).strip()
+            for source in requested_sources
+            if str(source).strip() in enabled_names
+        }
+    else:
+        selected_sources = {
+            str(requested_sources).strip()
+        } & enabled_names
+
+    if not selected_sources:
+        return None
+    normalized_filters["sources"] = sorted(selected_sources)
+    return normalized_filters
+
+
+def _add_connector_resources_by_name(
+    connector_snapshot: dict[str, dict[str, Any]],
+    *,
+    connector_names: set[str],
+) -> dict[str, dict[str, Any]]:
+    """Enrich referenced snapshot entries without another connector query."""
+    lookup: dict[str, dict[str, Any]] = {}
+    for connector_name in connector_names:
+        connector_name_key = _normalize_lookup_key(connector_name)
+        connector = connector_snapshot.get(connector_name_key)
+        if connector is None:
+            continue
+        remote_grpc_target, resource = _resolve_remote_resource(
+            connector,
+            grpc_port=DEFAULT_REMOTE_GRPC_PORT,
+        )
+        lookup[connector_name_key] = {
+            **connector,
+            "remote_grpc_target": remote_grpc_target,
+            "resource": resource,
+        }
+    return lookup
+
+
+def _empty_dataset_page(*, page_num: int, page_size: int) -> dict[str, Any]:
+    return {
+        "items": [],
+        "pagination": {
+            "pageNum": page_num,
+            "pageSize": page_size,
+            "total": 0,
+        },
+    }
 
 
 def _fetch_connector_details_with_resources_by_connector_id(

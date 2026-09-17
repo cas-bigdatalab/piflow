@@ -76,6 +76,7 @@ class CorpusDatasetListRequest(CorpusPageListRequest):
     status: int | None = None
     dataSetId: str | None = None
     connectorId: str | None = None
+    sources: list[str] | None = None
     from_: str | None = Field(default=None, alias="from")
     fromName: str | None = None
 

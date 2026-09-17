@@ -3,6 +3,7 @@ from __future__ import annotations
 import io
 import tarfile
 
+from services import corpus_connector_service as corpus_connector_service
 from services.corpus_connector_service import (
     build_rustfs_mount_info,
     create_rustfs_temporary_credentials,
@@ -1223,6 +1224,97 @@ def test_list_dataset_details_forwards_filters(monkeypatch):
         "publishAt": "2026-08-20T03:29:22.345000",
         "from": "connector-1",
     }
+
+
+def test_list_dataset_details_limits_sources_to_enabled_connectors_once(monkeypatch):
+    seen = {"snapshot_calls": 0, "dataset_calls": 0}
+
+    def fake_snapshot():
+        seen["snapshot_calls"] += 1
+        return {
+            "node-a": {"name": "node-a", "enabled": True, "status": None},
+            "node-b": {"name": "node-b", "enabled": False, "status": None},
+        }
+
+    def fake_fetch_dataset_page(*, page_num, page_size, filters):
+        seen["dataset_calls"] += 1
+        seen["filters"] = filters
+        return {"code": 200, "data": {"content": [], "total": 0}}
+
+    monkeypatch.setattr(corpus_connector_service, "_fetch_all_connector_details", fake_snapshot)
+    monkeypatch.setattr(corpus_connector_service, "_fetch_dataset_page", fake_fetch_dataset_page)
+
+    result = list_dataset_details(page_num=1, page_size=10, filters={"title": "dataset"})
+
+    assert result == {"items": [], "pagination": {"pageNum": 1, "pageSize": 10, "total": 0}}
+    assert seen == {
+        "snapshot_calls": 1,
+        "dataset_calls": 1,
+        "filters": {"title": "dataset", "sources": ["node-a"]},
+    }
+
+
+def test_list_dataset_details_intersects_requested_sources_with_enabled_connectors(monkeypatch):
+    seen = {}
+    monkeypatch.setattr(
+        corpus_connector_service,
+        "_fetch_all_connector_details",
+        lambda: {
+            "node-a": {"name": "node-a", "enabled": True, "status": None},
+            "node-b": {"name": "node-b", "enabled": False, "status": None},
+            "node-c": {"name": "node-c", "enabled": True, "status": None},
+        },
+    )
+
+    def fake_fetch_dataset_page(*, page_num, page_size, filters):
+        seen["filters"] = filters
+        return {"code": 200, "data": {"content": [], "total": 0}}
+
+    monkeypatch.setattr(corpus_connector_service, "_fetch_dataset_page", fake_fetch_dataset_page)
+
+    list_dataset_details(
+        page_num=1,
+        page_size=10,
+        filters={"sources": ["node-b", "node-c", "unknown"]},
+    )
+
+    assert seen["filters"] == {"sources": ["node-c"]}
+
+
+def test_list_dataset_details_returns_empty_without_upstream_request_for_empty_sources_intersection(monkeypatch):
+    monkeypatch.setattr(
+        corpus_connector_service,
+        "_fetch_all_connector_details",
+        lambda: {"node-a": {"name": "node-a", "enabled": False, "status": None}},
+    )
+    monkeypatch.setattr(
+        corpus_connector_service,
+        "_fetch_dataset_page",
+        lambda **kwargs: (_ for _ in ()).throw(AssertionError("dataset page must not be requested")),
+    )
+
+    result = list_dataset_details(page_num=2, page_size=20, filters={"sources": ["node-a"]})
+
+    assert result == {"items": [], "pagination": {"pageNum": 2, "pageSize": 20, "total": 0}}
+
+
+def test_list_dataset_details_keeps_sources_unchanged_when_all_connectors_enabled(monkeypatch):
+    seen = {}
+    monkeypatch.setattr(
+        corpus_connector_service,
+        "_fetch_all_connector_details",
+        lambda: {"node-a": {"name": "node-a", "enabled": True, "status": None}},
+    )
+
+    def fake_fetch_dataset_page(*, page_num, page_size, filters):
+        seen["filters"] = filters
+        return {"code": 200, "data": {"content": [], "total": 0}}
+
+    monkeypatch.setattr(corpus_connector_service, "_fetch_dataset_page", fake_fetch_dataset_page)
+
+    list_dataset_details(page_num=1, page_size=10, filters={"sources": ["node-b"]})
+
+    assert seen["filters"] == {"sources": ["node-b"]}
 
 
 def test_list_dataset_details_v2_proxies_dataset_page_and_adds_replica_count(monkeypatch):
