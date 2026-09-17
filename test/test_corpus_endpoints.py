@@ -42,8 +42,19 @@ def test_list_corpus_datasets_endpoint(monkeypatch):
                     "title": "dataset title",
                     "connectorId": "DS-NODE-1",
                     "fromName": "连接器节点1",
-                    "connectors": [],
+                    "connectors": [
+                        {
+                            "connectorId": "DS-NODE-1",
+                            "fromName": "连接器节点1",
+                            "connectorOrganization": "中国地震台网中心",
+                            "name": "中国地震台网中心",
+                            "status": "可用",
+                            "sync": "2026-08-07 11:52",
+                            "recommended": True,
+                        }
+                    ],
                     "replicaCount": 1,
+                    "name": "中国地震台网中心",
                 }
             ],
             "pagination": {"pageNum": page_num, "pageSize": page_size, "total": 1},
@@ -59,7 +70,7 @@ def test_list_corpus_datasets_endpoint(monkeypatch):
     assert response.status_code == 200
     assert response.json()["code"] == 200
     assert response.json()["result"]["items"][0]["id"] == "dataset-1"
-    assert response.json()["result"]["items"][0]["connectors"] == []
+    assert response.json()["result"]["items"][0]["connectors"][0]["connectorId"] == "DS-NODE-1"
     assert response.json()["result"]["items"][0]["replicaCount"] == 1
 
 
@@ -111,6 +122,38 @@ def test_list_corpus_datasets_endpoint_passes_filters(monkeypatch):
         )
 
     assert response.status_code == 200
+    assert seen["page_num"] == 2
+    assert seen["page_size"] == 20
+    assert seen["filters"]["id"] == "dataset-1"
+    assert seen["filters"]["title"] == "地震"
+    assert seen["filters"]["from"] == "connector-1"
+
+
+def test_list_corpus_datasets_v2_endpoint_passes_filters(monkeypatch):
+    seen = {}
+
+    def fake_list_dataset_details_v2(page_num, page_size, filters=None):
+        seen["page_num"] = page_num
+        seen["page_size"] = page_size
+        seen["filters"] = filters
+        return {"items": [{"id": "dataset-1", "replicaCount": 1}], "pagination": {"pageNum": page_num, "pageSize": page_size, "total": 1}}
+
+    monkeypatch.setattr("routers.corpus_router.list_dataset_details_v2", fake_list_dataset_details_v2)
+
+    with _build_client() as client:
+        response = client.post(
+            "/corpus/dataset/list/v2",
+            json={
+                "pageNum": 2,
+                "pageSize": 20,
+                "id": "dataset-1",
+                "title": "地震",
+                "from": "connector-1",
+            },
+        )
+
+    assert response.status_code == 200
+    assert response.json()["result"]["items"][0]["replicaCount"] == 1
     assert seen["page_num"] == 2
     assert seen["page_size"] == 20
     assert seen["filters"]["id"] == "dataset-1"

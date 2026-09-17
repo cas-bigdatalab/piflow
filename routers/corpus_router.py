@@ -20,6 +20,7 @@ from services.corpus_connector_service import (
     update_corpus_connector,
     list_connector_details,
     list_dataset_details,
+    list_dataset_details_v2,
 )
 
 log = logging.getLogger("flow.api")
@@ -139,6 +140,30 @@ async def list_corpus_datasets_api(req: CorpusDatasetListRequest):
             req.pageSize,
         )
         raise HTTPException(status_code=500, detail="failed to list corpus datasets")
+
+    return {
+        "code": 200,
+        "result": result,
+    }
+
+
+@router.post("/corpus/dataset/list/v2")
+async def list_corpus_datasets_v2_api(req: CorpusDatasetListRequest):
+    try:
+        result = list_dataset_details_v2(
+            page_num=req.pageNum,
+            page_size=req.pageSize,
+            filters=req.to_query_payload(),
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception:
+        log.exception(
+            "failed to list corpus datasets v2 pageNum=%s pageSize=%s",
+            req.pageNum,
+            req.pageSize,
+        )
+        raise HTTPException(status_code=500, detail="failed to list corpus datasets v2")
 
     return {
         "code": 200,
