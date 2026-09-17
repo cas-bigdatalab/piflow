@@ -61,8 +61,13 @@ def render_location(raw, path: Path):
     from matplotlib.figure import Figure
     from matplotlib.patches import Polygon
     from matplotlib import font_manager
+    # Debian/Ubuntu 的 fonts-noto-cjk 默认安装位置；显式加载以兼容旧字体缓存。
+    noto_file = Path("/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc")
+    if noto_file.is_file() and not any(Path(f.fname) == noto_file for f in font_manager.fontManager.ttflist):
+        font_manager.fontManager.addfont(str(noto_file))
     fonts = {font.name for font in font_manager.fontManager.ttflist}
-    font = next((name for name in ["Microsoft YaHei", "Noto Sans CJK SC", "Noto Sans CJK JP", "Source Han Sans SC", "SimHei", "SimSun",
+    font = next((name for name in ["Noto Sans CJK SC", "Noto Sans SC", "Noto Sans CJK TC", "Noto Sans CJK JP", "Noto Sans CJK HK", "Noto Sans CJK KR",
+                                 "Microsoft YaHei", "Source Han Sans SC", "SimHei", "SimSun",
                                  "WenQuanYi Micro Hei", "WenQuanYi Zen Hei", "Droid Sans Fallback"] if name in fonts), "DejaVu Sans")
     chinese = font != "DejaVu Sans"
     figure = Figure(figsize=(7, 4.4), facecolor="#f6f9fc")
