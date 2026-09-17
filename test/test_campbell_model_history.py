@@ -170,6 +170,14 @@ def test_display_history_is_continuous_but_evaluation_keeps_real_observations(st
     history_line = next((args, opts) for args, opts in plots if opts.get("color") == "#64748b")
     assert np.isfinite(np.asarray(history_line[0][1], dtype=float)).all()
     assert history_line[1]["label"] in {"近期历史", "Recent history"}
+    forecast_line = next((args, opts) for args, opts in plots if opts.get("color") == "#087e91")
+    assert pd.Timestamp(forecast_line[0][0][0]) == pd.Timestamp(output.history[-1]["timestamp"])
+    assert forecast_line[0][1][0] == output.history[-1]["value"]
+    assert len(forecast_line[0][1]) == len(output.predictions) + 1
+    np.testing.assert_allclose(forecast_line[0][1][1:], [p.prediction for p in output.predictions])
+    csv = pd.read_csv(station.settings.root / "runs" / "test-campbell-input" / "predictions.csv")
+    assert len(csv) == len(output.predictions)
+    assert pd.to_datetime(csv.timestamp, utc=True).tolist() == [pd.Timestamp(p.timestamp) for p in output.predictions]
     assert (tmp_path / images[0][0]).stat().st_size > 0
 
 
@@ -194,6 +202,8 @@ def test_history_policy_follows_auxiliary_source_ownership(station):
     completed, _ = registry.prepare_history("other", variable, history, grid)
     assert completed.notna().all()
     assert registry.prepare_history(station.case.id, variable.model_copy(update={"future_known": True}), history, grid) is None
+    registry.cases[station.case.id].covariates = [variable]
+    assert registry.model_history_end(station.case.id, grid[-1], grid[0]) == grid[0]
 
 
 def test_current_freshness_is_not_hidden_by_input_completion(station):
@@ -204,14 +214,17 @@ def test_current_freshness_is_not_hidden_by_input_completion(station):
         workflow.prepare(params)
 
 
-def test_current_prediction_keeps_real_history_end_and_forecasts_across_delay(station):
+@pytest.mark.parametrize("delay_hours", [4, 26.5])
+@pytest.mark.parametrize("complete_to_origin", [True, False])
+def test_current_prediction_aligns_input_end_without_moving_forecast_timestamps(station, delay_hours, complete_to_origin):
     origin = pd.Timestamp.now(tz="UTC").floor("30min")
-    last_observed = origin - pd.Timedelta(hours=4)
+    last_observed = origin - pd.Timedelta(hours=delay_hours)
     original = station.registry.read(station.case.id, station.case.target).values
     shifted = original.copy()
     shifted.index = shifted.index + (last_observed - shifted.index.max())
 
     class MemoryStation:
+        complete_history_to_origin = complete_to_origin
         options = SimpleNamespace(bridge_delayed_observations=True)
         prepare_history = staticmethod(CampbellProvider.prepare_history)
         history_end = CampbellProvider.history_end
@@ -225,13 +238,21 @@ def test_current_prediction_keeps_real_history_end_and_forecasts_across_delay(st
     params = station.params.model_copy(update={"origin": origin.to_pydatetime()})
     prepared = workflow.prepare(params)
     item = prepared[0]
-    assert pd.Timestamp(item["timestamps"][-1]) == last_observed
+    assert pd.Timestamp(item["timestamps"][-1]) == (origin if complete_to_origin else last_observed)
     assert pd.Timestamp(item["future"][0]) == origin + pd.Timedelta(minutes=30)
-    assert item["gap_steps"] == 8
-    assert item["metadata"]["data_alignment"]["synthetic_observations"] is False
+    assert pd.Timestamp(item["future"][-1]) == origin + pd.Timedelta(hours=24)
+    assert pd.Timestamp(item["quality"][station.case.target.name]["latest_observation"]) == last_observed
+    if complete_to_origin:
+        assert item.get("gap_steps", 0) == 0
+        assert item["target"][-1] is None
+        assert np.isfinite(item["model_input"]["target"][-1])
+        assert "data_alignment" not in item["metadata"]
+    else:
+        assert item["gap_steps"] == int(delay_hours * 2)
+        assert item["metadata"]["data_alignment"]["synthetic_observations"] is False
     assert item["observations"] == [None] * 48
     assert len(workflow.predict_prepared(prepared)[0]) == 48
-    assert station.model.steps == 56
+    assert station.model.steps == 48 + (0 if complete_to_origin else int(delay_hours * 2))
 
 
 def test_legacy_model_inputs_remain_compatible(station):
@@ -241,3 +262,150 @@ def test_legacy_model_inputs_remain_compatible(station):
     assert len(result[0]) == 2
     np.testing.assert_array_equal(station.model.inputs[0]["target"], legacy["target"])
     np.testing.assert_array_equal(station.model.inputs[0]["past_covariates"]["humidity"], legacy["past_covariates"]["humidity"])
+
+
+@pytest.mark.parametrize("now, expected_day", [
+    ("2026-09-16T09:47:00Z", "2026-09-17"),
+    ("2026-09-16T16:17:00Z", "2026-09-18"),
+    ("2026-12-31T15:59:00Z", "2027-01-01"),
+])
+def test_tomorrow_uses_beijing_calendar_and_only_completed_sampling_points(station, monkeypatch, now, expected_day):
+    from scientific_agents.forecast import planning
+    from scientific_agents.forecast.dialogue import ExplicitInterpreter
+
+    clock = pd.Timestamp(now)
+    monkeypatch.setattr(planning, "pd", SimpleNamespace(
+        Timestamp=SimpleNamespace(now=lambda **_: clock), Timedelta=pd.Timedelta))
+    station.settings.warning_scenarios[0].mode = "current"
+    registry = Registry(station.settings)
+    intent = ExplicitInterpreter().parse("预测明天气温", {}, [])
+    assert intent.origin_mode == "tomorrow" and intent.horizon_hours == 24
+    params = planning.resolve_origin({"case_ids": [station.case.id], **intent.model_dump(
+        include={"origin_mode", "horizon_hours"})}, registry)
+    assert pd.Timestamp(params["origin"]) == pd.Timestamp(expected_day, tz="Asia/Shanghai")
+    assert pd.Timestamp(params["history_cutoff"]) == clock
+    daily = ExplicitInterpreter().parse("预测未来三天气温", {}, [])
+    assert daily.origin_mode == "tomorrow" and daily.horizon_hours == 72
+    params = planning.resolve_origin({"case_ids": [station.case.id], **daily.model_dump(
+        include={"origin_mode", "horizon_hours"})}, registry)
+    assert pd.Timestamp(params["origin"]) == pd.Timestamp(expected_day, tz="Asia/Shanghai")
+    assert params["horizon_hours"] == 72
+    rolling = ExplicitInterpreter().parse("预测未来24小时气温", {}, [])
+    assert rolling.origin_mode == "now" and rolling.horizon_hours == 24
+    params = planning.resolve_origin({**params, "origin_mode": "now"}, registry)
+    assert pd.Timestamp(params["origin"]) == clock
+    assert "history_cutoff" not in params
+
+
+@pytest.mark.parametrize("message, mode, hours", [
+    ("预测未来一天", "tomorrow", 24),
+    ("预测未来三天", "tomorrow", 72),
+    ("预测从现在起三天", "now", 72),
+    ("预测未来72小时", "now", 72),
+    ("历史回放未来三天", "replay", 72),
+    ("参考过去三天预测未来24小时", "now", 24),
+    ("forecast next 3 days", "tomorrow", 72),
+])
+def test_calendar_rule_depends_on_requested_period_not_source(message, mode, hours):
+    from scientific_agents.forecast.dialogue import ExplicitInterpreter
+
+    intent = ExplicitInterpreter().parse(message, {}, [])
+    assert (intent.origin_mode, intent.horizon_hours) == (mode, hours)
+
+
+def test_calendar_day_forecasts_bridge_without_leaking_future_observations(station, monkeypatch, tmp_path):
+    from piflow_engine.cn.piflow.core import stop_job
+    from scientific_agents.forecast.reports import _figures
+    from matplotlib.axes import Axes
+
+    monkeypatch.setattr(stop_job, "get_logger", lambda _: logging.getLogger(__name__))
+    cutoff = pd.Timestamp(station.params.origin)
+    origin = cutoff.normalize() + pd.Timedelta(days=1)
+    params = station.params.model_copy(update={"origin": origin.to_pydatetime(), "history_cutoff": cutoff.to_pydatetime()})
+    inputs = station.workflow.prepare(params)
+    item = inputs[0]
+    assert pd.Timestamp(item["timestamps"][-1]) == cutoff
+    assert item["gap_steps"] == 13
+    assert item["metadata"]["data_alignment"]["method"] == "calendar_forecast"
+    # Change actual observations after the cutoff; neither target nor auxiliary input may change.
+    cache = {}
+    for variable in [station.case.target, *station.case.covariates]:
+        raw = station.registry.read(station.case.id, variable)
+        altered = raw.values.copy()
+        altered.loc[altered.index > cutoff] = 999999
+        cache[(station.case.id, variable.name)] = RawSeries(altered, raw.provenance)
+    changed = station.workflow._prepare(params, 336, cache)[0]
+    assert changed["model_input"] == item["model_input"]
+
+    def ramp_predict(inputs, steps):
+        station.model.inputs, station.model.steps = inputs, steps
+        medians = np.arange(1, steps + 1, dtype=float)
+        return [np.column_stack([medians - 1, medians, medians + 1]) for _ in inputs]
+
+    monkeypatch.setattr(station.model, "predict", ramp_predict)
+    result = station.workflow.run("test-calendar-day", params, defer_report=True)
+    output = result.series[0]
+    assert station.model.steps == 61  # 6.5 hours to midnight, then a complete 24-hour day.
+    assert len(output.forecast_context) == 13 and len(output.predictions) == 48
+    assert pd.Timestamp(output.forecast_context[0].timestamp) == cutoff + pd.Timedelta(minutes=30)
+    assert pd.Timestamp(output.forecast_context[-1].timestamp) == origin
+    assert pd.Timestamp(output.predictions[0].timestamp) == origin + pd.Timedelta(minutes=30)
+    assert pd.Timestamp(output.predictions[-1].timestamp) == origin + pd.Timedelta(days=1)
+    assert output.predictions[0].prediction == 14
+    assert output.summary["min"] == 14  # Bridge points are excluded from requested-day statistics.
+    assert not any("最新共同观测落后" in note for note in output.assessment.limitations)
+    frame = pd.read_csv(station.settings.root / "runs" / "test-calendar-day" / "predictions.csv")
+    assert len(frame) == 48 and frame.prediction.tolist() == list(range(14, 62))
+    assert pd.to_datetime(frame.timestamp, utc=True).tolist() == [pd.Timestamp(p.timestamp) for p in output.predictions]
+    plots = []
+    original_plot = Axes.plot
+
+    def capture(ax, *args, **kwargs):
+        if kwargs.get("color") == "#087e91":
+            plots.append((args, ax))
+        return original_plot(ax, *args, **kwargs)
+
+    monkeypatch.setattr(Axes, "plot", capture)
+    _figures(result, tmp_path)
+    times = pd.DatetimeIndex(plots[0][0][0])
+    assert times[0] == cutoff and times[-1] == origin + pd.Timedelta(days=1)
+    assert len(times) == 62 and ((times[1:] - times[:-1]) == pd.Timedelta(minutes=30)).all()
+    assert pd.Timestamp(plots[1][0][0].iloc[0]) == origin
+
+
+def test_history_cutoff_does_not_need_alignment_but_cannot_follow_forecast_origin(station):
+    cutoff = pd.Timestamp(station.params.origin) + pd.Timedelta(minutes=30)
+    with pytest.raises(ForecastError, match="历史输入截止时间"):
+        station.workflow.validate(station.params.model_copy(update={"history_cutoff": cutoff.to_pydatetime()}))
+    cutoff = pd.Timestamp(station.params.origin) - pd.Timedelta(minutes=1)
+    params = station.params.model_copy(update={"history_cutoff": cutoff.to_pydatetime()})
+    item = station.workflow.prepare(params)[0]
+    assert pd.Timestamp(item["timestamps"][-1]) == cutoff.floor("30min")
+    assert item["gap_steps"] == 1
+
+
+def test_legacy_station_unit_is_normalized_through_catalog_and_result(station, monkeypatch):
+    from piflow_engine.cn.piflow.core import stop_job
+    from scientific_agents.forecast.warning.contracts import Scenario
+
+    monkeypatch.setattr(stop_job, "get_logger", lambda _: logging.getLogger(__name__))
+    source = station.settings.sources[0].model_dump(mode="json")
+    scenarios = [s.model_dump(mode="json") for s in station.settings.warning_scenarios]
+    scenarios[0]["rules"] = [{"id": "temperature-limit", "version": "1", "label": "Test limit", "source": "test",
+        "approved": True, "conditions": [{"variable": "air_temperature", "unit": "degC", "operator": "ge", "threshold": 30}]}]
+    assert source["cases"][0]["target"]["unit"] == "degC"
+    CampbellProvider.configure(source, scenarios)
+    assert source["cases"][0]["target"]["unit"] == "°C"
+    assert source["cases"][0]["covariates"][0]["unit"] == "%"
+    condition = scenarios[0]["rules"][0]["conditions"][0]
+    assert condition["unit"] == "°C" and condition["threshold"] == 30
+    station.settings.sources = [Source.model_validate(source)]
+    station.settings.warning_scenarios = [Scenario.model_validate(s) for s in scenarios]
+    registry = Registry(station.settings)
+    assert registry.list_cases()[0]["unit"] == "°C"
+    workflow = ForecastWorkflow(station.settings, registry, station.model)
+    result = workflow.run("station-unit-label", station.params, defer_report=True)
+    assert result.series[0].unit == "°C"
+    assert "degC" not in result.presentation["series"][0]["summary"]
+    assert all(metric["unit"] == "°C" for metric in result.presentation["series"][0]["metrics"])
+    assert all(point.prediction == 15 for point in result.series[0].predictions)

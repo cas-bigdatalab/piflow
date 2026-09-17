@@ -612,7 +612,7 @@ sources:
     covariates:
     - name: air_temperature
       value_column: TA_Avg
-      unit: degC
+      unit: °C
       timezone: Asia/Shanghai
       aggregation: mean
     - name: relative_humidity
@@ -636,7 +636,7 @@ sources:
       minimum: 0
     - name: wind_direction
       value_column: WD_Avg
-      unit: degree
+      unit: °
       timezone: Asia/Shanghai
       aggregation: mean
       semantics: circular_degrees

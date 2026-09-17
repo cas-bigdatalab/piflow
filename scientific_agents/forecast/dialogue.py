@@ -52,6 +52,9 @@ class LLMInterpreter:
             "用户问概率时设置wants_probability=true，能力限制由程序说明，不生成概率。"
             "追问已有任务的事件发生概率属于explain，不能重复启动预测。requested_hazard优先使用目录中的规范标识。"
             "时长中1天等于24小时，3天等于72小时。明确从现在开始时origin_mode=now，不编造当前时刻。"
+            "预测明天/明日全天时origin_mode=tomorrow、horizon_hours=24、origin留空；程序按北京时间确定明天00:00至次日00:00。"
+            "预测未来N天默认按完整自然日：origin_mode=tomorrow、horizon_hours=N*24、origin留空，从北京时间明天00:00开始。该规则对所有数据源一致。"
+            "未来N小时，或明确要求从现在起预测N天，使用origin_mode=now按当前时刻滚动预测；用户明确指定起点时保留该起点。"
             "普通预测请求无需用户提供起点，未指明时origin留空，程序自动确定；不要因为缺少起点返回clarify/help。"
             "用户选择历史回放时origin_mode=replay，不编造回放日期；默认时点由注册配置提供。"
             "严格区分未来预测长度horizon_hours与过去参考长度history_hours。参考过去两周是history_hours=336，不是预测336小时。"
@@ -64,7 +67,7 @@ class LLMInterpreter:
             "查看旧结果用explain/report，按旧任务条件重新预测用reuse；run_ids或references指定历史任务。"
             "references由程序查询完整历史，不局限于recent_run_ids。第一次用order=first,index=1；"
             "最近一次用latest,index=1；某天用created_date，任务创建日期按UTC解释。"
-            "昨天等相对日期只根据current_time_utc计算。含糊的‘之前那个’用order=match，不能擅自选最近。"
+            "查询历史任务的昨天等日期按current_time_utc计算；预测明天用origin_mode=tomorrow由程序处理。含糊的‘之前那个’用order=match，不能擅自选最近。"
             "无法确定用户要查看还是重新执行时用clarify，不触发预测。不要凭空填run_ids。"
             "用户提出时序预测需求时，即使目录没有对应数据，也返回predict并保留requested_area、requested_hazard、horizon_hours等已知条件；"
             "没有匹配案例时case_ids留空，由程序判断目录是否支持，不得因此返回help或要求用户重复已明确的条件。"
@@ -159,7 +162,10 @@ class ExplicitInterpreter:
                 count = digits[value]
             return count * (168 if unit.lower().startswith(("周", "week")) else 24 if unit.lower().startswith(("天", "day")) else 1)
         history_auto = bool(re.search(r"默认历史|自动.*历史|历史.*默认", text))
-        if (action == "predict" and not any([ids, stamp, forecast, historical, history_auto]) and
+        tomorrow = bool(re.search(r"明天|明日|\btomorrow\b", text, re.I))
+        from_now = bool(re.search(r"从现在|当前时刻|from now", text, re.I))
+        calendar_days = tomorrow or bool(forecast and forecast.group(2).lower().startswith(("天", "day")) and not from_now)
+        if (action == "predict" and not any([ids, stamp, forecast, historical, history_auto, tomorrow]) and
                 not re.search(r"开始预测|执行预测|我要预测|我想预测|概率|probability|从现在|from now|历史回放|replay", text, re.I)):
             return Intent(action="unsupported")
         references = []
@@ -173,9 +179,9 @@ class ExplicitInterpreter:
                 day = (datetime.now(timezone.utc) - timedelta(days=1)).date() if "昨天" in text else None
                 references.append(TaskReference(created_date=day))
         return Intent(action=action, case_ids=ids or None, origin=stamp.group() if stamp else None,
-                      horizon_hours=as_hours(forecast), history_hours=as_hours(historical),
+                      horizon_hours=as_hours(forecast) or (24 if tomorrow else None), history_hours=as_hours(historical),
                       history_mode="auto" if history_auto else None, references=references,
-                      origin_mode="now" if re.search(r"从现在|当前时刻|from now", text, re.I) else "replay" if re.search(r"历史回放|replay", text, re.I) else None,
+                      origin_mode="replay" if re.search(r"历史回放|replay", text, re.I) else "tomorrow" if calendar_days else "now" if from_now or re.search(r"未来|next", text, re.I) else None,
                       wants_probability=bool(re.search(r"概率|probability", text, re.I)),
                       run_ids=re.findall(r"fc-[0-9a-f]{24}", text)[:2])
 

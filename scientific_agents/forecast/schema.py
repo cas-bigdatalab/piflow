@@ -20,14 +20,16 @@ class TaskParams(StrictModel):
     # None preserves saved legacy tasks. New requests explicitly use [] for univariate forecasts.
     auxiliary_case_ids: list[str] | None = None
     origin: datetime
+    # Model inputs stop here when the requested forecast window starts later (e.g. tomorrow).
+    history_cutoff: datetime | None = None
     horizon_hours: int = Field(gt=0)
     history_hours: int | None = Field(default=None, gt=0)
-    origin_mode: Literal["explicit", "now", "replay"] | None = None
+    origin_mode: Literal["explicit", "now", "replay", "tomorrow"] | None = None
 
-    @field_validator("origin")
+    @field_validator("origin", "history_cutoff")
     @classmethod
     def aware(cls, value):
-        if value.tzinfo is None:
+        if value is not None and value.tzinfo is None:
             raise ValueError("预测起点必须包含时区，例如 2025-07-04T02:00:00Z")
         return value
 
@@ -48,7 +50,7 @@ class Intent(StrictModel):
     horizon_hours: int | None = None
     run_ids: list[str] = Field(default_factory=list, max_length=2)
     references: list[TaskReference] = Field(default_factory=list, max_length=2)
-    origin_mode: Literal["explicit", "now", "replay"] | None = None
+    origin_mode: Literal["explicit", "now", "replay", "tomorrow"] | None = None
     history_hours: int | None = Field(default=None, gt=0)
     history_mode: Literal["auto", "explicit"] | None = None
     requested_area: str | None = None
@@ -72,6 +74,8 @@ class SeriesResult(StrictModel):
     unit: str
     history: list[dict[str, Any]]
     predictions: list[ForecastPoint]
+    # Predicted bridge from history to origin; draw with predictions, exclude from window statistics/CSV.
+    forecast_context: list[ForecastPoint] = Field(default_factory=list)
     observations: list[dict[str, Any]]
     quality: dict[str, Any]
     summary: dict[str, Any]

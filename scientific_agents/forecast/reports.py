@@ -68,6 +68,9 @@ def build_facts(result: ForecastResult) -> dict[str, str]:
         alignment = series.metadata.get("data_alignment")
         if alignment:
             facts[f"{prefix}.data_alignment"] = (
+                f"{label}：历史输入截止于 {alignment['history_end']}，模型连续推算至请求窗口，"
+                f"展示从 {alignment['requested_origin']} 开始的预测。"
+                if alignment.get("method") == "calendar_forecast" else
                 f"{label}：历史观测截止于 {alignment['history_end']}，距请求起点 {alignment['requested_origin']} "
                 f"相差 {number(alignment['delay_hours'])} 小时。模型跨越此间隔后输出请求时段的预测；"
                 "未将该间隔填补为真实观测。")
@@ -152,6 +155,8 @@ def _figures(result: ForecastResult, directory: Path) -> list[tuple[str, str]]:
         for i, series in enumerate(result.series):
             hist = pd.DataFrame(series.history)
             pred = pd.DataFrame([p.model_dump() for p in series.predictions])
+            context = pd.DataFrame([p.model_dump() for p in series.forecast_context])
+            window_end = pd.Timestamp(result.task.origin) + pd.Timedelta(hours=result.task.horizon_hours)
             x = pd.to_datetime(pred.timestamp, utc=True)
             truth = np.asarray([p.get("value") for p in series.observations], dtype=float)
             policy = bool(series.assessment and series.assessment.evidence)
@@ -164,9 +169,19 @@ def _figures(result: ForecastResult, directory: Path) -> list[tuple[str, str]]:
             axes[0].plot(pd.to_datetime(recent.timestamp, utc=True), recent.value,
                          color="#64748b", label="近期历史" if chinese else "Recent history", linewidth=1.2)
             for ax in axes[:2]:
-                ax.fill_between(x, pred.q10.to_numpy(), pred.q90.to_numpy(), color="#1c8a9e", alpha=.18, label="q10–q90")
-                ax.plot(x, pred.prediction, color="#087e91", linewidth=1.6, label="预测中位数" if chinese else "Forecast median")
+                shown = pd.concat([context if ax is axes[0] else context.tail(1), pred], ignore_index=True) if not context.empty else pred
+                plot_x, plot_y = pd.to_datetime(shown.timestamp, utc=True), shown.prediction.to_numpy()
+                ax.fill_between(plot_x, shown.q10.to_numpy(), shown.q90.to_numpy(), color="#1c8a9e", alpha=.18, label="q10–q90")
+                adjacent = (pd.Timestamp(plot_x.iloc[0]) - pd.Timestamp(hist.iloc[-1].timestamp) ==
+                            pd.Timedelta(minutes=series.metadata.get("frequency_minutes", 0)))
+                if ax is axes[0] and (adjacent or pd.Timestamp(hist.iloc[-1].timestamp) == pd.Timestamp(result.task.origin)):
+                    # A drawing anchor joins the two lines; it is not an extra forecast/CSV row.
+                    plot_x = pd.DatetimeIndex([pd.Timestamp(hist.iloc[-1].timestamp), *plot_x])
+                    plot_y = np.r_[hist.iloc[-1].value, plot_y]
+                ax.plot(plot_x, plot_y, color="#087e91", linewidth=1.6, label="预测中位数" if chinese else "Forecast median")
                 ax.set_ylabel(series.unit)
+                if ax is not axes[0]:
+                    ax.set_xlim(pd.Timestamp(result.task.origin), window_end)
             if np.isfinite(truth).any():
                 axes[0].plot(x, truth, color="#bd663f", linestyle="--", linewidth=1.4, label="回放真实观测" if chinese else "Held-out observations")
             axes[0].axvline(result.task.origin, color="#64748b", linestyle=":", linewidth=1)
@@ -180,10 +195,12 @@ def _figures(result: ForecastResult, directory: Path) -> list[tuple[str, str]]:
                 from .warning.presentation import annotate
                 annotate(axes[1], axes[2], series)
             for ax in axes:
-                locator = mdates.AutoDateLocator(minticks=3, maxticks=5, tz=DISPLAY_ZONE)
+                locator = mdates.AutoDateLocator(minticks=5, maxticks=9, interval_multiples=True, tz=DISPLAY_ZONE)
                 ax.xaxis.set_major_locator(locator)
-                ax.xaxis.set_major_formatter(mdates.ConciseDateFormatter(locator, tz=DISPLAY_ZONE))
+                ax.xaxis.set_major_formatter(mdates.DateFormatter("%m-%d\n%H:%M", tz=DISPLAY_ZONE))
+                ax.tick_params(axis="x", labelsize=8)
                 ax.grid(axis="y", alpha=.14)
+                ax.grid(axis="x", alpha=.12, linestyle=":")
                 ax.set_xlabel("北京时间 (UTC+8)" if chinese else "Beijing time (UTC+8)")
             stem = f"forecast_{i + 1}"
             fig.savefig(directory / f"{stem}.png", dpi=160, facecolor="white")
@@ -208,7 +225,7 @@ def render_report(result: ForecastResult, directory: Path):
     with _render_lock:
         existing = [(f"forecast_{i + 1}.png", f"forecast_{i + 1}.svg") for i in range(len(result.series))]
         html_path = directory / "report.html"
-        local_charts = html_path.exists() and 'data-timezone="Asia/Shanghai"' in html_path.read_text(encoding="utf-8")
+        local_charts = html_path.exists() and 'data-chart-style="calendar-ticks-v2"' in html_path.read_text(encoding="utf-8")
         figures = (existing if result.warning_analysis and local_charts and all((directory / name).is_file() for pair in existing for name in pair)
                    else _figures(result, directory))
         if "STSong-Light" not in pdfmetrics.getRegisteredFontNames():
@@ -282,23 +299,24 @@ def render_report(result: ForecastResult, directory: Path):
             status = a.status if a else "not_assessed"
             html.append(f"<section class='case'><div class='tag'>{escape(mode)}</div><h2>{escape(series.label)}</h2>")
             story.append(Paragraph(pdf_text(series.label), styles["Heading2"]))
-            paragraph(f"{local_time(result.task.origin)} 至 {local_time(series.predictions[-1].timestamp)} 北京时间 · {result.task.horizon_hours} 小时 · 单位 {series.unit}", "meta")
+            window_end = pd.Timestamp(result.task.origin) + pd.Timedelta(hours=result.task.horizon_hours)
+            paragraph(f"{local_time(result.task.origin)} 至 {local_time(window_end)} 北京时间 · {result.task.horizon_hours} 小时 · 单位 {series.unit}", "meta")
             location = series.metadata.get("location") or series.provenance.get(series.variable, {}).get("location")
             if location:
                 from .location_map import render_location
                 from .result_view import build as result_view
                 heading("预测位置与概况")
                 name = f"location_{i + 1}.png"
-                reason = render_location(location, directory / name)
+                location_name = location.get("name") or location.get("address") or series.label
+                reason = render_location({**location, "name": location_name}, directory / name)
                 summary = next(c for c in result_view(result)["series"] if c["case_id"] == series.case_id)
-                details = ["位置 1：" + (location.get("name") or series.label),
-                    "地址：" + (location.get("address") or "未提供"),
+                details = ["地址：" + (location.get("address") or "未提供"),
                     f"原始坐标：经度 {location.get('longitude')}，纬度 {location.get('latitude')}（{location.get('coordinate_system', '未提供')}）"
                     if location.get("longitude") is not None and location.get("latitude") is not None else "经纬度：待补充",
                     f"本次 {result.task.horizon_hours} 小时预测：",
                     *[f"{m['label']}：{number(m['value'])} {m['unit']}" for m in summary["metrics"]]]
                 if reason:
-                    for text in [*details, reason]:
+                    for text in ["位置：" + location_name, *details, reason]:
                         paragraph(text, "meta")
                 else:
                     location_files.append(name)
@@ -308,7 +326,7 @@ def render_report(result: ForecastResult, directory: Path):
                     panel.setStyle(TableStyle([("VALIGN", (0,0), (-1,-1), "TOP"),
                         ("LEFTPADDING", (0,0), (-1,-1), 0), ("RIGHTPADDING", (0,0), (-1,-1), 8)]))
                     story.extend([panel, Spacer(1, 6)])
-                    html.append(f"<div class='location-panel'><img src='{name}' alt='中国地图：{escape(location.get('name') or series.label)}位置 1'><div>"
+                    html.append(f"<div class='location-panel'><img src='{name}' alt='中国地图：{escape(location_name)}'><div>"
                                 + "".join(f"<p>{escape(t)}</p>" for t in details) + "</div></div>")
                     paragraph("底图：阿里云 DataV GeoAtlas。标点为数据配置位置，仅作位置示意；指标代表对应观测序列。", "meta")
             own = insights(series)
@@ -411,7 +429,7 @@ def render_report(result: ForecastResult, directory: Path):
         (directory / "report.pdf.tmp").replace(directory / "report.pdf")
         css = "body{font:16px/1.8 system-ui,'Microsoft YaHei',sans-serif;color:#20384b;max-width:980px;margin:40px auto;padding:0 28px;background:#fff}header{padding:20px 0 24px;border-bottom:2px solid #187e90}.eyebrow,.meta{font-size:13px;color:#697d8d}h1{font-size:34px;margin:6px 0}h2{font-size:26px;margin:8px 0}h3{font-size:18px;margin:28px 0 12px;color:#146878}.case{padding-top:24px}.tag{display:inline-block;background:#edf3f6;color:#516c7c;padding:2px 10px;font-size:12px;border-radius:4px}.assessment{background:#eff7f8;border-left:4px solid #178497;padding:12px 20px;margin:20px 0}.assessment.triggered{background:#fff3e9;border-color:#bd663f}.lead{font-size:18px;font-weight:600;margin:6px 0}img{width:100%;height:auto;margin:12px 0}table{border-collapse:collapse;width:100%;font-size:14px}td{border-bottom:1px solid #dbe4e8;padding:10px}tr:first-child{background:#e9f2f4;font-weight:600}.validation{background:#f7f5ef;padding:14px 18px}footer{border-top:1px solid #dbe4e8;padding-top:14px;margin-top:30px;color:#73818c;line-height:1.6}small{font-size:11px}@media print{body{margin:0}h2,h3{break-after:avoid}img,tr{break-inside:avoid}}"
         css += ".location-panel{display:grid;grid-template-columns:3fr 2fr;gap:20px;align-items:start;background:#f6f9fc;padding:14px;border-radius:10px;break-inside:avoid}.location-panel img{margin:0}.location-panel p{font-size:14px;margin:4px 0;overflow-wrap:anywhere}@media(max-width:620px){.location-panel{grid-template-columns:1fr}}"
-        (directory / "report.html.tmp").write_text("<!doctype html><html lang='zh-CN' data-timezone=\"Asia/Shanghai\"><meta charset='utf-8'><meta name='viewport' content='width=device-width'><title>" + escape(title) + "</title><style>" + css + "</style><body>" + "".join(html) + "</body></html>", encoding="utf-8")
+        (directory / "report.html.tmp").write_text("<!doctype html><html lang='zh-CN' data-timezone=\"Asia/Shanghai\" data-chart-style=\"calendar-ticks-v2\"><meta charset='utf-8'><meta name='viewport' content='width=device-width'><title>" + escape(title) + "</title><style>" + css + "</style><body>" + "".join(html) + "</body></html>", encoding="utf-8")
         (directory / "report.html.tmp").replace(directory / "report.html")
         export_predictions(result, directory)
         result.artifacts = ["report.html", "report.pdf", "predictions.csv", "result.json"] + [f for pair in figures for f in pair] + location_files

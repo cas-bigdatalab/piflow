@@ -148,7 +148,7 @@ def _fetch_datasets(base_url: str) -> list[dict[str, Any]]:
     # Empty matches stay empty; a failed filtered request must not fall back to all data.
     for source in sources or [""]:
         rows = _paged(lambda page: _post_json(
-            f"{base_url}/dataset/page?pageNum={page}&pageSize={PAGE_SIZE}",
+            f"{base_url}/dataset.page?pageNum={page}&pageSize={PAGE_SIZE}",
             {"source": source} if source else {}))
         for row in rows:
             key = _first_text(row, "id", "datasetId", "dataset_id") or json.dumps(row, sort_keys=True)

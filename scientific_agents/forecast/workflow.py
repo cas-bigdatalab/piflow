@@ -20,7 +20,7 @@ from .model import Predictor
 from .providers import Registry
 from .feedback import ForecastError, local_time
 from .schema import ForecastResult, SeriesResult, TaskParams
-from .planning import history_steps
+from .planning import forecast_grid, history_steps, sampling_floor
 
 
 def write_json(path: Path, data):
@@ -56,14 +56,16 @@ class ForecastWorkflow:
         if any(i not in self.registry.cases for i in params.case_ids):
             raise ForecastError("invalid_parameters", "案例不在当前数据源目录中。")
         origin = pd.Timestamp(params.origin).tz_convert("UTC")
+        cutoff = pd.Timestamp(params.history_cutoff or params.origin).tz_convert("UTC")
+        if cutoff > origin:
+            raise ForecastError("invalid_parameters", "历史输入截止时间不能晚于预测展示起点。")
         for case_id in params.case_ids:
             frequency, context, horizons = self.registry.warnings.timing(case_id)
             history_steps(params, self.registry, case_id)
             if params.horizon_hours not in horizons:
                 raise ForecastError("invalid_parameters", f"{case_id}仅支持 {horizons} 小时。")
-            if origin != origin.floor(f"{frequency}min"):
-                raise ForecastError("invalid_parameters", f"预测起点必须对齐 {frequency} 分钟刻度。")
-            if context > 15360 or params.horizon_hours * 60 // frequency > 1024:
+            forecast_grid(origin, params.horizon_hours, frequency)
+            if context > 15360:
                 raise ForecastError("invalid_parameters", "请求超出固定模型的上下文或预测长度限制。")
 
     def prepare(self, params: TaskParams) -> list[dict]:
@@ -107,31 +109,35 @@ class ForecastWorkflow:
         self.validate(params)
         cfg = self.settings
         origin = pd.Timestamp(params.origin).tz_convert("UTC")
+        cutoff = pd.Timestamp(params.history_cutoff or params.origin).tz_convert("UTC")
         prepared = []
         for case_id in params.case_ids:
             case = self.registry.cases[case_id]
             if case.target.semantics == "circular_degrees":
                 raise ForecastError("invalid_parameters", "环形角度不能直接按标量预测。请将风向转换为风矢量分量并注册为预测目标；风向可直接作为辅助变量。")
             frequency, _, _ = self.registry.warnings.timing(case_id)
+            sampling_cutoff = sampling_floor(cutoff, frequency)
+            future = forecast_grid(origin, params.horizon_hours, frequency)
+            forecast_boundary = future[0] - pd.Timedelta(minutes=frequency)
             scenario = self.registry.warnings.get(case)
             if scenario.mode == "current":
                 now = pd.Timestamp.now(tz="UTC")
-                if (now - origin).total_seconds() > scenario.data_age_limit(params.horizon_hours) * 60 or origin > now:
+                if (now - cutoff).total_seconds() > scenario.data_age_limit(params.horizon_hours) * 60 or cutoff > now:
                     raise ForecastError("data_quality", "当前预测起点不符合数据时效要求，请刷新数据。", stage="data")
-            history_end = (self.registry.history_end(case_id, origin, frequency, cache)
-                           if scenario.mode == "current" else origin)
-            gap_steps = int((origin - history_end).total_seconds() / (frequency * 60))
-            if gap_steps < 0 or gap_steps * frequency * 60 != (origin - history_end).total_seconds():
+            history_end = (self.registry.history_end(case_id, sampling_cutoff, frequency, cache)
+                           if scenario.mode == "current" else sampling_cutoff)
+            if history_end > sampling_cutoff or history_end != sampling_floor(history_end, frequency):
                 raise ForecastError("data_quality", "历史截止时刻与预测起点无法对齐。", stage="data")
-            if gap_steps * frequency > scenario.data_age_limit(params.horizon_hours):
+            if (cutoff - history_end).total_seconds() / 60 > scenario.data_age_limit(params.horizon_hours):
                 raise ForecastError("data_quality", f"监测数据过期：所选变量最新共同观测 {local_time(history_end)}（北京时间）超过本次时效上限。", stage="data")
-            if gap_steps + params.horizon_hours * 60 // frequency > 1024:
+            # Check real observation freshness first; completion must not disguise stale data.
+            history_end = self.registry.model_history_end(case_id, sampling_cutoff, history_end)
+            gap_steps = int((forecast_boundary - history_end) / pd.Timedelta(minutes=frequency))
+            if gap_steps + len(future) > 1024:
                 raise ForecastError("invalid_parameters", "数据延迟加请求时长超出模型支持的预测长度，请缩短时长或更新数据。")
             if gap_steps and any(v.future_known for v in case.covariates):
                 raise ForecastError("data_quality", "延迟衔接暂只支持历史辅助变量。", stage="data")
             grid = pd.date_range(end=history_end, periods=context, freq=f"{frequency}min")
-            future = pd.date_range(start=origin, periods=params.horizon_hours * 60 // frequency + 1,
-                                   freq=f"{frequency}min")[1:]
             frames, quality, provenance, observations = {}, {}, {}, None
             model_frames, completed_history, last_observation = {}, False, None
             future_covariates = {}
@@ -142,7 +148,7 @@ class ForecastWorkflow:
                 raw = cache[key]
                 available = raw.values
                 if raw.available_at is not None:
-                    eligible = (raw.available_at <= origin).to_numpy()
+                    eligible = (raw.available_at <= cutoff).to_numpy()
                     available = raw.values.iloc[np.flatnonzero(eligible)]
                     if variable.future_known:
                         dates = raw.available_at.iloc[np.flatnonzero(eligible)]
@@ -152,12 +158,12 @@ class ForecastWorkflow:
                     raise ForecastError("data_quality", "已知未来变量必须提供发布时间，禁止使用未来真实观测。", stage="data")
                 if scenario.mode == "current":
                     max_age_minutes = scenario.data_age_limit(params.horizon_hours)
-                    observed = available.loc[available.index <= origin].dropna()
-                    if observed.empty or (origin - observed.index.max()).total_seconds() > max_age_minutes * 60:
+                    observed = available.loc[available.index <= cutoff].dropna()
+                    if observed.empty or (cutoff - observed.index.max()).total_seconds() > max_age_minutes * 60:
                         latest = local_time(observed.index.max()) + "（北京时间）" if not observed.empty else "无可用观测"
                         raise ForecastError("data_quality", f"监测数据过期，无法进行当前预警评估。{case_id}/{variable.name} 最新可用观测：{latest}；本次预测允许的数据时效上限为 {max_age_minutes / 60:g} 小时，需要先更新监测数据。", stage="data")
                 # Split BEFORE resampling/filling. No retrospective observations enter features.
-                historical = available.loc[available.index <= origin]
+                historical = available.loc[available.index <= sampling_cutoff]
                 history = resample_variable(historical, frequency, variable)
                 values = history.reindex(grid)
                 missing = int(values.isna().sum())
@@ -166,6 +172,8 @@ class ForecastWorkflow:
                 fill_info = {}
                 if completion is not None:
                     values, fill_info = completion
+                    real_history = history.loc[:history_end].dropna()
+                    fill_info["latest_observation"] = real_history.index[-1].isoformat() if len(real_history) else None
                     completed_history = True
                 remaining = int(values.isna().sum())
                 if remaining / len(grid) > cfg.max_missing_fraction:
@@ -195,14 +203,14 @@ class ForecastWorkflow:
                     quality[variable.name].update(constant_input=True, constant_value=float(values.iloc[0]))
                 provenance[variable.name] = raw.provenance
                 if variable.future_known:
-                    predicted = resample_variable(available.loc[available.index > origin], frequency, variable).reindex(future)
+                    predicted = resample_variable(available.loc[available.index > forecast_boundary], frequency, variable).reindex(future)
                     if predicted.isna().any():
                         raise ForecastError("data_quality", "预测起点之前发布的辅助预报未完整覆盖预测窗口。", stage="data")
                     future_covariates[variable.name] = predicted.tolist()
                 if variable == case.target:
                     if completion is not None:
                         last_observation = float(history.loc[:history_end].dropna().iloc[-1])
-                    truth = resample_variable(raw.values.loc[raw.values.index > origin], frequency, variable).reindex(future)
+                    truth = resample_variable(raw.values.loc[raw.values.index > forecast_boundary], frequency, variable).reindex(future)
                     observations = [None if pd.isna(v) else float(v) for v in truth]
             prepared.append({"case_id": case_id, "label": case.label, "variable": case.target.name,
                              "unit": case.target.unit, "timestamps": [t.isoformat() for t in grid],
@@ -224,18 +232,23 @@ class ForecastWorkflow:
                 "semantics": case.target.semantics, "window_minutes": case.target.window_minutes,
                 "transform": case.target.transform,
                 "frequency_minutes": frequency,
+                "forecast_window": {"start": origin.isoformat(),
+                    "end": (origin + pd.Timedelta(hours=params.horizon_hours)).isoformat(),
+                    "first_timestamp": future[0].isoformat(), "last_timestamp": future[-1].isoformat(),
+                    "points": len(future), "boundary": "(start, end]", "grid_origin": "UTC epoch"},
                 "circular_covariates": [v.name for v in case.covariates if v.semantics == "circular_degrees"]}
             if gap_steps:
                 prepared[-1]["gap_steps"] = gap_steps
                 prepared[-1]["metadata"]["data_alignment"] = {
-                    "method": "forecast_across_observation_delay", "history_end": history_end.isoformat(),
+                    "method": "calendar_forecast" if params.history_cutoff is not None else "forecast_across_observation_delay", "history_end": history_end.isoformat(),
                     "requested_origin": origin.isoformat(), "gap_steps": gap_steps,
                     "delay_hours": gap_steps * frequency / 60, "synthetic_observations": False}
         return prepared
 
-    def predict_prepared(self, prepared):
+    def predict_prepared(self, prepared, *, include_lead=False):
         """Shared execution and benchmark path; group only compatible horizons."""
         result, groups = [None] * len(prepared), {}
+        lead = [[] for _ in prepared]
         for index, item in enumerate(prepared):
             groups.setdefault(len(item["future"]) + item.get("gap_steps", 0), []).append((index, item))
         for steps, group in groups.items():
@@ -260,7 +273,9 @@ class ForecastWorkflow:
                 if item.get("gap_steps", 0) and prediction.shape != (steps, 3):
                     raise ValueError("模型返回的预测长度或分位数数量不符。")
                 result[index] = prediction[item.get("gap_steps", 0):].tolist()
-        return result
+                if include_lead:
+                    lead[index] = prediction[:item.get("gap_steps", 0)].tolist()
+        return {"predictions": result, "lead_predictions": lead} if include_lead else result
 
     def run(self, run_id: str, params: TaskParams, emit=lambda *_: None, cancelled=lambda: False, *, defer_report=False) -> ForecastResult:
         if not getattr(self, "_bound", False):
@@ -281,7 +296,9 @@ class ForecastWorkflow:
                          "covariates": {"__all__": {"description", "aliases"}}}
         numerical_settings = self.settings.model_dump_json(exclude={"execution": True,
             "sources": {"__all__": {"cases": {"__all__": report_fields}}}})
-        fingerprint = sha256((params.model_dump_json() + numerical_settings
+        # Adding an optional cutoff must not invalidate pre-existing task identities.
+        parameter_identity = params.model_dump_json(exclude={"history_cutoff"} if params.history_cutoff is None else set())
+        fingerprint = sha256((parameter_identity + numerical_settings
                               + json.dumps(model_identity, sort_keys=True)).encode()).hexdigest()
         identity = directory / "identity.json"
         if identity.exists() and json.loads(identity.read_text())["fingerprint"] != fingerprint:
@@ -311,6 +328,7 @@ class ForecastWorkflow:
                 state["inputs"] = self.prepare(params)
                 write_json(path, state["inputs"])
             emit("plan", {"origin": params.origin.isoformat(), "origin_mode": params.origin_mode,
+                          "history_cutoff": params.history_cutoff.isoformat() if params.history_cutoff else None,
                           "history_windows": {item["case_id"]: item.get("history_window", {}) for item in state["inputs"]}})
 
         def predict():
@@ -320,15 +338,15 @@ class ForecastWorkflow:
                 state.update(snapshot)
                 return
             # Deliberately build a new object: observations are never passed to the model.
-            state["predictions"] = self.predict_prepared(state["inputs"])
+            state.update(self.predict_prepared(state["inputs"], include_lead=True))
             state["model"] = self.model.metadata()
-            write_json(path, {"predictions": state["predictions"], "model": state["model"]})
+            write_json(path, {"predictions": state["predictions"], "lead_predictions": state["lead_predictions"], "model": state["model"]})
 
         def calculate():
             items = []
             if len(state["inputs"]) != len(state["predictions"]):
                 raise ValueError("模型返回的序列数量不符。")
-            for source, quantiles in zip(state["inputs"], state["predictions"], strict=True):
+            for index, (source, quantiles) in enumerate(zip(state["inputs"], state["predictions"], strict=True)):
                 q = np.asarray(quantiles, dtype=np.float64)
                 if q.shape != (len(source["future"]), 3):
                     raise ValueError("预测长度不符。")
@@ -342,10 +360,18 @@ class ForecastWorkflow:
                 if "model_input" in source and source["quality"][source["variable"]].get("original_observations_preserved"):
                     for point, value in zip(history, source["model_input"]["target"], strict=True):
                         point.update(observed_value=point["value"], imputed=point["value"] is None, value=value)
+                forecast_context = []
+                if state.get("lead_predictions") and state["lead_predictions"][index]:
+                    lead, _ = constrain_forecast(state["lead_predictions"][index], source.get("bounds", {}))
+                    lead_times = pd.date_range(start=source["timestamps"][-1], periods=len(lead) + 1,
+                                               freq=f"{source['frequency_minutes']}min")[1:]
+                    forecast_context = [dict(timestamp=t.isoformat(), q10=float(v[0]), prediction=float(v[1]), q90=float(v[2]))
+                                        for t, v in zip(lead_times, lead, strict=True)]
                 items.append(SeriesResult(
                     case_id=source["case_id"], label=source["label"], variable=source["variable"], unit=source["unit"],
                     history=history,
                     predictions=points,
+                    forecast_context=forecast_context,
                     observations=[dict(timestamp=t, value=v) for t, v in zip(source["future"], source["observations"], strict=True)],
                     quality=source["quality"], provenance=source["provenance"],
                     history_window=source.get("history_window", {}),

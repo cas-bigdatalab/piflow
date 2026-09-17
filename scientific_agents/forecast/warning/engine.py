@@ -25,15 +25,17 @@ def _values(condition, history, future, minutes):
 def assess(source, points, related=None):
     scenario = Scenario.model_validate(source["scenario"])
     minutes = source["frequency_minutes"]
+    window = source.get("metadata", {}).get("forecast_window", {})
     assessment = Assessment(mode=scenario.mode, capability="indicator_forecast", status="not_assessed",
         area=scenario.area, hazard_type=scenario.hazard_type, scenario_version=scenario.version,
-        window_start=source.get("metadata", {}).get("data_alignment", {}).get("requested_origin", source["timestamps"][-1]), window_end=source["future"][-1],
+        window_start=window.get("start", source.get("metadata", {}).get("data_alignment", {}).get("requested_origin", source["timestamps"][-1])),
+        window_end=window.get("end", source["future"][-1]),
         location=({"latitude": scenario.latitude, "longitude": scenario.longitude} if scenario.latitude is not None else None))
     assessment.limitations.append("预测区间及规则触发不等于事件发生概率；未触发不代表没有潜在风险。")
     if source.get("quality", {}).get(source["variable"], {}).get("constant_input"):
         assessment.limitations.append("目标在本次历史窗口内为恒定值，缺少变化信息；全零通道需核查传感器，预测不能作为环境安全或设备正常的依据。")
     gap = source.get("gap_steps", 0)
-    if gap:
+    if gap and source.get("metadata", {}).get("data_alignment", {}).get("method") != "calendar_forecast":
         assessment.limitations.append(f"最新共同观测落后请求起点 {gap * minutes / 60:g} 小时，模型跨越该间隔预测；间隔无真实观测，涉及该间隔的累计或变化规则按证据不足处理。")
     rules = [r for r in scenario.rules if r.approved]
     if rules:
@@ -76,7 +78,7 @@ def assess(source, points, related=None):
                         aligned = {pd.Timestamp(t): p[key] for t, p in zip(raw["future"], predicted)}
                         forecast = [aligned.get(pd.Timestamp(t)) for t in source["future"]]
                         past = {pd.Timestamp(t): v for t, v in zip(raw["timestamps"], raw["target"])}
-                        history_grid = pd.date_range(end=assessment.window_start,
+                        history_grid = pd.date_range(end=pd.Timestamp(source["future"][0]) - pd.Timedelta(minutes=minutes),
                             periods=len(source["timestamps"]) + gap, freq=f"{minutes}min")
                         history_values = [past.get(t) for t in history_grid]
                     else:

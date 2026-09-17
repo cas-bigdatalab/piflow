@@ -31,13 +31,16 @@ class Options(StrictModel):
 
 
 class CampbellProvider:
+    complete_history_to_origin = True
+
     @staticmethod
     def configure(source, scenarios):
         """Normalize only this format; IDs and registered observation semantics stay stable."""
-        from .campbell_registry import expand
+        from .campbell_registry import expand, normalize_units
         if source.get("path"):
             source["options"] = {**source.get("options", {}), "directory": source["path"]}
         expand(source, scenarios)
+        normalize_units(source, scenarios)
 
     @staticmethod
     def auxiliary_variable(variable):

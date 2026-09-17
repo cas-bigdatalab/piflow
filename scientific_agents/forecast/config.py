@@ -146,8 +146,8 @@ class Settings(StrictModel):
         ids = [c.id for s in self.sources for c in s.cases]
         if len(ids) != len(set(ids)):
             raise ValueError("case IDs must be unique")
-        if not self.horizons_hours or any(h <= 0 or h * 60 % self.frequency_minutes for h in self.horizons_hours):
-            raise ValueError("horizons must be positive whole forecast steps")
+        if not self.horizons_hours or any(h <= 0 for h in self.horizons_hours):
+            raise ValueError("horizons must be positive hours")
         return self
 
 
