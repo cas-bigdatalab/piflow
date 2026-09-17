@@ -131,6 +131,8 @@ class Settings(StrictModel):
     frequency_minutes: int = Field(default=15, ge=1)
     context_steps: int = Field(default=96, ge=8)
     history_multiplier: int = Field(default=4, ge=1, le=16)
+    max_horizon_hours: int = Field(default=168, ge=1, strict=True)
+    # Accepted for old configuration files; the unified hourly range now controls admission.
     horizons_hours: list[int] = [1, 3, 6]
     max_cases: int = Field(default=3, ge=1, le=10)
     max_missing_fraction: float = Field(default=0.02, ge=0, le=0.1)

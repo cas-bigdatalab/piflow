@@ -127,8 +127,6 @@ class Registry:
                             hazard_type="unspecified", mode=details.get("mode", base_scenario.mode if base_scenario else "current"), frequency_minutes=frequency,
                             default_replay_origin=details.get("default_replay_origin", base_scenario.default_replay_origin if base_scenario else None),
                             context_steps=max(8, 7 * 24 * 60 // frequency),
-                            horizons_hours=[h for h in sorted(set([*self.settings.horizons_hours, 24, 48, 72]))
-                                            if (h * 60 + frequency - 1) // frequency <= 1024],
                             use_standard=True)
                     if scenario is not None and source.discover:
                         scenario = scenario.model_copy(update={"use_history_screening": True})

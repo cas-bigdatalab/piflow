@@ -41,11 +41,25 @@ class WarningRegistry:
     def timing(self, case_id):
         s = self.scenarios.get(case_id)
         cfg = self.settings
-        return ((s.frequency_minutes if s else None) or cfg.frequency_minutes,
+        frequency = (s.frequency_minutes if s else None) or cfg.frequency_minutes
+        # Directory capabilities retain their list shape; old scenario white lists no longer override the global range.
+        hours = list(range(1, min(cfg.max_horizon_hours, 1024 * frequency // 60) + 1))
+        return (frequency,
                 (s.context_steps if s else None) or cfg.context_steps,
-                (s.horizons_hours if s else None) or cfg.horizons_hours)
+                hours)
 
     def allowed_hours(self, case_ids):
         sets = [set(self.timing(i)[2]) for i in case_ids]
-        return sorted(set.intersection(*sets)) if sets else sorted(set(self.settings.horizons_hours).union(
-            *(set(s.horizons_hours or []) for s in self.scenarios.values())))
+        return sorted(set.intersection(*sets)) if sets else list(range(1, self.settings.max_horizon_hours + 1))
+
+    def hours_description(self, case_ids):
+        maximum = self.allowed_hours(case_ids)[-1]
+        text = f"支持 1～{maximum} 个整数小时，1 天为 24 小时"
+        if maximum < self.settings.max_horizon_hours:
+            text += "；已按所选数据的采样间隔限制为最多 1024 个预测点"
+        return text
+
+    def validate_hours(self, hours, case_ids):
+        if hours not in self.allowed_hours(case_ids):
+            from ..feedback import ForecastError
+            raise ForecastError("invalid_parameters", "预测时长超出允许范围：" + self.hours_description(case_ids) + "。")

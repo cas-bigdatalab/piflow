@@ -55,15 +55,14 @@ class ForecastWorkflow:
             raise ForecastError("invalid_parameters", "案例数量超限或存在重复。")
         if any(i not in self.registry.cases for i in params.case_ids):
             raise ForecastError("invalid_parameters", "案例不在当前数据源目录中。")
+        self.registry.warnings.validate_hours(params.horizon_hours, params.case_ids)
         origin = pd.Timestamp(params.origin).tz_convert("UTC")
         cutoff = pd.Timestamp(params.history_cutoff or params.origin).tz_convert("UTC")
         if cutoff > origin:
             raise ForecastError("invalid_parameters", "历史输入截止时间不能晚于预测展示起点。")
         for case_id in params.case_ids:
-            frequency, context, horizons = self.registry.warnings.timing(case_id)
+            frequency, context, _ = self.registry.warnings.timing(case_id)
             history_steps(params, self.registry, case_id)
-            if params.horizon_hours not in horizons:
-                raise ForecastError("invalid_parameters", f"{case_id}仅支持 {horizons} 小时。")
             forecast_grid(origin, params.horizon_hours, frequency)
             if context > 15360:
                 raise ForecastError("invalid_parameters", "请求超出固定模型的上下文或预测长度限制。")
