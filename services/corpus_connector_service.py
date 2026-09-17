@@ -199,12 +199,17 @@ def list_dataset_details(
     # view.  The same snapshot is also used below when enriching datasets, so a
     # request never scans connector pages twice.
     connector_snapshot = _fetch_all_connector_details()
+    visible_total = _get_enabled_dataset_total(connector_snapshot)
     effective_filters = _apply_enabled_connector_sources(
         filters,
         connector_snapshot=connector_snapshot,
     )
     if effective_filters is None:
-        return _empty_dataset_page(page_num=page_num, page_size=page_size)
+        return _empty_dataset_page(
+            page_num=page_num,
+            page_size=page_size,
+            total=visible_total,
+        )
 
     payload = _fetch_dataset_page(
         page_num=page_num,
@@ -254,7 +259,7 @@ def list_dataset_details(
         dataset_detail["replicaCount"] = len(connectors)
         result_items.append(dataset_detail)
 
-    return {
+    result = {
         "items": result_items,
         "pagination": _extract_pagination(
             payload,
@@ -263,6 +268,8 @@ def list_dataset_details(
             item_count=len(result_items),
         ),
     }
+    result["pagination"]["total"] = visible_total
+    return result
 
 
 def list_dataset_details_v2(
@@ -1505,6 +1512,43 @@ def _apply_enabled_connector_sources(
     return normalized_filters
 
 
+def _get_enabled_dataset_total(connector_snapshot: dict[str, dict[str, Any]]) -> int:
+    """Return all datasets minus the sums reported by disabled connectors.
+
+    This count deliberately ignores the caller's dataset filters.  It is the
+    stable total shown by ``/corpus/dataset/list`` for the current connector
+    snapshot, while the page items continue to use those filters.
+    """
+    all_datasets_payload = _fetch_dataset_page(page_num=1, page_size=1)
+    all_datasets_total = _extract_pagination(
+        all_datasets_payload,
+        page_num=1,
+        page_size=1,
+        item_count=len(_extract_page_items(all_datasets_payload, entity_name="dataset")),
+    )["total"]
+
+    disabled_connector_names = [
+        str(connector.get("name", "") or "").strip()
+        for connector in connector_snapshot.values()
+        if not _is_connector_enabled(connector) and str(connector.get("name", "") or "").strip()
+    ]
+    disabled_datasets_total = 0
+    for connector_name in disabled_connector_names:
+        payload = _fetch_dataset_page(
+            page_num=1,
+            page_size=1,
+            filters={"sources": [connector_name]},
+        )
+        disabled_datasets_total += _extract_pagination(
+            payload,
+            page_num=1,
+            page_size=1,
+            item_count=len(_extract_page_items(payload, entity_name="dataset")),
+        )["total"]
+
+    return max(0, all_datasets_total - disabled_datasets_total)
+
+
 def _add_connector_resources_by_name(
     connector_snapshot: dict[str, dict[str, Any]],
     *,
@@ -1529,13 +1573,13 @@ def _add_connector_resources_by_name(
     return lookup
 
 
-def _empty_dataset_page(*, page_num: int, page_size: int) -> dict[str, Any]:
+def _empty_dataset_page(*, page_num: int, page_size: int, total: int) -> dict[str, Any]:
     return {
         "items": [],
         "pagination": {
             "pageNum": page_num,
             "pageSize": page_size,
-            "total": 0,
+            "total": total,
         },
     }
 

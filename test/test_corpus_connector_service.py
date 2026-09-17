@@ -826,6 +826,7 @@ def test_list_dataset_details_returns_dataset_page(monkeypatch):
         "services.corpus_connector_service._resolve_remote_resource",
         _fake_dataset_resolve_remote_resource,
     )
+    monkeypatch.setattr(corpus_connector_service, "_get_enabled_dataset_total", lambda snapshot: 2)
 
     result = list_dataset_details(page_num=1, page_size=10)
 
@@ -901,6 +902,8 @@ def test_list_dataset_details_uses_top_level_total_when_data_is_a_list(monkeypat
         )(),
     )
     monkeypatch.setattr("services.corpus_connector_service.requests.post", fake_post)
+    monkeypatch.setattr(corpus_connector_service, "_fetch_all_connector_details", lambda: {})
+    monkeypatch.setattr(corpus_connector_service, "_get_enabled_dataset_total", lambda snapshot: 18)
 
     result = list_dataset_details(page_num=1, page_size=10)
 
@@ -1202,6 +1205,8 @@ def test_list_dataset_details_forwards_filters(monkeypatch):
         "services.corpus_connector_service.requests.post",
         fake_post,
     )
+    monkeypatch.setattr(corpus_connector_service, "_fetch_all_connector_details", lambda: {})
+    monkeypatch.setattr(corpus_connector_service, "_get_enabled_dataset_total", lambda snapshot: 0)
 
     list_dataset_details(
         page_num=2,
@@ -1249,7 +1254,7 @@ def test_list_dataset_details_limits_sources_to_enabled_connectors_once(monkeypa
     assert result == {"items": [], "pagination": {"pageNum": 1, "pageSize": 10, "total": 0}}
     assert seen == {
         "snapshot_calls": 1,
-        "dataset_calls": 1,
+        "dataset_calls": 3,
         "filters": {"title": "dataset", "sources": ["node-a"]},
     }
 
@@ -1287,15 +1292,19 @@ def test_list_dataset_details_returns_empty_without_upstream_request_for_empty_s
         "_fetch_all_connector_details",
         lambda: {"node-a": {"name": "node-a", "enabled": False, "status": None}},
     )
-    monkeypatch.setattr(
-        corpus_connector_service,
-        "_fetch_dataset_page",
-        lambda **kwargs: (_ for _ in ()).throw(AssertionError("dataset page must not be requested")),
-    )
+    seen_filters = []
+
+    def fake_fetch_dataset_page(*, filters=None, **kwargs):
+        seen_filters.append(filters)
+        total = 12 if filters is None else 4
+        return {"code": 200, "data": {"content": [], "total": total}}
+
+    monkeypatch.setattr(corpus_connector_service, "_fetch_dataset_page", fake_fetch_dataset_page)
 
     result = list_dataset_details(page_num=2, page_size=20, filters={"sources": ["node-a"]})
 
-    assert result == {"items": [], "pagination": {"pageNum": 2, "pageSize": 20, "total": 0}}
+    assert result == {"items": [], "pagination": {"pageNum": 2, "pageSize": 20, "total": 8}}
+    assert seen_filters == [None, {"sources": ["node-a"]}]
 
 
 def test_list_dataset_details_keeps_sources_unchanged_when_all_connectors_enabled(monkeypatch):
@@ -1315,6 +1324,43 @@ def test_list_dataset_details_keeps_sources_unchanged_when_all_connectors_enable
     list_dataset_details(page_num=1, page_size=10, filters={"sources": ["node-b"]})
 
     assert seen["filters"] == {"sources": ["node-b"]}
+
+
+def test_list_dataset_details_uses_unfiltered_total_minus_disabled_connector_totals(monkeypatch):
+    seen_filters = []
+    monkeypatch.setattr(
+        corpus_connector_service,
+        "_fetch_all_connector_details",
+        lambda: {
+            "node-a": {"name": "node-a", "enabled": True, "status": None},
+            "node-b": {"name": "node-b", "enabled": False, "status": None},
+        },
+    )
+
+    def fake_fetch_dataset_page(*, filters=None, **kwargs):
+        seen_filters.append(filters)
+        if filters is None:
+            total = 100
+        elif filters == {"sources": ["node-b"]}:
+            total = 15
+        else:
+            total = 1
+        return {"code": 200, "data": {"content": [], "total": total}}
+
+    monkeypatch.setattr(corpus_connector_service, "_fetch_dataset_page", fake_fetch_dataset_page)
+
+    result = list_dataset_details(
+        page_num=3,
+        page_size=20,
+        filters={"title": "filtered", "sources": ["node-a"]},
+    )
+
+    assert result["pagination"] == {"pageNum": 3, "pageSize": 20, "total": 85}
+    assert seen_filters == [
+        None,
+        {"sources": ["node-b"]},
+        {"title": "filtered", "sources": ["node-a"]},
+    ]
 
 
 def test_list_dataset_details_v2_proxies_dataset_page_and_adds_replica_count(monkeypatch):
