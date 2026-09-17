@@ -8,10 +8,8 @@ frequency_minutes: 60
 context_steps: 168
 # 默认历史点数=max(context_steps, 预测点数*history_multiplier)。不足时仅回退到context_steps。
 history_multiplier: 7
-horizons_hours:
-- 24
-- 48
-- 72
+# 支持 1 至该上限的任意整数小时；7 天 = 168 小时。
+max_horizon_hours: 168
 max_cases: 3
 max_missing_fraction: 0.02
 forward_fill_limit: 1

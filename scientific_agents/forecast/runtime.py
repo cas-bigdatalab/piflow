@@ -288,9 +288,8 @@ class ForecastAgent:
                     ids = proposed["case_ids"]
                     if (not ids and not scope) or len(ids) > cfg.max_cases or len(set(ids)) != len(ids) or any(i not in self.workflow.registry.cases for i in ids):
                         raise ForecastError("invalid_parameters", "请选择目录中的案例，且不超过允许数量")
-                allowed = self.workflow.registry.warnings.allowed_hours(proposed.get("case_ids", []))
-                if proposed.get("horizon_hours") is not None and proposed["horizon_hours"] not in allowed:
-                    raise ForecastError("invalid_parameters", f"所选场景支持 {allowed} 小时；已确认参数保持不变。")
+                if proposed.get("horizon_hours") is not None:
+                    self.workflow.registry.warnings.validate_hours(proposed["horizon_hours"], proposed.get("case_ids", []))
                 if proposed.get("origin"):
                     # Validate timezone now, even if other fields are still missing.
                     TaskParams(case_ids=["validation"], origin=proposed["origin"], horizon_hours=1)
@@ -384,12 +383,15 @@ class ForecastAgent:
                 return None
             except OriginChoice as choice:
                 return {**choice.interaction, "interaction_id": turn_id, "state_version": version}
-        cfg = self.workflow.settings
-        allowed = self.workflow.registry.warnings.allowed_hours(params.get("case_ids", []))
+        warnings = self.workflow.registry.warnings
+        case_ids = params.get("case_ids", [])
+        allowed = warnings.allowed_hours(case_ids)
+        # These are shortcuts, not an admission white list; arbitrary integer hours remain valid.
+        choices = sorted({h for h in (1, 3, 6, 12, 24, 48, 72, 120, 168, allowed[-1]) if h in allowed})
         questions = {"case_ids": "我还需要确认使用哪份数据，请选择一个预测案例。",
                      "origin": "请提供预测起点（含时区）。历史资料仅用于历史回放，不代表当前监测。",
-                     "horizon_hours": f"你希望评估未来多长时间？所选场景支持 {allowed} 小时，1天为24小时。"}
-        options = self._candidates(scope or {}) if field == "case_ids" else allowed if field == "horizon_hours" else []
+                     "horizon_hours": "你希望评估未来多长时间？" + warnings.hours_description(case_ids) + "，可直接输入时长或选择常用时长。"}
+        options = self._candidates(scope or {}) if field == "case_ids" else choices if field == "horizon_hours" else []
         if field == "case_ids" and not options:
             return None
         return {"field": field, "options": options, "prompt": questions[field],

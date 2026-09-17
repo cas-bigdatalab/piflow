@@ -210,6 +210,49 @@ def _figures(result: ForecastResult, directory: Path) -> list[tuple[str, str]]:
     return outputs
 
 
+def _report_rule_lines(series, labels):
+    """Describe saved assessment evidence; never evaluate or change a rule here."""
+    if not series.assessment:
+        return
+    operators = {"gt": "高于", "ge": "不低于", "lt": "低于", "le": "不高于"}
+    statistics = {"mean": "均值", "max": "最大值", "min": "最小值", "sum": "累计量", "rate": "每小时变化率"}
+    states = {"triggered": "已触发", "not_triggered": "未触发", "indeterminate": "依据不足，无法判定"}
+    bases = {"median": "预测中位数", "q10": "预测下分位数 q10", "q90": "预测上分位数 q90"}
+    for evidence in series.assessment.evidence:
+        details = []
+        for sample in evidence["conditions"]:
+            condition = sample["condition"]
+            key = (condition.get("case_id") or series.case_id, condition["variable"])
+            label = labels.get(key, condition["variable"])
+            statistic = condition["statistic"]
+            if statistic != "value":
+                label += f"（{'相隔' if statistic == 'rate' else '滚动'} {condition['window_steps']} 个采样步的{statistics[statistic]}）"
+            unit = sample["computed_unit"]
+            threshold = "历史参考边界" if series.assessment.method == "historical_screening" else "阈值"
+            detail = f"{label}{operators[condition['operator']]}{threshold} {number(condition['threshold'])} {unit}"
+            values = [v for v in sample.get("values", []) if v is not None and np.isfinite(v)]
+            if values:
+                low = condition["operator"] in {"lt", "le"}
+                extreme = min(values) if low else max(values)
+                basis = "已知未来输入" if sample.get("input_source") == "provided_future" else bases[evidence["basis"]]
+                detail += f"；本次{basis}计算{'最小值' if low else '最大值'} {number(extreme)} {unit}"
+                if len(values) != len(sample["values"]):
+                    detail += "（仅统计有效时段，部分时段依据缺失）"
+            else:
+                detail += "；缺少有效计算值"
+            details.append(detail)
+        text = f"{evidence['label']}：{states.get(evidence['status'], '尚未评估')}。"
+        if len(details) > 1:
+            text += "需同时满足以下条件：" if evidence["combine"] == "all" else "满足以下任一条件："
+        text += "；".join(details) + "。"
+        if evidence.get("duration_minutes"):
+            text += f"触发还需条件连续满足 {evidence['duration_minutes']} 分钟。"
+        yield text
+        for window in evidence.get("intervals", []):
+            yield (f"触发时段：{local_time(window['start'])} 至 {local_time(window['end'])}（北京时间）；"
+                   f"达到持续条件的时刻：{local_time(window['detected_at'])}（北京时间）。")
+
+
 def render_report(result: ForecastResult, directory: Path):
     """Analysis first; raw points and provenance remain in downloadable CSV/JSON."""
     from reportlab.lib import colors
@@ -219,7 +262,6 @@ def render_report(result: ForecastResult, directory: Path):
     from reportlab.pdfbase.cidfonts import UnicodeCIDFont
     from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image, Table, TableStyle, PageBreak
     from .warning.insights import facts as insights, periods, retrospective, risk_status
-    from .warning.presentation import facts as warning_facts
 
     directory.mkdir(parents=True, exist_ok=True)
     with _render_lock:
@@ -245,7 +287,9 @@ def render_report(result: ForecastResult, directory: Path):
         from .result_view import title as result_title
         title = result_title(result, report=True)
         story = [Paragraph(pdf_text(title), styles["Title"])]
-        html = [f"<header><div class='eyebrow'>科学预测智能体 · 分析报告</div><h1>{escape(title)}</h1></header>"]
+        html = [f"<header><h1>{escape(title)}</h1></header>"]
+        labels = {(s.case_id, s.variable): (s.label if len(result.series) > 1 else s.label.rsplit("·", 1)[-1].strip())
+                  for s in result.series}
         location_files, limits = [], ["时间为北京时间（UTC+8）；回放检验使用事后观测，不参与预测。q10–q90 为未经校准的模型分位数范围。"]
 
         def paragraph(text, kind="body"):
@@ -269,7 +313,6 @@ def render_report(result: ForecastResult, directory: Path):
                      or index == 0 and not any(k.startswith("series_") for k in n.fact_ids)]
             if not notes:
                 return False
-            heading(section.title)
             for note in notes:
                 text = note_text(note, analysis.facts)
                 paragraph(text)
@@ -279,7 +322,7 @@ def render_report(result: ForecastResult, directory: Path):
                     paragraph("分析依据：一般领域知识，需结合具体对象核实。", "meta")
                 for key in note.fact_ids:
                     if (key not in cited_facts and analysis.facts[key] not in text and key.startswith(f"series_{index}.")
-                            and not key.endswith(("limitations", "probability"))):
+                            and not key.endswith(("limitations", "probability")) and ".rule_" not in key):
                         paragraph(analysis.facts[key], "meta")
                         cited_facts.add(key)
                 for key in note.context_ids:
@@ -330,28 +373,9 @@ def render_report(result: ForecastResult, directory: Path):
                                 + "".join(f"<p>{escape(t)}</p>" for t in details) + "</div></div>")
                     paragraph("底图：阿里云 DataV GeoAtlas。标点为数据配置位置，仅作位置示意；指标代表对应观测序列。", "meta")
             own = insights(series)
+            heading("主要结论")
             if not narrative("overview", i):
-                heading("主要结论")
                 paragraph(own["outlook"], "lead")
-            heading("风险分析与预警判定")
-            html.append(f"<div class='assessment {status}'>")
-            if a and a.status != "not_assessed":
-                paragraph(f"评估对象：{a.area}；" + ("方法：历史异常筛查。" if a.method == "historical_screening" else f"关注类型：{a.hazard_type}。"), "meta")
-            paragraph(risk_status(series), "lead")
-            if a and a.level:
-                paragraph(f"{'历史异常关注等级' if a.method == 'historical_screening' else '登记规则研究分级'}：{a.level}")
-            html.append("</div>")
-            narrative("impacts", i)
-            for key, value in warning_facts(series).items():
-                if key.startswith("rule_"):
-                    paragraph(value)
-            validation = retrospective(series)
-            if validation:
-                heading("历史回放验证（事后实测）")
-                paragraph(validation, "validation")
-                paragraph(result.facts.get(f"series_{i}.evaluation", ""), "meta")
-            else:
-                paragraph("结果验证：" + result.facts.get(f"series_{i}.evaluation", "没有可用的历史验证结果。"), "meta")
             heading("数据走势与关键时段")
             for key in ("profile", "focus"):
                 if f"series_{i}.{key}" not in cited_facts:
@@ -359,8 +383,9 @@ def render_report(result: ForecastResult, directory: Path):
                     cited_facts.add(f"series_{i}.{key}")
             chart = Image(str(directory / figures[i][0]))
             image_width, image_height = chart.imageWidth, chart.imageHeight
-            chart.drawWidth = 486
-            chart.drawHeight = 486 * image_height / image_width
+            chart.drawWidth = 450
+            chart.drawHeight = 450 * image_height / image_width
+            chart.hAlign = "LEFT"
             story.append(chart)
             html.append(f"<img src='{figures[i][0]}' alt='{escape(area)}指标预测与观测对照图'>")
             heading("主要依据与关注时段")
@@ -384,8 +409,22 @@ def render_report(result: ForecastResult, directory: Path):
                     paragraph(finding["text"])
             if analysis and analysis.source == "llm":
                 narrative("evidence", i)
+            heading("风险分析与预警判定")
+            html.append(f"<div class='assessment {status}'>")
+            paragraph(risk_status(series), "lead")
+            if a and a.level:
+                paragraph(f"{'历史异常关注等级' if a.method == 'historical_screening' else '登记规则研究分级'}：{a.level}")
+            html.append("</div>")
+            for text in _report_rule_lines(series, labels):
+                paragraph(text)
+            narrative("impacts", i)
+            validation = retrospective(series)
+            if validation:
+                heading("历史回放验证（事后实测）")
+                paragraph(validation, "validation")
+                paragraph(result.facts.get(f"series_{i}.evaluation", ""), "meta")
+            heading("后续关注建议")
             if not (analysis and analysis.source == "llm" and narrative("recommendations", i)):
-                heading("后续关注建议")
                 paragraph(own["followup"])
             heading("数据与方法简述")
             for name, quality in series.quality.items():

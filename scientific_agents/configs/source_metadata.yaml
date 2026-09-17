@@ -5,7 +5,7 @@ sources:
   kind: local_csv
   version: v1
   local:
-    directory: /data/flow-deepagent/science agent-v2/scientific_agents/datasets/jiangjia_2025/v1
+    directory: /home/cnic/piflow/piflow/scientific_agents/datasets/jiangjia_2025
   license: NCDC login-access; attribution and acknowledgment required by supplied documents; no SPDX license supplied
   citation: 宋东日,钟卫,黎晓宇,魏丽. 云南东川蒋家沟及小江流域雨量观测数据（2025年）. 国家冰川冻土沙漠科学数据中心(http://www.ncdc.ac.cn), 2026. https://www.doi.org/10.12072/ncdc.ddfors.db7463.2026.
     | 宋东日,钟卫,黎晓宇,魏丽. 云南东川蒋家沟及小江流域气象监测数据（2025年）. 国家冰川冻土沙漠科学数据中心(http://www.ncdc.ac.cn), 2026. https://www.doi.org/10.12072/ncdc.ddfors.db7464.2026.
@@ -582,7 +582,7 @@ sources:
     register_all_variables: true
     case_prefix: campbell_b001
     bridge_delayed_observations: true
-    directory: /data/flow-deepagent/science agent-v4/scientific_agents/datasets/ST001-CAMPBELL-B001
+    directory: /mnt/corpus/corpus/ST001-CAMPBELL-B001
     scan_interval_seconds: 60
     # 并发扫描时等待本地缓存数据库锁的上限。
     timeout_seconds: 20
@@ -652,10 +652,9 @@ scenarios:
   mode: current
   frequency_minutes: 30
   context_steps: 336
-  horizons_hours: [24, 48, 72]
   # 预测跨度不足24小时：允许前6小时；24小时及以上：允许前48小时。
   # max_data_age_minutes 非空时作为固定上限，优先于以下两项。
-  max_data_age_minutes: null
+  max_data_age_minutes: 4320
   hourly_max_data_age_minutes: 360
   daily_max_data_age_minutes: 2880
   # 单位和累计口径未获数据方确认前，不自动套用毫米降雨风险阈值。
@@ -673,10 +672,6 @@ scenarios:
   mode: historical_replay
   frequency_minutes: 60
   context_steps: 168
-  horizons_hours:
-  - 24
-  - 48
-  - 72
   rules: []
 - case_id: jjg2025_xiaxincun
   default_replay_origin: '2025-07-17T16:00:00+00:00'
@@ -690,10 +685,6 @@ scenarios:
   mode: historical_replay
   frequency_minutes: 60
   context_steps: 168
-  horizons_hours:
-  - 24
-  - 48
-  - 72
   rules: []
 - case_id: jjg2025_mayiping
   default_replay_origin: '2025-06-15T19:00:00+00:00'
@@ -707,10 +698,6 @@ scenarios:
   mode: historical_replay
   frequency_minutes: 60
   context_steps: 168
-  horizons_hours:
-  - 24
-  - 48
-  - 72
   rules: []
 - case_id: jjg2025_wangjiayakou
   default_replay_origin: '2025-07-17T16:00:00+00:00'
@@ -724,10 +711,6 @@ scenarios:
   mode: historical_replay
   frequency_minutes: 60
   context_steps: 168
-  horizons_hours:
-  - 24
-  - 48
-  - 72
   rules: []
 - case_id: jjg2025_xiaojianfeng
   default_replay_origin: '2025-07-17T16:00:00+00:00'
@@ -741,10 +724,6 @@ scenarios:
   mode: historical_replay
   frequency_minutes: 60
   context_steps: 168
-  horizons_hours:
-  - 24
-  - 48
-  - 72
   rules: []
 - case_id: jjg2025_lijiayakou
   default_replay_origin: '2025-07-17T16:00:00+00:00'
@@ -758,10 +737,6 @@ scenarios:
   mode: historical_replay
   frequency_minutes: 60
   context_steps: 168
-  horizons_hours:
-  - 24
-  - 48
-  - 72
   rules: []
 - case_id: jjg2025_huikou
   default_replay_origin: '2025-07-17T16:00:00+00:00'
@@ -775,10 +750,6 @@ scenarios:
   mode: historical_replay
   frequency_minutes: 60
   context_steps: 168
-  horizons_hours:
-  - 24
-  - 48
-  - 72
   rules: []
 - case_id: jjg2025_yiziwa
   default_replay_origin: '2025-07-17T16:00:00+00:00'
@@ -792,10 +763,6 @@ scenarios:
   mode: historical_replay
   frequency_minutes: 60
   context_steps: 168
-  horizons_hours:
-  - 24
-  - 48
-  - 72
   rules: []
 - case_id: jjg2025_wanfangzi
   default_replay_origin: '2025-07-17T16:00:00+00:00'
@@ -809,10 +776,6 @@ scenarios:
   mode: historical_replay
   frequency_minutes: 60
   context_steps: 168
-  horizons_hours:
-  - 24
-  - 48
-  - 72
   rules: []
 - case_id: jjg2025_songlingan
   default_replay_origin: '2025-07-17T16:00:00+00:00'
@@ -826,10 +789,6 @@ scenarios:
   mode: historical_replay
   frequency_minutes: 60
   context_steps: 168
-  horizons_hours:
-  - 24
-  - 48
-  - 72
   rules: []
 - case_id: jjg2025_xiaojianghuikou
   default_replay_origin: '2025-07-17T16:00:00+00:00'
@@ -843,10 +802,6 @@ scenarios:
   mode: historical_replay
   frequency_minutes: 60
   context_steps: 168
-  horizons_hours:
-  - 24
-  - 48
-  - 72
   rules: []
 - case_id: jjg2025_dongchuangang
   default_replay_origin: '2025-07-17T16:00:00+00:00'
@@ -860,10 +815,6 @@ scenarios:
   mode: historical_replay
   frequency_minutes: 60
   context_steps: 168
-  horizons_hours:
-  - 24
-  - 48
-  - 72
   rules: []
 - case_id: jjg2025_danaobao
   default_replay_origin: '2025-09-07T16:00:00+00:00'
@@ -877,10 +828,6 @@ scenarios:
   mode: historical_replay
   frequency_minutes: 60
   context_steps: 168
-  horizons_hours:
-  - 24
-  - 48
-  - 72
   rules: []
 - case_id: jjg2025_jilongwa
   default_replay_origin: '2025-07-17T16:00:00+00:00'
@@ -894,10 +841,6 @@ scenarios:
   mode: historical_replay
   frequency_minutes: 60
   context_steps: 168
-  horizons_hours:
-  - 24
-  - 48
-  - 72
   rules: []
 - case_id: jjg2025_dashan
   default_replay_origin: '2025-07-17T16:00:00+00:00'
@@ -911,10 +854,6 @@ scenarios:
   mode: historical_replay
   frequency_minutes: 60
   context_steps: 168
-  horizons_hours:
-  - 24
-  - 48
-  - 72
   rules: []
 - case_id: jjg2025_sanjiacun
   default_replay_origin: '2025-07-17T16:00:00+00:00'
@@ -928,10 +867,6 @@ scenarios:
   mode: historical_replay
   frequency_minutes: 60
   context_steps: 168
-  horizons_hours:
-  - 24
-  - 48
-  - 72
   rules: []
 - case_id: jjg2025_shangpingzi
   default_replay_origin: '2025-04-02T06:00:00+00:00'
@@ -945,10 +880,6 @@ scenarios:
   mode: historical_replay
   frequency_minutes: 60
   context_steps: 168
-  horizons_hours:
-  - 24
-  - 48
-  - 72
   rules: []
 - case_id: jjg2025_zhongliangzi
   default_replay_origin: '2025-07-17T16:00:00+00:00'
@@ -962,10 +893,6 @@ scenarios:
   mode: historical_replay
   frequency_minutes: 60
   context_steps: 168
-  horizons_hours:
-  - 24
-  - 48
-  - 72
   rules: []
 - case_id: jjg2025_d3_p1_10cm
   default_replay_origin: '2025-06-12T14:00:00+00:00'
@@ -979,10 +906,6 @@ scenarios:
   mode: historical_replay
   frequency_minutes: 60
   context_steps: 168
-  horizons_hours:
-  - 24
-  - 48
-  - 72
   rules: []
 - case_id: jjg2025_d3_p1_20cm
   default_replay_origin: '2025-06-12T14:00:00+00:00'
@@ -996,10 +919,6 @@ scenarios:
   mode: historical_replay
   frequency_minutes: 60
   context_steps: 168
-  horizons_hours:
-  - 24
-  - 48
-  - 72
   rules: []
 - case_id: jjg2025_d3_p1_30cm
   default_replay_origin: '2025-06-12T14:00:00+00:00'
@@ -1013,10 +932,6 @@ scenarios:
   mode: historical_replay
   frequency_minutes: 60
   context_steps: 168
-  horizons_hours:
-  - 24
-  - 48
-  - 72
   rules: []
 - case_id: jjg2025_d3_p2_10cm
   default_replay_origin: '2025-06-12T14:00:00+00:00'
@@ -1030,10 +945,6 @@ scenarios:
   mode: historical_replay
   frequency_minutes: 60
   context_steps: 168
-  horizons_hours:
-  - 24
-  - 48
-  - 72
   rules: []
 - case_id: jjg2025_d3_p2_20cm
   default_replay_origin: '2025-06-12T14:00:00+00:00'
@@ -1047,10 +958,6 @@ scenarios:
   mode: historical_replay
   frequency_minutes: 60
   context_steps: 168
-  horizons_hours:
-  - 24
-  - 48
-  - 72
   rules: []
 - case_id: jjg2025_d3_p2_30cm
   default_replay_origin: '2025-06-12T14:00:00+00:00'
@@ -1064,10 +971,6 @@ scenarios:
   mode: historical_replay
   frequency_minutes: 60
   context_steps: 168
-  horizons_hours:
-  - 24
-  - 48
-  - 72
   rules: []
 - case_id: jjg2025_d3_p3_10cm
   default_replay_origin: '2025-06-04T10:00:00+00:00'
@@ -1081,10 +984,6 @@ scenarios:
   mode: historical_replay
   frequency_minutes: 60
   context_steps: 168
-  horizons_hours:
-  - 24
-  - 48
-  - 72
   rules: []
 - case_id: jjg2025_d3_p3_20cm
   default_replay_origin: '2025-05-19T14:00:00+00:00'
@@ -1098,10 +997,6 @@ scenarios:
   mode: historical_replay
   frequency_minutes: 60
   context_steps: 168
-  horizons_hours:
-  - 24
-  - 48
-  - 72
   rules: []
 - case_id: jjg2025_d3_p3_30cm
   default_replay_origin: '2025-05-19T13:00:00+00:00'
@@ -1115,8 +1010,4 @@ scenarios:
   mode: historical_replay
   frequency_minutes: 60
   context_steps: 168
-  horizons_hours:
-  - 24
-  - 48
-  - 72
   rules: []
