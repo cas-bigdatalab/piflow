@@ -1241,7 +1241,7 @@ def test_list_dataset_details_limits_sources_to_enabled_connectors_once(monkeypa
             "node-b": {"name": "node-b", "enabled": False, "status": None},
         }
 
-    def fake_fetch_dataset_page(*, page_num, page_size, filters):
+    def fake_fetch_dataset_page(*, page_num, page_size, filters=None):
         seen["dataset_calls"] += 1
         seen["filters"] = filters
         return {"code": 200, "data": {"content": [], "total": 0}}
@@ -1271,7 +1271,7 @@ def test_list_dataset_details_intersects_requested_sources_with_enabled_connecto
         },
     )
 
-    def fake_fetch_dataset_page(*, page_num, page_size, filters):
+    def fake_fetch_dataset_page(*, page_num, page_size, filters=None):
         seen["filters"] = filters
         return {"code": 200, "data": {"content": [], "total": 0}}
 
@@ -1284,6 +1284,48 @@ def test_list_dataset_details_intersects_requested_sources_with_enabled_connecto
     )
 
     assert seen["filters"] == {"sources": ["node-c"]}
+
+
+def test_list_dataset_details_converts_source_to_sources(monkeypatch):
+    seen = {}
+    monkeypatch.setattr(
+        corpus_connector_service,
+        "_fetch_all_connector_details",
+        lambda: {"node-a": {"name": "node-a", "enabled": True, "status": None}},
+    )
+
+    def fake_fetch_dataset_page(*, page_num, page_size, filters=None):
+        seen["filters"] = filters
+        return {"code": 200, "data": {"content": [], "total": 0}}
+
+    monkeypatch.setattr(corpus_connector_service, "_fetch_dataset_page", fake_fetch_dataset_page)
+
+    list_dataset_details(page_num=1, page_size=10, filters={"source": " node-a "})
+
+    assert seen["filters"] == {"sources": ["node-a"]}
+
+
+def test_list_dataset_details_prefers_sources_over_source(monkeypatch):
+    seen = {}
+    monkeypatch.setattr(
+        corpus_connector_service,
+        "_fetch_all_connector_details",
+        lambda: {"node-a": {"name": "node-a", "enabled": True, "status": None}},
+    )
+
+    def fake_fetch_dataset_page(*, page_num, page_size, filters=None):
+        seen["filters"] = filters
+        return {"code": 200, "data": {"content": [], "total": 0}}
+
+    monkeypatch.setattr(corpus_connector_service, "_fetch_dataset_page", fake_fetch_dataset_page)
+
+    list_dataset_details(
+        page_num=1,
+        page_size=10,
+        filters={"source": "node-a", "sources": ["node-b"]},
+    )
+
+    assert seen["filters"] == {"sources": ["node-b"]}
 
 
 def test_list_dataset_details_returns_empty_without_upstream_request_for_empty_sources_intersection(monkeypatch):
@@ -1315,7 +1357,7 @@ def test_list_dataset_details_keeps_sources_unchanged_when_all_connectors_enable
         lambda: {"node-a": {"name": "node-a", "enabled": True, "status": None}},
     )
 
-    def fake_fetch_dataset_page(*, page_num, page_size, filters):
+    def fake_fetch_dataset_page(*, page_num, page_size, filters=None):
         seen["filters"] = filters
         return {"code": 200, "data": {"content": [], "total": 0}}
 

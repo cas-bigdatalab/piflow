@@ -201,7 +201,7 @@ def list_dataset_details(
     connector_snapshot = _fetch_all_connector_details()
     visible_total = _get_enabled_dataset_total(connector_snapshot)
     effective_filters = _apply_enabled_connector_sources(
-        filters,
+        _normalize_dataset_source_filter(filters),
         connector_snapshot=connector_snapshot,
     )
     if effective_filters is None:
@@ -1509,6 +1509,27 @@ def _apply_enabled_connector_sources(
     if not selected_sources:
         return None
     normalized_filters["sources"] = sorted(selected_sources)
+    return normalized_filters
+
+
+def _normalize_dataset_source_filter(filters: dict[str, Any] | None) -> dict[str, Any]:
+    """Use the multi-value ``sources`` filter for legacy single ``source`` input."""
+    normalized_filters = dict(filters or {})
+    sources = normalized_filters.pop("sources", None)
+    source = str(normalized_filters.pop("source", "") or "").strip()
+
+    if isinstance(sources, (list, tuple, set)):
+        normalized_sources = [str(item).strip() for item in sources if str(item).strip()]
+        if normalized_sources:
+            normalized_filters["sources"] = normalized_sources
+        return normalized_filters
+
+    if sources is not None and str(sources).strip():
+        normalized_filters["sources"] = [str(sources).strip()]
+        return normalized_filters
+
+    if source:
+        normalized_filters["sources"] = [source]
     return normalized_filters
 
 
