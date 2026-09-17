@@ -42,7 +42,7 @@ corpus_route:
   # 仅限制 cross_dag 注册的数据集目录；修改后重启后端生效。
   cross_dag_dataset_filters:
     # 留空不过滤；多个来源写成 ["来源名称A", "来源名称B"]，通过 sources 数组过滤，分页结果去重。
-    source: ["中国科学院文献情报中心"]
+    source: ["科研语料库"]
 
 rustfs_admin:
   base_url: "http://10.0.85.201:9001"
