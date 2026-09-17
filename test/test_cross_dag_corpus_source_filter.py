@@ -98,3 +98,78 @@ def test_registered_catalog_refresh_preserves_filter_and_connector_request(monke
     assert [d.dataset_id for d in registry.list_datasets()] == ["dataset-2"]
     assert post_calls == [{"sources": ["Node A"]}] * 2
     assert get_calls == ["http://corpus.example/dataset.connector.page?pageNum=1&pageSize=100"] * 2
+
+
+@pytest.fixture
+def catalog(monkeypatch, configure):
+    configure(["Node A", "Node B"])
+    connectors = [
+        {"connectorId": "node-a", "name": "Node A", "serviceUrl": "http://shared:7005"},
+        {"connectorId": "node-b", "name": "Node B", "serviceUrl": "http://shared:7005"},
+    ]
+    datasets = [
+        {"id": "dataset-a", "source": " Node A "},
+        {"id": "dataset-b", "source": "Node B"},
+    ]
+    monkeypatch.setattr(corpus_registry, "_get_json", lambda url: {"data": connectors})
+    monkeypatch.setattr(corpus_registry, "_post_json", lambda url, body: {"data": datasets})
+    registry = corpus_registry.build_corpus_registry(
+        base_url="http://corpus.example", fetch_metrics=False, facet_fields=[])
+    return registry, connectors, datasets
+
+
+def test_source_name_resolves_multiple_connectors_sharing_one_host(catalog):
+    registry, connectors, raw_datasets = catalog
+    connectors[0]["name"] = " Node A "
+    datasets = registry.list_datasets()
+    assert [d.dataset_id for d in datasets] == ["dataset-a", "dataset-b"]
+    for dataset, connector in zip(datasets, connectors):
+        assert connector["connectorId"] in dataset.tags
+        assert dataset.replicas[0].source_ip == "shared"
+        assert dataset.replicas[0].locator == dataset.dataset_id
+        assert dataset.replicas[0].status == "AVAILABLE"
+    assert all("connectorId" not in raw for raw in raw_datasets)
+
+
+@pytest.mark.parametrize("source,count", [("Unknown", 0), ("Node", 0), ("Node A", 2)])
+def test_source_name_requires_unique_exact_match(catalog, caplog, source, count):
+    registry, connectors, datasets = catalog
+    if count == 2:
+        connectors[1]["name"] = "Node A"
+    datasets[:] = [{"id": "dataset", "source": source}]
+    assert registry.list_datasets() == []
+    assert f"匹配到 {count} 个连接器" in caplog.text
+
+
+def test_explicit_connector_references_take_precedence_over_source_name(catalog):
+    registry, connectors, datasets = catalog
+    connectors[0]["serviceUrl"] = "http://host-a:7005"
+    datasets[:] = [{"id": "dataset", "source": "Unknown", "connectorId": ["node-a", "node-b"]}]
+    dataset = registry.list_datasets()[0]
+    assert [r.source_ip for r in dataset.replicas] == ["host-a", "shared"]
+    assert [r.replica_id for r in dataset.replicas] == ["dataset@node-a", "dataset@node-b"]
+
+
+def test_source_name_index_is_rebuilt_on_refresh(catalog, caplog):
+    registry, connectors, datasets = catalog
+    assert len(registry.list_datasets()) == 2
+    connectors[:] = [{"connectorId": "new-a", "name": "Node A", "serviceUrl": "http://new-host:7005"}]
+    registry.refresh()
+    result = registry.list_datasets()
+    assert [d.dataset_id for d in result] == ["dataset-a"]
+    assert result[0].replicas[0].source_ip == "new-host"
+    assert "new-a" in result[0].tags
+    assert "匹配到 0 个连接器" in caplog.text
+
+
+def test_source_name_does_not_route_disabled_connector_as_available(catalog):
+    registry, connectors, datasets = catalog
+    connectors[0]["enabled"] = False
+    assert registry.list_datasets()[0].replicas[0].status == "DISABLED"
+
+
+def test_source_name_without_execution_location_is_skipped(catalog, caplog):
+    registry, connectors, datasets = catalog
+    connectors[0].pop("serviceUrl")
+    assert [d.dataset_id for d in registry.list_datasets()] == ["dataset-b"]
+    assert "没有可用执行位置" in caplog.text
