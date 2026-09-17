@@ -3,7 +3,10 @@ from __future__ import annotations
 import io
 import tarfile
 
-from services import corpus_connector_service as corpus_connector_service
+import pytest
+
+from services import corpus_connector_service
+
 from services.corpus_connector_service import (
     build_rustfs_mount_info,
     create_rustfs_temporary_credentials,
@@ -11,7 +14,6 @@ from services.corpus_connector_service import (
     delete_corpus_connector,
     disable_corpus_connector,
     get_dataset_detail,
-    get_dataset_detail_by_cstr,
     get_dataset_file_jsonl,
     get_corpus_connector_detail,
     get_corpus_connector_tree,
@@ -22,7 +24,6 @@ from services.corpus_connector_service import (
     update_corpus_connector,
     list_connector_details_with_resources,
     list_dataset_details,
-    list_dataset_details_v2,
     list_connector_resources,
 )
 
@@ -37,6 +38,31 @@ class _FakeResponse:
 
     def json(self):
         return self._payload
+
+
+@pytest.mark.parametrize("data,error", [(None, "detail is empty"), ({}, "detail is empty"), ([], "must be an object")])
+def test_detail_endpoint_rejects_empty_or_invalid_data(monkeypatch, data, error):
+    monkeypatch.setattr(corpus_connector_service, "get_settings", lambda: type("Settings", (), {
+        "corpus_route": type("Route", (), {"base_url": "http://corpus.example"})()})())
+    def get(url, params, timeout):
+        assert url == "http://corpus.example/dataset.queryDataset"
+        assert params == {"id": "dataset-id"}
+        return _FakeResponse({"code": 200, "data": data})
+    monkeypatch.setattr(corpus_connector_service.requests, "get", get)
+    with pytest.raises(ValueError, match=error):
+        corpus_connector_service._fetch_dataset_detail("dataset-id")
+
+
+@pytest.mark.parametrize("files", [[], [{"fileName": "a b.tar"}]])
+def test_file_list_uses_current_endpoint_and_encodes_download_path(monkeypatch, files):
+    monkeypatch.setattr(corpus_connector_service, "get_settings", lambda: type("Settings", (), {
+        "corpus_route": type("Route", (), {"base_url": "http://corpus.example"})()})())
+    def get(url, timeout):
+        assert url == "http://corpus.example/dataset.files?cstr=CODE%2FA"
+        return _FakeResponse({"code": 200, "data": files})
+    monkeypatch.setattr(corpus_connector_service.requests, "get", get)
+    result = corpus_connector_service._fetch_dataset_file_urls("CODE/A")
+    assert result == ([{"fileName": "a b.tar", "downloadUrl": "http://corpus.example/dataset.file.download/CODE%2FA/a%20b.tar"}] if files else [])
 
 
 def test_create_rustfs_temporary_credentials_signs_and_returns_credentials(monkeypatch):
@@ -216,30 +242,6 @@ class _FailingRemoteExecutionClient:
         type(self).closed = True
 
 
-def _fake_dataset_resolve_remote_resource(connector, *, grpc_port):
-    connector_id = str(connector.get("connectorId", "") or "").strip()
-    latency_map = {
-        "DS-NODE-1": 20.0,
-        "DS-NODE-2": 10.0,
-        "DS-NODE-3": 30.0,
-    }
-    if connector_id not in latency_map:
-        return "", {
-            "cpu_cores": None,
-            "memory_gb": None,
-            "free_disk_gb": None,
-            "hostname": None,
-            "latency_ms": None,
-        }
-    return f"{connector_id.lower()}:50061", {
-        "cpu_cores": 8.0,
-        "memory_gb": 16.0,
-        "free_disk_gb": 128.0,
-        "hostname": connector_id.lower(),
-        "latency_ms": latency_map[connector_id],
-    }
-
-
 def test_get_dataset_file_jsonl_downloads_and_parses_jsonl(monkeypatch):
     seen_urls = []
 
@@ -252,13 +254,15 @@ def test_get_dataset_file_jsonl_downloads_and_parses_jsonl(monkeypatch):
 
     def fake_get(url, params=None, timeout=None):
         seen_urls.append(url)
-        if url.endswith("/dataset/downloadDatasetFileUrls/ES-CORPUS-B138"):
+        if url.endswith("/dataset.files?cstr=ES-CORPUS-B138"):
             return _FakeResponse(
                 {
                     "code": 200,
                     "data": [
                         {
-                            "downloadUrls": ["http://10.0.82.213:7004/files/sample.jsonl"],
+                            "fileName": "sample.jsonl",
+                            "downloadUrl": None,
+                            "url": "http://10.0.82.213:7004/files/sample.jsonl",
                             "name": "连接器节点1",
                         }
                     ],
@@ -279,7 +283,7 @@ def test_get_dataset_file_jsonl_downloads_and_parses_jsonl(monkeypatch):
     assert result["fileName"] == "sample.jsonl"
     assert result["json"] == [{"id": 1}, {"id": 2}]
     assert seen_urls == [
-        "http://10.0.82.213:7003/dataset/downloadDatasetFileUrls/ES-CORPUS-B138",
+        "http://10.0.82.213:7003/dataset.files?cstr=ES-CORPUS-B138",
         "http://10.0.82.213:7004/files/sample.jsonl",
     ]
 
@@ -298,7 +302,7 @@ def test_get_dataset_file_jsonl_parses_jsonl_from_tar(monkeypatch):
             super().__init__(archive_bytes)
 
     def fake_get(url, params=None, timeout=None):
-        if url.endswith("/dataset/downloadDatasetFileUrls/ES-CORPUS-F018"):
+        if url.endswith("/dataset.files?cstr=ES-CORPUS-F018"):
             return _FakeResponse(
                 {
                     "code": 200,
@@ -764,16 +768,14 @@ def test_list_dataset_details_returns_dataset_page(monkeypatch):
                     "id": "dataset-1",
                     "title": "dataset title",
                     "cstr": "ES-CORPUS-B138",
-                    "source": "连接器节点1",
-                    "fromList": [{"connectorId": "DS-NODE-1", "name": "连接器节点1"}],
+                    "fromList": ["DS-NODE-1"],
                 },
                 {
                     "id": "dataset-2",
                     "title": "disabled dataset",
                     "cstr": "ES-CORPUS-B139",
-                    "source": "连接器节点2",
-                    "fromList": [{"connectorId": "DS-NODE-2", "name": "连接器节点2"}],
-                },
+                    "fromList": ["DS-NODE-2"],
+                }
             ],
             "total": 2,
             "pageNum": 1,
@@ -789,16 +791,18 @@ def test_list_dataset_details_returns_dataset_page(monkeypatch):
                     "connectorId": "DS-NODE-1",
                     "name": "连接器节点1",
                     "institutionName": "中国地震台网中心",
-                    "status": 1,
+                    "enabled": True,
                     "sync": "2026-08-07 11:52",
+                    "recommended": True,
                 },
                 {
                     "connectorId": "DS-NODE-2",
                     "name": "连接器节点2",
                     "organization": "不可用机构",
-                    "status": 0,
+                    "enabled": False,
                     "sync": "2026-08-08 09:15",
-                },
+                    "recommended": False,
+                }
             ],
             "total": 2,
             "pageNum": 1,
@@ -807,26 +811,20 @@ def test_list_dataset_details_returns_dataset_page(monkeypatch):
     }
 
     def fake_get(url, params, timeout):
+        if url.endswith("/dataset/page"):
+            return _FakeResponse(dataset_payload)
         if url.endswith("/dataset.connector.page"):
             return _FakeResponse(connector_payload)
-        raise AssertionError(f"unexpected url: {url}")
-
-    def fake_post(url, params, json, timeout):
-        if url.endswith("/dataset.page"):
-            return _FakeResponse(dataset_payload)
         raise AssertionError(f"unexpected url: {url}")
 
     monkeypatch.setattr(
         "services.corpus_connector_service.get_settings",
         lambda: type("Settings", (), {"corpus_route": type("CorpusRoute", (), {"base_url": "http://10.0.82.213:7003"})()})(),
     )
-    monkeypatch.setattr("services.corpus_connector_service.requests.get", fake_get)
-    monkeypatch.setattr("services.corpus_connector_service.requests.post", fake_post)
     monkeypatch.setattr(
-        "services.corpus_connector_service._resolve_remote_resource",
-        _fake_dataset_resolve_remote_resource,
+        "services.corpus_connector_service.requests.get",
+        fake_get,
     )
-    monkeypatch.setattr(corpus_connector_service, "_get_enabled_dataset_total", lambda snapshot: 2)
 
     result = list_dataset_details(page_num=1, page_size=10)
 
@@ -835,30 +833,29 @@ def test_list_dataset_details_returns_dataset_page(monkeypatch):
     assert result["items"][0]["id"] == "dataset-1"
     assert result["items"][0]["connectorId"] == "DS-NODE-1"
     assert result["items"][0]["title"] == "dataset title"
-    assert result["items"][0]["name"] == "连接器节点1"
+    assert result["items"][0]["name"] == "中国地震台网中心"
     assert result["items"][0]["replicaCount"] == 1
     assert result["items"][0]["connectors"] == [
         {
             "connectorId": "DS-NODE-1",
             "fromName": "连接器节点1",
             "connectorOrganization": "中国地震台网中心",
-            "name": "连接器节点1",
+            "name": "中国地震台网中心",
             "status": "可用",
             "sync": "2026-08-07 11:52",
             "recommended": True,
-            "latency_ms": 20.0,
         }
     ]
+    assert result["items"][1]["id"] == "dataset-2"
     assert result["items"][1]["connectors"] == [
         {
             "connectorId": "DS-NODE-2",
             "fromName": "连接器节点2",
             "connectorOrganization": "不可用机构",
-            "name": "连接器节点2",
+            "name": "不可用机构",
             "status": "不可用",
             "sync": "2026-08-08 09:15",
-            "recommended": True,
-            "latency_ms": 10.0,
+            "recommended": False,
         }
     ]
 
@@ -872,8 +869,7 @@ def test_list_dataset_details_uses_top_level_total_when_data_is_a_list(monkeypat
                 "id": f"dataset-{index}",
                 "title": f"dataset title {index}",
                 "cstr": f"ES-CORPUS-{index:03d}",
-                "source": f"连接器节点{index}",
-                "fromList": [{"name": f"连接器节点{index}"}],
+                "fromList": [],
             }
             for index in range(10)
         ],
@@ -883,7 +879,7 @@ def test_list_dataset_details_uses_top_level_total_when_data_is_a_list(monkeypat
     }
 
     def fake_post(url, params, json, timeout):
-        assert url.endswith("/dataset.page")
+        assert url.endswith("/dataset/page")
         assert params == {"pageNum": 1, "pageSize": 10}
         return _FakeResponse(dataset_payload)
 
@@ -902,8 +898,6 @@ def test_list_dataset_details_uses_top_level_total_when_data_is_a_list(monkeypat
         )(),
     )
     monkeypatch.setattr("services.corpus_connector_service.requests.post", fake_post)
-    monkeypatch.setattr(corpus_connector_service, "_fetch_all_connector_details", lambda: {})
-    monkeypatch.setattr(corpus_connector_service, "_get_enabled_dataset_total", lambda snapshot: 18)
 
     result = list_dataset_details(page_num=1, page_size=10)
 
@@ -921,11 +915,7 @@ def test_list_dataset_details_returns_multiple_connectors(monkeypatch):
                     "id": "dataset-1",
                     "title": "dataset title",
                     "cstr": "ES-CORPUS-B138",
-                    "source": "连接器节点1",
-                    "fromList": [
-                        {"connectorId": "DS-NODE-1", "name": "连接器节点1"},
-                        {"connectorId": "DS-NODE-2", "name": "连接器节点2"},
-                    ],
+                    "fromList": ["DS-NODE-1", "DS-NODE-2"],
                 }
             ],
             "total": 1,
@@ -942,15 +932,17 @@ def test_list_dataset_details_returns_multiple_connectors(monkeypatch):
                     "connectorId": "DS-NODE-1",
                     "name": "连接器节点1",
                     "institutionName": "中国地震台网中心",
-                    "status": 1,
+                    "enabled": True,
                     "sync": "2026-08-07 11:52",
+                    "recommended": True,
                 },
                 {
                     "connectorId": "DS-NODE-2",
                     "name": "连接器节点2",
                     "institutionName": "国家地球系统科学数据中心",
-                    "status": 1,
+                    "enabled": True,
                     "sync": "2026-08-07 12:10",
+                    "recommended": False,
                 },
             ],
             "total": 2,
@@ -965,7 +957,7 @@ def test_list_dataset_details_returns_multiple_connectors(monkeypatch):
         raise AssertionError(f"unexpected url: {url}")
 
     def fake_post(url, params, json, timeout):
-        if url.endswith("/dataset.page"):
+        if url.endswith("/dataset/page"):
             return _FakeResponse(dataset_payload)
         raise AssertionError(f"unexpected url: {url}")
 
@@ -975,10 +967,6 @@ def test_list_dataset_details_returns_multiple_connectors(monkeypatch):
     )
     monkeypatch.setattr("services.corpus_connector_service.requests.get", fake_get)
     monkeypatch.setattr("services.corpus_connector_service.requests.post", fake_post)
-    monkeypatch.setattr(
-        "services.corpus_connector_service._resolve_remote_resource",
-        _fake_dataset_resolve_remote_resource,
-    )
 
     result = list_dataset_details(page_num=1, page_size=10)
 
@@ -992,27 +980,25 @@ def test_list_dataset_details_returns_multiple_connectors(monkeypatch):
             "connectorId": "DS-NODE-1",
             "fromName": "连接器节点1",
             "connectorOrganization": "中国地震台网中心",
-            "name": "连接器节点1",
+            "name": "中国地震台网中心",
             "status": "可用",
             "sync": "2026-08-07 11:52",
-            "recommended": False,
-            "latency_ms": 20.0,
+            "recommended": True,
         },
         {
             "connectorId": "DS-NODE-2",
             "fromName": "连接器节点2",
             "connectorOrganization": "国家地球系统科学数据中心",
-            "name": "连接器节点2",
+            "name": "国家地球系统科学数据中心",
             "status": "可用",
             "sync": "2026-08-07 12:10",
-            "recommended": True,
-            "latency_ms": 10.0,
+            "recommended": False,
         },
     ]
-    assert result["items"][0]["name"] == "连接器节点1"
+    assert result["items"][0]["name"] == "中国地震台网中心"
 
 
-def test_list_dataset_details_keeps_unavailable_connectors(monkeypatch):
+def test_list_dataset_details_filters_out_unavailable_connectors(monkeypatch):
     dataset_payload = {
         "code": 200,
         "message": "OK",
@@ -1022,11 +1008,7 @@ def test_list_dataset_details_keeps_unavailable_connectors(monkeypatch):
                     "id": "dataset-1",
                     "title": "dataset title",
                     "cstr": "ES-CORPUS-B138",
-                    "source": "连接器节点1",
-                    "fromList": [
-                        {"connectorId": "DS-NODE-1", "name": "连接器节点1"},
-                        {"connectorId": "DS-NODE-2", "name": "连接器节点2"},
-                    ],
+                    "fromList": ["DS-NODE-1", "DS-NODE-2"],
                 }
             ],
             "total": 1,
@@ -1043,15 +1025,17 @@ def test_list_dataset_details_keeps_unavailable_connectors(monkeypatch):
                     "connectorId": "DS-NODE-1",
                     "name": "连接器节点1",
                     "institutionName": "中国地震台网中心",
-                    "status": 1,
+                    "enabled": True,
                     "sync": "2026-08-07 11:52",
+                    "recommended": True,
                 },
                 {
                     "connectorId": "DS-NODE-2",
                     "name": "连接器节点2",
                     "institutionName": "不可用机构",
-                    "status": 0,
+                    "enabled": False,
                     "sync": "2026-08-08 09:15",
+                    "recommended": False,
                 },
             ],
             "total": 2,
@@ -1066,7 +1050,7 @@ def test_list_dataset_details_keeps_unavailable_connectors(monkeypatch):
         raise AssertionError(f"unexpected url: {url}")
 
     def fake_post(url, params, json, timeout):
-        if url.endswith("/dataset.page"):
+        if url.endswith("/dataset/page"):
             return _FakeResponse(dataset_payload)
         raise AssertionError(f"unexpected url: {url}")
 
@@ -1076,25 +1060,22 @@ def test_list_dataset_details_keeps_unavailable_connectors(monkeypatch):
     )
     monkeypatch.setattr("services.corpus_connector_service.requests.get", fake_get)
     monkeypatch.setattr("services.corpus_connector_service.requests.post", fake_post)
-    monkeypatch.setattr(
-        "services.corpus_connector_service._resolve_remote_resource",
-        _fake_dataset_resolve_remote_resource,
-    )
 
     result = list_dataset_details(page_num=1, page_size=10)
 
     assert len(result["items"]) == 1
-    assert result["items"][0]["replicaCount"] == 2
-    assert result["items"][0]["connectors"][1] == {
-        "connectorId": "DS-NODE-2",
-        "fromName": "连接器节点2",
-        "connectorOrganization": "不可用机构",
-        "name": "连接器节点2",
-        "status": "不可用",
-        "sync": "2026-08-08 09:15",
-        "recommended": True,
-        "latency_ms": 10.0,
-    }
+    assert result["items"][0]["replicaCount"] == 1
+    assert result["items"][0]["connectors"] == [
+        {
+            "connectorId": "DS-NODE-1",
+            "fromName": "连接器节点1",
+            "connectorOrganization": "中国地震台网中心",
+            "name": "中国地震台网中心",
+            "status": "可用",
+            "sync": "2026-08-07 11:52",
+            "recommended": True,
+        }
+    ]
 
 
 def test_list_dataset_details_merges_duplicate_dataset_rows_from_multiple_connectors(monkeypatch):
@@ -1107,15 +1088,13 @@ def test_list_dataset_details_merges_duplicate_dataset_rows_from_multiple_connec
                     "id": "dataset-1",
                     "title": "dataset title",
                     "cstr": "ES-CORPUS-B138",
-                    "source": "连接器节点1",
-                    "fromList": [{"connectorId": "DS-NODE-1", "name": "连接器节点1"}],
+                    "fromList": ["DS-NODE-1"],
                 },
                 {
                     "id": "dataset-1",
                     "title": "dataset title",
                     "cstr": "ES-CORPUS-B138",
-                    "source": "连接器节点2",
-                    "fromList": [{"connectorId": "DS-NODE-2", "name": "连接器节点2"}],
+                    "fromList": ["DS-NODE-2"],
                 },
             ],
             "total": 2,
@@ -1132,15 +1111,17 @@ def test_list_dataset_details_merges_duplicate_dataset_rows_from_multiple_connec
                     "connectorId": "DS-NODE-1",
                     "name": "连接器节点1",
                     "institutionName": "中国地震台网中心",
-                    "status": 1,
+                    "enabled": True,
                     "sync": "2026-08-07 11:52",
+                    "recommended": True,
                 },
                 {
                     "connectorId": "DS-NODE-2",
                     "name": "连接器节点2",
                     "institutionName": "国家地球系统科学数据中心",
-                    "status": 1,
+                    "enabled": True,
                     "sync": "2026-08-07 12:10",
+                    "recommended": False,
                 },
             ],
             "total": 2,
@@ -1155,7 +1136,7 @@ def test_list_dataset_details_merges_duplicate_dataset_rows_from_multiple_connec
         raise AssertionError(f"unexpected url: {url}")
 
     def fake_post(url, params, json, timeout):
-        if url.endswith("/dataset.page"):
+        if url.endswith("/dataset/page"):
             return _FakeResponse(dataset_payload)
         raise AssertionError(f"unexpected url: {url}")
 
@@ -1165,17 +1146,32 @@ def test_list_dataset_details_merges_duplicate_dataset_rows_from_multiple_connec
     )
     monkeypatch.setattr("services.corpus_connector_service.requests.get", fake_get)
     monkeypatch.setattr("services.corpus_connector_service.requests.post", fake_post)
-    monkeypatch.setattr(
-        "services.corpus_connector_service._resolve_remote_resource",
-        _fake_dataset_resolve_remote_resource,
-    )
 
     result = list_dataset_details(page_num=1, page_size=10)
 
     assert len(result["items"]) == 1
     assert result["items"][0]["id"] == "dataset-1"
     assert result["items"][0]["replicaCount"] == 2
-    assert [item["name"] for item in result["items"][0]["connectors"]] == ["连接器节点1", "连接器节点2"]
+    assert result["items"][0]["connectors"] == [
+        {
+            "connectorId": "DS-NODE-1",
+            "fromName": "连接器节点1",
+            "connectorOrganization": "中国地震台网中心",
+            "name": "中国地震台网中心",
+            "status": "可用",
+            "sync": "2026-08-07 11:52",
+            "recommended": True,
+        },
+        {
+            "connectorId": "DS-NODE-2",
+            "fromName": "连接器节点2",
+            "connectorOrganization": "国家地球系统科学数据中心",
+            "name": "国家地球系统科学数据中心",
+            "status": "可用",
+            "sync": "2026-08-07 12:10",
+            "recommended": False,
+        },
+    ]
 
 
 def test_list_dataset_details_forwards_filters(monkeypatch):
@@ -1205,8 +1201,6 @@ def test_list_dataset_details_forwards_filters(monkeypatch):
         "services.corpus_connector_service.requests.post",
         fake_post,
     )
-    monkeypatch.setattr(corpus_connector_service, "_fetch_all_connector_details", lambda: {})
-    monkeypatch.setattr(corpus_connector_service, "_get_enabled_dataset_total", lambda snapshot: 0)
 
     list_dataset_details(
         page_num=2,
@@ -1221,7 +1215,6 @@ def test_list_dataset_details_forwards_filters(monkeypatch):
         },
     )
 
-    assert seen["url"].endswith("/dataset.page")
     assert seen["params"] == {"pageNum": 2, "pageSize": 20}
     assert seen["json"] == {
         "title": "地震",
@@ -1229,235 +1222,6 @@ def test_list_dataset_details_forwards_filters(monkeypatch):
         "publishAt": "2026-08-20T03:29:22.345000",
         "from": "connector-1",
     }
-
-
-def test_list_dataset_details_limits_sources_to_enabled_connectors_once(monkeypatch):
-    seen = {"snapshot_calls": 0, "dataset_calls": 0}
-
-    def fake_snapshot():
-        seen["snapshot_calls"] += 1
-        return {
-            "node-a": {"name": "node-a", "enabled": True, "status": None},
-            "node-b": {"name": "node-b", "enabled": False, "status": None},
-        }
-
-    def fake_fetch_dataset_page(*, page_num, page_size, filters=None):
-        seen["dataset_calls"] += 1
-        seen["filters"] = filters
-        return {"code": 200, "data": {"content": [], "total": 0}}
-
-    monkeypatch.setattr(corpus_connector_service, "_fetch_all_connector_details", fake_snapshot)
-    monkeypatch.setattr(corpus_connector_service, "_fetch_dataset_page", fake_fetch_dataset_page)
-
-    result = list_dataset_details(page_num=1, page_size=10, filters={"title": "dataset"})
-
-    assert result == {"items": [], "pagination": {"pageNum": 1, "pageSize": 10, "total": 0}}
-    assert seen == {
-        "snapshot_calls": 1,
-        "dataset_calls": 3,
-        "filters": {"title": "dataset", "sources": ["node-a"]},
-    }
-
-
-def test_list_dataset_details_intersects_requested_sources_with_enabled_connectors(monkeypatch):
-    seen = {}
-    monkeypatch.setattr(
-        corpus_connector_service,
-        "_fetch_all_connector_details",
-        lambda: {
-            "node-a": {"name": "node-a", "enabled": True, "status": None},
-            "node-b": {"name": "node-b", "enabled": False, "status": None},
-            "node-c": {"name": "node-c", "enabled": True, "status": None},
-        },
-    )
-
-    def fake_fetch_dataset_page(*, page_num, page_size, filters=None):
-        seen["filters"] = filters
-        return {"code": 200, "data": {"content": [], "total": 0}}
-
-    monkeypatch.setattr(corpus_connector_service, "_fetch_dataset_page", fake_fetch_dataset_page)
-
-    list_dataset_details(
-        page_num=1,
-        page_size=10,
-        filters={"sources": ["node-b", "node-c", "unknown"]},
-    )
-
-    assert seen["filters"] == {"sources": ["node-c"]}
-
-
-def test_list_dataset_details_converts_source_to_sources(monkeypatch):
-    seen = {}
-    monkeypatch.setattr(
-        corpus_connector_service,
-        "_fetch_all_connector_details",
-        lambda: {"node-a": {"name": "node-a", "enabled": True, "status": None}},
-    )
-
-    def fake_fetch_dataset_page(*, page_num, page_size, filters=None):
-        seen["filters"] = filters
-        return {"code": 200, "data": {"content": [], "total": 0}}
-
-    monkeypatch.setattr(corpus_connector_service, "_fetch_dataset_page", fake_fetch_dataset_page)
-
-    list_dataset_details(page_num=1, page_size=10, filters={"source": " node-a "})
-
-    assert seen["filters"] == {"sources": ["node-a"]}
-
-
-def test_list_dataset_details_prefers_sources_over_source(monkeypatch):
-    seen = {}
-    monkeypatch.setattr(
-        corpus_connector_service,
-        "_fetch_all_connector_details",
-        lambda: {"node-a": {"name": "node-a", "enabled": True, "status": None}},
-    )
-
-    def fake_fetch_dataset_page(*, page_num, page_size, filters=None):
-        seen["filters"] = filters
-        return {"code": 200, "data": {"content": [], "total": 0}}
-
-    monkeypatch.setattr(corpus_connector_service, "_fetch_dataset_page", fake_fetch_dataset_page)
-
-    list_dataset_details(
-        page_num=1,
-        page_size=10,
-        filters={"source": "node-a", "sources": ["node-b"]},
-    )
-
-    assert seen["filters"] == {"sources": ["node-b"]}
-
-
-def test_list_dataset_details_returns_empty_without_upstream_request_for_empty_sources_intersection(monkeypatch):
-    monkeypatch.setattr(
-        corpus_connector_service,
-        "_fetch_all_connector_details",
-        lambda: {"node-a": {"name": "node-a", "enabled": False, "status": None}},
-    )
-    seen_filters = []
-
-    def fake_fetch_dataset_page(*, filters=None, **kwargs):
-        seen_filters.append(filters)
-        total = 12 if filters is None else 4
-        return {"code": 200, "data": {"content": [], "total": total}}
-
-    monkeypatch.setattr(corpus_connector_service, "_fetch_dataset_page", fake_fetch_dataset_page)
-
-    result = list_dataset_details(page_num=2, page_size=20, filters={"sources": ["node-a"]})
-
-    assert result == {"items": [], "pagination": {"pageNum": 2, "pageSize": 20, "total": 8}}
-    assert seen_filters == [None, {"sources": ["node-a"]}]
-
-
-def test_list_dataset_details_keeps_sources_unchanged_when_all_connectors_enabled(monkeypatch):
-    seen = {}
-    monkeypatch.setattr(
-        corpus_connector_service,
-        "_fetch_all_connector_details",
-        lambda: {"node-a": {"name": "node-a", "enabled": True, "status": None}},
-    )
-
-    def fake_fetch_dataset_page(*, page_num, page_size, filters=None):
-        seen["filters"] = filters
-        return {"code": 200, "data": {"content": [], "total": 0}}
-
-    monkeypatch.setattr(corpus_connector_service, "_fetch_dataset_page", fake_fetch_dataset_page)
-
-    list_dataset_details(page_num=1, page_size=10, filters={"sources": ["node-b"]})
-
-    assert seen["filters"] == {"sources": ["node-b"]}
-
-
-def test_list_dataset_details_uses_unfiltered_total_minus_disabled_connector_totals(monkeypatch):
-    seen_filters = []
-    monkeypatch.setattr(
-        corpus_connector_service,
-        "_fetch_all_connector_details",
-        lambda: {
-            "node-a": {"name": "node-a", "enabled": True, "status": None},
-            "node-b": {"name": "node-b", "enabled": False, "status": None},
-        },
-    )
-
-    def fake_fetch_dataset_page(*, filters=None, **kwargs):
-        seen_filters.append(filters)
-        if filters is None:
-            total = 100
-        elif filters == {"sources": ["node-b"]}:
-            total = 15
-        else:
-            total = 1
-        return {"code": 200, "data": {"content": [], "total": total}}
-
-    monkeypatch.setattr(corpus_connector_service, "_fetch_dataset_page", fake_fetch_dataset_page)
-
-    result = list_dataset_details(
-        page_num=3,
-        page_size=20,
-        filters={"title": "filtered", "sources": ["node-a"]},
-    )
-
-    assert result["pagination"] == {"pageNum": 3, "pageSize": 20, "total": 85}
-    assert seen_filters == [
-        None,
-        {"sources": ["node-b"]},
-        {"title": "filtered", "sources": ["node-a"]},
-    ]
-
-
-def test_list_dataset_details_v2_proxies_dataset_page_and_adds_replica_count(monkeypatch):
-    dataset_payload = {
-        "code": 200,
-        "message": "OK",
-        "data": {
-            "content": [
-                {
-                    "id": "dataset-1",
-                    "title": "dataset title",
-                    "cstr": "ES-CORPUS-B138",
-                    "source": "连接器节点1",
-                    "fromList": [{"connectorId": "DS-NODE-1", "name": "连接器节点1"}],
-                }
-            ],
-            "total": 1,
-            "pageNum": 1,
-            "pageSize": 10,
-        },
-    }
-    seen = {}
-
-    def fake_post(url, params, json, timeout):
-        seen["url"] = url
-        seen["params"] = params
-        seen["json"] = json
-        return _FakeResponse(dataset_payload)
-
-    monkeypatch.setattr(
-        "services.corpus_connector_service.get_settings",
-        lambda: type("Settings", (), {"corpus_route": type("CorpusRoute", (), {"base_url": "http://10.0.82.213:7003"})()})(),
-    )
-    monkeypatch.setattr("services.corpus_connector_service.requests.post", fake_post)
-
-    result = list_dataset_details_v2(
-        page_num=1,
-        page_size=10,
-        filters={"title": "  地震  ", "from": " connector-1 "},
-    )
-
-    assert seen["url"].endswith("/dataset.page")
-    assert seen["params"] == {"pageNum": 1, "pageSize": 10}
-    assert seen["json"] == {"title": "地震", "from": "connector-1"}
-    assert result["pagination"] == {"pageNum": 1, "pageSize": 10, "total": 1}
-    assert result["items"] == [
-        {
-            "id": "dataset-1",
-            "title": "dataset title",
-            "cstr": "ES-CORPUS-B138",
-            "source": "连接器节点1",
-            "fromList": [{"connectorId": "DS-NODE-1", "name": "连接器节点1"}],
-            "replicaCount": 1,
-        }
-    ]
 
 
 def test_get_dataset_detail_returns_single_dataset(monkeypatch):
@@ -1468,8 +1232,7 @@ def test_get_dataset_detail_returns_single_dataset(monkeypatch):
             "id": "6a744595d38ea034d388c7b4",
             "title": "dataset title",
             "cstr": "ES-CORPUS-B138",
-            "source": "连接器节点1",
-            "fromList": [{"connectorId": "DS-NODE-1", "name": "连接器节点1"}],
+            "fromList": ["DS-NODE-1"],
         },
     }
     connector_payload = {
@@ -1481,8 +1244,9 @@ def test_get_dataset_detail_returns_single_dataset(monkeypatch):
                     "connectorId": "DS-NODE-1",
                     "name": "连接器节点1",
                     "institutionName": "中国地震台网中心",
-                    "status": 1,
+                    "enabled": True,
                     "sync": "2026-08-07 11:52",
+                    "recommended": True,
                 }
             ],
             "total": 1,
@@ -1492,7 +1256,7 @@ def test_get_dataset_detail_returns_single_dataset(monkeypatch):
     }
 
     def fake_get(url, params, timeout):
-        if url.endswith("/dataset/queryDataset"):
+        if url.endswith("/dataset.queryDataset"):
             return _FakeResponse(dataset_payload)
         if url.endswith("/dataset.connector.page"):
             return _FakeResponse(connector_payload)
@@ -1502,10 +1266,9 @@ def test_get_dataset_detail_returns_single_dataset(monkeypatch):
         "services.corpus_connector_service.get_settings",
         lambda: type("Settings", (), {"corpus_route": type("CorpusRoute", (), {"base_url": "http://10.0.82.213:7003"})()})(),
     )
-    monkeypatch.setattr("services.corpus_connector_service.requests.get", fake_get)
     monkeypatch.setattr(
-        "services.corpus_connector_service._resolve_remote_resource",
-        _fake_dataset_resolve_remote_resource,
+        "services.corpus_connector_service.requests.get",
+        fake_get,
     )
 
     result = get_dataset_detail("6a744595d38ea034d388c7b4")
@@ -1519,16 +1282,15 @@ def test_get_dataset_detail_returns_single_dataset(monkeypatch):
             "connectorId": "DS-NODE-1",
             "fromName": "连接器节点1",
             "connectorOrganization": "中国地震台网中心",
-            "name": "连接器节点1",
+            "name": "中国地震台网中心",
             "status": "可用",
             "sync": "2026-08-07 11:52",
             "recommended": True,
-            "latency_ms": 20.0,
         }
     ]
 
 
-def test_get_dataset_detail_keeps_unavailable_connectors(monkeypatch):
+def test_get_dataset_detail_filters_out_unavailable_connectors(monkeypatch):
     dataset_payload = {
         "code": 200,
         "message": "OK",
@@ -1536,11 +1298,7 @@ def test_get_dataset_detail_keeps_unavailable_connectors(monkeypatch):
             "id": "6a744595d38ea034d388c7b4",
             "title": "dataset title",
             "cstr": "ES-CORPUS-B138",
-            "source": "连接器节点1",
-            "fromList": [
-                {"connectorId": "DS-NODE-1", "name": "连接器节点1"},
-                {"connectorId": "DS-NODE-2", "name": "连接器节点2"},
-            ],
+            "fromList": ["DS-NODE-1", "DS-NODE-2"],
         },
     }
     connector_payload = {
@@ -1552,15 +1310,17 @@ def test_get_dataset_detail_keeps_unavailable_connectors(monkeypatch):
                     "connectorId": "DS-NODE-1",
                     "name": "连接器节点1",
                     "institutionName": "中国地震台网中心",
-                    "status": 1,
+                    "enabled": True,
                     "sync": "2026-08-07 11:52",
+                    "recommended": True,
                 },
                 {
                     "connectorId": "DS-NODE-2",
                     "name": "连接器节点2",
                     "institutionName": "不可用机构",
-                    "status": 0,
+                    "enabled": False,
                     "sync": "2026-08-08 09:15",
+                    "recommended": False,
                 },
             ],
             "total": 2,
@@ -1570,7 +1330,7 @@ def test_get_dataset_detail_keeps_unavailable_connectors(monkeypatch):
     }
 
     def fake_get(url, params, timeout):
-        if url.endswith("/dataset/queryDataset"):
+        if url.endswith("/dataset.queryDataset"):
             return _FakeResponse(dataset_payload)
         if url.endswith("/dataset.connector.page"):
             return _FakeResponse(connector_payload)
@@ -1581,81 +1341,21 @@ def test_get_dataset_detail_keeps_unavailable_connectors(monkeypatch):
         lambda: type("Settings", (), {"corpus_route": type("CorpusRoute", (), {"base_url": "http://10.0.82.213:7003"})()})(),
     )
     monkeypatch.setattr("services.corpus_connector_service.requests.get", fake_get)
-    monkeypatch.setattr(
-        "services.corpus_connector_service._resolve_remote_resource",
-        _fake_dataset_resolve_remote_resource,
-    )
 
     result = get_dataset_detail("6a744595d38ea034d388c7b4")
 
-    assert result["replicaCount"] == 2
-    assert result["connectors"][1] == {
-        "connectorId": "DS-NODE-2",
-        "fromName": "连接器节点2",
-        "connectorOrganization": "不可用机构",
-        "name": "连接器节点2",
-        "status": "不可用",
-        "sync": "2026-08-08 09:15",
-        "recommended": True,
-        "latency_ms": 10.0,
-    }
-
-
-def test_get_dataset_detail_by_cstr_returns_upstream_data(monkeypatch):
-    dataset_payload = {
-        "code": 200,
-        "message": "OK",
-        "data": {
-            "id": "6aa7b5fcd73768d1650bd7d1",
-            "cstr": "ST001-CAMPBELL-B001",
-            "title": "共和县光伏观测站campbell仪器观测数据集",
-            "source": "西宁共和县光伏观测站",
-        },
-    }
-    seen = {}
-
-    def fake_get(url, timeout):
-        seen["url"] = url
-        seen["timeout"] = timeout
-        return _FakeResponse(dataset_payload)
-
-    monkeypatch.setattr(
-        "services.corpus_connector_service.get_settings",
-        lambda: type("Settings", (), {"corpus_route": type("CorpusRoute", (), {"base_url": "http://10.0.82.213:7003"})()})(),
-    )
-    monkeypatch.setattr("services.corpus_connector_service.requests.get", fake_get)
-
-    result = get_dataset_detail_by_cstr(" ST001-CAMPBELL-B001 ")
-
-    assert seen["url"].endswith("/dataset/ST001-CAMPBELL-B001")
-    assert result == {
-        "id": "6aa7b5fcd73768d1650bd7d1",
-        "cstr": "ST001-CAMPBELL-B001",
-        "title": "共和县光伏观测站campbell仪器观测数据集",
-        "source": "西宁共和县光伏观测站",
-    }
-
-
-def test_get_dataset_detail_rejects_empty_data(monkeypatch):
-    def fake_get(url, params, timeout):
-        if url.endswith("/dataset.queryDataset"):
-            return _FakeResponse({"code": 200, "message": "OK", "data": {}})
-        raise AssertionError(f"unexpected url: {url}")
-
-    monkeypatch.setattr(
-        "services.corpus_connector_service.get_settings",
-        lambda: type("Settings", (), {"corpus_route": type("CorpusRoute", (), {"base_url": "http://10.0.82.213:7003"})()})(),
-    )
-    monkeypatch.setattr("services.corpus_connector_service.requests.get", fake_get)
-
-    try:
-        get_dataset_detail("dataset-empty")
-        raised = False
-    except ValueError as exc:
-        raised = True
-        assert str(exc) == "dataset detail response data is empty for dataset_id=dataset-empty"
-
-    assert raised is True
+    assert result["replicaCount"] == 1
+    assert result["connectors"] == [
+        {
+            "connectorId": "DS-NODE-1",
+            "fromName": "连接器节点1",
+            "connectorOrganization": "中国地震台网中心",
+            "name": "中国地震台网中心",
+            "status": "可用",
+            "sync": "2026-08-07 11:52",
+            "recommended": True,
+        }
+    ]
 
 
 def test_corpus_connector_proxy_requests(monkeypatch):
