@@ -12,6 +12,7 @@ from services.corpus_connector_service import (
     delete_corpus_connector,
     disable_corpus_connector,
     get_dataset_detail,
+    get_dataset_detail_by_cstr,
     get_dataset_file_jsonl,
     get_corpus_connector_detail,
     get_corpus_connector_tree,
@@ -180,6 +181,24 @@ async def get_corpus_dataset_detail_api(req: CorpusDatasetDetailRequest):
     except Exception:
         log.exception("failed to get corpus dataset detail datasetId=%s", req.datasetId)
         raise HTTPException(status_code=500, detail="failed to get corpus dataset detail")
+
+    return {
+        "code": 200,
+        "result": {
+            "dataset": result,
+        },
+    }
+
+
+@router.get("/corpus/dataset/by-cstr")
+async def get_corpus_dataset_by_cstr_api(cstr: str = Query(...)):
+    try:
+        result = get_dataset_detail_by_cstr(cstr)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception:
+        log.exception("failed to get corpus dataset detail by cstr cstr=%s", cstr)
+        raise HTTPException(status_code=500, detail="failed to get corpus dataset detail by cstr")
 
     return {
         "code": 200,

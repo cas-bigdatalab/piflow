@@ -198,6 +198,29 @@ def test_get_corpus_dataset_detail_endpoint(monkeypatch):
     assert response.json()["result"]["dataset"]["connectors"][0]["connectorId"] == "DS-NODE-1"
 
 
+def test_get_corpus_dataset_by_cstr_endpoint(monkeypatch):
+    monkeypatch.setattr(
+        "routers.corpus_router.get_dataset_detail_by_cstr",
+        lambda cstr: {
+            "id": "6aa7b5fcd73768d1650bd7d1",
+            "cstr": cstr,
+            "title": "共和县光伏观测站campbell仪器观测数据集",
+            "source": "西宁共和县光伏观测站",
+        },
+    )
+
+    with _build_client() as client:
+        response = client.get(
+            "/corpus/dataset/by-cstr",
+            params={"cstr": "ST001-CAMPBELL-B001"},
+        )
+
+    assert response.status_code == 200
+    assert response.json()["code"] == 200
+    assert response.json()["result"]["dataset"]["cstr"] == "ST001-CAMPBELL-B001"
+    assert response.json()["result"]["dataset"]["title"] == "共和县光伏观测站campbell仪器观测数据集"
+
+
 def test_create_rustfs_service_account_endpoint(monkeypatch):
     monkeypatch.setattr(
         "routers.corpus_router.create_rustfs_temporary_credentials",

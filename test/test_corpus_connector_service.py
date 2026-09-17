@@ -10,6 +10,7 @@ from services.corpus_connector_service import (
     delete_corpus_connector,
     disable_corpus_connector,
     get_dataset_detail,
+    get_dataset_detail_by_cstr,
     get_dataset_file_jsonl,
     get_corpus_connector_detail,
     get_corpus_connector_tree,
@@ -1417,6 +1418,41 @@ def test_get_dataset_detail_keeps_unavailable_connectors(monkeypatch):
         "sync": "2026-08-08 09:15",
         "recommended": True,
         "latency_ms": 10.0,
+    }
+
+
+def test_get_dataset_detail_by_cstr_returns_upstream_data(monkeypatch):
+    dataset_payload = {
+        "code": 200,
+        "message": "OK",
+        "data": {
+            "id": "6aa7b5fcd73768d1650bd7d1",
+            "cstr": "ST001-CAMPBELL-B001",
+            "title": "共和县光伏观测站campbell仪器观测数据集",
+            "source": "西宁共和县光伏观测站",
+        },
+    }
+    seen = {}
+
+    def fake_get(url, timeout):
+        seen["url"] = url
+        seen["timeout"] = timeout
+        return _FakeResponse(dataset_payload)
+
+    monkeypatch.setattr(
+        "services.corpus_connector_service.get_settings",
+        lambda: type("Settings", (), {"corpus_route": type("CorpusRoute", (), {"base_url": "http://10.0.82.213:7003"})()})(),
+    )
+    monkeypatch.setattr("services.corpus_connector_service.requests.get", fake_get)
+
+    result = get_dataset_detail_by_cstr(" ST001-CAMPBELL-B001 ")
+
+    assert seen["url"].endswith("/dataset/ST001-CAMPBELL-B001")
+    assert result == {
+        "id": "6aa7b5fcd73768d1650bd7d1",
+        "cstr": "ST001-CAMPBELL-B001",
+        "title": "共和县光伏观测站campbell仪器观测数据集",
+        "source": "西宁共和县光伏观测站",
     }
 
 

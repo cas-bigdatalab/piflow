@@ -325,6 +325,38 @@ def get_dataset_detail(dataset_id: str) -> dict[str, Any]:
     return dataset_detail
 
 
+def get_dataset_detail_by_cstr(cstr: str) -> dict[str, Any]:
+    normalized_cstr = _normalize_required_text(cstr, field_name="cstr")
+    base_url = str(get_settings().corpus_route.base_url or "").strip().rstrip("/")
+    if not base_url:
+        raise ValueError("settings.corpus_route.base_url must not be empty")
+
+    url = f"{base_url}/dataset/{normalized_cstr}"
+    try:
+        response = requests.get(
+            url,
+            timeout=REQUEST_TIMEOUT,
+        )
+        response.raise_for_status()
+    except requests.RequestException as exc:
+        raise RuntimeError(f"failed to fetch dataset detail for cstr={normalized_cstr}: {exc}") from exc
+
+    payload = response.json()
+    if not isinstance(payload, dict):
+        raise ValueError(f"dataset detail response must be a json object for cstr={normalized_cstr}")
+    if int(payload.get("code", 0) or 0) != 200:
+        raise ValueError(
+            f"dataset detail request failed for cstr={normalized_cstr}: {payload.get('message', '')}"
+        )
+
+    data = payload.get("data") or {}
+    if not isinstance(data, dict):
+        raise ValueError(f"dataset detail response data must be an object for cstr={normalized_cstr}")
+    if not data:
+        raise ValueError(f"dataset detail response data is empty for cstr={normalized_cstr}")
+    return data
+
+
 def get_dataset_file_jsonl(cstr: str, *, file_name: str | None = None) -> dict[str, Any]:
     normalized_cstr = _normalize_required_text(cstr, field_name="cstr")
     download_urls = _fetch_dataset_file_urls(normalized_cstr)
