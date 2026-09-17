@@ -3,6 +3,10 @@ from __future__ import annotations
 import io
 import tarfile
 
+import pytest
+
+from services import corpus_connector_service
+
 from services.corpus_connector_service import (
     build_rustfs_mount_info,
     create_rustfs_temporary_credentials,
@@ -34,6 +38,31 @@ class _FakeResponse:
 
     def json(self):
         return self._payload
+
+
+@pytest.mark.parametrize("data,error", [(None, "detail is empty"), ({}, "detail is empty"), ([], "must be an object")])
+def test_detail_endpoint_rejects_empty_or_invalid_data(monkeypatch, data, error):
+    monkeypatch.setattr(corpus_connector_service, "get_settings", lambda: type("Settings", (), {
+        "corpus_route": type("Route", (), {"base_url": "http://corpus.example"})()})())
+    def get(url, params, timeout):
+        assert url == "http://corpus.example/dataset.queryDataset"
+        assert params == {"id": "dataset-id"}
+        return _FakeResponse({"code": 200, "data": data})
+    monkeypatch.setattr(corpus_connector_service.requests, "get", get)
+    with pytest.raises(ValueError, match=error):
+        corpus_connector_service._fetch_dataset_detail("dataset-id")
+
+
+@pytest.mark.parametrize("files", [[], [{"fileName": "a b.tar"}]])
+def test_file_list_uses_current_endpoint_and_encodes_download_path(monkeypatch, files):
+    monkeypatch.setattr(corpus_connector_service, "get_settings", lambda: type("Settings", (), {
+        "corpus_route": type("Route", (), {"base_url": "http://corpus.example"})()})())
+    def get(url, timeout):
+        assert url == "http://corpus.example/dataset.files?cstr=CODE%2FA"
+        return _FakeResponse({"code": 200, "data": files})
+    monkeypatch.setattr(corpus_connector_service.requests, "get", get)
+    result = corpus_connector_service._fetch_dataset_file_urls("CODE/A")
+    assert result == ([{"fileName": "a b.tar", "downloadUrl": "http://corpus.example/dataset.file.download/CODE%2FA/a%20b.tar"}] if files else [])
 
 
 def test_create_rustfs_temporary_credentials_signs_and_returns_credentials(monkeypatch):
@@ -225,13 +254,15 @@ def test_get_dataset_file_jsonl_downloads_and_parses_jsonl(monkeypatch):
 
     def fake_get(url, params=None, timeout=None):
         seen_urls.append(url)
-        if url.endswith("/dataset/downloadDatasetFileUrls/ES-CORPUS-B138"):
+        if url.endswith("/dataset.files?cstr=ES-CORPUS-B138"):
             return _FakeResponse(
                 {
                     "code": 200,
                     "data": [
                         {
-                            "downloadUrls": ["http://10.0.82.213:7004/files/sample.jsonl"],
+                            "fileName": "sample.jsonl",
+                            "downloadUrl": None,
+                            "url": "http://10.0.82.213:7004/files/sample.jsonl",
                             "name": "连接器节点1",
                         }
                     ],
@@ -252,7 +283,7 @@ def test_get_dataset_file_jsonl_downloads_and_parses_jsonl(monkeypatch):
     assert result["fileName"] == "sample.jsonl"
     assert result["json"] == [{"id": 1}, {"id": 2}]
     assert seen_urls == [
-        "http://10.0.82.213:7003/dataset/downloadDatasetFileUrls/ES-CORPUS-B138",
+        "http://10.0.82.213:7003/dataset.files?cstr=ES-CORPUS-B138",
         "http://10.0.82.213:7004/files/sample.jsonl",
     ]
 
@@ -271,7 +302,7 @@ def test_get_dataset_file_jsonl_parses_jsonl_from_tar(monkeypatch):
             super().__init__(archive_bytes)
 
     def fake_get(url, params=None, timeout=None):
-        if url.endswith("/dataset/downloadDatasetFileUrls/ES-CORPUS-F018"):
+        if url.endswith("/dataset.files?cstr=ES-CORPUS-F018"):
             return _FakeResponse(
                 {
                     "code": 200,
@@ -364,7 +395,7 @@ def test_get_dataset_connector_detail_with_resource_joins_by_connector_id(monkey
     }
 
     def fake_get(url, params, timeout):
-        if url.endswith("/dataset/queryDataset"):
+        if url.endswith("/dataset.queryDataset"):
             return _FakeResponse(dataset_payload)
         if url.endswith("/dataset.connector.page"):
             return _FakeResponse(connector_payload)
@@ -417,7 +448,7 @@ def test_get_dataset_connector_resource_prefers_explicit_grpc_target(monkeypatch
     }
 
     def fake_get(url, params, timeout):
-        if url.endswith("/dataset/queryDataset"):
+        if url.endswith("/dataset.queryDataset"):
             return _FakeResponse(dataset_payload)
         if url.endswith("/dataset.connector.page"):
             return _FakeResponse(connector_payload)
@@ -1225,7 +1256,7 @@ def test_get_dataset_detail_returns_single_dataset(monkeypatch):
     }
 
     def fake_get(url, params, timeout):
-        if url.endswith("/dataset/queryDataset"):
+        if url.endswith("/dataset.queryDataset"):
             return _FakeResponse(dataset_payload)
         if url.endswith("/dataset.connector.page"):
             return _FakeResponse(connector_payload)
@@ -1299,7 +1330,7 @@ def test_get_dataset_detail_filters_out_unavailable_connectors(monkeypatch):
     }
 
     def fake_get(url, params, timeout):
-        if url.endswith("/dataset/queryDataset"):
+        if url.endswith("/dataset.queryDataset"):
             return _FakeResponse(dataset_payload)
         if url.endswith("/dataset.connector.page"):
             return _FakeResponse(connector_payload)

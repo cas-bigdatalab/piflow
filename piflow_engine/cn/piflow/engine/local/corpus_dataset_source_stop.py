@@ -5,6 +5,7 @@ import uuid
 from pathlib import Path
 from typing import Any
 from urllib.error import HTTPError, URLError
+from urllib.parse import quote, unquote, urlencode, urlparse
 from urllib.request import urlopen
 
 from piflow_engine.cn.piflow.core.artifact import FileArtifact
@@ -75,7 +76,7 @@ class CorpusDatasetSourceStop(ConfigurableStop):
             raise RuntimeError("corpus route base url is not initialized")
 
         dataset = self._fetch_dataset_detail(self.dataset_id)
-        cstr = str(dataset.get("cstr", "")).strip()
+        cstr = str(dataset.get("cstr") or "").strip()
         if not cstr:
             raise ValueError(f"dataset detail does not contain cstr for dataset_id={self.dataset_id}")
 
@@ -115,7 +116,7 @@ class CorpusDatasetSourceStop(ConfigurableStop):
         )
 
     def _fetch_dataset_detail(self, dataset_id: str) -> dict[str, Any]:
-        detail_url = f"{self._base_url}/dataset/queryDataset?id={dataset_id}"
+        detail_url = f"{self._base_url}/dataset.queryDataset?{urlencode({'id': dataset_id})}"
         try:
             with urlopen(detail_url, timeout=30) as response:
                 payload_text = response.read().decode("utf-8")
@@ -129,13 +130,15 @@ class CorpusDatasetSourceStop(ConfigurableStop):
             raise ValueError(
                 f"dataset detail request failed for dataset_id={dataset_id}: {payload.get('message', '')}"
             )
-        data = payload.get("data") or {}
+        data = payload.get("data")
+        if data is None or data == {}:
+            raise ValueError(f"dataset detail is empty for dataset_id={dataset_id}; check upstream catalog and detail endpoint")
         if not isinstance(data, dict):
             raise ValueError(f"dataset detail response data must be an object for dataset_id={dataset_id}")
         return data
 
     def _fetch_download_urls(self, cstr: str, *, dataset: dict[str, Any]) -> list[dict[str, Any]]:
-        download_urls_url = f"{self._base_url}/dataset/downloadDatasetFileUrls/{cstr}"
+        download_urls_url = f"{self._base_url}/dataset.files?{urlencode({'cstr': cstr})}"
         try:
             with urlopen(download_urls_url, timeout=30) as response:
                 payload_text = response.read().decode("utf-8")
@@ -162,6 +165,14 @@ class CorpusDatasetSourceStop(ConfigurableStop):
             elif isinstance(item, dict):
                 raw_download_urls = item.get("downloadUrls") or []
                 download_urls = raw_download_urls if isinstance(raw_download_urls, list) else []
+                if not download_urls:
+                    download_url = item.get("downloadUrl") or item.get("url")
+                    if not download_url and item.get("fileName"):
+                        download_url = (
+                            f"{self._base_url}/dataset.file.download/"
+                            f"{quote(cstr, safe='')}/{quote(str(item['fileName']), safe='')}"
+                        )
+                    download_urls = [download_url] if download_url else []
             else:
                 download_urls = []
 
@@ -171,7 +182,7 @@ class CorpusDatasetSourceStop(ConfigurableStop):
                 normalized = download_url.strip()
                 if not normalized:
                     continue
-                file_name = Path(normalized).name
+                file_name = Path(unquote(urlparse(normalized).path)).name
                 if not file_name:
                     continue
                 records.append(

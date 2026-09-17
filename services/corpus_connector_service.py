@@ -11,7 +11,7 @@ import zipfile
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlparse
+from urllib.parse import quote, unquote, urlencode, urlparse
 from uuid import uuid4
 
 import requests
@@ -497,7 +497,7 @@ def _fetch_dataset_detail(dataset_id: str) -> dict[str, Any]:
     if not base_url:
         raise ValueError("settings.corpus_route.base_url must not be empty")
 
-    url = f"{base_url}/dataset/queryDataset"
+    url = f"{base_url}/dataset.queryDataset"
     try:
         response = requests.get(
             url,
@@ -516,7 +516,9 @@ def _fetch_dataset_detail(dataset_id: str) -> dict[str, Any]:
             f"dataset detail request failed for dataset_id={dataset_id}: {payload.get('message', '')}"
         )
 
-    data = payload.get("data") or {}
+    data = payload.get("data")
+    if data is None or data == {}:
+        raise ValueError(f"dataset detail is empty for dataset_id={dataset_id}; check upstream catalog and detail endpoint")
     if not isinstance(data, dict):
         raise ValueError(f"dataset detail response data must be an object for dataset_id={dataset_id}")
     return data
@@ -776,7 +778,7 @@ def _fetch_dataset_file_urls(cstr: str) -> list[dict[str, Any]]:
     if not base_url:
         raise ValueError("settings.corpus_route.base_url must not be empty")
 
-    url = f"{base_url}/dataset/downloadDatasetFileUrls/{cstr}"
+    url = f"{base_url}/dataset.files?{urlencode({'cstr': cstr})}"
     try:
         response = requests.get(url, timeout=REQUEST_TIMEOUT)
         response.raise_for_status()
@@ -803,6 +805,14 @@ def _fetch_dataset_file_urls(cstr: str) -> list[dict[str, Any]]:
         elif isinstance(item, dict):
             raw_download_urls = item.get("downloadUrls") or []
             download_urls = raw_download_urls if isinstance(raw_download_urls, list) else []
+            if not download_urls:
+                download_url = item.get("downloadUrl") or item.get("url")
+                if not download_url and item.get("fileName"):
+                    download_url = (
+                        f"{base_url}/dataset.file.download/"
+                        f"{quote(cstr, safe='')}/{quote(str(item['fileName']), safe='')}"
+                    )
+                download_urls = [download_url] if download_url else []
         else:
             download_urls = []
 
@@ -812,7 +822,7 @@ def _fetch_dataset_file_urls(cstr: str) -> list[dict[str, Any]]:
             normalized = download_url.strip()
             if not normalized:
                 continue
-            file_name = Path(urlparse(normalized).path).name
+            file_name = Path(unquote(urlparse(normalized).path)).name
             if not file_name:
                 continue
             records.append(

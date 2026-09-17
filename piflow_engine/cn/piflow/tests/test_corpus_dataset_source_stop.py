@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 import sys
 from pathlib import Path
+
+import pytest
 
 from piflow_engine.cn.piflow.core.flow import FlowImpl
 from piflow_engine.cn.piflow.core.process_impl import ProcessImpl
@@ -61,18 +64,18 @@ def test_corpus_dataset_source_stop_outputs_first_file_as_output_by_default(tmp_
     )
     download_urls_json = (
         '{"code":200,"message":"OK","data":['
-        '{"downloadUrls":['
-        '"http://10.0.82.213:7004/corpus.dataset.file.download/ES-CORPUS-B138/es-corpus-b138.tar",'
-        '"http://10.0.82.213:7004/corpus.dataset.file.download/ES-CORPUS-B138/es-corpus-b138-extra.tar"'
-        '],"name":"连接器节点1"}'
+        '{"fileName":"es-corpus-b138.tar","downloadUrl":null,'
+        '"url":"http://10.0.82.213:7004/dataset.file.download/ES-CORPUS-B138/es-corpus-b138.tar"},'
+        '{"fileName":"es-corpus-b138-extra.tar",'
+        '"url":"http://10.0.82.213:7004/dataset.file.download/ES-CORPUS-B138/es-corpus-b138-extra.tar"}'
         '],"timestamp":1787121515520}'
     )
 
     def fake_urlopen(url: str, *args, **kwargs):
         del args, kwargs
-        if url.endswith("/dataset/queryDataset?id=6a744595d38ea034d388c7b4"):
+        if url.endswith("/dataset.queryDataset?id=6a744595d38ea034d388c7b4"):
             return _FakeResponse(text=dataset_detail_json)
-        if url.endswith("/dataset/downloadDatasetFileUrls/ES-CORPUS-B138"):
+        if url.endswith("/dataset.files?cstr=ES-CORPUS-B138"):
             return _FakeResponse(text=download_urls_json)
         if url.endswith("/es-corpus-b138.tar"):
             return _FakeResponse(chunks=[b"primary tar"])
@@ -129,9 +132,9 @@ def test_corpus_dataset_source_stop_outputs_requested_file_name(tmp_path: Path, 
 
     def fake_urlopen(url: str, *args, **kwargs):
         del args, kwargs
-        if url.endswith("/dataset/queryDataset?id=6a744595d38ea034d388c7b4"):
+        if url.endswith("/dataset.queryDataset?id=6a744595d38ea034d388c7b4"):
             return _FakeResponse(text=dataset_detail_json)
-        if url.endswith("/dataset/downloadDatasetFileUrls/ES-CORPUS-B138"):
+        if url.endswith("/dataset.files?cstr=ES-CORPUS-B138"):
             return _FakeResponse(text=download_urls_json)
         if url.endswith("/es-corpus-b138.tar"):
             return _FakeResponse(chunks=[b"primary tar"])
@@ -179,3 +182,42 @@ def test_corpus_dataset_source_stop_uses_first_record_when_file_name_is_duplicat
     }
 
     assert stop._select_record([first, second]) is first
+
+
+@pytest.mark.parametrize("data,error", [(None, "detail is empty"), ({}, "detail is empty"), ([], "must be an object")])
+def test_empty_or_invalid_detail_is_reported_before_cstr_lookup(monkeypatch, data, error):
+    stop = CorpusDatasetSourceStop()
+    stop._base_url = "http://corpus.example"
+    monkeypatch.setattr(corpus_source_module, "urlopen", lambda *a, **kw: _FakeResponse(
+        text=json.dumps({"code": 200, "data": data})))
+    with pytest.raises(ValueError, match=error):
+        stop._fetch_dataset_detail("dataset-id")
+
+
+@pytest.mark.parametrize("cstr", [None, "", "  "])
+def test_missing_cstr_is_not_used_as_download_identifier(tmp_path, monkeypatch, cstr):
+    stop = CorpusDatasetSourceStop()
+    stop._base_url = "http://corpus.example"
+    stop._workspace_root = tmp_path
+    stop.dataset_id = "dataset-id"
+    monkeypatch.setattr(stop, "_fetch_dataset_detail", lambda _: {"id": "dataset-id", "cstr": cstr})
+    with pytest.raises(ValueError, match="does not contain cstr"):
+        stop.perform(None, None, None)
+
+
+def test_file_list_builds_encoded_download_url_when_only_filename_is_available(monkeypatch):
+    stop = CorpusDatasetSourceStop()
+    stop._base_url = "http://corpus.example"
+    def open_files(url, **kwargs):
+        assert url == "http://corpus.example/dataset.files?cstr=CODE%2FA"
+        return _FakeResponse(text=json.dumps({"code": 200, "data": [{"fileName": "a b.tar"}]}))
+    monkeypatch.setattr(corpus_source_module, "urlopen", open_files)
+    records = stop._fetch_download_urls("CODE/A", dataset={})
+    assert records == [{"fileName": "a b.tar", "downloadUrl": "http://corpus.example/dataset.file.download/CODE%2FA/a%20b.tar", "dataset": {}}]
+
+
+def test_empty_file_list_stays_empty(monkeypatch):
+    stop = CorpusDatasetSourceStop()
+    stop._base_url = "http://corpus.example"
+    monkeypatch.setattr(corpus_source_module, "urlopen", lambda *a, **kw: _FakeResponse(text='{"code":200,"data":[]}'))
+    assert stop._fetch_download_urls("CODE", dataset={}) == []
