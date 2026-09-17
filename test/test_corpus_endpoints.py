@@ -42,19 +42,8 @@ def test_list_corpus_datasets_endpoint(monkeypatch):
                     "title": "dataset title",
                     "connectorId": "DS-NODE-1",
                     "fromName": "连接器节点1",
-                    "connectors": [
-                        {
-                            "connectorId": "DS-NODE-1",
-                            "fromName": "连接器节点1",
-                            "connectorOrganization": "中国地震台网中心",
-                            "name": "中国地震台网中心",
-                            "status": "可用",
-                            "sync": "2026-08-07 11:52",
-                            "recommended": True,
-                        }
-                    ],
+                    "connectors": [],
                     "replicaCount": 1,
-                    "name": "中国地震台网中心",
                 }
             ],
             "pagination": {"pageNum": page_num, "pageSize": page_size, "total": 1},
@@ -70,7 +59,7 @@ def test_list_corpus_datasets_endpoint(monkeypatch):
     assert response.status_code == 200
     assert response.json()["code"] == 200
     assert response.json()["result"]["items"][0]["id"] == "dataset-1"
-    assert response.json()["result"]["items"][0]["connectors"][0]["connectorId"] == "DS-NODE-1"
+    assert response.json()["result"]["items"][0]["connectors"] == []
     assert response.json()["result"]["items"][0]["replicaCount"] == 1
 
 

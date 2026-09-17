@@ -201,48 +201,7 @@ def list_dataset_details(
         filters=filters,
     )
     dataset_items = _extract_page_items(payload, entity_name="dataset")
-    connector_names = {
-        connector_name
-        for item in dataset_items
-        if isinstance(item, dict)
-        for connector_name in _extract_dataset_connector_names(item)
-        if connector_name
-    }
-    connector_lookup = (
-        _fetch_connector_details_with_resources_by_name(connector_names)
-        if connector_names
-        else {}
-    )
-
-    grouped_dataset_details: dict[str, dict[str, Any]] = {}
-    for item in dataset_items:
-        dataset_detail = _normalize_dataset_detail(item)
-        dataset_key = _first_non_empty_string(dataset_detail.get("id"), dataset_detail.get("cstr"))
-        existing_detail = grouped_dataset_details.get(dataset_key)
-        if existing_detail is not None:
-            existing_detail["connectors"] = _merge_dataset_connectors(existing_detail["connectors"], dataset_detail["connectors"])
-            continue
-        grouped_dataset_details[dataset_key] = dataset_detail
-
-    result_items: list[dict[str, Any]] = []
-    for dataset_detail in grouped_dataset_details.values():
-        connectors = _resolve_dataset_connectors(dataset_detail["connectors"], connector_lookup)
-        _mark_recommended_connectors(connectors)
-        dataset_detail["connectors"] = connectors
-        if connectors:
-            primary_connector = connectors[0]
-            dataset_detail["connectorId"] = primary_connector["connectorId"]
-            dataset_detail["fromName"] = primary_connector["fromName"]
-            connector_organization = _first_non_empty_string(
-                primary_connector.get("connectorOrganization"),
-            )
-            dataset_detail["connectorOrganization"] = connector_organization
-            dataset_detail["name"] = _first_non_empty_string(
-                primary_connector.get("name"),
-                connector_organization,
-            )
-        dataset_detail["replicaCount"] = len(connectors)
-        result_items.append(dataset_detail)
+    result_items = [_build_dataset_list_item(item) for item in dataset_items]
 
     return {
         "items": result_items,
@@ -1136,6 +1095,20 @@ def _normalize_dataset_detail(source: dict[str, Any]) -> dict[str, Any]:
         "connectors": connectors,
         "replicaCount": len(connectors),
         "raw": source,
+    }
+
+
+def _build_dataset_list_item(source: dict[str, Any]) -> dict[str, Any]:
+    dataset_detail = _normalize_dataset_detail(source)
+    return {
+        "id": dataset_detail["id"],
+        "cstr": dataset_detail["cstr"],
+        "title": dataset_detail["title"],
+        "connectorId": dataset_detail["connectorId"],
+        "fromName": dataset_detail["fromName"],
+        "source": dataset_detail["source"],
+        "connectors": [],
+        "replicaCount": 1,
     }
 
 
