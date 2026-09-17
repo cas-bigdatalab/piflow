@@ -35,25 +35,26 @@ def test_empty_source_keeps_unfiltered_pagination(monkeypatch, configure, names)
     assert CorpusRouteConfig().cross_dag_dataset_filters.source == []
 
 
-def test_multiple_sources_are_paged_separately_and_deduplicated(monkeypatch, configure):
+def test_multiple_sources_use_one_array_on_every_page_and_deduplicate_results(monkeypatch, configure):
     configure([" Node A ", "Node B", "Node A", ""])
     calls = []
 
     def post(url, body):
         parts = urlsplit(url)
         query = parse_qs(parts.query)
-        page, source = int(query["pageNum"][0]), body["source"]
-        assert parts.path == "/dataset/page"
+        page = int(query["pageNum"][0])
+        assert parts.path == "/dataset.page"
         assert query["pageSize"] == ["100"]
-        assert body == {"source": source}
-        calls.append((source, page))
-        rows = [{"id": "shared"}] if page == 1 else [{"id": source}]
+        assert "source" not in query and "sources" not in query
+        assert body == {"sources": ["Node A", "Node B"]}
+        calls.append(page)
+        rows = [{"id": "shared"}] if page == 1 else [{"id": "shared"}, {"id": "Node A"}, {"id": "Node B"}]
         return {"data": {"content": rows, "totalPages": 2}}
 
     monkeypatch.setattr(corpus_registry, "_post_json", post)
     assert corpus_registry._fetch_datasets("http://corpus.example") == [
         {"id": "shared"}, {"id": "Node A"}, {"id": "Node B"}]
-    assert calls == [("Node A", 1), ("Node A", 2), ("Node B", 1), ("Node B", 2)]
+    assert calls == [1, 2]
 
 
 @pytest.mark.parametrize("fails", [False, True])
@@ -73,7 +74,7 @@ def test_no_match_or_failure_never_retries_without_filter(monkeypatch, configure
             corpus_registry._fetch_datasets("http://corpus.example")
     else:
         assert corpus_registry._fetch_datasets("http://corpus.example") == []
-    assert calls == [{"source": "Node A"}]
+    assert calls == [{"sources": ["Node A"]}]
 
 
 def test_registered_catalog_refresh_preserves_filter_and_connector_request(monkeypatch, configure):
@@ -95,5 +96,5 @@ def test_registered_catalog_refresh_preserves_filter_and_connector_request(monke
     assert [d.dataset_id for d in registry.list_datasets()] == ["dataset-1"]
     registry.refresh()
     assert [d.dataset_id for d in registry.list_datasets()] == ["dataset-2"]
-    assert post_calls == [{"source": "Node A"}] * 2
+    assert post_calls == [{"sources": ["Node A"]}] * 2
     assert get_calls == ["http://corpus.example/dataset.connector.page?pageNum=1&pageSize=100"] * 2

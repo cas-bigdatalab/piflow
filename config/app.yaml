@@ -41,7 +41,7 @@ corpus_route:
   base_url: "http://172.31.3.81:7005"
   # 仅限制 cross_dag 注册的数据集目录；修改后重启后端生效。
   cross_dag_dataset_filters:
-    # 留空不过滤；多个节点写成 ["节点名称A", "节点名称B"]，逐个查询后合并去重。
+    # 留空不过滤；多个来源写成 ["来源名称A", "来源名称B"]，通过 sources 数组过滤，分页结果去重。
     source: ["中国科学院文献情报中心"]
 
 rustfs_admin:
