@@ -229,6 +229,8 @@ class ForecastAgent:
                     params["origin_mode"] = "explicit"  # Reuse the saved instant, not a new wall clock.
                     response["source_run_id"] = source["run_id"]
                 updates = {k: getattr(intent, k) for k in ["case_ids", "auxiliary_case_ids", "origin", "horizon_hours", "history_hours", "origin_mode"] if getattr(intent, k) is not None}
+                if intent.origin_mode == "tomorrow" and intent.horizon_hours is None:
+                    updates["horizon_hours"] = 24
                 proposed = {**params, **updates}
                 if intent.case_ids and intent.case_ids != params.get("case_ids") and intent.auxiliary_case_ids is None:
                     proposed.pop("auxiliary_case_ids", None)
@@ -236,8 +238,10 @@ class ForecastAgent:
                     proposed.pop("history_hours", None)
                 if intent.origin:
                     proposed["origin_mode"] = "explicit"
-                elif intent.origin_mode in {"now", "replay"}:
+                    proposed.pop("history_cutoff", None)
+                elif intent.origin_mode in {"now", "replay", "tomorrow"}:
                     proposed.pop("origin", None)
+                    proposed.pop("history_cutoff", None)
                 cfg = self.workflow.settings
                 catalogue = self.workflow.registry.list_cases()
                 candidates = catalogue

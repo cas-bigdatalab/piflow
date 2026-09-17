@@ -62,7 +62,8 @@ def render_location(raw, path: Path):
     from matplotlib.patches import Polygon
     from matplotlib import font_manager
     fonts = {font.name for font in font_manager.fontManager.ttflist}
-    font = next((name for name in ["Microsoft YaHei", "Noto Sans CJK SC"] if name in fonts), "DejaVu Sans")
+    font = next((name for name in ["Microsoft YaHei", "Noto Sans CJK SC", "Noto Sans CJK JP", "Source Han Sans SC", "SimHei", "SimSun",
+                                 "WenQuanYi Micro Hei", "WenQuanYi Zen Hei", "Droid Sans Fallback"] if name in fonts), "DejaVu Sans")
     chinese = font != "DejaVu Sans"
     figure = Figure(figsize=(7, 4.4), facecolor="#f6f9fc")
     main = figure.add_axes([.02, .04, .96, .87])
@@ -79,7 +80,14 @@ def render_location(raw, path: Path):
             spine.set_color("#b8c8d2")
         if limits[0] <= lon <= limits[1] and limits[2] <= lat <= limits[3]:
             axis.scatter([lon], [lat], s=64, color="#d36d38", edgecolors="white", linewidths=1.2, zorder=5)
-            axis.annotate("1", (lon,lat), xytext=(7,7), textcoords="offset points", color="#a7451c", fontsize=11, weight="bold")
+            label = location.name or location.address or "数据位置"
+            # Put eastern labels to the left; wrap long names to keep them inside the map.
+            label = "\n".join(label[i:i + 12] for i in range(0, len(label), 12))
+            left = lon > (limits[0] + limits[1]) / 2
+            axis.annotate(label, (lon,lat), xytext=(-7 if left else 7, 9), textcoords="offset points",
+                          ha="right" if left else "left", va="bottom", color="#a7451c", fontsize=10,
+                          fontfamily=font, zorder=6,
+                          bbox=dict(boxstyle="round,pad=.25", facecolor="#f6f9fc", edgecolor="none", alpha=.9))
     figure.text(.04,.95,"中国 · 数据位置" if chinese else "China - data location",fontfamily=font,fontsize=12,color="#20384b")
     inset.set_title("南海诸岛" if chinese else "South China Sea",fontfamily=font,fontsize=7,color="#627e90")
     temporary = path.with_suffix(".png.tmp")

@@ -33,9 +33,6 @@ class WarningRegistry:
                         raise ValueError(f"滑动累计量不能再次求和：{rule.id}")
                     if condition.statistic == "sum" and condition.input_kind == "interval_total" and variable.aggregation != "sum":
                         raise ValueError(f"累计量变量必须使用sum聚合：{rule.id}")
-            frequency, _, horizons = self.timing(key)
-            if any(h * 60 % frequency for h in horizons):
-                raise ValueError(f"场景时长不对齐采样频率：{key}")
 
     def get(self, case):
         return self.scenarios.get(case.id) or Scenario(case_id=case.id, version="legacy-1", area=case.label,

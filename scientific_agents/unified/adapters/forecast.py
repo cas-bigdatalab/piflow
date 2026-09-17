@@ -63,6 +63,7 @@ class ForecastAdapter:
             return values
         stats = await asyncio.to_thread(summaries)
         return {"items": [{**session_view(s, self.agent_id), **stats[s["session_id"]]} for s in data["sessions"]],
+                "pagination": {"total": data["total"], "pageNum": page, "pageSize": size},
                 "total": data["total"], "pageNum": page, "pageSize": size}
 
     def task(self, value):
@@ -92,15 +93,22 @@ class ForecastAdapter:
                 break
             cursor = data["next_after"]
         tasks = [{**self.task(t), "session_id": sid} for t in data["tasks"]]
+        tasks_by_id = {t["task_id"]: t for t in tasks}
         items = []
         for m in messages:
             tid = m.get("run_id")
             payload = {"message_id": m.get("reply_id", str(m["id"])), "text": m["content"], "mode": "replace"}
             kind = "USER_MESSAGE" if m["role"] == "user" else "ASSISTANT_MESSAGE"
+            item_state = "completed"
             if tid:
+                task = tasks_by_id.get(tid, {})
+                item_state = status(task.get("status"))
+                result_state = item_state
+                if item_state == "completed":
+                    result_state = "unavailable" if task.get("result_available") is False else "ready"
                 kind = "RESULT_CARD"
-                payload = result_view(tid, "forecast", "预测结果", {"summary": m["content"]})
-            items.append(item(m["id"], kind, payload, tid, role=m["role"], created=m.get("create_time")))
+                payload = result_view(tid, "forecast", "预测结果", {"summary": m["content"]}, state=result_state)
+            items.append(item(m["id"], kind, payload, tid, state=item_state, role=m["role"], created=m.get("create_time")))
         metadata = {key: data[key] for key in ("session_id", "title", "created_at", "updated_at", "status") if key in data}
         return {"session": session_view(metadata, self.agent_id), "tasks": tasks, "items": items,
                 "interaction": data["view"].get("interaction"), "next_after_item_id": data["next_after"], "has_more": data["has_more"]}

@@ -28,19 +28,26 @@ def risk_status(series):
 
 
 def periods(series):
-    """Step-aligned daily blocks; do not sum quantile bounds."""
+    """Group actual interval-end samples by requested 24-hour windows, never by point counts."""
     points = series.predictions
-    step = (pd.Timestamp(points[0].timestamp) - pd.Timestamp(series.history[-1]["timestamp"])).total_seconds() / 3600
-    block = max(1, int(24 / step))
+    window = series.metadata.get("forecast_window", {})
+    start = pd.Timestamp(window.get("start") or (series.assessment.window_start if series.assessment else None)
+                         or series.metadata.get("data_alignment", {}).get("requested_origin") or series.history[-1]["timestamp"])
+    end = pd.Timestamp(window.get("end") or (series.assessment.window_end if series.assessment else None) or points[-1].timestamp)
+    times = pd.to_datetime([p.timestamp for p in points], utc=True)
     rows = []
     additive = series.quality.get(series.variable, {}).get("aggregation") == "sum"
-    for offset in range(0, len(points), block):
-        chunk = points[offset:offset + block]
+    while start < end:
+        stop = min(start + pd.Timedelta(days=1), end)
+        chunk = [points[i] for i in np.flatnonzero((times > start) & (times <= stop))]
+        if not chunk:
+            start = stop
+            continue
         values = np.array([p.prediction for p in chunk])
         peak = chunk[int(values.argmax())]
-        rows.append({"start": (pd.Timestamp(chunk[0].timestamp) - pd.Timedelta(hours=step)).isoformat(),
-                     "end": chunk[-1].timestamp, "max": float(values.max()), "max_time": peak.timestamp,
+        rows.append({"start": start.isoformat(), "end": stop.isoformat(), "max": float(values.max()), "max_time": peak.timestamp,
                      "mean": float(values.mean()), "total": float(values.sum()) if additive else None})
+        start = stop
     return rows
 
 

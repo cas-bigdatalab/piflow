@@ -35,7 +35,8 @@ def build_research(result):
         attention = series.metadata.get("attention", "both")
         lower, upper = float(history.min()), float(history.max())
         change = np.diff(np.r_[history[-1], p])
-        elapsed = np.diff(pd.to_datetime([series.history[-1]["timestamp"], *times], utc=True).asi8) / 3.6e12
+        dates = pd.to_datetime([series.history[-1]["timestamp"], *times], utc=True)
+        elapsed = (dates[1:] - dates[:-1]).total_seconds().to_numpy() / 3600
         rates = change / elapsed
         extreme = int(np.abs(rates).argmax())
         high, low = p > upper, p < lower

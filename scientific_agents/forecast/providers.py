@@ -128,7 +128,7 @@ class Registry:
                             default_replay_origin=details.get("default_replay_origin", base_scenario.default_replay_origin if base_scenario else None),
                             context_steps=max(8, 7 * 24 * 60 // frequency),
                             horizons_hours=[h for h in sorted(set([*self.settings.horizons_hours, 24, 48, 72]))
-                                            if h * 60 % frequency == 0 and h * 60 // frequency <= 1024],
+                                            if (h * 60 + frequency - 1) // frequency <= 1024],
                             use_standard=True)
                     if scenario is not None and source.discover:
                         scenario = scenario.model_copy(update={"use_history_screening": True})
@@ -265,6 +265,24 @@ class Registry:
                 cache[key] = self.read(case_id, variable)
         return provider.history_end(case, origin, frequency,
                                     {v.name: cache[(case_id, v.name)] for v in [case.target, *case.covariates]})
+
+    def prepare_history(self, case_id, variable, history, grid):
+        """Optional provider policy, restricted to past model inputs and their owning source."""
+        if variable.future_known:
+            return None
+        origin_id, original = self.bindings.get((case_id, variable.name), (case_id, variable))
+        prepare = getattr(self.providers[origin_id], "prepare_history", None)
+        return prepare(original, history, grid) if prepare else None
+
+    def model_history_end(self, case_id, origin, observed_end):
+        """Extend inputs only when every participating source opts into past completion."""
+        case = self.cases[case_id]
+        for variable in [case.target, *case.covariates]:
+            origin_id, _ = self.bindings.get((case_id, variable.name), (case_id, variable))
+            provider = self.providers[origin_id]
+            if variable.future_known or not getattr(provider, "complete_history_to_origin", False):
+                return observed_end
+        return origin
 
     @contextmanager
     def read_snapshot(self, case_ids):

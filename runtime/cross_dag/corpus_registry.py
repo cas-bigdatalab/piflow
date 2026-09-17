@@ -136,11 +136,24 @@ def _paged(fetch: Any) -> list[dict[str, Any]]:
 
 
 def _fetch_datasets(base_url: str) -> list[dict[str, Any]]:
+    from infra.config_loader import get_settings
+
     # 分页参数走 query string —— 放在 POST body 里会被服务端忽略，永远只回第一页
     # 的 10 条（OpenAPI 里 pageNum/pageSize 声明的就是 in: query）。请求体是过滤
     # 条件，空对象表示不过滤。
-    return _paged(lambda page: _post_json(
-        f"{base_url}/dataset/page?pageNum={page}&pageSize={PAGE_SIZE}", {}))
+    configured = get_settings().corpus_route.cross_dag_dataset_filters.source
+    sources = list(dict.fromkeys(name.strip() for name in configured if name.strip()))
+    datasets: dict[str, dict[str, Any]] = {}
+    # source is a scalar upstream: query each name, then union by dataset ID.
+    # Empty matches stay empty; a failed filtered request must not fall back to all data.
+    for source in sources or [""]:
+        rows = _paged(lambda page: _post_json(
+            f"{base_url}/dataset.page?pageNum={page}&pageSize={PAGE_SIZE}",
+            {"source": source} if source else {}))
+        for row in rows:
+            key = _first_text(row, "id", "datasetId", "dataset_id") or json.dumps(row, sort_keys=True)
+            datasets.setdefault(key, row)
+    return list(datasets.values())
 
 
 # ---- 映射 ---------------------------------------------------------------

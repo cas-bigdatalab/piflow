@@ -31,13 +31,16 @@ class Options(StrictModel):
 
 
 class CampbellProvider:
+    complete_history_to_origin = True
+
     @staticmethod
     def configure(source, scenarios):
         """Normalize only this format; IDs and registered observation semantics stay stable."""
-        from .campbell_registry import expand
+        from .campbell_registry import expand, normalize_units
         if source.get("path"):
             source["options"] = {**source.get("options", {}), "directory": source["path"]}
         expand(source, scenarios)
+        normalize_units(source, scenarios)
 
     @staticmethod
     def auxiliary_variable(variable):
@@ -243,6 +246,47 @@ class CampbellProvider:
         if end != end.floor(f"{frequency}min"):
             raise ForecastError("data_quality", "台站最新共同观测时刻未对齐预测采样频率。", stage="data")
         return end
+
+    @staticmethod
+    def prepare_history(variable, history, grid):
+        """Complete a model-only copy using earlier real observations, never stored estimates."""
+        import numpy as np
+
+        values = history.reindex(grid).copy()
+        observed = history.loc[:grid[-1]].dropna()
+        missing = values.isna()
+        lookback = pd.Timedelta(days=7)
+        short_gap = (grid[1] - grid[0]) * 2
+        circular = variable.semantics == "circular_degrees" or variable.transform == "unwrap_degrees" or variable.value_column == "WD_Unwrapped"
+        for timestamp in grid[missing]:
+            past = observed.loc[timestamp - lookback:timestamp]
+            if past.empty:
+                continue  # No backward fill before the first actual observation.
+            last = float(past.iloc[-1])
+            if variable.aggregation == "sum":
+                # Interval amounts are not states: carrying rain forward invents repeated rainfall.
+                estimate = float(past.median())
+            elif timestamp - past.index[-1] <= short_gap:
+                estimate = last
+            else:
+                local = past.index.tz_convert(variable.timezone)
+                clock = timestamp.tz_convert(variable.timezone)
+                same_time = past[(local.hour == clock.hour) & (local.minute == clock.minute)]
+                if same_time.empty:
+                    estimate = last
+                elif circular:
+                    radians = np.deg2rad(same_time.to_numpy())
+                    sine, cosine = np.sin(radians).mean(), np.cos(radians).mean()
+                    estimate = last if np.hypot(sine, cosine) < 1e-8 else float(np.rad2deg(np.arctan2(sine, cosine)) % 360)
+                    if variable.transform == "unwrap_degrees" or variable.value_column == "WD_Unwrapped":
+                        estimate += 360 * round((last - estimate) / 360)
+                else:
+                    estimate = float(same_time.median())
+            values.loc[timestamp] = estimate
+        filled = int((missing & values.notna()).sum())
+        return values, {"fill_method": "campbell_past_only_model_input_v1", "filled_points": filled,
+                        "filled_fraction": filled / len(grid), "lookback_days": 7,
+                        "observed_points": int((~missing).sum()), "original_observations_preserved": True}
 
 
 def main():
