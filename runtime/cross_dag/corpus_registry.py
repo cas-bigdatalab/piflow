@@ -72,11 +72,24 @@ def build_corpus_registry(
         raise ValueError("语料系统 base_url 为空，请检查 config/app.yaml 的 corpus_route.base_url")
 
     resolved_facets = _resolve_facet_fields(facet_fields)
+    connectors_by_name: dict[str, list[dict[str, Any]]] = {}
+
+    def fetch_sources() -> list[dict[str, Any]]:
+        items = _fetch_connectors(resolved_base)
+        # 在按执行位置合并之前保留原始名称归属；每次刷新重建，避免旧关联残留。
+        connectors_by_name.clear()
+        for item in items:
+            name = _first_text(item, "name", "connectorName", "sourceName")
+            if name:
+                connectors_by_name.setdefault(name, []).append(item)
+        return items
+
     return CallbackDatasourceRegistry(
-        fetch_sources=lambda: _fetch_connectors(resolved_base),
+        fetch_sources=fetch_sources,
         source_mapper=lambda raw: _map_connector(raw, grpc_port=grpc_port, probe=fetch_metrics),
         fetch_datasets=lambda: _fetch_datasets(resolved_base),
-        dataset_mapper=lambda raw: _map_dataset(raw, facet_fields=resolved_facets),
+        dataset_mapper=lambda raw: _map_dataset(
+            raw, facet_fields=resolved_facets, connectors_by_name=connectors_by_name),
         cache=cache,
     )
 
@@ -230,12 +243,29 @@ def _map_dataset(
     raw: dict[str, Any],
     *,
     facet_fields: tuple[str, ...],
+    connectors_by_name: dict[str, list[dict[str, Any]]] | None = None,
 ) -> DatasetRecord | None:
     dataset_id = _first_text(raw, "id", "datasetId", "dataset_id")
     if not dataset_id:
         return None
 
     connector_ids = _connector_ids(raw)
+    matched_source = None
+    source_name = _first_text(raw, "source")
+    if not connector_ids and source_name and connectors_by_name is not None:
+        matches = connectors_by_name.get(source_name, [])
+        if len(matches) != 1:
+            log.warning(
+                "数据集 %s 的来源 %r 匹配到 %d 个连接器，需要唯一匹配，已跳过",
+                dataset_id, source_name, len(matches),
+            )
+            return None
+        matched_source = _map_connector(matches[0], grpc_port=DEFAULT_GRPC_PORT, probe=False)
+        if matched_source is None:
+            log.warning("数据集 %s 的来源 %r 没有可用执行位置，已跳过", dataset_id, source_name)
+            return None
+        connector_ids = (matched_source.source_id,)
+
     cstr = _first_text(raw, "cstr", "replicaId", "replica_id")
     if not connector_ids:
         log.warning("数据集 %s 没有数据源引用，已跳过", dataset_id)
@@ -251,10 +281,14 @@ def _map_dataset(
             ),
             # 这里先保留注册中心业务 ID；CallbackDatasourceRegistry 会把每个
             # connectorId 分别规范化为实际执行位置，并合并对应节点的资源指标。
-            source_ip=connector_id,
+            # 名称回退直接使用匹配连接器的执行位置，避免同 IP 连接器合并丢失 ID 别名。
+            # 显式 ID 引用仍按原流程交由通用适配器解析。
+            source_ip=matched_source.center_id if matched_source else connector_id,
             # corpus 算子按 dataset_id 取数，所以所有物理副本共享这个 locator。
             locator=dataset_id,
-            status=_replica_status(raw),
+            status=(matched_source.status
+                    if matched_source and matched_source.status != "AVAILABLE"
+                    else _replica_status(raw)),
         )
         for connector_id in connector_ids
     )
