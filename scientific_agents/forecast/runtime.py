@@ -17,7 +17,7 @@ from .execution import TaskRunner
 from .feedback import ACTIVE, ForecastError, classify, present, task_view
 from .history import TaskHistory, TaskChoice
 from .planning import OriginChoice, resolve_origin, plan_message
-from .matching import candidates as match_candidates, matches_target, area_suggestions, area_selection, AreaChoice, normalized
+from .matching import candidates as match_candidates, matches_target, area_suggestions, area_selection, AreaChoice, normalized, values
 
 log = logging.getLogger(__name__)
 
@@ -109,14 +109,15 @@ class ForecastAgent:
             context = {**state, "task_catalog": [self.task_history.summary(t) for t in tasks[-20:]], "task_count": len(tasks)}
             mode_reply = None
             match = state.get("pending_match")
-            case_id = area_selection(state["message"], match["options"]) if match else None
+            interaction = state.get("response", {}).get("interaction") or {}
+            options = match["options"] if match else interaction.get("options", []) if interaction.get("field") == "case_ids" else []
+            case_id = area_selection(state["message"], options) if options else None
             case_reply = (Intent.model_validate_json(state["message"]) if state["message"].lstrip().startswith("{")
                           else Intent(case_ids=[case_id])) if case_id else None
-            if case_reply:
+            if case_reply and match:
                 supplied_context = case_reply.analysis_context.model_dump(exclude_unset=True) if case_reply.analysis_context else {}
                 case_reply = Intent.model_validate({**case_reply.model_dump(),
                     "analysis_context": {**match["analysis_context"], **supplied_context}})
-            interaction = state.get("response", {}).get("interaction") or {}
             if interaction.get("field") == "origin_mode" and any(o.get("id") == "replay" for o in interaction.get("options", [])):
                 if state["message"].strip().rstrip("。") in {"replay", "历史回放", "使用历史数据回放", "选择历史回放", "可以", "好的", "1"}:
                     mode_reply = Intent(origin_mode="replay")
@@ -214,13 +215,15 @@ class ForecastAgent:
                 if pending_match and state.get("case_selection"):
                     params = dict(pending_match["params"])
                     scope = dict(pending_match["scope"])
-                    scope.pop("requested_area", None)  # Only the explicitly confirmed name may change.
                     report_messages = list(pending_match["analysis_messages"])
-                    intent.requested_area = next(c["area"] for c in pending_match["options"] if c["id"] == intent.case_ids[0])
-                elif pending_match and intent.action == "predict" and not any(
-                        value and normalized(value) in normalized(state["message"])
-                        for value in [intent.requested_area, intent.requested_variable, intent.requested_hazard]):
-                    raise ForecastError("invalid_parameters", "请明确选择候选数据的名称、编号或列表序号；也可以重新描述需要预测的对象。")
+                    chosen = next(c for c in pending_match["options"] if c["id"] == intent.case_ids[0])
+                    for field in pending_match.get("fields", ["requested_area"]):
+                        setattr(intent, field, chosen["area" if field == "requested_area" else "variable"])
+                elif pending_match and intent.action == "predict":
+                    # Edits apply to the pending request, without confirming a suggested correction.
+                    params = dict(pending_match["params"])
+                    scope = dict(pending_match["scope"])
+                    report_messages = list(pending_match["analysis_messages"])
                 if intent.action == "reuse":
                     source = self._task_for(state, intent)
                     report_context = dict(source.get("analysis_context", {}).get("user", {}))
@@ -245,33 +248,62 @@ class ForecastAgent:
                 cfg = self.workflow.settings
                 catalogue = self.workflow.registry.list_cases()
                 candidates = catalogue
-                if intent.action == "reuse" or (intent.case_ids and params.get("case_ids") and not state.get("case_selection")):
+                auto_match = None
+                explicit_selection = bool(intent.case_ids and (state["message"].lstrip().startswith("{") or
+                    (not state["message"].strip().isdecimal() and
+                     area_selection(state["message"], catalogue) in intent.case_ids)))
+                previous = [c for c in catalogue if c["id"] in params.get("case_ids", [])]
+                if intent.action == "reuse" or (explicit_selection and not state.get("case_selection")):
                     scope = {}
                 target, hazard = intent.requested_variable, intent.requested_hazard
                 if not target and hazard and any(matches_target(c, hazard) for c in catalogue):
                     target, hazard = hazard, None  # Normalize legacy variable requests before merging conversation scope.
+                if not scope.get("requested_area") and not intent.requested_area and not explicit_selection and intent.action != "reuse":
+                    areas = {c["area"] for c in previous}
+                    if len(areas) == 1:
+                        scope["requested_area"] = areas.pop()
                 if target:
-                    if any(matches_target(c, scope.get("requested_hazard")) for c in catalogue):
+                    old_targets = [c for c in catalogue if matches_target(c, scope.get("requested_variable"))] or previous
+                    if (old_targets and not any(matches_target(c, target) for c in old_targets)) or any(
+                            matches_target(c, scope.get("requested_hazard")) for c in catalogue):
                         scope.pop("requested_hazard", None)
                     scope["requested_variable"] = target
-                scope.update({k: v for k, v in {"requested_area": intent.requested_area,
-                                              "requested_hazard": hazard}.items() if v})
+                for key, value in {"requested_area": intent.requested_area, "requested_hazard": hazard}.items():
+                    if value is not None:
+                        if value:
+                            scope[key] = value
+                        else:
+                            scope.pop(key, None)
                 if scope:
                     candidates = self._candidates(scope)
                     if not candidates:
-                        suggestions = area_suggestions(catalogue, scope)
-                        if suggestions:
-                            raise AreaChoice(suggestions)
-                        requested = "、".join(str(v) for v in scope.values() if v)
-                        horizon = proposed.get("horizon_hours")
-                        duration = f"未来 {horizon} 小时" if horizon else ""
-                        raise ForecastError("unsupported",
-                            f"当前已注册数据目录没有匹配“{requested}”的数据，暂时无法执行{duration}预测。"
-                            "不会使用其他地区替代，也尚未接入外部数据搜索。"
-                            "请核对目录中的名称和变量；确认未注册后再接入对应数据。预测当前未来时段还需满足数据时效要求。")
+                        suggestions = area_suggestions(catalogue, scope, limit=None)
+                        if len(suggestions) > 1:
+                            raise AreaChoice(suggestions[:5], ["requested_area", "requested_variable"])
+                        if not suggestions:
+                            requested = "、".join(str(v) for v in scope.values() if v)
+                            horizon = proposed.get("horizon_hours")
+                            duration = f"未来 {horizon} 小时" if horizon else ""
+                            raise ForecastError("unsupported",
+                                f"当前已注册数据目录没有匹配“{requested}”的数据，暂时无法执行{duration}预测。"
+                                "不会使用其他地区替代，也尚未接入外部数据搜索。"
+                                "请核对目录中的名称和变量；确认未注册后再接入对应数据。预测当前未来时段还需满足数据时效要求。")
+                        auto_match = suggestions[0]
+                        scope.update(requested_area=auto_match["area"], requested_variable=auto_match["variable"])
+                        candidates = suggestions
                     candidate_ids = {c["id"] for c in candidates}
+                    if (len(candidates) > 1 and intent.case_ids and len(intent.case_ids) == 1
+                            and not explicit_selection and not state.get("case_selection")
+                            and intent.case_ids != params.get("case_ids")):
+                        # A model's choice is not the user's confirmation of an ambiguous source.
+                        intent.case_ids = None
+                        proposed["case_ids"] = []
                     if intent.case_ids and not set(intent.case_ids) <= candidate_ids:
-                        raise ForecastError("invalid_parameters", "所选案例与请求的区域、预测变量或风险类型不匹配。")
+                        if explicit_selection or any(i not in self.workflow.registry.cases for i in intent.case_ids):
+                            raise ForecastError("invalid_parameters", "所选案例与请求的区域或预测变量不匹配。")
+                        # Model-selected IDs cannot override the user's parsed place/variable.
+                        intent.case_ids = None
+                        proposed.pop("case_ids", None)
                     if not intent.case_ids and (not proposed.get("case_ids") or not set(proposed["case_ids"]) <= candidate_ids):
                         proposed["case_ids"] = [candidates[0]["id"]] if len(candidates) == 1 else []
                 previous_cases = state.get("params", {}).get("case_ids") if state.get("case_selection") else params.get("case_ids")
@@ -319,12 +351,20 @@ class ForecastAgent:
                         if run_id not in runs:
                             runs.append(run_id)
                         response.update(run_id=run_id, content=plan_message(validated, self.workflow.registry))
+                if scope.get("requested_variable") and scope.get("requested_hazard"):
+                    selected = [c for c in candidates if c["id"] in proposed.get("case_ids", [])]
+                    if selected and not all(any(normalized(scope["requested_hazard"]) == normalized(v)
+                            for v in values(c, "hazard_type", "hazard_aliases")) for c in selected):
+                        response["content"] += "\n已匹配指标数据，但所选数据未登记所请求的风险类型；可以预测指标，不代表已具备该类风险判定能力。"
+                if auto_match:
+                    response["content"] = f"已匹配：{auto_match['label']}。\n" + response["content"]
                 pending = None
                 pending_match = None
         except AreaChoice as choice:
-            requested = scope["requested_area"]
-            prompt = f"未精确匹配“{requested}”，找到名称相近且符合指标条件的数据，请确认具体对象。确认前不会开始预测。"
+            requested = "、".join(str(v) for v in scope.values() if v)
+            prompt = f"未精确匹配“{requested}”，找到相近的数据对象或变量，请确认要使用的具体数据。确认前不会开始预测。"
             pending_match = {"options": choice.options, "params": proposed, "scope": scope,
+                             "fields": choice.fields,
                              "analysis_context": intent.analysis_context.model_dump(exclude_none=True) if intent.analysis_context else {},
                              "analysis_messages": [*report_messages, {"role": "user", "content": state["message"][:2000]}][-6:]}
             # Pending corrections are checkpointed separately from confirmed parameters.
