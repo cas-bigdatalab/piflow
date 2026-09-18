@@ -19,6 +19,7 @@ from services.corpus_connector_service import (
     get_corpus_connector_latency,
     enable_corpus_connector,
     update_corpus_connector,
+    get_available_dataset_total,
     list_connector_details,
     list_dataset_details,
     list_dataset_details_v2,
@@ -146,6 +147,22 @@ async def list_corpus_datasets_api(req: CorpusDatasetListRequest):
     return {
         "code": 200,
         "result": result,
+    }
+
+
+@router.get("/corpus/dataset/available-total")
+async def get_available_corpus_dataset_total_api():
+    try:
+        total = get_available_dataset_total()
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception:
+        log.exception("failed to get available corpus dataset total")
+        raise HTTPException(status_code=500, detail="failed to get available corpus dataset total")
+
+    return {
+        "code": 200,
+        "result": {"total": total},
     }
 
 

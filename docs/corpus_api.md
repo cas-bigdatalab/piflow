@@ -5,6 +5,7 @@ Base Path: `/api/piflow/v1`
 ## 目录
 - [POST /corpus/connector/list](#post-corpusconnectorlist) - 分页查询连接器及节点资源信息
 - [POST /corpus/dataset/list](#post-corpusdatasetlist) - 分页查询数据集列表并支持条件筛选
+- [GET /corpus/dataset/available-total](#get-corpusdatasetavailable-total) - 查询可用数据集总数
 - [POST /corpus/dataset/detail](#post-corpusdatasetdetail) - 根据数据集 ID 获取数据集详情
 - [POST /corpus/connector/save](#post-corpusconnectorsave) - 创建连接器
 - [POST /corpus/connector/update](#post-corpusconnectorupdate) - 更新连接器
@@ -169,6 +170,21 @@ Response
     "connectorId": "DS-NODE-1",
     "remote_grpc_target": "10.0.82.213:50061",
     "latency_ms": 12.345
+  }
+}
+```
+
+## `GET /corpus/dataset/available-total`
+查询可用数据集总数，不接受筛选条件。
+
+统计口径为：全部数据集总数减去禁用连接器对应的数据集总数。
+
+Response
+```json
+{
+  "code": 200,
+  "result": {
+    "total": 42
   }
 }
 ```

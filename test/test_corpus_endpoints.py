@@ -74,6 +74,19 @@ def test_list_corpus_datasets_endpoint(monkeypatch):
     assert response.json()["result"]["items"][0]["replicaCount"] == 1
 
 
+def test_get_available_corpus_dataset_total_endpoint(monkeypatch):
+    monkeypatch.setattr(
+        "routers.corpus_router.get_available_dataset_total",
+        lambda: 42,
+    )
+
+    with _build_client() as client:
+        response = client.get("/corpus/dataset/available-total")
+
+    assert response.status_code == 200
+    assert response.json() == {"code": 200, "result": {"total": 42}}
+
+
 def test_list_corpus_connectors_endpoint_passes_keyword(monkeypatch):
     seen = {}
 

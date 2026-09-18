@@ -24,6 +24,7 @@ from services.corpus_connector_service import (
     update_corpus_connector,
     list_connector_details_with_resources,
     list_dataset_details,
+    get_available_dataset_total,
     list_connector_resources,
 )
 
@@ -857,6 +858,51 @@ def test_list_dataset_details_returns_dataset_page(monkeypatch):
             "sync": "2026-08-08 09:15",
             "recommended": False,
         }
+    ]
+
+
+def test_get_available_dataset_total_subtracts_disabled_connector_datasets(monkeypatch):
+    connector_payload = {
+        "code": 200,
+        "data": {
+            "content": [
+                {"connectorId": "enabled-1", "name": "可用连接器", "enabled": True},
+                {"connectorId": "disabled-1", "name": "禁用连接器", "enabled": False},
+            ],
+        },
+    }
+    seen_posts = []
+
+    def fake_get(url, params, timeout):
+        assert url.endswith("/dataset.connector.page")
+        assert params == {"pageNum": 1, "pageSize": 100}
+        return _FakeResponse(connector_payload)
+
+    def fake_post(url, params, json, timeout):
+        assert url.endswith("/dataset.page")
+        seen_posts.append((params, json))
+        if json == {}:
+            total = 10
+        else:
+            assert json == {"sources": ["禁用连接器"]}
+            total = 3
+        return _FakeResponse({"code": 200, "data": {"content": [], "total": total}})
+
+    monkeypatch.setattr(
+        "services.corpus_connector_service.get_settings",
+        lambda: type(
+            "Settings",
+            (),
+            {"corpus_route": type("CorpusRoute", (), {"base_url": "http://corpus.example"})()},
+        )(),
+    )
+    monkeypatch.setattr("services.corpus_connector_service.requests.get", fake_get)
+    monkeypatch.setattr("services.corpus_connector_service.requests.post", fake_post)
+
+    assert get_available_dataset_total() == 7
+    assert seen_posts == [
+        ({"pageNum": 1, "pageSize": 1}, {}),
+        ({"pageNum": 1, "pageSize": 1}, {"sources": ["禁用连接器"]}),
     ]
 
 
