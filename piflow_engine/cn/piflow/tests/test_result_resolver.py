@@ -80,3 +80,115 @@ def test_result_resolver_rejects_result_path_escape(
             row={"stop_workspace_path": str(tmp_path / "stop"), "stop_uuid": "node-1"},
             result_output_name=result_output_name,
         )
+
+
+@pytest.mark.parametrize("node_id", ["direct-result-save", "another-file-producer"])
+@pytest.mark.parametrize("output_name", ["", "output"])
+def test_direct_file_metadata_and_download_without_workspace(tmp_path, monkeypatch, node_id, output_name):
+    path = tmp_path / "export" / "result.csv"
+    path.parent.mkdir()
+    content = b"timestamp,value\n2026-09-01,12\n"
+    path.write_bytes(content)
+    resolver = ResultResolver()
+
+    def find_row(*, run_id, result_node_id):
+        assert run_id == "run-1"
+        assert result_node_id == node_id
+        return dict(flow_status="SUCCESS", stop_status="SUCCESS", stop_uuid=node_id,
+                    final_output_path=str(path), stop_workspace_path="")
+
+    monkeypatch.setattr(resolver, "_find_result_row", find_row)
+    request = dict(run_id="run-1", result_node_id=node_id, result_output_name=output_name)
+    meta = resolver.get_result_meta(**request)
+    assert meta.file_name == path.name
+    assert meta.file_size == len(content)
+    with resolver.open_result_file(**request) as stream:
+        assert stream.read() == content
+
+
+@pytest.mark.parametrize("output_name,code", [
+    ("unknown", "RESULT_NOT_FOUND"),
+    ("result.csv", "RESULT_NOT_FOUND"),
+    ("output/child.csv", "RESULT_NOT_FOUND"),
+    ("../secret", "INVALID_ARGUMENT"),
+    ("nested/../../secret", "INVALID_ARGUMENT"),
+    ("/tmp/secret", "INVALID_ARGUMENT"),
+])
+def test_direct_file_does_not_ignore_output_selector(tmp_path, output_name, code):
+    path = tmp_path / "result.csv"
+    path.write_text("result", encoding="utf-8")
+    with pytest.raises(RemoteExecutionError) as caught:
+        ResultResolver()._resolve_node_result_path(
+            row={"stop_uuid": "save", "final_output_path": str(path)},
+            result_output_name=output_name,
+        )
+    assert caught.value.code == code
+
+
+def test_direct_file_still_requires_file_to_exist(tmp_path, monkeypatch):
+    resolver = ResultResolver()
+    monkeypatch.setattr(resolver, "_find_result_row", lambda **_: dict(
+        flow_status="SUCCESS", stop_uuid="save", final_output_path=str(tmp_path / "missing.csv")))
+    with pytest.raises(RemoteExecutionError) as caught:
+        resolver.get_result_meta(run_id="run-1", result_node_id="save", result_output_name="output")
+    assert caught.value.code == "RESULT_FILE_NOT_FOUND"
+
+
+def test_node_without_either_recorded_path_is_rejected():
+    with pytest.raises(RemoteExecutionError) as caught:
+        ResultResolver()._resolve_node_result_path(row={"stop_uuid": "save"}, result_output_name="output")
+    assert caught.value.code == "RESULT_NOT_FOUND"
+
+
+@pytest.mark.parametrize("output_name", ["", "output", "nested/result.csv"])
+def test_existing_workspace_output_retains_priority(tmp_path, output_name):
+    workspace = tmp_path / "stop"
+    final = tmp_path / "export.csv"
+    final.write_text("different result", encoding="utf-8")
+    resolved = ResultResolver()._resolve_node_result_path(
+        row={"stop_uuid": "command", "stop_workspace_path": str(workspace), "final_output_path": str(final)},
+        result_output_name=output_name,
+    )
+    assert resolved == (workspace / "output" / output_name).resolve()
+
+
+def test_unspecified_node_still_uses_final_output_path(tmp_path, monkeypatch):
+    path = tmp_path / "result.csv"
+    path.write_bytes(b"result")
+    resolver = ResultResolver()
+    monkeypatch.setattr(resolver, "_find_result_row", lambda **_: dict(
+        flow_status="SUCCESS", final_output_path=str(path)))
+    with resolver.open_result_file(run_id="run-1", result_node_id="", result_output_name="") as stream:
+        assert stream.read() == b"result"
+
+
+def test_unfinished_run_cannot_download_recorded_final_file(tmp_path, monkeypatch):
+    path = tmp_path / "result.csv"
+    path.write_bytes(b"result")
+    resolver = ResultResolver()
+    monkeypatch.setattr(resolver, "_find_result_row", lambda **_: dict(
+        flow_status="RUNNING", stop_uuid="save", final_output_path=str(path)))
+    with pytest.raises(RemoteExecutionError) as caught:
+        resolver.get_result_meta(run_id="run-1", result_node_id="save", result_output_name="output")
+    assert caught.value.code == "RUN_NOT_FINISHED"
+
+
+def test_direct_directory_result_is_archived_without_workspace(tmp_path, monkeypatch):
+    import io
+    import zipfile
+
+    directory = tmp_path / "export"
+    directory.mkdir()
+    (directory / "result.csv").write_bytes(b"result")
+    resolver = ResultResolver()
+    monkeypatch.setattr(resolver, "_find_result_row", lambda **_: dict(
+        flow_status="SUCCESS", stop_uuid="save", final_output_path=str(directory)))
+    request = dict(run_id="run-1", result_node_id="save", result_output_name="output")
+    meta = resolver.get_result_meta(**request)
+    assert meta.file_name.endswith(".zip")
+    with resolver.open_result_file(**request) as stream:
+        data = stream.read()
+    assert len(data) == meta.file_size
+    with zipfile.ZipFile(io.BytesIO(data)) as archive:
+        assert archive.namelist() == ["result.csv"]
+        assert archive.read("result.csv") == b"result"

@@ -9,6 +9,7 @@ from contextlib import closing
 from dataclasses import dataclass
 from pathlib import Path
 
+from piflow_engine.cn.piflow.core.stream import DEFAULT_PORT
 from piflow_engine.cn.piflow.runtime.logging import get_logger
 from piflow_engine.cn.piflow.runtime.run_status import RunStatus
 
@@ -264,8 +265,27 @@ class ResultResolver:
         row: dict,
         result_output_name: str,
     ) -> Path:
+        relative_path = Path(result_output_name) if result_output_name else None
+        if relative_path is not None and (
+            relative_path.anchor or ".." in relative_path.parts
+        ):
+            raise RemoteExecutionError(
+                "INVALID_ARGUMENT",
+                "result_output_name must be a relative path inside output",
+            )
         stop_workspace_path = str(row.get("stop_workspace_path") or "").strip()
         if not stop_workspace_path:
+            # Direct file-producing stops record a final artifact without a command
+            # workspace. Only their default output refers to that exact artifact.
+            final_output_path = str(row.get("final_output_path") or "").strip()
+            if final_output_path:
+                if result_output_name in {"", DEFAULT_PORT}:
+                    return Path(final_output_path).expanduser().resolve()
+                raise RemoteExecutionError(
+                    "RESULT_NOT_FOUND",
+                    f"output {result_output_name} is not recorded for node "
+                    f"{row.get('stop_uuid') or row.get('stop_name') or '<unknown>'}",
+                )
             raise RemoteExecutionError(
                 "RESULT_NOT_FOUND",
                 f"stop workspace path is not recorded for node "
@@ -274,13 +294,7 @@ class ResultResolver:
 
         stop_workspace = Path(stop_workspace_path).expanduser().resolve()
         output_root = (stop_workspace / "output").resolve()
-        if result_output_name:
-            relative_path = Path(result_output_name)
-            if relative_path.is_absolute() or ".." in relative_path.parts:
-                raise RemoteExecutionError(
-                    "INVALID_ARGUMENT",
-                    "result_output_name must be a relative path inside output",
-                )
+        if relative_path is not None:
             path = (output_root / relative_path).resolve()
         else:
             path = output_root
