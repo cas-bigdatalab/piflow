@@ -20,7 +20,7 @@ from .model import Predictor
 from .providers import Registry
 from .feedback import ForecastError, local_time
 from .schema import ForecastResult, SeriesResult, TaskParams
-from .planning import forecast_grid, history_steps, sampling_floor
+from .planning import forecast_grid, history_steps, sampling_floor, resolve_origin, OriginChoice
 
 
 def write_json(path: Path, data):
@@ -60,10 +60,18 @@ class ForecastWorkflow:
         cutoff = pd.Timestamp(params.history_cutoff or params.origin).tz_convert("UTC")
         if cutoff > origin:
             raise ForecastError("invalid_parameters", "历史输入截止时间不能晚于预测展示起点。")
+        if params.forecast_mode is not None and cutoff > pd.Timestamp.now(tz="UTC"):
+            raise ForecastError("invalid_time", "历史输入截止时间不能晚于当前时刻，请使用已经发生的观测时段。")
         for case_id in params.case_ids:
+            if self.registry.cases[case_id].target.semantics == "circular_degrees":
+                raise ForecastError("invalid_parameters", "环形角度不能直接按标量预测。请将风向转换为风矢量分量并注册为预测目标；风向可直接作为辅助变量。")
             frequency, context, _ = self.registry.warnings.timing(case_id)
             history_steps(params, self.registry, case_id)
-            forecast_grid(origin, params.horizon_hours, frequency)
+            future = forecast_grid(origin, params.horizon_hours, frequency)
+            # A known input-to-forecast gap consumes model output steps too. Check before queuing.
+            steps = int((future[-1] - sampling_floor(cutoff, frequency)) / pd.Timedelta(minutes=frequency))
+            if steps > 1024:
+                raise ForecastError("invalid_parameters", "数据延迟加请求时长超出模型支持的1024个采样点，请缩短历史截止时间与预测窗口的间隔或预测时长。")
             if context > 15360:
                 raise ForecastError("invalid_parameters", "请求超出固定模型的上下文或预测长度限制。")
 
@@ -72,7 +80,29 @@ class ForecastWorkflow:
             return self.bind(params).prepare(params)
         self.validate(params)
         with self.registry.read_snapshot(params.case_ids):
-            return self._prepare_cases(params)
+            try:
+                return self._prepare_cases(params)
+            except ForecastError as exc:
+                if exc.code != "data_stale":
+                    raise
+                if params.history_start is not None:
+                    raise ForecastError(exc.code, str(exc) + " 本次已指定历史输入区间，不会自动移动该区间；可修改预测日期进行历史回放。", stage=exc.stage) from exc
+                # Offer replay only after its actual historical inputs pass the same checks.
+                try:
+                    proposal = params.model_dump(mode="json", exclude_none=True)
+                    proposal.update(origin_mode="replay", forecast_mode="historical_replay")
+                    proposal.pop("origin", None)
+                    proposal.pop("history_cutoff", None)
+                    replay = TaskParams.model_validate(resolve_origin(proposal, self.registry))
+                    check = ForecastWorkflow(self.settings, self.registry.bind(replay), self.model)
+                    check._prepare_cases(replay)
+                except (ForecastError, OriginChoice, ValueError, OSError):
+                    raise ForecastError(exc.code, str(exc) + " 尚未找到通过检查的默认回放窗口；可指定其他历史日期或更新数据。", stage=exc.stage) from exc
+                end = pd.Timestamp(replay.origin) + pd.Timedelta(hours=replay.horizon_hours)
+                raise ForecastError(exc.code, str(exc) +
+                    f" 已找到可用历史回放窗口：{local_time(replay.origin)} 至 {local_time(end)}（北京时间）；回复“使用历史回放”可新建回放任务，不替代本次未来预测。",
+                    stage=exc.stage, replay={"origin": replay.origin.isoformat(), "horizon_hours": replay.horizon_hours,
+                                            "forecast_mode": "historical_replay"}) from exc
 
     def bind(self, params):
         self.registry.refresh()
@@ -85,7 +115,7 @@ class ForecastWorkflow:
         prepared, cache = [], {}
         for case_id in params.case_ids:
             requested, minimum = history_steps(params, self.registry, case_id)
-            candidates = [requested] if params.history_hours is not None or requested == minimum else [requested, minimum]
+            candidates = [requested] if params.history_start is not None or params.history_hours is not None or requested == minimum else [requested, minimum]
             for context in candidates:
                 try:
                     item = self._prepare(params.model_copy(update={"case_ids": [case_id]}), context, cache)[0]
@@ -94,13 +124,16 @@ class ForecastWorkflow:
                     if exc.code != "data_quality" or context == candidates[-1]:
                         raise
             frequency = item["frequency_minutes"]
-            item["history_window"] = {"source": "explicit" if params.history_hours is not None else "auto",
+            item["history_window"] = {"source": "explicit" if params.history_start is not None or params.history_hours is not None else "auto",
                 "requested_steps": requested, "actual_steps": context, "minimum_steps": minimum,
                 "requested_hours": requested * frequency / 60, "actual_hours": context * frequency / 60,
                 "start": (pd.Timestamp(item["timestamps"][-1]) - pd.Timedelta(minutes=context * frequency)).isoformat(),
                 "first_timestamp": item["timestamps"][0], "end": item["timestamps"][-1],
                 "adjusted": context != requested,
                 "reason": "默认窗口数据不足，已使用通过质量检查的最低历史窗口。" if context != requested else "历史窗口满足数据要求。"}
+            if params.history_start is not None:
+                item["history_window"].update(requested_start=params.history_start.isoformat(),
+                    requested_end=(params.history_cutoff or params.origin).isoformat(), boundary="(start, end]")
             prepared.append(item)
         return prepared
 
@@ -112,8 +145,6 @@ class ForecastWorkflow:
         prepared = []
         for case_id in params.case_ids:
             case = self.registry.cases[case_id]
-            if case.target.semantics == "circular_degrees":
-                raise ForecastError("invalid_parameters", "环形角度不能直接按标量预测。请将风向转换为风矢量分量并注册为预测目标；风向可直接作为辅助变量。")
             frequency, _, _ = self.registry.warnings.timing(case_id)
             sampling_cutoff = sampling_floor(cutoff, frequency)
             future = forecast_grid(origin, params.horizon_hours, frequency)
@@ -122,15 +153,17 @@ class ForecastWorkflow:
             if scenario.mode == "current":
                 now = pd.Timestamp.now(tz="UTC")
                 if (now - cutoff).total_seconds() > scenario.data_age_limit(params.horizon_hours) * 60 or cutoff > now:
-                    raise ForecastError("data_quality", "当前预测起点不符合数据时效要求，请刷新数据。", stage="data")
+                    raise ForecastError("data_stale", "当前预测起点不符合数据时效要求，请刷新数据。", stage="data")
             history_end = (self.registry.history_end(case_id, sampling_cutoff, frequency, cache)
                            if scenario.mode == "current" else sampling_cutoff)
             if history_end > sampling_cutoff or history_end != sampling_floor(history_end, frequency):
                 raise ForecastError("data_quality", "历史截止时刻与预测起点无法对齐。", stage="data")
             if (cutoff - history_end).total_seconds() / 60 > scenario.data_age_limit(params.horizon_hours):
-                raise ForecastError("data_quality", f"监测数据过期：所选变量最新共同观测 {local_time(history_end)}（北京时间）超过本次时效上限。", stage="data")
+                raise ForecastError("data_stale", f"监测数据过期：所选变量最新共同观测 {local_time(history_end)}（北京时间）超过本次时效上限。", stage="data")
             # Check real observation freshness first; completion must not disguise stale data.
             history_end = self.registry.model_history_end(case_id, sampling_cutoff, history_end)
+            if params.history_start is not None:
+                history_end = sampling_cutoff  # A fixed interval must not slide backwards to older observations.
             gap_steps = int((forecast_boundary - history_end) / pd.Timedelta(minutes=frequency))
             if gap_steps + len(future) > 1024:
                 raise ForecastError("invalid_parameters", "数据延迟加请求时长超出模型支持的预测长度，请缩短时长或更新数据。")
@@ -160,9 +193,11 @@ class ForecastWorkflow:
                     observed = available.loc[available.index <= cutoff].dropna()
                     if observed.empty or (cutoff - observed.index.max()).total_seconds() > max_age_minutes * 60:
                         latest = local_time(observed.index.max()) + "（北京时间）" if not observed.empty else "无可用观测"
-                        raise ForecastError("data_quality", f"监测数据过期，无法进行当前预警评估。{case_id}/{variable.name} 最新可用观测：{latest}；本次预测允许的数据时效上限为 {max_age_minutes / 60:g} 小时，需要先更新监测数据。", stage="data")
+                        raise ForecastError("data_stale", f"监测数据过期，无法进行当前预警评估。{case_id}/{variable.name} 最新可用观测：{latest}；本次预测允许的数据时效上限为 {max_age_minutes / 60:g} 小时，需要先更新监测数据。", stage="data")
                 # Split BEFORE resampling/filling. No retrospective observations enter features.
                 historical = available.loc[available.index <= sampling_cutoff]
+                if params.history_start is not None:
+                    historical = historical.loc[historical.index > pd.Timestamp(params.history_start)]
                 history = resample_variable(historical, frequency, variable)
                 values = history.reindex(grid)
                 missing = int(values.isna().sum())
@@ -295,13 +330,18 @@ class ForecastWorkflow:
                          "covariates": {"__all__": {"description", "aliases"}}}
         numerical_settings = self.settings.model_dump_json(exclude={"execution": True,
             "sources": {"__all__": {"cases": {"__all__": report_fields}}}})
-        # Adding an optional cutoff must not invalidate pre-existing task identities.
-        parameter_identity = params.model_dump_json(exclude={"history_cutoff"} if params.history_cutoff is None else set())
-        fingerprint = sha256((parameter_identity + numerical_settings
-                              + json.dumps(model_identity, sort_keys=True)).encode()).hexdigest()
+        # New optional time fields must not invalidate tasks saved before those fields existed.
+        unset_time = {k for k in ("history_cutoff", "history_start", "forecast_mode") if getattr(params, k) is None}
+        parameter_identity = params.model_dump_json(exclude=unset_time)
+        def fingerprint_for(parameters):
+            return sha256((parameters + numerical_settings + json.dumps(model_identity, sort_keys=True)).encode()).hexdigest()
+        fingerprint = fingerprint_for(parameter_identity)
         identity = directory / "identity.json"
         if identity.exists() and json.loads(identity.read_text())["fingerprint"] != fingerprint:
-            raise ValueError("任务配置版本已变化，禁止复用旧执行编号。")
+            # Also accept the previous serializer that retained null time fields; values must still match.
+            previous = params.model_dump_json(exclude={"history_cutoff"} if params.history_cutoff is None else set())
+            if json.loads(identity.read_text())["fingerprint"] != fingerprint_for(previous):
+                raise ValueError("任务配置版本已变化，禁止复用旧执行编号。")
         write_json(identity, {"fingerprint": fingerprint})
         state = {}
         timings = {}

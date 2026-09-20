@@ -163,6 +163,16 @@ class Registry:
                         copies[id(provider)].current = dict(provider.current)
                     result.providers[key] = copies[id(provider)]
             result.warnings = self.warnings
+            if params.forecast_mode is not None:
+                result.warnings = copy(self.warnings)
+                result.warnings.scenarios = dict(self.warnings.scenarios)
+                for key in [*params.case_ids, *(params.auxiliary_case_ids or [])]:
+                    if key in result.cases:
+                        scenario = self.warnings.get(result.cases[key])
+                        if params.forecast_mode == "current" and scenario.mode == "historical_replay":
+                            raise ForecastError("invalid_parameters", "所选目标或辅助变量包含历史回放资料，请改用历史回放或更换当前监测数据。")
+                        result.warnings.scenarios[key] = scenario.model_copy(update={"mode": params.forecast_mode,
+                            "default_replay_origin": scenario.default_replay_origin if params.forecast_mode == "historical_replay" else None})
             if params.auxiliary_case_ids is None:
                 legacy = {c.id: c for s in self.source_specs for c in s.cases}
                 for key in params.case_ids:
@@ -196,7 +206,7 @@ class Registry:
                         auxiliary_frequency = self.warnings.timing(auxiliary)[0]
                         if target_frequency % auxiliary_frequency:
                             raise ForecastError("invalid_parameters", "辅助变量频率需等于或细于目标频率，且能整倍数对齐；不自动插值")
-                        if self.warnings.get(self.cases[auxiliary]).mode != self.warnings.get(case).mode:
+                        if result.warnings.get(self.cases[auxiliary]).mode != result.warnings.get(case).mode:
                             raise ForecastError("invalid_parameters", "当前监测与历史回放数据不能混合使用")
                         variable = original.model_copy(update={"name": f"aux_{auxiliary}", "future_known": False})
                         case.covariates.append(variable)

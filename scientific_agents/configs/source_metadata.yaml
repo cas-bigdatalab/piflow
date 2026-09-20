@@ -17,8 +17,8 @@ sources:
     location:
       name: 蒋家沟观测站
       address: 蒋家沟观测站
-      latitude: null
-      longitude: null
+      latitude: 26.2540
+      longitude: 103.1565
       coordinate_system: WGS84
     target:
       name: rainfall_amount

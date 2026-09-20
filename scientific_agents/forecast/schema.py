@@ -22,11 +22,15 @@ class TaskParams(StrictModel):
     origin: datetime
     # Model inputs stop here when the requested forecast window starts later (e.g. tomorrow).
     history_cutoff: datetime | None = None
+    # Explicit input interval (history_start, history_cutoff], on the existing sample grid.
+    history_start: datetime | None = None
     horizon_hours: int = Field(gt=0)
     history_hours: int | None = Field(default=None, gt=0)
     origin_mode: Literal["explicit", "now", "replay", "tomorrow"] | None = None
+    # None preserves the mode of legacy saved tasks; new plans set this per request.
+    forecast_mode: Literal["current", "historical_replay"] | None = None
 
-    @field_validator("origin", "history_cutoff")
+    @field_validator("origin", "history_cutoff", "history_start")
     @classmethod
     def aware(cls, value):
         if value is not None and value.tzinfo is None:
@@ -52,6 +56,8 @@ class Intent(StrictModel):
     references: list[TaskReference] = Field(default_factory=list, max_length=2)
     origin_mode: Literal["explicit", "now", "replay", "tomorrow"] | None = None
     history_hours: int | None = Field(default=None, gt=0)
+    history_start: str | None = None
+    history_cutoff: str | None = None
     history_mode: Literal["auto", "explicit"] | None = None
     requested_area: str | None = None
     requested_variable: str | None = None
