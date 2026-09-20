@@ -23,6 +23,9 @@ STAGES = {"data": "数据接入与检查", "predict": "模型预测", "evaluate"
 ERRORS = {
     "unsupported": ("我目前支持已注册数据的时序预测、结果解释和比较。请描述你希望预测的数据和时间范围。", ["edit_parameters"]),
     "intent_parse_failed": ("这次没能理解你的需求，之前确认的信息仍然保留。请重新描述本轮需求。", ["resend_message"]),
+    "intent_service_failed": ("需求解析服务暂时不可用或返回格式异常，已保留原有参数，请重试；本次没有提交预测。", ["resend_message"]),
+    "invalid_time": ("未能确定预测日期，请明确起点和时长；不会改用默认日期。", ["edit_parameters"]),
+    "data_stale": ("真实观测已超过本次时效上限，无法执行当前预测。", ["edit_parameters"]),
     "invalid_parameters": ("这些参数暂时不能用于预测，请调整后再试。", ["edit_parameters"]),
     "version_conflict": ("会话已更新，请刷新参数后再确认。", ["refresh"]),
     "request_conflict": ("同一请求编号不能对应不同消息，请使用新的请求编号。", ["resend_message"]),
@@ -62,13 +65,15 @@ def completion_message(result):
 
 
 class ForecastError(ValueError):
-    def __init__(self, code, message=None, *, stage=None, http_status=422):
+    def __init__(self, code, message=None, *, stage=None, http_status=422, replay=None):
         self.code, self.stage, self.http_status = code, stage, http_status
+        self.replay = replay
         super().__init__(message or ERRORS[code][0])
 
     def problem(self):
         recovery = list(ERRORS[self.code][1])
         return {"code": self.code, "message": str(self), "stage": self.stage,
+                **({"replay": self.replay} if self.replay else {}),
                 "retryable": "retry_task" in recovery or "resend_message" in recovery, "recovery": recovery}
 
 

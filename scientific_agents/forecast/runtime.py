@@ -4,6 +4,7 @@ from typing import TypedDict
 import logging
 import threading
 import uuid
+import re
 import pandas as pd
 
 from langgraph.graph import StateGraph, START, END
@@ -18,6 +19,7 @@ from .feedback import ACTIVE, ForecastError, classify, present, task_view
 from .history import TaskHistory, TaskChoice
 from .planning import OriginChoice, resolve_origin, plan_message
 from .matching import candidates as match_candidates, matches_target, area_suggestions, area_selection, AreaChoice, normalized, values
+from .time_request import parse_time_request
 
 log = logging.getLogger(__name__)
 
@@ -34,6 +36,7 @@ class Conversation(TypedDict, total=False):
     intent: dict
     response: dict
     parse_error: bool
+    parse_problem: dict | None
     pending_task: dict | None
     pending_match: dict | None
     case_selection: bool
@@ -104,6 +107,7 @@ class ForecastAgent:
 
     def _understand(self, state):
         try:
+            date_reply = (state.get("response", {}).get("interaction") or {}).get("field") == "origin"
             selected = self.task_history.answer(state["message"], state.get("pending_task"))
             tasks = self.task_history.list(state["session"])
             context = {**state, "task_catalog": [self.task_history.summary(t) for t in tasks[-20:]], "task_count": len(tasks)}
@@ -121,8 +125,24 @@ class ForecastAgent:
             if interaction.get("field") == "origin_mode" and any(o.get("id") == "replay" for o in interaction.get("options", [])):
                 if state["message"].strip().rstrip("。") in {"replay", "历史回放", "使用历史数据回放", "选择历史回放", "可以", "好的", "1"}:
                     mode_reply = Intent(origin_mode="replay")
+            if state["message"].strip().rstrip("。") in {"replay", "历史回放", "使用历史回放", "使用历史数据回放", "选择历史回放"}:
+                mode_reply = Intent(origin_mode="replay")
+                last = tasks[-1] if tasks else {}
+                replay = (last.get("problem") or {}).get("replay")
+                if replay and all(last.get("params", {}).get(k) == state.get("params", {}).get(k)
+                                  for k in ("case_ids", "horizon_hours", "history_hours", "history_start", "history_cutoff")) and (
+                        last.get("params", {}).get("auxiliary_case_ids") or []) == (state.get("params", {}).get("auxiliary_case_ids") or []):
+                    mode_reply.origin = replay["origin"]
+                    mode_reply.horizon_hours = replay["horizon_hours"]
             intent = case_reply or selected or mode_reply or self.interpreter.parse(state["message"], context, self.workflow.registry.list_cases())
             intent = Intent.model_validate(intent)
+            # Interpret dates only for a new prediction or a pending date answer, not report/status references.
+            time_updates = (parse_time_request(state["message"]) if intent.action == "predict" or date_reply or (
+                intent.action in {"help", "unsupported", "clarify"} and re.search(r"预测|预报", state["message"])) else {})
+            if time_updates and intent.action in {"help", "unsupported", "clarify"}:
+                intent.action = "predict"
+            if intent.action == "predict":
+                intent = Intent.model_validate({**intent.model_dump(), **time_updates})
             if intent.auxiliary_case_ids and not state["message"].lstrip().startswith("{"):
                 raise ForecastError("invalid_parameters", "组合预测请在数据选择器中手动选择目标和辅助变量")
             pending = state.get("pending_task")
@@ -130,19 +150,22 @@ class ForecastAgent:
                     and len(intent.run_ids) == 1 and intent.run_ids[0] in pending["candidate_ids"]):
                 selected = self.task_history.answer(intent.run_ids[0], pending)
                 intent = selected
-            return {"intent": intent.model_dump(), "parse_error": False, "selection_reply": selected is not None,
+            return {"intent": intent.model_dump(), "parse_error": False, "parse_problem": None, "selection_reply": selected is not None,
                     "case_selection": case_reply is not None}
         except Exception as exc:
             # Do not log provider response bodies, credentials or users' messages.
             log.warning("Forecast intent failed: %s status=%s session=%s turn=%s",
                         type(exc).__name__, getattr(exc, "status_code", None),
                         state.get("session"), state.get("turn_id"))
-            return {"intent": {"action": "help"}, "parse_error": True, "selection_reply": False, "case_selection": False}
+            error = exc if isinstance(exc, ForecastError) else ForecastError("intent_service_failed")
+            return {"intent": {"action": "help"}, "parse_error": True, "parse_problem": error.problem(),
+                    "selection_reply": False, "case_selection": False}
 
     def _advance(self, state):
         intent = Intent.model_validate(state["intent"])
         if (intent.action == "predict" and intent.wants_probability and not any([
                 intent.case_ids, intent.origin, intent.horizon_hours, intent.origin_mode, intent.history_hours,
+                intent.history_start, intent.history_cutoff, intent.history_mode,
                 intent.requested_area, intent.requested_variable, intent.requested_hazard])):
             intent.action = "explain" if state.get("runs") else "help"
         params = dict(state.get("params", {}))
@@ -157,7 +180,8 @@ class ForecastAgent:
         pending_match = state.get("pending_match")
         try:
             if state.get("parse_error"):
-                raise ForecastError("intent_parse_failed")
+                problem = state.get("parse_problem") or {"code": "intent_parse_failed"}
+                raise ForecastError(problem["code"], problem.get("message"))
             elif intent.action == "help":
                 response["content"] = self.help_text()
             elif intent.action == "unsupported":
@@ -230,21 +254,32 @@ class ForecastAgent:
                     report_messages = []
                     params = dict(source["params"])
                     params["origin_mode"] = "explicit"  # Reuse the saved instant, not a new wall clock.
+                    params.pop("forecast_mode", None)  # A new run at an old instant is now a historical replay.
                     response["source_run_id"] = source["run_id"]
-                updates = {k: getattr(intent, k) for k in ["case_ids", "auxiliary_case_ids", "origin", "horizon_hours", "history_hours", "origin_mode"] if getattr(intent, k) is not None}
+                updates = {k: getattr(intent, k) for k in ["case_ids", "auxiliary_case_ids", "origin", "horizon_hours", "history_hours", "history_start", "history_cutoff", "origin_mode"] if getattr(intent, k) is not None}
                 if intent.origin_mode == "tomorrow" and intent.horizon_hours is None:
                     updates["horizon_hours"] = 24
                 proposed = {**params, **updates}
+                if intent.origin or intent.origin_mode or (intent.case_ids and intent.case_ids != params.get("case_ids")):
+                    proposed.pop("forecast_mode", None)
                 if intent.case_ids and intent.case_ids != params.get("case_ids") and intent.auxiliary_case_ids is None:
                     proposed.pop("auxiliary_case_ids", None)
-                if intent.history_mode == "auto":
-                    proposed.pop("history_hours", None)
+                if intent.history_start:
+                    if intent.history_hours is None:
+                        proposed.pop("history_hours", None)
+                elif intent.history_mode == "auto" or intent.history_hours is not None:
+                    proposed.pop("history_start", None)
+                    proposed.pop("history_cutoff", None)
+                    if intent.history_mode == "auto":
+                        proposed.pop("history_hours", None)
                 if intent.origin:
                     proposed["origin_mode"] = "explicit"
-                    proposed.pop("history_cutoff", None)
+                    if not proposed.get("history_start"):
+                        proposed.pop("history_cutoff", None)
                 elif intent.origin_mode in {"now", "replay", "tomorrow"}:
                     proposed.pop("origin", None)
-                    proposed.pop("history_cutoff", None)
+                    if not proposed.get("history_start"):
+                        proposed.pop("history_cutoff", None)
                 cfg = self.workflow.settings
                 catalogue = self.workflow.registry.list_cases()
                 candidates = catalogue
