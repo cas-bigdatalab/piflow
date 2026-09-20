@@ -9,8 +9,8 @@
 #  temperature: 0
 
 llm:
-  provider: dashscope
-  model: qwen3.5-plus
+  provider: relayrouter
+  model: qwen3.8-flash
   temperature: 0
 
 #llm:
@@ -50,3 +50,7 @@ providers:
   deepseek:
     base_url: https://api.deepseek.com/v1
     api_key_env: DEEPSEEK_API_KEY
+
+  relayrouter:
+    base_url: https://api.relayrouter.ai/v1
+    api_key_env: ROUTER_API_KEY
