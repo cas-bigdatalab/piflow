@@ -654,7 +654,7 @@ scenarios:
   context_steps: 336
   # 预测跨度不足24小时：允许前6小时；24小时及以上：允许前48小时。
   # max_data_age_minutes 非空时作为固定上限，优先于以下两项。
-  max_data_age_minutes: 4320
+  max_data_age_minutes: 10080
   hourly_max_data_age_minutes: 360
   daily_max_data_age_minutes: 2880
   # 单位和累计口径未获数据方确认前，不自动套用毫米降雨风险阈值。
