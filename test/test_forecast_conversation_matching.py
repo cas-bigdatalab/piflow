@@ -11,11 +11,10 @@ from scientific_agents.forecast.runtime import ForecastAgent
 from scientific_agents.forecast.schema import Intent
 
 
-@pytest.fixture
-def agent():
+def build_agent(variables):
     cases, scenarios = [], []
     for site, area in [("ST001", "示例市南部观测站"), ("ST002", "示例市北部观测站")]:
-        for variable, alias in [("rain", "降水"), ("temperature", "气温")]:
+        for variable, alias in variables:
             case = Case(id=f"{site}-{variable}", label=f"{area} · {alias}", station_id=site,
                         target=Variable(name=variable, unit="unit", aliases=[alias]))
             cases.append(case)
@@ -32,6 +31,16 @@ def agent():
     instance.task_history = SimpleNamespace(answer=lambda *_: None, list=lambda _: [])
     instance.interpreter = SimpleNamespace(parse=lambda *_: Intent())
     return instance
+
+
+@pytest.fixture
+def agent():
+    return build_agent([("rain", "降水"), ("temperature", "气温")])
+
+
+@pytest.fixture
+def temperature_agent():
+    return build_agent([("air_temperature", "气温"), ("soil_temperature", "土壤温度")])
 
 
 def advance(agent, previous=None, message="预测", **intent):
@@ -191,3 +200,25 @@ def test_explicit_named_selection_can_switch_site_without_copying_old_scope(agen
     two = advance(agent, one, message="选择ST002-temperature", case_ids=["ST002-temperature"])
     assert two["params"]["case_ids"] == ["ST002-temperature"]
     assert len(agent.submissions) == 2
+
+
+def test_exact_variable_with_short_place_starts_without_soil_choice(temperature_agent):
+    result = advance(temperature_agent, requested_area="示例南部", requested_variable="air_temperature", horizon_hours=72)
+    assert result["params"]["case_ids"] == ["ST001-air_temperature"]
+    assert result["pending_match"] is None
+    assert result["response"]["interaction"] is None
+    assert len(temperature_agent.submissions) == 1
+    followup = advance(temperature_agent, result, requested_variable="soil_temperature")
+    assert followup["params"]["case_ids"] == ["ST001-soil_temperature"]
+    assert followup["params"]["horizon_hours"] == 72
+    assert len(temperature_agent.submissions) == 2
+
+
+def test_similar_source_keeps_multiple_sites_but_not_other_variables(temperature_agent):
+    pending = advance(temperature_agent, requested_area="示例观侧网", requested_variable="air_temperature", horizon_hours=24)
+    assert {c["id"] for c in pending["pending_match"]["options"]} == {
+        "ST001-air_temperature", "ST002-air_temperature"}
+    assert not temperature_agent.submissions
+    result = confirm(temperature_agent, pending, "2")
+    assert result["params"]["case_ids"] == ["ST002-air_temperature"]
+    assert len(temperature_agent.submissions) == 1

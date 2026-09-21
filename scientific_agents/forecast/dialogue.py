@@ -11,6 +11,7 @@ from pydantic import Field
 from .config import StrictModel
 from .schema import Intent, TaskReference
 from ..paths import PROJECT_ROOT
+from infra.non_thinking import non_thinking_options
 
 
 class Interpreter(Protocol):
@@ -213,8 +214,6 @@ def create_interpreter() -> Interpreter:
     if not key:
         raise RuntimeError("未设置原项目 LLM API key。请配置该环境变量；离线联调可显式设置 FORECAST_DIALOGUE=explicit。")
     # Only this agent changes its model request; the original project's config stays intact.
-    options = {}
-    if llm["provider"] == "dashscope" or llm["model"].lower().startswith("qwen"):
-        options["extra_body"] = {"enable_thinking": False}
+    options = non_thinking_options(provider=llm["provider"], model=llm["model"], base_url=provider["base_url"])
     return LLMInterpreter(ChatOpenAI(model=llm["model"], base_url=provider["base_url"], api_key=key,
-                                    temperature=0, timeout=20, max_retries=0, **options))
+                                    temperature=0, timeout=60, max_retries=0, **options))
