@@ -71,3 +71,45 @@ def test_full_candidate_count_is_independent_of_display_limit(catalogue):
     assert len(area_suggestions(cases, scope, limit=1)) == 1
     assert len(area_suggestions(cases, scope)) == 5
     assert len(area_suggestions(cases, scope, limit=None)) == 8
+
+
+@pytest.fixture
+def temperature_catalogue():
+    return [dict(id=f"{site}-{variable}", area=area, aliases=[], station_id=site,
+                 variable=variable, variable_aliases=aliases)
+            for site, area in [("ST001", "示例市南部观测站"), ("ST002", "示例市北部观测站")]
+            for variable, aliases in [("air_temperature", ["气温", "空气温度", "temperature"]),
+                                      ("soil_temperature", ["土壤温度"])]]
+
+
+@pytest.mark.parametrize("query", ["air_temperature", "temperature", "气温变化"])
+def test_exact_target_is_preserved_when_place_is_approximate(temperature_catalogue, query):
+    before = deepcopy(temperature_catalogue)
+    scope = dict(requested_area="示例南部", requested_variable=query)
+    assert not candidates(temperature_catalogue, scope)
+    assert [c["id"] for c in area_suggestions(temperature_catalogue, scope)] == ["ST001-air_temperature"]
+    assert temperature_catalogue == before
+
+
+def test_exact_target_keeps_multiple_eligible_sites(temperature_catalogue):
+    scope = dict(requested_area="示例观侧网", requested_variable="air_temperature")
+    cases = [dict(c, source_name="示例观测网") for c in temperature_catalogue]
+    assert not candidates(cases, scope)
+    assert {c["id"] for c in area_suggestions(cases, scope, limit=None)} == {
+        "ST001-air_temperature", "ST002-air_temperature"}
+
+
+def test_unknown_target_can_still_use_approximate_variable(temperature_catalogue):
+    scope = dict(requested_area="示例南部", requested_variable="air_temperatur")
+    assert not candidates(temperature_catalogue, scope)
+    assert area_suggestions(temperature_catalogue, scope)[0]["id"] == "ST001-air_temperature"
+
+
+@pytest.mark.parametrize("place", ["ST001", "示例市南部观测站"])
+def test_exact_place_is_not_replaced_to_find_exact_target(temperature_catalogue, place):
+    cases = [c for c in temperature_catalogue if c["id"] != "ST001-air_temperature"]
+    # A similarly named site has the requested variable; the named site does not.
+    cases = [dict(c, area="示例市南部观测点") if c["station_id"] == "ST002" else c for c in cases]
+    scope = dict(requested_area=place, requested_variable="air_temperature")
+    assert not candidates(cases, scope)
+    assert not area_suggestions(cases, scope)

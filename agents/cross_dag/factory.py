@@ -7,6 +7,7 @@ import os
 from langchain_openai import ChatOpenAI
 
 from infra.config_loader import get_settings
+from infra.non_thinking import non_thinking_options
 
 
 class CrossDagLLMFactory:
@@ -46,8 +47,9 @@ class CrossDagLLMFactory:
         if xdc.llm_json_mode:
             kwargs["model_kwargs"] = {"response_format": {"type": "json_object"}}
 
-        if not xdc.llm_enable_thinking:
-            kwargs["extra_body"] = {"enable_thinking": False}
+        # Both agent entry points always request non-thinking execution, even
+        # when an old cross_dag configuration still enables thinking.
+        kwargs.update(non_thinking_options(provider=provider_name, model=kwargs["model"], base_url=provider_cfg.base_url))
 
         try:
             return ChatOpenAI(**kwargs)

@@ -112,8 +112,17 @@ def area_suggestions(cases, scope, limit=5):
     """Rank eligible objects; limit=None returns the full set for uniqueness checks."""
     if candidates(cases, scope):
         return []
+    # Preserve independently recognized constraints: a place spelling difference
+    # must not broaden an exact variable, or replace an explicitly matched place.
+    area_query, target_query = scope.get("requested_area"), scope.get("requested_variable")
+    exact_area = bool(area_query) and any(matches_area(c, area_query) for c in cases)
+    exact_target = bool(target_query) and any(matches_target(c, target_query) for c in cases)
     ranked = []
     for case in cases:
+        if exact_target and not matches_target(case, target_query):
+            continue
+        if exact_area and not matches_area(case, area_query):
+            continue
         area = area_score(scope["requested_area"], case) if scope.get("requested_area") else 1.0
         target = target_score(scope["requested_variable"], case) if scope.get("requested_variable") else 1.0
         other = {k: v for k, v in scope.items() if k not in {"requested_area", "requested_variable"}}
