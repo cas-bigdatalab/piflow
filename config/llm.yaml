@@ -10,7 +10,7 @@
 
 llm:
   provider: relayrouter
-  model: deepseek-v4.1-flash
+  model: qwen3.8-flash
   temperature: 0
 
 #llm:
