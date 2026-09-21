@@ -13,7 +13,9 @@ from services.corpus_connector_service import (
     disable_corpus_connector,
     get_dataset_detail,
     get_dataset_detail_by_cstr,
+    get_dataset_directory,
     get_dataset_file_jsonl,
+    get_dataset_preview,
     get_corpus_connector_detail,
     get_corpus_connector_tree,
     get_corpus_connector_latency,
@@ -23,6 +25,7 @@ from services.corpus_connector_service import (
     list_connector_details,
     list_dataset_details,
     list_dataset_details_v2,
+    should_query_dataset_directory,
 )
 
 log = logging.getLogger("flow.api")
@@ -222,6 +225,36 @@ async def get_corpus_dataset_by_cstr_api(cstr: str = Query(...)):
         "code": 200,
         "result": {
             "dataset": result,
+        },
+    }
+
+
+@router.get("/corpus/dataset/preview")
+async def get_corpus_dataset_preview_api(
+    cstr: str = Query(...),
+    fileId: str | None = Query(default=None),
+):
+    try:
+        if fileId is not None:
+            mode = "directory"
+            result = get_dataset_directory(cstr, file_id=fileId)
+        elif should_query_dataset_directory(cstr):
+            mode = "directory"
+            result = get_dataset_directory(cstr)
+        else:
+            mode = "preview"
+            result = get_dataset_preview(cstr)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception:
+        log.exception("failed to browse corpus dataset cstr=%s fileId=%s", cstr, fileId)
+        raise HTTPException(status_code=500, detail="failed to browse corpus dataset")
+
+    return {
+        "code": 200,
+        "result": {
+            "mode": mode,
+            "data": result,
         },
     }
 

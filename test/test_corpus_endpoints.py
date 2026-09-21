@@ -234,6 +234,63 @@ def test_get_corpus_dataset_by_cstr_endpoint(monkeypatch):
     assert response.json()["result"]["dataset"]["title"] == "共和县光伏观测站campbell仪器观测数据集"
 
 
+def test_get_corpus_dataset_preview_uses_directory_directly_when_file_id_is_present(monkeypatch):
+    monkeypatch.setattr(
+        "routers.corpus_router.should_query_dataset_directory",
+        lambda cstr: (_ for _ in ()).throw(AssertionError("should not inspect source when fileId is present")),
+    )
+    monkeypatch.setattr(
+        "routers.corpus_router.get_dataset_directory",
+        lambda cstr, file_id=None: {"code": 200, "data": [{"fileId": file_id}]},
+    )
+
+    with _build_client() as client:
+        response = client.get(
+            "/corpus/dataset/preview",
+            params={"cstr": "1928844366999224320", "fileId": "4003697"},
+        )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "code": 200,
+        "result": {"mode": "directory", "data": {"code": 200, "data": [{"fileId": "4003697"}]}},
+    }
+
+
+def test_get_corpus_dataset_preview_selects_preview_when_source_is_not_directory(monkeypatch):
+    monkeypatch.setattr("routers.corpus_router.should_query_dataset_directory", lambda cstr: False)
+    monkeypatch.setattr(
+        "routers.corpus_router.get_dataset_preview",
+        lambda cstr: {"code": 200, "data": {"cstr": cstr}},
+    )
+
+    with _build_client() as client:
+        response = client.get("/corpus/dataset/preview", params={"cstr": "dataset_001"})
+
+    assert response.status_code == 200
+    assert response.json()["result"] == {
+        "mode": "preview",
+        "data": {"code": 200, "data": {"cstr": "dataset_001"}},
+    }
+
+
+def test_get_corpus_dataset_preview_selects_directory_root_when_source_requires_it(monkeypatch):
+    monkeypatch.setattr("routers.corpus_router.should_query_dataset_directory", lambda cstr: True)
+    monkeypatch.setattr(
+        "routers.corpus_router.get_dataset_directory",
+        lambda cstr, file_id=None: {"code": 200, "data": [{"fileId": "4003697"}]},
+    )
+
+    with _build_client() as client:
+        response = client.get("/corpus/dataset/preview", params={"cstr": "1928844366999224320"})
+
+    assert response.status_code == 200
+    assert response.json()["result"] == {
+        "mode": "directory",
+        "data": {"code": 200, "data": [{"fileId": "4003697"}]},
+    }
+
+
 def test_create_rustfs_service_account_endpoint(monkeypatch):
     monkeypatch.setattr(
         "routers.corpus_router.create_rustfs_temporary_credentials",

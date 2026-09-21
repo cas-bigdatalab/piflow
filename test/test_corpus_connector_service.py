@@ -66,6 +66,60 @@ def test_file_list_uses_current_endpoint_and_encodes_download_path(monkeypatch, 
     assert result == ([{"fileName": "a b.tar", "downloadUrl": "http://corpus.example/dataset.file.download/CODE%2FA/a%20b.tar"}] if files else [])
 
 
+def test_should_query_dataset_directory_for_earth_system_source(monkeypatch):
+    monkeypatch.setattr(
+        corpus_connector_service,
+        "get_dataset_detail_by_cstr",
+        lambda cstr: {"id": "1928844366999224320", "cstr": cstr, "source": "地球系统数值模拟装置"},
+    )
+
+    assert corpus_connector_service.should_query_dataset_directory("dataset_001") is True
+
+
+def test_should_query_dataset_directory_is_false_for_other_sources(monkeypatch):
+    monkeypatch.setattr(
+        corpus_connector_service,
+        "get_dataset_detail_by_cstr",
+        lambda cstr: {"id": "dataset-id", "cstr": cstr, "source": "普通语料库"},
+    )
+
+    assert corpus_connector_service.should_query_dataset_directory("dataset_001") is False
+
+
+def test_get_dataset_directory_forwards_optional_file_id(monkeypatch):
+    calls = []
+
+    def request(method, path, *, params=None, json_body=None):
+        calls.append((method, path, params, json_body))
+        return {"code": 200, "data": []}
+
+    monkeypatch.setattr(corpus_connector_service, "_request_corpus_route", request)
+
+    assert corpus_connector_service.get_dataset_directory("1928844366999224320", file_id="4003697") == {
+        "code": 200,
+        "data": [],
+    }
+    assert calls == [
+        ("GET", "/metacat.file.dir.query", {"cstr": "1928844366999224320", "fileId": "4003697"}, None)
+    ]
+
+
+def test_get_dataset_preview_forwards_cstr(monkeypatch):
+    calls = []
+
+    def request(method, path, *, params=None, json_body=None):
+        calls.append((method, path, params, json_body))
+        return {"code": 200, "data": {"preview": True}}
+
+    monkeypatch.setattr(corpus_connector_service, "_request_corpus_route", request)
+
+    assert corpus_connector_service.get_dataset_preview("dataset_001") == {
+        "code": 200,
+        "data": {"preview": True},
+    }
+    assert calls == [("GET", "/corpus.dataset.preview", {"cstr": "dataset_001"}, None)]
+
+
 def test_create_rustfs_temporary_credentials_signs_and_returns_credentials(monkeypatch):
     seen = {}
 

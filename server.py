@@ -20,6 +20,7 @@ from routers.auth_router import router as auth_router
 from routers.chat_router import router as chat_router
 from routers.community_router import router as community_router
 from routers.corpus_router import router as corpus_router
+from routers.mcp_catalog_router import router as mcp_catalog_router
 from routers.cross_dag_api import router as cross_dag_router
 from routers.dag_panel_api import router as dag_router
 from routers.dag_runtime_api import router as dag_runtime_router
@@ -31,6 +32,8 @@ from routers.workflow_template_router import router as workflow_template_router
 from routers.subagent.workflow_advisor.workflow_advisor_router import router as workflow_advisor_router
 from routers.schedule_router import router as schedule_router
 from chemical import chemical_router, get_chemical_service
+from fastmcp.utilities.lifespan import combine_lifespans
+from mcp_servers.corpus_mcp import create_mcp_app
 from runtime.schedule.daemon import ScheduleDaemon
 
 log = logging.getLogger("flow.api")
@@ -76,7 +79,8 @@ async def lifespan(app: FastAPI):
         if schedule_daemon is not None:
             schedule_daemon.stop()
 
-app = FastAPI(lifespan=lifespan)
+mcp_app = create_mcp_app()
+app = FastAPI(lifespan=combine_lifespans(lifespan, mcp_app.lifespan))
 
 # 新建父路由，统一加 /api 前缀
 api_router = APIRouter(prefix="/api/piflow/v1")
@@ -85,6 +89,7 @@ api_router.include_router(auth_router)
 api_router.include_router(chat_router)
 api_router.include_router(community_router)
 api_router.include_router(corpus_router)
+api_router.include_router(mcp_catalog_router)
 api_router.include_router(cross_dag_router)
 api_router.include_router(dag_router)
 api_router.include_router(dag_runtime_router)
@@ -99,6 +104,7 @@ api_router.include_router(chemical_router)
 
 # 把父router挂载到app
 app.include_router(api_router)
+app.mount("/api/piflow/v1/mcp", mcp_app)
 install_scientific_agents(app)
 
 STORAGE_DIR.mkdir(parents=True, exist_ok=True)

@@ -24,6 +24,7 @@ from infra.config_loader import get_settings
 REQUEST_TIMEOUT = 30
 DEFAULT_REMOTE_GRPC_PORT = 50061
 _TTL_PATTERN = re.compile(r"^\s*(\d+)\s*([smhdSMHD]?)\s*$")
+_EARTH_SYSTEM_NUMERICAL_SIMULATION_SOURCE = "地球系统数值模拟装置"
 
 
 def create_remote_execution_client(remote_grpc_target: str):
@@ -408,6 +409,31 @@ def get_dataset_detail_by_cstr(cstr: str) -> dict[str, Any]:
     if not data:
         raise ValueError(f"dataset detail response data is empty for cstr={normalized_cstr}")
     return data
+
+
+def should_query_dataset_directory(cstr: str) -> bool:
+    """Whether a dataset must be browsed through the metacat directory API."""
+    normalized_cstr = _normalize_required_text(cstr, field_name="cstr")
+    dataset = get_dataset_detail_by_cstr(normalized_cstr)
+    source = str(dataset.get("source") or "").strip()
+    return source == _EARTH_SYSTEM_NUMERICAL_SIMULATION_SOURCE
+
+
+def get_dataset_preview(cstr: str) -> dict[str, Any]:
+    normalized_cstr = _normalize_required_text(cstr, field_name="cstr")
+    return _request_corpus_route(
+        "GET",
+        "/corpus.dataset.preview",
+        params={"cstr": normalized_cstr},
+    )
+
+
+def get_dataset_directory(cstr: str, *, file_id: str | None = None) -> dict[str, Any]:
+    normalized_cstr = _normalize_required_text(cstr, field_name="cstr")
+    params = {"cstr": normalized_cstr}
+    if file_id is not None:
+        params["fileId"] = _normalize_required_text(file_id, field_name="fileId")
+    return _request_corpus_route("GET", "/metacat.file.dir.query", params=params)
 
 
 def get_dataset_file_jsonl(cstr: str, *, file_name: str | None = None) -> dict[str, Any]:
