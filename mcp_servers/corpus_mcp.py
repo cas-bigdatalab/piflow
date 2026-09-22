@@ -26,7 +26,7 @@ mcp = FastMCP(
     ),
 )
 
-_MCP_ENDPOINT_EXAMPLE = "https://your-host.example.com/api/piflow/v1/mcp/"
+_MCP_ENDPOINT_EXAMPLE = "https://172.31.3.81:8086/api/piflow/v1/mcp/"
 
 _SEARCH_USAGE_EXAMPLE = f'''from fastmcp import Client
 

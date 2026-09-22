@@ -46,6 +46,7 @@ def test_mcp_tool_detail_returns_full_contract():
     assert result["tool"]["annotations"]["readOnlyHint"] is True
     assert result["tool"]["meta"]["piflow"]["category"] == "数据集发现"
     assert "async with Client(MCP_ENDPOINT)" in result["tool"]["usageExample"]
+    assert 'MCP_ENDPOINT = "https://172.31.3.81:8086/api/piflow/v1/mcp/"' in result["tool"]["usageExample"]
     assert '"search_corpus_datasets"' in result["tool"]["usageExample"]
 
     with _build_client() as client:
