@@ -42,15 +42,6 @@ def non_thinking_options(*, provider: str, model: str, base_url: str) -> dict:
         return {"extra_body": {"reasoning": {"enabled": False}}}
     if platform == "dashscope":
         return {"extra_body": {"enable_thinking": False}}
-    if platform == "relayrouter" and name.startswith("qwen"):
-        # RelayRouter documents an actual JSON body field named extra_body.
-        # ChatOpenAI's extra_body argument is flattened by the SDK, so two
-        # levels are intentional: wire JSON must be
-        # {"extra_body": {"enable_thinking": false}}, not a top-level flag.
-        # https://doc.relayrouter.ai/en/reference/v1?op=post-v1-chat-completions
-        # This requests non-thinking; gateway/model support still needs live
-        # verification. Never retry by dropping the flag/enabling thinking.
-        return {"extra_body": {"extra_body": {"enable_thinking": False}}}
 
     # Native switches, also used by transparent OpenAI-compatible relays.
     # https://api-docs.deepseek.com/guides/thinking_mode/
@@ -58,6 +49,8 @@ def non_thinking_options(*, provider: str, model: str, base_url: str) -> dict:
     # https://docs.bigmodel.cn/cn/guide/capabilities/thinking-mode
     # https://platform.kimi.ai/docs/guide/use-thinking-models
     if name.startswith("qwen"):
+        # RelayRouter and direct Qwen endpoints use the same top-level flag
+        # as DashScope; the SDK flattens this extra_body argument into JSON.
         return {"extra_body": {"enable_thinking": False}}
     if name.startswith(("deepseek", "glm-4.5", "glm-4.6", "glm-4.7", "glm-5", "kimi-k2.5", "kimi-k2.6")):
         return {"extra_body": {"thinking": {"type": "disabled"}}}

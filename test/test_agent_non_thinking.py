@@ -23,10 +23,10 @@ spec.loader.exec_module(factory)
 
 
 PROFILES = [
-    ("relayrouter", "qwen3.8-flash", "https://api.relayrouter.ai/v1", {"extra_body": {"enable_thinking": False}}),
-    ("openai", "Qwen/Qwen3.8-Flash", "https://api.relayrouter.ai/v1", {"extra_body": {"enable_thinking": False}}),
-    ("dashscope", "qwen3.8-flash", "https://api.relayrouter.ai/v1", {"extra_body": {"enable_thinking": False}}),
-    ("relayrouter", "qwen3.8-flash", "https://relay.example/v1", {"extra_body": {"enable_thinking": False}}),
+    ("relayrouter", "qwen3.8-flash", "https://api.relayrouter.ai/v1", {"enable_thinking": False}),
+    ("openai", "Qwen/Qwen3.8-Flash", "https://api.relayrouter.ai/v1", {"enable_thinking": False}),
+    ("dashscope", "qwen3.8-flash", "https://api.relayrouter.ai/v1", {"enable_thinking": False}),
+    ("relayrouter", "qwen3.8-flash", "https://relay.example/v1", {"enable_thinking": False}),
     ("dashscope", "qwen3.8-flash", "https://dashscope.aliyuncs.com/compatible-mode/v1", {"enable_thinking": False}),
     ("relayrouter", "qwen3.8-flash", "https://dashscope-intl.aliyuncs.com/compatible-mode/v1", {"enable_thinking": False}),
     ("openai", "qwen3.8-flash", "https://workspace.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1", {"enable_thinking": False}),
@@ -118,7 +118,7 @@ def test_actual_agent_request_payloads(tmp_path, monkeypatch, entry, provider, m
 
 
 @pytest.mark.parametrize("provider,model,url,expected", [
-    ("relayrouter", "qwen3.8-flash", "https://api.relayrouter.ai/v1", {"extra_body": {"enable_thinking": False}}),
+    ("relayrouter", "qwen3.8-flash", "https://api.relayrouter.ai/v1", {"enable_thinking": False}),
     ("dashscope", "qwen3.8-flash", "https://dashscope.aliyuncs.com/compatible-mode/v1", {"enable_thinking": False}),
     ("relayrouter", "deepseek-v4.1-flash", "https://api.relayrouter.ai/v1", {"thinking": {"type": "disabled"}}),
 ])
