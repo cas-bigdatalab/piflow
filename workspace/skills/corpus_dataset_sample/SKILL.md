@@ -6,7 +6,7 @@ description: |
   本 Skill 是 source node，不接收上游 DAG 文件或数据流；数据集 CSTR 和采样数量由节点参数直接配置。
 
   当用户需要从数据集中随机抽取少量数据进行查看、验证或调试时使用此 Skill。
-name_zh: 数据集采样源节点
+name_zh: 数据集采样
 input_params:
   - name: cstr
     type: string

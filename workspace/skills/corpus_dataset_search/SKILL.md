@@ -6,7 +6,7 @@ description: |
   本 Skill 是 source node，不接收上游 DAG 文件或数据流；检索条件由节点参数直接配置。
 
   当用户需要检索数据集、按标题或领域筛选数据集、分页查询数据集列表时使用此 Skill。
-name_zh: 数据集检索源节点
+name_zh: 数据集检索
 input_params:
   - name: page_num
     type: int

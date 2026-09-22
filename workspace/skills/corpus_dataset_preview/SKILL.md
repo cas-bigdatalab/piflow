@@ -6,7 +6,7 @@ description: |
   本 Skill 是 source node，不接收上游 DAG 文件或数据流；数据集 CSTR 由节点参数直接配置。
 
   当用户需要预览数据集内容时使用此 Skill。
-name_zh: 数据集预览源节点
+name_zh: 数据集预览
 input_params:
   - name: cstr
     type: string
