@@ -18,7 +18,7 @@ def write_json(path: str, payload: dict[str, Any]) -> None:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Corpus dataset preview proxy")
+    parser = argparse.ArgumentParser(description="数据集预览接口代理")
     parser.add_argument("--cstr", required=True)
     parser.add_argument("--output", default="corpus_dataset_preview_output.json")
     args = parser.parse_args()

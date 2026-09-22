@@ -1,12 +1,12 @@
 ---
 name: corpus_dataset_search
 description: |
-  Corpus 语料数据集检索源节点。直接调用固定的 Corpus HTTP 服务 `dataset.page` 接口，按分页和数据集元数据条件检索数据集，并将接口响应保存为 JSON 文件。
+  数据集检索源节点。直接调用固定的数据集 HTTP 服务 `dataset.page` 接口，按分页和数据集元数据条件检索数据集，并将接口响应保存为 JSON 文件。
 
   本 Skill 是 source node，不接收上游 DAG 文件或数据流；检索条件由节点参数直接配置。
 
-  当用户需要检索 Corpus 数据集、按标题或领域筛选数据集、分页查询数据集列表时使用此 Skill。
-name_zh: 语料检索源节点
+  当用户需要检索数据集、按标题或领域筛选数据集、分页查询数据集列表时使用此 Skill。
+name_zh: 数据集检索源节点
 input_params:
   - name: page_num
     type: int
@@ -46,15 +46,15 @@ input_params:
 output_params:
   - name: output
     type: json_file
-    description: Corpus dataset.page 接口的检索结果 JSON 文件
-tag: 语料检索
-disciplinary_field: 语料检索
+    description: 数据集分页接口的检索结果 JSON 文件
+tag: 数据集检索
+disciplinary_field: 数据集检索
 publisher: COMMUNITY
 ---
 
 ## 功能概述
 
-该 Skill 用于检索 Corpus 数据集列表。脚本直接向 `http://172.31.3.81:7005/dataset.page` 发送 `POST` 请求，将分页参数放在 URL 查询参数中，将筛选条件放在 JSON 请求体中。
+该 Skill 用于检索数据集列表。脚本直接向 `http://172.31.3.81:7005/dataset.page` 发送 `POST` 请求，将分页参数放在 URL 查询参数中，将筛选条件放在 JSON 请求体中。
 
 这是一个 source node：没有上游 DAG 输入，但可以在节点配置中填写分页和筛选参数。脚本完成请求后，将请求信息和完整上游响应写入 JSON 文件，并在终端打印输出文件路径。
 
@@ -97,7 +97,7 @@ Content-Type: application/json
 }
 ```
 
-`response` 保留 Corpus 上游接口的完整 JSON 响应。请求失败时 `success` 为 `false`，并写入 `error` 字段。
+`response` 保留上游接口的完整 JSON 响应。请求失败时 `success` 为 `false`，并写入 `error` 字段。
 
 ## 使用示例
 

@@ -1,12 +1,12 @@
 ---
 name: corpus_dataset_preview
 description: |
-  Corpus 语料预览源节点。直接调用固定的 Corpus HTTP 服务 `corpus.dataset.preview` 接口，根据数据集 CSTR 获取语料预览结果，并将接口响应保存为 JSON 文件。
+  数据集预览源节点。直接调用固定的数据集 HTTP 服务 `corpus.dataset.preview` 接口，根据数据集 CSTR 获取数据集预览结果，并将接口响应保存为 JSON 文件。
 
   本 Skill 是 source node，不接收上游 DAG 文件或数据流；数据集 CSTR 由节点参数直接配置。
 
-  当用户需要预览 Corpus 数据集内容时使用此 Skill。
-name_zh: 语料预览源节点
+  当用户需要预览数据集内容时使用此 Skill。
+name_zh: 数据集预览源节点
 input_params:
   - name: cstr
     type: string
@@ -20,15 +20,15 @@ input_params:
 output_params:
   - name: output
     type: json_file
-    description: Corpus 数据集预览接口响应 JSON 文件
-tag: 语料预览
-disciplinary_field: 语料预览
+    description: 数据集预览接口响应 JSON 文件
+tag: 数据集预览
+disciplinary_field: 数据集预览
 publisher: COMMUNITY
 ---
 
 ## 功能概述
 
-该 Skill 用于获取 Corpus 数据集的预览结果。脚本直接向 `http://172.31.3.81:7005/corpus.dataset.preview` 发送 `GET` 请求，并通过查询参数传递数据集 CSTR。
+该 Skill 用于获取数据集的预览结果。脚本直接向 `http://172.31.3.81:7005/corpus.dataset.preview` 发送 `GET` 请求，并通过查询参数传递数据集 CSTR。
 
 这是一个 source node：没有上游 DAG 输入，但必须在节点参数中配置目标数据集的 `cstr`。执行完成后，完整接口响应会保存到 JSON 文件并打印输出路径。
 
@@ -57,7 +57,7 @@ Accept: */*
 }
 ```
 
-`response` 保留 Corpus 上游接口的完整 JSON 响应，不对预览字段进行二次转换。请求失败时输出 `success: false` 和 `error` 字段。
+`response` 保留上游接口的完整 JSON 响应，不对预览字段进行二次转换。请求失败时输出 `success: false` 和 `error` 字段。
 
 ## 使用示例
 

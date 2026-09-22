@@ -18,7 +18,7 @@ def write_json(path: str, payload: dict[str, Any]) -> None:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Corpus dataset.page proxy")
+    parser = argparse.ArgumentParser(description="数据集分页检索接口代理")
     parser.add_argument("--page_num", type=int, default=1)
     parser.add_argument("--page_size", type=int, default=10)
     parser.add_argument("--title")

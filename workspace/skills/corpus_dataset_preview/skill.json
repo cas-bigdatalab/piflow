@@ -1,7 +1,7 @@
 {
   "name": "corpus_dataset_preview",
   "version": "1.0.0",
-  "description": "语料预览源节点。无上游 DAG 输入，通过 HTTP 调用 Corpus 数据集预览接口并输出 JSON 文件。",
+  "description": "数据集预览源节点。无上游 DAG 输入，通过 HTTP 调用数据集预览接口并输出 JSON 文件。",
   "language": "python",
   "script_path": "scripts/run_corpus_dataset_preview.py",
   "entrypoint": "python scripts/run_corpus_dataset_preview.py",
@@ -10,9 +10,9 @@
     {"name": "cstr", "role": "data", "type": "string", "required": true, "description": "数据集 CSTR 标识"}
   ],
   "output_params": [
-    {"name": "output", "role": "output_data", "type": "json_file", "default": "corpus_dataset_preview_output.json", "description": "语料预览结果文件"}
+    {"name": "output", "role": "output_data", "type": "json_file", "default": "corpus_dataset_preview_output.json", "description": "数据集预览结果文件"}
   ],
   "command_template": ["python", "{script_path}", "--cstr", "{cstr}"],
-  "tag": "语料预览",
+  "tag": "数据集预览",
   "publisher": "COMMUNITY"
 }
