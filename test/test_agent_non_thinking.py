@@ -23,6 +23,13 @@ spec.loader.exec_module(factory)
 
 
 PROFILES = [
+    ("relayrouter", "qwen3.8-flash", "https://api.relayrouter.ai/v1", {"extra_body": {"enable_thinking": False}}),
+    ("openai", "Qwen/Qwen3.8-Flash", "https://api.relayrouter.ai/v1", {"extra_body": {"enable_thinking": False}}),
+    ("dashscope", "qwen3.8-flash", "https://api.relayrouter.ai/v1", {"extra_body": {"enable_thinking": False}}),
+    ("relayrouter", "qwen3.8-flash", "https://relay.example/v1", {"extra_body": {"enable_thinking": False}}),
+    ("dashscope", "qwen3.8-flash", "https://dashscope.aliyuncs.com/compatible-mode/v1", {"enable_thinking": False}),
+    ("relayrouter", "qwen3.8-flash", "https://dashscope-intl.aliyuncs.com/compatible-mode/v1", {"enable_thinking": False}),
+    ("openai", "qwen3.8-flash", "https://workspace.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1", {"enable_thinking": False}),
     ("relayrouter", "deepseek-v4.1-flash", "https://api.relayrouter.ai/v1", {"thinking": {"type": "disabled"}}),
     ("deepseek", "deepseek-flash", "https://api.deepseek.com/v1", {"thinking": {"type": "disabled"}}),
     ("relay", "deepseek-ai/DeepSeek-V3.2", "https://relay.invalid/v1", {"thinking": {"type": "disabled"}}),
@@ -104,13 +111,18 @@ def test_actual_agent_request_payloads(tmp_path, monkeypatch, entry, provider, m
             assert config.llm_enable_thinking is True  # No mutation of shared settings.
             assert settings.llm.model == "unused-default"
         body = requests[0]
-        assert {key: body[key] for key in ("thinking", "enable_thinking", "reasoning") if key in body} == expected
+        assert {key: body[key] for key in ("thinking", "enable_thinking", "reasoning", "extra_body") if key in body} == expected
         assert body["response_format"] == {"type": "json_object"}
         assert body["model"] == model
         assert body["temperature"] == 0
 
 
-def test_forecast_fact_selection_and_async_analysis_keep_non_thinking():
+@pytest.mark.parametrize("provider,model,url,expected", [
+    ("relayrouter", "qwen3.8-flash", "https://api.relayrouter.ai/v1", {"extra_body": {"enable_thinking": False}}),
+    ("dashscope", "qwen3.8-flash", "https://dashscope.aliyuncs.com/compatible-mode/v1", {"enable_thinking": False}),
+    ("relayrouter", "deepseek-v4.1-flash", "https://api.relayrouter.ai/v1", {"thinking": {"type": "disabled"}}),
+])
+def test_forecast_fact_selection_and_async_analysis_keep_non_thinking(provider, model, url, expected):
     requests = []
 
     def respond(request):
@@ -119,7 +131,7 @@ def test_forecast_fact_selection_and_async_analysis_keep_non_thinking():
         content = ({"fact_ids": ["fact"]} if len(requests) == 1 else
                    {"overview": [note], "evidence": [note], "limitations": [note]})
         return httpx.Response(200, json={
-            "id": "test", "object": "chat.completion", "created": 0, "model": "deepseek-v4.1-flash",
+            "id": "test", "object": "chat.completion", "created": 0, "model": model,
             "choices": [{"index": 0, "finish_reason": "stop", "message": {
                 "role": "assistant", "content": json.dumps(content)}}],
         })
@@ -128,14 +140,15 @@ def test_forecast_fact_selection_and_async_analysis_keep_non_thinking():
         transport = httpx.MockTransport(respond)
         with httpx.Client(transport=transport) as client:
             async with httpx.AsyncClient(transport=transport) as async_client:
-                model = ChatOpenAI(model="deepseek-v4.1-flash", api_key="test-key",
-                    base_url="https://relay.invalid/v1", http_client=client, http_async_client=async_client,
-                    **non_thinking_options(provider="relay", model="deepseek-v4.1-flash", base_url="https://relay.invalid/v1"))
-                interpreter = dialogue.LLMInterpreter(model)
+                llm = ChatOpenAI(model=model, api_key="test-key",
+                    base_url=url, http_client=client, http_async_client=async_client,
+                    **non_thinking_options(provider=provider, model=model, base_url=url))
+                interpreter = dialogue.LLMInterpreter(llm)
                 assert interpreter.select_facts("Explain", {"fact": "Forecast completed"}) == ["fact"]
                 draft = await interpreter.analyze_warning({"facts": {"fact": "Forecast completed"}})
                 assert draft.overview[0].fact_ids == ["fact"]
 
     asyncio.run(exercise())
     assert len(requests) == 2
-    assert all(body["thinking"] == {"type": "disabled"} for body in requests)
+    assert all({k: body[k] for k in ("thinking", "enable_thinking", "reasoning", "extra_body") if k in body}
+               == expected for body in requests)

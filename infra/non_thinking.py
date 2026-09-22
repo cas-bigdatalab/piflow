@@ -10,11 +10,26 @@ from urllib.parse import urlsplit
 log = logging.getLogger(__name__)
 
 
+def _platform(provider: str, host: str) -> str:
+    # Recognized endpoints take precedence over configuration aliases (e.g.
+    # an OpenAI-compatible service registered under the name "openai").
+    if host == "relayrouter.ai" or host.endswith(".relayrouter.ai"):
+        return "relayrouter"
+    if host == "openrouter.ai" or host.endswith(".openrouter.ai"):
+        return "openrouter"
+    if host.endswith(".aliyuncs.com") and (
+        host.split(".", 1)[0].startswith("dashscope") or host.endswith(".maas.aliyuncs.com")
+    ):
+        return "dashscope"
+    return provider
+
+
 def non_thinking_options(*, provider: str, model: str, base_url: str) -> dict:
     """Return ChatOpenAI options without changing shared configuration."""
     provider = provider.strip().casefold()
     name = model.strip().casefold().rsplit("/", 1)[-1]
     host = (urlsplit(str(base_url)).hostname or "").casefold()
+    platform = _platform(provider, host)
 
     # These model variants cannot disable reasoning. Do not disguise a low
     # reasoning budget or omitted reasoning text as non-thinking execution.
@@ -23,10 +38,19 @@ def non_thinking_options(*, provider: str, model: str, base_url: str) -> dict:
         raise ValueError(f"模型 {model} 不支持关闭思考；预测和 cross_dag 请使用支持非思考模式的型号。")
 
     # Gateway protocols override the underlying model's native API protocol.
-    if provider == "openrouter" or host == "openrouter.ai" or host.endswith(".openrouter.ai"):
+    if platform == "openrouter":
         return {"extra_body": {"reasoning": {"enabled": False}}}
-    if provider == "dashscope" or host.startswith("dashscope.") or host.startswith("dashscope-"):
+    if platform == "dashscope":
         return {"extra_body": {"enable_thinking": False}}
+    if platform == "relayrouter" and name.startswith("qwen"):
+        # RelayRouter documents an actual JSON body field named extra_body.
+        # ChatOpenAI's extra_body argument is flattened by the SDK, so two
+        # levels are intentional: wire JSON must be
+        # {"extra_body": {"enable_thinking": false}}, not a top-level flag.
+        # https://doc.relayrouter.ai/en/reference/v1?op=post-v1-chat-completions
+        # This requests non-thinking; gateway/model support still needs live
+        # verification. Never retry by dropping the flag/enabling thinking.
+        return {"extra_body": {"extra_body": {"enable_thinking": False}}}
 
     # Native switches, also used by transparent OpenAI-compatible relays.
     # https://api-docs.deepseek.com/guides/thinking_mode/
