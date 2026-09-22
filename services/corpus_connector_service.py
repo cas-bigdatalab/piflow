@@ -415,6 +415,8 @@ def get_dataset_detail_by_cstr(cstr: str) -> dict[str, Any]:
 def should_query_dataset_directory(cstr: str) -> bool:
     """Whether a dataset must be browsed through the metacat directory API."""
     normalized_cstr = _normalize_required_text(cstr, field_name="cstr")
+    if normalized_cstr == "ST001-CAMPBELL-B001":
+        return True
     dataset = get_dataset_detail_by_cstr(normalized_cstr)
     source = str(dataset.get("source") or "").strip()
     return source == _EARTH_SYSTEM_NUMERICAL_SIMULATION_SOURCE

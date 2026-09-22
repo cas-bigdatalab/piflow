@@ -76,6 +76,16 @@ def test_should_query_dataset_directory_for_earth_system_source(monkeypatch):
     assert corpus_connector_service.should_query_dataset_directory("dataset_001") is True
 
 
+def test_should_query_dataset_directory_for_campbell_dataset(monkeypatch):
+    monkeypatch.setattr(
+        corpus_connector_service,
+        "get_dataset_detail_by_cstr",
+        lambda cstr: pytest.fail("the Campbell dataset must not require a detail lookup"),
+    )
+
+    assert corpus_connector_service.should_query_dataset_directory("ST001-CAMPBELL-B001") is True
+
+
 def test_should_query_dataset_directory_is_false_for_other_sources(monkeypatch):
     monkeypatch.setattr(
         corpus_connector_service,
