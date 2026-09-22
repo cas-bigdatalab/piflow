@@ -542,7 +542,7 @@ def list_dag_skills_by_type(
     keyword: str = None,
     skill_type: str = None,
     version: str = None,
-    disciplinary_field: str = None,
+    disciplinary_field: list = None,
     publisher: str = None,
     is_type_filter: bool = True,
 ) -> dict:
@@ -566,8 +566,9 @@ def list_dag_skills_by_type(
                     params.append(version)
 
                 if disciplinary_field:
-                    conditions.append("disciplinary_field = %s")
-                    params.append(disciplinary_field)
+                    df_conditions = " OR ".join(["disciplinary_field = %s" for _ in disciplinary_field])
+                    conditions.append(f"({df_conditions})")
+                    params.extend(disciplinary_field)
 
                 if publisher:
                     conditions.append("publisher = %s")

@@ -256,7 +256,7 @@ async def list_skills_api(
     keyword: str = None,
     skill_type: str = None,
     version: str = None,
-    disciplinary_field: str = None,
+    disciplinary_field: list = None,
     publisher: str = None,
     is_type_filter: bool = True,
 ):
