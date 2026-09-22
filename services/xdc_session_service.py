@@ -22,7 +22,7 @@ from runtime.cross_dag.session_codec import (
     decode_pre_bind_plan,
     encode_pre_bind_plan,
 )
-from services import cross_dag_service
+from services import cross_dag_service, cross_dag_demo_cache
 
 
 class XdcSessionNotFound(LookupError):
@@ -210,12 +210,23 @@ async def stream_xdc_session_pre_bind(
 
     def run() -> None:
         try:
-            pre_bind = plan_cross_dag_pre_bind(
-                normalized_request,
-                plan_id=plan_id,
-                on_stage=collect,
-            )
-            view = cross_dag_service._summarize_pre_bind(pre_bind, detail=detail)
+            cache = cross_dag_demo_cache.for_request(normalized_request)
+            cached = cache.load_plan(plan_id, detail) if cache else None
+            if cached:
+                pre_bind, view = cached
+                event = {"type": "stage", "stage": "cache_plan", "status": "finished",
+                         "summary": "已复用 Demo 首次成功的规划结果", "cache_hit": True}
+                events.append(event)
+                _save_stream_event(event=event, session_id=session_id, task_id=task_id)
+            else:
+                pre_bind = plan_cross_dag_pre_bind(
+                    normalized_request,
+                    plan_id=plan_id,
+                    on_stage=collect,
+                )
+                view = cross_dag_service._summarize_pre_bind(pre_bind, detail=detail)
+                if cache:
+                    cache.save_plan(pre_bind, view)
             view.update({"session_id": session_id, "task_id": task_id})
             view["next_action"] = {
                 "method": "POST",
@@ -416,7 +427,13 @@ async def stream_xdc_task_bind_and_execute(
 
     def run() -> None:
         try:
-            if pre_bind.mode == MODE_DIRECT:
+            cache = cross_dag_demo_cache.for_request(task.get("user_request", ""))
+            cached = cache.replay(pre_bind, normalized_dataset_id, user_id, detail) if cache else None
+            if cached:
+                plan, plan_view, execution = cached
+                append({"type": "stage", "stage": "cache_result", "status": "finished",
+                        "summary": "已复用 Demo 首次成功的执行结果和文件", "cache_hit": True})
+            elif pre_bind.mode == MODE_DIRECT:
                 plan, execution = (
                     cross_dag_service._finalize_and_execute_direct_pre_bind(
                         pre_bind,
@@ -438,6 +455,8 @@ async def stream_xdc_task_bind_and_execute(
                     on_stage=collect,
                 )
                 plan_view = cross_dag_service._summarize(plan, detail=detail)
+            if cache and not cached:
+                cache.stage(task, pre_bind, normalized_dataset_id, plan, plan_view, execution, user_id)
             execution_view = dict(execution)
             process_id = str(execution_view.get("process_id") or "")
             if process_id:
@@ -518,6 +537,11 @@ async def stream_xdc_task_bind_and_execute(
                     plan_id=plan.plan_id,
                     process_id=process_id,
                 )
+            if cached:
+                # Reuse the normal completion projection for history and task state.
+                completed = get_xdc_task_execution_status(task_id=task_id, user_id=user_id)
+                execution_view.update({k: v for k, v in completed.items()
+                                       if k not in {"session_id", "task_id"}})
             result.append(public)
         except Exception as exc:
             errors.append(exc)
@@ -589,6 +613,9 @@ def get_xdc_task_execution_status(
         status["result_node_id"] = result_node_id
     if result_output_name:
         status["result_output_name"] = result_output_name
+    cache = cross_dag_demo_cache.for_request(task.get("user_request", ""))
+    if cache:
+        cache.capture(task, status, user_id)
     remote_status = str(status.get("status") or "").upper()
     mapped = {
         "SUCCESS": "COMPLETED",

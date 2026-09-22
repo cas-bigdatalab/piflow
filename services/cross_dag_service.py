@@ -665,6 +665,10 @@ def get_cross_dag_execution_status(
 ) -> dict[str, Any]:
     """Query the root execution service and expose a frontend-safe status."""
     record = _require_cross_dag_execution(process_id=process_id, user_id=user_id)
+    from services import cross_dag_demo_cache
+    cached = cross_dag_demo_cache.status(record, result_node_id, result_output_name)
+    if cached is not None:
+        return cached
 
     from piflow_engine.cn.piflow.remote.client import RemoteExecutionClient
     from runtime.cross_dag.run_store import update_cross_dag_execution_status
@@ -730,6 +734,10 @@ def prepare_cross_dag_result_download(
 ) -> CrossDagResultDownload:
     """Download one remote result to an API-owned temporary file."""
     record = _require_cross_dag_execution(process_id=process_id, user_id=user_id)
+    from services import cross_dag_demo_cache
+    cached = cross_dag_demo_cache.download(record, result_node_id, result_output_name)
+    if cached is not None:
+        return cached
 
     from piflow_engine.cn.piflow.remote.client import RemoteExecutionClient
     from runtime.cross_dag.run_store import update_cross_dag_execution_status
