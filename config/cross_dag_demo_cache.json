@@ -1,5 +1,5 @@
 {
-  "enabled": true,
+  "enabled": false,
   "version": 1,
   "requests": {
     "earthquake": "我最近在做中国地震活动规律分析，想先拿一份覆盖1900年至今的中文地震目录，TXT原始资料就可以。",
