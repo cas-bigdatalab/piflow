@@ -61,15 +61,15 @@ def test_corpus_mcp_lists_dataset_tools():
 
     search_tool = next(tool for tool in tools if tool["name"] == "search_corpus_datasets")
     assert search_tool["annotations"] == {
-        "title": "Corpus 数据集检索",
+        "title": "数据集检索",
         "readOnlyHint": True,
         "destructiveHint": False,
         "idempotentHint": True,
         "openWorldHint": False,
     }
     assert {key: value for key, value in search_tool["_meta"]["piflow"].items() if key != "usageExample"} == {
-        "displayName": "Corpus 数据集检索",
-        "category": "语料发现",
+        "displayName": "数据集检索",
+        "category": "数据集发现",
         "icon": "database-search",
         "riskLevel": "low",
         "version": "1.0.0",

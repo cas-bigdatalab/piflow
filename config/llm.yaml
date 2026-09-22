@@ -9,8 +9,8 @@
 #  temperature: 0
 
 llm:
-  provider: relayrouter
-  model: qwen3.8-flash
+  provider: dashscope
+  model: qwen3.5-plus
   temperature: 0
 
 #llm:

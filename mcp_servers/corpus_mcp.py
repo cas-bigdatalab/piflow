@@ -21,7 +21,7 @@ mcp = FastMCP(
     "piflow-corpus",
     version="1.0.0",
     instructions=(
-        "检索和查看 PiFlow Corpus 服务中当前可见的数据集。 "
+        "检索和查看服务中当前可见的数据集。 "
         "当数据集 ID 未知时，请先使用 search_corpus_datasets，再请求数据集详情。"
     ),
 )
@@ -120,7 +120,7 @@ def _dataset_filters(
 
 @mcp.tool(
     annotations={
-        "title": "Corpus 数据集检索",
+        "title": "数据集检索",
         "readOnlyHint": True,
         "destructiveHint": False,
         "idempotentHint": True,
@@ -128,8 +128,8 @@ def _dataset_filters(
     },
     meta={
         "piflow": {
-            "displayName": "Corpus 数据集检索",
-            "category": "语料发现",
+            "displayName": "数据集检索",
+            "category": "数据集发现",
             "icon": "database-search",
             "riskLevel": "low",
             "version": "1.0.0",
@@ -149,10 +149,10 @@ async def search_corpus_datasets(
     page: Annotated[int, Field(description="页码，从 1 开始", ge=1)] = 1,
     page_size: Annotated[int, Field(description="每页返回数量，范围为 1 到 50", ge=1, le=50)] = 10,
 ) -> dict[str, Any]:
-    """按元数据筛选条件和分页参数检索当前可见的 Corpus 数据集。
+    """按元数据筛选条件和分页参数检索当前可见的数据集。
 
     ``query`` 是便捷检索参数，会映射为现有的标题筛选条件；需要明确按标题筛选时请使用 ``title``。
-    返回结果中的分页总数保持当前筛选条件下 Corpus 服务返回的总数。
+    返回结果中的分页总数保持当前筛选条件下数据集服务返回的总数。
     """
     filters = _dataset_filters(
         query=query,
@@ -176,7 +176,7 @@ async def search_corpus_datasets(
 
 @mcp.tool(
     annotations={
-        "title": "Corpus 数据集详情",
+        "title": "数据集详情",
         "readOnlyHint": True,
         "destructiveHint": False,
         "idempotentHint": True,
@@ -184,8 +184,8 @@ async def search_corpus_datasets(
     },
     meta={
         "piflow": {
-            "displayName": "Corpus 数据集详情",
-            "category": "语料访问",
+            "displayName": "数据集详情",
+            "category": "数据集访问",
             "icon": "database",
             "riskLevel": "low",
             "version": "1.0.0",
@@ -197,13 +197,13 @@ async def search_corpus_datasets(
 async def get_corpus_dataset_detail(
     cstr: Annotated[str, Field(description="数据集 CSTR 标识")],
 ) -> dict[str, Any]:
-    """根据数据集 CSTR 获取详情，并原样返回对应的语料详情结果。"""
+    """根据数据集 CSTR 获取详情，并原样返回对应的数据集详情结果。"""
     return await anyio.to_thread.run_sync(partial(get_dataset_detail_by_cstr, cstr))
 
 
 @mcp.tool(
-    annotations={"title": "语料数据集随机采样", "readOnlyHint": True, "destructiveHint": False, "idempotentHint": False, "openWorldHint": False},
-    meta={"piflow": {"displayName": "语料数据集随机采样", "category": "语料采样", "icon": "database-sample", "riskLevel": "low", "version": "1.0.0", "tags": ["corpus", "dataset", "sample"], "usageExample": _SAMPLE_USAGE_EXAMPLE}},
+    annotations={"title": "数据集随机采样", "readOnlyHint": True, "destructiveHint": False, "idempotentHint": False, "openWorldHint": False},
+    meta={"piflow": {"displayName": "数据集随机采样", "category": "数据集采样", "icon": "database-sample", "riskLevel": "low", "version": "1.0.0", "tags": ["corpus", "dataset", "sample"], "usageExample": _SAMPLE_USAGE_EXAMPLE}},
 )
 async def sample_corpus_dataset(
     cstr: Annotated[str, Field(description="数据集 CSTR 标识")],
@@ -214,8 +214,8 @@ async def sample_corpus_dataset(
 
 
 @mcp.tool(
-    annotations={"title": "语料数据集预览", "readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
-    meta={"piflow": {"displayName": "语料数据集预览", "category": "语料预览", "icon": "database-preview", "riskLevel": "low", "version": "1.0.0", "tags": ["corpus", "dataset", "preview"], "usageExample": _PREVIEW_USAGE_EXAMPLE}},
+    annotations={"title": "数据集预览", "readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+    meta={"piflow": {"displayName": "数据集预览", "category": "数据集预览", "icon": "database-preview", "riskLevel": "low", "version": "1.0.0", "tags": ["corpus", "dataset", "preview"], "usageExample": _PREVIEW_USAGE_EXAMPLE}},
 )
 async def preview_corpus_dataset(
     cstr: Annotated[str, Field(description="数据集 CSTR 标识")],
