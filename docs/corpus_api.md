@@ -261,6 +261,8 @@ GET /api/piflow/v1/corpus/dataset/preview?cstr={cstr}[&fileId={fileId}]
 
 响应中的 `result.mode` 用于前端判定内容类型：`directory` 表示目录层级，`preview` 表示普通预览。`result.data` 保留对应上游接口的完整 JSON 响应。
 
+普通预览上游的读取超时为 600 秒，目录查询及其他 Corpus 接口仍使用默认 30 秒。若服务前有 Nginx、Ingress 或网关，需将该接口链路上的读取超时（例如 Nginx `proxy_read_timeout`）配置为不少于 600 秒；否则上游尚未返回时，网关可能先返回 504。
+
 ### 普通预览示例
 
 Request

@@ -48,6 +48,15 @@ def test_mcp_tool_detail_returns_full_contract():
     assert "async with Client(MCP_ENDPOINT)" in result["tool"]["usageExample"]
     assert '"search_corpus_datasets"' in result["tool"]["usageExample"]
 
+    with _build_client() as client:
+        detail_response = client.get("/mcp/tools/get_corpus_dataset_detail")
+
+    assert detail_response.status_code == 200
+    detail_tool = detail_response.json()["result"]["tool"]
+    assert detail_tool["inputSchema"]["required"] == ["cstr"]
+    assert "dataset_id" not in detail_tool["inputSchema"]["properties"]
+    assert '"cstr": "dataset_001"' in detail_tool["usageExample"]
+
 
 def test_mcp_tool_detail_returns_404_for_unknown_tool():
     with _build_client() as client:

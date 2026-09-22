@@ -22,6 +22,7 @@ from botocore.credentials import Credentials
 from infra.config_loader import get_settings
 
 REQUEST_TIMEOUT = 30
+DATASET_PREVIEW_TIMEOUT = 600
 DEFAULT_REMOTE_GRPC_PORT = 50061
 _TTL_PATTERN = re.compile(r"^\s*(\d+)\s*([smhdSMHD]?)\s*$")
 _EARTH_SYSTEM_NUMERICAL_SIMULATION_SOURCE = "地球系统数值模拟装置"
@@ -425,6 +426,7 @@ def get_dataset_preview(cstr: str) -> dict[str, Any]:
         "GET",
         "/corpus.dataset.preview",
         params={"cstr": normalized_cstr},
+        timeout=DATASET_PREVIEW_TIMEOUT,
     )
 
 
@@ -762,6 +764,7 @@ def _request_corpus_route(
     *,
     params: dict[str, Any] | None = None,
     json_body: dict[str, Any] | None = None,
+    timeout: int = REQUEST_TIMEOUT,
 ) -> dict[str, Any]:
     base_url = str(get_settings().corpus_route.base_url or "").strip().rstrip("/")
     if not base_url:
@@ -770,6 +773,8 @@ def _request_corpus_route(
     normalized_method = str(method or "").strip().upper()
     if normalized_method not in {"GET", "POST"}:
         raise ValueError(f"unsupported corpus route method: {method}")
+    if timeout <= 0:
+        raise ValueError("timeout must be positive")
 
     url = f"{base_url}{path}"
     normalized_params = _normalize_query_params(params)
@@ -779,14 +784,14 @@ def _request_corpus_route(
             response = requests.get(
                 url,
                 params=normalized_params,
-                timeout=REQUEST_TIMEOUT,
+                timeout=timeout,
             )
         else:
             response = requests.post(
                 url,
                 params=normalized_params,
                 json=normalized_json_body,
-                timeout=REQUEST_TIMEOUT,
+                timeout=timeout,
             )
         response.raise_for_status()
     except requests.RequestException as exc:

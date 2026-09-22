@@ -89,8 +89,8 @@ def test_should_query_dataset_directory_is_false_for_other_sources(monkeypatch):
 def test_get_dataset_directory_forwards_optional_file_id(monkeypatch):
     calls = []
 
-    def request(method, path, *, params=None, json_body=None):
-        calls.append((method, path, params, json_body))
+    def request(method, path, *, params=None, json_body=None, timeout=None):
+        calls.append((method, path, params, json_body, timeout))
         return {"code": 200, "data": []}
 
     monkeypatch.setattr(corpus_connector_service, "_request_corpus_route", request)
@@ -107,8 +107,8 @@ def test_get_dataset_directory_forwards_optional_file_id(monkeypatch):
 def test_get_dataset_preview_forwards_cstr(monkeypatch):
     calls = []
 
-    def request(method, path, *, params=None, json_body=None):
-        calls.append((method, path, params, json_body))
+    def request(method, path, *, params=None, json_body=None, timeout=None):
+        calls.append((method, path, params, json_body, timeout))
         return {"code": 200, "data": {"preview": True}}
 
     monkeypatch.setattr(corpus_connector_service, "_request_corpus_route", request)
@@ -117,7 +117,15 @@ def test_get_dataset_preview_forwards_cstr(monkeypatch):
         "code": 200,
         "data": {"preview": True},
     }
-    assert calls == [("GET", "/corpus.dataset.preview", {"cstr": "dataset_001"}, None)]
+    assert calls == [
+        (
+            "GET",
+            "/corpus.dataset.preview",
+            {"cstr": "dataset_001"},
+            None,
+            corpus_connector_service.DATASET_PREVIEW_TIMEOUT,
+        )
+    ]
 
 
 def test_get_dataset_sampler_forwards_cstr_and_size(monkeypatch):

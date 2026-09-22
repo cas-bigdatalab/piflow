@@ -1,0 +1,24 @@
+{
+  "name": "corpus_dataset_search",
+  "version": "1.0.0",
+  "description": "语料检索源节点。无上游 DAG 输入，通过 HTTP 调用 Corpus dataset.page 接口，按分页和元数据条件检索数据集并输出 JSON 文件。",
+  "language": "python",
+  "script_path": "scripts/run_corpus_dataset_search.py",
+  "entrypoint": "python scripts/run_corpus_dataset_search.py",
+  "node_type": "source",
+  "input_params": [
+    {"name": "page_num", "role": "data", "type": "int", "required": false, "default": 1, "description": "页码，从 1 开始"},
+    {"name": "page_size", "role": "data", "type": "int", "required": false, "default": 10, "description": "每页数量"},
+    {"name": "title", "role": "data", "type": "string", "required": false, "description": "数据集标题筛选条件"},
+    {"name": "field", "role": "data", "type": "string", "required": false, "description": "数据集领域筛选条件"},
+    {"name": "subject", "role": "data", "type": "string", "required": false, "description": "数据集学科筛选条件"},
+    {"name": "author", "role": "data", "type": "string", "required": false, "description": "数据集作者筛选条件"},
+    {"name": "doi", "role": "data", "type": "string", "required": false, "description": "数据集 DOI 筛选条件"}
+  ],
+  "output_params": [
+    {"name": "output", "role": "output_data", "type": "json_file", "default": "corpus_dataset_search_output.json", "description": "语料检索结果文件"}
+  ],
+  "command_template": ["python", "{script_path}", "--page_num", "{page_num}", "--page_size", "{page_size}", "--title", "{title}", "--field", "{field}", "--subject", "{subject}", "--author", "{author}", "--doi", "{doi}"],
+  "tag": "语料检索",
+  "publisher": "COMMUNITY"
+}

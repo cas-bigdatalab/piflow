@@ -10,7 +10,7 @@ from fastmcp import FastMCP
 from pydantic import Field
 
 from services.corpus_connector_service import (
-    get_dataset_detail,
+    get_dataset_detail_by_cstr,
     get_dataset_preview,
     get_dataset_sampler,
     list_dataset_details,
@@ -56,7 +56,7 @@ async def main():
     async with Client(MCP_ENDPOINT) as client:
         result = await client.call_tool(
             "get_corpus_dataset_detail",
-            {{"dataset_id": "6a744595d38ea034d388c7b4"}},
+            {{"cstr": "dataset_001"}},
         )
         print(result)
 '''
@@ -194,9 +194,11 @@ async def search_corpus_datasets(
         }
     },
 )
-async def get_corpus_dataset_detail(dataset_id: str) -> dict[str, Any]:
-    """获取一个当前可见的 Corpus 数据集及其可用连接器副本信息。"""
-    return await anyio.to_thread.run_sync(partial(get_dataset_detail, dataset_id))
+async def get_corpus_dataset_detail(
+    cstr: Annotated[str, Field(description="数据集 CSTR 标识")],
+) -> dict[str, Any]:
+    """根据数据集 CSTR 获取详情，并原样返回对应的语料详情结果。"""
+    return await anyio.to_thread.run_sync(partial(get_dataset_detail_by_cstr, cstr))
 
 
 @mcp.tool(
