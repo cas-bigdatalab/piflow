@@ -52,7 +52,12 @@ def test_corpus_mcp_lists_dataset_tools():
     assert response.status_code == 200
     tools = _sse_json(response)["result"]["tools"]
     tool_names = {tool["name"] for tool in tools}
-    assert tool_names == {"search_corpus_datasets", "get_corpus_dataset_detail"}
+    assert tool_names == {
+        "search_corpus_datasets",
+        "get_corpus_dataset_detail",
+        "sample_corpus_dataset",
+        "preview_corpus_dataset",
+    }
 
     search_tool = next(tool for tool in tools if tool["name"] == "search_corpus_datasets")
     assert search_tool["annotations"] == {
@@ -62,14 +67,15 @@ def test_corpus_mcp_lists_dataset_tools():
         "idempotentHint": True,
         "openWorldHint": False,
     }
-    assert search_tool["_meta"]["piflow"] == {
+    assert {key: value for key, value in search_tool["_meta"]["piflow"].items() if key != "usageExample"} == {
         "displayName": "Corpus 数据集检索",
-        "category": "数据检索",
+        "category": "语料发现",
         "icon": "database-search",
         "riskLevel": "low",
         "version": "1.0.0",
         "tags": ["corpus", "dataset", "search"],
     }
+    assert '"search_corpus_datasets"' in search_tool["_meta"]["piflow"]["usageExample"]
 
 
 def test_search_corpus_datasets_builds_existing_service_filters():

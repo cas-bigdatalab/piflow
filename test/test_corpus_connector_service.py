@@ -120,6 +120,22 @@ def test_get_dataset_preview_forwards_cstr(monkeypatch):
     assert calls == [("GET", "/corpus.dataset.preview", {"cstr": "dataset_001"}, None)]
 
 
+def test_get_dataset_sampler_forwards_cstr_and_size(monkeypatch):
+    calls = []
+
+    def request(method, path, *, params=None, json_body=None):
+        calls.append((method, path, params, json_body))
+        return {"code": 200, "data": [{"id": "row-1"}]}
+
+    monkeypatch.setattr(corpus_connector_service, "_request_corpus_route", request)
+    assert corpus_connector_service.get_dataset_sampler("dataset_001") == {"code": 200, "data": [{"id": "row-1"}]}
+    assert corpus_connector_service.get_dataset_sampler("dataset_001", size=8) == {"code": 200, "data": [{"id": "row-1"}]}
+    assert calls == [
+        ("GET", "/corpus.dataset.sampler", {"cstr": "dataset_001", "size": 5}, None),
+        ("GET", "/corpus.dataset.sampler", {"cstr": "dataset_001", "size": 8}, None),
+    ]
+
+
 def test_create_rustfs_temporary_credentials_signs_and_returns_credentials(monkeypatch):
     seen = {}
 

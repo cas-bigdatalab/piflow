@@ -7,6 +7,7 @@ Base Path: `/api/piflow/v1`
 - [POST /corpus/dataset/list](#post-corpusdatasetlist) - 分页查询数据集列表并支持条件筛选
 - [GET /corpus/dataset/available-total](#get-corpusdatasetavailable-total) - 查询可用数据集总数
 - [POST /corpus/dataset/detail](#post-corpusdatasetdetail) - 根据数据集 ID 获取数据集详情
+- [GET /corpus/dataset/preview](#get-corpusdatasetpreview) - 按数据集来源返回预览或目录层级
 - [POST /corpus/connector/save](#post-corpusconnectorsave) - 创建连接器
 - [POST /corpus/connector/update](#post-corpusconnectorupdate) - 更新连接器
 - [GET /corpus/connector/detail](#get-corpusconnectordetail) - 根据连接器 ID 获取详情
@@ -236,6 +237,93 @@ Response
 ```
 
 详情接口中的 `connectors`、`replicaCount` 与数据集列表接口含义一致；`connectorId`、`fromName` 仍表示主连接器，用于兼容原有调用方。
+
+## `GET /corpus/dataset/preview`
+按数据集来源返回普通预览数据或一个目录层级。完整路径为：
+
+```text
+GET /api/piflow/v1/corpus/dataset/preview?cstr={cstr}[&fileId={fileId}]
+```
+
+参数
+
+| 参数 | 必填 | 说明 |
+| --- | --- | --- |
+| `cstr` | 是 | 数据集标识。无 `fileId` 时用于查询数据集详情并进行来源判断；目录查询时应为目录服务可识别的数据集 ID。 |
+| `fileId` | 否 | 当前目录节点的 `fileId`。传入后表示前端请求该目录的下一层。 |
+
+分流规则按以下优先级执行：
+
+1. `fileId` 不为空：不查询数据集详情，直接请求上游 `GET /metacat.file.dir.query?cstr=...&fileId=...`，返回一个目录层级。
+2. `fileId` 为空：先按 `cstr` 获取数据集详情。
+   - 当详情的 `source` 等于 `地球系统数值模拟装置` 时，请求上游 `GET /metacat.file.dir.query?cstr=...`，返回目录根层。
+   - 其他来源请求上游 `GET /corpus.dataset.preview?cstr=...`，返回普通数据集预览。
+
+响应中的 `result.mode` 用于前端判定内容类型：`directory` 表示目录层级，`preview` 表示普通预览。`result.data` 保留对应上游接口的完整 JSON 响应。
+
+### 普通预览示例
+
+Request
+
+```text
+GET /api/piflow/v1/corpus/dataset/preview?cstr=dataset_001
+```
+
+Response
+
+```json
+{
+  "code": 200,
+  "result": {
+    "mode": "preview",
+    "data": {
+      "code": 200,
+      "message": "OK",
+      "data": {}
+    }
+  }
+}
+```
+
+### 目录递归示例
+
+首次查询根目录：
+
+```text
+GET /api/piflow/v1/corpus/dataset/preview?cstr=1928844366999224320
+```
+
+展开根目录中 `fileId` 为 `4003697` 的节点：
+
+```text
+GET /api/piflow/v1/corpus/dataset/preview?cstr=1928844366999224320&fileId=4003697
+```
+
+目录响应示例：
+
+```json
+{
+  "code": 200,
+  "result": {
+    "mode": "directory",
+    "data": {
+      "code": 200,
+      "message": "OK",
+      "data": [
+        {
+          "datasetId": "1928844366999224320",
+          "fileId": "4003697",
+          "isFile": false,
+          "name": "GD010-Mesovortices",
+          "type": "dir"
+        }
+      ]
+    }
+  }
+}
+```
+
+前端只对 `isFile: false` 的节点继续请求本接口，并将该节点的 `fileId` 作为下一次请求的 `fileId`；`isFile: true` 表示文件叶子节点，不应再展开。
 
 ## `POST /corpus/connector/save`
 创建连接器。

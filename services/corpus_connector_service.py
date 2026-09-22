@@ -428,6 +428,18 @@ def get_dataset_preview(cstr: str) -> dict[str, Any]:
     )
 
 
+def get_dataset_sampler(cstr: str, *, size: int = 5) -> dict[str, Any]:
+    """Return the upstream random sample response without reshaping it."""
+    normalized_cstr = _normalize_required_text(cstr, field_name="cstr")
+    if size <= 0:
+        raise ValueError("size must be positive")
+    return _request_corpus_route(
+        "GET",
+        "/corpus.dataset.sampler",
+        params={"cstr": normalized_cstr, "size": size},
+    )
+
+
 def get_dataset_directory(cstr: str, *, file_id: str | None = None) -> dict[str, Any]:
     normalized_cstr = _normalize_required_text(cstr, field_name="cstr")
     params = {"cstr": normalized_cstr}

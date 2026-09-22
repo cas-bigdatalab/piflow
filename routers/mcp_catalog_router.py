@@ -60,7 +60,7 @@ def _server_summary(tool_count: int) -> dict[str, Any]:
 
 @router.get("/mcp/catalog")
 async def get_mcp_catalog():
-    """Return UI-oriented summaries of all in-process MCP tools."""
+    """返回当前进程中已注册 MCP 工具的前端展示摘要。"""
     tools = await mcp.list_tools()
     server = _server_summary(len(tools))
     server["tools"] = [_tool_summary(tool) for tool in tools]
@@ -76,7 +76,7 @@ async def get_mcp_catalog():
 
 @router.get("/mcp/tools/{tool_name}")
 async def get_mcp_tool_detail(tool_name: str):
-    """Return the full MCP contract and PiFlow display metadata for one tool."""
+    """返回一个 MCP 工具的完整契约和 PiFlow 展示元数据。"""
     tools = await mcp.list_tools()
     tool = next((item for item in tools if item.name == tool_name), None)
     if tool is None:
@@ -92,6 +92,7 @@ async def get_mcp_tool_detail(tool_name: str):
                 "outputSchema": tool.output_schema,
                 "annotations": _annotations(tool),
                 "meta": tool.meta or {},
+                "usageExample": _piflow_meta(tool).get("usageExample", ""),
                 "invocation": {
                     "method": "tools/call",
                     "endpoint": _MCP_ENDPOINT,
