@@ -12,7 +12,7 @@ from runtime.dag_manager import get_skill_type_counts
 
 router = APIRouter()
 
-CORPUS_SKILL_DISCIPLINARY_FIELDS = ["语料访问", "语料预览", "语料采样", "语料检索"]
+CORPUS_SKILL_DISCIPLINARY_FIELDS = ["数据集访问", "数据集预览", "数据集采样", "数据集检索"]
 
 
 @router.get("/dag/task/getTasks")
