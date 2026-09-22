@@ -26,6 +26,51 @@ def target_name(value):
     return re.sub(r"(?:的)?(?:变化(?:趋势|情况)?|预测(?:结果|情况)?|趋势)$", "", normalized(value))
 
 
+def _mentioned_name(message, names):
+    """Longest non-overlapping registered names; multiple mentions stay with the parser."""
+    # Preserve word boundaries in sentences, while allowing whitespace within aliases.
+    text = re.sub(r"[·•・]", " ", unicodedata.normalize("NFKC", message).casefold())
+    spans = set()
+    for token in {normalized(name) for name in names if name and normalized(name)}:
+        pattern = (r"(?<![a-z0-9_])" if token[0].isascii() and token[0].isalnum() else "") + r"\s*".join(map(re.escape, token))
+        if token[-1].isascii() and token[-1].isalnum():
+            pattern += r"(?![a-z0-9_])"
+        spans.update((m.start(), m.end(), token) for m in re.finditer(pattern, text))
+    longest = {name for start, end, name in spans if not any(
+        left <= start and right >= end and (left < start or right > end) for left, right, _ in spans)}
+    return next(iter(longest)) if len(longest) == 1 else None
+
+
+def grounded_scope(message, cases, parsed=None):
+    """Keep literal catalogue names instead of a model's invented channel selection.
+
+    This is supplementary evidence, not a free-text intent parser. Unrecognized or
+    multiple names remain with the intent parser; explicit UI payloads are untouched.
+    """
+    if message.lstrip().startswith("{"):
+        return {}
+    scope = {}
+    area = _mentioned_name(message, (v for case in cases for v in area_names(case)))
+    target = _mentioned_name(message, (v for case in cases for v in values(case, "variable", "variable_aliases")))
+    if area:
+        scope["requested_area"] = area
+    # A bare alias embedded in e.g. 'maximum temperature' must not erase the statistic.
+    if target and target_statistic(unicodedata.normalize("NFKC", message).casefold()) == target_statistic(target):
+        scope["requested_variable"] = target
+    for field, literal in list(scope.items()):
+        supplied = (parsed or {}).get(field)
+        if not supplied:
+            continue
+        supplied = normalized(supplied)
+        match = matches_area if field == "requested_area" else matches_target
+        # Do not shorten an explicit but unregistered place/measurement to a known
+        # substring (e.g. sea temperature -> temperature, or a subregion -> province).
+        if (literal in supplied and supplied != literal and supplied in normalized(message)) or not any(
+                match(case, supplied) for case in cases):
+            scope.pop(field)
+    return scope
+
+
 def area_names(case):
     yield from values(case, "area", "aliases", "station_id", "source_name")
     location = case.get("location") or {}

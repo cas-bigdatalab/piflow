@@ -222,3 +222,109 @@ def test_similar_source_keeps_multiple_sites_but_not_other_variables(temperature
     result = confirm(temperature_agent, pending, "2")
     assert result["params"]["case_ids"] == ["ST002-air_temperature"]
     assert len(temperature_agent.submissions) == 1
+
+
+@pytest.mark.parametrize("model_ids", [["ST001-rain"], ["ST001-rain", "ST002-rain"]])
+def test_all_model_selections_require_confirmation_for_ambiguous_scope(agent, model_ids):
+    result = advance(agent, message="预测示例观测网的降水", requested_area="示例观测网",
+                     requested_variable="rain", horizon_hours=24, case_ids=model_ids)
+    assert not agent.submissions
+    assert len(result["response"]["interaction"]["options"]) == 2
+    assert result["confirmed_selection"] == {}
+    chosen = confirm(agent, result, "2")
+    assert chosen["confirmed_selection"]["case_ids"] == ["ST002-rain"]
+    # Re-opened state retains the user's choice, even if the model suggests all IDs.
+    restored = json.loads(json.dumps(chosen, default=str))
+    followup = advance(agent, restored, message="改成未来五小时", horizon_hours=5, case_ids=model_ids)
+    assert followup["params"]["case_ids"] == ["ST002-rain"]
+    assert followup["response"]["interaction"] is None
+    assert len(agent.submissions) == 2
+
+
+def test_model_specific_channel_cannot_hide_broad_variable_request():
+    agent = build_agent([(f"moisture_probe{i}", "土壤水分") for i in range(1, 4)])
+    result = advance(agent, message="预测ST001未来7天的土壤水分变化", requested_area="ST001",
+                     requested_variable="moisture_probe1", case_ids=["ST001-moisture_probe1"], horizon_hours=168)
+    assert result["scope"]["requested_variable"] == "土壤水分"
+    assert not agent.submissions
+    assert len(result["response"]["interaction"]["options"]) == 3
+
+
+def test_model_specific_station_cannot_hide_source_request(agent):
+    result = advance(agent, message="预测示例观测网未来一天的降水", requested_area="ST001",
+                     requested_variable="rain", case_ids=["ST001-rain"], horizon_hours=24)
+    assert result["scope"]["requested_area"] == "示例观测网"
+    assert not agent.submissions
+    assert len(result["response"]["interaction"]["options"]) == 2
+
+
+def test_changed_scope_reasks_and_old_state_without_proof_is_not_confirmation(agent):
+    one = first(agent)
+    broad = advance(agent, one, requested_area="示例观测网", case_ids=["ST001-rain"])
+    assert broad["response"]["interaction"]["field"] == "case_ids"
+    assert len(agent.submissions) == 1
+    legacy = {**one, "scope": {"requested_area": "示例观测网", "requested_variable": "rain"}}
+    legacy.pop("confirmed_selection")
+    result = advance(agent, legacy, horizon_hours=5, case_ids=["ST001-rain"])
+    assert result["response"]["interaction"]["field"] == "case_ids"
+    assert len(agent.submissions) == 1
+
+
+def test_new_ambiguous_variable_does_not_inherit_old_explicit_selection():
+    agent = build_agent([("rain", "降水"), ("moisture_a", "土壤水分"), ("moisture_b", "土壤水分")])
+    one = first(agent)
+    result = advance(agent, one, message="土壤水分呢", requested_variable="moisture_a",
+                     case_ids=["ST001-moisture_a", "ST001-moisture_b"])
+    assert result["response"]["interaction"]["field"] == "case_ids"
+    assert len(result["response"]["interaction"]["options"]) == 2
+    assert len(agent.submissions) == 1
+
+
+@pytest.mark.parametrize("targets,auxiliary", [(["ST001-rain", "ST002-rain"], []),
+                                             (["ST001-rain"], ["ST001-temperature"])])
+def test_manual_multiple_targets_and_auxiliary_selection_are_preserved(agent, targets, auxiliary):
+    payload = dict(case_ids=targets, auxiliary_case_ids=auxiliary, horizon_hours=24)
+    one = advance(agent, message=json.dumps(payload), **payload)
+    assert one["params"]["case_ids"] == payload["case_ids"]
+    assert agent.submissions[0][2].auxiliary_case_ids == payload["auxiliary_case_ids"]
+    two = advance(agent, one, horizon_hours=5, case_ids=["ST002-temperature"])
+    assert two["params"]["case_ids"] == payload["case_ids"]
+    assert two["params"]["auxiliary_case_ids"] == auxiliary
+    assert len(agent.submissions) == 2
+
+
+def test_explicit_historical_reuse_does_not_prompt_for_dataset_again(agent):
+    source = {"run_id": "old", "params": dict(case_ids=["ST001-rain", "ST002-rain"],
+              origin="2025-01-01T00:00:00+08:00", horizon_hours=24)}
+    agent._task_for = lambda *_: source
+    result = advance(agent, action="reuse", run_ids=["old"])
+    assert result["response"]["source_run_id"] == "old"
+    assert result["params"]["case_ids"] == source["params"]["case_ids"]
+    assert result["confirmed_selection"]["case_ids"] == source["params"]["case_ids"]
+    assert len(agent.submissions) == 1
+
+
+def test_selection_proof_survives_graph_checkpoint_reload():
+    from langgraph.checkpoint.memory import InMemorySaver
+    from langgraph.graph import StateGraph, START, END
+    from scientific_agents.forecast.runtime import Conversation
+    checkpointer = InMemorySaver()
+
+    def graph(agent):
+        workflow = StateGraph(Conversation)
+        workflow.add_node("advance", agent._advance)
+        workflow.add_edge(START, "advance")
+        workflow.add_edge("advance", END)
+        return workflow.compile(checkpointer=checkpointer)
+
+    first_agent = build_agent([("rain", "降水")])
+    payload = dict(case_ids=["ST001-rain", "ST002-rain"], horizon_hours=24)
+    config = {"configurable": {"thread_id": "test"}}
+    graph(first_agent).invoke(dict(session="test", turn_id="first", message=json.dumps(payload),
+                                  intent=Intent(**payload).model_dump()), config)
+    restored_agent = build_agent([("rain", "降水")])
+    result = graph(restored_agent).invoke(dict(turn_id="next", message="改成五小时",
+                                        intent=Intent(horizon_hours=5).model_dump()), config)
+    assert result["confirmed_selection"]["case_ids"] == payload["case_ids"]
+    assert result["params"]["horizon_hours"] == 5
+    assert len(restored_agent.submissions) == 1

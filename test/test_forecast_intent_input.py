@@ -6,6 +6,24 @@ import pytest
 
 from scientific_agents.forecast.dialogue import LLMInterpreter
 from scientific_agents.forecast.schema import Intent
+from langchain_core.exceptions import OutputParserException
+from langchain_core.output_parsers import PydanticOutputParser
+
+
+class ReplyModel:
+    """Use the real schema parser without any provider/network calls."""
+    def __init__(self, replies):
+        self.replies, self.calls = iter(replies), []
+
+    def with_structured_output(self, schema, method):
+        return self
+
+    def invoke(self, messages):
+        self.calls.append(messages)
+        reply = next(self.replies)
+        if isinstance(reply, Exception):
+            raise reply
+        return PydanticOutputParser(pydantic_object=Intent).parse(reply)
 
 
 class CaptureModel:
@@ -108,3 +126,53 @@ def test_empty_catalog_and_explicit_json_still_work():
     intent = LLMInterpreter(model).parse('{"action":"predict","horizon_hours":5}', {}, [])
     assert intent.horizon_hours == 5
     assert model.messages is None
+
+
+@pytest.mark.parametrize("bad_reply", ['not json', '{"run_ids":null}', '{"action":"forecast"}',
+                                      '{"forecast_mode":"current"}', '{"requested_variable":["a","b"]}'])
+def test_format_error_gets_one_schema_checked_retry(bad_reply, caplog):
+    model = ReplyModel([bad_reply, '{"action":"predict","requested_variable":"soil moisture","horizon_hours":168}'])
+    state = {"params": {"case_ids": ["old"]}, "history": [{"role": "user", "content": "old message"}]}
+    before = deepcopy(state)
+    result = LLMInterpreter(model).parse("predict next 7 days", state, [])
+    assert result.horizon_hours == 168
+    assert len(model.calls) == 2
+    assert model.calls[1][:-1] == model.calls[0]
+    assert state == before
+    assert "Forecast intent format retry" in caplog.text
+
+
+def test_second_invalid_output_is_not_silently_coerced_and_logs_no_values(caplog):
+    secret = "PRIVATE_USER_VALUE"
+    model = ReplyModel([json.dumps({secret: secret}), json.dumps({"action": secret})])
+    with pytest.raises(OutputParserException):
+        LLMInterpreter(model).parse("request", {}, [])
+    assert len(model.calls) == 2
+    assert secret not in caplog.text
+    assert secret not in model.calls[1][-1][1]
+
+
+@pytest.mark.parametrize("kind", ["timeout", "authentication"])
+def test_network_and_auth_failures_do_not_trigger_format_retry(kind):
+    import httpx
+    from openai import APITimeoutError, AuthenticationError
+    request = httpx.Request("POST", "https://provider.invalid/v1/chat/completions")
+    error = (APITimeoutError(request=request) if kind == "timeout" else
+             AuthenticationError("invalid key", response=httpx.Response(401, request=request), body=None))
+    model = ReplyModel([error])
+    with pytest.raises(type(error)):
+        LLMInterpreter(model).parse("request", {}, [])
+    assert len(model.calls) == 1
+
+
+def test_repeated_parse_failure_preserves_confirmed_conversation():
+    from test_forecast_conversation_matching import build_agent, first
+    agent = build_agent([("rain", "降水"), ("temperature", "气温")])
+    previous = first(agent)
+    agent.interpreter = LLMInterpreter(ReplyModel(['{"run_ids":null}', '{"run_ids":null}']))
+    state = {**previous, "session": "test", "turn_id": "bad-turn", "message": "改成气温"}
+    result = agent._advance({**state, **agent._understand(state)})
+    for key in ("params", "scope", "confirmed_selection"):
+        assert result[key] == previous[key]
+    assert result["response"]["error"]
+    assert len(agent.submissions) == 1
