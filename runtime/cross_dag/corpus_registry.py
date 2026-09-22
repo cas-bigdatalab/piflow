@@ -33,6 +33,21 @@ DEFAULT_GRPC_PORT = 50061
 PAGE_SIZE = 100
 MAX_PAGES = 200
 
+# Demo 数据集范围：仅限制 cross_dag 注册目录，不改枢纽数据或执行逻辑。
+# 恢复完整目录时，移除该白名单及 _fetch_datasets 中对应的过滤即可。
+DEMO_DATASET_CSTRS = frozenset({
+    "ES-CORPUS-B138",     # 中国地震目录
+    "ES-CORPUS-K024",     # 中国国土资源知识语料库
+    "ES-CORPUS-F018",     # 额济纳三角洲景观类型数据语料
+    "CH-CORPUS-B021",     # 合成气催化转化反应过程数据整编语料
+    "CHEM-CORPUS-K037",   # 超级电容器性能参数
+    "CHEM-CORPUS-K001",   # 无机化学通识问答语料
+    "CHEM-CORPUS-K007",   # 分析化学通识问答语料
+    "CHEM-CORPUS-K013",   # 材料化学通识问答语料
+    "CHEM-CORPUS-K019",   # 化学工程通识问答语料
+    "CHEM-CORPUS-K022",   # 环境化学通识问答语料
+})
+
 # 语料元数据里可以当需求维度用的字段。值里的分号是多值分隔符（"中文;英文"）。
 # 想增删维度改这里和 config/cross_dc.yaml 的 requirement_facets 即可。
 FACET_FIELDS = ("field", "language", "corpusType", "rawFormat")
@@ -158,9 +173,10 @@ def _fetch_datasets(base_url: str) -> list[dict[str, Any]]:
     sources = list(dict.fromkeys(name.strip() for name in configured if name.strip()))
     # Keep the local configuration key; the upstream filter accepts a sources array.
     # Empty matches stay empty; a failed filtered request must not fall back to all data.
-    return _paged(lambda page: _post_json(
+    items = _paged(lambda page: _post_json(
         f"{base_url}/dataset.page?pageNum={page}&pageSize={PAGE_SIZE}",
         {"sources": sources} if sources else {}))
+    return [item for item in items if _first_text(item, "cstr") in DEMO_DATASET_CSTRS]
 
 
 # ---- 映射 ---------------------------------------------------------------
