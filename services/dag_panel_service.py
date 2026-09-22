@@ -253,7 +253,7 @@ def get_dag_skills_by_condition(
     keyword: str = None,
     skill_type: str = None,
     version: str = None,
-    disciplinary_field: str = None,
+    disciplinary_field: list = None,
     publisher: str = None,
     is_type_filter = True,
 ) -> dict:
