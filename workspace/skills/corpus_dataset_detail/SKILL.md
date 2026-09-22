@@ -22,6 +22,7 @@ output_params:
     type: json_file
     description: Corpus 数据集详情接口响应 JSON 文件
 tag: 语料访问
+disciplinary_field: 语料访问
 publisher: COMMUNITY
 ---
 

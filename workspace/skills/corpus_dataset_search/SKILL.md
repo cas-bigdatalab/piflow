@@ -48,6 +48,7 @@ output_params:
     type: json_file
     description: Corpus dataset.page 接口的检索结果 JSON 文件
 tag: 语料检索
+disciplinary_field: 语料检索
 publisher: COMMUNITY
 ---
 
