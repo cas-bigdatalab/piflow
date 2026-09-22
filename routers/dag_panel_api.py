@@ -12,6 +12,8 @@ from runtime.dag_manager import get_skill_type_counts
 
 router = APIRouter()
 
+CORPUS_SKILL_DISCIPLINARY_FIELDS = ["语料访问", "语料预览", "语料采样", "语料检索"]
+
 
 @router.get("/dag/task/getTasks")
 async def get_tasks(
@@ -268,6 +270,53 @@ async def list_skills_api(
             skill_type=skill_type,
             version=version,
             disciplinary_field=disciplinary_field,
+            publisher=publisher,
+            is_type_filter=is_type_filter,
+        )
+
+        return {
+            "message": "success",
+            "result": result,
+            "code": 200,
+        }
+    except Exception as e:
+        return {
+            "message": str(e),
+            "result": None,
+            "code": 500,
+        }
+
+
+@router.get("/dag/skill/listCorpusSkills")
+async def list_corpus_skills_api(
+    current_user=Depends(get_current_user),
+    page: int = None,
+    page_size: int = None,
+    keyword: str = None,
+    skill_type: str = None,
+    version: str = None,
+    disciplinary_field: str = None,
+    publisher: str = None,
+    is_type_filter: bool = True,
+):
+    try:
+        if disciplinary_field is None:
+            fields = CORPUS_SKILL_DISCIPLINARY_FIELDS
+        elif disciplinary_field in CORPUS_SKILL_DISCIPLINARY_FIELDS:
+            fields = [disciplinary_field]
+        else:
+            result = {"total": 0, "data": []}
+            if page is not None and page_size is not None:
+                result.update({"page": page, "page_size": page_size})
+            return {"message": "success", "result": result, "code": 200}
+
+        result = get_dag_skills_by_condition(
+            page=page,
+            page_size=page_size,
+            keyword=keyword,
+            skill_type=skill_type,
+            version=version,
+            disciplinary_field=fields,
             publisher=publisher,
             is_type_filter=is_type_filter,
         )
