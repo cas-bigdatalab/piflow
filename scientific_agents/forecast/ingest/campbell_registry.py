@@ -77,7 +77,8 @@ def expand(source, scenarios):
     variables["battery_voltage"]["aggregation"] = "last"
     for probe in (1, 2, 3):
         moisture, ec, temperature = (f"soil_{kind}_probe{probe}" for kind in ("moisture", "conductivity", "temperature"))
-        add(moisture, f"MS{probe}_Avg", f"第{probe}组水分观测", "原始单位", ["土壤水分", "水分", "soil_moisture"], 0,
+        add(moisture, f"MS{probe}_Avg", f"第{probe}组水分探头观测（MS）", "原始单位",
+            [f"第{probe}组水分观测", "土壤水分", "水分", "soil_moisture"], 0,
             auxiliary=[temperature, "rainfall_amount", "air_temperature", "relative_humidity"])
         add(ec, f"EC{probe}_Avg", f"第{probe}组电导率观测", "原始单位", ["电导率", "soil_conductivity"], 0,
             auxiliary=[moisture, temperature, "rainfall_amount"])
@@ -93,8 +94,12 @@ def expand(source, scenarios):
                                            ("BulkEC", "soil_bulk_conductivity", "土壤体电导率", "原始单位")]:
                 auxiliary = ["air_temperature", "rainfall_amount", "relative_humidity"]
                 auxiliary.insert(0, "radiation" if key == "T" else temperature)
-                add(f"{name}_{suffix}", f"{key}_{suffix}_Avg", f"第{probe}组{depth}cm{label}", unit,
-                    [label, name, f"{depth}cm{label}", *( ["土壤水分", "soil_moisture"] if key == "VWC" else [])],
+                display_label = f"第{probe}组{depth}cm土壤体积含水量（VWC）" if key == "VWC" else f"第{probe}组{depth}cm{label}"
+                water_aliases = (["土壤水分", "土壤湿度", "土壤体积含水量", "soil_moisture",
+                                  f"{depth}cm土壤水分", f"{depth}cm土壤湿度",
+                                  f"第{probe}组{depth}cm土壤水分", f"第{probe}组{depth}cm土壤湿度"] if key == "VWC" else [])
+                add(f"{name}_{suffix}", f"{key}_{suffix}_Avg", display_label, unit,
+                    [label, name, f"第{probe}组{depth}cm{label}", f"{depth}cm{label}", *water_aliases],
                     minimum=None if key == "T" else 0, auxiliary=auxiliary)
 
     # Reuse the original rain case's exact variable definitions across roles.

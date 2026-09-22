@@ -9,7 +9,7 @@ import pandas as pd
 
 from langgraph.graph import StateGraph, START, END
 
-from .dialogue import Interpreter
+from .dialogue import Interpreter, intent_parse_issues
 from .persistence import Store, session_key
 from .reports import compare_results, render_reply
 from .schema import ForecastResult, Intent, TaskParams, TurnInput
@@ -18,7 +18,7 @@ from .execution import TaskRunner
 from .feedback import ACTIVE, ForecastError, classify, present, task_view
 from .history import TaskHistory, TaskChoice
 from .planning import OriginChoice, resolve_origin, plan_message
-from .matching import candidates as match_candidates, matches_target, area_suggestions, area_selection, AreaChoice, normalized, values
+from .matching import candidates as match_candidates, matches_target, area_suggestions, area_selection, AreaChoice, normalized, values, grounded_scope
 from .time_request import parse_time_request
 
 log = logging.getLogger(__name__)
@@ -40,6 +40,7 @@ class Conversation(TypedDict, total=False):
     pending_task: dict | None
     pending_match: dict | None
     case_selection: bool
+    confirmed_selection: dict
     selection_reply: bool
     scope: dict
     analysis_context: dict
@@ -154,9 +155,9 @@ class ForecastAgent:
                     "case_selection": case_reply is not None}
         except Exception as exc:
             # Do not log provider response bodies, credentials or users' messages.
-            log.warning("Forecast intent failed: %s status=%s session=%s turn=%s",
+            log.warning("Forecast intent failed: %s status=%s session=%s turn=%s issues=%s",
                         type(exc).__name__, getattr(exc, "status_code", None),
-                        state.get("session"), state.get("turn_id"))
+                        state.get("session"), state.get("turn_id"), intent_parse_issues(exc))
             error = exc if isinstance(exc, ForecastError) else ForecastError("intent_service_failed")
             return {"intent": {"action": "help"}, "parse_error": True, "parse_problem": error.problem(),
                     "selection_reply": False, "case_selection": False}
@@ -178,6 +179,7 @@ class ForecastAgent:
         session = state["session"]
         pending = state.get("pending_task")
         pending_match = state.get("pending_match")
+        confirmed_selection = dict(state.get("confirmed_selection") or {})
         try:
             if state.get("parse_error"):
                 problem = state.get("parse_problem") or {"code": "intent_parse_failed"}
@@ -256,13 +258,19 @@ class ForecastAgent:
                     params["origin_mode"] = "explicit"  # Reuse the saved instant, not a new wall clock.
                     params.pop("forecast_mode", None)  # A new run at an old instant is now a historical replay.
                     response["source_run_id"] = source["run_id"]
-                updates = {k: getattr(intent, k) for k in ["case_ids", "auxiliary_case_ids", "origin", "horizon_hours", "history_hours", "history_start", "history_cutoff", "origin_mode"] if getattr(intent, k) is not None}
+                catalogue = self.workflow.registry.list_cases()
+                explicit_selection = bool(intent.case_ids and (state["message"].lstrip().startswith("{") or
+                    (not state["message"].strip().isdecimal() and
+                     area_selection(state["message"], catalogue) in intent.case_ids)))
+                trusted_selection = explicit_selection or state.get("case_selection") or intent.action == "reuse"
+                updates = {k: getattr(intent, k) for k in ["case_ids", "auxiliary_case_ids", "origin", "horizon_hours", "history_hours", "history_start", "history_cutoff", "origin_mode"]
+                           if getattr(intent, k) is not None and (k != "case_ids" or trusted_selection)}
                 if intent.origin_mode == "tomorrow" and intent.horizon_hours is None:
                     updates["horizon_hours"] = 24
                 proposed = {**params, **updates}
-                if intent.origin or intent.origin_mode or (intent.case_ids and intent.case_ids != params.get("case_ids")):
+                if intent.origin or intent.origin_mode or (updates.get("case_ids") and updates["case_ids"] != params.get("case_ids")):
                     proposed.pop("forecast_mode", None)
-                if intent.case_ids and intent.case_ids != params.get("case_ids") and intent.auxiliary_case_ids is None:
+                if updates.get("case_ids") and updates["case_ids"] != params.get("case_ids") and intent.auxiliary_case_ids is None:
                     proposed.pop("auxiliary_case_ids", None)
                 if intent.history_start:
                     if intent.history_hours is None:
@@ -281,12 +289,11 @@ class ForecastAgent:
                     if not proposed.get("history_start"):
                         proposed.pop("history_cutoff", None)
                 cfg = self.workflow.settings
-                catalogue = self.workflow.registry.list_cases()
                 candidates = catalogue
                 auto_match = None
-                explicit_selection = bool(intent.case_ids and (state["message"].lstrip().startswith("{") or
-                    (not state["message"].strip().isdecimal() and
-                     area_selection(state["message"], catalogue) in intent.case_ids)))
+                if not trusted_selection:
+                    for field, value in grounded_scope(state["message"], catalogue, intent.model_dump()).items():
+                        setattr(intent, field, value)
                 previous = [c for c in catalogue if c["id"] in params.get("case_ids", [])]
                 if intent.action == "reuse" or (explicit_selection and not state.get("case_selection")):
                     scope = {}
@@ -314,7 +321,7 @@ class ForecastAgent:
                     if not candidates:
                         suggestions = area_suggestions(catalogue, scope, limit=None)
                         if len(suggestions) > 1:
-                            raise AreaChoice(suggestions[:5], ["requested_area", "requested_variable"])
+                            raise AreaChoice(suggestions, ["requested_area", "requested_variable"])
                         if not suggestions:
                             requested = "、".join(str(v) for v in scope.values() if v)
                             horizon = proposed.get("horizon_hours")
@@ -327,24 +334,27 @@ class ForecastAgent:
                         scope.update(requested_area=auto_match["area"], requested_variable=auto_match["variable"])
                         candidates = suggestions
                     candidate_ids = {c["id"] for c in candidates}
-                    if (len(candidates) > 1 and intent.case_ids and len(intent.case_ids) == 1
-                            and not explicit_selection and not state.get("case_selection")
-                            and intent.case_ids != params.get("case_ids")):
-                        # A model's choice is not the user's confirmation of an ambiguous source.
-                        intent.case_ids = None
-                        proposed["case_ids"] = []
-                    if intent.case_ids and not set(intent.case_ids) <= candidate_ids:
-                        if explicit_selection or any(i not in self.workflow.registry.cases for i in intent.case_ids):
-                            raise ForecastError("invalid_parameters", "所选案例与请求的区域或预测变量不匹配。")
-                        # Model-selected IDs cannot override the user's parsed place/variable.
-                        intent.case_ids = None
-                        proposed.pop("case_ids", None)
-                    if not intent.case_ids and (not proposed.get("case_ids") or not set(proposed["case_ids"]) <= candidate_ids):
-                        proposed["case_ids"] = [candidates[0]["id"]] if len(candidates) == 1 else []
+                    if trusted_selection and intent.case_ids and not set(intent.case_ids) <= candidate_ids:
+                        raise ForecastError("invalid_parameters", "所选案例与请求的区域或预测变量不匹配。")
+                if not trusted_selection:
+                    candidate_ids = {c["id"] for c in candidates}
+                    previous_ids = confirmed_selection.get("case_ids", [])
+                    previous_scope = confirmed_selection.get("scope", {})
+                    unchanged_request = not pending_match and all(getattr(intent, field) is None for field in (
+                        "requested_area", "requested_variable", "requested_hazard"))
+                    same_scope = unchanged_request or scope == previous_scope or candidate_ids == {
+                        c["id"] for c in self._candidates(previous_scope)}
+                    # Only an explicitly confirmed or uniquely resolved choice may be inherited.
+                    # Neither one nor many IDs generated by a model constitute user consent.
+                    inherit = (previous_ids and previous_ids == params.get("case_ids")
+                               and set(previous_ids) <= candidate_ids and same_scope)
+                    proposed["case_ids"] = list(previous_ids) if inherit else (
+                        [candidates[0]["id"]] if len(candidates) == 1 else [])
                 previous_cases = state.get("params", {}).get("case_ids") if state.get("case_selection") else params.get("case_ids")
                 if previous_cases and set(proposed.get("case_ids", [])) != set(previous_cases):
+                    proposed.pop("forecast_mode", None)
                     report_context, report_messages = {}, []
-                    if state.get("case_selection"):
+                    if state.get("case_selection") and pending_match:
                         report_messages = list(pending_match["analysis_messages"])
                     if intent.auxiliary_case_ids is None:
                         proposed.pop("auxiliary_case_ids", None)
@@ -393,6 +403,8 @@ class ForecastAgent:
                         response["content"] += "\n已匹配指标数据，但所选数据未登记所请求的风险类型；可以预测指标，不代表已具备该类风险判定能力。"
                 if auto_match:
                     response["content"] = f"已匹配：{auto_match['label']}。\n" + response["content"]
+                confirmed_selection = ({"case_ids": list(params["case_ids"]), "scope": dict(scope)}
+                                       if params.get("case_ids") else {})
                 pending = None
                 pending_match = None
         except AreaChoice as choice:
@@ -406,6 +418,7 @@ class ForecastAgent:
             params, scope = dict(state.get("params", {})), dict(state.get("scope", {}))
             report_context = dict(state.get("analysis_context", {}))
             report_messages = list(state.get("analysis_messages", []))
+            confirmed_selection = dict(state.get("confirmed_selection") or {})
             pending = None
             response.update(content=prompt, interaction={"field": "case_ids", "prompt": prompt,
                             "options": choice.options, "reason": "similar_name"})
@@ -444,6 +457,7 @@ class ForecastAgent:
                    {"role": "assistant", "content": response["content"]}][-12:]
         return {"params": params, "runs": runs[-30:], "history": history, "version": version,
                 "analysis_context": report_context, "analysis_messages": report_messages,
+                "confirmed_selection": confirmed_selection,
                 "response": response, "last_turn_id": state["turn_id"], "pending_task": pending,
                 "pending_match": pending_match, "scope": scope}
 

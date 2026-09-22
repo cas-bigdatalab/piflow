@@ -3,7 +3,7 @@ from copy import deepcopy
 
 import pytest
 
-from scientific_agents.forecast.matching import candidates, area_suggestions, matches_target
+from scientific_agents.forecast.matching import candidates, area_suggestions, matches_target, grounded_scope
 
 
 @pytest.fixture
@@ -113,3 +113,36 @@ def test_exact_place_is_not_replaced_to_find_exact_target(temperature_catalogue,
     scope = dict(requested_area=place, requested_variable="air_temperature")
     assert not candidates(cases, scope)
     assert not area_suggestions(cases, scope)
+
+
+def test_literal_grounding_keeps_longer_variable_and_does_not_erase_unknown_qualifiers(temperature_catalogue):
+    cases = [dict(c, variable_aliases=[*c["variable_aliases"], "温度"]) if c["variable"] == "air_temperature" else c
+             for c in temperature_catalogue]
+    assert grounded_scope("预测土壤温度", cases)["requested_variable"] == "土壤温度"
+    assert "requested_variable" not in grounded_scope("预测最高气温", cases)
+    assert "requested_variable" not in grounded_scope("预测海水温度", cases, {"requested_variable": "海水温度"})
+    assert "requested_variable" not in grounded_scope("对比气温与土壤温度", cases)
+    assert grounded_scope('{"case_ids":["ST001-air_temperature"]}', cases) == {}
+    assert grounded_scope("predict temperature for ST001", cases)["requested_variable"] == "temperature"
+    assert "requested_variable" not in grounded_scope("predict maximum temperature", cases)
+
+
+def test_station_metadata_distinguishes_channels_without_changing_measurement_columns():
+    from scientific_agents.forecast.ingest.campbell_registry import expand
+    source = dict(id="example", options={"register_all_variables": True}, cases=[
+        dict(id="base", label="站点 · 降雨量", station_id="example",
+             target=dict(name="rainfall_amount", value_column="rain_Tot", unit="mm"),
+             covariates=[dict(name="wind_direction", value_column="WD_Avg", unit="°")])])
+    scenarios = [dict(case_id="base", area="站点")]
+    expand(source, scenarios)
+    targets = {case["target"]["name"]: case["target"] for case in source["cases"]}
+    assert targets["soil_moisture_probe1"]["value_column"] == "MS1_Avg"
+    assert targets["soil_water_content_10cm"]["value_column"] == "VWC_10cm_Avg"
+    assert targets["soil_water_content_10cm"]["unit"] == "原始单位"
+    assert "第1组水分观测" in targets["soil_moisture_probe1"]["aliases"]  # Existing names still resolve.
+    cases = [dict(id=case["id"], variable=case["target"]["name"], variable_aliases=case["target"].get("aliases", []))
+             for case in source["cases"]]
+    assert len(candidates(cases, {"requested_variable": "土壤水分"})) == 15
+    assert len(candidates(cases, {"requested_variable": "土壤湿度"})) == 12
+    scope = grounded_scope("预测第2组10cm土壤湿度", cases)
+    assert [c["variable"] for c in candidates(cases, scope)] == ["soil_water_content_10cm_2"]
