@@ -26,7 +26,7 @@ mcp = FastMCP(
     ),
 )
 
-_MCP_ENDPOINT_EXAMPLE = "https://172.31.3.81:8086/api/piflow/v1/mcp/"
+_MCP_ENDPOINT_EXAMPLE = "http://172.31.3.81:8086/api/piflow/v1/mcp/"
 
 _SEARCH_USAGE_EXAMPLE = f'''from fastmcp import Client
 
@@ -151,7 +151,7 @@ async def search_corpus_datasets(
 ) -> dict[str, Any]:
     """按元数据筛选条件和分页参数检索当前可见的数据集。
 
-    ``query`` 是便捷检索参数，会映射为现有的标题筛选条件；需要明确按标题筛选时请使用 ``title``。
+    `query` 是便捷检索参数，会映射为现有的标题筛选条件；需要明确按标题筛选时请使用 `title`。
     返回结果中的分页总数保持当前筛选条件下数据集服务返回的总数。
     """
     filters = _dataset_filters(
