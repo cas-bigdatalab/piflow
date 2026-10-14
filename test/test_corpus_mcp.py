@@ -1,8 +1,12 @@
 import json
+import asyncio
+
+import pytest
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from fastmcp.utilities.lifespan import combine_lifespans
+from fastmcp.exceptions import ToolError
 
 from mcp_servers.corpus_mcp import _dataset_filters, create_mcp_app
 
@@ -60,6 +64,8 @@ def test_corpus_mcp_lists_dataset_tools():
     }
 
     search_tool = next(tool for tool in tools if tool["name"] == "search_corpus_datasets")
+    assert "keywords" in search_tool["inputSchema"]["properties"]["query"]["description"]
+    assert "不可用" in search_tool["inputSchema"]["properties"]["title"]["description"]
     assert search_tool["annotations"] == {
         "title": "数据集检索",
         "readOnlyHint": True,
@@ -87,4 +93,41 @@ def test_search_corpus_datasets_builds_existing_service_filters():
         author=None,
         doi=None,
         sources=["connector-a"],
-    ) == {"title": "\u5730\u9707", "sources": ["connector-a"]}
+    ) == {"keywords": "\u5730\u9707", "sources": ["connector-a"]}
+
+
+def test_search_rejects_unsupported_title_and_conflicting_aliases():
+    values = dict(query=None, title="气象", field=None, subject=None,
+        author=None, doi=None, sources=None)
+    with pytest.raises(ToolError, match="标题筛选暂不可用"):
+        _dataset_filters(**values)
+    with pytest.raises(ValueError, match="mutually exclusive"):
+        _dataset_filters(**{**values, "query": "气象"})
+    assert _dataset_filters(**{**values, "title": None, "field": "地球科学"})=={"field": "地球科学"}
+    assert _dataset_filters(**{**values, "title": None})=={}
+
+
+def test_search_mcp_forwards_keywords_and_preserves_result_contract(monkeypatch):
+    from fastmcp import Client
+    from mcp_servers.corpus_mcp import mcp
+    calls = []
+
+    def upstream(*, page_num, page_size, filters):
+        calls.append((page_num, page_size, filters))
+        rows = [{"id": "weather", "cstr": "CSTR-WEATHER", "title": "气象数据"}] if filters.get("keywords")=="气象" else []
+        return {"items": rows, "pagination": {"pageNum": page_num, "pageSize": page_size, "total": len(rows)}}
+
+    monkeypatch.setattr("mcp_servers.corpus_mcp.list_dataset_details", upstream)
+
+    async def run():
+        async with Client(mcp) as client:
+            found = await client.call_tool("search_corpus_datasets", {"query": "气象", "page": 2, "page_size": 3})
+            missing = await client.call_tool("search_corpus_datasets", {"query": "不存在的关键词"})
+            assert found.structured_content=={"items": [{"id": "weather", "cstr": "CSTR-WEATHER", "title": "气象数据"}],
+                "pagination": {"pageNum": 2, "pageSize": 3, "total": 1}}
+            assert missing.structured_content["items"]==[]
+            assert calls==[(2, 3, {"keywords": "气象"}), (1, 10, {"keywords": "不存在的关键词"})]
+            unsupported = await client.call_tool("search_corpus_datasets", {"title": "气象"}, raise_on_error=False)
+            assert unsupported.is_error and "标题筛选暂不可用" in unsupported.content[0].text
+            assert len(calls)==2  # Rejected before dispatch, never returns the default page.
+    asyncio.run(run())

@@ -7,6 +7,7 @@ from typing import Annotated, Any
 
 import anyio
 from fastmcp import FastMCP
+from fastmcp.exceptions import ToolError
 from pydantic import Field
 
 from services.corpus_connector_service import (
@@ -106,9 +107,11 @@ def _dataset_filters(
 ) -> dict[str, Any]:
     if query is not None and title is not None:
         raise ValueError("query and title are mutually exclusive")
+    if title is not None and title.strip():
+        raise ToolError("上游标题筛选暂不可用，请使用 query 按关键词检索，或使用 field/subject 等元数据条件")
     return _drop_none(
         {
-            "title": title if title is not None else query,
+            "keywords": query,
             "field": field,
             "subject": subject,
             "author": author,
@@ -139,8 +142,8 @@ def _dataset_filters(
     },
 )
 async def search_corpus_datasets(
-    query: Annotated[str | None, Field(description="便捷检索词，映射为数据集标题筛选条件")] = None,
-    title: Annotated[str | None, Field(description="数据集标题筛选条件")] = None,
+    query: Annotated[str | None, Field(description="关键词检索词，映射为数据集 keywords 元数据筛选；不是标题或全文检索")] = None,
+    title: Annotated[str | None, Field(description="兼容旧参数；当前上游标题筛选不可用，传入非空标题会返回错误，请使用 query 或其他元数据条件")] = None,
     field: Annotated[str | None, Field(description="数据集所属领域筛选条件")] = None,
     subject: Annotated[str | None, Field(description="数据集学科方向筛选条件")] = None,
     author: Annotated[str | None, Field(description="数据集作者筛选条件")] = None,
@@ -151,7 +154,8 @@ async def search_corpus_datasets(
 ) -> dict[str, Any]:
     """按元数据筛选条件和分页参数检索当前可见的数据集。
 
-    `query` 是便捷检索参数，会映射为现有的标题筛选条件；需要明确按标题筛选时请使用 `title`。
+    `query` 按数据集关键词元数据筛选，映射到上游 `keywords`；领域筛选使用 `field`。
+    当前上游标题筛选不可用，非空 `title` 会返回错误，不会降级成无筛选列表。
     返回结果中的分页总数保持当前筛选条件下数据集服务返回的总数。
     """
     filters = _dataset_filters(

@@ -43,7 +43,7 @@ class ScientificRoute(APIRoute):
         return checked
 
 
-def install_scientific_agents(app, *, resources=project_resources, **components):
+def install_scientific_agents(app, *, resources=project_resources, dataset_qa=None, **components):
     """Call once during host app construction, before its lifespan starts.
 
     Each agent owns its chat URL; the original /chat routes remain untouched.
@@ -62,6 +62,7 @@ def install_scientific_agents(app, *, resources=project_resources, **components)
                 and not route.path.startswith(PREFIX + "/forecast/agent/")):
             router.add_api_route(route.path, route.endpoint, methods=route.methods, name=route.name)
     app.include_router(router)
+    app.state.dataset_qa_enabled = True
     from .unified.api import install_unified
     install_unified(app)
     original_lifespan = app.router.lifespan_context
@@ -72,11 +73,31 @@ def install_scientific_agents(app, *, resources=project_resources, **components)
             # Start after the original engine has loaded environment/configuration;
             # close agent jobs before the original database/engine resources close.
             async with extension.router.lifespan_context(extension):
-                extension.state.session_services = {"forecast": extension.state.sessions}
+                from .dataset_qa.service import DatasetQA
+                if dataset_qa is None:
+                    import os
+                    from infra.config_loader import CONFIG_DIR
+                    from .dataset_qa.contracts import Server
+                    from .dataset_qa.mcp import MCPGateway
+
+                    def local_mcp():
+                        if url := os.getenv("DATASET_QA_MCP_URL"):
+                            return url
+                        from mcp_servers.corpus_mcp import mcp
+                        return mcp
+
+                    gateway = MCPGateway({"piflow-corpus": Server(local_mcp, "本应用挂载的MCP服务")},
+                        config_path=os.getenv("DATASET_QA_MCP_CONFIG", str(CONFIG_DIR / "mcp_servers.yaml")))
+                    qa = DatasetQA(extension.state.store.engine, gateway=gateway)
+                else:
+                    qa = dataset_qa
+                await qa.start()
+                extension.state.session_services = {"forecast": extension.state.sessions, "dataset_qa": qa}
                 host.state.scientific_agents = extension.state
                 try:
                     yield state
                 finally:
+                    await qa.close()
                     del host.state.scientific_agents
 
     app.router.lifespan_context = lifespan

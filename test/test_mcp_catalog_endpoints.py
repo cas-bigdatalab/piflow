@@ -22,7 +22,7 @@ def test_mcp_catalog_returns_tool_summaries():
     assert search_tool == {
         "name": "search_corpus_datasets",
         "displayName": "数据集检索",
-        "description": "按元数据筛选条件和分页参数检索当前可见的数据集。\n\n``query`` 是便捷检索参数，会映射为现有的标题筛选条件；需要明确按标题筛选时请使用 ``title``。\n返回结果中的分页总数保持当前筛选条件下数据集服务返回的总数。",
+        "description": "按元数据筛选条件和分页参数检索当前可见的数据集。\n\n`query` 按数据集关键词元数据筛选，映射到上游 `keywords`；领域筛选使用 `field`。\n当前上游标题筛选不可用，非空 `title` 会返回错误，不会降级成无筛选列表。\n返回结果中的分页总数保持当前筛选条件下数据集服务返回的总数。",
         "category": "数据集发现",
         "icon": "database-search",
         "readOnly": True,

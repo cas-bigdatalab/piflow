@@ -132,11 +132,13 @@ class Native:
 def install_unified(app, adapters=None):
     from .adapters.cross_dag import CrossDagAdapter
     from .adapters.forecast import ForecastAdapter
+    from .adapters.dataset_qa import DatasetQAAdapter
     # Extension point: one dictionary entry per adapter; no routing branches by agent.
-    registry = adapters if adapters is not None else {"cross_dag": CrossDagAdapter, "forecast": ForecastAdapter}
+    registry = adapters if adapters is not None else {"cross_dag": CrossDagAdapter, "forecast": ForecastAdapter, "dataset_qa": DatasetQAAdapter}
     paths = {getattr(r, "path", "") for r in app.routes}
     if adapters is None:
-        registry = {key: cls for key, cls in registry.items() if cls.session_path in paths}
+        registry = {key: cls for key, cls in registry.items() if cls.session_path in paths or
+                    (cls.session_path is None and getattr(app.state, "dataset_qa_enabled", False))}
     app.state.unified_adapters = registry
     router = APIRouter(prefix=PREFIX, route_class=PublicRoute)
 
@@ -230,14 +232,26 @@ def install_unified(app, adapters=None):
         return ok(result)
 
     @router.get("/sessions")
-    async def sessions(request: Request, agent_id: str = "cross_dag", pageNum: int = Query(1, ge=1), pageSize: int = Query(20, ge=1, le=100)):
-        return ok(await adapter(Native(request), agent_id).list_sessions(pageNum, pageSize))
+    async def sessions(request: Request, agent_id: str = "cross_dag", pageNum: int = Query(1, ge=1), pageSize: int = Query(20, ge=1, le=100),
+                       keyword: str = Query("", max_length=255)):
+        a = adapter(Native(request), agent_id)
+        if keyword:
+            supports(a, "session_search")
+            return ok(await a.search_sessions(pageNum, pageSize, keyword))
+        return ok(await a.list_sessions(pageNum, pageSize))
 
     @router.get("/sessions/{sid}")
     async def session(sid: str, request: Request, after_item_id: int = Query(0, ge=0), item_limit: int = Query(1000, ge=1, le=2000),
-                      after: int | None = Query(None, ge=0), limit: int | None = Query(None, ge=1, le=2000)):
-        return ok(await (await resolve(request, sid)).get_session(
-            sid, after if after is not None else after_item_id, limit if limit is not None else item_limit))
+                      after: int | None = Query(None, ge=0), limit: int | None = Query(None, ge=1, le=2000),
+                      before_item_id: int | None = Query(None, ge=1), tail: bool = False):
+        a = await resolve(request, sid)
+        cursor, size = after if after is not None else after_item_id, limit if limit is not None else item_limit
+        if before_item_id is not None or tail:
+            if cursor or (before_item_id is not None and tail):
+                raise HTTPException(422, "历史分页方向不能同时指定")
+            supports(a, "history_paging")
+            return ok(await a.page_session(sid, cursor, size, before_item_id, tail))
+        return ok(await a.get_session(sid, cursor, size))
 
     @router.delete("/sessions/{sid}")
     async def delete(sid: str, request: Request):
