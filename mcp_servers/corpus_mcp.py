@@ -11,6 +11,8 @@ from fastmcp.exceptions import ToolError
 from pydantic import Field
 
 from services.corpus_connector_service import (
+    DATASET_PREVIEW_TIMEOUT,
+    _request_corpus_route,
     get_dataset_detail_by_cstr,
     get_dataset_preview,
     get_dataset_sampler,
@@ -225,6 +227,16 @@ async def preview_corpus_dataset(
     cstr: Annotated[str, Field(description="数据集 CSTR 标识")],
 ) -> dict[str, Any]:
     """根据数据集 CSTR 获取预览结果，并原样返回上游响应。"""
+    normalized_cstr = cstr.strip()
+    if normalized_cstr in {"SA-CORPUS-B031", "75ae2f15-435b-4426-8958-d8686f1baddd"}:
+        return await anyio.to_thread.run_sync(
+            partial(
+                _request_corpus_route,
+                "GET",
+                f"/corpus.preview/{normalized_cstr}",
+                timeout=DATASET_PREVIEW_TIMEOUT,
+            )
+        )
     return await anyio.to_thread.run_sync(partial(get_dataset_preview, cstr))
 
 

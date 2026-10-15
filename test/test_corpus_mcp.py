@@ -131,3 +131,40 @@ def test_search_mcp_forwards_keywords_and_preserves_result_contract(monkeypatch)
             assert unsupported.is_error and "标题筛选暂不可用" in unsupported.content[0].text
             assert len(calls)==2  # Rejected before dispatch, never returns the default page.
     asyncio.run(run())
+
+
+@pytest.mark.parametrize("cstr,expected_path,expected_params", [
+    ("SA-C0RPUS-B031", "/corpus.preview/SA-C0RPUS-B031", None),
+    ("75ae2f15-435b-4426-8958-d8686f1baddd", "/corpus.preview/75ae2f15-435b-4426-8958-d8686f1baddd", None),
+    ("  SA-C0RPUS-B031  ", "/corpus.preview/SA-C0RPUS-B031", None),
+    ("CHEM-CORPUS-B010", "/corpus.dataset.preview", {"cstr": "CHEM-CORPUS-B010"}),
+    ("SA-CORPUS-B031", "/corpus.dataset.preview", {"cstr": "SA-CORPUS-B031"}),
+    ("75ae2f15-435b-4426-8958-d8686f1baddd-extra", "/corpus.dataset.preview", {"cstr": "75ae2f15-435b-4426-8958-d8686f1baddd-extra"}),
+])
+def test_preview_mcp_routes_only_designated_datasets(monkeypatch, cstr, expected_path, expected_params):
+    from types import SimpleNamespace
+    from fastmcp import Client
+    from mcp_servers.corpus_mcp import mcp
+    from services import corpus_connector_service
+
+    calls = []
+    payload = {"code": 200, "message": "OK", "data": {
+        "records": [{"id": 1}], "imageUrl": "https://example.invalid/preview.png",
+        "pdfUrl": "https://example.invalid/preview.pdf"}, "timestamp": 123}
+
+    def get(url, params, timeout):
+        calls.append((url, params, timeout))
+        return SimpleNamespace(raise_for_status=lambda: None, json=lambda: payload)
+
+    monkeypatch.setattr(corpus_connector_service, "get_settings", lambda: SimpleNamespace(
+        corpus_route=SimpleNamespace(base_url="http://corpus.example/")))
+    monkeypatch.setattr(corpus_connector_service.requests, "get", get)
+
+    async def run():
+        async with Client(mcp) as client:
+            result = await client.call_tool("preview_corpus_dataset", {"cstr": cstr})
+            assert result.structured_content == payload
+            assert calls == [("http://corpus.example"+expected_path, expected_params,
+                corpus_connector_service.DATASET_PREVIEW_TIMEOUT)]
+
+    asyncio.run(run())
