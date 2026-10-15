@@ -31,12 +31,16 @@ class RawDialogue(Dialogue):
 def test_no_success_without_actual_mcp_execution(engine, responses):
     async def run():
         backend = Backend()
-        dialogue = RawDialogue(*responses)
+        dialogue = RawDialogue(*responses, AIMessageChunk(content="Still no action"), AIMessageChunk(content="Still no action"),
+            AIMessageChunk(content="The task was not executed."))
         service = DatasetQA(engine, dialogue, backend.gateway())
         values = await collect(service, session(service))
         assert values[-1]["status"]=="FAILED" and values[-1]["code"]=="mcp_required"
         assert not backend.calls and not result_cards(values)
-        assert not any(v["type"]=="message" for v in values)
+        shown = "".join(v["text"] for v in values if v["type"]=="message")
+        assert "Invented dataset result" not in shown and "本轮尚未通过MCP" in shown
+        planning = [v for v in dialogue.inputs if v[1]]
+        assert len(planning)==len(responses)+2 and dialogue.inputs[-1][1]==[]
         assert all(d["function"]["name"]!="deliver_results" for d in dialogue.inputs[0][1])
         await service.close()
     asyncio.run(run())
@@ -82,12 +86,13 @@ def test_single_result_fallback_needs_no_selection_request(engine):
 def test_multiple_results_are_not_arbitrarily_selected_or_reexecuted(engine):
     async def run():
         backend = Backend()
-        dialogue = RawDialogue(load(), remote("search"), remote("preview", reference="a"), AIMessageChunk(content="INTERNAL"))
+        dialogue = RawDialogue(load(), remote("search"), remote("preview", reference="a"),
+            *[AIMessageChunk(content="INTERNAL") for _ in range(3)], AIMessageChunk(content="Delivery was not completed."))
         service = DatasetQA(engine, dialogue, backend.gateway())
         sid = session(service)
         values = await collect(service, sid)
         assert values[-1]["status"]=="FAILED" and values[-1]["code"]=="invalid_delivery"
-        assert not result_cards(values) and len(backend.calls)==2 and len(dialogue.inputs)==4
+        assert not result_cards(values) and len(backend.calls)==2 and len(dialogue.inputs)==7
         assert len(service.store.results("alice", sid, values[-1]["task_id"]))==2
         await service.close()
     asyncio.run(run())
@@ -230,7 +235,8 @@ def test_action_schema_preserves_local_refs_without_mutating_tool_schema():
     assert schema["properties"]["row"]["$ref"]=="#/$defs/Row"
 
 
-def test_real_sdk_and_mcp_complete_search_in_three_model_requests(engine, monkeypatch):
+@pytest.mark.parametrize("premature", [False, True])
+def test_real_sdk_and_mcp_complete_search_with_bounded_correction(engine, monkeypatch, premature):
     import httpx
     from langchain_openai import ChatOpenAI
     from mcp_servers.corpus_mcp import mcp
@@ -252,7 +258,13 @@ def test_real_sdk_and_mcp_complete_search_in_three_model_requests(engine, monkey
         if body.get("tools"):
             assert body["tool_choice"]=={"type": "function", "function": {"name": "agent_action"}}
             choices = body["tools"][0]["function"]["parameters"]["oneOf"]
-            if len(requests)==1:
+            if premature and len(requests)==1:
+                assert all(c["properties"]["name"]["enum"]!=["deliver_results"] for c in choices)
+                action_args = {"name": "deliver_results", "arguments": {"result_ids": []}}
+            elif len(requests)==1+int(premature):
+                if premature:
+                    rejected = json.loads(body["messages"][-1]["content"])
+                    assert rejected["error"]=="mcp_required" and rejected["executed"] is False
                 name = next(c["properties"]["name"]["enum"][0] for c in choices
                     if c["properties"]["name"]["enum"][0].endswith("_search_corpus_datasets"))
                 action_args = {"name": name, "arguments": {"query": "Chemistry"}}
@@ -282,7 +294,7 @@ def test_real_sdk_and_mcp_complete_search_in_three_model_requests(engine, monkey
             assert values[-1]["status"]=="COMPLETED" and result_cards(values)[0]["data"]["items"]==rows
             assert "".join(v["text"] for v in values if v["type"]=="message")=="Retrieved five records."
             assert upstream==[{"page_num": 1, "page_size": 5, "filters": {"keywords": "Chemistry"}}]
-            assert len(requests)==3 and "tools" not in requests[-1] and "tool_choice" not in requests[-1]
+            assert len(requests)==3+int(premature) and "tools" not in requests[-1] and "tool_choice" not in requests[-1]
             assert all(body["enable_thinking"] is False for body in requests)
             await service.close()
     asyncio.run(run())

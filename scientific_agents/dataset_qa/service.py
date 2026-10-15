@@ -318,7 +318,7 @@ class DatasetQA:
         reply = message_chunk_to_message(full) if full is not None else AIMessage(content="")
         if reply.invalid_tool_calls:
             raise QAError("invalid_tool_call", "模型返回的工具参数无法解析，请重新表述请求", 502)
-        return self.dialogue.decode_actions(reply) if definitions else reply
+        return reply
 
     async def _deliver(self, user, sid, tid, arguments, payload):
         values = INPUTS["deliver_results"][0].model_validate(arguments)
@@ -433,36 +433,85 @@ class DatasetQA:
             if parent:
                 payload["parent_task_id"] = parent
                 await self._write(user, sid, tid, payload=payload)
-            reason, ready = None, False
+            reason, ready, recovering = None, False, False
             async with self.gateway.session() as tools:
+                def action_feedback(error):
+                    actions = {definition["function"]["name"] for definition in BUILTINS
+                        if definition["function"]["name"]!="deliver_results" or execution.can_deliver}
+                    return execution.feedback(error, actions | set(tools.loaded))
+
                 tools.prime(payload["message"], context.get("tools", []))
                 model_context["mcp_servers"] = tools.list_servers(payload["message"])
                 messages = self.dialogue.messages(payload["message"], model_context)
                 for _ in range(limits.max_rounds):
+                    if execution.calls>=limits.max_calls and not execution.can_deliver:
+                        reason = QAError("step_limit", "工具调用达到本轮预算，请缩小请求范围")
+                        break
+                    rejection = None
                     definitions = [definition for definition in BUILTINS
-                        if definition["function"]["name"]!="deliver_results" or execution.cards]
+                        if definition["function"]["name"]!="deliver_results" or execution.can_deliver]
                     definitions.extend(tools.definitions())
                     advertised = {value["function"]["name"] for value in definitions}
                     reply = await self._reply(user, sid, tid, messages, definitions)
+                    if reply.tool_calls:
+                        if any(not call.get("id") for call in reply.tool_calls):
+                            raise QAError("invalid_tool_call", "工具调用缺少关联标识", 503)
+                        if len({call["id"] for call in reply.tool_calls}) != len(reply.tool_calls):
+                            raise QAError("invalid_tool_call", "工具调用关联标识重复", 503)
+                        try:
+                            reply = self.dialogue.decode_actions(reply)
+                        except QAError as exc:
+                            rejection = exc
+                    else:
+                        try:
+                            execution.require_result()
+                            await self._fallback_delivery(user, sid, tid, payload, execution, required=True)
+                        except QAError as exc:
+                            if exc.code not in {"mcp_required", "invalid_delivery"}:
+                                raise
+                            rejection = exc
+                    if rejection:
+                        messages.append(reply)
+                        feedback = action_feedback(rejection)
+                        if reply.tool_calls:
+                            messages.extend(ToolMessage(content=encode(feedback), tool_call_id=call["id"], name=call["name"])
+                                for call in reply.tool_calls)
+                        else:
+                            messages.append(HumanMessage(encode({"runtime_feedback": feedback})))
+                        reason = execution.correct(rejection, limits.max_corrections)
+                        log.info("Action correction: task=%s error=%s corrections=%s stopped=%s",
+                            tid, rejection.code, execution.corrections, reason is not None)
+                        if reason:
+                            break
+                        recovering = True
+                        continue
                     if not reply.tool_calls:
-                        execution.require_result()
-                        await self._fallback_delivery(user, sid, tid, payload, execution, required=True)
                         await self._final_reply(user, sid, tid, messages, answer, phase)
                         await asyncio.to_thread(self.store.finish, user, sid, tid, "COMPLETED", message=answer["text"])
                         return
-                    if any(not call.get("id") for call in reply.tool_calls):
-                        raise QAError("invalid_tool_call", "工具调用缺少关联标识", 503)
-                    if len({call["id"] for call in reply.tool_calls}) != len(reply.tool_calls):
-                        raise QAError("invalid_tool_call", "工具调用关联标识重复", 503)
                     messages.append(reply)
                     for call in reply.tool_calls:
                         name, arguments = call["name"], call["args"]
                         key = fingerprint([name, arguments])
                         tool = tools.loaded.get(name)
                         interaction = None
-                        log.debug("Tool request: task=%s tool=%s cached=%s", tid, name, key in execution.cached)
+                        rejected = False
+                        log.info("Agent action: task=%s name=%s allowed=%s", tid, name, name in advertised)
                         if ready:
                             value = {"executed": False, "message": "交付范围已确定，未继续执行工具"}
+                        elif reason or (execution.calls>=limits.max_calls and (name!="deliver_results" or name not in advertised)):
+                            reason = reason or QAError("step_limit", "工具调用达到本轮预算，请缩小请求范围")
+                            value = {"error": reason.code, "message": str(reason), "executed": False}
+                        elif name not in advertised:
+                            execution.calls += 1
+                            rejection = QAError("tool_not_loaded", "当前动作尚未开放，请从当前提供的动作中选择")
+                            if name=="deliver_results":
+                                if execution.failures:
+                                    reason = next(iter(execution.failures.values()))
+                                elif not execution.cards:
+                                    rejection = QAError("mcp_required", "本轮尚未通过MCP执行任务，不能直接交付结果")
+                            value = action_feedback(rejection)
+                            rejected = True
                         elif name=="deliver_results" and not reason:
                             try:
                                 execution.require_result()
@@ -473,17 +522,19 @@ class DatasetQA:
                                     "message": str(exc) if isinstance(exc, QAError) else "交付参数不符合定义"}
                                 if isinstance(exc, QAError) and (exc.code=="mcp_required" or execution.failures):
                                     reason = exc
-                        elif reason or execution.calls>=limits.max_calls:
-                            reason = reason or QAError("step_limit", "工具调用达到本轮预算，请缩小请求范围")
-                            value = {"error": reason.code, "message": str(reason), "executed": False}
+                                elif isinstance(exc, ValidationError) or exc.code in {"invalid_delivery", "invalid_pointer", "result_not_found"}:
+                                    rejection = exc if isinstance(exc, QAError) else QAError("invalid_parameters", "交付参数不符合定义")
+                                    value = action_feedback(rejection)
+                                    rejected = True
+                        elif (recovering or rejection is not None) and tool and (completed := execution.completed(key)) is not None:
+                            value = {**self._evidence(completed), "executed": False,
+                                "guidance": "This operation already completed in this turn. Use the saved result; no additional execution took place."}
                         elif key in execution.cached and name in advertised:
                             value = execution.cached[key]
                         else:
                             execution.calls += 1
                             call_started = time.monotonic()
                             try:
-                                if name not in advertised:
-                                    raise QAError("tool_not_loaded", "工具未加载，请先发现并加载定义")
                                 if name in INPUTS:
                                     value = await self._builtin(user, sid, tid, name, arguments, tools, context)
                                     if name=="request_input":
@@ -503,6 +554,7 @@ class DatasetQA:
                                         execution.cards[marker] = card
                                     value = self._evidence(card)
                                     execution.failures.pop(name, None)
+                                    recovering = False
                                     reference = {"server": tool.server, "name": tool.name}
                                     context["tools"] = [reference, *[ref for ref in context.get("tools", []) if ref!=reference]][:4]
                                     await self._write(user, sid, tid, context=context)
@@ -515,7 +567,11 @@ class DatasetQA:
                                     "message": str(exc) if isinstance(exc, QAError) else "参数不符合工具定义"}
                                 if isinstance(exc, QAError) and exc.detail:
                                     value["detail"] = exc.detail
-                                if tool and isinstance(exc, QAError):
+                                if isinstance(exc, ValidationError) or exc.code in {"invalid_parameters", "invalid_pointer", "result_not_found", "memory_too_large"}:
+                                    rejection = exc if isinstance(exc, QAError) else QAError("invalid_parameters", "参数不符合工具定义")
+                                    value = action_feedback(rejection)
+                                    rejected = True
+                                elif tool and isinstance(exc, QAError):
                                     execution.failures[name] = exc
                                 if isinstance(exc, QAError) and exc.code=="mcp_unavailable":
                                     execution.cached[key] = value  # No repeated connection attempts in this turn.
@@ -530,18 +586,24 @@ class DatasetQA:
                             await asyncio.to_thread(self.store.finish, user, sid, tid, "WAITING_INPUT",
                                 message=answer["text"], interaction=interaction)
                             return
-                        progress = execution.observe(key, value)
-                        execution.stalled = 0 if progress else execution.stalled+1
-                        if not progress:
-                            value = {**value, "repeated": True,
-                                "guidance": "This call provided no new evidence. Use the saved result, change the request if needed, or answer the user."}
+                        if not rejected:
+                            progress = execution.observe(key, value)
+                            execution.stalled = 0 if progress else execution.stalled+1
+                            if not progress:
+                                value = {**value, "repeated": True,
+                                    "guidance": "This call provided no new evidence. Use the saved result, change the request if needed, or answer the user."}
                         messages.append(ToolMessage(content=encode(value), tool_call_id=call["id"], name=name))
-                        if not ready and not reason and execution.stalled>=limits.max_stalled_calls:
+                        if not rejected and not ready and not reason and execution.stalled>=limits.max_stalled_calls:
                             reason = QAError("no_progress", "连续调用没有获得新信息")
                     if ready:
                         await self._final_reply(user, sid, tid, messages, answer, phase)
                         await asyncio.to_thread(self.store.finish, user, sid, tid, "COMPLETED", message=answer["text"])
                         return
+                    if rejection and not reason:
+                        reason = execution.correct(rejection, limits.max_corrections)
+                        log.info("Action correction: task=%s error=%s corrections=%s stopped=%s",
+                            tid, rejection.code, execution.corrections, reason is not None)
+                    recovering = recovering or (rejection is not None and reason is None)
                     if reason:
                         break
                 reason = reason or QAError("step_limit", "处理达到本轮预算，请缩小请求范围")

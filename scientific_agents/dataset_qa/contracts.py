@@ -19,6 +19,7 @@ class Limits:
     max_rounds: int = 12
     max_calls: int = 24
     max_stalled_calls: int = 2
+    max_corrections: int = 2
     schema_chars: int = 16000
     context_chars: int = 32000
     result_chars: int = 8000
