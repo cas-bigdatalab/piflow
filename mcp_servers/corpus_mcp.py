@@ -44,7 +44,7 @@ async def main():
                 "query": "锂电池",
                 "field": "材料科学",
                 "page": 1,
-                "page_size": 10,
+                "page_size": 5,
             }},
         )
         print(result)
@@ -95,6 +95,14 @@ async def main():
 
 def _drop_none(values: dict[str, Any]) -> dict[str, Any]:
     return {key: value for key, value in values.items() if value is not None}
+
+
+def _checked_result(payload: dict[str, Any]) -> dict[str, Any]:
+    # Only this server knows the upstream's business envelope. Keep successful
+    # JSON intact; expose business failures as standard MCP errors.
+    if "code" in payload and str(payload["code"])!="200":
+        raise ToolError(str(payload.get("message") or "数据集服务执行失败")[:2000])
+    return payload
 
 
 def _dataset_filters(
@@ -152,7 +160,7 @@ async def search_corpus_datasets(
     doi: Annotated[str | None, Field(description="数据集 DOI 筛选条件")] = None,
     sources: Annotated[list[str] | None, Field(description="数据集来源或连接器名称列表")] = None,
     page: Annotated[int, Field(description="页码，从 1 开始", ge=1)] = 1,
-    page_size: Annotated[int, Field(description="每页返回数量，范围为 1 到 50", ge=1, le=50)] = 10,
+    page_size: Annotated[int, Field(description="每页返回数量，默认 5 条，范围为 1 到 5；更多结果通过 page 翻页获取", ge=1, le=5)] = 5,
 ) -> dict[str, Any]:
     """按元数据筛选条件和分页参数检索当前可见的数据集。
 
@@ -216,7 +224,7 @@ async def sample_corpus_dataset(
     size: Annotated[int, Field(description="随机采样条数，默认为 5 条", ge=1)] = 5,
 ) -> dict[str, Any]:
     """根据数据集 CSTR 随机采样指定条数，并原样返回上游响应。"""
-    return await anyio.to_thread.run_sync(partial(get_dataset_sampler, cstr, size=size))
+    return _checked_result(await anyio.to_thread.run_sync(partial(get_dataset_sampler, cstr, size=size)))
 
 
 @mcp.tool(
@@ -229,15 +237,15 @@ async def preview_corpus_dataset(
     """根据数据集 CSTR 获取预览结果，并原样返回上游响应。"""
     normalized_cstr = cstr.strip()
     if normalized_cstr in {"SA-CORPUS-B031", "75ae2f15-435b-4426-8958-d8686f1baddd"}:
-        return await anyio.to_thread.run_sync(
+        return _checked_result(await anyio.to_thread.run_sync(
             partial(
                 _request_corpus_route,
                 "GET",
                 f"/corpus.preview/{normalized_cstr}",
                 timeout=DATASET_PREVIEW_TIMEOUT,
             )
-        )
-    return await anyio.to_thread.run_sync(partial(get_dataset_preview, cstr))
+        ))
+    return _checked_result(await anyio.to_thread.run_sync(partial(get_dataset_preview, cstr)))
 
 
 def create_mcp_app():

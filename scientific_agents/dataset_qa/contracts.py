@@ -24,7 +24,9 @@ class Limits:
     result_chars: int = 8000
     result_bytes: int = 2_000_000
     timeout: float = 660
-    connect_timeout: float = 30
+    connect_timeout: float = 10
+    model_timeout: float = 60
+    summary_timeout: float = 30
     cache_seconds: float = 300
     heartbeat_seconds: float = 15
 

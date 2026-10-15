@@ -12,6 +12,14 @@ class Execution:
     def __init__(self):
         self.calls, self.stalled = 0, 0
         self.seen, self.cached, self.cards = set(), {}, {}
+        self.failures = {}
+
+    def require_result(self):
+        if self.failures:
+            raise next(iter(self.failures.values()))
+        if not self.cards:
+            from .contracts import QAError
+            raise QAError("mcp_required", "本轮尚未通过MCP执行任务，不能直接交付结果")
 
     @staticmethod
     def reusable(tool):

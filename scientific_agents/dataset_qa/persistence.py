@@ -68,6 +68,17 @@ class Store:
         with self.transaction() as conn:
             return self._session(conn, user, sid)
 
+    def save_summary(self, user, sid, previous, summary, after):
+        with self.transaction() as conn:
+            session = self._session(conn, user, sid, True)
+            context = json.loads(session["context"])
+            if session["active_task_id"] or context.get("summary_after", 0)!=previous:
+                return False
+            context.update(summary=summary, summary_after=after)
+            # This internal cache does not invalidate the frontend's version.
+            conn.execute(update(self.sessions).where(self.sessions.c.id==sid).values(context=dumps(context)))
+            return True
+
     def create(self, user, title, request_id):
         with self.transaction() as conn:
             # A deterministic ID makes concurrent create retries converge.

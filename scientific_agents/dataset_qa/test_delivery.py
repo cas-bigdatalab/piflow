@@ -184,7 +184,7 @@ def test_clarification_and_text_only_responses_do_not_publish_tool_evidence(engi
         assert values[-1]["status"]=="WAITING_INPUT" and not result_cards(values)
         assert [v["type"] for v in values][-2:]==["interaction", "done"]
         assert not any(i["item_type"]=="RESULT_CARD" for i in (await service.get_session("alice", sid))["items"])
-        service.dialogue.responses = [action("deliver_results"), AIMessageChunk(content="这是一段文字解释。")]
+        service.dialogue.responses = [remote("search"), action("deliver_results"), AIMessageChunk(content="这是一段文字解释。")]
         following = await collect(service, sid, "解释一下", "text")
         assert following[-1]["status"]=="COMPLETED" and not result_cards(following)
     asyncio.run(run())
@@ -248,7 +248,7 @@ def test_legacy_result_events_are_projected_without_reexecution(engine):
     asyncio.run(run())
 
 
-def test_delivery_selection_cannot_restart_mcp_execution(engine):
+def test_delivery_fallback_cannot_restart_mcp_execution(engine):
     async def run():
         backend = Backend()
 
@@ -262,13 +262,13 @@ def test_delivery_selection_cannot_restart_mcp_execution(engine):
                 elif len(self.inputs)==3:
                     yield AIMessageChunk(content="INTERNAL planning ends without selecting results")
                 else:
-                    # The selection-only response attempts an unadvertised tool.
+                    # The tool-free final response attempts another tool call.
                     yield action("mcp_search", query="retry")
 
         service = DatasetQA(engine, RefusingDelivery(), backend.gateway())
         values = await collect(service, session(service))
-        assert values[-1]["status"]=="FAILED" and values[-1]["code"]=="invalid_delivery"
-        assert len(backend.calls)==1 and not result_cards(values)
-        assert [d["function"]["name"] for d in service.dialogue.inputs[-1][1]]==["deliver_results"]
+        assert values[-1]["status"]=="FAILED" and values[-1]["code"]=="invalid_tool_call"
+        assert len(backend.calls)==1 and len(result_cards(values))==1
+        assert service.dialogue.inputs[-1][1]==[] and len(service.dialogue.inputs)==4
         assert not any(v["type"]=="message" for v in values)
     asyncio.run(run())

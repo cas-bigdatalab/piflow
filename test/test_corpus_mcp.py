@@ -66,6 +66,8 @@ def test_corpus_mcp_lists_dataset_tools():
     search_tool = next(tool for tool in tools if tool["name"] == "search_corpus_datasets")
     assert "keywords" in search_tool["inputSchema"]["properties"]["query"]["description"]
     assert "不可用" in search_tool["inputSchema"]["properties"]["title"]["description"]
+    assert search_tool["inputSchema"]["properties"]["page_size"]["default"]==5
+    assert search_tool["inputSchema"]["properties"]["page_size"]["maximum"]==5
     assert search_tool["annotations"] == {
         "title": "数据集检索",
         "readOnlyHint": True,
@@ -126,19 +128,40 @@ def test_search_mcp_forwards_keywords_and_preserves_result_contract(monkeypatch)
             assert found.structured_content=={"items": [{"id": "weather", "cstr": "CSTR-WEATHER", "title": "气象数据"}],
                 "pagination": {"pageNum": 2, "pageSize": 3, "total": 1}}
             assert missing.structured_content["items"]==[]
-            assert calls==[(2, 3, {"keywords": "气象"}), (1, 10, {"keywords": "不存在的关键词"})]
+            assert calls==[(2, 3, {"keywords": "气象"}), (1, 5, {"keywords": "不存在的关键词"})]
             unsupported = await client.call_tool("search_corpus_datasets", {"title": "气象"}, raise_on_error=False)
             assert unsupported.is_error and "标题筛选暂不可用" in unsupported.content[0].text
             assert len(calls)==2  # Rejected before dispatch, never returns the default page.
+            excessive = await client.call_tool("search_corpus_datasets", {"query": "气象", "page_size": 6}, raise_on_error=False)
+            assert excessive.is_error and len(calls)==2
+    asyncio.run(run())
+
+
+@pytest.mark.parametrize("tool,cstr", [
+    ("preview_corpus_dataset", "CHEM-CORPUS-B010"),
+    ("preview_corpus_dataset", "SA-CORPUS-B031"),
+    ("sample_corpus_dataset", "CHEM-CORPUS-B010"),
+])
+def test_business_failure_is_an_mcp_error(monkeypatch, tool, cstr):
+    from fastmcp import Client
+    from mcp_servers.corpus_mcp import mcp
+    payload = {"code": 500, "message": "数据暂不可用", "data": None}
+    for name in ("get_dataset_preview", "get_dataset_sampler", "_request_corpus_route"):
+        monkeypatch.setattr("mcp_servers.corpus_mcp."+name, lambda *args, **kwargs: payload)
+
+    async def run():
+        async with Client(mcp) as client:
+            result = await client.call_tool(tool, {"cstr": cstr}, raise_on_error=False)
+            assert result.is_error and "数据暂不可用" in result.content[0].text
     asyncio.run(run())
 
 
 @pytest.mark.parametrize("cstr,expected_path,expected_params", [
-    ("SA-C0RPUS-B031", "/corpus.preview/SA-C0RPUS-B031", None),
+    ("SA-CORPUS-B031", "/corpus.preview/SA-CORPUS-B031", None),
     ("75ae2f15-435b-4426-8958-d8686f1baddd", "/corpus.preview/75ae2f15-435b-4426-8958-d8686f1baddd", None),
-    ("  SA-C0RPUS-B031  ", "/corpus.preview/SA-C0RPUS-B031", None),
+    ("  SA-CORPUS-B031  ", "/corpus.preview/SA-CORPUS-B031", None),
     ("CHEM-CORPUS-B010", "/corpus.dataset.preview", {"cstr": "CHEM-CORPUS-B010"}),
-    ("SA-CORPUS-B031", "/corpus.dataset.preview", {"cstr": "SA-CORPUS-B031"}),
+    ("SA-C0RPUS-B031", "/corpus.dataset.preview", {"cstr": "SA-C0RPUS-B031"}),
     ("75ae2f15-435b-4426-8958-d8686f1baddd-extra", "/corpus.dataset.preview", {"cstr": "75ae2f15-435b-4426-8958-d8686f1baddd-extra"}),
 ])
 def test_preview_mcp_routes_only_designated_datasets(monkeypatch, cstr, expected_path, expected_params):

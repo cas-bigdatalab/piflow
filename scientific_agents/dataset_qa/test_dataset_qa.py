@@ -192,7 +192,7 @@ def test_discovery_is_lazy_cached_and_accepts_new_tools():
         async with gateway.session() as tools:
             await tools.load("compute")
         assert backend.lists==["compute"]
-        assert backend.connections==["compute", "compute"]
+        assert backend.connections==["compute"]  # A cached schema needs no new connection.
         backend.catalog["compute"].append(definition("future_operation", {"value": {"type": "string"}}))
         gateway.limits = replace(gateway.limits, cache_seconds=0)
         async with gateway.session() as tools:
@@ -326,6 +326,7 @@ def test_clarification_resume_and_cancel_keep_one_active_interaction(engine):
         waiting = await collect(service, sid, rid="wait-again")
         await service.cancel("alice", sid, waiting[-1]["task_id"])
         assert (await service.get_session("alice", sid))["interaction"] is None
+        dialogue.responses = [load(), remote("search")]
         assert (await collect(service, sid, rid="next"))[-1]["status"]=="COMPLETED"
     asyncio.run(run())
 
@@ -366,7 +367,7 @@ def test_disconnect_keeps_task_cancel_fences_late_result(engine):
         await asyncio.gather(*list(service.jobs.values()), return_exceptions=True)
         assert service.store.session("alice", sid)["active_task_id"] is None
         assert not service.store.results("alice", sid, first["task_id"])
-        service.dialogue.responses = [AIMessageChunk(content="继续处理新问题。")]
+        service.dialogue.responses = [load(), remote("search"), AIMessageChunk(content="继续处理新问题。")]
         assert (await collect(service, sid, rid="next"))[-1]["status"]=="COMPLETED"
     asyncio.run(run())
 
@@ -410,7 +411,7 @@ def test_protocol_error_retry_policy_uses_annotations(engine, idempotent):
         service = DatasetQA(engine, dialogue, backend.gateway())
         sid = session(service)
         values = await collect(service, sid)
-        assert values[-1]["status"]==("COMPLETED" if idempotent else "FAILED")
+        assert values[-1]["status"]=="FAILED" and values[-1]["code"]=="tool_failed"
         assert len(backend.calls)==1
         assert not service.store.results("alice", sid)
         if idempotent:
@@ -456,10 +457,12 @@ def test_long_dialogue_summary_pagination_and_minimal_views(engine):
         service = DatasetQA(engine, dialogue, backend.gateway())
         sid = session(service)
         for i in range(15):
+            dialogue.responses = [load(), remote("search")]
             await collect(service, sid, "继续解释"+str(i), str(i))
+            await asyncio.gather(*list(service.summaries.values()))
         assert dialogue.summaries and dialogue.contexts[-1]["summary"]
         assert all(len(c["history"])<=12 for c in dialogue.contexts)
-        assert not backend.connections
+        assert len(backend.calls)==15
         listed = await service.list_sessions("alice", 1, 20)
         assert set(listed)=={"items", "pagination"}
         view = await service.get_session("alice", sid, limit=4, tail=True)
@@ -501,12 +504,13 @@ def test_partial_stream_survives_cancel(engine):
         class Streaming(Dialogue):
             async def respond(self, messages, definitions):
                 if definitions:
-                    yield action("deliver_results")
+                    async for chunk in super().respond(messages, definitions):
+                        yield chunk
                     return
                 yield AIMessageChunk(content="取消以后仍需保留的回答。"*5)
                 await gate.wait()
 
-        service = DatasetQA(engine, Streaming(), Backend().gateway())
+        service = DatasetQA(engine, Streaming(load(), remote("search")), Backend().gateway())
         sid = session(service)
         stream = service.stream("alice", sid, "解释一下", "stream", Options())
         while True:
@@ -517,7 +521,8 @@ def test_partial_stream_survives_cancel(engine):
         await stream.aclose()
         await asyncio.gather(*list(service.jobs.values()), return_exceptions=True)
         view = await service.get_session("alice", sid)
-        assert view["items"][-1]["payload"]["text"]==value["text"]
+        reply = next(i for i in view["items"] if i["item_type"]=="ASSISTANT_MESSAGE")
+        assert reply["payload"]["text"]==value["text"]
         events = service.store.replay("alice", sid, value["task_id"], 0)
         assert events[-1]["type"]=="done" and events[-1]["status"]=="CANCELLED"
     asyncio.run(run())
@@ -530,13 +535,14 @@ def test_first_text_is_streamed_before_model_finishes_and_reasoning_blocks_hidde
         class Streaming(Dialogue):
             async def respond(self, messages, definitions):
                 if definitions:
-                    yield action("deliver_results")
+                    async for chunk in super().respond(messages, definitions):
+                        yield chunk
                     return
                 yield AIMessageChunk(content=[{"type": "reasoning", "reasoning": "internal"}, {"type": "text", "text": "首"}])
                 await gate.wait()
                 yield AIMessageChunk(content="尾")
 
-        service = DatasetQA(engine, Streaming(), Backend().gateway())
+        service = DatasetQA(engine, Streaming(load(), remote("search")), Backend().gateway())
         sid = session(service)
         stream = service.stream("alice", sid, "解释一下", "stream", Options())
 
@@ -584,7 +590,7 @@ def test_fragmented_tool_arguments_never_create_empty_messages(engine, monkeypat
             assert all(v["text"] for v in events if v["type"]=="message")
             assert not any(v.get("stage")=="list_mcp_servers" for v in events)
             assert all(v.get("stage") in {None, "prepare", "answer"} for v in events)
-        assert values[-1]["status"]=="COMPLETED"
+        assert values[-1]["status"]=="FAILED" and values[-1]["code"]=="mcp_required"
     asyncio.run(run())
 
 
@@ -598,7 +604,7 @@ def test_heartbeat_uses_idle_interval_and_progress_resets_it(engine, monkeypatch
         class Waiting(Dialogue):
             async def respond(self, *args):
                 await gate.wait()
-                yield AIMessageChunk(content="完成")
+                yield action("request_input", question="需要处理哪个对象？")
 
         service = DatasetQA(engine, Waiting(), Backend().gateway())
         sid = session(service)
@@ -626,7 +632,7 @@ def test_heartbeat_uses_idle_interval_and_progress_resets_it(engine, monkeypatch
         assert await asyncio.wait_for(pending, 1) is None
         gate.set()
         values = [v async for v in stream if v is not None]
-        assert values[-1]["status"]=="COMPLETED"
+        assert values[-1]["status"]=="WAITING_INPUT"
     asyncio.run(run())
 
 
@@ -702,7 +708,10 @@ def test_real_sdk_disables_thinking_in_stream_and_summary_requests(monkeypatch, 
 
     asyncio.run(run())
     assert len(requests)==3 and requests[0]["stream"] and requests[0]["tools"]
+    assert requests[0]["tool_choice"]=={"type": "function", "function": {"name": "agent_action"}}
+    assert len(requests[0]["tools"])==1
     assert requests[1]["stream"] and "tools" not in requests[1]
+    assert "tool_choice" not in requests[1] and "tool_choice" not in requests[2]
     assert all({k: body[k] for k in ("enable_thinking", "thinking", "reasoning", "extra_body") if k in body}==expected for body in requests)
 
 

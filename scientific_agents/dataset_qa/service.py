@@ -17,13 +17,15 @@ from .mcp import MCPGateway
 from .persistence import Store
 from .results import combine_results, evidence
 
-log = logging.getLogger(__name__)
+log = logging.getLogger("flow.dataset_qa")
 
 class DatasetQA:
     def __init__(self, engine, dialogue=None, gateway=None):
         self.store, self.gateway = Store(engine), gateway or MCPGateway()
         self.dialogue = dialogue or Dialogue(limits=self.gateway.limits)
         self.owner, self.jobs = uuid4().hex, {}
+        self.summaries = {}
+        self.summary_slot = asyncio.Semaphore(1)
         self.stopping, self.changed = asyncio.Event(), asyncio.Condition()
         self.ticker, self.slots = None, asyncio.Semaphore(8)
 
@@ -51,6 +53,9 @@ class DatasetQA:
         for job in list(self.jobs.values()):
             job.cancel()
         await asyncio.gather(*list(self.jobs.values()), return_exceptions=True)
+        for job in list(self.summaries.values()):
+            job.cancel()
+        await asyncio.gather(*list(self.summaries.values()), return_exceptions=True)
         if hasattr(self.dialogue, "close"):
             await self.dialogue.close()
 
@@ -195,19 +200,39 @@ class DatasetQA:
             raise asyncio.CancelledError()
         await self._notify()
 
+    def _schedule_summary(self, user, sid):
+        if self.stopping.is_set() or sid in self.summaries:
+            return
+        job = asyncio.create_task(self._summarize(user, sid))
+        self.summaries[sid] = job
+        job.add_done_callback(lambda _: self.summaries.pop(sid, None))
+
+    async def _summarize(self, user, sid):
+        started = time.monotonic()
+        try:
+            session = await asyncio.to_thread(self.store.session, user, sid)
+            context = json.loads(session["context"])
+            recent = await asyncio.to_thread(self.store.memory, user, sid, 0, None, 12, True)
+            previous = context.get("summary_after", 0)
+            older = await asyncio.to_thread(self.store.memory, user, sid, previous, recent[0]["id"] if recent else None, 24)
+            if len(older)<8 or session["active_task_id"] or self.summary_slot.locked():
+                return
+            async with self.summary_slot, asyncio.timeout(self.gateway.limits.summary_timeout):
+                summary = await self.dialogue.summarize(context.get("summary", ""), older)
+            await asyncio.to_thread(self.store.save_summary, user, sid, previous, summary, older[-1]["id"])
+            log.info("Conversation summary: session=%s elapsed=%.3fs", sid, time.monotonic()-started)
+        except QAError:
+            pass  # The session may have been deleted while the summary ran.
+        except Exception:
+            log.warning("Conversation summary deferred: session=%s", sid, exc_info=True)
+
     async def _context(self, user, sid, tid, options):
         session = await asyncio.to_thread(self.store.session, user, sid)
         saved = json.loads(session["context"])
-        context = {key: saved[key] for key in ("memory", "summary", "summary_after", "result_id", "pending") if key in saved}
+        context = {key: saved[key] for key in ("memory", "summary", "summary_after", "result_id", "pending", "tools") if key in saved}
         memory = context.setdefault("memory", {})
         history = await asyncio.to_thread(self.store.memory, user, sid, 0, None, 12, True)
-        older = await asyncio.to_thread(self.store.memory, user, sid, context.get("summary_after", 0), history[0]["id"] if history else None)
-        if len(older)>=8:
-            try:
-                context["summary"] = await self.dialogue.summarize(context.get("summary", ""), older)
-                context["summary_after"] = older[-1]["id"]
-            except Exception:
-                log.warning("Conversation summary deferred", exc_info=True)
+        older = await asyncio.to_thread(self.store.memory, user, sid, context.get("summary_after", 0), history[0]["id"] if history else None, 24)
         if options.result_id:
             context["result_id"] = options.result_id
         evidence = await asyncio.to_thread(self.store.results, user, sid)
@@ -224,6 +249,8 @@ class DatasetQA:
             memory["selected_dataset_id"] = options.selected_dataset_id
         model_context = {"memory": memory, "pending": context.get("pending"), "summary": context.get("summary", ""),
             "evidence": [self._evidence(c) for c in evidence[:3]], "history": history}
+        if older:
+            model_context["unsummarized_history"] = older
         previous = context.pop("pending", None)
         if previous:
             await asyncio.to_thread(self.store.finish, user, sid, previous["task_id"], "COMPLETED")
@@ -261,29 +288,37 @@ class DatasetQA:
         return evidence(card, self.gateway.limits.result_chars)
 
     async def _reply(self, user, sid, tid, messages, definitions, answer=None, phase=None):
-        log.debug("Model request: task=%s tools=%s", tid, len(definitions))
+        started, first_chunk = time.monotonic(), None
         full, buffer, flushed, sent = None, "", time.monotonic(), False
-        async with aclosing(self.dialogue.respond(messages, definitions)) as response:
-            async for chunk in response:
-                full = chunk if full is None else full+chunk
-                if answer is None:
-                    continue  # Planning text and tool-call fragments stay internal.
-                content = str(chunk.text)[:max(0, 16000-len(answer["text"]))]
-                if content:
-                    await phase("answer", "正在生成答复")
-                    if not sent and not buffer and answer["text"]:
-                        content = "\n\n"+content
-                    answer["text"] += content
-                    buffer += content
-                if buffer and (not sent or len(buffer)>=40 or time.monotonic()-flushed>=0.1):
-                    await self._write(user, sid, tid, {"type": "message", "text": buffer})
-                    buffer, flushed, sent = "", time.monotonic(), True
+        try:
+            async with asyncio.timeout(self.gateway.limits.model_timeout), aclosing(self.dialogue.respond(messages, definitions)) as response:
+                async for chunk in response:
+                    if first_chunk is None:
+                        first_chunk = time.monotonic()-started
+                    full = chunk if full is None else full+chunk
+                    if answer is None:
+                        continue  # Planning text and tool-call fragments stay internal.
+                    content = str(chunk.text)[:max(0, 16000-len(answer["text"]))]
+                    if content:
+                        await phase("answer", "正在生成答复")
+                        if not sent and not buffer and answer["text"]:
+                            content = "\n\n"+content
+                        answer["text"] += content
+                        buffer += content
+                    if buffer and (not sent or len(buffer)>=40 or time.monotonic()-flushed>=0.1):
+                        await self._write(user, sid, tid, {"type": "message", "text": buffer})
+                        buffer, flushed, sent = "", time.monotonic(), True
+        except TimeoutError as exc:
+            raise QAError("model_timeout", "模型响应超时，请稍后重试", 504) from exc
+        finally:
+            log.info("Model request: task=%s tools=%s final=%s first_chunk=%s elapsed=%.3fs",
+                tid, len(definitions), answer is not None, first_chunk, time.monotonic()-started)
         if buffer:
             await self._write(user, sid, tid, {"type": "message", "text": buffer})
         reply = message_chunk_to_message(full) if full is not None else AIMessage(content="")
         if reply.invalid_tool_calls:
             raise QAError("invalid_tool_call", "模型返回的工具参数无法解析，请重新表述请求", 502)
-        return reply
+        return self.dialogue.decode_actions(reply) if definitions else reply
 
     async def _deliver(self, user, sid, tid, arguments, payload):
         values = INPUTS["deliver_results"][0].model_validate(arguments)
@@ -301,14 +336,14 @@ class DatasetQA:
         await self._write(user, sid, tid, payload=payload)
         return {"result_ids": payload["delivery"]}
 
-    async def _choose_delivery(self, user, sid, tid, messages, payload):
-        definitions = [definition for definition in BUILTINS if definition["function"]["name"]=="deliver_results"]
-        reply = await self._reply(user, sid, tid, messages, definitions)
-        if len(reply.tool_calls)!=1 or reply.tool_calls[0]["name"]!="deliver_results" or not reply.tool_calls[0].get("id"):
-            raise QAError("invalid_delivery", "未能确定需要展示的结果；原始工具结果已保存")
-        call = reply.tool_calls[0]
-        value = await self._deliver(user, sid, tid, call["args"], payload)
-        messages.extend([reply, ToolMessage(content=encode(value), tool_call_id=call["id"], name=call["name"])])
+    async def _fallback_delivery(self, user, sid, tid, payload, execution, required=False):
+        if "delivery" in payload:
+            return
+        cards = {card["result_id"]: card for card in execution.cards.values()}
+        if len(cards)==1:
+            await self._deliver(user, sid, tid, {"result_ids": list(cards)}, payload)
+        elif required:
+            raise QAError("invalid_delivery", "未明确选择需要展示的结果；原始工具结果已保存")
 
     async def _builtin(self, user, sid, tid, name, arguments, tools, context):
         values = INPUTS[name][0].model_validate(arguments)
@@ -346,7 +381,18 @@ class DatasetQA:
             "and only refer to display cards listed in final_delivery. Do not claim unperformed work succeeded.")
         delivery, _ = project({"final_delivery": [self._evidence(card) for card in cards],
             "stop_reason": str(reason) if reason else None}, self.gateway.limits.result_chars)
-        final_messages = [messages[0].model_copy(update={"content": instructions}), *messages[1:], HumanMessage(encode(delivery))]
+        context = json.loads(messages[1].content)
+        context.pop("evidence", None)
+        context.pop("mcp_servers", None)
+        history = []
+        for message in messages[3:]:
+            if isinstance(message, ToolMessage):
+                value = json.loads(message.content)
+                if value.get("result_id") in ids:
+                    message = message.model_copy(update={"content": encode({"result_id": value["result_id"]})})
+            history.append(message)
+        final_messages = [messages[0].model_copy(update={"content": instructions}), HumanMessage(encode(context)),
+            messages[2], *history, HumanMessage(encode(delivery))]
         try:
             reply = await self._reply(user, sid, tid, final_messages, [], answer, phase)
             if reply.tool_calls:
@@ -362,6 +408,7 @@ class DatasetQA:
             log.warning("Final response unavailable: task=%s", tid, exc_info=True)
 
     async def _run(self, user, sid, tid, payload, options):
+        started = time.monotonic()
         answer, acquired, results = {"text": ""}, False, 0
         messages, active_phase = None, None
         execution, limits = Execution(), self.gateway.limits
@@ -380,21 +427,26 @@ class DatasetQA:
             if self.slots.locked():
                 await phase("prepare", "正在等待可用处理资源")
             await self.slots.acquire()
+            log.info("Task queue: task=%s elapsed=%.3fs", tid, time.monotonic()-started)
             acquired = True
             context, model_context, parent = await self._context(user, sid, tid, options)
-            messages = self.dialogue.messages(payload["message"], model_context)
             if parent:
                 payload["parent_task_id"] = parent
                 await self._write(user, sid, tid, payload=payload)
             reason, ready = None, False
             async with self.gateway.session() as tools:
+                tools.prime(payload["message"], context.get("tools", []))
+                model_context["mcp_servers"] = tools.list_servers(payload["message"])
+                messages = self.dialogue.messages(payload["message"], model_context)
                 for _ in range(limits.max_rounds):
-                    definitions = [*BUILTINS, *tools.definitions()]
+                    definitions = [definition for definition in BUILTINS
+                        if definition["function"]["name"]!="deliver_results" or execution.cards]
+                    definitions.extend(tools.definitions())
                     advertised = {value["function"]["name"] for value in definitions}
                     reply = await self._reply(user, sid, tid, messages, definitions)
                     if not reply.tool_calls:
-                        if results and "delivery" not in payload:
-                            await self._choose_delivery(user, sid, tid, messages, payload)
+                        execution.require_result()
+                        await self._fallback_delivery(user, sid, tid, payload, execution, required=True)
                         await self._final_reply(user, sid, tid, messages, answer, phase)
                         await asyncio.to_thread(self.store.finish, user, sid, tid, "COMPLETED", message=answer["text"])
                         return
@@ -411,13 +463,16 @@ class DatasetQA:
                         log.debug("Tool request: task=%s tool=%s cached=%s", tid, name, key in execution.cached)
                         if ready:
                             value = {"executed": False, "message": "交付范围已确定，未继续执行工具"}
-                        elif name=="deliver_results" and name in advertised and not reason:
+                        elif name=="deliver_results" and not reason:
                             try:
+                                execution.require_result()
                                 value = await self._deliver(user, sid, tid, arguments, payload)
                                 ready = True
                             except (QAError, ValidationError) as exc:
                                 value = {"error": exc.code if isinstance(exc, QAError) else "invalid_parameters",
                                     "message": str(exc) if isinstance(exc, QAError) else "交付参数不符合定义"}
+                                if isinstance(exc, QAError) and (exc.code=="mcp_required" or execution.failures):
+                                    reason = exc
                         elif reason or execution.calls>=limits.max_calls:
                             reason = reason or QAError("step_limit", "工具调用达到本轮预算，请缩小请求范围")
                             value = {"error": reason.code, "message": str(reason), "executed": False}
@@ -425,6 +480,7 @@ class DatasetQA:
                             value = execution.cached[key]
                         else:
                             execution.calls += 1
+                            call_started = time.monotonic()
                             try:
                                 if name not in advertised:
                                     raise QAError("tool_not_loaded", "工具未加载，请先发现并加载定义")
@@ -446,6 +502,10 @@ class DatasetQA:
                                         await self._write(user, sid, tid, card=card)
                                         execution.cards[marker] = card
                                     value = self._evidence(card)
+                                    execution.failures.pop(name, None)
+                                    reference = {"server": tool.server, "name": tool.name}
+                                    context["tools"] = [reference, *[ref for ref in context.get("tools", []) if ref!=reference]][:4]
+                                    await self._write(user, sid, tid, context=context)
                                     if execution.reusable(tool):
                                         execution.cached[key] = value
                             except (QAError, ValidationError) as exc:
@@ -455,11 +515,16 @@ class DatasetQA:
                                     "message": str(exc) if isinstance(exc, QAError) else "参数不符合工具定义"}
                                 if isinstance(exc, QAError) and exc.detail:
                                     value["detail"] = exc.detail
+                                if tool and isinstance(exc, QAError):
+                                    execution.failures[name] = exc
                                 if isinstance(exc, QAError) and exc.code=="mcp_unavailable":
                                     execution.cached[key] = value  # No repeated connection attempts in this turn.
                                 if isinstance(exc, QAError) and (exc.code in {"execution_unknown", "result_too_large"}
                                         or (exc.code=="tool_failed" and not (tool and tool.annotations.get("idempotentHint") is True))):
                                     reason = exc
+                            finally:
+                                log.info("Tool request: task=%s tool=%s mcp=%s elapsed=%.3fs",
+                                    tid, name, tool is not None, time.monotonic()-call_started)
                         if interaction:
                             answer["text"] = (answer["text"]+"\n"+interaction["question"]).strip()
                             await asyncio.to_thread(self.store.finish, user, sid, tid, "WAITING_INPUT",
@@ -483,7 +548,7 @@ class DatasetQA:
                 # Delivery selection never executes MCP; final text has no tools.
                 if results and "delivery" not in payload:
                     try:
-                        await self._choose_delivery(user, sid, tid, messages, payload)
+                        await self._fallback_delivery(user, sid, tid, payload, execution)
                     except Exception:
                         log.warning("Partial delivery unavailable: task=%s", tid, exc_info=True)
                 await self._final_reply(user, sid, tid, messages, answer, phase, reason)
@@ -506,6 +571,9 @@ class DatasetQA:
         finally:
             if acquired:
                 self.slots.release()
+                if not asyncio.current_task().cancelling():
+                    self._schedule_summary(user, sid)
+            log.info("Agent task finished: task=%s elapsed=%.3fs", tid, time.monotonic()-started)
             await self._notify()
 
     async def cancel(self, user, sid, tid):
@@ -518,6 +586,8 @@ class DatasetQA:
 
     async def delete_session(self, user, sid):
         tid = await asyncio.to_thread(self.store.delete, user, sid)
+        if sid in self.summaries:
+            self.summaries[sid].cancel()
         if tid in self.jobs:
             self.jobs[tid].cancel()
         await self._notify()

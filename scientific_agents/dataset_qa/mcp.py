@@ -4,6 +4,7 @@ from collections import OrderedDict
 from contextlib import AsyncExitStack, asynccontextmanager
 from dataclasses import dataclass
 from hashlib import sha256
+import logging
 from pathlib import Path
 import re
 import time
@@ -13,6 +14,8 @@ import yaml
 from .context import encode, project
 from .contracts import Limits, QAError, Server
 from .results import ToolResult
+
+log = logging.getLogger("flow.dataset_qa.mcp")
 
 
 def terms(text):
@@ -142,8 +145,7 @@ class ToolSession:
                 raise QAError("mcp_unavailable", "所选MCP服务暂不可用", 503) from exc
         return self.clients[server]
 
-    async def tools(self, server):
-        client = await self.client(server)
+    def cached_tools(self, server):
         spec = self.servers[server]
         # Configuration identity is part of the cache key, so changed targets
         # and credentials never reuse another server's cached schemas.
@@ -151,6 +153,16 @@ class ToolSession:
         cached = self.gateway.cache.get(server)
         if cached and cached[0]==identity and time.monotonic()-cached[1]<self.limits.cache_seconds:
             return cached[2]
+        return None
+
+    async def tools(self, server):
+        if server not in self.servers:
+            raise QAError("server_not_found", "MCP服务未配置或未启用", 404)
+        cached = self.cached_tools(server)
+        if cached is not None:
+            return cached
+        started = time.monotonic()
+        client = await self.client(server)
         try:
             async with asyncio.timeout(self.limits.connect_timeout):
                 values = await client.list_tools()
@@ -166,13 +178,12 @@ class ToolSession:
             tools.append(Tool(server, value.name, getattr(value, "description", "") or "",
                 getattr(value, "inputSchema", None) or getattr(value, "input_schema", {}) or {},
                 annotations or {}, getattr(value, "meta", None) or getattr(value, "_meta", None) or {}))
+        identity = sha256(repr(self.servers[server]).encode()).hexdigest()
         self.gateway.cache[server] = (identity, time.monotonic(), tools)
+        log.info("MCP discovery: server=%s tools=%s elapsed=%.3fs", server, len(tools), time.monotonic()-started)
         return tools
 
-    async def load(self, server, query="", offset=0, limit=4):
-        tools = ranked(await self.tools(server), query,
-            lambda t: t.name+" "+t.description+" "+encode(t.meta))
-        page = tools[offset:offset+limit]
+    def include(self, page):
         loaded = []
         for tool in page:
             definition = tool.definition()
@@ -184,7 +195,21 @@ class ToolSession:
             while len(self.loaded)>self.limits.max_tools or len(encode(self.definitions()))>self.limits.schema_chars:
                 self.loaded.popitem(last=False)
             loaded.append({"name": tool.alias, "tool": tool.name, "title": tool.title})
-        result = {"items": [item for item in loaded if item.get("error") or item["name"] in self.loaded]}
+        return {"items": [item for item in loaded if item.get("error") or item["name"] in self.loaded]}
+
+    def prime(self, query, references=()):
+        # Reuse descriptions and schemas, never another turn's execution results.
+        candidates = [tool for server in self.servers for tool in self.cached_tools(server) or []]
+        recent = {(ref.get("server"), ref.get("name")) for ref in references if isinstance(ref, dict)}
+        candidates = ranked(candidates, query, lambda t: t.name+" "+t.description+" "+encode(t.meta))
+        candidates.sort(key=lambda t: (t.server, t.name) not in recent)
+        return self.include(candidates[:min(4, self.limits.max_tools)])
+
+    async def load(self, server, query="", offset=0, limit=4):
+        tools = ranked(await self.tools(server), query,
+            lambda t: t.name+" "+t.description+" "+encode(t.meta))
+        page = tools[offset:offset+limit]
+        result = self.include(page)
         if offset+len(page)<len(tools):
             result["next_offset"] = offset+len(page)
         return result
