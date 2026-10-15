@@ -11,8 +11,9 @@ from langchain_core.messages.content import (
     create_audio_block, create_file_block, create_image_block, create_text_block,
 )
 
-from .context import encode, project, public_result
+from .context import encode, project, public_result, slice_result
 from .contracts import QAError
+from .execution import fingerprint
 
 
 def as_dict(value):
@@ -104,3 +105,24 @@ def evidence(card, limit):
         if cut:
             result["truncated"] = True
     return result
+
+
+def combine_results(cards, path, result_id, title):
+    """Combine explicitly selected arrays without inventing rows or pagination totals."""
+    rows, content, seen, media = [], [], set(), set()
+    for card in cards:
+        value, _ = slice_result(card.get("data"), path, 0, len(encode(card)))
+        if not isinstance(value, list):
+            raise QAError("invalid_delivery", "合并位置必须指向数组")
+        for row in value:
+            key = fingerprint(row)
+            if key not in seen:
+                seen.add(key)
+                rows.append(row)
+        for block in card.get("content", []):
+            key = fingerprint(block)
+            if key not in media:
+                media.add(key)
+                content.append(block)
+    return {"result_id": result_id, "view_type": "tool_result", "title": title or "汇总结果",
+        **ToolResult(rows, content).payload()}

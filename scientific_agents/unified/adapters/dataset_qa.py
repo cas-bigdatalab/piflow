@@ -1,5 +1,6 @@
 """Dataset QA projection into the existing unified routes."""
 import asyncio
+import logging
 
 from fastapi import HTTPException
 from pydantic import ValidationError
@@ -78,7 +79,7 @@ class DatasetQAAdapter:
     async def get_results(self, sid, tid):
         from ...dataset_qa.context import public_result
         await self.get_task(sid, tid)
-        cards = await asyncio.to_thread(self.service.store.results, self.n.user, sid, tid)
+        cards = await asyncio.to_thread(self.service.store.display_results, self.n.user, sid, tid)
         return {"items": [public_result(c) for c in cards]}
 
     async def stream_turn(self, sid, body):
@@ -91,10 +92,12 @@ class DatasetQAAdapter:
             async for value in self.service.stream(self.n.user, sid, body.user_request, body.request_id, opts, body.parent_task_id):
                 yield value
         except (QAError, ValidationError, HTTPException) as exc:
-            yield {"type": "error", "code": exc.status if isinstance(exc, QAError) else getattr(exc, "status_code", 422),
-                "error_code": exc.code if isinstance(exc, QAError) else "invalid_parameters",
+            yield {"type": "done", "status": "FAILED",
+                "code": exc.code if isinstance(exc, QAError) else "invalid_parameters",
                 "message": str(exc) if isinstance(exc, QAError) else str(exc.detail) if isinstance(exc, HTTPException) else "请求参数不符合接口约定"}
-            yield {"type": "done", "status": "FAILED"}
+        except Exception:
+            logging.getLogger(__name__).exception("Dataset QA stream failed")
+            yield {"type": "done", "status": "FAILED", "code": "service_unavailable", "message": "服务暂不可用，请稍后重试"}
 
     async def stream_action(self, sid, tid, body):
         if body.action != "cancel_task":
@@ -111,5 +114,4 @@ class DatasetQAAdapter:
                 raise HTTPException(409, "会话已更新，请刷新后重试")
         task = await self.call(self.service.cancel, sid, tid)
         session = await asyncio.to_thread(self.service.store.session, self.n.user, sid)
-        yield {"type": "task", **task}
         yield {"type": "done", "task_id": tid, "status": task["status"], "version": session["version"]}

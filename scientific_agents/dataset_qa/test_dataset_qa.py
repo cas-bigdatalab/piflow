@@ -116,6 +116,15 @@ class Dialogue(SemanticDialogue):
             response = response(messages, definitions)
         if isinstance(response, Exception):
             raise response
+        if definitions and not response.tool_calls and not response.invalid_tool_calls:
+            result_ids = []
+            for message in messages:
+                if isinstance(message, ToolMessage):
+                    result_id = json.loads(message.content).get("result_id")
+                    if result_id and result_id not in result_ids:
+                        result_ids.append(result_id)
+            self.responses.insert(0, response)
+            response = action("deliver_results", result_ids=result_ids)
         yield response
 
     async def summarize(self, summary, messages):
@@ -138,6 +147,10 @@ async def collect(service, sid, message="继续", rid="turn", **params):
     return [v async for v in service.stream("alice", sid, message, rid, Options(**params)) if v is not None]
 
 
+def result_cards(values):
+    return [card for value in values if value["type"]=="result" for card in value["items"]]
+
+
 def test_search_detail_sample_use_raw_results_and_generic_memory(engine):
     async def run():
         backend = Backend()
@@ -148,10 +161,10 @@ def test_search_detail_sample_use_raw_results_and_generic_memory(engine):
         service = DatasetQA(engine, dialogue, backend.gateway())
         sid = session(service)
         first = await collect(service, sid, "找气象数据", "search")
-        search = next(v for v in first if v["type"]=="result")
+        search = result_cards(first)[0]
         await collect(service, sid, "看看第二个", "detail", result_id=search["result_id"])
         values = await collect(service, sid, "采样三条", "sample")
-        card = next(v for v in values if v["type"]=="result")
+        card = result_cards(values)[0]
         assert backend.calls == [("data", "search", {"query": "气象", "count": 2}),
             ("data", "inspect", {"reference": "b"}), ("data", "sample", {"reference": "b", "count": 3})]
         assert backend.lists==["data"]
@@ -284,7 +297,7 @@ def test_saved_result_is_paged_without_repeating_sample(engine):
         service = DatasetQA(engine, dialogue, backend.gateway())
         sid = session(service)
         values = await collect(service, sid)
-        card = next(v for v in values if v["type"]=="result")
+        card = result_cards(values)[0]
         dialogue.responses = [action("read_result", result_id=card["result_id"], path="/data", offset=2, limit=1)]
         await collect(service, sid, rid="read")
         tool = next(m for m in dialogue.inputs[-1][0] if isinstance(m, ToolMessage))
@@ -344,7 +357,7 @@ def test_disconnect_keeps_task_cancel_fences_late_result(engine):
         sid = session(service)
         stream = service.stream("alice", sid, "查找", "running", Options())
         first = await anext(stream)
-        assert first["type"]=="task"
+        assert first["type"]=="stage" and first["stage"]=="prepare"
         await stream.aclose()
         with pytest.raises(QAError, match="正在处理"):
             await collect(service, sid, rid="busy")
@@ -366,8 +379,8 @@ def test_unknown_execution_not_retried_and_partial_results_retained(engine):
         sid = session(service)
         values = await collect(service, sid)
         assert sum(v["type"]=="result" for v in values)==1
-        assert next(v for v in values if v["type"]=="error")["error_code"]=="execution_unknown"
-        assert any(v["type"]=="stage" and v["stage"].endswith("_sample") and v["status"]=="failed" for v in values)
+        assert values[-1]["code"]=="execution_unknown"
+        assert all(v["type"] in {"stage", "message", "result", "done"} for v in values)
         assert values[-1]["status"]=="FAILED" and len(backend.calls)==2
         assert values==await collect(service, sid)
         assert len(backend.calls)==2
@@ -383,7 +396,7 @@ def test_invalid_tool_arguments_can_be_corrected_without_bad_dispatch(engine):
         values = await collect(service, sid)
         assert values[-1]["status"]=="COMPLETED"
         assert backend.calls==[("compute", "multiply", {"x": 3, "y": 2})]
-        assert any(v.get("status")=="failed" for v in values if v["type"]=="stage")
+        assert all("status" not in v for v in values if v["type"]=="stage")
     asyncio.run(run())
 
 
@@ -401,7 +414,8 @@ def test_protocol_error_retry_policy_uses_annotations(engine, idempotent):
         assert len(backend.calls)==1
         assert not service.store.results("alice", sid)
         if idempotent:
-            error = json.loads(dialogue.inputs[-1][0][-1].content)
+            error = next(json.loads(m.content) for m in dialogue.inputs[-1][0]
+                if isinstance(m, ToolMessage) and "error" in json.loads(m.content))
             assert error["detail"]==["Invalid operation"]
     asyncio.run(run())
 
@@ -413,8 +427,8 @@ def test_model_failure_after_tool_preserves_card_without_claiming_completion(eng
         sid = session(service)
         values = await collect(service, sid)
         assert values[-1]["status"]=="FAILED"
-        assert any(v["type"]=="result" for v in values)
-        assert any(v["type"]=="error" for v in values)
+        assert not result_cards(values)  # Unselected intermediate artifacts stay internal.
+        assert values[-1]["code"]=="service_unavailable"
         assert len(service.store.results("alice", sid))==1
     asyncio.run(run())
 
@@ -425,7 +439,7 @@ def test_foreign_results_and_user_isolation_never_dispatch(engine):
         service = DatasetQA(engine, Dialogue(load(), remote("search")), backend.gateway())
         sid = session(service)
         values = await collect(service, sid)
-        card = next(v for v in values if v["type"]=="result")
+        card = result_cards(values)[0]
         other = session(service, request="other")
         for params in ({"result_id": card["result_id"]}, {"selected_dataset_id": "a"}):
             values = await collect(service, other, rid=next(iter(params)), **params)
@@ -485,7 +499,10 @@ def test_partial_stream_survives_cancel(engine):
         gate = asyncio.Event()
 
         class Streaming(Dialogue):
-            async def respond(self, *args):
+            async def respond(self, messages, definitions):
+                if definitions:
+                    yield action("deliver_results")
+                    return
                 yield AIMessageChunk(content="取消以后仍需保留的回答。"*5)
                 await gate.wait()
 
@@ -502,7 +519,7 @@ def test_partial_stream_survives_cancel(engine):
         view = await service.get_session("alice", sid)
         assert view["items"][-1]["payload"]["text"]==value["text"]
         events = service.store.replay("alice", sid, value["task_id"], 0)
-        assert any(v["type"]=="stage" and v["status"]=="cancelled" for v in events)
+        assert events[-1]["type"]=="done" and events[-1]["status"]=="CANCELLED"
     asyncio.run(run())
 
 
@@ -511,7 +528,10 @@ def test_first_text_is_streamed_before_model_finishes_and_reasoning_blocks_hidde
         gate = asyncio.Event()
 
         class Streaming(Dialogue):
-            async def respond(self, *args):
+            async def respond(self, messages, definitions):
+                if definitions:
+                    yield action("deliver_results")
+                    return
                 yield AIMessageChunk(content=[{"type": "reasoning", "reasoning": "internal"}, {"type": "text", "text": "首"}])
                 await gate.wait()
                 yield AIMessageChunk(content="尾")
@@ -563,7 +583,7 @@ def test_fragmented_tool_arguments_never_create_empty_messages(engine, monkeypat
         for events in (values, persisted):
             assert all(v["text"] for v in events if v["type"]=="message")
             assert not any(v.get("stage")=="list_mcp_servers" for v in events)
-            assert any(v.get("stage")=="execute" for v in events)
+            assert all(v.get("stage") in {None, "prepare", "answer"} for v in events)
         assert values[-1]["status"]=="COMPLETED"
     asyncio.run(run())
 
@@ -584,7 +604,7 @@ def test_heartbeat_uses_idle_interval_and_progress_resets_it(engine, monkeypatch
         sid = session(service)
         stream = service.stream("alice", sid, "等待", "stream", Options())
         async for value in stream:
-            if value and value.get("stage")=="prepare" and value["status"]=="started":
+            if value and value.get("stage")=="prepare":
                 tid = value["task_id"]
                 break
         pending = asyncio.create_task(anext(stream))
@@ -595,7 +615,7 @@ def test_heartbeat_uses_idle_interval_and_progress_resets_it(engine, monkeypatch
         await service._notify()
         assert await asyncio.wait_for(pending, 1) is None
         clock[0] = 20
-        await service._write("alice", sid, tid, {"type": "stage", "stage": "test", "status": "started", "summary": "实际进度"})
+        await service._write("alice", sid, tid, {"type": "stage", "stage": "execute", "summary": "实际进度"})
         assert (await anext(stream))["summary"]=="实际进度"
         pending = asyncio.create_task(anext(stream))
         clock[0] = 34
@@ -618,11 +638,11 @@ def test_stages_explain_model_loading_and_arbitrary_mcp_execution(engine):
         values = await collect(service, session(service))
         stages = [v for v in values if v["type"]=="stage"]
         assert all(v.get("summary") for v in stages)
-        phases = [v["stage"] for v in stages if v["status"]=="started" and not v["stage"].startswith("mcp_")]
+        phases = [v["stage"] for v in stages]
         assert phases==["prepare", "execute", "answer"]
         assert not any(v["stage"] in {"model", "context", "load_mcp_tools", "list_mcp_servers"} for v in stages)
-        tool = [v for v in stages if v["stage"].endswith("_multiply")]
-        assert [v["status"] for v in tool]==["started", "finished"]
+        tool = [v for v in stages if v["stage"]=="execute"]
+        assert len(tool)==1 and "status" not in tool[0]
         assert all("自定义计算" in v["summary"] for v in tool)
         assert values==await collect(service, session(service))
     asyncio.run(run())
@@ -705,16 +725,18 @@ def test_old_result_references_remain_discoverable_without_upstream(engine):
         service = DatasetQA(engine, dialogue, backend.gateway())
         sid = session(service)
         values = await collect(service, sid)
-        first = next(v for v in values if v["type"]=="result")
+        first = result_cards(values)[0]
         assert first["result_id"] not in {c["result_id"] for c in service.store.results("alice", sid)}
         dialogue.responses = [action("read_result", offset=0, limit=2)]
         await collect(service, sid, rid="browse-old")
-        page = json.loads(dialogue.inputs[-1][0][-1].content)
+        page = next(json.loads(m.content) for m in dialogue.inputs[-1][0]
+            if isinstance(m, ToolMessage) and m.name=="read_result")
         assert page["items"][0]["result_id"]==first["result_id"]
         assert page["next_offset"]==2
         dialogue.responses = [action("read_result", result_id=first["result_id"])]
         await collect(service, sid, rid="read-old")
-        assert json.loads(dialogue.inputs[-1][0][-1].content)["data"]==0
+        assert next(json.loads(m.content) for m in dialogue.inputs[-1][0]
+            if isinstance(m, ToolMessage) and m.name=="read_result")["data"]==0
         assert len(backend.calls)==10
     asyncio.run(run())
 
@@ -758,7 +780,7 @@ def test_malformed_model_call_is_failed_without_dispatch(engine):
         service = DatasetQA(engine, Dialogue(chunk), backend.gateway())
         values = await collect(service, session(service))
         assert values[-1]["status"]=="FAILED"
-        assert next(v for v in values if v["type"]=="error")["error_code"]=="invalid_tool_call"
+        assert values[-1]["code"]=="invalid_tool_call"
         assert not backend.calls
     asyncio.run(run())
 
@@ -771,7 +793,7 @@ def test_unloaded_tools_and_loop_budget_cannot_dispatch(engine):
         service = DatasetQA(engine, dialogue, backend.gateway(limits=Limits(max_rounds=2)))
         values = await collect(service, session(service))
         assert values[-1]["status"]=="FAILED"
-        assert next(v for v in values if v["type"]=="error")["error_code"]=="step_limit"
+        assert values[-1]["code"]=="step_limit"
         assert not backend.calls and not backend.connections
     asyncio.run(run())
 
@@ -852,9 +874,9 @@ def test_unified_routes_minimal_contract_and_authorization(engine, monkeypatch):
             response = await client.post(prefix+f"/sessions/{sid}/chat/stream", json={"message": "找气象数据", "request_id": "search"})
             values = [json.loads(line[6:]) for line in response.text.splitlines() if line.startswith("data: ")]
             assert all(v["session_id"]==sid and v["request_id"]=="search" for v in values)
-            card = next(v for v in values if v["type"]=="result")
+            card = result_cards(values)[0]
             assert "error" not in values[-1] and values[-1]["status"]=="COMPLETED"
-            result = (await client.get(prefix+f"/sessions/{sid}/tasks/{card['task_id']}/results")).json()["result"]
+            result = (await client.get(prefix+f"/sessions/{sid}/tasks/{values[-1]['task_id']}/results")).json()["result"]
             assert set(result)=={"items"}
             assert result["items"][0]["data"]==card["data"]
             view = (await client.get(prefix+f"/sessions/{sid}?tail=true&item_limit=2")).json()["result"]
@@ -864,7 +886,7 @@ def test_unified_routes_minimal_contract_and_authorization(engine, monkeypatch):
             assert (await client.get(prefix+f"/sessions/{sid}", headers={"Authorization": "Bearer bob"})).status_code==404
             for params in ({"unknown": True}, {"top_k": 10}):
                 bad = await client.post(prefix+f"/sessions/{sid}/chat/stream", json={"message": "你好", "params": params})
-                assert '"code": 422' in bad.text and '"status": "FAILED"' in bad.text
+                assert '"code": "invalid_parameters"' in bad.text and '"status": "FAILED"' in bad.text
     asyncio.run(run())
 
 

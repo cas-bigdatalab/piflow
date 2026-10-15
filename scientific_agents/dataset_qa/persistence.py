@@ -166,8 +166,7 @@ class Store:
                 conn.execute(update(self.sessions).where(self.sessions.c.id == sid).values(context=dumps(context),
                     version=session["version"]+1, updated_at=now()))
             if card:
-                self._item(conn, sid, tid, "RESULT_CARD", card, result_id=card["result_id"])
-                self._event(conn, tid, {"type": "result", "result_id": card["result_id"]})
+                self._item(conn, sid, tid, "TOOL_RESULT", card, result_id=card["result_id"])
             if data:
                 self._event(conn, tid, data)
             return True
@@ -183,18 +182,24 @@ class Store:
             payload = json.loads(row["payload"])
             if error:
                 payload["error"] = error
-                self._event(conn, tid, {"type": "error", **error})
             if not message and status == "CANCELLED" and row["status"] == "RUNNING":
                 for raw in conn.scalars(select(self.events.c.payload).where(self.events.c.task_id == tid).order_by(self.events.c.id)):
                     value = json.loads(raw)
                     if value["type"] == "message":
-                        message = message + value["text"] if value.get("mode") == "append" else value["text"]
+                        message = value["text"] if value.get("mode") == "replace" else message + value["text"]
             if message:
                 self._item(conn, sid, tid, "ASSISTANT_MESSAGE", {"message_id": tid, "text": message, "mode": "replace"})
+            if "delivery" in payload and not payload.get("published"):
+                result_ids = payload["delivery"]
+                self._cards(conn, sid, result_ids)
+                for result_id in result_ids:
+                    # History references immutable artifacts instead of copying media.
+                    self._item(conn, sid, tid, "RESULT_CARD", {"result_id": result_id})
+                if result_ids:
+                    self._event(conn, tid, {"type": "result", "result_ids": result_ids})
+                payload["published"] = True
             if interaction:
                 self._event(conn, tid, {"type": "interaction", **interaction})
-            if status == "CANCELLED" and row["stage"]:
-                self._event(conn, tid, {"type": "stage", "stage": row["stage"], "status": "cancelled", "summary": "当前步骤已停止"})
             conn.execute(update(self.tasks).where(self.tasks.c.id == tid).values(status=status, payload=dumps(payload), updated_at=now()))
             context = json.loads(session["context"])
             if status != "WAITING_INPUT" and context.get("pending", {}).get("task_id") == tid:
@@ -202,8 +207,11 @@ class Store:
             conn.execute(update(self.sessions).where(self.sessions.c.id == sid).values(
                 active_task_id=None if session["active_task_id"] == tid else session["active_task_id"],
                 context=dumps(context), version=session["version"]+1, updated_at=now()))
-            self._event(conn, tid, {"type": "task", "task_id": tid, "status": status, "current_stage": row["stage"]})
-            self._event(conn, tid, {"type": "done", "status": status, "version": session["version"]+1})
+            done = {"type": "done", "status": status, "version": session["version"]+1}
+            if payload.get("error"):
+                done.update(code=payload["error"].get("error_code", payload["error"].get("code")),
+                    message=payload["error"]["message"])
+            self._event(conn, tid, done)
             return True
 
     def history(self, user, sid, after=0, limit=100, before=None, tail=False):
@@ -212,12 +220,19 @@ class Store:
             return self._history(conn, sid, after, limit, before, tail)
 
     def _history(self, conn, sid, after, limit, before, tail):
-        query = select(self.items).where(self.items.c.session_id == sid)
+        query = select(self.items).where(self.items.c.session_id == sid, self.items.c.kind != "TOOL_RESULT")
         reverse = tail or before is not None
         query = query.where(self.items.c.id < before) if before is not None else query.where(self.items.c.id > after)
         rows = conn.execute(query.order_by(self.items.c.id.desc() if reverse else self.items.c.id).limit(limit+1)).mappings().all()
         more, rows = len(rows)>limit, rows[:limit]
-        return [dict(r) for r in (reversed(rows) if reverse else rows)], more
+        rows = [dict(r) for r in (reversed(rows) if reverse else rows)]
+        refs = {r["id"]: json.loads(r["payload"])["result_id"] for r in rows
+            if r["kind"] == "RESULT_CARD" and set(json.loads(r["payload"])) == {"result_id"}}
+        cards = dict(zip(refs, self._cards(conn, sid, list(refs.values()))))
+        for row in rows:
+            if row["id"] in cards:
+                row["payload"] = dumps(cards[row["id"]])
+        return rows, more
 
     def snapshot(self, user, sid, after, limit, before, tail):
         with self.transaction() as conn:
@@ -244,13 +259,13 @@ class Store:
         with self.transaction() as conn:
             self._session(conn, user, sid)
             rows = list(conn.scalars(select(self.items.c.payload).where(self.items.c.session_id == sid,
-                self.items.c.kind == "RESULT_CARD").order_by(self.items.c.id).offset(offset).limit(limit+1)))
+                self.items.c.result_id.is_not(None)).order_by(self.items.c.id).offset(offset).limit(limit+1)))
             return [evidence(json.loads(r), 1000) for r in rows[:limit]], len(rows)>limit
 
     def results(self, user, sid, tid=None, result_id=None):
         with self.transaction() as conn:
             self._session(conn, user, sid)
-            query = select(self.items.c.payload).where(self.items.c.session_id == sid, self.items.c.kind == "RESULT_CARD")
+            query = select(self.items.c.payload).where(self.items.c.session_id == sid, self.items.c.result_id.is_not(None))
             if tid:
                 query = query.where(self.items.c.task_id == tid)
             if result_id:
@@ -259,6 +274,33 @@ class Store:
             if not tid and not result_id:
                 query = query.limit(8)
             return [json.loads(r) for r in conn.scalars(query)][::-1]
+
+    def _cards(self, conn, sid, result_ids):
+        rows = conn.scalars(select(self.items.c.payload).where(self.items.c.session_id == sid,
+            self.items.c.result_id.in_(result_ids)))
+        cards = {card["result_id"]: card for card in map(json.loads, rows)}
+        if any(result_id not in cards for result_id in result_ids):
+            raise QAError("result_not_found", "交付结果不存在或不属于当前会话", 404)
+        return [cards[result_id] for result_id in result_ids]
+
+    def selected_results(self, user, sid, result_ids):
+        with self.transaction() as conn:
+            self._session(conn, user, sid)
+            return self._cards(conn, sid, result_ids)
+
+    def display_results(self, user, sid, tid):
+        with self.transaction() as conn:
+            self._session(conn, user, sid)
+            raw = conn.scalar(select(self.tasks.c.payload).where(self.tasks.c.id == tid, self.tasks.c.session_id == sid))
+            if raw is None:
+                raise QAError("task_not_found", "当前会话中不存在此任务", 404)
+            payload = json.loads(raw)
+            if "delivery" in payload:
+                return self._cards(conn, sid, payload["delivery"]) if payload.get("published") else []
+            # Results in older tasks were already public; preserve their history.
+            return [json.loads(r) for r in conn.scalars(select(self.items.c.payload).where(
+                self.items.c.session_id == sid, self.items.c.task_id == tid,
+                self.items.c.kind == "RESULT_CARD").order_by(self.items.c.id))]
 
     def replay(self, user, sid, tid, after):
         self.task(user, sid, tid)
@@ -269,8 +311,10 @@ class Store:
             for row in rows:
                 value = json.loads(row["payload"])
                 if value["type"] == "result":
-                    raw = conn.scalar(select(self.items.c.payload).where(self.items.c.result_id == value["result_id"], self.items.c.session_id == sid))
-                    value = {"type": "result", **json.loads(raw)}
+                    if "result_ids" in value:
+                        value = {"type": "result", "items": self._cards(conn, sid, value["result_ids"])}
+                    else:
+                        value = {"type": "result", **self._cards(conn, sid, [value["result_id"]])[0]}
                 values.append({**value, "task_id": tid, "event_seq": row["id"]})
             return values
 

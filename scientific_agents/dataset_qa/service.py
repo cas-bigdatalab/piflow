@@ -1,12 +1,12 @@
 """Persistent conversation runtime; every MCP tool follows the same path."""
 import asyncio
-from contextlib import aclosing, asynccontextmanager
+from contextlib import aclosing
 import json
 import logging
 import time
 from uuid import uuid4
 
-from langchain_core.messages import AIMessage, ToolMessage, message_chunk_to_message
+from langchain_core.messages import AIMessage, HumanMessage, ToolMessage, message_chunk_to_message
 from pydantic import ValidationError
 
 from .context import contains, encode, project, public_result, slice_result
@@ -15,7 +15,7 @@ from .dialogue import BUILTINS, INPUTS, Dialogue
 from .execution import Execution, fingerprint
 from .mcp import MCPGateway
 from .persistence import Store
-from .results import evidence
+from .results import combine_results, evidence
 
 log = logging.getLogger(__name__)
 
@@ -123,22 +123,59 @@ class DatasetQA:
             self.jobs[tid] = job
             job.add_done_callback(lambda _: self.jobs.pop(tid, None))
         cursor, last_activity = options.after_event_seq, time.monotonic()
+        legacy_result_sent, previous_stage = False, None
         while True:
             task = await asyncio.to_thread(self.store.task, user, sid, tid)
             values = await asyncio.to_thread(self.store.replay, user, sid, tid, cursor)
             for value in values:
                 cursor = value["event_seq"]
-                if value["type"]=="message" and not value.get("text"):
-                    continue  # Also suppress empty messages in older stored streams.
+                if value["type"] not in {"stage", "message", "result", "interaction", "done"}:
+                    continue
+                if value["type"]=="message":
+                    if not value.get("text"):
+                        continue
+                    value = {k: value[k] for k in ("type", "text", "task_id", "event_seq")}
+                if value["type"]=="stage":
+                    if value.get("status") in {"finished", "failed", "cancelled"}:
+                        continue
+                    stage = value["stage"]
+                    if stage not in {"prepare", "execute", "answer"}:
+                        if not stage.startswith("mcp_") and stage != "queued":
+                            continue
+                        stage = "prepare" if stage == "queued" else "execute"
+                    signature = (stage, value.get("summary", ""))
+                    if signature == previous_stage:
+                        continue
+                    previous_stage = signature
+                    value = {"type": "stage", "stage": stage, "summary": signature[1],
+                        "task_id": tid, "event_seq": cursor}
                 if value["type"]=="result":
-                    value = {"type": "result", **public_result(value), "task_id": tid, "event_seq": cursor}
+                    if "items" in value:
+                        cards = value["items"]
+                    else:
+                        if legacy_result_sent:
+                            continue
+                        cards = await asyncio.to_thread(self.store.display_results, user, sid, tid)
+                        legacy_result_sent = True
+                    value = {"type": "result", "items": [public_result(card) for card in cards],
+                        "task_id": tid, "event_seq": cursor}
+                if value["type"]=="done" and value.get("status")=="FAILED" and "code" not in value:
+                    saved = await asyncio.to_thread(self.store.task, user, sid, tid)
+                    error = json.loads(saved["payload"]).get("error")
+                    if error:
+                        value.update(code=error.get("error_code", error.get("code")), message=error["message"])
                 last_activity = time.monotonic()
                 yield value
                 if value["type"]=="done":
                     return
             if task["status"]!="RUNNING" and not values:
                 session = await asyncio.to_thread(self.store.session, user, sid)
-                yield {"type": "done", "task_id": tid, "status": task["status"], "version": session["version"]}
+                value = {"type": "done", "task_id": tid, "status": task["status"],
+                    "version": session["version"], "event_seq": cursor}
+                error = json.loads(task["payload"]).get("error")
+                if error:
+                    value.update(code=error.get("error_code", error.get("code")), message=error["message"])
+                yield value
                 return
             if values:
                 continue  # Drain persisted events without a polling delay.
@@ -157,21 +194,6 @@ class DatasetQA:
         if not await asyncio.to_thread(self.store.write, user, sid, tid, data, **values):
             raise asyncio.CancelledError()
         await self._notify()
-
-    @asynccontextmanager
-    async def _stage(self, user, sid, tid, stage, title, resume_stage=None):
-        event = {"type": "stage", "stage": stage}
-        await self._write(user, sid, tid, {**event, "status": "started", "summary": "正在处理："+title})
-        try:
-            yield
-        except asyncio.CancelledError:
-            raise
-        except Exception as exc:
-            summary = str(exc) if isinstance(exc, QAError) else "参数不符合工具定义" if isinstance(exc, ValidationError) else "当前步骤处理失败"
-            await self._write(user, sid, tid, {**event, "status": "failed", "summary": summary}, stage=resume_stage)
-            raise
-        else:
-            await self._write(user, sid, tid, {**event, "status": "finished", "summary": "已完成："+title}, stage=resume_stage)
 
     async def _context(self, user, sid, tid, options):
         session = await asyncio.to_thread(self.store.session, user, sid)
@@ -238,28 +260,55 @@ class DatasetQA:
     def _evidence(self, card):
         return evidence(card, self.gateway.limits.result_chars)
 
-    async def _reply(self, user, sid, tid, messages, definitions, answer, phase):
+    async def _reply(self, user, sid, tid, messages, definitions, answer=None, phase=None):
         log.debug("Model request: task=%s tools=%s", tid, len(definitions))
         full, buffer, flushed, sent = None, "", time.monotonic(), False
         async with aclosing(self.dialogue.respond(messages, definitions)) as response:
             async for chunk in response:
                 full = chunk if full is None else full+chunk
+                if answer is None:
+                    continue  # Planning text and tool-call fragments stay internal.
                 content = str(chunk.text)[:max(0, 16000-len(answer["text"]))]
                 if content:
-                    await phase("answer", "生成答复")
+                    await phase("answer", "正在生成答复")
                     if not sent and not buffer and answer["text"]:
                         content = "\n\n"+content
                     answer["text"] += content
                     buffer += content
                 if buffer and (not sent or len(buffer)>=40 or time.monotonic()-flushed>=0.1):
-                    await self._write(user, sid, tid, {"type": "message", "message_id": tid, "text": buffer, "mode": "append"})
+                    await self._write(user, sid, tid, {"type": "message", "text": buffer})
                     buffer, flushed, sent = "", time.monotonic(), True
         if buffer:
-            await self._write(user, sid, tid, {"type": "message", "message_id": tid, "text": buffer, "mode": "append"})
+            await self._write(user, sid, tid, {"type": "message", "text": buffer})
         reply = message_chunk_to_message(full) if full is not None else AIMessage(content="")
         if reply.invalid_tool_calls:
             raise QAError("invalid_tool_call", "模型返回的工具参数无法解析，请重新表述请求", 502)
         return reply
+
+    async def _deliver(self, user, sid, tid, arguments, payload):
+        values = INPUTS["deliver_results"][0].model_validate(arguments)
+        result_ids = list(dict.fromkeys(values.result_ids))
+        cards = await asyncio.to_thread(self.store.selected_results, user, sid, result_ids)
+        if values.merge_path is not None:
+            if not cards:
+                raise QAError("invalid_delivery", "合并结果时必须选择已保存的结果")
+            cards = [combine_results(cards, values.merge_path, tid+":delivery", values.title)]
+        if len(encode({"items": [public_result(card) for card in cards]}).encode("utf-8")) > self.gateway.limits.result_bytes:
+            raise QAError("result_too_large", "展示结果超过运行预算，请缩小交付范围")
+        if values.merge_path is not None:
+            await self._write(user, sid, tid, card=cards[0])
+        payload["delivery"] = [card["result_id"] for card in cards]
+        await self._write(user, sid, tid, payload=payload)
+        return {"result_ids": payload["delivery"]}
+
+    async def _choose_delivery(self, user, sid, tid, messages, payload):
+        definitions = [definition for definition in BUILTINS if definition["function"]["name"]=="deliver_results"]
+        reply = await self._reply(user, sid, tid, messages, definitions)
+        if len(reply.tool_calls)!=1 or reply.tool_calls[0]["name"]!="deliver_results" or not reply.tool_calls[0].get("id"):
+            raise QAError("invalid_delivery", "未能确定需要展示的结果；原始工具结果已保存")
+        call = reply.tool_calls[0]
+        value = await self._deliver(user, sid, tid, call["args"], payload)
+        messages.extend([reply, ToolMessage(content=encode(value), tool_call_id=call["id"], name=call["name"])])
 
     async def _builtin(self, user, sid, tid, name, arguments, tools, context):
         values = INPUTS[name][0].model_validate(arguments)
@@ -283,21 +332,33 @@ class DatasetQA:
         await self._write(user, sid, tid, context=context)
         return {"waiting": True}
 
-    async def _final_reply(self, user, sid, tid, messages, answer, phase, reason):
-        await phase("answer", "整理已有结果与未完成事项")
-        notice = ("\n\n" if answer["text"] else "")+str(reason)+"。本轮已停止继续调用工具，已取得的结果仍可查看。\n\n"
-        answer["text"] += notice
-        await self._write(user, sid, tid, {"type": "message", "message_id": tid, "text": notice, "mode": "append"})
-        instructions = (str(messages[0].content)+"\nTool use has stopped. Reason: "+str(reason)+
-            ". Summarize available evidence and identify unfinished work. Do not claim unperformed work succeeded. No more tools are available.")
-        final_messages = [messages[0].model_copy(update={"content": instructions}), *messages[1:]]
+    async def _final_reply(self, user, sid, tid, messages, answer, phase, reason=None):
+        await phase("answer", "正在生成答复")
+        saved = await asyncio.to_thread(self.store.task, user, sid, tid)
+        ids = json.loads(saved["payload"]).get("delivery", [])
+        cards = await asyncio.to_thread(self.store.selected_results, user, sid, ids)
+        if reason:
+            notice = str(reason)+"。本轮已停止继续调用工具。\n\n"
+            answer["text"] += notice
+            await self._write(user, sid, tid, {"type": "message", "text": notice})
+        instructions = (str(messages[0].content)+"\nTool use is over. Write only the final user-facing reply, "
+            "without internal planning or another tool call. Use actual evidence, distinguish unfinished work, "
+            "and only refer to display cards listed in final_delivery. Do not claim unperformed work succeeded.")
+        delivery, _ = project({"final_delivery": [self._evidence(card) for card in cards],
+            "stop_reason": str(reason) if reason else None}, self.gateway.limits.result_chars)
+        final_messages = [messages[0].model_copy(update={"content": instructions}), *messages[1:], HumanMessage(encode(delivery))]
         try:
             reply = await self._reply(user, sid, tid, final_messages, [], answer, phase)
             if reply.tool_calls:
-                log.warning("Model requested tools during finalization: task=%s", tid)
+                raise QAError("invalid_tool_call", "正式答复阶段返回了工具调用", 502)
+            if not answer["text"].strip():
+                answer["text"] = "请查看下方结果。" if cards else "请补充需要处理的问题。"
+                await self._write(user, sid, tid, {"type": "message", "text": answer["text"]})
         except Exception:
             # Keep the original stop reason and saved results when the model
             # cannot summarize them. Never resume tool use to recover a summary.
+            if reason is None:
+                raise
             log.warning("Final response unavailable: task=%s", tid, exc_info=True)
 
     async def _run(self, user, sid, tid, payload, options):
@@ -307,45 +368,34 @@ class DatasetQA:
 
         async def phase(stage, title=""):
             nonlocal active_phase
-            if active_phase and active_phase[0]==stage:
+            if active_phase == (stage, title):
                 return
-            if active_phase:
-                previous, label = active_phase
-                await self._write(user, sid, tid, {"type": "stage", "stage": previous,
-                    "status": "finished", "summary": "已结束："+label})
             active_phase = (stage, title) if stage else None
             if stage:
                 await self._write(user, sid, tid, {"type": "stage", "stage": stage,
-                    "status": "started", "summary": title})
+                    "summary": title})
 
         try:
-            await self._write(user, sid, tid, {"type": "task", **self.task_view(await asyncio.to_thread(self.store.task, user, sid, tid))})
+            await phase("prepare", "正在理解请求")
             if self.slots.locked():
-                async with self._stage(user, sid, tid, "queued", "等待可用处理资源"):
-                    await self.slots.acquire()
-                    acquired = True
-            else:
-                await self.slots.acquire()
-                acquired = True
-            await phase("prepare", "理解需求")
+                await phase("prepare", "正在等待可用处理资源")
+            await self.slots.acquire()
+            acquired = True
             context, model_context, parent = await self._context(user, sid, tid, options)
             messages = self.dialogue.messages(payload["message"], model_context)
             if parent:
                 payload["parent_task_id"] = parent
                 await self._write(user, sid, tid, payload=payload)
-            reason = None
+            reason, ready = None, False
             async with self.gateway.session() as tools:
                 for _ in range(limits.max_rounds):
                     definitions = [*BUILTINS, *tools.definitions()]
                     advertised = {value["function"]["name"] for value in definitions}
-                    reply = await self._reply(user, sid, tid, messages, definitions, answer, phase)
+                    reply = await self._reply(user, sid, tid, messages, definitions)
                     if not reply.tool_calls:
-                        if not answer["text"].strip():
-                            await phase("answer", "生成答复")
-                            answer["text"] = "请查看结果卡片。" if results else "请补充需要处理的问题。"
-                            await self._write(user, sid, tid, {"type": "message", "message_id": tid,
-                                "text": answer["text"], "mode": "replace"})
-                        await phase(None)
+                        if results and "delivery" not in payload:
+                            await self._choose_delivery(user, sid, tid, messages, payload)
+                        await self._final_reply(user, sid, tid, messages, answer, phase)
                         await asyncio.to_thread(self.store.finish, user, sid, tid, "COMPLETED", message=answer["text"])
                         return
                     if any(not call.get("id") for call in reply.tool_calls):
@@ -353,14 +403,22 @@ class DatasetQA:
                     if len({call["id"] for call in reply.tool_calls}) != len(reply.tool_calls):
                         raise QAError("invalid_tool_call", "工具调用关联标识重复", 503)
                     messages.append(reply)
-                    await phase("execute", "获取所需结果")
                     for call in reply.tool_calls:
                         name, arguments = call["name"], call["args"]
                         key = fingerprint([name, arguments])
                         tool = tools.loaded.get(name)
                         interaction = None
                         log.debug("Tool request: task=%s tool=%s cached=%s", tid, name, key in execution.cached)
-                        if reason or execution.calls>=limits.max_calls:
+                        if ready:
+                            value = {"executed": False, "message": "交付范围已确定，未继续执行工具"}
+                        elif name=="deliver_results" and name in advertised and not reason:
+                            try:
+                                value = await self._deliver(user, sid, tid, arguments, payload)
+                                ready = True
+                            except (QAError, ValidationError) as exc:
+                                value = {"error": exc.code if isinstance(exc, QAError) else "invalid_parameters",
+                                    "message": str(exc) if isinstance(exc, QAError) else "交付参数不符合定义"}
+                        elif reason or execution.calls>=limits.max_calls:
                             reason = reason or QAError("step_limit", "工具调用达到本轮预算，请缩小请求范围")
                             value = {"error": reason.code, "message": str(reason), "executed": False}
                         elif key in execution.cached and name in advertised:
@@ -375,21 +433,21 @@ class DatasetQA:
                                     if name=="request_input":
                                         interaction = context["pending"]
                                 else:
-                                    async with self._stage(user, sid, tid, name, tool.title, resume_stage="execute"):
-                                        tool, output = await tools.call(name, arguments)
-                                        marker = (key, fingerprint(output.payload()))
-                                        card = execution.cards.get(marker)
-                                        if card is None:
-                                            metadata = tool.meta.get("piflow", {})
-                                            view = metadata.get("view_type", "tool_result") if isinstance(metadata, dict) else "tool_result"
-                                            card = {"result_id": f"{tid}:{results}", "view_type": view,
-                                                "title": f"{tool.server} · {tool.title}", **output.payload()}
-                                            results += 1
-                                            await self._write(user, sid, tid, card=card)
-                                            execution.cards[marker] = card
-                                        value = self._evidence(card)
-                                        if execution.reusable(tool):
-                                            execution.cached[key] = value
+                                    await phase("execute", "正在处理："+tool.title)
+                                    tool, output = await tools.call(name, arguments)
+                                    marker = (key, fingerprint(output.payload()))
+                                    card = execution.cards.get(marker)
+                                    if card is None:
+                                        metadata = tool.meta.get("piflow", {})
+                                        view = metadata.get("view_type", "tool_result") if isinstance(metadata, dict) else "tool_result"
+                                        card = {"result_id": f"{tid}:{results}", "view_type": view,
+                                            "title": f"{tool.server} · {tool.title}", **output.payload()}
+                                        results += 1
+                                        await self._write(user, sid, tid, card=card)
+                                        execution.cards[marker] = card
+                                    value = self._evidence(card)
+                                    if execution.reusable(tool):
+                                        execution.cached[key] = value
                             except (QAError, ValidationError) as exc:
                                 log.info("Tool request rejected: task=%s tool=%s code=%s",
                                     tid, name, exc.code if isinstance(exc, QAError) else "invalid_parameters")
@@ -404,7 +462,6 @@ class DatasetQA:
                                     reason = exc
                         if interaction:
                             answer["text"] = (answer["text"]+"\n"+interaction["question"]).strip()
-                            await phase(None)
                             await asyncio.to_thread(self.store.finish, user, sid, tid, "WAITING_INPUT",
                                 message=answer["text"], interaction=interaction)
                             return
@@ -414,15 +471,22 @@ class DatasetQA:
                             value = {**value, "repeated": True,
                                 "guidance": "This call provided no new evidence. Use the saved result, change the request if needed, or answer the user."}
                         messages.append(ToolMessage(content=encode(value), tool_call_id=call["id"], name=name))
-                        if not reason and execution.stalled>=limits.max_stalled_calls:
+                        if not ready and not reason and execution.stalled>=limits.max_stalled_calls:
                             reason = QAError("no_progress", "连续调用没有获得新信息")
+                    if ready:
+                        await self._final_reply(user, sid, tid, messages, answer, phase)
+                        await asyncio.to_thread(self.store.finish, user, sid, tid, "COMPLETED", message=answer["text"])
+                        return
                     if reason:
                         break
                 reason = reason or QAError("step_limit", "处理达到本轮预算，请缩小请求范围")
-                # Every pending call has a paired result, including skipped calls.
-                # Finalization has its own model request with no advertised tools.
+                # Delivery selection never executes MCP; final text has no tools.
+                if results and "delivery" not in payload:
+                    try:
+                        await self._choose_delivery(user, sid, tid, messages, payload)
+                    except Exception:
+                        log.warning("Partial delivery unavailable: task=%s", tid, exc_info=True)
                 await self._final_reply(user, sid, tid, messages, answer, phase, reason)
-                await phase(None)
                 await asyncio.to_thread(self.store.finish, user, sid, tid, "FAILED", message=answer["text"],
                     error={"code": reason.status, "error_code": reason.code, "message": str(reason)})
         except asyncio.CancelledError:
@@ -434,11 +498,8 @@ class DatasetQA:
             log.exception("Agent task failed: task=%s", tid)
             error = {"code": exc.status if isinstance(exc, QAError) else 503,
                 "error_code": exc.code if isinstance(exc, QAError) else "service_unavailable",
-                "message": str(exc) if isinstance(exc, QAError) else "服务暂不可用；已完成结果仍可查看"}
+                "message": str(exc) if isinstance(exc, QAError) else "服务暂不可用，请稍后重试"}
             try:
-                if active_phase:
-                    await self._write(user, sid, tid, {"type": "stage", "stage": active_phase[0],
-                        "status": "failed", "summary": error["message"]})
                 await asyncio.to_thread(self.store.finish, user, sid, tid, "FAILED", message=answer["text"], error=error)
             except QAError:
                 pass

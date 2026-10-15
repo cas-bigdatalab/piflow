@@ -12,7 +12,7 @@ from .contracts import Limits, Options, QAError, Server
 from .mcp import MCPGateway
 from .results import ToolResult, evidence
 from .service import DatasetQA
-from .test_dataset_qa import Backend, Dialogue, action, collect, engine, load, remote, session
+from .test_dataset_qa import Backend, Dialogue, action, collect, engine, load, remote, result_cards, session
 from ..unified.adapters.dataset_qa import DatasetQAAdapter
 
 
@@ -33,10 +33,10 @@ def test_repeated_calls_converge_and_keep_one_card(engine, hints, expected_calls
         assert len(backend.calls)==expected_calls
         assert sum(v["type"]=="result" for v in values)==1
         assert values[-1]["status"]=="FAILED"
-        assert next(v for v in values if v["type"]=="error")["error_code"]=="no_progress"
+        assert values[-1]["code"]=="no_progress"
         assert dialogue.inputs[-1][1]==[]
         assert "已取得两个数据集" in "".join(v["text"] for v in values if v["type"]=="message")
-        assert sum(v.get("stage", "").endswith("_search") and v.get("status")=="started" for v in values)==expected_calls
+        assert sum(v.get("stage")=="execute" for v in values)==1
         assert values==await collect(service, sid)  # Reconnect never dispatches again.
         assert len(backend.calls)==expected_calls
     asyncio.run(run())
@@ -55,7 +55,7 @@ def test_cache_is_canonical_per_turn_and_never_hides_fresh_sampling(engine):
         values = await collect(service, sid)
         assert values[-1]["status"]=="COMPLETED"
         assert [c[1] for c in backend.calls]==["search", "sample", "sample"]
-        cards = [v for v in values if v["type"]=="result"]
+        cards = result_cards(values)
         assert len(cards)==3 and cards[1]["data"]!=cards[2]["data"]
         dialogue.responses = [load(), remote("search", query="气象", count=2)]
         await collect(service, sid, rid="fresh-turn")
@@ -73,7 +73,8 @@ def test_pagination_and_changed_parameters_are_not_duplicates(engine):
         service = DatasetQA(engine, dialogue, backend.gateway())
         values = await collect(service, session(service))
         assert values[-1]["status"]=="COMPLETED"
-        assert len(backend.calls)==5 and sum(v["type"]=="result" for v in values)==5
+        assert len(backend.calls)==5 and sum(v["type"]=="result" for v in values)==1
+        assert len(result_cards(values))==5
     asyncio.run(run())
 
 
@@ -93,10 +94,10 @@ def test_call_budget_pairs_skipped_parallel_calls_before_finalizing(engine):
         assert values[-1]["status"]=="FAILED" and len(backend.calls)==1
         messages, definitions = dialogue.inputs[-1]
         assert definitions==[]
-        paired = [m for m in messages if isinstance(m, ToolMessage)][-3:]
+        paired = [m for m in messages if isinstance(m, ToolMessage) and m.name!="deliver_results"][-3:]
         assert [m.tool_call_id for m in paired]==["0", "1", "2"]
         assert all(json.loads(m.content)["executed"] is False for m in paired[1:])
-        assert next(v for v in values if v["type"]=="error")["error_code"]=="step_limit"
+        assert values[-1]["code"]=="step_limit"
     asyncio.run(run())
 
 
@@ -107,7 +108,7 @@ def test_repeated_discovery_is_bounded_and_final_failure_keeps_original_reason(e
         service = DatasetQA(engine, dialogue, backend.gateway())
         values = await collect(service, session(service))
         assert values[-1]["status"]=="FAILED" and not backend.connections
-        assert next(v for v in values if v["type"]=="error")["error_code"]=="no_progress"
+        assert values[-1]["code"]=="no_progress"
         assert dialogue.inputs[-1][1]==[]
         assert any("停止" in v.get("text", "") for v in values)
     asyncio.run(run())
@@ -126,8 +127,8 @@ def test_parallel_duplicates_stop_before_dispatching_rest(engine):
         service = DatasetQA(engine, dialogue, backend.gateway())
         values = await collect(service, session(service))
         assert len(backend.calls)==3 and sum(v["type"]=="result" for v in values)==1
-        assert next(v for v in values if v["type"]=="error")["error_code"]=="no_progress"
-        paired = [m for m in dialogue.inputs[-1][0] if isinstance(m, ToolMessage)][-8:]
+        assert values[-1]["code"]=="no_progress"
+        paired = [m for m in dialogue.inputs[-1][0] if isinstance(m, ToolMessage) and m.name!="deliver_results"][-8:]
         assert [m.tool_call_id for m in paired]==[str(i) for i in range(8)]
         assert all(json.loads(m.content)["executed"] is False for m in paired[3:])
     asyncio.run(run())
@@ -152,7 +153,7 @@ def test_unavailable_service_is_not_reconnected_repeatedly_in_one_turn(engine):
         service = DatasetQA(engine, dialogue, gateway)
         values = await collect(service, session(service))
         assert attempted==["connect"] and not backend.calls
-        assert next(v for v in values if v["type"]=="error")["error_code"]=="no_progress"
+        assert values[-1]["code"]=="no_progress"
         assert dialogue.inputs[-1][1]==[]
     asyncio.run(run())
 
@@ -246,19 +247,19 @@ def test_rich_output_is_complete_in_sse_history_results_and_replay(engine):
         service = DatasetQA(engine, dialogue, gateway)
         sid = session(service)
         values = await collect(service, sid)
-        card = next(v for v in values if v["type"]=="result")
+        card = result_cards(values)[0]
         assert card["data"]==output.structured_content and len(card["content"])==4
         assert [b["type"] for b in card["content"]]==["text", "image", "image", "file"]
         assert card["content"][1]["base64"]==binary and card["content"][2]["url"]==url
         assert base64.b64decode(card["content"][1]["base64"])==b"artifact-bytes"*10000
         assert "truncated" not in card
-        assert binary not in encode(dialogue.inputs[-1][0][-1].content)
+        assert binary not in encode([m.content for m in dialogue.inputs[-1][0]])
         assert len(dialogue.inputs[-1][0][-1].content)<10000
         history = await service.get_session("alice", sid)
         saved = next(i["payload"] for i in history["items"] if i["item_type"]=="RESULT_CARD")
         adapter = DatasetQAAdapter(SimpleNamespace(user="alice",
             extension=SimpleNamespace(session_services={"dataset_qa": service})))
-        queried = await adapter.get_results(sid, card["task_id"])
+        queried = await adapter.get_results(sid, values[-1]["task_id"])
         assert saved==queried["items"][0]==public_result(card)
         assert values==await collect(service, sid)
     asyncio.run(run())
