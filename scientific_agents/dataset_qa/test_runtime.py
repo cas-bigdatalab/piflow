@@ -235,18 +235,18 @@ def test_action_schema_preserves_local_refs_without_mutating_tool_schema():
     assert schema["properties"]["row"]["$ref"]=="#/$defs/Row"
 
 
-@pytest.mark.parametrize("premature", [False, True])
-def test_real_sdk_and_mcp_complete_search_with_bounded_correction(engine, monkeypatch, premature):
+@pytest.mark.parametrize("premature,empty", [(False, False), (True, False), (False, True)])
+def test_real_sdk_and_mcp_complete_search_with_bounded_correction(engine, monkeypatch, premature, empty):
     import httpx
     from langchain_openai import ChatOpenAI
     from mcp_servers.corpus_mcp import mcp
 
     requests, upstream = [], []
-    rows = [{"id": str(i), "title": "Dataset "+str(i)} for i in range(5)]
+    rows = [] if empty else [{"id": str(i), "title": "Dataset "+str(i)} for i in range(5)]
 
     def search(**arguments):
         upstream.append(arguments)
-        return {"items": rows, "pagination": {"total": 5}}
+        return {"items": rows, "pagination": {"total": len(rows)}}
 
     monkeypatch.setattr("mcp_servers.corpus_mcp.list_dataset_details", search)
 
@@ -268,6 +268,11 @@ def test_real_sdk_and_mcp_complete_search_with_bounded_correction(engine, monkey
                 name = next(c["properties"]["name"]["enum"][0] for c in choices
                     if c["properties"]["name"]["enum"][0].endswith("_search_corpus_datasets"))
                 action_args = {"name": name, "arguments": {"query": "Chemistry"}}
+            elif empty and len(requests)==2:
+                ask = next(c["properties"]["arguments"] for c in choices
+                    if c["properties"]["name"]["enum"]==["request_input"])
+                assert "missing" in ask["required"]
+                action_args = {"name": "request_input", "arguments": {"question": "没有结果，是否更换领域？"}}
             else:
                 saved = next(json.loads(m["content"]) for m in reversed(body["messages"])
                     if m["role"]=="tool" and "result_id" in json.loads(m["content"]))
@@ -275,7 +280,8 @@ def test_real_sdk_and_mcp_complete_search_with_bounded_correction(engine, monkey
             deltas = [{"role": "assistant", "tool_calls": [{"index": 0, "id": base["id"],
                 "type": "function", "function": {"name": "agent_action", "arguments": json.dumps(action_args)}}]}]
         else:
-            deltas = [{"role": "assistant", "content": "Retrieved "}, {"content": "five records."}]
+            deltas = [{"role": "assistant", "content": "No matching records."}] if empty else [
+                {"role": "assistant", "content": "Retrieved "}, {"content": "five records."}]
         chunks = [{**base, "choices": [{"index": 0, "delta": delta,
             "finish_reason": ("tool_calls" if body.get("tools") else "stop") if i==len(deltas)-1 else None}]}
             for i, delta in enumerate(deltas)]
@@ -292,9 +298,11 @@ def test_real_sdk_and_mcp_complete_search_with_bounded_correction(engine, monkey
             service = DatasetQA(engine, NativeDialogue(model=model), gateway)
             values = await collect(service, session(service), message="Find chemistry datasets")
             assert values[-1]["status"]=="COMPLETED" and result_cards(values)[0]["data"]["items"]==rows
-            assert "".join(v["text"] for v in values if v["type"]=="message")=="Retrieved five records."
+            assert "".join(v["text"] for v in values if v["type"]=="message")==(
+                "No matching records." if empty else "Retrieved five records.")
+            assert not any(v["type"]=="interaction" for v in values)
             assert upstream==[{"page_num": 1, "page_size": 5, "filters": {"keywords": "Chemistry"}}]
-            assert len(requests)==3+int(premature) and "tools" not in requests[-1] and "tool_choice" not in requests[-1]
+            assert len(requests)==3+int(premature)+int(empty) and "tools" not in requests[-1] and "tool_choice" not in requests[-1]
             assert all(body["enable_thinking"] is False for body in requests)
             await service.close()
     asyncio.run(run())

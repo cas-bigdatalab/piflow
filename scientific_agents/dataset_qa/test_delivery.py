@@ -178,11 +178,13 @@ def test_delivery_budget_can_be_corrected_without_publishing_partial_selection(e
 def test_clarification_and_text_only_responses_do_not_publish_tool_evidence(engine):
     async def run():
         service = DatasetQA(engine, Dialogue(load(), remote("search"),
-            action("request_input", question="选择哪个？", options=["甲", "乙"])), Backend().gateway())
+            action("request_input", missing="多个候选中需要操作的对象", question="选择哪个？", options=["甲", "乙"])), Backend().gateway())
         sid = session(service)
         values = await collect(service, sid)
         assert values[-1]["status"]=="WAITING_INPUT" and not result_cards(values)
         assert [v["type"] for v in values][-2:]==["interaction", "done"]
+        assert "missing" not in values[-2]
+        assert "missing" not in (await service.get_session("alice", sid))["interaction"]
         assert not any(i["item_type"]=="RESULT_CARD" for i in (await service.get_session("alice", sid))["items"])
         service.dialogue.responses = [remote("search"), action("deliver_results"), AIMessageChunk(content="这是一段文字解释。")]
         following = await collect(service, sid, "解释一下", "text")

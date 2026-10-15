@@ -79,13 +79,72 @@ def test_malformed_action_arguments_with_a_call_id_can_be_corrected(engine, name
 
         def clarify(messages, definitions):
             assert feedback_for(messages, "malformed")["error"]=="invalid_tool_call"
-            return action("request_input", question="请选择需要操作的对象")
+            return action("request_input", missing="待操作的对象", question="请选择需要操作的对象")
 
         dialogue = RawDialogue(decision(name, arguments, "malformed"), clarify)
         service = DatasetQA(engine, dialogue, backend.gateway())
         values = await collect(service, session(service))
         assert values[-1]["status"]=="WAITING_INPUT" and not backend.calls
         assert values[-2]["type"]=="interaction" and len(dialogue.inputs)==2
+        await service.close()
+    asyncio.run(run())
+
+
+@pytest.mark.parametrize("arguments", [{}, {"missing": "   "}])
+def test_empty_search_does_not_suspend_without_required_missing_input(engine, arguments):
+    async def run():
+        backend = Backend()
+        backend.items = []
+
+        def finish_empty_search(messages, definitions):
+            feedback = feedback_for(messages, "call-request_input")
+            assert feedback["error"]=="invalid_parameters" and feedback["executed"] is False
+            assert "deliver_results" in feedback["available_actions"]
+            return deliver()(messages, definitions)
+
+        dialogue = RawDialogue(load(), remote("search", query="化工"),
+            action("request_input", question="没有匹配结果，是否查看其他领域？", **arguments),
+            finish_empty_search, AIMessageChunk(content="当前检索条件没有匹配结果。"))
+        service = DatasetQA(engine, dialogue, backend.gateway())
+        sid = session(service)
+        values = await collect(service, sid, "我想查看化工领域相关的数据集")
+        assert values[-1]["status"]=="COMPLETED"
+        assert backend.calls==[("data", "search", {"query": "化工"})]
+        assert len(result_cards(values))==1 and result_cards(values)[0]["data"]["items"]==[]
+        assert not any(v["type"]=="interaction" for v in values)
+        assert "是否查看其他领域" not in "".join(v["text"] for v in values if v["type"]=="message")
+        assert (await service.get_session("alice", sid))["interaction"] is None
+        await service.close()
+    asyncio.run(run())
+
+
+def test_invalid_clarification_before_mcp_recovers_to_execution(engine):
+    async def run():
+        backend = Backend()
+        dialogue = RawDialogue(action("request_input", question="要不要更换检索方向？"),
+            load(), remote("search", query="材料"), deliver(), AIMessageChunk(content="已返回检索结果。"))
+        service = DatasetQA(engine, dialogue, backend.gateway())
+        values = await collect(service, session(service), "查找材料相关数据集")
+        assert values[-1]["status"]=="COMPLETED" and len(result_cards(values))==1
+        assert backend.calls==[("data", "search", {"query": "材料"})]
+        assert not any(v["type"]=="interaction" for v in values)
+        await service.close()
+    asyncio.run(run())
+
+
+def test_invalid_clarification_cannot_evade_correction_budget(engine):
+    async def run():
+        backend = Backend()
+        backend.items = []
+        dialogue = RawDialogue(load(), remote("search"),
+            *[action("request_input", question="是否尝试条件 "+str(i)) for i in range(3)],
+            AIMessageChunk(content="检索已执行，未能完成后续决策。"))
+        service = DatasetQA(engine, dialogue, backend.gateway())
+        values = await collect(service, session(service))
+        assert values[-1]["status"]=="FAILED" and values[-1]["code"]=="invalid_parameters"
+        assert len(backend.calls)==1 and len(dialogue.inputs)==6
+        assert not any(v["type"]=="interaction" for v in values)
+        assert result_cards(values)[0]["data"]["items"]==[]
         await service.close()
     asyncio.run(run())
 

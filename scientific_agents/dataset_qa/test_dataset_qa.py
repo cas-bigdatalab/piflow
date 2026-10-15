@@ -17,7 +17,7 @@ from sqlalchemy.pool import StaticPool
 
 from .context import encode, project, slice_result
 from .contracts import Limits, Options, QAError, Server
-from .dialogue import BUILTINS, Dialogue as SemanticDialogue
+from .dialogue import BUILTINS, SYSTEM, Dialogue as SemanticDialogue
 from .mcp import MCPGateway, Tool
 from .service import DatasetQA
 from ..unified.adapters.dataset_qa import DatasetQAAdapter
@@ -309,7 +309,7 @@ def test_saved_result_is_paged_without_repeating_sample(engine):
 
 def test_clarification_resume_and_cancel_keep_one_active_interaction(engine):
     async def run():
-        dialogue = Dialogue(action("request_input", question="请选择对象", options=[{"label": "甲", "value": "a"}, "乙"]))
+        dialogue = Dialogue(action("request_input", missing="待操作的对象", question="请选择对象", options=[{"label": "甲", "value": "a"}, "乙"]))
         service = DatasetQA(engine, dialogue, Backend().gateway())
         sid = session(service)
         waiting = await collect(service, sid)
@@ -322,7 +322,7 @@ def test_clarification_resume_and_cancel_keep_one_active_interaction(engine):
         assert dialogue.contexts[-1]["pending"]["task_id"]==tid
         assert service.store.task("alice", sid, tid)["status"]=="COMPLETED"
         assert (await service.get_session("alice", sid))["interaction"] is None
-        dialogue.responses = [action("request_input", question="还需要什么？")]
+        dialogue.responses = [action("request_input", missing="下一项操作所需的参数", question="请补充执行参数")]
         waiting = await collect(service, sid, rid="wait-again")
         await service.cancel("alice", sid, waiting[-1]["task_id"])
         assert (await service.get_session("alice", sid))["interaction"] is None
@@ -604,7 +604,7 @@ def test_heartbeat_uses_idle_interval_and_progress_resets_it(engine, monkeypatch
         class Waiting(Dialogue):
             async def respond(self, *args):
                 await gate.wait()
-                yield action("request_input", question="需要处理哪个对象？")
+                yield action("request_input", missing="待操作的对象", question="需要处理哪个对象？")
 
         service = DatasetQA(engine, Waiting(), Backend().gateway())
         sid = session(service)
@@ -761,13 +761,16 @@ def test_generic_projection_and_pointer_keep_valid_json():
 
 
 def test_context_budget_retains_complete_call_result_groups():
-    dialogue = SemanticDialogue(model=object(), limits=Limits(context_chars=6000, result_chars=800))
+    # Keep history space fixed as instructions/schemas evolve; still prune it.
+    dialogue = SemanticDialogue(model=object(), limits=Limits(
+        context_chars=len(encode(BUILTINS))+len(SYSTEM)+2500, result_chars=800))
     messages = dialogue.messages("请继续", {"history": [{"text": "x"*10000}], "memory": {"chosen": "a"}})
     for i in range(6):
         messages.extend([AIMessage(content="", tool_calls=[{"name": "any", "args": {"i": i}, "id": str(i)}]),
             ToolMessage(content=encode({"result_id": str(i), "data": {"rows": ["x"*1000]*10}}), tool_call_id=str(i))])
     budgeted = dialogue.budget(messages, BUILTINS)
-    assert len(encode([m.model_dump(mode="json") for m in budgeted]))+len(encode(BUILTINS))<6500
+    assert len(budgeted)<len(messages)
+    assert len(encode([m.model_dump(mode="json") for m in budgeted]))+len(encode(BUILTINS))<dialogue.limits.context_chars+500
     for i in range(3, len(budgeted), 2):
         assert budgeted[i].tool_calls[0]["id"]==budgeted[i+1].tool_call_id
         json.loads(budgeted[i+1].content)

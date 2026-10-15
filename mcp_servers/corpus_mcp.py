@@ -42,7 +42,6 @@ async def main():
             "search_corpus_datasets",
             {{
                 "query": "锂电池",
-                "field": "材料科学",
                 "page": 1,
                 "page_size": 5,
             }},
@@ -152,10 +151,10 @@ def _dataset_filters(
     },
 )
 async def search_corpus_datasets(
-    query: Annotated[str | None, Field(description="关键词检索词，映射为数据集 keywords 元数据筛选；不是标题或全文检索")] = None,
+    query: Annotated[str | None, Field(description="通用检索词，映射为上游 keywords 参数。自然语言表达的主题或领域相关检索优先使用此参数；具体匹配范围以上游服务为准")] = None,
     title: Annotated[str | None, Field(description="兼容旧参数；当前上游标题筛选不可用，传入非空标题会返回错误，请使用 query 或其他元数据条件")] = None,
-    field: Annotated[str | None, Field(description="数据集所属领域筛选条件")] = None,
-    subject: Annotated[str | None, Field(description="数据集学科方向筛选条件")] = None,
+    field: Annotated[str | None, Field(description="领域分类筛选，须使用服务已确认的分类值；不做同义词或语义扩展。未确认分类值时使用 query，不要把用户的领域用词直接猜成分类值")] = None,
+    subject: Annotated[str | None, Field(description="学科分类筛选，须使用服务已确认的分类值；未确认分类值时使用 query，不要猜测分类名称")] = None,
     author: Annotated[str | None, Field(description="数据集作者筛选条件")] = None,
     doi: Annotated[str | None, Field(description="数据集 DOI 筛选条件")] = None,
     sources: Annotated[list[str] | None, Field(description="数据集来源或连接器名称列表")] = None,
@@ -164,7 +163,9 @@ async def search_corpus_datasets(
 ) -> dict[str, Any]:
     """按元数据筛选条件和分页参数检索当前可见的数据集。
 
-    `query` 按数据集关键词元数据筛选，映射到上游 `keywords`；领域筛选使用 `field`。
+    自然语言主题或领域相关检索优先使用 `query`，映射到上游 `keywords`。
+    `field` / `subject` 只用于已从服务元数据确认的分类值；多个条件同时传入会收窄范围。
+    空结果只表示当前条件未匹配，不代表用户需求不明确或整个相关领域没有数据。
     当前上游标题筛选不可用，非空 `title` 会返回错误，不会降级成无筛选列表。
     返回结果中的分页总数保持当前筛选条件下数据集服务返回的总数。
     """
