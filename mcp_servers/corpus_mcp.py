@@ -141,7 +141,7 @@ def _dataset_filters(
             "displayName": "数据集检索",
             "category": "数据集发现",
             "icon": "database-search",
-            "view_type": "data",
+            "view_type": "detail",
             "riskLevel": "low",
             "version": "1.0.0",
             "tags": ["corpus", "dataset", "search"],
