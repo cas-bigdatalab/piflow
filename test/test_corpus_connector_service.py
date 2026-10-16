@@ -76,6 +76,16 @@ def test_should_query_dataset_directory_for_earth_system_source(monkeypatch):
     assert corpus_connector_service.should_query_dataset_directory("dataset_001") is True
 
 
+def test_should_query_dataset_directory_for_hugging_face_source(monkeypatch):
+    monkeypatch.setattr(
+        corpus_connector_service,
+        "get_dataset_detail_by_cstr",
+        lambda cstr: {"id": "hf-dataset", "cstr": cstr, "source": "Hugging Face"},
+    )
+
+    assert corpus_connector_service.should_query_dataset_directory("dataset_001") is True
+
+
 def test_should_query_dataset_directory_for_campbell_dataset(monkeypatch):
     monkeypatch.setattr(
         corpus_connector_service,

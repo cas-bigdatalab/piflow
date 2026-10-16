@@ -26,6 +26,13 @@ DATASET_PREVIEW_TIMEOUT = 600
 DEFAULT_REMOTE_GRPC_PORT = 50061
 _TTL_PATTERN = re.compile(r"^\s*(\d+)\s*([smhdSMHD]?)\s*$")
 _EARTH_SYSTEM_NUMERICAL_SIMULATION_SOURCE = "地球系统数值模拟装置"
+_HUGGING_FACE_SOURCE = "Hugging Face"
+_DIRECTORY_DATASET_SOURCES = frozenset(
+    {
+        _EARTH_SYSTEM_NUMERICAL_SIMULATION_SOURCE,
+        _HUGGING_FACE_SOURCE,
+    }
+)
 
 
 def create_remote_execution_client(remote_grpc_target: str):
@@ -419,7 +426,7 @@ def should_query_dataset_directory(cstr: str) -> bool:
         return True
     dataset = get_dataset_detail_by_cstr(normalized_cstr)
     source = str(dataset.get("source") or "").strip()
-    return source == _EARTH_SYSTEM_NUMERICAL_SIMULATION_SOURCE
+    return source in _DIRECTORY_DATASET_SOURCES
 
 
 def get_dataset_preview(cstr: str) -> dict[str, Any]:
