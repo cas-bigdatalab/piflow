@@ -14,6 +14,7 @@ from services.corpus_connector_service import (
     DATASET_PREVIEW_TIMEOUT,
     _request_corpus_route,
     get_dataset_detail_by_cstr,
+    get_dataset_directory,
     get_dataset_preview,
     get_dataset_sampler,
     list_dataset_details,
@@ -86,6 +87,20 @@ async def main():
     async with Client(MCP_ENDPOINT) as client:
         result = await client.call_tool(
             "preview_corpus_dataset",
+            {{"cstr": "dataset_001"}},
+        )
+        print(result)
+'''
+
+_DIRECTORY_USAGE_EXAMPLE = f'''from fastmcp import Client
+
+MCP_ENDPOINT = "{_MCP_ENDPOINT_EXAMPLE}"
+
+
+async def main():
+    async with Client(MCP_ENDPOINT) as client:
+        result = await client.call_tool(
+            "get_corpus_dataset_directory",
             {{"cstr": "dataset_001"}},
         )
         print(result)
@@ -256,6 +271,20 @@ async def preview_corpus_dataset(
             )
         ))
     return _checked_result(await anyio.to_thread.run_sync(partial(get_dataset_preview, normalized_cstr)))
+
+
+@mcp.tool(
+    annotations={"title": "数据集目录", "readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+    meta={"piflow": {"displayName": "数据集目录", "category": "数据集预览", "icon": "database-directory", "view_type": "data", "riskLevel": "low", "version": "1.0.0", "tags": ["corpus", "dataset", "directory"], "usageExample": _DIRECTORY_USAGE_EXAMPLE}},
+)
+async def get_corpus_dataset_directory(
+    cstr: Annotated[str, Field(description="数据集 CSTR 标识")],
+    file_id: Annotated[str | None, Field(description="要展开的目录节点 fileId；不传时获取目录根层")] = None,
+) -> dict[str, Any]:
+    """获取数据集目录结构；传入 file_id 时获取该目录节点的下一层。"""
+    return _checked_result(
+        await anyio.to_thread.run_sync(partial(get_dataset_directory, cstr, file_id=file_id))
+    )
 
 
 def create_mcp_app():

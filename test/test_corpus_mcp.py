@@ -61,12 +61,14 @@ def test_corpus_mcp_lists_dataset_tools():
         "get_corpus_dataset_detail",
         "sample_corpus_dataset",
         "preview_corpus_dataset",
+        "get_corpus_dataset_directory",
     }
     assert {tool["name"]: tool["_meta"]["piflow"]["view_type"] for tool in tools} == {
         "search_corpus_datasets": "data",
         "get_corpus_dataset_detail": "data",
         "sample_corpus_dataset": "url",
         "preview_corpus_dataset": "url",
+        "get_corpus_dataset_directory": "data",
     }
 
     search_tool = next(tool for tool in tools if tool["name"] == "search_corpus_datasets")
@@ -103,6 +105,28 @@ def test_search_corpus_datasets_builds_existing_service_filters():
         doi=None,
         sources=["connector-a"],
     ) == {"keywords": "\u5730\u9707", "sources": ["connector-a"]}
+
+
+def test_get_corpus_dataset_directory_forwards_root_and_file_id(monkeypatch):
+    from fastmcp import Client
+    from mcp_servers.corpus_mcp import mcp
+    calls = []
+
+    def upstream(cstr, *, file_id=None):
+        calls.append((cstr, file_id))
+        return {"code": 200, "data": [{"fileId": file_id, "isFile": False}]}
+
+    monkeypatch.setattr("mcp_servers.corpus_mcp.get_dataset_directory", upstream)
+
+    async def run():
+        async with Client(mcp) as client:
+            root = await client.call_tool("get_corpus_dataset_directory", {"cstr": "dataset_001"})
+            child = await client.call_tool("get_corpus_dataset_directory", {"cstr": "dataset_001", "file_id": "4003697"})
+            assert root.structured_content["data"][0]["fileId"] is None
+            assert child.structured_content["data"][0]["fileId"] == "4003697"
+
+    asyncio.run(run())
+    assert calls == [("dataset_001", None), ("dataset_001", "4003697")]
 
 
 def test_search_rejects_unsupported_title_and_conflicting_aliases():
