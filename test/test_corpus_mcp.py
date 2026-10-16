@@ -60,14 +60,12 @@ def test_corpus_mcp_lists_dataset_tools():
         "search_corpus_datasets",
         "get_corpus_dataset_detail",
         "sample_corpus_dataset",
-        "preview_corpus_dataset",
         "get_corpus_dataset_directory",
     }
     assert {tool["name"]: tool["_meta"]["piflow"]["view_type"] for tool in tools} == {
         "search_corpus_datasets": "data",
         "get_corpus_dataset_detail": "data",
         "sample_corpus_dataset": "url",
-        "preview_corpus_dataset": "url",
         "get_corpus_dataset_directory": "data",
     }
 
@@ -93,6 +91,11 @@ def test_corpus_mcp_lists_dataset_tools():
         "tags": ["corpus", "dataset", "search"],
     }
     assert '"search_corpus_datasets"' in search_tool["_meta"]["piflow"]["usageExample"]
+
+    directory_tool = next(tool for tool in tools if tool["name"] == "get_corpus_dataset_directory")
+    assert directory_tool["annotations"]["title"] == "查看数据内容"
+    assert directory_tool["_meta"]["piflow"]["displayName"] == "查看数据内容"
+    assert directory_tool["_meta"]["piflow"]["category"] == "数据内容查看"
 
 
 def test_search_corpus_datasets_builds_existing_service_filters():
@@ -167,11 +170,7 @@ def test_search_mcp_forwards_keywords_and_preserves_result_contract(monkeypatch)
             assert excessive.is_error and len(calls)==2
     asyncio.run(run())
 
-
 @pytest.mark.parametrize("tool,cstr", [
-    ("preview_corpus_dataset", "CHEM-CORPUS-B010"),
-    ("preview_corpus_dataset", "SA-CORPUS-B031"),
-    ("preview_corpus_dataset", "news-dataset"),
     ("sample_corpus_dataset", "CHEM-CORPUS-B010"),
 ])
 def test_business_failure_is_an_mcp_error(monkeypatch, tool, cstr):
@@ -180,87 +179,11 @@ def test_business_failure_is_an_mcp_error(monkeypatch, tool, cstr):
     payload = {"code": 500, "message": "数据暂不可用", "data": None}
     monkeypatch.setattr("mcp_servers.corpus_mcp.get_dataset_detail_by_cstr",
         lambda cstr: {"source": "新闻资讯" if cstr=="news-dataset" else "科研语料库"})
-    for name in ("get_dataset_preview", "get_dataset_sampler", "_request_corpus_route"):
+    for name in ("get_dataset_sampler",):
         monkeypatch.setattr("mcp_servers.corpus_mcp."+name, lambda *args, **kwargs: payload)
 
     async def run():
         async with Client(mcp) as client:
             result = await client.call_tool(tool, {"cstr": cstr}, raise_on_error=False)
             assert result.is_error and "数据暂不可用" in result.content[0].text
-    asyncio.run(run())
-
-
-@pytest.mark.parametrize("cstr,source,expected_path,expected_params", [
-    ("SA-CORPUS-B031", None, "/corpus.preview/SA-CORPUS-B031", None),
-    ("  SA-CORPUS-B031  ", None, "/corpus.preview/SA-CORPUS-B031", None),
-    ("75ae2f15-435b-4426-8958-d8686f1baddd", "新闻资讯", "/corpus.preview/75ae2f15-435b-4426-8958-d8686f1baddd", None),
-    ("f24264f1-ecbb-4c9e-809e-7227e61e6129", "新闻资讯", "/corpus.preview/f24264f1-ecbb-4c9e-809e-7227e61e6129", None),
-    (" NEWS-DATASET-001 ", " 新闻资讯 ", "/corpus.preview/NEWS-DATASET-001", None),
-    ("CHEM-CORPUS-B010", "科研语料库", "/corpus.dataset.preview", {"cstr": "CHEM-CORPUS-B010"}),
-    ("SA-C0RPUS-B031", "科研语料库", "/corpus.dataset.preview", {"cstr": "SA-C0RPUS-B031"}),
-    ("75ae2f15-435b-4426-8958-d8686f1baddd-extra", "科研语料库", "/corpus.dataset.preview", {"cstr": "75ae2f15-435b-4426-8958-d8686f1baddd-extra"}),
-    ("75ae2f15-435b-4426-8958-d8686f1baddd", "科研语料库", "/corpus.dataset.preview", {"cstr": "75ae2f15-435b-4426-8958-d8686f1baddd"}),
-    ("OTHER-DATASET", "新闻资讯备份", "/corpus.dataset.preview", {"cstr": "OTHER-DATASET"}),
-    ("OTHER-DATASET", None, "/corpus.dataset.preview", {"cstr": "OTHER-DATASET"}),
-])
-def test_preview_mcp_routes_by_designated_id_or_actual_source(monkeypatch, cstr, source, expected_path, expected_params):
-    from types import SimpleNamespace
-    from fastmcp import Client
-    from mcp_servers.corpus_mcp import mcp
-    from services import corpus_connector_service
-
-    calls = []
-    payload = {"code": 200, "message": "OK", "data": {
-        "records": [{"id": 1}], "imageUrl": "https://example.invalid/preview.png",
-        "pdfUrl": "https://example.invalid/preview.pdf"}, "timestamp": 123}
-
-    def get(url, params=None, timeout=None):
-        calls.append((url, params, timeout))
-        data = {"code": 200, "data": {"cstr": cstr.strip(), "source": source}} if "/dataset/" in url else payload
-        return SimpleNamespace(raise_for_status=lambda: None, json=lambda: data)
-
-    monkeypatch.setattr(corpus_connector_service, "get_settings", lambda: SimpleNamespace(
-        corpus_route=SimpleNamespace(base_url="http://corpus.example/")))
-    monkeypatch.setattr(corpus_connector_service.requests, "get", get)
-
-    async def run():
-        async with Client(mcp) as client:
-            result = await client.call_tool("preview_corpus_dataset", {"cstr": cstr})
-            assert result.structured_content == payload
-            expected = [] if cstr.strip()=="SA-CORPUS-B031" else [
-                ("http://corpus.example/dataset/"+cstr.strip(), None, corpus_connector_service.REQUEST_TIMEOUT)]
-            expected.append(("http://corpus.example"+expected_path, expected_params,
-                corpus_connector_service.DATASET_PREVIEW_TIMEOUT))
-            assert calls == expected
-
-    asyncio.run(run())
-
-
-@pytest.mark.parametrize("failure", ["network", "business", "empty", "invalid"])
-def test_preview_mcp_does_not_guess_route_when_detail_lookup_fails(monkeypatch, failure):
-    from types import SimpleNamespace
-    from fastmcp import Client
-    from mcp_servers.corpus_mcp import mcp
-    from services import corpus_connector_service
-
-    calls = []
-
-    def get(url, params=None, timeout=None):
-        calls.append(url)
-        assert url == "http://corpus.example/dataset/NEWS-DATASET-001"
-        if failure=="network":
-            raise corpus_connector_service.requests.ConnectionError("unavailable")
-        payload = {"code": 500 if failure=="business" else 200,
-            "message": "详情不可用", "data": ["invalid"] if failure=="invalid" else None}
-        return SimpleNamespace(raise_for_status=lambda: None, json=lambda: payload)
-
-    monkeypatch.setattr(corpus_connector_service, "get_settings", lambda: SimpleNamespace(
-        corpus_route=SimpleNamespace(base_url="http://corpus.example")))
-    monkeypatch.setattr(corpus_connector_service.requests, "get", get)
-
-    async def run():
-        async with Client(mcp) as client:
-            result = await client.call_tool("preview_corpus_dataset", {"cstr": "NEWS-DATASET-001"}, raise_on_error=False)
-            assert result.is_error and "查询数据集来源失败，未执行预览" in result.content[0].text
-            assert calls==["http://corpus.example/dataset/NEWS-DATASET-001"]
     asyncio.run(run())

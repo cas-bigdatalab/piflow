@@ -1,12 +1,12 @@
 ---
 name: corpus_dataset_directory
 description: |
-  数据集目录源节点。直接调用固定的数据集 HTTP 服务 `metacat.file.dir.query` 接口，根据数据集 CSTR 获取目录根层，或根据目录节点 `fileId` 获取下一层目录，并将接口响应保存为 JSON 文件。
+  查看数据内容源节点。直接调用固定的数据集 HTTP 服务 `metacat.file.dir.query` 接口，根据数据集 CSTR 获取数据内容根层，或根据目录节点 `fileId` 获取下一层内容，并将接口响应保存为 JSON 文件。
 
   本 Skill 是 source node，不接收上游 DAG 文件或数据流；数据集 CSTR 和可选目录节点 ID 由节点参数直接配置。
 
-  当用户需要浏览数据集目录、展开目录节点或获取目录树的某一层时使用此 Skill。
-name_zh: 数据集目录
+  当用户需要查看数据内容、浏览内容目录、展开目录节点或获取内容树的某一层时使用此 Skill。
+name_zh: 查看数据内容
 input_params:
   - name: cstr
     type: string
@@ -25,14 +25,14 @@ output_params:
   - name: output
     type: json_file
     description: 数据集目录接口响应 JSON 文件
-tag: 数据集目录
-disciplinary_field: 数据集目录
+tag: 查看数据内容
+disciplinary_field: 数据内容查看
 publisher: COMMUNITY
 ---
 
 ## 功能概述
 
-该 Skill 用于获取数据集目录结构。脚本向 `http://172.31.3.81:7005/metacat.file.dir.query` 发送 `GET` 请求，通过查询参数传递 `cstr`；传入 `file_id` 时，同时传递 `fileId`，获取该目录节点的下一层。
+该 Skill 用于查看数据集内容结构。脚本向 `http://172.31.3.81:7005/metacat.file.dir.query` 发送 `GET` 请求，通过查询参数传递 `cstr`；传入 `file_id` 时，同时传递 `fileId`，获取该内容节点的下一层。
 
 这是一个 source node：没有上游 DAG 输入，必须在节点参数中配置 `cstr`。首次请求不传 `file_id` 获取根层；目录响应中的 `isFile: false` 节点可将其 `fileId` 作为下一次请求的 `file_id`，`isFile: true` 表示文件叶子节点。
 

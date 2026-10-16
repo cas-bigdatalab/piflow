@@ -17,7 +17,7 @@ def test_mcp_catalog_returns_tool_summaries():
     assert response.status_code == 200
     result = response.json()["result"]
     assert result["totalServers"] == 1
-    assert result["totalTools"] == 5
+    assert result["totalTools"] == 4
     search_tool = next(tool for tool in result["servers"][0]["tools"] if tool["name"] == "search_corpus_datasets")
     assert search_tool == {
         "name": "search_corpus_datasets",

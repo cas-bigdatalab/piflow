@@ -101,9 +101,6 @@ def test_media_only_result_has_empty_items_and_preserves_resource(engine):
         {"items": [{"cstr": "a"}], "pagination": {"total": 7}}, "data", "数据集检索"),
     ("get_corpus_dataset_detail", "get_dataset_detail_by_cstr", {"cstr": "a"},
         {"cstr": "a", "title": "Dataset"}, "data", "数据集详情"),
-    ("preview_corpus_dataset", "get_dataset_preview", {"cstr": "a"},
-        {"code": 200, "data": {"imageUrl": "https://example.invalid/a.png?signature=complete",
-            "pdfUrl": "https://example.invalid/a.pdf"}}, "url", "数据集预览"),
     ("sample_corpus_dataset", "get_dataset_sampler", {"cstr": "a", "size": 5},
         {"code": 200, "data": {"url": "https://example.invalid/sample.json", "size": 5}}, "url", "数据集随机采样"),
 ])
