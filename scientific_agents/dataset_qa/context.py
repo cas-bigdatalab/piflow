@@ -70,7 +70,7 @@ def redact(value):
     return value
 
 
-def public_result(card, limit=None):
+def public_result(card, limit=None, *, normalize=True):
     # Frontend artifacts are already bounded at ingestion. Only model previews
     # have a character budget; images, tables and signed URLs must remain intact.
     result = {key: card[key] for key in ("result_id", "view_type", "title")}
@@ -81,6 +81,12 @@ def public_result(card, limit=None):
             if cut:
                 result["truncated"] = True
         result["data"] = data
+    if normalize:
+        # One frontend list path; existing list envelopes keep their pagination.
+        data = result.get("data")
+        if not (isinstance(data, dict) and isinstance(data.get("items"), list)):
+            items = data if isinstance(data, list) else ([] if data is None else [data])
+            result["data"] = {"items": items}
     if card.get("content") and limit is None:
         result["content"] = redact(card["content"])
     return result

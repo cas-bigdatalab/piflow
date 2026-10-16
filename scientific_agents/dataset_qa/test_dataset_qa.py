@@ -169,7 +169,7 @@ def test_search_detail_sample_use_raw_results_and_generic_memory(engine):
             ("data", "inspect", {"reference": "b"}), ("data", "sample", {"reference": "b", "count": 3})]
         assert backend.lists==["data"]
         assert "compute" not in backend.connections
-        assert card["data"]=={"code": 200, "data": [{"row": i, "batch": 3} for i in range(3)]}
+        assert card["data"]["items"]==[{"code": 200, "data": [{"row": i, "batch": 3} for i in range(3)]}]
         view = await service.get_session("alice", sid)
         assert view["context"]=={"selected_dataset_id": "b"}
         restored = next(i["payload"] for i in view["items"] if i["item_type"]=="RESULT_CARD" and i["payload"]["result_id"]==card["result_id"])

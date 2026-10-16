@@ -65,7 +65,7 @@ def test_plain_text_before_mcp_is_corrected_instead_of_published(engine):
             remote("multiply", x=2, y=3), deliver(), AIMessageChunk(content="Result is 6."))
         service = DatasetQA(engine, dialogue, backend.gateway())
         values = await collect(service, session(service))
-        assert values[-1]["status"]=="COMPLETED" and result_cards(values)[0]["data"]==6
+        assert values[-1]["status"]=="COMPLETED" and result_cards(values)[0]["data"]=={"items": [6]}
         assert backend.calls==[("compute", "multiply", {"x": 2, "y": 3})]
         assert "INTERNAL" not in "".join(v["text"] for v in values if v["type"]=="message")
         await service.close()

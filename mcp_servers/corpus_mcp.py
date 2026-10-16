@@ -235,9 +235,16 @@ async def sample_corpus_dataset(
 async def preview_corpus_dataset(
     cstr: Annotated[str, Field(description="数据集 CSTR 标识")],
 ) -> dict[str, Any]:
-    """根据数据集 CSTR 获取预览结果，并原样返回上游响应。"""
+    """根据数据集真实来源选择预览接口，并原样返回上游响应。"""
     normalized_cstr = cstr.strip()
-    if normalized_cstr in {"SA-CORPUS-B031", "75ae2f15-435b-4426-8958-d8686f1baddd"}:
+    special_preview = normalized_cstr == "SA-CORPUS-B031"
+    if not special_preview:
+        try:
+            dataset = await anyio.to_thread.run_sync(partial(get_dataset_detail_by_cstr, normalized_cstr))
+        except (ValueError, RuntimeError) as exc:
+            raise ToolError("查询数据集来源失败，未执行预览，请稍后重试") from exc
+        special_preview = str(dataset.get("source") or "").strip() == "新闻资讯"
+    if special_preview:
         return _checked_result(await anyio.to_thread.run_sync(
             partial(
                 _request_corpus_route,
@@ -246,7 +253,7 @@ async def preview_corpus_dataset(
                 timeout=DATASET_PREVIEW_TIMEOUT,
             )
         ))
-    return _checked_result(await anyio.to_thread.run_sync(partial(get_dataset_preview, cstr)))
+    return _checked_result(await anyio.to_thread.run_sync(partial(get_dataset_preview, normalized_cstr)))
 
 
 def create_mcp_app():

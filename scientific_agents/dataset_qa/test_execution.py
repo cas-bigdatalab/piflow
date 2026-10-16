@@ -248,7 +248,7 @@ def test_rich_output_is_complete_in_sse_history_results_and_replay(engine):
         sid = session(service)
         values = await collect(service, sid)
         card = result_cards(values)[0]
-        assert card["data"]==output.structured_content and len(card["content"])==4
+        assert card["data"]["items"]==[output.structured_content] and len(card["content"])==4
         assert [b["type"] for b in card["content"]]==["text", "image", "image", "file"]
         assert card["content"][1]["base64"]==binary and card["content"][2]["url"]==url
         assert base64.b64decode(card["content"][1]["base64"])==b"artifact-bytes"*10000

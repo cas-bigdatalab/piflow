@@ -9,6 +9,7 @@ import pytest
 from sqlalchemy import insert, update
 
 from .contracts import Options, QAError
+from .context import public_result
 from .persistence import dumps
 from .results import combine_results
 from .service import DatasetQA
@@ -51,7 +52,7 @@ def test_only_selected_artifacts_are_public_after_final_reply(engine):
         cards = result_cards(values)
         assert len(cards)==1 and cards[0]["title"].endswith("preview")
         assert len(service.store.results("alice", sid, tid))==3
-        assert service.store.display_results("alice", sid, tid)==cards
+        assert [public_result(c) for c in service.store.display_results("alice", sid, tid)]==cards
         history = await service.get_session("alice", sid, limit=3, tail=True)
         shown = [i["payload"] for i in history["items"] if i["item_type"]=="RESULT_CARD"]
         assert shown==cards and not history["has_more"]
@@ -70,7 +71,7 @@ def test_multiple_requested_previews_share_one_result_event(engine):
             remote("preview", reference="b"), deliver()), backend.gateway())
         values = await collect(service, session(service))
         assert sum(v["type"]=="result" for v in values)==1
-        assert [c["data"]["reference"] for c in result_cards(values)]==["a", "b"]
+        assert [c["data"]["items"][0]["reference"] for c in result_cards(values)]==["a", "b"]
     asyncio.run(run())
 
 
@@ -82,10 +83,10 @@ def test_search_batches_merge_real_rows_without_invented_pagination(engine):
         sid = session(service)
         values = await collect(service, sid)
         card, = result_cards(values)
-        assert card["data"]==backend.items and card["title"]=="检索结果"
+        assert card["data"]=={"items": backend.items} and card["title"]=="检索结果"
         assert "pagination" not in card["data"]
         assert len(backend.calls)==2
-        assert service.store.display_results("alice", sid, values[-1]["task_id"])==[card]
+        assert [public_result(c) for c in service.store.display_results("alice", sid, values[-1]["task_id"])]==[card]
     asyncio.run(run())
 
 
@@ -129,7 +130,7 @@ def test_selected_result_survives_cancel_or_final_model_failure(engine, terminal
         assert len(result_cards(values))==1 and sum(v["type"]=="result" for v in values)==1
         assert not any(v["type"] in {"task", "error"} for v in values)
         assert "LATE OUTPUT" not in "".join(v.get("text", "") for v in values)
-        assert service.store.display_results("alice", sid, tid)==result_cards(values)
+        assert [public_result(c) for c in service.store.display_results("alice", sid, tid)]==result_cards(values)
         adapter = DatasetQAAdapter(SimpleNamespace(user="alice",
             extension=SimpleNamespace(session_services={"dataset_qa": service})))
         assert (await adapter.get_results(sid, tid))["items"]==result_cards(values)
@@ -242,11 +243,12 @@ def test_legacy_result_events_are_projected_without_reexecution(engine):
                     payload=dumps({"type": "result", "result_id": card["result_id"]})))
         service.store.finish("alice", sid, task["id"], "COMPLETED", message="旧回答")
         values = await collect(service, sid, rid="legacy")
-        assert sum(v["type"]=="result" for v in values)==1 and result_cards(values)==cards
+        shown = [public_result(c) for c in cards]
+        assert sum(v["type"]=="result" for v in values)==1 and result_cards(values)==shown
         assert values[-1]["status"]=="COMPLETED" and not backend.calls
         assert service.store.display_results("alice", sid, task["id"])==cards
         assert [i["payload"] for i in (await service.get_session("alice", sid))["items"]
-            if i["item_type"]=="RESULT_CARD"]==cards
+            if i["item_type"]=="RESULT_CARD"]==shown
     asyncio.run(run())
 
 

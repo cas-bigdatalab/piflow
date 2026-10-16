@@ -92,7 +92,8 @@ class ToolResult:
 
 def evidence(card, limit):
     """A bounded model view. Binary data stays in the saved display artifact."""
-    result = public_result(card, limit * 2 // 3 if card.get("content") else limit)
+    # Model evidence retains the saved structure so JSON Pointer reads stay valid.
+    result = public_result(card, limit * 2 // 3 if card.get("content") else limit, normalize=False)
     if card.get("content"):
         blocks = []
         for block in card["content"]:
