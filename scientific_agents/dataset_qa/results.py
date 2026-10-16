@@ -125,5 +125,8 @@ def combine_results(cards, path, result_id, title):
             if key not in media:
                 media.add(key)
                 content.append(block)
-    return {"result_id": result_id, "view_type": "tool_result", "title": title or "汇总结果",
+    view = cards[0].get("view_type", "tool_result") if cards else "tool_result"
+    if not isinstance(view, str) or not view or any(card.get("view_type", "tool_result") != view for card in cards):
+        view = "tool_result"
+    return {"result_id": result_id, "view_type": view, "title": title or "汇总结果",
         **ToolResult(rows, content).payload()}

@@ -204,6 +204,22 @@ def test_merge_rejects_unknown_paths_and_preserves_resource_blocks():
         combine_results(cards, "", "bad", "")
 
 
+@pytest.mark.parametrize("views,expected", [
+    (("data", "data"), "data"),
+    (("url", "url"), "url"),
+    (("data", "url"), "tool_result"),
+    (("future_view", "future_view"), "future_view"),
+    ((None, None), "tool_result"),
+    (("data", None), "tool_result"),
+])
+def test_merge_preserves_common_view_type_without_changing_payload(views, expected):
+    content = [{"type": "image", "url": "https://example.invalid/large.png", "mime_type": "image/png"}]
+    cards = [{"result_id": str(i), "title": "Result", "data": {"rows": [1, 2]}, "content": content,
+        **({"view_type": view} if view is not None else {})} for i, view in enumerate(views)]
+    assert combine_results(cards, "/rows", "merged", "Combined")=={
+        "result_id": "merged", "view_type": expected, "title": "Combined", "data": [1, 2], "content": content}
+
+
 def test_worker_expiry_delivers_only_preselected_artifacts_once(engine):
     async def run():
         service = DatasetQA(engine, Dialogue(), Backend().gateway())

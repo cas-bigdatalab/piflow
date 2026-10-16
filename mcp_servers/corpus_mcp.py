@@ -143,6 +143,7 @@ def _dataset_filters(
             "displayName": "数据集检索",
             "category": "数据集发现",
             "icon": "database-search",
+            "view_type": "data",
             "riskLevel": "low",
             "version": "1.0.0",
             "tags": ["corpus", "dataset", "search"],
@@ -202,6 +203,7 @@ async def search_corpus_datasets(
             "displayName": "数据集详情",
             "category": "数据集访问",
             "icon": "database",
+            "view_type": "data",
             "riskLevel": "low",
             "version": "1.0.0",
             "tags": ["corpus", "dataset", "detail"],
@@ -218,7 +220,7 @@ async def get_corpus_dataset_detail(
 
 @mcp.tool(
     annotations={"title": "数据集随机采样", "readOnlyHint": True, "destructiveHint": False, "idempotentHint": False, "openWorldHint": False},
-    meta={"piflow": {"displayName": "数据集随机采样", "category": "数据集采样", "icon": "database-sample", "riskLevel": "low", "version": "1.0.0", "tags": ["corpus", "dataset", "sample"], "usageExample": _SAMPLE_USAGE_EXAMPLE}},
+    meta={"piflow": {"displayName": "数据集随机采样", "category": "数据集采样", "icon": "database-sample", "view_type": "url", "riskLevel": "low", "version": "1.0.0", "tags": ["corpus", "dataset", "sample"], "usageExample": _SAMPLE_USAGE_EXAMPLE}},
 )
 async def sample_corpus_dataset(
     cstr: Annotated[str, Field(description="数据集 CSTR 标识")],
@@ -230,7 +232,7 @@ async def sample_corpus_dataset(
 
 @mcp.tool(
     annotations={"title": "数据集预览", "readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
-    meta={"piflow": {"displayName": "数据集预览", "category": "数据集预览", "icon": "database-preview", "riskLevel": "low", "version": "1.0.0", "tags": ["corpus", "dataset", "preview"], "usageExample": _PREVIEW_USAGE_EXAMPLE}},
+    meta={"piflow": {"displayName": "数据集预览", "category": "数据集预览", "icon": "database-preview", "view_type": "url", "riskLevel": "low", "version": "1.0.0", "tags": ["corpus", "dataset", "preview"], "usageExample": _PREVIEW_USAGE_EXAMPLE}},
 )
 async def preview_corpus_dataset(
     cstr: Annotated[str, Field(description="数据集 CSTR 标识")],

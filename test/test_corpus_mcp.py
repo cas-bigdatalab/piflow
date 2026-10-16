@@ -62,6 +62,12 @@ def test_corpus_mcp_lists_dataset_tools():
         "sample_corpus_dataset",
         "preview_corpus_dataset",
     }
+    assert {tool["name"]: tool["_meta"]["piflow"]["view_type"] for tool in tools} == {
+        "search_corpus_datasets": "data",
+        "get_corpus_dataset_detail": "data",
+        "sample_corpus_dataset": "url",
+        "preview_corpus_dataset": "url",
+    }
 
     search_tool = next(tool for tool in tools if tool["name"] == "search_corpus_datasets")
     assert "keywords" in search_tool["inputSchema"]["properties"]["query"]["description"]
@@ -79,6 +85,7 @@ def test_corpus_mcp_lists_dataset_tools():
         "displayName": "数据集检索",
         "category": "数据集发现",
         "icon": "database-search",
+        "view_type": "data",
         "riskLevel": "low",
         "version": "1.0.0",
         "tags": ["corpus", "dataset", "search"],
