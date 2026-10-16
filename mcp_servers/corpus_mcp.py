@@ -212,7 +212,11 @@ async def search_corpus_datasets(
 async def get_corpus_dataset_detail(
     cstr: Annotated[str, Field(description="数据集 CSTR 标识")],
 ) -> dict[str, Any]:
-    """根据数据集 CSTR 获取详情，并原样返回对应的数据集详情结果。"""
+    """根据数据集 CSTR 获取数据集级说明与元信息，如简介、大小、格式、来源和作者，原样返回上游详情。
+
+    用户希望了解某个数据集，或仅说“看看这个数据集”且上下文未指向其他操作时使用。
+    文件和文件夹列表、目录结构及子目录展开由目录工具提供。
+    """
     return await anyio.to_thread.run_sync(partial(get_dataset_detail_by_cstr, cstr))
 
 
@@ -230,13 +234,18 @@ async def sample_corpus_dataset(
 
 @mcp.tool(
     annotations={"title": "查看数据内容", "readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
-    meta={"piflow": {"displayName": "查看数据内容", "category": "数据内容查看", "icon": "database-directory", "view_type": "data", "riskLevel": "low", "version": "1.0.0", "tags": ["corpus", "dataset", "content"], "usageExample": _DIRECTORY_USAGE_EXAMPLE}},
+    meta={"piflow": {"displayName": "查看数据内容", "category": "数据内容查看", "icon": "database-directory", "view_type": "directory", "riskLevel": "low", "version": "1.0.0", "tags": ["corpus", "dataset", "content"], "usageExample": _DIRECTORY_USAGE_EXAMPLE}},
 )
 async def get_corpus_dataset_directory(
     cstr: Annotated[str, Field(description="数据集 CSTR 标识")],
     file_id: Annotated[str | None, Field(description="要展开的目录节点 fileId；不传时获取目录根层")] = None,
 ) -> dict[str, Any]:
-    """查看数据集内容结构；传入 file_id 时获取该目录节点的下一层。"""
+    """根据数据集 CSTR 浏览文件和文件夹列表、目录结构，原样返回上游响应。
+
+    当前服务中的“预览”或“查看数据内容”指目录浏览，返回内容组织结构，不读取文件正文或采样记录。
+    省略 file_id 获取目录根层；传入已有目录节点的 fileId 获取该节点的下一层。
+    数据集简介、大小、格式、来源等元信息由详情工具提供。
+    """
     return _checked_result(
         await anyio.to_thread.run_sync(partial(get_dataset_directory, cstr, file_id=file_id))
     )
