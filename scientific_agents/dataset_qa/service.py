@@ -378,7 +378,11 @@ class DatasetQA:
             await self._write(user, sid, tid, {"type": "message", "text": notice})
         instructions = (str(messages[0].content)+"\nTool use is over. Write only the final user-facing reply, "
             "without internal planning or another tool call. Use actual evidence, distinguish unfinished work, "
-            "and only refer to display cards listed in final_delivery. Do not claim unperformed work succeeded.")
+            "and only refer to display cards listed in final_delivery. Do not claim unperformed work succeeded. "
+            "When naming an object from returned data, use that object's own non-empty title field verbatim. "
+            "Do not substitute identifiers, source/provider labels, or enclosing card titles for object names. "
+            "If its title is absent or empty, state that the name was not provided and distinguish it using "
+            "a supplied identifier; do not infer or invent a name.")
         delivery, _ = project({"final_delivery": [self._evidence(card) for card in cards],
             "stop_reason": str(reason) if reason else None}, self.gateway.limits.result_chars)
         context = json.loads(messages[1].content)
