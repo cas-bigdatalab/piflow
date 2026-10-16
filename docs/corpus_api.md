@@ -256,7 +256,7 @@ GET /api/piflow/v1/corpus/dataset/preview?cstr={cstr}[&fileId={fileId}]
 
 1. `fileId` 不为空：不查询数据集详情，直接请求上游 `GET /metacat.file.dir.query?cstr=...&fileId=...`，返回一个目录层级。
 2. `fileId` 为空：先按 `cstr` 获取数据集详情。
-   - 当详情的 `source` 等于 `地球系统数值模拟装置` 时，请求上游 `GET /metacat.file.dir.query?cstr=...`，返回目录根层。
+   - 当详情的 `source` 等于 `地球系统数值模拟装置` 或 `Hugging Face` 时，请求上游 `GET /metacat.file.dir.query?cstr=...`，返回目录根层。
    - 其他来源请求上游 `GET /corpus.dataset.preview?cstr=...`，返回普通数据集预览。
 
 响应中的 `result.mode` 用于前端判定内容类型：`directory` 表示目录层级，`preview` 表示普通预览。`result.data` 保留对应上游接口的完整 JSON 响应。
