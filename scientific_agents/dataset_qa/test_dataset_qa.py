@@ -124,7 +124,8 @@ class Dialogue(SemanticDialogue):
                     if result_id and result_id not in result_ids:
                         result_ids.append(result_id)
             self.responses.insert(0, response)
-            response = action("deliver_results", result_ids=result_ids)
+            # Default mock delivery selects one artifact; explicit calls test merging.
+            response = action("deliver_results", result_ids=result_ids[:1])
         yield response
 
     async def summarize(self, summary, messages):
@@ -723,6 +724,7 @@ def test_all_task_results_returned_even_when_more_than_recent_evidence(engine):
         sid = session(service)
         values = await collect(service, sid)
         cards = service.store.results("alice", sid, values[-1]["task_id"])
+        assert values[-1]["status"]=="COMPLETED" and len(result_cards(values))==1
         assert len(cards)==10 and [c["data"] for c in cards]==list(range(0, 20, 2))
     asyncio.run(run())
 

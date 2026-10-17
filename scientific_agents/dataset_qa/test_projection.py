@@ -137,15 +137,15 @@ def test_final_model_receives_titles_within_budget_and_public_results_are_unchan
             delivery = json.loads(messages[-1].content)
             assert len(encode(delivery))<=gateway.limits.result_chars
             assert len(encode([m.model_dump(mode="json", exclude_none=True) for m in messages]))<=gateway.limits.context_chars
-            assert len(delivery["final_delivery"])==batches
+            assert len(delivery["final_delivery"])==1
             for card in delivery["final_delivery"]:
                 assert [row["title"] for row in card["data"]["items"]]==[row["title"] for row in payload["items"]]
                 assert [row["id"] for row in card["data"]["items"]]==[row["id"] for row in payload["items"]]
                 assert card["data"]["pagination"]==payload["pagination"]
             cards = result_cards(values)
-            assert len(cards)==batches and all(card["data"]==payload for card in cards)
+            assert len(cards)==1 and cards[0]["data"]==payload
             saved = service.store.results("alice", sid, values[-1]["task_id"])
-            assert all(card["data"]==payload for card in saved)
+            assert len(saved)==batches and all(card["data"]==payload for card in saved)
             assert await collect(service, sid)==values and len(backend.calls)==batches
         finally:
             await service.close()

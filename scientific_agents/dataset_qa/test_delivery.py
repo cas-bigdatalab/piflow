@@ -5,11 +5,14 @@ import json
 from types import SimpleNamespace
 
 from langchain_core.messages import AIMessageChunk, ToolMessage
+from jsonschema import Draft202012Validator
+from pydantic import ValidationError
 import pytest
 from sqlalchemy import insert, update
 
 from .contracts import Options, QAError
 from .context import public_result
+from .dialogue import BUILTINS, Deliver
 from .persistence import dumps
 from .results import combine_results
 from .service import DatasetQA
@@ -64,14 +67,94 @@ def test_only_selected_artifacts_are_public_after_final_reply(engine):
     asyncio.run(run())
 
 
-def test_multiple_requested_previews_share_one_result_event(engine):
+@pytest.mark.parametrize("arguments,valid", [
+    ({}, True),
+    ({"result_ids": []}, True),
+    ({"result_ids": ["a"]}, True),
+    ({"result_ids": ["a"], "merge_path": None}, True),
+    ({"result_ids": ["a"], "merge_path": ""}, True),
+    ({"result_ids": ["a", "b"], "merge_path": "/items", "title": "Combined"}, True),
+    ({"result_ids": ["a", "b"]}, False),
+    ({"result_ids": ["a", "b"], "merge_path": None}, False),
+    ({"result_ids": [], "merge_path": "/items"}, False),
+    ({"merge_path": ""}, False),
+    ({"result_ids": [""]}, False),
+    ({"result_ids": ["a"], "unknown": True}, False),
+])
+def test_delivery_constraints_reach_the_model_schema_and_runtime(arguments, valid):
+    schema = Dialogue.action_tool(BUILTINS)["function"]["parameters"]
+    Draft202012Validator.check_schema(schema)
+    assert Draft202012Validator(schema).is_valid({"name": "deliver_results", "arguments": arguments}) is valid
+    if valid:
+        Deliver.model_validate(arguments)
+    else:
+        with pytest.raises(ValidationError):
+            Deliver.model_validate(arguments)
+
+
+@pytest.mark.parametrize("selected", [0, 1, 2])
+def test_one_selected_artifact_is_delivered_without_extra_model_or_mcp_calls(engine, selected):
     async def run():
         backend = Backend()
-        service = DatasetQA(engine, Dialogue(load(), remote("preview", reference="a"),
-            remote("preview", reference="b"), deliver()), backend.gateway())
-        values = await collect(service, session(service))
+        backend.items = [{"id": str(i), "title": "Dataset "+str(i)} for i in range(5)]
+        dialogue = Dialogue(load(), remote("search"), remote("inspect", reference="b"),
+            remote("preview", reference="b"), deliver([selected]), AIMessageChunk(content="已取得结果。"))
+        service = DatasetQA(engine, dialogue, backend.gateway())
+        sid = session(service)
+        values = await collect(service, sid)
+        tid = values[-1]["task_id"]
+        assert values[-1]["status"]=="COMPLETED"
+        assert len(dialogue.inputs)==6 and dialogue.inputs[-1][1]==[]
         assert sum(v["type"]=="result" for v in values)==1
-        assert [c["data"]["items"][0]["reference"] for c in result_cards(values)]==["a", "b"]
+        saved = service.store.results("alice", sid, tid)
+        assert len(saved)==3 and len(backend.calls)==3
+        assert result_cards(values)==[public_result(saved[selected])]
+        assert [i["payload"] for i in (await service.get_session("alice", sid))["items"]
+            if i["item_type"]=="RESULT_CARD"]==result_cards(values)
+        adapter = DatasetQAAdapter(SimpleNamespace(user="alice",
+            extension=SimpleNamespace(session_services={"dataset_qa": service})))
+        assert (await adapter.get_results(sid, tid))["items"]==result_cards(values)
+        assert await collect(service, sid)==values and len(backend.calls)==3
+    asyncio.run(run())
+
+
+def test_invalid_multiple_selection_recovers_without_reexecuting_mcp(engine):
+    async def run():
+        backend = Backend()
+        dialogue = Dialogue(load(), remote("search"), remote("preview", reference="b"),
+            deliver(), deliver([0]), AIMessageChunk(content="已取得结果。"))
+        service = DatasetQA(engine, dialogue, backend.gateway())
+        sid = session(service)
+        values = await collect(service, sid)
+        assert values[-1]["status"]=="COMPLETED" and len(backend.calls)==2
+        cards = service.store.results("alice", sid, values[-1]["task_id"])
+        assert len(cards)==2 and result_cards(values)==[public_result(cards[0])]
+        feedback = next(json.loads(m.content) for m in dialogue.inputs[4][0]
+            if isinstance(m, ToolMessage) and m.name=="deliver_results")
+        assert feedback["error"]=="invalid_parameters" and feedback["executed"] is False
+    asyncio.run(run())
+
+
+def test_invalid_selection_does_not_change_saved_results_or_publish_partial_delivery(engine):
+    async def run():
+        service = DatasetQA(engine, Dialogue(), Backend().gateway())
+        sid = session(service)
+        payload = {"message": "获取结果", "params": {}, "parent_task_id": None}
+        task, _ = service.store.submit("alice", sid, "turn", payload, None, service.owner)
+        cards = [{"result_id": task["id"]+":"+str(i), "view_type": "data", "title": "结果",
+            "data": {"items": [{"id": str(row)} for row in range(5)]}} for i in range(2)]
+        for card in cards:
+            service.store.write("alice", sid, task["id"], card=card)
+        ids = [card["result_id"] for card in cards]
+        with pytest.raises(ValidationError):
+            await service._deliver("alice", sid, task["id"], {"result_ids": ids}, payload)
+        assert "delivery" not in payload
+        assert json.loads(service.store.task("alice", sid, task["id"])["payload"])==payload
+        assert service.store.results("alice", sid, task["id"])==cards
+        assert not service.store.display_results("alice", sid, task["id"])
+        await service._deliver("alice", sid, task["id"], {"result_ids": [ids[0]]}, payload)
+        service.store.finish("alice", sid, task["id"], "COMPLETED")
+        assert result_cards(service.store.replay("alice", sid, task["id"], 0))==[public_result(cards[0])]
     asyncio.run(run())
 
 
@@ -87,6 +170,27 @@ def test_search_batches_merge_real_rows_without_invented_pagination(engine):
         assert "pagination" not in card["data"]
         assert len(backend.calls)==2
         assert [public_result(c) for c in service.store.display_results("alice", sid, values[-1]["task_id"])]==[card]
+    asyncio.run(run())
+
+
+def test_root_array_batches_keep_one_artifact_and_preserve_resources(engine):
+    async def run():
+        service = DatasetQA(engine, Dialogue(), Backend().gateway())
+        sid = session(service)
+        payload = {"message": "获取结果", "params": {}, "parent_task_id": None}
+        task, _ = service.store.submit("alice", sid, "turn", payload, None, service.owner)
+        content = [{"type": "image", "url": "https://example.invalid/a.png?signature=complete", "mime_type": "image/png"}]
+        cards = [{"result_id": task["id"]+":"+str(i), "view_type": "future_view", "title": "Batch",
+            "data": [{"id": str(i)}, {"id": "shared"}], "content": content} for i in range(2)]
+        for card in cards:
+            service.store.write("alice", sid, task["id"], card=card)
+        await service._deliver("alice", sid, task["id"], {"result_ids": [c["result_id"] for c in cards],
+            "merge_path": "", "title": "Combined"}, payload)
+        service.store.finish("alice", sid, task["id"], "COMPLETED")
+        result, = result_cards(service.store.replay("alice", sid, task["id"], 0))
+        assert public_result(result)=={"result_id": task["id"]+":delivery", "view_type": "future_view",
+            "title": "Combined", "data": {"items": [{"id": "0"}, {"id": "shared"}, {"id": "1"}]}, "content": content}
+        assert service.store.results("alice", sid, task["id"])[:2]==cards
     asyncio.run(run())
 
 
@@ -161,14 +265,14 @@ def test_delivery_budget_can_be_corrected_without_publishing_partial_selection(e
         payload = {"message": "获取结果", "params": {}, "parent_task_id": None}
         task, _ = service.store.submit("alice", sid, "turn", payload, None, service.owner)
         ids = [task["id"]+":"+str(i) for i in range(2)]
-        for result_id in ids:
+        for result_id, size in zip(ids, [500, 180]):
             service.store.write("alice", sid, task["id"], card={"result_id": result_id,
-                "title": "结果", "view_type": "tool_result", "data": "x"*180})
+                "title": "结果", "view_type": "tool_result", "data": "x"*size})
         with pytest.raises(QAError, match="超过运行预算"):
-            await service._deliver("alice", sid, task["id"], {"result_ids": ids}, payload)
+            await service._deliver("alice", sid, task["id"], {"result_ids": ids[:1]}, payload)
         assert "delivery" not in json.loads(service.store.task("alice", sid, task["id"])["payload"])
         assert not service.store.display_results("alice", sid, task["id"])
-        await service._deliver("alice", sid, task["id"], {"result_ids": ids[:1]}, payload)
+        await service._deliver("alice", sid, task["id"], {"result_ids": ids[1:]}, payload)
         service.store.finish("alice", sid, task["id"], "COMPLETED")
         assert len(service.store.display_results("alice", sid, task["id"]))==1
         assert not service.store.finish("alice", sid, task["id"], "COMPLETED")

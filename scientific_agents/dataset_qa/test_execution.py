@@ -55,8 +55,9 @@ def test_cache_is_canonical_per_turn_and_never_hides_fresh_sampling(engine):
         values = await collect(service, sid)
         assert values[-1]["status"]=="COMPLETED"
         assert [c[1] for c in backend.calls]==["search", "sample", "sample"]
-        cards = result_cards(values)
+        cards = service.store.results("alice", sid, values[-1]["task_id"])
         assert len(cards)==3 and cards[1]["data"]!=cards[2]["data"]
+        assert result_cards(values)==[public_result(cards[0])]
         dialogue.responses = [load(), remote("search", query="气象", count=2)]
         await collect(service, sid, rid="fresh-turn")
         assert len(backend.calls)==4
@@ -71,10 +72,12 @@ def test_pagination_and_changed_parameters_are_not_duplicates(engine):
         dialogue = Dialogue(load(), *[remote("search", offset=i) for i in range(4)],
             remote("search", query="另一领域"))
         service = DatasetQA(engine, dialogue, backend.gateway())
-        values = await collect(service, session(service))
+        sid = session(service)
+        values = await collect(service, sid)
         assert values[-1]["status"]=="COMPLETED"
         assert len(backend.calls)==5 and sum(v["type"]=="result" for v in values)==1
-        assert len(result_cards(values))==5
+        assert len(service.store.results("alice", sid, values[-1]["task_id"]))==5
+        assert len(result_cards(values))==1
     asyncio.run(run())
 
 
