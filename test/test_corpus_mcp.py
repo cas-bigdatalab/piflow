@@ -66,7 +66,7 @@ def test_corpus_mcp_lists_dataset_tools():
         "search_corpus_datasets": "data",
         "get_corpus_dataset_detail": "data",
         "sample_corpus_dataset": "url",
-        "get_corpus_dataset_directory": "data",
+        "get_corpus_dataset_directory": "directory",
     }
 
     search_tool = next(tool for tool in tools if tool["name"] == "search_corpus_datasets")
