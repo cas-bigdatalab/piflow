@@ -10,6 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_vali
 from .context import encode, project
 from .contracts import Limits, QAError
 from .references import ReferenceUpdate
+from .operations import Operation
 
 
 class Input(BaseModel):
@@ -37,6 +38,11 @@ class Read(Input):
 class Remember(Input):
     values: dict = Field(default_factory=dict)
     references: ReferenceUpdate | None = None
+    operations: list[Operation] | None = Field(default=None, min_length=1, max_length=16,
+        description="Complete necessary operations for this request, declared before execution. Keep existing goals; auxiliary lookups are not goals.")
+    calls: list[str | None] | None = Field(default=None, max_length=24,
+        description="Operation IDs for MCP calls in this SAME assistant response, in MCP-call order. Null means auxiliary. Emit remember and native MCP calls together; do not wrap or modify MCP arguments.")
+    resume: bool | None = Field(default=None, description="When an earlier clarification is pending: true continues its goal and evidence; false starts an independent request.")
 
 
 class Ask(Input):
@@ -69,8 +75,8 @@ class Deliver(Input):
 INPUTS = {
     "list_mcp_servers": (Browse, "Browse configured MCP services. Use an empty query or pagination to inspect more services."),
     "load_mcp_tools": (Load, "Discover tools on one MCP service and load their schemas for the next response. Use query or pagination to narrow the list."),
-    "read_result": (Read, "Read saved data using JSON Pointer and pagination without executing the tool again. Omit result_id to browse saved results and confirmed selections; use selected_next_offset to page selections."),
-    "remember": (Remember, "Save explicit choices or constraints. Ground object references in saved result_id and JSON Pointer; do not copy result bodies into memory. References may be recorded alongside the requested MCP call."),
+    "read_result": (Read, "Read saved data using JSON Pointer and pagination without executing again. Omit result_id to page saved result references, confirmed selections and current operations; use selected_next_offset to page selections."),
+    "remember": (Remember, "Save choices, source references or private task operations. Before MCP execution declare all necessary operations and associate this response's MCP calls using calls; emit this bookkeeping alongside native calls, without an extra response. Use null for auxiliary lookups. Do not copy result bodies into memory."),
     "request_input": (Ask, "Request indispensable missing input, identified in missing. Empty or negative tool outcomes and optional follow-ups belong in the final reply via deliver_results. Options may be labels or objects with label and value."),
     "deliver_results": (Deliver, "Finish tool use with one artifact that directly answers the current request; omit intermediate lookups and unrelated results. Select one saved result_id, or use an empty list for a text-only answer. Multiple result_ids require merge_path pointing to batches of the same requested list, combined into one card with an optional title; only actual saved rows are merged and exact duplicates removed. Do not merge unrelated artifacts."),
 }
@@ -93,7 +99,10 @@ SYSTEM = (
     "If selected_total exceeds the visible selections, browse read_result without result_id for the remaining confirmed references. "
     "When delivering an object list, references.candidates may identify its path and semantic kind; only published lists establish display order. "
     "Use original identifier fields for MCP arguments. Read omitted evidence when needed; summaries cannot establish or override object references. "
-    "Execute requested operations through MCP tools in the current turn; discovery, memory and saved results do not execute an operation. "
+    "Before execution declare all necessary goals in remember.operations. Co-emit remember.calls with each response's native MCP calls in MCP order; null marks auxiliary work, which cannot complete a goal. "
+    "Ground targets in source references; later focus changes do not retarget operations. Distinct targets or requested repeats need distinct IDs; corrections keep the same ID. "
+    "For pending clarification, explicitly set remember.resume: continue its goal/evidence or start an independent request. "
+    "Only runtime MCP receipts prove execution; discovery, memory and saved data alone do not. Reuse receipts for correction/continuation, and execute new requests through MCP. Never drop outstanding goals to pass delivery. "
     " During tool use, keep planning internal. When ready, call deliver_results to select final display artifacts, "
     "or request_input if clarification is necessary. A separate tool-free response will answer the user."
 )
@@ -158,7 +167,7 @@ class Dialogue:
         remaining = self.limits.context_chars-len(encode(tools))
         current = next((i for i, message in enumerate(messages) if message.id=="qa-current-request"), 2)
         context = json.loads(messages[1].content)
-        protected = {key: context[key] for key in ("references", "request_source", "pending", "reference_issue") if context.get(key)}
+        protected = {key: context[key] for key in ("references", "request_source", "pending", "reference_issue", "operations") if context.get(key)}
         required = len(str(messages[0].content))+len(str(messages[current].content))+len(encode(protected))+300
         if required>remaining:
             raise QAError("context_too_large", "输入和工具定义超过上下文预算，请缩小请求")

@@ -9,7 +9,7 @@ import pytest
 
 from .contracts import Limits, QAError
 from .service import DatasetQA
-from .test_dataset_qa import Backend, Dialogue, action, collect, engine, load, remote, result_cards, session
+from .test_dataset_qa import Backend, Dialogue, action, collect, engine, load, remote, result_cards, session, with_operations
 from .test_delivery import deliver
 from .test_runtime import RawDialogue
 
@@ -299,7 +299,9 @@ def test_final_timeout_degrades_only_when_a_display_result_is_confirmed(engine):
                         await asyncio.Event().wait()
 
             final_delivery = deliver() if selected else action("deliver_results", result_ids=[])
-            dialogue = Waiting(load(), remote("search"), final_delivery)
+            def search(messages, definitions):
+                return with_operations(remote("search")(messages, definitions), messages, definitions, output="result" if selected else "answer")
+            dialogue = Waiting(load(), search, final_delivery)
             service = DatasetQA(engine, dialogue, backend.gateway(limits=replace(Limits(), model_timeout=0.03)))
             sid = session(service, request=str(selected))
             values = await asyncio.wait_for(collect(service, sid), 2)

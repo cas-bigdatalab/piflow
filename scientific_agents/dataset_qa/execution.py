@@ -4,6 +4,7 @@ import json
 
 from .context import project
 from .contracts import QAError
+from .operations import Operations
 
 
 def fingerprint(value):
@@ -18,10 +19,11 @@ class Execution:
         self.failures = {}
         self.corrections = 0
         self.recovering = False
+        self.operations = Operations()
 
     @property
     def can_deliver(self):
-        return bool(self.cards) and not self.failures
+        return bool(self.cards) or bool(self.failures)
 
     def correct(self, error, limit):
         self.recovering = True
@@ -63,9 +65,7 @@ class Execution:
         return next((card for (call, _), card in reversed(self.cards.items()) if call==key), None)
 
     def require_result(self):
-        if self.failures:
-            raise next(iter(self.failures.values()))
-        if not self.cards:
+        if not self.cards and not self.failures:
             raise QAError("mcp_required", "本轮尚未通过MCP执行任务，不能直接交付结果")
 
     @staticmethod

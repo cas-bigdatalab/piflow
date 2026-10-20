@@ -16,7 +16,7 @@ from .dialogue import BUILTINS, Deliver
 from .persistence import dumps
 from .results import combine_results
 from .service import DatasetQA
-from .test_dataset_qa import Backend, Dialogue, action, collect, engine, load, remote, result_cards, session
+from .test_dataset_qa import Backend, Dialogue, action, collect, engine, load, remote, result_cards, session, with_operations
 from ..unified.adapters.dataset_qa import DatasetQAAdapter
 
 
@@ -292,7 +292,9 @@ def test_clarification_and_text_only_responses_do_not_publish_tool_evidence(engi
         assert "missing" not in values[-2]
         assert "missing" not in (await service.get_session("alice", sid))["interaction"]
         assert not any(i["item_type"]=="RESULT_CARD" for i in (await service.get_session("alice", sid))["items"])
-        service.dialogue.responses = [remote("search"), action("deliver_results"), AIMessageChunk(content="这是一段文字解释。")]
+        def text_search(messages, definitions):
+            return with_operations(remote("search")(messages, definitions), messages, definitions, output="answer", resume=False)
+        service.dialogue.responses = [text_search, action("deliver_results"), AIMessageChunk(content="这是一段文字解释。")]
         following = await collect(service, sid, "解释一下", "text")
         assert following[-1]["status"]=="COMPLETED" and not result_cards(following)
     asyncio.run(run())
@@ -383,7 +385,7 @@ def test_final_tool_call_degrades_without_restarting_mcp_execution(engine):
                 if len(self.inputs)==1:
                     yield load()
                 elif len(self.inputs)==2:
-                    yield remote("search")(messages, definitions)
+                    yield with_operations(remote("search")(messages, definitions), messages, definitions)
                 elif len(self.inputs)==3:
                     yield AIMessageChunk(content="INTERNAL planning ends without selecting results")
                 else:

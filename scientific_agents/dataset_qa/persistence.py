@@ -220,6 +220,32 @@ class Store:
                 context["references"] = {key: value for key, value in context["references"].items() if value is not None}
             if status != "WAITING_INPUT" and context.get("pending", {}).get("task_id") == tid:
                 context.pop("pending", None)
+            # A clarification answer is not completion. Resolve waiting ancestors
+            # only when an explicitly continued child actually reaches a terminal state.
+            parent_id = payload.get("parent_task_id") if payload.get("resume") and status!="WAITING_INPUT" else None
+            visited = {tid}
+            resolved = {item["id"]: item for item in payload.get("operations", [])}
+            while parent_id and parent_id not in visited:
+                visited.add(parent_id)
+                parent = conn.execute(select(self.tasks).where(self.tasks.c.id==parent_id,
+                    self.tasks.c.session_id==sid)).mappings().first()
+                if parent is None or parent["status"]!="WAITING_INPUT":
+                    break
+                previous = json.loads(parent["payload"])
+                previous["resolved_by"] = tid
+                if previous.get("operations"):
+                    previous["operations"] = [resolved.get(item["id"], item) for item in previous["operations"]]
+                if error:
+                    previous["error"] = error
+                conn.execute(update(self.tasks).where(self.tasks.c.id==parent_id).values(
+                    status=status, payload=dumps(previous), updated_at=now()))
+                parent_done = {"type": "done", "status": status, "version": session["version"]+1}
+                if error:
+                    parent_done.update(code=error.get("error_code", error.get("code")), message=error["message"])
+                self._event(conn, parent_id, parent_done)
+                if context.get("pending", {}).get("task_id")==parent_id:
+                    context.pop("pending", None)
+                parent_id = previous.get("parent_task_id") if previous.get("resume") else None
             conn.execute(update(self.sessions).where(self.sessions.c.id == sid).values(
                 active_task_id=None if session["active_task_id"] == tid else session["active_task_id"],
                 context=dumps(context), version=session["version"]+1, updated_at=now()))

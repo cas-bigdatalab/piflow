@@ -100,6 +100,28 @@ def load(server="data", **kwargs):
     return action("load_mcp_tools", server=server, **kwargs)
 
 
+def with_operations(response, messages, definitions, *, output="result", resume=None):
+    """Scripted models co-emit the new private bookkeeping with native calls."""
+    names = {value["function"]["name"] for value in definitions if value["function"]["name"].startswith("mcp_")}
+    native = [call for call in response.tool_calls if call["name"] in names]
+    if not native or response.invalid_tool_calls or any(call["name"]=="remember" and any(
+            key in call["args"] for key in ("operations", "calls", "resume")) for call in response.tool_calls):
+        return response
+    context = json.loads(messages[1].content)
+    previous = context.get("operations", {}).get("items", []) or (context.get("pending") or {}).get("operations", {}).get("items", [])
+    if resume is False:
+        previous = []
+    operation_id = previous[0]["id"] if previous else "task"
+    arguments = {"calls": [operation_id]*len(native)}
+    if not context.get("operations", {}).get("items"):
+        arguments["operations"] = [{key: item[key] for key in ("id", "description", "target", "output")} for item in previous] if previous else [
+            {"id": operation_id, "description": "完成当前请求", "output": output}]
+    if context.get("pending"):
+        arguments["resume"] = True if resume is None else resume
+    registration = {"name": "remember", "args": arguments, "id": "operation-bookkeeping"}
+    return response.model_copy(update={"tool_calls": [registration, *response.tool_calls]})
+
+
 class Dialogue(SemanticDialogue):
     def __init__(self, *responses):
         super().__init__(model=object())
@@ -126,7 +148,7 @@ class Dialogue(SemanticDialogue):
             self.responses.insert(0, response)
             # Default mock delivery selects one artifact; explicit calls test merging.
             response = action("deliver_results", result_ids=result_ids[:1])
-        yield response
+        yield with_operations(response, messages, definitions)
 
     async def summarize(self, summary, messages):
         self.summaries.append(messages)
@@ -319,6 +341,7 @@ def test_clarification_resume_and_cancel_keep_one_active_interaction(engine):
         view = await service.get_session("alice", sid)
         assert view["interaction"]["question"]=="请选择对象"
         assert not any(i["item_type"]=="INTERACTION" for i in view["items"])
+        dialogue.responses = [load(), remote("inspect", reference="a")]
         await collect(service, sid, "甲", "reply")
         assert dialogue.contexts[-1]["pending"]["task_id"]==tid
         assert service.store.task("alice", sid, tid)["status"]=="COMPLETED"
@@ -338,6 +361,9 @@ def test_replay_versions_and_cursors_never_repeat_upstream(engine):
         service = DatasetQA(engine, Dialogue(load(), remote("sample", reference="a", count=2)), backend.gateway())
         sid = session(service)
         first = await collect(service, sid, rid="sample", expected_version=0)
+        # Simulate a restart after background reads release SQLite's single test connection.
+        await asyncio.gather(*list(service.summaries.values()))
+        await service.close()
         recovered = DatasetQA(engine, Dialogue(), backend.gateway())
         assert first==await collect(recovered, sid, rid="sample", expected_version=0)
         assert len(backend.calls)==1
@@ -348,6 +374,7 @@ def test_replay_versions_and_cursors_never_repeat_upstream(engine):
             with pytest.raises(QAError):
                 await collect(recovered, sid, message, rid, **opts)
         assert len(backend.calls)==1
+        await recovered.close()
     asyncio.run(run())
 
 
@@ -380,7 +407,8 @@ def test_unknown_execution_not_retried_and_partial_results_retained(engine):
         service = DatasetQA(engine, Dialogue(load(), remote("search"), remote("sample", reference="a", count=1)), backend.gateway())
         sid = session(service)
         values = await collect(service, sid)
-        assert sum(v["type"]=="result" for v in values)==1
+        assert not result_cards(values)  # Search evidence does not fulfill failed sampling.
+        assert len(service.store.results("alice", sid))==1
         assert values[-1]["code"]=="execution_unknown"
         assert all(v["type"] in {"stage", "message", "result", "done"} for v in values)
         assert values[-1]["status"]=="FAILED" and len(backend.calls)==2
@@ -427,7 +455,7 @@ def test_model_failure_after_tool_preserves_card_without_claiming_completion(eng
         sid = session(service)
         values = await collect(service, sid)
         assert values[-1]["status"]=="FAILED"
-        assert not result_cards(values)  # Unselected intermediate artifacts stay internal.
+        assert len(result_cards(values))==1  # Unique goal-bound evidence survives model failure.
         assert values[-1]["code"]=="service_unavailable"
         assert len(service.store.results("alice", sid))==1
     asyncio.run(run())

@@ -12,7 +12,7 @@ from .dialogue import Dialogue as NativeDialogue
 from .mcp import MCPGateway
 from .persistence import dumps
 from .service import DatasetQA
-from .test_dataset_qa import Backend, Dialogue, action, collect, engine, load, remote, result_cards, session
+from .test_dataset_qa import Backend, Dialogue, action, collect, engine, load, remote, result_cards, session, with_operations
 from .test_delivery import deliver
 
 
@@ -20,7 +20,8 @@ class RawDialogue(Dialogue):
     async def respond(self, messages, definitions):
         self.inputs.append((messages, definitions))
         response = self.responses.pop(0)
-        yield response(messages, definitions) if callable(response) else response
+        response = response(messages, definitions) if callable(response) else response
+        yield with_operations(response, messages, definitions)
 
 
 @pytest.mark.parametrize("responses", [
@@ -132,9 +133,11 @@ def test_partial_mcp_failure_cannot_be_delivered_as_success(engine):
         gateway.client_factory = factory
         service = DatasetQA(engine, Dialogue(load(), remote("search"), load("compute"),
             remote("multiply", x=2, y=3), deliver()), gateway)
-        values = await collect(service, session(service))
+        sid = session(service)
+        values = await collect(service, sid)
         assert values[-1]["status"]=="FAILED" and values[-1]["code"]=="tool_failed"
-        assert len(backend.calls)==2 and len(result_cards(values))==1
+        assert len(backend.calls)==2 and not result_cards(values)
+        assert len(service.store.results("alice", sid))==1
         await service.close()
     asyncio.run(run())
 
@@ -301,6 +304,10 @@ def test_real_sdk_and_mcp_complete_search_with_bounded_correction(engine, monkey
             deltas = [{"role": "assistant", "tool_calls": [{"index": 0, "id": base["id"],
                 "type": "function", "function": {"name": action_args["name"],
                     "arguments": '{"server":' if malformed and len(requests)==1 else json.dumps(action_args["arguments"])}}]}]
+            if action_args["name"].startswith("mcp_"):
+                deltas[0]["tool_calls"][0]["index"] = 1
+                deltas[0]["tool_calls"].insert(0, {"index": 0, "id": base["id"]+"-operations", "type": "function", "function": {
+                    "name": "remember", "arguments": json.dumps({"operations": [{"id": "search", "description": "Find chemistry datasets"}], "calls": ["search"]})}})
         else:
             deltas = [{"role": "assistant", "content": "No matching records."}] if empty else [
                 {"role": "assistant", "content": "Retrieved "}, {"content": "five records."}]
