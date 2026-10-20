@@ -29,6 +29,8 @@ class Limits:
     timeout: float = 660
     connect_timeout: float = 10
     model_timeout: float = 60
+    turn_timeout: float = 480
+    wait_notice: float = 30
     summary_timeout: float = 30
     cache_seconds: float = 300
     heartbeat_seconds: float = 15

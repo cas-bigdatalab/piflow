@@ -100,6 +100,7 @@ SYSTEM = (
     "When delivering an object list, references.candidates may identify its path and semantic kind; only published lists establish display order. "
     "Use original identifier fields for MCP arguments. Read omitted evidence when needed; summaries cannot establish or override object references. "
     "Before execution declare all necessary goals in remember.operations. Co-emit remember.calls with each response's native MCP calls in MCP order; null marks auxiliary work, which cannot complete a goal. "
+    "Set an operation's direct flag only when a successful call itself supplies the final artifact, with no further inspection, pagination, interpretation or selection needed. Ground the current target and references first. "
     "Ground targets in source references; later focus changes do not retarget operations. Distinct targets or requested repeats need distinct IDs; corrections keep the same ID. "
     "For pending clarification, explicitly set remember.resume: continue its goal/evidence or start an independent request. "
     "Only runtime MCP receipts prove execution; discovery, memory and saved data alone do not. Reuse receipts for correction/continuation, and execute new requests through MCP. Never drop outstanding goals to pass delivery. "

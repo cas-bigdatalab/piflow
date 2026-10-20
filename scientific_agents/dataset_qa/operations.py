@@ -15,6 +15,7 @@ class Operation(BaseModel):
     description: str = Field(min_length=1, max_length=240, description="One necessary user-requested operation, not an auxiliary lookup.")
     target: Reference | None = None
     output: Literal["result", "answer"] = Field(default="result", description="Whether this operation requires a displayed artifact or a factual text answer.")
+    direct: bool = Field(default=False, description="True only when successful execution itself yields the final requested artifact; no further inspection, pagination, interpretation or selection is needed.")
 
 
 class Operations:
@@ -38,7 +39,7 @@ class Operations:
                     (item.get("target") is not None or any(attempt["state"]!="rejected" for attempt in item["attempts"])) and value["target"]!=item.get("target")):
                 raise QAError("invalid_parameters", "已登记操作及目标不能替换；新的必要操作请使用新的标识")
         self.items = [{**value, "state": "pending", "attempts": [], **existing.get(key, {}),
-            "target": value["target"]} for key, value in proposed.items()]
+            "target": value["target"], "direct": value["direct"]} for key, value in proposed.items()]
 
     def get(self, operation_id):
         return next((item for item in self.items if item["id"]==operation_id), None)
@@ -123,6 +124,8 @@ class Operations:
         rows = []
         for item in self.items[offset:offset+limit]:
             row = {key: item[key] for key in ("id", "description", "target", "output", "state")}
+            if item.get("direct"):
+                row["direct"] = True
             ids = self.result_ids(item)
             row["result_ids"] = ids[:2]
             if len(ids)>2:

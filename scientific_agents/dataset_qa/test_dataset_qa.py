@@ -114,7 +114,7 @@ def with_operations(response, messages, definitions, *, output="result", resume=
     operation_id = previous[0]["id"] if previous else "task"
     arguments = {"calls": [operation_id]*len(native)}
     if not context.get("operations", {}).get("items"):
-        arguments["operations"] = [{key: item[key] for key in ("id", "description", "target", "output")} for item in previous] if previous else [
+        arguments["operations"] = [{key: item[key] for key in ("id", "description", "target", "output", "direct") if key in item} for item in previous] if previous else [
             {"id": operation_id, "description": "完成当前请求", "output": output}]
     if context.get("pending"):
         arguments["resume"] = True if resume is None else resume

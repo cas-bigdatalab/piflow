@@ -18,8 +18,8 @@ from ..unified.adapters.dataset_qa import DatasetQAAdapter
 
 @pytest.mark.parametrize("hints,expected_calls", [
     ({"readOnlyHint": True, "idempotentHint": True}, 1),
-    ({"readOnlyHint": True}, 3),
-    ({}, 3),
+    ({"readOnlyHint": True}, 1),
+    ({}, 1),
 ])
 def test_repeated_calls_converge_and_keep_one_card(engine, hints, expected_calls):
     async def run():
@@ -43,13 +43,16 @@ def test_repeated_calls_converge_and_keep_one_card(engine, hints, expected_calls
 
 
 def test_cache_is_canonical_per_turn_and_never_hides_fresh_sampling(engine):
+    from .test_operations import batch, goal
     async def run():
         backend = Backend()
         backend.catalog["data"][0].annotations = {"readOnlyHint": True, "idempotentHint": True}
         backend.catalog["data"][3].annotations = {"readOnlyHint": True, "idempotentHint": False}
-        dialogue = Dialogue(load(), remote("search", query="气象", count=2),
-            remote("search", count=2, query="气象"),
-            remote("sample", reference="a", count=1), remote("sample", count=1, reference="a"))
+        dialogue = Dialogue(load(), batch(["search"], remote("search", query="气象", count=2),
+            operations=[goal("search"), goal("sample", output="answer"), goal("again", output="answer")]),
+            batch(["search"], remote("search", count=2, query="气象")),
+            batch(["sample"], remote("sample", reference="a", count=1)),
+            batch(["again"], remote("sample", count=1, reference="a")))
         service = DatasetQA(engine, dialogue, backend.gateway())
         sid = session(service)
         values = await collect(service, sid)
@@ -117,7 +120,7 @@ def test_repeated_discovery_is_bounded_and_final_failure_keeps_original_reason(e
     asyncio.run(run())
 
 
-def test_parallel_duplicates_stop_before_dispatching_rest(engine):
+def test_parallel_duplicates_reuse_receipts_and_keep_all_call_pairs(engine):
     async def run():
         backend = Backend()
 
@@ -129,11 +132,11 @@ def test_parallel_duplicates_stop_before_dispatching_rest(engine):
         dialogue = Dialogue(load("compute"), batch)
         service = DatasetQA(engine, dialogue, backend.gateway())
         values = await collect(service, session(service))
-        assert len(backend.calls)==3 and sum(v["type"]=="result" for v in values)==1
-        assert values[-1]["code"]=="no_progress"
-        paired = [m for m in dialogue.inputs[-1][0] if isinstance(m, ToolMessage) and m.name!="deliver_results"][-8:]
+        assert len(backend.calls)==1 and sum(v["type"]=="result" for v in values)==1
+        assert values[-1]["status"]=="COMPLETED"
+        paired = [m for m in dialogue.inputs[-2][0] if isinstance(m, ToolMessage) and m.name!="deliver_results"][-8:]
         assert [m.tool_call_id for m in paired]==[str(i) for i in range(8)]
-        assert all(json.loads(m.content)["executed"] is False for m in paired[3:])
+        assert all(json.loads(m.content)["executed"] is False for m in paired[1:])
     asyncio.run(run())
 
 

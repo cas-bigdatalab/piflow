@@ -307,7 +307,7 @@ def test_real_sdk_and_mcp_complete_search_with_bounded_correction(engine, monkey
             if action_args["name"].startswith("mcp_"):
                 deltas[0]["tool_calls"][0]["index"] = 1
                 deltas[0]["tool_calls"].insert(0, {"index": 0, "id": base["id"]+"-operations", "type": "function", "function": {
-                    "name": "remember", "arguments": json.dumps({"operations": [{"id": "search", "description": "Find chemistry datasets"}], "calls": ["search"]})}})
+                    "name": "remember", "arguments": json.dumps({"operations": [{"id": "search", "description": "Find chemistry datasets", "direct": True}], "calls": ["search"]})}})
         else:
             deltas = [{"role": "assistant", "content": "No matching records."}] if empty else [
                 {"role": "assistant", "content": "Retrieved "}, {"content": "five records."}]
@@ -331,7 +331,7 @@ def test_real_sdk_and_mcp_complete_search_with_bounded_correction(engine, monkey
                 "No matching records." if empty else "Retrieved five records.")
             assert not any(v["type"]=="interaction" for v in values)
             assert upstream==[{"page_num": 1, "page_size": 5, "filters": {"keywords": "Chemistry"}}]
-            assert len(requests)==3+int(premature)+int(empty)+int(malformed) and "tools" not in requests[-1] and "tool_choice" not in requests[-1]
+            assert len(requests)==2+int(premature)+int(malformed) and "tools" not in requests[-1] and "tool_choice" not in requests[-1]
             assert all(body["enable_thinking"] is False for body in requests)
             await service.close()
     asyncio.run(run())
