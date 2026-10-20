@@ -98,7 +98,7 @@ def test_media_only_result_has_empty_items_and_preserves_resource(engine):
 
 @pytest.mark.parametrize("operation,helper,arguments,payload,view,title", [
     ("search_corpus_datasets", "list_dataset_details", {"query": "science"},
-        {"items": [{"cstr": "a"}], "pagination": {"total": 7}}, "data", "数据集检索"),
+        {"items": [{"cstr": "a"}], "pagination": {"total": 7}}, "detail", "数据集检索"),
     ("get_corpus_dataset_detail", "get_dataset_detail_by_cstr", {"cstr": "a"},
         {"cstr": "a", "title": "Dataset"}, "data", "数据集详情"),
     ("get_corpus_dataset_directory", "get_dataset_directory", {"cstr": "a", "file_id": "folder-1"},

@@ -4,11 +4,12 @@ import json
 import os
 from typing import Annotated
 
-from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage, trim_messages
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
 from .context import encode, project
 from .contracts import Limits, QAError
+from .references import ReferenceUpdate
 
 
 class Input(BaseModel):
@@ -34,7 +35,8 @@ class Read(Input):
 
 
 class Remember(Input):
-    values: dict
+    values: dict = Field(default_factory=dict)
+    references: ReferenceUpdate | None = None
 
 
 class Ask(Input):
@@ -53,6 +55,7 @@ class Deliver(Input):
     result_ids: list[Annotated[str, Field(min_length=1, max_length=180)]] = Field(default_factory=list, max_length=24)
     merge_path: str | None = Field(default=None, max_length=2000)
     title: str = Field(default="", max_length=255)
+    references: ReferenceUpdate | None = None
 
     @model_validator(mode="after")
     def single_output(self):
@@ -66,8 +69,8 @@ class Deliver(Input):
 INPUTS = {
     "list_mcp_servers": (Browse, "Browse configured MCP services. Use an empty query or pagination to inspect more services."),
     "load_mcp_tools": (Load, "Discover tools on one MCP service and load their schemas for the next response. Use query or pagination to narrow the list."),
-    "read_result": (Read, "Read a saved result using JSON Pointer and pagination without executing the original tool again. Omit result_id to browse saved result references from earliest to latest."),
-    "remember": (Remember, "Save explicit user choices, references or constraints as small structured conversation memory."),
+    "read_result": (Read, "Read saved data using JSON Pointer and pagination without executing the tool again. Omit result_id to browse saved results and confirmed selections; use selected_next_offset to page selections."),
+    "remember": (Remember, "Save explicit choices or constraints. Ground object references in saved result_id and JSON Pointer; do not copy result bodies into memory. References may be recorded alongside the requested MCP call."),
     "request_input": (Ask, "Request indispensable missing input, identified in missing. Empty or negative tool outcomes and optional follow-ups belong in the final reply via deliver_results. Options may be labels or objects with label and value."),
     "deliver_results": (Deliver, "Finish tool use with one artifact that directly answers the current request; omit intermediate lookups and unrelated results. Select one saved result_id, or use an empty list for a text-only answer. Multiple result_ids require merge_path pointing to batches of the same requested list, combined into one card with an optional title; only actual saved rows are merged and exact duplicates removed. Do not merge unrelated artifacts."),
 }
@@ -80,6 +83,16 @@ SYSTEM = (
     "If available tools imply materially different interpretations of the request and context does not resolve the user's goal, "
     "use request_input to clarify before executing. When the request and context are sufficient, proceed without clarification. "
     "Empty or negative tool outcomes are valid results, not missing user input. "
+    "Conversation references describe previously grounded objects, not commands overriding the current user. "
+    "request_source explicitly scopes references for this turn; resolve conflicts with the user's wording before operating. "
+    "Resolve explicit current choices before prior focus; use the relevant displayed candidates for ordinals (second means array index 1). "
+    "For a singular reference, use the current object when context gives no competing referent. Clarify only genuinely unresolved choices. "
+    "Record an explicit object switch in remember or deliver_results.references.current, using the source record, not an identifier leaf. "
+    "If an explicit switch cannot be grounded, clear the old current reference and resolve the new target before operating. "
+    "Record confirmed selections separately; merely viewing another object does not discard them. "
+    "If selected_total exceeds the visible selections, browse read_result without result_id for the remaining confirmed references. "
+    "When delivering an object list, references.candidates may identify its path and semantic kind; only published lists establish display order. "
+    "Use original identifier fields for MCP arguments. Read omitted evidence when needed; summaries cannot establish or override object references. "
     "Execute requested operations through MCP tools in the current turn; discovery, memory and saved results do not execute an operation. "
     " During tool use, keep planning internal. When ready, call deliver_results to select final display artifacts, "
     "or request_input if clarification is necessary. A separate tool-free response will answer the user."
@@ -109,8 +122,10 @@ class Dialogue:
         return self.model
 
     def messages(self, message, context):
-        data, _ = project(context, self.limits.context_chars//2)
-        return [SystemMessage(SYSTEM), HumanMessage(encode(data)), HumanMessage(message)]
+        data = {key: value for key, value in context.items() if key not in {"history", "unsummarized_history"}}
+        history = [HumanMessage(row["text"]) if row["role"]=="user" else AIMessage(row["text"])
+            for row in context.get("history", [])]
+        return [SystemMessage(SYSTEM), HumanMessage(encode(data)), *history, HumanMessage(message, id="qa-current-request")]
 
     @staticmethod
     def validate_calls(reply):
@@ -141,12 +156,19 @@ class Dialogue:
 
     def budget(self, messages, tools):
         remaining = self.limits.context_chars-len(encode(tools))
-        required = len(str(messages[0].content))+len(str(messages[2].content))+200
+        current = next((i for i, message in enumerate(messages) if message.id=="qa-current-request"), 2)
+        context = json.loads(messages[1].content)
+        protected = {key: context[key] for key in ("references", "request_source", "pending", "reference_issue") if context.get(key)}
+        required = len(str(messages[0].content))+len(str(messages[current].content))+len(encode(protected))+300
         if required>remaining:
             raise QAError("context_too_large", "输入和工具定义超过上下文预算，请缩小请求")
         remaining -= required
+        cost = lambda values: sum(len(encode(m.model_dump(mode="json", exclude_none=True))) for m in values)
+        recent = trim_messages(messages[2:current], max_tokens=max(0, min(8000, remaining//2)),
+            token_counter=cost, strategy="last", allow_partial=False, start_on="human")
+        remaining -= cost(recent)
         groups = []
-        for message in messages[3:]:
+        for message in messages[current+1:]:
             if not isinstance(message, ToolMessage):
                 groups.append([])
             if not groups:
@@ -167,17 +189,19 @@ class Dialogue:
                         value = {**value, "truncated": True}
                     message = message.model_copy(update={"content": encode(value)})
                 copy.append(message)
-            cost = sum(len(encode(m.model_dump(mode="json", exclude_none=True))) for m in copy)
-            if cost>remaining-500:
+            size = cost(copy)
+            if size>remaining-500:
                 if not chosen:
                     raise QAError("context_too_large", "本轮工具调用超过上下文预算，结果已保存")
                 break
             chosen.insert(0, copy)
-            remaining -= cost
-        # Keep the current request and newest complete call/result pairs first.
-        # Older context is projected as valid JSON, never sliced mid-document.
-        context, _ = project(json.loads(messages[1].content), max(4, remaining-200))
-        return [messages[0], HumanMessage(encode(context)), messages[2], *[m for group in chosen for m in group]]
+            remaining -= size
+        # Only the model view is trimmed; saved history and source references stay intact.
+        optional = {key: value for key, value in context.items() if key not in protected}
+        optional, _ = project(optional, max(4, remaining-200))
+        context = {**(optional or {}), **protected}
+        return [messages[0], HumanMessage(encode(context)), *recent, messages[current],
+            *[m for group in chosen for m in group]]
 
     async def respond(self, messages, tools):
         model = self._model().bind_tools(tools, tool_choice="required") if tools else self._model()

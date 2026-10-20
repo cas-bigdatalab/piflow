@@ -9,13 +9,14 @@ from uuid import uuid4
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage, message_chunk_to_message
 from pydantic import ValidationError
 
-from .context import contains, encode, project, public_result, slice_result
+from .context import encode, project, public_result, slice_result
 from .contracts import QAError
 from .dialogue import BUILTINS, INPUTS, Dialogue
 from .execution import Execution, fingerprint
 from .mcp import MCPGateway
 from .persistence import Store
 from .results import combine_results, evidence
+from .references import all_references, apply_update, display_list, preview
 
 log = logging.getLogger("flow.dataset_qa")
 
@@ -229,28 +230,49 @@ class DatasetQA:
     async def _context(self, user, sid, tid, options):
         session = await asyncio.to_thread(self.store.session, user, sid)
         saved = json.loads(session["context"])
-        context = {key: saved[key] for key in ("memory", "summary", "summary_after", "result_id", "pending", "tools") if key in saved}
+        context = {key: saved[key] for key in ("memory", "summary", "summary_after", "references", "pending", "tools") if key in saved}
         memory = context.setdefault("memory", {})
-        history = await asyncio.to_thread(self.store.memory, user, sid, 0, None, 12, True)
-        older = await asyncio.to_thread(self.store.memory, user, sid, context.get("summary_after", 0), history[0]["id"] if history else None, 24)
+        history = await asyncio.to_thread(self.store.memory, user, sid, 0, None, 12, True, tid)
+        state = context.setdefault("references", {})
+        last = None
+        if "references" not in saved:
+            last = await asyncio.to_thread(self.store.latest_display, user, sid)
+            if last and (reference := display_list(last)):
+                state["candidates"] = reference
+        source_evidence = []
         if options.result_id:
-            context["result_id"] = options.result_id
-        evidence = await asyncio.to_thread(self.store.results, user, sid)
-        if context.get("result_id"):
-            pinned = await asyncio.to_thread(self.store.results, user, sid, None, context["result_id"])
+            pinned = await asyncio.to_thread(self.store.results, user, sid, None, options.result_id)
             if not pinned:
                 raise QAError("result_not_found", "当前会话中不存在此结果", 404)
-            evidence = [pinned[0], *[c for c in reversed(evidence) if c["result_id"]!=pinned[0]["result_id"]]]
-        else:
-            evidence = list(reversed(evidence))
-        if options.selected_dataset_id:
-            if not any(contains(c.get("data"), options.selected_dataset_id) for c in evidence):
+            if options.result_id not in {ref["result_id"] for ref in all_references(state)}:
+                source_evidence = [evidence(pinned[0], 1800)]
+        selection = options.selected_dataset_id or (memory.get("selected_dataset_id") if "references" not in saved and last else None)
+        issue = None
+        if selection:
+            matches = await asyncio.to_thread(self.store.object_reference, user, sid, selection,
+                all_references(state), options.result_id if options.selected_dataset_id else last["result_id"])
+            if not matches and options.selected_dataset_id and options.result_id:
+                matches = await asyncio.to_thread(self.store.object_reference, user, sid, selection, all_references(state))
+                if matches:
+                    issue = "Explicit selection conflicts with request_source; clarify the intended source before operating."
+            if not matches and options.selected_dataset_id:
                 raise QAError("reference_not_found", "选择不属于当前会话的结果", 404)
+            if len(matches)==1 and not issue:
+                state["current"] = matches[0]
+            elif len(matches)>1 and options.selected_dataset_id:
+                issue = issue or "Explicit selection matches multiple source records; resolve the intended record before operating."
+        if options.selected_dataset_id:
             memory["selected_dataset_id"] = options.selected_dataset_id
-        model_context = {"memory": memory, "pending": context.get("pending"), "summary": context.get("summary", ""),
-            "evidence": [self._evidence(c) for c in evidence[:3]], "history": history}
-        if older:
-            model_context["unsummarized_history"] = older
+        if not state and last and not source_evidence:
+            source_evidence = [evidence(last, 1800)]
+        model_context = {"memory": {key: value for key, value in memory.items() if key!="selected_dataset_id"},
+            "pending": context.get("pending"), "summary": context.get("summary", ""),
+            "references": await self._reference_view(user, sid, state), "evidence": source_evidence, "history": history}
+        if options.result_id:
+            model_context["request_source"] = options.result_id
+        if issue:
+            model_context["references"].pop("current", None)
+            model_context["reference_issue"] = {"message": issue, "identifier": selection, "candidates": matches}
         previous = context.pop("pending", None)
         if previous:
             await asyncio.to_thread(self.store.finish, user, sid, previous["task_id"], "COMPLETED")
@@ -259,6 +281,24 @@ class DatasetQA:
             payload_parent = None
         await self._write(user, sid, tid, context=context)
         return context, model_context, payload_parent
+
+    async def _reference_view(self, user, sid, state):
+        ids = list(dict.fromkeys(ref["result_id"] for ref in all_references(state)))
+        if not ids:
+            return {}
+        cards = await asyncio.to_thread(self.store.selected_results, user, sid, ids)
+        view = preview(state, {card["result_id"]: card for card in cards}, min(4000, self.gateway.limits.context_chars//4))
+        if any(state.get(key) and key not in view for key in ("current", "candidates")):
+            raise QAError("context_too_large", "对象来源引用超过上下文预算，请缩小请求范围")
+        return view
+
+    async def _validate_references(self, user, sid, state, patch, extra=()):
+        cards = {card["result_id"]: card for card in extra}
+        ids = list(dict.fromkeys(ref["result_id"] for ref in all_references(patch) if ref["result_id"] not in cards))
+        if ids:
+            cards.update((card["result_id"], card) for card in
+                await asyncio.to_thread(self.store.selected_results, user, sid, ids))
+        return apply_update(state, patch, cards)
 
     async def _read_result(self, user, sid, values):
         if values.result_id is None:
@@ -269,6 +309,12 @@ class DatasetQA:
             result = {"items": items}
             if more:
                 result["next_offset"] = values.offset+limit
+            saved = await asyncio.to_thread(self.store.session, user, sid)
+            selected = json.loads(saved["context"]).get("references", {}).get("selected", [])
+            if selected:
+                result.update(selected=selected[values.offset:values.offset+limit], selected_total=len(selected))
+                if values.offset+limit<len(selected):
+                    result["selected_next_offset"] = values.offset+limit
             return result
         cards = await asyncio.to_thread(self.store.results, user, sid, None, values.result_id)
         if not cards:
@@ -348,15 +394,27 @@ class DatasetQA:
         values = INPUTS["deliver_results"][0].model_validate(arguments)
         result_ids = list(dict.fromkeys(values.result_ids))
         cards = await asyncio.to_thread(self.store.selected_results, user, sid, result_ids)
+        patch = values.references.model_dump(exclude_unset=True) if values.references else {}
         if values.merge_path is not None:
             if not cards:
                 raise QAError("invalid_delivery", "合并结果时必须选择已保存的结果")
             cards = [combine_results(cards, values.merge_path, tid+":delivery", values.title)]
+            if (candidate := patch.get("candidates")) and candidate["result_id"] in result_ids and candidate.get("path", "")==values.merge_path:
+                patch["candidates"] = {**candidate, "result_id": cards[0]["result_id"], "path": ""}
+        if cards and "candidates" not in patch and (candidate := display_list(cards[0])):
+            patch["candidates"] = candidate
+        if patch.get("candidates") and patch["candidates"]["result_id"] not in {card["result_id"] for card in cards}:
+            raise QAError("invalid_parameters", "候选列表必须来自本次实际交付的结果")
+        if patch:
+            saved = await asyncio.to_thread(self.store.session, user, sid)
+            await self._validate_references(user, sid, json.loads(saved["context"]).get("references", {}), patch, cards)
         if len(encode({"items": [public_result(card) for card in cards]}).encode("utf-8")) > self.gateway.limits.result_bytes:
             raise QAError("result_too_large", "展示结果超过运行预算，请缩小交付范围")
         if values.merge_path is not None:
             await self._write(user, sid, tid, card=cards[0])
         payload["delivery"] = [card["result_id"] for card in cards]
+        if patch:
+            payload["references"] = patch
         await self._write(user, sid, tid, payload=payload)
         return {"result_ids": payload["delivery"]}
 
@@ -381,7 +439,18 @@ class DatasetQA:
             memory = {**context.get("memory", {}), **values.values}
             if len(encode(memory))>4096:
                 raise QAError("memory_too_large", "结构化记忆超过运行预算")
+            state = context.get("references", {})
+            patch = values.references.model_dump(exclude_unset=True) if values.references else {}
+            identifier = values.values.get("selected_dataset_id")
+            if identifier is not None:
+                matches = await asyncio.to_thread(self.store.object_reference, user, sid, identifier,
+                    all_references(patch)+all_references(state))
+                if len(matches)!=1:
+                    raise QAError("invalid_parameters", "选择须对应唯一的已保存记录；请提供来源引用或澄清具体对象")
+                patch.setdefault("current", matches[0])
+            state = await self._validate_references(user, sid, state, patch)
             context["memory"] = {k: v for k, v in memory.items() if v is not None}
+            context["references"] = state
             await self._write(user, sid, tid, context=context)
             return {"saved": True}
         pending = {"task_id": tid, "question": values.question}
@@ -413,14 +482,14 @@ class DatasetQA:
         context.pop("evidence", None)
         context.pop("mcp_servers", None)
         history = []
-        for message in messages[3:]:
+        for message in messages[2:]:
             if isinstance(message, ToolMessage):
                 value = json.loads(message.content)
                 if value.get("result_id") in ids:
                     message = message.model_copy(update={"content": encode({"result_id": value["result_id"]})})
             history.append(message)
         final_messages = [messages[0].model_copy(update={"content": instructions}), HumanMessage(encode(context)),
-            messages[2], *history, HumanMessage(encode(delivery))]
+            *history, HumanMessage(encode(delivery))]
         try:
             reply = await self._reply(user, sid, tid, final_messages, [], answer, phase)
             if reply.tool_calls or reply.invalid_tool_calls:
@@ -567,6 +636,12 @@ class DatasetQA:
                             try:
                                 if name in INPUTS:
                                     value = await self._builtin(user, sid, tid, name, arguments, tools, context)
+                                    if name=="remember":
+                                        updated = json.loads(messages[1].content)
+                                        updated["references"] = await self._reference_view(user, sid, context.get("references", {}))
+                                        updated["memory"] = {key: value for key, value in context.get("memory", {}).items()
+                                            if key!="selected_dataset_id"}
+                                        messages[1] = HumanMessage(encode(updated))
                                     if name=="request_input":
                                         interaction = context["pending"]
                                 else:

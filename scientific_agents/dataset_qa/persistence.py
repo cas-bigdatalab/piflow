@@ -7,10 +7,11 @@ import threading
 import time
 from uuid import uuid4
 
-from sqlalchemy import Column, Float, Integer, MetaData, String, Table, Text, UniqueConstraint, delete, func, insert, select, update
+from sqlalchemy import Column, Float, Integer, MetaData, String, Table, Text, UniqueConstraint, delete, func, insert, or_, select, update
 
 from .results import evidence
 from .contracts import QAError
+from .references import matching_objects
 
 
 def now():
@@ -213,6 +214,10 @@ class Store:
                 self._event(conn, tid, {"type": "interaction", **interaction})
             conn.execute(update(self.tasks).where(self.tasks.c.id == tid).values(status=status, payload=dumps(payload), updated_at=now()))
             context = json.loads(session["context"])
+            if payload.get("published") and payload.get("references"):
+                # Publish the display snapshot and its references in the same transaction.
+                context["references"] = {**context.get("references", {}), **payload["references"]}
+                context["references"] = {key: value for key, value in context["references"].items() if value is not None}
             if status != "WAITING_INPUT" and context.get("pending", {}).get("task_id") == tid:
                 context.pop("pending", None)
             conn.execute(update(self.sessions).where(self.sessions.c.id == sid).values(
@@ -255,13 +260,15 @@ class Store:
             tasks = conn.execute(select(self.tasks).where(self.tasks.c.id.in_(tids), self.tasks.c.session_id == sid)).mappings().all()
             return session, rows, [dict(t) for t in tasks], more
 
-    def memory(self, user, sid, after=0, before=None, limit=24, tail=False):
+    def memory(self, user, sid, after=0, before=None, limit=24, tail=False, exclude_task_id=None):
         with self.transaction() as conn:
             self._session(conn, user, sid)
             query = select(self.items).where(self.items.c.session_id == sid, self.items.c.id > after,
                 self.items.c.kind.in_(["USER_MESSAGE", "ASSISTANT_MESSAGE"]))
             if before is not None:
                 query = query.where(self.items.c.id < before)
+            if exclude_task_id:
+                query = query.where(self.items.c.task_id != exclude_task_id)
             rows = conn.execute(query.order_by(self.items.c.id.desc() if tail else self.items.c.id).limit(limit)).mappings().all()
             return [{"id": r["id"], "role": r["role"], "text": json.loads(r["payload"])["text"]}
                     for r in (reversed(rows) if tail else rows)]
@@ -298,6 +305,48 @@ class Store:
         with self.transaction() as conn:
             self._session(conn, user, sid)
             return self._cards(conn, sid, result_ids)
+
+    def latest_display(self, user, sid):
+        with self.transaction() as conn:
+            self._session(conn, user, sid)
+            raw = conn.scalar(select(self.items.c.payload).where(self.items.c.session_id==sid,
+                self.items.c.kind=="RESULT_CARD").order_by(self.items.c.id.desc()).limit(1))
+            if raw is None:
+                return None
+            value = json.loads(raw)
+            return self._cards(conn, sid, [value["result_id"]])[0] if set(value)=={"result_id"} else value
+
+    def object_reference(self, user, sid, identifier, sources=(), result_id=None):
+        """Try explicit/relevant sources first, then lazily search this session's saved results."""
+        identifier = str(identifier)
+        with self.transaction() as conn:
+            self._session(conn, user, sid)
+            scopes = [{"result_id": result_id}] if result_id else list(sources)
+            seen, cards = set(), {}
+            for ref in scopes:
+                if ref["result_id"] not in cards:
+                    cards[ref["result_id"]] = self._cards(conn, sid, [ref["result_id"]])[0]
+                card = cards[ref["result_id"]]
+                seen.add(ref["result_id"])
+                matches = matching_objects(card, identifier, ref)
+                if matches:
+                    return matches
+            if result_id:
+                return []
+            # A SQL prefilter avoids decoding every historical artifact. Exact matching
+            # and source validation still happen in Python, under the session boundary.
+            match = self.items.c.payload.contains(dumps(identifier), autoescape=True)
+            if identifier.lstrip("-").isdigit():
+                match = or_(match, self.items.c.payload.contains(": "+identifier, autoescape=True))
+            query = select(self.items.c.payload).where(self.items.c.session_id==sid,
+                self.items.c.result_id.is_not(None), match)
+            for raw in conn.scalars(query.order_by(self.items.c.id.desc())):
+                card = json.loads(raw)
+                if card["result_id"] not in seen:
+                    matches = matching_objects(card, identifier)
+                    if matches:
+                        return matches
+            return []
 
     def display_results(self, user, sid, tid):
         with self.transaction() as conn:

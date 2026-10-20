@@ -38,7 +38,7 @@ def test_second_dataset_sampling_recovers_from_premature_delivery(engine):
             assert feedback["error"]=="mcp_required" and feedback["executed"] is False
             assert "deliver_results" not in feedback["available_actions"]
             context = json.loads(messages[1].content)
-            second = context["evidence"][0]["data"]["items"][1]["id"]
+            second = context["references"]["candidates"]["items"][1]["value"]["id"]
             return remote("sample", reference=second, count=2)(messages, definitions)
 
         dialogue.responses = [decision("deliver_results", {"result_ids": [found["result_id"]]}, "premature"),

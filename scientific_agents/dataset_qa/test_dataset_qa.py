@@ -764,7 +764,7 @@ def test_context_budget_retains_complete_call_result_groups():
     # Keep history space fixed as instructions/schemas evolve; still prune it.
     dialogue = SemanticDialogue(model=object(), limits=Limits(
         context_chars=len(encode(BUILTINS))+len(SYSTEM)+2500, result_chars=800))
-    messages = dialogue.messages("请继续", {"history": [{"text": "x"*10000}], "memory": {"chosen": "a"}})
+    messages = dialogue.messages("请继续", {"history": [{"role": "user", "text": "x"*10000}], "memory": {"chosen": "a"}})
     for i in range(6):
         messages.extend([AIMessage(content="", tool_calls=[{"name": "any", "args": {"i": i}, "id": str(i)}]),
             ToolMessage(content=encode({"result_id": str(i), "data": {"rows": ["x"*1000]*10}}), tool_call_id=str(i))])
