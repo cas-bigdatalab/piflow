@@ -156,8 +156,8 @@ def test_unavailable_service_is_not_reconnected_repeatedly_in_one_turn(engine):
         service = DatasetQA(engine, dialogue, gateway)
         values = await collect(service, session(service))
         assert attempted==["connect"] and not backend.calls
-        assert values[-1]["code"]=="no_progress"
-        assert dialogue.inputs[-1][1]==[]
+        assert values[-1]["code"]=="mcp_unavailable"
+        assert len(dialogue.inputs)==1
     asyncio.run(run())
 
 

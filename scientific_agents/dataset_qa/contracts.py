@@ -20,6 +20,8 @@ class Limits:
     max_calls: int = 24
     max_stalled_calls: int = 2
     max_corrections: int = 2
+    transport_retries: int = 1
+    retry_delay: float = 0.25
     schema_chars: int = 16000
     context_chars: int = 32000
     result_chars: int = 8000

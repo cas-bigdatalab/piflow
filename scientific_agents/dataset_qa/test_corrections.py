@@ -13,8 +13,11 @@ from .test_runtime import RawDialogue
 
 
 def decision(name, arguments=None, call_id="decision"):
-    return AIMessageChunk(content="", tool_calls=[{"name": "agent_action", "id": call_id,
-        "args": {"name": name, "arguments": {} if arguments is None else arguments}}])
+    arguments = {} if arguments is None else arguments
+    if not isinstance(name, str) or not isinstance(arguments, dict):
+        return AIMessageChunk(content="", invalid_tool_calls=[{"name": name if isinstance(name, str) else None,
+            "id": call_id, "args": json.dumps(arguments), "error": "invalid arguments"}])
+    return AIMessageChunk(content="", tool_calls=[{"name": name, "id": call_id, "args": arguments}])
 
 
 def feedback_for(messages, call_id):
@@ -78,7 +81,8 @@ def test_malformed_action_arguments_with_a_call_id_can_be_corrected(engine, name
         backend = Backend()
 
         def clarify(messages, definitions):
-            assert feedback_for(messages, "malformed")["error"]=="invalid_tool_call"
+            assert json.loads(messages[-1].content)["runtime_feedback"]["error"]=="invalid_tool_call"
+            assert not any(m.tool_calls or m.invalid_tool_calls for m in messages if isinstance(m, AIMessageChunk))
             return action("request_input", missing="待操作的对象", question="请选择需要操作的对象")
 
         dialogue = RawDialogue(decision(name, arguments, "malformed"), clarify)
@@ -142,7 +146,7 @@ def test_invalid_clarification_cannot_evade_correction_budget(engine):
         service = DatasetQA(engine, dialogue, backend.gateway())
         values = await collect(service, session(service))
         assert values[-1]["status"]=="FAILED" and values[-1]["code"]=="invalid_parameters"
-        assert len(backend.calls)==1 and len(dialogue.inputs)==6
+        assert len(backend.calls)==1 and len(dialogue.inputs)==5
         assert not any(v["type"]=="interaction" for v in values)
         assert result_cards(values)[0]["data"]["items"]==[]
         await service.close()
@@ -157,7 +161,7 @@ def test_changed_invalid_parameters_cannot_evade_correction_budget(engine):
         service = DatasetQA(engine, dialogue, backend.gateway())
         values = await collect(service, session(service))
         assert values[-1]["status"]=="FAILED" and values[-1]["code"]=="invalid_parameters"
-        assert not backend.calls and len(dialogue.inputs)==5
+        assert not backend.calls and len(dialogue.inputs)==4
         assert sum(bool(definitions) for _, definitions in dialogue.inputs)==4
         await service.close()
     asyncio.run(run())
@@ -171,7 +175,7 @@ def test_changed_unavailable_actions_cannot_evade_correction_budget(engine):
         service = DatasetQA(engine, dialogue, backend.gateway())
         values = await collect(service, session(service))
         assert values[-1]["status"]=="FAILED" and values[-1]["code"]=="tool_not_loaded"
-        assert not backend.calls and not backend.connections and len(dialogue.inputs)==4
+        assert not backend.calls and not backend.connections and len(dialogue.inputs)==3
         await service.close()
     asyncio.run(run())
 
@@ -224,7 +228,7 @@ def test_unknown_execution_after_correction_is_not_retried(engine):
         service = DatasetQA(engine, dialogue, backend.gateway())
         values = await collect(service, session(service))
         assert values[-1]["status"]=="FAILED" and values[-1]["code"]=="execution_unknown"
-        assert len(backend.calls)==1 and len(dialogue.inputs)==4
+        assert len(backend.calls)==1 and len(dialogue.inputs)==3
         await service.close()
     asyncio.run(run())
 

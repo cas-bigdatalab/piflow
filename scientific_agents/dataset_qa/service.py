@@ -290,12 +290,30 @@ class DatasetQA:
     async def _reply(self, user, sid, tid, messages, definitions, answer=None, phase=None):
         started, first_chunk = time.monotonic(), None
         full, buffer, flushed, sent = None, "", time.monotonic(), False
+        deadline = asyncio.get_running_loop().time()+self.gateway.limits.model_timeout
         try:
-            async with asyncio.timeout(self.gateway.limits.model_timeout), aclosing(self.dialogue.respond(messages, definitions)) as response:
-                async for chunk in response:
+            async with aclosing(self.dialogue.respond(messages, definitions)) as response:
+                while True:
+                    try:
+                        async with asyncio.timeout_at(deadline):
+                            chunk = await anext(response)
+                    except StopAsyncIteration:
+                        break
+                    except TimeoutError as exc:
+                        raise QAError("model_timeout", "模型响应超时，请稍后重试", 504) from exc
+                    except QAError:
+                        raise
+                    except (ValidationError, json.JSONDecodeError) as exc:
+                        raise QAError("invalid_tool_call", "模型返回的工具参数无法解析", 502) from exc
+                    except Exception as exc:
+                        raise QAError("service_unavailable", "模型服务暂不可用，请稍后重试", 503,
+                            detail={"phase": "model"}) from exc
                     if first_chunk is None:
                         first_chunk = time.monotonic()-started
-                    full = chunk if full is None else full+chunk
+                    try:
+                        full = chunk if full is None else full+chunk
+                    except (ValidationError, ValueError, TypeError) as exc:
+                        raise QAError("invalid_tool_call", "模型返回的工具参数无法解析", 502) from exc
                     if answer is None:
                         continue  # Planning text and tool-call fragments stay internal.
                     content = str(chunk.text)[:max(0, 16000-len(answer["text"]))]
@@ -306,19 +324,25 @@ class DatasetQA:
                         answer["text"] += content
                         buffer += content
                     if buffer and (not sent or len(buffer)>=40 or time.monotonic()-flushed>=0.1):
-                        await self._write(user, sid, tid, {"type": "message", "text": buffer})
-                        buffer, flushed, sent = "", time.monotonic(), True
-        except TimeoutError as exc:
-            raise QAError("model_timeout", "模型响应超时，请稍后重试", 504) from exc
+                        text, buffer = buffer, ""
+                        await self._write(user, sid, tid, {"type": "message", "text": text})
+                        flushed, sent = time.monotonic(), True
         finally:
             log.info("Model request: task=%s tools=%s final=%s first_chunk=%s elapsed=%.3fs",
                 tid, len(definitions), answer is not None, first_chunk, time.monotonic()-started)
-        if buffer:
-            await self._write(user, sid, tid, {"type": "message", "text": buffer})
-        reply = message_chunk_to_message(full) if full is not None else AIMessage(content="")
-        if reply.invalid_tool_calls:
-            raise QAError("invalid_tool_call", "模型返回的工具参数无法解析，请重新表述请求", 502)
-        return reply
+            if buffer:
+                await self._write(user, sid, tid, {"type": "message", "text": buffer})
+        try:
+            if full is not None:
+                self.dialogue.validate_calls(full)
+            return message_chunk_to_message(full) if full is not None else AIMessage(content="")
+        except (ValidationError, ValueError, TypeError) as exc:
+            raise QAError("invalid_tool_call", "模型返回的工具参数无法解析", 502) from exc
+
+    async def _notice(self, user, sid, tid, answer, text):
+        text = ("\n\n" if answer["text"] else "")+text
+        answer["text"] += text
+        await self._write(user, sid, tid, {"type": "message", "text": text})
 
     async def _deliver(self, user, sid, tid, arguments, payload):
         values = INPUTS["deliver_results"][0].model_validate(arguments)
@@ -373,9 +397,9 @@ class DatasetQA:
         ids = json.loads(saved["payload"]).get("delivery", [])
         cards = await asyncio.to_thread(self.store.selected_results, user, sid, ids)
         if reason:
-            notice = str(reason)+"。本轮已停止继续调用工具。\n\n"
-            answer["text"] += notice
-            await self._write(user, sid, tid, {"type": "message", "text": notice})
+            await self._notice(user, sid, tid, answer, Execution.notice(reason, bool(cards)))
+            if reason.code not in {"step_limit", "no_progress"}:
+                return
         instructions = (str(messages[0].content)+"\nTool use is over. Write only the final user-facing reply, "
             "without internal planning or another tool call. Use actual evidence, distinguish unfinished work, "
             "and only refer to display cards listed in final_delivery. Do not claim unperformed work succeeded. "
@@ -399,17 +423,20 @@ class DatasetQA:
             messages[2], *history, HumanMessage(encode(delivery))]
         try:
             reply = await self._reply(user, sid, tid, final_messages, [], answer, phase)
-            if reply.tool_calls:
+            if reply.tool_calls or reply.invalid_tool_calls:
                 raise QAError("invalid_tool_call", "正式答复阶段返回了工具调用", 502)
             if not answer["text"].strip():
                 answer["text"] = "请查看下方结果。" if cards else "请补充需要处理的问题。"
                 await self._write(user, sid, tid, {"type": "message", "text": answer["text"]})
-        except Exception:
-            # Keep the original stop reason and saved results when the model
-            # cannot summarize them. Never resume tool use to recover a summary.
-            if reason is None:
+        except QAError as exc:
+            # Only generation failures may degrade a confirmed delivery.
+            # Persistence failures and cancellation retain their original status.
+            if (not cards and reason is None) or not (exc.code in {"model_timeout", "invalid_tool_call", "context_too_large"}
+                    or (exc.code=="service_unavailable" and exc.detail=={"phase": "model"})):
                 raise
-            log.warning("Final response unavailable: task=%s", tid, exc_info=True)
+            log.warning("Final response degraded: task=%s code=%s", tid, exc.code)
+            if reason is None:
+                await self._notice(user, sid, tid, answer, "答复生成中断，已取得的结果已保留，请查看下方结果。")
 
     async def _run(self, user, sid, tid, payload, options):
         started = time.monotonic()
@@ -437,12 +464,15 @@ class DatasetQA:
             if parent:
                 payload["parent_task_id"] = parent
                 await self._write(user, sid, tid, payload=payload)
-            reason, ready, recovering = None, False, False
+            reason, ready = None, False
             async with self.gateway.session() as tools:
                 def action_feedback(error):
                     actions = {definition["function"]["name"] for definition in BUILTINS
                         if definition["function"]["name"]!="deliver_results" or execution.can_deliver}
-                    return execution.feedback(error, actions | set(tools.loaded))
+                    value = execution.feedback(error, actions | set(tools.loaded))
+                    if "detail" in value:
+                        log.info("Action validation: task=%s code=%s detail=%s", tid, error.code, encode(value["detail"]))
+                    return value
 
                 tools.prime(payload["message"], context.get("tools", []))
                 model_context["mcp_servers"] = tools.list_servers(payload["message"])
@@ -456,17 +486,14 @@ class DatasetQA:
                         if definition["function"]["name"]!="deliver_results" or execution.can_deliver]
                     definitions.extend(tools.definitions())
                     advertised = {value["function"]["name"] for value in definitions}
-                    reply = await self._reply(user, sid, tid, messages, definitions)
-                    if reply.tool_calls:
-                        if any(not call.get("id") for call in reply.tool_calls):
-                            raise QAError("invalid_tool_call", "工具调用缺少关联标识", 503)
-                        if len({call["id"] for call in reply.tool_calls}) != len(reply.tool_calls):
-                            raise QAError("invalid_tool_call", "工具调用关联标识重复", 503)
-                        try:
-                            reply = self.dialogue.decode_actions(reply)
-                        except QAError as exc:
-                            rejection = exc
-                    else:
+                    reply = None
+                    try:
+                        reply = await self._reply(user, sid, tid, messages, definitions)
+                    except QAError as exc:
+                        if exc.code!="invalid_tool_call":
+                            raise
+                        rejection = exc
+                    if not rejection and not reply.tool_calls:
                         try:
                             execution.require_result()
                             await self._fallback_delivery(user, sid, tid, payload, execution, required=True)
@@ -475,19 +502,17 @@ class DatasetQA:
                                 raise
                             rejection = exc
                     if rejection:
-                        messages.append(reply)
+                        # Never replay malformed calls, missing/duplicate IDs or
+                        # unpaired results to the provider during correction.
+                        if reply is not None and not reply.tool_calls and not reply.invalid_tool_calls:
+                            messages.append(reply)
                         feedback = action_feedback(rejection)
-                        if reply.tool_calls:
-                            messages.extend(ToolMessage(content=encode(feedback), tool_call_id=call["id"], name=call["name"])
-                                for call in reply.tool_calls)
-                        else:
-                            messages.append(HumanMessage(encode({"runtime_feedback": feedback})))
+                        messages.append(HumanMessage(encode({"runtime_feedback": feedback})))
                         reason = execution.correct(rejection, limits.max_corrections)
                         log.info("Action correction: task=%s error=%s corrections=%s stopped=%s",
                             tid, rejection.code, execution.corrections, reason is not None)
                         if reason:
                             break
-                        recovering = True
                         continue
                     if not reply.tool_calls:
                         await self._final_reply(user, sid, tid, messages, answer, phase)
@@ -522,15 +547,16 @@ class DatasetQA:
                                 value = await self._deliver(user, sid, tid, arguments, payload)
                                 ready = True
                             except (QAError, ValidationError) as exc:
-                                value = {"error": exc.code if isinstance(exc, QAError) else "invalid_parameters",
-                                    "message": str(exc) if isinstance(exc, QAError) else "交付参数不符合定义"}
+                                if isinstance(exc, ValidationError):
+                                    exc = execution.validation_error(exc, "交付参数不符合定义")
+                                value = {"error": exc.code, "message": str(exc)}
                                 if isinstance(exc, QAError) and (exc.code=="mcp_required" or execution.failures):
                                     reason = exc
-                                elif isinstance(exc, ValidationError) or exc.code in {"invalid_delivery", "invalid_pointer", "result_not_found"}:
-                                    rejection = exc if isinstance(exc, QAError) else QAError("invalid_parameters", "交付参数不符合定义")
+                                elif exc.code in {"invalid_parameters", "invalid_delivery", "invalid_pointer", "result_not_found"}:
+                                    rejection = exc
                                     value = action_feedback(rejection)
                                     rejected = True
-                        elif (recovering or rejection is not None) and tool and (completed := execution.completed(key)) is not None:
+                        elif (execution.recovering or rejection is not None) and tool and (completed := execution.completed(key)) is not None:
                             value = {**self._evidence(completed), "executed": False,
                                 "guidance": "This operation already completed in this turn. Use the saved result; no additional execution took place."}
                         elif key in execution.cached and name in advertised:
@@ -558,29 +584,26 @@ class DatasetQA:
                                         execution.cards[marker] = card
                                     value = self._evidence(card)
                                     execution.failures.pop(name, None)
-                                    recovering = False
                                     reference = {"server": tool.server, "name": tool.name}
                                     context["tools"] = [reference, *[ref for ref in context.get("tools", []) if ref!=reference]][:4]
                                     await self._write(user, sid, tid, context=context)
                                     if execution.reusable(tool):
                                         execution.cached[key] = value
                             except (QAError, ValidationError) as exc:
+                                if isinstance(exc, ValidationError):
+                                    exc = execution.validation_error(exc)
                                 log.info("Tool request rejected: task=%s tool=%s code=%s",
-                                    tid, name, exc.code if isinstance(exc, QAError) else "invalid_parameters")
-                                value = {"error": exc.code if isinstance(exc, QAError) else "invalid_parameters",
-                                    "message": str(exc) if isinstance(exc, QAError) else "参数不符合工具定义"}
-                                if isinstance(exc, QAError) and exc.detail:
+                                    tid, name, exc.code)
+                                value = {"error": exc.code, "message": str(exc)}
+                                if exc.detail:
                                     value["detail"] = exc.detail
-                                if isinstance(exc, ValidationError) or exc.code in {"invalid_parameters", "invalid_pointer", "result_not_found", "memory_too_large"}:
-                                    rejection = exc if isinstance(exc, QAError) else QAError("invalid_parameters", "参数不符合工具定义")
+                                if exc.code in {"invalid_parameters", "invalid_pointer", "result_not_found", "memory_too_large"}:
+                                    rejection = exc
                                     value = action_feedback(rejection)
                                     rejected = True
-                                elif tool and isinstance(exc, QAError):
+                                elif tool:
                                     execution.failures[name] = exc
-                                if isinstance(exc, QAError) and exc.code=="mcp_unavailable":
-                                    execution.cached[key] = value  # No repeated connection attempts in this turn.
-                                if isinstance(exc, QAError) and (exc.code in {"execution_unknown", "result_too_large"}
-                                        or (exc.code=="tool_failed" and not (tool and tool.annotations.get("idempotentHint") is True))):
+                                if exc.code in {"mcp_unavailable", "tool_failed", "execution_unknown", "result_too_large"}:
                                     reason = exc
                             finally:
                                 log.info("Tool request: task=%s tool=%s mcp=%s elapsed=%.3fs",
@@ -607,7 +630,6 @@ class DatasetQA:
                         reason = execution.correct(rejection, limits.max_corrections)
                         log.info("Action correction: task=%s error=%s corrections=%s stopped=%s",
                             tid, rejection.code, execution.corrections, reason is not None)
-                    recovering = recovering or (rejection is not None and reason is None)
                     if reason:
                         break
                 reason = reason or QAError("step_limit", "处理达到本轮预算，请缩小请求范围")
@@ -631,6 +653,8 @@ class DatasetQA:
                 "error_code": exc.code if isinstance(exc, QAError) else "service_unavailable",
                 "message": str(exc) if isinstance(exc, QAError) else "服务暂不可用，请稍后重试"}
             try:
+                failure = exc if isinstance(exc, QAError) else QAError("service_unavailable", error["message"], 503)
+                await self._notice(user, sid, tid, answer, Execution.notice(failure, bool(payload.get("delivery"))))
                 await asyncio.to_thread(self.store.finish, user, sid, tid, "FAILED", message=answer["text"], error=error)
             except QAError:
                 pass

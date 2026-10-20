@@ -40,7 +40,7 @@ def test_no_success_without_actual_mcp_execution(engine, responses):
         shown = "".join(v["text"] for v in values if v["type"]=="message")
         assert "Invented dataset result" not in shown and "本轮尚未通过MCP" in shown
         planning = [v for v in dialogue.inputs if v[1]]
-        assert len(planning)==len(responses)+2 and dialogue.inputs[-1][1]==[]
+        assert len(planning)==len(responses)+2 and len(dialogue.inputs)==len(planning)
         assert all(d["function"]["name"]!="deliver_results" for d in dialogue.inputs[0][1])
         await service.close()
     asyncio.run(run())
@@ -92,7 +92,7 @@ def test_multiple_results_are_not_arbitrarily_selected_or_reexecuted(engine):
         sid = session(service)
         values = await collect(service, sid)
         assert values[-1]["status"]=="FAILED" and values[-1]["code"]=="invalid_delivery"
-        assert not result_cards(values) and len(backend.calls)==2 and len(dialogue.inputs)==7
+        assert not result_cards(values) and len(backend.calls)==2 and len(dialogue.inputs)==6
         assert len(service.store.results("alice", sid, values[-1]["task_id"]))==2
         await service.close()
     asyncio.run(run())
@@ -227,16 +227,33 @@ def test_action_schema_preserves_local_refs_without_mutating_tool_schema():
     schema = {"type": "object", "$defs": {"Row": {"type": "integer"}},
         "properties": {"row": {"$ref": "#/$defs/Row"}}, "required": ["row"]}
     tools = [{"type": "function", "function": {"name": "future_tool", "parameters": schema}}]
-    definition = NativeDialogue.action_tool(tools)
+    definitions = []
+
+    class Model:
+        def bind_tools(self, values, **options):
+            assert options=={"tool_choice": "required"}
+            definitions.extend(values)
+            return self
+
+        async def astream(self, messages):
+            yield AIMessageChunk(content="", tool_calls=[{"id": "ref", "name": "future_tool", "args": {"row": 1}}])
+
+    async def run():
+        dialogue = NativeDialogue(model=Model())
+        return [chunk async for chunk in dialogue.respond(dialogue.messages("use the tool", {}), tools)]
+
+    asyncio.run(run())
+    definition, = definitions
     validator = Draft202012Validator(definition["function"]["parameters"])
-    validator.validate({"name": "future_tool", "arguments": {"row": 1}})
+    validator.validate({"row": 1})
     with pytest.raises(ValidationError):
-        validator.validate({"name": "future_tool", "arguments": {"row": "invalid"}})
+        validator.validate({"row": "invalid"})
     assert schema["properties"]["row"]["$ref"]=="#/$defs/Row"
 
 
-@pytest.mark.parametrize("premature,empty", [(False, False), (True, False), (False, True)])
-def test_real_sdk_and_mcp_complete_search_with_bounded_correction(engine, monkeypatch, premature, empty):
+@pytest.mark.parametrize("premature,empty,malformed", [(False, False, False), (True, False, False),
+    (False, True, False), (False, False, True)])
+def test_real_sdk_and_mcp_complete_search_with_bounded_correction(engine, monkeypatch, premature, empty, malformed):
     import httpx
     from langchain_openai import ChatOpenAI
     from mcp_servers.corpus_mcp import mcp
@@ -256,21 +273,25 @@ def test_real_sdk_and_mcp_complete_search_with_bounded_correction(engine, monkey
         base = {"id": "request-"+str(len(requests)), "created": 0, "model": "qwen3.5-plus",
             "object": "chat.completion.chunk"}
         if body.get("tools"):
-            assert body["tool_choice"]=={"type": "function", "function": {"name": "agent_action"}}
-            choices = body["tools"][0]["function"]["parameters"]["oneOf"]
-            if premature and len(requests)==1:
-                assert all(c["properties"]["name"]["enum"]!=["deliver_results"] for c in choices)
+            assert body["tool_choice"]=="required"
+            choices = {tool["function"]["name"]: tool["function"]["parameters"] for tool in body["tools"]}
+            if malformed and len(requests)==1:
+                action_args = {"name": "load_mcp_tools", "arguments": {}}
+            elif premature and len(requests)==1:
+                assert "deliver_results" not in choices
                 action_args = {"name": "deliver_results", "arguments": {"result_ids": []}}
-            elif len(requests)==1+int(premature):
+            elif len(requests)==1+int(premature)+int(malformed):
                 if premature:
                     rejected = json.loads(body["messages"][-1]["content"])
                     assert rejected["error"]=="mcp_required" and rejected["executed"] is False
-                name = next(c["properties"]["name"]["enum"][0] for c in choices
-                    if c["properties"]["name"]["enum"][0].endswith("_search_corpus_datasets"))
+                if malformed:
+                    feedback = json.loads(body["messages"][-1]["content"])["runtime_feedback"]
+                    assert feedback["error"]=="invalid_tool_call"
+                    assert all(not message.get("tool_calls") for message in body["messages"])
+                name = next(name for name in choices if name.endswith("_search_corpus_datasets"))
                 action_args = {"name": name, "arguments": {"query": "Chemistry"}}
             elif empty and len(requests)==2:
-                ask = next(c["properties"]["arguments"] for c in choices
-                    if c["properties"]["name"]["enum"]==["request_input"])
+                ask = choices["request_input"]
                 assert "missing" in ask["required"]
                 action_args = {"name": "request_input", "arguments": {"question": "没有结果，是否更换领域？"}}
             else:
@@ -278,7 +299,8 @@ def test_real_sdk_and_mcp_complete_search_with_bounded_correction(engine, monkey
                     if m["role"]=="tool" and "result_id" in json.loads(m["content"]))
                 action_args = {"name": "deliver_results", "arguments": {"result_ids": [saved["result_id"]]}}
             deltas = [{"role": "assistant", "tool_calls": [{"index": 0, "id": base["id"],
-                "type": "function", "function": {"name": "agent_action", "arguments": json.dumps(action_args)}}]}]
+                "type": "function", "function": {"name": action_args["name"],
+                    "arguments": '{"server":' if malformed and len(requests)==1 else json.dumps(action_args["arguments"])}}]}]
         else:
             deltas = [{"role": "assistant", "content": "No matching records."}] if empty else [
                 {"role": "assistant", "content": "Retrieved "}, {"content": "five records."}]
@@ -302,7 +324,7 @@ def test_real_sdk_and_mcp_complete_search_with_bounded_correction(engine, monkey
                 "No matching records." if empty else "Retrieved five records.")
             assert not any(v["type"]=="interaction" for v in values)
             assert upstream==[{"page_num": 1, "page_size": 5, "filters": {"keywords": "Chemistry"}}]
-            assert len(requests)==3+int(premature)+int(empty) and "tools" not in requests[-1] and "tool_choice" not in requests[-1]
+            assert len(requests)==3+int(premature)+int(empty)+int(malformed) and "tools" not in requests[-1] and "tool_choice" not in requests[-1]
             assert all(body["enable_thinking"] is False for body in requests)
             await service.close()
     asyncio.run(run())

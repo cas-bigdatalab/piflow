@@ -119,7 +119,7 @@ def test_final_model_receives_titles_within_budget_and_public_results_are_unchan
 
         class BudgetedDialogue(Dialogue):
             async def respond(self, messages, definitions):
-                bounded = self.budget(messages, [self.action_tool(definitions)] if definitions else [])
+                bounded = self.budget(messages, definitions)
                 if not definitions:
                     final_inputs.append(bounded)
                 async for chunk in super().respond(bounded, definitions):

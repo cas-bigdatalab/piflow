@@ -9,13 +9,30 @@ from pathlib import Path
 import re
 import time
 
+import httpx
 import yaml
+from anyio import BrokenResourceError, ClosedResourceError, EndOfStream
 
 from .context import encode, project
 from .contracts import Limits, QAError, Server
 from .results import ToolResult
 
 log = logging.getLogger("flow.dataset_qa.mcp")
+
+
+def transient(error, depth=0):
+    """Recognize transport faults by type/status, never by business error text."""
+    if depth>5:
+        return False
+    if isinstance(error, httpx.HTTPStatusError):
+        return error.response.status_code in {429, 502, 503, 504}
+    if isinstance(error, (TimeoutError, ConnectionError, httpx.TimeoutException,
+            httpx.NetworkError, httpx.RemoteProtocolError, BrokenResourceError, ClosedResourceError, EndOfStream)):
+        return True
+    if isinstance(error, BaseExceptionGroup):
+        return bool(error.exceptions) and all(transient(child, depth+1) for child in error.exceptions)
+    cause = error.__cause__ or error.__context__
+    return cause is not None and transient(cause, depth+1)
 
 
 def terms(text):
@@ -115,8 +132,23 @@ class MCPGateway:
 class ToolSession:
     def __init__(self, gateway, servers, stack):
         self.gateway, self.servers, self.stack = gateway, servers, stack
-        self.clients, self.loaded = {}, OrderedDict()
+        self.clients, self.connections, self.loaded = {}, {}, OrderedDict()
         self.limits = gateway.limits
+
+    async def retry(self, error, attempt, deadline, server, phase):
+        if (attempt>=self.limits.transport_retries or not transient(error)
+                or asyncio.get_running_loop().time()+self.limits.retry_delay>=deadline):
+            return False
+        log.info("MCP transport retry: server=%s phase=%s attempt=%s error=%s",
+            server, phase, attempt+1, type(error).__name__)
+        await asyncio.sleep(self.limits.retry_delay)
+        return True
+
+    async def disconnect(self, server):
+        self.clients.pop(server, None)
+        connection = self.connections.pop(server, None)
+        if connection:
+            await connection.aclose()
 
     def list_servers(self, query="", offset=0, limit=8):
         names = ranked(self.servers, query, lambda n: n+" "+self.servers[n].description)
@@ -135,14 +167,23 @@ class ToolSession:
             if factory is None:
                 from fastmcp import Client
                 factory = Client
-            try:
-                async with asyncio.timeout(self.limits.connect_timeout):
-                    target = spec.target() if callable(spec.target) else spec.target
-                    self.clients[server] = await self.stack.enter_async_context(factory(target, timeout=spec.timeout or self.limits.timeout))
-            except asyncio.CancelledError:
-                raise
-            except Exception as exc:
-                raise QAError("mcp_unavailable", "所选MCP服务暂不可用", 503) from exc
+            deadline = asyncio.get_running_loop().time()+self.limits.connect_timeout
+            for attempt in range(self.limits.transport_retries+1):
+                connection = AsyncExitStack()
+                try:
+                    async with asyncio.timeout_at(deadline):
+                        target = spec.target() if callable(spec.target) else spec.target
+                        client = await connection.enter_async_context(factory(target, timeout=spec.timeout or self.limits.timeout))
+                    self.connections[server] = await self.stack.enter_async_context(connection)
+                    self.clients[server] = client
+                    break
+                except asyncio.CancelledError:
+                    await connection.aclose()
+                    raise
+                except Exception as exc:
+                    await connection.aclose()
+                    if not await self.retry(exc, attempt, deadline, server, "connect"):
+                        raise QAError("mcp_unavailable", "无法连接所选MCP服务，当前操作未执行", 503) from exc
         return self.clients[server]
 
     def cached_tools(self, server):
@@ -241,19 +282,42 @@ class ToolSession:
             raise QAError("invalid_schema", "MCP工具schema无效", 502) from exc
         except ValidationError as exc:
             detail = {"path": list(exc.absolute_path), "constraint": exc.validator}
+            detail["expected"], _ = project(exc.validator_value, 300)
             raise QAError("invalid_parameters", "参数不符合当前工具schema", detail=detail) from exc
         if len(encode(arguments))>self.limits.context_chars:
             raise QAError("invalid_parameters", "工具参数超过运行预算")
         self.loaded.move_to_end(alias)
         timeout = self.servers[tool.server].timeout or self.limits.timeout
+        deadline = asyncio.get_running_loop().time()+timeout
+        dispatched = False
         try:
-            async with asyncio.timeout(timeout):
-                result = await (await self.client(tool.server)).call_tool(tool.name, arguments,
-                    timeout=timeout, raise_on_error=False)
+            async with asyncio.timeout_at(deadline):
+                client = await self.client(tool.server)
+                for attempt in range(self.limits.transport_retries+1):
+                    try:
+                        dispatched = True
+                        result = await client.call_tool(tool.name, arguments,
+                            timeout=max(0.001, deadline-asyncio.get_running_loop().time()), raise_on_error=False)
+                        break
+                    except asyncio.CancelledError:
+                        raise
+                    except Exception as exc:
+                        if not (tool.annotations.get("readOnlyHint") is True
+                                and tool.annotations.get("idempotentHint") is True
+                                and await self.retry(exc, attempt, deadline, tool.server, "call")):
+                            raise
+                        await self.disconnect(tool.server)
+                        client = await self.client(tool.server)
         except asyncio.CancelledError:
             raise
+        except QAError as exc:
+            if not dispatched:
+                raise
+            raise QAError("execution_unknown", "MCP调用中断，无法确认执行结果；未继续重试", 502) from exc
         except Exception as exc:
-            raise QAError("execution_unknown", "MCP调用中断，无法确认执行结果；未自动重试", 502) from exc
+            if not dispatched:
+                raise QAError("mcp_unavailable", "无法连接所选MCP服务，当前操作未执行", 503) from exc
+            raise QAError("execution_unknown", "MCP调用中断，无法确认执行结果；未继续重试", 502) from exc
         if getattr(result, "is_error", getattr(result, "isError", False)):
             detail, _ = project([b.text for b in getattr(result, "content", []) if getattr(b, "type", None)=="text"], 2000)
             raise QAError("tool_failed", "MCP工具返回错误", 502, detail=detail)

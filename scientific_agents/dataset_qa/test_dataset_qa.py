@@ -403,7 +403,7 @@ def test_invalid_tool_arguments_can_be_corrected_without_bad_dispatch(engine):
 
 
 @pytest.mark.parametrize("idempotent", [False, True])
-def test_protocol_error_retry_policy_uses_annotations(engine, idempotent):
+def test_protocol_business_error_is_not_retried_even_if_idempotent(engine, idempotent):
     async def run():
         backend = Backend()
         backend.protocol_error = True
@@ -415,10 +415,8 @@ def test_protocol_error_retry_policy_uses_annotations(engine, idempotent):
         assert values[-1]["status"]=="FAILED" and values[-1]["code"]=="tool_failed"
         assert len(backend.calls)==1
         assert not service.store.results("alice", sid)
-        if idempotent:
-            error = next(json.loads(m.content) for m in dialogue.inputs[-1][0]
-                if isinstance(m, ToolMessage) and "error" in json.loads(m.content))
-            assert error["detail"]==["Invalid operation"]
+        assert len(dialogue.inputs)==2
+        assert "Invalid operation" in "".join(v["text"] for v in values if v["type"]=="message")
     asyncio.run(run())
 
 
@@ -709,8 +707,8 @@ def test_real_sdk_disables_thinking_in_stream_and_summary_requests(monkeypatch, 
 
     asyncio.run(run())
     assert len(requests)==3 and requests[0]["stream"] and requests[0]["tools"]
-    assert requests[0]["tool_choice"]=={"type": "function", "function": {"name": "agent_action"}}
-    assert len(requests[0]["tools"])==1
+    assert requests[0]["tool_choice"]=="required"
+    assert len(requests[0]["tools"])==len(BUILTINS)
     assert requests[1]["stream"] and "tools" not in requests[1]
     assert "tool_choice" not in requests[1] and "tool_choice" not in requests[2]
     assert all({k: body[k] for k in ("enable_thinking", "thinking", "reasoning", "extra_body") if k in body}==expected for body in requests)
@@ -791,7 +789,7 @@ def test_malformed_model_call_is_failed_without_dispatch(engine):
     async def run():
         backend = Backend()
         chunk = AIMessageChunk(content="", invalid_tool_calls=[{"name": "anything", "args": "{bad", "id": "bad", "error": "invalid JSON"}])
-        service = DatasetQA(engine, Dialogue(chunk), backend.gateway())
+        service = DatasetQA(engine, Dialogue(chunk, chunk, chunk), backend.gateway())
         values = await collect(service, session(service))
         assert values[-1]["status"]=="FAILED"
         assert values[-1]["code"]=="invalid_tool_call"

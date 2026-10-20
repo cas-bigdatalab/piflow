@@ -113,42 +113,31 @@ class Dialogue:
         return [SystemMessage(SYSTEM), HumanMessage(encode(data)), HumanMessage(message)]
 
     @staticmethod
-    def action_tool(tools):
-        choices = []
-        for index, tool in enumerate(tools):
-            function = tool["function"]
-            schema = json.loads(encode(function["parameters"]))
+    def validate_calls(reply):
+        def reject_constant(value):
+            raise ValueError("JSON numbers must be finite.")
 
-            def rebase(value):
-                if isinstance(value, dict):
-                    for key, child in value.items():
-                        if key in {"$ref", "$dynamicRef"} and isinstance(child, str) and child.startswith("#"):
-                            value[key] = f"#/oneOf/{index}/properties/arguments"+child[1:]
-                        else:
-                            rebase(child)
-                elif isinstance(value, list):
-                    for child in value:
-                        rebase(child)
-
-            rebase(schema)
-            choices.append({"type": "object", "description": function.get("description", ""),
-                "properties": {"name": {"type": "string", "enum": [function["name"]]}, "arguments": schema},
-                "required": ["name", "arguments"], "additionalProperties": False})
-        return {"type": "function", "function": {"name": "agent_action",
-            "description": "Choose the next available operation and its arguments. Use request_input for missing information; finish with deliver_results when available.",
-            "parameters": {"type": "object", "oneOf": choices}}}
-
-    @staticmethod
-    def decode_actions(reply):
-        calls = []
+        # Streaming SDKs may expose partially parsed arguments. Validate the
+        # assembled wire JSON before accepting an SDK-repaired object.
+        for part in getattr(reply, "tool_call_chunks", ()):
+            try:
+                arguments = json.loads(part.get("args") or "", parse_constant=reject_constant)
+                if not isinstance(arguments, dict):
+                    raise ValueError("Arguments must be a JSON object.")
+            except (ValueError, TypeError) as exc:
+                raise QAError("invalid_tool_call", "工具参数必须是完整的JSON对象", 502,
+                    detail={"errors": [{"tool": part.get("name"), "message": str(exc)[:200]}]}) from exc
+        if reply.invalid_tool_calls:
+            raise QAError("invalid_tool_call", "工具参数必须是合法的JSON对象", 502,
+                detail={"errors": [{"tool": call.get("name"), "message": "Return a JSON object matching this tool's schema."}
+                    for call in reply.invalid_tool_calls[:3]]})
+        ids = set()
         for call in reply.tool_calls:
-            if call["name"]=="agent_action":
-                action = call["args"]
-                if not isinstance(action.get("name"), str) or not isinstance(action.get("arguments"), dict):
-                    raise QAError("invalid_tool_call", "模型返回的动作参数无法解析", 502)
-                call = {**call, "name": action["name"], "args": action["arguments"]}
-            calls.append(call)
-        return reply.model_copy(update={"tool_calls": calls})
+            if not isinstance(call.get("id"), str) or not call["id"] or call["id"] in ids:
+                raise QAError("invalid_tool_call", "每个工具调用必须提供唯一的关联标识", 502)
+            ids.add(call["id"])
+            if not isinstance(call.get("name"), str) or not call["name"] or not isinstance(call.get("args"), dict):
+                raise QAError("invalid_tool_call", "工具调用必须提供工具名和JSON对象参数", 502)
 
     def budget(self, messages, tools):
         remaining = self.limits.context_chars-len(encode(tools))
@@ -191,10 +180,8 @@ class Dialogue:
         return [messages[0], HumanMessage(encode(context)), messages[2], *[m for group in chosen for m in group]]
 
     async def respond(self, messages, tools):
-        definitions = [self.action_tool(tools)] if tools else []
-        # Named tool choice also works on providers where `required` is advisory.
-        model = self._model().bind_tools(definitions, tool_choice="agent_action") if tools else self._model()
-        async with aclosing(model.astream(self.budget(messages, definitions))) as stream:
+        model = self._model().bind_tools(tools, tool_choice="required") if tools else self._model()
+        async with aclosing(model.astream(self.budget(messages, tools))) as stream:
             async for chunk in stream:
                 yield chunk
 

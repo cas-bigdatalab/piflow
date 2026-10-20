@@ -82,9 +82,9 @@ def test_only_selected_artifacts_are_public_after_final_reply(engine):
     ({"result_ids": ["a"], "unknown": True}, False),
 ])
 def test_delivery_constraints_reach_the_model_schema_and_runtime(arguments, valid):
-    schema = Dialogue.action_tool(BUILTINS)["function"]["parameters"]
+    schema = next(t["function"]["parameters"] for t in BUILTINS if t["function"]["name"]=="deliver_results")
     Draft202012Validator.check_schema(schema)
-    assert Draft202012Validator(schema).is_valid({"name": "deliver_results", "arguments": arguments}) is valid
+    assert Draft202012Validator(schema).is_valid(arguments) is valid
     if valid:
         Deliver.model_validate(arguments)
     else:
@@ -228,9 +228,10 @@ def test_selected_result_survives_cancel_or_final_model_failure(engine, terminal
         suffix = [v async for v in stream if v is not None]
         await asyncio.gather(*list(service.jobs.values()), return_exceptions=True)
         values = prefix+suffix
-        assert values[-1]["status"]==("CANCELLED" if terminal=="cancel" else "FAILED")
+        assert values[-1]["status"]==("CANCELLED" if terminal=="cancel" else "COMPLETED")
         if terminal=="model_failure":
-            assert values[-1]["code"]=="service_unavailable"
+            assert "code" not in values[-1]
+            assert "答复生成中断" in "".join(v["text"] for v in values if v["type"]=="message")
         assert len(result_cards(values))==1 and sum(v["type"]=="result" for v in values)==1
         assert not any(v["type"] in {"task", "error"} for v in values)
         assert "LATE OUTPUT" not in "".join(v.get("text", "") for v in values)
@@ -372,7 +373,7 @@ def test_legacy_result_events_are_projected_without_reexecution(engine):
     asyncio.run(run())
 
 
-def test_delivery_fallback_cannot_restart_mcp_execution(engine):
+def test_final_tool_call_degrades_without_restarting_mcp_execution(engine):
     async def run():
         backend = Backend()
 
@@ -391,8 +392,8 @@ def test_delivery_fallback_cannot_restart_mcp_execution(engine):
 
         service = DatasetQA(engine, RefusingDelivery(), backend.gateway())
         values = await collect(service, session(service))
-        assert values[-1]["status"]=="FAILED" and values[-1]["code"]=="invalid_tool_call"
+        assert values[-1]["status"]=="COMPLETED" and "code" not in values[-1]
         assert len(backend.calls)==1 and len(result_cards(values))==1
         assert service.dialogue.inputs[-1][1]==[] and len(service.dialogue.inputs)==4
-        assert not any(v["type"]=="message" for v in values)
+        assert "答复生成中断" in "".join(v["text"] for v in values if v["type"]=="message")
     asyncio.run(run())

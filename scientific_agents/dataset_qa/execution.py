@@ -2,6 +2,7 @@
 from hashlib import sha256
 import json
 
+from .context import project
 from .contracts import QAError
 
 
@@ -16,12 +17,14 @@ class Execution:
         self.seen, self.cached, self.cards = set(), {}, {}
         self.failures = {}
         self.corrections = 0
+        self.recovering = False
 
     @property
     def can_deliver(self):
         return bool(self.cards) and not self.failures
 
     def correct(self, error, limit):
+        self.recovering = True
         if self.corrections>=limit:
             return error
         self.corrections += 1
@@ -32,8 +35,29 @@ class Execution:
             "available_actions": sorted(actions),
             "guidance": "Choose only an available action with valid arguments. Execute requested operations through MCP before delivery; use saved results for already completed calls. Ask request_input if information is missing."}
         if error.detail:
-            value["detail"] = error.detail
+            value["detail"], _ = project(error.detail, 1200)
         return value
+
+    @staticmethod
+    def validation_error(error, message="参数不符合工具定义"):
+        errors = error.errors(include_url=False, include_context=False, include_input=False)
+        return QAError("invalid_parameters", message, detail={"errors": [
+            {"path": list(item["loc"]), "constraint": item["type"], "message": item["msg"][:300]}
+            for item in errors[:3]]})
+
+    @staticmethod
+    def notice(error, retained=False):
+        message = {
+            "invalid_tool_call": "未能生成有效的工具调用，本轮操作未完成。请重试或补充请求。",
+            "invalid_parameters": "未能确定有效的操作参数，本轮操作未完成。请补充或调整请求。",
+        }.get(error.code, str(error).rstrip("。")+"。")
+        if error.code=="tool_failed" and isinstance(error.detail, list):
+            detail = next((item.strip() for item in error.detail if isinstance(item, str) and item.strip()), "")
+            if detail:
+                message += "上游反馈："+detail[:300].rstrip("。")+"。"
+        if error.code in {"step_limit", "no_progress"}:
+            message += "本轮已停止继续调用工具。"
+        return message+("本轮已取得的结果已保留。" if retained else "")
 
     def completed(self, key):
         return next((card for (call, _), card in reversed(self.cards.items()) if call==key), None)
