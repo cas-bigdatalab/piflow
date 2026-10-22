@@ -148,11 +148,8 @@ class Operations:
             if item["state"]=="succeeded" and delivered:
                 done.append(item["description"])
             else:
-                suffix = "（已执行，尚未交付）" if item["state"]=="succeeded" else "（执行结果尚未确认）" if item["state"] in {"running", "unknown"} else ""
-                if item["state"]=="failed":
-                    error = item["attempts"][-1].get("error", {})
-                    detail = error.get("detail")
-                    message = next((value for value in detail if isinstance(value, str) and value.strip()), "") if isinstance(detail, list) else ""
-                    suffix = "（"+(message or error.get("message", "操作失败"))[:180]+"）"
+                suffix = "（信息已取得，暂未整理为展示结果）" if item["state"]=="succeeded" else "（结果尚未确认）" if item["state"] in {"running", "unknown"} else ""
                 unfinished.append(item["description"]+suffix)
-        return "\n".join(label+"；".join(values)+"。" for label, values in (("已完成：", done), ("未完成：", unfinished)) if values)
+        if not unfinished:
+            return ""
+        return "\n".join(label+"；".join(values)+"。" for label, values in (("已为您完成：", done), ("暂时还无法提供：", unfinished)) if values)

@@ -133,6 +133,7 @@ class ToolSession:
     def __init__(self, gateway, servers, stack):
         self.gateway, self.servers, self.stack = gateway, servers, stack
         self.clients, self.connections, self.loaded = {}, {}, OrderedDict()
+        self.connection_errors, self.discovery_errors = {}, {}
         self.limits = gateway.limits
 
     async def retry(self, error, attempt, deadline, server, phase):
@@ -161,6 +162,8 @@ class ToolSession:
     async def client(self, server):
         if server not in self.servers:
             raise QAError("server_not_found", "MCP服务未配置或未启用", 404)
+        if server in self.connection_errors:
+            raise self.connection_errors[server]
         if server not in self.clients:
             spec = self.servers[server]
             factory = self.gateway.client_factory
@@ -183,7 +186,10 @@ class ToolSession:
                 except Exception as exc:
                     await connection.aclose()
                     if not await self.retry(exc, attempt, deadline, server, "connect"):
-                        raise QAError("mcp_unavailable", "无法连接所选MCP服务，当前操作未执行", 503) from exc
+                        error = QAError("mcp_unavailable", "无法连接所选MCP服务，当前操作未执行", 503)
+                        self.connection_errors[server] = error
+                        log.warning("MCP connection failed: server=%s error=%s", server, type(exc).__name__, exc_info=True)
+                        raise error from exc
         return self.clients[server]
 
     def cached_tools(self, server):
@@ -202,15 +208,24 @@ class ToolSession:
         cached = self.cached_tools(server)
         if cached is not None:
             return cached
+        if server in self.discovery_errors:
+            raise self.discovery_errors[server]
         started = time.monotonic()
-        client = await self.client(server)
         try:
+            client = await self.client(server)
             async with asyncio.timeout(self.limits.connect_timeout):
                 values = await client.list_tools()
         except asyncio.CancelledError:
             raise
+        except QAError as exc:
+            self.discovery_errors[server] = exc
+            raise
         except Exception as exc:
-            raise QAError("mcp_unavailable", "无法读取所选MCP服务的工具目录", 503) from exc
+            error = QAError("mcp_unavailable", "无法读取所选MCP服务的工具目录", 503)
+            self.discovery_errors[server] = error
+            log.warning("MCP discovery failed: server=%s elapsed=%.3fs error=%s",
+                server, time.monotonic()-started, type(exc).__name__, exc_info=True)
+            raise error from exc
         tools = []
         for value in values:
             annotations = getattr(value, "annotations", None)

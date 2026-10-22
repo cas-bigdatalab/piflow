@@ -395,6 +395,17 @@ class DatasetQA:
         answer["text"] += text
         await self._write(user, sid, tid, {"type": "message", "text": text})
 
+    async def _failure_reply(self, user, sid, tid, answer, reason, operations, payload):
+        text = Execution.notice(reason, bool(payload.get("delivery")))
+        summary = operations.notice(payload.get("delivery_sources", []))
+        await self._notice(user, sid, tid, answer, text+("\n\n"+summary if summary else ""))
+
+    async def _finish_task(self, user, sid, tid, payload, execution, answer, reason=None):
+        reason = reason or execution.operations.error(payload.get("delivery_sources", []))
+        error = {"code": reason.status, "error_code": reason.code, "message": Execution.notice(reason)} if reason else None
+        await asyncio.to_thread(self.store.finish, user, sid, tid, "FAILED" if reason else "COMPLETED",
+            message=answer["text"], error=error)
+
     async def _deliver(self, user, sid, tid, arguments, payload, execution=None, partial=False):
         values = INPUTS["deliver_results"][0].model_validate(arguments)
         result_ids = list(dict.fromkeys(values.result_ids))
@@ -579,13 +590,12 @@ class DatasetQA:
         cards = await asyncio.to_thread(self.store.selected_results, user, sid, ids)
         operations = Operations(payload.get("operations", []))
         if reason:
-            await self._notice(user, sid, tid, answer, Execution.notice(reason, bool(cards)))
-            if operations.items:
-                await self._notice(user, sid, tid, answer, operations.notice(payload.get("delivery_sources", [])))
+            await self._failure_reply(user, sid, tid, answer, reason, operations, payload)
             if reason.code not in {"step_limit", "no_progress"}:
                 return
         instructions = (str(messages[0].content)+"\nTool use is over. Write only the final user-facing reply, "
             "without internal planning or another tool call. Use actual evidence, distinguish unfinished work, "
+            "Do not repeat a runtime notice already shown to the user. "
             "and only refer to display cards listed in final_delivery. Do not claim unperformed work succeeded. "
             "The runtime operations state is authoritative: distinguish execution from delivery and do not describe auxiliary lookups as completion of the request. "
             "Use answer_evidence for supporting facts; only final_delivery defines displayed artifacts. Retrieval totals may overlap: do not add them or infer coverage or suitability without evidence. "
@@ -744,8 +754,7 @@ class DatasetQA:
                         if not reply.tool_calls:
                             reason = execution.operations.error(payload.get("delivery_sources", []))
                             await self._final_reply(user, sid, tid, messages, answer, phase, reason, waiting)
-                            await asyncio.to_thread(self.store.finish, user, sid, tid, "FAILED" if reason else "COMPLETED", message=answer["text"],
-                                error={"code": reason.status, "error_code": reason.code, "message": str(reason)} if reason else None)
+                            await self._finish_task(user, sid, tid, payload, execution, answer, reason)
                             return
                         messages.append(reply)
                         round_progress = False
@@ -853,7 +862,7 @@ class DatasetQA:
                                     if tool:
                                         execution.operations.finish(operation_id, key, error=exc)
                                         await self._write(user, sid, tid, payload=payload)
-                                    if exc.code in {"invalid_parameters", "invalid_pointer", "result_not_found", "memory_too_large"}:
+                                    if exc.code in {"invalid_parameters", "invalid_pointer", "result_not_found", "memory_too_large", "server_not_found"}:
                                         rejection = exc
                                         value = action_feedback(rejection)
                                         rejected = True
@@ -866,7 +875,10 @@ class DatasetQA:
                                             value = action_feedback(rejection)
                                             value["executed"] = True
                                             rejected = True
-                                    if not tool and exc.code in {"mcp_unavailable", "tool_failed", "execution_unknown", "result_too_large"}:
+                                    if name=="load_mcp_tools" and exc.code=="mcp_unavailable":
+                                        value.update(server=arguments.get("server"), executed=False,
+                                            guidance="Only this service's discovery failed. Use already loaded tools or discover another configured service. Discovery does not execute a user operation.")
+                                    elif not tool and exc.code in {"mcp_unavailable", "tool_failed", "execution_unknown", "result_too_large"}:
                                         reason = exc
                                 finally:
                                     log.info("Tool request: task=%s tool=%s mcp=%s operation=%s elapsed=%.3fs",
@@ -891,9 +903,10 @@ class DatasetQA:
                         if ready:
                             reason = execution.operations.error(payload.get("delivery_sources", []))
                             await self._final_reply(user, sid, tid, messages, answer, phase, reason, waiting)
-                            await asyncio.to_thread(self.store.finish, user, sid, tid, "FAILED" if reason else "COMPLETED", message=answer["text"],
-                                error={"code": reason.status, "error_code": reason.code, "message": str(reason)} if reason else None)
+                            await self._finish_task(user, sid, tid, payload, execution, answer, reason)
                             return
+                        if not reason and not tools.loaded and tools.discovery_errors and all(server in tools.discovery_errors for server in tools.servers):
+                            reason = next(reversed(tools.discovery_errors.values()))
                         if not rejection:
                             execution.stalled = 0 if round_progress else execution.stalled+1
                         if not reason and not rejection and execution.stalled>=limits.max_stalled_calls:
@@ -908,6 +921,8 @@ class DatasetQA:
                         if reason:
                             break
                     reason = reason or QAError("step_limit", "处理达到本轮预算，请缩小请求范围")
+                    if reason.code in {"mcp_required", "step_limit", "no_progress"} and not tools.loaded and tools.discovery_errors:
+                        reason = next(reversed(tools.discovery_errors.values()))
                     # Delivery selection never executes MCP; final text has no tools.
                     if execution.cards and "delivery" not in payload:
                         try:
@@ -918,8 +933,7 @@ class DatasetQA:
                         log.info("Delivery recovered from saved evidence: task=%s", tid)
                         reason = None
                     await self._final_reply(user, sid, tid, messages, answer, phase, reason, waiting)
-                    await asyncio.to_thread(self.store.finish, user, sid, tid, "FAILED" if reason else "COMPLETED", message=answer["text"],
-                        error={"code": reason.status, "error_code": reason.code, "message": str(reason)} if reason else None)
+                    await self._finish_task(user, sid, tid, payload, execution, answer, reason)
         except asyncio.CancelledError:
             try:
                 await asyncio.to_thread(self.store.finish, user, sid, tid, "CANCELLED", message=answer["text"])
@@ -935,11 +949,9 @@ class DatasetQA:
                 payload["operations"] = execution.operations.items
                 message = ("本次请求超过本轮等待上限，暂时无法完成；已取得的有效信息将保留。" if acquired else
                     "等待可用处理资源超过本轮上限，本次请求尚未开始执行。")
-                exc = QAError("task_timeout", message, 504)
+                exc = QAError("task_timeout", message, 504, detail={"phase": "execution" if acquired else "queue"})
             log.exception("Agent task failed: task=%s", tid)
-            error = {"code": exc.status if isinstance(exc, QAError) else 503,
-                "error_code": exc.code if isinstance(exc, QAError) else "service_unavailable",
-                "message": str(exc) if isinstance(exc, QAError) else "服务暂不可用，请稍后重试"}
+            failure = exc if isinstance(exc, QAError) else QAError("service_unavailable", "服务暂不可用，请稍后重试", 503)
             try:
                 async with asyncio.timeout_at(turn_deadline) if expired else nullcontext():
                     if expired:
@@ -951,13 +963,10 @@ class DatasetQA:
                             pass
                     if expired and payload.get("delivery") and execution.operations.error(payload.get("delivery_sources", [])) is None:
                         await self._notice(user, sid, tid, answer, "答复生成超过等待上限，已完成的操作及结果已保留，请查看下方结果。")
-                        await asyncio.to_thread(self.store.finish, user, sid, tid, "COMPLETED", message=answer["text"])
+                        await self._finish_task(user, sid, tid, payload, execution, answer)
                         return
-                    failure = exc if isinstance(exc, QAError) else QAError("service_unavailable", error["message"], 503)
-                    await self._notice(user, sid, tid, answer, Execution.notice(failure, bool(payload.get("delivery"))))
-                    if execution.operations.items:
-                        await self._notice(user, sid, tid, answer, execution.operations.notice(payload.get("delivery_sources", [])))
-                    await asyncio.to_thread(self.store.finish, user, sid, tid, "FAILED", message=answer["text"], error=error)
+                    await self._failure_reply(user, sid, tid, answer, failure, execution.operations, payload)
+                    await self._finish_task(user, sid, tid, payload, execution, answer, failure)
             except (QAError, TimeoutError):
                 log.warning("Task finalization interrupted: task=%s", tid)
         finally:

@@ -39,7 +39,7 @@ def test_no_success_without_actual_mcp_execution(engine, responses):
         assert values[-1]["status"]=="FAILED" and values[-1]["code"]=="mcp_required"
         assert not backend.calls and not result_cards(values)
         shown = "".join(v["text"] for v in values if v["type"]=="message")
-        assert "Invented dataset result" not in shown and "本轮尚未通过MCP" in shown
+        assert "Invented dataset result" not in shown and "还没有取得新的服务结果" in shown
         planning = [v for v in dialogue.inputs if v[1]]
         assert len(planning)==len(responses)+2 and len(dialogue.inputs)==len(planning)
         assert all(d["function"]["name"]!="deliver_results" for d in dialogue.inputs[0][1])

@@ -86,7 +86,7 @@ def test_same_tool_other_target_success_keeps_failure_and_delivers_qualified_par
             payload = saved(service, sid, values[-1]["task_id"])
             assert [item["state"] for item in payload["operations"]]==["failed", "succeeded"]
             text = "".join(value["text"] for value in values if value["type"]=="message")
-            assert "已完成：操作 b" in text and "未完成：操作 a" in text and "Invalid operation" in text
+            assert "已为您完成：操作 b" in text and "暂时还无法提供：操作 a" in text and "Invalid operation" in text
             assert values==await collect(service, sid, "分别采样 A 和 B") and len(backend.calls)==2
         finally:
             await service.close()
@@ -318,7 +318,7 @@ def test_heterogeneous_required_artifacts_are_not_dropped_or_force_merged(engine
             assert len(backend.calls)==2 and not result_cards(values)
             assert len(service.store.results("alice", sid))==2
             text = "".join(value["text"] for value in values if value["type"]=="message")
-            assert "已执行，尚未交付" in text
+            assert "信息已取得，暂未整理为展示结果" in text
         finally:
             await service.close()
     asyncio.run(run())

@@ -241,7 +241,7 @@ def test_deadline_preserves_success_and_reports_the_unconfirmed_operation(engine
             assert len(result_cards(values))==1 and [call[1] for call in backend.calls]==["search", "sample"]
             assert [item["state"] for item in saved(service, sid, values[-1]["task_id"])["operations"]]==["succeeded", "unknown"]
             text = "".join(value["text"] for value in values if value["type"]=="message")
-            assert "已完成：操作 find" in text and "未完成：操作 sample" in text
+            assert "已为您完成：操作 find" in text and "暂时还无法提供：操作 sample" in text
         finally:
             await service.close()
     asyncio.run(run())
