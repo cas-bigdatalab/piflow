@@ -74,8 +74,8 @@ def test_only_selected_artifacts_are_public_after_final_reply(engine):
     ({"result_ids": ["a"], "merge_path": None}, True),
     ({"result_ids": ["a"], "merge_path": ""}, True),
     ({"result_ids": ["a", "b"], "merge_path": "/items", "title": "Combined"}, True),
-    ({"result_ids": ["a", "b"]}, False),
-    ({"result_ids": ["a", "b"], "merge_path": None}, False),
+    ({"result_ids": ["a", "b"]}, True),
+    ({"result_ids": ["a", "b"], "merge_path": None}, True),
     ({"result_ids": [], "merge_path": "/items"}, False),
     ({"merge_path": ""}, False),
     ({"result_ids": [""]}, False),
@@ -131,7 +131,7 @@ def test_invalid_multiple_selection_recovers_without_reexecuting_mcp(engine):
         assert len(cards)==2 and result_cards(values)==[public_result(cards[0])]
         feedback = next(json.loads(m.content) for m in dialogue.inputs[4][0]
             if isinstance(m, ToolMessage) and m.name=="deliver_results")
-        assert feedback["error"]=="invalid_parameters" and feedback["executed"] is False
+        assert feedback["error"]=="invalid_delivery" and feedback["executed"] is False
     asyncio.run(run())
 
 
@@ -146,7 +146,7 @@ def test_invalid_selection_does_not_change_saved_results_or_publish_partial_deli
         for card in cards:
             service.store.write("alice", sid, task["id"], card=card)
         ids = [card["result_id"] for card in cards]
-        with pytest.raises(ValidationError):
+        with pytest.raises(QAError):
             await service._deliver("alice", sid, task["id"], {"result_ids": ids}, payload)
         assert "delivery" not in payload
         assert json.loads(service.store.task("alice", sid, task["id"])["payload"])==payload

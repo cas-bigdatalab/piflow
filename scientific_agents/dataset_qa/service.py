@@ -16,7 +16,7 @@ from .execution import Execution, fingerprint
 from .operations import Operations
 from .mcp import MCPGateway
 from .persistence import Store
-from .results import combine_results, evidence
+from .results import collection_paths, combine_results, evidence, evidence_group
 from .references import all_references, apply_update, at_path, display_list, preview
 from .runtime import Waiting
 
@@ -398,17 +398,26 @@ class DatasetQA:
     async def _deliver(self, user, sid, tid, arguments, payload, execution=None, partial=False):
         values = INPUTS["deliver_results"][0].model_validate(arguments)
         result_ids = list(dict.fromkeys(values.result_ids))
+        if execution is not None and "result_ids" not in values.model_fields_set:
+            result_ids = list(dict.fromkeys(rid for item in execution.operations.items
+                if item["state"]=="succeeded" and item["output"]=="result" for rid in execution.operations.result_ids(item)))
         if execution is not None:
             execution.operations.validate_delivery(result_ids, partial)
         cards = await asyncio.to_thread(self.store.selected_results, user, sid, result_ids)
         patch = values.references.model_dump(exclude_unset=True) if values.references else {}
-        if values.merge_path is not None:
+        paths = values.merge_path
+        if paths is None and len(cards)>1:
+            if execution is None:
+                raise QAError("invalid_delivery", "自动汇总需要本轮操作及执行来源")
+            paths = collection_paths(cards, execution.operations)
+        if paths is not None:
             if not cards:
                 raise QAError("invalid_delivery", "合并结果时必须选择已保存的结果")
             if execution is not None and len({card.get("view_type") for card in cards})>1:
                 raise QAError("invalid_delivery", "不同展示类型不能合并为一个结果；请保留必要产物并准确说明尚未完成的交付")
-            cards = [combine_results(cards, values.merge_path, tid+":delivery", values.title)]
-            if (candidate := patch.get("candidates")) and candidate["result_id"] in result_ids and candidate.get("path", "")==values.merge_path:
+            cards = [combine_results(cards, paths, tid+":delivery", values.title)]
+            if (candidate := patch.get("candidates")) and candidate["result_id"] in result_ids and candidate.get("path", "")==(
+                    paths[candidate["result_id"]] if isinstance(paths, dict) else paths):
                 patch["candidates"] = {**candidate, "result_id": cards[0]["result_id"], "path": ""}
         if cards and "candidates" not in patch and (candidate := display_list(cards[0])):
             patch["candidates"] = candidate
@@ -419,7 +428,7 @@ class DatasetQA:
             await self._validate_references(user, sid, json.loads(saved["context"]).get("references", {}), patch, cards)
         if len(encode({"items": [public_result(card) for card in cards]}).encode("utf-8")) > self.gateway.limits.result_bytes:
             raise QAError("result_too_large", "展示结果超过运行预算，请缩小交付范围")
-        if values.merge_path is not None:
+        if paths is not None:
             await self._write(user, sid, tid, card=cards[0])
         payload["delivery"] = [card["result_id"] for card in cards]
         if execution is not None:
@@ -433,10 +442,14 @@ class DatasetQA:
     async def _fallback_delivery(self, user, sid, tid, payload, execution, required=False):
         if "delivery" in payload:
             return
-        cards = {rid for item in execution.operations.items if item["state"]=="succeeded"
-            and item["output"]=="result" for rid in execution.operations.result_ids(item)}
-        if len(cards)==1:
-            await self._deliver(user, sid, tid, {"result_ids": list(cards)}, payload, execution, partial=not required)
+        cards = list(dict.fromkeys(rid for item in execution.operations.items if item["state"]=="succeeded"
+            and item["output"]=="result" for rid in execution.operations.result_ids(item)))
+        if cards:
+            try:
+                await self._deliver(user, sid, tid, {"result_ids": cards}, payload, execution, partial=not required)
+            except QAError as exc:
+                if required or exc.code!="invalid_delivery":
+                    raise
         elif not cards and execution.operations.items and all(item["output"]=="answer" for item in execution.operations.items):
             await self._deliver(user, sid, tid, {"result_ids": []}, payload, execution, partial=not required)
         elif required:
@@ -575,16 +588,23 @@ class DatasetQA:
             "without internal planning or another tool call. Use actual evidence, distinguish unfinished work, "
             "and only refer to display cards listed in final_delivery. Do not claim unperformed work succeeded. "
             "The runtime operations state is authoritative: distinguish execution from delivery and do not describe auxiliary lookups as completion of the request. "
+            "Use answer_evidence for supporting facts; only final_delivery defines displayed artifacts. Retrieval totals may overlap: do not add them or infer coverage or suitability without evidence. "
             "When naming an object from returned data, use that object's own non-empty title field verbatim. "
             "Do not substitute identifiers, source/provider labels, or enclosing card titles for object names. "
             "If its title is absent or empty, state that the name was not provided and distinguish it using "
             "a supplied identifier; do not infer or invent a name.")
-        answer_ids = list(dict.fromkeys(rid for item in operations.items if item["state"]=="succeeded"
-            and item["output"]=="answer" for rid in operations.result_ids(item) if rid not in ids))
+        source_ids = [rid for item in operations.items if item["state"]=="succeeded" for rid in operations.result_ids(item)]
+        for message in messages[2:]:
+            if isinstance(message, ToolMessage) and (rid := json.loads(message.content).get("result_id")):
+                source_ids.append(rid)
+        displayed = {*ids, *payload.get("delivery_sources", [])}
+        answer_ids = [rid for rid in dict.fromkeys(source_ids) if rid not in ids]
         answer_cards = await asyncio.to_thread(self.store.selected_results, user, sid, answer_ids) if answer_ids else []
+        limit = self.gateway.limits.result_chars
         delivery, _ = project({"final_delivery": [self._evidence(card) for card in cards],
-            "answer_evidence": [self._evidence(card) for card in answer_cards],
-            "stop_reason": str(reason) if reason else None}, self.gateway.limits.result_chars)
+            "stop_reason": str(reason) if reason else None}, limit*2//3 if answer_cards else limit-24)
+        support = evidence_group(answer_cards, operations, max(4, limit-len(encode(delivery))-24))
+        delivery["answer_evidence"] = support.get("items", [])
         context = json.loads(messages[1].content)
         if operations.items:
             context["operations"] = operations.view()
@@ -594,8 +614,9 @@ class DatasetQA:
         for message in messages[2:]:
             if isinstance(message, ToolMessage):
                 value = json.loads(message.content)
-                if value.get("result_id") in ids:
-                    message = message.model_copy(update={"content": encode({"result_id": value["result_id"]})})
+                if message.name and message.name.startswith("mcp_") and value.get("result_id") in {*displayed, *answer_ids}:
+                    message = message.model_copy(update={"content": encode({key: value[key] for key in
+                        ("result_id", "executed", "guidance", "repeated") if key in value})})
             history.append(message)
         final_messages = [messages[0].model_copy(update={"content": instructions}), HumanMessage(encode(context)),
             *history, HumanMessage(encode(delivery))]
@@ -651,7 +672,7 @@ class DatasetQA:
                 if parent:
                     payload["parent_task_id"] = parent
                     await self._write(user, sid, tid, payload=payload)
-                reason, ready = None, False
+                reason, ready, delivery_failure = None, False, None
                 async with self.gateway.session() as tools:
                     def action_feedback(error):
                         value = execution.feedback(error, execution.actions(tools.loaded))
@@ -662,6 +683,8 @@ class DatasetQA:
                     tools.prime(payload["message"], context.get("tools", []))
                     model_context["mcp_servers"] = tools.list_servers(payload["message"])
                     messages = self.dialogue.messages(payload["message"], model_context)
+                    evidence_ids = ()
+                    evidence_cards = {}
                     for _ in range(limits.max_rounds):
                         if execution.calls>=limits.max_calls and not execution.can_deliver:
                             reason = QAError("step_limit", "工具调用达到本轮预算，请缩小请求范围")
@@ -676,6 +699,13 @@ class DatasetQA:
                         updated = json.loads(messages[1].content)
                         if execution.operations.items:
                             updated["operations"] = execution.operations.view()
+                        current_ids = tuple(card["result_id"] for card in execution.cards.values())
+                        if current_ids!=evidence_ids:
+                            for card in execution.cards.values():
+                                if card["result_id"] not in evidence_cards:
+                                    evidence_cards[card["result_id"]] = self._evidence(card)
+                            updated["evidence"] = evidence_group([evidence_cards[rid] for rid in dict.fromkeys(current_ids)], execution.operations, limits.result_chars)
+                            evidence_ids = current_ids
                         if payload.get("resume") is not None:
                             updated.pop("pending", None)
                         messages[1] = HumanMessage(encode(updated))
@@ -697,6 +727,7 @@ class DatasetQA:
                                 if exc.code not in {"mcp_required", "invalid_delivery"}:
                                     raise
                                 rejection = exc
+                                delivery_failure = exc
                         if rejection:
                             # Never replay malformed calls, missing/duplicate IDs or
                             # unpaired results to the provider during correction.
@@ -750,6 +781,7 @@ class DatasetQA:
                                 except (QAError, ValidationError) as exc:
                                     if isinstance(exc, ValidationError):
                                         exc = execution.validation_error(exc, "交付参数不符合定义")
+                                    delivery_failure = exc
                                     value = {"error": exc.code, "message": str(exc)}
                                     if exc.code in {"mcp_required", "invalid_parameters", "invalid_delivery", "invalid_pointer", "result_not_found"}:
                                         rejection = exc
@@ -839,6 +871,8 @@ class DatasetQA:
                                 finally:
                                     log.info("Tool request: task=%s tool=%s mcp=%s operation=%s elapsed=%.3fs",
                                         tid, name, tool is not None, operation_id, time.monotonic()-call_started)
+                            if tool and value.get("result_id"):
+                                evidence_cards[value["result_id"]] = value
                             if interaction:
                                 answer["text"] = (answer["text"]+"\n"+interaction["question"]).strip()
                                 await asyncio.to_thread(self.store.finish, user, sid, tid, "WAITING_INPUT",
@@ -880,9 +914,12 @@ class DatasetQA:
                             await self._fallback_delivery(user, sid, tid, payload, execution)
                         except Exception:
                             log.warning("Partial delivery unavailable: task=%s", tid, exc_info=True)
+                    if reason is delivery_failure and "delivery" in payload and execution.operations.error(payload.get("delivery_sources", [])) is None:
+                        log.info("Delivery recovered from saved evidence: task=%s", tid)
+                        reason = None
                     await self._final_reply(user, sid, tid, messages, answer, phase, reason, waiting)
-                    await asyncio.to_thread(self.store.finish, user, sid, tid, "FAILED", message=answer["text"],
-                        error={"code": reason.status, "error_code": reason.code, "message": str(reason)})
+                    await asyncio.to_thread(self.store.finish, user, sid, tid, "FAILED" if reason else "COMPLETED", message=answer["text"],
+                        error={"code": reason.status, "error_code": reason.code, "message": str(reason)} if reason else None)
         except asyncio.CancelledError:
             try:
                 await asyncio.to_thread(self.store.finish, user, sid, tid, "CANCELLED", message=answer["text"])

@@ -54,19 +54,19 @@ class Ask(Input):
 
 class Deliver(Input):
     model_config = ConfigDict(json_schema_extra={"oneOf": [
-        {"properties": {"result_ids": {"maxItems": 1}, "merge_path": {"type": "null"}}},
+        {"properties": {"merge_path": {"type": "null"}}},
         {"properties": {"result_ids": {"minItems": 1}, "merge_path": {"type": "string"}},
             "required": ["result_ids", "merge_path"]},
     ]})
-    result_ids: list[Annotated[str, Field(min_length=1, max_length=180)]] = Field(default_factory=list, max_length=24)
-    merge_path: str | None = Field(default=None, max_length=2000)
+    result_ids: list[Annotated[str, Field(min_length=1, max_length=180)]] = Field(default_factory=list, max_length=24,
+        description="Saved results answering the current goal. Compatible lists are combined by the runtime. Omit to use completed result goals; use [] explicitly for a text-only answer.")
+    merge_path: str | None = Field(default=None, max_length=2000,
+        description="Optional legacy JSON Pointer for explicitly selected list batches. Normally omit; the runtime resolves compatible surface lists.")
     title: str = Field(default="", max_length=255)
     references: ReferenceUpdate | None = None
 
     @model_validator(mode="after")
     def single_output(self):
-        if self.merge_path is None and len(set(self.result_ids))>1:
-            raise ValueError("Select one final result; multiple result_ids require merge_path for batches of the same requested list.")
         if self.merge_path is not None and not self.result_ids:
             raise ValueError("A merge requires at least one saved result.")
         return self
@@ -78,7 +78,7 @@ INPUTS = {
     "read_result": (Read, "Read saved data using JSON Pointer and pagination without executing again. Omit result_id to page saved result references, confirmed selections and current operations; use selected_next_offset to page selections."),
     "remember": (Remember, "Save choices, source references or private task operations. Before MCP execution declare all necessary operations and associate this response's MCP calls using calls; emit this bookkeeping alongside native calls, without an extra response. Use null for auxiliary lookups. Do not copy result bodies into memory."),
     "request_input": (Ask, "Request indispensable missing input, identified in missing. Empty or negative tool outcomes and optional follow-ups belong in the final reply via deliver_results. Options may be labels or objects with label and value."),
-    "deliver_results": (Deliver, "Finish tool use with one artifact that directly answers the current request; omit intermediate lookups and unrelated results. Select one saved result_id, or use an empty list for a text-only answer. Multiple result_ids require merge_path pointing to batches of the same requested list, combined into one card with an optional title; only actual saved rows are merged and exact duplicates removed. Do not merge unrelated artifacts."),
+    "deliver_results": (Deliver, "Finish tool use with the saved results answering the current goal. The runtime combines compatible lists into one card and maintains source references. Omit result_ids to use completed result goals, or use [] explicitly for a text-only answer. Exclude unrelated artifacts; auxiliary evidence remains available for the reply. Do not copy result bodies or invent merge paths."),
 }
 BUILTINS = [{"type": "function", "function": {"name": name, "description": description,
     "parameters": model.model_json_schema()}} for name, (model, description) in INPUTS.items()]
@@ -99,11 +99,14 @@ SYSTEM = (
     "If selected_total exceeds the visible selections, browse read_result without result_id for the remaining confirmed references. "
     "When delivering an object list, references.candidates may identify its path and semantic kind; only published lists establish display order. "
     "Use original identifier fields for MCP arguments. Read omitted evidence when needed; summaries cannot establish or override object references. "
-    "Before execution declare all necessary goals in remember.operations. Co-emit remember.calls with each response's native MCP calls in MCP order; null marks auxiliary work, which cannot complete a goal. "
+    "Before execution declare all necessary user outcomes in remember.operations, not separate goals for query variants or pages. Several retrieval calls may support the same goal; independently requested operations remain separate. "
+    "For a research or advisory request, identify the information needed to answer it and retrieve supporting resources; do not treat the entire request as an exact resource name or as an instruction to execute the research itself. "
+    "Co-emit remember.calls with each response's native MCP calls in MCP order; null marks auxiliary work, which cannot complete a goal. "
     "Set an operation's direct flag only when a successful call itself supplies the final artifact, with no further inspection, pagination, interpretation or selection needed. Ground the current target and references first. "
     "Ground targets in source references; later focus changes do not retarget operations. Distinct targets or requested repeats need distinct IDs; corrections keep the same ID. "
     "For pending clarification, explicitly set remember.resume: continue its goal/evidence or start an independent request. "
     "Only runtime MCP receipts prove execution; discovery, memory and saved data alone do not. Reuse receipts for correction/continuation, and execute new requests through MCP. Never drop outstanding goals to pass delivery. "
+    "The bounded evidence view groups saved results by goal; omitted details remain available through read_result. Distinguish general suggestions from verified resources and unsupported suitability claims. "
     " During tool use, keep planning internal. When ready, call deliver_results to select final display artifacts, "
     "or request_input if clarification is necessary. A separate tool-free response will answer the user."
 )
@@ -177,6 +180,12 @@ class Dialogue:
         recent = trim_messages(messages[2:current], max_tokens=max(0, min(8000, remaining//2)),
             token_counter=cost, strategy="last", allow_partial=False, start_on="human")
         remaining -= cost(recent)
+        grouped = context.get("evidence")
+        grouped_ids = set()
+        if isinstance(grouped, dict) and len(encode(grouped))<=min(self.limits.result_chars, remaining//3):
+            protected["evidence"] = grouped
+            remaining -= len(encode(grouped))
+            grouped_ids = {item["result_id"] for item in grouped.get("items", []) if "result_id" in item}
         groups = []
         for message in messages[current+1:]:
             if not isinstance(message, ToolMessage):
@@ -190,6 +199,10 @@ class Dialogue:
             for message in group:
                 if isinstance(message, ToolMessage):
                     value = json.loads(message.content)
+                    if message.name and message.name.startswith("mcp_") and value.get("result_id") in grouped_ids:
+                        value = {key: value[key] for key in ("result_id", "executed", "guidance", "repeated") if key in value}
+                        copy.append(message.model_copy(update={"content": encode(value)}))
+                        continue
                     data, cut = project(value.get("data", value), min(self.limits.result_chars, max(200, remaining//max(2, len(group)))))
                     if "result_id" in value:
                         value = {**value, "data": data}

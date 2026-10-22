@@ -12,7 +12,7 @@ from .references import Reference
 class Operation(BaseModel):
     model_config = ConfigDict(extra="forbid")
     id: str = Field(min_length=1, max_length=48, pattern=r"^[A-Za-z0-9_-]+$")
-    description: str = Field(min_length=1, max_length=240, description="One necessary user-requested operation, not an auxiliary lookup.")
+    description: str = Field(min_length=1, max_length=240, description="One necessary user outcome. Query variants and pages may support the same outcome; independently requested operations remain separate.")
     target: Reference | None = None
     output: Literal["result", "answer"] = Field(default="result", description="Whether this operation requires a displayed artifact or a factual text answer.")
     direct: bool = Field(default=False, description="True only when successful execution itself yields the final requested artifact; no further inspection, pagination, interpretation or selection is needed.")

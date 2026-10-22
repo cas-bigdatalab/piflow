@@ -63,7 +63,7 @@ class Execution:
     def notice(error, retained=False):
         message = {
             "invalid_tool_call": "未能生成有效的工具调用，本轮操作未完成。请重试或补充请求。",
-            "invalid_parameters": "未能确定有效的操作参数，本轮操作未完成。请补充或调整请求。",
+            "invalid_parameters": "本轮未能生成有效的操作参数，操作尚未完成。",
         }.get(error.code, str(error).rstrip("。")+"。")
         if error.code=="tool_failed" and isinstance(error.detail, list):
             detail = next((item.strip() for item in error.detail if isinstance(item, str) and item.strip()), "")

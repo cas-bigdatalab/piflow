@@ -14,6 +14,7 @@ from langchain_core.messages.content import (
 from .context import encode, project, public_result, slice_result
 from .contracts import QAError
 from .execution import fingerprint
+from .references import at_path, display_list
 
 
 def as_dict(value):
@@ -108,11 +109,71 @@ def evidence(card, limit):
     return result
 
 
+def evidence_group(cards, operations, limit):
+    """One bounded, source-backed view; raw artifacts never enter session memory."""
+    cards = list({card["result_id"]: card for card in cards}.values())
+    owners = {}
+    for operation in operations.items:
+        for result_id in operations.result_ids(operation):
+            owners.setdefault(result_id, []).append(operation["id"])
+    result = {"items": [], "total": len(cards)}
+    if len(encode({**result, "next_offset": 0}))>limit:
+        return {}
+    for card in cards:
+        entry = {"result_id": card["result_id"], "operations": owners.get(card["result_id"], []), "truncated": True}
+        # Keep identifiers whole, even when only a paged index fits.
+        if len(encode({**result, "items": [*result["items"], entry], "next_offset": len(result["items"])+1}))+40>limit:
+            break
+        result["items"].append(entry)
+    if len(result["items"])<len(cards):
+        result["next_offset"] = len(result["items"])
+    remaining = limit-len(encode(result))
+    share = max(0, remaining//max(1, len(result["items"]))-24)
+    for entry, card in zip(result["items"], cards):
+        detail = {}
+        if share>=64:
+            view = evidence(card, share)
+            detail, _ = project({key: value for key, value in view.items() if key!="result_id"}, share)
+            entry.update(detail or {})
+        entry["truncated"] = bool(card.get("truncated") or (detail or {}).get("truncated")) or "data" not in entry or entry.get("data")!=card.get("data")
+    return result
+
+
+def collection_paths(cards, operations):
+    """Infer only compatible object lists backed by the same safe tool and target."""
+    origins, targets, paths, keys = set(), set(), {}, []
+    if len({card.get("view_type") for card in cards})!=1:
+        raise QAError("invalid_delivery", "不同展示类型不能合并为一个结果")
+    for card in cards:
+        surface = display_list(card)
+        if surface is None:
+            raise QAError("invalid_delivery", "结果不是可识别的同类对象列表，请选择直接满足目标的产物")
+        rows = at_path(card.get("data"), surface["path"])
+        if any(not isinstance(row, dict) for row in rows):
+            raise QAError("invalid_delivery", "自动汇总仅支持对象列表，其他产物须明确选择")
+        keys.extend(tuple(sorted(row)) for row in rows if row)
+        paths[card["result_id"]] = surface["path"]
+        receipts = [(item, attempt) for item in operations.items for attempt in item["attempts"]
+            if attempt.get("result_id")==card["result_id"] and attempt["state"]=="succeeded"]
+        if not receipts:
+            raise QAError("invalid_delivery", "自动汇总缺少结果的执行来源")
+        for item, attempt in receipts:
+            tool = attempt.get("tool") or {}
+            if not attempt.get("retry_safe") or not tool.get("server") or not tool.get("name"):
+                raise QAError("invalid_delivery", "该工具未声明只读且幂等，请明确选择需要交付的产物")
+            origins.add((tool["server"], tool["name"]))
+            targets.add(encode(item.get("target")))
+    if len(origins)!=1 or len(targets)!=1 or len(set(keys))>1:
+        raise QAError("invalid_delivery", "结果的来源、目标或记录结构不兼容，不能自动合并")
+    return paths
+
+
 def combine_results(cards, path, result_id, title):
     """Combine explicitly selected arrays without inventing rows or pagination totals."""
     rows, content, seen, media = [], [], set(), set()
     for card in cards:
-        value, _ = slice_result(card.get("data"), path, 0, len(encode(card)))
+        pointer = path[card["result_id"]] if isinstance(path, dict) else path
+        value, _ = slice_result(card.get("data"), pointer, 0, len(encode(card)))
         if not isinstance(value, list):
             raise QAError("invalid_delivery", "合并位置必须指向数组")
         for row in value:

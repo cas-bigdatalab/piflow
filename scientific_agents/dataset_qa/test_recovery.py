@@ -90,9 +90,9 @@ def test_delivery_correction_reuses_sampling_even_after_another_tool_succeeds(en
 
         def retry_sample(messages, definitions):
             feedback = json.loads(messages[-1].content)
-            error, = feedback["detail"]["errors"]
-            assert "Select one final result" in error["message"]
-            assert "input" not in error and "ctx" not in error
+            assert feedback["error"]=="invalid_delivery"
+            assert feedback["detail"]["unrelated"]==["unselected"]
+            assert feedback["executed"] is False
             return remote("sample", count=2, reference="a")(messages, definitions)
 
         dialogue = RawDialogue(load(), remote("sample", reference="a", count=2), bad_delivery, retry_sample,
