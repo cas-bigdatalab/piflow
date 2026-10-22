@@ -3,6 +3,7 @@ import asyncio
 
 from langchain_core.messages import AIMessageChunk
 
+from .assertions import assert_completed, assert_handled
 from ..capabilities import OBJECT
 from ..service import DatasetQA
 from .test_dataset_qa import action, collect, engine, load, remote, result_cards, session
@@ -31,7 +32,7 @@ def test_heterogeneous_required_artifacts_are_delivered_and_replayed_independent
             message = "Show the first dataset details and sample the second dataset"
             values = await collect(service, sid, message, "two-artifacts")
             cards = result_cards(values)
-            assert values[-1]["status"] == "COMPLETED"
+            assert_completed(service, None, values[-1])
             assert len(cards) == 2
             assert {card["view_type"] for card in cards} == {"detail", "sample"}
             ledger = payload(service, sid, values)
@@ -81,7 +82,7 @@ def test_two_explicit_random_samples_remain_two_artifacts_even_when_content_matc
                 *[finish] * 4]
             values = await collect(service, sid, "Draw two independent samples from the first dataset", "two-draws")
             cards = result_cards(values)
-            assert values[-1]["status"] == "COMPLETED"
+            assert_completed(service, None, values[-1])
             assert len(cards) == 2 and cards[0]["result_id"] != cards[1]["result_id"]
             assert cards[0]["data"] == cards[1]["data"] == {"items": [{"row": "same draw"}]}
             assert len([call for call in backend.calls if call[1] == "sample"]) == 2
@@ -127,7 +128,7 @@ def test_failure_of_third_outcome_preserves_both_completed_heterogeneous_artifac
                     remote("sample", count=1, **{OBJECT: "candidate:1"})]), text("Partial results are ready.")]
             values = await collect(service, sid, "Show details, preview and sample the first dataset", "partial-three")
             cards = result_cards(values)
-            assert values[-1]["status"] == "FAILED" and values[-1]["code"] == "tool_failed"
+            assert_handled(service, None, values[-1], "tool_failed")
             assert len(cards) == 2 and {card["view_type"] for card in cards} == {"detail", "directory"}
             ledger = payload(service, sid, values)
             assert ledger["delivery"] == ledger["delivery_sources"] == [card["result_id"] for card in cards]
@@ -154,7 +155,7 @@ def test_delivery_position_in_a_batch_does_not_skip_a_later_native_action(engine
         service = DatasetQA(engine, dialogue, backend.gateway())
         try:
             values = await collect(service, session(service), "Find resources in two fields and compare them", "ordered")
-            assert values[-1]["status"] == "COMPLETED"
+            assert_completed(service, None, values[-1])
             assert [call[2]["query"] for call in backend.calls] == ["first field", "second field"]
         finally:
             await service.close()

@@ -6,6 +6,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from .assertions import assert_completed, assert_handled
 from ..capabilities import OBJECT
 from ..service import DatasetQA
 from .test_dataset_qa import action, collect, engine, remote, result_cards, session
@@ -76,7 +77,8 @@ def test_parallel_reads_reserve_before_dispatch_and_save_fast_result_before_slow
             assert [item["state"] for item in ledger["operations"]]==["running", "succeeded"]
             release.set()
             values = await job
-            assert values[-1]["status"]=="COMPLETED" and len(result_cards(values))==2
+            assert_completed(service, None, values[-1])
+            assert len(result_cards(values))==2
             ledger = payload(service, sid, values)
             assert all(len(item["attempts"])==1 and item["state"]=="succeeded" for item in ledger["operations"])
             assert [card["result_id"].rsplit(":", 1)[1] for card in result_cards(values)]==["0", "1"]
@@ -137,10 +139,10 @@ def test_nonindependent_or_unsafe_or_overbudget_work_does_not_overlap(engine, ki
             assert peak==1 and active==0
             assert len(backend.calls)==(2 if kind=="budget" else 3)
             if kind=="budget":
-                assert values[-1]["status"]=="FAILED" and values[-1]["code"]=="step_limit"
+                assert_handled(service, None, values[-1], "step_limit")
                 assert len(result_cards(values))==1
             else:
-                assert values[-1]["status"]=="COMPLETED"
+                assert_completed(service, None, values[-1])
         finally:
             await service.close()
     asyncio.run(run())
@@ -170,7 +172,7 @@ def test_one_parallel_failure_keeps_the_other_receipt_and_never_reexecutes_it(en
             await seed(service, dialogue, sid)
             dialogue.responses = [read_goals(), *[finish]*3]
             values = await collect(service, sid, "Inspect A and preview B", "one-failure")
-            assert values[-1]["status"]=="FAILED" and values[-1]["code"]=="tool_failed"
+            assert_handled(service, None, values[-1], "tool_failed")
             assert len(result_cards(values))==1 and len(backend.calls)==3
             ledger = payload(service, sid, values)
             assert [item["state"] for item in ledger["operations"]]==["succeeded", "failed"]
@@ -220,9 +222,10 @@ def test_interrupted_parallel_read_keeps_completed_artifact_and_joins_waiting_wo
             values = await asyncio.wait_for(job, 2)
             await asyncio.wait_for(exited.wait(), 2)
             assert len(result_cards(values))==1
-            assert values[-1]["status"]==("CANCELLED" if ending=="cancel" else "FAILED")
-            if ending=="timeout":
-                assert values[-1]["code"]=="task_timeout"
+            if ending=="cancel":
+                assert values[-1]["status"]=="CANCELLED"
+            else:
+                assert_handled(service, sid, values[-1], "task_timeout")
             ledger = payload(service, sid, values)
             assert ledger["operations"][0]["state"]=="succeeded"
             assert ledger["operations"][1]["state"]=="unknown"

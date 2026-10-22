@@ -7,6 +7,7 @@ from jsonschema import Draft202012Validator
 from langchain_core.messages import AIMessageChunk, ToolMessage
 import pytest
 
+from .assertions import assert_completed, assert_handled
 from ..capabilities import GOAL, OBJECT, SUPPORTING, inputs
 from ..dialogue import BUILTINS, Dialogue
 from ..contracts import QAError, Server
@@ -78,7 +79,7 @@ def configured():
 async def seed(service, dialogue, sid):
     dialogue.responses = [load(), remote("search", query="资源"), action("deliver_results"), text()]
     values = await collect(service, sid, "找资源", "seed")
-    assert values[-1]["status"]=="COMPLETED"
+    assert_completed(service, None, values[-1])
     return result_cards(values)[0]
 
 
@@ -94,7 +95,7 @@ def test_native_call_without_bookkeeping_executes_and_finishes(engine):
         sid = session(service)
         try:
             values = await collect(service, sid, "找天文数据")
-            assert values[-1]["status"]=="COMPLETED"
+            assert_completed(service, None, values[-1])
             assert backend.calls==[("data", "search", {"query": "天文"})]
             assert len(dialogue.inputs)==4 and len(result_cards(values))==1
             assert not any("runtime_feedback" in message.content for messages, _ in dialogue.inputs for message in messages)
@@ -121,7 +122,8 @@ def test_semantic_goals_need_no_model_operation_ids_or_call_mapping(engine, coem
         sid = session(service)
         try:
             values = await collect(service, sid, "找化工资源")
-            assert values[-1]["status"]=="COMPLETED" and len(backend.calls)==1
+            assert_completed(service, None, values[-1])
+            assert len(backend.calls)==1
             assert len(dialogue.inputs)==(3 if coemit else 4)
             assert dialogue.inputs[-1][1]==[]  # no selector/evaluator round
             assert payload(service, sid, values)["operations"][0]["planned"] is True
@@ -139,11 +141,11 @@ def test_current_object_switch_ordinal_defaults_and_history_survive(engine):
             await seed(service, dialogue, sid)
             dialogue.responses = [remote("inspect", **{OBJECT: "candidate:2"}), action("deliver_results"), text()]
             values = await collect(service, sid, "看看第二个", "detail")
-            assert values[-1]["status"]=="COMPLETED"
+            assert_completed(service, None, values[-1])
             assert backend.calls[-1]==("data", "inspect", {"reference": "b"})
             dialogue.responses = [remote("sample"), action("deliver_results"), text()]
             sampled = await collect(service, sid, "采样这个", "sample")
-            assert sampled[-1]["status"]=="COMPLETED"
+            assert_completed(service, None, sampled[-1])
             assert backend.calls[-1]==("data", "sample", {"reference": "b", "count": 5})
             restored = json.loads(service.store.session("alice", sid)["context"])["references"]
             assert restored["current"]["result_id"]==result_cards(values)[0]["result_id"]
@@ -164,7 +166,7 @@ def test_parameter_target_mismatch_is_corrected_without_wrong_execution(engine):
             dialogue.responses = [action("remember", focus="candidate:1"),
                 remote("sample", reference="b", count=2), remote("sample", count=2), action("deliver_results"), text()]
             values = await collect(service, sid, "确定第一个，然后采样这个", "sample")
-            assert values[-1]["status"]=="COMPLETED"
+            assert_completed(service, None, values[-1])
             assert backend.calls==[("data", "search", {"query": "资源"}), ("data", "sample", {"reference": "a", "count": 2})]
             feedback = [json.loads(message.content) for messages, _ in dialogue.inputs for message in messages
                 if isinstance(message, ToolMessage) and message.name.endswith("_sample") and "error" in json.loads(message.content)]
@@ -186,7 +188,7 @@ def test_auxiliary_result_does_not_complete_sample_goal(engine):
                 remote("search", query="辅助信息", **{SUPPORTING: True}), action("deliver_results"),
                 remote("sample", **{OBJECT: "candidate:1"}), text()]
             values = await collect(service, sid, "采样第一个资源", "sample")
-            assert values[-1]["status"]=="COMPLETED"
+            assert_completed(service, None, values[-1])
             assert len(backend.calls)==3 and len(result_cards(values))==1
             assert result_cards(values)[0]["title"].endswith("sample")
             ledger = payload(service, sid, values)
@@ -207,7 +209,8 @@ def test_multi_search_evidence_is_available_for_advice_without_model_paths(engin
         sid = session(service)
         try:
             values = await collect(service, sid, "做干旱预测需要哪些数据？")
-            assert values[-1]["status"]=="COMPLETED" and len(backend.calls)==2
+            assert_completed(service, None, values[-1])
+            assert len(backend.calls)==2
             # Advisory outcomes use evidence in the answer; they don't force an
             # unrelated list card or claim that the prediction was executed.
             assert not result_cards(values)
@@ -239,7 +242,8 @@ def test_complex_goal_coverage_prevents_early_completion(engine):
             assert all(item["state"]=="succeeded" for item in ledger["operations"])
             # Independent outcomes retain their original artifacts when no
             # source-backed homogeneous merge is available.
-            assert values[-1]["status"]=="COMPLETED" and len(result_cards(values))==2
+            assert_completed(service, None, values[-1])
+            assert len(result_cards(values))==2
         finally:
             await service.close()
     asyncio.run(run())
@@ -289,7 +293,8 @@ def test_real_mcp_receives_bound_business_parameters_only(engine):
         sid = session(service)
         try:
             values = await collect(service, sid, "找到资源后，展示其内容")
-            assert values[-1]["status"]=="COMPLETED" and calls==["catalog", ("entry-1", 5)]
+            assert_completed(service, None, values[-1])
+            assert calls==["catalog", ("entry-1", 5)]
             card, = result_cards(values)
             assert card["view_type"]=="directory" and card["data"]["items"][0]["files"][0]["name"]=="data.json"
             assert len(dialogue.inputs)==4 and dialogue.inputs[-1][1]==[]
@@ -317,7 +322,8 @@ def test_runtime_merges_compatible_batches_and_avoids_selection_round(engine):
         sid = session(service)
         try:
             values = await collect(service, sid, "找降水与径流相关资源")
-            assert values[-1]["status"]=="COMPLETED" and len(backend.calls)==2
+            assert_completed(service, None, values[-1])
+            assert len(backend.calls)==2
             assert len(dialogue.inputs)==3
             card, = result_cards(values)
             assert card["data"]["items"]==backend.items
@@ -342,7 +348,8 @@ def test_clarification_continues_semantic_goal_without_resume_flag(engine):
             assert waiting[-1]["status"]=="WAITING_INPUT"
             dialogue.responses = [continuation("continue", remote("sample", **{OBJECT: "candidate:2"})), text()]
             values = await collect(service, sid, "第二个", "continue")
-            assert values[-1]["status"]=="COMPLETED" and len(backend.calls)==2
+            assert_completed(service, None, values[-1])
+            assert len(backend.calls)==2
             assert backend.calls[-1][2]=={"reference": "b", "count": 5}
             ledger = payload(service, sid, values)
             assert ledger["resume"] is True
@@ -367,7 +374,7 @@ def test_new_target_does_not_silently_resume_another_pending_target(engine):
             assert (await collect(service, sid, "采样第一个", "ask"))[-1]["status"]=="WAITING_INPUT"
             dialogue.responses = [continuation("new", remote("sample", count=2, **{OBJECT: "candidate:2"})), action("deliver_results"), text()]
             values = await collect(service, sid, "先采样第二个两条", "other")
-            assert values[-1]["status"]=="COMPLETED"
+            assert_completed(service, None, values[-1])
             assert payload(service, sid, values)["resume"] is False
             assert backend.calls[-1][2]=={"reference": "b", "count": 2}
         finally:
@@ -386,7 +393,8 @@ def test_current_source_refresh_does_not_repeat_successful_mcp(engine):
                 calls=[remote("inspect", **{OBJECT: "candidate:1"})]),
                 remote("inspect", **{OBJECT: "current"}), action("deliver_results"), text()]
             values = await collect(service, sid, "解释第一个对象", "inspect")
-            assert values[-1]["status"]=="COMPLETED" and len(backend.calls)==2
+            assert_completed(service, None, values[-1])
+            assert len(backend.calls)==2
             ledger = payload(service, sid, values)
             assert len(ledger["operations"])==1 and len(ledger["operations"][0]["attempts"])==1
             reused = [json.loads(message.content) for messages, _ in dialogue.inputs for message in messages
@@ -411,7 +419,8 @@ def test_explicit_repeat_goals_execute_twice_but_corrections_reuse_receipts(engi
                 for_goal("第二次采样", remote("sample", count=1, **{OBJECT: "candidate:1"})),
                 action("deliver_results"), text()]
             values = await collect(service, sid, "对第一个采样两次并解释", "twice")
-            assert values[-1]["status"]=="COMPLETED" and len(backend.calls)==3
+            assert_completed(service, None, values[-1])
+            assert len(backend.calls)==3
             assert len(payload(service, sid, values)["operations"])==2
         finally:
             await service.close()
@@ -425,8 +434,10 @@ def test_final_model_failure_keeps_successful_native_artifact(engine):
         service = DatasetQA(engine, dialogue, backend.gateway())
         try:
             values = await collect(service, session(service))
-            assert values[-1]["status"]=="COMPLETED" and len(result_cards(values))==1 and len(backend.calls)==1
-            assert "结果已保留" in "".join(event.get("text", "") for event in values)
+            assert_completed(service, None, values[-1])
+            assert len(result_cards(values))==1 and len(backend.calls)==1
+            shown = "".join(event.get("text", "") for event in values)
+            assert "结果已整理在下方" in shown and "model unavailable" not in shown
         finally:
             await service.close()
     asyncio.run(run())
@@ -440,7 +451,8 @@ def test_auxiliary_success_reclassified_as_goal_reuses_execution(engine):
         service = DatasetQA(engine, dialogue, backend.gateway())
         try:
             values = await collect(service, session(service), "找资源")
-            assert values[-1]["status"]=="COMPLETED" and len(backend.calls)==1
+            assert_completed(service, None, values[-1])
+            assert len(backend.calls)==1
             assert len(result_cards(values))==1
         finally:
             await service.close()
@@ -455,7 +467,8 @@ def test_native_action_can_promote_auxiliary_receipt_without_any_memory_call(eng
         service = DatasetQA(engine, dialogue, backend.gateway())
         try:
             values = await collect(service, session(service), "找资源")
-            assert values[-1]["status"]=="COMPLETED" and len(backend.calls)==1
+            assert_completed(service, None, values[-1])
+            assert len(backend.calls)==1
             assert len(result_cards(values))==1
         finally:
             await service.close()
@@ -474,7 +487,7 @@ def test_unknown_auxiliary_execution_cannot_be_repeated_under_required_goal(engi
                 remote("sample", **{OBJECT: "candidate:1", SUPPORTING: True}),
                 remote("sample", **{OBJECT: "candidate:1"})]
             values = await collect(service, sid, "采样第一个", "unknown")
-            assert values[-1]["status"]=="FAILED" and values[-1]["code"]=="execution_unknown"
+            assert_handled(service, None, values[-1], "execution_unknown")
             assert len(backend.calls)==2  # seed + one dispatched sample
             assert not result_cards(values)
         finally:
@@ -491,7 +504,8 @@ def test_empty_search_can_be_reviewed_without_premature_completion(engine):
         service = DatasetQA(engine, dialogue, backend.gateway())
         try:
             values = await collect(service, session(service), "查找符合条件的资源")
-            assert values[-1]["status"]=="COMPLETED" and len(dialogue.inputs)==4
+            assert_completed(service, None, values[-1])
+            assert len(dialogue.inputs)==4
             assert result_cards(values)[0]["data"]["items"]==[]
             assert len(backend.calls)==1
         finally:
@@ -507,10 +521,10 @@ def test_direct_user_identifier_establishes_focus_for_following_turn(engine):
         sid = session(service)
         try:
             values = await collect(service, sid, "查看 direct-id", "detail")
-            assert values[-1]["status"]=="COMPLETED"
+            assert_completed(service, None, values[-1])
             dialogue.responses = [remote("sample"), action("deliver_results"), text()]
             sampled = await collect(service, sid, "采样这个", "sample")
-            assert sampled[-1]["status"]=="COMPLETED"
+            assert_completed(service, None, sampled[-1])
             assert backend.calls[-1][2]=={"reference": "direct-id", "count": 5}
         finally:
             await service.close()
@@ -531,7 +545,7 @@ def test_explicit_source_scopes_ordinal_without_reusing_recent_candidates(engine
             await collect(service, sid, "看看新的第一个", "focus")
             dialogue.responses = [remote("sample", **{OBJECT: "source:2"}), action("deliver_results"), text()]
             values = await collect(service, sid, "采样这个列表的第二个", "old-source", result_id=old["result_id"])
-            assert values[-1]["status"]=="COMPLETED"
+            assert_completed(service, None, values[-1])
             assert backend.calls[-1][2]=={"reference": "b", "count": 5}
             view = json.loads(dialogue.inputs[-3][0][1].content)
             assert view["request_objects"]["candidates"]["items"][1]["handle"]=="source:2"

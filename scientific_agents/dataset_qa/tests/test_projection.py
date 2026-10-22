@@ -6,6 +6,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from .assertions import assert_completed
 from ..context import encode, project, slice_result
 from ..persistence import dumps
 from ..operations import Operations
@@ -133,7 +134,8 @@ def test_final_model_receives_titles_within_budget_and_public_results_are_unchan
         sid = session(service)
         try:
             values = await collect(service, sid)
-            assert values[-1]["status"]=="COMPLETED" and len(backend.calls)==batches
+            assert_completed(service, None, values[-1])
+            assert len(backend.calls)==batches
             messages, = final_inputs
             delivery = json.loads(messages[-1].content)
             assert len(encode(delivery))<=gateway.limits.result_chars

@@ -5,6 +5,7 @@ import json
 from langchain_core.messages import AIMessageChunk, ToolMessage
 import pytest
 
+from .assertions import assert_completed, assert_handled
 from ..contracts import QAError, Server
 from ..execution import Execution
 from ..mcp import MCPGateway
@@ -59,7 +60,8 @@ def test_mixed_discovery_batch_continues_without_extra_model_round(engine, order
         sid = session(service)
         try:
             events = await collect(service, sid)
-            assert events[-1]["status"]=="COMPLETED" and "code" not in events[-1]
+            assert_completed(service, None, events[-1])
+            assert "code" not in events[-1]
             assert len(dialogue.inputs)==4 and len(backend.calls)==1
             assert len(result_cards(events))==1
             text = "".join(v.get("text", "") for v in events)
@@ -85,7 +87,8 @@ def test_discovery_after_success_does_not_override_goal_or_published_card(engine
         sid = session(service)
         try:
             events = await collect(service, sid)
-            assert events[-1]["status"]=="COMPLETED" and len(backend.calls)==1
+            assert_completed(service, None, events[-1])
+            assert len(backend.calls)==1
             assert len(result_cards(events))==1 and len(dialogue.inputs)==5
             assert "".join(v.get("text", "") for v in events)=="请查看查询结果。"
             payload = saved(service, sid, events[-1]["task_id"])
@@ -131,7 +134,8 @@ def test_distinct_unavailable_services_are_progress_until_usable_service_found(e
         service = DatasetQA(engine, dialogue, gateway)
         try:
             events = await collect(service, session(service))
-            assert events[-1]["status"]=="COMPLETED" and len(backend.calls)==1
+            assert_completed(service, None, events[-1])
+            assert len(backend.calls)==1
             assert len(dialogue.inputs)==6 and attempts.count(("offline", "connect"))==2
         finally:
             await service.close()
@@ -148,10 +152,10 @@ def test_all_services_unavailable_end_with_specific_friendly_reason(engine):
         sid = session(service)
         try:
             events = await collect(service, sid)
-            assert events[-1]["status"]=="FAILED" and events[-1]["code"]=="mcp_unavailable"
+            assert_handled(service, None, events[-1], "mcp_unavailable")
             assert len(dialogue.inputs)==1 and not backend.calls and not result_cards(events)
             text = "".join(v.get("text", "") for v in events)
-            assert text==events[-1]["message"] and "暂时无法访问" in text
+            assert text==events[-1]["message"] and "继续" in text
             assert "MCP" not in text and "未执行" not in text
         finally:
             await service.close()
@@ -172,13 +176,13 @@ def test_real_partial_failure_keeps_artifact_and_one_coherent_explanation(engine
         sid = session(service)
         try:
             events = await collect(service, sid)
-            assert events[-1]["status"]=="FAILED" and events[-1]["code"]=="tool_failed"
+            assert_handled(service, None, events[-1], "tool_failed")
             assert len(result_cards(events))==1 and len(backend.calls)==2
             messages = [v["text"] for v in events if v["type"]=="message"]
-            assert len(messages)==1 and messages[0].count("Invalid operation")==1
+            assert len(messages)==1 and "Invalid operation" not in messages[0]
             assert "已为您完成：操作 find" in messages[0] and "暂时还无法提供：操作 sample" in messages[0]
             assert "MCP" not in messages[0] and "未完成" not in messages[0]
-            assert events[-1]["message"]==Execution.notice(QAError("tool_failed", "technical message", detail=["Invalid operation"]))
+            assert events[-1]["message"]==Execution.notice(QAError("tool_failed", "technical message", detail=["Invalid operation"]), retained=True)
             assert saved(service, sid, events[-1]["task_id"])["operations"][1]["state"]=="failed"
         finally:
             await service.close()
@@ -205,11 +209,13 @@ def test_isolation_with_real_mcp_client_and_fresh_sampling(engine):
         sid = session(service)
         try:
             events = await collect(service, sid, rid="first")
-            assert events[-1]["status"]=="COMPLETED" and len(calls)==1
+            assert_completed(service, None, events[-1])
+            assert len(calls)==1
             assert events==await collect(service, sid, rid="first") and len(calls)==1
             dialogue.responses = [remote("sample"), action("deliver_results"), AIMessageChunk(content="新样本已就绪。")]
             fresh = await collect(service, sid, rid="next")
-            assert fresh[-1]["status"]=="COMPLETED" and len(calls)==2
+            assert_completed(service, None, fresh[-1])
+            assert len(calls)==2
             assert result_cards(events)[0]["data"]!=result_cards(fresh)[0]["data"]
         finally:
             await service.close()

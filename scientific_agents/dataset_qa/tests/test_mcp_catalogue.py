@@ -5,6 +5,7 @@ from dataclasses import replace
 
 import pytest
 
+from .assertions import assert_completed
 from ..contracts import QAError, Server
 from ..mcp import MCPGateway
 from ..service import DatasetQA
@@ -219,10 +220,12 @@ def test_invalid_service_does_not_block_another_service_or_following_turn(engine
         sid = session(service)
         try:
             first = await collect(service, sid, "Find resources", "first")
-            assert first[-1]["status"]=="COMPLETED" and len(result_cards(first))==1
+            assert_completed(service, None, first[-1])
+            assert len(result_cards(first))==1
             dialogue.responses = [remote("search", query="another request"), action("deliver_results"), text()]
             second = await collect(service, sid, "Find more resources", "second")
-            assert second[-1]["status"]=="COMPLETED" and len(result_cards(second))==1
+            assert_completed(service, None, second[-1])
+            assert len(result_cards(second))==1
             assert len(backend.calls)==2 and backend.lists.count("compute")==1
         finally:
             await service.close()

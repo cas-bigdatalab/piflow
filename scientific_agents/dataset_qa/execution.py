@@ -5,6 +5,7 @@ import json
 from .context import project
 from .contracts import QAError
 from .operations import Operations
+from .responses import notice
 
 
 def fingerprint(value):
@@ -77,39 +78,7 @@ class Execution:
             {"path": list(item["loc"]), "constraint": item["type"], "message": item["msg"][:300]}
             for item in errors[:3]]})
 
-    @staticmethod
-    def notice(error, retained=False):
-        message = {
-            "invalid_tool_call": "这次未能正确组织所需操作，暂时无法提供完整结果，请重试。",
-            "invalid_parameters": "这次在准备操作参数时遇到了问题，暂时无法提供完整结果，请重试。",
-            "invalid_delivery": "这次还无法将所需信息完整整理为展示结果。",
-            "mcp_required": "这次还没有取得新的服务结果，暂时无法提供可靠答复。",
-            "mcp_unavailable": "本次需要的服务暂时无法访问，请稍后重试。",
-            "tool_failed": "所需服务暂时未能完成本次请求。",
-            "execution_unknown": "服务尚未返回可确认的结果，为避免重复处理，暂不继续尝试。",
-            "model_timeout": "生成答复的等待时间较长，暂时无法完成，请稍后重试。",
-            "empty_response": "已取得服务信息，但本次答复未能生成。请重试刚才的问题。",
-            "service_unavailable": "服务暂不可用，请稍后重试。",
-            "invalid_mcp_config": "服务配置暂不可用，需要管理员核对后再试。",
-            "invalid_schema": "所需服务的能力定义暂不可用，需要管理员核对后再试。",
-            "server_not_found": "暂未找到可用的对应服务，请稍后重试。",
-            "tool_not_loaded": "暂时无法使用本次所需的服务能力，请重试。",
-            "result_too_large": "返回内容超过本次可展示范围，请缩小范围或分批获取。",
-            "context_too_large": "本次需要处理的信息较多，请缩小范围或分步提问。",
-            "no_progress": "目前没有取得进一步的信息，本次先停止继续尝试。",
-            "step_limit": "这次处理步骤较多，暂时无法完成全部请求，已停止继续尝试。",
-            "task_timeout": "本次等待已达到上限，暂时无法提供完整结果。",
-        }.get(error.code, "本次处理遇到了问题，暂时无法提供完整结果，请稍后重试。")
-        if (error.code=="invalid_parameters" and isinstance(error.detail, dict)
-                and error.detail.get("decision")=="confirm_outcome"):
-            message = "已取得候选信息，但尚未确定是否满足完整请求，已停止继续扩展查询。您可以明确是查看候选、进一步筛选，还是对选定数据进行操作。"
-        if error.code=="task_timeout" and error.detail=={"phase": "queue"}:
-            message = "等待可用处理资源的时间较长，本次尚未开始执行，请稍后重试。"
-        if error.code=="tool_failed" and isinstance(error.detail, list):
-            detail = next((item.strip() for item in error.detail if isinstance(item, str) and item.strip()), "")
-            if detail:
-                message += "服务反馈："+detail[:300].rstrip("。")+"。"
-        return message+("已取得的结果已保留，请查看下方内容。" if retained else "")
+    notice = staticmethod(notice)
 
     def completed(self, key):
         return next((card for (call, _), card in reversed(self.cards.items()) if call==key), None)

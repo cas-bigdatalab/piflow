@@ -7,6 +7,7 @@ from types import SimpleNamespace
 from langchain_core.messages import AIMessageChunk, ToolMessage
 import pytest
 
+from .assertions import assert_completed, assert_handled
 from ..context import encode, project, public_result
 from ..contracts import Limits, Options, QAError, Server
 from ..mcp import MCPGateway
@@ -32,7 +33,7 @@ def test_repeated_calls_converge_and_keep_one_card(engine, hints, expected_calls
         values = await collect(service, sid)
         assert len(backend.calls)==expected_calls
         assert sum(v["type"]=="result" for v in values)==1
-        assert values[-1]["status"]=="COMPLETED"
+        assert_completed(service, None, values[-1])
         assert "code" not in values[-1]  # No-gain closure does not invalidate completed goals.
         assert dialogue.inputs[-1][1]==[]
         assert "已取得两个数据集" in "".join(v["text"] for v in values if v["type"]=="message")
@@ -56,7 +57,7 @@ def test_cache_is_canonical_per_turn_and_never_hides_fresh_sampling(engine):
         service = DatasetQA(engine, dialogue, backend.gateway())
         sid = session(service)
         values = await collect(service, sid)
-        assert values[-1]["status"]=="COMPLETED"
+        assert_completed(service, None, values[-1])
         assert [c[1] for c in backend.calls]==["search", "sample", "sample"]
         cards = service.store.results("alice", sid, values[-1]["task_id"])
         assert len(cards)==3 and cards[1]["data"]!=cards[2]["data"]
@@ -88,14 +89,14 @@ def test_pagination_and_changed_parameters_are_not_duplicates(engine):
         service = DatasetQA(engine, dialogue, gateway)
         sid = session(service)
         values = await collect(service, sid)
-        assert values[-1]["status"]=="COMPLETED"
+        assert_completed(service, None, values[-1])
         assert len(backend.calls)==5 and sum(v["type"]=="result" for v in values)==1
         assert len(service.store.results("alice", sid, values[-1]["task_id"]))==5
         assert len(result_cards(values))==1
     asyncio.run(run())
 
 
-def test_call_budget_pairs_skipped_parallel_calls_before_finalizing(engine):
+def test_call_budget_keeps_executed_result_and_hides_skipped_internal_calls(engine):
     async def run():
         backend = Backend()
         parallel = AIMessageChunk(content="", tool_calls=[
@@ -108,13 +109,14 @@ def test_call_budget_pairs_skipped_parallel_calls_before_finalizing(engine):
         dialogue = Dialogue(load("compute"), batch, AIMessageChunk(content="当前完成一项计算。"))
         service = DatasetQA(engine, dialogue, backend.gateway(limits=Limits(max_calls=2)))
         values = await collect(service, session(service))
-        assert values[-1]["status"]=="FAILED" and len(backend.calls)==1
+        task = assert_handled(service, None, values[-1], "step_limit")
+        assert len(backend.calls)==1
         messages, definitions = dialogue.inputs[-1]
         assert definitions==[]
-        paired = [m for m in messages if isinstance(m, ToolMessage) and m.name!="deliver_results"][-3:]
-        assert [m.tool_call_id for m in paired]==["0", "1", "2"]
-        assert all(json.loads(m.content)["executed"] is False for m in paired[1:])
-        assert values[-1]["code"]=="step_limit"
+        assert not any(isinstance(message, ToolMessage) for message in messages)
+        attempts = [attempt for item in json.loads(task["payload"])["operations"] for attempt in item["attempts"]]
+        assert len(attempts)==1 and attempts[0]["state"]=="succeeded"
+        assert [item["result_id"] for item in json.loads(messages[-1].content)["delivery_manifest"]]==[attempts[0]["result_id"]]
     asyncio.run(run())
 
 
@@ -124,10 +126,11 @@ def test_repeated_discovery_is_bounded_and_final_failure_keeps_original_reason(e
         dialogue = Dialogue(*[action("list_mcp_servers") for _ in range(3)], RuntimeError("offline"))
         service = DatasetQA(engine, dialogue, backend.gateway())
         values = await collect(service, session(service))
-        assert values[-1]["status"]=="FAILED" and not backend.connections
-        assert values[-1]["code"]=="no_progress"
+        assert not backend.connections
+        assert_handled(service, None, values[-1], "no_progress")
         assert dialogue.inputs[-1][1]==[]
-        assert any("停止" in v.get("text", "") for v in values)
+        shown = "".join(v.get("text", "") for v in values)
+        assert "缩小范围" in shown and "offline" not in shown
     asyncio.run(run())
 
 
@@ -144,7 +147,7 @@ def test_parallel_duplicates_reuse_receipts_and_keep_all_call_pairs(engine):
         service = DatasetQA(engine, dialogue, backend.gateway())
         values = await collect(service, session(service))
         assert len(backend.calls)==1 and sum(v["type"]=="result" for v in values)==1
-        assert values[-1]["status"]=="COMPLETED"
+        assert_completed(service, None, values[-1])
         paired = [m for m in dialogue.inputs[-2][0] if isinstance(m, ToolMessage) and m.name!="deliver_results"][-8:]
         assert [m.tool_call_id for m in paired]==[str(i) for i in range(8)]
         assert all(json.loads(m.content)["executed"] is False for m in paired[1:])
@@ -170,7 +173,7 @@ def test_unavailable_service_is_not_reconnected_repeatedly_in_one_turn(engine):
         service = DatasetQA(engine, dialogue, gateway)
         values = await collect(service, session(service))
         assert attempted==["connect"] and not backend.calls
-        assert values[-1]["code"]=="mcp_unavailable"
+        assert_handled(service, None, values[-1], "mcp_unavailable")
         assert len(dialogue.inputs)==3  # Other configured services may still be usable; repeated discovery is bounded.
     asyncio.run(run())
 
@@ -204,7 +207,8 @@ def test_budget_final_answer_streams_before_completion(engine):
         gate.set()
         rest = [v async for v in stream if v is not None]
         assert any(v.get("text")=="和尾段" for v in rest)
-        assert rest[-1]["status"]=="FAILED" and dialogue.inputs[-1][1]==[]
+        assert_handled(service, None, rest[-1])
+        assert dialogue.inputs[-1][1]==[]
     asyncio.run(run())
 
 
@@ -227,7 +231,7 @@ def test_status_returns_to_execute_while_model_uses_tool_evidence(engine):
         tid = service.store.session("alice", sid)["active_task_id"]
         assert service.store.task("alice", sid, tid)["stage"]=="execute"
         gate.set()
-        assert (await reader)[-1]["status"]=="COMPLETED"
+        assert_completed(service, None, (await reader)[-1])
     asyncio.run(run())
 
 

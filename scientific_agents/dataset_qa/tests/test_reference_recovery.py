@@ -5,6 +5,7 @@ import json
 
 import pytest
 
+from .assertions import assert_completed, assert_handled
 from ..capabilities import GOAL, OBJECT, SUPPORTING, adapted, identifiers_from_request, inputs, request_identifiers
 from ..context import encode
 from ..contracts import QAError
@@ -184,7 +185,7 @@ def test_new_request_does_not_complete_or_deliver_a_pending_same_capability_goal
             backend.items = [{"id": "new-c", "title": "New C"}]
             dialogue.responses = [continuation("new", remote("search", query="C")), action("deliver_results"), text()]
             new = await collect(service, sid, "New request: search C instead", "new")
-            assert new[-1]["status"]=="COMPLETED"
+            assert_completed(service, None, new[-1])
             ledger = payload(service, sid, new)
             assert ledger["resume"] is False and len(ledger["operations"])==1
             assert old_source not in ledger["delivery_sources"]
@@ -210,7 +211,8 @@ def test_unpublished_intermediate_object_survives_clarification_without_retrieva
             assert not json.loads(service.store.session("alice", sid)["context"]).get("references")
             dialogue.responses = [continuation("continue", remote("sample", count=5, **{OBJECT: "pending:1"})), text()]
             resumed = await collect(service, sid, "5 rows", "answer")
-            assert resumed[-1]["status"]=="COMPLETED" and len(result_cards(resumed))==1
+            assert_completed(service, None, resumed[-1])
+            assert len(result_cards(resumed))==1
             ledger = payload(service, sid, resumed)
             assert ledger["resume"] is True
             assert backend.calls==[("data", "search", {"query": "resource"}),
@@ -241,7 +243,8 @@ def test_repeated_clarification_keeps_unpublished_candidates_and_original_receip
             assert payload(service, sid, second)["pending_objects"]["pending:2"]["path"]=="/items/1"
             dialogue.responses = [continuation("continue", remote("sample", count=2, **{OBJECT: "pending:2"})), text()]
             last = await collect(service, sid, "The second one, two rows", "answer")
-            assert last[-1]["status"]=="COMPLETED" and len(result_cards(last))==1
+            assert_completed(service, None, last[-1])
+            assert len(result_cards(last))==1
             assert backend.calls==[("data", "search", {"query": "resource"}),
                 ("data", "sample", {"reference": "b", "count": 2})]
             assert payload(service, sid, last)["operations"][-1]["target"]["path"]=="/items/1"
@@ -260,15 +263,15 @@ def test_direct_input_can_switch_implicit_current_without_a_focus_clearing_round
         try:
             await seed(service, dialogue, sid)
             dialogue.responses = [remote("inspect", **{OBJECT: "candidate:1"}), action("deliver_results"), text()]
-            assert (await collect(service, sid, "Inspect first", "focus"))[-1]["status"]=="COMPLETED"
+            assert_completed(service, None, (await collect(service, sid, "Inspect first", "focus"))[-1])
             dialogue.responses = [remote("inspect", reference="direct-b"), action("deliver_results"), text()]
             switched = await collect(service, sid, "Inspect direct-b", "switch")
-            assert switched[-1]["status"]=="COMPLETED"
+            assert_completed(service, None, switched[-1])
             assert backend.calls[-1]==("data", "inspect", {"reference": "direct-b"})
             assert not any("runtime_feedback" in message.content for messages, _ in dialogue.inputs[-3:] for message in messages)
             dialogue.responses = [remote("sample"), action("deliver_results"), text()]
             sampled = await collect(service, sid, "Sample this", "sample")
-            assert sampled[-1]["status"]=="COMPLETED"
+            assert_completed(service, None, sampled[-1])
             assert backend.calls[-1]==("data", "sample", {"reference": "direct-b", "count": 5})
         finally:
             await service.close()
@@ -282,7 +285,7 @@ def test_a_word_substring_cannot_ground_a_guessed_short_object_id(engine):
         service = DatasetQA(engine, dialogue, backend.gateway())
         try:
             values = await collect(service, session(service), "show dataset", "short-id")
-            assert values[-1]["status"]=="FAILED" and values[-1]["code"]=="invalid_parameters"
+            assert_handled(service, None, values[-1], "invalid_parameters")
             assert not backend.calls and not result_cards(values)
         finally:
             await service.close()

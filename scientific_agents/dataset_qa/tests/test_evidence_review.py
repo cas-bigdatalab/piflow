@@ -6,6 +6,7 @@ from types import SimpleNamespace
 
 from langchain_core.messages import HumanMessage
 
+from .assertions import assert_completed
 from ..context import encode
 from ..dialogue import Dialogue
 from ..operations import Operations
@@ -102,7 +103,8 @@ def test_review_projects_full_saved_records_once_and_keeps_descriptive_evidence(
         sid = session(service)
         try:
             events = await collect(service, sid, "Find relevant resources")
-            assert events[-1]["status"]=="COMPLETED" and len(reviewed)==1
+            assert_completed(service, None, events[-1])
+            assert len(reviewed)==1
             assert len(backend.calls)==2 and payload==original
             saved = service.store.results("alice", sid, events[-1]["task_id"])
             assert len(saved)==2 and all(card["data"]==original for card in saved)
@@ -153,7 +155,7 @@ def test_confirmed_direct_result_finishes_despite_truncated_model_preview(engine
         sid = session(service)
         try:
             events = await collect(service, sid, "Return an initial set of relevant resources")
-            assert events[-1]["status"]=="COMPLETED"
+            assert_completed(service, None, events[-1])
             assert len(backend.calls)==1 and len(dialogue.inputs)==3
             card, = result_cards(events)
             assert card["data"]==original and "truncated" not in card

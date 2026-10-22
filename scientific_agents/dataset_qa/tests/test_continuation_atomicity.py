@@ -3,6 +3,7 @@ import asyncio
 
 from langchain_core.messages import AIMessageChunk
 
+from .assertions import assert_completed
 from ..service import DatasetQA
 from ..capabilities import SUPPORTING
 from .test_dataset_qa import action, collect, engine, remote, result_cards, session
@@ -35,7 +36,7 @@ def test_invalid_continuation_can_be_corrected_to_new_without_inheriting_old_goa
                 relation("new", remote("search", query="新领域")), action("deliver_results"), text()]
             values = await collect(service, sid, "改为查找新领域的数据集", "new-request")
 
-            assert values[-1]["status"]=="COMPLETED"
+            assert_completed(service, None, values[-1])
             assert backend.calls==[("data", "search", {"query": "资源"}),
                 ("data", "search", {"query": "新领域"})]
             assert len(result_cards(values))==1
@@ -74,7 +75,7 @@ def test_valid_mixed_batch_commits_continuation_and_preserves_its_successful_rec
             dialogue.responses = [mixed, remote("sample", count=2), text()]
             values = await collect(service, sid, "采样两条", "continue")
 
-            assert values[-1]["status"]=="COMPLETED"
+            assert_completed(service, None, values[-1])
             assert backend.calls==[("data", "search", {"query": "资源"}),
                 ("data", "search", {"query": "补充证据"}),
                 ("data", "sample", {"reference": "a", "count": 2})]
@@ -108,7 +109,7 @@ def test_rejected_relation_switch_does_not_discard_already_executed_current_work
                 relation("continue", remote("sample", count=0)), action("deliver_results"), text()]
             values = await collect(service, sid, "先查看其他领域的数据", "new-request")
 
-            assert values[-1]["status"]=="COMPLETED"
+            assert_completed(service, None, values[-1])
             assert backend.calls==[("data", "search", {"query": "资源"}),
                 ("data", "search", {"query": "独立新请求"})]
             assert len(result_cards(values))==1

@@ -12,6 +12,7 @@ from sqlalchemy import Column, Float, Integer, MetaData, String, Table, Text, Un
 from .results import evidence
 from .contracts import QAError
 from .references import matching_objects
+from .responses import terminal_reply
 
 
 def now():
@@ -231,13 +232,52 @@ class Store:
                 interrupted = (status=="CANCELLED" or expired_before is not None or
                     (error or {}).get("error_code") in {"execution_unknown", "task_timeout", "service_unavailable", "model_timeout"})
                 self._retain_interrupted(conn, sid, payload, select_results=interrupted)
-            if not message and status == "CANCELLED" and row["status"] == "RUNNING":
+            if payload.get("error"):
+                # Error codes remain machine-readable; public text never comes
+                # from an exception's arbitrary backend message.
+                public_error = {**payload["error"], "message": terminal_reply(status,
+                    error=payload["error"], retained=bool(payload.get("delivery")))}
+                payload["error"] = public_error
+                if error:
+                    error = public_error
+            previous_message = None
+            if status in {"COMPLETED", "FAILED", "CANCELLED"}:
+                # A worker may stop after streaming but before passing its final
+                # text to finish. Reconcile only committed text inside this
+                # transaction, so reconnects and history show the same reply.
+                streamed = ""
                 for raw in conn.scalars(select(self.events.c.payload).where(self.events.c.task_id == tid).order_by(self.events.c.id)):
                     value = json.loads(raw)
                     if value["type"] == "message":
-                        message = value["text"] if value.get("mode") == "replace" else message + value["text"]
+                        streamed = value["text"] if value.get("mode") == "replace" else streamed + value["text"]
+                if row["status"] == "WAITING_INPUT":
+                    previous_message = conn.execute(select(self.items.c.id, self.items.c.payload).where(
+                        self.items.c.task_id == tid, self.items.c.kind == "ASSISTANT_MESSAGE")
+                        .order_by(self.items.c.id.desc()).limit(1)).mappings().first()
+                supplied = bool(message.strip())
+                if not supplied:
+                    message = streamed or (json.loads(previous_message["payload"])["text"] if previous_message else "")
+                conflicting = bool(streamed and not message.startswith(streamed))
+                if conflicting:
+                    # Text already seen by the user is authoritative. A stale
+                    # worker buffer must not rewrite it through a new protocol.
+                    message = streamed
+                fallback = terminal_reply(status, error=payload.get("error"), retained=bool(payload.get("delivery")))
+                if conflicting or status == "CANCELLED" or (status == "FAILED" and not supplied):
+                    if not message.rstrip().endswith(fallback):
+                        message += ("\n\n" if message.strip() else "")+fallback
+                elif not message.strip():
+                    message += fallback
+                if message != streamed:
+                    # Ordinary replies were already streamed. Only publish a
+                    # missing suffix; never replay their earlier chunks twice.
+                    self._event(conn, tid, {"type": "message", "text": message[len(streamed):]})
             if message:
-                self._item(conn, sid, tid, "ASSISTANT_MESSAGE", {"message_id": tid, "text": message, "mode": "replace"})
+                response = {"message_id": tid, "text": message, "mode": "replace"}
+                if previous_message:
+                    conn.execute(update(self.items).where(self.items.c.id == previous_message["id"]).values(payload=dumps(response)))
+                else:
+                    self._item(conn, sid, tid, "ASSISTANT_MESSAGE", response)
             if "delivery" in payload and not payload.get("published"):
                 result_ids = payload["delivery"]
                 self._cards(conn, sid, result_ids)

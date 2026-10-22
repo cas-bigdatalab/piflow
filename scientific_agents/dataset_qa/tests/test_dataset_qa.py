@@ -15,6 +15,7 @@ import pytest
 from sqlalchemy import create_engine, update
 from sqlalchemy.pool import StaticPool
 
+from .assertions import assert_completed, assert_handled
 from ..context import encode, project, slice_result
 from ..contracts import Limits, Options, QAError, Server
 from ..dialogue import BUILTINS, SYSTEM, Dialogue as SemanticDialogue
@@ -358,7 +359,7 @@ def test_clarification_resume_and_cancel_keep_one_active_interaction(engine):
         await service.cancel("alice", sid, waiting[-1]["task_id"])
         assert (await service.get_session("alice", sid))["interaction"] is None
         dialogue.responses = [load(), remote("search")]
-        assert (await collect(service, sid, rid="next"))[-1]["status"]=="COMPLETED"
+        assert_completed(service, None, (await collect(service, sid, rid="next"))[-1])
     asyncio.run(run())
 
 
@@ -403,7 +404,7 @@ def test_disconnect_keeps_task_cancel_fences_late_result(engine):
         assert service.store.session("alice", sid)["active_task_id"] is None
         assert not service.store.results("alice", sid, first["task_id"])
         service.dialogue.responses = [load(), remote("search"), AIMessageChunk(content="继续处理新问题。")]
-        assert (await collect(service, sid, rid="next"))[-1]["status"]=="COMPLETED"
+        assert_completed(service, None, (await collect(service, sid, rid="next"))[-1])
     asyncio.run(run())
 
 
@@ -416,9 +417,10 @@ def test_unknown_execution_not_retried_and_partial_results_retained(engine):
         values = await collect(service, sid)
         assert len(result_cards(values))==1  # Retained evidence never implies sampling succeeded.
         assert len(service.store.results("alice", sid))==1
-        assert values[-1]["code"]=="execution_unknown"
+        assert_handled(service, None, values[-1], "execution_unknown")
         assert all(v["type"] in {"stage", "message", "result", "done"} for v in values)
-        assert values[-1]["status"]=="FAILED" and len(backend.calls)==2
+        assert_handled(service, None, values[-1])
+        assert len(backend.calls)==2
         assert values==await collect(service, sid)
         assert len(backend.calls)==2
     asyncio.run(run())
@@ -431,7 +433,7 @@ def test_invalid_tool_arguments_can_be_corrected_without_bad_dispatch(engine):
             remote("multiply", x=3, y=2)), backend.gateway())
         sid = session(service)
         values = await collect(service, sid)
-        assert values[-1]["status"]=="COMPLETED"
+        assert_completed(service, None, values[-1])
         assert backend.calls==[("compute", "multiply", {"x": 3, "y": 2})]
         assert all("status" not in v for v in values if v["type"]=="stage")
     asyncio.run(run())
@@ -447,11 +449,12 @@ def test_protocol_business_error_is_not_retried_even_if_idempotent(engine, idemp
         service = DatasetQA(engine, dialogue, backend.gateway())
         sid = session(service)
         values = await collect(service, sid)
-        assert values[-1]["status"]=="FAILED" and values[-1]["code"]=="tool_failed"
+        assert_handled(service, None, values[-1], "tool_failed")
         assert len(backend.calls)==1
         assert not service.store.results("alice", sid)
         assert len(dialogue.inputs)==2
-        assert "Invalid operation" in "".join(v["text"] for v in values if v["type"]=="message")
+        shown = "".join(v["text"] for v in values if v["type"]=="message")
+        assert shown.strip() and "Invalid operation" not in shown and "继续" in shown
     asyncio.run(run())
 
 
@@ -461,9 +464,8 @@ def test_model_failure_after_tool_preserves_card_without_claiming_completion(eng
         service = DatasetQA(engine, Dialogue(load(), remote("search"), RuntimeError("model offline")), backend.gateway())
         sid = session(service)
         values = await collect(service, sid)
-        assert values[-1]["status"]=="FAILED"
         assert len(result_cards(values))==1  # Unique goal-bound evidence survives model failure.
-        assert values[-1]["code"]=="service_unavailable"
+        assert_handled(service, None, values[-1], "service_unavailable")
         assert len(service.store.results("alice", sid))==1
     asyncio.run(run())
 
@@ -478,7 +480,7 @@ def test_foreign_results_and_user_isolation_never_dispatch(engine):
         other = session(service, request="other")
         for params in ({"result_id": card["result_id"]}, {"selected_dataset_id": "a"}):
             values = await collect(service, other, rid=next(iter(params)), **params)
-            assert values[-1]["status"]=="FAILED"
+            assert_handled(service, None, values[-1])
         with pytest.raises(QAError):
             service.store.session("bob", sid)
         assert len(backend.calls)==1
@@ -556,9 +558,11 @@ def test_partial_stream_survives_cancel(engine):
         await asyncio.gather(*list(service.jobs.values()), return_exceptions=True)
         view = await service.get_session("alice", sid)
         reply = next(i for i in view["items"] if i["item_type"]=="ASSISTANT_MESSAGE")
-        assert reply["payload"]["text"]==value["text"]
+        assert reply["payload"]["text"].startswith(value["text"])
+        assert "已停止继续处理" in reply["payload"]["text"]
         events = service.store.replay("alice", sid, value["task_id"], 0)
         assert events[-1]["type"]=="done" and events[-1]["status"]=="CANCELLED"
+        assert "".join(event["text"] for event in events if event["type"]=="message")==reply["payload"]["text"]
     asyncio.run(run())
 
 
@@ -591,7 +595,7 @@ def test_first_text_is_streamed_before_model_finishes_and_reasoning_blocks_hidde
         gate.set()
         rest = [v async for v in stream if v is not None]
         assert first["text"]+"".join(v["text"] for v in rest if v["type"]=="message")=="首尾"
-        assert rest[-1]["status"]=="COMPLETED"
+        assert_completed(service, None, rest[-1])
     asyncio.run(run())
 
 
@@ -624,7 +628,7 @@ def test_fragmented_tool_arguments_never_create_empty_messages(engine, monkeypat
             assert all(v["text"] for v in events if v["type"]=="message")
             assert not any(v.get("stage")=="list_mcp_servers" for v in events)
             assert all(v.get("stage") in {None, "prepare", "answer"} for v in events)
-        assert values[-1]["status"]=="FAILED" and values[-1]["code"]=="mcp_required"
+        assert_handled(service, None, values[-1], "mcp_required")
     asyncio.run(run())
 
 
@@ -698,8 +702,8 @@ def test_old_empty_events_are_skipped_without_stalling_replay(engine):
             service.store.write("alice", sid, task["id"], {"type": "message", "text": "", "mode": "append"})
         service.store.finish("alice", sid, task["id"], "COMPLETED", message="已有回答")
         values = await asyncio.wait_for(collect(service, sid, rid="old"), 2)
-        assert not any(v["type"]=="message" for v in values)
-        assert values[-1]["status"]=="COMPLETED"
+        assert [v["text"] for v in values if v["type"]=="message"]==["已有回答"]
+        assert_completed(service, None, values[-1])
     asyncio.run(run())
 
 
@@ -757,7 +761,8 @@ def test_all_task_results_returned_even_when_more_than_recent_evidence(engine):
         sid = session(service)
         values = await collect(service, sid)
         cards = service.store.results("alice", sid, values[-1]["task_id"])
-        assert values[-1]["status"]=="COMPLETED" and len(result_cards(values))==1
+        assert_completed(service, None, values[-1])
+        assert len(result_cards(values))==1
         assert len(cards)==10 and [c["data"] for c in cards]==list(range(0, 20, 2))
     asyncio.run(run())
 
@@ -826,8 +831,7 @@ def test_malformed_model_call_is_failed_without_dispatch(engine):
         chunk = AIMessageChunk(content="", invalid_tool_calls=[{"name": "anything", "args": "{bad", "id": "bad", "error": "invalid JSON"}])
         service = DatasetQA(engine, Dialogue(chunk, chunk, chunk), backend.gateway())
         values = await collect(service, session(service))
-        assert values[-1]["status"]=="FAILED"
-        assert values[-1]["code"]=="invalid_tool_call"
+        assert_handled(service, None, values[-1], "invalid_tool_call")
         assert not backend.calls
     asyncio.run(run())
 
@@ -839,8 +843,7 @@ def test_unloaded_tools_and_loop_budget_cannot_dispatch(engine):
             action("list_mcp_servers"), action("list_mcp_servers"))
         service = DatasetQA(engine, dialogue, backend.gateway(limits=Limits(max_rounds=2)))
         values = await collect(service, session(service))
-        assert values[-1]["status"]=="FAILED"
-        assert values[-1]["code"]=="step_limit"
+        assert_handled(service, None, values[-1], "step_limit")
         assert not backend.calls and not backend.connections
     asyncio.run(run())
 
@@ -922,7 +925,8 @@ def test_unified_routes_minimal_contract_and_authorization(engine, monkeypatch):
             values = [json.loads(line[6:]) for line in response.text.splitlines() if line.startswith("data: ")]
             assert all(v["session_id"]==sid and v["request_id"]=="search" for v in values)
             card = result_cards(values)[0]
-            assert "error" not in values[-1] and values[-1]["status"]=="COMPLETED"
+            assert_completed(service, None, values[-1])
+            assert "error" not in values[-1]
             result = (await client.get(prefix+f"/sessions/{sid}/tasks/{values[-1]['task_id']}/results")).json()["result"]
             assert set(result)=={"items"}
             assert result["items"][0]["data"]==card["data"]

@@ -7,6 +7,7 @@ from langchain_core.messages import AIMessage, AIMessageChunk, HumanMessage, Too
 import pytest
 from sqlalchemy import update
 
+from .assertions import assert_completed
 from ..context import encode
 from ..contracts import Limits, Options, QAError
 from ..dialogue import BUILTINS, Dialogue as ModelDialogue, ReferenceUpdate, SYSTEM
@@ -66,7 +67,7 @@ def test_confirm_switch_and_pronouns_keep_sources_without_extra_model_round(engi
             await collect(service, sid, "确定第一个 A", "choose-a")
             dialogue.responses = [sample_current]
             before = len(dialogue.inputs)
-            assert (await collect(service, sid, "采样这个", "sample-a"))[-1]["status"]=="COMPLETED"
+            assert_completed(service, None, (await collect(service, sid, "采样这个", "sample-a"))[-1])
             assert backend.calls[-1][2]["reference"]=="a"
             assert len(dialogue.inputs)-before==3  # MCP, existing delivery, final text.
             dialogue.responses = [remote("inspect", reference="b"),
@@ -74,7 +75,8 @@ def test_confirm_switch_and_pronouns_keep_sources_without_extra_model_round(engi
             await collect(service, sid, "切换到第二个 B", "choose-b")
             dialogue.responses = [sample_current]
             values = await collect(service, sid, "采样这个", "sample-b")
-            assert values[-1]["status"]=="COMPLETED" and backend.calls[-1][2]["reference"]=="b"
+            assert_completed(service, None, values[-1])
+            assert backend.calls[-1][2]["reference"]=="b"
             refs = state(service, sid)
             assert refs["current"]==ref(source, "/items/1")
             assert refs["selected"]==[ref(source, "/items/0")]
@@ -126,7 +128,7 @@ def test_ordinal_uses_published_list_not_last_intermediate_lookup(engine):
                 assert candidates["result_id"]==shown["result_id"]
                 return remote("inspect", reference=candidates["items"][1]["value"]["id"])(messages, definitions)
             dialogue.responses = [second]
-            assert (await collect(service, sid, "看看第二个", "second"))[-1]["status"]=="COMPLETED"
+            assert_completed(service, None, (await collect(service, sid, "看看第二个", "second"))[-1])
             assert backend.calls[-1][2]["reference"]=="shown1"
         finally:
             await service.close()
@@ -151,7 +153,7 @@ def test_old_frontend_selection_resolves_beyond_recent_eight_and_survives_restar
         restored = DatasetQA(engine, Dialogue(load(), sample_current), Backend().gateway())
         try:
             assert state(restored, sid)["current"]==context["references"]["current"]
-            assert (await collect(restored, sid, "采样这个", "after-restart"))[-1]["status"]=="COMPLETED"
+            assert_completed(restored, None, (await collect(restored, sid, "采样这个", "after-restart"))[-1])
         finally:
             await restored.close()
     asyncio.run(run())
@@ -206,7 +208,8 @@ def test_remember_validates_sources_and_refreshes_model_context_in_same_turn(eng
         source = card["result_id"]
         dialogue.responses = [action("remember", references={"current": ref(source, "/items/1")}), load(), sample_current]
         values = await collect(service, sid, "对第二个采样", "sample")
-        assert values[-1]["status"]=="COMPLETED" and backend.calls[-1][2]["reference"]=="b"
+        assert_completed(service, None, values[-1])
+        assert backend.calls[-1][2]["reference"]=="b"
         assert state(service, sid)["current"]==ref(source, "/items/1")
         other = session(service, request="other")
         payload = {"message": "选择", "params": {}, "parent_task_id": None}
@@ -324,7 +327,7 @@ def test_invalid_reference_recovers_without_reexecuting_successful_mcp(engine):
         dialogue.responses = [load(), remote("search"), remember("/items/99"),
             remote("search"), remember("/items/1")]
         values = await collect(service, sid, "查看第二个", "recover")
-        assert values[-1]["status"]=="COMPLETED"
+        assert_completed(service, None, values[-1])
         assert backend.calls==[("data", "search", {})]
         assert state(service, sid)["current"]["path"]=="/items/1"
         assert len(result_cards(values))==1
@@ -349,7 +352,8 @@ def test_clarification_answer_uses_the_same_display_list(engine):
             return remote("inspect", reference=candidates["items"][1]["value"]["id"])(messages, definitions)
         dialogue.responses = [answer, deliver_current(source, "/items/1")]
         values = await collect(service, sid, "第二个", "answer")
-        assert values[-1]["status"]=="COMPLETED" and backend.calls[-1][2]["reference"]=="b"
+        assert_completed(service, None, values[-1])
+        assert backend.calls[-1][2]["reference"]=="b"
         assert state(service, sid)["current"]==ref(source, "/items/1")
         assert (await service.get_session("alice", sid))["interaction"] is None
         await service.close()

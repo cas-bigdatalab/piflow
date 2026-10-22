@@ -7,6 +7,7 @@ from types import SimpleNamespace
 from langchain_core.messages import AIMessage, AIMessageChunk, ToolMessage
 import pytest
 
+from .assertions import assert_completed, assert_handled
 from ..context import encode
 from ..contracts import Limits, QAError, Server
 from ..dialogue import Dialogue
@@ -69,7 +70,8 @@ def test_multiple_retrievals_deliver_one_source_backed_list_without_merge_parame
         sid = session(service)
         try:
             events = await collect(service, sid, "Find usable resources")
-            assert events[-1]["status"]=="COMPLETED" and len(backend.calls)==2
+            assert_completed(service, None, events[-1])
+            assert len(backend.calls)==2
             assert len(dialogue.inputs)==5  # No classifier, per-result summary or extra selection request.
             final = json.loads(dialogue.inputs[-1][0][-1].content)
             assert len(final["answer_evidence"])==2 and len(encode(final))<=gateway.limits.result_chars
@@ -101,7 +103,8 @@ def test_delivery_parameter_exhaustion_recovers_without_repeating_execution(engi
         service = DatasetQA(engine, dialogue, gateway)
         try:
             events = await collect(service, session(service))
-            assert events[-1]["status"]=="COMPLETED" and len(backend.calls)==2
+            assert_completed(service, None, events[-1])
+            assert len(backend.calls)==2
             assert len(result_cards(events))==1
             assert "操作尚未完成" not in "".join(event.get("text", "") for event in events)
         finally:
@@ -126,7 +129,8 @@ def test_real_mcp_collection_results_are_combined_without_an_extra_model_round(e
         service = DatasetQA(engine, dialogue, MCPGateway({"records": Server(mcp)}))
         try:
             events = await collect(service, session(service))
-            assert events[-1]["status"]=="COMPLETED" and calls==["a", "b"]
+            assert_completed(service, None, events[-1])
+            assert calls==["a", "b"]
             assert len(dialogue.inputs)==5
             card, = result_cards(events)
             assert [row["id"] for row in card["data"]["items"]]==["a", "b"]
@@ -152,7 +156,8 @@ def test_auxiliary_result_informs_final_answer_without_becoming_a_display_card(e
         service = DatasetQA(engine, dialogue, backend.gateway())
         try:
             events = await collect(service, session(service))
-            assert events[-1]["status"]=="COMPLETED" and len(backend.calls)==2
+            assert_completed(service, None, events[-1])
+            assert len(backend.calls)==2
             card, = result_cards(events)
             assert card["data"]["items"]==backend.items
         finally:
@@ -168,7 +173,8 @@ def test_empty_collections_are_valid_results_and_do_not_erase_other_candidates(e
         service = DatasetQA(engine, dialogue, gateway)
         try:
             events = await collect(service, session(service))
-            assert events[-1]["status"]=="COMPLETED" and len(backend.calls)==2
+            assert_completed(service, None, events[-1])
+            assert len(backend.calls)==2
             card, = result_cards(events)
             assert [row["id"] for row in card["data"]["items"]]==["b", "c"]
         finally:
@@ -208,7 +214,8 @@ def test_precise_saved_result_read_remains_available_in_final_synthesis(engine):
         service = DatasetQA(engine, dialogue, gateway)
         try:
             events = await collect(service, session(service))
-            assert events[-1]["status"]=="COMPLETED" and len(backend.calls)==1
+            assert_completed(service, None, events[-1])
+            assert len(backend.calls)==1
         finally:
             await service.close()
     asyncio.run(run())
@@ -222,7 +229,8 @@ def test_aggregation_does_not_complete_an_unexecuted_required_operation(engine):
         service = DatasetQA(engine, dialogue, gateway)
         try:
             events = await collect(service, session(service))
-            assert events[-1]["status"]=="FAILED" and len(backend.calls)==1
+            assert_handled(service, None, events[-1])
+            assert len(backend.calls)==1
             assert len(result_cards(events))==1  # Only qualified partial evidence is retained.
             assert "export" in "".join(event.get("text", "") for event in events)
         finally:

@@ -3,6 +3,7 @@ import asyncio
 
 import pytest
 
+from .assertions import assert_handled
 from ..contracts import QAError
 from ..operations import Operations
 from ..service import DatasetQA
@@ -122,7 +123,7 @@ def test_success_replay_after_failed_variant_delivers_partial_without_false_comp
         sid = session(service)
         try:
             values = await collect(service, sid, "Retrieve both necessary sources")
-            assert values[-1]["status"]=="FAILED" and values[-1]["code"]=="tool_failed"
+            assert_handled(service, None, values[-1], "tool_failed")
             assert backend.calls==[("data", "search", {"query": "available"}),
                 ("data", "search", {"query": "unavailable"})]
             assert len(result_cards(values))==1

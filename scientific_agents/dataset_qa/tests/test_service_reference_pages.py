@@ -5,6 +5,7 @@ import json
 from langchain_core.messages import ToolMessage
 import pytest
 
+from .assertions import assert_completed
 from ..capabilities import OBJECT
 from ..context import encode
 from ..contracts import Limits, Options
@@ -39,7 +40,7 @@ def test_hundred_and_first_object_remains_addressable_for_every_selection_path(e
         try:
             values = await collect(service, sid, "查看指定来源的第101个对象", "navigate", **(
                 {"result_id": source["result_id"]} if scope=="source" else {}))
-            assert values[-1]["status"]=="COMPLETED"
+            assert_completed(service, None, values[-1])
             assert backend.calls==[("data", "inspect", {"reference": "entry-100"})]
             operation = payload(service, sid, values)["operations"][0]
             assert operation["target"]["result_id"]==source["result_id"]
@@ -77,7 +78,7 @@ def test_same_turn_page_exposes_stable_executable_handles_beyond_initial_twenty(
             action("deliver_results"), text()]
         try:
             values = await collect(service, sid, "找资源，然后查看第21个的详情", "paged")
-            assert values[-1]["status"]=="COMPLETED"
+            assert_completed(service, None, values[-1])
             assert backend.calls==[("data", "search", {}), ("data", "inspect", {"reference": "entry-20"})]
             saved = payload(service, sid, values)
             assert saved["objects"]["object:21"]["path"]=="/items/20"
@@ -104,7 +105,7 @@ def test_mixed_pinned_list_keeps_source_ordinals_in_model_view_and_dispatch(engi
         dialogue.responses = [load(), inspect_fourth, action("deliver_results"), text()]
         try:
             values = await collect(service, sid, "查看这个来源第四项", "mixed-view", result_id=source["result_id"])
-            assert values[-1]["status"]=="COMPLETED"
+            assert_completed(service, None, values[-1])
             assert backend.calls==[("data", "inspect", {"reference": "fourth"})]
         finally:
             await service.close()
@@ -214,7 +215,7 @@ def test_multiple_delivered_lists_preserve_every_source_without_an_arbitrary_can
             for_goal("Climate resources", search("climate")), for_goal("Ecology resources", search("ecology")), text()]
         try:
             values = await collect(service, sid, "分别检索并展示两个领域", "two-lists")
-            assert values[-1]["status"]=="COMPLETED"
+            assert_completed(service, None, values[-1])
             cards = result_cards(values)
             assert len(cards)==2
             assert "candidates" not in state(service, sid)

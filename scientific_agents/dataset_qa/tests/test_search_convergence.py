@@ -4,6 +4,7 @@ import json
 
 from langchain_core.messages import HumanMessage, ToolMessage
 
+from .assertions import assert_completed, assert_handled
 from ..capabilities import OBJECT
 from ..contracts import Limits
 from ..service import DatasetQA
@@ -72,7 +73,7 @@ def test_log_shaped_query_expansion_requests_a_decision_before_exhausting_rounds
         sid = session(service)
         try:
             events = await collect(service, sid, "Find related resources", "bounded-search")
-            assert events[-1]["status"] == "COMPLETED", events[-1]
+            assert_completed(service, None, events[-1])
             assert len(backend.calls) == 1
             card, = result_cards(events)
             assert len(dialogue.inputs) <= 7
@@ -98,7 +99,7 @@ def test_semantic_goal_and_refinement_can_share_the_next_native_response(engine)
         sid = session(service)
         try:
             events = await collect(service, sid, "Find related resources", "planned-refinement")
-            assert events[-1]["status"] == "COMPLETED"
+            assert_completed(service, None, events[-1])
             assert [arguments["query"] for _, _, arguments in backend.calls] == ["broad", "refined"]
             card, = result_cards(events)
             assert card["data"]["items"][0]["id"] == "refined"
@@ -118,7 +119,7 @@ def test_native_search_inspection_and_sample_chain_keeps_the_requested_terminal_
         sid = session(service)
         try:
             events = await collect(service, sid, "Find a resource and sample the first one", "chain")
-            assert events[-1]["status"] == "COMPLETED"
+            assert_completed(service, None, events[-1])
             assert [name for _, name, _ in backend.calls] == ["search", "sample"]
             card, = result_cards(events)
             assert card["title"].endswith("sample")
@@ -152,7 +153,7 @@ def test_budget_closure_does_not_promote_a_prerequisite_to_a_completed_sample(en
         sid = session(service)
         try:
             events = await collect(service, sid, "Find a resource and sample the first one", "unfinished")
-            assert events[-1]["status"] == "FAILED"
+            assert_handled(service, None, events[-1])
             assert not result_cards(events)
             assert [name for _, name, _ in backend.calls] == ["search"]
             ledger = payload(service, sid, events)
@@ -180,7 +181,7 @@ def test_last_planning_round_offers_confirmation_instead_of_new_exploration(engi
         service = DatasetQA(engine, dialogue, backend.gateway(limits=Limits(max_rounds=4)))
         try:
             events = await collect(service, session(service), "Find related resources", "last-decision")
-            assert events[-1]["status"] == "COMPLETED"
+            assert_completed(service, None, events[-1])
             assert len(backend.calls) == 1 and len(result_cards(events)) == 1
             assert len(dialogue.inputs) == 5
         finally:
@@ -197,7 +198,7 @@ def test_identical_invocation_reuses_receipt_without_forcing_a_refinement_goal(e
         service = DatasetQA(engine, dialogue, backend.gateway())
         try:
             events = await collect(service, session(service), "Find related resources", "same-invocation")
-            assert events[-1]["status"] == "COMPLETED"
+            assert_completed(service, None, events[-1])
             assert len(backend.calls) == 1 and len(result_cards(events)) == 1
             observations = [json.loads(message.content) for messages, _ in dialogue.inputs
                 for message in messages if isinstance(message, ToolMessage)]
@@ -226,7 +227,7 @@ def test_last_round_can_execute_an_explicit_pending_goal(engine):
         sid = session(service)
         try:
             events = await collect(service, sid, "Find resources and sample the first one", "last-execution")
-            assert events[-1]["status"] == "COMPLETED", events[-1]
+            assert_completed(service, None, events[-1])
             assert [name for _, name, _ in backend.calls] == ["search", "sample"]
             assert len(result_cards(events)) == 2
             assert len(dialogue.inputs) == 5
@@ -248,7 +249,7 @@ def test_rejected_expansion_cannot_itself_confirm_the_users_undeclared_outcomes(
         sid = session(service)
         try:
             events = await collect(service, sid, "Find climate resources and water resources", "unconfirmed-pair")
-            assert events[-1]["status"] == "FAILED"
+            assert_handled(service, None, events[-1])
             assert [arguments["query"] for _, _, arguments in backend.calls] == ["climate"]
             assert not result_cards(events)
             ledger = payload(service, sid, events)
@@ -281,7 +282,7 @@ def test_rejected_second_query_can_declare_both_outcomes_and_reuse_first_receipt
         sid = session(service)
         try:
             events = await collect(service, sid, "Find climate resources and water resources", "declared-pair")
-            assert events[-1]["status"] == "COMPLETED", events[-1]
+            assert_completed(service, None, events[-1])
             assert [arguments["query"] for _, _, arguments in backend.calls] == ["climate", "water"]
             assert len(result_cards(events)) == 2
             ledger = payload(service, sid, events)

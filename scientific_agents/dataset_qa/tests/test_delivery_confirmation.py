@@ -4,6 +4,7 @@ import json
 
 from langchain_core.messages import ToolMessage
 
+from .assertions import assert_completed, assert_handled
 from ..capabilities import OBJECT
 from ..service import DatasetQA
 from .test_dataset_qa import action, collect, engine, load, remote, result_cards, session
@@ -25,7 +26,7 @@ def test_no_progress_cannot_confirm_an_unknown_goal_or_deliver_its_intermediate_
         sid = session(service)
         try:
             values = await collect(service, sid, "Find a resource and sample the first one", "stalled")
-            assert values[-1]["status"]=="FAILED" and values[-1]["code"]=="no_progress"
+            assert_handled(service, None, values[-1], "no_progress")
             assert not result_cards(values)
             assert backend.calls==[("data", "search", {"query": "resources"})]
             ledger = payload(service, sid, values)
@@ -44,7 +45,8 @@ def test_explicit_delivery_can_confirm_one_bare_native_search_without_semantic_b
         sid = session(service)
         try:
             values = await collect(service, sid, "Find related resources", "explicit")
-            assert values[-1]["status"]=="COMPLETED" and len(result_cards(values))==1
+            assert_completed(service, None, values[-1])
+            assert len(result_cards(values))==1
             ledger = payload(service, sid, values)
             assert len(ledger["operations"])==1 and ledger["operations"][0]["required"] is True
             assert ledger["delivery_sources"]==[result_cards(values)[0]["result_id"]]
@@ -62,7 +64,8 @@ def test_declared_goal_still_completes_without_an_extra_delivery_model_round(eng
         service = DatasetQA(engine, dialogue, backend.gateway())
         try:
             values = await collect(service, session(service), "Find resources", "planned")
-            assert values[-1]["status"]=="COMPLETED" and len(result_cards(values))==1
+            assert_completed(service, None, values[-1])
+            assert len(result_cards(values))==1
             assert len(dialogue.inputs)==3 and len(backend.calls)==1
         finally:
             await service.close()
@@ -95,7 +98,7 @@ def test_declared_partial_result_is_retained_when_a_different_required_operation
         sid = session(service)
         try:
             values = await collect(service, sid, "Find resources and sample the first one", "partial")
-            assert values[-1]["status"]=="FAILED" and values[-1]["code"]=="tool_failed"
+            assert_handled(service, None, values[-1], "tool_failed")
             card, = result_cards(values)
             assert card["title"].endswith("search")
             ledger = payload(service, sid, values)
@@ -119,10 +122,10 @@ def test_empty_answer_only_response_does_not_complete_or_request_unnecessary_use
         service = DatasetQA(engine, dialogue, backend.gateway())
         try:
             values = await collect(service, session(service), "What is the size of direct-id?", "empty-answer")
-            assert values[-1]["status"]=="FAILED" and values[-1]["code"]=="empty_response"
+            assert_handled(service, None, values[-1], "empty_response")
             assert not result_cards(values)
             answer = "".join(value.get("text", "") for value in values if value.get("type")=="message")
-            assert answer.strip() and "答复" in answer
+            assert answer.strip() and "继续" in answer
             assert "请补充需要处理的问题" not in answer
             assert backend.calls==[("data", "inspect", {"reference": "direct-id"})]
             assert len(dialogue.inputs)==4
@@ -138,7 +141,8 @@ def test_empty_response_with_a_confirmed_card_keeps_delivery_and_completes(engin
         service = DatasetQA(engine, dialogue, backend.gateway())
         try:
             values = await collect(service, session(service), "Find related resources", "empty-with-card")
-            assert values[-1]["status"]=="COMPLETED" and len(result_cards(values))==1
+            assert_completed(service, None, values[-1])
+            assert len(result_cards(values))==1
             answer = "".join(value.get("text", "") for value in values if value.get("type")=="message")
             assert answer.strip() and "结果" in answer
             assert "请补充需要处理的问题" not in answer

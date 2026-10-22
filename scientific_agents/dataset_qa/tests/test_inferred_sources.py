@@ -1,6 +1,7 @@
 """Refreshing an object's source must not create a self-consuming outcome."""
 import asyncio
 
+from .assertions import assert_completed
 from ..capabilities import OBJECT
 from ..service import DatasetQA
 from .test_dataset_qa import action, collect, engine, load, remote, result_cards, session
@@ -18,7 +19,7 @@ def test_repeated_detail_after_focus_refresh_reuses_one_inferred_operation(engin
                 remote("inspect", **{OBJECT: "current"}), action("deliver_results"), text()]
             values = await collect(service, sid, "查看第一个数据集的详情", "detail")
 
-            assert values[-1]["status"]=="COMPLETED"
+            assert_completed(service, None, values[-1])
             assert backend.calls==[("data", "search", {"query": "资源"}),
                 ("data", "inspect", {"reference": "a"})]
             card, = result_cards(values)
@@ -45,7 +46,7 @@ def test_search_detail_and_repeated_detail_deliver_only_the_terminal_detail(engi
         try:
             values = await collect(service, sid, "找到第一个资源后查看详情")
 
-            assert values[-1]["status"]=="COMPLETED"
+            assert_completed(service, None, values[-1])
             assert backend.calls==[("data", "search", {"query": "资源"}),
                 ("data", "inspect", {"reference": "a"})]
             card, = result_cards(values)

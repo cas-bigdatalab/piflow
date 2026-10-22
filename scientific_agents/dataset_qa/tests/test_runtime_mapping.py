@@ -5,6 +5,7 @@ from types import SimpleNamespace
 
 from langchain_core.messages import ToolMessage
 
+from .assertions import assert_completed, assert_handled
 from ..capabilities import GOAL, OBJECT, SUPPORTING
 from ..contracts import Options
 from ..execution import Execution
@@ -33,7 +34,7 @@ def test_native_search_then_detail_delivers_terminal_provenance_not_last_positio
         service = DatasetQA(engine, dialogue, backend.gateway())
         try:
             values = await collect(service, session(service), "Find a resource and show its details")
-            assert values[-1]["status"]=="COMPLETED"
+            assert_completed(service, None, values[-1])
             card, = result_cards(values)
             assert card["title"].endswith("inspect")
             assert card["data"]["items"][0]["reference"]=="a"
@@ -56,7 +57,8 @@ def test_completed_parent_reference_does_not_require_a_clarification_resume_choi
             dialogue.responses = [remote("search", query="new"), action("deliver_results"), text()]
             values = [event async for event in service.stream("alice", sid, "Find new resources", "new", Options(), parent_id)
                 if event is not None]
-            assert values[-1]["status"]=="COMPLETED" and len(backend.calls)==2
+            assert_completed(service, None, values[-1])
+            assert len(backend.calls)==2
             assert payload(service, sid, values)["resume"] is False
             assert len(dialogue.inputs)-before==3
         finally:
@@ -88,7 +90,7 @@ def test_reversed_same_capability_goals_keep_semantic_result_ownership(engine):
         sid = session(service)
         try:
             values = await collect(service, sid, "Explain precipitation resources and display runoff resources")
-            assert values[-1]["status"]=="COMPLETED"
+            assert_completed(service, None, values[-1])
             assert result_cards(values)[0]["data"]["items"][0]["id"]=="runoff"
             ledger = payload(service, sid, values)
             owner = next(item for item in ledger["operations"] if item["description"]=="Display runoff")
@@ -110,7 +112,7 @@ def test_ambiguous_batch_is_corrected_before_any_mcp_dispatch(engine):
         service = DatasetQA(engine, dialogue, backend.gateway())
         try:
             values = await collect(service, session(service), "Explain A and display B")
-            assert values[-1]["status"]=="COMPLETED"
+            assert_completed(service, None, values[-1])
             assert backend.calls==[("data", "search", {"query": "B"}), ("data", "search", {"query": "A"})]
             feedback = [json.loads(m.content) for messages, _ in dialogue.inputs for m in messages
                 if isinstance(m, ToolMessage) and json.loads(m.content).get("error")=="invalid_parameters"]
@@ -145,7 +147,8 @@ def test_late_goal_declaration_reuses_only_the_matching_invocation(engine):
         sid = session(service)
         try:
             values = await collect(service, sid, "Explain A and display B")
-            assert values[-1]["status"]=="COMPLETED" and len(backend.calls)==2
+            assert_completed(service, None, values[-1])
+            assert len(backend.calls)==2
             assert result_cards(values)[0]["data"]["items"][0]["id"]=="B"
             ledger = payload(service, sid, values)
             first, second = [item for item in ledger["operations"] if item.get("required")]
@@ -171,7 +174,7 @@ def test_two_declared_objects_use_one_existing_result_list(engine):
                 remote("inspect", **{OBJECT: "candidate:2"}),
                 remote("inspect", **{OBJECT: "candidate:1"}), text()]
             values = await collect(service, sid, "Show both details", "both")
-            assert values[-1]["status"]=="COMPLETED"
+            assert_completed(service, None, values[-1])
             card, = result_cards(values)
             assert set(card)=={"result_id", "view_type", "title", "data"}
             assert {row["reference"] for row in card["data"]["items"]}=={"a", "b"}
@@ -203,7 +206,7 @@ def test_failed_variant_preserves_success_without_claiming_full_completion(engin
         service = DatasetQA(engine, dialogue, gateway)
         try:
             values = await collect(service, session(service), "Search both sources")
-            assert values[-1]["status"]=="FAILED" and values[-1]["code"]=="tool_failed"
+            assert_handled(service, None, values[-1], "tool_failed")
             assert len(result_cards(values))==1 and len(backend.calls)==2
             assert "部分" in "".join(event.get("text", "") for event in values)
         finally:
@@ -221,7 +224,8 @@ def test_unplanned_query_changes_stop_without_confirming_an_undeclared_goal(engi
         try:
             sid = session(service)
             values = await collect(service, sid, "Find related resources")
-            assert values[-1]["status"]=="FAILED" and values[-1]["code"]=="invalid_parameters" and len(backend.calls)==1
+            assert_handled(service, None, values[-1], "invalid_parameters")
+            assert len(backend.calls)==1
             assert len(dialogue.inputs)==5
             feedback = [json.loads(message.content) for message in dialogue.inputs[-1][0] if isinstance(message, ToolMessage)]
             assert any(value.get("detail", {}).get("decision")=="confirm_outcome" for value in feedback)
@@ -248,7 +252,8 @@ def test_stale_goal_does_not_prevent_another_goal_using_same_tool(engine):
         service = DatasetQA(engine, dialogue, backend.gateway())
         try:
             values = await collect(service, session(service), "Investigate both sources")
-            assert values[-1]["status"]=="COMPLETED" and len(backend.calls)==4
+            assert_completed(service, None, values[-1])
+            assert len(backend.calls)==4
             assert backend.calls[-1][2]=={"query": "other"}
         finally:
             await service.close()

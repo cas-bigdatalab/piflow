@@ -5,6 +5,7 @@ import json
 from langchain_core.messages import AIMessageChunk, HumanMessage, ToolMessage
 import pytest
 
+from .assertions import assert_completed, assert_handled
 from ..contracts import Limits
 from ..service import DatasetQA
 from .test_dataset_qa import Backend, action, collect, engine, load, remote, result_cards, session
@@ -44,7 +45,7 @@ def test_second_dataset_sampling_recovers_from_premature_delivery(engine):
         dialogue.responses = [decision("deliver_results", {"result_ids": [found["result_id"]]}, "premature"),
             sample_second, deliver(), AIMessageChunk(content="采样完成。")]
         values = await collect(service, sid, "采样第二个数据集", "sample")
-        assert values[-1]["status"]=="COMPLETED"
+        assert_completed(service, None, values[-1])
         assert backend.calls==[("data", "search", {}), ("data", "sample", {"reference": "b", "count": 2})]
         assert len(dialogue.inputs)-before==4  # One correction beyond the normal warm path.
         assert len(result_cards(values))==1 and "采样完成。"=="".join(v["text"] for v in values if v["type"]=="message")
@@ -68,7 +69,8 @@ def test_plain_text_before_mcp_is_corrected_instead_of_published(engine):
             remote("multiply", x=2, y=3), deliver(), AIMessageChunk(content="Result is 6."))
         service = DatasetQA(engine, dialogue, backend.gateway())
         values = await collect(service, session(service))
-        assert values[-1]["status"]=="COMPLETED" and result_cards(values)[0]["data"]=={"items": [6]}
+        assert_completed(service, None, values[-1])
+        assert result_cards(values)[0]["data"]=={"items": [6]}
         assert backend.calls==[("compute", "multiply", {"x": 2, "y": 3})]
         assert "INTERNAL" not in "".join(v["text"] for v in values if v["type"]=="message")
         await service.close()
@@ -112,7 +114,7 @@ def test_empty_search_does_not_suspend_without_required_missing_input(engine, ar
         service = DatasetQA(engine, dialogue, backend.gateway())
         sid = session(service)
         values = await collect(service, sid, "我想查看化工领域相关的数据集")
-        assert values[-1]["status"]=="COMPLETED"
+        assert_completed(service, None, values[-1])
         assert backend.calls==[("data", "search", {"query": "化工"})]
         assert len(result_cards(values))==1 and result_cards(values)[0]["data"]["items"]==[]
         assert not any(v["type"]=="interaction" for v in values)
@@ -129,7 +131,8 @@ def test_invalid_clarification_before_mcp_recovers_to_execution(engine):
             load(), remote("search", query="材料"), deliver(), AIMessageChunk(content="已返回检索结果。"))
         service = DatasetQA(engine, dialogue, backend.gateway())
         values = await collect(service, session(service), "查找材料相关数据集")
-        assert values[-1]["status"]=="COMPLETED" and len(result_cards(values))==1
+        assert_completed(service, None, values[-1])
+        assert len(result_cards(values))==1
         assert backend.calls==[("data", "search", {"query": "材料"})]
         assert not any(v["type"]=="interaction" for v in values)
         await service.close()
@@ -145,7 +148,7 @@ def test_invalid_clarification_cannot_evade_correction_budget(engine):
             AIMessageChunk(content="检索已执行，未能完成后续决策。"))
         service = DatasetQA(engine, dialogue, backend.gateway())
         values = await collect(service, session(service))
-        assert values[-1]["status"]=="FAILED" and values[-1]["code"]=="invalid_parameters"
+        assert_handled(service, None, values[-1], "invalid_parameters")
         assert len(backend.calls)==1 and len(dialogue.inputs)==5
         assert not any(v["type"]=="interaction" for v in values)
         assert result_cards(values)[0]["data"]["items"]==[]
@@ -160,7 +163,7 @@ def test_changed_invalid_parameters_cannot_evade_correction_budget(engine):
             AIMessageChunk(content="No computation was performed."))
         service = DatasetQA(engine, dialogue, backend.gateway())
         values = await collect(service, session(service))
-        assert values[-1]["status"]=="FAILED" and values[-1]["code"]=="invalid_parameters"
+        assert_handled(service, None, values[-1], "invalid_parameters")
         assert not backend.calls and len(dialogue.inputs)==4
         assert sum(bool(definitions) for _, definitions in dialogue.inputs)==4
         await service.close()
@@ -174,7 +177,7 @@ def test_changed_unavailable_actions_cannot_evade_correction_budget(engine):
             AIMessageChunk(content="No operation was performed."))
         service = DatasetQA(engine, dialogue, backend.gateway())
         values = await collect(service, session(service))
-        assert values[-1]["status"]=="FAILED" and values[-1]["code"]=="tool_not_loaded"
+        assert_handled(service, None, values[-1], "tool_not_loaded")
         assert not backend.calls and not backend.connections and len(dialogue.inputs)==3
         await service.close()
     asyncio.run(run())
@@ -188,7 +191,8 @@ def test_successful_sampling_is_reused_during_correction(engine):
             deliver(), AIMessageChunk(content="Original sample retained."))
         service = DatasetQA(engine, dialogue, backend.gateway())
         values = await collect(service, session(service))
-        assert values[-1]["status"]=="COMPLETED" and len(backend.calls)==1 and len(result_cards(values))==1
+        assert_completed(service, None, values[-1])
+        assert len(backend.calls)==1 and len(result_cards(values))==1
         references = [json.loads(m.content) for m in dialogue.inputs[-2][0]
             if isinstance(m, ToolMessage) and m.name.endswith("_sample")]
         assert len(references)==3 and all(v.get("executed") is False for v in references[1:])
@@ -209,7 +213,8 @@ def test_mixed_batch_keeps_call_pairs_and_does_not_repeat_sampling(engine):
         dialogue = RawDialogue(load(), batch, remote("sample", reference="a", count=1), deliver(), AIMessageChunk(content="Done."))
         service = DatasetQA(engine, dialogue, backend.gateway())
         values = await collect(service, session(service))
-        assert values[-1]["status"]=="COMPLETED" and len(backend.calls)==1
+        assert_completed(service, None, values[-1])
+        assert len(backend.calls)==1
         messages = dialogue.inputs[2][0]
         assert feedback_for(messages, "call-deliver_results")["executed"] is False
         assert "deliver_results" in feedback_for(messages, "call-deliver_results")["available_actions"]
@@ -227,7 +232,7 @@ def test_unknown_execution_after_correction_is_not_retried(engine):
             AIMessageChunk(content="Execution could not be confirmed."))
         service = DatasetQA(engine, dialogue, backend.gateway())
         values = await collect(service, session(service))
-        assert values[-1]["status"]=="FAILED" and values[-1]["code"]=="execution_unknown"
+        assert_handled(service, None, values[-1], "execution_unknown")
         assert len(backend.calls)==1 and len(dialogue.inputs)==3
         await service.close()
     asyncio.run(run())
@@ -241,7 +246,7 @@ def test_correction_respects_existing_round_and_call_budgets(engine):
             service = DatasetQA(engine, dialogue, backend.gateway(limits=limits))
             sid = session(service, request=str(limits))
             values = await collect(service, sid)
-            assert values[-1]["status"]=="FAILED" and values[-1]["code"]=="step_limit"
+            assert_handled(service, None, values[-1], "step_limit")
             assert not backend.calls
             await service.close()
     asyncio.run(run())

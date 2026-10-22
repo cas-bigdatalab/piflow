@@ -6,6 +6,7 @@ import time
 from langchain_core.messages import AIMessageChunk, ToolMessage
 import pytest
 
+from .assertions import assert_completed, assert_handled
 from ..contracts import Limits, Options, Server
 from ..execution import Execution
 from ..mcp import MCPGateway
@@ -31,7 +32,8 @@ def test_direct_artifact_uses_no_selection_round_and_preserves_replay(engine, wa
         sid = session(service)
         try:
             values = await collect(service, sid)
-            assert values[-1]["status"]=="COMPLETED" and len(result_cards(values))==1
+            assert_completed(service, None, values[-1])
+            assert len(result_cards(values))==1
             assert len(dialogue.inputs)==(2 if warm else 3) and dialogue.inputs[-1][1]==[]
             assert len(backend.calls)==1 and not any(isinstance(m, ToolMessage) and m.name=="deliver_results"
                 for m in dialogue.inputs[-1][0])
@@ -59,7 +61,8 @@ def test_direct_target_keeps_focus_and_explicit_selection(engine):
                 AIMessageChunk(content="采样已完成。")]
             before = len(dialogue.inputs)
             values = await collect(service, sid, rid="sample")
-            assert values[-1]["status"]=="COMPLETED" and len(dialogue.inputs)-before==2
+            assert_completed(service, None, values[-1])
+            assert len(dialogue.inputs)-before==2
             refs = json.loads(service.store.session("alice", sid)["context"])["references"]
             assert refs["current"]==target and refs["selected"]==[target]
             assert backend.calls[-1][2]["reference"]=="b"
@@ -78,7 +81,8 @@ def test_non_direct_pagination_and_pending_operations_keep_needed_tools(engine):
         service = DatasetQA(engine, dialogue, backend.gateway())
         try:
             values = await collect(service, session(service))
-            assert values[-1]["status"]=="COMPLETED" and [call[1] for call in backend.calls]==["search", "search", "sample"]
+            assert_completed(service, None, values[-1])
+            assert [call[1] for call in backend.calls]==["search", "search", "sample"]
             assert len(result_cards(values))==1
         finally:
             await service.close()
@@ -93,7 +97,8 @@ def test_direct_delivery_waits_for_the_entire_native_batch(engine):
         service = DatasetQA(engine, dialogue, backend.gateway())
         try:
             values = await collect(service, session(service))
-            assert values[-1]["status"]=="COMPLETED" and [call[1] for call in backend.calls]==["search", "inspect"]
+            assert_completed(service, None, values[-1])
+            assert [call[1] for call in backend.calls]==["search", "inspect"]
             assert result_cards(values)[0]["result_id"].endswith(":0")
         finally:
             await service.close()
@@ -114,12 +119,13 @@ def test_wait_notice_does_not_terminate_or_repeat_a_slow_call(engine):
                     if value is None:
                         continue
                     values.append(value)
-                    if "尚未取得" in value.get("summary", ""):
+                    if "仍在获取所需内容" in value.get("summary", ""):
                         assert service.store.task("alice", sid, value["task_id"])["status"]=="RUNNING"
                         assert len(backend.calls)==1
                         backend.gate.set()
-            assert values[-1]["status"]=="COMPLETED" and len(backend.calls)==1
-            assert sum("尚未取得" in value.get("summary", "") for value in values)==1
+            assert_completed(service, None, values[-1])
+            assert "outcome" not in values[-1] and len(backend.calls)==1
+            assert sum("仍在获取所需内容" in value.get("summary", "") for value in values)==1
             assert len(dialogue.inputs)==3
         finally:
             await service.close()
@@ -138,13 +144,14 @@ def test_turn_deadline_stops_waiting_with_an_accurate_reason(engine, queued):
         sid = session(service)
         try:
             values = await asyncio.wait_for(collect(service, sid), 2)
-            assert values[-1]["status"]=="FAILED" and values[-1]["code"]=="task_timeout"
+            assert_handled(service, None, values[-1], "task_timeout")
             text = "".join(value["text"] for value in values if value["type"]=="message")
-            assert "等待" in text and not result_cards(values)
+            assert text.strip() and not result_cards(values)
             if queued:
-                assert not backend.calls and not dialogue.inputs and "尚未开始执行" in text
+                assert not backend.calls and not dialogue.inputs and "尚未开始" in text
+                assert "可能已经执行" not in text
             else:
-                assert len(backend.calls)==1 and "尚未确认" in text
+                assert len(backend.calls)==1 and "可确认" in text
                 assert saved(service, sid, values[-1]["task_id"])["operations"][0]["state"]=="unknown"
                 assert service.slots._value==8
             assert values==await collect(service, sid)
@@ -169,8 +176,10 @@ def test_final_generation_deadline_keeps_completed_artifact(engine):
         service = DatasetQA(engine, dialogue, backend.gateway(limits=Limits(turn_timeout=0.3, wait_notice=0.03)))
         try:
             values = await asyncio.wait_for(collect(service, session(service)), 2)
-            assert values[-1]["status"]=="COMPLETED" and len(result_cards(values))==1 and len(backend.calls)==1
-            assert any("已完成的操作及结果已保留" in value.get("text", "") for value in values)
+            assert_completed(service, None, values[-1])
+            assert len(result_cards(values))==1 and len(backend.calls)==1
+            shown = "".join(value.get("text", "") for value in values)
+            assert "结果已整理在下方" in shown and "超过等待上限" not in shown
         finally:
             await service.close()
     asyncio.run(run())
@@ -207,7 +216,8 @@ def test_direct_flag_does_not_bypass_single_object_reference_grounding(engine):
         sid = session(service)
         try:
             values = await collect(service, sid)
-            assert values[-1]["status"]=="COMPLETED" and len(dialogue.inputs)==4 and len(backend.calls)==1
+            assert_completed(service, None, values[-1])
+            assert len(dialogue.inputs)==4 and len(backend.calls)==1
             assert json.loads(service.store.session("alice", sid)["context"])["references"]["current"]["path"]=="/items/0"
         finally:
             await service.close()
@@ -238,7 +248,7 @@ def test_deadline_preserves_success_and_reports_the_unconfirmed_operation(engine
         sid = session(service)
         try:
             values = await asyncio.wait_for(collect(service, sid), 2)
-            assert values[-1]["status"]=="FAILED" and values[-1]["code"]=="task_timeout"
+            assert_handled(service, None, values[-1], "task_timeout")
             assert len(result_cards(values))==1 and [call[1] for call in backend.calls]==["search", "sample"]
             assert [item["state"] for item in saved(service, sid, values[-1]["task_id"])["operations"]]==["succeeded", "unknown"]
             text = "".join(value["text"] for value in values if value["type"]=="message")
@@ -264,7 +274,8 @@ def test_turn_deadline_is_not_reset_by_model_or_mcp_calls(engine):
         try:
             started = time.monotonic()
             values = await asyncio.wait_for(collect(service, session(service)), 2)
-            assert values[-1]["code"]=="task_timeout" and len(dialogue.inputs)==2 and len(backend.calls)==1
+            assert_handled(service, None, values[-1], "task_timeout")
+            assert len(dialogue.inputs)==2 and len(backend.calls)==1
             assert time.monotonic()-started<1
         finally:
             await service.close()
@@ -286,7 +297,8 @@ def test_real_mcp_cancellation_respects_the_turn_deadline(engine):
         service = DatasetQA(engine, dialogue, MCPGateway({"local": Server(mcp)}, limits=Limits(turn_timeout=0.6)))
         try:
             values = await asyncio.wait_for(collect(service, session(service)), 2)
-            assert values[-1]["status"]=="FAILED" and values[-1]["code"]=="task_timeout" and started==[True]
+            assert_handled(service, None, values[-1], "task_timeout")
+            assert started==[True]
         finally:
             await service.close()
     asyncio.run(run())

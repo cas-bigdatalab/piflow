@@ -22,6 +22,7 @@ from .results import collection_paths, combine_results, evidence, evidence_group
 from .references import all_references, apply_update, at_path, display_list, handle_order, pending_objects, preview, scoped_preview
 from .runtime import Waiting
 from .parallel import run_read_batch
+from .responses import public_completion, response_labels, response_operations
 
 log = logging.getLogger("flow.dataset_qa")
 
@@ -77,10 +78,7 @@ class DatasetQA:
             result["current_stage"] = row["stage"]
         if row["status"] in {"RUNNING", "WAITING_INPUT"}:
             result["available_actions"] = [{"action": "cancel_task", "label": "停止"}]
-        error = json.loads(row["payload"]).get("error")
-        if error:
-            result["error_message"] = error["message"]
-        return result
+        return public_completion(result, json.loads(row["payload"]))
 
     async def list_sessions(self, user, page, size, keyword=""):
         rows, total = await asyncio.to_thread(self.store.list_sessions, user, page, size, keyword)
@@ -170,11 +168,15 @@ class DatasetQA:
                         legacy_result_sent = True
                     value = {"type": "result", "items": [public_result(card) for card in cards],
                         "task_id": tid, "event_seq": cursor}
-                if value["type"]=="done" and value.get("status")=="FAILED" and "code" not in value:
+                if value["type"]=="interaction":
                     saved = await asyncio.to_thread(self.store.task, user, sid, tid)
-                    error = json.loads(saved["payload"]).get("error")
-                    if error:
-                        value.update(code=error.get("error_code", error.get("code")), message=error["message"])
+                    if saved["status"]!="WAITING_INPUT":
+                        continue
+                if value["type"]=="done":
+                    saved = await asyncio.to_thread(self.store.task, user, sid, tid)
+                    if value.get("status")=="WAITING_INPUT" and saved["status"]!="WAITING_INPUT":
+                        continue  # A later cancellation/continuation superseded this checkpoint.
+                    value = public_completion(value, json.loads(saved["payload"]))
                 last_activity = time.monotonic()
                 yield value
                 if value["type"]=="done":
@@ -183,10 +185,7 @@ class DatasetQA:
                 session = await asyncio.to_thread(self.store.session, user, sid)
                 value = {"type": "done", "task_id": tid, "status": task["status"],
                     "version": session["version"], "event_seq": cursor}
-                error = json.loads(task["payload"]).get("error")
-                if error:
-                    value.update(code=error.get("error_code", error.get("code")), message=error["message"])
-                yield value
+                yield public_completion(value, json.loads(task["payload"]))
                 return
             if values:
                 continue  # Drain persisted events without a polling delay.
@@ -296,6 +295,10 @@ class DatasetQA:
             waiting = await asyncio.to_thread(self.store.task, user, sid, payload_parent)
             parent_payload = json.loads(waiting["payload"])
             operations = parent_payload.get("operations", [])
+            if parent_payload.get("diagnostics_exposed"):
+                model_context["response_guard"] = {"labels": parent_payload.get("response_labels", {})}
+            elif any(attempt.get("error") for item in operations for attempt in item.get("attempts", [])):
+                model_context["response_guard"] = {"labels": {item["id"]: item["description"] for item in operations}}
             if operations:
                 model_context["pending"] = {**previous, "operations": Operations(operations).view()}
             handles = pending_objects(parent_payload)
@@ -398,7 +401,7 @@ class DatasetQA:
         full, buffer, flushed, sent = None, "", time.monotonic(), False
         deadline = asyncio.get_running_loop().time()+self.gateway.limits.model_timeout
         try:
-            async with (waiting.during("模型仍在处理本轮请求，请稍候。") if waiting else nullcontext()), aclosing(self.dialogue.respond(messages, definitions)) as response:
+            async with (waiting.during("仍在整理本轮需要的信息，请稍候。") if waiting else nullcontext()), aclosing(self.dialogue.respond(messages, definitions)) as response:
                 while True:
                     try:
                         async with asyncio.timeout_at(deadline):
@@ -452,12 +455,20 @@ class DatasetQA:
 
     async def _failure_reply(self, user, sid, tid, answer, reason, operations, payload):
         text = Execution.notice(reason, bool(payload.get("delivery")))
+        operations = response_labels(operations, payload.get("response_labels"))
         summary = operations.notice(payload.get("delivery_sources", []))
+        if not summary and not operations.required:
+            outstanding = [item["description"] for item in operations.items
+                if item.get("inferred") and item["state"]!="succeeded"]
+            if outstanding:
+                summary = "尚待获取："+"；".join(outstanding)+"。"
         await self._notice(user, sid, tid, answer, text+("\n\n"+summary if summary else ""))
 
     async def _finish_task(self, user, sid, tid, payload, execution, answer, reason=None):
         reason = reason or execution.operations.error(payload.get("delivery_sources", []))
         error = {"code": reason.status, "error_code": reason.code, "message": Execution.notice(reason)} if reason else None
+        if reason and reason.detail:
+            error["detail"], _ = project(reason.detail, 1200)
         await asyncio.to_thread(self.store.finish, user, sid, tid, "FAILED" if reason else "COMPLETED",
             message=answer["text"], error=error)
 
@@ -1111,7 +1122,13 @@ class DatasetQA:
                         result["pending_next_offset"] = following
             return result
         if name=="remember":
-            memory = {**context.get("memory", {}), **values.values}
+            updates = values.values
+            if (payload or {}).get("diagnostics_exposed"):
+                # Recovery can use diagnostics internally, but may not copy
+                # them into persistent user-visible free-text memory. Grounded
+                # selections below still undergo the usual reference checks.
+                updates = {key: value for key, value in updates.items() if key=="selected_dataset_id"}
+            memory = {**context.get("memory", {}), **updates}
             if len(encode(memory))>4096:
                 raise QAError("memory_too_large", "结构化记忆超过运行预算")
             state = context.get("references", {})
@@ -1133,12 +1150,17 @@ class DatasetQA:
             context["memory"] = {k: v for k, v in memory.items() if v is not None}
             context["references"] = state
             await self._write(user, sid, tid, context=context)
-            return {"saved": True}
+            result = {"saved": True}
+            if updates != values.values:
+                result["guidance"] = "Grounded choices were saved. Free-text memory changes are deferred during recovery; continue the task without repeating this memory update."
+            return result
         pending = {"task_id": tid, "question": values.question}
         if values.options:
             pending["options"] = values.options
+        if (payload or {}).get("diagnostics_exposed"):
+            pending = {"task_id": tid, "question": "请确认本次要操作的数据集，并补充希望获取的内容或处理要求。我会根据您的说明继续。"}
         context["pending"] = pending
-        await self._write(user, sid, tid, context=context)
+        await self._write(user, sid, tid, context=context, payload=payload)
         return {"waiting": True}
 
     async def _final_reply(self, user, sid, tid, messages, answer, phase, reason=None, waiting=None):
@@ -1154,6 +1176,8 @@ class DatasetQA:
                 return
         instructions = (str(messages[0].content)+"\nTool use is over. Write only the final user-facing reply, "
             "without internal planning or another tool call. Use actual evidence, distinguish unfinished work, "
+            "Do not expose backend errors, diagnostic codes, stack traces or internal service details. "
+            "When evidence is incomplete, explain what is available and a concrete next step in the user's terms. "
             "Do not repeat a runtime notice already shown to the user. "
             "and only refer to display cards identified by delivery_manifest. Do not claim unperformed work succeeded. "
             "The runtime operations state is authoritative: distinguish execution from delivery and do not describe auxiliary lookups as completion of the request. "
@@ -1177,29 +1201,51 @@ class DatasetQA:
         for message in messages[2:]:
             if isinstance(message, ToolMessage) and (rid := json.loads(message.content).get("result_id")):
                 source_ids.append(rid)
-        displayed = {*ids, *payload.get("delivery_sources", [])}
         answer_ids = [rid for rid in dict.fromkeys(source_ids) if rid not in ids]
         answer_cards = await asyncio.to_thread(self.store.selected_results, user, sid, answer_ids) if answer_ids else []
         delivery = final_evidence_view(cards, answer_cards, operations, self.gateway.limits.result_chars,
-            stop_reason=str(reason) if reason else None)
-        context = json.loads(messages[1].content)
+            stop_reason=Execution.notice(reason, bool(cards)) if reason else None)
+        # Answer generation is a separate trust boundary. Planning feedback and
+        # tool errors remain available for correction, never for public wording.
+        context = {key: value for key, value in json.loads(messages[1].content).items()
+            if key in {"memory", "summary", "references", "request_source", "request_objects", "response_basis"}}
         if payload.get("response_basis"):
-            context["response_basis"] = payload["response_basis"]
+            context["response_basis"] = {key: value for key, value in payload["response_basis"].items()
+                if key!="reason" or not payload.get("diagnostics_exposed")}
         if operations.items:
-            context["operations"] = operations.view()
-        context.pop("evidence", None)
-        context.pop("mcp_servers", None)
-        context.pop("execution_decision", None)
+            context["operations"] = response_operations(operations, payload.get("response_labels"))
+        pending = json.loads(messages[1].content).get("pending")
+        if pending:
+            context["pending"] = {key: pending[key] for key in ("question", "options") if key in pending}
         history = []
         for message in messages[2:]:
-            if isinstance(message, ToolMessage):
-                value = json.loads(message.content)
-                if message.name and message.name.startswith("mcp_") and value.get("result_id") in {*displayed, *answer_ids}:
-                    message = message.model_copy(update={"content": encode({key: value[key] for key in
-                        ("result_id", "executed", "guidance", "repeated") if key in value})})
+            # Only actual conversation through this request belongs to history.
+            # The authoritative evidence envelope replaces the execution trace.
+            if isinstance(message, ToolMessage) or getattr(message, "tool_calls", None):
+                break
             history.append(message)
+            if message.id=="qa-current-request":
+                break
+        focused, reads = [], {}
+        for message in messages[2:]:
+            for call in getattr(message, "tool_calls", []):
+                if call["name"]=="read_result":
+                    reads[call["id"]] = call["args"]
+            if not isinstance(message, ToolMessage) or message.name!="read_result":
+                continue
+            args = reads.pop(message.tool_call_id, {})
+            value = json.loads(message.content)
+            if "error" in value or not value.get("result_id") or "data" not in value:
+                continue
+            view = {key: value[key] for key in ("result_id", "data", "next_offset", "truncated", "field_paths", "content")
+                if key in value}
+            view.update(path=args.get("path", ""), offset=args.get("offset", 0))
+            focused.append(HumanMessage(encode({"focused_evidence": view})))
+        # Focused reads may contain the exact deep field/page requested by the
+        # user that the default preview omits. Keep their provenance, without
+        # the execution trace; Dialogue.budget bounds all these evidence groups.
         final_messages = [messages[0].model_copy(update={"content": instructions}), HumanMessage(encode(context)),
-            *history, HumanMessage(encode(delivery))]
+            *history, *focused, HumanMessage(encode(delivery))]
         try:
             reply = await self._reply(user, sid, tid, final_messages, [], answer, phase, waiting)
             if reply.tool_calls or reply.invalid_tool_calls:
@@ -1217,7 +1263,7 @@ class DatasetQA:
                 raise
             log.warning("Final response degraded: task=%s code=%s", tid, exc.code)
             if reason is None:
-                await self._notice(user, sid, tid, answer, "答复生成中断，已取得的结果已保留，请查看下方结果。")
+                await self._notice(user, sid, tid, answer, "结果已整理在下方，您可以先查看，并指定下一步要了解或处理的内容。")
 
     async def _run(self, user, sid, tid, payload, options):
         started = time.monotonic()
@@ -1251,6 +1297,9 @@ class DatasetQA:
                     acquired = True
                 log.info("Task queue: task=%s elapsed=%.3fs", tid, time.monotonic()-started)
                 context, model_context, parent = await self._context(user, sid, tid, options)
+                guard = model_context.pop("response_guard", None)
+                if guard is not None:
+                    payload.update(diagnostics_exposed=True, response_labels=guard["labels"])
                 if parent:
                     payload["parent_task_id"] = parent
                     await self._write(user, sid, tid, payload=payload)
@@ -1309,6 +1358,14 @@ class DatasetQA:
                         if payload.get("resume") is not None:
                             updated.pop("pending", None)
                         messages[1] = HumanMessage(encode(updated))
+                        if not payload.get("diagnostics_exposed") and (execution.recovering or execution.failures
+                                or tools.discovery_errors or any(tools.definition_errors.values())):
+                            # Snapshot intent before the next planning response
+                            # can see diagnostic text. Later free-text labels are
+                            # private; successful data and references stay usable.
+                            payload["diagnostics_exposed"] = True
+                            payload["response_labels"] = {item["id"]: item["description"]
+                                for item in execution.operations.items}
                         try:
                             reply = await self._reply(user, sid, tid, messages, definitions, waiting=waiting)
                             if reply.tool_calls:
@@ -1446,7 +1503,7 @@ class DatasetQA:
                                     if prepared_error:
                                         raise prepared_error
                                     if name in INPUTS:
-                                        async with waiting.during("仍在等待MCP工具目录返回，尚未执行数据操作。") if name=="load_mcp_tools" else nullcontext():
+                                        async with waiting.during("正在准备本次查询所需的功能，请稍候。") if name=="load_mcp_tools" else nullcontext():
                                             value = await self._builtin(user, sid, tid, name, arguments, tools, context, payload)
                                         if name=="read_result" and arguments.get("result_id") is None:
                                             value["operations"] = execution.operations.view(arguments.get("offset", 0), min(arguments.get("limit", 20), 8))
@@ -1472,7 +1529,7 @@ class DatasetQA:
                                             presentation=presentation)
                                         payload["operations"] = execution.operations.items
                                         await phase("execute", "正在处理："+tool.title, payload=payload)
-                                        async with waiting.during("正在等待MCP服务返回，尚未取得本次操作的结果。"):
+                                        async with waiting.during("仍在获取所需内容，收到结果后会继续为您整理。"):
                                             tool, output = await tools.call(name, arguments)
                                         card, created = await self._save_tool_result(user, sid, tid, tool, output,
                                             operation_id, key, f"{tid}:{results}", execution, payload)
@@ -1609,7 +1666,9 @@ class DatasetQA:
             log.exception("Agent task failed: task=%s", tid)
             failure = exc if isinstance(exc, QAError) else QAError("service_unavailable", "服务暂不可用，请稍后重试", 503)
             try:
-                async with asyncio.timeout_at(turn_deadline) if expired else nullcontext():
+                final_deadline = min(turn_deadline,
+                    asyncio.get_running_loop().time()+min(5, limits.turn_timeout/2))
+                async with asyncio.timeout_at(final_deadline):
                     if expired:
                         await self._write(user, sid, tid, payload=payload)
                     if execution.cards and "delivery" not in payload:
@@ -1618,13 +1677,23 @@ class DatasetQA:
                         except (QAError, ValidationError):
                             pass
                     if expired and payload.get("delivery") and execution.operations.error(payload.get("delivery_sources", [])) is None:
-                        await self._notice(user, sid, tid, answer, "答复生成超过等待上限，已完成的操作及结果已保留，请查看下方结果。")
+                        await self._notice(user, sid, tid, answer, "结果已整理在下方，您可以先查看，并指定下一步要了解或处理的内容。")
                         await self._finish_task(user, sid, tid, payload, execution, answer)
                         return
                     await self._failure_reply(user, sid, tid, answer, failure, execution.operations, payload)
                     await self._finish_task(user, sid, tid, payload, execution, answer, failure)
-            except (QAError, TimeoutError):
-                log.warning("Task finalization interrupted: task=%s", tid)
+            except Exception:
+                log.warning("Task finalization interrupted: task=%s", tid, exc_info=True)
+                # One bounded persistence-only fallback. It cannot execute tools
+                # or restart model waiting; a stale RUNNING task would otherwise
+                # leave clients polling until the lease expires.
+                try:
+                    async with asyncio.timeout(1):
+                        await asyncio.to_thread(self.store.finish, user, sid, tid, "FAILED",
+                            error={"code": failure.status, "error_code": failure.code,
+                                   "message": Execution.notice(failure)})
+                except Exception:
+                    log.exception("Terminal persistence unavailable: task=%s", tid)
         finally:
             if acquired:
                 self.slots.release()

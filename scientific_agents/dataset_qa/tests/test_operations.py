@@ -7,6 +7,7 @@ from langchain_core.messages import AIMessageChunk, ToolMessage
 from pydantic import ValidationError
 import pytest
 
+from .assertions import assert_completed, assert_handled
 from ..context import encode
 from ..contracts import QAError
 from ..operations import Operation, Operations
@@ -46,7 +47,8 @@ def test_auxiliary_success_cannot_complete_or_become_sample_artifact(engine):
         sid = session(service)
         try:
             values = await collect(service, sid, "采样数据集 A")
-            assert values[-1]["status"]=="FAILED" and not result_cards(values)
+            assert_handled(service, None, values[-1])
+            assert not result_cards(values)
             assert [call[1] for call in backend.calls]==["search", "sample"]
             assert len(service.store.results("alice", sid, values[-1]["task_id"]))==1
             feedback = [json.loads(message.content) for message in dialogue.inputs[3][0]
@@ -80,13 +82,13 @@ def test_same_tool_other_target_success_keeps_failure_and_delivers_qualified_par
         sid = session(service)
         try:
             values = await collect(service, sid, "分别采样 A 和 B")
-            assert values[-1]["status"]=="FAILED" and values[-1]["code"]=="tool_failed"
+            assert_handled(service, None, values[-1], "tool_failed")
             assert len(backend.calls)==2 and len(dialogue.inputs)==2
             assert len(result_cards(values))==1
             payload = saved(service, sid, values[-1]["task_id"])
             assert [item["state"] for item in payload["operations"]]==["failed", "succeeded"]
             text = "".join(value["text"] for value in values if value["type"]=="message")
-            assert "已为您完成：操作 b" in text and "暂时还无法提供：操作 a" in text and "Invalid operation" in text
+            assert "已为您完成：操作 b" in text and "暂时还无法提供：操作 a" in text and "Invalid operation" not in text
             assert values==await collect(service, sid, "分别采样 A 和 B") and len(backend.calls)==2
         finally:
             await service.close()
@@ -104,7 +106,8 @@ def test_delivery_rejects_omitted_operation_then_merges_existing_evidence(engine
         sid = session(service)
         try:
             values = await collect(service, sid, "分别采样 A、B")
-            assert values[-1]["status"]=="COMPLETED" and len(backend.calls)==2
+            assert_completed(service, None, values[-1])
+            assert len(backend.calls)==2
             assert len(result_cards(values))==1
             payload = saved(service, sid, values[-1]["task_id"])
             assert len(payload["delivery_sources"])==2 and all(item["state"]=="succeeded" for item in payload["operations"])
@@ -126,7 +129,8 @@ def test_recovery_reuses_only_same_operation_and_new_sample_executes(engine):
         service = DatasetQA(engine, dialogue, backend.gateway())
         try:
             values = await collect(service, session(service), "采样 A，然后再采样一次")
-            assert values[-1]["status"]=="COMPLETED" and len(backend.calls)==2
+            assert_completed(service, None, values[-1])
+            assert len(backend.calls)==2
             receipts = [json.loads(message.content) for message in dialogue.inputs[4][0]
                 if isinstance(message, ToolMessage) and message.name.endswith("_sample")]
             assert len(receipts)==3 and receipts[1]["executed"] is False
@@ -159,7 +163,8 @@ def test_clarification_resumes_receipts_without_repeating_successful_operation(e
             assert service.store.task("alice", sid, parent)["status"]=="WAITING_INPUT"
             backend.gate.set()
             values = await child
-            assert values[-1]["status"]=="COMPLETED" and len(backend.calls)==2
+            assert_completed(service, None, values[-1])
+            assert len(backend.calls)==2
             assert service.store.task("alice", sid, parent)["status"]=="COMPLETED"
             assert all(item["state"]=="succeeded" for item in saved(service, sid, parent)["operations"])
             assert (await service.get_session("alice", sid))["interaction"] is None
@@ -184,7 +189,7 @@ def test_new_topic_does_not_inherit_or_complete_waiting_goal(engine):
             dialogue.responses = [load(), batch(["new"], remote("search"), operations=[goal("new")], resume=False),
                 deliver(), AIMessageChunk(content="找到新领域数据。")]
             values = await collect(service, sid, "先找另一个领域的数据", "new")
-            assert values[-1]["status"]=="COMPLETED"
+            assert_completed(service, None, values[-1])
             assert service.store.task("alice", sid, parent)["status"]=="WAITING_INPUT"
             assert [item["id"] for item in saved(service, sid, values[-1]["task_id"])["operations"]]==["new"]
         finally:
@@ -200,7 +205,8 @@ def test_text_answer_uses_verified_operation_evidence_without_card(engine):
         service = DatasetQA(engine, dialogue, backend.gateway())
         try:
             values = await collect(service, session(service), "A 有多大？")
-            assert values[-1]["status"]=="COMPLETED" and not result_cards(values)
+            assert_completed(service, None, values[-1])
+            assert not result_cards(values)
             assert len(dialogue.inputs)==4 and len(backend.calls)==1
             evidence = json.loads(dialogue.inputs[-1][0][-1].content)["answer_evidence"]
             assert evidence[0]["data"]["size"]==0
@@ -272,7 +278,7 @@ def test_invalid_explicit_legacy_bindings_are_corrected_before_any_dispatch(engi
         service = DatasetQA(engine, dialogue, backend.gateway())
         try:
             values = await collect(service, session(service), "采样 A")
-            assert values[-1]["status"]=="FAILED" and values[-1]["code"]=="invalid_parameters"
+            assert_handled(service, None, values[-1], "invalid_parameters")
             assert not backend.calls and not result_cards(values) and len(dialogue.inputs)==4
         finally:
             await service.close()
@@ -294,7 +300,8 @@ def test_target_reference_cannot_change_when_focus_switches_or_goal_is_redeclare
                 operations=[goal("sample", target=a)], references={"current": b}),
                 action("remember", operations=[goal("sample", target=b)]), deliver(), AIMessageChunk(content="A 已采样。")]
             values = await collect(service, sid, "采样 A，当前也在讨论 B", "sample")
-            assert values[-1]["status"]=="COMPLETED" and len(backend.calls)==2
+            assert_completed(service, None, values[-1])
+            assert len(backend.calls)==2
             operation = saved(service, sid, values[-1]["task_id"])["operations"][0]
             assert operation["target"]["path"]=="/items/0" and backend.calls[-1][2]["reference"]=="a"
             assert json.loads(service.store.session("alice", sid)["context"])["references"]["current"]["path"]=="/items/1"
@@ -316,7 +323,7 @@ def test_heterogeneous_required_artifacts_are_not_dropped_or_force_merged(engine
         sid = session(service)
         try:
             values = await collect(service, sid, "查找并展示 A 详情")
-            assert values[-1]["status"]=="COMPLETED"
+            assert_completed(service, None, values[-1])
             assert len(backend.calls)==2 and len(result_cards(values))==2
             assert {card["view_type"] for card in result_cards(values)}=={"detail", "data"}
             assert len(service.store.results("alice", sid))==2
@@ -397,7 +404,11 @@ def test_model_retry_respects_previous_execution_safety_and_keeps_other_goal(eng
         sid = session(service)
         try:
             values = await collect(service, sid, "查询 A 和 B")
-            assert values[-1]["status"]==("COMPLETED" if safe else "FAILED")
+            if safe:
+                assert_completed(service, None, values[-1])
+                assert "outcome" not in values[-1]
+            else:
+                assert_handled(service, sid, values[-1], "tool_failed")
             assert len(backend.calls)==(3 if safe else 2)
             assert backend.calls[-1][2]["reference"]=="b"
             states = [item["state"] for item in saved(service, sid, values[-1]["task_id"])["operations"]]
@@ -416,7 +427,7 @@ def test_safe_upstream_correction_uses_existing_global_budget(engine):
         service = DatasetQA(engine, dialogue, backend.gateway())
         try:
             values = await collect(service, session(service), "查看 A")
-            assert values[-1]["status"]=="FAILED" and values[-1]["code"]=="tool_failed"
+            assert_handled(service, None, values[-1], "tool_failed")
             assert len(backend.calls)==3 and len(dialogue.inputs)==4
             assert not result_cards(values)
         finally:

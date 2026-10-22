@@ -4,6 +4,7 @@ import json
 
 import pytest
 
+from .assertions import assert_completed
 from ..capabilities import OBJECT
 from ..service import DatasetQA
 from .test_dataset_qa import action, collect, engine, load, remote, result_cards, session
@@ -26,7 +27,7 @@ def test_rejected_delivery_does_not_freeze_the_intermediate_artifact(engine, fai
         sid = session(service)
         try:
             values = await collect(service, sid, "Find a resource and show its details")
-            assert values[-1]["status"]=="COMPLETED"
+            assert_completed(service, None, values[-1])
             card, = result_cards(values)
             assert card["title"].endswith("inspect") and card["data"]["items"][0]["reference"]=="a"
             ledger = payload(service, sid, values)

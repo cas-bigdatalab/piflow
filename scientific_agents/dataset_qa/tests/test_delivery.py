@@ -10,6 +10,7 @@ from pydantic import ValidationError
 import pytest
 from sqlalchemy import insert, update
 
+from .assertions import assert_completed
 from ..contracts import Options, QAError
 from ..context import public_result
 from ..dialogue import BUILTINS, Deliver
@@ -42,7 +43,7 @@ def test_only_selected_artifacts_are_public_after_final_reply(engine):
         sid = session(service)
         values = await collect(service, sid)
         tid = values[-1]["task_id"]
-        assert values[-1]["status"]=="COMPLETED"
+        assert_completed(service, None, values[-1])
         assert {v["type"] for v in values}=={"stage", "message", "result", "done"}
         assert sum(v["type"]=="result" for v in values)==1
         assert "".join(v["text"] for v in values if v["type"]=="message")=="这是选中数据集的预览。"
@@ -110,7 +111,7 @@ def test_one_selected_artifact_is_delivered_without_extra_model_or_mcp_calls(eng
         sid = session(service)
         values = await collect(service, sid)
         tid = values[-1]["task_id"]
-        assert values[-1]["status"]=="COMPLETED"
+        assert_completed(service, None, values[-1])
         assert len(dialogue.inputs)==6 and dialogue.inputs[-1][1]==[]
         assert sum(v["type"]=="result" for v in values)==1
         saved = service.store.results("alice", sid, tid)
@@ -133,12 +134,13 @@ def test_multiple_selection_keeps_independent_artifacts_without_reexecuting_mcp(
         service = DatasetQA(engine, dialogue, backend.gateway())
         sid = session(service)
         values = await collect(service, sid)
-        assert values[-1]["status"]=="COMPLETED" and len(backend.calls)==2
+        assert_completed(service, None, values[-1])
+        assert len(backend.calls)==2
         cards = service.store.results("alice", sid, values[-1]["task_id"])
         assert len(cards)==2 and result_cards(values)==[public_result(card) for card in cards]
-        feedback = next(json.loads(m.content) for m in dialogue.inputs[4][0]
-            if isinstance(m, ToolMessage) and m.name=="deliver_results")
-        assert feedback["result_ids"]==[card["result_id"] for card in cards]
+        final = json.loads(dialogue.inputs[4][0][-1].content)
+        assert [entry["result_id"] for entry in final["delivery_manifest"]]==[card["result_id"] for card in cards]
+        assert not any(isinstance(message, ToolMessage) for message in dialogue.inputs[4][0])
         assert len(dialogue.inputs)==5
     asyncio.run(run())
 
@@ -238,8 +240,10 @@ def test_selected_result_survives_cancel_or_final_model_failure(engine, terminal
         values = prefix+suffix
         assert values[-1]["status"]==("CANCELLED" if terminal=="cancel" else "COMPLETED")
         if terminal=="model_failure":
+            assert_completed(service, sid, values[-1])
             assert "code" not in values[-1]
-            assert "答复生成中断" in "".join(v["text"] for v in values if v["type"]=="message")
+            shown = "".join(v["text"] for v in values if v["type"]=="message")
+            assert "结果已整理在下方" in shown and "model offline" not in shown
         assert len(result_cards(values))==1 and sum(v["type"]=="result" for v in values)==1
         assert not any(v["type"] in {"task", "error"} for v in values)
         assert "LATE OUTPUT" not in "".join(v.get("text", "") for v in values)
@@ -304,7 +308,8 @@ def test_clarification_and_text_only_responses_do_not_publish_tool_evidence(engi
             return with_operations(remote("search")(messages, definitions), messages, definitions, output="answer", resume=False)
         service.dialogue.responses = [text_search, action("deliver_results"), AIMessageChunk(content="这是一段文字解释。")]
         following = await collect(service, sid, "解释一下", "text")
-        assert following[-1]["status"]=="COMPLETED" and not result_cards(following)
+        assert_completed(service, None, following[-1])
+        assert not result_cards(following)
     asyncio.run(run())
 
 
@@ -376,7 +381,8 @@ def test_legacy_result_events_are_projected_without_reexecution(engine):
         values = await collect(service, sid, rid="legacy")
         shown = [public_result(c) for c in cards]
         assert sum(v["type"]=="result" for v in values)==1 and result_cards(values)==shown
-        assert values[-1]["status"]=="COMPLETED" and not backend.calls
+        assert_completed(service, None, values[-1])
+        assert not backend.calls
         assert service.store.display_results("alice", sid, task["id"])==cards
         assert [i["payload"] for i in (await service.get_session("alice", sid))["items"]
             if i["item_type"]=="RESULT_CARD"]==shown
@@ -402,8 +408,10 @@ def test_final_tool_call_degrades_without_restarting_mcp_execution(engine):
 
         service = DatasetQA(engine, RefusingDelivery(), backend.gateway())
         values = await collect(service, session(service))
-        assert values[-1]["status"]=="COMPLETED" and "code" not in values[-1]
+        assert_completed(service, None, values[-1])
+        assert "code" not in values[-1]
         assert len(backend.calls)==1 and len(result_cards(values))==1
         assert service.dialogue.inputs[-1][1]==[] and len(service.dialogue.inputs)==4
-        assert "答复生成中断" in "".join(v["text"] for v in values if v["type"]=="message")
+        shown = "".join(v["text"] for v in values if v["type"]=="message")
+        assert "结果已整理在下方" in shown and "工具调用" not in shown
     asyncio.run(run())

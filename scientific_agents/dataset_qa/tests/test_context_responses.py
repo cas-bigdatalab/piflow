@@ -5,6 +5,7 @@ import json
 from langchain_core.messages import AIMessageChunk
 import pytest
 
+from .assertions import assert_completed
 from ..contracts import QAError
 from ..dialogue import Dialogue
 from ..service import DatasetQA
@@ -27,7 +28,8 @@ def test_saved_evidence_can_be_explained_without_new_execution_or_republication(
             before = len(dialogue.inputs)
             dialogue.responses = [respond("evidence", [card["result_id"]]), text("There are two saved candidates.")]
             values = await collect(service, sid, "Explain the saved candidates", "explain")
-            assert values[-1]["status"]=="COMPLETED" and not result_cards(values)
+            assert_completed(service, None, values[-1])
+            assert not result_cards(values)
             assert len(backend.calls)==1 and len(dialogue.inputs)-before==2
             ledger = payload(service, sid, values)
             assert ledger["response_basis"]["executed"] is False and not ledger.get("operations")
@@ -53,7 +55,8 @@ def test_confirming_selection_needs_no_unrelated_mcp_call(engine):
                 *action("remember", selected=["candidate:1", "candidate:2"]).tool_calls,
                 *respond().tool_calls]), text("Both choices have been saved.")]
             values = await collect(service, sid, "Keep both datasets selected", "select")
-            assert values[-1]["status"]=="COMPLETED" and len(backend.calls)==1
+            assert_completed(service, None, values[-1])
+            assert len(backend.calls)==1
             saved = json.loads(service.store.session("alice", sid)["context"])
             assert [ref["path"] for ref in saved["references"]["selected"]]==["/items/0", "/items/1"]
             assert not result_cards(values)
@@ -72,7 +75,8 @@ def test_context_answer_cannot_read_another_sessions_artifact(engine):
             second = session(service, request="second")
             dialogue.responses = [respond("evidence", [card["result_id"]]), respond(), text("No data has been selected in this session.")]
             values = await collect(service, second, "Describe this session", "explain")
-            assert values[-1]["status"]=="COMPLETED" and len(backend.calls)==1
+            assert_completed(service, None, values[-1])
+            assert len(backend.calls)==1
             ledger = payload(service, second, values)
             assert ledger["response_basis"]["result_ids"]==[]
             assert card["result_id"] not in json.dumps(json.loads(dialogue.inputs[-1][0][-1].content))
@@ -90,10 +94,13 @@ def test_existing_execution_goal_cannot_be_replaced_with_context_response(engine
                 calls=[remote("search", query="data")]), respond(), action("deliver_results"), text("Retrieved two records.")]
             sid = session(service)
             values = await collect(service, sid, "Search for evidence", "search")
-            assert values[-1]["status"]=="COMPLETED" and len(backend.calls)==1
+            assert_completed(service, None, values[-1])
+            assert len(backend.calls)==1
             ledger = payload(service, sid, values)
             assert "response_basis" not in ledger and ledger["operations"][0]["state"]=="succeeded"
-            assert any("tool_not_loaded" in str(message.content) for message in dialogue.inputs[-1][0])
+            assert any("tool_not_loaded" in str(message.content) for messages, definitions in dialogue.inputs
+                if definitions for message in messages)
+            assert all("tool_not_loaded" not in str(message.content) for message in dialogue.inputs[-1][0])
         finally:
             await service.close()
     asyncio.run(run())
@@ -108,7 +115,8 @@ def test_unsupported_answer_checks_capabilities_and_finishes_without_fake_execut
         try:
             sid = session(service)
             values = await collect(service, sid, "Explain whether you support a transformation", "capability")
-            assert values[-1]["status"]=="COMPLETED" and not backend.calls
+            assert_completed(service, None, values[-1])
+            assert not backend.calls
             basis = payload(service, sid, values)["response_basis"]
             assert basis["mode"]=="unsupported" and len(basis["available_capabilities"])==4
             assert not result_cards(values)
@@ -139,7 +147,8 @@ def test_context_and_native_actions_cannot_be_mixed(engine):
         service = DatasetQA(engine, dialogue, backend.gateway())
         try:
             values = await collect(service, session(service), "Explain your capabilities", "explain")
-            assert values[-1]["status"]=="COMPLETED" and not backend.calls
+            assert_completed(service, None, values[-1])
+            assert not backend.calls
         finally:
             await service.close()
     asyncio.run(run())

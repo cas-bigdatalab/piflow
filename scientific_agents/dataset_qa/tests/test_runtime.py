@@ -7,6 +7,7 @@ from langchain_core.messages import AIMessageChunk, ToolMessage
 import pytest
 from sqlalchemy import update
 
+from .assertions import assert_completed, assert_handled
 from ..contracts import Limits, Server
 from ..dialogue import Dialogue as NativeDialogue
 from ..mcp import MCPGateway
@@ -36,10 +37,10 @@ def test_no_success_without_actual_mcp_execution(engine, responses):
             AIMessageChunk(content="The task was not executed."))
         service = DatasetQA(engine, dialogue, backend.gateway())
         values = await collect(service, session(service))
-        assert values[-1]["status"]=="FAILED" and values[-1]["code"]=="mcp_required"
+        assert_handled(service, None, values[-1], "mcp_required")
         assert not backend.calls and not result_cards(values)
         shown = "".join(v["text"] for v in values if v["type"]=="message")
-        assert "Invented dataset result" not in shown and "还没有取得新的服务结果" in shown
+        assert "Invented dataset result" not in shown and "暂时没有取得" in shown and "继续" in shown
         planning = [v for v in dialogue.inputs if v[1]]
         assert len(planning)==len(responses)+2 and len(dialogue.inputs)==len(planning)
         assert all(d["function"]["name"]!="deliver_results" for d in dialogue.inputs[0][1])
@@ -52,13 +53,14 @@ def test_cached_tools_reduce_model_rounds_but_execute_each_new_request(engine):
         backend, dialogue = Backend(), Dialogue(load(), remote("search"))
         service = DatasetQA(engine, dialogue, backend.gateway())
         sid = session(service)
-        assert (await collect(service, sid))[-1]["status"]=="COMPLETED"
+        assert_completed(service, None, (await collect(service, sid))[-1])
         assert len(dialogue.inputs)==4
         assert {v["name"] for v in dialogue.contexts[0]["mcp_servers"]["items"]}=={"data", "compute"}
         dialogue.responses = [remote("search"), AIMessageChunk(content="Fresh result")]
         before = len(dialogue.inputs)
         values = await collect(service, sid, rid="fresh")
-        assert values[-1]["status"]=="COMPLETED" and len(dialogue.inputs)-before==3
+        assert_completed(service, None, values[-1])
+        assert len(dialogue.inputs)-before==3
         assert len(backend.calls)==2 and backend.lists==["data"]
         assert len(backend.connections)==2 and "compute" not in backend.connections
         assert sum(d["function"]["name"].startswith("mcp_") for d in dialogue.inputs[before][1])==4
@@ -74,12 +76,16 @@ def test_single_result_fallback_needs_no_selection_request(engine):
             AIMessageChunk(content="Final reply"))
         service = DatasetQA(engine, dialogue, backend.gateway())
         values = await collect(service, session(service))
-        assert values[-1]["status"]=="COMPLETED" and len(result_cards(values))==1
+        assert_completed(service, None, values[-1])
+        assert len(result_cards(values))==1
         assert len(dialogue.inputs)==4 and dialogue.inputs[-1][1]==[]
         assert "".join(v["text"] for v in values if v["type"]=="message")=="Final reply"
-        # Selected evidence occurs once; its previous tool message is just a reference.
-        history = [json.loads(m.content) for m in dialogue.inputs[-1][0] if isinstance(m, ToolMessage)]
-        assert any(set(value)=={"result_id"} for value in history)
+        # Final writing receives saved evidence without private tool feedback.
+        messages = dialogue.inputs[-1][0]
+        assert not any(isinstance(message, ToolMessage) for message in messages)
+        final = json.loads(messages[-1].content)
+        assert [item["result_id"] for item in final["delivery_manifest"]]==[result_cards(values)[0]["result_id"]]
+        assert final["final_delivery"][0]["data"]["items"]==backend.items
         await service.close()
     asyncio.run(run())
 
@@ -92,7 +98,7 @@ def test_multiple_required_results_are_delivered_without_reexecuting_mcp(engine)
         service = DatasetQA(engine, dialogue, backend.gateway())
         sid = session(service)
         values = await collect(service, sid)
-        assert values[-1]["status"]=="COMPLETED"
+        assert_completed(service, None, values[-1])
         cards = result_cards(values)
         assert len(cards)==2 and len(backend.calls)==2 and len(dialogue.inputs)==5
         saved = service.store.results("alice", sid, values[-1]["task_id"])
@@ -110,7 +116,7 @@ def test_saved_evidence_is_not_a_new_mcp_execution(engine):
         card = result_cards(await collect(service, sid))[0]
         dialogue.responses = [action("read_result", result_id=card["result_id"])]
         values = await collect(service, sid, rid="read")
-        assert values[-1]["status"]=="FAILED" and values[-1]["code"]=="mcp_required"
+        assert_handled(service, None, values[-1], "mcp_required")
         assert len(backend.calls)==1 and not result_cards(values)
         await service.close()
     asyncio.run(run())
@@ -138,7 +144,7 @@ def test_partial_mcp_failure_cannot_be_delivered_as_success(engine):
             remote("multiply", x=2, y=3), deliver()), gateway)
         sid = session(service)
         values = await collect(service, sid)
-        assert values[-1]["status"]=="FAILED" and values[-1]["code"]=="tool_failed"
+        assert_handled(service, None, values[-1], "tool_failed")
         assert len(backend.calls)==2 and len(result_cards(values))==1
         assert len(service.store.results("alice", sid))==1
         await service.close()
@@ -183,7 +189,8 @@ def test_summary_does_not_block_done_or_overwrite_new_memory(engine):
             task, _ = service.store.submit("alice", sid, "seed"+str(i), {"message": "History"}, None, service.owner)
             service.store.finish("alice", sid, task["id"], "COMPLETED", message="Answer")
         values = await asyncio.wait_for(collect(service, sid), 2)
-        assert values[-1]["status"]=="COMPLETED" and not gate.is_set()
+        assert_completed(service, None, values[-1])
+        assert not gate.is_set()
         await asyncio.wait_for(entered.wait(), 2)
         dialogue.responses = [action("remember", values={"choice": "latest"}), remote("search")]
         newer = await collect(service, sid, rid="newer")
@@ -222,7 +229,7 @@ def test_model_timeout_ends_the_request_without_dispatch_or_retry(engine):
         backend = Backend()
         service = DatasetQA(engine, Waiting(), backend.gateway(limits=Limits(model_timeout=0.03)))
         values = await asyncio.wait_for(collect(service, session(service)), 2)
-        assert values[-1]["status"]=="FAILED" and values[-1]["code"]=="model_timeout"
+        assert_handled(service, None, values[-1], "model_timeout")
         assert not backend.calls and not service.slots.locked()
         await service.close()
     asyncio.run(run())
@@ -329,7 +336,8 @@ def test_real_sdk_and_mcp_complete_search_with_bounded_correction(engine, monkey
                 http_async_client=client, max_retries=0, extra_body={"enable_thinking": False})
             service = DatasetQA(engine, NativeDialogue(model=model), gateway)
             values = await collect(service, session(service), message="Find chemistry datasets")
-            assert values[-1]["status"]=="COMPLETED" and result_cards(values)[0]["data"]["items"]==rows
+            assert_completed(service, None, values[-1])
+            assert result_cards(values)[0]["data"]["items"]==rows
             assert "".join(v["text"] for v in values if v["type"]=="message")==(
                 "No matching records." if empty else "Retrieved five records.")
             assert not any(v["type"]=="interaction" for v in values)

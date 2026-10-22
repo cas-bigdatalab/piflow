@@ -7,6 +7,7 @@ from types import SimpleNamespace
 from langchain_core.messages import ToolMessage
 import pytest
 
+from .assertions import assert_completed
 from ..service import DatasetQA
 from ..contracts import Server
 from ..mcp import MCPGateway
@@ -48,7 +49,7 @@ def test_sse_history_results_and_replay_share_one_list_path(engine, server, oper
         values = await collect(service, sid)
         card, = result_cards(values)
         tid = values[-1]["task_id"]
-        assert values[-1]["status"]=="COMPLETED"
+        assert_completed(service, None, values[-1])
         assert card["data"]["items"]==expected
         assert set(card)=={"result_id", "view_type", "title", "data"} and card["view_type"]=="tool_result"
         if operation=="search":
@@ -90,7 +91,8 @@ def test_media_only_result_has_empty_items_and_preserves_resource(engine):
         service = DatasetQA(engine, Dialogue(load(), remote("preview", reference="a")), gateway)
         values = await collect(service, session(service))
         card, = result_cards(values)
-        assert values[-1]["status"]=="COMPLETED" and card["data"]=={"items": []}
+        assert_completed(service, None, values[-1])
+        assert card["data"]=={"items": []}
         assert card["content"][0]["url"]==url and card["content"][0]["type"]=="image"
         await service.close()
     asyncio.run(run())
@@ -127,7 +129,7 @@ def test_real_mcp_view_type_survives_sse_history_results_and_replay(engine, monk
         values = await collect(service, sid)
         card, = result_cards(values)
         tid = values[-1]["task_id"]
-        assert values[-1]["status"]=="COMPLETED"
+        assert_completed(service, None, values[-1])
         assert card=={"result_id": tid+":0", "view_type": view, "title": "corpus · "+title,
             "data": payload if "items" in payload else {"items": [payload]}}
         saved, = service.store.results("alice", sid, tid)
