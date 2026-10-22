@@ -6,10 +6,10 @@ import time
 from langchain_core.messages import AIMessageChunk, ToolMessage
 import pytest
 
-from .contracts import Limits, Options, Server
-from .execution import Execution
-from .mcp import MCPGateway
-from .service import DatasetQA
+from ..contracts import Limits, Options, Server
+from ..execution import Execution
+from ..mcp import MCPGateway
+from ..service import DatasetQA
 from .test_dataset_qa import Backend, action, collect, engine, load, remote, result_cards, session
 from .test_delivery import deliver
 from .test_operations import batch, goal, saved

@@ -1,5 +1,6 @@
 """Structure-preserving projections and JSON-pointer access to saved results."""
 import json
+import re
 
 from .contracts import QAError
 
@@ -93,7 +94,10 @@ def project(value, limit):
 
 
 def atomic_string(value):
-    return value.startswith(("http://", "https://", "data:", "mcp://"))
+    # Opaque tokens (IDs, filenames, hashes, signed URLs) cannot be used after
+    # shortening. Only prose has a meaningful abbreviated representation.
+    return value.startswith(("http://", "https://", "data:", "mcp://")) or (
+        value.isascii() and not any(character.isspace() for character in value))
 
 
 def redact(value):
@@ -126,21 +130,40 @@ def public_result(card, limit=None, *, normalize=True):
     return result
 
 
+def pointer_tokens(path):
+    """Decode the JSON string form of RFC 6901 without permissive aliases."""
+    if not isinstance(path, str) or (path and not path.startswith("/")) or re.search(r"~(?![01])", path):
+        raise QAError("invalid_pointer", "引用路径须为有效JSON Pointer")
+    return [token.replace("~1", "/").replace("~0", "~") for token in path[1:].split("/")] if path else []
+
+
+def at_pointer(value, path):
+    """Shared resolver for evidence reads, bindings and persisted references."""
+    for key in pointer_tokens(path):
+        if isinstance(value, list):
+            if not re.fullmatch(r"0|[1-9][0-9]*", key):
+                raise QAError("invalid_pointer", "列表引用须使用从零开始且不含前导零的整数索引")
+            # Compare before int(): very long valid digit strings should yield
+            # a normal missing-reference response, never Python's int limit.
+            maximum = str(len(value)-1)
+            if not value or len(key)>len(maximum) or (len(key)==len(maximum) and key>maximum):
+                raise QAError("result_not_found", "来源结果中不存在该对象引用", 404)
+            value = value[int(key)]
+        elif isinstance(value, dict) and key in value:
+            value = value[key]
+        else:
+            raise QAError("result_not_found", "来源结果中不存在该对象引用", 404)
+    return value
+
+
 def slice_result(value, path="", offset=0, limit=20):
-    if path:
-        if not path.startswith("/"):
-            raise QAError("invalid_pointer", "path须为JSON Pointer")
-        try:
-            for token in path[1:].split("/"):
-                key = token.replace("~1", "/").replace("~0", "~")
-                if isinstance(value, list):
-                    if not key.isdigit():
-                        raise KeyError(key)
-                    value = value[int(key)]
-                else:
-                    value = value[key]
-        except (KeyError, IndexError, TypeError) as exc:
-            raise QAError("result_not_found", "原结果中不存在此位置", 404) from exc
+    # Selecting a leaf must not bypass the key-based redaction applied to an
+    # entire public result. Internal source bindings use at_pointer directly.
+    if any(token.lower() in SECRET_KEYS for token in pointer_tokens(path)):
+        raise QAError("invalid_pointer", "该路径指向不可展示的敏感字段", 403)
+    # Public dictionary offsets count accessible fields. Redact before slicing
+    # so field indexes never advertise hidden keys; array positions stay intact.
+    value = redact(at_pointer(value, path))
     if isinstance(value, list):
         return value[offset:offset+limit], offset+limit<len(value)
     if isinstance(value, dict):

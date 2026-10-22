@@ -11,16 +11,17 @@ from langchain_core.messages import AIMessage, HumanMessage, ToolMessage, messag
 from pydantic import ValidationError
 
 from .context import encode, project, public_result, slice_result
-from .capabilities import GOAL, OBJECT, SUPPORTING, adapted, identifiers_from_request, inputs, profile, resolve_tool
+from .capabilities import GOAL, OBJECT, SUPPORTING, adapted, identifiers_from_request, inputs, profile, resolve_tool, same_identity
 from .contracts import QAError
 from .dialogue import BUILTINS, INPUTS, Dialogue
 from .execution import Execution, fingerprint
 from .operations import Operations
 from .mcp import MCPGateway
 from .persistence import Store
-from .results import collection_paths, combine_results, evidence, evidence_group
+from .results import collection_paths, combine_results, evidence, evidence_group, final_evidence_view
 from .references import all_references, apply_update, at_path, display_list, handle_order, pending_objects, preview, scoped_preview
 from .runtime import Waiting
+from .parallel import run_read_batch
 
 log = logging.getLogger("flow.dataset_qa")
 
@@ -272,13 +273,17 @@ class DatasetQA:
         model_context = {"memory": {key: value for key, value in memory.items() if key!="selected_dataset_id"},
             "pending": context.get("pending"), "summary": context.get("summary", ""),
             "references": await self._reference_view(user, sid, state), "evidence": source_evidence, "history": history}
+        published = await asyncio.to_thread(self.store.latest_displays, user, sid)
+        if len(published)>1:
+            model_context["published_results"] = evidence_group(published, Operations(),
+                min(2400, self.gateway.limits.context_chars//6))
         if options.result_id:
             model_context["request_source"] = options.result_id
             source = display_list(pinned[0])
             scoped = preview({"candidates": source} if source else {"current": {"result_id": options.result_id, "path": "", "kind": "object"}},
                 {options.result_id: pinned[0]}, 1200) if source or isinstance(pinned[0].get("data"), dict) else {}
-            for index, row in enumerate(scoped.get("candidates", {}).get("items", [])):
-                row["handle"] = "source:"+str(index+1)
+            for row in scoped.get("candidates", {}).get("items", []):
+                row["handle"] = "source:"+row["handle"].rsplit(":", 1)[-1]
             if scoped.get("current"):
                 scoped["current"]["handle"] = "source"
             model_context["request_objects"] = scoped
@@ -343,10 +348,42 @@ class DatasetQA:
         if not cards:
             raise QAError("result_not_found", "当前会话中不存在此结果", 404)
         data, more = slice_result(cards[0].get("data"), values.path, values.offset, values.limit)
-        data, truncated = project(data, self.gateway.limits.result_chars)
+        original = data
+        count = len(data) if isinstance(data, list) else None
+        field_paths = None
+        budget = self.gateway.limits.result_chars
+        if isinstance(data, dict) and len(encode(data))>budget:
+            field_paths, page = {}, {}
+            for key, value in data.items():
+                pointer = values.path+"/"+str(key).replace("~", "~0").replace("/", "~1")
+                proposed = {**field_paths, key: pointer}
+                if len(encode(proposed))>budget//2:
+                    break
+                field_paths, page = proposed, {**page, key: value}
+            if data and not page:
+                raise QAError("context_too_large", "字段目录超过读取预算，请缩小范围或指定字段路径")
+            more = more or len(page)<len(data)
+            data = page
+            budget = max(4, budget-len(encode(field_paths))-32)
+        page_count = len(data) if isinstance(data, dict) else values.limit
+        data, truncated = project(data, budget)
+        if count is not None and isinstance(data, list):
+            for index, row in enumerate(data):
+                if row in ({}, []) and original[index] not in ({}, []):
+                    data = data[:index]
+                    truncated = True
+                    break  # A budget placeholder is not a consumed source row.
         result = {"result_id": values.result_id, "data": data}
-        if more:
-            result["next_offset"] = values.offset+values.limit
+        if field_paths is not None:
+            result["field_paths"] = field_paths
+        if count is not None:
+            visible = len(data) if isinstance(data, list) else 0
+            if count and not visible:
+                raise QAError("context_too_large", "当前分页内容超过读取预算，请缩小分页或指定字段路径")
+            if more or visible<count:
+                result["next_offset"] = values.offset+visible
+        elif more:
+            result["next_offset"] = values.offset+page_count
         if truncated:
             result["truncated"] = True
         if cards[0].get("content"):
@@ -425,14 +462,13 @@ class DatasetQA:
             message=answer["text"], error=error)
 
     @staticmethod
-    def _infer_delivery_goal(execution):
+    def _infer_delivery_goal(operations):
         """A native receipt is not automatically an independently requested artifact.
 
         Without declared outcomes, explicit delivery can confirm one unambiguous
         terminal operation. Provenance identifies prerequisites, never call order.
         Independent outcomes still need a semantic declaration.
         """
-        operations = execution.operations
         if operations.required:
             return
         candidates = [item for item in operations.items if item.get("inferred")]
@@ -466,22 +502,30 @@ class DatasetQA:
             result.append(definition)
         return result
 
-    async def _deliver(self, user, sid, tid, arguments, payload, execution=None, partial=False):
+    async def _deliver(self, user, sid, tid, arguments, payload, execution=None, partial=False, confirm=False):
         values = INPUTS["deliver_results"][0].model_validate(arguments)
         result_ids = list(dict.fromkeys(values.result_ids))
-        if execution is not None:
-            self._infer_delivery_goal(execution)
-        if execution is not None and "result_ids" not in values.model_fields_set:
-            result_ids = execution.operations.delivery_ids()
-        if execution is not None:
-            execution.operations.validate_delivery(result_ids, partial)
+        operations = Operations(execution.operations.items) if execution is not None else None
+        if operations is not None:
+            if confirm:
+                self._infer_delivery_goal(operations)
+            if "result_ids" not in values.model_fields_set:
+                result_ids = operations.delivery_ids()
+            operations.validate_delivery(result_ids, partial)
         cards = await asyncio.to_thread(self.store.selected_results, user, sid, result_ids)
         patch = values.references.model_dump(exclude_unset=True) if values.references else {}
         paths = values.merge_path
         if paths is None and len(cards)>1:
             if execution is None:
                 raise QAError("invalid_delivery", "自动汇总需要本轮操作及执行来源")
-            paths = collection_paths(cards, execution.operations)
+            try:
+                paths = collection_paths(cards, operations)
+            except QAError as exc:
+                if exc.code!="invalid_delivery":
+                    raise
+                # Presentation compatibility is not execution validity. Independent
+                # outcomes (including random samples) retain their own artifacts.
+                paths = None
         if paths is not None:
             if not cards:
                 raise QAError("invalid_delivery", "合并结果时必须选择已保存的结果")
@@ -491,8 +535,14 @@ class DatasetQA:
             if (candidate := patch.get("candidates")) and candidate["result_id"] in result_ids and candidate.get("path", "")==(
                     paths[candidate["result_id"]] if isinstance(paths, dict) else paths):
                 patch["candidates"] = {**candidate, "result_id": cards[0]["result_id"], "path": ""}
-        if cards and "candidates" not in patch and (candidate := display_list(cards[0])):
-            patch["candidates"] = candidate
+        if cards and "candidates" not in patch:
+            candidates = [candidate for card in cards if (candidate := display_list(card))]
+            if len(candidates)==1:
+                patch["candidates"] = candidates[0]
+            elif len(candidates)>1:
+                # There is no single ordinal list when several lists are shown.
+                # A later request must use its source card or resolve the scope.
+                patch["candidates"] = None
         if patch.get("candidates") and patch["candidates"]["result_id"] not in {card["result_id"] for card in cards}:
             raise QAError("invalid_parameters", "候选列表必须来自本次实际交付的结果")
         if patch:
@@ -505,16 +555,17 @@ class DatasetQA:
         payload["delivery"] = [card["result_id"] for card in cards]
         if execution is not None:
             payload["delivery_sources"] = result_ids
-            payload["operations"] = execution.operations.items
+            payload["operations"] = operations.items
         if patch:
             payload["references"] = patch
         await self._write(user, sid, tid, payload=payload)
+        if execution is not None:
+            execution.operations = operations
         return {"result_ids": payload["delivery"]}
 
     async def _fallback_delivery(self, user, sid, tid, payload, execution, required=False):
         if "delivery" in payload:
             return
-        self._infer_delivery_goal(execution)
         cards = execution.operations.delivery_ids()
         if cards:
             try:
@@ -526,6 +577,96 @@ class DatasetQA:
             await self._deliver(user, sid, tid, {"result_ids": []}, payload, execution, partial=not required)
         elif required:
             raise QAError("invalid_delivery", "未明确选择需要展示的结果；原始工具结果已保存")
+
+    async def _context_response(self, user, sid, tid, arguments, payload, execution, tools):
+        values = INPUTS["respond_from_context"][0].model_validate(arguments)
+        if execution.operations.items or execution.cards or execution.failures:
+            raise QAError("invalid_parameters", "本轮已有执行任务，请先完成或准确交付其结果，不能改为未执行答复")
+        ids = list(dict.fromkeys(values.result_ids))
+        if ids:
+            await asyncio.to_thread(self.store.selected_results, user, sid, ids)
+        if values.mode=="unsupported" and tools.servers and not tools.loaded:
+            raise QAError("invalid_parameters", "请先查看相关服务的能力定义，再说明当前能力限制")
+        payload["response_basis"] = {"mode": values.mode, "reason": values.reason,
+            "result_ids": ids, "executed": False}
+        if values.mode=="unsupported":
+            payload["response_basis"]["available_capabilities"] = [
+                {"server": tool.server, "name": tool.name, "description": tool.description[:400]}
+                for tool in tools.loaded.values()]
+        await self._write(user, sid, tid, payload=payload)
+        return {"ready": True, "executed": False, "evidence_ids": ids}
+
+    async def _save_tool_result(self, user, sid, tid, tool, output, operation_id, key, result_id, execution, payload):
+        marker = (key, fingerprint(output.payload()))
+        card = execution.cards.get(marker)
+        created = card is None
+        if created:
+            metadata = tool.meta.get("piflow", {})
+            view = metadata.get("view_type", "tool_result") if isinstance(metadata, dict) else "tool_result"
+            card = {"result_id": result_id, "view_type": view,
+                "title": f"{tool.server} · {tool.title}", **output.payload()}
+        execution.operations.finish(operation_id, key, result_id=card["result_id"])
+        self._register_objects(tool, card, payload)
+        await self._write(user, sid, tid, card=card if created else None, payload=payload)
+        execution.cards[marker] = card
+        execution.failures.pop(operation_id or key, None)
+        return card, created
+
+    async def _parallel_reads(self, user, sid, tid, calls, bindings, tools, execution, payload, first_result, phase, waiting):
+        """Only independent, fully validated, read-only/idempotent work overlaps.
+
+        Reserve calls and persist running receipts before dispatch. Each completed
+        result is then persisted serially, even while another read is still waiting.
+        """
+        if len(calls)<2 or self.gateway.limits.max_parallel_reads<2 or execution.calls+len(calls)>self.gateway.limits.max_calls:
+            return {}
+        proposed, specs, outcomes = Operations(execution.operations.items), {}, {}
+        identities, operation_ids = set(), set()
+        for index, call in enumerate(calls):
+            tool = tools.loaded.get(call["name"])
+            args, error, _ = execution.prepared.get(call["id"], (None, None, None))
+            operation_id = bindings.get(call["id"])
+            if not Execution.reusable(tool) or args is None or error or not operation_id or operation_id in operation_ids:
+                return {}
+            key = fingerprint([operation_id, call["name"], args])
+            invocation = fingerprint([tool.server, tool.name, args])
+            if invocation in identities or execution.completed(key) or proposed.receipt(invocation, operation_id):
+                return {}
+            descriptor = profile(tool)
+            presentation = ({"family": tool.server+"/"+tool.name, "kind": "collection", "path": descriptor.collection}
+                if descriptor.collection is not None else {"family": tool.server+"/"+tool.name, "kind": "object", "path": descriptor.object}
+                if descriptor.object is not None else None)
+            try:
+                proposed.start(operation_id, key, {"server": tool.server, "name": tool.name}, True, invocation, presentation)
+            except QAError:
+                return {}  # Serial handling retains the precise validation feedback.
+            specs[call["id"]] = (operation_id, key, args, f"{tid}:{first_result+index}")
+            identities.add(invocation)
+            operation_ids.add(operation_id)
+        execution.operations = proposed
+        payload["operations"] = proposed.items
+        execution.calls += len(calls)
+        await phase("execute", f"正在并行查询 {len(calls)} 项独立信息", payload=payload)
+
+        async def execute(call):
+            return await tools.call_isolated(call["name"], specs[call["id"]][2])
+
+        async def persist(call, result, error):
+            operation_id, key, _, result_id = specs[call["id"]]
+            if error is not None:
+                execution.operations.finish(operation_id, key, error=error)
+                execution.failures[operation_id] = error
+                await self._write(user, sid, tid, payload=payload)
+                outcomes[call["id"]] = {"error": error}
+            else:
+                tool, output = result
+                card, _ = await self._save_tool_result(user, sid, tid, tool, output, operation_id, key,
+                    result_id, execution, payload)
+                outcomes[call["id"]] = {"card": card}
+
+        async with waiting.during("正在等待并行查询返回，已完成的信息会及时保存。"):
+            await run_read_batch(calls, execute, persist, self.gateway.limits.max_parallel_reads)
+        return outcomes
 
     async def _fast_delivery(self, user, sid, tid, payload, execution, context):
         """Skip selection only for an unambiguous, fully satisfied atomic request."""
@@ -566,10 +707,20 @@ class DatasetQA:
         log.info("Direct delivery: task=%s operation=%s", tid, item["id"])
         return True
 
-    async def _object_index(self, user, sid, context, payload):
+    async def _object_index(self, user, sid, context, payload, requested=()):
         """Short handles are a view of owned sources, never model-created IDs."""
         state = context.get("references", {})
         handles = dict(payload.get("objects", {}))
+        def indices(rows, prefix):
+            wanted = set(range(min(100, len(rows))))
+            for handle in requested:
+                if isinstance(handle, str) and handle.startswith(prefix+":"):
+                    ordinal = handle[len(prefix)+1:]
+                    if ordinal.isascii() and ordinal.isdecimal() and len(ordinal)<=9:
+                        index = int(ordinal)-1
+                        if 0<=index<len(rows) and str(index+1)==ordinal:
+                            wanted.add(index)
+            return sorted(wanted)
         if payload.get("resume") is True:
             handles.update(payload.get("pending_objects", {}))
         if state.get("current"):
@@ -579,14 +730,14 @@ class DatasetQA:
             cards = await asyncio.to_thread(self.store.selected_results, user, sid, [candidate["result_id"]])
             rows = at_path(cards[0].get("data"), candidate.get("path", ""))
             handles.update(("candidate:"+str(index+1), {**candidate, "path": candidate.get("path", "")+"/"+str(index)})
-                for index, row in enumerate(rows[:100]) if isinstance(row, dict))
+                for index in indices(rows, "candidate") if isinstance(rows[index], dict))
         if source_id := payload.get("params", {}).get("result_id"):
             cards = await asyncio.to_thread(self.store.selected_results, user, sid, [source_id])
             card = cards[0]
             if surface := display_list(card):
                 rows = at_path(card.get("data"), surface["path"])
                 handles.update(("source:"+str(index+1), {**surface, "path": surface["path"]+"/"+str(index)})
-                    for index, row in enumerate(rows[:100]) if isinstance(row, dict))
+                    for index in indices(rows, "source") if isinstance(rows[index], dict))
             elif isinstance(card.get("data"), dict):
                 handles["source"] = {"result_id": source_id, "path": "", "kind": "object"}
             if handles.get("current", {}).get("result_id")!=source_id:
@@ -612,15 +763,18 @@ class DatasetQA:
             path, collection = surface["path"], True
         if path is None:
             return []
+        return self._register_source_objects(card, payload, path, collection)
+
+    def _register_source_objects(self, card, payload, path, collection, offset=0, limit=20):
         try:
             value = at_path(card.get("data"), path)
         except QAError:
             return []  # Output shape drift is not permission to invent an object.
-        rows = list(enumerate(value[:20])) if collection and isinstance(value, list) else [(None, value)]
+        rows = list(enumerate(value[offset:offset+limit], offset)) if collection and isinstance(value, list) else [(None, value)]
         handles = payload.setdefault("objects", {})
         result = []
         for index, row in rows:
-            if not isinstance(row, dict) or len(handles)>=128:
+            if not isinstance(row, dict):
                 continue
             ref = {"result_id": card["result_id"], "path": path+("/"+str(index) if index is not None else ""), "kind": "object"}
             handle = next((key for key, saved in handles.items() if saved==ref), None)
@@ -643,7 +797,11 @@ class DatasetQA:
         original_pending, original_resume = deepcopy(context.get("pending")), payload.get("resume")
         legacy = any(value.operations is not None or value.calls is not None or value.resume is not None for value in memory)
         bindings = await self._prepare_legacy_operations(user, sid, tid, reply, tools, execution, payload, context) if legacy else {}
-        handles = await self._object_index(user, sid, context, payload)
+        requested = [call["args"].get(OBJECT) for call in native]
+        requested.extend(value.focus for value in memory)
+        requested.extend(handle for value in memory for handle in value.selected or [])
+        requested.extend(goal.object for value in memory for goal in value.goals or [])
+        handles = await self._object_index(user, sid, context, payload, requested)
         continuation = [value.continuation for value in memory if value.continuation is not None]
         if len(set(continuation))>1:
             raise QAError("invalid_parameters", "同一轮只能选择继续待补充任务或发起新请求")
@@ -693,7 +851,7 @@ class DatasetQA:
             if left is None or right is None or not binding:
                 return False
             a, b = inputs(tool, {}, await source(left)), inputs(tool, {}, await source(right))
-            return all(a.get(key)==b.get(key) for key in binding)
+            return all(same_identity(a.get(key), b.get(key)) for key in binding)
 
         # A focus-only response can precede execution. No co-emission is needed.
         focus = None
@@ -910,6 +1068,14 @@ class DatasetQA:
             return await tools.load(**values.model_dump())
         if name=="read_result":
             result = await self._read_result(user, sid, values)
+            if values.result_id is not None and payload is not None:
+                cards = await asyncio.to_thread(self.store.selected_results, user, sid, [values.result_id])
+                raw = at_path(cards[0].get("data"), values.path)
+                count = len(result["data"]) if isinstance(result.get("data"), list) else values.limit
+                objects = self._register_source_objects(cards[0], payload, values.path, isinstance(raw, list), values.offset, count)
+                if objects:
+                    result["objects"] = objects
+                    await self._write(user, sid, tid, payload=payload)
             if values.result_id is None:
                 handles = (payload or {}).get("pending_objects", {}) if (payload or {}).get("resume") is True else {}
                 if not handles and (payload or {}).get("resume") is not False and (pending := context.get("pending")):
@@ -932,7 +1098,7 @@ class DatasetQA:
             state = context.get("references", {})
             patch = values.references.model_dump(exclude_unset=True) if values.references else {}
             if values.selected is not None:
-                handles = await self._object_index(user, sid, context, payload or {})
+                handles = await self._object_index(user, sid, context, payload or {}, values.selected or [])
                 try:
                     patch["selected"] = [handles[handle] for handle in values.selected or []]
                 except KeyError as exc:
@@ -970,26 +1136,33 @@ class DatasetQA:
         instructions = (str(messages[0].content)+"\nTool use is over. Write only the final user-facing reply, "
             "without internal planning or another tool call. Use actual evidence, distinguish unfinished work, "
             "Do not repeat a runtime notice already shown to the user. "
-            "and only refer to display cards listed in final_delivery. Do not claim unperformed work succeeded. "
+            "and only refer to display cards identified by delivery_manifest. Do not claim unperformed work succeeded. "
             "The runtime operations state is authoritative: distinguish execution from delivery and do not describe auxiliary lookups as completion of the request. "
-            "Use answer_evidence for supporting facts; only final_delivery defines displayed artifacts. Retrieval totals may overlap: do not add them or infer coverage or suitability without evidence. "
+            "Use answer_evidence for supporting facts; delivery_manifest identifies displayed artifacts, while final_delivery contains bounded previews. "
+            "A delivery_next_offset means more artifacts were delivered than fit this view; never describe omitted previews as missing outputs. "
+            "Retrieval totals may overlap: do not add them or infer coverage or suitability without evidence. "
             "When naming an object from returned data, use that object's own non-empty title field verbatim. "
             "Do not substitute identifiers, source/provider labels, or enclosing card titles for object names. "
             "If its title is absent or empty, state that the name was not provided and distinguish it using "
             "a supplied identifier; do not infer or invent a name.")
+        if payload.get("response_basis"):
+            instructions += (" This turn performed no data operation. Answer using response_basis and saved evidence; "
+                "do not claim a fresh search, sample, processing result or newly delivered artifact. "
+                "For a capability limitation, explain what is missing and a concrete supported next step. "
+                "For confirmed choices, acknowledge the actual reference state. A pending question remains pending.")
         source_ids = [rid for item in operations.items if item["state"]=="succeeded" for rid in operations.result_ids(item)]
+        source_ids.extend(payload.get("response_basis", {}).get("result_ids", []))
         for message in messages[2:]:
             if isinstance(message, ToolMessage) and (rid := json.loads(message.content).get("result_id")):
                 source_ids.append(rid)
         displayed = {*ids, *payload.get("delivery_sources", [])}
         answer_ids = [rid for rid in dict.fromkeys(source_ids) if rid not in ids]
         answer_cards = await asyncio.to_thread(self.store.selected_results, user, sid, answer_ids) if answer_ids else []
-        limit = self.gateway.limits.result_chars
-        delivery, _ = project({"final_delivery": [self._evidence(card) for card in cards],
-            "stop_reason": str(reason) if reason else None}, limit*2//3 if answer_cards else limit-24)
-        support = evidence_group(answer_cards, operations, max(4, limit-len(encode(delivery))-24))
-        delivery["answer_evidence"] = support.get("items", [])
+        delivery = final_evidence_view(cards, answer_cards, operations, self.gateway.limits.result_chars,
+            stop_reason=str(reason) if reason else None)
         context = json.loads(messages[1].content)
+        if payload.get("response_basis"):
+            context["response_basis"] = payload["response_basis"]
         if operations.items:
             context["operations"] = operations.view()
         context.pop("evidence", None)
@@ -1009,7 +1182,9 @@ class DatasetQA:
             if reply.tool_calls or reply.invalid_tool_calls:
                 raise QAError("invalid_tool_call", "正式答复阶段返回了工具调用", 502)
             if not answer["text"].strip():
-                answer["text"] = "请查看下方结果。" if cards else "请补充需要处理的问题。"
+                if not cards:
+                    raise QAError("empty_response", "服务信息已取得，但正式答复未能生成", 502)
+                answer["text"] = "请查看下方结果。"
                 await self._write(user, sid, tid, {"type": "message", "text": answer["text"]})
         except QAError as exc:
             # Only generation failures may degrade a confirmed delivery.
@@ -1096,6 +1271,13 @@ class DatasetQA:
                         try:
                             reply = await self._reply(user, sid, tid, messages, definitions, waiting=waiting)
                             if reply.tool_calls:
+                                terminal = [call for call in reply.tool_calls if call["name"] in {
+                                    "deliver_results", "request_input", "respond_from_context"}]
+                                if len(terminal)>1:
+                                    raise QAError("invalid_tool_call", "同一回复只能选择一种结束或澄清动作", 502)
+                                if terminal and terminal[0]["name"]=="respond_from_context" and any(
+                                        call["name"] in tools.loaded for call in reply.tool_calls):
+                                    raise QAError("invalid_tool_call", "依据上下文答复不能同时声明新的数据操作", 502)
                                 bindings = await self._prepare_operations(user, sid, tid, reply, tools, execution, payload, context, json.loads(messages[1].content))
                         except QAError as exc:
                             if exc.code not in {"invalid_tool_call", "invalid_parameters", "invalid_pointer", "result_not_found", "tool_not_loaded"}:
@@ -1133,13 +1315,30 @@ class DatasetQA:
                         messages.append(reply)
                         round_progress = False
                         scope_progress = {}
-                        for call in reply.tool_calls:
+                        ordered_calls = sorted(reply.tool_calls, key=lambda call: call["name"] in {
+                            "deliver_results", "request_input", "respond_from_context"})
+                        parallel_results = {}
+                        for call_index, call in enumerate(ordered_calls):
                             name, arguments = call["name"], call["args"]
                             tool = tools.loaded.get(name)
                             operation_id = bindings.get(call["id"])
                             prepared_error, target = None, None
                             if call["id"] in execution.prepared:
                                 arguments, prepared_error, target = execution.prepared[call["id"]]
+                            if (not ready and not reason and not rejection and call["id"] not in parallel_results
+                                    and name in advertised and Execution.reusable(tool) and not prepared_error):
+                                independent = []
+                                for candidate in ordered_calls[call_index:]:
+                                    if candidate["name"] not in advertised or not Execution.reusable(tools.loaded.get(candidate["name"])):
+                                        break
+                                    independent.append(candidate)
+                                fetched = await self._parallel_reads(user, sid, tid, independent, bindings, tools,
+                                    execution, payload, results, phase, waiting)
+                                parallel_results.update(fetched)
+                                results += len(fetched)
+                            prefetched = parallel_results.get(call["id"])
+                            if prefetched and prefetched.get("error"):
+                                prepared_error = prefetched["error"]
                             key = fingerprint([operation_id, name, arguments])
                             invocation = fingerprint([tool.server, tool.name, arguments]) if tool else None
                             receipt = execution.operations.receipt(invocation, operation_id) if invocation and not prepared_error else None
@@ -1152,7 +1351,7 @@ class DatasetQA:
                             elif name=="remember" and any(field in arguments for field in ("operations", "calls", "resume")) and not arguments.get("values") and not arguments.get("references"):
                                 # Bookkeeping is co-emitted with native calls; it does not consume a business-call slot.
                                 value = {"saved": True}
-                            elif reason or (execution.calls>=limits.max_calls and (name!="deliver_results" or name not in advertised)):
+                            elif reason or (not prefetched and execution.calls>=limits.max_calls and (name!="deliver_results" or name not in advertised)):
                                 reason = reason or QAError("step_limit", "工具调用达到本轮预算，请缩小请求范围")
                                 value = {"error": reason.code, "message": str(reason), "executed": False}
                             elif name not in advertised:
@@ -1166,7 +1365,7 @@ class DatasetQA:
                             elif name=="deliver_results" and not reason:
                                 try:
                                     execution.require_result()
-                                    value = await self._deliver(user, sid, tid, arguments, payload, execution)
+                                    value = await self._deliver(user, sid, tid, arguments, payload, execution, confirm=True)
                                     ready = True
                                 except (QAError, ValidationError) as exc:
                                     if isinstance(exc, ValidationError):
@@ -1177,6 +1376,16 @@ class DatasetQA:
                                         rejection = exc
                                         value = action_feedback(rejection)
                                         rejected = True
+                            elif name=="respond_from_context" and not reason:
+                                try:
+                                    value = await self._context_response(user, sid, tid, arguments, payload, execution, tools)
+                                    ready = True
+                                except (QAError, ValidationError) as exc:
+                                    rejection = execution.validation_error(exc) if isinstance(exc, ValidationError) else exc
+                                    value = action_feedback(rejection)
+                                    rejected = True
+                            elif prefetched and prefetched.get("card"):
+                                value = self._evidence(prefetched["card"])
                             elif tool and not prepared_error and operation_id is not None and execution.operations.get(operation_id)["state"] in {"running", "unknown"}:
                                 failure = QAError("execution_unknown", "此操作的执行结果尚未确认，未重复执行；请先核实上游状态", 504)
                                 execution.failures[operation_id] = failure
@@ -1190,7 +1399,7 @@ class DatasetQA:
                                 value = {**self._evidence(completed), "executed": False,
                                     "guidance": "This operation already completed in this turn. Use the saved result; no additional execution took place."}
                             else:
-                                execution.calls += 1
+                                execution.calls += 0 if prefetched else 1
                                 call_started = time.monotonic()
                                 try:
                                     if prepared_error:
@@ -1224,39 +1433,10 @@ class DatasetQA:
                                         await phase("execute", "正在处理："+tool.title, payload=payload)
                                         async with waiting.during("正在等待MCP服务返回，尚未取得本次操作的结果。"):
                                             tool, output = await tools.call(name, arguments)
-                                        marker = (key, fingerprint(output.payload()))
-                                        card = execution.cards.get(marker)
-                                        if card is None:
-                                            metadata = tool.meta.get("piflow", {})
-                                            view = metadata.get("view_type", "tool_result") if isinstance(metadata, dict) else "tool_result"
-                                            card = {"result_id": f"{tid}:{results}", "view_type": view,
-                                                "title": f"{tool.server} · {tool.title}", **output.payload()}
-                                            results += 1
-                                            execution.operations.finish(operation_id, key, result_id=card["result_id"])
-                                            self._register_objects(tool, card, payload)
-                                            await self._write(user, sid, tid, card=card, payload=payload)
-                                            execution.cards[marker] = card
-                                        else:
-                                            execution.operations.finish(operation_id, key, result_id=card["result_id"])
-                                            await self._write(user, sid, tid, payload=payload)
+                                        card, created = await self._save_tool_result(user, sid, tid, tool, output,
+                                            operation_id, key, f"{tid}:{results}", execution, payload)
+                                        results += int(created)
                                         value = self._evidence(card)
-                                        objects = self._register_objects(tool, card, payload)
-                                        if objects:
-                                            value["objects"] = objects
-                                        execution.failures.pop(operation_id or key, None)
-                                        reference = {"server": tool.server, "name": tool.name}
-                                        context["tools"] = [reference, *[ref for ref in context.get("tools", []) if ref!=reference]][:4]
-                                        explicit_focus = any(item["name"]=="remember" and ("references" in item["args"] or "focus" in item["args"]) for item in reply.tool_calls)
-                                        descriptor = profile(tool)
-                                        ref = {"result_id": card["result_id"], "path": descriptor.object, "kind": "object"} if descriptor.object is not None and objects else target
-                                        operation = execution.operations.get(operation_id) if operation_id else None
-                                        if ref is not None and operation and (operation.get("required", True) or operation.get("inferred")) and (descriptor.bind or descriptor.object is not None) and not explicit_focus:
-                                            context.setdefault("references", {})["current"] = ref
-                                            updated = json.loads(messages[1].content)
-                                            updated["references"] = await self._reference_view(user, sid, context["references"])
-                                            updated.pop("reference_issue", None)
-                                            messages[1] = HumanMessage(encode(updated))
-                                        await self._write(user, sid, tid, context=context)
                                 except (QAError, ValidationError) as exc:
                                     if isinstance(exc, ValidationError):
                                         exc = execution.validation_error(exc)
@@ -1290,6 +1470,23 @@ class DatasetQA:
                                     log.info("Tool request: task=%s tool=%s mcp=%s operation=%s elapsed=%.3fs",
                                         tid, name, tool is not None, operation_id, time.monotonic()-call_started)
                             if tool and value.get("result_id"):
+                                card = next(card for card in execution.cards.values() if card["result_id"]==value["result_id"])
+                                objects = self._register_objects(tool, card, payload)
+                                if objects:
+                                    value["objects"] = objects
+                                reference = {"server": tool.server, "name": tool.name}
+                                context["tools"] = [reference, *[ref for ref in context.get("tools", []) if ref!=reference]][:4]
+                                explicit_focus = any(item["name"]=="remember" and ("references" in item["args"] or "focus" in item["args"]) for item in reply.tool_calls)
+                                descriptor = profile(tool)
+                                ref = {"result_id": card["result_id"], "path": descriptor.object, "kind": "object"} if descriptor.object is not None and objects else target
+                                operation = execution.operations.get(operation_id) if operation_id else None
+                                if ref is not None and operation and (operation.get("required", True) or operation.get("inferred")) and (descriptor.bind or descriptor.object is not None) and not explicit_focus:
+                                    context.setdefault("references", {})["current"] = ref
+                                    updated = json.loads(messages[1].content)
+                                    updated["references"] = await self._reference_view(user, sid, context["references"])
+                                    updated.pop("reference_issue", None)
+                                    messages[1] = HumanMessage(encode(updated))
+                                await self._write(user, sid, tid, context=context)
                                 evidence_cards[value["result_id"]] = value
                             if interaction:
                                 answer["text"] = (answer["text"]+"\n"+interaction["question"]).strip()

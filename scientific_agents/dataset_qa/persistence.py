@@ -183,6 +183,39 @@ class Store:
                 self._event(conn, tid, data)
             return True
 
+    def _retain_interrupted(self, conn, sid, payload, *, select_results):
+        """Finalize durable receipts without inferring new goals or new results.
+
+        Called while holding the session lock, so cancellation/lease recovery
+        cannot race a worker's artifact write or publish an uncommitted result.
+        Existing delivery choices, including an explicit empty list, are final.
+        Recovery preserves all required committed artifacts, each already bound
+        by ingestion limits, even if their sum exceeds normal delivery's budget.
+        """
+        operations = payload.get("operations") or []
+        unfinished = {"code": "execution_unknown", "status": 504,
+            "message": "操作已中断，尚未确认上游执行结果；未自动重试"}
+        ids = []
+        for operation in operations:
+            for attempt in operation.get("attempts", []):
+                if attempt.get("state")=="running":
+                    attempt.update(state="unknown", error=dict(unfinished))
+                if (operation.get("required", True) and operation.get("output")=="result"
+                        and attempt.get("state")=="succeeded" and isinstance(attempt.get("result_id"), str)):
+                    ids.append(attempt["result_id"])
+            if operation.get("state")=="running":
+                operation["state"] = "unknown"
+        if not select_results or "delivery" in payload or not ids:
+            return
+        # Receipts alone are not enough: the immutable artifact must already
+        # exist in this owned session, possibly from an explicit continuation.
+        saved = set(conn.scalars(select(self.items.c.result_id).where(self.items.c.session_id==sid,
+            self.items.c.result_id.in_(ids), self.items.c.kind.in_(["TOOL_RESULT", "RESULT_CARD"]))))
+        ids = [rid for rid in dict.fromkeys(ids) if rid in saved]
+        if ids:
+            payload["delivery"] = ids
+            payload["delivery_sources"] = list(ids)
+
     def finish(self, user, sid, tid, status, *, message="", error=None, interaction=None, expired_before=None):
         with self.transaction() as conn:
             session = self._session(conn, user, sid, True)
@@ -194,6 +227,10 @@ class Store:
             payload = json.loads(row["payload"])
             if error:
                 payload["error"] = error
+            if status in {"CANCELLED", "FAILED"}:
+                interrupted = (status=="CANCELLED" or expired_before is not None or
+                    (error or {}).get("error_code") in {"execution_unknown", "task_timeout", "service_unavailable", "model_timeout"})
+                self._retain_interrupted(conn, sid, payload, select_results=interrupted)
             if not message and status == "CANCELLED" and row["status"] == "RUNNING":
                 for raw in conn.scalars(select(self.events.c.payload).where(self.events.c.task_id == tid).order_by(self.events.c.id)):
                     value = json.loads(raw)
@@ -342,23 +379,48 @@ class Store:
             value = json.loads(raw)
             return self._cards(conn, sid, [value["result_id"]])[0] if set(value)=={"result_id"} else value
 
+    def latest_displays(self, user, sid):
+        """All artifacts from the latest published delivery, in display order."""
+        with self.transaction() as conn:
+            self._session(conn, user, sid)
+            tid = conn.scalar(select(self.items.c.task_id).where(self.items.c.session_id==sid,
+                self.items.c.kind=="RESULT_CARD").order_by(self.items.c.id.desc()).limit(1))
+            if tid is None:
+                return []
+            rows = conn.scalars(select(self.items.c.payload).where(self.items.c.session_id==sid,
+                self.items.c.task_id==tid, self.items.c.kind=="RESULT_CARD").order_by(self.items.c.id))
+            published = list(map(json.loads, rows))
+            saved = {card["result_id"]: card for card in self._cards(conn, sid,
+                [card["result_id"] for card in published if set(card)=={"result_id"}])}
+            return [saved[card["result_id"]] if set(card)=={"result_id"} else card for card in published]
+
     def object_reference(self, user, sid, identifier, sources=(), result_id=None):
-        """Try explicit/relevant sources first, then lazily search this session's saved results."""
+        """Prefer explicit/relevant scopes, but never pick an ambiguous first hit."""
         identifier = str(identifier)
         with self.transaction() as conn:
             self._session(conn, user, sid)
             scopes = [{"result_id": result_id}] if result_id else list(sources)
-            seen, cards = set(), {}
+            seen, cards, matches, matched = set(), {}, [], set()
+
+            def add(found):
+                for ref in found:
+                    # A current focus and its parent candidate list may expose
+                    # the same row. Their semantic kind is not a second object.
+                    identity = (ref["result_id"], ref.get("path", ""))
+                    if identity not in matched:
+                        matched.add(identity)
+                        matches.append(ref)
+
             for ref in scopes:
                 if ref["result_id"] not in cards:
                     cards[ref["result_id"]] = self._cards(conn, sid, [ref["result_id"]])[0]
                 card = cards[ref["result_id"]]
                 seen.add(ref["result_id"])
-                matches = matching_objects(card, identifier, ref)
-                if matches:
+                add(matching_objects(card, identifier, ref))
+                if len(matches)>1:
                     return matches
-            if result_id:
-                return []
+            if matches or result_id:
+                return matches
             # A SQL prefilter avoids decoding every historical artifact. Exact matching
             # and source validation still happen in Python, under the session boundary.
             match = self.items.c.payload.contains(dumps(identifier), autoescape=True)
@@ -369,10 +431,11 @@ class Store:
             for raw in conn.scalars(query.order_by(self.items.c.id.desc())):
                 card = json.loads(raw)
                 if card["result_id"] not in seen:
-                    matches = matching_objects(card, identifier)
-                    if matches:
+                    seen.add(card["result_id"])
+                    add(matching_objects(card, identifier))
+                    if len(matches)>1:
                         return matches
-            return []
+            return matches
 
     def display_results(self, user, sid, tid):
         with self.transaction() as conn:

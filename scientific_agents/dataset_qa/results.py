@@ -139,6 +139,68 @@ def evidence_group(cards, operations, limit):
     return result
 
 
+def final_evidence_view(cards, answer_cards, operations, limit, *, stop_reason=None):
+    """Budget the complete final envelope before allocating individual previews.
+
+    The manifest describes actual delivery independently of evidence truncation.
+    Identifiers are either present in full or omitted with explicit pagination;
+    large artifact bodies cannot silently remove a later delivered identity.
+    """
+    cards = list({card["result_id"]: card for card in cards}.values())
+    answer_cards = list({card["result_id"]: card for card in answer_cards}.values())
+    result = {"final_delivery": [], "answer_evidence": [], "delivery_manifest": [],
+        "stop_reason": stop_reason}
+    # Failure detail is explanatory text, never a source identifier.
+    if len(encode(result))>limit:
+        result["stop_reason"], _ = project(stop_reason, max(4, limit//8))
+    if len(encode(result))>limit:
+        return {}
+    reserve = min(256, max(0, limit//4))
+    for card in cards:
+        entry = {"result_id": card["result_id"]}
+        candidate = {**result, "delivery_manifest": [*result["delivery_manifest"], entry]}
+        if len(encode(candidate))+reserve+96>limit:
+            break
+        result["delivery_manifest"].append(entry)
+    if len(result["delivery_manifest"])<len(cards):
+        result.update(delivery_total=len(cards), delivery_next_offset=len(result["delivery_manifest"]))
+    # Names stay whole, just like IDs. A bounded manifest may omit a large
+    # label; the corresponding evidence view can still expose it.
+    for entry, card in zip(result["delivery_manifest"], cards):
+        metadata = {key: card[key] for key in ("title", "view_type") if key in card}
+        if len(encode(result))+len(encode(metadata))+4<=limit//3:
+            entry.update(metadata)
+    remaining = max(0, limit-len(encode(result))-128)
+    displayed_budget = remaining*2//3 if answer_cards else remaining
+    support_budget = remaining-displayed_budget if cards else remaining
+
+    def add_group(key, source, budget):
+        if not source:
+            return
+        group = evidence_group(source, operations, max(4, budget))
+        result[key] = group.get("items", [])
+        if len(result[key])<len(source):
+            result[key+"_total"] = len(source)
+            result[key+"_next_offset"] = len(result[key])
+
+    add_group("final_delivery", cards, displayed_budget)
+    add_group("answer_evidence", answer_cards, support_budget)
+    # Group pagination metadata has a bounded but nonzero envelope cost.
+    # Remove only entire previews if a deliberately tiny configured budget
+    # cannot hold it; the manifest remains the authoritative delivery list.
+    for key, source in (("answer_evidence", answer_cards), ("final_delivery", cards)):
+        while result[key] and len(encode(result))>limit:
+            result[key].pop()
+            result[key+"_total"] = len(source)
+            result[key+"_next_offset"] = len(result[key])
+    if len(encode(result))>limit:
+        minimal = {"delivery_manifest": result["delivery_manifest"]}
+        if len(result["delivery_manifest"])<len(cards):
+            minimal.update(delivery_total=len(cards), delivery_next_offset=len(result["delivery_manifest"]))
+        return minimal if len(encode(minimal))<=limit else {}
+    return result
+
+
 def collection_paths(cards, operations):
     """Combine proven homogeneous artifacts; declarations may span targets.
 

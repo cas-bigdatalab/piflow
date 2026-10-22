@@ -4,7 +4,7 @@ import re
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from .context import SECRET_KEYS, encode
+from .context import SECRET_KEYS, at_pointer, encode
 from .contracts import QAError
 
 
@@ -24,22 +24,7 @@ class ReferenceUpdate(BaseModel):
 
 
 def at_path(data, path):
-    if not path:
-        return data
-    if not path.startswith("/"):
-        raise QAError("invalid_pointer", "引用路径须为JSON Pointer")
-    try:
-        for token in path[1:].split("/"):
-            key = token.replace("~1", "/").replace("~0", "~")
-            if isinstance(data, list):
-                if not key.isdigit():
-                    raise KeyError(key)
-                data = data[int(key)]
-            else:
-                data = data[key]
-    except (KeyError, IndexError, TypeError) as exc:
-        raise QAError("result_not_found", "来源结果中不存在该对象引用", 404) from exc
-    return data
+    return at_pointer(data, path)
 
 
 def all_references(state):
@@ -100,14 +85,28 @@ def matching_objects(card, identifier, reference=None):
                 return  # A nested raw mirror is not another object.
             entries = value.items()
         elif isinstance(value, list):
-            entries = enumerate(value)
+            # Arrays establish record boundaries even inside an unfamiliar
+            # service envelope. Match nested identity fields to the whole row.
+            for index, row in enumerate(value):
+                start = len(matches)
+                row_path = pointer+"/"+str(index)
+                visit(row, row_path, depth+1)
+                if isinstance(row, dict) and len(matches)>start:
+                    matches[start:] = [{"result_id": card["result_id"], "path": row_path, "kind": kind}]
+                if len(matches)>1:
+                    break
+            return
         else:
             return
         for key, child in entries:
             if str(key).lower() not in SECRET_KEYS:
                 escaped = str(key).replace("~", "~0").replace("/", "~1")
                 visit(child, pointer+"/"+escaped, depth+1)
-    visit(at_path(card.get("data"), path), path)
+
+    value = at_path(card.get("data"), path)
+    visit(value, path)
+    if reference and "path" in reference and isinstance(value, dict) and matches:
+        matches = [{"result_id": card["result_id"], "path": path, "kind": kind}]
     return matches
 
 
@@ -232,16 +231,19 @@ def preview(state, cards, limit=4000):
                 view["handle"] = "selected:"+str(len(views)+1)
             if key=="candidates":
                 view.update(total=len(value), items=[])
+                consumed = 0
                 for index, row in enumerate(value):
                     if not isinstance(row, dict):
-                        break
+                        consumed = index+1
+                        continue
                     item = {"handle": "candidate:"+str(index+1), "path": ref.get("path", "")+"/"+str(index), "value": compact_record(row, 480)}
                     candidate = {**view, "items": [*view["items"], item]}
                     if len(encode({**result, key: candidate}))+40>content_limit:
                         break
                     view = candidate
-                if len(view["items"])<len(value):
-                    view["next_offset"] = len(view["items"])
+                    consumed = index+1
+                if consumed<len(value):
+                    view["next_offset"] = consumed
             else:
                 available = max(0, content_limit-len(encode(result))-len(encode(view))-80)
                 view["value"] = compact_record(value, min(available, 600 if key=="current" else 240))

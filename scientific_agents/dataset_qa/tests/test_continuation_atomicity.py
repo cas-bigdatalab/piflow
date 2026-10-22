@@ -3,8 +3,8 @@ import asyncio
 
 from langchain_core.messages import AIMessageChunk
 
-from .service import DatasetQA
-from .capabilities import SUPPORTING
+from ..service import DatasetQA
+from ..capabilities import SUPPORTING
 from .test_dataset_qa import action, collect, engine, remote, result_cards, session
 from .test_decisions import BareDialogue, configured, goals, payload, seed, text
 

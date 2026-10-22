@@ -5,11 +5,11 @@ from types import SimpleNamespace
 
 from langchain_core.messages import ToolMessage
 
-from .capabilities import GOAL, OBJECT, SUPPORTING
-from .contracts import Options
-from .execution import Execution
-from .mcp import Tool
-from .service import DatasetQA
+from ..capabilities import GOAL, OBJECT, SUPPORTING
+from ..contracts import Options
+from ..execution import Execution
+from ..mcp import Tool
+from ..service import DatasetQA
 from .test_dataset_qa import action, collect, engine, load, remote, result_cards, session
 from .test_decisions import BareDialogue, configured, for_goal, goals, payload, seed, text
 
@@ -211,7 +211,7 @@ def test_failed_variant_preserves_success_without_claiming_full_completion(engin
     asyncio.run(run())
 
 
-def test_query_changes_without_new_rows_stop_with_saved_result(engine):
+def test_query_changes_without_new_rows_stop_without_confirming_an_undeclared_goal(engine):
     async def run():
         backend = configured()
         backend.catalog["data"][0].annotations = {"readOnlyHint": True, "idempotentHint": True}
@@ -219,11 +219,12 @@ def test_query_changes_without_new_rows_stop_with_saved_result(engine):
             remote("search", query="three"), text("These are the available resources."))
         service = DatasetQA(engine, dialogue, backend.gateway())
         try:
-            values = await collect(service, session(service), "Find related resources")
-            assert values[-1]["status"]=="COMPLETED" and len(backend.calls)==3
+            sid = session(service)
+            values = await collect(service, sid, "Find related resources")
+            assert values[-1]["status"]=="FAILED" and values[-1]["code"]=="no_progress" and len(backend.calls)==3
             assert len(dialogue.inputs)==5 and dialogue.inputs[-1][1]==[]
-            assert len(result_cards(values))==1
-            assert result_cards(values)[0]["data"]["items"]==backend.items
+            assert not result_cards(values)
+            assert len(service.store.results("alice", sid))==3  # Evidence is retained, without guessing task completion.
         finally:
             await service.close()
     asyncio.run(run())

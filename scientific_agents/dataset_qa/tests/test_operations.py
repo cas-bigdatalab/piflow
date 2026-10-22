@@ -7,10 +7,10 @@ from langchain_core.messages import AIMessageChunk, ToolMessage
 from pydantic import ValidationError
 import pytest
 
-from .context import encode
-from .contracts import QAError
-from .operations import Operation, Operations
-from .service import DatasetQA
+from ..context import encode
+from ..contracts import QAError
+from ..operations import Operation, Operations
+from ..service import DatasetQA
 from .test_dataset_qa import Backend, Dialogue, action, collect, engine, load, remote, result_cards, session
 from .test_delivery import deliver
 from .test_runtime import RawDialogue
@@ -310,16 +310,19 @@ def test_heterogeneous_required_artifacts_are_not_dropped_or_force_merged(engine
         backend.catalog["data"][0].meta = {"piflow": {"view_type": "detail"}}
         backend.catalog["data"][1].meta = {"piflow": {"view_type": "data"}}
         dialogue = RawDialogue(load(), batch(["search", "detail"], remote("search"), remote("inspect", reference="a"),
-            operations=[goal("search"), goal("detail")]), deliver(merge_path="/items"), deliver([0]), deliver([1]))
+            operations=[goal("search"), goal("detail")]), deliver(merge_path="/items"), deliver(),
+            AIMessageChunk(content="两项成果分别展示。"))
         service = DatasetQA(engine, dialogue, backend.gateway())
         sid = session(service)
         try:
             values = await collect(service, sid, "查找并展示 A 详情")
-            assert values[-1]["status"]=="FAILED" and values[-1]["code"]=="invalid_delivery"
-            assert len(backend.calls)==2 and not result_cards(values)
+            assert values[-1]["status"]=="COMPLETED"
+            assert len(backend.calls)==2 and len(result_cards(values))==2
+            assert {card["view_type"] for card in result_cards(values)}=={"detail", "data"}
             assert len(service.store.results("alice", sid))==2
-            text = "".join(value["text"] for value in values if value["type"]=="message")
-            assert "信息已取得，暂未整理为展示结果" in text
+            feedback = [json.loads(message.content) for message in dialogue.inputs[3][0]
+                if isinstance(message, ToolMessage) and message.name=="deliver_results"]
+            assert any(value.get("error")=="invalid_delivery" and value["executed"] is False for value in feedback)
         finally:
             await service.close()
     asyncio.run(run())

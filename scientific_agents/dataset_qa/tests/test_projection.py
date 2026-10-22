@@ -6,10 +6,11 @@ from types import SimpleNamespace
 
 import pytest
 
-from .context import encode, project, slice_result
-from .persistence import dumps
-from .results import evidence
-from .service import DatasetQA
+from ..context import encode, project, slice_result
+from ..persistence import dumps
+from ..operations import Operations
+from ..results import evidence, final_evidence_view
+from ..service import DatasetQA
 from .test_dataset_qa import Backend, Dialogue, collect, engine, load, remote, result_cards, session
 
 
@@ -150,3 +151,22 @@ def test_final_model_receives_titles_within_budget_and_public_results_are_unchan
         finally:
             await service.close()
     asyncio.run(run())
+
+
+@pytest.mark.parametrize("limit", [512, 2000, 8000])
+def test_final_multi_artifact_envelope_preserves_whole_identities_or_explicit_pagination(limit):
+    cards = [{"result_id": ("result-"+str(index)+"-").ljust(180, "x"),
+        "view_type": "data", "title": "Independent result "+str(index),
+        "data": search_result(5)} for index in range(24)]
+    original = deepcopy(cards)
+    result = final_evidence_view(cards, cards[:2], Operations(), limit)
+    assert len(encode(result))<=limit and cards==original
+    manifest_ids = [entry["result_id"] for entry in result["delivery_manifest"]]
+    assert manifest_ids==[card["result_id"] for card in cards[:len(manifest_ids)]]
+    if len(manifest_ids)<len(cards):
+        assert result["delivery_total"]==len(cards)
+        assert result["delivery_next_offset"]==len(manifest_ids)
+    else:
+        assert "delivery_next_offset" not in result
+    for key in ("final_delivery", "answer_evidence"):
+        assert all(entry["result_id"] in {card["result_id"] for card in cards} for entry in result.get(key, []))

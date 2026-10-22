@@ -7,14 +7,14 @@ from types import SimpleNamespace
 from langchain_core.messages import AIMessage, AIMessageChunk, ToolMessage
 import pytest
 
-from .context import encode
-from .contracts import Limits, QAError, Server
-from .dialogue import Dialogue
-from .mcp import MCPGateway
-from .operations import Operation, Operations
-from .references import at_path
-from .results import collection_paths, evidence_group
-from .service import DatasetQA
+from ..context import encode
+from ..contracts import Limits, QAError, Server
+from ..dialogue import Dialogue
+from ..mcp import MCPGateway
+from ..operations import Operation, Operations
+from ..references import at_path
+from ..results import collection_paths, evidence_group
+from ..service import DatasetQA
 from .test_dataset_qa import Backend, action, collect, definition, engine, load, remote, result_cards, session
 from .test_operations import batch, goal, saved
 from .test_runtime import RawDialogue

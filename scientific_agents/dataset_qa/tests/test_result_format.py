@@ -7,11 +7,11 @@ from types import SimpleNamespace
 from langchain_core.messages import ToolMessage
 import pytest
 
-from .service import DatasetQA
-from .contracts import Server
-from .mcp import MCPGateway
+from ..service import DatasetQA
+from ..contracts import Server
+from ..mcp import MCPGateway
 from .test_dataset_qa import Backend, Dialogue, collect, engine, load, remote, result_cards, session
-from ..unified.adapters.dataset_qa import DatasetQAAdapter
+from ...unified.adapters.dataset_qa import DatasetQAAdapter
 
 
 @pytest.mark.parametrize("server,operation,arguments,payload,expected", [

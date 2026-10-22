@@ -15,13 +15,13 @@ import pytest
 from sqlalchemy import create_engine, update
 from sqlalchemy.pool import StaticPool
 
-from .context import encode, project, slice_result
-from .contracts import Limits, Options, QAError, Server
-from .dialogue import BUILTINS, SYSTEM, Dialogue as SemanticDialogue
-from .mcp import MCPGateway, Tool
-from .service import DatasetQA
-from ..unified.adapters.dataset_qa import DatasetQAAdapter
-from ..unified.api import Native, install_unified
+from ..context import encode, project, slice_result
+from ..contracts import Limits, Options, QAError, Server
+from ..dialogue import BUILTINS, SYSTEM, Dialogue as SemanticDialogue
+from ..mcp import MCPGateway, Tool
+from ..service import DatasetQA
+from ...unified.adapters.dataset_qa import DatasetQAAdapter
+from ...unified.api import Native, install_unified
 
 
 def definition(name, properties=None, required=None, annotations=None):
@@ -270,7 +270,9 @@ def test_schema_and_tool_budgets_evict_definitions_consistently():
             aliases = {v["function"]["name"] for v in tools.definitions()}
             assert len(aliases)==2
             assert {v["name"] for v in page["items"]}==aliases
-            evicted = Tool("data", "search", "", {}, {}, {}).alias
+            assert {tool.name for tool in tools.loaded.values()}=={"search", "inspect"}
+            assert {row["tool"] for row in page["not_loaded"]}=={"preview", "sample"}
+            evicted = Tool("data", "sample", "", {}, {}, {}).alias
             with pytest.raises(QAError, match="未加载"):
                 await tools.call(evicted, {})
         backend.catalog["compute"][0].description = "x"*20000
@@ -321,12 +323,17 @@ def test_saved_result_is_paged_without_repeating_sample(engine):
         sid = session(service)
         values = await collect(service, sid)
         card = result_cards(values)[0]
-        dialogue.responses = [action("read_result", result_id=card["result_id"], path="/data", offset=2, limit=1)]
-        await collect(service, sid, rid="read")
-        tool = next(m for m in dialogue.inputs[-1][0] if isinstance(m, ToolMessage))
-        value = json.loads(tool.content)
-        assert value=={"result_id": card["result_id"], "data": [{"row": 2, "batch": 1}], "next_offset": 3}
+        dialogue.responses = [action("read_result", result_id=card["result_id"], path="/data", offset=2, limit=1)]*2
+        read = await collect(service, sid, rid="read")
+        pages = [json.loads(m.content) for m in dialogue.inputs[-1][0]
+            if isinstance(m, ToolMessage) and m.name=="read_result"]
+        assert len(pages)==2 and all(pages[1][key]==value for key, value in pages[0].items())
+        assert pages[0]=={"result_id": card["result_id"], "data": [{"row": 2, "batch": 1}], "next_offset": 3,
+            "objects": [{"handle": "object:1", "path": "/data/2"}]}
+        saved = json.loads(service.store.task("alice", sid, read[-1]["task_id"])["payload"])
+        assert saved["objects"]["object:1"]=={"result_id": card["result_id"], "path": "/data/2", "kind": "object"}
         assert len(backend.calls)==1
+        await service.close()
     asyncio.run(run())
 
 
@@ -589,7 +596,7 @@ def test_first_text_is_streamed_before_model_finishes_and_reasoning_blocks_hidde
 
 
 def test_fragmented_tool_arguments_never_create_empty_messages(engine, monkeypatch):
-    from . import service as runtime
+    from .. import service as runtime
 
     async def run():
         clock = [0.0]
@@ -622,7 +629,7 @@ def test_fragmented_tool_arguments_never_create_empty_messages(engine, monkeypat
 
 
 def test_heartbeat_uses_idle_interval_and_progress_resets_it(engine, monkeypatch):
-    from . import service as runtime
+    from .. import service as runtime
 
     async def run():
         clock, gate = [0.0], asyncio.Event()
@@ -941,7 +948,7 @@ def test_default_registry_only_exposes_enabled_dataset_qa():
 
 
 def test_host_lifecycle_registers_and_closes_dataset_qa(engine, monkeypatch):
-    from ..integration import install_scientific_agents
+    from ...integration import install_scientific_agents
 
     async def run():
         events = []

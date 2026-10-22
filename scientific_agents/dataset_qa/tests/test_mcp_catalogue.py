@@ -5,9 +5,9 @@ from dataclasses import replace
 
 import pytest
 
-from .contracts import QAError, Server
-from .mcp import MCPGateway
-from .service import DatasetQA
+from ..contracts import QAError, Server
+from ..mcp import MCPGateway
+from ..service import DatasetQA
 from .test_dataset_qa import Backend, action, collect, definition, engine, load, remote, result_cards, session
 from .test_decisions import BareDialogue, text
 

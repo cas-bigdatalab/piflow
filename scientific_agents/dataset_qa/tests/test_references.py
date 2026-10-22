@@ -7,12 +7,12 @@ from langchain_core.messages import AIMessage, AIMessageChunk, HumanMessage, Too
 import pytest
 from sqlalchemy import update
 
-from .context import encode
-from .contracts import Limits, Options, QAError
-from .dialogue import BUILTINS, Dialogue as ModelDialogue, ReferenceUpdate, SYSTEM
-from .persistence import dumps
-from .references import apply_update, at_path, compact_record, matching_objects, preview
-from .service import DatasetQA
+from ..context import encode
+from ..contracts import Limits, Options, QAError
+from ..dialogue import BUILTINS, Dialogue as ModelDialogue, ReferenceUpdate, SYSTEM
+from ..persistence import dumps
+from ..references import apply_update, at_path, compact_record, matching_objects, preview
+from ..service import DatasetQA
 from .test_dataset_qa import Backend, Dialogue, action, collect, engine, load, remote, result_cards, session
 
 
@@ -368,7 +368,7 @@ def test_many_confirmed_references_are_paged_without_losing_saved_choices(engine
         await service._builtin("alice", sid, task["id"], "remember", {"references": {"selected": selected}}, None, context)
         model = await service._reference_view("alice", sid, context["references"])
         assert len(encode(model))<=4000 and model["selected_total"]==24
-        from .dialogue import Read
+        from ..dialogue import Read
         page = await service._read_result("alice", sid, Read(offset=8, limit=8))
         assert page["selected"]==selected[8:16] and page["selected_next_offset"]==16
         assert state(service, sid)["selected"]==selected

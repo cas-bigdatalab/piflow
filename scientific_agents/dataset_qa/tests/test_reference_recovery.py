@@ -5,12 +5,12 @@ import json
 
 import pytest
 
-from .capabilities import GOAL, OBJECT, SUPPORTING, adapted, identifiers_from_request, inputs, request_identifiers
-from .context import encode
-from .contracts import QAError
-from .mcp import Tool
-from .references import identifier_in_request, pending_objects, scoped_preview
-from .service import DatasetQA
+from ..capabilities import GOAL, OBJECT, SUPPORTING, adapted, identifiers_from_request, inputs, request_identifiers
+from ..context import encode
+from ..contracts import QAError
+from ..mcp import Tool
+from ..references import identifier_in_request, pending_objects, scoped_preview
+from ..service import DatasetQA
 from .test_dataset_qa import action, collect, engine, load, remote, result_cards, session
 from .test_decisions import BareDialogue, configured, goals, payload, seed, text
 

@@ -63,6 +63,8 @@ class Tool:
     annotations: dict
     meta: dict
     _definition: dict | None = field(default=None, repr=False, compare=False)
+    _validator: object = field(default=None, repr=False, compare=False)
+    _schema_json: str | None = field(default=None, repr=False, compare=False)
 
     @property
     def alias(self):
@@ -81,14 +83,11 @@ class Tool:
 
 
 def check_refs(value):
+    """Inspect a schema node, not arbitrary example/default instance data."""
     if isinstance(value, dict):
         for key, child in value.items():
             if key in {"$ref", "$dynamicRef"} and (not isinstance(child, str) or not child.startswith("#")):
                 raise QAError("invalid_schema", "工具schema仅支持本地引用", 502)
-            check_refs(child)
-    elif isinstance(value, list):
-        for child in value:
-            check_refs(child)
 
 
 def check_schema(schema):
@@ -100,11 +99,11 @@ def check_schema(schema):
 
     try:
         Draft202012Validator.check_schema(schema)
-        check_refs(schema)
         resource = Resource(schema, DRAFT202012)
         resolver = Registry().with_resource("", resource).crawl().resolver()
 
         def visit(current, scope):
+            check_refs(current.contents)
             scope = scope.in_subresource(current)
             if isinstance(current.contents, dict):
                 for key in ("$ref", "$dynamicRef"):
@@ -122,6 +121,8 @@ def check_schema(schema):
 
 def checked_tool(tool):
     """Compile a detached definition before it can enter the callable catalogue."""
+    from jsonschema import Draft202012Validator
+    from referencing import Registry
     from .capabilities import definition, profile
 
     tool = deepcopy(tool)
@@ -140,7 +141,8 @@ def checked_tool(tool):
         encode({"definition": compiled, "annotations": tool.annotations, "meta": tool.meta})
     except (TypeError, ValueError) as exc:
         raise QAError("invalid_schema", "MCP工具定义须为有效JSON数据", 502) from exc
-    return replace(tool, _definition=compiled)
+    return replace(tool, _definition=compiled, _schema_json=encode(tool.schema),
+        _validator=Draft202012Validator(tool.schema, registry=Registry()))
 
 
 class MCPGateway:
@@ -206,6 +208,7 @@ class ToolSession:
         self.gateway, self.servers, self.stack = gateway, servers, stack
         self.clients, self.connections, self.loaded = {}, {}, OrderedDict()
         self.connection_errors, self.discovery_errors = {}, {}
+        self.connection_locks, self.discovery_locks = {}, {}
         self.definition_errors = {}
         self.limits = gateway.limits
 
@@ -219,6 +222,10 @@ class ToolSession:
         return True
 
     async def disconnect(self, server):
+        async with self.connection_locks.setdefault(server, asyncio.Lock()):
+            await self._disconnect(server)
+
+    async def _disconnect(self, server):
         self.clients.pop(server, None)
         connection = self.connections.pop(server, None)
         if connection:
@@ -235,6 +242,10 @@ class ToolSession:
     async def client(self, server):
         if server not in self.servers:
             raise QAError("server_not_found", "MCP服务未配置或未启用", 404)
+        async with self.connection_locks.setdefault(server, asyncio.Lock()):
+            return await self._client(server)
+
+    async def _client(self, server):
         if server in self.connection_errors:
             raise self.connection_errors[server]
         if server not in self.clients:
@@ -279,6 +290,12 @@ class ToolSession:
     async def tools(self, server):
         if server not in self.servers:
             raise QAError("server_not_found", "MCP服务未配置或未启用", 404)
+        # Per-session single flight: concurrent discovery shares one connection
+        # and catalogue. Independent sessions retain their freshness generations.
+        async with self.discovery_locks.setdefault(server, asyncio.Lock()):
+            return await self._tools(server)
+
+    async def _tools(self, server):
         cached = self.cached_tools(server)
         if cached is not None:
             if not cached and self.definition_errors.get(server):
@@ -294,9 +311,20 @@ class ToolSession:
         sequence = self.gateway.refresh_sequence
         self.gateway.refresh_versions[server] = sequence
         try:
-            client = await self.client(server)
-            async with asyncio.timeout(self.limits.connect_timeout):
-                values = await client.list_tools()
+            deadline = asyncio.get_running_loop().time()+self.limits.connect_timeout
+            async with asyncio.timeout_at(deadline):
+                client = await self.client(server)
+                for attempt in range(self.limits.transport_retries+1):
+                    try:
+                        values = await client.list_tools()
+                        break
+                    except asyncio.CancelledError:
+                        raise
+                    except Exception as exc:
+                        if not await self.retry(exc, attempt, deadline, server, "discovery"):
+                            raise
+                        await self.disconnect(server)
+                        client = await self.client(server)
         except asyncio.CancelledError:
             raise
         except QAError as exc:
@@ -344,6 +372,7 @@ class ToolSession:
 
     def include(self, page):
         loaded = []
+        evictions, admitted = {}, set()
         for tool in page:
             if tool._definition is None:
                 try:
@@ -352,15 +381,31 @@ class ToolSession:
                     loaded.append({"name": tool.name, "error": exc.code, "message": str(exc)[:240]})
                     continue
             definition = tool.definition()
-            if len(encode(definition))>self.limits.schema_chars:
+            if len(encode([definition]))>self.limits.schema_chars:
                 loaded.append({"name": tool.name, "error": "schema_too_large"})
+                continue
+            if self.limits.max_tools<1:
+                loaded.append({"name": tool.name, "error": "tool_budget"})
                 continue
             self.loaded.pop(tool.alias, None)
             self.loaded[tool.alias] = tool
             while len(self.loaded)>self.limits.max_tools or len(encode(self.definitions()))>self.limits.schema_chars:
-                self.loaded.popitem(last=False)
+                reason = "tool_budget" if len(self.loaded)>self.limits.max_tools else "schema_budget"
+                # Ranked pages arrive best first. Preserve earlier admissions
+                # from this page; LRU eviction applies only to older pages.
+                alias = next((value for value in self.loaded if value not in admitted), tool.alias)
+                self.loaded.pop(alias)
+                evictions[alias] = reason
+            if tool.alias in self.loaded:
+                admitted.add(tool.alias)
             loaded.append({"name": tool.alias, "tool": tool.name, "title": tool.title})
-        return {"items": [item for item in loaded if item.get("error") or item["name"] in self.loaded]}
+        result = {"items": [item for item in loaded if item.get("error") or item["name"] in self.loaded]}
+        omitted = [{**item, "error": evictions[item["name"]]} for item in loaded
+            if not item.get("error") and item["name"] not in self.loaded]
+        if omitted:
+            result["not_loaded"] = omitted
+            result["hint"] = "部分能力超过加载预算；请缩小query或limit后重新加载所需能力。"
+        return result
 
     def prime(self, query, references=()):
         # Reuse descriptions and schemas, never another turn's execution results.
@@ -389,18 +434,48 @@ class ToolSession:
         tool = self.loaded.get(alias)
         if tool is None:
             raise QAError("tool_not_loaded", "工具未加载，请先发现并加载相应定义")
-        from jsonschema import Draft202012Validator, ValidationError
+        from jsonschema import ValidationError
 
-        check_schema(tool.schema)
         try:
-            Draft202012Validator(tool.schema).validate(arguments)
+            if not isinstance(arguments, dict):
+                raise TypeError("MCP arguments must be an object")
+            size = len(encode(arguments))
+        except (TypeError, ValueError, RecursionError) as exc:
+            raise QAError("invalid_parameters", "工具参数须为有效JSON对象，数值必须有限") from exc
+        if size>self.limits.context_chars:
+            raise QAError("invalid_parameters", "工具参数超过运行预算")
+        # Discovery validates and compiles once. Model-facing definitions and
+        # gateway caches are detached snapshots. Detect internal mutation before
+        # reusing a validator; its registry cannot retrieve remote resources.
+        try:
+            schema_json = encode(tool.schema)
+        except (TypeError, ValueError, RecursionError) as exc:
+            raise QAError("invalid_schema", "MCP工具定义须为有效JSON数据", 502) from exc
+        if tool._validator is None or tool._schema_json!=schema_json:
+            tool = checked_tool(tool)
+            self.loaded[alias] = tool
+        try:
+            tool._validator.validate(arguments)
         except ValidationError as exc:
             detail = {"path": list(exc.absolute_path), "constraint": exc.validator}
             detail["expected"], _ = project(exc.validator_value, 300)
             raise QAError("invalid_parameters", "参数不符合当前工具schema", detail=detail) from exc
-        if len(encode(arguments))>self.limits.context_chars:
-            raise QAError("invalid_parameters", "工具参数超过运行预算")
         return tool
+
+    async def call_isolated(self, alias, arguments):
+        """Execute on an independent connection using this session's catalogue.
+
+        Parallel readers must not share a connection that another reader can
+        close during transport recovery. No discovery or global cache mutation
+        is needed; cancellation closes only this call's connection stack.
+        """
+        tool = self.validate(alias, arguments)
+        self.loaded.move_to_end(alias)
+        async with AsyncExitStack() as stack:
+            isolated = ToolSession(self.gateway, self.servers, stack)
+            isolated.limits = self.limits
+            isolated.loaded[alias] = deepcopy(tool)
+            return await isolated.call(alias, arguments)
 
     async def call(self, alias, arguments):
         tool = self.validate(alias, arguments)

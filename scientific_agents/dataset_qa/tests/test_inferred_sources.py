@@ -1,8 +1,8 @@
 """Refreshing an object's source must not create a self-consuming outcome."""
 import asyncio
 
-from .capabilities import OBJECT
-from .service import DatasetQA
+from ..capabilities import OBJECT
+from ..service import DatasetQA
 from .test_dataset_qa import action, collect, engine, load, remote, result_cards, session
 from .test_decisions import BareDialogue, configured, payload, seed, text
 

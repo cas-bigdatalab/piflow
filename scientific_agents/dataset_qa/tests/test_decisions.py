@@ -7,11 +7,11 @@ from jsonschema import Draft202012Validator
 from langchain_core.messages import AIMessageChunk, ToolMessage
 import pytest
 
-from .capabilities import GOAL, OBJECT, SUPPORTING, inputs
-from .dialogue import BUILTINS, Dialogue
-from .contracts import QAError, Server
-from .mcp import MCPGateway
-from .service import DatasetQA
+from ..capabilities import GOAL, OBJECT, SUPPORTING, inputs
+from ..dialogue import BUILTINS, Dialogue
+from ..contracts import QAError, Server
+from ..mcp import MCPGateway
+from ..service import DatasetQA
 from .test_dataset_qa import Backend, action, collect, engine, load, remote, result_cards, session
 
 
@@ -237,9 +237,9 @@ def test_complex_goal_coverage_prevents_early_completion(engine):
             assert [call[2]["reference"] for call in backend.calls[1:]]==["a", "b"]
             ledger = payload(service, sid, values)
             assert all(item["state"]=="succeeded" for item in ledger["operations"])
-            # Existing frontend contract cannot combine heterogeneous object
-            # artifacts. It must not silently discard one or select the last.
-            assert values[-1]["status"]=="FAILED" and not result_cards(values)
+            # Independent outcomes retain their original artifacts when no
+            # source-backed homogeneous merge is available.
+            assert values[-1]["status"]=="COMPLETED" and len(result_cards(values))==2
         finally:
             await service.close()
     asyncio.run(run())
@@ -254,7 +254,7 @@ def test_model_schema_exposes_semantics_not_internal_bookkeeping():
 
 
 def test_metadata_adapter_binds_unfamiliar_parameter_names_without_name_rules():
-    from .mcp import Tool
+    from ..mcp import Tool
     tool = Tool("new-service", "unfamiliar", "Operate on a referenced object", {
         "type": "object", "properties": {"asset_key": {"type": "string"}, "limit": {"type": "integer", "default": 3}},
         "required": ["asset_key"], "additionalProperties": False}, {},

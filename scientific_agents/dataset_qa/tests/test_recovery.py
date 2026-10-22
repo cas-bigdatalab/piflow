@@ -7,8 +7,8 @@ import httpx
 from langchain_core.messages import AIMessage, AIMessageChunk, ToolMessage
 import pytest
 
-from .contracts import Limits, QAError
-from .service import DatasetQA
+from ..contracts import Limits, QAError
+from ..service import DatasetQA
 from .test_dataset_qa import Backend, Dialogue, action, collect, engine, load, remote, result_cards, session, with_operations
 from .test_delivery import deliver
 from .test_runtime import RawDialogue

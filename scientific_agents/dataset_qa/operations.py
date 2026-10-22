@@ -73,8 +73,10 @@ class Operations:
     def reuse(self, operation_id, key, receipt):
         item = self.get(operation_id)
         if item and not any(attempt["key"]==key and attempt["state"]=="succeeded" for attempt in item["attempts"]):
+            first_evidence = item["state"]=="pending" and all(attempt["state"]=="rejected" for attempt in item["attempts"])
             item["attempts"].append({**deepcopy(receipt), "key": key, "dispatched": False, "reused": True})
-            item["state"] = "succeeded"
+            if first_evidence:
+                item["state"] = "succeeded"
 
     def declare(self, values):
         if values is None:
@@ -146,7 +148,8 @@ class Operations:
                 return  # A blocked dispatch must not rewrite an earlier execution receipt.
             if not any(value["key"]==key and value["state"]=="succeeded" and value.get("result_id")==result_id for value in item["attempts"]):
                 raise QAError("invalid_delivery", "缺少此操作对应的成功执行证据")
-            item["state"] = "succeeded"
+            # A replay proves only the old result. It cannot resolve a later
+            # failed, unknown or rejected attempt of the same outcome.
             return
         rejected = error and error.code in {"invalid_parameters", "invalid_pointer", "result_not_found"}
         state = "rejected" if rejected else "unknown" if error and error.code=="execution_unknown" else "failed" if error else "succeeded"

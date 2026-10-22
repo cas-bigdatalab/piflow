@@ -5,8 +5,8 @@ import json
 from langchain_core.messages import AIMessageChunk, HumanMessage, ToolMessage
 import pytest
 
-from .contracts import Limits
-from .service import DatasetQA
+from ..contracts import Limits
+from ..service import DatasetQA
 from .test_dataset_qa import Backend, action, collect, engine, load, remote, result_cards, session
 from .test_delivery import deliver
 from .test_runtime import RawDialogue

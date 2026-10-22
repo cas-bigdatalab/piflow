@@ -66,6 +66,21 @@ class Ask(Input):
     options: list[str | dict] = Field(default_factory=list, max_length=20)
 
 
+class ContextAnswer(Input):
+    mode: Literal["evidence", "conversation", "unsupported"] = Field(
+        description="evidence interprets saved results; conversation acknowledges choices or explains this agent; unsupported explains a verified capability gap. None performs a new data operation.")
+    result_ids: list[Annotated[str, Field(min_length=1, max_length=180)]] = Field(default_factory=list, max_length=24,
+        description="Saved results supporting this answer. Required for evidence mode. Use supplied IDs; no new execution is claimed.")
+    reason: str = Field(min_length=1, max_length=500,
+        description="Why this request can be answered without a new data operation. For unsupported, identify the missing capability after checking the relevant tool catalogue.")
+
+    @model_validator(mode="after")
+    def evidence_required(self):
+        if self.mode=="evidence" and not self.result_ids:
+            raise ValueError("An evidence answer requires saved result IDs.")
+        return self
+
+
 class Deliver(Input):
     model_config = ConfigDict(json_schema_extra={"oneOf": [
         {"properties": {"merge_path": {"type": "null"}}},
@@ -92,6 +107,7 @@ INPUTS = {
     "read_result": (Read, "Read saved data using JSON Pointer and pagination without executing again. Omit result_id to page result references, selections and pending objects; use selected_next_offset or pending_next_offset for their next page."),
     "remember": (Remember, "Save explicit choices or necessary user outcomes. Use supplied object handles; runtime owns IDs and execution bookkeeping. No simultaneous call is required."),
     "request_input": (Ask, "Ask for indispensable missing input. Empty outcomes and optional follow-ups belong in the final reply. Options accept labels or label/value objects."),
+    "respond_from_context": (ContextAnswer, "Answer a non-execution request from saved evidence, confirmed choices or known capabilities. Never use to skip requested data operations or unfinished goals. Does not claim a new execution or republish old artifacts."),
     "deliver_results": (Deliver, "Finish when the necessary outcomes are satisfied. Call with {}. Runtime selects and combines artifacts; do not construct cards or paths."),
 }
 # Keep the old private models for persisted continuations and in-process callers,
@@ -126,6 +142,9 @@ SYSTEM = (
     "When a question is pending, state remember.continuation as continue or new before or with execution, declaring goals or replacing the question; similar tools do not imply continuation. pending handles belong only to that continuation. "
     "Runtime creates operation IDs, binds calls, preserves receipts and selects artifacts. Never invent calls, operation IDs, resume flags or merge paths. If a tool supplies __qa_goal choices, select the supplied goal it serves; never guess associations by order. "
     "Only runtime MCP receipts prove execution; discovery, memory and saved data alone do not. Reuse receipts for correction/continuation, and execute new requests through MCP. Never drop outstanding goals to pass delivery. "
+    "For interpretation of saved results, acknowledging selections, or a verified capability limitation, use respond_from_context without an unnecessary MCP call. "
+    "Use its evidence mode for external data facts and cite supplied saved result IDs. Check the relevant tool catalogue before declaring a capability unsupported. "
+    "Choose one terminal action per response. Place it after any independent work; respond_from_context cannot accompany a new MCP operation. "
     "The bounded evidence view groups saved results by goal; omitted details remain available through read_result. Distinguish general suggestions from verified resources and unsupported suitability claims. "
     " During tool use, keep planning internal. When the request is satisfied, call deliver_results with no arguments; runtime assembles the final display artifacts, "
     "or request_input if clarification is necessary. A separate tool-free response will answer the user."
@@ -165,14 +184,25 @@ class Dialogue:
         def reject_constant(value):
             raise ValueError("JSON numbers must be finite.")
 
+        def unique_object(pairs):
+            result = {}
+            for key, value in pairs:
+                if key in result:
+                    raise ValueError("JSON object keys must be unique.")
+                result[key] = value
+            return result
+
         # Streaming SDKs may expose partially parsed arguments. Validate the
         # assembled wire JSON before accepting an SDK-repaired object.
         for part in getattr(reply, "tool_call_chunks", ()):
             try:
-                arguments = json.loads(part.get("args") or "", parse_constant=reject_constant)
+                arguments = json.loads(part.get("args") or "", parse_constant=reject_constant,
+                    object_pairs_hook=unique_object)
                 if not isinstance(arguments, dict):
                     raise ValueError("Arguments must be a JSON object.")
-            except (ValueError, TypeError) as exc:
+                # parse_constant does not catch exponent overflow (e.g. 1e999).
+                encode(arguments)
+            except (ValueError, TypeError, RecursionError) as exc:
                 raise QAError("invalid_tool_call", "工具参数必须是完整的JSON对象", 502,
                     detail={"errors": [{"tool": part.get("name"), "message": str(exc)[:200]}]}) from exc
         if reply.invalid_tool_calls:
@@ -186,12 +216,16 @@ class Dialogue:
             ids.add(call["id"])
             if not isinstance(call.get("name"), str) or not call["name"] or not isinstance(call.get("args"), dict):
                 raise QAError("invalid_tool_call", "工具调用必须提供工具名和JSON对象参数", 502)
+            try:
+                encode(call["args"])
+            except (ValueError, TypeError, RecursionError) as exc:
+                raise QAError("invalid_tool_call", "工具参数必须是有限且可序列化的JSON对象", 502) from exc
 
     def budget(self, messages, tools):
         remaining = self.limits.context_chars-len(encode(tools))
         current = next((i for i, message in enumerate(messages) if message.id=="qa-current-request"), 2)
         context = json.loads(messages[1].content)
-        protected = {key: context[key] for key in ("references", "request_source", "request_objects", "pending", "reference_issue", "operations") if context.get(key)}
+        protected = {key: context[key] for key in ("references", "request_source", "request_objects", "pending", "reference_issue", "operations", "response_basis") if context.get(key)}
         required = len(str(messages[0].content))+len(str(messages[current].content))+len(encode(protected))+300
         if required>remaining:
             raise QAError("context_too_large", "输入和工具定义超过上下文预算，请缩小请求")

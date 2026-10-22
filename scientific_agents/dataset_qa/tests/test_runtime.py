@@ -7,11 +7,11 @@ from langchain_core.messages import AIMessageChunk, ToolMessage
 import pytest
 from sqlalchemy import update
 
-from .contracts import Limits, Server
-from .dialogue import Dialogue as NativeDialogue
-from .mcp import MCPGateway
-from .persistence import dumps
-from .service import DatasetQA
+from ..contracts import Limits, Server
+from ..dialogue import Dialogue as NativeDialogue
+from ..mcp import MCPGateway
+from ..persistence import dumps
+from ..service import DatasetQA
 from .test_dataset_qa import Backend, Dialogue, action, collect, engine, load, remote, result_cards, session, with_operations
 from .test_delivery import deliver
 
@@ -84,17 +84,20 @@ def test_single_result_fallback_needs_no_selection_request(engine):
     asyncio.run(run())
 
 
-def test_multiple_results_are_not_arbitrarily_selected_or_reexecuted(engine):
+def test_multiple_required_results_are_delivered_without_reexecuting_mcp(engine):
     async def run():
         backend = Backend()
         dialogue = RawDialogue(load(), remote("search"), remote("preview", reference="a"),
-            *[AIMessageChunk(content="INTERNAL") for _ in range(3)], AIMessageChunk(content="Delivery was not completed."))
+            AIMessageChunk(content="INTERNAL"), AIMessageChunk(content="Both requested results are available."))
         service = DatasetQA(engine, dialogue, backend.gateway())
         sid = session(service)
         values = await collect(service, sid)
-        assert values[-1]["status"]=="FAILED" and values[-1]["code"]=="invalid_delivery"
-        assert not result_cards(values) and len(backend.calls)==2 and len(dialogue.inputs)==6
-        assert len(service.store.results("alice", sid, values[-1]["task_id"]))==2
+        assert values[-1]["status"]=="COMPLETED"
+        cards = result_cards(values)
+        assert len(cards)==2 and len(backend.calls)==2 and len(dialogue.inputs)==5
+        saved = service.store.results("alice", sid, values[-1]["task_id"])
+        assert {card["result_id"] for card in cards}=={card["result_id"] for card in saved}
+        assert "".join(v["text"] for v in values if v["type"]=="message")=="Both requested results are available."
         await service.close()
     asyncio.run(run())
 

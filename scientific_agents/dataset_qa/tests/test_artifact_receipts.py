@@ -3,10 +3,10 @@ from copy import deepcopy
 
 import pytest
 
-from .context import public_result
-from .contracts import QAError
-from .operations import Operation, Operations
-from .results import collection_paths, combine_results
+from ..context import public_result
+from ..contracts import QAError
+from ..operations import Operation, Operations
+from ..results import collection_paths, combine_results
 
 
 def ledger(*keys):

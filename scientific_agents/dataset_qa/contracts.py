@@ -18,6 +18,7 @@ class Limits:
     max_tools: int = 8
     max_rounds: int = 12
     max_calls: int = 24
+    max_parallel_reads: int = 4
     max_stalled_calls: int = 2
     max_corrections: int = 2
     transport_retries: int = 1

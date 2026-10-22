@@ -10,14 +10,14 @@ from pydantic import ValidationError
 import pytest
 from sqlalchemy import insert, update
 
-from .contracts import Options, QAError
-from .context import public_result
-from .dialogue import BUILTINS, Deliver
-from .persistence import dumps
-from .results import combine_results
-from .service import DatasetQA
+from ..contracts import Options, QAError
+from ..context import public_result
+from ..dialogue import BUILTINS, Deliver
+from ..persistence import dumps
+from ..results import combine_results
+from ..service import DatasetQA
 from .test_dataset_qa import Backend, Dialogue, action, collect, engine, load, remote, result_cards, session, with_operations
-from ..unified.adapters.dataset_qa import DatasetQAAdapter
+from ...unified.adapters.dataset_qa import DatasetQAAdapter
 
 
 def deliver(indices=None, **arguments):
@@ -125,20 +125,21 @@ def test_one_selected_artifact_is_delivered_without_extra_model_or_mcp_calls(eng
     asyncio.run(run())
 
 
-def test_invalid_multiple_selection_recovers_without_reexecuting_mcp(engine):
+def test_multiple_selection_keeps_independent_artifacts_without_reexecuting_mcp(engine):
     async def run():
         backend = Backend()
         dialogue = Dialogue(load(), remote("search"), remote("preview", reference="b"),
-            deliver(), deliver([0]), AIMessageChunk(content="已取得结果。"))
+            deliver(), AIMessageChunk(content="已取得结果。"))
         service = DatasetQA(engine, dialogue, backend.gateway())
         sid = session(service)
         values = await collect(service, sid)
         assert values[-1]["status"]=="COMPLETED" and len(backend.calls)==2
         cards = service.store.results("alice", sid, values[-1]["task_id"])
-        assert len(cards)==2 and result_cards(values)==[public_result(cards[0])]
+        assert len(cards)==2 and result_cards(values)==[public_result(card) for card in cards]
         feedback = next(json.loads(m.content) for m in dialogue.inputs[4][0]
             if isinstance(m, ToolMessage) and m.name=="deliver_results")
-        assert feedback["error"]=="invalid_delivery" and feedback["executed"] is False
+        assert feedback["result_ids"]==[card["result_id"] for card in cards]
+        assert len(dialogue.inputs)==5
     asyncio.run(run())
 
 

@@ -33,6 +33,8 @@ class Execution:
 
     def actions(self, loaded):
         names = {"read_result", "remember", "request_input"}
+        if not self.operations.items and not self.cards and not self.failures:
+            names.add("respond_from_context")
         if not (self.finalizing and all(item.get("direct") and item["output"]=="result" for item in self.operations.required)) or self.recovering:
             names.update(("list_mcp_servers", "load_mcp_tools", *loaded))
         if self.can_deliver:
@@ -86,6 +88,7 @@ class Execution:
             "tool_failed": "所需服务暂时未能完成本次请求。",
             "execution_unknown": "服务尚未返回可确认的结果，为避免重复处理，暂不继续尝试。",
             "model_timeout": "生成答复的等待时间较长，暂时无法完成，请稍后重试。",
+            "empty_response": "已取得服务信息，但本次答复未能生成。请重试刚才的问题。",
             "service_unavailable": "服务暂不可用，请稍后重试。",
             "invalid_mcp_config": "服务配置暂不可用，需要管理员核对后再试。",
             "invalid_schema": "所需服务的能力定义暂不可用，需要管理员核对后再试。",

@@ -7,13 +7,13 @@ from types import SimpleNamespace
 from langchain_core.messages import AIMessageChunk, ToolMessage
 import pytest
 
-from .context import encode, project, public_result
-from .contracts import Limits, Options, QAError, Server
-from .mcp import MCPGateway
-from .results import ToolResult, evidence
-from .service import DatasetQA
+from ..context import encode, project, public_result
+from ..contracts import Limits, Options, QAError, Server
+from ..mcp import MCPGateway
+from ..results import ToolResult, evidence
+from ..service import DatasetQA
 from .test_dataset_qa import Backend, Dialogue, action, collect, engine, load, remote, result_cards, session
-from ..unified.adapters.dataset_qa import DatasetQAAdapter
+from ...unified.adapters.dataset_qa import DatasetQAAdapter
 
 
 @pytest.mark.parametrize("hints,expected_calls", [
