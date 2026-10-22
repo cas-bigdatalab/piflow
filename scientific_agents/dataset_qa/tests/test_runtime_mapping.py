@@ -211,20 +211,22 @@ def test_failed_variant_preserves_success_without_claiming_full_completion(engin
     asyncio.run(run())
 
 
-def test_query_changes_without_new_rows_stop_without_confirming_an_undeclared_goal(engine):
+def test_unplanned_query_changes_stop_without_confirming_an_undeclared_goal(engine):
     async def run():
         backend = configured()
         backend.catalog["data"][0].annotations = {"readOnlyHint": True, "idempotentHint": True}
         dialogue = BareDialogue(load(), remote("search", query="one"), remote("search", query="two"),
-            remote("search", query="three"), text("These are the available resources."))
+            remote("search", query="three"), remote("search", query="four"))
         service = DatasetQA(engine, dialogue, backend.gateway())
         try:
             sid = session(service)
             values = await collect(service, sid, "Find related resources")
-            assert values[-1]["status"]=="FAILED" and values[-1]["code"]=="no_progress" and len(backend.calls)==3
-            assert len(dialogue.inputs)==5 and dialogue.inputs[-1][1]==[]
+            assert values[-1]["status"]=="FAILED" and values[-1]["code"]=="invalid_parameters" and len(backend.calls)==1
+            assert len(dialogue.inputs)==5
+            feedback = [json.loads(message.content) for message in dialogue.inputs[-1][0] if isinstance(message, ToolMessage)]
+            assert any(value.get("detail", {}).get("decision")=="confirm_outcome" for value in feedback)
             assert not result_cards(values)
-            assert len(service.store.results("alice", sid))==3  # Evidence is retained, without guessing task completion.
+            assert len(service.store.results("alice", sid))==1  # Evidence is retained, without guessing task completion.
         finally:
             await service.close()
     asyncio.run(run())

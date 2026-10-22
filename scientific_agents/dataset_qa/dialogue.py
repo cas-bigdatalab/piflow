@@ -104,11 +104,11 @@ class Deliver(Input):
 INPUTS = {
     "list_mcp_servers": (Browse, "Browse beyond the supplied service directory; filter or paginate as needed."),
     "load_mcp_tools": (Load, "Load schemas from one relevant service for the next response; filter or paginate as needed."),
-    "read_result": (Read, "Read saved data using JSON Pointer and pagination without executing again. Omit result_id to page result references, selections and pending objects; use selected_next_offset or pending_next_offset for their next page."),
+    "read_result": (Read, "Read specific saved evidence needed for the current decision using JSON Pointer and pagination, without executing again. Truncated previews alone do not require reading every field or page. Omit result_id to page result references, selections and pending objects; use selected_next_offset or pending_next_offset for their next page."),
     "remember": (Remember, "Save explicit choices or necessary user outcomes. Use supplied object handles; runtime owns IDs and execution bookkeeping. No simultaneous call is required."),
     "request_input": (Ask, "Ask for indispensable missing input. Empty outcomes and optional follow-ups belong in the final reply. Options accept labels or label/value objects."),
     "respond_from_context": (ContextAnswer, "Answer a non-execution request from saved evidence, confirmed choices or known capabilities. Never use to skip requested data operations or unfinished goals. Does not claim a new execution or republish old artifacts."),
-    "deliver_results": (Deliver, "Finish when the necessary outcomes are satisfied. Call with {}. Runtime selects and combines artifacts; do not construct cards or paths."),
+    "deliver_results": (Deliver, "Finish when the necessary outcomes are satisfied, including a sufficient initial set of retrieval candidates. Call with {}. Runtime selects and combines saved artifacts, including details omitted from model previews; do not construct cards or paths. A large retrieval total does not require exhaustive pagination unless the user requested it."),
 }
 # Keep the old private models for persisted continuations and in-process callers,
 # but do not ask a new model to generate runtime IDs, receipts or merge paths.
@@ -138,6 +138,11 @@ SYSTEM = (
     "A single artifact goal may accompany its MCP action so runtime can finish directly; emitting them separately is also valid. "
     "Query variants and pages support the same outcome, not separate goals. Independently requested outcomes remain separate. Goals persist; add new ones only when necessary. "
     "A valid native MCP call may execute without a memory call. Set __qa_supporting only for auxiliary lookups, which cannot satisfy a requested outcome. "
+    "An operation marked delivery_pending has no confirmed delivery role; it was not declared an auxiliary lookup. Consult its execution state and result_ids, review any saved evidence against the current request, and decide whether to deliver it or what indispensable evidence is still missing. "
+    "execution_decision describes the current review or finish phase and remaining budget. In review, assess saved evidence before expanding work; in finish, accurately deliver completed outcomes or identify indispensable missing input rather than starting optional exploration. "
+    "After successful retrieval, review the existing candidates before another search. For an initial discovery request, a useful bounded candidate set can satisfy the request; do not enumerate the entire catalogue. "
+    "A truncated preview means saved details were omitted from the model view, not that the tool failed or its saved artifact is incomplete. Read a specific omitted field only when it is needed to assess the request, resolve a reference or perform the next operation. "
+    "Use another query or page when the current results leave a specific user requirement unmet; a large pagination total or truncated flag alone is not such a requirement. "
     "For a research or advisory request, identify the information needed to answer it and retrieve supporting resources; do not treat the entire request as an exact resource name or as an instruction to execute the research itself. "
     "When a question is pending, state remember.continuation as continue or new before or with execution, declaring goals or replacing the question; similar tools do not imply continuation. pending handles belong only to that continuation. "
     "Runtime creates operation IDs, binds calls, preserves receipts and selects artifacts. Never invent calls, operation IDs, resume flags or merge paths. If a tool supplies __qa_goal choices, select the supplied goal it serves; never guess associations by order. "
@@ -146,6 +151,8 @@ SYSTEM = (
     "Use its evidence mode for external data facts and cite supplied saved result IDs. Check the relevant tool catalogue before declaring a capability unsupported. "
     "Choose one terminal action per response. Place it after any independent work; respond_from_context cannot accompany a new MCP operation. "
     "The bounded evidence view groups saved results by goal; omitted details remain available through read_result. Distinguish general suggestions from verified resources and unsupported suitability claims. "
+    "A retrieval hit is a candidate, not verified relevance or suitability. Describe an object's purpose, author affiliation, subject coverage or fitness only when returned descriptive fields support it; do not infer these facts from its title or identifier. State when descriptions or suitability evidence are unavailable. "
+    "Each retrieval total belongs to its original query and upstream filters. It is not a count of verified relevant resources, and does not establish which fields or keyword matching rules the upstream service used. "
     " During tool use, keep planning internal. When the request is satisfied, call deliver_results with no arguments; runtime assembles the final display artifacts, "
     "or request_input if clarification is necessary. A separate tool-free response will answer the user."
 )
@@ -225,7 +232,7 @@ class Dialogue:
         remaining = self.limits.context_chars-len(encode(tools))
         current = next((i for i, message in enumerate(messages) if message.id=="qa-current-request"), 2)
         context = json.loads(messages[1].content)
-        protected = {key: context[key] for key in ("references", "request_source", "request_objects", "pending", "reference_issue", "operations", "response_basis") if context.get(key)}
+        protected = {key: context[key] for key in ("references", "request_source", "request_objects", "pending", "reference_issue", "operations", "response_basis", "execution_decision") if context.get(key)}
         required = len(str(messages[0].content))+len(str(messages[current].content))+len(encode(protected))+300
         if required>remaining:
             raise QAError("context_too_large", "输入和工具定义超过上下文预算，请缩小请求")

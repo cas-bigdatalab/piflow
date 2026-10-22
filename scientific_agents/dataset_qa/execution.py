@@ -100,6 +100,9 @@ class Execution:
             "step_limit": "这次处理步骤较多，暂时无法完成全部请求，已停止继续尝试。",
             "task_timeout": "本次等待已达到上限，暂时无法提供完整结果。",
         }.get(error.code, "本次处理遇到了问题，暂时无法提供完整结果，请稍后重试。")
+        if (error.code=="invalid_parameters" and isinstance(error.detail, dict)
+                and error.detail.get("decision")=="confirm_outcome"):
+            message = "已取得候选信息，但尚未确定是否满足完整请求，已停止继续扩展查询。您可以明确是查看候选、进一步筛选，还是对选定数据进行操作。"
         if error.code=="task_timeout" and error.detail=={"phase": "queue"}:
             message = "等待可用处理资源的时间较长，本次尚未开始执行，请稍后重试。"
         if error.code=="tool_failed" and isinstance(error.detail, list):

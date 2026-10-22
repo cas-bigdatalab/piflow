@@ -206,7 +206,10 @@ class Operations:
             if item.get("capability"):
                 row["capability"] = item["capability"]
             if not item.get("required", True):
-                row["supporting"] = True
+                # A native action without an explicit goal still needs a
+                # delivery decision. It was not declared an auxiliary lookup.
+                # Keep the execution state unchanged until that decision.
+                row["delivery_pending" if item.get("inferred") else "supporting"] = True
             if item.get("direct"):
                 row["direct"] = True
             ids = self.result_ids(item)

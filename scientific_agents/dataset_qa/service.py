@@ -610,6 +610,9 @@ class DatasetQA:
         await self._write(user, sid, tid, card=card if created else None, payload=payload)
         execution.cards[marker] = card
         execution.failures.pop(operation_id or key, None)
+        operation = execution.operations.get(operation_id) or {}
+        log.info("Outcome recorded: task=%s operation=%s result=%s signature=%s required=%s inferred=%s",
+            tid, operation_id, card["result_id"], key[:12], operation.get("required", True), operation.get("inferred", False))
         return card, created
 
     async def _parallel_reads(self, user, sid, tid, calls, bindings, tools, execution, payload, first_result, phase, waiting):
@@ -692,7 +695,7 @@ class DatasetQA:
         if not item.get("direct") or item["output"]!="result" or len(ids)!=1:
             return False
         card = next((card for card in execution.cards.values() if card["result_id"]==ids[0]), None)
-        if card is None or self._evidence(card).get("truncated"):
+        if card is None:
             return False
         current = context.get("references", {}).get("current")
         if item.get("target"):
@@ -935,6 +938,22 @@ class DatasetQA:
                         raise QAError("invalid_parameters", "请从已有结果选择对象，不能使用无来源的标识")
                 tools.validate(call["name"], prepared)
                 if not legacy:
+                    # A native call may discover evidence before the model has
+                    # stated the intended outcome. A new query for the same
+                    # unconfirmed scope needs that semantic decision first;
+                    # changing arguments alone is not a reason to keep exploring.
+                    # Keep the definition available so goals and refinement can
+                    # be co-emitted. Exact receipt replays still need no dispatch.
+                    if not execution.operations.required:
+                        invocation = fingerprint([tool.server, tool.name, prepared])
+                        for previous in execution.operations.items:
+                            if (previous.get("inferred") and previous.get("capability")==capability
+                                    and execution.operations.result_ids(previous)
+                                    and await same_target(tool, previous.get("target"), target)
+                                    and not execution.operations.receipt(invocation, previous["id"])):
+                                raise QAError("invalid_parameters", "已有此目标的检索或操作结果；请先判断是否可交付，继续扩展前需明确尚未满足的目标", detail={
+                                    "decision": "confirm_outcome", "result_ids": execution.operations.result_ids(previous),
+                                    "guidance": "Call deliver_results if the saved evidence satisfies the request. Otherwise declare the missing semantic outcome with remember.goals; it may accompany the next native call. Read only specific missing evidence, not every page or truncated field."})
                     matches = [item for item in goals if await same_target(tool, item.get("target"), target)]
                     unbound = [item for item in goals if item.get("target") is None and item["state"]=="pending"
                         and not any(attempt["state"]!="rejected" for attempt in item["attempts"])]
@@ -1141,6 +1160,9 @@ class DatasetQA:
             "Use answer_evidence for supporting facts; delivery_manifest identifies displayed artifacts, while final_delivery contains bounded previews. "
             "A delivery_next_offset means more artifacts were delivered than fit this view; never describe omitted previews as missing outputs. "
             "Retrieval totals may overlap: do not add them or infer coverage or suitability without evidence. "
+            "Each retrieval total belongs only to its original query and upstream filters; it is not a count of verified relevant resources or proof of keyword matching semantics. "
+            "A retrieval hit is a candidate, not verified suitability. Describe purpose, author affiliation, domain or suitability only when returned descriptive fields support it; titles and identifiers alone do not establish those facts. "
+            "If descriptions are missing, state that suitability is unverified and offer focused detail inspection. Keep the reply concise and avoid repeating entire cards. "
             "When naming an object from returned data, use that object's own non-empty title field verbatim. "
             "Do not substitute identifiers, source/provider labels, or enclosing card titles for object names. "
             "If its title is absent or empty, state that the name was not provided and distinguish it using "
@@ -1167,6 +1189,7 @@ class DatasetQA:
             context["operations"] = operations.view()
         context.pop("evidence", None)
         context.pop("mcp_servers", None)
+        context.pop("execution_decision", None)
         history = []
         for message in messages[2:]:
             if isinstance(message, ToolMessage):
@@ -1243,13 +1266,18 @@ class DatasetQA:
                     model_context["mcp_servers"] = tools.list_servers(payload["message"])
                     messages = self.dialogue.messages(payload["message"], model_context)
                     evidence_ids = ()
-                    evidence_cards = {}
-                    for _ in range(limits.max_rounds):
+                    for round_index in range(limits.max_rounds):
                         if execution.calls>=limits.max_calls and not execution.can_deliver:
                             reason = QAError("step_limit", "工具调用达到本轮预算，请缩小请求范围")
                             break
                         rejection = None
                         actions = execution.actions(tools.loaded)
+                        closing = (round_index==limits.max_rounds-1 and bool(execution.cards)
+                            and (not execution.operations.required or execution.finalizing))
+                        if closing:
+                            # Reserve the remaining decision for truthful closure,
+                            # rather than starting another upstream exploration.
+                            actions &= {"deliver_results", "remember", "request_input", "respond_from_context"}
                         definitions = self._definitions([definition for definition in [*BUILTINS, *tools.definitions()]
                             if definition["function"]["name"] in actions], tools, execution)
                         advertised = {value["function"]["name"] for value in definitions}
@@ -1258,12 +1286,25 @@ class DatasetQA:
                         updated = json.loads(messages[1].content)
                         if execution.operations.items:
                             updated["operations"] = execution.operations.view()
+                        unconfirmed = [item for item in execution.operations.items
+                            if item.get("inferred") and not item.get("required", True) and execution.operations.result_ids(item)]
+                        if closing or (unconfirmed and not execution.operations.required):
+                            updated["execution_decision"] = {
+                                "phase": "finish" if closing else "review",
+                                "remaining_rounds": limits.max_rounds-round_index,
+                                "remaining_calls": max(0, limits.max_calls-execution.calls),
+                                "result_ids": list(dict.fromkeys(rid for item in unconfirmed for rid in execution.operations.result_ids(item))),
+                                "guidance": ("This is the final decision round. Deliver evidence if it satisfies the request; otherwise record the genuinely unfinished goals or ask only for indispensable missing user input. Do not claim a prerequisite completed the whole request."
+                                    if closing else "Saved results are available but the requested outcome is not yet confirmed. Decide whether to deliver them. Before another query for the same outcome, declare the missing goal with remember.goals, optionally alongside that call. A truncated preview or a large retrieval total does not require reading or fetching every record.")}
+                            log.info("Decision checkpoint: task=%s round=%s phase=%s unconfirmed=%s",
+                                tid, round_index+1, updated["execution_decision"]["phase"], len(unconfirmed))
+                        else:
+                            updated.pop("execution_decision", None)
                         current_ids = tuple(card["result_id"] for card in execution.cards.values())
                         if current_ids!=evidence_ids:
-                            for card in execution.cards.values():
-                                if card["result_id"] not in evidence_cards:
-                                    evidence_cards[card["result_id"]] = self._evidence(card)
-                            updated["evidence"] = evidence_group([evidence_cards[rid] for rid in dict.fromkeys(current_ids)], execution.operations, limits.result_chars)
+                            # Project once from immutable full artifacts. Reusing
+                            # a projected preview here irreversibly loses fields.
+                            updated["evidence"] = evidence_group(execution.cards.values(), execution.operations, limits.result_chars)
                             evidence_ids = current_ids
                         if payload.get("resume") is not None:
                             updated.pop("pending", None)
@@ -1487,7 +1528,6 @@ class DatasetQA:
                                     updated.pop("reference_issue", None)
                                     messages[1] = HumanMessage(encode(updated))
                                 await self._write(user, sid, tid, context=context)
-                                evidence_cards[value["result_id"]] = value
                             if interaction:
                                 answer["text"] = (answer["text"]+"\n"+interaction["question"]).strip()
                                 await asyncio.to_thread(self.store.finish, user, sid, tid, "WAITING_INPUT",

@@ -11,7 +11,7 @@ from ..contracts import Limits, Options
 from ..dialogue import Read
 from ..service import DatasetQA
 from .test_dataset_qa import action, collect, engine, load, remote, result_cards, session
-from .test_decisions import BareDialogue, configured, payload, text
+from .test_decisions import BareDialogue, configured, for_goal, goals, payload, text
 from .test_references import state, stored
 
 
@@ -209,7 +209,9 @@ def test_multiple_delivered_lists_preserve_every_source_without_an_arbitrary_can
                 return remote("search", query=prefix)(messages, definitions)
             return response
 
-        dialogue.responses = [load(), search("climate"), search("ecology"), action("deliver_results"), text()]
+        dialogue.responses = [load(), goals({"description": "Climate resources", "tool": "search"},
+            {"description": "Ecology resources", "tool": "search"}),
+            for_goal("Climate resources", search("climate")), for_goal("Ecology resources", search("ecology")), text()]
         try:
             values = await collect(service, sid, "分别检索并展示两个领域", "two-lists")
             assert values[-1]["status"]=="COMPLETED"
