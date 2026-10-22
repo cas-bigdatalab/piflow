@@ -32,8 +32,8 @@ def test_repeated_calls_converge_and_keep_one_card(engine, hints, expected_calls
         values = await collect(service, sid)
         assert len(backend.calls)==expected_calls
         assert sum(v["type"]=="result" for v in values)==1
-        assert values[-1]["status"]=="FAILED"
-        assert values[-1]["code"]=="no_progress"
+        assert values[-1]["status"]=="COMPLETED"
+        assert "code" not in values[-1]  # No-gain closure does not invalidate completed goals.
         assert dialogue.inputs[-1][1]==[]
         assert "已取得两个数据集" in "".join(v["text"] for v in values if v["type"]=="message")
         assert sum(v.get("stage")=="execute" for v in values)==1
@@ -72,9 +72,20 @@ def test_pagination_and_changed_parameters_are_not_duplicates(engine):
         backend = Backend()
         backend.catalog["data"][0].inputSchema["properties"]["offset"] = {"type": "integer"}
         backend.catalog["data"][0].annotations = {"readOnlyHint": True, "idempotentHint": True}
+        original = backend.client
+        def factory(*args, **kwargs):
+            client = original(*args, **kwargs)
+            call = client.call_tool
+            async def execute(name, arguments, **options):
+                backend.items = [{"id": str(arguments.get("offset", arguments.get("query"))), "title": "New evidence"}]
+                return await call(name, arguments, **options)
+            client.call_tool = execute
+            return client
+        gateway = backend.gateway()
+        gateway.client_factory = factory
         dialogue = Dialogue(load(), *[remote("search", offset=i) for i in range(4)],
             remote("search", query="另一领域"))
-        service = DatasetQA(engine, dialogue, backend.gateway())
+        service = DatasetQA(engine, dialogue, gateway)
         sid = session(service)
         values = await collect(service, sid)
         assert values[-1]["status"]=="COMPLETED"

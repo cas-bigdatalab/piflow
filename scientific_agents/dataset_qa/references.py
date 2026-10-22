@@ -1,5 +1,6 @@
 """Small, source-checked conversation references; never a business object catalogue."""
 from copy import deepcopy
+import re
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -124,6 +125,95 @@ def compact_record(value, limit):
     return result
 
 
+def pending_objects(payload, limit=32):
+    """Restore only a waiting task's relevant objects in a distinct namespace.
+
+    Source ownership is checked by the store before these references are used.
+    A task with an unresolved target may also need its intermediate candidates;
+    already bound targets do not pull the entire prior tool history into view.
+    """
+    if limit<=0:
+        return {}
+    goals = [item for item in payload.get("operations", [])
+        if item.get("required", True) and item.get("state")!="succeeded"]
+    references = [item["target"] for item in goals if item.get("target")]
+    if any(not item.get("target") for item in goals):
+        # Stored JSON may sort object:10 before object:2. Restore the runtime
+        # ordinal, rather than letting serialization change a handle's meaning.
+        for mapping in (payload.get("objects", {}), payload.get("pending_objects", {})):
+            references.extend(mapping[handle] for handle in sorted(mapping, key=handle_order))
+    result, seen = {}, set()
+    for value in references:
+        reference = Reference.model_validate(value).model_dump(mode="json")
+        identity = (reference["result_id"], reference["path"], reference["kind"])
+        if identity not in seen:
+            result["pending:"+str(len(result)+1)] = reference
+            seen.add(identity)
+        if len(result)>=limit:
+            break
+    return result
+
+
+def handle_order(handle):
+    prefix, _, suffix = handle.rpartition(":")
+    return prefix, int(suffix) if suffix.isdigit() else 0, handle
+
+
+def scoped_preview(handles, cards, limit=1800):
+    """Project scoped object handles without copying source bodies or paths."""
+    result = {"items": [], "total": len(handles)}
+    for handle, ref in handles.items():
+        if ref["result_id"] not in cards:
+            raise QAError("result_not_found", "对象引用不属于当前会话", 404)
+        value = at_path(cards[ref["result_id"]].get("data"), ref.get("path", ""))
+        if not isinstance(value, dict):
+            raise QAError("invalid_parameters", "对象引用须指向完整记录")
+        row = {"handle": handle, "value": compact_record(value, min(400, max(0, limit//3)))}
+        candidate = {**result, "items": [*result["items"], row]}
+        if len(encode(candidate))+40>limit:
+            break
+        result = candidate
+    if len(result["items"])<len(handles):
+        result["next_offset"] = len(result["items"])
+    return result
+
+
+def identifier_in_request(value, message, field=""):
+    """Check a complete input identity, never an arbitrary word substring.
+
+    This proves lexical provenance, not user intent. The semantic decision must
+    still distinguish an identifier from a year, quantity or ordinal.
+    """
+    if isinstance(value, bool) or not isinstance(value, (str, int)):
+        return False
+    token = str(value)
+    if not token or token!=token.strip():
+        return False
+    # Known field labels are evidence of an assignment even without whitespace.
+    if field:
+        labelled = re.compile(r"(?<![A-Za-z0-9_])"+re.escape(field)+r"\s*[=:：]\s*[\"']?"+re.escape(token), re.IGNORECASE)
+        for match in labelled.finditer(message):
+            if match.end()==len(message) or not _identity_character(message[match.end()], token):
+                return True
+    for match in re.finditer(re.escape(token), message):
+        before = message[match.start()-1] if match.start() else ""
+        after = message[match.end()] if match.end()<len(message) else ""
+        if before and _identity_character(before, token):
+            continue
+        if after and _identity_character(after, token):
+            # A final full stop is sentence punctuation, not an ID suffix.
+            if after!="." or (match.end()+1<len(message) and _identity_character(message[match.end()+1], token)):
+                continue
+        return True
+    return False
+
+
+def _identity_character(character, token):
+    if any(letter.isascii() and letter.isalnum() for letter in token):
+        return character.isascii() and (character.isalnum() or character in "_-./:@%+~")
+    return character.isalnum() or character in "_-./:@%+~"
+
+
 def preview(state, cards, limit=4000):
     """A bounded model view. Full references and artifacts remain persisted."""
     result = {}
@@ -136,12 +226,16 @@ def preview(state, cards, limit=4000):
         for ref in refs if key=="selected" else [refs]:
             value = at_path(cards[ref["result_id"]].get("data"), ref.get("path", ""))
             view = dict(ref)
+            if key=="current":
+                view["handle"] = "current"
+            elif key=="selected":
+                view["handle"] = "selected:"+str(len(views)+1)
             if key=="candidates":
                 view.update(total=len(value), items=[])
                 for index, row in enumerate(value):
                     if not isinstance(row, dict):
                         break
-                    item = {"path": ref.get("path", "")+"/"+str(index), "value": compact_record(row, 480)}
+                    item = {"handle": "candidate:"+str(index+1), "path": ref.get("path", "")+"/"+str(index), "value": compact_record(row, 480)}
                     candidate = {**view, "items": [*view["items"], item]}
                     if len(encode({**result, key: candidate}))+40>content_limit:
                         break

@@ -46,6 +46,7 @@ def test_direct_artifact_uses_no_selection_round_and_preserves_replay(engine, wa
 def test_direct_target_keeps_focus_and_explicit_selection(engine):
     async def run():
         backend = Backend()
+        backend.catalog["data"][3].meta = {"piflow": {"qa": {"bind": {"reference": ["/id"]}}}}
         dialogue = RawDialogue(load(), batch(["find"], remote("search"), operations=[goal("find", direct=True)]),
             AIMessageChunk(content="已找到。"))
         service = DatasetQA(engine, dialogue, backend.gateway())

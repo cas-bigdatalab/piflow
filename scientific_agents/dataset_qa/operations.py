@@ -24,6 +24,58 @@ class Operations:
     def __init__(self, saved=None):
         self.items = deepcopy(saved or [])
 
+    @property
+    def required(self):
+        return [item for item in self.items if item.get("required", True)]
+
+    def register(self, description, capability, target=None, output="result", planned=False, required=True):
+        """Runtime identities follow capability and grounded target, not model IDs."""
+        matches = [item for item in self.items if item.get("capability")==capability
+            and item.get("target")==target and (item["output"]==output or (planned and not item.get("planned")))
+            and (required or not item.get("required", True))]
+        if planned:
+            # A new semantic declaration cannot adopt every receipt of an old
+            # auxiliary capability. Only a matching invocation may reuse it.
+            matches = [item for item in matches if item.get("planned") and item["description"]==description]
+        if matches:
+            item = matches[0]
+            if required:
+                item["required"] = True
+            if planned:
+                item.update(description=description, planned=True, required=True, output=output)
+            return item["id"]
+        if len(self.items)>=16:
+            raise QAError("invalid_parameters", "本轮目标较多，请分批处理")
+        key = "op"+str(len(self.items)+1)
+        while self.get(key):
+            key += "_"
+        self.items.append({"id": key, "description": description[:240], "capability": capability,
+            "target": deepcopy(target), "output": output, "direct": False, "planned": planned,
+            "required": required, "state": "pending", "attempts": []})
+        return key
+
+    def receipt(self, invocation, operation_id):
+        """A semantic bookkeeping correction must not re-execute a receipt.
+
+        Distinct outcomes declared before execution may intentionally repeat a
+        call (for example two independent samples). New bookkeeping alone may not.
+        """
+        operation = self.get(operation_id)
+        for owner in self.items:
+            for attempt in owner["attempts"]:
+                if attempt.get("invocation")!=invocation or attempt["state"]!="succeeded":
+                    continue
+                explicit_repeat = (owner["id"]!=operation_id and operation_id in attempt.get("scope", [])
+                    and owner.get("required", True) and operation is not None and operation.get("required", True))
+                if not explicit_repeat:
+                    return attempt
+
+    def reuse(self, operation_id, key, receipt):
+        item = self.get(operation_id)
+        if item and not any(attempt["key"]==key and attempt["state"]=="succeeded" for attempt in item["attempts"]):
+            item["attempts"].append({**deepcopy(receipt), "key": key, "dispatched": False, "reused": True})
+            item["state"] = "succeeded"
+
     def declare(self, values):
         if values is None:
             return
@@ -55,10 +107,22 @@ class Operations:
             raise QAError("invalid_parameters", "calls引用了尚未登记的操作")
         return bindings
 
-    def start(self, operation_id, key, tool=None, retry_safe=False):
+    def start(self, operation_id, key, tool=None, retry_safe=False, invocation=None, presentation=None):
         item = self.get(operation_id)
         if item is None:
             return
+        if invocation:
+            for owner in self.items:
+                if owner is item:
+                    continue
+                for attempt in owner["attempts"]:
+                    if attempt.get("invocation")==invocation and (attempt["state"] in {"running", "unknown"}
+                            or (attempt["state"]=="failed" and not attempt.get("retry_safe") and attempt.get("error", {}).get("code")!="mcp_unavailable")):
+                        failure = attempt.get("error") or {"code": "execution_unknown", "message": "相同调用的执行结果尚未确认，未重复执行", "status": 504}
+                        item.update(state="unknown" if failure["code"]=="execution_unknown" else "failed")
+                        item["attempts"].append({"key": key, "state": item["state"], "invocation": invocation,
+                            "tool": tool, "retry_safe": retry_safe, "dispatched": False, "error": deepcopy(failure)})
+                        raise QAError(failure["code"], failure["message"], failure["status"], detail=failure.get("detail"))
         if item["state"] in {"running", "unknown"}:
             raise QAError("execution_unknown", "此操作的执行结果尚未确认，未重复执行；请先核实上游状态", 504)
         if item["state"]=="failed":
@@ -67,7 +131,10 @@ class Operations:
             if error.get("code")!="mcp_unavailable" and not previous.get("retry_safe"):
                 raise QAError(error.get("code", "tool_failed"), "此操作已经失败，未重复执行可能产生副作用的操作", 502, detail=error.get("detail"))
         item["state"] = "running"
-        item["attempts"].append({"key": key, "state": "running", "tool": tool, "retry_safe": retry_safe})
+        item["attempts"].append({"key": key, "state": "running", "tool": tool, "retry_safe": retry_safe,
+            "invocation": invocation, "scope": [goal["id"] for goal in self.required]})
+        if presentation is not None:
+            item["attempts"][-1]["presentation"] = deepcopy(presentation)
 
     def finish(self, operation_id, key, *, result_id=None, error=None):
         item = self.get(operation_id)
@@ -96,34 +163,47 @@ class Operations:
         return list(dict.fromkeys(value["result_id"] for value in item["attempts"]
             if value["state"]=="succeeded" and value.get("result_id")))
 
+    def delivery_ids(self, output="result"):
+        """Successful artifacts survive a later attempt's failure or rejection.
+
+        Eligibility is separate from goal completion: ``error`` still reports
+        unfinished work, and supporting receipts never become deliverables.
+        """
+        return list(dict.fromkeys(rid for item in self.required if item["output"]==output
+            for rid in self.result_ids(item)))
+
     def validate_delivery(self, ids, partial=False):
-        if not self.items:
+        if not self.required:
             raise QAError("invalid_delivery", "尚未明确本轮必要操作，不能确定最终交付")
-        owners = {rid for item in self.items if item["state"]=="succeeded" for rid in self.result_ids(item)}
+        owners = {rid for item in self.required for rid in self.result_ids(item)}
         if not set(ids)<=owners:
             raise QAError("invalid_delivery", "交付结果必须来自本轮必要操作的成功证据，不能选择辅助查询或无关历史结果",
-                detail={"unrelated": sorted(set(ids)-owners), "pending": [item["id"] for item in self.items if item["state"]!="succeeded"]})
-        pending = [item for item in self.items if item["state"] in {"pending", "running"}]
-        uncovered = [item for item in self.items if item["state"]=="succeeded" and item["output"]=="result"
+                detail={"unrelated": sorted(set(ids)-owners), "pending": [item["id"] for item in self.required if item["state"]!="succeeded"]})
+        pending = [item for item in self.required if item["state"] in {"pending", "running"}]
+        uncovered = [item for item in self.required if item["state"]=="succeeded" and item["output"]=="result"
             and not set(ids).intersection(self.result_ids(item))]
         if not partial and (pending or uncovered):
             raise QAError("invalid_delivery", "必要操作或交付尚未完成，请继续处理；成功的操作不需要重复执行",
                 detail={"pending": [item["id"] for item in pending], "undelivered": [item["id"] for item in uncovered]})
 
     def error(self, ids=()):
-        for item in self.items:
+        for item in self.required:
             if item["state"] in {"failed", "unknown", "running"}:
                 failure = next((value.get("error") for value in reversed(item["attempts"]) if value.get("error")), None)
                 if failure:
                     return QAError(failure["code"], failure["message"], failure["status"], detail=failure.get("detail"))
                 return QAError("execution_unknown", "部分操作的执行结果尚未确认", 504)
-        if any(item["state"]!="succeeded" or (item["output"]=="result" and not set(ids).intersection(self.result_ids(item))) for item in self.items):
+        if any(item["state"]!="succeeded" or (item["output"]=="result" and not set(ids).intersection(self.result_ids(item))) for item in self.required):
             return QAError("invalid_delivery", "本轮必要操作或结果交付尚未全部完成")
 
     def view(self, offset=0, limit=16, budget=3600):
         rows = []
         for item in self.items[offset:offset+limit]:
             row = {key: item[key] for key in ("id", "description", "target", "output", "state")}
+            if item.get("capability"):
+                row["capability"] = item["capability"]
+            if not item.get("required", True):
+                row["supporting"] = True
             if item.get("direct"):
                 row["direct"] = True
             ids = self.result_ids(item)
@@ -142,14 +222,19 @@ class Operations:
         return result
 
     def notice(self, ids):
-        done, unfinished = [], []
-        for item in self.items:
+        done, partial, unfinished = [], [], []
+        for item in self.required:
             delivered = item["output"]=="answer" or bool(set(ids).intersection(self.result_ids(item)))
             if item["state"]=="succeeded" and delivered:
                 done.append(item["description"])
+            elif self.result_ids(item) and delivered:
+                partial.append(item["description"]+"（尚有内容未完成）")
             else:
-                suffix = "（信息已取得，暂未整理为展示结果）" if item["state"]=="succeeded" else "（结果尚未确认）" if item["state"] in {"running", "unknown"} else ""
+                suffix = ("（信息已取得，暂未整理为展示结果）" if item["state"]=="succeeded" else
+                    "（已取得部分信息，暂未整理为展示结果）" if self.result_ids(item) else
+                    "（结果尚未确认）" if item["state"] in {"running", "unknown"} else "")
                 unfinished.append(item["description"]+suffix)
-        if not unfinished:
+        if not unfinished and not partial:
             return ""
-        return "\n".join(label+"；".join(values)+"。" for label, values in (("已为您完成：", done), ("暂时还无法提供：", unfinished)) if values)
+        return "\n".join(label+"；".join(values)+"。" for label, values in (
+            ("已为您完成：", done), ("已取得部分信息：", partial), ("暂时还无法提供：", unfinished)) if values)

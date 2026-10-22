@@ -140,40 +140,78 @@ def evidence_group(cards, operations, limit):
 
 
 def collection_paths(cards, operations):
-    """Infer only compatible object lists backed by the same safe tool and target."""
-    origins, targets, paths, keys = set(), set(), {}, []
+    """Combine proven homogeneous artifacts; declarations may span targets.
+
+    Old receipts retain their conservative surface-list rules. A runtime
+    presentation descriptor can additionally prove an object surface and a
+    shared family without using incidental field names as a type classifier.
+    """
+    origins, targets, paths, keys, families, kinds = set(), set(), {}, [], set(), set()
+    declared = True
     if len({card.get("view_type") for card in cards})!=1:
         raise QAError("invalid_delivery", "不同展示类型不能合并为一个结果")
     for card in cards:
-        surface = display_list(card)
-        if surface is None:
-            raise QAError("invalid_delivery", "结果不是可识别的同类对象列表，请选择直接满足目标的产物")
-        rows = at_path(card.get("data"), surface["path"])
-        if any(not isinstance(row, dict) for row in rows):
-            raise QAError("invalid_delivery", "自动汇总仅支持对象列表，其他产物须明确选择")
-        keys.extend(tuple(sorted(row)) for row in rows if row)
-        paths[card["result_id"]] = surface["path"]
         receipts = [(item, attempt) for item in operations.items for attempt in item["attempts"]
             if attempt.get("result_id")==card["result_id"] and attempt["state"]=="succeeded"]
         if not receipts:
             raise QAError("invalid_delivery", "自动汇总缺少结果的执行来源")
+        descriptors = []
         for item, attempt in receipts:
             tool = attempt.get("tool") or {}
             if not attempt.get("retry_safe") or not tool.get("server") or not tool.get("name"):
                 raise QAError("invalid_delivery", "该工具未声明只读且幂等，请明确选择需要交付的产物")
             origins.add((tool["server"], tool["name"]))
             targets.add(encode(item.get("target")))
-    if len(origins)!=1 or len(targets)!=1 or len(set(keys))>1:
+            descriptor = attempt.get("presentation")
+            if descriptor is None:
+                declared = False
+            else:
+                if (not isinstance(descriptor, dict) or not isinstance(descriptor.get("family"), str)
+                        or not descriptor["family"] or descriptor.get("kind") not in {"object", "collection"}
+                        or not isinstance(descriptor.get("path"), str)):
+                    raise QAError("invalid_delivery", "结果的展示来源定义无效，不能自动合并")
+                descriptors.append(descriptor)
+                families.add(descriptor["family"])
+                kinds.add(descriptor["kind"])
+        if descriptors and (len(descriptors)!=len(receipts) or any(value!=descriptors[0] for value in descriptors[1:])):
+            raise QAError("invalid_delivery", "结果的展示来源定义不一致，不能自动合并")
+        if descriptors:
+            descriptor = descriptors[0]
+            try:
+                value = at_path(card.get("data"), descriptor["path"])
+            except QAError as exc:
+                raise QAError("invalid_delivery", "返回内容不符合声明的展示结构，不能自动合并") from exc
+            rows = [value] if descriptor["kind"]=="object" else value
+            paths[card["result_id"]] = ({"path": descriptor["path"], "kind": "object"}
+                if descriptor["kind"]=="object" else descriptor["path"])
+        else:
+            surface = display_list(card)
+            if surface is None:
+                raise QAError("invalid_delivery", "结果不是可识别的同类对象列表，请选择直接满足目标的产物")
+            rows = at_path(card.get("data"), surface["path"])
+            paths[card["result_id"]] = surface["path"]
+        if not isinstance(rows, list) or any(not isinstance(row, dict) for row in rows):
+            raise QAError("invalid_delivery", "自动汇总仅支持对象或对象列表，其他产物须明确选择")
+        keys.extend(tuple(sorted(row)) for row in rows if row)
+    if (len(origins)!=1 or (declared and (len(families)!=1 or len(kinds)!=1))
+            or (not declared and (len(targets)!=1 or len(set(keys))>1
+                or any(isinstance(path, dict) for path in paths.values())))):
         raise QAError("invalid_delivery", "结果的来源、目标或记录结构不兼容，不能自动合并")
     return paths
 
 
 def combine_results(cards, path, result_id, title):
-    """Combine explicitly selected arrays without inventing rows or pagination totals."""
+    """Project saved arrays/declared objects without inventing rows or totals."""
     rows, content, seen, media = [], [], set(), set()
     for card in cards:
         pointer = path[card["result_id"]] if isinstance(path, dict) else path
-        value, _ = slice_result(card.get("data"), pointer, 0, len(encode(card)))
+        if isinstance(pointer, dict) and pointer.get("kind")=="object" and isinstance(pointer.get("path"), str):
+            value = at_path(card.get("data"), pointer["path"])
+            if not isinstance(value, dict):
+                raise QAError("invalid_delivery", "声明的对象位置必须指向完整对象")
+            value = [value]
+        else:
+            value, _ = slice_result(card.get("data"), pointer, 0, len(encode(card)))
         if not isinstance(value, list):
             raise QAError("invalid_delivery", "合并位置必须指向数组")
         for row in value:

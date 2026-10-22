@@ -20,6 +20,8 @@ class Execution:
         self.corrections = 0
         self.recovering = False
         self.operations = Operations()
+        self.prepared = {}
+        self.stale_scopes, self.blocked = {}, set()
 
     @property
     def can_deliver(self):
@@ -27,15 +29,29 @@ class Execution:
 
     @property
     def finalizing(self):
-        return bool(self.operations.items) and all(item["state"]=="succeeded" for item in self.operations.items)
+        return bool(self.operations.required) and all(item["state"]=="succeeded" for item in self.operations.required)
 
     def actions(self, loaded):
         names = {"read_result", "remember", "request_input"}
-        if not (self.finalizing and all(item.get("direct") and item["output"]=="result" for item in self.operations.items)) or self.recovering:
+        if not (self.finalizing and all(item.get("direct") and item["output"]=="result" for item in self.operations.required)) or self.recovering:
             names.update(("list_mcp_servers", "load_mcp_tools", *loaded))
         if self.can_deliver:
             names.add("deliver_results")
+        for alias, tool in loaded.items():
+            scopes = [item for item in self.operations.items if item.get("capability")=={"server": tool.server, "name": tool.name}]
+            if scopes and all(item["id"] in self.blocked for item in scopes):
+                names.discard(alias)
         return names
+
+    def progress(self, observations, limit):
+        """Count no-gain rounds per operation, not per argument variant or batch."""
+        newly_blocked = set()
+        for scope, fresh in observations.items():
+            self.stale_scopes[scope] = 0 if fresh else self.stale_scopes.get(scope, 0)+1
+            if self.stale_scopes[scope]>=limit and scope not in self.blocked:
+                self.blocked.add(scope)
+                newly_blocked.add(scope)
+        return newly_blocked
 
     def correct(self, error, limit):
         self.recovering = True
@@ -102,7 +118,7 @@ class Execution:
         return (tool is not None and tool.annotations.get("readOnlyHint") is True
             and tool.annotations.get("idempotentHint") is True)
 
-    def observe(self, key, value, name=None, arguments=None, context=None):
+    def observe(self, key, value, name=None, arguments=None, context=None, *, scope=None, tool=None):
         if name in {"list_mcp_servers", "load_mcp_tools"}:
             markers = {(name, row["name"]) for row in value.get("items", []) if "name" in row and "error" not in row}
             if name=="load_mcp_tools" and value.get("error"):
@@ -116,10 +132,41 @@ class Execution:
             args = arguments or {}
             markers = {(name, args.get("result_id"), args.get("path", ""), args.get("offset", 0),
                 fingerprint({k: v for k, v in value.items() if k!="operations"}))}
+        elif tool is not None:
+            from .capabilities import profile
+            from .references import at_path, display_list
+
+            # Full saved payloads, rather than a truncated model preview, prove
+            # novelty. Argument changes and new receipt IDs prove no new data.
+            card = next((card for card in self.cards.values() if card["result_id"]==value.get("result_id")), None)
+            origin = (scope, tool.server, tool.name)
+            if card is None:
+                markers = {(origin, fingerprint({k: v for k, v in value.items()
+                    if k not in {"result_id", "executed", "guidance", "repeated", "objects"}}))}
+            else:
+                descriptor = profile(tool)
+                surface = display_list(card)
+                pointer = descriptor.collection if descriptor.collection is not None else surface["path"] if surface else None
+                rows = None
+                if pointer is not None:
+                    try:
+                        rows = at_path(card.get("data"), pointer)
+                    except QAError:
+                        pass
+                if isinstance(rows, list) and all(isinstance(row, dict) for row in rows):
+                    markers = {(origin, "collection"), *((origin, "row", fingerprint(row)) for row in rows)}
+                    # Pagination metadata is not new evidence; actual media is.
+                    if card.get("content"):
+                        markers.add((origin, "content", fingerprint(card["content"])))
+                else:
+                    markers = {(origin, "payload", fingerprint({k: card[k] for k in ("data", "content") if k in card}))}
+            operation = self.operations.get(scope)
+            if operation:
+                markers.add((origin, "state", operation["state"]))
         else:
             # A new result ID or repeated bookkeeping is not new evidence.
             markers = {(key, fingerprint({k: v for k, v in value.items()
-                if k not in {"result_id", "executed", "guidance", "repeated"}}))}
+                if k not in {"result_id", "executed", "guidance", "repeated", "objects"}}))}
         fresh = bool(markers-self.seen)
         self.seen.update(markers)
         if not fresh and self.recovering and value.get("result_id") and value.get("executed") is False:

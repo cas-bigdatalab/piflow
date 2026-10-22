@@ -407,7 +407,7 @@ def test_unknown_execution_not_retried_and_partial_results_retained(engine):
         service = DatasetQA(engine, Dialogue(load(), remote("search"), remote("sample", reference="a", count=1)), backend.gateway())
         sid = session(service)
         values = await collect(service, sid)
-        assert not result_cards(values)  # Search evidence does not fulfill failed sampling.
+        assert len(result_cards(values))==1  # Retained evidence never implies sampling succeeded.
         assert len(service.store.results("alice", sid))==1
         assert values[-1]["code"]=="execution_unknown"
         assert all(v["type"] in {"stage", "message", "result", "done"} for v in values)

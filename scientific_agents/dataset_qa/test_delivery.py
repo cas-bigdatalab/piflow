@@ -81,8 +81,8 @@ def test_only_selected_artifacts_are_public_after_final_reply(engine):
     ({"result_ids": [""]}, False),
     ({"result_ids": ["a"], "unknown": True}, False),
 ])
-def test_delivery_constraints_reach_the_model_schema_and_runtime(arguments, valid):
-    schema = next(t["function"]["parameters"] for t in BUILTINS if t["function"]["name"]=="deliver_results")
+def test_legacy_delivery_constraints_remain_valid_for_persisted_callers(arguments, valid):
+    schema = Deliver.model_json_schema()
     Draft202012Validator.check_schema(schema)
     assert Draft202012Validator(schema).is_valid(arguments) is valid
     if valid:
@@ -90,6 +90,13 @@ def test_delivery_constraints_reach_the_model_schema_and_runtime(arguments, vali
     else:
         with pytest.raises(ValidationError):
             Deliver.model_validate(arguments)
+
+
+def test_model_finishes_without_selecting_card_ids_or_merge_paths():
+    schema = next(t["function"]["parameters"] for t in BUILTINS if t["function"]["name"]=="deliver_results")
+    assert Draft202012Validator(schema).is_valid({})
+    assert not Draft202012Validator(schema).is_valid({"result_ids": ["invented"]})
+    assert not Draft202012Validator(schema).is_valid({"merge_path": "/items"})
 
 
 @pytest.mark.parametrize("selected", [0, 1, 2])

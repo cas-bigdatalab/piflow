@@ -136,7 +136,7 @@ def test_partial_mcp_failure_cannot_be_delivered_as_success(engine):
         sid = session(service)
         values = await collect(service, sid)
         assert values[-1]["status"]=="FAILED" and values[-1]["code"]=="tool_failed"
-        assert len(backend.calls)==2 and not result_cards(values)
+        assert len(backend.calls)==2 and len(result_cards(values))==1
         assert len(service.store.results("alice", sid))==1
         await service.close()
     asyncio.run(run())

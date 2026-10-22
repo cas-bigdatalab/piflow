@@ -1,6 +1,7 @@
 """Persistent conversation runtime; every MCP tool follows the same path."""
 import asyncio
 from contextlib import aclosing, nullcontext
+from copy import deepcopy
 import json
 import logging
 import time
@@ -10,6 +11,7 @@ from langchain_core.messages import AIMessage, HumanMessage, ToolMessage, messag
 from pydantic import ValidationError
 
 from .context import encode, project, public_result, slice_result
+from .capabilities import GOAL, OBJECT, SUPPORTING, adapted, identifiers_from_request, inputs, profile, resolve_tool
 from .contracts import QAError
 from .dialogue import BUILTINS, INPUTS, Dialogue
 from .execution import Execution, fingerprint
@@ -17,7 +19,7 @@ from .operations import Operations
 from .mcp import MCPGateway
 from .persistence import Store
 from .results import collection_paths, combine_results, evidence, evidence_group
-from .references import all_references, apply_update, at_path, display_list, preview
+from .references import all_references, apply_update, at_path, display_list, handle_order, pending_objects, preview, scoped_preview
 from .runtime import Waiting
 
 log = logging.getLogger("flow.dataset_qa")
@@ -272,6 +274,14 @@ class DatasetQA:
             "references": await self._reference_view(user, sid, state), "evidence": source_evidence, "history": history}
         if options.result_id:
             model_context["request_source"] = options.result_id
+            source = display_list(pinned[0])
+            scoped = preview({"candidates": source} if source else {"current": {"result_id": options.result_id, "path": "", "kind": "object"}},
+                {options.result_id: pinned[0]}, 1200) if source or isinstance(pinned[0].get("data"), dict) else {}
+            for index, row in enumerate(scoped.get("candidates", {}).get("items", [])):
+                row["handle"] = "source:"+str(index+1)
+            if scoped.get("current"):
+                scoped["current"]["handle"] = "source"
+            model_context["request_objects"] = scoped
         if issue:
             model_context["references"].pop("current", None)
             model_context["reference_issue"] = {"message": issue, "identifier": selection, "candidates": matches}
@@ -279,9 +289,16 @@ class DatasetQA:
         if previous:
             payload_parent = previous["task_id"]
             waiting = await asyncio.to_thread(self.store.task, user, sid, payload_parent)
-            operations = json.loads(waiting["payload"]).get("operations", [])
+            parent_payload = json.loads(waiting["payload"])
+            operations = parent_payload.get("operations", [])
             if operations:
                 model_context["pending"] = {**previous, "operations": Operations(operations).view()}
+            handles = pending_objects(parent_payload)
+            if handles:
+                ids = list(dict.fromkeys(ref["result_id"] for ref in handles.values()))
+                cards = await asyncio.to_thread(self.store.selected_results, user, sid, ids)
+                model_context["pending"]["objects"] = scoped_preview(handles,
+                    {card["result_id"]: card for card in cards}, min(1800, self.gateway.limits.context_chars//8))
         else:
             payload_parent = None
         await self._write(user, sid, tid, context=context)
@@ -317,7 +334,8 @@ class DatasetQA:
             saved = await asyncio.to_thread(self.store.session, user, sid)
             selected = json.loads(saved["context"]).get("references", {}).get("selected", [])
             if selected:
-                result.update(selected=selected[values.offset:values.offset+limit], selected_total=len(selected))
+                result.update(selected=selected[values.offset:values.offset+limit], selected_total=len(selected),
+                    selected_handles=["selected:"+str(index+1) for index in range(values.offset, min(len(selected), values.offset+limit))])
                 if values.offset+limit<len(selected):
                     result["selected_next_offset"] = values.offset+limit
             return result
@@ -406,12 +424,55 @@ class DatasetQA:
         await asyncio.to_thread(self.store.finish, user, sid, tid, "FAILED" if reason else "COMPLETED",
             message=answer["text"], error=error)
 
+    @staticmethod
+    def _infer_delivery_goal(execution):
+        """A native receipt is not automatically an independently requested artifact.
+
+        Without declared outcomes, explicit delivery can confirm one unambiguous
+        terminal operation. Provenance identifies prerequisites, never call order.
+        Independent outcomes still need a semantic declaration.
+        """
+        operations = execution.operations
+        if operations.required:
+            return
+        candidates = [item for item in operations.items if item.get("inferred")]
+        consumed = {item["target"]["result_id"] for item in candidates if item.get("target")}
+        terminal = [item for item in candidates if not consumed.intersection(operations.result_ids(item))]
+        if len(terminal)==1:
+            terminal[0]["required"] = True
+        elif terminal:
+            raise QAError("invalid_delivery", "存在多个独立成果，请明确它们分别满足的用户目标", detail={
+                "guidance": "Record the necessary outcomes in remember.goals; successful receipts will be reused.",
+                "candidates": [{"tool": item.get("capability"), "object": item.get("target")} for item in terminal]})
+
+    @staticmethod
+    def _definitions(definitions, tools, execution):
+        """Expose a goal choice only when one capability has ambiguous outcomes."""
+        result = []
+        for definition in definitions:
+            tool = tools.loaded.get(definition["function"]["name"])
+            if tool is not None and adapted(tool):
+                capability = {"server": tool.server, "name": tool.name}
+                goals = [item for item in execution.operations.required if item.get("capability")==capability]
+                if len(goals)>1:
+                    choices = [item for item in goals if item["id"] not in execution.blocked]
+                    if not choices:
+                        continue
+                    definition = deepcopy(definition)
+                    definition["function"]["parameters"].setdefault("properties", {})[GOAL] = {
+                        "type": "string", "enum": [item["id"] for item in choices],
+                        "description": "Choose the supplied outcome served by this call: "+encode(
+                            [{"id": item["id"], "description": item["description"]} for item in choices])}
+            result.append(definition)
+        return result
+
     async def _deliver(self, user, sid, tid, arguments, payload, execution=None, partial=False):
         values = INPUTS["deliver_results"][0].model_validate(arguments)
         result_ids = list(dict.fromkeys(values.result_ids))
+        if execution is not None:
+            self._infer_delivery_goal(execution)
         if execution is not None and "result_ids" not in values.model_fields_set:
-            result_ids = list(dict.fromkeys(rid for item in execution.operations.items
-                if item["state"]=="succeeded" and item["output"]=="result" for rid in execution.operations.result_ids(item)))
+            result_ids = execution.operations.delivery_ids()
         if execution is not None:
             execution.operations.validate_delivery(result_ids, partial)
         cards = await asyncio.to_thread(self.store.selected_results, user, sid, result_ids)
@@ -453,21 +514,36 @@ class DatasetQA:
     async def _fallback_delivery(self, user, sid, tid, payload, execution, required=False):
         if "delivery" in payload:
             return
-        cards = list(dict.fromkeys(rid for item in execution.operations.items if item["state"]=="succeeded"
-            and item["output"]=="result" for rid in execution.operations.result_ids(item)))
+        self._infer_delivery_goal(execution)
+        cards = execution.operations.delivery_ids()
         if cards:
             try:
                 await self._deliver(user, sid, tid, {"result_ids": cards}, payload, execution, partial=not required)
             except QAError as exc:
                 if required or exc.code!="invalid_delivery":
                     raise
-        elif not cards and execution.operations.items and all(item["output"]=="answer" for item in execution.operations.items):
+        elif not cards and execution.operations.required and all(item["output"]=="answer" for item in execution.operations.required):
             await self._deliver(user, sid, tid, {"result_ids": []}, payload, execution, partial=not required)
         elif required:
             raise QAError("invalid_delivery", "未明确选择需要展示的结果；原始工具结果已保存")
 
     async def _fast_delivery(self, user, sid, tid, payload, execution, context):
         """Skip selection only for an unambiguous, fully satisfied atomic request."""
+        goals = execution.operations.required
+        if execution.finalizing and goals and all(item.get("planned") and item["output"]=="result" for item in goals) and not context.get("reference_issue"):
+            for item in goals:
+                cards = [card for card in execution.cards.values() if card["result_id"] in execution.operations.result_ids(item)]
+                surfaces = [at_path(card.get("data"), surface["path"]) for card in cards if (surface := display_list(card))]
+                if surfaces and not any(surfaces):
+                    return False  # An empty retrieval deserves semantic review, not automatic closure.
+            try:
+                await self._deliver(user, sid, tid, {}, payload, execution)
+                log.info("Runtime delivery: task=%s goals=%s", tid, len(goals))
+                return True
+            except QAError as exc:
+                if exc.code!="invalid_delivery":
+                    raise
+                return False
         if not execution.finalizing or len(execution.operations.items)!=1 or execution.failures or context.get("reference_issue"):
             return False
         item = execution.operations.items[0]
@@ -490,7 +566,284 @@ class DatasetQA:
         log.info("Direct delivery: task=%s operation=%s", tid, item["id"])
         return True
 
-    async def _prepare_operations(self, user, sid, tid, reply, tools, execution, payload, context):
+    async def _object_index(self, user, sid, context, payload):
+        """Short handles are a view of owned sources, never model-created IDs."""
+        state = context.get("references", {})
+        handles = dict(payload.get("objects", {}))
+        if payload.get("resume") is True:
+            handles.update(payload.get("pending_objects", {}))
+        if state.get("current"):
+            handles["current"] = state["current"]
+        handles.update(("selected:"+str(index+1), ref) for index, ref in enumerate(state.get("selected", [])))
+        if candidate := state.get("candidates"):
+            cards = await asyncio.to_thread(self.store.selected_results, user, sid, [candidate["result_id"]])
+            rows = at_path(cards[0].get("data"), candidate.get("path", ""))
+            handles.update(("candidate:"+str(index+1), {**candidate, "path": candidate.get("path", "")+"/"+str(index)})
+                for index, row in enumerate(rows[:100]) if isinstance(row, dict))
+        if source_id := payload.get("params", {}).get("result_id"):
+            cards = await asyncio.to_thread(self.store.selected_results, user, sid, [source_id])
+            card = cards[0]
+            if surface := display_list(card):
+                rows = at_path(card.get("data"), surface["path"])
+                handles.update(("source:"+str(index+1), {**surface, "path": surface["path"]+"/"+str(index)})
+                    for index, row in enumerate(rows[:100]) if isinstance(row, dict))
+            elif isinstance(card.get("data"), dict):
+                handles["source"] = {"result_id": source_id, "path": "", "kind": "object"}
+            if handles.get("current", {}).get("result_id")!=source_id:
+                handles.pop("current", None)
+                if "source" in handles:
+                    handles["current"] = handles["source"]
+        return handles
+
+    async def _target_record(self, user, sid, ref):
+        if ref is None:
+            return None
+        cards = await asyncio.to_thread(self.store.selected_results, user, sid, [ref["result_id"]])
+        value = at_path(cards[0].get("data"), ref.get("path", ""))
+        if not isinstance(value, dict):
+            raise QAError("invalid_parameters", "所选对象须对应完整的来源记录")
+        return value
+
+    def _register_objects(self, tool, card, payload):
+        descriptor = profile(tool)
+        collection = descriptor.collection is not None
+        path = descriptor.collection if descriptor.collection is not None else descriptor.object
+        if path is None and (surface := display_list(card)):
+            path, collection = surface["path"], True
+        if path is None:
+            return []
+        try:
+            value = at_path(card.get("data"), path)
+        except QAError:
+            return []  # Output shape drift is not permission to invent an object.
+        rows = list(enumerate(value[:20])) if collection and isinstance(value, list) else [(None, value)]
+        handles = payload.setdefault("objects", {})
+        result = []
+        for index, row in rows:
+            if not isinstance(row, dict) or len(handles)>=128:
+                continue
+            ref = {"result_id": card["result_id"], "path": path+("/"+str(index) if index is not None else ""), "kind": "object"}
+            handle = next((key for key, saved in handles.items() if saved==ref), None)
+            if handle is None:
+                handle = "object:"+str(len(handles)+1)
+                handles[handle] = ref
+            result.append({"handle": handle, "path": ref["path"]})
+        return result
+
+    async def _prepare_operations(self, user, sid, tid, reply, tools, execution, payload, context, model_context=None):
+        """Accept native actions independently; runtime owns associations and IDs."""
+        native = [call for call in reply.tool_calls if call["name"] in tools.loaded]
+        memory = [INPUTS["remember"][0].model_validate(call["args"]) for call in reply.tool_calls if call["name"]=="remember"]
+        asking = any(call["name"]=="request_input" for call in reply.tool_calls)
+        execution.prepared = {}
+        if not native and not memory and not (context.get("pending") and asking):
+            return {}
+        original_operations, original_cards = execution.operations, dict(execution.cards)
+        original_references = deepcopy(context.get("references", {}))
+        original_pending, original_resume = deepcopy(context.get("pending")), payload.get("resume")
+        legacy = any(value.operations is not None or value.calls is not None or value.resume is not None for value in memory)
+        bindings = await self._prepare_legacy_operations(user, sid, tid, reply, tools, execution, payload, context) if legacy else {}
+        handles = await self._object_index(user, sid, context, payload)
+        continuation = [value.continuation for value in memory if value.continuation is not None]
+        if len(set(continuation))>1:
+            raise QAError("invalid_parameters", "同一轮只能选择继续待补充任务或发起新请求")
+        resume, inherited = payload.get("resume"), None
+        if not legacy and payload.get("parent_task_id") and resume is None and (native or any(value.goals for value in memory) or continuation or asking):
+            parent = await asyncio.to_thread(self.store.task, user, sid, payload["parent_task_id"])
+            if parent["status"]!="WAITING_INPUT":
+                if continuation and continuation[0]=="continue":
+                    raise QAError("invalid_parameters", "待补充任务已经结束，请作为新请求处理")
+                resume = False  # A reference to a completed task is not a pending question.
+            elif not continuation:
+                raise QAError("invalid_parameters", "请先区分这是补充上次问题还是独立的新请求", detail={
+                    "guidance": "Set remember.continuation to continue or new before or with the native action. No operation IDs or calls mapping is needed."})
+            else:
+                resume = continuation[0]=="continue"
+            if resume:
+                inherited = json.loads(parent["payload"])
+                restored = pending_objects(inherited)
+                if restored:
+                    await self._validate_references(user, sid, {}, {"selected": list(restored.values())})
+                    handles.update(restored)
+        elif continuation and resume is not None and (continuation[0]=="continue")!=resume:
+            raise QAError("invalid_parameters", "本轮与待补充任务的关系已经确定，不能中途切换")
+        reference_issue = (model_context or {}).get("reference_issue")
+        if reference_issue:
+            handles.pop("current", None)
+
+        def resolve(handle):
+            if not isinstance(handle, str) or handle not in handles:
+                raise QAError("invalid_parameters", "请选择已提供的对象，或先获取候选对象", detail={"object": handle, "available": list(handles)[:12]})
+            return handles[handle]
+
+        records = {}
+
+        async def source(ref):
+            if ref is None:
+                return None
+            key = (ref["result_id"], ref.get("path", ""))
+            if key not in records:
+                records[key] = await self._target_record(user, sid, ref)
+            return records[key]
+
+        async def same_target(tool, left, right):
+            if left==right:
+                return True
+            binding = profile(tool).bind
+            if left is None or right is None or not binding:
+                return False
+            a, b = inputs(tool, {}, await source(left)), inputs(tool, {}, await source(right))
+            return all(a.get(key)==b.get(key) for key in binding)
+
+        # A focus-only response can precede execution. No co-emission is needed.
+        focus = None
+        has_focus = False
+        for value in memory:
+            if "focus" in value.model_fields_set:
+                focus, has_focus = resolve(value.focus) if value.focus else None, True
+        if has_focus:
+            state = await self._validate_references(user, sid, context.get("references", {}), {"current": focus})
+            context["references"] = state
+            if focus:
+                handles["current"] = focus
+            else:
+                handles.pop("current", None)
+
+        if not legacy:
+            goals = [goal for value in memory for goal in value.goals or []]
+            operations = Operations(inherited.get("operations", []) if inherited else execution.operations.items)
+            if goals and not any(item.get("planned") for item in operations.items):
+                for item in operations.items:
+                    if "capability" in item:
+                        item["required"] = False
+            for goal in goals:
+                tool = resolve_tool(goal.tool, tools.loaded)
+                target = resolve(goal.object) if goal.object else handles.get("current") if profile(tool).bind else None
+                for item in operations.items:
+                    if item.get("capability")=={"server": tool.server, "name": tool.name} and await same_target(tool, item.get("target"), target):
+                        target = item.get("target")
+                        break
+                operations.register(goal.description, {"server": tool.server, "name": tool.name}, target, goal.output, planned=True)
+            execution.operations = operations
+
+        execution.prepared = {}
+        for call in native:
+            tool, arguments = tools.loaded[call["name"]], call["args"]
+            operation_id = bindings.get(call["id"])
+            target = None
+            try:
+                descriptor = profile(tool)
+                selector = arguments.get(OBJECT) if adapted(tool) else None
+                goal_choice = arguments.get(GOAL) if adapted(tool) else None
+                supporting = arguments.get(SUPPORTING) if adapted(tool) else False
+                supporting = False if supporting is None else supporting
+                if not isinstance(supporting, bool) or (selector is not None and not isinstance(selector, str)):
+                    raise QAError("invalid_parameters", "对象选择须为已提供的标识，辅助查询标记须为布尔值")
+                if selector is not None and not descriptor.bind:
+                    raise QAError("invalid_parameters", "此能力未声明对象参数绑定，请按其业务参数调用")
+                capability = {"server": tool.server, "name": tool.name}
+                goals = [item for item in execution.operations.required if item.get("capability")==capability]
+                if goal_choice is not None:
+                    chosen_goal = next((item for item in goals if item["id"]==goal_choice), None)
+                    if chosen_goal is None or supporting:
+                        raise QAError("invalid_parameters", "请选择此能力对应的已提供目标", detail={
+                            "choices": [{"id": item["id"], "description": item["description"]} for item in goals]})
+                    operation_id = chosen_goal["id"]
+                if operation_id:
+                    target = execution.operations.get(operation_id).get("target")
+                    if target is not None and not descriptor.bind:
+                        raise QAError("invalid_parameters", "此能力未声明对象参数绑定，无法校验目标与调用参数是否一致", detail={
+                            "guidance": "Declare the capability's object parameter/source-field bindings before executing a grounded target."})
+                if selector is not None:
+                    chosen = resolve(selector)
+                    if target is not None and not await same_target(tool, chosen, target):
+                        raise QAError("invalid_parameters", "所选对象与本轮目标不一致，尚未执行")
+                    target = chosen
+                direct_identifier = (descriptor.bind and selector is None and target is None
+                    and not has_focus and identifiers_from_request(tool, arguments, payload["message"]))
+                if descriptor.bind and target is None:
+                    targets = [item["target"] for item in goals if item.get("target")]
+                    if not direct_identifier:
+                        target = targets[0] if len(targets)==1 else handles.get("current")
+                explicit_goal = any(goal.object for value in memory for goal in value.goals or [] if goal.tool in {tool.alias, tool.name, tool.server+"/"+tool.name})
+                if descriptor.bind and reference_issue and selector is None and not has_focus and not explicit_goal and not direct_identifier:
+                    raise QAError("invalid_parameters", "对象来源存在歧义，请先明确需要处理的对象", detail={"available_objects": list(handles)[:12]})
+                record = await source(target)
+                prepared = inputs(tool, arguments, record)
+                if descriptor.bind and target is None:
+                    # Direct identifiers supplied by the user need no prior
+                    # search. Identifiers absent from sources/request are unsafe.
+                    if not identifiers_from_request(tool, prepared, payload["message"]):
+                        raise QAError("invalid_parameters", "请从已有结果选择对象，不能使用无来源的标识")
+                tools.validate(call["name"], prepared)
+                if not legacy:
+                    matches = [item for item in goals if await same_target(tool, item.get("target"), target)]
+                    unbound = [item for item in goals if item.get("target") is None and item["state"]=="pending"
+                        and not any(attempt["state"]!="rejected" for attempt in item["attempts"])]
+                    if not matches and target is not None and descriptor.bind and len(unbound)==1:
+                        unbound[0]["target"] = target
+                        matches = unbound
+                    if goal_choice is not None:
+                        matches = [item for item in matches if item["id"]==goal_choice]
+                        if not matches:
+                            raise QAError("invalid_parameters", "调用对象与所选目标不一致，尚未执行")
+                    if not supporting and len(matches)>1:
+                        raise QAError("invalid_parameters", "同一能力对应多个目标，请明确本次调用服务于哪个目标", detail={
+                            "field": GOAL, "choices": [{"id": item["id"], "description": item["description"]} for item in matches]})
+                    if not supporting and matches:
+                        matched = matches[0]
+                        operation_id = matched["id"]
+                        target = matched.get("target")
+                    elif not supporting and not any(item.get("planned") for item in execution.operations.required):
+                        # A refreshed detail source may describe the same object.
+                        # Reuse its grounded operation rather than create a new
+                        # dependency pointing at its own reused execution result.
+                        for item in execution.operations.items:
+                            if item.get("inferred") and item.get("capability")==capability and await same_target(tool, item.get("target"), target):
+                                target = item.get("target")
+                                break
+                        operation_id = execution.operations.register(payload["message"], capability, target, required=False)
+                        execution.operations.get(operation_id)["inferred"] = True
+                    else:
+                        operation_id = execution.operations.register(tool.title, capability, target, required=False)
+                if operation_id in execution.blocked:
+                    raise QAError("invalid_parameters", "此目标已停止重复扩展，请处理其他必要目标或交付现有结果", detail={
+                        "field": GOAL, "choices": [{"id": item["id"], "description": item["description"]}
+                            for item in goals if item["id"] not in execution.blocked]})
+                execution.prepared[call["id"]] = (prepared, None, target)
+            except QAError as exc:
+                execution.prepared[call["id"]] = (arguments, exc, None)
+            bindings[call["id"]] = operation_id
+        valid_batch = not native or any(error is None for _, error, _ in execution.prepared.values())
+        if not valid_batch and (inherited or (legacy and original_resume is None and payload.get("resume") is True)):
+            # Invalid parameters cannot commit a continuation scope. In particular
+            # a later correction to "new" must not inherit the rejected parent's goals.
+            execution.operations, execution.cards = original_operations, original_cards
+            context["references"] = original_references
+            if original_pending is not None:
+                context["pending"] = original_pending
+            if original_resume is None:
+                payload.pop("resume", None)
+                payload.pop("pending_objects", None)
+            bindings = {call["id"]: None for call in native}
+        if not legacy and resume is not None and valid_batch:
+            payload["resume"] = resume
+            if inherited:
+                payload["pending_objects"] = pending_objects(inherited)
+                inherited_ids = list(dict.fromkeys(rid for item in execution.operations.items for rid in execution.operations.result_ids(item)))
+                cards = await asyncio.to_thread(self.store.selected_results, user, sid, inherited_ids) if inherited_ids else []
+                by_id = {card["result_id"]: card for card in cards}
+                for item in execution.operations.items:
+                    for attempt in item["attempts"]:
+                        if attempt.get("result_id") in by_id:
+                            execution.cards[(attempt["key"], "inherited")] = by_id[attempt["result_id"]]
+                execution.recovering = True
+            context.pop("pending", None)
+        payload["operations"] = execution.operations.items
+        await self._write(user, sid, tid, payload=payload, context=context if has_focus or payload.get("resume") is not None else None)
+        return bindings
+
+    async def _prepare_legacy_operations(self, user, sid, tid, reply, tools, execution, payload, context):
         """Bind native calls by their order, without changing any MCP schema/arguments."""
         native = [call for call in reply.tool_calls if call["name"] in tools.loaded]
         updates = [INPUTS["remember"][0].model_validate(call["args"]) for call in reply.tool_calls
@@ -549,20 +902,41 @@ class DatasetQA:
             await self._write(user, sid, tid, payload=payload, context=context if consumed else None)
         return dict(zip((call["id"] for call in native), bindings))
 
-    async def _builtin(self, user, sid, tid, name, arguments, tools, context):
+    async def _builtin(self, user, sid, tid, name, arguments, tools, context, payload=None):
         values = INPUTS[name][0].model_validate(arguments)
         if name=="list_mcp_servers":
             return tools.list_servers(**values.model_dump())
         if name=="load_mcp_tools":
             return await tools.load(**values.model_dump())
         if name=="read_result":
-            return await self._read_result(user, sid, values)
+            result = await self._read_result(user, sid, values)
+            if values.result_id is None:
+                handles = (payload or {}).get("pending_objects", {}) if (payload or {}).get("resume") is True else {}
+                if not handles and (payload or {}).get("resume") is not False and (pending := context.get("pending")):
+                    parent = await asyncio.to_thread(self.store.task, user, sid, pending["task_id"])
+                    handles = pending_objects(json.loads(parent["payload"]))
+                if handles:
+                    page = dict(sorted(handles.items(), key=lambda pair: handle_order(pair[0]))[values.offset:values.offset+min(values.limit, 8)])
+                    ids = list(dict.fromkeys(ref["result_id"] for ref in page.values()))
+                    cards = await asyncio.to_thread(self.store.selected_results, user, sid, ids) if ids else []
+                    view = scoped_preview(page, {card["result_id"]: card for card in cards}, min(1800, self.gateway.limits.context_chars//8))
+                    result["pending_objects"] = {"items": view["items"], "total": len(handles)}
+                    following = values.offset+len(view["items"])
+                    if following<len(handles):
+                        result["pending_next_offset"] = following
+            return result
         if name=="remember":
             memory = {**context.get("memory", {}), **values.values}
             if len(encode(memory))>4096:
                 raise QAError("memory_too_large", "结构化记忆超过运行预算")
             state = context.get("references", {})
             patch = values.references.model_dump(exclude_unset=True) if values.references else {}
+            if values.selected is not None:
+                handles = await self._object_index(user, sid, context, payload or {})
+                try:
+                    patch["selected"] = [handles[handle] for handle in values.selected or []]
+                except KeyError as exc:
+                    raise QAError("invalid_parameters", "确认的对象须来自已提供的对象引用") from exc
             identifier = values.values.get("selected_dataset_id")
             if identifier is not None:
                 matches = await asyncio.to_thread(self.store.object_reference, user, sid, identifier,
@@ -686,8 +1060,8 @@ class DatasetQA:
                 async with self.gateway.session() as tools:
                     def action_feedback(error):
                         value = execution.feedback(error, execution.actions(tools.loaded))
-                        if "detail" in value:
-                            log.info("Action validation: task=%s code=%s detail=%s", tid, error.code, encode(value["detail"]))
+                        log.info("Action validation: task=%s code=%s message=%s detail=%s",
+                            tid, error.code, str(error)[:240], encode(value.get("detail", {})))
                         return value
 
                     tools.prime(payload["message"], context.get("tools", []))
@@ -701,8 +1075,8 @@ class DatasetQA:
                             break
                         rejection = None
                         actions = execution.actions(tools.loaded)
-                        definitions = [definition for definition in [*BUILTINS, *tools.definitions()]
-                            if definition["function"]["name"] in actions]
+                        definitions = self._definitions([definition for definition in [*BUILTINS, *tools.definitions()]
+                            if definition["function"]["name"] in actions], tools, execution)
                         advertised = {value["function"]["name"] for value in definitions}
                         reply = None
                         bindings = {}
@@ -722,9 +1096,9 @@ class DatasetQA:
                         try:
                             reply = await self._reply(user, sid, tid, messages, definitions, waiting=waiting)
                             if reply.tool_calls:
-                                bindings = await self._prepare_operations(user, sid, tid, reply, tools, execution, payload, context)
+                                bindings = await self._prepare_operations(user, sid, tid, reply, tools, execution, payload, context, json.loads(messages[1].content))
                         except QAError as exc:
-                            if exc.code not in {"invalid_tool_call", "invalid_parameters", "invalid_pointer", "result_not_found"}:
+                            if exc.code not in {"invalid_tool_call", "invalid_parameters", "invalid_pointer", "result_not_found", "tool_not_loaded"}:
                                 raise
                             rejection = exc
                         except ValidationError as exc:
@@ -758,11 +1132,18 @@ class DatasetQA:
                             return
                         messages.append(reply)
                         round_progress = False
+                        scope_progress = {}
                         for call in reply.tool_calls:
                             name, arguments = call["name"], call["args"]
                             tool = tools.loaded.get(name)
                             operation_id = bindings.get(call["id"])
+                            prepared_error, target = None, None
+                            if call["id"] in execution.prepared:
+                                arguments, prepared_error, target = execution.prepared[call["id"]]
                             key = fingerprint([operation_id, name, arguments])
+                            invocation = fingerprint([tool.server, tool.name, arguments]) if tool else None
+                            receipt = execution.operations.receipt(invocation, operation_id) if invocation and not prepared_error else None
+                            reused = next((card for card in execution.cards.values() if receipt and card["result_id"]==receipt.get("result_id")), None)
                             interaction = None
                             rejected = False
                             log.info("Agent action: task=%s name=%s allowed=%s", tid, name, name in advertised)
@@ -796,11 +1177,13 @@ class DatasetQA:
                                         rejection = exc
                                         value = action_feedback(rejection)
                                         rejected = True
-                            elif tool and operation_id is not None and execution.operations.get(operation_id)["state"] in {"running", "unknown"}:
+                            elif tool and not prepared_error and operation_id is not None and execution.operations.get(operation_id)["state"] in {"running", "unknown"}:
                                 failure = QAError("execution_unknown", "此操作的执行结果尚未确认，未重复执行；请先核实上游状态", 504)
                                 execution.failures[operation_id] = failure
                                 value = {"error": failure.code, "message": str(failure), "executed": False}
-                            elif tool and (completed := execution.completed(key)) is not None:
+                            elif tool and not prepared_error and ((completed := execution.completed(key)) is not None or (completed := reused) is not None):
+                                if reused is not None:
+                                    execution.operations.reuse(operation_id, key, receipt)
                                 execution.operations.finish(operation_id, key, result_id=completed["result_id"])
                                 execution.failures.pop(operation_id or key, None)
                                 await self._write(user, sid, tid, payload=payload)
@@ -810,9 +1193,11 @@ class DatasetQA:
                                 execution.calls += 1
                                 call_started = time.monotonic()
                                 try:
+                                    if prepared_error:
+                                        raise prepared_error
                                     if name in INPUTS:
                                         async with waiting.during("仍在等待MCP工具目录返回，尚未执行数据操作。") if name=="load_mcp_tools" else nullcontext():
-                                            value = await self._builtin(user, sid, tid, name, arguments, tools, context)
+                                            value = await self._builtin(user, sid, tid, name, arguments, tools, context, payload)
                                         if name=="read_result" and arguments.get("result_id") is None:
                                             value["operations"] = execution.operations.view(arguments.get("offset", 0), min(arguments.get("limit", 20), 8))
                                         if name=="remember":
@@ -820,6 +1205,8 @@ class DatasetQA:
                                             updated["references"] = await self._reference_view(user, sid, context.get("references", {}))
                                             updated["memory"] = {key: value for key, value in context.get("memory", {}).items()
                                                 if key!="selected_dataset_id"}
+                                            if arguments.get("focus") or (arguments.get("references") or {}).get("current"):
+                                                updated.pop("reference_issue", None)
                                             messages[1] = HumanMessage(encode(updated))
                                         if name=="request_input":
                                             interaction = context["pending"]
@@ -827,7 +1214,12 @@ class DatasetQA:
                                         previous = execution.failures.get(key) if operation_id is None else None
                                         if previous and (previous.code=="execution_unknown" or (previous.code!="mcp_unavailable" and not execution.reusable(tool))):
                                             raise previous
-                                        execution.operations.start(operation_id, key, {"server": tool.server, "name": tool.name}, execution.reusable(tool))
+                                        descriptor = profile(tool)
+                                        presentation = ({"family": tool.server+"/"+tool.name, "kind": "collection", "path": descriptor.collection}
+                                            if descriptor.collection is not None else {"family": tool.server+"/"+tool.name, "kind": "object", "path": descriptor.object}
+                                            if descriptor.object is not None else None)
+                                        execution.operations.start(operation_id, key, {"server": tool.server, "name": tool.name}, execution.reusable(tool), invocation,
+                                            presentation=presentation)
                                         payload["operations"] = execution.operations.items
                                         await phase("execute", "正在处理："+tool.title, payload=payload)
                                         async with waiting.during("正在等待MCP服务返回，尚未取得本次操作的结果。"):
@@ -841,15 +1233,29 @@ class DatasetQA:
                                                 "title": f"{tool.server} · {tool.title}", **output.payload()}
                                             results += 1
                                             execution.operations.finish(operation_id, key, result_id=card["result_id"])
+                                            self._register_objects(tool, card, payload)
                                             await self._write(user, sid, tid, card=card, payload=payload)
                                             execution.cards[marker] = card
                                         else:
                                             execution.operations.finish(operation_id, key, result_id=card["result_id"])
                                             await self._write(user, sid, tid, payload=payload)
                                         value = self._evidence(card)
+                                        objects = self._register_objects(tool, card, payload)
+                                        if objects:
+                                            value["objects"] = objects
                                         execution.failures.pop(operation_id or key, None)
                                         reference = {"server": tool.server, "name": tool.name}
                                         context["tools"] = [reference, *[ref for ref in context.get("tools", []) if ref!=reference]][:4]
+                                        explicit_focus = any(item["name"]=="remember" and ("references" in item["args"] or "focus" in item["args"]) for item in reply.tool_calls)
+                                        descriptor = profile(tool)
+                                        ref = {"result_id": card["result_id"], "path": descriptor.object, "kind": "object"} if descriptor.object is not None and objects else target
+                                        operation = execution.operations.get(operation_id) if operation_id else None
+                                        if ref is not None and operation and (operation.get("required", True) or operation.get("inferred")) and (descriptor.bind or descriptor.object is not None) and not explicit_focus:
+                                            context.setdefault("references", {})["current"] = ref
+                                            updated = json.loads(messages[1].content)
+                                            updated["references"] = await self._reference_view(user, sid, context["references"])
+                                            updated.pop("reference_issue", None)
+                                            messages[1] = HumanMessage(encode(updated))
                                         await self._write(user, sid, tid, context=context)
                                 except (QAError, ValidationError) as exc:
                                     if isinstance(exc, ValidationError):
@@ -891,12 +1297,15 @@ class DatasetQA:
                                     message=answer["text"], interaction=interaction)
                                 return
                             if not rejected:
-                                progress = execution.observe(key, value, name, arguments, context)
+                                progress = execution.observe(key, value, name, arguments, context, scope=operation_id, tool=tool)
+                                if tool and operation_id:
+                                    scope_progress[operation_id] = scope_progress.get(operation_id, False) or progress
                                 round_progress = round_progress or progress
                                 if not progress:
                                     value = {**value, "repeated": True,
                                         "guidance": "This call provided no new evidence. Use the saved result, change the request if needed, or answer the user."}
                             messages.append(ToolMessage(content=encode(value), tool_call_id=call["id"], name=name))
+                        newly_blocked = execution.progress(scope_progress, limits.max_stalled_calls)
                         if not ready and not reason and not rejection and any(call["id"] in bindings for call in reply.tool_calls):
                             fast_context = {**context, "reference_issue": json.loads(messages[1].content).get("reference_issue")}
                             ready = await self._fast_delivery(user, sid, tid, payload, execution, fast_context)
@@ -909,10 +1318,20 @@ class DatasetQA:
                             reason = next(reversed(tools.discovery_errors.values()))
                         if not rejection:
                             execution.stalled = 0 if round_progress else execution.stalled+1
+                        if newly_blocked:
+                            messages.append(HumanMessage(encode({"runtime_feedback": {
+                                "guidance": "These outcomes gained no new evidence in repeated rounds; stop expanding them. Complete other necessary outcomes or deliver the saved evidence.",
+                                "closed_scopes": sorted(newly_blocked)}})))
+                            outstanding = [item for item in execution.operations.required
+                                if item["state"]!="succeeded" and item["id"] not in execution.blocked]
+                            if outstanding:
+                                execution.stalled = 0
+                            elif not reason and not rejection:
+                                reason = QAError("no_progress", "现有结果没有进一步增加，已停止重复查询")
                         if not reason and not rejection and execution.stalled>=limits.max_stalled_calls:
                             reason = QAError("no_progress", "连续调用未获得新信息，当前无法继续推进；请补充条件或调整请求")
-                        if not rejection and execution.operations.items and all(item["state"] in {"succeeded", "failed", "unknown"} for item in execution.operations.items) and any(
-                                item["state"] in {"failed", "unknown"} for item in execution.operations.items):
+                        if not rejection and execution.operations.required and all(item["state"] in {"succeeded", "failed", "unknown"} for item in execution.operations.required) and any(
+                                item["state"] in {"failed", "unknown"} for item in execution.operations.required):
                             reason = execution.operations.error()
                         if rejection and not reason:
                             reason = execution.correct(rejection, limits.max_corrections)
@@ -929,7 +1348,7 @@ class DatasetQA:
                             await self._fallback_delivery(user, sid, tid, payload, execution)
                         except Exception:
                             log.warning("Partial delivery unavailable: task=%s", tid, exc_info=True)
-                    if reason is delivery_failure and "delivery" in payload and execution.operations.error(payload.get("delivery_sources", [])) is None:
+                    if (reason is delivery_failure or reason.code=="no_progress") and "delivery" in payload and execution.operations.error(payload.get("delivery_sources", [])) is None:
                         log.info("Delivery recovered from saved evidence: task=%s", tid)
                         reason = None
                     await self._final_reply(user, sid, tid, messages, answer, phase, reason, waiting)

@@ -1,8 +1,9 @@
 """MCP discovery from configured servers; tool schemas are loaded on demand."""
 import asyncio
-from collections import OrderedDict
+from collections import Counter, OrderedDict
 from contextlib import AsyncExitStack, asynccontextmanager
-from dataclasses import dataclass
+from copy import deepcopy
+from dataclasses import dataclass, field, replace
 from hashlib import sha256
 import logging
 from pathlib import Path
@@ -61,6 +62,7 @@ class Tool:
     schema: dict
     annotations: dict
     meta: dict
+    _definition: dict | None = field(default=None, repr=False, compare=False)
 
     @property
     def alias(self):
@@ -72,8 +74,73 @@ class Tool:
         return str(self.annotations.get("title") or self.name)[:200]
 
     def definition(self):
-        return {"type": "function", "function": {"name": self.alias,
-            "description": self.description, "parameters": self.schema}}
+        if self._definition is not None:
+            return deepcopy(self._definition)
+        from .capabilities import definition
+        return definition(self)
+
+
+def check_refs(value):
+    if isinstance(value, dict):
+        for key, child in value.items():
+            if key in {"$ref", "$dynamicRef"} and (not isinstance(child, str) or not child.startswith("#")):
+                raise QAError("invalid_schema", "工具schema仅支持本地引用", 502)
+            check_refs(child)
+    elif isinstance(value, list):
+        for child in value:
+            check_refs(child)
+
+
+def check_schema(schema):
+    """Resolve local references without retrieving any external resource."""
+    from jsonschema import Draft202012Validator, SchemaError
+    from referencing import Registry, Resource
+    from referencing.exceptions import Unresolvable
+    from referencing.jsonschema import DRAFT202012
+
+    try:
+        Draft202012Validator.check_schema(schema)
+        check_refs(schema)
+        resource = Resource(schema, DRAFT202012)
+        resolver = Registry().with_resource("", resource).crawl().resolver()
+
+        def visit(current, scope):
+            scope = scope.in_subresource(current)
+            if isinstance(current.contents, dict):
+                for key in ("$ref", "$dynamicRef"):
+                    if key in current.contents:
+                        scope.lookup(current.contents[key])
+            for child in current.subresources():
+                visit(child, scope)
+
+        visit(resource, resolver)
+    except SchemaError as exc:
+        raise QAError("invalid_schema", "MCP工具schema无效", 502) from exc
+    except Unresolvable as exc:
+        raise QAError("invalid_schema", "MCP工具schema的本地引用目标不存在", 502) from exc
+
+
+def checked_tool(tool):
+    """Compile a detached definition before it can enter the callable catalogue."""
+    from .capabilities import definition, profile
+
+    tool = deepcopy(tool)
+    if not isinstance(tool.name, str) or not tool.name or any(not isinstance(value, dict)
+            for value in (tool.schema, tool.annotations, tool.meta)):
+        raise QAError("invalid_schema", "MCP工具定义格式无效", 502)
+    try:
+        check_schema(tool.schema)
+        descriptor = profile(tool)  # Also validate tools that need no facade.
+        paths = [descriptor.collection, descriptor.object,
+            *(path for sources in descriptor.bind.values() for path in sources)]
+        if any(path is not None and ((path and not path.startswith("/")) or re.search(r"~(?![01])", path)) for path in paths):
+            raise QAError("invalid_schema", "服务的对象来源路径须为有效JSON Pointer", 502)
+        compiled = definition(tool)
+        check_schema(compiled["function"]["parameters"])
+        encode({"definition": compiled, "annotations": tool.annotations, "meta": tool.meta})
+    except (TypeError, ValueError) as exc:
+        raise QAError("invalid_schema", "MCP工具定义须为有效JSON数据", 502) from exc
+    return replace(tool, _definition=compiled)
 
 
 class MCPGateway:
@@ -82,6 +149,7 @@ class MCPGateway:
         self.config_path = Path(config_path) if config_path else None
         self.client_factory, self.limits = client_factory, limits or Limits()
         self.cache = {}
+        self.identities, self.refresh_versions, self.refresh_sequence = {}, {}, 0
 
     def configured_servers(self):
         servers = dict(self.servers)
@@ -122,9 +190,13 @@ class MCPGateway:
     @asynccontextmanager
     async def session(self):
         servers = self.configured_servers()
+        self.identities = {name: sha256(repr(spec).encode()).hexdigest() for name, spec in servers.items()}
         for name in list(self.cache):
-            if name not in servers or time.monotonic()-self.cache[name][1]>=self.limits.cache_seconds:
+            if (self.identities.get(name)!=self.cache[name][0]
+                    or time.monotonic()-self.cache[name][1]>=self.limits.cache_seconds):
                 self.cache.pop(name, None)
+        for name in self.refresh_versions.keys()-servers.keys():
+            self.refresh_versions.pop(name, None)
         async with AsyncExitStack() as stack:
             yield ToolSession(self, servers, stack)
 
@@ -134,6 +206,7 @@ class ToolSession:
         self.gateway, self.servers, self.stack = gateway, servers, stack
         self.clients, self.connections, self.loaded = {}, {}, OrderedDict()
         self.connection_errors, self.discovery_errors = {}, {}
+        self.definition_errors = {}
         self.limits = gateway.limits
 
     async def retry(self, error, attempt, deadline, server, phase):
@@ -199,7 +272,8 @@ class ToolSession:
         identity = sha256(repr(spec).encode()).hexdigest()
         cached = self.gateway.cache.get(server)
         if cached and cached[0]==identity and time.monotonic()-cached[1]<self.limits.cache_seconds:
-            return cached[2]
+            self.definition_errors[server] = deepcopy(cached[3])
+            return deepcopy(cached[2])
         return None
 
     async def tools(self, server):
@@ -207,10 +281,18 @@ class ToolSession:
             raise QAError("server_not_found", "MCP服务未配置或未启用", 404)
         cached = self.cached_tools(server)
         if cached is not None:
+            if not cached and self.definition_errors.get(server):
+                error = QAError("invalid_schema", "所选服务暂无有效工具定义", 502,
+                    detail={"tools": self.definition_errors[server][:3]})
+                self.discovery_errors[server] = error
+                raise error
             return cached
         if server in self.discovery_errors:
             raise self.discovery_errors[server]
         started = time.monotonic()
+        self.gateway.refresh_sequence += 1
+        sequence = self.gateway.refresh_sequence
+        self.gateway.refresh_versions[server] = sequence
         try:
             client = await self.client(server)
             async with asyncio.timeout(self.limits.connect_timeout):
@@ -226,22 +308,49 @@ class ToolSession:
             log.warning("MCP discovery failed: server=%s elapsed=%.3fs error=%s",
                 server, time.monotonic()-started, type(exc).__name__, exc_info=True)
             raise error from exc
-        tools = []
+        tools, errors = [], []
+        duplicates = {name for name, count in Counter(getattr(value, "name", None)
+            for value in values if isinstance(getattr(value, "name", None), str)).items() if count>1}
         for value in values:
-            annotations = getattr(value, "annotations", None)
-            if hasattr(annotations, "model_dump"):
-                annotations = annotations.model_dump(exclude_none=True)
-            tools.append(Tool(server, value.name, getattr(value, "description", "") or "",
-                getattr(value, "inputSchema", None) or getattr(value, "input_schema", {}) or {},
-                annotations or {}, getattr(value, "meta", None) or getattr(value, "_meta", None) or {}))
+            name = getattr(value, "name", None)
+            try:
+                if isinstance(name, str) and name in duplicates:
+                    raise QAError("invalid_schema", "同一服务存在重名工具，无法确定调用目标", 502)
+                annotations = getattr(value, "annotations", None)
+                if hasattr(annotations, "model_dump"):
+                    annotations = annotations.model_dump(exclude_none=True)
+                schema = getattr(value, "inputSchema", None)
+                if schema is None:
+                    schema = getattr(value, "input_schema", {})
+                tools.append(checked_tool(Tool(server, name, str(getattr(value, "description", "") or ""),
+                    schema, annotations if annotations is not None else {},
+                    getattr(value, "meta", None) or getattr(value, "_meta", None) or {})))
+            except QAError as exc:
+                error = {"name": str(name or "<unnamed>")[:200], "error": exc.code, "message": str(exc)[:240]}
+                if error not in errors:
+                    errors.append(error)
+                    log.warning("MCP definition rejected: server=%s tool=%s code=%s message=%s",
+                        server, error["name"], exc.code, error["message"])
         identity = sha256(repr(self.servers[server]).encode()).hexdigest()
-        self.gateway.cache[server] = (identity, time.monotonic(), tools)
+        if self.gateway.identities.get(server)==identity and self.gateway.refresh_versions.get(server)==sequence:
+            self.gateway.cache[server] = (identity, time.monotonic(), deepcopy(tools), deepcopy(errors))
+        self.definition_errors[server] = errors
         log.info("MCP discovery: server=%s tools=%s elapsed=%.3fs", server, len(tools), time.monotonic()-started)
+        if not tools and errors:
+            error = QAError("invalid_schema", "所选服务暂无有效工具定义", 502, detail={"tools": errors[:3]})
+            self.discovery_errors[server] = error
+            raise error
         return tools
 
     def include(self, page):
         loaded = []
         for tool in page:
+            if tool._definition is None:
+                try:
+                    tool = checked_tool(tool)
+                except QAError as exc:
+                    loaded.append({"name": tool.name, "error": exc.code, "message": str(exc)[:240]})
+                    continue
             definition = tool.definition()
             if len(encode(definition))>self.limits.schema_chars:
                 loaded.append({"name": tool.name, "error": "schema_too_large"})
@@ -262,45 +371,39 @@ class ToolSession:
         return self.include(candidates[:min(4, self.limits.max_tools)])
 
     async def load(self, server, query="", offset=0, limit=4):
-        tools = ranked(await self.tools(server), query,
-            lambda t: t.name+" "+t.description+" "+encode(t.meta))
-        page = tools[offset:offset+limit]
-        result = self.include(page)
-        if offset+len(page)<len(tools):
+        catalogue = [*await self.tools(server), *self.definition_errors.get(server, [])]
+        catalogue = ranked(catalogue, query, lambda item: item.name+" "+item.description+" "+encode(item.meta)
+            if isinstance(item, Tool) else item["name"])
+        page = catalogue[offset:offset+limit]
+        result = self.include(item for item in page if isinstance(item, Tool))
+        result["items"].extend(deepcopy(item) for item in page if isinstance(item, dict))
+        if offset+len(page)<len(catalogue):
             result["next_offset"] = offset+len(page)
         return result
 
     def definitions(self):
         return [tool.definition() for tool in self.loaded.values()]
 
-    async def call(self, alias, arguments):
+    def validate(self, alias, arguments):
+        """Validate before any execution state is committed; dispatch checks again."""
         tool = self.loaded.get(alias)
         if tool is None:
             raise QAError("tool_not_loaded", "工具未加载，请先发现并加载相应定义")
-        from jsonschema import Draft202012Validator, SchemaError, ValidationError
+        from jsonschema import Draft202012Validator, ValidationError
 
-        def check_refs(value):
-            if isinstance(value, dict):
-                for key, child in value.items():
-                    if key in {"$ref", "$dynamicRef"} and (not isinstance(child, str) or not child.startswith("#")):
-                        raise QAError("invalid_schema", "工具schema仅支持本地引用", 502)
-                    check_refs(child)
-            elif isinstance(value, list):
-                for child in value:
-                    check_refs(child)
-
-        check_refs(tool.schema)
+        check_schema(tool.schema)
         try:
-            Draft202012Validator.check_schema(tool.schema)
             Draft202012Validator(tool.schema).validate(arguments)
-        except SchemaError as exc:
-            raise QAError("invalid_schema", "MCP工具schema无效", 502) from exc
         except ValidationError as exc:
             detail = {"path": list(exc.absolute_path), "constraint": exc.validator}
             detail["expected"], _ = project(exc.validator_value, 300)
             raise QAError("invalid_parameters", "参数不符合当前工具schema", detail=detail) from exc
         if len(encode(arguments))>self.limits.context_chars:
             raise QAError("invalid_parameters", "工具参数超过运行预算")
+        return tool
+
+    async def call(self, alias, arguments):
+        tool = self.validate(alias, arguments)
         self.loaded.move_to_end(alias)
         timeout = self.servers[tool.server].timeout or self.limits.timeout
         deadline = asyncio.get_running_loop().time()+timeout

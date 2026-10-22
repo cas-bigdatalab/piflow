@@ -249,9 +249,9 @@ def test_model_operation_view_is_bounded_and_retains_saved_receipts():
     assert operations.view(offset=offset, budget=1500)["items"][0]["id"]==str(offset)
 
 
-@pytest.mark.parametrize("metadata", [None, {"operations": [goal("a")], "calls": []},
+@pytest.mark.parametrize("metadata", [{"operations": [goal("a")], "calls": []},
     {"operations": [goal("a")], "calls": ["unknown"]}])
-def test_invalid_or_missing_bindings_are_corrected_before_any_dispatch(engine, metadata):
+def test_invalid_explicit_legacy_bindings_are_corrected_before_any_dispatch(engine, metadata):
     class Unannotated(RawDialogue):
         async def respond(self, messages, definitions):
             self.inputs.append((messages, definitions))
@@ -282,6 +282,7 @@ def test_invalid_or_missing_bindings_are_corrected_before_any_dispatch(engine, m
 def test_target_reference_cannot_change_when_focus_switches_or_goal_is_redeclared(engine):
     async def run():
         backend = Backend()
+        backend.catalog["data"][3].meta = {"piflow": {"qa": {"bind": {"reference": ["/id"]}}}}
         dialogue = Dialogue(load(), remote("search"))
         service = DatasetQA(engine, dialogue, backend.gateway())
         sid = session(service)
