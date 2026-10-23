@@ -11,7 +11,7 @@ from langchain_core.messages import AIMessage, HumanMessage, ToolMessage, messag
 from pydantic import ValidationError
 
 from .context import encode, project, public_result, slice_result
-from .capabilities import GOAL, OBJECT, SUPPORTING, adapted, identifiers_from_request, inputs, profile, resolve_tool, same_identity
+from .capabilities import GOAL, OBJECT, SUPPORTING, TASK, adapted, identifiers_from_request, inputs, profile, resolve_tool, same_identity
 from .contracts import QAError
 from .dialogue import BUILTINS, INPUTS, Dialogue, OutcomeConfirmation
 from .execution import Execution, fingerprint
@@ -23,6 +23,7 @@ from .references import all_references, apply_update, at_path, display_list, han
 from .runtime import Waiting
 from .parallel import run_read_batch
 from .responses import public_completion, response_labels, response_operations
+from .search import SearchRun, TaskDirective
 
 log = logging.getLogger("flow.dataset_qa")
 
@@ -562,7 +563,21 @@ class DatasetQA:
         cards = await asyncio.to_thread(self.store.selected_results, user, sid, result_ids)
         patch = values.references.model_dump(exclude_unset=True) if values.references else {}
         paths = values.merge_path
-        if paths is None and len(cards)>1:
+        combined, lineage = [], {}
+        search_ids = {rid for item in operations.items if item.get("search") for rid in operations.result_ids(item)} if operations else set()
+
+        def merge(group, pointers, result_id):
+            sources = {}
+            card = combine_results(group, pointers, result_id, values.title, sources)
+            combined.append(card)
+            lineage[result_id] = sources
+            if (candidate := patch.get("candidates")) and candidate["result_id"] in {value["result_id"] for value in group}:
+                pointer = pointers[candidate["result_id"]] if isinstance(pointers, dict) else pointers
+                if candidate.get("path", "")== (pointer.get("path") if isinstance(pointer, dict) else pointer):
+                    patch["candidates"] = {**candidate, "result_id": result_id, "path": ""}
+            return card
+
+        if paths is None and (len(cards)>1 or search_ids.intersection(result_ids)):
             if execution is None:
                 raise QAError("invalid_delivery", "自动汇总需要本轮操作及执行来源")
             try:
@@ -578,10 +593,22 @@ class DatasetQA:
                 raise QAError("invalid_delivery", "合并结果时必须选择已保存的结果")
             if execution is not None and len({card.get("view_type") for card in cards})>1:
                 raise QAError("invalid_delivery", "不同展示类型不能合并为一个结果；请保留必要产物并准确说明尚未完成的交付")
-            cards = [combine_results(cards, paths, tid+":delivery", values.title)]
-            if (candidate := patch.get("candidates")) and candidate["result_id"] in result_ids and candidate.get("path", "")==(
-                    paths[candidate["result_id"]] if isinstance(paths, dict) else paths):
-                patch["candidates"] = {**candidate, "result_id": cards[0]["result_id"], "path": ""}
+            cards = [merge(cards, paths, tid+":delivery")]
+        elif search_ids.intersection(result_ids):
+            # Independent outcomes can have incompatible presentation types.
+            # Still consolidate each discovery's own pages, keeping unrelated
+            # artifacts and their order intact. Ordinals then address one list.
+            replacements, consumed = {}, set()
+            for item in operations.items:
+                ids = set((item.get("search") or {}).get("result_ids", []))
+                group = [card for card in cards if card["result_id"] in ids-consumed]
+                if not group:
+                    continue
+                pointers = collection_paths(group, operations)
+                replacements[group[0]["result_id"]] = merge(group, pointers, tid+":delivery:"+str(len(combined)))
+                consumed.update(card["result_id"] for card in group)
+            cards = [replacements.get(card["result_id"], card) for card in cards
+                if card["result_id"] not in consumed or card["result_id"] in replacements]
         if cards and "candidates" not in patch:
             candidates = [candidate for card in cards if (candidate := display_list(card))]
             if len(candidates)==1:
@@ -597,9 +624,11 @@ class DatasetQA:
             await self._validate_references(user, sid, json.loads(saved["context"]).get("references", {}), patch, cards)
         if len(encode({"items": [public_result(card) for card in cards]}).encode("utf-8")) > self.gateway.limits.result_bytes:
             raise QAError("result_too_large", "展示结果超过运行预算，请缩小交付范围")
-        if paths is not None:
-            await self._write(user, sid, tid, card=cards[0])
+        for card in combined:
+            await self._write(user, sid, tid, card=card)
         payload["delivery"] = [card["result_id"] for card in cards]
+        if lineage:
+            payload["delivery_lineage"] = lineage
         if execution is not None:
             payload["delivery_sources"] = result_ids
             payload["operations"] = operations.items
@@ -676,6 +705,8 @@ class DatasetQA:
             tool = tools.loaded.get(call["name"])
             args, error, _ = execution.prepared.get(call["id"], (None, None, None))
             operation_id = bindings.get(call["id"])
+            if (execution.operations.get(operation_id) or {}).get("search"):
+                return {}  # Discovery owns sequential, early-stopping pagination.
             if not Execution.reusable(tool) or args is None or error or not operation_id or operation_id in operation_ids:
                 return {}
             key = fingerprint([operation_id, call["name"], args])
@@ -721,11 +752,13 @@ class DatasetQA:
     async def _fast_delivery(self, user, sid, tid, payload, execution, context):
         """Skip selection only for an unambiguous, fully satisfied atomic request."""
         goals = execution.operations.required
+        if any(item.get("search") and not item["search"]["done"] for item in execution.operations.items):
+            return False
         if execution.finalizing and goals and all(item.get("planned") and item["output"]=="result" for item in goals) and not context.get("reference_issue"):
             for item in goals:
                 cards = [card for card in execution.cards.values() if card["result_id"] in execution.operations.result_ids(item)]
                 surfaces = [at_path(card.get("data"), surface["path"]) for card in cards if (surface := display_list(card))]
-                if surfaces and not any(surfaces):
+                if surfaces and not any(surfaces) and not item.get("direct") and not (item.get("search") or {}).get("done"):
                     return False  # An empty retrieval deserves semantic review, not automatic closure.
             try:
                 await self._deliver(user, sid, tid, {}, payload, execution)
@@ -756,6 +789,72 @@ class DatasetQA:
         await self._deliver(user, sid, tid, {"result_ids": ids}, payload, execution)
         log.info("Direct delivery: task=%s operation=%s", tid, item["id"])
         return True
+
+    async def _search(self, user, sid, tid, tool, operation_id, tools, execution, payload, results, phase, waiting):
+        """Run a supplied keyword plan without extra model bookkeeping rounds.
+
+        Each actual page retains its normal receipt and artifact. The gateway
+        alone performs transport retries; a retry never advances search state.
+        The caller has already reserved the first business call budget slot.
+        """
+        operation = execution.operations.get(operation_id)
+        search, descriptor = SearchRun(operation["search"]), profile(tool)
+        first, last = True, None
+        while (arguments := search.arguments()) is not None:
+            try:
+                tools.validate(tool.alias, arguments)
+            except QAError as exc:
+                if exc.code=="invalid_parameters" and search.state["page"]>1:
+                    # Only the page number changed since the validated plan.
+                    # A schema pagination bound ends this keyword locally.
+                    search.close_keyword()
+                    await self._write(user, sid, tid, payload=payload)
+                    continue
+                raise
+            if not first:
+                if execution.calls>=self.gateway.limits.max_calls:
+                    raise QAError("step_limit", "本轮查询预算已用完，已取得的候选结果会保留")
+                execution.calls += 1
+            first = False
+            key = fingerprint([operation_id, tool.alias, arguments])
+            invocation = fingerprint([tool.server, tool.name, arguments])
+            started = time.monotonic()
+            try:
+                # Recover a persisted page only when it belongs to this outcome;
+                # never reuse a page belonging to an independent new request.
+                receipt = execution.operations.receipt(invocation, operation_id)
+                last = next((card for card in execution.cards.values()
+                    if receipt and card["result_id"]==receipt.get("result_id")), None)
+                if last is None:
+                    execution.operations.start(operation_id, key, {"server": tool.server, "name": tool.name},
+                        execution.reusable(tool), invocation, presentation={"family": tool.server+"/"+tool.name,
+                            "kind": "collection", "path": descriptor.collection, "identity": descriptor.search.identity})
+                    payload["operations"] = execution.operations.items
+                    await phase("execute", "正在检索数据集", payload=payload)
+                    async with waiting.during("正在获取候选数据集，收到结果后会继续整理。"):
+                        _, output = await tools.call(tool.alias, arguments)
+                    search.rows(output.data, descriptor.collection)
+                    last, created = await self._save_tool_result(user, sid, tid, tool, output,
+                        operation_id, key, f"{tid}:{results}", execution, payload)
+                    results += int(created)
+                    payload["result_sequence"] = results
+                else:
+                    execution.operations.reuse(operation_id, key, receipt)
+                search.record(last.get("data"), descriptor.collection, last["result_id"])
+                payload["operations"] = execution.operations.items
+                await self._write(user, sid, tid, payload=payload)
+                log.info("Search progress: task=%s operation=%s keyword=%s page=%s unique=%s completed_keywords=%s stop=%s elapsed=%.3fs",
+                    tid, operation_id, arguments[descriptor.search.query], arguments.get(descriptor.search.page, 1),
+                    len(search.state["records"]), len(search.state["completed"]), search.state["stop"], time.monotonic()-started)
+            except QAError as exc:
+                execution.operations.finish(operation_id, key, error=exc)
+                await self._write(user, sid, tid, payload=payload)
+                raise
+        if last is None:
+            last = next((card for card in reversed(execution.cards.values())
+                if card["result_id"] in search.state["result_ids"]), None)
+        value = self._evidence(last) if last else {}
+        return {**value, "search": search.view()}, results
 
     async def _object_index(self, user, sid, context, payload, requested=()):
         """Short handles are a view of owned sources, never model-created IDs."""
@@ -838,6 +937,10 @@ class DatasetQA:
         """Accept native actions independently; runtime owns associations and IDs."""
         native = [call for call in reply.tool_calls if call["name"] in tools.loaded]
         memory = [INPUTS["remember"][0].model_validate(call["args"]) for call in reply.tool_calls if call["name"]=="remember"]
+        if len(native)>1 and any(isinstance(call["args"].get(TASK), dict)
+                and call["args"][TASK].get("complete_request") is True for call in native):
+            raise QAError("invalid_parameters", "声明完成整个请求的操作不能同时追加其他MCP调用", detail={
+                "guidance": "Choose the one capability that completes this request. For genuinely multiple requested outcomes, declare those outcomes and mark each intermediate call complete_request=false."})
         asking = any(call["name"]=="request_input" for call in reply.tool_calls)
         execution.prepared = {}
         if not native and not memory and not (context.get("pending") and asking):
@@ -920,6 +1023,9 @@ class DatasetQA:
         if not legacy:
             goals = [goal for value in memory for goal in value.goals or []]
             operations = Operations(inherited.get("operations", []) if inherited else execution.operations.items)
+            if goals and any(item.get("search") and not item["search"]["done"] for item in operations.items):
+                raise QAError("invalid_parameters", "本次检索目标已登记，请继续其关键词计划，无需再次登记目标", detail={
+                    "guidance": "Continue the existing discovery with its remaining keywords. Do not replace or re-register its outcome; declare additional independent goals after this discovery completes."})
             if goals and not any(item.get("planned") for item in operations.items):
                 for item in operations.items:
                     if "capability" in item:
@@ -941,6 +1047,18 @@ class DatasetQA:
             target = None
             try:
                 descriptor = profile(tool)
+                directive = None
+                if adapted(tool) and TASK in arguments:
+                    if not (descriptor.search or descriptor.atomic):
+                        raise QAError("invalid_parameters", "此能力未声明受控任务执行方式")
+                    try:
+                        directive = TaskDirective.model_validate(arguments[TASK])
+                    except ValidationError as exc:
+                        raise execution.validation_error(exc) from exc
+                    if directive.keywords is not None and descriptor.search is None:
+                        raise QAError("invalid_parameters", "只有检索能力接受关键词计划")
+                    if descriptor.search and "keywords" not in arguments[TASK]:
+                        raise QAError("invalid_parameters", "请明确主题检索的关键词计划；精确查询须显式设置keywords为null")
                 selector = arguments.get(OBJECT) if adapted(tool) else None
                 goal_choice = arguments.get(GOAL) if adapted(tool) else None
                 supporting = arguments.get(SUPPORTING) if adapted(tool) else False
@@ -983,7 +1101,20 @@ class DatasetQA:
                     # search. Identifiers absent from sources/request are unsafe.
                     if not identifiers_from_request(tool, prepared, payload["message"]):
                         raise QAError("invalid_parameters", "请从已有结果选择对象，不能使用无来源的标识")
+                if descriptor.search and directive and directive.keywords:
+                    prepared[descriptor.search.query] = directive.keywords[0]
                 tools.validate(call["name"], prepared)
+                # A discovery plan lives on one outcome. Missing legacy task
+                # metadata may continue discovery, but cannot auto-finish a
+                # whole request whose semantic scope has not been supplied.
+                keywords = directive.keywords if directive else (
+                    [prepared[descriptor.search.query]] if descriptor.search and prepared.get(descriptor.search.query) else None)
+                discovery = descriptor.search is not None and keywords is not None
+                if discovery and not execution.reusable(tool):
+                    raise QAError("invalid_parameters", "自动关键词扩展和分页需要服务声明只读且幂等的检索能力")
+                if not discovery and any(item.get("search") and not item["search"]["done"]
+                        and item["state"] not in {"failed", "unknown"} for item in execution.operations.items):
+                    raise QAError("invalid_parameters", "请先完成当前检索的关键词计划，再执行后续操作")
                 if not legacy:
                     # A native call may discover evidence before the model has
                     # stated the intended outcome. A new query for the same
@@ -991,7 +1122,7 @@ class DatasetQA:
                     # changing arguments alone is not a reason to keep exploring.
                     # Keep the definition available so goals and refinement can
                     # be co-emitted. Exact receipt replays still need no dispatch.
-                    if not execution.operations.required:
+                    if not discovery and not execution.operations.required:
                         invocation = fingerprint([tool.server, tool.name, prepared])
                         for previous in execution.operations.items:
                             if (previous.get("inferred") and previous.get("capability")==capability
@@ -1018,6 +1149,15 @@ class DatasetQA:
                         matched = matches[0]
                         operation_id = matched["id"]
                         target = matched.get("target")
+                    elif directive and directive.complete_request and not supporting:
+                        ongoing = [item for item in execution.operations.items if discovery and item.get("search")
+                            and item.get("capability")==capability and await same_target(tool, item.get("target"), target)
+                            and not item.get("required", True)]
+                        if len(ongoing)==1:
+                            operation_id = ongoing[0]["id"]
+                            ongoing[0].update(required=True, planned=True)
+                        else:
+                            operation_id = execution.operations.register(payload["message"], capability, target, planned=True)
                     elif not supporting and not any(item.get("planned") for item in execution.operations.required):
                         # A refreshed detail source may describe the same object.
                         # Reuse its grounded operation rather than create a new
@@ -1030,6 +1170,23 @@ class DatasetQA:
                         execution.operations.get(operation_id)["inferred"] = True
                     else:
                         operation_id = execution.operations.register(tool.title, capability, target, required=False)
+                operation = execution.operations.get(operation_id)
+                if directive and directive.complete_request and operation and not supporting:
+                    operation["direct"] = True
+                if discovery and operation:
+                    search = (SearchRun(deepcopy(operation["search"])).extend(prepared, keywords) if operation.get("search") else
+                        SearchRun.create(descriptor.search, prepared, keywords))
+                    for keyword in search.state["keywords"]:
+                        candidate = {**search.state["base"], descriptor.search.query: keyword}
+                        if descriptor.search.page:
+                            candidate[descriptor.search.page] = 1
+                        tools.validate(call["name"], candidate)
+                    operation["search"] = search.state
+                    # Count successful new keywords independently of the generic
+                    # repeated-evidence detector, including empty search pages.
+                    execution.blocked.discard(operation_id)
+                elif operation and operation.get("search"):
+                    raise QAError("invalid_parameters", "已有主题检索须继续使用关键词计划，不能切换为未受约束的查询")
                 if operation_id in execution.blocked:
                     raise QAError("invalid_parameters", "此目标已停止重复扩展，请处理其他必要目标或交付现有结果", detail={
                         "field": GOAL, "choices": [{"id": item["id"], "description": item["description"]}
@@ -1250,6 +1407,17 @@ class DatasetQA:
                 if key!="reason" or not payload.get("diagnostics_exposed")}
         if operations.items:
             context["operations"] = response_operations(operations, payload.get("response_labels"))
+        searches = [SearchRun(item["search"]).view() for item in operations.items if item.get("search")]
+        if searches:
+            context["search_outcomes"] = [{key: value[key] for key in
+                ("unique_count", "minimum", "done", "stop")} | {"completed_keyword_count": len(value["completed_keywords"])}
+                for value in searches]
+            instructions += (" search_outcomes contains authoritative counts of actually retrieved, deduplicated candidates. "
+                "If exhausted with zero candidates, say no matching datasets were found in the searched scope. "
+                "If exhausted with one to five candidates, present those candidates and say insufficient candidates were found; never call that zero results. "
+                "If not done, the search is incomplete, not evidence of no matches. Do not speculate why a source returned zero, "
+                "or offer to query named external platforms unless their configured capability has been verified. "
+                "Do not ask the user to choose new keywords when the bounded search has already finished.")
         pending = json.loads(messages[1].content).get("pending")
         if pending:
             context["pending"] = {key: pending[key] for key in ("question", "options") if key in pending}
@@ -1347,7 +1515,7 @@ class DatasetQA:
                             tid, error.code, str(error)[:240], encode(value.get("detail", {})))
                         return value
 
-                    tools.prime(payload["message"], context.get("tools", []))
+                    await tools.prepare(payload["message"], context.get("tools", []))
                     model_context["mcp_servers"] = tools.list_servers(payload["message"])
                     messages = self.dialogue.messages(payload["message"], model_context)
                     evidence_ids = ()
@@ -1357,6 +1525,11 @@ class DatasetQA:
                             break
                         rejection = None
                         actions = execution.actions(tools.loaded)
+                        if tools.loaded and any(profile(tool).search or profile(tool).atomic for tool in tools.loaded.values()):
+                            catalogues = [tools.cached_tools(server) for server in tools.servers]
+                            if all(catalogue is not None for catalogue in catalogues) and all(
+                                    tool.alias in tools.loaded for catalogue in catalogues for tool in catalogue):
+                                actions -= {"list_mcp_servers", "load_mcp_tools"}
                         closing = (round_index==limits.max_rounds-1 and bool(execution.cards)
                             and (not execution.operations.required or execution.finalizing))
                         if closing:
@@ -1477,6 +1650,7 @@ class DatasetQA:
                             invocation = fingerprint([tool.server, tool.name, arguments]) if tool else None
                             receipt = execution.operations.receipt(invocation, operation_id) if invocation and not prepared_error else None
                             reused = next((card for card in execution.cards.values() if receipt and card["result_id"]==receipt.get("result_id")), None)
+                            active_search = bool((execution.operations.get(operation_id) or {}).get("search"))
                             interaction = None
                             rejected = False
                             log.info("Agent action: task=%s name=%s allowed=%s", tid, name, name in advertised)
@@ -1524,7 +1698,7 @@ class DatasetQA:
                                 failure = QAError("execution_unknown", "此操作的执行结果尚未确认，未重复执行；请先核实上游状态", 504)
                                 execution.failures[operation_id] = failure
                                 value = {"error": failure.code, "message": str(failure), "executed": False}
-                            elif tool and not prepared_error and ((completed := execution.completed(key)) is not None or (completed := reused) is not None):
+                            elif tool and not prepared_error and not active_search and ((completed := execution.completed(key)) is not None or (completed := reused) is not None):
                                 if reused is not None:
                                     execution.operations.reuse(operation_id, key, receipt)
                                 execution.operations.finish(operation_id, key, result_id=completed["result_id"])
@@ -1553,6 +1727,9 @@ class DatasetQA:
                                             messages[1] = HumanMessage(encode(updated))
                                         if name=="request_input":
                                             interaction = context["pending"]
+                                    elif active_search:
+                                        value, results = await self._search(user, sid, tid, tool, operation_id,
+                                            tools, execution, payload, results, phase, waiting)
                                     else:
                                         previous = execution.failures.get(key) if operation_id is None else None
                                         if previous and (previous.code=="execution_unknown" or (previous.code!="mcp_unavailable" and not execution.reusable(tool))):
@@ -1572,8 +1749,11 @@ class DatasetQA:
                                         results += int(created)
                                         value = self._evidence(card)
                                 except (QAError, ValidationError) as exc:
+                                    results = max(results, payload.get("result_sequence", 0))
                                     if isinstance(exc, ValidationError):
                                         exc = execution.validation_error(exc)
+                                    if exc.code=="step_limit":
+                                        reason = exc
                                     log.info("Tool request rejected: task=%s tool=%s operation=%s code=%s",
                                         tid, name, operation_id, exc.code)
                                     value = {"error": exc.code, "message": str(exc)}
@@ -1628,8 +1808,10 @@ class DatasetQA:
                                 return
                             if not rejected:
                                 progress = execution.observe(key, value, name, arguments, context, scope=operation_id, tool=tool)
-                                if tool and operation_id:
+                                if tool and operation_id and not active_search:
                                     scope_progress[operation_id] = scope_progress.get(operation_id, False) or progress
+                                if active_search:
+                                    progress = progress or bool(value.get("search"))
                                 round_progress = round_progress or progress
                                 if not progress:
                                     value = {**value, "repeated": True,

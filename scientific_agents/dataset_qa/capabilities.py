@@ -12,17 +12,21 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from .contracts import QAError
 from .context import pointer_tokens
 from .references import at_path, identifier_in_request
+from .search import SearchProfile, TaskDirective
 
 
 PROFILES = {
-    ("piflow-corpus", "search_corpus_datasets"): {"collection": "/items"},
-    ("piflow-corpus", "get_corpus_dataset_detail"): {"object": "", "bind": {"cstr": ["/cstr", "/raw/cstr"]}},
-    ("piflow-corpus", "get_corpus_dataset_directory"): {"bind": {"cstr": ["/cstr", "/raw/cstr"]}},
-    ("piflow-corpus", "sample_corpus_dataset"): {"bind": {"cstr": ["/cstr", "/raw/cstr"]}},
+    ("piflow-corpus", "search_corpus_datasets"): {"collection": "/items", "search": {
+        "query": "query", "page": "page", "page_size": "page_size", "total": "/pagination/total",
+        "identity": ["/cstr", "/id"], "opaque_filters": ["field", "subject", "title"]}},
+    ("piflow-corpus", "get_corpus_dataset_detail"): {"atomic": True, "object": "", "bind": {"cstr": ["/cstr", "/raw/cstr"]}},
+    ("piflow-corpus", "get_corpus_dataset_directory"): {"atomic": True, "bind": {"cstr": ["/cstr", "/raw/cstr"]}},
+    ("piflow-corpus", "sample_corpus_dataset"): {"atomic": True, "bind": {"cstr": ["/cstr", "/raw/cstr"]}},
 }
 OBJECT = "__qa_object"
 SUPPORTING = "__qa_supporting"
 GOAL = "__qa_goal"
+TASK = "__qa_task"
 
 
 class Profile(BaseModel):
@@ -30,6 +34,8 @@ class Profile(BaseModel):
     bind: dict[str, list[str]] = Field(default_factory=dict, max_length=16)
     collection: str | None = None
     object: str | None = None
+    atomic: bool = False
+    search: SearchProfile | None = None
 
 
 def profile(tool):
@@ -43,9 +49,19 @@ def profile(tool):
     if any(key not in properties or not paths
             for key, paths in result.bind.items()):
         raise QAError("invalid_schema", "服务的对象绑定字段或来源路径无效", 502)
+    if result.search:
+        search = result.search
+        if result.collection is None or any(key not in properties for key in
+                [search.query, *[value for value in (search.page, search.page_size) if value]]):
+            raise QAError("invalid_schema", "检索能力的输入或列表定义无效", 502)
+        if (search.page is None)!=(search.page_size is None):
+            raise QAError("invalid_schema", "分页能力须同时声明页码和页面大小参数", 502)
     try:
         for path in [result.collection, result.object, *(path for paths in result.bind.values() for path in paths)]:
             if path is not None:
+                pointer_tokens(path)
+        if result.search:
+            for path in [*result.search.identity, *([result.search.total] if result.search.total is not None else [])]:
                 pointer_tokens(path)
     except QAError as exc:
         raise QAError("invalid_schema", "服务的对象来源路径须为有效JSON Pointer", 502) from exc
@@ -61,7 +77,7 @@ def resolve_tool(name, loaded):
 
 
 def adapted(tool):
-    return tool.schema.get("type")=="object" and not ({OBJECT, SUPPORTING, GOAL} & tool.schema.get("properties", {}).keys())
+    return tool.schema.get("type")=="object" and not ({OBJECT, SUPPORTING, GOAL, TASK} & tool.schema.get("properties", {}).keys())
 
 
 def request_identifiers(tool, arguments, message):
@@ -82,10 +98,23 @@ def definition(tool):
         schema.setdefault("properties", {}).update({
             SUPPORTING: {"type": ["boolean", "null"], "default": False, "description": "True for an auxiliary lookup rather than a requested outcome."},
         })
-        bound = profile(tool).bind
+        descriptor = profile(tool)
+        bound = descriptor.bind
         if bound:
             schema["properties"][OBJECT] = {"type": ["string", "null"], "description": "Supplied object handle. Omit to use current focus. Runtime binds its identifiers."}
             schema["required"] = [key for key in schema.get("required", []) if key not in bound]
+        if descriptor.search or descriptor.atomic:
+            task = TaskDirective.model_json_schema()
+            if descriptor.search:
+                task["required"].append("keywords")
+                query = schema["properties"][descriptor.search.query]
+                query["description"] = query.get("description", "")+(
+                    " For broad discovery runtime uses the supplied __qa_task.keywords plan. "
+                    "For an exact lookup set keywords=null and supply this argument normally.")
+            else:
+                task["properties"].pop("keywords", None)
+            schema["properties"][TASK] = task
+            schema.setdefault("required", []).append(TASK)
     return {"type": "function", "function": {"name": tool.alias,
         "description": tool.description, "parameters": schema}}
 
@@ -97,6 +126,7 @@ def inputs(tool, arguments, record=None):
         values.pop(OBJECT, None)
         values.pop(SUPPORTING, None)
         values.pop(GOAL, None)
+        values.pop(TASK, None)
     binding = profile(tool).bind
     if record is not None:
         from jsonschema import Draft202012Validator

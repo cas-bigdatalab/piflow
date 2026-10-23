@@ -44,6 +44,12 @@ class Execution:
             scopes = [item for item in self.operations.items if item.get("capability")=={"server": tool.server, "name": tool.name}]
             if scopes and all(item["id"] in self.blocked for item in scopes):
                 names.discard(alias)
+        searching = [item for item in self.operations.items if item.get("search") and not item["search"]["done"]
+            and item["state"] not in {"failed", "unknown"}]
+        if searching:
+            allowed = {alias for alias, tool in loaded.items()
+                if any(item.get("capability")=={"server": tool.server, "name": tool.name} for item in searching)}
+            names -= {"list_mcp_servers", "load_mcp_tools", "deliver_results", "remember", *set(loaded)-allowed}
         return names
 
     def progress(self, observations, limit):

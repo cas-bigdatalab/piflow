@@ -415,6 +415,19 @@ class ToolSession:
         candidates.sort(key=lambda t: (t.server, t.name) not in recent)
         return self.include(candidates[:min(4, self.limits.max_tools)])
 
+    async def prepare(self, query, references=()):
+        """Use cached schemas, or discover one unambiguous configured service.
+
+        Multiple services retain on-demand routing. No fan-out, business call,
+        additional model request, or retry policy is introduced by preparation.
+        """
+        self.prime(query, references)
+        if not self.loaded and len(self.servers)==1:
+            try:
+                await self.load(next(iter(self.servers)), query=query)
+            except QAError:
+                pass  # The existing discovery recovery retains precise feedback.
+
     async def load(self, server, query="", offset=0, limit=4):
         catalogue = [*await self.tools(server), *self.definition_errors.get(server, [])]
         catalogue = ranked(catalogue, query, lambda item: item.name+" "+item.description+" "+encode(item.meta)

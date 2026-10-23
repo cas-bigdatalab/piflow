@@ -15,6 +15,7 @@ from .context import encode, project, public_result, slice_result
 from .contracts import QAError
 from .execution import fingerprint
 from .references import at_path, display_list
+from .search import record_key
 
 
 def as_dict(value):
@@ -244,8 +245,9 @@ def collection_paths(cards, operations):
             except QAError as exc:
                 raise QAError("invalid_delivery", "返回内容不符合声明的展示结构，不能自动合并") from exc
             rows = [value] if descriptor["kind"]=="object" else value
-            paths[card["result_id"]] = ({"path": descriptor["path"], "kind": "object"}
-                if descriptor["kind"]=="object" else descriptor["path"])
+            paths[card["result_id"]] = ({"path": descriptor["path"], "kind": descriptor["kind"],
+                **({"identity": descriptor["identity"]} if descriptor.get("identity") else {})}
+                if descriptor["kind"]=="object" or descriptor.get("identity") else descriptor["path"])
         else:
             surface = display_list(card)
             if surface is None:
@@ -262,25 +264,31 @@ def collection_paths(cards, operations):
     return paths
 
 
-def combine_results(cards, path, result_id, title):
+def combine_results(cards, path, result_id, title, lineage=None):
     """Project saved arrays/declared objects without inventing rows or totals."""
     rows, content, seen, media = [], [], set(), set()
     for card in cards:
         pointer = path[card["result_id"]] if isinstance(path, dict) else path
-        if isinstance(pointer, dict) and pointer.get("kind")=="object" and isinstance(pointer.get("path"), str):
+        identity = pointer.get("identity", []) if isinstance(pointer, dict) else []
+        source_path = pointer.get("path", "") if isinstance(pointer, dict) else pointer
+        if isinstance(pointer, dict) and pointer.get("kind") in {"object", "collection"} and isinstance(pointer.get("path"), str):
             value = at_path(card.get("data"), pointer["path"])
-            if not isinstance(value, dict):
-                raise QAError("invalid_delivery", "声明的对象位置必须指向完整对象")
-            value = [value]
+            if pointer["kind"]=="object":
+                if not isinstance(value, dict):
+                    raise QAError("invalid_delivery", "声明的对象位置必须指向完整对象")
+                value = [value]
         else:
             value, _ = slice_result(card.get("data"), pointer, 0, len(encode(card)))
         if not isinstance(value, list):
             raise QAError("invalid_delivery", "合并位置必须指向数组")
-        for row in value:
-            key = fingerprint(row)
+        for index, row in enumerate(value):
+            key = record_key(row, identity) if identity else fingerprint(row)
             if key not in seen:
                 seen.add(key)
                 rows.append(row)
+                if lineage is not None:
+                    lineage[str(len(rows)-1)] = {"result_id": card["result_id"], "path": source_path+(
+                        "" if isinstance(pointer, dict) and pointer.get("kind")=="object" else "/"+str(index))}
         for block in card.get("content", []):
             key = fingerprint(block)
             if key not in media:

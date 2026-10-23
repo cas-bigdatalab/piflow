@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from .context import encode, project
 from .contracts import QAError
 from .references import Reference
+from .search import SearchRun
 
 
 class Operation(BaseModel):
@@ -68,6 +69,8 @@ class Operations:
             for attempt in owner["attempts"]:
                 if attempt.get("invocation")!=invocation or attempt["state"]!="succeeded":
                     continue
+                if owner.get("search") and owner["id"]!=operation_id and not (operation or {}).get("search"):
+                    continue  # A page receipt cannot bypass a bounded discovery's completion policy.
                 # Reusing an auxiliary receipt must not bypass its subsequent
                 # ownership by another independently requested outcome. The
                 # original dispatch may predate both goals and have no scope.
@@ -92,6 +95,7 @@ class Operations:
         claimed = {rid for item in self.required for rid in self.result_ids(item)}
         return [(owner, attempt) for owner in self.items
             if not owner.get("required", True) and owner["state"]=="succeeded" and owner.get("capability")
+            and (not owner.get("search") or owner["search"]["done"])
             for attempt in owner["attempts"]
             if attempt["state"]=="succeeded" and attempt.get("key") and attempt.get("invocation")
             and attempt.get("result_id") in available-claimed
@@ -168,6 +172,12 @@ class Operations:
             sources = {attempt["result_id"]: attempt for owner, attempt in proposed._confirmation_sources(available)
                 if owner["capability"]==goal.get("capability") and owner.get("target")==goal.get("target")
                 and goal_id not in attempt.get("scope", [])}
+            searches = [owner["search"] for owner in proposed.items if owner.get("search")
+                and set(ids).intersection(proposed.result_ids(owner))]
+            if searches:
+                if len(searches)!=1 or set(ids)!=set(searches[0]["result_ids"]):
+                    reject("confirm_complete_search_evidence", goal_id)
+                goal["search"] = deepcopy(searches[0])
             for rid in ids:
                 receipt = sources[rid]
                 proposed.reuse(goal_id, receipt["key"], {**receipt, "confirmation": True})
@@ -275,6 +285,10 @@ class Operations:
     def validate_delivery(self, ids, partial=False):
         if not self.required:
             raise QAError("invalid_delivery", "尚未明确本轮必要操作，不能确定最终交付")
+        unfinished_searches = {item["id"]: SearchRun(item["search"]).view() for item in self.items
+            if item.get("search") and not item["search"]["done"]}
+        if unfinished_searches and not partial:
+            raise QAError("invalid_delivery", "检索尚未达到六条去重结果，也尚未完成四个不同关键词", detail={"searches": unfinished_searches})
         owners = {rid for item in self.required for rid in self.result_ids(item)}
         if not set(ids)<=owners:
             raise QAError("invalid_delivery", "交付结果必须来自本轮必要操作的成功证据，不能选择辅助查询或无关历史结果",
@@ -293,7 +307,12 @@ class Operations:
                 if failure:
                     return QAError(failure["code"], failure["message"], failure["status"], detail=failure.get("detail"))
                 return QAError("execution_unknown", "部分操作的执行结果尚未确认", 504)
-        if any(item["state"]!="succeeded" or (item["output"]=="result" and not set(ids).intersection(self.result_ids(item))) for item in self.required):
+        if any(item.get("search") and not item["search"]["done"] for item in self.items):
+            # A completed prerequisite may be auxiliary in the artifact view;
+            # changing its delivery role cannot erase an unfinished policy.
+            return QAError("invalid_delivery", "检索范围尚未按约定完成")
+        if any(item["state"]!="succeeded" or (item.get("search") and not item["search"]["done"])
+                or (item["output"]=="result" and not set(ids).intersection(self.result_ids(item))) for item in self.required):
             return QAError("invalid_delivery", "本轮必要操作或结果交付尚未全部完成")
 
     def view(self, offset=0, limit=16, budget=3600):
@@ -304,6 +323,8 @@ class Operations:
             ids = self.result_ids(item)
             if item.get("capability"):
                 row["capability"] = item["capability"]
+            if item.get("search"):
+                row["search"] = SearchRun(item["search"]).view()
             if not item.get("required", True):
                 # A native action without an explicit goal still needs a
                 # delivery decision. It was not declared an auxiliary lookup.
