@@ -35,7 +35,8 @@ class Operations:
             and (required or not item.get("required", True))]
         if planned:
             # A new semantic declaration cannot adopt every receipt of an old
-            # auxiliary capability. Only a matching invocation may reuse it.
+            # auxiliary capability. Reuse requires a matching invocation or an
+            # explicit, source-checked confirmation of the existing evidence.
             matches = [item for item in matches if item.get("planned") and item["description"]==description]
         if matches:
             item = matches[0]
@@ -61,9 +62,16 @@ class Operations:
         call (for example two independent samples). New bookkeeping alone may not.
         """
         operation = self.get(operation_id)
+        claimed_elsewhere = {rid for item in self.required if item["id"]!=operation_id
+            for rid in self.result_ids(item)} if operation and operation.get("required", True) else set()
         for owner in self.items:
             for attempt in owner["attempts"]:
                 if attempt.get("invocation")!=invocation or attempt["state"]!="succeeded":
+                    continue
+                # Reusing an auxiliary receipt must not bypass its subsequent
+                # ownership by another independently requested outcome. The
+                # original dispatch may predate both goals and have no scope.
+                if attempt.get("result_id") in claimed_elsewhere:
                     continue
                 explicit_repeat = (owner["id"]!=operation_id and operation_id in attempt.get("scope", [])
                     and owner.get("required", True) and operation is not None and operation.get("required", True))
@@ -77,6 +85,95 @@ class Operations:
             item["attempts"].append({**deepcopy(receipt), "key": key, "dispatched": False, "reused": True})
             if first_evidence:
                 item["state"] = "succeeded"
+
+    def _confirmation_sources(self, available_ids):
+        """Original receipts that no independently required outcome owns yet."""
+        available = set(available_ids)
+        claimed = {rid for item in self.required for rid in self.result_ids(item)}
+        return [(owner, attempt) for owner in self.items
+            if not owner.get("required", True) and owner["state"]=="succeeded" and owner.get("capability")
+            for attempt in owner["attempts"]
+            if attempt["state"]=="succeeded" and attempt.get("key") and attempt.get("invocation")
+            and attempt.get("result_id") in available-claimed
+            and not attempt.get("reused") and attempt.get("dispatched", True) is not False
+            and (not attempt.get("tool") or attempt["tool"]==owner["capability"])]
+
+    def confirmable(self, available_ids):
+        """Offer evidence choices; never infer that matching tools imply completion.
+
+        Only a goal declared after an original successful execution may adopt its
+        receipt. Existing attempts and independently requested repeats retain
+        their original execution requirements.
+        """
+        sources = self._confirmation_sources(available_ids)
+        result = {}
+        for goal in self.required:
+            if not goal.get("planned") or goal["state"]!="pending" or goal["attempts"]:
+                continue
+            ids = list(dict.fromkeys(attempt["result_id"] for owner, attempt in sources
+                if owner["capability"]==goal.get("capability") and owner.get("target")==goal.get("target")
+                and goal["id"] not in attempt.get("scope", [])))
+            if ids:
+                result[goal["id"]] = ids
+        return result
+
+    def confirm(self, confirmations, available_ids):
+        """Atomically associate explicitly selected evidence with late goals.
+
+        This is a semantic confirmation of saved execution, not a new dispatch.
+        A repeated confirmation is idempotent only while its original confirmed
+        attempts remain the goal's complete, successful execution history.
+        """
+        available = set(available_ids)
+        proposed = Operations(self.items)
+
+        def reject(reason, goal=None):
+            raise QAError("invalid_delivery", "请明确已有结果满足的目标，或继续完成尚缺的操作", detail={
+                "decision": "confirm_outcome", "reason": reason, "goal": goal,
+                "eligible": self.confirmable(available),
+                "guidance": "Choose supplied goal/result_ids only when that saved evidence satisfies the outcome. "
+                    "Otherwise execute the missing operation. Do not reuse one result for independent outcomes, "
+                    "or confirm an old success over a later unfinished attempt."})
+
+        if not isinstance(confirmations, list):
+            reject("invalid_confirmations")
+        seen = set()
+        for confirmation in confirmations:
+            if not isinstance(confirmation, dict):
+                reject("invalid_confirmation")
+            goal_id, ids = confirmation.get("goal"), confirmation.get("result_ids")
+            if (not isinstance(goal_id, str) or not goal_id or not isinstance(ids, list) or not ids
+                    or any(not isinstance(rid, str) or not rid for rid in ids) or len(set(ids))!=len(ids)):
+                reject("invalid_confirmation")
+            if goal_id in seen:
+                reject("duplicate_goal", goal_id)
+            seen.add(goal_id)
+            goal = proposed.get(goal_id)
+            if goal is None or not goal.get("required", True) or not goal.get("planned"):
+                reject("unknown_goal", goal_id)
+            if not set(ids)<=available:
+                reject("unavailable_result", goal_id)
+            claimed_elsewhere = {rid for other in proposed.required if other["id"]!=goal_id
+                for rid in proposed.result_ids(other)}
+            if set(ids).intersection(claimed_elsewhere):
+                reject("result_already_owned", goal_id)
+            if (goal["state"]=="succeeded" and goal["attempts"]
+                    and all(attempt["state"]=="succeeded" and attempt.get("confirmation") is True
+                        for attempt in goal["attempts"])
+                    and set(ids)==set(proposed.result_ids(goal))):
+                continue
+            eligible = proposed.confirmable(available).get(goal_id, [])
+            if not set(ids)<=set(eligible):
+                reject("ineligible_evidence", goal_id)
+            sources = {attempt["result_id"]: attempt for owner, attempt in proposed._confirmation_sources(available)
+                if owner["capability"]==goal.get("capability") and owner.get("target")==goal.get("target")
+                and goal_id not in attempt.get("scope", [])}
+            for rid in ids:
+                receipt = sources[rid]
+                proposed.reuse(goal_id, receipt["key"], {**receipt, "confirmation": True})
+            if set(ids)!=set(proposed.result_ids(goal)):
+                reject("conflicting_receipts", goal_id)
+        self.items = proposed.items
 
     def declare(self, values):
         if values is None:
@@ -201,18 +298,21 @@ class Operations:
 
     def view(self, offset=0, limit=16, budget=3600):
         rows = []
+        owned = {rid for item in self.required for rid in self.result_ids(item)}
         for item in self.items[offset:offset+limit]:
             row = {key: item[key] for key in ("id", "description", "target", "output", "state")}
+            ids = self.result_ids(item)
             if item.get("capability"):
                 row["capability"] = item["capability"]
             if not item.get("required", True):
                 # A native action without an explicit goal still needs a
                 # delivery decision. It was not declared an auxiliary lookup.
-                # Keep the execution state unchanged until that decision.
-                row["delivery_pending" if item.get("inferred") else "supporting"] = True
+                # Explicitly adopted receipts now support their required goal;
+                # partial adoption leaves the other saved outcomes undecided.
+                pending = item.get("inferred") and (not ids or not set(ids)<=owned)
+                row["delivery_pending" if pending else "supporting"] = True
             if item.get("direct"):
                 row["direct"] = True
-            ids = self.result_ids(item)
             row["result_ids"] = ids[:2]
             if len(ids)>2:
                 row["result_count"] = len(ids)

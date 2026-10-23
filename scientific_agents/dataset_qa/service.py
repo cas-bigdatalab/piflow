@@ -13,7 +13,7 @@ from pydantic import ValidationError
 from .context import encode, project, public_result, slice_result
 from .capabilities import GOAL, OBJECT, SUPPORTING, adapted, identifiers_from_request, inputs, profile, resolve_tool, same_identity
 from .contracts import QAError
-from .dialogue import BUILTINS, INPUTS, Dialogue
+from .dialogue import BUILTINS, INPUTS, Dialogue, OutcomeConfirmation
 from .execution import Execution, fingerprint
 from .operations import Operations
 from .mcp import MCPGateway
@@ -489,14 +489,31 @@ class DatasetQA:
             terminal[0]["required"] = True
         elif terminal:
             raise QAError("invalid_delivery", "存在多个独立成果，请明确它们分别满足的用户目标", detail={
-                "guidance": "Record the necessary outcomes in remember.goals; successful receipts will be reused.",
+                "guidance": "Record the necessary outcomes in remember.goals, then review and associate the supplied successful receipts using deliver_results.confirmations. Do not re-execute already satisfied work.",
                 "candidates": [{"tool": item.get("capability"), "object": item.get("target")} for item in terminal]})
 
     @staticmethod
     def _definitions(definitions, tools, execution):
-        """Expose a goal choice only when one capability has ambiguous outcomes."""
+        """Expose grounded choices for ambiguous calls and late outcome confirmation."""
         result = []
+        confirmations = execution.operations.confirmable({card["result_id"] for card in execution.cards.values()})
         for definition in definitions:
+            if definition["function"]["name"]=="deliver_results" and confirmations:
+                # The model reviews semantic sufficiency; the runtime validates
+                # provenance. Offering this explicit association avoids both a
+                # second MCP execution and guessing by capability alone.
+                definition = deepcopy(definition)
+                item = OutcomeConfirmation.model_json_schema()
+                item["properties"]["goal"]["enum"] = list(confirmations)
+                item["properties"]["goal"]["description"] += " Choices: "+encode([
+                    {"goal": key, "description": execution.operations.get(key)["description"], "result_ids": ids}
+                    for key, ids in confirmations.items()])
+                item["properties"]["result_ids"]["items"]["enum"] = list(dict.fromkeys(
+                    rid for ids in confirmations.values() for rid in ids))
+                item["properties"]["result_ids"]["uniqueItems"] = True
+                definition["function"]["parameters"] = {"type": "object", "additionalProperties": False,
+                    "properties": {"confirmations": {"type": "array", "minItems": 1, "maxItems": len(confirmations),
+                        "items": item}}, "required": ["confirmations"]}
             tool = tools.loaded.get(definition["function"]["name"])
             if tool is not None and adapted(tool):
                 capability = {"server": tool.server, "name": tool.name}
@@ -517,12 +534,31 @@ class DatasetQA:
         values = INPUTS["deliver_results"][0].model_validate(arguments)
         result_ids = list(dict.fromkeys(values.result_ids))
         operations = Operations(execution.operations.items) if execution is not None else None
+        if values.confirmations and operations is None:
+            raise QAError("invalid_delivery", "确认已有结果需要本轮的执行证据")
         if operations is not None:
+            available = {card["result_id"] for card in execution.cards.values()}
+            if values.confirmations:
+                operations.confirm([value.model_dump() for value in values.confirmations], available)
             if confirm:
                 self._infer_delivery_goal(operations)
             if "result_ids" not in values.model_fields_set:
                 result_ids = operations.delivery_ids()
-            operations.validate_delivery(result_ids, partial)
+            try:
+                operations.validate_delivery(result_ids, partial)
+            except QAError as exc:
+                # Delivery is atomic: the clone's confirmations are discarded on
+                # rejection. Recovery must advertise the original choices, or
+                # partial confirmations alternate forever between pending goals.
+                choices = execution.operations.confirmable(available)
+                if choices:
+                    detail = dict(exc.detail or {})
+                    detail["pending"] = [item["id"] for item in execution.operations.required
+                        if item["state"] in {"pending", "running"}]
+                    detail.update(confirmations=[{"goal": key, "result_ids": ids} for key, ids in choices.items()],
+                        guidance="No confirmations from this rejected delivery were committed. Review the available evidence, then submit all applicable confirmations together as confirmations=[{goal: supplied_goal, result_ids: selected_successful_ids}]. Each selected receipt must satisfy its outcome. Otherwise execute genuinely missing work before delivery. An unchanged empty delivery call cannot resolve pending outcomes; do not rerun already satisfied MCP operations.")
+                    raise QAError(exc.code, "已有成功结果尚未与后补目标关联，请明确确认其满足的目标", exc.status, detail=detail) from exc
+                raise
         cards = await asyncio.to_thread(self.store.selected_results, user, sid, result_ids)
         patch = values.references.model_dump(exclude_unset=True) if values.references else {}
         paths = values.merge_path

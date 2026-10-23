@@ -81,6 +81,13 @@ class ContextAnswer(Input):
         return self
 
 
+class OutcomeConfirmation(Input):
+    goal: str = Field(min_length=1, max_length=48,
+        description="A supplied pending outcome ID whose requirements the selected evidence actually satisfies.")
+    result_ids: list[Annotated[str, Field(min_length=1, max_length=180)]] = Field(min_length=1, max_length=24,
+        description="Supplied successful receipts for this outcome. Select only after reviewing their contents; this does not execute new work.")
+
+
 class Deliver(Input):
     model_config = ConfigDict(json_schema_extra={"oneOf": [
         {"properties": {"merge_path": {"type": "null"}}},
@@ -93,6 +100,8 @@ class Deliver(Input):
         description="Legacy JSON Pointer for selected list batches; normally omit so runtime resolves compatible surface lists.")
     title: str = Field(default="", max_length=255)
     references: ReferenceUpdate | None = None
+    confirmations: list[OutcomeConfirmation] = Field(default_factory=list, max_length=16,
+        description="Explicitly associate existing successful receipts with outcomes declared after execution. Omit for already completed outcomes.")
 
     @model_validator(mode="after")
     def single_output(self):
@@ -108,7 +117,7 @@ INPUTS = {
     "remember": (Remember, "Save explicit choices or necessary user outcomes. Use supplied object handles; runtime owns IDs and execution bookkeeping. No simultaneous call is required."),
     "request_input": (Ask, "Ask for indispensable missing input. Empty outcomes and optional follow-ups belong in the final reply. Options accept labels or label/value objects."),
     "respond_from_context": (ContextAnswer, "Answer a non-execution request from saved evidence, confirmed choices or known capabilities. Never use to skip requested data operations or unfinished goals. Does not claim a new execution or republish old artifacts."),
-    "deliver_results": (Deliver, "Finish when the necessary outcomes are satisfied, including a sufficient initial set of retrieval candidates. Call with {}. Runtime selects and combines saved artifacts, including details omitted from model previews; do not construct cards or paths. A large retrieval total does not require exhaustive pagination unless the user requested it."),
+    "deliver_results": (Deliver, "Finish when the necessary outcomes are satisfied, including a sufficient initial set of retrieval candidates. Normally call with {}. If this tool exposes confirmations, select the supplied receipts only when they satisfy the associated outcome; otherwise continue the necessary work. Runtime selects and combines saved artifacts, including details omitted from model previews; do not construct cards or paths. A large retrieval total does not require exhaustive pagination unless the user requested it."),
 }
 # Keep the old private models for persisted continuations and in-process callers,
 # but do not ask a new model to generate runtime IDs, receipts or merge paths.
@@ -137,15 +146,16 @@ SYSTEM = (
     "For multiple or advisory outcomes, record the necessary semantic goals with description, loaded tool, object handle if applicable, and output in remember.goals. "
     "A single artifact goal may accompany its MCP action so runtime can finish directly; emitting them separately is also valid. "
     "Query variants and pages support the same outcome, not separate goals. Independently requested outcomes remain separate. Goals persist; add new ones only when necessary. "
-    "A valid native MCP call may execute without a memory call. Set __qa_supporting only for auxiliary lookups, which cannot satisfy a requested outcome. "
+    "A valid native MCP call may execute without a memory call. Set __qa_supporting only for auxiliary lookups; these do not automatically satisfy a requested outcome. "
     "An operation marked delivery_pending has no confirmed delivery role; it was not declared an auxiliary lookup. Consult its execution state and result_ids, review any saved evidence against the current request, and decide whether to deliver it or what indispensable evidence is still missing. "
+    "If a goal was declared after a successful call, its pending state may mean the existing evidence has not yet been associated with that goal. When deliver_results exposes confirmations, explicitly select the supplied goal and successful result IDs if the evidence satisfies it; this needs no new MCP call. A shared tool or object alone does not establish that different query requirements or independent samples are satisfied. Never confirm evidence for work that is still needed. "
     "execution_decision describes the current review or finish phase and remaining budget. In review, assess saved evidence before expanding work; in finish, accurately deliver completed outcomes or identify indispensable missing input rather than starting optional exploration. "
     "After successful retrieval, review the existing candidates before another search. For an initial discovery request, a useful bounded candidate set can satisfy the request; do not enumerate the entire catalogue. "
     "A truncated preview means saved details were omitted from the model view, not that the tool failed or its saved artifact is incomplete. Read a specific omitted field only when it is needed to assess the request, resolve a reference or perform the next operation. "
     "Use another query or page when the current results leave a specific user requirement unmet; a large pagination total or truncated flag alone is not such a requirement. "
     "For a research or advisory request, identify the information needed to answer it and retrieve supporting resources; do not treat the entire request as an exact resource name or as an instruction to execute the research itself. "
     "When a question is pending, state remember.continuation as continue or new before or with execution, declaring goals or replacing the question; similar tools do not imply continuation. pending handles belong only to that continuation. "
-    "Runtime creates operation IDs, binds calls, preserves receipts and selects artifacts. Never invent calls, operation IDs, resume flags or merge paths. If a tool supplies __qa_goal choices, select the supplied goal it serves; never guess associations by order. "
+    "Runtime creates operation IDs, binds calls, preserves receipts and selects artifacts. Never invent calls, operation IDs, resume flags or merge paths. Select IDs only from supplied __qa_goal or delivery confirmation choices; never guess associations by order. "
     "Only runtime MCP receipts prove execution; discovery, memory and saved data alone do not. Reuse receipts for correction/continuation, and execute new requests through MCP. Never drop outstanding goals to pass delivery. "
     "For interpretation of saved results, acknowledging selections, or a verified capability limitation, use respond_from_context without an unnecessary MCP call. "
     "Use its evidence mode for external data facts and cite supplied saved result IDs. Check the relevant tool catalogue before declaring a capability unsupported. "
@@ -153,7 +163,7 @@ SYSTEM = (
     "The bounded evidence view groups saved results by goal; omitted details remain available through read_result. Distinguish general suggestions from verified resources and unsupported suitability claims. "
     "A retrieval hit is a candidate, not verified relevance or suitability. Describe an object's purpose, author affiliation, subject coverage or fitness only when returned descriptive fields support it; do not infer these facts from its title or identifier. State when descriptions or suitability evidence are unavailable. "
     "Each retrieval total belongs to its original query and upstream filters. It is not a count of verified relevant resources, and does not establish which fields or keyword matching rules the upstream service used. "
-    " During tool use, keep planning internal. When the request is satisfied, call deliver_results with no arguments; runtime assembles the final display artifacts, "
+    " During tool use, keep planning internal. When the request is satisfied, call deliver_results using its current schema (normally no arguments); runtime assembles the final display artifacts, "
     "or request_input if clarification is necessary. A separate tool-free response will answer the user."
 )
 
