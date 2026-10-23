@@ -1432,8 +1432,13 @@ class DatasetQA:
                 ("unique_count", "minimum", "done", "stop")} | {"completed_keyword_count": len(value["completed_keywords"])}
                 for value in searches]
             instructions += (" search_outcomes contains authoritative counts of actually retrieved, deduplicated candidates. "
+                "minimum is only an early-stop threshold, not a minimum valid delivery size. "
+                "If done with any positive unique_count, present the candidates as a normal completed search, "
+                "including when the keyword budget is exhausted below minimum. Do not describe this search as failed, "
+                "incomplete or insufficient solely because of its result count, or expose the internal threshold. "
+                "Report the count within the searched scope; do not claim it is the entire catalogue's count. "
+                "Search completion does not imply completion of other requested operations. "
                 "If exhausted with zero candidates, say no matching datasets were found in the searched scope. "
-                "If exhausted with one to five candidates, present those candidates and say insufficient candidates were found; never call that zero results. "
                 "If not done, the search is incomplete, not evidence of no matches. Do not speculate why a source returned zero, "
                 "or offer to query named external platforms unless their configured capability has been verified. "
                 "Do not ask the user to choose new keywords when the bounded search has already finished.")

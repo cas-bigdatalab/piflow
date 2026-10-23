@@ -129,7 +129,7 @@ def test_five_actual_rows_require_a_second_page_and_six_stop_without_extra_model
     asyncio.run(run())
 
 
-@pytest.mark.parametrize("count", [0, 1, 5])
+@pytest.mark.parametrize("count", range(6))
 def test_four_distinct_keywords_finish_even_when_each_has_no_new_evidence(engine, count):
     async def run():
         backend = SearchBackend(lambda query, number: page(range(count), count, KEYWORDS.index(query)))
@@ -147,7 +147,47 @@ def test_four_distinct_keywords_finish_even_when_each_has_no_new_evidence(engine
             assert saved["completed"]==KEYWORDS and saved["stop"]=="exhausted"
             assert len(saved["records"])==count
             final_context = json.loads(dialogue.inputs[-1][0][1].content)
-            assert final_context["search_outcomes"][0]["completed_keyword_count"]==4
+            assert final_context["search_outcomes"]==[{
+                "unique_count": count, "minimum": 6, "done": True,
+                "stop": "exhausted", "completed_keyword_count": 4}]
+            if count:
+                # The answering model must not be instructed to call a
+                # successfully completed small search insufficient.
+                assert "say insufficient candidates were found" not in dialogue.inputs[-1][0][0].content
+        finally:
+            await service.close()
+    asyncio.run(run())
+
+
+@pytest.mark.parametrize("batches", [
+    [[0, 1], [1, 2], [3], []],
+    [[0], [0, 1], [2, 3], [3, 4]],
+])
+def test_small_search_delivers_the_union_and_keeps_followup_references(engine, batches):
+    async def run():
+        backend = SearchBackend(lambda query, number: page(
+            batches[KEYWORDS.index(query)], len(batches[KEYWORDS.index(query)])))
+        dialogue = BareDialogue(discover(), text())
+        service = DatasetQA(engine, dialogue, backend.gateway())
+        sid = session(service)
+        expected = list(dict.fromkeys(str(value) for batch in batches for value in batch))
+        try:
+            events = await collect(service, sid, "Find chemical engineering datasets", "first")
+            assert_completed(service, sid, events[-1])
+            assert [args["phrase"] for _, args in backend.calls]==KEYWORDS
+            assert len(dialogue.inputs)==2
+            card, = result_cards(events)
+            assert [row["id"] for row in card["data"]["items"]]==expected
+            summary = json.loads(dialogue.inputs[-1][0][1].content)["search_outcomes"][0]
+            assert summary["done"] and summary["stop"]=="exhausted"
+            assert summary["unique_count"]==len(expected)
+
+            dialogue.responses = [native("inspect", **{
+                OBJECT: "candidate:"+str(len(expected)), TASK: {"complete_request": True}}), text()]
+            followup = await collect(service, sid, "Inspect the last displayed dataset", "second")
+            assert_completed(service, sid, followup[-1])
+            assert backend.calls[4:]==[("inspect", {"reference": expected[-1]})]
+            assert len(dialogue.inputs)==4 and backend.lists==1
         finally:
             await service.close()
     asyncio.run(run())
