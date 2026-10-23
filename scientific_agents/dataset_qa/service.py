@@ -23,7 +23,7 @@ from .references import all_references, apply_update, at_path, display_list, han
 from .runtime import Waiting
 from .parallel import run_read_batch
 from .responses import public_completion, response_labels, response_operations
-from .search import SearchRun, TaskDirective
+from .search import SearchRun, TaskDirective, normalize_keyword, ordered_keywords
 
 log = logging.getLogger("flow.dataset_qa")
 
@@ -455,12 +455,16 @@ class DatasetQA:
         await self._write(user, sid, tid, {"type": "message", "text": text})
 
     async def _failure_reply(self, user, sid, tid, answer, reason, operations, payload):
-        text = Execution.notice(reason, bool(payload.get("delivery")))
         operations = response_labels(operations, payload.get("response_labels"))
+        required = operations.required
+        subject = required[0].get("public_label") if len(required)==1 else None
+        text = Execution.notice(reason, bool(payload.get("delivery")), subject)
         summary = operations.notice(payload.get("delivery_sources", []))
+        if subject and reason.code=="tool_failed" and not payload.get("delivery"):
+            summary = ""  # The named outcome is already explained in the notice.
         if not summary and not operations.required:
             outstanding = [item["description"] for item in operations.items
-                if item.get("inferred") and item["state"]!="succeeded"]
+                if item.get("inferred") and item["state"]!="succeeded" and item["description"].strip()]
             if outstanding:
                 summary = "尚待获取："+"；".join(outstanding)+"。"
         await self._notice(user, sid, tid, answer, text+("\n\n"+summary if summary else ""))
@@ -1041,6 +1045,7 @@ class DatasetQA:
             execution.operations = operations
 
         execution.prepared = {}
+        keyword_history = None
         for call in native:
             tool, arguments = tools.loaded[call["name"]], call["args"]
             operation_id = bindings.get(call["id"])
@@ -1171,11 +1176,23 @@ class DatasetQA:
                     else:
                         operation_id = execution.operations.register(tool.title, capability, target, required=False)
                 operation = execution.operations.get(operation_id)
+                if operation and descriptor.label:
+                    operation["public_label"] = descriptor.label
                 if directive and directive.complete_request and operation and not supporting:
                     operation["direct"] = True
                 if discovery and operation:
+                    originals = directive.original_keywords if directive else None
+                    needs_history = not originals or any(normalize_keyword(word) not in normalize_keyword(payload["message"])
+                        for word in originals)
+                    if needs_history and keyword_history is None:
+                        keyword_history = await asyncio.to_thread(self.store.memory, user, sid, 0, None, 12, True, tid)
+                    keywords, originals = ordered_keywords(keywords, originals, payload["message"],
+                        [row["text"] for row in keyword_history or [] if row.get("role")=="user"],
+                        operation.get("search"))
+                    prepared[descriptor.search.query] = keywords[0]
                     search = (SearchRun(deepcopy(operation["search"])).extend(prepared, keywords) if operation.get("search") else
                         SearchRun.create(descriptor.search, prepared, keywords))
+                    search.state["original_keywords"] = originals
                     for keyword in search.state["keywords"]:
                         candidate = {**search.state["base"], descriptor.search.query: keyword}
                         if descriptor.search.page:
@@ -1370,6 +1387,8 @@ class DatasetQA:
         instructions = (str(messages[0].content)+"\nTool use is over. Write only the final user-facing reply, "
             "without internal planning or another tool call. Use actual evidence, distinguish unfinished work, "
             "Do not expose backend errors, diagnostic codes, stack traces or internal service details. "
+            "Do not show operation IDs, numbered internal tasks or empty operation labels. Describe the actual user-requested content. "
+            "A tool rejection alone does not establish permanent lack of support or a temporary outage; do not promise a later retry will resolve it. "
             "When evidence is incomplete, explain what is available and a concrete next step in the user's terms. "
             "Do not repeat a runtime notice already shown to the user. "
             "and only refer to display cards identified by delivery_manifest. Do not claim unperformed work succeeded. "

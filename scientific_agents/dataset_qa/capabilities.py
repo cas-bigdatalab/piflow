@@ -16,12 +16,12 @@ from .search import SearchProfile, TaskDirective
 
 
 PROFILES = {
-    ("piflow-corpus", "search_corpus_datasets"): {"collection": "/items", "search": {
+    ("piflow-corpus", "search_corpus_datasets"): {"label": "候选数据集", "collection": "/items", "search": {
         "query": "query", "page": "page", "page_size": "page_size", "total": "/pagination/total",
         "identity": ["/cstr", "/id"], "opaque_filters": ["field", "subject", "title"]}},
-    ("piflow-corpus", "get_corpus_dataset_detail"): {"atomic": True, "object": "", "bind": {"cstr": ["/cstr", "/raw/cstr"]}},
-    ("piflow-corpus", "get_corpus_dataset_directory"): {"atomic": True, "bind": {"cstr": ["/cstr", "/raw/cstr"]}},
-    ("piflow-corpus", "sample_corpus_dataset"): {"atomic": True, "bind": {"cstr": ["/cstr", "/raw/cstr"]}},
+    ("piflow-corpus", "get_corpus_dataset_detail"): {"label": "数据集详情", "atomic": True, "object": "", "bind": {"cstr": ["/cstr", "/raw/cstr"]}},
+    ("piflow-corpus", "get_corpus_dataset_directory"): {"label": "数据预览", "atomic": True, "bind": {"cstr": ["/cstr", "/raw/cstr"]}},
+    ("piflow-corpus", "sample_corpus_dataset"): {"label": "采样结果", "atomic": True, "bind": {"cstr": ["/cstr", "/raw/cstr"]}},
 }
 OBJECT = "__qa_object"
 SUPPORTING = "__qa_supporting"
@@ -31,6 +31,8 @@ TASK = "__qa_task"
 
 class Profile(BaseModel):
     model_config = ConfigDict(extra="forbid")
+    label: str | None = Field(default=None, min_length=1, max_length=80,
+        description="User-facing capability name, independent of execution diagnostics.")
     bind: dict[str, list[str]] = Field(default_factory=dict, max_length=16)
     collection: str | None = None
     object: str | None = None
@@ -106,13 +108,15 @@ def definition(tool):
         if descriptor.search or descriptor.atomic:
             task = TaskDirective.model_json_schema()
             if descriptor.search:
-                task["required"].append("keywords")
+                task["required"].extend(["keywords", "original_keywords"])
                 query = schema["properties"][descriptor.search.query]
                 query["description"] = query.get("description", "")+(
-                    " For broad discovery runtime uses the supplied __qa_task.keywords plan. "
-                    "For an exact lookup set keywords=null and supply this argument normally.")
+                    " For broad discovery quote the user's subject in __qa_task.original_keywords; "
+                    "the complete keywords plan must search these original phrases before rewrites. "
+                    "For an exact lookup set keywords and original_keywords to null and supply this argument normally.")
             else:
                 task["properties"].pop("keywords", None)
+                task["properties"].pop("original_keywords", None)
             schema["properties"][TASK] = task
             schema.setdefault("required", []).append(TASK)
     return {"type": "function", "function": {"name": tool.alias,

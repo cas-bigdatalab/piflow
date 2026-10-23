@@ -26,20 +26,70 @@ class TaskDirective(BaseModel):
     model_config = ConfigDict(extra="forbid")
     complete_request: bool = Field(description="True only if this operation completes the entire current request. False for a prerequisite of subsequent processing or another requested operation.")
     keywords: list[str] | None = Field(default=None, min_length=1, max_length=4,
-        description="For broad discovery supply four distinct, relevant keyword phrases, including the first query. Runtime searches and paginates until six unique candidates or four completed keywords. Omit/null for an exact lookup or a non-search operation.")
+        description="Complete discovery plan: original phrases first, then rewrites, synonyms or translations, at most four distinct phrases in total. Runtime stops at six unique candidates or four completed keywords. Null for an exact lookup.")
+    original_keywords: list[str] | None = Field(default=None, min_length=1, max_length=4,
+        description="Subject phrases copied from the user's request before rewriting; keep the user's wording and language. For a follow-up, explicit subjects from prior user messages may be used. Supply all original phrases first, include them in keywords; null for an exact lookup.")
 
     @model_validator(mode="after")
     def valid_keywords(self):
-        if self.keywords is not None:
-            if any(not value.strip() or len(value)>2000 for value in self.keywords):
+        for phrases in (self.keywords, self.original_keywords):
+            if phrases is None:
+                continue
+            if any(not value.strip() or len(value)>2000 for value in phrases):
                 raise ValueError("Keywords must be non-empty phrases of at most 2000 characters.")
-            if len({normalize_keyword(value) for value in self.keywords})!=len(self.keywords):
+            if len({normalize_keyword(value) for value in phrases})!=len(phrases):
                 raise ValueError("Supply distinct keywords; case and whitespace variations are the same keyword.")
+        if self.original_keywords and self.keywords is None:
+            raise ValueError("Original keywords require a discovery keyword plan.")
         return self
 
 
 def normalize_keyword(value):
     return " ".join(unicodedata.normalize("NFKC", value).casefold().split())
+
+
+def ordered_keywords(keywords, originals, request, history=(), previous=None):
+    """Ground extraction in user text, then order the bounded query plan.
+
+    No vocabulary or topic-specific rewrite rules live in the runtime. The
+    model extracts subjects; literal source checking prevents translations
+    from being passed off as original wording.
+    """
+    previous = previous or {}
+    sources = [normalize_keyword(request), *(normalize_keyword(text) for text in history)]
+    old = previous.get("original_keywords", [])
+    if originals is None:
+        # Compatibility with saved/older calls: infer provenance only where
+        # the phrase is actually present in user text, never from a tool reply.
+        originals = old or [word for word in keywords if any(normalize_keyword(word) in text for text in sources)]
+    old_keys = {normalize_keyword(word) for word in old}
+    if not originals or any(normalize_keyword(word) not in old_keys
+            and not any(normalize_keyword(word) in text for text in sources) for word in originals):
+        raise QAError("invalid_parameters", "请先从用户原请求提取主题词，再补充改写词", detail={
+            "guidance": "original_keywords must quote subject phrases from the current request or explicit prior user requests. Do not translate, invent categories, or copy tool output into original_keywords."})
+    # A verbatim current-request phrase must not be scheduled after rewrites
+    # merely because the model omitted it from its provenance annotation.
+    originals = list(originals)
+    original_keys = {normalize_keyword(word) for word in originals}
+    for word in keywords:
+        key = normalize_keyword(word)
+        if key in sources[0] and key not in original_keys:
+            originals.append(word)
+            original_keys.add(key)
+    if old and original_keys!={normalize_keyword(word) for word in old}:
+        raise QAError("invalid_parameters", "已有检索的原词已确定，请继续其改写词计划")
+    # Keep original request phrases ahead of historical context, preserving
+    # the model's extraction order within each source group.
+    originals = sorted(originals, key=lambda word: normalize_keyword(word) not in sources[0])
+    unique = {}
+    for word in [*originals, *keywords]:
+        unique.setdefault(normalize_keyword(word), word.strip())
+    values = list(unique.values())
+    ordered = [word for word in values if normalize_keyword(word) in original_keys]
+    ordered.extend(word for word in values if normalize_keyword(word) not in original_keys)
+    if len({normalize_keyword(word) for word in [*previous.get("keywords", []), *ordered]})>4:
+        raise QAError("invalid_parameters", "原词和改写词合计最多四个不同关键词")
+    return ordered, [word.strip() for word in originals]
 
 
 def record_key(row, paths=()):
@@ -155,6 +205,7 @@ class SearchRun:
     def view(self):
         state = self.state
         return {"unique_count": len(state["records"]), "minimum": self.minimum,
+            "original_keywords": state.get("original_keywords", []),
             "queried_keywords": state.get("queried", []),
             "keywords": state["keywords"], "completed_keywords": state["completed"],
             "remaining_keywords": self.maximum_keywords-len(state["keywords"]),

@@ -125,7 +125,7 @@ def test_empty_answer_only_response_does_not_complete_or_request_unnecessary_use
             assert_handled(service, None, values[-1], "empty_response")
             assert not result_cards(values)
             answer = "".join(value.get("text", "") for value in values if value.get("type")=="message")
-            assert answer.strip() and "继续" in answer
+            assert answer.strip() and "没有取得可展示的内容" in answer and "指定其他" in answer
             assert "请补充需要处理的问题" not in answer
             assert backend.calls==[("data", "inspect", {"reference": "direct-id"})]
             assert len(dialogue.inputs)==4

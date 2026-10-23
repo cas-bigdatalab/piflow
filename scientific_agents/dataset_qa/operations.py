@@ -351,6 +351,8 @@ class Operations:
     def notice(self, ids):
         done, partial, unfinished = [], [], []
         for item in self.required:
+            if not item["description"].strip():
+                continue  # A private/unknown label is not a user-facing outcome.
             delivered = item["output"]=="answer" or bool(set(ids).intersection(self.result_ids(item)))
             if item["state"]=="succeeded" and delivered:
                 done.append(item["description"])

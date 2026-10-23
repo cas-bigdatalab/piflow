@@ -454,7 +454,8 @@ def test_protocol_business_error_is_not_retried_even_if_idempotent(engine, idemp
         assert not service.store.results("alice", sid)
         assert len(dialogue.inputs)==2
         shown = "".join(v["text"] for v in values if v["type"]=="message")
-        assert shown.strip() and "Invalid operation" not in shown and "继续" in shown
+        assert shown.strip() and "Invalid operation" not in shown and "选择其他数据集" in shown
+        assert "稍后" not in shown and "调整查询范围" not in shown
     asyncio.run(run())
 
 

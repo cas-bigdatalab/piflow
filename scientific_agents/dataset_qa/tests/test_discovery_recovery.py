@@ -155,7 +155,7 @@ def test_all_services_unavailable_end_with_specific_friendly_reason(engine):
             assert_handled(service, None, events[-1], "mcp_unavailable")
             assert len(dialogue.inputs)==1 and not backend.calls and not result_cards(events)
             text = "".join(v.get("text", "") for v in events)
-            assert text==events[-1]["message"] and "继续" in text
+            assert text==events[-1]["message"] and "指定其他" in text
             assert "MCP" not in text and "未执行" not in text
         finally:
             await service.close()

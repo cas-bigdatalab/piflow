@@ -12,7 +12,7 @@ def _code(error):
     return getattr(error, "code", None)
 
 
-def notice(error, retained=False):
+def notice(error, retained=False, subject=None):
     code = _code(error)
     if retained:
         return "已取得的结果已保留在下方，您可以先查看。其余内容目前还没有可确认的结果；您可以指定下一步要查看或处理的内容。"
@@ -25,7 +25,11 @@ def notice(error, retained=False):
         return "这次还需要确认操作对象或具体要求。您可以告诉我要查看的数据集名称，或指定希望获取的内容，我会据此继续处理。"
     if code in {"result_too_large", "context_too_large", "step_limit", "no_progress", "invalid_delivery"}:
         return "目前的信息还不足以给出完整结果。您可以指定优先查看的数据集或缩小范围，我会围绕这部分继续整理。"
-    return "这次暂时没有取得可展示的新内容。您可以稍后让我继续获取，也可以换一个数据集或调整查询范围。"
+    if code == "tool_failed":
+        # An opaque tool rejection proves no usable output, not a temporary
+        # outage, permanent lack of support, or a problem with search scope.
+        return (f"本次没有取得可展示的{subject}。" if subject else "本次没有取得可展示的内容。")+"您可以选择其他数据集，或指定其他希望了解的信息。"
+    return "本次没有取得可展示的内容。您可以指定其他希望查看或处理的信息。"
 
 
 def terminal_reply(status, error=None, retained=False):
@@ -58,9 +62,11 @@ def response_labels(operations, labels):
 
     result = Operations(operations.items)
     if labels is not None:
-        for index, item in enumerate(result.items, 1):
+        for item in result.items:
             if labels.get(item["id"]) != item["description"]:
-                item["description"] = f"待处理事项 {index}"
+                # Prefer the original intent, then an adapter-authored business
+                # name. Omit an unknown label instead of inventing a task number.
+                item["description"] = labels.get(item["id"]) or item.get("public_label") or ""
     return result
 
 

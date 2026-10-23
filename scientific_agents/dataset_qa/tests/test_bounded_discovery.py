@@ -90,9 +90,9 @@ def native(name, **arguments):
     return choose
 
 
-def discover(*, keywords=KEYWORDS, complete=True, **arguments):
+def discover(*, keywords=KEYWORDS, originals=None, complete=True, **arguments):
     return native("find_assets", phrase=keywords[0],
-        **{TASK: {"complete_request": complete, "keywords": keywords}}, **arguments)
+        **{TASK: {"complete_request": complete, "keywords": keywords, "original_keywords": originals or KEYWORDS[:1]}}, **arguments)
 
 
 def outcome(service, sid, events):
@@ -137,7 +137,7 @@ def test_four_distinct_keywords_finish_even_when_each_has_no_new_evidence(engine
         service = DatasetQA(engine, dialogue, backend.gateway())
         sid = session(service)
         try:
-            events = await collect(service, sid, "Find relevant datasets")
+            events = await collect(service, sid, "Find relevant chemical engineering datasets")
             assert_completed(service, sid, events[-1])
             assert [args["phrase"] for _, args in backend.calls]==KEYWORDS
             assert len(dialogue.inputs)==2
@@ -160,7 +160,7 @@ def test_repeated_pages_do_not_inflate_count_or_loop_forever(engine):
         service = DatasetQA(engine, dialogue, backend.gateway())
         sid = session(service)
         try:
-            events = await collect(service, sid, "Find related resources")
+            events = await collect(service, sid, "Find chemical engineering resources")
             assert_completed(service, sid, events[-1])
             assert len(backend.calls)==8 and len(dialogue.inputs)==2
             assert len(result_cards(events)[0]["data"]["items"])==5
@@ -178,7 +178,7 @@ def test_transport_retry_does_not_consume_another_keyword(engine):
         service = DatasetQA(engine, dialogue, backend.gateway(Limits(retry_delay=0)))
         sid = session(service)
         try:
-            events = await collect(service, sid, "Find datasets")
+            events = await collect(service, sid, "Find chemical engineering datasets")
             assert_completed(service, sid, events[-1])
             assert [args["page_number"] for _, args in backend.calls]==[1, 1, 2]
             assert {args["phrase"] for _, args in backend.calls}=={KEYWORDS[0]}
@@ -197,7 +197,7 @@ def test_interrupted_search_is_not_recorded_as_four_empty_queries(engine):
         service = DatasetQA(engine, dialogue, backend.gateway(Limits(retry_delay=0)))
         sid = session(service)
         try:
-            events = await collect(service, sid, "Find datasets")
+            events = await collect(service, sid, "Find chemical engineering datasets")
             assert_handled(service, sid, events[-1])
             saved = outcome(service, sid, events)["operations"][0]["search"]
             assert not saved["done"] and saved["completed"]==[]
@@ -211,7 +211,7 @@ def test_interrupted_search_is_not_recorded_as_four_empty_queries(engine):
 def test_exact_search_does_not_expand_keywords_or_pages(engine):
     async def run():
         backend = SearchBackend(lambda query, number: page(["exact"], 10000))
-        dialogue = BareDialogue(native("find_assets", phrase="dataset-exact-id", **{TASK: {"complete_request": True, "keywords": None}}), text())
+        dialogue = BareDialogue(native("find_assets", phrase="dataset-exact-id", **{TASK: {"complete_request": True, "keywords": None, "original_keywords": None}}), text())
         service = DatasetQA(engine, dialogue, backend.gateway())
         sid = session(service)
         try:
@@ -232,7 +232,7 @@ def test_explicit_operation_uses_published_ordinal_without_extra_mcp_calls(engin
         service = DatasetQA(engine, dialogue, backend.gateway())
         sid = session(service)
         try:
-            await collect(service, sid, "Find datasets", "first")
+            await collect(service, sid, "Find chemical engineering datasets", "first")
             baseline = len(backend.calls)
             dialogue.responses = [native(name, **{OBJECT: "candidate:2", TASK: {"complete_request": True}}), text()]
             events = await collect(service, sid, "Use "+name+" on the second dataset", "second")
@@ -252,7 +252,7 @@ def test_discovery_prerequisite_does_not_finish_a_later_requested_operation(engi
         service = DatasetQA(engine, dialogue, backend.gateway())
         sid = session(service)
         try:
-            events = await collect(service, sid, "Find datasets and sample one of them")
+            events = await collect(service, sid, "Find chemical engineering datasets and sample one of them")
             assert_completed(service, sid, events[-1])
             assert [name for name, _ in backend.calls]==["find_assets", "find_assets", "sample"]
             assert len(dialogue.inputs)==3
@@ -273,7 +273,7 @@ def test_search_pages_are_deduplicated_beside_a_separate_required_detail(engine)
         service = DatasetQA(engine, dialogue, backend.gateway())
         sid = session(service)
         try:
-            events = await collect(service, sid, "Find datasets and also show details of one candidate")
+            events = await collect(service, sid, "Find chemical engineering datasets and also show details of one candidate")
             assert_completed(service, sid, events[-1])
             cards = result_cards(events)
             assert len(cards)==2
@@ -300,7 +300,7 @@ def test_missing_keywords_can_be_supplied_without_new_goals_or_early_empty_deliv
         service = DatasetQA(engine, dialogue, backend.gateway())
         sid = session(service)
         try:
-            events = await collect(service, sid, "Find relevant datasets")
+            events = await collect(service, sid, "Find relevant chemical engineering datasets")
             assert_completed(service, sid, events[-1])
             assert [args["phrase"] for _, args in backend.calls]==KEYWORDS
             ledger = outcome(service, sid, events)
@@ -320,7 +320,7 @@ def test_recovering_second_page_preserves_first_page_and_unique_result_ids(engin
         service = DatasetQA(engine, dialogue, backend.gateway())
         sid = session(service)
         try:
-            events = await collect(service, sid, "Find relevant datasets")
+            events = await collect(service, sid, "Find relevant chemical engineering datasets")
             assert_completed(service, sid, events[-1])
             assert [args["page_number"] for _, args in backend.calls]==[1, 2, 2]
             assert len(dialogue.inputs)==3
@@ -340,8 +340,8 @@ def test_new_request_reuses_schemas_but_executes_new_searches(engine):
         service = DatasetQA(engine, dialogue, backend.gateway())
         sid = session(service)
         try:
-            first = await collect(service, sid, "Find datasets", "first")
-            second = await collect(service, sid, "Find datasets again", "second")
+            first = await collect(service, sid, "Find chemical engineering datasets", "first")
+            second = await collect(service, sid, "Find chemical engineering datasets again", "second")
             assert_completed(service, sid, first[-1])
             assert_completed(service, sid, second[-1])
             assert len(backend.calls)==4 and backend.lists==1
@@ -358,7 +358,7 @@ def test_malformed_result_is_not_counted_as_an_empty_search(engine):
         service = DatasetQA(engine, dialogue, backend.gateway())
         sid = session(service)
         try:
-            events = await collect(service, sid, "Find datasets")
+            events = await collect(service, sid, "Find chemical engineering datasets")
             assert_handled(service, sid, events[-1])
             ledger = outcome(service, sid, events)
             assert ledger["operations"][0]["state"]=="failed"
@@ -376,7 +376,7 @@ def test_global_budget_does_not_pretend_four_keywords_completed(engine):
         service = DatasetQA(engine, dialogue, backend.gateway(Limits(max_calls=2)))
         sid = session(service)
         try:
-            events = await collect(service, sid, "Find datasets")
+            events = await collect(service, sid, "Find chemical engineering datasets")
             assert_handled(service, sid, events[-1])
             assert len(backend.calls)==2
             search = outcome(service, sid, events)["operations"][0]["search"]
@@ -397,7 +397,7 @@ def test_late_bookkeeping_cannot_replace_an_unfinished_discovery(engine):
         service = DatasetQA(engine, dialogue, backend.gateway())
         sid = session(service)
         try:
-            events = await collect(service, sid, "Find relevant datasets")
+            events = await collect(service, sid, "Find relevant chemical engineering datasets")
             assert_completed(service, sid, events[-1])
             ledger = outcome(service, sid, events)
             assert len(ledger["operations"])==1
@@ -412,12 +412,12 @@ def test_a_prerequisite_search_cannot_be_abandoned_by_switching_to_an_exact_look
     async def run():
         backend = SearchBackend(lambda query, number: page([], 0))
         dialogue = BareDialogue(discover(keywords=KEYWORDS[:1], complete=False),
-            native("find_assets", phrase=KEYWORDS[0], **{TASK: {"complete_request": True, "keywords": None}}),
+            native("find_assets", phrase=KEYWORDS[0], **{TASK: {"complete_request": True, "keywords": None, "original_keywords": None}}),
             discover(keywords=KEYWORDS[1:]), text())
         service = DatasetQA(engine, dialogue, backend.gateway())
         sid = session(service)
         try:
-            events = await collect(service, sid, "Find relevant datasets")
+            events = await collect(service, sid, "Find relevant chemical engineering datasets")
             assert_completed(service, sid, events[-1])
             assert [args["phrase"] for _, args in backend.calls]==KEYWORDS
             assert len(outcome(service, sid, events)["operations"])==1
@@ -434,7 +434,7 @@ def test_cancelling_between_pages_keeps_successes_and_stops_further_queries(engi
         dialogue = BareDialogue(discover())
         service = DatasetQA(engine, dialogue, backend.gateway())
         sid = session(service)
-        running = asyncio.create_task(collect(service, sid, "Find datasets"))
+        running = asyncio.create_task(collect(service, sid, "Find chemical engineering datasets"))
         try:
             await asyncio.wait_for(backend.entered.wait(), 3)
             await service.cancel("alice", sid, next(iter(service.jobs)))
@@ -470,11 +470,11 @@ def test_real_fastmcp_discovery_keeps_control_metadata_out_of_wire_arguments(eng
 
         gateway = MCPGateway({"local": Server("local")}, client_factory=lambda *args, **kwargs: Client(server))
         dialogue = BareDialogue(native("collect_resources", term=KEYWORDS[0],
-            **{TASK: {"complete_request": True, "keywords": KEYWORDS}}), text())
+            **{TASK: {"complete_request": True, "keywords": KEYWORDS, "original_keywords": KEYWORDS[:1]}}), text())
         service = DatasetQA(engine, dialogue, gateway)
         sid = session(service)
         try:
-            events = await collect(service, sid, "Find datasets")
+            events = await collect(service, sid, "Find chemical engineering datasets")
             assert_completed(service, sid, events[-1])
             assert calls==[(KEYWORDS[0], 1, 5), (KEYWORDS[0], 2, 5)]
             assert len(dialogue.inputs)==2
@@ -492,7 +492,7 @@ def test_declared_pagination_limit_is_respected_without_sending_invalid_pages(en
         service = DatasetQA(engine, dialogue, backend.gateway())
         sid = session(service)
         try:
-            events = await collect(service, sid, "Find datasets")
+            events = await collect(service, sid, "Find chemical engineering datasets")
             assert_completed(service, sid, events[-1])
             assert [args["page_number"] for _, args in backend.calls]==[1]*4
             assert len(dialogue.inputs)==2
