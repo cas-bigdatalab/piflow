@@ -152,7 +152,8 @@ def inputs(tool, arguments, record=None):
                 raise QAError("invalid_parameters", "对象来源中的标识存在冲突，请先确认目标", detail={"field": key})
             if not candidates:
                 # Missing evidence must not be replaced with a model-invented ID.
-                raise QAError("invalid_parameters", "当前对象缺少此操作所需的标识", detail={"field": key})
+                raise QAError("invalid_parameters", "当前对象缺少此操作所需的标识", detail={"field": key,
+                    "guidance": "The selected source record lacks this identifier. Repeating the call or changing focus to the same record cannot supply it. Never substitute another identifier field. Deliver the existing candidates if the user only requested search; otherwise obtain a source that supplies the required identifier or explain the available findings and the unavailable requested content."})
             explicit = normalize_identity(values[key], field_validator) if key in values else None
             if explicit is not None and not same_identity(explicit, candidates[0]):
                 raise QAError("invalid_parameters", "调用参数与所选对象不一致，尚未执行", detail={

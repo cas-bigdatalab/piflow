@@ -273,23 +273,33 @@ class Operations:
         return list(dict.fromkeys(value["result_id"] for value in item["attempts"]
             if value["state"]=="succeeded" and value.get("result_id")))
 
-    def delivery_ids(self, output="result"):
+    def deliverable(self, partial=False):
+        """Recovery may show unconfirmed evidence without adopting its goal.
+
+        Explicit supporting lookups remain private. Only the runtime's partial
+        closure opts in; normal model delivery still requires confirmed goals.
+        """
+        return [item for item in self.items if item.get("required", True)
+            or (partial and item.get("inferred"))]
+
+    def delivery_ids(self, output="result", *, partial=False):
         """Successful artifacts survive a later attempt's failure or rejection.
 
         Eligibility is separate from goal completion: ``error`` still reports
         unfinished work, and supporting receipts never become deliverables.
         """
-        return list(dict.fromkeys(rid for item in self.required if item["output"]==output
+        return list(dict.fromkeys(rid for item in self.deliverable(partial) if item["output"]==output
             for rid in self.result_ids(item)))
 
     def validate_delivery(self, ids, partial=False):
-        if not self.required:
+        eligible = self.deliverable(partial)
+        if not eligible:
             raise QAError("invalid_delivery", "尚未明确本轮必要操作，不能确定最终交付")
         unfinished_searches = {item["id"]: SearchRun(item["search"]).view() for item in self.items
             if item.get("search") and not item["search"]["done"]}
         if unfinished_searches and not partial:
             raise QAError("invalid_delivery", "检索尚未达到六条去重结果，也尚未完成四个不同关键词", detail={"searches": unfinished_searches})
-        owners = {rid for item in self.required for rid in self.result_ids(item)}
+        owners = {rid for item in eligible for rid in self.result_ids(item)}
         if not set(ids)<=owners:
             raise QAError("invalid_delivery", "交付结果必须来自本轮必要操作的成功证据，不能选择辅助查询或无关历史结果",
                 detail={"unrelated": sorted(set(ids)-owners), "pending": [item["id"] for item in self.required if item["state"]!="succeeded"]})

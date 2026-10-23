@@ -229,7 +229,9 @@ def test_unplanned_query_changes_stop_without_confirming_an_undeclared_goal(engi
             assert len(dialogue.inputs)==5
             feedback = [json.loads(message.content) for message in dialogue.inputs[-1][0] if isinstance(message, ToolMessage)]
             assert any(value.get("detail", {}).get("decision")=="confirm_outcome" for value in feedback)
-            assert not result_cards(values)
+            assert len(result_cards(values))==1 and values[-1]["outcome"]=="partial"
+            ledger = json.loads(service.store.task("alice", sid, values[-1]["task_id"])["payload"])
+            assert all(not item.get("required", True) for item in ledger["operations"])
             assert len(service.store.results("alice", sid))==1  # Evidence is retained, without guessing task completion.
         finally:
             await service.close()

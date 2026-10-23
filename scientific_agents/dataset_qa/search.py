@@ -24,7 +24,7 @@ class SearchProfile(BaseModel):
 
 class TaskDirective(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    complete_request: bool = Field(description="True only if this operation completes the entire current request. False for a prerequisite of subsequent processing or another requested operation.")
+    complete_request: bool = Field(description="Whether this capability covers the entire requested scope, not whether success or enough matches are guaranteed. True for a search-only request (including finding a named dataset). False only for a prerequisite of another user-requested operation.")
     keywords: list[str] | None = Field(default=None, min_length=1, max_length=4,
         description="Complete discovery plan: original phrases first, then rewrites, synonyms or translations, at most four distinct phrases in total. Runtime stops at six unique candidates or four completed keywords. Null for an exact lookup.")
     original_keywords: list[str] | None = Field(default=None, min_length=1, max_length=4,

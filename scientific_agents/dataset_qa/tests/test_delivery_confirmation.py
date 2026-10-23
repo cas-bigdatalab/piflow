@@ -17,7 +17,7 @@ def repeat_read(messages, definitions):
     return action("read_result", result_id=result_id)
 
 
-def test_no_progress_cannot_confirm_an_unknown_goal_or_deliver_its_intermediate_search(engine):
+def test_no_progress_preserves_intermediate_search_without_confirming_the_unknown_goal(engine):
     async def run():
         backend = configured()
         dialogue = BareDialogue(load(), remote("search", query="resources"),
@@ -27,10 +27,12 @@ def test_no_progress_cannot_confirm_an_unknown_goal_or_deliver_its_intermediate_
         try:
             values = await collect(service, sid, "Find a resource and sample the first one", "stalled")
             assert_handled(service, None, values[-1], "no_progress")
-            assert not result_cards(values)
+            card, = result_cards(values)
+            assert card["data"]["items"]
+            assert values[-1]["outcome"]=="partial"
             assert backend.calls==[("data", "search", {"query": "resources"})]
             ledger = payload(service, sid, values)
-            assert not ledger.get("delivery_sources")
+            assert ledger["delivery_sources"]==[card["result_id"]]
             assert all(not item.get("required", True) for item in ledger["operations"])
         finally:
             await service.close()

@@ -275,7 +275,11 @@ def test_late_goal_never_promotes_unrelated_or_ambiguous_evidence(engine, case):
             required = [item for item in payload(service, sid, events)["operations"]
                 if item.get("required", True)]
             assert required and any(item["state"] != "succeeded" for item in required)
-            assert not result_cards(events)
+            # Recovery may show unconfirmed findings, never count them as
+            # satisfying the late goals. Explicit auxiliary receipts stay hidden.
+            assert len(result_cards(events))==(0 if case=="supporting" else 1)
+            assert events[-1]["outcome"]=="partial"
+            assert all(not item["attempts"] for item in required)
         finally:
             await service.close()
 

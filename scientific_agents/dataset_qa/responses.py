@@ -12,6 +12,58 @@ def _code(error):
     return getattr(error, "code", None)
 
 
+def recovery_search_summary(operations, cards):
+    """Render saved search facts locally when further execution cannot proceed.
+
+    Read only successful receipts and their declared collection paths. This
+    neither executes a tool nor turns intermediate findings into goal success.
+    Error diagnostics and planner-authored recovery text are never inputs.
+    """
+    import html
+    import re
+
+    from .contracts import QAError
+    from .references import at_path
+    from .search import record_key
+
+    by_id = {card["result_id"]: card for card in cards}
+    sections = []
+    for item in operations.deliverable(partial=True):
+        search = item.get("search")
+        if not search:
+            continue
+        rows = {}
+        for attempt in item["attempts"]:
+            card = by_id.get(attempt.get("result_id"))
+            presentation = attempt.get("presentation") or {}
+            if attempt["state"]!="succeeded" or card is None or presentation.get("kind")!="collection":
+                continue
+            try:
+                values = at_path(card.get("data"), presentation["path"])
+            except QAError:
+                continue
+            if isinstance(values, list):
+                for row in values:
+                    if isinstance(row, dict):
+                        rows.setdefault(record_key(row, search["profile"].get("identity", [])), row)
+        if rows:
+            lines = [f"在本次检索范围内已取得 {len(rows)} 个候选数据集："]
+            for row in list(rows.values())[:6]:
+                title = row.get("title")
+                if isinstance(title, str) and title.strip() and len(title)<=240:
+                    label = re.sub(r"([\\`*_{}\[\]#!|])", r"\\\1", html.escape(" ".join(title.split())))
+                else:
+                    label = "名称请见下方结果" if title else "名称未提供，请查看下方记录"
+                lines.append("- "+label)
+            if len(rows)>6:
+                lines.append("其余候选请查看下方结果。")
+            lines.append("以上为检索候选，具体内容是否适用还需核实；您可以继续指定要查看或处理的内容。")
+            sections.append("\n\n".join((lines[0], "\n".join(lines[1:-1]), lines[-1])))
+        elif search["done"] and search.get("stop")=="exhausted" and not search["records"]:
+            sections.append("本次检索范围内暂未找到匹配的数据集。您可以补充其他名称线索或指定其他检索范围。")
+    return "\n\n".join(sections)
+
+
 def notice(error, retained=False, subject=None):
     code = _code(error)
     if retained:

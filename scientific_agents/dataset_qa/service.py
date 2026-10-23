@@ -22,7 +22,7 @@ from .results import collection_paths, combine_results, evidence, evidence_group
 from .references import all_references, apply_update, at_path, display_list, handle_order, pending_objects, preview, scoped_preview
 from .runtime import Waiting
 from .parallel import run_read_batch
-from .responses import public_completion, response_labels, response_operations
+from .responses import public_completion, response_labels, response_operations, recovery_search_summary
 from .search import SearchRun, TaskDirective, normalize_keyword, ordered_keywords
 
 log = logging.getLogger("flow.dataset_qa")
@@ -459,6 +459,11 @@ class DatasetQA:
         required = operations.required
         subject = required[0].get("public_label") if len(required)==1 else None
         text = Execution.notice(reason, bool(payload.get("delivery")), subject)
+        if payload.get("delivery") and payload.get("delivery_sources"):
+            cards = await asyncio.to_thread(self.store.selected_results, user, sid, payload["delivery_sources"])
+            facts = recovery_search_summary(operations, cards)
+            if facts:
+                text = facts
         summary = operations.notice(payload.get("delivery_sources", []))
         if subject and reason.code=="tool_failed" and not payload.get("delivery"):
             summary = ""  # The named outcome is already explained in the notice.
@@ -646,7 +651,7 @@ class DatasetQA:
     async def _fallback_delivery(self, user, sid, tid, payload, execution, required=False):
         if "delivery" in payload:
             return
-        cards = execution.operations.delivery_ids()
+        cards = execution.operations.delivery_ids(partial=not required)
         if cards:
             try:
                 await self._deliver(user, sid, tid, {"result_ids": cards}, payload, execution, partial=not required)
@@ -1884,7 +1889,7 @@ class DatasetQA:
                             await self._fallback_delivery(user, sid, tid, payload, execution)
                         except Exception:
                             log.warning("Partial delivery unavailable: task=%s", tid, exc_info=True)
-                    if (reason is delivery_failure or reason.code=="no_progress") and "delivery" in payload and execution.operations.error(payload.get("delivery_sources", [])) is None:
+                    if (reason is delivery_failure or reason.code=="no_progress") and "delivery" in payload and execution.operations.required and execution.operations.error(payload.get("delivery_sources", [])) is None:
                         log.info("Delivery recovered from saved evidence: task=%s", tid)
                         reason = None
                     await self._final_reply(user, sid, tid, messages, answer, phase, reason, waiting)
@@ -1918,7 +1923,7 @@ class DatasetQA:
                             await self._fallback_delivery(user, sid, tid, payload, execution)
                         except (QAError, ValidationError):
                             pass
-                    if expired and payload.get("delivery") and execution.operations.error(payload.get("delivery_sources", [])) is None:
+                    if expired and payload.get("delivery") and execution.operations.required and execution.operations.error(payload.get("delivery_sources", [])) is None:
                         await self._notice(user, sid, tid, answer, "结果已整理在下方，您可以先查看，并指定下一步要了解或处理的内容。")
                         await self._finish_task(user, sid, tid, payload, execution, answer)
                         return

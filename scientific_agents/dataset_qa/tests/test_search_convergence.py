@@ -154,10 +154,11 @@ def test_budget_closure_does_not_promote_a_prerequisite_to_a_completed_sample(en
         try:
             events = await collect(service, sid, "Find a resource and sample the first one", "unfinished")
             assert_handled(service, None, events[-1])
-            assert not result_cards(events)
+            card, = result_cards(events)
+            assert events[-1]["outcome"]=="partial" and card["title"].endswith("search")
             assert [name for _, name, _ in backend.calls] == ["search"]
             ledger = payload(service, sid, events)
-            assert not ledger.get("delivery_sources")
+            assert ledger["delivery_sources"]==[card["result_id"]]
             required = [item for item in ledger["operations"] if item.get("required", True)]
             assert len(required) == 1 and required[0]["state"] == "pending"
         finally:
@@ -251,9 +252,11 @@ def test_rejected_expansion_cannot_itself_confirm_the_users_undeclared_outcomes(
             events = await collect(service, sid, "Find climate resources and water resources", "unconfirmed-pair")
             assert_handled(service, None, events[-1])
             assert [arguments["query"] for _, _, arguments in backend.calls] == ["climate"]
-            assert not result_cards(events)
+            card, = result_cards(events)
+            assert events[-1]["outcome"]=="partial"
+            assert [row["id"] for row in card["data"]["items"]]==["climate"]
             ledger = payload(service, sid, events)
-            assert not ledger.get("delivery_sources")
+            assert ledger["delivery_sources"]==[card["result_id"]]
             assert all(not item.get("required", True) for item in ledger["operations"])
         finally:
             await service.close()
