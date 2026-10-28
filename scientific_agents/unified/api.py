@@ -131,20 +131,27 @@ class Native:
 
 def install_unified(app, adapters=None):
     from .adapters.cross_dag import CrossDagAdapter
-    from .adapters.forecast import ForecastAdapter
-    from .adapters.dataset_qa import DatasetQAAdapter
-    # Extension point: one dictionary entry per adapter; no routing branches by agent.
-    registry = adapters if adapters is not None else {"cross_dag": CrossDagAdapter, "forecast": ForecastAdapter, "dataset_qa": DatasetQAAdapter}
+    from ..loading import AGENTS
+
+    enabled = getattr(app.state, "enabled_scientific_agents", None)
     paths = {getattr(r, "path", "") for r in app.routes}
+    registry = adapters if adapters is not None else {}
     if adapters is None:
-        registry = {key: cls for key, cls in registry.items() if cls.session_path in paths or
-                    (cls.session_path is None and getattr(app.state, "dataset_qa_enabled", False))}
+        if CrossDagAdapter.session_path in paths:
+            registry["cross_dag"] = CrossDagAdapter
+        for name, spec in AGENTS.items():
+            selected = name in enabled if enabled is not None else (spec.session_path in paths or
+                (spec.session_path is None and getattr(app.state, name + "_enabled", False)))
+            if selected:
+                registry[name] = spec.adapter_class()
     app.state.unified_adapters = registry
     router = APIRouter(prefix=PREFIX, route_class=PublicRoute)
 
     def adapter(native, agent_id) -> Adapter:
         cls = registry.get(agent_id)
         if cls is None:
+            if enabled is not None and agent_id in AGENTS and agent_id not in enabled:
+                raise HTTPException(409, "该智能体已停用，请启用后再操作")
             raise HTTPException(422, "智能体未注册")
         return cls(native)
 
@@ -160,7 +167,11 @@ def install_unified(app, adapters=None):
     async def resolve(request, sid):
         segment(sid)
         native = Native(request)
-        bound = await asyncio.to_thread(native.extension.store.binding, native.user, "unified:" + sid)
+        owner = getattr(native.extension, "owner", None)
+        # Only supplement old bindings with disabled ownership. Active adapters
+        # retain the existing ambiguity and access checks, including Cross DAG.
+        bound = (await asyncio.to_thread(owner, native.user, sid, disabled_only=True) if owner is not None else
+            await asyncio.to_thread(native.extension.store.binding, native.user, "unified:" + sid))
         candidates = [adapter(native, bound)] if bound else [cls(native) for cls in registry.values()]
         matches = [a for a in candidates if await asyncio.to_thread(a.owns_session, sid)]
         if not matches:

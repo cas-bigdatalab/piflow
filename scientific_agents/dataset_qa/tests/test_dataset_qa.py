@@ -952,8 +952,8 @@ def test_default_registry_only_exposes_enabled_dataset_qa():
     assert app.state.unified_adapters=={"dataset_qa": DatasetQAAdapter}
 
 
-def test_host_lifecycle_registers_and_closes_dataset_qa(engine, monkeypatch):
-    from ...integration import install_scientific_agents
+def test_host_lifecycle_registers_and_closes_dataset_qa(engine, monkeypatch, tmp_path):
+    from ...integration import HostResources, install_scientific_agents
 
     async def run():
         events = []
@@ -967,6 +967,7 @@ def test_host_lifecycle_registers_and_closes_dataset_qa(engine, monkeypatch):
         @asynccontextmanager
         async def forecast_lifespan(app):
             app.state.store, app.state.sessions = SimpleNamespace(engine=engine), object()
+            app.state.delete_host_session = None
             events.append("forecast.start")
             yield
             events.append("forecast.close")
@@ -982,9 +983,11 @@ def test_host_lifecycle_registers_and_closes_dataset_qa(engine, monkeypatch):
         monkeypatch.setitem(sys.modules, "scientific_agents.forecast.api",
             SimpleNamespace(PREFIX="/api/piflow/v1", create_app=lambda **kwargs: extension))
         app, qa = FastAPI(lifespan=host_lifespan), Service()
-        install_scientific_agents(app, resources=lambda: None, dataset_qa=qa)
+        resources = HostResources(tmp_path, f"sqlite:///{(tmp_path / 'shared.sqlite').as_posix()}")
+        install_scientific_agents(app, resources=resources, dataset_qa=qa,
+            enabled_agents=["forecast", "dataset_qa"])
         async with app.router.lifespan_context(app):
-            assert app.state.scientific_agents.session_services["dataset_qa"] is qa
+            assert app.state.scientific_agents.session_services["dataset_qa"].service is qa
         assert not hasattr(app.state, "scientific_agents")
         assert events==["host.start", "forecast.start", "qa.start", "qa.close", "forecast.close", "host.close"]
     asyncio.run(run())

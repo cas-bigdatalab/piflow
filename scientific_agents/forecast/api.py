@@ -36,7 +36,7 @@ def encode_sse(event):
     return "event: " + event["type"] + "\ndata: " + json.dumps(event, ensure_ascii=False, allow_nan=False) + "\n\n"
 
 
-def create_app(*, legacy=None, settings=None, interpreter=None, predictor=None, providers=None, provider_factories=None, agents=(), host_resources=None, manage_legacy=True):
+def create_app(*, legacy=None, settings=None, interpreter=None, predictor=None, providers=None, provider_factories=None, agents=(), host_resources=None, manage_legacy=True, shared_store=None):
     cfg = settings or load_settings()
 
     @asynccontextmanager
@@ -52,7 +52,8 @@ def create_app(*, legacy=None, settings=None, interpreter=None, predictor=None, 
             url = resources.database_url if resources else os.getenv("FORECAST_DATABASE_URL")
             if pg_dsn and not url:
                 url = pg_dsn.replace("postgresql://", "postgresql+psycopg://", 1)
-            store = Store(url or f"sqlite:///{(cfg.root / 'tasks.sqlite').as_posix()}")
+            store = Store(url or f"sqlite:///{(cfg.root / 'tasks.sqlite').as_posix()}",
+                shared=shared_store() if callable(shared_store) else shared_store)
             stack.callback(store.close)
             checkpointer = open_checkpointer(stack, cfg.root, pg_dsn)
             dialogue = interpreter or create_interpreter()

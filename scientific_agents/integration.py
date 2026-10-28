@@ -1,10 +1,13 @@
 """Register agent capabilities in the existing server; never start another service."""
-from contextlib import asynccontextmanager
+from contextlib import AsyncExitStack, asynccontextmanager
 from dataclasses import dataclass, field
+import logging
 from pathlib import Path
 
-from fastapi import APIRouter
-from fastapi.routing import APIRoute
+from .loading import AGENTS, load_enabled, validate_enabled
+from .shared import BindingStore, SharedState, StoredSessions
+
+log = logging.getLogger("flow.scientific_agents")
 
 
 @dataclass(frozen=True)
@@ -29,75 +32,54 @@ def project_resources() -> HostResources:
                          url.render_as_string(hide_password=False), dsn)
 
 
-class ScientificRoute(APIRoute):
-    def get_route_handler(self):
-        handler = super().get_route_handler()
-
-        async def checked(request):
-            try:
-                return await handler(request)
-            except Exception as exc:
-                from .forecast.feedback import http_error
-                return http_error(exc)
-
-        return checked
-
-
-def install_scientific_agents(app, *, resources=project_resources, dataset_qa=None, **components):
+def install_scientific_agents(app, *, resources=project_resources, dataset_qa=None,
+        config_path=None, enabled_agents=None, **components):
     """Call once during host app construction, before its lifespan starts.
 
     Each agent owns its chat URL; the original /chat routes remain untouched.
     Each scientific capability adds its own routes. No app, engine or user store is replaced.
     The private route factory container has no listener or separate host lifecycle.
     """
-    from .forecast.api import PREFIX, create_app
-
     if getattr(app.state, "scientific_agents_installed", False):
         raise ValueError("科学智能体已注册，不能重复安装")
+    enabled = load_enabled(config_path) if enabled_agents is None else validate_enabled(enabled_agents)
+    resolved_resources = None
+    lifespans = [(name, AGENTS[name].prepare(app, lambda: resolved_resources, dataset_qa, components))
+        for name in enabled]
     app.state.scientific_agents_installed = True
-    extension = create_app(legacy=app, host_resources=resources, manage_legacy=False, **components)
-    router = APIRouter(route_class=ScientificRoute)
-    for route in extension.router.routes:
-        if (isinstance(route, APIRoute) and route.path.startswith(PREFIX + "/forecast/")
-                and not route.path.startswith(PREFIX + "/forecast/agent/")):
-            router.add_api_route(route.path, route.endpoint, methods=route.methods, name=route.name)
-    app.include_router(router)
-    app.state.dataset_qa_enabled = True
+    app.state.enabled_scientific_agents = enabled
+    app.state.dataset_qa_enabled = "dataset_qa" in enabled
     from .unified.api import install_unified
     install_unified(app)
     original_lifespan = app.router.lifespan_context
 
     @asynccontextmanager
     async def lifespan(host):
+        nonlocal resolved_resources
         async with original_lifespan(host) as state:
             # Start after the original engine has loaded environment/configuration;
             # close agent jobs before the original database/engine resources close.
-            async with extension.router.lifespan_context(extension):
-                from .dataset_qa.service import DatasetQA
-                if dataset_qa is None:
-                    import os
-                    from infra.config_loader import CONFIG_DIR
-                    from .dataset_qa.contracts import Server
-                    from .dataset_qa.mcp import MCPGateway
-
-                    def local_mcp():
-                        if url := os.getenv("DATASET_QA_MCP_URL"):
-                            return url
-                        from mcp_servers.corpus_mcp import mcp
-                        return mcp
-
-                    gateway = MCPGateway({"piflow-corpus": Server(local_mcp, "本应用挂载的MCP服务")},
-                        config_path=os.getenv("DATASET_QA_MCP_CONFIG", str(CONFIG_DIR / "mcp_servers.yaml")))
-                    qa = DatasetQA(extension.state.store.engine, gateway=gateway)
-                else:
-                    qa = dataset_qa
-                await qa.start()
-                extension.state.session_services = {"forecast": extension.state.sessions, "dataset_qa": qa}
-                host.state.scientific_agents = extension.state
-                try:
+            resolved_resources = resources() if callable(resources) else resources
+            if resolved_resources is None:
+                raise ValueError("科学智能体接入需要公共数据库资源")
+            try:
+                async with AsyncExitStack() as stack:
+                    store = BindingStore(resolved_resources.database_url)
+                    stack.callback(store.close)
+                    shared = SharedState(store, enabled)
+                    for name, spec in AGENTS.items():
+                        if name not in enabled:
+                            shared.session_services[name] = StoredSessions(store.engine,
+                                spec.session_table, spec.session_id_column)
+                    host.state.scientific_agents = shared
+                    for name, start in lifespans:
+                        await stack.enter_async_context(start(shared))
+                        log.info("Scientific agent started: agent=%s", name)
+                    log.info("Scientific agents ready: enabled=%s", list(enabled))
                     yield state
-                finally:
-                    await qa.close()
+            finally:
+                if hasattr(host.state, "scientific_agents"):
                     del host.state.scientific_agents
+                resolved_resources = None
 
     app.router.lifespan_context = lifespan

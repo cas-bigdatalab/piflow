@@ -21,7 +21,7 @@ class DatasetQAAdapter:
         service = self.n.extension.session_services.get(self.agent_id)
         if service is None:
             raise HTTPException(503, "智能取数服务尚未就绪")
-        return service
+        return getattr(service, "service", service)
 
     async def call(self, function, *args, **kwargs):
         try:

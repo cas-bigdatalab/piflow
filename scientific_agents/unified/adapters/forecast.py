@@ -26,12 +26,17 @@ class ForecastAdapter:
     def __init__(self, native):
         self.n = native
 
+    @property
+    def extension(self):
+        state = self.n.extension
+        return getattr(state, "agent_states", {}).get(self.agent_id, state)
+
     def owns_session(self, sid):
-        return self.n.extension.sessions.lookup(self.n.user, sid) is not None
+        return self.extension.sessions.lookup(self.n.user, sid) is not None
 
     def task_session(self, tid):
         from sqlalchemy import select
-        ext = self.n.extension
+        ext = self.extension
         sessions, tasks = ext.sessions.sessions, ext.store.tasks
         with ext.store.engine.connect() as conn:
             return conn.execute(select(sessions.c.thread_id).join(tasks, tasks.c.session == sessions.c.session).where(
@@ -47,11 +52,11 @@ class ForecastAdapter:
         def summaries():
             from sqlalchemy import select
             from ...forecast.persistence import session_key
-            table = self.n.extension.store.tasks
+            table = self.extension.store.tasks
             keys = {session_key(self.n.user, s["session_id"]): s["session_id"] for s in data["sessions"]}
             values = {sid: {"task_count": 0, "latest_task_id": None,
                            "latest_task_status": None, "latest_task_stage": None} for sid in keys.values()}
-            with self.n.extension.store.engine.connect() as conn:
+            with self.extension.store.engine.connect() as conn:
                 rows = conn.execute(select(table).where(table.c.session.in_(keys)).order_by(table.c.updated_at.desc())).mappings()
                 for row in rows:
                     value = values[keys[row["session"]]]
@@ -120,8 +125,8 @@ class ForecastAdapter:
     async def get_task(self, sid, tid):
         from ...forecast.persistence import session_key
         # Validate the live host session before reading native task state.
-        await asyncio.to_thread(self.n.extension.sessions.require, self.n.user, sid)
-        value = await asyncio.to_thread(self.n.extension.store.task, tid, session_key(self.n.user, sid))
+        await asyncio.to_thread(self.extension.sessions.require, self.n.user, sid)
+        value = await asyncio.to_thread(self.extension.store.task, tid, session_key(self.n.user, sid))
         if value is None:
             raise HTTPException(404, "当前会话中不存在此任务")
         return {**self.task(value), "session_id": sid}

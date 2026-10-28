@@ -1,23 +1,18 @@
 """Small durable task/event store; SQLite locally, PostgreSQL when integrated."""
 from contextlib import ExitStack
 from datetime import datetime, timezone
-from hashlib import sha256
 from pathlib import Path
 import json
 import sqlite3
-import threading
 
-from sqlalchemy import Column, Integer, MetaData, String, Table, Text, create_engine, insert, select, update
+from sqlalchemy import Column, Integer, MetaData, String, Table, Text, insert, select, update
 
-
-def session_key(user: str, thread: str, agent: str = "forecast") -> str:
-    return sha256(json.dumps([user, thread, agent]).encode()).hexdigest()
+from ..shared import BindingStore, session_key
 
 
-class Store:
-    def __init__(self, url: str):
-        self.engine = create_engine(url, pool_pre_ping=True,
-                                    connect_args={"check_same_thread": False, "timeout": 30} if url.startswith("sqlite") else {})
+class Store(BindingStore):
+    def __init__(self, url: str, *, shared=None):
+        super().__init__(url, shared=shared)
         meta = MetaData()
         self.tasks = Table("forecast_tasks", meta,
             Column("run_id", String(64), primary_key=True), Column("session", String(64), index=True),
@@ -28,10 +23,11 @@ class Store:
         self.events = Table("forecast_events", meta,
             Column("id", Integer, primary_key=True, autoincrement=True),
             Column("session", String(64), index=True), Column("payload", Text))
-        self.bindings = Table("forecast_bindings", meta,
-            Column("session", String(64), primary_key=True), Column("agent", String(80)))
-        meta.create_all(self.engine)
-        self._lock = threading.RLock()
+        try:
+            meta.create_all(self.engine)
+        except BaseException:
+            self.close()
+            raise
 
     def task(self, run_id: str, session: str | None = None):
         query = select(self.tasks).where(self.tasks.c.run_id == run_id)
@@ -95,20 +91,6 @@ class Store:
             rows = conn.execute(select(self.events).where(self.events.c.session == session,
                 self.events.c.id > after).order_by(self.events.c.id).limit(300)).mappings().all()
         return [{**json.loads(r["payload"]), "event_id": r["id"]} for r in rows]
-
-    def close(self):
-        self.engine.dispose()
-
-    def binding(self, user: str, thread: str, agent: str | None = None):
-        key = session_key(user, thread, "binding")
-        with self._lock, self.engine.begin() as conn:
-            current = conn.execute(select(self.bindings.c.agent).where(self.bindings.c.session == key)).scalar()
-            if agent is not None:
-                if current is None:
-                    conn.execute(insert(self.bindings).values(session=key, agent=agent))
-                else:
-                    conn.execute(update(self.bindings).where(self.bindings.c.session == key).values(agent=agent))
-            return agent if agent is not None else current
 
 
 def open_checkpointer(stack: ExitStack, root: Path, postgres_dsn: str | None = None):

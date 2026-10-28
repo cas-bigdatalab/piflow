@@ -1,0 +1,5 @@
+# Applies after restarting the service. An empty list disables both scientific agents.
+# The host service and cross_dag are not controlled by this list.
+enabled_agents:
+  - forecast
+  - dataset_qa
