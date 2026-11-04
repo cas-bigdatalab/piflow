@@ -273,8 +273,6 @@ async def read_corpus_dataset_sample_records(
     size: Annotated[int, Field(description="样例记录总条数，默认为 5 条", ge=1)] = 5,
 ) -> dict[str, Any]:
     """读取数据集 JSON/JSONL 文件的 schema 和受限样例记录。
-
-    只检查数据集根目录和一级目录下的文件，不继续递归子目录。
     """
     return await anyio.to_thread.run_sync(
         partial(get_dataset_schema_and_sample, cstr, size=size)
