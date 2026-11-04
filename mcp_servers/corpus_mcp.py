@@ -257,7 +257,7 @@ async def sample_corpus_dataset(
     },
     meta={
         "piflow": {
-            "displayName": "数据集 JSON 记录预览",
+            "displayName": "数据集记录预览",
             "category": "数据内容查看",
             "icon": "database-preview",
             "view_type": "table",
