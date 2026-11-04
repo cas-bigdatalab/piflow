@@ -24,6 +24,9 @@ from infra.config_loader import get_settings
 REQUEST_TIMEOUT = 30
 DATASET_PREVIEW_TIMEOUT = 600
 DEFAULT_REMOTE_GRPC_PORT = 50061
+DATASET_SAMPLE_MAX_SIZE = 20
+DATASET_SAMPLE_MAX_RESPONSE_BYTES = 1 * 1024 * 1024
+DATASET_SAMPLE_MAX_RECORD_BYTES = 256 * 1024
 _TTL_PATTERN = re.compile(r"^\s*(\d+)\s*([smhdSMHD]?)\s*$")
 _EARTH_SYSTEM_NUMERICAL_SIMULATION_SOURCE = "地球系统数值模拟装置"
 _HUGGING_FACE_SOURCE = "Hugging Face"
@@ -457,6 +460,184 @@ def get_dataset_directory(cstr: str, *, file_id: str | None = None) -> dict[str,
     if file_id is not None:
         params["fileId"] = _normalize_required_text(file_id, field_name="fileId")
     return _request_corpus_route("GET", "/metacat.file.dir.query", params=params)
+
+
+def get_dataset_schema_and_sample(cstr: str, *, size: int = 5) -> dict[str, Any]:
+    """Return schemas and bounded samples from the first directory level.
+
+    The directory service is intentionally queried at most two levels deep:
+    the dataset root and, for each root directory, that directory's immediate
+    children.  Nested directories are not expanded.
+    """
+    normalized_cstr = _normalize_required_text(cstr, field_name="cstr")
+    if size <= 0:
+        raise ValueError("size must be positive")
+    requested_size = min(size, DATASET_SAMPLE_MAX_SIZE)
+
+    root_payload = get_dataset_directory(normalized_cstr)
+    root_nodes = _directory_nodes(root_payload)
+    candidate_nodes = [node for node in root_nodes if _is_sample_file(node)]
+
+    # A root directory is expanded once.  Its children are inspected but any
+    # child directory is deliberately ignored.
+    for node in root_nodes:
+        if not _is_directory_node(node):
+            continue
+        child_payload = get_dataset_directory(
+            normalized_cstr,
+            file_id=str(node.get("fileId") or "").strip(),
+        )
+        candidate_nodes.extend(
+            child for child in _directory_nodes(child_payload) if _is_sample_file(child)
+        )
+
+    unique_nodes: list[dict[str, Any]] = []
+    seen_urls: set[str] = set()
+    for node in candidate_nodes:
+        download_url = str(node.get("downloadUrl") or "").strip()
+        if download_url and download_url not in seen_urls:
+            seen_urls.add(download_url)
+            unique_nodes.append(node)
+
+    files: list[dict[str, Any]] = []
+    warnings: list[str] = []
+    remaining = requested_size
+    total_sample_bytes = 0
+
+    for node in unique_nodes:
+        if remaining <= 0:
+            break
+        download_url = str(node["downloadUrl"]).strip()
+        file_name = str(node.get("name") or _url_file_name(download_url)).strip()
+        file_result: dict[str, Any] = {
+            "fileName": file_name,
+            "downloadUrl": download_url,
+            "format": _json_file_format(download_url),
+            "schema": None,
+            "data": [],
+            "returnedCount": 0,
+            "truncated": False,
+            "warnings": [],
+        }
+        try:
+            schema_payload = _request_corpus_route(
+                "GET",
+                "/api.schema.infer",
+                params={"filePath": download_url},
+            )
+            _require_success_payload(schema_payload, endpoint="/api.schema.infer")
+            file_result["schema"] = schema_payload.get("data")
+        except Exception as exc:
+            file_result["warnings"].append(f"schema inference failed: {exc}")
+
+        try:
+            sample_payload = _request_corpus_route(
+                "GET",
+                "/corpus.url.sampler",
+                params={"url": download_url, "size": remaining},
+            )
+            _require_success_payload(sample_payload, endpoint="/corpus.url.sampler")
+            raw_data = sample_payload.get("data")
+            sample_data = raw_data if isinstance(raw_data, list) else ([] if raw_data is None else [raw_data])
+            bounded_data, record_truncated = _bound_sample_data(sample_data)
+            encoded_size = _json_size(bounded_data)
+            available_bytes = max(0, DATASET_SAMPLE_MAX_RESPONSE_BYTES - total_sample_bytes)
+            if encoded_size > available_bytes:
+                bounded_data = _fit_sample_to_bytes(bounded_data, available_bytes)
+                record_truncated = True
+            file_result["data"] = bounded_data
+            file_result["returnedCount"] = len(bounded_data)
+            file_result["truncated"] = record_truncated or len(bounded_data) < len(sample_data)
+            remaining -= len(bounded_data)
+            total_sample_bytes += _json_size(bounded_data)
+        except Exception as exc:
+            file_result["warnings"].append(f"sample extraction failed: {exc}")
+
+        if file_result["warnings"]:
+            warnings.extend(f"{file_name}: {warning}" for warning in file_result["warnings"])
+        files.append(file_result)
+
+    return {
+        "cstr": normalized_cstr,
+        "requestedSize": size,
+        "effectiveSize": requested_size,
+        "sizeCapped": size != requested_size,
+        "returnedCount": sum(int(item["returnedCount"]) for item in files),
+        "hasSample": any(item["returnedCount"] > 0 for item in files),
+        "files": files,
+        "warnings": warnings,
+    }
+
+
+def _directory_nodes(payload: dict[str, Any]) -> list[dict[str, Any]]:
+    nodes = payload.get("data")
+    if not isinstance(nodes, list):
+        return []
+    return [node for node in nodes if isinstance(node, dict)]
+
+
+def _require_success_payload(payload: dict[str, Any], *, endpoint: str) -> None:
+    code = payload.get("code")
+    if code is not None and str(code) != "200":
+        raise RuntimeError(f"{endpoint} failed: {payload.get('message') or code}")
+
+
+def _is_directory_node(node: dict[str, Any]) -> bool:
+    return node.get("isFile") is False and bool(str(node.get("fileId") or "").strip())
+
+
+def _is_sample_file(node: dict[str, Any]) -> bool:
+    if node.get("isFile") is not True:
+        return False
+    download_url = str(node.get("downloadUrl") or "").strip()
+    return bool(download_url) and _json_file_format(download_url) is not None
+
+
+def _url_file_name(download_url: str) -> str:
+    return Path(unquote(urlparse(download_url).path)).name
+
+
+def _json_file_format(download_url: str) -> str | None:
+    suffix = Path(urlparse(download_url).path).suffix.lower()
+    if suffix == ".json":
+        return "json"
+    if suffix == ".jsonl":
+        return "jsonl"
+    return None
+
+
+def _json_size(value: Any) -> int:
+    return len(json.dumps(value, ensure_ascii=False, separators=(",", ":")).encode("utf-8"))
+
+
+def _bound_sample_data(data: list[Any]) -> tuple[list[Any], bool]:
+    bounded: list[Any] = []
+    truncated = False
+    for record in data:
+        if _json_size(record) <= DATASET_SAMPLE_MAX_RECORD_BYTES:
+            bounded.append(record)
+            continue
+        bounded.append(
+            {
+                "__truncated__": True,
+                "__reason__": "record exceeds DATASET_SAMPLE_MAX_RECORD_BYTES",
+                "__originalBytes__": _json_size(record),
+            }
+        )
+        truncated = True
+    return bounded, truncated
+
+
+def _fit_sample_to_bytes(data: list[Any], max_bytes: int) -> list[Any]:
+    if max_bytes <= 2:
+        return []
+    fitted: list[Any] = []
+    for record in data:
+        candidate = fitted + [record]
+        if _json_size(candidate) > max_bytes:
+            break
+        fitted.append(record)
+    return fitted
 
 
 def get_dataset_file_jsonl(cstr: str, *, file_name: str | None = None) -> dict[str, Any]:
