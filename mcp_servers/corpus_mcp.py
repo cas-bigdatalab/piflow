@@ -14,6 +14,7 @@ from services.corpus_connector_service import (
     get_dataset_detail_by_cstr,
     get_dataset_directory,
     get_dataset_sampler,
+    get_dataset_schema_and_sample,
     list_dataset_details,
 )
 
@@ -71,6 +72,20 @@ async def main():
         result = await client.call_tool(
             "sample_corpus_dataset",
             {{"cstr": "dataset_001", "size": 5}},
+        )
+        print(result)
+'''
+
+_CONTENT_PREVIEW_USAGE_EXAMPLE = f'''from fastmcp import Client
+
+MCP_ENDPOINT = "{_MCP_ENDPOINT_EXAMPLE}"
+
+
+async def main():
+    async with Client(MCP_ENDPOINT) as client:
+        result = await client.call_tool(
+            "read_corpus_dataset_sample_records",
+            {{"cstr": "CHEM-CORPUS-K033", "size": 5}},
         )
         print(result)
 '''
@@ -230,6 +245,40 @@ async def sample_corpus_dataset(
 ) -> dict[str, Any]:
     """根据数据集 CSTR 随机采样指定条数，并原样返回上游响应。"""
     return _checked_result(await anyio.to_thread.run_sync(partial(get_dataset_sampler, cstr, size=size)))
+
+
+@mcp.tool(
+    annotations={
+        "title": "读取数据集样例记录",
+        "readOnlyHint": True,
+        "destructiveHint": False,
+        "idempotentHint": True,
+        "openWorldHint": False,
+    },
+    meta={
+        "piflow": {
+            "displayName": "数据集 JSON 记录预览",
+            "category": "数据内容查看",
+            "icon": "database-preview",
+            "view_type": "table",
+            "riskLevel": "low",
+            "version": "1.0.0",
+            "tags": ["corpus", "dataset", "preview", "json"],
+            "usageExample": _CONTENT_PREVIEW_USAGE_EXAMPLE,
+        }
+    },
+)
+async def read_corpus_dataset_sample_records(
+    cstr: Annotated[str, Field(description="数据集 CSTR 标识")],
+    size: Annotated[int, Field(description="样例记录总条数，默认为 5 条", ge=1)] = 5,
+) -> dict[str, Any]:
+    """读取数据集 JSON/JSONL 文件的 schema 和受限样例记录。
+
+    只检查数据集根目录和一级目录下的文件，不继续递归子目录。
+    """
+    return await anyio.to_thread.run_sync(
+        partial(get_dataset_schema_and_sample, cstr, size=size)
+    )
 
 
 @mcp.tool(

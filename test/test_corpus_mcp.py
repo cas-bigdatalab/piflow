@@ -60,12 +60,14 @@ def test_corpus_mcp_lists_dataset_tools():
         "search_corpus_datasets",
         "get_corpus_dataset_detail",
         "sample_corpus_dataset",
+        "read_corpus_dataset_sample_records",
         "get_corpus_dataset_directory",
     }
     assert {tool["name"]: tool["_meta"]["piflow"]["view_type"] for tool in tools} == {
         "search_corpus_datasets": "data",
         "get_corpus_dataset_detail": "data",
         "sample_corpus_dataset": "url",
+        "read_corpus_dataset_sample_records": "table",
         "get_corpus_dataset_directory": "directory",
     }
 
@@ -96,6 +98,18 @@ def test_corpus_mcp_lists_dataset_tools():
     assert directory_tool["annotations"]["title"] == "查看数据内容"
     assert directory_tool["_meta"]["piflow"]["displayName"] == "查看数据内容"
     assert directory_tool["_meta"]["piflow"]["category"] == "数据内容查看"
+
+    preview_tool = next(tool for tool in tools if tool["name"] == "read_corpus_dataset_sample_records")
+    assert preview_tool["annotations"] == {
+        "title": "读取数据集样例记录",
+        "readOnlyHint": True,
+        "destructiveHint": False,
+        "idempotentHint": True,
+        "openWorldHint": False,
+    }
+    assert preview_tool["_meta"]["piflow"]["displayName"] == "数据集 JSON 记录预览"
+    assert preview_tool["_meta"]["piflow"]["view_type"] == "table"
+    assert '"read_corpus_dataset_sample_records"' in preview_tool["_meta"]["piflow"]["usageExample"]
 
 
 def test_search_corpus_datasets_builds_existing_service_filters():
@@ -130,6 +144,33 @@ def test_get_corpus_dataset_directory_forwards_root_and_file_id(monkeypatch):
 
     asyncio.run(run())
     assert calls == [("dataset_001", None), ("dataset_001", "4003697")]
+
+
+def test_read_corpus_dataset_sample_records_forwards_arguments(monkeypatch):
+    from fastmcp import Client
+    from mcp_servers.corpus_mcp import mcp
+    calls = []
+
+    def upstream(cstr, *, size=5):
+        calls.append((cstr, size))
+        return {"cstr": cstr, "requestedSize": size, "files": []}
+
+    monkeypatch.setattr("mcp_servers.corpus_mcp.get_dataset_schema_and_sample", upstream)
+
+    async def run():
+        async with Client(mcp) as client:
+            result = await client.call_tool(
+                "read_corpus_dataset_sample_records",
+                {"cstr": "CHEM-CORPUS-K033", "size": 3},
+            )
+            assert result.structured_content == {
+                "cstr": "CHEM-CORPUS-K033",
+                "requestedSize": 3,
+                "files": [],
+            }
+
+    asyncio.run(run())
+    assert calls == [("CHEM-CORPUS-K033", 3)]
 
 
 def test_search_rejects_unsupported_title_and_conflicting_aliases():
