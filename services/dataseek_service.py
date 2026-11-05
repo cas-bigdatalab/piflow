@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 from typing import Any
@@ -75,6 +76,11 @@ def submit_dataset_to_dataseek(*, cstr: str, token: str) -> dict[str, Any]:
             ensure_ascii=False,
             separators=(",", ":"),
         ),
+    )
+    log.info(
+        "Dataseek token fingerprint length=%s sha256_prefix=%s",
+        len(normalized_token),
+        normalized_token,
     )
 
     try:
