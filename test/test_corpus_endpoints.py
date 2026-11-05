@@ -2,11 +2,24 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from routers.corpus_router import router
+from security.auth_dependency import get_current_user_with_token
 
 
 def _build_client() -> TestClient:
     app = FastAPI()
     app.include_router(router)
+    return TestClient(app)
+
+
+def _build_dataseek_client() -> TestClient:
+    app = FastAPI()
+    app.include_router(router)
+    app.dependency_overrides[get_current_user_with_token] = lambda: {
+        "user_id": "user-1",
+        "user_name": "tester",
+        "is_admin": False,
+        "access_token": "user-token",
+    }
     return TestClient(app)
 
 
@@ -85,6 +98,92 @@ def test_get_available_corpus_dataset_total_endpoint(monkeypatch):
 
     assert response.status_code == 200
     assert response.json() == {"code": 200, "result": {"total": 42}}
+
+
+def test_submit_corpus_dataset_to_dataseek_endpoint(monkeypatch):
+    monkeypatch.setattr(
+        "services.dataseek_service.get_dataset_detail_by_cstr",
+        lambda cstr: {
+            "title": "共和县光伏观测站",
+            "raw": {
+                "description": "campbell仪器观测数据",
+                "keywords": None,
+                "field": "地球科学",
+            },
+        },
+    )
+    monkeypatch.setattr(
+        "services.dataseek_service.should_query_dataset_directory",
+        lambda cstr: True,
+    )
+    monkeypatch.setattr(
+        "services.dataseek_service.get_dataset_directory",
+        lambda cstr: {"data": [{"parentId": "/mnt/corpus/corpus/ST001-CAMPBELL-B001"}]},
+    )
+
+    seen = {}
+
+    class FakeResponse:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {
+                "code": 0,
+                "msg": "success",
+                "data": {"external_id": "ST001-CAMPBELL-B001", "dataset_id": "ds-1"},
+            }
+
+    def fake_post(url, json, timeout):
+        seen.update({"url": url, "json": json, "timeout": timeout})
+        return FakeResponse()
+
+    monkeypatch.setattr("services.dataseek_service.requests.post", fake_post)
+
+    with _build_dataseek_client() as client:
+        response = client.post(
+            "/corpus/dataset/dataseek-submit",
+            json={"cstr": "ST001-CAMPBELL-B001"},
+        )
+
+    assert response.status_code == 200
+    assert response.json()["result"]["url"] == (
+        "http://172.31.3.81:7000/dataset/seek/ST001-CAMPBELL-B001?token=user-token"
+    )
+    assert seen["url"] == "http://127.0.0.1:7000/api/v1/datasets/submissions"
+    assert seen["json"]["keywords"] == ["地球科学"]
+    assert seen["json"]["token"] == "user-token"
+
+
+def test_submit_corpus_dataset_does_not_submit_without_parent_id(monkeypatch):
+    monkeypatch.setattr(
+        "services.dataseek_service.get_dataset_detail_by_cstr",
+        lambda cstr: {
+            "title": "dataset",
+            "raw": {"description": "description", "keywords": ["地球科学"]},
+        },
+    )
+    monkeypatch.setattr("services.dataseek_service.should_query_dataset_directory", lambda cstr: True)
+    monkeypatch.setattr("services.dataseek_service.get_dataset_directory", lambda cstr: {"data": []})
+
+    submitted = False
+
+    def fake_post(*args, **kwargs):
+        nonlocal submitted
+        submitted = True
+        raise AssertionError("Dataseek must not be called")
+
+    monkeypatch.setattr("services.dataseek_service.requests.post", fake_post)
+
+    with _build_dataseek_client() as client:
+        response = client.post(
+            "/corpus/dataset/dataseek-submit",
+            json={"cstr": "ST001-CAMPBELL-B001"},
+        )
+
+    assert response.status_code == 400
+    assert "parentId" in response.json()["detail"]
+    assert submitted is False
 
 
 def test_list_corpus_connectors_endpoint_passes_keyword(monkeypatch):

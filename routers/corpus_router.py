@@ -2,7 +2,7 @@ import logging
 from datetime import datetime
 from typing import Any
 
-from fastapi import APIRouter, Body, HTTPException, Query
+from fastapi import APIRouter, Body, Depends, HTTPException, Query
 from pydantic import BaseModel, ConfigDict, Field
 
 from services.corpus_connector_service import (
@@ -27,6 +27,8 @@ from services.corpus_connector_service import (
     list_dataset_details_v2,
     should_query_dataset_directory,
 )
+from security.auth_dependency import get_current_user_with_token
+from services.dataseek_service import submit_dataset_to_dataseek
 
 log = logging.getLogger("flow.api")
 router = APIRouter()
@@ -93,6 +95,10 @@ class CorpusDatasetListRequest(CorpusPageListRequest):
 
 class CorpusDatasetDetailRequest(BaseModel):
     datasetId: str
+
+
+class DataseekDatasetSubmitRequest(BaseModel):
+    cstr: str
 
 
 class RustFSServiceAccountRequest(BaseModel):
@@ -226,6 +232,31 @@ async def get_corpus_dataset_by_cstr_api(cstr: str = Query(...)):
         "result": {
             "dataset": result,
         },
+    }
+
+
+@router.post("/corpus/dataset/dataseek-submit")
+async def submit_corpus_dataset_to_dataseek_api(
+    req: DataseekDatasetSubmitRequest,
+    current_user=Depends(get_current_user_with_token),
+):
+    try:
+        result = submit_dataset_to_dataseek(
+            cstr=req.cstr,
+            token=current_user["access_token"],
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        log.exception("failed to submit corpus dataset to Dataseek cstr=%s", req.cstr)
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    except Exception:
+        log.exception("unexpected failure submitting corpus dataset to Dataseek cstr=%s", req.cstr)
+        raise HTTPException(status_code=500, detail="failed to submit corpus dataset to Dataseek")
+
+    return {
+        "code": 200,
+        "result": result,
     }
 
 
