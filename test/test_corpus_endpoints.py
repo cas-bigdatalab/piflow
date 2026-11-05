@@ -119,39 +119,6 @@ def test_submit_corpus_dataset_to_dataseek_endpoint(monkeypatch):
         lambda cstr: {"data": [{"parentId": "/mnt/corpus/corpus/ST001-CAMPBELL-B001"}]},
     )
 
-    seen = {}
-
-    class FakeResponse:
-        status_code = 200
-        text = '{"code":0,"msg":"success"}'
-
-        def raise_for_status(self):
-            return None
-
-        def json(self):
-            return {
-                "code": 0,
-                "msg": "success",
-                "data": {"external_id": "ST001-CAMPBELL-B001", "dataset_id": "ds-1"},
-            }
-
-    class FakeSession:
-        trust_env = True
-
-        def post(self, url, headers, json, timeout):
-            seen.update(
-                {
-                    "url": url,
-                    "headers": headers,
-                    "json": json,
-                    "trust_env": self.trust_env,
-                    "timeout": timeout,
-                }
-            )
-            return FakeResponse()
-
-    monkeypatch.setattr("services.dataseek_service.requests.Session", FakeSession)
-
     with _build_dataseek_client() as client:
         response = client.post(
             "/corpus/dataset/dataseek-submit",
@@ -160,14 +127,14 @@ def test_submit_corpus_dataset_to_dataseek_endpoint(monkeypatch):
 
     assert response.status_code == 200
     assert response.json()["message"] == "success"
-    assert response.json()["result"]["url"] == (
-        "http://172.31.3.81:7000/dataset/seek/ST001-CAMPBELL-B001?token=user-token"
-    )
-    assert seen["url"] == "http://172.31.3.81:7000/api/v1/datasets/submissions"
-    assert seen["trust_env"] is False
-    assert seen["headers"]["User-Agent"] == "curl/8.5.0"
-    assert seen["json"]["keywords"] == ["地球科学"]
-    assert seen["json"]["token"] == "user-token"
+    assert response.json()["result"] == {
+        "external_id": "ST001-CAMPBELL-B001",
+        "name": "共和县光伏观测站",
+        "summary": "campbell仪器观测数据",
+        "keywords": ["地球科学"],
+        "storage_directory": "/mnt/corpus/corpus/ST001-CAMPBELL-B001",
+        "token": "user-token",
+    }
 
 
 def test_submit_corpus_dataset_does_not_submit_without_parent_id(monkeypatch):
@@ -181,15 +148,6 @@ def test_submit_corpus_dataset_does_not_submit_without_parent_id(monkeypatch):
     monkeypatch.setattr("services.dataseek_service.should_query_dataset_directory", lambda cstr: True)
     monkeypatch.setattr("services.dataseek_service.get_dataset_directory", lambda cstr: {"data": []})
 
-    submitted = False
-
-    def fake_post(*args, **kwargs):
-        nonlocal submitted
-        submitted = True
-        raise AssertionError("Dataseek must not be called")
-
-    monkeypatch.setattr("services.dataseek_service.requests.post", fake_post)
-
     with _build_dataseek_client() as client:
         response = client.post(
             "/corpus/dataset/dataseek-submit",
@@ -199,7 +157,6 @@ def test_submit_corpus_dataset_does_not_submit_without_parent_id(monkeypatch):
     assert response.status_code == 400
     assert response.json()["code"] == 400
     assert "parentId" in response.json()["message"]
-    assert submitted is False
 
 
 def test_list_corpus_connectors_endpoint_passes_keyword(monkeypatch):

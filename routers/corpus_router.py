@@ -29,7 +29,7 @@ from services.corpus_connector_service import (
     should_query_dataset_directory,
 )
 from security.auth_dependency import get_current_user_with_token
-from services.dataseek_service import submit_dataset_to_dataseek
+from services.dataseek_service import build_dataseek_submission
 
 log = logging.getLogger("flow.api")
 router = APIRouter()
@@ -249,7 +249,7 @@ async def submit_corpus_dataset_to_dataseek_api(
         )
 
     try:
-        result = submit_dataset_to_dataseek(
+        result = build_dataseek_submission(
             cstr=req.cstr,
             token=current_user["access_token"],
         )
@@ -258,17 +258,11 @@ async def submit_corpus_dataset_to_dataseek_api(
             status_code=400,
             content={"code": 400, "message": str(exc)},
         )
-    except RuntimeError as exc:
-        log.exception("failed to submit corpus dataset to Dataseek cstr=%s", req.cstr)
-        return JSONResponse(
-            status_code=502,
-            content={"code": 502, "message": str(exc)},
-        )
     except Exception:
-        log.exception("unexpected failure submitting corpus dataset to Dataseek cstr=%s", req.cstr)
+        log.exception("failed to build Dataseek submission payload cstr=%s", req.cstr)
         return JSONResponse(
             status_code=500,
-            content={"code": 500, "message": "failed to submit corpus dataset to Dataseek"},
+            content={"code": 500, "message": "failed to build Dataseek submission payload"},
         )
 
     return {
