@@ -14,7 +14,7 @@ from services.corpus_connector_service import (
 )
 
 
-DATASEEK_SUBMISSION_URL = "http://127.0.0.1:7000/api/v1/datasets/submissions"
+DATASEEK_SUBMISSION_URL = "http://172.31.3.81:7000/api/v1/datasets/submissions"
 DATASEEK_DATASET_URL = "http://172.31.3.81:7000/dataset/seek"
 DATASEEK_TIMEOUT = 30
 

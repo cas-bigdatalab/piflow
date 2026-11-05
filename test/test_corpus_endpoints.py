@@ -135,8 +135,10 @@ def test_submit_corpus_dataset_to_dataseek_endpoint(monkeypatch):
                 "data": {"external_id": "ST001-CAMPBELL-B001", "dataset_id": "ds-1"},
             }
 
-    def fake_post(url, json, timeout):
-        seen.update({"url": url, "json": json, "timeout": timeout})
+    def fake_post(url, headers, data, proxies, timeout):
+        import json
+
+        seen.update({"url": url, "json": json.loads(data), "proxies": proxies, "timeout": timeout})
         return FakeResponse()
 
     monkeypatch.setattr("services.dataseek_service.requests.post", fake_post)
@@ -153,6 +155,7 @@ def test_submit_corpus_dataset_to_dataseek_endpoint(monkeypatch):
         "http://172.31.3.81:7000/dataset/seek/ST001-CAMPBELL-B001?token=user-token"
     )
     assert seen["url"] == "http://127.0.0.1:7000/api/v1/datasets/submissions"
+    assert seen["proxies"] == {"http": "", "https": ""}
     assert seen["json"]["keywords"] == ["地球科学"]
     assert seen["json"]["token"] == "user-token"
 
