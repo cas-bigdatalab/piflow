@@ -5,7 +5,6 @@ from typing import Any
 from services.corpus_connector_service import (
     get_dataset_detail_by_cstr,
     get_dataset_directory,
-    get_dataset_preview,
     should_query_dataset_directory,
 )
 
@@ -39,14 +38,17 @@ def build_dataseek_submission(*, cstr: str, token: str) -> dict[str, Any]:
     if not keywords:
         raise ValueError("dataset keywords and field are both empty")
 
-    preview = (
-        get_dataset_directory(normalized_cstr)
-        if should_query_dataset_directory(normalized_cstr)
-        else get_dataset_preview(normalized_cstr)
-    )
-    storage_directory = _first_parent_id(preview)
+    if not should_query_dataset_directory(normalized_cstr):
+        raise ValueError(
+            f"dataset cstr={normalized_cstr} is preview-only and has no directory to use as storage_directory"
+        )
+
+    directory = get_dataset_directory(normalized_cstr)
+    storage_directory = _first_parent_id(directory)
     if not storage_directory:
-        raise ValueError("dataset preview has no first-level parentId")
+        raise ValueError(
+            f"dataset cstr={normalized_cstr} directory listing has no first-level parentId"
+        )
 
     submission = {
         "external_id": normalized_cstr,

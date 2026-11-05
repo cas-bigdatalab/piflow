@@ -1,7 +1,9 @@
 import logging
 from datetime import datetime
+from functools import partial
 from typing import Any
 
+import anyio
 from fastapi import APIRouter, Body, Depends, HTTPException, Query
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
@@ -280,13 +282,15 @@ async def get_corpus_dataset_preview_api(
     try:
         if fileId is not None:
             mode = "directory"
-            result = get_dataset_directory(cstr, file_id=fileId)
-        elif should_query_dataset_directory(cstr):
+            result = await anyio.to_thread.run_sync(
+                partial(get_dataset_directory, cstr, file_id=fileId)
+            )
+        elif await anyio.to_thread.run_sync(should_query_dataset_directory, cstr):
             mode = "directory"
-            result = get_dataset_directory(cstr)
+            result = await anyio.to_thread.run_sync(get_dataset_directory, cstr)
         else:
             mode = "preview"
-            result = get_dataset_preview(cstr)
+            result = await anyio.to_thread.run_sync(get_dataset_preview, cstr)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception:
