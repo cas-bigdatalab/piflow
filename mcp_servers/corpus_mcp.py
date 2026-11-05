@@ -15,6 +15,7 @@ from services.corpus_connector_service import (
     get_dataset_directory,
     get_dataset_sampler,
     get_dataset_schema_and_sample,
+    get_file_schema_and_sample,
     list_dataset_details,
 )
 
@@ -86,6 +87,23 @@ async def main():
         result = await client.call_tool(
             "read_corpus_dataset_sample_records",
             {{"cstr": "CHEM-CORPUS-K033", "size": 5}},
+        )
+        print(result)
+'''
+
+_FILE_PREVIEW_USAGE_EXAMPLE = f'''from fastmcp import Client
+
+MCP_ENDPOINT = "{_MCP_ENDPOINT_EXAMPLE}"
+
+
+async def main():
+    async with Client(MCP_ENDPOINT) as client:
+        result = await client.call_tool(
+            "read_corpus_file_sample_records",
+            {{
+                "download_url": "http://172.31.3.81/corpus/CHEM-CORPUS-K033/knowledge/CHEM-CORPUS-K033-001.json",
+                "size": 5,
+            }},
         )
         print(result)
 '''
@@ -276,6 +294,37 @@ async def read_corpus_dataset_sample_records(
     """
     return await anyio.to_thread.run_sync(
         partial(get_dataset_schema_and_sample, cstr, size=size)
+    )
+
+
+@mcp.tool(
+    annotations={
+        "title": "读取文件样例记录",
+        "readOnlyHint": True,
+        "destructiveHint": False,
+        "idempotentHint": True,
+        "openWorldHint": False,
+    },
+    meta={
+        "piflow": {
+            "displayName": "文件 JSON 记录预览",
+            "category": "数据内容查看",
+            "icon": "database-preview",
+            "view_type": "table",
+            "riskLevel": "low",
+            "version": "1.0.0",
+            "tags": ["corpus", "file", "preview", "json"],
+            "usageExample": _FILE_PREVIEW_USAGE_EXAMPLE,
+        }
+    },
+)
+async def read_corpus_file_sample_records(
+    download_url: Annotated[str, Field(description="待预览文件的 downloadUrl，仅支持 .json 或 .jsonl")],
+    size: Annotated[int, Field(description="样例记录条数，默认为 5 条", ge=1)] = 5,
+) -> dict[str, Any]:
+    """根据 downloadUrl 读取 JSON/JSONL 文件的 schema 和受限样例记录。"""
+    return await anyio.to_thread.run_sync(
+        partial(get_file_schema_and_sample, download_url, size=size)
     )
 
 

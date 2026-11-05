@@ -61,6 +61,7 @@ def test_corpus_mcp_lists_dataset_tools():
         "get_corpus_dataset_detail",
         "sample_corpus_dataset",
         "read_corpus_dataset_sample_records",
+        "read_corpus_file_sample_records",
         "get_corpus_dataset_directory",
     }
     assert {tool["name"]: tool["_meta"]["piflow"]["view_type"] for tool in tools} == {
@@ -68,6 +69,7 @@ def test_corpus_mcp_lists_dataset_tools():
         "get_corpus_dataset_detail": "data",
         "sample_corpus_dataset": "url",
         "read_corpus_dataset_sample_records": "table",
+        "read_corpus_file_sample_records": "table",
         "get_corpus_dataset_directory": "directory",
     }
 
@@ -171,6 +173,29 @@ def test_read_corpus_dataset_sample_records_forwards_arguments(monkeypatch):
 
     asyncio.run(run())
     assert calls == [("CHEM-CORPUS-K033", 3)]
+
+
+def test_read_corpus_file_sample_records_forwards_download_url(monkeypatch):
+    from fastmcp import Client
+    from mcp_servers.corpus_mcp import mcp
+    calls = []
+
+    def upstream(download_url, *, size=5):
+        calls.append((download_url, size))
+        return {"downloadUrl": download_url, "previewable": False, "data": []}
+
+    monkeypatch.setattr("mcp_servers.corpus_mcp.get_file_schema_and_sample", upstream)
+
+    async def run():
+        async with Client(mcp) as client:
+            result = await client.call_tool(
+                "read_corpus_file_sample_records",
+                {"download_url": "http://corpus.example/archive.tar", "size": 2},
+            )
+            assert result.structured_content["previewable"] is False
+
+    asyncio.run(run())
+    assert calls == [("http://corpus.example/archive.tar", 2)]
 
 
 def test_search_rejects_unsupported_title_and_conflicting_aliases():

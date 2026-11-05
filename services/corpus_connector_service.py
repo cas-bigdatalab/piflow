@@ -569,6 +569,77 @@ def get_dataset_schema_and_sample(cstr: str, *, size: int = 5) -> dict[str, Any]
     }
 
 
+def get_file_schema_and_sample(download_url: str, *, size: int = 5) -> dict[str, Any]:
+    """Return a bounded schema and sample for one JSON/JSONL download URL."""
+    normalized_url = _normalize_required_text(download_url, field_name="downloadUrl")
+    parsed_url = urlparse(normalized_url)
+    if parsed_url.scheme not in {"http", "https"} or not parsed_url.netloc:
+        raise ValueError("downloadUrl must be an absolute http or https URL")
+
+    file_format = _json_file_format(normalized_url)
+    if file_format is None:
+        return {
+            "downloadUrl": normalized_url,
+            "previewable": False,
+            "message": "不可预览：仅支持 .json 和 .jsonl 文件",
+            "format": None,
+            "schema": None,
+            "data": [],
+            "returnedCount": 0,
+            "warnings": [],
+        }
+
+    if size <= 0:
+        raise ValueError("size must be positive")
+    effective_size = min(size, DATASET_SAMPLE_MAX_SIZE)
+    warnings: list[str] = []
+    schema: Any = None
+    data: list[Any] = []
+    truncated = size != effective_size
+
+    try:
+        schema_payload = _request_corpus_route(
+            "GET",
+            "/api.schema.infer",
+            params={"filePath": normalized_url},
+        )
+        _require_success_payload(schema_payload, endpoint="/api.schema.infer")
+        schema = schema_payload.get("data")
+    except Exception as exc:
+        warnings.append(f"schema inference failed: {exc}")
+
+    try:
+        sample_payload = _request_corpus_route(
+            "GET",
+            "/corpus.url.sampler",
+            params={"url": normalized_url, "size": effective_size},
+        )
+        _require_success_payload(sample_payload, endpoint="/corpus.url.sampler")
+        raw_data = sample_payload.get("data")
+        sample_data = raw_data if isinstance(raw_data, list) else ([] if raw_data is None else [raw_data])
+        data, record_truncated = _bound_sample_data(sample_data)
+        if _json_size(data) > DATASET_SAMPLE_MAX_RESPONSE_BYTES:
+            data = _fit_sample_to_bytes(data, DATASET_SAMPLE_MAX_RESPONSE_BYTES)
+            record_truncated = True
+        truncated = truncated or record_truncated or len(data) < len(sample_data)
+    except Exception as exc:
+        warnings.append(f"sample extraction failed: {exc}")
+
+    return {
+        "downloadUrl": normalized_url,
+        "previewable": True,
+        "message": "",
+        "format": file_format,
+        "schema": schema,
+        "data": data,
+        "requestedSize": size,
+        "effectiveSize": effective_size,
+        "returnedCount": len(data),
+        "truncated": truncated,
+        "warnings": warnings,
+    }
+
+
 def _directory_nodes(payload: dict[str, Any]) -> list[dict[str, Any]]:
     nodes = payload.get("data")
     if not isinstance(nodes, list):

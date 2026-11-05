@@ -164,6 +164,56 @@ def test_get_dataset_sampler_forwards_cstr_and_size(monkeypatch):
     ]
 
 
+def test_get_file_schema_and_sample_rejects_unsupported_suffix_without_upstream_call(monkeypatch):
+    monkeypatch.setattr(
+        corpus_connector_service,
+        "_request_corpus_route",
+        lambda *args, **kwargs: pytest.fail("unsupported files must not call upstream preview APIs"),
+    )
+
+    result = corpus_connector_service.get_file_schema_and_sample(
+        "http://corpus.example/archive.tar",
+        size=5,
+    )
+
+    assert result["previewable"] is False
+    assert result["data"] == []
+    assert "仅支持 .json 和 .jsonl" in result["message"]
+
+
+def test_get_file_schema_and_sample_forwards_url_and_bounds_size(monkeypatch):
+    calls = []
+
+    def request(method, path, *, params=None, json_body=None, timeout=None):
+        calls.append((method, path, params))
+        if path == "/api.schema.infer":
+            return {"code": 200, "data": {"type": "object"}}
+        return {"code": 200, "data": [{"id": 1}, {"id": 2}]}
+
+    monkeypatch.setattr(corpus_connector_service, "_request_corpus_route", request)
+    result = corpus_connector_service.get_file_schema_and_sample(
+        "http://corpus.example/data/sample.jsonl?download=1",
+        size=50,
+    )
+
+    assert result["previewable"] is True
+    assert result["format"] == "jsonl"
+    assert result["effectiveSize"] == corpus_connector_service.DATASET_SAMPLE_MAX_SIZE
+    assert result["data"] == [{"id": 1}, {"id": 2}]
+    assert calls == [
+        (
+            "GET",
+            "/api.schema.infer",
+            {"filePath": "http://corpus.example/data/sample.jsonl?download=1"},
+        ),
+        (
+            "GET",
+            "/corpus.url.sampler",
+            {"url": "http://corpus.example/data/sample.jsonl?download=1", "size": 20},
+        ),
+    ]
+
+
 def test_create_rustfs_temporary_credentials_signs_and_returns_credentials(monkeypatch):
     seen = {}
 
