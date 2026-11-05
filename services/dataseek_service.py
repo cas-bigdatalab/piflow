@@ -71,6 +71,9 @@ def submit_dataset_to_dataseek(*, cstr: str, token: str) -> dict[str, Any]:
             DATASEEK_SUBMISSION_URL,
             headers={"Content-Type": "application/json"},
             data=json.dumps(submission, ensure_ascii=False),
+            # 127.0.0.1 must be reached directly, even when the process has
+            # HTTP(S)_PROXY configured in its environment.
+            proxies={"http": "", "https": ""},
             timeout=DATASEEK_TIMEOUT,
         )
     except requests.RequestException as exc:
