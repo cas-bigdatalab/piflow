@@ -122,6 +122,9 @@ def test_submit_corpus_dataset_to_dataseek_endpoint(monkeypatch):
     seen = {}
 
     class FakeResponse:
+        status_code = 200
+        text = '{"code":0,"msg":"success"}'
+
         def raise_for_status(self):
             return None
 

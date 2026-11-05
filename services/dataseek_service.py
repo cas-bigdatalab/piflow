@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from typing import Any
 from urllib.parse import urlencode
 
@@ -68,12 +69,19 @@ def submit_dataset_to_dataseek(*, cstr: str, token: str) -> dict[str, Any]:
     try:
         response = requests.post(
             DATASEEK_SUBMISSION_URL,
-            json=submission,
+            headers={"Content-Type": "application/json"},
+            data=json.dumps(submission, ensure_ascii=False),
             timeout=DATASEEK_TIMEOUT,
         )
-        response.raise_for_status()
     except requests.RequestException as exc:
         raise RuntimeError(f"failed to submit dataset to Dataseek: {exc}") from exc
+
+    if response.status_code >= 400:
+        # Keep the upstream diagnostic, but never log or expose the submitted token.
+        response_body = str(response.text or "").strip()
+        raise RuntimeError(
+            f"Dataseek submission failed with HTTP {response.status_code}: {response_body}"
+        )
 
     try:
         payload = response.json()
