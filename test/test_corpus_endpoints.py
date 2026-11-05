@@ -135,13 +135,22 @@ def test_submit_corpus_dataset_to_dataseek_endpoint(monkeypatch):
                 "data": {"external_id": "ST001-CAMPBELL-B001", "dataset_id": "ds-1"},
             }
 
-    def fake_post(url, headers, data, proxies, timeout):
-        import json
+    class FakeSession:
+        trust_env = True
 
-        seen.update({"url": url, "json": json.loads(data), "proxies": proxies, "timeout": timeout})
-        return FakeResponse()
+        def post(self, url, headers, json, timeout):
+            seen.update(
+                {
+                    "url": url,
+                    "headers": headers,
+                    "json": json,
+                    "trust_env": self.trust_env,
+                    "timeout": timeout,
+                }
+            )
+            return FakeResponse()
 
-    monkeypatch.setattr("services.dataseek_service.requests.post", fake_post)
+    monkeypatch.setattr("services.dataseek_service.requests.Session", FakeSession)
 
     with _build_dataseek_client() as client:
         response = client.post(
@@ -154,8 +163,9 @@ def test_submit_corpus_dataset_to_dataseek_endpoint(monkeypatch):
     assert response.json()["result"]["url"] == (
         "http://172.31.3.81:7000/dataset/seek/ST001-CAMPBELL-B001?token=user-token"
     )
-    assert seen["url"] == "http://127.0.0.1:7000/api/v1/datasets/submissions"
-    assert seen["proxies"] == {"http": "", "https": ""}
+    assert seen["url"] == "http://172.31.3.81:7000/api/v1/datasets/submissions"
+    assert seen["trust_env"] is False
+    assert seen["headers"]["User-Agent"] == "curl/8.5.0"
     assert seen["json"]["keywords"] == ["地球科学"]
     assert seen["json"]["token"] == "user-token"
 
