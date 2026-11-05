@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from typing import Any
 from urllib.parse import urlencode
 
@@ -17,6 +18,7 @@ from services.corpus_connector_service import (
 DATASEEK_SUBMISSION_URL = "http://172.31.3.81:7000/api/v1/datasets/submissions"
 DATASEEK_DATASET_URL = "http://172.31.3.81:7000/dataset/seek"
 DATASEEK_TIMEOUT = 30
+log = logging.getLogger("flow.dataseek")
 
 
 def submit_dataset_to_dataseek(*, cstr: str, token: str) -> dict[str, Any]:
@@ -65,6 +67,15 @@ def submit_dataset_to_dataseek(*, cstr: str, token: str) -> dict[str, Any]:
         "storage_directory": storage_directory,
         "token": normalized_token,
     }
+    log.info(
+        "Dataseek submission payload url=%s payload=%s",
+        DATASEEK_SUBMISSION_URL,
+        json.dumps(
+            {**submission, "token": "[REDACTED_SECRET]"},
+            ensure_ascii=False,
+            separators=(",", ":"),
+        ),
+    )
 
     try:
         response = requests.post(
@@ -82,6 +93,16 @@ def submit_dataset_to_dataseek(*, cstr: str, token: str) -> dict[str, Any]:
     if response.status_code >= 400:
         # Keep the upstream diagnostic, but never log or expose the submitted token.
         response_body = str(response.text or "").strip()
+        log.error(
+            "Dataseek rejected submission status=%s headers=%r body=%r",
+            response.status_code,
+            {
+                key: value
+                for key, value in response.headers.items()
+                if key.lower() in {"server", "www-authenticate", "content-type", "location"}
+            },
+            response_body,
+        )
         raise RuntimeError(
             f"Dataseek submission failed with HTTP {response.status_code}: {response_body}"
         )
