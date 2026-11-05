@@ -80,7 +80,11 @@ def submit_dataset_to_dataseek(*, cstr: str, token: str) -> dict[str, Any]:
     try:
         response = requests.post(
             DATASEEK_SUBMISSION_URL,
-            headers={"Content-Type": "application/json"},
+            headers={
+                "Accept": "*/*",
+                "Content-Type": "application/json",
+                "User-Agent": "curl/8.5.0",
+            },
             data=json.dumps(submission, ensure_ascii=False),
             # 127.0.0.1 must be reached directly, even when the process has
             # HTTP(S)_PROXY configured in its environment.
