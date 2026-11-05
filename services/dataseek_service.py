@@ -27,20 +27,23 @@ def submit_dataset_to_dataseek(*, cstr: str, token: str) -> dict[str, Any]:
         raise ValueError("current user token is required")
 
     dataset = get_dataset_detail_by_cstr(normalized_cstr)
+    # get_dataset_detail_by_cstr returns the upstream raw object directly.
+    # Keep compatibility with the normalized shape used by other callers too.
     raw = dataset.get("raw")
-    if not isinstance(raw, dict):
-        raise ValueError("dataset detail raw field is missing")
+    source = raw if isinstance(raw, dict) else dataset
 
     name = str(dataset.get("title") or "").strip()
-    summary = str(raw.get("description") or "").strip()
+    if not name:
+        name = str(source.get("title") or source.get("name") or "").strip()
+    summary = str(source.get("description") or "").strip()
     if not name:
         raise ValueError("dataset title is empty")
     if not summary:
         raise ValueError("dataset description is empty")
 
-    keywords = _normalize_values(raw.get("keywords"))
+    keywords = _normalize_values(source.get("keywords"))
     if not keywords:
-        keywords = _normalize_values(raw.get("field"))
+        keywords = _normalize_values(source.get("field"))
     if not keywords:
         raise ValueError("dataset keywords and field are both empty")
 

@@ -9,6 +9,11 @@ oauth2_scheme = OAuth2PasswordBearer(
     tokenUrl="/api/piflow/v1/login"
 )
 
+dataseek_oauth2_scheme = OAuth2PasswordBearer(
+    tokenUrl="/api/piflow/v1/login",
+    auto_error=False,
+)
+
 
 def get_current_user(
     token: str = Depends(oauth2_scheme),
@@ -30,10 +35,12 @@ def get_current_user(
 
 
 def get_current_user_with_token(
-    token: str = Depends(oauth2_scheme),
+    token: str | None = Depends(dataseek_oauth2_scheme),
 ):
     """Validate the current user and retain the raw bearer token for forwarding."""
     try:
+        if not token:
+            return {"auth_error": "Authorization Bearer token is required"}
         payload = verify_token(token)
 
         return {
@@ -44,7 +51,4 @@ def get_current_user_with_token(
         }
 
     except Exception:
-        raise HTTPException(
-            status_code=401,
-            detail="Token无效",
-        )
+        return {"auth_error": "Token无效"}

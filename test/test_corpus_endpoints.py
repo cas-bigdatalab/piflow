@@ -105,11 +105,9 @@ def test_submit_corpus_dataset_to_dataseek_endpoint(monkeypatch):
         "services.dataseek_service.get_dataset_detail_by_cstr",
         lambda cstr: {
             "title": "共和县光伏观测站",
-            "raw": {
-                "description": "campbell仪器观测数据",
-                "keywords": None,
-                "field": "地球科学",
-            },
+            "description": "campbell仪器观测数据",
+            "keywords": None,
+            "field": "地球科学",
         },
     )
     monkeypatch.setattr(
@@ -147,6 +145,7 @@ def test_submit_corpus_dataset_to_dataseek_endpoint(monkeypatch):
         )
 
     assert response.status_code == 200
+    assert response.json()["message"] == "success"
     assert response.json()["result"]["url"] == (
         "http://172.31.3.81:7000/dataset/seek/ST001-CAMPBELL-B001?token=user-token"
     )
@@ -182,7 +181,8 @@ def test_submit_corpus_dataset_does_not_submit_without_parent_id(monkeypatch):
         )
 
     assert response.status_code == 400
-    assert "parentId" in response.json()["detail"]
+    assert response.json()["code"] == 400
+    assert "parentId" in response.json()["message"]
     assert submitted is False
 
 

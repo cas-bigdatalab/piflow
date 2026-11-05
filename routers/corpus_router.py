@@ -3,6 +3,7 @@ from datetime import datetime
 from typing import Any
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 
 from services.corpus_connector_service import (
@@ -240,22 +241,39 @@ async def submit_corpus_dataset_to_dataseek_api(
     req: DataseekDatasetSubmitRequest,
     current_user=Depends(get_current_user_with_token),
 ):
+    auth_error = current_user.get("auth_error") if isinstance(current_user, dict) else "Token无效"
+    if auth_error:
+        return JSONResponse(
+            status_code=401,
+            content={"code": 401, "message": auth_error},
+        )
+
     try:
         result = submit_dataset_to_dataseek(
             cstr=req.cstr,
             token=current_user["access_token"],
         )
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        return JSONResponse(
+            status_code=400,
+            content={"code": 400, "message": str(exc)},
+        )
     except RuntimeError as exc:
         log.exception("failed to submit corpus dataset to Dataseek cstr=%s", req.cstr)
-        raise HTTPException(status_code=502, detail=str(exc)) from exc
+        return JSONResponse(
+            status_code=502,
+            content={"code": 502, "message": str(exc)},
+        )
     except Exception:
         log.exception("unexpected failure submitting corpus dataset to Dataseek cstr=%s", req.cstr)
-        raise HTTPException(status_code=500, detail="failed to submit corpus dataset to Dataseek")
+        return JSONResponse(
+            status_code=500,
+            content={"code": 500, "message": "failed to submit corpus dataset to Dataseek"},
+        )
 
     return {
         "code": 200,
+        "message": "success",
         "result": result,
     }
 
