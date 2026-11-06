@@ -105,7 +105,7 @@ def test_submit_corpus_dataset_to_dataseek_endpoint(monkeypatch):
         "services.dataseek_service.get_dataset_detail_by_cstr",
         lambda cstr: {
             "title": "共和县光伏观测站",
-            "description": "campbell仪器观测数据",
+            "description": "",
             "keywords": None,
             "field": "地球科学",
         },
@@ -130,7 +130,7 @@ def test_submit_corpus_dataset_to_dataseek_endpoint(monkeypatch):
     assert response.json()["result"] == {
         "external_id": "ST001-CAMPBELL-B001",
         "name": "共和县光伏观测站",
-        "summary": "campbell仪器观测数据",
+        "summary": "共和县光伏观测站",
         "keywords": ["地球科学"],
         "storage_directory": "/mnt/corpus/corpus/ST001-CAMPBELL-B001",
         "token": "user-token",

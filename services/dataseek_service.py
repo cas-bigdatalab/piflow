@@ -26,9 +26,9 @@ def build_dataseek_submission(*, cstr: str, token: str) -> dict[str, Any]:
     name = str(dataset.get("title") or "").strip()
     if not name:
         name = str(source.get("title") or source.get("name") or "").strip()
-    summary = str(source.get("description") or "").strip()
     if not name:
         raise ValueError("dataset title is empty")
+    summary = str(source.get("description") or "").strip() or name
     if not summary:
         raise ValueError("dataset description is empty")
 
