@@ -148,7 +148,9 @@ def test_qa_delivers_both_file_results_without_repeating_upstream_work(engine, u
             result = await collect(service, session(service), "Read schema and 2 sample records from " + URL)
             assert_completed(service, None, result[-1])
             cards = result_cards(result)
-            assert len(cards)==2 and all(card["view_type"]=="table" for card in cards)
+            assert len(cards)==2
+            assert next(card for card in cards if "schema" in card["data"]["items"][0])["view_type"]=="data"
+            assert next(card for card in cards if "data" in card["data"]["items"][0])["view_type"]=="table"
             values = [card["data"]["items"][0] for card in cards]
             assert next(value for value in values if "schema" in value)["schema"]==SCHEMA
             assert next(value for value in values if "data" in value)["data"]==RECORDS

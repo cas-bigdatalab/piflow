@@ -24,7 +24,7 @@ class Limits:
     transport_retries: int = 1
     retry_delay: float = 0.25
     schema_chars: int = 16000
-    context_chars: int = 32000
+    context_chars: int = 40000
     result_chars: int = 8000
     result_bytes: int = 2_000_000
     timeout: float = 660

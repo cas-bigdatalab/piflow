@@ -1,6 +1,7 @@
 """Native tool calling with generic interaction primitives and bounded context."""
 from contextlib import aclosing
 import json
+import logging
 import os
 from typing import Annotated, Literal
 
@@ -11,6 +12,9 @@ from .context import encode, project
 from .contracts import Limits, QAError
 from .references import ReferenceUpdate
 from .operations import Operation
+
+
+log = logging.getLogger("flow.dataset_qa")
 
 
 class Input(BaseModel):
@@ -268,63 +272,123 @@ class Dialogue:
                 raise QAError("invalid_tool_call", "工具参数必须是有限且可序列化的JSON对象", 502) from exc
 
     def budget(self, messages, tools):
-        remaining = self.limits.context_chars-len(encode(tools))
+        # Count the complete serialized envelopes, including escaped content.
+        # Each message contributes its JSON plus a comma; one extra character
+        # accounts for the surrounding array. Tool definitions share this cap.
+        cost = lambda values: sum(len(encode(m.model_dump(mode="json", exclude_none=True)))+1 for m in values)
+        definitions_size = len(encode(tools))
+        available = self.limits.context_chars-definitions_size
         current = next((i for i, message in enumerate(messages) if message.id=="qa-current-request"), 2)
+        fixed_size = 1+cost([messages[0], messages[current]])
         context = json.loads(messages[1].content)
         protected = {key: context[key] for key in ("references", "request_source", "request_objects", "pending", "reference_issue", "operations", "response_basis", "execution_decision", "search_outcomes") if context.get(key)}
-        required = len(str(messages[0].content))+len(str(messages[current].content))+len(encode(protected))+300
-        if required>remaining:
-            raise QAError("context_too_large", "输入和工具定义超过上下文预算，请缩小请求")
-        remaining -= required
-        cost = lambda values: sum(len(encode(m.model_dump(mode="json", exclude_none=True))) for m in values)
-        recent = trim_messages(messages[2:current], max_tokens=max(0, min(8000, remaining//2)),
-            token_counter=cost, strategy="last", allow_partial=False, start_on="human")
-        remaining -= cost(recent)
-        grouped = context.get("evidence")
-        grouped_ids = set()
-        if isinstance(grouped, dict) and len(encode(grouped))<=min(self.limits.result_chars, remaining//3):
-            protected["evidence"] = grouped
-            remaining -= len(encode(grouped))
-            grouped_ids = {item["result_id"] for item in grouped.get("items", []) if "result_id" in item}
+        if context.get("memory"):
+            # Keep explicit choices/constraints, with the existing secret filter.
+            protected["memory"] = project(context["memory"], len(encode(context["memory"])))[0]
+
+        def required_size(value):
+            return fixed_size+cost([HumanMessage(encode(value))])
+
+        def overflow(required, latest=0):
+            detail = {"context_chars": self.limits.context_chars, "definitions_chars": definitions_size,
+                "required_chars": required, "latest_group_chars": latest}
+            log.warning("Context budget exhausted: %s", encode(detail))
+            return QAError("context_too_large", "必要上下文超过本轮预算，已取得的结果仍保留", detail=detail)
+
+        required = required_size(protected)
+        if required>available:
+            raise overflow(required)
         groups = []
         for message in messages[current+1:]:
             if not isinstance(message, ToolMessage):
                 groups.append([])
             if not groups:
                 raise QAError("invalid_tool_history", "工具消息缺少对应调用", 503)
-            groups[-1].append(message)
-        chosen = []
-        for group in reversed(groups):
-            copy = []
-            for message in group:
-                if isinstance(message, ToolMessage):
-                    value = json.loads(message.content)
-                    if message.name and message.name.startswith("mcp_") and value.get("result_id") in grouped_ids:
-                        value = {key: value[key] for key in ("result_id", "executed", "guidance", "repeated", "objects") if key in value}
-                        copy.append(message.model_copy(update={"content": encode(value)}))
-                        continue
-                    data, cut = project(value.get("data", value), min(self.limits.result_chars, max(200, remaining//max(2, len(group)))))
-                    if "result_id" in value:
+            if isinstance(message, ToolMessage):
+                value = json.loads(message.content)
+                # Retain bounded previews as supplied. Never project them again
+                # into a smaller fraction just because history used the space.
+                if isinstance(value, dict) and "result_id" in value:
+                    if "data" in value:
+                        data, cut = project(value["data"], max(self.limits.result_chars,
+                            len(encode(value["data"])) if value.get("truncated") else 0))
                         value = {**value, "data": data}
-                    else:
-                        value = data
+                        if cut:
+                            value["truncated"] = True
+                else:
+                    value, cut = project(value, self.limits.result_chars)
                     if cut and isinstance(value, dict):
-                        value = {**value, "truncated": True}
-                    message = message.model_copy(update={"content": encode(value)})
-                copy.append(message)
-            size = cost(copy)
-            if size>remaining-500:
-                if not chosen:
-                    raise QAError("context_too_large", "本轮工具调用超过上下文预算，结果已保存")
+                        value["truncated"] = True
+                message = message.model_copy(update={"content": encode(value)})
+            groups[-1].append(message)
+
+        grouped = context.get("evidence")
+        if isinstance(grouped, dict) and len(encode(grouped))<=self.limits.result_chars:
+            def body(value):
+                return encode({key: value[key] for key in ("data", "content", "path", "offset") if key in value})
+
+            candidates = {}
+            for item in grouped.get("items", []):
+                if isinstance(item, dict) and item.get("result_id"):
+                    candidates.setdefault(item["result_id"], set()).add(body(item))
+            deduplicated = []
+            for group in groups:
+                copied = []
+                for message in group:
+                    if isinstance(message, ToolMessage) and message.name and message.name.startswith("mcp_"):
+                        value = json.loads(message.content)
+                        if isinstance(value, dict) and body(value) in candidates.get(value.get("result_id"), ()):
+                            # Remove only identical bodies. Status, handles,
+                            # pagination and field pointers remain on the receipt.
+                            value = {key: item for key, item in value.items() if key not in {"data", "content"}}
+                            message = message.model_copy(update={"content": encode(value)})
+                    copied.append(message)
+                deduplicated.append(copied)
+            proposal = {**protected, "evidence": grouped}
+            size = required_size(proposal)
+            if size+(cost(deduplicated[-1]) if deduplicated else 0)<=available:
+                protected, required, groups = proposal, size, deduplicated
+
+        # Reserve the latest complete group before allocating any old history.
+        latest = cost(groups[-1]) if groups else 0
+        if required+latest>available:
+            raise overflow(required, latest)
+        chosen = groups[-1:]
+        remaining = available-required-latest
+        recent = trim_messages(messages[2:current], max_tokens=max(0, min(8000, remaining//2)),
+            token_counter=cost, strategy="last", allow_partial=False, start_on="human")
+        remaining -= cost(recent)
+        for group in reversed(groups[:-1]):
+            size = cost(group)
+            if size>remaining:
                 break
-            chosen.insert(0, copy)
+            chosen.insert(0, group)
             remaining -= size
-        # Only the model view is trimmed; saved history and source references stay intact.
-        optional = {key: value for key, value in context.items() if key not in protected}
-        optional, _ = project(optional, max(4, remaining-200))
-        context = {**(optional or {}), **protected}
-        return [messages[0], HumanMessage(encode(context)), *recent, messages[current],
+
+        # Do not reinsert a rejected evidence pool through optional context.
+        optional = {key: value for key, value in context.items() if key not in protected
+            and not (key=="evidence" and isinstance(grouped, dict))}
+        # Project from the original optional values on each fit check, never
+        # from an already truncated candidate. Account for JSON escaping too.
+        full, _ = project(optional, len(encode(optional)))
+        proposal = {**(full or {}), **protected}
+        selected, low, high = protected, 4, min(len(encode(optional)), remaining)
+        if required_size(proposal)-required<=remaining:
+            selected, high = proposal, 0
+        while low<=high:
+            middle = (low+high)//2
+            view, _ = project(optional, middle)
+            proposal = {**(view or {}), **protected}
+            if required_size(proposal)-required<=remaining:
+                selected, low = proposal, middle+1
+            else:
+                high = middle-1
+        bounded = [messages[0], HumanMessage(encode(selected)), *recent, messages[current],
             *[m for group in chosen for m in group]]
+        if log.isEnabledFor(logging.DEBUG):
+            log.debug("Context budget: limit=%s definitions=%s messages=%s history=%s/%s groups=%s/%s",
+                self.limits.context_chars, definitions_size, 1+cost(bounded), len(recent), current-2, len(chosen), len(groups))
+        return bounded
 
     async def respond(self, messages, tools):
         model = self._model().bind_tools(tools, tool_choice="required") if tools else self._model()
