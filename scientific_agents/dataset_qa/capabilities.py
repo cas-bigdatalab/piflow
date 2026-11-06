@@ -6,6 +6,7 @@ describe fields and output shapes, never user wording or domain keywords.
 """
 from copy import deepcopy
 import re
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
@@ -13,6 +14,7 @@ from .contracts import QAError
 from .context import pointer_tokens
 from .references import at_path, identifier_in_request
 from .search import SearchProfile, TaskDirective
+from .resource_index.model import DirectorySpec
 
 
 PROFILES = {
@@ -20,8 +22,16 @@ PROFILES = {
         "query": "query", "page": "page", "page_size": "page_size", "total": "/pagination/total",
         "identity": ["/cstr", "/id"], "opaque_filters": ["field", "subject", "title"]}},
     ("piflow-corpus", "get_corpus_dataset_detail"): {"label": "数据集详情", "atomic": True, "object": "", "bind": {"cstr": ["/cstr", "/raw/cstr"]}},
-    ("piflow-corpus", "get_corpus_dataset_directory"): {"label": "数据预览", "atomic": True, "bind": {"cstr": ["/cstr", "/raw/cstr"]}},
+    ("piflow-corpus", "get_corpus_dataset_directory"): {"label": "数据预览", "atomic": True,
+        "bind": {"cstr": ["/cstr", "/raw/cstr"]}, "directory": {
+            "identity": ["cstr"], "parent": "file_id", "nodes": ["/data", "/data/data"],
+            "node_id": "/fileId", "name": "/name", "is_file": "/isFile", "download_url": "/downloadUrl",
+            "status": ["/code", "/data/code"]}},
     ("piflow-corpus", "sample_corpus_dataset"): {"label": "采样结果", "atomic": True, "bind": {"cstr": ["/cstr", "/raw/cstr"]}},
+    ("piflow-corpus", "get_corpus_file_schema"): {"label": "文件字段结构", "atomic": True,
+        "target_kind": "file", "bind": {"download_url": ["/downloadUrl"]}},
+    ("piflow-corpus", "read_corpus_file_records"): {"label": "文件样例记录", "atomic": True,
+        "target_kind": "file", "bind": {"download_url": ["/downloadUrl"]}},
 }
 OBJECT = "__qa_object"
 SUPPORTING = "__qa_supporting"
@@ -38,6 +48,8 @@ class Profile(BaseModel):
     object: str | None = None
     atomic: bool = False
     search: SearchProfile | None = None
+    directory: DirectorySpec | None = None
+    target_kind: Literal["dataset", "file"] = "dataset"
 
 
 def profile(tool):
@@ -58,6 +70,8 @@ def profile(tool):
             raise QAError("invalid_schema", "检索能力的输入或列表定义无效", 502)
         if (search.page is None)!=(search.page_size is None):
             raise QAError("invalid_schema", "分页能力须同时声明页码和页面大小参数", 502)
+    if result.directory and any(key not in properties for key in [*result.directory.identity, result.directory.parent]):
+        raise QAError("invalid_schema", "目录索引的身份或父节点参数无效", 502)
     try:
         for path in [result.collection, result.object, *(path for paths in result.bind.values() for path in paths)]:
             if path is not None:
@@ -65,6 +79,11 @@ def profile(tool):
         if result.search:
             for path in [*result.search.identity, *([result.search.total] if result.search.total is not None else [])]:
                 pointer_tokens(path)
+        if result.directory:
+            spec = result.directory
+            for path in [*spec.nodes, *spec.status, spec.node_id, spec.name, spec.is_file, spec.download_url]:
+                if path is not None:
+                    pointer_tokens(path)
     except QAError as exc:
         raise QAError("invalid_schema", "服务的对象来源路径须为有效JSON Pointer", 502) from exc
     return result

@@ -1,6 +1,6 @@
 """Persistent conversation runtime; every MCP tool follows the same path."""
 import asyncio
-from contextlib import aclosing, nullcontext
+from contextlib import aclosing, asynccontextmanager, nullcontext
 from copy import deepcopy
 import json
 import logging
@@ -24,11 +24,13 @@ from .runtime import Waiting
 from .parallel import run_read_batch
 from .responses import public_completion, response_labels, response_operations, recovery_search_summary
 from .search import SearchRun, TaskDirective, normalize_keyword, ordered_keywords
+from .resource_index.manager import ResourceIndex
+from .resource_index.resolver import bind_target, resolve as resolve_resource
 
 log = logging.getLogger("flow.dataset_qa")
 
 class DatasetQA:
-    def __init__(self, engine, dialogue=None, gateway=None):
+    def __init__(self, engine, dialogue=None, gateway=None, *, index_policy=None):
         self.store, self.gateway = Store(engine), gateway or MCPGateway()
         self.dialogue = dialogue or Dialogue(limits=self.gateway.limits)
         self.owner, self.jobs = uuid4().hex, {}
@@ -36,9 +38,21 @@ class DatasetQA:
         self.summary_slot = asyncio.Semaphore(1)
         self.stopping, self.changed = asyncio.Event(), asyncio.Condition()
         self.ticker, self.slots = None, asyncio.Semaphore(8)
+        self.active_mcp_calls = 0
+        self.resources = ResourceIndex(self.store, self.gateway, lambda: self.active_mcp_calls>0, index_policy)
+
+    @asynccontextmanager
+    async def _foreground_mcp(self):
+        self.active_mcp_calls += 1
+        try:
+            yield
+        finally:
+            self.active_mcp_calls -= 1
+            self.resources.wake.set()
 
     async def start(self):
         await asyncio.to_thread(self.store.heartbeat, self.owner, [])
+        self.resources.start()
 
         async def heartbeat():
             while not self.stopping.is_set():
@@ -56,6 +70,7 @@ class DatasetQA:
 
     async def close(self):
         self.stopping.set()
+        await self.resources.close()
         if self.ticker:
             await self.ticker
         for job in list(self.jobs.values()):
@@ -570,6 +585,8 @@ class DatasetQA:
                     raise QAError(exc.code, "已有成功结果尚未与后补目标关联，请明确确认其满足的目标", exc.status, detail=detail) from exc
                 raise
         cards = await asyncio.to_thread(self.store.selected_results, user, sid, result_ids)
+        if any("resource" in card for card in cards):
+            raise QAError("invalid_delivery", "文件定位来源不能作为内容查询结果交付，请先执行所需工具")
         patch = values.references.model_dump(exclude_unset=True) if values.references else {}
         paths = values.merge_path
         combined, lineage = [], {}
@@ -681,7 +698,7 @@ class DatasetQA:
         await self._write(user, sid, tid, payload=payload)
         return {"ready": True, "executed": False, "evidence_ids": ids}
 
-    async def _save_tool_result(self, user, sid, tid, tool, output, operation_id, key, result_id, execution, payload):
+    async def _save_tool_result(self, user, sid, tid, tool, output, operation_id, key, result_id, execution, payload, arguments=None):
         marker = (key, fingerprint(output.payload()))
         card = execution.cards.get(marker)
         created = card is None
@@ -696,6 +713,18 @@ class DatasetQA:
         execution.cards[marker] = card
         execution.failures.pop(operation_id or key, None)
         operation = execution.operations.get(operation_id) or {}
+        if created and arguments is not None and profile(tool).directory:
+            try:
+                dataset = await self._target_record(user, sid, operation.get("target"))
+                indexed = await self.resources.observe(user, tool, arguments, output.data, dataset)
+                if indexed is not None:
+                    # A newly completed prerequisite changes the evidence.
+                    # Earlier negative location lookups must not mask it.
+                    payload.pop("resource_lookups", None)
+                    await self._write(user, sid, tid, payload=payload)
+            except Exception as exc:
+                # Indexing is auxiliary; the original MCP artifact stays valid.
+                log.warning("Directory index observation deferred: code=%s", getattr(exc, "code", type(exc).__name__))
         log.info("Outcome recorded: task=%s operation=%s result=%s signature=%s required=%s inferred=%s",
             tid, operation_id, card["result_id"], key[:12], operation.get("required", True), operation.get("inferred", False))
         return card, created
@@ -739,10 +768,11 @@ class DatasetQA:
         await phase("execute", f"正在并行查询 {len(calls)} 项独立信息", payload=payload)
 
         async def execute(call):
-            return await tools.call_isolated(call["name"], specs[call["id"]][2])
+            async with self._foreground_mcp():
+                return await tools.call_isolated(call["name"], specs[call["id"]][2])
 
         async def persist(call, result, error):
-            operation_id, key, _, result_id = specs[call["id"]]
+            operation_id, key, args, result_id = specs[call["id"]]
             if error is not None:
                 execution.operations.finish(operation_id, key, error=error)
                 execution.failures[operation_id] = error
@@ -751,7 +781,7 @@ class DatasetQA:
             else:
                 tool, output = result
                 card, _ = await self._save_tool_result(user, sid, tid, tool, output, operation_id, key,
-                    result_id, execution, payload)
+                    result_id, execution, payload, args)
                 outcomes[call["id"]] = {"card": card}
 
         async with waiting.during("正在等待并行查询返回，已完成的信息会及时保存。"):
@@ -840,11 +870,11 @@ class DatasetQA:
                             "kind": "collection", "path": descriptor.collection, "identity": descriptor.search.identity})
                     payload["operations"] = execution.operations.items
                     await phase("execute", "正在检索数据集", payload=payload)
-                    async with waiting.during("正在获取候选数据集，收到结果后会继续整理。"):
+                    async with waiting.during("正在获取候选数据集，收到结果后会继续整理。"), self._foreground_mcp():
                         _, output = await tools.call(tool.alias, arguments)
                     search.rows(output.data, descriptor.collection)
                     last, created = await self._save_tool_result(user, sid, tid, tool, output,
-                        operation_id, key, f"{tid}:{results}", execution, payload)
+                        operation_id, key, f"{tid}:{results}", execution, payload, arguments)
                     results += int(created)
                     payload["result_sequence"] = results
                 else:
@@ -1007,6 +1037,8 @@ class DatasetQA:
             return records[key]
 
         async def same_target(tool, left, right):
+            left = await bind_target(self, user, sid, tool, profile(tool), left)
+            right = await bind_target(self, user, sid, tool, profile(tool), right)
             if left==right:
                 return True
             binding = profile(tool).bind
@@ -1104,6 +1136,7 @@ class DatasetQA:
                 explicit_goal = any(goal.object for value in memory for goal in value.goals or [] if goal.tool in {tool.alias, tool.name, tool.server+"/"+tool.name})
                 if descriptor.bind and reference_issue and selector is None and not has_focus and not explicit_goal and not direct_identifier:
                     raise QAError("invalid_parameters", "对象来源存在歧义，请先明确需要处理的对象", detail={"available_objects": list(handles)[:12]})
+                target = await bind_target(self, user, sid, tool, descriptor, target, validate=True)
                 record = await source(target)
                 prepared = inputs(tool, arguments, record)
                 if descriptor.bind and target is None:
@@ -1311,6 +1344,13 @@ class DatasetQA:
             return tools.list_servers(**values.model_dump())
         if name=="load_mcp_tools":
             return await tools.load(**values.model_dump())
+        if name=="resolve_resource":
+            payload = payload if payload is not None else {}
+            value = await resolve_resource(self, user, sid, tid, values, context, payload)
+            payload.setdefault("resource_outcomes", {})[fingerprint(values.model_dump())] = {
+                "name": values.name, "kind": values.kind, "status": value["status"]}
+            await self._write(user, sid, tid, payload=payload)
+            return value
         if name=="read_result":
             result = await self._read_result(user, sid, values)
             if values.result_id is not None and payload is not None:
@@ -1392,6 +1432,7 @@ class DatasetQA:
         instructions = (str(messages[0].content)+"\nTool use is over. Write only the final user-facing reply, "
             "without internal planning or another tool call. Use actual evidence, distinguish unfinished work, "
             "Do not expose backend errors, diagnostic codes, stack traces or internal service details. "
+            "Directory indexing, cache refresh, background jobs and prerequisite waits are internal; never report them or ask the user to wait for/manage them. Answer only the requested data question. "
             "Do not show operation IDs, numbered internal tasks or empty operation labels. Describe the actual user-requested content. "
             "A tool rejection alone does not establish permanent lack of support or a temporary outage; do not promise a later retry will resolve it. "
             "When evidence is incomplete, explain what is available and a concrete next step in the user's terms. "
@@ -1428,7 +1469,11 @@ class DatasetQA:
             if key in {"memory", "summary", "references", "request_source", "request_objects", "response_basis"}}
         if payload.get("response_basis"):
             context["response_basis"] = {key: value for key, value in payload["response_basis"].items()
-                if key!="reason" or not payload.get("diagnostics_exposed")}
+                if key!="reason" or not (payload.get("diagnostics_exposed") or payload.get("resource_outcomes"))}
+        if payload.get("resource_outcomes"):
+            # Only business facts cross the answer boundary, never adapter
+            # diagnostics or planner-authored explanations of preparation.
+            context["resource_requests"] = project(list(payload["resource_outcomes"].values()), 1800)[0]
         if operations.items:
             context["operations"] = response_operations(operations, payload.get("response_labels"))
         searches = [SearchRun(item["search"]).view() for item in operations.items if item.get("search")]
@@ -1742,6 +1787,8 @@ class DatasetQA:
                                     if prepared_error:
                                         raise prepared_error
                                     if name in INPUTS:
+                                        if name=="resolve_resource" and json.loads(messages[1].content).get("reference_issue") and not arguments.get("scope") and not arguments.get("dataset"):
+                                            raise QAError("invalid_parameters", "请先明确本次文件定位的数据集范围")
                                         async with waiting.during("正在准备本次查询所需的功能，请稍候。") if name=="load_mcp_tools" else nullcontext():
                                             value = await self._builtin(user, sid, tid, name, arguments, tools, context, payload)
                                         if name=="read_result" and arguments.get("result_id") is None:
@@ -1771,10 +1818,10 @@ class DatasetQA:
                                             presentation=presentation)
                                         payload["operations"] = execution.operations.items
                                         await phase("execute", "正在处理："+tool.title, payload=payload)
-                                        async with waiting.during("仍在获取所需内容，收到结果后会继续为您整理。"):
+                                        async with waiting.during("仍在获取所需内容，收到结果后会继续为您整理。"), self._foreground_mcp():
                                             tool, output = await tools.call(name, arguments)
                                         card, created = await self._save_tool_result(user, sid, tid, tool, output,
-                                            operation_id, key, f"{tid}:{results}", execution, payload)
+                                            operation_id, key, f"{tid}:{results}", execution, payload, arguments)
                                         results += int(created)
                                         value = self._evidence(card)
                                 except (QAError, ValidationError) as exc:

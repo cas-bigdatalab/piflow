@@ -184,6 +184,19 @@ class Store:
                 self._event(conn, tid, data)
             return True
 
+    def save_resource(self, user, sid, tid, record, metadata):
+        """Private immutable evidence; no display, receipt or focus side effect."""
+        with self.transaction() as conn:
+            session = self._session(conn, user, sid, True)
+            running = conn.scalar(select(self.tasks.c.status).where(self.tasks.c.id==tid,
+                self.tasks.c.session_id==sid))
+            if running!="RUNNING" or session["active_task_id"]!=tid:
+                raise QAError("task_inactive", "当前请求已结束")
+            card = {"result_id": "resource-"+uuid4().hex, "view_type": "resource_reference",
+                "title": "文件定位来源", "data": record, "resource": metadata}
+            self._item(conn, sid, tid, "REFERENCE_EVIDENCE", card, result_id=card["result_id"])
+            return card
+
     def _retain_interrupted(self, conn, sid, payload, *, select_results):
         """Finalize durable receipts without inferring new goals or new results.
 
@@ -339,7 +352,8 @@ class Store:
             return self._history(conn, sid, after, limit, before, tail)
 
     def _history(self, conn, sid, after, limit, before, tail):
-        query = select(self.items).where(self.items.c.session_id == sid, self.items.c.kind != "TOOL_RESULT")
+        query = select(self.items).where(self.items.c.session_id == sid,
+            self.items.c.kind.not_in(["TOOL_RESULT", "REFERENCE_EVIDENCE"]))
         reverse = tail or before is not None
         query = query.where(self.items.c.id < before) if before is not None else query.where(self.items.c.id > after)
         rows = conn.execute(query.order_by(self.items.c.id.desc() if reverse else self.items.c.id).limit(limit+1)).mappings().all()
@@ -380,7 +394,8 @@ class Store:
         with self.transaction() as conn:
             self._session(conn, user, sid)
             rows = list(conn.scalars(select(self.items.c.payload).where(self.items.c.session_id == sid,
-                self.items.c.result_id.is_not(None)).order_by(self.items.c.id).offset(offset).limit(limit+1)))
+                self.items.c.result_id.is_not(None), self.items.c.kind!="REFERENCE_EVIDENCE")
+                .order_by(self.items.c.id).offset(offset).limit(limit+1)))
             return [evidence(json.loads(r), 1000) for r in rows[:limit]], len(rows)>limit
 
     def results(self, user, sid, tid=None, result_id=None):
@@ -391,6 +406,8 @@ class Store:
                 query = query.where(self.items.c.task_id == tid)
             if result_id:
                 query = query.where(self.items.c.result_id == result_id)
+            else:
+                query = query.where(self.items.c.kind!="REFERENCE_EVIDENCE")
             query = query.order_by(self.items.c.id.desc())
             if not tid and not result_id:
                 query = query.limit(8)
@@ -467,7 +484,7 @@ class Store:
             if identifier.lstrip("-").isdigit():
                 match = or_(match, self.items.c.payload.contains(": "+identifier, autoescape=True))
             query = select(self.items.c.payload).where(self.items.c.session_id==sid,
-                self.items.c.result_id.is_not(None), match)
+                self.items.c.result_id.is_not(None), self.items.c.kind!="REFERENCE_EVIDENCE", match)
             for raw in conn.scalars(query.order_by(self.items.c.id.desc())):
                 card = json.loads(raw)
                 if card["result_id"] not in seen:

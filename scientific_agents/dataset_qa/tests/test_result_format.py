@@ -123,7 +123,9 @@ def test_real_mcp_view_type_survives_sse_history_results_and_replay(engine, monk
     monkeypatch.setattr(corpus_mcp, helper, upstream)
 
     async def run():
-        dialogue = Dialogue(load("corpus"), remote(operation, **arguments))
+        # The live catalogue now has more than one page; load the capability
+        # under test instead of assuming it is among the first four tools.
+        dialogue = Dialogue(load("corpus", query=operation), remote(operation, **arguments))
         service = DatasetQA(engine, dialogue, MCPGateway({"corpus": Server(corpus_mcp.mcp)}))
         sid = session(service)
         values = await collect(service, sid)

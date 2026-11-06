@@ -60,16 +60,16 @@ def test_corpus_mcp_lists_dataset_tools():
         "search_corpus_datasets",
         "get_corpus_dataset_detail",
         "sample_corpus_dataset",
-        "read_corpus_dataset_sample_records",
-        "read_corpus_file_sample_records",
+        "get_corpus_file_schema",
+        "read_corpus_file_records",
         "get_corpus_dataset_directory",
     }
     assert {tool["name"]: tool["_meta"]["piflow"]["view_type"] for tool in tools} == {
-        "search_corpus_datasets": "data",
+        "search_corpus_datasets": "detail",
         "get_corpus_dataset_detail": "data",
         "sample_corpus_dataset": "url",
-        "read_corpus_dataset_sample_records": "table",
-        "read_corpus_file_sample_records": "table",
+        "get_corpus_file_schema": "table",
+        "read_corpus_file_records": "table",
         "get_corpus_dataset_directory": "directory",
     }
 
@@ -89,7 +89,7 @@ def test_corpus_mcp_lists_dataset_tools():
         "displayName": "数据集检索",
         "category": "数据集发现",
         "icon": "database-search",
-        "view_type": "data",
+        "view_type": "detail",
         "riskLevel": "low",
         "version": "1.0.0",
         "tags": ["corpus", "dataset", "search"],
@@ -101,17 +101,26 @@ def test_corpus_mcp_lists_dataset_tools():
     assert directory_tool["_meta"]["piflow"]["displayName"] == "查看数据内容"
     assert directory_tool["_meta"]["piflow"]["category"] == "数据内容查看"
 
-    preview_tool = next(tool for tool in tools if tool["name"] == "read_corpus_dataset_sample_records")
-    assert preview_tool["annotations"] == {
-        "title": "读取数据集样例记录",
+    schema_tool = next(tool for tool in tools if tool["name"] == "get_corpus_file_schema")
+    assert schema_tool["annotations"] == {
+        "title": "查询文件字段结构",
         "readOnlyHint": True,
         "destructiveHint": False,
         "idempotentHint": True,
         "openWorldHint": False,
     }
-    assert preview_tool["_meta"]["piflow"]["displayName"] == "数据集 JSON 记录预览"
+    assert schema_tool["_meta"]["piflow"]["displayName"] == "文件 Schema 查询"
+    assert schema_tool["_meta"]["piflow"]["view_type"] == "table"
+    assert '"get_corpus_file_schema"' in schema_tool["_meta"]["piflow"]["usageExample"]
+    assert schema_tool["inputSchema"]["required"] == ["download_url"]
+    assert "size" not in schema_tool["inputSchema"]["properties"]
+
+    preview_tool = next(tool for tool in tools if tool["name"] == "read_corpus_file_records")
+    assert preview_tool["_meta"]["piflow"]["displayName"] == "文件 JSON 记录预览"
     assert preview_tool["_meta"]["piflow"]["view_type"] == "table"
-    assert '"read_corpus_dataset_sample_records"' in preview_tool["_meta"]["piflow"]["usageExample"]
+    assert '"read_corpus_file_records"' in preview_tool["_meta"]["piflow"]["usageExample"]
+    assert preview_tool["inputSchema"]["required"] == ["download_url"]
+    assert preview_tool["inputSchema"]["properties"]["size"]["default"] == 5
 
 
 def test_search_corpus_datasets_builds_existing_service_filters():
@@ -148,34 +157,33 @@ def test_get_corpus_dataset_directory_forwards_root_and_file_id(monkeypatch):
     assert calls == [("dataset_001", None), ("dataset_001", "4003697")]
 
 
-def test_read_corpus_dataset_sample_records_forwards_arguments(monkeypatch):
+def test_get_corpus_file_schema_forwards_download_url(monkeypatch):
     from fastmcp import Client
     from mcp_servers.corpus_mcp import mcp
     calls = []
 
-    def upstream(cstr, *, size=5):
-        calls.append((cstr, size))
-        return {"cstr": cstr, "requestedSize": size, "files": []}
+    def upstream(download_url):
+        calls.append(download_url)
+        return {"downloadUrl": download_url, "schema": {"type": "object"}}
 
-    monkeypatch.setattr("mcp_servers.corpus_mcp.get_dataset_schema_and_sample", upstream)
+    monkeypatch.setattr("mcp_servers.corpus_mcp.get_file_schema", upstream)
 
     async def run():
         async with Client(mcp) as client:
             result = await client.call_tool(
-                "read_corpus_dataset_sample_records",
-                {"cstr": "CHEM-CORPUS-K033", "size": 3},
+                "get_corpus_file_schema",
+                {"download_url": "http://corpus.example/records.jsonl"},
             )
             assert result.structured_content == {
-                "cstr": "CHEM-CORPUS-K033",
-                "requestedSize": 3,
-                "files": [],
+                "downloadUrl": "http://corpus.example/records.jsonl",
+                "schema": {"type": "object"},
             }
 
     asyncio.run(run())
-    assert calls == [("CHEM-CORPUS-K033", 3)]
+    assert calls == ["http://corpus.example/records.jsonl"]
 
 
-def test_read_corpus_file_sample_records_forwards_download_url(monkeypatch):
+def test_read_corpus_file_records_forwards_download_url_and_size(monkeypatch):
     from fastmcp import Client
     from mcp_servers.corpus_mcp import mcp
     calls = []
@@ -184,12 +192,12 @@ def test_read_corpus_file_sample_records_forwards_download_url(monkeypatch):
         calls.append((download_url, size))
         return {"downloadUrl": download_url, "previewable": False, "data": []}
 
-    monkeypatch.setattr("mcp_servers.corpus_mcp.get_file_schema_and_sample", upstream)
+    monkeypatch.setattr("mcp_servers.corpus_mcp.get_file_records", upstream)
 
     async def run():
         async with Client(mcp) as client:
             result = await client.call_tool(
-                "read_corpus_file_sample_records",
+                "read_corpus_file_records",
                 {"download_url": "http://corpus.example/archive.tar", "size": 2},
             )
             assert result.structured_content["previewable"] is False

@@ -571,31 +571,49 @@ def get_dataset_schema_and_sample(cstr: str, *, size: int = 5) -> dict[str, Any]
 
 def get_file_schema_and_sample(download_url: str, *, size: int = 5) -> dict[str, Any]:
     """Return a bounded schema and sample for one JSON/JSONL download URL."""
+    base = _file_preview_base(download_url)
+    if not base["previewable"]:
+        return {**base, "schema": None, "data": [], "returnedCount": 0, "warnings": []}
+    if size <= 0:
+        raise ValueError("size must be positive")
+    schema = _file_schema_fields(base["downloadUrl"])
+    sample = _file_record_fields(base["downloadUrl"], size)
+    return {**base, **schema, **sample, "warnings": schema["warnings"] + sample["warnings"]}
+
+
+def get_file_schema(download_url: str) -> dict[str, Any]:
+    """Read only the schema, with the existing URL and format validation."""
+    base = _file_preview_base(download_url)
+    fields = _file_schema_fields(base["downloadUrl"]) if base["previewable"] else {"schema": None, "warnings": []}
+    return {**base, **fields}
+
+
+def get_file_records(download_url: str, *, size: int = 5) -> dict[str, Any]:
+    """Read only bounded sample records using the existing sampler semantics."""
+    base = _file_preview_base(download_url)
+    fields = _file_record_fields(base["downloadUrl"], size) if base["previewable"] else {
+        "data": [], "returnedCount": 0, "warnings": []}
+    return {**base, **fields}
+
+
+def _file_preview_base(download_url: str) -> dict[str, Any]:
     normalized_url = _normalize_required_text(download_url, field_name="downloadUrl")
     parsed_url = urlparse(normalized_url)
     if parsed_url.scheme not in {"http", "https"} or not parsed_url.netloc:
         raise ValueError("downloadUrl must be an absolute http or https URL")
 
     file_format = _json_file_format(normalized_url)
-    if file_format is None:
-        return {
-            "downloadUrl": normalized_url,
-            "previewable": False,
-            "message": "不可预览：仅支持 .json 和 .jsonl 文件",
-            "format": None,
-            "schema": None,
-            "data": [],
-            "returnedCount": 0,
-            "warnings": [],
-        }
+    return {
+        "downloadUrl": normalized_url,
+        "previewable": file_format is not None,
+        "message": "不可预览：仅支持 .json 和 .jsonl 文件" if file_format is None else "",
+        "format": file_format,
+    }
 
-    if size <= 0:
-        raise ValueError("size must be positive")
-    effective_size = min(size, DATASET_SAMPLE_MAX_SIZE)
+
+def _file_schema_fields(normalized_url: str) -> dict[str, Any]:
     warnings: list[str] = []
     schema: Any = None
-    data: list[Any] = []
-    truncated = size != effective_size
 
     try:
         schema_payload = _request_corpus_route(
@@ -607,6 +625,16 @@ def get_file_schema_and_sample(download_url: str, *, size: int = 5) -> dict[str,
         schema = schema_payload.get("data")
     except Exception as exc:
         warnings.append(f"schema inference failed: {exc}")
+    return {"schema": schema, "warnings": warnings}
+
+
+def _file_record_fields(normalized_url: str, size: int) -> dict[str, Any]:
+    if size <= 0:
+        raise ValueError("size must be positive")
+    effective_size = min(size, DATASET_SAMPLE_MAX_SIZE)
+    warnings: list[str] = []
+    data: list[Any] = []
+    truncated = size != effective_size
 
     try:
         sample_payload = _request_corpus_route(
@@ -626,11 +654,6 @@ def get_file_schema_and_sample(download_url: str, *, size: int = 5) -> dict[str,
         warnings.append(f"sample extraction failed: {exc}")
 
     return {
-        "downloadUrl": normalized_url,
-        "previewable": True,
-        "message": "",
-        "format": file_format,
-        "schema": schema,
         "data": data,
         "requestedSize": size,
         "effectiveSize": effective_size,

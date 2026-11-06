@@ -33,7 +33,7 @@ class Execution:
         return bool(self.operations.required) and all(item["state"]=="succeeded" for item in self.operations.required)
 
     def actions(self, loaded):
-        names = {"read_result", "remember", "request_input"}
+        names = {"read_result", "remember", "request_input", "resolve_resource"}
         if not self.operations.items and not self.cards and not self.failures:
             names.add("respond_from_context")
         if not (self.finalizing and all(item.get("direct") and item["output"]=="result" for item in self.operations.required)) or self.recovering:
@@ -49,7 +49,7 @@ class Execution:
         if searching:
             allowed = {alias for alias, tool in loaded.items()
                 if any(item.get("capability")=={"server": tool.server, "name": tool.name} for item in searching)}
-            names -= {"list_mcp_servers", "load_mcp_tools", "deliver_results", "remember", *set(loaded)-allowed}
+            names -= {"list_mcp_servers", "load_mcp_tools", "deliver_results", "remember", "resolve_resource", *set(loaded)-allowed}
         return names
 
     def progress(self, observations, limit):
