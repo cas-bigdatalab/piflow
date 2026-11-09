@@ -25,6 +25,8 @@ class Limits:
     retry_delay: float = 0.25
     schema_chars: int = 16000
     context_chars: int = 40000
+    context_tokens: int = 65536
+    output_tokens: int = 4096
     result_chars: int = 8000
     result_bytes: int = 2_000_000
     timeout: float = 660

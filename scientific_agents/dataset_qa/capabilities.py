@@ -15,6 +15,7 @@ from .context import pointer_tokens
 from .references import at_path, identifier_in_request
 from .search import SearchProfile, TaskDirective
 from .resource_index.model import DirectorySpec
+from .planning import ResultContract
 
 
 PROFILES = {
@@ -29,8 +30,14 @@ PROFILES = {
             "status": ["/code", "/data/code"]}},
     ("piflow-corpus", "sample_corpus_dataset"): {"label": "采样结果", "atomic": True, "bind": {"cstr": ["/cstr", "/raw/cstr"]}},
     ("piflow-corpus", "get_corpus_file_schema"): {"label": "文件字段结构", "atomic": True,
+        "result": {"kind": "schema", "requires": [{"path": "/schema"},
+            {"path": "/warnings", "test": "at_most", "value": 0, "optional": True}],
+            "unavailable_when": [{"path": "/previewable", "test": "equals", "value": False}]},
         "target_kind": "file", "bind": {"download_url": ["/downloadUrl"]}},
     ("piflow-corpus", "read_corpus_file_records"): {"label": "文件样例记录", "atomic": True,
+        "result": {"kind": "records", "requires": [{"path": "/data"},
+            {"path": "/warnings", "test": "at_most", "value": 0, "optional": True}],
+            "unavailable_when": [{"path": "/previewable", "test": "equals", "value": False}]},
         "target_kind": "file", "bind": {"download_url": ["/downloadUrl"]}},
 }
 OBJECT = "__qa_object"
@@ -50,6 +57,7 @@ class Profile(BaseModel):
     search: SearchProfile | None = None
     directory: DirectorySpec | None = None
     target_kind: Literal["dataset", "file"] = "dataset"
+    result: ResultContract | None = None
 
 
 def profile(tool):
@@ -138,8 +146,10 @@ def definition(tool):
                 task["properties"].pop("original_keywords", None)
             schema["properties"][TASK] = task
             schema.setdefault("required", []).append(TASK)
+    contract = profile(tool).result
+    kind = contract.kind if contract else tool.name
     return {"type": "function", "function": {"name": tool.alias,
-        "description": tool.description, "parameters": schema}}
+        "description": tool.description+"\nQA outcome kind: "+kind, "parameters": schema}}
 
 
 def inputs(tool, arguments, record=None):

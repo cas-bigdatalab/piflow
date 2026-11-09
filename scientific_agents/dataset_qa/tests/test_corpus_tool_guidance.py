@@ -28,7 +28,9 @@ def test_relevant_tool_is_loaded_from_real_descriptions_on_cold_and_warm_start(q
                 assert expected in {tool.name for tool in tools.loaded.values()}
                 assert not tools.definition_errors.get("piflow-corpus")
                 tool = next(tool for tool in tools.loaded.values() if tool.name==expected)
-                assert tool.definition()["function"]["description"]==tool.description
+                from ..capabilities import profile
+                contract = profile(tool).result
+                assert tool.definition()["function"]["description"] == tool.description + "\nQA outcome kind: " + (contract.kind if contract else tool.name)
     asyncio.run(run())
 
 

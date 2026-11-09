@@ -13,7 +13,7 @@ from pydantic import ValidationError
 from .context import encode, project, public_result, slice_result
 from .capabilities import GOAL, OBJECT, SUPPORTING, TASK, adapted, identifiers_from_request, inputs, profile, resolve_tool, same_identity
 from .contracts import QAError
-from .dialogue import BUILTINS, INPUTS, Dialogue, OutcomeConfirmation
+from .dialogue import INPUTS, Dialogue, OutcomeConfirmation, builtin_definitions
 from .execution import Execution, fingerprint
 from .operations import Operations
 from .mcp import MCPGateway
@@ -26,6 +26,8 @@ from .responses import public_completion, response_labels, response_operations, 
 from .search import SearchRun, TaskDirective, normalize_keyword, ordered_keywords
 from .resource_index.manager import ResourceIndex
 from .resource_index.resolver import bind_target, resolve as resolve_resource
+from .planning import plan_view, outcome_status, require_delivery
+from .plan_runtime import install_plan, confirm_plan, scheduled_reply
 
 log = logging.getLogger("flow.dataset_qa")
 
@@ -514,7 +516,7 @@ class DatasetQA:
             terminal[0]["required"] = True
         elif terminal:
             raise QAError("invalid_delivery", "存在多个独立成果，请明确它们分别满足的用户目标", detail={
-                "guidance": "Record the necessary outcomes in remember.goals, then review and associate the supplied successful receipts using deliver_results.confirmations. Do not re-execute already satisfied work.",
+                "guidance": "For multiple outcomes load and submit remember.plan; retain existing source references so runtime can reuse successful receipts. For one advisory outcome use remember.goals and eligible deliver_results.confirmations. Do not re-execute already satisfied work.",
                 "candidates": [{"tool": item.get("capability"), "object": item.get("target")} for item in terminal]})
 
     @staticmethod
@@ -556,6 +558,8 @@ class DatasetQA:
         return result
 
     async def _deliver(self, user, sid, tid, arguments, payload, execution=None, partial=False, confirm=False):
+        if execution is not None and not partial:
+            require_delivery(payload.get("plan"), execution.operations, execution.cards.values())
         values = INPUTS["deliver_results"][0].model_validate(arguments)
         result_ids = list(dict.fromkeys(values.result_ids))
         operations = Operations(execution.operations.items) if execution is not None else None
@@ -709,6 +713,9 @@ class DatasetQA:
                 "title": f"{tool.server} · {tool.title}", **output.payload()}
         execution.operations.finish(operation_id, key, result_id=card["result_id"])
         self._register_objects(tool, card, payload)
+        if payload.get("plan"):
+            payload["plan"]["acceptance"] = outcome_status(payload["plan"], execution.operations,
+                [*execution.cards.values(), card])
         await self._write(user, sid, tid, card=card if created else None, payload=payload)
         execution.cards[marker] = card
         execution.failures.pop(operation_id or key, None)
@@ -790,6 +797,11 @@ class DatasetQA:
 
     async def _fast_delivery(self, user, sid, tid, payload, execution, context):
         """Skip selection only for an unambiguous, fully satisfied atomic request."""
+        if payload.get("plan"):
+            try:
+                require_delivery(payload["plan"], execution.operations, execution.cards.values())
+            except QAError:
+                return False
         goals = execution.operations.required
         if any(item.get("search") and not item["search"]["done"] for item in execution.operations.items):
             return False
@@ -972,10 +984,20 @@ class DatasetQA:
             result.append({"handle": handle, "path": ref["path"]})
         return result
 
-    async def _prepare_operations(self, user, sid, tid, reply, tools, execution, payload, context, model_context=None):
+    async def _prepare_operations(self, user, sid, tid, reply, tools, execution, payload, context, model_context=None, scheduled=None):
         """Accept native actions independently; runtime owns associations and IDs."""
         native = [call for call in reply.tool_calls if call["name"] in tools.loaded]
         memory = [INPUTS["remember"][0].model_validate(call["args"]) for call in reply.tool_calls if call["name"]=="remember"]
+        plans = [value.plan for value in memory if value.plan is not None]
+        if plans:
+            if (len(plans) != 1 or any(call["name"] != "remember" for call in reply.tool_calls)
+                    or any(value.goals or value.operations or value.calls or value.resume is not None for value in memory)):
+                raise QAError("invalid_parameters", "请单独提交完整计划，核对后由程序执行步骤")
+        if any(call["name"] == "review_plan" for call in reply.tool_calls) and len(reply.tool_calls) != 1:
+            raise QAError("invalid_parameters", "计划核对须使用已保存的当前版本，不能同时修改或执行")
+        if payload.get("plan") and not scheduled:
+            if native or any(value.goals or value.operations or value.calls for value in memory):
+                raise QAError("invalid_parameters", "已有执行计划，请修订必要步骤而非绕过计划重复调用工具")
         if len(native)>1 and any(isinstance(call["args"].get(TASK), dict)
                 and call["args"][TASK].get("complete_request") is True for call in native):
             raise QAError("invalid_parameters", "声明完成整个请求的操作不能同时追加其他MCP调用", detail={
@@ -989,6 +1011,7 @@ class DatasetQA:
         original_pending, original_resume = deepcopy(context.get("pending")), payload.get("resume")
         legacy = any(value.operations is not None or value.calls is not None or value.resume is not None for value in memory)
         bindings = await self._prepare_legacy_operations(user, sid, tid, reply, tools, execution, payload, context) if legacy else {}
+        bindings.update(scheduled or {})
         requested = [call["args"].get(OBJECT) for call in native]
         requested.extend(value.focus for value in memory)
         requested.extend(handle for value in memory for handle in value.selected or [])
@@ -998,7 +1021,7 @@ class DatasetQA:
         if len(set(continuation))>1:
             raise QAError("invalid_parameters", "同一轮只能选择继续待补充任务或发起新请求")
         resume, inherited = payload.get("resume"), None
-        if not legacy and payload.get("parent_task_id") and resume is None and (native or any(value.goals for value in memory) or continuation or asking):
+        if not legacy and payload.get("parent_task_id") and resume is None and (native or plans or any(value.goals for value in memory) or continuation or asking):
             parent = await asyncio.to_thread(self.store.task, user, sid, payload["parent_task_id"])
             if parent["status"]!="WAITING_INPUT":
                 if continuation and continuation[0]=="continue":
@@ -1081,6 +1104,11 @@ class DatasetQA:
                 operations.register(goal.description, {"server": tool.server, "name": tool.name}, target, goal.output, planned=True)
             execution.operations = operations
 
+        if plans:
+            if inherited and inherited.get("plan"):
+                payload["plan"] = deepcopy(inherited["plan"])
+            await install_plan(self, user, sid, plans[0], tools, execution, payload, context)
+
         execution.prepared = {}
         keyword_history = None
         for call in native:
@@ -1158,7 +1186,7 @@ class DatasetQA:
                 if not discovery and any(item.get("search") and not item["search"]["done"]
                         and item["state"] not in {"failed", "unknown"} for item in execution.operations.items):
                     raise QAError("invalid_parameters", "请先完成当前检索的关键词计划，再执行后续操作")
-                if not legacy:
+                if not legacy and not scheduled:
                     # A native call may discover evidence before the model has
                     # stated the intended outcome. A new query for the same
                     # unconfirmed scope needs that semantic decision first;
@@ -1174,7 +1202,7 @@ class DatasetQA:
                                     and not execution.operations.receipt(invocation, previous["id"])):
                                 raise QAError("invalid_parameters", "已有此目标的检索或操作结果；请先判断是否可交付，继续扩展前需明确尚未满足的目标", detail={
                                     "decision": "confirm_outcome", "result_ids": execution.operations.result_ids(previous),
-                                    "guidance": "Call deliver_results if the saved evidence satisfies the request. Otherwise declare the missing semantic outcome with remember.goals; it may accompany the next native call. Read only specific missing evidence, not every page or truncated field."})
+                                    "guidance": "Deliver if saved evidence satisfies the request. Otherwise use remember.plan for multiple/dependent outcomes, or remember.goals for one advisory outcome. Read only specific missing evidence, not every truncated field."})
                     matches = [item for item in goals if await same_target(tool, item.get("target"), target)]
                     unbound = [item for item in goals if item.get("target") is None and item["state"]=="pending"
                         and not any(attempt["state"]!="rejected" for attempt in item["attempts"])]
@@ -1265,6 +1293,9 @@ class DatasetQA:
         if not legacy and resume is not None and valid_batch:
             payload["resume"] = resume
             if inherited:
+                if inherited.get("plan") and not payload.get("plan"):
+                    payload["plan"] = deepcopy(inherited["plan"])
+                    payload["plan"].pop("reviewed", None)
                 payload["pending_objects"] = pending_objects(inherited)
                 inherited_ids = list(dict.fromkeys(rid for item in execution.operations.items for rid in execution.operations.result_ids(item)))
                 cards = await asyncio.to_thread(self.store.selected_results, user, sid, inherited_ids) if inherited_ids else []
@@ -1340,6 +1371,10 @@ class DatasetQA:
 
     async def _builtin(self, user, sid, tid, name, arguments, tools, context, payload=None):
         values = INPUTS[name][0].model_validate(arguments)
+        if name=="review_plan":
+            result = confirm_plan(payload, values)
+            await self._write(user, sid, tid, payload=payload)
+            return result
         if name=="list_mcp_servers":
             return tools.list_servers(**values.model_dump())
         if name=="load_mcp_tools":
@@ -1377,6 +1412,9 @@ class DatasetQA:
                         result["pending_next_offset"] = following
             return result
         if name=="remember":
+            if values.planning:
+                payload["planning"] = True
+                await self._write(user, sid, tid, payload=payload)
             updates = values.values
             if (payload or {}).get("diagnostics_exposed"):
                 # Recovery can use diagnostics internally, but may not copy
@@ -1476,6 +1514,17 @@ class DatasetQA:
             context["resource_requests"] = project(list(payload["resource_outcomes"].values()), 1800)[0]
         if operations.items:
             context["operations"] = response_operations(operations, payload.get("response_labels"))
+        if payload.get("plan"):
+            saved = payload["plan"]
+            statuses = outcome_status(saved, operations, [*cards, *answer_cards])
+            labels = saved.get("labels", {})
+            fallback_labels = {key: (operations.get(saved["operations"][step["key"]]) or {}).get("public_label", "所需内容")
+                for step in saved["spec"]["steps"] for key in step["produces"]}
+            context["outcome_status"] = [{"description": labels.get(outcome["key"], fallback_labels[outcome["key"]]),
+                **statuses[outcome["key"]]} for outcome in saved["spec"]["outcomes"]]
+            instructions += (" outcome_status is the authoritative acceptance of requested content. "
+                "Only accepted outcomes are complete. For unavailable or incomplete outcomes describe only what the evidence supports, "
+                "in user terms, without exposing plan states or internal identifiers. A successful tool receipt alone does not prove fulfillment.")
         searches = [SearchRun(item["search"]).view() for item in operations.items if item.get("search")]
         if searches:
             context["search_outcomes"] = [{key: value[key] for key in
@@ -1593,12 +1642,25 @@ class DatasetQA:
                     model_context["mcp_servers"] = tools.list_servers(payload["message"])
                     messages = self.dialogue.messages(payload["message"], model_context)
                     evidence_ids = ()
-                    for round_index in range(limits.max_rounds):
+                    model_rounds = 0
+                    # Deterministic plan waves consume call/time budgets, not
+                    # model-decision rounds. Both dimensions remain bounded.
+                    for _ in range(limits.max_rounds+limits.max_calls):
+                        round_index = model_rounds
                         if execution.calls>=limits.max_calls and not execution.can_deliver:
                             reason = QAError("step_limit", "工具调用达到本轮预算，请缩小请求范围")
                             break
                         rejection = None
                         actions = execution.actions(tools.loaded)
+                        saved_plan = payload.get("plan")
+                        if saved_plan:
+                            # The model may revise intent or resolve a missing
+                            # choice. Only the scheduler dispatches plan steps.
+                            actions -= set(tools.loaded)
+                            actions.add("remember")
+                            if saved_plan.get("reviewed") != saved_plan["revision"]:
+                                actions &= {"remember", "read_result", "load_mcp_tools", "request_input"}
+                                actions.add("review_plan")
                         if tools.loaded and any(profile(tool).search or profile(tool).atomic for tool in tools.loaded.values()):
                             catalogues = [tools.cached_tools(server) for server in tools.servers]
                             if all(catalogue is not None for catalogue in catalogues) and all(
@@ -1610,7 +1672,7 @@ class DatasetQA:
                             # Reserve the remaining decision for truthful closure,
                             # rather than starting another upstream exploration.
                             actions &= {"deliver_results", "remember", "request_input", "respond_from_context"}
-                        definitions = self._definitions([definition for definition in [*BUILTINS, *tools.definitions()]
+                        definitions = self._definitions([definition for definition in [*builtin_definitions(bool(payload.get("planning") or saved_plan)), *tools.definitions()]
                             if definition["function"]["name"] in actions], tools, execution)
                         advertised = {value["function"]["name"] for value in definitions}
                         reply = None
@@ -1618,6 +1680,11 @@ class DatasetQA:
                         updated = json.loads(messages[1].content)
                         if execution.operations.items:
                             updated["operations"] = execution.operations.view()
+                        if saved_plan:
+                            saved_plan["acceptance"] = outcome_status(saved_plan, execution.operations, execution.cards.values())
+                            updated["plan"] = plan_view(saved_plan, execution.operations)
+                            if saved_plan.get("decisions"):
+                                updated["plan"]["decisions"] = saved_plan["decisions"]
                         unconfirmed = [item for item in execution.operations.items
                             if item.get("inferred") and not item.get("required", True) and execution.operations.result_ids(item)]
                         if closing or (unconfirmed and not execution.operations.required):
@@ -1627,7 +1694,7 @@ class DatasetQA:
                                 "remaining_calls": max(0, limits.max_calls-execution.calls),
                                 "result_ids": list(dict.fromkeys(rid for item in unconfirmed for rid in execution.operations.result_ids(item))),
                                 "guidance": ("This is the final decision round. Deliver evidence if it satisfies the request; otherwise record the genuinely unfinished goals or ask only for indispensable missing user input. Do not claim a prerequisite completed the whole request."
-                                    if closing else "Saved results are available but the requested outcome is not yet confirmed. Decide whether to deliver them. Before another query for the same outcome, declare the missing goal with remember.goals, optionally alongside that call. A truncated preview or a large retrieval total does not require reading or fetching every record.")}
+                                    if closing else "Decide whether saved evidence satisfies the original request. Use remember.plan for multiple/dependent outcomes, or remember.goals for one advisory outcome. Reuse successful receipts. Truncated previews and large retrieval totals alone require no further calls.")}
                             log.info("Decision checkpoint: task=%s round=%s phase=%s unconfirmed=%s",
                                 tid, round_index+1, updated["execution_decision"]["phase"], len(unconfirmed))
                         else:
@@ -1650,7 +1717,17 @@ class DatasetQA:
                             payload["response_labels"] = {item["id"]: item["description"]
                                 for item in execution.operations.items}
                         try:
-                            reply = await self._reply(user, sid, tid, messages, definitions, waiting=waiting)
+                            reply, scheduled = scheduled_reply(saved_plan, execution, tools,
+                                max(1, min(limits.max_parallel_reads, limits.max_calls-execution.calls)))
+                            if reply is None:
+                                if model_rounds >= limits.max_rounds:
+                                    reason = QAError("step_limit", "处理达到本轮预算，请依据已有内容完成答复")
+                                    break
+                                model_rounds += 1
+                                reply = await self._reply(user, sid, tid, messages, definitions, waiting=waiting)
+                            else:
+                                advertised.update(call["name"] for call in reply.tool_calls)
+                                log.info("Plan dispatch: task=%s revision=%s steps=%s", tid, saved_plan["revision"], len(reply.tool_calls))
                             if reply.tool_calls:
                                 terminal = [call for call in reply.tool_calls if call["name"] in {
                                     "deliver_results", "request_input", "respond_from_context"}]
@@ -1659,7 +1736,7 @@ class DatasetQA:
                                 if terminal and terminal[0]["name"]=="respond_from_context" and any(
                                         call["name"] in tools.loaded for call in reply.tool_calls):
                                     raise QAError("invalid_tool_call", "依据上下文答复不能同时声明新的数据操作", 502)
-                                bindings = await self._prepare_operations(user, sid, tid, reply, tools, execution, payload, context, json.loads(messages[1].content))
+                                bindings = await self._prepare_operations(user, sid, tid, reply, tools, execution, payload, context, json.loads(messages[1].content), scheduled=scheduled)
                         except QAError as exc:
                             if exc.code not in {"invalid_tool_call", "invalid_parameters", "invalid_pointer", "result_not_found", "tool_not_loaded"}:
                                 raise
@@ -1668,6 +1745,7 @@ class DatasetQA:
                             rejection = execution.validation_error(exc)
                         if not rejection and not reply.tool_calls:
                             try:
+                                require_delivery(payload.get("plan"), execution.operations, execution.cards.values())
                                 execution.require_result()
                                 await self._fallback_delivery(user, sid, tid, payload, execution, required=True)
                             except QAError as exc:
@@ -1722,7 +1800,8 @@ class DatasetQA:
                                 prepared_error = prefetched["error"]
                             key = fingerprint([operation_id, name, arguments])
                             invocation = fingerprint([tool.server, tool.name, arguments]) if tool else None
-                            receipt = execution.operations.receipt(invocation, operation_id) if invocation and not prepared_error else None
+                            fresh = (execution.operations.get(operation_id) or {}).get("plan_fresh")
+                            receipt = execution.operations.receipt(invocation, operation_id) if invocation and not prepared_error and not fresh else None
                             reused = next((card for card in execution.cards.values() if receipt and card["result_id"]==receipt.get("result_id")), None)
                             active_search = bool((execution.operations.get(operation_id) or {}).get("search"))
                             interaction = None
@@ -1936,7 +2015,12 @@ class DatasetQA:
                             await self._fallback_delivery(user, sid, tid, payload, execution)
                         except Exception:
                             log.warning("Partial delivery unavailable: task=%s", tid, exc_info=True)
-                    if (reason is delivery_failure or reason.code=="no_progress") and "delivery" in payload and execution.operations.required and execution.operations.error(payload.get("delivery_sources", [])) is None:
+                    acceptance_error = None
+                    try:
+                        require_delivery(payload.get("plan"), execution.operations, execution.cards.values())
+                    except QAError as exc:
+                        acceptance_error = exc
+                    if not acceptance_error and (reason is delivery_failure or reason.code=="no_progress") and "delivery" in payload and execution.operations.required and execution.operations.error(payload.get("delivery_sources", [])) is None:
                         log.info("Delivery recovered from saved evidence: task=%s", tid)
                         reason = None
                     await self._final_reply(user, sid, tid, messages, answer, phase, reason, waiting)
