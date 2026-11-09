@@ -11,6 +11,7 @@ from langchain_core.messages import AIMessage, HumanMessage, ToolMessage, messag
 from pydantic import ValidationError
 
 from .context import encode, project, public_result, slice_result
+from .context_budget import recovery_evidence
 from .capabilities import GOAL, OBJECT, SUPPORTING, TASK, adapted, identifiers_from_request, inputs, profile, resolve_tool, same_identity
 from .contracts import QAError
 from .dialogue import INPUTS, Dialogue, OutcomeConfirmation, builtin_definitions
@@ -37,6 +38,7 @@ class DatasetQA:
         self.dialogue = dialogue or Dialogue(limits=self.gateway.limits)
         self.owner, self.jobs = uuid4().hex, {}
         self.summaries = {}
+        self.context_windows = {}  # Per-task recovery ceilings; never shared between users/turns.
         self.summary_slot = asyncio.Semaphore(1)
         self.stopping, self.changed = asyncio.Event(), asyncio.Condition()
         self.ticker, self.slots = None, asyncio.Semaphore(8)
@@ -240,6 +242,9 @@ class DatasetQA:
             older = await asyncio.to_thread(self.store.memory, user, sid, previous, recent[0]["id"] if recent else None, 24)
             if len(older)<8 or session["active_task_id"] or self.summary_slot.locked():
                 return
+            older = self.dialogue.summary_batch(context.get("summary", ""), older)
+            if not older:
+                return
             async with self.summary_slot, asyncio.timeout(self.gateway.limits.summary_timeout):
                 summary = await self.dialogue.summarize(context.get("summary", ""), older)
             await asyncio.to_thread(self.store.save_summary, user, sid, previous, summary, older[-1]["id"])
@@ -415,9 +420,53 @@ class DatasetQA:
         return evidence(card, self.gateway.limits.result_chars)
 
     async def _reply(self, user, sid, tid, messages, definitions, answer=None, phase=None, waiting=None):
+        original_text = answer["text"] if answer is not None else None
+        deadline = asyncio.get_running_loop().time()+self.gateway.limits.model_timeout
+        current = messages
+        if tid in self.context_windows:
+            current = await self._rebuild_context(user, sid, tid, messages, definitions,
+                ceiling=self.context_windows[tid])
+        try:
+            return await self._reply_once(user, sid, tid, current, definitions, answer, phase, waiting, deadline)
+        except QAError as exc:
+            if exc.code!="context_too_large" or (answer is not None and answer["text"]!=original_text):
+                raise
+            rejected_size = (exc.detail or {}).get("input_tokens_estimate")
+            ceiling = min(self.context_windows.get(tid, self.dialogue.input_budget),
+                int(rejected_size*0.8) if rejected_size else self.dialogue.input_budget)
+            bounded = await self._rebuild_context(user, sid, tid, messages, definitions,
+                rejected_size=rejected_size, ceiling=ceiling)
+            if bounded==current:
+                raise exc  # Never send an unchanged rejected input.
+            self.context_windows[tid] = ceiling
+            return await self._reply_once(user, sid, tid, bounded, definitions, answer, phase, waiting, deadline)
+
+    async def _rebuild_context(self, user, sid, tid, messages, definitions, *, rejected_size=None, ceiling=None):
+        ids = []
+        for message in messages:
+            if isinstance(message, ToolMessage) and (message.name or "").startswith("mcp_"):
+                value = json.loads(message.content)
+                if isinstance(value, dict) and value.get("result_id"):
+                    ids.append(value["result_id"])
+        # Ownership and complete snapshots are checked here, outside the model.
+        # Recovery cannot dispatch MCP or change operation state.
+        cards = await asyncio.to_thread(self.store.selected_results, user, sid, list(dict.fromkeys(ids))) if ids else []
+        task = await asyncio.to_thread(self.store.task, user, sid, tid)
+        required = recovery_evidence(json.loads(task["payload"]), cards)
+        try:
+            bounded = self.dialogue.recover(messages, definitions, cards,
+                rejected_size=rejected_size, required=required, ceiling=ceiling)
+        except QAError as exc:
+            log.warning("Context recovery unavailable: task=%s budget=%s", tid, encode(exc.detail or {}))
+            raise
+        log.info("Context rebuilt: task=%s artifacts=%s input_estimate=%s provider_rejection=%s",
+            tid, len(cards), self.dialogue.input_size(bounded, definitions), rejected_size is not None)
+        return bounded
+
+    async def _reply_once(self, user, sid, tid, messages, definitions, answer=None, phase=None, waiting=None, deadline=None):
         started, first_chunk = time.monotonic(), None
         full, buffer, flushed, sent = None, "", time.monotonic(), False
-        deadline = asyncio.get_running_loop().time()+self.gateway.limits.model_timeout
+        deadline = deadline if deadline is not None else asyncio.get_running_loop().time()+self.gateway.limits.model_timeout
         try:
             async with (waiting.during("仍在整理本轮需要的信息，请稍候。") if waiting else nullcontext()), aclosing(self.dialogue.respond(messages, definitions)) as response:
                 while True:
@@ -2073,6 +2122,7 @@ class DatasetQA:
                 except Exception:
                     log.exception("Terminal persistence unavailable: task=%s", tid)
         finally:
+            self.context_windows.pop(tid, None)
             if acquired:
                 self.slots.release()
                 if not asyncio.current_task().cancelling():
