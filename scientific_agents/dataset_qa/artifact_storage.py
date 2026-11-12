@@ -2,7 +2,10 @@
 
 DATASET_QA_ARTIFACT_ROOT: private persistent directory, defaults to a sibling of workspace.
 DATASET_QA_ARTIFACT_BASE_URL: externally reachable MCP HTTP base, required for local downloads.
-DATASET_QA_ARTIFACT_SIGNING_KEY: stable, private key shared by QA and MCP processes.
+DATASET_QA_ARTIFACT_SIGNING_KEY: optional explicit key, shared by QA and MCP processes.
+Without it, .signing-key is initialized once in the private persistent root.
+Processes using automatic keys must share that root; never regenerate a lost key
+for an existing store. Explicit keys retain their original value and precedence.
 
 Configuration is checked only when artifacts are used. Existing read-only tools
 do not require artifact storage. Neither credentials nor paths are model inputs.
@@ -16,7 +19,9 @@ import json
 import os
 from pathlib import Path
 import re
+import secrets
 import shutil
+import stat
 import tempfile
 import time
 from urllib.parse import quote, urlsplit
@@ -29,11 +34,64 @@ class ArtifactStorageError(ValueError):
         self.phase = phase
 
 
-def signing_key():
+def _sync_directory(path):
+    if os.name != "nt":
+        directory = os.open(path, os.O_RDONLY)
+        try:
+            os.fsync(directory)
+        finally:
+            os.close(directory)
+
+
+def _read_signing_key(path):
+    # Reject links and special files before reading; bound reads even if the
+    # private file was replaced. Never include file contents in diagnostics.
+    if not stat.S_ISREG(path.lstat().st_mode) or path.resolve() != path:
+        raise ArtifactStorageError("Artifact signing key must be a regular private file", phase="configuration")
+    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0) | getattr(os, "O_BINARY", 0)
+    with os.fdopen(os.open(path, flags), "rb") as source:
+        info = os.fstat(source.fileno())
+        if not stat.S_ISREG(info.st_mode) or (os.name != "nt" and info.st_mode & 0o077):
+            raise ArtifactStorageError("Artifact signing key requires owner-only permissions", phase="configuration")
+        value = source.read(65)
+    if not re.fullmatch(rb"[a-f0-9]{64}", value):
+        raise ArtifactStorageError("Persisted artifact signing key is invalid; restore the original key", phase="configuration")
+    return value.decode("ascii")
+
+
+def signing_key(root=None):
     key = os.environ.get("DATASET_QA_ARTIFACT_SIGNING_KEY", "")
-    if not key.strip():
-        raise ArtifactStorageError("DATASET_QA_ARTIFACT_SIGNING_KEY is required", phase="configuration")
-    return key
+    if key.strip():
+        return key
+    with storage_operation("configuration"):
+        root = root if root is not None else persistent_root()
+        root.mkdir(parents=True, exist_ok=True, mode=0o700)
+        path = root / ".signing-key"
+        try:
+            return _read_signing_key(path)
+        except FileNotFoundError:
+            pass
+        # A missing key in an established store may mean accidental deletion
+        # or removal of an explicit secret. Rotation would invalidate receipts.
+        if any(re.fullmatch(r"[a-f0-9]{64}", entry.name) for entry in root.iterdir()):
+            try:
+                return _read_signing_key(path)  # Another initializer may have just published it.
+            except FileNotFoundError as exc:
+                raise ArtifactStorageError("Artifact signing key is missing from an existing store; restore the original key", phase="configuration") from exc
+        fd, temporary = tempfile.mkstemp(prefix=".signing-key-", dir=root)
+        try:
+            with os.fdopen(fd, "wb") as output:
+                output.write(secrets.token_hex(32).encode("ascii"))
+                output.flush()
+                os.fsync(output.fileno())
+            try:
+                os.link(temporary, path)  # Atomic no-overwrite publication of the complete key.
+            except FileExistsError:
+                pass
+            _sync_directory(root)
+            return _read_signing_key(path)
+        finally:
+            Path(temporary).unlink(missing_ok=True)
 
 
 def persistent_root():
@@ -57,7 +115,8 @@ class StorageConfig:
 
     @classmethod
     def load(cls):
-        return cls(persistent_root(), signing_key(),
+        root = persistent_root()
+        return cls(root, signing_key(root),
                    os.environ.get("DATASET_QA_ARTIFACT_BASE_URL", "").strip().rstrip("/"))
 
     def download_base(self):
@@ -176,12 +235,7 @@ class LocalArtifactStore:
                     output.flush()
                     os.fsync(output.fileno())
                 os.replace(temporary, target)
-                if os.name != "nt":
-                    directory = os.open(target.parent, os.O_RDONLY)
-                    try:
-                        os.fsync(directory)
-                    finally:
-                        os.close(directory)
+                _sync_directory(target.parent)
             finally:
                 Path(temporary).unlink(missing_ok=True)
 

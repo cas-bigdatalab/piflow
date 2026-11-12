@@ -158,7 +158,6 @@ def test_uncommitted_files_are_not_downloadable(files, download_client, monkeypa
 
 
 @pytest.mark.parametrize("setting,value", [
-    ("DATASET_QA_ARTIFACT_SIGNING_KEY", ""),
     ("DATASET_QA_ARTIFACT_BASE_URL", ""),
     ("DATASET_QA_ARTIFACT_BASE_URL", "https://secret:password@host/mcp"),
 ])
@@ -325,6 +324,7 @@ def file_plan():
 def test_storage_failures_close_all_entry_paths(engine, files, monkeypatch, mode, fault):
     if fault == "key":
         monkeypatch.delenv("DATASET_QA_ARTIFACT_SIGNING_KEY", raising=False)
+        (files.root / ".signing-key").write_bytes(b"invalid-key")
     elif fault == "url":
         monkeypatch.setenv("DATASET_QA_ARTIFACT_BASE_URL", "")
     elif fault == "permission":
@@ -375,6 +375,7 @@ def test_storage_failures_close_all_entry_paths(engine, files, monkeypatch, mode
 
 def test_restored_configuration_allows_next_turn_without_recreating_session(engine, files, monkeypatch):
     monkeypatch.delenv("DATASET_QA_ARTIFACT_SIGNING_KEY", raising=False)
+    (files.root / ".signing-key").write_bytes(b"invalid-key")
     async def run():
         dialogue = BareDialogue(action("load_mcp_tools", server="piflow-corpus"),
             action("remember", plan=file_plan()), approve)
@@ -419,4 +420,62 @@ def test_export_failure_preserves_source_for_reuse_without_querying_again(engine
             assert len(files.requests) == 2
         finally:
             await service.close()
+    asyncio.run(run())
+
+
+def test_qa_auto_key_supports_query_export_download_and_restarted_consumer(engine, files, monkeypatch, download_client):
+    monkeypatch.delenv("DATASET_QA_ARTIFACT_SIGNING_KEY", raising=False)
+    async def run():
+        dialogue = BareDialogue(action("load_mcp_tools", server="piflow-corpus"),
+            action("remember", plan=file_plan()), approve, text())
+        service = DatasetQA(engine, dialogue, MCPGateway({"piflow-corpus": Server(mcp)}))
+        try:
+            sid = session(service)
+            events = await collect(service, sid, "按给定条件检索并导出 CSV")
+            saved = payload(service, sid, events)
+            assert saved.get("error") is None and len(dialogue.inputs) == 4
+            artifacts = service.artifacts.recent("alice")
+            assert {item["format"] for item in artifacts} == {"csv", "jsonl"}
+            csv_item = next(item for item in artifacts if item["format"] == "csv")
+            resource = service.artifacts.get("alice", csv_item["handle"])["resource"]
+            key = storage.signing_key()
+            signature = storage.verify_token(key, "qa-resource-v2", resource["source_ref"][3:])
+            config = storage.StorageConfig.load()
+            url = storage.LocalArtifactStore(config, signature["owner"]).url(signature["key"], resource)
+            response = download_client.get(url)
+            assert response.status_code == 200
+            rows = list(csv.DictReader(io.StringIO(response.content.decode("utf-8-sig"))))
+            assert len(rows) == 2 and {row["CID"] for row in rows} == {"1", "2"}
+            assert key not in json.dumps(events, ensure_ascii=False)
+            script = '''
+import json, sys
+from scientific_agents.dataset_qa.artifacts import execution_metadata
+from services.corpus_connector_service import export_record_file
+source = json.load(sys.stdin)
+arguments = {"source_ref": source["source_ref"], "format": "csv"}
+result = export_record_file(**arguments,
+    execution=execution_metadata("alice", "new-process", arguments, 60)["piflow_execution"])
+print(json.dumps({"checksum": result["resource"]["sha256"], "count": result["record_count"]}))
+'''
+            child = await asyncio.to_thread(subprocess.run, [sys.executable, "-c", script],
+                input=json.dumps(resource), text=True, capture_output=True, timeout=30, check=True)
+            assert json.loads(child.stdout) == {"checksum": resource["sha256"], "count": 2}
+            assert storage.signing_key() == key and len(files.requests) == 2
+        finally:
+            await service.close()
+    asyncio.run(run())
+
+
+def test_read_only_mcp_does_not_require_or_initialize_artifact_key(tmp_path, monkeypatch):
+    from mcp_servers import corpus_mcp
+    key_root = tmp_path / "unused-artifacts"
+    monkeypatch.setenv("DATASET_QA_ARTIFACT_ROOT", str(key_root))
+    monkeypatch.delenv("DATASET_QA_ARTIFACT_SIGNING_KEY", raising=False)
+    monkeypatch.setattr(corpus_mcp, "get_dataset_detail_by_cstr", lambda cstr: {"cstr": cstr, "title": "Dataset"})
+    async def run():
+        async with Client(mcp) as client:
+            assert len(await client.list_tools()) == 8
+            result = await client.call_tool("get_corpus_dataset_detail", {"cstr": "example"})
+            assert not result.is_error
+        assert not key_root.exists()
     asyncio.run(run())
