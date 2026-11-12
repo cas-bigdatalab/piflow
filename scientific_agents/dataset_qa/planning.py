@@ -6,6 +6,7 @@ existing operations ledger; neither a planner nor a review can invent success.
 from copy import deepcopy
 from typing import Annotated, Literal
 
+from jsonschema import Draft202012Validator
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from .context import encode, pointer_tokens
@@ -41,7 +42,7 @@ class Check(Contract):
         if self.test == "exists":
             return actual is not None
         if self.test == "equals":
-            return encode(actual) == encode(self.value)
+            return Draft202012Validator({"const": self.value}).is_valid(actual)
         actual = len(actual) if isinstance(actual, (list, dict)) else actual
         if isinstance(actual, bool) or not isinstance(actual, (int, float)):
             return False
@@ -55,11 +56,32 @@ class ResultContract(Contract):
     unavailable_when: list[Check] = Field(default_factory=list, max_length=8)
     target_paths: list[str] = Field(default_factory=list, max_length=8,
         description="Adapter-declared quantities whose shortfall is reported without blocking usable results.")
+    argument_paths: dict[str, str] = Field(default_factory=dict, max_length=8,
+        description="Result fields that must equal actual tool input values, e.g. an output format.")
 
     def assess(self, data):
         if self.unavailable_when and all(check.matches(data) for check in self.unavailable_when):
             return "unavailable"
         return "accepted" if all(check.matches(data) for check in self.requires) else "incomplete"
+
+    def validate_arguments(self, data, arguments):
+        """One output contract for direct, planned and dependency-bound calls."""
+        if not self.argument_paths or self.assess(data) == "unavailable":
+            return
+        mismatches = []
+        for argument, path in self.argument_paths.items():
+            if argument not in arguments:
+                continue  # An omitted optional input is not an explicit constraint.
+            try:
+                actual = at_path(data, path)
+            except QAError:
+                mismatches.append(path)
+                continue
+            if not Draft202012Validator({"const": arguments[argument]}).is_valid(actual):
+                mismatches.append(path)
+        if mismatches:
+            raise QAError("invalid_result", "工具结果与请求参数不一致，未确认为已完成", 502,
+                detail={"paths": mismatches, "dispatched": True})
 
 
 class Outcome(Contract):

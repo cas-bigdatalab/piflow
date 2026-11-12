@@ -12,6 +12,7 @@ from types import SimpleNamespace
 import anyio
 from fastapi import FastAPI
 from fastmcp import Client
+from fastmcp.client.transports import StreamableHttpTransport
 import httpx
 import pytest
 import uvicorn
@@ -123,7 +124,14 @@ def test_qa_plan_uses_http_defaults_through_to_download(engine, files, monkeypat
 
 
 @pytest.mark.parametrize("prefix,mount", [("", "/api/piflow/v1/mcp"), ("/gateway", "/research/downloads")])
-def test_split_frontend_uses_api_origin_with_default_in_process_mcp(engine, files, monkeypatch, prefix, mount):
+@pytest.mark.parametrize("authority,port,expected", [
+    ("api.example:8443", 8086, "api.example:8443"),
+    ("api.example", 8086, "api.example:8086"),
+    ("api.example", 8090, "api.example:8090"),
+])
+def test_split_frontend_uses_api_origin_with_default_in_process_mcp(engine, files, monkeypatch, prefix, mount, authority, port, expected):
+    from infra.config_loader import get_settings
+    monkeypatch.setattr(get_settings().app, "port", port)
     monkeypatch.delenv("DATASET_QA_ARTIFACT_BASE_URL", raising=False)
     monkeypatch.delenv("DATASET_QA_ARTIFACT_SIGNING_KEY", raising=False)
 
@@ -149,7 +157,7 @@ def test_split_frontend_uses_api_origin_with_default_in_process_mcp(engine, file
         try:
             async with mcp_app.lifespan(app):
                 async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app, root_path=prefix),
-                        base_url="https://api.example:8443", headers={"Origin": "https://frontend.example:3000"}) as client:
+                        base_url="https://"+authority, headers={"Origin": "https://frontend.example:3000"}) as client:
                     response = await client.post(api+"/sessions", json={"agent_id": "dataset_qa", "request_id": "create"})
                     assert response.status_code == 200
                     sid = response.json()["result"]["session_id"]
@@ -161,7 +169,7 @@ def test_split_frontend_uses_api_origin_with_default_in_process_mcp(engine, file
                     assert len(dialogue.inputs) == 4 and len(files.requests) == 2
                     item = next(item for item in service.artifacts.recent("alice") if item["format"] == "csv")
                     resource = service.artifacts.get("alice", item["handle"])["resource"]
-                    assert resource["downloadUrl"].startswith("https://api.example:8443"+prefix+mount+"/artifacts/")
+                    assert resource["downloadUrl"].startswith("https://"+expected+prefix+mount+"/artifacts/")
                     response = await client.get(resource["downloadUrl"])
                     assert response.status_code == 200
                     assert len(list(csv.DictReader(io.StringIO(response.text)))) == 2
@@ -196,6 +204,8 @@ def test_explicit_public_address_wins_and_replay_refreshes_origin(files, monkeyp
 
 @pytest.mark.parametrize("host,prefix", [("download.example", "/proxy/research/mcp"), ("[::1]:8123", "")])
 def test_origin_preserves_asgi_mount_and_ignores_untrusted_forwarding(files, monkeypatch, host, prefix):
+    from infra.config_loader import get_settings
+    monkeypatch.setattr(get_settings().app, "port", 8090)
     monkeypatch.delenv("DATASET_QA_ARTIFACT_BASE_URL", raising=False)
     request = Request({"type": "http", "scheme": "https", "path": prefix+"/", "root_path": prefix,
         "query_string": b"access_token=private", "headers": [(b"host", host.encode()),
@@ -203,7 +213,7 @@ def test_origin_preserves_asgi_mount_and_ignores_untrusted_forwarding(files, mon
             (b"x-forwarded-proto", b"http")]})
     monkeypatch.setattr(corpus_mcp, "get_http_request", lambda: request)
     with corpus_mcp._artifact_download_context():
-        assert storage.StorageConfig.load().download_base() == "https://"+host+prefix
+        assert storage.StorageConfig.load().download_base() == "https://"+(host if ":" in host else host+":8090")+prefix
     with pytest.raises(storage.ArtifactStorageError):
         storage.StorageConfig.load().download_base()
 
@@ -231,3 +241,46 @@ def test_origins_are_task_local_in_workers_and_reset_after_error(files, monkeypa
                 storage.StorageConfig.load().download_base()
         await asyncio.gather(*(one(i) for i in range(8)))
     asyncio.run(run())
+
+
+def test_download_over_tcp_when_proxy_host_loses_port(files, monkeypatch):
+    from infra.config_loader import get_settings
+    from urllib.parse import urlsplit
+    monkeypatch.delenv("DATASET_QA_ARTIFACT_BASE_URL", raising=False)
+
+    async def run():
+        async with http_mcp("/api/piflow/v1/mcp") as base:
+            monkeypatch.setattr(get_settings().app, "port", urlsplit(base).port)
+            transport = StreamableHttpTransport(base+"/", headers={"Host": "127.0.0.1"},
+                httpx_client_factory=lambda **kwargs: httpx.AsyncClient(**kwargs, trust_env=False))
+            async with Client(transport) as client:
+                args = query_args()
+                result = await client.call_tool("query_pubchem_compounds", args,
+                    meta=execution_metadata("owner", "query", args, 60))
+                args = {"source_ref": result.structured_content["resource"]["source_ref"], "format": "csv"}
+                result = await client.call_tool("export_dataset", args,
+                    meta=execution_metadata("owner", "export", args, 60))
+                output = result.structured_content
+            assert output["downloadUrl"].startswith(base+"/artifacts/")
+            async with httpx.AsyncClient() as client:
+                response = await client.get(output["downloadUrl"])
+            assert response.status_code == 200
+            assert "attachment;" in response.headers["content-disposition"]
+            assert len(list(csv.DictReader(io.StringIO(response.text)))) == 2
+    asyncio.run(run())
+
+
+@pytest.mark.parametrize("base,expected", [
+    ("http://api.example/mcp", "http://api.example:8090/mcp"),
+    ("http://api.example:80/mcp", "http://api.example:80/mcp"),
+    ("https://api.example:443/mcp", "https://api.example:443/mcp"),
+    ("http://[::1]/gateway/mcp", "http://[::1]:8090/gateway/mcp"),
+])
+def test_port_fallback_keeps_explicit_ports_and_public_override(files, monkeypatch, base, expected):
+    from infra.config_loader import get_settings
+    monkeypatch.setattr(get_settings().app, "port", 8090)
+    monkeypatch.delenv("DATASET_QA_ARTIFACT_BASE_URL", raising=False)
+    assert storage.request_download_base(base) == expected
+    monkeypatch.setenv("DATASET_QA_ARTIFACT_BASE_URL", "https://public.example/downloads")
+    with storage.download_base_context(storage.request_download_base(base)):
+        assert storage.StorageConfig.load().download_base() == "https://public.example/downloads"

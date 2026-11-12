@@ -65,6 +65,11 @@ def query_args(**kwargs):
             {"field": "XLogP", "minimum": -1, "maximum": 5}], "limit": 1000, **kwargs}
 
 
+def query_plan():
+    return {"outcomes": [{"key": "records", "description": "筛选后的 JSONL 记录", "kind": "record_resource"}],
+        "steps": [{"key": "query", "tool": "query_pubchem_compounds", "arguments": query_args(), "produces": ["records"]}]}
+
+
 def run_query(args=None, *, user="user_a", request="query-1"):
     args = args or query_args()
     meta = execution_metadata(user, request, args, 120, secret=SECRET)
@@ -176,10 +181,7 @@ def test_artifact_handle_reused_across_sessions_without_query(engine, files):
         service = DatasetQA(engine, BareDialogue(), MCPGateway({"piflow-corpus": Server(mcp)}))
         try:
             sid = session(service)
-            def query(messages, definitions):
-                name = next(d["function"]["name"] for d in definitions if d["function"]["name"].endswith("_query_pubchem_compounds"))
-                return action(name, **query_args(), **{TASK: {"complete_request": True}})
-            service.dialogue = BareDialogue(query, text())
+            service.dialogue = BareDialogue(action("remember", plan=query_plan()), approve, text())
             await collect(service, sid, "PubChem 查找相似化合物 SMILES CC")
             owned = service.artifacts.recent("alice")
             assert len(owned) == 1
@@ -330,6 +332,8 @@ def test_full_qa_plan_two_calls_and_empty_dependency_closure(engine, files, monk
                 assert saved["operations"][1]["state"] == "unavailable"
             assert saved["plan"]["acceptance"]["file"]["state"] == ("unavailable" if empty else "accepted")
             outcome = saved["plan"]["spec"]["outcomes"][0]
+            assert {"path": "/resource/format", "test": "equals", "value": "csv", "optional": False} in outcome["checks"]
+            outcome["checks"] = [check for check in outcome["checks"] if check["path"] != "/resource/format"]
             if quantity_check == "at_most":
                 assert outcome["targets"] == []
                 assert outcome["checks"] == [{"path": "/record_count", "test": "at_most", "value": 1000, "optional": False}]

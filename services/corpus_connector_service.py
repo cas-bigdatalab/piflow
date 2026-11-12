@@ -31,7 +31,7 @@ from botocore.credentials import Credentials
 from infra.config_loader import get_settings
 from scientific_agents.dataset_qa.artifact_storage import (
     ArtifactStorageError, LocalArtifactStore, StorageConfig,
-    check_identity, sign_token, storage_operation, verify_token,
+    canonical_numbers, check_identity, sign_token, storage_operation, verify_token,
 )
 
 REQUEST_TIMEOUT = 30
@@ -2355,17 +2355,7 @@ def _canonical(value):
 
 
 def _digest(value):
-    return hashlib.sha256(_canonical(_canonical_numbers(value)).encode()).hexdigest()
-
-
-def _canonical_numbers(value):
-    # Execution protocol shared with callers, without importing an agent.
-    # Normalize only numeric identity; stored record serialization is unchanged.
-    if isinstance(value, dict):
-        return {key: _canonical_numbers(item) for key, item in value.items()}
-    if isinstance(value, list):
-        return [_canonical_numbers(item) for item in value]
-    return int(value) if isinstance(value, float) and value.is_integer() else value
+    return hashlib.sha256(_canonical(canonical_numbers(value)).encode()).hexdigest()
 
 
 def _signature(secret, domain, value):

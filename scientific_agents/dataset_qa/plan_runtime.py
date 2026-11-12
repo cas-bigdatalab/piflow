@@ -1,6 +1,7 @@
 """Bridge declarative plans to the existing validated MCP execution pipeline."""
 from copy import deepcopy
 
+from jsonschema import Draft202012Validator
 from langchain_core.messages import AIMessage
 
 from .capabilities import OBJECT, SUPPORTING, GOAL, TASK, inputs, profile, resolve_tool
@@ -19,7 +20,27 @@ def _dependency_blocked(operation):
 async def install_plan(service, user, sid, plan, tools, execution, payload, context):
     plan = plan.model_copy(deep=True)
     for step in plan.steps:
-        contract = profile(resolve_tool(step.tool, tools.loaded)).result
+        tool = resolve_tool(step.tool, tools.loaded)
+        contract = profile(tool).result
+        if contract and step.produces:
+            for argument, path in contract.argument_paths.items():
+                if argument in step.inputs:
+                    continue  # Checked against the resolved value at the shared execution boundary.
+                parameter = tool.schema.get("properties", {}).get(argument, {})
+                if argument not in step.arguments and "default" not in parameter:
+                    continue
+                value = step.arguments.get(argument, parameter.get("default"))
+                if isinstance(value, (dict, list)):
+                    continue  # Structured values use the same runtime contract, without growing plan context.
+                check = Check(path=path, test="equals", value=value)
+                for outcome in plan.outcomes:
+                    if outcome.key not in step.produces:
+                        continue
+                    existing = [item for item in outcome.checks if item.path == path and item.test == "equals"]
+                    if any(not Draft202012Validator({"const": value}).is_valid(item.value) for item in existing):
+                        raise QAError("invalid_parameters", "终端步骤参数与成果要求不一致，请保留请求要求修订步骤")
+                    if not any(not item.optional for item in existing):
+                        outcome.checks.append(check)
         if contract and contract.target_paths:
             for outcome in plan.outcomes:
                 if outcome.key in step.produces:
@@ -33,6 +54,7 @@ async def install_plan(service, user, sid, plan, tools, execution, payload, cont
                             if target not in outcome.targets:
                                 outcome.targets.append(target)
                             outcome.checks[index] = Check(path=check.path, test="at_most", value=value)
+    plan = Plan.model_validate(plan.model_dump())  # Adapter-derived checks obey the same bounded contract.
     previous = payload.get("plan")
     validate_revision(previous, plan)
     spec = plan.model_dump()

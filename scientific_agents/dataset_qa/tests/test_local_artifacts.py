@@ -27,7 +27,7 @@ from ..responses import notice
 from ..service import DatasetQA
 from .test_dataset_qa import action, collect, engine, session
 from .test_decisions import BareDialogue, payload, text
-from .test_file_pipeline import SECRET, files, query_args, run_export, run_query
+from .test_file_pipeline import SECRET, files, query_args, query_plan, run_export, run_query
 from .test_planning import approve
 
 
@@ -293,11 +293,8 @@ def test_qa_storage_problem_has_friendly_feedback_without_repeating_search(engin
         def unavailable(*args):
             raise storage.ArtifactStorageError("PRIVATE_STORAGE_DIAGNOSTIC")
         monkeypatch.setattr(storage.LocalArtifactStore, "put_json", unavailable)
-    def query(messages, definitions):
-        name = next(d["function"]["name"] for d in definitions if d["function"]["name"].endswith("_query_pubchem_compounds"))
-        return action(name, **query_args(), **{TASK: {"complete_request": True}})
     async def run():
-        service = DatasetQA(engine, BareDialogue(query, query, text()), MCPGateway({"piflow-corpus": Server(mcp)}))
+        service = DatasetQA(engine, BareDialogue(action("remember", plan=query_plan()), approve), MCPGateway({"piflow-corpus": Server(mcp)}))
         sid = session(service)
         try:
             events = await collect(service, sid, "PubChem 查找相似化合物 SMILES CC")
@@ -347,8 +344,7 @@ def test_storage_failures_close_all_entry_paths(engine, files, monkeypatch, mode
     def query(messages, definitions):
         alias = next(d["function"]["name"] for d in definitions if d["function"]["name"].endswith("_query_pubchem_compounds"))
         return action(alias, **query_args(), **({TASK: {"complete_request": True}} if mode == "direct" else {}))
-    steps = ([action("remember", plan=file_plan()), approve] if mode == "plan" else
-        [query, action("remember", invalid_field=True)] if mode == "react" else [query])
+    steps = [*([query] if mode != "plan" else []), action("remember", plan=file_plan()), approve]
     async def run():
         dialogue = BareDialogue(action("load_mcp_tools", server="piflow-corpus"), *steps)
         service = DatasetQA(engine, dialogue, MCPGateway({"piflow-corpus": Server(mcp)}))
@@ -357,7 +353,7 @@ def test_storage_failures_close_all_entry_paths(engine, files, monkeypatch, mode
             events = await collect(service, sid, "按给定结构和数值条件检索，并导出 CSV")
             saved = payload(service, sid, events)
             assert saved["error"]["error_code"] == "artifact_unavailable"
-            assert len(dialogue.inputs) == (2 if mode == "direct" else 3)
+            assert len(dialogue.inputs) == (3 if mode == "plan" else 4)
             assert len(calls) == int(fault != "key")
             assert len(files.requests) == (2 if fault == "publish" else 0)
             attempt = saved["operations"][0]["attempts"][0]

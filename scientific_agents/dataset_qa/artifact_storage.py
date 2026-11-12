@@ -4,6 +4,7 @@ DATASET_QA_ARTIFACT_ROOT: private persistent directory, defaults to a sibling of
 DATASET_QA_ARTIFACT_BASE_URL: optional public MCP HTTP base override. The QA HTTP
 adapter supplies the mounted download route for in-process tools; remote HTTP
 tools use their own request origin/mount. Non-HTTP callers need an explicit base.
+When the request omits its port, the transport uses the configured app.port.
 An internal MCP address requires a public override when clients cannot reach it.
 Never infer a hostname from a bind address or client IP.
 DATASET_QA_ARTIFACT_SIGNING_KEY: optional explicit key, shared by QA and MCP processes.
@@ -43,6 +44,23 @@ def download_base_context(base_url):
         yield
     finally:
         _download_base.reset(token)
+
+
+def request_download_base(base_url):
+    """Complete a transport origin from deployment settings, never model input.
+
+    Explicit public overrides bypass this fallback. A request with an explicit
+    port keeps it; otherwise the application port supports direct API downloads
+    when a reverse proxy has stripped the port from Host.
+    """
+    if not base_url or os.environ.get("DATASET_QA_ARTIFACT_BASE_URL", "").strip():
+        return base_url
+    url = urlsplit(str(base_url))
+    if url.port is None and url.hostname:
+        from infra.config_loader import get_settings
+        port = get_settings().app.port
+        return url._replace(netloc=url.netloc+":"+str(port)).geturl()
+    return str(base_url)
 
 
 class ArtifactStorageError(ValueError):
@@ -154,6 +172,19 @@ def sign_token(secret, domain, body):
     encoded = base64.urlsafe_b64encode(raw.encode()).decode().rstrip("=")
     signature = hmac.new(secret.encode(), (domain+"\n"+raw).encode(), "sha256").hexdigest()
     return encoded+"."+signature
+
+
+def canonical_numbers(value):
+    """Shared execution identity: normalize JSON numbers, never stored records.
+
+    Booleans, strings and non-integral numbers keep their original identity.
+    Both signature endpoints must use this same normalization.
+    """
+    if isinstance(value, dict):
+        return {key: canonical_numbers(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [canonical_numbers(item) for item in value]
+    return int(value) if isinstance(value, float) and value.is_integer() else value
 
 
 def verify_token(secret, domain, token):

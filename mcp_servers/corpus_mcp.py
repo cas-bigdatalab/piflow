@@ -17,7 +17,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from starlette.requests import Request
 from starlette.responses import FileResponse, JSONResponse
 
-from scientific_agents.dataset_qa.artifact_storage import ArtifactStorageError, download_base_context, local_download
+from scientific_agents.dataset_qa.artifact_storage import ArtifactStorageError, download_base_context, local_download, request_download_base
 
 from services.corpus_connector_service import (
     get_dataset_detail_by_cstr,
@@ -385,19 +385,20 @@ async def get_corpus_dataset_directory(
     )
 
 
-def _file_capability(kind, group, source, operations, inputs, outputs, *, consume=None):
+def _file_capability(kind, group, source, operations, inputs, outputs, *, consume=None, plan_required=False):
     label = "PubChem 化合物检索与筛选" if source == "PubChem" else "导出数据文件"
     return {"piflow": {"displayName": label, "category": "化合物发现" if source else "数据处理",
         "icon": "database-search" if source else "download", "riskLevel": "low", "version": "1.0.0",
         "tags": [group, *operations], "view_type": "url", "qa": {
         "label": label,
-        "atomic": True, "object": "/resource",
+        "atomic": True, "object": "/resource", "plan_required": plan_required,
         "bind": {consume: ["/source_ref"]} if consume else {},
         "routing": {"group": group, "source": source, "operations": operations, "inputs": inputs, "outputs": outputs},
         "artifact": {"path": "/resource", "consume": consume, "execution_context": True, "replay_safe": True},
         "result": {"kind": kind, "requires": [{"path": "/resource/source_ref"},
             {"path": "/record_count", "test": "at_least", "value": 1}],
             "unavailable_when": [{"path": "/resource", "test": "equals", "value": None}],
+            "argument_paths": {"format": "/resource/format"} if consume else {},
             "target_paths": ["/record_count"]}}}}
 
 
@@ -416,7 +417,7 @@ def _artifact_download_context():
         # Keep the original QA HTTP adapter's public origin for in-process MCP.
         return nullcontext()
     base = request.url.replace(path=request.scope.get("root_path", ""), query="", fragment="")
-    return download_base_context(str(base))
+    return download_base_context(request_download_base(str(base)))
 
 
 class _ToolFailure(ToolResult):
@@ -443,7 +444,7 @@ class CompoundPropertyRange(BaseModel):
 @mcp.tool(annotations={"title": "PubChem 化合物检索与筛选", "readOnlyHint": False,
     "destructiveHint": False, "idempotentHint": True, "openWorldHint": True},
     meta=_file_capability("record_resource", "pubchem", "PubChem", ["similarity_search", "property_filter"],
-        ["SMILES"], ["jsonl", "record_resource"]))
+        ["SMILES"], ["jsonl", "record_resource"], plan_required=True))
 async def query_pubchem_compounds(
     ctx: Context,
     smiles: Annotated[str, Field(min_length=1, max_length=4000, description="用户提供的查询分子 SMILES，不改写结构")],

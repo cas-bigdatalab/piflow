@@ -7,7 +7,7 @@ from pydantic import ValidationError
 from starlette.routing import NoMatchFound
 
 from ..schemas import options
-from ...dataset_qa.artifact_storage import download_base_context
+from ...dataset_qa.artifact_storage import download_base_context, request_download_base
 from ...dataset_qa.contracts import Options, QAError
 
 
@@ -98,7 +98,7 @@ class DatasetQAAdapter:
                     base = str(route).removesuffix("/artifacts/_/_")
                 except NoMatchFound:
                     pass  # Read-only QA and separately hosted MCP remain usable.
-            with download_base_context(base):
+            with download_base_context(request_download_base(base)):
                 async for value in self.service.stream(self.n.user, sid, body.user_request, body.request_id, opts, body.parent_task_id):
                     yield value
         except (QAError, ValidationError, HTTPException) as exc:

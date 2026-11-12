@@ -211,6 +211,7 @@ class ToolSession:
         self.connection_locks, self.discovery_locks = {}, {}
         self.definition_errors = {}
         self.limits = gateway.limits
+        self.request_query = ""
 
     async def retry(self, error, attempt, deadline, server, phase):
         if (attempt>=self.limits.transport_retries or not transient(error)
@@ -432,6 +433,7 @@ class ToolSession:
         Multiple services retain on-demand routing. No fan-out, business call,
         additional model request, or retry policy is introduced by preparation.
         """
+        self.request_query = query
         self.prime(query, references)
         if not self.loaded and len(self.servers)==1:
             try:
@@ -441,6 +443,7 @@ class ToolSession:
 
     async def load(self, server, query="", offset=0, limit=4, group=None):
         from .routing import select_tools
+        query = query or self.request_query
         catalogue = select_tools([*await self.tools(server), *self.definition_errors.get(server, [])], query, group=group)
         page = catalogue[offset:offset+limit]
         result = self.include(item for item in page if isinstance(item, Tool))
@@ -502,8 +505,9 @@ class ToolSession:
 
     async def call(self, alias, arguments, *, metadata=None):
         tool = self.validate(alias, arguments)
-        from .capabilities import profile
-        artifact = profile(tool).artifact
+        from .capabilities import inputs, profile
+        descriptor = profile(tool)
+        artifact = descriptor.artifact
         replay_safe = bool(metadata and artifact and artifact.execution_context and artifact.replay_safe)
         self.loaded.move_to_end(alias)
         timeout = self.servers[tool.server].timeout or self.limits.timeout
@@ -550,6 +554,9 @@ class ToolSession:
                 raise QAError("artifact_unavailable", "结果文件尚未准备好", 503, detail={"dispatched": True,
                     "phase": phase if phase in {"configuration", "prepare", "read", "publish", "storage"} else "storage"})
             raise QAError("tool_failed", "MCP工具返回错误", 502, detail=detail)
-        # Only protocol-level errors are interpreted here. Business envelopes,
-        # status codes, resource IDs and output structures belong to the server.
-        return tool, ToolResult.from_mcp(result, self.limits.result_bytes)
+        output = ToolResult.from_mcp(result, self.limits.result_bytes)
+        # Interpret only explicitly declared adapter contracts. Do not infer
+        # business status from envelopes, tool names or error-message wording.
+        if descriptor.result:
+            descriptor.result.validate_arguments(output.data, inputs(tool, arguments))
+        return tool, output

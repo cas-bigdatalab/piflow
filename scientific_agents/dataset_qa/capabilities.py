@@ -43,7 +43,7 @@ PROFILES = {
         "target_kind": "file", "bind": {"download_url": ["/downloadUrl"]}},
 }
 for _name, _descriptor in PROFILES.items():
-    _descriptor["routing"] = {"group": "corpus", "source": "corpus",
+    _descriptor["routing"] = {"group": "corpus", "source": "" if _descriptor.get("target_kind") == "file" else "corpus",
         "operations": [_name[1]], "inputs": [], "outputs": []}
 OBJECT = "__qa_object"
 SUPPORTING = "__qa_supporting"
@@ -59,6 +59,7 @@ class Profile(BaseModel):
     collection: str | None = None
     object: str | None = None
     atomic: bool = False
+    plan_required: bool = False
     search: SearchProfile | None = None
     directory: DirectorySpec | None = None
     target_kind: Literal["dataset", "file"] = "dataset"
@@ -98,7 +99,9 @@ def profile(tool):
         if result.artifact:
             pointer_tokens(result.artifact.path)
         if result.result:
-            for path in result.result.target_paths:
+            if any(key not in properties for key in result.result.argument_paths):
+                raise QAError("invalid_schema", "结果校验的参数不在工具定义中", 502)
+            for path in [*result.result.target_paths, *result.result.argument_paths.values()]:
                 pointer_tokens(path)
         for path in [result.collection, result.object, *(path for paths in result.bind.values() for path in paths)]:
             if path is not None:
@@ -142,11 +145,11 @@ def identifiers_from_request(tool, arguments, message):
 
 def definition(tool):
     schema = deepcopy(tool.schema)
+    descriptor = profile(tool)
     if adapted(tool):
         schema.setdefault("properties", {}).update({
             SUPPORTING: {"type": ["boolean", "null"], "default": False, "description": "True for an auxiliary lookup rather than a requested outcome."},
         })
-        descriptor = profile(tool)
         bound = descriptor.bind
         if bound:
             schema["properties"][OBJECT] = {"type": ["string", "null"], "description": "Supplied object handle. Omit to use current focus. Runtime binds its identifiers."}
@@ -165,10 +168,17 @@ def definition(tool):
                 task["properties"].pop("original_keywords", None)
             schema["properties"][TASK] = task
             schema.setdefault("required", []).append(TASK)
-    contract = profile(tool).result
+    contract = descriptor.result
     kind = contract.kind if contract else tool.name
+    description = tool.description+"\nQA outcome kind: "+kind
+    if descriptor.plan_required:
+        description += ("\nPlan required: remember.plan, review_plan. Preserve CURRENT source, changed conditions, quantity and requested format; "
+            "add export/conversion as needed. Intermediate files do not fulfill a different format.")
+    if contract and contract.argument_paths:
+        description += "\nResult fields matching inputs: "+", ".join(
+            key+" -> "+path for key, path in contract.argument_paths.items())
     return {"type": "function", "function": {"name": tool.alias,
-        "description": tool.description+"\nQA outcome kind: "+kind, "parameters": schema}}
+        "description": description, "parameters": schema}}
 
 
 def inputs(tool, arguments, record=None):

@@ -766,6 +766,7 @@ class DatasetQA:
         return {"ready": True, "executed": False, "evidence_ids": ids}
 
     async def _save_tool_result(self, user, sid, tid, tool, output, operation_id, key, result_id, execution, payload, arguments=None):
+        descriptor = profile(tool)
         marker = (key, fingerprint(output.payload()))
         card = execution.cards.get(marker)
         created = card is None
@@ -774,7 +775,7 @@ class DatasetQA:
             view = metadata.get("view_type", "tool_result") if isinstance(metadata, dict) else "tool_result"
             card = {"result_id": result_id, "view_type": view,
                 "title": f"{tool.server} · {tool.title}", **output.payload()}
-            if spec := profile(tool).artifact:
+            if spec := descriptor.artifact:
                 aid = await asyncio.to_thread(self.artifacts.register, user, sid, card, tool, spec)
                 if aid:
                     card["file_artifact"] = aid
@@ -787,7 +788,7 @@ class DatasetQA:
         execution.cards[marker] = card
         execution.failures.pop(operation_id or key, None)
         operation = execution.operations.get(operation_id) or {}
-        if created and arguments is not None and profile(tool).directory:
+        if created and arguments is not None and descriptor.directory:
             try:
                 dataset = await self._target_record(user, sid, operation.get("target"))
                 indexed = await self.resources.observe(user, tool, arguments, output.data, dataset)
@@ -1069,6 +1070,10 @@ class DatasetQA:
         if payload.get("plan") and not scheduled:
             if native or any(value.goals or value.operations or value.calls for value in memory):
                 raise QAError("invalid_parameters", "已有执行计划，请修订必要步骤而非绕过计划重复调用工具")
+        if not scheduled and any(profile(tools.loaded[call["name"]]).plan_required for call in native):
+            payload["planning"] = True
+            raise QAError("invalid_parameters", "请先登记本轮成果及约束，由计划执行所需步骤", detail={
+                "guidance": "Submit remember.plan for the CURRENT request before execution. Preserve its source, changed parameters and final output format. Intermediate resources are prerequisites, not substitutes for the requested output. Reuse only compatible saved evidence."})
         if len(native)>1 and any(isinstance(call["args"].get(TASK), dict)
                 and call["args"][TASK].get("complete_request") is True for call in native):
             raise QAError("invalid_parameters", "声明完成整个请求的操作不能同时追加其他MCP调用", detail={
@@ -1603,7 +1608,7 @@ class DatasetQA:
                 "Only accepted outcomes are complete. For unavailable or incomplete outcomes describe only what the evidence supports, "
                 "in user terms, without exposing plan states or internal identifiers. A successful tool receipt alone does not prove fulfillment. "
                 "If targets_met is false, report the actual quantity and shortfall; an accepted artifact does not mean its desired quantity was met.")
-        searches = [SearchRun(item["search"]).view() for item in operations.items if item.get("search")]
+        searches = [SearchRun(item["search"]).view() for item in operations.required if item.get("search")]
         if searches:
             context["search_outcomes"] = [{key: value[key] for key in
                 ("unique_count", "minimum", "done", "stop")} | {"completed_keyword_count": len(value["completed_keywords"])}
@@ -1750,7 +1755,10 @@ class DatasetQA:
                             # Reserve the remaining decision for truthful closure,
                             # rather than starting another upstream exploration.
                             actions &= {"deliver_results", "remember", "request_input", "respond_from_context"}
-                        definitions = self._definitions([definition for definition in [*builtin_definitions(bool(payload.get("planning") or saved_plan),
+                        leading_tool = next(iter(tools.loaded.values()), None)
+                        planning = bool(payload.get("planning") or saved_plan
+                            or (leading_tool and profile(leading_tool).plan_required))
+                        definitions = self._definitions([definition for definition in [*builtin_definitions(planning,
                             artifacts=bool(model_context.get("artifact_catalog")) or any(card.get("file_artifact") for card in execution.cards.values())), *tools.definitions()]
                             if definition["function"]["name"] in actions], tools, execution)
                         advertised = {value["function"]["name"] for value in definitions}

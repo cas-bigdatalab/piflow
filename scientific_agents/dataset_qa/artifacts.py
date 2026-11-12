@@ -15,6 +15,7 @@ from sqlalchemy import Column, Float, JSON, MetaData, String, Table, Text, and_,
 from .contracts import QAError
 from .context import project
 from .references import at_path
+from .artifact_storage import canonical_numbers
 
 
 class ArtifactSpec(BaseModel):
@@ -40,7 +41,7 @@ def execution_metadata(user, request_id, arguments, seconds, *, secret=None):
     if not secret:
         raise QAError("artifact_unavailable", "当前结果存储尚未就绪", 503)
     body = {"user": user, "request_id": request_id,
-        "arguments": sha256(_json(_canonical_numbers(arguments)).encode()).hexdigest(),
+        "arguments": sha256(_json(canonical_numbers(arguments)).encode()).hexdigest(),
         "deadline": time.time() + max(1, min(seconds, 480))}
     signature = hmac.new(str(secret).encode(), ("qa-execution-v1\n"+_json(body)).encode(), "sha256").hexdigest()
     return {"piflow_execution": {**body, "signature": signature}}
@@ -48,19 +49,6 @@ def execution_metadata(user, request_id, arguments, seconds, *, secret=None):
 
 def _json(value):
     return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False)
-
-
-def _canonical_numbers(value):
-    """Execution protocol: equal JSON numbers have one digest on both endpoints.
-
-    Keep booleans, strings and non-integral numbers distinct. This is only for
-    argument identity, never the serialization of stored scientific records.
-    """
-    if isinstance(value, dict):
-        return {key: _canonical_numbers(item) for key, item in value.items()}
-    if isinstance(value, list):
-        return [_canonical_numbers(item) for item in value]
-    return int(value) if isinstance(value, float) and value.is_integer() else value
 
 
 class Artifacts:

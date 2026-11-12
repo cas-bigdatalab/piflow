@@ -29,6 +29,8 @@ def recovery_search_summary(operations, cards):
     by_id = {card["result_id"]: card for card in cards}
     sections = []
     for item in operations.deliverable(partial=True):
+        if operations.required and not item.get("required", True):
+            continue
         search = item.get("search")
         if not search:
             continue
