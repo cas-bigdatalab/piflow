@@ -34,6 +34,8 @@ class Execution:
         return bool(self.operations.required) and all(item["state"]=="succeeded" for item in self.operations.required)
 
     def actions(self, loaded):
+        from .capabilities import profile
+
         names = {"read_result", "remember", "request_input", "resolve_resource", "find_artifacts"}
         if not self.operations.items and not self.cards and not self.failures:
             names.add("respond_from_context")
@@ -42,6 +44,8 @@ class Execution:
         if self.can_deliver:
             names.add("deliver_results")
         for alias, tool in loaded.items():
+            if profile(tool).plan_required:
+                names.discard(alias)
             scopes = [item for item in self.operations.items if item.get("capability")=={"server": tool.server, "name": tool.name}]
             if scopes and all(item["id"] in self.blocked for item in scopes):
                 names.discard(alias)
@@ -107,9 +111,9 @@ class Execution:
             {"path": list(item["loc"]), "constraint": item["type"], "message": item["msg"][:300]}
             for item in errors[:3]]}
         if any("plan" in item["loc"] for item in errors):
-            detail["guidance"] = ("Use only the advertised Plan schema. Steps use produces=[outcome_key]; "
-                "auxiliary steps use produces=[]. Each outcome must have exactly one producer. "
-                "complete_request is direct-call metadata, not a plan step field. Preserve completed receipts and constraints.")
+            detail["guidance"] = ("Use remember.plan={steps:[{key,tool,arguments,object?}]}. "
+                "Use object=source_step_key for a file source. Runtime derives output kinds, producers and dependencies. "
+                "Do not submit outcomes/kind/produces or direct-call metadata. Preserve keys, constraints and requested format.")
         return QAError("invalid_parameters", message, detail=detail)
 
     notice = staticmethod(notice)

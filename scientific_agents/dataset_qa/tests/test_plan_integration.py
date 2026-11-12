@@ -56,12 +56,12 @@ def test_real_protocol_plan_parallel_reads_acceptance_and_final_evidence(engine,
         assert size == 2
         return await read("records", location)
 
-    spec = {"outcomes": [{"key": "schema", "description": "文件字段结构", "kind": "schema"},
-        {"key": "records", "description": "两条样例记录", "kind": "records", "constraints": ["最多两条"]}],
-        "steps": [{"key": "locate", "tool": "locate"},
-            {"key": "describe", "tool": "describe_file", "object": {"step": "locate", "path": "/items/0"}, "produces": ["schema"]},
-            {"key": "read", "tool": "read_records", "arguments": {"size": 2},
-                "object": {"step": "locate", "path": "/items/0"}, "produces": ["records"]}]}
+    spec = {"steps": [{"key": "locate", "tool": "locate"},
+        {"key": "schema", "tool": "describe_file", "description": "文件字段结构",
+            "object": {"step": "locate", "path": "/items/0"}},
+        {"key": "records", "tool": "read_records", "arguments": {"size": 2},
+            "description": "两条样例记录", "constraints": ["最多两条"],
+            "object": {"step": "locate", "path": "/items/0"}}]}
 
     def respond(request):
         body = json.loads(request.content)

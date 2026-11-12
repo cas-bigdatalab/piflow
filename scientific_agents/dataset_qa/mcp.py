@@ -455,8 +455,13 @@ class ToolSession:
     def definitions(self):
         return [tool.definition() for tool in self.loaded.values()]
 
-    def validate(self, alias, arguments):
-        """Validate before any execution state is committed; dispatch checks again."""
+    def validate(self, alias, arguments, *, deferred=()):
+        """Validate known plan inputs early; dispatch always validates the full schema.
+
+        Deferred names are runtime bindings, never fabricated placeholder values.
+        Cross-field conditions wait until every input is available; unconditional
+        field constraints, unknown keys and other required inputs are checked now.
+        """
         tool = self.loaded.get(alias)
         if tool is None:
             raise QAError("tool_not_loaded", "工具未加载，请先发现并加载相应定义")
@@ -481,7 +486,16 @@ class ToolSession:
             tool = checked_tool(tool)
             self.loaded[alias] = tool
         try:
-            tool._validator.validate(arguments)
+            validator = tool._validator
+            if deferred:
+                known = {key: tool.schema[key] for key in (
+                    "type", "properties", "patternProperties", "additionalProperties", "propertyNames", "maxProperties")
+                    if key in tool.schema}
+                known["required"] = [key for key in tool.schema.get("required", []) if key not in deferred]
+                # Evolving the compiled validator retains the ORIGINAL local
+                # reference resolver ($defs, anchors and recursive schemas).
+                validator = validator.evolve(schema=known)
+            validator.validate(arguments)
         except ValidationError as exc:
             detail = {"path": list(exc.absolute_path), "constraint": exc.validator}
             detail["expected"], _ = project(exc.validator_value, 300)

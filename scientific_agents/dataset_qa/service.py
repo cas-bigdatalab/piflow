@@ -28,7 +28,7 @@ from .search import SearchRun, TaskDirective, normalize_keyword, ordered_keyword
 from .resource_index.manager import ResourceIndex
 from .resource_index.resolver import bind_target, resolve as resolve_resource
 from .planning import plan_view, outcome_status, require_delivery
-from .plan_runtime import install_plan, confirm_plan, scheduled_reply
+from .plan_runtime import install_plan, confirm_plan, scheduled_reply, workflow_definition
 from .artifacts import Artifacts, execution_metadata
 
 log = logging.getLogger("flow.dataset_qa")
@@ -583,8 +583,10 @@ class DatasetQA:
     def _definitions(definitions, tools, execution):
         """Expose grounded choices for ambiguous calls and late outcome confirmation."""
         result = []
+        visible = {definition["function"]["name"] for definition in definitions}
         confirmations = execution.operations.confirmable({card["result_id"] for card in execution.cards.values()})
         for definition in definitions:
+            definition = workflow_definition(definition, tools.loaded, visible)
             if definition["function"]["name"]=="deliver_results" and confirmations:
                 # The model reviews semantic sufficiency; the runtime validates
                 # provenance. Offering this explicit association avoids both a
@@ -1072,8 +1074,8 @@ class DatasetQA:
                 raise QAError("invalid_parameters", "已有执行计划，请修订必要步骤而非绕过计划重复调用工具")
         if not scheduled and any(profile(tools.loaded[call["name"]]).plan_required for call in native):
             payload["planning"] = True
-            raise QAError("invalid_parameters", "请先登记本轮成果及约束，由计划执行所需步骤", detail={
-                "guidance": "Submit remember.plan for the CURRENT request before execution. Preserve its source, changed parameters and final output format. Intermediate resources are prerequisites, not substitutes for the requested output. Reuse only compatible saved evidence."})
+            raise QAError("planning_required", "此操作通过计划执行，请登记本轮步骤", detail={
+                "guidance": "Submit remember.plan={steps:[{key,tool,arguments,object?}]} for the CURRENT request. Use object=source_step_key for file dependencies. Include the requested final format. Runtime derives kinds and producers; no MCP operation has run."})
         if len(native)>1 and any(isinstance(call["args"].get(TASK), dict)
                 and call["args"][TASK].get("complete_request") is True for call in native):
             raise QAError("invalid_parameters", "声明完成整个请求的操作不能同时追加其他MCP调用", detail={
@@ -1830,7 +1832,7 @@ class DatasetQA:
                                     raise QAError("invalid_tool_call", "依据上下文答复不能同时声明新的数据操作", 502)
                                 bindings = await self._prepare_operations(user, sid, tid, reply, tools, execution, payload, context, json.loads(messages[1].content), scheduled=scheduled)
                         except QAError as exc:
-                            if exc.code not in {"invalid_tool_call", "invalid_parameters", "invalid_pointer", "result_not_found", "tool_not_loaded"}:
+                            if exc.code not in {"invalid_tool_call", "invalid_parameters", "invalid_pointer", "result_not_found", "tool_not_loaded", "planning_required"}:
                                 raise
                             rejection = exc
                         except ValidationError as exc:
@@ -1852,6 +1854,11 @@ class DatasetQA:
                                 messages.append(reply)
                             feedback = action_feedback(rejection)
                             messages.append(HumanMessage(encode({"runtime_feedback": feedback})))
+                            if rejection.code == "planning_required":
+                                # Switching execution mode is not a bad business
+                                # parameter. The normal model-round budget still applies.
+                                log.info("Planning transition: task=%s", tid)
+                                continue
                             reason = execution.correct(rejection, limits.max_corrections)
                             log.info("Action correction: task=%s error=%s corrections=%s stopped=%s",
                                 tid, rejection.code, execution.corrections, reason is not None)
@@ -2133,6 +2140,7 @@ class DatasetQA:
             except QAError:
                 pass
         except Exception as exc:
+            failure = exc if isinstance(exc, QAError) else QAError("service_unavailable", "服务暂不可用，请稍后重试", 503)
             expired = deadline.expired()
             if expired:
                 unknown = QAError("execution_unknown", "MCP服务未在本轮等待上限内返回，暂时无法确认执行结果；未自动重复执行", 504)
@@ -2142,9 +2150,8 @@ class DatasetQA:
                 payload["operations"] = execution.operations.items
                 message = ("本次请求超过本轮等待上限，暂时无法完成；已取得的有效信息将保留。" if acquired else
                     "等待可用处理资源超过本轮上限，本次请求尚未开始执行。")
-                exc = QAError("task_timeout", message, 504, detail={"phase": "execution" if acquired else "queue"})
+                failure = QAError("task_timeout", message, 504, detail={"phase": "execution" if acquired else "queue"})
             log.exception("Agent task failed: task=%s", tid)
-            failure = exc if isinstance(exc, QAError) else QAError("service_unavailable", "服务暂不可用，请稍后重试", 503)
             try:
                 final_deadline = min(turn_deadline,
                     asyncio.get_running_loop().time()+min(5, limits.turn_timeout/2))

@@ -7,14 +7,14 @@ import os
 from typing import Annotated, Literal
 
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage, trim_messages
-from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, StringConstraints, model_validator
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, StringConstraints, field_validator, model_validator
 
 from .context import encode, project
 from .context_budget import TokenCounter, context_overflow, summary_batch
 from .contracts import Limits, QAError
 from .references import ReferenceUpdate
 from .operations import Operation
-from .planning import Plan, Review
+from .planning import Plan, Review, Workflow
 
 
 log = logging.getLogger("flow.dataset_qa")
@@ -86,7 +86,7 @@ class Memory(Input):
     planning: Literal[True] | None = Field(default=None, description="Load the multi-step plan contract. May accompany tool discovery; no business execution.")
     goals: list[Goal] | None = Field(default=None, min_length=1, max_length=1,
         description="One advisory outcome. Use plan for multiple outcomes or dependencies.")
-    plan: Plan | None = Field(default=None, description="Complete outcomes and steps for multi-step requests. Use loaded tools and stable keys.")
+    plan: Workflow | None = Field(default=None, description="List tool steps and business arguments for the CURRENT request. Runtime derives output types, source dependencies and terminal deliverables. Use stable step keys; preserve the requested output format.")
     focus: str | None = Field(default=None, description="Supplied object handle for an explicit focus switch; null clears focus.")
     selected: list[str] | None = Field(default=None, max_length=32, description="Complete confirmed set of supplied object handles. Omit/null keeps it; [] clears it.")
     continuation: Literal["continue", "new"] | None = Field(default=None,
@@ -96,10 +96,18 @@ class Memory(Input):
 class Remember(Memory):
     """Accept old private calls without exposing their control protocol anew."""
     goals: list[Goal] | None = Field(default=None, min_length=1, max_length=16)
+    plan: Plan | Workflow | None = None
     references: ReferenceUpdate | None = None
     operations: list[Operation] | None = Field(default=None, min_length=1, max_length=16)
     calls: list[str | None] | None = Field(default=None, max_length=24)
     resume: bool | None = None
+
+    @field_validator("plan", mode="before")
+    @classmethod
+    def plan_contract(cls, value):
+        if isinstance(value, dict):
+            return Plan.model_validate(value) if "outcomes" in value else Workflow.model_validate(value)
+        return value
 
 
 class Ask(Input):
@@ -211,8 +219,8 @@ SYSTEM = (
     "Use remember.plan before multi-step execution: separate all user outcomes/constraints from supporting steps. "
     "If its schema is absent, set remember.planning=true (may accompany tool discovery) to load it once. "
     "Load tools and resolve unknown choices first; never guess source paths or transformations. "
-    "Plan steps use produces to name completed outcome keys; auxiliary steps use produces=[]. "
-    "Each outcome has exactly one producing step. complete_request is NOT a plan step field; it belongs only to direct-call task metadata. "
+    "remember.plan contains steps: key, tool, arguments and optional object/source references. Runtime derives output kinds and producers; do not fill outcomes, kind or produces. "
+    "Use object=source_step_key for a preceding file producer. Omit deliver to deliver terminal steps. Include export/conversion with the requested format; intermediate files are not substitutes. "
     "Runtime reviews coverage once per revision, schedules dependencies and reuses receipts. "
     "Revise only for new evidence; preserve keys, constraints and completed work. Never bypass a plan with direct MCP calls. "
     "Unavailable/incomplete outcomes are not fulfilled artifacts. "

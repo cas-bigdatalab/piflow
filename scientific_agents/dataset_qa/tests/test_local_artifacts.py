@@ -22,7 +22,7 @@ from .. import artifact_storage as storage
 from ..artifacts import execution_metadata
 from ..contracts import QAError, Server
 from ..capabilities import TASK
-from ..mcp import MCPGateway, ToolSession
+from ..mcp import MCPGateway, Tool, ToolSession
 from ..responses import notice
 from ..service import DatasetQA
 from .test_dataset_qa import action, collect, engine, session
@@ -342,7 +342,10 @@ def test_storage_failures_close_all_entry_paths(engine, files, monkeypatch, mode
         return await original(self, alias, arguments, **kwargs)
     monkeypatch.setattr(ToolSession, "call", count)
     def query(messages, definitions):
-        alias = next(d["function"]["name"] for d in definitions if d["function"]["name"].endswith("_query_pubchem_compounds"))
+        # Historical native calls still transition safely to planning, although
+        # this plan-only capability is no longer advertised as a native action.
+        alias = Tool("piflow-corpus", "query_pubchem_compounds", "", {}, {}, {}).alias
+        assert not any(d["function"]["name"] == alias for d in definitions)
         return action(alias, **query_args(), **({TASK: {"complete_request": True}} if mode == "direct" else {}))
     steps = [*([query] if mode != "plan" else []), action("remember", plan=file_plan()), approve]
     async def run():

@@ -359,7 +359,7 @@ def test_quantity_normalization_keeps_upper_bound_and_non_numeric_identity(engin
     async def run():
         tool = Tool("files", "read", "", {"type": "object", "properties": {}}, {},
             {"piflow": {"qa": {"result": {"kind": "records", "target_paths": ["/record_count"]}}}})
-        tools = SimpleNamespace(loaded={tool.alias: tool}, validate=lambda *args: None)
+        tools = SimpleNamespace(loaded={tool.alias: tool}, validate=lambda *args, **kwargs: None)
         plan = Plan.model_validate({"outcomes": [{"key": "data", "description": "Records", "kind": "records",
             "checks": [{"path": path, "test": "equals", "value": quantity} for path in ("/record_count", "/identifier")]}],
             "steps": [{"key": "read", "tool": tool.alias, "produces": ["data"]}]})

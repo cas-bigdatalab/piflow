@@ -6,10 +6,32 @@ from langchain_core.messages import AIMessage
 
 from .capabilities import OBJECT, SUPPORTING, GOAL, TASK, inputs, profile, resolve_tool
 from .contracts import QAError
+from .context import encode
 from .operations import Operations
 from .execution import Execution, fingerprint
-from .planning import Check, FromStep, Plan, ResultContract, outcome_status, validate_revision
+from .planning import Check, FromStep, Outcome, Plan, ResultContract, Step, Workflow, outcome_status, validate_revision
 from .references import at_path
+
+
+def workflow_definition(definition, loaded, visible=()):
+    """Keep hidden capabilities available to planning without duplicating schemas.
+
+    Each catalogue entry contains its own unmodified business JSON schema, so
+    local schema references keep their original scope. Runtime validates inputs.
+    """
+    if definition["function"]["name"] != "remember":
+        return definition
+    if "WorkflowStep" not in definition["function"]["parameters"].get("$defs", {}):
+        return definition
+    catalogue = [{"tool": tool.alias, "description": tool.description, "arguments_schema": tool.schema}
+        for tool in loaded.values() if tool.alias not in visible]
+    if not catalogue:
+        return definition
+    definition = deepcopy(definition)
+    definition["function"]["description"] += (
+        " Capabilities below are available inside plan.steps (business arguments only). "
+        "Other loaded MCP tools may also be used in steps. Catalogue: " + encode(catalogue))
+    return definition
 
 
 def _dependency_blocked(operation):
@@ -17,7 +39,90 @@ def _dependency_blocked(operation):
         and not operation["attempts"])
 
 
+def compile_workflow(workflow, tools, previous=None):
+    """Compile intent to the existing strict DAG, without changing business values.
+
+    Only adapter-declared file references may be connected implicitly. Multiple
+    sources, collection members and arbitrary scalar inputs require explicit refs.
+    """
+    resolved = {call.key: resolve_tool(call.tool, tools.loaded) for call in workflow.steps}
+    descriptors = {key: profile(tool) for key, tool in resolved.items()}
+    old = Plan.model_validate(previous["spec"]) if previous else None
+    old_steps = {step.key: step for step in old.steps} if old else {}
+    old_outcomes = {outcome.key: outcome for outcome in old.outcomes} if old else {}
+
+    def source(step_key):
+        descriptor = descriptors[step_key]
+        path = descriptor.artifact.path if descriptor.artifact else descriptor.object
+        if path is None:
+            raise QAError("invalid_parameters", "来源步骤需要明确的对象位置", detail={
+                "step": step_key, "guidance": "Use object={step: supplied_step_key, path: grounded_JSON_pointer}; do not guess a collection member."})
+        return FromStep(step=step_key, path=path)
+
+    steps = []
+    for call in workflow.steps:
+        tool, descriptor = resolved[call.key], descriptors[call.key]
+        target = call.object
+        if isinstance(target, str) and target in resolved:
+            target = source(target)
+        elif isinstance(target, FromStep) and target.step in resolved and "path" not in target.model_fields_set:
+            target = source(target.step)
+        consume = descriptor.artifact.consume if descriptor.artifact else None
+        if (target is None and consume and consume not in call.arguments and consume not in call.inputs
+                and consume in descriptor.bind):
+            candidates = [step.key for step in steps
+                if resolved[step.key].server == tool.server and descriptors[step.key].artifact]
+            if len(candidates) > 1:
+                raise QAError("invalid_parameters", "存在多个可用来源，请在计划中明确选择", detail={
+                    "step": call.key, "sources": candidates, "guidance": "Set this step's object to the intended source step key. No data operation has run."})
+            if candidates:
+                target = source(candidates[0])
+        prior = old_steps.get(call.key)
+        tool_name = prior.tool if prior and resolve_tool(prior.tool, tools.loaded).alias == tool.alias else tool.alias
+        steps.append(Step(key=call.key, tool=tool_name, arguments=deepcopy(call.arguments), fresh=call.fresh,
+            object=target, inputs=deepcopy(call.inputs), depends_on=list(call.depends_on)))
+    consumed = set().union(*(step.dependencies() for step in steps))
+    outcomes = []
+    for call, step in zip(workflow.steps, steps):
+        if call.deliver is True or (call.deliver is None and call.key not in consumed):
+            descriptor = descriptors[call.key]
+            prior = old_steps.get(step.key)
+            step.produces = list(prior.produces) if prior and prior.produces else [call.key]
+            for key in step.produces:
+                outcome = Outcome(key=key, description=call.description or descriptor.label or resolved[call.key].title,
+                    kind=descriptor.result.kind if descriptor.result else resolved[call.key].name,
+                    constraints=list(call.constraints), checks=list(call.checks), targets=list(call.targets))
+                if key in old_outcomes:
+                    # Revision input need not repeat runtime-owned identities or
+                    # checks. Existing requirements can be strengthened, never erased.
+                    original = old_outcomes[key]
+                    if not call.description:
+                        outcome.description = original.description
+                    for field in ("constraints", "checks", "targets"):
+                        values = getattr(outcome, field)
+                        values[:0] = [value for value in getattr(original, field) if value not in values]
+                outcomes.append(outcome)
+        elif call.checks or call.targets:
+            raise QAError("invalid_parameters", "来源结果的验收条件需要关联到该结果", detail={
+                "step": call.key, "guidance": "Set deliver=true to assess this prerequisite as an outcome; do not silently drop its checks."})
+    plan = Plan(outcomes=outcomes, steps=steps)  # Validate references/cycles before traversing ancestors.
+    by_key = {step.key: step for step in plan.steps}
+    by_outcome = {outcome.key: outcome for outcome in plan.outcomes}
+    for step in plan.steps:
+        if not step.produces:
+            continue
+        ancestors = step.dependencies()
+        while (expanded := ancestors | set().union(*(by_key[key].dependencies() for key in ancestors))) != ancestors:
+            ancestors = expanded
+        inherited = [value for call in workflow.steps if call.key in ancestors for value in call.constraints]
+        for key in step.produces:
+            by_outcome[key].constraints = list(dict.fromkeys([*by_outcome[key].constraints, *inherited]))
+    return Plan.model_validate(plan.model_dump())
+
+
 async def install_plan(service, user, sid, plan, tools, execution, payload, context):
+    if isinstance(plan, Workflow):
+        plan = compile_workflow(plan, tools, payload.get("plan"))
     plan = plan.model_copy(deep=True)
     for step in plan.steps:
         tool = resolve_tool(step.tool, tools.loaded)
@@ -94,13 +199,18 @@ async def install_plan(service, user, sid, plan, tools, execution, payload, cont
             await service._target_record(user, sid, target)
         if set(step.inputs) & set(step.arguments) or any(key not in tool.schema.get("properties", {}) for key in step.inputs):
             raise QAError("invalid_parameters", "来源绑定须使用工具参数名，且不能覆盖已给出的参数")
-        # Validate concrete arguments now; delayed parameters are validated after
-        # their actual source exists, through the same dispatch path as ReAct.
-        concrete = step.arguments
-        if not step.inputs and not isinstance(step.object, FromStep):
-            record = await service._target_record(user, sid, target) if target else None
-            concrete = inputs(tool, step.arguments, record)
-            tools.validate(tool.alias, concrete)
+        # No prerequisite should run merely to discover that an already known
+        # format, bound or required argument was invalid. Source-dependent and
+        # cross-field constraints still receive full validation before dispatch.
+        deferred = set(step.inputs)
+        if isinstance(step.object, FromStep):
+            if not descriptor.bind:
+                raise QAError("invalid_parameters", "此能力未声明对象参数绑定，请使用明确的输入参数引用")
+            deferred.update(descriptor.bind)
+        record = await service._target_record(user, sid, target) if target else None
+        concrete = inputs(tool, step.arguments, record)
+        concrete = {key: value for key, value in concrete.items() if key not in deferred or key in step.arguments}
+        tools.validate(tool.alias, concrete, deferred=deferred)
         signature = fingerprint({**step.model_dump(exclude={"key", "produces", "fresh"}),
             "tool": [tool.server, tool.name], "arguments": concrete,
             "object": target if isinstance(step.object, str) else step.model_dump()["object"]})

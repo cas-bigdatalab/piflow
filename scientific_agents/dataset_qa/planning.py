@@ -103,7 +103,7 @@ class FromStep(Contract):
         return self
 
 
-class Step(Contract):
+class Invocation(Contract):
     key: Key
     tool: str = Field(min_length=1, max_length=200)
     arguments: dict = Field(default_factory=dict)
@@ -111,11 +111,42 @@ class Step(Contract):
     object: str | FromStep | None = Field(default=None, description="Supplied handle or dependency object pointer; resolve ambiguity first.")
     inputs: dict[str, FromStep] = Field(default_factory=dict, max_length=16)
     depends_on: list[Key] = Field(default_factory=list, max_length=16)
-    produces: list[Key] = Field(default_factory=list, max_length=16, description="User outcomes completed by this step; empty means an auxiliary prerequisite.")
 
     def dependencies(self):
         refs = [*self.inputs.values(), *([self.object] if isinstance(self.object, FromStep) else [])]
         return set(self.depends_on) | {ref.step for ref in refs}
+
+
+class Step(Invocation):
+    produces: list[Key] = Field(default_factory=list, max_length=16, description="User outcomes completed by this step; empty means an auxiliary prerequisite.")
+
+
+class WorkflowStep(Invocation):
+    arguments: dict = Field(default_factory=dict,
+        description="Business parameters only; omit __qa_* execution metadata. Use object/inputs for sources.")
+    object: str | FromStep | None = Field(default=None,
+        description="Source step key, supplied object handle, or explicit step/path. Omit only when the file source is unambiguous.")
+    deliver: bool | None = Field(default=None,
+        description="Omit to deliver terminal steps. True also delivers this intermediate result; false marks an auxiliary step.")
+    description: str = Field(default="", max_length=240)
+    constraints: list[Annotated[str, Field(min_length=1, max_length=300)]] = Field(default_factory=list, max_length=12)
+    checks: list[Check] = Field(default_factory=list, max_length=16,
+        description="Checks on this delivered result. Set deliver=true if this is also a prerequisite.")
+    targets: list[Check] = Field(default_factory=list, max_length=16,
+        description="Soft quantity targets on this delivered result; shortfalls do not block usable output.")
+
+
+class Workflow(Contract):
+    """Model-facing calls; output kinds and producer bookkeeping are runtime-owned."""
+    steps: list[WorkflowStep] = Field(min_length=1, max_length=16)
+
+    @model_validator(mode="after")
+    def valid(self):
+        if len({step.key for step in self.steps}) != len(self.steps):
+            raise ValueError("Step keys must be unique.")
+        if len(encode(self.model_dump())) > 12000:
+            raise ValueError("Plan exceeds the bounded intent contract.")
+        return self
 
 
 class Plan(Contract):
