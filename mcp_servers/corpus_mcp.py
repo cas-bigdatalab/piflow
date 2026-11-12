@@ -362,8 +362,8 @@ async def read_corpus_file_records(
 
 
 @mcp.tool(
-    annotations={"title": "查看数据集目录", "readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
-    meta={"piflow": {"displayName": "查看数据集目录", "category": "数据集目录查看", "icon": "database-directory", "view_type": "directory", "riskLevel": "low", "version": "1.0.0", "tags": ["corpus", "dataset", "content"], "usageExample": _DIRECTORY_USAGE_EXAMPLE}},
+    annotations={"title": "查看数据内容", "readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+    meta={"piflow": {"displayName": "查看数据内容", "category": "数据内容查看", "icon": "database-directory", "view_type": "table", "riskLevel": "low", "version": "1.0.0", "tags": ["corpus", "dataset", "content"], "usageExample": _DIRECTORY_USAGE_EXAMPLE}},
 )
 async def get_corpus_dataset_directory(
     cstr: Annotated[str, Field(description="目录所属数据集的真实 CSTR，来自用户或检索/详情结果；不能用文件名或标题代替")],

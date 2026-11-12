@@ -203,6 +203,8 @@ def test_list_corpus_datasets_endpoint_passes_filters(monkeypatch):
                 "id": "dataset-1",
                 "title": "地震",
                 "from": "connector-1",
+                "source": "新闻资讯",
+                "dataSource": "浦江实验室",
             },
         )
 
@@ -212,6 +214,8 @@ def test_list_corpus_datasets_endpoint_passes_filters(monkeypatch):
     assert seen["filters"]["id"] == "dataset-1"
     assert seen["filters"]["title"] == "地震"
     assert seen["filters"]["from"] == "connector-1"
+    assert seen["filters"]["source"] == "新闻资讯"
+    assert seen["filters"]["dataSource"] == "浦江实验室"
 
 
 def test_list_corpus_datasets_v2_endpoint_passes_filters(monkeypatch):

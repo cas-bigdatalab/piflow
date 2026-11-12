@@ -74,6 +74,7 @@ class CorpusDatasetListRequest(CorpusPageListRequest):
     geographicCoverage: str | None = None
     language: str | None = None
     source: str | None = None
+    dataSource: str | None = None
     cover: str | None = None
     fundingProject: str | None = None
     copyRight: str | None = None
