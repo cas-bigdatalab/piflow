@@ -1,20 +1,19 @@
-"""Real MCP and QA scheduling with deterministic upstream and object storage."""
+"""Real MCP, local file storage and QA scheduling with deterministic upstream."""
 import asyncio
 from copy import deepcopy
 import csv
 import io
 import json
-from pathlib import Path
 from types import SimpleNamespace
 import time
 
 from fastmcp import Client
-from minio.error import S3Error
 import pytest
 
 from services import corpus_connector_service as backend
 from mcp_servers.corpus_mcp import mcp
 from ..artifacts import execution_metadata
+from ..artifact_storage import LocalArtifactStore
 from ..contracts import Server
 from ..execution import Execution
 from ..mcp import MCPGateway, Tool
@@ -29,46 +28,21 @@ from .test_planning import approve
 SECRET = "test-only-file-execution-key"
 
 
-class ObjectResponse(io.BytesIO):
-    def release_conn(self):
-        pass
-
-
-class Objects:
-    def __init__(self):
-        self.data, self.writes = {}, []
-
-    def get_object(self, bucket, key):
-        if (bucket, key) not in self.data:
-            raise S3Error(response=None, code="NoSuchKey", message="missing", resource=key, request_id="", host_id="")
-        return ObjectResponse(self.data[bucket, key])
-
-    def put_object(self, bucket, key, data, length, **kwargs):
-        raw = data.read()
-        assert len(raw) == length
-        self.data[bucket, key] = raw
-        self.writes.append(key)
-
-    def fput_object(self, bucket, key, path, **kwargs):
-        self.data[bucket, key] = Path(path).read_bytes()
-        self.writes.append(key)
-
-    def stat_object(self, bucket, key):
-        return SimpleNamespace(size=len(self.data[bucket, key]))
-
-    def presigned_get_object(self, bucket, key, **kwargs):
-        return "https://storage.invalid/"+bucket+"/"+key+"?signature=test"
-
-
 @pytest.fixture
 def files(monkeypatch, tmp_path):
-    objects = Objects()
-    config = SimpleNamespace(secret_key=SECRET, base_prefix="results")
-    monkeypatch.setattr(backend, "_result_storage", lambda: SimpleNamespace(
-        client=objects, config=config, workspace=SimpleNamespace(temp=tmp_path)))
-    from .. import service as service_module
-    original = execution_metadata
-    monkeypatch.setattr(service_module, "execution_metadata", lambda *args: original(*args, secret=SECRET))
+    monkeypatch.setenv("DATASET_QA_ARTIFACT_ROOT", str(tmp_path))
+    monkeypatch.setenv("DATASET_QA_ARTIFACT_SIGNING_KEY", SECRET)
+    monkeypatch.setenv("DATASET_QA_ARTIFACT_BASE_URL", "https://testserver/api/piflow/v1/mcp")
+    writes = []
+    put_file, put_json = LocalArtifactStore.put_file, LocalArtifactStore.put_json
+    def record_file(store, key, path, fmt):
+        put_file(store, key, path, fmt)
+        writes.append(key+"/data."+fmt)
+    def record_manifest(store, key, body):
+        put_json(store, key, body)
+        writes.append(key+"/manifest.json")
+    monkeypatch.setattr(LocalArtifactStore, "put_file", record_file)
+    monkeypatch.setattr(LocalArtifactStore, "put_json", record_manifest)
     requests = []
     rows = [
         {"CID": 1, "SMILES": "CC", "MolecularWeight": "100", "XLogP": -1},
@@ -82,7 +56,7 @@ def files(monkeypatch, tmp_path):
             return {"IdentifierList": {"CID": [1, 2, 2, 3, 4]}}
         return {"PropertyTable": {"Properties": deepcopy(rows)}}
     monkeypatch.setattr(backend, "_pubchem_request", request)
-    return SimpleNamespace(objects=objects, requests=requests, rows=rows)
+    return SimpleNamespace(root=tmp_path, writes=writes, requests=requests, rows=rows)
 
 
 def query_args(**kwargs):
@@ -114,12 +88,12 @@ def test_filter_limits_counts_replay_and_csv_contents(files):
     assert len(files.requests) == 2
     exported = run_export(value["resource"])
     assert exported["record_count"] == 2 and exported["target_met"] is False
-    bodies = [body for (_, key), body in files.objects.data.items() if key.endswith(".csv")]
-    records = list(csv.DictReader(io.StringIO(bodies[0].decode())))
+    body = next(files.root.glob("*/*/data.csv")).read_text(encoding="utf-8")
+    records = list(csv.DictReader(io.StringIO(body)))
     assert [row["CID"] for row in records] == ["1", "2"]
-    writes = len(files.objects.writes)
+    writes = len(files.writes)
     assert run_export(value["resource"])["resource"]["sha256"] == exported["resource"]["sha256"]
-    assert len(files.objects.writes) == writes and len(files.requests) == 2
+    assert len(files.writes) == writes and len(files.requests) == 2
 
 
 @pytest.mark.parametrize("mutation", ["identity", "arguments", "deadline", "missing", "number", "string", "boolean"])
@@ -140,7 +114,7 @@ def test_execution_identity_cannot_be_forged(files, mutation):
         meta = {}
     with pytest.raises(ValueError):
         backend.query_pubchem_records(**args, execution=meta)
-    assert not files.requests and not files.objects.writes
+    assert not files.requests and not files.writes
 
 
 def test_cross_user_and_tampered_resource_rejected(files):
@@ -167,8 +141,8 @@ def test_csv_roundtrip_keeps_original_numeric_and_null_types(files):
 
 def test_corrupted_file_is_not_exported_as_valid(files):
     resource = run_query()["resource"]
-    key = next(key for key in files.objects.data if key[1].endswith("data.jsonl"))
-    files.objects.data[key] = files.objects.data[key].replace(b'100.0', b'999.0')
+    path = next(files.root.glob("*/*/data.jsonl"))
+    path.write_bytes(path.read_bytes().replace(b'100.0', b'999.0'))
     with pytest.raises(ValueError, match="版本"):
         run_export(resource)
 
@@ -288,7 +262,25 @@ def test_concurrent_exports_share_one_verified_file(files):
     with ThreadPoolExecutor(max_workers=2) as pool:
         outputs = list(pool.map(lambda _: run_export(resource), range(2)))
     assert outputs[0]["resource"]["sha256"] == outputs[1]["resource"]["sha256"]
-    assert len([name for name in files.objects.writes if name.endswith(".csv")]) == 1
+    assert len([name for name in files.writes if name.endswith(".csv")]) == 1
+
+
+@pytest.mark.parametrize("expired", [False, True])
+def test_rate_slot_releases_connection_after_commit_or_interruption(tmp_path, monkeypatch, expired):
+    connect, connections = backend.sqlite3.connect, []
+    def capture(*args, **kwargs):
+        conn = connect(*args, **kwargs)
+        connections.append(conn)
+        return conn
+    monkeypatch.setattr(backend.sqlite3, "connect", capture)
+    if expired:
+        with pytest.raises(TimeoutError):
+            backend._pubchem_slot(tmp_path, time.time()-1)
+    else:
+        backend._pubchem_slot(tmp_path, time.time()+10)
+    assert len(connections) == 1
+    with pytest.raises(backend.sqlite3.ProgrammingError, match="closed"):
+        connections[0].execute("SELECT 1")
 
 
 @pytest.mark.parametrize("overrides", [{}, {"similarity_threshold": 80.0}, {"limit": 1000.0},

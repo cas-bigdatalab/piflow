@@ -540,6 +540,12 @@ class ToolSession:
             raise QAError("execution_unknown", "MCP调用中断，无法确认执行结果；未继续重试", 502) from exc
         if getattr(result, "is_error", getattr(result, "isError", False)):
             detail, _ = project([b.text for b in getattr(result, "content", []) if getattr(b, "type", None)=="text"], 2000)
+            # Explicit protocol metadata only; never infer a business outcome
+            # from error text, tool names, or provider-specific response bodies.
+            meta = getattr(result, "meta", None)
+            outcome = meta.get("piflow") if isinstance(meta, dict) else None
+            if isinstance(outcome, dict) and outcome.get("error_code") == "artifact_unavailable":
+                raise QAError("artifact_unavailable", "结果文件尚未准备好", 503, detail=detail)
             raise QAError("tool_failed", "MCP工具返回错误", 502, detail=detail)
         # Only protocol-level errors are interpreted here. Business envelopes,
         # status codes, resource IDs and output structures belong to the server.

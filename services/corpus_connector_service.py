@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import io
-import base64
 import csv
 import hashlib
 import hmac
@@ -10,7 +9,7 @@ import logging
 import os
 import sqlite3
 import tempfile
-from contextlib import contextmanager
+from contextlib import closing, contextmanager
 import json
 import re
 import secrets
@@ -30,6 +29,10 @@ from botocore.awsrequest import AWSRequest
 from botocore.credentials import Credentials
 
 from infra.config_loader import get_settings
+from scientific_agents.dataset_qa.artifact_storage import (
+    ArtifactStorageError, LocalArtifactStore, StorageConfig,
+    check_identity, sign_token, storage_operation, verify_token,
+)
 
 REQUEST_TIMEOUT = 30
 DATASET_PREVIEW_TIMEOUT = 600
@@ -2339,7 +2342,7 @@ def _normalize_required_text(value: Any, *, field_name: str) -> str:
 
 
 # File-producing MCP services. References are portable across MCP/QA processes;
-# no agent imports or conversation state are used in this execution layer.
+# only storage primitives, not an agent runtime or conversation state, are shared.
 _PUBCHEM_ROOT = "https://pubchem.ncbi.nlm.nih.gov/rest/pug"
 _COMPOUND_FIELDS = ("CID", "SMILES", "MolecularWeight", "XLogP")
 _FILTER_FIELDS = frozenset({"MolecularWeight", "XLogP"})
@@ -2427,65 +2430,48 @@ def _file_execution_lock(path, deadline):
 
 
 class _ResultFiles:
-    """Existing object storage, plus signed handles and atomic result manifests."""
+    """Owned local resource handles and committed result manifests."""
     def __init__(self, metadata, arguments):
-        from services.object_storage_service import resolve_bucket_name
-        self.storage = _result_storage()
-        self.secret = self.storage.config.secret_key
+        self.config = StorageConfig.load()
+        self.secret = self.config.secret
         self.context = _check_execution(metadata, arguments, self.secret)
-        self.user = self.context["user"]
-        self.owner = hashlib.sha256(self.user.encode()).hexdigest()
-        self.bucket = resolve_bucket_name(self.user)
-        self.prefix = "/".join(filter(None, [self.storage.config.base_prefix.strip("/"), "qa-artifacts", self.owner]))
-        self.root = self.storage.workspace.temp / "qa-file-execution"
-        self.root.mkdir(parents=True, exist_ok=True)
+        self.owner = hashlib.sha256(self.context["user"].encode()).hexdigest()
+        self.root = self.config.root / ".execution"
+        self.storage = LocalArtifactStore(self.config, self.owner)
+        self.storage.prepare()
+        with storage_operation():
+            self.root.mkdir(parents=True, exist_ok=True, mode=0o700)
 
     def token(self, key):
-        body = {"owner": self.owner, "key": key}
-        encoded = base64.urlsafe_b64encode(_canonical(body).encode()).decode().rstrip("=")
-        return "v1."+encoded+"."+_signature(self.secret, "qa-resource-v1", body)
+        # Retain the existing local handle format so saved references stay valid.
+        body = {"owner": self.owner, "key": key, "backend": "local"}
+        return "v2."+sign_token(self.secret, "qa-resource-v2", body)
 
     def resolve(self, token):
         try:
-            version, encoded, signature = token.split(".")
-            if len(encoded) > 2000 or version != "v1":
+            version, signed = token.split(".", 1)
+            if version != "v2":
                 raise ValueError()
-            body = json.loads(base64.urlsafe_b64decode(encoded+"="*(-len(encoded)%4)))
-            if (body.get("owner") != self.owner or not re.fullmatch(r"[a-f0-9]{64}", body.get("key", ""))
-                    or not hmac.compare_digest(signature, _signature(self.secret, "qa-resource-v1", body))):
+            body = verify_token(self.secret, "qa-resource-v2", signed)
+            if set(body) != {"owner", "key", "backend"} or body["backend"] != "local":
+                raise ValueError()
+            check_identity(body.get("owner"), body.get("key"))
+            if body["owner"] != self.owner:
                 raise ValueError()
             return body["key"]
-        except (ValueError, TypeError, KeyError, UnicodeError) as exc:
+        except (ValueError, TypeError, KeyError, UnicodeError, AttributeError) as exc:
             raise ValueError("请选择当前用户已经取得的有效结果文件") from exc
 
-    def _read_json(self, object_key):
-        from minio.error import S3Error
-        try:
-            response = self.storage.client.get_object(self.bucket, object_key)
-        except S3Error as exc:
-            if exc.code in {"NoSuchKey", "NoSuchObject"}:
-                return None
-            raise
-        try:
-            raw = response.read(256 * 1024 + 1)
-            if len(raw) > 256 * 1024:
-                raise ValueError("结果清单超过支持范围")
-            return json.loads(raw)
-        finally:
-            response.close()
-            response.release_conn()
-
     def previous(self, key):
-        value = self._read_json(f"{self.prefix}/{key}/manifest.json")
-        if value and value.get("resource"):
-            resource = value["resource"]
-            stat = self.storage.client.stat_object(self.bucket, f"{self.prefix}/{key}/data.{resource['format']}")
-            if stat.size != resource["size_bytes"]:
-                raise ValueError("已保存的结果文件需要重新核实")
-            resource["downloadUrl"] = self.storage.client.presigned_get_object(self.bucket,
-                f"{self.prefix}/{key}/data.{resource['format']}", expires=timedelta(hours=1))
-            value["downloadUrl"] = resource["downloadUrl"]
-        return value
+        with storage_operation():
+            value = self.storage.read_json(key)
+            if value and value.get("resource"):
+                resource = value["resource"]
+                if resource.get("format") not in {"csv", "jsonl"} or self.storage.stat_size(key, resource["format"]) != resource["size_bytes"]:
+                    raise ArtifactStorageError("已保存的结果文件需要重新核实")
+                resource["downloadUrl"] = self.storage.url(key, resource)
+                value["downloadUrl"] = resource["downloadUrl"]
+            return value
 
     def save(self, key, path, value, fields, count, fmt, name):
         _checkpoint(self.context["deadline"])
@@ -2496,12 +2482,9 @@ class _ResultFiles:
         size = path.stat().st_size
         if size > _RESULT_BYTES:
             raise ValueError("结果超过本次文件大小预算")
-        object_key = f"{self.prefix}/{key}/data.{fmt}"
-        self.storage.client.fput_object(self.bucket, object_key, str(path),
-            content_type="text/csv; charset=utf-8" if fmt == "csv" else "application/x-ndjson")
-        stat = self.storage.client.stat_object(self.bucket, object_key)
-        if stat.size != size:
-            raise ValueError("结果文件尚未完整保存")
+        self.storage.put_file(key, path, fmt)
+        if self.storage.stat_size(key, fmt) != size:
+            raise ArtifactStorageError("结果文件尚未完整保存")
         result = {**value, "record_count": count, "resource": {"source_ref": self.token(key),
             "name": name, "format": fmt, "fields": list(fields), "record_count": count,
             "size_bytes": size, "sha256": checksum.hexdigest()}}
@@ -2509,8 +2492,7 @@ class _ResultFiles:
 
     def save_outcome(self, key, result):
         body = _canonical(result).encode()
-        self.storage.client.put_object(self.bucket, f"{self.prefix}/{key}/manifest.json",
-            io.BytesIO(body), len(body), content_type="application/json")
+        self.storage.put_json(key, body)
         return self.previous(key)
 
     def rows(self, source_ref, depth=0):
@@ -2519,41 +2501,27 @@ class _ResultFiles:
         key = self.resolve(source_ref)
         result = self.previous(key)
         if not result or not result.get("resource"):
-            raise ValueError("所选结果文件当前不可用")
+            raise ArtifactStorageError("所选结果文件当前不可用")
         resource = result["resource"]
-        response = self.storage.client.get_object(self.bucket, f"{self.prefix}/{key}/data.{resource['format']}")
-        try:
-            raw = response.read(_RESULT_BYTES+1)
-            if len(raw) > _RESULT_BYTES or hashlib.sha256(raw).hexdigest() != resource["sha256"]:
-                raise ValueError("所选文件与已保存版本不一致")
-            text = raw.decode("utf-8-sig")
-            if resource["format"] == "csv" and result.get("parent_source_ref"):
-                _, rows = self.rows(result["parent_source_ref"], depth+1)
-            else:
-                rows = [json.loads(line) for line in text.splitlines() if line.strip()] if resource["format"] == "jsonl" else list(csv.DictReader(io.StringIO(text)))
-            if len(rows) != resource["record_count"] or any(not isinstance(row, dict) for row in rows):
-                raise ValueError("所选文件的记录信息不一致")
-            return result, rows
-        finally:
-            response.close()
-            response.release_conn()
-
-
-def _result_storage():
-    from minio import Minio
-    from urllib3 import PoolManager, Timeout
-    from services.object_storage_service import ObjectStorageService
-    settings = get_settings().minio
-    client = Minio(settings.endpoint, access_key=settings.access_key, secret_key=settings.secret_key,
-        secure=settings.secure, http_client=PoolManager(timeout=Timeout(connect=5, read=20), retries=False))
-    return ObjectStorageService(client=client)
+        with storage_operation():
+            raw = self.storage.read_bytes(key, resource["format"], _RESULT_BYTES)
+        if len(raw) > _RESULT_BYTES or hashlib.sha256(raw).hexdigest() != resource["sha256"]:
+            raise ArtifactStorageError("所选文件与已保存版本不一致")
+        text = raw.decode("utf-8-sig")
+        if resource["format"] == "csv" and result.get("parent_source_ref"):
+            _, rows = self.rows(result["parent_source_ref"], depth+1)
+        else:
+            rows = [json.loads(line) for line in text.splitlines() if line.strip()] if resource["format"] == "jsonl" else list(csv.DictReader(io.StringIO(text)))
+        if len(rows) != resource["record_count"] or any(not isinstance(row, dict) for row in rows):
+            raise ArtifactStorageError("所选文件的记录信息不一致")
+        return result, rows
 
 
 def _pubchem_slot(root, deadline):
     # Shared by workers on this backend host, rather than one limiter per user.
     # A short SQLite transaction reserves a slot without holding it over HTTP.
     root.mkdir(parents=True, exist_ok=True)
-    with sqlite3.connect(str(root / "pubchem-rate.sqlite"), timeout=2) as conn:
+    with closing(sqlite3.connect(str(root / "pubchem-rate.sqlite"), timeout=2)) as conn, conn:
         conn.execute("CREATE TABLE IF NOT EXISTS rate (id INTEGER PRIMARY KEY, next_at REAL NOT NULL)")
         conn.execute("BEGIN IMMEDIATE")
         row = conn.execute("SELECT next_at FROM rate WHERE id=1").fetchone()
@@ -2716,8 +2684,8 @@ def export_record_file(source_ref, format="csv", *, execution=None):
     files = _ResultFiles(execution, arguments)
     if format not in {"csv", "jsonl"}:
         raise ValueError("当前支持导出 CSV 或 JSONL")
-    source_key = files.resolve(source_ref)
-    key = _digest(["export-v1", source_key, format])
+    files.resolve(source_ref)
+    key = _digest(["export-v2", source_ref, format])
     with _file_execution_lock(files.root / (key+".lock"), files.context["deadline"]):
         if previous := files.previous(key):
             return previous

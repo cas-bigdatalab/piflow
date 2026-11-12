@@ -66,6 +66,8 @@ def recovery_search_summary(operations, cards):
 
 def notice(error, retained=False, subject=None):
     code = _code(error)
+    if code == "artifact_unavailable":
+        return ("已取得的结果仍保留。" if retained else "")+"本次结果文件尚未准备好，当前还不能提供下载。您可以稍后让我继续获取或导出。"
     if retained:
         return "已取得的结果已保留在下方，您可以先查看。其余内容目前还没有可确认的结果；您可以指定下一步要查看或处理的内容。"
     detail = error.get("detail") if isinstance(error, dict) else getattr(error, "detail", None)

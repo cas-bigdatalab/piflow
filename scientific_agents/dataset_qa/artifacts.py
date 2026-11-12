@@ -27,12 +27,15 @@ class ArtifactSpec(BaseModel):
 def execution_metadata(user, request_id, arguments, seconds, *, secret=None):
     """Sign out-of-band execution identity; never put credentials in the model schema."""
     if secret is None:
-        from infra.config_loader import get_settings
-        secret = get_settings().minio.secret_key
+        from .artifact_storage import ArtifactStorageError, signing_key
+        try:
+            secret = signing_key()
+        except ArtifactStorageError as exc:
+            raise QAError("artifact_unavailable", "当前结果存储尚未就绪", 503) from exc
     if seconds <= 0:
         raise QAError("step_limit", "本轮已到处理时限，已取得的结果仍保留")
     if not secret:
-        raise QAError("mcp_unavailable", "当前结果存储尚未就绪", 503)
+        raise QAError("artifact_unavailable", "当前结果存储尚未就绪", 503)
     body = {"user": user, "request_id": request_id,
         "arguments": sha256(_json(_canonical_numbers(arguments)).encode()).hexdigest(),
         "deadline": time.time() + max(1, min(seconds, 480))}
