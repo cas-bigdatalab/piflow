@@ -1,7 +1,11 @@
 """Local artifact storage shared by producers and callers; no agent runtime.
 
 DATASET_QA_ARTIFACT_ROOT: private persistent directory, defaults to a sibling of workspace.
-DATASET_QA_ARTIFACT_BASE_URL: externally reachable MCP HTTP base, required for local downloads.
+DATASET_QA_ARTIFACT_BASE_URL: optional public MCP HTTP base override. The QA HTTP
+adapter supplies the mounted download route for in-process tools; remote HTTP
+tools use their own request origin/mount. Non-HTTP callers need an explicit base.
+An internal MCP address requires a public override when clients cannot reach it.
+Never infer a hostname from a bind address or client IP.
 DATASET_QA_ARTIFACT_SIGNING_KEY: optional explicit key, shared by QA and MCP processes.
 Without it, .signing-key is initialized once in the private persistent root.
 Processes using automatic keys must share that root; never regenerate a lost key
@@ -11,6 +15,7 @@ Configuration is checked only when artifacts are used. Existing read-only tools
 do not require artifact storage. Neither credentials nor paths are model inputs.
 """
 from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass, field
 import base64
 import hashlib
@@ -25,6 +30,19 @@ import stat
 import tempfile
 import time
 from urllib.parse import quote, urlsplit
+
+
+_download_base = ContextVar("artifact_download_base", default="")
+
+
+@contextmanager
+def download_base_context(base_url):
+    """Transport-supplied delivery origin, isolated across tasks and worker threads."""
+    token = _download_base.set(base_url or "")
+    try:
+        yield
+    finally:
+        _download_base.reset(token)
 
 
 class ArtifactStorageError(ValueError):
@@ -116,18 +134,18 @@ class StorageConfig:
     @classmethod
     def load(cls):
         root = persistent_root()
-        return cls(root, signing_key(root),
-                   os.environ.get("DATASET_QA_ARTIFACT_BASE_URL", "").strip().rstrip("/"))
+        base = os.environ.get("DATASET_QA_ARTIFACT_BASE_URL", "").strip() or _download_base.get()
+        return cls(root, signing_key(root), base.rstrip("/"))
 
     def download_base(self):
         try:
             url = urlsplit(self.base_url)
-            if (url.scheme not in {"http", "https"} or not url.hostname or url.username
-                    or url.password or url.query or url.fragment or url.port == 0
-                    or any(c.isspace() for c in self.base_url)):
+            if (url.scheme not in {"http", "https"} or not url.hostname or url.username or url.password
+                    or url.query or url.fragment or url.port == 0 or "\\" in self.base_url
+                    or any(c.isspace() or ord(c)<32 or ord(c)==127 for c in self.base_url)):
                 raise ValueError()
         except ValueError as exc:
-            raise ArtifactStorageError("DATASET_QA_ARTIFACT_BASE_URL must be an absolute MCP HTTP base URL", phase="configuration") from exc
+            raise ArtifactStorageError("Artifact downloads require an absolute MCP HTTP base URL", phase="configuration") from exc
         return self.base_url
 
 

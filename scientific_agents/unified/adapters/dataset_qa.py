@@ -4,8 +4,10 @@ import logging
 
 from fastapi import HTTPException
 from pydantic import ValidationError
+from starlette.routing import NoMatchFound
 
 from ..schemas import options
+from ...dataset_qa.artifact_storage import download_base_context
 from ...dataset_qa.contracts import Options, QAError
 
 
@@ -89,8 +91,16 @@ class DatasetQAAdapter:
             values = options(body, {*Options.model_fields, "detail"})
             values.pop("detail", None)
             opts = Options.model_validate(values)
-            async for value in self.service.stream(self.n.user, sid, body.user_request, body.request_id, opts, body.parent_task_id):
-                yield value
+            base = None
+            if request := getattr(self.n, "request", None):
+                try:
+                    route = request.url_for("download_artifact", token="_", name="_")
+                    base = str(route).removesuffix("/artifacts/_/_")
+                except NoMatchFound:
+                    pass  # Read-only QA and separately hosted MCP remain usable.
+            with download_base_context(base):
+                async for value in self.service.stream(self.n.user, sid, body.user_request, body.request_id, opts, body.parent_task_id):
+                    yield value
         except (QAError, ValidationError, HTTPException) as exc:
             yield {"type": "done", "status": "FAILED",
                 "code": exc.code if isinstance(exc, QAError) else "invalid_parameters",

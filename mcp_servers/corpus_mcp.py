@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from contextlib import nullcontext
 from functools import partial
 import logging
 from typing import Annotated, Any, Literal
@@ -9,13 +10,14 @@ from typing import Annotated, Any, Literal
 import anyio
 from fastmcp import FastMCP, Context
 from fastmcp.exceptions import ToolError
+from fastmcp.server.dependencies import get_http_request
 from fastmcp.tools.tool import ToolResult
 from mcp.types import CallToolResult, TextContent
 from pydantic import BaseModel, ConfigDict, Field
 from starlette.requests import Request
 from starlette.responses import FileResponse, JSONResponse
 
-from scientific_agents.dataset_qa.artifact_storage import ArtifactStorageError, local_download
+from scientific_agents.dataset_qa.artifact_storage import ArtifactStorageError, download_base_context, local_download
 
 from services.corpus_connector_service import (
     get_dataset_detail_by_cstr,
@@ -405,6 +407,18 @@ def _execution_context(ctx):
     return meta.get("piflow_execution", {})
 
 
+def _artifact_download_context():
+    # Use the ASGI origin/mount, including trusted proxy root_path. Do not parse
+    # forwarding headers ourselves or share a request's address process-wide.
+    try:
+        request = get_http_request()
+    except RuntimeError:
+        # Keep the original QA HTTP adapter's public origin for in-process MCP.
+        return nullcontext()
+    base = request.url.replace(path=request.scope.get("root_path", ""), query="", fragment="")
+    return download_base_context(str(base))
+
+
 class _ToolFailure(ToolResult):
     """Preserve typed error metadata through FastMCP's result conversion."""
     def to_mcp_result(self):
@@ -447,8 +461,9 @@ async def query_pubchem_compounds(
     """
     try:
         rules = [value.model_dump(exclude_unset=True) for value in filters] if filters is not None else None
-        return await anyio.to_thread.run_sync(partial(query_pubchem_records, smiles,
-            similarity_threshold, rules, limit, execution=_execution_context(ctx)))
+        with _artifact_download_context():
+            return await anyio.to_thread.run_sync(partial(query_pubchem_records, smiles,
+                similarity_threshold, rules, limit, execution=_execution_context(ctx)))
     except (ArtifactStorageError, OSError) as exc:
         return _artifact_error(exc)
     except ValueError as exc:
@@ -473,8 +488,9 @@ async def export_dataset(
     同一源文件与格式复用已校验的导出，刷新下载地址不重新检索。需签名执行上下文，同查询工具。
     """
     try:
-        return await anyio.to_thread.run_sync(partial(export_record_file, source_ref, format,
-            execution=_execution_context(ctx)))
+        with _artifact_download_context():
+            return await anyio.to_thread.run_sync(partial(export_record_file, source_ref, format,
+                execution=_execution_context(ctx)))
     except (ArtifactStorageError, OSError) as exc:
         return _artifact_error(exc)
     except ValueError as exc:
