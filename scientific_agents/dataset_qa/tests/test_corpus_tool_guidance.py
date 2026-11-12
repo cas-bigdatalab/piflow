@@ -28,7 +28,9 @@ def test_relevant_tool_is_loaded_from_real_descriptions_on_cold_and_warm_start(q
                 assert expected in {tool.name for tool in tools.loaded.values()}
                 assert not tools.definition_errors.get("piflow-corpus")
                 tool = next(tool for tool in tools.loaded.values() if tool.name==expected)
-                assert tool.definition()["function"]["description"]==tool.description
+                from ..capabilities import profile
+                contract = profile(tool).result
+                assert tool.definition()["function"]["description"] == tool.description + "\nQA outcome kind: " + (contract.kind if contract else tool.name)
     asyncio.run(run())
 
 
@@ -39,7 +41,8 @@ def test_six_tools_keep_schema_and_record_inputs_separate():
         async with MCPGateway({"piflow-corpus": Server(mcp)}).session() as tools:
             catalogue = {tool.name: tool for tool in await tools.tools("piflow-corpus")}
             assert set(catalogue)=={"search_corpus_datasets", "get_corpus_dataset_detail", "get_corpus_dataset_directory",
-                "sample_corpus_dataset", "get_corpus_file_schema", "read_corpus_file_records"}
+                "sample_corpus_dataset", "get_corpus_file_schema", "read_corpus_file_records",
+                "query_pubchem_compounds", "export_dataset"}
             schema = catalogue["get_corpus_file_schema"]
             records = catalogue["read_corpus_file_records"]
             assert profile(schema).target_kind==profile(records).target_kind=="file"

@@ -33,7 +33,7 @@ class Execution:
         return bool(self.operations.required) and all(item["state"]=="succeeded" for item in self.operations.required)
 
     def actions(self, loaded):
-        names = {"read_result", "remember", "request_input", "resolve_resource"}
+        names = {"read_result", "remember", "request_input", "resolve_resource", "find_artifacts"}
         if not self.operations.items and not self.cards and not self.failures:
             names.add("respond_from_context")
         if not (self.finalizing and all(item.get("direct") and item["output"]=="result" for item in self.operations.required)) or self.recovering:
@@ -49,7 +49,7 @@ class Execution:
         if searching:
             allowed = {alias for alias, tool in loaded.items()
                 if any(item.get("capability")=={"server": tool.server, "name": tool.name} for item in searching)}
-            names -= {"list_mcp_servers", "load_mcp_tools", "deliver_results", "remember", "resolve_resource", *set(loaded)-allowed}
+            names -= {"list_mcp_servers", "load_mcp_tools", "deliver_results", "remember", "resolve_resource", "find_artifacts", *set(loaded)-allowed}
         return names
 
     def progress(self, observations, limit):
@@ -109,6 +109,8 @@ class Execution:
             state["operations"] = [{key: item[key] for key in ("id", "description", "target", "output")}
                 for item in self.operations.items]
             markers = {(name, fingerprint(state))}
+        elif name=="find_artifacts":
+            markers = {(name, fingerprint(value.get("data", value)))}
         elif name=="read_result":
             args = arguments or {}
             markers = {(name, args.get("result_id"), args.get("path", ""), args.get("offset", 0),

@@ -24,7 +24,9 @@ SPEC = dict(identity=["dataset"], parent="folder", nodes=["/nodes", "/data/nodes
     node_id="/key", name="/filename", is_file="/leaf", download_url="/url", status=["/code"])
 DIRECTORY = dict(bind={"dataset": ["/identity"]}, directory=SPEC, atomic=True)
 READ = dict(bind={"url": ["/url"]}, atomic=True, target_kind="file")
-POLICY = IndexPolicy(poll_seconds=0.02, lookup_wait=0.3, request_timeout=0.2, lease_seconds=1)
+# Successful traversal waits for completion, not a sub-second scheduling SLA.
+# Timeout/cancellation cases below supply their own deliberately short bounds.
+POLICY = IndexPolicy(poll_seconds=0.02, lookup_wait=3, request_timeout=1, lease_seconds=4)
 
 
 def node(key, name, leaf=False):

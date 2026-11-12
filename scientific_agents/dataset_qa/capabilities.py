@@ -15,6 +15,9 @@ from .context import pointer_tokens
 from .references import at_path, identifier_in_request
 from .search import SearchProfile, TaskDirective
 from .resource_index.model import DirectorySpec
+from .planning import ResultContract
+from .routing import Routing
+from .artifacts import ArtifactSpec
 
 
 PROFILES = {
@@ -29,10 +32,19 @@ PROFILES = {
             "status": ["/code", "/data/code"]}},
     ("piflow-corpus", "sample_corpus_dataset"): {"label": "采样结果", "atomic": True, "bind": {"cstr": ["/cstr", "/raw/cstr"]}},
     ("piflow-corpus", "get_corpus_file_schema"): {"label": "文件字段结构", "atomic": True,
+        "result": {"kind": "schema", "requires": [{"path": "/schema"},
+            {"path": "/warnings", "test": "at_most", "value": 0, "optional": True}],
+            "unavailable_when": [{"path": "/previewable", "test": "equals", "value": False}]},
         "target_kind": "file", "bind": {"download_url": ["/downloadUrl"]}},
     ("piflow-corpus", "read_corpus_file_records"): {"label": "文件样例记录", "atomic": True,
+        "result": {"kind": "records", "requires": [{"path": "/data"},
+            {"path": "/warnings", "test": "at_most", "value": 0, "optional": True}],
+            "unavailable_when": [{"path": "/previewable", "test": "equals", "value": False}]},
         "target_kind": "file", "bind": {"download_url": ["/downloadUrl"]}},
 }
+for _name, _descriptor in PROFILES.items():
+    _descriptor["routing"] = {"group": "corpus", "source": "corpus",
+        "operations": [_name[1]], "inputs": [], "outputs": []}
 OBJECT = "__qa_object"
 SUPPORTING = "__qa_supporting"
 GOAL = "__qa_goal"
@@ -50,6 +62,9 @@ class Profile(BaseModel):
     search: SearchProfile | None = None
     directory: DirectorySpec | None = None
     target_kind: Literal["dataset", "file"] = "dataset"
+    result: ResultContract | None = None
+    routing: Routing | None = None
+    artifact: ArtifactSpec | None = None
 
 
 def profile(tool):
@@ -60,6 +75,13 @@ def profile(tool):
     except ValidationError as exc:
         raise QAError("invalid_schema", "服务的对象绑定定义无效", 502) from exc
     properties = tool.schema.get("properties", {})
+    if result.artifact:
+        if result.artifact.consume and result.artifact.consume not in properties:
+            raise QAError("invalid_schema", "产物输入字段不在工具定义中", 502)
+        if result.artifact.replay_safe and (not result.artifact.execution_context
+                or tool.annotations.get("idempotentHint") is not True
+                or tool.annotations.get("destructiveHint") is not False):
+            raise QAError("invalid_schema", "产物重放须声明幂等执行上下文及无破坏性", 502)
     if any(key not in properties or not paths
             for key, paths in result.bind.items()):
         raise QAError("invalid_schema", "服务的对象绑定字段或来源路径无效", 502)
@@ -73,6 +95,11 @@ def profile(tool):
     if result.directory and any(key not in properties for key in [*result.directory.identity, result.directory.parent]):
         raise QAError("invalid_schema", "目录索引的身份或父节点参数无效", 502)
     try:
+        if result.artifact:
+            pointer_tokens(result.artifact.path)
+        if result.result:
+            for path in result.result.target_paths:
+                pointer_tokens(path)
         for path in [result.collection, result.object, *(path for paths in result.bind.values() for path in paths)]:
             if path is not None:
                 pointer_tokens(path)
@@ -138,8 +165,10 @@ def definition(tool):
                 task["properties"].pop("original_keywords", None)
             schema["properties"][TASK] = task
             schema.setdefault("required", []).append(TASK)
+    contract = profile(tool).result
+    kind = contract.kind if contract else tool.name
     return {"type": "function", "function": {"name": tool.alias,
-        "description": tool.description, "parameters": schema}}
+        "description": tool.description+"\nQA outcome kind: "+kind, "parameters": schema}}
 
 
 def inputs(tool, arguments, record=None):

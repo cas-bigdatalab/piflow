@@ -1,6 +1,16 @@
 from __future__ import annotations
 
 import io
+import base64
+import csv
+import hashlib
+import hmac
+import math
+import logging
+import os
+import sqlite3
+import tempfile
+from contextlib import contextmanager
 import json
 import re
 import secrets
@@ -2326,3 +2336,405 @@ def _normalize_required_text(value: Any, *, field_name: str) -> str:
     if not text:
         raise ValueError(f"{field_name} is required")
     return text
+
+
+# File-producing MCP services. References are portable across MCP/QA processes;
+# no agent imports or conversation state are used in this execution layer.
+_PUBCHEM_ROOT = "https://pubchem.ncbi.nlm.nih.gov/rest/pug"
+_COMPOUND_FIELDS = ("CID", "SMILES", "MolecularWeight", "XLogP")
+_FILTER_FIELDS = frozenset({"MolecularWeight", "XLogP"})
+_CANDIDATE_LIMIT = 20000
+_RESULT_BYTES = 64 * 1024 * 1024
+
+
+def _canonical(value):
+    return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False)
+
+
+def _digest(value):
+    return hashlib.sha256(_canonical(_canonical_numbers(value)).encode()).hexdigest()
+
+
+def _canonical_numbers(value):
+    # Execution protocol shared with callers, without importing an agent.
+    # Normalize only numeric identity; stored record serialization is unchanged.
+    if isinstance(value, dict):
+        return {key: _canonical_numbers(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_canonical_numbers(item) for item in value]
+    return int(value) if isinstance(value, float) and value.is_integer() else value
+
+
+def _signature(secret, domain, value):
+    return hmac.new(str(secret).encode(), (domain+"\n"+_canonical(value)).encode(), "sha256").hexdigest()
+
+
+def _check_execution(metadata, arguments, secret):
+    context = dict(metadata or {})
+    signature = context.pop("signature", "")
+    if (not secret or not hmac.compare_digest(str(signature), _signature(secret, "qa-execution-v1", context))
+            or context.get("arguments") != _digest(arguments)
+            or not isinstance(context.get("user"), str) or not context["user"]
+            or not isinstance(context.get("request_id"), str) or not context["request_id"]
+            or type(context.get("deadline")) not in {int, float}
+            or not time.time() < context["deadline"] <= time.time()+600):
+        raise ValueError("需要有效的调用方执行凭据")
+    return context
+
+
+def _checkpoint(deadline):
+    # anyio workers can observe cancellation between HTTP batches and before
+    # publishing a completed file. Direct service callers have no cancel scope.
+    import anyio
+    try:
+        anyio.from_thread.check_cancelled()
+    except RuntimeError:
+        pass
+    if time.time() >= deadline:
+        raise TimeoutError("本次数据获取时间预算已用完")
+
+
+@contextmanager
+def _file_execution_lock(path, deadline):
+    """Per-operation cross-process lock; independent requests do not block each other."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a+b") as handle:
+        handle.seek(0, 2)
+        if handle.tell() == 0:
+            handle.write(b"0")
+            handle.flush()
+        while True:
+            _checkpoint(deadline)
+            try:
+                handle.seek(0)
+                if os.name == "nt":
+                    import msvcrt
+                    msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
+                else:
+                    import fcntl
+                    fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                break
+            except (BlockingIOError, OSError):
+                time.sleep(0.1)
+        try:
+            yield
+        finally:
+            if os.name == "nt":
+                handle.seek(0)
+                msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
+            else:
+                fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+
+
+class _ResultFiles:
+    """Existing object storage, plus signed handles and atomic result manifests."""
+    def __init__(self, metadata, arguments):
+        from services.object_storage_service import resolve_bucket_name
+        self.storage = _result_storage()
+        self.secret = self.storage.config.secret_key
+        self.context = _check_execution(metadata, arguments, self.secret)
+        self.user = self.context["user"]
+        self.owner = hashlib.sha256(self.user.encode()).hexdigest()
+        self.bucket = resolve_bucket_name(self.user)
+        self.prefix = "/".join(filter(None, [self.storage.config.base_prefix.strip("/"), "qa-artifacts", self.owner]))
+        self.root = self.storage.workspace.temp / "qa-file-execution"
+        self.root.mkdir(parents=True, exist_ok=True)
+
+    def token(self, key):
+        body = {"owner": self.owner, "key": key}
+        encoded = base64.urlsafe_b64encode(_canonical(body).encode()).decode().rstrip("=")
+        return "v1."+encoded+"."+_signature(self.secret, "qa-resource-v1", body)
+
+    def resolve(self, token):
+        try:
+            version, encoded, signature = token.split(".")
+            if len(encoded) > 2000 or version != "v1":
+                raise ValueError()
+            body = json.loads(base64.urlsafe_b64decode(encoded+"="*(-len(encoded)%4)))
+            if (body.get("owner") != self.owner or not re.fullmatch(r"[a-f0-9]{64}", body.get("key", ""))
+                    or not hmac.compare_digest(signature, _signature(self.secret, "qa-resource-v1", body))):
+                raise ValueError()
+            return body["key"]
+        except (ValueError, TypeError, KeyError, UnicodeError) as exc:
+            raise ValueError("请选择当前用户已经取得的有效结果文件") from exc
+
+    def _read_json(self, object_key):
+        from minio.error import S3Error
+        try:
+            response = self.storage.client.get_object(self.bucket, object_key)
+        except S3Error as exc:
+            if exc.code in {"NoSuchKey", "NoSuchObject"}:
+                return None
+            raise
+        try:
+            raw = response.read(256 * 1024 + 1)
+            if len(raw) > 256 * 1024:
+                raise ValueError("结果清单超过支持范围")
+            return json.loads(raw)
+        finally:
+            response.close()
+            response.release_conn()
+
+    def previous(self, key):
+        value = self._read_json(f"{self.prefix}/{key}/manifest.json")
+        if value and value.get("resource"):
+            resource = value["resource"]
+            stat = self.storage.client.stat_object(self.bucket, f"{self.prefix}/{key}/data.{resource['format']}")
+            if stat.size != resource["size_bytes"]:
+                raise ValueError("已保存的结果文件需要重新核实")
+            resource["downloadUrl"] = self.storage.client.presigned_get_object(self.bucket,
+                f"{self.prefix}/{key}/data.{resource['format']}", expires=timedelta(hours=1))
+            value["downloadUrl"] = resource["downloadUrl"]
+        return value
+
+    def save(self, key, path, value, fields, count, fmt, name):
+        _checkpoint(self.context["deadline"])
+        checksum = hashlib.sha256()
+        with path.open("rb") as data:
+            for chunk in iter(lambda: data.read(1024 * 1024), b""):
+                checksum.update(chunk)
+        size = path.stat().st_size
+        if size > _RESULT_BYTES:
+            raise ValueError("结果超过本次文件大小预算")
+        object_key = f"{self.prefix}/{key}/data.{fmt}"
+        self.storage.client.fput_object(self.bucket, object_key, str(path),
+            content_type="text/csv; charset=utf-8" if fmt == "csv" else "application/x-ndjson")
+        stat = self.storage.client.stat_object(self.bucket, object_key)
+        if stat.size != size:
+            raise ValueError("结果文件尚未完整保存")
+        result = {**value, "record_count": count, "resource": {"source_ref": self.token(key),
+            "name": name, "format": fmt, "fields": list(fields), "record_count": count,
+            "size_bytes": size, "sha256": checksum.hexdigest()}}
+        return self.save_outcome(key, result)
+
+    def save_outcome(self, key, result):
+        body = _canonical(result).encode()
+        self.storage.client.put_object(self.bucket, f"{self.prefix}/{key}/manifest.json",
+            io.BytesIO(body), len(body), content_type="application/json")
+        return self.previous(key)
+
+    def rows(self, source_ref, depth=0):
+        if depth > 8:
+            raise ValueError("结果文件的来源链超出支持范围")
+        key = self.resolve(source_ref)
+        result = self.previous(key)
+        if not result or not result.get("resource"):
+            raise ValueError("所选结果文件当前不可用")
+        resource = result["resource"]
+        response = self.storage.client.get_object(self.bucket, f"{self.prefix}/{key}/data.{resource['format']}")
+        try:
+            raw = response.read(_RESULT_BYTES+1)
+            if len(raw) > _RESULT_BYTES or hashlib.sha256(raw).hexdigest() != resource["sha256"]:
+                raise ValueError("所选文件与已保存版本不一致")
+            text = raw.decode("utf-8-sig")
+            if resource["format"] == "csv" and result.get("parent_source_ref"):
+                _, rows = self.rows(result["parent_source_ref"], depth+1)
+            else:
+                rows = [json.loads(line) for line in text.splitlines() if line.strip()] if resource["format"] == "jsonl" else list(csv.DictReader(io.StringIO(text)))
+            if len(rows) != resource["record_count"] or any(not isinstance(row, dict) for row in rows):
+                raise ValueError("所选文件的记录信息不一致")
+            return result, rows
+        finally:
+            response.close()
+            response.release_conn()
+
+
+def _result_storage():
+    from minio import Minio
+    from urllib3 import PoolManager, Timeout
+    from services.object_storage_service import ObjectStorageService
+    settings = get_settings().minio
+    client = Minio(settings.endpoint, access_key=settings.access_key, secret_key=settings.secret_key,
+        secure=settings.secure, http_client=PoolManager(timeout=Timeout(connect=5, read=20), retries=False))
+    return ObjectStorageService(client=client)
+
+
+def _pubchem_slot(root, deadline):
+    # Shared by workers on this backend host, rather than one limiter per user.
+    # A short SQLite transaction reserves a slot without holding it over HTTP.
+    root.mkdir(parents=True, exist_ok=True)
+    with sqlite3.connect(str(root / "pubchem-rate.sqlite"), timeout=2) as conn:
+        conn.execute("CREATE TABLE IF NOT EXISTS rate (id INTEGER PRIMARY KEY, next_at REAL NOT NULL)")
+        conn.execute("BEGIN IMMEDIATE")
+        row = conn.execute("SELECT next_at FROM rate WHERE id=1").fetchone()
+        slot = max(time.time(), row[0] if row else 0)
+        if slot >= deadline:
+            raise TimeoutError("本次请求等待时间已达到预算")
+        conn.execute("INSERT OR REPLACE INTO rate VALUES (1, ?)", (slot+0.25,))
+    while time.time() < slot:
+        _checkpoint(deadline)
+        time.sleep(min(0.1, max(0, slot-time.time())))
+
+
+def _pubchem_request(session, route, data, params, root, deadline):
+    for attempt in range(2):
+        _checkpoint(deadline)
+        _pubchem_slot(root, deadline)
+        try:
+            with session.post(_PUBCHEM_ROOT+route, data=data, params=params,
+                    stream=True, timeout=(min(5, max(0.1, deadline-time.time())), min(30, max(0.1, deadline-time.time())))) as response:
+                if response.status_code == 404:
+                    return {"IdentifierList": {"CID": []}, "PropertyTable": {"Properties": []}}
+                if response.status_code in {429, 502, 503, 504} and attempt == 0:
+                    time.sleep(min(1, max(0, deadline-time.time())))
+                    continue
+                response.raise_for_status()
+                body = bytearray()
+                for chunk in response.iter_content(64 * 1024):
+                    _checkpoint(deadline)
+                    body.extend(chunk)
+                    if len(body) > 8 * 1024 * 1024:
+                        raise ValueError("数据源响应超过单批预算")
+                if any(state in response.headers.get("X-Throttling-Control", "") for state in ("Red", "Black")):
+                    time.sleep(min(1, max(0, deadline-time.time())))
+                value = json.loads(body)
+                if not isinstance(value, dict):
+                    raise ValueError("数据源响应不是有效的结果对象")
+                return value
+        except (requests.Timeout, requests.ConnectionError):
+            if attempt:
+                raise
+    raise RuntimeError("本次数据源暂未提供完整响应")
+
+
+def query_pubchem_records(smiles, similarity_threshold=80, filters=None, limit=None, *, execution=None):
+    """One bounded similarity query followed by property batches and deterministic filters."""
+    arguments = {"smiles": smiles, "similarity_threshold": similarity_threshold, "filters": filters, "limit": limit}
+    files = _ResultFiles(execution, arguments)
+    if (not isinstance(smiles, str) or not smiles.strip() or len(smiles) > 4000
+            or type(similarity_threshold) is not int or not 1 <= similarity_threshold <= 100
+            or limit is not None and (type(limit) is not int or not 1 <= limit <= _CANDIDATE_LIMIT)):
+        raise ValueError("请提供有效的结构、相似度阈值和目标数量")
+    rules = filters or []
+    if not isinstance(rules, list) or len(rules) > 8:
+        raise ValueError("属性筛选条件超出支持范围")
+    for rule in rules:
+        if (not isinstance(rule, dict) or set(rule)-{"field", "minimum", "maximum"}
+                or rule.get("field") not in _FILTER_FIELDS
+                or not any(rule.get(k) is not None for k in ("minimum", "maximum"))):
+            raise ValueError("筛选须使用支持的数值属性及范围")
+        for key in ("minimum", "maximum"):
+            value = rule.get(key)
+            if value is not None and (type(value) not in {int, float} or not math.isfinite(value)):
+                raise ValueError("属性范围须为有限数值")
+        if rule.get("minimum") is not None and rule.get("maximum") is not None and rule["minimum"] > rule["maximum"]:
+            raise ValueError("属性下限不能大于上限")
+    key = _digest(["pubchem-v1", files.context["request_id"], arguments])
+    with _file_execution_lock(files.root / (key+".lock"), files.context["deadline"]):
+        if previous := files.previous(key):
+            return previous
+        deadline = min(files.context["deadline"]-10, time.time()+300)
+        accepted, seen, reasons = [], set(), {}
+        checked, duplicate_count, candidate_count, output_bytes = 0, 0, 0, 0
+        stop, coverage = "candidates_exhausted", "complete"
+        cids = []
+        try:
+            with requests.Session() as client:
+                payload = _pubchem_request(client, "/compound/fastsimilarity_2d/smiles/cids/JSON",
+                    {"smiles": smiles}, {"Threshold": similarity_threshold, "MaxRecords": _CANDIDATE_LIMIT}, files.root, deadline)
+                identifiers = payload.get("IdentifierList")
+                raw = identifiers.get("CID") if isinstance(identifiers, dict) else None
+                if not isinstance(raw, list) or any(type(cid) is not int or cid <= 0 for cid in raw):
+                    raise ValueError("数据源返回的候选标识不完整")
+                cids = list(dict.fromkeys(raw))
+                duplicate_count = len(raw)-len(cids)
+                candidate_count = len(cids)
+                if len(raw) >= _CANDIDATE_LIMIT:
+                    stop, coverage = "candidate_limit", "partial"
+                for offset in range(0, len(cids), 200):
+                    _checkpoint(deadline)
+                    batch = cids[offset:offset+200]
+                    table = _pubchem_request(client, "/compound/cid/property/SMILES,MolecularWeight,XLogP/JSON",
+                        {"cid": ",".join(map(str, batch))}, {}, files.root, deadline).get("PropertyTable")
+                    properties = table.get("Properties") if isinstance(table, dict) else None
+                    if not isinstance(properties, list):
+                        raise ValueError("数据源返回的属性信息不完整")
+                    indexed = {row.get("CID"): row for row in properties if isinstance(row, dict) and row.get("CID") in batch}
+                    for cid in batch:
+                        checked += 1
+                        row = indexed.get(cid)
+                        reason = "missing_properties" if row is None else None
+                        record = {"CID": cid, "SMILES": (row or {}).get("SMILES") or (row or {}).get("CanonicalSMILES")}
+                        for field in _FILTER_FIELDS:
+                            try:
+                                raw_value = (row or {}).get(field)
+                                value = float(raw_value) if not isinstance(raw_value, bool) else float("nan")
+                                record[field] = value if math.isfinite(value) else None
+                            except (ValueError, TypeError):
+                                record[field] = None
+                        for rule in rules:
+                            value = record[rule["field"]]
+                            if reason:
+                                break
+                            if value is None:
+                                reason = "missing_"+rule["field"]
+                            elif ((rule.get("minimum") is not None and value < rule["minimum"])
+                                    or (rule.get("maximum") is not None and value > rule["maximum"])):
+                                reason = "outside_"+rule["field"]
+                        if reason:
+                            reasons[reason] = reasons.get(reason, 0)+1
+                        elif cid not in seen:
+                            size = len(_canonical(record).encode())+1
+                            if output_bytes+size > _RESULT_BYTES:
+                                checked -= 1
+                                stop, coverage = "output_limit", "partial"
+                                break
+                            output_bytes += size
+                            seen.add(cid)
+                            accepted.append(record)
+                        if limit and len(accepted) >= limit:
+                            stop = "target_reached"
+                            coverage = "partial" if checked < candidate_count or len(raw) >= _CANDIDATE_LIMIT else "complete"
+                            break
+                    if stop in {"target_reached", "output_limit"}:
+                        break
+        except (requests.RequestException, TimeoutError, ValueError) as exc:
+            logging.getLogger("flow.corpus.pubchem").info("Query interrupted: operation=%s code=%s checked=%s accepted=%s",
+                key[:12], type(exc).__name__, checked, len(accepted))
+            stop, coverage = "source_interrupted", "partial"
+        result = {"status": "ready" if accepted else "empty" if coverage == "complete" else "unavailable",
+            "source": "PubChem", "query": arguments, "coverage": coverage, "stop_reason": stop,
+            "record_count": len(accepted), "target_count": limit, "target_met": None if limit is None else len(accepted) >= limit,
+            "statistics": {"candidates": candidate_count, "checked": checked, "accepted": len(accepted),
+                "excluded": sum(reasons.values()), "exclusion_reasons": reasons, "duplicate_candidates": duplicate_count,
+                "reason_policy": "first_failed_condition"},
+            "message": "已按指定条件取得结果" if accepted else "当前条件下未取得匹配记录" if coverage == "complete" else "本次暂未取得可确认的记录",
+            "resource": None}
+        if not accepted:
+            return files.save_outcome(key, result)
+        with tempfile.TemporaryDirectory(dir=files.root) as temporary:
+            path = Path(temporary) / "records.jsonl"
+            with path.open("w", encoding="utf-8", newline="\n") as handle:
+                for row in accepted:
+                    handle.write(_canonical(row)+"\n")
+            return files.save(key, path, result, _COMPOUND_FIELDS, len(accepted), "jsonl", "pubchem-compounds.jsonl")
+
+
+def export_record_file(source_ref, format="csv", *, execution=None):
+    """Export a server-issued immutable record resource; never accept arbitrary paths/URLs."""
+    arguments = {"source_ref": source_ref, "format": format}
+    files = _ResultFiles(execution, arguments)
+    if format not in {"csv", "jsonl"}:
+        raise ValueError("当前支持导出 CSV 或 JSONL")
+    source_key = files.resolve(source_ref)
+    key = _digest(["export-v1", source_key, format])
+    with _file_execution_lock(files.root / (key+".lock"), files.context["deadline"]):
+        if previous := files.previous(key):
+            return previous
+        original, rows = files.rows(source_ref)
+        fields = original["resource"]["fields"]
+        result = {key: value for key, value in original.items() if key not in {"resource", "downloadUrl"}}
+        result.update(status="ready", parent_source_ref=source_ref, message="结果文件已生成")
+        with tempfile.TemporaryDirectory(dir=files.root) as temporary:
+            path = Path(temporary) / ("records."+format)
+            with path.open("w", encoding="utf-8", newline="") as handle:
+                if format == "csv":
+                    writer = csv.DictWriter(handle, fieldnames=fields, extrasaction="raise", lineterminator="\n")
+                    writer.writeheader()
+                for row in rows:
+                    _checkpoint(files.context["deadline"])
+                    if format == "csv":
+                        writer.writerow({k: _canonical(v) if isinstance(v, (dict, list)) else v for k, v in row.items()})
+                    else:
+                        handle.write(_canonical(row)+"\n")
+            return files.save(key, path, result, fields, len(rows), format, "dataset."+format)
