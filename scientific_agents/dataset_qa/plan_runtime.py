@@ -120,6 +120,14 @@ async def install_plan(service, user, sid, plan, tools, execution, payload, cont
         item = operations.get(operation_id)
         item["public_label"] = descriptor.label or tool.title
         item["plan_fresh"] = step.fresh
+        if not step.inputs and not isinstance(step.object, FromStep) and not item["attempts"]:
+            invocation = fingerprint([tool.server, tool.name, concrete])
+            if operations.blocked_receipt(invocation):
+                try:
+                    operations.start(operation_id, fingerprint([operation_id, tool.alias, concrete]),
+                        {"server": tool.server, "name": tool.name}, Execution.reusable(tool), invocation)
+                except QAError:
+                    pass  # Retain the original failed receipt; installing a plan never retries it.
         mapping[step.key] = operation_id
         if Execution.reusable(tool) and not step.fresh:
             reusable[signature] = operation_id
@@ -159,7 +167,7 @@ def confirm_plan(payload, values):
 
 def scheduled_reply(saved, execution, tools, limit):
     """Return ready work only. No model calls, retries, or speculative sources."""
-    if not saved or saved.get("reviewed") != saved["revision"]:
+    if not saved:
         return None, {}
     plan = Plan.model_validate(saved["spec"])
     operations = execution.operations
@@ -192,12 +200,14 @@ def scheduled_reply(saved, execution, tools, limit):
                 unavailable |= bool(dependency["state"] == "succeeded" and ids and all(
                     rid in cards and contract.assess(cards[rid].get("data")) == "unavailable" for rid in ids))
                 if unavailable:
-                    operation.update(state="unavailable", unavailable_dependency=key)
+                    operation.update(state="unavailable", unavailable_dependency=dependency["id"])
                     changed = True
                     break
         if not changed:
             break
     saved["acceptance"] = outcome_status(saved, operations, cards.values())
+    if saved.get("reviewed") != saved["revision"]:
+        return None, {}  # Dependency status is derived even before approval; execution is not.
 
     def source(ref):
         operation = operations.get(saved["operations"][ref.step])

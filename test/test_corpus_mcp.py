@@ -72,7 +72,7 @@ def test_corpus_mcp_lists_dataset_tools():
         "sample_corpus_dataset": "url",
         "get_corpus_file_schema": "data",
         "read_corpus_file_records": "table",
-        "get_corpus_dataset_directory": "directory",
+        "get_corpus_dataset_directory": "table",
         "query_pubchem_compounds": "url",
         "export_dataset": "url",
     }
@@ -101,9 +101,9 @@ def test_corpus_mcp_lists_dataset_tools():
     assert '"search_corpus_datasets"' in search_tool["_meta"]["piflow"]["usageExample"]
 
     directory_tool = next(tool for tool in tools if tool["name"] == "get_corpus_dataset_directory")
-    assert directory_tool["annotations"]["title"] == "查看数据集目录"
-    assert directory_tool["_meta"]["piflow"]["displayName"] == "查看数据集目录"
-    assert directory_tool["_meta"]["piflow"]["category"] == "数据集目录查看"
+    assert directory_tool["annotations"]["title"] == "查看数据内容"
+    assert directory_tool["_meta"]["piflow"]["displayName"] == "查看数据内容"
+    assert directory_tool["_meta"]["piflow"]["category"] == "数据内容查看"
 
     schema_tool = next(tool for tool in tools if tool["name"] == "get_corpus_file_schema")
     assert schema_tool["annotations"] == {

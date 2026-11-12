@@ -216,28 +216,76 @@ class Operations:
             raise QAError("invalid_parameters", "calls引用了尚未登记的操作")
         return bindings
 
+    @staticmethod
+    def retryable(attempt):
+        code = attempt.get("error", {}).get("code")
+        return code == "mcp_unavailable" or (attempt.get("retry_safe") is True
+            and code not in {"artifact_unavailable", "execution_unknown"})
+
+    def blocked_receipt(self, invocation):
+        """Bookkeeping cannot reopen a terminal invocation in the same turn."""
+        for owner in self.items:
+            if owner["state"] not in {"failed", "unknown", "running"}:
+                continue
+            for attempt in reversed(owner["attempts"]):
+                if attempt.get("invocation") == invocation and (attempt["state"] in {"running", "unknown"}
+                        or (attempt["state"] == "failed" and not self.retryable(attempt))):
+                    return attempt
+
+    def failure(self, item):
+        """Follow unavailable dependencies to their actual receipt, without inventing execution."""
+        seen = set()
+        while item and item["id"] not in seen:
+            seen.add(item["id"])
+            if item["state"] not in {"failed", "unknown", "running", "unavailable"}:
+                return None
+            if item.get("unavailable_dependency"):
+                dependency = item["unavailable_dependency"]
+                item = self.get(dependency) or next((row for row in self.items
+                    if row.get("plan_step") == dependency), None)
+                continue
+            failure = next((attempt["error"] for attempt in reversed(item["attempts"]) if attempt.get("error")), None)
+            if failure:
+                return QAError(failure["code"], failure["message"], failure["status"], detail=failure.get("detail"))
+            if item["state"] in {"running", "unknown"}:
+                return QAError("execution_unknown", "部分操作的执行结果尚未确认", 504)
+            return None
+
+    def blocking(self):
+        return [item for item in self.items if item["state"] in {"failed", "unknown"}
+            and item["attempts"] and not self.retryable(item["attempts"][-1])]
+
+    def resolve_error(self, reason=None, ids=()):
+        """A later bookkeeping error must not hide a still-relevant execution failure."""
+        if reason is None:
+            return self.error(ids)
+        if reason.code in {"invalid_parameters", "invalid_pointer", "result_not_found", "invalid_tool_call",
+                "tool_not_loaded", "invalid_delivery", "mcp_required", "step_limit", "no_progress"}:
+            candidates = self.required
+            if not candidates or any(item["state"] != "succeeded" for item in candidates):
+                candidates = [*candidates, *(item for item in self.items if item.get("inferred"))]
+            for item in candidates:
+                if failure := self.failure(item):
+                    return failure
+        return reason
+
     def start(self, operation_id, key, tool=None, retry_safe=False, invocation=None, presentation=None):
         item = self.get(operation_id)
         if item is None:
             return
-        if invocation:
-            for owner in self.items:
-                if owner is item:
-                    continue
-                for attempt in owner["attempts"]:
-                    if attempt.get("invocation")==invocation and (attempt["state"] in {"running", "unknown"}
-                            or (attempt["state"]=="failed" and not attempt.get("retry_safe") and attempt.get("error", {}).get("code")!="mcp_unavailable")):
-                        failure = attempt.get("error") or {"code": "execution_unknown", "message": "相同调用的执行结果尚未确认，未重复执行", "status": 504}
-                        item.update(state="unknown" if failure["code"]=="execution_unknown" else "failed")
-                        item["attempts"].append({"key": key, "state": item["state"], "invocation": invocation,
-                            "tool": tool, "retry_safe": retry_safe, "dispatched": False, "error": deepcopy(failure)})
-                        raise QAError(failure["code"], failure["message"], failure["status"], detail=failure.get("detail"))
+        blocked = self.blocked_receipt(invocation) if invocation else None
+        if blocked and blocked not in item["attempts"]:
+            failure = blocked.get("error") or {"code": "execution_unknown", "message": "相同调用的执行结果尚未确认，未重复执行", "status": 504}
+            item.update(state="unknown" if failure["code"]=="execution_unknown" else "failed")
+            item["attempts"].append({"key": key, "state": item["state"], "invocation": invocation,
+                "tool": tool, "retry_safe": retry_safe, "dispatched": False, "error": deepcopy(failure)})
+            raise QAError(failure["code"], failure["message"], failure["status"], detail=failure.get("detail"))
         if item["state"] in {"running", "unknown"}:
             raise QAError("execution_unknown", "此操作的执行结果尚未确认，未重复执行；请先核实上游状态", 504)
         if item["state"]=="failed":
             previous = item["attempts"][-1]
             error = previous.get("error", {})
-            if error.get("code")!="mcp_unavailable" and not previous.get("retry_safe"):
+            if not self.retryable(previous):
                 raise QAError(error.get("code", "tool_failed"), "此操作已经失败，未重复执行可能产生副作用的操作", 502, detail=error.get("detail"))
         item["state"] = "running"
         item["attempts"].append({"key": key, "state": "running", "tool": tool, "retry_safe": retry_safe,
@@ -264,6 +312,8 @@ class Operations:
         if result_id:
             attempt["result_id"] = result_id
         if error:
+            if isinstance(error.detail, dict) and error.detail.get("dispatched") is False:
+                attempt["dispatched"] = False
             attempt["error"] = {"code": error.code, "message": str(error)[:400], "status": error.status}
             if error.detail:
                 attempt["error"]["detail"], _ = project(error.detail, 1200)
@@ -312,11 +362,8 @@ class Operations:
 
     def error(self, ids=()):
         for item in self.required:
-            if item["state"] in {"failed", "unknown", "running"}:
-                failure = next((value.get("error") for value in reversed(item["attempts"]) if value.get("error")), None)
-                if failure:
-                    return QAError(failure["code"], failure["message"], failure["status"], detail=failure.get("detail"))
-                return QAError("execution_unknown", "部分操作的执行结果尚未确认", 504)
+            if failure := self.failure(item):
+                return failure
         if any(item.get("search") and not item["search"]["done"] for item in self.items):
             # A completed prerequisite may be auxiliary in the artifact view;
             # changing its delivery role cannot erase an unfinished policy.

@@ -23,6 +23,7 @@ class Execution:
         self.operations = Operations()
         self.prepared = {}
         self.stale_scopes, self.blocked = {}, set()
+        self.reviewed_failures = set()
 
     @property
     def can_deliver(self):
@@ -52,6 +53,28 @@ class Execution:
             names -= {"list_mcp_servers", "load_mcp_tools", "deliver_results", "remember", "resolve_resource", "find_artifacts", *set(loaded)-allowed}
         return names
 
+    def failure_decision(self, *, planned=False, consume=False):
+        """Allow one scope decision for unplanned blocked work, not a replanning loop."""
+        blocked = self.operations.blocking()
+        if not blocked:
+            return None
+        goals = self.operations.required
+        if goals and all(item["state"] in {"succeeded", "failed", "unknown", "unavailable"} for item in goals):
+            # A different, safely correctable prerequisite still deserves its
+            # existing correction budget, even if another branch is blocked.
+            if not any(item["state"] == "failed" and item["attempts"]
+                    and self.operations.retryable(item["attempts"][-1]) for item in self.operations.items):
+                return self.operations.error()
+        known_scope = {key for item in blocked for key in item["attempts"][-1].get("scope", [])}
+        if planned or any(item["state"] == "pending" and item["id"] in known_scope for item in goals):
+            return None
+        markers = {(item["id"], item["attempts"][-1]["key"]) for item in blocked}
+        if markers <= self.reviewed_failures:
+            return next((error for item in blocked if (error := self.operations.failure(item))), None)
+        if consume:
+            self.reviewed_failures.update(markers)
+        return None
+
     def progress(self, observations, limit):
         """Count no-gain rounds per operation, not per argument variant or batch."""
         newly_blocked = set()
@@ -80,9 +103,14 @@ class Execution:
     @staticmethod
     def validation_error(error, message="参数不符合工具定义"):
         errors = error.errors(include_url=False, include_context=False, include_input=False)
-        return QAError("invalid_parameters", message, detail={"errors": [
+        detail = {"errors": [
             {"path": list(item["loc"]), "constraint": item["type"], "message": item["msg"][:300]}
-            for item in errors[:3]]})
+            for item in errors[:3]]}
+        if any("plan" in item["loc"] for item in errors):
+            detail["guidance"] = ("Use only the advertised Plan schema. Steps use produces=[outcome_key]; "
+                "auxiliary steps use produces=[]. Each outcome must have exactly one producer. "
+                "complete_request is direct-call metadata, not a plan step field. Preserve completed receipts and constraints.")
+        return QAError("invalid_parameters", message, detail=detail)
 
     notice = staticmethod(notice)
 

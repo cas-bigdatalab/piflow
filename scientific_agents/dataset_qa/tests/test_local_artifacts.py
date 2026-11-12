@@ -22,12 +22,13 @@ from .. import artifact_storage as storage
 from ..artifacts import execution_metadata
 from ..contracts import QAError, Server
 from ..capabilities import TASK
-from ..mcp import MCPGateway
+from ..mcp import MCPGateway, ToolSession
 from ..responses import notice
 from ..service import DatasetQA
 from .test_dataset_qa import action, collect, engine, session
 from .test_decisions import BareDialogue, payload, text
 from .test_file_pipeline import SECRET, files, query_args, run_export, run_query
+from .test_planning import approve
 
 
 BASE = "https://testserver/api/piflow/v1/mcp"
@@ -310,3 +311,112 @@ def test_qa_storage_problem_has_friendly_feedback_without_repeating_search(engin
             await service.close()
     asyncio.run(run())
     assert len(files.requests) == (0 if phase == "prepare" else 2)
+
+
+def file_plan():
+    return {"outcomes": [{"key": "file", "description": "符合条件的 CSV 文件", "kind": "exported_file"}],
+        "steps": [{"key": "query", "tool": "query_pubchem_compounds", "arguments": query_args()},
+            {"key": "export", "tool": "export_dataset", "object": {"step": "query", "path": "/resource"},
+                "arguments": {"format": "csv"}, "produces": ["file"]}]}
+
+
+@pytest.mark.parametrize("mode", ["direct", "react", "plan"])
+@pytest.mark.parametrize("fault", ["key", "url", "permission", "space", "publish"])
+def test_storage_failures_close_all_entry_paths(engine, files, monkeypatch, mode, fault):
+    if fault == "key":
+        monkeypatch.delenv("DATASET_QA_ARTIFACT_SIGNING_KEY", raising=False)
+    elif fault == "url":
+        monkeypatch.setenv("DATASET_QA_ARTIFACT_BASE_URL", "")
+    elif fault == "permission":
+        def denied(*args, **kwargs):
+            raise PermissionError("PRIVATE_DISK_PERMISSION")
+        monkeypatch.setattr(storage.tempfile, "TemporaryFile", denied)
+    elif fault == "space":
+        from types import SimpleNamespace
+        monkeypatch.setattr(storage.shutil, "disk_usage", lambda _: SimpleNamespace(free=0))
+    else:
+        def denied(*args, **kwargs):
+            raise storage.ArtifactStorageError("PRIVATE_DISK_FULL", phase="publish")
+        monkeypatch.setattr(storage.LocalArtifactStore, "put_json", denied)
+    calls = []
+    original = ToolSession.call
+    async def count(self, alias, arguments, **kwargs):
+        calls.append(alias)
+        return await original(self, alias, arguments, **kwargs)
+    monkeypatch.setattr(ToolSession, "call", count)
+    def query(messages, definitions):
+        alias = next(d["function"]["name"] for d in definitions if d["function"]["name"].endswith("_query_pubchem_compounds"))
+        return action(alias, **query_args(), **({TASK: {"complete_request": True}} if mode == "direct" else {}))
+    steps = ([action("remember", plan=file_plan()), approve] if mode == "plan" else
+        [query, action("remember", invalid_field=True)] if mode == "react" else [query])
+    async def run():
+        dialogue = BareDialogue(action("load_mcp_tools", server="piflow-corpus"), *steps)
+        service = DatasetQA(engine, dialogue, MCPGateway({"piflow-corpus": Server(mcp)}))
+        try:
+            sid = session(service)
+            events = await collect(service, sid, "按给定结构和数值条件检索，并导出 CSV")
+            saved = payload(service, sid, events)
+            assert saved["error"]["error_code"] == "artifact_unavailable"
+            assert len(dialogue.inputs) == (2 if mode == "direct" else 3)
+            assert len(calls) == int(fault != "key")
+            assert len(files.requests) == (2 if fault == "publish" else 0)
+            attempt = saved["operations"][0]["attempts"][0]
+            assert attempt.get("dispatched", True) is (fault != "key")
+            assert attempt["error"]["detail"]["phase"] == {
+                "key": "execution_context", "url": "configuration", "permission": "prepare", "space": "prepare", "publish": "publish"}[fault]
+            reply = "".join(e.get("text", "") for e in events if e["type"] == "message")
+            assert "文件尚未准备好" in reply
+            assert not any(word in reply for word in ("PRIVATE_", "DATASET_QA", "确认操作对象", "参数", "。。"))
+            assert "按给定结构和数值条件检索，并导出 CSV" not in reply
+        finally:
+            await service.close()
+    asyncio.run(run())
+
+
+def test_restored_configuration_allows_next_turn_without_recreating_session(engine, files, monkeypatch):
+    monkeypatch.delenv("DATASET_QA_ARTIFACT_SIGNING_KEY", raising=False)
+    async def run():
+        dialogue = BareDialogue(action("load_mcp_tools", server="piflow-corpus"),
+            action("remember", plan=file_plan()), approve)
+        service = DatasetQA(engine, dialogue, MCPGateway({"piflow-corpus": Server(mcp)}))
+        try:
+            sid = session(service)
+            first = await collect(service, sid, "检索并生成 CSV")
+            assert payload(service, sid, first)["error"]["error_code"] == "artifact_unavailable"
+            monkeypatch.setenv("DATASET_QA_ARTIFACT_SIGNING_KEY", SECRET)
+            service.dialogue = BareDialogue(action("remember", plan=file_plan()), approve, text())
+            second = await collect(service, sid, "按原来的条件重新检索并生成 CSV", rid="recovered")
+            assert payload(service, sid, second).get("error") is None
+            assert len(files.requests) == 2
+            assert len(service.artifacts.recent("alice")) == 2
+        finally:
+            await service.close()
+    asyncio.run(run())
+
+
+def test_export_failure_preserves_source_for_reuse_without_querying_again(engine, files, monkeypatch):
+    original = storage.LocalArtifactStore.put_file
+    def deny_csv(store, key, path, fmt):
+        if fmt == "csv":
+            raise storage.ArtifactStorageError("PRIVATE_EXPORT", phase="publish")
+        return original(store, key, path, fmt)
+    monkeypatch.setattr(storage.LocalArtifactStore, "put_file", deny_csv)
+    async def run():
+        dialogue = BareDialogue(action("load_mcp_tools", server="piflow-corpus"),
+            action("remember", plan=file_plan()), approve)
+        service = DatasetQA(engine, dialogue, MCPGateway({"piflow-corpus": Server(mcp)}))
+        try:
+            sid = session(service)
+            events = await collect(service, sid, "检索后导出 CSV")
+            assert payload(service, sid, events)["error"]["error_code"] == "artifact_unavailable"
+            assert len(dialogue.inputs) == 3 and len(files.requests) == 2
+            artifacts = service.artifacts.recent("alice")
+            assert len(artifacts) == 1
+            source = service.artifacts.get("alice", artifacts[0]["handle"])["resource"]
+            monkeypatch.setattr(storage.LocalArtifactStore, "put_file", original)
+            result = run_export(source, user="alice")
+            assert result["resource"]["format"] == "csv" and result["record_count"] == 2
+            assert len(files.requests) == 2
+        finally:
+            await service.close()
+    asyncio.run(run())

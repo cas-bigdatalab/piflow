@@ -69,14 +69,14 @@ def notice(error, retained=False, subject=None):
     if code == "artifact_unavailable":
         return ("已取得的结果仍保留。" if retained else "")+"本次结果文件尚未准备好，当前还不能提供下载。您可以稍后让我继续获取或导出。"
     if retained:
-        return "已取得的结果已保留在下方，您可以先查看。其余内容目前还没有可确认的结果；您可以指定下一步要查看或处理的内容。"
+        return "已取得的部分结果已保留在下方，您可以先查看。其余内容目前还没有可确认的结果；您可以指定下一步要查看或处理的内容。"
     detail = error.get("detail") if isinstance(error, dict) else getattr(error, "detail", None)
     if code == "task_timeout" and detail == {"phase": "queue"}:
         return "本轮尚未开始处理您的请求。您可以稍后让我继续，我会按原来的要求获取内容。"
     if code in {"execution_unknown", "task_timeout"}:
         return "这次还没有收到可确认的完整结果。为避免重复处理，可能已经执行的操作需要先确认结果。您也可以指定其他要查看的内容。"
     if code in {"invalid_parameters", "invalid_pointer", "result_not_found", "invalid_tool_call"}:
-        return "这次还需要确认操作对象或具体要求。您可以告诉我要查看的数据集名称，或指定希望获取的内容，我会据此继续处理。"
+        return "本次尚未取得可确认的完整结果。您已提供的要求仍保留，可以稍后让我按原要求继续处理。"
     if code in {"result_too_large", "context_too_large", "step_limit", "no_progress", "invalid_delivery"}:
         return "目前的信息还不足以给出完整结果。您可以指定优先查看的数据集或缩小范围，我会围绕这部分继续整理。"
     if code == "tool_failed":

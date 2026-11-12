@@ -528,7 +528,11 @@ class DatasetQA:
         await self._write(user, sid, tid, {"type": "message", "text": text})
 
     async def _failure_reply(self, user, sid, tid, answer, reason, operations, payload):
+        reason = operations.resolve_error(reason, payload.get("delivery_sources", []))
         operations = response_labels(operations, payload.get("response_labels"))
+        for item in operations.items:
+            if item.get("inferred") or item["description"] == payload.get("message", "")[:240]:
+                item["description"] = item.get("public_label") or ""
         required = operations.required
         subject = required[0].get("public_label") if len(required)==1 else None
         text = Execution.notice(reason, bool(payload.get("delivery")), subject)
@@ -541,14 +545,14 @@ class DatasetQA:
         if subject and reason.code=="tool_failed" and not payload.get("delivery"):
             summary = ""  # The named outcome is already explained in the notice.
         if not summary and not operations.required:
-            outstanding = [item["description"] for item in operations.items
-                if item.get("inferred") and item["state"]!="succeeded" and item["description"].strip()]
+            outstanding = list(dict.fromkeys(item["public_label"].strip().rstrip("。.;；") for item in operations.items
+                if item.get("inferred") and item["state"]!="succeeded" and item.get("public_label", "").strip()))
             if outstanding:
                 summary = "尚待获取："+"；".join(outstanding)+"。"
         await self._notice(user, sid, tid, answer, text+("\n\n"+summary if summary else ""))
 
     async def _finish_task(self, user, sid, tid, payload, execution, answer, reason=None):
-        reason = reason or execution.operations.error(payload.get("delivery_sources", []))
+        reason = execution.operations.resolve_error(reason, payload.get("delivery_sources", []))
         error = {"code": reason.status, "error_code": reason.code, "message": Execution.notice(reason)} if reason else None
         if reason and reason.detail:
             error["detail"], _ = project(reason.detail, 1200)
@@ -1535,6 +1539,7 @@ class DatasetQA:
         ids = payload.get("delivery", [])
         cards = await asyncio.to_thread(self.store.selected_results, user, sid, ids)
         operations = Operations(payload.get("operations", []))
+        reason = operations.resolve_error(reason, payload.get("delivery_sources", []))
         if reason:
             await self._failure_reply(user, sid, tid, answer, reason, operations, payload)
             if reason.code not in {"step_limit", "no_progress"}:
@@ -1794,6 +1799,11 @@ class DatasetQA:
                             reply, scheduled = scheduled_reply(saved_plan, execution, tools,
                                 max(1, min(limits.max_parallel_reads, limits.max_calls-execution.calls)))
                             if reply is None:
+                                reason = execution.failure_decision(planned=bool(saved_plan), consume=True)
+                                if reason:
+                                    payload["operations"] = execution.operations.items
+                                    await self._write(user, sid, tid, payload=payload)
+                                    break
                                 if model_rounds >= limits.max_rounds:
                                     reason = QAError("step_limit", "处理达到本轮预算，请依据已有内容完成答复")
                                     break
@@ -1991,8 +2001,10 @@ class DatasetQA:
                                         exc = execution.validation_error(exc)
                                     if exc.code=="step_limit":
                                         reason = exc
-                                    log.info("Tool request rejected: task=%s tool=%s operation=%s code=%s",
-                                        tid, name, operation_id, exc.code)
+                                    diagnostic = exc.detail if isinstance(exc.detail, dict) else {}
+                                    log.info("Tool request rejected: task=%s tool=%s operation=%s code=%s dispatched=%s phase=%s",
+                                        tid, name, operation_id, exc.code,
+                                        diagnostic.get("dispatched", "unknown"), diagnostic.get("phase", "unknown"))
                                     value = {"error": exc.code, "message": str(exc)}
                                     if exc.detail:
                                         value["detail"] = exc.detail

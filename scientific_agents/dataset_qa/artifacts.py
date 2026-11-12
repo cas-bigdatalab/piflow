@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from hashlib import sha256
 import hmac
 import json
+import logging
 import math
 import time
 
@@ -31,7 +32,9 @@ def execution_metadata(user, request_id, arguments, seconds, *, secret=None):
         try:
             secret = signing_key()
         except ArtifactStorageError as exc:
-            raise QAError("artifact_unavailable", "当前结果存储尚未就绪", 503) from exc
+            logging.getLogger("flow.dataset_qa").warning("Artifact preparation unavailable: phase=%s reason=%s", exc.phase, str(exc))
+            raise QAError("artifact_unavailable", "当前结果存储尚未就绪", 503,
+                detail={"phase": "execution_context", "dispatched": False}) from exc
     if seconds <= 0:
         raise QAError("step_limit", "本轮已到处理时限，已取得的结果仍保留")
     if not secret:

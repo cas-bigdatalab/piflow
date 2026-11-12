@@ -536,7 +536,8 @@ class ToolSession:
             raise QAError("execution_unknown", "MCP调用中断，无法确认执行结果；未继续重试", 502) from exc
         except Exception as exc:
             if not dispatched:
-                raise QAError("mcp_unavailable", "无法连接所选MCP服务，当前操作未执行", 503) from exc
+                raise QAError("mcp_unavailable", "无法连接所选MCP服务，当前操作未执行", 503,
+                    detail={"dispatched": False}) from exc
             raise QAError("execution_unknown", "MCP调用中断，无法确认执行结果；未继续重试", 502) from exc
         if getattr(result, "is_error", getattr(result, "isError", False)):
             detail, _ = project([b.text for b in getattr(result, "content", []) if getattr(b, "type", None)=="text"], 2000)
@@ -545,7 +546,9 @@ class ToolSession:
             meta = getattr(result, "meta", None)
             outcome = meta.get("piflow") if isinstance(meta, dict) else None
             if isinstance(outcome, dict) and outcome.get("error_code") == "artifact_unavailable":
-                raise QAError("artifact_unavailable", "结果文件尚未准备好", 503, detail=detail)
+                phase = outcome.get("phase")
+                raise QAError("artifact_unavailable", "结果文件尚未准备好", 503, detail={"dispatched": True,
+                    "phase": phase if phase in {"configuration", "prepare", "read", "publish", "storage"} else "storage"})
             raise QAError("tool_failed", "MCP工具返回错误", 502, detail=detail)
         # Only protocol-level errors are interpreted here. Business envelopes,
         # status codes, resource IDs and output structures belong to the server.

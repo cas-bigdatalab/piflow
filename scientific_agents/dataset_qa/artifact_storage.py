@@ -24,12 +24,15 @@ from urllib.parse import quote, urlsplit
 
 class ArtifactStorageError(ValueError):
     """Private diagnostic; callers expose only the typed, public outcome."""
+    def __init__(self, message, *, phase="storage"):
+        super().__init__(message)
+        self.phase = phase
 
 
 def signing_key():
     key = os.environ.get("DATASET_QA_ARTIFACT_SIGNING_KEY", "")
     if not key.strip():
-        raise ArtifactStorageError("DATASET_QA_ARTIFACT_SIGNING_KEY is required")
+        raise ArtifactStorageError("DATASET_QA_ARTIFACT_SIGNING_KEY is required", phase="configuration")
     return key
 
 
@@ -42,7 +45,7 @@ def persistent_root():
     # The host exposes these trees through existing download/static routes.
     # Keep private artifacts outside them instead of changing shared routers.
     if any(root.is_relative_to(public.resolve()) for public in (workspace, PROJECT_ROOT / "storage")):
-        raise ArtifactStorageError("Artifact root must be outside publicly served directories")
+        raise ArtifactStorageError("Artifact root must be outside publicly served directories", phase="configuration")
     return root
 
 
@@ -65,7 +68,7 @@ class StorageConfig:
                     or any(c.isspace() for c in self.base_url)):
                 raise ValueError()
         except ValueError as exc:
-            raise ArtifactStorageError("DATASET_QA_ARTIFACT_BASE_URL must be an absolute MCP HTTP base URL") from exc
+            raise ArtifactStorageError("DATASET_QA_ARTIFACT_BASE_URL must be an absolute MCP HTTP base URL", phase="configuration") from exc
         return self.base_url
 
 
@@ -97,13 +100,13 @@ def check_identity(owner, key=None):
 
 
 @contextmanager
-def storage_operation():
+def storage_operation(phase="storage"):
     try:
         yield
     except ArtifactStorageError:
         raise
     except Exception as exc:
-        raise ArtifactStorageError("Artifact storage operation could not complete") from exc
+        raise ArtifactStorageError("Artifact storage operation could not complete", phase=phase) from exc
 
 
 class LocalArtifactStore:
@@ -124,11 +127,19 @@ class LocalArtifactStore:
 
     def prepare(self):
         self.config.download_base()
-        with storage_operation():
+        with storage_operation("prepare"):
             self.config.root.mkdir(parents=True, exist_ok=True, mode=0o700)
+            if shutil.disk_usage(self.config.root).free < 65536:
+                raise ArtifactStorageError("Insufficient artifact storage capacity", phase="prepare")
+            # Validate actual writes before querying a remote source. A temporary
+            # probe is private, bounded and removed even when writing fails.
+            with tempfile.TemporaryFile(dir=self.config.root) as probe:
+                probe.write(b"qa")
+                probe.flush()
+                os.fsync(probe.fileno())
 
     def read_json(self, key):
-        with storage_operation():
+        with storage_operation("read"):
             path = self.path(key, "manifest.json")
             try:
                 with path.open("rb") as source:
@@ -153,11 +164,11 @@ class LocalArtifactStore:
 
     @contextmanager
     def _write(self, key, name, size):
-        with storage_operation():
+        with storage_operation("publish"):
             target = self.path(key, name)
             target.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
             if shutil.disk_usage(target.parent).free < size+65536:
-                raise ArtifactStorageError("Insufficient artifact storage capacity")
+                raise ArtifactStorageError("Insufficient artifact storage capacity", phase="publish")
             fd, temporary = tempfile.mkstemp(prefix=".pending-", dir=target.parent)
             try:
                 with os.fdopen(fd, "wb") as output:

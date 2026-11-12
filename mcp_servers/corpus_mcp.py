@@ -411,11 +411,12 @@ class _ToolFailure(ToolResult):
         return CallToolResult(isError=True, content=self.content, _meta=self.meta)
 
 
-def _artifact_error():
-    logging.getLogger("flow.corpus.artifacts").warning("Artifact storage unavailable", exc_info=True)
+def _artifact_error(error):
+    phase = getattr(error, "phase", "storage")
+    logging.getLogger("flow.corpus.artifacts").warning("Artifact storage unavailable: phase=%s", phase, exc_info=True)
     return _ToolFailure(
         content=[TextContent(type="text", text="本次结果文件尚未准备好，当前还不能提供下载。")],
-        meta={"piflow": {"error_code": "artifact_unavailable"}})
+        meta={"piflow": {"error_code": "artifact_unavailable", "phase": phase}})
 
 
 class CompoundPropertyRange(BaseModel):
@@ -448,8 +449,8 @@ async def query_pubchem_compounds(
         rules = [value.model_dump(exclude_unset=True) for value in filters] if filters is not None else None
         return await anyio.to_thread.run_sync(partial(query_pubchem_records, smiles,
             similarity_threshold, rules, limit, execution=_execution_context(ctx)))
-    except (ArtifactStorageError, OSError):
-        return _artifact_error()
+    except (ArtifactStorageError, OSError) as exc:
+        return _artifact_error(exc)
     except ValueError as exc:
         raise ToolError(str(exc)) from exc
     except Exception as exc:
@@ -474,8 +475,8 @@ async def export_dataset(
     try:
         return await anyio.to_thread.run_sync(partial(export_record_file, source_ref, format,
             execution=_execution_context(ctx)))
-    except (ArtifactStorageError, OSError):
-        return _artifact_error()
+    except (ArtifactStorageError, OSError) as exc:
+        return _artifact_error(exc)
     except ValueError as exc:
         raise ToolError(str(exc)) from exc
     except Exception as exc:
