@@ -1,13 +1,14 @@
 """Bridge declarative plans to the existing validated MCP execution pipeline."""
 from copy import deepcopy
+import logging
 
 from jsonschema import Draft202012Validator
 from langchain_core.messages import AIMessage
 from pydantic import ValidationError
 
-from .capabilities import OBJECT, SUPPORTING, GOAL, TASK, inputs, profile, resolve_tool
+from .capabilities import OBJECT, SUPPORTING, GOAL, TASK, inputs, profile, request_identifiers, resolve_tool
 from .contracts import QAError
-from .context import encode
+from .context import encode, same_identity
 from .operations import Operations
 from .execution import Execution, fingerprint
 from .planning import Check, FromStep, Outcome, Plan, ResultContract, Step, Workflow, outcome_status, validate_revision
@@ -17,16 +18,27 @@ from .references import at_path
 def workflow_definition(definition, loaded, visible=()):
     """Keep hidden capabilities available to planning without duplicating schemas.
 
-    Each catalogue entry contains its own unmodified business JSON schema, so
-    local schema references keep their original scope. Runtime validates inputs.
+    Source identifiers can be supplied by object/inputs, so the planning schema
+    must not require the model to invent them. Wire validation stays unchanged.
     """
     if definition["function"]["name"] != "remember":
         return definition
     if "WorkflowStep" not in definition["function"]["parameters"].get("$defs", {}):
         return definition
-    catalogue = [{"tool": tool.alias, "description": tool.description, "arguments_schema": tool.schema,
-        "object_bindings": profile(tool).bind}
-        for tool in loaded.values() if tool.alias not in visible]
+    catalogue = []
+    for tool in loaded.values():
+        if tool.alias in visible:
+            continue
+        bound = profile(tool).bind
+        schema = deepcopy(tool.schema)
+        if "required" in schema:
+            schema["required"] = [name for name in schema["required"] if name not in bound]
+        for name in bound:
+            field = schema.get("properties", {}).get(name)
+            if isinstance(field, dict):
+                field["description"] = "Runtime-bound identifier. OMIT from arguments when using object or inputs; do not invent a placeholder."
+        catalogue.append({"tool": tool.alias, "description": tool.description, "arguments_schema": schema,
+            "object_bindings": bound})
     if not catalogue:
         return definition
     definition = deepcopy(definition)
@@ -199,7 +211,7 @@ async def install_plan(service, user, sid, plan, tools, execution, payload, cont
     same_targets = not previous or all(not isinstance(step.object, str)
         or (operations.get(previous["operations"].get(step.key)) or {}).get("target") == handles.get(step.object)
         for step in plan.steps)
-    if previous and previous["spec"] == spec and same_targets:
+    if previous and same_identity(previous["spec"], spec) and same_targets:
         return  # Identical bookkeeping is not a new revision or a new review.
     revision = previous["revision"]+1 if previous else 1
     if revision > service.gateway.limits.max_corrections+1:
@@ -246,6 +258,18 @@ async def install_plan(service, user, sid, plan, tools, execution, payload, cont
             exc.detail = {**(exc.detail or {}), "step": step.key, "tool": tool.alias,
                 "phase": "plan_validation", "dispatched": False}
             raise
+        if descriptor.bind and step.object is None:
+            grounded = set(step.inputs) | set(request_identifiers(tool, concrete, payload.get("message", "")))
+            missing = set(descriptor.bind) - grounded
+            if missing:
+                candidates = [other.key for other in plan.steps if other.key != step.key
+                    and resolve_tool(other.tool, tools.loaded).server == tool.server
+                    and profile(resolve_tool(other.tool, tools.loaded)).artifact]
+                raise QAError("invalid_parameters", "计划中的操作尚未绑定可信来源，尚未执行任何新步骤", detail={
+                    "step": step.key, "fields": sorted(missing), "source_steps": candidates,
+                    "available_objects": list(handles)[:12],
+                    "phase": "plan_validation", "dispatched": False,
+                    "guidance": "Revise this step: set object to the intended source step key (or a supplied object handle) and remove its bound identifiers from arguments. For a scalar use inputs={parameter:{step,path}}. Keep completed steps unchanged; do not call MCP directly."})
         signature = fingerprint({**step.model_dump(exclude={"key", "produces", "fresh"}),
             "tool": [tool.server, tool.name], "arguments": concrete,
             "object": target if isinstance(step.object, str) else step.model_dump()["object"]})
@@ -255,7 +279,7 @@ async def install_plan(service, user, sid, plan, tools, execution, payload, cont
         if old is not None:
             old_execution = {key: value for key, value in old_steps[step.key].items() if key != "produces"}
             new_execution = step.model_dump(exclude={"produces"})
-            if old_execution != new_execution or (isinstance(step.object, str) and old.get("target") != target):
+            if not same_identity(old_execution, new_execution) or (isinstance(step.object, str) and old.get("target") != target):
                 changed = True
                 rejected = all(attempt["state"] == "rejected" for attempt in old["attempts"])
                 safe_failure = (old["state"] == "failed" and old["attempts"]
@@ -301,7 +325,7 @@ async def install_plan(service, user, sid, plan, tools, execution, payload, cont
     for operation_id in set(mapping.values()):
         produced = [key for step in plan.steps if mapping[step.key] == operation_id for key in step.produces]
         item = operations.get(operation_id)
-        item.update(required=bool(produced),
+        item.update(required=bool(produced), plan_step=next(step.key for step in plan.steps if mapping[step.key] == operation_id),
             description="；".join(outcomes[key].description for key in produced)[:240] or item["description"])
     # A revision may remove unused unexecuted auxiliary steps, but not silently
     # erase previously declared user work or receipts still needed by a source.
@@ -320,6 +344,10 @@ async def install_plan(service, user, sid, plan, tools, execution, payload, cont
         labels.update({outcome.key: outcome.description for outcome in plan.outcomes})
     payload["plan"] = {"version": 1, "revision": revision, "spec": spec,
         "operations": mapping, "contracts": contracts, "labels": labels}
+    logging.getLogger("flow.dataset_qa").info("Plan installed: revision=%s sources=%s", revision,
+        encode([{"step": step.key, "tool": step.tool, "depends_on": sorted(step.dependencies()),
+            "object": step.object.model_dump() if isinstance(step.object, FromStep) else bool(step.object),
+            "inputs": sorted(step.inputs), "arguments": sorted(step.arguments)} for step in plan.steps]))
 
 
 def confirm_plan(payload, values):
@@ -337,6 +365,7 @@ def scheduled_reply(saved, execution, tools, limit):
     if not saved:
         return None, {}
     plan = Plan.model_validate(saved["spec"])
+    by_key = {step.key: step for step in plan.steps}
     operations = execution.operations
     cards = {card["result_id"]: card for card in execution.cards.values()}
     saved["acceptance"] = outcome_status(saved, operations, cards.values())
@@ -395,6 +424,11 @@ def scheduled_reply(saved, execution, tools, limit):
             continue
         usable = True
         for key in step.dependencies():
+            # A successful receipt can still violate a declared hard check.
+            # Gate only consumers of that step, not independent work or soft
+            # quantity targets. Shared receipts retain each step's own checks.
+            if any(saved["acceptance"][outcome]["state"] != "accepted" for outcome in by_key[key].produces):
+                usable = False
             contract = ResultContract.model_validate(saved["contracts"][key])
             ids = operations.result_ids(operations.get(saved["operations"][key]))
             if not ids or any(rid not in cards or contract.assess(cards[rid].get("data")) != "accepted" for rid in ids):

@@ -504,7 +504,7 @@ class ToolSession:
             raise QAError("invalid_parameters", "参数不符合当前工具schema", detail=detail) from exc
         return tool
 
-    async def call_isolated(self, alias, arguments):
+    async def call_isolated(self, alias, arguments, *, metadata=None):
         """Execute on an independent connection using this session's catalogue.
 
         Parallel readers must not share a connection that another reader can
@@ -517,7 +517,7 @@ class ToolSession:
             isolated = ToolSession(self.gateway, self.servers, stack)
             isolated.limits = self.limits
             isolated.loaded[alias] = deepcopy(tool)
-            return await isolated.call(alias, arguments)
+            return await isolated.call(alias, arguments, **({"metadata": metadata} if metadata else {}))
 
     async def call(self, alias, arguments, *, metadata=None):
         tool = self.validate(alias, arguments)

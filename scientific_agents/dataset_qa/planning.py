@@ -9,7 +9,7 @@ from typing import Annotated, Literal
 from jsonschema import Draft202012Validator
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from .context import encode, pointer_tokens
+from .context import encode, pointer_tokens, same_identity
 from .contracts import QAError
 from .references import at_path
 
@@ -26,6 +26,11 @@ class Check(Contract):
     test: Literal["exists", "equals", "at_least", "at_most"] = "exists"
     value: str | int | float | bool | None = None
     optional: bool = False
+
+    def __eq__(self, other):
+        if not isinstance(other, Check):
+            return NotImplemented
+        return same_identity(self.model_dump(), other.model_dump())
 
     @model_validator(mode="after")
     def valid(self):
@@ -204,11 +209,44 @@ def plan_view(saved, operations):
     if not saved:
         return None
     plan = Plan.model_validate(saved["spec"])
+    editable = []
+    for step in plan.steps:
+        value = step.model_dump(exclude={"produces"}, exclude_defaults=True)
+        if isinstance(step.object, FromStep):
+            # Empty JSON Pointer means the root; omission means infer a default.
+            value["object"] = step.object.model_dump()
+        value["deliver"] = bool(step.produces)
+        # Existing outcome requirements are shown separately and retained by
+        # compile_workflow on revision; models need not copy runtime bookkeeping.
+        editable.append(value)
     return {"revision": saved["revision"], "reviewed": saved.get("reviewed") == saved["revision"],
         "outcomes": [outcome.model_dump() for outcome in plan.outcomes],
-        "steps": [{**step.model_dump(exclude_defaults=True),
-            "state": (operations.get(saved["operations"][step.key]) or {}).get("state", "pending")}
-            for step in plan.steps], "acceptance": deepcopy(saved.get("acceptance", {}))}
+        "editable": {"steps": editable},
+        "step_status": {step.key: (operations.get(saved["operations"][step.key]) or {}).get("state", "pending")
+            for step in plan.steps}, "acceptance": deepcopy(saved.get("acceptance", {}))}
+
+
+def plan_input(value):
+    """Accept echoed observations without letting them set execution state.
+
+    Business fields remain strict. Only known, read-only runtime annotations are
+    excluded; the operations ledger and existing revision guards stay authoritative.
+    """
+    if not isinstance(value, dict):
+        return value
+    value = deepcopy(value)
+    observations = {"revision", "reviewed", "acceptance", "decisions", "step_status"}
+    if "editable" in value and set(value) <= observations | {"editable", "outcomes"}:
+        value = value["editable"]
+    if not isinstance(value, dict):
+        return value
+    for key in observations:
+        value.pop(key, None)
+    if isinstance(value.get("steps"), list):
+        for step in value["steps"]:
+            if isinstance(step, dict):
+                step.pop("state", None)
+    return Plan.model_validate(value) if "outcomes" in value else Workflow.model_validate(value)
 
 
 def outcome_status(saved, operations, cards):

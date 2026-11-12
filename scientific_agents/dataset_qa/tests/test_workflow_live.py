@@ -73,11 +73,14 @@ def test_live_same_session_query_export_and_download(engine, tmp_path, monkeypat
                         f"先帮我下载 {limit} 条，保存成 CSV。", rid=str(threshold))
                     saved = payload(service, sid, events)
                     assert not saved.get("error")
-                    assert saved["plan"]["acceptance"]["export"]["state"] == "accepted"
-                    assert len(saved["operations"]) == 2
+                    acceptance = saved["plan"]["acceptance"]
+                    assert acceptance and all(item["state"] == "accepted" for item in acceptance.values())
+                    assert len(saved["operations"]) == 2 and all(op["state"] == "succeeded" for op in saved["operations"])
                     cards = result_cards(events)
-                    assert len(cards) == 1
-                    output = cards[0]["data"]["items"][0]
+                    exports = [item for card in cards for item in card["data"]["items"]
+                        if isinstance(item, dict) and item.get("resource", {}).get("format") == "csv"]
+                    assert len(exports) == 1
+                    output = exports[0]
                     assert output["resource"]["format"] == "csv"
                     assert output["downloadUrl"].startswith(base + "/artifacts/")
                     async with httpx.AsyncClient(timeout=20) as client:

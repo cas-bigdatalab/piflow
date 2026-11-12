@@ -11,7 +11,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from .contracts import QAError
-from .context import pointer_tokens
+from .context import pointer_tokens, same_identity
 from .references import at_path, identifier_in_request
 from .search import SearchProfile, TaskDirective
 from .resource_index.model import DirectorySpec
@@ -213,7 +213,8 @@ def inputs(tool, arguments, record=None):
                 raise QAError("invalid_parameters", "当前对象缺少此操作所需的标识", detail={"field": key,
                     "guidance": "The selected source record lacks this identifier. Repeating the call or changing focus to the same record cannot supply it. Never substitute another identifier field. Deliver the existing candidates if the user only requested search; otherwise obtain a source that supplies the required identifier or explain the available findings and the unavailable requested content."})
             explicit = normalize_identity(values[key], field_validator) if key in values else None
-            if explicit is not None and not same_identity(explicit, candidates[0]):
+            supplied = key in values and (explicit is not None or field_validator.is_valid(None))
+            if supplied and not same_identity(explicit, candidates[0]):
                 raise QAError("invalid_parameters", "调用参数与所选对象不一致，尚未执行", detail={
                     "field": key, "path": [key], "origin": "object_binding",
                     "guidance": "The explicit argument conflicts with the selected source. If this is the intended object, omit its bound parameter so runtime supplies the real identifier. Otherwise choose the correct supplied object; never invent an identifier."})
@@ -222,19 +223,6 @@ def inputs(tool, arguments, record=None):
         if key not in values and isinstance(field, dict) and "default" in field:
             values[key] = deepcopy(field["default"])
     return values
-
-
-def same_identity(left, right):
-    """JSON equality without Python's boolean/number identity collision."""
-    if isinstance(left, bool) or isinstance(right, bool):
-        return type(left) is type(right) and left==right
-    if isinstance(left, dict) or isinstance(right, dict):
-        return isinstance(left, dict) and isinstance(right, dict) and left.keys()==right.keys() and all(
-            same_identity(left[key], right[key]) for key in left)
-    if isinstance(left, list) or isinstance(right, list):
-        return isinstance(left, list) and isinstance(right, list) and len(left)==len(right) and all(
-            same_identity(a, b) for a, b in zip(left, right))
-    return left==right
 
 
 def normalize_identity(value, validator):

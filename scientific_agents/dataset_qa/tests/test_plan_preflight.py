@@ -104,4 +104,14 @@ def test_plan_review_retains_every_hidden_tools_business_schema_without_duplicat
         return json.loads(remember["description"].split("Catalogue: ", 1)[1])
     assert len(catalogue(before)) == 1
     assert {row["tool"] for row in catalogue(review)} == set(tools.loaded)
-    assert all(row["arguments_schema"] == tools.loaded[row["tool"]].schema for row in catalogue(review))
+    for row in catalogue(review):
+        original = tools.loaded[row["tool"]].schema
+        schema = deepcopy(row["arguments_schema"])
+        assert not set(schema.get("required", [])) & set(row["object_bindings"])
+        for field in row["object_bindings"]:
+            schema["properties"][field].pop("description", None)
+            if "description" in original["properties"][field]:
+                schema["properties"][field]["description"] = original["properties"][field]["description"]
+        if "required" in original:
+            schema["required"] = original["required"]
+        assert schema == original  # Business constraints and local references stay intact.

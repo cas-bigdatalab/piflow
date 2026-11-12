@@ -262,6 +262,17 @@ class DatasetQA:
         context = {key: saved[key] for key in ("memory", "summary", "summary_after", "references", "pending", "tools") if key in saved}
         memory = context.setdefault("memory", {})
         history = await asyncio.to_thread(self.store.memory, user, sid, 0, None, 12, True, tid)
+        # The summary cursor covers a prefix, not everything outside the recent
+        # window. Keep the adjacent unsummarized gap until a summary commits.
+        # A bounded tail prevents stalled background summaries growing requests
+        # without limit; the extra row detects omissions without counting all history.
+        unsummarized = []
+        if len(history) == 12 and context.get("summary_after", 0) < history[0]["id"]:
+            unsummarized = await asyncio.to_thread(self.store.memory, user, sid,
+                context.get("summary_after", 0), history[0]["id"], 25, True, tid)
+        history_coverage = {"incomplete": len(unsummarized) > 24,
+            "guidance": "If incomplete, earlier unsummarized messages may be absent. Do not infer missing prior requirements; clarify them when needed."}
+        unsummarized = unsummarized[-24:]
         state = context.setdefault("references", {})
         last = None
         if "references" not in saved:
@@ -296,7 +307,8 @@ class DatasetQA:
             source_evidence = [evidence(last, 1800)]
         model_context = {"memory": {key: value for key, value in memory.items() if key!="selected_dataset_id"},
             "pending": context.get("pending"), "summary": context.get("summary", ""),
-            "references": await self._reference_view(user, sid, state), "evidence": source_evidence, "history": history}
+            "references": await self._reference_view(user, sid, state), "evidence": source_evidence,
+            "history": history, "unsummarized_history": unsummarized, "history_coverage": history_coverage}
         available_artifacts = await asyncio.to_thread(self.artifacts.recent, user)
         if available_artifacts:
             model_context["available_artifacts"] = available_artifacts
@@ -806,7 +818,26 @@ class DatasetQA:
             tid, operation_id, card["result_id"], key[:12], operation.get("required", True), operation.get("inferred", False))
         return card, created
 
-    async def _parallel_reads(self, user, sid, tid, calls, bindings, tools, execution, payload, first_result, phase, waiting):
+    async def _invoke_mcp(self, user, tid, key, tool, arguments, tools, artifact_deadline, *, isolated=False):
+        """Apply the same authorization and execution identity to every dispatch."""
+        descriptor = profile(tool)
+        async with self._foreground_mcp():
+            metadata = None
+            try:
+                if descriptor.artifact:
+                    if descriptor.artifact.consume:
+                        await asyncio.to_thread(self.artifacts.authorize, user, tool.server,
+                            arguments[descriptor.artifact.consume])
+                    if descriptor.artifact.execution_context:
+                        metadata = execution_metadata(user, tid+":"+key, arguments,
+                            artifact_deadline-time.monotonic())
+            except QAError as exc:
+                exc.detail = {**(exc.detail if isinstance(exc.detail, dict) else {}), "dispatched": False}
+                raise
+            invoke = tools.call_isolated if isolated else tools.call
+            return await invoke(tool.alias, arguments, **({"metadata": metadata} if metadata else {}))
+
+    async def _parallel_reads(self, user, sid, tid, calls, bindings, tools, execution, payload, first_result, phase, waiting, *, artifact_deadline):
         """Only independent, fully validated, read-only/idempotent work overlaps.
 
         Reserve calls and persist running receipts before dispatch. Each completed
@@ -845,8 +876,9 @@ class DatasetQA:
         await phase("execute", f"正在并行查询 {len(calls)} 项独立信息", payload=payload)
 
         async def execute(call):
-            async with self._foreground_mcp():
-                return await tools.call_isolated(call["name"], specs[call["id"]][2])
+            _, key, arguments, _ = specs[call["id"]]
+            return await self._invoke_mcp(user, tid, key, tools.loaded[call["name"]], arguments, tools,
+                artifact_deadline, isolated=True)
 
         async def persist(call, result, error):
             operation_id, key, args, result_id = specs[call["id"]]
@@ -1071,7 +1103,10 @@ class DatasetQA:
             raise QAError("invalid_parameters", "计划核对须使用已保存的当前版本，不能同时修改或执行")
         if payload.get("plan") and not scheduled:
             if native or any(value.goals or value.operations or value.calls for value in memory):
-                raise QAError("invalid_parameters", "已有执行计划，请修订必要步骤而非绕过计划重复调用工具")
+                raise QAError("invalid_parameters", "已有执行计划，请修订必要步骤而非绕过计划重复调用工具", detail={
+                    "pending_steps": [item.get("plan_step") for item in execution.operations.items
+                        if item.get("planned") and item["state"] == "pending"],
+                    "guidance": "Copy context.plan.editable into remember.plan and change only the unresolved step's object/inputs or business arguments. Keep completed steps and the requested output format. Runtime will execute the repaired step; do not submit native MCP calls or legacy goals/calls."})
         if not scheduled and any(profile(tools.loaded[call["name"]]).plan_required for call in native):
             payload["planning"] = True
             raise QAError("planning_required", "此操作通过计划执行，请登记本轮步骤", detail={
@@ -1237,8 +1272,8 @@ class DatasetQA:
                 if scheduled and call["id"] in scheduled:
                     # The scheduler has resolved these values from persisted
                     # receipts. They need no user literal or implicit focus.
-                    step_key = (execution.operations.get(operation_id) or {}).get("plan_step")
-                    step = next((step for step in payload["plan"]["spec"]["steps"] if step["key"] == step_key), {})
+                    step = next((step for step in payload["plan"]["spec"]["steps"]
+                        if payload["plan"]["operations"].get(step["key"]) == operation_id), {})
                     grounded_fields.update(step.get("inputs", {}))
                 grounded_identifier = bool(descriptor.bind) and set(descriptor.bind) <= grounded_fields
                 direct_identifier = (grounded_identifier and selector is None and target is None and not has_focus)
@@ -1256,7 +1291,10 @@ class DatasetQA:
                     # Direct identifiers supplied by the user need no prior
                     # search. Identifiers absent from sources/request are unsafe.
                     if not grounded_identifier:
-                        raise QAError("invalid_parameters", "请从已有结果选择对象，不能使用无来源的标识")
+                        raise QAError("invalid_parameters", "请从已有结果选择对象，不能使用无来源的标识", detail={
+                            "fields": sorted(set(descriptor.bind) - grounded_fields),
+                            "available_objects": list(handles)[:12],
+                            "guidance": "Use a supplied object handle, or for a planned dependency revise plan.editable: set object to the source step key and omit its bound identifiers from arguments. Scalar references belong in inputs={parameter:{step,path}}. Do not invent identifiers or bypass the plan with direct calls."})
                 if descriptor.search and directive and directive.keywords:
                     prepared[descriptor.search.query] = directive.keywords[0]
                 tools.validate(call["name"], prepared)
@@ -1599,7 +1637,7 @@ class DatasetQA:
         # Answer generation is a separate trust boundary. Planning feedback and
         # tool errors remain available for correction, never for public wording.
         context = {key: value for key, value in json.loads(messages[1].content).items()
-            if key in {"memory", "summary", "references", "request_source", "request_objects", "response_basis"}}
+            if key in {"memory", "summary", "references", "request_source", "request_objects", "response_basis", "history_coverage"}}
         if payload.get("response_basis"):
             context["response_basis"] = {key: value for key, value in payload["response_basis"].items()
                 if key!="reason" or not (payload.get("diagnostics_exposed") or payload.get("resource_outcomes"))}
@@ -1908,7 +1946,8 @@ class DatasetQA:
                                         break
                                     independent.append(candidate)
                                 fetched = await self._parallel_reads(user, sid, tid, independent, bindings, tools,
-                                    execution, payload, results, phase, waiting)
+                                    execution, payload, results, phase, waiting,
+                                    artifact_deadline=started+limits.turn_timeout-limits.summary_timeout)
                                 parallel_results.update(fetched)
                                 results += len(fetched)
                             prefetched = parallel_results.get(call["id"])
@@ -2013,16 +2052,9 @@ class DatasetQA:
                                             presentation=presentation)
                                         payload["operations"] = execution.operations.items
                                         await phase("execute", "正在处理："+tool.title, payload=payload)
-                                        async with waiting.during("仍在获取所需内容，收到结果后会继续为您整理。"), self._foreground_mcp():
-                                            metadata = None
-                                            if descriptor.artifact:
-                                                if descriptor.artifact.consume:
-                                                    await asyncio.to_thread(self.artifacts.authorize, user, tool.server,
-                                                        arguments[descriptor.artifact.consume])
-                                                if descriptor.artifact.execution_context:
-                                                    metadata = execution_metadata(user, tid+":"+key, arguments,
-                                                        limits.turn_timeout-(time.monotonic()-started)-limits.summary_timeout)
-                                            tool, output = await tools.call(name, arguments, **({"metadata": metadata} if metadata else {}))
+                                        async with waiting.during("仍在获取所需内容，收到结果后会继续为您整理。"):
+                                            tool, output = await self._invoke_mcp(user, tid, key, tool, arguments, tools,
+                                                started+limits.turn_timeout-limits.summary_timeout)
                                         card, created = await self._save_tool_result(user, sid, tid, tool, output,
                                             operation_id, key, f"{tid}:{results}", execution, payload, arguments)
                                         results += int(created)
