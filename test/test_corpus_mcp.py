@@ -63,14 +63,18 @@ def test_corpus_mcp_lists_dataset_tools():
         "get_corpus_file_schema",
         "read_corpus_file_records",
         "get_corpus_dataset_directory",
+        "query_pubchem_compounds",
+        "export_dataset",
     }
     assert {tool["name"]: tool["_meta"]["piflow"]["view_type"] for tool in tools} == {
         "search_corpus_datasets": "detail",
         "get_corpus_dataset_detail": "data",
         "sample_corpus_dataset": "url",
-        "get_corpus_file_schema": "table",
+        "get_corpus_file_schema": "data",
         "read_corpus_file_records": "table",
         "get_corpus_dataset_directory": "directory",
+        "query_pubchem_compounds": "url",
+        "export_dataset": "url",
     }
 
     search_tool = next(tool for tool in tools if tool["name"] == "search_corpus_datasets")
@@ -97,9 +101,9 @@ def test_corpus_mcp_lists_dataset_tools():
     assert '"search_corpus_datasets"' in search_tool["_meta"]["piflow"]["usageExample"]
 
     directory_tool = next(tool for tool in tools if tool["name"] == "get_corpus_dataset_directory")
-    assert directory_tool["annotations"]["title"] == "查看数据内容"
-    assert directory_tool["_meta"]["piflow"]["displayName"] == "查看数据内容"
-    assert directory_tool["_meta"]["piflow"]["category"] == "数据内容查看"
+    assert directory_tool["annotations"]["title"] == "查看数据集目录"
+    assert directory_tool["_meta"]["piflow"]["displayName"] == "查看数据集目录"
+    assert directory_tool["_meta"]["piflow"]["category"] == "数据集目录查看"
 
     schema_tool = next(tool for tool in tools if tool["name"] == "get_corpus_file_schema")
     assert schema_tool["annotations"] == {
@@ -110,7 +114,7 @@ def test_corpus_mcp_lists_dataset_tools():
         "openWorldHint": False,
     }
     assert schema_tool["_meta"]["piflow"]["displayName"] == "文件 Schema 查询"
-    assert schema_tool["_meta"]["piflow"]["view_type"] == "table"
+    assert schema_tool["_meta"]["piflow"]["view_type"] == "data"
     assert '"get_corpus_file_schema"' in schema_tool["_meta"]["piflow"]["usageExample"]
     assert schema_tool["inputSchema"]["required"] == ["download_url"]
     assert "size" not in schema_tool["inputSchema"]["properties"]

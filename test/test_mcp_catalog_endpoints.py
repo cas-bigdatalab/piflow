@@ -17,12 +17,13 @@ def test_mcp_catalog_returns_tool_summaries():
     assert response.status_code == 200
     result = response.json()["result"]
     assert result["totalServers"] == 1
-    assert result["totalTools"] == 6
+    assert result["totalTools"] == 8
     search_tool = next(tool for tool in result["servers"][0]["tools"] if tool["name"] == "search_corpus_datasets")
-    assert search_tool == {
+    assert search_tool["description"].startswith("检索数据集候选")
+    assert "`keywords`" in search_tool["description"]
+    assert {key: value for key, value in search_tool.items() if key != "description"} == {
         "name": "search_corpus_datasets",
         "displayName": "数据集检索",
-        "description": "按元数据筛选条件和分页参数检索当前可见的数据集。\n\n`query` 按数据集关键词元数据筛选，映射到上游 `keywords`；领域筛选使用 `field`。\n当前上游标题筛选不可用，非空 `title` 会返回错误，不会降级成无筛选列表。\n返回结果中的分页总数保持当前筛选条件下数据集服务返回的总数。",
         "category": "数据集发现",
         "icon": "database-search",
         "readOnly": True,
@@ -46,7 +47,7 @@ def test_mcp_tool_detail_returns_full_contract():
     assert result["tool"]["annotations"]["readOnlyHint"] is True
     assert result["tool"]["meta"]["piflow"]["category"] == "数据集发现"
     assert "async with Client(MCP_ENDPOINT)" in result["tool"]["usageExample"]
-    assert 'MCP_ENDPOINT = "https://172.31.3.81:8086/api/piflow/v1/mcp/"' in result["tool"]["usageExample"]
+    assert 'MCP_ENDPOINT = "http://172.31.3.81:8086/api/piflow/v1/mcp/"' in result["tool"]["usageExample"]
     assert '"search_corpus_datasets"' in result["tool"]["usageExample"]
 
     with _build_client() as client:

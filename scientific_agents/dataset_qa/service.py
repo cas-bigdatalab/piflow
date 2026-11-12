@@ -29,12 +29,14 @@ from .resource_index.manager import ResourceIndex
 from .resource_index.resolver import bind_target, resolve as resolve_resource
 from .planning import plan_view, outcome_status, require_delivery
 from .plan_runtime import install_plan, confirm_plan, scheduled_reply
+from .artifacts import Artifacts, execution_metadata
 
 log = logging.getLogger("flow.dataset_qa")
 
 class DatasetQA:
     def __init__(self, engine, dialogue=None, gateway=None, *, index_policy=None):
         self.store, self.gateway = Store(engine), gateway or MCPGateway()
+        self.artifacts = Artifacts(self.store)
         self.dialogue = dialogue or Dialogue(limits=self.gateway.limits)
         self.owner, self.jobs = uuid4().hex, {}
         self.summaries = {}
@@ -295,6 +297,11 @@ class DatasetQA:
         model_context = {"memory": {key: value for key, value in memory.items() if key!="selected_dataset_id"},
             "pending": context.get("pending"), "summary": context.get("summary", ""),
             "references": await self._reference_view(user, sid, state), "evidence": source_evidence, "history": history}
+        available_artifacts = await asyncio.to_thread(self.artifacts.recent, user)
+        if available_artifacts:
+            model_context["available_artifacts"] = available_artifacts
+            model_context["artifact_catalog"] = {"tool": "find_artifacts",
+                "guidance": "Owned saved files are searchable across sessions. Recent previews are incomplete; search/page if missing. Resolve ambiguity before selecting."}
         published = await asyncio.to_thread(self.store.latest_displays, user, sid)
         if len(published)>1:
             model_context["published_results"] = evidence_group(published, Operations(),
@@ -730,6 +737,9 @@ class DatasetQA:
                     raise
         elif not cards and execution.operations.required and all(item["output"]=="answer" for item in execution.operations.required):
             await self._deliver(user, sid, tid, {"result_ids": []}, payload, execution, partial=not required)
+        elif payload.get("plan") and execution.operations.required and all(
+                item["state"] == "unavailable" for item in execution.operations.required):
+            await self._deliver(user, sid, tid, {"result_ids": []}, payload, execution, partial=not required)
         elif required:
             raise QAError("invalid_delivery", "未明确选择需要展示的结果；原始工具结果已保存")
 
@@ -760,6 +770,10 @@ class DatasetQA:
             view = metadata.get("view_type", "tool_result") if isinstance(metadata, dict) else "tool_result"
             card = {"result_id": result_id, "view_type": view,
                 "title": f"{tool.server} · {tool.title}", **output.payload()}
+            if spec := profile(tool).artifact:
+                aid = await asyncio.to_thread(self.artifacts.register, user, sid, card, tool, spec)
+                if aid:
+                    card["file_artifact"] = aid
         execution.operations.finish(operation_id, key, result_id=card["result_id"])
         self._register_objects(tool, card, payload)
         if payload.get("plan"):
@@ -960,6 +974,10 @@ class DatasetQA:
         """Short handles are a view of owned sources, never model-created IDs."""
         state = context.get("references", {})
         handles = dict(payload.get("objects", {}))
+        for handle in requested:
+            if isinstance(handle, str) and handle.startswith("artifact-") and handle not in handles:
+                handles[handle] = await asyncio.to_thread(self.artifacts.reference, user, sid, handle)
+                payload.setdefault("objects", {})[handle] = handles[handle]
         def indices(rows, prefix):
             wanted = set(range(min(100, len(rows))))
             for handle in requested:
@@ -1428,6 +1446,11 @@ class DatasetQA:
             return tools.list_servers(**values.model_dump())
         if name=="load_mcp_tools":
             return await tools.load(**values.model_dump())
+        if name=="find_artifacts":
+            page = await asyncio.to_thread(self.artifacts.find, user, **values.model_dump())
+            card = await asyncio.to_thread(self.store.save_resource, user, sid, tid, page, None)
+            return {"result_id": card["result_id"], "data": page, "executed": False,
+                "guidance": "Saved file candidates; not a new processing result. If clipped, use read_result on this result_id before paging further. Select the supplied artifact handle, not this catalogue result_id, for file operations."}
         if name=="resolve_resource":
             payload = payload if payload is not None else {}
             value = await resolve_resource(self, user, sid, tid, values, context, payload)
@@ -1573,7 +1596,8 @@ class DatasetQA:
                 **statuses[outcome["key"]]} for outcome in saved["spec"]["outcomes"]]
             instructions += (" outcome_status is the authoritative acceptance of requested content. "
                 "Only accepted outcomes are complete. For unavailable or incomplete outcomes describe only what the evidence supports, "
-                "in user terms, without exposing plan states or internal identifiers. A successful tool receipt alone does not prove fulfillment.")
+                "in user terms, without exposing plan states or internal identifiers. A successful tool receipt alone does not prove fulfillment. "
+                "If targets_met is false, report the actual quantity and shortfall; an accepted artifact does not mean its desired quantity was met.")
         searches = [SearchRun(item["search"]).view() for item in operations.items if item.get("search")]
         if searches:
             context["search_outcomes"] = [{key: value[key] for key in
@@ -1708,7 +1732,7 @@ class DatasetQA:
                             actions -= set(tools.loaded)
                             actions.add("remember")
                             if saved_plan.get("reviewed") != saved_plan["revision"]:
-                                actions &= {"remember", "read_result", "load_mcp_tools", "request_input"}
+                                actions &= {"remember", "read_result", "load_mcp_tools", "request_input", "find_artifacts"}
                                 actions.add("review_plan")
                         if tools.loaded and any(profile(tool).search or profile(tool).atomic for tool in tools.loaded.values()):
                             catalogues = [tools.cached_tools(server) for server in tools.servers]
@@ -1721,7 +1745,8 @@ class DatasetQA:
                             # Reserve the remaining decision for truthful closure,
                             # rather than starting another upstream exploration.
                             actions &= {"deliver_results", "remember", "request_input", "respond_from_context"}
-                        definitions = self._definitions([definition for definition in [*builtin_definitions(bool(payload.get("planning") or saved_plan)), *tools.definitions()]
+                        definitions = self._definitions([definition for definition in [*builtin_definitions(bool(payload.get("planning") or saved_plan),
+                            artifacts=bool(model_context.get("artifact_catalog")) or any(card.get("file_artifact") for card in execution.cards.values())), *tools.definitions()]
                             if definition["function"]["name"] in actions], tools, execution)
                         advertised = {value["function"]["name"] for value in definitions}
                         reply = None
@@ -1947,7 +1972,15 @@ class DatasetQA:
                                         payload["operations"] = execution.operations.items
                                         await phase("execute", "正在处理："+tool.title, payload=payload)
                                         async with waiting.during("仍在获取所需内容，收到结果后会继续为您整理。"), self._foreground_mcp():
-                                            tool, output = await tools.call(name, arguments)
+                                            metadata = None
+                                            if descriptor.artifact:
+                                                if descriptor.artifact.consume:
+                                                    await asyncio.to_thread(self.artifacts.authorize, user, tool.server,
+                                                        arguments[descriptor.artifact.consume])
+                                                if descriptor.artifact.execution_context:
+                                                    metadata = execution_metadata(user, tid+":"+key, arguments,
+                                                        limits.turn_timeout-(time.monotonic()-started)-limits.summary_timeout)
+                                            tool, output = await tools.call(name, arguments, **({"metadata": metadata} if metadata else {}))
                                         card, created = await self._save_tool_result(user, sid, tid, tool, output,
                                             operation_id, key, f"{tid}:{results}", execution, payload, arguments)
                                         results += int(created)

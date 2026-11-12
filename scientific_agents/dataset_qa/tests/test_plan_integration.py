@@ -205,6 +205,49 @@ def test_safe_failed_read_can_be_corrected_without_repeating_successes(engine):
     asyncio.run(run())
 
 
+@pytest.mark.parametrize("revise_blocked_child", [False, True])
+def test_corrected_prerequisite_resumes_dependent_plan_steps(engine, revise_blocked_child):
+    async def run():
+        backend = configured()
+        backend.catalog["data"][0].annotations = {"readOnlyHint": True, "idempotentHint": True}
+        original_client = backend.client
+        def client(*args, **kwargs):
+            instance = original_client(*args, **kwargs)
+            original_call = instance.call_tool
+            async def call(name, arguments, **options):
+                result = await original_call(name, arguments, **options)
+                if name == "search" and len(backend.calls) == 1:
+                    return SimpleNamespace(is_error=True, content=[SimpleNamespace(type="text", text="invalid upstream query")])
+                return result
+            instance.call_tool = call
+            return instance
+        backend.client = client
+        def repair(messages, definitions):
+            assert [call[1] for call in backend.calls] == ["search"]
+            revised = specimen()
+            revised["steps"][0]["arguments"]["query"] = "corrected query"
+            if revise_blocked_child:
+                revised["steps"][2]["arguments"]["count"] = 2
+            return action("remember", plan=revised)
+        dialogue = BareDialogue(load(), action("remember", plan=specimen()), approve, repair, approve, text())
+        service = DatasetQA(engine, dialogue, backend.gateway())
+        try:
+            sid = session(service)
+            values = await collect(service, sid, "查找资源，获取详情和最多三条样例")
+            assert_completed(service, None, values[-1])
+            assert [call[1] for call in backend.calls] == ["search", "search", "inspect", "sample"]
+            assert backend.calls[-1][2] == {"reference": "a", "count": 2 if revise_blocked_child else 3}
+            saved = payload(service, sid, values)
+            assert [len(operation["attempts"]) for operation in saved["operations"]] == [2, 1, 1]
+            assert all(operation["state"] == "succeeded" for operation in saved["operations"])
+            assert all("unavailable_dependency" not in operation for operation in saved["operations"])
+            assert {value["state"] for value in saved["plan"]["acceptance"].values()} == {"accepted"}
+            assert len(result_cards(values)) == 2 and len(dialogue.inputs) == 6
+        finally:
+            await service.close()
+    asyncio.run(run())
+
+
 def test_incomplete_content_cannot_be_promoted_by_transport_success_or_delivery_retry(engine):
     async def run():
         backend = configured()

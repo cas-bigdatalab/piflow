@@ -53,6 +53,8 @@ class ResultContract(Contract):
     kind: str = Field(min_length=1, max_length=100)
     requires: list[Check] = Field(default_factory=list, max_length=16)
     unavailable_when: list[Check] = Field(default_factory=list, max_length=8)
+    target_paths: list[str] = Field(default_factory=list, max_length=8,
+        description="Adapter-declared quantities whose shortfall is reported without blocking usable results.")
 
     def assess(self, data):
         if self.unavailable_when and all(check.matches(data) for check in self.unavailable_when):
@@ -66,6 +68,7 @@ class Outcome(Contract):
     kind: str = Field(min_length=1, max_length=100, description="Advertised output kind; schema is not records, job submission is not an artifact.")
     constraints: list[Annotated[str, Field(min_length=1, max_length=300)]] = Field(default_factory=list, max_length=12, description="Preserve user scope, counts and rules.")
     checks: list[Check] = Field(default_factory=list, max_length=16, description="Checks on full results. Empty search results are valid.")
+    targets: list[Check] = Field(default_factory=list, max_length=16, description="Desired quantities; report shortfalls without blocking usable artifacts.")
 
 
 class FromStep(Contract):
@@ -139,7 +142,8 @@ def validate_revision(previous, plan):
         value = current.get(outcome.key)
         if (value is None or value.kind != outcome.kind
                 or not set(outcome.constraints) <= set(value.constraints)
-                or not all(check in value.checks for check in outcome.checks)):
+                or not all(check in value.checks for check in outcome.checks)
+                or not all(check in value.targets for check in outcome.targets)):
             raise QAError("invalid_parameters", "计划修订须保留尚需交付的成果及原有要求")
 
 
@@ -176,9 +180,12 @@ def outcome_status(saved, operations, cards):
                         for check in outcomes[key].checks) for rid in ids) else "incomplete"
                 else:
                     state = "incomplete"
-            elif operation and operation["state"] in {"failed", "unknown"}:
+            elif operation and operation["state"] in {"failed", "unknown", "unavailable"}:
                 state = "unavailable"
             status[key] = {"state": state, "result_ids": ids}
+            if outcomes[key].targets:
+                status[key]["targets_met"] = bool(ids) and all(rid in by_id and all(
+                    check.matches(by_id[rid].get("data")) for check in outcomes[key].targets) for rid in ids)
     return status
 
 

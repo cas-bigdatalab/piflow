@@ -7,11 +7,32 @@ from .capabilities import OBJECT, SUPPORTING, GOAL, TASK, inputs, profile, resol
 from .contracts import QAError
 from .operations import Operations
 from .execution import Execution, fingerprint
-from .planning import FromStep, Plan, ResultContract, outcome_status, validate_revision
+from .planning import Check, FromStep, Plan, ResultContract, outcome_status, validate_revision
 from .references import at_path
 
 
+def _dependency_blocked(operation):
+    return (operation["state"] == "unavailable" and operation.get("unavailable_dependency")
+        and not operation["attempts"])
+
+
 async def install_plan(service, user, sid, plan, tools, execution, payload, context):
+    plan = plan.model_copy(deep=True)
+    for step in plan.steps:
+        contract = profile(resolve_tool(step.tool, tools.loaded)).result
+        if contract and contract.target_paths:
+            for outcome in plan.outcomes:
+                if outcome.key in step.produces:
+                    soft = [check for check in outcome.checks if check.path in contract.target_paths and check.test == "at_least"]
+                    outcome.targets.extend(check for check in soft if check not in outcome.targets)
+                    outcome.checks = [check for check in outcome.checks if check not in soft]
+                    for index, check in enumerate(outcome.checks):
+                        if check.path in contract.target_paths and check.test == "equals" and type(check.value) in {int, float}:
+                            value = int(check.value) if isinstance(check.value, float) and check.value.is_integer() else check.value
+                            target = Check(path=check.path, test="at_least", value=value)
+                            if target not in outcome.targets:
+                                outcome.targets.append(target)
+                            outcome.checks[index] = Check(path=check.path, test="at_most", value=value)
     previous = payload.get("plan")
     validate_revision(previous, plan)
     spec = plan.model_dump()
@@ -72,7 +93,7 @@ async def install_plan(service, user, sid, plan, tools, execution, payload, cont
                 rejected = all(attempt["state"] == "rejected" for attempt in old["attempts"])
                 safe_failure = (old["state"] == "failed" and old["attempts"]
                     and old["attempts"][-1].get("retry_safe") is True)
-                if not ((old["state"] == "pending" and rejected) or safe_failure):
+                if not (((old["state"] == "pending" or _dependency_blocked(old)) and rejected) or safe_failure):
                     raise QAError("invalid_parameters", "已执行的步骤不能改写；保留其证据并为必要的新操作添加步骤")
                 if list(previous["operations"].values()).count(old_id) > 1:
                     # A revised consumer must not mutate a shared receipt or
@@ -82,6 +103,7 @@ async def install_plan(service, user, sid, plan, tools, execution, payload, cont
             if changed:
                 old.update(capability={"server": tool.server, "name": tool.name}, target=target,
                     state="pending", plan_retry=revision)
+                old.pop("unavailable_dependency", None)
             operation_id = old_id
         elif Execution.reusable(tool) and not step.fresh and signature in reusable:
             operation_id = reusable[signature]
@@ -144,6 +166,38 @@ def scheduled_reply(saved, execution, tools, limit):
     cards = {card["result_id"]: card for card in execution.cards.values()}
     saved["acceptance"] = outcome_status(saved, operations, cards.values())
     calls, bindings = [], {}
+
+    # Dependency blockage is derived from current receipts, not an execution
+    # receipt itself. A repaired/replaced upstream can reopen unexecuted work.
+    # Never reset a step with its own attempt, including an uncertain write.
+    for step in plan.steps:
+        operation = operations.get(saved["operations"][step.key])
+        if _dependency_blocked(operation):
+            operation["state"] = "pending"
+            operation.pop("unavailable_dependency")
+
+    # Close descendants only when a prerequisite is terminally unavailable.
+    # Incomplete/ambiguous evidence stays open for a meaningful correction.
+    for _ in plan.steps:
+        changed = False
+        for step in plan.steps:
+            operation = operations.get(saved["operations"][step.key])
+            if operation["state"] != "pending" or operation["attempts"]:
+                continue
+            for key in step.dependencies():
+                dependency = operations.get(saved["operations"][key])
+                ids = operations.result_ids(dependency)
+                contract = ResultContract.model_validate(saved["contracts"][key])
+                unavailable = dependency["state"] in {"failed", "unknown", "unavailable"}
+                unavailable |= bool(dependency["state"] == "succeeded" and ids and all(
+                    rid in cards and contract.assess(cards[rid].get("data")) == "unavailable" for rid in ids))
+                if unavailable:
+                    operation.update(state="unavailable", unavailable_dependency=key)
+                    changed = True
+                    break
+        if not changed:
+            break
+    saved["acceptance"] = outcome_status(saved, operations, cards.values())
 
     def source(ref):
         operation = operations.get(saved["operations"][ref.step])

@@ -232,9 +232,20 @@ class ToolSession:
             await connection.aclose()
 
     def list_servers(self, query="", offset=0, limit=8):
+        from .capabilities import profile
         names = ranked(self.servers, query, lambda n: n+" "+self.servers[n].description)
         page = names[offset:offset+limit]
         result = {"items": [{"name": n, "description": self.servers[n].description[:300]} for n in page]}
+        for row in result["items"]:
+            groups = {}
+            for tool in self.cached_tools(row["name"]) or []:
+                routing = profile(tool).routing
+                if routing:
+                    group = groups.setdefault(routing.group, routing.model_dump())
+                    for field in ("operations", "inputs", "outputs"):
+                        group[field] = list(dict.fromkeys([*group[field], *getattr(routing, field)]))
+            if groups:
+                row["groups"] = list(groups.values())
         if offset+len(page)<len(names):
             result["next_offset"] = offset+len(page)
         return result
@@ -411,8 +422,8 @@ class ToolSession:
         # Reuse descriptions and schemas, never another turn's execution results.
         candidates = [tool for server in self.servers for tool in self.cached_tools(server) or []]
         recent = {(ref.get("server"), ref.get("name")) for ref in references if isinstance(ref, dict)}
-        candidates = ranked(candidates, query, lambda t: t.name+" "+t.description+" "+encode(t.meta))
-        candidates.sort(key=lambda t: (t.server, t.name) not in recent)
+        from .routing import select_tools
+        candidates = select_tools(candidates, query, recent=recent)
         return self.include(candidates[:min(4, self.limits.max_tools)])
 
     async def prepare(self, query, references=()):
@@ -428,10 +439,9 @@ class ToolSession:
             except QAError:
                 pass  # The existing discovery recovery retains precise feedback.
 
-    async def load(self, server, query="", offset=0, limit=4):
-        catalogue = [*await self.tools(server), *self.definition_errors.get(server, [])]
-        catalogue = ranked(catalogue, query, lambda item: item.name+" "+item.description+" "+encode(item.meta)
-            if isinstance(item, Tool) else item["name"])
+    async def load(self, server, query="", offset=0, limit=4, group=None):
+        from .routing import select_tools
+        catalogue = select_tools([*await self.tools(server), *self.definition_errors.get(server, [])], query, group=group)
         page = catalogue[offset:offset+limit]
         result = self.include(item for item in page if isinstance(item, Tool))
         result["items"].extend(deepcopy(item) for item in page if isinstance(item, dict))
@@ -490,8 +500,11 @@ class ToolSession:
             isolated.loaded[alias] = deepcopy(tool)
             return await isolated.call(alias, arguments)
 
-    async def call(self, alias, arguments):
+    async def call(self, alias, arguments, *, metadata=None):
         tool = self.validate(alias, arguments)
+        from .capabilities import profile
+        artifact = profile(tool).artifact
+        replay_safe = bool(metadata and artifact and artifact.execution_context and artifact.replay_safe)
         self.loaded.move_to_end(alias)
         timeout = self.servers[tool.server].timeout or self.limits.timeout
         deadline = asyncio.get_running_loop().time()+timeout
@@ -503,13 +516,14 @@ class ToolSession:
                     try:
                         dispatched = True
                         result = await client.call_tool(tool.name, arguments,
-                            timeout=max(0.001, deadline-asyncio.get_running_loop().time()), raise_on_error=False)
+                            timeout=max(0.001, deadline-asyncio.get_running_loop().time()), raise_on_error=False,
+                            **({"meta": metadata} if metadata else {}))
                         break
                     except asyncio.CancelledError:
                         raise
                     except Exception as exc:
-                        if not (tool.annotations.get("readOnlyHint") is True
-                                and tool.annotations.get("idempotentHint") is True
+                        if not ((replay_safe or (tool.annotations.get("readOnlyHint") is True
+                                and tool.annotations.get("idempotentHint") is True))
                                 and await self.retry(exc, attempt, deadline, tool.server, "call")):
                             raise
                         await self.disconnect(tool.server)

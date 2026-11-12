@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 from functools import partial
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 import anyio
-from fastmcp import FastMCP
+from fastmcp import FastMCP, Context
 from fastmcp.exceptions import ToolError
-from pydantic import Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from services.corpus_connector_service import (
     get_dataset_detail_by_cstr,
@@ -17,6 +17,8 @@ from services.corpus_connector_service import (
     get_file_schema,
     get_file_records,
     list_dataset_details,
+    query_pubchem_records,
+    export_record_file,
 )
 
 
@@ -30,6 +32,7 @@ mcp = FastMCP(
         "字段结构和样例记录使用两个独立的文件级工具；两项都需要时分别调用，可并行获取。"
         "未指定文件时先获取目录并定位实际文件，不把单个文件的结果当作整个数据集的内容。"
         "仅依据工具实际返回内容回答，不推测缺失字段、文件路径或读取范围。"
+        "PubChem 化合物结构检索和通用结果导出属于独立能力组；不要将化合物检索当作数据集目录检索。"
     ),
 )
 
@@ -371,6 +374,88 @@ async def get_corpus_dataset_directory(
     return _checked_result(
         await anyio.to_thread.run_sync(partial(get_dataset_directory, cstr, file_id=file_id))
     )
+
+
+def _file_capability(kind, group, source, operations, inputs, outputs, *, consume=None):
+    label = "PubChem 化合物检索与筛选" if source == "PubChem" else "导出数据文件"
+    return {"piflow": {"displayName": label, "category": "化合物发现" if source else "数据处理",
+        "icon": "database-search" if source else "download", "riskLevel": "low", "version": "1.0.0",
+        "tags": [group, *operations], "view_type": "url", "qa": {
+        "label": label,
+        "atomic": True, "object": "/resource",
+        "bind": {consume: ["/source_ref"]} if consume else {},
+        "routing": {"group": group, "source": source, "operations": operations, "inputs": inputs, "outputs": outputs},
+        "artifact": {"path": "/resource", "consume": consume, "execution_context": True, "replay_safe": True},
+        "result": {"kind": kind, "requires": [{"path": "/resource/source_ref"},
+            {"path": "/record_count", "test": "at_least", "value": 1}],
+            "unavailable_when": [{"path": "/resource", "test": "equals", "value": None}],
+            "target_paths": ["/record_count"]}}}}
+
+
+def _execution_context(ctx):
+    request = ctx.request_context
+    meta = request.meta.model_dump() if request and request.meta else {}
+    return meta.get("piflow_execution", {})
+
+
+class CompoundPropertyRange(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True, allow_inf_nan=False)
+    field: Literal["MolecularWeight", "XLogP"]
+    minimum: int | float | None = None
+    maximum: int | float | None = None
+
+
+@mcp.tool(annotations={"title": "PubChem 化合物检索与筛选", "readOnlyHint": False,
+    "destructiveHint": False, "idempotentHint": True, "openWorldHint": True},
+    meta=_file_capability("record_resource", "pubchem", "PubChem", ["similarity_search", "property_filter"],
+        ["SMILES"], ["jsonl", "record_resource"]))
+async def query_pubchem_compounds(
+    ctx: Context,
+    smiles: Annotated[str, Field(min_length=1, max_length=4000, description="用户提供的查询分子 SMILES，不改写结构")],
+    similarity_threshold: Annotated[int, Field(ge=1, le=100, description="PubChem 二维 Tanimoto 相似度百分比下限，80 表示 80%；结果不提供每条相似度分数")]=80,
+    filters: Annotated[list[CompoundPropertyRange] | None, Field(max_length=8, description="AND 数值范围条件；上下限至少一个，包含边界。XLogP 是计算值；缺失值不通过指定条件")]=None,
+    limit: Annotated[int | None, Field(ge=1, le=20000, description="筛选后期望条数；不是最低交付条数。省略时处理本次候选直到完成或预算截止，不承诺全库穷尽")]=None,
+) -> dict[str, Any]:
+    """从 PubChem 按分子结构检索相似化合物并筛选属性，不检索数据集目录。
+
+    工具内部批量获取属性、筛选、按 CID 去重并保存 JSONL；不是让模型逐条计算。
+    返回 resource、record_count、target_count/target_met、statistics、coverage、stop_reason。
+    任意数量的合格结果均可交付；不足目标不改条件重搜，截断不代表数据源穷尽。
+    需要 CSV 时将 resource 引用交给 export_dataset；不要重跑检索或调用随机采样。
+    文件写入有副作用，使用调用方签名的 _meta.piflow_execution 进行身份、期限和重放校验；不是模型参数。
+    """
+    try:
+        rules = [value.model_dump(exclude_unset=True) for value in filters] if filters is not None else None
+        return await anyio.to_thread.run_sync(partial(query_pubchem_records, smiles,
+            similarity_threshold, rules, limit, execution=_execution_context(ctx)))
+    except ValueError as exc:
+        raise ToolError(str(exc)) from exc
+    except Exception as exc:
+        raise ToolError("本次结果文件暂未准备完成，已有查询条件已保留") from exc
+
+
+@mcp.tool(annotations={"title": "导出数据文件", "readOnlyHint": False,
+    "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+    meta=_file_capability("exported_file", "data_processing", "", ["export"],
+        ["record_resource"], ["csv", "jsonl"], consume="source_ref"))
+async def export_dataset(
+    ctx: Context,
+    source_ref: Annotated[str, Field(min_length=1, max_length=4000, description="本服务已生成 resource 中的 source_ref 原值；QA 可以用其产物对象绑定。不是 artifact_id、文件路径或自行构造的 URL")],
+    format: Literal["csv", "jsonl"]="csv",
+) -> dict[str, Any]:
+    """将已取得的结构化记录资源导出为 CSV 或 JSONL；与原数据来源无关。
+
+    本期接收本服务签发的资源引用，不接受任意文件路径或外部 URL，不执行额外检索/筛选。
+    原文件保留，返回 resource、downloadUrl、record_count 和继承的筛选统计。
+    同一源文件与格式复用已校验的导出，刷新下载地址不重新检索。需签名执行上下文，同查询工具。
+    """
+    try:
+        return await anyio.to_thread.run_sync(partial(export_record_file, source_ref, format,
+            execution=_execution_context(ctx)))
+    except ValueError as exc:
+        raise ToolError(str(exc)) from exc
+    except Exception as exc:
+        raise ToolError("本次导出文件暂未准备完成，已取得的数据仍可继续使用") from exc
 
 
 def create_mcp_app():

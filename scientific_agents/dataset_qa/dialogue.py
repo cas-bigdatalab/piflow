@@ -7,7 +7,7 @@ import os
 from typing import Annotated, Literal
 
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage, trim_messages
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
 from .context import encode, project
 from .context_budget import TokenCounter, context_overflow, summary_batch
@@ -33,6 +33,8 @@ class Browse(Input):
 class Load(Browse):
     server: str
     limit: int = Field(default=4, ge=1, le=8)
+    group: str | None = Field(default=None, max_length=80,
+        description="Optional advertised capability group within this server; omit when unknown.")
 
 
 class Read(Input):
@@ -40,6 +42,22 @@ class Read(Input):
     path: str = ""
     offset: int = Field(default=0, ge=0)
     limit: int = Field(default=20, ge=1, le=100)
+
+
+class FindArtifacts(Input):
+    query: str = Field(default="", max_length=255, description="Literal file-name substring or supplied artifact handle; empty browses this user's saved files.")
+    source: str | None = Field(default=None, max_length=160, description="Source server from a saved-file candidate, if restricting the search.")
+    format: str | None = Field(default=None, max_length=40)
+    updated_after: AwareDatetime | None = Field(default=None, description="Inclusive registration/update time with explicit timezone, not the file's observation date.")
+    updated_before: AwareDatetime | None = Field(default=None, description="Exclusive registration/update time with explicit timezone.")
+    cursor: str | None = Field(default=None, max_length=512, description="Returned next_cursor; preserve the same filters when paging.")
+    limit: int = Field(default=5, ge=1, le=5)
+
+    @model_validator(mode="after")
+    def valid_range(self):
+        if self.updated_after and self.updated_before and self.updated_after >= self.updated_before:
+            raise ValueError("The time range must have an earlier start than end.")
+        return self
 
 
 class ResolveResource(Input):
@@ -140,6 +158,7 @@ INPUTS = {
     "list_mcp_servers": (Browse, "Browse beyond the supplied service directory; filter or paginate as needed."),
     "load_mcp_tools": (Load, "Load schemas from one relevant service for the next response; filter or paginate as needed."),
     "read_result": (Read, "Read specific saved evidence needed for the current decision using JSON Pointer and pagination, without executing again. Truncated previews alone do not require reading every field or page. Omit result_id to page result references, selections and pending objects; use selected_next_offset or pending_next_offset for their next page."),
+    "find_artifacts": (FindArtifacts, "Find this user's previously generated files across sessions. Search or page when recent files are absent/incomplete; do not repeat data retrieval. Returns saved candidates and a read_result reference. Use an unambiguous supplied artifact handle with remember.focus/selected or the next operation; clarify ambiguous matches. No new data processing or delivery occurs."),
     "resolve_resource": (ResolveResource, "Locate a named file using this user's known datasets, including other sessions. Waits internally for prerequisites and returns a grounded handle only after resolving a unique current location. Call the relevant file MCP next; this action does not retrieve schema/records. Do not poll or report internal preparation to the user."),
     "remember": (Remember, "Save explicit choices or necessary user outcomes. Use supplied object handles; runtime owns IDs and execution bookkeeping. No simultaneous call is required."),
     "request_input": (Ask, "Ask for indispensable missing input. Empty outcomes and optional follow-ups belong in the final reply. Options accept labels or label/value objects."),
@@ -169,14 +188,17 @@ def input_schema(model):
 
 
 BUILTINS = [{"type": "function", "function": {"name": name, "description": description,
-    "parameters": input_schema(MODEL_INPUTS.get(name, model))}} for name, (model, description) in INPUTS.items()]
+    "parameters": input_schema(MODEL_INPUTS.get(name, model))}} for name, (model, description) in INPUTS.items() if name != "find_artifacts"]
+ARTIFACT_BUILTINS = [{"type": "function", "function": {"name": "find_artifacts", "description": INPUTS["find_artifacts"][1],
+    "parameters": input_schema(FindArtifacts)}}]
 
 
-def builtin_definitions(planning=False):
+def builtin_definitions(planning=False, *, artifacts=False):
     """Progressive schema disclosure keeps single-operation requests small."""
+    definitions = [*BUILTINS, *(ARTIFACT_BUILTINS if artifacts else [])]
     if planning:
-        return BUILTINS
-    definitions = deepcopy(BUILTINS)
+        return definitions
+    definitions = deepcopy(definitions)
     schema = next(item["function"]["parameters"] for item in definitions if item["function"]["name"] == "remember")
     schema["properties"].pop("plan", None)
     # Goal is the only referenced legacy memory contract; plan types are loaded
@@ -394,7 +416,7 @@ class Dialogue:
         current = next((i for i, message in enumerate(messages) if message.id=="qa-current-request"), 2)
         fixed_size = 1+cost([messages[0], messages[current]])
         context = json.loads(messages[1].content)
-        protected = {key: context[key] for key in ("references", "request_source", "request_objects", "pending", "reference_issue", "operations", "response_basis", "execution_decision", "search_outcomes", "plan", "outcome_status") if context.get(key)}
+        protected = {key: context[key] for key in ("references", "request_source", "request_objects", "pending", "reference_issue", "operations", "response_basis", "execution_decision", "search_outcomes", "plan", "outcome_status", "artifact_catalog") if context.get(key)}
         if context.get("memory"):
             # Keep explicit choices/constraints, with the existing secret filter.
             protected["memory"] = project(context["memory"], len(encode(context["memory"])))[0]
