@@ -497,7 +497,9 @@ class ToolSession:
                 validator = validator.evolve(schema=known)
             validator.validate(arguments)
         except ValidationError as exc:
-            detail = {"path": list(exc.absolute_path), "constraint": exc.validator}
+            actual_type = next((name for name in ("null", "boolean", "integer", "number", "string", "array", "object")
+                if validator.TYPE_CHECKER.is_type(exc.instance, name)), "unknown")
+            detail = {"path": list(exc.absolute_path), "constraint": exc.validator, "actual_type": actual_type}
             detail["expected"], _ = project(exc.validator_value, 300)
             raise QAError("invalid_parameters", "参数不符合当前工具schema", detail=detail) from exc
         return tool

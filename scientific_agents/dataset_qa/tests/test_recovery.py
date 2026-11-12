@@ -32,7 +32,10 @@ def test_json_and_schema_errors_share_bounded_actionable_correction(engine):
 
         def after_schema(messages, definitions):
             feedback = json.loads(messages[-1].content)
-            assert feedback["detail"]=={"path": ["x"], "constraint": "type", "expected": "number"}
+            assert feedback["detail"]=={"path": ["x"], "constraint": "type", "expected": "number",
+                "actual_type": "string", "phase": "input_binding", "dispatched": False,
+                "step": None, "tool": next(d["function"]["name"] for d in definitions
+                    if d["function"]["name"].endswith("_multiply"))}
             assert "input" not in feedback["detail"]
             return remote("multiply", x=2, y=3)(messages, definitions)
 

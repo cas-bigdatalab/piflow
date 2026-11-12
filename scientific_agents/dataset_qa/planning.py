@@ -123,7 +123,7 @@ class Step(Invocation):
 
 class WorkflowStep(Invocation):
     arguments: dict = Field(default_factory=dict,
-        description="Business parameters only; omit __qa_* execution metadata. Use object/inputs for sources.")
+        description="Literal business parameters only; omit __qa_* metadata and parameters supplied by object/inputs. Never use null or invented source identifiers as placeholders.")
     object: str | FromStep | None = Field(default=None,
         description="Source step key, supplied object handle, or explicit step/path. Omit only when the file source is unambiguous.")
     deliver: bool | None = Field(default=None,

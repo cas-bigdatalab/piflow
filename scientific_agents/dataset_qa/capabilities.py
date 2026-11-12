@@ -215,7 +215,8 @@ def inputs(tool, arguments, record=None):
             explicit = normalize_identity(values[key], field_validator) if key in values else None
             if explicit is not None and not same_identity(explicit, candidates[0]):
                 raise QAError("invalid_parameters", "调用参数与所选对象不一致，尚未执行", detail={
-                    "field": key, "expected": candidates[0], "guidance": "Use the selected object's identifier or explicitly choose another supplied object handle."})
+                    "field": key, "path": [key], "origin": "object_binding",
+                    "guidance": "The explicit argument conflicts with the selected source. If this is the intended object, omit its bound parameter so runtime supplies the real identifier. Otherwise choose the correct supplied object; never invent an identifier."})
             values[key] = candidates[0]
     for key, field in tool.schema.get("properties", {}).items():
         if key not in values and isinstance(field, dict) and "default" in field:

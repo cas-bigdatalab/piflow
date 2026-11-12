@@ -3,6 +3,7 @@ from copy import deepcopy
 
 from jsonschema import Draft202012Validator
 from langchain_core.messages import AIMessage
+from pydantic import ValidationError
 
 from .capabilities import OBJECT, SUPPORTING, GOAL, TASK, inputs, profile, resolve_tool
 from .contracts import QAError
@@ -23,14 +24,17 @@ def workflow_definition(definition, loaded, visible=()):
         return definition
     if "WorkflowStep" not in definition["function"]["parameters"].get("$defs", {}):
         return definition
-    catalogue = [{"tool": tool.alias, "description": tool.description, "arguments_schema": tool.schema}
+    catalogue = [{"tool": tool.alias, "description": tool.description, "arguments_schema": tool.schema,
+        "object_bindings": profile(tool).bind}
         for tool in loaded.values() if tool.alias not in visible]
     if not catalogue:
         return definition
     definition = deepcopy(definition)
     definition["function"]["description"] += (
         " Capabilities below are available inside plan.steps (business arguments only). "
-        "Other loaded MCP tools may also be used in steps. Catalogue: " + encode(catalogue))
+        "For a dependency use object=source_step_key and OMIT its object_bindings parameters from arguments; "
+        "runtime supplies the real identifiers. For an individual result value use inputs={parameter:{step,path}}. "
+        "Do not invent identifiers or copy placeholder/null values. Other loaded MCP tools may also be used in steps. Catalogue: " + encode(catalogue))
     return definition
 
 
@@ -62,13 +66,38 @@ def compile_workflow(workflow, tools, previous=None):
     steps = []
     for call in workflow.steps:
         tool, descriptor = resolved[call.key], descriptors[call.key]
+        arguments, bindings = deepcopy(call.arguments), deepcopy(call.inputs)
+        validator = Draft202012Validator(tool.schema)
+        fields = tool.schema.get("properties", {})
+        # A clearly typed reference in the argument slot is the same dependency
+        # as inputs[name]. Valid business objects are always kept as literals.
+        for name, value in list(arguments.items()):
+            if (name not in fields or not isinstance(value, dict)
+                    or validator.evolve(schema=fields[name]).is_valid(value)):
+                continue
+            try:
+                ref = FromStep.model_validate(value)
+            except ValidationError:
+                continue  # Ordinary invalid values retain normal schema diagnostics.
+            if name in bindings and bindings[name] != ref:
+                raise QAError("invalid_parameters", "同一参数声明了不同的来源", detail={"step": call.key, "path": [name]})
+            bindings[name] = ref
+            del arguments[name]
         target = call.object
         if isinstance(target, str) and target in resolved:
             target = source(target)
         elif isinstance(target, FromStep) and target.step in resolved and "path" not in target.model_fields_set:
             target = source(target.step)
         consume = descriptor.artifact.consume if descriptor.artifact else None
-        if (target is None and consume and consume not in call.arguments and consume not in call.inputs
+        # Null is not a placeholder when the business schema accepts it. Only
+        # discard a non-nullable placeholder with a declared source binding.
+        for name, value in list(arguments.items()):
+            if (value is None and name in fields and not validator.evolve(schema=fields[name]).is_valid(None)
+                    and (name in bindings or (target is not None and name in descriptor.bind))):
+                del arguments[name]
+        implicit_placeholder = (consume in arguments and arguments[consume] is None and consume in fields
+            and not validator.evolve(schema=fields[consume]).is_valid(None))
+        if (target is None and consume and (consume not in arguments or implicit_placeholder) and consume not in bindings
                 and consume in descriptor.bind):
             candidates = [step.key for step in steps
                 if resolved[step.key].server == tool.server and descriptors[step.key].artifact]
@@ -77,10 +106,11 @@ def compile_workflow(workflow, tools, previous=None):
                     "step": call.key, "sources": candidates, "guidance": "Set this step's object to the intended source step key. No data operation has run."})
             if candidates:
                 target = source(candidates[0])
+                arguments.pop(consume, None)
         prior = old_steps.get(call.key)
         tool_name = prior.tool if prior and resolve_tool(prior.tool, tools.loaded).alias == tool.alias else tool.alias
-        steps.append(Step(key=call.key, tool=tool_name, arguments=deepcopy(call.arguments), fresh=call.fresh,
-            object=target, inputs=deepcopy(call.inputs), depends_on=list(call.depends_on)))
+        steps.append(Step(key=call.key, tool=tool_name, arguments=arguments, fresh=call.fresh,
+            object=target, inputs=bindings, depends_on=list(call.depends_on)))
     consumed = set().union(*(step.dependencies() for step in steps))
     outcomes = []
     for call, step in zip(workflow.steps, steps):
@@ -210,7 +240,12 @@ async def install_plan(service, user, sid, plan, tools, execution, payload, cont
         record = await service._target_record(user, sid, target) if target else None
         concrete = inputs(tool, step.arguments, record)
         concrete = {key: value for key, value in concrete.items() if key not in deferred or key in step.arguments}
-        tools.validate(tool.alias, concrete, deferred=deferred)
+        try:
+            tools.validate(tool.alias, concrete, deferred=deferred)
+        except QAError as exc:
+            exc.detail = {**(exc.detail or {}), "step": step.key, "tool": tool.alias,
+                "phase": "plan_validation", "dispatched": False}
+            raise
         signature = fingerprint({**step.model_dump(exclude={"key", "produces", "fresh"}),
             "tool": [tool.server, tool.name], "arguments": concrete,
             "object": target if isinstance(step.object, str) else step.model_dump()["object"]})

@@ -287,11 +287,24 @@ class Operations:
             error = previous.get("error", {})
             if not self.retryable(previous):
                 raise QAError(error.get("code", "tool_failed"), "此操作已经失败，未重复执行可能产生副作用的操作", 502, detail=error.get("detail"))
+        item.pop("plan_retry", None)  # A revision permits one corrected attempt.
         item["state"] = "running"
         item["attempts"].append({"key": key, "state": "running", "tool": tool, "retry_safe": retry_safe,
             "invocation": invocation, "scope": [goal["id"] for goal in self.required]})
         if presentation is not None:
             item["attempts"][-1]["presentation"] = deepcopy(presentation)
+
+    def reject(self, operation_id, key, error):
+        """Record a local rejection without claiming an external call started."""
+        item = self.get(operation_id)
+        if item is None or item["state"] != "pending":
+            return  # Never alter an executed or uncertain receipt.
+        item.pop("plan_retry", None)
+        if item["attempts"] and item["attempts"][-1]["key"] == key and item["attempts"][-1]["state"] == "rejected":
+            return
+        item["attempts"].append({"key": key, "state": "rejected", "dispatched": False,
+            "error": {"code": error.code, "message": str(error)[:400], "status": error.status,
+                "detail": project(error.detail or {}, 1200)[0]}})
 
     def finish(self, operation_id, key, *, result_id=None, error=None):
         item = self.get(operation_id)

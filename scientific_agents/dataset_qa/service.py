@@ -12,7 +12,7 @@ from pydantic import ValidationError
 
 from .context import encode, project, public_result, slice_result
 from .context_budget import recovery_evidence
-from .capabilities import GOAL, OBJECT, SUPPORTING, TASK, adapted, identifiers_from_request, inputs, profile, resolve_tool, same_identity
+from .capabilities import GOAL, OBJECT, SUPPORTING, TASK, adapted, inputs, profile, request_identifiers, resolve_tool, same_identity
 from .contracts import QAError
 from .dialogue import INPUTS, Dialogue, OutcomeConfirmation, builtin_definitions
 from .execution import Execution, fingerprint
@@ -1233,8 +1233,15 @@ class DatasetQA:
                     if target is not None and not await same_target(tool, chosen, target):
                         raise QAError("invalid_parameters", "所选对象与本轮目标不一致，尚未执行")
                     target = chosen
-                direct_identifier = (descriptor.bind and selector is None and target is None
-                    and not has_focus and identifiers_from_request(tool, arguments, payload["message"]))
+                grounded_fields = set(request_identifiers(tool, arguments, payload["message"]))
+                if scheduled and call["id"] in scheduled:
+                    # The scheduler has resolved these values from persisted
+                    # receipts. They need no user literal or implicit focus.
+                    step_key = (execution.operations.get(operation_id) or {}).get("plan_step")
+                    step = next((step for step in payload["plan"]["spec"]["steps"] if step["key"] == step_key), {})
+                    grounded_fields.update(step.get("inputs", {}))
+                grounded_identifier = bool(descriptor.bind) and set(descriptor.bind) <= grounded_fields
+                direct_identifier = (grounded_identifier and selector is None and target is None and not has_focus)
                 if descriptor.bind and target is None:
                     targets = [item["target"] for item in goals if item.get("target")]
                     if not direct_identifier:
@@ -1248,7 +1255,7 @@ class DatasetQA:
                 if descriptor.bind and target is None:
                     # Direct identifiers supplied by the user need no prior
                     # search. Identifiers absent from sources/request are unsafe.
-                    if not identifiers_from_request(tool, prepared, payload["message"]):
+                    if not grounded_identifier:
                         raise QAError("invalid_parameters", "请从已有结果选择对象，不能使用无来源的标识")
                 if descriptor.search and directive and directive.keywords:
                     prepared[descriptor.search.query] = directive.keywords[0]
@@ -1354,6 +1361,10 @@ class DatasetQA:
                             for item in goals if item["id"] not in execution.blocked]})
                 execution.prepared[call["id"]] = (prepared, None, target)
             except QAError as exc:
+                operation = execution.operations.get(operation_id)
+                exc.detail = {**(exc.detail if isinstance(exc.detail, dict) else {}),
+                    "tool": tool.alias, "step": operation.get("plan_step") if operation else None,
+                    "phase": "input_binding", "dispatched": False}
                 execution.prepared[call["id"]] = (arguments, exc, None)
             bindings[call["id"]] = operation_id
         valid_batch = not native or any(error is None for _, error, _ in execution.prepared.values())
@@ -1718,7 +1729,10 @@ class DatasetQA:
                 reason, ready, delivery_failure = None, False, None
                 async with self.gateway.session() as tools:
                     def action_feedback(error):
-                        value = execution.feedback(error, execution.actions(tools.loaded))
+                        available = execution.actions(tools.loaded) & {definition["function"]["name"] for definition in definitions}
+                        if execution.can_deliver:
+                            available.add("deliver_results")  # An earlier call in this batch may have produced evidence.
+                        value = execution.feedback(error, available)
                         log.info("Action validation: task=%s code=%s message=%s detail=%s",
                             tid, error.code, str(error)[:240], encode(value.get("detail", {})))
                         return value
@@ -1738,10 +1752,16 @@ class DatasetQA:
                         rejection = None
                         actions = execution.actions(tools.loaded)
                         saved_plan = payload.get("plan")
+                        leading_tool = next(iter(tools.loaded.values()), None)
+                        planning = bool(payload.get("planning") or saved_plan
+                            or (leading_tool and profile(leading_tool).plan_required))
+                        if planning:
+                            # One execution entry at a time. Hidden capabilities
+                            # remain in the plan catalogue, including consumers.
+                            actions -= set(tools.loaded)
                         if saved_plan:
                             # The model may revise intent or resolve a missing
                             # choice. Only the scheduler dispatches plan steps.
-                            actions -= set(tools.loaded)
                             actions.add("remember")
                             if saved_plan.get("reviewed") != saved_plan["revision"]:
                                 actions &= {"remember", "read_result", "load_mcp_tools", "request_input", "find_artifacts"}
@@ -1757,9 +1777,6 @@ class DatasetQA:
                             # Reserve the remaining decision for truthful closure,
                             # rather than starting another upstream exploration.
                             actions &= {"deliver_results", "remember", "request_input", "respond_from_context"}
-                        leading_tool = next(iter(tools.loaded.values()), None)
-                        planning = bool(payload.get("planning") or saved_plan
-                            or (leading_tool and profile(leading_tool).plan_required))
                         definitions = self._definitions([definition for definition in [*builtin_definitions(planning,
                             artifacts=bool(model_context.get("artifact_catalog")) or any(card.get("file_artifact") for card in execution.cards.values())), *tools.definitions()]
                             if definition["function"]["name"] in actions], tools, execution)
@@ -2024,7 +2041,10 @@ class DatasetQA:
                                     if exc.detail:
                                         value["detail"] = exc.detail
                                     if tool:
-                                        execution.operations.finish(operation_id, key, error=exc)
+                                        if prepared_error and not prefetched:
+                                            execution.operations.reject(operation_id, key, exc)
+                                        else:
+                                            execution.operations.finish(operation_id, key, error=exc)
                                         await self._write(user, sid, tid, payload=payload)
                                     if exc.code in {"invalid_parameters", "invalid_pointer", "result_not_found", "memory_too_large", "server_not_found"}:
                                         rejection = exc
