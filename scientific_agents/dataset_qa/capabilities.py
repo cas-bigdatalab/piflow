@@ -127,6 +127,56 @@ def resolve_tool(name, loaded):
     return matches[0]
 
 
+def validate_intent(tool, intent, arguments=None):
+    """Check a declared operation against its adapter, independent of tool names.
+
+    Routing operations describe semantics, not incidental output formats. In
+    particular, ``export`` preserves the input records; a filtering capability
+    does not become an exporter merely because it can write the same format.
+    Missing intent keeps legacy independent calls compatible.
+    """
+    intent = intent.model_dump() if isinstance(intent, BaseModel) else intent or {}
+    descriptor = profile(tool)
+    operation, fmt = intent.get("operation"), intent.get("output_format")
+    routing = descriptor.routing
+    if operation and (not routing or operation not in routing.operations):
+        raise QAError("invalid_parameters", "所选能力与本轮操作要求不一致，尚未执行", detail={
+            "operation": operation, "supported_operations": routing.operations if routing else [],
+            "guidance": "Choose a capability declaring the requested operation. An output format alone does not establish its purpose. Preserve the source and current goal; do not repeat completed retrievals."})
+    if not fmt:
+        return
+    def matches_format(value):
+        return isinstance(value, str) and value.casefold() == fmt.casefold()
+
+    spec, contract = descriptor.artifact, descriptor.result
+    path = spec.path + "/format" if spec else None
+    parameters = [key for key, value in contract.argument_paths.items() if value == path] if contract and path else []
+    fixed = [check.value for check in contract.requires
+        if check.path == path and check.test == "equals" and not check.optional] if contract and path else []
+    if (not parameters and not any(map(matches_format, fixed))) or (
+            routing and routing.outputs and not any(map(matches_format, routing.outputs))):
+        raise QAError("invalid_parameters", "所选能力未声明所需输出格式，请选择兼容能力", detail={
+            "output_format": fmt, "guidance": "Use a declared artifact format contract; a format mentioned only in prose is insufficient."})
+    if arguments is not None and any(not matches_format(arguments.get(key)) for key in parameters):
+        raise QAError("invalid_parameters", "导出参数与本轮要求的格式不一致，尚未执行", detail={
+            "output_format": fmt, "parameters": parameters,
+            "guidance": "Preserve the requested output_format and set the actual format parameter accordingly."})
+
+
+def validate_export(tool, data, source):
+    """A representation-only export must retain its source records and lineage."""
+    descriptor = profile(tool)
+    try:
+        resource = at_path(data, descriptor.artifact.path)
+    except QAError:
+        resource = None
+    if (not isinstance(resource, dict)
+            or resource.get("record_count") != source["resource"]["record_count"]
+            or not isinstance(data, dict) or data.get("parent_source_ref") != source["resource"]["source_ref"]):
+        raise QAError("invalid_result", "导出结果尚未与原始记录核对一致", 502,
+            detail={"dispatched": True, "guidance": "The export receipt must preserve the source record count and parent_source_ref. Do not report a filtered or unrelated file as the requested export."})
+
+
 def adapted(tool):
     return tool.schema.get("type")=="object" and not ({OBJECT, SUPPORTING, GOAL, TASK} & tool.schema.get("properties", {}).keys())
 
@@ -171,6 +221,8 @@ def definition(tool):
     contract = descriptor.result
     kind = contract.kind if contract else tool.name
     description = tool.description+"\nQA outcome kind: "+kind
+    if descriptor.routing and descriptor.routing.operations:
+        description += "\nSupported operations: "+", ".join(descriptor.routing.operations)
     if descriptor.plan_required:
         description += ("\nPlan required: remember.plan, review_plan. Preserve CURRENT source, changed conditions, quantity and requested format; "
             "add export/conversion as needed. Intermediate files do not fulfill a different format.")

@@ -12,7 +12,7 @@ from pydantic import ValidationError
 
 from .context import encode, project, public_result, slice_result
 from .context_budget import recovery_evidence
-from .capabilities import GOAL, OBJECT, SUPPORTING, TASK, adapted, inputs, profile, request_identifiers, resolve_tool, same_identity
+from .capabilities import GOAL, OBJECT, SUPPORTING, TASK, adapted, inputs, profile, request_identifiers, resolve_tool, same_identity, validate_export, validate_intent
 from .contracts import QAError
 from .dialogue import INPUTS, Dialogue, OutcomeConfirmation, builtin_definitions
 from .execution import Execution, fingerprint
@@ -25,6 +25,7 @@ from .runtime import Waiting
 from .parallel import run_read_batch
 from .responses import public_completion, response_labels, response_operations, recovery_search_summary
 from .search import SearchRun, TaskDirective, normalize_keyword, ordered_keywords
+from .routing import resource_candidate
 from .resource_index.manager import ResourceIndex
 from .resource_index.resolver import bind_target, resolve as resolve_resource
 from .planning import plan_view, outcome_status, require_delivery
@@ -315,11 +316,21 @@ class DatasetQA:
             model_context["artifact_catalog"] = {"tool": "find_artifacts",
                 "guidance": "Owned saved files are searchable across sessions. Recent previews are incomplete; search/page if missing. Resolve ambiguity before selecting."}
         published = await asyncio.to_thread(self.store.latest_displays, user, sid)
-        if len(published)>1:
+        if published:
             model_context["published_results"] = evidence_group(published, Operations(),
                 min(2400, self.gateway.limits.context_chars//6))
+            if available_artifacts:
+                delivered = await asyncio.to_thread(self.artifacts.published, user, sid, published,
+                    limit=min(1800, self.gateway.limits.context_chars//8))
+                if delivered:
+                    model_context["published_artifacts"] = delivered
         if options.result_id:
             model_context["request_source"] = options.result_id
+            if available_artifacts:
+                requested_artifacts = await asyncio.to_thread(self.artifacts.published, user, sid, pinned,
+                    limit=min(1800, self.gateway.limits.context_chars//8))
+                if requested_artifacts:
+                    model_context["request_artifacts"] = requested_artifacts
             source = display_list(pinned[0])
             scoped = preview({"candidates": source} if source else {"current": {"result_id": options.result_id, "path": "", "kind": "object"}},
                 {options.result_id: pinned[0]}, 1200) if source or isinstance(pinned[0].get("data"), dict) else {}
@@ -781,6 +792,14 @@ class DatasetQA:
 
     async def _save_tool_result(self, user, sid, tid, tool, output, operation_id, key, result_id, execution, payload, arguments=None):
         descriptor = profile(tool)
+        intent = (execution.operations.get(operation_id) or {}).get("intent", {})
+        export = intent.get("operation") == "export" or (not intent.get("operation")
+            and descriptor.routing and descriptor.routing.operations == ["export"])
+        if (arguments is not None and descriptor.artifact and descriptor.artifact.consume
+                and export):
+            source = await asyncio.to_thread(self.artifacts.authorize, user, tool.server,
+                arguments[descriptor.artifact.consume])
+            validate_export(tool, output.data, source)
         marker = (key, fingerprint(output.payload()))
         card = execution.cards.get(marker)
         created = card is None
@@ -1209,12 +1228,18 @@ class DatasetQA:
                         item["required"] = False
             for goal in goals:
                 tool = resolve_tool(goal.tool, tools.loaded)
+                validate_intent(tool, goal)
                 target = resolve(goal.object) if goal.object else handles.get("current") if profile(tool).bind else None
                 for item in operations.items:
                     if item.get("capability")=={"server": tool.server, "name": tool.name} and await same_target(tool, item.get("target"), target):
                         target = item.get("target")
                         break
-                operations.register(goal.description, {"server": tool.server, "name": tool.name}, target, goal.output, planned=True)
+                goal_id = operations.register(goal.description, {"server": tool.server, "name": tool.name}, target, goal.output, planned=True)
+                intent = {key: value for key, value in goal.model_dump(include={"operation", "output_format"}).items() if value is not None}
+                current_intent = operations.get(goal_id).setdefault("intent", {})
+                if any(key in current_intent and current_intent[key] != value for key, value in intent.items()):
+                    raise QAError("invalid_parameters", "已登记目标的操作和格式要求须保留")
+                current_intent.update(intent)
             execution.operations = operations
 
         if plans:
@@ -1232,8 +1257,6 @@ class DatasetQA:
                 descriptor = profile(tool)
                 directive = None
                 if adapted(tool) and TASK in arguments:
-                    if not (descriptor.search or descriptor.atomic):
-                        raise QAError("invalid_parameters", "此能力未声明受控任务执行方式")
                     try:
                         directive = TaskDirective.model_validate(arguments[TASK])
                     except ValidationError as exc:
@@ -1297,6 +1320,22 @@ class DatasetQA:
                             "guidance": "Use a supplied object handle, or for a planned dependency revise plan.editable: set object to the source step key and omit its bound identifiers from arguments. Scalar references belong in inputs={parameter:{step,path}}. Do not invent identifiers or bypass the plan with direct calls."})
                 if descriptor.search and directive and directive.keywords:
                     prepared[descriptor.search.query] = directive.keywords[0]
+                # Goals, direct calls and scheduled steps share the same
+                # operation/format contract. A completed prior turn contributes
+                # resources, never this turn's intent.
+                intents = []
+                if directive:
+                    intents.append(directive.model_dump(include={"operation", "output_format"}, exclude_none=True))
+                if scheduled and call["id"] in scheduled:
+                    intents.append({key: step[key] for key in ("operation", "output_format") if step.get(key) is not None})
+                elif not supporting and len(execution.operations.required) == 1:
+                    intents.append(execution.operations.required[0].get("intent", {}))
+                call_intent = {}
+                for intent in intents:
+                    if any(key in call_intent and call_intent[key] != value for key, value in intent.items()):
+                        raise QAError("invalid_parameters", "本次调用须保留已登记的操作和格式要求")
+                    call_intent.update(intent)
+                validate_intent(tool, call_intent, prepared)
                 tools.validate(call["name"], prepared)
                 # A discovery plan lives on one outcome. Missing legacy task
                 # metadata may continue discovery, but cannot auto-finish a
@@ -1365,9 +1404,11 @@ class DatasetQA:
                     else:
                         operation_id = execution.operations.register(tool.title, capability, target, required=False)
                 operation = execution.operations.get(operation_id)
+                if operation and call_intent:
+                    operation.setdefault("intent", {}).update(call_intent)
                 if operation and descriptor.label:
                     operation["public_label"] = descriptor.label
-                if directive and directive.complete_request and operation and not supporting:
+                if directive and directive.complete_request and operation and not supporting and (descriptor.atomic or descriptor.search):
                     operation["direct"] = True
                 if discovery and operation:
                     originals = directive.original_keywords if directive else None
@@ -1775,7 +1816,8 @@ class DatasetQA:
                             tid, error.code, str(error)[:240], encode(value.get("detail", {})))
                         return value
 
-                    await tools.prepare(payload["message"], context.get("tools", []))
+                    await tools.prepare(payload["message"], context.get("tools", []),
+                        resources=(model_context.get("request_artifacts") or model_context.get("published_artifacts", {})).get("items", []))
                     model_context["mcp_servers"] = tools.list_servers(payload["message"])
                     messages = self.dialogue.messages(payload["message"], model_context)
                     evidence_ids = ()
@@ -1793,9 +1835,13 @@ class DatasetQA:
                         leading_tool = next(iter(tools.loaded.values()), None)
                         planning = bool(payload.get("planning") or saved_plan
                             or (leading_tool and profile(leading_tool).plan_required))
-                        if planning:
+                        reuse_available = any(resource_candidate(tool, tools.request_resources)
+                            and not profile(tool).plan_required for tool in tools.loaded.values())
+                        if planning and (payload.get("planning") or saved_plan or not reuse_available):
                             # One execution entry at a time. Hidden capabilities
-                            # remain in the plan catalogue, including consumers.
+                            # remain in the plan catalogue. Mere ranking is not
+                            # a decision to plan: compatible direct consumers of
+                            # saved results stay available until a plan is chosen.
                             actions -= set(tools.loaded)
                         if saved_plan:
                             # The model may revise intent or resolve a missing

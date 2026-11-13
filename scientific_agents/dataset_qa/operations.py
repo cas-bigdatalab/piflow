@@ -393,6 +393,8 @@ class Operations:
             ids = self.result_ids(item)
             if item.get("capability"):
                 row["capability"] = item["capability"]
+            if item.get("intent"):
+                row["intent"] = deepcopy(item["intent"])
             if item.get("search"):
                 row["search"] = SearchRun(item["search"]).view()
             if not item.get("required", True):

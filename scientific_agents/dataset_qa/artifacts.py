@@ -19,6 +19,12 @@ from .artifact_storage import canonical_numbers
 
 
 class ArtifactSpec(BaseModel):
+    """Manifest protocol for owned record resources.
+
+    ``consume`` names a source_ref parameter. A capability declaring the export
+    operation preserves record_count and returns parent_source_ref alongside
+    the output manifest, so representation changes retain verifiable lineage.
+    """
     model_config = ConfigDict(extra="forbid")
     path: str = "/resource"
     consume: str | None = None
@@ -100,6 +106,87 @@ class Artifacts:
             rows = conn.execute(select(self.table).where(self.table.c.user_id == user)
                 .order_by(self.table.c.updated_at.desc(), self.table.c.id.desc()).limit(limit)).mappings().all()
         return [self._summary(row) for row in rows]
+
+    def published(self, user, sid, cards, limit=1800):
+        """Resolve actual session deliveries, including merged cards, to owned files.
+
+        A manifest can be registered again in another session, so its latest
+        session/result columns cannot establish which files a user just saw.
+        Immutable delivery cards and their saved lineage are the authority.
+        """
+        if not cards:
+            return {}
+        candidates = []
+        with self.store.transaction() as conn:
+            self.store._session(conn, user, sid)
+            missing = [card["result_id"] for card in cards if not card.get("file_artifact")]
+            lineage = {}
+            if missing:
+                items, tasks = self.store.items, self.store.tasks
+                rows = conn.execute(select(items.c.result_id, tasks.c.payload)
+                    .join(tasks, tasks.c.id == items.c.task_id)
+                    .where(items.c.session_id == sid, items.c.result_id.in_(missing))).all()
+                for result_id, raw in rows:
+                    links = json.loads(raw).get("delivery_lineage", {}).get(result_id, {})
+                    if links:
+                        lineage[result_id] = list(dict.fromkeys(links[index]["result_id"]
+                            for index in sorted(links, key=int)))
+            source_ids = {rid for ids in lineage.values() for rid in ids}
+            sources = {}
+            if source_ids:
+                rows = conn.scalars(select(self.store.items.c.payload).where(
+                    self.store.items.c.session_id == sid, self.store.items.c.result_id.in_(source_ids)))
+                sources = {card["result_id"]: card for card in map(json.loads, rows)}
+            seen = set()
+            for display in cards:
+                originals = [display] if display.get("file_artifact") else [
+                    sources[rid] for rid in lineage.get(display["result_id"], []) if rid in sources]
+                for card in originals:
+                    handle = card.get("file_artifact")
+                    if handle and handle not in seen:
+                        seen.add(handle)
+                        candidates.append((display["result_id"], card["result_id"], handle))
+            if not candidates:
+                return {}
+            rows = conn.execute(select(self.table).where(self.table.c.user_id == user,
+                self.table.c.id.in_(seen))).mappings().all()
+        manifests = {row["id"]: json.loads(row["payload"]) for row in rows}
+        result = {"items": [], "total": len(candidates), "guidance": (
+            "Owned files from these session results. Explicit selections/current requirements take precedence. "
+            "For reuse set __qa_object or plan/goal.object to a handle; declare operation/output_format in the same task/goal/step. "
+            "export preserves records; a filter with CSV output is not pure export. Do not requery to change format. "
+            "Refs, URLs and workspace paths are not interchangeable; use declared bindings, never guessed paths. "
+            "Use find_artifacts for omitted/older files; global recent files do not establish this turn's source.")}
+        unavailable = sum(handle not in manifests for _, _, handle in candidates)
+        if unavailable:
+            result["unavailable"] = unavailable
+        if len(_json(result)) + 18 > limit:
+            result.pop("guidance")
+        # Keep identities complete. Names are optional, and record bodies and
+        # signed source references never enter this compact context manifest.
+        names = []
+        for display_id, result_id, handle in candidates:
+            if handle not in manifests:
+                continue
+            manifest = manifests[handle]
+            resource = manifest["resource"]
+            entry = {"handle": handle, "result_id": result_id, "server": manifest["server"],
+                "kind": "record_resource", "format": resource["format"], "record_count": resource["record_count"]}
+            if display_id != result_id:
+                entry["display_result_id"] = display_id
+            proposal = {**result, "items": [*result["items"], entry], "truncated": True}
+            if len(_json(proposal)) > limit:
+                break
+            result["items"].append(entry)
+            names.append(resource.get("name"))
+        if len(result["items"]) + unavailable < result["total"]:
+            result["truncated"] = True
+        for entry, name in zip(result["items"], names):
+            if name:
+                entry["name"] = name
+                if len(_json(result)) > limit:
+                    entry.pop("name")
+        return result if len(_json(result)) <= limit else {}
 
     @staticmethod
     def _summary(row, *, criteria=False):
@@ -184,5 +271,5 @@ class Artifacts:
             for raw in rows:
                 item = json.loads(raw)
                 if item["server"] == server and item["resource"]["source_ref"] == source_ref:
-                    return
+                    return item
         raise QAError("invalid_parameters", "请先选择已取得的结果文件；不能自行构造资源引用")

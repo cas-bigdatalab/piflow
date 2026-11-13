@@ -21,6 +21,14 @@ class Contract(BaseModel):
     model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
 
 
+class CallIntent(Contract):
+    """Requested operation, separate from the selected tool's capabilities."""
+    operation: str | None = Field(default=None, min_length=1, max_length=80,
+        description="Requested operation from advertised capability operations, e.g. export for representation-only conversion; filtering is a different operation.")
+    output_format: str | None = Field(default=None, min_length=1, max_length=40,
+        description="User-requested output format; preserve it when choosing or correcting a tool.")
+
+
 class Check(Contract):
     path: str = Field(max_length=1000)
     test: Literal["exists", "equals", "at_least", "at_most"] = "exists"
@@ -108,7 +116,7 @@ class FromStep(Contract):
         return self
 
 
-class Invocation(Contract):
+class Invocation(CallIntent):
     key: Key
     tool: str = Field(min_length=1, max_length=200)
     arguments: dict = Field(default_factory=dict)
@@ -195,6 +203,13 @@ def validate_revision(previous, plan):
     if not previous:
         return
     old = Plan.model_validate(previous["spec"])
+    steps = {step.key: step for step in plan.steps}
+    for step in old.steps:
+        current_step = steps.get(step.key)
+        if current_step is not None and any(getattr(step, field) is not None
+                and getattr(current_step, field) != getattr(step, field)
+                for field in ("operation", "output_format")):
+            raise QAError("invalid_parameters", "计划修订须保留已声明的操作目的和输出格式", detail={"step": step.key})
     current = {outcome.key: outcome for outcome in plan.outcomes}
     for outcome in old.outcomes:
         value = current.get(outcome.key)

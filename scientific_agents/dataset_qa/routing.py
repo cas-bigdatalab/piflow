@@ -11,7 +11,17 @@ class Routing(BaseModel):
     outputs: list[str] = Field(default_factory=list, max_length=12)
 
 
-def select_tools(items, query, *, group=None, recent=()):
+def resource_candidate(tool, resources):
+    """Recall consumers in the resource's authority; dispatch still binds it."""
+    from .capabilities import profile
+
+    descriptor = profile(tool)
+    return bool(descriptor.artifact and descriptor.artifact.consume
+        and descriptor.artifact.consume in descriptor.bind
+        and any(row.get("server") == tool.server and row.get("kind") == "record_resource" for row in resources))
+
+
+def select_tools(items, query, *, group=None, recent=(), resources=()):
     from .capabilities import profile
     from .mcp import terms
 
@@ -41,4 +51,15 @@ def select_tools(items, query, *, group=None, recent=()):
         score = len(wanted & terms(vocabulary))
         # History breaks a relevance tie; it cannot override this request.
         scored.append((outside, -score, (tool.server, tool.name) not in previous, index, tool))
-    return [row[-1] for row in sorted(scored, key=lambda row: row[:4])]
+    ranked = [row[-1] for row in sorted(scored, key=lambda row: row[:4])]
+    # Keep the request's leading candidate, while reserving one early slot for
+    # a consumer of an actually delivered resource. This is candidate recall,
+    # not an implicit focus switch or permission to reuse an old query.
+    for index, tool in enumerate(ranked):
+        if isinstance(tool, dict):
+            continue
+        if resource_candidate(tool, resources):
+            if index > 1:
+                ranked.insert(1, ranked.pop(index))
+            break
+    return ranked

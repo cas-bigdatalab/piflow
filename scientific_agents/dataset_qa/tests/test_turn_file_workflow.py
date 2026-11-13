@@ -79,11 +79,17 @@ def test_same_session_changed_values_execute_new_query_and_deliver_csv(engine, f
                 plan["steps"][0]["arguments"] = query_args(similarity_threshold=threshold, limit=limit)
                 def understand(messages, definitions):
                     names = {d["function"]["name"] for d in definitions}
-                    assert not any(n.startswith("mcp_") for n in names)
+                    assert not any(n.endswith("_query_pubchem_compounds") for n in names)
+                    # A saved resource keeps direct consumers available; a
+                    # changed query itself still requires a reviewed plan.
+                    if threshold == 80:
+                        assert not any(n.startswith("mcp_") for n in names)
+                    else:
+                        assert any(n.endswith("_export_dataset") for n in names)
                     remember = next(d["function"] for d in definitions if d["function"]["name"] == "remember")
                     assert "plan" in remember["parameters"]["properties"]
                     assert "query_pubchem_compounds" in remember["description"]
-                    assert "export_dataset" in remember["description"]
+                    assert "export_dataset" in remember["description"] or any(n.endswith("_export_dataset") for n in names)
                     assert str(threshold) in next(m.content for m in messages if m.id == "qa-current-request")
                     return action("remember", plan=plan)
                 service.dialogue = BareDialogue(understand, approve, text())

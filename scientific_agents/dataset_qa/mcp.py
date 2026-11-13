@@ -212,6 +212,7 @@ class ToolSession:
         self.definition_errors = {}
         self.limits = gateway.limits
         self.request_query = ""
+        self.request_resources = ()
 
     async def retry(self, error, attempt, deadline, server, phase):
         if (attempt>=self.limits.transport_retries or not transient(error)
@@ -419,22 +420,23 @@ class ToolSession:
             result["hint"] = "部分能力超过加载预算；请缩小query或limit后重新加载所需能力。"
         return result
 
-    def prime(self, query, references=()):
+    def prime(self, query, references=(), *, resources=()):
         # Reuse descriptions and schemas, never another turn's execution results.
         candidates = [tool for server in self.servers for tool in self.cached_tools(server) or []]
         recent = {(ref.get("server"), ref.get("name")) for ref in references if isinstance(ref, dict)}
         from .routing import select_tools
-        candidates = select_tools(candidates, query, recent=recent)
+        candidates = select_tools(candidates, query, recent=recent, resources=resources)
         return self.include(candidates[:min(4, self.limits.max_tools)])
 
-    async def prepare(self, query, references=()):
+    async def prepare(self, query, references=(), *, resources=()):
         """Use cached schemas, or discover one unambiguous configured service.
 
         Multiple services retain on-demand routing. No fan-out, business call,
         additional model request, or retry policy is introduced by preparation.
         """
         self.request_query = query
-        self.prime(query, references)
+        self.request_resources = tuple(resources)
+        self.prime(query, references, resources=resources)
         if not self.loaded and len(self.servers)==1:
             try:
                 await self.load(next(iter(self.servers)), query=query)
@@ -444,7 +446,8 @@ class ToolSession:
     async def load(self, server, query="", offset=0, limit=4, group=None):
         from .routing import select_tools
         query = query or self.request_query
-        catalogue = select_tools([*await self.tools(server), *self.definition_errors.get(server, [])], query, group=group)
+        catalogue = select_tools([*await self.tools(server), *self.definition_errors.get(server, [])], query,
+            group=group, resources=self.request_resources)
         page = catalogue[offset:offset+limit]
         result = self.include(item for item in page if isinstance(item, Tool))
         result["items"].extend(deepcopy(item) for item in page if isinstance(item, dict))

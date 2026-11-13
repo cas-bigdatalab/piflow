@@ -14,7 +14,7 @@ from .context_budget import TokenCounter, context_overflow, summary_batch
 from .contracts import Limits, QAError
 from .references import ReferenceUpdate
 from .operations import Operation
-from .planning import Plan, Review, Workflow, plan_input
+from .planning import CallIntent, Plan, Review, Workflow, plan_input
 
 
 log = logging.getLogger("flow.dataset_qa")
@@ -74,7 +74,7 @@ class ResolveResource(Input):
         return self
 
 
-class Goal(Input):
+class Goal(CallIntent):
     description: str = Field(min_length=1, max_length=240)
     tool: str = Field(min_length=1, max_length=200, description="Loaded capability serving this necessary user outcome. Several query variants may serve one outcome.")
     object: str | None = Field(default=None, description="Supplied object handle, if the outcome concerns a specific object.")
@@ -426,7 +426,7 @@ class Dialogue:
         current = next((i for i, message in enumerate(messages) if message.id=="qa-current-request"), 2)
         fixed_size = 1+cost([messages[0], messages[current]])
         context = json.loads(messages[1].content)
-        protected = {key: context[key] for key in ("references", "request_source", "request_objects", "pending", "reference_issue", "operations", "response_basis", "execution_decision", "search_outcomes", "plan", "outcome_status", "artifact_catalog", "history_coverage") if context.get(key)}
+        protected = {key: context[key] for key in ("references", "request_source", "request_objects", "request_artifacts", "pending", "reference_issue", "operations", "response_basis", "execution_decision", "search_outcomes", "plan", "outcome_status", "artifact_catalog", "published_artifacts", "history_coverage") if context.get(key)}
         if context.get("memory"):
             # Keep explicit choices/constraints, with the existing secret filter.
             protected["memory"] = project(context["memory"], len(encode(context["memory"])))[0]

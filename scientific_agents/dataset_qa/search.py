@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from .context import encode
 from .contracts import QAError
 from .references import at_path
+from .planning import CallIntent
 
 
 class SearchProfile(BaseModel):
@@ -22,7 +23,7 @@ class SearchProfile(BaseModel):
     opaque_filters: list[str] = Field(default_factory=list, max_length=16)
 
 
-class TaskDirective(BaseModel):
+class TaskDirective(CallIntent):
     model_config = ConfigDict(extra="forbid")
     complete_request: bool = Field(description="Whether this capability covers the entire requested scope, not whether success or enough matches are guaranteed. True for a search-only request (including finding a named dataset). False only for a prerequisite of another user-requested operation.")
     keywords: list[str] | None = Field(default=None, min_length=1, max_length=4,

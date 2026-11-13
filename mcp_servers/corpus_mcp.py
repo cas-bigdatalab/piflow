@@ -409,15 +409,15 @@ def _execution_context(ctx):
 
 
 def _artifact_download_context():
-    # Use the ASGI origin/mount, including trusted proxy root_path. Do not parse
-    # forwarding headers ourselves or share a request's address process-wide.
+    # Use this transport's mount and the shared deployment-aware origin resolver.
+    # Remote MCP must not inherit the QA server's unrelated public file route.
     try:
         request = get_http_request()
     except RuntimeError:
         # Keep the original QA HTTP adapter's public origin for in-process MCP.
         return nullcontext()
     base = request.url.replace(path=request.scope.get("root_path", ""), query="", fragment="")
-    return download_base_context(request_download_base(str(base)))
+    return download_base_context(request_download_base(str(base), request=request))
 
 
 class _ToolFailure(ToolResult):

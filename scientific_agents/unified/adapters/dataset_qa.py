@@ -98,7 +98,7 @@ class DatasetQAAdapter:
                     base = str(route).removesuffix("/artifacts/_/_")
                 except NoMatchFound:
                     pass  # Read-only QA and separately hosted MCP remain usable.
-            with download_base_context(request_download_base(base)):
+            with download_base_context(request_download_base(base, request=request)):
                 async for value in self.service.stream(self.n.user, sid, body.user_request, body.request_id, opts, body.parent_task_id):
                     yield value
         except (QAError, ValidationError, HTTPException) as exc:

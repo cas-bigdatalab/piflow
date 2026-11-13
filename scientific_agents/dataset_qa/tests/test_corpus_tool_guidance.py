@@ -30,7 +30,9 @@ def test_relevant_tool_is_loaded_from_real_descriptions_on_cold_and_warm_start(q
                 tool = next(tool for tool in tools.loaded.values() if tool.name==expected)
                 from ..capabilities import profile
                 contract = profile(tool).result
-                assert tool.definition()["function"]["description"] == tool.description + "\nQA outcome kind: " + (contract.kind if contract else tool.name)
+                description = tool.definition()["function"]["description"]
+                assert description.startswith(tool.description + "\nQA outcome kind: " + (contract.kind if contract else tool.name))
+                assert "Supported operations: " + ", ".join(profile(tool).routing.operations) in description
     asyncio.run(run())
 
 

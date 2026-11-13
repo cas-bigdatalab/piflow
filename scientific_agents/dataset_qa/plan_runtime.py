@@ -6,7 +6,7 @@ from jsonschema import Draft202012Validator
 from langchain_core.messages import AIMessage
 from pydantic import ValidationError
 
-from .capabilities import OBJECT, SUPPORTING, GOAL, TASK, inputs, profile, request_identifiers, resolve_tool
+from .capabilities import OBJECT, SUPPORTING, GOAL, TASK, inputs, profile, request_identifiers, resolve_tool, validate_intent
 from .contracts import QAError
 from .context import encode, same_identity
 from .operations import Operations
@@ -29,7 +29,8 @@ def workflow_definition(definition, loaded, visible=()):
     for tool in loaded.values():
         if tool.alias in visible:
             continue
-        bound = profile(tool).bind
+        descriptor = profile(tool)
+        bound = descriptor.bind
         schema = deepcopy(tool.schema)
         if "required" in schema:
             schema["required"] = [name for name in schema["required"] if name not in bound]
@@ -37,8 +38,12 @@ def workflow_definition(definition, loaded, visible=()):
             field = schema.get("properties", {}).get(name)
             if isinstance(field, dict):
                 field["description"] = "Runtime-bound identifier. OMIT from arguments when using object or inputs; do not invent a placeholder."
-        catalogue.append({"tool": tool.alias, "description": tool.description, "arguments_schema": schema,
-            "object_bindings": bound})
+        item = {"tool": tool.alias, "description": tool.description, "arguments_schema": schema,
+            "object_bindings": bound}
+        if descriptor.routing:
+            item["operations"] = descriptor.routing.operations
+            item["outputs"] = descriptor.routing.outputs
+        catalogue.append(item)
     if not catalogue:
         return definition
     definition = deepcopy(definition)
@@ -121,8 +126,10 @@ def compile_workflow(workflow, tools, previous=None):
                 arguments.pop(consume, None)
         prior = old_steps.get(call.key)
         tool_name = prior.tool if prior and resolve_tool(prior.tool, tools.loaded).alias == tool.alias else tool.alias
+        intent = {name: getattr(prior, name) if prior and name not in call.model_fields_set else getattr(call, name)
+            for name in ("operation", "output_format")}
         steps.append(Step(key=call.key, tool=tool_name, arguments=arguments, fresh=call.fresh,
-            object=target, inputs=bindings, depends_on=list(call.depends_on)))
+            object=target, inputs=bindings, depends_on=list(call.depends_on), **intent))
     consumed = set().union(*(step.dependencies() for step in steps))
     outcomes = []
     for call, step in zip(workflow.steps, steps):
@@ -204,6 +211,7 @@ async def install_plan(service, user, sid, plan, tools, execution, payload, cont
     plan = Plan.model_validate(plan.model_dump())  # Adapter-derived checks obey the same bounded contract.
     previous = payload.get("plan")
     validate_revision(previous, plan)
+    previous_spec = Plan.model_validate(previous["spec"]).model_dump() if previous else None
     spec = plan.model_dump()
     requested = [step.object for step in plan.steps if isinstance(step.object, str)]
     handles = await service._object_index(user, sid, context, payload, requested)
@@ -211,14 +219,14 @@ async def install_plan(service, user, sid, plan, tools, execution, payload, cont
     same_targets = not previous or all(not isinstance(step.object, str)
         or (operations.get(previous["operations"].get(step.key)) or {}).get("target") == handles.get(step.object)
         for step in plan.steps)
-    if previous and same_identity(previous["spec"], spec) and same_targets:
+    if previous and same_identity(previous_spec, spec) and same_targets:
         return  # Identical bookkeeping is not a new revision or a new review.
     revision = previous["revision"]+1 if previous else 1
     if revision > service.gateway.limits.max_corrections+1:
         raise QAError("invalid_parameters", "计划修订达到本轮预算，请依据已有成果完成答复")
     mapping, contracts, reusable = {}, {}, {}
     outcomes = {outcome.key: outcome for outcome in plan.outcomes}
-    old_steps = {step["key"]: step for step in (previous or {}).get("spec", {}).get("steps", [])}
+    old_steps = {step["key"]: step for step in (previous_spec or {}).get("steps", [])}
     for step in plan.steps:
         tool = resolve_tool(step.tool, tools.loaded)
         descriptor = profile(tool)
@@ -253,6 +261,9 @@ async def install_plan(service, user, sid, plan, tools, execution, payload, cont
         concrete = inputs(tool, step.arguments, record)
         concrete = {key: value for key, value in concrete.items() if key not in deferred or key in step.arguments}
         try:
+            format_inputs = {name for name, path in contract.argument_paths.items()
+                if descriptor.artifact and path == descriptor.artifact.path + "/format"}
+            validate_intent(tool, step, None if format_inputs & deferred else concrete)
             tools.validate(tool.alias, concrete, deferred=deferred)
         except QAError as exc:
             exc.detail = {**(exc.detail or {}), "step": step.key, "tool": tool.alias,
