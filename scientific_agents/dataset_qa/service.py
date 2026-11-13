@@ -23,7 +23,7 @@ from .results import collection_paths, combine_results, evidence, evidence_group
 from .references import all_references, apply_update, at_path, display_list, handle_order, pending_objects, preview, scoped_preview
 from .runtime import Waiting
 from .parallel import run_read_batch
-from .responses import public_completion, response_labels, response_operations, recovery_search_summary
+from .responses import delivery_links, public_completion, response_labels, response_operations, recovery_search_summary
 from .search import SearchRun, TaskDirective, normalize_keyword, ordered_keywords
 from .routing import resource_candidate
 from .resource_index.manager import ResourceIndex
@@ -496,6 +496,7 @@ class DatasetQA:
     async def _reply_once(self, user, sid, tid, messages, definitions, answer=None, phase=None, waiting=None, deadline=None):
         started, first_chunk = time.monotonic(), None
         full, buffer, flushed, sent = None, "", time.monotonic(), False
+        output_limit = False
         deadline = deadline if deadline is not None else asyncio.get_running_loop().time()+self.gateway.limits.model_timeout
         try:
             async with (waiting.during("仍在整理本轮需要的信息，请稍候。") if waiting else nullcontext()), aclosing(self.dialogue.respond(messages, definitions)) as response:
@@ -522,18 +523,27 @@ class DatasetQA:
                         raise QAError("invalid_tool_call", "模型返回的工具参数无法解析", 502) from exc
                     if answer is None:
                         continue  # Planning text and tool-call fragments stay internal.
-                    content = str(chunk.text)[:max(0, 16000-len(answer["text"]))]
+                    remaining = max(0, 16000-len(answer["text"]))
+                    separator = "\n\n" if not sent and not buffer and answer["text"] else ""
+                    raw = str(chunk.text)
+                    content = raw[:max(0, remaining-len(separator))]
+                    output_limit = bool(raw) and len(raw)+len(separator)>=remaining
                     if content:
                         await phase("answer", "正在生成答复")
-                        if not sent and not buffer and answer["text"]:
-                            content = "\n\n"+content
+                        content = separator+content
                         answer["text"] += content
                         buffer += content
                     if buffer and (not sent or len(buffer)>=40 or time.monotonic()-flushed>=0.1):
                         text, buffer = buffer, ""
                         await self._write(user, sid, tid, {"type": "message", "text": text})
                         flushed, sent = time.monotonic(), True
+                    if output_limit:
+                        break  # Close the stream rather than consume discarded output.
         finally:
+            finish = (getattr(full, "response_metadata", None) or {}).get("finish_reason")
+            if answer is not None and (output_limit or finish in {"length", "max_tokens", "max_output_tokens", "content_filter"}):
+                log.warning("Final response incomplete: task=%s reason=%s output_chars=%s",
+                    tid, "character_limit" if output_limit else finish, len(answer["text"]))
             log.info("Model request: task=%s tools=%s final=%s first_chunk=%s elapsed=%.3fs",
                 tid, len(definitions), answer is not None, first_chunk, time.monotonic()-started)
             if buffer:
@@ -1652,6 +1662,10 @@ class DatasetQA:
             "and only refer to display cards identified by delivery_manifest. Do not claim unperformed work succeeded. "
             "The runtime operations state is authoritative: distinguish execution from delivery and do not describe auxiliary lookups as completion of the request. "
             "Use answer_evidence for supporting facts; delivery_manifest identifies displayed artifacts, while final_delivery contains bounded previews. "
+            "When delivery_links is present, its items are the authoritative file/link labels and available format/count facts for THIS delivery. "
+            "Associate each description with its result_id and exact label; do not relabel a CSV as JSONL or use an intermediate artifact as the final output. "
+            "The runtime attaches these clickable links after your reply. Describe the actual delivered results concisely; do not copy their URLs, emit link placeholders or invent filenames/counts missing from the evidence. "
+            "Do not say a delivered file is unavailable merely because its URL is absent from a bounded preview. "
             "A delivery_next_offset means more artifacts were delivered than fit this view; never describe omitted previews as missing outputs. "
             "Retrieval totals may overlap: do not add them or infer coverage or suitability without evidence. "
             "Each retrieval total belongs only to its original query and upstream filters; it is not a count of verified relevant resources or proof of keyword matching semantics. "
@@ -1679,6 +1693,18 @@ class DatasetQA:
         # tool errors remain available for correction, never for public wording.
         context = {key: value for key, value in json.loads(messages[1].content).items()
             if key in {"memory", "summary", "references", "request_source", "request_objects", "response_basis", "history_coverage"}}
+        links = delivery_links(cards)
+        if links:
+            manifest = {"items": [], "total": len(links)}
+            for link in links[:20]:
+                item = {key: value for key, value in link.items() if key!="url"}
+                candidate = {**manifest, "items": [*manifest["items"], item]}
+                if len(encode(candidate))>4000:
+                    break  # Keep labels whole; the complete links remain in delivery.
+                manifest = candidate
+            if len(manifest["items"])<len(links):
+                manifest["truncated"] = True
+            context["delivery_links"] = manifest
         if payload.get("response_basis"):
             context["response_basis"] = {key: value for key, value in payload["response_basis"].items()
                 if key!="reason" or not (payload.get("diagnostics_exposed") or payload.get("resource_outcomes"))}

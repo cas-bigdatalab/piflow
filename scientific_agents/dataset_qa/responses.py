@@ -4,6 +4,165 @@ Closing a conversation turn does not assert that its data operations succeeded.
 The persisted receipts remain authoritative for retries, recovery and delivery.
 No exception message or detail is copied into a public response.
 """
+import html
+import re
+from urllib.parse import urlsplit
+
+
+def delivery_links(cards):
+    """Bounded, source-backed links shared by answer guidance and rendering.
+
+    The caller supplies only selected delivery cards. Names and file facts come
+    from the same object as the URL; wrappers are not evidence of file identity.
+    """
+    nodes_left, links = 2000, {}
+    wrappers = ("data", "items", "result", "results", "files", "links")
+    fields = {"downloadurl": "下载", "downloadurls": "下载",
+              "previewurl": "查看", "previewurls": "查看"}
+
+    def add(url, label, action, owner, facts):
+        nonlocal nodes_left
+        if nodes_left<=0:
+            return False
+        nodes_left -= 1
+        if not isinstance(url, str) or not url or len(url)>8192:
+            return False
+        try:
+            parsed = urlsplit(url)
+            if (parsed.scheme not in {"http", "https"} or not parsed.hostname
+                    or parsed.username is not None or parsed.password is not None or parsed.port == 0
+                    or any(c.isspace() or ord(c)<32 or ord(c)==127 or c in '\\<>"`' for c in url)):
+                return False
+        except ValueError:
+            return False
+        entry = {"result_id": owner.get("result_id"), "url": url, "label": label,
+                 "action": action, "_title": owner.get("title", "")}
+        if isinstance(facts.get("format"), str) and facts["format"]:
+            entry["format"] = facts["format"][:64]
+        if type(facts.get("record_count")) is int and facts["record_count"]>=0:
+            entry["record_count"] = facts["record_count"]
+        links.setdefault(url, entry)
+        return True
+
+    def walk(value, label, owner, *, url_view=False, depth=0):
+        nonlocal nodes_left
+        if nodes_left<=0 or depth>8:
+            return
+        nodes_left -= 1
+        if isinstance(value, str):
+            if url_view:
+                add(value, label, "查看", owner, {})
+        elif isinstance(value, list):
+            for child in value:
+                if nodes_left<=0:
+                    break
+                walk(child, label, owner, url_view=url_view, depth=depth+1)
+        elif isinstance(value, dict):
+            names = [value.get(key) for key in ("fileName", "filename", "name", "title")]
+            label = next((name for name in names if isinstance(name, str) and name.strip()), label)
+            # The resource's own name wins when a wrapper repeats its URL.
+            # A different wrapper URL must never borrow that resource's name.
+            if "resource" in value:
+                walk(value["resource"], label, owner, url_view=url_view, depth=depth+1)
+            found = False
+            for key, child in value.items():
+                key = str(key).replace("_", "").lower()
+                action = fields.get(key) or ("查看" if url_view and key in {"url", "uri", "href"} else None)
+                if action:
+                    for url in child[:2000] if isinstance(child, list) else (child,):
+                        found = add(url, label, action, owner, value) or found
+            for key in wrappers:
+                # A result's data rows are not additional delivery links.
+                if key in value and not (found and key in {"data", "items", "result", "results"}):
+                    walk(value[key], label, owner, url_view=url_view or key=="links", depth=depth+1)
+
+    for card in cards:
+        label = card.get("title") if isinstance(card.get("title"), str) and card["title"] else "结果"
+        walk(card.get("data"), label, card, url_view=card.get("view_type")=="url")
+        for block in card.get("content", []):
+            if isinstance(block, dict) and block.get("type") in {"file", "resource_link"}:
+                walk(block, label, card, url_view=True)
+
+    values = list(links.values())
+    groups = {}
+    for entry in values:
+        entry["label"] = " ".join(entry["label"].split())[:160]
+        groups.setdefault(entry["label"], []).append(entry)
+    for index, entry in enumerate(values, 1):
+        group = groups[entry["label"]]
+        if len(group)>1:
+            titles = [item["_title"] for item in group]
+            prefix = entry["_title"] if all(titles) and len(set(titles))==len(titles) else f"结果 {index}"
+            entry["label"] = prefix+" · "+entry["label"]
+    for entry in values:
+        entry.pop("_title")
+    return values
+
+
+def _reply_link_view(message):
+    """Ignore code examples; retain an open block fence for append-only repair."""
+    visible, fence = [], None
+    for line in message.splitlines():
+        marker = re.match(r" {0,3}(`{3,}|~{3,})(.*)$", line)
+        if fence:
+            if marker and marker[1][0]==fence[0] and len(marker[1])>=len(fence) and not marker[2].strip():
+                fence = None
+        elif marker and (marker[1][0]=="~" or "`" not in marker[2]):
+            fence = marker[1]
+        elif not line.startswith(("    ", "\t")):
+            visible.append(line)
+    text = "\n".join(visible)
+    text = re.sub(r"(?<!`)(`+)(?!`)[\s\S]*?(?<!`)\1(?!`)", "", text)
+    return html.unescape(text), fence
+
+
+def _has_complete_link(text, url):
+    # Match against the exact authoritative URL, not a prefix of a signed URL.
+    # This intentionally recognizes only common link forms, not arbitrary HTML.
+    target = "".join((r"\\?" if character in r"\`*_{}[]()#+.!>-" else "")+re.escape(character)
+                     for character in url)
+    label = r"(?<!!)\[(?:\\.|[^\]\\\n])*\]"
+    destination = r"(?:<"+target+r">|"+target+r")"
+    if re.search(label+r"\(\s*"+destination+r"(?:[ \t]+[\"'][^\n]*?[\"'])?\s*\)", text):
+        return True
+    for match in re.finditer(target, text):
+        before, after = text[:match.start()], text[match.end():]
+        # A complete URL inside an unfinished Markdown target is still not a
+        # complete link. The separately appended link must remain available.
+        if re.search(r"\]\s*\([^)]*$", before.rsplit("\n\n", 1)[-1]):
+            continue
+        if before.endswith("<") and after.startswith(">"):
+            return True
+        previous = before[-1:]
+        if previous and not (previous.isspace() or previous in ":：，。；（(" or "\u4e00"<=previous<="\u9fff"):
+            continue
+        if re.match(r'^(?:$|[\s<>"`\)\]，。；！？]|[.,;!?](?:\s|$))', after):
+            return True
+    return False
+
+
+def delivery_link_suffix(message, cards):
+    """Append missing delivery links without model or network calls."""
+    rendered, fence = _reply_link_view(message)
+    lines, size, omitted = [], 0, False
+    for entry in delivery_links(cards):
+        url, label, action = entry["url"], entry["label"], entry["action"]
+        if _has_complete_link(rendered, url):
+            continue
+        label = re.sub(r"([\\`*_{}\[\]#!|])", r"\\\1", html.escape(label))
+        # Angle-bracket destinations preserve parentheses and signed query
+        # strings. Entity escaping does not change the browser's destination.
+        line = f"- [{action}：{label}](<{html.escape(url, quote=False)}>)"
+        if len(lines)>=20 or size+len(line)>12000:
+            omitted = True
+            continue
+        lines.append(line)
+        size += len(line)+1
+    if not lines:
+        return ""
+    if omitted:
+        lines.append("更多链接请查看下方结果。")
+    return ("\n"+fence if fence else "")+("\n\n" if message else "")+"结果链接：\n\n"+"\n".join(lines)
 
 
 def _code(error):
@@ -19,9 +178,6 @@ def recovery_search_summary(operations, cards):
     neither executes a tool nor turns intermediate findings into goal success.
     Error diagnostics and planner-authored recovery text are never inputs.
     """
-    import html
-    import re
-
     from .contracts import QAError
     from .references import at_path
     from .search import record_key

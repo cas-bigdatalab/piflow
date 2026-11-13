@@ -426,7 +426,7 @@ class Dialogue:
         current = next((i for i, message in enumerate(messages) if message.id=="qa-current-request"), 2)
         fixed_size = 1+cost([messages[0], messages[current]])
         context = json.loads(messages[1].content)
-        protected = {key: context[key] for key in ("references", "request_source", "request_objects", "request_artifacts", "pending", "reference_issue", "operations", "response_basis", "execution_decision", "search_outcomes", "plan", "outcome_status", "artifact_catalog", "published_artifacts", "history_coverage") if context.get(key)}
+        protected = {key: context[key] for key in ("references", "request_source", "request_objects", "request_artifacts", "pending", "reference_issue", "operations", "response_basis", "execution_decision", "search_outcomes", "plan", "outcome_status", "delivery_links", "artifact_catalog", "published_artifacts", "history_coverage") if context.get(key)}
         if context.get("memory"):
             # Keep explicit choices/constraints, with the existing secret filter.
             protected["memory"] = project(context["memory"], len(encode(context["memory"])))[0]

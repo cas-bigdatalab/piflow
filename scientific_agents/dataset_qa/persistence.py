@@ -12,7 +12,7 @@ from sqlalchemy import Column, Float, Integer, MetaData, String, Table, Text, Un
 from .results import evidence
 from .contracts import QAError
 from .references import matching_objects
-from .responses import terminal_reply
+from .responses import delivery_link_suffix, terminal_reply
 
 
 def now():
@@ -254,6 +254,7 @@ class Store:
                 if error:
                     error = public_error
             previous_message = None
+            cards = self._cards(conn, sid, payload["delivery"]) if payload.get("delivery") else []
             if status in {"COMPLETED", "FAILED", "CANCELLED"}:
                 # A worker may stop after streaming but before passing its final
                 # text to finish. Reconcile only committed text inside this
@@ -281,6 +282,7 @@ class Store:
                         message += ("\n\n" if message.strip() else "")+fallback
                 elif not message.strip():
                     message += fallback
+                message += delivery_link_suffix(message, cards)
                 if message != streamed:
                     # Ordinary replies were already streamed. Only publish a
                     # missing suffix; never replay their earlier chunks twice.
@@ -293,7 +295,6 @@ class Store:
                     self._item(conn, sid, tid, "ASSISTANT_MESSAGE", response)
             if "delivery" in payload and not payload.get("published"):
                 result_ids = payload["delivery"]
-                self._cards(conn, sid, result_ids)
                 for result_id in result_ids:
                     # History references immutable artifacts instead of copying media.
                     self._item(conn, sid, tid, "RESULT_CARD", {"result_id": result_id})
