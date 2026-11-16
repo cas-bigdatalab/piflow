@@ -15,7 +15,7 @@ from fastmcp.tools.tool import ToolResult
 from mcp.types import CallToolResult, TextContent
 from pydantic import BaseModel, ConfigDict, Field
 from starlette.requests import Request
-from starlette.responses import FileResponse, JSONResponse
+from starlette.responses import FileResponse as StarletteFileResponse, JSONResponse
 
 from scientific_agents.dataset_qa.artifact_storage import ArtifactStorageError, download_base_context, local_download, request_download_base
 
@@ -508,7 +508,7 @@ async def download_artifact(request: Request):
     try:
         path, name, fmt = await anyio.to_thread.run_sync(partial(local_download,
             request.path_params["token"], request.path_params["name"], 64 * 1024 * 1024))
-        return FileResponse(path, filename=name, headers=headers,
+        return StarletteFileResponse(path, filename=name, headers=headers,
             media_type="text/csv; charset=utf-8" if fmt == "csv" else "application/x-ndjson")
     except ArtifactStorageError:
         logging.getLogger("flow.corpus.artifacts").warning("Artifact download unavailable", exc_info=True)

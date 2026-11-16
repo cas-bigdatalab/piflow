@@ -16,6 +16,7 @@ from fastmcp import Client
 import pytest
 from starlette.testclient import TestClient
 
+from mcp_servers import corpus_mcp
 from mcp_servers.corpus_mcp import create_mcp_app, mcp
 from services import corpus_connector_service as backend
 from .. import artifact_storage as storage
@@ -65,6 +66,40 @@ def test_local_query_export_download_and_replay(files, download_client):
     assert not list(root.rglob(".pending-*"))
     assert set(original["resource"]) == {"source_ref", "name", "format", "fields", "record_count",
                                         "size_bytes", "sha256", "downloadUrl"}
+
+
+@pytest.mark.parametrize("fmt,content_type", [
+    ("jsonl", "application/x-ndjson"),
+    ("csv", "text/csv"),
+])
+def test_download_survives_same_named_tool_response(files, download_client, monkeypatch, fmt, content_type):
+    # Another tool may import a response class with the same unqualified name.
+    class FileResponse:
+        def __init__(self, path):
+            self.path = path
+
+    monkeypatch.setattr(corpus_mcp, "FileResponse", FileResponse, raising=False)
+    original = run_query()
+    result = run_export(original["resource"]) if fmt == "csv" else original
+    resource = result["resource"]
+
+    response = download_client.get(result["downloadUrl"])
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith(content_type)
+    assert response.headers["content-disposition"] == f'attachment; filename="{resource["name"]}"'
+    assert int(response.headers["content-length"]) == resource["size_bytes"]
+    assert hashlib.sha256(response.content).hexdigest() == resource["sha256"]
+    if fmt == "csv":
+        records = list(csv.DictReader(io.StringIO(response.text)))
+    else:
+        records = [json.loads(line) for line in response.text.splitlines()]
+    assert [int(row["CID"]) for row in records] == [1, 2]
+
+    partial = download_client.get(result["downloadUrl"], headers={"Range": "bytes=0-31"})
+    assert partial.status_code == 206
+    assert partial.content == response.content[:32]
+    assert partial.headers["content-range"] == f'bytes 0-31/{resource["size_bytes"]}'
+    assert len(files.requests) == 2
 
 
 def test_numeric_types_survive_local_csv_roundtrip(files):
