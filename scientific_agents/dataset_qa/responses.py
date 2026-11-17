@@ -171,7 +171,7 @@ def _code(error):
     return getattr(error, "code", None)
 
 
-def recovery_search_summary(operations, cards):
+def recovery_search_summary(operations, cards, *, resource_noun="数据集"):
     """Render saved search facts locally when further execution cannot proceed.
 
     Read only successful receipts and their declared collection paths. This
@@ -205,7 +205,7 @@ def recovery_search_summary(operations, cards):
                     if isinstance(row, dict):
                         rows.setdefault(record_key(row, search["profile"].get("identity", [])), row)
         if rows:
-            lines = [f"在本次检索范围内已取得 {len(rows)} 个候选数据集："]
+            lines = [f"在本次检索范围内已取得 {len(rows)} 个候选{resource_noun}："]
             for row in list(rows.values())[:6]:
                 title = row.get("title")
                 if isinstance(title, str) and title.strip() and len(title)<=240:
@@ -218,11 +218,11 @@ def recovery_search_summary(operations, cards):
             lines.append("以上为检索候选，具体内容是否适用还需核实；您可以继续指定要查看或处理的内容。")
             sections.append("\n\n".join((lines[0], "\n".join(lines[1:-1]), lines[-1])))
         elif search["done"] and search.get("stop")=="exhausted" and not search["records"]:
-            sections.append("本次检索范围内暂未找到匹配的数据集。您可以补充其他名称线索或指定其他检索范围。")
+            sections.append(f"本次检索范围内暂未找到匹配的{resource_noun}。您可以补充其他名称线索或指定其他检索范围。")
     return "\n\n".join(sections)
 
 
-def notice(error, retained=False, subject=None):
+def notice(error, retained=False, subject=None, *, resource_noun="数据集"):
     code = _code(error)
     if code == "artifact_unavailable":
         return ("已取得的结果仍保留。" if retained else "")+"本次结果文件尚未准备好，当前还不能提供下载。您可以稍后让我继续获取或导出。"
@@ -236,24 +236,24 @@ def notice(error, retained=False, subject=None):
     if code in {"invalid_parameters", "invalid_pointer", "result_not_found", "invalid_tool_call"}:
         return "本次尚未取得可确认的完整结果。您已提供的要求仍保留，可以稍后让我按原要求继续处理。"
     if code in {"result_too_large", "context_too_large", "step_limit", "no_progress", "invalid_delivery"}:
-        return "目前的信息还不足以给出完整结果。您可以指定优先查看的数据集或缩小范围，我会围绕这部分继续整理。"
+        return f"目前的信息还不足以给出完整结果。您可以指定优先查看的{resource_noun}或缩小范围，我会围绕这部分继续整理。"
     if code == "tool_failed":
         # An opaque tool rejection proves no usable output, not a temporary
         # outage, permanent lack of support, or a problem with search scope.
-        return (f"本次没有取得可展示的{subject}。" if subject else "本次没有取得可展示的内容。")+"您可以选择其他数据集，或指定其他希望了解的信息。"
+        return (f"本次没有取得可展示的{subject}。" if subject else "本次没有取得可展示的内容。")+f"您可以选择其他{resource_noun}，或指定其他希望了解的信息。"
     return "本次没有取得可展示的内容。您可以指定其他希望查看或处理的信息。"
 
 
-def terminal_reply(status, error=None, retained=False):
+def terminal_reply(status, error=None, retained=False, *, resource_noun="数据集"):
     if status == "CANCELLED":
         return ("已停止继续处理，已取得的结果保留在下方。您可以随时告诉我下一步要做什么。" if retained else
                 "已停止继续处理。您可以随时告诉我下一步要做什么。")
     if status == "COMPLETED":
-        return "结果已整理在下方，您可以继续指定要查看或处理的内容。" if retained else "您可以继续说明要查看的数据集或希望获取的内容，我会据此继续协助。"
-    return notice(error, retained)
+        return "结果已整理在下方，您可以继续指定要查看或处理的内容。" if retained else f"您可以继续说明要查看的{resource_noun}或希望获取的内容，我会据此继续协助。"
+    return notice(error, retained, resource_noun=resource_noun)
 
 
-def public_completion(value, payload):
+def public_completion(value, payload, *, resource_noun="数据集"):
     """Project a handled turn without mislabelling private operations as success."""
     result = dict(value)
     if result.get("status") == "FAILED":
@@ -261,7 +261,7 @@ def public_completion(value, payload):
             attempt.get("state") == "succeeded" and attempt.get("result_id")
             for item in payload.get("operations", []) for attempt in item.get("attempts", []))
         result.update(status="COMPLETED", outcome="partial" if evidence else "unavailable",
-                      message=notice(payload.get("error"), bool(payload.get("delivery"))))
+                      message=notice(payload.get("error"), bool(payload.get("delivery")), resource_noun=resource_noun))
     # Old persisted terminal events may contain an upstream error verbatim.
     for key in ("code", "error_code", "error_message", "detail"):
         result.pop(key, None)

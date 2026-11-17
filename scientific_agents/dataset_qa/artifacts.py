@@ -61,7 +61,7 @@ class Artifacts:
     def __init__(self, store):
         self.store = store
         meta = MetaData()
-        self.table = Table("dataset_qa_file_artifacts", meta,
+        self.table = Table(store.agent_profile.table("file_artifacts"), meta,
             Column("id", String(80), primary_key=True), Column("user_id", String(160), nullable=False, index=True),
             Column("session_id", String(100), nullable=False), Column("result_id", String(180), nullable=False),
             Column("source_key", String(64), nullable=False, index=True), Column("updated_at", Float, nullable=False),

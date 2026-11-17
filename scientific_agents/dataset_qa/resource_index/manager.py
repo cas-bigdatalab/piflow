@@ -15,7 +15,9 @@ log = logging.getLogger("flow.dataset_qa.index")
 class ResourceIndex:
     def __init__(self, store, gateway, busy, policy=None):
         self.policy = policy or IndexPolicy()
-        self.store = IndexStore(store.engine, store.lock, self.policy)
+        self.enabled = "directory_lookup" in store.agent_profile.features
+        self.store = IndexStore(store.engine, store.lock, self.policy,
+            agent_profile=store.agent_profile) if self.enabled else None
         self.gateway, self.busy = gateway, busy
         self.workers, self.wake, self.closed = [], asyncio.Event(), False
         self.changed = asyncio.Condition()
@@ -34,10 +36,12 @@ class ResourceIndex:
                 pass  # Periodically re-read for work completed by another process.
 
     def sources(self):
+        if not self.enabled:
+            return {}
         return {name: source_identity(server) for name, server in self.gateway.configured_servers().items()}
 
     def start(self):
-        if not self.workers and not self.closed:
+        if self.enabled and not self.workers and not self.closed:
             self.workers = [asyncio.create_task(self._worker()) for _ in range(self.policy.workers)]
 
     async def close(self):
@@ -49,7 +53,7 @@ class ResourceIndex:
         self.workers.clear()
 
     async def observe(self, user, tool, arguments, data, dataset):
-        if not profile(tool).directory or not Execution.reusable(tool):
+        if not self.enabled or not profile(tool).directory or not Execution.reusable(tool):
             return None
         key = await asyncio.to_thread(self.store.observe, user, tool, self.sources()[tool.server], arguments, data, dataset)
         self.start()
@@ -114,6 +118,8 @@ class ResourceIndex:
                     await self._notify()
 
     async def lookup(self, user, name, *, scope_id=None, parent=None, kind="file", refresh=False):
+        if not self.enabled:
+            raise QAError("capability_unavailable", "当前助手未开放目录定位能力")
         sources = self.sources()
         query = dict(scope_id=scope_id, parent=parent, kind=kind)
         result = await asyncio.to_thread(self.store.lookup, user, sources, name, **query)

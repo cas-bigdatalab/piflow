@@ -10,6 +10,7 @@ from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 
 from ..contracts import QAError
 from .model import DirectorySpec, IndexPolicy, digest
+from ...agent_profiles import DATASET_QA_PROFILE
 
 ROOT = "root"
 
@@ -19,10 +20,10 @@ def dump(value):
 
 
 class IndexStore:
-    def __init__(self, engine, lock, policy=None):
+    def __init__(self, engine, lock, policy=None, *, agent_profile=DATASET_QA_PROFILE):
         self.engine, self.lock, self.policy = engine, lock, policy or IndexPolicy()
         meta = MetaData()
-        self.scopes = Table("dataset_qa_resource_scopes", meta,
+        self.scopes = Table(agent_profile.table("resource_scopes"), meta,
             Column("id", String(64), primary_key=True), Column("user_id", String(160), nullable=False, index=True),
             Column("server", String(255), nullable=False), Column("source", String(64), nullable=False),
             Column("tool", String(255), nullable=False), Column("arguments", Text, nullable=False),
@@ -31,7 +32,7 @@ class IndexStore:
             Column("state", String(24), nullable=False), Column("owner", String(64)),
             Column("lease", Float, nullable=False), Column("priority", Integer, nullable=False),
             Column("updated", Float, nullable=False))
-        self.nodes = Table("dataset_qa_resource_nodes", meta,
+        self.nodes = Table(agent_profile.table("resource_nodes"), meta,
             Column("scope", String(64), primary_key=True), Column("generation", Integer, primary_key=True),
             Column("key", String(64), primary_key=True), Column("parent", String(64)),
             Column("identity", Text, nullable=False), Column("name", Text, nullable=False),
@@ -40,10 +41,10 @@ class IndexStore:
             Column("depth", Integer, nullable=False), Column("state", String(24), nullable=False),
             Column("attempts", Integer, nullable=False), Column("due", Float, nullable=False),
             Column("observed", Float, nullable=False))
-        Index("ix_qa_resource_name", self.nodes.c.scope, self.nodes.c.generation, self.nodes.c.name)
-        Index("ix_qa_resource_parent", self.nodes.c.scope, self.nodes.c.generation, self.nodes.c.parent)
+        Index("ix_"+agent_profile.session_prefix+"_resource_name", self.nodes.c.scope, self.nodes.c.generation, self.nodes.c.name)
+        Index("ix_"+agent_profile.session_prefix+"_resource_parent", self.nodes.c.scope, self.nodes.c.generation, self.nodes.c.parent)
         # Atomic slots bound background MCP concurrency across service processes.
-        self.slots = Table("dataset_qa_resource_slots", meta,
+        self.slots = Table(agent_profile.table("resource_slots"), meta,
             Column("id", Integer, primary_key=True), Column("owner", String(64)), Column("lease", Float, nullable=False))
         with self.lock:
             meta.create_all(engine)

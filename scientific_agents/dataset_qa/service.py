@@ -2,6 +2,7 @@
 import asyncio
 from contextlib import aclosing, asynccontextmanager, nullcontext
 from copy import deepcopy
+from functools import partial
 import json
 import logging
 import time
@@ -31,20 +32,27 @@ from .resource_index.resolver import bind_target, resolve as resolve_resource
 from .planning import plan_view, outcome_status, require_delivery
 from .plan_runtime import install_plan, confirm_plan, scheduled_reply, workflow_definition
 from .artifacts import Artifacts, execution_metadata
+from ..agent_profiles import DATASET_QA_PROFILE
+from .prompts import system_prompt
 
 log = logging.getLogger("flow.dataset_qa")
 
 class DatasetQA:
-    def __init__(self, engine, dialogue=None, gateway=None, *, index_policy=None):
-        self.store, self.gateway = Store(engine), gateway or MCPGateway()
+    def __init__(self, engine, dialogue=None, gateway=None, *, index_policy=None, agent_profile=None):
+        self.agent_profile = agent_profile or (gateway.agent_profile if gateway else DATASET_QA_PROFILE)
+        self.store = Store(engine, agent_profile=self.agent_profile)
+        self.gateway = gateway or MCPGateway(agent_profile=self.agent_profile)
+        if self.gateway.agent_profile != self.agent_profile:
+            self.gateway = self.gateway.for_profile(self.agent_profile)
         self.artifacts = Artifacts(self.store)
-        self.dialogue = dialogue or Dialogue(limits=self.gateway.limits)
+        self.dialogue = dialogue or Dialogue(limits=self.gateway.limits, agent_profile=self.agent_profile)
+        self._response_notice = partial(Execution.notice, resource_noun=self.agent_profile.resource_noun)
         self.owner, self.jobs = uuid4().hex, {}
         self.summaries = {}
         self.context_windows = {}  # Per-task recovery ceilings; never shared between users/turns.
         self.summary_slot = asyncio.Semaphore(1)
         self.stopping, self.changed = asyncio.Event(), asyncio.Condition()
-        self.ticker, self.slots = None, asyncio.Semaphore(8)
+        self.ticker, self.slots = None, asyncio.Semaphore(self.agent_profile.max_concurrency)
         self.active_mcp_calls = 0
         self.resources = ResourceIndex(self.store, self.gateway, lambda: self.active_mcp_calls>0, index_policy)
 
@@ -89,19 +97,17 @@ class DatasetQA:
         if hasattr(self.dialogue, "close"):
             await self.dialogue.close()
 
-    @staticmethod
-    def session_view(row):
-        return {"session_id": row["id"], "agent_id": "dataset_qa", "title": row["title"],
+    def session_view(self, row):
+        return {"session_id": row["id"], "agent_id": self.agent_profile.agent_id, "title": row["title"],
             "version": row["version"], "create_time": row["created_at"], "update_time": row["updated_at"]}
 
-    @staticmethod
-    def task_view(row):
+    def task_view(self, row):
         result = {"task_id": row["id"], "status": row["status"]}
         if row["stage"]:
             result["current_stage"] = row["stage"]
         if row["status"] in {"RUNNING", "WAITING_INPUT"}:
             result["available_actions"] = [{"action": "cancel_task", "label": "停止"}]
-        return public_completion(result, json.loads(row["payload"]))
+        return public_completion(result, json.loads(row["payload"]), resource_noun=self.agent_profile.resource_noun)
 
     async def list_sessions(self, user, page, size, keyword=""):
         rows, total = await asyncio.to_thread(self.store.list_sessions, user, page, size, keyword)
@@ -199,7 +205,7 @@ class DatasetQA:
                     saved = await asyncio.to_thread(self.store.task, user, sid, tid)
                     if value.get("status")=="WAITING_INPUT" and saved["status"]!="WAITING_INPUT":
                         continue  # A later cancellation/continuation superseded this checkpoint.
-                    value = public_completion(value, json.loads(saved["payload"]))
+                    value = public_completion(value, json.loads(saved["payload"]), resource_noun=self.agent_profile.resource_noun)
                 last_activity = time.monotonic()
                 yield value
                 if value["type"]=="done":
@@ -208,7 +214,7 @@ class DatasetQA:
                 session = await asyncio.to_thread(self.store.session, user, sid)
                 value = {"type": "done", "task_id": tid, "status": task["status"],
                     "version": session["version"], "event_seq": cursor}
-                yield public_completion(value, json.loads(task["payload"]))
+                yield public_completion(value, json.loads(task["payload"]), resource_noun=self.agent_profile.resource_noun)
                 return
             if values:
                 continue  # Drain persisted events without a polling delay.
@@ -568,10 +574,10 @@ class DatasetQA:
                 item["description"] = item.get("public_label") or ""
         required = operations.required
         subject = required[0].get("public_label") if len(required)==1 else None
-        text = Execution.notice(reason, bool(payload.get("delivery")), subject)
+        text = self._response_notice(reason, bool(payload.get("delivery")), subject)
         if payload.get("delivery") and payload.get("delivery_sources"):
             cards = await asyncio.to_thread(self.store.selected_results, user, sid, payload["delivery_sources"])
-            facts = recovery_search_summary(operations, cards)
+            facts = recovery_search_summary(operations, cards, resource_noun=self.agent_profile.resource_noun)
             if facts:
                 text = facts
         summary = operations.notice(payload.get("delivery_sources", []))
@@ -586,7 +592,7 @@ class DatasetQA:
 
     async def _finish_task(self, user, sid, tid, payload, execution, answer, reason=None):
         reason = execution.operations.resolve_error(reason, payload.get("delivery_sources", []))
-        error = {"code": reason.status, "error_code": reason.code, "message": Execution.notice(reason)} if reason else None
+        error = {"code": reason.status, "error_code": reason.code, "message": self._response_notice(reason)} if reason else None
         if reason and reason.detail:
             error["detail"], _ = project(reason.detail, 1200)
         await asyncio.to_thread(self.store.finish, user, sid, tid, "FAILED" if reason else "COMPLETED",
@@ -1548,6 +1554,8 @@ class DatasetQA:
         return dict(zip((call["id"] for call in native), bindings))
 
     async def _builtin(self, user, sid, tid, name, arguments, tools, context, payload=None):
+        if not self.agent_profile.allows_builtin(name):
+            raise QAError("tool_not_available", "当前助手未开放此能力", 403)
         values = INPUTS[name][0].model_validate(arguments)
         if name=="review_plan":
             result = confirm_plan(payload, values)
@@ -1688,7 +1696,7 @@ class DatasetQA:
         answer_ids = [rid for rid in dict.fromkeys(source_ids) if rid not in ids]
         answer_cards = await asyncio.to_thread(self.store.selected_results, user, sid, answer_ids) if answer_ids else []
         delivery = final_evidence_view(cards, answer_cards, operations, self.gateway.limits.result_chars,
-            stop_reason=Execution.notice(reason, bool(cards)) if reason else None)
+            stop_reason=self._response_notice(reason, bool(cards)) if reason else None)
         # Answer generation is a separate trust boundary. Planning feedback and
         # tool errors remain available for correction, never for public wording.
         context = {key: value for key, value in json.loads(messages[1].content).items()
@@ -1846,6 +1854,8 @@ class DatasetQA:
                         resources=(model_context.get("request_artifacts") or model_context.get("published_artifacts", {})).get("items", []))
                     model_context["mcp_servers"] = tools.list_servers(payload["message"])
                     messages = self.dialogue.messages(payload["message"], model_context)
+                    if self.agent_profile != DATASET_QA_PROFILE:
+                        messages[0] = messages[0].model_copy(update={"content": system_prompt(self.agent_profile)})
                     evidence_ids = ()
                     model_rounds = 0
                     # Deterministic plan waves consume call/time budgets, not
@@ -1888,7 +1898,8 @@ class DatasetQA:
                             # rather than starting another upstream exploration.
                             actions &= {"deliver_results", "remember", "request_input", "respond_from_context"}
                         definitions = self._definitions([definition for definition in [*builtin_definitions(planning,
-                            artifacts=bool(model_context.get("artifact_catalog")) or any(card.get("file_artifact") for card in execution.cards.values())), *tools.definitions()]
+                            artifacts=bool(model_context.get("artifact_catalog")) or any(card.get("file_artifact") for card in execution.cards.values()),
+                            agent_profile=self.agent_profile), *tools.definitions()]
                             if definition["function"]["name"] in actions], tools, execution)
                         advertised = {value["function"]["name"] for value in definitions}
                         reply = None
@@ -2302,7 +2313,7 @@ class DatasetQA:
                     async with asyncio.timeout(1):
                         await asyncio.to_thread(self.store.finish, user, sid, tid, "FAILED",
                             error={"code": failure.status, "error_code": failure.code,
-                                   "message": Execution.notice(failure)})
+                                   "message": self._response_notice(failure)})
                 except Exception:
                     log.exception("Terminal persistence unavailable: task=%s", tid)
         finally:

@@ -17,6 +17,7 @@ from anyio import BrokenResourceError, ClosedResourceError, EndOfStream
 from .context import encode, project
 from .contracts import Limits, QAError, Server
 from .results import ToolResult
+from ..agent_profiles import DATASET_QA_PROFILE
 
 log = logging.getLogger("flow.dataset_qa.mcp")
 
@@ -146,15 +147,37 @@ def checked_tool(tool):
 
 
 class MCPGateway:
-    def __init__(self, servers=None, config_path=None, client_factory=None, limits=None):
+    def __init__(self, servers=None, config_path=None, client_factory=None, limits=None, *, agent_profile=DATASET_QA_PROFILE):
         self.servers = dict(servers or {})
+        self.agent_profile = agent_profile
         self.config_path = Path(config_path) if config_path else None
         self.client_factory, self.limits = client_factory, limits or Limits()
         self.cache = {}
         self.identities, self.refresh_versions, self.refresh_sequence = {}, {}, 0
 
+    def for_profile(self, agent_profile):
+        """A separate view/cache; never mutate a gateway used by another agent."""
+        return MCPGateway(self.servers, self.config_path, self.client_factory, self.limits,
+            agent_profile=agent_profile)
+
+    def identity(self, spec):
+        value = repr(spec)
+        if self.agent_profile.tool_scope is not None:
+            value += repr((self.agent_profile.agent_id, self.agent_profile.tool_scope))
+        return sha256(value.encode()).hexdigest()
+
+    def allows(self, tool):
+        if self.agent_profile.tool_scope is None:
+            return True
+        from .capabilities import PROFILES
+        metadata = tool.meta.get("piflow", {}) if isinstance(tool.meta, dict) else {}
+        descriptor = metadata.get("qa", PROFILES.get((tool.server, tool.name), {})) if isinstance(metadata, dict) else {}
+        routing = descriptor.get("routing", {}) if isinstance(descriptor, dict) else {}
+        group = routing.get("group") if isinstance(routing, dict) else None
+        return self.agent_profile.allows_tool(tool.server, tool.name, group)
+
     def configured_servers(self):
-        servers = dict(self.servers)
+        servers = {name: spec for name, spec in self.servers.items() if self.agent_profile.allows_server(name)}
         if self.config_path:
             try:
                 raw = yaml.safe_load(self.config_path.read_text(encoding="utf-8"))
@@ -175,6 +198,8 @@ class MCPGateway:
                 for name, entry in entries.items():
                     if not isinstance(name, str) or not name or not isinstance(entry, dict):
                         raise ValueError("Invalid server entry")
+                    if not self.agent_profile.allows_server(name):
+                        continue
                     if not entry.get("enabled", True):
                         servers.pop(name, None)
                         continue
@@ -192,7 +217,7 @@ class MCPGateway:
     @asynccontextmanager
     async def session(self):
         servers = self.configured_servers()
-        self.identities = {name: sha256(repr(spec).encode()).hexdigest() for name, spec in servers.items()}
+        self.identities = {name: self.identity(spec) for name, spec in servers.items()}
         for name in list(self.cache):
             if (self.identities.get(name)!=self.cache[name][0]
                     or time.monotonic()-self.cache[name][1]>=self.limits.cache_seconds):
@@ -293,11 +318,11 @@ class ToolSession:
         spec = self.servers[server]
         # Configuration identity is part of the cache key, so changed targets
         # and credentials never reuse another server's cached schemas.
-        identity = sha256(repr(spec).encode()).hexdigest()
+        identity = self.gateway.identity(spec)
         cached = self.gateway.cache.get(server)
         if cached and cached[0]==identity and time.monotonic()-cached[1]<self.limits.cache_seconds:
             self.definition_errors[server] = deepcopy(cached[3])
-            return deepcopy(cached[2])
+            return [tool for tool in deepcopy(cached[2]) if self.gateway.allows(tool)]
         return None
 
     async def tools(self, server):
@@ -355,24 +380,27 @@ class ToolSession:
         for value in values:
             name = getattr(value, "name", None)
             try:
-                if isinstance(name, str) and name in duplicates:
-                    raise QAError("invalid_schema", "同一服务存在重名工具，无法确定调用目标", 502)
                 annotations = getattr(value, "annotations", None)
                 if hasattr(annotations, "model_dump"):
                     annotations = annotations.model_dump(exclude_none=True)
                 schema = getattr(value, "inputSchema", None)
                 if schema is None:
                     schema = getattr(value, "input_schema", {})
-                tools.append(checked_tool(Tool(server, name, str(getattr(value, "description", "") or ""),
+                candidate = Tool(server, name, str(getattr(value, "description", "") or ""),
                     schema, annotations if annotations is not None else {},
-                    getattr(value, "meta", None) or getattr(value, "_meta", None) or {})))
+                    getattr(value, "meta", None) or getattr(value, "_meta", None) or {})
+                if not self.gateway.allows(candidate):
+                    continue
+                if isinstance(name, str) and name in duplicates:
+                    raise QAError("invalid_schema", "同一服务存在重名工具，无法确定调用目标", 502)
+                tools.append(checked_tool(candidate))
             except QAError as exc:
                 error = {"name": str(name or "<unnamed>")[:200], "error": exc.code, "message": str(exc)[:240]}
                 if error not in errors:
                     errors.append(error)
                     log.warning("MCP definition rejected: server=%s tool=%s code=%s message=%s",
                         server, error["name"], exc.code, error["message"])
-        identity = sha256(repr(self.servers[server]).encode()).hexdigest()
+        identity = self.gateway.identity(self.servers[server])
         if self.gateway.identities.get(server)==identity and self.gateway.refresh_versions.get(server)==sequence:
             self.gateway.cache[server] = (identity, time.monotonic(), deepcopy(tools), deepcopy(errors))
         self.definition_errors[server] = errors
@@ -387,6 +415,8 @@ class ToolSession:
         loaded = []
         evictions, admitted = {}, set()
         for tool in page:
+            if tool.server not in self.servers or not self.gateway.allows(tool):
+                continue
             if tool._definition is None:
                 try:
                     tool = checked_tool(tool)
@@ -456,7 +486,8 @@ class ToolSession:
         return result
 
     def definitions(self):
-        return [tool.definition() for tool in self.loaded.values()]
+        return [tool.definition() for tool in self.loaded.values()
+            if tool.server in self.servers and self.gateway.allows(tool)]
 
     def validate(self, alias, arguments, *, deferred=()):
         """Validate known plan inputs early; dispatch always validates the full schema.
@@ -468,6 +499,8 @@ class ToolSession:
         tool = self.loaded.get(alias)
         if tool is None:
             raise QAError("tool_not_loaded", "工具未加载，请先发现并加载相应定义")
+        if tool.server not in self.servers or not self.gateway.allows(tool):
+            raise QAError("tool_not_available", "当前助手未开放此工具", 403)
         from jsonschema import ValidationError
 
         try:
