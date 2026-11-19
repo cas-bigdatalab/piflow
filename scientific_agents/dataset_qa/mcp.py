@@ -251,6 +251,7 @@ class ToolSession:
         self.limits = gateway.limits
         self.request_query = ""
         self.request_resources = ()
+        self.disclosed = {}
 
     async def retry(self, error, attempt, deadline, server, phase):
         if (attempt>=self.limits.transport_retries or not transient(error)
@@ -278,7 +279,9 @@ class ToolSession:
         result = {"items": [{"name": n, "description": self.servers[n].description[:300]} for n in page]}
         for row in result["items"]:
             groups = {}
-            for tool in self.cached_tools(row["name"]) or []:
+            catalogue = self.cached_tools(row["name"])
+            row["discovered"] = catalogue is not None
+            for tool in catalogue or []:
                 routing = profile(tool).routing
                 if routing:
                     group = groups.setdefault(routing.group, routing.model_dump())
@@ -288,6 +291,60 @@ class ToolSession:
                 row["groups"] = list(groups.values())
         if offset+len(page)<len(names):
             result["next_offset"] = offset+len(page)
+        return result
+
+    def relevant_servers(self, query=None):
+        """Rank configured authority descriptions independently of cache warmth.
+
+        With no lexical evidence, expose the directory rather than pretending
+        that whatever happened to be cached covers the current request.
+        """
+        wanted = terms(self.request_query if query is None else query)
+        scores = {name: len(wanted & terms(name+" "+spec.description))
+            for name, spec in self.servers.items()}
+        matching = [name for name in self.servers if scores[name] > 0]
+        return sorted(matching or self.servers, key=lambda name: -scores[name])
+
+    def discovery_status(self, *, limit=None):
+        """Coverage is disclosed relevant definitions, not a nonempty cache.
+
+        This is a conservative navigation aid. It cannot establish that a tool
+        actually meets the user's intent, which remains a model decision.
+        """
+        from .routing import relevance, select_tools
+
+        checked, pending, unavailable = [], [], []
+        for server in self.relevant_servers():
+            if server in self.discovery_errors:
+                unavailable.append(server)
+                continue
+            cached = self.cached_tools(server)
+            if cached is None:
+                pending.append({"server": server})
+                continue
+            # Offsets share load()'s full ordering, including rejected entries.
+            # Otherwise a rejected definition before a valid one can send the
+            # next discovery request back to the same page indefinitely.
+            catalogue = select_tools([*cached, *self.definition_errors.get(server, [])],
+                self.request_query, resources=self.request_resources)
+            valid = [tool for tool in catalogue if isinstance(tool, Tool)]
+            relevant = [tool for tool in valid if relevance(tool, self.request_query)] or valid
+            missing = [tool for tool in relevant if self.disclosed.get(tool.alias) != tool]
+            if missing:
+                pending.append({"server": server, "next_offset": catalogue.index(missing[0])})
+            elif self.definition_errors.get(server):
+                unavailable.append(server)
+            else:
+                checked.append(server)
+        result = {"checked_servers": checked, "pending": pending,
+            "unavailable_servers": unavailable, "complete": not pending and not unavailable}
+        if limit is not None:
+            # Compute coverage before bounding the model-facing directory. Keep
+            # identifiers whole; omitted rows remain available via navigation.
+            result.update(checked_total=len(checked), pending_total=len(pending),
+                unavailable_total=len(unavailable), details_tool="list_mcp_servers")
+            for key in ("checked_servers", "pending", "unavailable_servers"):
+                result[key] = result[key][:max(0, limit)]
         return result
 
     async def client(self, server):
@@ -545,6 +602,10 @@ class ToolSession:
             if self.plan_pins:
                 result["protected_tools"] = list(self.plan_pins)
                 result["hint"] = "当前计划所需能力已保留；其余能力超过加载预算，请缩小加载范围或修订计划。"
+        for item in result["items"]:
+            if not item.get("error") and item["name"] in self.loaded:
+                tool = self.loaded[item["name"]]
+                self.disclosed[tool.alias] = tool
         return result
 
     def prime(self, query, references=(), *, resources=()):
@@ -558,11 +619,19 @@ class ToolSession:
     async def prepare(self, query, references=(), *, resources=()):
         """Use cached schemas, or discover one unambiguous configured service.
 
-        Multiple services retain on-demand routing. No fan-out, business call,
-        additional model request, or retry policy is introduced by preparation.
+        Multiple services retain on-demand routing, except a uniquely matching
+        advertised service can be prepared without an additional model turn.
+        A warm unrelated service must not prevent that lookup. No fan-out or
+        business execution is performed here.
         """
         self.request_query = query
         self.request_resources = tuple(resources)
+        related = self.relevant_servers(query)
+        if len(related) == 1 and self.cached_tools(related[0]) is None:
+            try:
+                await self.load(related[0], query=query)
+            except QAError:
+                pass  # Keep isolated discovery feedback and other services usable.
         self.prime(query, references, resources=resources)
         if not self.loaded and len(self.servers)==1:
             try:

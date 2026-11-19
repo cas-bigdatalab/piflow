@@ -341,6 +341,26 @@ class Operations:
         return list(dict.fromkeys(value["result_id"] for value in item["attempts"]
             if value["state"]=="succeeded" and value.get("result_id")))
 
+    @staticmethod
+    def assessment(item):
+        """Assess content independently of execution, for every execution mode.
+
+        Legacy successful receipts have no explicit result contract and retain
+        their previous acceptance. Rejected attempts are not content receipts;
+        a later failed or pending operation cannot be completed by older data.
+        """
+        if item["state"] in {"failed", "unknown", "unavailable"}:
+            return "unavailable"
+        if item["state"] != "succeeded" or (item.get("search") and not item["search"]["done"]):
+            return "pending"
+        receipts = [value for value in item["attempts"]
+            if value["state"] == "succeeded" and value.get("result_id")]
+        if receipts and all(value.get("acceptance", "accepted") == "accepted" for value in receipts):
+            return "accepted"
+        if receipts and all(value.get("acceptance") == "unavailable" for value in receipts):
+            return "unavailable"
+        return "incomplete"
+
     def deliverable(self, partial=False):
         """Recovery may show unconfirmed evidence without adopting its goal.
 
@@ -367,6 +387,11 @@ class Operations:
             if item.get("search") and not item["search"]["done"]}
         if unfinished_searches and not partial:
             raise QAError("invalid_delivery", "检索尚未达到六条去重结果，也尚未完成四个不同关键词", detail={"searches": unfinished_searches})
+        incomplete = [item["id"] for item in self.required if self.assessment(item) == "incomplete"]
+        if incomplete and not partial:
+            raise QAError("invalid_delivery", "已取得部分内容，但尚未满足全部成果要求", detail={
+                "incomplete": incomplete,
+                "guidance": "Retain the saved evidence. Do not repeat the same invocation or claim complete fulfillment. Continue only for a concrete missing prerequisite; otherwise deliver the available part."})
         owners = {rid for item in eligible for rid in self.result_ids(item)}
         if not set(ids)<=owners:
             raise QAError("invalid_delivery", "交付结果必须来自本轮必要操作的成功证据，不能选择辅助查询或无关历史结果",
@@ -386,6 +411,8 @@ class Operations:
             # A completed prerequisite may be auxiliary in the artifact view;
             # changing its delivery role cannot erase an unfinished policy.
             return QAError("invalid_delivery", "检索范围尚未按约定完成")
+        if any(self.assessment(item) == "incomplete" for item in self.required):
+            return QAError("invalid_delivery", "已取得部分内容，但尚未满足全部成果要求")
         if any(item["state"]!="succeeded" or (item.get("search") and not item["search"]["done"])
                 or (item["output"]=="result" and not set(ids).intersection(self.result_ids(item))) for item in self.required):
             return QAError("invalid_delivery", "本轮必要操作或结果交付尚未全部完成")
@@ -400,6 +427,8 @@ class Operations:
                 row["capability"] = item["capability"]
             if item.get("intent"):
                 row["intent"] = deepcopy(item["intent"])
+            if any("acceptance" in attempt for attempt in item["attempts"]):
+                row["acceptance"] = self.assessment(item)
             if item.get("search"):
                 row["search"] = SearchRun(item["search"]).view()
             if not item.get("required", True):
@@ -430,8 +459,11 @@ class Operations:
         for item in self.required:
             if not item["description"].strip():
                 continue  # A private/unknown label is not a user-facing outcome.
+            if item["state"] == "succeeded" and self.assessment(item) == "unavailable":
+                unfinished.append(item["description"])
+                continue  # An unavailable-content receipt is not partial content.
             delivered = item["output"]=="answer" or bool(set(ids).intersection(self.result_ids(item)))
-            if item["state"]=="succeeded" and delivered:
+            if self.assessment(item)=="accepted" and delivered:
                 done.append(item["description"])
             elif self.result_ids(item) and delivered:
                 partial.append(item["description"]+"（尚有内容未完成）")

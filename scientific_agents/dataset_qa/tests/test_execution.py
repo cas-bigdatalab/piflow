@@ -120,17 +120,18 @@ def test_call_budget_keeps_executed_result_and_hides_skipped_internal_calls(engi
     asyncio.run(run())
 
 
-def test_repeated_discovery_is_bounded_and_final_failure_keeps_original_reason(engine):
+def test_repeated_discovery_is_bounded_without_speculative_final_generation(engine):
     async def run():
         backend = Backend()
-        dialogue = Dialogue(*[action("list_mcp_servers") for _ in range(3)], RuntimeError("offline"))
+        dialogue = Dialogue(*[action("list_mcp_servers") for _ in range(5)], RuntimeError("offline"))
         service = DatasetQA(engine, dialogue, backend.gateway())
         values = await collect(service, session(service))
         assert not backend.connections
         assert_handled(service, None, values[-1], "no_progress")
-        assert dialogue.inputs[-1][1]==[]
+        assert all(definitions for _, definitions in dialogue.inputs)
+        assert len(dialogue.inputs)==5  # One budgeted discovery recovery, no final generation.
         shown = "".join(v.get("text", "") for v in values)
-        assert "缩小范围" in shown and "offline" not in shown
+        assert "要求仍保留" in shown and "缩小范围" not in shown and "offline" not in shown
     asyncio.run(run())
 
 
@@ -160,21 +161,24 @@ def test_unavailable_service_is_not_reconnected_repeatedly_in_one_turn(engine):
         attempted = []
 
         class Unavailable:
+            def __init__(self, server):
+                self.server = server
+
             async def __aenter__(self):
-                attempted.append("connect")
+                attempted.append(self.server)
                 raise OSError("offline")
 
             async def __aexit__(self, *args):
                 pass
 
         gateway = backend.gateway()
-        gateway.client_factory = lambda *args, **kwargs: Unavailable()
-        dialogue = Dialogue(load(), load(), load())
+        gateway.client_factory = lambda server, **kwargs: Unavailable(server)
+        dialogue = Dialogue(load(), load(), load(), load("compute"))
         service = DatasetQA(engine, dialogue, gateway)
         values = await collect(service, session(service))
-        assert attempted==["connect"] and not backend.calls
+        assert attempted==["data", "compute"] and not backend.calls
         assert_handled(service, None, values[-1], "mcp_unavailable")
-        assert len(dialogue.inputs)==3  # Other configured services may still be usable; repeated discovery is bounded.
+        assert len(dialogue.inputs)==4  # One recovery can discover another source, never reconnect the rejected one.
     asyncio.run(run())
 
 
@@ -186,14 +190,17 @@ def test_budget_final_answer_streams_before_completion(engine):
             async def respond(self, messages, definitions):
                 self.inputs.append((messages, definitions))
                 if definitions:
-                    yield action("list_mcp_servers")
+                    if len(self.inputs)==1:
+                        yield load("compute")
+                    else:
+                        yield remote("multiply", x=2, y=3)(messages, definitions)
                 else:
                     yield AIMessageChunk(content="最终答复首段")
                     await gate.wait()
                     yield AIMessageChunk(content="和尾段")
 
         dialogue = Streaming()
-        service = DatasetQA(engine, dialogue, backend.gateway(limits=Limits(max_rounds=1)))
+        service = DatasetQA(engine, dialogue, backend.gateway(limits=Limits(max_rounds=2)))
         sid = session(service)
         stream = service.stream("alice", sid, "继续", "turn", Options())
 

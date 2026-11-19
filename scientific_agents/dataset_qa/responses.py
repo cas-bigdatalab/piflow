@@ -238,7 +238,7 @@ def notice(error, retained=False, subject=None, *, resource_noun="数据集"):
     if code in {"invalid_parameters", "invalid_pointer", "result_not_found", "invalid_tool_call"}:
         return "本次尚未取得可确认的完整结果。您已提供的要求仍保留，可以稍后让我按原要求继续处理。"
     if code in {"result_too_large", "context_too_large", "step_limit", "no_progress", "invalid_delivery"}:
-        return f"目前的信息还不足以给出完整结果。您可以指定优先查看的{resource_noun}或缩小范围，我会围绕这部分继续整理。"
+        return "本次尚未取得可确认的完整结果。您已提供的要求仍保留。"
     if code == "tool_failed":
         # An opaque tool rejection proves no usable output, not a temporary
         # outage, permanent lack of support, or a problem with search scope.
@@ -322,14 +322,31 @@ def delivery_status(operations, ids, *, labels=None, request="", plan=None, card
             continue
         receipts = [attempt for attempt in item["attempts"] if attempt["state"] == "succeeded" and attempt.get("result_id")]
         usable = {attempt["result_id"] for attempt in receipts if attempt.get("acceptance") != "unavailable"}
-        complete = (item.get("required", True) and item["state"] == "succeeded"
-            and bool(result_ids) and (not item.get("search") or item["search"]["done"])
-            and all(attempt.get("acceptance", "accepted") == "accepted" for attempt in receipts)
+        complete = (item.get("required", True) and public.assessment(item) == "accepted"
             and acceptance.get(item["id"], True))
-        facts.append({"description": label, "available": bool(usable), "requested": item.get("required", True),
+        facts.append({"goal": item["id"], "description": label, "available": bool(usable), "requested": item.get("required", True),
             "delivered": bool(delivered.intersection(usable)), "complete": complete,
             "output": item["output"]})
     return facts
+
+
+def compact_delivery_status(facts):
+    """Keep every goal's complete label and outcome in the protected model view.
+
+    Operations already bound this to sixteen goals with 240-character labels.
+    Compact the repeated flags, never individual labels or later outcomes.
+    Full facts remain available to deterministic closure and persisted receipts.
+    """
+    rows = []
+    for item in facts:
+        if item["delivered"]:
+            state = "provided" if item["complete"] else "partial" if item["requested"] else "supporting"
+        elif item["available"]:
+            state = "answer_evidence" if item["output"] == "answer" else "available"
+        else:
+            state = "unavailable"
+        rows.append({"goal": item["goal"], "description": item["description"], "state": state})
+    return rows
 
 
 def delivery_summary(facts):

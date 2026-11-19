@@ -240,10 +240,13 @@ def test_changed_conditions_query_again_then_explicit_old_handle_exports_old_rec
             def export_old(messages, definitions):
                 state = json.loads(messages[1].content)
                 assert state["published_artifacts"]["items"][0]["handle"] != old_handle
-                assert len(state["available_artifacts"]) == 2
-                return export_action(definitions, old_handle)
+                assert not state.get("available_artifacts")
+                found = json.loads(messages[-1].content)["data"]["items"]
+                assert len(found) == 2
+                chosen = next(item for item in found if item["handle"] == old_handle)
+                return export_action(definitions, chosen["handle"])
 
-            service.dialogue = BareDialogue(export_old, text())
+            service.dialogue = BareDialogue(action("find_artifacts"), export_old, text())
             events = await collect(service, sid, "把第一次找到的记录保存为 CSV", rid="old-export")
             assert not payload(service, sid, events).get("error")
             data = result_cards(events)[0]["data"]["items"][0]

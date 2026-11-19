@@ -24,6 +24,8 @@ class Execution:
         self.prepared = {}
         self.stale_scopes, self.blocked = {}, set()
         self.reviewed_failures = set()
+        self.discovery_recovered = False
+        self.repeated_lookups = set()
 
     @property
     def can_deliver(self):
@@ -55,7 +57,22 @@ class Execution:
             allowed = {alias for alias, tool in loaded.items()
                 if any(item.get("capability")=={"server": tool.server, "name": tool.name} for item in searching)}
             names -= {"list_mcp_servers", "load_mcp_tools", "deliver_results", "remember", "resolve_resource", "find_artifacts", *set(loaded)-allowed}
+        if self.discovery_recovered:
+            names -= self.repeated_lookups
         return names
+
+    def recover_discovery(self, status, *, available=False):
+        """Offer one ordinary decision to use or inspect relevant capabilities.
+
+        No new model/call budget is allocated and no user operation is inferred.
+        Completed or blocked business work keeps its existing recovery policy.
+        """
+        if (self.discovery_recovered or not (status.get("pending") or available)
+                or self.operations.items or self.cards or self.failures):
+            return False
+        self.discovery_recovered = True
+        self.stalled = 0
+        return True
 
     def failure_decision(self, *, planned=False, consume=False):
         """Allow one scope decision for unplanned blocked work, not a replanning loop."""
@@ -183,6 +200,8 @@ class Execution:
             markers = {(key, fingerprint({k: v for k, v in value.items()
                 if k not in {"result_id", "executed", "guidance", "repeated", "objects"}}))}
         fresh = bool(markers-self.seen)
+        if name == "find_artifacts" and not fresh:
+            self.repeated_lookups.add(name)
         self.seen.update(markers)
         if not fresh and self.recovering and value.get("result_id") and value.get("executed") is False:
             # Reusing a receipt can resolve a correction once, not restart a loop.

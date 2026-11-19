@@ -109,7 +109,7 @@ def test_existing_execution_goal_cannot_be_replaced_with_context_response(engine
 def test_unsupported_answer_checks_capabilities_and_finishes_without_fake_execution(engine):
     async def run():
         backend = configured()
-        dialogue = BareDialogue(respond("unsupported"), load(), respond("unsupported"),
+        dialogue = BareDialogue(respond("unsupported"), load(), respond("unsupported"), load("compute"), respond("unsupported"),
             text("The inspected tools support retrieval, details and sampling; this transformation is not available."))
         service = DatasetQA(engine, dialogue, backend.gateway())
         try:
@@ -118,7 +118,7 @@ def test_unsupported_answer_checks_capabilities_and_finishes_without_fake_execut
             assert_completed(service, None, values[-1])
             assert not backend.calls
             basis = payload(service, sid, values)["response_basis"]
-            assert basis["mode"]=="unsupported" and len(basis["available_capabilities"])==4
+            assert basis["mode"]=="unsupported" and len(basis["available_capabilities"])==5
             assert not result_cards(values)
         finally:
             await service.close()

@@ -175,7 +175,7 @@ def test_older_artifact_found_selected_and_exported_after_service_rebuild(engine
         captured = {}
         def find(messages, definitions):
             loaded = json.loads(messages[1].content)
-            assert "archive-0.jsonl" not in {row.get("name") for row in loaded["available_artifacts"]}
+            assert not loaded.get("available_artifacts")  # Global history is discovered on demand.
             assert "find_artifacts" in {item["function"]["name"] for item in definitions}
             return action("find_artifacts", query="archive-0.jsonl")
         def select(messages, definitions):

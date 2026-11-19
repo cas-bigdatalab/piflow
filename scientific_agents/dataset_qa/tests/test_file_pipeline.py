@@ -188,10 +188,12 @@ def test_artifact_handle_reused_across_sessions_without_query(engine, files):
             with pytest.raises(QAError):
                 service.artifacts.get("bob", owned[0]["handle"])
             def export(messages, definitions):
-                assert json.loads(messages[1].content)["available_artifacts"][0]["handle"] == owned[0]["handle"]
+                assert not json.loads(messages[1].content).get("available_artifacts")
+                found = json.loads(messages[-1].content)["data"]["items"]
+                assert len(found) == 1 and found[0]["handle"] == owned[0]["handle"]
                 name = next(d["function"]["name"] for d in definitions if d["function"]["name"].endswith("_export_dataset"))
-                return action(name, format="csv", **{OBJECT: owned[0]["handle"], TASK: {"complete_request": True}})
-            service.dialogue = BareDialogue(export, text())
+                return action(name, format="csv", **{OBJECT: found[0]["handle"], TASK: {"complete_request": True}})
+            service.dialogue = BareDialogue(action("find_artifacts"), export, text())
             sid2 = session(service, request="second-session")
             values = await collect(service, sid2, "把上次的文件导出CSV")
             assert result_cards(values)[0]["data"]["items"][0]["resource"]["format"] == "csv"

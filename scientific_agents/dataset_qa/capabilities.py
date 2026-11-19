@@ -15,7 +15,7 @@ from .context import pointer_tokens, same_identity
 from .references import at_path, identifier_in_request
 from .search import DEFAULT_SEARCH_POLICY, SearchProfile, task_schema
 from .resource_index.model import DirectorySpec
-from .planning import ResultContract
+from .planning import Check, ResultContract
 from .routing import Routing
 from .artifacts import ArtifactSpec
 
@@ -57,6 +57,10 @@ class Profile(BaseModel):
     label: str | None = Field(default=None, min_length=1, max_length=80,
         description="User-facing capability name, independent of execution diagnostics.")
     bind: dict[str, list[str]] = Field(default_factory=dict, max_length=16)
+    input_checks: list[Check] = Field(default_factory=list, max_length=16,
+        description="Optional checks on the complete selected record, including accepted record types or identifier namespaces. Not inferred from routing or service names.")
+    identity_paths: list[str] = Field(default_factory=list, max_length=8,
+        description="Additional record fields distinguishing identity, such as a database namespace. All must agree before distinct references can share an outcome.")
     collection: str | None = None
     object: str | None = None
     name_paths: list[str] = Field(default_factory=list, max_length=8,
@@ -76,7 +80,7 @@ def profile(tool):
     value = metadata.get("qa", PROFILES.get((tool.server, tool.name), {})) if isinstance(metadata, dict) else {}
     try:
         result = Profile.model_validate(value)
-    except ValidationError as exc:
+    except (ValidationError, QAError) as exc:
         raise QAError("invalid_schema", "服务的对象绑定定义无效", 502) from exc
     properties = tool.schema.get("properties", {})
     if result.artifact:
@@ -106,7 +110,8 @@ def profile(tool):
                 raise QAError("invalid_schema", "结果校验的参数不在工具定义中", 502)
             for path in [*result.result.target_paths, *result.result.argument_paths.values()]:
                 pointer_tokens(path)
-        for path in [result.collection, result.object, *result.name_paths,
+        for path in [result.collection, result.object, *result.name_paths, *result.identity_paths,
+                *(check.path for check in result.input_checks),
                 *(path for paths in result.bind.values() for path in paths)]:
             if path is not None:
                 pointer_tokens(path)
@@ -245,9 +250,14 @@ def inputs(tool, arguments, record=None):
         values.pop(SUPPORTING, None)
         values.pop(GOAL, None)
         values.pop(TASK, None)
-    binding = profile(tool).bind
+    descriptor = profile(tool)
+    binding = descriptor.bind
     if record is not None:
         from jsonschema import Draft202012Validator
+
+        if not all(check.matches(record) for check in descriptor.input_checks):
+            raise QAError("invalid_parameters", "所选对象与此操作接受的来源或类型不匹配，尚未执行", detail={
+                "origin": "object_contract", "guidance": "Choose a compatible grounded record using the declared input contract. Shared field names do not prove compatible identifiers; do not rewrite source metadata."})
 
         validator = Draft202012Validator(tool.schema)
         for key, paths in binding.items():
@@ -279,6 +289,18 @@ def inputs(tool, arguments, record=None):
         if key not in values and isinstance(field, dict) and "default" in field:
             values[key] = deepcopy(field["default"])
     return values
+
+
+def same_object_identity(tool, left, right):
+    """Compare explicitly declared namespaces before binding-ID equivalence."""
+    for path in profile(tool).identity_paths:
+        try:
+            a, b = at_path(left, path), at_path(right, path)
+        except QAError:
+            return False
+        if a is None or b is None or not same_identity(a, b):
+            return False
+    return True
 
 
 def normalize_identity(value, validator):

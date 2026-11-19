@@ -10,7 +10,7 @@ from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, Tool
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, StringConstraints, field_validator, model_validator
 
 from .context import encode, project
-from .context_budget import TokenCounter, context_overflow, summary_batch
+from .context_budget import TokenCounter, context_overflow, navigation_identity, summary_batch
 from .contracts import Limits, QAError
 from .references import ReferenceUpdate
 from .operations import Operation
@@ -165,7 +165,7 @@ INPUTS = {
     "list_mcp_servers": (Browse, "Browse beyond the supplied service directory; filter or paginate as needed."),
     "load_mcp_tools": (Load, "Load schemas from one relevant service for the next response; filter or paginate as needed."),
     "read_result": (Read, "Read specific saved evidence needed for the current decision using JSON Pointer and pagination, without executing again. Truncated previews alone do not require reading every field or page. Omit result_id to page result references, selections and pending objects; use selected_next_offset or pending_next_offset for their next page."),
-    "find_artifacts": (FindArtifacts, "Find this user's previously generated files across sessions. Search or page when recent files are absent/incomplete; do not repeat data retrieval. Returns saved candidates and a read_result reference. Use an unambiguous supplied artifact handle with remember.focus/selected or the next operation; clarify ambiguous matches. No new data processing or delivery occurs."),
+    "find_artifacts": (FindArtifacts, "Recover files this user previously generated across sessions. Search by saved filename or artifact handle, and page only when finding an older saved file. This does not search external data sources for new datasets; an empty saved-file lookup proves nothing about those sources. For fresh retrieval, discover/load the relevant MCP capability. Returns saved candidates and a read_result reference. Use an unambiguous supplied artifact handle with remember.focus/selected or the next operation; clarify ambiguous matches. No new data processing or delivery occurs."),
     "resolve_resource": (ResolveResource, "Locate a named file using this user's known datasets, including other sessions. Waits internally for prerequisites and returns a grounded handle only after resolving a unique current location. Call the relevant file MCP next; this action does not retrieve schema/records. Do not poll or report internal preparation to the user."),
     "remember": (Remember, "Save explicit choices or necessary user outcomes. Use supplied object handles; runtime owns IDs and execution bookkeeping. No simultaneous call is required."),
     "request_input": (Ask, "Ask for indispensable missing input. Empty outcomes and optional follow-ups belong in the final reply. Options accept labels or label/value objects."),
@@ -363,13 +363,26 @@ class Dialogue:
         current = next((i for i, message in enumerate(messages) if message.id=="qa-current-request"), 2)
         fixed_size = 1+cost([messages[0], messages[current]])
         context = json.loads(messages[1].content)
-        protected = {key: context[key] for key in ("references", "request_source", "request_objects", "request_artifacts", "pending", "reference_issue", "operations", "response_basis", "execution_decision", "search_outcomes", "plan", "outcome_status", "delivery_links", "artifact_catalog", "published_artifacts", "history_coverage") if context.get(key)}
+        # Navigation is already paged by the gateway, and delivery facts are
+        # short authoritative records produced by the runtime. Keep both whole:
+        # clipping a service name hides capabilities; clipping an acceptance
+        # flag can turn an incomplete result into an apparent completed task.
+        protected = {key: context[key] for key in ("references", "request_source", "request_objects", "request_artifacts", "pending", "reference_issue", "operations", "response_basis", "execution_decision", "execution_summary", "search_outcomes", "plan", "outcome_status", "delivery_status", "delivery_links", "mcp_servers", "discovery_state", "artifact_catalog", "published_artifacts", "history_coverage") if context.get(key)}
         if context.get("memory"):
             # Keep explicit choices/constraints, with the existing secret filter.
             protected["memory"] = project(context["memory"], len(encode(context["memory"])))[0]
 
         def required_size(value):
             return fixed_size+cost([HumanMessage(encode(value))])
+
+        def navigation_size(value):
+            # Descriptions can be rediscovered. Reserve whole identities before
+            # shrinking the current tool's evidence or admitting older history.
+            if "mcp_servers" in value:
+                minimal = {**value, "mcp_servers": navigation_identity(value["mcp_servers"])}
+                if required_size(minimal) < required_size(value):
+                    value.update(minimal)
+            return required_size(value)
 
         def overflow(required, latest=0):
             unit = "tokens" if framing else "chars"
@@ -381,6 +394,8 @@ class Dialogue:
             return QAError("context_too_large", "必要上下文超过本轮预算，已取得的结果仍保留", detail=detail)
 
         required = required_size(protected)
+        if required>available:
+            required = navigation_size(protected)
         if required>available:
             raise overflow(required)
         groups = []
@@ -436,6 +451,8 @@ class Dialogue:
 
         # Reserve the latest complete group before allocating any old history.
         latest = cost(groups[-1]) if groups else 0
+        if required+latest>available:
+            required = navigation_size(protected)
         if required+latest>available:
             raise overflow(required, latest)
         chosen = groups[-1:]

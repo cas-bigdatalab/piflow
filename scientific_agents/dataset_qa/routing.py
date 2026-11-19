@@ -48,6 +48,21 @@ def resource_candidate(tool, resources):
         and any(row.get("server") == tool.server and row.get("kind") == "record_resource" for row in resources))
 
 
+def _tool_terms(tool, routing):
+    vocabulary = " ".join([tool.name, tool.title, tool.description, *_schema_words(tool.schema)])
+    if routing:
+        vocabulary += " " + " ".join([routing.group, routing.source,
+            *routing.operations, *routing.inputs, *routing.outputs])
+    return _routing_terms(vocabulary)
+
+
+def relevance(tool, query):
+    """Lexical recall score, never proof of semantic capability or permission."""
+    from .capabilities import profile
+
+    return len(_routing_terms(query) & _tool_terms(tool, profile(tool).routing))
+
+
 def select_tools(items, query, *, group=None, recent=(), resources=()):
     from .capabilities import profile
     from .mcp import terms
@@ -71,11 +86,7 @@ def select_tools(items, query, *, group=None, recent=(), resources=()):
         # authorization boundary. Keep other sources reachable through paging;
         # only an explicitly requested group filters the catalogue.
         outside = bool(not group and sources and routing and routing.source and routing.source not in sources)
-        vocabulary = " ".join([tool.name, tool.title, tool.description, *_schema_words(tool.schema)])
-        if routing:
-            vocabulary += " " + " ".join([routing.group, routing.source,
-                *routing.operations, *routing.inputs, *routing.outputs])
-        score = len(wanted & _routing_terms(vocabulary))
+        score = len(wanted & _tool_terms(tool, routing))
         # History breaks a relevance tie; it cannot override this request.
         scored.append((outside, -score, (tool.server, tool.name) not in previous, index, tool))
     ranked = [row[-1] for row in sorted(scored, key=lambda row: row[:4])]

@@ -41,7 +41,7 @@ def test_execution_preserves_goal_evidence_continuation_and_terminal_guards():
         "Never drop outstanding goals", "remember.continuation to continue or new",
         "Similar tools imply no continuation", "pending handles belong only to that continuation",
         "one terminal action", "respond_from_context cannot accompany new MCP execution",
-        "neither an exact resource name nor an instruction to execute the research itself",
+        "do not use the whole request as an exact resource name or execute the research itself",
     ):
         assert safeguard in DECISION_RULES
 
