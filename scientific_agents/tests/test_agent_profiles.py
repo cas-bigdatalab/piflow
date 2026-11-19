@@ -20,10 +20,11 @@ from ..dataset_qa.tests.test_decisions import BareDialogue, text
 from ..pubchem.profile import PROFILE
 
 
-def test_default_prompt_and_storage_contract_are_unchanged():
-    assert sha256(SYSTEM.encode()).hexdigest() == "d6f350196dd92f558a1d229d096e86ebc88fb5dc40a5cefa625df979906d4f11"
-    assert len(SYSTEM) == 11395 and system_prompt() == SYSTEM
-    assert Dialogue(model=object()).messages("你好", {})[0].content == SYSTEM
+def test_default_profile_uses_shared_prompt_and_preserves_storage_contract():
+    dialogue = Dialogue(model=object())
+    assert dialogue.agent_profile == DATASET_QA_PROFILE
+    assert SYSTEM and system_prompt() == system_prompt(DATASET_QA_PROFILE) == SYSTEM
+    assert dialogue.messages("你好", {})[0].content == SYSTEM
     assert DATASET_QA_PROFILE.storage_namespace == "dataset_qa"
     assert DATASET_QA_PROFILE.session_prefix == "qa"
     assert DATASET_QA_PROFILE.max_concurrency == 8

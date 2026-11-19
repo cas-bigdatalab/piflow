@@ -5,6 +5,7 @@ import re
 from .contracts import QAError
 
 SECRET_KEYS = {"password", "token", "api_key", "authorization", "secret"}
+DISPLAY_FIELDS = {"title", "name", "label", "id"}
 OMIT = object()
 
 
@@ -52,7 +53,7 @@ def project(value, limit):
     def priority(entry):
         key, child, size = entry
         if not isinstance(child, (dict, list)):
-            if key in {"title", "id"}:
+            if str(key).casefold() in DISPLAY_FIELDS:
                 return 0, 0
             if size<=128:
                 return 1, 0

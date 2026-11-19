@@ -5,6 +5,7 @@ from contextlib import AsyncExitStack, asynccontextmanager
 from copy import deepcopy
 from dataclasses import dataclass, field, replace
 from hashlib import sha256
+import json
 import logging
 from pathlib import Path
 import re
@@ -75,6 +76,17 @@ class Tool:
     @property
     def title(self):
         return str(self.annotations.get("title") or self.name)[:200]
+
+    @property
+    def plan_signature(self):
+        """Stable schema and adapter identity for saved plan restoration."""
+        from .capabilities import profile
+        value = {"schema": self.schema,
+            "annotations": {key: self.annotations.get(key) for key in
+                ("readOnlyHint", "destructiveHint", "idempotentHint", "openWorldHint")},
+            "qa": profile(self).model_dump(exclude={"label", "name_paths"})}
+        return sha256(json.dumps(value, sort_keys=True, ensure_ascii=False,
+            separators=(",", ":"), allow_nan=False).encode()).hexdigest()
 
     def definition(self):
         if self._definition is not None:
@@ -232,6 +244,7 @@ class ToolSession:
     def __init__(self, gateway, servers, stack):
         self.gateway, self.servers, self.stack = gateway, servers, stack
         self.clients, self.connections, self.loaded = {}, {}, OrderedDict()
+        self.plan_pins = {}
         self.connection_errors, self.discovery_errors = {}, {}
         self.connection_locks, self.discovery_locks = {}, {}
         self.definition_errors = {}
@@ -411,12 +424,86 @@ class ToolSession:
             raise error
         return tools
 
+    def _plan_budget(self, tools):
+        tools = list(tools)
+        reason = ("tool_budget" if len(tools)>self.limits.max_tools else
+            "schema_budget" if len(encode([tool.definition() for tool in tools]))>self.limits.schema_chars else None)
+        if reason:
+            raise QAError("invalid_parameters", "计划所需能力超过当前加载预算，尚未执行", detail={
+                "reason": reason, "phase": "plan_validation", "dispatched": False,
+                "guidance": "Keep the accepted plan intact and reduce the capabilities required by the proposed revision."})
+
+    def protect_plan(self, names):
+        """Commit a bounded working set only after a plan has passed validation."""
+        from .capabilities import resolve_tool
+
+        selected = {}
+        for name in names:
+            tool = resolve_tool(name, self.loaded)
+            tool = self.plan_pins.get(tool.alias, tool)
+            if tool.server not in self.servers or not self.gateway.allows(tool):
+                raise QAError("tool_not_available", "当前助手未开放此工具", 403)
+            selected[tool.alias] = tool if tool._definition is not None else checked_tool(tool)
+        self._plan_budget(selected.values())
+        manifest = [{"server": tool.server, "name": tool.name, "signature": tool.plan_signature}
+            for tool in selected.values()]
+        pins = deepcopy(selected)
+        # Separate snapshots keep incidental schema mutation from changing an
+        # accepted plan. No server-wide cache or another task's pins are changed.
+        self.loaded.update(deepcopy(pins))
+        self.plan_pins = pins
+        return manifest
+
+    async def restore_plan(self, saved):
+        """Restore a saved working set without replaying any execution receipt."""
+        from .capabilities import resolve_tool
+
+        if not saved:
+            self.plan_pins = {}
+            return
+        names = [step["tool"] for step in saved["spec"]["steps"]]
+        manifest = saved.get("tool_definitions")
+        if manifest is None:
+            # Old receipts retain their existing loaded-tool requirement.
+            self.protect_plan(names)
+            return
+        current = [{"server": tool.server, "name": tool.name, "signature": tool.plan_signature}
+            for tool in self.plan_pins.values()]
+        if current == manifest and all(alias in self.loaded for alias in self.plan_pins):
+            return
+        catalogues, selected = {}, {}
+        for entry in manifest:
+            server = entry["server"]
+            if server not in catalogues:
+                catalogues[server] = await self.tools(server)
+            tool = next((tool for tool in catalogues[server] if tool.name == entry["name"]), None)
+            if tool is None or tool.plan_signature != entry["signature"]:
+                raise QAError("invalid_parameters", "计划所需能力已变化，请重新核对计划，尚未执行", detail={
+                    "server": server, "tool": entry["name"], "phase": "plan_restore", "dispatched": False,
+                    "guidance": "Review the changed capability before continuing; preserve completed receipts and do not replay successful steps."})
+            selected[tool.alias] = tool
+        if {resolve_tool(name, selected).alias for name in names} != set(selected):
+            raise QAError("invalid_parameters", "计划能力清单与步骤不一致，尚未执行")
+        self._plan_budget(selected.values())
+        # Validate the complete restored set before changing either the visible
+        # catalogue or its protection. Unrelated older entries may be evicted.
+        proposed = OrderedDict((alias, tool) for alias, tool in self.loaded.items() if alias not in selected)
+        proposed.update(deepcopy(selected))
+        while (len(proposed)>self.limits.max_tools
+                or len(encode([tool.definition() for tool in proposed.values()]))>self.limits.schema_chars):
+            proposed.pop(next(alias for alias in proposed if alias not in selected))
+        self.loaded.clear()
+        self.loaded.update(proposed)
+        self.plan_pins = deepcopy(selected)
+
     def include(self, page):
         loaded = []
         evictions, admitted = {}, set()
         for tool in page:
             if tool.server not in self.servers or not self.gateway.allows(tool):
                 continue
+            if tool.alias in self.plan_pins:
+                tool = deepcopy(self.plan_pins[tool.alias])
             if tool._definition is None:
                 try:
                     tool = checked_tool(tool)
@@ -436,7 +523,14 @@ class ToolSession:
                 reason = "tool_budget" if len(self.loaded)>self.limits.max_tools else "schema_budget"
                 # Ranked pages arrive best first. Preserve earlier admissions
                 # from this page; LRU eviction applies only to older pages.
-                alias = next((value for value in self.loaded if value not in admitted), tool.alias)
+                alias = next((value for value in self.loaded
+                    if value not in admitted and value not in self.plan_pins), None)
+                if alias is None:
+                    alias = next((value for value in reversed(self.loaded) if value not in self.plan_pins), None)
+                if alias is None:
+                    raise QAError("invalid_parameters", "当前计划所需能力超过加载预算，已保留其定义", detail={
+                        "reason": reason, "phase": "plan_validation", "dispatched": False,
+                        "guidance": "Restore the accepted plan's loading budget before continuing; its definitions cannot be evicted."})
                 self.loaded.pop(alias)
                 evictions[alias] = reason
             if tool.alias in self.loaded:
@@ -448,6 +542,9 @@ class ToolSession:
         if omitted:
             result["not_loaded"] = omitted
             result["hint"] = "部分能力超过加载预算；请缩小query或limit后重新加载所需能力。"
+            if self.plan_pins:
+                result["protected_tools"] = list(self.plan_pins)
+                result["hint"] = "当前计划所需能力已保留；其余能力超过加载预算，请缩小加载范围或修订计划。"
         return result
 
     def prime(self, query, references=(), *, resources=()):
@@ -501,6 +598,9 @@ class ToolSession:
             raise QAError("tool_not_loaded", "工具未加载，请先发现并加载相应定义")
         if tool.server not in self.servers or not self.gateway.allows(tool):
             raise QAError("tool_not_available", "当前助手未开放此工具", 403)
+        if alias in self.plan_pins:
+            tool = deepcopy(self.plan_pins[alias])
+            self.loaded[alias] = tool
         from jsonschema import ValidationError
 
         try:

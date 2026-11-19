@@ -220,6 +220,8 @@ async def install_plan(service, user, sid, plan, tools, execution, payload, cont
         or (operations.get(previous["operations"].get(step.key)) or {}).get("target") == handles.get(step.object)
         for step in plan.steps)
     if previous and same_identity(previous_spec, spec) and same_targets:
+        manifest = tools.protect_plan(step.tool for step in plan.steps)
+        previous.setdefault("tool_definitions", manifest)
         return  # Identical bookkeeping is not a new revision or a new review.
     revision = previous["revision"]+1 if previous else 1
     if revision > service.gateway.limits.max_corrections+1:
@@ -348,13 +350,14 @@ async def install_plan(service, user, sid, plan, tools, execution, payload, cont
                 item["required"] = False
             else:
                 raise QAError("invalid_parameters", "新计划遗漏了已登记的必要操作，请保留原有成果")
+    manifest = tools.protect_plan(step.tool for step in plan.steps)
     execution.operations = operations
     payload["operations"] = operations.items
     labels = deepcopy((previous or {}).get("labels", {}))
     if not payload.get("diagnostics_exposed"):
         labels.update({outcome.key: outcome.description for outcome in plan.outcomes})
     payload["plan"] = {"version": 1, "revision": revision, "spec": spec,
-        "operations": mapping, "contracts": contracts, "labels": labels}
+        "operations": mapping, "contracts": contracts, "labels": labels, "tool_definitions": manifest}
     logging.getLogger("flow.dataset_qa").info("Plan installed: revision=%s sources=%s", revision,
         encode([{"step": step.key, "tool": step.tool, "depends_on": sorted(step.dependencies()),
             "object": step.object.model_dump() if isinstance(step.object, FromStep) else bool(step.object),

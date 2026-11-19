@@ -29,7 +29,7 @@ def test_translations_or_ungrounded_subjects_cannot_claim_to_be_original(origina
 
 
 def test_extracted_and_rewritten_phrases_share_one_four_keyword_budget():
-    with pytest.raises(QAError, match="合计最多四个"):
+    with pytest.raises(QAError, match="合计最多4个"):
         ordered_keywords(["beta", "gamma", "delta", "epsilon"], ["alpha"], "Find alpha data")
 
 

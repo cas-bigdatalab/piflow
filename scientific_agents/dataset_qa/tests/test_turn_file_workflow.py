@@ -80,12 +80,9 @@ def test_same_session_changed_values_execute_new_query_and_deliver_csv(engine, f
                 def understand(messages, definitions):
                     names = {d["function"]["name"] for d in definitions}
                     assert not any(n.endswith("_query_pubchem_compounds") for n in names)
-                    # A saved resource keeps direct consumers available; a
-                    # changed query itself still requires a reviewed plan.
-                    if threshold == 80:
-                        assert not any(n.startswith("mcp_") for n in names)
-                    else:
-                        assert any(n.endswith("_export_dataset") for n in names)
+                    # Candidate order must not force unrelated direct tools
+                    # into planning. The changed query still requires a plan.
+                    assert any(n.endswith("_export_dataset") for n in names)
                     remember = next(d["function"] for d in definitions if d["function"]["name"] == "remember")
                     assert "plan" in remember["parameters"]["properties"]
                     assert "query_pubchem_compounds" in remember["description"]

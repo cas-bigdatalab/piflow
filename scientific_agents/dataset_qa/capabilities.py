@@ -13,7 +13,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from .contracts import QAError
 from .context import pointer_tokens, same_identity
 from .references import at_path, identifier_in_request
-from .search import SearchProfile, TaskDirective
+from .search import DEFAULT_SEARCH_POLICY, SearchProfile, task_schema
 from .resource_index.model import DirectorySpec
 from .planning import ResultContract
 from .routing import Routing
@@ -23,7 +23,8 @@ from .artifacts import ArtifactSpec
 PROFILES = {
     ("piflow-corpus", "search_corpus_datasets"): {"label": "候选数据集", "collection": "/items", "search": {
         "query": "query", "page": "page", "page_size": "page_size", "total": "/pagination/total",
-        "identity": ["/cstr", "/id"], "opaque_filters": ["field", "subject", "title"]}},
+        "identity": ["/cstr", "/id"], "opaque_filters": ["field", "subject", "title"],
+        "policy": DEFAULT_SEARCH_POLICY.model_dump()}},
     ("piflow-corpus", "get_corpus_dataset_detail"): {"label": "数据集详情", "atomic": True, "object": "", "bind": {"cstr": ["/cstr", "/raw/cstr"]}},
     ("piflow-corpus", "get_corpus_dataset_directory"): {"label": "数据预览", "atomic": True,
         "bind": {"cstr": ["/cstr", "/raw/cstr"]}, "directory": {
@@ -58,6 +59,8 @@ class Profile(BaseModel):
     bind: dict[str, list[str]] = Field(default_factory=dict, max_length=16)
     collection: str | None = None
     object: str | None = None
+    name_paths: list[str] = Field(default_factory=list, max_length=8,
+        description="Name field JSON Pointers relative to each declared object or collection record.")
     atomic: bool = False
     plan_required: bool = False
     search: SearchProfile | None = None
@@ -103,7 +106,8 @@ def profile(tool):
                 raise QAError("invalid_schema", "结果校验的参数不在工具定义中", 502)
             for path in [*result.result.target_paths, *result.result.argument_paths.values()]:
                 pointer_tokens(path)
-        for path in [result.collection, result.object, *(path for paths in result.bind.values() for path in paths)]:
+        for path in [result.collection, result.object, *result.name_paths,
+                *(path for paths in result.bind.values() for path in paths)]:
             if path is not None:
                 pointer_tokens(path)
         if result.search:
@@ -205,13 +209,13 @@ def definition(tool):
             schema["properties"][OBJECT] = {"type": ["string", "null"], "description": "Supplied object handle. Omit to use current focus. Runtime binds its identifiers."}
             schema["required"] = [key for key in schema.get("required", []) if key not in bound]
         if descriptor.search or descriptor.atomic:
-            task = TaskDirective.model_json_schema()
+            task = task_schema(descriptor.search.policy if descriptor.search else None)
             if descriptor.search:
                 task["required"].extend(["keywords", "original_keywords"])
                 query = schema["properties"][descriptor.search.query]
                 query["description"] = query.get("description", "")+(
-                    " For broad discovery quote the user's subject in __qa_task.original_keywords; "
-                    "the complete keywords plan must search these original phrases before rewrites. "
+                    " Follow this capability's discovery policy in __qa_task.keywords. "
+                    "For broad discovery use its first original subject phrase as this query. "
                     "For an exact lookup set keywords and original_keywords to null and supply this argument normally.")
             else:
                 task["properties"].pop("keywords", None)

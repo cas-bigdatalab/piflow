@@ -359,14 +359,15 @@ def test_quantity_normalization_keeps_upper_bound_and_non_numeric_identity(engin
     async def run():
         tool = Tool("files", "read", "", {"type": "object", "properties": {}}, {},
             {"piflow": {"qa": {"result": {"kind": "records", "target_paths": ["/record_count"]}}}})
-        tools = SimpleNamespace(loaded={tool.alias: tool}, validate=lambda *args, **kwargs: None)
         plan = Plan.model_validate({"outcomes": [{"key": "data", "description": "Records", "kind": "records",
             "checks": [{"path": path, "test": "equals", "value": quantity} for path in ("/record_count", "/identifier")]}],
             "steps": [{"key": "read", "tool": tool.alias, "produces": ["data"]}]})
-        service = DatasetQA(engine, BareDialogue(), MCPGateway({}))
+        service = DatasetQA(engine, BareDialogue(), MCPGateway({"files": Server("files")}))
         saved = {}
         try:
-            await install_plan(service, "alice", session(service), plan, tools, Execution(), saved, {})
+            async with service.gateway.session() as tools:
+                tools.include([tool])
+                await install_plan(service, "alice", session(service), plan, tools, Execution(), saved, {})
             outcome = saved["plan"]["spec"]["outcomes"][0]
             assert outcome["checks"][1] == plan.outcomes[0].checks[1].model_dump()
             if type(quantity) in {int, float}:

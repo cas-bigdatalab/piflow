@@ -206,16 +206,18 @@ def test_local_rejection_does_not_cancel_independent_ready_work(engine):
     asyncio.run(run())
 
 
-def test_planning_catalogue_is_the_only_business_entry_when_planning(engine):
+def test_planning_catalogue_preserves_other_direct_capabilities_until_plan_selected(engine):
     async def run():
         backend = configured()
         backend.catalog["data"][0].meta["piflow"]["qa"]["plan_required"] = True
         def understand(messages, definitions):
-            assert not any(d["function"]["name"].startswith("mcp_") for d in definitions)
+            native = [d["function"] for d in definitions if d["function"]["name"].startswith("mcp_")]
+            assert {d["name"].rsplit("_", 1)[-1] for d in native} == {"inspect", "sample", "preview"}
             entry = next(d["function"] for d in definitions if d["function"]["name"] == "remember")
             catalog = json.loads(entry["description"].split("Catalogue: ", 1)[1])
-            assert {row["tool"].rsplit("_", 1)[-1] for row in catalog} == {"search", "inspect", "sample", "preview"}
-            assert next(row for row in catalog if row["tool"].endswith("_inspect"))["object_bindings"] == {"reference": ["/id", "/reference"]}
+            assert {row["tool"].rsplit("_", 1)[-1] for row in catalog} == {"search"}
+            inspect = next(row for row in native if row["name"].endswith("_inspect"))
+            assert "__qa_object" in inspect["parameters"]["properties"]
             return action("remember", plan=workflow())
         dialogue = BareDialogue(load(query="search"), understand, approve, text())
         service = DatasetQA(engine, dialogue, backend.gateway())

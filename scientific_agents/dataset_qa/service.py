@@ -25,15 +25,14 @@ from .references import all_references, apply_update, at_path, display_list, han
 from .runtime import Waiting
 from .parallel import run_read_batch
 from .responses import delivery_links, public_completion, response_labels, response_operations, recovery_search_summary
-from .search import SearchRun, TaskDirective, normalize_keyword, ordered_keywords
-from .routing import resource_candidate
+from .search import SearchPolicy, SearchRun, TaskDirective, normalize_keyword, ordered_keywords, task_schema
 from .resource_index.manager import ResourceIndex
 from .resource_index.resolver import bind_target, resolve as resolve_resource
 from .planning import plan_view, outcome_status, require_delivery
 from .plan_runtime import install_plan, confirm_plan, scheduled_reply, workflow_definition
 from .artifacts import Artifacts, execution_metadata
 from ..agent_profiles import DATASET_QA_PROFILE
-from .prompts import system_prompt
+from .prompts import answer_prompt, system_prompt
 
 log = logging.getLogger("flow.dataset_qa")
 
@@ -619,6 +618,24 @@ class DatasetQA:
                 "candidates": [{"tool": item.get("capability"), "object": item.get("target")} for item in terminal]})
 
     @staticmethod
+    def _search_policies(tool, operations, goal=None):
+        return {item["id"]: SearchRun(item["search"]).descriptor.policy for item in operations.items
+            if item.get("capability") == {"server": tool.server, "name": tool.name} and item.get("search")
+            and (item["id"] == goal if goal else not item["search"]["done"])}
+
+    @staticmethod
+    def _task_policy(tool, operations, goal=None):
+        """Use the selected snapshot; an unselected schema accommodates all choices."""
+        descriptor = profile(tool)
+        if descriptor.search is None:
+            return None
+        policies = list(DatasetQA._search_policies(tool, operations, goal).values())
+        if not policies:
+            return descriptor.search.policy
+        return SearchPolicy(candidate_stop=max(p.candidate_stop for p in policies),
+            keyword_limit=max(p.keyword_limit for p in policies))
+
+    @staticmethod
     def _definitions(definitions, tools, execution):
         """Expose grounded choices for ambiguous calls and late outcome confirmation."""
         result = []
@@ -645,6 +662,20 @@ class DatasetQA:
             tool = tools.loaded.get(definition["function"]["name"])
             if tool is not None and adapted(tool):
                 capability = {"server": tool.server, "name": tool.name}
+                descriptor = profile(tool)
+                policy = DatasetQA._task_policy(tool, execution.operations) if descriptor.search else None
+                policies = DatasetQA._search_policies(tool, execution.operations) if descriptor.search else {}
+                mixed_policies = len({(p.candidate_stop, p.keyword_limit) for p in policies.values()}) > 1
+                if descriptor.search and (policy != descriptor.search.policy or mixed_policies):
+                    definition = deepcopy(definition)
+                    task = task_schema(policy)
+                    task["required"].extend(["keywords", "original_keywords"])
+                    if mixed_policies:
+                        task["properties"]["keywords"]["description"] = (
+                            "Continue the selected goal's saved discovery: original request phrases precede rewrites. "
+                            "Do not change its original subjects, filters or source. Each goal's policy is shown in __qa_goal choices. "
+                            "The shared maxItems only accommodates all choices; runtime enforces the selected goal's keyword and candidate bounds.")
+                    definition["function"]["parameters"]["properties"][TASK] = task
                 goals = [item for item in execution.operations.required if item.get("capability")==capability]
                 if len(goals)>1:
                     choices = [item for item in goals if item["id"] not in execution.blocked]
@@ -654,7 +685,9 @@ class DatasetQA:
                     definition["function"]["parameters"].setdefault("properties", {})[GOAL] = {
                         "type": "string", "enum": [item["id"] for item in choices],
                         "description": "Choose the supplied outcome served by this call: "+encode(
-                            [{"id": item["id"], "description": item["description"]} for item in choices])}
+                            [{"id": item["id"], "description": item["description"],
+                                **({"search_policy": policies[item["id"]].model_dump()} if item["id"] in policies else {})}
+                                for item in choices])}
             result.append(definition)
         return result
 
@@ -898,6 +931,8 @@ class DatasetQA:
             presentation = ({"family": tool.server+"/"+tool.name, "kind": "collection", "path": descriptor.collection}
                 if descriptor.collection is not None else {"family": tool.server+"/"+tool.name, "kind": "object", "path": descriptor.object}
                 if descriptor.object is not None else None)
+            if presentation is not None and descriptor.name_paths:
+                presentation["name_paths"] = descriptor.name_paths
             try:
                 proposed.start(operation_id, key, {"server": tool.server, "name": tool.name}, True, invocation, presentation)
             except QAError:
@@ -1016,7 +1051,9 @@ class DatasetQA:
                 if last is None:
                     execution.operations.start(operation_id, key, {"server": tool.server, "name": tool.name},
                         execution.reusable(tool), invocation, presentation={"family": tool.server+"/"+tool.name,
-                            "kind": "collection", "path": descriptor.collection, "identity": descriptor.search.identity})
+                            "kind": "collection", "path": descriptor.collection, "identity": search.descriptor.identity,
+                            **({"identity_mode": "composite"} if search.descriptor.identity_mode == "composite" else {}),
+                            **({"name_paths": descriptor.name_paths} if descriptor.name_paths else {})})
                     payload["operations"] = execution.operations.items
                     await phase("execute", "正在检索数据集", payload=payload)
                     async with waiting.during("正在获取候选数据集，收到结果后会继续整理。"), self._foreground_mcp():
@@ -1259,9 +1296,26 @@ class DatasetQA:
             execution.operations = operations
 
         if plans:
-            if inherited and inherited.get("plan"):
-                payload["plan"] = deepcopy(inherited["plan"])
-            await install_plan(self, user, sid, plans[0], tools, execution, payload, context)
+            plan_state = {key: payload[key] for key in ("plan", "operations") if key in payload}
+            loaded, pins = tools.loaded.copy(), dict(tools.plan_pins)
+            try:
+                if inherited and inherited.get("plan"):
+                    payload["plan"] = deepcopy(inherited["plan"])
+                    await tools.restore_plan(payload["plan"])
+                await install_plan(self, user, sid, plans[0], tools, execution, payload, context)
+            except BaseException:
+                # Validation cannot activate a parent's plan or evict this
+                # turn's capabilities. Commit continuation only below, after
+                # its revision has been accepted; preserve existing receipts.
+                execution.operations, execution.cards = original_operations, original_cards
+                context["references"] = original_references
+                for key in ("plan", "operations"):
+                    payload.pop(key, None)
+                payload.update(plan_state)
+                tools.loaded.clear()
+                tools.loaded.update(loaded)
+                tools.plan_pins = pins
+                raise
 
         execution.prepared = {}
         keyword_history = None
@@ -1274,7 +1328,9 @@ class DatasetQA:
                 directive = None
                 if adapted(tool) and TASK in arguments:
                     try:
-                        directive = TaskDirective.model_validate(arguments[TASK])
+                        directive = TaskDirective.model_validate(arguments[TASK], context={
+                            "search_policy": self._task_policy(tool, execution.operations,
+                                arguments.get(GOAL) or operation_id)})
                     except ValidationError as exc:
                         raise execution.validation_error(exc) from exc
                     if directive.keywords is not None and descriptor.search is None:
@@ -1434,7 +1490,7 @@ class DatasetQA:
                         keyword_history = await asyncio.to_thread(self.store.memory, user, sid, 0, None, 12, True, tid)
                     keywords, originals = ordered_keywords(keywords, originals, payload["message"],
                         [row["text"] for row in keyword_history or [] if row.get("role")=="user"],
-                        operation.get("search"))
+                        operation.get("search"), policy=descriptor.search.policy)
                     prepared[descriptor.search.query] = keywords[0]
                     search = (SearchRun(deepcopy(operation["search"])).extend(prepared, keywords) if operation.get("search") else
                         SearchRun.create(descriptor.search, prepared, keywords))
@@ -1659,30 +1715,7 @@ class DatasetQA:
             await self._failure_reply(user, sid, tid, answer, reason, operations, payload)
             if reason.code not in {"step_limit", "no_progress"}:
                 return
-        instructions = (str(messages[0].content)+"\nTool use is over. Write only the final user-facing reply, "
-            "without internal planning or another tool call. Use actual evidence, distinguish unfinished work, "
-            "Do not expose backend errors, diagnostic codes, stack traces or internal service details. "
-            "Directory indexing, cache refresh, background jobs and prerequisite waits are internal; never report them or ask the user to wait for/manage them. Answer only the requested data question. "
-            "Do not show operation IDs, numbered internal tasks or empty operation labels. Describe the actual user-requested content. "
-            "A tool rejection alone does not establish permanent lack of support or a temporary outage; do not promise a later retry will resolve it. "
-            "When evidence is incomplete, explain what is available and a concrete next step in the user's terms. "
-            "Do not repeat a runtime notice already shown to the user. "
-            "and only refer to display cards identified by delivery_manifest. Do not claim unperformed work succeeded. "
-            "The runtime operations state is authoritative: distinguish execution from delivery and do not describe auxiliary lookups as completion of the request. "
-            "Use answer_evidence for supporting facts; delivery_manifest identifies displayed artifacts, while final_delivery contains bounded previews. "
-            "When delivery_links is present, its items are the authoritative file/link labels and available format/count facts for THIS delivery. "
-            "Associate each description with its result_id and exact label; do not relabel a CSV as JSONL or use an intermediate artifact as the final output. "
-            "The runtime attaches these clickable links after your reply. Describe the actual delivered results concisely; do not copy their URLs, emit link placeholders or invent filenames/counts missing from the evidence. "
-            "Do not say a delivered file is unavailable merely because its URL is absent from a bounded preview. "
-            "A delivery_next_offset means more artifacts were delivered than fit this view; never describe omitted previews as missing outputs. "
-            "Retrieval totals may overlap: do not add them or infer coverage or suitability without evidence. "
-            "Each retrieval total belongs only to its original query and upstream filters; it is not a count of verified relevant resources or proof of keyword matching semantics. "
-            "A retrieval hit is a candidate, not verified suitability. Describe purpose, author affiliation, domain or suitability only when returned descriptive fields support it; titles and identifiers alone do not establish those facts. "
-            "If descriptions are missing, state that suitability is unverified and offer focused detail inspection. Keep the reply concise and avoid repeating entire cards. "
-            "When naming an object from returned data, use that object's own non-empty title field verbatim. "
-            "Do not substitute identifiers, source/provider labels, or enclosing card titles for object names. "
-            "If its title is absent or empty, state that the name was not provided and distinguish it using "
-            "a supplied identifier; do not infer or invent a name.")
+        instructions = answer_prompt(self.agent_profile)
         if payload.get("response_basis"):
             instructions += (" This turn performed no data operation. Answer using response_basis and saved evidence; "
                 "do not claim a fresh search, sample, processing result or newly delivered artifact. "
@@ -1746,7 +1779,7 @@ class DatasetQA:
                 "incomplete or insufficient solely because of its result count, or expose the internal threshold. "
                 "Report the count within the searched scope; do not claim it is the entire catalogue's count. "
                 "Search completion does not imply completion of other requested operations. "
-                "If exhausted with zero candidates, say no matching datasets were found in the searched scope. "
+                "If exhausted with zero candidates, say no matching results were found in the searched scope. "
                 "If not done, the search is incomplete, not evidence of no matches. Do not speculate why a source returned zero, "
                 "or offer to query named external platforms unless their configured capability has been verified. "
                 "Do not ask the user to choose new keywords when the bounded search has already finished.")
@@ -1866,18 +1899,16 @@ class DatasetQA:
                             reason = QAError("step_limit", "工具调用达到本轮预算，请缩小请求范围")
                             break
                         rejection = None
-                        actions = execution.actions(tools.loaded)
                         saved_plan = payload.get("plan")
-                        leading_tool = next(iter(tools.loaded.values()), None)
-                        planning = bool(payload.get("planning") or saved_plan
-                            or (leading_tool and profile(leading_tool).plan_required))
-                        reuse_available = any(resource_candidate(tool, tools.request_resources)
-                            and not profile(tool).plan_required for tool in tools.loaded.values())
-                        if planning and (payload.get("planning") or saved_plan or not reuse_available):
-                            # One execution entry at a time. Hidden capabilities
-                            # remain in the plan catalogue. Mere ranking is not
-                            # a decision to plan: compatible direct consumers of
-                            # saved results stay available until a plan is chosen.
+                        if saved_plan:
+                            await tools.restore_plan(saved_plan)
+                        actions = execution.actions(tools.loaded)
+                        planning_active = bool(payload.get("planning") or saved_plan)
+                        planning_schema = planning_active or any(profile(tool).plan_required for tool in tools.loaded.values())
+                        if planning_active:
+                            # Ranking controls recall, not execution mode.
+                            # Individual plan-required tools remain gated by
+                            # Execution.actions until a workflow is selected.
                             actions -= set(tools.loaded)
                         if saved_plan:
                             # The model may revise intent or resolve a missing
@@ -1897,7 +1928,7 @@ class DatasetQA:
                             # Reserve the remaining decision for truthful closure,
                             # rather than starting another upstream exploration.
                             actions &= {"deliver_results", "remember", "request_input", "respond_from_context"}
-                        definitions = self._definitions([definition for definition in [*builtin_definitions(planning,
+                        definitions = self._definitions([definition for definition in [*builtin_definitions(planning_schema,
                             artifacts=bool(model_context.get("artifact_catalog")) or any(card.get("file_artifact") for card in execution.cards.values()),
                             agent_profile=self.agent_profile), *tools.definitions()]
                             if definition["function"]["name"] in actions], tools, execution)
@@ -2131,6 +2162,8 @@ class DatasetQA:
                                         presentation = ({"family": tool.server+"/"+tool.name, "kind": "collection", "path": descriptor.collection}
                                             if descriptor.collection is not None else {"family": tool.server+"/"+tool.name, "kind": "object", "path": descriptor.object}
                                             if descriptor.object is not None else None)
+                                        if presentation is not None and descriptor.name_paths:
+                                            presentation["name_paths"] = descriptor.name_paths
                                         execution.operations.start(operation_id, key, {"server": tool.server, "name": tool.name}, execution.reusable(tool), invocation,
                                             presentation=presentation)
                                         payload["operations"] = execution.operations.items

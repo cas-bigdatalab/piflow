@@ -179,7 +179,7 @@ def recovery_search_summary(operations, cards, *, resource_noun="数据集"):
     Error diagnostics and planner-authored recovery text are never inputs.
     """
     from .contracts import QAError
-    from .references import at_path
+    from .references import at_path, record_name
     from .search import record_key
 
     by_id = {card["result_id"]: card for card in cards}
@@ -203,11 +203,13 @@ def recovery_search_summary(operations, cards, *, resource_noun="数据集"):
             if isinstance(values, list):
                 for row in values:
                     if isinstance(row, dict):
-                        rows.setdefault(record_key(row, search["profile"].get("identity", [])), row)
+                        key = record_key(row, search["profile"].get("identity", []),
+                            identity_mode=search["profile"].get("identity_mode", "fallback"))
+                        rows.setdefault(key, (row, presentation.get("name_paths", [])))
         if rows:
             lines = [f"在本次检索范围内已取得 {len(rows)} 个候选{resource_noun}："]
-            for row in list(rows.values())[:6]:
-                title = row.get("title")
+            for row, name_paths in list(rows.values())[:6]:
+                title = record_name(row, name_paths)
                 if isinstance(title, str) and title.strip() and len(title)<=240:
                     label = re.sub(r"([\\`*_{}\[\]#!|])", r"\\\1", html.escape(" ".join(title.split())))
                 else:
