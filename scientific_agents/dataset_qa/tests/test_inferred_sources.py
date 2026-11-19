@@ -2,7 +2,7 @@
 import asyncio
 
 from .assertions import assert_completed
-from ..capabilities import OBJECT
+from ..capabilities import OBJECT, SUPPORTING
 from ..service import DatasetQA
 from .test_dataset_qa import action, collect, engine, load, remote, result_cards, session
 from .test_decisions import BareDialogue, configured, payload, seed, text
@@ -35,10 +35,10 @@ def test_repeated_detail_after_focus_refresh_reuses_one_inferred_operation(engin
     asyncio.run(run())
 
 
-def test_search_detail_and_repeated_detail_deliver_only_the_terminal_detail(engine):
+def test_supporting_search_and_repeated_detail_deliver_only_requested_detail(engine):
     async def run():
         backend = configured()
-        dialogue = BareDialogue(load(), remote("search", query="资源"),
+        dialogue = BareDialogue(load(), remote("search", query="资源", **{SUPPORTING: True}),
             remote("inspect", **{OBJECT: "object:1"}), remote("inspect", **{OBJECT: "current"}),
             action("deliver_results"), text())
         service = DatasetQA(engine, dialogue, backend.gateway())
@@ -56,7 +56,7 @@ def test_search_detail_and_repeated_detail_deliver_only_the_terminal_detail(engi
             search, detail = ledger["operations"]
             assert search["capability"]["name"]=="search" and search["required"] is False
             assert detail["capability"]["name"]=="inspect" and detail["required"] is True
-            assert search["inferred"] and detail["inferred"]
+            assert not search.get("inferred") and detail["inferred"]
             assert len(detail["attempts"])==1
             assert detail["target"]["result_id"]==search["attempts"][0]["result_id"]
             assert ledger["delivery_sources"]==[detail["attempts"][0]["result_id"]]

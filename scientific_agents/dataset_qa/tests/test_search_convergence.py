@@ -5,7 +5,7 @@ import json
 from langchain_core.messages import HumanMessage, ToolMessage
 
 from .assertions import assert_completed, assert_handled
-from ..capabilities import OBJECT
+from ..capabilities import OBJECT, SUPPORTING
 from ..contracts import Limits
 from ..service import DatasetQA
 from .test_dataset_qa import action, collect, engine, load, remote, result_cards, session
@@ -113,7 +113,7 @@ def test_semantic_goal_and_refinement_can_share_the_next_native_response(engine)
 def test_native_search_inspection_and_sample_chain_keeps_the_requested_terminal_result(engine):
     async def run():
         backend = configured()
-        dialogue = BareDialogue(load(), remote("search", query="resources"), read_latest,
+        dialogue = BareDialogue(load(), remote("search", query="resources", **{SUPPORTING: True}), read_latest,
             remote("sample", count=2, **{OBJECT: "object:1"}), action("deliver_results"), text())
         service = DatasetQA(engine, dialogue, backend.gateway())
         sid = session(service)

@@ -61,7 +61,8 @@ def test_loaded_order_and_lru_leave_individual_capability_actions_available(engi
 
         def query(messages, definitions):
             assert_initial_actions(definitions, observed_tools)
-            return remote("search", query="observations")(messages, definitions)
+            return remote("search", query="observations", **{
+                TASK: {"complete_request": False}})(messages, definitions)
 
         def deliver(messages, definitions):
             assert_initial_actions(definitions, observed_tools)

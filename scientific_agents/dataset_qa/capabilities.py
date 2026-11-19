@@ -202,6 +202,22 @@ def identifiers_from_request(tool, arguments, message):
     return bool(binding) and set(request_identifiers(tool, arguments, message))==set(binding)
 
 
+def directive_schema(descriptor, policy=None):
+    """One task contract for advertised native calls and runtime validation."""
+    task = task_schema(policy or (descriptor.search.policy if descriptor.search else None))
+    if descriptor.search:
+        task["required"].extend(["keywords", "original_keywords"])
+    else:
+        for key in ("keywords", "original_keywords"):
+            task["properties"].pop(key, None)
+    # Generated display titles repeat the field names in every tool. Keep all
+    # semantic descriptions and validation rules without that context overhead.
+    task.pop("title", None)
+    for field in task["properties"].values():
+        field.pop("title", None)
+    return task
+
+
 def definition(tool):
     schema = deepcopy(tool.schema)
     descriptor = profile(tool)
@@ -214,19 +230,22 @@ def definition(tool):
             schema["properties"][OBJECT] = {"type": ["string", "null"], "description": "Supplied object handle; omit for current focus or a unique scoped object. Runtime binds verified identifiers. Select explicitly if ambiguous."}
             schema["required"] = [key for key in schema.get("required", []) if key not in bound]
         if descriptor.search or descriptor.atomic:
-            task = task_schema(descriptor.search.policy if descriptor.search else None)
+            task = directive_schema(descriptor)
             if descriptor.search:
-                task["required"].extend(["keywords", "original_keywords"])
                 query = schema["properties"][descriptor.search.query]
                 query["description"] = query.get("description", "")+(
                     " Follow this capability's discovery policy in __qa_task.keywords. "
                     "For broad discovery use its first original subject phrase as this query. "
                     "For an exact lookup set keywords and original_keywords to null and supply this argument normally.")
-            else:
-                task["properties"].pop("keywords", None)
-                task["properties"].pop("original_keywords", None)
             schema["properties"][TASK] = task
-            schema.setdefault("required", []).append(TASK)
+            if descriptor.search:
+                # Scope alone cannot distinguish exact lookup from discovery.
+                schema.setdefault("required", []).append(TASK)
+            else:
+                # Explicit auxiliary scope suffices for an atomic operation.
+                schema.setdefault("allOf", []).append({"anyOf": [
+                    {"required": [TASK]},
+                    {"required": [SUPPORTING], "properties": {SUPPORTING: {"const": True}}}]})
     contract = descriptor.result
     kind = contract.kind if contract else tool.name
     description = tool.description+"\nQA outcome kind: "+kind

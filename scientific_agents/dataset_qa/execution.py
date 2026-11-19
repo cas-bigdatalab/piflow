@@ -67,6 +67,14 @@ class Execution:
             names.update(("list_mcp_servers", "load_mcp_tools", *loaded))
         if self.can_deliver and not self.unfinished_searches:
             names.add("deliver_results")
+        if not planning and not plan and len(self.operations.required) == 1:
+            goal = self.operations.required[0]
+            if goal.get("direct") and goal.get("search") and not goal["search"]["done"]:
+                # A confirmed single-outcome search already has its capability.
+                # Scope can still be revised explicitly through remember; it
+                # must not drift into unrelated lookups while awaiting keywords.
+                names -= {alias for alias, tool in loaded.items()
+                    if goal.get("capability") != {"server": tool.server, "name": tool.name}}
         blocked = set()
         for alias, tool in loaded.items():
             if profile(tool).plan_required:

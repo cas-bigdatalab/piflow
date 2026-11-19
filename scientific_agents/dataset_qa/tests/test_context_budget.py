@@ -6,6 +6,7 @@ import json
 from langchain_core.messages import AIMessage, ToolMessage
 import pytest
 
+from ..capabilities import TASK
 from ..context import encode
 from ..contracts import Limits, QAError, Server
 from ..dialogue import BUILTINS, Dialogue, SYSTEM
@@ -187,7 +188,8 @@ def test_real_model_budget_path_handles_long_conversations_without_repeating_mcp
         def __init__(self):
             self.responses = []
             for _ in range(3):
-                self.responses.extend([remote(tool, download_url=url), action("deliver_results"),
+                self.responses.extend([remote(tool, download_url=url, **{
+                    TASK: {"complete_request": False}}), action("deliver_results"),
                     text("Available file content is shown.")])
 
         def bind_tools(self, definitions, **kwargs):

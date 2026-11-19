@@ -26,10 +26,10 @@ def test_closed_goals_do_not_publish_an_empty_enum_despite_an_auxiliary_scope():
     assert DatasetQA._definitions([tool.definition()], tools, execution)==[]
 
 
-def test_native_search_then_detail_delivers_terminal_provenance_not_last_position(engine):
+def test_supporting_search_then_detail_delivers_requested_detail(engine):
     async def run():
         backend = configured()
-        dialogue = BareDialogue(load(), remote("search", query="resource"),
+        dialogue = BareDialogue(load(), remote("search", query="resource", **{SUPPORTING: True}),
             remote("inspect", **{OBJECT: "object:1"}), action("deliver_results"), text())
         service = DatasetQA(engine, dialogue, backend.gateway())
         try:

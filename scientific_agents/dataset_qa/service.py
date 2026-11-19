@@ -14,7 +14,7 @@ from pydantic import ValidationError
 
 from .context import encode, project, public_result, slice_result
 from .context_budget import recovery_evidence
-from .capabilities import GOAL, OBJECT, SUPPORTING, TASK, adapted, inputs, profile, request_identifiers, resolve_tool, same_identity, same_object_identity, validate_export, validate_intent
+from .capabilities import GOAL, OBJECT, SUPPORTING, TASK, adapted, directive_schema, inputs, profile, request_identifiers, resolve_tool, same_identity, same_object_identity, validate_export, validate_intent
 from .contracts import QAError
 from .dialogue import INPUTS, Dialogue, OutcomeConfirmation, builtin_definitions
 from .execution import Execution, fingerprint
@@ -26,7 +26,7 @@ from .references import all_references, apply_update, at_path, display_list, han
 from .runtime import Waiting
 from .parallel import run_read_batch
 from .responses import compact_delivery_status, delivery_links, delivery_status, delivery_summary, public_completion, response_labels, response_operations, recovery_search_summary
-from .search import SearchPolicy, SearchRun, TaskDirective, normalize_keyword, ordered_keywords, task_schema
+from .search import SearchPolicy, SearchRun, TaskDirective, normalize_keyword, ordered_keywords
 from .resource_index.manager import ResourceIndex
 from .resource_index.resolver import bind_target, resolve as resolve_resource
 from .planning import plan_decision, plan_view, outcome_status, require_delivery
@@ -623,21 +623,20 @@ class DatasetQA:
     def _infer_delivery_goal(operations):
         """A native receipt is not automatically an independently requested artifact.
 
-        Without declared outcomes, explicit delivery can confirm one unambiguous
-        terminal operation. Provenance identifies prerequisites, never call order.
-        Independent outcomes still need a semantic declaration.
+        Without declared outcomes, explicit delivery can confirm one inferred
+        operation. Object provenance does not establish a prerequisite: two
+        requested results may reference the same object through each other.
+        Auxiliary scope must come from supporting metadata or a plan.
         """
         if operations.required:
             return
         candidates = [item for item in operations.items if item.get("inferred")]
-        consumed = {item["target"]["result_id"] for item in candidates if item.get("target")}
-        terminal = [item for item in candidates if not consumed.intersection(operations.result_ids(item))]
-        if len(terminal)==1:
-            terminal[0]["required"] = True
-        elif terminal:
+        if len(candidates)==1:
+            candidates[0]["required"] = True
+        elif candidates:
             raise QAError("invalid_delivery", "存在多个独立成果，请明确它们分别满足的用户目标", detail={
                 "guidance": "Declare the independent requested outcomes with remember.goals, then select eligible deliver_results.confirmations. Keep existing source references and receipts; do not re-execute satisfied work. Use a plan only for dependencies or plan-required capabilities.",
-                "candidates": [{"tool": item.get("capability"), "object": item.get("target")} for item in terminal]})
+                "candidates": [{"tool": item.get("capability"), "object": item.get("target")} for item in candidates]})
 
     @staticmethod
     def _search_policies(tool, operations, goal=None):
@@ -795,8 +794,7 @@ class DatasetQA:
                 mixed_policies = len({(p.candidate_stop, p.keyword_limit) for p in policies.values()}) > 1
                 if descriptor.search and (policy != descriptor.search.policy or mixed_policies):
                     definition = deepcopy(definition)
-                    task = task_schema(policy)
-                    task["required"].extend(["keywords", "original_keywords"])
+                    task = directive_schema(descriptor, policy)
                     if mixed_policies:
                         task["properties"]["keywords"]["description"] = (
                             "Continue the selected goal's saved discovery: original request phrases precede rewrites. "
@@ -804,6 +802,14 @@ class DatasetQA:
                             "The shared maxItems only accommodates all choices; runtime enforces the selected goal's keyword and candidate bounds.")
                     definition["function"]["parameters"]["properties"][TASK] = task
                 goals = [item for item in execution.operations.required if item.get("capability")==capability]
+                if goals and descriptor.atomic and not descriptor.search:
+                    definition = deepcopy(definition)
+                    # Declared goals supply scope; remove only the native task
+                    # requirement appended by definition(), not upstream rules.
+                    schema = definition["function"]["parameters"]
+                    schema["allOf"].pop()
+                    if not schema["allOf"]:
+                        schema.pop("allOf")
                 if len(goals)>1:
                     choices = [item for item in goals if item["id"] not in execution.blocked]
                     if not choices:
@@ -1515,11 +1521,19 @@ class DatasetQA:
                 active = [item for item in operations.items if item.get("search") and not item["search"]["done"]
                     and item.get("capability") == {"server": tool.server, "name": tool.name}
                     and await same_target(tool, item.get("target"), target)]
-                if active and not any(item.get("planned") and item["description"] == goal.description for item in active):
+                matching = [item for item in active if item["description"] == goal.description]
+                if active and len(matching) != 1:
                     raise QAError("invalid_parameters", "此检索范围已有进行中的目标，请继续其关键词计划", detail={
                         "goals": [{"id": item["id"], "description": item["description"]} for item in active],
                         "guidance": "Continue the supplied search goal with its saved scope; do not re-register it under a new description. Independent capabilities and other grounded objects remain available."})
-                goal_id = operations.register(goal.description, {"server": tool.server, "name": tool.name}, target, goal.output, planned=True)
+                if matching:
+                    # Confirm the saved scope without stranding its keyword
+                    # queue or already successful receipts on another goal.
+                    current = matching[0]
+                    current.update(required=True, planned=True, output=goal.output)
+                    goal_id = current["id"]
+                else:
+                    goal_id = operations.register(goal.description, {"server": tool.server, "name": tool.name}, target, goal.output, planned=True)
                 intent = {key: value for key, value in goal.model_dump(include={"operation", "output_format"}).items() if value is not None}
                 current_intent = operations.get(goal_id).setdefault("intent", {})
                 if any(key in current_intent and current_intent[key] != value for key, value in intent.items()):
@@ -1561,16 +1575,18 @@ class DatasetQA:
                 descriptor = profile(tool)
                 directive = None
                 if adapted(tool) and TASK in arguments:
+                    policy = self._task_policy(tool, execution.operations, arguments.get(GOAL) or operation_id)
+                    error = next(Draft202012Validator(directive_schema(descriptor, policy)).iter_errors(arguments[TASK]), None)
+                    if error:
+                        raise QAError("invalid_parameters", "请按当前工具定义补充任务信息，尚未执行", detail={
+                            "path": [TASK, *error.absolute_path], "constraint": error.validator,
+                            "required": error.validator_value if error.validator == "required" else None,
+                            "guidance": "Supply the advertised __qa_task fields. For discovery provide original_keywords and keywords; for an exact lookup set both to null. No MCP operation has run."})
                     try:
                         directive = TaskDirective.model_validate(arguments[TASK], context={
-                            "search_policy": self._task_policy(tool, execution.operations,
-                                arguments.get(GOAL) or operation_id)})
+                            "search_policy": policy})
                     except ValidationError as exc:
                         raise execution.validation_error(exc) from exc
-                    if directive.keywords is not None and descriptor.search is None:
-                        raise QAError("invalid_parameters", "只有检索能力接受关键词计划")
-                    if descriptor.search and "keywords" not in arguments[TASK]:
-                        raise QAError("invalid_parameters", "请明确主题检索的关键词计划；精确查询须显式设置keywords为null")
                 selector = arguments.get(OBJECT) if adapted(tool) else None
                 goal_choice = arguments.get(GOAL) if adapted(tool) else None
                 supporting = arguments.get(SUPPORTING) if adapted(tool) else False
@@ -1636,6 +1652,13 @@ class DatasetQA:
                         and not any(attempt["state"] != "rejected" for attempt in item["attempts"])]
                     if not matches and target is not None and descriptor.bind and len(unbound) == 1:
                         matches = unbound
+                if (adapted(tool) and (descriptor.search or descriptor.atomic) and directive is None
+                        and not legacy and not scheduled
+                        and (descriptor.search or (not supporting
+                            and not any(item.get("planned") and item.get("required") for item in matches)))):
+                    raise QAError("invalid_parameters", "请补充本次操作的任务范围，尚未执行", detail={
+                        "path": [TASK], "constraint": "required",
+                        "guidance": "Supply __qa_task using the current schema. Set complete_request=true for one requested outcome; use false for a part and declare independent goals. For discovery supply original_keywords and the keyword plan. No MCP operation has run."})
                 # Goals, direct calls and scheduled steps share the same
                 # operation/format contract. A completed prior turn contributes
                 # resources, never this turn's intent.
@@ -2221,14 +2244,32 @@ class DatasetQA:
                                 updated["plan"]["decisions"] = saved_plan["decisions"]
                         unconfirmed = [item for item in execution.operations.items
                             if item.get("inferred") and not item.get("required", True) and execution.operations.result_ids(item)]
-                        if closing or (unconfirmed and not execution.operations.required):
+                        continuing = [item for item in execution.unfinished_searches
+                            if item["state"] == "succeeded" and SearchRun(item["search"]).needs_keywords
+                            and item["id"] not in execution.blocked]
+                        if closing or continuing or (unconfirmed and not execution.operations.required):
+                            guidance = ("Confirm saved receipts against the request. Declare independent goals without repeating completed MCP calls. "
+                                "Object references do not make an earlier requested result auxiliary. Use plan for dependencies or plan-required tools.")
+                            if closing:
+                                guidance = ("This is the final decision round. Deliver evidence if it satisfies the request; otherwise record the genuinely "
+                                    "unfinished goals or ask only for indispensable missing user input. Do not claim a prerequisite completed the whole request.")
+                            elif continuing:
+                                guidance = ("Continue the saved search using additional distinct keywords and the same tool, original_keywords, source and filters. "
+                                    "Runtime reuses completed pages. Set complete_request=true only if this search covers the whole request. "
+                                    "Do not re-register this search or add unrequested operations. Independently requested outcomes remain separate.")
+                                if saved_plan:
+                                    guidance = ("Follow the saved plan's review status. For an offered search continuation supply only __qa_goal and "
+                                        "__qa_task={keywords:[...]}. Runtime restores original phrases, filters and scope and reuses saved receipts; "
+                                        "do not include complete_request or business arguments, revise completed steps or bypass the plan.")
                             updated["execution_decision"] = {
                                 "phase": "finish" if closing else "review",
                                 "remaining_rounds": limits.max_rounds-round_index,
                                 "remaining_calls": max(0, limits.max_calls-execution.calls),
                                 "result_ids": list(dict.fromkeys(rid for item in unconfirmed for rid in execution.operations.result_ids(item))),
-                                "guidance": ("This is the final decision round. Deliver evidence if it satisfies the request; otherwise record the genuinely unfinished goals or ask only for indispensable missing user input. Do not claim a prerequisite completed the whole request."
-                                    if closing else "Confirm saved receipts against the request. Declare independent goals without repeating completed MCP calls. Use plan for dependencies or plan-required tools.")}
+                                "guidance": guidance}
+                            if continuing:
+                                updated["execution_decision"]["search_goals"] = [
+                                    {"id": item["id"], "capability": item["capability"]} for item in continuing]
                             log.info("Decision checkpoint: task=%s round=%s phase=%s unconfirmed=%s",
                                 tid, round_index+1, updated["execution_decision"]["phase"], len(unconfirmed))
                         else:

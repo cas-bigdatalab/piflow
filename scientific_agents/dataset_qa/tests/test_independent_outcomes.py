@@ -8,6 +8,7 @@ import pytest
 
 from ..capabilities import TASK
 from ..contracts import QAError
+from ..operations import Operations
 from ..service import DatasetQA
 from .assertions import assert_completed, assert_handled
 from .test_dataset_qa import action, collect, engine, remote, result_cards, session
@@ -97,7 +98,8 @@ def test_two_reads_of_the_only_candidate_finish_without_a_plan_or_extra_model_ro
 
 
 @pytest.mark.parametrize("repair", ["confirmation", "replay"])
-def test_late_outcomes_confirm_both_receipts_without_another_mcp_call(engine, repair):
+@pytest.mark.parametrize("sequential", [False, True])
+def test_late_outcomes_confirm_both_receipts_without_another_mcp_call(engine, repair, sequential):
     async def run():
         backend, dialogue = read_backend(), ContractDialogue()
         service = DatasetQA(engine, dialogue, backend.gateway())
@@ -105,11 +107,13 @@ def test_late_outcomes_confirm_both_receipts_without_another_mcp_call(engine, re
         try:
             await seed(service, dialogue, sid)
             confirmation = confirm_receipts if repair == "confirmation" else batch(native("inspect", True), native("preview", True))
-            dialogue.responses = [batch(native("inspect"), native("preview")),
+            reads = [native("inspect"), native("preview")] if sequential else [batch(native("inspect"), native("preview"))]
+            dialogue.responses = [*reads,
                 action("deliver_results"), outcomes(), confirmation, text("两项内容已整理好。")]
             events = await collect(service, sid, "查看详情和目录结构", "late-outcomes")
             assert_completed(service, sid, events[-1])
             assert len(backend.calls) == 3
+            assert all(arguments == {"reference": "resource-1"} for _, _, arguments in backend.calls[1:])
             assert len(result_cards(events)) == 2
             ledger = payload(service, sid, events)
             required = [item for item in ledger["operations"] if item["required"]]
@@ -119,6 +123,40 @@ def test_late_outcomes_confirm_both_receipts_without_another_mcp_call(engine, re
         finally:
             await service.close()
     asyncio.run(run())
+
+
+def test_reference_provenance_cannot_choose_one_of_two_unconfirmed_outcomes():
+    operations = Operations()
+    detail = operations.register("Read details", {"server": "data", "name": "inspect"}, required=False)
+    operations.get(detail).update(inferred=True, state="succeeded", attempts=[
+        {"key": "read-detail", "state": "succeeded", "result_id": "details"}])
+    directory = operations.register("Read directory", {"server": "data", "name": "preview"},
+        target={"result_id": "details", "path": "", "kind": "object"}, required=False)
+    operations.get(directory).update(inferred=True, state="succeeded", attempts=[
+        {"key": "read-directory", "state": "succeeded", "result_id": "directory"}])
+
+    with pytest.raises(QAError) as caught:
+        DatasetQA._infer_delivery_goal(operations)
+
+    assert caught.value.code == "invalid_delivery"
+    assert len(caught.value.detail["candidates"]) == 2
+    assert not operations.required
+
+
+def test_explicit_supporting_result_does_not_become_a_second_outcome():
+    operations = Operations()
+    support = operations.register("Resolve object", {"server": "data", "name": "inspect"}, required=False)
+    operations.get(support).update(state="succeeded", attempts=[
+        {"key": "resolve", "state": "succeeded", "result_id": "resolved-object"}])
+    requested = operations.register("Read directory", {"server": "data", "name": "preview"},
+        target={"result_id": "resolved-object", "path": "", "kind": "object"}, required=False)
+    operations.get(requested).update(inferred=True, state="succeeded", attempts=[
+        {"key": "read-directory", "state": "succeeded", "result_id": "directory"}])
+
+    DatasetQA._infer_delivery_goal(operations)
+
+    assert [item["id"] for item in operations.required] == [requested]
+    assert operations.delivery_ids() == ["directory"]
 
 
 @pytest.mark.parametrize("case", ["ambiguous", "hidden_candidate", "unknown_id", "competing_selection", "cleared_focus"])
