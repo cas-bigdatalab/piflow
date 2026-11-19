@@ -27,7 +27,7 @@ def test_unconfirmed_search_survives_later_missing_object_identifier(engine, cou
             events = await collect(service, sid, "Find chemical engineering datasets", "recovery")
             assert_handled(service, sid, events[-1], "invalid_parameters")
             assert [args["phrase"] for _, args in backend.calls]==KEYWORDS
-            assert len(dialogue.inputs)==4  # Recovery neither reruns MCP nor calls another model.
+            assert len(dialogue.inputs)==3  # Repeating the same rejected binding ends after one repair chance.
             card, = result_cards(events)
             assert [row["id"] for row in card["data"]["items"]]==list(map(str, range(count)))
             ledger = outcome(service, sid, events)

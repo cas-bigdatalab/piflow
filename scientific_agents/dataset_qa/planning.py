@@ -118,6 +118,8 @@ class FromStep(Contract):
 
 class Invocation(CallIntent):
     key: Key
+    goal: Key | None = Field(default=None,
+        description="Existing supplied goal ID when this step continues that goal. Omit when the matching goal is unique; never invent an ID or reuse it for an independent fresh outcome.")
     tool: str = Field(min_length=1, max_length=200)
     arguments: dict = Field(default_factory=dict)
     fresh: bool = Field(default=False, description="True only for an explicitly independent fresh execution. Random/non-idempotent tools are never coalesced.")

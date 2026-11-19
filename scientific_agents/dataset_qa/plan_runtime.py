@@ -13,6 +13,8 @@ from .operations import Operations
 from .execution import Execution, fingerprint
 from .planning import Check, FromStep, Outcome, Plan, ResultContract, Step, Workflow, outcome_status, validate_revision
 from .references import at_path
+from .results import collection_paths, combine_results
+from .search import SearchRun, TaskDirective, normalize_keyword
 
 
 def workflow_definition(definition, loaded, visible=()):
@@ -58,6 +60,67 @@ def workflow_definition(definition, loaded, visible=()):
 def _dependency_blocked(operation):
     return (operation["state"] == "unavailable" and operation.get("unavailable_dependency")
         and not operation["attempts"])
+
+
+def _existing_goal(step, tool, concrete, target, operations, excluded):
+    """Match declared work by stable identity; a receipt additionally needs exact inputs.
+
+    Goal declarations do not contain full business arguments. Only unexecuted
+    work can therefore be adopted by capability/target. Executed work needs an
+    accepted receipt for this exact invocation; bookkeeping never retries it.
+    """
+    capability = {"server": tool.server, "name": tool.name}
+    invocation = fingerprint([tool.server, tool.name, concrete])
+
+    def compatible(item):
+        if (item["id"] in excluded or item.get("capability") != capability
+                or not same_identity(item.get("target"), target)
+                or isinstance(step.object, FromStep) or step.inputs
+                or any(getattr(step, name) not in (None, value)
+                    for name, value in item.get("intent", {}).items())):
+            return False
+        if item.get("search"):
+            search = SearchRun(deepcopy(item["search"]))
+            current = profile(tool).search
+            directive = step.arguments.get(TASK) or {}
+            if directive:
+                try:
+                    TaskDirective.model_validate(directive, context={"search_policy": search.descriptor.policy})
+                except ValidationError:
+                    return False
+            if (step.fresh or item["state"] not in {"pending", "succeeded"} or current is None
+                    or not same_identity(search.descriptor.model_dump(exclude={"policy"}), current.model_dump(exclude={"policy"}))
+                    or normalize_keyword(concrete.get(search.descriptor.query, "")) not in
+                        {normalize_keyword(word) for word in search.state["keywords"]}
+                    or ("keywords" in directive and directive["keywords"] is None)
+                    or (directive.get("original_keywords") is not None and
+                        {normalize_keyword(word) for word in directive["original_keywords"]} !=
+                        {normalize_keyword(word) for word in search.state.get("original_keywords", [])})):
+                return False
+            try:
+                search.extend(concrete, directive.get("keywords"))
+            except QAError:
+                return False
+            return not search.state["done"] or search.state["keywords"] == item["search"]["keywords"]
+        if item["state"] == "pending" and all(a["state"] == "rejected" for a in item["attempts"]):
+            return True
+        receipts = [a for a in item["attempts"] if a["state"] != "rejected"]
+        return (not step.fresh and operations.assessment(item) == "accepted" and bool(receipts)
+            and all(a["state"] == "succeeded" and a.get("invocation") == invocation for a in receipts))
+
+    if step.goal:
+        item = operations.get(step.goal)
+        if item is None or not compatible(item):
+            raise QAError("invalid_parameters", "步骤不能关联到该目标，请保留其来源、要求和已有执行记录",
+                detail={"step": step.key, "goal": step.goal})
+        return item
+    candidates = [item for item in operations.items
+        if (item.get("required", True) or (item.get("search") and not item["search"]["done"])) and compatible(item)]
+    if len(candidates) > 1:
+        raise QAError("invalid_parameters", "多个目标可对应此步骤，请明确关联已有目标", detail={
+            "step": step.key, "goals": [{"id": item["id"], "description": item["description"]} for item in candidates],
+            "guidance": "Set this step's goal to the supplied goal ID. Preserve separate goals for independent work."})
+    return candidates[0] if candidates else None
 
 
 def compile_workflow(workflow, tools, previous=None):
@@ -128,7 +191,7 @@ def compile_workflow(workflow, tools, previous=None):
         tool_name = prior.tool if prior and resolve_tool(prior.tool, tools.loaded).alias == tool.alias else tool.alias
         intent = {name: getattr(prior, name) if prior and name not in call.model_fields_set else getattr(call, name)
             for name in ("operation", "output_format")}
-        steps.append(Step(key=call.key, tool=tool_name, arguments=arguments, fresh=call.fresh,
+        steps.append(Step(key=call.key, goal=call.goal or (prior.goal if prior else None), tool=tool_name, arguments=arguments, fresh=call.fresh,
             object=target, inputs=bindings, depends_on=list(call.depends_on), **intent))
     consumed = set().union(*(step.dependencies() for step in steps))
     outcomes = []
@@ -169,10 +232,8 @@ def compile_workflow(workflow, tools, previous=None):
     return Plan.model_validate(plan.model_dump())
 
 
-async def install_plan(service, user, sid, plan, tools, execution, payload, context):
-    if isinstance(plan, Workflow):
-        plan = compile_workflow(plan, tools, payload.get("plan"))
-    plan = plan.model_copy(deep=True)
+def _result_checks(plan, tools):
+    """Apply declared output checks equally to new and migrated outcomes."""
     for step in plan.steps:
         tool = resolve_tool(step.tool, tools.loaded)
         contract = profile(tool).result
@@ -208,7 +269,14 @@ async def install_plan(service, user, sid, plan, tools, execution, payload, cont
                             if target not in outcome.targets:
                                 outcome.targets.append(target)
                             outcome.checks[index] = Check(path=check.path, test="at_most", value=value)
-    plan = Plan.model_validate(plan.model_dump())  # Adapter-derived checks obey the same bounded contract.
+    return Plan.model_validate(plan.model_dump())
+
+
+async def install_plan(service, user, sid, plan, tools, execution, payload, context):
+    workflow = {step.key: step for step in plan.steps} if isinstance(plan, Workflow) else {}
+    if isinstance(plan, Workflow):
+        plan = compile_workflow(plan, tools, payload.get("plan"))
+    plan = _result_checks(plan.model_copy(deep=True), tools)
     previous = payload.get("plan")
     validate_revision(previous, plan)
     previous_spec = Plan.model_validate(previous["spec"]).model_dump() if previous else None
@@ -283,15 +351,42 @@ async def install_plan(service, user, sid, plan, tools, execution, payload, cont
                     "available_objects": list(handles)[:12],
                     "phase": "plan_validation", "dispatched": False,
                     "guidance": "Revise this step: set object to the intended source step key (or a supplied object handle) and remove its bound identifiers from arguments. For a scalar use inputs={parameter:{step,path}}. Keep completed steps unchanged; do not call MCP directly."})
-        signature = fingerprint({**step.model_dump(exclude={"key", "produces", "fresh"}),
-            "tool": [tool.server, tool.name], "arguments": concrete,
-            "object": target if isinstance(step.object, str) else step.model_dump()["object"]})
         old_id = (previous or {}).get("operations", {}).get(step.key)
         old = operations.get(old_id) if old_id else None
+        migrated = False
+        if old is None:
+            excluded = set(mapping.values()) | set((previous or {}).get("operations", {}).values())
+            old = _existing_goal(step, tool, concrete, target, operations, excluded)
+            if old is not None:
+                migrated, old_id = True, old["id"]
+                step.goal = old_id
+                if old.get("search"):
+                    SearchRun(old["search"]).extend(concrete, (step.arguments.get(TASK) or {}).get("keywords"))
+                for name, value in old.get("intent", {}).items():
+                    setattr(step, name, value)
+                validate_intent(tool, step, None if format_inputs & deferred else concrete)
+                if old.get("required", True):
+                    if step.key in workflow and workflow[step.key].deliver is False:
+                        raise QAError("invalid_parameters", "已登记的必要成果需要保留交付", detail={"step": step.key, "goal": old_id})
+                    if not step.produces:
+                        if step.key in outcomes:
+                            raise QAError("invalid_parameters", "成果标识重复，请使用唯一的步骤标识")
+                        outcome = Outcome(key=step.key, description=old["description"], kind=contract.kind,
+                            constraints=list(workflow[step.key].constraints) if step.key in workflow else [])
+                        plan.outcomes.append(outcome)
+                        outcomes[outcome.key] = outcome
+                        step.produces = [outcome.key]
+                    for key in step.produces:
+                        outcomes[key].description = old["description"]
+        elif step.goal not in (None, old_id):
+            raise QAError("invalid_parameters", "计划修订不能替换步骤已关联的目标", detail={"step": step.key, "goal": old_id})
+        signature = fingerprint({**step.model_dump(exclude={"key", "goal", "produces", "fresh"}),
+            "tool": [tool.server, tool.name], "arguments": concrete,
+            "object": target if isinstance(step.object, str) else step.model_dump()["object"]})
         changed = False
-        if old is not None:
-            old_execution = {key: value for key, value in old_steps[step.key].items() if key != "produces"}
-            new_execution = step.model_dump(exclude={"produces"})
+        if old is not None and not migrated:
+            old_execution = {key: value for key, value in old_steps[step.key].items() if key not in {"produces", "goal"}}
+            new_execution = step.model_dump(exclude={"produces", "goal"})
             if not same_identity(old_execution, new_execution) or (isinstance(step.object, str) and old.get("target") != target):
                 changed = True
                 rejected = all(attempt["state"] == "rejected" for attempt in old["attempts"])
@@ -338,18 +433,25 @@ async def install_plan(service, user, sid, plan, tools, execution, payload, cont
     for operation_id in set(mapping.values()):
         produced = [key for step in plan.steps if mapping[step.key] == operation_id for key in step.produces]
         item = operations.get(operation_id)
-        item.update(required=bool(produced), plan_step=next(step.key for step in plan.steps if mapping[step.key] == operation_id),
+        item.update(required=bool(produced), planned=True,
+            plan_step=next(step.key for step in plan.steps if mapping[step.key] == operation_id),
             description="；".join(outcomes[key].description for key in produced)[:240] or item["description"])
     # A revision may remove unused unexecuted auxiliary steps, but not silently
     # erase previously declared user work or receipts still needed by a source.
-    for item in operations.required:
+    for item in operations.items:
+        ongoing_search = item.get("search") and not item["search"]["done"]
+        if not item.get("required", True) and not ongoing_search:
+            continue
         if item["id"] not in mapping.values():
-            if item["id"] in (previous or {}).get("operations", {}).values():
+            if item["id"] in (previous or {}).get("operations", {}).values() and not ongoing_search:
                 # Outcomes and constraints were retained above. A superseded
                 # producer remains an immutable auxiliary receipt, not a goal.
                 item["required"] = False
-            else:
-                raise QAError("invalid_parameters", "新计划遗漏了已登记的必要操作，请保留原有成果")
+            elif operations.assessment(item) not in {"accepted", "unavailable"}:
+                raise QAError("invalid_parameters", "新计划遗漏了已登记的必要操作，请保留原有成果", detail={
+                    "goal": item["id"], "description": item["description"], "capability": item.get("capability"),
+                    "guidance": "Include a compatible step for this existing goal; use its supplied goal ID when matching is ambiguous. Completed evidence may remain outside the plan."})
+    spec = _result_checks(plan, tools).model_dump()
     manifest = tools.protect_plan(step.tool for step in plan.steps)
     execution.operations = operations
     payload["operations"] = operations.items
@@ -422,6 +524,19 @@ def scheduled_reply(saved, execution, tools, limit):
     def source(ref):
         operation = operations.get(saved["operations"][ref.step])
         ids = operations.result_ids(operation)
+        if len(ids) > 1 and operation.get("search", {}).get("done") and all(rid in cards for rid in ids):
+            descriptor = profile(resolve_tool(by_key[ref.step].tool, tools.loaded))
+            prefix = descriptor.collection + "/" if descriptor.collection is not None else None
+            if prefix is not None and ref.path.startswith(prefix):
+                ordinal, separator, rest = ref.path[len(prefix):].partition("/")
+                if ordinal.isascii() and ordinal.isdecimal():
+                    group, lineage = [cards[rid] for rid in ids], {}
+                    combine_results(group, collection_paths(group, operations), "", None, lineage)
+                    original = lineage.get(str(int(ordinal)))
+                    if original is not None:
+                        pointer = original["path"] + ("/" + rest if separator else "")
+                        return at_path(cards[original["result_id"]].get("data"), pointer), {
+                            "result_id": original["result_id"], "path": pointer, "kind": "object"}
         if len(ids) != 1 or ids[0] not in cards:
             raise QAError("invalid_parameters", "依赖步骤的来源不唯一，请先明确需要使用的结果")
         value = at_path(cards[ids[0]].get("data"), ref.path)
@@ -431,7 +546,10 @@ def scheduled_reply(saved, execution, tools, limit):
         operation = operations.get(saved["operations"][step.key])
         if operation["id"] in bindings.values():
             continue
-        if operation["state"] != "pending" or (operation["attempts"] and operation.get("plan_retry") != saved["revision"]):
+        search = SearchRun(operation["search"]) if operation.get("search") else None
+        continuing_search = (search is not None and not search.state["done"]
+            and operation["state"] == "succeeded" and search.arguments() is not None)
+        if not continuing_search and (operation["state"] != "pending" or (operation["attempts"] and operation.get("plan_retry") != saved["revision"])):
             continue
         dependencies = [operations.get(saved["operations"][key]) for key in step.dependencies()]
         if any(item["state"] != "succeeded" or (item.get("search") and not item["search"]["done"]) for item in dependencies):

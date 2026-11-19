@@ -7,7 +7,7 @@ import unicodedata
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, model_validator
 
-from .context import encode
+from .context import encode, same_identity
 from .contracts import QAError
 from .references import at_path
 from .planning import CallIntent
@@ -80,6 +80,7 @@ def search_guidance(policy=None):
         "For broad discovery extract subject phrases verbatim from the current user's request into original_keywords, preserving wording and language. "
         "For contextual follow-ups use explicit prior user subjects only when needed; current subjects take priority. Ask for a missing subject instead of inventing one. "
         "Put original phrases FIRST, then useful rewrites, synonyms or translations in keywords, and use the first original as the native query. "
+        "Once started, preserve the original phrases and append rewrites to the same search. "
         "Do not use generic request verbs or guessed classification codes as subjects. "
         f"At most {policy.keyword_limit} distinct phrases TOTAL. Runtime stops after {policy.candidate_stop} actually returned unique candidates "
         f"or {policy.keyword_limit} completed keywords; paging and safe transport retries do not consume another keyword. "
@@ -122,29 +123,30 @@ def ordered_keywords(keywords, originals, request, history=(), previous=None, *,
     policy = search_policy(previous["profile"].get("policy") if "profile" in previous else policy)
     sources = [normalize_keyword(request), *(normalize_keyword(text) for text in history)]
     old = previous.get("original_keywords", [])
-    if originals is None:
-        # Compatibility with saved/older calls: infer provenance only where
-        # the phrase is actually present in user text, never from a tool reply.
-        originals = old or [word for word in keywords if any(normalize_keyword(word) in text for text in sources)]
-    old_keys = {normalize_keyword(word) for word in old}
-    if not originals or any(normalize_keyword(word) not in old_keys
-            and not any(normalize_keyword(word) in text for text in sources) for word in originals):
-        raise QAError("invalid_parameters", "请先从用户原请求提取主题词，再补充改写词", detail={
-            "guidance": "original_keywords must quote subject phrases from the current request or explicit prior user requests. Do not translate, invent categories, or copy tool output into original_keywords."})
-    # A verbatim current-request phrase must not be scheduled after rewrites
-    # merely because the model omitted it from its provenance annotation.
-    originals = list(originals)
-    original_keys = {normalize_keyword(word) for word in originals}
-    for word in keywords:
-        key = normalize_keyword(word)
-        if key in sources[0] and key not in original_keys:
-            originals.append(word)
-            original_keys.add(key)
-    if old and original_keys!={normalize_keyword(word) for word in old}:
-        raise QAError("invalid_parameters", "已有检索的原词已确定，请继续其改写词计划")
-    # Keep original request phrases ahead of historical context, preserving
-    # the model's extraction order within each source group.
-    originals = sorted(originals, key=lambda word: normalize_keyword(word) not in sources[0])
+    if old:
+        original_keys = {normalize_keyword(word) for word in old}
+        if originals is not None and {normalize_keyword(word) for word in originals}!=original_keys:
+            raise QAError("invalid_parameters", "已有检索的原词已确定，请继续其改写词计划")
+        # Provenance is established once. A later rewrite may itself occur in
+        # the request; that does not change the accepted extraction or order.
+        originals = list(old)
+    else:
+        if originals is None:
+            # Older calls may infer provenance from user text, never tool output.
+            originals = [word for word in keywords if any(normalize_keyword(word) in text for text in sources)]
+        if not originals or any(not any(normalize_keyword(word) in text for text in sources) for word in originals):
+            raise QAError("invalid_parameters", "请先从用户原请求提取主题词，再补充改写词", detail={
+                "guidance": "original_keywords must quote subject phrases from the current request or explicit prior user requests. Do not translate, invent categories, or copy tool output into original_keywords."})
+        originals = list(originals)
+        original_keys = {normalize_keyword(word) for word in originals}
+        # On initial extraction, current-request phrases precede rewrites even
+        # when omitted from the model's provenance annotation.
+        for word in keywords:
+            key = normalize_keyword(word)
+            if key in sources[0] and key not in original_keys:
+                originals.append(word)
+                original_keys.add(key)
+        originals.sort(key=lambda word: normalize_keyword(word) not in sources[0])
     unique = {}
     for word in [*originals, *keywords]:
         unique.setdefault(normalize_keyword(word), word.strip())
@@ -209,10 +211,20 @@ class SearchRun:
     def maximum_keywords(self):
         return self.descriptor.policy.keyword_limit
 
+    @property
+    def needs_keywords(self):
+        return not self.state["done"] and self.state["index"]>=len(self.state["keywords"])
+
+    @property
+    def progress(self):
+        """Only completed retrieval advances progress, not queue edits or replay."""
+        state = self.state
+        return state["index"], state["page"], len(state["records"]), state["done"]
+
     def extend(self, arguments, keywords):
         descriptor = self.descriptor
         base = {key: value for key, value in arguments.items() if key not in {descriptor.query, descriptor.page}}
-        if base!=self.state["base"]:
+        if not same_identity(base, self.state["base"]):
             raise QAError("invalid_parameters", "同一检索目标的筛选条件不能在关键词扩展中悄然改变")
         values = [arguments.get(descriptor.query), *(keywords or [])]
         known = {normalize_keyword(value) for value in self.state["keywords"]}

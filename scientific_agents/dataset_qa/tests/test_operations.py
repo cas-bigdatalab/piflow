@@ -279,7 +279,8 @@ def test_invalid_explicit_legacy_bindings_are_corrected_before_any_dispatch(engi
         try:
             values = await collect(service, session(service), "采样 A")
             assert_handled(service, None, values[-1], "invalid_parameters")
-            assert not backend.calls and not result_cards(values) and len(dialogue.inputs)==4
+            # Identical rejected metadata gets one repair opportunity, then stops.
+            assert not backend.calls and not result_cards(values) and len(dialogue.inputs)==3
         finally:
             await service.close()
     asyncio.run(run())

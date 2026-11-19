@@ -19,6 +19,7 @@ class Execution:
         self.seen, self.cards = set(), {}
         self.failures = {}
         self.corrections = 0
+        self.previous_correction = None
         self.recovering = False
         self.operations = Operations()
         self.prepared = {}
@@ -32,31 +33,65 @@ class Execution:
         return bool(self.cards) or bool(self.failures)
 
     @property
-    def finalizing(self):
-        return bool(self.operations.required) and all(item["state"]=="succeeded" for item in self.operations.required)
+    def unfinished_searches(self):
+        return [item for item in self.operations.items
+            if item.get("search") and not item["search"]["done"]]
 
-    def actions(self, loaded):
+    @property
+    def finalizing(self):
+        return self.settled and all(self.operations.assessment(item) == "accepted"
+            for item in self.operations.required)
+
+    @property
+    def settled(self):
+        """Successful receipts can settle work without supplying all requested content."""
+        goals = self.operations.required
+        return bool(goals) and not self.unfinished_searches and all(item["state"] == "succeeded"
+            and self.operations.result_ids(item)
+            and self.operations.assessment(item) in {"accepted", "unavailable", "incomplete"}
+            for item in goals)
+
+    def actions(self, loaded, *, planning=False, plan=None, closing=False, continuations=()):
+        """Derive the legal decision surface from receipts and execution mode.
+
+        Search continuation is work owned by an existing goal. It does not
+        block independent goals or authorize arbitrary direct calls in a plan.
+        The caller narrows continuation arguments to the existing search queue.
+        """
         from .capabilities import profile
 
         names = {"read_result", "remember", "request_input", "resolve_resource", "find_artifacts"}
         if not self.operations.items and not self.cards and not self.failures:
             names.add("respond_from_context")
-        if not (self.finalizing and all(item.get("direct") and item["output"]=="result" for item in self.operations.required)) or self.recovering:
+        if not (self.finalizing and all(item.get("direct") and item["output"]=="result" for item in self.operations.required)):
             names.update(("list_mcp_servers", "load_mcp_tools", *loaded))
-        if self.can_deliver:
+        if self.can_deliver and not self.unfinished_searches:
             names.add("deliver_results")
+        blocked = set()
         for alias, tool in loaded.items():
             if profile(tool).plan_required:
                 names.discard(alias)
             scopes = [item for item in self.operations.items if item.get("capability")=={"server": tool.server, "name": tool.name}]
             if scopes and all(item["id"] in self.blocked for item in scopes):
+                blocked.add(alias)
                 names.discard(alias)
-        searching = [item for item in self.operations.items if item.get("search") and not item["search"]["done"]
-            and item["state"] not in {"failed", "unknown"}]
-        if searching:
-            allowed = {alias for alias, tool in loaded.items()
-                if any(item.get("capability")=={"server": tool.server, "name": tool.name} for item in searching)}
-            names -= {"list_mcp_servers", "load_mcp_tools", "deliver_results", "remember", "resolve_resource", "find_artifacts", *set(loaded)-allowed}
+        if planning or plan:
+            names -= set(loaded)
+        review_pending = plan and plan.get("reviewed") != plan["revision"]
+        if plan:
+            names.add("remember")
+            if review_pending:
+                names &= {"remember", "read_result", "load_mcp_tools", "request_input", "find_artifacts"}
+                names.add("review_plan")
+            else:
+                searching = [item for item in self.unfinished_searches
+                    if item["state"] not in {"failed", "unknown", "unavailable"} and item["id"] not in self.blocked]
+                names.update(alias for alias in set(continuations) & set(loaded) - blocked
+                    if any(item.get("capability") == {"server": loaded[alias].server, "name": loaded[alias].name}
+                        for item in searching))
+        if closing and not self.unfinished_searches and not review_pending and (
+                not self.operations.required or self.finalizing):
+            names &= {"deliver_results", "remember", "request_input", "respond_from_context"}
         if self.discovery_recovered:
             names -= self.repeated_lookups
         return names
@@ -80,14 +115,15 @@ class Execution:
         if not blocked:
             return None
         goals = self.operations.required
-        if goals and all(item["state"] in {"succeeded", "failed", "unknown", "unavailable"} for item in goals):
+        if goals and all(self.operations.assessment(item) == "unavailable" for item in self.unfinished_searches) and all(
+                self.operations.assessment(item) in {"accepted", "unavailable", "incomplete"} for item in goals):
             # A different, safely correctable prerequisite still deserves its
             # existing correction budget, even if another branch is blocked.
             if not any(item["state"] == "failed" and item["attempts"]
                     and self.operations.retryable(item["attempts"][-1]) for item in self.operations.items):
                 return self.operations.error()
         known_scope = {key for item in blocked for key in item["attempts"][-1].get("scope", [])}
-        if planned or any(item["state"] == "pending" and item["id"] in known_scope for item in goals):
+        if planned or any(self.operations.assessment(item) == "pending" and item["id"] in known_scope for item in goals):
             return None
         markers = {(item["id"], item["attempts"][-1]["key"]) for item in blocked}
         if markers <= self.reviewed_failures:
@@ -106,9 +142,23 @@ class Execution:
                 newly_blocked.add(scope)
         return newly_blocked
 
-    def correct(self, error, limit):
+    def correct(self, error, limit, *, decision=None):
+        """Bound corrections; an unchanged rejected decision gets one repair chance.
+
+        Callers supply the semantic proposal and current decision surface,
+        without volatile call IDs or rejected-attempt timestamps. Changed
+        arguments or newly available evidence retain the ordinary budget.
+        """
         self.recovering = True
-        if self.corrections>=limit:
+        marker = None
+        if decision is not None:
+            try:
+                marker = fingerprint([error.code, str(error), error.detail, decision])
+            except (TypeError, ValueError):
+                pass  # Malformed model values must not break error handling.
+        repeated = marker is not None and marker == self.previous_correction
+        self.previous_correction = marker
+        if repeated or self.corrections>=limit:
             return error
         self.corrections += 1
 

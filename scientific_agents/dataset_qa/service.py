@@ -9,6 +9,7 @@ import time
 from uuid import uuid4
 
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage, message_chunk_to_message
+from jsonschema import Draft202012Validator
 from pydantic import ValidationError
 
 from .context import encode, project, public_result, slice_result
@@ -657,12 +658,100 @@ class DatasetQA:
             keyword_limit=max(p.keyword_limit for p in policies))
 
     @staticmethod
+    def _search_continuations(tools, execution, payload):
+        """Only an exhausted keyword queue may accept a model decision in a Plan."""
+        saved = payload.get("plan")
+        if not saved or saved.get("reviewed") != saved["revision"]:
+            return {}
+        owned = set(saved["operations"].values())
+        available = {}
+        for item in execution.unfinished_searches:
+            if (item["id"] not in owned or item["id"] in execution.blocked
+                    or item["state"] != "succeeded" or not SearchRun(item["search"]).needs_keywords):
+                continue
+            for alias, tool in tools.loaded.items():
+                if item.get("capability") == {"server": tool.server, "name": tool.name}:
+                    available.setdefault(alias, []).append(item)
+        return available
+
+    @staticmethod
+    def _continuation_schema(goals):
+        return {"type": "object", "additionalProperties": False,
+            "properties": {
+                GOAL: {"type": "string", "enum": [item["id"] for item in goals],
+                    "description": "Continue this saved search goal: " + encode([
+                        {"id": item["id"], "description": item["description"]} for item in goals])},
+                TASK: {"type": "object", "additionalProperties": False,
+                    "properties": {"keywords": {"type": "array", "minItems": 1,
+                        "maxItems": max(SearchRun(item["search"]).maximum_keywords for item in goals),
+                        "uniqueItems": True, "items": {"type": "string", "minLength": 1, "maxLength": 2000},
+                        "description": "Append useful alternative keywords to the saved queue. Runtime retains original phrases, filters, source and receipts; no plan revision is needed."}},
+                    "required": ["keywords"]}}, "required": [GOAL, TASK]}
+
+    def _action_definitions(self, tools, execution, payload, model_context, round_index):
+        """One action projection for model input and post-action feedback."""
+        saved = payload.get("plan")
+        planning = bool(payload.get("planning") or saved)
+        continuations = self._search_continuations(tools, execution, payload)
+        closing = (round_index == self.gateway.limits.max_rounds - 1 and bool(execution.cards)
+            and not execution.unfinished_searches
+            and (not execution.operations.required or execution.finalizing))
+        actions = execution.actions(tools.loaded, planning=planning, plan=saved,
+            closing=closing, continuations=continuations)
+        if tools.loaded and any(profile(tool).search or profile(tool).atomic for tool in tools.loaded.values()):
+            catalogues = [tools.cached_tools(server) for server in tools.servers]
+            if all(catalogue is not None for catalogue in catalogues) and all(
+                    tool.alias in tools.loaded for catalogue in catalogues for tool in catalogue):
+                actions -= {"list_mcp_servers", "load_mcp_tools"}
+        definitions = self._definitions([item for item in [*builtin_definitions(
+            planning or any(profile(tool).plan_required for tool in tools.loaded.values()),
+            artifacts=bool(model_context.get("artifact_catalog")) or any(card.get("file_artifact") for card in execution.cards.values()),
+            agent_profile=self.agent_profile), *tools.definitions()]
+            if item["function"]["name"] in actions], tools, execution)
+        for index, item in enumerate(definitions):
+            if goals := continuations.get(item["function"]["name"]):
+                item = definitions[index] = deepcopy(item)
+                item["function"]["parameters"] = self._continuation_schema(goals)
+                item["function"]["description"] = "Continue an existing bounded search by supplying additional keywords only."
+        return definitions, closing
+
+    def _continue_plan_searches(self, native, tools, execution, payload):
+        """Bind a narrow model decision to saved parameters, never model IDs or filters."""
+        available = self._search_continuations(tools, execution, payload)
+        calls, bindings = [], {}
+        for call in native:
+            goals = available.get(call["name"], [])
+            if not goals:
+                raise QAError("invalid_parameters", "已有执行计划，请修订必要步骤或继续其待补充的检索词")
+            error = next(Draft202012Validator(self._continuation_schema(goals)).iter_errors(call["args"]), None)
+            if error:
+                raise QAError("invalid_parameters", "继续检索只需选择已有目标并补充关键词", detail={
+                    "path": list(error.absolute_path), "constraint": error.validator,
+                    "guidance": "Use only __qa_goal and __qa_task={keywords:[...]}; saved business parameters are supplied by runtime."})
+            operation = next(item for item in goals if item["id"] == call["args"][GOAL])
+            if operation["id"] in bindings.values():
+                raise QAError("invalid_parameters", "同一检索目标每轮只需提交一次关键词补充")
+            search = SearchRun(operation["search"])
+            keywords = call["args"][TASK]["keywords"]
+            arguments = {**deepcopy(search.state["base"]), search.descriptor.query: keywords[0],
+                TASK: {"complete_request": bool(operation.get("direct")), "keywords": keywords,
+                    "original_keywords": search.state.get("original_keywords")}}
+            calls.append({**call, "args": arguments})
+            bindings[call["id"]] = operation["id"]
+        return calls, bindings
+
+    @staticmethod
     def _definitions(definitions, tools, execution):
         """Expose grounded choices for ambiguous calls and late outcome confirmation."""
         result = []
         visible = {definition["function"]["name"] for definition in definitions}
         confirmations = execution.operations.confirmable({card["result_id"] for card in execution.cards.values()})
         for definition in definitions:
+            if (definition["function"]["name"] == "remember" and not execution.operations.required
+                    and not execution.unfinished_searches):
+                definition = deepcopy(definition)
+                step = definition["function"]["parameters"].get("$defs", {}).get("WorkflowStep", {})
+                step.get("properties", {}).pop("goal", None)
             definition = workflow_definition(definition, tools.loaded, visible)
             if definition["function"]["name"]=="deliver_results" and confirmations:
                 # The model reviews semantic sufficiency; the runtime validates
@@ -1013,7 +1102,7 @@ class DatasetQA:
             # Preserve partial evidence without replaying an unchanged call.
             await self._fallback_delivery(user, sid, tid, payload, execution)
             return "delivery" in payload
-        if execution.finalizing and goals and all(item.get("planned") and item["output"]=="result" for item in goals) and not context.get("reference_issue"):
+        if execution.settled and goals and all(item.get("planned") and item["output"]=="result" for item in goals) and not context.get("reference_issue"):
             for item in goals:
                 cards = [card for card in execution.cards.values() if card["result_id"] in execution.operations.result_ids(item)]
                 surfaces = [at_path(card.get("data"), surface["path"]) for card in cards if (surface := display_list(card))]
@@ -1027,7 +1116,7 @@ class DatasetQA:
                 if exc.code!="invalid_delivery":
                     raise
                 return False
-        if not execution.finalizing or len(execution.operations.items)!=1 or execution.failures or context.get("reference_issue"):
+        if not execution.settled or len(execution.operations.items)!=1 or execution.failures or context.get("reference_issue"):
             return False
         item = execution.operations.items[0]
         ids = execution.operations.result_ids(item)
@@ -1239,7 +1328,10 @@ class DatasetQA:
         if any(call["name"] == "review_plan" for call in reply.tool_calls) and len(reply.tool_calls) != 1:
             raise QAError("invalid_parameters", "计划核对须使用已保存的当前版本，不能同时修改或执行")
         if payload.get("plan") and not scheduled:
-            if native or any(value.goals or value.operations or value.calls for value in memory):
+            if (native and len(native) == len(reply.tool_calls)
+                    and all(call["name"] in self._search_continuations(tools, execution, payload) for call in native)):
+                native, scheduled = self._continue_plan_searches(native, tools, execution, payload)
+            elif native or any(value.goals or value.operations or value.calls for value in memory):
                 raise QAError("invalid_parameters", "已有执行计划，请修订必要步骤而非绕过计划重复调用工具", detail={
                     "pending_steps": [item.get("plan_step") for item in execution.operations.items
                         if item.get("planned") and item["state"] == "pending"],
@@ -1387,9 +1479,6 @@ class DatasetQA:
         if not legacy:
             goals = [goal for value in memory for goal in value.goals or []]
             operations = Operations(inherited.get("operations", []) if inherited else execution.operations.items)
-            if goals and any(item.get("search") and not item["search"]["done"] for item in operations.items):
-                raise QAError("invalid_parameters", "本次检索目标已登记，请继续其关键词计划，无需再次登记目标", detail={
-                    "guidance": "Continue the existing discovery with its remaining keywords. Do not replace or re-register its outcome; declare additional independent goals after this discovery completes."})
             if goals and not any(item.get("planned") for item in operations.items):
                 for item in operations.items:
                     if "capability" in item:
@@ -1406,12 +1495,21 @@ class DatasetQA:
                     if item.get("capability")=={"server": tool.server, "name": tool.name} and await same_target(tool, item.get("target"), target):
                         target = item.get("target")
                         break
+                active = [item for item in operations.items if item.get("search") and not item["search"]["done"]
+                    and item.get("capability") == {"server": tool.server, "name": tool.name}
+                    and await same_target(tool, item.get("target"), target)]
+                if active and not any(item.get("planned") and item["description"] == goal.description for item in active):
+                    raise QAError("invalid_parameters", "此检索范围已有进行中的目标，请继续其关键词计划", detail={
+                        "goals": [{"id": item["id"], "description": item["description"]} for item in active],
+                        "guidance": "Continue the supplied search goal with its saved scope; do not re-register it under a new description. Independent capabilities and other grounded objects remain available."})
                 goal_id = operations.register(goal.description, {"server": tool.server, "name": tool.name}, target, goal.output, planned=True)
                 intent = {key: value for key, value in goal.model_dump(include={"operation", "output_format"}).items() if value is not None}
                 current_intent = operations.get(goal_id).setdefault("intent", {})
                 if any(key in current_intent and current_intent[key] != value for key, value in intent.items()):
                     raise QAError("invalid_parameters", "已登记目标的操作和格式要求须保留")
                 current_intent.update(intent)
+                if profile(tool).plan_required:
+                    payload["planning"] = True
             execution.operations = operations
 
         if plans:
@@ -1465,7 +1563,8 @@ class DatasetQA:
                 if selector is not None and not descriptor.bind:
                     raise QAError("invalid_parameters", "此能力未声明对象参数绑定，请按其业务参数调用")
                 capability = {"server": tool.server, "name": tool.name}
-                goals = [item for item in execution.operations.required if item.get("capability")==capability]
+                goals = [item for item in execution.operations.items if item.get("capability")==capability
+                    and (item.get("required", True) or (item.get("search") and not item["search"]["done"]))]
                 if goal_choice is not None:
                     chosen_goal = next((item for item in goals if item["id"]==goal_choice), None)
                     if chosen_goal is None or supporting:
@@ -1528,10 +1627,10 @@ class DatasetQA:
                     intents.append(directive.model_dump(include={"operation", "output_format"}, exclude_none=True))
                 if scheduled and call["id"] in scheduled:
                     intents.append({key: step[key] for key in ("operation", "output_format") if step.get(key) is not None})
-                elif not supporting and len(execution.operations.required) == 1:
-                    intents.append(execution.operations.required[0].get("intent", {}))
                 elif not supporting and len(matches) == 1:
                     intents.append(matches[0].get("intent", {}))
+                elif not supporting and len(execution.operations.required) == 1:
+                    intents.append(execution.operations.required[0].get("intent", {}))
                 call_intent = {}
                 for intent in intents:
                     if any(key in call_intent and call_intent[key] != value for key, value in intent.items()):
@@ -1547,9 +1646,11 @@ class DatasetQA:
                 discovery = descriptor.search is not None and keywords is not None
                 if discovery and not execution.reusable(tool):
                     raise QAError("invalid_parameters", "自动关键词扩展和分页需要服务声明只读且幂等的检索能力")
-                if not discovery and any(item.get("search") and not item["search"]["done"]
-                        and item["state"] not in {"failed", "unknown"} for item in execution.operations.items):
-                    raise QAError("invalid_parameters", "请先完成当前检索的关键词计划，再执行后续操作")
+                if not discovery and not supporting and not scheduled and any([
+                        item.get("search") and not item["search"]["done"] and item.get("capability") == capability
+                        and (goal_choice is None or goal_choice == item["id"])
+                        and await same_target(tool, item.get("target"), target) for item in execution.operations.items]):
+                    raise QAError("invalid_parameters", "已有主题检索须继续使用关键词计划，不能切换为未受约束的查询")
                 if not legacy and not scheduled:
                     # A native call may discover evidence before the model has
                     # stated the intended outcome. A new query for the same
@@ -1574,6 +1675,8 @@ class DatasetQA:
                             "field": GOAL, "choices": [{"id": item["id"], "description": item["description"]} for item in matches]})
                     if not supporting and matches:
                         matched = matches[0]
+                        if directive and directive.complete_request and matched.get("search"):
+                            matched.update(required=True, planned=True)
                         if matched.get("target") is None and target is not None:
                             matched["target"] = target
                         operation_id = matched["id"]
@@ -1610,6 +1713,7 @@ class DatasetQA:
                 if directive and directive.complete_request and operation and not supporting and (descriptor.atomic or descriptor.search):
                     operation["direct"] = True
                 if discovery and operation:
+                    previous_keywords = set((operation.get("search") or {}).get("keywords", []))
                     originals = directive.original_keywords if directive else None
                     needs_history = not originals or any(normalize_keyword(word) not in normalize_keyword(payload["message"])
                         for word in originals)
@@ -1630,7 +1734,8 @@ class DatasetQA:
                     operation["search"] = search.state
                     # Count successful new keywords independently of the generic
                     # repeated-evidence detector, including empty search pages.
-                    execution.blocked.discard(operation_id)
+                    if set(search.state["keywords"]) - previous_keywords and not search.state["done"]:
+                        execution.blocked.discard(operation_id)
                 elif operation and operation.get("search"):
                     raise QAError("invalid_parameters", "已有主题检索须继续使用关键词计划，不能切换为未受约束的查询")
                 if operation_id in execution.blocked:
@@ -2028,13 +2133,38 @@ class DatasetQA:
                 reason, ready, delivery_failure = None, False, None
                 async with self.gateway.session() as tools:
                     def action_feedback(error):
-                        available = execution.actions(tools.loaded) & {definition["function"]["name"] for definition in definitions}
-                        if execution.can_deliver:
-                            available.add("deliver_results")  # An earlier call in this batch may have produced evidence.
+                        current, _ = self._action_definitions(tools, execution, payload, model_context, model_rounds)
+                        available = {definition["function"]["name"] for definition in current}
                         value = execution.feedback(error, available)
                         log.info("Action validation: task=%s code=%s message=%s detail=%s",
                             tid, error.code, str(error)[:240], encode(value.get("detail", {})))
                         return value
+
+                    def correct_action(error):
+                        if reply is None or error.code == "tool_failed":
+                            # A fresh upstream response is not a repeated local
+                            # validation decision; unparsed replies also have no
+                            # comparable proposal. Retain their existing budget.
+                            return execution.correct(error, limits.max_corrections)
+                        # Compare semantic state, not new call IDs or rejected
+                        # receipt timestamps. Changed arguments still get the
+                        # existing bounded correction opportunity.
+                        current, _ = self._action_definitions(tools, execution, payload, model_context, model_rounds)
+                        operations = []
+                        for item in execution.operations.items:
+                            state = {key: item.get(key) for key in (
+                                "id", "capability", "target", "output", "required", "state", "intent")}
+                            state["results"] = execution.operations.result_ids(item)
+                            if item.get("search"):
+                                state["search"] = [SearchRun(item["search"]).progress, item["search"]["keywords"]]
+                            operations.append(state)
+                        plan = payload.get("plan", {})
+                        return execution.correct(error, limits.max_corrections, decision={
+                            "calls": [{"name": call.get("name"), "args": call.get("args")}
+                                for call in (reply.tool_calls or reply.invalid_tool_calls) if isinstance(call, dict)] if reply else [],
+                            "operations": operations, "references": context.get("references"),
+                            "plan": {key: plan.get(key) for key in ("revision", "reviewed", "spec")},
+                            "definitions": current})
 
                     resources = (model_context.get("request_artifacts", {}) if options.result_id
                         else model_context.get("published_artifacts", {}))
@@ -2056,36 +2186,7 @@ class DatasetQA:
                         saved_plan = payload.get("plan")
                         if saved_plan:
                             await tools.restore_plan(saved_plan)
-                        actions = execution.actions(tools.loaded)
-                        planning_active = bool(payload.get("planning") or saved_plan)
-                        planning_schema = planning_active or any(profile(tool).plan_required for tool in tools.loaded.values())
-                        if planning_active:
-                            # Ranking controls recall, not execution mode.
-                            # Individual plan-required tools remain gated by
-                            # Execution.actions until a workflow is selected.
-                            actions -= set(tools.loaded)
-                        if saved_plan:
-                            # The model may revise intent or resolve a missing
-                            # choice. Only the scheduler dispatches plan steps.
-                            actions.add("remember")
-                            if saved_plan.get("reviewed") != saved_plan["revision"]:
-                                actions &= {"remember", "read_result", "load_mcp_tools", "request_input", "find_artifacts"}
-                                actions.add("review_plan")
-                        if tools.loaded and any(profile(tool).search or profile(tool).atomic for tool in tools.loaded.values()):
-                            catalogues = [tools.cached_tools(server) for server in tools.servers]
-                            if all(catalogue is not None for catalogue in catalogues) and all(
-                                    tool.alias in tools.loaded for catalogue in catalogues for tool in catalogue):
-                                actions -= {"list_mcp_servers", "load_mcp_tools"}
-                        closing = (round_index==limits.max_rounds-1 and bool(execution.cards)
-                            and (not execution.operations.required or execution.finalizing))
-                        if closing:
-                            # Reserve the remaining decision for truthful closure,
-                            # rather than starting another upstream exploration.
-                            actions &= {"deliver_results", "remember", "request_input", "respond_from_context"}
-                        definitions = self._definitions([definition for definition in [*builtin_definitions(planning_schema,
-                            artifacts=bool(model_context.get("artifact_catalog")) or any(card.get("file_artifact") for card in execution.cards.values()),
-                            agent_profile=self.agent_profile), *tools.definitions()]
-                            if definition["function"]["name"] in actions], tools, execution)
+                        definitions, closing = self._action_definitions(tools, execution, payload, model_context, round_index)
                         advertised = {value["function"]["name"] for value in definitions}
                         reply = None
                         bindings = {}
@@ -2184,7 +2285,7 @@ class DatasetQA:
                                 # parameter. The normal model-round budget still applies.
                                 log.info("Planning transition: task=%s", tid)
                                 continue
-                            reason = execution.correct(rejection, limits.max_corrections)
+                            reason = correct_action(rejection)
                             log.info("Action correction: task=%s error=%s corrections=%s stopped=%s",
                                 tid, rejection.code, execution.corrections, reason is not None)
                             if reason:
@@ -2229,6 +2330,8 @@ class DatasetQA:
                             receipt = execution.operations.receipt(invocation, operation_id) if invocation and not prepared_error and not fresh else None
                             reused = next((card for card in execution.cards.values() if receipt and card["result_id"]==receipt.get("result_id")), None)
                             active_search = bool((execution.operations.get(operation_id) or {}).get("search"))
+                            search_progress = (SearchRun(execution.operations.get(operation_id)["search"]).progress
+                                if active_search else None)
                             interaction = None
                             rejected = False
                             log.info("Agent action: task=%s name=%s allowed=%s", tid, name, name in advertised)
@@ -2396,10 +2499,10 @@ class DatasetQA:
                                 return
                             if not rejected:
                                 progress = execution.observe(key, value, name, arguments, context, scope=operation_id, tool=tool)
-                                if tool and operation_id and not active_search:
-                                    scope_progress[operation_id] = scope_progress.get(operation_id, False) or progress
                                 if active_search:
-                                    progress = progress or bool(value.get("search"))
+                                    progress = SearchRun(execution.operations.get(operation_id)["search"]).progress != search_progress
+                                if tool and operation_id:
+                                    scope_progress[operation_id] = scope_progress.get(operation_id, False) or progress
                                 round_progress = round_progress or progress
                                 if not progress:
                                     value = {**value, "repeated": True,
@@ -2423,7 +2526,7 @@ class DatasetQA:
                                 "guidance": "These outcomes gained no new evidence in repeated rounds; stop expanding them. Complete other necessary outcomes or deliver the saved evidence.",
                                 "closed_scopes": sorted(newly_blocked)}})))
                             outstanding = [item for item in execution.operations.required
-                                if item["state"]!="succeeded" and item["id"] not in execution.blocked]
+                                if execution.operations.assessment(item)=="pending" and item["id"] not in execution.blocked]
                             if outstanding:
                                 execution.stalled = 0
                             elif not reason and not rejection:
@@ -2438,11 +2541,13 @@ class DatasetQA:
                                 log.info("Discovery recovery: task=%s remaining_rounds=%s", tid, limits.max_rounds-model_rounds)
                             else:
                                 reason = QAError("no_progress", "连续调用未获得新信息，本轮已保留可用内容")
-                        if not rejection and execution.operations.required and all(item["state"] in {"succeeded", "failed", "unknown"} for item in execution.operations.required) and any(
+                        if not rejection and not execution.unfinished_searches and execution.operations.required and all(
+                                execution.operations.assessment(item) in {"accepted", "unavailable", "incomplete"}
+                                for item in execution.operations.required) and any(
                                 item["state"] in {"failed", "unknown"} for item in execution.operations.required):
                             reason = execution.operations.error()
                         if rejection and not reason:
-                            reason = execution.correct(rejection, limits.max_corrections)
+                            reason = correct_action(rejection)
                             log.info("Action correction: task=%s error=%s corrections=%s stopped=%s",
                                 tid, rejection.code, execution.corrections, reason is not None)
                         if reason:

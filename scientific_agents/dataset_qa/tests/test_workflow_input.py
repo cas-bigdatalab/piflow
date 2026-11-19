@@ -184,9 +184,9 @@ def test_same_session_compact_plans_keep_changed_conditions_and_csv(engine, file
 def test_planning_transition_does_not_spend_parameter_correction_budget(engine, files, monkeypatch):
     corrections = []
     original = Execution.correct
-    def correct(self, error, limit):
+    def correct(self, error, limit, **kwargs):
         corrections.append(error.code)
-        return original(self, error, limit)
+        return original(self, error, limit, **kwargs)
     monkeypatch.setattr(Execution, "correct", correct)
 
     async def run():
