@@ -66,7 +66,7 @@ def test_rejected_search_redeclaration_leaves_independent_work_and_original_cont
                 {"description": "Inspect asset-2", "tool": "inspect"}]),
             action("remember", goals=[{"description": "Inspect asset-2", "tool": "inspect"}]),
             native("inspect", reference="asset-2", **{TASK: {"complete_request": False}}),
-            discover(keywords=KEYWORDS), text())
+            discover(keywords=KEYWORDS, legacy=True), text())
         service = DatasetQA(engine, dialogue, backend.gateway())
         sid = session(service)
         try:

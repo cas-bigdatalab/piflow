@@ -7,7 +7,7 @@ import pytest
 from ..capabilities import OBJECT, SUPPORTING, TASK
 from ..service import DatasetQA
 from .assertions import assert_completed
-from .test_bounded_discovery import KEYWORDS, SearchBackend, discover, native, outcome, page
+from .test_bounded_discovery import KEYWORDS, SearchBackend, continue_keywords, discover, native, outcome, page
 from .test_dataset_qa import action, collect, engine, remote, result_cards, session
 from .test_decisions import BareDialogue, goals, text
 
@@ -55,7 +55,7 @@ def test_partial_search_can_confirm_existing_goal_then_resume_without_repeating_
             assert not current.get("delivery_pending") and not current.get("supporting")
             assert current["id"] == "op1"
             assert len(backend.calls) == 1
-            return discover(keywords=KEYWORDS[1:])(messages, definitions)
+            return continue_keywords()(messages, definitions)
 
         dialogue = BareDialogue(discover(keywords=KEYWORDS[:1], complete=False),
             confirm, continue_search, text())
@@ -181,7 +181,9 @@ def test_explicit_supporting_scope_needs_no_task_but_does_not_become_a_deliverab
                 return native("directory", **{
                     OBJECT: "candidate:1", TASK: {"complete_request": True}})(messages, definitions)
 
-            dialogue.responses = [native("inspect", **{OBJECT: "candidate:1", SUPPORTING: True}),
+            # Replay the legacy supporting-only contract; current model schemas
+            # explicitly request task scope for an otherwise unregistered call.
+            dialogue.responses = [remote("inspect", **{OBJECT: "candidate:1", SUPPORTING: True}),
                 deliver_directory, text()]
             events = await collect(service, sid, "Show the directory, using details as supporting evidence", "directory")
             assert_completed(service, sid, events[-1])
@@ -197,7 +199,7 @@ def test_explicit_supporting_scope_needs_no_task_but_does_not_become_a_deliverab
     asyncio.run(run())
 
 
-def test_confirmed_discovery_limits_direct_calls_but_allows_explicit_scope_expansion(engine):
+def test_uncommitted_discovery_allows_explicit_scope_expansion(engine):
     async def run():
         request = "Find chemical engineering datasets and show the first directory"
         backend = SearchBackend(lambda query, number: page(["station-1"], 1))
@@ -209,11 +211,11 @@ def test_confirmed_discovery_limits_direct_calls_but_allows_explicit_scope_expan
                 for operation in ("find_assets", "directory"):
                     if name.endswith("_" + operation):
                         aliases[operation] = name
-            return discover(keywords=KEYWORDS[:1])(messages, definitions)
+            return discover(keywords=KEYWORDS[:1], complete=False)(messages, definitions)
 
         def expand(messages, definitions):
             names = {item["function"]["name"] for item in definitions}
-            assert {name for name in names if name.startswith("mcp_")} == {aliases["find_assets"]}
+            assert {aliases["find_assets"], aliases["directory"]} <= names
             assert "remember" in names
             assert len(backend.calls) == 1
             receipt = next(json.loads(message.content) for message in reversed(messages)
@@ -226,7 +228,7 @@ def test_confirmed_discovery_limits_direct_calls_but_allows_explicit_scope_expan
         def execute_both(messages, definitions):
             names = {item["function"]["name"] for item in definitions}
             assert aliases["directory"] in names
-            search = discover(keywords=KEYWORDS[1:], complete=False)(messages, definitions)
+            search = continue_keywords()(messages, definitions)
             directory = remote("directory", **{OBJECT: aliases["object"]})(messages, definitions)
             return search.model_copy(update={"tool_calls": [
                 {**search.tool_calls[0], "id": "continue-search"},

@@ -51,7 +51,7 @@ class SearchProfile(BaseModel):
 
 class TaskDirective(CallIntent):
     model_config = ConfigDict(extra="forbid")
-    complete_request: bool = Field(description="True if this tool covers the whole request; false for a part or prerequisite. Declared goals govern combined completion; runtime verifies success.")
+    complete_request: bool = Field(description="True commits this turn's whole requested scope to this tool; false for a part or prerequisite. Declared goals govern combined completion; runtime verifies success.")
     keywords: list[str] | None = Field(default=None, min_length=1,
         description="Complete discovery plan under this capability's policy; original phrases precede rewrites. Null for an exact lookup or explicitly requested single query/page.")
     original_keywords: list[str] | None = Field(default=None, min_length=1,

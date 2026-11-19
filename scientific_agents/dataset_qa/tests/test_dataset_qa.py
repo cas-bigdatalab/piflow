@@ -732,12 +732,13 @@ def test_real_sdk_disables_thinking_in_stream_and_summary_requests(monkeypatch, 
 
     async def run():
         monkeypatch.setenv("QA_TEST_LLM_KEY", "test-key")
-        settings = SimpleNamespace(llm=SimpleNamespace(provider=provider, model=model),
+        settings = SimpleNamespace(llm=SimpleNamespace(provider=provider, model=model, temperature=0),
             providers={provider: SimpleNamespace(base_url=url, api_key_env="QA_TEST_LLM_KEY")})
         monkeypatch.setattr("infra.config_loader.get_settings", lambda: settings)
         async with httpx.AsyncClient(transport=httpx.MockTransport(respond)) as client:
-            monkeypatch.setattr("langchain_openai.ChatOpenAI", lambda **kwargs: ChatOpenAI(http_async_client=client, **kwargs))
+            monkeypatch.setattr("openai.DefaultAsyncHttpxClient", lambda **kwargs: client)
             dialogue = SemanticDialogue()
+            assert isinstance(dialogue._model(), ChatOpenAI)
             chunks = [chunk async for chunk in dialogue.respond(dialogue.messages("问题", {}), BUILTINS)]
             assert "".join(chunk.text for chunk in chunks)=="实际回答"
             final = [chunk async for chunk in dialogue.respond(dialogue.messages("整理结果", {}), [])]

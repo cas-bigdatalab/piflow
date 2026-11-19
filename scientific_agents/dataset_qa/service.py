@@ -658,15 +658,21 @@ class DatasetQA:
 
     @staticmethod
     def _search_continuations(tools, execution, payload):
-        """Only an exhausted keyword queue may accept a model decision in a Plan."""
+        """Expose only the missing keywords of an already scoped search."""
         saved = payload.get("plan")
-        if not saved or saved.get("reviewed") != saved["revision"]:
+        if saved and saved.get("reviewed") != saved["revision"]:
             return {}
-        owned = set(saved["operations"].values())
+        owned = set(saved["operations"].values()) if saved else None
         available = {}
         for item in execution.unfinished_searches:
-            if (item["id"] not in owned or item["id"] in execution.blocked
+            if ((owned is not None and item["id"] not in owned) or item["id"] in execution.blocked
                     or item["state"] != "succeeded" or not SearchRun(item["search"]).needs_keywords):
+                continue
+            if not saved and any(other.get("required", True) and other["state"] == "pending"
+                    and not other.get("search") and other.get("capability") == item.get("capability")
+                    for other in execution.operations.items):
+                # A separately declared outcome still needs its first business
+                # arguments. Do not replace that entry point with continuation.
                 continue
             for alias, tool in tools.loaded.items():
                 if item.get("capability") == {"server": tool.server, "name": tool.name}:
@@ -682,9 +688,10 @@ class DatasetQA:
                         {"id": item["id"], "description": item["description"]} for item in goals])},
                 TASK: {"type": "object", "additionalProperties": False,
                     "properties": {"keywords": {"type": "array", "minItems": 1,
-                        "maxItems": max(SearchRun(item["search"]).maximum_keywords for item in goals),
+                        "maxItems": max(SearchRun(item["search"]).maximum_keywords - len(item["search"]["keywords"])
+                            for item in goals),
                         "uniqueItems": True, "items": {"type": "string", "minLength": 1, "maxLength": 2000},
-                        "description": "Append useful alternative keywords to the saved queue. Runtime retains original phrases, filters, source and receipts; no plan revision is needed."}},
+                        "description": "Supply useful unused variants together within the remaining slots; do not invent filler. Runtime stops early when enough candidates are found and retains original phrases, filters, source and receipts."}},
                     "required": ["keywords"]}}, "required": [GOAL, TASK]}
 
     def _action_definitions(self, tools, execution, payload, model_context, round_index):
@@ -697,6 +704,17 @@ class DatasetQA:
             and (not execution.operations.required or execution.finalizing))
         actions = execution.actions(tools.loaded, planning=planning, plan=saved,
             closing=closing, continuations=continuations)
+        required = execution.operations.required
+        continuing_direct = (not planning and len(required) == 1 and required[0].get("direct")
+            and required[0]["output"] == "result"
+            and any(required[0]["id"] == goal["id"] for goals in continuations.values() for goal in goals)
+            and all(item["id"] == required[0]["id"] or execution.operations.assessment(item) == "accepted"
+                for item in execution.operations.items))
+        if continuing_direct:
+            # The source, object and outcome are already confirmed. A depleted
+            # keyword queue needs keywords, not discovery or scope expansion.
+            # This is the same scope commitment used by automatic delivery.
+            actions &= {*continuations, "request_input"}
         if tools.loaded and any(profile(tool).search or profile(tool).atomic for tool in tools.loaded.values()):
             catalogues = [tools.cached_tools(server) for server in tools.servers]
             if all(catalogue is not None for catalogue in catalogues) and all(
@@ -731,14 +749,14 @@ class DatasetQA:
                 item["function"]["description"] = "Continue an existing bounded search by supplying additional keywords only."
         return definitions, closing
 
-    def _continue_plan_searches(self, native, tools, execution, payload):
+    def _continue_searches(self, native, tools, execution, payload):
         """Bind a narrow model decision to saved parameters, never model IDs or filters."""
         available = self._search_continuations(tools, execution, payload)
         calls, bindings = [], {}
         for call in native:
             goals = available.get(call["name"], [])
             if not goals:
-                raise QAError("invalid_parameters", "已有执行计划，请修订必要步骤或继续其待补充的检索词")
+                raise QAError("invalid_parameters", "此调用没有可继续的检索目标，请使用当前工具定义")
             error = next(Draft202012Validator(self._continuation_schema(goals)).iter_errors(call["args"]), None)
             if error:
                 raise QAError("invalid_parameters", "继续检索只需选择已有目标并补充关键词", detail={
@@ -752,6 +770,10 @@ class DatasetQA:
             arguments = {**deepcopy(search.state["base"]), search.descriptor.query: keywords[0],
                 TASK: {"complete_request": bool(operation.get("direct")), "keywords": keywords,
                     "original_keywords": search.state.get("original_keywords")}}
+            if not payload.get("plan"):
+                # ReAct continuations retain normal scope/target admission.
+                # A saved search is not a scheduled Plan step.
+                arguments[GOAL] = operation["id"]
             calls.append({**call, "args": arguments})
             bindings[call["id"]] = operation["id"]
         return calls, bindings
@@ -802,14 +824,17 @@ class DatasetQA:
                             "The shared maxItems only accommodates all choices; runtime enforces the selected goal's keyword and candidate bounds.")
                     definition["function"]["parameters"]["properties"][TASK] = task
                 goals = [item for item in execution.operations.required if item.get("capability")==capability]
-                if goals and descriptor.atomic and not descriptor.search:
+                if descriptor.atomic and not descriptor.search:
                     definition = deepcopy(definition)
-                    # Declared goals supply scope; remove only the native task
-                    # requirement appended by definition(), not upstream rules.
+                    # Declared goals supply scope. Otherwise expose the needed
+                    # task directly; keep legacy supporting-only admission in
+                    # the runtime contract. Remove only our appended condition.
                     schema = definition["function"]["parameters"]
                     schema["allOf"].pop()
                     if not schema["allOf"]:
                         schema.pop("allOf")
+                    if not goals:
+                        schema.setdefault("required", []).append(TASK)
                 if len(goals)>1:
                     choices = [item for item in goals if item["id"] not in execution.blocked]
                     if not choices:
@@ -1353,12 +1378,19 @@ class DatasetQA:
         if payload.get("plan") and not scheduled:
             if (native and len(native) == len(reply.tool_calls)
                     and all(call["name"] in self._search_continuations(tools, execution, payload) for call in native)):
-                native, scheduled = self._continue_plan_searches(native, tools, execution, payload)
+                native, scheduled = self._continue_searches(native, tools, execution, payload)
             elif native or any(value.goals or value.operations or value.calls for value in memory):
                 raise QAError("invalid_parameters", "已有执行计划，请修订必要步骤而非绕过计划重复调用工具", detail={
                     "pending_steps": [item.get("plan_step") for item in execution.operations.items
                         if item.get("planned") and item["state"] == "pending"],
                     "guidance": "Copy context.plan.editable into remember.plan and change only the unresolved step's object/inputs or business arguments. Keep completed steps and the requested output format. Runtime will execute the repaired step; do not submit native MCP calls or legacy goals/calls."})
+        elif not scheduled:
+            continuing = [call for call in native if GOAL in call["args"]
+                and isinstance(call["args"].get(TASK), dict) and "complete_request" not in call["args"][TASK]]
+            if continuing:
+                expanded, _ = self._continue_searches(continuing, tools, execution, payload)
+                by_id = {call["id"]: call for call in expanded}
+                native = [by_id.get(call["id"], call) for call in native]
         if not scheduled and any(profile(tools.loaded[call["name"]]).plan_required for call in native):
             payload["planning"] = True
             raise QAError("planning_required", "此操作通过计划执行，请登记本轮步骤", detail={
@@ -1511,6 +1543,10 @@ class DatasetQA:
                 validate_intent(tool, goal)
                 target = None
                 if goal.object:
+                    if not profile(tool).bind:
+                        raise QAError("invalid_parameters", "此能力未声明对象绑定，请保留其原有查询范围", detail={
+                            "tool": tool.alias, "field": "goals.object", "dispatched": False,
+                            "guidance": "Omit object for this capability. A result from a search does not become that search's input scope. Continue the saved search goal instead of registering it against a returned object."})
                     target = resolve(goal.object)
                 elif profile(tool).bind:
                     target = await implicit_target(tool, {})
@@ -1573,6 +1609,17 @@ class DatasetQA:
             target = None
             try:
                 descriptor = profile(tool)
+                required = execution.operations.required
+                if not scheduled and len(required) == 1:
+                    committed = required[0]
+                    if (committed.get("direct") and committed.get("search") and not committed["search"]["done"]
+                            and committed.get("capability") == {"server": tool.server, "name": tool.name}):
+                        if arguments.get(SUPPORTING) is True or arguments.get(GOAL, committed["id"]) != committed["id"]:
+                            raise QAError("invalid_parameters", "已确认的检索范围须继续原目标，不能改为辅助或其他目标", detail={
+                                "goal": committed["id"], "guidance": "Continue the existing search with additional keywords; keep its committed outcome scope."})
+                        # Old full-form calls remain compatible, but cannot
+                        # create a second scope through a changed role/target.
+                        arguments = {**arguments, GOAL: committed["id"]}
                 directive = None
                 if adapted(tool) and TASK in arguments:
                     policy = self._task_policy(tool, execution.operations, arguments.get(GOAL) or operation_id)
@@ -2254,15 +2301,15 @@ class DatasetQA:
                                 guidance = ("This is the final decision round. Deliver evidence if it satisfies the request; otherwise record the genuinely "
                                     "unfinished goals or ask only for indispensable missing user input. Do not claim a prerequisite completed the whole request.")
                             elif continuing:
-                                guidance = ("Continue the saved search using additional distinct keywords and the same tool, original_keywords, source and filters. "
-                                    "Runtime reuses completed pages. Set complete_request=true only if this search covers the whole request. "
-                                    "Do not re-register this search or add unrequested operations. Independently requested outcomes remain separate.")
+                                guidance = ("Continue the saved search with additional distinct keywords using the currently advertised tool schema. "
+                                    "For a keyword-only continuation supply __qa_goal and __qa_task={keywords:[...]}; runtime restores saved parameters and scope. "
+                                    "Do not repeat completed keywords, re-register this search or add unrequested operations. Independently requested outcomes remain separate.")
                                 if saved_plan:
                                     guidance = ("Follow the saved plan's review status. For an offered search continuation supply only __qa_goal and "
                                         "__qa_task={keywords:[...]}. Runtime restores original phrases, filters and scope and reuses saved receipts; "
                                         "do not include complete_request or business arguments, revise completed steps or bypass the plan.")
                             updated["execution_decision"] = {
-                                "phase": "finish" if closing else "review",
+                                "phase": "finish" if closing else "continue_search" if continuing else "review",
                                 "remaining_rounds": limits.max_rounds-round_index,
                                 "remaining_calls": max(0, limits.max_calls-execution.calls),
                                 "result_ids": list(dict.fromkeys(rid for item in unconfirmed for rid in execution.operations.result_ids(item))),
@@ -2295,6 +2342,15 @@ class DatasetQA:
                             reply, scheduled = scheduled_reply(saved_plan, execution, tools,
                                 max(1, min(limits.max_parallel_reads, limits.max_calls-execution.calls)))
                             if reply is None:
+                                if saved_plan:
+                                    # Scheduling may discover a missing source.
+                                    # The very next decision must see that new
+                                    # evidence, not the pre-dispatch snapshot.
+                                    updated["plan"] = plan_view(saved_plan, execution.operations)
+                                    if saved_plan.get("decisions"):
+                                        updated["plan"]["decisions"] = deepcopy(saved_plan["decisions"])
+                                    updated["operations"] = execution.operations.view()
+                                    messages[1] = HumanMessage(encode(updated))
                                 reason = execution.failure_decision(planned=bool(saved_plan), consume=True)
                                 if reason:
                                     payload["operations"] = execution.operations.items
@@ -2309,6 +2365,24 @@ class DatasetQA:
                                 advertised.update(call["name"] for call in reply.tool_calls)
                                 log.info("Plan dispatch: task=%s revision=%s steps=%s", tid, saved_plan["revision"], len(reply.tool_calls))
                             if reply.tool_calls:
+                                for call in reply.tool_calls:
+                                    name = call["name"]
+                                    if name in advertised:
+                                        continue
+                                    if name == "deliver_results":
+                                        # Delivery has no preparation mutation. Its
+                                        # existing rejection preserves call pairs,
+                                        # budgets and other valid calls in a batch.
+                                        continue
+                                    tool = tools.loaded.get(name)
+                                    if tool is not None and not scheduled and (saved_plan or (
+                                            "remember" in advertised and profile(tool).plan_required)):
+                                        # These existing proposal guards reject before
+                                        # scope mutation, with precise Plan repair or
+                                        # planning-required transition feedback.
+                                        continue
+                                    raise QAError("tool_not_loaded", "当前动作尚未开放，请从当前提供的动作中选择",
+                                        detail={"tool": name, "phase": "action_admission", "dispatched": False})
                                 terminal = [call for call in reply.tool_calls if call["name"] in {
                                     "deliver_results", "request_input", "respond_from_context"}]
                                 if len(terminal)>1:

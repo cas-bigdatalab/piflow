@@ -10,7 +10,7 @@ from ..capabilities import GOAL, TASK
 from ..contracts import Limits, QAError
 from ..service import DatasetQA
 from .assertions import assert_completed, assert_handled
-from .test_bounded_discovery import SearchBackend, discover, native, outcome, page, KEYWORDS
+from .test_bounded_discovery import SearchBackend, continue_keywords, discover, native, outcome, page, KEYWORDS
 from .test_dataset_qa import action, collect, engine, session
 from .test_decisions import BareDialogue, goals, text
 from .test_planning import approve
@@ -20,7 +20,7 @@ from .test_planning import approve
 def test_partial_queue_continues_on_last_decision_without_correction(engine, count):
     async def run():
         backend = SearchBackend(lambda word, number: page(range(count), count))
-        dialogue = BareDialogue(discover(keywords=KEYWORDS[:1]), discover(keywords=KEYWORDS[1:]), text())
+        dialogue = BareDialogue(discover(keywords=KEYWORDS[:1]), continue_keywords(), text())
         service = DatasetQA(engine, dialogue, backend.gateway(Limits(max_rounds=2)))
         sid = session(service)
         try:
@@ -42,12 +42,13 @@ def test_feedback_matches_next_tool_surface_after_premature_delivery(engine):
 
         def continue_search(messages, definitions):
             feedback = next(json.loads(message.content) for message in reversed(messages)
-                if isinstance(message, ToolMessage) and '"available_actions"' in message.content)
+                if '"available_actions"' in message.content)
+            feedback = feedback.get("runtime_feedback", feedback)
             names = {item["function"]["name"] for item in definitions}
             assert set(feedback["available_actions"]) == names
             assert "deliver_results" not in names
             assert any(name.endswith("_find_assets") for name in names)
-            return discover(keywords=KEYWORDS[1:])(messages, definitions)
+            return continue_keywords()(messages, definitions)
 
         dialogue = BareDialogue(discover(keywords=KEYWORDS[:1]), action("deliver_results"), continue_search, text())
         service = DatasetQA(engine, dialogue, backend.gateway())
@@ -69,7 +70,7 @@ def test_unfinished_search_does_not_block_separately_requested_detail(engine):
             {"description": "Inspect asset-2", "tool": "inspect"},
             calls=[discover(keywords=KEYWORDS[:1], complete=False)]),
             native("inspect", reference="asset-2", **{TASK: {"complete_request": False}}),
-            discover(keywords=KEYWORDS[1:], complete=False), text())
+            continue_keywords(), text())
         service = DatasetQA(engine, dialogue, backend.gateway())
         sid = session(service)
         try:
@@ -122,7 +123,7 @@ def test_plan_can_extend_saved_search_without_revision_or_replaying_pages(engine
 def test_repeated_exhausted_queue_does_not_reset_progress_budget(engine):
     async def run():
         backend = SearchBackend(lambda word, number: page([1], 1))
-        dialogue = BareDialogue(*([discover(keywords=KEYWORDS[:1])] * 3), text())
+        dialogue = BareDialogue(discover(keywords=KEYWORDS[:1]), *([continue_keywords(KEYWORDS[:1])] * 2), text())
         service = DatasetQA(engine, dialogue, backend.gateway())
         sid = session(service)
         try:

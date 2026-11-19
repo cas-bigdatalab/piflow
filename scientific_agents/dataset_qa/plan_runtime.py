@@ -6,7 +6,7 @@ from jsonschema import Draft202012Validator
 from langchain_core.messages import AIMessage
 from pydantic import ValidationError
 
-from .capabilities import OBJECT, SUPPORTING, GOAL, TASK, inputs, profile, request_identifiers, resolve_tool, validate_intent
+from .capabilities import OBJECT, SUPPORTING, GOAL, TASK, adapted, inputs, profile, request_identifiers, resolve_tool, validate_intent
 from .contracts import QAError
 from .context import encode, same_identity
 from .operations import Operations
@@ -42,6 +42,11 @@ def workflow_definition(definition, loaded, visible=()):
                 field["description"] = "Runtime-bound identifier. OMIT from arguments when using object or inputs; do not invent a placeholder."
         item = {"tool": tool.alias, "description": tool.description, "arguments_schema": schema,
             "object_bindings": bound, "execution_mode": "plan_required" if descriptor.plan_required else "direct_allowed"}
+        locations = {name: path for name, path in {"object": descriptor.object,
+            "artifact": descriptor.artifact.path if descriptor.artifact else None,
+            "collection": descriptor.collection}.items() if path is not None}
+        if locations:
+            item["result_locations"] = locations
         if descriptor.routing:
             item["operations"] = descriptor.routing.operations
             item["outputs"] = descriptor.routing.outputs
@@ -52,7 +57,8 @@ def workflow_definition(definition, loaded, visible=()):
     definition["function"]["description"] += (
         " Use these capabilities in plan.steps. execution_mode describes whether direct calls are ever allowed; "
         "call native tools only when offered. Pass business arguments; use object=source_step_key or "
-        "inputs={parameter:{step,path}} for dependencies and OMIT bound identifiers/placeholders. "
+        "inputs={parameter:{step,path}} for exact value dependencies (scalar parameters need scalar paths). "
+        "Use object for declared source-record binding and OMIT bound identifiers/placeholders. "
         "Other loaded tools also work in plans. Catalogue: " + encode(catalogue))
     return definition
 
@@ -60,6 +66,140 @@ def workflow_definition(definition, loaded, visible=()):
 def _dependency_blocked(operation):
     return (operation["state"] == "unavailable" and operation.get("unavailable_dependency")
         and not operation["attempts"])
+
+
+def _compile_task_directive(step, tools):
+    """Lift recognized atomic call intent; outcome scope belongs to the Plan.
+
+    Search directives carry executable keyword plans and remain on their
+    existing path. A reserved-looking field in a native schema is business data.
+    """
+    tool = resolve_tool(step.tool, tools.loaded)
+    descriptor = profile(tool)
+    if not (adapted(tool) and descriptor.atomic and not descriptor.search and TASK in step.arguments):
+        return
+    value = step.arguments[TASK]
+    detail = {"step": step.key, "tool": tool.alias, "path": ["arguments", TASK],
+        "phase": "plan_validation", "dispatched": False,
+        "guidance": "Use step.operation and step.output_format for intent, and arguments for business inputs. Plan outcomes determine completion; preserve completed steps."}
+    error = next(Draft202012Validator(TaskDirective.model_json_schema()).iter_errors(value), None)
+    if error:
+        raise QAError("invalid_parameters", "计划中的任务说明不符合已声明的任务契约", detail={
+            **detail, "path": [*detail["path"], *error.absolute_path], "constraint": error.validator})
+    try:
+        directive = TaskDirective.model_validate(value)
+    except ValidationError as exc:
+        raise QAError("invalid_parameters", "计划中的任务说明无效", detail=detail) from exc
+    if directive.keywords is not None or directive.original_keywords is not None:
+        raise QAError("invalid_parameters", "此原子步骤不能承载检索关键词计划", detail=detail)
+    for name in ("operation", "output_format"):
+        requested = getattr(directive, name)
+        if requested is None:
+            continue
+        if getattr(step, name) not in (None, requested):
+            raise QAError("invalid_parameters", "步骤声明与任务说明中的操作或格式不一致", detail={
+                **detail, "path": [*detail["path"], name], "field": name})
+        setattr(step, name, requested)
+    del step.arguments[TASK]
+
+
+def _compile_task_directives(plan, tools, *, comparison=False):
+    for index, step in enumerate(plan.steps):
+        candidate = step.model_copy(deep=True) if comparison else step
+        try:
+            _compile_task_directive(candidate, tools)
+        except QAError:
+            if not comparison:
+                raise
+            # Old invalid annotations remain the immutable comparison baseline,
+            # so an unexecuted step can remove them. New submissions stay strict.
+        else:
+            plan.steps[index] = candidate
+    return plan
+
+
+def _allows_object(schema, root, seen=()):
+    """Conservatively test type compatibility, without inventing example data.
+
+    Unknown constraints stay runtime-owned. In particular, an object permitted
+    by a union must never be reinterpreted as an identifier merely because an
+    empty example object would fail its required properties.
+    """
+    if isinstance(schema, bool):
+        return schema
+    if not isinstance(schema, dict):
+        return True
+    kind = schema.get("type")
+    if kind is not None and "object" not in ([kind] if isinstance(kind, str) else kind):
+        return False
+    if "const" in schema and not isinstance(schema["const"], dict):
+        return False
+    if "enum" in schema and not any(isinstance(value, dict) for value in schema["enum"]):
+        return False
+    if "$id" in schema and schema is not root:
+        return True  # A nested resource changes reference scope; leave it to the schema validator.
+    ref = schema.get("$ref")
+    if isinstance(ref, str) and ref.startswith("#/") and ref not in seen:
+        try:
+            target = at_path(root, ref[1:])
+            parts = ref[1:].split("/")
+            for end in range(2, len(parts) + 1):
+                scope = at_path(root, "/".join(parts[:end]))
+                if isinstance(scope, dict) and "$id" in scope:
+                    return True  # Do not resolve across an embedded resource using the outer root.
+        except QAError:
+            pass  # Authoritative schema validation reports invalid references.
+        else:
+            if not _allows_object(target, root, (*seen, ref)):
+                return False
+    if any(not _allows_object(branch, root, seen) for branch in schema.get("allOf", [])):
+        return False
+    for keyword in ("anyOf", "oneOf"):
+        if keyword in schema and not any(_allows_object(branch, root, seen) for branch in schema[keyword]):
+            return False
+    return True
+
+
+def _compile_dependencies(plan, tools):
+    """Compile declared object-to-identifier edges through normal object binding.
+
+    An explicit leaf pointer stays a value dependency. A declared output object
+    (or its enclosing result) can supply a scalar only through the consumer's
+    unique declared binding. Reusing object binding also preserves input checks,
+    conflicting identifiers and source provenance at the execution boundary.
+    """
+    producers = {step.key: profile(resolve_tool(step.tool, tools.loaded)) for step in plan.steps}
+    for step in plan.steps:
+        tool = resolve_tool(step.tool, tools.loaded)
+        descriptor = profile(tool)
+        for name, ref in list(step.inputs.items()):
+            field = tool.schema.get("properties", {}).get(name)
+            if field is None or _allows_object(field, tool.schema):
+                continue
+            producer = producers[ref.step]
+            locations = list(dict.fromkeys(path for path in (
+                producer.artifact.path if producer.artifact else None, producer.object) if path is not None))
+            # Do not infer a collection member, or reinterpret explicit leaves.
+            locations = [path for path in locations
+                if path == ref.path or path.startswith(ref.path + "/")]
+            if not locations:
+                continue
+            paths = list(dict.fromkeys(descriptor.bind.get(name, [])))
+            detail = {"step": step.key, "tool": tool.alias, "path": [name],
+                "source": ref.model_dump(), "phase": "plan_validation", "dispatched": False}
+            if name in step.arguments:
+                raise QAError("invalid_parameters", "来源绑定不能覆盖已给出的参数", detail=detail)
+            if len(locations) != 1 or len(paths) != 1 or not paths[0]:
+                raise QAError("invalid_parameters", "依赖对象不能唯一绑定到所需参数，尚未执行", detail={
+                    **detail, "candidate_paths": [location + path for location in locations for path in paths],
+                    "guidance": "Choose an explicit scalar inputs pointer from the declared source, or set object to the intended source record. Preserve completed steps; do not call MCP directly."})
+            target = FromStep(step=ref.step, path=locations[0])
+            if step.object is not None and step.object != target:
+                raise QAError("invalid_parameters", "依赖参数与已选择的对象来源不一致，尚未执行", detail={
+                    **detail, "guidance": "Keep one intended source object, or use explicit scalar input pointers for independent values. Preserve completed steps."})
+            step.object = target
+            del step.inputs[name]
+    return plan
 
 
 def _existing_goal(step, tool, concrete, target, operations, excluded):
@@ -131,7 +271,7 @@ def compile_workflow(workflow, tools, previous=None):
     """
     resolved = {call.key: resolve_tool(call.tool, tools.loaded) for call in workflow.steps}
     descriptors = {key: profile(tool) for key, tool in resolved.items()}
-    old = Plan.model_validate(previous["spec"]) if previous else None
+    old = _compile_task_directives(Plan.model_validate(previous["spec"]), tools, comparison=True) if previous else None
     old_steps = {step.key: step for step in old.steps} if old else {}
     old_outcomes = {outcome.key: outcome for outcome in old.outcomes} if old else {}
 
@@ -229,7 +369,7 @@ def compile_workflow(workflow, tools, previous=None):
         inherited = [value for call in workflow.steps if call.key in ancestors for value in call.constraints]
         for key in step.produces:
             by_outcome[key].constraints = list(dict.fromkeys([*by_outcome[key].constraints, *inherited]))
-    return Plan.model_validate(plan.model_dump())
+    return _compile_dependencies(_compile_task_directives(Plan.model_validate(plan.model_dump()), tools), tools)
 
 
 def _result_checks(plan, tools):
@@ -276,10 +416,10 @@ async def install_plan(service, user, sid, plan, tools, execution, payload, cont
     workflow = {step.key: step for step in plan.steps} if isinstance(plan, Workflow) else {}
     if isinstance(plan, Workflow):
         plan = compile_workflow(plan, tools, payload.get("plan"))
-    plan = _result_checks(plan.model_copy(deep=True), tools)
+    plan = _result_checks(_compile_dependencies(_compile_task_directives(plan.model_copy(deep=True), tools), tools), tools)
     previous = payload.get("plan")
-    validate_revision(previous, plan)
-    previous_spec = Plan.model_validate(previous["spec"]).model_dump() if previous else None
+    previous_spec = _compile_task_directives(Plan.model_validate(previous["spec"]), tools, comparison=True).model_dump() if previous else None
+    validate_revision({**previous, "spec": previous_spec} if previous else None, plan)
     spec = plan.model_dump()
     requested = [step.object for step in plan.steps if isinstance(step.object, str)]
     handles = await service._object_index(user, sid, context, payload, requested)
@@ -304,13 +444,17 @@ async def install_plan(service, user, sid, plan, tools, execution, payload, cont
         if any(outcomes[key].kind != contract.kind for key in step.produces):
             raise QAError("invalid_parameters", "步骤的返回类型不能满足所需成果", detail={"step": step.key, "kind": contract.kind})
         contracts[step.key] = contract.model_dump()
-        if any(key in step.arguments for key in (OBJECT, SUPPORTING, GOAL)):
+        if adapted(tool) and any(key in step.arguments for key in (OBJECT, SUPPORTING, GOAL)):
             raise QAError("invalid_parameters", "计划应使用对象和成果字段，不需要重复填写执行控制参数")
-        directive = step.arguments.get(TASK)
+        directive = step.arguments.get(TASK) if adapted(tool) else None
         if directive is not None and not isinstance(directive, dict):
-            raise QAError("invalid_parameters", "步骤任务参数须符合工具定义")
+            raise QAError("invalid_parameters", "步骤任务参数须符合工具定义", detail={
+                "step": step.key, "path": ["arguments", TASK], "phase": "plan_validation", "dispatched": False})
         if (directive or {}).get("complete_request") is True:
-            raise QAError("invalid_parameters", "多步骤计划由成果验收完成，单个步骤不能声明完成整个请求")
+            raise QAError("invalid_parameters", "多步骤计划由成果验收完成，单个步骤不能声明完成整个请求", detail={
+                "step": step.key, "path": ["arguments", TASK, "complete_request"],
+                "phase": "plan_validation", "dispatched": False,
+                "guidance": "For a planned search preserve its keyword directives and set complete_request=false. Plan outcomes control completion."})
         target = None
         if isinstance(step.object, str):
             if step.object not in handles:
@@ -578,8 +722,12 @@ def scheduled_reply(saved, execution, tools, limit):
             # Hand only this decision back to ReAct. Independent ready steps may
             # still run; the same missing pointer is never polled automatically.
             saved.setdefault("decisions", {})[step.key] = {"code": exc.code,
-                "guidance": "Read the actual dependency result and revise this unexecuted step's source pointer or ask for the unresolved choice."}
+                "step": step.key, "phase": "dependency_binding", "dispatched": False,
+                "inputs": {name: ref.model_dump() for name, ref in step.inputs.items()},
+                "object": step.object.model_dump() if isinstance(step.object, FromStep) else step.object,
+                "guidance": "Read the actual dependency result and revise this unexecuted step's source pointer or ask for the unresolved choice. Preserve completed steps; do not call MCP directly."}
             continue
+        saved.get("decisions", {}).pop(step.key, None)
         call_id = f"plan-{saved['revision']}-{step.key}"
         calls.append({"id": call_id, "name": tool.alias, "args": arguments})
         bindings[call_id] = operation["id"]

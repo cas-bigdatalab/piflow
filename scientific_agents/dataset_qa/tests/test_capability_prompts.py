@@ -35,8 +35,8 @@ def test_execution_preserves_goal_evidence_continuation_and_terminal_guards():
     for safeguard in (
         "Variants/pages share outcomes", "independent outcomes stay separate", "Goals persist",
         "__qa_supporting", "delivery_pending is unconfirmed, not auxiliary",
-        "Goals added after execution may await receipt association", "deliver_results confirmations",
-        "only when evidence satisfies the goal", "do not rerun MCP", "independent samples",
+        "Associate late goals with sufficient receipts", "deliver_results confirmations",
+        "do not rerun MCP", "independent samples",
         "Never confirm unfinished work", "Only MCP receipts prove execution",
         "Never drop outstanding goals", "remember.continuation to continue or new",
         "Similar tools imply no continuation", "pending handles belong only to that continuation",

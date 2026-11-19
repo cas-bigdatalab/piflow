@@ -18,7 +18,7 @@ from ..results import collection_paths, combine_results, evidence_group
 from ..search import SearchPolicy, SearchProfile, SearchRun, TaskDirective, ordered_keywords, record_key
 from ..service import DatasetQA
 from .assertions import assert_completed
-from .test_bounded_discovery import SearchBackend, discover, outcome, page
+from .test_bounded_discovery import SearchBackend, discover, native, outcome, page
 from .test_dataset_qa import action, collect, engine, result_cards, session
 from .test_decisions import BareDialogue, text
 
@@ -260,10 +260,11 @@ def test_continued_search_uses_saved_policy_after_capability_metadata_changes(en
             tool = next(item["function"] for item in definitions
                 if item["function"]["name"].endswith("_find_assets"))
             task = tool["parameters"]["properties"][TASK]
-            array = next(item for item in task["properties"]["keywords"]["anyOf"] if item.get("type")=="array")
-            assert array["maxItems"]==5
-            assert "8 actually returned unique candidates" in task["properties"]["keywords"]["description"]
-            return discover(keywords=words, originals=["alpha"])(messages, definitions)
+            array = task["properties"]["keywords"]
+            assert array["maxItems"]==4  # Five saved slots, with alpha already completed.
+            current, = json.loads(messages[1].content)["operations"]["items"]
+            assert current["search"]["minimum"] == 8
+            return native("find_assets", **{GOAL: current["id"], TASK: {"keywords": words[1:]}})(messages, definitions)
 
         dialogue = BareDialogue(action("remember", continuation="continue"), continue_search, text())
         resumed = DatasetQA(engine, dialogue, backend.gateway())

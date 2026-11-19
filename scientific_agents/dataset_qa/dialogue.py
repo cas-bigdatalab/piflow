@@ -1,4 +1,5 @@
 """Native tool calling with generic interaction primitives and bounded context."""
+import asyncio
 from contextlib import aclosing
 from copy import deepcopy
 import json
@@ -79,7 +80,7 @@ class ResolveResource(Input):
 class Goal(CallIntent):
     description: str = Field(min_length=1, max_length=240)
     tool: str = Field(min_length=1, max_length=200, description="Loaded capability serving this necessary user outcome. Several query variants may serve one outcome.")
-    object: str | None = Field(default=None, description="Supplied object handle, if the outcome concerns a specific object.")
+    object: str | None = Field(default=None, description="Input handle only for capabilities with object bindings; otherwise omit.")
     output: str = Field(default="result", pattern="^(result|answer)$", description="result for a requested artifact; answer for evidence requiring interpretation or advice.")
 
 
@@ -88,7 +89,7 @@ class Memory(Input):
     planning: Literal[True] | None = Field(default=None, description="Load the multi-step plan contract. May accompany tool discovery; no business execution.")
     goals: list[Goal] | None = Field(default=None, min_length=1, max_length=16,
         description="Independent requested outcomes; may accompany native calls. Use plan for dependencies or plan-required tools.")
-    plan: Workflow | None = Field(default=None, description="List tool steps and business arguments for the CURRENT request. Runtime derives output types, source dependencies and terminal deliverables. Use stable step keys; preserve the requested output format.")
+    plan: Workflow | None = Field(default=None, description="Submit ALONE: no other calls or goals. Current-request steps/arguments; preserve keys and format. Runtime executes after review.")
     focus: str | None = Field(default=None, description="Supplied object handle for an explicit focus switch; null clears focus.")
     selected: list[str] | None = Field(default=None, max_length=32, description="Complete confirmed set of supplied object handles. Omit/null keeps it; [] clears it.")
     continuation: Literal["continue", "new"] | None = Field(default=None,
@@ -220,13 +221,13 @@ def builtin_definitions(planning=False, *, artifacts=False, agent_profile=DATASE
 class Dialogue:
     def __init__(self, model=None, limits=None, *, token_counter=None, agent_profile=DATASET_QA_PROFILE):
         self.model, self.owned = model, model is None
+        self._http_clients, self._client_cleanup = None, []
         self.agent_profile = agent_profile
         self.limits = limits or Limits()
         self.token_counter = token_counter or TokenCounter(self.limits.tokenizer_path or os.getenv("DATASET_QA_TOKENIZER_PATH"))
 
     def _model(self):
         if self.model is None:
-            from langchain_openai import ChatOpenAI
             from infra.config_loader import get_settings
             from infra.non_thinking import non_thinking_options
             settings = get_settings()
@@ -237,10 +238,38 @@ class Dialogue:
             model = settings.llm.model
             # This applies to the shared client used by both tool calling and
             # conversation summaries, at the provider's request-protocol level.
-            self.model = ChatOpenAI(model=model, api_key=key, base_url=provider.base_url,
-                timeout=self.limits.model_timeout, max_retries=1, max_tokens=self.limits.output_tokens,
+            self.model = self._create_model(model=model, api_key=key, base_url=provider.base_url,
+                temperature=settings.llm.temperature, timeout=self.limits.model_timeout,
+                max_retries=1, max_tokens=self.limits.output_tokens,
                 **non_thinking_options(provider=settings.llm.provider, model=model, base_url=provider.base_url))
         return self.model
+
+    def _create_model(self, **options):
+        from langchain_openai import ChatOpenAI
+        from openai import DefaultAsyncHttpxClient, DefaultHttpxClient
+
+        # The provider wrapper can cache default HTTP clients across model
+        # instances. Explicit clients give this Dialogue exclusive ownership,
+        # including when another session closes or starts on a different loop.
+        sync = DefaultHttpxClient(timeout=self.limits.model_timeout)
+        asynchronous = None
+        try:
+            asynchronous = DefaultAsyncHttpxClient(timeout=self.limits.model_timeout)
+            model = ChatOpenAI(**options, http_client=sync, http_async_client=asynchronous)
+        except BaseException:
+            try:
+                sync.close()
+            finally:
+                if asynchronous is not None:
+                    try:
+                        loop = asyncio.get_running_loop()
+                    except RuntimeError:
+                        asyncio.run(asynchronous.aclose())
+                    else:
+                        self._client_cleanup.append(loop.create_task(asynchronous.aclose()))
+            raise
+        self._http_clients = (sync, asynchronous)
+        return model
 
     def messages(self, message, context):
         data = {key: value for key, value in context.items() if key not in {"history", "unsummarized_history"}}
@@ -549,10 +578,18 @@ class Dialogue:
         return text
 
     async def close(self):
-        if self.owned and self.model is not None:
-            client = getattr(self.model, "root_async_client", None)
-            if client:
-                await client.close()
-            client = getattr(self.model, "root_client", None)
-            if client:
-                client.close()
+        if not self.owned:
+            return
+        clients, self._http_clients = self._http_clients, None
+        self.model = None
+        try:
+            if clients is not None:
+                sync, asynchronous = clients
+                try:
+                    await asynchronous.aclose()
+                finally:
+                    sync.close()
+        finally:
+            cleanup, self._client_cleanup = self._client_cleanup, []
+            if cleanup:
+                await asyncio.gather(*cleanup)

@@ -7,12 +7,12 @@ from types import SimpleNamespace
 from jsonschema import Draft202012Validator
 import pytest
 
-from ..capabilities import OBJECT, TASK
+from ..capabilities import GOAL, OBJECT, TASK
 from ..contracts import Limits, Server
 from ..mcp import MCPGateway
 from ..service import DatasetQA
 from .assertions import assert_completed, assert_handled
-from .test_dataset_qa import action, collect, definition, engine, result_cards, session
+from .test_dataset_qa import action, collect, definition, engine, remote, result_cards, session
 from .test_decisions import BareDialogue, goals, text
 
 
@@ -90,9 +90,29 @@ def native(name, **arguments):
     return choose
 
 
-def discover(*, keywords=KEYWORDS, originals=None, complete=True, **arguments):
-    return native("find_assets", phrase=keywords[0],
+def discover(*, keywords=KEYWORDS, originals=None, complete=True, legacy=False, **arguments):
+    # Historical full-form continuations bypass only model-schema projection;
+    # runtime admission still validates their business arguments and scope.
+    return (remote if legacy else native)("find_assets", phrase=keywords[0],
         **{TASK: {"complete_request": complete, "keywords": keywords, "original_keywords": originals or KEYWORDS[:1]}}, **arguments)
+
+
+def continue_keywords(words=KEYWORDS[1:], description=None):
+    def choose(messages, definitions):
+        tool = next(item["function"] for item in definitions if item["function"]["name"].endswith("_find_assets"))
+        schema = tool["parameters"]
+        assert set(schema["properties"]) == {GOAL, TASK}
+        assert set(schema["properties"][TASK]["properties"]) == {"keywords"}
+        choices = schema["properties"][GOAL]["enum"]
+        if description is None:
+            goal, = choices
+        else:
+            goal = next(item["id"] for item in json.loads(messages[1].content)["operations"]["items"]
+                if item["description"] == description)
+        arguments = {GOAL: goal, TASK: {"keywords": words}}
+        Draft202012Validator(schema).validate(arguments)
+        return action(tool["name"], **arguments)
+    return choose
 
 
 def outcome(service, sid, events):
@@ -336,7 +356,7 @@ def test_missing_keywords_can_be_supplied_without_new_goals_or_early_empty_deliv
     async def run():
         backend = SearchBackend(lambda query, number: page([], 0))
         dialogue = BareDialogue(discover(keywords=KEYWORDS[:1]), action("deliver_results"),
-            discover(keywords=KEYWORDS[1:]), text())
+            continue_keywords(), text())
         service = DatasetQA(engine, dialogue, backend.gateway())
         sid = session(service)
         try:
@@ -433,7 +453,7 @@ def test_late_bookkeeping_cannot_replace_an_unfinished_discovery(engine):
         backend = SearchBackend(lambda query, number: page([], 0))
         dialogue = BareDialogue(discover(keywords=KEYWORDS[:1], complete=False),
             goals({"description": "Find related datasets", "tool": "find_assets"}),
-            discover(keywords=KEYWORDS[1:]), text())
+            discover(keywords=KEYWORDS[1:], legacy=True), text())
         service = DatasetQA(engine, dialogue, backend.gateway())
         sid = session(service)
         try:
@@ -452,8 +472,8 @@ def test_a_prerequisite_search_cannot_be_abandoned_by_switching_to_an_exact_look
     async def run():
         backend = SearchBackend(lambda query, number: page([], 0))
         dialogue = BareDialogue(discover(keywords=KEYWORDS[:1], complete=False),
-            native("find_assets", phrase=KEYWORDS[0], **{TASK: {"complete_request": True, "keywords": None, "original_keywords": None}}),
-            discover(keywords=KEYWORDS[1:]), text())
+            remote("find_assets", phrase=KEYWORDS[0], **{TASK: {"complete_request": True, "keywords": None, "original_keywords": None}}),
+            discover(keywords=KEYWORDS[1:], legacy=True), text())
         service = DatasetQA(engine, dialogue, backend.gateway())
         sid = session(service)
         try:

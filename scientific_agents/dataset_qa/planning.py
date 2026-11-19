@@ -124,7 +124,8 @@ class Invocation(CallIntent):
     arguments: dict = Field(default_factory=dict)
     fresh: bool = Field(default=False, description="True only for an explicitly independent fresh execution. Random/non-idempotent tools are never coalesced.")
     object: str | FromStep | None = Field(default=None, description="Supplied handle or dependency object pointer; resolve ambiguity first.")
-    inputs: dict[str, FromStep] = Field(default_factory=dict, max_length=16)
+    inputs: dict[str, FromStep] = Field(default_factory=dict, max_length=16,
+        description="Exact value dependencies. Scalar parameters need scalar result paths; use object for a source record whose identifiers are runtime-bound.")
     depends_on: list[Key] = Field(default_factory=list, max_length=16)
 
     def dependencies(self):
