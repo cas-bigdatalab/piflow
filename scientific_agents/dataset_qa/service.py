@@ -29,7 +29,7 @@ from .responses import compact_delivery_status, delivery_links, delivery_status,
 from .search import SearchPolicy, SearchRun, TaskDirective, normalize_keyword, ordered_keywords, task_schema
 from .resource_index.manager import ResourceIndex
 from .resource_index.resolver import bind_target, resolve as resolve_resource
-from .planning import plan_view, outcome_status, require_delivery
+from .planning import plan_decision, plan_view, outcome_status, require_delivery
 from .plan_runtime import install_plan, confirm_plan, scheduled_reply, workflow_definition
 from .artifacts import Artifacts, execution_metadata
 from ..agent_profiles import DATASET_QA_PROFILE
@@ -709,6 +709,23 @@ class DatasetQA:
             agent_profile=self.agent_profile), *tools.definitions()]
             if item["function"]["name"] in actions], tools, execution)
         for index, item in enumerate(definitions):
+            if (item["function"]["name"] == "remember" and saved
+                    and saved.get("reviewed") != saved["revision"]):
+                item = definitions[index] = deepcopy(item)
+                schema = item["function"]["parameters"]
+                schema["properties"] = {"plan": schema["properties"]["plan"]}
+                schema["required"] = ["plan"]
+                schema.get("$defs", {}).pop("Goal", None)
+                description = item["function"]["description"].removeprefix(INPUTS["remember"][1])
+                item["function"]["description"] = (
+                    "Revise the saved plan only if its scope or constraints need correction. "
+                    "If already correct, call review_plan instead of saving it again." + description)
+            if item["function"]["name"] == "review_plan" and saved:
+                item = definitions[index] = deepcopy(item)
+                schema = item["function"]["parameters"]
+                schema["properties"]["revision"]["const"] = saved["revision"]
+                schema["properties"]["covered"]["items"]["enum"] = [value["key"] for value in saved["spec"]["outcomes"]]
+                schema["properties"]["covered"]["uniqueItems"] = True
             if goals := continuations.get(item["function"]["name"]):
                 item = definitions[index] = deepcopy(item)
                 item["function"]["parameters"] = self._continuation_schema(goals)
@@ -1928,6 +1945,8 @@ class DatasetQA:
             context["references"] = state
             await self._write(user, sid, tid, context=context)
             result = {"saved": True}
+            if decision := plan_decision((payload or {}).get("plan"), planning=(payload or {}).get("planning", False)):
+                result["plan_decision"] = decision
             if updates != values.values:
                 result["guidance"] = "Grounded choices were saved. Free-text memory changes are deferred during recovery; continue the task without repeating this memory update."
             return result
@@ -2498,7 +2517,12 @@ class DatasetQA:
                                     message=answer["text"], interaction=interaction)
                                 return
                             if not rejected:
-                                progress = execution.observe(key, value, name, arguments, context, scope=operation_id, tool=tool)
+                                progress = execution.observe(key, value, name, arguments, context,
+                                    scope=operation_id, tool=tool, runtime=payload)
+                                if name in {"remember", "review_plan"}:
+                                    decision = plan_decision(payload.get("plan"), planning=payload.get("planning", False)) or {}
+                                    log.info("Planning progress: task=%s action=%s phase=%s revision=%s advanced=%s",
+                                        tid, name, decision.get("phase", "direct"), decision.get("revision"), progress)
                                 if active_search:
                                     progress = SearchRun(execution.operations.get(operation_id)["search"]).progress != search_progress
                                 if tool and operation_id:
@@ -2553,6 +2577,8 @@ class DatasetQA:
                         if reason:
                             break
                     reason = reason or QAError("step_limit", "处理达到本轮预算，请缩小请求范围")
+                    log.info("Execution closure: task=%s code=%s model_rounds=%s calls=%s stalled=%s",
+                        tid, reason.code, model_rounds, execution.calls, execution.stalled)
                     if reason.code in {"mcp_required", "step_limit", "no_progress"} and not tools.loaded and tools.discovery_errors:
                         reason = next(reversed(tools.discovery_errors.values()))
                     # Delivery selection never executes MCP; final text has no tools.

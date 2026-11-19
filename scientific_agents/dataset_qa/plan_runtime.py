@@ -41,7 +41,7 @@ def workflow_definition(definition, loaded, visible=()):
             if isinstance(field, dict):
                 field["description"] = "Runtime-bound identifier. OMIT from arguments when using object or inputs; do not invent a placeholder."
         item = {"tool": tool.alias, "description": tool.description, "arguments_schema": schema,
-            "object_bindings": bound}
+            "object_bindings": bound, "execution_mode": "plan_required" if descriptor.plan_required else "direct_allowed"}
         if descriptor.routing:
             item["operations"] = descriptor.routing.operations
             item["outputs"] = descriptor.routing.outputs
@@ -50,10 +50,10 @@ def workflow_definition(definition, loaded, visible=()):
         return definition
     definition = deepcopy(definition)
     definition["function"]["description"] += (
-        " Capabilities below are available inside plan.steps (business arguments only). "
-        "For a dependency use object=source_step_key and OMIT its object_bindings parameters from arguments; "
-        "runtime supplies the real identifiers. For an individual result value use inputs={parameter:{step,path}}. "
-        "Do not invent identifiers or copy placeholder/null values. Other loaded MCP tools may also be used in steps. Catalogue: " + encode(catalogue))
+        " Use these capabilities in plan.steps. execution_mode describes whether direct calls are ever allowed; "
+        "call native tools only when offered. Pass business arguments; use object=source_step_key or "
+        "inputs={parameter:{step,path}} for dependencies and OMIT bound identifiers/placeholders. "
+        "Other loaded tools also work in plans. Catalogue: " + encode(catalogue))
     return definition
 
 

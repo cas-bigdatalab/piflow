@@ -9,7 +9,7 @@ PLANNING_RULES = (
     "Resolve unknown choices and load needed tools first; never guess paths or transformations. "
     "Plan steps: key, tool, arguments, optional object/source references. Runtime derives outcomes/kind/produces; omit them. "
     "Use object=source_step_key for a preceding file producer. Omit deliver to deliver terminal steps. Include export/conversion with the requested format; intermediate files are not substitutes. "
-    "Runtime reviews each revision, schedules dependencies and reuses receipts. Preserve keys/constraints/completed work; never bypass plans with direct MCP calls. Repair only unresolved steps via plan.editable. "
+    "After submission, check request coverage/constraints; call review_plan for that revision or revise plan.editable. Runtime validates, schedules and reuses receipts. Preserve keys/constraints/completed work; never bypass plans with native calls. "
     "revision, step_status and acceptance are read-only. "
     "Unavailable/incomplete outcomes are not fulfilled artifacts. "
     "Use tools or saved evidence for claims about external resources. "
@@ -30,7 +30,7 @@ DISCOVERY_RULES = (
     "mcp_servers already provides a service directory; browse only for missing entries or another scope. "
     "New searches need data-source MCPs. find_artifacts only finds prior user files; it cannot prove external matches absent. discovery_state lists unchecked capabilities; check relevant groups before claiming unsupported. "
     "Use relevant loaded tools before discovering additional capabilities. A discovery failure affects only that service, not other tools or successful operations. "
-    "For one outcome, express intent in the native tool's __qa_task; no bookkeeping call is needed. For multiple independent outcomes, declare remember.goals before or with their native calls. "
+    "Use an offered native tool's __qa_task for one direct outcome; plan-required tools use remember.plan. Declare independent direct goals before or with calls. "
 )
 
 

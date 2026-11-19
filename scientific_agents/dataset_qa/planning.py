@@ -222,6 +222,23 @@ def validate_revision(previous, plan):
             raise QAError("invalid_parameters", "计划修订须保留尚需交付的成果及原有要求")
 
 
+def plan_decision(saved=None, *, planning=False):
+    """Describe the next semantic decision; validation and dispatch stay in code."""
+    if saved:
+        revision = saved["revision"]
+        if saved.get("reviewed") != revision:
+            return {"phase": "review", "revision": revision,
+                "next_action": {"name": "review_plan", "arguments": {
+                    "revision": revision, "covered": [item["key"] for item in saved["spec"]["outcomes"]]}},
+                "guidance": "Compare this plan with the current request. Confirm only if scope and constraints match; otherwise revise remember.plan. Saving again does not confirm it."}
+        return {"phase": "execute", "revision": revision,
+            "guidance": "Runtime schedules ready steps from this reviewed plan; no repeated registration is needed."}
+    if planning:
+        return {"phase": "plan", "next_action": {"name": "remember", "field": "plan"},
+            "guidance": "Submit the required tool steps in remember.plan. Goals alone do not provide executable arguments or dependencies."}
+    return None
+
+
 def plan_view(saved, operations):
     if not saved:
         return None
@@ -237,6 +254,7 @@ def plan_view(saved, operations):
         # compile_workflow on revision; models need not copy runtime bookkeeping.
         editable.append(value)
     return {"revision": saved["revision"], "reviewed": saved.get("reviewed") == saved["revision"],
+        "decision": plan_decision(saved),
         "outcomes": [outcome.model_dump() for outcome in plan.outcomes],
         "editable": {"steps": editable},
         "step_status": {step.key: (operations.get(saved["operations"][step.key]) or {}).get("state", "pending")
@@ -252,7 +270,7 @@ def plan_input(value):
     if not isinstance(value, dict):
         return value
     value = deepcopy(value)
-    observations = {"revision", "reviewed", "acceptance", "decisions", "step_status"}
+    observations = {"revision", "reviewed", "acceptance", "decision", "decisions", "step_status"}
     if "editable" in value and set(value) <= observations | {"editable", "outcomes"}:
         value = value["editable"]
     if not isinstance(value, dict):

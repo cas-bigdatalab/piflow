@@ -198,7 +198,7 @@ class Execution:
         return (tool is not None and tool.annotations.get("readOnlyHint") is True
             and tool.annotations.get("idempotentHint") is True)
 
-    def observe(self, key, value, name=None, arguments=None, context=None, *, scope=None, tool=None):
+    def observe(self, key, value, name=None, arguments=None, context=None, *, scope=None, tool=None, runtime=None):
         if name in {"list_mcp_servers", "load_mcp_tools"}:
             markers = {(name, row["name"]) for row in value.get("items", []) if "name" in row and "error" not in row}
             if name=="load_mcp_tools" and value.get("error"):
@@ -207,6 +207,12 @@ class Execution:
             state = {"references": (context or {}).get("references")}
             state["operations"] = [{key: item[key] for key in ("id", "description", "target", "output")}
                 for item in self.operations.items]
+            if runtime is not None:
+                # Stable goal IDs do not imply a stable execution plan. Count
+                # accepted transitions, never echoed model args or timestamps.
+                plan = runtime.get("plan") or {}
+                state["planning"] = bool(runtime.get("planning"))
+                state["plan"] = {key: plan[key] for key in ("revision", "spec", "operations", "reviewed") if key in plan}
             markers = {(name, fingerprint(state))}
         elif name=="find_artifacts":
             markers = {(name, fingerprint(value.get("data", value)))}
