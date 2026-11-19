@@ -291,3 +291,71 @@ def response_operations(operations, labels=None):
         item.pop("error", None)
         item.pop("capability", None)
     return value
+
+
+def delivery_status(operations, ids, *, labels=None, request="", plan=None, cards=()):
+    """Business facts shared by normal answers and deterministic closure.
+
+    Execution, acceptance and presentation are independent. A recovered card
+    proves available evidence, not that an undeclared outcome was completed.
+    """
+    public = response_labels(operations, labels)
+    delivered = set(ids)
+    owned = {rid for item in public.required for rid in public.result_ids(item)}
+    acceptance = {}
+    if plan:
+        from .planning import outcome_status
+
+        statuses = outcome_status(plan, operations, cards)
+        for step in plan["spec"]["steps"]:
+            if step["produces"]:
+                acceptance[plan["operations"][step["key"]]] = all(
+                    statuses[key]["state"] == "accepted" and statuses[key].get("targets_met", True)
+                    for key in step["produces"])
+    facts = []
+    for item in public.deliverable(partial=True):
+        result_ids = public.result_ids(item)
+        if not item.get("required", True) and result_ids and set(result_ids) <= owned:
+            continue  # An adopted receipt is represented by its requested goal.
+        label = item.get("public_label") if item.get("inferred") or item["description"] == request[:240] else item["description"]
+        if not label:
+            continue
+        receipts = [attempt for attempt in item["attempts"] if attempt["state"] == "succeeded" and attempt.get("result_id")]
+        usable = {attempt["result_id"] for attempt in receipts if attempt.get("acceptance") != "unavailable"}
+        complete = (item.get("required", True) and item["state"] == "succeeded"
+            and bool(result_ids) and (not item.get("search") or item["search"]["done"])
+            and all(attempt.get("acceptance", "accepted") == "accepted" for attempt in receipts)
+            and acceptance.get(item["id"], True))
+        facts.append({"description": label, "available": bool(usable), "requested": item.get("required", True),
+            "delivered": bool(delivered.intersection(usable)), "complete": complete,
+            "output": item["output"]})
+    return facts
+
+
+def delivery_summary(facts):
+    """Describe confirmed content without diagnoses or invented next actions."""
+    shown, evidence, outstanding = [], [], []
+    for item in facts:
+        label = " ".join(item["description"].split()).rstrip("。.;；")
+        if item["delivered"]:
+            if item["complete"] or not item["requested"]:
+                shown.append(label)
+            else:
+                # Available unconfirmed evidence is useful, but not a promise
+                # that all of the requested conditions have been satisfied.
+                evidence.append(label)
+        elif item["output"] == "answer" and item["available"]:
+            outstanding.append(label+"（参考信息已取得，尚未形成完整答复）")
+        else:
+            outstanding.append(label+("（信息已取得，尚未整理为展示内容）" if item["available"] else ""))
+    if not shown and not evidence:
+        return "本次尚未提供："+"；".join(dict.fromkeys(outstanding))+"。您的要求已保留。" if outstanding else ""
+    lines = ["已为您提供："+"；".join(dict.fromkeys(shown))+"。"] if shown else []
+    if evidence:
+        lines.append("已取得部分参考信息："+"；".join(dict.fromkeys(evidence))+"。")
+    if outstanding:
+        lines.append("本次尚未提供："+"；".join(dict.fromkeys(outstanding))+"。")
+    if evidence:
+        lines.append("以上已取得的内容可先供您查看，是否满足全部要求还需进一步确认。")
+    lines.append("您可以继续围绕已提供的内容提问。")
+    return "\n\n".join(lines)

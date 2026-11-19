@@ -26,7 +26,7 @@ PROFILES = {
         "identity": ["/cstr", "/id"], "opaque_filters": ["field", "subject", "title"],
         "policy": DEFAULT_SEARCH_POLICY.model_dump()}},
     ("piflow-corpus", "get_corpus_dataset_detail"): {"label": "数据集详情", "atomic": True, "object": "", "bind": {"cstr": ["/cstr", "/raw/cstr"]}},
-    ("piflow-corpus", "get_corpus_dataset_directory"): {"label": "数据预览", "atomic": True,
+    ("piflow-corpus", "get_corpus_dataset_directory"): {"label": "目录结构", "atomic": True,
         "bind": {"cstr": ["/cstr", "/raw/cstr"]}, "directory": {
             "identity": ["cstr"], "parent": "file_id", "nodes": ["/data", "/data/data"],
             "node_id": "/fileId", "name": "/name", "is_file": "/isFile", "download_url": "/downloadUrl",
@@ -206,7 +206,7 @@ def definition(tool):
         })
         bound = descriptor.bind
         if bound:
-            schema["properties"][OBJECT] = {"type": ["string", "null"], "description": "Supplied object handle. Omit to use current focus. Runtime binds its identifiers."}
+            schema["properties"][OBJECT] = {"type": ["string", "null"], "description": "Supplied object handle; omit for current focus or a unique scoped object. Runtime binds verified identifiers. Select explicitly if ambiguous."}
             schema["required"] = [key for key in schema.get("required", []) if key not in bound]
         if descriptor.search or descriptor.atomic:
             task = task_schema(descriptor.search.policy if descriptor.search else None)

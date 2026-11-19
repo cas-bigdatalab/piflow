@@ -243,7 +243,7 @@ def test_selected_result_survives_cancel_or_final_model_failure(engine, terminal
             assert_completed(service, sid, values[-1])
             assert "code" not in values[-1]
             shown = "".join(v["text"] for v in values if v["type"]=="message")
-            assert "结果已整理在下方" in shown and "model offline" not in shown
+            assert "已为您提供：" in shown and "model offline" not in shown
         assert len(result_cards(values))==1 and sum(v["type"]=="result" for v in values)==1
         assert not any(v["type"] in {"task", "error"} for v in values)
         assert "LATE OUTPUT" not in "".join(v.get("text", "") for v in values)
@@ -413,5 +413,5 @@ def test_final_tool_call_degrades_without_restarting_mcp_execution(engine):
         assert len(backend.calls)==1 and len(result_cards(values))==1
         assert service.dialogue.inputs[-1][1]==[] and len(service.dialogue.inputs)==4
         shown = "".join(v["text"] for v in values if v["type"]=="message")
-        assert "结果已整理在下方" in shown and "工具调用" not in shown
+        assert "已为您提供：" in shown and "工具调用" not in shown
     asyncio.run(run())

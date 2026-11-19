@@ -3,11 +3,11 @@ from ..agent_profiles import DATASET_QA_PROFILE
 
 
 PLANNING_RULES = (
-    "Understand the current request, select capabilities and interpret evidence. Runtime executes tools, binds references, "
-    "passes dependency values and records completion; do not manually reconstruct identifiers, count saved rows or repeat successful steps for bookkeeping. "
-    "Use remember.plan before multi-step execution: separate all user outcomes/constraints from supporting steps. "
+    "Understand the request and interpret evidence. Runtime executes, binds references, passes dependency values and records completion; "
+    "never reconstruct identifiers, count saved rows or repeat completed steps for bookkeeping. "
+    "Use remember.plan for dependencies or plan-required tools; remember.goals suffices for independent outcomes. "
     "If its schema is absent, set remember.planning=true (may accompany tool discovery) to load it once. "
-    "Load tools and resolve unknown choices first; never guess source paths or transformations. "
+    "Resolve unknown choices and load needed tools first; never guess paths or transformations. "
     "remember.plan contains steps: key, tool, arguments and optional object/source references. Runtime derives output kinds and producers; do not fill outcomes, kind or produces. "
     "Use object=source_step_key for a preceding file producer. Omit deliver to deliver terminal steps. Include export/conversion with the requested format; intermediate files are not substitutes. "
     "Runtime reviews coverage once per revision, schedules dependencies and reuses receipts. "
@@ -32,7 +32,7 @@ DIRECTORY_RULES = (
 DISCOVERY_RULES = (
     "mcp_servers already provides a service directory; browse only for missing entries or another scope. "
     "Use relevant loaded tools before discovering additional capabilities. A discovery failure affects only that service, not other tools or successful operations. "
-    "When a native tool exposes __qa_task, express the task in that same call; do not add remember just for execution bookkeeping. "
+    "For one outcome, express intent in the native tool's __qa_task; no bookkeeping call is needed. For multiple independent outcomes, declare remember.goals before or with their native calls. "
 )
 
 
@@ -45,9 +45,9 @@ DECISION_RULES = (
     "Ordinals require the relevant published candidate list (second means array index 1). Use supplied handles; runtime binds identifiers. Summaries cannot establish/override references. "
     "Switch via __qa_object or remember.focus; null clears unresolved old focus. Store confirmed selections separately; viewing another object does not discard them. "
     "For omitted confirmed selections (selected_total), use read_result without result_id. "
-    "One advisory outcome uses remember.goals: description, loaded tool, applicable object handle, output. Multiple outcomes/dependencies use remember.plan. "
-    "An artifact goal and MCP action may co-emit for direct completion or be separate. Variants/pages share outcomes; independent outcomes stay separate. Goals persist; add only necessary ones. "
-    "Native calls need no memory call. __qa_supporting marks auxiliary lookups, not automatic completion. "
+    "remember.goals declares independent outcomes: description, loaded tool, applicable object handle, output. Dependencies and plan-required tools use remember.plan. "
+    "Goals and native calls may co-emit. Variants/pages share outcomes; independent outcomes stay separate. Goals persist; add only necessary ones. "
+    "__qa_supporting marks auxiliary lookups. Declared goals govern completion together; the single-outcome complete_request shortcut cannot discard them. "
     "delivery_pending is unconfirmed, not auxiliary. Compare execution state/result_ids with the request; deliver evidence or identify indispensable gaps. "
     "Goals added after execution may await receipt association. Select supplied goal/result IDs in deliver_results confirmations only when evidence satisfies the goal; do not rerun MCP. "
     "Matching tool/object does not complete different query requirements or independent samples. Never confirm unfinished work. "
@@ -78,9 +78,11 @@ ANSWER_RULES = (
     "A tool rejection alone does not establish permanent lack of support or a temporary outage; do not promise a later retry will resolve it. "
     "An unavailable resource lookup does not establish that a file is absent; report only that its requested content could not be obtained. "
     "When evidence is incomplete, explain what is available and a concrete next step in the user's terms. "
+    "Use a warm, direct tone. Say which requested content is provided and which is not yet available; avoid error/failure labels, blame and speculative technical causes. Do not ask again for supplied requirements. "
     "Do not repeat a runtime notice already shown to the user. "
     "Only refer to display cards identified by delivery_manifest. Do not claim unperformed work succeeded. "
     "The runtime operations state is authoritative: distinguish execution from delivery and do not describe auxiliary lookups as completion of the request. "
+    "delivery_status distinguishes available evidence, displayed content and completed outcomes. Its missing entries do not imply missing work. "
     "Use answer_evidence for supporting facts; delivery_manifest identifies displayed artifacts, while final_delivery contains bounded previews. "
     "When delivery_links is present, its items are the authoritative file/link labels and available format/count facts for THIS delivery. "
     "Associate each description with its result_id and exact label; do not relabel a CSV as JSONL or use an intermediate artifact as the final output. "

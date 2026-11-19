@@ -57,7 +57,12 @@ def test_plan_blocked_prerequisite_closes_without_model_replanning(engine, indep
             assert len(result_cards(events)) == int(independent)
             assert events[-1]["outcome"] == ("partial" if independent else "unavailable")
             text = "".join(e.get("text", "") for e in events if e["type"] == "message")
-            assert "文件尚未准备好" in text and "确认操作对象" not in text
+            assert "确认操作对象" not in text
+            if independent:
+                assert "已为您提供：另一项查询" in text and "本次尚未提供：" in text
+                assert "同一对象" in text
+            else:
+                assert "文件尚未准备好" in text
         finally:
             await service.close()
     asyncio.run(run())

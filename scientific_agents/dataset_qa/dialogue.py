@@ -86,8 +86,8 @@ class Goal(CallIntent):
 class Memory(Input):
     values: dict = Field(default_factory=dict)
     planning: Literal[True] | None = Field(default=None, description="Load the multi-step plan contract. May accompany tool discovery; no business execution.")
-    goals: list[Goal] | None = Field(default=None, min_length=1, max_length=1,
-        description="One advisory outcome. Use plan for multiple outcomes or dependencies.")
+    goals: list[Goal] | None = Field(default=None, min_length=1, max_length=16,
+        description="Independent requested outcomes; may accompany native calls. Use plan for dependencies or plan-required tools.")
     plan: Workflow | None = Field(default=None, description="List tool steps and business arguments for the CURRENT request. Runtime derives output types, source dependencies and terminal deliverables. Use stable step keys; preserve the requested output format.")
     focus: str | None = Field(default=None, description="Supplied object handle for an explicit focus switch; null clears focus.")
     selected: list[str] | None = Field(default=None, max_length=32, description="Complete confirmed set of supplied object handles. Omit/null keeps it; [] clears it.")
@@ -97,7 +97,6 @@ class Memory(Input):
 
 class Remember(Memory):
     """Accept old private calls without exposing their control protocol anew."""
-    goals: list[Goal] | None = Field(default=None, min_length=1, max_length=16)
     plan: Plan | Workflow | None = None
     references: ReferenceUpdate | None = None
     operations: list[Operation] | None = Field(default=None, min_length=1, max_length=16)

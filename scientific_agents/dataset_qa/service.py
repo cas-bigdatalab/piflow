@@ -24,7 +24,7 @@ from .results import collection_paths, combine_results, evidence, evidence_group
 from .references import all_references, apply_update, at_path, display_list, handle_order, pending_objects, preview, scoped_preview
 from .runtime import Waiting
 from .parallel import run_read_batch
-from .responses import delivery_links, public_completion, response_labels, response_operations, recovery_search_summary
+from .responses import delivery_links, delivery_status, delivery_summary, public_completion, response_labels, response_operations, recovery_search_summary
 from .search import SearchPolicy, SearchRun, TaskDirective, normalize_keyword, ordered_keywords, task_schema
 from .resource_index.manager import ResourceIndex
 from .resource_index.resolver import bind_target, resolve as resolve_resource
@@ -567,6 +567,15 @@ class DatasetQA:
 
     async def _failure_reply(self, user, sid, tid, answer, reason, operations, payload):
         reason = operations.resolve_error(reason, payload.get("delivery_sources", []))
+        if payload.get("delivery_sources") and not any(item.get("search") for item in operations.deliverable(partial=True)):
+            ids = list(dict.fromkeys(rid for item in operations.items for rid in operations.result_ids(item)))
+            cards = await asyncio.to_thread(self.store.selected_results, user, sid, ids)
+            facts = delivery_status(operations, payload["delivery_sources"], labels=payload.get("response_labels"),
+                request=payload.get("message", ""), plan=payload.get("plan"), cards=cards)
+            summary = delivery_summary(facts)
+            if summary:
+                await self._notice(user, sid, tid, answer, summary)
+                return
         operations = response_labels(operations, payload.get("response_labels"))
         for item in operations.items:
             if item.get("inferred") or item["description"] == payload.get("message", "")[:240]:
@@ -614,7 +623,7 @@ class DatasetQA:
             terminal[0]["required"] = True
         elif terminal:
             raise QAError("invalid_delivery", "存在多个独立成果，请明确它们分别满足的用户目标", detail={
-                "guidance": "For multiple outcomes load and submit remember.plan; retain existing source references so runtime can reuse successful receipts. For one advisory outcome use remember.goals and eligible deliver_results.confirmations. Do not re-execute already satisfied work.",
+                "guidance": "Declare the independent requested outcomes with remember.goals, then select eligible deliver_results.confirmations. Keep existing source references and receipts; do not re-execute satisfied work. Use a plan only for dependencies or plan-required capabilities.",
                 "candidates": [{"tool": item.get("capability"), "object": item.get("target")} for item in terminal]})
 
     @staticmethod
@@ -861,7 +870,8 @@ class DatasetQA:
                 aid = await asyncio.to_thread(self.artifacts.register, user, sid, card, tool, spec)
                 if aid:
                     card["file_artifact"] = aid
-        execution.operations.finish(operation_id, key, result_id=card["result_id"])
+        execution.operations.finish(operation_id, key, result_id=card["result_id"],
+            acceptance=descriptor.result.assess(output.data) if descriptor.result else None)
         self._register_objects(tool, card, payload)
         if payload.get("plan"):
             payload["plan"]["acceptance"] = outcome_status(payload["plan"], execution.operations,
@@ -1183,10 +1193,12 @@ class DatasetQA:
             payload["planning"] = True
             raise QAError("planning_required", "此操作通过计划执行，请登记本轮步骤", detail={
                 "guidance": "Submit remember.plan={steps:[{key,tool,arguments,object?}]} for the CURRENT request. Use object=source_step_key for file dependencies. Include the requested final format. Runtime derives kinds and producers; no MCP operation has run."})
-        if len(native)>1 and any(isinstance(call["args"].get(TASK), dict)
-                and call["args"][TASK].get("complete_request") is True for call in native):
+        declared = any(value.goals for value in memory) or any(item.get("planned") for item in execution.operations.required)
+        whole_request_batch = len(native)>1 and any(isinstance(call["args"].get(TASK), dict)
+            and call["args"][TASK].get("complete_request") is True for call in native)
+        if whole_request_batch and not declared:
             raise QAError("invalid_parameters", "声明完成整个请求的操作不能同时追加其他MCP调用", detail={
-                "guidance": "Choose the one capability that completes this request. For genuinely multiple requested outcomes, declare those outcomes and mark each intermediate call complete_request=false."})
+                "guidance": "For independent requested outcomes, submit remember.goals before or with their native calls; each goal keeps its own completion evidence. A whole-request shortcut alone cannot describe multiple outcomes."})
         asking = any(call["name"]=="request_input" for call in reply.tool_calls)
         execution.prepared = {}
         if not native and not memory and not (context.get("pending") and asking):
@@ -1234,15 +1246,60 @@ class DatasetQA:
                 raise QAError("invalid_parameters", "请选择已提供的对象，或先获取候选对象", detail={"object": handle, "available": list(handles)[:12]})
             return handles[handle]
 
-        records = {}
+        records, source_cards = {}, {}
+
+        async def source_card(result_id):
+            if result_id not in source_cards:
+                cards = await asyncio.to_thread(self.store.selected_results, user, sid, [result_id])
+                source_cards[result_id] = cards[0]
+            return source_cards[result_id]
 
         async def source(ref):
             if ref is None:
                 return None
             key = (ref["result_id"], ref.get("path", ""))
             if key not in records:
-                records[key] = await self._target_record(user, sid, ref)
+                card = await source_card(ref["result_id"])
+                value = at_path(card.get("data"), ref.get("path", ""))
+                if not isinstance(value, dict):
+                    raise QAError("invalid_parameters", "所选对象须对应完整的来源记录")
+                records[key] = value
             return records[key]
+
+        async def implicit_target(tool, arguments):
+            """Resolve only this turn's scope, using complete evidence, not previews."""
+            if reference_issue or (has_focus and focus is None):
+                return None
+            if handles.get("current"):
+                return handles["current"]
+            state = context.get("references", {})
+            if source_id := payload.get("params", {}).get("result_id"):
+                card = await source_card(source_id)
+                scopes = [display_list(card) or {"result_id": source_id, "path": "", "kind": "object"}]
+            else:
+                scopes = [*state.get("selected", []), *([state["candidates"]] if state.get("candidates") else [])]
+            candidates = {}
+            binding = profile(tool).bind
+            identified = bool(binding) and all(arguments.get(key) is not None for key in binding)
+            for scope in scopes:
+                card = await source_card(scope["result_id"])
+                value = at_path(card.get("data"), scope.get("path", ""))
+                rows = enumerate(value) if isinstance(value, list) else [(None, value)]
+                for index, row in rows:
+                    if not isinstance(row, dict):
+                        continue
+                    ref = {**scope, "path": scope.get("path", "")+("/"+str(index) if index is not None else "")}
+                    key = (ref["result_id"], ref["path"])
+                    records[key] = row
+                    if identified:
+                        try:
+                            inputs(tool, arguments, row)
+                        except QAError:
+                            continue  # Every supplied identity must agree with this record.
+                    candidates[key] = ref
+                    if len(candidates)>1:
+                        return None
+            return next(iter(candidates.values()), None)
 
         async def same_target(tool, left, right):
             left = await bind_target(self, user, sid, tool, profile(tool), left)
@@ -1282,7 +1339,11 @@ class DatasetQA:
             for goal in goals:
                 tool = resolve_tool(goal.tool, tools.loaded)
                 validate_intent(tool, goal)
-                target = resolve(goal.object) if goal.object else handles.get("current") if profile(tool).bind else None
+                target = None
+                if goal.object:
+                    target = resolve(goal.object)
+                elif profile(tool).bind:
+                    target = await implicit_target(tool, {})
                 for item in operations.items:
                     if item.get("capability")=={"server": tool.server, "name": tool.name} and await same_target(tool, item.get("target"), target):
                         target = item.get("target")
@@ -1373,9 +1434,10 @@ class DatasetQA:
                 grounded_identifier = bool(descriptor.bind) and set(descriptor.bind) <= grounded_fields
                 direct_identifier = (grounded_identifier and selector is None and target is None and not has_focus)
                 if descriptor.bind and target is None:
-                    targets = [item["target"] for item in goals if item.get("target")]
+                    targets = [item["target"] for item in goals if item.get("target")
+                        and (goal_choice is None or item["id"] == goal_choice)]
                     if not direct_identifier:
-                        target = targets[0] if len(targets)==1 else handles.get("current")
+                        target = targets[0] if len(targets)==1 else await implicit_target(tool, arguments)
                 explicit_goal = any(goal.object for value in memory for goal in value.goals or [] if goal.tool in {tool.alias, tool.name, tool.server+"/"+tool.name})
                 if descriptor.bind and reference_issue and selector is None and not has_focus and not explicit_goal and not direct_identifier:
                     raise QAError("invalid_parameters", "对象来源存在歧义，请先明确需要处理的对象", detail={"available_objects": list(handles)[:12]})
@@ -1392,6 +1454,14 @@ class DatasetQA:
                             "guidance": "Use a supplied object handle, or for a planned dependency revise plan.editable: set object to the source step key and omit its bound identifiers from arguments. Scalar references belong in inputs={parameter:{step,path}}. Do not invent identifiers or bypass the plan with direct calls."})
                 if descriptor.search and directive and directive.keywords:
                     prepared[descriptor.search.query] = directive.keywords[0]
+                matches = []
+                if not legacy and not scheduled:
+                    candidates = [item for item in goals if goal_choice is None or item["id"] == goal_choice]
+                    matches = [item for item in candidates if await same_target(tool, item.get("target"), target)]
+                    unbound = [item for item in candidates if item.get("target") is None and item["state"] == "pending"
+                        and not any(attempt["state"] != "rejected" for attempt in item["attempts"])]
+                    if not matches and target is not None and descriptor.bind and len(unbound) == 1:
+                        matches = unbound
                 # Goals, direct calls and scheduled steps share the same
                 # operation/format contract. A completed prior turn contributes
                 # resources, never this turn's intent.
@@ -1402,6 +1472,8 @@ class DatasetQA:
                     intents.append({key: step[key] for key in ("operation", "output_format") if step.get(key) is not None})
                 elif not supporting and len(execution.operations.required) == 1:
                     intents.append(execution.operations.required[0].get("intent", {}))
+                elif not supporting and len(matches) == 1:
+                    intents.append(matches[0].get("intent", {}))
                 call_intent = {}
                 for intent in intents:
                     if any(key in call_intent and call_intent[key] != value for key, value in intent.items()):
@@ -1436,25 +1508,22 @@ class DatasetQA:
                                     and not execution.operations.receipt(invocation, previous["id"])):
                                 raise QAError("invalid_parameters", "已有此目标的检索或操作结果；请先判断是否可交付，继续扩展前需明确尚未满足的目标", detail={
                                     "decision": "confirm_outcome", "result_ids": execution.operations.result_ids(previous),
-                                    "guidance": "Deliver if saved evidence satisfies the request. Otherwise use remember.plan for multiple/dependent outcomes, or remember.goals for one advisory outcome. Read only specific missing evidence, not every truncated field."})
-                    matches = [item for item in goals if await same_target(tool, item.get("target"), target)]
-                    unbound = [item for item in goals if item.get("target") is None and item["state"]=="pending"
-                        and not any(attempt["state"]!="rejected" for attempt in item["attempts"])]
-                    if not matches and target is not None and descriptor.bind and len(unbound)==1:
-                        unbound[0]["target"] = target
-                        matches = unbound
-                    if goal_choice is not None:
-                        matches = [item for item in matches if item["id"]==goal_choice]
-                        if not matches:
-                            raise QAError("invalid_parameters", "调用对象与所选目标不一致，尚未执行")
+                                    "guidance": "Deliver if saved evidence satisfies the request. Declare independent outcomes with remember.goals; use remember.plan for dependencies or plan-required capabilities. Read only specific missing evidence, not every truncated field."})
+                    if goal_choice is not None and not matches:
+                        raise QAError("invalid_parameters", "调用对象与所选目标不一致，尚未执行")
                     if not supporting and len(matches)>1:
                         raise QAError("invalid_parameters", "同一能力对应多个目标，请明确本次调用服务于哪个目标", detail={
                             "field": GOAL, "choices": [{"id": item["id"], "description": item["description"]} for item in matches]})
                     if not supporting and matches:
                         matched = matches[0]
+                        if matched.get("target") is None and target is not None:
+                            matched["target"] = target
                         operation_id = matched["id"]
                         target = matched.get("target")
                     elif directive and directive.complete_request and not supporting:
+                        if declared:
+                            raise QAError("invalid_parameters", "本次调用未关联已登记的目标，请明确所需成果", detail={
+                                "guidance": "Use the declared goal's capability and object, or add the missing independent goal. A whole-request shortcut cannot replace declared outcomes."})
                         ongoing = [item for item in execution.operations.items if discovery and item.get("search")
                             and item.get("capability")==capability and await same_target(tool, item.get("target"), target)
                             and not item.get("required", True)]
@@ -1518,6 +1587,12 @@ class DatasetQA:
                     "phase": "input_binding", "dispatched": False}
                 execution.prepared[call["id"]] = (arguments, exc, None)
             bindings[call["id"]] = operation_id
+        if whole_request_batch and any(error for _, error, _ in execution.prepared.values()):
+            # Explicit outcomes take precedence over shortcut flags. Validate
+            # that reconciliation before dispatching any part of such a batch.
+            execution.operations, execution.cards = original_operations, original_cards
+            context["references"] = original_references
+            raise next(error for _, error, _ in execution.prepared.values() if error)
         valid_batch = not native or any(error is None for _, error, _ in execution.prepared.values())
         if not valid_batch and (inherited or (legacy and original_resume is None and payload.get("resume") is True)):
             # Invalid parameters cannot commit a continuation scope. In particular
@@ -1728,12 +1803,17 @@ class DatasetQA:
                 source_ids.append(rid)
         answer_ids = [rid for rid in dict.fromkeys(source_ids) if rid not in ids]
         answer_cards = await asyncio.to_thread(self.store.selected_results, user, sid, answer_ids) if answer_ids else []
+        status = delivery_status(operations, payload.get("delivery_sources", []),
+            labels=payload.get("response_labels"), request=payload.get("message", ""),
+            plan=payload.get("plan"), cards=[*cards, *answer_cards])
         delivery = final_evidence_view(cards, answer_cards, operations, self.gateway.limits.result_chars,
             stop_reason=self._response_notice(reason, bool(cards)) if reason else None)
         # Answer generation is a separate trust boundary. Planning feedback and
         # tool errors remain available for correction, never for public wording.
         context = {key: value for key, value in json.loads(messages[1].content).items()
             if key in {"memory", "summary", "references", "request_source", "request_objects", "response_basis", "history_coverage"}}
+        if status:
+            context["delivery_status"], _ = project(status, 2200)
         links = delivery_links(cards)
         if links:
             manifest = {"items": [], "total": len(links)}
@@ -1822,7 +1902,7 @@ class DatasetQA:
             if not answer["text"].strip():
                 if not cards:
                     raise QAError("empty_response", "服务信息已取得，但正式答复未能生成", 502)
-                answer["text"] = "请查看下方结果。"
+                answer["text"] = delivery_summary(status) or "请查看下方结果。"
                 await self._write(user, sid, tid, {"type": "message", "text": answer["text"]})
         except QAError as exc:
             # Only generation failures may degrade a confirmed delivery.
@@ -1832,7 +1912,8 @@ class DatasetQA:
                 raise
             log.warning("Final response degraded: task=%s code=%s", tid, exc.code)
             if reason is None:
-                await self._notice(user, sid, tid, answer, "结果已整理在下方，您可以先查看，并指定下一步要了解或处理的内容。")
+                await self._notice(user, sid, tid, answer, delivery_summary(status) or
+                    "结果已整理在下方，您可以先查看，并指定下一步要了解或处理的内容。")
 
     async def _run(self, user, sid, tid, payload, options):
         started = time.monotonic()
@@ -1952,7 +2033,7 @@ class DatasetQA:
                                 "remaining_calls": max(0, limits.max_calls-execution.calls),
                                 "result_ids": list(dict.fromkeys(rid for item in unconfirmed for rid in execution.operations.result_ids(item))),
                                 "guidance": ("This is the final decision round. Deliver evidence if it satisfies the request; otherwise record the genuinely unfinished goals or ask only for indispensable missing user input. Do not claim a prerequisite completed the whole request."
-                                    if closing else "Decide whether saved evidence satisfies the original request. Use remember.plan for multiple/dependent outcomes, or remember.goals for one advisory outcome. Reuse successful receipts. Truncated previews and large retrieval totals alone require no further calls.")}
+                                    if closing else "Confirm saved receipts against the request. Declare independent goals without repeating completed MCP calls. Use plan for dependencies or plan-required tools.")}
                             log.info("Decision checkpoint: task=%s round=%s phase=%s unconfirmed=%s",
                                 tid, round_index+1, updated["execution_decision"]["phase"], len(unconfirmed))
                         else:

@@ -98,6 +98,7 @@ class Operations:
             and (not owner.get("search") or owner["search"]["done"])
             for attempt in owner["attempts"]
             if attempt["state"]=="succeeded" and attempt.get("key") and attempt.get("invocation")
+            and attempt.get("acceptance", "accepted") == "accepted"
             and attempt.get("result_id") in available-claimed
             and not attempt.get("reused") and attempt.get("dispatched", True) is not False
             and (not attempt.get("tool") or attempt["tool"]==owner["capability"])]
@@ -116,6 +117,7 @@ class Operations:
                 continue
             ids = list(dict.fromkeys(attempt["result_id"] for owner, attempt in sources
                 if owner["capability"]==goal.get("capability") and owner.get("target")==goal.get("target")
+                and all(attempt.get("intent", {}).get(key) == value for key, value in goal.get("intent", {}).items())
                 and goal["id"] not in attempt.get("scope", [])))
             if ids:
                 result[goal["id"]] = ids
@@ -290,7 +292,8 @@ class Operations:
         item.pop("plan_retry", None)  # A revision permits one corrected attempt.
         item["state"] = "running"
         item["attempts"].append({"key": key, "state": "running", "tool": tool, "retry_safe": retry_safe,
-            "invocation": invocation, "scope": [goal["id"] for goal in self.required]})
+            "invocation": invocation, "scope": [goal["id"] for goal in self.required],
+            "intent": deepcopy(item.get("intent", {}))})
         if presentation is not None:
             item["attempts"][-1]["presentation"] = deepcopy(presentation)
 
@@ -306,7 +309,7 @@ class Operations:
             "error": {"code": error.code, "message": str(error)[:400], "status": error.status,
                 "detail": project(error.detail or {}, 1200)[0]}})
 
-    def finish(self, operation_id, key, *, result_id=None, error=None):
+    def finish(self, operation_id, key, *, result_id=None, error=None, acceptance=None):
         item = self.get(operation_id)
         if item is None:
             return
@@ -324,6 +327,8 @@ class Operations:
         attempt.update(state=state)
         if result_id:
             attempt["result_id"] = result_id
+            if acceptance is not None:
+                attempt["acceptance"] = acceptance
         if error:
             if isinstance(error.detail, dict) and error.detail.get("dispatched") is False:
                 attempt["dispatched"] = False
