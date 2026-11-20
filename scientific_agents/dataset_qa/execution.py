@@ -46,9 +46,13 @@ class Execution:
             and not item.get("required", True) and self.operations.result_ids(item)]
 
     @property
+    def undecided_scope(self):
+        return bool(self.unconfirmed) and not self.operations.required
+
+    @property
     def reviewing_scope(self):
         """Saved evidence needs a coverage decision, not another business call."""
-        return bool(self.unconfirmed) and not self.operations.required and not self.unfinished_searches
+        return self.undecided_scope and not self.unfinished_searches
 
     @property
     def result_ready(self):
@@ -86,14 +90,6 @@ class Execution:
             names.update(("list_mcp_servers", "load_mcp_tools", *loaded))
         if self.can_deliver and not self.unfinished_searches:
             names.add("deliver_results")
-        if not planning and not plan and len(self.operations.required) == 1:
-            goal = self.operations.required[0]
-            if goal.get("direct") and goal.get("search") and not goal["search"]["done"]:
-                # A confirmed single-outcome search already has its capability.
-                # Scope can still be revised explicitly through remember; it
-                # must not drift into unrelated lookups while awaiting keywords.
-                names -= {alias for alias, tool in loaded.items()
-                    if goal.get("capability") != {"server": tool.server, "name": tool.name}}
         blocked = set()
         for alias, tool in loaded.items():
             if profile(tool).plan_required:
@@ -104,6 +100,22 @@ class Execution:
                 names.discard(alias)
         if planning or plan:
             names -= set(loaded)
+        elif continuations:
+            pending = [item for item in self.operations.items
+                if (item.get("required", True) or item.get("inferred"))
+                and self.operations.assessment(item) == "pending"]
+            if pending and all(item.get("search") and item["state"] == "succeeded"
+                    and any(alias in loaded and item.get("capability") == {
+                        "server": loaded[alias].server, "name": loaded[alias].name}
+                        for alias in continuations) for item in pending):
+                # Finish an active search before deciding on additional scope.
+                # Its delivery role (direct, declared, inferred) does not change
+                # the missing input. Independent pending goals remain available;
+                # explicit supporting lookups do not lock out requested work.
+                decisions = {*continuations, "request_input"}
+                if not (len(self.operations.required) == 1 and self.operations.required[0].get("direct")):
+                    decisions.update(("remember", "list_mcp_servers", "load_mcp_tools"))
+                names &= decisions
         elif self.reviewing_scope:
             names &= {"remember", "read_result", "request_input", "deliver_results",
                 "list_mcp_servers", "load_mcp_tools"}

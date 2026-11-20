@@ -6,8 +6,8 @@ import pytest
 from ..capabilities import OBJECT, SUPPORTING, TASK
 from ..service import DatasetQA
 from .assertions import assert_completed, assert_handled
-from .test_bounded_discovery import KEYWORDS, SearchBackend, continue_keywords, discover, native, outcome, page
-from .test_dataset_qa import collect, engine, result_cards, session
+from .test_bounded_discovery import KEYWORDS, SearchBackend, continue_keywords, discover, outcome, page
+from .test_dataset_qa import collect, engine, remote, result_cards, session
 from .test_decisions import BareDialogue, goals, text
 
 
@@ -17,7 +17,7 @@ def test_saved_auxiliary_continuation_can_accompany_a_requested_outcome_without_
         backend = SearchBackend(lambda word, number: page(["asset-1"], 1))
         first = discover(keywords=KEYWORDS[:1], complete=False, **({SUPPORTING: True} if supporting else {}))
         combined = goals({"description": "Inspect asset-1", "tool": "inspect", "object": "object:1"}, calls=[
-            continue_keywords(), native("inspect", **{OBJECT: "object:1", TASK: {"complete_request": False}})])
+            continue_keywords(), remote("inspect", **{OBJECT: "object:1", TASK: {"complete_request": False}})])
         dialogue = BareDialogue(first, *([combined, text()] if supporting else [combined] * 3 + [text()]))
         service = DatasetQA(engine, dialogue, backend.gateway())
         sid = session(service)

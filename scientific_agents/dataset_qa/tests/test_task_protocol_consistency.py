@@ -215,8 +215,10 @@ def test_uncommitted_discovery_allows_explicit_scope_expansion(engine):
 
         def expand(messages, definitions):
             names = {item["function"]["name"] for item in definitions}
-            assert {aliases["find_assets"], aliases["directory"]} <= names
+            assert aliases["find_assets"] in names and aliases["directory"] not in names
             assert "remember" in names
+            memory = next(item["function"] for item in definitions if item["function"]["name"] == "remember")
+            assert aliases["directory"] in memory["parameters"]["$defs"]["Goal"]["properties"]["tool"]["enum"]
             assert len(backend.calls) == 1
             receipt = next(json.loads(message.content) for message in reversed(messages)
                 if message.type == "tool" and json.loads(message.content).get("objects"))

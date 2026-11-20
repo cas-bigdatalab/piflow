@@ -705,17 +705,6 @@ class DatasetQA:
             and (not execution.operations.required or execution.finalizing))
         actions = execution.actions(tools.loaded, planning=planning, plan=saved,
             closing=closing, continuations=continuations)
-        required = execution.operations.required
-        continuing_direct = (not planning and len(required) == 1 and required[0].get("direct")
-            and required[0]["output"] == "result"
-            and any(required[0]["id"] == goal["id"] for goals in continuations.values() for goal in goals)
-            and all(item["id"] == required[0]["id"] or execution.operations.assessment(item) == "accepted"
-                for item in execution.operations.items))
-        if continuing_direct:
-            # The source, object and outcome are already confirmed. A depleted
-            # keyword queue needs keywords, not discovery or scope expansion.
-            # This is the same scope commitment used by automatic delivery.
-            actions &= {*continuations, "request_input"}
         if tools.loaded and any(profile(tool).search or profile(tool).atomic for tool in tools.loaded.values()):
             catalogues = [tools.cached_tools(server) for server in tools.servers]
             if all(catalogue is not None for catalogue in catalogues) and all(
@@ -744,7 +733,7 @@ class DatasetQA:
                 schema["properties"]["revision"]["const"] = saved["revision"]
                 schema["properties"]["covered"]["items"]["enum"] = [value["key"] for value in saved["spec"]["outcomes"]]
                 schema["properties"]["covered"]["uniqueItems"] = True
-            if item["function"]["name"] == "remember" and execution.reviewing_scope and not planning:
+            if item["function"]["name"] == "remember" and (execution.reviewing_scope or continuations) and not planning:
                 item = definitions[index] = deepcopy(item)
                 goal = item["function"]["parameters"]["$defs"]["Goal"]["properties"]["tool"]
                 if tools.loaded:
@@ -1855,7 +1844,7 @@ class DatasetQA:
                     # Old/in-flight decisions may still use a loaded tool hidden
                     # during scope review. Accept exact receipt replay or an
                     # explicit scope declaration; never dispatch new unscoped work.
-                    if execution.reviewing_scope and not (directive and directive.complete_request):
+                    if execution.undecided_scope and not (discovery and matches):
                         invocation = fingerprint([tool.server, tool.name, prepared])
                         replay = any([previous.get("capability") == capability
                             and await same_target(tool, previous.get("target"), target)
@@ -2532,7 +2521,9 @@ class DatasetQA:
                             else:
                                 execution.scope_proposal = None
                             if reply.tool_calls:
-                                scope_review = execution.reviewing_scope and not saved_plan and not payload.get("planning")
+                                scope_review = not saved_plan and not payload.get("planning") and (
+                                    execution.undecided_scope or any(call["name"] == "remember" and call["args"].get("goals")
+                                        for call in reply.tool_calls))
                                 for call in reply.tool_calls:
                                     name = call["name"]
                                     if name in advertised:

@@ -6,12 +6,64 @@ from jsonschema import Draft202012Validator
 from langchain_core.messages import AIMessageChunk
 import pytest
 
-from ..capabilities import GOAL, SUPPORTING, TASK
+from ..capabilities import GOAL, OBJECT, SUPPORTING, TASK
 from ..service import DatasetQA
 from .assertions import assert_completed
 from .test_bounded_discovery import KEYWORDS, SearchBackend, continue_keywords, discover, native, outcome, page
-from .test_dataset_qa import action, collect, engine, remote, session
+from .test_dataset_qa import action, collect, engine, remote, result_cards, session
 from .test_decisions import BareDialogue, goals, text
+
+
+@pytest.mark.parametrize("drift", ["inspect", "read_result", "deliver_results"])
+def test_unconfirmed_search_cannot_drift_and_followup_detail_keeps_its_own_scope(engine, drift):
+    async def run():
+        backend = SearchBackend(lambda word, number: page(["asset-1"], 1))
+        observed = {}
+
+        def start(messages, definitions):
+            observed["inspect"] = next(item["function"]["name"] for item in definitions
+                if item["function"]["name"].endswith("_inspect"))
+            return discover(keywords=KEYWORDS[:1], complete=False)(messages, definitions)
+
+        def unrelated(messages, definitions):
+            observed["before"] = json.loads(messages[1].content)["operations"]
+            if drift == "inspect":
+                return action(observed["inspect"], **{OBJECT: "object:1", TASK: {"complete_request": True}})
+            if drift == "read_result":
+                return action("read_result")
+            return action("deliver_results")
+
+        def resume(messages, definitions):
+            assert json.loads(messages[1].content)["operations"] == observed["before"]
+            assert [name for name, _ in backend.calls] == ["find_assets"]
+            return continue_keywords()(messages, definitions)
+
+        dialogue = BareDialogue(start, unrelated, resume, action("deliver_results"), text())
+        service = DatasetQA(engine, dialogue, backend.gateway())
+        sid = session(service)
+        try:
+            first = await collect(service, sid, "Find chemical engineering datasets", "search")
+            assert_completed(service, sid, first[-1])
+            assert [args["phrase"] for _, args in backend.calls] == KEYWORDS
+            operation, = outcome(service, sid, first)["operations"]
+            assert operation["search"]["done"] and operation["required"]
+            assert len(result_cards(first)) == 1
+
+            # A fresh turn reopens the normal capability surface. Omitted scope
+            # confirmation still gets one explicit delivery decision, not a new
+            # search or the earlier turn's search acceptance requirements.
+            dialogue.responses = [native("inspect", **{TASK: {"complete_request": False}}),
+                action("deliver_results"), text("The requested details are available.")]
+            second = await collect(service, sid, "Show this dataset's details", "details")
+            assert_completed(service, sid, second[-1])
+            assert backend.calls[-1] == ("inspect", {"reference": "asset-1"})
+            assert len(backend.calls) == len(KEYWORDS) + 1
+            detail, = outcome(service, sid, second)["operations"]
+            assert detail["capability"]["name"] == "inspect" and not detail.get("search")
+            assert len(result_cards(second)) == 1
+        finally:
+            await service.close()
+    asyncio.run(run())
 
 
 @pytest.mark.parametrize("scope", ["direct", "declared", "inferred"])
@@ -29,11 +81,12 @@ def test_react_continuation_preserves_scope_filters_and_receipts(engine, scope):
             task = next(item["function"]["parameters"]["properties"][TASK] for item in definitions
                 if item["function"]["name"].endswith("_find_assets"))
             assert task["properties"]["keywords"]["maxItems"] == len(KEYWORDS) - 1
-            if scope == "direct":
-                assert names == {"request_input", next(name for name in names if name.endswith("_find_assets"))}
-            else:
-                assert "read_result" in names
-                assert any(name.endswith("_inspect") for name in names)
+            # A depleted queue has the same next decision regardless of how
+            # its delivery role was declared. Do not reopen unrelated work.
+            expected = {"request_input", next(name for name in names if name.endswith("_find_assets"))}
+            if scope != "direct":
+                expected.add("remember")  # Scope can evolve, before new business execution.
+            assert names == expected
             return continue_keywords()(messages, definitions)
 
         def confirm_inferred(messages, definitions):
@@ -64,6 +117,40 @@ def test_react_continuation_preserves_scope_filters_and_receipts(engine, scope):
             if scope == "inferred":
                 assert observed["after"]["delivery_pending"] is True
                 assert not observed["after"].get("direct")
+        finally:
+            await service.close()
+    asyncio.run(run())
+
+
+@pytest.mark.parametrize("shortcut", [False, True])
+def test_finished_search_needs_scope_for_a_new_inspection_even_with_whole_request_flag(engine, shortcut):
+    async def run():
+        backend = SearchBackend(lambda word, number: page(["asset-1"], 1))
+        observed = {}
+
+        def start(messages, definitions):
+            observed["inspect"] = next(item["function"]["name"] for item in definitions
+                if item["function"]["name"].endswith("_inspect"))
+            return discover(complete=False)(messages, definitions)
+
+        def extra(messages, definitions):
+            observed["before"] = json.loads(messages[1].content)["operations"]
+            assert "deliver_results" in {item["function"]["name"] for item in definitions}
+            return action(observed["inspect"], **{OBJECT: "object:1", TASK: {"complete_request": shortcut}})
+
+        def deliver(messages, definitions):
+            assert json.loads(messages[1].content)["operations"] == observed["before"]
+            assert [name for name, _ in backend.calls] == ["find_assets"] * len(KEYWORDS)
+            return action("deliver_results")
+
+        dialogue = BareDialogue(start, extra, deliver, text())
+        service = DatasetQA(engine, dialogue, backend.gateway())
+        sid = session(service)
+        try:
+            events = await collect(service, sid, "Find chemical engineering datasets")
+            assert_completed(service, sid, events[-1])
+            operation, = outcome(service, sid, events)["operations"]
+            assert operation["capability"]["name"] == "find_assets" and operation["required"]
         finally:
             await service.close()
     asyncio.run(run())
