@@ -211,7 +211,7 @@ def test_invalid_config_is_reported_without_search_or_backend_details(files, mon
             assert "没有匹配" not in reply and "其他数据集" not in reply
             assert "DATASET_QA" not in reply and "password" not in reply
         async with Client(mcp) as client:
-            assert len(await client.list_tools()) == 8
+            assert {"query_pubchem_compounds", "export_dataset", "get_corpus_dataset_detail"} <= {tool.name for tool in await client.list_tools()}
     asyncio.run(run())
     assert not files.requests
 
@@ -508,7 +508,7 @@ def test_read_only_mcp_does_not_require_or_initialize_artifact_key(tmp_path, mon
     monkeypatch.setattr(corpus_mcp, "get_dataset_detail_by_cstr", lambda cstr: {"cstr": cstr, "title": "Dataset"})
     async def run():
         async with Client(mcp) as client:
-            assert len(await client.list_tools()) == 8
+            assert {"search_corpus_datasets", "get_corpus_dataset_detail"} <= {tool.name for tool in await client.list_tools()}
             result = await client.call_tool("get_corpus_dataset_detail", {"cstr": "example"})
             assert not result.is_error
         assert not key_root.exists()

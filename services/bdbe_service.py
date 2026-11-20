@@ -10,9 +10,12 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
+from email.message import Message
 from contextlib import contextmanager
 from typing import Any, Iterator
 from urllib.parse import urlencode
+from pathlib import PurePosixPath
 
 import requests
 
@@ -109,12 +112,17 @@ def _get_json(
         log.warning("BDBE request failed operation=%s error=%s", path, exc)
         raise BdbeUpstreamError(f"BDBE request failed for {path}") from exc
 
-    if not response.ok:
-        raise _request_error(response, path)
     try:
-        return response.json()
-    except ValueError as exc:
-        raise BdbeUpstreamError(f"BDBE {path} returned invalid JSON") from exc
+        if not response.ok:
+            raise _request_error(response, path)
+        try:
+            payload = response.json()
+        except ValueError as exc:
+            raise BdbeUpstreamError(f"BDBE {path} returned invalid JSON") from exc
+        _checked_payload(payload)
+        return payload
+    finally:
+        response.close()
 
 
 def query_metadata(
@@ -131,8 +139,8 @@ def query_metadata(
         raise ValueError("term is required")
     if page < 1:
         raise ValueError("page must be greater than or equal to 1")
-    if pagesize < 1:
-        raise ValueError("pagesize must be greater than or equal to 1")
+    if not 1 <= pagesize <= 1000:
+        raise ValueError("pagesize must be between 1 and 1000")
 
     params: dict[str, Any] = {
         "term": normalized_term,
@@ -172,9 +180,13 @@ def get_metadata_detail(
 def _normalize_dataids(dataids: str | list[str]) -> str:
     if isinstance(dataids, str):
         values = [item.strip() for item in dataids.split(",")]
+    elif isinstance(dataids, list) and all(isinstance(item, str) for item in dataids):
+        values = [item.strip() for item in dataids]
     else:
-        values = [str(item).strip() for item in dataids]
-    values = [item for item in values if item]
+        raise ValueError("dataids must contain Accession strings")
+    values = list(dict.fromkeys(item for item in values if item))
+    if any(len(item)>500 or "," in item or any(c.isspace() for c in item) for item in values):
+        raise ValueError("dataids must contain separate Accession identifiers")
     max_ids = get_settings().bdbe.max_download_ids
     if not values:
         raise ValueError("dataids is required")
@@ -219,7 +231,10 @@ def stream_genbank(
     try:
         if not response.ok:
             raise _request_error(response, "/bioservice/nuc/genbank")
-        yield response, response.iter_content(chunk_size=chunk_size)
+        try:
+            yield response, response.iter_content(chunk_size=chunk_size)
+        except requests.RequestException as exc:
+            raise BdbeUpstreamError("BDBE GenBank stream interrupted") from exc
     finally:
         response.close()
 
@@ -228,3 +243,143 @@ def build_genbank_url(*, dataids: str | list[str]) -> str:
     """Build a diagnostic upstream URL without embedding authentication."""
 
     return f"{_base_url()}/bioservice/nuc/genbank?{urlencode({'dataids': _normalize_dataids(dataids)})}"
+
+
+def _checked_payload(value):
+    """Interpret service envelopes here, never in the agent runtime."""
+    if isinstance(value, dict) and (value.get("success") is False or value.get("error")
+            or "code" in value and str(value["code"]) not in {"0", "200"}):
+        raise BdbeUpstreamError("BDBE returned an unsuccessful response")
+    return value
+
+
+def _scalar(row, *keys):
+    values = [str(row[key]).strip() for key in keys
+        if type(row.get(key)) in (str, int) and str(row[key]).strip()]
+    if len(set(values))>1:
+        raise BdbeUpstreamError("BDBE returned conflicting record identifiers")
+    return values[0] if values else None
+
+
+def _record(row, db=None):
+    if not isinstance(row, dict) or not row:
+        raise BdbeUpstreamError("BDBE returned an invalid metadata record")
+    _checked_payload(row)
+    database, identifier = _scalar(row, "db", "DB"), _scalar(row, "SDI", "sdi")
+    uid = _scalar(row, "UID", "uid")
+    # Accessions are never inferred from SDI, UID, CSTR or a project identifier.
+    accessions = []
+    for key in ("Accession", "accession", "accessions", "Accession Version"):
+        value = row.get(key)
+        if isinstance(value, str):
+            accessions.extend(item.strip() for item in value.split(",") if item.strip())
+        elif isinstance(value, list) and all(isinstance(item, str) for item in value):
+            accessions.extend(item.strip() for item in value if item.strip())
+    name = next((row[key] for key in ("Name", "name", "Title", "title") if isinstance(row.get(key), str) and row[key].strip()), None)
+    if not (identifier or uid or name or accessions):
+        raise BdbeUpstreamError("BDBE response lacks metadata record identifiers or a title")
+    database = database or db
+    if name:
+        name = re.sub(r"</?high-light>", "", name, flags=re.I)
+    item = {"source": "BDBE", "db": database, "sdi": identifier,
+        "id": identifier or uid, "title": name,
+        "description": row.get("Description", row.get("description")), "raw": row}
+    if accessions:
+        item["accessions"] = list(dict.fromkeys(accessions))
+    return item
+
+
+def metadata_page(payload, *, db=None, page=1, pagesize=20):
+    """Normalize documented results lists; reject unknown shapes, not as empty."""
+    value = _checked_payload(payload)
+    if isinstance(value, dict) and "results" not in value and "data" in value:
+        value = _checked_payload(value["data"])
+    rows = value.get("results") if isinstance(value, dict) else value
+    if not isinstance(rows, list):
+        raise BdbeUpstreamError("BDBE metadata response lacks a results list")
+    items = [_record(row, db=db) for row in rows]
+    total = value.get("total") if isinstance(value, dict) else None
+    if isinstance(value, dict) and isinstance(value.get("pagination"), dict):
+        total = value["pagination"].get("total", total)
+    if isinstance(total, str) and total.isascii() and total.isdecimal():
+        total = int(total)
+    if type(total) is not int or total<0:
+        total = None
+    result = {"items": items, "pagination": {"page": page, "page_size": pagesize, "total": total}}
+    # Preserve upstream continuation information. Do not claim a cursor can be
+    # incremented as a page number until that API contract has been verified.
+    if isinstance(value, dict):
+        result["metadata"] = {k: v for k, v in value.items() if k not in {"results", "pagination"}}
+    return result
+
+
+def metadata_detail(payload, *, db, sdi):
+    value = _checked_payload(payload)
+    if isinstance(value, dict) and not any(key in value for key in ("SDI", "sdi", "UID", "uid", "Title", "title", "Name", "name")):
+        if "data" in value:
+            value = _checked_payload(value["data"])
+        elif "results" in value:
+            value = value["results"]
+        else:
+            raise BdbeUpstreamError("BDBE detail response lacks a metadata record")
+    if isinstance(value, list):
+        if len(value)>1:
+            raise BdbeUpstreamError("BDBE detail returned multiple records")
+        value = value[0] if value else None
+    if value in (None, {}):
+        return {"status": "unavailable", "item": None}
+    item = _record(value, db=db)
+    if item["db"] != db or item["sdi"] not in (None, sdi):
+        raise BdbeUpstreamError("BDBE returned a different requested record")
+    item["sdi"] = item["id"] = sdi
+    return {"status": "ready", "item": item}
+
+
+def download_genbank_file(dataids, sessionid=None, *, execution=None):
+    """Publish only a complete GBFF stream, without loading it into memory."""
+    from scientific_agents.dataset_qa.file_publication import publish_file
+
+    normalized = _normalize_dataids(dataids)
+    arguments = {"dataids": dataids, "sessionid": sessionid}
+    def produce(path, checkpoint, max_bytes):
+        size, records, in_record, pending = 0, 0, False, b""
+        def consume(line):
+            nonlocal in_record, records
+            if not line.strip():
+                return
+            locus = line.startswith((b"LOCUS ", b"LOCUS\t"))
+            if not in_record:
+                if not locus:
+                    raise BdbeUpstreamError("BDBE returned non-GBFF content outside a record")
+                in_record = True
+            elif locus:
+                raise BdbeUpstreamError("BDBE returned an unterminated GBFF record")
+            elif line.strip() == b"//":
+                records += 1
+                in_record = False
+        with stream_genbank(dataids=normalized, sessionid=sessionid) as (response, chunks):
+            media = response.headers.get("content-type", "application/octet-stream").split(";", 1)[0].strip().lower()
+            if media in {"application/json", "text/html"}:
+                raise BdbeUpstreamError("BDBE did not return a GBFF file")
+            header = Message()
+            header["Content-Disposition"] = response.headers.get("content-disposition", "")
+            name = PurePosixPath((header.get_filename() or "genbank.gbff").replace("\\", "/")).name
+            with path.open("wb") as output:
+                for chunk in chunks:
+                    checkpoint()
+                    size += len(chunk)
+                    if size > max_bytes:
+                        raise ValueError("文件超过本次下载大小预算")
+                    output.write(chunk)
+                    lines = (pending+chunk).split(b"\n")
+                    pending = lines.pop()
+                    if len(pending)>1024*1024:
+                        raise BdbeUpstreamError("BDBE returned an invalid GBFF line")
+                    for line in lines:
+                        consume(line)
+                consume(pending)
+        if not records or in_record:
+            raise BdbeUpstreamError("BDBE did not return a complete GBFF file")
+        return {"name": name, "format": "gbff", "media_type": media,
+            "record_count": records, "query": {"dataids": normalized.split(",")}}
+    return publish_file(execution, arguments, "bdbe.genbank", produce)

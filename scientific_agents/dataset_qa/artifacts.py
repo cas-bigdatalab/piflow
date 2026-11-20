@@ -8,6 +8,7 @@ import json
 import logging
 import math
 import time
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy import Column, Float, JSON, MetaData, String, Table, Text, and_, cast, func, or_, select
@@ -19,14 +20,15 @@ from .artifact_storage import canonical_numbers
 
 
 class ArtifactSpec(BaseModel):
-    """Manifest protocol for owned record resources.
+    """Manifest protocol for owned files and structured record resources.
 
-    ``consume`` names a source_ref parameter. A capability declaring the export
-    operation preserves record_count and returns parent_source_ref alongside
-    the output manifest, so representation changes retain verifiable lineage.
+    ``consume`` names a source_ref parameter and accepts the declared kind.
+    Structured record exports preserve record_count and parent_source_ref;
+    opaque files carry record_count only when measured by their producer.
     """
     model_config = ConfigDict(extra="forbid")
     path: str = "/resource"
+    kind: Literal["record_resource", "file"] = "record_resource"
     consume: str | None = None
     execution_context: bool = False
     replay_safe: bool = False
@@ -100,13 +102,18 @@ class Artifacts:
             return None
         if resource is None:
             return None
+        count = resource.get("record_count") if isinstance(resource, dict) else None
         if (not isinstance(resource, dict) or not isinstance(resource.get("source_ref"), str)
-                or not 0 < len(resource["source_ref"]) <= 4000 or type(resource.get("record_count")) is not int
-                or resource["record_count"] < 0 or not isinstance(resource.get("format"), str)
+                or not 0 < len(resource["source_ref"]) <= 4000
+                or resource.get("kind", "record_resource") != spec.kind
+                or ((spec.kind == "record_resource" or "record_count" in resource) and (type(count) is not int or count < 0))
+                or not isinstance(resource.get("format"), str)
                 or not 0 < len(resource["format"]) <= 40
                 or not isinstance(resource.get("sha256"), str) or len(resource["sha256"]) != 64
                 or any(c not in "0123456789abcdef" for c in resource["sha256"])
-                or card.get("data", {}).get("record_count", resource["record_count"]) != resource["record_count"]):
+                or card.get("data", {}).get("record_count", count) != count
+                or (spec.kind == "file" and (type(resource.get("size_bytes")) is not int or resource["size_bytes"] < 0
+                    or not isinstance(resource.get("name"), str) or not resource["name"]))):
             raise QAError("invalid_result", "本次文件信息尚未完整，已保留现有结果", 502)
         identity = sha256(_json([tool.server, resource["source_ref"]]).encode()).hexdigest()
         aid = "artifact-" + sha256(_json([user, identity, resource["sha256"]]).encode()).hexdigest()[:40]
@@ -208,8 +215,10 @@ class Artifacts:
             manifest = manifests[handle]
             resource = manifest["resource"]
             entry = {"handle": handle, "result_id": result_id, "server": manifest["server"],
-                "tool": manifest["tool"], "kind": "record_resource",
-                "format": resource["format"], "record_count": resource["record_count"]}
+                "tool": manifest["tool"], "kind": resource.get("kind", "record_resource"),
+                "format": resource["format"]}
+            if "record_count" in resource:
+                entry["record_count"] = resource["record_count"]
             if parent := parents.get(parent_keys.get(handle)):
                 entry["source_producer"] = {"server": parent["server"], "tool": parent["tool"]}
             query = manifest.get("provenance", {}).get("query")
@@ -254,6 +263,8 @@ class Artifacts:
             "fields": resource.get("fields", [])[:8]}, 640)
         result = {**(view or {}), "handle": row["id"], "source": payload["server"],
             "updated_at": datetime.fromtimestamp(row["updated_at"], timezone.utc).isoformat()}
+        if resource.get("kind") == "file":
+            result["kind"] = "file"
         if criteria and (query := payload.get("provenance", {}).get("query")):
             complete, clipped = project(query, 400)
             if not clipped and _json(complete) == _json(query):

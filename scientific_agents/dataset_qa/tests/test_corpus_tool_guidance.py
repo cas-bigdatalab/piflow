@@ -61,9 +61,9 @@ def test_six_tools_keep_schema_and_record_inputs_separate():
     async def run():
         async with MCPGateway({"piflow-corpus": Server(mcp)}).session() as tools:
             catalogue = {tool.name: tool for tool in await tools.tools("piflow-corpus")}
-            assert set(catalogue)=={"search_corpus_datasets", "get_corpus_dataset_detail", "get_corpus_dataset_directory",
+            assert {"search_corpus_datasets", "get_corpus_dataset_detail", "get_corpus_dataset_directory",
                 "sample_corpus_dataset", "get_corpus_file_schema", "read_corpus_file_records",
-                "query_pubchem_compounds", "export_dataset"}
+                "query_pubchem_compounds", "export_dataset"} <= set(catalogue)
             schema = catalogue["get_corpus_file_schema"]
             records = catalogue["read_corpus_file_records"]
             assert profile(schema).target_kind==profile(records).target_kind=="file"

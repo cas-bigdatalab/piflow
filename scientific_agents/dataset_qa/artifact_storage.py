@@ -330,7 +330,7 @@ class LocalArtifactStore:
 
     def path(self, key, name):
         check_identity(self.owner, key)
-        if name not in {"manifest.json", "data.csv", "data.jsonl"}:
+        if name != "manifest.json" and not re.fullmatch(r"data\.[a-z0-9]{1,16}", name):
             raise ValueError("无效的产物文件名")
         path = self.config.root / self.owner / key / name
         # Reject symlink escapes, including links to another owner's directory.

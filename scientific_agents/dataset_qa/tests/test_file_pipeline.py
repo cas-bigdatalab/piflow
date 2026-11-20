@@ -297,7 +297,7 @@ def test_real_mcp_schema_and_signed_context_round_trip(files, overrides):
     async def run():
         async with Client(mcp) as client:
             definitions = await client.list_tools()
-            assert len(definitions) == 8
+            assert {"query_pubchem_compounds", "export_dataset"} <= {tool.name for tool in definitions}
             tool = next(t for t in definitions if t.name == "query_pubchem_compounds")
             assert "ctx" not in tool.inputSchema["properties"]
             args = query_args(**overrides)

@@ -205,8 +205,15 @@ def adapted(tool):
 
 def request_identifiers(tool, arguments, message):
     """Return only explicitly supplied bound IDs with complete input evidence."""
+    def supplied(key):
+        value = arguments[key]
+        if isinstance(value, list):
+            # Batch identifiers require provenance for EVERY member. Parsing
+            # separators or synthesizing values remains outside the runtime.
+            return bool(value) and all(identifier_in_request(item, message, key) for item in value)
+        return identifier_in_request(value, message, key)
     return {key: arguments[key] for key in profile(tool).bind
-        if key in arguments and identifier_in_request(arguments[key], message, key)}
+        if key in arguments and supplied(key)}
 
 
 def identifiers_from_request(tool, arguments, message):
@@ -370,6 +377,10 @@ def inputs(tool, arguments, record=None):
     descriptor = profile(tool)
     binding = descriptor.bind
     if record is not None:
+        if descriptor.artifact and descriptor.artifact.consume and (
+                not isinstance(record, dict) or record.get("kind", "record_resource") != descriptor.artifact.kind):
+            raise QAError("invalid_parameters", "所选文件类型不适用于此操作，请使用兼容的文件处理能力",
+                detail={"origin": "object_contract"})
         from jsonschema import Draft202012Validator
 
         if not all(check.matches(record) for check in descriptor.input_checks):
