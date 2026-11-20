@@ -139,21 +139,18 @@ def ordered_keywords(keywords, originals, request, history=(), previous=None, *,
                 "guidance": "original_keywords must quote subject phrases from the current request or explicit prior user requests. Do not translate, invent categories, or copy tool output into original_keywords."})
         originals = list(originals)
         original_keys = {normalize_keyword(word) for word in originals}
-        # On initial extraction, current-request phrases precede rewrites even
-        # when omitted from the model's provenance annotation.
-        for word in keywords:
-            key = normalize_keyword(word)
-            if key in sources[0] and key not in original_keys:
-                originals.append(word)
-                original_keys.add(key)
         originals.sort(key=lambda word: normalize_keyword(word) not in sources[0])
     unique = {}
-    for word in [*originals, *keywords]:
+    for word in [*previous.get("keywords", []), *originals, *keywords]:
         unique.setdefault(normalize_keyword(word), word.strip())
-    values = list(unique.values())
-    ordered = [word for word in values if normalize_keyword(word) in original_keys]
-    ordered.extend(word for word in values if normalize_keyword(word) not in original_keys)
-    if len({normalize_keyword(word) for word in [*previous.get("keywords", []), *ordered]})>policy.keyword_limit:
+    ordered = list(unique.values())
+    if not old:
+        # Prioritize request wording without rewriting the model's accepted
+        # provenance. Subsequent calls retain the queue and extraction exactly;
+        # the same valid proposal must not become invalid through bookkeeping.
+        ordered.sort(key=lambda word: (normalize_keyword(word) not in sources[0],
+            normalize_keyword(word) not in original_keys))
+    if len(ordered)>policy.keyword_limit:
         raise QAError("invalid_parameters", f"原词和改写词合计最多{policy.keyword_limit}个不同关键词")
     return ordered, [word.strip() for word in originals]
 

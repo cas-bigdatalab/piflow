@@ -61,6 +61,22 @@ def test_source_hint_keeps_other_sources_reachable():
     assert select_tools(tools, "OtherArchive", group="catalogue") == [tools[0]]
 
 
+@pytest.mark.parametrize("query", ["OtherArchive", "Find observations from otherarchive"])
+def test_initial_source_recall_preserves_neutral_tools_without_filling_unrelated_slots(query):
+    tools = catalogue()
+    tools[2] = replace(tools[2], meta={"piflow": {"qa": {
+        "routing": {"group": "cells", "source": "OtherArchive"}}}})
+    neutral = replace(tools[0], name="convert_records", meta={"piflow": {"qa": {
+        "routing": {"group": "conversion"}}}})
+    tools.append(neutral)
+    assert select_tools(tools, query, source_scope=True) == [tools[2], neutral]
+    # This is only initial recall, not a source ACL or a group-name special case.
+    assert len(select_tools(tools, query)) == 4
+    assert len(select_tools(tools, "ArchiveDB and OtherArchive", source_scope=True)) == 4
+    assert len(select_tools(tools, "unmentioned source", source_scope=True)) == 4
+    assert select_tools(tools, query, group="catalogue", source_scope=True) == [tools[0]]
+
+
 def test_schema_vocabulary_needs_no_routing_metadata_and_ignores_example_data():
     decoy = Tool("service", "first", "Process records", {"type": "object", "properties": {
         "value": {"type": "string", "default": "rare lineage", "examples": ["rare lineage"]}}}, {}, {})

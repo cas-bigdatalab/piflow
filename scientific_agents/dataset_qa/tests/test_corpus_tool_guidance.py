@@ -36,6 +36,25 @@ def test_relevant_tool_is_loaded_from_real_descriptions_on_cold_and_warm_start(q
     asyncio.run(run())
 
 
+def test_initial_source_scope_is_consistent_on_cold_and_warm_catalogues():
+    from mcp_servers.corpus_mcp import mcp
+
+    async def run():
+        gateway = MCPGateway({"piflow-corpus": Server(mcp)})
+        for _ in range(2):
+            async with gateway.session() as tools:
+                await tools.prepare("Find PubChem compounds and save CSV")
+                assert {"query_pubchem_compounds", "export_dataset"} <= {tool.name for tool in tools.loaded.values()}
+                assert all(not profile(tool).routing.source or profile(tool).routing.source.casefold() == "pubchem"
+                    for tool in tools.loaded.values())
+                assert tools.cached_tools("piflow-corpus") is not None
+                # Explicit discovery retains all other groups and the original
+                # page contract; initial source focus is reversible.
+                page = await tools.load("piflow-corpus", group="corpus")
+                assert "search_corpus_datasets" in {item["tool"] for item in page["items"]}
+    asyncio.run(run())
+
+
 def test_six_tools_keep_schema_and_record_inputs_separate():
     from mcp_servers.corpus_mcp import mcp
 

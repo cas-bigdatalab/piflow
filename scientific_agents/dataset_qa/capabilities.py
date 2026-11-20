@@ -317,6 +317,12 @@ def definition(tool):
         if bound:
             schema["properties"][OBJECT] = {"type": ["string", "null"], "description": "Supplied object handle; omit for current focus or a unique scoped object. Runtime binds verified identifiers. Select explicitly if ambiguous."}
             schema["required"] = [key for key in schema.get("required", []) if key not in bound]
+            for key in bound:
+                if isinstance(field := schema["properties"].get(key), dict):
+                    field["description"] = field.get("description", "") + (
+                        " For a supplied object, omit this field: runtime copies its verified identifier. "
+                        "Select a different object with __qa_object instead of overriding its identifier. "
+                        "Direct identifiers explicitly provided by the user are also accepted.")
         if descriptor.search or descriptor.atomic:
             task = directive_schema(descriptor)
             if descriptor.search:
@@ -336,9 +342,13 @@ def definition(tool):
                     {"required": [SUPPORTING], "properties": {SUPPORTING: {"const": True}}}]})
     contract = descriptor.result
     kind = contract.kind if contract else tool.name
-    description = tool.description+"\nQA outcome kind: "+kind
-    if descriptor.routing and descriptor.routing.operations:
-        description += "\nSupported operations: "+", ".join(descriptor.routing.operations)
+    description = tool.description+"\nQA outcome kind: "+kind+"\nMCP service: "+tool.server
+    if descriptor.routing:
+        description += "\nTool group: "+descriptor.routing.group
+        if descriptor.routing.source:
+            description += "\nData source: "+descriptor.routing.source
+        if descriptor.routing.operations:
+            description += "\nSupported operations: "+", ".join(descriptor.routing.operations)
     if descriptor.plan_required:
         description += ("\nPlan required: remember.plan, review_plan. Preserve CURRENT source, changed conditions, quantity and requested format; "
             "add export/conversion as needed. Intermediate files do not fulfill a different format.")

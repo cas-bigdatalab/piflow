@@ -272,6 +272,7 @@ class ObservedDialogue(Dialogue):
 
     async def respond(self, messages, definitions):
         entry = {"round": len(self.rounds) + 1, "tool_calls": [],
+            "tool_count": len(definitions), "definitions_chars": len(json.dumps(definitions, ensure_ascii=False)),
             "definitions_sha256": hashlib.sha256(json.dumps(definitions, sort_keys=True).encode()).hexdigest()}
         self.rounds.append(entry)
         started, merged = time.perf_counter(), None
@@ -700,6 +701,11 @@ def test_real_model_acceptance_sequence(engine, simulated_upstream, tmp_path, mo
                                     require(active["calls"][0][1].get("cstr") == STATION["cstr"], "Current dataset reference was not preserved")
                                 if label == "directory":
                                     require(active["calls"][0][1].get("file_id") is None, "Root directory used a guessed file identifier")
+                            decision_limit = (4 if label in {"detail", "directory", "compounds_export_only"} else 6)
+                            require(len(dialogue.rounds)-first_round <= decision_limit,
+                                "A bounded supported request used excessive model decisions")
+                            require(len(active["corrections"]) <= 1,
+                                "Repeated correction was required for a supported request")
                             report["correct"] = True
                         except Exception as exc:
                             report["failure_type"] = type(exc).__name__
@@ -734,8 +740,9 @@ def test_real_model_acceptance_sequence(engine, simulated_upstream, tmp_path, mo
     finally:
         destination = Path(os.getenv("DATASET_QA_LIVE_REPORT_DIR") or tmp_path)
         destination.mkdir(parents=True, exist_ok=True)
+        complete = len(reports) == len(SCENARIOS[scenario])*repeats and all(row.get("correct") for row in reports)
         summary = {"scenario": scenario, "real_model": True, "simulated_upstream": True,
-            "repeats": repeats, "correct": failure is None, "failure_type": failure, "turns": reports}
+            "repeats": repeats, "correct": failure is None and complete, "failure_type": failure, "turns": reports}
         (destination / (scenario + ".json")).write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
         print("DATASET_QA_LIVE_REPORT " + json.dumps(summary, ensure_ascii=False))
     if failure is not None:

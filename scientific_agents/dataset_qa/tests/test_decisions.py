@@ -44,7 +44,12 @@ def goals(*values, calls=()):
         for value in values:
             value = dict(value)
             name = value.pop("tool")
-            alias = next(item["function"]["name"] for item in definitions if item["function"]["name"].endswith("_"+name))
+            offered = [item["function"]["name"] for item in definitions]
+            for item in definitions:
+                if item["function"]["name"] == "remember":
+                    offered.extend(item["function"]["parameters"].get("$defs", {}).get("Goal", {})
+                        .get("properties", {}).get("tool", {}).get("enum", []))
+            alias = next(alias for alias in offered if alias.endswith("_"+name))
             items.append({**value, "tool": alias})
         native = [call(messages, definitions) if callable(call) else call for call in calls]
         return AIMessageChunk(content="", tool_calls=[

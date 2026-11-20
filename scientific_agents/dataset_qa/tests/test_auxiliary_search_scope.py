@@ -18,7 +18,7 @@ def test_saved_auxiliary_continuation_can_accompany_a_requested_outcome_without_
         first = discover(keywords=KEYWORDS[:1], complete=False, **({SUPPORTING: True} if supporting else {}))
         combined = goals({"description": "Inspect asset-1", "tool": "inspect", "object": "object:1"}, calls=[
             continue_keywords(), native("inspect", **{OBJECT: "object:1", TASK: {"complete_request": False}})])
-        dialogue = BareDialogue(first, *([combined, text()] if supporting else [combined] * 3))
+        dialogue = BareDialogue(first, *([combined, text()] if supporting else [combined] * 3 + [text()]))
         service = DatasetQA(engine, dialogue, backend.gateway())
         sid = session(service)
         try:
@@ -34,7 +34,7 @@ def test_saved_auxiliary_continuation_can_accompany_a_requested_outcome_without_
                 assert len(saved["operations"]) == 2 and len(result_cards(events)) == 1
                 assert len(dialogue.inputs) == 3
             else:
-                assert_handled(service, sid, events[-1], "invalid_parameters")
+                assert_handled(service, sid, events[-1], "no_progress")
                 assert len(backend.calls) == 1
                 search, = saved["operations"]
                 assert search.get("inferred") and not search["required"] and not search["search"]["done"]

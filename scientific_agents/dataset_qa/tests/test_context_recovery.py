@@ -185,7 +185,7 @@ def test_real_sdk_recovery_preserves_results_and_never_repeats_mcp(engine, failu
         alias = next((name for name in names if name.endswith("_search")), None)
         if not names:
             decision, state["stage"] = None, 0
-        elif alias is None:
+        elif state["stage"] == 0 and alias is None:
             decision = ("load_mcp_tools", {"server": "data"})
         elif state["stage"]==0:
             decision, state["stage"] = (alias, {"query": "observations"}), 1

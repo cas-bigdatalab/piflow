@@ -7,6 +7,22 @@ from ..contracts import QAError
 from ..search import SearchProfile, SearchRun, ordered_keywords
 
 
+@pytest.mark.parametrize("user_request,original,substring,rewrite", [
+    ("Find river flow measurements", "river flow", "river", "hydrology"),
+    ("查找海洋观测站数据", "海洋观测站", "海洋", "marine monitoring"),
+    ("Find ＲＮＡ expression records", "RNA expression", "rna", "transcriptomics"),
+])
+def test_initial_keyword_prioritization_does_not_mutate_declared_provenance(user_request, original, substring, rewrite):
+    submitted = [original, rewrite, substring]
+    words, originals = ordered_keywords(submitted, [original], user_request)
+    assert originals == [original]
+    assert words == [original, substring, rewrite]
+    saved = {"original_keywords": originals, "keywords": words}
+    before = deepcopy(saved)
+    assert ordered_keywords(submitted, [original], user_request, previous=saved) == (words, originals)
+    assert saved == before and submitted == [original, rewrite, substring]
+
+
 @pytest.mark.parametrize("user_request,original,rewrite", [
     ("Find mountain observatory records", "mountain observatory", "observatory"),
     ("查找海洋观测站数据", "海洋观测站", "海洋"),

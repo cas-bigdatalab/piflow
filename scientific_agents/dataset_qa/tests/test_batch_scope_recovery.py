@@ -6,6 +6,7 @@ from types import SimpleNamespace
 import pytest
 
 from ..capabilities import SUPPORTING, TASK
+from ..execution import Execution
 from ..service import DatasetQA
 from .assertions import assert_completed, assert_handled
 from .test_dataset_qa import collect, engine, remote, result_cards, session
@@ -15,7 +16,16 @@ from .test_independent_outcomes import ContractDialogue, batch, native, outcomes
 
 @pytest.mark.parametrize("complete", [(True, True), (True, False), (False, False)])
 @pytest.mark.parametrize("execution_failure", [False, True])
-def test_scope_only_repair_preserves_typed_calls_and_one_execution_repair(engine, complete, execution_failure):
+def test_scope_only_repair_preserves_typed_calls_and_one_execution_repair(engine, monkeypatch, complete, execution_failure):
+    corrections = []
+    original = Execution.correct
+
+    def correct(execution, error, limit, **kwargs):
+        corrections.append(error.code)
+        return original(execution, error, limit, **kwargs)
+
+    monkeypatch.setattr(Execution, "correct", correct)
+
     async def run():
         backend, dialogue = read_backend(), ContractDialogue()
         backend.catalog["data"][2].inputSchema["properties"]["section"] = {"type": ["string", "null"], "enum": [None, "top"]}
@@ -48,6 +58,7 @@ def test_scope_only_repair_preserves_typed_calls_and_one_execution_repair(engine
 
             def repair_scope(messages, definitions):
                 feedback = json.loads(messages[-1].content)["runtime_feedback"]
+                assert feedback["error"] == "scope_required"
                 detail = feedback["detail"]
                 assert detail["decision"] == "declare_outcomes"
                 assert detail["phase"] == "scope_admission" and detail["dispatched"] is False
@@ -81,6 +92,7 @@ def test_scope_only_repair_preserves_typed_calls_and_one_execution_repair(engine
             assert len(ledger["operations"]) == 2
             assert all(item["required"] and item["state"] == "succeeded" for item in ledger["operations"])
             assert service.gateway.limits.max_corrections == 2
+            assert "scope_required" not in corrections and "invalid_parameters" not in corrections
         finally:
             await service.close()
     asyncio.run(run())
@@ -248,7 +260,7 @@ def test_upstream_supporting_business_field_is_not_a_qa_role(engine):
             invalid = batch(native("inspect", True), remote("preview", reference="resource-1", **{SUPPORTING: True}))
             dialogue.responses = [invalid] * 3
             events = await collect(service, sid, "查看详情和目录", "business-field-collision")
-            assert_handled(service, sid, events[-1], "invalid_parameters")
+            assert_handled(service, sid, events[-1], "no_progress")
             assert len(backend.calls) == 1 and not result_cards(events)
             assert not payload(service, sid, events).get("operations")
         finally:

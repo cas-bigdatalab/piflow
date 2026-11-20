@@ -92,7 +92,14 @@ def action(name, **arguments):
 
 def remote(name, **arguments):
     def respond(messages, definitions):
-        alias = next(v["function"]["name"] for v in definitions if v["function"]["name"].endswith("_"+name))
+        aliases = [v["function"]["name"] for v in definitions]
+        for value in definitions:
+            if value["function"]["name"] == "remember":
+                aliases.extend(value["function"]["parameters"].get("$defs", {}).get("Goal", {})
+                    .get("properties", {}).get("tool", {}).get("enum", []))
+        # Raw/legacy decisions can propose a known alias not currently offered
+        # for execution. ContractDialogue separately checks the advertised set.
+        alias = next(alias for alias in aliases if alias.endswith("_"+name))
         return action(alias, **arguments)
     return respond
 

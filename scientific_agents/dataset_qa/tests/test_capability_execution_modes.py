@@ -65,7 +65,10 @@ def test_loaded_order_and_lru_leave_individual_capability_actions_available(engi
                 TASK: {"complete_request": False}})(messages, definitions)
 
         def deliver(messages, definitions):
-            assert_initial_actions(definitions, observed_tools)
+            assert not any(item["function"]["name"].startswith("mcp_") for item in definitions)
+            memory = next(item["function"] for item in definitions if item["function"]["name"] == "remember")
+            assert set(memory["parameters"]["$defs"]["Goal"]["properties"]["tool"]["enum"]) == set(observed_tools["aliases"].values())
+            assert "plan" not in memory["parameters"]["properties"]
             assert len(backend.calls) == 1
             return action("deliver_results")
 

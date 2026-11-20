@@ -7,7 +7,7 @@ from types import SimpleNamespace
 from jsonschema import Draft202012Validator
 import pytest
 
-from ..capabilities import GOAL, OBJECT, TASK
+from ..capabilities import GOAL, OBJECT, SUPPORTING, TASK
 from ..contracts import Limits, Server
 from ..mcp import MCPGateway
 from ..service import DatasetQA
@@ -307,7 +307,7 @@ def test_explicit_operation_uses_published_ordinal_without_extra_mcp_calls(engin
 def test_discovery_prerequisite_does_not_finish_a_later_requested_operation(engine):
     async def run():
         backend = SearchBackend(lambda query, number: page(range(5) if number==1 else [5], 6))
-        dialogue = BareDialogue(discover(complete=False),
+        dialogue = BareDialogue(discover(complete=False, **{SUPPORTING: True}),
             native("sample", **{OBJECT: "object:1", TASK: {"complete_request": True}}), text())
         service = DatasetQA(engine, dialogue, backend.gateway())
         sid = session(service)

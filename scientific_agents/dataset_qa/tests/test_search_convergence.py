@@ -44,7 +44,7 @@ def test_log_shaped_query_expansion_requests_a_decision_before_exhausting_rounds
         backend = varying_search_backend()
         # The reported run used exactly these 12 planning actions. Fresh rows and
         # result reads kept the old no-progress detector from stopping expansion.
-        sequence = [action("list_mcp_servers"), load(), remote("search", query="q1"),
+        sequence = [load(), remote("search", query="q1"),
             read_latest, remote("search", query="q2"), remote("search", query="q3"),
             read_latest, remote("search", query="q4"), read_latest,
             remote("search", query="q5"), read_latest, remote("search", query="q6")]
@@ -63,7 +63,7 @@ def test_log_shaped_query_expansion_requests_a_decision_before_exhausting_rounds
                         continue
                     if isinstance(value, dict):
                         feedback.append(value.get("runtime_feedback", value))
-            if any(value.get("error") == "invalid_parameters" for value in feedback):
+            if any(value.get("error") == "scope_required" for value in feedback):
                 return action("deliver_results")
             response = sequence.pop(0)
             return response(messages, definitions) if callable(response) else response

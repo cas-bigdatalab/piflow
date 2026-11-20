@@ -613,7 +613,7 @@ class ToolSession:
         candidates = [tool for server in self.servers for tool in self.cached_tools(server) or []]
         recent = {(ref.get("server"), ref.get("name")) for ref in references if isinstance(ref, dict)}
         from .routing import select_tools
-        candidates = select_tools(candidates, query, recent=recent, resources=resources)
+        candidates = select_tools(candidates, query, recent=recent, resources=resources, source_scope=True)
         return self.include(candidates[:min(4, self.limits.max_tools)])
 
     async def prepare(self, query, references=(), *, resources=()):
@@ -629,7 +629,7 @@ class ToolSession:
         related = self.relevant_servers(query)
         if len(related) == 1 and self.cached_tools(related[0]) is None:
             try:
-                await self.load(related[0], query=query)
+                await self.tools(related[0])  # Discover once; prime chooses the initial definitions.
             except QAError:
                 pass  # Keep isolated discovery feedback and other services usable.
         self.prime(query, references, resources=resources)

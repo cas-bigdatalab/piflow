@@ -3,11 +3,11 @@ import asyncio
 import json
 from types import SimpleNamespace
 
-from langchain_core.messages import ToolMessage
+from langchain_core.messages import HumanMessage, ToolMessage
 
 from .assertions import assert_completed, assert_handled
 from ..capabilities import GOAL, OBJECT, SUPPORTING
-from ..contracts import Options
+from ..contracts import Limits, Options
 from ..execution import Execution
 from ..mcp import Tool
 from ..service import DatasetQA
@@ -219,16 +219,17 @@ def test_unplanned_query_changes_stop_without_confirming_an_undeclared_goal(engi
         backend = configured()
         backend.catalog["data"][0].annotations = {"readOnlyHint": True, "idempotentHint": True}
         dialogue = BareDialogue(load(), remote("search", query="one"), remote("search", query="two"),
-            remote("search", query="three"), remote("search", query="four"))
-        service = DatasetQA(engine, dialogue, backend.gateway())
+            remote("search", query="three"), remote("search", query="four"), text())
+        service = DatasetQA(engine, dialogue, backend.gateway(limits=Limits(max_rounds=8)))
         try:
             sid = session(service)
             values = await collect(service, sid, "Find related resources")
-            assert_handled(service, None, values[-1], "invalid_parameters")
+            assert_handled(service, None, values[-1], "no_progress")
             assert len(backend.calls)==1
-            assert len(dialogue.inputs)==5
-            feedback = [json.loads(message.content) for message in dialogue.inputs[-1][0] if isinstance(message, ToolMessage)]
-            assert any(value.get("detail", {}).get("decision")=="confirm_outcome" for value in feedback)
+            assert 5 <= len(dialogue.inputs) <= 6
+            feedback = [json.loads(message.content)["runtime_feedback"] for messages, _ in dialogue.inputs
+                for message in messages if isinstance(message, HumanMessage) and '"runtime_feedback"' in message.content]
+            assert any(value.get("error") == "scope_required" and value.get("detail", {}).get("decision")=="confirm_outcome" for value in feedback)
             assert len(result_cards(values))==1 and values[-1]["outcome"]=="partial"
             ledger = json.loads(service.store.task("alice", sid, values[-1]["task_id"])["payload"])
             assert all(not item.get("required", True) for item in ledger["operations"])

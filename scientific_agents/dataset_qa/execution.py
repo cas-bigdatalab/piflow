@@ -41,6 +41,22 @@ class Execution:
             if item.get("search") and not item["search"]["done"]]
 
     @property
+    def unconfirmed(self):
+        return [item for item in self.operations.items if item.get("inferred")
+            and not item.get("required", True) and self.operations.result_ids(item)]
+
+    @property
+    def reviewing_scope(self):
+        """Saved evidence needs a coverage decision, not another business call."""
+        return bool(self.unconfirmed) and not self.operations.required and not self.unfinished_searches
+
+    @property
+    def result_ready(self):
+        """All explicitly declared artifacts use the same receipt-based gate."""
+        return self.settled and all(item["output"] == "result"
+            and (item.get("planned") or item.get("direct")) for item in self.operations.required)
+
+    @property
     def finalizing(self):
         return self.settled and all(self.operations.assessment(item) == "accepted"
             for item in self.operations.required)
@@ -88,6 +104,9 @@ class Execution:
                 names.discard(alias)
         if planning or plan:
             names -= set(loaded)
+        elif self.reviewing_scope:
+            names &= {"remember", "read_result", "request_input", "deliver_results",
+                "list_mcp_servers", "load_mcp_tools"}
         review_pending = plan and plan.get("reviewed") != plan["revision"]
         if plan:
             names.add("remember")

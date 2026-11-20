@@ -187,8 +187,8 @@ def test_partial_confirmation_feedback_preserves_all_uncommitted_choices(engine)
             Draft202012Validator(schema).validate(arguments)
             return action("deliver_results", **arguments)
 
-        dialogue = BareDialogue(load(), remote("catalogue_lookup", query="resources"),
-            remote("inspect", **{OBJECT: "object:1"}),
+        dialogue = BareDialogue(load(), remote("catalogue_lookup", query="resources", **{SUPPORTING: True}),
+            remote("inspect", **{OBJECT: "object:1", SUPPORTING: True}),
             goals({"description": "Find related datasets", "tool": "catalogue_lookup"},
                 {"description": "Describe the first dataset", "tool": "inspect", "object": "object:1"}),
             partial_confirmation, repair, text())

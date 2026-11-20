@@ -6,7 +6,7 @@ from jsonschema import Draft202012Validator
 from langchain_core.messages import AIMessageChunk
 import pytest
 
-from ..capabilities import TASK
+from ..capabilities import SUPPORTING, TASK
 from ..contracts import QAError
 from ..operations import Operations
 from ..service import DatasetQA
@@ -112,15 +112,14 @@ def test_late_outcomes_confirm_both_receipts_without_another_mcp_call(engine, re
                 assert feedback["detail"]["decision"] == "declare_outcomes"
                 assert len(backend.calls) == 1  # No ambiguous parallel reads ran.
                 assert not json.loads(messages[1].content).get("operations", {}).get("items")
-                return native("inspect")(messages, definitions)
+                return native("inspect", **{SUPPORTING: True})(messages, definitions)
 
-            # Single-call evidence gathering still supports late declarations.
-            # An undeclared parallel batch must first be corrected without
-            # inventing required goals or discarding saved sequential receipts.
-            reads = [native("inspect"), native("preview")] if sequential else [
-                batch(native("inspect"), native("preview")), after_scope_rejection, native("preview")]
+            # Explicit auxiliary evidence may be classified as required later.
+            # Unconfirmed user outcomes instead enter the scope-review gate.
+            reads = [native("inspect", **{SUPPORTING: True}), native("preview", **{SUPPORTING: True})] if sequential else [
+                batch(native("inspect"), native("preview")), after_scope_rejection, native("preview", **{SUPPORTING: True})]
             dialogue.responses = [*reads,
-                action("deliver_results"), outcomes(), confirmation, text("两项内容已整理好。")]
+                outcomes(), confirmation, text("两项内容已整理好。")]
             events = await collect(service, sid, "查看详情和目录结构", "late-outcomes")
             assert_completed(service, sid, events[-1])
             assert len(backend.calls) == 3
@@ -357,7 +356,7 @@ def test_contradictory_whole_request_batch_is_rejected_before_any_business_dispa
                 calls=[native("inspect", True), native("preview", True)])
             dialogue.responses = [reply] * 3
             events = await collect(service, sid, "查看这个数据集的详情", "conflicting-batch")
-            assert_handled(service, sid, events[-1], "invalid_parameters")
+            assert_handled(service, sid, events[-1], "no_progress")
             assert len(backend.calls) == 1
             assert not payload(service, sid, events).get("operations")
         finally:

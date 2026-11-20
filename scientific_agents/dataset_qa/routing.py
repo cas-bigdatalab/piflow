@@ -63,7 +63,7 @@ def relevance(tool, query):
     return len(_routing_terms(query) & _tool_terms(tool, profile(tool).routing))
 
 
-def select_tools(items, query, *, group=None, recent=(), resources=()):
+def select_tools(items, query, *, group=None, recent=(), resources=(), source_scope=False):
     from .capabilities import profile
     from .mcp import terms
 
@@ -82,10 +82,12 @@ def select_tools(items, query, *, group=None, recent=(), resources=()):
             continue
         if group and (routing is None or routing.group != group):
             continue
-        # A source mention is a retrieval hint, not a semantic decision or an
-        # authorization boundary. Keep other sources reachable through paging;
-        # only an explicitly requested group filters the catalogue.
+        # Initial recall need not fill spare slots with a different named
+        # source. Explicit loading/paging still exposes the full catalogue:
+        # source mentions guide recall, never authorize or forbid execution.
         outside = bool(not group and sources and routing and routing.source and routing.source not in sources)
+        if source_scope and outside:
+            continue
         score = len(wanted & _tool_terms(tool, routing))
         # History breaks a relevance tie; it cannot override this request.
         scored.append((outside, -score, (tool.server, tool.name) not in previous, index, tool))
