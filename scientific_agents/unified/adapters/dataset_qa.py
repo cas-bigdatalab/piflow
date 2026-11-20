@@ -4,14 +4,25 @@ import logging
 
 from fastapi import HTTPException
 from pydantic import ValidationError
+from starlette.routing import NoMatchFound
 
 from ..schemas import options
+from ...dataset_qa.artifact_storage import download_base_context, request_download_base
 from ...dataset_qa.contracts import Options, QAError
+from ...agent_profiles import DATASET_QA_PROFILE
 
 
 class DatasetQAAdapter:
     agent_id, label, session_path = "dataset_qa", "智能取数", None
     capabilities = ("delete_session", "tasks", "actions", "results", "session_search", "history_paging")
+
+    @classmethod
+    def for_profile(cls, profile):
+        if profile == DATASET_QA_PROFILE:
+            return cls
+        # Only identity varies; every route uses the same implementation.
+        return type(cls.__name__ + "_" + profile.agent_id, (cls,),
+            {"agent_id": profile.agent_id, "label": profile.label})
 
     def __init__(self, native):
         self.n = native
@@ -20,7 +31,7 @@ class DatasetQAAdapter:
     def service(self):
         service = self.n.extension.session_services.get(self.agent_id)
         if service is None:
-            raise HTTPException(503, "智能取数服务尚未就绪")
+            raise HTTPException(503, f"{self.label}服务尚未就绪")
         return getattr(service, "service", service)
 
     async def call(self, function, *args, **kwargs):
@@ -89,8 +100,16 @@ class DatasetQAAdapter:
             values = options(body, {*Options.model_fields, "detail"})
             values.pop("detail", None)
             opts = Options.model_validate(values)
-            async for value in self.service.stream(self.n.user, sid, body.user_request, body.request_id, opts, body.parent_task_id):
-                yield value
+            base = None
+            if request := getattr(self.n, "request", None):
+                try:
+                    route = request.url_for("download_artifact", token="_", name="_")
+                    base = str(route).removesuffix("/artifacts/_/_")
+                except NoMatchFound:
+                    pass  # Read-only QA and separately hosted MCP remain usable.
+            with download_base_context(request_download_base(base, request=request)):
+                async for value in self.service.stream(self.n.user, sid, body.user_request, body.request_id, opts, body.parent_task_id):
+                    yield value
         except (QAError, ValidationError, HTTPException) as exc:
             yield {"type": "done", "status": "FAILED",
                 "code": exc.code if isinstance(exc, QAError) else "invalid_parameters",

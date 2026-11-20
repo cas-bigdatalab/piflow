@@ -109,7 +109,7 @@ def test_declared_partial_result_is_retained_when_a_different_required_operation
             assert ledger["delivery_sources"]==[card["result_id"]]
             answer = "".join(value.get("text", "") for value in values if value.get("type")=="message")
             assert "Find resources" in answer and "Sample the first resource" in answer
-            assert "保留" in answer
+            assert "已为您提供：Find resources" in answer and "本次尚未提供：Sample the first resource" in answer
             assert len(backend.calls)==2
         finally:
             await service.close()

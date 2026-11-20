@@ -197,28 +197,22 @@ def test_progress_ignores_query_changes_and_new_result_ids():
     assert not execution.observe("remember-2", {"saved": True}, "remember", context={"memory": {"counter": 2}})
 
 
-def test_direct_flag_does_not_bypass_single_object_reference_grounding(engine):
+def test_direct_single_candidate_delivery_preserves_grounded_candidates_without_selection_round(engine):
     async def run():
         backend = Backend()
         backend.items = backend.items[:1]
 
-        def choose(messages, definitions):
-            names = {item["function"]["name"] for item in definitions}
-            assert "read_result" in names and "remember" in names
-            assert "load_mcp_tools" not in names and not any(name.startswith("mcp_") for name in names)
-            rid = next(json.loads(m.content)["result_id"] for m in messages if isinstance(m, ToolMessage)
-                and "result_id" in json.loads(m.content))
-            return action("deliver_results", result_ids=[rid], references={"current": {"result_id": rid, "path": "/items/0"}})
-
         dialogue = RawDialogue(load(), batch(["find"], remote("search"), operations=[goal("find", direct=True)]),
-            choose, AIMessageChunk(content="已找到。"))
+            AIMessageChunk(content="已找到。"))
         service = DatasetQA(engine, dialogue, backend.gateway())
         sid = session(service)
         try:
             values = await collect(service, sid)
             assert_completed(service, None, values[-1])
-            assert len(dialogue.inputs)==4 and len(backend.calls)==1
-            assert json.loads(service.store.session("alice", sid)["context"])["references"]["current"]["path"]=="/items/0"
+            assert len(dialogue.inputs)==3 and len(backend.calls)==1 and dialogue.inputs[-1][1] == []
+            candidates = json.loads(service.store.session("alice", sid)["context"])["references"]["candidates"]
+            assert candidates["result_id"] == result_cards(values)[0]["result_id"]
+            assert candidates["path"] == "/items" and result_cards(values)[0]["data"]["items"] == backend.items
         finally:
             await service.close()
     asyncio.run(run())
@@ -252,7 +246,7 @@ def test_deadline_preserves_success_and_reports_the_unconfirmed_operation(engine
             assert len(result_cards(values))==1 and [call[1] for call in backend.calls]==["search", "sample"]
             assert [item["state"] for item in saved(service, sid, values[-1]["task_id"])["operations"]]==["succeeded", "unknown"]
             text = "".join(value["text"] for value in values if value["type"]=="message")
-            assert "已为您完成：操作 find" in text and "暂时还无法提供：操作 sample" in text
+            assert "已为您提供：操作 find" in text and "本次尚未提供：操作 sample" in text
         finally:
             await service.close()
     asyncio.run(run())

@@ -44,7 +44,12 @@ def goals(*values, calls=()):
         for value in values:
             value = dict(value)
             name = value.pop("tool")
-            alias = next(item["function"]["name"] for item in definitions if item["function"]["name"].endswith("_"+name))
+            offered = [item["function"]["name"] for item in definitions]
+            for item in definitions:
+                if item["function"]["name"] == "remember":
+                    offered.extend(item["function"]["parameters"].get("$defs", {}).get("Goal", {})
+                        .get("properties", {}).get("tool", {}).get("enum", []))
+            alias = next(alias for alias in offered if alias.endswith("_"+name))
             items.append({**value, "tool": alias})
         native = [call(messages, definitions) if callable(call) else call for call in calls]
         return AIMessageChunk(content="", tool_calls=[
@@ -505,7 +510,9 @@ def test_empty_search_can_be_reviewed_without_premature_completion(engine):
         try:
             values = await collect(service, session(service), "查找符合条件的资源")
             assert_completed(service, None, values[-1])
-            assert len(dialogue.inputs)==4
+            # Explicit delivery review still runs; the empty receipt needs no
+            # additional model generation to state that it returned no entries.
+            assert len(dialogue.inputs)==3 and len(dialogue.responses)==1
             assert result_cards(values)[0]["data"]["items"]==[]
             assert len(backend.calls)==1
         finally:

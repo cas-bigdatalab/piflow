@@ -1,16 +1,16 @@
 from __future__ import annotations
 
 import io
-import base64
 import csv
 import hashlib
 import hmac
+import ipaddress
 import math
 import logging
 import os
 import sqlite3
 import tempfile
-from contextlib import contextmanager
+from contextlib import closing, contextmanager
 import json
 import re
 import secrets
@@ -30,6 +30,10 @@ from botocore.awsrequest import AWSRequest
 from botocore.credentials import Credentials
 
 from infra.config_loader import get_settings
+from scientific_agents.dataset_qa.artifact_storage import (
+    ArtifactStorageError, LocalArtifactStore, StorageConfig,
+    canonical_numbers, check_identity, sign_token, storage_operation, verify_token,
+)
 
 REQUEST_TIMEOUT = 30
 DATASET_PREVIEW_TIMEOUT = 600
@@ -238,16 +242,15 @@ def list_dataset_details(
         filters=effective_filters,
     )
     dataset_items = _extract_page_items(payload, entity_name="dataset")
-    connector_names = {
-        connector_name
+    connector_refs = [
+        connector_ref
         for item in dataset_items
         if isinstance(item, dict)
-        for connector_name in _extract_dataset_connector_names(item)
-        if connector_name
-    }
-    connector_lookup = _add_connector_resources_by_name(
+        for connector_ref in _extract_dataset_connectors(item)
+    ]
+    connector_lookup = _add_connector_resources(
         connector_snapshot,
-        connector_names=connector_names,
+        connector_refs=connector_refs,
     )
 
     grouped_dataset_details: dict[str, dict[str, Any]] = {}
@@ -345,12 +348,17 @@ def get_available_dataset_total() -> int:
     )["total"]
 
     disabled_datasets_total = 0
+    # Upstream filters identify sources by name, so a shared enabled name must
+    # not be subtracted merely because another connector with that name is off.
+    counted_names = {str(connector.get("name", "") or "").strip()
+        for connector in connector_snapshot.values() if _is_connector_enabled(connector)}
     for connector in connector_snapshot.values():
         if _is_connector_enabled(connector):
             continue
         connector_name = str(connector.get("name", "") or "").strip()
-        if not connector_name:
+        if not connector_name or connector_name in counted_names:
             continue
+        counted_names.add(connector_name)
         payload = _fetch_dataset_page(
             page_num=1,
             page_size=1,
@@ -371,14 +379,9 @@ def get_dataset_detail(dataset_id: str) -> dict[str, Any]:
     if not normalized_dataset_id:
         raise ValueError("dataset_id is required")
     dataset_detail = _normalize_dataset_detail(_fetch_dataset_detail(normalized_dataset_id))
-    connector_names = {
-        connector_name
-        for connector_name in _extract_dataset_connector_names(dataset_detail.get("raw", {}))
-        if connector_name
-    }
     connector_lookup = (
-        _fetch_connector_details_with_resources_by_name(connector_names)
-        if connector_names
+        _add_connector_resources(_fetch_all_connector_details(), connector_refs=dataset_detail["connectors"])
+        if dataset_detail["connectors"]
         else {}
     )
     connectors = _resolve_dataset_connectors(dataset_detail["connectors"], connector_lookup)
@@ -1537,6 +1540,7 @@ def _normalize_connector_detail(source: dict[str, Any]) -> dict[str, Any]:
     service_url = _first_non_empty_string(
         source.get("serviceUrl"),
         source.get("serverUrl"),
+        preserve_controls=True,
     )
     protocol = _first_non_empty_string(
         source.get("protocol"),
@@ -1553,14 +1557,13 @@ def _normalize_connector_detail(source: dict[str, Any]) -> dict[str, Any]:
     host = _first_non_empty_string(
         source.get("host"),
         source.get("ip"),
+        preserve_controls=True,
     )
     remote_grpc_target = _first_non_empty_string(
         source.get("remoteGrpcTarget"),
         source.get("grpcTarget"),
     )
-    grpc_port = _first_non_empty_string(
-        source.get("grpcPort"),
-    )
+    grpc_port = "" if source.get("grpcPort") is None else str(source["grpcPort"]).strip(" ")
     sync = _first_non_empty_string(
         source.get("sync"),
         source.get("syncAt"),
@@ -1661,6 +1664,7 @@ def _normalize_dataset_connector_entry(source: Any) -> dict[str, str]:
             "connectorId": source.strip(),
             "fromName": "",
             "name": source.strip(),
+            "_untyped": True,
         }
     if not isinstance(source, dict):
         return {"connectorId": "", "fromName": "", "name": ""}
@@ -1693,17 +1697,37 @@ def _normalize_dataset_connector_entry(source: Any) -> dict[str, str]:
     }
 
 
+def _find_dataset_connector(
+    reference: dict[str, Any], connector_lookup: dict[Any, dict[str, Any]],
+) -> dict[str, Any] | None:
+    """IDs are exact; an untyped string may also denote one unique name."""
+    candidates = [
+        {**entry["connector"], "resource": entry.get("resource")}
+        if "connector" in entry else entry
+        for entry in connector_lookup.values()
+    ]
+    identifier = str(reference.get("connectorId", "") or "").strip()
+    if identifier:
+        matches = [entry for entry in candidates if entry.get("connectorId") == identifier]
+        if len(matches) == 1:
+            return matches[0]
+        if matches or not reference.get("_untyped"):
+            return None
+    name = _normalize_lookup_key(reference.get("name"))
+    matches = [entry for entry in candidates if name and _normalize_lookup_key(entry.get("name")) == name]
+    return matches[0] if len(matches) == 1 else None
+
+
 def _resolve_dataset_connectors(
     connectors: list[dict[str, str]],
     connector_lookup: dict[str, dict[str, Any]],
 ) -> list[dict[str, str]]:
     resolved: list[dict[str, str]] = []
     for connector_ref in connectors:
-        connector_name_key = _normalize_lookup_key(connector_ref.get("name"))
-        connector = connector_lookup.get(connector_name_key) if connector_name_key else None
+        connector = _find_dataset_connector(connector_ref, connector_lookup)
         connector_id = _first_non_empty_string(
-            connector_ref.get("connectorId"),
             connector.get("connectorId") if connector else "",
+            connector_ref.get("connectorId"),
         )
         connector_name = _first_non_empty_string(
             _extract_nested_text(connector, "name") if connector else "",
@@ -1727,7 +1751,8 @@ def _resolve_dataset_connectors(
         latency_ms = resource.get("latency_ms") if isinstance(resource, dict) else None
         if latency_ms is not None:
             resolved_connector["latency_ms"] = latency_ms
-        resolved.append(resolved_connector)
+        if not any(_dataset_connector_refs_match(existing, resolved_connector) for existing in resolved):
+            resolved.append(resolved_connector)
     return resolved
 
 
@@ -1742,6 +1767,8 @@ def _merge_dataset_connectors(
             "fromName": str(connector.get("fromName", "") or "").strip(),
             "name": str(connector.get("name", "") or "").strip(),
         }
+        if connector.get("_untyped"):
+            normalized["_untyped"] = True
         if not _dataset_connector_ref_has_value(normalized):
             continue
         for index, existing in enumerate(merged):
@@ -1834,20 +1861,19 @@ def _fetch_connector_details_by_connector_id(connector_ids: set[str]) -> dict[st
     return lookup
 
 
-def _fetch_all_connector_details() -> dict[str, dict[str, Any]]:
-    """Refresh and return the complete connector snapshot, indexed by name."""
-    lookup: dict[str, dict[str, Any]] = {}
+def _fetch_all_connector_details() -> dict[Any, dict[str, Any]]:
+    """Keep canonical IDs and ID-less rows so names cannot hide ambiguity."""
+    lookup: dict[Any, dict[str, Any]] = {}
     page_num = 1
     page_size = 100
 
     while True:
         payload = _fetch_connector_page(page_num=page_num, page_size=page_size)
         items = _extract_connector_page_items(payload)
-        for item in items:
+        for index, item in enumerate(items):
             connector = _normalize_connector_detail(item)
-            connector_name_key = _normalize_lookup_key(connector.get("name"))
-            if connector_name_key:
-                lookup[connector_name_key] = connector
+            key = connector.get("connectorId") or (page_num, index)
+            lookup[key] = connector
 
         if len(items) < page_size:
             break
@@ -1916,23 +1942,23 @@ def _normalize_dataset_source_filter(filters: dict[str, Any] | None) -> dict[str
     return normalized_filters
 
 
-def _add_connector_resources_by_name(
-    connector_snapshot: dict[str, dict[str, Any]],
+def _add_connector_resources(
+    connector_snapshot: dict[Any, dict[str, Any]],
     *,
-    connector_names: set[str],
-) -> dict[str, dict[str, Any]]:
-    """Enrich referenced snapshot entries without another connector query."""
-    lookup: dict[str, dict[str, Any]] = {}
-    for connector_name in connector_names:
-        connector_name_key = _normalize_lookup_key(connector_name)
-        connector = connector_snapshot.get(connector_name_key)
-        if connector is None:
+    connector_refs: list[dict[str, Any]],
+) -> dict[Any, dict[str, Any]]:
+    """Enrich the flat complete snapshot without another connector query."""
+    lookup = dict(connector_snapshot)
+    selected = {id(connector) for reference in connector_refs
+        if (connector := _find_dataset_connector(reference, connector_snapshot)) is not None}
+    for key, connector in connector_snapshot.items():
+        if id(connector) not in selected:
             continue
         remote_grpc_target, resource = _resolve_remote_resource(
             connector,
             grpc_port=DEFAULT_REMOTE_GRPC_PORT,
         )
-        lookup[connector_name_key] = {
+        lookup[key] = {
             **connector,
             "remote_grpc_target": remote_grpc_target,
             "resource": resource,
@@ -1969,33 +1995,11 @@ def _fetch_connector_details_with_resources_by_connector_id(
 
 
 def _fetch_connector_details_by_name(connector_names: set[str]) -> dict[str, dict[str, Any]]:
-    remaining_names = {
-        _normalize_lookup_key(connector_name)
-        for connector_name in connector_names
-        if _normalize_lookup_key(connector_name)
-    }
-    if not remaining_names:
+    if not connector_names:
         return {}
-
-    lookup: dict[str, dict[str, Any]] = {}
-    page_num = 1
-    page_size = 100
-
-    while remaining_names:
-        payload = _fetch_connector_page(page_num=page_num, page_size=page_size)
-        items = _extract_connector_page_items(payload)
-        for item in items:
-            connector = _normalize_connector_detail(item)
-            connector_name_key = _normalize_lookup_key(connector.get("name"))
-            if connector_name_key and connector_name_key in remaining_names:
-                lookup[connector_name_key] = connector
-                remaining_names.remove(connector_name_key)
-
-        if len(items) < page_size:
-            break
-        page_num += 1
-
-    return lookup
+    snapshot = _fetch_all_connector_details()
+    return {_normalize_lookup_key(name): connector for name in connector_names
+        if (connector := _find_dataset_connector({"name": name}, snapshot)) is not None}
 
 
 def _fetch_connector_details_with_resources_by_name(
@@ -2138,10 +2142,10 @@ def _dataset_connector_ref_has_value(connector: dict[str, str]) -> bool:
 
 
 def _dataset_connector_refs_match(left: dict[str, str], right: dict[str, str]) -> bool:
-    left_id = _normalize_lookup_key(left.get("connectorId"))
-    right_id = _normalize_lookup_key(right.get("connectorId"))
-    if left_id and right_id and left_id == right_id:
-        return True
+    left_id = str(left.get("connectorId", "") or "").strip()
+    right_id = str(right.get("connectorId", "") or "").strip()
+    if left_id or right_id:
+        return bool(left_id and right_id and left_id == right_id)
 
     left_name = _normalize_lookup_key(left.get("name"))
     right_name = _normalize_lookup_key(right.get("name"))
@@ -2149,11 +2153,14 @@ def _dataset_connector_refs_match(left: dict[str, str], right: dict[str, str]) -
 
 
 def _merge_dataset_connector_ref(left: dict[str, str], right: dict[str, str]) -> dict[str, str]:
-    return {
+    merged = {
         "connectorId": _first_non_empty_string(left.get("connectorId"), right.get("connectorId")),
         "fromName": _first_non_empty_string(left.get("fromName"), right.get("fromName")),
         "name": _first_non_empty_string(left.get("name"), right.get("name")),
     }
+    if left.get("_untyped") and right.get("_untyped"):
+        merged["_untyped"] = True
+    return merged
 
 
 def _extract_nested_text(source: dict[str, Any], key: str) -> str:
@@ -2219,9 +2226,9 @@ def _build_remote_grpc_target(connector: dict[str, Any], *, grpc_port: int) -> s
     if explicit_target:
         return explicit_target
 
-    host = str(connector.get("host", "") or "").strip()
+    host = str(connector.get("host", "") or "")
     if not host:
-        service_url = str(connector.get("serviceUrl", "") or "").strip()
+        service_url = str(connector.get("serviceUrl", "") or "")
         host = _extract_host(service_url)
     if not host:
         connector_id = str(connector.get("connectorId", "") or "").strip()
@@ -2229,27 +2236,72 @@ def _build_remote_grpc_target(connector: dict[str, Any], *, grpc_port: int) -> s
             f"connector detail for connectorId={connector_id or '<unknown>'} does not contain host/serviceUrl/remoteGrpcTarget"
         )
 
-    raw_grpc_port = str(connector.get("grpcPort", "") or "").strip()
-    resolved_port = grpc_port
-    if raw_grpc_port:
-        try:
-            resolved_port = int(raw_grpc_port)
-        except ValueError as exc:
-            raise ValueError(f"invalid grpcPort in connector detail: {raw_grpc_port}") from exc
-        if resolved_port <= 0:
-            raise ValueError(f"invalid grpcPort in connector detail: {raw_grpc_port}")
+    host = _normalize_remote_host(host)
+    raw_grpc_port = connector.get("grpcPort")
+    port_missing = raw_grpc_port is None or isinstance(raw_grpc_port, str) and not raw_grpc_port.strip(" ")
+    resolved_port = _validate_remote_port(grpc_port if port_missing else raw_grpc_port)
+    return f"{'[' + host + ']' if ':' in host else host}:{resolved_port}"
 
-    return f"{host}:{resolved_port}"
+
+def _validate_remote_port(value: Any) -> int:
+    if isinstance(value, str) and any(ord(char) < 32 or ord(char) == 127 for char in value):
+        raise ValueError("remote port contains control characters")
+    if (type(value) is not int and not (isinstance(value, str) and re.fullmatch(r"[0-9]+", value.strip()))):
+        raise ValueError("remote port must be an integer")
+    port = int(value)
+    if not 1 <= port <= 65535:
+        raise ValueError("remote port must be between 1 and 65535")
+    return port
+
+
+def _normalize_remote_host(value: str) -> str:
+    if any(ord(char) < 32 or ord(char) == 127 for char in value):
+        raise ValueError("remote host contains control characters")
+    host = value.strip()
+    if not host or any(char.isspace() for char in host):
+        raise ValueError("remote host is empty or contains whitespace")
+    if host.startswith("[") or host.endswith("]"):
+        if not (host.startswith("[") and host.endswith("]")):
+            raise ValueError("invalid bracketed remote host")
+        return str(ipaddress.IPv6Address(host[1:-1]))
+    if ":" in host:
+        return str(ipaddress.IPv6Address(host))
+    if "." in host and re.fullmatch(r"[0-9.]+", host):
+        return str(ipaddress.IPv4Address(host))
+    try:
+        host = host.encode("idna").decode("ascii")
+    except UnicodeError as exc:
+        raise ValueError("invalid remote hostname") from exc
+    labels = host[:-1].split(".") if host.endswith(".") else host.split(".")
+    if len(host.rstrip(".")) > 253 or any(
+            not re.fullmatch(r"[A-Za-z0-9_](?:[A-Za-z0-9_-]{0,61}[A-Za-z0-9_])?", label)
+            for label in labels):
+        raise ValueError("invalid remote hostname")
+    return host
 
 
 def _extract_host(service_url: str) -> str:
+    if any(ord(char) < 32 or ord(char) == 127 for char in service_url):
+        raise ValueError("service URL contains control characters")
     normalized = str(service_url or "").strip()
     if not normalized:
         return ""
+    if any(char.isspace() for char in normalized):
+        raise ValueError("service URL contains whitespace")
+    if ("://" not in normalized and not normalized.startswith("[")
+            and normalized.count(":") > 1 and "/" not in normalized):
+        return _normalize_remote_host(normalized)
     if "://" not in normalized:
         normalized = f"http://{normalized}"
     parsed = urlparse(normalized)
-    return str(parsed.hostname or "").strip()
+    authority = parsed.netloc.rsplit("@", 1)[-1]
+    if authority.startswith("[") and authority.partition("]")[2] and not authority.partition("]")[2].startswith(":"):
+        raise ValueError("invalid bracketed service authority")
+    if parsed.port is not None:
+        _validate_remote_port(parsed.port)
+    elif parsed.netloc.endswith(":"):
+        raise ValueError("service URL has an empty port")
+    return _normalize_remote_host(str(parsed.hostname or ""))
 
 
 def _extract_page_items(payload: dict[str, Any], *, entity_name: str) -> list[dict[str, Any]]:
@@ -2323,9 +2375,9 @@ def _safe_positive_int(value: Any, *, default: int, allow_zero: bool = False) ->
     return resolved
 
 
-def _first_non_empty_string(*values: Any) -> str:
+def _first_non_empty_string(*values: Any, preserve_controls: bool = False) -> str:
     for value in values:
-        text = str(value or "").strip()
+        text = str(value or "").strip(" " if preserve_controls else None)
         if text:
             return text
     return ""
@@ -2339,7 +2391,7 @@ def _normalize_required_text(value: Any, *, field_name: str) -> str:
 
 
 # File-producing MCP services. References are portable across MCP/QA processes;
-# no agent imports or conversation state are used in this execution layer.
+# only storage primitives, not an agent runtime or conversation state, are shared.
 _PUBCHEM_ROOT = "https://pubchem.ncbi.nlm.nih.gov/rest/pug"
 _COMPOUND_FIELDS = ("CID", "SMILES", "MolecularWeight", "XLogP")
 _FILTER_FIELDS = frozenset({"MolecularWeight", "XLogP"})
@@ -2352,17 +2404,7 @@ def _canonical(value):
 
 
 def _digest(value):
-    return hashlib.sha256(_canonical(_canonical_numbers(value)).encode()).hexdigest()
-
-
-def _canonical_numbers(value):
-    # Execution protocol shared with callers, without importing an agent.
-    # Normalize only numeric identity; stored record serialization is unchanged.
-    if isinstance(value, dict):
-        return {key: _canonical_numbers(item) for key, item in value.items()}
-    if isinstance(value, list):
-        return [_canonical_numbers(item) for item in value]
-    return int(value) if isinstance(value, float) and value.is_integer() else value
+    return hashlib.sha256(_canonical(canonical_numbers(value)).encode()).hexdigest()
 
 
 def _signature(secret, domain, value):
@@ -2427,65 +2469,48 @@ def _file_execution_lock(path, deadline):
 
 
 class _ResultFiles:
-    """Existing object storage, plus signed handles and atomic result manifests."""
+    """Owned local resource handles and committed result manifests."""
     def __init__(self, metadata, arguments):
-        from services.object_storage_service import resolve_bucket_name
-        self.storage = _result_storage()
-        self.secret = self.storage.config.secret_key
+        self.config = StorageConfig.load()
+        self.secret = self.config.secret
         self.context = _check_execution(metadata, arguments, self.secret)
-        self.user = self.context["user"]
-        self.owner = hashlib.sha256(self.user.encode()).hexdigest()
-        self.bucket = resolve_bucket_name(self.user)
-        self.prefix = "/".join(filter(None, [self.storage.config.base_prefix.strip("/"), "qa-artifacts", self.owner]))
-        self.root = self.storage.workspace.temp / "qa-file-execution"
-        self.root.mkdir(parents=True, exist_ok=True)
+        self.owner = hashlib.sha256(self.context["user"].encode()).hexdigest()
+        self.root = self.config.root / ".execution"
+        self.storage = LocalArtifactStore(self.config, self.owner)
+        self.storage.prepare()
+        with storage_operation():
+            self.root.mkdir(parents=True, exist_ok=True, mode=0o700)
 
     def token(self, key):
-        body = {"owner": self.owner, "key": key}
-        encoded = base64.urlsafe_b64encode(_canonical(body).encode()).decode().rstrip("=")
-        return "v1."+encoded+"."+_signature(self.secret, "qa-resource-v1", body)
+        # Retain the existing local handle format so saved references stay valid.
+        body = {"owner": self.owner, "key": key, "backend": "local"}
+        return "v2."+sign_token(self.secret, "qa-resource-v2", body)
 
     def resolve(self, token):
         try:
-            version, encoded, signature = token.split(".")
-            if len(encoded) > 2000 or version != "v1":
+            version, signed = token.split(".", 1)
+            if version != "v2":
                 raise ValueError()
-            body = json.loads(base64.urlsafe_b64decode(encoded+"="*(-len(encoded)%4)))
-            if (body.get("owner") != self.owner or not re.fullmatch(r"[a-f0-9]{64}", body.get("key", ""))
-                    or not hmac.compare_digest(signature, _signature(self.secret, "qa-resource-v1", body))):
+            body = verify_token(self.secret, "qa-resource-v2", signed)
+            if set(body) != {"owner", "key", "backend"} or body["backend"] != "local":
+                raise ValueError()
+            check_identity(body.get("owner"), body.get("key"))
+            if body["owner"] != self.owner:
                 raise ValueError()
             return body["key"]
-        except (ValueError, TypeError, KeyError, UnicodeError) as exc:
+        except (ValueError, TypeError, KeyError, UnicodeError, AttributeError) as exc:
             raise ValueError("请选择当前用户已经取得的有效结果文件") from exc
 
-    def _read_json(self, object_key):
-        from minio.error import S3Error
-        try:
-            response = self.storage.client.get_object(self.bucket, object_key)
-        except S3Error as exc:
-            if exc.code in {"NoSuchKey", "NoSuchObject"}:
-                return None
-            raise
-        try:
-            raw = response.read(256 * 1024 + 1)
-            if len(raw) > 256 * 1024:
-                raise ValueError("结果清单超过支持范围")
-            return json.loads(raw)
-        finally:
-            response.close()
-            response.release_conn()
-
     def previous(self, key):
-        value = self._read_json(f"{self.prefix}/{key}/manifest.json")
-        if value and value.get("resource"):
-            resource = value["resource"]
-            stat = self.storage.client.stat_object(self.bucket, f"{self.prefix}/{key}/data.{resource['format']}")
-            if stat.size != resource["size_bytes"]:
-                raise ValueError("已保存的结果文件需要重新核实")
-            resource["downloadUrl"] = self.storage.client.presigned_get_object(self.bucket,
-                f"{self.prefix}/{key}/data.{resource['format']}", expires=timedelta(hours=1))
-            value["downloadUrl"] = resource["downloadUrl"]
-        return value
+        with storage_operation():
+            value = self.storage.read_json(key)
+            if value and value.get("resource"):
+                resource = value["resource"]
+                if resource.get("format") not in {"csv", "jsonl"} or self.storage.stat_size(key, resource["format"]) != resource["size_bytes"]:
+                    raise ArtifactStorageError("已保存的结果文件需要重新核实")
+                resource["downloadUrl"] = self.storage.url(key, resource)
+                value["downloadUrl"] = resource["downloadUrl"]
+            return value
 
     def save(self, key, path, value, fields, count, fmt, name):
         _checkpoint(self.context["deadline"])
@@ -2496,12 +2521,9 @@ class _ResultFiles:
         size = path.stat().st_size
         if size > _RESULT_BYTES:
             raise ValueError("结果超过本次文件大小预算")
-        object_key = f"{self.prefix}/{key}/data.{fmt}"
-        self.storage.client.fput_object(self.bucket, object_key, str(path),
-            content_type="text/csv; charset=utf-8" if fmt == "csv" else "application/x-ndjson")
-        stat = self.storage.client.stat_object(self.bucket, object_key)
-        if stat.size != size:
-            raise ValueError("结果文件尚未完整保存")
+        self.storage.put_file(key, path, fmt)
+        if self.storage.stat_size(key, fmt) != size:
+            raise ArtifactStorageError("结果文件尚未完整保存")
         result = {**value, "record_count": count, "resource": {"source_ref": self.token(key),
             "name": name, "format": fmt, "fields": list(fields), "record_count": count,
             "size_bytes": size, "sha256": checksum.hexdigest()}}
@@ -2509,8 +2531,7 @@ class _ResultFiles:
 
     def save_outcome(self, key, result):
         body = _canonical(result).encode()
-        self.storage.client.put_object(self.bucket, f"{self.prefix}/{key}/manifest.json",
-            io.BytesIO(body), len(body), content_type="application/json")
+        self.storage.put_json(key, body)
         return self.previous(key)
 
     def rows(self, source_ref, depth=0):
@@ -2519,41 +2540,27 @@ class _ResultFiles:
         key = self.resolve(source_ref)
         result = self.previous(key)
         if not result or not result.get("resource"):
-            raise ValueError("所选结果文件当前不可用")
+            raise ArtifactStorageError("所选结果文件当前不可用")
         resource = result["resource"]
-        response = self.storage.client.get_object(self.bucket, f"{self.prefix}/{key}/data.{resource['format']}")
-        try:
-            raw = response.read(_RESULT_BYTES+1)
-            if len(raw) > _RESULT_BYTES or hashlib.sha256(raw).hexdigest() != resource["sha256"]:
-                raise ValueError("所选文件与已保存版本不一致")
-            text = raw.decode("utf-8-sig")
-            if resource["format"] == "csv" and result.get("parent_source_ref"):
-                _, rows = self.rows(result["parent_source_ref"], depth+1)
-            else:
-                rows = [json.loads(line) for line in text.splitlines() if line.strip()] if resource["format"] == "jsonl" else list(csv.DictReader(io.StringIO(text)))
-            if len(rows) != resource["record_count"] or any(not isinstance(row, dict) for row in rows):
-                raise ValueError("所选文件的记录信息不一致")
-            return result, rows
-        finally:
-            response.close()
-            response.release_conn()
-
-
-def _result_storage():
-    from minio import Minio
-    from urllib3 import PoolManager, Timeout
-    from services.object_storage_service import ObjectStorageService
-    settings = get_settings().minio
-    client = Minio(settings.endpoint, access_key=settings.access_key, secret_key=settings.secret_key,
-        secure=settings.secure, http_client=PoolManager(timeout=Timeout(connect=5, read=20), retries=False))
-    return ObjectStorageService(client=client)
+        with storage_operation():
+            raw = self.storage.read_bytes(key, resource["format"], _RESULT_BYTES)
+        if len(raw) > _RESULT_BYTES or hashlib.sha256(raw).hexdigest() != resource["sha256"]:
+            raise ArtifactStorageError("所选文件与已保存版本不一致")
+        text = raw.decode("utf-8-sig")
+        if resource["format"] == "csv" and result.get("parent_source_ref"):
+            _, rows = self.rows(result["parent_source_ref"], depth+1)
+        else:
+            rows = [json.loads(line) for line in text.splitlines() if line.strip()] if resource["format"] == "jsonl" else list(csv.DictReader(io.StringIO(text)))
+        if len(rows) != resource["record_count"] or any(not isinstance(row, dict) for row in rows):
+            raise ArtifactStorageError("所选文件的记录信息不一致")
+        return result, rows
 
 
 def _pubchem_slot(root, deadline):
     # Shared by workers on this backend host, rather than one limiter per user.
     # A short SQLite transaction reserves a slot without holding it over HTTP.
     root.mkdir(parents=True, exist_ok=True)
-    with sqlite3.connect(str(root / "pubchem-rate.sqlite"), timeout=2) as conn:
+    with closing(sqlite3.connect(str(root / "pubchem-rate.sqlite"), timeout=2)) as conn, conn:
         conn.execute("CREATE TABLE IF NOT EXISTS rate (id INTEGER PRIMARY KEY, next_at REAL NOT NULL)")
         conn.execute("BEGIN IMMEDIATE")
         row = conn.execute("SELECT next_at FROM rate WHERE id=1").fetchone()
@@ -2716,8 +2723,8 @@ def export_record_file(source_ref, format="csv", *, execution=None):
     files = _ResultFiles(execution, arguments)
     if format not in {"csv", "jsonl"}:
         raise ValueError("当前支持导出 CSV 或 JSONL")
-    source_key = files.resolve(source_ref)
-    key = _digest(["export-v1", source_key, format])
+    files.resolve(source_ref)
+    key = _digest(["export-v2", source_ref, format])
     with _file_execution_lock(files.root / (key+".lock"), files.context["deadline"]):
         if previous := files.previous(key):
             return previous

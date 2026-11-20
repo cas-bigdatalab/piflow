@@ -32,7 +32,10 @@ def test_json_and_schema_errors_share_bounded_actionable_correction(engine):
 
         def after_schema(messages, definitions):
             feedback = json.loads(messages[-1].content)
-            assert feedback["detail"]=={"path": ["x"], "constraint": "type", "expected": "number"}
+            assert feedback["detail"]=={"path": ["x"], "constraint": "type", "expected": "number",
+                "actual_type": "string", "phase": "input_binding", "dispatched": False,
+                "step": None, "tool": next(d["function"]["name"] for d in definitions
+                    if d["function"]["name"].endswith("_multiply"))}
             assert "input" not in feedback["detail"]
             return remote("multiply", x=2, y=3)(messages, definitions)
 
@@ -260,7 +263,7 @@ def test_final_generation_failure_keeps_selected_result_stream_history_and_repla
         assert_completed(service, None, values[-1])
         assert "code" not in values[-1]
         text = "".join(v["text"] for v in values if v["type"]=="message")
-        assert "结果已整理在下方" in text and ("first tail" in text)==partial
+        assert "已为您提供：" in text and ("first tail" in text)==partial
         assert "model offline" not in text and "答复生成中断" not in text
         assert len(result_cards(values))==1 and len(backend.calls)==1 and len(dialogue.inputs)==4
         history = await service.get_session("alice", sid)

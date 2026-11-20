@@ -1,6 +1,7 @@
 """Explicit startup selection; disabled implementations are never imported."""
 from contextlib import AsyncExitStack, asynccontextmanager
 from dataclasses import dataclass
+from functools import partial
 from importlib import import_module
 from pathlib import Path
 from typing import Callable
@@ -8,6 +9,8 @@ from typing import Callable
 import yaml
 
 from .paths import AGENTS_ROOT
+from .agent_profiles import AgentProfile, DATASET_QA_PROFILE
+from .pubchem.profile import PROFILE as PUBCHEM_PROFILE
 
 
 @dataclass(frozen=True)
@@ -17,10 +20,17 @@ class AgentSpec:
     session_path: str | None
     session_table: str
     session_id_column: str
+    profile: AgentProfile | None = None
 
     def adapter_class(self):
         module, name = self.adapter.split(":")
-        return getattr(import_module(module, package=__package__), name)
+        adapter = getattr(import_module(module, package=__package__), name)
+        return adapter.for_profile(self.profile) if self.profile is not None else adapter
+
+    @classmethod
+    def tool_agent(cls, profile):
+        return cls(partial(prepare_tool_agent, agent_profile=profile),
+            ".unified.adapters.dataset_qa:DatasetQAAdapter", None, profile.table("sessions"), "id", profile)
 
 
 def prepare_forecast(host, resources, dataset_qa, components):
@@ -62,11 +72,16 @@ def prepare_forecast(host, resources, dataset_qa, components):
 
 
 def prepare_dataset_qa(host, resources, dataset_qa, components):
+    return prepare_tool_agent(host, resources, dataset_qa, components,
+        agent_profile=DATASET_QA_PROFILE, supplied_service=dataset_qa)
+
+
+def prepare_tool_agent(host, resources, dataset_qa, components, *, agent_profile, supplied_service=None):
     @asynccontextmanager
     async def lifespan(state):
         from .shared import QASessions
 
-        service = dataset_qa
+        service = supplied_service
         if service is None:
             import os
             from infra.config_loader import CONFIG_DIR
@@ -81,15 +96,16 @@ def prepare_dataset_qa(host, resources, dataset_qa, components):
                 return mcp
 
             gateway = MCPGateway({"piflow-corpus": Server(local_mcp, "本应用挂载的MCP服务")},
-                config_path=os.getenv("DATASET_QA_MCP_CONFIG", str(CONFIG_DIR / "mcp_servers.yaml")))
-            service = DatasetQA(state.store.engine, gateway=gateway)
+                config_path=os.getenv("DATASET_QA_MCP_CONFIG", str(CONFIG_DIR / "mcp_servers.yaml")),
+                agent_profile=agent_profile)
+            service = DatasetQA(state.store.engine, gateway=gateway, agent_profile=agent_profile)
         async with AsyncExitStack() as stack:
             stack.push_async_callback(service.close)
             await service.start()
             sessions = QASessions(service)
-            state.agent_states["dataset_qa"] = service
-            state.session_services["dataset_qa"] = sessions
-            state.deleters["dataset_qa"] = sessions.delete
+            state.agent_states[agent_profile.agent_id] = service
+            state.session_services[agent_profile.agent_id] = sessions
+            state.deleters[agent_profile.agent_id] = sessions.delete
             yield
 
     return lifespan
@@ -99,7 +115,8 @@ AGENTS = {
     "forecast": AgentSpec(prepare_forecast, ".unified.adapters.forecast:ForecastAdapter",
         "/api/piflow/v1/forecast/sessions", "forecast_sessions", "thread_id"),
     "dataset_qa": AgentSpec(prepare_dataset_qa, ".unified.adapters.dataset_qa:DatasetQAAdapter",
-        None, "dataset_qa_sessions", "id"),
+        None, "dataset_qa_sessions", "id", DATASET_QA_PROFILE),
+    "pubchem": AgentSpec.tool_agent(PUBCHEM_PROFILE),
 }
 DEFAULT_AGENTS = ("forecast", "dataset_qa")
 
@@ -112,6 +129,12 @@ def validate_enabled(value):
         raise ValueError(f"未知科学智能体：{', '.join(sorted(unknown))}")
     if len(value) != len(set(value)):
         raise ValueError("enabled_agents 中的智能体不能重复")
+    profiles = [(name, spec.profile) for name, spec in AGENTS.items() if getattr(spec, "profile", None) is not None]
+    if any(name != profile.agent_id for name, profile in profiles):
+        raise ValueError("智能体注册名称必须与配置身份一致")
+    for field in ("storage_namespace", "session_prefix"):
+        if len({getattr(profile, field) for _, profile in profiles}) != len(profiles):
+            raise ValueError("智能体存储命名空间和会话前缀不能重复")
     return tuple(value)
 
 

@@ -19,38 +19,160 @@ class Execution:
         self.seen, self.cards = set(), {}
         self.failures = {}
         self.corrections = 0
+        self.previous_correction = None
         self.recovering = False
         self.operations = Operations()
         self.prepared = {}
+        self.scope_proposal = None  # Unvalidated calls awaiting scope, only in this turn.
+        self.produced_sources = set()  # Owned artifacts from successful MCP receipts in this turn.
+        self.source_requirements = {}  # Explicit current intent survives a rejected source proposal.
         self.stale_scopes, self.blocked = {}, set()
+        self.reviewed_failures = set()
+        self.discovery_recovered = False
+        self.repeated_lookups = set()
 
     @property
     def can_deliver(self):
         return bool(self.cards) or bool(self.failures)
 
     @property
-    def finalizing(self):
-        return bool(self.operations.required) and all(item["state"]=="succeeded" for item in self.operations.required)
+    def unfinished_searches(self):
+        return [item for item in self.operations.items
+            if item.get("search") and not item["search"]["done"]]
 
-    def actions(self, loaded):
+    @property
+    def unconfirmed(self):
+        return [item for item in self.operations.items if item.get("inferred")
+            and not item.get("required", True) and self.operations.result_ids(item)]
+
+    @property
+    def undecided_scope(self):
+        return bool(self.unconfirmed) and not self.operations.required
+
+    @property
+    def reviewing_scope(self):
+        """Saved evidence needs a coverage decision, not another business call."""
+        return self.undecided_scope and not self.unfinished_searches
+
+    @property
+    def result_ready(self):
+        """All explicitly declared artifacts use the same receipt-based gate."""
+        return self.settled and all(item["output"] == "result"
+            and (item.get("planned") or item.get("direct")) for item in self.operations.required)
+
+    @property
+    def finalizing(self):
+        return self.settled and all(self.operations.assessment(item) == "accepted"
+            for item in self.operations.required)
+
+    @property
+    def settled(self):
+        """Successful receipts can settle work without supplying all requested content."""
+        goals = self.operations.required
+        return bool(goals) and not self.unfinished_searches and all(item["state"] == "succeeded"
+            and self.operations.result_ids(item)
+            and self.operations.assessment(item) in {"accepted", "unavailable", "incomplete"}
+            for item in goals)
+
+    def actions(self, loaded, *, planning=False, plan=None, closing=False, continuations=()):
+        """Derive the legal decision surface from receipts and execution mode.
+
+        Search continuation is work owned by an existing goal. It does not
+        block independent goals or authorize arbitrary direct calls in a plan.
+        The caller narrows continuation arguments to the existing search queue.
+        """
+        from .capabilities import profile
+
         names = {"read_result", "remember", "request_input", "resolve_resource", "find_artifacts"}
         if not self.operations.items and not self.cards and not self.failures:
             names.add("respond_from_context")
-        if not (self.finalizing and all(item.get("direct") and item["output"]=="result" for item in self.operations.required)) or self.recovering:
+        if not (self.finalizing and all(item.get("direct") and item["output"]=="result" for item in self.operations.required)):
             names.update(("list_mcp_servers", "load_mcp_tools", *loaded))
-        if self.can_deliver:
+        if self.can_deliver and not self.unfinished_searches:
             names.add("deliver_results")
+        blocked = set()
         for alias, tool in loaded.items():
+            if profile(tool).plan_required:
+                names.discard(alias)
             scopes = [item for item in self.operations.items if item.get("capability")=={"server": tool.server, "name": tool.name}]
             if scopes and all(item["id"] in self.blocked for item in scopes):
+                blocked.add(alias)
                 names.discard(alias)
-        searching = [item for item in self.operations.items if item.get("search") and not item["search"]["done"]
-            and item["state"] not in {"failed", "unknown"}]
-        if searching:
-            allowed = {alias for alias, tool in loaded.items()
-                if any(item.get("capability")=={"server": tool.server, "name": tool.name} for item in searching)}
-            names -= {"list_mcp_servers", "load_mcp_tools", "deliver_results", "remember", "resolve_resource", "find_artifacts", *set(loaded)-allowed}
+        if planning or plan:
+            names -= set(loaded)
+        elif continuations:
+            pending = [item for item in self.operations.items
+                if (item.get("required", True) or item.get("inferred"))
+                and self.operations.assessment(item) == "pending"]
+            if pending and all(item.get("search") and item["state"] == "succeeded"
+                    and any(alias in loaded and item.get("capability") == {
+                        "server": loaded[alias].server, "name": loaded[alias].name}
+                        for alias in continuations) for item in pending):
+                # Finish an active search before deciding on additional scope.
+                # Its delivery role (direct, declared, inferred) does not change
+                # the missing input. Independent pending goals remain available;
+                # explicit supporting lookups do not lock out requested work.
+                decisions = {*continuations, "request_input"}
+                if not (len(self.operations.required) == 1 and self.operations.required[0].get("direct")):
+                    decisions.update(("remember", "list_mcp_servers", "load_mcp_tools"))
+                names &= decisions
+        elif self.reviewing_scope:
+            names &= {"remember", "read_result", "request_input", "deliver_results",
+                "list_mcp_servers", "load_mcp_tools"}
+        review_pending = plan and plan.get("reviewed") != plan["revision"]
+        if plan:
+            names.add("remember")
+            if review_pending:
+                names &= {"remember", "read_result", "load_mcp_tools", "request_input", "find_artifacts"}
+                names.add("review_plan")
+            else:
+                searching = [item for item in self.unfinished_searches
+                    if item["state"] not in {"failed", "unknown", "unavailable"} and item["id"] not in self.blocked]
+                names.update(alias for alias in set(continuations) & set(loaded) - blocked
+                    if any(item.get("capability") == {"server": loaded[alias].server, "name": loaded[alias].name}
+                        for item in searching))
+        if closing and not self.unfinished_searches and not review_pending and (
+                not self.operations.required or self.finalizing):
+            names &= {"deliver_results", "remember", "request_input", "respond_from_context"}
+        if self.discovery_recovered:
+            names -= self.repeated_lookups
         return names
+
+    def recover_discovery(self, status, *, available=False):
+        """Offer one ordinary decision to use or inspect relevant capabilities.
+
+        No new model/call budget is allocated and no user operation is inferred.
+        Completed or blocked business work keeps its existing recovery policy.
+        """
+        if (self.discovery_recovered or not (status.get("pending") or available)
+                or self.operations.items or self.cards or self.failures):
+            return False
+        self.discovery_recovered = True
+        self.stalled = 0
+        return True
+
+    def failure_decision(self, *, planned=False, consume=False):
+        """Allow one scope decision for unplanned blocked work, not a replanning loop."""
+        blocked = self.operations.blocking()
+        if not blocked:
+            return None
+        goals = self.operations.required
+        if goals and all(self.operations.assessment(item) == "unavailable" for item in self.unfinished_searches) and all(
+                self.operations.assessment(item) in {"accepted", "unavailable", "incomplete"} for item in goals):
+            # A different, safely correctable prerequisite still deserves its
+            # existing correction budget, even if another branch is blocked.
+            if not any(item["state"] == "failed" and item["attempts"]
+                    and self.operations.retryable(item["attempts"][-1]) for item in self.operations.items):
+                return self.operations.error()
+        known_scope = {key for item in blocked for key in item["attempts"][-1].get("scope", [])}
+        if planned or any(self.operations.assessment(item) == "pending" and item["id"] in known_scope for item in goals):
+            return None
+        markers = {(item["id"], item["attempts"][-1]["key"]) for item in blocked}
+        if markers <= self.reviewed_failures:
+            return next((error for item in blocked if (error := self.operations.failure(item))), None)
+        if consume:
+            self.reviewed_failures.update(markers)
+        return None
 
     def progress(self, observations, limit):
         """Count no-gain rounds per operation, not per argument variant or batch."""
@@ -62,9 +184,23 @@ class Execution:
                 newly_blocked.add(scope)
         return newly_blocked
 
-    def correct(self, error, limit):
+    def correct(self, error, limit, *, decision=None):
+        """Bound corrections; an unchanged rejected decision gets one repair chance.
+
+        Callers supply the semantic proposal and current decision surface,
+        without volatile call IDs or rejected-attempt timestamps. Changed
+        arguments or newly available evidence retain the ordinary budget.
+        """
         self.recovering = True
-        if self.corrections>=limit:
+        marker = None
+        if decision is not None:
+            try:
+                marker = fingerprint([error.code, str(error), error.detail, decision])
+            except (TypeError, ValueError):
+                pass  # Malformed model values must not break error handling.
+        repeated = marker is not None and marker == self.previous_correction
+        self.previous_correction = marker
+        if repeated or self.corrections>=limit:
             return error
         self.corrections += 1
 
@@ -80,9 +216,14 @@ class Execution:
     @staticmethod
     def validation_error(error, message="参数不符合工具定义"):
         errors = error.errors(include_url=False, include_context=False, include_input=False)
-        return QAError("invalid_parameters", message, detail={"errors": [
+        detail = {"errors": [
             {"path": list(item["loc"]), "constraint": item["type"], "message": item["msg"][:300]}
-            for item in errors[:3]]})
+            for item in errors[:3]]}
+        if any("plan" in item["loc"] for item in errors):
+            detail["guidance"] = ("Use remember.plan={steps:[{key,tool,arguments,object?}]}. "
+                "Use object=source_step_key for a file source. Runtime derives output kinds, producers and dependencies. "
+                "Do not submit outcomes/kind/produces or direct-call metadata. Preserve keys, constraints and requested format.")
+        return QAError("invalid_parameters", message, detail=detail)
 
     notice = staticmethod(notice)
 
@@ -99,7 +240,7 @@ class Execution:
         return (tool is not None and tool.annotations.get("readOnlyHint") is True
             and tool.annotations.get("idempotentHint") is True)
 
-    def observe(self, key, value, name=None, arguments=None, context=None, *, scope=None, tool=None):
+    def observe(self, key, value, name=None, arguments=None, context=None, *, scope=None, tool=None, runtime=None):
         if name in {"list_mcp_servers", "load_mcp_tools"}:
             markers = {(name, row["name"]) for row in value.get("items", []) if "name" in row and "error" not in row}
             if name=="load_mcp_tools" and value.get("error"):
@@ -108,6 +249,12 @@ class Execution:
             state = {"references": (context or {}).get("references")}
             state["operations"] = [{key: item[key] for key in ("id", "description", "target", "output")}
                 for item in self.operations.items]
+            if runtime is not None:
+                # Stable goal IDs do not imply a stable execution plan. Count
+                # accepted transitions, never echoed model args or timestamps.
+                plan = runtime.get("plan") or {}
+                state["planning"] = bool(runtime.get("planning"))
+                state["plan"] = {key: plan[key] for key in ("revision", "spec", "operations", "reviewed") if key in plan}
             markers = {(name, fingerprint(state))}
         elif name=="find_artifacts":
             markers = {(name, fingerprint(value.get("data", value)))}
@@ -151,6 +298,8 @@ class Execution:
             markers = {(key, fingerprint({k: v for k, v in value.items()
                 if k not in {"result_id", "executed", "guidance", "repeated", "objects"}}))}
         fresh = bool(markers-self.seen)
+        if name == "find_artifacts" and not fresh:
+            self.repeated_lookups.add(name)
         self.seen.update(markers)
         if not fresh and self.recovering and value.get("result_id") and value.get("executed") is False:
             # Reusing a receipt can resolve a correction once, not restart a loop.

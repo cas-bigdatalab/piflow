@@ -98,6 +98,7 @@ class Operations:
             and (not owner.get("search") or owner["search"]["done"])
             for attempt in owner["attempts"]
             if attempt["state"]=="succeeded" and attempt.get("key") and attempt.get("invocation")
+            and attempt.get("acceptance", "accepted") == "accepted"
             and attempt.get("result_id") in available-claimed
             and not attempt.get("reused") and attempt.get("dispatched", True) is not False
             and (not attempt.get("tool") or attempt["tool"]==owner["capability"])]
@@ -116,6 +117,7 @@ class Operations:
                 continue
             ids = list(dict.fromkeys(attempt["result_id"] for owner, attempt in sources
                 if owner["capability"]==goal.get("capability") and owner.get("target")==goal.get("target")
+                and all(attempt.get("intent", {}).get(key) == value for key, value in goal.get("intent", {}).items())
                 and goal["id"] not in attempt.get("scope", [])))
             if ids:
                 result[goal["id"]] = ids
@@ -216,36 +218,98 @@ class Operations:
             raise QAError("invalid_parameters", "calls引用了尚未登记的操作")
         return bindings
 
+    @staticmethod
+    def retryable(attempt):
+        code = attempt.get("error", {}).get("code")
+        return code == "mcp_unavailable" or (attempt.get("retry_safe") is True
+            and code not in {"artifact_unavailable", "execution_unknown"})
+
+    def blocked_receipt(self, invocation):
+        """Bookkeeping cannot reopen a terminal invocation in the same turn."""
+        for owner in self.items:
+            if owner["state"] not in {"failed", "unknown", "running"}:
+                continue
+            for attempt in reversed(owner["attempts"]):
+                if attempt.get("invocation") == invocation and (attempt["state"] in {"running", "unknown"}
+                        or (attempt["state"] == "failed" and not self.retryable(attempt))):
+                    return attempt
+
+    def failure(self, item):
+        """Follow unavailable dependencies to their actual receipt, without inventing execution."""
+        seen = set()
+        while item and item["id"] not in seen:
+            seen.add(item["id"])
+            if item["state"] not in {"failed", "unknown", "running", "unavailable"}:
+                return None
+            if item.get("unavailable_dependency"):
+                dependency = item["unavailable_dependency"]
+                item = self.get(dependency) or next((row for row in self.items
+                    if row.get("plan_step") == dependency), None)
+                continue
+            failure = next((attempt["error"] for attempt in reversed(item["attempts"]) if attempt.get("error")), None)
+            if failure:
+                return QAError(failure["code"], failure["message"], failure["status"], detail=failure.get("detail"))
+            if item["state"] in {"running", "unknown"}:
+                return QAError("execution_unknown", "部分操作的执行结果尚未确认", 504)
+            return None
+
+    def blocking(self):
+        return [item for item in self.items if item["state"] in {"failed", "unknown"}
+            and item["attempts"] and not self.retryable(item["attempts"][-1])]
+
+    def resolve_error(self, reason=None, ids=()):
+        """A later bookkeeping error must not hide a still-relevant execution failure."""
+        if reason is None:
+            return self.error(ids)
+        if reason.code in {"invalid_parameters", "invalid_pointer", "result_not_found", "invalid_tool_call",
+                "tool_not_loaded", "invalid_delivery", "mcp_required", "step_limit", "no_progress"}:
+            candidates = self.required
+            if not candidates or any(item["state"] != "succeeded" for item in candidates):
+                candidates = [*candidates, *(item for item in self.items if item.get("inferred"))]
+            for item in candidates:
+                if failure := self.failure(item):
+                    return failure
+        return reason
+
     def start(self, operation_id, key, tool=None, retry_safe=False, invocation=None, presentation=None):
         item = self.get(operation_id)
         if item is None:
             return
-        if invocation:
-            for owner in self.items:
-                if owner is item:
-                    continue
-                for attempt in owner["attempts"]:
-                    if attempt.get("invocation")==invocation and (attempt["state"] in {"running", "unknown"}
-                            or (attempt["state"]=="failed" and not attempt.get("retry_safe") and attempt.get("error", {}).get("code")!="mcp_unavailable")):
-                        failure = attempt.get("error") or {"code": "execution_unknown", "message": "相同调用的执行结果尚未确认，未重复执行", "status": 504}
-                        item.update(state="unknown" if failure["code"]=="execution_unknown" else "failed")
-                        item["attempts"].append({"key": key, "state": item["state"], "invocation": invocation,
-                            "tool": tool, "retry_safe": retry_safe, "dispatched": False, "error": deepcopy(failure)})
-                        raise QAError(failure["code"], failure["message"], failure["status"], detail=failure.get("detail"))
+        blocked = self.blocked_receipt(invocation) if invocation else None
+        if blocked and blocked not in item["attempts"]:
+            failure = blocked.get("error") or {"code": "execution_unknown", "message": "相同调用的执行结果尚未确认，未重复执行", "status": 504}
+            item.update(state="unknown" if failure["code"]=="execution_unknown" else "failed")
+            item["attempts"].append({"key": key, "state": item["state"], "invocation": invocation,
+                "tool": tool, "retry_safe": retry_safe, "dispatched": False, "error": deepcopy(failure)})
+            raise QAError(failure["code"], failure["message"], failure["status"], detail=failure.get("detail"))
         if item["state"] in {"running", "unknown"}:
             raise QAError("execution_unknown", "此操作的执行结果尚未确认，未重复执行；请先核实上游状态", 504)
         if item["state"]=="failed":
             previous = item["attempts"][-1]
             error = previous.get("error", {})
-            if error.get("code")!="mcp_unavailable" and not previous.get("retry_safe"):
+            if not self.retryable(previous):
                 raise QAError(error.get("code", "tool_failed"), "此操作已经失败，未重复执行可能产生副作用的操作", 502, detail=error.get("detail"))
+        item.pop("plan_retry", None)  # A revision permits one corrected attempt.
         item["state"] = "running"
         item["attempts"].append({"key": key, "state": "running", "tool": tool, "retry_safe": retry_safe,
-            "invocation": invocation, "scope": [goal["id"] for goal in self.required]})
+            "invocation": invocation, "scope": [goal["id"] for goal in self.required],
+            "intent": deepcopy(item.get("intent", {}))})
         if presentation is not None:
             item["attempts"][-1]["presentation"] = deepcopy(presentation)
 
-    def finish(self, operation_id, key, *, result_id=None, error=None):
+    def reject(self, operation_id, key, error):
+        """Record a local rejection without claiming an external call started."""
+        item = self.get(operation_id)
+        if item is None or item["state"] != "pending":
+            return  # Never alter an executed or uncertain receipt.
+        item.pop("plan_retry", None)
+        if item["attempts"] and item["attempts"][-1]["key"] == key and item["attempts"][-1]["state"] == "rejected":
+            return
+        item["attempts"].append({"key": key, "state": "rejected", "dispatched": False,
+            "error": {"code": error.code, "message": str(error)[:400], "status": error.status,
+                "detail": project(error.detail or {}, 1200)[0]}})
+
+    def finish(self, operation_id, key, *, result_id=None, error=None, acceptance=None):
         item = self.get(operation_id)
         if item is None:
             return
@@ -263,7 +327,11 @@ class Operations:
         attempt.update(state=state)
         if result_id:
             attempt["result_id"] = result_id
+            if acceptance is not None:
+                attempt["acceptance"] = acceptance
         if error:
+            if isinstance(error.detail, dict) and error.detail.get("dispatched") is False:
+                attempt["dispatched"] = False
             attempt["error"] = {"code": error.code, "message": str(error)[:400], "status": error.status}
             if error.detail:
                 attempt["error"]["detail"], _ = project(error.detail, 1200)
@@ -272,6 +340,26 @@ class Operations:
     def result_ids(self, item):
         return list(dict.fromkeys(value["result_id"] for value in item["attempts"]
             if value["state"]=="succeeded" and value.get("result_id")))
+
+    @staticmethod
+    def assessment(item):
+        """Assess content independently of execution, for every execution mode.
+
+        Legacy successful receipts have no explicit result contract and retain
+        their previous acceptance. Rejected attempts are not content receipts;
+        a later failed or pending operation cannot be completed by older data.
+        """
+        if item["state"] in {"failed", "unknown", "unavailable"}:
+            return "unavailable"
+        if item["state"] != "succeeded" or (item.get("search") and not item["search"]["done"]):
+            return "pending"
+        receipts = [value for value in item["attempts"]
+            if value["state"] == "succeeded" and value.get("result_id")]
+        if receipts and all(value.get("acceptance", "accepted") == "accepted" for value in receipts):
+            return "accepted"
+        if receipts and all(value.get("acceptance") == "unavailable" for value in receipts):
+            return "unavailable"
+        return "incomplete"
 
     def deliverable(self, partial=False):
         """Recovery may show unconfirmed evidence without adopting its goal.
@@ -299,6 +387,11 @@ class Operations:
             if item.get("search") and not item["search"]["done"]}
         if unfinished_searches and not partial:
             raise QAError("invalid_delivery", "检索尚未达到六条去重结果，也尚未完成四个不同关键词", detail={"searches": unfinished_searches})
+        incomplete = [item["id"] for item in self.required if self.assessment(item) == "incomplete"]
+        if incomplete and not partial:
+            raise QAError("invalid_delivery", "已取得部分内容，但尚未满足全部成果要求", detail={
+                "incomplete": incomplete,
+                "guidance": "Retain the saved evidence. Do not repeat the same invocation or claim complete fulfillment. Continue only for a concrete missing prerequisite; otherwise deliver the available part."})
         owners = {rid for item in eligible for rid in self.result_ids(item)}
         if not set(ids)<=owners:
             raise QAError("invalid_delivery", "交付结果必须来自本轮必要操作的成功证据，不能选择辅助查询或无关历史结果",
@@ -312,15 +405,14 @@ class Operations:
 
     def error(self, ids=()):
         for item in self.required:
-            if item["state"] in {"failed", "unknown", "running"}:
-                failure = next((value.get("error") for value in reversed(item["attempts"]) if value.get("error")), None)
-                if failure:
-                    return QAError(failure["code"], failure["message"], failure["status"], detail=failure.get("detail"))
-                return QAError("execution_unknown", "部分操作的执行结果尚未确认", 504)
+            if failure := self.failure(item):
+                return failure
         if any(item.get("search") and not item["search"]["done"] for item in self.items):
             # A completed prerequisite may be auxiliary in the artifact view;
             # changing its delivery role cannot erase an unfinished policy.
             return QAError("invalid_delivery", "检索范围尚未按约定完成")
+        if any(self.assessment(item) == "incomplete" for item in self.required):
+            return QAError("invalid_delivery", "已取得部分内容，但尚未满足全部成果要求")
         if any(item["state"]!="succeeded" or (item.get("search") and not item["search"]["done"])
                 or (item["output"]=="result" and not set(ids).intersection(self.result_ids(item))) for item in self.required):
             return QAError("invalid_delivery", "本轮必要操作或结果交付尚未全部完成")
@@ -333,6 +425,10 @@ class Operations:
             ids = self.result_ids(item)
             if item.get("capability"):
                 row["capability"] = item["capability"]
+            if item.get("intent"):
+                row["intent"] = deepcopy(item["intent"])
+            if any("acceptance" in attempt for attempt in item["attempts"]):
+                row["acceptance"] = self.assessment(item)
             if item.get("search"):
                 row["search"] = SearchRun(item["search"]).view()
             if not item.get("required", True):
@@ -363,8 +459,11 @@ class Operations:
         for item in self.required:
             if not item["description"].strip():
                 continue  # A private/unknown label is not a user-facing outcome.
+            if item["state"] == "succeeded" and self.assessment(item) == "unavailable":
+                unfinished.append(item["description"])
+                continue  # An unavailable-content receipt is not partial content.
             delivered = item["output"]=="answer" or bool(set(ids).intersection(self.result_ids(item)))
-            if item["state"]=="succeeded" and delivered:
+            if self.assessment(item)=="accepted" and delivered:
                 done.append(item["description"])
             elif self.result_ids(item) and delivered:
                 partial.append(item["description"]+"（尚有内容未完成）")

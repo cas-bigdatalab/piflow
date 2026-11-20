@@ -8,7 +8,7 @@ from .assertions import assert_completed
 from ..capabilities import OBJECT
 from ..service import DatasetQA
 from .test_dataset_qa import action, collect, engine, load, remote, result_cards, session
-from .test_decisions import BareDialogue, configured, payload, text
+from .test_decisions import BareDialogue, configured, goals, payload, text
 
 
 @pytest.mark.parametrize("failure", ["ownership", "references"])
@@ -19,10 +19,17 @@ def test_rejected_delivery_does_not_freeze_the_intermediate_artifact(engine, fai
         return action("deliver_results", references={"candidates": {
             "result_id": "not-a-displayed-result", "path": "/items", "kind": "object"}})
 
+    def declare_details(messages, definitions):
+        # Rejected delivery must roll back its tentative adoption of search.
+        operations = json.loads(messages[1].content)["operations"]["items"]
+        assert len(operations) == 1 and operations[0]["delivery_pending"] is True
+        return goals({"description": "Show the first resource's details", "tool": "inspect",
+            "object": "object:1"})(messages, definitions)
+
     async def run():
         backend = configured()
         dialogue = BareDialogue(load(), remote("search", query="resource"), bad_delivery,
-            remote("inspect", **{OBJECT: "object:1"}), action("deliver_results"), text())
+            declare_details, remote("inspect", **{OBJECT: "object:1"}), text())
         service = DatasetQA(engine, dialogue, backend.gateway())
         sid = session(service)
         try:

@@ -2,13 +2,22 @@
 
 from __future__ import annotations
 
+from contextlib import nullcontext
 from functools import partial
+import logging
 from typing import Annotated, Any, Literal
 
 import anyio
 from fastmcp import FastMCP, Context
 from fastmcp.exceptions import ToolError
+from fastmcp.server.dependencies import get_http_request
+from fastmcp.tools.tool import ToolResult
+from mcp.types import CallToolResult, TextContent
 from pydantic import BaseModel, ConfigDict, Field
+from starlette.requests import Request
+from starlette.responses import FileResponse as StarletteFileResponse, JSONResponse
+
+from scientific_agents.dataset_qa.artifact_storage import ArtifactStorageError, download_base_context, local_download, request_download_base
 
 from services.corpus_connector_service import (
     get_dataset_detail_by_cstr,
@@ -376,19 +385,20 @@ async def get_corpus_dataset_directory(
     )
 
 
-def _file_capability(kind, group, source, operations, inputs, outputs, *, consume=None):
+def _file_capability(kind, group, source, operations, inputs, outputs, *, consume=None, plan_required=False):
     label = "PubChem 化合物检索与筛选" if source == "PubChem" else "导出数据文件"
     return {"piflow": {"displayName": label, "category": "化合物发现" if source else "数据处理",
         "icon": "database-search" if source else "download", "riskLevel": "low", "version": "1.0.0",
         "tags": [group, *operations], "view_type": "url", "qa": {
         "label": label,
-        "atomic": True, "object": "/resource",
+        "atomic": True, "object": "/resource", "plan_required": plan_required,
         "bind": {consume: ["/source_ref"]} if consume else {},
         "routing": {"group": group, "source": source, "operations": operations, "inputs": inputs, "outputs": outputs},
         "artifact": {"path": "/resource", "consume": consume, "execution_context": True, "replay_safe": True},
         "result": {"kind": kind, "requires": [{"path": "/resource/source_ref"},
             {"path": "/record_count", "test": "at_least", "value": 1}],
             "unavailable_when": [{"path": "/resource", "test": "equals", "value": None}],
+            "argument_paths": {"format": "/resource/format"} if consume else {},
             "target_paths": ["/record_count"]}}}}
 
 
@@ -396,6 +406,32 @@ def _execution_context(ctx):
     request = ctx.request_context
     meta = request.meta.model_dump() if request and request.meta else {}
     return meta.get("piflow_execution", {})
+
+
+def _artifact_download_context():
+    # Use this transport's mount and the shared deployment-aware origin resolver.
+    # Remote MCP must not inherit the QA server's unrelated public file route.
+    try:
+        request = get_http_request()
+    except RuntimeError:
+        # Keep the original QA HTTP adapter's public origin for in-process MCP.
+        return nullcontext()
+    base = request.url.replace(path=request.scope.get("root_path", ""), query="", fragment="")
+    return download_base_context(request_download_base(str(base), request=request))
+
+
+class _ToolFailure(ToolResult):
+    """Preserve typed error metadata through FastMCP's result conversion."""
+    def to_mcp_result(self):
+        return CallToolResult(isError=True, content=self.content, _meta=self.meta)
+
+
+def _artifact_error(error):
+    phase = getattr(error, "phase", "storage")
+    logging.getLogger("flow.corpus.artifacts").warning("Artifact storage unavailable: phase=%s", phase, exc_info=True)
+    return _ToolFailure(
+        content=[TextContent(type="text", text="本次结果文件尚未准备好，当前还不能提供下载。")],
+        meta={"piflow": {"error_code": "artifact_unavailable", "phase": phase}})
 
 
 class CompoundPropertyRange(BaseModel):
@@ -408,7 +444,7 @@ class CompoundPropertyRange(BaseModel):
 @mcp.tool(annotations={"title": "PubChem 化合物检索与筛选", "readOnlyHint": False,
     "destructiveHint": False, "idempotentHint": True, "openWorldHint": True},
     meta=_file_capability("record_resource", "pubchem", "PubChem", ["similarity_search", "property_filter"],
-        ["SMILES"], ["jsonl", "record_resource"]))
+        ["SMILES"], ["jsonl", "record_resource"], plan_required=True))
 async def query_pubchem_compounds(
     ctx: Context,
     smiles: Annotated[str, Field(min_length=1, max_length=4000, description="用户提供的查询分子 SMILES，不改写结构")],
@@ -426,8 +462,11 @@ async def query_pubchem_compounds(
     """
     try:
         rules = [value.model_dump(exclude_unset=True) for value in filters] if filters is not None else None
-        return await anyio.to_thread.run_sync(partial(query_pubchem_records, smiles,
-            similarity_threshold, rules, limit, execution=_execution_context(ctx)))
+        with _artifact_download_context():
+            return await anyio.to_thread.run_sync(partial(query_pubchem_records, smiles,
+                similarity_threshold, rules, limit, execution=_execution_context(ctx)))
+    except (ArtifactStorageError, OSError) as exc:
+        return _artifact_error(exc)
     except ValueError as exc:
         raise ToolError(str(exc)) from exc
     except Exception as exc:
@@ -450,12 +489,34 @@ async def export_dataset(
     同一源文件与格式复用已校验的导出，刷新下载地址不重新检索。需签名执行上下文，同查询工具。
     """
     try:
-        return await anyio.to_thread.run_sync(partial(export_record_file, source_ref, format,
-            execution=_execution_context(ctx)))
+        with _artifact_download_context():
+            return await anyio.to_thread.run_sync(partial(export_record_file, source_ref, format,
+                execution=_execution_context(ctx)))
+    except (ArtifactStorageError, OSError) as exc:
+        return _artifact_error(exc)
     except ValueError as exc:
         raise ToolError(str(exc)) from exc
     except Exception as exc:
         raise ToolError("本次导出文件暂未准备完成，已取得的数据仍可继续使用") from exc
+
+
+@mcp.custom_route("/artifacts/{token}/{name}", methods=["GET"], include_in_schema=False)
+async def download_artifact(request: Request):
+    """Download capability, separate from model tools and arbitrary file paths."""
+    headers = {"Cache-Control": "private, no-store", "Referrer-Policy": "no-referrer",
+               "X-Content-Type-Options": "nosniff"}
+    try:
+        path, name, fmt = await anyio.to_thread.run_sync(partial(local_download,
+            request.path_params["token"], request.path_params["name"], 64 * 1024 * 1024))
+        return StarletteFileResponse(path, filename=name, headers=headers,
+            media_type="text/csv; charset=utf-8" if fmt == "csv" else "application/x-ndjson")
+    except ArtifactStorageError:
+        logging.getLogger("flow.corpus.artifacts").warning("Artifact download unavailable", exc_info=True)
+        return JSONResponse({"message": "结果文件暂不可下载，您可以返回对话继续获取。"}, status_code=503, headers=headers)
+    except FileNotFoundError:
+        return JSONResponse({"message": "当前结果文件不可用，您可以返回对话重新获取。"}, status_code=404, headers=headers)
+    except ValueError:
+        return JSONResponse({"message": "下载链接已过期或无效，请返回对话获取新的链接。"}, status_code=403, headers=headers)
 
 
 def create_mcp_app():

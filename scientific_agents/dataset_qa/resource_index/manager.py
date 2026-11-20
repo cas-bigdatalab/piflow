@@ -6,7 +6,7 @@ import logging
 from ..capabilities import profile
 from ..contracts import QAError
 from ..execution import Execution
-from .model import DirectorySpec, IndexPolicy, source_identity
+from .model import DirectorySpec, IndexPolicy, source_identity, valid_identifier
 from .store import IndexStore, ROOT
 
 log = logging.getLogger("flow.dataset_qa.index")
@@ -15,7 +15,9 @@ log = logging.getLogger("flow.dataset_qa.index")
 class ResourceIndex:
     def __init__(self, store, gateway, busy, policy=None):
         self.policy = policy or IndexPolicy()
-        self.store = IndexStore(store.engine, store.lock, self.policy)
+        self.enabled = "directory_lookup" in store.agent_profile.features
+        self.store = IndexStore(store.engine, store.lock, self.policy,
+            agent_profile=store.agent_profile) if self.enabled else None
         self.gateway, self.busy = gateway, busy
         self.workers, self.wake, self.closed = [], asyncio.Event(), False
         self.changed = asyncio.Condition()
@@ -34,10 +36,12 @@ class ResourceIndex:
                 pass  # Periodically re-read for work completed by another process.
 
     def sources(self):
+        if not self.enabled:
+            return {}
         return {name: source_identity(server) for name, server in self.gateway.configured_servers().items()}
 
     def start(self):
-        if not self.workers and not self.closed:
+        if self.enabled and not self.workers and not self.closed:
             self.workers = [asyncio.create_task(self._worker()) for _ in range(self.policy.workers)]
 
     async def close(self):
@@ -48,10 +52,11 @@ class ResourceIndex:
         await asyncio.gather(*self.workers, return_exceptions=True)
         self.workers.clear()
 
-    async def observe(self, user, tool, arguments, data, dataset):
-        if not profile(tool).directory or not Execution.reusable(tool):
+    async def observe(self, user, tool, arguments, data, dataset, *, source_id=None):
+        if not self.enabled or not profile(tool).directory or not Execution.reusable(tool):
             return None
-        key = await asyncio.to_thread(self.store.observe, user, tool, self.sources()[tool.server], arguments, data, dataset)
+        source_id = source_id or self.sources()[tool.server]
+        key = await asyncio.to_thread(self.store.observe, user, tool, source_id, arguments, data, dataset)
         self.start()
         self.wake.set()
         await self._notify()
@@ -80,10 +85,14 @@ class ResourceIndex:
                 spec = DirectorySpec.model_validate_json(scope["descriptor"])
                 args = json.loads(scope["arguments"])
                 if node["key"]!=ROOT:
-                    args[spec.parent] = json.loads(node["identity"])
+                    identity = json.loads(node["identity"])
+                    if not valid_identifier(identity):
+                        raise QAError("invalid_schema", "目录节点缺少有效身份")
+                    args[spec.parent] = identity
                 async with asyncio.timeout(min(self.policy.request_timeout, self.policy.lease_seconds/2)):
                     async with self.gateway.session() as tools:
-                        if self.sources().get(scope["server"])!=scope["source"]:
+                        server = tools.servers.get(scope["server"])
+                        if server is None or source_identity(server)!=scope["source"]:
                             raise QAError("source_changed", "目录来源已更新")
                         tool = next((tool for tool in await tools.tools(scope["server"]) if tool.name==scope["tool"]), None)
                         if tool is None or not Execution.reusable(tool) or profile(tool).directory!=spec:
@@ -114,6 +123,8 @@ class ResourceIndex:
                     await self._notify()
 
     async def lookup(self, user, name, *, scope_id=None, parent=None, kind="file", refresh=False):
+        if not self.enabled:
+            raise QAError("capability_unavailable", "当前助手未开放目录定位能力")
         sources = self.sources()
         query = dict(scope_id=scope_id, parent=parent, kind=kind)
         result = await asyncio.to_thread(self.store.lookup, user, sources, name, **query)

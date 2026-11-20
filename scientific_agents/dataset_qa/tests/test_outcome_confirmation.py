@@ -79,6 +79,42 @@ def test_one_late_goal_can_explicitly_select_multiple_original_successes():
     assert operations.get(goal)["state"]=="succeeded"
 
 
+@pytest.mark.parametrize("field,old,new", [("output_format", "jsonl", "csv"), ("operation", "inspect", "transform")])
+def test_late_confirmation_checks_the_intent_of_each_actual_receipt(field, old, new):
+    operations = Operations()
+    owner = operations.register("Supporting work", CAPABILITY, TARGET, required=False)
+    operations.get(owner)["intent"] = {field: old}
+    save(operations, owner, "old-result", "old-call")
+    operations.get(owner)["intent"] = {field: new}
+    save(operations, owner, "new-result", "new-call")
+    goal = operations.register("Requested outcome", CAPABILITY, TARGET, planned=True)
+    operations.get(goal)["intent"] = {field: new}
+    assert operations.confirmable(["old-result", "new-result"]) == {goal: ["new-result"]}
+    with pytest.raises(QAError):
+        operations.confirm([confirmation(goal, "old-result")], ["old-result", "new-result"])
+    assert operations.get(goal)["state"] == "pending"
+    operations.confirm([confirmation(goal, "new-result")], ["old-result", "new-result"])
+    assert operations.result_ids(operations.get(goal)) == ["new-result"]
+
+
+def test_old_receipt_without_intent_cannot_confirm_a_new_format_requirement():
+    operations, owner, goal = scenario()
+    operations.get(owner)["attempts"][0].pop("intent", None)
+    operations.get(goal)["intent"] = {"output_format": "csv"}
+    assert operations.confirmable(["result-A"]) == {}
+    with pytest.raises(QAError):
+        operations.confirm([confirmation(goal, "result-A")], ["result-A"])
+
+
+@pytest.mark.parametrize("acceptance", ["unavailable", "incomplete"])
+def test_returned_but_unfulfilled_content_is_not_offered_as_a_completed_outcome(acceptance):
+    operations, owner, goal = scenario()
+    operations.get(owner)["attempts"][0]["acceptance"] = acceptance
+    assert operations.confirmable(["result-A"]) == {}
+    with pytest.raises(QAError):
+        operations.confirm([confirmation(goal, "result-A")], ["result-A"])
+
+
 def test_view_only_marks_inferred_source_resolved_when_all_its_results_have_owners():
     operations = Operations()
     owner = operations.register("Evidence", CAPABILITY, required=False)

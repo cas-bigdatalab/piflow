@@ -5,6 +5,29 @@ import math
 
 from .context import encode
 
+
+def navigation_identity(directory):
+    """Drop recoverable descriptions, never service/group identities or cursors."""
+    if not isinstance(directory, dict) or not isinstance(directory.get("items"), list):
+        return directory
+    items = []
+    for row in directory["items"]:
+        if not isinstance(row, dict) or not row.get("name"):
+            return directory  # Unknown contracts must not be silently rewritten.
+        entry = {key: row[key] for key in ("name", "discovered", "loaded_tools") if key in row}
+        if "groups" in row:
+            if not isinstance(row["groups"], list) or any(
+                    not isinstance(group, dict) or not group.get("group") for group in row["groups"]):
+                return directory
+            entry["groups"] = [{key: group[key] for key in ("group", "source") if key in group}
+                for group in row["groups"]]
+        items.append(entry)
+    result = {**directory, "items": items}
+    if result != directory:
+        result["details_tool"] = "list_mcp_servers"
+    return result
+
+
 class TokenCounter:
     """Use an explicitly matched tokenizer, or a labelled, usage-calibrated estimate.
 

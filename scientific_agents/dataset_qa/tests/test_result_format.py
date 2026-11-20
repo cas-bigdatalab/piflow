@@ -105,7 +105,7 @@ def test_media_only_result_has_empty_items_and_preserves_resource(engine):
         {"cstr": "a", "title": "Dataset"}, "data", "数据集详情"),
     ("get_corpus_dataset_directory", "get_dataset_directory", {"cstr": "a", "file_id": "folder-1"},
         {"code": 200, "data": [{"fileId": "file-1", "fileName": "observations.csv", "isFile": True}]},
-        "directory", "查看数据集目录"),
+        "table", "查看数据内容"),
     ("sample_corpus_dataset", "get_dataset_sampler", {"cstr": "a", "size": 5},
         {"code": 200, "data": {"url": "https://example.invalid/sample.json", "size": 5}}, "url", "数据集随机采样"),
 ])

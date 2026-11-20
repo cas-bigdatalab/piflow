@@ -88,7 +88,7 @@ def test_same_tool_other_target_success_keeps_failure_and_delivers_qualified_par
             payload = saved(service, sid, values[-1]["task_id"])
             assert [item["state"] for item in payload["operations"]]==["failed", "succeeded"]
             text = "".join(value["text"] for value in values if value["type"]=="message")
-            assert "已为您完成：操作 b" in text and "暂时还无法提供：操作 a" in text and "Invalid operation" not in text
+            assert "已为您提供：操作 b" in text and "本次尚未提供：操作 a" in text and "Invalid operation" not in text
             assert values==await collect(service, sid, "分别采样 A 和 B") and len(backend.calls)==2
         finally:
             await service.close()
@@ -279,7 +279,8 @@ def test_invalid_explicit_legacy_bindings_are_corrected_before_any_dispatch(engi
         try:
             values = await collect(service, session(service), "采样 A")
             assert_handled(service, None, values[-1], "invalid_parameters")
-            assert not backend.calls and not result_cards(values) and len(dialogue.inputs)==4
+            # Identical rejected metadata gets one repair opportunity, then stops.
+            assert not backend.calls and not result_cards(values) and len(dialogue.inputs)==3
         finally:
             await service.close()
     asyncio.run(run())

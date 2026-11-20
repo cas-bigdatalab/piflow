@@ -1,11 +1,75 @@
 """Bridge indexed locations to session-owned evidence without changing focus."""
 import asyncio
+from copy import deepcopy
 import json
 
-from ..context import project
+from ..context import project, same_identity
 from ..contracts import QAError
-from ..references import at_path
-from .model import DirectorySpec
+from ..references import at_path, identifier_in_request
+from .model import DirectorySpec, source_identity, valid_identifier
+
+
+def directory_receipt(tool, source, arguments):
+    """Private provenance for the original result, independent of index success."""
+    from ..capabilities import profile
+
+    spec = profile(tool).directory
+    return {"scope": spec.scope_key(tool.server, source, tool.name, arguments),
+        "parent": deepcopy(arguments.get(spec.parent))}
+
+
+async def bind_parent(service, user, sid, tool, arguments, message, *, source=None):
+    """Accept roots or exact parent IDs grounded in the request or directory evidence."""
+    from jsonschema import Draft202012Validator
+    from ..capabilities import profile
+
+    spec = profile(tool).directory
+    values = deepcopy(arguments)
+    parent = values.get(spec.parent)
+    if parent is None:
+        return values
+    detail = {"field": spec.parent, "path": [spec.parent], "origin": "directory_parent",
+        "dispatched": False,
+        "guidance": "For the dataset root omit this parameter or use JSON null. For a child directory use its original identifier from a directory receipt for this same dataset and source, or an explicit user-supplied parameter assignment. Names and paths are not identifiers; do not stringify null or guess replacements."}
+    parent_schema = tool.schema["properties"][spec.parent]
+    if Draft202012Validator(tool.schema).evolve(schema=parent_schema).is_valid(None):
+        detail["root_arguments"] = {**values, spec.parent: None}
+        detail["root_guidance"] = "Use root_arguments only for the dataset root; for a child resolve its verified directory-node ID."
+    if not valid_identifier(parent):
+        raise QAError("invalid_parameters", "目录父节点须为真实标识；根层请省略该参数或使用 null", detail=detail)
+    if identifier_in_request(parent, message, spec.parent, labelled_only=True):
+        return values
+    if source is None:
+        source = source_identity(service.gateway.configured_servers()[tool.server])
+    scope = directory_receipt(tool, source, values)["scope"]
+    # Prefer an exact, local observation in long sessions. Index failure or
+    # absence falls back to immutable receipts without refresh or waiting.
+    index = service.resources.store
+    if index is not None:
+        try:
+            observed = await asyncio.to_thread(index.directory_parent, user, tool, source, values, parent)
+        except Exception:
+            observed = None
+        if observed is not None:
+            values[spec.parent] = observed
+            return values
+    before = None
+    while True:
+        cards, before = await asyncio.to_thread(service.store.directory_receipts, user, sid, scope, before=before)
+        for card in cards:
+            if card.get("directory_receipt", {}).get("scope")!=scope:
+                continue
+            try:
+                rows = spec.rows(card.get("data"))
+            except QAError:
+                continue  # Malformed/failed listings cannot establish a parent.
+            for row in rows:
+                if row["kind"]=="directory" and same_identity(parent, row["identity"]):
+                    values[spec.parent] = deepcopy(row["identity"])
+                    return values
+        if before is None:
+            break
+    raise QAError("invalid_parameters", "尚无此数据集目录节点的来源证据，请使用已返回的目录标识", detail=detail)
 
 
 async def resolve(service, user, sid, tid, values, context, payload):

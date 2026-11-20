@@ -175,7 +175,7 @@ def test_older_artifact_found_selected_and_exported_after_service_rebuild(engine
         captured = {}
         def find(messages, definitions):
             loaded = json.loads(messages[1].content)
-            assert "archive-0.jsonl" not in {row.get("name") for row in loaded["available_artifacts"]}
+            assert not loaded.get("available_artifacts")  # Global history is discovered on demand.
             assert "find_artifacts" in {item["function"]["name"] for item in definitions}
             return action("find_artifacts", query="archive-0.jsonl")
         def select(messages, definitions):
@@ -186,7 +186,8 @@ def test_older_artifact_found_selected_and_exported_after_service_rebuild(engine
         def export(messages, definitions):
             assert json.loads(messages[1].content)["references"]["current"]["value"]["name"] == "archive-0.jsonl"
             alias = next(item["function"]["name"] for item in definitions if item["function"]["name"].endswith("_export_dataset"))
-            return action(alias, format="csv", **{OBJECT: "current", TASK: {"complete_request": True}})
+            return action(alias, format="csv", **{OBJECT: "current", TASK: {"complete_request": True,
+                "source_requirements": {"criteria": None, "fields": None}}})
         service = DatasetQA(engine, BareDialogue(find, select, export, text()), MCPGateway({"piflow-corpus": Server(mcp)}))
         try:
             sid = session(service, request="reopened")

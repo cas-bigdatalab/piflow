@@ -58,6 +58,16 @@ def test_binding_schema_normalization_resolves_local_schema_references():
     assert inputs(tool, {}, {"id": 42})=={"asset_key": "42"}
 
 
+def test_source_binding_does_not_replace_an_explicit_valid_null():
+    nullable = bound_tool({"asset_key": {"type": ["string", "null"]}}, {"asset_key": ["/id"]})
+    with pytest.raises(QAError, match="所选对象不一致"):
+        inputs(nullable, {"asset_key": None}, {"id": "file-1"})
+    assert inputs(nullable, {}, {"id": "file-1"}) == {"asset_key": "file-1"}
+    # A null placeholder is still fillable when null is not a business value.
+    required = bound_tool(binding={"asset_key": ["/id"]})
+    assert inputs(required, {"asset_key": None}, {"id": "file-1"}) == {"asset_key": "file-1"}
+
+
 @pytest.mark.parametrize("source,arguments", [
     ({"id": 1, "raw": {"id": True}}, {}),
     ({"id": 1}, {"asset_key": True}),

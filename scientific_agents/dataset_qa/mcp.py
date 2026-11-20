@@ -5,6 +5,7 @@ from contextlib import AsyncExitStack, asynccontextmanager
 from copy import deepcopy
 from dataclasses import dataclass, field, replace
 from hashlib import sha256
+import json
 import logging
 from pathlib import Path
 import re
@@ -17,6 +18,7 @@ from anyio import BrokenResourceError, ClosedResourceError, EndOfStream
 from .context import encode, project
 from .contracts import Limits, QAError, Server
 from .results import ToolResult
+from ..agent_profiles import DATASET_QA_PROFILE
 
 log = logging.getLogger("flow.dataset_qa.mcp")
 
@@ -74,6 +76,17 @@ class Tool:
     @property
     def title(self):
         return str(self.annotations.get("title") or self.name)[:200]
+
+    @property
+    def plan_signature(self):
+        """Stable schema and adapter identity for saved plan restoration."""
+        from .capabilities import profile
+        value = {"schema": self.schema,
+            "annotations": {key: self.annotations.get(key) for key in
+                ("readOnlyHint", "destructiveHint", "idempotentHint", "openWorldHint")},
+            "qa": profile(self).model_dump(exclude={"label", "name_paths"})}
+        return sha256(json.dumps(value, sort_keys=True, ensure_ascii=False,
+            separators=(",", ":"), allow_nan=False).encode()).hexdigest()
 
     def definition(self):
         if self._definition is not None:
@@ -146,15 +159,37 @@ def checked_tool(tool):
 
 
 class MCPGateway:
-    def __init__(self, servers=None, config_path=None, client_factory=None, limits=None):
+    def __init__(self, servers=None, config_path=None, client_factory=None, limits=None, *, agent_profile=DATASET_QA_PROFILE):
         self.servers = dict(servers or {})
+        self.agent_profile = agent_profile
         self.config_path = Path(config_path) if config_path else None
         self.client_factory, self.limits = client_factory, limits or Limits()
         self.cache = {}
         self.identities, self.refresh_versions, self.refresh_sequence = {}, {}, 0
 
+    def for_profile(self, agent_profile):
+        """A separate view/cache; never mutate a gateway used by another agent."""
+        return MCPGateway(self.servers, self.config_path, self.client_factory, self.limits,
+            agent_profile=agent_profile)
+
+    def identity(self, spec):
+        value = repr(spec)
+        if self.agent_profile.tool_scope is not None:
+            value += repr((self.agent_profile.agent_id, self.agent_profile.tool_scope))
+        return sha256(value.encode()).hexdigest()
+
+    def allows(self, tool):
+        if self.agent_profile.tool_scope is None:
+            return True
+        from .capabilities import PROFILES
+        metadata = tool.meta.get("piflow", {}) if isinstance(tool.meta, dict) else {}
+        descriptor = metadata.get("qa", PROFILES.get((tool.server, tool.name), {})) if isinstance(metadata, dict) else {}
+        routing = descriptor.get("routing", {}) if isinstance(descriptor, dict) else {}
+        group = routing.get("group") if isinstance(routing, dict) else None
+        return self.agent_profile.allows_tool(tool.server, tool.name, group)
+
     def configured_servers(self):
-        servers = dict(self.servers)
+        servers = {name: spec for name, spec in self.servers.items() if self.agent_profile.allows_server(name)}
         if self.config_path:
             try:
                 raw = yaml.safe_load(self.config_path.read_text(encoding="utf-8"))
@@ -175,6 +210,8 @@ class MCPGateway:
                 for name, entry in entries.items():
                     if not isinstance(name, str) or not name or not isinstance(entry, dict):
                         raise ValueError("Invalid server entry")
+                    if not self.agent_profile.allows_server(name):
+                        continue
                     if not entry.get("enabled", True):
                         servers.pop(name, None)
                         continue
@@ -192,7 +229,7 @@ class MCPGateway:
     @asynccontextmanager
     async def session(self):
         servers = self.configured_servers()
-        self.identities = {name: sha256(repr(spec).encode()).hexdigest() for name, spec in servers.items()}
+        self.identities = {name: self.identity(spec) for name, spec in servers.items()}
         for name in list(self.cache):
             if (self.identities.get(name)!=self.cache[name][0]
                     or time.monotonic()-self.cache[name][1]>=self.limits.cache_seconds):
@@ -207,10 +244,14 @@ class ToolSession:
     def __init__(self, gateway, servers, stack):
         self.gateway, self.servers, self.stack = gateway, servers, stack
         self.clients, self.connections, self.loaded = {}, {}, OrderedDict()
+        self.plan_pins = {}
         self.connection_errors, self.discovery_errors = {}, {}
         self.connection_locks, self.discovery_locks = {}, {}
         self.definition_errors = {}
         self.limits = gateway.limits
+        self.request_query = ""
+        self.request_resources = ()
+        self.disclosed = {}
 
     async def retry(self, error, attempt, deadline, server, phase):
         if (attempt>=self.limits.transport_retries or not transient(error)
@@ -238,7 +279,9 @@ class ToolSession:
         result = {"items": [{"name": n, "description": self.servers[n].description[:300]} for n in page]}
         for row in result["items"]:
             groups = {}
-            for tool in self.cached_tools(row["name"]) or []:
+            catalogue = self.cached_tools(row["name"])
+            row["discovered"] = catalogue is not None
+            for tool in catalogue or []:
                 routing = profile(tool).routing
                 if routing:
                     group = groups.setdefault(routing.group, routing.model_dump())
@@ -248,6 +291,60 @@ class ToolSession:
                 row["groups"] = list(groups.values())
         if offset+len(page)<len(names):
             result["next_offset"] = offset+len(page)
+        return result
+
+    def relevant_servers(self, query=None):
+        """Rank configured authority descriptions independently of cache warmth.
+
+        With no lexical evidence, expose the directory rather than pretending
+        that whatever happened to be cached covers the current request.
+        """
+        wanted = terms(self.request_query if query is None else query)
+        scores = {name: len(wanted & terms(name+" "+spec.description))
+            for name, spec in self.servers.items()}
+        matching = [name for name in self.servers if scores[name] > 0]
+        return sorted(matching or self.servers, key=lambda name: -scores[name])
+
+    def discovery_status(self, *, limit=None):
+        """Coverage is disclosed relevant definitions, not a nonempty cache.
+
+        This is a conservative navigation aid. It cannot establish that a tool
+        actually meets the user's intent, which remains a model decision.
+        """
+        from .routing import relevance, select_tools
+
+        checked, pending, unavailable = [], [], []
+        for server in self.relevant_servers():
+            if server in self.discovery_errors:
+                unavailable.append(server)
+                continue
+            cached = self.cached_tools(server)
+            if cached is None:
+                pending.append({"server": server})
+                continue
+            # Offsets share load()'s full ordering, including rejected entries.
+            # Otherwise a rejected definition before a valid one can send the
+            # next discovery request back to the same page indefinitely.
+            catalogue = select_tools([*cached, *self.definition_errors.get(server, [])],
+                self.request_query, resources=self.request_resources)
+            valid = [tool for tool in catalogue if isinstance(tool, Tool)]
+            relevant = [tool for tool in valid if relevance(tool, self.request_query)] or valid
+            missing = [tool for tool in relevant if self.disclosed.get(tool.alias) != tool]
+            if missing:
+                pending.append({"server": server, "next_offset": catalogue.index(missing[0])})
+            elif self.definition_errors.get(server):
+                unavailable.append(server)
+            else:
+                checked.append(server)
+        result = {"checked_servers": checked, "pending": pending,
+            "unavailable_servers": unavailable, "complete": not pending and not unavailable}
+        if limit is not None:
+            # Compute coverage before bounding the model-facing directory. Keep
+            # identifiers whole; omitted rows remain available via navigation.
+            result.update(checked_total=len(checked), pending_total=len(pending),
+                unavailable_total=len(unavailable), details_tool="list_mcp_servers")
+            for key in ("checked_servers", "pending", "unavailable_servers"):
+                result[key] = result[key][:max(0, limit)]
         return result
 
     async def client(self, server):
@@ -291,11 +388,11 @@ class ToolSession:
         spec = self.servers[server]
         # Configuration identity is part of the cache key, so changed targets
         # and credentials never reuse another server's cached schemas.
-        identity = sha256(repr(spec).encode()).hexdigest()
+        identity = self.gateway.identity(spec)
         cached = self.gateway.cache.get(server)
         if cached and cached[0]==identity and time.monotonic()-cached[1]<self.limits.cache_seconds:
             self.definition_errors[server] = deepcopy(cached[3])
-            return deepcopy(cached[2])
+            return [tool for tool in deepcopy(cached[2]) if self.gateway.allows(tool)]
         return None
 
     async def tools(self, server):
@@ -353,24 +450,27 @@ class ToolSession:
         for value in values:
             name = getattr(value, "name", None)
             try:
-                if isinstance(name, str) and name in duplicates:
-                    raise QAError("invalid_schema", "同一服务存在重名工具，无法确定调用目标", 502)
                 annotations = getattr(value, "annotations", None)
                 if hasattr(annotations, "model_dump"):
                     annotations = annotations.model_dump(exclude_none=True)
                 schema = getattr(value, "inputSchema", None)
                 if schema is None:
                     schema = getattr(value, "input_schema", {})
-                tools.append(checked_tool(Tool(server, name, str(getattr(value, "description", "") or ""),
+                candidate = Tool(server, name, str(getattr(value, "description", "") or ""),
                     schema, annotations if annotations is not None else {},
-                    getattr(value, "meta", None) or getattr(value, "_meta", None) or {})))
+                    getattr(value, "meta", None) or getattr(value, "_meta", None) or {})
+                if not self.gateway.allows(candidate):
+                    continue
+                if isinstance(name, str) and name in duplicates:
+                    raise QAError("invalid_schema", "同一服务存在重名工具，无法确定调用目标", 502)
+                tools.append(checked_tool(candidate))
             except QAError as exc:
                 error = {"name": str(name or "<unnamed>")[:200], "error": exc.code, "message": str(exc)[:240]}
                 if error not in errors:
                     errors.append(error)
                     log.warning("MCP definition rejected: server=%s tool=%s code=%s message=%s",
                         server, error["name"], exc.code, error["message"])
-        identity = sha256(repr(self.servers[server]).encode()).hexdigest()
+        identity = self.gateway.identity(self.servers[server])
         if self.gateway.identities.get(server)==identity and self.gateway.refresh_versions.get(server)==sequence:
             self.gateway.cache[server] = (identity, time.monotonic(), deepcopy(tools), deepcopy(errors))
         self.definition_errors[server] = errors
@@ -381,10 +481,86 @@ class ToolSession:
             raise error
         return tools
 
+    def _plan_budget(self, tools):
+        tools = list(tools)
+        reason = ("tool_budget" if len(tools)>self.limits.max_tools else
+            "schema_budget" if len(encode([tool.definition() for tool in tools]))>self.limits.schema_chars else None)
+        if reason:
+            raise QAError("invalid_parameters", "计划所需能力超过当前加载预算，尚未执行", detail={
+                "reason": reason, "phase": "plan_validation", "dispatched": False,
+                "guidance": "Keep the accepted plan intact and reduce the capabilities required by the proposed revision."})
+
+    def protect_plan(self, names):
+        """Commit a bounded working set only after a plan has passed validation."""
+        from .capabilities import resolve_tool
+
+        selected = {}
+        for name in names:
+            tool = resolve_tool(name, self.loaded)
+            tool = self.plan_pins.get(tool.alias, tool)
+            if tool.server not in self.servers or not self.gateway.allows(tool):
+                raise QAError("tool_not_available", "当前助手未开放此工具", 403)
+            selected[tool.alias] = tool if tool._definition is not None else checked_tool(tool)
+        self._plan_budget(selected.values())
+        manifest = [{"server": tool.server, "name": tool.name, "signature": tool.plan_signature}
+            for tool in selected.values()]
+        pins = deepcopy(selected)
+        # Separate snapshots keep incidental schema mutation from changing an
+        # accepted plan. No server-wide cache or another task's pins are changed.
+        self.loaded.update(deepcopy(pins))
+        self.plan_pins = pins
+        return manifest
+
+    async def restore_plan(self, saved):
+        """Restore a saved working set without replaying any execution receipt."""
+        from .capabilities import resolve_tool
+
+        if not saved:
+            self.plan_pins = {}
+            return
+        names = [step["tool"] for step in saved["spec"]["steps"]]
+        manifest = saved.get("tool_definitions")
+        if manifest is None:
+            # Old receipts retain their existing loaded-tool requirement.
+            self.protect_plan(names)
+            return
+        current = [{"server": tool.server, "name": tool.name, "signature": tool.plan_signature}
+            for tool in self.plan_pins.values()]
+        if current == manifest and all(alias in self.loaded for alias in self.plan_pins):
+            return
+        catalogues, selected = {}, {}
+        for entry in manifest:
+            server = entry["server"]
+            if server not in catalogues:
+                catalogues[server] = await self.tools(server)
+            tool = next((tool for tool in catalogues[server] if tool.name == entry["name"]), None)
+            if tool is None or tool.plan_signature != entry["signature"]:
+                raise QAError("invalid_parameters", "计划所需能力已变化，请重新核对计划，尚未执行", detail={
+                    "server": server, "tool": entry["name"], "phase": "plan_restore", "dispatched": False,
+                    "guidance": "Review the changed capability before continuing; preserve completed receipts and do not replay successful steps."})
+            selected[tool.alias] = tool
+        if {resolve_tool(name, selected).alias for name in names} != set(selected):
+            raise QAError("invalid_parameters", "计划能力清单与步骤不一致，尚未执行")
+        self._plan_budget(selected.values())
+        # Validate the complete restored set before changing either the visible
+        # catalogue or its protection. Unrelated older entries may be evicted.
+        proposed = OrderedDict((alias, tool) for alias, tool in self.loaded.items() if alias not in selected)
+        proposed.update(deepcopy(selected))
+        while (len(proposed)>self.limits.max_tools
+                or len(encode([tool.definition() for tool in proposed.values()]))>self.limits.schema_chars):
+            proposed.pop(next(alias for alias in proposed if alias not in selected))
+        self.loaded.clear()
+        self.loaded.update(proposed)
+        self.plan_pins = deepcopy(selected)
+
     def include(self, page):
         loaded = []
         evictions, admitted = {}, set()
         for tool in page:
+            if tool.server not in self.servers or not self.gateway.allows(tool):
+                continue
+            if tool.alias in self.plan_pins:
+                tool = deepcopy(self.plan_pins[tool.alias])
             if tool._definition is None:
                 try:
                     tool = checked_tool(tool)
@@ -404,7 +580,14 @@ class ToolSession:
                 reason = "tool_budget" if len(self.loaded)>self.limits.max_tools else "schema_budget"
                 # Ranked pages arrive best first. Preserve earlier admissions
                 # from this page; LRU eviction applies only to older pages.
-                alias = next((value for value in self.loaded if value not in admitted), tool.alias)
+                alias = next((value for value in self.loaded
+                    if value not in admitted and value not in self.plan_pins), None)
+                if alias is None:
+                    alias = next((value for value in reversed(self.loaded) if value not in self.plan_pins), None)
+                if alias is None:
+                    raise QAError("invalid_parameters", "当前计划所需能力超过加载预算，已保留其定义", detail={
+                        "reason": reason, "phase": "plan_validation", "dispatched": False,
+                        "guidance": "Restore the accepted plan's loading budget before continuing; its definitions cannot be evicted."})
                 self.loaded.pop(alias)
                 evictions[alias] = reason
             if tool.alias in self.loaded:
@@ -416,23 +599,40 @@ class ToolSession:
         if omitted:
             result["not_loaded"] = omitted
             result["hint"] = "部分能力超过加载预算；请缩小query或limit后重新加载所需能力。"
+            if self.plan_pins:
+                result["protected_tools"] = list(self.plan_pins)
+                result["hint"] = "当前计划所需能力已保留；其余能力超过加载预算，请缩小加载范围或修订计划。"
+        for item in result["items"]:
+            if not item.get("error") and item["name"] in self.loaded:
+                tool = self.loaded[item["name"]]
+                self.disclosed[tool.alias] = tool
         return result
 
-    def prime(self, query, references=()):
+    def prime(self, query, references=(), *, resources=()):
         # Reuse descriptions and schemas, never another turn's execution results.
         candidates = [tool for server in self.servers for tool in self.cached_tools(server) or []]
         recent = {(ref.get("server"), ref.get("name")) for ref in references if isinstance(ref, dict)}
         from .routing import select_tools
-        candidates = select_tools(candidates, query, recent=recent)
+        candidates = select_tools(candidates, query, recent=recent, resources=resources, source_scope=True)
         return self.include(candidates[:min(4, self.limits.max_tools)])
 
-    async def prepare(self, query, references=()):
+    async def prepare(self, query, references=(), *, resources=()):
         """Use cached schemas, or discover one unambiguous configured service.
 
-        Multiple services retain on-demand routing. No fan-out, business call,
-        additional model request, or retry policy is introduced by preparation.
+        Multiple services retain on-demand routing, except a uniquely matching
+        advertised service can be prepared without an additional model turn.
+        A warm unrelated service must not prevent that lookup. No fan-out or
+        business execution is performed here.
         """
-        self.prime(query, references)
+        self.request_query = query
+        self.request_resources = tuple(resources)
+        related = self.relevant_servers(query)
+        if len(related) == 1 and self.cached_tools(related[0]) is None:
+            try:
+                await self.tools(related[0])  # Discover once; prime chooses the initial definitions.
+            except QAError:
+                pass  # Keep isolated discovery feedback and other services usable.
+        self.prime(query, references, resources=resources)
         if not self.loaded and len(self.servers)==1:
             try:
                 await self.load(next(iter(self.servers)), query=query)
@@ -441,7 +641,9 @@ class ToolSession:
 
     async def load(self, server, query="", offset=0, limit=4, group=None):
         from .routing import select_tools
-        catalogue = select_tools([*await self.tools(server), *self.definition_errors.get(server, [])], query, group=group)
+        query = query or self.request_query
+        catalogue = select_tools([*await self.tools(server), *self.definition_errors.get(server, [])], query,
+            group=group, resources=self.request_resources)
         page = catalogue[offset:offset+limit]
         result = self.include(item for item in page if isinstance(item, Tool))
         result["items"].extend(deepcopy(item) for item in page if isinstance(item, dict))
@@ -450,13 +652,24 @@ class ToolSession:
         return result
 
     def definitions(self):
-        return [tool.definition() for tool in self.loaded.values()]
+        return [tool.definition() for tool in self.loaded.values()
+            if tool.server in self.servers and self.gateway.allows(tool)]
 
-    def validate(self, alias, arguments):
-        """Validate before any execution state is committed; dispatch checks again."""
+    def validate(self, alias, arguments, *, deferred=()):
+        """Validate known plan inputs early; dispatch always validates the full schema.
+
+        Deferred names are runtime bindings, never fabricated placeholder values.
+        Cross-field conditions wait until every input is available; unconditional
+        field constraints, unknown keys and other required inputs are checked now.
+        """
         tool = self.loaded.get(alias)
         if tool is None:
             raise QAError("tool_not_loaded", "工具未加载，请先发现并加载相应定义")
+        if tool.server not in self.servers or not self.gateway.allows(tool):
+            raise QAError("tool_not_available", "当前助手未开放此工具", 403)
+        if alias in self.plan_pins:
+            tool = deepcopy(self.plan_pins[alias])
+            self.loaded[alias] = tool
         from jsonschema import ValidationError
 
         try:
@@ -478,14 +691,25 @@ class ToolSession:
             tool = checked_tool(tool)
             self.loaded[alias] = tool
         try:
-            tool._validator.validate(arguments)
+            validator = tool._validator
+            if deferred:
+                known = {key: tool.schema[key] for key in (
+                    "type", "properties", "patternProperties", "additionalProperties", "propertyNames", "maxProperties")
+                    if key in tool.schema}
+                known["required"] = [key for key in tool.schema.get("required", []) if key not in deferred]
+                # Evolving the compiled validator retains the ORIGINAL local
+                # reference resolver ($defs, anchors and recursive schemas).
+                validator = validator.evolve(schema=known)
+            validator.validate(arguments)
         except ValidationError as exc:
-            detail = {"path": list(exc.absolute_path), "constraint": exc.validator}
+            actual_type = next((name for name in ("null", "boolean", "integer", "number", "string", "array", "object")
+                if validator.TYPE_CHECKER.is_type(exc.instance, name)), "unknown")
+            detail = {"path": list(exc.absolute_path), "constraint": exc.validator, "actual_type": actual_type}
             detail["expected"], _ = project(exc.validator_value, 300)
             raise QAError("invalid_parameters", "参数不符合当前工具schema", detail=detail) from exc
         return tool
 
-    async def call_isolated(self, alias, arguments):
+    async def call_isolated(self, alias, arguments, *, metadata=None):
         """Execute on an independent connection using this session's catalogue.
 
         Parallel readers must not share a connection that another reader can
@@ -498,12 +722,13 @@ class ToolSession:
             isolated = ToolSession(self.gateway, self.servers, stack)
             isolated.limits = self.limits
             isolated.loaded[alias] = deepcopy(tool)
-            return await isolated.call(alias, arguments)
+            return await isolated.call(alias, arguments, **({"metadata": metadata} if metadata else {}))
 
     async def call(self, alias, arguments, *, metadata=None):
         tool = self.validate(alias, arguments)
-        from .capabilities import profile
-        artifact = profile(tool).artifact
+        from .capabilities import inputs, profile
+        descriptor = profile(tool)
+        artifact = descriptor.artifact
         replay_safe = bool(metadata and artifact and artifact.execution_context and artifact.replay_safe)
         self.loaded.move_to_end(alias)
         timeout = self.servers[tool.server].timeout or self.limits.timeout
@@ -536,11 +761,23 @@ class ToolSession:
             raise QAError("execution_unknown", "MCP调用中断，无法确认执行结果；未继续重试", 502) from exc
         except Exception as exc:
             if not dispatched:
-                raise QAError("mcp_unavailable", "无法连接所选MCP服务，当前操作未执行", 503) from exc
+                raise QAError("mcp_unavailable", "无法连接所选MCP服务，当前操作未执行", 503,
+                    detail={"dispatched": False}) from exc
             raise QAError("execution_unknown", "MCP调用中断，无法确认执行结果；未继续重试", 502) from exc
         if getattr(result, "is_error", getattr(result, "isError", False)):
             detail, _ = project([b.text for b in getattr(result, "content", []) if getattr(b, "type", None)=="text"], 2000)
+            # Explicit protocol metadata only; never infer a business outcome
+            # from error text, tool names, or provider-specific response bodies.
+            meta = getattr(result, "meta", None)
+            outcome = meta.get("piflow") if isinstance(meta, dict) else None
+            if isinstance(outcome, dict) and outcome.get("error_code") == "artifact_unavailable":
+                phase = outcome.get("phase")
+                raise QAError("artifact_unavailable", "结果文件尚未准备好", 503, detail={"dispatched": True,
+                    "phase": phase if phase in {"configuration", "prepare", "read", "publish", "storage"} else "storage"})
             raise QAError("tool_failed", "MCP工具返回错误", 502, detail=detail)
-        # Only protocol-level errors are interpreted here. Business envelopes,
-        # status codes, resource IDs and output structures belong to the server.
-        return tool, ToolResult.from_mcp(result, self.limits.result_bytes)
+        output = ToolResult.from_mcp(result, self.limits.result_bytes)
+        # Interpret only explicitly declared adapter contracts. Do not infer
+        # business status from envelopes, tool names or error-message wording.
+        if descriptor.result:
+            descriptor.result.validate_arguments(output.data, inputs(tool, arguments))
+        return tool, output

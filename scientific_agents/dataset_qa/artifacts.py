@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from hashlib import sha256
 import hmac
 import json
+import logging
 import math
 import time
 
@@ -12,11 +13,18 @@ from pydantic import BaseModel, ConfigDict
 from sqlalchemy import Column, Float, JSON, MetaData, String, Table, Text, and_, cast, func, or_, select
 
 from .contracts import QAError
-from .context import project
+from .context import project, same_identity
 from .references import at_path
+from .artifact_storage import canonical_numbers
 
 
 class ArtifactSpec(BaseModel):
+    """Manifest protocol for owned record resources.
+
+    ``consume`` names a source_ref parameter. A capability declaring the export
+    operation preserves record_count and returns parent_source_ref alongside
+    the output manifest, so representation changes retain verifiable lineage.
+    """
     model_config = ConfigDict(extra="forbid")
     path: str = "/resource"
     consume: str | None = None
@@ -27,14 +35,19 @@ class ArtifactSpec(BaseModel):
 def execution_metadata(user, request_id, arguments, seconds, *, secret=None):
     """Sign out-of-band execution identity; never put credentials in the model schema."""
     if secret is None:
-        from infra.config_loader import get_settings
-        secret = get_settings().minio.secret_key
+        from .artifact_storage import ArtifactStorageError, signing_key
+        try:
+            secret = signing_key()
+        except ArtifactStorageError as exc:
+            logging.getLogger("flow.dataset_qa").warning("Artifact preparation unavailable: phase=%s reason=%s", exc.phase, str(exc))
+            raise QAError("artifact_unavailable", "当前结果存储尚未就绪", 503,
+                detail={"phase": "execution_context", "dispatched": False}) from exc
     if seconds <= 0:
         raise QAError("step_limit", "本轮已到处理时限，已取得的结果仍保留")
     if not secret:
-        raise QAError("mcp_unavailable", "当前结果存储尚未就绪", 503)
+        raise QAError("artifact_unavailable", "当前结果存储尚未就绪", 503)
     body = {"user": user, "request_id": request_id,
-        "arguments": sha256(_json(_canonical_numbers(arguments)).encode()).hexdigest(),
+        "arguments": sha256(_json(canonical_numbers(arguments)).encode()).hexdigest(),
         "deadline": time.time() + max(1, min(seconds, 480))}
     signature = hmac.new(str(secret).encode(), ("qa-execution-v1\n"+_json(body)).encode(), "sha256").hexdigest()
     return {"piflow_execution": {**body, "signature": signature}}
@@ -44,24 +57,36 @@ def _json(value):
     return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False)
 
 
-def _canonical_numbers(value):
-    """Execution protocol: equal JSON numbers have one digest on both endpoints.
-
-    Keep booleans, strings and non-integral numbers distinct. This is only for
-    argument identity, never the serialization of stored scientific records.
-    """
-    if isinstance(value, dict):
-        return {key: _canonical_numbers(item) for key, item in value.items()}
-    if isinstance(value, list):
-        return [_canonical_numbers(item) for item in value]
-    return int(value) if isinstance(value, float) and value.is_integer() else value
+def validate_source_requirements(source, requirements, *, required):
+    """Check explicit current constraints against the owned source, never user prose."""
+    detail = {"origin": "source_requirements", "dispatched": False,
+        "guidance": "For reuse declare this turn's additional source_requirements: criteria parameters and fields, or null to preserve the selected data. "
+            "Keep every explicitly requested change; never remove a declared constraint to pass validation. "
+            "Export preserves records. Incompatible or unknown source metadata needs the source producer or a supported transformation before export."}
+    if requirements is None:
+        if not required:
+            return
+        raise QAError("invalid_parameters", "复用已有文件前须明确本轮数据条件和字段范围", detail=detail)
+    expected = requirements.model_dump() if isinstance(requirements, BaseModel) else requirements
+    actual = {"criteria": source.get("provenance", {}).get("query"),
+        "fields": source["resource"].get("fields")}
+    mismatches = []
+    if expected["criteria"] and (not isinstance(actual["criteria"], dict) or any(
+            key not in actual["criteria"] or not same_identity(value, actual["criteria"][key])
+            for key, value in expected["criteria"].items())):
+        mismatches.append("criteria")
+    if expected["fields"] is not None and not same_identity(expected["fields"], actual["fields"]):
+        mismatches.append("fields")
+    if mismatches:
+        raise QAError("invalid_parameters", "已有文件不符合本轮数据要求，导出不能修改数据选择", detail={
+            **detail, "fields": mismatches, "source_requirements": deepcopy(expected)})
 
 
 class Artifacts:
     def __init__(self, store):
         self.store = store
         meta = MetaData()
-        self.table = Table("dataset_qa_file_artifacts", meta,
+        self.table = Table(store.agent_profile.table("file_artifacts"), meta,
             Column("id", String(80), primary_key=True), Column("user_id", String(160), nullable=False, index=True),
             Column("session_id", String(100), nullable=False), Column("result_id", String(180), nullable=False),
             Column("source_key", String(64), nullable=False, index=True), Column("updated_at", Float, nullable=False),
@@ -107,6 +132,120 @@ class Artifacts:
                 .order_by(self.table.c.updated_at.desc(), self.table.c.id.desc()).limit(limit)).mappings().all()
         return [self._summary(row) for row in rows]
 
+    def published(self, user, sid, cards, limit=1800):
+        """Resolve actual session deliveries, including merged cards, to owned files.
+
+        A manifest can be registered again in another session, so its latest
+        session/result columns cannot establish which files a user just saw.
+        Immutable delivery cards and their saved lineage are the authority.
+        """
+        if not cards:
+            return {}
+        candidates = []
+        with self.store.transaction() as conn:
+            self.store._session(conn, user, sid)
+            missing = [card["result_id"] for card in cards if not card.get("file_artifact")]
+            lineage = {}
+            if missing:
+                items, tasks = self.store.items, self.store.tasks
+                rows = conn.execute(select(items.c.result_id, tasks.c.payload)
+                    .join(tasks, tasks.c.id == items.c.task_id)
+                    .where(items.c.session_id == sid, items.c.result_id.in_(missing))).all()
+                for result_id, raw in rows:
+                    links = json.loads(raw).get("delivery_lineage", {}).get(result_id, {})
+                    if links:
+                        lineage[result_id] = list(dict.fromkeys(links[index]["result_id"]
+                            for index in sorted(links, key=int)))
+            source_ids = {rid for ids in lineage.values() for rid in ids}
+            sources = {}
+            if source_ids:
+                rows = conn.scalars(select(self.store.items.c.payload).where(
+                    self.store.items.c.session_id == sid, self.store.items.c.result_id.in_(source_ids)))
+                sources = {card["result_id"]: card for card in map(json.loads, rows)}
+            seen = set()
+            for display in cards:
+                originals = [display] if display.get("file_artifact") else [
+                    sources[rid] for rid in lineage.get(display["result_id"], []) if rid in sources]
+                for card in originals:
+                    handle = card.get("file_artifact")
+                    if handle and handle not in seen:
+                        seen.add(handle)
+                        candidates.append((display["result_id"], card["result_id"], handle))
+            if not candidates:
+                return {}
+            rows = conn.execute(select(self.table).where(self.table.c.user_id == user,
+                self.table.c.id.in_(seen))).mappings().all()
+            manifests = {row["id"]: json.loads(row["payload"]) for row in rows}
+            parent_keys = {handle: sha256(_json([manifest["server"], parent]).encode()).hexdigest()
+                for handle, manifest in manifests.items()
+                if isinstance(parent := manifest.get("provenance", {}).get("parent_source_ref"), str) and parent}
+            parents = {}
+            if parent_keys:
+                parent_rows = conn.execute(select(self.table.c.source_key, self.table.c.payload)
+                    .where(self.table.c.user_id == user, self.table.c.source_key.in_(set(parent_keys.values())))
+                    .order_by(self.table.c.updated_at.desc())).all()
+                for key, raw in parent_rows:
+                    parents.setdefault(key, json.loads(raw))
+        result = {"items": [], "total": len(candidates), "guidance": (
+            "Compare current requirements with saved criteria, count and fields before reuse. "
+            "Reuse compatible records for format-only export, which preserves selection, count and field scope. "
+            "Changed requirements need a compatible source result or supported transformation before export; "
+            "use the source producer when new retrieval is needed. Never claim export applied new criteria. "
+            "Set __qa_object or plan/goal.object to a supplied handle and declare operation/output_format. "
+            "Read omitted metadata with read_result using this result_id and its *_path; omission is not compatibility. "
+            "Use find_artifacts for older files. Current selections prevail; refs, URLs and paths are not interchangeable.")}
+        unavailable = sum(handle not in manifests for _, _, handle in candidates)
+        if unavailable:
+            result["unavailable"] = unavailable
+        if len(_json(result)) + 18 > limit:
+            result.pop("guidance")
+        # Keep identities complete. Names are optional, and record bodies and
+        # signed source references never enter this compact context manifest.
+        metadata = []
+        for display_id, result_id, handle in candidates:
+            if handle not in manifests:
+                continue
+            manifest = manifests[handle]
+            resource = manifest["resource"]
+            entry = {"handle": handle, "result_id": result_id, "server": manifest["server"],
+                "tool": manifest["tool"], "kind": "record_resource",
+                "format": resource["format"], "record_count": resource["record_count"]}
+            if parent := parents.get(parent_keys.get(handle)):
+                entry["source_producer"] = {"server": parent["server"], "tool": parent["tool"]}
+            query = manifest.get("provenance", {}).get("query")
+            if query is not None:
+                entry.update(criteria_omitted=True, criteria_path="/query")
+            if "fields" in resource:
+                entry.update(fields_omitted=True, fields_path=manifest["path"].rstrip("/")+"/fields")
+            if display_id != result_id:
+                entry["display_result_id"] = display_id
+            proposal = {**result, "items": [*result["items"], entry], "truncated": True}
+            if len(_json(proposal)) > limit:
+                break
+            result["items"].append(entry)
+            metadata.append((query, resource.get("fields"), resource.get("name")))
+        if len(result["items"]) + unavailable < result["total"]:
+            result["truncated"] = True
+        for entry, (query, fields, name) in zip(result["items"], metadata):
+            for key, value in (("criteria", query), ("fields", fields)):
+                if value is None:
+                    continue
+                complete, cut = project(value, len(_json(value)))
+                if cut or _json(complete) != _json(value):
+                    continue  # Sanitization/size must not turn a partial condition into a complete one.
+                previous = deepcopy(entry)
+                entry[key] = complete
+                entry.pop(key+"_omitted", None)
+                entry.pop(key+"_path", None)
+                if len(_json(result)) > limit:
+                    entry.clear()
+                    entry.update(previous)
+            if name:
+                entry["name"] = name
+                if len(_json(result)) > limit:
+                    entry.pop("name")
+        return result if len(_json(result)) <= limit else {}
+
     @staticmethod
     def _summary(row, *, criteria=False):
         payload = json.loads(row["payload"])
@@ -116,8 +255,12 @@ class Artifacts:
         result = {**(view or {}), "handle": row["id"], "source": payload["server"],
             "updated_at": datetime.fromtimestamp(row["updated_at"], timezone.utc).isoformat()}
         if criteria and (query := payload.get("provenance", {}).get("query")):
-            result["criteria"], clipped = project(query, 400)
-            cut |= clipped
+            complete, clipped = project(query, 400)
+            if not clipped and _json(complete) == _json(query):
+                result["criteria"] = complete
+            else:
+                result["criteria_omitted"] = True
+                cut = True
         if cut:
             result["truncated"] = True
         return result
@@ -190,5 +333,5 @@ class Artifacts:
             for raw in rows:
                 item = json.loads(raw)
                 if item["server"] == server and item["resource"]["source_ref"] == source_ref:
-                    return
+                    return item
         raise QAError("invalid_parameters", "请先选择已取得的结果文件；不能自行构造资源引用")

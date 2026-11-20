@@ -10,6 +10,7 @@ from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 
 from ..contracts import QAError
 from .model import DirectorySpec, IndexPolicy, digest
+from ...agent_profiles import DATASET_QA_PROFILE
 
 ROOT = "root"
 
@@ -19,10 +20,10 @@ def dump(value):
 
 
 class IndexStore:
-    def __init__(self, engine, lock, policy=None):
+    def __init__(self, engine, lock, policy=None, *, agent_profile=DATASET_QA_PROFILE):
         self.engine, self.lock, self.policy = engine, lock, policy or IndexPolicy()
         meta = MetaData()
-        self.scopes = Table("dataset_qa_resource_scopes", meta,
+        self.scopes = Table(agent_profile.table("resource_scopes"), meta,
             Column("id", String(64), primary_key=True), Column("user_id", String(160), nullable=False, index=True),
             Column("server", String(255), nullable=False), Column("source", String(64), nullable=False),
             Column("tool", String(255), nullable=False), Column("arguments", Text, nullable=False),
@@ -31,7 +32,7 @@ class IndexStore:
             Column("state", String(24), nullable=False), Column("owner", String(64)),
             Column("lease", Float, nullable=False), Column("priority", Integer, nullable=False),
             Column("updated", Float, nullable=False))
-        self.nodes = Table("dataset_qa_resource_nodes", meta,
+        self.nodes = Table(agent_profile.table("resource_nodes"), meta,
             Column("scope", String(64), primary_key=True), Column("generation", Integer, primary_key=True),
             Column("key", String(64), primary_key=True), Column("parent", String(64)),
             Column("identity", Text, nullable=False), Column("name", Text, nullable=False),
@@ -40,10 +41,10 @@ class IndexStore:
             Column("depth", Integer, nullable=False), Column("state", String(24), nullable=False),
             Column("attempts", Integer, nullable=False), Column("due", Float, nullable=False),
             Column("observed", Float, nullable=False))
-        Index("ix_qa_resource_name", self.nodes.c.scope, self.nodes.c.generation, self.nodes.c.name)
-        Index("ix_qa_resource_parent", self.nodes.c.scope, self.nodes.c.generation, self.nodes.c.parent)
+        Index("ix_"+agent_profile.session_prefix+"_resource_name", self.nodes.c.scope, self.nodes.c.generation, self.nodes.c.name)
+        Index("ix_"+agent_profile.session_prefix+"_resource_parent", self.nodes.c.scope, self.nodes.c.generation, self.nodes.c.parent)
         # Atomic slots bound background MCP concurrency across service processes.
-        self.slots = Table("dataset_qa_resource_slots", meta,
+        self.slots = Table(agent_profile.table("resource_slots"), meta,
             Column("id", Integer, primary_key=True), Column("owner", String(64)), Column("lease", Float, nullable=False))
         with self.lock:
             meta.create_all(engine)
@@ -252,6 +253,25 @@ class IndexStore:
             if value is None or sources.get(value["server"])!=value["source"]:
                 raise QAError("reference_not_found", "资源索引不属于当前可用范围")
             return dict(value)
+
+    def directory_parent(self, user, tool, source, arguments, identity):
+        """Read an already observed parent; never queue or wait for index work."""
+        from ..capabilities import profile
+
+        spec = profile(tool).directory
+        expected = spec.scope_key(tool.server, source, tool.name, arguments)
+        with self.transaction() as conn:
+            query = select(self.scopes, self.nodes.c.identity.label("node_identity")).join(self.nodes,
+                and_(self.nodes.c.scope==self.scopes.c.id,
+                    self.nodes.c.generation==self.scopes.c.generation)).where(
+                self.scopes.c.user_id==user, self.scopes.c.server==tool.server,
+                self.scopes.c.source==source, self.scopes.c.tool==tool.name,
+                self.nodes.c.key==digest(identity), self.nodes.c.kind=="directory")
+            for row in conn.execute(query).mappings():
+                stored = DirectorySpec.model_validate_json(row["descriptor"])
+                if stored.scope_key(row["server"], row["source"], row["tool"], json.loads(row["arguments"]))==expected:
+                    return json.loads(row["node_identity"])
+        return None
 
     def scopes_for(self, user, sources, record=None, dataset=None):
         from ..capabilities import same_identity

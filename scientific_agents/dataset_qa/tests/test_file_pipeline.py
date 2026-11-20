@@ -1,20 +1,19 @@
-"""Real MCP and QA scheduling with deterministic upstream and object storage."""
+"""Real MCP, local file storage and QA scheduling with deterministic upstream."""
 import asyncio
 from copy import deepcopy
 import csv
 import io
 import json
-from pathlib import Path
 from types import SimpleNamespace
 import time
 
 from fastmcp import Client
-from minio.error import S3Error
 import pytest
 
 from services import corpus_connector_service as backend
 from mcp_servers.corpus_mcp import mcp
 from ..artifacts import execution_metadata
+from ..artifact_storage import LocalArtifactStore
 from ..contracts import Server
 from ..execution import Execution
 from ..mcp import MCPGateway, Tool
@@ -29,46 +28,21 @@ from .test_planning import approve
 SECRET = "test-only-file-execution-key"
 
 
-class ObjectResponse(io.BytesIO):
-    def release_conn(self):
-        pass
-
-
-class Objects:
-    def __init__(self):
-        self.data, self.writes = {}, []
-
-    def get_object(self, bucket, key):
-        if (bucket, key) not in self.data:
-            raise S3Error(response=None, code="NoSuchKey", message="missing", resource=key, request_id="", host_id="")
-        return ObjectResponse(self.data[bucket, key])
-
-    def put_object(self, bucket, key, data, length, **kwargs):
-        raw = data.read()
-        assert len(raw) == length
-        self.data[bucket, key] = raw
-        self.writes.append(key)
-
-    def fput_object(self, bucket, key, path, **kwargs):
-        self.data[bucket, key] = Path(path).read_bytes()
-        self.writes.append(key)
-
-    def stat_object(self, bucket, key):
-        return SimpleNamespace(size=len(self.data[bucket, key]))
-
-    def presigned_get_object(self, bucket, key, **kwargs):
-        return "https://storage.invalid/"+bucket+"/"+key+"?signature=test"
-
-
 @pytest.fixture
 def files(monkeypatch, tmp_path):
-    objects = Objects()
-    config = SimpleNamespace(secret_key=SECRET, base_prefix="results")
-    monkeypatch.setattr(backend, "_result_storage", lambda: SimpleNamespace(
-        client=objects, config=config, workspace=SimpleNamespace(temp=tmp_path)))
-    from .. import service as service_module
-    original = execution_metadata
-    monkeypatch.setattr(service_module, "execution_metadata", lambda *args: original(*args, secret=SECRET))
+    monkeypatch.setenv("DATASET_QA_ARTIFACT_ROOT", str(tmp_path))
+    monkeypatch.setenv("DATASET_QA_ARTIFACT_SIGNING_KEY", SECRET)
+    monkeypatch.setenv("DATASET_QA_ARTIFACT_BASE_URL", "https://testserver/api/piflow/v1/mcp")
+    writes = []
+    put_file, put_json = LocalArtifactStore.put_file, LocalArtifactStore.put_json
+    def record_file(store, key, path, fmt):
+        put_file(store, key, path, fmt)
+        writes.append(key+"/data."+fmt)
+    def record_manifest(store, key, body):
+        put_json(store, key, body)
+        writes.append(key+"/manifest.json")
+    monkeypatch.setattr(LocalArtifactStore, "put_file", record_file)
+    monkeypatch.setattr(LocalArtifactStore, "put_json", record_manifest)
     requests = []
     rows = [
         {"CID": 1, "SMILES": "CC", "MolecularWeight": "100", "XLogP": -1},
@@ -82,13 +56,18 @@ def files(monkeypatch, tmp_path):
             return {"IdentifierList": {"CID": [1, 2, 2, 3, 4]}}
         return {"PropertyTable": {"Properties": deepcopy(rows)}}
     monkeypatch.setattr(backend, "_pubchem_request", request)
-    return SimpleNamespace(objects=objects, requests=requests, rows=rows)
+    return SimpleNamespace(root=tmp_path, writes=writes, requests=requests, rows=rows)
 
 
 def query_args(**kwargs):
     return {"smiles": "CC(=O)OC1=CC=CC=C1C(=O)O", "similarity_threshold": 80,
         "filters": [{"field": "MolecularWeight", "minimum": 100, "maximum": 500},
             {"field": "XLogP", "minimum": -1, "maximum": 5}], "limit": 1000, **kwargs}
+
+
+def query_plan():
+    return {"outcomes": [{"key": "records", "description": "筛选后的 JSONL 记录", "kind": "record_resource"}],
+        "steps": [{"key": "query", "tool": "query_pubchem_compounds", "arguments": query_args(), "produces": ["records"]}]}
 
 
 def run_query(args=None, *, user="user_a", request="query-1"):
@@ -114,12 +93,12 @@ def test_filter_limits_counts_replay_and_csv_contents(files):
     assert len(files.requests) == 2
     exported = run_export(value["resource"])
     assert exported["record_count"] == 2 and exported["target_met"] is False
-    bodies = [body for (_, key), body in files.objects.data.items() if key.endswith(".csv")]
-    records = list(csv.DictReader(io.StringIO(bodies[0].decode())))
+    body = next(files.root.glob("*/*/data.csv")).read_text(encoding="utf-8")
+    records = list(csv.DictReader(io.StringIO(body)))
     assert [row["CID"] for row in records] == ["1", "2"]
-    writes = len(files.objects.writes)
+    writes = len(files.writes)
     assert run_export(value["resource"])["resource"]["sha256"] == exported["resource"]["sha256"]
-    assert len(files.objects.writes) == writes and len(files.requests) == 2
+    assert len(files.writes) == writes and len(files.requests) == 2
 
 
 @pytest.mark.parametrize("mutation", ["identity", "arguments", "deadline", "missing", "number", "string", "boolean"])
@@ -140,7 +119,7 @@ def test_execution_identity_cannot_be_forged(files, mutation):
         meta = {}
     with pytest.raises(ValueError):
         backend.query_pubchem_records(**args, execution=meta)
-    assert not files.requests and not files.objects.writes
+    assert not files.requests and not files.writes
 
 
 def test_cross_user_and_tampered_resource_rejected(files):
@@ -167,8 +146,8 @@ def test_csv_roundtrip_keeps_original_numeric_and_null_types(files):
 
 def test_corrupted_file_is_not_exported_as_valid(files):
     resource = run_query()["resource"]
-    key = next(key for key in files.objects.data if key[1].endswith("data.jsonl"))
-    files.objects.data[key] = files.objects.data[key].replace(b'100.0', b'999.0')
+    path = next(files.root.glob("*/*/data.jsonl"))
+    path.write_bytes(path.read_bytes().replace(b'100.0', b'999.0'))
     with pytest.raises(ValueError, match="版本"):
         run_export(resource)
 
@@ -202,20 +181,22 @@ def test_artifact_handle_reused_across_sessions_without_query(engine, files):
         service = DatasetQA(engine, BareDialogue(), MCPGateway({"piflow-corpus": Server(mcp)}))
         try:
             sid = session(service)
-            def query(messages, definitions):
-                name = next(d["function"]["name"] for d in definitions if d["function"]["name"].endswith("_query_pubchem_compounds"))
-                return action(name, **query_args(), **{TASK: {"complete_request": True}})
-            service.dialogue = BareDialogue(query, text())
+            service.dialogue = BareDialogue(action("remember", plan=query_plan()), approve, text())
             await collect(service, sid, "PubChem 查找相似化合物 SMILES CC")
             owned = service.artifacts.recent("alice")
             assert len(owned) == 1
             with pytest.raises(QAError):
                 service.artifacts.get("bob", owned[0]["handle"])
             def export(messages, definitions):
-                assert json.loads(messages[1].content)["available_artifacts"][0]["handle"] == owned[0]["handle"]
+                assert not json.loads(messages[1].content).get("available_artifacts")
+                found = json.loads(messages[-1].content)["data"]["items"]
+                assert len(found) == 1 and found[0]["handle"] == owned[0]["handle"]
                 name = next(d["function"]["name"] for d in definitions if d["function"]["name"].endswith("_export_dataset"))
-                return action(name, format="csv", **{OBJECT: owned[0]["handle"], TASK: {"complete_request": True}})
-            service.dialogue = BareDialogue(export, text())
+                source = service.artifacts.get("alice", found[0]["handle"])
+                return action(name, format="csv", **{OBJECT: found[0]["handle"], TASK: {"complete_request": True,
+                    "source_requirements": {"criteria": deepcopy(source["provenance"].get("query")),
+                        "fields": deepcopy(source["resource"].get("fields"))}}})
+            service.dialogue = BareDialogue(action("find_artifacts"), export, text())
             sid2 = session(service, request="second-session")
             values = await collect(service, sid2, "把上次的文件导出CSV")
             assert result_cards(values)[0]["data"]["items"][0]["resource"]["format"] == "csv"
@@ -288,7 +269,25 @@ def test_concurrent_exports_share_one_verified_file(files):
     with ThreadPoolExecutor(max_workers=2) as pool:
         outputs = list(pool.map(lambda _: run_export(resource), range(2)))
     assert outputs[0]["resource"]["sha256"] == outputs[1]["resource"]["sha256"]
-    assert len([name for name in files.objects.writes if name.endswith(".csv")]) == 1
+    assert len([name for name in files.writes if name.endswith(".csv")]) == 1
+
+
+@pytest.mark.parametrize("expired", [False, True])
+def test_rate_slot_releases_connection_after_commit_or_interruption(tmp_path, monkeypatch, expired):
+    connect, connections = backend.sqlite3.connect, []
+    def capture(*args, **kwargs):
+        conn = connect(*args, **kwargs)
+        connections.append(conn)
+        return conn
+    monkeypatch.setattr(backend.sqlite3, "connect", capture)
+    if expired:
+        with pytest.raises(TimeoutError):
+            backend._pubchem_slot(tmp_path, time.time()-1)
+    else:
+        backend._pubchem_slot(tmp_path, time.time()+10)
+    assert len(connections) == 1
+    with pytest.raises(backend.sqlite3.ProgrammingError, match="closed"):
+        connections[0].execute("SELECT 1")
 
 
 @pytest.mark.parametrize("overrides", [{}, {"similarity_threshold": 80.0}, {"limit": 1000.0},
@@ -338,6 +337,8 @@ def test_full_qa_plan_two_calls_and_empty_dependency_closure(engine, files, monk
                 assert saved["operations"][1]["state"] == "unavailable"
             assert saved["plan"]["acceptance"]["file"]["state"] == ("unavailable" if empty else "accepted")
             outcome = saved["plan"]["spec"]["outcomes"][0]
+            assert {"path": "/resource/format", "test": "equals", "value": "csv", "optional": False} in outcome["checks"]
+            outcome["checks"] = [check for check in outcome["checks"] if check["path"] != "/resource/format"]
             if quantity_check == "at_most":
                 assert outcome["targets"] == []
                 assert outcome["checks"] == [{"path": "/record_count", "test": "at_most", "value": 1000, "optional": False}]
@@ -363,14 +364,15 @@ def test_quantity_normalization_keeps_upper_bound_and_non_numeric_identity(engin
     async def run():
         tool = Tool("files", "read", "", {"type": "object", "properties": {}}, {},
             {"piflow": {"qa": {"result": {"kind": "records", "target_paths": ["/record_count"]}}}})
-        tools = SimpleNamespace(loaded={tool.alias: tool}, validate=lambda *args: None)
         plan = Plan.model_validate({"outcomes": [{"key": "data", "description": "Records", "kind": "records",
             "checks": [{"path": path, "test": "equals", "value": quantity} for path in ("/record_count", "/identifier")]}],
             "steps": [{"key": "read", "tool": tool.alias, "produces": ["data"]}]})
-        service = DatasetQA(engine, BareDialogue(), MCPGateway({}))
+        service = DatasetQA(engine, BareDialogue(), MCPGateway({"files": Server("files")}))
         saved = {}
         try:
-            await install_plan(service, "alice", session(service), plan, tools, Execution(), saved, {})
+            async with service.gateway.session() as tools:
+                tools.include([tool])
+                await install_plan(service, "alice", session(service), plan, tools, Execution(), saved, {})
             outcome = saved["plan"]["spec"]["outcomes"][0]
             assert outcome["checks"][1] == plan.outcomes[0].checks[1].model_dump()
             if type(quantity) in {int, float}:

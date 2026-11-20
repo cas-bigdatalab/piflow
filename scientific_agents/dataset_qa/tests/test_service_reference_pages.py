@@ -6,7 +6,7 @@ from langchain_core.messages import ToolMessage
 import pytest
 
 from .assertions import assert_completed
-from ..capabilities import OBJECT
+from ..capabilities import OBJECT, SUPPORTING
 from ..context import encode
 from ..contracts import Limits, Options
 from ..dialogue import Read
@@ -74,7 +74,7 @@ def test_same_turn_page_exposes_stable_executable_handles_beyond_initial_twenty(
             assert [item["id"] for item in pages[0]["data"]]==["entry-"+str(index) for index in range(20, 25)]
             return remote("inspect", **{OBJECT: pages[0]["objects"][0]["handle"]})(messages, definitions)
 
-        dialogue.responses = [load(), remote("search"), read_page, read_page, inspect_page,
+        dialogue.responses = [load(), remote("search", **{SUPPORTING: True}), read_page, read_page, inspect_page,
             action("deliver_results"), text()]
         try:
             values = await collect(service, sid, "找资源，然后查看第21个的详情", "paged")

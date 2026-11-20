@@ -4,6 +4,165 @@ Closing a conversation turn does not assert that its data operations succeeded.
 The persisted receipts remain authoritative for retries, recovery and delivery.
 No exception message or detail is copied into a public response.
 """
+import html
+import re
+from urllib.parse import urlsplit
+
+
+def delivery_links(cards):
+    """Bounded, source-backed links shared by answer guidance and rendering.
+
+    The caller supplies only selected delivery cards. Names and file facts come
+    from the same object as the URL; wrappers are not evidence of file identity.
+    """
+    nodes_left, links = 2000, {}
+    wrappers = ("data", "items", "result", "results", "files", "links")
+    fields = {"downloadurl": "下载", "downloadurls": "下载",
+              "previewurl": "查看", "previewurls": "查看"}
+
+    def add(url, label, action, owner, facts):
+        nonlocal nodes_left
+        if nodes_left<=0:
+            return False
+        nodes_left -= 1
+        if not isinstance(url, str) or not url or len(url)>8192:
+            return False
+        try:
+            parsed = urlsplit(url)
+            if (parsed.scheme not in {"http", "https"} or not parsed.hostname
+                    or parsed.username is not None or parsed.password is not None or parsed.port == 0
+                    or any(c.isspace() or ord(c)<32 or ord(c)==127 or c in '\\<>"`' for c in url)):
+                return False
+        except ValueError:
+            return False
+        entry = {"result_id": owner.get("result_id"), "url": url, "label": label,
+                 "action": action, "_title": owner.get("title", "")}
+        if isinstance(facts.get("format"), str) and facts["format"]:
+            entry["format"] = facts["format"][:64]
+        if type(facts.get("record_count")) is int and facts["record_count"]>=0:
+            entry["record_count"] = facts["record_count"]
+        links.setdefault(url, entry)
+        return True
+
+    def walk(value, label, owner, *, url_view=False, depth=0):
+        nonlocal nodes_left
+        if nodes_left<=0 or depth>8:
+            return
+        nodes_left -= 1
+        if isinstance(value, str):
+            if url_view:
+                add(value, label, "查看", owner, {})
+        elif isinstance(value, list):
+            for child in value:
+                if nodes_left<=0:
+                    break
+                walk(child, label, owner, url_view=url_view, depth=depth+1)
+        elif isinstance(value, dict):
+            names = [value.get(key) for key in ("fileName", "filename", "name", "title")]
+            label = next((name for name in names if isinstance(name, str) and name.strip()), label)
+            # The resource's own name wins when a wrapper repeats its URL.
+            # A different wrapper URL must never borrow that resource's name.
+            if "resource" in value:
+                walk(value["resource"], label, owner, url_view=url_view, depth=depth+1)
+            found = False
+            for key, child in value.items():
+                key = str(key).replace("_", "").lower()
+                action = fields.get(key) or ("查看" if url_view and key in {"url", "uri", "href"} else None)
+                if action:
+                    for url in child[:2000] if isinstance(child, list) else (child,):
+                        found = add(url, label, action, owner, value) or found
+            for key in wrappers:
+                # A result's data rows are not additional delivery links.
+                if key in value and not (found and key in {"data", "items", "result", "results"}):
+                    walk(value[key], label, owner, url_view=url_view or key=="links", depth=depth+1)
+
+    for card in cards:
+        label = card.get("title") if isinstance(card.get("title"), str) and card["title"] else "结果"
+        walk(card.get("data"), label, card, url_view=card.get("view_type")=="url")
+        for block in card.get("content", []):
+            if isinstance(block, dict) and block.get("type") in {"file", "resource_link"}:
+                walk(block, label, card, url_view=True)
+
+    values = list(links.values())
+    groups = {}
+    for entry in values:
+        entry["label"] = " ".join(entry["label"].split())[:160]
+        groups.setdefault(entry["label"], []).append(entry)
+    for index, entry in enumerate(values, 1):
+        group = groups[entry["label"]]
+        if len(group)>1:
+            titles = [item["_title"] for item in group]
+            prefix = entry["_title"] if all(titles) and len(set(titles))==len(titles) else f"结果 {index}"
+            entry["label"] = prefix+" · "+entry["label"]
+    for entry in values:
+        entry.pop("_title")
+    return values
+
+
+def _reply_link_view(message):
+    """Ignore code examples; retain an open block fence for append-only repair."""
+    visible, fence = [], None
+    for line in message.splitlines():
+        marker = re.match(r" {0,3}(`{3,}|~{3,})(.*)$", line)
+        if fence:
+            if marker and marker[1][0]==fence[0] and len(marker[1])>=len(fence) and not marker[2].strip():
+                fence = None
+        elif marker and (marker[1][0]=="~" or "`" not in marker[2]):
+            fence = marker[1]
+        elif not line.startswith(("    ", "\t")):
+            visible.append(line)
+    text = "\n".join(visible)
+    text = re.sub(r"(?<!`)(`+)(?!`)[\s\S]*?(?<!`)\1(?!`)", "", text)
+    return html.unescape(text), fence
+
+
+def _has_complete_link(text, url):
+    # Match against the exact authoritative URL, not a prefix of a signed URL.
+    # This intentionally recognizes only common link forms, not arbitrary HTML.
+    target = "".join((r"\\?" if character in r"\`*_{}[]()#+.!>-" else "")+re.escape(character)
+                     for character in url)
+    label = r"(?<!!)\[(?:\\.|[^\]\\\n])*\]"
+    destination = r"(?:<"+target+r">|"+target+r")"
+    if re.search(label+r"\(\s*"+destination+r"(?:[ \t]+[\"'][^\n]*?[\"'])?\s*\)", text):
+        return True
+    for match in re.finditer(target, text):
+        before, after = text[:match.start()], text[match.end():]
+        # A complete URL inside an unfinished Markdown target is still not a
+        # complete link. The separately appended link must remain available.
+        if re.search(r"\]\s*\([^)]*$", before.rsplit("\n\n", 1)[-1]):
+            continue
+        if before.endswith("<") and after.startswith(">"):
+            return True
+        previous = before[-1:]
+        if previous and not (previous.isspace() or previous in ":：，。；（(" or "\u4e00"<=previous<="\u9fff"):
+            continue
+        if re.match(r'^(?:$|[\s<>"`\)\]，。；！？]|[.,;!?](?:\s|$))', after):
+            return True
+    return False
+
+
+def delivery_link_suffix(message, cards):
+    """Append missing delivery links without model or network calls."""
+    rendered, fence = _reply_link_view(message)
+    lines, size, omitted = [], 0, False
+    for entry in delivery_links(cards):
+        url, label, action = entry["url"], entry["label"], entry["action"]
+        if _has_complete_link(rendered, url):
+            continue
+        label = re.sub(r"([\\`*_{}\[\]#!|])", r"\\\1", html.escape(label))
+        # Angle-bracket destinations preserve parentheses and signed query
+        # strings. Entity escaping does not change the browser's destination.
+        line = f"- [{action}：{label}](<{html.escape(url, quote=False)}>)"
+        if len(lines)>=20 or size+len(line)>12000:
+            omitted = True
+            continue
+        lines.append(line)
+        size += len(line)+1
+    if not lines:
+        return ""
+    if omitted:
+        lines.append("更多链接请查看下方结果。")
+    return ("\n"+fence if fence else "")+("\n\n" if message else "")+"结果链接：\n\n"+"\n".join(lines)
 
 
 def _code(error):
@@ -12,23 +171,22 @@ def _code(error):
     return getattr(error, "code", None)
 
 
-def recovery_search_summary(operations, cards):
+def recovery_search_summary(operations, cards, *, resource_noun="数据集"):
     """Render saved search facts locally when further execution cannot proceed.
 
     Read only successful receipts and their declared collection paths. This
     neither executes a tool nor turns intermediate findings into goal success.
     Error diagnostics and planner-authored recovery text are never inputs.
     """
-    import html
-    import re
-
     from .contracts import QAError
-    from .references import at_path
+    from .references import at_path, record_name
     from .search import record_key
 
     by_id = {card["result_id"]: card for card in cards}
     sections = []
     for item in operations.deliverable(partial=True):
+        if operations.required and not item.get("required", True):
+            continue
         search = item.get("search")
         if not search:
             continue
@@ -45,11 +203,13 @@ def recovery_search_summary(operations, cards):
             if isinstance(values, list):
                 for row in values:
                     if isinstance(row, dict):
-                        rows.setdefault(record_key(row, search["profile"].get("identity", [])), row)
+                        key = record_key(row, search["profile"].get("identity", []),
+                            identity_mode=search["profile"].get("identity_mode", "fallback"))
+                        rows.setdefault(key, (row, presentation.get("name_paths", [])))
         if rows:
-            lines = [f"在本次检索范围内已取得 {len(rows)} 个候选数据集："]
-            for row in list(rows.values())[:6]:
-                title = row.get("title")
+            lines = [f"在本次检索范围内已取得 {len(rows)} 个候选{resource_noun}："]
+            for row, name_paths in list(rows.values())[:6]:
+                title = record_name(row, name_paths)
                 if isinstance(title, str) and title.strip() and len(title)<=240:
                     label = re.sub(r"([\\`*_{}\[\]#!|])", r"\\\1", html.escape(" ".join(title.split())))
                 else:
@@ -60,40 +220,42 @@ def recovery_search_summary(operations, cards):
             lines.append("以上为检索候选，具体内容是否适用还需核实；您可以继续指定要查看或处理的内容。")
             sections.append("\n\n".join((lines[0], "\n".join(lines[1:-1]), lines[-1])))
         elif search["done"] and search.get("stop")=="exhausted" and not search["records"]:
-            sections.append("本次检索范围内暂未找到匹配的数据集。您可以补充其他名称线索或指定其他检索范围。")
+            sections.append(f"本次检索范围内暂未找到匹配的{resource_noun}。您可以补充其他名称线索或指定其他检索范围。")
     return "\n\n".join(sections)
 
 
-def notice(error, retained=False, subject=None):
+def notice(error, retained=False, subject=None, *, resource_noun="数据集"):
     code = _code(error)
+    if code == "artifact_unavailable":
+        return ("已取得的结果仍保留。" if retained else "")+"本次结果文件尚未准备好，当前还不能提供下载。您可以稍后让我继续获取或导出。"
     if retained:
-        return "已取得的结果已保留在下方，您可以先查看。其余内容目前还没有可确认的结果；您可以指定下一步要查看或处理的内容。"
+        return "已取得的部分结果已保留在下方，您可以先查看。其余内容目前还没有可确认的结果；您可以指定下一步要查看或处理的内容。"
     detail = error.get("detail") if isinstance(error, dict) else getattr(error, "detail", None)
     if code == "task_timeout" and detail == {"phase": "queue"}:
         return "本轮尚未开始处理您的请求。您可以稍后让我继续，我会按原来的要求获取内容。"
     if code in {"execution_unknown", "task_timeout"}:
         return "这次还没有收到可确认的完整结果。为避免重复处理，可能已经执行的操作需要先确认结果。您也可以指定其他要查看的内容。"
     if code in {"invalid_parameters", "invalid_pointer", "result_not_found", "invalid_tool_call"}:
-        return "这次还需要确认操作对象或具体要求。您可以告诉我要查看的数据集名称，或指定希望获取的内容，我会据此继续处理。"
+        return "本次尚未取得可确认的完整结果。您已提供的要求仍保留，可以稍后让我按原要求继续处理。"
     if code in {"result_too_large", "context_too_large", "step_limit", "no_progress", "invalid_delivery"}:
-        return "目前的信息还不足以给出完整结果。您可以指定优先查看的数据集或缩小范围，我会围绕这部分继续整理。"
+        return "本次尚未取得可确认的完整结果。您已提供的要求仍保留。"
     if code == "tool_failed":
         # An opaque tool rejection proves no usable output, not a temporary
         # outage, permanent lack of support, or a problem with search scope.
-        return (f"本次没有取得可展示的{subject}。" if subject else "本次没有取得可展示的内容。")+"您可以选择其他数据集，或指定其他希望了解的信息。"
+        return (f"本次没有取得可展示的{subject}。" if subject else "本次没有取得可展示的内容。")+f"您可以选择其他{resource_noun}，或指定其他希望了解的信息。"
     return "本次没有取得可展示的内容。您可以指定其他希望查看或处理的信息。"
 
 
-def terminal_reply(status, error=None, retained=False):
+def terminal_reply(status, error=None, retained=False, *, resource_noun="数据集"):
     if status == "CANCELLED":
         return ("已停止继续处理，已取得的结果保留在下方。您可以随时告诉我下一步要做什么。" if retained else
                 "已停止继续处理。您可以随时告诉我下一步要做什么。")
     if status == "COMPLETED":
-        return "结果已整理在下方，您可以继续指定要查看或处理的内容。" if retained else "您可以继续说明要查看的数据集或希望获取的内容，我会据此继续协助。"
-    return notice(error, retained)
+        return "结果已整理在下方，您可以继续指定要查看或处理的内容。" if retained else f"您可以继续说明要查看的{resource_noun}或希望获取的内容，我会据此继续协助。"
+    return notice(error, retained, resource_noun=resource_noun)
 
 
-def public_completion(value, payload):
+def public_completion(value, payload, *, resource_noun="数据集"):
     """Project a handled turn without mislabelling private operations as success."""
     result = dict(value)
     if result.get("status") == "FAILED":
@@ -101,7 +263,7 @@ def public_completion(value, payload):
             attempt.get("state") == "succeeded" and attempt.get("result_id")
             for item in payload.get("operations", []) for attempt in item.get("attempts", []))
         result.update(status="COMPLETED", outcome="partial" if evidence else "unavailable",
-                      message=notice(payload.get("error"), bool(payload.get("delivery"))))
+                      message=notice(payload.get("error"), bool(payload.get("delivery")), resource_noun=resource_noun))
     # Old persisted terminal events may contain an upstream error verbatim.
     for key in ("code", "error_code", "error_message", "detail"):
         result.pop(key, None)
@@ -129,3 +291,167 @@ def response_operations(operations, labels=None):
         item.pop("error", None)
         item.pop("capability", None)
     return value
+
+
+def delivery_status(operations, ids, *, labels=None, request="", plan=None, cards=()):
+    """Business facts shared by normal answers and deterministic closure.
+
+    Execution, acceptance and presentation are independent. A recovered card
+    proves available evidence, not that an undeclared outcome was completed.
+    """
+    public = response_labels(operations, labels)
+    delivered = set(ids)
+    owned = {rid for item in public.required for rid in public.result_ids(item)}
+    acceptance = {}
+    if plan:
+        from .planning import outcome_status
+
+        statuses = outcome_status(plan, operations, cards)
+        for step in plan["spec"]["steps"]:
+            if step["produces"]:
+                acceptance[plan["operations"][step["key"]]] = all(
+                    statuses[key]["state"] == "accepted" and statuses[key].get("targets_met", True)
+                    for key in step["produces"])
+    facts = []
+    for item in public.deliverable(partial=True):
+        result_ids = public.result_ids(item)
+        if not item.get("required", True) and result_ids and set(result_ids) <= owned:
+            continue  # An adopted receipt is represented by its requested goal.
+        label = item.get("public_label") if item.get("inferred") or item["description"] == request[:240] else item["description"]
+        if not label:
+            continue
+        receipts = [attempt for attempt in item["attempts"] if attempt["state"] == "succeeded" and attempt.get("result_id")]
+        usable = {attempt["result_id"] for attempt in receipts if attempt.get("acceptance") != "unavailable"}
+        complete = (item.get("required", True) and public.assessment(item) == "accepted"
+            and acceptance.get(item["id"], True))
+        facts.append({"goal": item["id"], "description": label, "available": bool(usable), "requested": item.get("required", True),
+            "delivered": bool(delivered.intersection(usable)), "complete": complete,
+            "output": item["output"]})
+    return facts
+
+
+def compact_delivery_status(facts):
+    """Keep every goal's complete label and outcome in the protected model view.
+
+    Operations already bound this to sixteen goals with 240-character labels.
+    Compact the repeated flags, never individual labels or later outcomes.
+    Full facts remain available to deterministic closure and persisted receipts.
+    """
+    rows = []
+    for item in facts:
+        if item["delivered"]:
+            state = "provided" if item["complete"] else "partial" if item["requested"] else "supporting"
+        elif item["available"]:
+            state = "answer_evidence" if item["output"] == "answer" else "available"
+        else:
+            state = "unavailable"
+        rows.append({"goal": item["goal"], "description": item["description"], "state": state})
+    return rows
+
+
+def empty_delivery_summary(operations, facts, cards, delivered):
+    """Acknowledge completed artifact delivery using full, declared collections.
+
+    Empty previews, optional nested lists and unknown receipts establish no
+    absence. Interpretation and bounded-search outcomes retain their own path.
+    """
+    from .contracts import QAError
+    from .references import at_path
+
+    required = operations.required
+    states = {item["goal"]: item for item in facts}
+    if not required or any(item["output"] != "result" for item in required):
+        return ""
+    if any(not (state := states.get(item["id"])) or not state["complete"] or not state["delivered"]
+            for item in required):
+        return ""
+    by_id, delivered = {card["result_id"]: card for card in cards}, set(delivered)
+    labels, empty = [], []
+    for item in required:
+        label = " ".join(states[item["id"]]["description"].split()).rstrip("。.;；")
+        labels.append(label)
+        receipts = [attempt for attempt in item["attempts"] if attempt["state"] == "succeeded"
+            and attempt.get("result_id")]
+        if not receipts or any(attempt["result_id"] not in delivered for attempt in receipts):
+            return ""  # A partially displayed goal is not a complete delivery acknowledgement.
+        if item.get("search"):
+            continue
+        counts = []
+        for attempt in receipts:
+            card = by_id.get(attempt["result_id"], {})
+            presentation = attempt.get("presentation") or {}
+            count = None
+            if presentation.get("kind") == "collection" and isinstance(presentation.get("path"), str):
+                try:
+                    rows = at_path(card.get("data"), presentation["path"])
+                    if isinstance(rows, list):
+                        count = len(rows)
+                except QAError:
+                    pass
+            else:
+                value = card.get("directory_receipt", {}).get("entry_count")
+                if type(value) is int and value >= 0:
+                    count = value
+            counts.append(count)
+        if counts and all(count == 0 for count in counts):
+            empty.append(label)
+    if not empty:
+        return ""
+    return "\n\n".join(["已为您提供："+"；".join(dict.fromkeys(labels))+"。",
+        *(label+"：本次查询未返回条目。" for label in dict.fromkeys(empty))])
+
+
+def bounded_delivery_summary(operations, facts, cards, delivered, evidence):
+    """Confirm complete result delivery without interpreting an incomplete view.
+
+    An explicit textual interpretation, search judgement or partial outcome
+    still needs its normal answer path. This never declares unseen facts.
+    """
+    required = operations.required
+    if (not required or any(item["output"] != "result" for item in operations.items)
+            or any(item.get("search") or not item.get("planned") or item.get("inferred") for item in required)):
+        return ""
+    states = {item["goal"]: item for item in facts}
+    available, delivered = {card["result_id"] for card in cards}, set(delivered)
+    for item in required:
+        state = states.get(item["id"])
+        receipts = operations.result_ids(item)
+        if (not state or not state["complete"] or not state["delivered"] or not receipts
+                or not set(receipts) <= available & delivered):
+            return ""
+    claimed = {rid for item in required for rid in operations.result_ids(item)}
+    if any(item.get("inferred") and set(operations.result_ids(item)) - claimed for item in operations.items):
+        return ""
+    if not (evidence.get("final_delivery_next_offset") is not None
+            or any(entry.get("model_view_truncated") for entry in evidence.get("final_delivery", []))):
+        return ""
+    return delivery_summary([states[item["id"]] for item in required])
+
+
+def delivery_summary(facts):
+    """Describe confirmed content without diagnoses or invented next actions."""
+    shown, evidence, outstanding = [], [], []
+    for item in facts:
+        label = " ".join(item["description"].split()).rstrip("。.;；")
+        if item["delivered"]:
+            if item["complete"] or not item["requested"]:
+                shown.append(label)
+            else:
+                # Available unconfirmed evidence is useful, but not a promise
+                # that all of the requested conditions have been satisfied.
+                evidence.append(label)
+        elif item["output"] == "answer" and item["available"]:
+            outstanding.append(label+"（参考信息已取得，尚未形成完整答复）")
+        else:
+            outstanding.append(label+("（信息已取得，尚未整理为展示内容）" if item["available"] else ""))
+    if not shown and not evidence:
+        return "本次尚未提供："+"；".join(dict.fromkeys(outstanding))+"。您的要求已保留。" if outstanding else ""
+    lines = ["已为您提供："+"；".join(dict.fromkeys(shown))+"。"] if shown else []
+    if evidence:
+        lines.append("已取得部分参考信息："+"；".join(dict.fromkeys(evidence))+"。")
+    if outstanding:
+        lines.append("本次尚未提供："+"；".join(dict.fromkeys(outstanding))+"。")
+    if evidence:
+        lines.append("以上已取得的内容可先供您查看，是否满足全部要求还需进一步确认。")
+    lines.append("您可以继续围绕已提供的内容提问。")
+    return "\n\n".join(lines)

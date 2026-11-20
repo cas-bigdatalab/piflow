@@ -29,7 +29,7 @@ def test_translations_or_ungrounded_subjects_cannot_claim_to_be_original(origina
 
 
 def test_extracted_and_rewritten_phrases_share_one_four_keyword_budget():
-    with pytest.raises(QAError, match="合计最多四个"):
+    with pytest.raises(QAError, match="合计最多4个"):
         ordered_keywords(["beta", "gamma", "delta", "epsilon"], ["alpha"], "Find alpha data")
 
 
@@ -48,9 +48,9 @@ def test_older_calls_infer_originals_only_from_actual_user_text():
     assert ordered_keywords(["chemistry", "化学"], None, "找化学数据")[0]==["化学", "chemistry"]
 
 
-def test_current_request_words_cannot_be_mislabelled_as_later_rewrites():
+def test_current_request_words_are_prioritized_without_changing_declared_originals():
     words, originals = ordered_keywords(["chemistry", "化工", "化学"], ["化学"], "找化学化工数据")
-    assert words==["化学", "化工", "chemistry"] and originals==["化学", "化工"]
+    assert words==["化学", "化工", "chemistry"] and originals==["化学"]
 
 
 def test_extensions_preserve_the_original_subject_after_source_history_is_trimmed():

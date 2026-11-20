@@ -8,7 +8,7 @@ from ..operations import Operations
 from ..service import DatasetQA
 from .assertions import assert_completed, assert_handled
 from .test_bounded_discovery import KEYWORDS, SearchBackend, discover, native, outcome, page
-from .test_dataset_qa import collect, engine, result_cards, session
+from .test_dataset_qa import collect, engine, remote, result_cards, session
 from .test_decisions import BareDialogue, text
 
 
@@ -19,7 +19,7 @@ def test_unconfirmed_search_survives_later_missing_object_identifier(engine, cou
         # Collection identity and detail identity are distinct contracts. Never
         # substitute /id when the detail service requires /accession.
         backend.catalogue[1].meta["piflow"]["qa"]["bind"] = {"reference": ["/accession"]}
-        bad_detail = native("inspect", **{OBJECT: "object:1", TASK: {"complete_request": False}})
+        bad_detail = remote("inspect", **{OBJECT: "object:1", TASK: {"complete_request": False}})
         dialogue = BareDialogue(discover(complete=False), bad_detail, bad_detail, bad_detail)
         service = DatasetQA(engine, dialogue, backend.gateway())
         sid = session(service)
@@ -27,7 +27,7 @@ def test_unconfirmed_search_survives_later_missing_object_identifier(engine, cou
             events = await collect(service, sid, "Find chemical engineering datasets", "recovery")
             assert_handled(service, sid, events[-1], "invalid_parameters")
             assert [args["phrase"] for _, args in backend.calls]==KEYWORDS
-            assert len(dialogue.inputs)==4  # Recovery neither reruns MCP nor calls another model.
+            assert len(dialogue.inputs)==3  # Repeating the same rejected binding ends after one repair chance.
             card, = result_cards(events)
             assert [row["id"] for row in card["data"]["items"]]==list(map(str, range(count)))
             ledger = outcome(service, sid, events)

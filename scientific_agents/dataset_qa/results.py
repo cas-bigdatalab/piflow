@@ -113,10 +113,23 @@ def evidence(card, limit):
 def evidence_group(cards, operations, limit):
     """One bounded, source-backed view; raw artifacts never enter session memory."""
     cards = list({card["result_id"]: card for card in cards}.values())
-    owners = {}
+    owners, naming = {}, {}
     for operation in operations.items:
         for result_id in operations.result_ids(operation):
             owners.setdefault(result_id, []).append(operation["id"])
+        for attempt in operation.get("attempts", []):
+            descriptor = attempt.get("presentation") or {}
+            result_id = attempt.get("result_id")
+            if (attempt.get("state")!="succeeded" or not result_id or not descriptor.get("name_paths")
+                    or descriptor.get("kind") not in {"object", "collection"}
+                    or not isinstance(descriptor.get("path"), str)):
+                continue
+            value = {"record_path": descriptor["path"], "kind": descriptor["kind"],
+                "name_paths": list(descriptor["name_paths"])}
+            if result_id not in naming:
+                naming[result_id] = value
+            elif naming[result_id]!=value:
+                naming[result_id] = None  # Conflicting receipts cannot establish one naming contract.
     result = {"items": [], "total": len(cards)}
     if len(encode({**result, "next_offset": 0}))>limit:
         return {}
@@ -128,6 +141,12 @@ def evidence_group(cards, operations, limit):
         result["items"].append(entry)
     if len(result["items"])<len(cards):
         result["next_offset"] = len(result["items"])
+    remaining = limit-len(encode(result))
+    naming_share = min(1024, remaining//max(1, len(result["items"]))//2)
+    for entry in result["items"]:
+        value = naming.get(entry["result_id"])
+        if value and len(encode({"naming": value}))+1<=naming_share:
+            entry["naming"] = value  # Keep the mapping whole; never clip a field path.
     remaining = limit-len(encode(result))
     share = max(0, remaining//max(1, len(result["items"]))-24)
     for entry, card in zip(result["items"], cards):
@@ -180,6 +199,10 @@ def final_evidence_view(cards, answer_cards, operations, limit, *, stop_reason=N
             return
         group = evidence_group(source, operations, max(4, budget))
         result[key] = group.get("items", [])
+        for entry in result[key]:
+            # This flag describes the writer's evidence, not the displayed card
+            # or the completeness of the upstream collection inside data.
+            entry["model_view_truncated"] = entry.pop("truncated", False)
         if len(result[key])<len(source):
             result[key+"_total"] = len(source)
             result[key+"_next_offset"] = len(result[key])
@@ -233,6 +256,8 @@ def collection_paths(cards, operations):
                         or not descriptor["family"] or descriptor.get("kind") not in {"object", "collection"}
                         or not isinstance(descriptor.get("path"), str)):
                     raise QAError("invalid_delivery", "结果的展示来源定义无效，不能自动合并")
+                if descriptor.get("identity_mode", "fallback") not in {"fallback", "composite"}:
+                    raise QAError("invalid_delivery", "结果的记录身份模式无效，不能自动合并")
                 descriptors.append(descriptor)
                 families.add(descriptor["family"])
                 kinds.add(descriptor["kind"])
@@ -246,7 +271,9 @@ def collection_paths(cards, operations):
                 raise QAError("invalid_delivery", "返回内容不符合声明的展示结构，不能自动合并") from exc
             rows = [value] if descriptor["kind"]=="object" else value
             paths[card["result_id"]] = ({"path": descriptor["path"], "kind": descriptor["kind"],
-                **({"identity": descriptor["identity"]} if descriptor.get("identity") else {})}
+                **({"identity": descriptor["identity"],
+                    **({"identity_mode": descriptor["identity_mode"]} if descriptor.get("identity_mode") else {})}
+                    if descriptor.get("identity") else {})}
                 if descriptor["kind"]=="object" or descriptor.get("identity") else descriptor["path"])
         else:
             surface = display_list(card)
@@ -270,6 +297,7 @@ def combine_results(cards, path, result_id, title, lineage=None):
     for card in cards:
         pointer = path[card["result_id"]] if isinstance(path, dict) else path
         identity = pointer.get("identity", []) if isinstance(pointer, dict) else []
+        identity_mode = pointer.get("identity_mode", "fallback") if isinstance(pointer, dict) else "fallback"
         source_path = pointer.get("path", "") if isinstance(pointer, dict) else pointer
         if isinstance(pointer, dict) and pointer.get("kind") in {"object", "collection"} and isinstance(pointer.get("path"), str):
             value = at_path(card.get("data"), pointer["path"])
@@ -282,7 +310,7 @@ def combine_results(cards, path, result_id, title, lineage=None):
         if not isinstance(value, list):
             raise QAError("invalid_delivery", "合并位置必须指向数组")
         for index, row in enumerate(value):
-            key = record_key(row, identity) if identity else fingerprint(row)
+            key = record_key(row, identity, identity_mode=identity_mode) if identity else fingerprint(row)
             if key not in seen:
                 seen.add(key)
                 rows.append(row)

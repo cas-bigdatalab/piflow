@@ -4,7 +4,7 @@ import re
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from .context import SECRET_KEYS, at_pointer, encode
+from .context import DISPLAY_FIELDS, SECRET_KEYS, at_pointer, encode, pointer_tokens
 from .contracts import QAError
 
 
@@ -25,6 +25,28 @@ class ReferenceUpdate(BaseModel):
 
 def at_path(data, path):
     return at_pointer(data, path)
+
+
+def record_name(value, paths=()):
+    """Read an object's own name; declarations override common field aliases."""
+    if not isinstance(value, dict):
+        return None
+    if paths:
+        for path in paths:
+            try:
+                if any(token.casefold() in SECRET_KEYS for token in pointer_tokens(path)):
+                    continue  # Display metadata cannot bypass evidence redaction.
+                name = at_path(value, path)
+            except QAError:
+                continue
+            if isinstance(name, str) and name.strip():
+                return name
+        return None
+    for field in ("title", "name", "label"):
+        for key, name in value.items():
+            if str(key).casefold() == field and isinstance(name, str) and name.strip():
+                return name
+    return None
 
 
 def all_references(state):
@@ -116,7 +138,7 @@ def compact_record(value, limit):
     entries = [(key, child) for key, child in value.items()
         if str(key).lower() not in SECRET_KEYS and key not in {"base64", "blob"}
         and not isinstance(child, (dict, list))]
-    entries.sort(key=lambda pair: (pair[0] not in {"title", "id"}, len(encode(pair[1]))))
+    entries.sort(key=lambda pair: (str(pair[0]).casefold() not in DISPLAY_FIELDS, len(encode(pair[1]))))
     for key, child in entries:
         candidate = {**result, key: child}
         if len(encode(candidate))<=limit:
@@ -177,7 +199,7 @@ def scoped_preview(handles, cards, limit=1800):
     return result
 
 
-def identifier_in_request(value, message, field=""):
+def identifier_in_request(value, message, field="", *, labelled_only=False):
     """Check a complete input identity, never an arbitrary word substring.
 
     This proves lexical provenance, not user intent. The semantic decision must
@@ -190,10 +212,12 @@ def identifier_in_request(value, message, field=""):
         return False
     # Known field labels are evidence of an assignment even without whitespace.
     if field:
-        labelled = re.compile(r"(?<![A-Za-z0-9_])"+re.escape(field)+r"\s*[=:：]\s*[\"']?"+re.escape(token), re.IGNORECASE)
+        labelled = re.compile(r"(?<![A-Za-z0-9_])[\"']?"+re.escape(field)+r"[\"']?\s*[=:：]\s*[\"']?"+re.escape(token), re.IGNORECASE)
         for match in labelled.finditer(message):
             if match.end()==len(message) or not _identity_character(message[match.end()], token):
                 return True
+    if labelled_only:
+        return False
     for match in re.finditer(re.escape(token), message):
         before = message[match.start()-1] if match.start() else ""
         after = message[match.end()] if match.end()<len(message) else ""

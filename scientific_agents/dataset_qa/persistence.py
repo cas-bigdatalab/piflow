@@ -12,7 +12,8 @@ from sqlalchemy import Column, Float, Integer, MetaData, String, Table, Text, Un
 from .results import evidence
 from .contracts import QAError
 from .references import matching_objects
-from .responses import terminal_reply
+from .responses import delivery_link_suffix, terminal_reply
+from ..agent_profiles import DATASET_QA_PROFILE
 
 
 def now():
@@ -24,10 +25,11 @@ def dumps(value):
 
 
 class Store:
-    def __init__(self, engine):
+    def __init__(self, engine, *, agent_profile=DATASET_QA_PROFILE):
         self.engine, self.lock = engine, threading.RLock()
+        self.agent_profile = agent_profile
         meta = MetaData()
-        self.sessions = Table("dataset_qa_sessions", meta,
+        self.sessions = Table(agent_profile.table("sessions"), meta,
             Column("id", String(100), primary_key=True), Column("user_id", String(160), nullable=False),
             Column("request_id", String(160), nullable=False), Column("title", String(255), nullable=False),
             Column("fingerprint", String(64), nullable=False),
@@ -35,19 +37,19 @@ class Store:
             Column("active_task_id", String(100)), Column("status", String(24), nullable=False),
             Column("created_at", String(40), nullable=False), Column("updated_at", String(40), nullable=False),
             UniqueConstraint("user_id", "request_id"))
-        self.tasks = Table("dataset_qa_tasks", meta,
+        self.tasks = Table(agent_profile.table("tasks"), meta,
             Column("id", String(100), primary_key=True), Column("session_id", String(100), nullable=False, index=True),
             Column("request_id", String(160), nullable=False), Column("fingerprint", String(64), nullable=False),
             Column("status", String(24), nullable=False), Column("stage", String(100)), Column("payload", Text, nullable=False),
             Column("owner", String(100), nullable=False), Column("expires", Float, nullable=False),
             Column("created_at", String(40), nullable=False), Column("updated_at", String(40), nullable=False),
             UniqueConstraint("session_id", "request_id"))
-        self.items = Table("dataset_qa_items", meta,
+        self.items = Table(agent_profile.table("items"), meta,
             Column("id", Integer, primary_key=True, autoincrement=True), Column("session_id", String(100), nullable=False, index=True),
             Column("task_id", String(100), nullable=False), Column("result_id", String(180), unique=True),
             Column("kind", String(32), nullable=False), Column("role", String(20), nullable=False),
             Column("payload", Text, nullable=False), Column("created_at", String(40), nullable=False))
-        self.events = Table("dataset_qa_events", meta,
+        self.events = Table(agent_profile.table("events"), meta,
             Column("id", Integer, primary_key=True, autoincrement=True), Column("task_id", String(100), nullable=False, index=True),
             Column("payload", Text, nullable=False))
         meta.create_all(engine)
@@ -84,7 +86,7 @@ class Store:
     def create(self, user, title, request_id):
         with self.transaction() as conn:
             # A deterministic ID makes concurrent create retries converge.
-            sid = "qa-" + sha256(dumps([user, request_id]).encode()).hexdigest()[:32]
+            sid = self.agent_profile.session_prefix + "-" + sha256(dumps([user, request_id]).encode()).hexdigest()[:32]
             stamp = now()
             data = dict(id=sid, user_id=user, request_id=request_id, title=title or "新对话", version=0,
                 context=dumps({}), active_task_id=None, status="ACTIVE", created_at=stamp, updated_at=stamp,
@@ -128,7 +130,7 @@ class Store:
                 raise QAError("version_conflict", "会话已更新，请刷新后重试", 409)
             if session["active_task_id"]:
                 raise QAError("session_busy", "当前会话有任务正在处理，请等待或停止后再发送", 409)
-            tid, stamp = "qa-task-" + uuid4().hex, now()
+            tid, stamp = self.agent_profile.session_prefix + "-task-" + uuid4().hex, now()
             task = dict(id=tid, session_id=sid, request_id=request_id, fingerprint=fingerprint,
                 status="RUNNING", stage="understand", payload=dumps(payload), owner=owner, expires=time.time()+45,
                 created_at=stamp, updated_at=stamp)
@@ -249,11 +251,12 @@ class Store:
                 # Error codes remain machine-readable; public text never comes
                 # from an exception's arbitrary backend message.
                 public_error = {**payload["error"], "message": terminal_reply(status,
-                    error=payload["error"], retained=bool(payload.get("delivery")))}
+                    error=payload["error"], retained=bool(payload.get("delivery")), resource_noun=self.agent_profile.resource_noun)}
                 payload["error"] = public_error
                 if error:
                     error = public_error
             previous_message = None
+            cards = self._cards(conn, sid, payload["delivery"]) if payload.get("delivery") else []
             if status in {"COMPLETED", "FAILED", "CANCELLED"}:
                 # A worker may stop after streaming but before passing its final
                 # text to finish. Reconcile only committed text inside this
@@ -275,12 +278,14 @@ class Store:
                     # Text already seen by the user is authoritative. A stale
                     # worker buffer must not rewrite it through a new protocol.
                     message = streamed
-                fallback = terminal_reply(status, error=payload.get("error"), retained=bool(payload.get("delivery")))
+                fallback = terminal_reply(status, error=payload.get("error"), retained=bool(payload.get("delivery")),
+                    resource_noun=self.agent_profile.resource_noun)
                 if conflicting or status == "CANCELLED" or (status == "FAILED" and not supplied):
                     if not message.rstrip().endswith(fallback):
                         message += ("\n\n" if message.strip() else "")+fallback
                 elif not message.strip():
                     message += fallback
+                message += delivery_link_suffix(message, cards)
                 if message != streamed:
                     # Ordinary replies were already streamed. Only publish a
                     # missing suffix; never replay their earlier chunks twice.
@@ -293,7 +298,6 @@ class Store:
                     self._item(conn, sid, tid, "ASSISTANT_MESSAGE", response)
             if "delivery" in payload and not payload.get("published"):
                 result_ids = payload["delivery"]
-                self._cards(conn, sid, result_ids)
                 for result_id in result_ids:
                     # History references immutable artifacts instead of copying media.
                     self._item(conn, sid, tid, "RESULT_CARD", {"result_id": result_id})
@@ -425,6 +429,20 @@ class Store:
         with self.transaction() as conn:
             self._session(conn, user, sid)
             return self._cards(conn, sid, result_ids)
+
+    def directory_receipts(self, user, sid, scope, *, before=None, limit=8):
+        """Page immutable directory evidence under the session ownership boundary."""
+        with self.transaction() as conn:
+            self._session(conn, user, sid)
+            query = select(self.items.c.id, self.items.c.payload).where(
+                self.items.c.session_id==sid, self.items.c.kind=="TOOL_RESULT",
+                self.items.c.result_id.is_not(None),
+                self.items.c.payload.contains('"directory_receipt"', autoescape=True),
+                self.items.c.payload.contains(dumps(scope), autoescape=True))
+            if before is not None:
+                query = query.where(self.items.c.id<before)
+            rows = conn.execute(query.order_by(self.items.c.id.desc()).limit(limit)).all()
+            return [json.loads(row.payload) for row in rows], rows[-1].id if len(rows)==limit else None
 
     def latest_display(self, user, sid):
         with self.transaction() as conn:

@@ -180,7 +180,7 @@ def test_real_partial_failure_keeps_artifact_and_one_coherent_explanation(engine
             assert len(result_cards(events))==1 and len(backend.calls)==2
             messages = [v["text"] for v in events if v["type"]=="message"]
             assert len(messages)==1 and "Invalid operation" not in messages[0]
-            assert "已为您完成：操作 find" in messages[0] and "暂时还无法提供：操作 sample" in messages[0]
+            assert "已为您提供：操作 find" in messages[0] and "本次尚未提供：操作 sample" in messages[0]
             assert "MCP" not in messages[0] and "未完成" not in messages[0]
             assert events[-1]["message"]==Execution.notice(QAError("tool_failed", "technical message", detail=["Invalid operation"]), retained=True)
             assert saved(service, sid, events[-1]["task_id"])["operations"][1]["state"]=="failed"

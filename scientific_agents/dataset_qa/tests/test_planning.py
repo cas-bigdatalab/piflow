@@ -165,7 +165,7 @@ def test_progressive_schema_disclosure_preserves_single_step_budget():
         return next(item["function"]["parameters"] for item in definitions if item["function"]["name"] == "remember")
     simple, complex_ = memory(builtin_definitions()), memory(builtin_definitions(True))
     assert "plan" not in simple["properties"] and "planning" in simple["properties"]
-    assert "plan" in complex_["properties"] and "Plan" in complex_["$defs"]
+    assert "plan" in complex_["properties"] and "Workflow" in complex_["$defs"]
     assert len(json.dumps(complex_)) > len(json.dumps(simple))+2000
 
 

@@ -4,11 +4,13 @@ Plans contain only intent, parameters and source pointers. Receipts remain in th
 existing operations ledger; neither a planner nor a review can invent success.
 """
 from copy import deepcopy
-from typing import Annotated, Literal
+import json
+from typing import Annotated, Any, Literal
 
+from jsonschema import Draft202012Validator
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from .context import encode, pointer_tokens
+from .context import encode, pointer_tokens, same_identity
 from .contracts import QAError
 from .references import at_path
 
@@ -20,11 +22,76 @@ class Contract(BaseModel):
     model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
 
 
+class SourceRequirements(Contract):
+    """Explicit source constraints; unspecified dimensions retain selected data."""
+    criteria: dict[str, Any] | None = Field(...,
+        description="Explicit query constraints for the selected source. Each supplied parameter must match its complete value; omitted parameters are retained. Null adds no query constraint.")
+    fields: list[Annotated[str, Field(min_length=1, max_length=200)]] | None = Field(..., max_length=256,
+        description="Explicit complete field selection, if requested. Null retains the selected source fields without an additional constraint.")
+
+    @model_validator(mode="before")
+    @classmethod
+    def finite_json(cls, value):
+        if isinstance(value, cls):
+            return value
+        try:
+            encoded = json.dumps(value, ensure_ascii=False, allow_nan=False, separators=(",", ":"))
+        except (TypeError, ValueError, RecursionError) as exc:
+            raise ValueError("Source requirements must be finite JSON.") from exc
+        if len(encoded) > 6000:
+            raise ValueError("Source requirements exceed the bounded intent contract.")
+        pending = [value]
+        while pending:
+            item = pending.pop()
+            if isinstance(item, dict):
+                if any(not isinstance(key, str) for key in item):
+                    raise ValueError("Source requirement keys must be strings.")
+                pending.extend(item.values())
+            elif isinstance(item, list):
+                pending.extend(item)
+            elif item is not None and not isinstance(item, (str, int, float, bool)):
+                raise ValueError("Source requirements must contain only JSON values.")
+        return value
+
+    @model_validator(mode="after")
+    def distinct_fields(self):
+        if self.fields is not None:
+            self.fields = list(dict.fromkeys(self.fields))
+        return self
+
+    def __eq__(self, other):
+        if not isinstance(other, SourceRequirements):
+            return NotImplemented
+        return same_identity(self.model_dump(), other.model_dump())
+
+    def refines(self, previous: "SourceRequirements") -> bool:
+        """Allow added constraints without erasing or changing accepted values."""
+        return ((not previous.criteria or self.criteria is not None and all(
+            key in self.criteria and same_identity(self.criteria[key], value)
+            for key, value in previous.criteria.items()))
+            and (previous.fields is None or same_identity(self.fields, previous.fields)))
+
+
+class CallIntent(Contract):
+    """Requested operation, separate from the selected tool's capabilities."""
+    operation: str | None = Field(default=None, min_length=1, max_length=80,
+        description="Requested operation from advertised capability operations, e.g. export for representation-only conversion; filtering is a different operation.")
+    output_format: str | None = Field(default=None, min_length=1, max_length=40,
+        description="User-requested output format; preserve it when choosing or correcting a tool.")
+    source_requirements: SourceRequirements | None = Field(default=None,
+        description="Explicit current source constraints for an export. Use null dimensions for pure format conversion; preserve constraints already declared during this request.")
+
+
 class Check(Contract):
     path: str = Field(max_length=1000)
     test: Literal["exists", "equals", "at_least", "at_most"] = "exists"
     value: str | int | float | bool | None = None
     optional: bool = False
+
+    def __eq__(self, other):
+        if not isinstance(other, Check):
+            return NotImplemented
+        return same_identity(self.model_dump(), other.model_dump())
 
     @model_validator(mode="after")
     def valid(self):
@@ -41,7 +108,7 @@ class Check(Contract):
         if self.test == "exists":
             return actual is not None
         if self.test == "equals":
-            return encode(actual) == encode(self.value)
+            return Draft202012Validator({"const": self.value}).is_valid(actual)
         actual = len(actual) if isinstance(actual, (list, dict)) else actual
         if isinstance(actual, bool) or not isinstance(actual, (int, float)):
             return False
@@ -55,11 +122,32 @@ class ResultContract(Contract):
     unavailable_when: list[Check] = Field(default_factory=list, max_length=8)
     target_paths: list[str] = Field(default_factory=list, max_length=8,
         description="Adapter-declared quantities whose shortfall is reported without blocking usable results.")
+    argument_paths: dict[str, str] = Field(default_factory=dict, max_length=8,
+        description="Result fields that must equal actual tool input values, e.g. an output format.")
 
     def assess(self, data):
         if self.unavailable_when and all(check.matches(data) for check in self.unavailable_when):
             return "unavailable"
         return "accepted" if all(check.matches(data) for check in self.requires) else "incomplete"
+
+    def validate_arguments(self, data, arguments):
+        """One output contract for direct, planned and dependency-bound calls."""
+        if not self.argument_paths or self.assess(data) == "unavailable":
+            return
+        mismatches = []
+        for argument, path in self.argument_paths.items():
+            if argument not in arguments:
+                continue  # An omitted optional input is not an explicit constraint.
+            try:
+                actual = at_path(data, path)
+            except QAError:
+                mismatches.append(path)
+                continue
+            if not Draft202012Validator({"const": arguments[argument]}).is_valid(actual):
+                mismatches.append(path)
+        if mismatches:
+            raise QAError("invalid_result", "工具结果与请求参数不一致，未确认为已完成", 502,
+                detail={"paths": mismatches, "dispatched": True})
 
 
 class Outcome(Contract):
@@ -81,19 +169,53 @@ class FromStep(Contract):
         return self
 
 
-class Step(Contract):
+class Invocation(CallIntent):
     key: Key
+    goal: Key | None = Field(default=None,
+        description="Existing supplied goal ID when this step continues that goal. Omit when the matching goal is unique; never invent an ID or reuse it for an independent fresh outcome.")
     tool: str = Field(min_length=1, max_length=200)
     arguments: dict = Field(default_factory=dict)
     fresh: bool = Field(default=False, description="True only for an explicitly independent fresh execution. Random/non-idempotent tools are never coalesced.")
     object: str | FromStep | None = Field(default=None, description="Supplied handle or dependency object pointer; resolve ambiguity first.")
-    inputs: dict[str, FromStep] = Field(default_factory=dict, max_length=16)
+    inputs: dict[str, FromStep] = Field(default_factory=dict, max_length=16,
+        description="Exact value dependencies. Scalar parameters need scalar result paths; use object for a source record whose identifiers are runtime-bound.")
     depends_on: list[Key] = Field(default_factory=list, max_length=16)
-    produces: list[Key] = Field(default_factory=list, max_length=16, description="User outcomes completed by this step; empty means an auxiliary prerequisite.")
 
     def dependencies(self):
         refs = [*self.inputs.values(), *([self.object] if isinstance(self.object, FromStep) else [])]
         return set(self.depends_on) | {ref.step for ref in refs}
+
+
+class Step(Invocation):
+    produces: list[Key] = Field(default_factory=list, max_length=16, description="User outcomes completed by this step; empty means an auxiliary prerequisite.")
+
+
+class WorkflowStep(Invocation):
+    arguments: dict = Field(default_factory=dict,
+        description="Literal business parameters only; omit __qa_* metadata and parameters supplied by object/inputs. Never use null or invented source identifiers as placeholders.")
+    object: str | FromStep | None = Field(default=None,
+        description="Source step key, supplied object handle, or explicit step/path. Omit only when the file source is unambiguous.")
+    deliver: bool | None = Field(default=None,
+        description="Omit to deliver terminal steps. True also delivers this intermediate result; false marks an auxiliary step.")
+    description: str = Field(default="", max_length=240)
+    constraints: list[Annotated[str, Field(min_length=1, max_length=300)]] = Field(default_factory=list, max_length=12)
+    checks: list[Check] = Field(default_factory=list, max_length=16,
+        description="Checks on this delivered result. Set deliver=true if this is also a prerequisite.")
+    targets: list[Check] = Field(default_factory=list, max_length=16,
+        description="Soft quantity targets on this delivered result; shortfalls do not block usable output.")
+
+
+class Workflow(Contract):
+    """Model-facing calls; output kinds and producer bookkeeping are runtime-owned."""
+    steps: list[WorkflowStep] = Field(min_length=1, max_length=16)
+
+    @model_validator(mode="after")
+    def valid(self):
+        if len({step.key for step in self.steps}) != len(self.steps):
+            raise ValueError("Step keys must be unique.")
+        if len(encode(self.model_dump())) > 12000:
+            raise ValueError("Plan exceeds the bounded intent contract.")
+        return self
 
 
 class Plan(Contract):
@@ -137,6 +259,17 @@ def validate_revision(previous, plan):
     if not previous:
         return
     old = Plan.model_validate(previous["spec"])
+    steps = {step.key: step for step in plan.steps}
+    for step in old.steps:
+        current_step = steps.get(step.key)
+        if current_step is None and step.source_requirements is not None:
+            raise QAError("invalid_parameters", "计划修订须保留已声明来源要求的步骤标识", detail={"step": step.key})
+        if current_step is not None and (any(getattr(step, field) is not None
+                and getattr(current_step, field) != getattr(step, field)
+                for field in ("operation", "output_format"))
+                or step.source_requirements is not None and (current_step.source_requirements is None
+                    or not current_step.source_requirements.refines(step.source_requirements))):
+            raise QAError("invalid_parameters", "计划修订须保留已声明的操作目的和输出格式，以及来源要求", detail={"step": step.key})
     current = {outcome.key: outcome for outcome in plan.outcomes}
     for outcome in old.outcomes:
         value = current.get(outcome.key)
@@ -147,15 +280,66 @@ def validate_revision(previous, plan):
             raise QAError("invalid_parameters", "计划修订须保留尚需交付的成果及原有要求")
 
 
+def plan_decision(saved=None, *, planning=False):
+    """Describe the next semantic decision; validation and dispatch stay in code."""
+    if saved:
+        revision = saved["revision"]
+        if saved.get("reviewed") != revision:
+            return {"phase": "review", "revision": revision,
+                "next_action": {"name": "review_plan", "arguments": {
+                    "revision": revision, "covered": [item["key"] for item in saved["spec"]["outcomes"]]}},
+                "guidance": "Compare this plan with the current request. Confirm only if scope and constraints match; otherwise revise remember.plan. Saving again does not confirm it."}
+        return {"phase": "execute", "revision": revision,
+            "guidance": "Runtime schedules ready steps from this reviewed plan; no repeated registration is needed."}
+    if planning:
+        return {"phase": "plan", "next_action": {"name": "remember", "field": "plan"},
+            "guidance": "Submit the required tool steps in remember.plan. Goals alone do not provide executable arguments or dependencies."}
+    return None
+
+
 def plan_view(saved, operations):
     if not saved:
         return None
     plan = Plan.model_validate(saved["spec"])
+    editable = []
+    for step in plan.steps:
+        value = step.model_dump(exclude={"produces"}, exclude_defaults=True)
+        if isinstance(step.object, FromStep):
+            # Empty JSON Pointer means the root; omission means infer a default.
+            value["object"] = step.object.model_dump()
+        value["deliver"] = bool(step.produces)
+        # Existing outcome requirements are shown separately and retained by
+        # compile_workflow on revision; models need not copy runtime bookkeeping.
+        editable.append(value)
     return {"revision": saved["revision"], "reviewed": saved.get("reviewed") == saved["revision"],
+        "decision": plan_decision(saved),
         "outcomes": [outcome.model_dump() for outcome in plan.outcomes],
-        "steps": [{**step.model_dump(exclude_defaults=True),
-            "state": (operations.get(saved["operations"][step.key]) or {}).get("state", "pending")}
-            for step in plan.steps], "acceptance": deepcopy(saved.get("acceptance", {}))}
+        "editable": {"steps": editable},
+        "step_status": {step.key: (operations.get(saved["operations"][step.key]) or {}).get("state", "pending")
+            for step in plan.steps}, "acceptance": deepcopy(saved.get("acceptance", {}))}
+
+
+def plan_input(value):
+    """Accept echoed observations without letting them set execution state.
+
+    Business fields remain strict. Only known, read-only runtime annotations are
+    excluded; the operations ledger and existing revision guards stay authoritative.
+    """
+    if not isinstance(value, dict):
+        return value
+    value = deepcopy(value)
+    observations = {"revision", "reviewed", "acceptance", "decision", "decisions", "step_status"}
+    if "editable" in value and set(value) <= observations | {"editable", "outcomes"}:
+        value = value["editable"]
+    if not isinstance(value, dict):
+        return value
+    for key in observations:
+        value.pop(key, None)
+    if isinstance(value.get("steps"), list):
+        for step in value["steps"]:
+            if isinstance(step, dict):
+                step.pop("state", None)
+    return Plan.model_validate(value) if "outcomes" in value else Workflow.model_validate(value)
 
 
 def outcome_status(saved, operations, cards):
